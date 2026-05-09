@@ -69,15 +69,21 @@ bump-tools:
 
 patch: regen-init
 	bump-my-version bump patch
+	$(MAKE) release-push
 
 minor: regen-init
 	bump-my-version bump minor
+	$(MAKE) release-push
 
 major: regen-init
 	bump-my-version bump major
+	$(MAKE) release-push
 
+# Push commit + tag to origin. Tag push triggers build-wheels.yml.
 release-push:
+	@echo ">>> pushing commit to origin/main"
 	git push origin main
+	@echo ">>> pushing tags to origin"
 	git push origin --tags
 
 # ---------------------------------------------------------------------------

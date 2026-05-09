@@ -11,6 +11,12 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+# Opt every action into Node.js 24 immediately rather than waiting for each
+# action to publish a Node 24 major. Suppresses the deprecation warnings on
+# actions/setup-python, actions/upload-artifact, etc. that still ship Node 20.
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
 jobs:
   pytest:
     name: pytest (${{ matrix.os }}, py${{ matrix.python-version }})
@@ -21,7 +27,7 @@ jobs:
         os: [ubuntu-latest, macos-14]
         python-version: ['3.10', '3.11', '3.12']
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - uses: actions/setup-python@v5
         with:
