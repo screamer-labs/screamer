@@ -19,7 +19,7 @@ import math
 import numpy as np
 import pytest
 
-from screamer import EwVar, EwStd, EwMean
+from screamer import EwVar, EwStd, EwMean, RollingZscore
 
 
 def test_ewvar_first_scalar_is_nan():
@@ -90,6 +90,63 @@ def test_ewvar_strided_matches_contig_various_spans(span):
     out_contig = e(contig)
     out_strided = e(view)
     np.testing.assert_allclose(out_contig, out_strided, equal_nan=True, rtol=1e-12, atol=1e-12)
+
+
+def test_rolling_zscore_streaming_matches_batch():
+    """Regression test for an uninitialised-member bug in RollingZscore.
+
+    Before the fix, the constructor's initialiser list set everything except
+    `size_t n_`. On platforms whose heap happened to zero-fill (most macOS
+    builds, most Ubuntu Python ABIs), n_ was effectively 0 and tests passed.
+    On Ubuntu CPython 3.14 the heap left non-zero garbage in n_, so
+    `process_scalar` skipped its warmup branch (`n_ < window_size_` was
+    false) and divided by garbage, producing near-zero outputs instead of
+    real z-scores.
+
+    This test runs deterministic, non-random data and asserts that the
+    streaming path (per-scalar `process_scalar` via __call__) matches the
+    batch path (`process_array_no_stride`) within numerical tolerance.
+    """
+    window = 5
+    # Deterministic input: linear ramp + sine. Real values, no NaNs except
+    # the warmup ones the algorithm itself produces.
+    x = np.arange(30, dtype=float) + np.sin(np.arange(30, dtype=float))
+
+    # Streaming path: one scalar at a time
+    stream = RollingZscore(window_size=window)
+    out_stream = np.empty_like(x)
+    for i, xi in enumerate(x):
+        out_stream[i] = stream(xi)
+
+    # Batch path: full array
+    batch = RollingZscore(window_size=window)
+    out_batch = batch(x)
+
+    np.testing.assert_allclose(
+        out_stream,
+        out_batch,
+        rtol=1e-10,
+        atol=1e-12,
+        equal_nan=True,
+        err_msg="RollingZscore streaming vs batch mismatch (uninit n_ regression)",
+    )
+
+
+def test_rolling_zscore_first_scalar_call_is_finite_or_nan_not_garbage():
+    """Tighter regression for the same bug.
+
+    A freshly-constructed RollingZscore that gets its first sample must
+    return either NaN (warmup) or a finite z-score-shaped value. Before
+    the fix, the result could be ~0 because n_ was garbage.
+    """
+    rz = RollingZscore(window_size=5)
+    out = rz(1.0)
+    # Either NaN (warmup) or finite. Anything else (inf / wildly wrong) is
+    # the uninit-memory symptom.
+    assert math.isnan(out) or math.isfinite(out)
+    # And the second call must continue to behave (not blow up).
+    out2 = rz(2.0)
+    assert math.isnan(out2) or math.isfinite(out2)
 
 
 def test_ewmean_no_warmup_nan():

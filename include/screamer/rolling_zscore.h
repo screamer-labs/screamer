@@ -18,8 +18,8 @@ namespace screamer {
     class RollingZscore : public ScreamerBase {
     public:
 
-        RollingZscore(int window_size, const std::string& start_policy = "strict") : 
-            window_size_(window_size), 
+        RollingZscore(int window_size, const std::string& start_policy = "strict") :
+            window_size_(window_size),
             start_policy_(detail::parse_start_policy(start_policy)),
             sum_y_buffer(window_size),
             sum_y2_buffer(window_size),
@@ -28,6 +28,12 @@ namespace screamer {
             if (window_size_ < 2) {
                 throw std::invalid_argument("Window size must be 2 or more.");
             }
+            // reset() initialises n_ correctly per start_policy. Without this
+            // call (and without the default initialiser on n_ below), n_
+            // contains garbage stack memory and process_scalar produces
+            // wildly wrong values on platforms where the heap doesn't
+            // happen to zero-fill — observed on Ubuntu CPython 3.14.
+            reset();
         }
 
         void reset() override {
@@ -86,7 +92,7 @@ namespace screamer {
     private:
         const int window_size_;
         const detail::StartPolicy start_policy_;
-        size_t n_;
+        size_t n_ = 0;          // belt-and-suspenders default; reset() also sets this
         double c0;
         screamer::detail::RollingSum sum_y_buffer;
         screamer::detail::RollingSum sum_y2_buffer;
