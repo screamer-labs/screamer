@@ -141,10 +141,11 @@ replace = '__version__ = "{new_version}"'
 # max perf); CI explicitly leaves it OFF so wheels run on any CPU.
 # ---------------------------------------------------------------------------
 [tool.cibuildwheel]
-# 3.11 is built as a regular per-version wheel (pybind11's stable ABI starts
-# at 3.12). 3.12-3.14 are built once as a cp312-abi3 wheel that cibuildwheel
-# detects and reuses for the later 3.x versions; tests still run on each.
-# When a future 3.15 ships, the same cp312-abi3 wheel will already work.
+# Per-Python-version wheels for 3.11-3.14. Each new minor Python release
+# requires adding to this list and re-releasing. See docs/ROADMAP_nanobind.md
+# for the abi3 / stable-ABI path that would collapse this to one wheel
+# covering 3.12+; pybind11 doesn't support stable ABI today, so we ship
+# explicit per-version wheels for now.
 build = "cp311-* cp312-* cp313-* cp314-*"
 skip = "*-musllinux_* *_i686 pp*"
 build-verbosity = 1
