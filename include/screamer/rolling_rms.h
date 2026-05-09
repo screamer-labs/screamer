@@ -64,7 +64,7 @@ namespace screamer {
     private:
         const int window_size_;
         const detail::StartPolicy start_policy_;
-        size_t n_;
+        size_t n_ = 0;
         screamer::detail::RollingSum sum_y2_buffer;
 
 

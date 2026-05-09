@@ -242,10 +242,10 @@ namespace screamer {
         const int derivative_order_;
         const detail::StartPolicy start_policy_;
         detail::DelayBuffer delay_buffer_;
-        size_t n_;
-        double sum_x, sum_xx, sum_xxx, sum_xxxx;
-        double sum_y, sum_xy, sum_xxy;
-        double Zxx, Zxy, Zxx2, Zx2y, Zx2x2, d;
+        size_t n_ = 0;
+        double sum_x = 0.0, sum_xx = 0.0, sum_xxx = 0.0, sum_xxxx = 0.0;
+        double sum_y = 0.0, sum_xy = 0.0, sum_xxy = 0.0;
+        double Zxx = 0.0, Zxy = 0.0, Zxx2 = 0.0, Zx2y = 0.0, Zx2x2 = 0.0, d = 0.0;
 
     };
 

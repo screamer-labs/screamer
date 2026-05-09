@@ -136,14 +136,11 @@ namespace screamer {
         const double upper_bound_;
         const int window_size_;
         const int output_;
-        int n_;
-        double mu_trunc;
-        double sigma_trunc;
-
-        double mean_;
-        double std_;
-
-
+        int n_ = 0;
+        double mu_trunc = 0;
+        double sigma_trunc = 0;
+        double mean_ = 0;
+        double std_ = 0;
     }; // end of class
 
 } // end of namespace

@@ -6,10 +6,17 @@ JOBS    ?= $(shell sysctl -n hw.ncpu 2>/dev/null || nproc 2>/dev/null || echo 4)
 
 # Local dev: build with -march=native for max perf. Override with
 # `make build CMAKE_OPTS=` to produce a portable build.
-CMAKE_OPTS ?= -DSCREAMER_NATIVE_ARCH=ON
+CMAKE_OPTS ?= -DSCREAMER_NATIVE_ARCH=ON -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+
+# clang-tidy: prefer Homebrew's llvm if installed (Apple Xcode does not ship
+# clang-tidy by default). Override with CLANG_TIDY=... if needed.
+CLANG_TIDY ?= clang-tidy
+ifneq (,$(wildcard /opt/homebrew/opt/llvm/bin/clang-tidy))
+  CLANG_TIDY = /opt/homebrew/opt/llvm/bin/clang-tidy
+endif
 
 .PHONY: help build test docs benchmark clean \
-        regen-init install-dev \
+        regen-init install-dev tidy \
         patch minor major release-push \
         bump-tools
 
@@ -17,6 +24,7 @@ help:
 	@echo "Targets:"
 	@echo "  make build       Build C++ extension via cmake; copy .so into screamer/"
 	@echo "  make test        Build, install -e, run pytest"
+	@echo "  make tidy        Run clang-tidy (catches uninit class members, etc.)"
 	@echo "  make docs        Build Sphinx HTML docs"
 	@echo "  make benchmark   Run benchmark suite + plots"
 	@echo "  make patch       Bump patch (0.1.46 -> 0.1.47), commit + tag"
@@ -44,6 +52,16 @@ install-dev: build
 
 test: install-dev
 	$(PYTEST)
+
+# clang-tidy with cppcoreguidelines-pro-type-member-init catches uninitialised
+# class members (the bug class behind RollingZscore's silent failure on
+# Ubuntu+CPython 3.14). Run `make build` first so build/compile_commands.json
+# exists.
+tidy: build
+	@echo ">>> clang-tidy: cppcoreguidelines-pro-type-member-init"
+	$(CLANG_TIDY) -p build --quiet --warnings-as-errors='*' \
+	  --checks='-*,cppcoreguidelines-pro-type-member-init' \
+	  bindings/*.cpp src/screamer/common/*.cpp src/screamer/detail/*.cpp
 
 # ---------------------------------------------------------------------------
 # Docs

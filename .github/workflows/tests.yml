@@ -48,3 +48,36 @@ jobs:
 
       - name: Run pytest
         run: pytest -q
+
+  clang-tidy:
+    name: clang-tidy (member-init check)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install clang-tidy + Python build deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang-tidy
+          python -m pip install --upgrade pip
+          pip install pybind11 numpy
+
+      - name: Configure (generate compile_commands.json)
+        # Don't actually compile — we only need the compile-commands db.
+        run: |
+          mkdir -p build
+          cd build
+          cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+
+      - name: Run clang-tidy
+        # cppcoreguidelines-pro-type-member-init catches uninitialised class
+        # members — the bug class that hit RollingZscore on Ubuntu+CPython 3.14.
+        # --warnings-as-errors makes any new violation fail CI.
+        run: |
+          clang-tidy -p build --quiet --warnings-as-errors='*' \
+            --checks='-*,cppcoreguidelines-pro-type-member-init' \
+            bindings/*.cpp src/screamer/common/*.cpp src/screamer/detail/*.cpp

@@ -96,11 +96,11 @@ namespace screamer {
         
         double one_minus_alpha_;
         double one_minus_alpha2_;
-        double sum_x_;
-        double sum_xx_;
-        double sum_xxx_;
-        double sum_w_;
-        double sum_w2_;
+        double sum_x_ = 0.0;
+        double sum_xx_ = 0.0;
+        double sum_xxx_ = 0.0;
+        double sum_w_ = 0.0;
+        double sum_w2_ = 0.0;
     };
 
 } // namespace screamer

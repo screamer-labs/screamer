@@ -63,9 +63,8 @@ namespace screamer {
         const detail::StartPolicy start_policy_;
         detail::RollingSum rolling_gain_sum;
         detail::RollingSum rolling_loss_sum;
-        double prev_x;
-        int n_;
-
+        double prev_x = 0;
+        int n_ = 0;
     }; // end of class
 
 } // end of namespace

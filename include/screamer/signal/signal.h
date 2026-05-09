@@ -305,7 +305,7 @@ class IIRFilter {
         std::vector<double> b; // Numerator coefficients
         std::vector<double> a; // Denominator coefficients
         std::vector<double> z; // Internal states (filter delay values)
-        size_t n;              // Maximum size of the coefficient vectors
+        size_t n = 0;          // Maximum size of the coefficient vectors
 };
 
 } // namespace

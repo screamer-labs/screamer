@@ -122,8 +122,14 @@ namespace screamer {
         detail::RollingSum sum_y_buffer;
         detail::RollingSum sum_yy_buffer;
         detail::RollingSum sum_xy_buffer;
-        int n_;
-        double x, y, sum_x, sum_y, sum_xx, sum_yy, sum_xy;
+        int n_ = 0;
+        double x = 0.0;
+        double y = 0.0;
+        double sum_x = 0.0;
+        double sum_y = 0.0;
+        double sum_xx = 0.0;
+        double sum_yy = 0.0;
+        double sum_xy = 0.0;
 
 
     }; // end of class

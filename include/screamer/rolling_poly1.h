@@ -120,9 +120,12 @@ namespace screamer {
         const size_t window_size_;
         const int derivative_order_;
         const detail::StartPolicy start_policy_;
-        size_t n_;
+        size_t n_ = 0;
         detail::DelayBuffer delay_buffer_;
-        double sum_x, sum_xx, sum_y, sum_xy;
+        double sum_x = 0.0;
+        double sum_xx = 0.0;
+        double sum_y = 0.0;
+        double sum_xy = 0.0;
     };
 
 } // end namespace screamer

@@ -110,8 +110,8 @@ namespace screamer {
         double alpha_;
         
         double one_minus_alpha_;
-        double sum_xx_;
-        double sum_w_;
+        double sum_xx_ = 0.0;
+        double sum_w_ = 0.0;
     };
 
 } // namespace screamer

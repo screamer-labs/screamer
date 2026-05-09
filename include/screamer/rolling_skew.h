@@ -63,12 +63,11 @@ namespace screamer {
     private:
         const int window_size_;
         const detail::StartPolicy start_policy_;
-        int n_;
+        int n_ = 0;
         detail::RollingSum sum_x_buffer;
         detail::RollingSum sum_xx_buffer;
         detail::RollingSum sum_xxx_buffer;
-        double c0;
-
+        double c0 = 0;
     }; // end of class
 
 } // end of namespace

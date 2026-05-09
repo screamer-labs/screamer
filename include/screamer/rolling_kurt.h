@@ -73,11 +73,10 @@ namespace screamer {
         detail::RollingSum sum_xxx_buffer;
         detail::RollingSum sum_xxxx_buffer;
 
-        double c0;
-        double c1;
-        double c2;
-        int n_;
-
+        double c0 = 0;
+        double c1 = 0;
+        double c2 = 0;
+        int n_ = 0;
     }; // end of class
 
 } // end of namespace
