@@ -4,7 +4,7 @@ name = "screamer"
 
 version = "0.1.47"
 
-requires-python = ">= 3.9"
+requires-python = ">=3.12"
 
 authors = [
   {name = "Thijs van den Berg", email = "thijs@sitmo.com"},
@@ -34,9 +34,8 @@ classifiers=[
     "Topic :: Scientific/Engineering :: Information Analysis",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.9",
-    "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Programming Language :: C++",
     "Operating System :: OS Independent"
 ]
@@ -69,7 +68,7 @@ packages = [{ include = "screamer" }]
 
 
 [tool.poetry.dependencies]
-python = "^3.9"
+python = "^3.12"
 pybind11 = "^2.9"
 
 [tool.poetry.group.dev.dependencies]
@@ -131,7 +130,13 @@ replace = "VERSION {new_version}"
 # max perf); CI explicitly leaves it OFF so wheels run on any CPU.
 # ---------------------------------------------------------------------------
 [tool.cibuildwheel]
-build = "cp39-* cp310-* cp311-* cp312-* cp313-*"
+# Limited to 3.12+ for two reasons:
+#   1. CI matrix exercise: 2 Python versions x 4 OSes is enough to validate
+#      cross-platform correctness without ballooning CI cost.
+#   2. Future stable-ABI move: pybind11's stable ABI is reliable from cp312+.
+#      Once this matrix is green, switching to a single cp312-abi3 wheel per
+#      OS is a config-level change.
+build = "cp312-* cp313-*"
 skip = "*-musllinux_* *_i686 pp*"
 build-verbosity = 1
 test-requires = ["numpy"]
