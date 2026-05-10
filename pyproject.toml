@@ -154,6 +154,13 @@ test-command = 'python -c "import numpy as np; from screamer import RollingMean;
 
 [tool.cibuildwheel.linux]
 archs = ["x86_64"]
+# manylinux_2_28 (Rocky Linux 8 / RHEL 8 base, gcc 12+). Required because
+# numpy 2.x and many other modern wheels stopped shipping manylinux2014
+# (manylinux_2_17) builds. With the older image, `pip install numpy` in
+# the wheel-test step fell back to compiling from source, adding ~6 min
+# per Python version. manylinux_2_28 has matching wheels available, so
+# install is a fast download.
+manylinux-x86_64-image = "manylinux_2_28"
 
 [tool.cibuildwheel.macos]
 archs = ["x86_64", "arm64"]
