@@ -49,6 +49,37 @@ Repository = "https://github.com/quantfinlib/screamer.git"
 Issues = "https://github.com/quantfinlib/screamer/issues"
 Changelog = "https://github.com/quantfinlib/screamer/blob/master/CHANGELOG.md"
 
+# Optional install groups, PEP 621 style. Use with:
+#   pip install -e .[test]   # runtime deps + pytest etc.
+#   pip install -e .[docs]   # runtime deps + sphinx and friends
+#   pip install -e .[dev]    # all of the above + release tooling
+# These mirror [tool.poetry.group.*.dependencies] below for folks not
+# on poetry. Build backend is scikit-build-core, so PEP 621 is canonical.
+[project.optional-dependencies]
+test = [
+    "pytest>=7.0",
+    "numpy>=2.0",
+    "scipy>=1.14",
+    "pandas>=2.2",
+]
+docs = [
+    "sphinx>=8.1",
+    "sphinx-rtd-theme>=3.0.1",
+    "sphinxcontrib-napoleon>=0.7",
+    "sphinx-autodoc-typehints>=2.5",
+    "myst-parser>=4.0",
+    "sphinx-exec-code>=0.12",
+    "sphinx-plotly-directive>=0.1.3",
+    "matplotlib>=3.9",
+    "numpy>=2.0",
+    "ipython>=8.14",
+]
+dev = [
+    "screamer[test,docs]",
+    "bump-my-version>=1.2",
+    "invoke>=2.2",
+]
+
 
 
 
@@ -96,10 +127,14 @@ sphinx-rtd-theme = "^3.0.1"
 sphinxcontrib-napoleon = "^0.7"
 sphinx-autodoc-typehints = { version = "^2.5", python = ">=3.10" }
 myst-parser = { version = "^4.0", python = ">=3.10" }
-nbsphinx-link = "^1.3.0"
 sphinx-exec-code = "^0.12"
 sphinx-plotly-directive = "^0.1.3"
 ipython = "8.14"
+# nbsphinx-link removed: it called docutils.utils.error_reporting which
+# was deleted in docutils 0.21, and we don't actually use notebooks in
+# the docs (no .ipynb / .nblink files exist). Re-add when notebook
+# integration is needed -- and at that point pick a maintained
+# alternative (myst-nb is the modern choice).
 
 [tool.pytest.ini_options]
 addopts = "--ignore=_skbuild"

@@ -25,20 +25,29 @@ release = '0.1.46'
 extensions = [
     'sphinx.ext.autodoc',
     'sphinx.ext.napoleon',
-    'sphinx.ext.mathjax',  # This enables math rendering in Sphinx
+    'sphinx.ext.mathjax',  # math rendering
     'sphinx.ext.viewcode',
-    'sphinx_autodoc_typehints',  # To capture type hints
-    'myst_parser', # markdown    
-    "nbsphinx",  # Include Jupyter notebooks (examples)
-    "nbsphinx_link",  # Link to Jupyternotebook that are outside the /docs tree
-    "matplotlib.sphinxext.plot_directive",  # A directive for including a matplotlib plot in a Sphinx document.
-    "sphinx_plotly_directive",  # A directive for including plotly plots in a Sphinx document.
-    "sphinx_exec_code",  # executing python code snippets in the docs and showing result
+    'sphinx_autodoc_typehints',  # capture type hints
+    'myst_parser',  # markdown
+    "matplotlib.sphinxext.plot_directive",  # include matplotlib plots
+    "sphinx_plotly_directive",  # include plotly plots
+    "sphinx_exec_code",  # execute python snippets in docs and show output
+    # 'nbsphinx' / 'nbsphinx_link' were configured here but never used (no
+    # .ipynb or .nblink files anywhere in docs/). nbsphinx_link 1.3.1 also
+    # calls docutils.utils.error_reporting which was removed in docutils
+    # 0.21, so it's effectively abandoned. Re-add when we actually have
+    # notebooks to render.
 ]
 
 
 templates_path = ['_templates']
-exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
+exclude_patterns = [
+    '_build', 'Thumbs.db', '.DS_Store',
+    # Developer-facing roadmaps and design notes. They live here for
+    # discoverability inside the repo but should not show up in the user
+    # docs site.
+    'ROADMAP_*.md',
+]
 
 # Configure myst-parser to parse math
 myst_enable_extensions = [
@@ -75,11 +84,20 @@ plotly_html_show_source_link = False
 plotly_html_show_formats = False
 
 # -----------------------------------------------------------------------------
-# Code fragment execution
+# Code fragment execution (sphinx-exec-code)
 # -----------------------------------------------------------------------------
+# Point at the project root so exec_code blocks can `import screamer`.
 exec_code_working_dir = '..'
-exec_code_source_folders = ['../']
+exec_code_folders = ['..']
 exec_code_example_dir = '../examples/'
+
+# Known cosmetic warning: at startup the extension scans
+# `<project>/src/` for Python packages and warns when none are present.
+# Our `src/` directory holds C++ source. There is no supported config
+# to disable the scan and its logger sits outside Python's standard
+# hierarchy so a logging filter does not catch it. The build still
+# succeeds and exec_code blocks render correctly. Two cosmetic warnings
+# remain in `make docs` output and we accept them.
 
 # -----------------------------------------------------------------------------
 # Autodoc

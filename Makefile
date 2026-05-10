@@ -4,6 +4,29 @@ PYTEST  ?= pytest
 BUILD_DIR ?= build
 JOBS    ?= $(shell sysctl -n hw.ncpu 2>/dev/null || nproc 2>/dev/null || echo 4)
 
+# ---------------------------------------------------------------------------
+# Auto-detect poetry environment
+# ---------------------------------------------------------------------------
+# If poetry is installed AND has created a venv for this project, prefix
+# python/pip/pytest invocations with `poetry run` so they hit the poetry
+# venv. Otherwise leave commands plain (which is what CI and non-poetry
+# devs need). Override by setting POETRY_RUN= on the command line, e.g.
+# `make build POETRY_RUN=` to force plain mode.
+ifndef POETRY_RUN
+  ifneq (,$(shell command -v poetry 2>/dev/null))
+    ifneq (,$(strip $(shell poetry env info --path 2>/dev/null)))
+      POETRY_RUN := poetry run
+    endif
+  endif
+endif
+
+# Wrap the python toolchain. clang-tidy and cmake aren't python, no wrap.
+PY     := $(POETRY_RUN) $(PY)
+PIP    := $(POETRY_RUN) $(PIP)
+PYTEST := $(POETRY_RUN) $(PYTEST)
+# bump-my-version comes from the poetry dev group, so wrap it too.
+BUMP   := $(POETRY_RUN) bump-my-version
+
 # Local dev: build with -march=native for max perf. Override with
 # `make build CMAKE_OPTS=` to produce a portable build.
 # Python3_EXECUTABLE pins cmake's find_package(Python3) to the python on
@@ -40,6 +63,12 @@ help:
 	@echo "  make release-push  Push commits and tags to origin"
 	@echo "  make bump-tools  Install bump-my-version (one-time)"
 	@echo "  make clean       Remove build artifacts and compiled extension"
+	@echo ""
+ifeq ($(POETRY_RUN),poetry run)
+	@echo "  ($(POETRY_RUN) auto-detected; commands run inside poetry env.)"
+else
+	@echo "  (No poetry env detected; commands run with system python on PATH.)"
+endif
 
 # ---------------------------------------------------------------------------
 # Build
@@ -73,9 +102,12 @@ tidy: build
 # ---------------------------------------------------------------------------
 # Docs
 # ---------------------------------------------------------------------------
+# `$(POETRY_RUN) $(MAKE) -C docs ...` runs the docs sub-make inside the
+# poetry env, so sphinx-build resolves to the right binary even if the
+# user's pyenv has a different (broken) sphinx setup.
 docs:
-	$(MAKE) -C docs clean
-	$(MAKE) -C docs html
+	$(POETRY_RUN) $(MAKE) -C docs clean
+	$(POETRY_RUN) $(MAKE) -C docs html
 	@echo "Docs built at docs/_build/html/index.html"
 
 # ---------------------------------------------------------------------------
@@ -93,15 +125,15 @@ bump-tools:
 	$(PIP) install --upgrade bump-my-version
 
 patch: regen-init
-	bump-my-version bump patch
+	$(BUMP) bump patch
 	$(MAKE) release-push
 
 minor: regen-init
-	bump-my-version bump minor
+	$(BUMP) bump minor
 	$(MAKE) release-push
 
 major: regen-init
-	bump-my-version bump major
+	$(BUMP) bump major
 	$(MAKE) release-push
 
 # Push commit + tag to origin. Tag push triggers build-wheels.yml.
