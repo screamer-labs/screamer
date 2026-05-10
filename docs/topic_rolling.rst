@@ -30,3 +30,4 @@ Rolling Window Functions
    functions_rolling/RollingSum
    functions_rolling/RollingVar
    functions_rolling/RollingZscore
+   functions_rolling/WMA

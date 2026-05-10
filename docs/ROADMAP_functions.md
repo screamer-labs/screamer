@@ -126,13 +126,13 @@ agreed-upon definition and is rarely asked for in practice.)
 |---|---|
 | `RollingMean` | Simple Moving Average (SMA) |
 | `EwMean` | Exponential Moving Average (EMA) |
+| `WMA` | Linearly-weighted MA (newest = weight w, oldest = 1). O(1) per step via the identity `W[t] - W[t-1] = w·x[t] - S[t-1]` where `S` is the simple rolling sum of the previous window |
 | `RollingPoly1`, `RollingPoly2` | linear / quadratic regression fit at the window endpoint (gives smoothed trend, slope, second derivative) |
 
 ### Gaps
 
 | Function | Description | Quadrant | Priority | Note |
 |---|---|---|---|---|
-| `WMA` | Weighted Moving Average (linear weights) | 1→1 | 🟡 | one of the three classics with SMA / EMA |
 | `DEMA`, `TEMA` | Double / Triple Exponential MA | 1→1 | 🟡 | composites: `DEMA = 2·EMA − EMA(EMA)` |
 | `KAMA` | Kaufman Adaptive Moving Average | 1→1 | 🟡 | adaptive smoothing based on volatility-to-noise ratio |
 | `TRIMA` | Triangular Moving Average | 1→1 | ⚪ | `RollingMean` of a `RollingMean` |

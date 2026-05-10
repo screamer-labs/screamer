@@ -25,6 +25,7 @@
 #include "screamer/rolling_range.h"
 #include "screamer/rolling_mad.h"
 #include "screamer/rolling_iqr.h"
+#include "screamer/wma.h"
 
 namespace py = pybind11;
 
@@ -129,6 +130,16 @@ void init_bindings_rolling(py::module& m) {
         .def(py::init<int>(), py::arg("window_size"))
         .def("__call__", &screamer::RollingIqr::operator(), py::arg("value"))
         .def("reset", &screamer::RollingIqr::reset, "Reset to the initial state.");
+
+    // WMA: linearly-weighted moving average. O(1) per step via the
+    // identity W[t] - W[t-1] = w*x[t] - S[t-1] where S is the simple
+    // rolling sum of the previous window.
+    py::class_<screamer::WMA, screamer::ScreamerBase>(m, "WMA")
+        .def(py::init<int, const std::string&>(),
+            py::arg("window_size"),
+            py::arg("start_policy") = "strict")
+        .def("__call__", &screamer::WMA::operator(), py::arg("value"))
+        .def("reset", &screamer::WMA::reset, "Reset to the initial state.");
 
     py::class_<screamer::RollingMedian, screamer::ScreamerBase>(m, "RollingMedian")
         .def(py::init<int>(), py::arg("window_size"))
