@@ -42,13 +42,15 @@ set(FETCHCONTENT_BASE_DIR ${CMAKE_BINARY_DIR}/_deps)
 # Path to locally cached dependencies (must be populated manually or during an online run)
 set(LOCAL_CACHE_DIR ${CMAKE_SOURCE_DIR}/_local_deps)
 
-# pybind11 v3.0.2 (Feb 2026):
-#   - Fixed an undefined-behaviour issue when importing pybind11 modules on
-#     Windows + Python 3.11+: PYBIND11_MODULE now uses PEP 489 multi-phase
-#     init, which avoids the "PyEval_SaveThread: the GIL is released" crash
-#     we hit on cp311+ Windows wheels in v0.1.51.
-#   - v2.13.x doesn't have this fix.
-set(SCREAMER_PYBIND11_TAG "v3.0.4")
+# pybind11 v3.0.1 -- pinned because of pybind11 issue #5993:
+# v3.0.2 regressed Windows + std::* container bindings (std::optional,
+# std::vector, std::array) and crashes at import time with
+# "PyEval_SaveThread: the GIL is released". We use std::optional
+# extensively in the Ew* classes, std::vector and std::array in the
+# functor templates -- so this hits us. v3.0.1 was confirmed working.
+# v3.0.4 (latest at time of writing) still has the regression.
+# Revisit when issue #5993 is fixed (PR #6006 was the proposed fix).
+set(SCREAMER_PYBIND11_TAG "v3.0.1")
 
 if(EXISTS "${LOCAL_CACHE_DIR}/pybind11")
     message(STATUS "Using locally cached pybind11 at ${LOCAL_CACHE_DIR}/pybind11")
