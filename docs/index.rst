@@ -124,19 +124,14 @@ guaranteeing accurate and reliable results
 
 
 
-Mini Tutorial
-=============
-
-.. include:: usage.md
-   :parser: myst_parser.sphinx_
+For a step-by-step walkthrough see the :doc:`User Guide <usage>`.
 
 .. toctree::
    :maxdepth: 1
-   :caption: Main
+   :caption: User Guide
    :hidden:
-   
+
    usage
-   changelog
 
 
 .. toctree::
@@ -152,5 +147,21 @@ Mini Tutorial
    topic_signal
    topic_fin
    topic_misc
+
+
+.. toctree::
+   :maxdepth: 1
+   :caption: Concepts
+   :hidden:
+
+   polymorphic_api
+
+
+.. toctree::
+   :maxdepth: 1
+   :caption: Release notes
+   :hidden:
+
+   changelog
 
 

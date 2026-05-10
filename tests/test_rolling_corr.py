@@ -150,6 +150,64 @@ def test_explicit_reset_returns_to_warmup():
 
 
 # ---------------------------------------------------------------------------
+# Multi-dimensional inputs (axis 0 = time, other axes = parallel paired streams)
+# ---------------------------------------------------------------------------
+
+def test_2d_inputs_pair_columnwise():
+    """RollingCorr(X, Y) on (T, K) arrays must equal running RollingCorr
+    on each column pair independently."""
+    rng = np.random.default_rng(0)
+    T, K, window = 50, 4, 10
+    X = rng.standard_normal((T, K))
+    Y = 0.5 * X + 0.5 * rng.standard_normal((T, K))
+
+    out_2d = RollingCorr(window)(X, Y)
+    assert out_2d.shape == (T, K)
+
+    for k in range(K):
+        ref = RollingCorr(window)(X[:, k].copy(), Y[:, k].copy())
+        np.testing.assert_array_equal(
+            out_2d[:, k], ref,
+            err_msg=f"column {k} of 2D output differs from per-column 1D"
+        )
+
+
+def test_3d_inputs_pair_per_inner_index():
+    """N-D paired arrays: every (j, k) inner index is an independent stream."""
+    rng = np.random.default_rng(1)
+    X = rng.standard_normal((30, 3, 2))
+    Y = 0.7 * X + 0.3 * rng.standard_normal((30, 3, 2))
+    out = RollingCorr(window_size=5)(X, Y)
+    assert out.shape == (30, 3, 2)
+    # Spot-check one inner cell
+    ref = RollingCorr(5)(X[:, 1, 1].copy(), Y[:, 1, 1].copy())
+    np.testing.assert_array_equal(out[:, 1, 1], ref)
+
+
+def test_2d_strided_view_matches_contig_copy():
+    rng = np.random.default_rng(2)
+    big_x = rng.standard_normal((100, 12))
+    big_y = 0.5 * big_x + 0.5 * rng.standard_normal((100, 12))
+    vx, vy = big_x[::2, ::3], big_y[::2, ::3]
+    assert not vx.flags.c_contiguous
+
+    rc = RollingCorr(window_size=10)
+    out_view = rc(vx, vy)
+    out_copy = rc(vx.copy(), vy.copy())
+    np.testing.assert_array_equal(out_view, out_copy)
+
+
+def test_shape_mismatch_raises():
+    with pytest.raises(TypeError):
+        RollingCorr(5)(np.zeros(10), np.zeros(20))
+
+
+def test_ndim_mismatch_raises():
+    with pytest.raises(TypeError):
+        RollingCorr(5)(np.zeros(10), np.zeros((10, 3)))
+
+
+# ---------------------------------------------------------------------------
 # Constructor validation
 # ---------------------------------------------------------------------------
 
