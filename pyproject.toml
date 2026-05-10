@@ -2,7 +2,7 @@
 
 name = "screamer"
 
-version = "0.1.51"
+version = "0.1.52"
 
 requires-python = ">=3.11"
 
@@ -57,7 +57,7 @@ Changelog = "https://github.com/quantfinlib/screamer/blob/master/CHANGELOG.md"
 
 [tool.poetry]
 name = "screamer"
-version = "0.1.51"
+version = "0.1.52"
 description = "Screamingly fast financial technical indicators with C++ performance and Python simplicity, built for both time series analysis and real-time, event-driven streaming."
 authors = ["Thijs van den Berg <thijs@sitmo.com>, Mohammadjavad Vakili <mohammadjavad.vakili@gmail.com>"]
 maintainers = [
@@ -109,7 +109,7 @@ requires = ["scikit-build-core", "pybind11"]
 build-backend = "scikit_build_core.build"
 
 [tool.bumpversion]
-current_version = "0.1.51"
+current_version = "0.1.52"
 commit = true
 tag = true
 allow_dirty = false
