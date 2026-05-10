@@ -72,6 +72,16 @@ the time axis.
 If you want the rolling operation to run along a different axis, transpose
 the array yourself (`x.T`) before passing it.
 
+The input shape is preserved exactly. `(T,)` and `(T, 1)` are different
+inputs and produce different outputs: a 1-D array stays 1-D, a 2-D
+column-vector stays 2-D. screamer never silently squeezes or expands
+axes.
+
+```python
+RollingMean(5)(np.random.randn(100)).shape       # (100,)
+RollingMean(5)(np.random.randn(100, 1)).shape    # (100, 1)
+```
+
 State is cleanly isolated between streams: `reset()` is called both at
 the start of each call and between every column inside it. You can reuse
 the same instance for as many calls as you like and they will be
@@ -245,6 +255,43 @@ a single batch call, just like for the single-input array path.
 
 - All `N` inputs must be the same kind (all scalars, all numpy arrays,
   all iterables) and the same shape. Mixing them raises `TypeError`.
+
+
+## The multi-output contract (`FunctorBase<_, 1, M>`)
+
+Some functions produce more than one value per time step. `RollingMinMax`
+returns the pair `(min, max)`; `BollingerBands` returns the triple
+`(lower, mid, upper)`. The call shape mirrors the single-input one with
+one rule added: the output gets an extra trailing axis of size `M`.
+
+| You pass... | You get back... |
+|---|---|
+| scalar | Python `tuple` of `M` floats |
+| 1-D array of shape `(T,)` | NumPy array of shape `(T, M)` |
+| 2-D array of shape `(T, K)` | NumPy array of shape `(T, K, M)` |
+| N-D array of shape `(T, ..., K)` | NumPy array of shape `(T, ..., K, M)` |
+| iterable | `list[tuple[float, ...]]` of length matching the input (eager) |
+
+The shape rule is exactly: `output.shape == input.shape + (M,)`. The same
+input-axis-preservation guarantee from the single-output path holds here
+too. `(T,)` and `(T, 1)` produce different outputs: `(T, M)` and `(T, 1, M)`
+respectively.
+
+```python
+from screamer import RollingMinMax, BollingerBands
+
+RollingMinMax(5)(np.random.randn(100)).shape         # (100, 2)
+RollingMinMax(5)(np.random.randn(100, 4)).shape      # (100, 4, 2)
+BollingerBands(20)(np.random.randn(100)).shape       # (100, 3)
+BollingerBands(20)(np.random.randn(100, 4)).shape    # (100, 4, 3)
+```
+
+Per-step access uses the trailing axis: `bb[:, 0]` is the lower band,
+`bb[:, 1]` the mid, `bb[:, 2]` the upper. For a 2-D input, it would be
+`bb[:, k, 0]`, `bb[:, k, 1]`, `bb[:, k, 2]` for each parallel series `k`.
+
+Like the multi-input path, the iterable case is eager: it returns
+`list[tuple[...]]`, not a lazy iterator.
 
 
 ## Symmetry table
