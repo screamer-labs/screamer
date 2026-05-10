@@ -122,8 +122,27 @@ jobs:
         run: pip install --upgrade twine
 
       - name: Upload to pypi.deep.fund
+        # No --skip-existing: twine 6 rejects it at pre-flight for any
+        # repository it doesn't recognise (only pypi.org / test.pypi.org
+        # are recognised). Instead, upload one file at a time and treat
+        # HTTP 409 (file already exists) as success, so re-running CI
+        # for an existing tag is idempotent.
         env:
           TWINE_REPOSITORY_URL: ${{ vars.PRIVATE_PYPI_URL }}
           TWINE_USERNAME: ${{ secrets.PRIVATE_PYPI_USERNAME }}
           TWINE_PASSWORD: ${{ secrets.PRIVATE_PYPI_PASSWORD }}
-        run: twine upload --skip-existing --non-interactive dist/*
+        run: |
+          for f in dist/*; do
+            echo ">>> uploading $f"
+            if ! out=$(twine upload --non-interactive --verbose "$f" 2>&1); then
+              if echo "$out" | grep -qiE 'already exists|409'; then
+                echo "$out"
+                echo ">>> $f already on server -- treating as success"
+              else
+                echo "$out"
+                exit 1
+              fi
+            else
+              echo "$out"
+            fi
+          done
