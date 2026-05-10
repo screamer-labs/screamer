@@ -74,12 +74,6 @@ endif()
 # Collect all .cpp files in the bindings directory
 file(GLOB_RECURSE BINDING_SOURCES "bindings/*.cpp")
 
-# TEMPORARY: exclude bindings_myfunctors.cpp to bisect the Windows GIL crash
-# at module import. If the .pyd imports cleanly without this file, the
-# regression lives in functor_base.h / functor_iterator.h / my_functors.h.
-# Re-add once we've localised the issue.
-list(FILTER BINDING_SOURCES EXCLUDE REGEX ".*bindings_myfunctors\\.cpp$")
-
 # Collect all source files in the src directory
 file(GLOB_RECURSE SCREAMER_SOURCES "src/screamer/*.cpp")
 
