@@ -6,7 +6,14 @@ JOBS    ?= $(shell sysctl -n hw.ncpu 2>/dev/null || nproc 2>/dev/null || echo 4)
 
 # Local dev: build with -march=native for max perf. Override with
 # `make build CMAKE_OPTS=` to produce a portable build.
-CMAKE_OPTS ?= -DSCREAMER_NATIVE_ARCH=ON -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+# Python3_EXECUTABLE pins cmake's find_package(Python3) to the python on
+# PATH. Without this, pybind11 v3.x's new FindPython mode searches the
+# system and picks the highest-version python it finds (often a Homebrew
+# python rather than the one the user wants). We resolve via sys.executable
+# rather than `command -v` because pyenv shims aren't real binaries and
+# cmake won't accept them.
+PYTHON_EXE := $(shell $(PY) -c "import sys; print(sys.executable)" 2>/dev/null)
+CMAKE_OPTS ?= -DSCREAMER_NATIVE_ARCH=ON -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DPython3_EXECUTABLE=$(PYTHON_EXE)
 
 # clang-tidy: prefer Homebrew's llvm if installed (Apple Xcode does not ship
 # clang-tidy by default). Override with CLANG_TIDY=... if needed.

@@ -157,10 +157,11 @@ archs = ["x86_64"]
 
 [tool.cibuildwheel.macos]
 archs = ["x86_64", "arm64"]
+# Match the floor enforced in CMakeLists.txt so the wheel filename reflects
+# what the .so actually requires. cibuildwheel auto-bumps this to 11.0 for
+# arm64 builds (arm64 minimum), so this single setting works for both archs.
+environment = { MACOSX_DEPLOYMENT_TARGET = "10.13" }
 
 [tool.cibuildwheel.windows]
 archs = ["AMD64"]
 
-# macOS deployment target floor (>= 10.13) is enforced in CMakeLists.txt
-# rather than via a cibuildwheel environment override -- the env-var path
-# through scikit-build-core to cmake was unreliable.

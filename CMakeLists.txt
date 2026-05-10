@@ -42,24 +42,24 @@ set(FETCHCONTENT_BASE_DIR ${CMAKE_BINARY_DIR}/_deps)
 # Path to locally cached dependencies (must be populated manually or during an online run)
 set(LOCAL_CACHE_DIR ${CMAKE_SOURCE_DIR}/_local_deps)
 
-# Fetch pybind11
-#FetchContent_Declare(
-#  pybind11
-#  GIT_REPOSITORY https://github.com/pybind/pybind11.git
-#  GIT_TAG        v2.13.6
-#)
+# pybind11 v3.0.2 (Feb 2026):
+#   - Fixed an undefined-behaviour issue when importing pybind11 modules on
+#     Windows + Python 3.11+: PYBIND11_MODULE now uses PEP 489 multi-phase
+#     init, which avoids the "PyEval_SaveThread: the GIL is released" crash
+#     we hit on cp311+ Windows wheels in v0.1.51.
+#   - v2.13.x doesn't have this fix.
+set(SCREAMER_PYBIND11_TAG "v3.0.2")
 
-# Check for pybind11 in the local cache first
 if(EXISTS "${LOCAL_CACHE_DIR}/pybind11")
     message(STATUS "Using locally cached pybind11 at ${LOCAL_CACHE_DIR}/pybind11")
     set(pybind11_SOURCE_DIR "${LOCAL_CACHE_DIR}/pybind11")
     add_subdirectory("${pybind11_SOURCE_DIR}" "${CMAKE_BINARY_DIR}/pybind11")
 else()
-    message(STATUS "Downloading pybind11 from GitHub")
+    message(STATUS "Downloading pybind11 ${SCREAMER_PYBIND11_TAG} from GitHub")
     FetchContent_Declare(
         pybind11
         GIT_REPOSITORY https://github.com/pybind/pybind11.git
-        GIT_TAG        v2.13.6
+        GIT_TAG        ${SCREAMER_PYBIND11_TAG}
     )
     FetchContent_MakeAvailable(pybind11)
 endif()
