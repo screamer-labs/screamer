@@ -23,6 +23,7 @@ Basic Math
    functions_math/Floor
    functions_math/Hypot
    functions_math/Linear
+   functions_math/Linear2
    functions_math/Log
    functions_math/Polar2Cart
    functions_math/Power

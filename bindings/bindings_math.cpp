@@ -3,6 +3,7 @@
 #include "screamer/common/transform.h"
 #include "screamer/transform_functions.h"
 #include "screamer/linear.h"
+#include "screamer/linear2.h"
 #include "screamer/power.h"
 #include "screamer/geometry.h"
 
@@ -79,6 +80,16 @@ void init_bindings_math(py::module& m) {
         .def(py::init<double, double>(), py::arg("scale"), py::arg("shift"))
         .def("__call__", &screamer::Linear::operator(), py::arg("value"))
         .def("reset", &screamer::Linear::reset, "Reset to the initial state.");
+
+     // Linear2: two-input affine combination f(x, y) = a*x + b*y + c.
+     // Stateless 2->1; pairs well with Sign / Relu / Sigmoid for
+     // compact one-shot expressions (e.g. Sign . Linear2(1,-1,0) is
+     // "is x > y").
+     py::class_<screamer::Linear2>(m, "Linear2")
+        .def(py::init<double, double, double>(),
+             py::arg("a"), py::arg("b"), py::arg("c") = 0.0)
+        .def("__call__", &screamer::Linear2::handle_input)
+        .def("reset", &screamer::Linear2::reset, "Reset to the initial state.");
 
      py::class_<screamer::Power, screamer::ScreamerBase>(m, "Power")
         .def(py::init<double>(), py::arg("p"))

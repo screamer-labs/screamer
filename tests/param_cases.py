@@ -54,6 +54,8 @@ _NO_ARG_AUTO_EXCLUDE = {
     # Stateful 2->2 demo functor (validated in tests/test_geometry.py)
     'MyFunctor22',
 }
+# Linear2 takes constructor args (a, b, c) so it is not a no-arg class
+# and would not be picked up here -- listed for clarity only.
 no_arg_classes = [
     cls for cls in screamer_classes
     if len(get_constructor_arguments(getattr(screamer_module, cls)))==0
