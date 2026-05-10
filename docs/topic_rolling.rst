@@ -8,6 +8,8 @@ Rolling Window Functions
    :titlesonly:
 
    functions_rolling/BollingerBands
+   functions_rolling/DEMA
+   functions_rolling/HullMA
    functions_rolling/RollingArgmax
    functions_rolling/RollingArgmin
    functions_rolling/RollingIqr
@@ -30,4 +32,6 @@ Rolling Window Functions
    functions_rolling/RollingSum
    functions_rolling/RollingVar
    functions_rolling/RollingZscore
+   functions_rolling/TEMA
+   functions_rolling/TRIMA
    functions_rolling/WMA

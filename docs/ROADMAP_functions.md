@@ -127,17 +127,17 @@ agreed-upon definition and is rarely asked for in practice.)
 | `RollingMean` | Simple Moving Average (SMA) |
 | `EwMean` | Exponential Moving Average (EMA) |
 | `WMA` | Linearly-weighted MA (newest = weight w, oldest = 1). O(1) per step via the identity `W[t] - W[t-1] = w·x[t] - S[t-1]` where `S` is the simple rolling sum of the previous window |
+| `DEMA`, `TEMA` | Double / Triple Exponential MA (Mulloy 1994). Pure compositions: `DEMA = 2·EMA − EMA(EMA)`, `TEMA = 3·EMA − 3·EMA(EMA) + EMA(EMA(EMA))` |
+| `TRIMA` | Triangular MA. `SMA(SMA(x, n_inner), n_outer)` with TA-Lib's window split |
+| `HullMA` | Hull MA (Hull 2005). `WMA(2·WMA(n/2) − WMA(n), √n)` |
 | `RollingPoly1`, `RollingPoly2` | linear / quadratic regression fit at the window endpoint (gives smoothed trend, slope, second derivative) |
 
 ### Gaps
 
 | Function | Description | Quadrant | Priority | Note |
 |---|---|---|---|---|
-| `DEMA`, `TEMA` | Double / Triple Exponential MA | 1→1 | 🟡 | composites: `DEMA = 2·EMA − EMA(EMA)` |
-| `KAMA` | Kaufman Adaptive Moving Average | 1→1 | 🟡 | adaptive smoothing based on volatility-to-noise ratio |
-| `TRIMA` | Triangular Moving Average | 1→1 | ⚪ | `RollingMean` of a `RollingMean` |
-| `MAMA` (MESA) | Hilbert-transform-based adaptive MA | 1→1 | ⚪ | requires Hilbert; specialised |
-| `HullMA` | Hull Moving Average | 1→1 | ⚪ | composite of WMAs |
+| `KAMA` | Kaufman Adaptive Moving Average | 1→1 | 🟡 | adaptive smoothing based on volatility-to-noise ratio; not composable from existing primitives but each component is O(1) |
+| `MAMA` (MESA) | Hilbert-transform-based adaptive MA | 1→1 | ⚪ | requires Hilbert primitive we don't have; specialised |
 | `SavGol(window, order)` | Savitzky-Golay filter | 1→1 | 🟡 | `RollingPoly{1,2}` is the order=1/2 version centred at the right endpoint; `SavGol` would generalise to user-specified polynomial order and be the proper "savgol" |
 
 

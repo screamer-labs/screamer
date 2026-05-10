@@ -26,6 +26,10 @@
 #include "screamer/rolling_mad.h"
 #include "screamer/rolling_iqr.h"
 #include "screamer/wma.h"
+#include "screamer/dema.h"
+#include "screamer/tema.h"
+#include "screamer/trima.h"
+#include "screamer/hull_ma.h"
 
 namespace py = pybind11;
 
@@ -140,6 +144,55 @@ void init_bindings_rolling(py::module& m) {
             py::arg("start_policy") = "strict")
         .def("__call__", &screamer::WMA::operator(), py::arg("value"))
         .def("reset", &screamer::WMA::reset, "Reset to the initial state.");
+
+    // DEMA / TEMA: double / triple exponential MA (Mulloy 1994). Pure
+    // composition of 2 / 3 chained EwMean instances.
+    py::class_<screamer::DEMA, screamer::ScreamerBase>(m, "DEMA")
+        .def(
+          py::init<
+               std::optional<double>,
+               std::optional<double>,
+               std::optional<double>,
+               std::optional<double>
+          >(),
+          py::arg("com") = std::nullopt,
+          py::arg("span") = std::nullopt,
+          py::arg("halflife") = std::nullopt,
+          py::arg("alpha") = std::nullopt
+        )
+        .def("__call__", &screamer::DEMA::operator(), py::arg("value"))
+        .def("reset", &screamer::DEMA::reset, "Reset to the initial state.");
+
+    py::class_<screamer::TEMA, screamer::ScreamerBase>(m, "TEMA")
+        .def(
+          py::init<
+               std::optional<double>,
+               std::optional<double>,
+               std::optional<double>,
+               std::optional<double>
+          >(),
+          py::arg("com") = std::nullopt,
+          py::arg("span") = std::nullopt,
+          py::arg("halflife") = std::nullopt,
+          py::arg("alpha") = std::nullopt
+        )
+        .def("__call__", &screamer::TEMA::operator(), py::arg("value"))
+        .def("reset", &screamer::TEMA::reset, "Reset to the initial state.");
+
+    // TRIMA: triangular MA, SMA(SMA(x)). Pure composition of two
+    // detail::RollingMean instances. Strict warmup enforced by counter.
+    py::class_<screamer::TRIMA, screamer::ScreamerBase>(m, "TRIMA")
+        .def(py::init<int>(), py::arg("window_size"))
+        .def("__call__", &screamer::TRIMA::operator(), py::arg("value"))
+        .def("reset", &screamer::TRIMA::reset, "Reset to the initial state.");
+
+    // HullMA: WMA(2*WMA(x, n/2) - WMA(x, n), sqrt(n)). Pure composition
+    // of three WMA instances. Inner WMAs use "expanding" so they don't
+    // emit NaN; HullMA enforces strict warmup itself.
+    py::class_<screamer::HullMA, screamer::ScreamerBase>(m, "HullMA")
+        .def(py::init<int>(), py::arg("window_size"))
+        .def("__call__", &screamer::HullMA::operator(), py::arg("value"))
+        .def("reset", &screamer::HullMA::reset, "Reset to the initial state.");
 
     py::class_<screamer::RollingMedian, screamer::ScreamerBase>(m, "RollingMedian")
         .def(py::init<int>(), py::arg("window_size"))

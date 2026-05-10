@@ -55,7 +55,9 @@ public:
         n_ = 0;
     }
 
-private:
+    // process_scalar is public so other ScreamerBase classes (e.g. HullMA)
+    // can chain a WMA inside their own process_scalar without going
+    // through the Python dispatcher.
     double process_scalar(double x) override {
         if (n_ < window_size_) {
             n_++;
@@ -89,6 +91,7 @@ private:
         return std::numeric_limits<double>::quiet_NaN();  // unreachable
     }
 
+private:
     const int window_size_;
     const detail::StartPolicy start_policy_;
     detail::RollingSum rolling_sum_;
