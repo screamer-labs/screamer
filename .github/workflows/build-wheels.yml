@@ -17,8 +17,14 @@ concurrency:
 
 # Opt every action into Node.js 24 immediately (silences the Node 20
 # deprecation warnings on actions that haven't published a Node 24 major yet).
+# MACOSX_DEPLOYMENT_TARGET=10.13: matches the floor enforced in CMakeLists.txt
+# so the wheel filename reflects what the .so actually requires. Setting it at
+# the workflow env level is the most reliable way -- cibuildwheel's per-platform
+# `environment` field in pyproject.toml didn't propagate to the wheel-tagging
+# step. cibuildwheel auto-bumps to 11.0 for arm64 builds.
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+  MACOSX_DEPLOYMENT_TARGET: "10.13"
 
 jobs:
   build_wheels:

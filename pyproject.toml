@@ -157,10 +157,10 @@ archs = ["x86_64"]
 
 [tool.cibuildwheel.macos]
 archs = ["x86_64", "arm64"]
-# Match the floor enforced in CMakeLists.txt so the wheel filename reflects
-# what the .so actually requires. cibuildwheel auto-bumps this to 11.0 for
-# arm64 builds (arm64 minimum), so this single setting works for both archs.
-environment = { MACOSX_DEPLOYMENT_TARGET = "10.13" }
+# MACOSX_DEPLOYMENT_TARGET is set at the workflow env level in
+# .github/workflows/build-wheels.yml. We tried setting it here as
+# `environment = { ... }` but cibuildwheel didn't propagate it to the
+# wheel-tagging step.
 
 [tool.cibuildwheel.windows]
 archs = ["AMD64"]

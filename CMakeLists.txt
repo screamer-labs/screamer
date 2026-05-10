@@ -48,7 +48,7 @@ set(LOCAL_CACHE_DIR ${CMAKE_SOURCE_DIR}/_local_deps)
 #     init, which avoids the "PyEval_SaveThread: the GIL is released" crash
 #     we hit on cp311+ Windows wheels in v0.1.51.
 #   - v2.13.x doesn't have this fix.
-set(SCREAMER_PYBIND11_TAG "v3.0.2")
+set(SCREAMER_PYBIND11_TAG "v3.0.4")
 
 if(EXISTS "${LOCAL_CACHE_DIR}/pybind11")
     message(STATUS "Using locally cached pybind11 at ${LOCAL_CACHE_DIR}/pybind11")
@@ -86,8 +86,12 @@ target_include_directories(
 
 # Optimization flags. MSVC takes different flags than GCC/Clang.
 if(MSVC)
-    target_compile_options(screamer_bindings PRIVATE /O2 /fp:fast)
-    set_property(TARGET screamer_bindings PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
+    # Plain /O2. Skip /fp:fast (analogue of GCC -ffast-math, which we
+    # established breaks our NaN-sentinel pattern). Skip whole-program
+    # optimisation (/GL via INTERPROCEDURAL_OPTIMIZATION) to rule it out
+    # as the cause of the cp311+ "PyEval_SaveThread: GIL not held"
+    # crash on import. Can be re-enabled later once Windows is green.
+    target_compile_options(screamer_bindings PRIVATE /O2)
 else()
     # NOTE: Do NOT add -ffast-math. The algorithms use NaN as a sentinel
     # for "warmup / not enough data", and -ffinite-math-only (implied by
