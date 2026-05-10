@@ -14,8 +14,16 @@ screamer_module = sii.load_screamer_module()
 # screamer_classes = [cls for cls in dir(screamer_module) if cls[0].isupper() and cls not in helperClasses]
 screamer_classes = get_module_public_classes(screamer_module)
 
-# The Rolling classes, except 'RollingQuantile' which has an extra argument
-rolling_classes = [cls for cls in screamer_classes if cls.startswith('Rolling') and not cls=='RollingQuantile' and not cls=='RollingFracDiff']
+# The Rolling classes that fit the standard 1-input/1-output auto-test
+# pattern. Exclusions:
+#   RollingQuantile  - takes an extra `quantile` arg
+#   RollingFracDiff  - takes extra `frac_order`/`threshold` args
+#   RollingCorr      - takes 2 inputs (FunctorBase<_, 2, 1>); needs a
+#                      bespoke test that feeds two parallel arrays.
+#                      See tests/test_rolling_corr.py.
+_ROLLING_AUTO_EXCLUDE = {'RollingQuantile', 'RollingFracDiff', 'RollingCorr'}
+rolling_classes = [cls for cls in screamer_classes
+                   if cls.startswith('Rolling') and cls not in _ROLLING_AUTO_EXCLUDE]
 
 # The Ew classes, except: todo baselines for 'EwSkew', 'EwKurt'
 ew_classes = [cls for cls in screamer_classes if cls.startswith('Ew') and not cls in['EwSkew', 'EwKurt']]

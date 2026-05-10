@@ -30,8 +30,8 @@ namespace detail {
     using TupleOfDoubles = typename TupleOfDoublesHelper<M>::type;
 
 
-    size_t numpy_num_cols(const py::buffer_info& buf_info) {
-        size_t num_cols = 1;  
+    inline size_t numpy_num_cols(const py::buffer_info& buf_info) {
+        size_t num_cols = 1;
         for (int i = 1; i < buf_info.ndim; ++i) {
             num_cols *= buf_info.shape[i];
         }
@@ -39,7 +39,7 @@ namespace detail {
     }
 
 
-    size_t numpy_col_start_pos(const size_t column, const py::buffer_info& buf_info) {
+    inline size_t numpy_col_start_pos(const size_t column, const py::buffer_info& buf_info) {
         size_t start_pos = 0;
         size_t temp = column;
         for (size_t dim = 1; dim < buf_info.ndim; ++dim) {
@@ -167,8 +167,8 @@ public:
         std::ptrdiff_t output_stride = output_info.strides[0] / output_info.itemsize;
 
         // Get input info
-        std::array<double*, TN> inputs_data;
-        std::array<int64_t, TN> inputs_stride;
+        std::array<double*, TN> inputs_data{};
+        std::array<int64_t, TN> inputs_stride{};
         size_t size = inputs_info[0].shape[0];
         for (size_t i = 0; i < TN; ++i) {
             inputs_data[i] = static_cast<double*>(inputs_info[i].ptr);
@@ -179,7 +179,7 @@ public:
         auto num_cols = detail::numpy_num_cols(inputs_info[0]);
 
         // loop over all columns
-        std::array<size_t, TN> inputs_index; 
+        std::array<size_t, TN> inputs_index{};
         for (size_t col = 0; col < num_cols; ++col) {
             
             // find the start positions in memory of this column for all input arguments
