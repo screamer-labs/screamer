@@ -37,8 +37,13 @@ _ROLLING_AUTO_EXCLUDE = {
 rolling_classes = [cls for cls in screamer_classes
                    if cls.startswith('Rolling') and cls not in _ROLLING_AUTO_EXCLUDE]
 
-# The Ew classes, except: todo baselines for 'EwSkew', 'EwKurt'
-ew_classes = [cls for cls in screamer_classes if cls.startswith('Ew') and not cls in['EwSkew', 'EwKurt']]
+# The Ew classes, except:
+#   EwSkew, EwKurt: todo baselines
+#   EwCov, EwCorr, EwBeta: 2-input (FunctorBase<_, 2, 1>); tested in
+#                          tests/test_ew_pair.py
+ew_classes = [cls for cls in screamer_classes
+              if cls.startswith('Ew')
+              and cls not in ['EwSkew', 'EwKurt', 'EwCov', 'EwCorr', 'EwBeta']]
 
 # Classes that have no arguments. Some no-arg classes are multi-input
 # (FunctorBase<_, N, _>) or multi-output (FunctorBase<_, _, M>), which the

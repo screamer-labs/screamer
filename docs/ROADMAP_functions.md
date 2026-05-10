@@ -104,15 +104,17 @@ covered.
 
 ### What we have
 
-`EwMean`, `EwVar`, `EwStd`, `EwZscore`, `EwSkew`, `EwKurt`, `EwRms`.
+`EwMean`, `EwVar`, `EwStd`, `EwZscore`, `EwSkew`, `EwKurt`, `EwRms`,
+`EwCov`, `EwCorr`, `EwBeta`. The pair statistics use the same
+bias-corrected convention as `EwVar` and match
+`pandas.Series.ewm(adjust=True, ...).cov / .corr` to floating-point
+precision (verified in `tests/test_ew_pair.py`).
 
 ### Gaps
 
-| Function | Description | Quadrant | Priority | Note |
-|---|---|---|---|---|
-| `EwCov`, `EwCorr` | exponentially-weighted covariance / correlation of two streams | 2→1 | 🟡 | matches `pd.Series.ewm.cov/corr`; useful for fast-moving regimes |
-| `EwBeta` | EW slope of x on y | 2→1 | 🟡 | composable from `EwCov` and `EwVar` |
-| `EwMin`, `EwMax` | non-trivial in EW form; usually approximated by other means | 1→1 | ⚪ | rarely asked for |
+No prioritised gaps remain. (`EwMin` and `EwMax` were considered and
+dropped: the running min/max under exponential weighting has no
+agreed-upon definition and is rarely asked for in practice.)
 
 
 ## Moving averages and trend (technical-analysis "overlap studies")

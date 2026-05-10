@@ -8,6 +8,9 @@
 #include "screamer/ew_skew.h"
 #include "screamer/ew_kurt.h"
 #include "screamer/ew_rms.h"
+#include "screamer/ew_cov.h"
+#include "screamer/ew_corr.h"
+#include "screamer/ew_beta.h"
 
 namespace py = pybind11;
 
@@ -129,5 +132,56 @@ void init_bindings_ew(py::module& m) {
         )
         .def("__call__", &screamer::EwRms::operator(), py::arg("value"))
         .def("reset", &screamer::EwRms::reset, "Reset to the initial state.");
+
+     // 2-input EW pair statistics. Same com/span/halflife/alpha mutex as
+     // the 1-input variants. Bias-corrected like EwVar (matches pandas
+     // ewm(adjust=True, bias=False).cov / .corr).
+     py::class_<screamer::EwCov>(m, "EwCov")
+        .def(
+          py::init<
+               std::optional<double>,
+               std::optional<double>,
+               std::optional<double>,
+               std::optional<double>
+          >(),
+          py::arg("com") = std::nullopt,
+          py::arg("span") = std::nullopt,
+          py::arg("halflife") = std::nullopt,
+          py::arg("alpha") = std::nullopt
+        )
+        .def("__call__", &screamer::EwCov::handle_input)
+        .def("reset", &screamer::EwCov::reset, "Reset to the initial state.");
+
+     py::class_<screamer::EwCorr>(m, "EwCorr")
+        .def(
+          py::init<
+               std::optional<double>,
+               std::optional<double>,
+               std::optional<double>,
+               std::optional<double>
+          >(),
+          py::arg("com") = std::nullopt,
+          py::arg("span") = std::nullopt,
+          py::arg("halflife") = std::nullopt,
+          py::arg("alpha") = std::nullopt
+        )
+        .def("__call__", &screamer::EwCorr::handle_input)
+        .def("reset", &screamer::EwCorr::reset, "Reset to the initial state.");
+
+     py::class_<screamer::EwBeta>(m, "EwBeta")
+        .def(
+          py::init<
+               std::optional<double>,
+               std::optional<double>,
+               std::optional<double>,
+               std::optional<double>
+          >(),
+          py::arg("com") = std::nullopt,
+          py::arg("span") = std::nullopt,
+          py::arg("halflife") = std::nullopt,
+          py::arg("alpha") = std::nullopt
+        )
+        .def("__call__", &screamer::EwBeta::handle_input)
+        .def("reset", &screamer::EwBeta::reset, "Reset to the initial state.");
 
 }
