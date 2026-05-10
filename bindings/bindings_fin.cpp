@@ -5,6 +5,9 @@
 #include "screamer/log_return.h"
 #include "screamer/rolling_fracdiff.h"
 #include "screamer/rolling_corr.h"
+#include "screamer/rolling_cov.h"
+#include "screamer/rolling_beta.h"
+#include "screamer/rolling_spread.h"
 
 namespace py = pybind11;
 
@@ -36,4 +39,29 @@ void init_bindings_fin(py::module& m) {
              py::arg("start_policy") = "strict")
         .def("__call__", &screamer::RollingCorr::handle_input)
         .def("reset", &screamer::RollingCorr::reset, "Reset to the initial state.");
+
+    // Rolling sample covariance of two streams.
+    py::class_<screamer::RollingCov>(m, "RollingCov")
+        .def(py::init<int, const std::string&>(),
+             py::arg("window_size"),
+             py::arg("start_policy") = "strict")
+        .def("__call__", &screamer::RollingCov::handle_input)
+        .def("reset", &screamer::RollingCov::reset, "Reset to the initial state.");
+
+    // Rolling regression slope of x on y: beta = cov(x, y) / var(y).
+    py::class_<screamer::RollingBeta>(m, "RollingBeta")
+        .def(py::init<int, const std::string&>(),
+             py::arg("window_size"),
+             py::arg("start_policy") = "strict")
+        .def("__call__", &screamer::RollingBeta::handle_input)
+        .def("reset", &screamer::RollingBeta::reset, "Reset to the initial state.");
+
+    // Hedge-adjusted residual of x against y: spread = x - beta * y, with
+    // beta computed exactly as in RollingBeta.
+    py::class_<screamer::RollingSpread>(m, "RollingSpread")
+        .def(py::init<int, const std::string&>(),
+             py::arg("window_size"),
+             py::arg("start_policy") = "strict")
+        .def("__call__", &screamer::RollingSpread::handle_input)
+        .def("reset", &screamer::RollingSpread::reset, "Reset to the initial state.");
 }

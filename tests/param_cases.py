@@ -18,10 +18,16 @@ screamer_classes = get_module_public_classes(screamer_module)
 # pattern. Exclusions:
 #   RollingQuantile  - takes an extra `quantile` arg
 #   RollingFracDiff  - takes extra `frac_order`/`threshold` args
-#   RollingCorr      - takes 2 inputs (FunctorBase<_, 2, 1>); needs a
-#                      bespoke test that feeds two parallel arrays.
-#                      See tests/test_rolling_corr.py.
-_ROLLING_AUTO_EXCLUDE = {'RollingQuantile', 'RollingFracDiff', 'RollingCorr'}
+#   RollingCorr,
+#   RollingCov,
+#   RollingBeta,
+#   RollingSpread    - all take 2 inputs (FunctorBase<_, 2, 1>); they need
+#                      bespoke tests that feed two parallel arrays. See
+#                      tests/test_rolling_corr.py and friends.
+_ROLLING_AUTO_EXCLUDE = {
+    'RollingQuantile', 'RollingFracDiff',
+    'RollingCorr', 'RollingCov', 'RollingBeta', 'RollingSpread',
+}
 rolling_classes = [cls for cls in screamer_classes
                    if cls.startswith('Rolling') and cls not in _ROLLING_AUTO_EXCLUDE]
 
