@@ -7,5 +7,10 @@ Misc functions
    :hidden:
    :titlesonly:
 
-   functions_misc/Lag
+   functions_misc/CumMax
+   functions_misc/CumMin
+   functions_misc/CumProd
+   functions_misc/CumSum
+   functions_misc/Detrend
    functions_misc/Diff
+   functions_misc/Lag

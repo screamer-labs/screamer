@@ -3,6 +3,11 @@
 #include "screamer/common/base.h"
 #include "screamer/lag.h"
 #include "screamer/diff.h"
+#include "screamer/cum_sum.h"
+#include "screamer/cum_prod.h"
+#include "screamer/cum_max.h"
+#include "screamer/cum_min.h"
+#include "screamer/detrend.h"
 
 namespace py = pybind11;
 
@@ -17,5 +22,35 @@ void init_bindings_misc(py::module& m) {
         .def(py::init<int, const std::string&>(), py::arg("window_size"), py::arg("start_policy") = "strict")
         .def("__call__", &screamer::Lag::operator(), py::arg("value"))
         .def("reset", &screamer::Lag::reset, "Reset to the initial state.");
+
+    // Cumulative reductions from t=0. O(1) memory each. NaN propagates
+    // (matches numpy semantics, not pandas skipna=True).
+    py::class_<screamer::CumSum, screamer::ScreamerBase>(m, "CumSum")
+        .def(py::init<>())
+        .def("__call__", &screamer::CumSum::operator(), py::arg("value"))
+        .def("reset", &screamer::CumSum::reset, "Reset to the initial state.");
+
+    py::class_<screamer::CumProd, screamer::ScreamerBase>(m, "CumProd")
+        .def(py::init<>())
+        .def("__call__", &screamer::CumProd::operator(), py::arg("value"))
+        .def("reset", &screamer::CumProd::reset, "Reset to the initial state.");
+
+    py::class_<screamer::CumMax, screamer::ScreamerBase>(m, "CumMax")
+        .def(py::init<>())
+        .def("__call__", &screamer::CumMax::operator(), py::arg("value"))
+        .def("reset", &screamer::CumMax::reset, "Reset to the initial state.");
+
+    py::class_<screamer::CumMin, screamer::ScreamerBase>(m, "CumMin")
+        .def(py::init<>())
+        .def("__call__", &screamer::CumMin::operator(), py::arg("value"))
+        .def("reset", &screamer::CumMin::reset, "Reset to the initial state.");
+
+    // Detrend: y[t] = x[t] - RollingMean(window)(x)[t].
+    py::class_<screamer::Detrend, screamer::ScreamerBase>(m, "Detrend")
+        .def(py::init<int, const std::string&>(),
+             py::arg("window_size"),
+             py::arg("start_policy") = "strict")
+        .def("__call__", &screamer::Detrend::operator(), py::arg("value"))
+        .def("reset", &screamer::Detrend::reset, "Reset to the initial state.");
 
 }

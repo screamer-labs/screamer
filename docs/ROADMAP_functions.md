@@ -61,14 +61,14 @@ Priority: 🔴 high, 🟡 medium, ⚪ low.
 | `Clip(low, high)` | clamp |
 | `Ffill` | forward-fill NaN |
 | `FillNa(value)` | replace NaN with constant |
+| `CumSum`, `CumProd` | running sums (matches `numpy.cumsum`/`cumprod`) |
+| `CumMax`, `CumMin` | running extrema (matches `numpy.maximum/minimum.accumulate`) |
+| `Detrend(window)` | `x[t]` minus a rolling-mean baseline |
 
 ### Gaps
 
 | Function | Description | Quadrant | Priority | Note |
 |---|---|---|---|---|
-| `CumSum`, `CumProd` | running sums | 1→1 | 🟡 | very common; useful for PnL aggregation |
-| `CumMax`, `CumMin` | running extrema | 1→1 | 🟡 | needed for drawdown |
-| `Detrend(window)` | subtract rolling mean | 1→1 | 🟡 | composite of `RollingMean` + subtraction; convenient |
 | `Diff2`, `Pct` | second difference, % change | 1→1 | ⚪ | composable from `Diff` and arithmetic |
 | `Identity` | pass-through | 1→1 | ⚪ | mostly useful as a placeholder in pipelines |
 
@@ -293,7 +293,7 @@ sensible groupings:
 
 1. **OHLC volatility batch**: `TrueRange` → `ATR` → `NATR` → `KeltnerChannels` (forces Plan E for `N→M`) → `DonchianChannels`. Three-input dispatcher gets a heavy real workout.
 2. **MA family batch**: `WMA`, `DEMA`, `TEMA`, `KAMA`, `SavGol`. All `1→1`, easy, fills the most-requested TA-Lib gap.
-3. **Risk metrics batch**: `CumMax`, `CumMin`, `Drawdown`, `MaxDrawdown`, `RollingSharpe`. Differentiates `screamer` from TA-Lib.
+3. **Risk metrics batch**: `Drawdown`, `MaxDrawdown`, `RollingSharpe`, `RollingSortino`. `CumMax`/`CumMin` are already in place, so `Drawdown` is now a one-liner. Differentiates `screamer` from TA-Lib.
 4. **Volume batch**: `VWAP`, `OBV`, `AD`, `MFI`. Adds whole new feature category.
 5. **Momentum batch**: `MACD`, `Stoch`, `WilliamsR`, `CCI`, `ROC`. Restores TA-Lib coverage for the most popular oscillators.
 
