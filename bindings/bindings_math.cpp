@@ -4,6 +4,7 @@
 #include "screamer/transform_functions.h"
 #include "screamer/linear.h"
 #include "screamer/power.h"
+#include "screamer/geometry.h"
 
 namespace py = pybind11;
 
@@ -149,5 +150,29 @@ void init_bindings_math(py::module& m) {
         .def(py::init<>())
         .def("__call__", &screamer::Transform<(double (*)(double)) screamer::identity>::operator(), py::arg("value"))
         .def("reset", &screamer::Transform<(double (*)(double)) screamer::identity>::reset, "Reset to the initial state.");
+
+     // 2D coordinate / vector math. Hypot and Atan2 are 2->1 and exist
+     // partly as primitives, partly as validation references for the
+     // 2->2 polar conversions: Hypot(x, y) == Cart2Polar(x, y)[0],
+     // Atan2(y, x) == Cart2Polar(x, y)[1].
+     py::class_<screamer::Hypot>(m, "Hypot")
+        .def(py::init<>())
+        .def("__call__", &screamer::Hypot::handle_input)
+        .def("reset", &screamer::Hypot::reset, "Reset to the initial state.");
+
+     py::class_<screamer::Atan2>(m, "Atan2")
+        .def(py::init<>())
+        .def("__call__", &screamer::Atan2::handle_input)
+        .def("reset", &screamer::Atan2::reset, "Reset to the initial state.");
+
+     py::class_<screamer::Cart2Polar>(m, "Cart2Polar")
+        .def(py::init<>())
+        .def("__call__", &screamer::Cart2Polar::handle_input)
+        .def("reset", &screamer::Cart2Polar::reset, "Reset to the initial state.");
+
+     py::class_<screamer::Polar2Cart>(m, "Polar2Cart")
+        .def(py::init<>())
+        .def("__call__", &screamer::Polar2Cart::handle_input)
+        .def("reset", &screamer::Polar2Cart::reset, "Reset to the initial state.");
 
 }

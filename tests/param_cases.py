@@ -40,10 +40,19 @@ rolling_classes = [cls for cls in screamer_classes
 # The Ew classes, except: todo baselines for 'EwSkew', 'EwKurt'
 ew_classes = [cls for cls in screamer_classes if cls.startswith('Ew') and not cls in['EwSkew', 'EwKurt']]
 
-# Classes that have no arguments
+# Classes that have no arguments. Some no-arg classes are multi-input
+# (FunctorBase<_, N, _>) or multi-output (FunctorBase<_, _, M>), which the
+# 1-in/1-out auto harness can't drive. Tested in their own files instead.
+_NO_ARG_AUTO_EXCLUDE = {
+    # 2-input (FunctorBase<_, 2, _>) -- need two parallel arrays
+    'Hypot', 'Atan2', 'Cart2Polar', 'Polar2Cart',
+    # Stateful 2->2 demo functor (validated in tests/test_geometry.py)
+    'MyFunctor22',
+}
 no_arg_classes = [
-    cls for cls in screamer_classes 
+    cls for cls in screamer_classes
     if len(get_constructor_arguments(getattr(screamer_module, cls)))==0
+       and cls not in _NO_ARG_AUTO_EXCLUDE
 ]
 
 # ----------------------------------------------------------------------

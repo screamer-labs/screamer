@@ -503,6 +503,182 @@ public:
     }
 
     // ---------------------------------------------------------
+    // MULTIPLE INPUTS, MULTIPLE OUTPUTS HANDLER (Plan E)
+    // ---------------------------------------------------------
+    // The natural composition of the N->1 and 1->M rules:
+    //   - inputs are paired column-by-column (from N->1)
+    //   - output shape = paired-input shape + (M,) (from 1->M)
+    template <size_t TN = N, size_t TM = M, typename = std::enable_if_t<(TN > 1) && (TM > 1)>>
+    py::object handle_input_Ni_Mo_numpy(py::tuple& inputs) {
+
+        std::array<py::array_t<double>, TN> inputs_array;
+        std::array<py::buffer_info, TN> inputs_info;
+
+        if (!py::isinstance<py::array>(inputs[0])) {
+            throw py::type_error("Incompatible input type, a mix of numpy arrays and other.");
+        }
+        inputs_array[0] = py::cast<py::array_t<double>>(inputs[0]);
+        inputs_info[0] = inputs_array[0].request();
+
+        if (inputs_info[0].ndim < 1) {
+            throw std::runtime_error("Input array must have at least one dimension");
+        }
+
+        for (size_t i = 1; i < TN; ++i) {
+            if (!py::isinstance<py::array>(inputs[i])) {
+                throw py::type_error("Incompatible input type, a mix of numpy arrays and other.");
+            }
+            inputs_array[i] = py::cast<py::array_t<double>>(inputs[i]);
+            inputs_info[i] = inputs_array[i].request();
+            if (inputs_info[0].ndim != inputs_info[i].ndim) {
+                throw py::type_error("Incompatible input numpy arrays, dimensions mismatch.");
+            }
+            for (size_t d = 0; d < inputs_info[0].ndim; ++d) {
+                if (inputs_info[0].shape[d] != inputs_info[i].shape[d]) {
+                    throw py::type_error("Incompatible input numpy arrays, shape mismatch.");
+                }
+            }
+        }
+
+        // Output shape = paired input shape + (M,)
+        std::vector<py::ssize_t> output_shape(inputs_info[0].shape.begin(),
+                                              inputs_info[0].shape.end());
+        output_shape.push_back(static_cast<py::ssize_t>(M));
+        py::array_t<double> output(output_shape);
+        py::buffer_info output_info = output.request();
+        double* output_data = static_cast<double*>(output_info.ptr);
+        std::ptrdiff_t output_stride = output_info.strides[0] / output_info.itemsize;
+
+        std::array<double*, TN> inputs_data{};
+        std::array<int64_t, TN> inputs_stride{};
+        size_t size = inputs_info[0].shape[0];
+        for (size_t i = 0; i < TN; ++i) {
+            inputs_data[i] = static_cast<double*>(inputs_info[i].ptr);
+            inputs_stride[i] = inputs_info[i].strides[0] / inputs_info[i].itemsize;
+        }
+
+        auto num_cols = detail::numpy_num_cols(inputs_info[0]);
+
+        std::array<size_t, TN> inputs_index{};
+        for (size_t col = 0; col < num_cols; ++col) {
+            for (size_t i = 0; i < TN; ++i) {
+                inputs_index[i] = detail::numpy_col_start_pos(col, inputs_info[i]);
+            }
+            // numpy_col_start_pos walks the trailing M-axis with index 0
+            // because col / product(input.shape[1..]) is 0, landing at
+            // output[0, ..., 0]. The M values are then written at offsets
+            // 0..M-1 within that step (same trick as 1i_Mo).
+            size_t output_index = detail::numpy_col_start_pos(col, output_info);
+
+            reset();
+
+            InputArray call_array;
+            for (size_t i = 0; i < size; i++) {
+                for (size_t j = 0; j < TN; ++j) {
+                    call_array[j] = inputs_data[j][inputs_index[j]];
+                }
+                ResultTuple results = call(call_array);
+                detail::write_tuple_to_memory(&output_data[output_index], results);
+
+                for (size_t j = 0; j < TN; ++j) {
+                    inputs_index[j] += inputs_stride[j];
+                }
+                output_index += output_stride;
+            }
+        }
+
+        reset();
+        return output;
+    }
+
+
+    template <size_t TN = N, size_t TM = M, typename = std::enable_if_t<(TN > 1) && (TM > 1)>>
+    py::object handle_input_Ni_Mo(const py::args args) {
+
+        // Case 1: single argument, list/tuple of N-tuples
+        // [(x0, y0), (x1, y1), ...] -> list of M-tuples
+        if (args.size() == 1) {
+            auto input = args[0];
+            if (py::isinstance<py::list>(input) || py::isinstance<py::tuple>(input)) {
+                bool valid = true;
+                std::vector<ResultTuple> results;
+                for (auto item : input) {
+                    if (!py::isinstance<py::tuple>(item)) {
+                        valid = false;
+                        break;
+                    }
+                    auto tuple = item.cast<py::tuple>();
+                    if (tuple.size() != N) {
+                        valid = false;
+                        break;
+                    }
+                    InputArray input_array = cast_to_array(tuple);
+                    results.push_back(call(input_array));
+                }
+                if (valid) {
+                    return py::cast(results);
+                }
+            }
+        }
+
+        py::tuple inputs = args_to_tuple_n(args);
+
+        // Case 2: tuple of N scalars -> single M-tuple
+        try {
+            InputArray array;
+            for (size_t i = 0; i < N; ++i) {
+                array[i] = inputs[i].cast<double>();
+            }
+            return py::cast(call(array));
+        } catch (const py::cast_error&) {
+        }
+
+        // Case 3: tuple of N numpy arrays of matching shape
+        if (py::isinstance<py::array>(inputs[0])) {
+            return handle_input_Ni_Mo_numpy(inputs);
+        }
+
+        // Case 4: tuple of N iterables -> list of M-tuples (eager)
+        bool all_iterable = true;
+        for (auto input : inputs) {
+            all_iterable = all_iterable && py::isinstance<py::iterable>(input);
+            if (!all_iterable) {
+                break;
+            }
+        }
+
+        if (all_iterable) {
+            std::array<py::iterator, N> iterators;
+            for (size_t i = 0; i < N; ++i) {
+                iterators[i] = py::iter(inputs[i]);
+            }
+
+            std::vector<ResultTuple> results;
+            while (true) {
+                InputArray array;
+                try {
+                    for (size_t i = 0; i < N; ++i) {
+                        if (iterators[i] == py::iterator()) {
+                            throw py::stop_iteration();
+                        }
+                        auto val = *iterators[i];
+                        array[i] = val.template cast<double>();
+                        ++iterators[i];
+                    }
+                } catch (py::stop_iteration&) {
+                    break;
+                }
+                results.push_back(call(array));
+            }
+
+            return py::cast(results);
+        }
+
+        throw py::type_error("Unsupported input type.");
+    }
+
+
+    // ---------------------------------------------------------
     // Main dispatcher
     // ---------------------------------------------------------
     py::object handle_input(py::args args) {
@@ -518,7 +694,7 @@ public:
         } else if constexpr ((N == 1) && (M > 1)) {
             return handle_input_1i_Mo(args[0]);
         } else if constexpr ((N > 1) && (M > 1)) {
-            throw py::type_error("Unsupported functor type: N > 1, M > 1");
+            return handle_input_Ni_Mo(args);
         } else {
             throw py::type_error("Unknown configuration.");
         }

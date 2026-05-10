@@ -29,6 +29,7 @@ class MyFunctor22 : public FunctorBase<MyFunctor22, 2, 2> {
 private:
     double sum_state = 0.0;   // Example internal state
 public:
+    void reset() override { sum_state = 0.0; }
     ResultTuple call(const InputArray& inputs) override {
         const auto& [a, b] = std::tie(inputs[0], inputs[1]);
         sum_state += a + b;           // Update state

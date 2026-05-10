@@ -14,16 +14,12 @@ using namespace screamer;
 // algorithm with N inputs and M outputs. ScreamerBase is essentially the
 // 1-input/1-output specialization of this idea.
 //
-// Plan B (this session): only MyFunctor11 (N=1,M=1) is bound. The dispatcher
-// is fully implemented for that case.
-//
-// Plan D (next session): introduce a real N>1, M=1 indicator on top of this
-// (e.g. RollingCorr) — the N-in/1-out dispatcher is already implemented, we
-// just need a real algorithm and to teach the test harness to feed it N
-// arrays. MyFunctor31 will be re-bound then.
-//
-// Plan C (after D): finish the M>1 dispatch handlers (handle_input_1i_Mo,
-// handle_input_Ni_Mo). MyFunctor22 will be re-bound then.
+// All four quadrants of the dispatcher are now implemented:
+//   1->1 (Plan B), N->1 (Plan D), 1->M (Plan C), N->M (Plan E).
+// MyFunctor11 is bound as a minimal demo of the 1->1 case. MyFunctor22 is
+// bound as a minimal stateful demo of the N->M case (state survives
+// between calls, which is what makes 2->2 dispatch interesting beyond the
+// stateless polar pair).
 
 void init_bindings_myfunctors(py::module& m) {
 
@@ -34,11 +30,13 @@ void init_bindings_myfunctors(py::module& m) {
 
     bind_functor_iterator<MyFunctor11>(m, "MyFunctorIterator11");
 
-    // MyFunctor22 (N=2, M=2): deferred to Plan C — handle_input throws
-    //   "Unsupported functor type: N > 1, M > 1" at runtime today.
-    //
+    py::class_<MyFunctor22>(m, "MyFunctor22")
+        .def(py::init<>())
+        .def("__call__", &MyFunctor22::handle_input)
+        .def("reset", &MyFunctor22::reset, "Reset to the initial state.");
+
     // MyFunctor31 (N=3, M=1): the C++ dispatcher works, but the auto-test
     //   harness in tests/param_cases.py feeds 1 numpy array per class; for a
-    //   3-input class it should feed 3 parallel arrays. Deferred to Plan D
-    //   along with the test-harness extension.
+    //   3-input class it should feed 3 parallel arrays. Deferred along with
+    //   the test-harness extension for N>2 inputs.
 }

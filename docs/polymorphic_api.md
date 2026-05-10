@@ -295,6 +295,39 @@ Like the multi-input path, the iterable case is eager: it returns
 `list[tuple[...]]`, not a lazy iterator.
 
 
+## The multi-input multi-output contract (`FunctorBase<_, N, M>`)
+
+Functions that map `N` parallel input streams to `M` parallel output streams compose the two rules above: inputs are paired column-by-column (from the `N → 1` path) and outputs gain a trailing axis of size `M` (from the `1 → M` path). `Cart2Polar` and `Polar2Cart` are reference examples with `N = M = 2`.
+
+| You pass... | You get back... |
+|---|---|
+| `obj(x, y)` (`N` positional scalars) | tuple of `M` floats |
+| `obj((x, y))` (one tuple of `N` scalars) | tuple of `M` floats |
+| `obj([(x1, y1), (x2, y2), ...])` (list of `N`-tuples) | `list[tuple[float, ...]]` of the same length |
+| `N` parallel 1D arrays of shape `(T,)` | NumPy array of shape `(T, M)` |
+| `N` parallel 2D arrays of shape `(T, K)` | NumPy array of shape `(T, K, M)`; column `k` is `obj(X[:, k], Y[:, k])` (bit-exact) |
+| `N` parallel iterables | `list[tuple[float, ...]]` (eager) |
+
+The shape rule is exactly: `output.shape == single_input.shape + (M,)`. Mismatched shapes across the `N` inputs raise `TypeError`, same as `N → 1`. The dispatcher calls `reset()` between independent paired streams in a 2D/N-D batch, so stateful `N → M` functors don't leak state across columns.
+
+```python
+from screamer import Cart2Polar, Polar2Cart
+
+# Two scalars -> tuple of two floats
+Cart2Polar()(3.0, 4.0)               # (5.0, 0.9272...)
+
+# Two 1D arrays -> shape (T, 2)
+Cart2Polar()(np.random.randn(100), np.random.randn(100)).shape    # (100, 2)
+
+# Two 2D arrays -> shape (T, K, 2), paired column-by-column
+Cart2Polar()(np.random.randn(100, 4), np.random.randn(100, 4)).shape  # (100, 4, 2)
+
+# Roundtrip: Polar2Cart and Cart2Polar are inverses
+polar = Cart2Polar()(x, y)
+back = Polar2Cart()(polar[:, 0], polar[:, 1])    # equals (x, y)
+```
+
+
 ## Symmetry table
 
 The same algorithm produces the same numbers across every input shape

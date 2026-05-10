@@ -21,7 +21,7 @@ template (see [`polymorphic_api.md`](polymorphic_api.md)):
   (`ScreamerBase` or `FunctorBase<_, 1, 1>`). Already implemented.
 - `N→1` is multi-input, one output (Plan D done).
 - `1→M` is one input, multi-output (Plan C done, M up to 3 used).
-- `N→M` is multi-input multi-output (no consumer yet, dispatcher throws).
+- `N→M` is multi-input multi-output (Plan E done; `Cart2Polar`/`Polar2Cart` are the first 2→2 consumers).
 
 Priority: 🔴 high, 🟡 medium, ⚪ low.
 
@@ -37,6 +37,8 @@ Priority: 🔴 high, 🟡 medium, ⚪ low.
 | `Floor`, `Ceil`, `Round` | rounding (`Round` uses banker's rounding, matching `numpy.round`) |
 | `Sin`, `Cos`, `Atan` | trig (useful for cyclical features) |
 | `Asin`, `Acos` | inverse trig (NaN outside `[-1, 1]`) |
+| `Hypot(x, y)`, `Atan2(y, x)` | 2-input Euclidean distance and signed angle |
+| `Cart2Polar`, `Polar2Cart` | 2→2 inverse-pair coordinate transforms |
 | `Erf`, `Erfc` | error function and complement |
 | `Tanh`, `Sigmoid`, `Softsign`, `Relu`, `Selu`, `Elu` | activations (more useful for ML pipelines than finance) |
 | `Linear(a, b)` | `a * x + b` |
@@ -46,7 +48,6 @@ Priority: 🔴 high, 🟡 medium, ⚪ low.
 
 | Function | Description | Quadrant | Priority | Note |
 |---|---|---|---|---|
-| `Atan2` | two-argument inverse tangent | 2→1 | ⚪ | not added: rarely needed for time-series; users can `np.arctan2(y, x)` and feed the result in |
 | `Compose(f, g, ...)` | declarative composition | 1→1 | ⚪ | superseded by the planned **DAG-of-transforms** design; tracked separately |
 
 
@@ -181,7 +182,7 @@ covered.
 | `TrueRange` | `max(high - low, |high - prev_close|, |low - prev_close|)` | 3→1 | 🔴 | the building block for ATR; the canonical OHLC-aware volatility |
 | `ATR(window)` | Average True Range = rolling mean of TrueRange | 3→1 | 🔴 | the canonical financial volatility measure |
 | `NATR` | Normalised ATR (`ATR / close * 100`) | 3→1 | 🟡 | trivial wrapper |
-| `KeltnerChannels(window, num_atr)` | `(lower, mid, upper)` like Bollinger but using ATR for bandwidth | 3→3 | 🟡 | needs `N→M` dispatch ("Plan E"); useful test case for the M>1 N>1 quadrant |
+| `KeltnerChannels(window, num_atr)` | `(lower, mid, upper)` like Bollinger but using ATR for bandwidth | 3→3 | 🟡 | uses the now-available `N→M` dispatch (Plan E) |
 | `DonchianChannels(window)` | `(lower, mid, upper)` from rolling min, mid (avg of min/max), max | 1→3 | 🟡 | already feasible today (M=3 dispatch is done) |
 | `ParkinsonVol` | high-low range volatility estimator | 2→1 | 🟡 | quant-finance staple |
 | `GarmanKlassVol` | OHLC volatility estimator | 4→1 | ⚪ | niche; needs OHLC |
@@ -224,7 +225,7 @@ None. All the volume-based indicators below are genuinely missing.
 |---|---|---|---|---|
 | `RollingAlpha` | regression intercept companion to `RollingBeta` | 2→1 | 🟡 | `α = mean(x) − β · mean(y)` |
 | `RollingResidualStd` | std of residuals from `RollingSpread`, useful for normalised pairs trading | 2→1 | 🟡 | composite |
-| `RollingLinearRegression` | `(slope, intercept, r_squared, std_err)` of x on y | 2→4 | 🟡 | matches TA-Lib's `LINEARREG_*`; needs N>1 M>1 ("Plan E") |
+| `RollingLinearRegression` | `(slope, intercept, r_squared, std_err)` of x on y | 2→4 | 🟡 | matches TA-Lib's `LINEARREG_*`; uses the now-available `N→M` dispatch (Plan E) |
 | `RollingTSF` | Time-Series Forecast (linear regression projected one step) | 1→1 | ⚪ | similar to `RollingPoly1` with derivative + endpoint extrapolation |
 | `RollingRank` | rank of latest value within window | 1→1 | 🟡 | also called `quantile_rank`; useful for cross-sectional features |
 | `RollingPercentile` | inverse of `RollingQuantile`: where does the current value sit? | 1→1 | 🟡 | very common in cross-sectional finance |
@@ -298,13 +299,12 @@ sensible groupings:
 4. **Volume batch**: `VWAP`, `OBV`, `AD`, `MFI`. Adds whole new feature category.
 5. **Momentum batch**: `MACD`, `Stoch`, `WilliamsR`, `CCI`, `ROC`. Restores TA-Lib coverage for the most popular oscillators.
 
-Each batch is one focused session. Before any of them, the multi-input
-auto-test harness (currently `tests/test_rolling_two_input.py` and
-`tests/test_one_input_multi_output.py`) is enough infrastructure to
-verify a batch end-to-end.
+Each batch is one focused session. The multi-input auto-test harness
+(currently `tests/test_rolling_two_input.py`,
+`tests/test_one_input_multi_output.py`, and `tests/test_geometry.py`)
+is enough infrastructure to verify a batch end-to-end.
 
-If the next batch needs `N→M` dispatch (Keltner, full LinearRegression),
-a "Plan E" extension to `FunctorBase` is the prerequisite. The shape
-rule would be the natural product: `output.shape == input.shape + (M,)`
-for each of the `N` parallel input streams' time axes, with the
-column-by-column pairing already used in the `N→1` path.
+All four `FunctorBase` quadrants are implemented: 1→1, N→1, 1→M, and
+N→M. The shape rule for any input/output combination is
+`output.shape == single_input.shape + (M,)` with column-by-column
+pairing across the `N` inputs.
