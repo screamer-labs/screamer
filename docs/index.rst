@@ -155,6 +155,7 @@ For a step-by-step walkthrough see the :doc:`User Guide <usage>`.
    :hidden:
 
    polymorphic_api
+   conventions
 
 
 .. toctree::

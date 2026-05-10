@@ -62,6 +62,15 @@ test = [
     "scipy>=1.14",
     "pandas>=2.2",
 ]
+# Cross-validation against independent third-party libraries. These
+# tests are skipped when the libraries are not importable, so the
+# group is opt-in. TA-Lib's Python wrapper requires its C library
+# (e.g. `brew install ta-lib` on macOS, `apt install libta-lib0-dev`
+# on Debian/Ubuntu) before `pip install TA-Lib` will work.
+validation = [
+    "TA-Lib>=0.6",
+    "pandas-ta-classic>=0.5",
+]
 docs = [
     "sphinx>=8.1",
     "sphinx-rtd-theme>=3.0.1",
@@ -118,6 +127,16 @@ pytest = "^7.0"
 numpy = { version = "^2.0.1", python = ">=3.10"}
 scipy = { version = "^1.14", python = ">=3.10"}
 pandas = "^2.2.3"
+
+# Optional cross-validation dependencies. Tests in
+# tests/test_third_party_alignment.py skip gracefully when these are
+# unavailable. Marked optional so a failed install (TA-Lib's C
+# dependency in particular) doesn't break ordinary `poetry install`.
+[tool.poetry.group.validation]
+optional = true
+[tool.poetry.group.validation.dependencies]
+TA-Lib = "^0.6"
+pandas-ta-classic = "^0.5"
 
 [tool.poetry.group.docs.dependencies]
 matplotlib = "^3.9.2"
