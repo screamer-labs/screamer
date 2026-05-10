@@ -249,8 +249,9 @@ void init_bindings_rolling(py::module& m) {
         .def("reset", &screamer::RollingOU::reset, "Reset to the initial state.");
 
     py::class_<screamer::RollingRSI, screamer::ScreamerBase>(m, "RollingRSI")
-        .def(py::init<int, const std::string&>(),
+        .def(py::init<int, const std::string&, const std::string&>(),
             py::arg("window_size"),
+            py::arg("method") = "wilder",
             py::arg("start_policy") = "strict")
         .def("__call__", &screamer::RollingRSI::operator(), py::arg("value"))
         .def("reset", &screamer::RollingRSI::reset, "Reset to the initial state.");

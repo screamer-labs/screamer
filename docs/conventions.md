@@ -22,6 +22,7 @@ All claims here are continuously checked by `tests/test_third_party_alignment.py
 | `HullMA` | -- | `hma` | TA-Lib does not have HullMA |
 | `BollingerBands` middle band | `BBANDS` (mid) | `bbands` | |
 | `RollingStd` | `STDDEV` (ddof=1) | -- | We follow pandas's `ddof=1` (sample std). See divergence below for `pandas-ta-classic.stdev`. |
+| `RollingRSI` (default: Wilder) | `RSI` | `rsi` | Default smoothing is Wilder's, matching TA-Lib and pandas-ta. Pass `method="cutler"` for the SMA-smoothed variant; see divergence below. |
 
 ## Where we deliberately diverge
 
@@ -61,15 +62,21 @@ $$
 
 This divergence cascades into `BollingerBands`: the middle band (an SMA) matches TA-Lib exactly, but the upper/lower bands inherit the std difference (TA-Lib uses ddof=0 in `BBANDS` by default).
 
-### `RollingRSI` -- Cutler's vs Wilder's
+### `RollingRSI(method="cutler")` -- the opt-in alternative to Wilder
 
-`screamer.RollingRSI` uses simple-moving-average smoothing of gains and losses (sometimes called "Cutler's RSI"). TA-Lib's `RSI` uses Wilder's smoothing -- a recursive form roughly equivalent to an EMA with `α = 1/period`:
+`screamer.RollingRSI` defaults to **Wilder's** smoothing (matching TA-Lib and pandas-ta-classic exactly). The constructor argument `method="cutler"` switches to **Cutler's RSI** -- a simple-moving-average smoothing of gains and losses:
 
 $$
 \text{avg\_gain}_W[t] = \frac{(w-1) \cdot \text{avg\_gain}_W[t-1] + \text{gain}[t]}{w}
+\qquad\text{(Wilder, default)}
 $$
 
-The two methods disagree by up to ~10 RSI points during early periods and converge slowly. In the wider literature both definitions are common; Wilder's is more popular in TA-Lib-compatible workflows, Cutler's is what you get from a naive `pandas.Series.diff().rolling(w).mean()` decomposition.
+$$
+\text{avg\_gain}_C[t] = \frac{1}{w} \sum_{k=0}^{w-1} \text{gain}[t-k]
+\qquad\text{(Cutler, opt-in)}
+$$
+
+The two methods disagree by up to ~10 RSI points during early periods and converge only slowly. In the wider literature both definitions are common; Wilder's is what almost every charting platform shows, Cutler's is what you get from a naive `pandas.Series.diff().rolling(w).mean()` decomposition and is used in some quantitative-research papers because the algebra is cleaner. There is also a one-sample offset: Wilder's first valid output is at sample index `n` (zero-indexed); Cutler's is at `n - 1`.
 
 ## How to verify these claims yourself
 

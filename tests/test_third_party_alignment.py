@@ -135,6 +135,22 @@ class TestExactAlignment:
                                       nbdevup=2, nbdevdn=2, matype=0)
         np.testing.assert_allclose(bb[n - 1:, 1], mid_ref[n - 1:], atol=1e-12)
 
+    def test_rolling_rsi_default_matches_talib_wilder(self, random_series):
+        """Default RollingRSI uses Wilder's smoothing, matching TA-Lib's
+        RSI and pandas-ta-classic's rsi (both use Wilder)."""
+        n = 14
+        ours = sc.RollingRSI(n)(random_series)
+        ref = talib.RSI(random_series, timeperiod=n)
+        mask = ~(np.isnan(ours) | np.isnan(ref))
+        np.testing.assert_allclose(ours[mask], ref[mask], atol=1e-10)
+
+    def test_rolling_rsi_default_matches_pandas_ta(self, random_series):
+        n = 14
+        ours = sc.RollingRSI(n)(random_series)
+        ref = np.asarray(pta.rsi(pd.Series(random_series), length=n))
+        mask = ~(np.isnan(ours) | np.isnan(ref))
+        np.testing.assert_allclose(ours[mask], ref[mask], atol=1e-10)
+
 
 # ---------------------------------------------------------------------------
 # Documented divergences (asserts the divergence is in the EXPECTED
@@ -233,23 +249,23 @@ class TestDocumentedDivergences:
         scale = np.sqrt(n / (n - 1))
         np.testing.assert_allclose(half_ours, half_talib * scale, atol=1e-12)
 
-    def test_rolling_rsi_uses_cutler_smoothing_not_wilder(self, random_series):
-        """screamer.RollingRSI is Cutler's RSI (SMA smoothing of gains
-        and losses). TA-Lib uses Wilder's RSI (EMA-style smoothing
-        with alpha = 1/period). Both are common; they disagree by up
-        to ~10 RSI points early on. Assert the divergence is in the
-        expected ballpark."""
+    def test_rolling_rsi_cutler_mode_diverges_from_wilder_as_expected(
+        self, random_series
+    ):
+        """The opt-in Cutler RSI (method="cutler") uses SMA smoothing of
+        gains and losses. TA-Lib uses Wilder's smoothing (the default
+        for screamer too). The two are both correct and differ by a
+        few RSI points; this test pins the divergence in the expected
+        ballpark so a regression in either side fires."""
         n = 14
         x = random_series
-        ours = sc.RollingRSI(n)(x)
-        ref = talib.RSI(x, timeperiod=n)
-        mask = ~(np.isnan(ours) | np.isnan(ref))
-        diff = np.abs(ours[mask] - ref[mask])
-        # Both are bounded to [0, 100]; max practical disagreement
-        # tends to be < 30 points after warmup.
+        cutler = sc.RollingRSI(n, method="cutler")(x)
+        wilder_ref = talib.RSI(x, timeperiod=n)
+        mask = ~(np.isnan(cutler) | np.isnan(wilder_ref))
+        diff = np.abs(cutler[mask] - wilder_ref[mask])
         assert diff.max() > 0.5, (
-            "RollingRSI vs TA-Lib divergence is unexpectedly small -- "
-            "did our smoothing convention change?"
+            "Cutler vs Wilder divergence is unexpectedly small -- "
+            "did one of the smoothing conventions change?"
         )
         assert diff.max() < 30.0
 
@@ -274,7 +290,8 @@ def test_summary_print(random_series, capsys):
         ("DEMA vs TA-Lib (divergent)",    sc.DEMA(span=n)(x),     talib.DEMA(x, n)),
         ("TEMA vs TA-Lib (divergent)",    sc.TEMA(span=n)(x),     talib.TEMA(x, n)),
         ("RollingStd vs pta.stdev (ddof)",sc.RollingStd(n)(x),    np.asarray(pta.stdev(s, length=n))),
-        ("RollingRSI vs TA-Lib (Cutler/Wilder)", sc.RollingRSI(n)(x), talib.RSI(x, n)),
+        ("RollingRSI default (Wilder) vs TA-Lib", sc.RollingRSI(n)(x), talib.RSI(x, n)),
+        ("RollingRSI cutler mode vs TA-Lib (divergent)", sc.RollingRSI(n, method="cutler")(x), talib.RSI(x, n)),
     ]
     print()
     print(f"{'comparison':45s}  max_abs_diff (post-warmup)")

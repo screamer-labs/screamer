@@ -25,7 +25,10 @@ factories = {
     'rolling_skew': screamer_module.RollingSkew,
     'rolling_kurt': screamer_module.RollingKurt,
     'rolling_rms': screamer_module.RollingRms,
-    'rolling_rsi': screamer_module.RollingRSI,
+    # start_policy applies to Cutler's SMA-of-gains/losses path; Wilder's
+    # smoothing has its own fixed warmup of n samples. Bind method=cutler
+    # so the start-policy tests exercise the relevant code path.
+    'rolling_rsi': lambda **kw: screamer_module.RollingRSI(method='cutler', **kw),
     'rolling_ou': screamer_module.RollingOU,
 }
 
