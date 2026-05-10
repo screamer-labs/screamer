@@ -161,10 +161,6 @@ archs = ["x86_64", "arm64"]
 [tool.cibuildwheel.windows]
 archs = ["AMD64"]
 
-# macOS x86_64 deployment target: cibuildwheel's default for cp311 x86_64 is
-# 10.9, but std::optional::value() requires 10.13+ on Apple's libc++.
-# Bump to 10.13 only for x86_64 (arm64 mac requires 11.0+ which cibuildwheel
-# already sets correctly).
-[[tool.cibuildwheel.overrides]]
-select = "*-macosx_x86_64"
-environment = { MACOSX_DEPLOYMENT_TARGET = "10.13" }
+# macOS deployment target floor (>= 10.13) is enforced in CMakeLists.txt
+# rather than via a cibuildwheel environment override -- the env-var path
+# through scikit-build-core to cmake was unreliable.

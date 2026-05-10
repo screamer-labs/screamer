@@ -1,6 +1,7 @@
 #ifndef FUNCTOR_BASE_H
 #define FUNCTOR_BASE_H
 
+#include <cstddef>
 #include <tuple>
 #include <type_traits>
 #include <utility>
@@ -88,8 +89,8 @@ public:
 
         // get number of elements in a column, and the stepsize
         size_t size = input_info.shape[0];
-        ssize_t input_stride = input_info.strides[0] / input_info.itemsize;
-        ssize_t output_stride = output_info.strides[0] / input_info.itemsize;
+        std::ptrdiff_t input_stride = input_info.strides[0] / input_info.itemsize;
+        std::ptrdiff_t output_stride = output_info.strides[0] / input_info.itemsize;
 
         // get the number of columns in this ndarray
         auto num_cols = detail::numpy_num_cols(input_info);
@@ -163,7 +164,7 @@ public:
         py::array_t<double> output(inputs_info[0].shape);
         py::buffer_info output_info = output.request();
         double* output_data = static_cast<double*>(output_info.ptr);
-        ssize_t output_stride = output_info.strides[0] / output_info.itemsize;
+        std::ptrdiff_t output_stride = output_info.strides[0] / output_info.itemsize;
 
         // Get input info
         std::array<double*, TN> inputs_data;

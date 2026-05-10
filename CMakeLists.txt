@@ -11,11 +11,18 @@ endif()
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
-# macOS deployment target: only set a default if not provided externally.
-# cibuildwheel sets MACOSX_DEPLOYMENT_TARGET in the environment, which CMake
-# picks up automatically when CMAKE_OSX_DEPLOYMENT_TARGET is not pre-set.
-if(APPLE AND NOT DEFINED CMAKE_OSX_DEPLOYMENT_TARGET AND NOT DEFINED ENV{MACOSX_DEPLOYMENT_TARGET})
-    set(CMAKE_OSX_DEPLOYMENT_TARGET "10.13" CACHE STRING "macOS deployment target")
+# macOS deployment target floor: 10.13 (High Sierra, September 2017).
+# We use std::optional::value(), which Apple's libc++ marks as unavailable
+# when targeting < 10.13 (it depends on bad_optional_access exception
+# machinery shipped with libc++abi.dylib starting in 10.13). cibuildwheel
+# defaults to 10.9 for cp311-macosx_x86_64 wheels, which trips this. Force
+# a 10.13 floor here so the build is robust regardless of how the
+# deployment target gets set externally. Only bumps UP, never down — arm64
+# already requires >= 11.0 and that's preserved.
+if(APPLE)
+    if(NOT CMAKE_OSX_DEPLOYMENT_TARGET OR CMAKE_OSX_DEPLOYMENT_TARGET VERSION_LESS "10.13")
+        set(CMAKE_OSX_DEPLOYMENT_TARGET "10.13" CACHE STRING "macOS deployment target" FORCE)
+    endif()
 endif()
 
 # Build with CPU-specific instructions (-march=native). OFF by default so
