@@ -151,6 +151,28 @@ class TestExactAlignment:
         mask = ~(np.isnan(ours) | np.isnan(ref))
         np.testing.assert_allclose(ours[mask], ref[mask], atol=1e-10)
 
+    def test_kama_matches_talib(self, random_series):
+        """KAMA's smoothing-constant formula and warmup are unambiguous
+        across the major implementations -- this should match TA-Lib
+        bit-for-bit."""
+        n = 30
+        x = np.cumsum(random_series)  # KAMA is meaningful on walks
+        ours = sc.KAMA(n)(x)
+        ref = talib.KAMA(x, timeperiod=n)
+        mask = ~(np.isnan(ours) | np.isnan(ref))
+        np.testing.assert_allclose(ours[mask], ref[mask], atol=1e-10)
+
+    def test_kama_matches_pandas_ta(self, random_series):
+        """pandas-ta-classic emits one sample earlier than TA-Lib
+        (it seeds differently at the boundary), but post both-valid
+        the values are bit-equivalent."""
+        n = 30
+        x = np.cumsum(random_series)
+        ours = sc.KAMA(n)(x)
+        ref = np.asarray(pta.kama(pd.Series(x), length=n))
+        mask = ~(np.isnan(ours) | np.isnan(ref))
+        np.testing.assert_allclose(ours[mask], ref[mask], atol=1e-10)
+
 
 # ---------------------------------------------------------------------------
 # Documented divergences (asserts the divergence is in the EXPECTED
@@ -292,6 +314,7 @@ def test_summary_print(random_series, capsys):
         ("RollingStd vs pta.stdev (ddof)",sc.RollingStd(n)(x),    np.asarray(pta.stdev(s, length=n))),
         ("RollingRSI default (Wilder) vs TA-Lib", sc.RollingRSI(n)(x), talib.RSI(x, n)),
         ("RollingRSI cutler mode vs TA-Lib (divergent)", sc.RollingRSI(n, method="cutler")(x), talib.RSI(x, n)),
+        ("KAMA vs TA-Lib",                   sc.KAMA(30)(np.cumsum(x)), talib.KAMA(np.cumsum(x), 30)),
     ]
     print()
     print(f"{'comparison':45s}  max_abs_diff (post-warmup)")

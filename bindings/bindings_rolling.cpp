@@ -30,6 +30,7 @@
 #include "screamer/tema.h"
 #include "screamer/trima.h"
 #include "screamer/hull_ma.h"
+#include "screamer/kama.h"
 
 namespace py = pybind11;
 
@@ -193,6 +194,16 @@ void init_bindings_rolling(py::module& m) {
         .def(py::init<int>(), py::arg("window_size"))
         .def("__call__", &screamer::HullMA::operator(), py::arg("value"))
         .def("reset", &screamer::HullMA::reset, "Reset to the initial state.");
+
+    // KAMA: Kaufman's Adaptive MA. Smoothing constant adapts to the
+    // efficiency ratio (net displacement / total absolute travel).
+    py::class_<screamer::KAMA, screamer::ScreamerBase>(m, "KAMA")
+        .def(py::init<int, int, int>(),
+            py::arg("window_size"),
+            py::arg("fast") = 2,
+            py::arg("slow") = 30)
+        .def("__call__", &screamer::KAMA::operator(), py::arg("value"))
+        .def("reset", &screamer::KAMA::reset, "Reset to the initial state.");
 
     py::class_<screamer::RollingMedian, screamer::ScreamerBase>(m, "RollingMedian")
         .def(py::init<int>(), py::arg("window_size"))

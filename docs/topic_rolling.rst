@@ -10,6 +10,7 @@ Rolling Window Functions
    functions_rolling/BollingerBands
    functions_rolling/DEMA
    functions_rolling/HullMA
+   functions_rolling/KAMA
    functions_rolling/RollingArgmax
    functions_rolling/RollingArgmin
    functions_rolling/RollingIqr

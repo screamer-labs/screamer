@@ -130,13 +130,13 @@ agreed-upon definition and is rarely asked for in practice.)
 | `DEMA`, `TEMA` | Double / Triple Exponential MA (Mulloy 1994). Pure compositions: `DEMA = 2·EMA − EMA(EMA)`, `TEMA = 3·EMA − 3·EMA(EMA) + EMA(EMA(EMA))` |
 | `TRIMA` | Triangular MA. `SMA(SMA(x, n_inner), n_outer)` with TA-Lib's window split |
 | `HullMA` | Hull MA (Hull 2005). `WMA(2·WMA(n/2) − WMA(n), √n)` |
+| `KAMA` | Kaufman Adaptive MA (Kaufman 1998). SC adapts to the efficiency ratio (net displacement / total absolute travel). Validated bit-for-bit against TA-Lib and pandas-ta to ~1e-15 |
 | `RollingPoly1`, `RollingPoly2` | linear / quadratic regression fit at the window endpoint (gives smoothed trend, slope, second derivative) |
 
 ### Gaps
 
 | Function | Description | Quadrant | Priority | Note |
 |---|---|---|---|---|
-| `KAMA` | Kaufman Adaptive Moving Average | 1→1 | 🟡 | adaptive smoothing based on volatility-to-noise ratio; not composable from existing primitives but each component is O(1) |
 | `MAMA` (MESA) | Hilbert-transform-based adaptive MA | 1→1 | ⚪ | requires Hilbert primitive we don't have; specialised |
 | `SavGol(window, order)` | Savitzky-Golay filter | 1→1 | 🟡 | `RollingPoly{1,2}` is the order=1/2 version centred at the right endpoint; `SavGol` would generalise to user-specified polynomial order and be the proper "savgol" |
 

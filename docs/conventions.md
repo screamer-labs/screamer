@@ -23,6 +23,7 @@ All claims here are continuously checked by `tests/test_third_party_alignment.py
 | `BollingerBands` middle band | `BBANDS` (mid) | `bbands` | |
 | `RollingStd` | `STDDEV` (ddof=1) | -- | We follow pandas's `ddof=1` (sample std). See divergence below for `pandas-ta-classic.stdev`. |
 | `RollingRSI` (default: Wilder) | `RSI` | `rsi` | Default smoothing is Wilder's, matching TA-Lib and pandas-ta. Pass `method="cutler"` for the SMA-smoothed variant; see divergence below. |
+| `KAMA` | `KAMA` | `kama` | Kaufman's defaults (`fast=2`, `slow=30`) match TA-Lib. First valid output is at sample index `window_size`, seeded with `KAMA[n-1] = x[n-1]`. |
 
 ## Where we deliberately diverge
 
