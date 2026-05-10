@@ -47,6 +47,54 @@ Y = np.random.randn(100, 4)
 Linear2(0.5, 0.5)(X, Y).shape       # (100, 4)
 ```
 
+## Visual example: positive excess of a price over its trend
+
+`Relu(Linear2(1, -1)(price, trend))` returns `max(price - trend, 0)`: zero when the price is at or below the trend, otherwise the gap. A natural way to highlight regimes where the price is *above* its smoothed trendline.
+
+```{eval-rst}
+.. plotly::
+    :include-source: True
+
+    import numpy as np
+    import plotly.graph_objects as go
+    from plotly.subplots import make_subplots
+    from screamer import Linear2, Relu, EwMean
+
+    rng = np.random.default_rng(0)
+    n = 400
+    # A drifting price with occasional jumps above and below.
+    noise = rng.normal(0.0, 0.5, n)
+    drift = np.linspace(0, 6, n)
+    bumps = 1.5 * np.sin(np.linspace(0, 4 * np.pi, n))
+    price = drift + bumps + noise
+
+    trend = EwMean(span=30)(price)
+    excess = Relu()(Linear2(1, -1)(price, trend))
+
+    fig = make_subplots(rows=2, cols=1, shared_xaxes=True,
+                        row_heights=[0.65, 0.35], vertical_spacing=0.08)
+    fig.add_trace(go.Scatter(y=price, mode='lines', name='Price',
+                             line=dict(color='steelblue')),
+                  row=1, col=1)
+    fig.add_trace(go.Scatter(y=trend, mode='lines', name='EW trend (span=30)',
+                             line=dict(color='gray', dash='dash')),
+                  row=1, col=1)
+    fig.add_trace(go.Scatter(y=excess, mode='lines',
+                             name='Relu(price - trend)',
+                             fill='tozeroy',
+                             line=dict(color='red')),
+                  row=2, col=1)
+    fig.update_layout(
+        title="Positive excess: Relu(Linear2(1, -1)(price, trend))",
+        xaxis_title="Index",
+        yaxis_title="Price",
+        yaxis2_title="Excess",
+        margin=dict(l=20, r=20, t=60, b=20),
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+    )
+    fig.show()
+```
+
 ## Reference
 
 There is no direct numpy / pandas / TA-Lib counterpart -- it is a primitive intended for composition. The single-input sibling is `Linear(scale, shift)`.
