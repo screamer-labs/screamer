@@ -47,9 +47,7 @@ $$
 
 with the seed `EMA[w-1] = SMA(x[0..w-1])` -- a window-sized SMA "warmup" plus undefined output for the first `w-1` samples. The two converge as `t → ∞` but disagree for early samples; for `span=10` the gap is on the order of a few percent for the first 30-50 samples.
 
-`DEMA` and `TEMA` are pure compositions of `EwMean`, so they inherit this divergence. `screamer.DEMA(span=10)(x)` matches pandas-ta-classic's `dema` (which also uses recursive EMA only when configured to) only via the `adjust=True` path; against TA-Lib's `DEMA` we differ by up to ~2% during warmup.
-
-**If you need TA-Lib parity for DEMA/TEMA**, file an issue -- it is implementable as an `adjust=False` mode on `EwMean`, just not currently exposed.
+`DEMA`, `TEMA`, and `MACD` are pure compositions of `EwMean`, so they inherit this divergence. Each of them matches the equivalent `pandas.Series.ewm(...).mean()` composition bit-exactly; each differs from TA-Lib by a few percent during early samples, converging as `t → ∞`. The decision is deliberate -- TA-Lib's SMA-seeded recursive form is a useful engineering shortcut but is not a statistically clean choice (it splices uniform weights onto exponential weights at an arbitrary cutoff). Our default favours the principled formula. If you need TA-Lib-bit-exact output for a backtest, file an issue.
 
 ### `RollingStd` -- ddof=1 (sample) vs ddof=0 (population)
 

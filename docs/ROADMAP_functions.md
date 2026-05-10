@@ -147,14 +147,14 @@ agreed-upon definition and is rarely asked for in practice.)
 
 | | |
 |---|---|
-| `RollingRSI` | Relative Strength Index |
+| `RollingRSI` | Relative Strength Index (Wilder by default, Cutler via `method="cutler"`) |
 | `Return`, `LogReturn` | simple / log returns over a delay |
+| `MACD` | Moving Average Convergence Divergence: `(macd, signal, histogram)`. Pure composition of three `EwMean`s |
 
 ### Gaps
 
 | Function | Description | Quadrant | Priority | Note |
 |---|---|---|---|---|
-| `MACD` | Moving Average Convergence Divergence | 1→3 | 🔴 | `(macd, signal, histogram)`; TA-Lib's most-used non-MA indicator |
 | `Stoch` | Stochastic oscillator | 1→2 | 🔴 | `(%K, %D)` over rolling min/max range |
 | `StochRSI` | Stochastic of RSI | 1→2 | 🟡 | composite |
 | `WilliamsR` | Williams %R | 1→1 | 🟡 | normalised position within rolling range |

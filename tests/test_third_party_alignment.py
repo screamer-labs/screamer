@@ -215,6 +215,38 @@ class TestDocumentedDivergences:
             "investigate."
         )
 
+    def test_macd_matches_pandas_adjust_true_not_talib(self, random_series):
+        """screamer.MACD is composed from three EwMean = pandas adjust=True
+        EMAs. We pin the pandas-composition reference bit-exact and assert
+        the TA-Lib gap is in the expected ballpark (TA-Lib uses adjust=False
+        with an SMA seed)."""
+        x = random_series
+        s = pd.Series(x)
+        fast, slow, signal = 12, 26, 9
+        out = sc.MACD(fast, slow, signal)(x)
+
+        # We match pandas adjust=True composition exactly.
+        ema_fast = s.ewm(span=fast, adjust=True).mean()
+        ema_slow = s.ewm(span=slow, adjust=True).mean()
+        macd_ref = (ema_fast - ema_slow).to_numpy()
+        signal_ref = (ema_fast - ema_slow).ewm(span=signal, adjust=True).mean().to_numpy()
+        np.testing.assert_allclose(out[:, 0], macd_ref, atol=1e-12)
+        np.testing.assert_allclose(out[:, 1], signal_ref, atol=1e-12)
+
+        # We deliberately differ from TA-Lib (same EMA-convention reason
+        # as DEMA / TEMA). Assert the gap is bounded.
+        macd_t, sig_t, _ = talib.MACD(x, fastperiod=fast, slowperiod=slow,
+                                       signalperiod=signal)
+        mask = ~(np.isnan(macd_t) | np.isnan(sig_t))
+        macd_diff = np.abs(out[mask, 0] - macd_t[mask])
+        sig_diff = np.abs(out[mask, 1] - sig_t[mask])
+        assert macd_diff.max() > 1e-3, (
+            "MACD vs TA-Lib unexpectedly close -- did one side change "
+            "its EMA convention?"
+        )
+        assert macd_diff.max() < 5.0
+        assert sig_diff.max() < 5.0
+
     def test_tema_matches_pandas_adjust_true_not_talib(self, random_series):
         n = 10
         x = random_series
@@ -315,6 +347,8 @@ def test_summary_print(random_series, capsys):
         ("RollingRSI default (Wilder) vs TA-Lib", sc.RollingRSI(n)(x), talib.RSI(x, n)),
         ("RollingRSI cutler mode vs TA-Lib (divergent)", sc.RollingRSI(n, method="cutler")(x), talib.RSI(x, n)),
         ("KAMA vs TA-Lib",                   sc.KAMA(30)(np.cumsum(x)), talib.KAMA(np.cumsum(x), 30)),
+        ("MACD macd  vs TA-Lib (divergent)", sc.MACD()(x)[:, 0], talib.MACD(x, 12, 26, 9)[0]),
+        ("MACD signal vs TA-Lib (divergent)", sc.MACD()(x)[:, 1], talib.MACD(x, 12, 26, 9)[1]),
     ]
     print()
     print(f"{'comparison':45s}  max_abs_diff (post-warmup)")

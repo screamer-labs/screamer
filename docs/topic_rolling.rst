@@ -11,6 +11,7 @@ Rolling Window Functions
    functions_rolling/DEMA
    functions_rolling/HullMA
    functions_rolling/KAMA
+   functions_rolling/MACD
    functions_rolling/RollingArgmax
    functions_rolling/RollingArgmin
    functions_rolling/RollingIqr

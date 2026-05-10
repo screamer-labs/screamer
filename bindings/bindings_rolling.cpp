@@ -31,6 +31,7 @@
 #include "screamer/trima.h"
 #include "screamer/hull_ma.h"
 #include "screamer/kama.h"
+#include "screamer/macd.h"
 
 namespace py = pybind11;
 
@@ -204,6 +205,16 @@ void init_bindings_rolling(py::module& m) {
             py::arg("slow") = 30)
         .def("__call__", &screamer::KAMA::operator(), py::arg("value"))
         .def("reset", &screamer::KAMA::reset, "Reset to the initial state.");
+
+    // MACD: (macd, signal, histogram). 1->3 functor composing three
+    // pandas adjust=True EMAs (our EwMean).
+    py::class_<screamer::MACD>(m, "MACD")
+        .def(py::init<int, int, int>(),
+            py::arg("fast") = 12,
+            py::arg("slow") = 26,
+            py::arg("signal") = 9)
+        .def("__call__", &screamer::MACD::handle_input)
+        .def("reset", &screamer::MACD::reset, "Reset to the initial state.");
 
     py::class_<screamer::RollingMedian, screamer::ScreamerBase>(m, "RollingMedian")
         .def(py::init<int>(), py::arg("window_size"))
