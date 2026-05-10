@@ -32,7 +32,11 @@ Priority: 🔴 high, 🟡 medium, ⚪ low.
 
 | | |
 |---|---|
-| `Abs`, `Sign`, `Exp`, `Log`, `Sqrt`, `Erf`, `Erfc` | scalar functions |
+| `Abs`, `Sign`, `Exp`, `Log`, `Sqrt` | scalar functions |
+| `Square`, `Cube` | precomposed `x^2`, `x^3` (faster than `Power(2)`/`Power(3)`) |
+| `Floor`, `Ceil` | rounding |
+| `Sin`, `Cos`, `Atan` | trig (useful for cyclical features) |
+| `Erf`, `Erfc` | error function and complement |
 | `Tanh`, `Sigmoid`, `Softsign`, `Relu`, `Selu`, `Elu` | activations (more useful for ML pipelines than finance) |
 | `Linear(a, b)` | `a * x + b` |
 | `Power(p)` | `x^p` |
@@ -41,10 +45,9 @@ Priority: 🔴 high, 🟡 medium, ⚪ low.
 
 | Function | Description | Quadrant | Priority | Note |
 |---|---|---|---|---|
-| `Floor`, `Ceil`, `Round` | rounding | 1→1 | ⚪ | thin wrappers, easy |
-| `Square`, `Cube` | precomposed common powers | 1→1 | ⚪ | `Power(2)` covers it |
-| `Sin`, `Cos`, `Atan` | trig (useful for cyclical features) | 1→1 | ⚪ | mostly relevant for time-of-day features |
-| `Compose(f, g)` | function composition object | 1→1 | ⚪ | Python lambdas already work; would be a perf optimisation |
+| `Round` | round-half-to-even | 1→1 | ⚪ | Python and numpy default; complements `Floor`/`Ceil` |
+| `Asin`, `Acos`, `Atan2` | additional inverse trig | 1→1 | ⚪ | `Atan2` would need 2 inputs (`N→1`); rarely needed for finance |
+| `Compose(f, g, ...)` | declarative composition | 1→1 | ⚪ | superseded by the planned **DAG-of-transforms** design; tracked separately |
 
 
 ## Misc / simple transforms

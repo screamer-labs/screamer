@@ -84,5 +84,45 @@ void init_bindings_math(py::module& m) {
         .def("__call__", &screamer::Power::operator(), py::arg("value"))
         .def("reset", &screamer::Power::reset, "Reset to the initial state.");
 
+     // Element-wise transforms wired through the Transform<...> template.
+     // Floor / Ceil round toward negative / positive infinity respectively.
+     py::class_<screamer::Transform<(double (*)(double)) std::floor>, screamer::ScreamerBase>(m, "Floor")
+        .def(py::init<>())
+        .def("__call__", &screamer::Transform<(double (*)(double)) std::floor>::operator(), py::arg("value"))
+        .def("reset", &screamer::Transform<(double (*)(double)) std::floor>::reset, "Reset to the initial state.");
+
+     py::class_<screamer::Transform<(double (*)(double)) std::ceil>, screamer::ScreamerBase>(m, "Ceil")
+        .def(py::init<>())
+        .def("__call__", &screamer::Transform<(double (*)(double)) std::ceil>::operator(), py::arg("value"))
+        .def("reset", &screamer::Transform<(double (*)(double)) std::ceil>::reset, "Reset to the initial state.");
+
+     // Square (x*x) and Cube (x*x*x): faster than Power(2) / Power(3) since
+     // they skip the std::pow logarithm.
+     py::class_<screamer::Transform<(double (*)(double)) screamer::square>, screamer::ScreamerBase>(m, "Square")
+        .def(py::init<>())
+        .def("__call__", &screamer::Transform<(double (*)(double)) screamer::square>::operator(), py::arg("value"))
+        .def("reset", &screamer::Transform<(double (*)(double)) screamer::square>::reset, "Reset to the initial state.");
+
+     py::class_<screamer::Transform<(double (*)(double)) screamer::cube>, screamer::ScreamerBase>(m, "Cube")
+        .def(py::init<>())
+        .def("__call__", &screamer::Transform<(double (*)(double)) screamer::cube>::operator(), py::arg("value"))
+        .def("reset", &screamer::Transform<(double (*)(double)) screamer::cube>::reset, "Reset to the initial state.");
+
+     // Trig: useful for cyclical features (time-of-day encoded as sin/cos
+     // of a fraction-of-day angle, etc.).
+     py::class_<screamer::Transform<(double (*)(double)) std::sin>, screamer::ScreamerBase>(m, "Sin")
+        .def(py::init<>())
+        .def("__call__", &screamer::Transform<(double (*)(double)) std::sin>::operator(), py::arg("value"))
+        .def("reset", &screamer::Transform<(double (*)(double)) std::sin>::reset, "Reset to the initial state.");
+
+     py::class_<screamer::Transform<(double (*)(double)) std::cos>, screamer::ScreamerBase>(m, "Cos")
+        .def(py::init<>())
+        .def("__call__", &screamer::Transform<(double (*)(double)) std::cos>::operator(), py::arg("value"))
+        .def("reset", &screamer::Transform<(double (*)(double)) std::cos>::reset, "Reset to the initial state.");
+
+     py::class_<screamer::Transform<(double (*)(double)) std::atan>, screamer::ScreamerBase>(m, "Atan")
+        .def(py::init<>())
+        .def("__call__", &screamer::Transform<(double (*)(double)) std::atan>::operator(), py::arg("value"))
+        .def("reset", &screamer::Transform<(double (*)(double)) std::atan>::reset, "Reset to the initial state.");
 
 }

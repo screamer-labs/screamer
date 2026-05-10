@@ -10,6 +10,11 @@ namespace screamer {
         return (T(0) < val) - (val < T(0));
     }
 
+    // Square and cube: precomposed common powers, faster than std::pow(x, 2)
+    // and std::pow(x, 3) (no logarithm) and clearer than `Power(2)`.
+    inline double square(double x) { return x * x; }
+    inline double cube(double x)   { return x * x * x; }
+
     // ReLU function
     inline double relu(double x) {
         return x > 0 ? x : 0;
