@@ -20,6 +20,11 @@
 #include "screamer/rolling_rsi.h"
 #include "screamer/rolling_min_max.h"
 #include "screamer/bollinger_bands.h"
+#include "screamer/rolling_argmin.h"
+#include "screamer/rolling_argmax.h"
+#include "screamer/rolling_range.h"
+#include "screamer/rolling_mad.h"
+#include "screamer/rolling_iqr.h"
 
 namespace py = pybind11;
 
@@ -83,6 +88,47 @@ void init_bindings_rolling(py::module& m) {
         .def(py::init<int>(), py::arg("window_size"))
         .def("__call__", &screamer::RollingMax::operator(), py::arg("value"))
         .def("reset", &screamer::RollingMax::reset, "Reset to the initial state.");
+
+    // Position of the rolling minimum / maximum within the window.
+    // 0 = oldest sample, window_size-1 = newest. Same monotonic-deque
+    // primitive as RollingMin / RollingMax, exposed via the front
+    // element's window offset.
+    py::class_<screamer::RollingArgmin, screamer::ScreamerBase>(m, "RollingArgmin")
+        .def(py::init<int>(), py::arg("window_size"))
+        .def("__call__", &screamer::RollingArgmin::operator(), py::arg("value"))
+        .def("reset", &screamer::RollingArgmin::reset, "Reset to the initial state.");
+
+    py::class_<screamer::RollingArgmax, screamer::ScreamerBase>(m, "RollingArgmax")
+        .def(py::init<int>(), py::arg("window_size"))
+        .def("__call__", &screamer::RollingArgmax::operator(), py::arg("value"))
+        .def("reset", &screamer::RollingArgmax::reset, "Reset to the initial state.");
+
+    // RollingRange: max - min. Two monotonic deques internally,
+    // composed at the primitive level (same algorithm RollingMinMax
+    // runs, returned as a single scalar instead of a tuple).
+    py::class_<screamer::RollingRange, screamer::ScreamerBase>(m, "RollingRange")
+        .def(py::init<int>(), py::arg("window_size"))
+        .def("__call__", &screamer::RollingRange::operator(), py::arg("value"))
+        .def("reset", &screamer::RollingRange::reset, "Reset to the initial state.");
+
+    // Mean absolute deviation, mean(|x - rolling_mean|). O(W) per step
+    // (provably no closed-form O(1) exists; the moving mean
+    // re-evaluates all W abs-deviations each step).
+    py::class_<screamer::RollingMad, screamer::ScreamerBase>(m, "RollingMad")
+        .def(py::init<int, const std::string&>(),
+            py::arg("window_size"),
+            py::arg("start_policy") = "strict")
+        .def("__call__", &screamer::RollingMad::operator(), py::arg("value"))
+        .def("reset", &screamer::RollingMad::reset, "Reset to the initial state.");
+
+    // Inter-quartile range = q75 - q25. Single shared OST queried
+    // twice (vs. two RollingQuantile instances which would use two
+    // independent trees). Same O(log W) per step, half the memory
+    // and inserts.
+    py::class_<screamer::RollingIqr, screamer::ScreamerBase>(m, "RollingIqr")
+        .def(py::init<int>(), py::arg("window_size"))
+        .def("__call__", &screamer::RollingIqr::operator(), py::arg("value"))
+        .def("reset", &screamer::RollingIqr::reset, "Reset to the initial state.");
 
     py::class_<screamer::RollingMedian, screamer::ScreamerBase>(m, "RollingMedian")
         .def(py::init<int>(), py::arg("window_size"))

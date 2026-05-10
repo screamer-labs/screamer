@@ -82,7 +82,12 @@ Priority: 🔴 high, 🟡 medium, ⚪ low.
 `RollingMean`, `RollingSum`, `RollingVar`, `RollingStd`, `RollingSkew`,
 `RollingKurt`, `RollingZscore`, `RollingMin`, `RollingMax`,
 `RollingMinMax`, `RollingMedian`, `RollingQuantile`, `RollingRms`,
-`RollingPoly1`, `RollingPoly2`, `RollingSigmaClip`, `RollingOU`.
+`RollingPoly1`, `RollingPoly2`, `RollingSigmaClip`, `RollingOU`,
+`RollingMad`, `RollingArgmin`, `RollingArgmax`, `RollingRange`,
+`RollingIqr`. The monotonic-deque primitive is centralised in
+`detail::MonotonicDeque<bool IsMax>`, shared by `Min`/`Max`/`MinMax`/
+`Argmin`/`Argmax`/`Range`. `RollingIqr` shares a single OST instead
+of running two `RollingQuantile`s (half the memory and inserts).
 
 This is a strong set; pandas `Series.rolling.*` is essentially fully
 covered.
@@ -91,12 +96,8 @@ covered.
 
 | Function | Description | Quadrant | Priority | Note |
 |---|---|---|---|---|
-| `RollingMad` | Mean absolute deviation, `mean(|x - rolling_mean|)` | 1→1 | 🟡 | robust scale measure; talib has `MEDPRICE` siblings |
-| `RollingArgmin`, `RollingArgmax` | index of min/max within window | 1→1 | 🟡 | TA-Lib's `MAXINDEX`, `MININDEX` |
-| `RollingRange` | `max − min` | 1→1 | 🟡 | trivial composite of `RollingMinMax` |
-| `RollingIqr` | inter-quartile range | 1→1 | ⚪ | from `RollingQuantile` |
 | `RollingApply(fn, window)` | user-supplied Python function | 1→1 | ⚪ | breaks the all-C++ guarantee; only worth it if users complain |
-| `RollingTrimmedMean` | trimmed-mean for robust mean | 1→1 | ⚪ | rare in finance |
+| `RollingTrimmedMean` | trimmed-mean for robust mean | 1→1 | ⚪ | rare in finance; dedicated O(log W) needs OST extension with subtree sums |
 | `Expanding{Mean,Var,...}` | growing-window variants (no max size) | 1→1 | 🟡 | the `start_policy="expanding"` param partially serves this; a dedicated class would have cleaner semantics |
 
 

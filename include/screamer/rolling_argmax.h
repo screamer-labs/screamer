@@ -1,0 +1,34 @@
+#ifndef SCREAMER_ROLLING_ARGMAX_H
+#define SCREAMER_ROLLING_ARGMAX_H
+
+// RollingArgmax: position of the rolling maximum within the current
+// window. Convention: 0 = oldest sample in the window, window_size-1 =
+// newest. Matches numpy.argmax applied to the window slice and pandas'
+// .rolling(w).apply(np.argmax).
+//
+// Same monotonic-deque algorithm as RollingMax -- amortised O(1) per
+// step.
+
+#include "screamer/common/base.h"
+#include "screamer/detail/monotonic_deque.h"
+
+namespace screamer {
+
+class RollingArgmax : public ScreamerBase {
+public:
+    explicit RollingArgmax(int window_size) : deque_(window_size) {}
+
+    void reset() override { deque_.reset(); }
+
+private:
+    double process_scalar(double newValue) override {
+        deque_.append(newValue);
+        return static_cast<double>(deque_.front_window_offset());
+    }
+
+    detail::MaxDeque deque_;
+};
+
+}  // namespace screamer
+
+#endif
