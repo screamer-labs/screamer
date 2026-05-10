@@ -18,28 +18,41 @@ $$
 
 ## Usage Example and Plot
 
+A natural application is monitoring the *worst single-period return seen so far* on a price series. Starting from a synthetic price path, take period returns, then track `CumMin` of those returns. The result is a step function that ratchets down only when a new worst day arrives.
+
 ```{eval-rst}
 .. plotly::
     :include-source: True
 
     import numpy as np
     import plotly.graph_objects as go
+    from plotly.subplots import make_subplots
     from screamer import CumMin
 
     rng = np.random.default_rng(3)
-    data = rng.normal(0.0, 1.0, size=200)
-    running_min = CumMin()(data)
+    n = 300
+    returns = rng.normal(0.0005, 0.012, size=n)
+    price = 100.0 * np.cumprod(1.0 + returns)
+    worst_return = CumMin()(returns)
 
-    fig = go.Figure()
-    fig.add_trace(go.Scatter(y=data, mode='lines',
-                             name='x[t]', line=dict(color='steelblue')))
-    fig.add_trace(go.Scatter(y=running_min, mode='lines',
-                             name='CumMin(x)[t]',
-                             line=dict(color='red', dash='dash')))
+    fig = make_subplots(rows=3, cols=1, shared_xaxes=True,
+                        row_heights=[1/3, 1/3, 1/3], vertical_spacing=0.08)
+    fig.add_trace(go.Scatter(y=price, mode='lines', name='Price',
+                             line=dict(color='steelblue')),
+                  row=1, col=1)
+    fig.add_trace(go.Scatter(y=returns, mode='lines', name='Period return',
+                             line=dict(color='gray')),
+                  row=2, col=1)
+    fig.add_trace(go.Scatter(y=worst_return, mode='lines',
+                             name='CumMin(return) = worst so far',
+                             line=dict(color='red', dash='dash')),
+                  row=3, col=1)
     fig.update_layout(
-        title="CumMin: Running Minimum from t=0",
+        title="CumMin: Worst Single-Period Return Seen So Far",
         xaxis_title="Index",
-        yaxis_title="Value",
+        yaxis_title="Price",
+        yaxis2_title="Return",
+        yaxis3_title="Worst return",
         margin=dict(l=20, r=20, t=60, b=20),
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
     )

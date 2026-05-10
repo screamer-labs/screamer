@@ -18,11 +18,7 @@ $$
 
 ## Usage Example and Plot
 
-A canonical application is the *high-water mark* of a price or equity curve, which is the building block of drawdown:
-
-$$
-\text{drawdown}[t] = \frac{x[t]}{\text{CumMax}(x)[t]} - 1
-$$
+The output traces the *high-water mark* of the input: a step function that lifts whenever the input sets a new record and stays flat in between.
 
 ```{eval-rst}
 .. plotly::
@@ -30,30 +26,22 @@ $$
 
     import numpy as np
     import plotly.graph_objects as go
-    from plotly.subplots import make_subplots
     from screamer import CumMax
 
     rng = np.random.default_rng(2)
-    returns = rng.normal(0.0003, 0.012, size=400)
-    price = 100.0 * np.cumprod(1.0 + returns)
-    peak = CumMax()(price)
-    drawdown = price / peak - 1.0
+    x = np.cumsum(rng.normal(0.0, 1.0, size=300))
+    peak = CumMax()(x)
 
-    fig = make_subplots(rows=2, cols=1, shared_xaxes=True,
-                        row_heights=[0.5, 0.5], vertical_spacing=0.1)
-    fig.add_trace(go.Scatter(y=price, mode='lines', name='Price'),
-                  row=1, col=1)
-    fig.add_trace(go.Scatter(y=peak, mode='lines', name='CumMax (high-water mark)',
-                             line=dict(color='green', dash='dash')),
-                  row=1, col=1)
-    fig.add_trace(go.Scatter(y=drawdown, mode='lines', name='Drawdown',
-                             fill='tozeroy', line=dict(color='red')),
-                  row=2, col=1)
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(y=x, mode='lines',
+                             name='x[t]', line=dict(color='steelblue')))
+    fig.add_trace(go.Scatter(y=peak, mode='lines',
+                             name='CumMax(x)[t]',
+                             line=dict(color='green', dash='dash')))
     fig.update_layout(
-        title="CumMax: High-Water Mark and Drawdown",
+        title="CumMax: High-Water Mark of a Random Walk",
         xaxis_title="Index",
-        yaxis_title="Price",
-        yaxis2_title="Drawdown",
+        yaxis_title="Value",
         margin=dict(l=20, r=20, t=60, b=20),
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
     )
