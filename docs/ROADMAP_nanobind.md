@@ -17,7 +17,7 @@ Python minor release (3.15, 3.16, …) currently requires us to:
 Multiplied across 4 OSes, every Python release adds 4 wheels per release. The
 matrix grows without bound.
 
-The fix is to ship **abi3 / Py_LIMITED_API** wheels — built once against the
+The fix is to ship **abi3 / Py_LIMITED_API** wheels, built once against the
 CPython Limited API, valid forever on 3.x ≥ minimum. **pybind11 cannot do this
 reliably today.** nanobind can.
 
@@ -31,13 +31,13 @@ pybind11_add_module(screamer_bindings MODULE STABLE_ABI ${SOURCES})  # broken
 
 CMake error: `No SOURCES given to target: screamer_bindings`. `STABLE_ABI`
 isn't in pybind11's `cmake_parse_arguments` options list (we checked
-`build/_deps/pybind11-src/tools/pybind11Tools.cmake` — recognised options are
+`build/_deps/pybind11-src/tools/pybind11Tools.cmake`, recognised options are
 only `MODULE;SHARED;EXCLUDE_FROM_ALL;NO_EXTRAS;SYSTEM;THIN_LTO;OPT_SIZE`).
 The same is true in pybind11 v3.0 (CMakeLists keyword set:
 `STATIC;SHARED;MODULE;THIN_LTO;OPT_SIZE;NO_EXTRAS;WITHOUT_SOABI`).
 
 The pybind11 maintainers track this in
-[discussion #4474 — "Support for stable CPython ABI?"](https://github.com/pybind/pybind11/discussions/4474),
+[discussion #4474, "Support for stable CPython ABI?"](https://github.com/pybind/pybind11/discussions/4474),
 which has been open since 2023. The blocker is that pybind11's class-binding
 machinery historically reached into private CPython structures (tuple/list
 internals, dict slots) that the Limited API doesn't expose. Until that's
@@ -97,21 +97,21 @@ Files needing edits (line counts approximate):
 | `bindings/bindings_fin.cpp` | 30 | Mechanical |
 | `bindings/bindings_misc.cpp` | 20 | Mechanical |
 | `bindings/bindings_myfunctors.cpp` | 30 | Mechanical |
-| `include/screamer/common/base.h` + `base.cpp` | 200 | **Real work** — `py::array_t<double>`, the polymorphic `operator()`, iterator/async-generator dispatch all need to be rewritten against nanobind's `nb::ndarray<>` API |
-| `include/screamer/common/iterator.h` | 50 | Real work — nanobind's iterator protocol differs |
-| `include/screamer/common/async_generator.h` + `.cpp` | 100 | Real work — async generator handling is the trickiest part |
+| `include/screamer/common/base.h` + `base.cpp` | 200 | **Real work**, `py::array_t<double>`, the polymorphic `operator()`, iterator/async-generator dispatch all need to be rewritten against nanobind's `nb::ndarray<>` API |
+| `include/screamer/common/iterator.h` | 50 | Real work, nanobind's iterator protocol differs |
+| `include/screamer/common/async_generator.h` + `.cpp` | 100 | Real work, async generator handling is the trickiest part |
 | `include/screamer/common/functor_base.h` | 440 | Skip if MyFunctor is still parked; otherwise real work |
 | `CMakeLists.txt` | 80 | Replace `pybind11` FetchContent with `nanobind`; switch `pybind11_add_module` → `nanobind_add_module(... STABLE_ABI ...)` |
 
 ### Known migration gotchas
 
-1. **`py::array_t<double>` → `nb::ndarray<double>`** — nanobind's ndarray uses
+1. **`py::array_t<double>` → `nb::ndarray<double>`**, nanobind's ndarray uses
    a tagged template (`nb::ndarray<double, nb::ndim<1>>` etc.) and stride
    handling is more explicit. Our `process_python_array` in `base.cpp` will
    need rewriting; the algorithm is fine but the surface API changes.
-2. **`py::iterable`, `py::iterator`** — nanobind has these but the type names
+2. **`py::iterable`, `py::iterator`**, nanobind has these but the type names
    differ; iterator protocol is similar but not identical.
-3. **Async generators** — nanobind's async support is less mature than
+3. **Async generators**, nanobind's async support is less mature than
    pybind11's; we may need to keep some custom Python-side machinery.
 4. **Stable ABI is opt-in but constrained**. Once we set `STABLE_ABI`, we
    can't use nanobind features that aren't covered by the limited API.
@@ -126,16 +126,16 @@ Files needing edits (line counts approximate):
 
 Triggers in roughly order of likelihood:
 
-1. **Python 3.15 ships (October 2026)** — if anyone wants to use it before we
+1. **Python 3.15 ships (October 2026)**, if anyone wants to use it before we
    cut a release with `cp315-*` in the matrix, they'll hit source builds.
    Repeated complaints = migrate.
-2. **CI minutes become a budget concern** — 16 wheels × 4–5 minutes each is
+2. **CI minutes become a budget concern**, 16 wheels × 4–5 minutes each is
    reasonable today, but if the matrix grows or we add benchmarks to CI,
    abi3 cuts that to a quarter.
-3. **pybind11 ships first-class STABLE_ABI** — if discussion #4474 ever
+3. **pybind11 ships first-class STABLE_ABI**, if discussion #4474 ever
    becomes a feature, that's a much smaller migration than nanobind. Watch
    that thread.
-4. **A library we depend on migrates first** — if we end up needing nanobind
+4. **A library we depend on migrates first**, if we end up needing nanobind
    for some other reason, do the binding migration in the same session.
 
 ## Sketch of the migration plan when we do it
@@ -143,9 +143,9 @@ Triggers in roughly order of likelihood:
 1. Branch `nanobind-migration` from main.
 2. Add nanobind via FetchContent in `CMakeLists.txt`, keep pybind11 alongside
    for one commit so we can cross-reference the APIs.
-3. Migrate `bindings/bindings.cpp` first (smallest, mostly mechanical) —
-   prove the build pipeline.
-4. Migrate `include/screamer/common/base.h` + `base.cpp` — the heart of the
+3. Migrate `bindings/bindings.cpp` first (smallest, mostly mechanical)
+   to prove the build pipeline.
+4. Migrate `include/screamer/common/base.h` + `base.cpp`, the heart of the
    polymorphic dispatcher. This is the riskiest single file; do it second so
    if it doesn't pan out we haven't wasted work on the rest.
 5. Migrate iterator + async generator code. Validate against

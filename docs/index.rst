@@ -159,6 +159,15 @@ For a step-by-step walkthrough see the :doc:`User Guide <usage>`.
 
 .. toctree::
    :maxdepth: 1
+   :caption: Roadmap
+   :hidden:
+
+   ROADMAP_functions
+   ROADMAP_nanobind
+
+
+.. toctree::
+   :maxdepth: 1
    :caption: Release notes
    :hidden:
 

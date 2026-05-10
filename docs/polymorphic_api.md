@@ -1,7 +1,7 @@
 # Polymorphic input/output behavior
 
 A defining feature of screamer is that **the same callable works for every
-input shape** — a single scalar, a NumPy array, a strided view, a list, an
+input shape**, a single scalar, a NumPy array, a strided view, a list, an
 iterator, an async generator. The same code you write to backtest on a
 historical dataset runs unchanged in a live event loop. This page is the
 contract: exactly what each input type does and what each returns.
@@ -11,13 +11,14 @@ The contract has two layers:
 - **1‑input / 1‑output classes** (`RollingMean`, `EwVar`, `Diff`, `Lag`,
   every `Rolling*`, every `Ew*`, all the math transforms, ...). These inherit
   from `ScreamerBase`. The vast majority of screamer.
-- **N‑input / 1‑output classes** (currently `RollingCorr`; future
-  `RollingCov`, `RollingBeta`, etc.). These inherit from
-  `FunctorBase<Derived, N, 1>`. The rules differ slightly, mainly because
-  multiple inputs introduce a few new shapes.
+- **N‑input / 1‑output classes** (`RollingCorr`, `RollingCov`,
+  `RollingBeta`, `RollingSpread`). These inherit from
+  `FunctorBase<Derived, N, 1>`.
+- **1‑input / M‑output classes** (`RollingMinMax`, `BollingerBands`).
+  These inherit from `FunctorBase<Derived, 1, M>`.
 
-`N`‑input / `M`‑output for `M > 1` is not yet implemented; calling such a
-class raises `TypeError: Unsupported functor type`.
+The general N‑input / M‑output case is not yet implemented; calling such
+a class raises `TypeError: Unsupported functor type`.
 
 
 ## The single-input contract (`ScreamerBase`)
@@ -42,7 +43,7 @@ Every 1‑in/1‑out class supports the following input/output shapes:
 There are two important conventions hidden in this table.
 
 
-### Convention 1 — The first axis is *time*
+### Convention 1. The first axis is *time*
 
 For an N‑dimensional array, screamer always treats `axis=0` as the time
 axis and every other axis as a parallel independent series. Concretely:
@@ -88,12 +89,12 @@ the same instance for as many calls as you like and they will be
 indistinguishable from constructing a fresh instance each time.
 
 
-### Convention 2 — Eager for collections, lazy for iterators
+### Convention 2. Eager for collections, lazy for iterators
 
 Lists, tuples, and NumPy arrays are processed **eagerly** in one C++ pass.
 Iterators and generators are processed **lazily**: screamer wraps them in
 `LazyIterator` and produces values only when you advance the iteration.
-That separation is what makes the live-event use case work — your
+That separation is what makes the live-event use case work, your
 generator can yield from a socket, a Kafka stream, a clock-driven simulator,
 and screamer applies the algorithm at exactly the same cadence.
 
@@ -167,14 +168,14 @@ The exact decision tree implemented in `ScreamerBase::operator()`
 - `obj(decimal.Decimal("1.5"))` raises `TypeError`. `Decimal` is not in the
   scalar table; we deliberately avoid silent precision conversion.
 - 8‑bit and 16‑bit NumPy integers are also not in the scalar table. If
-  this becomes annoying for a use case, raise an issue — adding them is a
+  this becomes annoying for a use case, raise an issue, adding them is a
   one‑line change in `cast_double.h`.
 
 
 ## The multi-input contract (`FunctorBase<_, N, 1>`)
 
-Multi-input classes accept the same conceptual shapes — scalars, arrays,
-streams — but in `N` parallel slots. `RollingCorr(window_size)` is the
+Multi-input classes accept the same conceptual shapes, scalars, arrays,
+streams, but in `N` parallel slots. `RollingCorr(window_size)` is the
 reference example with `N = 2`.
 
 | You pass... | You get back... |
@@ -230,7 +231,7 @@ result = corr(X, Y)           # shape (100, 4)
 
 The pairing is **column-by-column**: `X[:, k]` is correlated against
 `Y[:, k]` only. Cross-pair correlations (`X[:, j]` vs `Y[:, k]` for
-`j != k`) are not computed — that would be a different operator
+`j != k`) are not computed, that would be a different operator
 returning a `(T, K, K)` result and is out of scope for `RollingCorr`.
 
 The streams are independent: `reset()` is called between columns inside
@@ -316,7 +317,7 @@ the dual training/live workflow practical:
   the end. So passing a NumPy array is functionally equivalent to
   constructing a fresh instance for that batch.
 - Between independent series in a 2D/3D array, `reset()` is called
-  automatically — column `k` does not see column `k‑1`'s state.
+  automatically, column `k` does not see column `k‑1`'s state.
 - The lazy iterator path does **not** call `reset()` for you. The whole
   point of streaming is preserving state across `__next__` calls. If you
   want to start over, construct a new instance or call `instance.reset()`
@@ -329,7 +330,7 @@ the dual training/live workflow practical:
 
 ## Why this design
 
-The polymorphism is not an accident or a convenience layer — it is the
+The polymorphism is not an accident or a convenience layer, it is the
 load‑bearing element of the API.
 
 1. **One mental model for two very different runtimes.** A backtest reads
@@ -354,11 +355,11 @@ load‑bearing element of the API.
 
 ## See also
 
-- `tests/test_io_size.py` — exhaustively walks every shape for every
+- `tests/test_io_size.py`, exhaustively walks every shape for every
   algorithm and asserts the output shape and dtype are correct.
-- `tests/test_view.py` — strided‑view correctness across the full library.
-- `tests/test_stream_vs_batch.py` — proves the eager (array) path and the
+- `tests/test_view.py`, strided‑view correctness across the full library.
+- `tests/test_stream_vs_batch.py`, proves the eager (array) path and the
   scalar path produce the same numbers.
-- `tests/test_stream_vs_generator.py` — proves the eager array path and
+- `tests/test_stream_vs_generator.py`, proves the eager array path and
   the lazy generator path produce the same numbers.
-- `tests/test_rolling_corr.py` — the multi-input contract for `N=2`.
+- `tests/test_rolling_corr.py`, the multi-input contract for `N=2`.

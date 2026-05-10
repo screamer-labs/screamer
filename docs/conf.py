@@ -41,13 +41,9 @@ extensions = [
 
 
 templates_path = ['_templates']
-exclude_patterns = [
-    '_build', 'Thumbs.db', '.DS_Store',
-    # Developer-facing roadmaps and design notes. They live here for
-    # discoverability inside the repo but should not show up in the user
-    # docs site.
-    'ROADMAP_*.md',
-]
+exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
+# Roadmap docs (ROADMAP_*.md) are now wired into the sidebar via a
+# Roadmap toctree section in index.rst.
 
 # Configure myst-parser to parse math
 myst_enable_extensions = [
