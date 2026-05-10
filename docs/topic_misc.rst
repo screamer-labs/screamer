@@ -13,4 +13,6 @@ Misc functions
    functions_misc/CumSum
    functions_misc/Detrend
    functions_misc/Diff
+   functions_misc/Diff2
+   functions_misc/Identity
    functions_misc/Lag

@@ -125,4 +125,29 @@ void init_bindings_math(py::module& m) {
         .def("__call__", &screamer::Transform<(double (*)(double)) std::atan>::operator(), py::arg("value"))
         .def("reset", &screamer::Transform<(double (*)(double)) std::atan>::reset, "Reset to the initial state.");
 
+     // Inverse trig: outputs NaN for inputs outside [-1, 1] (matches numpy).
+     py::class_<screamer::Transform<(double (*)(double)) std::asin>, screamer::ScreamerBase>(m, "Asin")
+        .def(py::init<>())
+        .def("__call__", &screamer::Transform<(double (*)(double)) std::asin>::operator(), py::arg("value"))
+        .def("reset", &screamer::Transform<(double (*)(double)) std::asin>::reset, "Reset to the initial state.");
+
+     py::class_<screamer::Transform<(double (*)(double)) std::acos>, screamer::ScreamerBase>(m, "Acos")
+        .def(py::init<>())
+        .def("__call__", &screamer::Transform<(double (*)(double)) std::acos>::operator(), py::arg("value"))
+        .def("reset", &screamer::Transform<(double (*)(double)) std::acos>::reset, "Reset to the initial state.");
+
+     // Round: nearest integer with half-to-even (banker's) rounding,
+     // matching numpy.round and Python's built-in round. std::round
+     // would round half-away-from-zero, which numpy does NOT do.
+     py::class_<screamer::Transform<(double (*)(double)) std::nearbyint>, screamer::ScreamerBase>(m, "Round")
+        .def(py::init<>())
+        .def("__call__", &screamer::Transform<(double (*)(double)) std::nearbyint>::operator(), py::arg("value"))
+        .def("reset", &screamer::Transform<(double (*)(double)) std::nearbyint>::reset, "Reset to the initial state.");
+
+     // Identity: pass-through, useful as a no-op pipeline node.
+     py::class_<screamer::Transform<(double (*)(double)) screamer::identity>, screamer::ScreamerBase>(m, "Identity")
+        .def(py::init<>())
+        .def("__call__", &screamer::Transform<(double (*)(double)) screamer::identity>::operator(), py::arg("value"))
+        .def("reset", &screamer::Transform<(double (*)(double)) screamer::identity>::reset, "Reset to the initial state.");
+
 }

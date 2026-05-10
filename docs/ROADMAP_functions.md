@@ -34,8 +34,9 @@ Priority: 🔴 high, 🟡 medium, ⚪ low.
 |---|---|
 | `Abs`, `Sign`, `Exp`, `Log`, `Sqrt` | scalar functions |
 | `Square`, `Cube` | precomposed `x^2`, `x^3` (faster than `Power(2)`/`Power(3)`) |
-| `Floor`, `Ceil` | rounding |
+| `Floor`, `Ceil`, `Round` | rounding (`Round` uses banker's rounding, matching `numpy.round`) |
 | `Sin`, `Cos`, `Atan` | trig (useful for cyclical features) |
+| `Asin`, `Acos` | inverse trig (NaN outside `[-1, 1]`) |
 | `Erf`, `Erfc` | error function and complement |
 | `Tanh`, `Sigmoid`, `Softsign`, `Relu`, `Selu`, `Elu` | activations (more useful for ML pipelines than finance) |
 | `Linear(a, b)` | `a * x + b` |
@@ -45,8 +46,7 @@ Priority: 🔴 high, 🟡 medium, ⚪ low.
 
 | Function | Description | Quadrant | Priority | Note |
 |---|---|---|---|---|
-| `Round` | round-half-to-even | 1→1 | ⚪ | Python and numpy default; complements `Floor`/`Ceil` |
-| `Asin`, `Acos`, `Atan2` | additional inverse trig | 1→1 | ⚪ | `Atan2` would need 2 inputs (`N→1`); rarely needed for finance |
+| `Atan2` | two-argument inverse tangent | 2→1 | ⚪ | not added: rarely needed for time-series; users can `np.arctan2(y, x)` and feed the result in |
 | `Compose(f, g, ...)` | declarative composition | 1→1 | ⚪ | superseded by the planned **DAG-of-transforms** design; tracked separately |
 
 
@@ -64,13 +64,14 @@ Priority: 🔴 high, 🟡 medium, ⚪ low.
 | `CumSum`, `CumProd` | running sums (matches `numpy.cumsum`/`cumprod`) |
 | `CumMax`, `CumMin` | running extrema (matches `numpy.maximum/minimum.accumulate`) |
 | `Detrend(window)` | `x[t]` minus a rolling-mean baseline |
+| `Diff2` | second-order finite difference (discrete second derivative) |
+| `Identity` | pass-through, useful as a pipeline placeholder |
 
 ### Gaps
 
 | Function | Description | Quadrant | Priority | Note |
 |---|---|---|---|---|
-| `Diff2`, `Pct` | second difference, % change | 1→1 | ⚪ | composable from `Diff` and arithmetic |
-| `Identity` | pass-through | 1→1 | ⚪ | mostly useful as a placeholder in pipelines |
+| `Pct` | percent change | 1→1 | ⚪ | already covered by `Return(k)` in the financial section |
 
 
 ## Rolling-window statistics

@@ -10,18 +10,29 @@ across all `Transform`-based classes.
 import numpy as np
 import pytest
 
-from screamer import Floor, Ceil, Square, Cube, Sin, Cos, Atan
+from screamer import Floor, Ceil, Square, Cube, Sin, Cos, Atan, Round, Asin, Acos, Identity
 
 
 # (screamer class, numpy reference) pairs
 PAIRS = [
-    (Floor,  np.floor),
-    (Ceil,   np.ceil),
-    (Square, lambda x: x * x),
-    (Cube,   lambda x: x * x * x),
-    (Sin,    np.sin),
-    (Cos,    np.cos),
-    (Atan,   np.arctan),
+    (Floor,    np.floor),
+    (Ceil,     np.ceil),
+    (Round,    np.round),
+    (Square,   lambda x: x * x),
+    (Cube,     lambda x: x * x * x),
+    (Sin,      np.sin),
+    (Cos,      np.cos),
+    (Atan,     np.arctan),
+    (Identity, lambda x: x.copy() if hasattr(x, "copy") else x),
+]
+
+
+# Inverse trig is bounded to [-1, 1]. Test it on a clipped input where
+# numpy doesn't emit "invalid value" warnings, then test out-of-range
+# behaviour separately below.
+INVERSE_TRIG_PAIRS = [
+    (Asin, np.arcsin),
+    (Acos, np.arccos),
 ]
 
 
@@ -45,7 +56,40 @@ def test_scalar_matches_numpy(cls, reference):
         assert obj(v) == pytest.approx(reference(v), abs=1e-12)
 
 
-@pytest.mark.parametrize("cls", [Floor, Ceil, Square, Cube, Sin, Cos, Atan])
+@pytest.mark.parametrize("cls,reference", INVERSE_TRIG_PAIRS,
+                         ids=[c.__name__ for c, _ in INVERSE_TRIG_PAIRS])
+def test_inverse_trig_in_range_matches_numpy(cls, reference):
+    x = np.linspace(-1.0, 1.0, 21)
+    np.testing.assert_allclose(cls()(x), reference(x), atol=1e-12)
+
+
+@pytest.mark.parametrize("cls", [Asin, Acos])
+def test_inverse_trig_out_of_range_returns_nan(cls):
+    """numpy.arcsin / arccos return NaN outside [-1, 1]; match that."""
+    x = np.array([-2.0, -1.5, -1.0, 1.0, 1.5, 2.0])
+    out = cls()(x)
+    expected_nan = np.array([True, True, False, False, True, True])
+    np.testing.assert_array_equal(np.isnan(out), expected_nan)
+
+
+def test_round_uses_bankers_rounding():
+    """Round must match numpy.round, which uses round-half-to-even
+    (banker's rounding), not round-half-away-from-zero."""
+    halves = np.array([-2.5, -1.5, -0.5, 0.5, 1.5, 2.5, 3.5, 4.5])
+    expected = np.array([-2.0, -2.0,  0.0, 0.0, 2.0, 2.0, 4.0, 4.0])
+    np.testing.assert_array_equal(Round()(halves), expected)
+
+
+def test_identity_preserves_nan():
+    x = np.array([1.0, 2.0, np.nan, 4.0, np.inf, -np.inf])
+    out = Identity()(x)
+    np.testing.assert_array_equal(np.isnan(out), np.isnan(x))
+    finite = ~np.isnan(x) & np.isfinite(x)
+    np.testing.assert_array_equal(out[finite], x[finite])
+
+
+@pytest.mark.parametrize("cls", [Floor, Ceil, Round, Square, Cube,
+                                  Sin, Cos, Atan, Asin, Acos, Identity])
 def test_2d_array_per_column_independence(cls):
     """Element-wise transforms have no state, so 2-D and column-by-column
     must agree exactly."""

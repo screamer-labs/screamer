@@ -15,6 +15,10 @@ namespace screamer {
     inline double square(double x) { return x * x; }
     inline double cube(double x)   { return x * x * x; }
 
+    // Identity: pass-through. Useful as a placeholder node when a pipeline
+    // slot needs filling without altering the data.
+    inline double identity(double x) { return x; }
+
     // ReLU function
     inline double relu(double x) {
         return x > 0 ? x : 0;

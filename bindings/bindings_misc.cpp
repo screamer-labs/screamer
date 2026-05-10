@@ -3,6 +3,7 @@
 #include "screamer/common/base.h"
 #include "screamer/lag.h"
 #include "screamer/diff.h"
+#include "screamer/diff2.h"
 #include "screamer/cum_sum.h"
 #include "screamer/cum_prod.h"
 #include "screamer/cum_max.h"
@@ -17,6 +18,14 @@ void init_bindings_misc(py::module& m) {
         .def(py::init<int, const std::string&>(), py::arg("window_size"), py::arg("start_policy") = "strict")
         .def("__call__", &screamer::Diff::operator(), py::arg("value"))
         .def("reset", &screamer::Diff::reset, "Reset to the initial state.");
+
+    // Diff2: second-order finite difference (discrete second derivative).
+    // Two NaN warmup samples under "strict". Distinct from Diff(2),
+    // which is the lag-2 first difference.
+    py::class_<screamer::Diff2, screamer::ScreamerBase>(m, "Diff2")
+        .def(py::init<const std::string&>(), py::arg("start_policy") = "strict")
+        .def("__call__", &screamer::Diff2::operator(), py::arg("value"))
+        .def("reset", &screamer::Diff2::reset, "Reset to the initial state.");
 
     py::class_<screamer::Lag, screamer::ScreamerBase>(m, "Lag")
         .def(py::init<int, const std::string&>(), py::arg("window_size"), py::arg("start_policy") = "strict")

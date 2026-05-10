@@ -8,6 +8,8 @@ Basic Math
    :titlesonly:
 
    functions_math/Abs
+   functions_math/Acos
+   functions_math/Asin
    functions_math/Atan
    functions_math/Ceil
    functions_math/Cos
@@ -21,6 +23,7 @@ Basic Math
    functions_math/Log
    functions_math/Power
    functions_math/Relu
+   functions_math/Round
    functions_math/Selu
    functions_math/Sigmoid
    functions_math/Sign
