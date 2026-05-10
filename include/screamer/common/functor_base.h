@@ -50,6 +50,20 @@ namespace detail {
         return start_pos;
     }
 
+    // Write each element of a std::tuple<double, double, ...> to consecutive
+    // doubles starting at `dest`. Used by the M>1-output dispatcher to
+    // serialise a call() result into a contiguous numpy output buffer.
+    template <typename Tuple, size_t... Is>
+    inline void write_tuple_helper(double* dest, const Tuple& t, std::index_sequence<Is...>) {
+        ((dest[Is] = std::get<Is>(t)), ...);
+    }
+
+    template <typename Tuple>
+    inline void write_tuple_to_memory(double* dest, const Tuple& t) {
+        constexpr size_t kSize = std::tuple_size_v<Tuple>;
+        write_tuple_helper(dest, t, std::make_index_sequence<kSize>{});
+    }
+
 
 }
 
@@ -209,6 +223,94 @@ public:
 
         return output;
     }    
+
+    // ---------------------------------------------------------
+    // ONE INPUT, M>1 OUTPUTS HANDLER
+    // ---------------------------------------------------------
+    // For a 1-input array of shape (T, ...) the output has shape
+    // (T, ..., M): an extra trailing axis of size M is appended for the
+    // M outputs per time step. Memory is written contiguously per step.
+    template <size_t TN = N, size_t TM = M, typename = std::enable_if_t<(TN == 1) && (TM > 1)>>
+    py::object handle_input_1i_Mo_numpy(py::array_t<double>& input) {
+        py::buffer_info input_info = input.request();
+
+        if (input_info.ndim < 1 || input_info.itemsize != sizeof(double)) {
+            throw std::runtime_error("Input array must have at least one dimension and contain doubles");
+        }
+
+        // Output shape = input shape + (M,)
+        std::vector<py::ssize_t> output_shape(input_info.shape.begin(), input_info.shape.end());
+        output_shape.push_back(static_cast<py::ssize_t>(M));
+        py::array_t<double> output(output_shape);
+        py::buffer_info output_info = output.request();
+
+        double* input_data = static_cast<double*>(input_info.ptr);
+        double* output_data = static_cast<double*>(output_info.ptr);
+
+        size_t size = input_info.shape[0];
+        std::ptrdiff_t input_stride = input_info.strides[0] / input_info.itemsize;
+        std::ptrdiff_t output_stride = output_info.strides[0] / output_info.itemsize;
+
+        auto num_cols = detail::numpy_num_cols(input_info);
+
+        for (size_t col = 0; col < num_cols; ++col) {
+            size_t input_index = detail::numpy_col_start_pos(col, input_info);
+            // The output's spatial dims are the input's followed by an
+            // appended size-M axis. For col < num_cols (which is the
+            // product of input's spatial dims), numpy_col_start_pos walks
+            // the M axis with index 0 because col / product(input.shape[1..])
+            // is 0, so it lands at output[0, ..., 0]. The M values are
+            // then written at offsets 0..M-1 within that step.
+            size_t output_index = detail::numpy_col_start_pos(col, output_info);
+
+            reset();
+
+            for (size_t i = 0; i < size; i++) {
+                ResultTuple results = call({input_data[input_index]});
+                detail::write_tuple_to_memory(&output_data[output_index], results);
+
+                input_index += input_stride;
+                output_index += output_stride;
+            }
+        }
+
+        reset();
+        return output;
+    }
+
+    template <size_t TN = N, size_t TM = M, typename = std::enable_if_t<(TN == 1) && (TM > 1)>>
+    py::object handle_input_1i_Mo(py::object input) {
+        // Case 1: Scalar input -> tuple of M floats
+        try {
+            InputArray input_array = {input.cast<double>()};
+            return py::cast(call(input_array));
+        } catch (const py::cast_error&) {
+        }
+
+        // Case 2: Numpy array (and lists/tuples cast to arrays at the
+        // ScreamerBase boundary; here pure arrays are routed)
+        if (py::isinstance<py::array>(input)) {
+            py::array_t<double> input_pyarray = py::cast<py::array_t<double>>(input);
+            return handle_input_1i_Mo_numpy(input_pyarray);
+        }
+
+        // Case 3: Iterable -> list of M-tuples (eager).
+        if (py::isinstance<py::iterable>(input)) {
+            std::vector<ResultTuple> results;
+            for (auto item : input) {
+                try {
+                    InputArray input_array = {item.cast<double>()};
+                    results.push_back(call(input_array));
+                } catch (const py::cast_error&) {
+                    throw py::type_error("Iterable must contain numbers.");
+                }
+            }
+            return py::cast(results);
+        }
+
+        throw py::type_error("Unsupported input type. Supported types are number, numpy array, or iterable.");
+    }
+
 
     // one input, one output
     template <size_t TN = N, size_t TM = M, typename = std::enable_if_t<(TN == 1) && (TM == 1)>>
@@ -414,7 +516,7 @@ public:
         } else if constexpr ((N > 1) && (M == 1)) {
             return handle_input_Ni_1o(args);
         } else if constexpr ((N == 1) && (M > 1)) {
-            throw py::type_error("Unsupported functor type: N == 1, M > 1");
+            return handle_input_1i_Mo(args[0]);
         } else if constexpr ((N > 1) && (M > 1)) {
             throw py::type_error("Unsupported functor type: N > 1, M > 1");
         } else {

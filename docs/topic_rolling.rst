@@ -11,6 +11,7 @@ Rolling Window Functions
    functions_rolling/RollingMean
    functions_rolling/RollingMedian
    functions_rolling/RollingMin
+   functions_rolling/RollingMinMax
    functions_rolling/RollingKurt
    functions_rolling/RollingOU
    functions_rolling/RollingPoly1
@@ -23,3 +24,4 @@ Rolling Window Functions
    functions_rolling/RollingVar
    functions_rolling/RollingQuantile
    functions_rolling/RollingZscore
+   functions_rolling/BollingerBands

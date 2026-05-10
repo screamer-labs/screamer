@@ -18,6 +18,8 @@
 #include "screamer/rolling_sigma_clip.h"
 #include "screamer/rolling_ou.h"
 #include "screamer/rolling_rsi.h"
+#include "screamer/rolling_min_max.h"
+#include "screamer/bollinger_bands.h"
 
 namespace py = pybind11;
 
@@ -143,5 +145,23 @@ void init_bindings_rolling(py::module& m) {
         .def("__call__", &screamer::RollingRSI::operator(), py::arg("value"))
         .def("reset", &screamer::RollingRSI::reset, "Reset to the initial state.");
 
+    // RollingMinMax: 1 input, 2 outputs (min, max). Inherits from
+    // FunctorBase<_, 1, 2>, NOT ScreamerBase. The dispatcher returns a
+    // tuple per scalar call and an array of shape (..., 2) per batch.
+    py::class_<screamer::RollingMinMax>(m, "RollingMinMax")
+        .def(py::init<int>(), py::arg("window_size"))
+        .def("__call__", &screamer::RollingMinMax::handle_input)
+        .def("reset", &screamer::RollingMinMax::reset, "Reset to the initial state.");
+
+    // BollingerBands: 1 input, 3 outputs (lower, mid, upper).
+    // FunctorBase<_, 1, 3>. Per scalar call returns a 3-tuple; per batch
+    // returns an array of shape (..., 3).
+    py::class_<screamer::BollingerBands>(m, "BollingerBands")
+        .def(py::init<int, double, const std::string&>(),
+             py::arg("window_size"),
+             py::arg("num_std") = 2.0,
+             py::arg("start_policy") = "strict")
+        .def("__call__", &screamer::BollingerBands::handle_input)
+        .def("reset", &screamer::BollingerBands::reset, "Reset to the initial state.");
 
 }
