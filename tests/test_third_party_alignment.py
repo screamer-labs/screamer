@@ -173,6 +173,20 @@ class TestExactAlignment:
         mask = ~(np.isnan(ours) | np.isnan(ref))
         np.testing.assert_allclose(ours[mask], ref[mask], atol=1e-10)
 
+    def test_williams_r_matches_talib(self, random_series):
+        """WilliamsR has no smoothing / seeding subtleties -- bit-exact
+        match to TA-Lib's WILLR post-warmup."""
+        rng = np.random.default_rng(0)
+        n_samples = len(random_series)
+        close = 100 + np.cumsum(random_series)
+        high = close + np.abs(rng.normal(0, 0.5, n_samples))
+        low = close - np.abs(rng.normal(0, 0.5, n_samples))
+        period = 14
+        ours = sc.WilliamsR(period)(high, low, close)
+        ref = talib.WILLR(high, low, close, timeperiod=period)
+        mask = ~(np.isnan(ours) | np.isnan(ref))
+        np.testing.assert_allclose(ours[mask], ref[mask], atol=1e-10)
+
 
 # ---------------------------------------------------------------------------
 # Documented divergences (asserts the divergence is in the EXPECTED
@@ -350,6 +364,16 @@ def test_summary_print(random_series, capsys):
         ("MACD macd  vs TA-Lib (divergent)", sc.MACD()(x)[:, 0], talib.MACD(x, 12, 26, 9)[0]),
         ("MACD signal vs TA-Lib (divergent)", sc.MACD()(x)[:, 1], talib.MACD(x, 12, 26, 9)[1]),
     ]
+    # WilliamsR needs HLC inputs; build a self-consistent triple from x.
+    rng_hlc = np.random.default_rng(99)
+    close_hlc = 100 + np.cumsum(x)
+    high_hlc = close_hlc + np.abs(rng_hlc.normal(0, 0.5, len(x)))
+    low_hlc = close_hlc - np.abs(rng_hlc.normal(0, 0.5, len(x)))
+    pairs.append((
+        "WilliamsR vs TA-Lib WILLR",
+        sc.WilliamsR(14)(high_hlc, low_hlc, close_hlc),
+        talib.WILLR(high_hlc, low_hlc, close_hlc, timeperiod=14),
+    ))
     print()
     print(f"{'comparison':45s}  max_abs_diff (post-warmup)")
     print("-" * 72)

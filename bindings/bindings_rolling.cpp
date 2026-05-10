@@ -32,6 +32,7 @@
 #include "screamer/hull_ma.h"
 #include "screamer/kama.h"
 #include "screamer/macd.h"
+#include "screamer/williams_r.h"
 
 namespace py = pybind11;
 
@@ -215,6 +216,12 @@ void init_bindings_rolling(py::module& m) {
             py::arg("signal") = 9)
         .def("__call__", &screamer::MACD::handle_input)
         .def("reset", &screamer::MACD::reset, "Reset to the initial state.");
+
+    // WilliamsR: 3->1, takes (high, low, close), returns %R in [-100, 0].
+    py::class_<screamer::WilliamsR>(m, "WilliamsR")
+        .def(py::init<int>(), py::arg("window_size") = 14)
+        .def("__call__", &screamer::WilliamsR::handle_input)
+        .def("reset", &screamer::WilliamsR::reset, "Reset to the initial state.");
 
     py::class_<screamer::RollingMedian, screamer::ScreamerBase>(m, "RollingMedian")
         .def(py::init<int>(), py::arg("window_size"))

@@ -36,4 +36,5 @@ Rolling Window Functions
    functions_rolling/RollingZscore
    functions_rolling/TEMA
    functions_rolling/TRIMA
+   functions_rolling/WilliamsR
    functions_rolling/WMA

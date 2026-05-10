@@ -150,14 +150,14 @@ agreed-upon definition and is rarely asked for in practice.)
 | `RollingRSI` | Relative Strength Index (Wilder by default, Cutler via `method="cutler"`) |
 | `Return`, `LogReturn` | simple / log returns over a delay |
 | `MACD` | Moving Average Convergence Divergence: `(macd, signal, histogram)`. Pure composition of three `EwMean`s |
+| `WilliamsR` | Williams %R: normalised close position within the rolling (H, L) range, scaled to `[-100, 0]`. Two monotonic deques. 3→1 |
 
 ### Gaps
 
 | Function | Description | Quadrant | Priority | Note |
 |---|---|---|---|---|
-| `Stoch` | Stochastic oscillator | 1→2 | 🔴 | `(%K, %D)` over rolling min/max range |
+| `Stoch` | Stochastic oscillator | 3→2 | 🔴 | `(%K, %D)` over rolling min/max range; needs HLC |
 | `StochRSI` | Stochastic of RSI | 1→2 | 🟡 | composite |
-| `WilliamsR` | Williams %R | 1→1 | 🟡 | normalised position within rolling range |
 | `ROC`, `ROCP`, `ROCR` | rate-of-change variants | 1→1 | 🟡 | `Return` covers ROCP; explicit names would help discoverability |
 | `Momentum(k)` | `x[t] - x[t-k]` | 1→1 | 🟡 | identical to `Diff(k)`; alias would aid TA-Lib porting |
 | `CCI` | Commodity Channel Index | 3→1 | 🟡 | needs (high, low, close) typical-price |
