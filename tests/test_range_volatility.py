@@ -112,37 +112,49 @@ class TestVolEqualsSqrtVar:
         _, h, l, _ = _ohlc(100, seed=10)
         var = RollingParkinsonVar(14)(h, l)
         vol = RollingParkinsonVol(14)(h, l)
-        np.testing.assert_array_equal(vol, np.sqrt(var))
+        # std::sqrt and numpy.sqrt can differ by one ULP on some
+        # platforms (Linux x86_64 vs. macOS arm64); tolerate that.
+        np.testing.assert_allclose(vol, np.sqrt(var), equal_nan=True, atol=1e-15)
 
     def test_rolling_garman_klass(self):
         o, h, l, c = _ohlc(100, seed=11)
         var = RollingGarmanKlassVar(14)(o, h, l, c)
         vol = RollingGarmanKlassVol(14)(o, h, l, c)
-        np.testing.assert_array_equal(vol, np.sqrt(var))
+        # std::sqrt and numpy.sqrt can differ by one ULP on some
+        # platforms (Linux x86_64 vs. macOS arm64); tolerate that.
+        np.testing.assert_allclose(vol, np.sqrt(var), equal_nan=True, atol=1e-15)
 
     def test_rolling_rogers_satchell(self):
         o, h, l, c = _ohlc(100, seed=12)
         var = RollingRogersSatchellVar(14)(o, h, l, c)
         vol = RollingRogersSatchellVol(14)(o, h, l, c)
-        np.testing.assert_array_equal(vol, np.sqrt(var))
+        # std::sqrt and numpy.sqrt can differ by one ULP on some
+        # platforms (Linux x86_64 vs. macOS arm64); tolerate that.
+        np.testing.assert_allclose(vol, np.sqrt(var), equal_nan=True, atol=1e-15)
 
     def test_ew_parkinson(self):
         _, h, l, _ = _ohlc(100, seed=13)
         var = EwParkinsonVar(span=20)(h, l)
         vol = EwParkinsonVol(span=20)(h, l)
-        np.testing.assert_array_equal(vol, np.sqrt(var))
+        # std::sqrt and numpy.sqrt can differ by one ULP on some
+        # platforms (Linux x86_64 vs. macOS arm64); tolerate that.
+        np.testing.assert_allclose(vol, np.sqrt(var), equal_nan=True, atol=1e-15)
 
     def test_ew_garman_klass(self):
         o, h, l, c = _ohlc(100, seed=14)
         var = EwGarmanKlassVar(span=20)(o, h, l, c)
         vol = EwGarmanKlassVol(span=20)(o, h, l, c)
-        np.testing.assert_array_equal(vol, np.sqrt(var))
+        # std::sqrt and numpy.sqrt can differ by one ULP on some
+        # platforms (Linux x86_64 vs. macOS arm64); tolerate that.
+        np.testing.assert_allclose(vol, np.sqrt(var), equal_nan=True, atol=1e-15)
 
     def test_ew_rogers_satchell(self):
         o, h, l, c = _ohlc(100, seed=15)
         var = EwRogersSatchellVar(span=20)(o, h, l, c)
         vol = EwRogersSatchellVol(span=20)(o, h, l, c)
-        np.testing.assert_array_equal(vol, np.sqrt(var))
+        # std::sqrt and numpy.sqrt can differ by one ULP on some
+        # platforms (Linux x86_64 vs. macOS arm64); tolerate that.
+        np.testing.assert_allclose(vol, np.sqrt(var), equal_nan=True, atol=1e-15)
 
 
 # ---------------------------------------------------------------------------

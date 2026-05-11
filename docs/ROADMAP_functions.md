@@ -180,14 +180,14 @@ agreed-upon definition and is rarely asked for in practice.)
 | `RollingParkinsonVar`, `RollingParkinsonVol`, `EwParkinsonVar`, `EwParkinsonVol` | Parkinson range-based volatility (Parkinson 1980). 2→1, uses (H, L) |
 | `RollingGarmanKlassVar`, `RollingGarmanKlassVol`, `EwGarmanKlassVar`, `EwGarmanKlassVol` | Garman-Klass range-based volatility (1980). 4→1, uses OHLC |
 | `RollingRogersSatchellVar`, `RollingRogersSatchellVol`, `EwRogersSatchellVar`, `EwRogersSatchellVol` | Rogers-Satchell range-based volatility (1991). 4→1, drift-robust |
+| `TrueRange` | Per-bar OHLC-aware range `max(H - L, |H - prev_C|, |L - prev_C|)`. 3→1 |
+| `ATR(window)` | Average True Range -- Wilder-smoothed `TrueRange`. 3→1 |
+| `NATR(window)` | `100 * ATR / close`, scale-invariant. 3→1 |
 
 ### Gaps
 
 | Function | Description | Quadrant | Priority | Note |
 |---|---|---|---|---|
-| `TrueRange` | `max(high - low, |high - prev_close|, |low - prev_close|)` | 3→1 | 🔴 | the building block for ATR; the canonical OHLC-aware volatility |
-| `ATR(window)` | Average True Range = rolling mean of TrueRange | 3→1 | 🔴 | the canonical financial volatility measure |
-| `NATR` | Normalised ATR (`ATR / close * 100`) | 3→1 | 🟡 | trivial wrapper |
 | `KeltnerChannels(window, num_atr)` | `(lower, mid, upper)` like Bollinger but using ATR for bandwidth | 3→3 | 🟡 | uses the now-available `N→M` dispatch (Plan E) |
 | `DonchianChannels(window)` | `(lower, mid, upper)` from rolling min, mid (avg of min/max), max | 1→3 | 🟡 | already feasible today (M=3 dispatch is done) |
 | `YangZhangVol` | Yang-Zhang volatility estimator (drift-robust + overnight gaps) | 4→1 | 🟡 | composes RS with an overnight-return variance and an open-to-close variance; ~14× efficiency vs close-to-close |

@@ -7,6 +7,7 @@ Rolling Window Functions
    :hidden:
    :titlesonly:
 
+   functions_rolling/ATR
    functions_rolling/BollingerBands
    functions_rolling/BOP
    functions_rolling/CCI

@@ -42,6 +42,9 @@
 #include "screamer/parkinson.h"
 #include "screamer/garman_klass.h"
 #include "screamer/rogers_satchell.h"
+#include "screamer/true_range.h"
+#include "screamer/atr.h"
+#include "screamer/natr.h"
 
 namespace py = pybind11;
 
@@ -369,6 +372,22 @@ void init_bindings_rolling(py::module& m) {
              py::arg("halflife") = std::nullopt, py::arg("alpha") = std::nullopt)
         .def("__call__", &screamer::EwRogersSatchellVol::handle_input)
         .def("reset", &screamer::EwRogersSatchellVol::reset, "Reset.");
+
+    // TrueRange / ATR / NATR (Wilder family). 3 -> 1 on (high, low, close).
+    py::class_<screamer::TrueRange>(m, "TrueRange")
+        .def(py::init<>())
+        .def("__call__", &screamer::TrueRange::handle_input)
+        .def("reset", &screamer::TrueRange::reset, "Reset to the initial state.");
+
+    py::class_<screamer::ATR>(m, "ATR")
+        .def(py::init<int>(), py::arg("window_size") = 14)
+        .def("__call__", &screamer::ATR::handle_input)
+        .def("reset", &screamer::ATR::reset, "Reset to the initial state.");
+
+    py::class_<screamer::NATR>(m, "NATR")
+        .def(py::init<int>(), py::arg("window_size") = 14)
+        .def("__call__", &screamer::NATR::handle_input)
+        .def("reset", &screamer::NATR::reset, "Reset to the initial state.");
 
     py::class_<screamer::RollingMedian, screamer::ScreamerBase>(m, "RollingMedian")
         .def(py::init<int>(), py::arg("window_size"))

@@ -70,6 +70,8 @@ _NO_ARG_AUTO_EXCLUDE = {
     'MyFunctor22',
     # 4-input OHLC (FunctorBase<_, 4, 1>) -- tested in test_oscillators_hlc.py
     'BOP',
+    # 3-input HLC (FunctorBase<_, 3, 1>) -- tested in test_atr_family.py
+    'TrueRange',
 }
 # Linear2 takes constructor args (a, b, c) so it is not a no-arg class
 # and would not be picked up here -- listed for clarity only.

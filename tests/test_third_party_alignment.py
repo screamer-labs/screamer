@@ -283,6 +283,39 @@ class TestExactAlignment:
         mask = ~(np.isnan(ours) | np.isnan(ref))
         np.testing.assert_allclose(ours[mask], ref[mask], atol=1e-10)
 
+    def test_true_range_matches_talib(self, random_series):
+        rng = np.random.default_rng(0)
+        n = len(random_series)
+        close = 100 + np.cumsum(random_series)
+        high = close + np.abs(rng.normal(0, 0.5, n))
+        low = close - np.abs(rng.normal(0, 0.5, n))
+        ours = sc.TrueRange()(high, low, close)
+        ref = talib.TRANGE(high, low, close)
+        mask = ~(np.isnan(ours) | np.isnan(ref))
+        np.testing.assert_array_equal(ours[mask], ref[mask])
+
+    def test_atr_matches_talib(self, random_series):
+        rng = np.random.default_rng(0)
+        n = len(random_series)
+        close = 100 + np.cumsum(random_series)
+        high = close + np.abs(rng.normal(0, 0.5, n))
+        low = close - np.abs(rng.normal(0, 0.5, n))
+        ours = sc.ATR(14)(high, low, close)
+        ref = talib.ATR(high, low, close, timeperiod=14)
+        mask = ~(np.isnan(ours) | np.isnan(ref))
+        np.testing.assert_allclose(ours[mask], ref[mask], atol=1e-12)
+
+    def test_natr_matches_talib(self, random_series):
+        rng = np.random.default_rng(0)
+        n = len(random_series)
+        close = 100 + np.cumsum(random_series)
+        high = close + np.abs(rng.normal(0, 0.5, n))
+        low = close - np.abs(rng.normal(0, 0.5, n))
+        ours = sc.NATR(14)(high, low, close)
+        ref = talib.NATR(high, low, close, timeperiod=14)
+        mask = ~(np.isnan(ours) | np.isnan(ref))
+        np.testing.assert_allclose(ours[mask], ref[mask], atol=1e-12)
+
     def test_stochrsi_matches_talib(self, random_series):
         """TA-Lib's STOCHRSI is the fast form (no K smoothing). Our default
         smooth_k=1 produces the same shape."""
@@ -539,6 +572,16 @@ def test_summary_print(random_series, capsys):
                                  fastd_period=3, fastd_matype=0)
     pairs.append(("StochRSI %K vs TA-Lib", sr[:, 0], sr_k))
     pairs.append(("StochRSI %D vs TA-Lib", sr[:, 1], sr_d))
+
+    pairs.append(("TrueRange vs TA-Lib TRANGE",
+                  sc.TrueRange()(high_b, low_b, close_b),
+                  talib.TRANGE(high_b, low_b, close_b)))
+    pairs.append(("ATR vs TA-Lib ATR",
+                  sc.ATR(14)(high_b, low_b, close_b),
+                  talib.ATR(high_b, low_b, close_b, timeperiod=14)))
+    pairs.append(("NATR vs TA-Lib NATR",
+                  sc.NATR(14)(high_b, low_b, close_b),
+                  talib.NATR(high_b, low_b, close_b, timeperiod=14)))
 
     print()
     print(f"{'comparison':45s}  max_abs_diff (post-warmup)")
