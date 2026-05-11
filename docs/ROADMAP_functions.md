@@ -159,12 +159,11 @@ agreed-upon definition and is rarely asked for in practice.)
 | `CCI` | Commodity Channel Index: `(TP - SMA) / (0.015 * MAD)` on the typical-price series. 3→1 |
 | `UltimateOscillator` | weighted-average BP/TR over three timeframes (Williams 1976). 3→1 |
 | `StochRSI` | Stochastic of a Wilder RSI. `smooth_k=1` matches TA-Lib's `STOCHRSI` (fast); `smooth_k>=2` is the slow form. 1→2 |
+| `ADX` | Average Directional Index: `(+DI, -DI, ADX)`. Wilder-smoothed +DM/-DM/TR chain plus a second Wilder smoothing of DX. 3→3 |
 
 ### Gaps
 
-| Function | Description | Quadrant | Priority | Note |
-|---|---|---|---|---|
-| `ADX` | Average Directional Index | 3→1 | 🟡 | needs high/low/close; multi-step Wilder chain |
+(none -- momentum / oscillators section complete)
 
 
 ## Volatility / range
@@ -196,17 +195,17 @@ agreed-upon definition and is rarely asked for in practice.)
 
 ### What we have
 
-None. All the volume-based indicators below are genuinely missing.
+| | |
+|---|---|
+| `RollingVWAP(window)` | Volume-Weighted Average Price using typical price. 4→1 |
+| `OBV` | On-Balance Volume (cumulative signed volume). 2→1 |
+| `AD` | Chaikin Accumulation / Distribution Line. 4→1 |
+| `ADOSC(fast, slow)` | Chaikin A/D Oscillator: `EMA(AD, fast) - EMA(AD, slow)`. 4→1 |
+| `MFI(window)` | Money Flow Index (volume-weighted RSI on typical price). 4→1 |
 
 ### Gaps
 
-| Function | Description | Quadrant | Priority | Note |
-|---|---|---|---|---|
-| `VWAP(window)` | Volume-Weighted Average Price | 2→1 | 🔴 | extremely common; trivial: `RollingSum(price · vol) / RollingSum(vol)` |
-| `OBV` | On-Balance Volume (cumulative signed volume) | 2→1 | 🟡 | streaming-friendly |
-| `AD` | Chaikin Accumulation / Distribution Line | 4→1 | 🟡 | needs OHLCV |
-| `ADOSC` | Chaikin A/D Oscillator (EMA difference of AD) | 4→1 | 🟡 | composite |
-| `MFI` | Money Flow Index | 4→1 | 🟡 | RSI-like but volume-weighted |
+(none -- volume section complete)
 
 
 ## Statistical / regression

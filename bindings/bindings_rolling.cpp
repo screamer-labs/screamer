@@ -48,6 +48,12 @@
 #include "screamer/donchian_channels.h"
 #include "screamer/keltner_channels.h"
 #include "screamer/yang_zhang.h"
+#include "screamer/adx.h"
+#include "screamer/vwap.h"
+#include "screamer/obv.h"
+#include "screamer/ad.h"
+#include "screamer/adosc.h"
+#include "screamer/mfi.h"
 
 namespace py = pybind11;
 
@@ -415,6 +421,39 @@ void init_bindings_rolling(py::module& m) {
         .def(py::init<int>(), py::arg("window_size"))
         .def("__call__", &screamer::RollingYangZhangVol::handle_input)
         .def("reset", &screamer::RollingYangZhangVol::reset, "Reset.");
+
+    // ADX (Wilder, 1978). 3 -> 3 on (high, low, close) returning
+    // (plus_di, minus_di, adx). Match talib.PLUS_DI / MINUS_DI / ADX.
+    py::class_<screamer::ADX>(m, "ADX")
+        .def(py::init<int>(), py::arg("window_size") = 14)
+        .def("__call__", &screamer::ADX::handle_input)
+        .def("reset", &screamer::ADX::reset, "Reset to the initial state.");
+
+    // Volume-aware indicators.
+    py::class_<screamer::RollingVWAP>(m, "RollingVWAP")
+        .def(py::init<int>(), py::arg("window_size"))
+        .def("__call__", &screamer::RollingVWAP::handle_input)
+        .def("reset", &screamer::RollingVWAP::reset, "Reset.");
+
+    py::class_<screamer::OBV>(m, "OBV")
+        .def(py::init<>())
+        .def("__call__", &screamer::OBV::handle_input)
+        .def("reset", &screamer::OBV::reset, "Reset.");
+
+    py::class_<screamer::AD>(m, "AD")
+        .def(py::init<>())
+        .def("__call__", &screamer::AD::handle_input)
+        .def("reset", &screamer::AD::reset, "Reset.");
+
+    py::class_<screamer::ADOSC>(m, "ADOSC")
+        .def(py::init<int, int>(), py::arg("fast") = 3, py::arg("slow") = 10)
+        .def("__call__", &screamer::ADOSC::handle_input)
+        .def("reset", &screamer::ADOSC::reset, "Reset.");
+
+    py::class_<screamer::MFI>(m, "MFI")
+        .def(py::init<int>(), py::arg("window_size") = 14)
+        .def("__call__", &screamer::MFI::handle_input)
+        .def("reset", &screamer::MFI::reset, "Reset.");
 
     py::class_<screamer::RollingMedian, screamer::ScreamerBase>(m, "RollingMedian")
         .def(py::init<int>(), py::arg("window_size"))

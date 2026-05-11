@@ -7,6 +7,7 @@ Rolling Window Functions
    :hidden:
    :titlesonly:
 
+   functions_rolling/ADX
    functions_rolling/ATR
    functions_rolling/BollingerBands
    functions_rolling/BOP
@@ -46,4 +47,5 @@ Rolling Window Functions
    functions_rolling/TRIX
    functions_rolling/UltimateOscillator
    functions_rolling/WilliamsR
+   functions_rolling/VolumeIndicators
    functions_rolling/WMA

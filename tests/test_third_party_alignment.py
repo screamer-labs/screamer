@@ -305,6 +305,53 @@ class TestExactAlignment:
         mask = ~(np.isnan(ours) | np.isnan(ref))
         np.testing.assert_allclose(ours[mask], ref[mask], atol=1e-12)
 
+    def test_adx_matches_talib(self, random_series):
+        rng = np.random.default_rng(0)
+        n = len(random_series)
+        close = 100 + np.cumsum(random_series)
+        high = close + np.abs(rng.normal(0, 0.5, n))
+        low = close - np.abs(rng.normal(0, 0.5, n))
+        ours = sc.ADX(14)(high, low, close)
+        ref_p = talib.PLUS_DI(high, low, close, timeperiod=14)
+        ref_m = talib.MINUS_DI(high, low, close, timeperiod=14)
+        ref_a = talib.ADX(high, low, close, timeperiod=14)
+        mp = ~(np.isnan(ours[:, 0]) | np.isnan(ref_p))
+        mm = ~(np.isnan(ours[:, 1]) | np.isnan(ref_m))
+        ma = ~(np.isnan(ours[:, 2]) | np.isnan(ref_a))
+        np.testing.assert_allclose(ours[mp, 0], ref_p[mp], atol=1e-10)
+        np.testing.assert_allclose(ours[mm, 1], ref_m[mm], atol=1e-10)
+        np.testing.assert_allclose(ours[ma, 2], ref_a[ma], atol=1e-10)
+
+    def test_obv_matches_talib(self, random_series):
+        rng = np.random.default_rng(0)
+        close = 100 + np.cumsum(random_series)
+        volume = 1000 + np.abs(rng.normal(0, 200, len(random_series)))
+        np.testing.assert_array_equal(sc.OBV()(close, volume),
+                                       talib.OBV(close, volume))
+
+    def test_ad_matches_talib(self, random_series):
+        rng = np.random.default_rng(0)
+        n = len(random_series)
+        close = 100 + np.cumsum(random_series)
+        high = close + np.abs(rng.normal(0, 0.5, n))
+        low = close - np.abs(rng.normal(0, 0.5, n))
+        volume = 1000 + np.abs(rng.normal(0, 200, n))
+        ours = sc.AD()(high, low, close, volume)
+        ref = talib.AD(high, low, close, volume)
+        np.testing.assert_allclose(ours, ref, atol=1e-6)
+
+    def test_mfi_matches_talib(self, random_series):
+        rng = np.random.default_rng(0)
+        n = len(random_series)
+        close = 100 + np.cumsum(random_series)
+        high = close + np.abs(rng.normal(0, 0.5, n))
+        low = close - np.abs(rng.normal(0, 0.5, n))
+        volume = 1000 + np.abs(rng.normal(0, 200, n))
+        ours = sc.MFI(14)(high, low, close, volume)
+        ref = talib.MFI(high, low, close, volume, timeperiod=14)
+        mask = ~(np.isnan(ours) | np.isnan(ref))
+        np.testing.assert_allclose(ours[mask], ref[mask], atol=1e-10)
+
     def test_natr_matches_talib(self, random_series):
         rng = np.random.default_rng(0)
         n = len(random_series)
@@ -390,6 +437,28 @@ class TestDocumentedDivergences:
         diff = np.abs(ours[mask] - ref_talib[mask])
         assert diff.max() > 1e-4, "TRIX vs TA-Lib unexpectedly close"
         assert diff.max() < 1.0
+
+    def test_adosc_matches_pandas_adjust_true_not_talib(self, random_series):
+        """ADOSC inherits the EwMean adjust=True convention; differs
+        from TA-Lib's adjust=False+SMA-seed by a few percent of AD's
+        running scale."""
+        rng = np.random.default_rng(0)
+        n = len(random_series)
+        close = 100 + np.cumsum(random_series)
+        high = close + np.abs(rng.normal(0, 0.5, n))
+        low = close - np.abs(rng.normal(0, 0.5, n))
+        volume = 1000 + np.abs(rng.normal(0, 200, n))
+        ours = sc.ADOSC(3, 10)(high, low, close, volume)
+
+        ad = sc.AD()(high, low, close, volume)
+        e_fast = pd.Series(ad).ewm(span=3, adjust=True).mean().to_numpy()
+        e_slow = pd.Series(ad).ewm(span=10, adjust=True).mean().to_numpy()
+        np.testing.assert_allclose(ours, e_fast - e_slow, atol=1e-9)
+
+        ref = talib.ADOSC(high, low, close, volume, fastperiod=3, slowperiod=10)
+        mask = ~(np.isnan(ours) | np.isnan(ref))
+        diff = np.abs(ours[mask] - ref[mask])
+        assert diff.max() > 1e-3
 
     def test_macd_matches_pandas_adjust_true_not_talib(self, random_series):
         """screamer.MACD is composed from three EwMean = pandas adjust=True
@@ -582,6 +651,30 @@ def test_summary_print(random_series, capsys):
     pairs.append(("NATR vs TA-Lib NATR",
                   sc.NATR(14)(high_b, low_b, close_b),
                   talib.NATR(high_b, low_b, close_b, timeperiod=14)))
+
+    # ADX (3->3): emit just the ADX column.
+    adx_out = sc.ADX(14)(high_b, low_b, close_b)
+    pairs.append(("ADX +DI vs TA-Lib", adx_out[:, 0],
+                  talib.PLUS_DI(high_b, low_b, close_b, 14)))
+    pairs.append(("ADX -DI vs TA-Lib", adx_out[:, 1],
+                  talib.MINUS_DI(high_b, low_b, close_b, 14)))
+    pairs.append(("ADX vs TA-Lib", adx_out[:, 2],
+                  talib.ADX(high_b, low_b, close_b, 14)))
+
+    # Volume-aware. Make synthetic positive volume.
+    rng_v = np.random.default_rng(202)
+    volume = 1000 + np.abs(rng_v.normal(0, 200, len(x)))
+    pairs.append(("OBV vs TA-Lib OBV", sc.OBV()(close_b, volume),
+                  talib.OBV(close_b, volume)))
+    pairs.append(("AD vs TA-Lib AD",
+                  sc.AD()(high_b, low_b, close_b, volume),
+                  talib.AD(high_b, low_b, close_b, volume)))
+    pairs.append(("ADOSC vs TA-Lib (divergent)",
+                  sc.ADOSC(3, 10)(high_b, low_b, close_b, volume),
+                  talib.ADOSC(high_b, low_b, close_b, volume, 3, 10)))
+    pairs.append(("MFI vs TA-Lib MFI",
+                  sc.MFI(14)(high_b, low_b, close_b, volume),
+                  talib.MFI(high_b, low_b, close_b, volume, timeperiod=14)))
 
     print()
     print(f"{'comparison':45s}  max_abs_diff (post-warmup)")

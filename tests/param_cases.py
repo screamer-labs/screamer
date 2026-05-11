@@ -39,6 +39,8 @@ _ROLLING_AUTO_EXCLUDE = {
     'RollingGarmanKlassVar', 'RollingGarmanKlassVol',
     'RollingRogersSatchellVar', 'RollingRogersSatchellVol',
     'RollingYangZhangVar', 'RollingYangZhangVol',
+    # 4-input OHLCV volume-aware (FunctorBase<_, 4, 1>)
+    'RollingVWAP',
 }
 rolling_classes = [cls for cls in screamer_classes
                    if cls.startswith('Rolling') and cls not in _ROLLING_AUTO_EXCLUDE]
@@ -73,6 +75,10 @@ _NO_ARG_AUTO_EXCLUDE = {
     'BOP',
     # 3-input HLC (FunctorBase<_, 3, 1>) -- tested in test_atr_family.py
     'TrueRange',
+    # 2-input volume (FunctorBase<_, 2, 1>) -- tested in test_adx_and_volume.py
+    'OBV',
+    # 4-input OHLCV (FunctorBase<_, 4, 1>) -- tested in test_adx_and_volume.py
+    'AD', 'ADOSC',
 }
 # Linear2 takes constructor args (a, b, c) so it is not a no-arg class
 # and would not be picked up here -- listed for clarity only.
