@@ -8,6 +8,8 @@ Rolling Window Functions
    :titlesonly:
 
    functions_rolling/BollingerBands
+   functions_rolling/BOP
+   functions_rolling/CCI
    functions_rolling/DEMA
    functions_rolling/HullMA
    functions_rolling/KAMA
@@ -35,8 +37,10 @@ Rolling Window Functions
    functions_rolling/RollingVar
    functions_rolling/RollingZscore
    functions_rolling/Stoch
+   functions_rolling/StochRSI
    functions_rolling/TEMA
    functions_rolling/TRIMA
    functions_rolling/TRIX
+   functions_rolling/UltimateOscillator
    functions_rolling/WilliamsR
    functions_rolling/WMA

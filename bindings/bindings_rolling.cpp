@@ -35,6 +35,10 @@
 #include "screamer/williams_r.h"
 #include "screamer/stoch.h"
 #include "screamer/trix.h"
+#include "screamer/bop.h"
+#include "screamer/cci.h"
+#include "screamer/ultimate_oscillator.h"
+#include "screamer/stoch_rsi.h"
 
 namespace py = pybind11;
 
@@ -243,6 +247,40 @@ void init_bindings_rolling(py::module& m) {
         .def(py::init<int>(), py::arg("span"))
         .def("__call__", &screamer::TRIX::operator(), py::arg("value"))
         .def("reset", &screamer::TRIX::reset, "Reset to the initial state.");
+
+    // BOP: Balance of Power. 4 -> 1 on (open, high, low, close).
+    py::class_<screamer::BOP>(m, "BOP")
+        .def(py::init<>())
+        .def("__call__", &screamer::BOP::handle_input)
+        .def("reset", &screamer::BOP::reset, "Reset to the initial state.");
+
+    // CCI: Commodity Channel Index. 3 -> 1 on (high, low, close).
+    py::class_<screamer::CCI>(m, "CCI")
+        .def(py::init<int>(), py::arg("window_size") = 14)
+        .def("__call__", &screamer::CCI::handle_input)
+        .def("reset", &screamer::CCI::reset, "Reset to the initial state.");
+
+    // UltimateOscillator: 3 -> 1 on (high, low, close); weighted
+    // average over three timeframes.
+    py::class_<screamer::UltimateOscillator>(m, "UltimateOscillator")
+        .def(py::init<int, int, int>(),
+            py::arg("period1") = 7,
+            py::arg("period2") = 14,
+            py::arg("period3") = 28)
+        .def("__call__", &screamer::UltimateOscillator::handle_input)
+        .def("reset", &screamer::UltimateOscillator::reset,
+             "Reset to the initial state.");
+
+    // StochRSI: 1 -> 2; Stochastic of RSI. Default smooth_k=1 (fast,
+    // matching TA-Lib's STOCHRSI); set smooth_k >= 2 for slow form.
+    py::class_<screamer::StochRSI>(m, "StochRSI")
+        .def(py::init<int, int, int, int>(),
+            py::arg("rsi_period") = 14,
+            py::arg("stoch_period") = 14,
+            py::arg("smooth_k") = 1,
+            py::arg("d") = 3)
+        .def("__call__", &screamer::StochRSI::handle_input)
+        .def("reset", &screamer::StochRSI::reset, "Reset to the initial state.");
 
     py::class_<screamer::RollingMedian, screamer::ScreamerBase>(m, "RollingMedian")
         .def(py::init<int>(), py::arg("window_size"))

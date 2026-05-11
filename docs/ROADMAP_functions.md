@@ -155,16 +155,16 @@ agreed-upon definition and is rarely asked for in practice.)
 | `Momentum(k)` | `x[t] - x[t-k]`. Thin alias of `Diff(k)`; exists to match TA-Lib's `MOM` |
 | `ROC`, `ROCP`, `ROCR` | rate-of-change variants in percentage / fraction / ratio form. `ROCP` is an alias of `Return` |
 | `TRIX` | 1-step rate of change of a triple-smoothed EMA. Composite of three `EwMean`s |
+| `BOP` | Balance of Power: `(close - open) / (high - low)`. 4→1 |
+| `CCI` | Commodity Channel Index: `(TP - SMA) / (0.015 * MAD)` on the typical-price series. 3→1 |
+| `UltimateOscillator` | weighted-average BP/TR over three timeframes (Williams 1976). 3→1 |
+| `StochRSI` | Stochastic of a Wilder RSI. `smooth_k=1` matches TA-Lib's `STOCHRSI` (fast); `smooth_k>=2` is the slow form. 1→2 |
 
 ### Gaps
 
 | Function | Description | Quadrant | Priority | Note |
 |---|---|---|---|---|
-| `StochRSI` | Stochastic of RSI | 1→2 | 🟡 | composite of `RollingRSI` + Stoch-like smoothing |
-| `CCI` | Commodity Channel Index | 3→1 | 🟡 | needs (high, low, close) typical-price |
 | `ADX` | Average Directional Index | 3→1 | 🟡 | needs high/low/close; multi-step Wilder chain |
-| `BOP` | Balance of Power | 4→1 | ⚪ | needs OHLC; single per-step formula |
-| `UltimateOscillator` | weighted average of three timeframes | 3→1 | ⚪ | niche |
 
 
 ## Volatility / range

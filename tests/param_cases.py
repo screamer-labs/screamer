@@ -53,6 +53,8 @@ _NO_ARG_AUTO_EXCLUDE = {
     'Hypot', 'Atan2', 'Cart2Polar', 'Polar2Cart',
     # Stateful 2->2 demo functor (validated in tests/test_geometry.py)
     'MyFunctor22',
+    # 4-input OHLC (FunctorBase<_, 4, 1>) -- tested in test_oscillators_hlc.py
+    'BOP',
 }
 # Linear2 takes constructor args (a, b, c) so it is not a no-arg class
 # and would not be picked up here -- listed for clarity only.

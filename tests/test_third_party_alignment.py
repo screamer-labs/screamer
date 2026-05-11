@@ -248,6 +248,54 @@ class TestExactAlignment:
         mask = ~(np.isnan(ours) | np.isnan(ref))
         np.testing.assert_array_equal(ours[mask], ref[mask])
 
+    def test_bop_matches_talib(self, random_series):
+        rng = np.random.default_rng(0)
+        n = len(random_series)
+        open_ = 100 + np.cumsum(random_series)
+        close = open_ + rng.normal(0, 0.5, n)
+        high = np.maximum(open_, close) + np.abs(rng.normal(0, 0.3, n))
+        low = np.minimum(open_, close) - np.abs(rng.normal(0, 0.3, n))
+        ours = sc.BOP()(open_, high, low, close)
+        ref = talib.BOP(open_, high, low, close)
+        mask = ~(np.isnan(ours) | np.isnan(ref))
+        np.testing.assert_array_equal(ours[mask], ref[mask])
+
+    def test_cci_matches_talib(self, random_series):
+        rng = np.random.default_rng(0)
+        n = len(random_series)
+        close = 100 + np.cumsum(random_series)
+        high = close + np.abs(rng.normal(0, 0.5, n))
+        low = close - np.abs(rng.normal(0, 0.5, n))
+        ours = sc.CCI(14)(high, low, close)
+        ref = talib.CCI(high, low, close, timeperiod=14)
+        mask = ~(np.isnan(ours) | np.isnan(ref))
+        np.testing.assert_allclose(ours[mask], ref[mask], atol=1e-10)
+
+    def test_ultimate_oscillator_matches_talib(self, random_series):
+        rng = np.random.default_rng(0)
+        n = len(random_series)
+        close = 100 + np.cumsum(random_series)
+        high = close + np.abs(rng.normal(0, 0.5, n))
+        low = close - np.abs(rng.normal(0, 0.5, n))
+        ours = sc.UltimateOscillator()(high, low, close)
+        ref = talib.ULTOSC(high, low, close,
+                            timeperiod1=7, timeperiod2=14, timeperiod3=28)
+        mask = ~(np.isnan(ours) | np.isnan(ref))
+        np.testing.assert_allclose(ours[mask], ref[mask], atol=1e-10)
+
+    def test_stochrsi_matches_talib(self, random_series):
+        """TA-Lib's STOCHRSI is the fast form (no K smoothing). Our default
+        smooth_k=1 produces the same shape."""
+        close = 100 + np.cumsum(random_series)
+        ours = sc.StochRSI(14, 14, 1, 3)(close)
+        ref_k, ref_d = talib.STOCHRSI(close, timeperiod=14,
+                                       fastk_period=14, fastd_period=3,
+                                       fastd_matype=0)
+        mk = ~(np.isnan(ours[:, 0]) | np.isnan(ref_k))
+        md = ~(np.isnan(ours[:, 1]) | np.isnan(ref_d))
+        np.testing.assert_allclose(ours[mk, 0], ref_k[mk], atol=1e-10)
+        np.testing.assert_allclose(ours[md, 1], ref_d[md], atol=1e-10)
+
 
 # ---------------------------------------------------------------------------
 # Documented divergences (asserts the divergence is in the EXPECTED
@@ -471,6 +519,27 @@ def test_summary_print(random_series, capsys):
     pairs.append(("ROCP vs TA-Lib ROCP",     sc.ROCP(10)(walk),      talib.ROCP(walk, 10)))
     pairs.append(("ROCR vs TA-Lib ROCR",     sc.ROCR(10)(walk),      talib.ROCR(walk, 10)))
     pairs.append(("TRIX vs TA-Lib (divergent)", sc.TRIX(14)(walk),   talib.TRIX(walk, 14)))
+
+    # BOP / CCI / UO / StochRSI (HLC or 4-input).
+    rng_b = np.random.default_rng(101)
+    open_b = walk
+    close_b = open_b + rng_b.normal(0, 0.5, len(x))
+    high_b = np.maximum(open_b, close_b) + np.abs(rng_b.normal(0, 0.3, len(x)))
+    low_b = np.minimum(open_b, close_b) - np.abs(rng_b.normal(0, 0.3, len(x)))
+    pairs.append(("BOP vs TA-Lib BOP", sc.BOP()(open_b, high_b, low_b, close_b),
+                  talib.BOP(open_b, high_b, low_b, close_b)))
+    pairs.append(("CCI vs TA-Lib CCI", sc.CCI(14)(high_b, low_b, close_b),
+                  talib.CCI(high_b, low_b, close_b, timeperiod=14)))
+    pairs.append(("UltimateOscillator vs TA-Lib ULTOSC",
+                  sc.UltimateOscillator()(high_b, low_b, close_b),
+                  talib.ULTOSC(high_b, low_b, close_b, timeperiod1=7,
+                               timeperiod2=14, timeperiod3=28)))
+    sr = sc.StochRSI(14, 14, 1, 3)(close_b)
+    sr_k, sr_d = talib.STOCHRSI(close_b, timeperiod=14, fastk_period=14,
+                                 fastd_period=3, fastd_matype=0)
+    pairs.append(("StochRSI %K vs TA-Lib", sr[:, 0], sr_k))
+    pairs.append(("StochRSI %D vs TA-Lib", sr[:, 1], sr_d))
+
     print()
     print(f"{'comparison':45s}  max_abs_diff (post-warmup)")
     print("-" * 72)
