@@ -1,3 +1,35 @@
+---
+name: RollingHurst
+title: Rolling Hurst Exponent
+implementation_family: rolling
+topics: [statistics]
+tags: [hurst, long-memory, fractal, r/s, anis-lloyd, regime]
+short: Rolling-window Hurst exponent via Anis-Lloyd corrected rescaled-range analysis.
+inputs: 1
+outputs: 1
+parameters:
+  - name: window_size
+    type: int
+    default: 256
+    min: 16
+    description: Trailing-window length. Must be >= 4 * min_scale.
+  - name: min_scale
+    type: int
+    default: 4
+    min: 4
+    description: Smallest R/S block size. Dyadic scales are min_scale, 2*min_scale, ... up to window_size/2.
+  - name: method
+    type: str
+    default: rs
+    enum: [rs]
+    description: Estimator family. Currently only Anis-Lloyd corrected R/S.
+references:
+  - "Anis, A.A. & Lloyd, E.H. (1976). The expected value of the adjusted rescaled Hurst range of independent normal summands."
+  - "Peters, E.E. (1994). Fractal Market Analysis."
+  - "Weron, R. (2002). Estimating long-range dependence: finite sample properties and confidence intervals."
+  - "Estimating the Hurst exponent (arXiv:1805.08931)"
+---
+
 # `RollingHurst`
 
 ## Description
@@ -45,6 +77,20 @@ $$
 
 *Warmup*: first valid output at sample index `window_size - 1`. Earlier samples
 return `NaN`. Also returns `NaN` if any block in the window has zero variance.
+
+## Notes on usage
+
+- For asset prices, apply `RollingHurst` to **returns** (or log-returns), not
+  the price itself. Prices are typically integrated (random-walk-like) and
+  would estimate $H \approx 1$ regardless of return-level memory.
+- With `window_size=256` and `min_scale=4` the regression has 6 scales
+  (4, 8, 16, 32, 64, 128). Smaller windows are noisier; larger windows
+  trade responsiveness for stability.
+- `'rs'` is the classical Hurst estimator; alternative families
+  (DFA, generalised-Hurst from $|\Delta x|^q$ moments) may follow in later
+  releases as additional `method` options.
+
+<!-- HELP_END -->
 
 ## Implementation Details
 
@@ -98,18 +144,6 @@ return `NaN`. Also returns `NaN` if any block in the window has zero variance.
 
 `H` hovers near 0.5 in the noise regime, rises above 0.5 during the trending
 segment, and drops below 0.5 in the zig-zag regime.
-
-## Notes on usage
-
-- For asset prices, apply `RollingHurst` to **returns** (or log-returns), not
-  the price itself. Prices are typically integrated (random-walk-like) and
-  would estimate $H \approx 1$ regardless of return-level memory.
-- With `window_size=512` and `min_scale=4` the regression has 7 scales
-  (4, 8, 16, 32, 64, 128, 256). Smaller windows are noisier; larger windows
-  trade responsiveness for stability.
-- `'rs'` is the classical Hurst estimator; alternative families
-  (DFA, generalised-Hurst from $|\Delta x|^q$ moments) may follow in later
-  releases as additional `method` options.
 
 ## Reference
 

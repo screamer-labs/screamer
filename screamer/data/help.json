@@ -1,0 +1,53 @@
+{
+  "RollingHurst": {
+    "name": "RollingHurst",
+    "title": "Rolling Hurst Exponent",
+    "implementation_family": "rolling",
+    "topics": [
+      "statistics"
+    ],
+    "tags": [
+      "hurst",
+      "long-memory",
+      "fractal",
+      "r/s",
+      "anis-lloyd",
+      "regime"
+    ],
+    "short": "Rolling-window Hurst exponent via Anis-Lloyd corrected rescaled-range analysis.",
+    "inputs": 1,
+    "outputs": 1,
+    "parameters": [
+      {
+        "name": "window_size",
+        "type": "int",
+        "default": 256,
+        "min": 16,
+        "description": "Trailing-window length. Must be >= 4 * min_scale."
+      },
+      {
+        "name": "min_scale",
+        "type": "int",
+        "default": 4,
+        "min": 4,
+        "description": "Smallest R/S block size. Dyadic scales are min_scale, 2*min_scale, ... up to window_size/2."
+      },
+      {
+        "name": "method",
+        "type": "str",
+        "default": "rs",
+        "enum": [
+          "rs"
+        ],
+        "description": "Estimator family. Currently only Anis-Lloyd corrected R/S."
+      }
+    ],
+    "references": [
+      "Anis, A.A. & Lloyd, E.H. (1976). The expected value of the adjusted rescaled Hurst range of independent normal summands.",
+      "Peters, E.E. (1994). Fractal Market Analysis.",
+      "Weron, R. (2002). Estimating long-range dependence: finite sample properties and confidence intervals.",
+      "Estimating the Hurst exponent (arXiv:1805.08931)"
+    ],
+    "body_markdown": "# `RollingHurst`\n\n## Description\n\nRolling-window estimator of the **Hurst exponent** $H$, a measure of long-range\ndependence in a time series:\n\n- $H \\approx 0.5$ — uncorrelated (e.g. Brownian / white noise / GBM log-returns).\n- $H > 0.5$ — persistent (trends tend to continue).\n- $H < 0.5$ — anti-persistent (reversion).\n\nEstimation is via **rescaled-range (R/S) analysis** with the Anis-Lloyd\nsmall-sample correction. Within the trailing window of `window_size` samples,\nthe series is partitioned into non-overlapping blocks of length\n$n_k = \\texttt{min\\_scale}, 2\\cdot\\texttt{min\\_scale}, \\dots, W/2$ (dyadic\nscales). For each scale we compute the average rescaled range across blocks,\nadjust for the small-sample bias, and regress on $\\log n$:\n\n$$\n\\begin{aligned}\n\\text{R/S}(n) &= \\frac{1}{\\lfloor W/n \\rfloor}\n  \\sum_{p=0}^{\\lfloor W/n \\rfloor-1}\n  \\frac{\\max_j Y_{p,j} - \\min_j Y_{p,j}}{\\sigma_p},\n  \\quad Y_{p,j} = \\sum_{i=1}^{j}(x_{p,i} - \\bar x_p) \\\\[2pt]\n\\text{rsal}(n) &= \\text{R/S}(n) - \\text{ers}(n) + \\sqrt{\\tfrac{\\pi n}{2}} \\\\[2pt]\n\\hat H &= \\text{slope of } \\log \\text{rsal}(n_k) \\text{ on } \\log n_k\n\\end{aligned}\n$$\n\nwhere $\\text{ers}(n)$ is the Anis-Lloyd theoretical R/S for $H = 1/2$:\n\n$$\n\\text{ers}(n) = \\frac{\\Gamma\\!\\left(\\tfrac{n-1}{2}\\right)}{\\sqrt{\\pi}\\,\\Gamma\\!\\left(\\tfrac{n}{2}\\right)}\n\\sum_{i=1}^{n-1} \\sqrt{\\tfrac{n-i}{i}} \\qquad (n \\le 340; \\text{asymptotic form otherwise}).\n$$\n\n## Parameters\n\n- `window_size` (int): trailing-window length $W$. Must satisfy\n  $W \\ge 4\\,\\texttt{min\\_scale}$ so the regression has at least 3 scales.\n- `min_scale` (int, default `4`): smallest block size $n_0$. Larger values\n  reduce small-sample bias but cost scales for the regression.\n- `method` (str, default `'rs'`): only `'rs'` is supported in v1 (Anis-Lloyd\n  corrected R/S, matching method 2 of the reference paper).\n\n*Warmup*: first valid output at sample index `window_size - 1`. Earlier samples\nreturn `NaN`. Also returns `NaN` if any block in the window has zero variance.\n\n## Notes on usage\n\n- For asset prices, apply `RollingHurst` to **returns** (or log-returns), not\n  the price itself. Prices are typically integrated (random-walk-like) and\n  would estimate $H \\approx 1$ regardless of return-level memory.\n- With `window_size=256` and `min_scale=4` the regression has 6 scales\n  (4, 8, 16, 32, 64, 128). Smaller windows are noisier; larger windows\n  trade responsiveness for stability.\n- `'rs'` is the classical Hurst estimator; alternative families\n  (DFA, generalised-Hurst from $|\\Delta x|^q$ moments) may follow in later\n  releases as additional `method` options."
+  }
+}

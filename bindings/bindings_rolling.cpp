@@ -482,7 +482,7 @@ void init_bindings_rolling(py::module& m) {
     // corrected rescaled-range analysis at dyadic scales.
     py::class_<screamer::RollingHurst, screamer::ScreamerBase>(m, "RollingHurst")
         .def(py::init<int, int, const std::string&>(),
-             py::arg("window_size"),
+             py::arg("window_size") = 256,
              py::arg("min_scale") = 4,
              py::arg("method") = "rs")
         .def("__call__", &screamer::RollingHurst::operator(), py::arg("value"))

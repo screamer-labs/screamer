@@ -32,7 +32,7 @@ namespace screamer {
 
 class RollingHurst : public ScreamerBase {
 public:
-    explicit RollingHurst(int window_size,
+    explicit RollingHurst(int window_size = 256,
                           int min_scale = 4,
                           const std::string& method = "rs")
         : window_size_(window_size), min_scale_(min_scale), method_(method)
