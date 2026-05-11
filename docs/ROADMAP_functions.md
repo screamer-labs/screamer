@@ -177,6 +177,9 @@ agreed-upon definition and is rarely asked for in practice.)
 | `RollingVar`, `EwVar` | variances |
 | `BollingerBands(window, num_std)` | `(lower, mid, upper)` |
 | `RollingMinMax` | range bounds |
+| `RollingParkinsonVar`, `RollingParkinsonVol`, `EwParkinsonVar`, `EwParkinsonVol` | Parkinson range-based volatility (Parkinson 1980). 2→1, uses (H, L) |
+| `RollingGarmanKlassVar`, `RollingGarmanKlassVol`, `EwGarmanKlassVar`, `EwGarmanKlassVol` | Garman-Klass range-based volatility (1980). 4→1, uses OHLC |
+| `RollingRogersSatchellVar`, `RollingRogersSatchellVol`, `EwRogersSatchellVar`, `EwRogersSatchellVol` | Rogers-Satchell range-based volatility (1991). 4→1, drift-robust |
 
 ### Gaps
 
@@ -187,8 +190,7 @@ agreed-upon definition and is rarely asked for in practice.)
 | `NATR` | Normalised ATR (`ATR / close * 100`) | 3→1 | 🟡 | trivial wrapper |
 | `KeltnerChannels(window, num_atr)` | `(lower, mid, upper)` like Bollinger but using ATR for bandwidth | 3→3 | 🟡 | uses the now-available `N→M` dispatch (Plan E) |
 | `DonchianChannels(window)` | `(lower, mid, upper)` from rolling min, mid (avg of min/max), max | 1→3 | 🟡 | already feasible today (M=3 dispatch is done) |
-| `ParkinsonVol` | high-low range volatility estimator | 2→1 | 🟡 | quant-finance staple |
-| `GarmanKlassVol` | OHLC volatility estimator | 4→1 | ⚪ | niche; needs OHLC |
+| `YangZhangVol` | Yang-Zhang volatility estimator (drift-robust + overnight gaps) | 4→1 | 🟡 | composes RS with an overnight-return variance and an open-to-close variance; ~14× efficiency vs close-to-close |
 
 
 ## Volume-aware indicators (price + volume)

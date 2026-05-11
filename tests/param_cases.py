@@ -33,6 +33,11 @@ _ROLLING_AUTO_EXCLUDE = {
     'RollingMinMax',
     # BollingerBands also has different shape (..., 3) and needs
     # bespoke tests.
+    # 2-input range-based volatility (H, L)
+    'RollingParkinsonVar', 'RollingParkinsonVol',
+    # 4-input OHLC range-based volatility
+    'RollingGarmanKlassVar', 'RollingGarmanKlassVol',
+    'RollingRogersSatchellVar', 'RollingRogersSatchellVol',
 }
 rolling_classes = [cls for cls in screamer_classes
                    if cls.startswith('Rolling') and cls not in _ROLLING_AUTO_EXCLUDE]
@@ -41,9 +46,19 @@ rolling_classes = [cls for cls in screamer_classes
 #   EwSkew, EwKurt: todo baselines
 #   EwCov, EwCorr, EwBeta: 2-input (FunctorBase<_, 2, 1>); tested in
 #                          tests/test_ew_pair.py
+_EW_AUTO_EXCLUDE = {
+    # todo baselines
+    'EwSkew', 'EwKurt',
+    # 2-input pair stats; tested in test_ew_pair.py
+    'EwCov', 'EwCorr', 'EwBeta',
+    # 2-input range-based volatility (H, L)
+    'EwParkinsonVar', 'EwParkinsonVol',
+    # 4-input OHLC range-based volatility
+    'EwGarmanKlassVar', 'EwGarmanKlassVol',
+    'EwRogersSatchellVar', 'EwRogersSatchellVol',
+}
 ew_classes = [cls for cls in screamer_classes
-              if cls.startswith('Ew')
-              and cls not in ['EwSkew', 'EwKurt', 'EwCov', 'EwCorr', 'EwBeta']]
+              if cls.startswith('Ew') and cls not in _EW_AUTO_EXCLUDE]
 
 # Classes that have no arguments. Some no-arg classes are multi-input
 # (FunctorBase<_, N, _>) or multi-output (FunctorBase<_, _, M>), which the

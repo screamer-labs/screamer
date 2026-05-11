@@ -39,6 +39,9 @@
 #include "screamer/cci.h"
 #include "screamer/ultimate_oscillator.h"
 #include "screamer/stoch_rsi.h"
+#include "screamer/parkinson.h"
+#include "screamer/garman_klass.h"
+#include "screamer/rogers_satchell.h"
 
 namespace py = pybind11;
 
@@ -281,6 +284,91 @@ void init_bindings_rolling(py::module& m) {
             py::arg("d") = 3)
         .def("__call__", &screamer::StochRSI::handle_input)
         .def("reset", &screamer::StochRSI::reset, "Reset to the initial state.");
+
+    // ----- Range-based volatility estimators -----
+    // Each estimator has a *Var (variance) form and a *Vol (= sqrt of
+    // *Var) form, in both Rolling and EW smoothing variants.
+
+    // Parkinson (1980): H, L. 2 -> 1.
+    py::class_<screamer::RollingParkinsonVar>(m, "RollingParkinsonVar")
+        .def(py::init<int>(), py::arg("window_size"))
+        .def("__call__", &screamer::RollingParkinsonVar::handle_input)
+        .def("reset", &screamer::RollingParkinsonVar::reset, "Reset.");
+
+    py::class_<screamer::RollingParkinsonVol>(m, "RollingParkinsonVol")
+        .def(py::init<int>(), py::arg("window_size"))
+        .def("__call__", &screamer::RollingParkinsonVol::handle_input)
+        .def("reset", &screamer::RollingParkinsonVol::reset, "Reset.");
+
+    py::class_<screamer::EwParkinsonVar>(m, "EwParkinsonVar")
+        .def(py::init<std::optional<double>, std::optional<double>,
+                       std::optional<double>, std::optional<double>>(),
+             py::arg("com") = std::nullopt, py::arg("span") = std::nullopt,
+             py::arg("halflife") = std::nullopt, py::arg("alpha") = std::nullopt)
+        .def("__call__", &screamer::EwParkinsonVar::handle_input)
+        .def("reset", &screamer::EwParkinsonVar::reset, "Reset.");
+
+    py::class_<screamer::EwParkinsonVol>(m, "EwParkinsonVol")
+        .def(py::init<std::optional<double>, std::optional<double>,
+                       std::optional<double>, std::optional<double>>(),
+             py::arg("com") = std::nullopt, py::arg("span") = std::nullopt,
+             py::arg("halflife") = std::nullopt, py::arg("alpha") = std::nullopt)
+        .def("__call__", &screamer::EwParkinsonVol::handle_input)
+        .def("reset", &screamer::EwParkinsonVol::reset, "Reset.");
+
+    // Garman-Klass (1980): O, H, L, C. 4 -> 1.
+    py::class_<screamer::RollingGarmanKlassVar>(m, "RollingGarmanKlassVar")
+        .def(py::init<int>(), py::arg("window_size"))
+        .def("__call__", &screamer::RollingGarmanKlassVar::handle_input)
+        .def("reset", &screamer::RollingGarmanKlassVar::reset, "Reset.");
+
+    py::class_<screamer::RollingGarmanKlassVol>(m, "RollingGarmanKlassVol")
+        .def(py::init<int>(), py::arg("window_size"))
+        .def("__call__", &screamer::RollingGarmanKlassVol::handle_input)
+        .def("reset", &screamer::RollingGarmanKlassVol::reset, "Reset.");
+
+    py::class_<screamer::EwGarmanKlassVar>(m, "EwGarmanKlassVar")
+        .def(py::init<std::optional<double>, std::optional<double>,
+                       std::optional<double>, std::optional<double>>(),
+             py::arg("com") = std::nullopt, py::arg("span") = std::nullopt,
+             py::arg("halflife") = std::nullopt, py::arg("alpha") = std::nullopt)
+        .def("__call__", &screamer::EwGarmanKlassVar::handle_input)
+        .def("reset", &screamer::EwGarmanKlassVar::reset, "Reset.");
+
+    py::class_<screamer::EwGarmanKlassVol>(m, "EwGarmanKlassVol")
+        .def(py::init<std::optional<double>, std::optional<double>,
+                       std::optional<double>, std::optional<double>>(),
+             py::arg("com") = std::nullopt, py::arg("span") = std::nullopt,
+             py::arg("halflife") = std::nullopt, py::arg("alpha") = std::nullopt)
+        .def("__call__", &screamer::EwGarmanKlassVol::handle_input)
+        .def("reset", &screamer::EwGarmanKlassVol::reset, "Reset.");
+
+    // Rogers-Satchell (1991): O, H, L, C; drift-robust. 4 -> 1.
+    py::class_<screamer::RollingRogersSatchellVar>(m, "RollingRogersSatchellVar")
+        .def(py::init<int>(), py::arg("window_size"))
+        .def("__call__", &screamer::RollingRogersSatchellVar::handle_input)
+        .def("reset", &screamer::RollingRogersSatchellVar::reset, "Reset.");
+
+    py::class_<screamer::RollingRogersSatchellVol>(m, "RollingRogersSatchellVol")
+        .def(py::init<int>(), py::arg("window_size"))
+        .def("__call__", &screamer::RollingRogersSatchellVol::handle_input)
+        .def("reset", &screamer::RollingRogersSatchellVol::reset, "Reset.");
+
+    py::class_<screamer::EwRogersSatchellVar>(m, "EwRogersSatchellVar")
+        .def(py::init<std::optional<double>, std::optional<double>,
+                       std::optional<double>, std::optional<double>>(),
+             py::arg("com") = std::nullopt, py::arg("span") = std::nullopt,
+             py::arg("halflife") = std::nullopt, py::arg("alpha") = std::nullopt)
+        .def("__call__", &screamer::EwRogersSatchellVar::handle_input)
+        .def("reset", &screamer::EwRogersSatchellVar::reset, "Reset.");
+
+    py::class_<screamer::EwRogersSatchellVol>(m, "EwRogersSatchellVol")
+        .def(py::init<std::optional<double>, std::optional<double>,
+                       std::optional<double>, std::optional<double>>(),
+             py::arg("com") = std::nullopt, py::arg("span") = std::nullopt,
+             py::arg("halflife") = std::nullopt, py::arg("alpha") = std::nullopt)
+        .def("__call__", &screamer::EwRogersSatchellVol::handle_input)
+        .def("reset", &screamer::EwRogersSatchellVol::reset, "Reset.");
 
     py::class_<screamer::RollingMedian, screamer::ScreamerBase>(m, "RollingMedian")
         .def(py::init<int>(), py::arg("window_size"))

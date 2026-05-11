@@ -143,14 +143,13 @@ def ref_stoch_rsi(close, rsi_period, stoch_period, smooth_k, d):
         if np.isnan(rsi_max[t]) or rsi_max[t] - rsi_min[t] <= 0:
             continue
         raw_k[t] = 100.0 * (rsi[t] - rsi_min[t]) / (rsi_max[t] - rsi_min[t])
-    slow_k = pd.Series(raw_k).rolling(smooth_k).mean().to_numpy()
-    slow_d = pd.Series(slow_k).rolling(d).mean().to_numpy()
+    slow_k = np.array(pd.Series(raw_k).rolling(smooth_k).mean(), dtype=float)
+    slow_d = np.array(pd.Series(slow_k).rolling(d).mean(), dtype=float)
     # Gate both until %D is valid -- our class does this.
     warmup_after_rsi = stoch_period + smooth_k + d - 2
     rsi_first_valid = rsi_period
     # First fully-valid sample
     final_warmup = rsi_first_valid + warmup_after_rsi - 1
-    slow_k = slow_k.copy()
     slow_k[:final_warmup] = np.nan
     slow_d[:final_warmup] = np.nan
     return slow_k, slow_d
