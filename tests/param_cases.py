@@ -41,6 +41,8 @@ _ROLLING_AUTO_EXCLUDE = {
     'RollingYangZhangVar', 'RollingYangZhangVol',
     # 4-input OHLCV volume-aware (FunctorBase<_, 4, 1>)
     'RollingVWAP',
+    # 2-input performance metric (FunctorBase<_, 2, 1>)
+    'RollingInfoRatio',
 }
 rolling_classes = [cls for cls in screamer_classes
                    if cls.startswith('Rolling') and cls not in _ROLLING_AUTO_EXCLUDE]

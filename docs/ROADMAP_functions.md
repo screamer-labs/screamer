@@ -241,17 +241,22 @@ These are present in `pyfolio`, `quantstats`, and `pandas` recipes but
 not as streaming primitives in any reference library. Adding them to
 `screamer` is a real differentiator.
 
+### What we have
+
+| | |
+|---|---|
+| `Drawdown` | running drawdown from cumulative peak. Composes `CumMax`. 1→1 |
+| `MaxDrawdown` | worst drawdown so far since reset. Composes `Drawdown` + `CumMin`. 1→1 |
+| `RollingMaxDrawdown(window)` | worst peak-to-trough loss within the trailing window. 1→1 |
+| `RollingSharpe(window, ppy)` | rolling annualised Sharpe. 1→1 |
+| `RollingSortino(window, ppy, target)` | downside-only-volatility variant. 1→1 |
+| `RollingInfoRatio(window, ppy)` | active return / tracking error vs benchmark. 2→1 |
+| `RollingCalmar(window, ppy)` | annualised mean return / rolling max drawdown. 1→1 |
+| `RollingHitRate(window)` | fraction of positive samples in the window. 1→1 |
+
 ### Gaps
 
-| Function | Description | Quadrant | Priority | Note |
-|---|---|---|---|---|
-| `Drawdown` | running drawdown from running peak | 1→1 | 🔴 | needs `CumMax`; one of the most-asked-for metrics |
-| `MaxDrawdown(window)` | rolling max-drawdown | 1→1 | 🔴 | depth + duration are both useful |
-| `RollingSharpe(window, periods_per_year)` | rolling annualised Sharpe ratio | 1→1 | 🔴 | the canonical risk-adjusted return |
-| `RollingSortino` | downside-only-volatility variant | 1→1 | 🟡 | |
-| `RollingInfoRatio` | active return / tracking error (vs benchmark) | 2→1 | 🟡 | |
-| `RollingCalmar` | annualised return / max-drawdown | 1→1 | ⚪ | composite |
-| `RollingHitRate` | fraction of positive samples in the window | 1→1 | 🟡 | useful for strategy-evaluation streams |
+(none -- performance / risk section complete)
 
 
 ## Signal processing

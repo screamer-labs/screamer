@@ -11,6 +11,14 @@
 #include "screamer/rolling_cov.h"
 #include "screamer/rolling_beta.h"
 #include "screamer/rolling_spread.h"
+#include "screamer/drawdown.h"
+#include "screamer/max_drawdown.h"
+#include "screamer/rolling_max_drawdown.h"
+#include "screamer/rolling_sharpe.h"
+#include "screamer/rolling_sortino.h"
+#include "screamer/rolling_info_ratio.h"
+#include "screamer/rolling_calmar.h"
+#include "screamer/rolling_hit_rate.h"
 
 namespace py = pybind11;
 
@@ -86,4 +94,54 @@ void init_bindings_fin(py::module& m) {
              py::arg("start_policy") = "strict")
         .def("__call__", &screamer::RollingSpread::handle_input)
         .def("reset", &screamer::RollingSpread::reset, "Reset to the initial state.");
+
+    // ----- Performance / risk metrics -----
+    py::class_<screamer::Drawdown, screamer::ScreamerBase>(m, "Drawdown")
+        .def(py::init<>())
+        .def("__call__", &screamer::Drawdown::operator(), py::arg("value"))
+        .def("reset", &screamer::Drawdown::reset, "Reset.");
+
+    py::class_<screamer::MaxDrawdown, screamer::ScreamerBase>(m, "MaxDrawdown")
+        .def(py::init<>())
+        .def("__call__", &screamer::MaxDrawdown::operator(), py::arg("value"))
+        .def("reset", &screamer::MaxDrawdown::reset, "Reset.");
+
+    py::class_<screamer::RollingMaxDrawdown, screamer::ScreamerBase>(m, "RollingMaxDrawdown")
+        .def(py::init<int>(), py::arg("window_size"))
+        .def("__call__", &screamer::RollingMaxDrawdown::operator(), py::arg("value"))
+        .def("reset", &screamer::RollingMaxDrawdown::reset, "Reset.");
+
+    py::class_<screamer::RollingSharpe, screamer::ScreamerBase>(m, "RollingSharpe")
+        .def(py::init<int, double>(),
+             py::arg("window_size"),
+             py::arg("periods_per_year") = 1.0)
+        .def("__call__", &screamer::RollingSharpe::operator(), py::arg("value"))
+        .def("reset", &screamer::RollingSharpe::reset, "Reset.");
+
+    py::class_<screamer::RollingSortino, screamer::ScreamerBase>(m, "RollingSortino")
+        .def(py::init<int, double, double>(),
+             py::arg("window_size"),
+             py::arg("periods_per_year") = 1.0,
+             py::arg("target") = 0.0)
+        .def("__call__", &screamer::RollingSortino::operator(), py::arg("value"))
+        .def("reset", &screamer::RollingSortino::reset, "Reset.");
+
+    py::class_<screamer::RollingInfoRatio>(m, "RollingInfoRatio")
+        .def(py::init<int, double>(),
+             py::arg("window_size"),
+             py::arg("periods_per_year") = 1.0)
+        .def("__call__", &screamer::RollingInfoRatio::handle_input)
+        .def("reset", &screamer::RollingInfoRatio::reset, "Reset.");
+
+    py::class_<screamer::RollingCalmar, screamer::ScreamerBase>(m, "RollingCalmar")
+        .def(py::init<int, double>(),
+             py::arg("window_size"),
+             py::arg("periods_per_year") = 1.0)
+        .def("__call__", &screamer::RollingCalmar::operator(), py::arg("value"))
+        .def("reset", &screamer::RollingCalmar::reset, "Reset.");
+
+    py::class_<screamer::RollingHitRate, screamer::ScreamerBase>(m, "RollingHitRate")
+        .def(py::init<int>(), py::arg("window_size"))
+        .def("__call__", &screamer::RollingHitRate::operator(), py::arg("value"))
+        .def("reset", &screamer::RollingHitRate::reset, "Reset.");
 }
