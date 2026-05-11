@@ -20,6 +20,7 @@ Rolling Window Functions
    functions_rolling/RangeVolatility
    functions_rolling/RollingArgmax
    functions_rolling/RollingArgmin
+   functions_rolling/RollingHurst
    functions_rolling/RollingIqr
    functions_rolling/RollingKurt
    functions_rolling/RollingMad

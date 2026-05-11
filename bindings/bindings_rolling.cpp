@@ -57,6 +57,7 @@
 #include "screamer/rolling_tsf.h"
 #include "screamer/rolling_rank.h"
 #include "screamer/rolling_percentile.h"
+#include "screamer/rolling_hurst.h"
 
 namespace py = pybind11;
 
@@ -476,6 +477,16 @@ void init_bindings_rolling(py::module& m) {
         .def(py::init<int>(), py::arg("window_size"))
         .def("__call__", &screamer::RollingPercentile::operator(), py::arg("value"))
         .def("reset", &screamer::RollingPercentile::reset, "Reset.");
+
+    // RollingHurst: rolling-window Hurst exponent via Anis-Lloyd
+    // corrected rescaled-range analysis at dyadic scales.
+    py::class_<screamer::RollingHurst, screamer::ScreamerBase>(m, "RollingHurst")
+        .def(py::init<int, int, const std::string&>(),
+             py::arg("window_size"),
+             py::arg("min_scale") = 4,
+             py::arg("method") = "rs")
+        .def("__call__", &screamer::RollingHurst::operator(), py::arg("value"))
+        .def("reset", &screamer::RollingHurst::reset, "Reset.");
 
     py::class_<screamer::RollingMedian, screamer::ScreamerBase>(m, "RollingMedian")
         .def(py::init<int>(), py::arg("window_size"))

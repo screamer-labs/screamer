@@ -122,6 +122,10 @@ drift fires. Full test suite: 2126 passing.
   error of estimate, not slope-stderr).
 * `RollingTSF` — TA-Lib's Time-Series Forecast (regression vs
   time projected one step ahead), bit-exact to `talib.TSF`.
+* `RollingHurst(window, min_scale=4, method='rs')` — rolling Hurst
+  exponent via Anis-Lloyd corrected rescaled-range analysis at
+  dyadic scales. Bit-exact to the reference Python implementation;
+  ~0.5 on white noise, >0.5 on integrated processes.
 
 #### Signal processing
 

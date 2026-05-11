@@ -45,6 +45,10 @@ _ROLLING_AUTO_EXCLUDE = {
     'RollingInfoRatio',
     # 2-input regression family (FunctorBase<_, 2, _>)
     'RollingAlpha', 'RollingResidualStd', 'RollingLinearRegression',
+    # Multi-scale R/S analysis: needs window_size >= 4 * min_scale = 16,
+    # which the default auto-harness window_size=20 only barely satisfies
+    # with min_scale=4 and 2 scales. Bespoke tests in test_rolling_hurst.py.
+    'RollingHurst',
 }
 rolling_classes = [cls for cls in screamer_classes
                    if cls.startswith('Rolling') and cls not in _ROLLING_AUTO_EXCLUDE]
