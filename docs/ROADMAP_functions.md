@@ -219,7 +219,6 @@ agreed-upon definition and is rarely asked for in practice.)
 | `RollingSpread` | hedge-adjusted residual `x − β·y` |
 | `RollingPoly1`, `RollingPoly2` | OLS fit at window endpoint, returning value or derivatives |
 | `RollingZscore`, `EwZscore` | normalised position |
-| `RollingFracDiff` | fractional differentiation |
 | `RollingOU` | Ornstein-Uhlenbeck parameter fit |
 | `RollingAlpha` | regression intercept companion to `RollingBeta` (`α = mean(y) − β · mean(x)`). 2→1 |
 | `RollingResidualStd` | std of the per-bar `RollingSpread` -- pairs-trading normalisation. 2→1 |

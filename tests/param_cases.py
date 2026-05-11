@@ -17,7 +17,6 @@ screamer_classes = get_module_public_classes(screamer_module)
 # The Rolling classes that fit the standard 1-input/1-output auto-test
 # pattern. Exclusions:
 #   RollingQuantile  - takes an extra `quantile` arg
-#   RollingFracDiff  - takes extra `frac_order`/`threshold` args
 #   RollingCorr,
 #   RollingCov,
 #   RollingBeta,
@@ -25,7 +24,7 @@ screamer_classes = get_module_public_classes(screamer_module)
 #                      bespoke tests that feed two parallel arrays. See
 #                      tests/test_rolling_corr.py and friends.
 _ROLLING_AUTO_EXCLUDE = {
-    'RollingQuantile', 'RollingFracDiff',
+    'RollingQuantile',
     # 2-input (FunctorBase<_, 2, 1>) -- need parallel arrays
     'RollingCorr', 'RollingCov', 'RollingBeta', 'RollingSpread',
     # 1-input M>1-output (FunctorBase<_, 1, M>) -- output shape is
@@ -110,7 +109,6 @@ test_definitions = [
     ( ('RollingQuantile',)       , {"window_size": [20], "quantile": [0, 0.01, 0.4, 1]} ),
     ( ('RollingPoly1',)          , {"window_size": [20], "derivative_order": [0, 1] }),
     ( ('RollingPoly2',)          , {"window_size": [20], "derivative_order": [0, 1, 2] }),
-    ( ('RollingFracDiff',)       , {"window_size": [20], "frac_order": [0.25, 0.5, 0.75, 1.0] }),
     ( tuple(ew_classes)          , {"span": [5]}),
     ( tuple(ew_classes)          , {"alpha": [0.2]}),
     ( tuple(ew_classes)          , {"halflife": [10]}),

@@ -15,8 +15,8 @@ sys.path.insert(0, os.path.abspath('../../screamer'))  # Adjust the relative pat
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
 project = 'screamer'
-copyright = '2024, Thijs van den Berg, Mohammadjavad Vakili'
-author = 'Thijs van den Berg, Mohammadjavad Vakili'
+copyright = '2026, Thijs van den Berg'
+author = 'Thijs van den Berg'
 release = '0.1.46'
 
 # -- General configuration ---------------------------------------------------

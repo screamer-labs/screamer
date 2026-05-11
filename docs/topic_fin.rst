@@ -19,7 +19,6 @@ Finance
    functions_fin/RollingCalmar
    functions_fin/RollingCorr
    functions_fin/RollingCov
-   functions_fin/RollingFracDiff
    functions_fin/RollingHitRate
    functions_fin/RollingInfoRatio
    functions_fin/RollingLinearRegression

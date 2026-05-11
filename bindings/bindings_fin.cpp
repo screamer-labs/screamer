@@ -6,7 +6,6 @@
 #include "screamer/roc.h"
 #include "screamer/rocp.h"
 #include "screamer/rocr.h"
-#include "screamer/rolling_fracdiff.h"
 #include "screamer/rolling_corr.h"
 #include "screamer/rolling_cov.h"
 #include "screamer/rolling_beta.h"
@@ -55,11 +54,6 @@ void init_bindings_fin(py::module& m) {
         .def(py::init<int>(), py::arg("window_size") = 1)
         .def("__call__", &screamer::ROCR::operator(), py::arg("value"))
         .def("reset", &screamer::ROCR::reset, "Reset to the initial state.");
-
-    py::class_<screamer::RollingFracDiff, screamer::ScreamerBase>(m, "RollingFracDiff")
-        .def(py::init<double, int, double>(), py::arg("frac_order") = 0.5, py::arg("window_size") = 100, py::arg("threshold")=1e-5)
-        .def("__call__", &screamer::RollingFracDiff::operator(), py::arg("value"))
-        .def("reset", &screamer::RollingFracDiff::reset, "Reset to the initial state.");
 
     // RollingCorr: 2 inputs (x, y), 1 output (Pearson correlation).
     // Inherits from FunctorBase<_, 2, 1>, NOT ScreamerBase -- the

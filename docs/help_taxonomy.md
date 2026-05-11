@@ -139,7 +139,6 @@ from `math` (which is pure stateless arithmetic).
 - ✓ `Lag`, `Diff`, `Diff2`, `Detrend`
 - ✓ `Return`, `LogReturn` (with `returns` tag)
 - ✓ `CumSum`, `CumProd`, `CumMax`, `CumMin`, `Identity`
-- ✓ `RollingFracDiff`
 
 ### `math`
 Stateless arithmetic / scalar functions.

@@ -7,20 +7,18 @@ version = "0.2.0"
 requires-python = ">=3.11"
 
 authors = [
-  {name = "Thijs van den Berg", email = "thijs@sitmo.com"},
-  {name = "Mohammadjavad Vakili", email = "mohammadjavad.vakili@gmail.com"}
+  {name = "Thijs van den Berg", email = "thijs@sitmo.com"}
 ]
 
 maintainers = [
-  {name = "Thijs van den Berg", email = "thijs@sitmo.com"},
-  {name = "Mohammadjavad Vakili", email = "mohammadjavad.vakili@gmail.com"}
+  {name = "Thijs van den Berg", email = "thijs@sitmo.com"}
 ]
 
 description = "Screamingly fast financial technical indicators with C++ performance and Python simplicity, built for both time series analysis and real-time, event-driven streaming."
 
 readme = "README.md"
 
-license = {text = "MIT License"}
+license = {text = "Commerical"}
 
 dependencies = ["pybind11>=2.9"]
 
@@ -101,10 +99,9 @@ version = "0.2.0"
 description = "Screamingly fast financial technical indicators with C++ performance and Python simplicity, built for both time series analysis and real-time, event-driven streaming."
 authors = ["Thijs van den Berg <thijs@sitmo.com>, Mohammadjavad Vakili <mohammadjavad.vakili@gmail.com>"]
 maintainers = [
-    "Thijs van den Berg <thijs@sitmo.com>", 
-    "Mohammadjavad Vakili <mohammadjavad.vakili@gmail.com>" 
+    "Thijs van den Berg <thijs@sitmo.com>" 
 ]
-license = "MIT"
+license = "Commercial"
 readme = "README.md"
 packages = [{ include = "screamer" }]
 

@@ -35,7 +35,5 @@ Element-wise or stateful series transformations: lag, diff, detrend, cumulative 
      - log(x[t] / x[t-k]) — log return at lag k.
    * - :doc:`Return </functions_fin/Return>`
      - (x[t] - x[t-k]) / x[t-k] — the simple percentage return at lag k.
-   * - :doc:`RollingFracDiff </functions_fin/RollingFracDiff>`
-     - Fractional differencing of order d preserving long memory while inducing stationarity.
    * - :doc:`RollingSum </functions_rolling/RollingSum>`
      - Trailing-window sum.
