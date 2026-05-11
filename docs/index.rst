@@ -151,6 +151,14 @@ For a step-by-step walkthrough see the :doc:`User Guide <usage>`.
 
 .. toctree::
    :maxdepth: 1
+   :caption: Browse by topic
+   :hidden:
+
+   by_topic_index
+
+
+.. toctree::
+   :maxdepth: 1
    :caption: Concepts
    :hidden:
 
