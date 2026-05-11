@@ -33,6 +33,7 @@
 #include "screamer/kama.h"
 #include "screamer/macd.h"
 #include "screamer/williams_r.h"
+#include "screamer/stoch.h"
 
 namespace py = pybind11;
 
@@ -222,6 +223,17 @@ void init_bindings_rolling(py::module& m) {
         .def(py::init<int>(), py::arg("window_size") = 14)
         .def("__call__", &screamer::WilliamsR::handle_input)
         .def("reset", &screamer::WilliamsR::reset, "Reset to the initial state.");
+
+    // Stoch: 3->2, takes (high, low, close), returns (%K, %D). With
+    // smooth_k=1 this is the "fast" stochastic (Lane's original);
+    // with smooth_k>=2 it is the "slow" stochastic (talib.STOCH).
+    py::class_<screamer::Stoch>(m, "Stoch")
+        .def(py::init<int, int, int>(),
+            py::arg("fastk_period") = 14,
+            py::arg("smooth_k") = 3,
+            py::arg("d") = 3)
+        .def("__call__", &screamer::Stoch::handle_input)
+        .def("reset", &screamer::Stoch::reset, "Reset to the initial state.");
 
     py::class_<screamer::RollingMedian, screamer::ScreamerBase>(m, "RollingMedian")
         .def(py::init<int>(), py::arg("window_size"))

@@ -187,6 +187,39 @@ class TestExactAlignment:
         mask = ~(np.isnan(ours) | np.isnan(ref))
         np.testing.assert_allclose(ours[mask], ref[mask], atol=1e-10)
 
+    def test_stoch_slow_matches_talib(self, random_series):
+        """Slow stochastic (smooth_k=3) matches talib.STOCH bit-exactly
+        post-warmup."""
+        rng = np.random.default_rng(0)
+        n_samples = len(random_series)
+        close = 100 + np.cumsum(random_series)
+        high = close + np.abs(rng.normal(0, 0.5, n_samples))
+        low = close - np.abs(rng.normal(0, 0.5, n_samples))
+        out = sc.Stoch(14, 3, 3)(high, low, close)
+        ref_k, ref_d = talib.STOCH(high, low, close, fastk_period=14,
+                                    slowk_period=3, slowk_matype=0,
+                                    slowd_period=3, slowd_matype=0)
+        mk = ~(np.isnan(out[:, 0]) | np.isnan(ref_k))
+        md = ~(np.isnan(out[:, 1]) | np.isnan(ref_d))
+        np.testing.assert_allclose(out[mk, 0], ref_k[mk], atol=1e-10)
+        np.testing.assert_allclose(out[md, 1], ref_d[md], atol=1e-10)
+
+    def test_stoch_fast_matches_talib_stochf(self, random_series):
+        """Fast stochastic (smooth_k=1) matches talib.STOCHF bit-exactly
+        post-warmup."""
+        rng = np.random.default_rng(0)
+        n_samples = len(random_series)
+        close = 100 + np.cumsum(random_series)
+        high = close + np.abs(rng.normal(0, 0.5, n_samples))
+        low = close - np.abs(rng.normal(0, 0.5, n_samples))
+        out = sc.Stoch(14, 1, 3)(high, low, close)
+        ref_k, ref_d = talib.STOCHF(high, low, close, fastk_period=14,
+                                     fastd_period=3, fastd_matype=0)
+        mk = ~(np.isnan(out[:, 0]) | np.isnan(ref_k))
+        md = ~(np.isnan(out[:, 1]) | np.isnan(ref_d))
+        np.testing.assert_allclose(out[mk, 0], ref_k[mk], atol=1e-10)
+        np.testing.assert_allclose(out[md, 1], ref_d[md], atol=1e-10)
+
 
 # ---------------------------------------------------------------------------
 # Documented divergences (asserts the divergence is in the EXPECTED
@@ -374,6 +407,14 @@ def test_summary_print(random_series, capsys):
         sc.WilliamsR(14)(high_hlc, low_hlc, close_hlc),
         talib.WILLR(high_hlc, low_hlc, close_hlc, timeperiod=14),
     ))
+    stoch_out = sc.Stoch(14, 3, 3)(high_hlc, low_hlc, close_hlc)
+    stoch_ref_k, stoch_ref_d = talib.STOCH(
+        high_hlc, low_hlc, close_hlc,
+        fastk_period=14, slowk_period=3, slowk_matype=0,
+        slowd_period=3, slowd_matype=0,
+    )
+    pairs.append(("Stoch slow %K vs TA-Lib STOCH", stoch_out[:, 0], stoch_ref_k))
+    pairs.append(("Stoch slow %D vs TA-Lib STOCH", stoch_out[:, 1], stoch_ref_d))
     print()
     print(f"{'comparison':45s}  max_abs_diff (post-warmup)")
     print("-" * 72)

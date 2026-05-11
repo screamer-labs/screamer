@@ -151,13 +151,13 @@ agreed-upon definition and is rarely asked for in practice.)
 | `Return`, `LogReturn` | simple / log returns over a delay |
 | `MACD` | Moving Average Convergence Divergence: `(macd, signal, histogram)`. Pure composition of three `EwMean`s |
 | `WilliamsR` | Williams %R: normalised close position within the rolling (H, L) range, scaled to `[-100, 0]`. Two monotonic deques. 3→1 |
+| `Stoch` | Stochastic oscillator: `(%K, %D)`. `smooth_k=1` gives Lane's "fast" form; `smooth_k>=2` gives the "slow" form (charting default). Matches `talib.STOCH` / `STOCHF`. 3→2 |
 
 ### Gaps
 
 | Function | Description | Quadrant | Priority | Note |
 |---|---|---|---|---|
-| `Stoch` | Stochastic oscillator | 3→2 | 🔴 | `(%K, %D)` over rolling min/max range; needs HLC |
-| `StochRSI` | Stochastic of RSI | 1→2 | 🟡 | composite |
+| `StochRSI` | Stochastic of RSI | 1→2 | 🟡 | composite of `RollingRSI` + Stoch-like smoothing |
 | `ROC`, `ROCP`, `ROCR` | rate-of-change variants | 1→1 | 🟡 | `Return` covers ROCP; explicit names would help discoverability |
 | `Momentum(k)` | `x[t] - x[t-k]` | 1→1 | 🟡 | identical to `Diff(k)`; alias would aid TA-Lib porting |
 | `CCI` | Commodity Channel Index | 3→1 | 🟡 | needs (high, low, close) typical-price |

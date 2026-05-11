@@ -34,6 +34,7 @@ Rolling Window Functions
    functions_rolling/RollingSum
    functions_rolling/RollingVar
    functions_rolling/RollingZscore
+   functions_rolling/Stoch
    functions_rolling/TEMA
    functions_rolling/TRIMA
    functions_rolling/WilliamsR
