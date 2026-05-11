@@ -1,3 +1,25 @@
+---
+name: RollingRange
+title: Rolling range
+implementation_family: rolling
+topics:
+- statistics
+tags:
+- range
+- min
+- max
+- rolling
+short: Trailing-window max minus min.
+inputs: 1
+outputs: 1
+parameters:
+- name: window_size
+  type: int
+  default: 20
+  min: 2
+  description: Trailing-window length.
+---
+
 # `RollingRange`
 
 ## Description
@@ -7,6 +29,8 @@
 *Parameters*: `window_size` (int, positive).
 
 *NaN handling*: NaN values should be preprocessed.
+
+<!-- HELP_END -->
 
 ## Usage Example
 

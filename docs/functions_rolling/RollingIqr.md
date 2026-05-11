@@ -1,3 +1,24 @@
+---
+name: RollingIqr
+title: Rolling interquartile range
+implementation_family: rolling
+topics:
+- statistics
+tags:
+- iqr
+- quartile
+- rolling
+short: Q3 minus Q1 over the trailing window.
+inputs: 1
+outputs: 1
+parameters:
+- name: window_size
+  type: int
+  default: 20
+  min: 2
+  description: Trailing-window length.
+---
+
 # `RollingIqr`
 
 ## Description
@@ -13,6 +34,8 @@ A robust spread measure: discards the top and bottom 25% of the window, so it is
 *Parameters*: `window_size` (int, positive).
 
 *NaN handling*: NaN values should be preprocessed.
+
+<!-- HELP_END -->
 
 ## Usage Example
 

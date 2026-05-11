@@ -1,3 +1,40 @@
+---
+name: StochRSI
+title: Stochastic RSI
+implementation_family: rolling
+topics:
+- oscillator
+tags:
+- stochrsi
+- rsi
+- oscillator
+- talib
+short: Stochastic applied to RSI (1 input -> 2 outputs).
+inputs: 1
+outputs: 2
+parameters:
+- name: rsi_period
+  type: int
+  default: 14
+  min: 2
+  description: RSI period.
+- name: stoch_period
+  type: int
+  default: 14
+  min: 2
+  description: Stochastic lookback over the RSI.
+- name: smooth_k
+  type: int
+  default: 1
+  min: 1
+  description: '%K smoothing.'
+- name: d
+  type: int
+  default: 3
+  min: 1
+  description: '%D period.'
+---
+
 # `StochRSI`
 
 ## Description
@@ -34,6 +71,8 @@ $$
 *Warmup*: both outputs are NaN until `%D` is valid, at sample index `rsi_period + stoch_period + smooth_k + d - 3` (TA-Lib's convention -- gate both K and D together). For defaults that is index 29.
 
 *Range-zero*: when the RSI window is flat (`max == min`), `raw_K` is undefined; we return `0`.
+
+<!-- HELP_END -->
 
 ## Implementation Details
 

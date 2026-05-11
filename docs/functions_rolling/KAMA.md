@@ -1,3 +1,36 @@
+---
+name: KAMA
+title: Kaufman Adaptive MA (KAMA)
+implementation_family: rolling
+topics:
+- trend
+- smoothing
+tags:
+- kama
+- kaufman
+- adaptive
+- moving-average
+short: Adaptive MA whose smoothing constant responds to the efficiency ratio.
+inputs: 1
+outputs: 1
+parameters:
+- name: window_size
+  type: int
+  default: 10
+  min: 2
+  description: Efficiency-ratio lookback.
+- name: fast
+  type: int
+  default: 2
+  min: 2
+  description: Fast EMA period.
+- name: slow
+  type: int
+  default: 30
+  min: 2
+  description: Slow EMA period.
+---
+
 # `KAMA`
 
 ## Description
@@ -43,6 +76,8 @@ Built from existing screamer primitives:
 
 * Time complexity: `O(1)` per step.
 * Space complexity: `O(window_size)`.
+
+<!-- HELP_END -->
 
 ## Usage Example and Plot
 

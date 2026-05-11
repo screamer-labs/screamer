@@ -1,3 +1,42 @@
+---
+name: RollingSigmaClip
+title: Rolling sigma-clip
+implementation_family: rolling
+topics:
+- data-handling
+tags:
+- outlier
+- sigma-clip
+- anomaly
+- rolling
+short: Replace samples outside [mean - lower*std, mean + upper*std] with NaN or the
+  clipped bound.
+inputs: 1
+outputs: 1
+parameters:
+- name: window_size
+  type: int
+  default: 20
+  min: 2
+  description: Trailing-window length.
+- name: lower
+  type: float|null
+  default: null
+  description: Lower sigma threshold (None disables lower clipping).
+- name: upper
+  type: float|null
+  default: null
+  description: Upper sigma threshold (None disables upper clipping).
+- name: output
+  type: int|null
+  default: null
+  enum:
+  - 0
+  - 1
+  - null
+  description: 0 = clipped value, 1 = boolean flag, None = boolean flag.
+---
+
 # `RollingSigmaClip`
 
 ## Description
@@ -22,6 +61,8 @@ The `RollingSigmaClip` class performs rolling statistical clipping on a data seq
   - `"expanding"`: Adapts the computation by dynamically reducing the window size to include all available data, starting from a single point and growing until `window_size` is reached.
   - `"zero"`: Simulates a full initial window of zeros, effectively pre-filling the data stream with `window_size` zeros before processing the actual input.
 
+
+<!-- HELP_END -->
 
 ## Usage Example and Plot
 

@@ -1,3 +1,35 @@
+---
+name: Stoch
+title: Stochastic Oscillator
+implementation_family: rolling
+topics:
+- oscillator
+tags:
+- stoch
+- oscillator
+- talib
+- hlc
+short: Stochastic oscillator %K and %D (3 inputs -> 2 outputs).
+inputs: 3
+outputs: 2
+parameters:
+- name: fastk_period
+  type: int
+  default: 14
+  min: 2
+  description: Lookback for the %K stochastic.
+- name: smooth_k
+  type: int
+  default: 3
+  min: 1
+  description: Smoothing period for %K (1 = fast stoch, 3 = TA-Lib slow stoch).
+- name: d
+  type: int
+  default: 3
+  min: 1
+  description: SMA period for %D.
+---
+
 # `Stoch`
 
 ## Description
@@ -54,6 +86,8 @@ Pure composition of two `detail::MonotonicDeque` (one each for high / low) plus 
 | three scalars | tuple `(%K, %D)` |
 | three 1D arrays of shape `(T,)` | array of shape `(T, 2)` |
 | three 2D arrays of shape `(T, K)` | array of shape `(T, K, 2)` |
+
+<!-- HELP_END -->
 
 ## Usage Example and Plot
 

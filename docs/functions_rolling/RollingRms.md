@@ -1,3 +1,32 @@
+---
+name: RollingRms
+title: Rolling root-mean-square
+implementation_family: rolling
+topics:
+- volatility
+- statistics
+tags:
+- rms
+- rolling
+short: Trailing-window root-mean-square.
+inputs: 1
+outputs: 1
+parameters:
+- name: window_size
+  type: int
+  default: 20
+  min: 2
+  description: Trailing-window length.
+- name: start_policy
+  type: str
+  default: strict
+  enum:
+  - strict
+  - expanding
+  - zero
+  description: Warmup behaviour.
+---
+
 # `RollingRms`
 
 ## Description
@@ -10,6 +39,8 @@ The `RollingRms` class calculates the root mean square (RMS) of values within a 
   - `"strict"`: Returns `NaN` for all calculations until `window_size` elements have been processed.
   - `"expanding"`: Adapts the computation by dynamically reducing the window size to include all available data, starting from a single point and growing until `window_size` is reached.
   - `"zero"`: Simulates a full initial window of zeros, effectively pre-filling the data stream with `window_size` zeros before processing the actual input.
+
+<!-- HELP_END -->
 
 ## Usage Example and Plot
 

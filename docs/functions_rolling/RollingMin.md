@@ -1,3 +1,23 @@
+---
+name: RollingMin
+title: Rolling minimum
+implementation_family: rolling
+topics:
+- statistics
+tags:
+- min
+- rolling
+short: Trailing-window minimum (monotonic deque).
+inputs: 1
+outputs: 1
+parameters:
+- name: window_size
+  type: int
+  default: 20
+  min: 2
+  description: Trailing-window length.
+---
+
 # `RollingMin`
 
 ## Description
@@ -6,6 +26,8 @@ The `RollingMin` class computes the minimum value within a moving window of spec
 
 *Initial values*: The constructor requires a positive integer `window_size` parameter to define the rolling window.  
 *NaN handling*: NaN values are not handled natively and should be preprocessed if necessary.
+
+<!-- HELP_END -->
 
 ## Usage Example and Plot
 Below is an example of using `RollingMin` to calculate the rolling maximum for a random dataset, along with a plot illustrating its output.

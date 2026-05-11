@@ -1,3 +1,25 @@
+---
+name: TRIMA
+title: Triangular MA (TRIMA)
+implementation_family: rolling
+topics:
+- trend
+- smoothing
+tags:
+- trima
+- triangular
+- moving-average
+short: 'Triangular MA: SMA of an SMA. Heavier center-weighting than WMA.'
+inputs: 1
+outputs: 1
+parameters:
+- name: window_size
+  type: int
+  default: 20
+  min: 2
+  description: Trailing-window length.
+---
+
 # `TRIMA`
 
 ## Description
@@ -33,6 +55,8 @@ Pure composition of two chained `detail::RollingMean` instances. Both run with `
 
 * Time complexity: `O(1)` per step (two `RollingMean` updates).
 * Space complexity: `O(window_size)`.
+
+<!-- HELP_END -->
 
 ## Usage Example
 

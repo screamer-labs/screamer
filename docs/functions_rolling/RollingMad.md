@@ -1,3 +1,32 @@
+---
+name: RollingMad
+title: Rolling mean absolute deviation
+implementation_family: rolling
+topics:
+- statistics
+tags:
+- mad
+- deviation
+- rolling
+short: Trailing-window mean absolute deviation from the rolling mean.
+inputs: 1
+outputs: 1
+parameters:
+- name: window_size
+  type: int
+  default: 20
+  min: 2
+  description: Trailing-window length.
+- name: start_policy
+  type: str
+  default: strict
+  enum:
+  - strict
+  - expanding
+  - zero
+  description: Warmup behaviour.
+---
+
 # `RollingMad`
 
 ## Description
@@ -16,6 +45,8 @@ A robust scale measure: less sensitive to outliers than `RollingStd` because it 
 - `start_policy` (str, optional): `"strict"` (default), `"expanding"`, or `"zero"`. Same semantics as `RollingMean`.
 
 *NaN handling*: NaN values should be preprocessed.
+
+<!-- HELP_END -->
 
 ## Usage Example and Plot
 

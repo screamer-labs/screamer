@@ -1,3 +1,20 @@
+---
+name: BOP
+title: Balance of Power (BOP)
+implementation_family: rolling
+topics:
+- oscillator
+tags:
+- bop
+- oscillator
+- talib
+- ohlc
+short: (close - open) / (high - low) per bar. No smoothing.
+inputs: 4
+outputs: 1
+parameters: []
+---
+
 # `BOP`
 
 ## Description
@@ -15,6 +32,8 @@ Output range is `[-1, +1]` for any sensibly-formed bar (where `low ≤ open, clo
 *Warmup*: none -- stateless, value defined for every input.
 
 *Range-zero*: returns `0` when `high == low` (flat bar; convention matches TA-Lib).
+
+<!-- HELP_END -->
 
 ## Implementation Details
 

@@ -1,3 +1,24 @@
+---
+name: RollingMinMax
+title: Rolling min and max
+implementation_family: rolling
+topics:
+- statistics
+tags:
+- min
+- max
+- rolling
+short: Trailing-window (min, max) returned as a 2-tuple per step.
+inputs: 1
+outputs: 2
+parameters:
+- name: window_size
+  type: int
+  default: 20
+  min: 2
+  description: Trailing-window length.
+---
+
 # `RollingMinMax`
 
 ## Description
@@ -25,6 +46,8 @@ with the window taking the most recent `window_size` samples.
 *Output shape*: an extra trailing axis of size **2** is appended to the input shape. A 1-D input of shape `(T,)` returns shape `(T, 2)`; a 2-D input `(T, K)` returns `(T, K, 2)`. Index `0` along the trailing axis is the rolling minimum, index `1` is the rolling maximum.
 
 A scalar call returns a Python `tuple` of two floats.
+
+<!-- HELP_END -->
 
 ## Usage Example and Plot
 

@@ -1,3 +1,30 @@
+---
+name: RollingQuantile
+title: Rolling quantile
+implementation_family: rolling
+topics:
+- statistics
+tags:
+- quantile
+- percentile
+- rolling
+short: Trailing-window quantile (e.g. 0.25 = lower quartile).
+inputs: 1
+outputs: 1
+parameters:
+- name: window_size
+  type: int
+  default: 20
+  min: 2
+  description: Trailing-window length.
+- name: quantile
+  type: float
+  default: 0.5
+  min: 0.0
+  max: 1.0
+  description: Quantile to compute (in [0, 1]).
+---
+
 # `RollingQuantile`
 
 ## Description
@@ -9,6 +36,8 @@ The `RollingQuantile` class computes a specified quantile within a moving window
 - **`quantile`**: Specifies the desired quantile, a value between 0 and 1, with 0.5 representing the median.
 
 *NaN handling*: The first `window_size` values are returned as `NaN`, as they do not form a complete window. If `NaN` values are present within the data sequence, they will be ignored in the quantile calculation.
+
+<!-- HELP_END -->
 
 ## Usage Example and Plot
 

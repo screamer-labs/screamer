@@ -1,3 +1,23 @@
+---
+name: RollingMedian
+title: Rolling median
+implementation_family: rolling
+topics:
+- statistics
+tags:
+- median
+- rolling
+short: Trailing-window median.
+inputs: 1
+outputs: 1
+parameters:
+- name: window_size
+  type: int
+  default: 20
+  min: 2
+  description: Trailing-window length.
+---
+
 # `RollingMedian`
 
 ## Description
@@ -6,6 +26,8 @@ The `RollingMedian` class computes the median value within a moving window of sp
 
 *Initial values*: The constructor requires a positive integer `window_size` parameter to define the rolling window.  
 *NaN handling*: NaN values are not handled natively and should be preprocessed if necessary.
+
+<!-- HELP_END -->
 
 ## Usage Example and Plot
 Below is an example of using `RollingMedian` to calculate the rolling median for a random dataset, along with a plot illustrating its output.

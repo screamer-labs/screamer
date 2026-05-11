@@ -1,3 +1,37 @@
+---
+name: DEMA
+title: Double Exponential MA (DEMA)
+implementation_family: rolling
+topics:
+- trend
+- smoothing
+tags:
+- dema
+- ema
+- mulloy
+- moving-average
+short: 'Mulloy''s Double EMA: 2*EMA - EMA(EMA).'
+inputs: 1
+outputs: 1
+parameters:
+- name: com
+  type: float
+  default: null
+  description: Center of mass. Exclusive with span/halflife/alpha.
+- name: span
+  type: float
+  default: 20.0
+  description: Span (default smoothing parameter).
+- name: halflife
+  type: float
+  default: null
+  description: Halflife.
+- name: alpha
+  type: float
+  default: null
+  description: Smoothing parameter.
+---
+
 # `DEMA`
 
 ## Description
@@ -26,6 +60,8 @@ Same `com / span / halflife / alpha` mutex as `EwMean` -- specify exactly one. T
 
 * Time complexity: `O(1)` per step.
 * Space complexity: `O(1)`.
+
+<!-- HELP_END -->
 
 ## Usage Example
 

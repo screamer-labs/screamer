@@ -1,3 +1,25 @@
+---
+name: HullMA
+title: Hull MA
+implementation_family: rolling
+topics:
+- trend
+- smoothing
+tags:
+- hull
+- hullma
+- moving-average
+short: 'Hull''s responsive MA: WMA(2*WMA(n/2) - WMA(n), sqrt(n)).'
+inputs: 1
+outputs: 1
+parameters:
+- name: window_size
+  type: int
+  default: 20
+  min: 2
+  description: Trailing-window length.
+---
+
 # `HullMA`
 
 ## Description
@@ -34,6 +56,8 @@ The inner WMAs run with `start_policy="expanding"` so they never emit `NaN` (whi
 
 * Time complexity: `O(1)` per step (three `WMA` updates).
 * Space complexity: `O(window_size)` (dominated by the longest internal `WMA`).
+
+<!-- HELP_END -->
 
 ## Usage Example
 

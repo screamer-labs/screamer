@@ -1,3 +1,25 @@
+---
+name: WilliamsR
+title: Williams %R
+implementation_family: rolling
+topics:
+- oscillator
+tags:
+- williams-r
+- oscillator
+- talib
+- hlc
+short: Inverse stochastic oscillator in [-100, 0].
+inputs: 3
+outputs: 1
+parameters:
+- name: window_size
+  type: int
+  default: 14
+  min: 2
+  description: Period (Wilder's default).
+---
+
 # `WilliamsR`
 
 ## Description
@@ -44,6 +66,8 @@ return -100 * (high_n - close) / range   (or 0 if range == 0)
 | three 1D arrays of shape `(T,)` | array of shape `(T,)` |
 | three 2D arrays of shape `(T, K)` | array of shape `(T, K)`, column-by-column |
 | three parallel iterables | `list[float]` (eager) |
+
+<!-- HELP_END -->
 
 ## Usage Example and Plot
 

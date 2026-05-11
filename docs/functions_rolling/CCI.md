@@ -1,3 +1,26 @@
+---
+name: CCI
+title: Commodity Channel Index (CCI)
+implementation_family: rolling
+topics:
+- oscillator
+tags:
+- cci
+- lambert
+- oscillator
+- talib
+- hlc
+short: Commodity Channel Index over typical price.
+inputs: 3
+outputs: 1
+parameters:
+- name: window_size
+  type: int
+  default: 14
+  min: 2
+  description: Period (Wilder's default).
+---
+
 # `CCI`
 
 ## Description
@@ -26,6 +49,8 @@ The 0.015 constant is a Lambert convention: roughly 70-80% of CCI readings fall 
 *Range-zero*: returns `0` when the MAD is 0 (a perfectly flat window).
 
 *NaN handling*: NaN inputs poison the rolling sum.
+
+<!-- HELP_END -->
 
 ## Implementation Details
 

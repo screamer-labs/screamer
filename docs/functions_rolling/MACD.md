@@ -1,3 +1,35 @@
+---
+name: MACD
+title: MACD
+implementation_family: rolling
+topics:
+- trend
+tags:
+- macd
+- ema
+- appel
+- talib
+short: MACD line, signal line, and histogram (3 outputs).
+inputs: 1
+outputs: 3
+parameters:
+- name: fast
+  type: int
+  default: 12
+  min: 2
+  description: Fast EMA span.
+- name: slow
+  type: int
+  default: 26
+  min: 2
+  description: Slow EMA span.
+- name: signal
+  type: int
+  default: 9
+  min: 2
+  description: Signal-line EMA span.
+---
+
 # `MACD`
 
 ## Description
@@ -50,6 +82,8 @@ histogram = macd - signal
 
 - Time complexity: `O(1)` per step.
 - Space complexity: `O(1)` (each `EwMean` holds two scalars).
+
+<!-- HELP_END -->
 
 ## Usage Example and Plot
 

@@ -1,3 +1,32 @@
+---
+name: RollingKurt
+title: Rolling kurtosis
+implementation_family: rolling
+topics:
+- statistics
+tags:
+- kurtosis
+- moment
+- rolling
+short: Trailing-window excess kurtosis.
+inputs: 1
+outputs: 1
+parameters:
+- name: window_size
+  type: int
+  default: 20
+  min: 2
+  description: Trailing-window length.
+- name: start_policy
+  type: str
+  default: strict
+  enum:
+  - strict
+  - expanding
+  - zero
+  description: Warmup behaviour.
+---
+
 # `RollingKurt`
 
 ## Description
@@ -10,6 +39,8 @@ The `RollingKurt` class computes the excess kurtosis of a data sequence within a
   - `"strict"`: Returns `NaN` for all calculations until `window_size` elements have been processed.
   - `"expanding"`: Adapts the computation by dynamically reducing the window size to include all available data, starting from a single point and growing until `window_size` is reached.
   - `"zero"`: Simulates a full initial window of zeros, effectively pre-filling the data stream with `window_size` zeros before processing the actual input.
+
+<!-- HELP_END -->
 
 ## Usage Example and Plot
 Below is an example of using `RollingKurt` to calculate the rolling median for a random dataset, along with a plot illustrating its output.

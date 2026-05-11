@@ -1,3 +1,33 @@
+---
+name: WMA
+title: Weighted Moving Average (WMA)
+implementation_family: rolling
+topics:
+- trend
+- smoothing
+tags:
+- wma
+- linear-weighted
+- moving-average
+short: Linearly-weighted moving average. O(1) per step.
+inputs: 1
+outputs: 1
+parameters:
+- name: window_size
+  type: int
+  default: 20
+  min: 2
+  description: Trailing-window length.
+- name: start_policy
+  type: str
+  default: strict
+  enum:
+  - strict
+  - expanding
+  - zero
+  description: Warmup behaviour.
+---
+
 # `WMA`
 
 ## Description
@@ -45,6 +75,8 @@ While the window is filling (n samples seen, `n < window_size`):
 | `"zero"` | weights `1, 2, ..., w` with implicit zeros for missing past, full divisor `w(w+1)/2` (output is dampened during warmup) |
 
 The warmup numerators agree exactly at the moment the window first fills, so the transition to the post-warmup recurrence is seamless.
+
+<!-- HELP_END -->
 
 ## Usage Example
 

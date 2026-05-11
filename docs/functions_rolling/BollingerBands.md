@@ -1,3 +1,38 @@
+---
+name: BollingerBands
+title: Bollinger Bands
+implementation_family: rolling
+topics:
+- channels
+- volatility
+tags:
+- bollinger
+- bands
+- envelope
+short: Mean +/- num_std rolling standard deviations.
+inputs: 1
+outputs: 3
+parameters:
+- name: window_size
+  type: int
+  default: 20
+  min: 2
+  description: Trailing-window length.
+- name: num_std
+  type: float
+  default: 2.0
+  min: 0.0
+  description: Number of rolling-std offsets for the upper/lower bands.
+- name: start_policy
+  type: str
+  default: strict
+  enum:
+  - strict
+  - expanding
+  - zero
+  description: Warmup behaviour.
+---
+
 # `BollingerBands`
 
 ## Description
@@ -26,6 +61,8 @@ where `n = window_size` and `k = num_std`. The standard deviation uses the unbia
 *Input shape*: a single stream (scalar, 1-D array, 2-D array, iterator, …). Same matrix as `RollingMean`.
 
 *Output shape*: an extra trailing axis of size **3** is appended to the input shape. A 1-D input of shape `(T,)` returns shape `(T, 3)`; index `0` is the lower band, index `1` is the middle band, index `2` is the upper band. A scalar call returns a Python `tuple` of three floats.
+
+<!-- HELP_END -->
 
 ## Usage Example and Plot
 

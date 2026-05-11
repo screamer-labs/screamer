@@ -1,3 +1,43 @@
+---
+name: RollingOU
+title: Rolling Ornstein-Uhlenbeck fit
+implementation_family: rolling
+topics:
+- regression
+tags:
+- ou
+- ornstein-uhlenbeck
+- mean-reversion
+- rolling
+short: Rolling MLE fit of a mean-reverting Ornstein-Uhlenbeck process.
+inputs: 1
+outputs: 1
+parameters:
+- name: window_size
+  type: int
+  default: 20
+  min: 2
+  description: Trailing-window length.
+- name: output
+  type: int|null
+  default: null
+  enum:
+  - 0
+  - 1
+  - 2
+  - null
+  description: 'Which fitted parameter to return: 0=mu, 1=theta, 2=sigma. None returns
+    all three (1->3).'
+- name: start_policy
+  type: str
+  default: strict
+  enum:
+  - strict
+  - expanding
+  - zero
+  description: Warmup behaviour.
+---
+
 # `RollingOU`
 
 ## Description
@@ -30,6 +70,8 @@ where $ x[i] $ is the current value, $ x[i-1] $ is the previous value, $ \mu $ i
   - `"strict"`: Returns `NaN` for all calculations until `window_size` elements have been processed.
   - `"expanding"`: Adapts the computation by dynamically reducing the window size to include all available data, starting from a single point and growing until `window_size` is reached.
   - `"zero"`: Simulates a full initial window of zeros, effectively pre-filling the data stream with `window_size` zeros before processing the actual input.
+
+<!-- HELP_END -->
 
 ## Usage Example and Plot
 

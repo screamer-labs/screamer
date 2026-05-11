@@ -1,3 +1,34 @@
+---
+name: RollingMean
+title: Rolling mean
+implementation_family: rolling
+topics:
+- trend
+- smoothing
+- statistics
+tags:
+- sma
+- mean
+- moving-average
+short: Trailing-window arithmetic mean (simple moving average).
+inputs: 1
+outputs: 1
+parameters:
+- name: window_size
+  type: int
+  default: 20
+  min: 2
+  description: Trailing-window length.
+- name: start_policy
+  type: str
+  default: strict
+  enum:
+  - strict
+  - expanding
+  - zero
+  description: Warmup behaviour.
+---
+
 # `RollingMean`
 
 ## Description
@@ -10,6 +41,8 @@ The `RollingMean` (also known as `moving average`) class computes the mean value
   - `"expanding"`: Adapts the computation by dynamically reducing the window size to include all available data, starting from a single point and growing until `window_size` is reached.
   - `"zero"`: Simulates a full initial window of zeros, effectively pre-filling the data stream with `window_size` zeros before processing the actual input.
   
+<!-- HELP_END -->
+
 ## Usage Example and Plot
 Below is an example of using `RollingMean` to calculate the rolling mean for a random dataset, along with a plot illustrating its output.
 

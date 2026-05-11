@@ -1,3 +1,23 @@
+---
+name: RollingArgmin
+title: Rolling argmin
+implementation_family: rolling
+topics:
+- statistics
+tags:
+- argmin
+- rolling
+short: Window-offset of the trailing-window minimum (TA-Lib MININDEX).
+inputs: 1
+outputs: 1
+parameters:
+- name: window_size
+  type: int
+  default: 20
+  min: 2
+  description: Trailing-window length.
+---
+
 # `RollingArgmin`
 
 ## Description
@@ -7,6 +27,8 @@
 *Parameters*: `window_size` (int, positive).
 
 *NaN handling*: NaN values should be preprocessed (the deque comparison treats NaN as never beating an existing element).
+
+<!-- HELP_END -->
 
 ## Usage Example
 

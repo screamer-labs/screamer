@@ -1,3 +1,27 @@
+---
+name: ADX
+title: Average Directional Index (ADX)
+implementation_family: rolling
+topics:
+- trend
+- oscillator
+tags:
+- adx
+- wilder
+- directional
+- talib
+- hlc
+short: Wilder's ADX with +DI and -DI (3 inputs -> 3 outputs).
+inputs: 3
+outputs: 3
+parameters:
+- name: window_size
+  type: int
+  default: 14
+  min: 2
+  description: Period (Wilder's default).
+---
+
 # `ADX`
 
 ## Description
@@ -51,6 +75,8 @@ out = ADX(14)(high, low, close)
 plus_di, minus_di, adx = out[:, 0], out[:, 1], out[:, 2]
 # adx > 25 -> trending; adx < 20 -> ranging (Wilder's heuristic)
 ```
+
+<!-- HELP_END -->
 
 ## Reference
 

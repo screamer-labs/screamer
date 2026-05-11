@@ -1,3 +1,41 @@
+---
+name: RollingPoly2
+title: Rolling 2nd-order polynomial fit
+implementation_family: rolling
+topics:
+- regression
+tags:
+- regression
+- quadratic
+- polynomial
+- rolling
+short: OLS fit y = a + b*t + c*t^2 over a trailing window.
+inputs: 1
+outputs: 1
+parameters:
+- name: window_size
+  type: int
+  default: 20
+  min: 2
+  description: Trailing-window length.
+- name: derivative_order
+  type: int
+  default: 0
+  enum:
+  - 0
+  - 1
+  - 2
+  description: 0 = value, 1 = first derivative, 2 = second derivative.
+- name: start_policy
+  type: str
+  default: strict
+  enum:
+  - strict
+  - expanding
+  - zero
+  description: Warmup behaviour.
+---
+
 # `RollingPoly2`
 
 ## Description
@@ -20,6 +58,8 @@ This method, which extends the idea of a causal Savitzky-Golay filter, enables m
   - `"strict"`: Returns `NaN` for all calculations until `window_size` elements have been processed.
   - `"expanding"`: Adapts the computation by dynamically reducing the window size to include all available data, starting from a single point and growing until `window_size` is reached.
   - `"zero"`: Simulates a full initial window of zeros, effectively pre-filling the data stream with `window_size` zeros before processing the actual input.
+
+<!-- HELP_END -->
 
 ## Usage Example and Plot
 

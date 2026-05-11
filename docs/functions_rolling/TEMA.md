@@ -1,3 +1,37 @@
+---
+name: TEMA
+title: Triple Exponential MA (TEMA)
+implementation_family: rolling
+topics:
+- trend
+- smoothing
+tags:
+- tema
+- ema
+- mulloy
+- moving-average
+short: 'Mulloy''s Triple EMA: 3*EMA - 3*EMA(EMA) + EMA(EMA(EMA)).'
+inputs: 1
+outputs: 1
+parameters:
+- name: com
+  type: float
+  default: null
+  description: Center of mass. Exclusive with span/halflife/alpha.
+- name: span
+  type: float
+  default: 20.0
+  description: Span (default smoothing parameter).
+- name: halflife
+  type: float
+  default: null
+  description: Halflife.
+- name: alpha
+  type: float
+  default: null
+  description: Smoothing parameter.
+---
+
 # `TEMA`
 
 ## Description
@@ -26,6 +60,8 @@ Pure composition of three chained `EwMean` instances. No explicit warmup: each `
 
 * Time complexity: `O(1)` per step.
 * Space complexity: `O(1)`.
+
+<!-- HELP_END -->
 
 ## Usage Example
 

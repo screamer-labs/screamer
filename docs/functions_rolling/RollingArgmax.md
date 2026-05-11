@@ -1,3 +1,23 @@
+---
+name: RollingArgmax
+title: Rolling argmax
+implementation_family: rolling
+topics:
+- statistics
+tags:
+- argmax
+- rolling
+short: Window-offset of the trailing-window maximum (TA-Lib MAXINDEX).
+inputs: 1
+outputs: 1
+parameters:
+- name: window_size
+  type: int
+  default: 20
+  min: 2
+  description: Trailing-window length.
+---
+
 # `RollingArgmax`
 
 ## Description
@@ -7,6 +27,8 @@
 *Parameters*: `window_size` (int, positive).
 
 *NaN handling*: NaN values should be preprocessed.
+
+<!-- HELP_END -->
 
 ## Usage Example
 

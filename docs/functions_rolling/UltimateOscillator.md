@@ -1,3 +1,33 @@
+---
+name: UltimateOscillator
+title: Ultimate Oscillator
+implementation_family: rolling
+topics:
+- oscillator
+tags:
+- ultimate-oscillator
+- williams
+- oscillator
+- talib
+- hlc
+short: Three-period weighted oscillator (Williams, 1976).
+inputs: 3
+outputs: 1
+parameters:
+- name: period1
+  type: int
+  default: 7
+  min: 2
+- name: period2
+  type: int
+  default: 14
+  min: 2
+- name: period3
+  type: int
+  default: 28
+  min: 2
+---
+
 # `UltimateOscillator`
 
 ## Description
@@ -26,6 +56,8 @@ The 4 / 2 / 1 weighting puts the heaviest emphasis on the shortest period.
 *Warmup*: NaN until sample index `max(period1, period2, period3)` (TA-Lib's convention; gates on the longest window).
 
 *Output range*: `[0, 100]`.
+
+<!-- HELP_END -->
 
 ## Implementation Details
 

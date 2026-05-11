@@ -65,60 +65,60 @@ void init_bindings_rolling(py::module& m) {
 
     py::class_<screamer::RollingMean, screamer::ScreamerBase>(m, "RollingMean")
         .def(py::init<int, const std::string&>(), 
-            py::arg("window_size"), 
+            py::arg("window_size") = 20, 
             py::arg("start_policy") = "strict")
         .def("__call__", &screamer::RollingMean::operator(), py::arg("value"))
         .def("reset", &screamer::RollingMean::reset, "Reset to the initial state.");
 
     py::class_<screamer::RollingRms, screamer::ScreamerBase>(m, "RollingRms")
         .def(py::init<int, const std::string&>(),
-            py::arg("window_size"),
+            py::arg("window_size") = 20,
             py::arg("start_policy") = "strict")
         .def("__call__", &screamer::RollingRms::operator(), py::arg("value"))
         .def("reset", &screamer::RollingRms::reset, "Reset to the initial state.");
 
     py::class_<screamer::RollingSum, screamer::ScreamerBase>(m, "RollingSum")
         .def(py::init<int, const std::string&>(), 
-            py::arg("window_size"), 
+            py::arg("window_size") = 20, 
             py::arg("start_policy") = "strict")
         .def("__call__", &screamer::RollingSum::operator(), py::arg("value"))
         .def("reset", &screamer::RollingSum::reset, "Reset to the initial state.");
 
     py::class_<screamer::RollingStd, screamer::ScreamerBase>(m, "RollingStd")
         .def(py::init<int, const std::string&>(),
-            py::arg("window_size"),
+            py::arg("window_size") = 20,
             py::arg("start_policy") = "strict")
         .def("__call__", &screamer::RollingStd::operator(), py::arg("value"))
         .def("reset", &screamer::RollingStd::reset, "Reset to the initial state.");
 
     py::class_<screamer::RollingVar, screamer::ScreamerBase>(m, "RollingVar")
         .def(py::init<int, const std::string&>(),
-            py::arg("window_size"),
+            py::arg("window_size") = 20,
             py::arg("start_policy") = "strict")
         .def("__call__", &screamer::RollingVar::operator(), py::arg("value"))
         .def("reset", &screamer::RollingVar::reset, "Reset to the initial state.");
 
     py::class_<screamer::RollingSkew, screamer::ScreamerBase>(m, "RollingSkew")
         .def(py::init<int, const std::string&>(),
-            py::arg("window_size"),
+            py::arg("window_size") = 20,
             py::arg("start_policy") = "strict")
         .def("__call__", &screamer::RollingSkew::operator(), py::arg("value"))
         .def("reset", &screamer::RollingSkew::reset, "Reset to the initial state.");
 
     py::class_<screamer::RollingKurt, screamer::ScreamerBase>(m, "RollingKurt")
         .def(py::init<int, const std::string&>(),
-            py::arg("window_size"),
+            py::arg("window_size") = 20,
             py::arg("start_policy") = "strict")
         .def("__call__", &screamer::RollingKurt::operator(), py::arg("value"))
         .def("reset", &screamer::RollingKurt::reset, "Reset to the initial state.");
 
     py::class_<screamer::RollingMin, screamer::ScreamerBase>(m, "RollingMin")
-        .def(py::init<int>(), py::arg("window_size"))
+        .def(py::init<int>(), py::arg("window_size") = 20)
         .def("__call__", &screamer::RollingMin::operator(), py::arg("value"))
         .def("reset", &screamer::RollingMin::reset, "Reset to the initial state.");
 
     py::class_<screamer::RollingMax, screamer::ScreamerBase>(m, "RollingMax")
-        .def(py::init<int>(), py::arg("window_size"))
+        .def(py::init<int>(), py::arg("window_size") = 20)
         .def("__call__", &screamer::RollingMax::operator(), py::arg("value"))
         .def("reset", &screamer::RollingMax::reset, "Reset to the initial state.");
 
@@ -127,12 +127,12 @@ void init_bindings_rolling(py::module& m) {
     // primitive as RollingMin / RollingMax, exposed via the front
     // element's window offset.
     py::class_<screamer::RollingArgmin, screamer::ScreamerBase>(m, "RollingArgmin")
-        .def(py::init<int>(), py::arg("window_size"))
+        .def(py::init<int>(), py::arg("window_size") = 20)
         .def("__call__", &screamer::RollingArgmin::operator(), py::arg("value"))
         .def("reset", &screamer::RollingArgmin::reset, "Reset to the initial state.");
 
     py::class_<screamer::RollingArgmax, screamer::ScreamerBase>(m, "RollingArgmax")
-        .def(py::init<int>(), py::arg("window_size"))
+        .def(py::init<int>(), py::arg("window_size") = 20)
         .def("__call__", &screamer::RollingArgmax::operator(), py::arg("value"))
         .def("reset", &screamer::RollingArgmax::reset, "Reset to the initial state.");
 
@@ -140,7 +140,7 @@ void init_bindings_rolling(py::module& m) {
     // composed at the primitive level (same algorithm RollingMinMax
     // runs, returned as a single scalar instead of a tuple).
     py::class_<screamer::RollingRange, screamer::ScreamerBase>(m, "RollingRange")
-        .def(py::init<int>(), py::arg("window_size"))
+        .def(py::init<int>(), py::arg("window_size") = 20)
         .def("__call__", &screamer::RollingRange::operator(), py::arg("value"))
         .def("reset", &screamer::RollingRange::reset, "Reset to the initial state.");
 
@@ -149,7 +149,7 @@ void init_bindings_rolling(py::module& m) {
     // re-evaluates all W abs-deviations each step).
     py::class_<screamer::RollingMad, screamer::ScreamerBase>(m, "RollingMad")
         .def(py::init<int, const std::string&>(),
-            py::arg("window_size"),
+            py::arg("window_size") = 20,
             py::arg("start_policy") = "strict")
         .def("__call__", &screamer::RollingMad::operator(), py::arg("value"))
         .def("reset", &screamer::RollingMad::reset, "Reset to the initial state.");
@@ -159,7 +159,7 @@ void init_bindings_rolling(py::module& m) {
     // independent trees). Same O(log W) per step, half the memory
     // and inserts.
     py::class_<screamer::RollingIqr, screamer::ScreamerBase>(m, "RollingIqr")
-        .def(py::init<int>(), py::arg("window_size"))
+        .def(py::init<int>(), py::arg("window_size") = 20)
         .def("__call__", &screamer::RollingIqr::operator(), py::arg("value"))
         .def("reset", &screamer::RollingIqr::reset, "Reset to the initial state.");
 
@@ -168,7 +168,7 @@ void init_bindings_rolling(py::module& m) {
     // rolling sum of the previous window.
     py::class_<screamer::WMA, screamer::ScreamerBase>(m, "WMA")
         .def(py::init<int, const std::string&>(),
-            py::arg("window_size"),
+            py::arg("window_size") = 20,
             py::arg("start_policy") = "strict")
         .def("__call__", &screamer::WMA::operator(), py::arg("value"))
         .def("reset", &screamer::WMA::reset, "Reset to the initial state.");
@@ -210,7 +210,7 @@ void init_bindings_rolling(py::module& m) {
     // TRIMA: triangular MA, SMA(SMA(x)). Pure composition of two
     // detail::RollingMean instances. Strict warmup enforced by counter.
     py::class_<screamer::TRIMA, screamer::ScreamerBase>(m, "TRIMA")
-        .def(py::init<int>(), py::arg("window_size"))
+        .def(py::init<int>(), py::arg("window_size") = 20)
         .def("__call__", &screamer::TRIMA::operator(), py::arg("value"))
         .def("reset", &screamer::TRIMA::reset, "Reset to the initial state.");
 
@@ -218,7 +218,7 @@ void init_bindings_rolling(py::module& m) {
     // of three WMA instances. Inner WMAs use "expanding" so they don't
     // emit NaN; HullMA enforces strict warmup itself.
     py::class_<screamer::HullMA, screamer::ScreamerBase>(m, "HullMA")
-        .def(py::init<int>(), py::arg("window_size"))
+        .def(py::init<int>(), py::arg("window_size") = 20)
         .def("__call__", &screamer::HullMA::operator(), py::arg("value"))
         .def("reset", &screamer::HullMA::reset, "Reset to the initial state.");
 
@@ -226,7 +226,7 @@ void init_bindings_rolling(py::module& m) {
     // efficiency ratio (net displacement / total absolute travel).
     py::class_<screamer::KAMA, screamer::ScreamerBase>(m, "KAMA")
         .def(py::init<int, int, int>(),
-            py::arg("window_size"),
+            py::arg("window_size") = 10,
             py::arg("fast") = 2,
             py::arg("slow") = 30)
         .def("__call__", &screamer::KAMA::operator(), py::arg("value"))
@@ -263,7 +263,7 @@ void init_bindings_rolling(py::module& m) {
     // three EwMean instances and tracks the previous ema3 for the
     // final ratio.
     py::class_<screamer::TRIX, screamer::ScreamerBase>(m, "TRIX")
-        .def(py::init<int>(), py::arg("span"))
+        .def(py::init<int>(), py::arg("span") = 14)
         .def("__call__", &screamer::TRIX::operator(), py::arg("value"))
         .def("reset", &screamer::TRIX::reset, "Reset to the initial state.");
 
@@ -489,25 +489,25 @@ void init_bindings_rolling(py::module& m) {
         .def("reset", &screamer::RollingHurst::reset, "Reset.");
 
     py::class_<screamer::RollingMedian, screamer::ScreamerBase>(m, "RollingMedian")
-        .def(py::init<int>(), py::arg("window_size"))
+        .def(py::init<int>(), py::arg("window_size") = 20)
         .def("__call__", &screamer::RollingMedian::operator(), py::arg("value"))
         .def("reset", &screamer::RollingMedian::reset, "Reset to the initial state.");
 
     py::class_<screamer::RollingQuantile, screamer::ScreamerBase>(m, "RollingQuantile")
-        .def(py::init<int, double>(), py::arg("window_size"), py::arg("quantile"))
+        .def(py::init<int, double>(), py::arg("window_size") = 20, py::arg("quantile") = 0.5)
         .def("__call__", &screamer::RollingQuantile::operator(), py::arg("value"))
         .def("reset", &screamer::RollingQuantile::reset, "Reset to the initial state.");
 
     py::class_<screamer::RollingZscore, screamer::ScreamerBase>(m, "RollingZscore")
         .def(py::init<int, const std::string&>(),
-            py::arg("window_size"),
+            py::arg("window_size") = 20,
             py::arg("start_policy") = "strict")
         .def("__call__", &screamer::RollingZscore::operator(), py::arg("value"))
         .def("reset", &screamer::RollingZscore::reset, "Reset to the initial state.");
 
     py::class_<screamer::RollingPoly1>(m, "RollingPoly1")
         .def(py::init<int, int, const std::string&>(),
-            py::arg("window_size"),
+            py::arg("window_size") = 20,
             py::arg("derivative_order") = 0,
             py::arg("start_policy") = "strict")
         .def("__call__", &screamer::RollingPoly1::operator(), py::arg("value"))
@@ -516,7 +516,7 @@ void init_bindings_rolling(py::module& m) {
 
     py::class_<screamer::RollingPoly2>(m, "RollingPoly2")
         .def(py::init<int, int, const std::string&>(),
-            py::arg("window_size"),
+            py::arg("window_size") = 20,
             py::arg("derivative_order") = 0,
             py::arg("start_policy") = "strict")
         .def("__call__", &screamer::RollingPoly2::operator(), py::arg("value"))
@@ -525,7 +525,7 @@ void init_bindings_rolling(py::module& m) {
 
      py::class_<screamer::RollingSigmaClip>(m, "RollingSigmaClip")
         .def(py::init<int, std::optional<double>, std::optional<double>, std::optional<int>>(),
-            py::arg("window_size"),
+            py::arg("window_size") = 20,
             py::arg("lower") = std::nullopt,
             py::arg("upper") = std::nullopt,
             py::arg("output") = std::nullopt
@@ -536,7 +536,7 @@ void init_bindings_rolling(py::module& m) {
 
      py::class_<screamer::RollingOU>(m, "RollingOU")
         .def(py::init<int, std::optional<int>, const std::string&>(),
-            py::arg("window_size"),
+            py::arg("window_size") = 20,
             py::arg("output") = std::nullopt,
             py::arg("start_policy") = "strict")
         .def("__call__", &screamer::RollingOU::operator(), py::arg("value"))
@@ -544,7 +544,7 @@ void init_bindings_rolling(py::module& m) {
 
     py::class_<screamer::RollingRSI, screamer::ScreamerBase>(m, "RollingRSI")
         .def(py::init<int, const std::string&, const std::string&>(),
-            py::arg("window_size"),
+            py::arg("window_size") = 14,
             py::arg("method") = "wilder",
             py::arg("start_policy") = "strict")
         .def("__call__", &screamer::RollingRSI::operator(), py::arg("value"))
@@ -554,7 +554,7 @@ void init_bindings_rolling(py::module& m) {
     // FunctorBase<_, 1, 2>, NOT ScreamerBase. The dispatcher returns a
     // tuple per scalar call and an array of shape (..., 2) per batch.
     py::class_<screamer::RollingMinMax>(m, "RollingMinMax")
-        .def(py::init<int>(), py::arg("window_size"))
+        .def(py::init<int>(), py::arg("window_size") = 20)
         .def("__call__", &screamer::RollingMinMax::handle_input)
         .def("reset", &screamer::RollingMinMax::reset, "Reset to the initial state.");
 
@@ -563,7 +563,7 @@ void init_bindings_rolling(py::module& m) {
     // returns an array of shape (..., 3).
     py::class_<screamer::BollingerBands>(m, "BollingerBands")
         .def(py::init<int, double, const std::string&>(),
-             py::arg("window_size"),
+             py::arg("window_size") = 20,
              py::arg("num_std") = 2.0,
              py::arg("start_policy") = "strict")
         .def("__call__", &screamer::BollingerBands::handle_input)
