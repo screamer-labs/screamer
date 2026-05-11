@@ -9,6 +9,7 @@ Finance
 
    functions_fin/LogReturn
    functions_fin/PerformanceRisk
+   functions_fin/RegressionFamily
    functions_fin/Return
    functions_fin/ROC
    functions_fin/ROCP

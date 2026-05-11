@@ -54,6 +54,9 @@
 #include "screamer/ad.h"
 #include "screamer/adosc.h"
 #include "screamer/mfi.h"
+#include "screamer/rolling_tsf.h"
+#include "screamer/rolling_rank.h"
+#include "screamer/rolling_percentile.h"
 
 namespace py = pybind11;
 
@@ -454,6 +457,25 @@ void init_bindings_rolling(py::module& m) {
         .def(py::init<int>(), py::arg("window_size") = 14)
         .def("__call__", &screamer::MFI::handle_input)
         .def("reset", &screamer::MFI::reset, "Reset.");
+
+    // Time-Series Forecast (TA-Lib's TSF): linear regression vs
+    // time projected one step ahead. Composes detail::RollingSum.
+    py::class_<screamer::RollingTSF, screamer::ScreamerBase>(m, "RollingTSF")
+        .def(py::init<int>(), py::arg("window_size"))
+        .def("__call__", &screamer::RollingTSF::operator(), py::arg("value"))
+        .def("reset", &screamer::RollingTSF::reset, "Reset.");
+
+    // RollingRank / RollingPercentile: position of latest value in
+    // the trailing window. pandas-style "average" tie rule.
+    py::class_<screamer::RollingRank, screamer::ScreamerBase>(m, "RollingRank")
+        .def(py::init<int>(), py::arg("window_size"))
+        .def("__call__", &screamer::RollingRank::operator(), py::arg("value"))
+        .def("reset", &screamer::RollingRank::reset, "Reset.");
+
+    py::class_<screamer::RollingPercentile, screamer::ScreamerBase>(m, "RollingPercentile")
+        .def(py::init<int>(), py::arg("window_size"))
+        .def("__call__", &screamer::RollingPercentile::operator(), py::arg("value"))
+        .def("reset", &screamer::RollingPercentile::reset, "Reset.");
 
     py::class_<screamer::RollingMedian, screamer::ScreamerBase>(m, "RollingMedian")
         .def(py::init<int>(), py::arg("window_size"))

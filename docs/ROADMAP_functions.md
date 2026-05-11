@@ -221,17 +221,17 @@ agreed-upon definition and is rarely asked for in practice.)
 | `RollingZscore`, `EwZscore` | normalised position |
 | `RollingFracDiff` | fractional differentiation |
 | `RollingOU` | Ornstein-Uhlenbeck parameter fit |
+| `RollingAlpha` | regression intercept companion to `RollingBeta` (`α = mean(y) − β · mean(x)`). 2→1 |
+| `RollingResidualStd` | std of the per-bar `RollingSpread` -- pairs-trading normalisation. 2→1 |
+| `RollingLinearRegression` | `(slope, intercept, r_squared, stderr)` 2→4 fit. First 2→4 consumer of Plan E. `stderr` is the RMSE of residuals |
+| `RollingTSF` | Time-Series Forecast: regression vs time projected one step ahead. Matches `talib.TSF` bit-exact. 1→1 |
+| `RollingRank` | pandas-style rolling rank with "average" tie rule. 1→1 |
+| `RollingPercentile` | rolling rank divided by window size (`rank(pct=True)`). 1→1 |
 
 ### Gaps
 
 | Function | Description | Quadrant | Priority | Note |
 |---|---|---|---|---|
-| `RollingAlpha` | regression intercept companion to `RollingBeta` | 2→1 | 🟡 | `α = mean(x) − β · mean(y)` |
-| `RollingResidualStd` | std of residuals from `RollingSpread`, useful for normalised pairs trading | 2→1 | 🟡 | composite |
-| `RollingLinearRegression` | `(slope, intercept, r_squared, std_err)` of x on y | 2→4 | 🟡 | matches TA-Lib's `LINEARREG_*`; uses the now-available `N→M` dispatch (Plan E) |
-| `RollingTSF` | Time-Series Forecast (linear regression projected one step) | 1→1 | ⚪ | similar to `RollingPoly1` with derivative + endpoint extrapolation |
-| `RollingRank` | rank of latest value within window | 1→1 | 🟡 | also called `quantile_rank`; useful for cross-sectional features |
-| `RollingPercentile` | inverse of `RollingQuantile`: where does the current value sit? | 1→1 | 🟡 | very common in cross-sectional finance |
 | `RollingCovMatrix` | full Gram matrix of K series | K→K² | ⚪ | huge output; specialised dispatcher needed; probably better delivered as a separate batch tool |
 
 

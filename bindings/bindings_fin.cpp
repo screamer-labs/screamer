@@ -19,6 +19,9 @@
 #include "screamer/rolling_info_ratio.h"
 #include "screamer/rolling_calmar.h"
 #include "screamer/rolling_hit_rate.h"
+#include "screamer/rolling_alpha.h"
+#include "screamer/rolling_residual_std.h"
+#include "screamer/rolling_linear_regression.h"
 
 namespace py = pybind11;
 
@@ -144,4 +147,28 @@ void init_bindings_fin(py::module& m) {
         .def(py::init<int>(), py::arg("window_size"))
         .def("__call__", &screamer::RollingHitRate::operator(), py::arg("value"))
         .def("reset", &screamer::RollingHitRate::reset, "Reset.");
+
+    // ----- Regression-family additions -----
+    py::class_<screamer::RollingAlpha>(m, "RollingAlpha")
+        .def(py::init<int, const std::string&>(),
+             py::arg("window_size"),
+             py::arg("start_policy") = "strict")
+        .def("__call__", &screamer::RollingAlpha::handle_input)
+        .def("reset", &screamer::RollingAlpha::reset, "Reset.");
+
+    py::class_<screamer::RollingResidualStd>(m, "RollingResidualStd")
+        .def(py::init<int, const std::string&>(),
+             py::arg("window_size"),
+             py::arg("start_policy") = "strict")
+        .def("__call__", &screamer::RollingResidualStd::handle_input)
+        .def("reset", &screamer::RollingResidualStd::reset, "Reset.");
+
+    // 2 -> 4 OLS fit returning (slope, intercept, r_squared, stderr).
+    // First 2->4 consumer of the N->M dispatcher (Plan E).
+    py::class_<screamer::RollingLinearRegression>(m, "RollingLinearRegression")
+        .def(py::init<int, const std::string&>(),
+             py::arg("window_size"),
+             py::arg("start_policy") = "strict")
+        .def("__call__", &screamer::RollingLinearRegression::handle_input)
+        .def("reset", &screamer::RollingLinearRegression::reset, "Reset.");
 }

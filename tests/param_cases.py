@@ -43,6 +43,8 @@ _ROLLING_AUTO_EXCLUDE = {
     'RollingVWAP',
     # 2-input performance metric (FunctorBase<_, 2, 1>)
     'RollingInfoRatio',
+    # 2-input regression family (FunctorBase<_, 2, _>)
+    'RollingAlpha', 'RollingResidualStd', 'RollingLinearRegression',
 }
 rolling_classes = [cls for cls in screamer_classes
                    if cls.startswith('Rolling') and cls not in _ROLLING_AUTO_EXCLUDE]
