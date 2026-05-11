@@ -1,3 +1,18 @@
+---
+name: Sign
+title: Sign
+implementation_family: math
+topics:
+- math
+tags:
+- sign
+- signum
+short: 'Sign of each element: -1, 0, or +1.'
+inputs: 1
+outputs: 1
+parameters: []
+---
+
 # `Sign`
 
 ## Description
@@ -7,6 +22,8 @@ The `Sign` class computes the sign of each element in a data sequence, mapping e
 *Parameters*: `Sign` takes no parameters.
 
 *NaN handling*: `NaN` values are not modified.
+
+<!-- HELP_END -->
 
 ## Usage Example and Plot
 

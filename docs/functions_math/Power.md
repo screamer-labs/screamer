@@ -1,3 +1,22 @@
+---
+name: Power
+title: Power
+implementation_family: math
+topics:
+- math
+tags:
+- power
+- pow
+short: x raised to a fixed exponent p.
+inputs: 1
+outputs: 1
+parameters:
+- name: p
+  type: float
+  default: 2.0
+  description: Exponent. Defaults to 2 (same effect as Square but slower).
+---
+
 # `Power`
 
 ## Description
@@ -16,6 +35,8 @@ $$
 - `p` (double): Exponent of the power function.
 
 *NaN handling*: `NaN` values are not modified by this function.
+
+<!-- HELP_END -->
 
 ## Usage Example and Plot
 

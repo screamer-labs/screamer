@@ -1,3 +1,18 @@
+---
+name: Log
+title: Natural logarithm
+implementation_family: math
+topics:
+- math
+tags:
+- log
+- ln
+short: Natural logarithm of each element.
+inputs: 1
+outputs: 1
+parameters: []
+---
+
 # `Log`
 
 ## Description
@@ -7,6 +22,8 @@ The `Log` class computes the natural logarithm (ln) of each element in a data se
 *Parameters*: `Log` takes no parameters.
 
 *NaN handling*: `NaN` values and negative values (since they’re undefined for logarithms) are not modified and remain as `NaN`.
+
+<!-- HELP_END -->
 
 ## Usage Example and Plot
 

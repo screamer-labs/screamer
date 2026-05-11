@@ -1,3 +1,19 @@
+---
+name: Asin
+title: Arcsine
+implementation_family: math
+topics:
+- math
+tags:
+- trigonometry
+- asin
+- inverse
+short: Inverse sine of each element (radians, input in [-1, 1]).
+inputs: 1
+outputs: 1
+parameters: []
+---
+
 # `Asin`
 
 ## Description
@@ -13,6 +29,8 @@ $$
 *Parameters*: `Asin` takes no parameters.
 
 *NaN handling*: Inputs outside $[-1, 1]$ produce `NaN`. Existing `NaN` values pass through.
+
+<!-- HELP_END -->
 
 ## Usage Example and Plot
 

@@ -1,3 +1,18 @@
+---
+name: Square
+title: Square
+implementation_family: math
+topics:
+- math
+tags:
+- square
+- pow2
+short: x squared (faster than Power(2)).
+inputs: 1
+outputs: 1
+parameters: []
+---
+
 # `Square`
 
 ## Description
@@ -13,6 +28,8 @@ $$
 *Parameters*: `Square` takes no parameters.
 
 *NaN handling*: `NaN` values pass through unchanged.
+
+<!-- HELP_END -->
 
 ## Usage Example and Plot
 

@@ -1,3 +1,18 @@
+---
+name: Floor
+title: Floor
+implementation_family: math
+topics:
+- math
+tags:
+- floor
+- rounding
+short: Round each element toward negative infinity.
+inputs: 1
+outputs: 1
+parameters: []
+---
+
 # `Floor`
 
 ## Description
@@ -13,6 +28,8 @@ $$
 *Parameters*: `Floor` takes no parameters.
 
 *NaN handling*: `NaN` values pass through unchanged.
+
+<!-- HELP_END -->
 
 ## Usage Example and Plot
 

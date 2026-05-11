@@ -1,3 +1,18 @@
+---
+name: Cube
+title: Cube
+implementation_family: math
+topics:
+- math
+tags:
+- cube
+- pow3
+short: x cubed (faster than Power(3)).
+inputs: 1
+outputs: 1
+parameters: []
+---
+
 # `Cube`
 
 ## Description
@@ -13,6 +28,8 @@ $$
 *Parameters*: `Cube` takes no parameters.
 
 *NaN handling*: `NaN` values pass through unchanged.
+
+<!-- HELP_END -->
 
 ## Usage Example and Plot
 

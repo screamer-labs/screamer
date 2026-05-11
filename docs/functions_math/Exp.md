@@ -1,3 +1,17 @@
+---
+name: Exp
+title: Exponential
+implementation_family: math
+topics:
+- math
+tags:
+- exp
+short: e to the power of each element.
+inputs: 1
+outputs: 1
+parameters: []
+---
+
 # `Exp`
 
 ## Description
@@ -7,6 +21,8 @@ The `Exp` class computes the exponential (e^x) of each element in a data sequenc
 *Parameters*: `Exp` takes no parameters.
 
 *NaN handling*: `NaN` values are not modified.
+
+<!-- HELP_END -->
 
 ## Usage Example and Plot
 

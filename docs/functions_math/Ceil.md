@@ -1,3 +1,18 @@
+---
+name: Ceil
+title: Ceiling
+implementation_family: math
+topics:
+- math
+tags:
+- ceil
+- rounding
+short: Round each element toward positive infinity.
+inputs: 1
+outputs: 1
+parameters: []
+---
+
 # `Ceil`
 
 ## Description
@@ -13,6 +28,8 @@ $$
 *Parameters*: `Ceil` takes no parameters.
 
 *NaN handling*: `NaN` values pass through unchanged.
+
+<!-- HELP_END -->
 
 ## Usage Example and Plot
 

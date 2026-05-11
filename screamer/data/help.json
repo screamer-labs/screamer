@@ -1,4 +1,571 @@
 {
+  "Abs": {
+    "name": "Abs",
+    "title": "Absolute value",
+    "implementation_family": "math",
+    "topics": [
+      "math"
+    ],
+    "tags": [
+      "abs",
+      "magnitude"
+    ],
+    "short": "Absolute value of each element.",
+    "inputs": 1,
+    "outputs": 1,
+    "parameters": [],
+    "body_markdown": "# `Abs`\n\n## Description\n\nThe `Abs` class computes the absolute value of each element in a data sequence, transforming all negative values to their positive counterparts. This function is useful in scenarios where only the magnitude of values is relevant, regardless of their sign.\n\n*Parameters*: `Abs` takes no parameters.\n\n*NaN handling*: `NaN` values are not modified by this function."
+  },
+  "Acos": {
+    "name": "Acos",
+    "title": "Arccosine",
+    "implementation_family": "math",
+    "topics": [
+      "math"
+    ],
+    "tags": [
+      "trigonometry",
+      "acos",
+      "inverse"
+    ],
+    "short": "Inverse cosine of each element (radians, input in [-1, 1]).",
+    "inputs": 1,
+    "outputs": 1,
+    "parameters": [],
+    "body_markdown": "# `Acos`\n\n## Description\n\nInverse cosine of each element. Output is in the range $[0, \\pi]$ when the input is in $[-1, 1]$.\n\n*Equation*:\n\n$$\ny[i] = \\arccos(x[i])\n$$\n\n*Parameters*: `Acos` takes no parameters.\n\n*NaN handling*: Inputs outside $[-1, 1]$ produce `NaN`. Existing `NaN` values pass through."
+  },
+  "Asin": {
+    "name": "Asin",
+    "title": "Arcsine",
+    "implementation_family": "math",
+    "topics": [
+      "math"
+    ],
+    "tags": [
+      "trigonometry",
+      "asin",
+      "inverse"
+    ],
+    "short": "Inverse sine of each element (radians, input in [-1, 1]).",
+    "inputs": 1,
+    "outputs": 1,
+    "parameters": [],
+    "body_markdown": "# `Asin`\n\n## Description\n\nInverse sine of each element. Output is in the range $[-\\pi/2, \\pi/2]$ when the input is in $[-1, 1]$.\n\n*Equation*:\n\n$$\ny[i] = \\arcsin(x[i])\n$$\n\n*Parameters*: `Asin` takes no parameters.\n\n*NaN handling*: Inputs outside $[-1, 1]$ produce `NaN`. Existing `NaN` values pass through."
+  },
+  "Atan": {
+    "name": "Atan",
+    "title": "Arctangent",
+    "implementation_family": "math",
+    "topics": [
+      "math"
+    ],
+    "tags": [
+      "trigonometry",
+      "atan",
+      "inverse"
+    ],
+    "short": "Inverse tangent of each element (radians).",
+    "inputs": 1,
+    "outputs": 1,
+    "parameters": [],
+    "body_markdown": "# `Atan`\n\n## Description\n\nInverse tangent of each element. Output is in the range $(-\\pi/2, \\pi/2)$.\n\n*Equation*:\n\n$$\ny[i] = \\arctan(x[i])\n$$\n\n*Parameters*: `Atan` takes no parameters.\n\n*NaN handling*: `NaN` values pass through unchanged."
+  },
+  "Atan2": {
+    "name": "Atan2",
+    "title": "Two-argument arctangent",
+    "implementation_family": "math",
+    "topics": [
+      "math",
+      "geometry"
+    ],
+    "tags": [
+      "trigonometry",
+      "atan2",
+      "polar",
+      "pair"
+    ],
+    "short": "Signed angle of (x, y) from the positive x-axis (numpy.arctan2 order).",
+    "inputs": 2,
+    "outputs": 1,
+    "parameters": [],
+    "body_markdown": "# `Atan2`\n\n## Description\n\nTwo-argument inverse tangent: the signed angle of the point `(x, y)` from the positive x-axis, in the range $(-\\pi, \\pi]$. The argument order matches `numpy.arctan2`: **`y` first, `x` second**.\n\nThis is a **2-input, 1-output** function (`FunctorBase<_, 2, 1>`). Inputs are paired column-by-column for arrays.\n\nUnlike `Atan`, `Atan2` returns the *correct quadrant* because it sees both `x` and `y` separately. `Atan(y / x)` collapses two cases that `Atan2(y, x)` keeps distinct.\n\n*Equation*:\n\n$$\n\\theta[t] = \\operatorname{atan2}(y[t], x[t])\n$$\n\n*Parameters*: `Atan2` takes no parameters.\n\n*NaN handling*: A NaN in either input produces a NaN output."
+  },
+  "Cart2Polar": {
+    "name": "Cart2Polar",
+    "title": "Cartesian to polar",
+    "implementation_family": "math",
+    "topics": [
+      "geometry"
+    ],
+    "tags": [
+      "polar",
+      "conversion",
+      "pair"
+    ],
+    "short": "Convert (x, y) to (r, theta).",
+    "inputs": 2,
+    "outputs": 2,
+    "parameters": [],
+    "body_markdown": "# `Cart2Polar`\n\n## Description\n\nConvert 2D Cartesian coordinates `(x, y)` to polar coordinates `(r, θ)`. The radial component is the Euclidean distance from the origin and the angular component is the signed angle from the positive x-axis, in the range $(-\\pi, \\pi]$.\n\nThis is a **2-input, 2-output** function (`FunctorBase<_, 2, 2>`). Inputs are paired column-by-column; outputs are stacked along a trailing axis of size 2.\n\n*Equation*:\n\n$$\nr[t] = \\sqrt{x[t]^2 + y[t]^2}, \\qquad \\theta[t] = \\operatorname{atan2}(y[t], x[t])\n$$\n\n*Parameters*: `Cart2Polar` takes no parameters.\n\n*NaN handling*: A NaN in either input produces NaN in both outputs.\n\n## Output shapes\n\n| You pass... | You get back... |\n|---|---|\n| `Cart2Polar()(x, y)` (two scalars) | tuple `(r, θ)` |\n| `Cart2Polar()((x, y))` (one pair) | tuple `(r, θ)` |\n| `Cart2Polar()([(x1, y1), (x2, y2), ...])` | list of `(r, θ)` tuples |\n| Two 1D arrays of shape `(T,)` | array of shape `(T, 2)` |\n| Two 2D arrays of shape `(T, K)` | array of shape `(T, K, 2)` |\n| Two parallel iterables | list of `(r, θ)` tuples |\n\nThe shape rule combines the multi-input pairing (column-by-column) with the multi-output stacking (extra trailing axis of size 2). `out[..., 0]` is the radius, `out[..., 1]` is the angle."
+  },
+  "Ceil": {
+    "name": "Ceil",
+    "title": "Ceiling",
+    "implementation_family": "math",
+    "topics": [
+      "math"
+    ],
+    "tags": [
+      "ceil",
+      "rounding"
+    ],
+    "short": "Round each element toward positive infinity.",
+    "inputs": 1,
+    "outputs": 1,
+    "parameters": [],
+    "body_markdown": "# `Ceil`\n\n## Description\n\nRound each element up to the nearest integer (toward positive infinity).\n\n*Equation*:\n\n$$\ny[i] = \\lceil x[i] \\rceil\n$$\n\n*Parameters*: `Ceil` takes no parameters.\n\n*NaN handling*: `NaN` values pass through unchanged."
+  },
+  "Cos": {
+    "name": "Cos",
+    "title": "Cosine",
+    "implementation_family": "math",
+    "topics": [
+      "math"
+    ],
+    "tags": [
+      "trigonometry",
+      "cos"
+    ],
+    "short": "Cosine of each element (radians).",
+    "inputs": 1,
+    "outputs": 1,
+    "parameters": [],
+    "body_markdown": "# `Cos`\n\n## Description\n\nCosine of each element (input is in radians).\n\n*Equation*:\n\n$$\ny[i] = \\cos(x[i])\n$$\n\n*Parameters*: `Cos` takes no parameters.\n\n*NaN handling*: `NaN` values pass through unchanged."
+  },
+  "Cube": {
+    "name": "Cube",
+    "title": "Cube",
+    "implementation_family": "math",
+    "topics": [
+      "math"
+    ],
+    "tags": [
+      "cube",
+      "pow3"
+    ],
+    "short": "x cubed (faster than Power(3)).",
+    "inputs": 1,
+    "outputs": 1,
+    "parameters": [],
+    "body_markdown": "# `Cube`\n\n## Description\n\nCube each element. Equivalent to `Power(3)` but skips the `std::pow` logarithm.\n\n*Equation*:\n\n$$\ny[i] = x[i]^3\n$$\n\n*Parameters*: `Cube` takes no parameters.\n\n*NaN handling*: `NaN` values pass through unchanged."
+  },
+  "Elu": {
+    "name": "Elu",
+    "title": "ELU",
+    "implementation_family": "math",
+    "topics": [
+      "activation"
+    ],
+    "tags": [
+      "activation",
+      "elu",
+      "neural"
+    ],
+    "short": "Exponential linear unit.",
+    "inputs": 1,
+    "outputs": 1,
+    "parameters": [],
+    "body_markdown": "# `Elu`\n\n## Description\n\nThe `Elu` (Exponential Linear Unit) class introduces an exponential component for negative inputs, providing smooth and continuous output. It helps mitigate the vanishing gradient problem by ensuring a non-zero gradient for negative inputs.\n\n*Equation*:\n\n$$\nf(x) = \\begin{cases} \nx, & \\text{if } x > 0 \\\\\n\\alpha (e^x - 1), & \\text{if } x \\leq 0\n\\end{cases}\n$$\n\nwhere $\\alpha$ is a constant set to 1.0.\n\n*NaN handling*: `NaN` values are not modified by this function."
+  },
+  "Erf": {
+    "name": "Erf",
+    "title": "Error function",
+    "implementation_family": "math",
+    "topics": [
+      "math"
+    ],
+    "tags": [
+      "erf",
+      "gauss"
+    ],
+    "short": "Gauss error function.",
+    "inputs": 1,
+    "outputs": 1,
+    "parameters": [],
+    "body_markdown": "# `Erf`\n\n## Description\n\nThe `Erf` class computes the error function of each element in a data sequence, useful in probability, statistics, and Gaussian-based models. It maps values onto the range [-1, 1].\n\n*Parameters*: `Erf` takes no parameters.\n\n*NaN handling*: `NaN` values are not modified."
+  },
+  "Erfc": {
+    "name": "Erfc",
+    "title": "Complementary error function",
+    "implementation_family": "math",
+    "topics": [
+      "math"
+    ],
+    "tags": [
+      "erfc",
+      "gauss"
+    ],
+    "short": "Complementary error function (1 - erf).",
+    "inputs": 1,
+    "outputs": 1,
+    "parameters": [],
+    "body_markdown": "# `Erfc`\n\n## Description\n\nThe `Erfc` class computes the complementary error function (1 - erf(x)) for each element in the data sequence, often used in Gaussian models and probability.\n\n*Parameters*: `Erfc` takes no parameters.\n\n*NaN handling*: `NaN` values are not modified."
+  },
+  "Exp": {
+    "name": "Exp",
+    "title": "Exponential",
+    "implementation_family": "math",
+    "topics": [
+      "math"
+    ],
+    "tags": [
+      "exp"
+    ],
+    "short": "e to the power of each element.",
+    "inputs": 1,
+    "outputs": 1,
+    "parameters": [],
+    "body_markdown": "# `Exp`\n\n## Description\n\nThe `Exp` class computes the exponential (e^x) of each element in a data sequence. This function is commonly used in exponential growth models and in scenarios requiring data scaling or transformations.\n\n*Parameters*: `Exp` takes no parameters.\n\n*NaN handling*: `NaN` values are not modified."
+  },
+  "Floor": {
+    "name": "Floor",
+    "title": "Floor",
+    "implementation_family": "math",
+    "topics": [
+      "math"
+    ],
+    "tags": [
+      "floor",
+      "rounding"
+    ],
+    "short": "Round each element toward negative infinity.",
+    "inputs": 1,
+    "outputs": 1,
+    "parameters": [],
+    "body_markdown": "# `Floor`\n\n## Description\n\nRound each element down to the nearest integer (toward negative infinity).\n\n*Equation*:\n\n$$\ny[i] = \\lfloor x[i] \\rfloor\n$$\n\n*Parameters*: `Floor` takes no parameters.\n\n*NaN handling*: `NaN` values pass through unchanged."
+  },
+  "Hypot": {
+    "name": "Hypot",
+    "title": "Hypotenuse",
+    "implementation_family": "math",
+    "topics": [
+      "math",
+      "geometry"
+    ],
+    "tags": [
+      "hypotenuse",
+      "norm",
+      "polar",
+      "pair"
+    ],
+    "short": "Euclidean distance sqrt(x^2 + y^2), numerically stable.",
+    "inputs": 2,
+    "outputs": 1,
+    "parameters": [],
+    "body_markdown": "# `Hypot`\n\n## Description\n\nTwo-argument Euclidean distance: `Hypot(x, y) = sqrt(x*x + y*y)`. Computes `sqrt(x² + y²)` in a numerically stable way that avoids overflow for very large `|x|` or `|y|` and underflow for very small ones.\n\nThis is a **2-input, 1-output** function (`FunctorBase<_, 2, 1>`). Inputs are paired column-by-column for arrays.\n\n*Equation*:\n\n$$\ny[t] = \\sqrt{x_1[t]^2 + x_2[t]^2}\n$$\n\n*Parameters*: `Hypot` takes no parameters.\n\n*NaN handling*: A NaN in either input produces a NaN output."
+  },
+  "Linear": {
+    "name": "Linear",
+    "title": "Linear (affine)",
+    "implementation_family": "math",
+    "topics": [
+      "math",
+      "regression"
+    ],
+    "tags": [
+      "affine",
+      "linear",
+      "scale"
+    ],
+    "short": "Affine transform: scale * x + shift.",
+    "inputs": 1,
+    "outputs": 1,
+    "parameters": [
+      {
+        "name": "scale",
+        "type": "float",
+        "default": 1.0,
+        "description": "Multiplicative coefficient."
+      },
+      {
+        "name": "shift",
+        "type": "float",
+        "default": 0.0,
+        "description": "Additive offset."
+      }
+    ],
+    "body_markdown": "# `Linear`\n\n## Description\n\nThe `Linear` class computes a linear transformation of each input value, defined by the equation  $y = \\text{scale} \\times x + \\text{shift} $. This function is fundamental for adjusting the scale and location of data, often used in data preprocessing or custom activation functions in machine learning models.\n\n*Equation*:\n\n$$\nf(x) = \\text{scale} \\cdot x + \\text{shift}\n$$\n\n*Parameters*:\n\n- `scale` (double): The scaling factor applied to the input.\n- `shift` (double): The value added to the scaled input to shift the output.\n\n*NaN handling*: `NaN` values are not modified by this function."
+  },
+  "Linear2": {
+    "name": "Linear2",
+    "title": "Linear (two-input affine)",
+    "implementation_family": "math",
+    "topics": [
+      "math",
+      "regression"
+    ],
+    "tags": [
+      "affine",
+      "linear",
+      "pair"
+    ],
+    "short": "Two-input affine combination: a*x + b*y + c.",
+    "inputs": 2,
+    "outputs": 1,
+    "parameters": [
+      {
+        "name": "a",
+        "type": "float",
+        "default": 1.0,
+        "description": "Coefficient on the first input."
+      },
+      {
+        "name": "b",
+        "type": "float",
+        "default": 1.0,
+        "description": "Coefficient on the second input."
+      },
+      {
+        "name": "c",
+        "type": "float",
+        "default": 0.0,
+        "description": "Additive offset."
+      }
+    ],
+    "body_markdown": "# `Linear2`\n\n## Description\n\nTwo-input affine combination:\n\n$$\nf(x, y) = a \\cdot x + b \\cdot y + c\n$$\n\nStateless 2→1 function (`FunctorBase<_, 2, 1>`). Inputs are paired column-by-column for arrays.\n\nThe class is small but composes nicely with the existing element-wise transforms (`Sign`, `Relu`, `Sigmoid`, ...) to build common idioms in a single chain:\n\n| Expression | Compact form | Meaning |\n|---|---|---|\n| `Linear2(1, -1, 0)(x, y)` | $x - y$ | signed difference |\n| `Sign() o Linear2(1, -1, 0)` | $\\text{sign}(x - y)$ | is `x` greater than `y`? (`+1` / `0` / `−1`) |\n| `Relu() o Linear2(1, -1, 0)` | $\\max(x - y, 0)$ | positive excess |\n| `Linear2(0.7, 0.3, 0)` | $0.7x + 0.3y$ | weighted blend |\n| `Sigmoid() o Linear2(a, b, c)` | $\\sigma(ax + by + c)$ | logistic mix |\n\n*Parameters*:\n\n- `a` (float): coefficient on the first input.\n- `b` (float): coefficient on the second input.\n- `c` (float, optional): additive constant. Defaults to `0.0`.\n\n*NaN handling*: a NaN in either input produces a NaN output (arithmetic propagation)."
+  },
+  "Log": {
+    "name": "Log",
+    "title": "Natural logarithm",
+    "implementation_family": "math",
+    "topics": [
+      "math"
+    ],
+    "tags": [
+      "log",
+      "ln"
+    ],
+    "short": "Natural logarithm of each element.",
+    "inputs": 1,
+    "outputs": 1,
+    "parameters": [],
+    "body_markdown": "# `Log`\n\n## Description\n\nThe `Log` class computes the natural logarithm (ln) of each element in a data sequence. This function is useful for logarithmic scaling, often employed to stabilize variance or compress large data ranges.\n\n*Parameters*: `Log` takes no parameters.\n\n*NaN handling*: `NaN` values and negative values (since they’re undefined for logarithms) are not modified and remain as `NaN`."
+  },
+  "Polar2Cart": {
+    "name": "Polar2Cart",
+    "title": "Polar to Cartesian",
+    "implementation_family": "math",
+    "topics": [
+      "geometry"
+    ],
+    "tags": [
+      "polar",
+      "conversion",
+      "pair"
+    ],
+    "short": "Convert (r, theta) to (x, y).",
+    "inputs": 2,
+    "outputs": 2,
+    "parameters": [],
+    "body_markdown": "# `Polar2Cart`\n\n## Description\n\nConvert 2D polar coordinates `(r, θ)` to Cartesian coordinates `(x, y)`. The inverse of `Cart2Polar`.\n\nThis is a **2-input, 2-output** function (`FunctorBase<_, 2, 2>`). Inputs are paired column-by-column; outputs are stacked along a trailing axis of size 2.\n\n*Equation*:\n\n$$\nx[t] = r[t] \\cos\\theta[t], \\qquad y[t] = r[t] \\sin\\theta[t]\n$$\n\n*Parameters*: `Polar2Cart` takes no parameters.\n\n*NaN handling*: A NaN in either input produces NaN in both outputs.\n\n## Output shapes\n\nSame shape rule as `Cart2Polar`:\n\n| You pass... | You get back... |\n|---|---|\n| `Polar2Cart()(r, θ)` (two scalars) | tuple `(x, y)` |\n| Two 1D arrays of shape `(T,)` | array of shape `(T, 2)` |\n| Two 2D arrays of shape `(T, K)` | array of shape `(T, K, 2)` |\n\n`out[..., 0]` is `x`, `out[..., 1]` is `y`."
+  },
+  "Power": {
+    "name": "Power",
+    "title": "Power",
+    "implementation_family": "math",
+    "topics": [
+      "math"
+    ],
+    "tags": [
+      "power",
+      "pow"
+    ],
+    "short": "x raised to a fixed exponent p.",
+    "inputs": 1,
+    "outputs": 1,
+    "parameters": [
+      {
+        "name": "p",
+        "type": "float",
+        "default": 2.0,
+        "description": "Exponent. Defaults to 2 (same effect as Square but slower)."
+      }
+    ],
+    "body_markdown": "# `Power`\n\n## Description\n\nThe `Power` class computes the power of each element in a data sequence. \n\n\n*Equation*:\n\n$$\nf(x) = x^p \n$$\n\n*Parameters*:\n\n- `p` (double): Exponent of the power function.\n\n*NaN handling*: `NaN` values are not modified by this function."
+  },
+  "Relu": {
+    "name": "Relu",
+    "title": "ReLU",
+    "implementation_family": "math",
+    "topics": [
+      "activation"
+    ],
+    "tags": [
+      "activation",
+      "relu",
+      "neural"
+    ],
+    "short": "Rectified linear unit: max(0, x).",
+    "inputs": 1,
+    "outputs": 1,
+    "parameters": [],
+    "body_markdown": "# `Relu`\n\n## Description\n\nThe `Relu` class implements the Rectified Linear Unit activation function, a common function in neural networks and data processing that outputs the input directly if it is positive and outputs zero otherwise. This function is especially useful for introducing non-linearity while maintaining positive gradients.\n\n*Equation*:\n\n$$\nf(x) = \\max(0, x)\n$$\n\n*Parameters*: `Relu` takes no parameters.\n\n*NaN handling*: `NaN` values are not modified by this function."
+  },
+  "Round": {
+    "name": "Round",
+    "title": "Round (banker's rounding)",
+    "implementation_family": "math",
+    "topics": [
+      "math"
+    ],
+    "tags": [
+      "round",
+      "rounding",
+      "banker"
+    ],
+    "short": "Round each element to the nearest integer (half-to-even).",
+    "inputs": 1,
+    "outputs": 1,
+    "parameters": [],
+    "body_markdown": "# `Round`\n\n## Description\n\nRound each element to the nearest integer using *round-half-to-even* (banker's rounding). Halves go to the nearest even integer rather than always away from zero, which matches `numpy.round` and Python's built-in `round`.\n\n*Equation*:\n\n$$\ny[i] = \\operatorname{round}(x[i])\n$$\n\nwith halves resolved to even.\n\n*Parameters*: `Round` takes no parameters.\n\n*NaN handling*: `NaN` values pass through unchanged.\n\n*Note*: This is **not** the same as the C++ `std::round` (half-away-from-zero). For example `Round(0.5) == 0`, `Round(1.5) == 2`, `Round(2.5) == 2`."
+  },
+  "Selu": {
+    "name": "Selu",
+    "title": "SELU",
+    "implementation_family": "math",
+    "topics": [
+      "activation"
+    ],
+    "tags": [
+      "activation",
+      "selu",
+      "neural"
+    ],
+    "short": "Scaled exponential linear unit (self-normalizing networks).",
+    "inputs": 1,
+    "outputs": 1,
+    "parameters": [],
+    "body_markdown": "# `Selu`\n\n## Description\n\nThe `Selu` (Scaled Exponential Linear Unit) class scales the ELU function to induce self-normalizing properties, which help stabilize neural network training by keeping activations within a desired range.\n\n*Equation*:\n\n$$\nf(x) = \\lambda \\times \\begin{cases} \nx, & \\text{if } x > 0 \\\\\n\\alpha (e^x - 1), & \\text{if } x \\leq 0\n\\end{cases}\n$$\n\nwhere $\\lambda \\approx 1.0507$ and $\\alpha \\approx 1.67326$.\n\n*Parameters*: No parameters.\n\n*NaN handling*: `NaN` values are not modified by this function."
+  },
+  "Sigmoid": {
+    "name": "Sigmoid",
+    "title": "Sigmoid",
+    "implementation_family": "math",
+    "topics": [
+      "activation"
+    ],
+    "tags": [
+      "activation",
+      "sigmoid",
+      "logistic"
+    ],
+    "short": "Logistic sigmoid: 1 / (1 + exp(-x)).",
+    "inputs": 1,
+    "outputs": 1,
+    "parameters": [],
+    "body_markdown": "# `Sigmoid`\n\n## Description\n\nThe `Sigmoid` class transforms input values into the range \\(0\\) to \\(1\\), making it a staple activation function in neural networks, especially for binary classification problems.\n\n*Equation*:\n\n$$\nf(x) = \\frac{1}{1 + e^{-x}}\n$$\n\n*Parameters*: `Sigmoid` takes no parameters.\n\n*NaN handling*: `NaN` values are not modified by this function."
+  },
+  "Sign": {
+    "name": "Sign",
+    "title": "Sign",
+    "implementation_family": "math",
+    "topics": [
+      "math"
+    ],
+    "tags": [
+      "sign",
+      "signum"
+    ],
+    "short": "Sign of each element: -1, 0, or +1.",
+    "inputs": 1,
+    "outputs": 1,
+    "parameters": [],
+    "body_markdown": "# `Sign`\n\n## Description\n\nThe `Sign` class computes the sign of each element in a data sequence, mapping each value to -1, 0, or +1. This function is useful for extracting the direction (positive or negative) of each value while discarding magnitude.\n\n*Parameters*: `Sign` takes no parameters.\n\n*NaN handling*: `NaN` values are not modified."
+  },
+  "Sin": {
+    "name": "Sin",
+    "title": "Sine",
+    "implementation_family": "math",
+    "topics": [
+      "math"
+    ],
+    "tags": [
+      "trigonometry",
+      "sin"
+    ],
+    "short": "Sine of each element (radians).",
+    "inputs": 1,
+    "outputs": 1,
+    "parameters": [],
+    "body_markdown": "# `Sin`\n\n## Description\n\nSine of each element (input is in radians).\n\n*Equation*:\n\n$$\ny[i] = \\sin(x[i])\n$$\n\n*Parameters*: `Sin` takes no parameters.\n\n*NaN handling*: `NaN` values pass through unchanged."
+  },
+  "Softsign": {
+    "name": "Softsign",
+    "title": "Softsign",
+    "implementation_family": "math",
+    "topics": [
+      "activation"
+    ],
+    "tags": [
+      "activation",
+      "softsign"
+    ],
+    "short": "Softsign: x / (1 + |x|).",
+    "inputs": 1,
+    "outputs": 1,
+    "parameters": [],
+    "body_markdown": "# `Softsign`\n\n## Description\n\nThe `Softsign` class smooths input values into the range \\(-1\\) to \\(1\\) with asymptotic behavior, providing a continuous, differentiable transformation useful for activation functions.\n\n*Equation*:\n\n$$\nf(x) = \\frac{x}{1 + |x|}\n$$\n\n*Parameters*: `Softsign` takes no parameters.\n\n*NaN handling*: `NaN` values are not modified by this function."
+  },
+  "Sqrt": {
+    "name": "Sqrt",
+    "title": "Square root",
+    "implementation_family": "math",
+    "topics": [
+      "math"
+    ],
+    "tags": [
+      "sqrt"
+    ],
+    "short": "Square root of each element.",
+    "inputs": 1,
+    "outputs": 1,
+    "parameters": [],
+    "body_markdown": "# `Sqrt`\n\n## Description\n\nThe `Sqrt` class computes the square root of each element in a data sequence. It’s often used to reduce the scale of data or to transform squared values back to their original units.\n\n*Parameters*: `Sqrt` takes no parameters.\n\n*NaN handling*: Negative values and `NaN` values are not modified, as the square root is undefined for negative numbers."
+  },
+  "Square": {
+    "name": "Square",
+    "title": "Square",
+    "implementation_family": "math",
+    "topics": [
+      "math"
+    ],
+    "tags": [
+      "square",
+      "pow2"
+    ],
+    "short": "x squared (faster than Power(2)).",
+    "inputs": 1,
+    "outputs": 1,
+    "parameters": [],
+    "body_markdown": "# `Square`\n\n## Description\n\nSquare each element. Equivalent to `Power(2)` but skips the `std::pow` logarithm and is therefore faster.\n\n*Equation*:\n\n$$\ny[i] = x[i]^2\n$$\n\n*Parameters*: `Square` takes no parameters.\n\n*NaN handling*: `NaN` values pass through unchanged."
+  },
+  "Tanh": {
+    "name": "Tanh",
+    "title": "Tanh",
+    "implementation_family": "math",
+    "topics": [
+      "activation"
+    ],
+    "tags": [
+      "activation",
+      "tanh"
+    ],
+    "short": "Hyperbolic tangent.",
+    "inputs": 1,
+    "outputs": 1,
+    "parameters": [],
+    "body_markdown": "# `Tanh`\n\n## Description\n\nThe `Tanh` class applies the hyperbolic tangent function, which maps any real number into the range \\(-1\\) to \\(1\\). It is often used in neural networks as an activation function due to its zero-centered nature.\n\n*Equation*:\n\n$$\nf(x) = \\tanh(x) = \\frac{e^x - e^{-x}}{e^x + e^{-x}}\n$$\n\n*Parameters*: `Tanh` takes no parameters.\n\n*NaN handling*: `NaN` values are not modified by this function."
+  },
   "RollingHurst": {
     "name": "RollingHurst",
     "title": "Rolling Hurst Exponent",

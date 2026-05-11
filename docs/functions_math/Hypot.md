@@ -1,3 +1,21 @@
+---
+name: Hypot
+title: Hypotenuse
+implementation_family: math
+topics:
+- math
+- geometry
+tags:
+- hypotenuse
+- norm
+- polar
+- pair
+short: Euclidean distance sqrt(x^2 + y^2), numerically stable.
+inputs: 2
+outputs: 1
+parameters: []
+---
+
 # `Hypot`
 
 ## Description
@@ -15,6 +33,8 @@ $$
 *Parameters*: `Hypot` takes no parameters.
 
 *NaN handling*: A NaN in either input produces a NaN output.
+
+<!-- HELP_END -->
 
 ## Usage Example
 

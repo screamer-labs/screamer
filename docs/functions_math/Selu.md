@@ -1,3 +1,19 @@
+---
+name: Selu
+title: SELU
+implementation_family: math
+topics:
+- activation
+tags:
+- activation
+- selu
+- neural
+short: Scaled exponential linear unit (self-normalizing networks).
+inputs: 1
+outputs: 1
+parameters: []
+---
+
 # `Selu`
 
 ## Description
@@ -18,6 +34,8 @@ where $\lambda \approx 1.0507$ and $\alpha \approx 1.67326$.
 *Parameters*: No parameters.
 
 *NaN handling*: `NaN` values are not modified by this function.
+
+<!-- HELP_END -->
 
 ## Usage Example and Plot
 

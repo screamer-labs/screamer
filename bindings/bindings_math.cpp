@@ -77,7 +77,8 @@ void init_bindings_math(py::module& m) {
         .def("reset", &screamer::Transform<(double (*)(double)) screamer::sigmoid>::reset, "Reset to the initial state.");
 
      py::class_<screamer::Linear, screamer::ScreamerBase>(m, "Linear")
-        .def(py::init<double, double>(), py::arg("scale"), py::arg("shift"))
+        .def(py::init<double, double>(),
+             py::arg("scale") = 1.0, py::arg("shift") = 0.0)
         .def("__call__", &screamer::Linear::operator(), py::arg("value"))
         .def("reset", &screamer::Linear::reset, "Reset to the initial state.");
 
@@ -87,12 +88,12 @@ void init_bindings_math(py::module& m) {
      // "is x > y").
      py::class_<screamer::Linear2>(m, "Linear2")
         .def(py::init<double, double, double>(),
-             py::arg("a"), py::arg("b"), py::arg("c") = 0.0)
+             py::arg("a") = 1.0, py::arg("b") = 1.0, py::arg("c") = 0.0)
         .def("__call__", &screamer::Linear2::handle_input)
         .def("reset", &screamer::Linear2::reset, "Reset to the initial state.");
 
      py::class_<screamer::Power, screamer::ScreamerBase>(m, "Power")
-        .def(py::init<double>(), py::arg("p"))
+        .def(py::init<double>(), py::arg("p") = 2.0)
         .def("__call__", &screamer::Power::operator(), py::arg("value"))
         .def("reset", &screamer::Power::reset, "Reset to the initial state.");
 

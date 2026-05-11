@@ -1,3 +1,32 @@
+---
+name: Linear2
+title: Linear (two-input affine)
+implementation_family: math
+topics:
+- math
+- regression
+tags:
+- affine
+- linear
+- pair
+short: 'Two-input affine combination: a*x + b*y + c.'
+inputs: 2
+outputs: 1
+parameters:
+- name: a
+  type: float
+  default: 1.0
+  description: Coefficient on the first input.
+- name: b
+  type: float
+  default: 1.0
+  description: Coefficient on the second input.
+- name: c
+  type: float
+  default: 0.0
+  description: Additive offset.
+---
+
 # `Linear2`
 
 ## Description
@@ -27,6 +56,8 @@ The class is small but composes nicely with the existing element-wise transforms
 - `c` (float, optional): additive constant. Defaults to `0.0`.
 
 *NaN handling*: a NaN in either input produces a NaN output (arithmetic propagation).
+
+<!-- HELP_END -->
 
 ## Usage Example
 

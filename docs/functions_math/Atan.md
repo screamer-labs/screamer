@@ -1,3 +1,19 @@
+---
+name: Atan
+title: Arctangent
+implementation_family: math
+topics:
+- math
+tags:
+- trigonometry
+- atan
+- inverse
+short: Inverse tangent of each element (radians).
+inputs: 1
+outputs: 1
+parameters: []
+---
+
 # `Atan`
 
 ## Description
@@ -13,6 +29,8 @@ $$
 *Parameters*: `Atan` takes no parameters.
 
 *NaN handling*: `NaN` values pass through unchanged.
+
+<!-- HELP_END -->
 
 ## Usage Example and Plot
 

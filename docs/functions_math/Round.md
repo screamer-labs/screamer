@@ -1,3 +1,19 @@
+---
+name: Round
+title: Round (banker's rounding)
+implementation_family: math
+topics:
+- math
+tags:
+- round
+- rounding
+- banker
+short: Round each element to the nearest integer (half-to-even).
+inputs: 1
+outputs: 1
+parameters: []
+---
+
 # `Round`
 
 ## Description
@@ -17,6 +33,8 @@ with halves resolved to even.
 *NaN handling*: `NaN` values pass through unchanged.
 
 *Note*: This is **not** the same as the C++ `std::round` (half-away-from-zero). For example `Round(0.5) == 0`, `Round(1.5) == 2`, `Round(2.5) == 2`.
+
+<!-- HELP_END -->
 
 ## Usage Example and Plot
 

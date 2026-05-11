@@ -1,3 +1,19 @@
+---
+name: Acos
+title: Arccosine
+implementation_family: math
+topics:
+- math
+tags:
+- trigonometry
+- acos
+- inverse
+short: Inverse cosine of each element (radians, input in [-1, 1]).
+inputs: 1
+outputs: 1
+parameters: []
+---
+
 # `Acos`
 
 ## Description
@@ -13,6 +29,8 @@ $$
 *Parameters*: `Acos` takes no parameters.
 
 *NaN handling*: Inputs outside $[-1, 1]$ produce `NaN`. Existing `NaN` values pass through.
+
+<!-- HELP_END -->
 
 ## Usage Example and Plot
 

@@ -1,3 +1,19 @@
+---
+name: Polar2Cart
+title: Polar to Cartesian
+implementation_family: math
+topics:
+- geometry
+tags:
+- polar
+- conversion
+- pair
+short: Convert (r, theta) to (x, y).
+inputs: 2
+outputs: 2
+parameters: []
+---
+
 # `Polar2Cart`
 
 ## Description
@@ -27,6 +43,8 @@ Same shape rule as `Cart2Polar`:
 | Two 2D arrays of shape `(T, K)` | array of shape `(T, K, 2)` |
 
 `out[..., 0]` is `x`, `out[..., 1]` is `y`.
+
+<!-- HELP_END -->
 
 ## Usage Example
 

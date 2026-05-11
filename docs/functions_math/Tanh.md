@@ -1,3 +1,18 @@
+---
+name: Tanh
+title: Tanh
+implementation_family: math
+topics:
+- activation
+tags:
+- activation
+- tanh
+short: Hyperbolic tangent.
+inputs: 1
+outputs: 1
+parameters: []
+---
+
 # `Tanh`
 
 ## Description
@@ -13,6 +28,8 @@ $$
 *Parameters*: `Tanh` takes no parameters.
 
 *NaN handling*: `NaN` values are not modified by this function.
+
+<!-- HELP_END -->
 
 ## Usage Example and Plot
 

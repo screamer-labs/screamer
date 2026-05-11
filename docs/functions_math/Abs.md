@@ -1,3 +1,18 @@
+---
+name: Abs
+title: Absolute value
+implementation_family: math
+topics:
+- math
+tags:
+- abs
+- magnitude
+short: Absolute value of each element.
+inputs: 1
+outputs: 1
+parameters: []
+---
+
 # `Abs`
 
 ## Description
@@ -7,6 +22,8 @@ The `Abs` class computes the absolute value of each element in a data sequence, 
 *Parameters*: `Abs` takes no parameters.
 
 *NaN handling*: `NaN` values are not modified by this function.
+
+<!-- HELP_END -->
 
 ## Usage Example and Plot
 

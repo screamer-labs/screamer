@@ -1,3 +1,17 @@
+---
+name: Sqrt
+title: Square root
+implementation_family: math
+topics:
+- math
+tags:
+- sqrt
+short: Square root of each element.
+inputs: 1
+outputs: 1
+parameters: []
+---
+
 # `Sqrt`
 
 ## Description
@@ -7,6 +21,8 @@ The `Sqrt` class computes the square root of each element in a data sequence. It
 *Parameters*: `Sqrt` takes no parameters.
 
 *NaN handling*: Negative values and `NaN` values are not modified, as the square root is undefined for negative numbers.
+
+<!-- HELP_END -->
 
 ## Usage Example and Plot
 

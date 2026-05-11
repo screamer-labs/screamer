@@ -1,3 +1,18 @@
+---
+name: Sin
+title: Sine
+implementation_family: math
+topics:
+- math
+tags:
+- trigonometry
+- sin
+short: Sine of each element (radians).
+inputs: 1
+outputs: 1
+parameters: []
+---
+
 # `Sin`
 
 ## Description
@@ -13,6 +28,8 @@ $$
 *Parameters*: `Sin` takes no parameters.
 
 *NaN handling*: `NaN` values pass through unchanged.
+
+<!-- HELP_END -->
 
 ## Usage Example and Plot
 

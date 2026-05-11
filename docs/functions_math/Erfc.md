@@ -1,3 +1,18 @@
+---
+name: Erfc
+title: Complementary error function
+implementation_family: math
+topics:
+- math
+tags:
+- erfc
+- gauss
+short: Complementary error function (1 - erf).
+inputs: 1
+outputs: 1
+parameters: []
+---
+
 # `Erfc`
 
 ## Description
@@ -7,6 +22,8 @@ The `Erfc` class computes the complementary error function (1 - erf(x)) for each
 *Parameters*: `Erfc` takes no parameters.
 
 *NaN handling*: `NaN` values are not modified.
+
+<!-- HELP_END -->
 
 ## Usage Example and Plot
 

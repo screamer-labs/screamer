@@ -1,3 +1,21 @@
+---
+name: Atan2
+title: Two-argument arctangent
+implementation_family: math
+topics:
+- math
+- geometry
+tags:
+- trigonometry
+- atan2
+- polar
+- pair
+short: Signed angle of (x, y) from the positive x-axis (numpy.arctan2 order).
+inputs: 2
+outputs: 1
+parameters: []
+---
+
 # `Atan2`
 
 ## Description
@@ -17,6 +35,8 @@ $$
 *Parameters*: `Atan2` takes no parameters.
 
 *NaN handling*: A NaN in either input produces a NaN output.
+
+<!-- HELP_END -->
 
 ## Usage Example
 

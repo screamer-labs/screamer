@@ -1,5 +1,26 @@
-Here's the documentation page for the `Linear` function:
-
+---
+name: Linear
+title: Linear (affine)
+implementation_family: math
+topics:
+- math
+- regression
+tags:
+- affine
+- linear
+- scale
+short: 'Affine transform: scale * x + shift.'
+inputs: 1
+outputs: 1
+parameters:
+- name: scale
+  type: float
+  default: 1.0
+  description: Multiplicative coefficient.
+- name: shift
+  type: float
+  default: 0.0
+  description: Additive offset.
 ---
 
 # `Linear`
@@ -20,6 +41,8 @@ $$
 - `shift` (double): The value added to the scaled input to shift the output.
 
 *NaN handling*: `NaN` values are not modified by this function.
+
+<!-- HELP_END -->
 
 ## Usage Example and Plot
 

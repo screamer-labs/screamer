@@ -1,3 +1,18 @@
+---
+name: Cos
+title: Cosine
+implementation_family: math
+topics:
+- math
+tags:
+- trigonometry
+- cos
+short: Cosine of each element (radians).
+inputs: 1
+outputs: 1
+parameters: []
+---
+
 # `Cos`
 
 ## Description
@@ -13,6 +28,8 @@ $$
 *Parameters*: `Cos` takes no parameters.
 
 *NaN handling*: `NaN` values pass through unchanged.
+
+<!-- HELP_END -->
 
 ## Usage Example and Plot
 

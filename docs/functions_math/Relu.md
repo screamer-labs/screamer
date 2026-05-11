@@ -1,3 +1,19 @@
+---
+name: Relu
+title: ReLU
+implementation_family: math
+topics:
+- activation
+tags:
+- activation
+- relu
+- neural
+short: 'Rectified linear unit: max(0, x).'
+inputs: 1
+outputs: 1
+parameters: []
+---
+
 # `Relu`
 
 ## Description
@@ -13,6 +29,8 @@ $$
 *Parameters*: `Relu` takes no parameters.
 
 *NaN handling*: `NaN` values are not modified by this function.
+
+<!-- HELP_END -->
 
 ## Usage Example and Plot
 

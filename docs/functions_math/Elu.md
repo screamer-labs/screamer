@@ -1,3 +1,19 @@
+---
+name: Elu
+title: ELU
+implementation_family: math
+topics:
+- activation
+tags:
+- activation
+- elu
+- neural
+short: Exponential linear unit.
+inputs: 1
+outputs: 1
+parameters: []
+---
+
 # `Elu`
 
 ## Description
@@ -16,6 +32,8 @@ $$
 where $\alpha$ is a constant set to 1.0.
 
 *NaN handling*: `NaN` values are not modified by this function.
+
+<!-- HELP_END -->
 
 ## Usage Example and Plot
 

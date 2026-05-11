@@ -1,3 +1,18 @@
+---
+name: Softsign
+title: Softsign
+implementation_family: math
+topics:
+- activation
+tags:
+- activation
+- softsign
+short: 'Softsign: x / (1 + |x|).'
+inputs: 1
+outputs: 1
+parameters: []
+---
+
 # `Softsign`
 
 ## Description
@@ -13,6 +28,8 @@ $$
 *Parameters*: `Softsign` takes no parameters.
 
 *NaN handling*: `NaN` values are not modified by this function.
+
+<!-- HELP_END -->
 
 ## Usage Example and Plot
 

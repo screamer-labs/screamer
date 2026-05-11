@@ -1,3 +1,18 @@
+---
+name: Erf
+title: Error function
+implementation_family: math
+topics:
+- math
+tags:
+- erf
+- gauss
+short: Gauss error function.
+inputs: 1
+outputs: 1
+parameters: []
+---
+
 # `Erf`
 
 ## Description
@@ -7,6 +22,8 @@ The `Erf` class computes the error function of each element in a data sequence, 
 *Parameters*: `Erf` takes no parameters.
 
 *NaN handling*: `NaN` values are not modified.
+
+<!-- HELP_END -->
 
 ## Usage Example and Plot
 

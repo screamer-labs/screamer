@@ -1,3 +1,19 @@
+---
+name: Cart2Polar
+title: Cartesian to polar
+implementation_family: math
+topics:
+- geometry
+tags:
+- polar
+- conversion
+- pair
+short: Convert (x, y) to (r, theta).
+inputs: 2
+outputs: 2
+parameters: []
+---
+
 # `Cart2Polar`
 
 ## Description
@@ -28,6 +44,8 @@ $$
 | Two parallel iterables | list of `(r, θ)` tuples |
 
 The shape rule combines the multi-input pairing (column-by-column) with the multi-output stacking (extra trailing axis of size 2). `out[..., 0]` is the radius, `out[..., 1]` is the angle.
+
+<!-- HELP_END -->
 
 ## Usage Example and Plot
 
