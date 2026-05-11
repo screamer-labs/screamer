@@ -307,12 +307,12 @@ void init_bindings_rolling(py::module& m) {
 
     // Parkinson (1980): H, L. 2 -> 1.
     py::class_<screamer::RollingParkinsonVar>(m, "RollingParkinsonVar")
-        .def(py::init<int>(), py::arg("window_size"))
+        .def(py::init<int>(), py::arg("window_size") = 20)
         .def("__call__", &screamer::RollingParkinsonVar::handle_input)
         .def("reset", &screamer::RollingParkinsonVar::reset, "Reset.");
 
     py::class_<screamer::RollingParkinsonVol>(m, "RollingParkinsonVol")
-        .def(py::init<int>(), py::arg("window_size"))
+        .def(py::init<int>(), py::arg("window_size") = 20)
         .def("__call__", &screamer::RollingParkinsonVol::handle_input)
         .def("reset", &screamer::RollingParkinsonVol::reset, "Reset.");
 
@@ -334,12 +334,12 @@ void init_bindings_rolling(py::module& m) {
 
     // Garman-Klass (1980): O, H, L, C. 4 -> 1.
     py::class_<screamer::RollingGarmanKlassVar>(m, "RollingGarmanKlassVar")
-        .def(py::init<int>(), py::arg("window_size"))
+        .def(py::init<int>(), py::arg("window_size") = 20)
         .def("__call__", &screamer::RollingGarmanKlassVar::handle_input)
         .def("reset", &screamer::RollingGarmanKlassVar::reset, "Reset.");
 
     py::class_<screamer::RollingGarmanKlassVol>(m, "RollingGarmanKlassVol")
-        .def(py::init<int>(), py::arg("window_size"))
+        .def(py::init<int>(), py::arg("window_size") = 20)
         .def("__call__", &screamer::RollingGarmanKlassVol::handle_input)
         .def("reset", &screamer::RollingGarmanKlassVol::reset, "Reset.");
 
@@ -361,12 +361,12 @@ void init_bindings_rolling(py::module& m) {
 
     // Rogers-Satchell (1991): O, H, L, C; drift-robust. 4 -> 1.
     py::class_<screamer::RollingRogersSatchellVar>(m, "RollingRogersSatchellVar")
-        .def(py::init<int>(), py::arg("window_size"))
+        .def(py::init<int>(), py::arg("window_size") = 20)
         .def("__call__", &screamer::RollingRogersSatchellVar::handle_input)
         .def("reset", &screamer::RollingRogersSatchellVar::reset, "Reset.");
 
     py::class_<screamer::RollingRogersSatchellVol>(m, "RollingRogersSatchellVol")
-        .def(py::init<int>(), py::arg("window_size"))
+        .def(py::init<int>(), py::arg("window_size") = 20)
         .def("__call__", &screamer::RollingRogersSatchellVol::handle_input)
         .def("reset", &screamer::RollingRogersSatchellVol::reset, "Reset.");
 
@@ -417,12 +417,12 @@ void init_bindings_rolling(py::module& m) {
     // Yang-Zhang volatility (the most efficient classical range-based
     // estimator; handles both drift and overnight gaps).
     py::class_<screamer::RollingYangZhangVar>(m, "RollingYangZhangVar")
-        .def(py::init<int>(), py::arg("window_size"))
+        .def(py::init<int>(), py::arg("window_size") = 20)
         .def("__call__", &screamer::RollingYangZhangVar::handle_input)
         .def("reset", &screamer::RollingYangZhangVar::reset, "Reset.");
 
     py::class_<screamer::RollingYangZhangVol>(m, "RollingYangZhangVol")
-        .def(py::init<int>(), py::arg("window_size"))
+        .def(py::init<int>(), py::arg("window_size") = 20)
         .def("__call__", &screamer::RollingYangZhangVol::handle_input)
         .def("reset", &screamer::RollingYangZhangVol::reset, "Reset.");
 
@@ -435,7 +435,7 @@ void init_bindings_rolling(py::module& m) {
 
     // Volume-aware indicators.
     py::class_<screamer::RollingVWAP>(m, "RollingVWAP")
-        .def(py::init<int>(), py::arg("window_size"))
+        .def(py::init<int>(), py::arg("window_size") = 20)
         .def("__call__", &screamer::RollingVWAP::handle_input)
         .def("reset", &screamer::RollingVWAP::reset, "Reset.");
 
@@ -462,19 +462,19 @@ void init_bindings_rolling(py::module& m) {
     // Time-Series Forecast (TA-Lib's TSF): linear regression vs
     // time projected one step ahead. Composes detail::RollingSum.
     py::class_<screamer::RollingTSF, screamer::ScreamerBase>(m, "RollingTSF")
-        .def(py::init<int>(), py::arg("window_size"))
+        .def(py::init<int>(), py::arg("window_size") = 20)
         .def("__call__", &screamer::RollingTSF::operator(), py::arg("value"))
         .def("reset", &screamer::RollingTSF::reset, "Reset.");
 
     // RollingRank / RollingPercentile: position of latest value in
     // the trailing window. pandas-style "average" tie rule.
     py::class_<screamer::RollingRank, screamer::ScreamerBase>(m, "RollingRank")
-        .def(py::init<int>(), py::arg("window_size"))
+        .def(py::init<int>(), py::arg("window_size") = 20)
         .def("__call__", &screamer::RollingRank::operator(), py::arg("value"))
         .def("reset", &screamer::RollingRank::reset, "Reset.");
 
     py::class_<screamer::RollingPercentile, screamer::ScreamerBase>(m, "RollingPercentile")
-        .def(py::init<int>(), py::arg("window_size"))
+        .def(py::init<int>(), py::arg("window_size") = 20)
         .def("__call__", &screamer::RollingPercentile::operator(), py::arg("value"))
         .def("reset", &screamer::RollingPercentile::reset, "Reset.");
 

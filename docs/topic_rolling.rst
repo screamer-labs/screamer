@@ -7,19 +7,25 @@ Rolling Window Functions
    :hidden:
    :titlesonly:
 
+   functions_rolling/AD
+   functions_rolling/ADOSC
    functions_rolling/ADX
-   functions_rolling/ATR
-   functions_rolling/BollingerBands
    functions_rolling/BOP
+   functions_rolling/BollingerBands
    functions_rolling/CCI
-   functions_rolling/Channels
    functions_rolling/DEMA
+   functions_rolling/DonchianChannels
    functions_rolling/HullMA
    functions_rolling/KAMA
+   functions_rolling/KeltnerChannels
    functions_rolling/MACD
-   functions_rolling/RangeVolatility
+   functions_rolling/MFI
+   functions_rolling/NATR
+   functions_rolling/OBV
    functions_rolling/RollingArgmax
    functions_rolling/RollingArgmin
+   functions_rolling/RollingGarmanKlassVar
+   functions_rolling/RollingGarmanKlassVol
    functions_rolling/RollingHurst
    functions_rolling/RollingIqr
    functions_rolling/RollingKurt
@@ -30,23 +36,31 @@ Rolling Window Functions
    functions_rolling/RollingMin
    functions_rolling/RollingMinMax
    functions_rolling/RollingOU
+   functions_rolling/RollingParkinsonVar
+   functions_rolling/RollingParkinsonVol
    functions_rolling/RollingPoly1
    functions_rolling/RollingPoly2
    functions_rolling/RollingQuantile
+   functions_rolling/RollingRSI
    functions_rolling/RollingRange
    functions_rolling/RollingRms
+   functions_rolling/RollingRogersSatchellVar
+   functions_rolling/RollingRogersSatchellVol
    functions_rolling/RollingSigmaClip
    functions_rolling/RollingSkew
    functions_rolling/RollingStd
    functions_rolling/RollingSum
+   functions_rolling/RollingVWAP
    functions_rolling/RollingVar
+   functions_rolling/RollingYangZhangVar
+   functions_rolling/RollingYangZhangVol
    functions_rolling/RollingZscore
    functions_rolling/Stoch
    functions_rolling/StochRSI
    functions_rolling/TEMA
    functions_rolling/TRIMA
    functions_rolling/TRIX
+   functions_rolling/TrueRange
    functions_rolling/UltimateOscillator
-   functions_rolling/WilliamsR
-   functions_rolling/VolumeIndicators
    functions_rolling/WMA
+   functions_rolling/WilliamsR

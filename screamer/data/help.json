@@ -132,6 +132,96 @@
     ],
     "body_markdown": "# `EwCov`\n\n## Description\n\n`EwCov` computes the exponentially weighted moving covariance of two streams. Same bias-correction convention as `EwVar`: the formula matches `pandas.Series.ewm(adjust=True, bias=False).cov(other)`. This is a **2-input, 1-output** function (`FunctorBase<_, 2, 1>`).\n\n## Parameters\n\nSpecify exactly one of the following to set the smoothing factor `alpha`:\n\n- **`com`**: Center of mass. `alpha = 1 / (1 + com)`\n- **`span`**: Span. `alpha = 2 / (span + 1)`\n- **`halflife`**: Half-life. `alpha = 1 - exp(-log(2) / halflife)`\n- **`alpha`**: Directly sets the smoothing factor, `0 < alpha < 1`\n\nThe first sample is `NaN` (need `n_eff > 1` for the bias correction).\n\n## Formula\n\nTracks five running sums per step. With $\\bar{x} = S_x / S_w$ and $\\bar{y} = S_y / S_w$:\n\n$$\n\\text{EwCov} = \\left( \\frac{S_{xy}}{S_w} - \\bar{x}\\,\\bar{y} \\right) \\cdot \\frac{N_{\\text{eff}}}{N_{\\text{eff}} - 1}\n$$\n\nwhere $N_{\\text{eff}} = S_w^2 / S_{ww}$ is the effective sample size, computed exactly as in `EwVar`. The bias correction makes the estimator unbiased under independent sampling."
   },
+  "EwGarmanKlassVar": {
+    "name": "EwGarmanKlassVar",
+    "title": "EW Garman-Klass varariance",
+    "implementation_family": "ew",
+    "topics": [
+      "volatility"
+    ],
+    "tags": [
+      "garman-klass",
+      "range-based",
+      "ohlc",
+      "var",
+      "ew"
+    ],
+    "short": "Var form of the Garman-Klass range-based volatility estimator (OHLC).",
+    "inputs": 4,
+    "outputs": 1,
+    "parameters": [
+      {
+        "name": "com",
+        "type": "float",
+        "default": null,
+        "description": "Center of mass."
+      },
+      {
+        "name": "span",
+        "type": "float",
+        "default": 20.0,
+        "description": "Span."
+      },
+      {
+        "name": "halflife",
+        "type": "float",
+        "default": null,
+        "description": "Halflife."
+      },
+      {
+        "name": "alpha",
+        "type": "float",
+        "default": null,
+        "description": "Smoothing parameter directly."
+      }
+    ],
+    "body_markdown": "# `EwGarmanKlassVar`\n\n## Description\n\nThe Garman-Klass (1980) range-based volatility estimator. Per-bar variance contribution:\n\n$$\n\\sigma^2_\\text{GK}[t] = \\tfrac{1}{2}\\big(\\ln H/L\\big)^2 - (2\\ln 2 - 1)\\big(\\ln C/O\\big)^2\n$$\n\nThis expression is averaged with a exponentially-weighted mean to form the estimator. The `Vol`\nvariant returns `sqrt(Var)` (bit-exact via the same internal state).\n\n**4-input, 1-output** on `(open, high, low, close)`. ~7.4x more statistically efficient\nthan close-to-close `RollingStd` *under the model's assumptions* (zero drift, no overnight\ngaps)."
+  },
+  "EwGarmanKlassVol": {
+    "name": "EwGarmanKlassVol",
+    "title": "EW Garman-Klass olatility",
+    "implementation_family": "ew",
+    "topics": [
+      "volatility"
+    ],
+    "tags": [
+      "garman-klass",
+      "range-based",
+      "ohlc",
+      "vol",
+      "ew"
+    ],
+    "short": "Vol form of the Garman-Klass range-based volatility estimator (OHLC).",
+    "inputs": 4,
+    "outputs": 1,
+    "parameters": [
+      {
+        "name": "com",
+        "type": "float",
+        "default": null,
+        "description": "Center of mass."
+      },
+      {
+        "name": "span",
+        "type": "float",
+        "default": 20.0,
+        "description": "Span."
+      },
+      {
+        "name": "halflife",
+        "type": "float",
+        "default": null,
+        "description": "Halflife."
+      },
+      {
+        "name": "alpha",
+        "type": "float",
+        "default": null,
+        "description": "Smoothing parameter directly."
+      }
+    ],
+    "body_markdown": "# `EwGarmanKlassVol`\n\n## Description\n\nThe Garman-Klass (1980) range-based volatility estimator. Per-bar variance contribution:\n\n$$\n\\sigma^2_\\text{GK}[t] = \\tfrac{1}{2}\\big(\\ln H/L\\big)^2 - (2\\ln 2 - 1)\\big(\\ln C/O\\big)^2\n$$\n\nThis expression is averaged with a exponentially-weighted mean to form the estimator. The `Vol`\nvariant returns `sqrt(Var)` (bit-exact via the same internal state).\n\n**4-input, 1-output** on `(open, high, low, close)`. ~7.4x more statistically efficient\nthan close-to-close `RollingStd` *under the model's assumptions* (zero drift, no overnight\ngaps)."
+  },
   "EwKurt": {
     "name": "EwKurt",
     "title": "Exponentially-weighted kurtosis",
@@ -219,6 +309,96 @@
     ],
     "body_markdown": "# `EwMean`\n\n## Description\n\n`EwMean` computes the exponentially weighted moving mean of a data sequence, applying more weight to recent data points and allowing for a smoother, lagged response. You specify the decay rate through `alpha`, calculated from `com`, `span`, `halflife`, or `alpha` itself, aligning with the Pandas `ewm` interface.\n\n### Parameters\n\nOne of the following decay parameters is required to calculate `alpha`, where a higher `alpha` value gives recent points more influence:\n\n- **`com`**: Center of mass. `alpha = 1 / (1 + com)`\n- **`span`**: Span. `alpha = 2 / (span + 1)`\n- **`halflife`**: Half-life. `alpha = 1 - exp(-log(2) / halflife)`\n- **`alpha`**: Directly specifies the smoothing factor, where `0 < alpha < 1`\n\n*NaN handling*: NaN values are ignored in the mean calculation.\n\n### Usage Example and Plot\n\n```{eval-rst}\n.. plotly::\n    :include-source: True\n\n    import numpy as np\n    import plotly.graph_objects as go\n    from plotly.subplots import make_subplots\n    from screamer import EwMean\n\n    # Generate example data\n    data = np.cumsum(np.random.normal(size=300))\n\n    # Compute exponentially weighted mean with a span of 20\n    ewmean_data = EwMean(span=20)(data)\n\n    # Create subplots with original and transformed data\n    fig = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[1/2, 1/2], vertical_spacing=0.1)\n\n    fig.add_trace(go.Scatter(y=data, mode='lines', name='Original Data'), row=1, col=1)\n    fig.add_trace(go.Scatter(y=ewmean_data, mode='lines', name='EwMean', line=dict(color='red')), row=2, col=1)\n\n    fig.update_layout(\n        title=\"Exponentially Weighted Moving Mean\",\n        xaxis_title=\"Index\",\n        yaxis=dict(title=\"Original Data\"),\n        yaxis2=dict(title=\"EwMean\"),\n        margin=dict(l=20, r=20, t=80, b=20),\n        legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1)        \n    )\n\n    fig.show()\n```\n\n### Formula Details\n\n`EwMean` computes the exponentially weighted moving mean recursively. This calculation approach provides a fast, iterative update for each new value without recalculating the entire window, giving more weight to recent observations. The weighted mean formula aligns with the Pandas `ewm` interface by adjusting for the weighted contribution of each new element.\n\n\nLet:\n- **`alpha`** be the smoothing factor calculated from `com`, `span`, `halflife`, or specified directly, where `0 < alpha < 1`.\n\nFor each new data point $x_t$, `EwMean` updates two cumulative sums, $S_x$ and $S_w$, as follows:\n\n1. Adjust $S_x$ by retaining a fraction $(1 - \\alpha)$ of the previous weighted sum and then adding the new value $x_t$:\n   \n$$\nS_x = S_x \\times (1 - \\alpha) + x_t\n$$\n\n1. Adjust $S_w$, the cumulative weight, by similarly retaining a fraction $(1 - \\alpha)$ of the previous weight sum, then adding a weight of $1$:\n\n$$\nS_w = S_w \\times (1 - \\alpha) + 1\n$$\n\n3. Compute the exponentially weighted moving mean as:\n\n$$\n\\text{EwMean} = \\frac{S_x}{S_w}\n$$"
   },
+  "EwParkinsonVar": {
+    "name": "EwParkinsonVar",
+    "title": "Exponentially-weighted Parkinson varariance",
+    "implementation_family": "ew",
+    "topics": [
+      "volatility"
+    ],
+    "tags": [
+      "parkinson",
+      "range-based",
+      "hl",
+      "var",
+      "ew"
+    ],
+    "short": "Var form of the Parkinson range-based volatility estimator (uses high & low).",
+    "inputs": 2,
+    "outputs": 1,
+    "parameters": [
+      {
+        "name": "com",
+        "type": "float",
+        "default": null,
+        "description": "Center of mass. Exclusive with span/halflife/alpha."
+      },
+      {
+        "name": "span",
+        "type": "float",
+        "default": 20.0,
+        "description": "Span (default smoothing parameter)."
+      },
+      {
+        "name": "halflife",
+        "type": "float",
+        "default": null,
+        "description": "Halflife. Exclusive with com/span/alpha."
+      },
+      {
+        "name": "alpha",
+        "type": "float",
+        "default": null,
+        "description": "Smoothing parameter directly."
+      }
+    ],
+    "body_markdown": "# `EwParkinsonVar`\n\n## Description\n\nThe Parkinson (1980) range-based volatility estimator. Per-bar variance contribution:\n\n$$\n\\sigma^2_\\text{Parkinson}[t] = \\frac{1}{4 \\ln 2}\\ \\big(\\ln H/L\\big)^2\n$$\n\nThis expression is then averaged with a exponentially-weighted mean to form the estimator. The\n`Vol` variant returns `sqrt(Var)`; the two are bit-exact via the same internal state.\n\n**2-input, 1-output** on `(high, low)`. ~5x more statistically efficient than\nclose-to-close `RollingStd` *under the model's assumptions* (zero drift, no overnight gaps)."
+  },
+  "EwParkinsonVol": {
+    "name": "EwParkinsonVol",
+    "title": "Exponentially-weighted Parkinson olatility",
+    "implementation_family": "ew",
+    "topics": [
+      "volatility"
+    ],
+    "tags": [
+      "parkinson",
+      "range-based",
+      "hl",
+      "vol",
+      "ew"
+    ],
+    "short": "Vol form of the Parkinson range-based volatility estimator (uses high & low).",
+    "inputs": 2,
+    "outputs": 1,
+    "parameters": [
+      {
+        "name": "com",
+        "type": "float",
+        "default": null,
+        "description": "Center of mass. Exclusive with span/halflife/alpha."
+      },
+      {
+        "name": "span",
+        "type": "float",
+        "default": 20.0,
+        "description": "Span (default smoothing parameter)."
+      },
+      {
+        "name": "halflife",
+        "type": "float",
+        "default": null,
+        "description": "Halflife. Exclusive with com/span/alpha."
+      },
+      {
+        "name": "alpha",
+        "type": "float",
+        "default": null,
+        "description": "Smoothing parameter directly."
+      }
+    ],
+    "body_markdown": "# `EwParkinsonVol`\n\n## Description\n\nThe Parkinson (1980) range-based volatility estimator. Per-bar variance contribution:\n\n$$\n\\sigma^2_\\text{Parkinson}[t] = \\frac{1}{4 \\ln 2}\\ \\big(\\ln H/L\\big)^2\n$$\n\nThis expression is then averaged with a exponentially-weighted mean to form the estimator. The\n`Vol` variant returns `sqrt(Var)`; the two are bit-exact via the same internal state.\n\n**2-input, 1-output** on `(high, low)`. ~5x more statistically efficient than\nclose-to-close `RollingStd` *under the model's assumptions* (zero drift, no overnight gaps)."
+  },
   "EwRms": {
     "name": "EwRms",
     "title": "Exponentially-weighted RMS",
@@ -261,6 +441,98 @@
       }
     ],
     "body_markdown": "# `EwRms`\n\n## Description\n\n`EwRms` calculates the exponentially weighted moving root mean square (RMS), highlighting fluctuations in signal magnitude over time with an emphasis on recent values.\n\n\n### Parameters\n\nOne of the following decay parameters is required to calculate `alpha`, where a higher `alpha` value gives recent points more influence:\n\n- **`com`**: Center of mass. `alpha = 1 / (1 + com)`\n- **`span`**: Span. `alpha = 2 / (span + 1)`\n- **`halflife`**: Half-life. `alpha = 1 - exp(-log(2) / halflife)`\n- **`alpha`**: Directly specifies the smoothing factor, where `0 < alpha < 1`\n\n*NaN handling*: NaN values are ignored in the mean calculation.\n\n### Usage Example and Plot\n\n```{eval-rst}\n.. plotly::\n    :include-source: True\n\n    import numpy as np\n    import plotly.graph_objects as go\n    from plotly.subplots import make_subplots\n    from screamer import EwRms\n\n    data = np.cumsum(np.random.normal(size=300))\n    ewrms_data = EwRms(span=20)(data)\n\n    fig = make_subplots(\n        rows=2, cols=1,\n        shared_xaxes=True,\n        row_heights=[1/2, 1/2],\n        vertical_spacing=0.1\n    )\n\n    fig.add_trace(go.Scatter(y=data, mode='lines', name='Original Data'), row=1, col=1)\n    fig.add_trace(go.Scatter(y=ewrms_data, mode='lines', name='EwRms', line=dict(color='red')), row=2, col=1)\n\n    fig.update_layout(\n        title=\"Exponentially Weighted Moving RMS\",\n        xaxis_title=\"Index\",\n        yaxis=dict(title=\"Original Data\"),\n        yaxis2=dict(title=\"EwRms\"),\n        margin=dict(l=20, r=20, t=80, b=20),\n        legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1)        \n    )\n\n    fig.show()\n```"
+  },
+  "EwRogersSatchellVar": {
+    "name": "EwRogersSatchellVar",
+    "title": "EW Rogers-Satchell varariance",
+    "implementation_family": "ew",
+    "topics": [
+      "volatility"
+    ],
+    "tags": [
+      "rogers-satchell",
+      "range-based",
+      "ohlc",
+      "drift-robust",
+      "var",
+      "ew"
+    ],
+    "short": "Var form of the Rogers-Satchell drift-robust range-based estimator.",
+    "inputs": 4,
+    "outputs": 1,
+    "parameters": [
+      {
+        "name": "com",
+        "type": "float",
+        "default": null,
+        "description": "Center of mass."
+      },
+      {
+        "name": "span",
+        "type": "float",
+        "default": 20.0,
+        "description": "Span."
+      },
+      {
+        "name": "halflife",
+        "type": "float",
+        "default": null,
+        "description": "Halflife."
+      },
+      {
+        "name": "alpha",
+        "type": "float",
+        "default": null,
+        "description": "Smoothing parameter directly."
+      }
+    ],
+    "body_markdown": "# `EwRogersSatchellVar`\n\n## Description\n\nThe Rogers-Satchell (1991) range-based volatility estimator. Per-bar variance contribution:\n\n$$\n\\sigma^2_\\text{RS}[t] = \\ln\\tfrac{H}{C}\\ \\ln\\tfrac{H}{O} + \\ln\\tfrac{L}{C}\\ \\ln\\tfrac{L}{O}\n$$\n\nThis expression is averaged with a exponentially-weighted mean to form the estimator. The `Vol`\nvariant returns `sqrt(Var)` (bit-exact via the same internal state).\n\n**4-input, 1-output** on `(open, high, low, close)`. Slightly less efficient (~6x vs\nclose-to-close) than Garman-Klass but **drift-robust** — works correctly when the underlying\ndrift is non-zero, a much more realistic assumption for trending markets."
+  },
+  "EwRogersSatchellVol": {
+    "name": "EwRogersSatchellVol",
+    "title": "EW Rogers-Satchell olatility",
+    "implementation_family": "ew",
+    "topics": [
+      "volatility"
+    ],
+    "tags": [
+      "rogers-satchell",
+      "range-based",
+      "ohlc",
+      "drift-robust",
+      "vol",
+      "ew"
+    ],
+    "short": "Vol form of the Rogers-Satchell drift-robust range-based estimator.",
+    "inputs": 4,
+    "outputs": 1,
+    "parameters": [
+      {
+        "name": "com",
+        "type": "float",
+        "default": null,
+        "description": "Center of mass."
+      },
+      {
+        "name": "span",
+        "type": "float",
+        "default": 20.0,
+        "description": "Span."
+      },
+      {
+        "name": "halflife",
+        "type": "float",
+        "default": null,
+        "description": "Halflife."
+      },
+      {
+        "name": "alpha",
+        "type": "float",
+        "default": null,
+        "description": "Smoothing parameter directly."
+      }
+    ],
+    "body_markdown": "# `EwRogersSatchellVol`\n\n## Description\n\nThe Rogers-Satchell (1991) range-based volatility estimator. Per-bar variance contribution:\n\n$$\n\\sigma^2_\\text{RS}[t] = \\ln\\tfrac{H}{C}\\ \\ln\\tfrac{H}{O} + \\ln\\tfrac{L}{C}\\ \\ln\\tfrac{L}{O}\n$$\n\nThis expression is averaged with a exponentially-weighted mean to form the estimator. The `Vol`\nvariant returns `sqrt(Var)` (bit-exact via the same internal state).\n\n**4-input, 1-output** on `(open, high, low, close)`. Slightly less efficient (~6x vs\nclose-to-close) than Garman-Klass but **drift-robust** — works correctly when the underlying\ndrift is non-zero, a much more realistic assumption for trending markets."
   },
   "EwSkew": {
     "name": "EwSkew",
@@ -435,6 +707,22 @@
     ],
     "body_markdown": "# `EwZscore`\n\n## Description\n\n`EwZscore` computes the exponentially weighted moving z-score, which standardizes data based on an exponentially weighted mean and standard deviation, identifying outliers and deviations in real-time.\n\n\n### Parameters\n\nOne of the following decay parameters is required to calculate `alpha`, where a higher `alpha` value gives recent points more influence:\n\n- **`com`**: Center of mass. `alpha = 1 / (1 + com)`\n- **`span`**: Span. `alpha = 2 / (span + 1)`\n- **`halflife`**: Half-life. `alpha = 1 - exp(-log(2) / halflife)`\n- **`alpha`**: Directly specifies the smoothing factor, where `0 < alpha < 1`\n\n*NaN handling*: NaN values are ignored in the mean calculation.\n\n### Usage Example and Plot\n\n```{eval-rst}\n.. plotly::\n    :include-source: True\n\n    import numpy as np\n    import plotly.graph_objects as go\n    from plotly.subplots import make_subplots\n    from screamer import EwZscore\n\n    data = np.cumsum(np.random.normal(size=300))\n    ewzscore_data = EwZscore(span=20)(data)\n\n    fig = make_subplots(\n        rows=2, cols=1,\n        shared_xaxes=True,\n        row_heights=[1/2, 1/2],\n        vertical_spacing=0.1\n    )\n\n    fig.add_trace(go.Scatter(y=data, mode='lines', name='Original Data'), row=1, col=1)\n    fig.add_trace(go.Scatter(y=ewzscore_data, mode='lines', name='EwZscore', line=dict(color='red')), row=2, col=1)\n\n    fig.update_layout(\n        title=\"Exponentially Weighted Moving Z-Score\",\n        xaxis_title=\"Index\",\n        yaxis=dict(title=\"Original Data\"),\n        yaxis2=dict(title=\"EwZscore\", range=[-4, 4]),\n        margin=dict(l=20, r=20, t=80, b=20),\n        legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1)        \n    )\n\n    fig.show()\n```"
   },
+  "Drawdown": {
+    "name": "Drawdown",
+    "title": "Drawdown",
+    "implementation_family": "fin",
+    "topics": [
+      "risk"
+    ],
+    "tags": [
+      "drawdown"
+    ],
+    "short": "Running drawdown from the cumulative peak.",
+    "inputs": 1,
+    "outputs": 1,
+    "parameters": [],
+    "body_markdown": "# `Drawdown`\n\n## Description\n\nRunning drawdown from the cumulative-since-inception peak:\n\n$$\n\\text{Drawdown}[t] = \\frac{\\text{price}[t]}{\\text{CumMax}(\\text{price})[t]} - 1\n$$\n\nA flat or new-high series gives `0`. A 30 % loss from the prior peak gives `-0.30`.\nComposes `CumMax`. No warmup.\n\n## Notes\n\n- Bit-exact to a `pandas.Series.cummax`-based reference.\n- See also `MaxDrawdown` (running min of `Drawdown`) and `RollingMaxDrawdown` (worst drawdown inside a trailing window)."
+  },
   "LogReturn": {
     "name": "LogReturn",
     "title": "Log return",
@@ -460,6 +748,23 @@
       }
     ],
     "body_markdown": "# `LogReturn`\n\n## Description\n\nThe `LogReturn` function computes the natural logarithm of the ratio between an element and the element `delay` positions before it. This function is a key tool in financial analysis for modeling continuously compounded returns, as it provides a symmetric measure for gains and losses.\n\n*Equation*:\n\n$$\ny[i] = \\ln \\left(\\frac{x[i]}{x[i - \\text{delay}]}\\right)\n$$\n\n*Parameters*:\n\n- `delay` (int): The number of steps backward to use for calculating the log return. Must be non-negative.\n\n*NaN handling*: When `delay` exceeds the available data points at the start of the sequence or if `x[i - \\text{delay}]` is zero or negative (to avoid invalid operations in the logarithm), the output is set to `NaN`."
+  },
+  "MaxDrawdown": {
+    "name": "MaxDrawdown",
+    "title": "Maximum drawdown",
+    "implementation_family": "fin",
+    "topics": [
+      "risk"
+    ],
+    "tags": [
+      "drawdown",
+      "max-drawdown"
+    ],
+    "short": "Worst drawdown experienced so far (since reset).",
+    "inputs": 1,
+    "outputs": 1,
+    "parameters": [],
+    "body_markdown": "# `MaxDrawdown`\n\n## Description\n\nThe worst (most negative) drawdown ever observed since the start (or last `reset()`):\n\n$$\n\\text{MaxDrawdown}[t] = \\min_{k \\le t}\\ \\text{Drawdown}[k]\n$$\n\nMonotonically non-increasing in time. Composes `Drawdown` + `CumMin`.\n\n## Notes\n\n- For the trailing-window equivalent see `RollingMaxDrawdown`."
   },
   "ROC": {
     "name": "ROC",
@@ -565,6 +870,45 @@
     ],
     "body_markdown": "# `Return`\n\n## Description\n\nThe `Return` function computes the simple return between an element and the element `delay` positions before it. This function is commonly used to measure the relative change between data points, facilitating analysis of growth or decline over a specified interval.\n\n*Equation*:\n\n$$\ny[i] = \\frac{x[i] - x[i - \\text{delay}]}{x[i - \\text{delay}]}\n$$\n\n*Parameters*:\n\n- `delay` (int): The number of steps backward to use for calculating the return. Must be non-negative.\n\n*NaN handling*: When `delay` exceeds the available data points at the start of the sequence, or if `x[i - \\text{delay}]` equals zero (to avoid division by zero), the output is set to `NaN`."
   },
+  "RollingAlpha": {
+    "name": "RollingAlpha",
+    "title": "Rolling alpha (regression intercept)",
+    "implementation_family": "fin",
+    "topics": [
+      "correlation",
+      "regression"
+    ],
+    "tags": [
+      "alpha",
+      "regression",
+      "intercept",
+      "pair"
+    ],
+    "short": "Rolling OLS intercept of target on regressor (companion to RollingBeta).",
+    "inputs": 2,
+    "outputs": 1,
+    "parameters": [
+      {
+        "name": "window_size",
+        "type": "int",
+        "default": 20,
+        "min": 2,
+        "description": "Trailing-window length."
+      },
+      {
+        "name": "start_policy",
+        "type": "str",
+        "default": "strict",
+        "enum": [
+          "strict",
+          "expanding",
+          "zero"
+        ],
+        "description": "Warmup behaviour."
+      }
+    ],
+    "body_markdown": "# `RollingAlpha`\n\n## Description\n\nCompanion to `RollingBeta`. The regression intercept of `y` on `x`:\n\n$$\n\\alpha[t] = \\overline{y}_w - \\beta[t]\\ \\cdot\\ \\overline{x}_w\n$$\n\n**2-input, 1-output** on `(target, regressor)` -- same convention as `RollingBeta`.\nComposes `RollingBeta` + two `RollingMean` instances. O(1) per step."
+  },
   "RollingBeta": {
     "name": "RollingBeta",
     "title": "Rolling beta",
@@ -603,6 +947,40 @@
       }
     ],
     "body_markdown": "# `RollingBeta`\n\n## Description\n\n`RollingBeta` computes the rolling regression slope of `x` on `y` over a sliding window of fixed size. The first argument is the dependent variable (target), the second is the independent variable (regressor).\n\nThis is the CAPM-style β: `RollingBeta(asset_returns, market_returns, w)` returns the asset's beta with respect to the market.\n\n*Equation*:\n\n$$\n\\beta_w[t] = \\frac{\\mathrm{cov}(x, y)}{\\mathrm{var}(y)} = \\frac{n \\sum x_i y_i - \\sum x_i \\sum y_i}{n \\sum y_i^2 - (\\sum y_i)^2}\n$$\n\nwith the sums taken over the most recent `window_size` samples.\n\n*Parameters*:\n\n- **`window_size`** (`int`, ≥ 2): size of the rolling window.\n- **`start_policy`** (`str`, default `\"strict\"`): controls warmup behavior. See `RollingMean` for the full definition.\n\n*Input shape*: two parallel streams, identical to [`RollingCorr`](RollingCorr.md).\n\n*Return value*: the slope coefficient. Returns `NaN` during warmup or when `y` has zero variance within the window (regression is undefined).\n\n> **Convention note**: pandas does not ship a `rolling().beta()` method directly. The pandas-equivalent expression is `pd.Series(x).rolling(w).cov(pd.Series(y)) / pd.Series(y).rolling(w).var()`. Some libraries call this slope \"alpha\" or use the inverse argument order; double-check the convention when comparing."
+  },
+  "RollingCalmar": {
+    "name": "RollingCalmar",
+    "title": "Rolling Calmar ratio",
+    "implementation_family": "fin",
+    "topics": [
+      "risk"
+    ],
+    "tags": [
+      "calmar",
+      "ratio",
+      "rolling",
+      "drawdown"
+    ],
+    "short": "Annualised return divided by the worst rolling drawdown.",
+    "inputs": 1,
+    "outputs": 1,
+    "parameters": [
+      {
+        "name": "window_size",
+        "type": "int",
+        "default": 252,
+        "min": 2,
+        "description": "Trailing-window length."
+      },
+      {
+        "name": "periods_per_year",
+        "type": "float",
+        "default": 1.0,
+        "min": 1.0,
+        "description": "Annualisation factor (252 daily, 52 weekly, 12 monthly, 1 = no annualisation)."
+      }
+    ],
+    "body_markdown": "# `RollingCalmar`\n\n## Description\n\nCalmar ratio: annualised return divided by the worst rolling drawdown:\n\n$$\n\\text{Calmar}[t] = \\frac{\\text{ppy}\\ \\cdot\\ \\text{mean}(r)}{\\big|\\,\\text{RollingMaxDrawdown}(\\text{implied price})\\,\\big|}\n$$\n\nTakes a *returns* series; internally reconstructs the implied price path as a cumulative\nproduct `price *= (1 + r)` starting from 1.0, so the drawdown calculation is well-defined.\nReturns `NaN` when the path is monotonic up (no drawdown in window).\n\nIf you already have a price series, compose by hand:\n\n```python\ncalmar = ppy * RollingMean(window)(returns) / abs(RollingMaxDrawdown(window)(price))\n```"
   },
   "RollingCorr": {
     "name": "RollingCorr",
@@ -720,6 +1098,295 @@
     ],
     "body_markdown": "# `RollingFracDiff`\n\n## Description\n\n`RollingFracDiff` computes the rolling fractional differentiation of a time series, retaining long-term memory while applying a fractional degree of differencing. This method is useful for transforming a time series to achieve stationarity while preserving as much of the memory as possible. Fractional differentiation allows for non-integer degrees of differencing.\n\n### Formulas\n\nFor each new data point $x_t$, `RollingFracDiff` computes weights $w_k$ based on the desired degree of differentiation $d$ and convolves the input time series with these weights over a rolling window of size `window_size`.\n\n1. **Weight Calculation**: Calculate weights $w_k$ recursively based on $d$:\n\n$$\nw_k = (-1)^k \\cdot \\binom{d}{k},\n$$\nwhich allows us to compute the weights in the following way:\n\n$$\nw_{0} = 1,\n$$\n\n$$\nw_k = - \\frac{d - k + 1}{k} w_{k-1}\n$$\n\n2. **Thresholding**: Any weight $w_k$ that falls below the specified `threshold` is ignored, effectively truncating the weight sequence.\n\n3. **Rolling Fractional Differentiation**: For each point $t$, apply the computed weights over the rolling window, yielding the fractionally differentiated value $y_t$:\n\n$$\ny_t = \\sum_{k=0}^{\\min(t, \\mathrm{window_{size}} - 1)} w_k \\cdot x_{t - k}\n$$\n\n### Parameters\n\n- **`window_size`**: Integer specifying the size of the rolling window. This is the number of past values used in the fractional differentiation calculation.\n- **`frac_order`** (`d`): Float representing the degree of fractional differentiation. `d = 0` corresponds to an identity transformation of the data, while `d=1` results in standard difference. The higher the value of `d`, the lower the amount of memory preserved.\n- **`threshold`**: Float specifying the minimum weight threshold. Any computed weight $w_k$ smaller than this threshold is set to zero. This optimizes computation by ignoring insignificant contributions."
   },
+  "RollingHitRate": {
+    "name": "RollingHitRate",
+    "title": "Rolling hit rate",
+    "implementation_family": "fin",
+    "topics": [
+      "risk"
+    ],
+    "tags": [
+      "hit-rate",
+      "win-rate",
+      "rolling"
+    ],
+    "short": "Fraction of strictly-positive samples in a trailing window.",
+    "inputs": 1,
+    "outputs": 1,
+    "parameters": [
+      {
+        "name": "window_size",
+        "type": "int",
+        "default": 252,
+        "min": 2,
+        "description": "Trailing-window length."
+      }
+    ],
+    "body_markdown": "# `RollingHitRate`\n\n## Description\n\nFraction of strictly-positive samples in the trailing window:\n\n$$\n\\text{HitRate}[t] = \\frac{1}{w}\\ \\text{count}(r_i > 0,\\ i \\in \\text{window})\n$$\n\nOutput in `[0, 1]`. Composes `detail::RollingSum` over the indicator `(r > 0)`."
+  },
+  "RollingInfoRatio": {
+    "name": "RollingInfoRatio",
+    "title": "Rolling information ratio",
+    "implementation_family": "fin",
+    "topics": [
+      "risk"
+    ],
+    "tags": [
+      "info-ratio",
+      "active-return",
+      "rolling",
+      "pair"
+    ],
+    "short": "Annualised information ratio: Sharpe of active returns against a benchmark.",
+    "inputs": 2,
+    "outputs": 1,
+    "parameters": [
+      {
+        "name": "window_size",
+        "type": "int",
+        "default": 252,
+        "min": 2,
+        "description": "Trailing-window length."
+      },
+      {
+        "name": "periods_per_year",
+        "type": "float",
+        "default": 1.0,
+        "min": 1.0,
+        "description": "Annualisation factor (252 daily, 52 weekly, 12 monthly, 1 = no annualisation)."
+      }
+    ],
+    "body_markdown": "# `RollingInfoRatio`\n\n## Description\n\nInformation ratio against a benchmark:\n\n$$\n\\text{IR}[t] = \\sqrt{\\text{ppy}}\\ \\cdot\\ \\frac{\\text{mean}(r - b)}{\\text{std}(r - b)}\n$$\n\n**2-input, 1-output** on `(returns, benchmark)`. Effectively `RollingSharpe` applied to the\nactive-return series `r - b`."
+  },
+  "RollingLinearRegression": {
+    "name": "RollingLinearRegression",
+    "title": "Rolling linear regression (2->4 OLS fit)",
+    "implementation_family": "fin",
+    "topics": [
+      "regression"
+    ],
+    "tags": [
+      "regression",
+      "ols",
+      "linear-regression",
+      "pair"
+    ],
+    "short": "Full OLS fit returning (slope, intercept, r_squared, stderr).",
+    "inputs": 2,
+    "outputs": 4,
+    "parameters": [
+      {
+        "name": "window_size",
+        "type": "int",
+        "default": 20,
+        "min": 2,
+        "description": "Trailing-window length."
+      },
+      {
+        "name": "start_policy",
+        "type": "str",
+        "default": "strict",
+        "enum": [
+          "strict",
+          "expanding",
+          "zero"
+        ],
+        "description": "Warmup behaviour."
+      }
+    ],
+    "body_markdown": "# `RollingLinearRegression`\n\n## Description\n\nRolling OLS fit of `y ≈ slope · x + intercept + ε`, returning four outputs per step:\n\n| Output | Formula |\n|---|---|\n| `slope` | $(n S_{xy} - S_x S_y) / (n S_{xx} - S_x^2)$ |\n| `intercept` | $(S_y - \\text{slope} \\cdot S_x) / n$ |\n| `r_squared` | $(n S_{xy} - S_x S_y)^2 / [(n S_{xx} - S_x^2)(n S_{yy} - S_y^2)]$ |\n| `stderr` | $\\sqrt{\\text{SSE} / (n-2)}$ — RMSE of residuals |\n\n**Note on `stderr`**: this is the standard error of the *estimate* (RMSE of the fit), not\nthe standard error of the *slope coefficient*. Multiply by `1/sqrt(Σ(x - mean_x)²)` to get\nslope confidence.\n\n**2-input, 4-output** (`FunctorBase<_, 2, 4>`). Inputs `(y, x)`; outputs\n`(slope, intercept, r_squared, stderr)`. First valid output at sample index\n`window_size - 1`. First 2→4 consumer of the Plan E `N→M` dispatcher."
+  },
+  "RollingMaxDrawdown": {
+    "name": "RollingMaxDrawdown",
+    "title": "Rolling maximum drawdown",
+    "implementation_family": "fin",
+    "topics": [
+      "risk"
+    ],
+    "tags": [
+      "drawdown",
+      "max-drawdown",
+      "rolling"
+    ],
+    "short": "Worst peak-to-trough drawdown inside a trailing window.",
+    "inputs": 1,
+    "outputs": 1,
+    "parameters": [
+      {
+        "name": "window_size",
+        "type": "int",
+        "default": 252,
+        "min": 2,
+        "description": "Trailing-window length (252 = one trading year, default)."
+      }
+    ],
+    "body_markdown": "# `RollingMaxDrawdown`\n\n## Description\n\nThe worst peak-to-trough loss observed inside the last `window_size` bars. Different from\n`MaxDrawdown` (which is the worst loss EVER since reset).\n\n## Implementation\n\nMaintains a circular buffer of the last `w` prices and, on each step, sweeps the buffer\ntracking a within-window running peak and the worst drawdown from that peak. **O(window_size)\nper step** -- there is no cheap amortised algorithm for the standard definition because the\nin-window peak can sit anywhere in the window.\n\nIf you want the cheaper \"current drawdown vs. rolling-window peak\" approximation, compose it\ndirectly:\n\n```python\nrolling_dd = price / RollingMax(window)(price) - 1\n```"
+  },
+  "RollingPercentile": {
+    "name": "RollingPercentile",
+    "title": "Rolling percentile",
+    "implementation_family": "fin",
+    "topics": [
+      "statistics"
+    ],
+    "tags": [
+      "percentile",
+      "position",
+      "pandas"
+    ],
+    "short": "Percentile (rank/window) of the current value in the trailing window.",
+    "inputs": 1,
+    "outputs": 1,
+    "parameters": [
+      {
+        "name": "window_size",
+        "type": "int",
+        "default": 20,
+        "min": 2,
+        "description": "Trailing-window length."
+      }
+    ],
+    "body_markdown": "# `RollingPercentile`\n\n## Description\n\nPercentile position of the current value within the trailing window:\n\n$$\n\\text{percentile}[t] = \\text{rank}[t] / w\n$$\n\nwith the same \"average\" tie rule as `RollingRank`. Returns values in `[1/w, 1]`. Bit-exact\n(0.0) to `pandas.Series.rolling(w).rank(pct=True)`.\n\n1→1. O(W) per step."
+  },
+  "RollingRank": {
+    "name": "RollingRank",
+    "title": "Rolling rank",
+    "implementation_family": "fin",
+    "topics": [
+      "statistics"
+    ],
+    "tags": [
+      "rank",
+      "position",
+      "pandas"
+    ],
+    "short": "Rank of the current value within the trailing window (1-based, average tie rule).",
+    "inputs": 1,
+    "outputs": 1,
+    "parameters": [
+      {
+        "name": "window_size",
+        "type": "int",
+        "default": 20,
+        "min": 2,
+        "description": "Trailing-window length."
+      }
+    ],
+    "body_markdown": "# `RollingRank`\n\n## Description\n\nWhere does the current value sit within the trailing window?\n\n$$\n\\text{rank}[t] = (\\text{\\#values} < y_t) + 1 + \\tfrac{1}{2}(\\text{\\#ties} - 1)\n$$\n\nPandas's \"average\" tie-breaking rule (mean rank among tied values). Returns a 1-based rank\nin `[1, w]`.\n\n1→1. Circular window buffer + per-step counting sweep; O(W) per step. Bit-exact (0.0) to\n`pandas.Series.rolling(w).rank()`."
+  },
+  "RollingResidualStd": {
+    "name": "RollingResidualStd",
+    "title": "Rolling residual std",
+    "implementation_family": "fin",
+    "topics": [
+      "correlation",
+      "regression"
+    ],
+    "tags": [
+      "residual",
+      "spread",
+      "std",
+      "pair",
+      "pairs-trading"
+    ],
+    "short": "Standard deviation of the rolling-hedge-adjusted residual y - beta*x.",
+    "inputs": 2,
+    "outputs": 1,
+    "parameters": [
+      {
+        "name": "window_size",
+        "type": "int",
+        "default": 20,
+        "min": 2,
+        "description": "Trailing-window length."
+      },
+      {
+        "name": "start_policy",
+        "type": "str",
+        "default": "strict",
+        "enum": [
+          "strict",
+          "expanding",
+          "zero"
+        ],
+        "description": "Warmup behaviour."
+      }
+    ],
+    "body_markdown": "# `RollingResidualStd`\n\n## Description\n\nStandard deviation of the per-bar hedge-adjusted spread `y − β·x` over the trailing window\n(sample std, ddof=1):\n\n$$\n\\sigma_\\text{spread}[t] = \\text{RollingStd}\\big(\\text{RollingSpread}(y, x)\\big)[t]\n$$\n\nUseful for pairs-trading z-score normalisation:\n\n```python\nz = (current_spread - mean_spread) / RollingResidualStd(60)(y, x)\n```\n\nComposes `RollingSpread` + `RollingStd`. O(1) per step. NaN-poisoning during\n`RollingSpread`'s own warmup is gated explicitly so the std accumulator stays clean."
+  },
+  "RollingSharpe": {
+    "name": "RollingSharpe",
+    "title": "Rolling Sharpe ratio",
+    "implementation_family": "fin",
+    "topics": [
+      "risk"
+    ],
+    "tags": [
+      "sharpe",
+      "ratio",
+      "rolling"
+    ],
+    "short": "Annualised Sharpe ratio over a trailing window of returns.",
+    "inputs": 1,
+    "outputs": 1,
+    "parameters": [
+      {
+        "name": "window_size",
+        "type": "int",
+        "default": 252,
+        "min": 2,
+        "description": "Trailing-window length."
+      },
+      {
+        "name": "periods_per_year",
+        "type": "float",
+        "default": 1.0,
+        "min": 1.0,
+        "description": "Annualisation factor (252 daily, 52 weekly, 12 monthly, 1 = no annualisation)."
+      }
+    ],
+    "body_markdown": "# `RollingSharpe`\n\n## Description\n\nAnnualised Sharpe ratio over a trailing window of returns:\n\n$$\n\\text{Sharpe}[t] = \\sqrt{\\text{ppy}}\\ \\cdot\\ \\frac{\\text{RollingMean}(r)}{\\text{RollingStd}(r)}\n$$\n\nComposes `RollingMean` + `RollingStd` (sample std, ddof=1 to match pandas). Returns `NaN`\nwhere the std is zero."
+  },
+  "RollingSortino": {
+    "name": "RollingSortino",
+    "title": "Rolling Sortino ratio",
+    "implementation_family": "fin",
+    "topics": [
+      "risk"
+    ],
+    "tags": [
+      "sortino",
+      "ratio",
+      "rolling",
+      "downside"
+    ],
+    "short": "Annualised Sortino ratio: Sharpe with downside-only deviation.",
+    "inputs": 1,
+    "outputs": 1,
+    "parameters": [
+      {
+        "name": "window_size",
+        "type": "int",
+        "default": 252,
+        "min": 2,
+        "description": "Trailing-window length."
+      },
+      {
+        "name": "periods_per_year",
+        "type": "float",
+        "default": 1.0,
+        "min": 1.0,
+        "description": "Annualisation factor (252 daily, 52 weekly, 12 monthly, 1 = no annualisation)."
+      },
+      {
+        "name": "target",
+        "type": "float",
+        "default": 0.0,
+        "description": "Minimum acceptable return (only deviations below this contribute to the denominator)."
+      }
+    ],
+    "body_markdown": "# `RollingSortino`\n\n## Description\n\nAnnualised Sortino ratio:\n\n$$\n\\text{Sortino}[t] = \\sqrt{\\text{ppy}}\\ \\cdot\\ \\frac{\\text{mean}(r) - \\text{target}}{\\sqrt{\\text{mean}(\\min(r - \\text{target},\\ 0)^2)}}\n$$\n\nSame as Sharpe but the denominator is the *downside* deviation -- only bars below `target`\ncontribute, so upside variability is not penalised.\n\n## Implementation\n\n`O(window_size)` per step. The downside-RMS denominator does not have a closed-form\nO(1) update."
+  },
   "RollingSpread": {
     "name": "RollingSpread",
     "title": "Rolling spread",
@@ -757,6 +1424,33 @@
       }
     ],
     "body_markdown": "# `RollingSpread`\n\n## Description\n\n`RollingSpread` computes the rolling hedge-adjusted residual of `x` against `y`. At each time step it computes the rolling regression slope `β_w[t] = cov(x, y) / var(y)` over the window and returns `x[t] - β_w[t] · y[t]`.\n\nThis is the building block for pairs trading: `RollingSpread(price_a, price_b, w)` is the residual of `price_a` after removing its rolling-best-fit linear exposure to `price_b`. A mean-reverting spread is the prototypical pairs-trading signal.\n\n*Equation*:\n\n$$\n\\beta_w[t] = \\frac{\\mathrm{cov}(x, y)}{\\mathrm{var}(y)},\n\\qquad\n\\mathrm{spread}_w[t] = x[t] - \\beta_w[t]\\, y[t]\n$$\n\nwith the sums in `cov` and `var` taken over the most recent `window_size` samples ending at `t`.\n\n*Parameters*:\n\n- **`window_size`** (`int`, ≥ 2): size of the rolling window.\n- **`start_policy`** (`str`, default `\"strict\"`): controls warmup behavior.\n\n*Input shape*: two parallel streams, identical to [`RollingCorr`](RollingCorr.md).\n\n*Return value*: a real number, the residual. Returns `NaN` during warmup or when `y` has zero variance within the window."
+  },
+  "RollingTSF": {
+    "name": "RollingTSF",
+    "title": "Rolling Time-Series Forecast (TSF)",
+    "implementation_family": "fin",
+    "topics": [
+      "regression"
+    ],
+    "tags": [
+      "tsf",
+      "forecast",
+      "regression",
+      "talib"
+    ],
+    "short": "Linear regression of y on time, projected one step ahead. TA-Lib's TSF.",
+    "inputs": 1,
+    "outputs": 1,
+    "parameters": [
+      {
+        "name": "window_size",
+        "type": "int",
+        "default": 20,
+        "min": 2,
+        "description": "Trailing-window length."
+      }
+    ],
+    "body_markdown": "# `RollingTSF`\n\n## Description\n\nTA-Lib's *Time-Series Forecast*: fits `y = slope · t + intercept` on the trailing window\n`{(0, y_{t-w+1}), …, (w-1, y_t)}` and returns the line evaluated at the *next* bar (local\n`t = w`):\n\n$$\n\\text{TSF}[t] = \\text{intercept} + \\text{slope} \\cdot w\n$$\n\n1→1. Bit-exact match to `talib.TSF(real, timeperiod)`. Composes two `detail::RollingSum`\nbuffers + precomputed time-axis constants. O(1) per step."
   },
   "Abs": {
     "name": "Abs",
@@ -1661,6 +2355,283 @@
     ],
     "body_markdown": "# `FillNa`\n\n## Description\n\nThe `FillNa` class replaces any `NaN` values in a data sequence with a specified fill value. This function is useful for handling missing values by substituting them with a constant, such as 0 or a mean value, which can improve the continuity of data for certain analyses.\n\n*Parameters*:\n- **`fill`**: The value to replace `NaN` entries with. This can be any numeric value, allowing customization to fit the context of the data.\n\n*NaN handling*: All `NaN` values are replaced with the specified `fill` value, ensuring no `NaN` values remain in the output data."
   },
+  "AD": {
+    "name": "AD",
+    "title": "Accumulation/Distribution Line (Chaikin)",
+    "implementation_family": "rolling",
+    "topics": [
+      "volume"
+    ],
+    "tags": [
+      "ad",
+      "accumulation-distribution",
+      "chaikin",
+      "talib",
+      "ohlcv"
+    ],
+    "short": "Chaikin Accumulation/Distribution Line.",
+    "inputs": 4,
+    "outputs": 1,
+    "parameters": [],
+    "body_markdown": "# `AD`\n\n## Description\n\nChaikin Accumulation/Distribution Line:\n\n$$\n\\text{CLV}[t] = \\dfrac{(C - L) - (H - C)}{H - L}\n\\qquad\n\\text{AD}[t]  = \\text{AD}[t-1] + \\text{CLV}\\ \\cdot\\ V[t]\n$$\n\nThe \"close location value\" is in `[-1, +1]`: +1 means close at the high (full\naccumulation), -1 at the low (full distribution). When `high == low` the CLV is undefined\nand the AD line is unchanged (TA-Lib's convention).\n\n**4-input, 1-output** on `(high, low, close, volume)`. Cumulative; no window. Bit-exact\nto `talib.AD`."
+  },
+  "ADOSC": {
+    "name": "ADOSC",
+    "title": "Chaikin A/D Oscillator (ADOSC)",
+    "implementation_family": "rolling",
+    "topics": [
+      "volume",
+      "oscillator"
+    ],
+    "tags": [
+      "adosc",
+      "chaikin",
+      "oscillator",
+      "talib",
+      "ohlcv"
+    ],
+    "short": "Difference of fast and slow EMA of the Accumulation/Distribution line.",
+    "inputs": 4,
+    "outputs": 1,
+    "parameters": [
+      {
+        "name": "fast",
+        "type": "int",
+        "default": 3,
+        "min": 2,
+        "description": "Fast EMA period."
+      },
+      {
+        "name": "slow",
+        "type": "int",
+        "default": 10,
+        "min": 2,
+        "description": "Slow EMA period."
+      }
+    ],
+    "body_markdown": "# `ADOSC`\n\n## Description\n\nChaikin A/D Oscillator: difference of two EMAs of the `AD` line.\n\n$$\n\\text{ADOSC}[t] = \\text{EMA}(\\text{AD},\\ \\text{fast})[t] - \\text{EMA}(\\text{AD},\\ \\text{slow})[t]\n$$\n\n**4-input, 1-output** on `(high, low, close, volume)`. Default `(fast=3, slow=10)` matches\nTA-Lib.\n\nThe underlying EMA is `screamer.EwMean` (pandas `adjust=True`), so `ADOSC` inherits the\nsame documented divergence from TA-Lib's `ADOSC` as `DEMA`/`TEMA`/`MACD`/`TRIX`. The class\nmatches the explicit pandas-composition reference bit-exactly. See `docs/conventions.md`\nfor the divergence detail."
+  },
+  "ATR": {
+    "name": "ATR",
+    "title": "Average True Range (ATR)",
+    "implementation_family": "rolling",
+    "topics": [
+      "volatility"
+    ],
+    "tags": [
+      "wilder",
+      "atr",
+      "true-range",
+      "talib",
+      "hlc"
+    ],
+    "short": "Wilder-smoothed average of TrueRange.",
+    "inputs": 3,
+    "outputs": 1,
+    "parameters": [
+      {
+        "name": "window_size",
+        "type": "int",
+        "default": 14,
+        "min": 2,
+        "description": "Wilder smoothing period (Wilder's original choice is 14)."
+      }
+    ],
+    "body_markdown": "# `ATR`\n\n## Description\n\nWilder-smoothed rolling average of `TrueRange`:\n\n$$\n\\begin{aligned}\n\\text{ATR}[w] &= \\frac{1}{w} \\sum_{i=1}^{w} \\text{TR}[i] \\quad\\text{(SMA seed)} \\\\\n\\text{ATR}[t] &= \\frac{(w - 1) \\cdot \\text{ATR}[t - 1] + \\text{TR}[t]}{w} \\quad\\text{for } t > w\n\\end{aligned}\n$$\n\n**3-input, 1-output** on `(high, low, close)`. First valid output at sample index\n`window_size`. Matches `talib.ATR` bit-exactly post-warmup."
+  },
+  "DonchianChannels": {
+    "name": "DonchianChannels",
+    "title": "Donchian Channels",
+    "implementation_family": "rolling",
+    "topics": [
+      "channels"
+    ],
+    "tags": [
+      "donchian",
+      "channels",
+      "breakout",
+      "envelope"
+    ],
+    "short": "Trend-following envelope: rolling max(high), rolling min(low), and midline.",
+    "inputs": 2,
+    "outputs": 3,
+    "parameters": [
+      {
+        "name": "window_size",
+        "type": "int",
+        "default": 20,
+        "min": 2,
+        "description": "Window for the rolling max/min."
+      }
+    ],
+    "body_markdown": "# `DonchianChannels`\n\n## Description\n\nTrend-following envelope. The upper line is the rolling max of `high`, the lower line is\nthe rolling min of `low`, and the midline is their average:\n\n$$\n\\begin{aligned}\n\\text{upper}[t] &= \\max(\\text{high},\\ w\\ \\text{bars}) \\\\\n\\text{lower}[t] &= \\min(\\text{low},\\ w\\ \\text{bars}) \\\\\n\\text{mid}[t]   &= (\\text{upper} + \\text{lower}) / 2\n\\end{aligned}\n$$\n\n**2-input, 3-output** (`FunctorBase<_, 2, 3>`). Inputs `(high, low)`; outputs\n`(lower, mid, upper)`. First valid at sample index `window_size - 1`.\n\nComposes two `detail::MonotonicDeque` instances. Amortised O(1) per step. Bit-exact to\n`pandas-ta-classic.donchian`."
+  },
+  "KeltnerChannels": {
+    "name": "KeltnerChannels",
+    "title": "Keltner Channels",
+    "implementation_family": "rolling",
+    "topics": [
+      "channels"
+    ],
+    "tags": [
+      "keltner",
+      "channels",
+      "envelope",
+      "atr-based"
+    ],
+    "short": "Volatility-adapted envelope: EMA midline plus/minus a multiple of ATR.",
+    "inputs": 3,
+    "outputs": 3,
+    "parameters": [
+      {
+        "name": "window_size",
+        "type": "int",
+        "default": 20,
+        "min": 2,
+        "description": "Period for both the EMA midline and the ATR offset."
+      },
+      {
+        "name": "num_atr",
+        "type": "float",
+        "default": 2.0,
+        "min": 0.0,
+        "description": "ATR multiplier for upper/lower offset."
+      }
+    ],
+    "body_markdown": "# `KeltnerChannels`\n\n## Description\n\nVolatility-adapted envelope. The midline is an EMA of close; the upper/lower lines are\noffset by a multiple of ATR:\n\n$$\n\\begin{aligned}\n\\text{mid}[t]   &= \\text{EMA}(\\text{close},\\ \\text{window\\_size}) \\\\\n\\text{atr}[t]   &= \\text{ATR}(\\text{high},\\ \\text{low},\\ \\text{close},\\ \\text{window\\_size}) \\\\\n\\text{upper}[t] &= \\text{mid} + \\text{num\\_atr}\\ \\cdot\\ \\text{atr} \\\\\n\\text{lower}[t] &= \\text{mid} - \\text{num\\_atr}\\ \\cdot\\ \\text{atr}\n\\end{aligned}\n$$\n\n**3-input, 3-output** (`FunctorBase<_, 3, 3>`). Inputs `(high, low, close)`; outputs\n`(lower, mid, upper)`. First valid at sample index `window_size`.\n\nComposes one `EwMean(span=window_size)` for the midline + one `ATR(window_size)`. O(1)\nper step."
+  },
+  "MFI": {
+    "name": "MFI",
+    "title": "Money Flow Index (MFI)",
+    "implementation_family": "rolling",
+    "topics": [
+      "volume",
+      "oscillator"
+    ],
+    "tags": [
+      "mfi",
+      "money-flow",
+      "volume-rsi",
+      "talib",
+      "ohlcv"
+    ],
+    "short": "Volume-weighted analogue of RSI on the typical price.",
+    "inputs": 4,
+    "outputs": 1,
+    "parameters": [
+      {
+        "name": "window_size",
+        "type": "int",
+        "default": 14,
+        "min": 2,
+        "description": "Lookback period (Wilder's default is 14)."
+      }
+    ],
+    "body_markdown": "# `MFI`\n\n## Description\n\nMoney Flow Index — a volume-weighted analogue of RSI on the typical price:\n\n$$\n\\begin{aligned}\n\\text{TP}[t]     &= (H + L + C) / 3 \\\\\n\\text{MF}[t]     &= \\text{TP} \\cdot V \\\\\n\\text{pos\\_MF}_w &= \\sum_w \\text{MF}[\\text{where}\\ \\text{TP} > \\text{TP}_{t-1}] \\\\\n\\text{neg\\_MF}_w &= \\sum_w \\text{MF}[\\text{where}\\ \\text{TP} < \\text{TP}_{t-1}] \\\\\n\\text{MFI}[t]    &= 100\\ \\cdot\\ \\dfrac{\\text{pos\\_MF}_w}{\\text{pos\\_MF}_w + \\text{neg\\_MF}_w}\n\\end{aligned}\n$$\n\n**4-input, 1-output** on `(high, low, close, volume)`. First valid output at sample index\n`window_size`. Bit-exact to `talib.MFI` (~1e-14)."
+  },
+  "NATR": {
+    "name": "NATR",
+    "title": "Normalised ATR (NATR)",
+    "implementation_family": "rolling",
+    "topics": [
+      "volatility"
+    ],
+    "tags": [
+      "wilder",
+      "natr",
+      "atr-normalized",
+      "talib",
+      "hlc"
+    ],
+    "short": "ATR scaled to a percentage of the current close.",
+    "inputs": 3,
+    "outputs": 1,
+    "parameters": [
+      {
+        "name": "window_size",
+        "type": "int",
+        "default": 14,
+        "min": 2,
+        "description": "Wilder smoothing period."
+      }
+    ],
+    "body_markdown": "# `NATR`\n\n## Description\n\nATR scaled to a percentage of the current close:\n\n$$\n\\text{NATR}[t] = 100\\ \\cdot\\ \\frac{\\text{ATR}[t]}{C[t]}\n$$\n\nUseful for cross-instrument comparison (an ATR of \\$1 on a \\$10 stock is much larger than\nthe same ATR on a \\$1000 stock).\n\n**3-input, 1-output** on `(high, low, close)`. Bit-exact to `talib.NATR`."
+  },
+  "OBV": {
+    "name": "OBV",
+    "title": "On-Balance Volume (OBV)",
+    "implementation_family": "rolling",
+    "topics": [
+      "volume"
+    ],
+    "tags": [
+      "obv",
+      "granville",
+      "talib",
+      "pair"
+    ],
+    "short": "On-Balance Volume: signed cumulative volume by close-direction (Granville, 1963).",
+    "inputs": 2,
+    "outputs": 1,
+    "parameters": [],
+    "body_markdown": "# `OBV`\n\n## Description\n\nOn-Balance Volume (Granville, 1963):\n\n$$\n\\text{OBV}[t] = \\text{OBV}[t-1] + \\text{sign}(C - C_{t-1})\\ \\cdot\\ V[t]\n$$\n\nwith seed `OBV[0] = volume[0]` (TA-Lib's convention). **2-input, 1-output** on\n`(close, volume)`. Cumulative; no window.\n\nBit-exact to `talib.OBV` (0.0 difference)."
+  },
+  "RollingGarmanKlassVar": {
+    "name": "RollingGarmanKlassVar",
+    "title": "Rolling Garman-Klass varariance",
+    "implementation_family": "rolling",
+    "topics": [
+      "volatility"
+    ],
+    "tags": [
+      "garman-klass",
+      "range-based",
+      "ohlc",
+      "var",
+      "rolling"
+    ],
+    "short": "Var form of the Garman-Klass range-based volatility estimator (OHLC).",
+    "inputs": 4,
+    "outputs": 1,
+    "parameters": [
+      {
+        "name": "window_size",
+        "type": "int",
+        "default": 20,
+        "min": 2,
+        "description": "Smoothing window."
+      }
+    ],
+    "body_markdown": "# `RollingGarmanKlassVar`\n\n## Description\n\nThe Garman-Klass (1980) range-based volatility estimator. Per-bar variance contribution:\n\n$$\n\\sigma^2_\\text{GK}[t] = \\tfrac{1}{2}\\big(\\ln H/L\\big)^2 - (2\\ln 2 - 1)\\big(\\ln C/O\\big)^2\n$$\n\nThis expression is averaged with a rolling mean over `window_size` bars to form the estimator. The `Vol`\nvariant returns `sqrt(Var)` (bit-exact via the same internal state).\n\n**4-input, 1-output** on `(open, high, low, close)`. ~7.4x more statistically efficient\nthan close-to-close `RollingStd` *under the model's assumptions* (zero drift, no overnight\ngaps)."
+  },
+  "RollingGarmanKlassVol": {
+    "name": "RollingGarmanKlassVol",
+    "title": "Rolling Garman-Klass olatility",
+    "implementation_family": "rolling",
+    "topics": [
+      "volatility"
+    ],
+    "tags": [
+      "garman-klass",
+      "range-based",
+      "ohlc",
+      "vol",
+      "rolling"
+    ],
+    "short": "Vol form of the Garman-Klass range-based volatility estimator (OHLC).",
+    "inputs": 4,
+    "outputs": 1,
+    "parameters": [
+      {
+        "name": "window_size",
+        "type": "int",
+        "default": 20,
+        "min": 2,
+        "description": "Smoothing window."
+      }
+    ],
+    "body_markdown": "# `RollingGarmanKlassVol`\n\n## Description\n\nThe Garman-Klass (1980) range-based volatility estimator. Per-bar variance contribution:\n\n$$\n\\sigma^2_\\text{GK}[t] = \\tfrac{1}{2}\\big(\\ln H/L\\big)^2 - (2\\ln 2 - 1)\\big(\\ln C/O\\big)^2\n$$\n\nThis expression is averaged with a rolling mean over `window_size` bars to form the estimator. The `Vol`\nvariant returns `sqrt(Var)` (bit-exact via the same internal state).\n\n**4-input, 1-output** on `(open, high, low, close)`. ~7.4x more statistically efficient\nthan close-to-close `RollingStd` *under the model's assumptions* (zero drift, no overnight\ngaps)."
+  },
   "RollingHurst": {
     "name": "RollingHurst",
     "title": "Rolling Hurst Exponent",
@@ -1711,6 +2682,276 @@
       "Estimating the Hurst exponent (arXiv:1805.08931)"
     ],
     "body_markdown": "# `RollingHurst`\n\n## Description\n\nRolling-window estimator of the **Hurst exponent** $H$, a measure of long-range\ndependence in a time series:\n\n- $H \\approx 0.5$ — uncorrelated (e.g. Brownian / white noise / GBM log-returns).\n- $H > 0.5$ — persistent (trends tend to continue).\n- $H < 0.5$ — anti-persistent (reversion).\n\nEstimation is via **rescaled-range (R/S) analysis** with the Anis-Lloyd\nsmall-sample correction. Within the trailing window of `window_size` samples,\nthe series is partitioned into non-overlapping blocks of length\n$n_k = \\texttt{min\\_scale}, 2\\cdot\\texttt{min\\_scale}, \\dots, W/2$ (dyadic\nscales). For each scale we compute the average rescaled range across blocks,\nadjust for the small-sample bias, and regress on $\\log n$:\n\n$$\n\\begin{aligned}\n\\text{R/S}(n) &= \\frac{1}{\\lfloor W/n \\rfloor}\n  \\sum_{p=0}^{\\lfloor W/n \\rfloor-1}\n  \\frac{\\max_j Y_{p,j} - \\min_j Y_{p,j}}{\\sigma_p},\n  \\quad Y_{p,j} = \\sum_{i=1}^{j}(x_{p,i} - \\bar x_p) \\\\[2pt]\n\\text{rsal}(n) &= \\text{R/S}(n) - \\text{ers}(n) + \\sqrt{\\tfrac{\\pi n}{2}} \\\\[2pt]\n\\hat H &= \\text{slope of } \\log \\text{rsal}(n_k) \\text{ on } \\log n_k\n\\end{aligned}\n$$\n\nwhere $\\text{ers}(n)$ is the Anis-Lloyd theoretical R/S for $H = 1/2$:\n\n$$\n\\text{ers}(n) = \\frac{\\Gamma\\!\\left(\\tfrac{n-1}{2}\\right)}{\\sqrt{\\pi}\\,\\Gamma\\!\\left(\\tfrac{n}{2}\\right)}\n\\sum_{i=1}^{n-1} \\sqrt{\\tfrac{n-i}{i}} \\qquad (n \\le 340; \\text{asymptotic form otherwise}).\n$$\n\n## Parameters\n\n- `window_size` (int): trailing-window length $W$. Must satisfy\n  $W \\ge 4\\,\\texttt{min\\_scale}$ so the regression has at least 3 scales.\n- `min_scale` (int, default `4`): smallest block size $n_0$. Larger values\n  reduce small-sample bias but cost scales for the regression.\n- `method` (str, default `'rs'`): only `'rs'` is supported in v1 (Anis-Lloyd\n  corrected R/S, matching method 2 of the reference paper).\n\n*Warmup*: first valid output at sample index `window_size - 1`. Earlier samples\nreturn `NaN`. Also returns `NaN` if any block in the window has zero variance.\n\n## Notes on usage\n\n- For asset prices, apply `RollingHurst` to **returns** (or log-returns), not\n  the price itself. Prices are typically integrated (random-walk-like) and\n  would estimate $H \\approx 1$ regardless of return-level memory.\n- With `window_size=256` and `min_scale=4` the regression has 6 scales\n  (4, 8, 16, 32, 64, 128). Smaller windows are noisier; larger windows\n  trade responsiveness for stability.\n- `'rs'` is the classical Hurst estimator; alternative families\n  (DFA, generalised-Hurst from $|\\Delta x|^q$ moments) may follow in later\n  releases as additional `method` options."
+  },
+  "RollingParkinsonVar": {
+    "name": "RollingParkinsonVar",
+    "title": "Rolling Parkinson varariance",
+    "implementation_family": "rolling",
+    "topics": [
+      "volatility"
+    ],
+    "tags": [
+      "parkinson",
+      "range-based",
+      "hl",
+      "var",
+      "rolling"
+    ],
+    "short": "Var form of the Parkinson range-based volatility estimator (uses high & low).",
+    "inputs": 2,
+    "outputs": 1,
+    "parameters": [
+      {
+        "name": "window_size",
+        "type": "int",
+        "default": 20,
+        "min": 2,
+        "description": "Smoothing window for the per-bar estimator."
+      }
+    ],
+    "body_markdown": "# `RollingParkinsonVar`\n\n## Description\n\nThe Parkinson (1980) range-based volatility estimator. Per-bar variance contribution:\n\n$$\n\\sigma^2_\\text{Parkinson}[t] = \\frac{1}{4 \\ln 2}\\ \\big(\\ln H/L\\big)^2\n$$\n\nThis expression is then averaged with a rolling mean over `window_size` bars to form the estimator. The\n`Vol` variant returns `sqrt(Var)`; the two are bit-exact via the same internal state.\n\n**2-input, 1-output** on `(high, low)`. ~5x more statistically efficient than\nclose-to-close `RollingStd` *under the model's assumptions* (zero drift, no overnight gaps)."
+  },
+  "RollingParkinsonVol": {
+    "name": "RollingParkinsonVol",
+    "title": "Rolling Parkinson olatility",
+    "implementation_family": "rolling",
+    "topics": [
+      "volatility"
+    ],
+    "tags": [
+      "parkinson",
+      "range-based",
+      "hl",
+      "vol",
+      "rolling"
+    ],
+    "short": "Vol form of the Parkinson range-based volatility estimator (uses high & low).",
+    "inputs": 2,
+    "outputs": 1,
+    "parameters": [
+      {
+        "name": "window_size",
+        "type": "int",
+        "default": 20,
+        "min": 2,
+        "description": "Smoothing window for the per-bar estimator."
+      }
+    ],
+    "body_markdown": "# `RollingParkinsonVol`\n\n## Description\n\nThe Parkinson (1980) range-based volatility estimator. Per-bar variance contribution:\n\n$$\n\\sigma^2_\\text{Parkinson}[t] = \\frac{1}{4 \\ln 2}\\ \\big(\\ln H/L\\big)^2\n$$\n\nThis expression is then averaged with a rolling mean over `window_size` bars to form the estimator. The\n`Vol` variant returns `sqrt(Var)`; the two are bit-exact via the same internal state.\n\n**2-input, 1-output** on `(high, low)`. ~5x more statistically efficient than\nclose-to-close `RollingStd` *under the model's assumptions* (zero drift, no overnight gaps)."
+  },
+  "RollingRSI": {
+    "name": "RollingRSI",
+    "title": "Rolling RSI",
+    "implementation_family": "rolling",
+    "topics": [
+      "oscillator"
+    ],
+    "tags": [
+      "rsi",
+      "wilder",
+      "cutler",
+      "momentum",
+      "oscillator"
+    ],
+    "short": "Relative Strength Index. Wilder's smoothing by default; Cutler's via method='cutler'.",
+    "inputs": 1,
+    "outputs": 1,
+    "parameters": [
+      {
+        "name": "window_size",
+        "type": "int",
+        "default": 14,
+        "min": 2,
+        "description": "Period. Wilder's original choice is 14."
+      },
+      {
+        "name": "method",
+        "type": "str",
+        "default": "wilder",
+        "enum": [
+          "wilder",
+          "cutler"
+        ],
+        "description": "Smoothing convention. 'wilder' matches TA-Lib and pandas-ta; 'cutler' uses a plain SMA."
+      },
+      {
+        "name": "start_policy",
+        "type": "str",
+        "default": "strict",
+        "enum": [
+          "strict",
+          "expanding",
+          "zero"
+        ],
+        "description": "Warmup behaviour."
+      }
+    ],
+    "body_markdown": "# `RollingRSI`\n\n## Description\n\nWilder's Relative Strength Index. Up- and down-moves are separately smoothed; the index\nis `100 - 100 / (1 + RS)` where `RS` is the smoothed ratio of average up to average down\nmoves:\n\n$$\n\\begin{aligned}\n\\Delta[t] &= x[t] - x[t-1] \\\\\nU[t] &= \\max(\\Delta, 0),\\quad D[t] = \\max(-\\Delta, 0) \\\\\n\\overline{U}[t] &= \\text{smooth}(U,\\ \\text{window\\_size}),\\quad \\overline{D}[t] = \\text{smooth}(D,\\ \\text{window\\_size}) \\\\\n\\text{RS}[t] &= \\overline{U}[t] / \\overline{D}[t] \\\\\n\\text{RSI}[t] &= 100 - 100 / (1 + \\text{RS})\n\\end{aligned}\n$$\n\nThe smoothing depends on `method`:\n\n- `'wilder'` (default) -- Wilder's smoothing\n  $\\overline{X}[t] = \\overline{X}[t-1] + (X[t] - \\overline{X}[t-1]) / w$, with the\n  SMA-of-the-first-`w` seed. Matches `talib.RSI` and `pandas-ta-classic.rsi` bit-exactly\n  post-warmup.\n- `'cutler'` -- plain rolling-mean smoothing. Cutler's variant. Useful if you specifically\n  want the SMA-form (some legacy systems use it). Does **not** match TA-Lib.\n\n## Notes\n\n- First valid output at sample index `window_size`.\n- Output is bounded in `[0, 100]`.\n- The default was changed from 'cutler' to 'wilder' in a recent release to align with\n  TA-Lib and pandas-ta-classic. Pass `method='cutler'` to recover the old behaviour."
+  },
+  "RollingRogersSatchellVar": {
+    "name": "RollingRogersSatchellVar",
+    "title": "Rolling Rogers-Satchell varariance",
+    "implementation_family": "rolling",
+    "topics": [
+      "volatility"
+    ],
+    "tags": [
+      "rogers-satchell",
+      "range-based",
+      "ohlc",
+      "drift-robust",
+      "var",
+      "rolling"
+    ],
+    "short": "Var form of the Rogers-Satchell drift-robust range-based estimator.",
+    "inputs": 4,
+    "outputs": 1,
+    "parameters": [
+      {
+        "name": "window_size",
+        "type": "int",
+        "default": 20,
+        "min": 2,
+        "description": "Smoothing window."
+      }
+    ],
+    "body_markdown": "# `RollingRogersSatchellVar`\n\n## Description\n\nThe Rogers-Satchell (1991) range-based volatility estimator. Per-bar variance contribution:\n\n$$\n\\sigma^2_\\text{RS}[t] = \\ln\\tfrac{H}{C}\\ \\ln\\tfrac{H}{O} + \\ln\\tfrac{L}{C}\\ \\ln\\tfrac{L}{O}\n$$\n\nThis expression is averaged with a rolling mean over `window_size` bars to form the estimator. The `Vol`\nvariant returns `sqrt(Var)` (bit-exact via the same internal state).\n\n**4-input, 1-output** on `(open, high, low, close)`. Slightly less efficient (~6x vs\nclose-to-close) than Garman-Klass but **drift-robust** — works correctly when the underlying\ndrift is non-zero, a much more realistic assumption for trending markets."
+  },
+  "RollingRogersSatchellVol": {
+    "name": "RollingRogersSatchellVol",
+    "title": "Rolling Rogers-Satchell olatility",
+    "implementation_family": "rolling",
+    "topics": [
+      "volatility"
+    ],
+    "tags": [
+      "rogers-satchell",
+      "range-based",
+      "ohlc",
+      "drift-robust",
+      "vol",
+      "rolling"
+    ],
+    "short": "Vol form of the Rogers-Satchell drift-robust range-based estimator.",
+    "inputs": 4,
+    "outputs": 1,
+    "parameters": [
+      {
+        "name": "window_size",
+        "type": "int",
+        "default": 20,
+        "min": 2,
+        "description": "Smoothing window."
+      }
+    ],
+    "body_markdown": "# `RollingRogersSatchellVol`\n\n## Description\n\nThe Rogers-Satchell (1991) range-based volatility estimator. Per-bar variance contribution:\n\n$$\n\\sigma^2_\\text{RS}[t] = \\ln\\tfrac{H}{C}\\ \\ln\\tfrac{H}{O} + \\ln\\tfrac{L}{C}\\ \\ln\\tfrac{L}{O}\n$$\n\nThis expression is averaged with a rolling mean over `window_size` bars to form the estimator. The `Vol`\nvariant returns `sqrt(Var)` (bit-exact via the same internal state).\n\n**4-input, 1-output** on `(open, high, low, close)`. Slightly less efficient (~6x vs\nclose-to-close) than Garman-Klass but **drift-robust** — works correctly when the underlying\ndrift is non-zero, a much more realistic assumption for trending markets."
+  },
+  "RollingVWAP": {
+    "name": "RollingVWAP",
+    "title": "Rolling VWAP",
+    "implementation_family": "rolling",
+    "topics": [
+      "volume"
+    ],
+    "tags": [
+      "vwap",
+      "volume-weighted",
+      "ohlcv",
+      "typical-price"
+    ],
+    "short": "Rolling volume-weighted average price (typical-price weighted).",
+    "inputs": 4,
+    "outputs": 1,
+    "parameters": [
+      {
+        "name": "window_size",
+        "type": "int",
+        "default": 20,
+        "min": 2,
+        "description": "Trailing-window length."
+      }
+    ],
+    "body_markdown": "# `RollingVWAP`\n\n## Description\n\nRolling volume-weighted average price using the typical price as the weighting basis:\n\n$$\n\\text{TP}[t] = (\\text{high} + \\text{low} + \\text{close}) / 3\n\\qquad\n\\text{VWAP}[t] = \\dfrac{\\sum_w \\text{TP} \\cdot \\text{volume}}{\\sum_w \\text{volume}}\n$$\n\n**4-input, 1-output** on `(high, low, close, volume)`. Matches `pandas-ta-classic.vwap`.\nFor a *session-VWAP* (cumulative since some reset point), call `reset()` at the session\nboundary.\n\nFirst valid output at sample index `window_size - 1`. Composes two `detail::RollingSum`\ninstances; O(1) per step."
+  },
+  "RollingYangZhangVar": {
+    "name": "RollingYangZhangVar",
+    "title": "Rolling Yang-Zhang varariance",
+    "implementation_family": "rolling",
+    "topics": [
+      "volatility"
+    ],
+    "tags": [
+      "yang-zhang",
+      "range-based",
+      "ohlc",
+      "drift-robust",
+      "gap-aware",
+      "var",
+      "rolling"
+    ],
+    "short": "Var form of the Yang-Zhang estimator (drift + gap robust).",
+    "inputs": 4,
+    "outputs": 1,
+    "parameters": [
+      {
+        "name": "window_size",
+        "type": "int",
+        "default": 20,
+        "min": 2,
+        "description": "Smoothing window."
+      }
+    ],
+    "body_markdown": "# `RollingYangZhangVar`\n\n## Description\n\nThe Yang-Zhang (2000) estimator combines three variance components:\n\n$$\n\\begin{aligned}\n\\sigma^2_o    &= \\text{sample variance of overnight log returns } \\ln(O_t / C_{t-1}) \\\\\n\\sigma^2_c    &= \\text{sample variance of open-to-close log returns } \\ln(C_t / O_t) \\\\\n\\sigma^2_{RS} &= \\text{mean of per-bar Rogers-Satchell estimates} \\\\\nk             &= \\dfrac{0.34}{1.34 + (n+1)/(n-1)} \\\\\n\\sigma^2_{YZ} &= \\sigma^2_o + k\\ \\cdot\\ \\sigma^2_c + (1-k)\\ \\cdot\\ \\sigma^2_{RS}\n\\end{aligned}\n$$\n\nThe only classical estimator that handles **both** drift *and* overnight gaps. ~14x\nefficient vs close-to-close.\n\n**4-input, 1-output** on `(open, high, low, close)`. First valid output at sample index\n`window_size` (we need n+1 price bars to form n overnight returns). The `Vol` variant\nreturns `sqrt(Var)` (bit-exact via the same internal state).\n\nNo EW form is exposed because the `k` factor depends on a discrete window size; any\n\"EW analogue\" would require an arbitrary mapping from `span` to `n` that varies by\nconvention."
+  },
+  "RollingYangZhangVol": {
+    "name": "RollingYangZhangVol",
+    "title": "Rolling Yang-Zhang olatility",
+    "implementation_family": "rolling",
+    "topics": [
+      "volatility"
+    ],
+    "tags": [
+      "yang-zhang",
+      "range-based",
+      "ohlc",
+      "drift-robust",
+      "gap-aware",
+      "vol",
+      "rolling"
+    ],
+    "short": "Vol form of the Yang-Zhang estimator (drift + gap robust).",
+    "inputs": 4,
+    "outputs": 1,
+    "parameters": [
+      {
+        "name": "window_size",
+        "type": "int",
+        "default": 20,
+        "min": 2,
+        "description": "Smoothing window."
+      }
+    ],
+    "body_markdown": "# `RollingYangZhangVol`\n\n## Description\n\nThe Yang-Zhang (2000) estimator combines three variance components:\n\n$$\n\\begin{aligned}\n\\sigma^2_o    &= \\text{sample variance of overnight log returns } \\ln(O_t / C_{t-1}) \\\\\n\\sigma^2_c    &= \\text{sample variance of open-to-close log returns } \\ln(C_t / O_t) \\\\\n\\sigma^2_{RS} &= \\text{mean of per-bar Rogers-Satchell estimates} \\\\\nk             &= \\dfrac{0.34}{1.34 + (n+1)/(n-1)} \\\\\n\\sigma^2_{YZ} &= \\sigma^2_o + k\\ \\cdot\\ \\sigma^2_c + (1-k)\\ \\cdot\\ \\sigma^2_{RS}\n\\end{aligned}\n$$\n\nThe only classical estimator that handles **both** drift *and* overnight gaps. ~14x\nefficient vs close-to-close.\n\n**4-input, 1-output** on `(open, high, low, close)`. First valid output at sample index\n`window_size` (we need n+1 price bars to form n overnight returns). The `Vol` variant\nreturns `sqrt(Var)` (bit-exact via the same internal state).\n\nNo EW form is exposed because the `k` factor depends on a discrete window size; any\n\"EW analogue\" would require an arbitrary mapping from `span` to `n` that varies by\nconvention."
+  },
+  "TrueRange": {
+    "name": "TrueRange",
+    "title": "True Range (Wilder)",
+    "implementation_family": "rolling",
+    "topics": [
+      "volatility"
+    ],
+    "tags": [
+      "wilder",
+      "true-range",
+      "tr",
+      "talib",
+      "hlc"
+    ],
+    "short": "Per-bar true range accounting for overnight gaps (Wilder, 1978).",
+    "inputs": 3,
+    "outputs": 1,
+    "parameters": [],
+    "body_markdown": "# `TrueRange`\n\n## Description\n\nThe per-bar true-range quantity that accounts for overnight gaps:\n\n$$\n\\text{TR}[t] = \\max\\big(\\ H - L,\\ \\ |H - C_{t-1}|,\\ \\ |L - C_{t-1}|\\ \\big)\n$$\n\n**3-input, 1-output** on `(high, low, close)`. The first sample returns `NaN` (no previous\nclose). Otherwise stateless. Bit-exact to `talib.TRANGE`."
   },
   "Butter": {
     "name": "Butter",
