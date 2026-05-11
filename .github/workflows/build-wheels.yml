@@ -33,13 +33,17 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        # TEMP: reduced to ubuntu-only during active development to cut
+        # CI/CD costs. Revert to the full matrix below before release.
+        #
         # macos-14 (Apple Silicon) cross-compiles BOTH x86_64 and arm64 wheels
         # via cibuildwheel's archs=["x86_64","arm64"] setting in pyproject.toml.
         # macos-13 (Intel runners) was dropped because GitHub Actions has
         # severely throttled Intel mac runners in 2026 -- jobs hang in the
         # queue waiting for capacity that may never come, blocking the
         # downstream publish step (which `needs: [build_wheels]`).
-        os: [ubuntu-latest, macos-14, windows-latest]
+        # Full matrix: os: [ubuntu-latest, macos-14, windows-latest]
+        os: [ubuntu-latest]
     steps:
       - uses: actions/checkout@v5
 

@@ -1,10 +1,13 @@
 name: Tests
 
+# TEMP: CI/CD cost reduction during active development.
+# - triggered only on version tags (was: every push to main + every PR)
+# - matrix reduced to ubuntu-latest + Python 3.12 only (was: ubuntu+macos x 4 Pythons)
+# Revert by restoring the `push: branches: [main]` + `pull_request: [main]`
+# triggers and the full os/python-version matrix below.
 on:
   push:
-    branches: [main]
-  pull_request:
-    branches: [main]
+    tags: ['v*']
   workflow_dispatch:
 
 concurrency:
@@ -24,8 +27,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-14]
-        python-version: ['3.11', '3.12', '3.13', '3.14']
+        # TEMP: reduced to ubuntu + py3.12 only during dev. Revert to:
+        #   os: [ubuntu-latest, macos-14]
+        #   python-version: ['3.11', '3.12', '3.13', '3.14']
+        os: [ubuntu-latest]
+        python-version: ['3.12']
     steps:
       - uses: actions/checkout@v5
 
