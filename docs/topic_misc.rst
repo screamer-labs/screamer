@@ -16,3 +16,4 @@ Misc functions
    functions_misc/Diff2
    functions_misc/Identity
    functions_misc/Lag
+   functions_misc/Momentum

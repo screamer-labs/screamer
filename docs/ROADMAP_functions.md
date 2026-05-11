@@ -152,18 +152,18 @@ agreed-upon definition and is rarely asked for in practice.)
 | `MACD` | Moving Average Convergence Divergence: `(macd, signal, histogram)`. Pure composition of three `EwMean`s |
 | `WilliamsR` | Williams %R: normalised close position within the rolling (H, L) range, scaled to `[-100, 0]`. Two monotonic deques. 3→1 |
 | `Stoch` | Stochastic oscillator: `(%K, %D)`. `smooth_k=1` gives Lane's "fast" form; `smooth_k>=2` gives the "slow" form (charting default). Matches `talib.STOCH` / `STOCHF`. 3→2 |
+| `Momentum(k)` | `x[t] - x[t-k]`. Thin alias of `Diff(k)`; exists to match TA-Lib's `MOM` |
+| `ROC`, `ROCP`, `ROCR` | rate-of-change variants in percentage / fraction / ratio form. `ROCP` is an alias of `Return` |
+| `TRIX` | 1-step rate of change of a triple-smoothed EMA. Composite of three `EwMean`s |
 
 ### Gaps
 
 | Function | Description | Quadrant | Priority | Note |
 |---|---|---|---|---|
 | `StochRSI` | Stochastic of RSI | 1→2 | 🟡 | composite of `RollingRSI` + Stoch-like smoothing |
-| `ROC`, `ROCP`, `ROCR` | rate-of-change variants | 1→1 | 🟡 | `Return` covers ROCP; explicit names would help discoverability |
-| `Momentum(k)` | `x[t] - x[t-k]` | 1→1 | 🟡 | identical to `Diff(k)`; alias would aid TA-Lib porting |
 | `CCI` | Commodity Channel Index | 3→1 | 🟡 | needs (high, low, close) typical-price |
-| `ADX` | Average Directional Index | 3→1 | 🟡 | needs high/low/close; multi-step but fits the dispatcher |
-| `TRIX` | triple-smoothed momentum | 1→1 | ⚪ | composite of EMAs |
-| `BOP` | Balance of Power | 4→1 | ⚪ | needs OHLC |
+| `ADX` | Average Directional Index | 3→1 | 🟡 | needs high/low/close; multi-step Wilder chain |
+| `BOP` | Balance of Power | 4→1 | ⚪ | needs OHLC; single per-step formula |
 | `UltimateOscillator` | weighted average of three timeframes | 3→1 | ⚪ | niche |
 
 

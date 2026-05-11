@@ -220,6 +220,34 @@ class TestExactAlignment:
         np.testing.assert_allclose(out[mk, 0], ref_k[mk], atol=1e-10)
         np.testing.assert_allclose(out[md, 1], ref_d[md], atol=1e-10)
 
+    def test_momentum_matches_talib_mom(self, random_series):
+        """Momentum is an alias of Diff; identical to TA-Lib's MOM."""
+        ours = sc.Momentum(10)(random_series)
+        ref = talib.MOM(random_series, timeperiod=10)
+        mask = ~(np.isnan(ours) | np.isnan(ref))
+        np.testing.assert_array_equal(ours[mask], ref[mask])
+
+    def test_roc_matches_talib(self, random_series):
+        x = 100 + np.cumsum(random_series)
+        ours = sc.ROC(10)(x)
+        ref = talib.ROC(x, timeperiod=10)
+        mask = ~(np.isnan(ours) | np.isnan(ref))
+        np.testing.assert_allclose(ours[mask], ref[mask], atol=1e-12)
+
+    def test_rocp_matches_talib(self, random_series):
+        x = 100 + np.cumsum(random_series)
+        ours = sc.ROCP(10)(x)
+        ref = talib.ROCP(x, timeperiod=10)
+        mask = ~(np.isnan(ours) | np.isnan(ref))
+        np.testing.assert_allclose(ours[mask], ref[mask], atol=1e-12)
+
+    def test_rocr_matches_talib(self, random_series):
+        x = 100 + np.cumsum(random_series)
+        ours = sc.ROCR(10)(x)
+        ref = talib.ROCR(x, timeperiod=10)
+        mask = ~(np.isnan(ours) | np.isnan(ref))
+        np.testing.assert_array_equal(ours[mask], ref[mask])
+
 
 # ---------------------------------------------------------------------------
 # Documented divergences (asserts the divergence is in the EXPECTED
@@ -261,6 +289,26 @@ class TestDocumentedDivergences:
             "DEMA vs TA-Lib divergence is unexpectedly large -- "
             "investigate."
         )
+
+    def test_trix_matches_pandas_adjust_true_not_talib(self, random_series):
+        """TRIX inherits the EwMean adjust=True convention; differs from
+        TA-Lib's adjust=False + SMA-seed by a few percent during warmup."""
+        x = 100 + np.cumsum(random_series)
+        span = 14
+        ours = sc.TRIX(span)(x)
+        # Manual adjust=True composition reference (must match exactly).
+        s = pd.Series(x)
+        e1 = s.ewm(span=span, adjust=True).mean()
+        e2 = e1.ewm(span=span, adjust=True).mean()
+        e3 = e2.ewm(span=span, adjust=True).mean()
+        ref = (100.0 * e3.pct_change()).to_numpy()
+        np.testing.assert_allclose(ours, ref, equal_nan=True, atol=1e-12)
+        # Diverges from TA-Lib in the expected ballpark.
+        ref_talib = talib.TRIX(x, timeperiod=span)
+        mask = ~(np.isnan(ours) | np.isnan(ref_talib))
+        diff = np.abs(ours[mask] - ref_talib[mask])
+        assert diff.max() > 1e-4, "TRIX vs TA-Lib unexpectedly close"
+        assert diff.max() < 1.0
 
     def test_macd_matches_pandas_adjust_true_not_talib(self, random_series):
         """screamer.MACD is composed from three EwMean = pandas adjust=True
@@ -415,6 +463,14 @@ def test_summary_print(random_series, capsys):
     )
     pairs.append(("Stoch slow %K vs TA-Lib STOCH", stoch_out[:, 0], stoch_ref_k))
     pairs.append(("Stoch slow %D vs TA-Lib STOCH", stoch_out[:, 1], stoch_ref_d))
+
+    # Momentum / ROC family on a positive walk (ROC undefined on x[t-k]==0).
+    walk = 100 + np.cumsum(x)
+    pairs.append(("Momentum vs TA-Lib MOM",  sc.Momentum(10)(x),    talib.MOM(x, 10)))
+    pairs.append(("ROC vs TA-Lib ROC",       sc.ROC(10)(walk),       talib.ROC(walk, 10)))
+    pairs.append(("ROCP vs TA-Lib ROCP",     sc.ROCP(10)(walk),      talib.ROCP(walk, 10)))
+    pairs.append(("ROCR vs TA-Lib ROCR",     sc.ROCR(10)(walk),      talib.ROCR(walk, 10)))
+    pairs.append(("TRIX vs TA-Lib (divergent)", sc.TRIX(14)(walk),   talib.TRIX(walk, 14)))
     print()
     print(f"{'comparison':45s}  max_abs_diff (post-warmup)")
     print("-" * 72)

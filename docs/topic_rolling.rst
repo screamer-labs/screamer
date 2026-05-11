@@ -37,5 +37,6 @@ Rolling Window Functions
    functions_rolling/Stoch
    functions_rolling/TEMA
    functions_rolling/TRIMA
+   functions_rolling/TRIX
    functions_rolling/WilliamsR
    functions_rolling/WMA

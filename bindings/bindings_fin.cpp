@@ -3,6 +3,9 @@
 #include "screamer/common/base.h"
 #include "screamer/return.h"
 #include "screamer/log_return.h"
+#include "screamer/roc.h"
+#include "screamer/rocp.h"
+#include "screamer/rocr.h"
 #include "screamer/rolling_fracdiff.h"
 #include "screamer/rolling_corr.h"
 #include "screamer/rolling_cov.h"
@@ -22,6 +25,25 @@ void init_bindings_fin(py::module& m) {
         .def(py::init<int>(), py::arg("window_size"))
         .def("__call__", &screamer::LogReturn::operator(), py::arg("value"))
         .def("reset", &screamer::LogReturn::reset, "Reset to the initial state.");
+
+    // ROC family: rate-of-change variants. TA-Lib has all three as
+    // separate functions; we provide them under TA-Lib's names so
+    // users can port directly. ROCP is mathematically identical to
+    // Return.
+    py::class_<screamer::ROC, screamer::ScreamerBase>(m, "ROC")
+        .def(py::init<int>(), py::arg("window_size"))
+        .def("__call__", &screamer::ROC::operator(), py::arg("value"))
+        .def("reset", &screamer::ROC::reset, "Reset to the initial state.");
+
+    py::class_<screamer::ROCP, screamer::ScreamerBase>(m, "ROCP")
+        .def(py::init<int>(), py::arg("window_size"))
+        .def("__call__", &screamer::ROCP::operator(), py::arg("value"))
+        .def("reset", &screamer::ROCP::reset, "Reset to the initial state.");
+
+    py::class_<screamer::ROCR, screamer::ScreamerBase>(m, "ROCR")
+        .def(py::init<int>(), py::arg("window_size"))
+        .def("__call__", &screamer::ROCR::operator(), py::arg("value"))
+        .def("reset", &screamer::ROCR::reset, "Reset to the initial state.");
 
     py::class_<screamer::RollingFracDiff, screamer::ScreamerBase>(m, "RollingFracDiff")
         .def(py::init<double, int, double>(), py::arg("frac_order"), py::arg("window_size"), py::arg("threshold")=1e-5)

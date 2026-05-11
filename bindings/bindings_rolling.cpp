@@ -34,6 +34,7 @@
 #include "screamer/macd.h"
 #include "screamer/williams_r.h"
 #include "screamer/stoch.h"
+#include "screamer/trix.h"
 
 namespace py = pybind11;
 
@@ -234,6 +235,14 @@ void init_bindings_rolling(py::module& m) {
             py::arg("d") = 3)
         .def("__call__", &screamer::Stoch::handle_input)
         .def("reset", &screamer::Stoch::reset, "Reset to the initial state.");
+
+    // TRIX: 100 * 1-period ROC of triple-smoothed EMA. Composes
+    // three EwMean instances and tracks the previous ema3 for the
+    // final ratio.
+    py::class_<screamer::TRIX, screamer::ScreamerBase>(m, "TRIX")
+        .def(py::init<int>(), py::arg("span"))
+        .def("__call__", &screamer::TRIX::operator(), py::arg("value"))
+        .def("reset", &screamer::TRIX::reset, "Reset to the initial state.");
 
     py::class_<screamer::RollingMedian, screamer::ScreamerBase>(m, "RollingMedian")
         .def(py::init<int>(), py::arg("window_size"))
