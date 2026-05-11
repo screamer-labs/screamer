@@ -1,3 +1,34 @@
+---
+name: RollingBeta
+title: Rolling beta
+implementation_family: fin
+topics:
+- correlation
+- regression
+tags:
+- beta
+- regression
+- capm
+- pair
+short: cov(x, y) / var(y) — regression slope of x on y.
+inputs: 2
+outputs: 1
+parameters:
+- name: window_size
+  type: int
+  default: 20
+  min: 2
+  description: Window length.
+- name: start_policy
+  type: str
+  default: strict
+  enum:
+  - strict
+  - expanding
+  - zero
+  description: Warmup behaviour.
+---
+
 # `RollingBeta`
 
 ## Description
@@ -24,6 +55,8 @@ with the sums taken over the most recent `window_size` samples.
 *Return value*: the slope coefficient. Returns `NaN` during warmup or when `y` has zero variance within the window (regression is undefined).
 
 > **Convention note**: pandas does not ship a `rolling().beta()` method directly. The pandas-equivalent expression is `pd.Series(x).rolling(w).cov(pd.Series(y)) / pd.Series(y).rolling(w).var()`. Some libraries call this slope "alpha" or use the inverse argument order; double-check the convention when comparing.
+
+<!-- HELP_END -->
 
 ## Usage Example and Plot
 

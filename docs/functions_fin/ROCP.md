@@ -1,3 +1,24 @@
+---
+name: ROCP
+title: Rate of change percent (ROCP)
+implementation_family: fin
+topics:
+- momentum
+tags:
+- rocp
+- rate-of-change
+- talib
+short: x[t] / x[t-k] - 1 — TA-Lib's ROCP. Identical to Return.
+inputs: 1
+outputs: 1
+parameters:
+- name: window_size
+  type: int
+  default: 10
+  min: 1
+  description: Lookback k.
+---
+
 # `ROCP`
 
 ## Description
@@ -26,6 +47,8 @@ $$
 - [`Return`](Return.md) -- same class, the documentation lives there.
 - [`ROC`](ROC.md) -- `100 * ROCP` (percentage form).
 - [`ROCR`](ROCR.md) -- `x[t] / x[t-k]` (ratio form).
+
+<!-- HELP_END -->
 
 ## Reference
 

@@ -1,3 +1,37 @@
+---
+name: ButterBandstop
+title: Butterworth band-stop filter
+implementation_family: signal
+topics:
+- signal-processing
+tags:
+- butterworth
+- iir
+- bandstop
+- notch
+short: General-order IIR Butterworth band-stop (notch) filter.
+inputs: 1
+outputs: 1
+parameters:
+- name: order
+  type: int
+  default: 2
+  min: 1
+  description: Filter order.
+- name: low_cutoff
+  type: float
+  default: 0.05
+  min: 0.0
+  max: 0.5
+  description: Lower stop-band edge (normalised).
+- name: high_cutoff
+  type: float
+  default: 0.2
+  min: 0.0
+  max: 0.5
+  description: Upper stop-band edge (normalised); must exceed low_cutoff.
+---
+
 # `ButterBandstop`
 
 ## Description
@@ -19,3 +53,5 @@ from screamer import ButterBandstop
 notch = ButterBandstop(order=2, low_cutoff=0.116, high_cutoff=0.124)
 out = notch(signal)
 ```
+
+<!-- HELP_END -->

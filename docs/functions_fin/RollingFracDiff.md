@@ -1,3 +1,36 @@
+---
+name: RollingFracDiff
+title: Rolling fractional differencing
+implementation_family: fin
+topics:
+- transforms
+tags:
+- fracdiff
+- fractional
+- long-memory
+- stationarity
+short: Fractional differencing of order d preserving long memory while inducing stationarity.
+inputs: 1
+outputs: 1
+parameters:
+- name: frac_order
+  type: float
+  default: 0.5
+  min: 0.0
+  max: 1.0
+  description: Differencing order d ∈ [0, 1]. d=1 is the first difference; d=0 is
+    identity.
+- name: window_size
+  type: int
+  default: 100
+  min: 2
+  description: Truncation window for the infinite binomial series.
+- name: threshold
+  type: float
+  default: 1.0e-05
+  description: Drop binomial weights with absolute value below this threshold.
+---
+
 # `RollingFracDiff`
 
 ## Description
@@ -36,6 +69,8 @@ $$
 - **`window_size`**: Integer specifying the size of the rolling window. This is the number of past values used in the fractional differentiation calculation.
 - **`frac_order`** (`d`): Float representing the degree of fractional differentiation. `d = 0` corresponds to an identity transformation of the data, while `d=1` results in standard difference. The higher the value of `d`, the lower the amount of memory preserved.
 - **`threshold`**: Float specifying the minimum weight threshold. Any computed weight $w_k$ smaller than this threshold is set to zero. This optimizes computation by ignoring insignificant contributions.
+
+<!-- HELP_END -->
 
 ## Usage Example and Plot
 

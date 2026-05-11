@@ -1,3 +1,24 @@
+---
+name: ROC
+title: Rate of change (ROC)
+implementation_family: fin
+topics:
+- momentum
+tags:
+- roc
+- rate-of-change
+- talib
+short: 100 * (x[t] / x[t-k] - 1) — TA-Lib's ROC.
+inputs: 1
+outputs: 1
+parameters:
+- name: window_size
+  type: int
+  default: 10
+  min: 1
+  description: Lookback k. TA-Lib default is 10.
+---
+
 # `ROC`
 
 ## Description
@@ -21,6 +42,8 @@ The three rate-of-change variants in this library, all matching their TA-Lib nam
 - `window_size` (int, positive): the lookback `k`.
 
 *NaN handling*: NaN for the first `k` samples (no `x[t-k]` yet). Also NaN if `x[t-k] == 0` (division by zero).
+
+<!-- HELP_END -->
 
 ## Reference
 

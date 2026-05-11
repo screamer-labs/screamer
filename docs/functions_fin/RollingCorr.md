@@ -1,3 +1,33 @@
+---
+name: RollingCorr
+title: Rolling correlation
+implementation_family: fin
+topics:
+- correlation
+- statistics
+tags:
+- correlation
+- pearson
+- pair
+short: Rolling Pearson correlation of two parallel streams.
+inputs: 2
+outputs: 1
+parameters:
+- name: window_size
+  type: int
+  default: 20
+  min: 2
+  description: Window length.
+- name: start_policy
+  type: str
+  default: strict
+  enum:
+  - strict
+  - expanding
+  - zero
+  description: Warmup behaviour.
+---
+
 # `RollingCorr`
 
 ## Description
@@ -21,6 +51,8 @@ with the sums taken over the most recent `window_size` samples and `n = window_s
 *Input shape*: takes **two** parallel streams. Each call accepts two scalars, two 1-D arrays, two 2-D arrays paired column-by-column, two N-D arrays, two iterators, or one list of `(x, y)` pairs. See the [polymorphic API spec](../polymorphic_api.md) for the full table.
 
 *Return value*: a number in `[-1, 1]`. Returns `NaN` during warmup or when either stream is constant within the window (zero variance).
+
+<!-- HELP_END -->
 
 ## Usage Example and Plot
 

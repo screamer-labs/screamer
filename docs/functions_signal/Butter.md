@@ -1,3 +1,31 @@
+---
+name: Butter
+title: Butterworth low-pass filter
+implementation_family: signal
+topics:
+- signal-processing
+- smoothing
+tags:
+- butterworth
+- iir
+- lowpass
+short: General-order IIR Butterworth low-pass filter.
+inputs: 1
+outputs: 1
+parameters:
+- name: order
+  type: int
+  default: 2
+  min: 1
+  description: Filter order (1 = first-order, higher = sharper rolloff).
+- name: cutoff_freq
+  type: float
+  default: 0.1
+  min: 0.0
+  max: 0.5
+  description: Normalised cutoff (0 < f < 0.5, Nyquist-relative).
+---
+
 # `Butter`
 
 ## Description
@@ -13,6 +41,8 @@ The Butterworth filter is implemented using a digital Infinite Impulse Response 
 **`cutoff_freq`** *(float)*: The normalized cutoff frequency for the low-pass filter, expressed as a fraction of the Nyquist frequency (half the sampling rate). It must be in the range 0 to 0.5.
 
 *NaN handling*: NaN values may propagate through the filter unless handled separately in preprocessing.
+
+<!-- HELP_END -->
 
 ## Usage Example and Plot
 

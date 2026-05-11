@@ -1,3 +1,27 @@
+---
+name: MovingAverage
+title: FIR moving average (arbitrary taps)
+implementation_family: signal
+topics:
+- signal-processing
+- smoothing
+tags:
+- fir
+- convolution
+- moving-average
+short: Finite-impulse-response filter with user-supplied taps.
+inputs: 1
+outputs: 1
+parameters:
+- name: taps
+  type: float[]
+  default:
+  - 0.25
+  - 0.5
+  - 0.25
+  description: FIR coefficients. Default is a 3-tap triangular kernel.
+---
+
 # `MovingAverage`
 
 ## Description
@@ -19,6 +43,8 @@ $$
 ## Implementation Details
 
 Circular buffer of the last `L = len(taps)` samples plus an in-order convolution sweep. **O(L) per step**.
+
+<!-- HELP_END -->
 
 ## Usage Example
 

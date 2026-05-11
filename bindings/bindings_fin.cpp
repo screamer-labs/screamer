@@ -28,12 +28,12 @@ namespace py = pybind11;
 void init_bindings_fin(py::module& m) {
 
     py::class_<screamer::Return, screamer::ScreamerBase>(m, "Return")
-        .def(py::init<int>(), py::arg("window_size"))
+        .def(py::init<int>(), py::arg("window_size") = 1)
         .def("__call__", &screamer::Return::operator(), py::arg("value"))
         .def("reset", &screamer::Return::reset, "Reset to the initial state.");
 
     py::class_<screamer::LogReturn, screamer::ScreamerBase>(m, "LogReturn")
-        .def(py::init<int>(), py::arg("window_size"))
+        .def(py::init<int>(), py::arg("window_size") = 1)
         .def("__call__", &screamer::LogReturn::operator(), py::arg("value"))
         .def("reset", &screamer::LogReturn::reset, "Reset to the initial state.");
 
@@ -42,22 +42,22 @@ void init_bindings_fin(py::module& m) {
     // users can port directly. ROCP is mathematically identical to
     // Return.
     py::class_<screamer::ROC, screamer::ScreamerBase>(m, "ROC")
-        .def(py::init<int>(), py::arg("window_size"))
+        .def(py::init<int>(), py::arg("window_size") = 1)
         .def("__call__", &screamer::ROC::operator(), py::arg("value"))
         .def("reset", &screamer::ROC::reset, "Reset to the initial state.");
 
     py::class_<screamer::ROCP, screamer::ScreamerBase>(m, "ROCP")
-        .def(py::init<int>(), py::arg("window_size"))
+        .def(py::init<int>(), py::arg("window_size") = 1)
         .def("__call__", &screamer::ROCP::operator(), py::arg("value"))
         .def("reset", &screamer::ROCP::reset, "Reset to the initial state.");
 
     py::class_<screamer::ROCR, screamer::ScreamerBase>(m, "ROCR")
-        .def(py::init<int>(), py::arg("window_size"))
+        .def(py::init<int>(), py::arg("window_size") = 1)
         .def("__call__", &screamer::ROCR::operator(), py::arg("value"))
         .def("reset", &screamer::ROCR::reset, "Reset to the initial state.");
 
     py::class_<screamer::RollingFracDiff, screamer::ScreamerBase>(m, "RollingFracDiff")
-        .def(py::init<double, int, double>(), py::arg("frac_order"), py::arg("window_size"), py::arg("threshold")=1e-5)
+        .def(py::init<double, int, double>(), py::arg("frac_order") = 0.5, py::arg("window_size") = 100, py::arg("threshold")=1e-5)
         .def("__call__", &screamer::RollingFracDiff::operator(), py::arg("value"))
         .def("reset", &screamer::RollingFracDiff::reset, "Reset to the initial state.");
 
@@ -68,7 +68,7 @@ void init_bindings_fin(py::module& m) {
     // / N parallel iterables).
     py::class_<screamer::RollingCorr>(m, "RollingCorr")
         .def(py::init<int, const std::string&>(),
-             py::arg("window_size"),
+             py::arg("window_size") = 20,
              py::arg("start_policy") = "strict")
         .def("__call__", &screamer::RollingCorr::handle_input)
         .def("reset", &screamer::RollingCorr::reset, "Reset to the initial state.");
@@ -76,7 +76,7 @@ void init_bindings_fin(py::module& m) {
     // Rolling sample covariance of two streams.
     py::class_<screamer::RollingCov>(m, "RollingCov")
         .def(py::init<int, const std::string&>(),
-             py::arg("window_size"),
+             py::arg("window_size") = 20,
              py::arg("start_policy") = "strict")
         .def("__call__", &screamer::RollingCov::handle_input)
         .def("reset", &screamer::RollingCov::reset, "Reset to the initial state.");
@@ -84,7 +84,7 @@ void init_bindings_fin(py::module& m) {
     // Rolling regression slope of x on y: beta = cov(x, y) / var(y).
     py::class_<screamer::RollingBeta>(m, "RollingBeta")
         .def(py::init<int, const std::string&>(),
-             py::arg("window_size"),
+             py::arg("window_size") = 20,
              py::arg("start_policy") = "strict")
         .def("__call__", &screamer::RollingBeta::handle_input)
         .def("reset", &screamer::RollingBeta::reset, "Reset to the initial state.");
@@ -93,7 +93,7 @@ void init_bindings_fin(py::module& m) {
     // beta computed exactly as in RollingBeta.
     py::class_<screamer::RollingSpread>(m, "RollingSpread")
         .def(py::init<int, const std::string&>(),
-             py::arg("window_size"),
+             py::arg("window_size") = 20,
              py::arg("start_policy") = "strict")
         .def("__call__", &screamer::RollingSpread::handle_input)
         .def("reset", &screamer::RollingSpread::reset, "Reset to the initial state.");
@@ -110,20 +110,20 @@ void init_bindings_fin(py::module& m) {
         .def("reset", &screamer::MaxDrawdown::reset, "Reset.");
 
     py::class_<screamer::RollingMaxDrawdown, screamer::ScreamerBase>(m, "RollingMaxDrawdown")
-        .def(py::init<int>(), py::arg("window_size"))
+        .def(py::init<int>(), py::arg("window_size") = 252)
         .def("__call__", &screamer::RollingMaxDrawdown::operator(), py::arg("value"))
         .def("reset", &screamer::RollingMaxDrawdown::reset, "Reset.");
 
     py::class_<screamer::RollingSharpe, screamer::ScreamerBase>(m, "RollingSharpe")
         .def(py::init<int, double>(),
-             py::arg("window_size"),
+             py::arg("window_size") = 252,
              py::arg("periods_per_year") = 1.0)
         .def("__call__", &screamer::RollingSharpe::operator(), py::arg("value"))
         .def("reset", &screamer::RollingSharpe::reset, "Reset.");
 
     py::class_<screamer::RollingSortino, screamer::ScreamerBase>(m, "RollingSortino")
         .def(py::init<int, double, double>(),
-             py::arg("window_size"),
+             py::arg("window_size") = 252,
              py::arg("periods_per_year") = 1.0,
              py::arg("target") = 0.0)
         .def("__call__", &screamer::RollingSortino::operator(), py::arg("value"))
@@ -131,34 +131,34 @@ void init_bindings_fin(py::module& m) {
 
     py::class_<screamer::RollingInfoRatio>(m, "RollingInfoRatio")
         .def(py::init<int, double>(),
-             py::arg("window_size"),
+             py::arg("window_size") = 252,
              py::arg("periods_per_year") = 1.0)
         .def("__call__", &screamer::RollingInfoRatio::handle_input)
         .def("reset", &screamer::RollingInfoRatio::reset, "Reset.");
 
     py::class_<screamer::RollingCalmar, screamer::ScreamerBase>(m, "RollingCalmar")
         .def(py::init<int, double>(),
-             py::arg("window_size"),
+             py::arg("window_size") = 252,
              py::arg("periods_per_year") = 1.0)
         .def("__call__", &screamer::RollingCalmar::operator(), py::arg("value"))
         .def("reset", &screamer::RollingCalmar::reset, "Reset.");
 
     py::class_<screamer::RollingHitRate, screamer::ScreamerBase>(m, "RollingHitRate")
-        .def(py::init<int>(), py::arg("window_size"))
+        .def(py::init<int>(), py::arg("window_size") = 252)
         .def("__call__", &screamer::RollingHitRate::operator(), py::arg("value"))
         .def("reset", &screamer::RollingHitRate::reset, "Reset.");
 
     // ----- Regression-family additions -----
     py::class_<screamer::RollingAlpha>(m, "RollingAlpha")
         .def(py::init<int, const std::string&>(),
-             py::arg("window_size"),
+             py::arg("window_size") = 20,
              py::arg("start_policy") = "strict")
         .def("__call__", &screamer::RollingAlpha::handle_input)
         .def("reset", &screamer::RollingAlpha::reset, "Reset.");
 
     py::class_<screamer::RollingResidualStd>(m, "RollingResidualStd")
         .def(py::init<int, const std::string&>(),
-             py::arg("window_size"),
+             py::arg("window_size") = 20,
              py::arg("start_policy") = "strict")
         .def("__call__", &screamer::RollingResidualStd::handle_input)
         .def("reset", &screamer::RollingResidualStd::reset, "Reset.");
@@ -167,7 +167,7 @@ void init_bindings_fin(py::module& m) {
     // First 2->4 consumer of the N->M dispatcher (Plan E).
     py::class_<screamer::RollingLinearRegression>(m, "RollingLinearRegression")
         .def(py::init<int, const std::string&>(),
-             py::arg("window_size"),
+             py::arg("window_size") = 20,
              py::arg("start_policy") = "strict")
         .def("__call__", &screamer::RollingLinearRegression::handle_input)
         .def("reset", &screamer::RollingLinearRegression::reset, "Reset.");

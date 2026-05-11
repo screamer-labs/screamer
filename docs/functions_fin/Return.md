@@ -1,3 +1,24 @@
+---
+name: Return
+title: Simple return
+implementation_family: fin
+topics:
+- transforms
+tags:
+- return
+- pct-change
+- returns
+short: (x[t] - x[t-k]) / x[t-k] — the simple percentage return at lag k.
+inputs: 1
+outputs: 1
+parameters:
+- name: window_size
+  type: int
+  default: 1
+  min: 1
+  description: Lag for the return (1 = consecutive).
+---
+
 # `Return`
 
 ## Description
@@ -15,6 +36,8 @@ $$
 - `delay` (int): The number of steps backward to use for calculating the return. Must be non-negative.
 
 *NaN handling*: When `delay` exceeds the available data points at the start of the sequence, or if `x[i - \text{delay}]` equals zero (to avoid division by zero), the output is set to `NaN`.
+
+<!-- HELP_END -->
 
 ## Usage Example and Plot
 

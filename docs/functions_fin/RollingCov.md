@@ -1,3 +1,32 @@
+---
+name: RollingCov
+title: Rolling covariance
+implementation_family: fin
+topics:
+- correlation
+- statistics
+tags:
+- covariance
+- pair
+short: Rolling sample covariance of two parallel streams.
+inputs: 2
+outputs: 1
+parameters:
+- name: window_size
+  type: int
+  default: 20
+  min: 2
+  description: Window length.
+- name: start_policy
+  type: str
+  default: strict
+  enum:
+  - strict
+  - expanding
+  - zero
+  description: Warmup behaviour.
+---
+
 # `RollingCov`
 
 ## Description
@@ -20,6 +49,8 @@ with the sums taken over the most recent `window_size` samples. The `n - 1` deno
 *Input shape*: takes **two** parallel streams. See [`RollingCorr`](RollingCorr.md) for the full input/output table; the call signature is identical.
 
 *Return value*: a real number. Returns `NaN` during warmup. Returns `0` when one of the streams is constant within the window (covariance with a constant series is zero, well-defined).
+
+<!-- HELP_END -->
 
 ## Usage Example and Plot
 

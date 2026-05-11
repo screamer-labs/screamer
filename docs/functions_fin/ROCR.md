@@ -1,3 +1,24 @@
+---
+name: ROCR
+title: Rate of change ratio (ROCR)
+implementation_family: fin
+topics:
+- momentum
+tags:
+- rocr
+- rate-of-change
+- talib
+short: x[t] / x[t-k] — TA-Lib's ROCR.
+inputs: 1
+outputs: 1
+parameters:
+- name: window_size
+  type: int
+  default: 10
+  min: 1
+  description: Lookback k.
+---
+
 # `ROCR`
 
 ## Description
@@ -19,6 +40,8 @@ The ratio form is convenient when you want to chain returns multiplicatively (e.
 ## Identity to ROCP
 
 `ROCR(k) - 1 == ROCP(k)` exactly. Pick whichever form keeps the calling code cleaner.
+
+<!-- HELP_END -->
 
 ## Reference
 

@@ -1,3 +1,24 @@
+---
+name: LogReturn
+title: Log return
+implementation_family: fin
+topics:
+- transforms
+tags:
+- return
+- log-return
+- returns
+short: log(x[t] / x[t-k]) — log return at lag k.
+inputs: 1
+outputs: 1
+parameters:
+- name: window_size
+  type: int
+  default: 1
+  min: 1
+  description: Lag for the log return.
+---
+
 # `LogReturn`
 
 ## Description
@@ -15,6 +36,8 @@ $$
 - `delay` (int): The number of steps backward to use for calculating the log return. Must be non-negative.
 
 *NaN handling*: When `delay` exceeds the available data points at the start of the sequence or if `x[i - \text{delay}]` is zero or negative (to avoid invalid operations in the logarithm), the output is set to `NaN`.
+
+<!-- HELP_END -->
 
 ## Usage Example and Plot
 

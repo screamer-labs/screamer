@@ -60,20 +60,31 @@ def parse_file(path: Path):
 
 
 def pybind_param_names(cls) -> list[str]:
-    """Extract parameter names from a pybind11 class' __init__ docstring."""
+    """Extract parameter names from a pybind11 class' __init__ docstring.
+
+    Naive comma-splitting breaks on container default values like
+    ``taps: list[float] = [0.25, 0.5, 0.25]``. We split only at commas
+    that are at bracket-depth zero.
+    """
     doc = (cls.__init__.__doc__ or "").splitlines()[0]
     m = PYBIND_SIG_RE.search(doc)
     if not m or not m.group(1):
         return []
-    params = []
-    for chunk in m.group(1).split(","):
-        chunk = chunk.strip()
-        if not chunk:
-            continue
-        # name: type [= default]
-        name = chunk.split(":", 1)[0].strip()
-        params.append(name)
-    return params
+    raw = m.group(1)
+    chunks, buf, depth = [], "", 0
+    for ch in raw:
+        if ch in "([{":
+            depth += 1
+        elif ch in ")]}":
+            depth -= 1
+        if ch == "," and depth == 0:
+            chunks.append(buf)
+            buf = ""
+        else:
+            buf += ch
+    if buf:
+        chunks.append(buf)
+    return [c.strip().split(":", 1)[0].strip() for c in chunks if c.strip()]
 
 
 def validate(entry: dict, screamer_module) -> None:

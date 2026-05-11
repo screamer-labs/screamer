@@ -1,3 +1,33 @@
+---
+name: RollingSpread
+title: Rolling spread
+implementation_family: fin
+topics:
+- correlation
+- regression
+tags:
+- spread
+- hedge
+- pair
+short: x - beta(x,y) * y — hedge-adjusted residual.
+inputs: 2
+outputs: 1
+parameters:
+- name: window_size
+  type: int
+  default: 20
+  min: 2
+  description: Window length.
+- name: start_policy
+  type: str
+  default: strict
+  enum:
+  - strict
+  - expanding
+  - zero
+  description: Warmup behaviour.
+---
+
 # `RollingSpread`
 
 ## Description
@@ -24,6 +54,8 @@ with the sums in `cov` and `var` taken over the most recent `window_size` sample
 *Input shape*: two parallel streams, identical to [`RollingCorr`](RollingCorr.md).
 
 *Return value*: a real number, the residual. Returns `NaN` during warmup or when `y` has zero variance within the window.
+
+<!-- HELP_END -->
 
 ## Usage Example and Plot
 

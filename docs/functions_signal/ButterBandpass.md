@@ -1,3 +1,36 @@
+---
+name: ButterBandpass
+title: Butterworth band-pass filter
+implementation_family: signal
+topics:
+- signal-processing
+tags:
+- butterworth
+- iir
+- bandpass
+short: General-order IIR Butterworth band-pass filter.
+inputs: 1
+outputs: 1
+parameters:
+- name: order
+  type: int
+  default: 2
+  min: 1
+  description: Filter order.
+- name: low_cutoff
+  type: float
+  default: 0.05
+  min: 0.0
+  max: 0.5
+  description: Lower cutoff frequency (normalised).
+- name: high_cutoff
+  type: float
+  default: 0.2
+  min: 0.0
+  max: 0.5
+  description: Upper cutoff frequency (normalised); must exceed low_cutoff.
+---
+
 # `ButterBandpass`
 
 ## Description
@@ -18,3 +51,5 @@ from screamer import ButterBandpass
 bp = ButterBandpass(order=4, low_cutoff=0.1, high_cutoff=0.3)
 out = bp(signal)
 ```
+
+<!-- HELP_END -->

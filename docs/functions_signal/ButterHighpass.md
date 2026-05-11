@@ -1,3 +1,30 @@
+---
+name: ButterHighpass
+title: Butterworth high-pass filter
+implementation_family: signal
+topics:
+- signal-processing
+tags:
+- butterworth
+- iir
+- highpass
+short: General-order IIR Butterworth high-pass filter (rejects low frequencies).
+inputs: 1
+outputs: 1
+parameters:
+- name: order
+  type: int
+  default: 2
+  min: 1
+  description: Filter order.
+- name: cutoff_freq
+  type: float
+  default: 0.1
+  min: 0.0
+  max: 0.5
+  description: Normalised cutoff.
+---
+
 # `ButterHighpass`
 
 ## Description
@@ -10,6 +37,8 @@ $$
 
 - `order` (int, $\ge 1$): filter order. Higher order = steeper roll-off, larger group delay.
 - `cutoff_freq` (float in $(0, 1)$): normalised cutoff. `1` is the Nyquist frequency (matches `scipy.signal.butter`'s `Wn` convention).
+
+<!-- HELP_END -->
 
 ## Implementation Details
 

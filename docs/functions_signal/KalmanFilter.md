@@ -1,3 +1,40 @@
+---
+name: KalmanFilter
+title: Scalar Kalman filter
+implementation_family: signal
+topics:
+- signal-processing
+- smoothing
+tags:
+- kalman
+- state-space
+- adaptive
+short: Scalar 1-D Kalman filter for a noisy random-walk model.
+inputs: 1
+outputs: 1
+parameters:
+- name: process_var
+  type: float
+  default: 0.01
+  min: 0.0
+  description: Variance of the random-walk innovation (larger = more responsive).
+- name: observation_var
+  type: float
+  default: 1.0
+  min: 0.0
+  description: Variance of the measurement noise.
+- name: initial_state
+  type: float
+  default: 0.0
+  description: Initial state estimate.
+- name: initial_variance
+  type: float
+  default: 1.0
+  min: 0.0
+  description: Initial state variance. Set to a large value to forget the initial
+    state quickly.
+---
+
 # `KalmanFilter`
 
 ## Description
@@ -25,6 +62,8 @@ In the steady state $K$ converges to a constant determined by $\sigma^2_p / \sig
 ## Implementation Details
 
 Constant-time O(1) per step; no buffer, two scalar state variables (`x`, `P`).
+
+<!-- HELP_END -->
 
 ## Usage Example
 
