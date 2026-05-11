@@ -1,0 +1,20 @@
+# `ButterBandpass`
+
+## Description
+
+Digital band-pass Butterworth IIR filter. Produces a 2N-order filter from the order-N analog prototype via the `lp2bp` transformation.
+
+$$
+\text{ButterBandpass}(N, W_{\text{low}}, W_{\text{high}})
+$$
+
+- `order` (int, $\ge 1$): order of the analog prototype. Effective digital order is `2 * order`.
+- `low_cutoff`, `high_cutoff` (floats in $(0, 1)$, with `low < high`): pass band as fractions of the Nyquist frequency.
+
+Bit-exact match to `scipy.signal.butter(order, [low, high], btype='bandpass')` + `scipy.signal.lfilter`. Verified to ~1e-9 in `tests/test_signal.py`.
+
+```python
+from screamer import ButterBandpass
+bp = ButterBandpass(order=4, low_cutoff=0.1, high_cutoff=0.3)
+out = bp(signal)
+```

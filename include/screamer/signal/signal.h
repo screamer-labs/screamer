@@ -103,6 +103,92 @@ std::vector<std::complex<double>> poly(const std::vector<std::complex<double>>& 
     return coeffs;
 }
 
+// Helper: real part of prod(-roots).
+inline std::complex<double> prod_neg(const std::vector<std::complex<double>>& roots) {
+    std::complex<double> p(1.0, 0.0);
+    for (const auto& r : roots) p *= (-r);
+    return p;
+}
+
+
+// Low-pass to high-pass ZPK transformation.
+// Mirrors each finite zero/pole through wo:  s -> wo / s
+ZPK lp2hp_zpk(const std::vector<std::complex<double>>& z,
+              const std::vector<std::complex<double>>& p,
+              double k, double wo = 1.0) {
+    std::vector<std::complex<double>> z_hp, p_hp;
+    for (const auto& zi : z) z_hp.push_back(wo / zi);
+    for (const auto& pi : p) p_hp.push_back(wo / pi);
+
+    // Original zeros at infinity become zeros at the origin for HP.
+    const int degree = relative_degree(z, p);
+    for (int i = 0; i < degree; ++i) z_hp.push_back(std::complex<double>(0.0, 0.0));
+
+    // Cancel out gain change caused by the inversion.
+    const double k_hp = k * std::real(prod_neg(z) / prod_neg(p));
+    return {z_hp, p_hp, k_hp};
+}
+
+
+// Low-pass to band-pass ZPK transformation.
+// Substitution: s -> (s^2 + wo^2) / (s * bw)
+ZPK lp2bp_zpk(const std::vector<std::complex<double>>& z,
+              const std::vector<std::complex<double>>& p,
+              double k, double wo = 1.0, double bw = 1.0) {
+    const std::complex<double> wo2(wo * wo, 0.0);
+    const double half_bw = bw / 2.0;
+    std::vector<std::complex<double>> z_bp, p_bp;
+    for (const auto& zi : z) {
+        std::complex<double> z_lp = zi * half_bw;
+        std::complex<double> root = std::sqrt(z_lp * z_lp - wo2);
+        z_bp.push_back(z_lp + root);
+        z_bp.push_back(z_lp - root);
+    }
+    for (const auto& pi : p) {
+        std::complex<double> p_lp = pi * half_bw;
+        std::complex<double> root = std::sqrt(p_lp * p_lp - wo2);
+        p_bp.push_back(p_lp + root);
+        p_bp.push_back(p_lp - root);
+    }
+    // Original zeros at infinity become zeros at origin.
+    const int degree = relative_degree(z, p);
+    for (int i = 0; i < degree; ++i) z_bp.push_back(std::complex<double>(0.0, 0.0));
+    const double k_bp = k * std::pow(bw, degree);
+    return {z_bp, p_bp, k_bp};
+}
+
+
+// Low-pass to band-stop ZPK transformation.
+// Substitution: s -> (s * bw) / (s^2 + wo^2)
+ZPK lp2bs_zpk(const std::vector<std::complex<double>>& z,
+              const std::vector<std::complex<double>>& p,
+              double k, double wo = 1.0, double bw = 1.0) {
+    const std::complex<double> wo2(wo * wo, 0.0);
+    const double half_bw = bw / 2.0;
+    std::vector<std::complex<double>> z_bs, p_bs;
+    for (const auto& zi : z) {
+        std::complex<double> z_hp = std::complex<double>(half_bw, 0.0) / zi;
+        std::complex<double> root = std::sqrt(z_hp * z_hp - wo2);
+        z_bs.push_back(z_hp + root);
+        z_bs.push_back(z_hp - root);
+    }
+    for (const auto& pi : p) {
+        std::complex<double> p_hp = std::complex<double>(half_bw, 0.0) / pi;
+        std::complex<double> root = std::sqrt(p_hp * p_hp - wo2);
+        p_bs.push_back(p_hp + root);
+        p_bs.push_back(p_hp - root);
+    }
+    // Original zeros at infinity become zeros at +/- j*wo.
+    const int degree = relative_degree(z, p);
+    for (int i = 0; i < degree; ++i) {
+        z_bs.push_back(std::complex<double>(0.0,  wo));
+        z_bs.push_back(std::complex<double>(0.0, -wo));
+    }
+    const double k_bs = k * std::real(prod_neg(z) / prod_neg(p));
+    return {z_bs, p_bs, k_bs};
+}
+
+
 // Low-pass to low-pass transformation for ZPK representation
 ZPK lp2lp_zpk(const std::vector<std::complex<double>>& z,
               const std::vector<std::complex<double>>& p,

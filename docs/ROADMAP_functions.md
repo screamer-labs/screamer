@@ -265,17 +265,19 @@ not as streaming primitives in any reference library. Adding them to
 
 | | |
 |---|---|
-| `Butter(order, cutoff)` | low-pass Butterworth filter |
+| `Butter(order, cutoff)` | low-pass Butterworth IIR filter |
+| `ButterHighpass(order, cutoff)` | high-pass Butterworth IIR filter |
+| `ButterBandpass(order, low, high)` | band-pass Butterworth IIR filter (2N-order) |
+| `ButterBandstop(order, low, high)` | band-stop (notch) Butterworth IIR filter (2N-order) |
+| `MovingAverage(taps)` | FIR filter with arbitrary user-supplied tap coefficients. Pair with `np.hamming` / `np.kaiser` / `scipy.signal.firwin` |
+| `KalmanFilter(process_var, observation_var)` | scalar 1-D Kalman filter (random-walk-with-noise model). O(1) per step |
 
 ### Gaps
 
 | Function | Description | Quadrant | Priority | Note |
 |---|---|---|---|---|
-| `Butter(...)` extensions | high-pass, band-pass, band-stop variants | 1→1 | 🟡 | one parameter from current implementation |
-| `Bessel`, `Cheby1`, `Cheby2`, `Elliptic` | other classical IIR families | 1→1 | ⚪ | scipy.signal coverage |
-| `MovingAverage(taps)` | finite-impulse-response (FIR) with arbitrary taps | 1→1 | 🟡 | covers Hamming / Blackman / Kaiser windows |
+| `Bessel`, `Cheby1`, `Cheby2`, `Elliptic` | other classical IIR families (LP/HP/BP/BS variants each) | 1→1 | ⚪ | substantial work: each needs its own analog-prototype design code; can reuse the existing lp2hp/lp2bp/lp2bs ZPK transformations once the prototype is available |
 | `Hilbert` | Hilbert transform (analytic signal) | 1→2 | ⚪ | foundation for instantaneous amplitude / frequency, MAMA, etc. |
-| `KalmanFilter` | classical 1-D Kalman filter | 1→1 | ⚪ | several adaptive financial techniques rely on this; FilterPy has it offline |
 
 
 ## Scope deliberately excluded
