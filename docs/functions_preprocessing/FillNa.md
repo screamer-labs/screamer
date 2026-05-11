@@ -1,3 +1,22 @@
+---
+name: FillNa
+title: Replace NaNs with a constant
+implementation_family: preprocessing
+topics:
+- data-handling
+tags:
+- nan
+- fill
+short: Replace NaN with a user-specified scalar.
+inputs: 1
+outputs: 1
+parameters:
+- name: fill
+  type: float
+  default: 0.0
+  description: Value used to replace NaN. Default 0.
+---
+
 # `FillNa`
 
 ## Description
@@ -8,6 +27,8 @@ The `FillNa` class replaces any `NaN` values in a data sequence with a specified
 - **`fill`**: The value to replace `NaN` entries with. This can be any numeric value, allowing customization to fit the context of the data.
 
 *NaN handling*: All `NaN` values are replaced with the specified `fill` value, ensuring no `NaN` values remain in the output data.
+
+<!-- HELP_END -->
 
 ## Usage Example and Plot
 

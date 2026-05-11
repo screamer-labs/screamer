@@ -1,3 +1,32 @@
+---
+name: Lag
+title: Lag (delay)
+implementation_family: misc
+topics:
+- transforms
+tags:
+- lag
+- delay
+short: Output is the input delayed by k samples.
+inputs: 1
+outputs: 1
+parameters:
+- name: window_size
+  type: int
+  default: 1
+  min: 1
+  description: Number of samples to delay by.
+- name: start_policy
+  type: str
+  default: strict
+  enum:
+  - strict
+  - expanding
+  - zero
+  description: 'Warmup behaviour: ''strict'' (NaN until full window), ''expanding''
+    (use partial windows), or ''zero'' (treat missing as zero).'
+---
+
 # `Lag`
 
 ## Description
@@ -15,6 +44,8 @@ $$
 - `delay` (int): The number of steps by which to shift the input. Must be non-negative.
 
 *NaN handling*: When `delay` is larger than the available data at the beginning of the sequence, resulting elements are set to `NaN`.
+
+<!-- HELP_END -->
 
 ## Usage Example and Plot
 

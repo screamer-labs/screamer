@@ -1,3 +1,27 @@
+---
+name: Clip
+title: Clip to bounds
+implementation_family: preprocessing
+topics:
+- data-handling
+tags:
+- clip
+- bound
+- outlier
+short: Bound each element below and/or above.
+inputs: 1
+outputs: 1
+parameters:
+- name: lower
+  type: float|null
+  default: null
+  description: Lower bound (None = no lower clipping).
+- name: upper
+  type: float|null
+  default: null
+  description: Upper bound (None = no upper clipping).
+---
+
 # `Clip`
 
 ## Description
@@ -9,6 +33,8 @@ The `Clip` class restricts each value in a data sequence to fall within a specif
 - **`upper`** (optional): The maximum allowable value. If a data point exceeds this threshold, it will be set to `upper`. If unspecified, there is no upper bound.
 
 *NaN handling*: NaN values are not modified by this function and remain as NaN if present in the input data.
+
+<!-- HELP_END -->
 
 ## Usage Example and Plot
 

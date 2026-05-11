@@ -1,3 +1,18 @@
+---
+name: CumSum
+title: Cumulative sum
+implementation_family: misc
+topics:
+- transforms
+tags:
+- cumulative
+- sum
+short: Running sum from t=0.
+inputs: 1
+outputs: 1
+parameters: []
+---
+
 # `CumSum`
 
 ## Description
@@ -13,6 +28,8 @@ $$
 *Parameters*: none.
 
 *NaN handling*: NaN propagates by ordinary IEEE-754 addition. Once a NaN enters the input, every subsequent output is NaN. This matches `numpy.cumsum`, not `pandas.Series.cumsum(skipna=True)`.
+
+<!-- HELP_END -->
 
 ## Usage Example and Plot
 

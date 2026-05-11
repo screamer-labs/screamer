@@ -1,3 +1,37 @@
+---
+name: EwCorr
+title: Exponentially-weighted correlation
+implementation_family: ew
+topics:
+- correlation
+- statistics
+tags:
+- ew
+- correlation
+- pair
+short: EW Pearson correlation of two parallel streams.
+inputs: 2
+outputs: 1
+parameters:
+- name: com
+  type: float
+  default: null
+  description: Center of mass (alpha = 1 / (1 + com)). Exclusive with span/halflife/alpha.
+- name: span
+  type: float
+  default: 20.0
+  description: Span (alpha = 2 / (span + 1)). Default smoothing parameter. Exclusive
+    with com/halflife/alpha.
+- name: halflife
+  type: float
+  default: null
+  description: Halflife (alpha = 1 - 0.5^(1/halflife)). Exclusive with com/span/alpha.
+- name: alpha
+  type: float
+  default: null
+  description: Smoothing parameter directly. Exclusive with com/span/halflife.
+---
+
 # `EwCorr`
 
 ## Description
@@ -40,6 +74,8 @@ np.testing.assert_allclose(
     equal_nan=True, atol=1e-12,
 )
 ```
+
+<!-- HELP_END -->
 
 ## Usage Example and Plot
 

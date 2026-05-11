@@ -1,3 +1,38 @@
+---
+name: EwMean
+title: Exponentially-weighted mean
+implementation_family: ew
+topics:
+- trend
+- smoothing
+- statistics
+tags:
+- ema
+- exponential
+- mean
+short: Exponentially-weighted moving average (pandas adjust=True).
+inputs: 1
+outputs: 1
+parameters:
+- name: com
+  type: float
+  default: null
+  description: Center of mass (alpha = 1 / (1 + com)). Exclusive with span/halflife/alpha.
+- name: span
+  type: float
+  default: 20.0
+  description: Span (alpha = 2 / (span + 1)). Default smoothing parameter. Exclusive
+    with com/halflife/alpha.
+- name: halflife
+  type: float
+  default: null
+  description: Halflife (alpha = 1 - 0.5^(1/halflife)). Exclusive with com/span/alpha.
+- name: alpha
+  type: float
+  default: null
+  description: Smoothing parameter directly. Exclusive with com/span/halflife.
+---
+
 # `EwMean`
 
 ## Description
@@ -78,3 +113,4 @@ $$
 \text{EwMean} = \frac{S_x}{S_w}
 $$
 
+<!-- HELP_END -->

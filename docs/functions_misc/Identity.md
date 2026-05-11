@@ -1,3 +1,18 @@
+---
+name: Identity
+title: Identity
+implementation_family: misc
+topics:
+- transforms
+tags:
+- identity
+- noop
+short: Pass-through (y = x).
+inputs: 1
+outputs: 1
+parameters: []
+---
+
 # `Identity`
 
 ## Description
@@ -13,6 +28,8 @@ $$
 *Parameters*: `Identity` takes no parameters.
 
 *NaN handling*: Inputs pass through bit-for-bit, including `NaN` and infinities.
+
+<!-- HELP_END -->
 
 ## Usage Example
 

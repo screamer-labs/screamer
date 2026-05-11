@@ -1,3 +1,32 @@
+---
+name: Detrend
+title: Detrend
+implementation_family: misc
+topics:
+- transforms
+tags:
+- detrend
+- centered
+short: x[t] minus its rolling mean.
+inputs: 1
+outputs: 1
+parameters:
+- name: window_size
+  type: int
+  default: 20
+  min: 2
+  description: Window for the trailing rolling mean.
+- name: start_policy
+  type: str
+  default: strict
+  enum:
+  - strict
+  - expanding
+  - zero
+  description: 'Warmup behaviour: ''strict'' (NaN until full window), ''expanding''
+    (use partial windows), or ''zero'' (treat missing as zero).'
+---
+
 # `Detrend`
 
 ## Description
@@ -18,6 +47,8 @@ where $w$ is the `window_size`.
 - `start_policy` (str, optional): warmup behaviour, `"strict"` (default), `"truncate"`, or `"zero"`. Same semantics as the rolling functions.
 
 *NaN handling*: Under `start_policy="strict"` the rolling mean is NaN until `window_size` samples have been observed, and `Detrend` therefore emits NaN during that warmup. NaN inputs propagate through the rolling buffer.
+
+<!-- HELP_END -->
 
 ## Usage Example and Plot
 

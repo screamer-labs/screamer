@@ -1,3 +1,28 @@
+---
+name: Diff2
+title: Second difference
+implementation_family: misc
+topics:
+- transforms
+- momentum
+tags:
+- diff
+- second-derivative
+short: Second-order finite difference (discrete second derivative).
+inputs: 1
+outputs: 1
+parameters:
+- name: start_policy
+  type: str
+  default: strict
+  enum:
+  - strict
+  - expanding
+  - zero
+  description: 'Warmup behaviour: ''strict'' (NaN until full window), ''expanding''
+    (use partial windows), or ''zero'' (treat missing as zero).'
+---
+
 # `Diff2`
 
 ## Description
@@ -19,6 +44,8 @@ equivalent to $\Delta(\Delta x)$.
 *NaN handling*: Under `start_policy="strict"` the first two outputs are `NaN`. NaN inputs propagate.
 
 *Note*: `Diff2` is **not** the same as `Diff(2)`. `Diff(2)` is the *lag-2 first* difference $x[t] - x[t-2]$. `Diff2` is the *second-order* difference, i.e. the difference of differences. On a quadratic input $x[t] = a t^2 + b t + c$ the result is the constant $2a$.
+
+<!-- HELP_END -->
 
 ## Usage Example and Plot
 

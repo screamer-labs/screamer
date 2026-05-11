@@ -1,3 +1,33 @@
+---
+name: Momentum
+title: Momentum
+implementation_family: misc
+topics:
+- momentum
+tags:
+- momentum
+- mom
+- talib
+short: x[t] - x[t-k], TA-Lib's MOM. Mathematically identical to Diff(k).
+inputs: 1
+outputs: 1
+parameters:
+- name: window_size
+  type: int
+  default: 10
+  min: 1
+  description: Lookback k. TA-Lib defaults to 10.
+- name: start_policy
+  type: str
+  default: strict
+  enum:
+  - strict
+  - expanding
+  - zero
+  description: 'Warmup behaviour: ''strict'' (NaN until full window), ''expanding''
+    (use partial windows), or ''zero'' (treat missing as zero).'
+---
+
 # `Momentum`
 
 ## Description
@@ -23,6 +53,8 @@ $$
 | Any other context | `Diff(k)` |
 
 Both produce identical output bit-for-bit (matches `talib.MOM` to 0.0 -- exact integer arithmetic).
+
+<!-- HELP_END -->
 
 ## Reference
 

@@ -1,3 +1,37 @@
+---
+name: EwCov
+title: Exponentially-weighted covariance
+implementation_family: ew
+topics:
+- correlation
+- statistics
+tags:
+- ew
+- covariance
+- pair
+short: EW covariance of two parallel streams.
+inputs: 2
+outputs: 1
+parameters:
+- name: com
+  type: float
+  default: null
+  description: Center of mass (alpha = 1 / (1 + com)). Exclusive with span/halflife/alpha.
+- name: span
+  type: float
+  default: 20.0
+  description: Span (alpha = 2 / (span + 1)). Default smoothing parameter. Exclusive
+    with com/halflife/alpha.
+- name: halflife
+  type: float
+  default: null
+  description: Halflife (alpha = 1 - 0.5^(1/halflife)). Exclusive with com/span/alpha.
+- name: alpha
+  type: float
+  default: null
+  description: Smoothing parameter directly. Exclusive with com/span/halflife.
+---
+
 # `EwCov`
 
 ## Description
@@ -24,6 +58,8 @@ $$
 $$
 
 where $N_{\text{eff}} = S_w^2 / S_{ww}$ is the effective sample size, computed exactly as in `EwVar`. The bias correction makes the estimator unbiased under independent sampling.
+
+<!-- HELP_END -->
 
 ## Usage Example
 

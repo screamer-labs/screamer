@@ -1,4 +1,440 @@
 {
+  "EwBeta": {
+    "name": "EwBeta",
+    "title": "Exponentially-weighted beta",
+    "implementation_family": "ew",
+    "topics": [
+      "correlation",
+      "regression"
+    ],
+    "tags": [
+      "ew",
+      "beta",
+      "pair",
+      "capm"
+    ],
+    "short": "EW CAPM beta: cov(target, regressor) / var(regressor).",
+    "inputs": 2,
+    "outputs": 1,
+    "parameters": [
+      {
+        "name": "com",
+        "type": "float",
+        "default": null,
+        "description": "Center of mass (alpha = 1 / (1 + com)). Exclusive with span/halflife/alpha."
+      },
+      {
+        "name": "span",
+        "type": "float",
+        "default": 20.0,
+        "description": "Span (alpha = 2 / (span + 1)). Default smoothing parameter. Exclusive with com/halflife/alpha."
+      },
+      {
+        "name": "halflife",
+        "type": "float",
+        "default": null,
+        "description": "Halflife (alpha = 1 - 0.5^(1/halflife)). Exclusive with com/span/alpha."
+      },
+      {
+        "name": "alpha",
+        "type": "float",
+        "default": null,
+        "description": "Smoothing parameter directly. Exclusive with com/span/halflife."
+      }
+    ],
+    "body_markdown": "# `EwBeta`\n\n## Description\n\n`EwBeta` computes the exponentially weighted regression slope of `x` on `y`:\n\n$$\n\\text{EwBeta}(x, y) = \\frac{\\operatorname{Cov}(x, y)}{\\operatorname{Var}(y)}\n$$\n\nThis is a **2-input, 1-output** function (`FunctorBase<_, 2, 1>`).\n\n## Argument-order convention\n\nThe **first argument is the dependent (target)**, the **second is the regressor**. Calling `EwBeta(asset_returns, market_returns)` returns the asset's beta with respect to the market, matching the CAPM definition and the existing `RollingBeta` convention.\n\nThis is the *opposite* of pandas (`pandas.ols`-style and most pandas docs use slope of `y` on `x`).\n\n## Parameters\n\nSpecify exactly one of the following to set the smoothing factor `alpha`:\n\n- **`com`**: Center of mass. `alpha = 1 / (1 + com)`\n- **`span`**: Span. `alpha = 2 / (span + 1)`\n- **`halflife`**: Half-life. `alpha = 1 - exp(-log(2) / halflife)`\n- **`alpha`**: Directly sets the smoothing factor, `0 < alpha < 1`\n\nThe first sample is `NaN`. Subsequent NaNs occur when the regressor has zero variance over the effective window.\n\n## Formula\n\nThe bias-correction factor that `EwVar` and `EwCov` apply cancels between numerator and denominator, so `EwBeta` uses the simpler unbiased form. With $\\bar{x} = S_x / S_w$ and $\\bar{y} = S_y / S_w$:\n\n$$\n\\text{EwBeta} = \\frac{\\dfrac{S_{xy}}{S_w} - \\bar{x}\\,\\bar{y}}\n                     {\\dfrac{S_{yy}}{S_w} - \\bar{y}^2}\n$$\n\nIf the denominator is zero or non-positive, the output is `NaN`.\n\n## Identity check\n\nBy definition `EwBeta(x, y) == EwCov(x, y) / EwVar(y)`. Verified to ~1e-12 in the test suite."
+  },
+  "EwCorr": {
+    "name": "EwCorr",
+    "title": "Exponentially-weighted correlation",
+    "implementation_family": "ew",
+    "topics": [
+      "correlation",
+      "statistics"
+    ],
+    "tags": [
+      "ew",
+      "correlation",
+      "pair"
+    ],
+    "short": "EW Pearson correlation of two parallel streams.",
+    "inputs": 2,
+    "outputs": 1,
+    "parameters": [
+      {
+        "name": "com",
+        "type": "float",
+        "default": null,
+        "description": "Center of mass (alpha = 1 / (1 + com)). Exclusive with span/halflife/alpha."
+      },
+      {
+        "name": "span",
+        "type": "float",
+        "default": 20.0,
+        "description": "Span (alpha = 2 / (span + 1)). Default smoothing parameter. Exclusive with com/halflife/alpha."
+      },
+      {
+        "name": "halflife",
+        "type": "float",
+        "default": null,
+        "description": "Halflife (alpha = 1 - 0.5^(1/halflife)). Exclusive with com/span/alpha."
+      },
+      {
+        "name": "alpha",
+        "type": "float",
+        "default": null,
+        "description": "Smoothing parameter directly. Exclusive with com/span/halflife."
+      }
+    ],
+    "body_markdown": "# `EwCorr`\n\n## Description\n\n`EwCorr` computes the exponentially weighted moving Pearson correlation of two streams. Bounded to $[-1, 1]$. Matches `pandas.Series.ewm(adjust=True).corr(other)`. This is a **2-input, 1-output** function (`FunctorBase<_, 2, 1>`).\n\n## Parameters\n\nSpecify exactly one of the following to set the smoothing factor `alpha`:\n\n- **`com`**: Center of mass. `alpha = 1 / (1 + com)`\n- **`span`**: Span. `alpha = 2 / (span + 1)`\n- **`halflife`**: Half-life. `alpha = 1 - exp(-log(2) / halflife)`\n- **`alpha`**: Directly sets the smoothing factor, `0 < alpha < 1`\n\nThe first sample is `NaN`. Subsequent NaNs occur when either input has zero variance over the effective window.\n\n## Formula\n\nThe bias-correction factor that `EwVar` and `EwCov` apply cancels in the numerator-vs-denominator ratio, so `EwCorr` uses the simpler unbiased form. With $\\bar{x} = S_x / S_w$ and $\\bar{y} = S_y / S_w$:\n\n$$\n\\text{EwCorr} =\n\\frac{\\dfrac{S_{xy}}{S_w} - \\bar{x}\\,\\bar{y}}\n     {\\sqrt{\\left(\\dfrac{S_{xx}}{S_w} - \\bar{x}^2\\right)\\left(\\dfrac{S_{yy}}{S_w} - \\bar{y}^2\\right)}}\n$$\n\nIf either denominator factor is zero (a constant input over the effective window), the output is `NaN`.\n\n## Identity check\n\n`EwCorr` is exactly `EwCov / sqrt(EwVar(x) · EwVar(y))` because the bias factors cancel:\n\n```python\nfrom screamer import EwCorr, EwCov, EwVar\ndenom = np.sqrt(EwVar(alpha=0.1)(x) * EwVar(alpha=0.1)(y))\nnp.testing.assert_allclose(\n    EwCorr(alpha=0.1)(x, y),\n    EwCov(alpha=0.1)(x, y) / denom,\n    equal_nan=True, atol=1e-12,\n)\n```"
+  },
+  "EwCov": {
+    "name": "EwCov",
+    "title": "Exponentially-weighted covariance",
+    "implementation_family": "ew",
+    "topics": [
+      "correlation",
+      "statistics"
+    ],
+    "tags": [
+      "ew",
+      "covariance",
+      "pair"
+    ],
+    "short": "EW covariance of two parallel streams.",
+    "inputs": 2,
+    "outputs": 1,
+    "parameters": [
+      {
+        "name": "com",
+        "type": "float",
+        "default": null,
+        "description": "Center of mass (alpha = 1 / (1 + com)). Exclusive with span/halflife/alpha."
+      },
+      {
+        "name": "span",
+        "type": "float",
+        "default": 20.0,
+        "description": "Span (alpha = 2 / (span + 1)). Default smoothing parameter. Exclusive with com/halflife/alpha."
+      },
+      {
+        "name": "halflife",
+        "type": "float",
+        "default": null,
+        "description": "Halflife (alpha = 1 - 0.5^(1/halflife)). Exclusive with com/span/alpha."
+      },
+      {
+        "name": "alpha",
+        "type": "float",
+        "default": null,
+        "description": "Smoothing parameter directly. Exclusive with com/span/halflife."
+      }
+    ],
+    "body_markdown": "# `EwCov`\n\n## Description\n\n`EwCov` computes the exponentially weighted moving covariance of two streams. Same bias-correction convention as `EwVar`: the formula matches `pandas.Series.ewm(adjust=True, bias=False).cov(other)`. This is a **2-input, 1-output** function (`FunctorBase<_, 2, 1>`).\n\n## Parameters\n\nSpecify exactly one of the following to set the smoothing factor `alpha`:\n\n- **`com`**: Center of mass. `alpha = 1 / (1 + com)`\n- **`span`**: Span. `alpha = 2 / (span + 1)`\n- **`halflife`**: Half-life. `alpha = 1 - exp(-log(2) / halflife)`\n- **`alpha`**: Directly sets the smoothing factor, `0 < alpha < 1`\n\nThe first sample is `NaN` (need `n_eff > 1` for the bias correction).\n\n## Formula\n\nTracks five running sums per step. With $\\bar{x} = S_x / S_w$ and $\\bar{y} = S_y / S_w$:\n\n$$\n\\text{EwCov} = \\left( \\frac{S_{xy}}{S_w} - \\bar{x}\\,\\bar{y} \\right) \\cdot \\frac{N_{\\text{eff}}}{N_{\\text{eff}} - 1}\n$$\n\nwhere $N_{\\text{eff}} = S_w^2 / S_{ww}$ is the effective sample size, computed exactly as in `EwVar`. The bias correction makes the estimator unbiased under independent sampling."
+  },
+  "EwKurt": {
+    "name": "EwKurt",
+    "title": "Exponentially-weighted kurtosis",
+    "implementation_family": "ew",
+    "topics": [
+      "statistics"
+    ],
+    "tags": [
+      "ew",
+      "kurtosis"
+    ],
+    "short": "EW excess kurtosis.",
+    "inputs": 1,
+    "outputs": 1,
+    "parameters": [
+      {
+        "name": "com",
+        "type": "float",
+        "default": null,
+        "description": "Center of mass (alpha = 1 / (1 + com)). Exclusive with span/halflife/alpha."
+      },
+      {
+        "name": "span",
+        "type": "float",
+        "default": 20.0,
+        "description": "Span (alpha = 2 / (span + 1)). Default smoothing parameter. Exclusive with com/halflife/alpha."
+      },
+      {
+        "name": "halflife",
+        "type": "float",
+        "default": null,
+        "description": "Halflife (alpha = 1 - 0.5^(1/halflife)). Exclusive with com/span/alpha."
+      },
+      {
+        "name": "alpha",
+        "type": "float",
+        "default": null,
+        "description": "Smoothing parameter directly. Exclusive with com/span/halflife."
+      }
+    ],
+    "body_markdown": "# `EwKurt`\n\n## Description\n\n`EwKurt` computes the exponentially weighted moving kurtosis, indicating the \"tailedness\" of the data distribution while emphasizing recent values.\n\n\n### Parameters\n\nOne of the following decay parameters is required to calculate `alpha`, where a higher `alpha` value gives recent points more influence:\n\n- **`com`**: Center of mass. `alpha = 1 / (1 + com)`\n- **`span`**: Span. `alpha = 2 / (span + 1)`\n- **`halflife`**: Half-life. `alpha = 1 - exp(-log(2) / halflife)`\n- **`alpha`**: Directly specifies the smoothing factor, where `0 < alpha < 1`\n\n*NaN handling*: NaN values are ignored in the mean calculation.\n\n\n### Usage Example and Plot\n\n```{eval-rst}\n.. plotly::\n    :include-source: True\n\n    import numpy as np\n    import plotly.graph_objects as go\n    from plotly.subplots import make_subplots\n\n    from screamer import EwKurt\n\n    data = np.cumsum(np.random.normal(size=300))\n    ewkurt_data = EwKurt(span=20)(data)\n\n    fig = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[1/2, 1/2], vertical_spacing=0.1)\n\n    fig.add_trace(go.Scatter(y=data, mode='lines', name='Original Data'), row=1, col=1)\n    fig.add_trace(go.Scatter(y=ewkurt_data, mode='lines', name='EwKurt', line=dict(color='red')), row=2, col=1)\n\n    fig.update_layout(\n        title=\"Exponentially Weighted Moving Kurtosis\",\n        xaxis_title=\"Index\",\n        yaxis=dict(title=\"Original Data\"),\n        yaxis2=dict(title=\"EwKurt\", range=[-1, 2]),\n        margin=dict(l=20, r=20, t=40, b=20),\n        legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1)\n    )\n\n    fig.show()\n```\n\n\n### Formula Details\n\n`EwKurt` computes the exponentially weighted excess kurtosis recursively, with a bias correction that uses an effective sample size, $N_{eff}$, derived from the sum of weights. This approach ensures an unbiased estimate even as older observations' influence diminishes over time, aligning with Pandas’ convention for excess kurtosis.\n\nLet:\n- **`alpha`** be the smoothing factor, calculated from `com`, `span`, `halflife`, or specified directly, where `0 < alpha < 1`.\n\nFor each new data point $x_t$, `EwKurt` updates five cumulative sums, $S_x$, $S_{xx}$, $S_{xxx}$, $S_{xxxx}$, $S_w$, and $S_{ww}$, as follows:\n\n1. Adjust **$S_x$**, the weighted sum of values, by retaining a fraction $(1 - \\alpha)$ of the previous weighted sum and adding the new value:\n\n$$\nS_x = S_x \\times (1 - \\alpha) + x_t\n$$\n\n2. Adjust **$S_{xx}$**, the weighted sum of squared values, by retaining a fraction of the previous sum and adding the square of the new value:\n\n$$\nS_{xx} = S_{xx} \\times (1 - \\alpha) + x_t^2\n$$\n\n3. Adjust **$S_{xxx}$**, the weighted sum of cubed values, by retaining a fraction of the previous sum and adding the cube of the new value:\n\n$$\nS_{xxx} = S_{xxx} \\times (1 - \\alpha) + x_t^3\n$$\n\n4. Adjust **$S_{xxxx}$**, the weighted sum of fourth powers, by retaining a fraction of the previous sum and adding the fourth power of the new value:\n\n$$\nS_{xxxx} = S_{xxxx} \\times (1 - \\alpha) + x_t^4\n$$\n\n5. Adjust **$S_w$**, the cumulative weight, by retaining a fraction of the previous weight and adding a weight of $1$:\n\n$$\nS_w = S_w \\times (1 - \\alpha) + 1\n$$\n\n6. Adjust **$S_{ww}$**, the cumulative squared weight, by retaining a fraction $(1 - \\alpha)^2$ of the previous squared weight and adding $1$:\n\n$$\nS_{ww} = S_{ww} \\times (1 - \\alpha)^2 + 1\n$$\n\n7. Calculate the effective sample size, $N_{eff}$, as:\n\n$$\nN_{eff} = \\frac{S_w^2}{S_{ww}}\n$$\n\n8. Compute the exponentially weighted mean, $\\text{EwMean}$, as:\n\n$$\n\\text{EwMean} = \\frac{S_x}{S_w}\n$$\n\n9. Compute the exponentially weighted variance, $\\text{EwVar}$, with bias correction:\n\n$$\n\\text{EwVar} = \\left( \\frac{S_{xx}}{S_w} - \\left( \\frac{S_x}{S_w} \\right)^2 \\right) \\times \\frac{N_{eff}}{N_{eff} - 1}\n$$\n\n10. Calculate the standard deviation, $\\text{EwStd}$, as:\n\n$$\n\\text{EwStd} = \\sqrt{\\text{EwVar}}\n$$\n\n11. Compute the fourth central moment, $m_4$, as:\n\n$$\nm_4 = \\frac{S_{xxxx}}{S_w} - 4 \\cdot \\frac{S_x}{S_w} \\cdot \\frac{S_{xxx}}{S_w} + 6 \\cdot \\left( \\frac{S_x}{S_w} \\right)^2 \\cdot \\frac{S_{xx}}{S_w} - 3 \\cdot \\left( \\frac{S_x}{S_w} \\right)^4\n$$\n\n12. Calculate the raw kurtosis, $g_2$, as:\n\n$$\ng_2 = \\frac{m_4}{\\text{EwVar}^2}\n$$\n\n13. Finally, compute the exponentially weighted excess kurtosis with bias correction:\n\n$$\n\\text{EwKurt} = \\frac{N_{eff} \\cdot (N_{eff} + 1) \\cdot g_2 - 3 \\cdot (N_{eff} - 1)^2}{(N_{eff} - 1) \\cdot (N_{eff} - 2) \\cdot (N_{eff} - 3)}\n$$\n\nThis calculation uses $N_{eff}$ to correct for the effective sample size, ensuring that the excess kurtosis measure remains unbiased by scaling based on the decreasing influence of older values."
+  },
+  "EwMean": {
+    "name": "EwMean",
+    "title": "Exponentially-weighted mean",
+    "implementation_family": "ew",
+    "topics": [
+      "trend",
+      "smoothing",
+      "statistics"
+    ],
+    "tags": [
+      "ema",
+      "exponential",
+      "mean"
+    ],
+    "short": "Exponentially-weighted moving average (pandas adjust=True).",
+    "inputs": 1,
+    "outputs": 1,
+    "parameters": [
+      {
+        "name": "com",
+        "type": "float",
+        "default": null,
+        "description": "Center of mass (alpha = 1 / (1 + com)). Exclusive with span/halflife/alpha."
+      },
+      {
+        "name": "span",
+        "type": "float",
+        "default": 20.0,
+        "description": "Span (alpha = 2 / (span + 1)). Default smoothing parameter. Exclusive with com/halflife/alpha."
+      },
+      {
+        "name": "halflife",
+        "type": "float",
+        "default": null,
+        "description": "Halflife (alpha = 1 - 0.5^(1/halflife)). Exclusive with com/span/alpha."
+      },
+      {
+        "name": "alpha",
+        "type": "float",
+        "default": null,
+        "description": "Smoothing parameter directly. Exclusive with com/span/halflife."
+      }
+    ],
+    "body_markdown": "# `EwMean`\n\n## Description\n\n`EwMean` computes the exponentially weighted moving mean of a data sequence, applying more weight to recent data points and allowing for a smoother, lagged response. You specify the decay rate through `alpha`, calculated from `com`, `span`, `halflife`, or `alpha` itself, aligning with the Pandas `ewm` interface.\n\n### Parameters\n\nOne of the following decay parameters is required to calculate `alpha`, where a higher `alpha` value gives recent points more influence:\n\n- **`com`**: Center of mass. `alpha = 1 / (1 + com)`\n- **`span`**: Span. `alpha = 2 / (span + 1)`\n- **`halflife`**: Half-life. `alpha = 1 - exp(-log(2) / halflife)`\n- **`alpha`**: Directly specifies the smoothing factor, where `0 < alpha < 1`\n\n*NaN handling*: NaN values are ignored in the mean calculation.\n\n### Usage Example and Plot\n\n```{eval-rst}\n.. plotly::\n    :include-source: True\n\n    import numpy as np\n    import plotly.graph_objects as go\n    from plotly.subplots import make_subplots\n    from screamer import EwMean\n\n    # Generate example data\n    data = np.cumsum(np.random.normal(size=300))\n\n    # Compute exponentially weighted mean with a span of 20\n    ewmean_data = EwMean(span=20)(data)\n\n    # Create subplots with original and transformed data\n    fig = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[1/2, 1/2], vertical_spacing=0.1)\n\n    fig.add_trace(go.Scatter(y=data, mode='lines', name='Original Data'), row=1, col=1)\n    fig.add_trace(go.Scatter(y=ewmean_data, mode='lines', name='EwMean', line=dict(color='red')), row=2, col=1)\n\n    fig.update_layout(\n        title=\"Exponentially Weighted Moving Mean\",\n        xaxis_title=\"Index\",\n        yaxis=dict(title=\"Original Data\"),\n        yaxis2=dict(title=\"EwMean\"),\n        margin=dict(l=20, r=20, t=80, b=20),\n        legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1)        \n    )\n\n    fig.show()\n```\n\n### Formula Details\n\n`EwMean` computes the exponentially weighted moving mean recursively. This calculation approach provides a fast, iterative update for each new value without recalculating the entire window, giving more weight to recent observations. The weighted mean formula aligns with the Pandas `ewm` interface by adjusting for the weighted contribution of each new element.\n\n\nLet:\n- **`alpha`** be the smoothing factor calculated from `com`, `span`, `halflife`, or specified directly, where `0 < alpha < 1`.\n\nFor each new data point $x_t$, `EwMean` updates two cumulative sums, $S_x$ and $S_w$, as follows:\n\n1. Adjust $S_x$ by retaining a fraction $(1 - \\alpha)$ of the previous weighted sum and then adding the new value $x_t$:\n   \n$$\nS_x = S_x \\times (1 - \\alpha) + x_t\n$$\n\n1. Adjust $S_w$, the cumulative weight, by similarly retaining a fraction $(1 - \\alpha)$ of the previous weight sum, then adding a weight of $1$:\n\n$$\nS_w = S_w \\times (1 - \\alpha) + 1\n$$\n\n3. Compute the exponentially weighted moving mean as:\n\n$$\n\\text{EwMean} = \\frac{S_x}{S_w}\n$$"
+  },
+  "EwRms": {
+    "name": "EwRms",
+    "title": "Exponentially-weighted RMS",
+    "implementation_family": "ew",
+    "topics": [
+      "volatility",
+      "statistics"
+    ],
+    "tags": [
+      "ew",
+      "rms"
+    ],
+    "short": "EW root-mean-square.",
+    "inputs": 1,
+    "outputs": 1,
+    "parameters": [
+      {
+        "name": "com",
+        "type": "float",
+        "default": null,
+        "description": "Center of mass (alpha = 1 / (1 + com)). Exclusive with span/halflife/alpha."
+      },
+      {
+        "name": "span",
+        "type": "float",
+        "default": 20.0,
+        "description": "Span (alpha = 2 / (span + 1)). Default smoothing parameter. Exclusive with com/halflife/alpha."
+      },
+      {
+        "name": "halflife",
+        "type": "float",
+        "default": null,
+        "description": "Halflife (alpha = 1 - 0.5^(1/halflife)). Exclusive with com/span/alpha."
+      },
+      {
+        "name": "alpha",
+        "type": "float",
+        "default": null,
+        "description": "Smoothing parameter directly. Exclusive with com/span/halflife."
+      }
+    ],
+    "body_markdown": "# `EwRms`\n\n## Description\n\n`EwRms` calculates the exponentially weighted moving root mean square (RMS), highlighting fluctuations in signal magnitude over time with an emphasis on recent values.\n\n\n### Parameters\n\nOne of the following decay parameters is required to calculate `alpha`, where a higher `alpha` value gives recent points more influence:\n\n- **`com`**: Center of mass. `alpha = 1 / (1 + com)`\n- **`span`**: Span. `alpha = 2 / (span + 1)`\n- **`halflife`**: Half-life. `alpha = 1 - exp(-log(2) / halflife)`\n- **`alpha`**: Directly specifies the smoothing factor, where `0 < alpha < 1`\n\n*NaN handling*: NaN values are ignored in the mean calculation.\n\n### Usage Example and Plot\n\n```{eval-rst}\n.. plotly::\n    :include-source: True\n\n    import numpy as np\n    import plotly.graph_objects as go\n    from plotly.subplots import make_subplots\n    from screamer import EwRms\n\n    data = np.cumsum(np.random.normal(size=300))\n    ewrms_data = EwRms(span=20)(data)\n\n    fig = make_subplots(\n        rows=2, cols=1,\n        shared_xaxes=True,\n        row_heights=[1/2, 1/2],\n        vertical_spacing=0.1\n    )\n\n    fig.add_trace(go.Scatter(y=data, mode='lines', name='Original Data'), row=1, col=1)\n    fig.add_trace(go.Scatter(y=ewrms_data, mode='lines', name='EwRms', line=dict(color='red')), row=2, col=1)\n\n    fig.update_layout(\n        title=\"Exponentially Weighted Moving RMS\",\n        xaxis_title=\"Index\",\n        yaxis=dict(title=\"Original Data\"),\n        yaxis2=dict(title=\"EwRms\"),\n        margin=dict(l=20, r=20, t=80, b=20),\n        legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1)        \n    )\n\n    fig.show()\n```"
+  },
+  "EwSkew": {
+    "name": "EwSkew",
+    "title": "Exponentially-weighted skewness",
+    "implementation_family": "ew",
+    "topics": [
+      "statistics"
+    ],
+    "tags": [
+      "ew",
+      "skewness"
+    ],
+    "short": "EW skewness.",
+    "inputs": 1,
+    "outputs": 1,
+    "parameters": [
+      {
+        "name": "com",
+        "type": "float",
+        "default": null,
+        "description": "Center of mass (alpha = 1 / (1 + com)). Exclusive with span/halflife/alpha."
+      },
+      {
+        "name": "span",
+        "type": "float",
+        "default": 20.0,
+        "description": "Span (alpha = 2 / (span + 1)). Default smoothing parameter. Exclusive with com/halflife/alpha."
+      },
+      {
+        "name": "halflife",
+        "type": "float",
+        "default": null,
+        "description": "Halflife (alpha = 1 - 0.5^(1/halflife)). Exclusive with com/span/alpha."
+      },
+      {
+        "name": "alpha",
+        "type": "float",
+        "default": null,
+        "description": "Smoothing parameter directly. Exclusive with com/span/halflife."
+      }
+    ],
+    "body_markdown": "# `EwSkew`\n\n## Description\n\n`EwSkew` calculates the exponentially weighted moving skewness, capturing the asymmetry of the distribution within a moving window weighted toward recent data points.\n\n\n### Parameters\n\nOne of the following decay parameters is required to calculate `alpha`, where a higher `alpha` value gives recent points more influence:\n\n- **`com`**: Center of mass. `alpha = 1 / (1 + com)`\n- **`span`**: Span. `alpha = 2 / (span + 1)`\n- **`halflife`**: Half-life. `alpha = 1 - exp(-log(2) / halflife)`\n- **`alpha`**: Directly specifies the smoothing factor, where `0 < alpha < 1`\n\n*NaN handling*: NaN values are ignored in the mean calculation.\n\n\n\n### Usage Example and Plot\n\n```{eval-rst}\n.. plotly::\n    :include-source: True\n\n    import numpy as np\n    import plotly.graph_objects as go\n    from plotly.subplots import make_subplots\n    from screamer import EwSkew\n\n    data = np.cumsum(np.random.normal(size=300))\n    ewskew_data = EwSkew(span=20)(data)\n\n    fig = make_subplots(\n        rows=2, cols=1,\n        shared_xaxes=True,\n        row_heights=[1/2, 1/2],\n        vertical_spacing=0.1\n    )\n\n    fig.add_trace(go.Scatter(y=data, mode='lines', name='Original Data'), row=1, col=1)\n    fig.add_trace(go.Scatter(y=ewskew_data, mode='lines', name='EwSkew', line=dict(color='red')), row=2, col=1)\n\n    fig.update_layout(\n        title=\"Exponentially Weighted Moving Skewness\",\n        xaxis_title=\"Index\",\n        yaxis=dict(title=\"Original Data\"),\n        yaxis2=dict(title=\"EwSkew\", range=[-.5, .5]),\n        margin=dict(l=20, r=20, t=80, b=20),\n        legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1)        \n    )\n\n    fig.show()\n```\n\n### Formula Details\n\n`EwSkew` computes the exponentially weighted moving skewness recursively, with a bias correction that uses an effective sample size, $N_{eff}$, calculated from the sum of weights. This approach ensures an unbiased estimate even as the influence of older observations diminishes over time.\n\nLet:\n- **`alpha`** be the smoothing factor, calculated from `com`, `span`, `halflife`, or specified directly, where `0 < alpha < 1`.\n\nFor each new data point $x_t$, `EwSkew` updates five cumulative sums, $S_x$, $S_{xx}$, $S_{xxx}$, $S_w$, and $S_{ww}$, as follows:\n\n1. Adjust **$S_x$**, the weighted sum of values, by retaining a fraction $(1 - \\alpha)$ of the previous weighted sum and adding the new value:\n\n$$\nS_x = S_x \\times (1 - \\alpha) + x_t\n$$\n\n2. Adjust **$S_{xx}$**, the weighted sum of squared values, by retaining a fraction of the previous sum and adding the square of the new value:\n\n$$\nS_{xx} = S_{xx} \\times (1 - \\alpha) + x_t^2\n$$\n\n3. Adjust **$S_{xxx}$**, the weighted sum of cubed values, by retaining a fraction of the previous sum and adding the cube of the new value:\n\n$$\nS_{xxx} = S_{xxx} \\times (1 - \\alpha) + x_t^3\n$$\n\n4. Adjust **$S_w$**, the cumulative weight, by retaining a fraction of the previous weight and adding a weight of $1$:\n\n$$\nS_w = S_w \\times (1 - \\alpha) + 1\n$$\n\n5. Adjust **$S_{ww}$**, the cumulative squared weight, by retaining a fraction $(1 - \\alpha)^2$ of the previous squared weight and adding $1$:\n\n$$\nS_{ww} = S_{ww} \\times (1 - \\alpha)^2 + 1\n$$\n\n6. Calculate the effective sample size, $N_{eff}$, as:\n\n$$\nN_{eff} = \\frac{S_w^2}{S_{ww}}\n$$\n\n7. Compute the exponentially weighted mean, $\\text{EwMean}$, as:\n\n$$\n\\text{EwMean} = \\frac{S_x}{S_w}\n$$\n\n8. Compute the exponentially weighted variance, $\\text{EwVar}$, with bias correction:\n\n$$\n\\text{EwVar} = \\left( \\frac{S_{xx}}{S_w} - \\left( \\frac{S_x}{S_w} \\right)^2 \\right) \\times \\frac{N_{eff}}{N_{eff} - 1}\n$$\n\n9. Calculate the standard deviation, $\\text{EwStd}$, as:\n\n$$\n\\text{EwStd} = \\sqrt{\\text{EwVar}}\n$$\n\n10. Compute the third central moment, $m_3$, for skewness:\n\n$$\nm_3 = \\frac{S_{xxx}}{S_w} - 3 \\cdot \\frac{S_x}{S_w} \\cdot \\frac{S_{xx}}{S_w} + 2 \\cdot \\left( \\frac{S_x}{S_w} \\right)^3\n$$\n\n11. Calculate the raw skewness, $g_1$, as:\n\n$$\ng_1 = \\frac{m_3}{\\text{EwStd}^3}\n$$\n\n12. Finally, compute the exponentially weighted moving skewness with bias correction:\n\n$$\n\\text{EwSkew} = g_1 \\cdot \\frac{N_{eff}}{(N_{eff} - 1) \\cdot (N_{eff} - 2)}\n$$\n\nThe term $N_{eff}$ adjusts for the effective sample size, ensuring that the skewness calculation remains unbiased by accounting for the diminishing weight of older values."
+  },
+  "EwStd": {
+    "name": "EwStd",
+    "title": "Exponentially-weighted standard deviation",
+    "implementation_family": "ew",
+    "topics": [
+      "volatility",
+      "statistics"
+    ],
+    "tags": [
+      "ew",
+      "std",
+      "volatility"
+    ],
+    "short": "EW standard deviation.",
+    "inputs": 1,
+    "outputs": 1,
+    "parameters": [
+      {
+        "name": "com",
+        "type": "float",
+        "default": null,
+        "description": "Center of mass (alpha = 1 / (1 + com)). Exclusive with span/halflife/alpha."
+      },
+      {
+        "name": "span",
+        "type": "float",
+        "default": 20.0,
+        "description": "Span (alpha = 2 / (span + 1)). Default smoothing parameter. Exclusive with com/halflife/alpha."
+      },
+      {
+        "name": "halflife",
+        "type": "float",
+        "default": null,
+        "description": "Halflife (alpha = 1 - 0.5^(1/halflife)). Exclusive with com/span/alpha."
+      },
+      {
+        "name": "alpha",
+        "type": "float",
+        "default": null,
+        "description": "Smoothing parameter directly. Exclusive with com/span/halflife."
+      }
+    ],
+    "body_markdown": "# `EwStd`\n\n## Description\n\n`EwStd` calculates the exponentially weighted moving standard deviation, providing insight into the spread of recent values, with an emphasis on more recent observations.\n\n\n### Parameters\n\nOne of the following decay parameters is required to calculate `alpha`, where a higher `alpha` value gives recent points more influence:\n\n- **`com`**: Center of mass. `alpha = 1 / (1 + com)`\n- **`span`**: Span. `alpha = 2 / (span + 1)`\n- **`halflife`**: Half-life. `alpha = 1 - exp(-log(2) / halflife)`\n- **`alpha`**: Directly specifies the smoothing factor, where `0 < alpha < 1`\n\n*NaN handling*: NaN values are ignored in the mean calculation.\n\n### Usage Example and Plot\n\n```{eval-rst}\n.. plotly::\n    :include-source: True\n\n    import numpy as np\n    import plotly.graph_objects as go\n    from plotly.subplots import make_subplots\n    from screamer import EwStd\n\n    # Generate example data\n    data = np.cumsum(np.random.normal(size=300))\n\n    # Compute exponentially weighted standard deviation with a span of 20\n    ewstd_data = EwStd(span=20)(data)\n\n    fig = make_subplots(\n        rows=2, cols=1,\n        shared_xaxes=True,\n        row_heights=[1/2, 1/2],\n        vertical_spacing=0.1\n    )\n\n    fig.add_trace(go.Scatter(y=data, mode='lines', name='Original Data'), row=1, col=1)\n    fig.add_trace(go.Scatter(y=ewstd_data, mode='lines', name='EwStd', line=dict(color='red')), row=2, col=1)\n\n    fig.update_layout(\n        title=\"Exponentially Weighted Moving Standard Deviation\",\n        xaxis_title=\"Index\",\n        yaxis=dict(title=\"Original Data\"),\n        yaxis2=dict(title=\"EwStd\", range=[0, 8]),\n        margin=dict(l=20, r=20, t=80, b=20),\n        legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1)        \n    )\n\n    fig.show()\n```\n\n### Formula Details\n\n`EwStd` computes the exponentially weighted moving standard deviation recursively, with a bias correction that uses an effective sample size, $N_{eff}$, calculated from the sum of weights. This ensures an unbiased estimate even as the influence of older observations diminishes over time.\n\nLet:\n- **`alpha`** be the smoothing factor, calculated from `com`, `span`, `halflife`, or specified directly, where `0 < alpha < 1`.\n\nFor each new data point $x_t$, `EwStd` updates four cumulative sums, $S_x$, $S_{xx}$, $S_w$, and $S_{ww}$, as follows:\n\n1. Adjust **$S_x$**, the weighted sum of values, by retaining a fraction $(1 - \\alpha)$ of the previous weighted sum and adding the new value:\n\n$$\nS_x = S_x \\times (1 - \\alpha) + x_t\n$$\n\n2. Adjust **$S_{xx}$**, the weighted sum of squared values, by retaining a fraction of the previous sum and adding the square of the new value:\n\n$$\nS_{xx} = S_{xx} \\times (1 - \\alpha) + x_t^2\n$$\n\n3. Adjust **$S_w$**, the cumulative weight, by retaining a fraction of the previous weight and adding a weight of $1$:\n\n$$\nS_w = S_w \\times (1 - \\alpha) + 1\n$$\n\n4. Adjust **$S_{ww}$**, the cumulative squared weight, by retaining a fraction $(1 - \\alpha)^2$ of the previous squared weight and adding $1$:\n\n$$\nS_{ww} = S_{ww} \\times (1 - \\alpha)^2 + 1\n$$\n\n5. Calculate the effective sample size, $N_{eff}$, as:\n\n$$\nN_{eff} = \\frac{S_w^2}{S_{ww}}\n$$\n\n6. Compute the exponentially weighted mean, $\\text{EwMean}$, as:\n\n$$\n\\text{EwMean} = \\frac{S_x}{S_w}\n$$\n\n7. Finally, calculate the exponentially weighted moving standard deviation as:\n\n$$\n\\text{EwStd} = \\sqrt{\\left( \\frac{S_{xx}}{S_w} - \\left( \\frac{S_x}{S_w} \\right)^2 \\right) \\times \\frac{N_{eff}}{N_{eff} - 1}}\n$$\n\nThe term $N_{eff}$ adjusts for the effective sample size, ensuring that the standard deviation calculation remains unbiased by accounting for the diminishing weight of older values."
+  },
+  "EwVar": {
+    "name": "EwVar",
+    "title": "Exponentially-weighted variance",
+    "implementation_family": "ew",
+    "topics": [
+      "volatility",
+      "statistics"
+    ],
+    "tags": [
+      "ew",
+      "variance"
+    ],
+    "short": "EW variance (pandas adjust=True bias-corrected).",
+    "inputs": 1,
+    "outputs": 1,
+    "parameters": [
+      {
+        "name": "com",
+        "type": "float",
+        "default": null,
+        "description": "Center of mass (alpha = 1 / (1 + com)). Exclusive with span/halflife/alpha."
+      },
+      {
+        "name": "span",
+        "type": "float",
+        "default": 20.0,
+        "description": "Span (alpha = 2 / (span + 1)). Default smoothing parameter. Exclusive with com/halflife/alpha."
+      },
+      {
+        "name": "halflife",
+        "type": "float",
+        "default": null,
+        "description": "Halflife (alpha = 1 - 0.5^(1/halflife)). Exclusive with com/span/alpha."
+      },
+      {
+        "name": "alpha",
+        "type": "float",
+        "default": null,
+        "description": "Smoothing parameter directly. Exclusive with com/span/halflife."
+      }
+    ],
+    "body_markdown": "# `EwVar`\n\n## Description\n\n`EwVar` computes the exponentially weighted moving variance, tracking the variability of recent data while giving more weight to the latest values. Specify decay through `alpha`, derived from `com`, `span`, `halflife`, or `alpha` itself.\n\n### Parameters\n\nYou must specify one of the following parameters to calculate `alpha`:\n\n- **`com`**: Center of mass. `alpha = 1 / (1 + com)`\n- **`span`**: Span. `alpha = 2 / (span + 1)`\n- **`halflife`**: Half-life. `alpha = 1 - exp(-log(2) / halflife)`\n- **`alpha`**: Directly sets the smoothing factor, `0 < alpha < 1`\n\n*NaN handling*: NaN values are ignored in the variance calculation.\n\n### Usage Example and Plot\n\n```{eval-rst}\n.. plotly::\n    :include-source: True\n\n    import numpy as np\n    import plotly.graph_objects as go\n    from plotly.subplots import make_subplots\n    from screamer import EwVar\n\n    # Generate example data\n    data = np.cumsum(np.random.normal(size=300))\n\n    # Compute exponentially weighted variance with a span of 20\n    ewvar_data = EwVar(span=20)(data)\n\n    fig = make_subplots(\n        rows=2, cols=1,\n        shared_xaxes=True,\n        row_heights=[1/2, 1/2],\n        vertical_spacing=0.1\n    )\n\n    fig.add_trace(go.Scatter(y=data, mode='lines', name='Original Data'), row=1, col=1)\n    fig.add_trace(go.Scatter(y=ewvar_data, mode='lines', name='EwVar', line=dict(color='red')), row=2, col=1)\n\n    fig.update_layout(\n        title=\"Exponentially Weighted Moving Variance\",\n        xaxis_title=\"Index\",\n        yaxis=dict(title=\"Original Data\"),\n        yaxis2=dict(title=\"EwVar\", range=[0, 25]),\n        margin=dict(l=20, r=20, t=80, b=20),\n        legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1)        \n    )\n\n    fig.show()\n```\n\n### Formula Details\n\n`EwVar` computes the exponentially weighted moving variance recursively, with a bias correction that uses an effective sample size, $N_{eff}$, calculated from the sum of weights. This ensures an unbiased estimate even as the weighting of older observations diminishes over time.\n\nLet:\n- **`alpha`** be the smoothing factor, calculated from `com`, `span`, `halflife`, or specified directly, where `0 < alpha < 1`.\n\nFor each new data point $x_t$, EwVar updates four cumulative sums, $S_x$, $S_{xx}$, $S_w$, and $S_{ww}$, as follows:\n\n1. Adjust **$S_x$**, the weighted sum of values, by retaining a fraction $(1 - \\alpha)$ of the previous weighted sum and adding the new value:\n\n$$\nS_x = S_x \\times (1 - \\alpha) + x_t\n$$\n\n2. Adjust **$S_{xx}$**, the weighted sum of squared values, by retaining a fraction of the previous sum and adding the square of the new value:\n\n$$\nS_{xx} = S_{xx} \\times (1 - \\alpha) + x_t^2\n$$\n\n3. Adjust **$S_w$**, the cumulative weight, by retaining a fraction of the previous weight and adding a weight of $1$:\n\n$$\nS_w = S_w \\times (1 - \\alpha) + 1\n$$\n\n1. Adjust **$S_{ww}$**, the cumulative squared weight, by retaining a fraction $(1 - \\alpha)^2$ of the previous squared weight and adding $1$:\n\n$$\nS_{ww} = S_{ww} \\times (1 - \\alpha)^2 + 1\n$$\n\n5. Calculate the effective sample size, $N_{eff}$, as:\n\n$$\nN_{eff} = \\frac{S_w^2}{S_{ww}}\n$$\n\n6. Compute the exponentially weighted mean, $\\text{EwMean}$, as:\n\n$$\n\\text{EwMean} = \\frac{S_x}{S_w}\n$$\n\n7. Finally, calculate the exponentially weighted moving variance as:\n\n$$\n\\text{EwVar} = \\left( \\frac{S_{xx}}{S_w} - \\left( \\frac{S_x}{S_w} \\right)^2 \\right) \\times \\frac{N_{eff}}{N_{eff} - 1}\n$$\n\nThe term $N_{eff}$ compensates for the decreasing influence of older values, ensuring that the variance remains unbiased by scaling based on the weighted sample size."
+  },
+  "EwZscore": {
+    "name": "EwZscore",
+    "title": "Exponentially-weighted z-score",
+    "implementation_family": "ew",
+    "topics": [
+      "statistics"
+    ],
+    "tags": [
+      "ew",
+      "zscore",
+      "standardization",
+      "anomaly"
+    ],
+    "short": "Latest sample standardised by EW mean and std.",
+    "inputs": 1,
+    "outputs": 1,
+    "parameters": [
+      {
+        "name": "com",
+        "type": "float",
+        "default": null,
+        "description": "Center of mass (alpha = 1 / (1 + com)). Exclusive with span/halflife/alpha."
+      },
+      {
+        "name": "span",
+        "type": "float",
+        "default": 20.0,
+        "description": "Span (alpha = 2 / (span + 1)). Default smoothing parameter. Exclusive with com/halflife/alpha."
+      },
+      {
+        "name": "halflife",
+        "type": "float",
+        "default": null,
+        "description": "Halflife (alpha = 1 - 0.5^(1/halflife)). Exclusive with com/span/alpha."
+      },
+      {
+        "name": "alpha",
+        "type": "float",
+        "default": null,
+        "description": "Smoothing parameter directly. Exclusive with com/span/halflife."
+      }
+    ],
+    "body_markdown": "# `EwZscore`\n\n## Description\n\n`EwZscore` computes the exponentially weighted moving z-score, which standardizes data based on an exponentially weighted mean and standard deviation, identifying outliers and deviations in real-time.\n\n\n### Parameters\n\nOne of the following decay parameters is required to calculate `alpha`, where a higher `alpha` value gives recent points more influence:\n\n- **`com`**: Center of mass. `alpha = 1 / (1 + com)`\n- **`span`**: Span. `alpha = 2 / (span + 1)`\n- **`halflife`**: Half-life. `alpha = 1 - exp(-log(2) / halflife)`\n- **`alpha`**: Directly specifies the smoothing factor, where `0 < alpha < 1`\n\n*NaN handling*: NaN values are ignored in the mean calculation.\n\n### Usage Example and Plot\n\n```{eval-rst}\n.. plotly::\n    :include-source: True\n\n    import numpy as np\n    import plotly.graph_objects as go\n    from plotly.subplots import make_subplots\n    from screamer import EwZscore\n\n    data = np.cumsum(np.random.normal(size=300))\n    ewzscore_data = EwZscore(span=20)(data)\n\n    fig = make_subplots(\n        rows=2, cols=1,\n        shared_xaxes=True,\n        row_heights=[1/2, 1/2],\n        vertical_spacing=0.1\n    )\n\n    fig.add_trace(go.Scatter(y=data, mode='lines', name='Original Data'), row=1, col=1)\n    fig.add_trace(go.Scatter(y=ewzscore_data, mode='lines', name='EwZscore', line=dict(color='red')), row=2, col=1)\n\n    fig.update_layout(\n        title=\"Exponentially Weighted Moving Z-Score\",\n        xaxis_title=\"Index\",\n        yaxis=dict(title=\"Original Data\"),\n        yaxis2=dict(title=\"EwZscore\", range=[-4, 4]),\n        margin=dict(l=20, r=20, t=80, b=20),\n        legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1)        \n    )\n\n    fig.show()\n```"
+  },
   "Abs": {
     "name": "Abs",
     "title": "Absolute value",
@@ -565,6 +1001,342 @@
     "outputs": 1,
     "parameters": [],
     "body_markdown": "# `Tanh`\n\n## Description\n\nThe `Tanh` class applies the hyperbolic tangent function, which maps any real number into the range \\(-1\\) to \\(1\\). It is often used in neural networks as an activation function due to its zero-centered nature.\n\n*Equation*:\n\n$$\nf(x) = \\tanh(x) = \\frac{e^x - e^{-x}}{e^x + e^{-x}}\n$$\n\n*Parameters*: `Tanh` takes no parameters.\n\n*NaN handling*: `NaN` values are not modified by this function."
+  },
+  "CumMax": {
+    "name": "CumMax",
+    "title": "Cumulative maximum",
+    "implementation_family": "misc",
+    "topics": [
+      "transforms",
+      "statistics"
+    ],
+    "tags": [
+      "cumulative",
+      "max"
+    ],
+    "short": "Running maximum from t=0.",
+    "inputs": 1,
+    "outputs": 1,
+    "parameters": [],
+    "body_markdown": "# `CumMax`\n\n## Description\n\nThe `CumMax` function returns the running maximum of all samples seen since the start of the stream (or since the last `reset`). The output is monotonically non-decreasing while inputs are finite. It is the streaming equivalent of `numpy.maximum.accumulate`. Memory is `O(1)` regardless of how many samples have been processed.\n\nThis is an *expanding* (cumulative-from-zero) reduction, not a sliding window. For a fixed-window peak see `RollingMax`.\n\n*Equation*:\n\n$$\ny[t] = \\max_{0 \\le i \\le t} x[i]\n$$\n\n*Parameters*: none.\n\n*NaN handling*: Once an input is NaN, every subsequent output is NaN. This matches `numpy.maximum.accumulate`."
+  },
+  "CumMin": {
+    "name": "CumMin",
+    "title": "Cumulative minimum",
+    "implementation_family": "misc",
+    "topics": [
+      "transforms",
+      "statistics"
+    ],
+    "tags": [
+      "cumulative",
+      "min"
+    ],
+    "short": "Running minimum from t=0.",
+    "inputs": 1,
+    "outputs": 1,
+    "parameters": [],
+    "body_markdown": "# `CumMin`\n\n## Description\n\nThe `CumMin` function returns the running minimum of all samples seen since the start of the stream (or since the last `reset`). The output is monotonically non-increasing while inputs are finite. It is the streaming equivalent of `numpy.minimum.accumulate`. Memory is `O(1)` regardless of how many samples have been processed.\n\nThis is an *expanding* (cumulative-from-zero) reduction, not a sliding window. For a fixed-window trough see `RollingMin`.\n\n*Equation*:\n\n$$\ny[t] = \\min_{0 \\le i \\le t} x[i]\n$$\n\n*Parameters*: none.\n\n*NaN handling*: Once an input is NaN, every subsequent output is NaN. This matches `numpy.minimum.accumulate`."
+  },
+  "CumProd": {
+    "name": "CumProd",
+    "title": "Cumulative product",
+    "implementation_family": "misc",
+    "topics": [
+      "transforms"
+    ],
+    "tags": [
+      "cumulative",
+      "product"
+    ],
+    "short": "Running product from t=0.",
+    "inputs": 1,
+    "outputs": 1,
+    "parameters": [],
+    "body_markdown": "# `CumProd`\n\n## Description\n\nThe `CumProd` function returns the running product of all samples seen since the start of the stream (or since the last `reset`). It is the streaming equivalent of `numpy.cumprod`. Memory is `O(1)` regardless of how many samples have been processed.\n\n*Equation*:\n\n$$\ny[t] = \\prod_{i=0}^{t} x[i]\n$$\n\n*Parameters*: none.\n\n*NaN handling*: NaN propagates by ordinary IEEE-754 multiplication. A single zero input pins the running product to zero from that point onward."
+  },
+  "CumSum": {
+    "name": "CumSum",
+    "title": "Cumulative sum",
+    "implementation_family": "misc",
+    "topics": [
+      "transforms"
+    ],
+    "tags": [
+      "cumulative",
+      "sum"
+    ],
+    "short": "Running sum from t=0.",
+    "inputs": 1,
+    "outputs": 1,
+    "parameters": [],
+    "body_markdown": "# `CumSum`\n\n## Description\n\nThe `CumSum` function returns the running sum of all samples seen since the start of the stream (or since the last `reset`). It is the streaming equivalent of `numpy.cumsum`. Memory is `O(1)` regardless of how many samples have been processed.\n\n*Equation*:\n\n$$\ny[t] = \\sum_{i=0}^{t} x[i]\n$$\n\n*Parameters*: none.\n\n*NaN handling*: NaN propagates by ordinary IEEE-754 addition. Once a NaN enters the input, every subsequent output is NaN. This matches `numpy.cumsum`, not `pandas.Series.cumsum(skipna=True)`."
+  },
+  "Detrend": {
+    "name": "Detrend",
+    "title": "Detrend",
+    "implementation_family": "misc",
+    "topics": [
+      "transforms"
+    ],
+    "tags": [
+      "detrend",
+      "centered"
+    ],
+    "short": "x[t] minus its rolling mean.",
+    "inputs": 1,
+    "outputs": 1,
+    "parameters": [
+      {
+        "name": "window_size",
+        "type": "int",
+        "default": 20,
+        "min": 2,
+        "description": "Window for the trailing rolling mean."
+      },
+      {
+        "name": "start_policy",
+        "type": "str",
+        "default": "strict",
+        "enum": [
+          "strict",
+          "expanding",
+          "zero"
+        ],
+        "description": "Warmup behaviour: 'strict' (NaN until full window), 'expanding' (use partial windows), or 'zero' (treat missing as zero)."
+      }
+    ],
+    "body_markdown": "# `Detrend`\n\n## Description\n\nThe `Detrend` function removes a slow-moving trend from a series by subtracting a rolling mean from the input. The result emphasises the deviation of each sample from its recent average and is useful for centring an input before another transform, or for visualising short-term fluctuations on top of a drifting baseline.\n\n*Equation*:\n\n$$\ny[t] = x[t] - \\frac{1}{w} \\sum_{k=0}^{w-1} x[t-k]\n$$\n\nwhere $w$ is the `window_size`.\n\n*Parameters*:\n\n- `window_size` (int): width of the rolling-mean window in samples.\n- `start_policy` (str, optional): warmup behaviour, `\"strict\"` (default), `\"truncate\"`, or `\"zero\"`. Same semantics as the rolling functions.\n\n*NaN handling*: Under `start_policy=\"strict\"` the rolling mean is NaN until `window_size` samples have been observed, and `Detrend` therefore emits NaN during that warmup. NaN inputs propagate through the rolling buffer."
+  },
+  "Diff": {
+    "name": "Diff",
+    "title": "Discrete difference",
+    "implementation_family": "misc",
+    "topics": [
+      "transforms",
+      "momentum"
+    ],
+    "tags": [
+      "diff",
+      "difference"
+    ],
+    "short": "x[t] - x[t-k] (first difference at lag k).",
+    "inputs": 1,
+    "outputs": 1,
+    "parameters": [
+      {
+        "name": "window_size",
+        "type": "int",
+        "default": 1,
+        "min": 1,
+        "description": "Lag k for the difference (1 = consecutive)."
+      },
+      {
+        "name": "start_policy",
+        "type": "str",
+        "default": "strict",
+        "enum": [
+          "strict",
+          "expanding",
+          "zero"
+        ],
+        "description": "Warmup behaviour: 'strict' (NaN until full window), 'expanding' (use partial windows), or 'zero' (treat missing as zero)."
+      }
+    ],
+    "body_markdown": "# `Diff`\n\n## Description\n\nThe `Diff` function calculates the difference between each element in a sequence and the element `delay` positions before it. This allows for quick derivation of trends or changes over a given interval.\n\n*Equation*:\n\n$$\ny[i] = x[i] - x[i - \\text{delay}]\n$$\n\n*Parameters*:\n\n- `delay` (int): The number of steps backward to use for the difference calculation. Must be non-negative.\n\n*NaN handling*: When `delay` exceeds the available data points at the start of the sequence, the resulting elements are set to `NaN`."
+  },
+  "Diff2": {
+    "name": "Diff2",
+    "title": "Second difference",
+    "implementation_family": "misc",
+    "topics": [
+      "transforms",
+      "momentum"
+    ],
+    "tags": [
+      "diff",
+      "second-derivative"
+    ],
+    "short": "Second-order finite difference (discrete second derivative).",
+    "inputs": 1,
+    "outputs": 1,
+    "parameters": [
+      {
+        "name": "start_policy",
+        "type": "str",
+        "default": "strict",
+        "enum": [
+          "strict",
+          "expanding",
+          "zero"
+        ],
+        "description": "Warmup behaviour: 'strict' (NaN until full window), 'expanding' (use partial windows), or 'zero' (treat missing as zero)."
+      }
+    ],
+    "body_markdown": "# `Diff2`\n\n## Description\n\nThe `Diff2` function computes the *second-order* finite difference of the input — the discrete analogue of a second derivative. It is the result of applying a one-step difference twice.\n\n*Equation*:\n\n$$\ny[t] = x[t] - 2 \\, x[t-1] + x[t-2]\n$$\n\nequivalent to $\\Delta(\\Delta x)$.\n\n*Parameters*:\n\n- `start_policy` (str, optional): warmup behaviour, `\"strict\"` (default), `\"truncate\"`, or `\"zero\"`. Two warmup samples are needed before a valid output is produced.\n\n*NaN handling*: Under `start_policy=\"strict\"` the first two outputs are `NaN`. NaN inputs propagate.\n\n*Note*: `Diff2` is **not** the same as `Diff(2)`. `Diff(2)` is the *lag-2 first* difference $x[t] - x[t-2]$. `Diff2` is the *second-order* difference, i.e. the difference of differences. On a quadratic input $x[t] = a t^2 + b t + c$ the result is the constant $2a$."
+  },
+  "Identity": {
+    "name": "Identity",
+    "title": "Identity",
+    "implementation_family": "misc",
+    "topics": [
+      "transforms"
+    ],
+    "tags": [
+      "identity",
+      "noop"
+    ],
+    "short": "Pass-through (y = x).",
+    "inputs": 1,
+    "outputs": 1,
+    "parameters": [],
+    "body_markdown": "# `Identity`\n\n## Description\n\nThe `Identity` function returns each input unchanged. It is a no-op transform whose only purpose is to act as a placeholder in pipelines: a slot that has the same call signature as any other transform but does nothing to the data.\n\n*Equation*:\n\n$$\ny[t] = x[t]\n$$\n\n*Parameters*: `Identity` takes no parameters.\n\n*NaN handling*: Inputs pass through bit-for-bit, including `NaN` and infinities."
+  },
+  "Lag": {
+    "name": "Lag",
+    "title": "Lag (delay)",
+    "implementation_family": "misc",
+    "topics": [
+      "transforms"
+    ],
+    "tags": [
+      "lag",
+      "delay"
+    ],
+    "short": "Output is the input delayed by k samples.",
+    "inputs": 1,
+    "outputs": 1,
+    "parameters": [
+      {
+        "name": "window_size",
+        "type": "int",
+        "default": 1,
+        "min": 1,
+        "description": "Number of samples to delay by."
+      },
+      {
+        "name": "start_policy",
+        "type": "str",
+        "default": "strict",
+        "enum": [
+          "strict",
+          "expanding",
+          "zero"
+        ],
+        "description": "Warmup behaviour: 'strict' (NaN until full window), 'expanding' (use partial windows), or 'zero' (treat missing as zero)."
+      }
+    ],
+    "body_markdown": "# `Lag`\n\n## Description\n\nThe `Lag` function returns the values from a sequence offset by a specified number of steps backward. It shifts each element in the input by `delay` positions, effectively providing past values for analysis or comparison.\n\n*Equation*:\n\n$$\ny[i] = x[i - \\text{delay}]\n$$\n\n*Parameters*:\n\n- `delay` (int): The number of steps by which to shift the input. Must be non-negative.\n\n*NaN handling*: When `delay` is larger than the available data at the beginning of the sequence, resulting elements are set to `NaN`."
+  },
+  "Momentum": {
+    "name": "Momentum",
+    "title": "Momentum",
+    "implementation_family": "misc",
+    "topics": [
+      "momentum"
+    ],
+    "tags": [
+      "momentum",
+      "mom",
+      "talib"
+    ],
+    "short": "x[t] - x[t-k], TA-Lib's MOM. Mathematically identical to Diff(k).",
+    "inputs": 1,
+    "outputs": 1,
+    "parameters": [
+      {
+        "name": "window_size",
+        "type": "int",
+        "default": 10,
+        "min": 1,
+        "description": "Lookback k. TA-Lib defaults to 10."
+      },
+      {
+        "name": "start_policy",
+        "type": "str",
+        "default": "strict",
+        "enum": [
+          "strict",
+          "expanding",
+          "zero"
+        ],
+        "description": "Warmup behaviour: 'strict' (NaN until full window), 'expanding' (use partial windows), or 'zero' (treat missing as zero)."
+      }
+    ],
+    "body_markdown": "# `Momentum`\n\n## Description\n\n`Momentum(k)` returns the *raw price displacement* over `k` steps:\n\n$$\n\\text{Momentum}[t] = x[t] - x[t-k]\n$$\n\n**This is exactly `Diff(k)`.** It exists as a separately-named class because TA-Lib calls this indicator `MOM` and traders look for \"momentum\" in the API. Internally `Momentum` is a thin subclass of `Diff` -- the implementation (delay buffer + subtraction) is shared, not duplicated.\n\n*Parameters*:\n\n- `window_size` (int, positive): the lookback `k`.\n- `start_policy` (str, optional): `\"strict\"` (default), `\"expanding\"`, or `\"zero\"`. Same semantics as `Diff`.\n\n## When to use which\n\n| You want... | Use |\n|---|---|\n| TA-Lib parity (writing `MOM` in published strategies) | `Momentum(k)` |\n| Any other context | `Diff(k)` |\n\nBoth produce identical output bit-for-bit (matches `talib.MOM` to 0.0 -- exact integer arithmetic)."
+  },
+  "Clip": {
+    "name": "Clip",
+    "title": "Clip to bounds",
+    "implementation_family": "preprocessing",
+    "topics": [
+      "data-handling"
+    ],
+    "tags": [
+      "clip",
+      "bound",
+      "outlier"
+    ],
+    "short": "Bound each element below and/or above.",
+    "inputs": 1,
+    "outputs": 1,
+    "parameters": [
+      {
+        "name": "lower",
+        "type": "float|null",
+        "default": null,
+        "description": "Lower bound (None = no lower clipping)."
+      },
+      {
+        "name": "upper",
+        "type": "float|null",
+        "default": null,
+        "description": "Upper bound (None = no upper clipping)."
+      }
+    ],
+    "body_markdown": "# `Clip`\n\n## Description\n\nThe `Clip` class restricts each value in a data sequence to fall within a specified range. Values outside the defined lower and upper bounds are clipped to the nearest boundary, ensuring that the processed data stays within the desired range. This function is useful in scenarios where extreme values or outliers need to be managed or excluded from further analysis.\n\n*Parameters*: \n- **`lower`** (optional): The minimum allowable value. If a data point is below this threshold, it will be set to `lower`. If unspecified, there is no lower bound.\n- **`upper`** (optional): The maximum allowable value. If a data point exceeds this threshold, it will be set to `upper`. If unspecified, there is no upper bound.\n\n*NaN handling*: NaN values are not modified by this function and remain as NaN if present in the input data."
+  },
+  "Ffill": {
+    "name": "Ffill",
+    "title": "Forward-fill NaNs",
+    "implementation_family": "preprocessing",
+    "topics": [
+      "data-handling"
+    ],
+    "tags": [
+      "nan",
+      "fill",
+      "ffill"
+    ],
+    "short": "Replace NaN with the most recent finite value.",
+    "inputs": 1,
+    "outputs": 1,
+    "parameters": [],
+    "body_markdown": "# `Ffill`\n\n## Description\n\nThe `Ffill` class performs forward filling on a sequence of data, replacing any `NaN` values with the most recent non-`NaN` value. This approach is commonly used to handle missing values by carrying forward the last valid observation until a new valid value appears in the data.\n\n*Parameters*: `Ffill` takes no parameters; it simply operates over a data sequence and forward fills any `NaN` values encountered.\n\n*NaN handling*: If a `NaN` appears at the start of the data sequence, it will remain as `NaN` because no preceding value exists to carry forward."
+  },
+  "FillNa": {
+    "name": "FillNa",
+    "title": "Replace NaNs with a constant",
+    "implementation_family": "preprocessing",
+    "topics": [
+      "data-handling"
+    ],
+    "tags": [
+      "nan",
+      "fill"
+    ],
+    "short": "Replace NaN with a user-specified scalar.",
+    "inputs": 1,
+    "outputs": 1,
+    "parameters": [
+      {
+        "name": "fill",
+        "type": "float",
+        "default": 0.0,
+        "description": "Value used to replace NaN. Default 0."
+      }
+    ],
+    "body_markdown": "# `FillNa`\n\n## Description\n\nThe `FillNa` class replaces any `NaN` values in a data sequence with a specified fill value. This function is useful for handling missing values by substituting them with a constant, such as 0 or a mean value, which can improve the continuity of data for certain analyses.\n\n*Parameters*:\n- **`fill`**: The value to replace `NaN` entries with. This can be any numeric value, allowing customization to fit the context of the data.\n\n*NaN handling*: All `NaN` values are replaced with the specified `fill` value, ensuring no `NaN` values remain in the output data."
   },
   "RollingHurst": {
     "name": "RollingHurst",

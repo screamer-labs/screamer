@@ -1,3 +1,19 @@
+---
+name: CumMin
+title: Cumulative minimum
+implementation_family: misc
+topics:
+- transforms
+- statistics
+tags:
+- cumulative
+- min
+short: Running minimum from t=0.
+inputs: 1
+outputs: 1
+parameters: []
+---
+
 # `CumMin`
 
 ## Description
@@ -15,6 +31,8 @@ $$
 *Parameters*: none.
 
 *NaN handling*: Once an input is NaN, every subsequent output is NaN. This matches `numpy.minimum.accumulate`.
+
+<!-- HELP_END -->
 
 ## Usage Example and Plot
 

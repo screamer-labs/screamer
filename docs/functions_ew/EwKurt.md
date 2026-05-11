@@ -1,3 +1,35 @@
+---
+name: EwKurt
+title: Exponentially-weighted kurtosis
+implementation_family: ew
+topics:
+- statistics
+tags:
+- ew
+- kurtosis
+short: EW excess kurtosis.
+inputs: 1
+outputs: 1
+parameters:
+- name: com
+  type: float
+  default: null
+  description: Center of mass (alpha = 1 / (1 + com)). Exclusive with span/halflife/alpha.
+- name: span
+  type: float
+  default: 20.0
+  description: Span (alpha = 2 / (span + 1)). Default smoothing parameter. Exclusive
+    with com/halflife/alpha.
+- name: halflife
+  type: float
+  default: null
+  description: Halflife (alpha = 1 - 0.5^(1/halflife)). Exclusive with com/span/alpha.
+- name: alpha
+  type: float
+  default: null
+  description: Smoothing parameter directly. Exclusive with com/span/halflife.
+---
+
 # `EwKurt`
 
 ## Description
@@ -138,3 +170,5 @@ $$
 $$
 
 This calculation uses $N_{eff}$ to correct for the effective sample size, ensuring that the excess kurtosis measure remains unbiased by scaling based on the decreasing influence of older values.
+
+<!-- HELP_END -->

@@ -16,14 +16,14 @@ namespace py = pybind11;
 void init_bindings_misc(py::module& m) {
 
     py::class_<screamer::Diff, screamer::ScreamerBase>(m, "Diff")
-        .def(py::init<int, const std::string&>(), py::arg("window_size"), py::arg("start_policy") = "strict")
+        .def(py::init<int, const std::string&>(), py::arg("window_size") = 1, py::arg("start_policy") = "strict")
         .def("__call__", &screamer::Diff::operator(), py::arg("value"))
         .def("reset", &screamer::Diff::reset, "Reset to the initial state.");
 
     // Momentum(k): mathematically identical to Diff(k). Exposed under
     // its TA-Lib name (MOM) for portability and discoverability.
     py::class_<screamer::Momentum, screamer::ScreamerBase>(m, "Momentum")
-        .def(py::init<int, const std::string&>(), py::arg("window_size"), py::arg("start_policy") = "strict")
+        .def(py::init<int, const std::string&>(), py::arg("window_size") = 10, py::arg("start_policy") = "strict")
         .def("__call__", &screamer::Momentum::operator(), py::arg("value"))
         .def("reset", &screamer::Momentum::reset, "Reset to the initial state.");
 
@@ -36,7 +36,7 @@ void init_bindings_misc(py::module& m) {
         .def("reset", &screamer::Diff2::reset, "Reset to the initial state.");
 
     py::class_<screamer::Lag, screamer::ScreamerBase>(m, "Lag")
-        .def(py::init<int, const std::string&>(), py::arg("window_size"), py::arg("start_policy") = "strict")
+        .def(py::init<int, const std::string&>(), py::arg("window_size") = 1, py::arg("start_policy") = "strict")
         .def("__call__", &screamer::Lag::operator(), py::arg("value"))
         .def("reset", &screamer::Lag::reset, "Reset to the initial state.");
 
@@ -65,7 +65,7 @@ void init_bindings_misc(py::module& m) {
     // Detrend: y[t] = x[t] - RollingMean(window)(x)[t].
     py::class_<screamer::Detrend, screamer::ScreamerBase>(m, "Detrend")
         .def(py::init<int, const std::string&>(),
-             py::arg("window_size"),
+             py::arg("window_size") = 20,
              py::arg("start_policy") = "strict")
         .def("__call__", &screamer::Detrend::operator(), py::arg("value"))
         .def("reset", &screamer::Detrend::reset, "Reset to the initial state.");

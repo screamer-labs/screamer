@@ -1,3 +1,19 @@
+---
+name: Ffill
+title: Forward-fill NaNs
+implementation_family: preprocessing
+topics:
+- data-handling
+tags:
+- nan
+- fill
+- ffill
+short: Replace NaN with the most recent finite value.
+inputs: 1
+outputs: 1
+parameters: []
+---
+
 # `Ffill`
 
 ## Description
@@ -7,6 +23,8 @@ The `Ffill` class performs forward filling on a sequence of data, replacing any 
 *Parameters*: `Ffill` takes no parameters; it simply operates over a data sequence and forward fills any `NaN` values encountered.
 
 *NaN handling*: If a `NaN` appears at the start of the data sequence, it will remain as `NaN` because no preceding value exists to carry forward.
+
+<!-- HELP_END -->
 
 ## Usage Example and Plot
 

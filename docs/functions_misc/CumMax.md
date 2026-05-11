@@ -1,3 +1,19 @@
+---
+name: CumMax
+title: Cumulative maximum
+implementation_family: misc
+topics:
+- transforms
+- statistics
+tags:
+- cumulative
+- max
+short: Running maximum from t=0.
+inputs: 1
+outputs: 1
+parameters: []
+---
+
 # `CumMax`
 
 ## Description
@@ -15,6 +31,8 @@ $$
 *Parameters*: none.
 
 *NaN handling*: Once an input is NaN, every subsequent output is NaN. This matches `numpy.maximum.accumulate`.
+
+<!-- HELP_END -->
 
 ## Usage Example and Plot
 

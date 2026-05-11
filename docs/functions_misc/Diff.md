@@ -1,3 +1,33 @@
+---
+name: Diff
+title: Discrete difference
+implementation_family: misc
+topics:
+- transforms
+- momentum
+tags:
+- diff
+- difference
+short: x[t] - x[t-k] (first difference at lag k).
+inputs: 1
+outputs: 1
+parameters:
+- name: window_size
+  type: int
+  default: 1
+  min: 1
+  description: Lag k for the difference (1 = consecutive).
+- name: start_policy
+  type: str
+  default: strict
+  enum:
+  - strict
+  - expanding
+  - zero
+  description: 'Warmup behaviour: ''strict'' (NaN until full window), ''expanding''
+    (use partial windows), or ''zero'' (treat missing as zero).'
+---
+
 # `Diff`
 
 ## Description
@@ -15,6 +45,8 @@ $$
 - `delay` (int): The number of steps backward to use for the difference calculation. Must be non-negative.
 
 *NaN handling*: When `delay` exceeds the available data points at the start of the sequence, the resulting elements are set to `NaN`.
+
+<!-- HELP_END -->
 
 ## Usage Example and Plot
 

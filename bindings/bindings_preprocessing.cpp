@@ -15,7 +15,7 @@ void init_bindings_preprocessing(py::module& m) {
         .def("reset", &screamer::Ffill::reset, "Reset to the initial state.");
 
     py::class_<screamer::FillNa, screamer::ScreamerBase>(m, "FillNa")
-        .def(py::init<double>(), py::arg("fill"))
+        .def(py::init<double>(), py::arg("fill") = 0.0)
         .def("__call__", &screamer::FillNa::operator(), py::arg("value"))
         .def("reset", &screamer::FillNa::reset, "Reset to the initial state.");
 

@@ -1,3 +1,18 @@
+---
+name: CumProd
+title: Cumulative product
+implementation_family: misc
+topics:
+- transforms
+tags:
+- cumulative
+- product
+short: Running product from t=0.
+inputs: 1
+outputs: 1
+parameters: []
+---
+
 # `CumProd`
 
 ## Description
@@ -13,6 +28,8 @@ $$
 *Parameters*: none.
 
 *NaN handling*: NaN propagates by ordinary IEEE-754 multiplication. A single zero input pins the running product to zero from that point onward.
+
+<!-- HELP_END -->
 
 ## Usage Example and Plot
 

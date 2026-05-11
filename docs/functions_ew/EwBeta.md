@@ -1,3 +1,38 @@
+---
+name: EwBeta
+title: Exponentially-weighted beta
+implementation_family: ew
+topics:
+- correlation
+- regression
+tags:
+- ew
+- beta
+- pair
+- capm
+short: 'EW CAPM beta: cov(target, regressor) / var(regressor).'
+inputs: 2
+outputs: 1
+parameters:
+- name: com
+  type: float
+  default: null
+  description: Center of mass (alpha = 1 / (1 + com)). Exclusive with span/halflife/alpha.
+- name: span
+  type: float
+  default: 20.0
+  description: Span (alpha = 2 / (span + 1)). Default smoothing parameter. Exclusive
+    with com/halflife/alpha.
+- name: halflife
+  type: float
+  default: null
+  description: Halflife (alpha = 1 - 0.5^(1/halflife)). Exclusive with com/span/alpha.
+- name: alpha
+  type: float
+  default: null
+  description: Smoothing parameter directly. Exclusive with com/span/halflife.
+---
+
 # `EwBeta`
 
 ## Description
@@ -41,6 +76,8 @@ If the denominator is zero or non-positive, the output is `NaN`.
 ## Identity check
 
 By definition `EwBeta(x, y) == EwCov(x, y) / EwVar(y)`. Verified to ~1e-12 in the test suite.
+
+<!-- HELP_END -->
 
 ## Usage Example
 
