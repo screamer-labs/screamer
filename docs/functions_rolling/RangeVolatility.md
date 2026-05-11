@@ -62,9 +62,25 @@ Each class is a pure composition: a closed-form per-bar arithmetic expression fe
     fig.show()
 ```
 
-## Yang-Zhang
+## Yang-Zhang (completes the quartet)
 
-The fourth classic estimator, **Yang-Zhang** (2000), combines an overnight return component with Rogers-Satchell and is the only one that handles both drift *and* overnight gaps (~14× efficiency). It has a window-dependent weighting parameter and is meaningfully more complex than the three above; deferred to a focused follow-up.
+`RollingYangZhangVar(window_size)` and `RollingYangZhangVol(window_size)` combine three variance components:
+
+$$
+\begin{aligned}
+\sigma^2_o    &= \text{sample variance of overnight log returns } \ln(O_t / C_{t-1}) \\
+\sigma^2_c    &= \text{sample variance of open-to-close log returns } \ln(C_t / O_t) \\
+\sigma^2_{RS} &= \text{mean of per-bar Rogers-Satchell estimates} \\
+k             &= \dfrac{0.34}{1.34 + (n+1)/(n-1)} \\
+\sigma^2_{YZ} &= \sigma^2_o + k \cdot \sigma^2_c + (1-k) \cdot \sigma^2_{RS}
+\end{aligned}
+$$
+
+**4-input, 1-output** on `(open, high, low, close)`. The only classical estimator that handles **both** drift *and* overnight gaps (~14× efficient vs close-to-close).
+
+**Implementation**: composes two `RollingVar` (overnight + open-to-close log returns) and one `detail::RollingMean` (Rogers-Satchell per-bar). First valid output at sample index `window_size` -- we need n+1 price bars to form n overnight returns. Verified against a plain-numpy reference to ~1e-12.
+
+No EW form is exposed because the `k` factor depends on a discrete window size; an "EW analogue" would require an arbitrary mapping from `span` to `n` that varies by convention.
 
 ## Reference
 

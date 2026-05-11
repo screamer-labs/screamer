@@ -183,14 +183,13 @@ agreed-upon definition and is rarely asked for in practice.)
 | `TrueRange` | Per-bar OHLC-aware range `max(H - L, |H - prev_C|, |L - prev_C|)`. 3→1 |
 | `ATR(window)` | Average True Range -- Wilder-smoothed `TrueRange`. 3→1 |
 | `NATR(window)` | `100 * ATR / close`, scale-invariant. 3→1 |
+| `RollingYangZhangVar`, `RollingYangZhangVol` | Yang-Zhang volatility estimator (drift-robust + overnight gaps; ~14× efficiency vs close-to-close). 4→1 |
+| `DonchianChannels(window)` | `(lower, mid, upper)` from rolling min of low and max of high. 2→3 |
+| `KeltnerChannels(window, num_atr)` | `(lower, mid, upper) = (EMA(close) ± num_atr * ATR)`. 3→3 (first 3→3 consumer of Plan E) |
 
 ### Gaps
 
-| Function | Description | Quadrant | Priority | Note |
-|---|---|---|---|---|
-| `KeltnerChannels(window, num_atr)` | `(lower, mid, upper)` like Bollinger but using ATR for bandwidth | 3→3 | 🟡 | uses the now-available `N→M` dispatch (Plan E) |
-| `DonchianChannels(window)` | `(lower, mid, upper)` from rolling min, mid (avg of min/max), max | 1→3 | 🟡 | already feasible today (M=3 dispatch is done) |
-| `YangZhangVol` | Yang-Zhang volatility estimator (drift-robust + overnight gaps) | 4→1 | 🟡 | composes RS with an overnight-return variance and an open-to-close variance; ~14× efficiency vs close-to-close |
+(none -- volatility section complete)
 
 
 ## Volume-aware indicators (price + volume)

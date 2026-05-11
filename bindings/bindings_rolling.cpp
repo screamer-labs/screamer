@@ -45,6 +45,9 @@
 #include "screamer/true_range.h"
 #include "screamer/atr.h"
 #include "screamer/natr.h"
+#include "screamer/donchian_channels.h"
+#include "screamer/keltner_channels.h"
+#include "screamer/yang_zhang.h"
 
 namespace py = pybind11;
 
@@ -388,6 +391,30 @@ void init_bindings_rolling(py::module& m) {
         .def(py::init<int>(), py::arg("window_size") = 14)
         .def("__call__", &screamer::NATR::handle_input)
         .def("reset", &screamer::NATR::reset, "Reset to the initial state.");
+
+    // Donchian / Keltner channels (envelope-style indicators).
+    py::class_<screamer::DonchianChannels>(m, "DonchianChannels")
+        .def(py::init<int>(), py::arg("window_size") = 20)
+        .def("__call__", &screamer::DonchianChannels::handle_input)
+        .def("reset", &screamer::DonchianChannels::reset, "Reset.");
+
+    py::class_<screamer::KeltnerChannels>(m, "KeltnerChannels")
+        .def(py::init<int, double>(),
+             py::arg("window_size") = 20, py::arg("num_atr") = 2.0)
+        .def("__call__", &screamer::KeltnerChannels::handle_input)
+        .def("reset", &screamer::KeltnerChannels::reset, "Reset.");
+
+    // Yang-Zhang volatility (the most efficient classical range-based
+    // estimator; handles both drift and overnight gaps).
+    py::class_<screamer::RollingYangZhangVar>(m, "RollingYangZhangVar")
+        .def(py::init<int>(), py::arg("window_size"))
+        .def("__call__", &screamer::RollingYangZhangVar::handle_input)
+        .def("reset", &screamer::RollingYangZhangVar::reset, "Reset.");
+
+    py::class_<screamer::RollingYangZhangVol>(m, "RollingYangZhangVol")
+        .def(py::init<int>(), py::arg("window_size"))
+        .def("__call__", &screamer::RollingYangZhangVol::handle_input)
+        .def("reset", &screamer::RollingYangZhangVol::reset, "Reset.");
 
     py::class_<screamer::RollingMedian, screamer::ScreamerBase>(m, "RollingMedian")
         .def(py::init<int>(), py::arg("window_size"))

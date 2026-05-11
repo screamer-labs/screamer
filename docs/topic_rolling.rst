@@ -11,6 +11,7 @@ Rolling Window Functions
    functions_rolling/BollingerBands
    functions_rolling/BOP
    functions_rolling/CCI
+   functions_rolling/Channels
    functions_rolling/DEMA
    functions_rolling/HullMA
    functions_rolling/KAMA

@@ -38,6 +38,7 @@ _ROLLING_AUTO_EXCLUDE = {
     # 4-input OHLC range-based volatility
     'RollingGarmanKlassVar', 'RollingGarmanKlassVol',
     'RollingRogersSatchellVar', 'RollingRogersSatchellVol',
+    'RollingYangZhangVar', 'RollingYangZhangVol',
 }
 rolling_classes = [cls for cls in screamer_classes
                    if cls.startswith('Rolling') and cls not in _ROLLING_AUTO_EXCLUDE]
