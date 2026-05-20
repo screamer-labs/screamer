@@ -62,9 +62,9 @@ where `n = window_size` and `k = num_std`. The standard deviation uses the unbia
 
 *Output shape*: an extra trailing axis of size **3** is appended to the input shape. A 1-D input of shape `(T,)` returns shape `(T, 3)`; index `0` is the lower band, index `1` is the middle band, index `2` is the upper band. A scalar call returns a Python `tuple` of three floats.
 
-<!-- HELP_END -->
+## Examples
 
-## Usage Example and Plot
+### Usage example
 
 ```{eval-rst}
 .. plotly::
@@ -99,6 +99,8 @@ where `n = window_size` and `k = num_std`. The standard deviation uses the unbia
     )
     fig.show()
 ```
+
+<!-- HELP_END -->
 
 ## Implementation Details
 

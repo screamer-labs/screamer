@@ -32,11 +32,9 @@ $$
 
 *NaN handling*: Once an input is NaN, every subsequent output is NaN. This matches `numpy.minimum.accumulate`.
 
-<!-- HELP_END -->
+## Examples
 
-## Usage Example and Plot
-
-A natural application is monitoring the *worst single-period return seen so far* on a price series. Starting from a synthetic price path, take period returns, then track `CumMin` of those returns. The result is a step function that ratchets down only when a new worst day arrives.
+### Usage example
 
 ```{eval-rst}
 .. plotly::
@@ -76,6 +74,8 @@ A natural application is monitoring the *worst single-period return seen so far*
     )
     fig.show()
 ```
+
+<!-- HELP_END -->
 
 ## Implementation Details
 

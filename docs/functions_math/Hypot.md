@@ -34,9 +34,9 @@ $$
 
 *NaN handling*: A NaN in either input produces a NaN output.
 
-<!-- HELP_END -->
+## Examples
 
-## Usage Example
+### Usage example
 
 ```python
 import numpy as np
@@ -55,6 +55,8 @@ UX = np.random.randn(100, 4)
 UY = np.random.randn(100, 4)
 Hypot()(UX, UY).shape          # (100, 4)
 ```
+
+<!-- HELP_END -->
 
 ## Reference
 

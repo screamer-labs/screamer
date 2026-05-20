@@ -49,9 +49,9 @@ Pure composition of three chained `EwMean` instances plus a single scalar holdin
 
 The underlying EMA is pandas's `adjust=True` (bias-corrected weighted mean -- the form we use throughout the library). TA-Lib's TRIX uses `adjust=False` with an SMA-seeded warmup, so ours differs from TA-Lib by a few percent during early samples; see [conventions](../conventions.md).
 
-<!-- HELP_END -->
+## Examples
 
-## Usage Example
+### Usage example
 
 ```python
 import numpy as np, pandas as pd
@@ -65,6 +65,8 @@ s = pd.Series(x)
 e3 = s.ewm(span=14, adjust=True).mean().ewm(span=14, adjust=True).mean().ewm(span=14, adjust=True).mean()
 np.testing.assert_allclose(trix, 100 * e3.pct_change(), equal_nan=True, atol=1e-12)
 ```
+
+<!-- HELP_END -->
 
 ## Reference
 

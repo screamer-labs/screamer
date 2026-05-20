@@ -24,11 +24,9 @@ The `Ffill` class performs forward filling on a sequence of data, replacing any 
 
 *NaN handling*: If a `NaN` appears at the start of the data sequence, it will remain as `NaN` because no preceding value exists to carry forward.
 
-<!-- HELP_END -->
+## Examples
 
-## Usage Example and Plot
-
-Below is an example of using `Ffill` to forward-fill `NaN` values in a data sequence, along with a plot showing the original and filled data.
+### Usage example
 
 ```{eval-rst}
 .. plotly::
@@ -73,6 +71,8 @@ Below is an example of using `Ffill` to forward-fill `NaN` values in a data sequ
     fig.show()
 
 ```
+
+<!-- HELP_END -->
 
 ## Implementation Details
 

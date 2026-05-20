@@ -45,11 +45,9 @@ $$
 
 The shape rule combines the multi-input pairing (column-by-column) with the multi-output stacking (extra trailing axis of size 2). `out[..., 0]` is the radius, `out[..., 1]` is the angle.
 
-<!-- HELP_END -->
+## Examples
 
-## Usage Example and Plot
-
-A typical use case is converting wind components `u, v` to speed and direction.
+### Usage example
 
 ```{eval-rst}
 .. plotly::
@@ -87,6 +85,8 @@ A typical use case is converting wind components `u, v` to speed and direction.
     )
     fig.show()
 ```
+
+<!-- HELP_END -->
 
 ## Roundtrip identity
 

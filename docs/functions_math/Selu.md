@@ -35,9 +35,9 @@ where $\lambda \approx 1.0507$ and $\alpha \approx 1.67326$.
 
 *NaN handling*: `NaN` values are not modified by this function.
 
-<!-- HELP_END -->
+## Examples
 
-## Usage Example and Plot
+### Usage example
 
 ```{eval-rst}
 .. plotly::
@@ -64,3 +64,6 @@ where $\lambda \approx 1.0507$ and $\alpha \approx 1.67326$.
 
     fig.show()
 ```
+
+<!-- HELP_END -->
+

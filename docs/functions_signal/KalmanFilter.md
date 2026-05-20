@@ -63,9 +63,9 @@ In the steady state $K$ converges to a constant determined by $\sigma^2_p / \sig
 
 Constant-time O(1) per step; no buffer, two scalar state variables (`x`, `P`).
 
-<!-- HELP_END -->
+## Examples
 
-## Usage Example
+### Usage example
 
 ```python
 import numpy as np
@@ -83,6 +83,8 @@ smoothed = kf(obs)
 # - process_var -> 0 collapses to the running mean
 # - process_var -> infinity collapses to "output the latest measurement"
 ```
+
+<!-- HELP_END -->
 
 ## Reference
 

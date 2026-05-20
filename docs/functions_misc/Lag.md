@@ -45,9 +45,9 @@ $$
 
 *NaN handling*: When `delay` is larger than the available data at the beginning of the sequence, resulting elements are set to `NaN`.
 
-<!-- HELP_END -->
+## Examples
 
-## Usage Example and Plot
+### Usage example
 
 ```{eval-rst}
 .. plotly::
@@ -77,6 +77,8 @@ $$
 
     fig.show()
 ```
+
+<!-- HELP_END -->
 
 ## Implementation Details
 

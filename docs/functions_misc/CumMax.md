@@ -32,11 +32,9 @@ $$
 
 *NaN handling*: Once an input is NaN, every subsequent output is NaN. This matches `numpy.maximum.accumulate`.
 
-<!-- HELP_END -->
+## Examples
 
-## Usage Example and Plot
-
-The output traces the *high-water mark* of the input: a step function that lifts whenever the input sets a new record and stays flat in between.
+### Usage example
 
 ```{eval-rst}
 .. plotly::
@@ -65,6 +63,8 @@ The output traces the *high-water mark* of the input: a step function that lifts
     )
     fig.show()
 ```
+
+<!-- HELP_END -->
 
 ## Implementation Details
 

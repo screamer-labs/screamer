@@ -52,9 +52,9 @@ with the sums taken over the most recent `window_size` samples and `n = window_s
 
 *Return value*: a number in `[-1, 1]`. Returns `NaN` during warmup or when either stream is constant within the window (zero variance).
 
-<!-- HELP_END -->
+## Examples
 
-## Usage Example and Plot
+### Usage example
 
 ```{eval-rst}
 .. plotly::
@@ -92,6 +92,8 @@ with the sums taken over the most recent `window_size` samples and `n = window_s
     fig.update_yaxes(title_text="rolling correlation", range=[-1, 1], row=2, col=1)
     fig.show()
 ```
+
+<!-- HELP_END -->
 
 ## Implementation Details
 

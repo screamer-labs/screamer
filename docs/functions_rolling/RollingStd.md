@@ -41,9 +41,9 @@ The `RollingStd` class computes the sample standard deviation of values within a
   - `"expanding"`: Adapts the computation by dynamically reducing the window size to include all available data, starting from a single point and growing until `window_size` is reached.
   - `"zero"`: Simulates a full initial window of zeros, effectively pre-filling the data stream with `window_size` zeros before processing the actual input.
 
-<!-- HELP_END -->
+## Examples
 
-## Usage Example and Plot
+### Usage example
 
 ```{eval-rst}
 .. plotly::
@@ -76,6 +76,8 @@ The `RollingStd` class computes the sample standard deviation of values within a
 
     fig.show()
 ```
+
+<!-- HELP_END -->
 
 ## Implementation Details
 

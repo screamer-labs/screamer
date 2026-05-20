@@ -34,11 +34,9 @@ The `Clip` class restricts each value in a data sequence to fall within a specif
 
 *NaN handling*: NaN values are not modified by this function and remain as NaN if present in the input data.
 
-<!-- HELP_END -->
+## Examples
 
-## Usage Example and Plot
-
-Below is an example of using `Clip` to constrain data to fall between -1 and 1, along with a plot illustrating the effect.
+### Usage example
 
 ```{eval-rst}
 .. plotly::
@@ -70,6 +68,8 @@ Below is an example of using `Clip` to constrain data to fall between -1 and 1, 
 
     fig.show()
 ```
+
+<!-- HELP_END -->
 
 ## Implementation Details
 

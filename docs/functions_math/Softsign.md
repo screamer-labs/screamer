@@ -29,9 +29,9 @@ $$
 
 *NaN handling*: `NaN` values are not modified by this function.
 
-<!-- HELP_END -->
+## Examples
 
-## Usage Example and Plot
+### Usage example
 
 ```{eval-rst}
 .. plotly::
@@ -58,3 +58,6 @@ $$
 
     fig.show()
 ```
+
+<!-- HELP_END -->
+

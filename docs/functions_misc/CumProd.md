@@ -29,11 +29,9 @@ $$
 
 *NaN handling*: NaN propagates by ordinary IEEE-754 multiplication. A single zero input pins the running product to zero from that point onward.
 
-<!-- HELP_END -->
+## Examples
 
-## Usage Example and Plot
-
-A common application is converting a series of period returns `r[t]` into a wealth path by accumulating gross returns `1 + r[t]`.
+### Usage example
 
 ```{eval-rst}
 .. plotly::
@@ -65,6 +63,8 @@ A common application is converting a series of period returns `r[t]` into a weal
     )
     fig.show()
 ```
+
+<!-- HELP_END -->
 
 ## Implementation Details
 

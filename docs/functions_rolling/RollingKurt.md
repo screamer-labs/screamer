@@ -40,10 +40,9 @@ The `RollingKurt` class computes the excess kurtosis of a data sequence within a
   - `"expanding"`: Adapts the computation by dynamically reducing the window size to include all available data, starting from a single point and growing until `window_size` is reached.
   - `"zero"`: Simulates a full initial window of zeros, effectively pre-filling the data stream with `window_size` zeros before processing the actual input.
 
-<!-- HELP_END -->
+## Examples
 
-## Usage Example and Plot
-Below is an example of using `RollingKurt` to calculate the rolling median for a random dataset, along with a plot illustrating its output.
+### Usage example
 
 ```{eval-rst}
 .. plotly::
@@ -82,6 +81,7 @@ Below is an example of using `RollingKurt` to calculate the rolling median for a
     fig.show()
 ```
 
+<!-- HELP_END -->
 
 ## Implementation Details
 

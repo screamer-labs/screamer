@@ -33,9 +33,9 @@ where $\alpha$ is a constant set to 1.0.
 
 *NaN handling*: `NaN` values are not modified by this function.
 
-<!-- HELP_END -->
+## Examples
 
-## Usage Example and Plot
+### Usage example
 
 ```{eval-rst}
 .. plotly::
@@ -62,3 +62,6 @@ where $\alpha$ is a constant set to 1.0.
 
     fig.show()
 ```
+
+<!-- HELP_END -->
+

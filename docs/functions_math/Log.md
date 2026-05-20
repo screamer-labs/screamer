@@ -23,9 +23,9 @@ The `Log` class computes the natural logarithm (ln) of each element in a data se
 
 *NaN handling*: `NaN` values and negative values (since they’re undefined for logarithms) are not modified and remain as `NaN`.
 
-<!-- HELP_END -->
+## Examples
 
-## Usage Example and Plot
+### Usage example
 
 ```{eval-rst}
 .. plotly::
@@ -60,3 +60,6 @@ The `Log` class computes the natural logarithm (ln) of each element in a data se
 
     fig.show()
 ```
+
+<!-- HELP_END -->
+

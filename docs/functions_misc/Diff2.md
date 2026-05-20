@@ -45,9 +45,9 @@ equivalent to $\Delta(\Delta x)$.
 
 *Note*: `Diff2` is **not** the same as `Diff(2)`. `Diff(2)` is the *lag-2 first* difference $x[t] - x[t-2]$. `Diff2` is the *second-order* difference, i.e. the difference of differences. On a quadratic input $x[t] = a t^2 + b t + c$ the result is the constant $2a$.
 
-<!-- HELP_END -->
+## Examples
 
-## Usage Example and Plot
+### Usage example
 
 ```{eval-rst}
 .. plotly::
@@ -81,6 +81,8 @@ equivalent to $\Delta(\Delta x)$.
     )
     fig.show()
 ```
+
+<!-- HELP_END -->
 
 ## Reference
 

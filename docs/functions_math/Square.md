@@ -29,9 +29,9 @@ $$
 
 *NaN handling*: `NaN` values pass through unchanged.
 
-<!-- HELP_END -->
+## Examples
 
-## Usage Example and Plot
+### Usage example
 
 ```{eval-rst}
 .. plotly::
@@ -63,6 +63,8 @@ $$
     fig.update_yaxes(title_text="Square(input)", row=2, col=1)
     fig.show()
 ```
+
+<!-- HELP_END -->
 
 ## Reference
 

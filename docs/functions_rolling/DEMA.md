@@ -61,9 +61,9 @@ Same `com / span / halflife / alpha` mutex as `EwMean` -- specify exactly one. T
 * Time complexity: `O(1)` per step.
 * Space complexity: `O(1)`.
 
-<!-- HELP_END -->
+## Examples
 
-## Usage Example
+### Usage example
 
 ```python
 import numpy as np
@@ -79,6 +79,8 @@ e1 = EwMean(span=10)(x)
 e2 = EwMean(span=10)(e1)
 np.testing.assert_allclose(ours, 2*e1 - e2, atol=1e-12)
 ```
+
+<!-- HELP_END -->
 
 ## Reference
 

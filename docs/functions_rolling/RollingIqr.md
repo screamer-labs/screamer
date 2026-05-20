@@ -35,9 +35,9 @@ A robust spread measure: discards the top and bottom 25% of the window, so it is
 
 *NaN handling*: NaN values should be preprocessed.
 
-<!-- HELP_END -->
+## Examples
 
-## Usage Example
+### Usage example
 
 ```python
 import numpy as np
@@ -55,6 +55,8 @@ ref = (
 ).to_numpy()
 np.testing.assert_allclose(iqr[29:], ref[29:], atol=1e-12)
 ```
+
+<!-- HELP_END -->
 
 ## Implementation Details
 

@@ -56,9 +56,9 @@ with the sums taken over the most recent `window_size` samples.
 
 > **Convention note**: pandas does not ship a `rolling().beta()` method directly. The pandas-equivalent expression is `pd.Series(x).rolling(w).cov(pd.Series(y)) / pd.Series(y).rolling(w).var()`. Some libraries call this slope "alpha" or use the inverse argument order; double-check the convention when comparing.
 
-<!-- HELP_END -->
+## Examples
 
-## Usage Example and Plot
+### Usage example
 
 ```{eval-rst}
 .. plotly::
@@ -91,6 +91,8 @@ with the sums taken over the most recent `window_size` samples.
     )
     fig.show()
 ```
+
+<!-- HELP_END -->
 
 ## Implementation Details
 

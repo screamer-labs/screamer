@@ -40,11 +40,10 @@ The `RollingMean` (also known as `moving average`) class computes the mean value
   - `"strict"`: Returns `NaN` for all calculations until `window_size` elements have been processed.
   - `"expanding"`: Adapts the computation by dynamically reducing the window size to include all available data, starting from a single point and growing until `window_size` is reached.
   - `"zero"`: Simulates a full initial window of zeros, effectively pre-filling the data stream with `window_size` zeros before processing the actual input.
-  
-<!-- HELP_END -->
 
-## Usage Example and Plot
-Below is an example of using `RollingMean` to calculate the rolling mean for a random dataset, along with a plot illustrating its output.
+## Examples
+
+### Usage example
 
 ```{eval-rst}
 .. plotly::
@@ -74,6 +73,7 @@ Below is an example of using `RollingMean` to calculate the rolling mean for a r
     fig.show()
 ```
 
+<!-- HELP_END -->
 
 ## Implementation Details
 

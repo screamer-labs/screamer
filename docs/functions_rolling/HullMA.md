@@ -57,9 +57,9 @@ The inner WMAs run with `start_policy="expanding"` so they never emit `NaN` (whi
 * Time complexity: `O(1)` per step (three `WMA` updates).
 * Space complexity: `O(window_size)` (dominated by the longest internal `WMA`).
 
-<!-- HELP_END -->
+## Examples
 
-## Usage Example
+### Usage example
 
 ```python
 import numpy as np
@@ -81,6 +81,8 @@ w_outer = WMA(n_sqrt, "expanding")(2*w_half - w_full)
 warmup = n + n_sqrt - 1
 np.testing.assert_allclose(ours[warmup - 1:], w_outer[warmup - 1:], atol=1e-12)
 ```
+
+<!-- HELP_END -->
 
 ## Reference
 

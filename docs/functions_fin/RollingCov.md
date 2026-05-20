@@ -50,9 +50,9 @@ with the sums taken over the most recent `window_size` samples. The `n - 1` deno
 
 *Return value*: a real number. Returns `NaN` during warmup. Returns `0` when one of the streams is constant within the window (covariance with a constant series is zero, well-defined).
 
-<!-- HELP_END -->
+## Examples
 
-## Usage Example and Plot
+### Usage example
 
 ```{eval-rst}
 .. plotly::
@@ -87,6 +87,8 @@ with the sums taken over the most recent `window_size` samples. The `n - 1` deno
     fig.update_yaxes(title_text="rolling covariance", row=2, col=1)
     fig.show()
 ```
+
+<!-- HELP_END -->
 
 ## Implementation Details
 

@@ -37,11 +37,9 @@ The `RollingQuantile` class computes a specified quantile within a moving window
 
 *NaN handling*: The first `window_size` values are returned as `NaN`, as they do not form a complete window. If `NaN` values are present within the data sequence, they will be ignored in the quantile calculation.
 
-<!-- HELP_END -->
+## Examples
 
-## Usage Example and Plot
-
-Below is an example of using `RollingQuantile` to calculate the rolling 25th and 75th percentiles for a random dataset, with a plot illustrating the results.
+### Usage example
 
 ```{eval-rst}
 .. plotly::
@@ -84,6 +82,8 @@ Below is an example of using `RollingQuantile` to calculate the rolling 25th and
 
     fig.show()
 ```
+
+<!-- HELP_END -->
 
 ## Implementation Details
 

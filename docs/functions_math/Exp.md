@@ -22,9 +22,9 @@ The `Exp` class computes the exponential (e^x) of each element in a data sequenc
 
 *NaN handling*: `NaN` values are not modified.
 
-<!-- HELP_END -->
+## Examples
 
-## Usage Example and Plot
+### Usage example
 
 ```{eval-rst}
 .. plotly::
@@ -60,3 +60,6 @@ The `Exp` class computes the exponential (e^x) of each element in a data sequenc
     fig.show()
 
 ```
+
+<!-- HELP_END -->
+

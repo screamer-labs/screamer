@@ -34,9 +34,9 @@ with halves resolved to even.
 
 *Note*: This is **not** the same as the C++ `std::round` (half-away-from-zero). For example `Round(0.5) == 0`, `Round(1.5) == 2`, `Round(2.5) == 2`.
 
-<!-- HELP_END -->
+## Examples
 
-## Usage Example and Plot
+### Usage example
 
 ```{eval-rst}
 .. plotly::
@@ -68,6 +68,8 @@ with halves resolved to even.
     fig.update_yaxes(title_text="Round(input)", row=2, col=1)
     fig.show()
 ```
+
+<!-- HELP_END -->
 
 ## Reference
 

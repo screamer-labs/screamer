@@ -46,6 +46,10 @@ $$
 
 Bit-exact match to `scipy.signal.butter(order, [low, high], btype='bandpass')` + `scipy.signal.lfilter`. Verified to ~1e-9 in `tests/test_signal.py`.
 
+## Examples
+
+### Description
+
 ```python
 from screamer import ButterBandpass
 bp = ButterBandpass(order=4, low_cutoff=0.1, high_cutoff=0.3)

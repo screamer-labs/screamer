@@ -47,6 +47,10 @@ $$
 
 Bit-exact match to `scipy.signal.butter(order, [low, high], btype='bandstop')` + `scipy.signal.lfilter`. Verified to ~1e-9 in `tests/test_signal.py`.
 
+## Examples
+
+### Description
+
 ```python
 from screamer import ButterBandstop
 # 60 Hz notch on 1kHz-sampled data: Nyquist = 500 Hz, cutoffs ~58/500 .. 62/500

@@ -28,11 +28,9 @@ The `FillNa` class replaces any `NaN` values in a data sequence with a specified
 
 *NaN handling*: All `NaN` values are replaced with the specified `fill` value, ensuring no `NaN` values remain in the output data.
 
-<!-- HELP_END -->
+## Examples
 
-## Usage Example and Plot
-
-Below is an example of using `FillNa` to replace `NaN` values with a specified fill value of 0, along with a plot illustrating the effect.
+### Usage example
 
 ```{eval-rst}
 .. plotly::
@@ -75,7 +73,7 @@ Below is an example of using `FillNa` to replace `NaN` values with a specified f
     fig.show()
 ```
 
----
+<!-- HELP_END -->
 
 ## Implementation Details
 

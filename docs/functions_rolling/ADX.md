@@ -61,6 +61,10 @@ TA-Lib's Wilder smoother for the DI/DM/TR triplet uses a slightly different seed
 
 ## Usage
 
+## Examples
+
+### Usage
+
 ```python
 import numpy as np
 from screamer import ADX

@@ -43,11 +43,16 @@ $$
 
 Useful for pairs-trading z-score normalisation:
 
-```python
-z = (current_spread - mean_spread) / RollingResidualStd(60)(y, x)
-```
 
 Composes `RollingSpread` + `RollingStd`. O(1) per step. NaN-poisoning during
 `RollingSpread`'s own warmup is gated explicitly so the std accumulator stays clean.
+
+## Examples
+
+### Description
+
+```python
+z = (current_spread - mean_spread) / RollingResidualStd(60)(y, x)
+```
 
 <!-- HELP_END -->

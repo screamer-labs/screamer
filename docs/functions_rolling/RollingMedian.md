@@ -27,10 +27,9 @@ The `RollingMedian` class computes the median value within a moving window of sp
 *Initial values*: The constructor requires a positive integer `window_size` parameter to define the rolling window.  
 *NaN handling*: NaN values are not handled natively and should be preprocessed if necessary.
 
-<!-- HELP_END -->
+## Examples
 
-## Usage Example and Plot
-Below is an example of using `RollingMedian` to calculate the rolling median for a random dataset, along with a plot illustrating its output.
+### Usage example
 
 ```{eval-rst}
 .. plotly::
@@ -62,6 +61,7 @@ Below is an example of using `RollingMedian` to calculate the rolling median for
     fig.show()
 ```
 
+<!-- HELP_END -->
 
 ## Implementation Details
 

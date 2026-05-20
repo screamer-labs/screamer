@@ -27,10 +27,9 @@ The `RollingMin` class computes the minimum value within a moving window of spec
 *Initial values*: The constructor requires a positive integer `window_size` parameter to define the rolling window.  
 *NaN handling*: NaN values are not handled natively and should be preprocessed if necessary.
 
-<!-- HELP_END -->
+## Examples
 
-## Usage Example and Plot
-Below is an example of using `RollingMin` to calculate the rolling maximum for a random dataset, along with a plot illustrating its output.
+### Usage example
 
 ```{eval-rst}
 .. plotly::
@@ -61,6 +60,8 @@ Below is an example of using `RollingMin` to calculate the rolling maximum for a
     )
     fig.show()
 ```
+
+<!-- HELP_END -->
 
 ## Implementation Details
 
