@@ -77,9 +77,9 @@ Built from existing screamer primitives:
 * Time complexity: `O(1)` per step.
 * Space complexity: `O(window_size)`.
 
-<!-- HELP_END -->
+## Examples
 
-## Usage Example and Plot
+### Usage example
 
 ```{eval-rst}
 .. plotly::
@@ -117,7 +117,7 @@ Built from existing screamer primitives:
     fig.show()
 ```
 
-In the quiet and run-up segments KAMA hugs the price (high ER → fast SC); during the noisy middle segment KAMA flattens out (low ER → slow SC), while the EMA continues to lag through the noise indiscriminately.
+<!-- HELP_END -->
 
 ## Reference
 

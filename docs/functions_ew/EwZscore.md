@@ -52,6 +52,10 @@ One of the following decay parameters is required to calculate `alpha`, where a 
 
 ### Usage Example and Plot
 
+## Examples
+
+### Description
+
 ```{eval-rst}
 .. plotly::
     :include-source: True

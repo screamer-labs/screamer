@@ -41,6 +41,10 @@ Returns `NaN` when the path is monotonic up (no drawdown in window).
 
 If you already have a price series, compose by hand:
 
+## Examples
+
+### Description
+
 ```python
 calmar = ppy * RollingMean(window)(returns) / abs(RollingMaxDrawdown(window)(price))
 ```

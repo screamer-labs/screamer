@@ -56,9 +56,9 @@ Pure composition of two chained `detail::RollingMean` instances. Both run with `
 * Time complexity: `O(1)` per step (two `RollingMean` updates).
 * Space complexity: `O(window_size)`.
 
-<!-- HELP_END -->
+## Examples
 
-## Usage Example
+### Usage example
 
 ```python
 import numpy as np
@@ -77,6 +77,8 @@ inner = RollingMean(n_inner, "expanding")(x)
 outer = RollingMean(n_outer, "expanding")(inner)
 np.testing.assert_allclose(ours[n - 1:], outer[n - 1:], atol=1e-12)
 ```
+
+<!-- HELP_END -->
 
 ## Reference
 

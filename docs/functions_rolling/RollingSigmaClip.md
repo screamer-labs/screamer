@@ -61,12 +61,9 @@ The `RollingSigmaClip` class performs rolling statistical clipping on a data seq
   - `"expanding"`: Adapts the computation by dynamically reducing the window size to include all available data, starting from a single point and growing until `window_size` is reached.
   - `"zero"`: Simulates a full initial window of zeros, effectively pre-filling the data stream with `window_size` zeros before processing the actual input.
 
+## Examples
 
-<!-- HELP_END -->
-
-## Usage Example and Plot
-
-Below is an example of using `RollingSigmaClip` to clip data points that are more than 2 standard deviations away from the rolling mean within a window size of 30. The plot illustrates the input data, clipped data, rolling mean, and upper and lower bounds.
+### Usage example
 
 ```{eval-rst}
 .. plotly::
@@ -121,6 +118,8 @@ Below is an example of using `RollingSigmaClip` to clip data points that are mor
 
     fig.show()
 ```
+
+<!-- HELP_END -->
 
 ## Implementation Details
 

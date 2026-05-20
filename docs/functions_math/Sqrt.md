@@ -22,9 +22,9 @@ The `Sqrt` class computes the square root of each element in a data sequence. It
 
 *NaN handling*: Negative values and `NaN` values are not modified, as the square root is undefined for negative numbers.
 
-<!-- HELP_END -->
+## Examples
 
-## Usage Example and Plot
+### Usage example
 
 ```{eval-rst}
 .. plotly::
@@ -60,3 +60,6 @@ The `Sqrt` class computes the square root of each element in a data sequence. It
     fig.show()
 
 ```
+
+<!-- HELP_END -->
+

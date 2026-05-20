@@ -42,9 +42,9 @@ The Butterworth filter is implemented using a digital Infinite Impulse Response 
 
 *NaN handling*: NaN values may propagate through the filter unless handled separately in preprocessing.
 
-<!-- HELP_END -->
+## Examples
 
-## Usage Example and Plot
+### Usage example
 
 ```{eval-rst}
 .. plotly::
@@ -96,53 +96,5 @@ The Butterworth filter is implemented using a digital Infinite Impulse Response 
     fig.show()
 ```
 
-### Formula Details
+<!-- HELP_END -->
 
-The `Butter` class employs a series of steps to compute the filter's coefficients and apply the low-pass transformation. Given the filter order \( N \) and cutoff frequency \( f_c \), the process involves:
-
-1. **Pole Calculation**: The poles for an analog Butterworth filter are distributed evenly on the left half of the complex plane unit circle. For each pole \( p_k \), we calculate:
-
-   $$
-   p_k = -\exp\left(\frac{i \pi (2k - 1)}{2N}\right) \quad \text{for} \; k = 1, \dots, N
-   $$
-
-2. **Frequency Warping**: To prepare the analog filter for digital conversion, we pre-warp the cutoff frequency to adjust for the bilinear transformation's non-linear frequency mapping. The warped angular frequency \( \omega \) is:
-
-   $$
-   \omega = 2 f_s \tan\left(\frac{\pi f_c}{f_s}\right)
-   $$
-
-   where \( f_s \) is the sampling frequency, typically set to 2 for normalized frequencies.
-
-3. **Low-Pass Transformation**: Each pole is scaled by the cutoff frequency \( \omega \) to implement the low-pass response:
-
-   $$
-   p_k = \omega \cdot p_k
-   $$
-
-4. **Bilinear Transform**: The bilinear transform maps each pole \( p_k \) and any zero \( z_k \) (if present) from the analog domain to the digital z-plane, ensuring stability and frequency response fidelity. For each transformed pole \( p_z \), we apply:
-
-   $$
-   p_z = \frac{2 f_s + p_k}{2 f_s - p_k}
-   $$
-
-   Any zeros at infinity are placed at the Nyquist frequency (i.e., \( -1 \) in the z-plane).
-
-5. **Gain Compensation**: To ensure the filter's gain remains consistent, we compensate for any changes caused by the bilinear transform. The gain \( K \) in the z-domain is adjusted as:
-
-   $$
-   K_z = K \cdot \frac{\prod_{k} (2 f_s - z_k)}{\prod_{k} (2 f_s - p_k)}
-   $$
-
-6. **Polynomial Conversion**: The poles and zeros in the z-domain are converted to the transfer function form \( H(z) = \frac{B(z)}{A(z)} \), with numerator coefficients \( b \) and denominator coefficients \( a \) computed from the polynomial expansion of the zeros and poles:
-
-   - **Numerator Polynomial** (from zeros):
-     $$
-     B(z) = K_z \prod_{k} (z - z_k)
-     $$
-   - **Denominator Polynomial** (from poles):
-     $$
-     A(z) = \prod_{k} (z - p_k)
-     $$
-
-These recursive IIR filter coefficients are then applied to process the input data, recursively updating past inputs and outputs to generate the filtered signal. The Butterworth design’s unique response shape ensures a smooth roll-off at the specified cutoff frequency with no ripple in the passband, making it ideal for applications requiring a clean low-pass filter response.

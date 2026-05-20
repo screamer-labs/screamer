@@ -71,9 +71,9 @@ where $ x[i] $ is the current value, $ x[i-1] $ is the previous value, $ \mu $ i
   - `"expanding"`: Adapts the computation by dynamically reducing the window size to include all available data, starting from a single point and growing until `window_size` is reached.
   - `"zero"`: Simulates a full initial window of zeros, effectively pre-filling the data stream with `window_size` zeros before processing the actual input.
 
-<!-- HELP_END -->
+## Examples
 
-## Usage Example and Plot
+### Usage example
 
 ```{eval-rst}
 .. plotly::
@@ -121,17 +121,5 @@ where $ x[i] $ is the current value, $ x[i-1] $ is the previous value, $ \mu $ i
     fig.show()
 ```
 
-### Formula Details
+<!-- HELP_END -->
 
-The `RollingOU` function estimates parameters for the OU model in a rolling window. For a window of data $ \{x[i - W], \dots, x[i]\} $, it calculates:
-
-1. **Mean Reversion Rate (mrr)**: The rate at which the model reverts to the mean is estimated from the correlation between current and prior values. For $ \text{mrr} > 0 $, the process exhibits mean-reverting behavior, with values tending to return to the mean. Negative values imply mean repulsion, while values greater than 1 indicate oscillatory or potentially unstable behavior.
-
-2. **Realtive mean ($\mu$)**: The model estimates the long-term mean by extrapolating the model, giving the steady-state value toward which the process reverts in the absence of noise. 
-
-3. **Realtive mean ($\mu^\prime$)**: The relative mean is expressed relative to the last observation $\mu^\prime = \mu - x[i]$. A positive relative means indicated that the mean is above the current signal value.
-
-4. **Standard Deviation ($\sigma$)**: This parameter estimates the noise level by calculating the standard deviation of residuals within the window, capturing the typical magnitude of deviations around the mean.
-
-
-where $ \epsilon $ is drawn from a standard normal distribution. This iterative update leverages a rolling window for dynamic re-estimation of the parameters, allowing adaptation to time-varying behavior in the data.

@@ -6,10 +6,13 @@ frontmatter block, this script:
 
 1. Parses the frontmatter (structured schema: title, category, tags,
    parameter list with defaults / types / constraints, IO arity).
-2. Extracts the markdown body up to a `<!-- HELP_END -->` marker. Anything
-   after that marker (sphinx-only sections like ``Implementation Details``,
-   plotly examples, references) is excluded from the body the frontend
-   renders. Math and prose stay.
+2. Parses the markdown body into two structured fields:
+   - ``details``: prose / math / sub-sections, guaranteed no code fences.
+   - ``examples``: a list of ``{language, caption, code}`` objects, one
+     per ``### Caption`` under the ``## Examples`` heading. ``{eval-rst}
+     .. plotly::`` directives are unwrapped to plain python.
+   Anything after the ``<!-- HELP_END -->`` marker (sphinx-only sections
+   like ``Implementation Details``, references) is excluded.
 3. Validates the schema by instantiating the class with every parameter
    set to its documented default and calling it on a small synthetic
    array. If that round-trip fails, the schema and the binding have
@@ -20,7 +23,7 @@ frontmatter block, this script:
    the live call succeed.
 
 Output: ``screamer/data/help.json`` — a dict keyed by class name. Each
-entry contains the frontmatter fields plus a ``body_markdown`` string.
+entry contains the frontmatter fields plus ``details`` and ``examples``.
 
 Run:
     poetry run python devtools/build_help_registry.py
@@ -28,6 +31,7 @@ Run:
 import json
 import re
 import sys
+import textwrap
 import importlib
 from pathlib import Path
 
@@ -40,23 +44,105 @@ OUT = ROOT / "screamer" / "data" / "help.json"
 
 FRONTMATTER_RE = re.compile(r"\A---\n(.*?)\n---\n", re.DOTALL)
 HELP_END_MARKER = "<!-- HELP_END -->"
+H1_RE = re.compile(r"^# .*\n", re.M)
+EXAMPLES_H2_RE = re.compile(r"^## Examples\s*\n", re.M)
+H3_SPLIT_RE = re.compile(r"^### (.+)$", re.M)
+FENCE_RE = re.compile(r"\A```(\S*)\s*\n(.*?)\n```", re.S)
+PLOTLY_DIRECTIVE_RE = re.compile(
+    r"\A\.\. plotly::\s*\n"        # ".. plotly::" + newline
+    r"((?:[ \t]+:[^\n]*\n)*)"      # zero or more ":option: value" lines
+    r"\s*\n"                       # blank line
+    r"(.+)",                       # indented body (captured)
+    re.S,
+)
 # pybind11 emits ``__init__(self: <type>, foo: int, bar: str = 'x') -> None``
 # as the first line of the docstring. Capture the parameter names.
 PYBIND_SIG_RE = re.compile(r"__init__\(self[^,)]*(?:,\s*([^)]*))?\)")
 
 
-def parse_file(path: Path):
-    text = path.read_text()
+def parse_help_file_text(text: str) -> dict | None:
+    """Parse a docs/functions_*/<Name>.md file into a help-registry entry.
+
+    Returns a dict with frontmatter fields plus `details` (markdown string)
+    and `examples` (list of {language, caption, code}), or None if the file
+    has no frontmatter or no `name` field.
+
+    Raises ValueError if the body violates the canonical layout.
+    """
     m = FRONTMATTER_RE.match(text)
     if not m:
         return None
     fm = yaml.safe_load(m.group(1))
     if not isinstance(fm, dict) or "name" not in fm:
         return None
+
     body = text[m.end():]
-    if HELP_END_MARKER in body:
-        body = body.split(HELP_END_MARKER, 1)[0]
-    return fm, body.strip()
+    pre_help_end = body.split(HELP_END_MARKER, 1)[0] if HELP_END_MARKER in body else body
+
+    examples_m = EXAMPLES_H2_RE.search(pre_help_end)
+    if examples_m:
+        details_part = pre_help_end[:examples_m.start()]
+        examples_part = pre_help_end[examples_m.end():]
+    else:
+        details_part = pre_help_end
+        examples_part = ""
+
+    details = H1_RE.sub("", details_part, count=1).strip()
+    if "```" in details:
+        raise ValueError("code fence outside `## Examples` section")
+
+    examples = _parse_examples_region(examples_part) if examples_part.strip() else []
+
+    entry = dict(fm)
+    entry["details"] = details
+    entry["examples"] = examples
+    return entry
+
+
+def _unwrap_plotly(eval_rst_body: str) -> str:
+    """Extract the indented python body from a `.. plotly::` directive.
+
+    Raises ValueError if the eval-rst body is not a plotly directive.
+    """
+    m = PLOTLY_DIRECTIVE_RE.match(eval_rst_body)
+    if not m:
+        raise ValueError(
+            "unsupported eval-rst directive in `## Examples` "
+            "(only `.. plotly::` is recognized)"
+        )
+    indented_body = m.group(2)
+    return textwrap.dedent(indented_body).strip("\n")
+
+
+def _parse_examples_region(text: str) -> list[dict]:
+    """Split an Examples region into [{language, caption, code}, ...].
+
+    `text` is the content AFTER the `## Examples` heading and BEFORE
+    `<!-- HELP_END -->`. Headings are H3 (`### Caption`). The first
+    fenced code block under each H3 becomes that example's `code`.
+    """
+    parts = H3_SPLIT_RE.split(text)
+    # parts = [pre_first_h3, caption1, content1, caption2, content2, ...]
+    if parts[0].strip():
+        raise ValueError(
+            "content under `## Examples` without a preceding `### Heading`"
+        )
+    examples = []
+    for i in range(1, len(parts), 2):
+        caption = parts[i].strip()
+        content = parts[i + 1].lstrip()
+        m = FENCE_RE.match(content)
+        if not m:
+            raise ValueError(
+                f"`### {caption}` is not immediately followed by a code fence"
+            )
+        language = m.group(1).strip() or "python"
+        code = m.group(2)
+        if language == "{eval-rst}":
+            code = _unwrap_plotly(code)
+            language = "python"
+        examples.append({"language": language, "caption": caption, "code": code})
+    return examples
 
 
 def pybind_param_names(cls) -> list[str]:
@@ -140,15 +226,16 @@ def main(argv=None):
 
     registry: dict[str, dict] = {}
     for md in files:
-        parsed = parse_file(md)
-        if parsed is None:
+        try:
+            entry = parse_help_file_text(md.read_text())
+        except ValueError as e:
+            raise SystemExit(f"{md.relative_to(ROOT)}: {e}") from None
+        if entry is None:
             continue
-        fm, body = parsed
-        validate(fm, screamer)
-        entry = dict(fm)
-        entry["body_markdown"] = body
-        registry[fm["name"]] = entry
-        print(f"  + {fm['name']:24s}  ({md.relative_to(ROOT)})")
+        validate(entry, screamer)
+        registry[entry["name"]] = entry
+        n_ex = len(entry["examples"])
+        print(f"  + {entry['name']:24s}  ({md.relative_to(ROOT)}, {n_ex} examples)")
 
     OUT.parent.mkdir(parents=True, exist_ok=True)
     OUT.write_text(json.dumps(registry, indent=2, ensure_ascii=False) + "\n")

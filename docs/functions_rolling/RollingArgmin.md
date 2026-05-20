@@ -28,9 +28,9 @@ parameters:
 
 *NaN handling*: NaN values should be preprocessed (the deque comparison treats NaN as never beating an existing element).
 
-<!-- HELP_END -->
+## Examples
 
-## Usage Example
+### Usage example
 
 ```python
 import numpy as np
@@ -43,6 +43,8 @@ RollingMin(5)(x)           # corresponding minima
 # Example: how long ago was the running low? Convert offset to "steps ago":
 steps_ago = (5 - 1) - RollingArgmin(5)(x).astype(int)
 ```
+
+<!-- HELP_END -->
 
 ## Implementation Details
 

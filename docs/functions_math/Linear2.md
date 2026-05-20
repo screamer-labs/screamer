@@ -57,9 +57,9 @@ The class is small but composes nicely with the existing element-wise transforms
 
 *NaN handling*: a NaN in either input produces a NaN output (arithmetic propagation).
 
-<!-- HELP_END -->
+## Examples
 
-## Usage Example
+### Usage example
 
 ```python
 import numpy as np
@@ -77,6 +77,8 @@ X = np.random.randn(100, 4)
 Y = np.random.randn(100, 4)
 Linear2(0.5, 0.5)(X, Y).shape       # (100, 4)
 ```
+
+<!-- HELP_END -->
 
 ## Visual example: positive excess of a price over its trend
 

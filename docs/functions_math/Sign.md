@@ -23,9 +23,9 @@ The `Sign` class computes the sign of each element in a data sequence, mapping e
 
 *NaN handling*: `NaN` values are not modified.
 
-<!-- HELP_END -->
+## Examples
 
-## Usage Example and Plot
+### Usage example
 
 ```{eval-rst}
 .. plotly::
@@ -61,3 +61,6 @@ The `Sign` class computes the sign of each element in a data sequence, mapping e
     fig.show()
 
 ```
+
+<!-- HELP_END -->
+

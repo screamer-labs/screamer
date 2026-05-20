@@ -77,9 +77,9 @@ If the denominator is zero or non-positive, the output is `NaN`.
 
 By definition `EwBeta(x, y) == EwCov(x, y) / EwVar(y)`. Verified to ~1e-12 in the test suite.
 
-<!-- HELP_END -->
+## Examples
 
-## Usage Example
+### Usage example
 
 ```python
 import numpy as np
@@ -101,6 +101,8 @@ ref = (
 )
 np.testing.assert_allclose(beta, ref, equal_nan=True, atol=1e-10)
 ```
+
+<!-- HELP_END -->
 
 ## Reference
 

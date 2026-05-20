@@ -30,9 +30,9 @@ $$
 
 *NaN handling*: Inputs outside $[-1, 1]$ produce `NaN`. Existing `NaN` values pass through.
 
-<!-- HELP_END -->
+## Examples
 
-## Usage Example and Plot
+### Usage example
 
 ```{eval-rst}
 .. plotly::
@@ -64,6 +64,8 @@ $$
     fig.update_yaxes(title_text="Acos(input)", row=2, col=1)
     fig.show()
 ```
+
+<!-- HELP_END -->
 
 ## Reference
 

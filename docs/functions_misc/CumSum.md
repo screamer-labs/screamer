@@ -29,9 +29,9 @@ $$
 
 *NaN handling*: NaN propagates by ordinary IEEE-754 addition. Once a NaN enters the input, every subsequent output is NaN. This matches `numpy.cumsum`, not `pandas.Series.cumsum(skipna=True)`.
 
-<!-- HELP_END -->
+## Examples
 
-## Usage Example and Plot
+### Usage example
 
 ```{eval-rst}
 .. plotly::
@@ -61,6 +61,8 @@ $$
     )
     fig.show()
 ```
+
+<!-- HELP_END -->
 
 ## Implementation Details
 

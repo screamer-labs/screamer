@@ -44,9 +44,9 @@ Same shape rule as `Cart2Polar`:
 
 `out[..., 0]` is `x`, `out[..., 1]` is `y`.
 
-<!-- HELP_END -->
+## Examples
 
-## Usage Example
+### Usage example
 
 ```python
 import numpy as np
@@ -62,6 +62,8 @@ back = Polar2Cart()(polar[:, 0], polar[:, 1])
 np.testing.assert_allclose(back[:, 0], x, atol=1e-12)
 np.testing.assert_allclose(back[:, 1], y, atol=1e-12)
 ```
+
+<!-- HELP_END -->
 
 ## Reference
 

@@ -41,9 +41,9 @@ The `RollingZscore` class computes the rolling z-score for each value in a speci
   - `"expanding"`: Adapts the computation by dynamically reducing the window size to include all available data, starting from a single point and growing until `window_size` is reached.
   - `"zero"`: Simulates a full initial window of zeros, effectively pre-filling the data stream with `window_size` zeros before processing the actual input.
 
-<!-- HELP_END -->
+## Examples
 
-## Usage Example and Plot
+### Usage example
 
 ```{eval-rst}
 .. plotly::
@@ -77,6 +77,7 @@ The `RollingZscore` class computes the rolling z-score for each value in a speci
     fig.show()
 ```
 
+<!-- HELP_END -->
 
 ## Implementation Details
 

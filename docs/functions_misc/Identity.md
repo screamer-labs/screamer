@@ -29,9 +29,9 @@ $$
 
 *NaN handling*: Inputs pass through bit-for-bit, including `NaN` and infinities.
 
-<!-- HELP_END -->
+## Examples
 
-## Usage Example
+### Usage example
 
 ```python
 from screamer import Identity, RollingMean
@@ -42,6 +42,8 @@ smoother = RollingMean(10)
 
 stream = (smoother(preproc(v)) for v in source)
 ```
+
+<!-- HELP_END -->
 
 ## Reference
 

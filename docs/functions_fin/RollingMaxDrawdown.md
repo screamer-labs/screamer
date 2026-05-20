@@ -36,6 +36,10 @@ in-window peak can sit anywhere in the window.
 If you want the cheaper "current drawdown vs. rolling-window peak" approximation, compose it
 directly:
 
+## Examples
+
+### Implementation
+
 ```python
 rolling_dd = price / RollingMax(window)(price) - 1
 ```

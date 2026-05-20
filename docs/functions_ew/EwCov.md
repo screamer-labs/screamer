@@ -59,9 +59,9 @@ $$
 
 where $N_{\text{eff}} = S_w^2 / S_{ww}$ is the effective sample size, computed exactly as in `EwVar`. The bias correction makes the estimator unbiased under independent sampling.
 
-<!-- HELP_END -->
+## Examples
 
-## Usage Example
+### Usage example
 
 ```python
 import numpy as np
@@ -79,6 +79,8 @@ ours = EwCov(span=20)(x, y)
 ref = pd.Series(x).ewm(span=20).cov(pd.Series(y)).to_numpy()
 np.testing.assert_allclose(ours, ref, equal_nan=True, atol=1e-12)
 ```
+
+<!-- HELP_END -->
 
 ## Numerical caveat
 

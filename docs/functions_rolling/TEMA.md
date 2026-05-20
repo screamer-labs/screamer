@@ -61,9 +61,9 @@ Pure composition of three chained `EwMean` instances. No explicit warmup: each `
 * Time complexity: `O(1)` per step.
 * Space complexity: `O(1)`.
 
-<!-- HELP_END -->
+## Examples
 
-## Usage Example
+### Usage example
 
 ```python
 import numpy as np
@@ -80,6 +80,8 @@ e2 = EwMean(span=10)(e1)
 e3 = EwMean(span=10)(e2)
 np.testing.assert_allclose(ours, 3*e1 - 3*e2 + e3, atol=1e-12)
 ```
+
+<!-- HELP_END -->
 
 ## Reference
 

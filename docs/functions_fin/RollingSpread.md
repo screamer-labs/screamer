@@ -55,9 +55,9 @@ with the sums in `cov` and `var` taken over the most recent `window_size` sample
 
 *Return value*: a real number, the residual. Returns `NaN` during warmup or when `y` has zero variance within the window.
 
-<!-- HELP_END -->
+## Examples
 
-## Usage Example and Plot
+### Usage example
 
 ```{eval-rst}
 .. plotly::
@@ -94,7 +94,7 @@ with the sums in `cov` and `var` taken over the most recent `window_size` sample
     fig.show()
 ```
 
-The transient mispricing in `a` shows up as a spike in the spread, then mean-reverts as the window catches up.
+<!-- HELP_END -->
 
 ## Implementation Details
 

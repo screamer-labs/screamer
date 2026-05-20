@@ -90,19 +90,9 @@ return `NaN`. Also returns `NaN` if any block in the window has zero variance.
   (DFA, generalised-Hurst from $|\Delta x|^q$ moments) may follow in later
   releases as additional `method` options.
 
-<!-- HELP_END -->
+## Examples
 
-## Implementation Details
-
-* Circular buffer of size `W`.
-* Dyadic scale list and the `ers(n_k)` / $\sqrt{\pi n_k / 2}$ / $\log n_k$
-  tables are precomputed in the constructor (independent of data).
-* Per step: recompute average R/S at each of $\sim \log_2 W$ scales, then a
-  closed-form OLS slope of $\log \text{rsal}$ on $\log n$.
-* Time complexity: **O(W log W)** per step.
-* Space complexity: O(W).
-
-## Usage Example and Plot
+### Usage example
 
 ```{eval-rst}
 .. plotly::
@@ -142,8 +132,17 @@ return `NaN`. Also returns `NaN` if any block in the window has zero variance.
     fig.show()
 ```
 
-`H` hovers near 0.5 in the noise regime, rises above 0.5 during the trending
-segment, and drops below 0.5 in the zig-zag regime.
+<!-- HELP_END -->
+
+## Implementation Details
+
+* Circular buffer of size `W`.
+* Dyadic scale list and the `ers(n_k)` / $\sqrt{\pi n_k / 2}$ / $\log n_k$
+  tables are precomputed in the constructor (independent of data).
+* Per step: recompute average R/S at each of $\sim \log_2 W$ scales, then a
+  closed-form OLS slope of $\log \text{rsal}$ on $\log n$.
+* Time complexity: **O(W log W)** per step.
+* Space complexity: O(W).
 
 ## Reference
 

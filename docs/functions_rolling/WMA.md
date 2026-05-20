@@ -76,9 +76,9 @@ While the window is filling (n samples seen, `n < window_size`):
 
 The warmup numerators agree exactly at the moment the window first fills, so the transition to the post-warmup recurrence is seamless.
 
-<!-- HELP_END -->
+## Examples
 
-## Usage Example
+### Usage example
 
 ```python
 import numpy as np
@@ -98,6 +98,8 @@ ref = pd.Series(x).rolling(w).apply(
 ).to_numpy()
 np.testing.assert_allclose(ours, ref, equal_nan=True, atol=1e-12)
 ```
+
+<!-- HELP_END -->
 
 ## Reference
 

@@ -48,9 +48,9 @@ where $w$ is the `window_size`.
 
 *NaN handling*: Under `start_policy="strict"` the rolling mean is NaN until `window_size` samples have been observed, and `Detrend` therefore emits NaN during that warmup. NaN inputs propagate through the rolling buffer.
 
-<!-- HELP_END -->
+## Examples
 
-## Usage Example and Plot
+### Usage example
 
 ```{eval-rst}
 .. plotly::
@@ -88,6 +88,8 @@ where $w$ is the `window_size`.
     )
     fig.show()
 ```
+
+<!-- HELP_END -->
 
 ## Implementation Details
 

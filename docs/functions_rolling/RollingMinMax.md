@@ -47,9 +47,9 @@ with the window taking the most recent `window_size` samples.
 
 A scalar call returns a Python `tuple` of two floats.
 
-<!-- HELP_END -->
+## Examples
 
-## Usage Example and Plot
+### Usage example
 
 ```{eval-rst}
 .. plotly::
@@ -80,6 +80,8 @@ A scalar call returns a Python `tuple` of two floats.
     )
     fig.show()
 ```
+
+<!-- HELP_END -->
 
 ## Implementation Details
 

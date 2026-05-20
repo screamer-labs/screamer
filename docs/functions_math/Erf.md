@@ -23,9 +23,9 @@ The `Erf` class computes the error function of each element in a data sequence, 
 
 *NaN handling*: `NaN` values are not modified.
 
-<!-- HELP_END -->
+## Examples
 
-## Usage Example and Plot
+### Usage example
 
 ```{eval-rst}
 .. plotly::
@@ -61,3 +61,6 @@ The `Erf` class computes the error function of each element in a data sequence, 
     fig.show()
 
 ```
+
+<!-- HELP_END -->
+

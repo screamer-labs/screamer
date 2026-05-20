@@ -46,9 +46,9 @@ A robust scale measure: less sensitive to outliers than `RollingStd` because it 
 
 *NaN handling*: NaN values should be preprocessed.
 
-<!-- HELP_END -->
+## Examples
 
-## Usage Example and Plot
+### Usage example
 
 ```{eval-rst}
 .. plotly::
@@ -83,6 +83,8 @@ A robust scale measure: less sensitive to outliers than `RollingStd` because it 
     )
     fig.show()
 ```
+
+<!-- HELP_END -->
 
 ## Implementation Details
 

@@ -44,9 +44,9 @@ $$
 
 Circular buffer of the last `L = len(taps)` samples plus an in-order convolution sweep. **O(L) per step**.
 
-<!-- HELP_END -->
+## Examples
 
-## Usage Example
+### Usage example
 
 ```python
 import numpy as np
@@ -60,6 +60,8 @@ out = MovingAverage(list(taps))(signal)
 # Uniform taps -> simple rolling mean (equivalent to RollingMean).
 out = MovingAverage([1/7] * 7)(signal)
 ```
+
+<!-- HELP_END -->
 
 ## Reference
 

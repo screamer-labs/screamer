@@ -87,9 +87,9 @@ Pure composition of two `detail::MonotonicDeque` (one each for high / low) plus 
 | three 1D arrays of shape `(T,)` | array of shape `(T, 2)` |
 | three 2D arrays of shape `(T, K)` | array of shape `(T, K, 2)` |
 
-<!-- HELP_END -->
+## Examples
 
-## Usage Example and Plot
+### Usage example
 
 ```{eval-rst}
 .. plotly::
@@ -132,7 +132,7 @@ Pure composition of two `detail::MonotonicDeque` (one each for high / low) plus 
     fig.show()
 ```
 
-The conventional thresholds are 20 / 80 (oversold / overbought).
+<!-- HELP_END -->
 
 ## Reference
 

@@ -36,9 +36,9 @@ $$
 
 *NaN handling*: A NaN in either input produces a NaN output.
 
-<!-- HELP_END -->
+## Examples
 
-## Usage Example
+### Usage example
 
 ```python
 import numpy as np
@@ -53,6 +53,8 @@ ux = np.random.randn(100)
 uy = np.random.randn(100)
 direction = Atan2()(uy, ux)
 ```
+
+<!-- HELP_END -->
 
 ## Reference
 

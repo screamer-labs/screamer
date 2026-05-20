@@ -48,12 +48,6 @@ This is a **3-input, 1-output** function (`FunctorBase<_, 3, 1>`). Input order i
 
 Pure composition of two `detail::MonotonicDeque` instances -- the same primitive used by `RollingMin`/`RollingMax`/`RollingMinMax`/`RollingArgmin`/`RollingArgmax`/`RollingRange`. Amortised O(1) per step.
 
-```
-high_n = max_deque.append(high)
-low_n  = min_deque.append(low)
-range  = high_n - low_n
-return -100 * (high_n - close) / range   (or 0 if range == 0)
-```
 
 * Time complexity: `O(1)` amortised per step.
 * Space complexity: `O(window_size)`.
@@ -67,9 +61,18 @@ return -100 * (high_n - close) / range   (or 0 if range == 0)
 | three 2D arrays of shape `(T, K)` | array of shape `(T, K)`, column-by-column |
 | three parallel iterables | `list[float]` (eager) |
 
-<!-- HELP_END -->
+## Examples
 
-## Usage Example and Plot
+### Implementation Details
+
+```
+high_n = max_deque.append(high)
+low_n  = min_deque.append(low)
+range  = high_n - low_n
+return -100 * (high_n - close) / range   (or 0 if range == 0)
+```
+
+### Usage example
 
 ```{eval-rst}
 .. plotly::
@@ -112,7 +115,7 @@ return -100 * (high_n - close) / range   (or 0 if range == 0)
     fig.show()
 ```
 
-The dotted horizontal lines at `-20` and `-80` are the conventional "overbought" and "oversold" thresholds.
+<!-- HELP_END -->
 
 ## Reference
 

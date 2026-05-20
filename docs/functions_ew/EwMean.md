@@ -52,6 +52,39 @@ One of the following decay parameters is required to calculate `alpha`, where a 
 
 ### Usage Example and Plot
 
+
+### Formula Details
+
+`EwMean` computes the exponentially weighted moving mean recursively. This calculation approach provides a fast, iterative update for each new value without recalculating the entire window, giving more weight to recent observations. The weighted mean formula aligns with the Pandas `ewm` interface by adjusting for the weighted contribution of each new element.
+
+
+Let:
+- **`alpha`** be the smoothing factor calculated from `com`, `span`, `halflife`, or specified directly, where `0 < alpha < 1`.
+
+For each new data point $x_t$, `EwMean` updates two cumulative sums, $S_x$ and $S_w$, as follows:
+
+1. Adjust $S_x$ by retaining a fraction $(1 - \alpha)$ of the previous weighted sum and then adding the new value $x_t$:
+   
+$$
+S_x = S_x \times (1 - \alpha) + x_t
+$$
+
+1. Adjust $S_w$, the cumulative weight, by similarly retaining a fraction $(1 - \alpha)$ of the previous weight sum, then adding a weight of $1$:
+
+$$
+S_w = S_w \times (1 - \alpha) + 1
+$$
+
+3. Compute the exponentially weighted moving mean as:
+
+$$
+\text{EwMean} = \frac{S_x}{S_w}
+$$
+
+## Examples
+
+### Description
+
 ```{eval-rst}
 .. plotly::
     :include-source: True
@@ -84,33 +117,5 @@ One of the following decay parameters is required to calculate `alpha`, where a 
 
     fig.show()
 ```
-
-### Formula Details
-
-`EwMean` computes the exponentially weighted moving mean recursively. This calculation approach provides a fast, iterative update for each new value without recalculating the entire window, giving more weight to recent observations. The weighted mean formula aligns with the Pandas `ewm` interface by adjusting for the weighted contribution of each new element.
-
-
-Let:
-- **`alpha`** be the smoothing factor calculated from `com`, `span`, `halflife`, or specified directly, where `0 < alpha < 1`.
-
-For each new data point $x_t$, `EwMean` updates two cumulative sums, $S_x$ and $S_w$, as follows:
-
-1. Adjust $S_x$ by retaining a fraction $(1 - \alpha)$ of the previous weighted sum and then adding the new value $x_t$:
-   
-$$
-S_x = S_x \times (1 - \alpha) + x_t
-$$
-
-1. Adjust $S_w$, the cumulative weight, by similarly retaining a fraction $(1 - \alpha)$ of the previous weight sum, then adding a weight of $1$:
-
-$$
-S_w = S_w \times (1 - \alpha) + 1
-$$
-
-3. Compute the exponentially weighted moving mean as:
-
-$$
-\text{EwMean} = \frac{S_x}{S_w}
-$$
 
 <!-- HELP_END -->

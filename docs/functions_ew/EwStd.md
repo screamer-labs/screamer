@@ -52,42 +52,6 @@ One of the following decay parameters is required to calculate `alpha`, where a 
 
 ### Usage Example and Plot
 
-```{eval-rst}
-.. plotly::
-    :include-source: True
-
-    import numpy as np
-    import plotly.graph_objects as go
-    from plotly.subplots import make_subplots
-    from screamer import EwStd
-
-    # Generate example data
-    data = np.cumsum(np.random.normal(size=300))
-
-    # Compute exponentially weighted standard deviation with a span of 20
-    ewstd_data = EwStd(span=20)(data)
-
-    fig = make_subplots(
-        rows=2, cols=1,
-        shared_xaxes=True,
-        row_heights=[1/2, 1/2],
-        vertical_spacing=0.1
-    )
-
-    fig.add_trace(go.Scatter(y=data, mode='lines', name='Original Data'), row=1, col=1)
-    fig.add_trace(go.Scatter(y=ewstd_data, mode='lines', name='EwStd', line=dict(color='red')), row=2, col=1)
-
-    fig.update_layout(
-        title="Exponentially Weighted Moving Standard Deviation",
-        xaxis_title="Index",
-        yaxis=dict(title="Original Data"),
-        yaxis2=dict(title="EwStd", range=[0, 8]),
-        margin=dict(l=20, r=20, t=80, b=20),
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)        
-    )
-
-    fig.show()
-```
 
 ### Formula Details
 
@@ -141,5 +105,46 @@ $$
 $$
 
 The term $N_{eff}$ adjusts for the effective sample size, ensuring that the standard deviation calculation remains unbiased by accounting for the diminishing weight of older values.
+
+## Examples
+
+### Description
+
+```{eval-rst}
+.. plotly::
+    :include-source: True
+
+    import numpy as np
+    import plotly.graph_objects as go
+    from plotly.subplots import make_subplots
+    from screamer import EwStd
+
+    # Generate example data
+    data = np.cumsum(np.random.normal(size=300))
+
+    # Compute exponentially weighted standard deviation with a span of 20
+    ewstd_data = EwStd(span=20)(data)
+
+    fig = make_subplots(
+        rows=2, cols=1,
+        shared_xaxes=True,
+        row_heights=[1/2, 1/2],
+        vertical_spacing=0.1
+    )
+
+    fig.add_trace(go.Scatter(y=data, mode='lines', name='Original Data'), row=1, col=1)
+    fig.add_trace(go.Scatter(y=ewstd_data, mode='lines', name='EwStd', line=dict(color='red')), row=2, col=1)
+
+    fig.update_layout(
+        title="Exponentially Weighted Moving Standard Deviation",
+        xaxis_title="Index",
+        yaxis=dict(title="Original Data"),
+        yaxis2=dict(title="EwStd", range=[0, 8]),
+        margin=dict(l=20, r=20, t=80, b=20),
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)        
+    )
+
+    fig.show()
+```
 
 <!-- HELP_END -->

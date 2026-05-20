@@ -72,6 +72,14 @@ Defaults match Appel's original choice and every charting platform's default.
 
 Pure composition of three `EwMean` instances. Per step:
 
+
+- Time complexity: `O(1)` per step.
+- Space complexity: `O(1)` (each `EwMean` holds two scalars).
+
+## Examples
+
+### Implementation Details
+
 ```
 f = ema_fast.process_scalar(x)        // span = fast
 s = ema_slow.process_scalar(x)        // span = slow
@@ -80,12 +88,7 @@ signal = ema_signal.process_scalar(macd)   // span = signal
 histogram = macd - signal
 ```
 
-- Time complexity: `O(1)` per step.
-- Space complexity: `O(1)` (each `EwMean` holds two scalars).
-
-<!-- HELP_END -->
-
-## Usage Example and Plot
+### Usage example
 
 ```{eval-rst}
 .. plotly::
@@ -127,6 +130,8 @@ histogram = macd - signal
     )
     fig.show()
 ```
+
+<!-- HELP_END -->
 
 ## Reference
 

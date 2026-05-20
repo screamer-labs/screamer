@@ -28,9 +28,9 @@ parameters:
 
 *NaN handling*: NaN values should be preprocessed.
 
-<!-- HELP_END -->
+## Examples
 
-## Usage Example
+### Usage example
 
 ```python
 import numpy as np
@@ -40,6 +40,8 @@ x = np.array([3, 1, 4, 1, 5, 9, 2, 6, 5, 3, 5], dtype=float)
 RollingArgmax(5)(x)        # window offsets, 0 = oldest in window
 RollingMax(5)(x)           # corresponding maxima
 ```
+
+<!-- HELP_END -->
 
 ## Implementation Details
 

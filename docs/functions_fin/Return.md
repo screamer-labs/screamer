@@ -37,9 +37,9 @@ $$
 
 *NaN handling*: When `delay` exceeds the available data points at the start of the sequence, or if `x[i - \text{delay}]` equals zero (to avoid division by zero), the output is set to `NaN`.
 
-<!-- HELP_END -->
+## Examples
 
-## Usage Example and Plot
+### Usage example
 
 ```{eval-rst}
 .. plotly::
@@ -69,6 +69,8 @@ $$
 
     fig.show()
 ```
+
+<!-- HELP_END -->
 
 ## Implementation Details
 

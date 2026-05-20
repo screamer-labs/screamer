@@ -23,9 +23,9 @@ The `Erfc` class computes the complementary error function (1 - erf(x)) for each
 
 *NaN handling*: `NaN` values are not modified.
 
-<!-- HELP_END -->
+## Examples
 
-## Usage Example and Plot
+### Usage example
 
 ```{eval-rst}
 .. plotly::
@@ -61,3 +61,6 @@ The `Erfc` class computes the complementary error function (1 - erf(x)) for each
     fig.show()
 
 ```
+
+<!-- HELP_END -->
+

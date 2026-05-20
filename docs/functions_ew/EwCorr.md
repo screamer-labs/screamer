@@ -65,6 +65,10 @@ If either denominator factor is zero (a constant input over the effective window
 
 `EwCorr` is exactly `EwCov / sqrt(EwVar(x) · EwVar(y))` because the bias factors cancel:
 
+## Examples
+
+### Identity check
+
 ```python
 from screamer import EwCorr, EwCov, EwVar
 denom = np.sqrt(EwVar(alpha=0.1)(x) * EwVar(alpha=0.1)(y))
@@ -75,9 +79,7 @@ np.testing.assert_allclose(
 )
 ```
 
-<!-- HELP_END -->
-
-## Usage Example and Plot
+### Usage example
 
 ```{eval-rst}
 .. plotly::
@@ -110,6 +112,8 @@ np.testing.assert_allclose(
     )
     fig.show()
 ```
+
+<!-- HELP_END -->
 
 ## Reference
 

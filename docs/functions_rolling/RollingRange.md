@@ -30,9 +30,9 @@ parameters:
 
 *NaN handling*: NaN values should be preprocessed.
 
-<!-- HELP_END -->
+## Examples
 
-## Usage Example
+### Usage example
 
 ```python
 import numpy as np
@@ -47,6 +47,8 @@ range_x = RollingRange(20)(x)
 mm = RollingMinMax(20)(x)
 np.testing.assert_array_equal(range_x, mm[:, 1] - mm[:, 0])
 ```
+
+<!-- HELP_END -->
 
 ## Implementation Details
 
