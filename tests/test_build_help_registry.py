@@ -271,3 +271,27 @@ def test_h3_without_code_fence_is_rejected():
         assert "Caption with no code" in str(e)
     else:
         raise AssertionError("expected ValueError")
+
+
+def test_code_in_examples_without_h3_is_rejected():
+    text = _md('''
+        ---
+        name: Foo
+        ---
+
+        # `Foo`
+
+        ## Examples
+
+        ```python
+        floating_code()
+        ```
+
+        <!-- HELP_END -->
+    ''')
+    try:
+        parse_help_file_text(text)
+    except ValueError as e:
+        assert "### Heading" in str(e)
+    else:
+        raise AssertionError("expected ValueError")
