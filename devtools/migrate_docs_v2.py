@@ -25,6 +25,7 @@ ROOT = Path(__file__).resolve().parent.parent
 DOCS = ROOT / "docs"
 HELP_END_MARKER = "<!-- HELP_END -->"
 USAGE_H2_RE = re.compile(r"^## Usage[^\n]*\n", re.M)
+PRE_HELP_FENCE_RE = re.compile(r"```[^\n]*\n.*?\n```", re.S)
 
 
 def migrate_text(text: str) -> str:
@@ -34,28 +35,53 @@ def migrate_text(text: str) -> str:
 
     pre, _, post = text.partition(HELP_END_MARKER)
 
-    # Already migrated: `## Examples` above HELP_END.
-    has_examples_section = bool(re.search(r"^## Examples\s*$", pre, re.M))
-    if has_examples_section:
-        return text
+    if re.search(r"^## Examples\s*$", pre, re.M):
+        return text  # already migrated
 
-    # Locate optional post-HELP_END `## Usage Example*` section.
-    usage_block, post_after_extract = _extract_usage_block(post)
+    embedded, pre = _extract_embedded_fences(pre)
+    usage_block, post = _extract_usage_block(post)
 
-    # Pre-HELP_END embedded code: handled in Task 12.
-    pre_examples: list[tuple[str, str]] = []  # list of (caption, fenced-block)
-
+    pre_examples: list[tuple[str, str]] = list(embedded)
     if usage_block is not None:
         pre_examples.append(("Usage example", usage_block))
 
     if not pre_examples:
-        return text  # nothing to do
+        return text
 
     new_pre = pre.rstrip() + "\n\n## Examples\n\n"
     for caption, fenced in pre_examples:
         new_pre += f"### {caption}\n\n{fenced.strip()}\n\n"
 
-    return new_pre + HELP_END_MARKER + post_after_extract
+    return new_pre + HELP_END_MARKER + post
+
+
+def _extract_embedded_fences(pre: str) -> tuple[list[tuple[str, str]], str]:
+    """Find all fenced blocks in the pre-HELP_END region and remove them in place.
+
+    Returns (list_of_(caption, fenced_block), pre_with_fences_removed).
+    Caption = the enclosing `## H2` heading text, or "Usage example" if none.
+    """
+    extracted: list[tuple[str, str]] = []
+
+    def _caption_for(match_start: int) -> str:
+        # Walk backwards to find the nearest preceding `## H2` heading.
+        h2_iter = list(re.finditer(r"^## (.+)$", pre[:match_start], re.M))
+        if h2_iter:
+            return h2_iter[-1].group(1).strip()
+        return "Usage example"
+
+    pieces: list[str] = []
+    cursor = 0
+    for m in PRE_HELP_FENCE_RE.finditer(pre):
+        pieces.append(pre[cursor:m.start()])
+        extracted.append((_caption_for(m.start()), m.group(0)))
+        cursor = m.end()
+        # Also swallow a trailing newline if present so we don't leave a blank line.
+        if cursor < len(pre) and pre[cursor] == "\n":
+            cursor += 1
+    pieces.append(pre[cursor:])
+
+    return extracted, "".join(pieces)
 
 
 def _extract_usage_block(post: str) -> tuple[str | None, str]:

@@ -121,3 +121,65 @@ def test_post_help_end_usage_example_is_moved():
     assert migrate_text(before) == after
     # Idempotency: applying migration to the result is a no-op.
     assert migrate_text(after) == after
+
+
+def test_pre_help_end_embedded_code_is_extracted():
+    """The 13-file case: code fences live inside a pre-HELP_END section."""
+    before = _md('''
+        ---
+        name: Foo
+        ---
+
+        # `Foo`
+
+        ## Description
+
+        Prose.
+
+        ## Identity check
+
+        Foo equals Bar:
+
+        ```python
+        from screamer import Foo
+        Foo()(arr)
+        ```
+
+        <!-- HELP_END -->
+
+        ## Reference
+
+        Refs.
+    ''')
+    after = _md('''
+        ---
+        name: Foo
+        ---
+
+        # `Foo`
+
+        ## Description
+
+        Prose.
+
+        ## Identity check
+
+        Foo equals Bar:
+
+        ## Examples
+
+        ### Identity check
+
+        ```python
+        from screamer import Foo
+        Foo()(arr)
+        ```
+
+        <!-- HELP_END -->
+
+        ## Reference
+
+        Refs.
+    ''')
+    assert migrate_text(before) == after
+    assert migrate_text(after) == after  # idempotent
