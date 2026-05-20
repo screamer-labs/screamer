@@ -1,7 +1,32 @@
 # Changelog
 
 All notable changes to this project are documented in this file.
- 
+
+[0.4.0] - 2026-05-20
+-------------------------
+
+### Changed (breaking — JSON consumers)
+
+* `screamer/data/help.json` schema: the freeform `body_markdown` field has been
+  removed and replaced with two structured fields:
+  - `details` (string) — markdown prose, guaranteed to contain no fenced
+    code blocks. Use this when rendering the description / math / notes.
+  - `examples` (list of `{language, caption, code}`) — extracted code
+    examples, one entry per `### Caption` heading in the source markdown.
+    `{eval-rst} .. plotly::` directives are unwrapped to plain python.
+  
+  Consumers that read `body_markdown` must switch to `details` (and
+  optionally render `examples` separately). No backwards-compatibility
+  shim is provided.
+
+### Changed
+
+* Function reference docs (`docs/functions_*/<Name>.md`) now follow a
+  canonical layout: prose lives under H2 sub-headings (Description,
+  Formula, …), examples live under a single `## Examples` H2 with one
+  `### Caption` per example. The sphinx-rendered pages adopt the same
+  structure.
+
 [Unreleased] - yyyy-mm-dd
 -------------------------
 
