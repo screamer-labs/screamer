@@ -295,3 +295,28 @@ def test_code_in_examples_without_h3_is_rejected():
         assert "### Heading" in str(e)
     else:
         raise AssertionError("expected ValueError")
+
+
+import json
+from pathlib import Path
+
+REPO_ROOT = Path(__file__).resolve().parent.parent
+HELP_JSON = REPO_ROOT / "screamer" / "data" / "help.json"
+
+
+def test_help_json_has_new_schema():
+    """End-to-end: every entry has details + examples, no body_markdown."""
+    data = json.loads(HELP_JSON.read_text())
+    assert len(data) >= 146
+    for name, entry in data.items():
+        assert "body_markdown" not in entry, f"{name} still has body_markdown"
+        assert isinstance(entry.get("details"), str), f"{name} missing details"
+        assert "```" not in entry["details"], f"{name} has code fence in details"
+        assert isinstance(entry.get("examples"), list), f"{name} missing examples"
+        for i, ex in enumerate(entry["examples"]):
+            assert set(ex.keys()) == {"language", "caption", "code"}, (
+                f"{name}.examples[{i}] has unexpected keys: {ex.keys()}"
+            )
+            assert ex["language"], f"{name}.examples[{i}] has empty language"
+            assert ex["caption"], f"{name}.examples[{i}] has empty caption"
+            assert ex["code"], f"{name}.examples[{i}] has empty code"
