@@ -183,3 +183,40 @@ def test_eval_rst_without_plotly_directive_is_rejected():
         assert "eval-rst" in str(e) or "plotly" in str(e)
     else:
         raise AssertionError("expected ValueError")
+
+
+def test_multiple_examples_in_order():
+    text = _md('''
+        ---
+        name: Foo
+        ---
+
+        # `Foo`
+
+        ## Examples
+
+        ### First
+
+        ```python
+        a = 1
+        ```
+
+        ### Second
+
+        ```python
+        b = 2
+        ```
+
+        ### Third
+
+        ```python
+        c = 3
+        ```
+
+        <!-- HELP_END -->
+    ''')
+    entry = parse_help_file_text(text)
+    captions = [e["caption"] for e in entry["examples"]]
+    codes = [e["code"] for e in entry["examples"]]
+    assert captions == ["First", "Second", "Third"]
+    assert codes == ["a = 1", "b = 2", "c = 3"]
