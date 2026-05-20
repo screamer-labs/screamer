@@ -220,3 +220,29 @@ def test_multiple_examples_in_order():
     codes = [e["code"] for e in entry["examples"]]
     assert captions == ["First", "Second", "Third"]
     assert codes == ["a = 1", "b = 2", "c = 3"]
+
+
+def test_code_fence_in_details_is_rejected():
+    text = _md('''
+        ---
+        name: Foo
+        ---
+
+        # `Foo`
+
+        ## Description
+
+        Inline example before Examples section:
+
+        ```python
+        oops()
+        ```
+
+        <!-- HELP_END -->
+    ''')
+    try:
+        parse_help_file_text(text)
+    except ValueError as e:
+        assert "Examples" in str(e)
+    else:
+        raise AssertionError("expected ValueError")
