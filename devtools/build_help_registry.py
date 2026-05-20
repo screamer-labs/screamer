@@ -28,6 +28,7 @@ Run:
 import json
 import re
 import sys
+import textwrap
 import importlib
 from pathlib import Path
 
@@ -40,6 +41,8 @@ OUT = ROOT / "screamer" / "data" / "help.json"
 
 FRONTMATTER_RE = re.compile(r"\A---\n(.*?)\n---\n", re.DOTALL)
 HELP_END_MARKER = "<!-- HELP_END -->"
+H1_RE = re.compile(r"^# .*\n", re.M)
+EXAMPLES_H2_RE = re.compile(r"^## Examples\s*\n", re.M)
 # pybind11 emits ``__init__(self: <type>, foo: int, bar: str = 'x') -> None``
 # as the first line of the docstring. Capture the parameter names.
 PYBIND_SIG_RE = re.compile(r"__init__\(self[^,)]*(?:,\s*([^)]*))?\)")
@@ -68,7 +71,39 @@ def parse_help_file_text(text: str) -> dict | None:
 
     Raises ValueError if the body violates the canonical layout.
     """
-    raise NotImplementedError
+    m = FRONTMATTER_RE.match(text)
+    if not m:
+        return None
+    fm = yaml.safe_load(m.group(1))
+    if not isinstance(fm, dict) or "name" not in fm:
+        return None
+
+    body = text[m.end():]
+    pre_help_end = body.split(HELP_END_MARKER, 1)[0] if HELP_END_MARKER in body else body
+
+    examples_m = EXAMPLES_H2_RE.search(pre_help_end)
+    if examples_m:
+        details_part = pre_help_end[:examples_m.start()]
+        examples_part = pre_help_end[examples_m.end():]
+    else:
+        details_part = pre_help_end
+        examples_part = ""
+
+    details = H1_RE.sub("", details_part, count=1).strip()
+    if "```" in details:
+        raise ValueError("code fence outside `## Examples` section")
+
+    examples = _parse_examples_region(examples_part) if examples_part.strip() else []
+
+    entry = dict(fm)
+    entry["details"] = details
+    entry["examples"] = examples
+    return entry
+
+
+def _parse_examples_region(text: str) -> list[dict]:
+    """Stub — implemented in Task 3."""
+    return []
 
 
 def pybind_param_names(cls) -> list[str]:
