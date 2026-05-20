@@ -60,3 +60,61 @@ def test_returns_none_without_name_field():
         body
     ''')
     assert parse_help_file_text(text) is None
+
+
+def test_single_plain_python_example():
+    text = _md('''
+        ---
+        name: Foo
+        ---
+
+        # `Foo`
+
+        ## Description
+
+        Prose.
+
+        ## Examples
+
+        ### Basic usage
+
+        ```python
+        from screamer import Foo
+        Foo()(arr)
+        ```
+
+        <!-- HELP_END -->
+    ''')
+    entry = parse_help_file_text(text)
+    assert entry["examples"] == [
+        {
+            "language": "python",
+            "caption": "Basic usage",
+            "code": "from screamer import Foo\nFoo()(arr)",
+        }
+    ]
+    assert "## Examples" not in entry["details"]
+    assert "```" not in entry["details"]
+
+
+def test_non_python_language_tag_preserved():
+    text = _md('''
+        ---
+        name: Foo
+        ---
+
+        # `Foo`
+
+        ## Examples
+
+        ### Shell snippet
+
+        ```bash
+        echo hi
+        ```
+
+        <!-- HELP_END -->
+    ''')
+    entry = parse_help_file_text(text)
+    assert entry["examples"][0]["language"] == "bash"
+    assert entry["examples"][0]["code"] == "echo hi"

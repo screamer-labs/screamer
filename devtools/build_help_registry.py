@@ -43,6 +43,8 @@ FRONTMATTER_RE = re.compile(r"\A---\n(.*?)\n---\n", re.DOTALL)
 HELP_END_MARKER = "<!-- HELP_END -->"
 H1_RE = re.compile(r"^# .*\n", re.M)
 EXAMPLES_H2_RE = re.compile(r"^## Examples\s*\n", re.M)
+H3_SPLIT_RE = re.compile(r"^### (.+)$", re.M)
+FENCE_RE = re.compile(r"\A```(\S*)\s*\n(.*?)\n```", re.S)
 # pybind11 emits ``__init__(self: <type>, foo: int, bar: str = 'x') -> None``
 # as the first line of the docstring. Capture the parameter names.
 PYBIND_SIG_RE = re.compile(r"__init__\(self[^,)]*(?:,\s*([^)]*))?\)")
@@ -102,8 +104,32 @@ def parse_help_file_text(text: str) -> dict | None:
 
 
 def _parse_examples_region(text: str) -> list[dict]:
-    """Stub — implemented in Task 3."""
-    return []
+    """Split an Examples region into [{language, caption, code}, ...].
+
+    `text` is the content AFTER the `## Examples` heading and BEFORE
+    `<!-- HELP_END -->`. Headings are H3 (`### Caption`). The first
+    fenced code block under each H3 becomes that example's `code`.
+    """
+    parts = H3_SPLIT_RE.split(text)
+    # parts = [pre_first_h3, caption1, content1, caption2, content2, ...]
+    if parts[0].strip():
+        raise ValueError(
+            "content under `## Examples` without a preceding `### Heading`"
+        )
+    examples = []
+    for i in range(1, len(parts), 2):
+        caption = parts[i].strip()
+        content = parts[i + 1].lstrip()
+        m = FENCE_RE.match(content)
+        if not m:
+            raise ValueError(
+                f"`### {caption}` is not immediately followed by a code fence"
+            )
+        language = m.group(1).strip() or "python"
+        code = m.group(2)
+        # Plotly unwrap is added in Task 4.
+        examples.append({"language": language, "caption": caption, "code": code})
+    return examples
 
 
 def pybind_param_names(cls) -> list[str]:
