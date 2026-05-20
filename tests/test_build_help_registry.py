@@ -118,3 +118,68 @@ def test_non_python_language_tag_preserved():
     entry = parse_help_file_text(text)
     assert entry["examples"][0]["language"] == "bash"
     assert entry["examples"][0]["code"] == "echo hi"
+
+
+def test_plotly_eval_rst_is_unwrapped():
+    text = _md('''
+        ---
+        name: Foo
+        ---
+
+        # `Foo`
+
+        ## Examples
+
+        ### Plotly demo
+
+        ```{eval-rst}
+        .. plotly::
+            :include-source: True
+
+            import numpy as np
+            from screamer import Foo
+            arr = np.arange(5)
+            print(Foo()(arr))
+        ```
+
+        <!-- HELP_END -->
+    ''')
+    entry = parse_help_file_text(text)
+    assert entry["examples"] == [
+        {
+            "language": "python",
+            "caption": "Plotly demo",
+            "code": (
+                "import numpy as np\n"
+                "from screamer import Foo\n"
+                "arr = np.arange(5)\n"
+                "print(Foo()(arr))"
+            ),
+        }
+    ]
+
+
+def test_eval_rst_without_plotly_directive_is_rejected():
+    text = _md('''
+        ---
+        name: Foo
+        ---
+
+        # `Foo`
+
+        ## Examples
+
+        ### Other directive
+
+        ```{eval-rst}
+        .. note:: not supported here
+        ```
+
+        <!-- HELP_END -->
+    ''')
+    try:
+        parse_help_file_text(text)
+    except ValueError as e:
+        assert "eval-rst" in str(e) or "plotly" in str(e)
+    else:
+        raise AssertionError("expected ValueError")
