@@ -59,6 +59,7 @@ test = [
     "numpy>=2.0",
     "scipy>=1.14",
     "pandas>=2.2",
+    "PyYAML>=6.0",
 ]
 # Cross-validation against independent third-party libraries. These
 # tests are skipped when the libraries are not importable, so the
@@ -124,6 +125,7 @@ pytest = "^7.0"
 numpy = { version = "^2.0.1", python = ">=3.10"}
 scipy = { version = "^1.14", python = ">=3.10"}
 pandas = "^2.2.3"
+pyyaml = "^6.0"
 
 # Optional cross-validation dependencies. Tests in
 # tests/test_third_party_alignment.py skip gracefully when these are
