@@ -6,10 +6,13 @@ frontmatter block, this script:
 
 1. Parses the frontmatter (structured schema: title, category, tags,
    parameter list with defaults / types / constraints, IO arity).
-2. Extracts the markdown body up to a `<!-- HELP_END -->` marker. Anything
-   after that marker (sphinx-only sections like ``Implementation Details``,
-   plotly examples, references) is excluded from the body the frontend
-   renders. Math and prose stay.
+2. Parses the markdown body into two structured fields:
+   - ``details``: prose / math / sub-sections, guaranteed no code fences.
+   - ``examples``: a list of ``{language, caption, code}`` objects, one
+     per ``### Caption`` under the ``## Examples`` heading. ``{eval-rst}
+     .. plotly::`` directives are unwrapped to plain python.
+   Anything after the ``<!-- HELP_END -->`` marker (sphinx-only sections
+   like ``Implementation Details``, references) is excluded.
 3. Validates the schema by instantiating the class with every parameter
    set to its documented default and calling it on a small synthetic
    array. If that round-trip fails, the schema and the binding have
@@ -20,7 +23,7 @@ frontmatter block, this script:
    the live call succeed.
 
 Output: ``screamer/data/help.json`` — a dict keyed by class name. Each
-entry contains the frontmatter fields plus a ``body_markdown`` string.
+entry contains the frontmatter fields plus ``details`` and ``examples``.
 
 Run:
     poetry run python devtools/build_help_registry.py
@@ -55,20 +58,6 @@ PLOTLY_DIRECTIVE_RE = re.compile(
 # pybind11 emits ``__init__(self: <type>, foo: int, bar: str = 'x') -> None``
 # as the first line of the docstring. Capture the parameter names.
 PYBIND_SIG_RE = re.compile(r"__init__\(self[^,)]*(?:,\s*([^)]*))?\)")
-
-
-def parse_file(path: Path):
-    text = path.read_text()
-    m = FRONTMATTER_RE.match(text)
-    if not m:
-        return None
-    fm = yaml.safe_load(m.group(1))
-    if not isinstance(fm, dict) or "name" not in fm:
-        return None
-    body = text[m.end():]
-    if HELP_END_MARKER in body:
-        body = body.split(HELP_END_MARKER, 1)[0]
-    return fm, body.strip()
 
 
 def parse_help_file_text(text: str) -> dict | None:
@@ -237,15 +226,16 @@ def main(argv=None):
 
     registry: dict[str, dict] = {}
     for md in files:
-        parsed = parse_file(md)
-        if parsed is None:
+        try:
+            entry = parse_help_file_text(md.read_text())
+        except ValueError as e:
+            raise SystemExit(f"{md.relative_to(ROOT)}: {e}") from None
+        if entry is None:
             continue
-        fm, body = parsed
-        validate(fm, screamer)
-        entry = dict(fm)
-        entry["body_markdown"] = body
-        registry[fm["name"]] = entry
-        print(f"  + {fm['name']:24s}  ({md.relative_to(ROOT)})")
+        validate(entry, screamer)
+        registry[entry["name"]] = entry
+        n_ex = len(entry["examples"])
+        print(f"  + {entry['name']:24s}  ({md.relative_to(ROOT)}, {n_ex} examples)")
 
     OUT.parent.mkdir(parents=True, exist_ok=True)
     OUT.write_text(json.dumps(registry, indent=2, ensure_ascii=False) + "\n")
