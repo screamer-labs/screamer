@@ -183,3 +183,64 @@ def test_pre_help_end_embedded_code_is_extracted():
     ''')
     assert migrate_text(before) == after
     assert migrate_text(after) == after  # idempotent
+
+
+def test_combined_pre_and_post_help_end_code_merge_into_one_examples_section():
+    """The 3-file case (EwCorr, MACD, WilliamsR): both shapes present."""
+    before = _md('''
+        ---
+        name: Foo
+        ---
+
+        # `Foo`
+
+        ## Identity check
+
+        Foo equals Bar:
+
+        ```python
+        identity_demo()
+        ```
+
+        <!-- HELP_END -->
+
+        ## Usage Example and Plot
+
+        ```{eval-rst}
+        .. plotly::
+
+            plotly_demo()
+        ```
+    ''')
+    after = _md('''
+        ---
+        name: Foo
+        ---
+
+        # `Foo`
+
+        ## Identity check
+
+        Foo equals Bar:
+
+        ## Examples
+
+        ### Identity check
+
+        ```python
+        identity_demo()
+        ```
+
+        ### Usage example
+
+        ```{eval-rst}
+        .. plotly::
+
+            plotly_demo()
+        ```
+
+        <!-- HELP_END -->
+
+    ''')
+    assert migrate_text(before) == after
+    assert migrate_text(after) == after
