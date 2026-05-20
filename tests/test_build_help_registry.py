@@ -246,3 +246,28 @@ def test_code_fence_in_details_is_rejected():
         assert "Examples" in str(e)
     else:
         raise AssertionError("expected ValueError")
+
+
+def test_h3_without_code_fence_is_rejected():
+    text = _md('''
+        ---
+        name: Foo
+        ---
+
+        # `Foo`
+
+        ## Examples
+
+        ### Caption with no code
+
+        Some prose but no fence.
+
+        <!-- HELP_END -->
+    ''')
+    try:
+        parse_help_file_text(text)
+    except ValueError as e:
+        assert "code fence" in str(e)
+        assert "Caption with no code" in str(e)
+    else:
+        raise AssertionError("expected ValueError")
