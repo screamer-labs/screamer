@@ -59,6 +59,18 @@ def parse_file(path: Path):
     return fm, body.strip()
 
 
+def parse_help_file_text(text: str) -> dict | None:
+    """Parse a docs/functions_*/<Name>.md file into a help-registry entry.
+
+    Returns a dict with frontmatter fields plus `details` (markdown string)
+    and `examples` (list of {language, caption, code}), or None if the file
+    has no frontmatter or no `name` field.
+
+    Raises ValueError if the body violates the canonical layout.
+    """
+    raise NotImplementedError
+
+
 def pybind_param_names(cls) -> list[str]:
     """Extract parameter names from a pybind11 class' __init__ docstring.
 
