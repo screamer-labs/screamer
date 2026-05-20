@@ -24,25 +24,63 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 DOCS = ROOT / "docs"
 HELP_END_MARKER = "<!-- HELP_END -->"
+USAGE_H2_RE = re.compile(r"^## Usage[^\n]*\n", re.M)
 
 
 def migrate_text(text: str) -> str:
     """Return the migrated markdown. Idempotent."""
-    # Implementation grows in Tasks 11–13. For now, return text unchanged
-    # whenever the file is already in the target shape or has no code at all.
-    pre, _, post = text.partition(HELP_END_MARKER)
-
-    # Already migrated: has `## Examples` above HELP_END.
-    has_examples_section = bool(re.search(r"^## Examples\s*$", pre, re.M))
-    # No code anywhere.
-    has_any_fence = "```" in text
-
-    if has_examples_section or not has_any_fence:
-        # Still might have a stray post-HELP_END `## Usage Example*`; that case
-        # is handled in Task 11. For now, no-op.
+    if HELP_END_MARKER not in text:
         return text
 
-    return text  # Other cases get real logic in Tasks 11–13.
+    pre, _, post = text.partition(HELP_END_MARKER)
+
+    # Already migrated: `## Examples` above HELP_END.
+    has_examples_section = bool(re.search(r"^## Examples\s*$", pre, re.M))
+    if has_examples_section:
+        return text
+
+    # Locate optional post-HELP_END `## Usage Example*` section.
+    usage_block, post_after_extract = _extract_usage_block(post)
+
+    # Pre-HELP_END embedded code: handled in Task 12.
+    pre_examples: list[tuple[str, str]] = []  # list of (caption, fenced-block)
+
+    if usage_block is not None:
+        pre_examples.append(("Usage example", usage_block))
+
+    if not pre_examples:
+        return text  # nothing to do
+
+    new_pre = pre.rstrip() + "\n\n## Examples\n\n"
+    for caption, fenced in pre_examples:
+        new_pre += f"### {caption}\n\n{fenced.strip()}\n\n"
+
+    return new_pre + HELP_END_MARKER + post_after_extract
+
+
+def _extract_usage_block(post: str) -> tuple[str | None, str]:
+    """Find the first `## Usage*` section in `post` and return its inner code fence.
+
+    Returns (fenced_block_or_None, post_with_section_removed).
+    The "inner code fence" includes the triple-backtick lines so it can be
+    inserted under a `### caption` heading verbatim.
+    """
+    m = USAGE_H2_RE.search(post)
+    if not m:
+        return None, post
+    start = m.start()
+    # Find the end of this section: next H2 or end of string.
+    next_h2 = re.search(r"^## ", post[m.end():], re.M)
+    end = m.end() + next_h2.start() if next_h2 else len(post)
+    section_body = post[m.end():end]
+    # The body should contain exactly one fenced code block. Extract it verbatim.
+    fence_m = re.search(r"```[^\n]*\n.*?\n```", section_body, re.S)
+    if not fence_m:
+        # No code in the section; treat as nothing to migrate.
+        return None, post
+    fenced = fence_m.group(0)
+    new_post = post[:start] + post[end:]
+    return fenced, new_post
 
 
 def main(argv: list[str]) -> int:

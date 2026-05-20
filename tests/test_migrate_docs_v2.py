@@ -58,3 +58,66 @@ def test_no_code_anywhere_is_noop():
         Refs.
     ''')
     assert migrate_text(text) == text
+
+
+def test_post_help_end_usage_example_is_moved():
+    """The 85-file case: only a `## Usage Example*` section sits below HELP_END."""
+    before = _md('''
+        ---
+        name: Foo
+        ---
+
+        # `Foo`
+
+        ## Description
+
+        Prose.
+
+        <!-- HELP_END -->
+
+        ## Usage Example and Plot
+
+        ```{eval-rst}
+        .. plotly::
+            :include-source: True
+
+            from screamer import Foo
+            print(Foo()(arr))
+        ```
+
+        ## Reference
+
+        Refs.
+    ''')
+    after = _md('''
+        ---
+        name: Foo
+        ---
+
+        # `Foo`
+
+        ## Description
+
+        Prose.
+
+        ## Examples
+
+        ### Usage example
+
+        ```{eval-rst}
+        .. plotly::
+            :include-source: True
+
+            from screamer import Foo
+            print(Foo()(arr))
+        ```
+
+        <!-- HELP_END -->
+
+        ## Reference
+
+        Refs.
+    ''')
+    assert migrate_text(before) == after
+    # Idempotency: applying migration to the result is a no-op.
+    assert migrate_text(after) == after
