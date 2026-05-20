@@ -159,6 +159,9 @@ cython_debug/
 _skbuild/
 .vscode
 
+# Local git worktrees (subagent-driven development workspaces)
+.worktrees/
+
 # Claude Code session data
 .claude/
 
