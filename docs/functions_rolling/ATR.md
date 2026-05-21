@@ -19,6 +19,7 @@ parameters:
   default: 14
   min: 2
   description: Wilder smoothing period (Wilder's original choice is 14).
+nan_policy: ignore
 ---
 
 # `ATR`
@@ -36,5 +37,12 @@ $$
 
 **3-input, 1-output** on `(high, low, close)`. First valid output at sample index
 `window_size`. Matches `talib.ATR` bit-exactly post-warmup.
+
+
+<!-- NAN_FOOTNOTE_START -->
+## NaN handling
+
+**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+<!-- NAN_FOOTNOTE_END -->
 
 <!-- HELP_END -->

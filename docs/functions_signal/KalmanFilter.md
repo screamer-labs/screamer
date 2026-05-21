@@ -33,6 +33,7 @@ parameters:
   min: 0.0
   description: Initial state variance. Set to a large value to forget the initial
     state quickly.
+nan_policy: ignore
 ---
 
 # `KalmanFilter`
@@ -62,6 +63,13 @@ In the steady state $K$ converges to a constant determined by $\sigma^2_p / \sig
 ## Implementation Details
 
 Constant-time O(1) per step; no buffer, two scalar state variables (`x`, `P`).
+
+
+<!-- NAN_FOOTNOTE_START -->
+## NaN handling
+
+**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+<!-- NAN_FOOTNOTE_END -->
 
 ## Examples
 

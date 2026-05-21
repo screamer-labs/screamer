@@ -26,6 +26,7 @@ parameters:
   - expanding
   - zero
   description: Warmup behaviour.
+nan_policy: ignore
 ---
 
 # `RollingLinearRegression`
@@ -48,5 +49,12 @@ slope confidence.
 **2-input, 4-output** (`FunctorBase<_, 2, 4>`). Inputs `(y, x)`; outputs
 `(slope, intercept, r_squared, stderr)`. First valid output at sample index
 `window_size - 1`. First 2→4 consumer of the Plan E `N→M` dispatcher.
+
+
+<!-- NAN_FOOTNOTE_START -->
+## NaN handling
+
+**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+<!-- NAN_FOOTNOTE_END -->
 
 <!-- HELP_END -->

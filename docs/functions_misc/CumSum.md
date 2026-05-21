@@ -11,6 +11,7 @@ short: Running sum from t=0.
 inputs: 1
 outputs: 1
 parameters: []
+nan_policy: ignore
 ---
 
 # `CumSum`
@@ -28,6 +29,13 @@ $$
 *Parameters*: none.
 
 *NaN handling*: NaN propagates by ordinary IEEE-754 addition. Once a NaN enters the input, every subsequent output is NaN. This matches `numpy.cumsum`, not `pandas.Series.cumsum(skipna=True)`.
+
+
+<!-- NAN_FOOTNOTE_START -->
+## NaN handling
+
+**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+<!-- NAN_FOOTNOTE_END -->
 
 ## Examples
 

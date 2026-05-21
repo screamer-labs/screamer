@@ -24,6 +24,7 @@ parameters:
   min: 0.0
   max: 0.5
   description: Normalised cutoff (0 < f < 0.5, Nyquist-relative).
+nan_policy: ignore
 ---
 
 # `Butter`
@@ -41,6 +42,13 @@ The Butterworth filter is implemented using a digital Infinite Impulse Response 
 **`cutoff_freq`** *(float)*: The normalized cutoff frequency for the low-pass filter, expressed as a fraction of the Nyquist frequency (half the sampling rate). It must be in the range 0 to 0.5.
 
 *NaN handling*: NaN values may propagate through the filter unless handled separately in preprocessing.
+
+
+<!-- NAN_FOOTNOTE_START -->
+## NaN handling
+
+**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+<!-- NAN_FOOTNOTE_END -->
 
 ## Examples
 

@@ -10,6 +10,7 @@ short: Square root of each element.
 inputs: 1
 outputs: 1
 parameters: []
+nan_policy: ignore
 ---
 
 # `Sqrt`
@@ -21,6 +22,13 @@ The `Sqrt` class computes the square root of each element in a data sequence. It
 *Parameters*: `Sqrt` takes no parameters.
 
 *NaN handling*: Negative values and `NaN` values are not modified, as the square root is undefined for negative numbers.
+
+
+<!-- NAN_FOOTNOTE_START -->
+## NaN handling
+
+**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+<!-- NAN_FOOTNOTE_END -->
 
 ## Examples
 

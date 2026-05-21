@@ -12,6 +12,7 @@ short: Replace NaN with the most recent finite value.
 inputs: 1
 outputs: 1
 parameters: []
+nan_policy: nan-aware
 ---
 
 # `Ffill`
@@ -23,6 +24,13 @@ The `Ffill` class performs forward filling on a sequence of data, replacing any 
 *Parameters*: `Ffill` takes no parameters; it simply operates over a data sequence and forward fills any `NaN` values encountered.
 
 *NaN handling*: If a `NaN` appears at the start of the data sequence, it will remain as `NaN` because no preceding value exists to carry forward.
+
+
+<!-- NAN_FOOTNOTE_START -->
+## NaN handling
+
+**Policy: `nan-aware`.** This function is designed to consume `NaN` inputs; see the description above for its specific behavior.
+<!-- NAN_FOOTNOTE_END -->
 
 ## Examples
 

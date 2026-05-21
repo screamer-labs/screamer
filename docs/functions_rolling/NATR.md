@@ -19,6 +19,7 @@ parameters:
   default: 14
   min: 2
   description: Wilder smoothing period.
+nan_policy: ignore
 ---
 
 # `NATR`
@@ -35,5 +36,12 @@ Useful for cross-instrument comparison (an ATR of \$1 on a \$10 stock is much la
 the same ATR on a \$1000 stock).
 
 **3-input, 1-output** on `(high, low, close)`. Bit-exact to `talib.NATR`.
+
+
+<!-- NAN_FOOTNOTE_START -->
+## NaN handling
+
+**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+<!-- NAN_FOOTNOTE_END -->
 
 <!-- HELP_END -->

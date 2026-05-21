@@ -35,6 +35,7 @@ parameters:
   - expanding
   - zero
   description: Warmup behaviour.
+nan_policy: ignore
 ---
 
 # `RollingRSI`
@@ -70,5 +71,12 @@ The smoothing depends on `method`:
 - Output is bounded in `[0, 100]`.
 - The default was changed from 'cutler' to 'wilder' in a recent release to align with
   TA-Lib and pandas-ta-classic. Pass `method='cutler'` to recover the old behaviour.
+
+
+<!-- NAN_FOOTNOTE_START -->
+## NaN handling
+
+**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+<!-- NAN_FOOTNOTE_END -->
 
 <!-- HELP_END -->

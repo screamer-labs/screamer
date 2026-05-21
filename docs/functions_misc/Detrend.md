@@ -25,6 +25,7 @@ parameters:
   - zero
   description: 'Warmup behaviour: ''strict'' (NaN until full window), ''expanding''
     (use partial windows), or ''zero'' (treat missing as zero).'
+nan_policy: ignore
 ---
 
 # `Detrend`
@@ -47,6 +48,13 @@ where $w$ is the `window_size`.
 - `start_policy` (str, optional): warmup behaviour, `"strict"` (default), `"truncate"`, or `"zero"`. Same semantics as the rolling functions.
 
 *NaN handling*: Under `start_policy="strict"` the rolling mean is NaN until `window_size` samples have been observed, and `Detrend` therefore emits NaN during that warmup. NaN inputs propagate through the rolling buffer.
+
+
+<!-- NAN_FOOTNOTE_START -->
+## NaN handling
+
+**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+<!-- NAN_FOOTNOTE_END -->
 
 ## Examples
 

@@ -26,6 +26,7 @@ parameters:
   - expanding
   - zero
   description: Warmup behaviour.
+nan_policy: ignore
 ---
 
 # `WMA`
@@ -75,6 +76,13 @@ While the window is filling (n samples seen, `n < window_size`):
 | `"zero"` | weights `1, 2, ..., w` with implicit zeros for missing past, full divisor `w(w+1)/2` (output is dampened during warmup) |
 
 The warmup numerators agree exactly at the moment the window first fills, so the transition to the post-warmup recurrence is seamless.
+
+
+<!-- NAN_FOOTNOTE_START -->
+## NaN handling
+
+**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+<!-- NAN_FOOTNOTE_END -->
 
 ## Examples
 

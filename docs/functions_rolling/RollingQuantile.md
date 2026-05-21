@@ -23,6 +23,7 @@ parameters:
   min: 0.0
   max: 1.0
   description: Quantile to compute (in [0, 1]).
+nan_policy: ignore
 ---
 
 # `RollingQuantile`
@@ -36,6 +37,13 @@ The `RollingQuantile` class computes a specified quantile within a moving window
 - **`quantile`**: Specifies the desired quantile, a value between 0 and 1, with 0.5 representing the median.
 
 *NaN handling*: The first `window_size` values are returned as `NaN`, as they do not form a complete window. If `NaN` values are present within the data sequence, they will be ignored in the quantile calculation.
+
+
+<!-- NAN_FOOTNOTE_START -->
+## NaN handling
+
+**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+<!-- NAN_FOOTNOTE_END -->
 
 ## Examples
 

@@ -31,6 +31,7 @@ parameters:
   type: float
   default: null
   description: Smoothing parameter directly. Exclusive with com/span/halflife.
+nan_policy: ignore
 ---
 
 # `EwBeta`
@@ -76,6 +77,13 @@ If the denominator is zero or non-positive, the output is `NaN`.
 ## Identity check
 
 By definition `EwBeta(x, y) == EwCov(x, y) / EwVar(y)`. Verified to ~1e-12 in the test suite.
+
+
+<!-- NAN_FOOTNOTE_START -->
+## NaN handling
+
+**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+<!-- NAN_FOOTNOTE_END -->
 
 ## Examples
 

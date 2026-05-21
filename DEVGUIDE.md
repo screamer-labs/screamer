@@ -82,6 +82,26 @@ screamer lib, and looks for the same function in other libs. If a pair is found 
 run a test to see if both version give the same return value.
 
 
+# NaN policy declaration
+
+Every function that has a docs page (`docs/functions_*/*.md`) must declare a `nan_policy`
+field in its YAML frontmatter. The build refuses to publish a function that does not.
+
+Pick one of three values:
+
+- `ignore` — for any function that produces a summary statistic, smoother, or filter.
+  Skips `NaN` from internal state; emits `NaN` at the same index; recovers immediately
+  at the next finite sample. This is the right answer almost every time.
+- `propagate` — for positional functions only (`Lag`, `Diff`, `Diff2`, `Momentum`,
+  `ROC`, `ROCP`, `ROCR`, `LogReturn`, `Return`). `NaN` flows through the lookback as
+  `NaN`, recovers after the lookback clears.
+- `nan-aware` — only for functions whose explicit purpose is to consume `NaN`
+  (`FillNa`, `Ffill`).
+
+The full contract, edge cases, and rationale live in `docs/nan_policy.md`. The
+compliance test suite in `tests/test_nan_input_compliance.py` verifies at runtime
+that each function honors its declared policy.
+
 # Running Examples
 
 ```

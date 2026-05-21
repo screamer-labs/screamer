@@ -17,6 +17,7 @@ parameters:
   default: 252
   min: 2
   description: Trailing-window length (252 = one trading year, default).
+nan_policy: ignore
 ---
 
 # `RollingMaxDrawdown`
@@ -35,6 +36,13 @@ in-window peak can sit anywhere in the window.
 
 If you want the cheaper "current drawdown vs. rolling-window peak" approximation, compose it
 directly:
+
+
+<!-- NAN_FOOTNOTE_START -->
+## NaN handling
+
+**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+<!-- NAN_FOOTNOTE_END -->
 
 ## Examples
 

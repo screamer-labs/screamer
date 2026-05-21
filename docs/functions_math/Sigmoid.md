@@ -12,6 +12,7 @@ short: 'Logistic sigmoid: 1 / (1 + exp(-x)).'
 inputs: 1
 outputs: 1
 parameters: []
+nan_policy: ignore
 ---
 
 # `Sigmoid`
@@ -29,6 +30,13 @@ $$
 *Parameters*: `Sigmoid` takes no parameters.
 
 *NaN handling*: `NaN` values are not modified by this function.
+
+
+<!-- NAN_FOOTNOTE_START -->
+## NaN handling
+
+**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+<!-- NAN_FOOTNOTE_END -->
 
 ## Examples
 

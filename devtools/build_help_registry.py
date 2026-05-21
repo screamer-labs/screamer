@@ -173,11 +173,30 @@ def pybind_param_names(cls) -> list[str]:
     return [c.strip().split(":", 1)[0].strip() for c in chunks if c.strip()]
 
 
+ALLOWED_NAN_POLICIES = ("ignore", "propagate", "nan-aware")
+
+
 def validate(entry: dict, screamer_module) -> None:
     name = entry["name"]
     cls = getattr(screamer_module, name, None)
     if cls is None:
         raise RuntimeError(f"screamer has no class named {name!r}")
+
+    # Every function must declare its NaN policy. The contract is defined in
+    # ``docs/nan_policy.md``; ``devtools/inject_nan_footnote.py`` writes the
+    # field automatically from a classification table when adding a new
+    # function. Refusing to publish a function without an explicit policy is
+    # what makes the contract dogmatic.
+    policy = entry.get("nan_policy")
+    if policy is None:
+        raise ValueError(
+            f"{name}: frontmatter must declare nan_policy "
+            f"(one of {list(ALLOWED_NAN_POLICIES)}). See docs/nan_policy.md."
+        )
+    if policy not in ALLOWED_NAN_POLICIES:
+        raise ValueError(
+            f"{name}: nan_policy={policy!r} not in {list(ALLOWED_NAN_POLICIES)}"
+        )
 
     schema_params = entry.get("parameters", []) or []
     kwargs = {}

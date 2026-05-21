@@ -33,6 +33,7 @@ parameters:
   default: 3
   min: 1
   description: '%D period.'
+nan_policy: ignore
 ---
 
 # `StochRSI`
@@ -71,6 +72,13 @@ $$
 *Warmup*: both outputs are NaN until `%D` is valid, at sample index `rsi_period + stoch_period + smooth_k + d - 3` (TA-Lib's convention -- gate both K and D together). For defaults that is index 29.
 
 *Range-zero*: when the RSI window is flat (`max == min`), `raw_K` is undefined; we return `0`.
+
+
+<!-- NAN_FOOTNOTE_START -->
+## NaN handling
+
+**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+<!-- NAN_FOOTNOTE_END -->
 
 <!-- HELP_END -->
 

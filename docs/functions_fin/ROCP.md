@@ -17,6 +17,7 @@ parameters:
   default: 10
   min: 1
   description: Lookback k.
+nan_policy: propagate
 ---
 
 # `ROCP`
@@ -47,6 +48,13 @@ $$
 - [`Return`](Return.md) -- same class, the documentation lives there.
 - [`ROC`](ROC.md) -- `100 * ROCP` (percentage form).
 - [`ROCR`](ROCR.md) -- `x[t] / x[t-k]` (ratio form).
+
+
+<!-- NAN_FOOTNOTE_START -->
+## NaN handling
+
+**Policy: `propagate`.** Input `NaN` values are stored in the lookback. Output is `NaN` at any index where the function's positional formula references a `NaN` input; recovery happens once the `NaN` slides out of the lookback.
+<!-- NAN_FOOTNOTE_END -->
 
 <!-- HELP_END -->
 

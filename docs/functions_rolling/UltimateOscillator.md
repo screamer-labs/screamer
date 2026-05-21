@@ -26,6 +26,7 @@ parameters:
   type: int
   default: 28
   min: 2
+nan_policy: ignore
 ---
 
 # `UltimateOscillator`
@@ -56,6 +57,13 @@ The 4 / 2 / 1 weighting puts the heaviest emphasis on the shortest period.
 *Warmup*: NaN until sample index `max(period1, period2, period3)` (TA-Lib's convention; gates on the longest window).
 
 *Output range*: `[0, 100]`.
+
+
+<!-- NAN_FOOTNOTE_START -->
+## NaN handling
+
+**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+<!-- NAN_FOOTNOTE_END -->
 
 <!-- HELP_END -->
 

@@ -13,6 +13,7 @@ short: (close - open) / (high - low) per bar. No smoothing.
 inputs: 4
 outputs: 1
 parameters: []
+nan_policy: ignore
 ---
 
 # `BOP`
@@ -32,6 +33,13 @@ Output range is `[-1, +1]` for any sensibly-formed bar (where `low ≤ open, clo
 *Warmup*: none -- stateless, value defined for every input.
 
 *Range-zero*: returns `0` when `high == low` (flat bar; convention matches TA-Lib).
+
+
+<!-- NAN_FOOTNOTE_START -->
+## NaN handling
+
+**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+<!-- NAN_FOOTNOTE_END -->
 
 <!-- HELP_END -->
 

@@ -17,6 +17,7 @@ parameters:
   default: 10
   min: 1
   description: Lookback k.
+nan_policy: propagate
 ---
 
 # `ROCR`
@@ -40,6 +41,13 @@ The ratio form is convenient when you want to chain returns multiplicatively (e.
 ## Identity to ROCP
 
 `ROCR(k) - 1 == ROCP(k)` exactly. Pick whichever form keeps the calling code cleaner.
+
+
+<!-- NAN_FOOTNOTE_START -->
+## NaN handling
+
+**Policy: `propagate`.** Input `NaN` values are stored in the lookback. Output is `NaN` at any index where the function's positional formula references a `NaN` input; recovery happens once the `NaN` slides out of the lookback.
+<!-- NAN_FOOTNOTE_END -->
 
 <!-- HELP_END -->
 

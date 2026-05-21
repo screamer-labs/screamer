@@ -28,6 +28,7 @@ parameters:
   default: 3
   min: 1
   description: SMA period for %D.
+nan_policy: ignore
 ---
 
 # `Stoch`
@@ -86,6 +87,13 @@ Pure composition of two `detail::MonotonicDeque` (one each for high / low) plus 
 | three scalars | tuple `(%K, %D)` |
 | three 1D arrays of shape `(T,)` | array of shape `(T, 2)` |
 | three 2D arrays of shape `(T, K)` | array of shape `(T, K, 2)` |
+
+
+<!-- NAN_FOOTNOTE_START -->
+## NaN handling
+
+**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+<!-- NAN_FOOTNOTE_END -->
 
 ## Examples
 

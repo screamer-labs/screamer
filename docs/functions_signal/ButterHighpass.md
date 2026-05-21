@@ -23,6 +23,7 @@ parameters:
   min: 0.0
   max: 0.5
   description: Normalised cutoff.
+nan_policy: ignore
 ---
 
 # `ButterHighpass`
@@ -37,6 +38,13 @@ $$
 
 - `order` (int, $\ge 1$): filter order. Higher order = steeper roll-off, larger group delay.
 - `cutoff_freq` (float in $(0, 1)$): normalised cutoff. `1` is the Nyquist frequency (matches `scipy.signal.butter`'s `Wn` convention).
+
+
+<!-- NAN_FOOTNOTE_START -->
+## NaN handling
+
+**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+<!-- NAN_FOOTNOTE_END -->
 
 <!-- HELP_END -->
 

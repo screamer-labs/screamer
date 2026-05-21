@@ -27,6 +27,7 @@ parameters:
   - expanding
   - zero
   description: Warmup behaviour.
+nan_policy: ignore
 ---
 
 # `RollingAlpha`
@@ -41,5 +42,12 @@ $$
 
 **2-input, 1-output** on `(target, regressor)` -- same convention as `RollingBeta`.
 Composes `RollingBeta` + two `RollingMean` instances. O(1) per step.
+
+
+<!-- NAN_FOOTNOTE_START -->
+## NaN handling
+
+**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+<!-- NAN_FOOTNOTE_END -->
 
 <!-- HELP_END -->

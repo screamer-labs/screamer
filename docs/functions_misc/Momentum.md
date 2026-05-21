@@ -26,6 +26,7 @@ parameters:
   - zero
   description: 'Warmup behaviour: ''strict'' (NaN until full window), ''expanding''
     (use partial windows), or ''zero'' (treat missing as zero).'
+nan_policy: propagate
 ---
 
 # `Momentum`
@@ -53,6 +54,13 @@ $$
 | Any other context | `Diff(k)` |
 
 Both produce identical output bit-for-bit (matches `talib.MOM` to 0.0 -- exact integer arithmetic).
+
+
+<!-- NAN_FOOTNOTE_START -->
+## NaN handling
+
+**Policy: `propagate`.** Input `NaN` values are stored in the lookback. Output is `NaN` at any index where the function's positional formula references a `NaN` input; recovery happens once the `NaN` slides out of the lookback.
+<!-- NAN_FOOTNOTE_END -->
 
 <!-- HELP_END -->
 

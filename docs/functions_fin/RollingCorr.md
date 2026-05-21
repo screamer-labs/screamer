@@ -26,6 +26,7 @@ parameters:
   - expanding
   - zero
   description: Warmup behaviour.
+nan_policy: ignore
 ---
 
 # `RollingCorr`
@@ -51,6 +52,13 @@ with the sums taken over the most recent `window_size` samples and `n = window_s
 *Input shape*: takes **two** parallel streams. Each call accepts two scalars, two 1-D arrays, two 2-D arrays paired column-by-column, two N-D arrays, two iterators, or one list of `(x, y)` pairs. See the [polymorphic API spec](../polymorphic_api.md) for the full table.
 
 *Return value*: a number in `[-1, 1]`. Returns `NaN` during warmup or when either stream is constant within the window (zero variance).
+
+
+<!-- NAN_FOOTNOTE_START -->
+## NaN handling
+
+**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+<!-- NAN_FOOTNOTE_END -->
 
 ## Examples
 

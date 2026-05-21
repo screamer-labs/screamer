@@ -164,6 +164,7 @@ For a step-by-step walkthrough see the :doc:`User Guide <usage>`.
 
    polymorphic_api
    conventions
+   nan_policy
 
 
 .. toctree::

@@ -25,6 +25,7 @@ parameters:
   - expanding
   - zero
   description: Warmup behaviour.
+nan_policy: ignore
 ---
 
 # `RollingMad`
@@ -45,6 +46,13 @@ A robust scale measure: less sensitive to outliers than `RollingStd` because it 
 - `start_policy` (str, optional): `"strict"` (default), `"expanding"`, or `"zero"`. Same semantics as `RollingMean`.
 
 *NaN handling*: NaN values should be preprocessed.
+
+
+<!-- NAN_FOOTNOTE_START -->
+## NaN handling
+
+**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+<!-- NAN_FOOTNOTE_END -->
 
 ## Examples
 

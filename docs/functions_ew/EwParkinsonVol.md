@@ -30,6 +30,7 @@ parameters:
   type: float
   default: null
   description: Smoothing parameter directly.
+nan_policy: ignore
 ---
 
 # `EwParkinsonVol`
@@ -47,5 +48,12 @@ This expression is then averaged with a exponentially-weighted mean to form the 
 
 **2-input, 1-output** on `(high, low)`. ~5x more statistically efficient than
 close-to-close `RollingStd` *under the model's assumptions* (zero drift, no overnight gaps).
+
+
+<!-- NAN_FOOTNOTE_START -->
+## NaN handling
+
+**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+<!-- NAN_FOOTNOTE_END -->
 
 <!-- HELP_END -->

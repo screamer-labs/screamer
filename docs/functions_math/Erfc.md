@@ -11,6 +11,7 @@ short: Complementary error function (1 - erf).
 inputs: 1
 outputs: 1
 parameters: []
+nan_policy: ignore
 ---
 
 # `Erfc`
@@ -22,6 +23,13 @@ The `Erfc` class computes the complementary error function (1 - erf(x)) for each
 *Parameters*: `Erfc` takes no parameters.
 
 *NaN handling*: `NaN` values are not modified.
+
+
+<!-- NAN_FOOTNOTE_START -->
+## NaN handling
+
+**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+<!-- NAN_FOOTNOTE_END -->
 
 ## Examples
 

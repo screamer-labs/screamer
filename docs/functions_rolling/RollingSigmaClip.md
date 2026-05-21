@@ -35,6 +35,7 @@ parameters:
   - 1
   - null
   description: 0 = clipped value, 1 = boolean flag, None = boolean flag.
+nan_policy: ignore
 ---
 
 # `RollingSigmaClip`
@@ -60,6 +61,13 @@ The `RollingSigmaClip` class performs rolling statistical clipping on a data seq
   - `"strict"`: Returns `NaN` for all calculations until `window_size` elements have been processed.
   - `"expanding"`: Adapts the computation by dynamically reducing the window size to include all available data, starting from a single point and growing until `window_size` is reached.
   - `"zero"`: Simulates a full initial window of zeros, effectively pre-filling the data stream with `window_size` zeros before processing the actual input.
+
+
+<!-- NAN_FOOTNOTE_START -->
+## NaN handling
+
+**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+<!-- NAN_FOOTNOTE_END -->
 
 ## Examples
 

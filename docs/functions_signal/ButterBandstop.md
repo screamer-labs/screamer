@@ -30,6 +30,7 @@ parameters:
   min: 0.0
   max: 0.5
   description: Upper stop-band edge (normalised); must exceed low_cutoff.
+nan_policy: ignore
 ---
 
 # `ButterBandstop`
@@ -46,6 +47,13 @@ $$
 - `low_cutoff`, `high_cutoff` (floats in $(0, 1)$, with `low < high`): stop band as fractions of the Nyquist frequency.
 
 Bit-exact match to `scipy.signal.butter(order, [low, high], btype='bandstop')` + `scipy.signal.lfilter`. Verified to ~1e-9 in `tests/test_signal.py`.
+
+
+<!-- NAN_FOOTNOTE_START -->
+## NaN handling
+
+**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+<!-- NAN_FOOTNOTE_END -->
 
 ## Examples
 

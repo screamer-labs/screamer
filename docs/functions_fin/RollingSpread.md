@@ -26,6 +26,7 @@ parameters:
   - expanding
   - zero
   description: Warmup behaviour.
+nan_policy: ignore
 ---
 
 # `RollingSpread`
@@ -54,6 +55,13 @@ with the sums in `cov` and `var` taken over the most recent `window_size` sample
 *Input shape*: two parallel streams, identical to [`RollingCorr`](RollingCorr.md).
 
 *Return value*: a real number, the residual. Returns `NaN` during warmup or when `y` has zero variance within the window.
+
+
+<!-- NAN_FOOTNOTE_START -->
+## NaN handling
+
+**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+<!-- NAN_FOOTNOTE_END -->
 
 ## Examples
 

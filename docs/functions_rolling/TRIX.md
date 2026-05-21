@@ -18,6 +18,7 @@ parameters:
   default: 14
   min: 2
   description: EMA span for each of the three smoothing stages.
+nan_policy: ignore
 ---
 
 # `TRIX`
@@ -48,6 +49,13 @@ $$
 Pure composition of three chained `EwMean` instances plus a single scalar holding `prev_ema3`. O(1) per step.
 
 The underlying EMA is pandas's `adjust=True` (bias-corrected weighted mean -- the form we use throughout the library). TA-Lib's TRIX uses `adjust=False` with an SMA-seeded warmup, so ours differs from TA-Lib by a few percent during early samples; see [conventions](../conventions.md).
+
+
+<!-- NAN_FOOTNOTE_START -->
+## NaN handling
+
+**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+<!-- NAN_FOOTNOTE_END -->
 
 ## Examples
 

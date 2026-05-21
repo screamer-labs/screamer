@@ -20,6 +20,7 @@ parameters:
   default: 14
   min: 2
   description: Period (Wilder's default).
+nan_policy: ignore
 ---
 
 # `ADX`
@@ -60,6 +61,13 @@ For the default `window_size=14`, `+DI`/`-DI` start at sample 14 and `ADX` at sa
 TA-Lib's Wilder smoother for the DI/DM/TR triplet uses a slightly different seed than its ATR smoother: accumulate `w-1` values during warmup, then apply the recurrence at the `w`-th value (sum form). The ADX smoother itself uses the standard SMA-of-`w`-values seed (average form). `screamer.ADX` implements both conventions inline to match TA-Lib exactly; it does **not** share state with the existing `ATR` class.
 
 ## Usage
+
+
+<!-- NAN_FOOTNOTE_START -->
+## NaN handling
+
+**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+<!-- NAN_FOOTNOTE_END -->
 
 ## Examples
 

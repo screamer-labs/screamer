@@ -20,6 +20,7 @@ parameters:
   default: 20
   min: 2
   description: Smoothing window.
+nan_policy: ignore
 ---
 
 # `RollingRogersSatchellVar`
@@ -38,5 +39,12 @@ variant returns `sqrt(Var)` (bit-exact via the same internal state).
 **4-input, 1-output** on `(open, high, low, close)`. Slightly less efficient (~6x vs
 close-to-close) than Garman-Klass but **drift-robust** — works correctly when the underlying
 drift is non-zero, a much more realistic assumption for trending markets.
+
+
+<!-- NAN_FOOTNOTE_START -->
+## NaN handling
+
+**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+<!-- NAN_FOOTNOTE_END -->
 
 <!-- HELP_END -->

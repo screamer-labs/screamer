@@ -17,6 +17,7 @@ parameters:
   default: 10
   min: 1
   description: Lookback k. TA-Lib default is 10.
+nan_policy: propagate
 ---
 
 # `ROC`
@@ -42,6 +43,13 @@ The three rate-of-change variants in this library, all matching their TA-Lib nam
 - `window_size` (int, positive): the lookback `k`.
 
 *NaN handling*: NaN for the first `k` samples (no `x[t-k]` yet). Also NaN if `x[t-k] == 0` (division by zero).
+
+
+<!-- NAN_FOOTNOTE_START -->
+## NaN handling
+
+**Policy: `propagate`.** Input `NaN` values are stored in the lookback. Output is `NaN` at any index where the function's positional formula references a `NaN` input; recovery happens once the `NaN` slides out of the lookback.
+<!-- NAN_FOOTNOTE_END -->
 
 <!-- HELP_END -->
 

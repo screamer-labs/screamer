@@ -28,6 +28,7 @@ parameters:
   - expanding
   - zero
   description: Warmup behaviour.
+nan_policy: ignore
 ---
 
 # `RollingResidualStd`
@@ -46,6 +47,13 @@ Useful for pairs-trading z-score normalisation:
 
 Composes `RollingSpread` + `RollingStd`. O(1) per step. NaN-poisoning during
 `RollingSpread`'s own warmup is gated explicitly so the std accumulator stays clean.
+
+
+<!-- NAN_FOOTNOTE_START -->
+## NaN handling
+
+**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+<!-- NAN_FOOTNOTE_END -->
 
 ## Examples
 

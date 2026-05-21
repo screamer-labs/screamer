@@ -30,6 +30,7 @@ parameters:
   type: float
   default: null
   description: Smoothing parameter directly. Exclusive with com/span/halflife.
+nan_policy: ignore
 ---
 
 # `EwZscore`
@@ -51,6 +52,13 @@ One of the following decay parameters is required to calculate `alpha`, where a 
 *NaN handling*: NaN values are ignored in the mean calculation.
 
 ### Usage Example and Plot
+
+
+<!-- NAN_FOOTNOTE_START -->
+## NaN handling
+
+**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+<!-- NAN_FOOTNOTE_END -->
 
 ## Examples
 

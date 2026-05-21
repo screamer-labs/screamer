@@ -20,6 +20,7 @@ parameters:
   - 0.5
   - 0.25
   description: FIR coefficients. Default is a 3-tap triangular kernel.
+nan_policy: ignore
 ---
 
 # `MovingAverage`
@@ -43,6 +44,13 @@ $$
 ## Implementation Details
 
 Circular buffer of the last `L = len(taps)` samples plus an in-order convolution sweep. **O(L) per step**.
+
+
+<!-- NAN_FOOTNOTE_START -->
+## NaN handling
+
+**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+<!-- NAN_FOOTNOTE_END -->
 
 ## Examples
 

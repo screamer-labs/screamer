@@ -20,6 +20,7 @@ parameters:
   default: 14
   min: 2
   description: Lookback period (Wilder's default is 14).
+nan_policy: ignore
 ---
 
 # `MFI`
@@ -40,5 +41,12 @@ $$
 
 **4-input, 1-output** on `(high, low, close, volume)`. First valid output at sample index
 `window_size`. Bit-exact to `talib.MFI` (~1e-14).
+
+
+<!-- NAN_FOOTNOTE_START -->
+## NaN handling
+
+**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+<!-- NAN_FOOTNOTE_END -->
 
 <!-- HELP_END -->

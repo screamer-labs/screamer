@@ -27,6 +27,7 @@ parameters:
   - expanding
   - zero
   description: Warmup behaviour.
+nan_policy: ignore
 ---
 
 # `RollingBeta`
@@ -55,6 +56,13 @@ with the sums taken over the most recent `window_size` samples.
 *Return value*: the slope coefficient. Returns `NaN` during warmup or when `y` has zero variance within the window (regression is undefined).
 
 > **Convention note**: pandas does not ship a `rolling().beta()` method directly. The pandas-equivalent expression is `pd.Series(x).rolling(w).cov(pd.Series(y)) / pd.Series(y).rolling(w).var()`. Some libraries call this slope "alpha" or use the inverse argument order; double-check the convention when comparing.
+
+
+<!-- NAN_FOOTNOTE_START -->
+## NaN handling
+
+**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+<!-- NAN_FOOTNOTE_END -->
 
 ## Examples
 

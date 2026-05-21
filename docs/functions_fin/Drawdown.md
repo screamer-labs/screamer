@@ -10,6 +10,7 @@ short: Running drawdown from the cumulative peak.
 inputs: 1
 outputs: 1
 parameters: []
+nan_policy: ignore
 ---
 
 # `Drawdown`
@@ -29,5 +30,12 @@ Composes `CumMax`. No warmup.
 
 - Bit-exact to a `pandas.Series.cummax`-based reference.
 - See also `MaxDrawdown` (running min of `Drawdown`) and `RollingMaxDrawdown` (worst drawdown inside a trailing window).
+
+
+<!-- NAN_FOOTNOTE_START -->
+## NaN handling
+
+**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+<!-- NAN_FOOTNOTE_END -->
 
 <!-- HELP_END -->

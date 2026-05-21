@@ -11,6 +11,7 @@ short: 'Sign of each element: -1, 0, or +1.'
 inputs: 1
 outputs: 1
 parameters: []
+nan_policy: ignore
 ---
 
 # `Sign`
@@ -22,6 +23,13 @@ The `Sign` class computes the sign of each element in a data sequence, mapping e
 *Parameters*: `Sign` takes no parameters.
 
 *NaN handling*: `NaN` values are not modified.
+
+
+<!-- NAN_FOOTNOTE_START -->
+## NaN handling
+
+**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+<!-- NAN_FOOTNOTE_END -->
 
 ## Examples
 

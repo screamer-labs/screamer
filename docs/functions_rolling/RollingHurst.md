@@ -28,6 +28,7 @@ references:
   - "Peters, E.E. (1994). Fractal Market Analysis."
   - "Weron, R. (2002). Estimating long-range dependence: finite sample properties and confidence intervals."
   - "Estimating the Hurst exponent (arXiv:1805.08931)"
+nan_policy: ignore
 ---
 
 # `RollingHurst`
@@ -89,6 +90,13 @@ return `NaN`. Also returns `NaN` if any block in the window has zero variance.
 - `'rs'` is the classical Hurst estimator; alternative families
   (DFA, generalised-Hurst from $|\Delta x|^q$ moments) may follow in later
   releases as additional `method` options.
+
+
+<!-- NAN_FOOTNOTE_START -->
+## NaN handling
+
+**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+<!-- NAN_FOOTNOTE_END -->
 
 ## Examples
 

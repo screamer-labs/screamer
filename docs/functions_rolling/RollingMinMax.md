@@ -17,6 +17,7 @@ parameters:
   default: 20
   min: 2
   description: Trailing-window length.
+nan_policy: ignore
 ---
 
 # `RollingMinMax`
@@ -46,6 +47,13 @@ with the window taking the most recent `window_size` samples.
 *Output shape*: an extra trailing axis of size **2** is appended to the input shape. A 1-D input of shape `(T,)` returns shape `(T, 2)`; a 2-D input `(T, K)` returns `(T, K, 2)`. Index `0` along the trailing axis is the rolling minimum, index `1` is the rolling maximum.
 
 A scalar call returns a Python `tuple` of two floats.
+
+
+<!-- NAN_FOOTNOTE_START -->
+## NaN handling
+
+**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+<!-- NAN_FOOTNOTE_END -->
 
 ## Examples
 

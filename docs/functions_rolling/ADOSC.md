@@ -25,6 +25,7 @@ parameters:
   default: 10
   min: 2
   description: Slow EMA period.
+nan_policy: ignore
 ---
 
 # `ADOSC`
@@ -44,5 +45,12 @@ The underlying EMA is `screamer.EwMean` (pandas `adjust=True`), so `ADOSC` inher
 same documented divergence from TA-Lib's `ADOSC` as `DEMA`/`TEMA`/`MACD`/`TRIX`. The class
 matches the explicit pandas-composition reference bit-exactly. See `docs/conventions.md`
 for the divergence detail.
+
+
+<!-- NAN_FOOTNOTE_START -->
+## NaN handling
+
+**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+<!-- NAN_FOOTNOTE_END -->
 
 <!-- HELP_END -->

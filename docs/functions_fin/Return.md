@@ -17,6 +17,7 @@ parameters:
   default: 1
   min: 1
   description: Lag for the return (1 = consecutive).
+nan_policy: propagate
 ---
 
 # `Return`
@@ -36,6 +37,13 @@ $$
 - `delay` (int): The number of steps backward to use for calculating the return. Must be non-negative.
 
 *NaN handling*: When `delay` exceeds the available data points at the start of the sequence, or if `x[i - \text{delay}]` equals zero (to avoid division by zero), the output is set to `NaN`.
+
+
+<!-- NAN_FOOTNOTE_START -->
+## NaN handling
+
+**Policy: `propagate`.** Input `NaN` values are stored in the lookback. Output is `NaN` at any index where the function's positional formula references a `NaN` input; recovery happens once the `NaN` slides out of the lookback.
+<!-- NAN_FOOTNOTE_END -->
 
 ## Examples
 

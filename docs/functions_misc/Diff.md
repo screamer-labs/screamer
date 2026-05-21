@@ -26,6 +26,7 @@ parameters:
   - zero
   description: 'Warmup behaviour: ''strict'' (NaN until full window), ''expanding''
     (use partial windows), or ''zero'' (treat missing as zero).'
+nan_policy: propagate
 ---
 
 # `Diff`
@@ -45,6 +46,13 @@ $$
 - `delay` (int): The number of steps backward to use for the difference calculation. Must be non-negative.
 
 *NaN handling*: When `delay` exceeds the available data points at the start of the sequence, the resulting elements are set to `NaN`.
+
+
+<!-- NAN_FOOTNOTE_START -->
+## NaN handling
+
+**Policy: `propagate`.** Input `NaN` values are stored in the lookback. Output is `NaN` at any index where the function's positional formula references a `NaN` input; recovery happens once the `NaN` slides out of the lookback.
+<!-- NAN_FOOTNOTE_END -->
 
 ## Examples
 

@@ -20,6 +20,7 @@ parameters:
   type: float|null
   default: null
   description: Upper bound (None = no upper clipping).
+nan_policy: ignore
 ---
 
 # `Clip`
@@ -33,6 +34,13 @@ The `Clip` class restricts each value in a data sequence to fall within a specif
 - **`upper`** (optional): The maximum allowable value. If a data point exceeds this threshold, it will be set to `upper`. If unspecified, there is no upper bound.
 
 *NaN handling*: NaN values are not modified by this function and remain as NaN if present in the input data.
+
+
+<!-- NAN_FOOTNOTE_START -->
+## NaN handling
+
+**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+<!-- NAN_FOOTNOTE_END -->
 
 ## Examples
 

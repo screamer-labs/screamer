@@ -16,6 +16,7 @@ parameters:
   default: 20
   min: 2
   description: Trailing-window length.
+nan_policy: ignore
 ---
 
 # `RollingMax`
@@ -26,6 +27,13 @@ The `RollingMax` class computes the maximum value within a moving window of spec
 
 *Initial values*: The constructor requires a positive integer `window_size` parameter to define the rolling window.  
 *NaN handling*: NaN values are not handled natively and should be preprocessed if necessary.
+
+
+<!-- NAN_FOOTNOTE_START -->
+## NaN handling
+
+**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+<!-- NAN_FOOTNOTE_END -->
 
 ## Examples
 

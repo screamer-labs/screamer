@@ -31,6 +31,7 @@ parameters:
   - expanding
   - zero
   description: Warmup behaviour.
+nan_policy: ignore
 ---
 
 # `BollingerBands`
@@ -61,6 +62,13 @@ where `n = window_size` and `k = num_std`. The standard deviation uses the unbia
 *Input shape*: a single stream (scalar, 1-D array, 2-D array, iterator, …). Same matrix as `RollingMean`.
 
 *Output shape*: an extra trailing axis of size **3** is appended to the input shape. A 1-D input of shape `(T,)` returns shape `(T, 3)`; index `0` is the lower band, index `1` is the middle band, index `2` is the upper band. A scalar call returns a Python `tuple` of three floats.
+
+
+<!-- NAN_FOOTNOTE_START -->
+## NaN handling
+
+**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+<!-- NAN_FOOTNOTE_END -->
 
 ## Examples
 
