@@ -4,6 +4,8 @@
 #include <vector>
 #include <stdexcept>
 #include <algorithm>
+#include <limits>
+#include "screamer/common/float_info.h"
 #include "screamer/detail/start_policy.h"
 
 namespace screamer {
@@ -36,8 +38,13 @@ public:
         std::fill(buffer_.begin(), buffer_.end(), 0.0);
     }
 
-    double append(double newValue) 
+    double append(double newValue)
     {
+        // NaN policy "ignore": skip this step entirely, leave state unchanged.
+        // See docs/nan_policy.md.
+        if (screamer::isnan2(newValue)) {
+            return std::numeric_limits<double>::quiet_NaN();
+        }
         double oldValue = buffer_[index_];
         buffer_[index_] = newValue;
 

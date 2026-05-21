@@ -3,8 +3,10 @@
 
 // CumMax: running maximum from sample 0 to the current sample. O(1) memory.
 // Output is monotonically non-decreasing while samples are finite.
-// NaN propagates: once an input is NaN, all subsequent outputs are NaN.
-// Matches numpy.maximum.accumulate / numpy.cummax behavior.
+//
+// NaN policy "ignore" (see docs/nan_policy.md): a NaN input is skipped --
+// output is NaN at that index, the running maximum is unchanged. This
+// differs from numpy.maximum.accumulate, which propagates NaN forever.
 //
 // Useful for high-water marks and as the building block of Drawdown
 // (drawdown[t] = x[t] / CumMax(x)[t] - 1).
@@ -24,9 +26,8 @@ public:
     }
 
     double process_scalar(double x) override {
-        if (std::isnan(x) || std::isnan(running_max_)) {
-            running_max_ = std::numeric_limits<double>::quiet_NaN();
-            return running_max_;
+        if (std::isnan(x)) {
+            return std::numeric_limits<double>::quiet_NaN();
         }
         if (x > running_max_) {
             running_max_ = x;

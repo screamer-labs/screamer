@@ -4,13 +4,8 @@
 #include <limits>
 #include <algorithm>
 #include <cmath>
-#include <pybind11/pybind11.h>
-#include <pybind11/numpy.h>
 #include <screamer/common/buffer.h>
 #include "screamer/common/base.h"
-
-namespace py = pybind11;
-
 namespace screamer {
 
     class LogReturn : public ScreamerBase {
@@ -65,7 +60,6 @@ namespace screamer {
             }     
 
         }       
-
 
         void process_array_stride(double* y, size_t dyi, const double* x, size_t dxi, size_t size) override {
             const size_t window_size_ = this->window_size_;

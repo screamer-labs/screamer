@@ -1,12 +1,7 @@
 #ifndef SCREAMER_LINEAR_H
 #define SCREAMER_LINEAR_H
 
-#include <pybind11/pybind11.h>
-#include <pybind11/numpy.h>
 #include "screamer/common/base.h"
-
-namespace py = pybind11;
-
 namespace screamer {
 
     class Linear : public ScreamerBase {

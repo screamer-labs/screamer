@@ -15,6 +15,7 @@
 // We match pandas exactly: percentile = RollingRank / w. So output
 // is in [1/w, 1].
 
+#include <cmath>
 #include <cstddef>
 #include <limits>
 #include <stdexcept>
@@ -40,6 +41,10 @@ public:
     }
 
     double process_scalar(double x) override {
+        // NaN policy "ignore": leave the buffer untouched, emit NaN.
+        if (std::isnan(x)) {
+            return std::numeric_limits<double>::quiet_NaN();
+        }
         buffer_[index_] = x;
         index_++;
         if (index_ == window_size_) index_ = 0;

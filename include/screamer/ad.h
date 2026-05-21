@@ -13,6 +13,8 @@
 // 4 -> 1 over (high, low, close, volume). Cumulative; no window.
 // Returns 0 when high == low (flat bar; matches TA-Lib).
 
+#include <cmath>
+#include <limits>
 #include "screamer/common/functor_base.h"
 
 namespace screamer {
@@ -28,6 +30,9 @@ public:
         const double low    = inputs[1];
         const double close  = inputs[2];
         const double volume = inputs[3];
+        if (std::isnan(high) || std::isnan(low) || std::isnan(close) || std::isnan(volume)) {
+            return std::numeric_limits<double>::quiet_NaN();
+        }
         const double range = high - low;
         if (range > 0.0) {
             const double clv = ((close - low) - (high - close)) / range;

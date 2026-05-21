@@ -2,12 +2,7 @@
 #define SCREAMER_POWER_H
 
 #include <cmath>
-#include <pybind11/pybind11.h>
-#include <pybind11/numpy.h>
 #include "screamer/common/base.h"
-
-namespace py = pybind11;
-
 namespace screamer {
 
     class Power : public ScreamerBase {

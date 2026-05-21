@@ -2,16 +2,12 @@
 #ifndef SCREAMER_ROLLING_SKEW_H
 #define SCREAMER_ROLLING_SKEW_H
 
-#include <pybind11/pybind11.h>
-#include <pybind11/numpy.h>
+#include <limits>
 #include "screamer/common/base.h"
+#include "screamer/common/float_info.h"
 #include "screamer/common/math.h"
 #include "screamer/detail/rolling_sum.h"
-
-namespace py = pybind11;
-
 namespace screamer {
-
 
     class RollingSkew : public ScreamerBase {
     public:
@@ -44,6 +40,9 @@ namespace screamer {
     private:
 
         double process_scalar(double newValue) override {
+            if (isnan2(newValue)) {
+                return std::numeric_limits<double>::quiet_NaN();
+            }
             if ((n_ < window_size_) && (start_policy_ != detail::StartPolicy::Zero) ) {
                 n_++;
                 skew_n_const(n_, c0);
@@ -73,5 +72,4 @@ namespace screamer {
 } // end of namespace
 
 #endif // end of include guards
-
 

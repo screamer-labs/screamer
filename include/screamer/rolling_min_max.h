@@ -11,6 +11,8 @@
 // the same primitive used by RollingMin and RollingMax. Amortised O(1)
 // per step.
 
+#include <cmath>
+#include <limits>
 #include <tuple>
 #include "screamer/common/functor_base.h"
 #include "screamer/detail/monotonic_deque.h"
@@ -29,6 +31,10 @@ public:
 
     ResultTuple call(const InputArray& inputs) override {
         const double newValue = inputs[0];
+        if (std::isnan(newValue)) {
+            const double nan = std::numeric_limits<double>::quiet_NaN();
+            return std::make_tuple(nan, nan);
+        }
         const double current_min = min_deque_.append(newValue);
         const double current_max = max_deque_.append(newValue);
         return std::make_tuple(current_min, current_max);

@@ -45,88 +45,7 @@ HELP_JSON = Path(__file__).resolve().parent.parent / "screamer" / "data" / "help
 # entry here is a bug to fix. Remove from the set as fixes land;
 # ``strict=True`` on the xfail mark will fail the build if a formerly-broken
 # function starts passing without an update.
-KNOWN_STICKY_NAN: set[str] = {
-    # Composite smoothers/bands that use running-sum primitives internally.
-    "BollingerBands",
-    "DEMA",
-    "Detrend",
-    "HullMA",
-    "KAMA",
-    "KeltnerChannels",
-    "MACD",
-    "TEMA",
-    "TRIMA",
-    "TRIX",
-    "WMA",
-    # Rolling family with running-sum state.
-    "RollingAlpha",
-    "RollingBeta",
-    "RollingCalmar",
-    "RollingCorr",
-    "RollingCov",
-    "RollingInfoRatio",
-    "RollingKurt",
-    "RollingLinearRegression",
-    "RollingMad",
-    "RollingMean",
-    "RollingOU",
-    "RollingPoly1",
-    "RollingPoly2",
-    "RollingResidualStd",
-    "RollingRms",
-    "RollingSharpe",
-    "RollingSkew",
-    "RollingSortino",
-    "RollingSpread",
-    "RollingStd",
-    "RollingSum",
-    "RollingTSF",
-    "RollingVar",
-    "RollingZscore",
-    # EW family with running-sum state.
-    "EwBeta",
-    "EwCorr",
-    "EwCov",
-    "EwGarmanKlassVar",
-    "EwGarmanKlassVol",
-    "EwKurt",
-    "EwMean",
-    "EwParkinsonVar",
-    "EwParkinsonVol",
-    "EwRms",
-    "EwRogersSatchellVar",
-    "EwRogersSatchellVol",
-    "EwSkew",
-    "EwStd",
-    "EwVar",
-    "EwZscore",
-    # OHLC volatility estimators built on RollingMean.
-    "CCI",
-    "RollingGarmanKlassVar",
-    "RollingGarmanKlassVol",
-    "RollingParkinsonVar",
-    "RollingParkinsonVol",
-    "RollingRogersSatchellVar",
-    "RollingRogersSatchellVol",
-    "RollingVWAP",
-    "RollingYangZhangVar",
-    "RollingYangZhangVol",
-    "Stoch",
-    # Cumulative -- currently propagate-forever; the policy says ignore.
-    "CumMax",
-    "CumMin",
-    "CumProd",
-    "CumSum",
-    # IIR/state filters: state corrupted permanently by NaN.
-    "Butter",
-    "ButterBandpass",
-    "ButterBandstop",
-    "ButterHighpass",
-    "KalmanFilter",
-    # Drawdown family: peak tracking poisoned by NaN.
-    "Drawdown",
-    "MaxDrawdown",
-}
+KNOWN_STICKY_NAN: set[str] = set()
 
 
 # Functions that silently drop NaN samples without emitting NaN at the same
@@ -140,33 +59,7 @@ KNOWN_STICKY_NAN: set[str] = {
 #     remaining finite samples instead of NaN.
 #   * Multi-input financial composites where the NaN of one input is masked
 #     by the formula.
-KNOWN_NO_NAN_PROPAGATION: set[str] = {
-    # Stateless math: returns 0 instead of NaN for NaN input.
-    "Relu",
-    "Sign",
-    # OST / deque-based window extremes: skip NaN from state but compute
-    # output from remaining finite samples instead of returning NaN.
-    "RollingArgmax",
-    "RollingArgmin",
-    "RollingMax",
-    "RollingMedian",
-    "RollingMin",
-    "RollingMinMax",
-    "RollingPercentile",
-    "RollingQuantile",
-    "RollingRange",
-    "RollingRank",
-    "DonchianChannels",
-    # OHLC / volume composites whose NaN-handling masks input NaN.
-    "AD",
-    "ADOSC",
-    "ADX",
-    "MFI",
-    "OBV",
-    "RollingRSI",
-    "StochRSI",
-    "UltimateOscillator",
-}
+KNOWN_NO_NAN_PROPAGATION: set[str] = set()
 
 
 # Functions whose declared ``propagate`` policy formula does not reference
@@ -236,6 +129,38 @@ def _build_input(n_inputs: int, n_samples: int) -> list[np.ndarray]:
     return [base.copy() for _ in range(n_inputs)]
 
 
+# Some functions are degenerate on strictly-positive input -- not because
+# of any NaN bug, but because the math itself collapses. Examples:
+#   * RollingSortino target=0 + all-positive returns -> downside RMS = 0.
+#   * RollingCalmar + monotone-positive prices -> rolling drawdown = 0.
+#   * RollingInfoRatio with identical input streams -> excess = 0 -> std = 0.
+# For these, the test must use a centered input (and independent streams
+# for InfoRatio) so the function has something meaningful to compute.
+_NEEDS_CENTERED_INPUT: set[str] = {
+    "RollingCalmar",
+    "RollingInfoRatio",
+    "RollingSortino",
+}
+
+
+def _centered_input(n_inputs: int, n_samples: int) -> list[np.ndarray]:
+    """Symmetric-around-zero input. Used for ratio-statistics functions."""
+    rng = np.random.default_rng(42)
+    arrays = []
+    for k in range(n_inputs):
+        # Independent streams per input so InfoRatio's excess isn't always 0.
+        sub = np.random.default_rng(42 + k).normal(0.0, 0.1, size=n_samples)
+        sub[:3] = np.nan
+        arrays.append(sub.astype(np.float64))
+    return arrays
+
+
+def _input_for(name: str, n_inputs: int, n_samples: int) -> list[np.ndarray]:
+    if name in _NEEDS_CENTERED_INPUT:
+        return _centered_input(n_inputs, n_samples)
+    return _build_input(n_inputs, n_samples)
+
+
 def _xfail_if_in(known: set[str], reason_label: str):
     """Return a per-name marker factory tied to a specific failure set."""
     def factory(name: str):
@@ -281,7 +206,7 @@ def test_no_sticky_nan(name: str, entry: dict):
         pytest.skip("nan-aware policy is function-specific; not covered here")
 
     n_inputs = int(entry.get("inputs", 1))
-    arrays = _build_input(n_inputs, n_samples=500)
+    arrays = _input_for(name, n_inputs, n_samples=500)
     instance = _instantiate(entry)
     out = _call(instance, arrays)
 
@@ -328,7 +253,7 @@ def test_nan_at_nan_index(name: str, entry: dict):
         pytest.skip("nan-aware policy is function-specific; not covered here")
 
     n_inputs = int(entry.get("inputs", 1))
-    arrays = _build_input(n_inputs, n_samples=500)
+    arrays = _input_for(name, n_inputs, n_samples=500)
     # Add a NaN deep in the middle, far from warmup and far from end.
     nan_idx = 250
     for a in arrays:

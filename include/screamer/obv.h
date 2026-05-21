@@ -28,6 +28,10 @@ public:
     ResultTuple call(const InputArray& inputs) override {
         const double close  = inputs[0];
         const double volume = inputs[1];
+        if (isnan2(close) || isnan2(volume)) {
+            // NaN policy "ignore": leave running OBV and prev_close alone.
+            return std::numeric_limits<double>::quiet_NaN();
+        }
         if (isnan2(prev_close_)) {
             // Seed: TA-Lib starts OBV at volume[0].
             obv_ = volume;

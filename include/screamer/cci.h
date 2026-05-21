@@ -49,6 +49,9 @@ public:
         const double high  = inputs[0];
         const double low   = inputs[1];
         const double close = inputs[2];
+        if (std::isnan(high) || std::isnan(low) || std::isnan(close)) {
+            return std::numeric_limits<double>::quiet_NaN();
+        }
         const double tp = (high + low + close) / 3.0;
 
         // Rolling sum of TP via circular buffer.

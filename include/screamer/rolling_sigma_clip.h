@@ -1,15 +1,10 @@
 #ifndef SCREAMER_ROLLING_SIGMA_CLIP_H
 #define SCREAMER_ROLLING_SIGMA_CLIP_H
 
-#include <pybind11/pybind11.h>
-#include <pybind11/numpy.h>
 #include "screamer/common/base.h"
 #include "screamer/detail/rolling_sum.h"
 #include "screamer/common/float_info.h"
 #include "screamer/common/math.h"
-
-namespace py = pybind11;
-
 namespace screamer {
 
     class RollingSigmaClip : public ScreamerBase {
@@ -125,7 +120,6 @@ namespace screamer {
             if (output_ == 2) return std_;
             return newValue;
         }
-
 
     private:
         detail::RollingSum sum_x_buffer;

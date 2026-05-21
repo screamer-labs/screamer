@@ -1,15 +1,9 @@
 #ifndef SCREAMER_ROLLING_MEDIAN_H
 #define SCREAMER_ROLLING_MEDIAN_H
 
-#include <deque>
-#include <pybind11/pybind11.h>
-#include <pybind11/numpy.h>
 #include <screamer/common/buffer.h>
 #include "screamer/common/base.h"
 #include "screamer/common/float_info.h"
-
-namespace py = pybind11;
-
 namespace screamer {
 
     class RollingMedian : public ScreamerBase {
@@ -33,17 +27,20 @@ namespace screamer {
         
     private:
 
-        double process_scalar(double newValue) override 
+        double process_scalar(double newValue) override
         {
+            // NaN policy "ignore": leave the buffer and the multisets
+            // untouched and emit NaN.
+            if (isnan2(newValue)) {
+                return std::numeric_limits<double>::quiet_NaN();
+            }
             double oldValue = buffer.append(newValue);
 
             if (!isnan2(oldValue)) {
                 remove(oldValue);
             }
 
-            if (!isnan2(newValue)) {
-                add(newValue);
-            }
+            add(newValue);
 
             if (low.empty() && high.empty()) {
                 return std::numeric_limits<double>::quiet_NaN();

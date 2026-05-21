@@ -51,6 +51,11 @@ public:
     }
 
     double process_scalar(double r) override {
+        // NaN policy "ignore": leave the implied price and the wrapped
+        // mean/rmd states alone.
+        if (std::isnan(r)) {
+            return std::numeric_limits<double>::quiet_NaN();
+        }
         // Reconstruct implied price path: price *= (1 + r).
         price_ *= (1.0 + r);
         const double m = mean_.process_scalar(r);

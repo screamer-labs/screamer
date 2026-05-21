@@ -2,10 +2,14 @@
 #define SCREAMER_CUM_PROD_H
 
 // CumProd: running product from sample 0 to the current sample. O(1) memory.
-// NaN propagates: once an input is NaN, all subsequent outputs are NaN.
 // Once 0 is multiplied in, the running product stays at 0.
-// Matches numpy.cumprod behavior.
+//
+// NaN policy "ignore" (see docs/nan_policy.md): a NaN input is skipped --
+// output is NaN at that index, the running product is unchanged. This
+// matches pandas Series.cumprod(skipna=True) and differs from numpy.cumprod.
 
+#include <cmath>
+#include <limits>
 #include "screamer/common/base.h"
 
 namespace screamer {
@@ -17,7 +21,10 @@ public:
     void reset() override { prod_ = 1.0; }
 
     double process_scalar(double x) override {
-        prod_ *= x;    // NaN naturally propagates through multiplication
+        if (std::isnan(x)) {
+            return std::numeric_limits<double>::quiet_NaN();
+        }
+        prod_ *= x;
         return prod_;
     }
 

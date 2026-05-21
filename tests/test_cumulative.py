@@ -48,14 +48,18 @@ def test_scalar_loop_matches_array(cls, reference):
 
 
 @pytest.mark.parametrize("cls,reference", CUM_PAIRS, ids=[c.__name__ for c, _ in CUM_PAIRS])
-def test_nan_propagates(cls, reference):
-    """Once an input is NaN, all subsequent outputs must be NaN. Numpy
-    behaviour, not pandas skipna behaviour."""
+def test_nan_at_nan_index_only(cls, reference):
+    """Under the "ignore" NaN policy (see docs/nan_policy.md), a NaN
+    input emits NaN at that index only -- the running state is left
+    untouched and subsequent finite samples continue computing.
+    Matches pandas Series.cum*(skipna=True), NOT numpy.cum*.
+    """
     x = np.array([1.0, 2.0, np.nan, 4.0, 5.0])
     out = cls()(x)
-    expected = reference(x)
-    # NaN positions must match.
-    np.testing.assert_array_equal(np.isnan(out), np.isnan(expected))
+    # NaN appears only at the NaN-input index.
+    assert np.isnan(out[2])
+    # All other outputs are finite (the running reduction continues).
+    assert np.all(np.isfinite(np.delete(out, 2)))
 
 
 def test_cum_max_monotonic():

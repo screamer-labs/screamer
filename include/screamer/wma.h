@@ -27,6 +27,7 @@
 #include <stdexcept>
 #include <string>
 #include "screamer/common/base.h"
+#include "screamer/common/float_info.h"
 #include "screamer/detail/rolling_sum.h"
 #include "screamer/detail/start_policy.h"
 
@@ -59,6 +60,11 @@ public:
     // can chain a WMA inside their own process_scalar without going
     // through the Python dispatcher.
     double process_scalar(double x) override {
+        // NaN policy "ignore": leave weighted_sum_, prev_simple_sum_, and n_
+        // untouched. See docs/nan_policy.md.
+        if (isnan2(x)) {
+            return std::numeric_limits<double>::quiet_NaN();
+        }
         if (n_ < window_size_) {
             n_++;
             if (start_policy_ == detail::StartPolicy::Zero) {

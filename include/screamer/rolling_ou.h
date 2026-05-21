@@ -2,9 +2,9 @@
 #ifndef SCREAMER_ROLLING_OU_H
 #define SCREAMER_ROLLING_OU_H
 
-#include <pybind11/pybind11.h>
-#include <pybind11/numpy.h>
+#include <limits>
 #include "screamer/common/base.h"
+#include "screamer/common/float_info.h"
 #include "screamer/detail/rolling_sum.h"
 
 /*
@@ -30,10 +30,7 @@ The slope and intercept of OLS fit of y = a * x + b are then:
 a = [n * Sxy - Sx * Sy] / [n * Sxx - Sx * Sx]
 b = [Sy - a * Sx] / n
 
-
 */
-namespace py = pybind11;
-
 namespace screamer {
 
     class RollingOU : public ScreamerBase {
@@ -77,9 +74,12 @@ namespace screamer {
         }
         
         double process_scalar(double newValue) override {
+            if (isnan2(newValue)) {
+                return std::numeric_limits<double>::quiet_NaN();
+            }
             if ((n_ < window_size_) && (start_policy_ != detail::StartPolicy::Zero) ) {
                 n_++;
-            }             
+            }
             // the x values is the previous y
             x = y;
             y = newValue;
@@ -114,7 +114,6 @@ namespace screamer {
             return std::numeric_limits<double>::quiet_NaN();
         }
 
-
     private:
         const int window_size_;
         const int output_;
@@ -130,7 +129,6 @@ namespace screamer {
         double sum_xx = 0.0;
         double sum_yy = 0.0;
         double sum_xy = 0.0;
-
 
     }; // end of class
 

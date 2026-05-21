@@ -41,6 +41,11 @@ public:
     ResultTuple call(const InputArray& inputs) override {
         const double target    = inputs[0];
         const double regressor = inputs[1];
+        // NaN policy "ignore": if either input is NaN, skip the whole step
+        // so all three sub-objects (beta_, mean_x_, mean_y_) stay in sync.
+        if (isnan2(target) || isnan2(regressor)) {
+            return std::numeric_limits<double>::quiet_NaN();
+        }
         const double beta      = beta_.call(InputArray{target, regressor});
         const double my        = mean_x_.process_scalar(target);
         const double mr        = mean_y_.process_scalar(regressor);

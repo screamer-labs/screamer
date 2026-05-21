@@ -14,6 +14,7 @@
 #include <optional>
 #include <stdexcept>
 #include "screamer/common/functor_base.h"
+#include "screamer/common/float_info.h"
 
 namespace screamer {
 
@@ -53,6 +54,10 @@ public:
     ResultTuple call(const InputArray& inputs) override {
         const double x = inputs[0];
         const double y = inputs[1];
+
+        if (isnan2(x) || isnan2(y)) {
+            return std::numeric_limits<double>::quiet_NaN();
+        }
 
         sum_x_  *= one_minus_alpha_;
         sum_y_  *= one_minus_alpha_;

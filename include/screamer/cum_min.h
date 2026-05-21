@@ -3,7 +3,10 @@
 
 // CumMin: running minimum from sample 0 to the current sample. O(1) memory.
 // Output is monotonically non-increasing while samples are finite.
-// NaN propagates. Matches numpy.minimum.accumulate / numpy.cummin behavior.
+//
+// NaN policy "ignore" (see docs/nan_policy.md): a NaN input is skipped --
+// output is NaN at that index, the running minimum is unchanged. This
+// differs from numpy.minimum.accumulate, which propagates NaN forever.
 
 #include <cmath>
 #include <limits>
@@ -20,9 +23,8 @@ public:
     }
 
     double process_scalar(double x) override {
-        if (std::isnan(x) || std::isnan(running_min_)) {
-            running_min_ = std::numeric_limits<double>::quiet_NaN();
-            return running_min_;
+        if (std::isnan(x)) {
+            return std::numeric_limits<double>::quiet_NaN();
         }
         if (x < running_min_) {
             running_min_ = x;

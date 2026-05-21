@@ -128,7 +128,21 @@ def generate_positive_array(array_length):
     return np.random.uniform(0.1, 10, array_length)
 
 def generate_array_with_nan(array_length):
-    """Generate an array with NaN values interspersed."""
+    """Generate an array with NaN values interspersed.
+
+    Note: this generator is wired up for use by ``test_stream_vs_batch.py``
+    / ``test_stream_vs_generator.py`` but is intentionally NOT referenced
+    by the test_definitions table below. The reason is that the cross
+    product (function, start_policy, NaN position) of NaN compliance is
+    tested explicitly and exhaustively in
+    ``tests/test_nan_start_policy_compliance.py`` with stricter assertions
+    and per-(function, start_policy) xfail tracking; routing NaN arrays
+    through the same generic baseline-parity infrastructure here would
+    duplicate that coverage with weaker assertions and would break the
+    baseline comparisons (numpy / pandas / TA-Lib references behave
+    differently on NaN than screamer's declared policy demands). Keep
+    the generator available for ad-hoc tests that need it.
+    """
     array = np.random.randn(array_length)
     array[::10] = np.nan  # Insert NaN every 10 elements for testing
     return array

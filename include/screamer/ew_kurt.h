@@ -4,7 +4,9 @@
 #include <optional>
 #include <stdexcept>
 #include <cmath>
+#include <limits>
 #include "screamer/common/base.h"
+#include "screamer/common/float_info.h"
 
 namespace screamer {
 
@@ -54,6 +56,9 @@ namespace screamer {
         }
 
         double process_scalar(double newValue) override {
+            if (isnan2(newValue)) {
+                return std::numeric_limits<double>::quiet_NaN();
+            }
             sum_x_ *= one_minus_alpha_;
             sum_xx_ *= one_minus_alpha_;
             sum_xxx_ *= one_minus_alpha_;

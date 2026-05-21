@@ -51,6 +51,10 @@ public:
     }
 
     double process_scalar(double r) override {
+        // NaN policy "ignore": leave the buffer and sum alone.
+        if (std::isnan(r)) {
+            return std::numeric_limits<double>::quiet_NaN();
+        }
         const double oldValue = buffer_[index_];
         buffer_[index_] = r;
         index_++;

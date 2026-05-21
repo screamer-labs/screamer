@@ -5,7 +5,9 @@
 #include <optional>
 #include <stdexcept>
 #include <cmath>
+#include <limits>
 #include "screamer/common/base.h"
+#include "screamer/common/float_info.h"
 
 /*
 Info about the bias correction: https://osquant.com/papers/replicating-pandas-ewm-var/ 
@@ -86,6 +88,10 @@ namespace screamer {
         }
 
         double process_scalar(double newValue) override {
+            // NaN policy "ignore". See docs/nan_policy.md.
+            if (isnan2(newValue)) {
+                return std::numeric_limits<double>::quiet_NaN();
+            }
             sum_x_ *= one_minus_alpha_;
             sum_xx_ *= one_minus_alpha_;
 
@@ -98,9 +104,8 @@ namespace screamer {
             sum_w_ += 1.0;
             sum_w2_ += 1.0;
 
-            double n_eff = sum_w_* sum_w_ / sum_w2_; 
+            double n_eff = sum_w_* sum_w_ / sum_w2_;
 
-    
             // Compute the weighted mean
             double mean = sum_x_ / sum_w_;
 
@@ -115,78 +120,8 @@ namespace screamer {
             }
         }
 
-        void process_array_no_stride(double* y, const double* x, size_t size) override {
-            double one_minus_alpha_ = this->one_minus_alpha_;
-            double sum_x_ = 0.0;
-            double sum_xx_ = 0.0;
-            double sum_w_ = 0.0;
-            double sum_w2_ = 0.0;
-
-            for (size_t i=0; i<size; i++) {
-                sum_x_ *= one_minus_alpha_;
-                sum_xx_ *= one_minus_alpha_;
-
-                sum_w_ *= one_minus_alpha_;
-                sum_w2_ *= one_minus_alpha2_;
-
-
-                sum_x_ += x[i];
-                sum_xx_ += x[i] * x[i];
-
-                sum_w_ += 1.0;
-                sum_w2_ += 1.0;
-                
-                double n_eff = sum_w_ * sum_w_ / sum_w2_; 
-                double mean = sum_x_ / sum_w_;
-                double variance = (sum_xx_ / sum_w_) - (mean * mean);
-                variance *= n_eff / (n_eff - 1.0);
-
-                if (n_eff <= 1.0) {
-                    y[i] = std::numeric_limits<double>::quiet_NaN();
-                } else {       
-                    y[i] = variance;  
-                }
-
-            }
-        }
-
-        void process_array_stride(double* y, size_t dyi, const double* x, size_t dxi, size_t size) override {
-            
-            double one_minus_alpha_ = this->one_minus_alpha_;
-            double sum_x_ = 0.0;
-            double sum_xx_ = 0.0;
-            double sum_w_ = 0.0;
-            double sum_w2_ = 0.0;
-            
-            size_t xi = 0;
-            size_t yi = 0;
-
-            for (size_t i=0; i<size; i++) { // start at 1
-                sum_x_ *= one_minus_alpha_;
-                sum_xx_ *= one_minus_alpha_;
-
-                sum_w_ *= one_minus_alpha_;
-                sum_w2_ *= one_minus_alpha2_;
-
-                sum_x_ += x[xi];
-                sum_xx_ += x[xi]*x[xi];
-
-                sum_w_ += 1.0;
-                sum_w2_ += 1.0;
-
-                double n_eff = sum_w_* sum_w_ / sum_w2_; 
-                double mean = sum_x_ / sum_w_;
-                double variance = (sum_xx_ / sum_w_) - (mean * mean);
-                variance *= n_eff / (n_eff - 1.0);
-                if (n_eff <= 1.0) {
-                    y[yi] = std::numeric_limits<double>::quiet_NaN();
-                } else {
-                    y[yi] = variance;
-                }
-                xi += dxi;
-                yi += dyi;                
-            }
-        }  
+        // Array fast-paths removed: they used local accumulators and
+        // ignored NaN, breaking the policy. Scalar fallback honors it.
 
     private:
         double alpha_;

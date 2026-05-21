@@ -46,6 +46,10 @@ public:
         const double low    = inputs[1];
         const double close  = inputs[2];
         const double volume = inputs[3];
+        if (isnan2(high) || isnan2(low) || isnan2(close) || isnan2(volume)) {
+            // NaN policy "ignore": leave state alone.
+            return std::numeric_limits<double>::quiet_NaN();
+        }
         const double tp = (high + low + close) / 3.0;
         const double mf = tp * volume;
 

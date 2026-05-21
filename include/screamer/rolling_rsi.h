@@ -79,6 +79,10 @@ public:
     }
 
     double process_scalar(double x) override {
+        // NaN policy "ignore": leave Wilder/Cutler state untouched.
+        if (isnan2(x)) {
+            return std::numeric_limits<double>::quiet_NaN();
+        }
         if (method_ == Method::Cutler) {
             return process_cutler(x);
         }

@@ -12,6 +12,8 @@
 // Validated in tests against RollingMinMax(w) -> max - min as the
 // composition reference.
 
+#include <cmath>
+#include <limits>
 #include "screamer/common/base.h"
 #include "screamer/detail/monotonic_deque.h"
 
@@ -29,6 +31,9 @@ public:
 
 private:
     double process_scalar(double newValue) override {
+        if (std::isnan(newValue)) {
+            return std::numeric_limits<double>::quiet_NaN();
+        }
         const double current_min = min_deque_.append(newValue);
         const double current_max = max_deque_.append(newValue);
         return current_max - current_min;

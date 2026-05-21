@@ -21,7 +21,9 @@
 // by default; both are optional constructor parameters.
 
 #include <stdexcept>
+#include <limits>
 #include "screamer/common/base.h"
+#include "screamer/common/float_info.h"
 
 namespace screamer {
 
@@ -54,6 +56,12 @@ public:
     }
 
     double process_scalar(double z) override {
+        // NaN policy "ignore": missing observation -> emit NaN, do not
+        // run the predict/update steps so the state stays exactly where
+        // it was. See docs/nan_policy.md.
+        if (isnan2(z)) {
+            return std::numeric_limits<double>::quiet_NaN();
+        }
         // Predict.
         const double P_pred = P_ + process_var_;
         // Update.

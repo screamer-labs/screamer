@@ -6,7 +6,11 @@
 
 namespace screamer {
 
+    // NaN policy "ignore": NaN propagates. The naive comparison-based
+    // form returns 0 for NaN because both ``0 < NaN`` and ``NaN < 0`` are
+    // false; the explicit guard below honors the policy.
     template <typename T> T signum(T val) {
+        if (std::isnan(val)) return val;
         return (T(0) < val) - (val < T(0));
     }
 
@@ -19,8 +23,10 @@ namespace screamer {
     // slot needs filling without altering the data.
     inline double identity(double x) { return x; }
 
-    // ReLU function
+    // ReLU function. NaN propagates per the "ignore" NaN policy; the
+    // naive form would return 0 because ``NaN > 0`` is false.
     inline double relu(double x) {
+        if (std::isnan(x)) return x;
         return x > 0 ? x : 0;
     }
 

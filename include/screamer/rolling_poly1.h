@@ -4,7 +4,6 @@
 #include "screamer/common/base.h"
 #include "screamer/common/float_info.h"
 #include <stdexcept>
-#include <tuple>
 #include "screamer/detail/delay_buffer.h"
 
 /*
@@ -82,6 +81,12 @@ namespace screamer {
         }
 
         double process_scalar(double yn) override {
+
+            // NaN policy "ignore": skip this step entirely, leave delay
+            // buffer and running sums untouched. See docs/nan_policy.md.
+            if (isnan2(yn)) {
+                return std::numeric_limits<double>::quiet_NaN();
+            }
 
             double y0 = delay_buffer_.append(yn);
             sum_y += yn - y0;

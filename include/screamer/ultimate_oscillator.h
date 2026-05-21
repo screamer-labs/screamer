@@ -59,6 +59,11 @@ public:
         const double low   = inputs[1];
         const double close = inputs[2];
 
+        if (isnan2(high) || isnan2(low) || isnan2(close)) {
+            // NaN policy "ignore": leave state alone, emit NaN.
+            return std::numeric_limits<double>::quiet_NaN();
+        }
+
         // First sample has no prev_close -> BP/TR undefined. Push 0
         // so the rolling-sum buffers stay aligned; will be flushed
         // before the first valid output.

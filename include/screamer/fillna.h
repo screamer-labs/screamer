@@ -1,24 +1,17 @@
 #ifndef SCREAMER_FILLNA_H
 #define SCREAMER_FILLNA_H
 
-#include <limits>
-#include <pybind11/pybind11.h>
-#include <pybind11/numpy.h>
 #include "screamer/common/base.h"
 #include <algorithm>
 #include <execution>
 #include <cmath>
 #include "screamer/common/float_info.h"
-
-namespace py = pybind11;
-
 namespace screamer {
 
     class FillNa : public ScreamerBase {
     public:
 
         FillNa(double fill) : fill_(fill) {}
-
 
     private:
 

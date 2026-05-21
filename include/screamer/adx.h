@@ -59,6 +59,11 @@ public:
         const double close = inputs[2];
         const double nan = std::numeric_limits<double>::quiet_NaN();
 
+        if (isnan2(high) || isnan2(low) || isnan2(close)) {
+            // NaN policy "ignore": leave running state alone, emit NaN.
+            return std::make_tuple(nan, nan, nan);
+        }
+
         if (isnan2(prev_close_)) {
             // t = 0: no previous bar; nothing to compute.
             prev_high_ = high;

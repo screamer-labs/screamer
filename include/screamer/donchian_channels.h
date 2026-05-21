@@ -14,6 +14,7 @@
 // RollingMin / Max / MinMax / Argmin / Argmax / Range / WilliamsR /
 // Stoch. Amortised O(1) per step.
 
+#include <cmath>
 #include <limits>
 #include <stdexcept>
 #include <tuple>
@@ -43,6 +44,10 @@ public:
     ResultTuple call(const InputArray& inputs) override {
         const double high = inputs[0];
         const double low  = inputs[1];
+        if (std::isnan(high) || std::isnan(low)) {
+            const double nan = std::numeric_limits<double>::quiet_NaN();
+            return std::make_tuple(nan, nan, nan);
+        }
         const double upper = max_deque_.append(high);
         const double lower = min_deque_.append(low);
         if (n_seen_ < window_size_) {

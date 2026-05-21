@@ -24,6 +24,7 @@
 #include <string>
 #include <vector>
 #include "screamer/common/base.h"
+#include "screamer/common/float_info.h"
 #include "screamer/detail/start_policy.h"
 
 namespace screamer {
@@ -50,6 +51,11 @@ public:
 
 private:
     double process_scalar(double newValue) override {
+        // NaN policy "ignore": skip this step, leave the buffer and sum
+        // untouched.
+        if (isnan2(newValue)) {
+            return std::numeric_limits<double>::quiet_NaN();
+        }
         // Rolling-sum recurrence: same primitive RollingMean uses.
         const double oldValue = buffer_[index_];
         buffer_[index_] = newValue;

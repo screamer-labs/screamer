@@ -1,16 +1,10 @@
 #ifndef SCREAMER_ROLLING_QUANTILE_H
 #define SCREAMER_ROLLING_QUANTILE_H
 
-#include <deque>
-#include <pybind11/pybind11.h>
-#include <pybind11/numpy.h>
 #include "screamer/common/buffer.h"
 #include "screamer/common/base.h"
 #include "common/order_statistic_tree.h"
 #include "screamer/common/float_info.h"
-
-namespace py = pybind11;
-
 namespace screamer {
 
     class RollingQuantile : public ScreamerBase {
@@ -43,18 +37,20 @@ namespace screamer {
 
         double process_scalar(double newValue) override
         {
+            // NaN policy "ignore": leave the buffer and OST untouched, emit NaN.
+            if (isnan2(newValue)) {
+                return std::numeric_limits<double>::quiet_NaN();
+            }
             double oldValue = buffer.append(newValue);
 
             if (!isnan2(oldValue)) {
                 remove(oldValue);
             }
 
-            if (!isnan2(newValue)) {
-                add(newValue);
-            }
+            add(newValue);
 
             if (ost.size() < window_size) {
-                return -2; //  std::numeric_limits<double>::quiet_NaN()
+                return std::numeric_limits<double>::quiet_NaN();
             } else {
                 return getQuantile();
             }

@@ -18,6 +18,7 @@
 #include <stdexcept>
 #include <string>
 #include "screamer/common/functor_base.h"
+#include "screamer/common/float_info.h"
 #include "screamer/detail/rolling_sum.h"
 #include "screamer/detail/start_policy.h"
 
@@ -55,6 +56,11 @@ public:
     ResultTuple call(const InputArray& inputs) override {
         const double x = inputs[0];
         const double y = inputs[1];
+
+        // NaN policy "ignore": skip this step entirely if any input is NaN.
+        if (isnan2(x) || isnan2(y)) {
+            return std::numeric_limits<double>::quiet_NaN();
+        }
 
         const double sum_x  = sum_x_buffer .append(x);
         const double sum_y  = sum_y_buffer .append(y);

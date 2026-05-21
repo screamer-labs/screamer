@@ -5,7 +5,9 @@
 #include <optional>
 #include <stdexcept>
 #include <cmath>
+#include <limits>
 #include "screamer/common/base.h"
+#include "screamer/common/float_info.h"
 
 namespace screamer {
 
@@ -54,45 +56,23 @@ namespace screamer {
         }
 
         double process_scalar(double newValue) override {
+            // NaN policy "ignore": skip this step, leave sum_x_/sum_w_
+            // untouched. See docs/nan_policy.md.
+            if (isnan2(newValue)) {
+                return std::numeric_limits<double>::quiet_NaN();
+            }
             sum_x_ *= one_minus_alpha_;
             sum_w_ *= one_minus_alpha_;
             sum_x_ += newValue;
             sum_w_ += 1.0;
-            return sum_x_ / sum_w_;  
+            return sum_x_ / sum_w_;
         }
 
-        void process_array_no_stride(double* y, const double* x, size_t size) override {
-            double one_minus_alpha_ = this->one_minus_alpha_;
-            double sum_x_ = 0.0;
-            double sum_w_ = 0.0;
-            for (size_t i=0; i<size; i++) {
-                sum_x_ *= one_minus_alpha_;
-                sum_w_ *= one_minus_alpha_;
-                sum_x_ += x[i];
-                sum_w_ += 1.0;
-                y[i] = sum_x_ / sum_w_;                  
-            }
-        }
-
-        void process_array_stride(double* y, size_t dyi, const double* x, size_t dxi, size_t size) override {
-            
-            double one_minus_alpha_ = this->one_minus_alpha_;
-            double sum_x_ = 0.0;
-            double sum_w_ = 0.0;
-            
-            size_t xi = 0;
-            size_t yi = 0;
-
-            for (size_t i=0; i<size; i++) { // start at 1
-                sum_x_ *= one_minus_alpha_;
-                sum_w_ *= one_minus_alpha_;
-                sum_x_ += x[xi];
-                sum_w_ += 1.0;
-                y[yi] = sum_x_ / sum_w_;   
-                xi += dxi;
-                yi += dyi;                
-            }
-        }  
+        // Previous array overrides duplicated process_scalar's body with
+        // their own local accumulators (which made them implicitly
+        // NaN-unsafe). The scalar fallback in ScreamerBase honors the
+        // "ignore" policy correctly. Re-add an inline NaN-aware fast
+        // path here if profiling shows it matters.
 
     private:
         double alpha_;

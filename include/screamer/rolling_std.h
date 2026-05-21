@@ -2,17 +2,15 @@
 #ifndef SCREAMER_ROLLING_STD_H
 #define SCREAMER_ROLLING_STD_H
 
-#include <pybind11/pybind11.h>
-#include <pybind11/numpy.h>
+#include <limits>
 #include <screamer/detail/rolling_sum.h>
 #include "screamer/common/base.h"
+#include "screamer/common/float_info.h"
 #include "screamer/common/math.h"
 /*
 todo: this implementation might  suffer from numerical instability
       https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Welford's_online_algorithm
 */
-namespace py = pybind11;
-
 namespace screamer {
 
     class RollingStd : public ScreamerBase {
@@ -38,10 +36,13 @@ namespace screamer {
         }
         
         double process_scalar(double newValue) override {
+            // NaN policy "ignore": leave n_ and the running sums untouched.
+            if (isnan2(newValue)) {
+                return std::numeric_limits<double>::quiet_NaN();
+            }
             if ((n_ < window_size_) && (start_policy_ != detail::StartPolicy::Zero) ) {
                 n_++;
-            } 
-
+            }
             double sum_y = sum_y_buffer.append(newValue);
             double sum_y2 = sum_y2_buffer.append(newValue * newValue);
 
@@ -50,35 +51,14 @@ namespace screamer {
             return std::sqrt(var);
         }
 
-        void process_array_no_stride(double* y, const double* x, size_t size) override {
-
-            double sum_x = 0.0;
-            double sum_xx = 0.0;
-
-            size_t split = std::min<int>(size, window_size_);
-
-            for (size_t i=0; i<split; i++) {
-                y[i] = process_scalar(x[i]);
-                sum_x += x[i];
-                sum_xx += x[i] * x[i];
-            }
-            
-            for (size_t i=split; i<size; i++) {
-                sum_x = sum_x + x[i] - x[i - window_size_];
-                sum_xx = sum_xx + x[i] * x[i] - x[i - window_size_] * x[i - window_size_];
-                double var = (sum_xx - sum_x * sum_x / window_size_) / (window_size_ - 1);
-                y[i] = std::sqrt(var);      
-            }
-
-        }
+        // Fast-path override removed; scalar fallback honors the "ignore"
+        // NaN policy. See rolling_sum.h for rationale.
     private:
         const int window_size_;
         const detail::StartPolicy start_policy_;
         size_t n_ = 0;
         screamer::detail::RollingSum sum_y_buffer;
         screamer::detail::RollingSum sum_y2_buffer;
-
-
 
     }; // end of class
 

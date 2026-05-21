@@ -2,15 +2,10 @@
 #define SCREAMER_CLIP_H
 
 #include <limits>
-#include <pybind11/pybind11.h>
-#include <pybind11/numpy.h>
 #include "screamer/common/base.h"
 #include <algorithm>
 #include <execution>
 #include <cmath>
-
-namespace py = pybind11;
-
 namespace screamer {
 
     class Clip : public ScreamerBase {

@@ -1,14 +1,8 @@
 #ifndef SCREAMER_DIFF_H
 #define SCREAMER_DIFF_H
 
-#include <limits>
-#include <pybind11/pybind11.h>
-#include <pybind11/numpy.h>
 #include <screamer/detail/delay_buffer.h>
 #include "screamer/common/base.h"
-
-namespace py = pybind11;
-
 namespace screamer {
 
     class Diff : public ScreamerBase {

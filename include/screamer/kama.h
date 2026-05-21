@@ -65,6 +65,12 @@ public:
     }
 
     double process_scalar(double x) override {
+        // NaN policy "ignore": skip the step, leave prev_x_, the lag
+        // buffer, the volatility sum, and the KAMA recurrence untouched.
+        // See docs/nan_policy.md.
+        if (isnan2(x)) {
+            return std::numeric_limits<double>::quiet_NaN();
+        }
         // 1. One-step abs delta, push into volatility rolling sum.
         const double x_prev = prev_x_;
         const double abs_dx = isnan2(x_prev) ? 0.0 : std::abs(x - x_prev);

@@ -42,6 +42,11 @@ public:
     }
 
     ResultTuple call(const InputArray& inputs) override {
+        // NaN policy "ignore": if either input is NaN, leave the wrapped
+        // mean_/std_ alone so they stay synchronized.
+        if (std::isnan(inputs[0]) || std::isnan(inputs[1])) {
+            return std::numeric_limits<double>::quiet_NaN();
+        }
         const double excess = inputs[0] - inputs[1];
         const double m = mean_.process_scalar(excess);
         const double s = std_.process_scalar(excess);

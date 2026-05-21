@@ -21,6 +21,8 @@ classes:
 #include <vector>
 #include <complex>
 #include <numeric>
+#include <cmath>
+#include <limits>
 
 
 namespace screamer {
@@ -343,8 +345,13 @@ class IIRFilter {
             //std::fill(z.begin(), z.end(), 0.0);
         }
 
-        double process_scalar(double x) 
+        double process_scalar(double x)
         {
+            // NaN policy "ignore": skip this step, leave the delay line z[]
+            // untouched. See docs/nan_policy.md.
+            if (std::isnan(x)) {
+                return std::numeric_limits<double>::quiet_NaN();
+            }
             double y = b[0] * x + z[0];
             for (size_t i = 0; i < n - 2; ++i) {
                 z[i] = b[i + 1] * x + z[i + 1] - a[i + 1] * y;
@@ -354,11 +361,15 @@ class IIRFilter {
         }
 
         void process_array_no_stride(
-            double* y, 
+            double* y,
             const double* x,
-            size_t size) 
+            size_t size)
         {
             for (size_t m = 0; m < size; ++m) {
+                if (std::isnan(x[m])) {
+                    y[m] = std::numeric_limits<double>::quiet_NaN();
+                    continue;
+                }
                 y[m] = b[0] * x[m] + z[0];
                 for (size_t i = 0; i < n - 2; ++i) {
                     z[i] = b[i + 1] * x[m] + z[i + 1] - a[i + 1] * y[m];
@@ -368,20 +379,24 @@ class IIRFilter {
         }
 
         void process_array_stride(
-            double* y, 
+            double* y,
             size_t dyi,
-            const double* x, 
+            const double* x,
             size_t dxi,
             size_t size)
         {
             int yi = 0;
             int xi = 0;
             for (size_t m = 0; m < size; ++m) {
-                y[yi] = b[0] * x[xi] + z[0];
-                for (size_t i = 0; i < n - 2; ++i) {
-                    z[i] = b[i + 1] * x[xi] + z[i + 1] - a[i + 1] * y[yi];
+                if (std::isnan(x[xi])) {
+                    y[yi] = std::numeric_limits<double>::quiet_NaN();
+                } else {
+                    y[yi] = b[0] * x[xi] + z[0];
+                    for (size_t i = 0; i < n - 2; ++i) {
+                        z[i] = b[i + 1] * x[xi] + z[i + 1] - a[i + 1] * y[yi];
+                    }
+                    z[n - 2] = b[n - 1] * x[xi] - a[n - 1] * y[yi];
                 }
-                z[n - 2] = b[n - 1] * x[xi] - a[n - 1] * y[yi];
                 xi += dxi;
                 yi += dyi;
             }

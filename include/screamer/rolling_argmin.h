@@ -10,6 +10,8 @@
 // step. We just expose the front element's window offset instead of
 // its value.
 
+#include <cmath>
+#include <limits>
 #include "screamer/common/base.h"
 #include "screamer/detail/monotonic_deque.h"
 
@@ -23,6 +25,9 @@ public:
 
 private:
     double process_scalar(double newValue) override {
+        if (std::isnan(newValue)) {
+            return std::numeric_limits<double>::quiet_NaN();
+        }
         deque_.append(newValue);
         return static_cast<double>(deque_.front_window_offset());
     }

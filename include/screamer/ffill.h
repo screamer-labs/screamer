@@ -2,13 +2,8 @@
 #define SCREAMER_FFILL_H
 
 #include <limits>
-#include <pybind11/pybind11.h>
-#include <pybind11/numpy.h>
 #include "screamer/common/base.h"
 #include "screamer/common/float_info.h"
-
-namespace py = pybind11;
-
 namespace screamer {
 
     class Ffill : public ScreamerBase {

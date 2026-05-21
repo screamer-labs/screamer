@@ -23,6 +23,7 @@
 #include <string>
 #include <tuple>
 #include "screamer/common/functor_base.h"
+#include "screamer/common/float_info.h"
 #include "screamer/detail/rolling_sum.h"
 #include "screamer/detail/start_policy.h"
 
@@ -57,6 +58,11 @@ public:
     ResultTuple call(const InputArray& inputs) override {
         const double target = inputs[0];  // y (dependent)
         const double regr   = inputs[1];  // x (regressor)
+
+        if (isnan2(target) || isnan2(regr)) {
+            const double nan = std::numeric_limits<double>::quiet_NaN();
+            return std::make_tuple(nan, nan, nan, nan);
+        }
 
         const double Sy  = sum_y_ .append(target);
         const double Sx  = sum_x_ .append(regr);
