@@ -2,7 +2,7 @@
 
 name = "screamer"
 
-version = "0.5.1"
+version = "0.5.2"
 
 requires-python = ">=3.11"
 
@@ -96,7 +96,7 @@ dev = [
 
 [tool.poetry]
 name = "screamer"
-version = "0.5.1"
+version = "0.5.2"
 description = "Screamingly fast financial technical indicators with C++ performance and Python simplicity, built for both time series analysis and real-time, event-driven streaming."
 authors = ["Thijs van den Berg <thijs@sitmo.com>, Mohammadjavad Vakili <mohammadjavad.vakili@gmail.com>"]
 maintainers = [
@@ -162,7 +162,7 @@ requires = ["scikit-build-core", "pybind11"]
 build-backend = "scikit_build_core.build"
 
 [tool.bumpversion]
-current_version = "0.5.1"
+current_version = "0.5.2"
 commit = true
 tag = true
 allow_dirty = false
