@@ -37,3 +37,5 @@ Element-wise or stateful series transformations: lag, diff, detrend, cumulative 
      - (x[t] - x[t-k]) / x[t-k] — the simple percentage return at lag k.
    * - :doc:`RollingSum </functions_rolling/RollingSum>`
      - Trailing-window sum.
+   * - :doc:`SchmittTrigger </functions_signal/SchmittTrigger>`
+     - Hysteresis comparator. Latches 1.0 above the upper threshold, 0.0 below the lower threshold, and retains its previous value in between.

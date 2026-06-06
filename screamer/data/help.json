@@ -5395,5 +5395,47 @@
         "code": "import numpy as np\nfrom screamer import MovingAverage\n\n# Hamming-windowed low-pass smoother (unity gain).\ntaps = np.hamming(11)\ntaps /= taps.sum()\nout = MovingAverage(list(taps))(signal)\n\n# Uniform taps -> simple rolling mean (equivalent to RollingMean).\nout = MovingAverage([1/7] * 7)(signal)"
       }
     ]
+  },
+  "SchmittTrigger": {
+    "name": "SchmittTrigger",
+    "title": "Schmitt trigger (hysteresis comparator)",
+    "implementation_family": "signal",
+    "topics": [
+      "signal-processing",
+      "transforms"
+    ],
+    "tags": [
+      "schmitt",
+      "trigger",
+      "hysteresis",
+      "comparator",
+      "binary"
+    ],
+    "short": "Hysteresis comparator. Latches 1.0 above the upper threshold, 0.0 below the lower threshold, and retains its previous value in between.",
+    "inputs": 1,
+    "outputs": 1,
+    "parameters": [
+      {
+        "name": "lower",
+        "type": "float",
+        "default": -1.0,
+        "description": "Lower threshold. The output latches to 0.0 when the input falls strictly below this value."
+      },
+      {
+        "name": "upper",
+        "type": "float",
+        "default": 1.0,
+        "description": "Upper threshold. The output latches to 1.0 when the input rises strictly above this value. Must be strictly greater than `lower`."
+      }
+    ],
+    "nan_policy": "ignore",
+    "details": "## Description\n\nThe Schmitt trigger (Otto Schmitt, 1934) is a hysteresis comparator: a circuit whose output changes only when the input crosses the *opposite* threshold from the one that last triggered it. This double-threshold behavior gives the trigger its noise immunity — a noisy input that briefly dips back across a single threshold cannot rapidly toggle the output.\n\n$$\n\\text{output}[t] = \\begin{cases}\n1.0 & \\text{if } x[t] > \\text{upper} \\\\\\\\\n0.0 & \\text{if } x[t] < \\text{lower} \\\\\\\\\n\\text{output}[t-1] & \\text{otherwise}\n\\end{cases}\n$$\n\nThe window `[lower, upper]` is the *dead band*. Inside it the output is latched: whichever value (1.0 or 0.0) the trigger last committed to is held until the input crosses out the other side.\n\nUntil the first input crosses either threshold the output is `NaN` — the trigger has no prior state to retain.\n\n## Parameters\n\n- `lower`: lower threshold. Must be strictly less than `upper`. The output latches to `0.0` when the input falls below this value.\n- `upper`: upper threshold. The output latches to `1.0` when the input rises above this value.\n\n## Implementation Details\n\nO(1) per step. One scalar of state (the latched output). The constructor rejects `lower >= upper` and non-finite thresholds; `reset()` clears the latched state back to `NaN`.",
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage example",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import SchmittTrigger\n\n# A noisy sine wave that repeatedly crosses zero.\nt = np.linspace(0, 4 * np.pi, 400)\nx = np.sin(t) + 0.25 * np.random.default_rng(0).standard_normal(400)\n\n# A naive zero-cross comparator would chatter on the noise. The\n# Schmitt trigger requires the signal to swing past +/- 0.3 before\n# toggling, so it produces a clean square wave.\ntrig = SchmittTrigger(lower=-0.3, upper=0.3)\ny = trig(x)\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True,\n                    row_heights=[0.6, 0.4], vertical_spacing=0.05)\nfig.add_trace(go.Scatter(y=x, mode='lines', name='input'),     row=1, col=1)\nfig.add_hline(y=+0.3, line_dash='dash', line_color='gray', row=1, col=1)\nfig.add_hline(y=-0.3, line_dash='dash', line_color='gray', row=1, col=1)\nfig.add_trace(go.Scatter(y=y, mode='lines', name='trigger',\n                         line=dict(color='red')),             row=2, col=1)\nfig.update_layout(\n    title=\"Schmitt trigger on a noisy sine wave (lower=-0.3, upper=+0.3)\",\n    xaxis2_title=\"Sample\", yaxis=dict(title=\"Input\"),\n    yaxis2=dict(title=\"Trigger\", range=[-0.2, 1.2]),\n    margin=dict(l=20, r=20, t=60, b=20),\n    legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02,\n                xanchor=\"right\", x=1),\n)\nfig.show()"
+      }
+    ]
   }
 }

@@ -7,6 +7,7 @@
 #include "screamer/butter_bandstop.h"
 #include "screamer/moving_average.h"
 #include "screamer/kalman_filter.h"
+#include "screamer/schmitt_trigger.h"
 
 namespace py = pybind11;
 
@@ -54,4 +55,11 @@ void init_bindings_signal(py::module& m) {
              py::arg("initial_variance") = 1.0)
         .def("__call__", &screamer::KalmanFilter::operator(), py::arg("value"))
         .def("reset", &screamer::KalmanFilter::reset, "Reset.");
+
+    // SchmittTrigger: hysteresis comparator with latched binary output.
+    py::class_<screamer::SchmittTrigger, screamer::ScreamerBase>(m, "SchmittTrigger")
+        .def(py::init<double, double>(),
+             py::arg("lower"), py::arg("upper"))
+        .def("__call__", &screamer::SchmittTrigger::operator(), py::arg("value"))
+        .def("reset", &screamer::SchmittTrigger::reset, "Reset to NaN latched state.");
 }

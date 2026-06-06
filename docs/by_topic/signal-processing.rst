@@ -25,3 +25,5 @@ DSP filters (IIR, FIR, state-space) and adaptive estimators.
      - Scalar 1-D Kalman filter for a noisy random-walk model.
    * - :doc:`MovingAverage </functions_signal/MovingAverage>`
      - Finite-impulse-response filter with user-supplied taps.
+   * - :doc:`SchmittTrigger </functions_signal/SchmittTrigger>`
+     - Hysteresis comparator. Latches 1.0 above the upper threshold, 0.0 below the lower threshold, and retains its previous value in between.

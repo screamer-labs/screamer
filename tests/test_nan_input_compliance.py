@@ -142,6 +142,16 @@ _NEEDS_CENTERED_INPUT: set[str] = {
     "RollingSortino",
 }
 
+# Some functions only latch / trigger when the input crosses configured
+# thresholds. With ``uniform(0.1, 0.9)`` and default symmetric thresholds
+# (e.g. SchmittTrigger's +/-1.0), the input never crosses anything and
+# the output stays NaN forever -- correct behavior, but useless for the
+# "no sticky NaN" compliance check. Route these through wider-amplitude
+# input so the function actually exercises its state machine.
+_NEEDS_WIDE_INPUT: set[str] = {
+    "SchmittTrigger",
+}
+
 
 def _centered_input(n_inputs: int, n_samples: int) -> list[np.ndarray]:
     """Symmetric-around-zero input. Used for ratio-statistics functions."""
@@ -155,9 +165,19 @@ def _centered_input(n_inputs: int, n_samples: int) -> list[np.ndarray]:
     return arrays
 
 
+def _wide_input(n_inputs: int, n_samples: int) -> list[np.ndarray]:
+    """Larger-amplitude centered input -- used by threshold/latch functions."""
+    rng = np.random.default_rng(42)
+    base = rng.normal(0.0, 1.5, size=n_samples).astype(np.float64)
+    base[:3] = np.nan
+    return [base.copy() for _ in range(n_inputs)]
+
+
 def _input_for(name: str, n_inputs: int, n_samples: int) -> list[np.ndarray]:
     if name in _NEEDS_CENTERED_INPUT:
         return _centered_input(n_inputs, n_samples)
+    if name in _NEEDS_WIDE_INPUT:
+        return _wide_input(n_inputs, n_samples)
     return _build_input(n_inputs, n_samples)
 
 
