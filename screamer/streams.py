@@ -205,3 +205,18 @@ def filter_iter(events, predicate):
     for key, value in events:
         if predicate(value):
             yield key, value
+
+
+def split(keys, values, sources, n=None):
+    """Partition a merged tagged stream back into per-source (keys, values).
+
+    The inverse of merge: split(*merge(*series)) reconstructs the inputs. `n`
+    sets how many output streams to produce (default: max(sources)+1); pass it
+    explicitly to include sources that emitted nothing.
+    """
+    keys = np.asarray(keys)
+    values = np.asarray(values)
+    sources = np.asarray(sources)
+    if n is None:
+        n = int(sources.max()) + 1 if sources.size else 0
+    return [(keys[sources == i], values[sources == i]) for i in range(n)]

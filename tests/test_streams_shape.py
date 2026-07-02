@@ -44,3 +44,26 @@ def test_dropna_iter_matches_batch():
     events = [(int(k), float(v)) for k, v in zip(keys, vals)]
     got = list(streams.dropna_iter(events))
     assert got == [(1, 1.0), (3, 3.0)]
+
+
+def test_split_inverts_merge():
+    a_k = np.array([1, 3, 5], dtype=np.int64)
+    a_v = np.array([10.0, 30.0, 50.0])
+    b_k = np.array([2, 4], dtype=np.int64)
+    b_v = np.array([20.0, 40.0])
+    mk, mv, ms = streams.merge((a_k, a_v), (b_k, b_v))
+    parts = streams.split(mk, mv, ms)
+    assert len(parts) == 2
+    np.testing.assert_array_equal(parts[0][0], a_k)
+    np.testing.assert_array_equal(parts[0][1], a_v)
+    np.testing.assert_array_equal(parts[1][0], b_k)
+    np.testing.assert_array_equal(parts[1][1], b_v)
+
+
+def test_split_explicit_n_includes_empty():
+    keys = np.array([1, 2], dtype=np.int64)
+    vals = np.array([1.0, 2.0])
+    src = np.array([0, 0], dtype=np.uint32)
+    parts = streams.split(keys, vals, src, n=3)   # sources 1 and 2 are empty
+    assert len(parts) == 3
+    assert parts[1][0].size == 0 and parts[2][0].size == 0
