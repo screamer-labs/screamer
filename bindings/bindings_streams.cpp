@@ -15,13 +15,13 @@ using namespace screamer;
 using namespace screamer::streams;
 
 // Build source -> fns[0] -> fns[1] -> ... -> collector, run it in batch, and
-// return the value column. Keys pass through unchanged (1->1), so only values
-// are returned. reset() is called before and after to match the existing
-// array path's batch semantics.
+// return a tuple (out_keys, out_values). Keys pass through unchanged (1->1).
+// reset() is called before and after to match the existing array path's batch
+// semantics.
 template <class Key>
-static py::array_t<double> run_chain(std::vector<ScreamerBase*> fns,
-                                     py::array_t<Key> keys,
-                                     py::array_t<double> values) {
+static py::tuple run_chain(std::vector<ScreamerBase*> fns,
+                            py::array_t<Key> keys,
+                            py::array_t<double> values) {
     auto vinfo = values.request();
     auto kinfo = keys.request();
     std::size_t n = static_cast<std::size_t>(vinfo.shape[0]);
@@ -46,7 +46,7 @@ static py::array_t<double> run_chain(std::vector<ScreamerBase*> fns,
     run_batch<Key>(src, *downstream);
 
     for (auto* f : fns) f->reset();
-    return out_v;
+    return py::make_tuple(out_k, out_v);
 }
 
 void init_bindings_streams(py::module& m) {

@@ -1,5 +1,5 @@
 import numpy as np
-from screamer import RollingMean
+from screamer import RollingMean, Identity
 from screamer import streams
 
 
@@ -18,10 +18,18 @@ def test_row_number_keys_default():
     np.testing.assert_array_equal(got, exp)
 
 
-def test_float_seconds_keys_match_batch():
+def test_float_seconds_keys_round_trip_without_truncation():
     x = np.random.default_rng(2).standard_normal(300)
-    t = np.linspace(0.0, 30.0, x.size)      # float64 seconds
-    got = streams._run_chain([RollingMean(5)], x, keys=t)
-    exp = RollingMean(5)(x)
-    # keys do not affect a 1->1 functor's values
-    np.testing.assert_array_equal(got, exp)
+    t = np.linspace(0.0, 30.0, x.size) + 0.5   # non-integer float seconds
+    keys_out, vals = streams._run_chain([Identity()], x, keys=t, return_keys=True)
+    # If float keys were (wrongly) routed to the int64 binding they'd be
+    # truncated to integers; exact equality with the float input catches that.
+    np.testing.assert_array_equal(keys_out, t)
+    np.testing.assert_array_equal(vals, Identity()(x))
+
+
+def test_int_keys_round_trip():
+    x = np.random.default_rng(5).standard_normal(100)
+    k = (np.arange(x.size, dtype=np.int64) * 7) + 3
+    keys_out, _ = streams._run_chain([Identity()], x, keys=k, return_keys=True)
+    np.testing.assert_array_equal(keys_out, k)
