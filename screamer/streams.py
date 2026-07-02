@@ -22,6 +22,9 @@ def _run_chain(functors, values, keys=None):
         return _b._run_chain_i64(functors, keys, values)
 
     keys = np.asarray(keys)
+    if np.issubdtype(keys.dtype, np.floating):
+        keys = np.ascontiguousarray(keys, dtype=np.float64)
+        return _b._run_chain_f64(functors, keys, values)
     if keys.dtype.kind == "M":                      # datetime64 -> int64 view
         keys = keys.view("int64")
     keys = np.ascontiguousarray(keys, dtype=np.int64)

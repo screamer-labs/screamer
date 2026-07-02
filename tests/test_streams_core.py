@@ -16,3 +16,12 @@ def test_row_number_keys_default():
     got = streams._run_chain([RollingMean(7)], x)   # keys default to row number
     exp = RollingMean(7)(x)
     np.testing.assert_array_equal(got, exp)
+
+
+def test_float_seconds_keys_match_batch():
+    x = np.random.default_rng(2).standard_normal(300)
+    t = np.linspace(0.0, 30.0, x.size)      # float64 seconds
+    got = streams._run_chain([RollingMean(5)], x, keys=t)
+    exp = RollingMean(5)(x)
+    # keys do not affect a 1->1 functor's values
+    np.testing.assert_array_equal(got, exp)

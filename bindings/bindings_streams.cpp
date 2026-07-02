@@ -52,4 +52,6 @@ static py::array_t<double> run_chain(std::vector<ScreamerBase*> fns,
 void init_bindings_streams(py::module& m) {
     m.def("_run_chain_i64", &run_chain<std::int64_t>,
           py::arg("functors"), py::arg("keys"), py::arg("values"));
+    m.def("_run_chain_f64", &run_chain<double>,
+          py::arg("functors"), py::arg("keys"), py::arg("values"));
 }
