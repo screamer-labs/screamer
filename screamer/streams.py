@@ -69,3 +69,33 @@ def merge(*series):
     kind = kinds.pop()
     fn = _b._merge_f64 if kind == "f64" else _b._merge_i64
     return fn(norm_keys, norm_vals)
+
+
+def _make_merge_puller(series):
+    kinds = set()
+    norm_keys, norm_vals = [], []
+    for keys, values in series:
+        kind, k = _key_dtype_kind(keys)
+        kinds.add(kind)
+        norm_keys.append(k)
+        norm_vals.append(np.ascontiguousarray(values, dtype=np.float64))
+    if len(kinds) != 1:
+        raise TypeError("merge: all series must share one key type")
+    kind = kinds.pop()
+    cls = _b._MergePuller_f64 if kind == "f64" else _b._MergePuller_i64
+    return cls(norm_keys, norm_vals)
+
+
+def merge_iter(*series):
+    """Yield (key, value, source) events in key order, pulled one at a time."""
+    puller = _make_merge_puller(series)
+    while True:
+        event = puller.next()
+        if event is None:
+            return
+        yield event
+
+
+def _merge_events(*series):
+    """Return a list of (key, value, source) tuples from merge_iter (test helper)."""
+    return list(merge_iter(*series))

@@ -46,3 +46,21 @@ def test_merge_float_keys():
     np.testing.assert_array_equal(got_k, exp_k)
     np.testing.assert_array_equal(got_v, exp_v)
     np.testing.assert_array_equal(got_s, exp_s)
+
+
+def test_pull_iter_matches_batch_identity():
+    rng = np.random.default_rng(7)
+    a_k = np.sort(rng.integers(0, 1000, size=200)).astype(np.int64)
+    a_v = rng.standard_normal(200)
+    b_k = np.sort(rng.integers(0, 1000, size=150)).astype(np.int64)
+    b_v = rng.standard_normal(150)
+
+    bk, bv, bs = streams.merge((a_k, a_v), (b_k, b_v))              # batch
+    events = list(streams.merge_iter((a_k, a_v), (b_k, b_v)))       # streaming pull
+
+    got_k = np.array([e[0] for e in events], dtype=np.int64)
+    got_v = np.array([e[1] for e in events])
+    got_s = np.array([e[2] for e in events], dtype=np.uint32)
+    np.testing.assert_array_equal(got_k, bk)
+    np.testing.assert_array_equal(got_v, bv)
+    np.testing.assert_array_equal(got_s, bs)
