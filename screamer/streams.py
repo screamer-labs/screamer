@@ -95,6 +95,27 @@ def _merge_events(*series):
     return list(merge_iter(*series))
 
 
+def combine_latest(*series, emit="when_all", func=None):
+    """As-of latest-value join of N (keys, values) series.
+
+    Emits an aligned row whenever any input advances, carrying each input's most
+    recent value (forward-fill). Returns (keys, aligned) where aligned is (M, N);
+    aligned[:, j] is series j's latest value at each emitted key. emit="when_all"
+    (default) suppresses output until every input is warm; emit="on_any" emits
+    from the first event with NaN for not-yet-seen inputs. If `func` is given it is
+    applied per row (func(*row)) and (keys, reduced) is returned instead.
+    """
+    if emit not in ("when_all", "on_any"):
+        raise ValueError('combine_latest: emit must be "when_all" or "on_any"')
+    kind, norm_keys, norm_vals = _normalize_series(series, "combine_latest")
+    fn = _b._combine_latest_f64 if kind == "f64" else _b._combine_latest_i64
+    keys, aligned = fn(norm_keys, norm_vals, emit == "when_all")
+    if func is None:
+        return keys, aligned
+    reduced = np.array([func(*row) for row in aligned], dtype=np.float64)
+    return keys, reduced
+
+
 async def pace(*series, speed=1.0, sleep=None):
     """Replay merged series as an async event stream paced by key-deltas.
 
