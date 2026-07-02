@@ -1,3 +1,5 @@
+import asyncio
+
 import numpy as np
 from screamer import streams
 
@@ -66,9 +68,6 @@ def test_pull_iter_matches_batch_identity():
     np.testing.assert_array_equal(got_s, bs)
 
 
-import asyncio
-
-
 def _drain(agen):
     async def run():
         out = []
@@ -95,6 +94,7 @@ def test_pace_preserves_order_and_scales_sleeps():
     bk, bv, bs = streams.merge((a_k, a_v), (b_k, b_v))
     np.testing.assert_array_equal(np.array([e[0] for e in events], dtype=np.int64), bk)
     np.testing.assert_array_equal(np.array([e[1] for e in events]), bv)
+    np.testing.assert_array_equal(np.array([e[2] for e in events], dtype=np.uint32), bs)
 
     # Sleeps == successive key deltas / speed (first event has no preceding sleep).
     # merged keys: 0,5,10,20,30 -> deltas 5,5,10,10 -> /2.0 -> 2.5,2.5,5,5
