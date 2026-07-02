@@ -104,6 +104,8 @@ async def pace(*series, speed=1.0, sleep=None):
     changes values or order. `sleep` is injectable for testing; defaults to
     asyncio.sleep. Requires a metric (subtractable) key.
     """
+    if speed <= 0:
+        raise ValueError("pace: speed must be positive (or float('inf') for no pacing)")
     if sleep is None:
         sleep = asyncio.sleep
     infinite = speed == float("inf")

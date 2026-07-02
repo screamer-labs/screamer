@@ -112,3 +112,11 @@ def test_pace_infinite_speed_no_sleep():
     events = _drain(streams.pace((a_k, a_v), speed=float("inf"), sleep=fake_sleep))
     assert [e[0] for e in events] == [0, 100]
     assert slept == []          # no pacing at infinite speed
+
+
+def test_pace_rejects_nonpositive_speed():
+    import pytest
+    a_k = np.array([0, 10], dtype=np.int64)
+    a_v = np.array([0.0, 1.0])
+    with pytest.raises(ValueError):
+        _drain(streams.pace((a_k, a_v), speed=0.0))
