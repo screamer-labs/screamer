@@ -169,7 +169,8 @@ def dropna(keys, values, how="any"):
 
     how="any" (default) drops a row if any component is NaN; how="all" only if
     all are. Causal and cardinality-changing: batch and streaming drop the same
-    rows. Returns (keys, values) restricted to the surviving rows.
+    rows. Returns (keys, values) restricted to the surviving rows. Surviving
+    values are returned as float64 (values are cast for the NaN test).
     """
     if how not in ("any", "all"):
         raise ValueError('dropna: how must be "any" or "all"')
@@ -228,4 +229,8 @@ def split(keys, values, sources, n=None):
     sources = np.asarray(sources)
     if n is None:
         n = int(sources.max()) + 1 if sources.size else 0
+    elif sources.size and n <= int(sources.max()):
+        raise ValueError(
+            f"split: n={n} is too small for sources up to {int(sources.max())}; "
+            "events would be dropped")
     return [(keys[sources == i], values[sources == i]) for i in range(n)]
