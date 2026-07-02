@@ -1,5 +1,5 @@
 import numpy as np
-from screamer import streams
+from screamer import streams, RollingCorr
 
 
 def _ref_combine_latest(series, when_all):
@@ -86,3 +86,31 @@ def test_combine_latest_iter_on_any_identity():
     got_a = np.array([list(e[1]) for e in events], dtype=np.float64).reshape(len(events), 2)
     np.testing.assert_array_equal(got_k, bk)
     np.testing.assert_array_equal(got_a, ba)      # NaN warmup identical across modes
+
+
+def test_rollingcorr_over_combine_latest():
+    # Two async series -> align -> feed existing 2-input functor unchanged.
+    rng = np.random.default_rng(21)
+    a_k = np.sort(rng.integers(0, 2000, size=300)).astype(np.int64)
+    a_v = rng.standard_normal(300)
+    b_k = np.sort(rng.integers(0, 2000, size=250)).astype(np.int64)
+    b_v = rng.standard_normal(250)
+
+    keys, aligned = streams.combine_latest((a_k, a_v), (b_k, b_v))   # when_all
+    assert aligned.shape[1] == 2
+    # The idiom: existing functor consumes the aligned columns, untouched.
+    corr = RollingCorr(20)(aligned[:, 0], aligned[:, 1])
+    # Equivalent to calling the functor on the two aligned columns directly.
+    exp = RollingCorr(20)(np.ascontiguousarray(aligned[:, 0]),
+                          np.ascontiguousarray(aligned[:, 1]))
+    np.testing.assert_array_equal(corr, exp)
+    assert corr.shape[0] == keys.shape[0]
+
+
+def test_combine_latest_func_reducer_spread():
+    a_k = np.array([1, 3, 5], dtype=np.int64); a_v = np.array([10.0, 30.0, 50.0])
+    b_k = np.array([2, 4], dtype=np.int64);     b_v = np.array([20.0, 40.0])
+    keys, spread = streams.combine_latest((a_k, a_v), (b_k, b_v),
+                                          func=lambda a, b: a - b)
+    _, aligned = streams.combine_latest((a_k, a_v), (b_k, b_v))
+    np.testing.assert_array_equal(spread, aligned[:, 0] - aligned[:, 1])
