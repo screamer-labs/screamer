@@ -60,39 +60,52 @@ static py::object run_chain(std::vector<ScreamerBase*> fns,
     return out_v;
 }
 
+// Shared setup: cast N (keys, values) numpy arrays, validate per-child length
+// agreement, build a VectorSource per child, and collect non-owning child
+// pointers. Returns the total event count (sum of child lengths). The caller
+// owns `keys`/`vals` (Python refs keep buffers alive) and `sources`.
 template <class Key>
-static py::tuple merge_batch(py::list key_arrays, py::list value_arrays) {
-    std::size_t n_children = key_arrays.size();
-    if (value_arrays.size() != n_children) {
-        throw std::runtime_error("merge: keys/values list length mismatch");
+static std::size_t build_vector_sources(
+        py::list key_arrays, py::list value_arrays,
+        std::vector<py::array_t<Key>>& keys,
+        std::vector<py::array_t<double>>& vals,
+        std::vector<std::unique_ptr<VectorSource<Key>>>& sources,
+        std::vector<Source<Key>*>& child_ptrs) {
+    std::size_t n = key_arrays.size();
+    if (value_arrays.size() != n) {
+        throw std::runtime_error("streams: keys/values list length mismatch");
     }
-
-    // Materialize child VectorSources and total length.
-    std::vector<py::array_t<Key>> keys;
-    std::vector<py::array_t<double>> vals;
-    keys.reserve(n_children);
-    vals.reserve(n_children);
-    std::vector<std::unique_ptr<VectorSource<Key>>> sources;
-    std::vector<Source<Key>*> child_ptrs;
-    sources.reserve(n_children);
-    child_ptrs.reserve(n_children);
+    keys.reserve(n);
+    vals.reserve(n);
+    sources.reserve(n);
+    child_ptrs.reserve(n);
     std::size_t total = 0;
-
-    for (std::size_t i = 0; i < n_children; ++i) {
+    for (std::size_t i = 0; i < n; ++i) {
         keys.push_back(py::cast<py::array_t<Key>>(key_arrays[i]));
         vals.push_back(py::cast<py::array_t<double>>(value_arrays[i]));
         auto kinfo = keys[i].request();
         auto vinfo = vals[i].request();
         if (kinfo.shape[0] != vinfo.shape[0]) {
-            throw std::runtime_error("merge: a child's keys/values length differ");
+            throw std::runtime_error("streams: a child's keys/values length differ");
         }
-        std::size_t n = static_cast<std::size_t>(kinfo.shape[0]);
-        total += n;
+        std::size_t len = static_cast<std::size_t>(kinfo.shape[0]);
+        total += len;
         sources.push_back(std::make_unique<VectorSource<Key>>(
             static_cast<const Key*>(kinfo.ptr),
-            static_cast<const double*>(vinfo.ptr), n));
+            static_cast<const double*>(vinfo.ptr), len));
         child_ptrs.push_back(sources.back().get());
     }
+    return total;
+}
+
+template <class Key>
+static py::tuple merge_batch(py::list key_arrays, py::list value_arrays) {
+    std::vector<py::array_t<Key>> keys;
+    std::vector<py::array_t<double>> vals;
+    std::vector<std::unique_ptr<VectorSource<Key>>> sources;
+    std::vector<Source<Key>*> child_ptrs;
+    std::size_t total = build_vector_sources<Key>(key_arrays, value_arrays,
+                                                  keys, vals, sources, child_ptrs);
 
     py::array_t<Key> out_k(total);
     py::array_t<double> out_v(total);
@@ -116,28 +129,8 @@ template <class Key>
 class MergePuller {
 public:
     MergePuller(py::list key_arrays, py::list value_arrays) {
-        std::size_t n_children = key_arrays.size();
-        if (value_arrays.size() != n_children) {
-            throw std::runtime_error("merge: keys/values list length mismatch");
-        }
-        for (std::size_t i = 0; i < n_children; ++i) {
-            // Keep owning copies so the buffers outlive iteration.
-            keys_.push_back(py::cast<py::array_t<Key>>(key_arrays[i]));
-            vals_.push_back(py::cast<py::array_t<double>>(value_arrays[i]));
-        }
         std::vector<Source<Key>*> child_ptrs;
-        for (std::size_t i = 0; i < n_children; ++i) {
-            auto kinfo = keys_[i].request();
-            auto vinfo = vals_[i].request();
-            if (kinfo.shape[0] != vinfo.shape[0]) {
-                throw std::runtime_error("merge: a child's keys/values length differ");
-            }
-            std::size_t n = static_cast<std::size_t>(vinfo.shape[0]);
-            sources_.push_back(std::make_unique<VectorSource<Key>>(
-                static_cast<const Key*>(kinfo.ptr),
-                static_cast<const double*>(vinfo.ptr), n));
-            child_ptrs.push_back(sources_.back().get());
-        }
+        build_vector_sources<Key>(key_arrays, value_arrays, keys_, vals_, sources_, child_ptrs);
         merge_ = std::make_unique<MergeSource<Key>>(child_ptrs);
     }
 
@@ -160,38 +153,16 @@ static py::tuple combine_latest_batch(py::list key_arrays,
                                       py::list value_arrays,
                                       bool when_all) {
     std::size_t n = key_arrays.size();
-    if (value_arrays.size() != n) {
-        throw std::runtime_error("combine_latest: keys/values list length mismatch");
-    }
     if (n == 0) {
         throw std::runtime_error("combine_latest: needs at least one series");
     }
 
     std::vector<py::array_t<Key>> keys;
     std::vector<py::array_t<double>> vals;
-    keys.reserve(n);
-    vals.reserve(n);
     std::vector<std::unique_ptr<VectorSource<Key>>> sources;
     std::vector<Source<Key>*> child_ptrs;
-    sources.reserve(n);
-    child_ptrs.reserve(n);
-    std::size_t total = 0;
-
-    for (std::size_t i = 0; i < n; ++i) {
-        keys.push_back(py::cast<py::array_t<Key>>(key_arrays[i]));
-        vals.push_back(py::cast<py::array_t<double>>(value_arrays[i]));
-        auto kinfo = keys[i].request();
-        auto vinfo = vals[i].request();
-        if (kinfo.shape[0] != vinfo.shape[0]) {
-            throw std::runtime_error("combine_latest: a child's keys/values length differ");
-        }
-        std::size_t len = static_cast<std::size_t>(kinfo.shape[0]);
-        total += len;
-        sources.push_back(std::make_unique<VectorSource<Key>>(
-            static_cast<const Key*>(kinfo.ptr),
-            static_cast<const double*>(vinfo.ptr), len));
-        child_ptrs.push_back(sources.back().get());
-    }
+    std::size_t total = build_vector_sources<Key>(key_arrays, value_arrays,
+                                                  keys, vals, sources, child_ptrs);
 
     std::vector<Key> out_k;
     std::vector<double> out_v;
@@ -221,30 +192,11 @@ class CombineLatestPuller {
 public:
     CombineLatestPuller(py::list key_arrays, py::list value_arrays, bool when_all)
         : n_(key_arrays.size()), cl_(key_arrays.size(), when_all) {
-        if (value_arrays.size() != n_) {
-            throw std::runtime_error("combine_latest: keys/values list length mismatch");
-        }
         if (n_ == 0) {
             throw std::runtime_error("combine_latest: needs at least one series");
         }
-        for (std::size_t i = 0; i < n_; ++i) {
-            keys_.push_back(py::cast<py::array_t<Key>>(key_arrays[i]));
-            vals_.push_back(py::cast<py::array_t<double>>(value_arrays[i]));
-        }
         std::vector<Source<Key>*> child_ptrs;
-        child_ptrs.reserve(n_);
-        for (std::size_t i = 0; i < n_; ++i) {
-            auto kinfo = keys_[i].request();
-            auto vinfo = vals_[i].request();
-            if (kinfo.shape[0] != vinfo.shape[0]) {
-                throw std::runtime_error("combine_latest: a child's keys/values length differ");
-            }
-            std::size_t len = static_cast<std::size_t>(kinfo.shape[0]);
-            sources_.push_back(std::make_unique<VectorSource<Key>>(
-                static_cast<const Key*>(kinfo.ptr),
-                static_cast<const double*>(vinfo.ptr), len));
-            child_ptrs.push_back(sources_.back().get());
-        }
+        build_vector_sources<Key>(key_arrays, value_arrays, keys_, vals_, sources_, child_ptrs);
         merge_ = std::make_unique<MergeSource<Key>>(child_ptrs);
     }
 
