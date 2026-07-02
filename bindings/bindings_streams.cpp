@@ -119,6 +119,7 @@ public:
             keys_.push_back(py::cast<py::array_t<Key>>(key_arrays[i]));
             vals_.push_back(py::cast<py::array_t<double>>(value_arrays[i]));
         }
+        std::vector<Source<Key>*> child_ptrs;
         for (std::size_t i = 0; i < n_children; ++i) {
             auto kinfo = keys_[i].request();
             auto vinfo = vals_[i].request();
@@ -129,9 +130,9 @@ public:
             sources_.push_back(std::make_unique<VectorSource<Key>>(
                 static_cast<const Key*>(kinfo.ptr),
                 static_cast<const double*>(vinfo.ptr), n));
-            child_ptrs_.push_back(sources_.back().get());
+            child_ptrs.push_back(sources_.back().get());
         }
-        merge_ = std::make_unique<MergeSource<Key>>(child_ptrs_);
+        merge_ = std::make_unique<MergeSource<Key>>(child_ptrs);
     }
 
     py::object next() {
@@ -145,7 +146,6 @@ private:
     std::vector<py::array_t<Key>> keys_;
     std::vector<py::array_t<double>> vals_;
     std::vector<std::unique_ptr<VectorSource<Key>>> sources_;
-    std::vector<Source<Key>*> child_ptrs_;
     std::unique_ptr<MergeSource<Key>> merge_;
 };
 

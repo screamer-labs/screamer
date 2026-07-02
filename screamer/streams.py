@@ -49,39 +49,39 @@ def _key_dtype_kind(keys):
     return "i64", np.ascontiguousarray(keys, dtype=np.int64)
 
 
+def _normalize_series(series, who):
+    """Normalize and validate a sequence of (keys, values) series.
+
+    Returns (kind, norm_keys, norm_vals) where kind is 'i64' or 'f64'.
+    Raises ValueError if series is empty, TypeError if key types differ.
+    """
+    if not series:
+        raise ValueError(f"{who}: needs at least one series")
+    kinds = set()
+    norm_keys, norm_vals = [], []
+    for keys, values in series:
+        kind, k = _key_dtype_kind(keys)
+        kinds.add(kind)
+        norm_keys.append(k)
+        norm_vals.append(np.ascontiguousarray(values, dtype=np.float64))
+    if len(kinds) != 1:
+        raise TypeError(f"{who}: all series must share one key type (all int/datetime or all float)")
+    return kinds.pop(), norm_keys, norm_vals
+
+
 def merge(*series):
     """Merge N (keys, values) series into one key-sorted (keys, values, sources).
 
     Each series must be individually sorted by key. `sources[i]` is the index
     of the series that emitted event i. Ties break by series order.
     """
-    if not series:
-        raise ValueError("merge: needs at least one series")
-    kinds = set()
-    norm_keys, norm_vals = [], []
-    for keys, values in series:
-        kind, k = _key_dtype_kind(keys)
-        kinds.add(kind)
-        norm_keys.append(k)
-        norm_vals.append(np.ascontiguousarray(values, dtype=np.float64))
-    if len(kinds) != 1:
-        raise TypeError("merge: all series must share one key type (all int/datetime or all float)")
-    kind = kinds.pop()
+    kind, norm_keys, norm_vals = _normalize_series(series, "merge")
     fn = _b._merge_f64 if kind == "f64" else _b._merge_i64
     return fn(norm_keys, norm_vals)
 
 
 def _make_merge_puller(series):
-    kinds = set()
-    norm_keys, norm_vals = [], []
-    for keys, values in series:
-        kind, k = _key_dtype_kind(keys)
-        kinds.add(kind)
-        norm_keys.append(k)
-        norm_vals.append(np.ascontiguousarray(values, dtype=np.float64))
-    if len(kinds) != 1:
-        raise TypeError("merge: all series must share one key type")
-    kind = kinds.pop()
+    kind, norm_keys, norm_vals = _normalize_series(series, "merge_iter")
     cls = _b._MergePuller_f64 if kind == "f64" else _b._MergePuller_i64
     return cls(norm_keys, norm_vals)
 
