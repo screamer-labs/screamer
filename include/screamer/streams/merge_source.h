@@ -2,6 +2,7 @@
 #define SCREAMER_STREAMS_MERGE_SOURCE_H
 
 #include <cstdint>
+#include <optional>
 #include <queue>
 #include <vector>
 #include "screamer/streams/event.h"

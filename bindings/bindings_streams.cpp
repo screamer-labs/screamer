@@ -68,6 +68,8 @@ static py::tuple merge_batch(py::list key_arrays, py::list value_arrays) {
     vals.reserve(n_children);
     std::vector<std::unique_ptr<VectorSource<Key>>> sources;
     std::vector<Source<Key>*> child_ptrs;
+    sources.reserve(n_children);
+    child_ptrs.reserve(n_children);
     std::size_t total = 0;
 
     for (std::size_t i = 0; i < n_children; ++i) {
@@ -78,7 +80,7 @@ static py::tuple merge_batch(py::list key_arrays, py::list value_arrays) {
         if (kinfo.shape[0] != vinfo.shape[0]) {
             throw std::runtime_error("merge: a child's keys/values length differ");
         }
-        std::size_t n = static_cast<std::size_t>(vinfo.shape[0]);
+        std::size_t n = static_cast<std::size_t>(kinfo.shape[0]);
         total += n;
         sources.push_back(std::make_unique<VectorSource<Key>>(
             static_cast<const Key*>(kinfo.ptr),

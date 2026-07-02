@@ -55,6 +55,8 @@ def merge(*series):
     Each series must be individually sorted by key. `sources[i]` is the index
     of the series that emitted event i. Ties break by series order.
     """
+    if not series:
+        raise ValueError("merge: needs at least one series")
     kinds = set()
     norm_keys, norm_vals = [], []
     for keys, values in series:
