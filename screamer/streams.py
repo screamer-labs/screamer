@@ -37,3 +37,33 @@ def _run_chain(functors, values, keys=None, return_keys=False):
     if return_keys:
         return out_k, out_v
     return out_v
+
+
+def _key_dtype_kind(keys):
+    """Return ('f64' | 'i64', normalized_keys) for a single key array."""
+    keys = np.asarray(keys)
+    if np.issubdtype(keys.dtype, np.floating):
+        return "f64", np.ascontiguousarray(keys, dtype=np.float64)
+    if keys.dtype.kind == "M":
+        keys = keys.view("int64")
+    return "i64", np.ascontiguousarray(keys, dtype=np.int64)
+
+
+def merge(*series):
+    """Merge N (keys, values) series into one key-sorted (keys, values, sources).
+
+    Each series must be individually sorted by key. `sources[i]` is the index
+    of the series that emitted event i. Ties break by series order.
+    """
+    kinds = set()
+    norm_keys, norm_vals = [], []
+    for keys, values in series:
+        kind, k = _key_dtype_kind(keys)
+        kinds.add(kind)
+        norm_keys.append(k)
+        norm_vals.append(np.ascontiguousarray(values, dtype=np.float64))
+    if len(kinds) != 1:
+        raise TypeError("merge: all series must share one key type (all int/datetime or all float)")
+    kind = kinds.pop()
+    fn = _b._merge_f64 if kind == "f64" else _b._merge_i64
+    return fn(norm_keys, norm_vals)
