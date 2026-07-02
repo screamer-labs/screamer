@@ -216,6 +216,59 @@ static py::tuple combine_latest_batch(py::list key_arrays,
     return py::make_tuple(rk, rv);
 }
 
+template <class Key>
+class CombineLatestPuller {
+public:
+    CombineLatestPuller(py::list key_arrays, py::list value_arrays, bool when_all)
+        : n_(key_arrays.size()), cl_(key_arrays.size(), when_all) {
+        if (value_arrays.size() != n_) {
+            throw std::runtime_error("combine_latest: keys/values list length mismatch");
+        }
+        if (n_ == 0) {
+            throw std::runtime_error("combine_latest: needs at least one series");
+        }
+        for (std::size_t i = 0; i < n_; ++i) {
+            keys_.push_back(py::cast<py::array_t<Key>>(key_arrays[i]));
+            vals_.push_back(py::cast<py::array_t<double>>(value_arrays[i]));
+        }
+        std::vector<Source<Key>*> child_ptrs;
+        child_ptrs.reserve(n_);
+        for (std::size_t i = 0; i < n_; ++i) {
+            auto kinfo = keys_[i].request();
+            auto vinfo = vals_[i].request();
+            if (kinfo.shape[0] != vinfo.shape[0]) {
+                throw std::runtime_error("combine_latest: a child's keys/values length differ");
+            }
+            std::size_t len = static_cast<std::size_t>(kinfo.shape[0]);
+            sources_.push_back(std::make_unique<VectorSource<Key>>(
+                static_cast<const Key*>(kinfo.ptr),
+                static_cast<const double*>(vinfo.ptr), len));
+            child_ptrs.push_back(sources_.back().get());
+        }
+        merge_ = std::make_unique<MergeSource<Key>>(child_ptrs);
+    }
+
+    py::object next() {
+        while (auto e = merge_->next()) {
+            if (cl_.on_event(e->source, e->value)) {
+                const std::vector<double>& row = cl_.latest();
+                py::tuple t(row.size());
+                for (std::size_t j = 0; j < row.size(); ++j) t[j] = row[j];
+                return py::make_tuple(e->key, t);
+            }
+        }
+        return py::none();
+    }
+
+private:
+    std::size_t n_;
+    std::vector<py::array_t<Key>> keys_;
+    std::vector<py::array_t<double>> vals_;
+    std::vector<std::unique_ptr<VectorSource<Key>>> sources_;
+    std::unique_ptr<MergeSource<Key>> merge_;
+    CombineLatest cl_;
+};
+
 void init_bindings_streams(py::module& m) {
     m.def("_run_chain_i64", &run_chain<std::int64_t>,
           py::arg("functors"), py::arg("keys"), py::arg("values"),
@@ -237,4 +290,10 @@ void init_bindings_streams(py::module& m) {
           py::arg("key_arrays"), py::arg("value_arrays"), py::arg("when_all"));
     m.def("_combine_latest_f64", &combine_latest_batch<double>,
           py::arg("key_arrays"), py::arg("value_arrays"), py::arg("when_all"));
+    py::class_<CombineLatestPuller<std::int64_t>>(m, "_CombineLatestPuller_i64")
+        .def(py::init<py::list, py::list, bool>())
+        .def("next", &CombineLatestPuller<std::int64_t>::next);
+    py::class_<CombineLatestPuller<double>>(m, "_CombineLatestPuller_f64")
+        .def(py::init<py::list, py::list, bool>())
+        .def("next", &CombineLatestPuller<double>::next);
 }

@@ -116,6 +116,20 @@ def combine_latest(*series, emit="when_all", func=None):
     return keys, reduced
 
 
+def combine_latest_iter(*series, emit="when_all"):
+    """Yield (key, (v0, v1, ...)) aligned rows one at a time (streaming form)."""
+    if emit not in ("when_all", "on_any"):
+        raise ValueError('combine_latest: emit must be "when_all" or "on_any"')
+    kind, norm_keys, norm_vals = _normalize_series(series, "combine_latest")
+    cls = _b._CombineLatestPuller_f64 if kind == "f64" else _b._CombineLatestPuller_i64
+    puller = cls(norm_keys, norm_vals, emit == "when_all")
+    while True:
+        event = puller.next()
+        if event is None:
+            return
+        yield event
+
+
 async def pace(*series, speed=1.0, sleep=None):
     """Replay merged series as an async event stream paced by key-deltas.
 

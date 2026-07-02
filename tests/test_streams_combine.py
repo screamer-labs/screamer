@@ -58,3 +58,31 @@ def test_combine_latest_float_keys_three_series():
     exp_k, exp_a = _ref_combine_latest(series, when_all=True)
     np.testing.assert_array_equal(got_k, exp_k)
     np.testing.assert_array_equal(got_a, exp_a)
+
+
+def test_combine_latest_iter_matches_batch_identity():
+    rng = np.random.default_rng(9)
+    series = []
+    for _ in range(3):
+        k = np.sort(rng.integers(0, 500, size=120)).astype(np.int64)
+        v = rng.standard_normal(120)
+        series.append((k, v))
+
+    bk, ba = streams.combine_latest(*series)                       # batch
+    events = list(streams.combine_latest_iter(*series))            # streaming pull
+
+    got_k = np.array([e[0] for e in events], dtype=np.int64)
+    got_a = np.array([list(e[1]) for e in events], dtype=np.float64).reshape(len(events), 3)
+    np.testing.assert_array_equal(got_k, bk)
+    np.testing.assert_array_equal(got_a, ba)
+
+
+def test_combine_latest_iter_on_any_identity():
+    a_k = np.array([1, 4], dtype=np.int64); a_v = np.array([1.0, 4.0])
+    b_k = np.array([2, 3], dtype=np.int64); b_v = np.array([2.0, 3.0])
+    bk, ba = streams.combine_latest((a_k, a_v), (b_k, b_v), emit="on_any")
+    events = list(streams.combine_latest_iter((a_k, a_v), (b_k, b_v), emit="on_any"))
+    got_k = np.array([e[0] for e in events], dtype=np.int64)
+    got_a = np.array([list(e[1]) for e in events], dtype=np.float64).reshape(len(events), 2)
+    np.testing.assert_array_equal(got_k, bk)
+    np.testing.assert_array_equal(got_a, ba)      # NaN warmup identical across modes
