@@ -90,6 +90,8 @@ def test_combine_latest_iter_on_any_identity():
 
 def test_rollingcorr_over_combine_latest():
     # Two async series -> align -> feed existing 2-input functor unchanged.
+    # Verify combine_latest's alignment against the independent numpy reference,
+    # both run THROUGH RollingCorr (alignment -> computation end to end).
     rng = np.random.default_rng(21)
     a_k = np.sort(rng.integers(0, 2000, size=300)).astype(np.int64)
     a_v = rng.standard_normal(300)
@@ -97,14 +99,21 @@ def test_rollingcorr_over_combine_latest():
     b_v = rng.standard_normal(250)
 
     keys, aligned = streams.combine_latest((a_k, a_v), (b_k, b_v))   # when_all
+    ref_keys, ref_aligned = _ref_combine_latest([(a_k, a_v), (b_k, b_v)], when_all=True)
+
+    # combine_latest's aligned output must match the reference exactly...
+    np.testing.assert_array_equal(keys, ref_keys)
+    np.testing.assert_array_equal(aligned, ref_aligned)
     assert aligned.shape[1] == 2
-    # The idiom: existing functor consumes the aligned columns, untouched.
-    corr = RollingCorr(20)(aligned[:, 0], aligned[:, 1])
-    # Equivalent to calling the functor on the two aligned columns directly.
-    exp = RollingCorr(20)(np.ascontiguousarray(aligned[:, 0]),
+
+    # ...and the idiom (existing functor over the aligned columns, untouched)
+    # produces the same result whether fed screamer's or the reference's columns.
+    got = RollingCorr(20)(np.ascontiguousarray(aligned[:, 0]),
                           np.ascontiguousarray(aligned[:, 1]))
-    np.testing.assert_array_equal(corr, exp)
-    assert corr.shape[0] == keys.shape[0]
+    exp = RollingCorr(20)(np.ascontiguousarray(ref_aligned[:, 0]),
+                          np.ascontiguousarray(ref_aligned[:, 1]))
+    np.testing.assert_array_equal(got, exp)
+    assert got.shape[0] == keys.shape[0]
 
 
 def test_combine_latest_func_reducer_spread():
