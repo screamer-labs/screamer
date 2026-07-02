@@ -55,3 +55,13 @@ def test_empty_input_returns_empty():
     x = np.empty(0, dtype=np.float64)
     got = streams._run_chain([RollingMean(5)], x)
     assert got.shape == (0,)
+
+
+def test_run_chain_values_only_still_correct():
+    # return_keys=False path must produce identical values to the keyed path.
+    x = np.random.default_rng(11).standard_normal(256)
+    t = (np.arange(x.size, dtype=np.int64) * 3) + 1
+    vals_only = streams._run_chain([RollingMean(4)], x, keys=t)                 # default False
+    keys_out, vals_keyed = streams._run_chain([RollingMean(4)], x, keys=t, return_keys=True)
+    np.testing.assert_array_equal(vals_only, vals_keyed)
+    np.testing.assert_array_equal(keys_out, t)

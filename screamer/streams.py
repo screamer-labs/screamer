@@ -24,21 +24,13 @@ def _run_chain(functors, values, keys=None, return_keys=False):
 
     if keys is None:
         keys = np.arange(n, dtype=np.int64)
-        out_k, out_v = _b._run_chain_i64(functors, keys, values)
+        kind = "i64"
     else:
-        keys = np.asarray(keys)
-        if np.issubdtype(keys.dtype, np.floating):
-            keys = np.ascontiguousarray(keys, dtype=np.float64)
-            out_k, out_v = _b._run_chain_f64(functors, keys, values)
-        else:
-            if keys.dtype.kind == "M":                  # datetime64 -> int64 view
-                keys = keys.view("int64")
-            keys = np.ascontiguousarray(keys, dtype=np.int64)
-            out_k, out_v = _b._run_chain_i64(functors, keys, values)
+        kind, keys = _key_dtype_kind(keys)
 
-    if return_keys:
-        return out_k, out_v
-    return out_v
+    fn = _b._run_chain_f64 if kind == "f64" else _b._run_chain_i64
+    result = fn(functors, keys, values, return_keys)
+    return result  # tuple (keys, values) if return_keys else values array
 
 
 def _key_dtype_kind(keys):

@@ -27,5 +27,17 @@ private:
     std::size_t n_;
 };
 
+// Terminal sink that keeps only values (used when the caller discards keys).
+template <class Key>
+class ValueCollectorSink : public Sink<Key> {
+public:
+    explicit ValueCollectorSink(double* out_values) : ov_(out_values), n_(0) {}
+    void push(const Event<Key>& e) override { ov_[n_] = e.value; ++n_; }
+    std::size_t count() const { return n_; }
+private:
+    double* ov_;
+    std::size_t n_;
+};
+
 }} // namespace screamer::streams
 #endif
