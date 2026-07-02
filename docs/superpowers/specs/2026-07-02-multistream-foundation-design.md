@@ -143,9 +143,12 @@ clean-by-default story. Causal and batch==stream exact.
 Route one stream into several sub-streams by a key function (the inverse of
 `merge`).
 
-### `resample(source, clock)`
-Align a stream to a reference clock/grid. Cardinality-changing; causal
-(emits a grid point from data at keys `≤` that grid point).
+### `resample(source, clock)` — deferred to the combinator spec
+Aligning a stream to a reference clock/grid is cardinality-changing and causal
+(emits a grid point from data at keys `≤` that grid point). It is **not** part of
+this foundation; it lands in the next (combinator) spec. Listed here only so the
+layer boundary is clear. The true minimum for layer 1 is
+`merge` + `combine_latest` + `filter`/`dropna` + `split` + `pace`.
 
 ### `pace(source, speed=1.0)` — the driver
 Wraps an ordered stream and sleeps between events proportional to key-deltas,
@@ -208,5 +211,3 @@ pages (`docs/nan_policy.md`, `docs/polymorphic_api.md`, `docs/conventions.md`):
 - Tie handling in `merge`/`combine_latest` when multiple sources share a key
   (proposed: deterministic by source order).
 - Exact Python surface/naming of the tagged event from `merge` (source id form).
-- Whether `resample` ships in this foundation spec or the next combinator spec
-  (it is listed here for completeness; may be deferred to keep layer 1 tight).
