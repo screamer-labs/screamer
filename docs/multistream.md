@@ -63,11 +63,11 @@ until every input is warm; `emit="on_any"` emits from the first event with
 Other combinators:
 
 - `merge(*series)` → one key-sorted, source-tagged stream (`keys, values, sources`).
-- `split(keys, values, sources)` → the inverse of `merge`.
+- `split(keys, values, sources, n=None)` → the inverse of `merge`.
 - `dropna(keys, values, how="any")` / `filter(keys, values, predicate)` → drop events.
 - `pace(*series, speed=1.0)` → async replay; `speed=inf` is a max-speed backtest.
 
-Every combinator has a streaming twin (`merge_iter`, `combine_latest_iter`,
+The batch combinators each have a streaming twin (`merge_iter`, `combine_latest_iter`,
 `dropna_iter`, `filter_iter`) that yields events one at a time.
 
 ## 4. Causal, and identical across modes

@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 from screamer import streams
 
 
@@ -68,9 +69,6 @@ def test_split_explicit_n_includes_empty():
     parts = streams.split(keys, vals, src, n=3)   # sources 1 and 2 are empty
     assert len(parts) == 3
     assert parts[1][0].size == 0 and parts[2][0].size == 0
-
-
-import pytest
 
 
 def test_split_rejects_too_small_n():

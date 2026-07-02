@@ -51,7 +51,7 @@ def test_combine_latest_batch_equals_stream(n_series, dtype, emit):
 @pytest.mark.parametrize("n_series,dtype", CONFIGS)
 def test_pace_infinite_equals_merge(n_series, dtype):
     series = _make_series(n_series, 60, dtype, seed=300 + n_series)
-    bk, bv, bs = streams.merge(*series)
+    bk, bv, _ = streams.merge(*series)
 
     async def drain():
         out = []
@@ -74,5 +74,6 @@ def test_dropna_batch_equals_stream_on_combine_output():
     events = list(streams.combine_latest_iter(*series, emit="on_any"))
     kept = list(streams.dropna_iter(events, how="any"))
     np.testing.assert_array_equal(np.array([k for k, _ in kept], dtype=bk.dtype), dk)
-    stream_vals = np.array([list(v) for _, v in kept], dtype=np.float64).reshape(len(kept), 3)
+    stream_vals = np.array([list(v) for _, v in kept], dtype=np.float64).reshape(len(kept), -1)
+    assert stream_vals.shape[1] == 3
     np.testing.assert_array_equal(stream_vals, dv)
