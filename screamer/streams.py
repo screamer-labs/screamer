@@ -3,6 +3,8 @@
 Builds and runs C++ node graphs. dtype detection here chooses the int64 or
 float64 key instantiation; the per-event work is all C++.
 """
+import asyncio
+
 import numpy as np
 
 from . import screamer_bindings as _b
@@ -99,3 +101,26 @@ def merge_iter(*series):
 def _merge_events(*series):
     """Return a list of (key, value, source) tuples from merge_iter (test helper)."""
     return list(merge_iter(*series))
+
+
+async def pace(*series, speed=1.0, sleep=None):
+    """Replay merged series as an async event stream paced by key-deltas.
+
+    Yields (key, value, source) in key order. Between consecutive events it
+    awaits `sleep(key_delta / speed)` so wall-clock spacing tracks the key
+    spacing. speed=inf disables pacing (backtest at max speed). Pacing never
+    changes values or order. `sleep` is injectable for testing; defaults to
+    asyncio.sleep. Requires a metric (subtractable) key.
+    """
+    if sleep is None:
+        sleep = asyncio.sleep
+    infinite = speed == float("inf")
+    prev_key = None
+    for key, value, source in merge_iter(*series):
+        if not infinite and prev_key is not None:
+            delta = key - prev_key
+            wait = delta / speed
+            if wait > 0:
+                await sleep(wait)
+        prev_key = key
+        yield key, value, source
