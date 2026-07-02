@@ -153,3 +153,55 @@ async def pace(*series, speed=1.0, sleep=None):
                 await sleep(wait)
         prev_key = key
         yield key, value, source
+
+
+def dropna(keys, values, how="any"):
+    """Drop events whose value is NaN. `values` may be 1-D (M,) or 2-D (M, N).
+
+    how="any" (default) drops a row if any component is NaN; how="all" only if
+    all are. Causal and cardinality-changing: batch and streaming drop the same
+    rows. Returns (keys, values) restricted to the surviving rows.
+    """
+    if how not in ("any", "all"):
+        raise ValueError('dropna: how must be "any" or "all"')
+    keys = np.asarray(keys)
+    values = np.asarray(values)
+    nan = np.isnan(values)
+    if values.ndim == 1:
+        mask = ~nan
+    else:
+        mask = ~(nan.any(axis=1) if how == "any" else nan.all(axis=1))
+    return keys[mask], values[mask]
+
+
+def filter(keys, values, predicate):
+    """Keep events where predicate(row) is truthy.
+
+    row is a scalar for a 1-D value stream, a 1-D array for a 2-D aligned stream.
+    predicate is a Python callable (per-event), so heavy filtering should prefer
+    dropna or numpy masks; filter is the general escape hatch.
+    """
+    keys = np.asarray(keys)
+    values = np.asarray(values)
+    mask = np.fromiter((bool(predicate(row)) for row in values),
+                       dtype=bool, count=len(values))
+    return keys[mask], values[mask]
+
+
+def dropna_iter(events, how="any"):
+    """Streaming dropna over (key, value) tuples. value may be scalar or sequence."""
+    if how not in ("any", "all"):
+        raise ValueError('dropna: how must be "any" or "all"')
+    for key, value in events:
+        arr = np.atleast_1d(np.asarray(value, dtype=np.float64))
+        nan = np.isnan(arr)
+        drop = nan.any() if how == "any" else nan.all()
+        if not drop:
+            yield key, value
+
+
+def filter_iter(events, predicate):
+    """Streaming filter over (key, value) tuples."""
+    for key, value in events:
+        if predicate(value):
+            yield key, value
