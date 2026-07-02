@@ -67,8 +67,9 @@ Other combinators:
 - `dropna(keys, values, how="any")` / `filter(keys, values, predicate)` → drop events.
 - `pace(*series, speed=1.0)` → async replay; `speed=inf` is a max-speed backtest.
 
-The batch combinators each have a streaming twin (`merge_iter`, `combine_latest_iter`,
-`dropna_iter`, `filter_iter`) that yields events one at a time.
+Four of the batch combinators have a streaming twin (`merge_iter`, `combine_latest_iter`,
+`dropna_iter`, `filter_iter`) that yields events one at a time. (`split` has no
+streaming form, and `pace` is itself the streaming/replay driver.)
 
 ## 4. Causal, and identical across modes
 
