@@ -30,9 +30,11 @@ that are identical in all three modes.
   execute with multiple input/intermediate/output streams). Built on this layer.
 - **The full combinator catalogue.** This spec fixes the *minimal* set and their
   contracts; more combinators are additive later.
-- **C++ fast-path vs Python-fallback for arbitrary key dtypes.** An
-  implementation concern, not part of the contract. The contract only requires
-  ordering (and, for wall-clock replay, subtraction) on the key.
+- **Arbitrary non-numeric key types (string/tuple orderables).** The combinator
+  layer is implemented in **C++** for speed and to be reusable as C++ DAG nodes
+  later (see "C++ architecture"). Comparing arbitrary Python objects in C++ is
+  slow and defeats that purpose, so keys are **numeric only** — see the amended
+  P1. A Python-object key path is explicitly out of scope.
 
 ## Core principles
 
@@ -53,11 +55,22 @@ The key is either:
 
 Two capability tiers:
 - **Comparable key** (can be *ordered*) — the weakest requirement; covers row
-  numbers and arbitrary orderables. Enables merging, alignment, and backtest
+  numbers and any numeric key. Enables merging, alignment, and backtest
   (max-speed) replay.
 - **Metric key** (differences are *meaningful* — `datetime64`, `int64` ns, float
   seconds) — additionally enables **wall-clock replay**, because a sleep
   duration only exists when key-deltas convert to time.
+
+**Amendment (C++ decision): keys are numeric only.** Because combinators are
+implemented in C++ (see "C++ architecture"), the key is carried as a numeric C++
+type — `int64_t` **or** `double`, chosen at the Python boundary from the input
+dtype. This covers every realistic timestamp: `datetime64[*]` (an `int64` view,
+lossless), integer keys, `float64` seconds, pandas `DatetimeIndex`, native
+`int`/`float`, and the row-number fallback. It **excludes** non-numeric
+orderables (string/tuple keys). A single graph/`merge` uses one key type across
+all its sources (you cannot meaningfully compare `datetime64[ns]` with float
+seconds anyway). `double` keys carry `datetime64[ns]` unsafely (ns-since-epoch
+exceeds 2^53), so `datetime64`/`int64` inputs always take the `int64_t` path.
 
 **Consequence:** the current lockstep behaviour is exactly the degenerate
 "no key → row index" case. Nothing that exists today changes; it becomes the
@@ -110,6 +123,45 @@ carriers that all route through the same alignment logic:
 
 The library detects the carrier and adapts — the "it just works" behaviour —
 extending the existing polymorphic dispatch to the multi-stream case.
+
+## C++ architecture: pull sources driving a push graph
+
+Combinators are C++ so they run at speed and so the phase-3 DAG can be an
+all-C++ structure (a node whose sink is another node — "a function of a
+function") with no per-event round-trip through Python. Every combinator and
+every compute functor presents a common node interface, in one of two roles:
+
+- **Source layer = pull.** `template<class Key> struct Source { virtual
+  std::optional<Event<Key>> next() = 0; };`. `merge` is a k-way heap over N
+  sorted `Source`s emitting tagged events; `pace` wraps a `Source`. The source
+  produces one **totally-ordered** event sequence.
+- **Graph interior = push.** `template<class Key> struct Sink { virtual void
+  push(const Event<Key>&) = 0; virtual void flush() {} };`. Interior nodes hold
+  their downstream sink(s) and emit into them: compute-functor adapters,
+  `combine_latest`, `filter`, `dropna`, `split`.
+- **Driver.** `while (auto e = source.next()) graph.push(*e);` then
+  `graph.flush()`. Sinks collect outputs.
+
+`Event<Key> { Key key; double value; uint32_t source; }` — value is always
+`double` (screamer invariant); `source` tags provenance for `merge`. The node
+model is templated on `Key ∈ {int64_t, double}`, instantiated for both; the
+Python boundary picks the instantiation from the input key dtype.
+
+**Why this shape:**
+- **The DAG is this graph.** Phase 3 "materialize" = construct the node objects
+  and wire the sinks. No new execution model is invented later.
+- **Cross-mode identity becomes structural.** Batch, streaming, and replay are
+  three *drivers* feeding the *same* graph — they cannot diverge numerically,
+  because only the source differs. Pacing lives entirely in the source, so it
+  changes *when* events flow, never their values.
+- **The existing functors are reused unchanged.** A thin adapter wraps a
+  `ScreamerBase` (or `FunctorBase<_,N,1>`) as a push node: on push it computes
+  and emits, key passing through (shape-preserving, P2).
+- **`combine_latest` fuses alignment with its N-input consumer.** It holds
+  `latest[N]`/`seen[N]`; on any port push it updates, and when warm (or on
+  `emit="on_any"`) it feeds the aligned `std::array<double,N>` to a downstream
+  `FunctorBase<_,N,1>` node, emitting a single-valued event. This is exactly how
+  `RollingCorr(combine_latest(a, b))` is realized in C++.
 
 ## The minimal combinator set
 
@@ -205,6 +257,22 @@ pages (`docs/nan_policy.md`, `docs/polymorphic_api.md`, `docs/conventions.md`):
   `how` semantics; `resample` grid causality.
 - **Degenerate case** — no-key combine equals today's lockstep behaviour
   bit-for-bit.
+
+## Implementation-plan decomposition
+
+The foundation is large enough to build as **four sequential plans**, each a
+working, testable increment building on the prior's interfaces:
+
+1. **C++ event/node core** — `Event`/`Source`/`Sink` (templated on `Key`), the
+   batch driver, the compute-functor push adapter, Python bindings + carrier
+   detection for the single-stream case. Deliverable: `source → functor →
+   collector` graph whose batch output equals the existing functor bit-for-bit.
+2. **Source/driver layer** — `merge` (k-way heap, tagged) and `pace` (backtest +
+   wall-clock replay, async).
+3. **Interior combinators** — `combine_latest` (fused N-input, firing rules),
+   `filter`/`dropna`, `split`.
+4. **Docs + cross-mode-identity hardening** — the `docs/multistream.md` page,
+   cross-links, and the batch==stream==replay test matrix across all combinators.
 
 ## Open decisions carried into planning
 
