@@ -1,4 +1,4 @@
-"""Internal streaming graph hooks (not public API yet).
+"""Streaming combinators (merge, combine_latest, pace, dropna, filter, split).
 
 Builds and runs C++ node graphs. dtype detection here chooses the int64 or
 float64 key instantiation; the per-event work is all C++.
@@ -8,6 +8,15 @@ import asyncio
 import numpy as np
 
 from . import screamer_bindings as _b
+
+__all__ = [
+    "merge", "merge_iter",
+    "combine_latest", "combine_latest_iter",
+    "pace",
+    "dropna", "dropna_iter",
+    "filter", "filter_iter",
+    "split",
+]
 
 
 def _run_chain(functors, values, keys=None, return_keys=False):
