@@ -21,5 +21,5 @@ def test_public_names_in_all():
 
 def test_internal_helpers_not_exported():
     # underscore helpers must stay private
-    for name in ("_normalize_series", "_key_dtype_kind", "_make_merge_puller"):
+    for name in ("_normalize_series", "_key_dtype_kind", "_make_merge_puller", "_run_chain"):
         assert not hasattr(screamer, name)

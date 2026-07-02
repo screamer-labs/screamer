@@ -174,7 +174,7 @@ def dropna(keys, values, how="any"):
     if how not in ("any", "all"):
         raise ValueError('dropna: how must be "any" or "all"')
     keys = np.asarray(keys)
-    values = np.asarray(values)
+    values = np.asarray(values, dtype=np.float64)
     nan = np.isnan(values)
     if values.ndim == 1:
         mask = ~nan
@@ -200,7 +200,7 @@ def filter(keys, values, predicate):
 def dropna_iter(events, how="any"):
     """Streaming dropna over (key, value) tuples. value may be scalar or sequence."""
     if how not in ("any", "all"):
-        raise ValueError('dropna: how must be "any" or "all"')
+        raise ValueError('dropna_iter: how must be "any" or "all"')
     for key, value in events:
         arr = np.atleast_1d(np.asarray(value, dtype=np.float64))
         nan = np.isnan(arr)

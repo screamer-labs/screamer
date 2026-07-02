@@ -20,6 +20,7 @@ def test_dropna_all_on_aligned():
                      [3.0, 3.0]])
     gk, gv = streams.dropna(keys, vals, how="all")
     np.testing.assert_array_equal(gk, np.array([2, 3], dtype=np.int64))
+    np.testing.assert_array_equal(gv, np.array([[np.nan, 2.0], [3.0, 3.0]]))
 
 
 def test_dropna_1d():
