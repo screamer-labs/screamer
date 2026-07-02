@@ -26,6 +26,10 @@ static py::tuple run_chain(std::vector<ScreamerBase*> fns,
     auto kinfo = keys.request();
     std::size_t n = static_cast<std::size_t>(vinfo.shape[0]);
 
+    if (kinfo.shape[0] < vinfo.shape[0]) {
+        throw std::runtime_error("run_chain: keys array is shorter than values array");
+    }
+
     py::array_t<Key> out_k(n);
     py::array_t<double> out_v(n);
     CollectorSink<Key> collector(static_cast<Key*>(out_k.request().ptr),

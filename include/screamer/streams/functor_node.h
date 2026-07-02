@@ -8,6 +8,13 @@ namespace screamer { namespace streams {
 
 // Push node wrapping an existing 1->1 ScreamerBase functor. Shape-preserving:
 // one input event -> one output event, key and source tag passed through.
+
+// INVARIANT: the graph path drives process_scalar() per event, bypassing any
+// overridden process_array_no_stride/process_array_stride fast paths. Bit-identity
+// with the existing array path therefore holds only while every functor's array
+// override stays element-wise-equal to its process_scalar. A future functor whose
+// array override changes rounding/associativity (e.g. SIMD reassociation) would
+// diverge from the graph path here while both remain independently "correct".
 template <class Key>
 class FunctorNode : public Sink<Key> {
 public:

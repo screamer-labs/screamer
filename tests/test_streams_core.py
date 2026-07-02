@@ -49,3 +49,9 @@ def test_chain_float_keys_equals_nested():
     got = streams._run_chain([RollingMean(3), Diff(2)], x, keys=t)
     exp = Diff(2)(RollingMean(3)(x))
     np.testing.assert_array_equal(got, exp)
+
+
+def test_empty_input_returns_empty():
+    x = np.empty(0, dtype=np.float64)
+    got = streams._run_chain([RollingMean(5)], x)
+    assert got.shape == (0,)
