@@ -4,6 +4,10 @@ Screamer is a streaming library. A common real-world condition is that some samp
 
 The policy is dogmatic: every function declares one of three NaN policies in its frontmatter, the build refuses to publish a function that doesn't declare one, and the test suite verifies that the runtime behavior matches the declaration. There are no "it depends" answers — the function's documentation page tells you what happens, and CI guarantees the page is not lying.
 
+> For dropping vs filling `NaN` **across streams** (`dropna`, `fillna`/`ffill`
+> in the combinator layer), see [Streams, keys, and alignment](multistream.md).
+> `ffill` there is the same forward-fill carry that `combine_latest` uses.
+
 ## The contract
 
 A `NaN` in the input never corrupts internal state. Output may be `NaN` at and around the input `NaN` index depending on the function's policy, but the function always recovers — there is no "sticky `NaN`" that poisons subsequent outputs forever.

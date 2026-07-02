@@ -6,6 +6,11 @@ iterator, an async generator. The same code you write to backtest on a
 historical dataset runs unchanged in a live event loop. This page is the
 contract: exactly what each input type does and what each returns.
 
+> For combining, splitting, filtering, or replaying streams that do **not** tick
+> together (different rates, async arrival, missing samples), see
+> [Streams, keys, and alignment](multistream.md). The lockstep contract on this
+> page is the degenerate "no time key → row number" case of that model.
+
 The contract has two layers:
 
 - **1‑input / 1‑output classes** (`RollingMean`, `EwVar`, `Diff`, `Lag`,
