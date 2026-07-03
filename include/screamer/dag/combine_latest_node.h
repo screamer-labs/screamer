@@ -29,6 +29,7 @@ public:
     CombineLatestNode& operator=(CombineLatestNode&&) = delete;
 
     Sink<Key>& port(std::size_t i) { return ports_[i]; }
+    void reset() { cl_.reset(); }
 
 private:
     void on_port(std::size_t i, const Frame<Key>& f) {

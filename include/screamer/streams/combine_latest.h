@@ -1,6 +1,7 @@
 #ifndef SCREAMER_STREAMS_COMBINE_LATEST_H
 #define SCREAMER_STREAMS_COMBINE_LATEST_H
 
+#include <algorithm>
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
@@ -30,6 +31,13 @@ public:
     }
 
     const std::vector<double>& latest() const { return latest_; }
+
+    void reset() {
+        std::fill(latest_.begin(), latest_.end(),
+                  std::numeric_limits<double>::quiet_NaN());
+        std::fill(seen_.begin(), seen_.end(), static_cast<char>(0));
+        seen_count_ = 0;
+    }
 
 private:
     std::vector<double> latest_;
