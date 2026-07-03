@@ -32,6 +32,14 @@ def _combine():
     return Dag(inputs=[a, b], outputs=[z]), [_series(120, 2), _series(120, 3)]
 
 
+def _divergent():
+    a, b, c = Input("a"), Input("b"), Input("c")
+    ab = Sub()(combine_latest(a, b))
+    ac = Add()(combine_latest(a, c))
+    dag = Dag(inputs=[a, b, c], outputs=[ab, ac], align_outputs=True)
+    return dag, [_series(100, 5), _series(80, 6), _series(80, 7)]
+
+
 def _to_pairs(result):
     """Normalize dag output to a list of (keys, values) pairs.
 
@@ -43,7 +51,7 @@ def _to_pairs(result):
     return list(result)
 
 
-@pytest.mark.parametrize("factory", [_chain, _fanout, _combine])
+@pytest.mark.parametrize("factory", [_chain, _fanout, _combine, _divergent])
 def test_batch_equals_oracle(factory):
     dag, feeds = factory()
     got = _to_pairs(dag(*feeds))
@@ -53,7 +61,7 @@ def test_batch_equals_oracle(factory):
         np.testing.assert_array_equal(gv, ev)
 
 
-@pytest.mark.parametrize("factory", [_chain, _fanout, _combine])
+@pytest.mark.parametrize("factory", [_chain, _fanout, _combine, _divergent])
 def test_stream_equals_batch(factory):
     dag, feeds = factory()
     batch = _to_pairs(dag(*feeds))

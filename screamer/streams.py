@@ -117,6 +117,8 @@ def combine_latest(*series, emit="when_all", func=None):
     from the first event with NaN for not-yet-seen inputs. If `func` is given it is
     applied per row (func(*row)) and (keys, reduced) is returned instead.
     """
+    if emit not in ("when_all", "on_any"):
+        raise ValueError('combine_latest: emit must be "when_all" or "on_any"')
     if any(is_node(s) for s in series):
         if func is not None:
             raise ValueError(
@@ -124,8 +126,6 @@ def combine_latest(*series, emit="when_all", func=None):
                 "(graph ops are C++-only); apply a C++ functor to the aligned "
                 "output instead, e.g. Sub()(combine_latest(a, b))")
         return make_combinator_node(combine_latest, series, {"emit": emit, "func": None})
-    if emit not in ("when_all", "on_any"):
-        raise ValueError('combine_latest: emit must be "when_all" or "on_any"')
     kind, norm_keys, norm_vals = _normalize_series(series, "combine_latest")
     fn = _b._combine_latest_f64 if kind == "f64" else _b._combine_latest_i64
     keys, aligned = fn(norm_keys, norm_vals, emit == "when_all")
