@@ -2,6 +2,7 @@
 #define FUNCTOR_BASE_H
 
 #include <cstddef>
+#include <optional>
 #include <tuple>
 #include <type_traits>
 #include <utility>
@@ -64,6 +65,50 @@ namespace detail {
         write_tuple_helper(dest, t, std::make_index_sequence<kSize>{});
     }
 
+    // Extract column j (of N) from a contiguous-or-strided (T, N) array into a
+    // fresh 1-D array of length T. Used by the (T,N) single-array input form.
+    inline py::array_t<double> extract_column(const py::array_t<double>& arr,
+                                              size_t j, size_t T, size_t N) {
+        py::buffer_info info = arr.request();
+        const double* src = static_cast<const double*>(info.ptr);
+        std::ptrdiff_t row_stride = info.strides[0] / sizeof(double);
+        std::ptrdiff_t col_stride = info.strides[1] / sizeof(double);
+        py::array_t<double> col(static_cast<py::ssize_t>(T));
+        double* dst = static_cast<double*>(col.request().ptr);
+        for (size_t i = 0; i < T; ++i) {
+            dst[i] = src[i * row_stride + j * col_stride];
+        }
+        return col;
+    }
+
+    // If args is a single 2-D (T, N) numpy array, return a tuple of its N
+    // columns as 1-D arrays; otherwise return an empty optional. Enforces the
+    // exact-width match (shape[1] == N); a mismatched width throws a clear error.
+    template <size_t N>
+    inline std::optional<py::tuple> maybe_split_TxN(const py::args& args) {
+        if (args.size() != 1 || !py::isinstance<py::array>(args[0])) {
+            return std::nullopt;
+        }
+        py::array_t<double> arr = py::cast<py::array_t<double>>(args[0]);
+        py::buffer_info info = arr.request();
+        if (info.ndim != 2) {
+            return std::nullopt;   // 1-D single array falls through to the normal error
+        }
+        size_t T = static_cast<size_t>(info.shape[0]);
+        size_t width = static_cast<size_t>(info.shape[1]);
+        if (width != N) {
+            throw py::value_error(
+                "This functor expects " + std::to_string(N) +
+                " inputs; got a single 2-D array with " + std::to_string(width) +
+                " columns. Pass an (T, " + std::to_string(N) + ") array or " +
+                std::to_string(N) + " separate arrays.");
+        }
+        py::tuple cols(N);
+        for (size_t j = 0; j < N; ++j) {
+            cols[j] = extract_column(arr, j, T, N);
+        }
+        return cols;
+    }
 
 }
 
@@ -402,7 +447,11 @@ public:
     template <size_t TN = N, size_t TM = M, typename = std::enable_if_t<(TN > 1) && (TM == 1)>>
     py::object handle_input_Ni_1o(const py::args args) {
 
-       // Case 1: we need to get his out of the way first. 
+        if (auto cols = detail::maybe_split_TxN<N>(args)) {
+            return handle_input_Ni_1o_numpy(*cols);
+        }
+
+       // Case 1: we need to get his out of the way first.
        // A single argument, list/tuple with N-tuples inside: [ (1,2,3), (4,5,6), ...]
         if (args.size() == 1) {
             auto input = args[0];
@@ -594,6 +643,10 @@ public:
 
     template <size_t TN = N, size_t TM = M, typename = std::enable_if_t<(TN > 1) && (TM > 1)>>
     py::object handle_input_Ni_Mo(const py::args args) {
+
+        if (auto cols = detail::maybe_split_TxN<N>(args)) {
+            return handle_input_Ni_Mo_numpy(*cols);
+        }
 
         // Case 1: single argument, list/tuple of N-tuples
         // [(x0, y0), (x1, y1), ...] -> list of M-tuples
