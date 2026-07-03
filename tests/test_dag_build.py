@@ -1,6 +1,6 @@
 import numpy as np
 from screamer.dag import Node, Input, is_node
-from screamer import RollingMean, combine_latest
+from screamer import combine_latest
 
 
 def test_input_is_a_node():
@@ -8,15 +8,6 @@ def test_input_is_a_node():
     assert is_node(a)
     assert a.op == ("input", "price_a")
     assert a.inputs == ()
-
-
-def test_functor_on_node_builds_node():
-    a = Input("price_a")
-    n = RollingMean(30)(a)
-    assert is_node(n)
-    assert n.inputs == (a,)
-    # op is the functor instance itself
-    assert n.op.__class__.__name__ == "RollingMean"
 
 
 def test_combinator_on_nodes_builds_node():

@@ -1,6 +1,6 @@
 """Computational DAG definition: symbolic Node handles (DAG-1)."""
 
-__all__ = ["Node", "Input", "Dag"]
+__all__ = ["Node", "Input", "is_node", "make_functor_node", "make_combinator_node"]
 
 
 class Node:
@@ -54,32 +54,3 @@ def make_combinator_node(fn, node_args, kwargs):
     return Node(("combinator", fn, kwargs), tuple(node_args))
 
 
-def _wrap_functor_call(cls):
-    """Wrap cls.__call__ to detect Node arguments and build a graph node."""
-    original_call = cls.__call__
-
-    def node_aware_call(self, *args, **kwargs):
-        if any(is_node(a) for a in args):
-            return make_functor_node(self, args)
-        return original_call(self, *args, **kwargs)
-
-    try:
-        cls.__call__ = node_aware_call
-    except (AttributeError, TypeError):
-        pass  # skip any class that doesn't allow patching
-
-
-def _patch_all_functors():
-    """Patch all ScreamerBase subclasses so their __call__ is Node-aware."""
-    from .screamer_bindings import ScreamerBase
-
-    def _patch(cls):
-        for subcls in cls.__subclasses__():
-            if hasattr(subcls, "__call__"):
-                _wrap_functor_call(subcls)
-            _patch(subcls)
-
-    _patch(ScreamerBase)
-
-
-_patch_all_functors()
