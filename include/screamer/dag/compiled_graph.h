@@ -9,12 +9,14 @@
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <queue>
 #include <stdexcept>
 #include <string>
 #include <vector>
 #include "screamer/dag/broadcast.h"
+#include "screamer/dag/combine_latest_node.h"
 #include "screamer/dag/frame.h"
 #include "screamer/dag/functor_node.h"
 #include "screamer/dag/graph.h"
@@ -100,23 +102,34 @@ public:
         for (std::size_t idx = 0; idx < spec.input_ids.size(); ++idx)
             input_sig[spec.input_ids[idx]] = idx;
 
-        // --- node_sink[i] = the Sink<> entry-point for node i ----------------
-        std::vector<Sink<std::int64_t>*> node_sink(n, nullptr);
+        // --- node_input_sink[i](slot) = Sink entry-point for slot `slot` of node i ---
+        // Functor: returns the same FunctorNode for any slot (wide edge, slot ignored).
+        // CombineLatest: returns &n->port(slot) (each producer wires to its own port).
+        // Input nodes have no node_input_sink entry (they are sources, not consumers).
+        std::vector<std::function<Sink<std::int64_t>*(std::size_t)>> node_input_sink(n);
 
         // input_sinks[sig_idx] = downstream Sink for input with that index
         std::vector<Sink<std::int64_t>*> input_sinks(num_in, nullptr);
 
-        // ownership of heap-allocated wiring objects (FunctorNodes, Broadcasts)
+        // ownership of heap-allocated wiring objects (FunctorNodes, CombineLatestNodes,
+        // Broadcasts); shared_ptr<void> is used so every type is stored uniformly.
         std::vector<std::shared_ptr<void>> owned;
 
         // --- wire in reverse-topological order (consumers first) -------------
         for (auto id : topo) {
             const auto& ns = spec.nodes[id];
 
-            // Collect all immediate downstream sinks for this node.
+            // Collect all immediate downstream sinks for this node (slot-aware).
+            // For each consumer c of this node, find which slot(s) of c this node
+            // occupies and push the corresponding input_sink of c.
             std::vector<Sink<std::int64_t>*> ds;
-            for (auto c : consumers[id])
-                if (node_sink[c]) ds.push_back(node_sink[c]);
+            for (auto c : consumers[id]) {
+                if (!node_input_sink[c]) continue;
+                const auto& cinputs = spec.nodes[c].inputs;
+                for (std::size_t k = 0; k < cinputs.size(); ++k)
+                    if (cinputs[k] == id)
+                        ds.push_back(node_input_sink[c](k));
+            }
             for (auto o : node_out_idx[id])
                 ds.push_back(gathers[o].get());
 
@@ -142,13 +155,23 @@ public:
             case NodeKind::Functor: {
                 ns.op->reset();
                 auto fn = std::make_shared<FunctorNode<std::int64_t>>(*ns.op, *downstream);
-                node_sink[id] = fn.get();
+                // Functor accepts a single wide edge: return the node for any slot.
+                node_input_sink[id] = [ptr = fn.get()](std::size_t) -> Sink<std::int64_t>* {
+                    return ptr;
+                };
                 owned.push_back(fn); // keep alive
                 break;
             }
-            case NodeKind::CombineLatest:
-                // Task 3: not handled here.
-                throw std::runtime_error("compile: CombineLatest not yet supported");
+            case NodeKind::CombineLatest: {
+                auto cn = std::make_shared<CombineLatestNode<std::int64_t>>(
+                    ns.inputs.size(), ns.when_all, *downstream);
+                // Each producer wires to its own port: return port(slot).
+                node_input_sink[id] = [ptr = cn.get()](std::size_t slot) -> Sink<std::int64_t>* {
+                    return &ptr->port(slot);
+                };
+                owned.push_back(cn); // keep alive (ports hold back-reference to node)
+                break;
+            }
             }
         }
 

@@ -1,5 +1,5 @@
 import numpy as np
-from screamer import RollingMean, Diff
+from screamer import RollingMean, Diff, Sub, combine_latest
 from screamer import screamer_bindings as _b
 
 
@@ -54,3 +54,24 @@ def test_compile_output_is_also_intermediate():
     (ak, av), (bk, bv) = g.run_batch([_row(x)])
     np.testing.assert_array_equal(av.reshape(-1), RollingMean(4)(x))
     np.testing.assert_array_equal(bv.reshape(-1), Diff(1)(RollingMean(4)(x)))
+
+
+def test_compile_combine_then_functor_equals_eager():
+    rng = np.random.default_rng(4)
+    a_k = np.sort(rng.integers(0, 500, size=150)).astype(np.int64)
+    a_v = rng.standard_normal(150)
+    b_k = np.sort(rng.integers(0, 500, size=150)).astype(np.int64)
+    b_v = rng.standard_normal(150)
+
+    g = _b._GraphBuilder()
+    ai, bi = g.add_input(), g.add_input()
+    c = g.add_combine_latest([ai, bi], True)       # width-2 aligned
+    spread = g.add_functor(Sub(), [c])             # 2-input functor over the width-2 edge
+    z = g.add_functor(RollingMean(10), [spread])   # smooth the spread
+    g.set_outputs([z])
+    (zk, zv), = g.run_batch([(a_k, a_v), (b_k, b_v)])
+
+    keys, aligned = combine_latest((a_k, a_v), (b_k, b_v))   # when_all
+    exp = RollingMean(10)(aligned[:, 0] - aligned[:, 1])
+    np.testing.assert_array_equal(zk, keys)
+    np.testing.assert_array_equal(zv.reshape(-1), exp)
