@@ -47,6 +47,7 @@ endif
 
 .PHONY: help build test docs benchmark clean \
         regen-init install-dev tidy \
+        notebooks \
         patch minor major release-push \
         bump-tools
 
@@ -88,6 +89,9 @@ install-dev: build
 
 test: install-dev
 	$(PYTEST)
+
+notebooks: install-dev
+	$(PYTEST) --nbmake docs/notebooks/
 
 # clang-tidy with cppcoreguidelines-pro-type-member-init catches uninitialised
 # class members (the bug class behind RollingZscore's silent failure on

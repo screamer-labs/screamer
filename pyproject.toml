@@ -126,6 +126,8 @@ numpy = { version = "^2.0.1", python = ">=3.10"}
 scipy = { version = "^1.14", python = ">=3.10"}
 pandas = "^2.2.3"
 pyyaml = "^6.0"
+nbmake = ">=1.4"
+jupytext = ">=1.16"
 
 # Optional cross-validation dependencies. Tests in
 # tests/test_third_party_alignment.py skip gracefully when these are
