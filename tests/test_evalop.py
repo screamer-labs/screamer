@@ -41,3 +41,12 @@ def test_eval_matches_call_2in_2out():
     out = _b._eval_op(f, [3.0, 4.0])
     exp = Cart2Polar()(3.0, 4.0)               # tuple (r, theta)
     np.testing.assert_array_equal(out, list(exp))
+
+
+def test_eval_matches_call_1in_3out():
+    f = BollingerBands(10)
+    g = BollingerBands(10)
+    xs = np.random.default_rng(3).standard_normal(30)
+    got = [tuple(_b._eval_op(f, [x])) for x in xs]
+    exp = [tuple(g(x)) for x in xs]           # each call returns a 3-tuple
+    np.testing.assert_array_equal(got, exp)

@@ -1,6 +1,7 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h> // Required for std::optional support
 #include "screamer/common/base.h"
+#include "screamer/common/eval_op.h"
 #include "screamer/return.h"
 #include "screamer/log_return.h"
 #include "screamer/roc.h"
