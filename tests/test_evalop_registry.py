@@ -26,6 +26,7 @@ CASES = {
     "RollingPoly2": ((10,), 1, 1),
     "RollingSigmaClip": ((10,), 1, 1),
     "RollingOU": ((10,), 1, 1),
+    "Clip": ((-1.0, 1.0), 1, 1),
 }
 
 
