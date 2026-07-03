@@ -4,11 +4,6 @@ from screamer import combine_latest, Sub
 from screamer import screamer_bindings as _b
 
 
-def _keys_vals(pairs):
-    k = np.array([p[0] for p in pairs], dtype=np.int64)
-    v = np.array([p[1] for p in pairs], dtype=np.float64)
-    return k, v
-
 
 @pytest.mark.parametrize("when_all", [True, False])
 def test_combine_latest_node_matches_batch(when_all):

@@ -80,6 +80,15 @@ static std::size_t drive_ports(py::list key_arrays,
     return total;
 }
 
+// Sum all event counts across inputs (used to pre-reserve gather vectors).
+static std::size_t count_total(py::list key_arrays) {
+    std::size_t total = 0;
+    for (std::size_t i = 0; i < key_arrays.size(); ++i)
+        total += static_cast<std::size_t>(
+            py::cast<py::array_t<std::int64_t>>(key_arrays[i]).request().shape[0]);
+    return total;
+}
+
 // Marshal a gathered key/value buffer into a Python tuple (keys_1d, values_2d).
 static py::tuple marshal_gather(const std::vector<std::int64_t>& out_k,
                                 const std::vector<double>& out_v,
@@ -110,6 +119,9 @@ static py::tuple run_combine_latest_batch(py::list key_arrays,
         }
     } gather(out_k, out_v);
 
+    std::size_t total = count_total(key_arrays);
+    out_k.reserve(total); out_v.reserve(total * n);
+
     dag::CombineLatestNode<std::int64_t> node(n, when_all, gather);
     drive_ports(key_arrays, value_arrays, node);
 
@@ -132,6 +144,9 @@ static py::tuple run_combine_then_sub_batch(py::list key_arrays,
             k.push_back(f.key); v.push_back(f.values[0]);
         }
     } gather(out_k, out_v);
+
+    std::size_t total = count_total(key_arrays);
+    out_k.reserve(total); out_v.reserve(total);
 
     screamer::Sub sub;                                        // 2->1 EvalOp
     dag::FunctorNode<std::int64_t> sub_node(sub, gather);
@@ -162,6 +177,10 @@ static py::tuple run_combine_latest_fanout(py::list key_arrays,
     dag::Broadcast<std::int64_t> bcast;
     bcast.add(gatherA);
     bcast.add(gatherB);
+
+    std::size_t total = count_total(key_arrays);
+    out_k1.reserve(total); out_v1.reserve(total * n);
+    out_k2.reserve(total); out_v2.reserve(total * n);
 
     dag::CombineLatestNode<std::int64_t> node(n, when_all, bcast);
     drive_ports(key_arrays, value_arrays, node);

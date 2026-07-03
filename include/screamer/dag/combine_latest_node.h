@@ -25,6 +25,8 @@ public:
     // Non-movable/copyable: the ports hold a reference back to this node.
     CombineLatestNode(const CombineLatestNode&) = delete;
     CombineLatestNode& operator=(const CombineLatestNode&) = delete;
+    CombineLatestNode(CombineLatestNode&&) = delete;
+    CombineLatestNode& operator=(CombineLatestNode&&) = delete;
 
     Sink<Key>& port(std::size_t i) { return ports_[i]; }
 
