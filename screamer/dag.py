@@ -209,6 +209,20 @@ class Dag:
         results = [(k, v.reshape(-1) if v.shape[1] == 1 else v) for (k, v) in results]
         return _align_results(results, self.align_outputs)
 
+    def stream(self, *args, **kwargs):
+        """Drive the compiled graph live, event by event (byte-identical to __call__)."""
+        from .streams import merge
+        feeds = self._bind_args(args, kwargs)
+        streams = [_as_stream(feeds[nm]) for nm in self._input_order]
+        self._cg.reset()
+        # feed the merged (key-ordered, source-tagged) events one at a time
+        mk, mv, ms = merge(*streams)
+        for k, v, s in zip(mk, mv, ms):
+            self._cg.push_event(int(s), int(k), float(v))
+        results = self._cg.drain()
+        results = [(k, v.reshape(-1) if v.shape[1] == 1 else v) for (k, v) in results]
+        return _align_results(results, self.align_outputs)
+
     def _bind_args(self, args, kwargs):
         if args and kwargs:
             raise TypeError("pass inputs either positionally or by name, not both")
