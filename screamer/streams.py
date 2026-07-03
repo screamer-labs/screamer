@@ -8,6 +8,7 @@ import asyncio
 import numpy as np
 
 from . import screamer_bindings as _b
+from .dag import is_node, make_combinator_node
 
 __all__ = [
     "merge", "merge_iter",
@@ -78,6 +79,8 @@ def merge(*series):
     Each series must be individually sorted by key. `sources[i]` is the index
     of the series that emitted event i. Ties break by series order.
     """
+    if any(is_node(s) for s in series):
+        return make_combinator_node(merge, series, {})
     kind, norm_keys, norm_vals = _normalize_series(series, "merge")
     fn = _b._merge_f64 if kind == "f64" else _b._merge_i64
     return fn(norm_keys, norm_vals)
@@ -114,6 +117,8 @@ def combine_latest(*series, emit="when_all", func=None):
     from the first event with NaN for not-yet-seen inputs. If `func` is given it is
     applied per row (func(*row)) and (keys, reduced) is returned instead.
     """
+    if any(is_node(s) for s in series):
+        return make_combinator_node(combine_latest, series, {"emit": emit, "func": func})
     if emit not in ("when_all", "on_any"):
         raise ValueError('combine_latest: emit must be "when_all" or "on_any"')
     kind, norm_keys, norm_vals = _normalize_series(series, "combine_latest")
