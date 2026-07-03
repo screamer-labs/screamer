@@ -24,7 +24,7 @@ class ScreamerBase : public EvalOp {
 public:
     virtual ~ScreamerBase() = default;
 
-    virtual void reset() {}
+    void reset() override {}
 
     std::size_t n_in() const override { return 1; }
     std::size_t n_out() const override { return 1; }

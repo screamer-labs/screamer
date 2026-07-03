@@ -1,6 +1,7 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h> // Required for std::optional support
 #include <vector>
+#include <string>
 #include "screamer/common/eval_op.h"
 #include "screamer/common/base.h"
 #include "screamer/common/iterator.h"
@@ -16,6 +17,9 @@ void init_bindings_core(py::module& m) {
 
     // Test/engine helper: run one event through an op.
     m.def("_eval_op", [](screamer::EvalOp& op, const std::vector<double>& in) {
+        if (in.size() != op.n_in()) {
+            throw py::value_error("_eval_op: expected " + std::to_string(op.n_in()) + " inputs");
+        }
         std::vector<double> out(op.n_out());
         op.eval(in.data(), out.data());
         return out;
