@@ -177,7 +177,7 @@ void init_bindings_math(py::module& m) {
         .def("__call__", &screamer::Atan2::handle_input)
         .def("reset", &screamer::Atan2::reset, "Reset to the initial state.");
 
-     py::class_<screamer::Cart2Polar>(m, "Cart2Polar")
+     py::class_<screamer::Cart2Polar, screamer::EvalOp>(m, "Cart2Polar")
         .def(py::init<>())
         .def("__call__", &screamer::Cart2Polar::handle_input)
         .def("reset", &screamer::Cart2Polar::reset, "Reset to the initial state.");

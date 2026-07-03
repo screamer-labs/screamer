@@ -561,7 +561,7 @@ void init_bindings_rolling(py::module& m) {
     // BollingerBands: 1 input, 3 outputs (lower, mid, upper).
     // FunctorBase<_, 1, 3>. Per scalar call returns a 3-tuple; per batch
     // returns an array of shape (..., 3).
-    py::class_<screamer::BollingerBands>(m, "BollingerBands")
+    py::class_<screamer::BollingerBands, screamer::EvalOp>(m, "BollingerBands")
         .def(py::init<int, double, const std::string&>(),
              py::arg("window_size") = 20,
              py::arg("num_std") = 2.0,

@@ -11,6 +11,7 @@
 #include <pybind11/numpy.h>
 #include <iostream>
 #include "screamer/common/base.h"
+#include "screamer/common/eval_op.h"
 
 namespace screamer {
 
@@ -120,7 +121,7 @@ namespace detail {
 }
 
 template <class Derived, size_t N, size_t M>
-class FunctorBase {
+class FunctorBase : public EvalOp {
 public:
     using InputArray = std::array<double, N>;
     using OutputArray = std::array<double, M>;
@@ -132,7 +133,20 @@ public:
     // was being trialled here is reverted until we genuinely need it for
     // sparse-output algorithms (Plan C).
     virtual ResultTuple call(const InputArray& inputs) = 0;
-    virtual void reset() {};
+    void reset() override {}
+
+    // EvalOp interface: uniform N-in / M-out entry point for the DAG engine.
+    std::size_t n_in() const override { return N; }
+    std::size_t n_out() const override { return M; }
+    void eval(const double* in, double* out) override {
+        InputArray inputs;
+        for (std::size_t i = 0; i < N; ++i) inputs[i] = in[i];
+        if constexpr (M == 1) {
+            out[0] = call(inputs);
+        } else {
+            detail::write_tuple_to_memory(out, call(inputs));
+        }
+    }
 
 
 

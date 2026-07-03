@@ -60,7 +60,7 @@ void init_bindings_fin(py::module& m) {
     // multi-input class hierarchy is separate. handle_input dispatches
     // on the variadic args (scalars / N parallel arrays / list of N-tuples
     // / N parallel iterables).
-    py::class_<screamer::RollingCorr>(m, "RollingCorr")
+    py::class_<screamer::RollingCorr, screamer::EvalOp>(m, "RollingCorr")
         .def(py::init<int, const std::string&>(),
              py::arg("window_size") = 20,
              py::arg("start_policy") = "strict")
