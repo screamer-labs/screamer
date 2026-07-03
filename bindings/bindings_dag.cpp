@@ -235,8 +235,8 @@ void init_bindings_dag(py::module& m) {
     // Compiled graph wrapper: holds a persistent CompiledGraph plus op_refs so
     // functor Python objects stay alive for the compiled graph's lifetime.
     struct PyCompiledGraph {
-        std::unique_ptr<dag::CompiledGraph> cg;
-        std::vector<py::object> op_refs;  // keeps Python functor objects alive
+        std::vector<py::object> op_refs;  // destroyed AFTER cg (declared first)
+        std::unique_ptr<dag::CompiledGraph> cg;  // destroyed FIRST (declared last)
 
         void reset() { cg->reset(); }
 

@@ -69,6 +69,27 @@ public:
         // the vector does not reallocate while sinks hold references into it.
         outputs_.resize(num_out);
 
+        // Compute and store the expected width for each output based on its producer node.
+        output_widths_.resize(num_out);
+        for (std::size_t o = 0; o < num_out; ++o) {
+            std::size_t node_id = s.output_ids[o];
+            const auto& node = s.nodes[node_id];
+            switch (node.kind) {
+            case NodeKind::Functor:
+                output_widths_[o] = node.op->n_out();
+                break;
+            case NodeKind::CombineLatest:
+                output_widths_[o] = node.inputs.size();
+                break;
+            case NodeKind::Input:
+                output_widths_[o] = 1;
+                break;
+            default:
+                output_widths_[o] = 1;
+                break;
+            }
+        }
+
         // Create persistent GatherSinks pointing at outputs_.
         std::vector<GatherSink*> gather_ptrs;
         gather_ptrs.reserve(num_out);
@@ -193,7 +214,11 @@ public:
     void reset() {
         for (auto* op : reset_ops_)      op->reset();
         for (auto* c  : reset_combines_) c->reset();
-        for (auto& b  : outputs_)        { b.keys.clear(); b.values.clear(); b.width = 1; }
+        for (std::size_t o = 0; o < outputs_.size(); ++o) {
+            outputs_[o].keys.clear();
+            outputs_[o].values.clear();
+            outputs_[o].width = output_widths_[o];
+        }
     }
 
     // Routes a single width-1 event into the graph without resetting state.
@@ -212,7 +237,11 @@ public:
     // cleared).
     std::vector<OutputBuffer> drain() {
         std::vector<OutputBuffer> out = outputs_;   // deep copy
-        for (auto& b : outputs_) { b.keys.clear(); b.values.clear(); b.width = 1; }
+        for (std::size_t o = 0; o < outputs_.size(); ++o) {
+            outputs_[o].keys.clear();
+            outputs_[o].values.clear();
+            outputs_[o].width = output_widths_[o];
+        }
         return out;
     }
 
@@ -273,6 +302,7 @@ private:
     std::vector<EvalOp*>                          reset_ops_;      // functor ops to reset
     std::vector<CombineLatestNode<std::int64_t>*> reset_combines_; // combine nodes to reset
     std::vector<OutputBuffer>                     outputs_;        // persistent output buffers
+    std::vector<std::size_t>                      output_widths_;  // expected width for each output
 };
 
 // compile() wraps the spec into a CompiledGraph (wiring happens in constructor).
