@@ -5,6 +5,7 @@
 #include <vector>
 #include <pybind11/pybind11.h>
 #include <pybind11/numpy.h>
+#include <pybind11/stl.h>
 #include "screamer/common/eval_op.h"
 #include "screamer/arithmetic.h"
 #include "screamer/dag/frame.h"
@@ -13,6 +14,8 @@
 #include "screamer/dag/driver.h"
 #include "screamer/dag/combine_latest_node.h"
 #include "screamer/dag/broadcast.h"
+#include "screamer/dag/graph.h"
+#include "screamer/dag/compiled_graph.h"
 #include "screamer/streams/vector_source.h"
 #include "screamer/streams/merge_source.h"
 
@@ -198,4 +201,80 @@ void init_bindings_dag(py::module& m) {
           py::arg("key_arrays"), py::arg("value_arrays"), py::arg("when_all"));
     m.def("_run_combine_latest_fanout", &run_combine_latest_fanout,
           py::arg("key_arrays"), py::arg("value_arrays"), py::arg("when_all"));
+
+    // Python-facing GraphBuilder wrapper that keeps functor Python objects alive
+    // for the lifetime of the builder (raw EvalOp* point into Python objects;
+    // if the caller passes temporaries they'd be GC'd without this ref-holding).
+    struct PyGraphBuilder {
+        dag::GraphBuilder builder;
+        std::vector<py::object> op_refs;  // keeps Python functor objects alive
+
+        std::size_t add_input() { return builder.add_input(); }
+
+        std::size_t add_functor(py::object op_obj, std::vector<std::size_t> inputs) {
+            EvalOp* op = py::cast<EvalOp*>(op_obj);
+            op_refs.push_back(op_obj);
+            return builder.add_functor(op, std::move(inputs));
+        }
+
+        std::size_t add_combine_latest(std::vector<std::size_t> inputs, bool when_all) {
+            return builder.add_combine_latest(std::move(inputs), when_all);
+        }
+
+        void set_outputs(std::vector<std::size_t> outs) {
+            builder.set_outputs(std::move(outs));
+        }
+
+        const dag::GraphSpec& spec() const { return builder.spec(); }
+    };
+
+    // DAG compiler: _GraphBuilder accumulates a GraphSpec; run_batch compiles
+    // and drives it fresh each call (rebuild-per-run, see compiled_graph.h).
+    py::class_<PyGraphBuilder>(m, "_GraphBuilder")
+        .def(py::init<>())
+        .def("add_input", &PyGraphBuilder::add_input)
+        .def("add_functor", [](PyGraphBuilder& b, py::object op,
+                               std::vector<std::size_t> inputs) {
+            return b.add_functor(op, std::move(inputs));
+        }, py::arg("op"), py::arg("inputs"))
+        .def("add_combine_latest", [](PyGraphBuilder& b,
+                                      std::vector<std::size_t> inputs, bool when_all) {
+            return b.add_combine_latest(std::move(inputs), when_all);
+        }, py::arg("inputs"), py::arg("when_all") = true)
+        .def("set_outputs", &PyGraphBuilder::set_outputs, py::arg("output_ids"))
+        .def("run_batch", [](PyGraphBuilder& b, py::list feeds) {
+            // Marshal feeds (list of (keys, values) tuples) -> raw spans.
+            std::vector<py::array_t<std::int64_t>> ks;
+            std::vector<py::array_t<double>> vs;
+            std::vector<const std::int64_t*> kp;
+            std::vector<const double*> vp;
+            std::vector<std::size_t> lens;
+            for (auto item : feeds) {
+                auto t = py::cast<py::tuple>(item);
+                ks.push_back(py::cast<py::array_t<std::int64_t,
+                             py::array::c_style | py::array::forcecast>>(t[0]));
+                vs.push_back(py::cast<py::array_t<double,
+                             py::array::c_style | py::array::forcecast>>(t[1]));
+                kp.push_back(static_cast<const std::int64_t*>(ks.back().request().ptr));
+                vp.push_back(static_cast<const double*>(vs.back().request().ptr));
+                lens.push_back(static_cast<std::size_t>(vs.back().request().shape[0]));
+            }
+            // Compile (stores spec) then run (builds + drives push-graph).
+            dag::CompiledGraph g = dag::compile(b.spec());
+            std::vector<dag::OutputBuffer> outs = g.run_batch(kp, vp, lens);
+            // Marshal OutputBuffers -> Python list of (keys_1d, values_2d) tuples.
+            py::list result;
+            for (auto& o : outs) {
+                std::size_t m = o.keys.size();
+                py::array_t<std::int64_t> ok(static_cast<py::ssize_t>(m));
+                if (m) std::memcpy(ok.request().ptr, o.keys.data(),
+                                   m * sizeof(std::int64_t));
+                py::array_t<double> ov({static_cast<py::ssize_t>(m),
+                                        static_cast<py::ssize_t>(o.width)});
+                if (m) std::memcpy(ov.request().ptr, o.values.data(),
+                                   o.values.size() * sizeof(double));
+                result.append(py::make_tuple(ok, ov));
+            }
+            return result;
+        }, py::arg("feeds"));
 }

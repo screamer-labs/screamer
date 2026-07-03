@@ -1,0 +1,188 @@
+#ifndef SCREAMER_DAG_COMPILED_GRAPH_H
+#define SCREAMER_DAG_COMPILED_GRAPH_H
+
+// Design: CompiledGraph stores the GraphSpec and rebuilds the wired push-graph
+// fresh inside each run_batch() call. This keeps all wiring logic in one place
+// and avoids gather-reattachment machinery. The graph is small; rebuild cost is
+// negligible versus the event loop. Chosen for clarity over micro-optimisation.
+
+#include <algorithm>
+#include <cstddef>
+#include <cstdint>
+#include <memory>
+#include <queue>
+#include <stdexcept>
+#include <string>
+#include <vector>
+#include "screamer/dag/broadcast.h"
+#include "screamer/dag/frame.h"
+#include "screamer/dag/functor_node.h"
+#include "screamer/dag/graph.h"
+#include "screamer/streams/merge_source.h"
+#include "screamer/streams/vector_source.h"
+
+namespace screamer { namespace dag {
+
+// One output stream gathered during a batch run.
+struct OutputBuffer {
+    std::vector<std::int64_t> keys;
+    std::vector<double> values;   // row-major, width columns per row
+    std::size_t width = 1;
+};
+
+// Terminal sink: appends every received frame into an OutputBuffer.
+class GatherSink : public Sink<std::int64_t> {
+public:
+    explicit GatherSink(OutputBuffer& buf) : buf_(buf) {}
+    void push(const Frame<std::int64_t>& f) override {
+        buf_.width = f.width;
+        buf_.keys.push_back(f.key);
+        buf_.values.insert(buf_.values.end(), f.values, f.values + f.width);
+    }
+private:
+    OutputBuffer& buf_;
+};
+
+// Owns the GraphSpec; builds and drives a fresh wired push-graph on each
+// run_batch() call (rebuild-per-run simplification — see file header).
+class CompiledGraph {
+public:
+    explicit CompiledGraph(GraphSpec spec) : spec_(std::move(spec)) {}
+
+    // in_* are per-input arrays (one entry per input, in signature order).
+    // Returns one OutputBuffer per output, in output_ids order.
+    std::vector<OutputBuffer> run_batch(
+            const std::vector<const std::int64_t*>& in_keys,
+            const std::vector<const double*>& in_vals,
+            const std::vector<std::size_t>& in_lens) {
+
+        const GraphSpec& spec = spec_;
+        std::size_t n          = spec.nodes.size();
+        std::size_t num_out    = spec.output_ids.size();
+        std::size_t num_in     = spec.input_ids.size();
+
+        // --- per-run output buffers -----------------------------------------
+        std::vector<OutputBuffer> outputs(num_out);
+        std::vector<std::unique_ptr<GatherSink>> gathers;
+        gathers.reserve(num_out);
+        for (auto& out : outputs)
+            gathers.push_back(std::make_unique<GatherSink>(out));
+
+        // --- build adjacency: consumers[i] = nodes that consume node i -------
+        std::vector<std::vector<std::size_t>> consumers(n);
+        for (std::size_t j = 0; j < n; ++j)
+            for (auto prod : spec.nodes[j].inputs)
+                consumers[prod].push_back(j);
+
+        // --- reverse-topological order via Kahn's (producers first → reverse) -
+        std::vector<int> in_deg(n, 0);
+        for (std::size_t j = 0; j < n; ++j)
+            in_deg[j] = static_cast<int>(spec.nodes[j].inputs.size());
+
+        std::vector<std::size_t> topo;
+        topo.reserve(n);
+        std::queue<std::size_t> q;
+        for (std::size_t i = 0; i < n; ++i) if (in_deg[i] == 0) q.push(i);
+        while (!q.empty()) {
+            auto id = q.front(); q.pop();
+            topo.push_back(id);
+            for (auto c : consumers[id]) if (--in_deg[c] == 0) q.push(c);
+        }
+        std::reverse(topo.begin(), topo.end()); // consumers first
+
+        // --- map output_id → which output indices it serves ------------------
+        std::vector<std::vector<std::size_t>> node_out_idx(n);
+        for (std::size_t o = 0; o < num_out; ++o)
+            node_out_idx[spec.output_ids[o]].push_back(o);
+
+        // --- map input node id → its signature index -------------------------
+        std::vector<std::size_t> input_sig(n, static_cast<std::size_t>(-1));
+        for (std::size_t idx = 0; idx < spec.input_ids.size(); ++idx)
+            input_sig[spec.input_ids[idx]] = idx;
+
+        // --- node_sink[i] = the Sink<> entry-point for node i ----------------
+        std::vector<Sink<std::int64_t>*> node_sink(n, nullptr);
+
+        // input_sinks[sig_idx] = downstream Sink for input with that index
+        std::vector<Sink<std::int64_t>*> input_sinks(num_in, nullptr);
+
+        // ownership of heap-allocated wiring objects (FunctorNodes, Broadcasts)
+        std::vector<std::shared_ptr<void>> owned;
+
+        // --- wire in reverse-topological order (consumers first) -------------
+        for (auto id : topo) {
+            const auto& ns = spec.nodes[id];
+
+            // Collect all immediate downstream sinks for this node.
+            std::vector<Sink<std::int64_t>*> ds;
+            for (auto c : consumers[id])
+                if (node_sink[c]) ds.push_back(node_sink[c]);
+            for (auto o : node_out_idx[id])
+                ds.push_back(gathers[o].get());
+
+            if (ds.empty())
+                throw std::runtime_error(
+                    "compile: node " + std::to_string(id) + " has no downstream");
+
+            // Fan-out via Broadcast when >1 downstream; direct otherwise.
+            Sink<std::int64_t>* downstream;
+            if (ds.size() == 1) {
+                downstream = ds[0];
+            } else {
+                auto bcast = std::make_shared<Broadcast<std::int64_t>>();
+                for (auto* s : ds) bcast->add(*s);
+                downstream = bcast.get();
+                owned.push_back(bcast); // keep alive
+            }
+
+            switch (ns.kind) {
+            case NodeKind::Input:
+                input_sinks[input_sig[id]] = downstream;
+                break;
+            case NodeKind::Functor: {
+                ns.op->reset();
+                auto fn = std::make_shared<FunctorNode<std::int64_t>>(*ns.op, *downstream);
+                node_sink[id] = fn.get();
+                owned.push_back(fn); // keep alive
+                break;
+            }
+            case NodeKind::CombineLatest:
+                // Task 3: not handled here.
+                throw std::runtime_error("compile: CombineLatest not yet supported");
+            }
+        }
+
+        // --- drive: merge all input streams, route events to their sinks -----
+        std::vector<std::unique_ptr<streams::VectorSource<std::int64_t>>> srcs;
+        std::vector<streams::Source<std::int64_t>*> child_ptrs;
+        srcs.reserve(num_in);
+        child_ptrs.reserve(num_in);
+        for (std::size_t i = 0; i < num_in; ++i) {
+            srcs.push_back(std::make_unique<streams::VectorSource<std::int64_t>>(
+                in_keys[i], in_vals[i], in_lens[i]));
+            child_ptrs.push_back(srcs.back().get());
+        }
+        streams::MergeSource<std::int64_t> merge(child_ptrs);
+
+        double one;
+        while (auto e = merge.next()) {
+            one = e->value;
+            Frame<std::int64_t> f{e->key, &one, 1};
+            input_sinks[e->source]->push(f);
+        }
+        for (auto* s : input_sinks) if (s) s->flush();
+
+        return outputs;
+    }
+
+private:
+    GraphSpec spec_;
+};
+
+// compile() is trivial: just wraps the spec. All wiring happens inside run_batch().
+inline CompiledGraph compile(const GraphSpec& spec) {
+    return CompiledGraph{spec};
+}
+
+}} // namespace screamer::dag
+#endif
