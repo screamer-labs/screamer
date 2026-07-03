@@ -196,6 +196,26 @@ public:
         for (auto& b  : outputs_)        { b.keys.clear(); b.values.clear(); b.width = 1; }
     }
 
+    // Routes a single width-1 event into the graph without resetting state.
+    // Bounds-checked: throws if input_idx >= num_in_.
+    void push_event(std::size_t input_idx, std::int64_t key, double value) {
+        if (input_idx >= num_in_)
+            throw std::runtime_error("push_event: input index out of range");
+        double v = value;
+        Frame<std::int64_t> f{key, &v, 1};
+        input_sinks_[input_idx]->push(f);
+    }
+
+    // Returns all OutputBuffers accumulated since the last drain()/reset(), then
+    // clears the buffers in-place so GatherSink references remain valid (the
+    // outputs_ vector is never reallocated; only the per-element keys/values are
+    // cleared).
+    std::vector<OutputBuffer> drain() {
+        std::vector<OutputBuffer> out = outputs_;   // deep copy
+        for (auto& b : outputs_) { b.keys.clear(); b.values.clear(); b.width = 1; }
+        return out;
+    }
+
     // in_* are per-input arrays (one entry per input, in signature order).
     // Returns one OutputBuffer per output, in output_ids order.
     std::vector<OutputBuffer> run_batch(

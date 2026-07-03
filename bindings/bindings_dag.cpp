@@ -105,6 +105,15 @@ static py::tuple marshal_gather(const std::vector<std::int64_t>& out_k,
     return py::make_tuple(rk, rv);
 }
 
+// Marshal a vector of OutputBuffers into a Python list of (keys_1d, values_2d).
+// Shared by _CompiledGraph.run_batch and _CompiledGraph.drain.
+static py::list marshal_output_buffers(const std::vector<dag::OutputBuffer>& outs) {
+    py::list result;
+    for (const auto& o : outs)
+        result.append(marshal_gather(o.keys, o.values, o.width));
+    return result;
+}
+
 static py::tuple run_combine_latest_batch(py::list key_arrays,
                                           py::list value_arrays,
                                           bool when_all) {
@@ -192,6 +201,27 @@ static py::tuple run_combine_latest_fanout(py::list key_arrays,
                           marshal_gather(out_k2, out_v2, n));
 }
 
+// Helper: marshal a list of (keys, values) feed tuples into raw C++ spans.
+// Fills ks/vs (keep-alive arrays), kp/vp (raw pointers), lens (lengths).
+static void marshal_feeds(
+        py::list feeds,
+        std::vector<py::array_t<std::int64_t>>& ks,
+        std::vector<py::array_t<double>>& vs,
+        std::vector<const std::int64_t*>& kp,
+        std::vector<const double*>& vp,
+        std::vector<std::size_t>& lens) {
+    for (auto item : feeds) {
+        auto t = py::cast<py::tuple>(item);
+        ks.push_back(py::cast<py::array_t<std::int64_t,
+                     py::array::c_style | py::array::forcecast>>(t[0]));
+        vs.push_back(py::cast<py::array_t<double,
+                     py::array::c_style | py::array::forcecast>>(t[1]));
+        kp.push_back(static_cast<const std::int64_t*>(ks.back().request().ptr));
+        vp.push_back(static_cast<const double*>(vs.back().request().ptr));
+        lens.push_back(static_cast<std::size_t>(vs.back().request().shape[0]));
+    }
+}
+
 void init_bindings_dag(py::module& m) {
     m.def("_run_functor_batch", &run_functor_batch,
           py::arg("op"), py::arg("keys"), py::arg("values"));
@@ -201,6 +231,41 @@ void init_bindings_dag(py::module& m) {
           py::arg("key_arrays"), py::arg("value_arrays"), py::arg("when_all"));
     m.def("_run_combine_latest_fanout", &run_combine_latest_fanout,
           py::arg("key_arrays"), py::arg("value_arrays"), py::arg("when_all"));
+
+    // Compiled graph wrapper: holds a persistent CompiledGraph plus op_refs so
+    // functor Python objects stay alive for the compiled graph's lifetime.
+    struct PyCompiledGraph {
+        std::unique_ptr<dag::CompiledGraph> cg;
+        std::vector<py::object> op_refs;  // keeps Python functor objects alive
+
+        void reset() { cg->reset(); }
+
+        void push_event(std::size_t input_idx, std::int64_t key, double value) {
+            cg->push_event(input_idx, key, value);
+        }
+
+        py::list drain() {
+            return marshal_output_buffers(cg->drain());
+        }
+
+        py::list run_batch(py::list feeds) {
+            std::vector<py::array_t<std::int64_t>> ks;
+            std::vector<py::array_t<double>> vs;
+            std::vector<const std::int64_t*> kp;
+            std::vector<const double*> vp;
+            std::vector<std::size_t> lens;
+            marshal_feeds(feeds, ks, vs, kp, vp, lens);
+            return marshal_output_buffers(cg->run_batch(kp, vp, lens));
+        }
+    };
+
+    // Register _CompiledGraph before _GraphBuilder so compile() return type is known.
+    py::class_<PyCompiledGraph>(m, "_CompiledGraph")
+        .def("reset",       &PyCompiledGraph::reset)
+        .def("push_event",  &PyCompiledGraph::push_event,
+             py::arg("input_idx"), py::arg("key"), py::arg("value"))
+        .def("drain",       &PyCompiledGraph::drain)
+        .def("run_batch",   &PyCompiledGraph::run_batch, py::arg("feeds"));
 
     // Python-facing GraphBuilder wrapper that keeps functor Python objects alive
     // for the lifetime of the builder (raw EvalOp* point into Python objects;
@@ -226,10 +291,20 @@ void init_bindings_dag(py::module& m) {
         }
 
         const dag::GraphSpec& spec() const { return builder.spec(); }
+
+        // Compile the accumulated spec into a persistent CompiledGraph.
+        // The returned _CompiledGraph also holds op_refs so functors stay alive.
+        PyCompiledGraph compile() {
+            PyCompiledGraph pcg;
+            pcg.cg = std::make_unique<dag::CompiledGraph>(builder.spec());
+            pcg.op_refs = op_refs;
+            return pcg;
+        }
     };
 
-    // DAG compiler: _GraphBuilder accumulates a GraphSpec; run_batch compiles
-    // and drives it fresh each call (rebuild-per-run, see compiled_graph.h).
+    // DAG compiler: _GraphBuilder accumulates a GraphSpec.
+    // run_batch compiles and drives it fresh each call (rebuild-per-run).
+    // compile() returns a persistent _CompiledGraph for streaming use.
     py::class_<PyGraphBuilder>(m, "_GraphBuilder")
         .def(py::init<>())
         .def("add_input", &PyGraphBuilder::add_input)
@@ -242,6 +317,7 @@ void init_bindings_dag(py::module& m) {
             return b.add_combine_latest(std::move(inputs), when_all);
         }, py::arg("inputs"), py::arg("when_all") = true)
         .def("set_outputs", &PyGraphBuilder::set_outputs, py::arg("output_ids"))
+        .def("compile", [](PyGraphBuilder& b) { return b.compile(); })
         .def("run_batch", [](PyGraphBuilder& b, py::list feeds) {
             // Marshal feeds (list of (keys, values) tuples) -> raw spans.
             std::vector<py::array_t<std::int64_t>> ks;
@@ -249,32 +325,9 @@ void init_bindings_dag(py::module& m) {
             std::vector<const std::int64_t*> kp;
             std::vector<const double*> vp;
             std::vector<std::size_t> lens;
-            for (auto item : feeds) {
-                auto t = py::cast<py::tuple>(item);
-                ks.push_back(py::cast<py::array_t<std::int64_t,
-                             py::array::c_style | py::array::forcecast>>(t[0]));
-                vs.push_back(py::cast<py::array_t<double,
-                             py::array::c_style | py::array::forcecast>>(t[1]));
-                kp.push_back(static_cast<const std::int64_t*>(ks.back().request().ptr));
-                vp.push_back(static_cast<const double*>(vs.back().request().ptr));
-                lens.push_back(static_cast<std::size_t>(vs.back().request().shape[0]));
-            }
+            marshal_feeds(feeds, ks, vs, kp, vp, lens);
             // Compile (stores spec) then run (builds + drives push-graph).
-            dag::CompiledGraph g = dag::compile(b.spec());
-            std::vector<dag::OutputBuffer> outs = g.run_batch(kp, vp, lens);
-            // Marshal OutputBuffers -> Python list of (keys_1d, values_2d) tuples.
-            py::list result;
-            for (auto& o : outs) {
-                std::size_t m = o.keys.size();
-                py::array_t<std::int64_t> ok(static_cast<py::ssize_t>(m));
-                if (m) std::memcpy(ok.request().ptr, o.keys.data(),
-                                   m * sizeof(std::int64_t));
-                py::array_t<double> ov({static_cast<py::ssize_t>(m),
-                                        static_cast<py::ssize_t>(o.width)});
-                if (m) std::memcpy(ov.request().ptr, o.values.data(),
-                                   o.values.size() * sizeof(double));
-                result.append(py::make_tuple(ok, ov));
-            }
-            return result;
+            dag::CompiledGraph g(b.spec());
+            return marshal_output_buffers(g.run_batch(kp, vp, lens));
         }, py::arg("feeds"));
 }
