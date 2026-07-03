@@ -16,18 +16,21 @@ bool is_async_generator(const py::object& obj);
 // Class representing the awaitable returned by __anext__
 class AnextAwaitable {
 public:
-    AnextAwaitable(py::object awaitable, ScreamerBase& processor);
+    AnextAwaitable(py::object awaitable, py::object processor);
     py::object __await__();
 
 private:
     py::object awaitable_;
-    ScreamerBase& processor_;
+    py::object processor_owner_;   // the functor's Python wrapper (kept alive)
 };
 
 // Class representing the async iterator
 class LazyAsyncIterator {
 public:
-    LazyAsyncIterator(py::object async_iterable, ScreamerBase& processor);
+    // `processor` is the functor's own Python wrapper; holding it keeps the
+    // functor alive across the whole async iteration, even when it is a
+    // transient (e.g. `RollingMean(5)(agen())`).
+    LazyAsyncIterator(py::object async_iterable, py::object processor);
 
     // __aiter__ method
     LazyAsyncIterator& __aiter__();
@@ -37,7 +40,7 @@ public:
 
 private:
     py::object async_iterator_;
-    ScreamerBase& processor_;
+    py::object processor_owner_;   // the functor's Python wrapper (kept alive)
 };
 
 } // namespace screamer

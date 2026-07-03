@@ -36,7 +36,6 @@ void init_bindings_core(py::module& m) {
         .def("__await__", &screamer::AnextAwaitable::__await__);
 
     py::class_<screamer::LazyAsyncIterator>(m, "LazyAsyncIterator")
-        .def(py::init<py::object, screamer::ScreamerBase&>())
         .def("__aiter__", &screamer::LazyAsyncIterator::__aiter__)
         .def("__anext__", &screamer::LazyAsyncIterator::__anext__);
 }

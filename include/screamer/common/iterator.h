@@ -10,8 +10,15 @@ namespace screamer {
 
 class LazyIterator {
 public:
-    LazyIterator(py::iterable iterable, ScreamerBase& processor)
-        : iterator_(py::iter(iterable)), processor_(processor) {}
+    // `processor` is the functor's own Python wrapper. Holding it keeps the
+    // functor alive for as long as this lazy iterator is consumed, even when
+    // the functor is a transient (e.g. `RollingMean(5)(gen())`). Without it the
+    // wrapper could be garbage-collected mid-iteration, leaving `processor_`
+    // dangling.
+    LazyIterator(py::iterable iterable, py::object processor)
+        : iterator_(py::iter(iterable)),
+          processor_owner_(std::move(processor)),
+          processor_(processor_owner_.cast<ScreamerBase&>()) {}
 
     // __iter__ method
     LazyIterator& __iter__() { return *this; }
@@ -34,6 +41,7 @@ public:
 
 private:
     py::iterator iterator_;
+    py::object processor_owner_;   // keeps the functor's Python wrapper alive
     ScreamerBase& processor_;
 };
 

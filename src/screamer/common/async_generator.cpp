@@ -1,5 +1,4 @@
 #include "screamer/common/async_generator.h"
-#include "screamer/common/base.h" // Include full definition of ScreamerBase
 #include <pybind11/functional.h>   // For py::cpp_function
 //#include <pybind11/async.h>        // For py::asyncio
 #include <pybind11/eval.h>
@@ -56,8 +55,9 @@ py::object Awaiter::__next__() {
 */
 
 // Implementation of AnextAwaitable
-AnextAwaitable::AnextAwaitable(py::object awaitable, ScreamerBase& processor)
-    : awaitable_(std::move(awaitable)), processor_(processor) {}
+AnextAwaitable::AnextAwaitable(py::object awaitable, py::object processor)
+    : awaitable_(std::move(awaitable)),
+      processor_owner_(std::move(processor)) {}
 
 py::object AnextAwaitable::__await__() {
     /*
@@ -76,7 +76,7 @@ async def process_awaitable(awaitable, processor):
     // Execute the code
     py::dict globals = py::globals();
     py::dict locals;
-    locals["processor"] = py::cast(&processor_, py::return_value_policy::reference);
+    locals["processor"] = processor_owner_;  // the functor's own Python wrapper
 
     py::exec(code, globals, locals);
 
@@ -93,8 +93,9 @@ async def process_awaitable(awaitable, processor):
 
 // Implementation of LazyAsyncIterator
 
-LazyAsyncIterator::LazyAsyncIterator(py::object async_iterable, ScreamerBase& processor)
-    : async_iterator_(async_iterable.attr("__aiter__")()), processor_(processor) {}
+LazyAsyncIterator::LazyAsyncIterator(py::object async_iterable, py::object processor)
+    : async_iterator_(async_iterable.attr("__aiter__")()),
+      processor_owner_(std::move(processor)) {}
 
 LazyAsyncIterator& LazyAsyncIterator::__aiter__() {
     return *this;
@@ -103,8 +104,9 @@ LazyAsyncIterator& LazyAsyncIterator::__aiter__() {
 py::object LazyAsyncIterator::__anext__() {
     // Get the next item from the async iterator
     py::object awaitable = async_iterator_.attr("__anext__")();
-    // Return an AnextAwaitable that will process the item
-    return py::cast(AnextAwaitable(std::move(awaitable), processor_));    
+    // Return an AnextAwaitable that will process the item. Pass the same
+    // functor wrapper so it too keeps the functor alive for the await.
+    return py::cast(AnextAwaitable(std::move(awaitable), processor_owner_));
 }
 
 } // namespace screamer

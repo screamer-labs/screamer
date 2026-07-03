@@ -35,12 +35,13 @@ py::object ScreamerBase::operator()(py::object obj) {
     }
 
     if (py::isinstance<py::iterable>(obj)) {
-        return py::cast(LazyIterator(obj.cast<py::iterable>(), *this));
+        // Pass our own Python wrapper so the lazy iterator keeps this functor
+        // alive while it is consumed (transient-functor safety).
+        return py::cast(LazyIterator(obj.cast<py::iterable>(), py::cast(this)));
     }
 
     if (is_async_generator(obj)) {
-        // std::cout << "we have an async_generator" << std::endl;
-        return py::cast(LazyAsyncIterator(obj, *this));
+        return py::cast(LazyAsyncIterator(obj, py::cast(this)));
     }
 
     if (is_dag_node(obj)) {
