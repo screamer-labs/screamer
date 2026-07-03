@@ -30,32 +30,6 @@ public:
 
     Sink<Key>& port(std::size_t i) { return ports_[i]; }
 
-    // Atomically updates all slots in `slot_list` with the given scalar value
-    // and emits at most once. For use when one upstream node drives multiple ports.
-    void on_multi_port(const std::vector<std::size_t>& slot_list, const Frame<Key>& f) {
-        assert(f.width == 1);
-        bool fire = false;
-        for (auto i : slot_list)
-            fire |= cl_.on_event(static_cast<std::uint32_t>(i), f.values[0]);
-        if (fire) {
-            const std::vector<double>& row = cl_.latest();
-            downstream_.push(Frame<Key>{f.key, row.data(), n_});
-        }
-    }
-
-    // Returns a Sink that calls on_multi_port(slot_list, f) on each push.
-    // Use when one upstream producer feeds this node at multiple slots.
-    std::unique_ptr<Sink<Key>> make_multi_port_sink(std::vector<std::size_t> slot_list) {
-        struct MultiSink : Sink<Key> {
-            CombineLatestNode& node;
-            std::vector<std::size_t> slots;
-            MultiSink(CombineLatestNode& n, std::vector<std::size_t> s)
-                : node(n), slots(std::move(s)) {}
-            void push(const Frame<Key>& f) override { node.on_multi_port(slots, f); }
-        };
-        return std::make_unique<MultiSink>(*this, std::move(slot_list));
-    }
-
 private:
     void on_port(std::size_t i, const Frame<Key>& f) {
         assert(f.width == 1);

@@ -128,10 +128,6 @@ public:
         // Input nodes have no node_input_sink entry (they are sources, not consumers).
         std::vector<std::function<Sink<std::int64_t>*(std::size_t)>> node_input_sink(n);
 
-        // combine_ptrs[i] is non-null iff node i is a CombineLatestNode.
-        // Used to call make_multi_port_sink when one producer feeds multiple slots.
-        std::vector<CombineLatestNode<std::int64_t>*> combine_ptrs(n, nullptr);
-
         // input_sinks[sig_idx] = downstream Sink for input with that index
         std::vector<Sink<std::int64_t>*> input_sinks(num_in, nullptr);
 
@@ -144,48 +140,21 @@ public:
             const auto& ns = spec.nodes[id];
 
             // Collect all immediate downstream sinks for this node (edge-aware).
-            // Group (c, slot) pairs by consumer ID first so that when one producer
-            // feeds the same CombineLatestNode at multiple slots, we use the atomic
-            // multi-port sink (emits exactly once per event) rather than separate
-            // port pushes (which would emit once per port push after warm-up).
+            // One entry per (consumer, slot) pair: a producer appearing at K slots
+            // of one CombineLatestNode contributes K separate port pushes, which is
+            // exactly what the batch oracle (combine_latest((x,x),(x,x))) produces.
             std::vector<Sink<std::int64_t>*> ds;
-            {
-                // Build ordered list of (consumer_id, [slots]) preserving insertion order.
-                std::vector<std::pair<std::size_t, std::vector<std::size_t>>> groups;
-                for (auto [c, slot] : consumers[id]) {
-                    if (!node_input_sink[c]) {
-                        // Fix 3: Input nodes are the only legitimate case for an
-                        // empty sink resolver (they are sources, not consumers).
-                        // A non-Input consumer with no resolver is a compiler bug.
-                        if (spec.nodes[c].kind != NodeKind::Input)
-                            throw std::runtime_error(
-                                "compile: internal error, unresolved consumer sink");
-                        continue;
-                    }
-                    bool found = false;
-                    for (auto& [gc, gs] : groups) {
-                        if (gc == c) { gs.push_back(slot); found = true; break; }
-                    }
-                    if (!found) groups.push_back({c, {slot}});
+            for (auto [c, slot] : consumers[id]) {
+                if (!node_input_sink[c]) {
+                    // Fix 3: Input nodes are the only legitimate case for an
+                    // empty sink resolver (they are sources, not consumers).
+                    // A non-Input consumer with no resolver is a compiler bug.
+                    if (spec.nodes[c].kind != NodeKind::Input)
+                        throw std::runtime_error(
+                            "compile: internal error, unresolved consumer sink");
+                    continue;
                 }
-                for (auto& [c, slots] : groups) {
-                    if (slots.size() == 1) {
-                        // Normal single-edge case.
-                        ds.push_back(node_input_sink[c](slots[0]));
-                    } else if (combine_ptrs[c]) {
-                        // Same producer → multiple slots of one CombineLatest:
-                        // use atomic multi-port sink to emit exactly once per event.
-                        auto ms = std::shared_ptr<Sink<std::int64_t>>(
-                            combine_ptrs[c]->make_multi_port_sink(slots));
-                        ds.push_back(ms.get());
-                        owned.push_back(ms);
-                    } else {
-                        // Same producer → multiple slots of a Functor (wide edge):
-                        // push once per slot (degenerate; Functor ignores slot).
-                        for (auto s : slots)
-                            ds.push_back(node_input_sink[c](s));
-                    }
-                }
+                ds.push_back(node_input_sink[c](slot));
             }
             for (auto o : node_out_idx[id])
                 ds.push_back(gathers[o].get());
@@ -226,7 +195,6 @@ public:
                 node_input_sink[id] = [ptr = cn.get()](std::size_t slot) -> Sink<std::int64_t>* {
                     return &ptr->port(slot);
                 };
-                combine_ptrs[id] = cn.get(); // for multi-slot sink creation
                 owned.push_back(cn); // keep alive (ports hold back-reference to node)
                 break;
             }
