@@ -20,7 +20,7 @@ void init_bindings_preprocessing(py::module& m) {
         .def("reset", &screamer::FillNa::reset, "Reset to the initial state.");
 
 
-     py::class_<screamer::Clip>(m, "Clip")
+     py::class_<screamer::Clip, screamer::ScreamerBase>(m, "Clip")
         .def(
           py::init<
                std::optional<double>,

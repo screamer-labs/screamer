@@ -88,7 +88,7 @@ void init_bindings_math(py::module& m) {
      // Stateless 2->1; pairs well with Sign / Relu / Sigmoid for
      // compact one-shot expressions (e.g. Sign . Linear2(1,-1,0) is
      // "is x > y").
-     py::class_<screamer::Linear2>(m, "Linear2")
+     py::class_<screamer::Linear2, screamer::EvalOp>(m, "Linear2")
         .def(py::init<double, double, double>(),
              py::arg("a") = 1.0, py::arg("b") = 1.0, py::arg("c") = 0.0)
         .def("__call__", &screamer::Linear2::handle_input)
@@ -169,12 +169,12 @@ void init_bindings_math(py::module& m) {
      // partly as primitives, partly as validation references for the
      // 2->2 polar conversions: Hypot(x, y) == Cart2Polar(x, y)[0],
      // Atan2(y, x) == Cart2Polar(x, y)[1].
-     py::class_<screamer::Hypot>(m, "Hypot")
+     py::class_<screamer::Hypot, screamer::EvalOp>(m, "Hypot")
         .def(py::init<>())
         .def("__call__", &screamer::Hypot::handle_input)
         .def("reset", &screamer::Hypot::reset, "Reset to the initial state.");
 
-     py::class_<screamer::Atan2>(m, "Atan2")
+     py::class_<screamer::Atan2, screamer::EvalOp>(m, "Atan2")
         .def(py::init<>())
         .def("__call__", &screamer::Atan2::handle_input)
         .def("reset", &screamer::Atan2::reset, "Reset to the initial state.");
@@ -184,7 +184,7 @@ void init_bindings_math(py::module& m) {
         .def("__call__", &screamer::Cart2Polar::handle_input)
         .def("reset", &screamer::Cart2Polar::reset, "Reset to the initial state.");
 
-     py::class_<screamer::Polar2Cart>(m, "Polar2Cart")
+     py::class_<screamer::Polar2Cart, screamer::EvalOp>(m, "Polar2Cart")
         .def(py::init<>())
         .def("__call__", &screamer::Polar2Cart::handle_input)
         .def("reset", &screamer::Polar2Cart::reset, "Reset to the initial state.");

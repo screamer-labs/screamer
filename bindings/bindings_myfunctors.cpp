@@ -3,6 +3,7 @@
 #include <pybind11/functional.h>
 #include <tuple>
 #include <iterator>
+#include "screamer/common/eval_op.h"
 #include "screamer/common/functor_iterator.h"
 #include "screamer/my_functors.h"
 
@@ -23,14 +24,14 @@ using namespace screamer;
 
 void init_bindings_myfunctors(py::module& m) {
 
-    py::class_<MyFunctor11>(m, "MyFunctor11")
+    py::class_<MyFunctor11, screamer::EvalOp>(m, "MyFunctor11")
         .def(py::init<>())
         .def("__call__", &MyFunctor11::handle_input)
         .def("reset", &MyFunctor11::reset, "Reset to the initial state.");
 
     bind_functor_iterator<MyFunctor11>(m, "MyFunctorIterator11");
 
-    py::class_<MyFunctor22>(m, "MyFunctor22")
+    py::class_<MyFunctor22, screamer::EvalOp>(m, "MyFunctor22")
         .def(py::init<>())
         .def("__call__", &MyFunctor22::handle_input)
         .def("reset", &MyFunctor22::reset, "Reset to the initial state.");

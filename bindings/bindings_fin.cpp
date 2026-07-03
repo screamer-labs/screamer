@@ -69,7 +69,7 @@ void init_bindings_fin(py::module& m) {
         .def("reset", &screamer::RollingCorr::reset, "Reset to the initial state.");
 
     // Rolling sample covariance of two streams.
-    py::class_<screamer::RollingCov>(m, "RollingCov")
+    py::class_<screamer::RollingCov, screamer::EvalOp>(m, "RollingCov")
         .def(py::init<int, const std::string&>(),
              py::arg("window_size") = 20,
              py::arg("start_policy") = "strict")
@@ -77,7 +77,7 @@ void init_bindings_fin(py::module& m) {
         .def("reset", &screamer::RollingCov::reset, "Reset to the initial state.");
 
     // Rolling regression slope of x on y: beta = cov(x, y) / var(y).
-    py::class_<screamer::RollingBeta>(m, "RollingBeta")
+    py::class_<screamer::RollingBeta, screamer::EvalOp>(m, "RollingBeta")
         .def(py::init<int, const std::string&>(),
              py::arg("window_size") = 20,
              py::arg("start_policy") = "strict")
@@ -86,7 +86,7 @@ void init_bindings_fin(py::module& m) {
 
     // Hedge-adjusted residual of x against y: spread = x - beta * y, with
     // beta computed exactly as in RollingBeta.
-    py::class_<screamer::RollingSpread>(m, "RollingSpread")
+    py::class_<screamer::RollingSpread, screamer::EvalOp>(m, "RollingSpread")
         .def(py::init<int, const std::string&>(),
              py::arg("window_size") = 20,
              py::arg("start_policy") = "strict")
@@ -124,7 +124,7 @@ void init_bindings_fin(py::module& m) {
         .def("__call__", &screamer::RollingSortino::operator(), py::arg("value"))
         .def("reset", &screamer::RollingSortino::reset, "Reset.");
 
-    py::class_<screamer::RollingInfoRatio>(m, "RollingInfoRatio")
+    py::class_<screamer::RollingInfoRatio, screamer::EvalOp>(m, "RollingInfoRatio")
         .def(py::init<int, double>(),
              py::arg("window_size") = 252,
              py::arg("periods_per_year") = 1.0)
@@ -144,14 +144,14 @@ void init_bindings_fin(py::module& m) {
         .def("reset", &screamer::RollingHitRate::reset, "Reset.");
 
     // ----- Regression-family additions -----
-    py::class_<screamer::RollingAlpha>(m, "RollingAlpha")
+    py::class_<screamer::RollingAlpha, screamer::EvalOp>(m, "RollingAlpha")
         .def(py::init<int, const std::string&>(),
              py::arg("window_size") = 20,
              py::arg("start_policy") = "strict")
         .def("__call__", &screamer::RollingAlpha::handle_input)
         .def("reset", &screamer::RollingAlpha::reset, "Reset.");
 
-    py::class_<screamer::RollingResidualStd>(m, "RollingResidualStd")
+    py::class_<screamer::RollingResidualStd, screamer::EvalOp>(m, "RollingResidualStd")
         .def(py::init<int, const std::string&>(),
              py::arg("window_size") = 20,
              py::arg("start_policy") = "strict")
@@ -160,7 +160,7 @@ void init_bindings_fin(py::module& m) {
 
     // 2 -> 4 OLS fit returning (slope, intercept, r_squared, stderr).
     // First 2->4 consumer of the N->M dispatcher (Plan E).
-    py::class_<screamer::RollingLinearRegression>(m, "RollingLinearRegression")
+    py::class_<screamer::RollingLinearRegression, screamer::EvalOp>(m, "RollingLinearRegression")
         .def(py::init<int, const std::string&>(),
              py::arg("window_size") = 20,
              py::arg("start_policy") = "strict")

@@ -235,7 +235,7 @@ void init_bindings_rolling(py::module& m) {
 
     // MACD: (macd, signal, histogram). 1->3 functor composing three
     // pandas adjust=True EMAs (our EwMean).
-    py::class_<screamer::MACD>(m, "MACD")
+    py::class_<screamer::MACD, screamer::EvalOp>(m, "MACD")
         .def(py::init<int, int, int>(),
             py::arg("fast") = 12,
             py::arg("slow") = 26,
@@ -244,7 +244,7 @@ void init_bindings_rolling(py::module& m) {
         .def("reset", &screamer::MACD::reset, "Reset to the initial state.");
 
     // WilliamsR: 3->1, takes (high, low, close), returns %R in [-100, 0].
-    py::class_<screamer::WilliamsR>(m, "WilliamsR")
+    py::class_<screamer::WilliamsR, screamer::EvalOp>(m, "WilliamsR")
         .def(py::init<int>(), py::arg("window_size") = 14)
         .def("__call__", &screamer::WilliamsR::handle_input)
         .def("reset", &screamer::WilliamsR::reset, "Reset to the initial state.");
@@ -252,7 +252,7 @@ void init_bindings_rolling(py::module& m) {
     // Stoch: 3->2, takes (high, low, close), returns (%K, %D). With
     // smooth_k=1 this is the "fast" stochastic (Lane's original);
     // with smooth_k>=2 it is the "slow" stochastic (talib.STOCH).
-    py::class_<screamer::Stoch>(m, "Stoch")
+    py::class_<screamer::Stoch, screamer::EvalOp>(m, "Stoch")
         .def(py::init<int, int, int>(),
             py::arg("fastk_period") = 14,
             py::arg("smooth_k") = 3,
@@ -269,20 +269,20 @@ void init_bindings_rolling(py::module& m) {
         .def("reset", &screamer::TRIX::reset, "Reset to the initial state.");
 
     // BOP: Balance of Power. 4 -> 1 on (open, high, low, close).
-    py::class_<screamer::BOP>(m, "BOP")
+    py::class_<screamer::BOP, screamer::EvalOp>(m, "BOP")
         .def(py::init<>())
         .def("__call__", &screamer::BOP::handle_input)
         .def("reset", &screamer::BOP::reset, "Reset to the initial state.");
 
     // CCI: Commodity Channel Index. 3 -> 1 on (high, low, close).
-    py::class_<screamer::CCI>(m, "CCI")
+    py::class_<screamer::CCI, screamer::EvalOp>(m, "CCI")
         .def(py::init<int>(), py::arg("window_size") = 14)
         .def("__call__", &screamer::CCI::handle_input)
         .def("reset", &screamer::CCI::reset, "Reset to the initial state.");
 
     // UltimateOscillator: 3 -> 1 on (high, low, close); weighted
     // average over three timeframes.
-    py::class_<screamer::UltimateOscillator>(m, "UltimateOscillator")
+    py::class_<screamer::UltimateOscillator, screamer::EvalOp>(m, "UltimateOscillator")
         .def(py::init<int, int, int>(),
             py::arg("period1") = 7,
             py::arg("period2") = 14,
@@ -293,7 +293,7 @@ void init_bindings_rolling(py::module& m) {
 
     // StochRSI: 1 -> 2; Stochastic of RSI. Default smooth_k=1 (fast,
     // matching TA-Lib's STOCHRSI); set smooth_k >= 2 for slow form.
-    py::class_<screamer::StochRSI>(m, "StochRSI")
+    py::class_<screamer::StochRSI, screamer::EvalOp>(m, "StochRSI")
         .def(py::init<int, int, int, int>(),
             py::arg("rsi_period") = 14,
             py::arg("stoch_period") = 14,
@@ -307,17 +307,17 @@ void init_bindings_rolling(py::module& m) {
     // *Var) form, in both Rolling and EW smoothing variants.
 
     // Parkinson (1980): H, L. 2 -> 1.
-    py::class_<screamer::RollingParkinsonVar>(m, "RollingParkinsonVar")
+    py::class_<screamer::RollingParkinsonVar, screamer::EvalOp>(m, "RollingParkinsonVar")
         .def(py::init<int>(), py::arg("window_size") = 20)
         .def("__call__", &screamer::RollingParkinsonVar::handle_input)
         .def("reset", &screamer::RollingParkinsonVar::reset, "Reset.");
 
-    py::class_<screamer::RollingParkinsonVol>(m, "RollingParkinsonVol")
+    py::class_<screamer::RollingParkinsonVol, screamer::EvalOp>(m, "RollingParkinsonVol")
         .def(py::init<int>(), py::arg("window_size") = 20)
         .def("__call__", &screamer::RollingParkinsonVol::handle_input)
         .def("reset", &screamer::RollingParkinsonVol::reset, "Reset.");
 
-    py::class_<screamer::EwParkinsonVar>(m, "EwParkinsonVar")
+    py::class_<screamer::EwParkinsonVar, screamer::EvalOp>(m, "EwParkinsonVar")
         .def(py::init<std::optional<double>, std::optional<double>,
                        std::optional<double>, std::optional<double>>(),
              py::arg("com") = std::nullopt, py::arg("span") = std::nullopt,
@@ -325,7 +325,7 @@ void init_bindings_rolling(py::module& m) {
         .def("__call__", &screamer::EwParkinsonVar::handle_input)
         .def("reset", &screamer::EwParkinsonVar::reset, "Reset.");
 
-    py::class_<screamer::EwParkinsonVol>(m, "EwParkinsonVol")
+    py::class_<screamer::EwParkinsonVol, screamer::EvalOp>(m, "EwParkinsonVol")
         .def(py::init<std::optional<double>, std::optional<double>,
                        std::optional<double>, std::optional<double>>(),
              py::arg("com") = std::nullopt, py::arg("span") = std::nullopt,
@@ -334,17 +334,17 @@ void init_bindings_rolling(py::module& m) {
         .def("reset", &screamer::EwParkinsonVol::reset, "Reset.");
 
     // Garman-Klass (1980): O, H, L, C. 4 -> 1.
-    py::class_<screamer::RollingGarmanKlassVar>(m, "RollingGarmanKlassVar")
+    py::class_<screamer::RollingGarmanKlassVar, screamer::EvalOp>(m, "RollingGarmanKlassVar")
         .def(py::init<int>(), py::arg("window_size") = 20)
         .def("__call__", &screamer::RollingGarmanKlassVar::handle_input)
         .def("reset", &screamer::RollingGarmanKlassVar::reset, "Reset.");
 
-    py::class_<screamer::RollingGarmanKlassVol>(m, "RollingGarmanKlassVol")
+    py::class_<screamer::RollingGarmanKlassVol, screamer::EvalOp>(m, "RollingGarmanKlassVol")
         .def(py::init<int>(), py::arg("window_size") = 20)
         .def("__call__", &screamer::RollingGarmanKlassVol::handle_input)
         .def("reset", &screamer::RollingGarmanKlassVol::reset, "Reset.");
 
-    py::class_<screamer::EwGarmanKlassVar>(m, "EwGarmanKlassVar")
+    py::class_<screamer::EwGarmanKlassVar, screamer::EvalOp>(m, "EwGarmanKlassVar")
         .def(py::init<std::optional<double>, std::optional<double>,
                        std::optional<double>, std::optional<double>>(),
              py::arg("com") = std::nullopt, py::arg("span") = std::nullopt,
@@ -352,7 +352,7 @@ void init_bindings_rolling(py::module& m) {
         .def("__call__", &screamer::EwGarmanKlassVar::handle_input)
         .def("reset", &screamer::EwGarmanKlassVar::reset, "Reset.");
 
-    py::class_<screamer::EwGarmanKlassVol>(m, "EwGarmanKlassVol")
+    py::class_<screamer::EwGarmanKlassVol, screamer::EvalOp>(m, "EwGarmanKlassVol")
         .def(py::init<std::optional<double>, std::optional<double>,
                        std::optional<double>, std::optional<double>>(),
              py::arg("com") = std::nullopt, py::arg("span") = std::nullopt,
@@ -361,17 +361,17 @@ void init_bindings_rolling(py::module& m) {
         .def("reset", &screamer::EwGarmanKlassVol::reset, "Reset.");
 
     // Rogers-Satchell (1991): O, H, L, C; drift-robust. 4 -> 1.
-    py::class_<screamer::RollingRogersSatchellVar>(m, "RollingRogersSatchellVar")
+    py::class_<screamer::RollingRogersSatchellVar, screamer::EvalOp>(m, "RollingRogersSatchellVar")
         .def(py::init<int>(), py::arg("window_size") = 20)
         .def("__call__", &screamer::RollingRogersSatchellVar::handle_input)
         .def("reset", &screamer::RollingRogersSatchellVar::reset, "Reset.");
 
-    py::class_<screamer::RollingRogersSatchellVol>(m, "RollingRogersSatchellVol")
+    py::class_<screamer::RollingRogersSatchellVol, screamer::EvalOp>(m, "RollingRogersSatchellVol")
         .def(py::init<int>(), py::arg("window_size") = 20)
         .def("__call__", &screamer::RollingRogersSatchellVol::handle_input)
         .def("reset", &screamer::RollingRogersSatchellVol::reset, "Reset.");
 
-    py::class_<screamer::EwRogersSatchellVar>(m, "EwRogersSatchellVar")
+    py::class_<screamer::EwRogersSatchellVar, screamer::EvalOp>(m, "EwRogersSatchellVar")
         .def(py::init<std::optional<double>, std::optional<double>,
                        std::optional<double>, std::optional<double>>(),
              py::arg("com") = std::nullopt, py::arg("span") = std::nullopt,
@@ -379,7 +379,7 @@ void init_bindings_rolling(py::module& m) {
         .def("__call__", &screamer::EwRogersSatchellVar::handle_input)
         .def("reset", &screamer::EwRogersSatchellVar::reset, "Reset.");
 
-    py::class_<screamer::EwRogersSatchellVol>(m, "EwRogersSatchellVol")
+    py::class_<screamer::EwRogersSatchellVol, screamer::EvalOp>(m, "EwRogersSatchellVol")
         .def(py::init<std::optional<double>, std::optional<double>,
                        std::optional<double>, std::optional<double>>(),
              py::arg("com") = std::nullopt, py::arg("span") = std::nullopt,
@@ -388,28 +388,28 @@ void init_bindings_rolling(py::module& m) {
         .def("reset", &screamer::EwRogersSatchellVol::reset, "Reset.");
 
     // TrueRange / ATR / NATR (Wilder family). 3 -> 1 on (high, low, close).
-    py::class_<screamer::TrueRange>(m, "TrueRange")
+    py::class_<screamer::TrueRange, screamer::EvalOp>(m, "TrueRange")
         .def(py::init<>())
         .def("__call__", &screamer::TrueRange::handle_input)
         .def("reset", &screamer::TrueRange::reset, "Reset to the initial state.");
 
-    py::class_<screamer::ATR>(m, "ATR")
+    py::class_<screamer::ATR, screamer::EvalOp>(m, "ATR")
         .def(py::init<int>(), py::arg("window_size") = 14)
         .def("__call__", &screamer::ATR::handle_input)
         .def("reset", &screamer::ATR::reset, "Reset to the initial state.");
 
-    py::class_<screamer::NATR>(m, "NATR")
+    py::class_<screamer::NATR, screamer::EvalOp>(m, "NATR")
         .def(py::init<int>(), py::arg("window_size") = 14)
         .def("__call__", &screamer::NATR::handle_input)
         .def("reset", &screamer::NATR::reset, "Reset to the initial state.");
 
     // Donchian / Keltner channels (envelope-style indicators).
-    py::class_<screamer::DonchianChannels>(m, "DonchianChannels")
+    py::class_<screamer::DonchianChannels, screamer::EvalOp>(m, "DonchianChannels")
         .def(py::init<int>(), py::arg("window_size") = 20)
         .def("__call__", &screamer::DonchianChannels::handle_input)
         .def("reset", &screamer::DonchianChannels::reset, "Reset.");
 
-    py::class_<screamer::KeltnerChannels>(m, "KeltnerChannels")
+    py::class_<screamer::KeltnerChannels, screamer::EvalOp>(m, "KeltnerChannels")
         .def(py::init<int, double>(),
              py::arg("window_size") = 20, py::arg("num_atr") = 2.0)
         .def("__call__", &screamer::KeltnerChannels::handle_input)
@@ -417,45 +417,45 @@ void init_bindings_rolling(py::module& m) {
 
     // Yang-Zhang volatility (the most efficient classical range-based
     // estimator; handles both drift and overnight gaps).
-    py::class_<screamer::RollingYangZhangVar>(m, "RollingYangZhangVar")
+    py::class_<screamer::RollingYangZhangVar, screamer::EvalOp>(m, "RollingYangZhangVar")
         .def(py::init<int>(), py::arg("window_size") = 20)
         .def("__call__", &screamer::RollingYangZhangVar::handle_input)
         .def("reset", &screamer::RollingYangZhangVar::reset, "Reset.");
 
-    py::class_<screamer::RollingYangZhangVol>(m, "RollingYangZhangVol")
+    py::class_<screamer::RollingYangZhangVol, screamer::EvalOp>(m, "RollingYangZhangVol")
         .def(py::init<int>(), py::arg("window_size") = 20)
         .def("__call__", &screamer::RollingYangZhangVol::handle_input)
         .def("reset", &screamer::RollingYangZhangVol::reset, "Reset.");
 
     // ADX (Wilder, 1978). 3 -> 3 on (high, low, close) returning
     // (plus_di, minus_di, adx). Match talib.PLUS_DI / MINUS_DI / ADX.
-    py::class_<screamer::ADX>(m, "ADX")
+    py::class_<screamer::ADX, screamer::EvalOp>(m, "ADX")
         .def(py::init<int>(), py::arg("window_size") = 14)
         .def("__call__", &screamer::ADX::handle_input)
         .def("reset", &screamer::ADX::reset, "Reset to the initial state.");
 
     // Volume-aware indicators.
-    py::class_<screamer::RollingVWAP>(m, "RollingVWAP")
+    py::class_<screamer::RollingVWAP, screamer::EvalOp>(m, "RollingVWAP")
         .def(py::init<int>(), py::arg("window_size") = 20)
         .def("__call__", &screamer::RollingVWAP::handle_input)
         .def("reset", &screamer::RollingVWAP::reset, "Reset.");
 
-    py::class_<screamer::OBV>(m, "OBV")
+    py::class_<screamer::OBV, screamer::EvalOp>(m, "OBV")
         .def(py::init<>())
         .def("__call__", &screamer::OBV::handle_input)
         .def("reset", &screamer::OBV::reset, "Reset.");
 
-    py::class_<screamer::AD>(m, "AD")
+    py::class_<screamer::AD, screamer::EvalOp>(m, "AD")
         .def(py::init<>())
         .def("__call__", &screamer::AD::handle_input)
         .def("reset", &screamer::AD::reset, "Reset.");
 
-    py::class_<screamer::ADOSC>(m, "ADOSC")
+    py::class_<screamer::ADOSC, screamer::EvalOp>(m, "ADOSC")
         .def(py::init<int, int>(), py::arg("fast") = 3, py::arg("slow") = 10)
         .def("__call__", &screamer::ADOSC::handle_input)
         .def("reset", &screamer::ADOSC::reset, "Reset.");
 
-    py::class_<screamer::MFI>(m, "MFI")
+    py::class_<screamer::MFI, screamer::EvalOp>(m, "MFI")
         .def(py::init<int>(), py::arg("window_size") = 14)
         .def("__call__", &screamer::MFI::handle_input)
         .def("reset", &screamer::MFI::reset, "Reset.");
@@ -506,7 +506,7 @@ void init_bindings_rolling(py::module& m) {
         .def("__call__", &screamer::RollingZscore::operator(), py::arg("value"))
         .def("reset", &screamer::RollingZscore::reset, "Reset to the initial state.");
 
-    py::class_<screamer::RollingPoly1>(m, "RollingPoly1")
+    py::class_<screamer::RollingPoly1, screamer::ScreamerBase>(m, "RollingPoly1")
         .def(py::init<int, int, const std::string&>(),
             py::arg("window_size") = 20,
             py::arg("derivative_order") = 0,
@@ -515,7 +515,7 @@ void init_bindings_rolling(py::module& m) {
         .def("reset", &screamer::RollingPoly1::reset, "Reset to the initial state.");
 
 
-    py::class_<screamer::RollingPoly2>(m, "RollingPoly2")
+    py::class_<screamer::RollingPoly2, screamer::ScreamerBase>(m, "RollingPoly2")
         .def(py::init<int, int, const std::string&>(),
             py::arg("window_size") = 20,
             py::arg("derivative_order") = 0,
@@ -524,7 +524,7 @@ void init_bindings_rolling(py::module& m) {
         .def("reset", &screamer::RollingPoly2::reset, "Reset to the initial state.");
 
 
-     py::class_<screamer::RollingSigmaClip>(m, "RollingSigmaClip")
+     py::class_<screamer::RollingSigmaClip, screamer::ScreamerBase>(m, "RollingSigmaClip")
         .def(py::init<int, std::optional<double>, std::optional<double>, std::optional<int>>(),
             py::arg("window_size") = 20,
             py::arg("lower") = std::nullopt,
@@ -535,7 +535,7 @@ void init_bindings_rolling(py::module& m) {
         .def("reset", &screamer::RollingSigmaClip::reset, "Reset to the initial state.");
 
 
-     py::class_<screamer::RollingOU>(m, "RollingOU")
+     py::class_<screamer::RollingOU, screamer::ScreamerBase>(m, "RollingOU")
         .def(py::init<int, std::optional<int>, const std::string&>(),
             py::arg("window_size") = 20,
             py::arg("output") = std::nullopt,
@@ -554,7 +554,7 @@ void init_bindings_rolling(py::module& m) {
     // RollingMinMax: 1 input, 2 outputs (min, max). Inherits from
     // FunctorBase<_, 1, 2>, NOT ScreamerBase. The dispatcher returns a
     // tuple per scalar call and an array of shape (..., 2) per batch.
-    py::class_<screamer::RollingMinMax>(m, "RollingMinMax")
+    py::class_<screamer::RollingMinMax, screamer::EvalOp>(m, "RollingMinMax")
         .def(py::init<int>(), py::arg("window_size") = 20)
         .def("__call__", &screamer::RollingMinMax::handle_input)
         .def("reset", &screamer::RollingMinMax::reset, "Reset to the initial state.");

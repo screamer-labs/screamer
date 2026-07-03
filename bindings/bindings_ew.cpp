@@ -1,6 +1,7 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h> // Required for std::optional support
 #include "screamer/common/base.h"
+#include "screamer/common/eval_op.h"
 #include "screamer/ew_mean.h"
 #include "screamer/ew_var.h"
 #include "screamer/ew_std.h"
@@ -136,7 +137,7 @@ void init_bindings_ew(py::module& m) {
      // 2-input EW pair statistics. Same com/span/halflife/alpha mutex as
      // the 1-input variants. Bias-corrected like EwVar (matches pandas
      // ewm(adjust=True, bias=False).cov / .corr).
-     py::class_<screamer::EwCov>(m, "EwCov")
+     py::class_<screamer::EwCov, screamer::EvalOp>(m, "EwCov")
         .def(
           py::init<
                std::optional<double>,
@@ -152,7 +153,7 @@ void init_bindings_ew(py::module& m) {
         .def("__call__", &screamer::EwCov::handle_input)
         .def("reset", &screamer::EwCov::reset, "Reset to the initial state.");
 
-     py::class_<screamer::EwCorr>(m, "EwCorr")
+     py::class_<screamer::EwCorr, screamer::EvalOp>(m, "EwCorr")
         .def(
           py::init<
                std::optional<double>,
@@ -168,7 +169,7 @@ void init_bindings_ew(py::module& m) {
         .def("__call__", &screamer::EwCorr::handle_input)
         .def("reset", &screamer::EwCorr::reset, "Reset to the initial state.");
 
-     py::class_<screamer::EwBeta>(m, "EwBeta")
+     py::class_<screamer::EwBeta, screamer::EvalOp>(m, "EwBeta")
         .def(
           py::init<
                std::optional<double>,
