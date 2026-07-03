@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 from screamer import RollingMean, Sub, Cart2Polar
 from screamer import screamer_bindings as _b
 
@@ -32,8 +33,5 @@ def test_engine_2in_2out_matches_eager():
 def test_engine_width_mismatch_raises():
     x = np.random.default_rng(4).standard_normal(10)          # width 1
     keys = np.arange(10, dtype=np.int64)
-    try:
+    with pytest.raises((RuntimeError, ValueError), match="width|num_inputs"):
         _b._run_functor_batch(Sub(), keys, x)                 # Sub needs width 2
-        assert False, "expected a width-mismatch error"
-    except Exception:
-        pass
