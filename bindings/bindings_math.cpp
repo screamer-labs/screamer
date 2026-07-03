@@ -1,11 +1,13 @@
 #include <pybind11/pybind11.h>
 #include "screamer/common/base.h"
 #include "screamer/common/transform.h"
+#include "screamer/common/eval_op.h"
 #include "screamer/transform_functions.h"
 #include "screamer/linear.h"
 #include "screamer/linear2.h"
 #include "screamer/power.h"
 #include "screamer/geometry.h"
+#include "screamer/arithmetic.h"
 
 namespace py = pybind11;
 
@@ -186,5 +188,25 @@ void init_bindings_math(py::module& m) {
         .def(py::init<>())
         .def("__call__", &screamer::Polar2Cart::handle_input)
         .def("reset", &screamer::Polar2Cart::reset, "Reset to the initial state.");
+
+     py::class_<screamer::Add, screamer::EvalOp>(m, "Add")
+        .def(py::init<>())
+        .def("__call__", &screamer::Add::handle_input)
+        .def("reset", &screamer::Add::reset, "Reset to the initial state.");
+
+     py::class_<screamer::Sub, screamer::EvalOp>(m, "Sub")
+        .def(py::init<>())
+        .def("__call__", &screamer::Sub::handle_input)
+        .def("reset", &screamer::Sub::reset, "Reset to the initial state.");
+
+     py::class_<screamer::Mul, screamer::EvalOp>(m, "Mul")
+        .def(py::init<>())
+        .def("__call__", &screamer::Mul::handle_input)
+        .def("reset", &screamer::Mul::reset, "Reset to the initial state.");
+
+     py::class_<screamer::Div, screamer::EvalOp>(m, "Div")
+        .def(py::init<>())
+        .def("__call__", &screamer::Div::handle_input)
+        .def("reset", &screamer::Div::reset, "Reset to the initial state.");
 
 }

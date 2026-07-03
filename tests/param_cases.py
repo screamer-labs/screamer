@@ -76,6 +76,8 @@ ew_classes = [cls for cls in screamer_classes
 _NO_ARG_AUTO_EXCLUDE = {
     # 2-input (FunctorBase<_, 2, _>) -- need two parallel arrays
     'Hypot', 'Atan2', 'Cart2Polar', 'Polar2Cart',
+    # binary arithmetic (FunctorBase<_, 2, 1>) -- tested in test_arithmetic.py
+    'Add', 'Sub', 'Mul', 'Div',
     # Stateful 2->2 demo functor (validated in tests/test_geometry.py)
     'MyFunctor22',
     # 4-input OHLC (FunctorBase<_, 4, 1>) -- tested in test_oscillators_hlc.py
