@@ -75,3 +75,19 @@ def test_compile_combine_then_functor_equals_eager():
     exp = RollingMean(10)(aligned[:, 0] - aligned[:, 1])
     np.testing.assert_array_equal(zk, keys)
     np.testing.assert_array_equal(zv.reshape(-1), exp)
+
+
+def test_compile_combine_same_input_twice():
+    from screamer import Sub
+    x = np.random.default_rng(9).standard_normal(40)
+    xk = np.arange(x.size, dtype=np.int64)
+    g = _b._GraphBuilder()
+    xi = g.add_input()
+    c = g.add_combine_latest([xi, xi], True)   # same producer at both slots
+    d = g.add_functor(Sub(), [c])              # x - x == 0
+    g.set_outputs([d])
+    (dk, dv), = g.run_batch([(xk, x)])
+    # combine_latest(x, x): both slots seen immediately; one row per event; Sub -> 0
+    assert dv.shape[0] == x.size               # exactly one row per input event, no duplicates
+    np.testing.assert_array_equal(dk, xk)
+    np.testing.assert_array_equal(dv.reshape(-1), np.zeros(x.size))

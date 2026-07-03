@@ -63,11 +63,19 @@ public:
         std::size_t num_out    = spec.output_ids.size();
         std::size_t num_in     = spec.input_ids.size();
 
-        // Fix 1: validate caller-supplied input-array count.
+        // Fix 1: validate caller-supplied input-array counts.
         if (in_keys.size() != num_in)
             throw std::runtime_error(
                 "run_batch: expected " + std::to_string(num_in) +
                 " input arrays, got " + std::to_string(in_keys.size()));
+        if (in_vals.size() != num_in)
+            throw std::runtime_error(
+                "run_batch: expected " + std::to_string(num_in) +
+                " value arrays, got " + std::to_string(in_vals.size()));
+        if (in_lens.size() != num_in)
+            throw std::runtime_error(
+                "run_batch: expected " + std::to_string(num_in) +
+                " length arrays, got " + std::to_string(in_lens.size()));
 
         // --- per-run output buffers -----------------------------------------
         std::vector<OutputBuffer> outputs(num_out);
@@ -76,11 +84,13 @@ public:
         for (auto& out : outputs)
             gathers.push_back(std::make_unique<GatherSink>(out));
 
-        // --- build adjacency: consumers[i] = nodes that consume node i -------
-        std::vector<std::vector<std::size_t>> consumers(n);
+        // --- build adjacency: consumers[i] = (consumer_id, slot) pairs for node i -------
+        // Edge-aware: one pair per edge, so a producer appearing at K slots of one
+        // consumer correctly contributes K pairs (one per slot), not K² entries.
+        std::vector<std::vector<std::pair<std::size_t,std::size_t>>> consumers(n);
         for (std::size_t j = 0; j < n; ++j)
-            for (auto prod : spec.nodes[j].inputs)
-                consumers[prod].push_back(j);
+            for (std::size_t k = 0; k < spec.nodes[j].inputs.size(); ++k)
+                consumers[spec.nodes[j].inputs[k]].push_back({j, k});
 
         // --- reverse-topological order via Kahn's (producers first → reverse) -
         std::vector<int> in_deg(n, 0);
@@ -94,7 +104,7 @@ public:
         while (!q.empty()) {
             auto id = q.front(); q.pop();
             topo.push_back(id);
-            for (auto c : consumers[id]) if (--in_deg[c] == 0) q.push(c);
+            for (auto [c, slot] : consumers[id]) if (--in_deg[c] == 0) q.push(c);
         }
         std::reverse(topo.begin(), topo.end()); // consumers first
 
@@ -118,6 +128,10 @@ public:
         // Input nodes have no node_input_sink entry (they are sources, not consumers).
         std::vector<std::function<Sink<std::int64_t>*(std::size_t)>> node_input_sink(n);
 
+        // combine_ptrs[i] is non-null iff node i is a CombineLatestNode.
+        // Used to call make_multi_port_sink when one producer feeds multiple slots.
+        std::vector<CombineLatestNode<std::int64_t>*> combine_ptrs(n, nullptr);
+
         // input_sinks[sig_idx] = downstream Sink for input with that index
         std::vector<Sink<std::int64_t>*> input_sinks(num_in, nullptr);
 
@@ -129,24 +143,49 @@ public:
         for (auto id : topo) {
             const auto& ns = spec.nodes[id];
 
-            // Collect all immediate downstream sinks for this node (slot-aware).
-            // For each consumer c of this node, find which slot(s) of c this node
-            // occupies and push the corresponding input_sink of c.
+            // Collect all immediate downstream sinks for this node (edge-aware).
+            // Group (c, slot) pairs by consumer ID first so that when one producer
+            // feeds the same CombineLatestNode at multiple slots, we use the atomic
+            // multi-port sink (emits exactly once per event) rather than separate
+            // port pushes (which would emit once per port push after warm-up).
             std::vector<Sink<std::int64_t>*> ds;
-            for (auto c : consumers[id]) {
-                if (!node_input_sink[c]) {
-                    // Fix 3: Input nodes are the only legitimate case for an
-                    // empty sink resolver (they are sources, not consumers).
-                    // A non-Input consumer with no resolver is a compiler bug.
-                    if (spec.nodes[c].kind != NodeKind::Input)
-                        throw std::runtime_error(
-                            "compile: internal error, unresolved consumer sink");
-                    continue;
+            {
+                // Build ordered list of (consumer_id, [slots]) preserving insertion order.
+                std::vector<std::pair<std::size_t, std::vector<std::size_t>>> groups;
+                for (auto [c, slot] : consumers[id]) {
+                    if (!node_input_sink[c]) {
+                        // Fix 3: Input nodes are the only legitimate case for an
+                        // empty sink resolver (they are sources, not consumers).
+                        // A non-Input consumer with no resolver is a compiler bug.
+                        if (spec.nodes[c].kind != NodeKind::Input)
+                            throw std::runtime_error(
+                                "compile: internal error, unresolved consumer sink");
+                        continue;
+                    }
+                    bool found = false;
+                    for (auto& [gc, gs] : groups) {
+                        if (gc == c) { gs.push_back(slot); found = true; break; }
+                    }
+                    if (!found) groups.push_back({c, {slot}});
                 }
-                const auto& cinputs = spec.nodes[c].inputs;
-                for (std::size_t k = 0; k < cinputs.size(); ++k)
-                    if (cinputs[k] == id)
-                        ds.push_back(node_input_sink[c](k));
+                for (auto& [c, slots] : groups) {
+                    if (slots.size() == 1) {
+                        // Normal single-edge case.
+                        ds.push_back(node_input_sink[c](slots[0]));
+                    } else if (combine_ptrs[c]) {
+                        // Same producer → multiple slots of one CombineLatest:
+                        // use atomic multi-port sink to emit exactly once per event.
+                        auto ms = std::shared_ptr<Sink<std::int64_t>>(
+                            combine_ptrs[c]->make_multi_port_sink(slots));
+                        ds.push_back(ms.get());
+                        owned.push_back(ms);
+                    } else {
+                        // Same producer → multiple slots of a Functor (wide edge):
+                        // push once per slot (degenerate; Functor ignores slot).
+                        for (auto s : slots)
+                            ds.push_back(node_input_sink[c](s));
+                    }
+                }
             }
             for (auto o : node_out_idx[id])
                 ds.push_back(gathers[o].get());
@@ -187,6 +226,7 @@ public:
                 node_input_sink[id] = [ptr = cn.get()](std::size_t slot) -> Sink<std::int64_t>* {
                     return &ptr->port(slot);
                 };
+                combine_ptrs[id] = cn.get(); // for multi-slot sink creation
                 owned.push_back(cn); // keep alive (ports hold back-reference to node)
                 break;
             }
