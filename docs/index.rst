@@ -135,6 +135,23 @@ For a step-by-step walkthrough see the :doc:`User Guide <usage>`.
 
 
 .. toctree::
+   :maxdepth: 1
+   :caption: Examples
+   :hidden:
+
+   notebooks/01-quickstart-polymorphic-api
+   notebooks/02-rolling-and-ew-statistics
+   notebooks/03-streaming-live-events
+   notebooks/04-financial-indicators
+   notebooks/05-nan-handling
+   notebooks/06-signal-processing
+   notebooks/07-aligning-async-streams
+   notebooks/08-replay-backtest-live
+   notebooks/09-stream-shaping
+   notebooks/10-computational-dag
+
+
+.. toctree::
    :maxdepth: 2
    :caption: Functions
    :hidden:
@@ -165,6 +182,7 @@ For a step-by-step walkthrough see the :doc:`User Guide <usage>`.
    polymorphic_api
    conventions
    nan_policy
+   multistream
 
 
 .. toctree::

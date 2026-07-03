@@ -28,20 +28,28 @@ extensions = [
     'sphinx.ext.mathjax',  # math rendering
     'sphinx.ext.viewcode',
     'sphinx_autodoc_typehints',  # capture type hints
-    'myst_parser',  # markdown
+    'myst_nb',  # markdown (via myst-parser) + .ipynb notebook rendering
     "matplotlib.sphinxext.plot_directive",  # include matplotlib plots
     "sphinx_plotly_directive",  # include plotly plots
     "sphinx_exec_code",  # execute python snippets in docs and show output
-    # 'nbsphinx' / 'nbsphinx_link' were configured here but never used (no
-    # .ipynb or .nblink files anywhere in docs/). nbsphinx_link 1.3.1 also
-    # calls docutils.utils.error_reporting which was removed in docutils
-    # 0.21, so it's effectively abandoned. Re-add when we actually have
-    # notebooks to render.
+    # myst-nb replaces the plain 'myst_parser' extension (it loads myst-parser
+    # itself, so listing both would conflict) and renders the
+    # docs/notebooks/*.ipynb demo notebooks. It supersedes the abandoned
+    # 'nbsphinx'/'nbsphinx_link' that were previously configured here.
 ]
 
 
 templates_path = ['_templates']
-exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
+exclude_patterns = [
+    '_build', 'Thumbs.db', '.DS_Store',
+    # Internal engineering artifacts under docs/ that are not public
+    # documentation: the superpowers specs/plans (design + implementation
+    # notes for contributors) and the notebooks' developer README (how to run
+    # the .ipynb suite locally). The notebooks themselves are published via the
+    # Examples toctree; only their README is excluded.
+    'superpowers/**',
+    'notebooks/README.md',
+]
 # Roadmap docs (ROADMAP_*.md) are now wired into the sidebar via a
 # Roadmap toctree section in index.rst.
 
@@ -54,8 +62,21 @@ myst_enable_extensions = [
 
 source_suffix = {
     '.rst': 'restructuredtext',
-    '.md': 'markdown',  # Ensure Markdown files are recognized
+    '.md': 'myst-nb',     # markdown, parsed by myst-nb (which wraps myst-parser)
+    '.ipynb': 'myst-nb',  # render Jupyter notebooks
 }
+
+# -----------------------------------------------------------------------------
+# myst-nb (notebook execution + rendering)
+# -----------------------------------------------------------------------------
+# The docs/notebooks/*.ipynb files are committed WITHOUT stored outputs, so
+# myst-nb executes them at build time and captures fresh outputs (plots,
+# printed values) — the same build-time-execution model that sphinx-exec-code
+# and sphinx-plotly-directive already use here. The notebooks are seeded and
+# deterministic, so output is stable across rebuilds.
+nb_execution_mode = "auto"          # execute notebooks that have no stored outputs
+nb_execution_timeout = 120          # seconds per notebook (generous; suite runs in ~10s)
+nb_execution_raise_on_error = True  # a broken notebook fails the docs build (docs stay honest)
 
 
 # -----------------------------------------------------------------------------
