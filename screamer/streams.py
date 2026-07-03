@@ -118,7 +118,12 @@ def combine_latest(*series, emit="when_all", func=None):
     applied per row (func(*row)) and (keys, reduced) is returned instead.
     """
     if any(is_node(s) for s in series):
-        return make_combinator_node(combine_latest, series, {"emit": emit, "func": func})
+        if func is not None:
+            raise ValueError(
+                "combine_latest(func=...) is not supported in a DAG graph "
+                "(graph ops are C++-only); apply a C++ functor to the aligned "
+                "output instead, e.g. Sub()(combine_latest(a, b))")
+        return make_combinator_node(combine_latest, series, {"emit": emit, "func": None})
     if emit not in ("when_all", "on_any"):
         raise ValueError('combine_latest: emit must be "when_all" or "on_any"')
     kind, norm_keys, norm_vals = _normalize_series(series, "combine_latest")

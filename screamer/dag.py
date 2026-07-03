@@ -69,6 +69,24 @@ def _as_stream(feed):
     return (np.arange(values.shape[0], dtype=np.int64), values)
 
 
+def _align_results(results, align_outputs):
+    """Boundary align: single stream for M==1; tuple of independent streams for
+    align_outputs=False; co-indexed tuple (combine_latest + one-row-per-key) for
+    align_outputs=True. Operates on already-computed (keys, values) output streams.
+    """
+    if len(results) == 1:
+        return results[0]
+    if not align_outputs:
+        return tuple(results)
+    from .streams import combine_latest
+    aligned_keys, aligned = combine_latest(*results, emit="when_all")
+    _, inv_idx = np.unique(aligned_keys[::-1], return_index=True)
+    last_idx = np.sort(len(aligned_keys) - 1 - inv_idx)
+    aligned_keys = aligned_keys[last_idx]
+    aligned = aligned[last_idx]
+    return tuple((aligned_keys, aligned[:, j]) for j in range(len(results)))
+
+
 def _reachable_inputs(outputs):
     """Return the set of Input Nodes reachable from the output nodes."""
     seen, stack, inputs = set(), list(outputs), []
@@ -149,51 +167,47 @@ class Dag:
             raise ValueError(f"declared inputs are unused by any output: {unused}")
         _check_stateful_safety(self.outputs)
         self._names = [n.op[1] for n in self.inputs]
+        self._cg, self._input_order = self._compile_cpp()
+
+    def _compile_cpp(self):
+        from . import screamer_bindings as _b
+        gb = _b._GraphBuilder()
+        ids = {}   # id(node) -> C++ node id
+
+        def build(node):
+            key = id(node)
+            if key in ids:
+                return ids[key]
+            op = node.op
+            if isinstance(op, tuple) and op[0] == "input":
+                nid = gb.add_input()
+            elif isinstance(op, tuple) and op[0] == "combinator":
+                fn, kwargs = op[1], op[2]
+                if getattr(fn, "__name__", "") != "combine_latest":
+                    raise ValueError(
+                        f"{fn.__name__} is not supported as a DAG graph node")
+                inp = [build(i) for i in node.inputs]
+                nid = gb.add_combine_latest(inp, kwargs.get("emit") == "when_all")
+            else:                                    # functor instance (EvalOp)
+                inp = [build(i) for i in node.inputs]
+                nid = gb.add_functor(op, inp)
+            ids[key] = nid
+            return nid
+
+        # build Input nodes first so their ids follow signature order
+        for n in self.inputs:
+            build(n)
+        out_ids = [build(o) for o in self.outputs]
+        gb.set_outputs(out_ids)
+        # map signature order -> the add_input order (they match: inputs built first)
+        return gb.compile(), list(self._names)
 
     def __call__(self, *args, **kwargs):
         feeds = self._bind_args(args, kwargs)
-        return self._run(feeds)          # implemented in Task 5
-
-    def _run(self, feeds):
-        memo = {}
-
-        def ev(node):
-            key = id(node)
-            if key in memo:
-                return memo[key]
-            op = node.op
-            if isinstance(op, tuple) and op[0] == "input":
-                result = _as_stream(feeds[op[1]])
-            elif isinstance(op, tuple) and op[0] == "combinator":
-                fn, kwargs = op[1], op[2]
-                result = fn(*[ev(i) for i in node.inputs], **kwargs)
-            else:                                   # functor instance
-                ins = [ev(i) for i in node.inputs]
-                out_keys = ins[0][0]
-                out_vals = op(*[v for (_, v) in ins])
-                result = (out_keys, out_vals)
-            memo[key] = result
-            return result
-
-        results = [ev(o) for o in self.outputs]
-        if len(results) == 1:
-            return results[0]
-        if not self.align_outputs:
-            return tuple(results)
-        # align_outputs: combine_latest the M outputs onto a shared key axis,
-        # then deduplicate to one row per unique key (last/most up-to-date value).
-        # combine_latest is imported lazily to avoid the streams→dag import cycle.
-        from .streams import combine_latest
-        aligned_keys, aligned = combine_latest(*results, emit="when_all")
-        # Keep only the last row for each unique key so that all outputs carry
-        # their final value at that key (forward-fill artefacts are dropped).
-        # combine_latest emits in non-decreasing key order, so index order == key order;
-        # sorting last-occurrence indices preserves key order.
-        _, inv_idx = np.unique(aligned_keys[::-1], return_index=True)
-        last_idx = np.sort(len(aligned_keys) - 1 - inv_idx)
-        aligned_keys = aligned_keys[last_idx]
-        aligned = aligned[last_idx]
-        return tuple((aligned_keys, aligned[:, j]) for j in range(len(results)))
+        streams = [_as_stream(feeds[nm]) for nm in self._input_order]
+        results = self._cg.run_batch(streams)      # M independent (keys, values2d)
+        results = [(k, v.reshape(-1) if v.shape[1] == 1 else v) for (k, v) in results]
+        return _align_results(results, self.align_outputs)
 
     def _bind_args(self, args, kwargs):
         if args and kwargs:
