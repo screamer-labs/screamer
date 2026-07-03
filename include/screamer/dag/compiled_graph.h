@@ -63,6 +63,12 @@ public:
         std::size_t num_out    = spec.output_ids.size();
         std::size_t num_in     = spec.input_ids.size();
 
+        // Fix 1: validate caller-supplied input-array count.
+        if (in_keys.size() != num_in)
+            throw std::runtime_error(
+                "run_batch: expected " + std::to_string(num_in) +
+                " input arrays, got " + std::to_string(in_keys.size()));
+
         // --- per-run output buffers -----------------------------------------
         std::vector<OutputBuffer> outputs(num_out);
         std::vector<std::unique_ptr<GatherSink>> gathers;
@@ -91,6 +97,10 @@ public:
             for (auto c : consumers[id]) if (--in_deg[c] == 0) q.push(c);
         }
         std::reverse(topo.begin(), topo.end()); // consumers first
+
+        // Fix 2: cycle detection — Kahn's sort omits nodes involved in cycles.
+        if (topo.size() != spec.nodes.size())
+            throw std::runtime_error("compile: graph has a cycle");
 
         // --- map output_id → which output indices it serves ------------------
         std::vector<std::vector<std::size_t>> node_out_idx(n);
@@ -124,7 +134,15 @@ public:
             // occupies and push the corresponding input_sink of c.
             std::vector<Sink<std::int64_t>*> ds;
             for (auto c : consumers[id]) {
-                if (!node_input_sink[c]) continue;
+                if (!node_input_sink[c]) {
+                    // Fix 3: Input nodes are the only legitimate case for an
+                    // empty sink resolver (they are sources, not consumers).
+                    // A non-Input consumer with no resolver is a compiler bug.
+                    if (spec.nodes[c].kind != NodeKind::Input)
+                        throw std::runtime_error(
+                            "compile: internal error, unresolved consumer sink");
+                    continue;
+                }
                 const auto& cinputs = spec.nodes[c].inputs;
                 for (std::size_t k = 0; k < cinputs.size(); ++k)
                     if (cinputs[k] == id)
