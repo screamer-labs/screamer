@@ -57,10 +57,10 @@ def test_undeclared_input_raises():
         Dag(inputs=[x, extra], outputs=[y])  # `extra` declared but unused
 
 
-def test_fanout_computes_once():
-    # The C++ engine evaluates each shared intermediate exactly once by graph
-    # construction. Verify this by checking numerical correctness: a stateful
-    # functor evaluated twice (or reset between uses) would produce wrong values.
+def test_fanout_wiring_correct():
+    # Verify that a shared intermediate correctly feeds both consumers with the
+    # same data (fan-out data-flow correctness). A stateful functor evaluated
+    # twice (or reset between uses) would produce wrong values.
     x = Input("x")
     shared = RollingMean(3)(x)          # one node, two consumers
     d = Diff(1)(shared)

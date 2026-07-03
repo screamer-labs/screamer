@@ -40,3 +40,13 @@ def test_functor_hook_multiple_nodes():
     n = RollingCorr(20)(a, b)           # two Node args -> Node with two inputs
     assert is_node(n)
     assert n.inputs == (a, b)
+
+
+def test_combine_latest_func_on_nodes_raises():
+    import pytest
+    a, b = Input("a"), Input("b")
+    with pytest.raises(ValueError):
+        combine_latest(a, b, func=lambda p, q: p - q)   # func not allowed in a graph
+    # func=None on nodes is still valid (alignment-only) — should NOT raise:
+    n = combine_latest(a, b, func=None)
+    assert is_node(n)
