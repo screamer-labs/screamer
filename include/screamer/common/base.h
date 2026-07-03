@@ -9,6 +9,7 @@
 #include <sstream>
 #include "screamer/common/cast_double.h"
 #include "screamer/common/async_generator.h"
+#include "screamer/common/eval_op.h"
 
 namespace py = pybind11;
 
@@ -19,11 +20,15 @@ bool is_dag_node(const py::object& obj);
 // Build a graph node from a callable `self` and its argument objects.
 py::object make_dag_functor_node(py::object self, py::object args_tuple);
 
-class ScreamerBase {
+class ScreamerBase : public EvalOp {
 public:
     virtual ~ScreamerBase() = default;
 
     virtual void reset() {}
+
+    std::size_t n_in() const override { return 1; }
+    std::size_t n_out() const override { return 1; }
+    void eval(const double* in, double* out) override { out[0] = process_scalar(in[0]); }
 
     py::object operator()(py::object obj);
 
