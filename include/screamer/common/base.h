@@ -14,6 +14,11 @@ namespace py = pybind11;
 
 namespace screamer {
 
+// Returns true if obj is a screamer.dag.Node (duck-typed: has is_node True).
+bool is_dag_node(const py::object& obj);
+// Build a graph node from a callable `self` and its argument objects.
+py::object make_dag_functor_node(py::object self, py::object args_tuple);
+
 class ScreamerBase {
 public:
     virtual ~ScreamerBase() = default;

@@ -10,6 +10,7 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/numpy.h>
 #include <iostream>
+#include "screamer/common/base.h"
 
 namespace screamer {
 
@@ -735,6 +736,12 @@ public:
     // Main dispatcher
     // ---------------------------------------------------------
     py::object handle_input(py::args args) {
+        for (auto a : args) {
+            if (screamer::is_dag_node(py::reinterpret_borrow<py::object>(a))) {
+                py::object self = py::cast(static_cast<Derived*>(this));
+                return screamer::make_dag_functor_node(self, py::cast<py::tuple>(args));
+            }
+        }
         if constexpr (N == 1) {
             if (args.size() != 1) {
                 throw py::type_error("Wrong number of in puts");

@@ -4,6 +4,16 @@
 
 namespace screamer {
 
+bool is_dag_node(const py::object& obj) {
+    return py::hasattr(obj, "is_node") &&
+           obj.attr("is_node").cast<bool>() == true;
+}
+
+py::object make_dag_functor_node(py::object self, py::object args_tuple) {
+    py::object mod = py::module_::import("screamer.dag");
+    return mod.attr("make_functor_node")(self, args_tuple);
+}
+
 py::object ScreamerBase::operator()(py::object obj) {
     if (can_cast_to_double(obj)) {
         double value = py::cast<double>(obj);
@@ -31,6 +41,11 @@ py::object ScreamerBase::operator()(py::object obj) {
     if (is_async_generator(obj)) {
         // std::cout << "we have an async_generator" << std::endl;
         return py::cast(LazyAsyncIterator(obj, *this));
+    }
+
+    if (is_dag_node(obj)) {
+        py::object self = py::cast(this);
+        return make_dag_functor_node(self, py::make_tuple(obj));
     }
 
     auto type_str = std::string(py::str(py::type::of(obj)));

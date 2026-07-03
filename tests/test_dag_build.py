@@ -26,3 +26,20 @@ def test_combinator_on_data_still_computes():
     keys, aligned = combine_latest(a, b)
     assert not is_node(keys)
     assert aligned.shape == (5, 2)  # 5 emissions: one per event, once both inputs are warm
+
+
+from screamer import RollingCorr
+
+
+def test_functor_hook_single_node():
+    a = Input("a")
+    n = RollingCorr(20)(a)              # one Node arg -> Node
+    assert is_node(n)
+    assert n.inputs == (a,)
+
+
+def test_functor_hook_multiple_nodes():
+    a, b = Input("a"), Input("b")
+    n = RollingCorr(20)(a, b)           # two Node args -> Node with two inputs
+    assert is_node(n)
+    assert n.inputs == (a, b)
