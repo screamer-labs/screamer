@@ -167,12 +167,14 @@ git commit -m "feat(core): EvalOp uniform op interface; ScreamerBase implements 
 
 **Files:**
 - Modify: `include/screamer/common/functor_base.h`
-- Modify: every `bindings/*.cpp` that binds a `FunctorBase`-derived functor
+- Modify: `bindings/bindings_rolling.cpp` (the 3 test functors only)
 - Test: `tests/test_evalop.py`
 
 **Interfaces:**
 - Consumes: `EvalOp` (Task 1).
-- Produces: `FunctorBase<_,N,M> : public EvalOp` with `n_in()=N`, `n_out()=M`, `eval` calling `call({in...})` and writing `M` outputs. Every N-input/M-output functor exposes `.num_inputs`/`.num_outputs`.
+- Produces: `FunctorBase<_,N,M> : public EvalOp` with `n_in()=N`, `n_out()=M`, `eval` calling `call({in...})` and writing `M` outputs (this C++ change makes **all** FunctorBase functors implement `EvalOp` at the C++ level). Three representative functors (`RollingCorr`, `Cart2Polar`, `BollingerBands`) are registered under `EvalOp` in pybind so the interface is test-covered.
+
+**SCOPE NOTE (de-risked):** the *bulk* pybind registration of all ~40 `FunctorBase` functors under `EvalOp` is **deferred to DAG-2b**, where the engine actually needs generic `py::cast<EvalOp*>` and each class can be classified correctly (some bare `py::class_<X>` bindings may be `ScreamerBase` functors that need `, ScreamerBase`, not `, EvalOp` — registering those under `EvalOp` would drop `process_scalar` exposure). DAG-2a only registers the 3 clearly-`FunctorBase` test functors, so it stays safe and focused.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -237,19 +239,21 @@ Add these overrides in the `public:` section (near `call`/`reset`; `reset` is al
 
 (`detail::write_tuple_to_memory` already exists in this file and is used by the numpy handlers.)
 
-- [ ] **Step 4: Register every `FunctorBase` functor under `EvalOp`**
+- [ ] **Step 4: Register the 3 test functors under `EvalOp`**
 
-Find every binding of a `FunctorBase`-derived functor — grep: `grep -rn "py::class_<screamer::" bindings/ | grep -v "ScreamerBase"`. These are the classes whose `py::class_<X>(...)` has **no** second (base) template argument (1-input functors already list `, ScreamerBase` and inherit `EvalOp` transitively — leave them). For each N-input/M-output functor (e.g. `RollingCorr`, `RollingCov`, `RollingBeta`, `RollingSpread`, `Cart2Polar`, `Polar2Cart`, `Hypot`, `Atan2`, `BollingerBands`, `RollingMinMax`, `MyFunctor11`, `MyFunctor22`, and any other with no bound base), change:
+Register ONLY the three functors the tests exercise (all unambiguously `FunctorBase`). They live in `bindings/bindings_rolling.cpp` (`RollingCorr`, `BollingerBands`) and `bindings/bindings_math.cpp` (`Cart2Polar`). Add `#include "screamer/common/eval_op.h"` to each file touched, and change the class binding to add the `EvalOp` base. For example:
 
-```cpp
-    py::class_<screamer::RollingCorr>(m, "RollingCorr")
-```
-to:
 ```cpp
     py::class_<screamer::RollingCorr, screamer::EvalOp>(m, "RollingCorr")
 ```
+```cpp
+    py::class_<screamer::BollingerBands, screamer::EvalOp>(m, "BollingerBands")
+```
+```cpp
+    py::class_<screamer::Cart2Polar, screamer::EvalOp>(m, "Cart2Polar")
+```
 
-Add `#include "screamer/common/eval_op.h"` to each binding file you touch. Do NOT change the 1-input functors (already `, ScreamerBase`).
+Do NOT touch any other functor bindings (bulk registration is deferred to DAG-2b, per the scope note). Do NOT change the 1-input functors (already `, ScreamerBase`).
 
 - [ ] **Step 5: Build and run**
 
@@ -410,7 +414,7 @@ git commit -m "feat(math): Add/Sub/Mul/Div binary functors (graph reduction voca
 - `EvalOp` interface (`n_in`/`n_out`/`eval`/`reset`) → Task 1 (`eval_op.h`). ✓
 - `ScreamerBase` implements it → Task 1; `FunctorBase` implements it → Task 2. ✓
 - `eval` defined via existing `process_scalar`/`call`; per-event equals batch (tested by `_eval_op` vs `__call__`) → Tasks 1–2. ✓
-- Graph can hold any functor behind one pointer → both bases derive `EvalOp`; all functors registered under it (Tasks 1–2) so `py::cast<EvalOp*>` works generically (used by the DAG-2b engine). ✓
+- Graph can hold any functor behind one pointer → both bases derive `EvalOp` at the C++ level (Tasks 1–2). Generic `py::cast<EvalOp*>` for *all* functors needs each bound under `EvalOp`; DAG-2a registers only the 3 test functors and **defers bulk registration to DAG-2b** (where per-class base classification is done safely). ✓ (partial by design)
 - Arithmetic functors `Add`/`Sub`/`Mul`/`Div` + reduction idiom → Task 3. ✓
 - Hot path untouched: `eval` is a new virtual called only by the engine/`_eval_op`, never by `operator()`/`handle_input` — no per-call cost on eager scalar/array paths. ✓ (Reviewer should confirm no eager path calls `eval`.)
 - Deferred (correctly absent): the graph repr/builder/compiler/drivers (DAG-2b), cardinality push-nodes (DAG-2c).
@@ -423,5 +427,5 @@ git commit -m "feat(math): Add/Sub/Mul/Div binary functors (graph reduction voca
 
 ## Follow-on
 
-- **DAG-2b** — the engine: C++ graph representation + builder, generalized `FunctorNode` driving an `EvalOp`, `CombineLatestNode`, fan-out, compiler, batch-replay + streaming drivers, `align_outputs`; thin `dag.py` cutover; DAG-1 `_run` → test oracle.
+- **DAG-2b** — the engine: **bulk-register all `FunctorBase` functors under `EvalOp`** (classify each bare `py::class_<X>` binding: `FunctorBase` → `, EvalOp`, any `ScreamerBase`-bound-bare → `, ScreamerBase`; full-suite guard); C++ graph representation + builder, generalized `FunctorNode` driving an `EvalOp`, `CombineLatestNode`, fan-out, compiler, batch-replay + streaming drivers, `align_outputs`; thin `dag.py` cutover; DAG-1 `_run` → test oracle.
 - **DAG-2c** (later) — `dropna`/`filter`/`split` as C++ push-nodes.
