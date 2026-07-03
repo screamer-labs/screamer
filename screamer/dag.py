@@ -1,5 +1,7 @@
 """Computational DAG definition: symbolic Node handles (DAG-1)."""
 
+import numpy as np
+
 __all__ = ["Node", "Input", "Dag"]
 
 
@@ -53,6 +55,18 @@ def make_functor_node(functor, args):
 def make_combinator_node(fn, node_args, kwargs):
     """Build a Node for a combinator applied to Node args."""
     return Node(("combinator", fn, kwargs), tuple(node_args))
+
+
+def _as_stream(feed):
+    """Normalize a feed to a (keys, values) stream tuple.
+
+    Accepts a bare value array (keys = row-number int64) or a
+    (keys, values) pair and returns the canonical (keys, values) form.
+    """
+    if isinstance(feed, tuple) and len(feed) == 2:
+        return feed
+    values = np.asarray(feed, dtype=np.float64)
+    return (np.arange(values.shape[0], dtype=np.int64), values)
 
 
 def _reachable_inputs(outputs):
@@ -114,6 +128,45 @@ class Dag:
     def __call__(self, *args, **kwargs):
         feeds = self._bind_args(args, kwargs)
         return self._run(feeds)          # implemented in Task 5
+
+    def _run(self, feeds):
+        memo = {}
+
+        def ev(node):
+            key = id(node)
+            if key in memo:
+                return memo[key]
+            op = node.op
+            if isinstance(op, tuple) and op[0] == "input":
+                result = _as_stream(feeds[op[1]])
+            elif isinstance(op, tuple) and op[0] == "combinator":
+                fn, kwargs = op[1], op[2]
+                result = fn(*[ev(i) for i in node.inputs], **kwargs)
+            else:                                   # functor instance
+                ins = [ev(i) for i in node.inputs]
+                out_keys = ins[0][0]
+                out_vals = op(*[v for (_, v) in ins])
+                result = (out_keys, out_vals)
+            memo[key] = result
+            return result
+
+        results = [ev(o) for o in self.outputs]
+        if len(results) == 1:
+            return results[0]
+        if not self.align_outputs:
+            return tuple(results)
+        # align_outputs: combine_latest the M outputs onto a shared key axis,
+        # then deduplicate to one row per unique key (last/most up-to-date value).
+        # combine_latest is imported lazily to avoid the streams→dag import cycle.
+        from .streams import combine_latest
+        aligned_keys, aligned = combine_latest(*results, emit="when_all")
+        # Keep only the last row for each unique key so that all outputs carry
+        # their final value at that key (forward-fill artefacts are dropped).
+        _, inv_idx = np.unique(aligned_keys[::-1], return_index=True)
+        last_idx = np.sort(len(aligned_keys) - 1 - inv_idx)
+        aligned_keys = aligned_keys[last_idx]
+        aligned = aligned[last_idx]
+        return tuple((aligned_keys, aligned[:, j]) for j in range(len(results)))
 
     def _bind_args(self, args, kwargs):
         if args and kwargs:

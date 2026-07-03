@@ -90,8 +90,9 @@ def get_module_classes(screamer_module):
 
 def get_module_public_classes(screamer_module):
     return [
-        cls for cls in get_module_classes(screamer_module) 
-        if cls not in ["ScreamerBase", "AnextAwaitable", "LazyAsyncIterator", "LazyIterator", "Awaiter"]
+        cls for cls in get_module_classes(screamer_module)
+        if cls not in ["ScreamerBase", "AnextAwaitable", "LazyAsyncIterator", "LazyIterator", "Awaiter",
+                       "Node", "Dag"]   # DAG graph-handle classes, not computation functors
     ]
 
 def get_baselines(base_name='Linear'):
