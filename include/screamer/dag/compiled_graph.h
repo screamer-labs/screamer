@@ -52,6 +52,13 @@ private:
 // implementation.
 class CompiledGraph {
 public:
+    // Non-copyable: nodes/gather-sinks hold raw pointers into this object's own
+    // members (outputs_, owned_). Move IS safe — std::vector move keeps element
+    // addresses (heap) unchanged and shared_ptr move doesn't relocate the pointee;
+    // compile() returns a prvalue so C++17 elides the move entirely.
+    CompiledGraph(const CompiledGraph&) = delete;
+    CompiledGraph& operator=(const CompiledGraph&) = delete;
+
     explicit CompiledGraph(GraphSpec spec) : spec_(std::move(spec)) {
         const GraphSpec& s = spec_;
         std::size_t n       = s.nodes.size();
@@ -186,7 +193,7 @@ public:
     void reset() {
         for (auto* op : reset_ops_)      op->reset();
         for (auto* c  : reset_combines_) c->reset();
-        for (auto& b  : outputs_)        { b.keys.clear(); b.values.clear(); }
+        for (auto& b  : outputs_)        { b.keys.clear(); b.values.clear(); b.width = 1; }
     }
 
     // in_* are per-input arrays (one entry per input, in signature order).
