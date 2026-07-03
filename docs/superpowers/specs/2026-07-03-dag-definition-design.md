@@ -25,8 +25,14 @@ rather than inventing a new execution engine: correctness first, speed later.
   type (scalar → compute, array → compute, iterator → `LazyIterator`). A
   symbolic `Node` joins that table: a functor or combinator called on a `Node`
   returns a `Node` instead of computing. No separate "graph mode."
-- **The DAG mirrors the library's polymorphism.** A compiled `Dag` is itself a
-  callable that behaves like a bigger functor: batch in → batch out.
+- **A `Dag` is a plain function.** A compiled `Dag` presents the same interface
+  as any other screamer callable: positional `N` inputs → `M` outputs (single
+  return for `M == 1`, tuple otherwise), the same per-slot input polymorphism,
+  and — because a `Dag` is itself graph-capable — it nests inside other DAGs. By
+  default it aligns its outputs (via `combine_latest`) so multiple returns are
+  co-indexed and equal-length, exactly like a multi-output functor; it is a
+  strict *superset* of a plain function, additionally accepting multi-clock
+  inputs the ordinary contract can't express.
 - **Definition is Python; execution reuses tested functions.** DAG-1 introduces
   essentially no new C++ (one dispatch hook + one small functor convention).
 - **Cross-mode identity is preserved for later.** DAG-2 will compile the *same*
@@ -90,11 +96,23 @@ A `Node` represents a stream and can fan out to many consumers. It is distinct
 from a `LazyIterator` (a runtime, single-consumer stream): a `Node` is a
 build-time definition.
 
-### `Dag(outputs={name: node}, inputs=None)`
-- Walks back from the output nodes to discover all reachable `Input` leaves —
-  **inputs are inferred**; `inputs=[...]` is optional, for validation/ordering.
+### `Dag(inputs=[...], outputs=[...], align_outputs=True)`
+A compiled `Dag` is a **positional N-input / M-output callable**, indistinguishable
+from a built-in `FunctorBase<_, N, M>` — that is the whole point (see "Component 4
+— the boundary"). Ordered lists define the signature (like Keras
+`Model(inputs=..., outputs=...)`):
+
+```python
+dag = Dag(inputs=[price_a, price_b], outputs=[z, spread])
+```
+
+- `inputs` is an ordered list of `Input` nodes → the positional parameter order.
+  (Their `name`s also enable keyword calls, a Python convenience.)
+- `outputs` is an ordered list of nodes → the positional return order.
 - Validates at construction (see Validation below).
-- Is itself callable (Component 4).
+- Is itself callable (Component 4) — and, because a `Dag` is graph-capable like
+  any op, it **composes**: pass `Node`s to a `Dag` and it builds a node, so a
+  `Dag` nests inside another `Dag`.
 
 ## Component 3 — graph building via the dispatch hook
 
@@ -112,65 +130,114 @@ build-time definition.
   a clear error, because functor state cannot be shared between graph positions.
   The inline idiom `MovingAverage(30)(x)` satisfies this naturally.
 
-## Component 4 — the batch executor
+## Component 4 — the boundary (a `Dag` behaves like a plain function)
 
-`dag(feeds)` where `feeds` is `{input_name: (keys, values)}` returns
-`{output_name: (keys, values)}` (an output backed by `combine_latest` returns
-`(keys, aligned)`).
+A compiled `Dag` presents the **same interface as any other screamer function**:
+positional `N` inputs in, `M` outputs out, with the same input polymorphism per
+slot.
 
-- Evaluate nodes in dependency order, **memoizing each node's result** so a
-  fan-out intermediate is computed exactly once and shared by all consumers.
-- Per node:
-  - **Input:** result = `feeds[name]`.
-  - **Functor node:** `k, v = eval(input)`; apply the functor to `v` (via the
-    `(T, N)` convention when the input is an aligned width-N stream feeding an
-    N-input functor); keys pass through → `(k, out)`.
-  - **Combinator node:** call the combinator on the inputs' `(keys, values)`
-    results with the recorded kwargs → its `(keys, values|aligned)` result.
-- Collect the outputs by name.
+```python
+out         = dag(sa)                       # 1 in, 1 out  -> single return
+z_s, spr_s  = dag(sa, sb)                   # N in, M out  -> tuple, unpackable
+z_s, spr_s  = dag(price_a=sa, price_b=sb)   # kwargs by Input name (Python bonus)
+```
 
+**Per-slot input.** Each input slot accepts what the combinators accept: a bare
+value array (row-number keys), a `(keys, values)` pair, a pandas Series
+(index = keys), or a `Node` (→ the `Dag` composes into a bigger graph). Feeding
+co-indexed inputs is exactly the ordinary N-input functor case; differently-
+clocked inputs are handled by explicit `combine_latest` **inside** the graph
+(alignment stays its own layer). A `Dag` is thus a strict **superset** of a plain
+function — it accepts everything a normal N-input functor does, plus multi-clock
+inputs the ordinary contract can't express.
+
+**Return shape — aligned by default.**
+- **`align_outputs=True` (default):** the `Dag` joins its `M` outputs with
+  `combine_latest` onto their common key axis (union of output keys,
+  `emit="when_all"` — the combinator's own default). The outputs become
+  **co-indexed and equal-length**, returned as one shared `keys` plus a stackable
+  `(T, M)` value block (single stream for `M == 1`). When the outputs are already
+  co-indexed (no internal `dropna`/`resample`), this join is a no-op. This makes
+  a `Dag` a drop-in `N→M` functor — the multiple returns are the same length,
+  matching every other multi-output function in the library.
+- **`align_outputs=False` (opt-out):** outputs are returned as a tuple of `M`
+  independent `(keys, values)` streams, possibly of different clocks/lengths —
+  for the advanced case where you deliberately want unaligned outputs.
+
+**Execution.** Evaluate nodes in dependency order, **memoizing each node's
+result** so a fan-out intermediate is computed exactly once and shared by all
+consumers. Per node:
+- **Input:** result = the fed stream for that positional/keyword slot.
+- **Functor node:** `k, v = eval(input)`; apply the functor to `v` (via the
+  `(T, N)` convention when an aligned width-`N` stream feeds an `N`-input
+  functor); keys pass through → `(k, out)`.
+- **Combinator node:** call the combinator on the inputs' `(keys, values)`
+  results with the recorded kwargs → its `(keys, values|aligned)` result.
+
+Then the output boundary applies the alignment above and returns single-or-tuple.
 Cycles are impossible by construction (nodes are built bottom-up, so a node's
 inputs always already exist).
 
 ## Validation
 
 At `Dag(...)` construction:
-- Every reachable `Input` is discovered and, if `inputs=` was given, matches it.
-- Output nodes are `Node`s and reachable.
+- Every `Input` reachable from the outputs appears in `inputs=` (and vice
+  versa) — a graph referencing an undeclared input, or declaring an unused one,
+  raises. `inputs`/`outputs` order defines the positional signature.
+- Output nodes are `Node`s and reachable from the declared inputs.
 - The stateful-safety rule holds (no functor instance backs two nodes).
 - Arity/width mismatches (e.g. a 2-input functor fed a width-3 aligned stream)
   surface from the underlying functions' own checks at execution, with the
   clearer messages from Component 1.
 
-At `dag(feeds)` call:
-- Every inferred input has a feed; missing/extra feeds raise a clear error.
+At `dag(...)` call:
+- The number of positional args equals `N` (or all inputs supplied by keyword
+  name); a wrong count / unknown keyword / missing input raises a clear error,
+  as a normal function would.
 
 ## Testing
 
 - **Equivalence:** a built DAG's batch output equals the hand-written expression
-  it encodes (e.g. `dag(...)["z"]` equals `RollingZscore(100)(MovingAverage(30)
+  it encodes (e.g. the `z` output equals `RollingZscore(100)(MovingAverage(30)
   (spread))` computed directly).
+- **Function-like boundary:** `dag(sa)` returns a single stream for `M == 1`;
+  `dag(sa, sb)` returns an unpackable tuple for `M > 1`; keyword calls
+  (`dag(price_a=sa, price_b=sb)`) match positional; wrong arg count / unknown
+  keyword raises like a normal function.
+- **Aligned outputs (default):** with `align_outputs=True`, two outputs where one
+  branch was `dropna`'d come back **co-indexed and equal-length** on the union
+  key axis (== `combine_latest` of the two outputs); already-co-indexed outputs
+  are unchanged. With `align_outputs=False`, the same DAG returns independent
+  streams of their natural lengths.
+- **Composition:** feeding a `Dag` into another `Dag` (Node args) builds a nested
+  node and evaluates identically to the inlined graph.
 - **Fan-out computes once:** an intermediate feeding two outputs is evaluated a
   single time (assert via a counting/spy op) and both consumers agree.
-- **Multi-output:** a DAG with several named outputs returns all of them.
 - **`(T, N)` convention:** `RollingCorr(20)(aligned)` equals
   `RollingCorr(20)(aligned[:,0], aligned[:,1])`; a wrong-width single array
   raises a clear error; `num_inputs` reports the right arity across the library.
 - **Stateful-safety:** reusing a functor instance across nodes raises.
-- **Validation:** missing feed, unknown output, instance-reuse all raise clearly.
+- **Validation:** undeclared/unused input, unreachable output, instance-reuse,
+  and wrong call arity all raise clearly.
 
 ## Implementation-plan decomposition
 
 Likely a single plan with these tasks: (1) the `(T, N)` input convention +
 `num_inputs` arity (C++ + docs); (2) `Node`/`Input` and the combinator
 Node-awareness; (3) the functor dispatch hook + `make_functor_node`; (4) `Dag`
-construction, input inference, and validation; (5) the memoized batch executor +
-equivalence/fan-out/multi-output tests.
+construction (ordered `inputs`/`outputs`), validation, and the positional/keyword
+call boundary incl. `align_outputs` default; (5) the memoized batch executor +
+equivalence / fan-out / multi-output / composition tests.
 
 ## Open decisions carried into planning
 
-- Final public names: `Node`, `Input`, `Dag`, `num_inputs` (working names).
+- Final public names: `Node`, `Input`, `Dag`, `num_inputs`, `align_outputs`
+  (working names).
 - Exact `Node` marker used by the C++ hook to recognize a graph handle (e.g. an
   `isinstance` check against the bound `Node` type vs a duck-typed attribute).
-- Whether `dag(feeds)` accepts bare value arrays (row-number keys) as a
-  convenience in addition to `(keys, values)` pairs.
+- Per-slot input forms accepted at call time — bare value array (row-number
+  keys), `(keys, values)` pair, pandas Series, iterator, `Node`; confirm the
+  full set and their detection order (mirrors the combinators' carrier
+  detection).
+- Output-alignment key axis + firing rule default (proposed: union of output
+  keys, `emit="when_all"`).
