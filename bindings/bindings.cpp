@@ -15,6 +15,7 @@ void init_bindings_fin(py::module& m);
 void init_bindings_misc(py::module& m);
 void init_bindings_myfunctors(py::module& m);
 void init_bindings_streams(py::module& m);
+void init_bindings_dag(py::module& m);
 
 PYBIND11_MODULE(screamer_bindings, m) {
     init_bindings_core(m);
@@ -27,4 +28,5 @@ PYBIND11_MODULE(screamer_bindings, m) {
     init_bindings_misc(m);
     init_bindings_myfunctors(m);
     init_bindings_streams(m);
+    init_bindings_dag(m);
 }
