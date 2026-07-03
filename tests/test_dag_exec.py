@@ -94,7 +94,7 @@ def test_align_outputs_default_coindexes_different_branches():
     # align_outputs=False leaves the branches at their natural (differing) lengths
     dag2 = Dag(inputs=[a, b, c], outputs=[ab, ac], align_outputs=False)
     out2 = dag2(ka, kb, kc)
-    assert out2[0][0].shape != out2[1][0].shape or out2[0][0].shape == out2[1][0].shape
+    assert out2[0][0].shape != out2[1][0].shape
 
 
 def test_reused_functor_instance_raises():

@@ -1,6 +1,6 @@
 import numpy as np
 from screamer.dag import Node, Input, is_node
-from screamer import combine_latest
+from screamer import combine_latest, RollingCorr
 
 
 def test_input_is_a_node():
@@ -26,9 +26,6 @@ def test_combinator_on_data_still_computes():
     keys, aligned = combine_latest(a, b)
     assert not is_node(keys)
     assert aligned.shape == (5, 2)  # 5 emissions: one per event, once both inputs are warm
-
-
-from screamer import RollingCorr
 
 
 def test_functor_hook_single_node():

@@ -97,18 +97,43 @@ def _check_stateful_safety(outputs):
             if id(op) in used:
                 raise ValueError(
                     "the same functor instance backs two nodes; construct a "
-                    "fresh functor per node (state cannot be shared)")
+                    "fresh functor per node (state cannot be shared); "
+                    f"offending node: {node!r}")
             used[id(op)] = node
         stack.extend(node.inputs)
 
 
 class Dag:
+    """A positional N-in / M-out callable that evaluates a computation graph.
+
+    Parameters
+    ----------
+    inputs : list[Node]
+        Ordered list of Input(...) nodes that define the call signature.
+        Feeds are bound positionally (or by name via keyword call).
+    outputs : list[Node]
+        Ordered list of output nodes to evaluate.
+    align_outputs : bool, default True
+        True  – co-index all M outputs onto a shared, sorted key axis.
+                 Each output carries its as-of value at every unique union key
+                 (combine_latest's per-event intermediate rows are collapsed to
+                 one row per key).  Returns a tuple of (keys, values) pairs of
+                 equal length.
+        False – return independent per-output streams; lengths may differ.
+
+    Calling
+    -------
+    dag(*feeds)  or  dag(**named_feeds)
+        Evaluate the graph.  Returns a single (keys, values) pair when M == 1,
+        or a tuple of (keys, values) pairs when M > 1.
+    """
+
     def __init__(self, inputs, outputs, align_outputs=True):
         self.inputs = list(inputs)
         self.outputs = list(outputs)
         self.align_outputs = align_outputs
         for n in self.inputs:
-            if not (isinstance(n.op, tuple) and n.op[0] == "input"):
+            if not is_node(n) or not (isinstance(n.op, tuple) and n.op[0] == "input"):
                 raise ValueError("every entry in inputs must be an Input(...) node")
         for n in self.outputs:
             if not is_node(n):
@@ -162,6 +187,8 @@ class Dag:
         aligned_keys, aligned = combine_latest(*results, emit="when_all")
         # Keep only the last row for each unique key so that all outputs carry
         # their final value at that key (forward-fill artefacts are dropped).
+        # combine_latest emits in non-decreasing key order, so index order == key order;
+        # sorting last-occurrence indices preserves key order.
         _, inv_idx = np.unique(aligned_keys[::-1], return_index=True)
         last_idx = np.sort(len(aligned_keys) - 1 - inv_idx)
         aligned_keys = aligned_keys[last_idx]

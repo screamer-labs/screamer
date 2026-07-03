@@ -193,7 +193,7 @@ reference example with `N = 2`.
 | `obj(X, Y)` -- `N` parallel N-D arrays `(T, J, K, ...)` | same shape; `J*K*...` independent paired streams |
 | `obj(X_view, Y_view)` -- strided views | works; result is contiguous |
 | `obj(x_iter, y_iter)` -- `N` parallel iterables | `list[float]` (advanced in lock-step until the first stops) |
-| `obj(A)` — a single 2-D array of shape `(T, N)` | `numpy.ndarray` of shape `(T,)` | the `N` columns are the `N` inputs; column `j` → input `j`. Accepted iff `A.shape[1] == N`; any other single-array shape is a `TypeError`/`ValueError`. |
+| `obj(A)` — a single 2-D array of shape `(T, N)` | `numpy.ndarray` of shape `(T,)` — the `N` columns are the `N` inputs; column `j` → input `j`. Accepted iff `A.shape[1] == N`; any other single-array shape is a `TypeError`/`ValueError`. |
 | Mismatched shapes or ndim across the `N` inputs | `TypeError` with a clear message |
 | Mixed kinds (one scalar + one array, etc.) | `TypeError` |
 
@@ -316,7 +316,7 @@ Functions that map `N` parallel input streams to `M` parallel output streams com
 | `N` parallel 1D arrays of shape `(T,)` | NumPy array of shape `(T, M)` |
 | `N` parallel 2D arrays of shape `(T, K)` | NumPy array of shape `(T, K, M)`; column `k` is `obj(X[:, k], Y[:, k])` (bit-exact) |
 | `N` parallel iterables | `list[tuple[float, ...]]` (eager) |
-| `obj(A)` — a single 2-D array of shape `(T, N)` | NumPy array of shape `(T, M)` | the `N` columns are the `N` inputs; column `j` → input `j`. Accepted iff `A.shape[1] == N`; any other single-array shape is a `TypeError`/`ValueError`. |
+| `obj(A)` — a single 2-D array of shape `(T, N)` | NumPy array of shape `(T, M)` — the `N` columns are the `N` inputs; column `j` → input `j`. Accepted iff `A.shape[1] == N`; any other single-array shape is a `TypeError`/`ValueError`. |
 
 The shape rule is exactly: `output.shape == single_input.shape + (M,)`. Mismatched shapes across the `N` inputs raise `TypeError`, same as `N → 1`. The dispatcher calls `reset()` between independent paired streams in a 2D/N-D batch, so stateful `N → M` functors don't leak state across columns.
 

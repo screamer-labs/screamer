@@ -66,14 +66,16 @@ namespace detail {
         write_tuple_helper(dest, t, std::make_index_sequence<kSize>{});
     }
 
-    // Extract column j (of N) from a contiguous-or-strided (T, N) array into a
-    // fresh 1-D array of length T. Used by the (T,N) single-array input form.
-    inline py::array_t<double> extract_column(const py::array_t<double>& arr,
-                                              size_t j, size_t T, size_t N) {
-        py::buffer_info info = arr.request();
-        const double* src = static_cast<const double*>(info.ptr);
-        std::ptrdiff_t row_stride = info.strides[0] / sizeof(double);
-        std::ptrdiff_t col_stride = info.strides[1] / sizeof(double);
+    // Build a 1-D column array from a raw source pointer and pre-divided strides.
+    // src        – start of the whole 2-D buffer
+    // row_stride – elements between successive rows    (strides[0] / itemsize)
+    // col_stride – elements between successive columns (strides[1] / itemsize)
+    // j          – column index to extract
+    // T          – number of rows
+    inline py::array_t<double> extract_column(const double* src,
+                                              std::ptrdiff_t row_stride,
+                                              std::ptrdiff_t col_stride,
+                                              size_t j, size_t T) {
         py::array_t<double> col(static_cast<py::ssize_t>(T));
         double* dst = static_cast<double*>(col.request().ptr);
         for (size_t i = 0; i < T; ++i) {
@@ -85,6 +87,7 @@ namespace detail {
     // If args is a single 2-D (T, N) numpy array, return a tuple of its N
     // columns as 1-D arrays; otherwise return an empty optional. Enforces the
     // exact-width match (shape[1] == N); a mismatched width throws a clear error.
+    // The buffer is requested exactly once; column extraction reuses that info.
     template <size_t N>
     inline std::optional<py::tuple> maybe_split_TxN(const py::args& args) {
         if (args.size() != 1 || !py::isinstance<py::array>(args[0])) {
@@ -104,9 +107,12 @@ namespace detail {
                 " columns. Pass an (T, " + std::to_string(N) + ") array or " +
                 std::to_string(N) + " separate arrays.");
         }
+        const double* src = static_cast<const double*>(info.ptr);
+        std::ptrdiff_t row_stride = info.strides[0] / info.itemsize;
+        std::ptrdiff_t col_stride = info.strides[1] / info.itemsize;
         py::tuple cols(N);
         for (size_t j = 0; j < N; ++j) {
-            cols[j] = extract_column(arr, j, T, N);
+            cols[j] = extract_column(src, row_stride, col_stride, j, T);
         }
         return cols;
     }
