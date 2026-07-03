@@ -1,6 +1,6 @@
 """Computational DAG definition: symbolic Node handles (DAG-1)."""
 
-__all__ = ["Node", "Input", "is_node", "make_functor_node", "make_combinator_node"]
+__all__ = ["Node", "Input", "Dag"]
 
 
 class Node:
@@ -25,9 +25,10 @@ class Node:
     def __repr__(self):
         if isinstance(self.op, tuple) and self.op and self.op[0] == "input":
             return f"Input({self.op[1]!r})"
-        name = getattr(type(self.op), "__name__", type(self.op).__name__)
         if isinstance(self.op, tuple) and self.op and self.op[0] == "combinator":
             name = self.op[1].__name__
+        else:
+            name = type(self.op).__name__
         return f"Node({name}, {len(self.inputs)} input(s))"
 
 
