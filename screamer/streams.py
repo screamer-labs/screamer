@@ -134,7 +134,7 @@ def _normalize_streams(streams, who):
     Raises ValueError if streams is empty, TypeError if key types differ.
     """
     if not streams:
-        raise ValueError(f"{who}: needs at least one series")
+        raise ValueError(f"{who}: needs at least one stream")
     kinds = set()
     norm_keys, norm_vals = [], []
     for keys, values in streams:
@@ -143,7 +143,7 @@ def _normalize_streams(streams, who):
         norm_keys.append(k)
         norm_vals.append(np.ascontiguousarray(values, dtype=np.float64))
     if len(kinds) != 1:
-        raise TypeError(f"{who}: all series must share one key type (all int/datetime or all float)")
+        raise TypeError(f"{who}: all streams must share one index type (all int/datetime or all float)")
     return kinds.pop(), norm_keys, norm_vals
 
 
@@ -176,9 +176,9 @@ def merge_iter(*streams):
         yield event
 
 
-def _merge_events(*series):
-    """Return a list of (key, value, source) tuples from merge_iter (test helper)."""
-    return list(merge_iter(*series))
+def _merge_events(*streams):
+    """Return a list of (value, index, source) tuples from merge_iter (test helper)."""
+    return list(merge_iter(*streams))
 
 
 def combine_latest(*streams, emit="when_all", func=None):

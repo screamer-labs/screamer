@@ -110,7 +110,7 @@ static py::tuple marshal_gather(const std::vector<std::int64_t>& out_k,
 static py::list marshal_output_buffers(const std::vector<dag::OutputBuffer>& outs) {
     py::list result;
     for (const auto& o : outs)
-        result.append(marshal_gather(o.keys, o.values, o.width));
+        result.append(marshal_gather(o.indices, o.values, o.width));
     return result;
 }
 

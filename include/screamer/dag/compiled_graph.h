@@ -31,7 +31,7 @@ namespace screamer { namespace dag {
 
 // One output stream gathered during a batch run.
 struct OutputBuffer {
-    std::vector<std::int64_t> keys;
+    std::vector<std::int64_t> indices;
     std::vector<double> values;   // row-major, width columns per row
     std::size_t width = 1;
 };
@@ -42,7 +42,7 @@ public:
     explicit GatherSink(OutputBuffer& buf) : buf_(buf) {}
     void push(const Frame<std::int64_t>& f) override {
         buf_.width = f.width;
-        buf_.keys.push_back(f.index);
+        buf_.indices.push_back(f.index);
         buf_.values.insert(buf_.values.end(), f.values, f.values + f.width);
     }
 private:
@@ -242,7 +242,7 @@ public:
         for (auto* c  : reset_combines_) c->reset();
         for (auto* r  : reset_resamples_) r->reset();
         for (std::size_t o = 0; o < outputs_.size(); ++o) {
-            outputs_[o].keys.clear();
+            outputs_[o].indices.clear();
             outputs_[o].values.clear();
             outputs_[o].width = output_widths_[o];
         }
@@ -266,12 +266,12 @@ public:
 
     // Returns all OutputBuffers accumulated since the last drain()/reset(), then
     // clears the buffers in-place so GatherSink references remain valid (the
-    // outputs_ vector is never reallocated; only the per-element keys/values are
+    // outputs_ vector is never reallocated; only the per-element indices/values are
     // cleared).
     std::vector<OutputBuffer> drain() {
         std::vector<OutputBuffer> out = outputs_;   // deep copy
         for (std::size_t o = 0; o < outputs_.size(); ++o) {
-            outputs_[o].keys.clear();
+            outputs_[o].indices.clear();
             outputs_[o].values.clear();
             outputs_[o].width = output_widths_[o];
         }
@@ -281,15 +281,15 @@ public:
     // in_* are per-input arrays (one entry per input, in signature order).
     // Returns one OutputBuffer per output, in output_ids order.
     std::vector<OutputBuffer> run_batch(
-            const std::vector<const std::int64_t*>& in_keys,
+            const std::vector<const std::int64_t*>& in_indices,
             const std::vector<const double*>& in_vals,
             const std::vector<std::size_t>& in_lens) {
 
         // Validate caller-supplied input-array counts.
-        if (in_keys.size() != num_in_)
+        if (in_indices.size() != num_in_)
             throw std::runtime_error(
                 "run_batch: expected " + std::to_string(num_in_) +
-                " input arrays, got " + std::to_string(in_keys.size()));
+                " input arrays, got " + std::to_string(in_indices.size()));
         if (in_vals.size() != num_in_)
             throw std::runtime_error(
                 "run_batch: expected " + std::to_string(num_in_) +
@@ -309,7 +309,7 @@ public:
         child_ptrs.reserve(num_in_);
         for (std::size_t i = 0; i < num_in_; ++i) {
             srcs.push_back(std::make_unique<streams::VectorSource<std::int64_t>>(
-                in_keys[i], in_vals[i], in_lens[i]));
+                in_indices[i], in_vals[i], in_lens[i]));
             child_ptrs.push_back(srcs.back().get());
         }
         streams::MergeSource<std::int64_t> merge(child_ptrs);
