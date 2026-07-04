@@ -1,15 +1,20 @@
 import numpy as np
-from screamer import streams, RollingCorr
+from screamer import RollingCorr
+from screamer.streams import combine_latest, combine_latest_iter
 
 
-def _ref_combine_latest(series, when_all):
-    """Reference as-of join: merge by (key, source), carry last value per source."""
+def _ref_combine_latest(streams, when_all):
+    """Independent as-of join reference, coalesced to one row per distinct index.
+
+    streams: list of (index_array, value_array). Returns (values, index) matching
+    the new combine_latest contract (one row per distinct index).
+    """
     events = []
-    for i, (k, v) in enumerate(series):
+    for i, (k, v) in enumerate(streams):
         for kk, vv in zip(np.asarray(k), np.asarray(v)):
             events.append((kk, i, float(vv)))
-    events.sort(key=lambda e: (e[0], e[1]))          # stable: key then source
-    n = len(series)
+    events.sort(key=lambda e: (e[0], e[1]))          # index then source
+    n = len(streams)
     latest = [np.nan] * n
     seen = [False] * n
     out_k, out_rows = [], []
@@ -22,104 +27,87 @@ def _ref_combine_latest(series, when_all):
         out_rows.append(list(latest))
     keys = np.array(out_k)
     rows = np.array(out_rows, dtype=np.float64).reshape(len(out_k), n)
-    return keys, rows
+    if len(keys):                                    # coalesce: last row per index
+        keep = np.empty(len(keys), dtype=bool)
+        keep[:-1] = keys[:-1] != keys[1:]
+        keep[-1] = True
+        keys, rows = keys[keep], rows[keep]
+    return rows, keys
 
 
 def test_combine_latest_when_all_default():
-    a_k = np.array([1, 3, 5], dtype=np.int64)
-    a_v = np.array([10.0, 30.0, 50.0])
-    b_k = np.array([2, 4], dtype=np.int64)
-    b_v = np.array([20.0, 40.0])
-    got_k, got_a = streams.combine_latest((a_k, a_v), (b_k, b_v))   # default when_all
-    exp_k, exp_a = _ref_combine_latest([(a_k, a_v), (b_k, b_v)], when_all=True)
-    np.testing.assert_array_equal(got_k, exp_k)
-    np.testing.assert_array_equal(got_a, exp_a)
+    ta = np.array([1, 3, 5], dtype=np.int64); a = np.array([10.0, 30.0, 50.0])
+    tb = np.array([2, 4], dtype=np.int64);     b = np.array([20.0, 40.0])
+    got_v, got_i = combine_latest(a, b, index=[ta, tb])
+    exp_v, exp_i = _ref_combine_latest([(ta, a), (tb, b)], when_all=True)
+    np.testing.assert_array_equal(got_i, exp_i)
+    np.testing.assert_array_equal(got_v, exp_v)
 
 
 def test_combine_latest_on_any_warmup_is_nan():
-    a_k = np.array([1, 3, 5], dtype=np.int64)
-    a_v = np.array([10.0, 30.0, 50.0])
-    b_k = np.array([2, 4], dtype=np.int64)
-    b_v = np.array([20.0, 40.0])
-    got_k, got_a = streams.combine_latest((a_k, a_v), (b_k, b_v), emit="on_any")
-    exp_k, exp_a = _ref_combine_latest([(a_k, a_v), (b_k, b_v)], when_all=False)
-    np.testing.assert_array_equal(got_k, exp_k)
-    np.testing.assert_array_equal(got_a, exp_a)         # first row has NaN for b
+    ta = np.array([1, 3, 5], dtype=np.int64); a = np.array([10.0, 30.0, 50.0])
+    tb = np.array([2, 4], dtype=np.int64);     b = np.array([20.0, 40.0])
+    got_v, got_i = combine_latest(a, b, index=[ta, tb], emit="on_any")
+    exp_v, exp_i = _ref_combine_latest([(ta, a), (tb, b)], when_all=False)
+    np.testing.assert_array_equal(got_i, exp_i)
+    np.testing.assert_array_equal(got_v, exp_v)       # first row has NaN for b
 
 
-def test_combine_latest_float_keys_three_series():
+def test_combine_latest_float_index_three_streams():
     rng = np.random.default_rng(3)
-    series = []
+    idx, vals = [], []
     for _ in range(3):
-        k = np.sort(rng.uniform(0, 100, size=40))
-        v = rng.standard_normal(40)
-        series.append((k, v))
-    got_k, got_a = streams.combine_latest(*series)
-    exp_k, exp_a = _ref_combine_latest(series, when_all=True)
-    np.testing.assert_array_equal(got_k, exp_k)
-    np.testing.assert_array_equal(got_a, exp_a)
+        idx.append(np.sort(rng.uniform(0, 100, size=40)))
+        vals.append(rng.standard_normal(40))
+    got_v, got_i = combine_latest(*vals, index=idx)
+    exp_v, exp_i = _ref_combine_latest(list(zip(idx, vals)), when_all=True)
+    np.testing.assert_array_equal(got_i, exp_i)
+    np.testing.assert_array_equal(got_v, exp_v)
 
 
 def test_combine_latest_iter_matches_batch_identity():
     rng = np.random.default_rng(9)
-    series = []
+    idx, vals = [], []
     for _ in range(3):
-        k = np.sort(rng.integers(0, 500, size=120)).astype(np.int64)
-        v = rng.standard_normal(120)
-        series.append((k, v))
-
-    bk, ba = streams.combine_latest(*series)                       # batch
-    events = list(streams.combine_latest_iter(*series))            # streaming pull
-
-    got_k = np.array([e[0] for e in events], dtype=np.int64)
-    got_a = np.array([list(e[1]) for e in events], dtype=np.float64).reshape(len(events), 3)
-    np.testing.assert_array_equal(got_k, bk)
-    np.testing.assert_array_equal(got_a, ba)
+        idx.append(np.sort(rng.integers(0, 500, size=120)).astype(np.int64))
+        vals.append(rng.standard_normal(120))
+    bv, bi = combine_latest(*vals, index=idx)                      # batch (coalesced)
+    events = list(combine_latest_iter(*vals, index=idx))           # streaming (coalesced)
+    got_i = np.array([e[1] for e in events], dtype=np.int64)
+    got_v = np.array([list(e[0]) for e in events], dtype=np.float64).reshape(len(events), 3)
+    np.testing.assert_array_equal(got_i, bi)
+    np.testing.assert_array_equal(got_v, bv)
 
 
-def test_combine_latest_iter_on_any_identity():
-    a_k = np.array([1, 4], dtype=np.int64); a_v = np.array([1.0, 4.0])
-    b_k = np.array([2, 3], dtype=np.int64); b_v = np.array([2.0, 3.0])
-    bk, ba = streams.combine_latest((a_k, a_v), (b_k, b_v), emit="on_any")
-    events = list(streams.combine_latest_iter((a_k, a_v), (b_k, b_v), emit="on_any"))
-    got_k = np.array([e[0] for e in events], dtype=np.int64)
-    got_a = np.array([list(e[1]) for e in events], dtype=np.float64).reshape(len(events), 2)
-    np.testing.assert_array_equal(got_k, bk)
-    np.testing.assert_array_equal(got_a, ba)      # NaN warmup identical across modes
-
-
-def test_rollingcorr_over_combine_latest():
-    # Two async series -> align -> feed existing 2-input functor unchanged.
-    # Verify combine_latest's alignment against the independent numpy reference,
-    # both run THROUGH RollingCorr (alignment -> computation end to end).
-    rng = np.random.default_rng(21)
-    a_k = np.sort(rng.integers(0, 2000, size=300)).astype(np.int64)
-    a_v = rng.standard_normal(300)
-    b_k = np.sort(rng.integers(0, 2000, size=250)).astype(np.int64)
-    b_v = rng.standard_normal(250)
-
-    keys, aligned = streams.combine_latest((a_k, a_v), (b_k, b_v))   # when_all
-    ref_keys, ref_aligned = _ref_combine_latest([(a_k, a_v), (b_k, b_v)], when_all=True)
-
-    # combine_latest's aligned output must match the reference exactly...
-    np.testing.assert_array_equal(keys, ref_keys)
-    np.testing.assert_array_equal(aligned, ref_aligned)
-    assert aligned.shape[1] == 2
-
-    # ...and the idiom (existing functor over the aligned columns, untouched)
-    # produces the same result whether fed screamer's or the reference's columns.
-    got = RollingCorr(20)(np.ascontiguousarray(aligned[:, 0]),
-                          np.ascontiguousarray(aligned[:, 1]))
-    exp = RollingCorr(20)(np.ascontiguousarray(ref_aligned[:, 0]),
-                          np.ascontiguousarray(ref_aligned[:, 1]))
-    np.testing.assert_array_equal(got, exp)
-    assert got.shape[0] == keys.shape[0]
+def test_combine_latest_iter_positional():
+    # positional streams -> lockstep, iter yields (row, None) per position
+    a = np.array([10.0, 20.0, 30.0]); b = np.array([1.0, 2.0, 3.0])
+    events = list(combine_latest_iter(a, b))
+    assert all(idx is None for _, idx in events)
+    got = np.array([list(row) for row, _ in events])
+    bv, bi = combine_latest(a, b)
+    assert bi is None
+    np.testing.assert_array_equal(got, bv)
 
 
 def test_combine_latest_func_reducer_spread():
-    a_k = np.array([1, 3, 5], dtype=np.int64); a_v = np.array([10.0, 30.0, 50.0])
-    b_k = np.array([2, 4], dtype=np.int64);     b_v = np.array([20.0, 40.0])
-    keys, spread = streams.combine_latest((a_k, a_v), (b_k, b_v),
-                                          func=lambda a, b: a - b)
-    _, aligned = streams.combine_latest((a_k, a_v), (b_k, b_v))
+    ta = np.array([1, 3, 5], dtype=np.int64); a = np.array([10.0, 30.0, 50.0])
+    tb = np.array([2, 4], dtype=np.int64);     b = np.array([20.0, 40.0])
+    spread, _ = combine_latest(a, b, index=[ta, tb], func=lambda x, y: x - y)
+    aligned, _ = combine_latest(a, b, index=[ta, tb])
     np.testing.assert_array_equal(spread, aligned[:, 0] - aligned[:, 1])
+
+
+def test_rollingcorr_over_combine_latest():
+    # align two async streams, feed the aligned columns to a 2-input functor.
+    rng = np.random.default_rng(21)
+    ta = np.sort(rng.integers(0, 2000, size=300)).astype(np.int64); a = rng.standard_normal(300)
+    tb = np.sort(rng.integers(0, 2000, size=250)).astype(np.int64); b = rng.standard_normal(250)
+    aligned, idx = combine_latest(a, b, index=[ta, tb])
+    ref_v, ref_i = _ref_combine_latest([(ta, a), (tb, b)], when_all=True)
+    np.testing.assert_array_equal(idx, ref_i)
+    np.testing.assert_array_equal(aligned, ref_v)
+    assert aligned.shape[1] == 2
+    got = RollingCorr(20)(np.ascontiguousarray(aligned[:, 0]),
+                          np.ascontiguousarray(aligned[:, 1]))
+    assert got.shape[0] == idx.shape[0]
