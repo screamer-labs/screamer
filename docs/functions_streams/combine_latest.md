@@ -34,5 +34,5 @@ index 4 into a single row.
 ```
 
 Index 4 has one event from each stream; they coalesce into a single row
-`[40.0, 4.0]` instead of two. The aligned columns feed any single-series
+`[40.0, 4.0]` instead of two. The aligned columns feed any single-stream
 functor, e.g. `RollingCorr(20)(aligned[:, 0], aligned[:, 1])`.

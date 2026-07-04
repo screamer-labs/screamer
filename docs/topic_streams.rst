@@ -1,10 +1,10 @@
 Stream Processing
 =================
 
-Combinators for streams that do not tick together: align them, reshape them,
-downsample them, and replay them. Unlike the single-series compute functors
+Stream operators for streams that do not tick together: align them, reshape them,
+downsample them, and replay them. Unlike the single-stream compute functors
 (which preserve length), these change the shape or cardinality of a stream. See
-:doc:`Streams, keys, and alignment <multistream>` for the underlying model.
+:doc:`Streams, values, and alignment <multistream>` for the underlying model.
 
 .. toctree::
    :maxdepth: 1

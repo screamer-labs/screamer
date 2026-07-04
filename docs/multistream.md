@@ -1,6 +1,6 @@
 # Streams, values, and alignment
 
-screamer's single-series functors (`RollingMean`, `RollingCorr`, ...) assume
+screamer's single-stream functors (`RollingMean`, `RollingCorr`, ...) assume
 lockstep alignment: row `i` of one input pairs with row `i` of another. Real
 multi-stream data breaks that assumption - feeds tick at different rates, arrive
 out of step, and drop samples. The `screamer.streams` module adds a small,
@@ -117,7 +117,7 @@ is itself the streaming/replay driver.)
 
 ## See also
 
-- [Polymorphic API](polymorphic_api.md) - the single-series input/output
+- [Polymorphic API](polymorphic_api.md) - the single-stream input/output
   contract; lockstep is the positional (no-index) special case of this page.
 - [NaN policy](nan_policy.md) - how compute functors treat `NaN`; `ffill` is the
   same forward-fill carry that `combine_latest` uses.

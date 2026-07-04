@@ -17,104 +17,104 @@ namespace py = pybind11;
 using namespace screamer;
 using namespace screamer::streams;
 
-template <class Key>
+template <class Index>
 static py::object run_chain(std::vector<ScreamerBase*> fns,
-                           py::array_t<Key> keys,
+                           py::array_t<Index> index,
                            py::array_t<double> values,
-                           bool return_keys) {
+                           bool return_index) {
     auto vinfo = values.request();
-    auto kinfo = keys.request();
+    auto kinfo = index.request();
     if (kinfo.shape[0] < vinfo.shape[0]) {
-        throw std::runtime_error("run_chain: keys array is shorter than values array");
+        throw std::runtime_error("run_chain: index array is shorter than values array");
     }
     std::size_t n = static_cast<std::size_t>(vinfo.shape[0]);
-    const Key* kptr = static_cast<const Key*>(kinfo.ptr);
+    const Index* kptr = static_cast<const Index*>(kinfo.ptr);
     const double* vptr = static_cast<const double*>(vinfo.ptr);
 
     py::array_t<double> out_v(n);
     double* ov = static_cast<double*>(out_v.request().ptr);
 
     // Wire the functor chain in front of the chosen terminal sink.
-    auto drive = [&](Sink<Key>& terminal) {
-        Sink<Key>* downstream = &terminal;
-        std::vector<std::unique_ptr<FunctorNode<Key>>> nodes;
+    auto drive = [&](Sink<Index>& terminal) {
+        Sink<Index>* downstream = &terminal;
+        std::vector<std::unique_ptr<FunctorNode<Index>>> nodes;
         for (auto it = fns.rbegin(); it != fns.rend(); ++it) {
             (*it)->reset();
-            nodes.push_back(std::make_unique<FunctorNode<Key>>(**it, *downstream));
+            nodes.push_back(std::make_unique<FunctorNode<Index>>(**it, *downstream));
             downstream = nodes.back().get();
         }
-        VectorSource<Key> src(kptr, vptr, n);
-        run_batch<Key>(src, *downstream);
+        VectorSource<Index> src(kptr, vptr, n);
+        run_batch<Index>(src, *downstream);
         for (auto* f : fns) f->reset();
     };
 
-    if (return_keys) {
-        py::array_t<Key> out_k(n);
-        Key* ok = static_cast<Key*>(out_k.request().ptr);
-        CollectorSink<Key> collector(ok, ov);
+    if (return_index) {
+        py::array_t<Index> out_k(n);
+        Index* ok = static_cast<Index*>(out_k.request().ptr);
+        CollectorSink<Index> collector(ok, ov);
         drive(collector);
         return py::make_tuple(out_k, out_v);
     }
-    ValueCollectorSink<Key> collector(ov);
+    ValueCollectorSink<Index> collector(ov);
     drive(collector);
     return out_v;
 }
 
-// Shared setup: cast N (keys, values) numpy arrays, validate per-child length
+// Shared setup: cast N (index, values) numpy arrays, validate per-child length
 // agreement, build a VectorSource per child, and collect non-owning child
 // pointers. Returns the total event count (sum of child lengths). The caller
-// owns `keys`/`vals` (Python refs keep buffers alive) and `sources`.
-template <class Key>
+// owns `indices`/`vals` (Python refs keep buffers alive) and `sources`.
+template <class Index>
 static std::size_t build_vector_sources(
-        py::list key_arrays, py::list value_arrays,
-        std::vector<py::array_t<Key>>& keys,
+        py::list index_arrays, py::list value_arrays,
+        std::vector<py::array_t<Index>>& indices,
         std::vector<py::array_t<double>>& vals,
-        std::vector<std::unique_ptr<VectorSource<Key>>>& sources,
-        std::vector<Source<Key>*>& child_ptrs) {
-    std::size_t n = key_arrays.size();
+        std::vector<std::unique_ptr<VectorSource<Index>>>& sources,
+        std::vector<Source<Index>*>& child_ptrs) {
+    std::size_t n = index_arrays.size();
     if (value_arrays.size() != n) {
-        throw std::runtime_error("streams: keys/values list length mismatch");
+        throw std::runtime_error("streams: index/values list length mismatch");
     }
-    keys.reserve(n);
+    indices.reserve(n);
     vals.reserve(n);
     sources.reserve(n);
     child_ptrs.reserve(n);
     std::size_t total = 0;
     for (std::size_t i = 0; i < n; ++i) {
-        keys.push_back(py::cast<py::array_t<Key>>(key_arrays[i]));
+        indices.push_back(py::cast<py::array_t<Index>>(index_arrays[i]));
         vals.push_back(py::cast<py::array_t<double>>(value_arrays[i]));
-        auto kinfo = keys[i].request();
+        auto kinfo = indices[i].request();
         auto vinfo = vals[i].request();
         if (kinfo.shape[0] != vinfo.shape[0]) {
-            throw std::runtime_error("streams: a child's keys/values length differ");
+            throw std::runtime_error("streams: a child's index/values length differ");
         }
         std::size_t len = static_cast<std::size_t>(kinfo.shape[0]);
         total += len;
-        sources.push_back(std::make_unique<VectorSource<Key>>(
-            static_cast<const Key*>(kinfo.ptr),
+        sources.push_back(std::make_unique<VectorSource<Index>>(
+            static_cast<const Index*>(kinfo.ptr),
             static_cast<const double*>(vinfo.ptr), len));
         child_ptrs.push_back(sources.back().get());
     }
     return total;
 }
 
-template <class Key>
-static py::tuple merge_batch(py::list key_arrays, py::list value_arrays) {
-    std::vector<py::array_t<Key>> keys;
+template <class Index>
+static py::tuple merge_batch(py::list index_arrays, py::list value_arrays) {
+    std::vector<py::array_t<Index>> indices;
     std::vector<py::array_t<double>> vals;
-    std::vector<std::unique_ptr<VectorSource<Key>>> sources;
-    std::vector<Source<Key>*> child_ptrs;
-    std::size_t total = build_vector_sources<Key>(key_arrays, value_arrays,
-                                                  keys, vals, sources, child_ptrs);
+    std::vector<std::unique_ptr<VectorSource<Index>>> sources;
+    std::vector<Source<Index>*> child_ptrs;
+    std::size_t total = build_vector_sources<Index>(index_arrays, value_arrays,
+                                                    indices, vals, sources, child_ptrs);
 
-    py::array_t<Key> out_k(total);
+    py::array_t<Index> out_k(total);
     py::array_t<double> out_v(total);
     py::array_t<std::uint32_t> out_s(total);
-    Key* ok = static_cast<Key*>(out_k.request().ptr);
+    Index* ok = static_cast<Index*>(out_k.request().ptr);
     double* ov = static_cast<double*>(out_v.request().ptr);
     std::uint32_t* os = static_cast<std::uint32_t*>(out_s.request().ptr);
 
-    MergeSource<Key> merge(child_ptrs);
+    MergeSource<Index> merge(child_ptrs);
     std::size_t i = 0;
     while (auto e = merge.next()) {
         ok[i] = e->index;
@@ -125,13 +125,13 @@ static py::tuple merge_batch(py::list key_arrays, py::list value_arrays) {
     return py::make_tuple(out_k, out_v, out_s);
 }
 
-template <class Key>
+template <class Index>
 class MergePuller {
 public:
-    MergePuller(py::list key_arrays, py::list value_arrays) {
-        std::vector<Source<Key>*> child_ptrs;
-        build_vector_sources<Key>(key_arrays, value_arrays, keys_, vals_, sources_, child_ptrs);
-        merge_ = std::make_unique<MergeSource<Key>>(child_ptrs);
+    MergePuller(py::list index_arrays, py::list value_arrays) {
+        std::vector<Source<Index>*> child_ptrs;
+        build_vector_sources<Index>(index_arrays, value_arrays, indices_, vals_, sources_, child_ptrs);
+        merge_ = std::make_unique<MergeSource<Index>>(child_ptrs);
     }
 
     py::object next() {
@@ -142,35 +142,35 @@ public:
     }
 
 private:
-    std::vector<py::array_t<Key>> keys_;
+    std::vector<py::array_t<Index>> indices_;
     std::vector<py::array_t<double>> vals_;
-    std::vector<std::unique_ptr<VectorSource<Key>>> sources_;
-    std::unique_ptr<MergeSource<Key>> merge_;
+    std::vector<std::unique_ptr<VectorSource<Index>>> sources_;
+    std::unique_ptr<MergeSource<Index>> merge_;
 };
 
-template <class Key>
-static py::tuple combine_latest_batch(py::list key_arrays,
+template <class Index>
+static py::tuple combine_latest_batch(py::list index_arrays,
                                       py::list value_arrays,
                                       bool when_all) {
-    std::size_t n = key_arrays.size();
+    std::size_t n = index_arrays.size();
     if (n == 0) {
-        throw std::runtime_error("combine_latest: needs at least one series");
+        throw std::runtime_error("combine_latest: needs at least one stream");
     }
 
-    std::vector<py::array_t<Key>> keys;
+    std::vector<py::array_t<Index>> indices;
     std::vector<py::array_t<double>> vals;
-    std::vector<std::unique_ptr<VectorSource<Key>>> sources;
-    std::vector<Source<Key>*> child_ptrs;
-    std::size_t total = build_vector_sources<Key>(key_arrays, value_arrays,
-                                                  keys, vals, sources, child_ptrs);
+    std::vector<std::unique_ptr<VectorSource<Index>>> sources;
+    std::vector<Source<Index>*> child_ptrs;
+    std::size_t total = build_vector_sources<Index>(index_arrays, value_arrays,
+                                                    indices, vals, sources, child_ptrs);
 
-    std::vector<Key> out_k;
+    std::vector<Index> out_k;
     std::vector<double> out_v;
     out_k.reserve(total);
     out_v.reserve(total * n);
 
     CombineLatest cl(n, when_all);
-    MergeSource<Key> merge(child_ptrs);
+    MergeSource<Index> merge(child_ptrs);
     while (auto e = merge.next()) {
         if (cl.on_event(e->source, e->value)) {
             out_k.push_back(e->index);
@@ -180,24 +180,24 @@ static py::tuple combine_latest_batch(py::list key_arrays,
     }
 
     std::size_t m = out_k.size();
-    py::array_t<Key> rk(static_cast<py::ssize_t>(m));
-    if (m) std::memcpy(rk.request().ptr, out_k.data(), m * sizeof(Key));
+    py::array_t<Index> rk(static_cast<py::ssize_t>(m));
+    if (m) std::memcpy(rk.request().ptr, out_k.data(), m * sizeof(Index));
     py::array_t<double> rv({static_cast<py::ssize_t>(m), static_cast<py::ssize_t>(n)});
     if (m) std::memcpy(rv.request().ptr, out_v.data(), m * n * sizeof(double));
     return py::make_tuple(rk, rv);
 }
 
-template <class Key>
+template <class Index>
 class CombineLatestPuller {
 public:
-    CombineLatestPuller(py::list key_arrays, py::list value_arrays, bool when_all)
-        : n_(key_arrays.size()), cl_(key_arrays.size(), when_all) {
+    CombineLatestPuller(py::list index_arrays, py::list value_arrays, bool when_all)
+        : n_(index_arrays.size()), cl_(index_arrays.size(), when_all) {
         if (n_ == 0) {
-            throw std::runtime_error("combine_latest: needs at least one series");
+            throw std::runtime_error("combine_latest: needs at least one stream");
         }
-        std::vector<Source<Key>*> child_ptrs;
-        build_vector_sources<Key>(key_arrays, value_arrays, keys_, vals_, sources_, child_ptrs);
-        merge_ = std::make_unique<MergeSource<Key>>(child_ptrs);
+        std::vector<Source<Index>*> child_ptrs;
+        build_vector_sources<Index>(index_arrays, value_arrays, indices_, vals_, sources_, child_ptrs);
+        merge_ = std::make_unique<MergeSource<Index>>(child_ptrs);
     }
 
     py::object next() {
@@ -214,24 +214,24 @@ public:
 
 private:
     std::size_t n_;
-    std::vector<py::array_t<Key>> keys_;
+    std::vector<py::array_t<Index>> indices_;
     std::vector<py::array_t<double>> vals_;
-    std::vector<std::unique_ptr<VectorSource<Key>>> sources_;
-    std::unique_ptr<MergeSource<Key>> merge_;
+    std::vector<std::unique_ptr<VectorSource<Index>>> sources_;
+    std::unique_ptr<MergeSource<Index>> merge_;
     CombineLatest cl_;
 };
 
 void init_bindings_streams(py::module& m) {
     m.def("_run_chain_i64", &run_chain<std::int64_t>,
-          py::arg("functors"), py::arg("keys"), py::arg("values"),
-          py::arg("return_keys") = false);
+          py::arg("functors"), py::arg("index"), py::arg("values"),
+          py::arg("return_index") = false);
     m.def("_run_chain_f64", &run_chain<double>,
-          py::arg("functors"), py::arg("keys"), py::arg("values"),
-          py::arg("return_keys") = false);
+          py::arg("functors"), py::arg("index"), py::arg("values"),
+          py::arg("return_index") = false);
     m.def("_merge_i64", &merge_batch<std::int64_t>,
-          py::arg("key_arrays"), py::arg("value_arrays"));
+          py::arg("index_arrays"), py::arg("value_arrays"));
     m.def("_merge_f64", &merge_batch<double>,
-          py::arg("key_arrays"), py::arg("value_arrays"));
+          py::arg("index_arrays"), py::arg("value_arrays"));
     py::class_<MergePuller<std::int64_t>>(m, "_MergePuller_i64")
         .def(py::init<py::list, py::list>())
         .def("next", &MergePuller<std::int64_t>::next);
@@ -239,9 +239,9 @@ void init_bindings_streams(py::module& m) {
         .def(py::init<py::list, py::list>())
         .def("next", &MergePuller<double>::next);
     m.def("_combine_latest_i64", &combine_latest_batch<std::int64_t>,
-          py::arg("key_arrays"), py::arg("value_arrays"), py::arg("when_all"));
+          py::arg("index_arrays"), py::arg("value_arrays"), py::arg("when_all"));
     m.def("_combine_latest_f64", &combine_latest_batch<double>,
-          py::arg("key_arrays"), py::arg("value_arrays"), py::arg("when_all"));
+          py::arg("index_arrays"), py::arg("value_arrays"), py::arg("when_all"));
     py::class_<CombineLatestPuller<std::int64_t>>(m, "_CombineLatestPuller_i64")
         .def(py::init<py::list, py::list, bool>())
         .def("next", &CombineLatestPuller<std::int64_t>::next);

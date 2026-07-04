@@ -1,7 +1,7 @@
 Computational Graph
 ===================
 
-Wire functors and combinators into a graph you define once and run in batch or
+Wire functors and stream operators into a graph you define once and run in batch or
 live with identical results.
 
 .. toctree::

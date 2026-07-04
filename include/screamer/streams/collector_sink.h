@@ -10,8 +10,8 @@ namespace screamer { namespace streams {
 template <class Index>
 class CollectorSink : public Sink<Index> {
 public:
-    CollectorSink(Index* out_keys, double* out_values)
-        : ok_(out_keys), ov_(out_values), n_(0) {}
+    CollectorSink(Index* out_index, double* out_values)
+        : ok_(out_index), ov_(out_values), n_(0) {}
 
     void push(const Event<Index>& e) override {
         ok_[n_] = e.index;
@@ -27,7 +27,7 @@ private:
     std::size_t n_;
 };
 
-// Terminal sink that keeps only values (used when the caller discards keys).
+// Terminal sink that keeps only values (used when the caller discards index).
 template <class Index>
 class ValueCollectorSink : public Sink<Index> {
 public:

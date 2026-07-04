@@ -159,7 +159,7 @@ def _collapse_last_per_index(index, values):
     return index[keep], values[keep]
 
 
-def _streams_to_keyed(streams, who):
+def _streams_to_indexed(streams, who):
     """(kind, index_list, vals_list, positional). Uniform positional or indexed;
     no-index requires equal length; mixing positional and indexed raises."""
     indexed = [s.index is not None for s in streams]
@@ -180,7 +180,7 @@ def _streams_to_keyed(streams, who):
     return kind, idx, vals, False
 
 
-def _merge_to_keyed(values, index, who):
+def _merge_to_indexed(values, index, who):
     """Prepare merge inputs for the C++ backend.
 
     Positional (index=None or all-None list): uses per-stream row-number index
@@ -222,11 +222,13 @@ def merge(*values, index=None):
     A Node input builds a graph node.
     """
     if any(is_node(v) for v in values):
-        return make_operator_node(merge, values, {})
-    kind, idx_list, vals_list, positional = _merge_to_keyed(values, index, "merge")
+        raise ValueError(
+            "merge is not supported as a DAG graph node (it is input routing; "
+            "feed streams to a Dag directly)")
+    kind, idx_list, vals_list, positional = _merge_to_indexed(values, index, "merge")
     fn = _b._merge_f64 if kind == "f64" else _b._merge_i64
-    merged_keys, merged_vals, sources = fn(idx_list, vals_list)
-    return merged_vals, sources, (None if positional else merged_keys)
+    merged_index, merged_vals, sources = fn(idx_list, vals_list)
+    return merged_vals, sources, (None if positional else merged_index)
 
 
 def merge_iter(*values, index=None):
@@ -235,15 +237,15 @@ def merge_iter(*values, index=None):
     Positional inputs yield (value, None, source). Indexed inputs yield
     (value, index_value, source). See merge() for the positional/indexed rules.
     """
-    kind, idx_list, vals_list, positional = _merge_to_keyed(values, index, "merge_iter")
+    kind, idx_list, vals_list, positional = _merge_to_indexed(values, index, "merge_iter")
     cls = _b._MergePuller_f64 if kind == "f64" else _b._MergePuller_i64
     puller = cls(idx_list, vals_list)
     while True:
         event = puller.next()
         if event is None:
             return
-        ev_key, ev_val, ev_source = event
-        yield ev_val, (None if positional else ev_key), ev_source
+        ev_index, ev_val, ev_source = event
+        yield ev_val, (None if positional else ev_index), ev_source
 
 
 def combine_latest(*values, index=None, emit="when_all", func=None):
@@ -271,7 +273,7 @@ def combine_latest(*values, index=None, emit="when_all", func=None):
         return make_operator_node(combine_latest, values, {"emit": emit, "func": None})
     regime = _regime(values)
     streams = _to_streams(values, index)
-    kind, idx, vals, positional = _streams_to_keyed(streams, "combine_latest")
+    kind, idx, vals, positional = _streams_to_indexed(streams, "combine_latest")
     fn = _b._combine_latest_f64 if kind == "f64" else _b._combine_latest_i64
     out_index, aligned = fn(idx, vals, emit == "when_all")
     out_index, aligned = _collapse_last_per_index(out_index, aligned)
@@ -290,7 +292,7 @@ def combine_latest_iter(*values, index=None, emit="when_all"):
     if emit not in ("when_all", "on_any"):
         raise ValueError('combine_latest: emit must be "when_all" or "on_any"')
     streams = _to_streams(values, index)
-    kind, idx, vals, positional = _streams_to_keyed(streams, "combine_latest")
+    kind, idx, vals, positional = _streams_to_indexed(streams, "combine_latest")
     cls = _b._CombineLatestPuller_f64 if kind == "f64" else _b._CombineLatestPuller_i64
     puller = cls(idx, vals, emit == "when_all")
     cur_index, cur_row = None, None
@@ -310,8 +312,8 @@ async def pace(*values, index=None, speed=1.0, sleep=None):
     """Replay merged streams as an async event stream paced by index-deltas.
 
     Yields (value, index, source) in index order. Between consecutive events it
-    awaits ``sleep(key_delta / speed)`` so wall-clock spacing tracks the index
-    spacing. speed=inf disables pacing (backtest at max speed). Pacing never
+    awaits ``sleep(delta / speed)`` (where ``delta`` is the index delta) so
+    wall-clock spacing tracks the index spacing. speed=inf disables pacing (backtest at max speed). Pacing never
     changes values or order. ``sleep`` is injectable for testing; defaults to
     asyncio.sleep. Requires a metric (subtractable) index.
 
@@ -323,22 +325,22 @@ async def pace(*values, index=None, speed=1.0, sleep=None):
     if sleep is None:
         sleep = asyncio.sleep
     infinite = speed == float("inf")
-    kind, idx_list, vals_list, positional = _merge_to_keyed(values, index, "pace")
+    kind, idx_list, vals_list, positional = _merge_to_indexed(values, index, "pace")
     cls = _b._MergePuller_f64 if kind == "f64" else _b._MergePuller_i64
     puller = cls(idx_list, vals_list)
-    prev_key = None
+    prev_index = None
     while True:
         event = puller.next()
         if event is None:
             return
-        ev_key, ev_val, ev_source = event
-        if not infinite and prev_key is not None:
-            delta = ev_key - prev_key
+        ev_index, ev_val, ev_source = event
+        if not infinite and prev_index is not None:
+            delta = ev_index - prev_index
             wait = delta / speed
             if wait > 0:
                 await sleep(wait)
-        prev_key = ev_key
-        yield ev_val, (None if positional else ev_key), ev_source
+        prev_index = ev_index
+        yield ev_val, (None if positional else ev_index), ev_source
 
 
 def dropna(values, index=None, how="any"):
@@ -618,8 +620,8 @@ def resample(values, index=None, *, every=None, count=None, agg="last",
     out_labels, out_vals = [], []
     acc = _ResampleAccum()
 
-    def flush_bucket(label_key):
-        out_labels.append(label_key)
+    def flush_bucket(label_index):
+        out_labels.append(label_index)
         out_vals.append(acc.emit(agg))
 
     if every is not None:
@@ -648,21 +650,21 @@ def resample(values, index=None, *, every=None, count=None, agg="last",
     else:
         n = int(count)
         cib = 0
-        first_key = 0
-        last_key = 0
+        first_index = 0
+        last_index = 0
         for k, v in zip(idx.tolist(), vals.tolist()):
             k = int(k)
             if cib == 0:
-                first_key = k
-            last_key = k
+                first_index = k
+            last_index = k
             acc.add(v)
             cib += 1
             if cib == n:
-                flush_bucket(first_key if label == "left" else last_key)
+                flush_bucket(first_index if label == "left" else last_index)
                 acc.reset()
                 cib = 0
         if cib > 0:
-            flush_bucket(first_key if label == "left" else last_key)
+            flush_bucket(first_index if label == "left" else last_index)
 
     out_idx = np.array(out_labels, dtype=np.int64)
     if agg == "ohlc":
@@ -704,18 +706,18 @@ def resample_iter(events, *, every=None, count=None, agg="last",
     else:
         n = int(count)
         cib = 0
-        first_key = 0
-        last_key = 0
+        first_index = 0
+        last_index = 0
         for v, k in events:
             k = int(k)
             if cib == 0:
-                first_key = k
-            last_key = k
+                first_index = k
+            last_index = k
             acc.add(float(v))
             cib += 1
             if cib == n:
-                yield acc.emit(agg), (first_key if label == "left" else last_key)
+                yield acc.emit(agg), (first_index if label == "left" else last_index)
                 acc.reset()
                 cib = 0
         if cib > 0:
-            yield acc.emit(agg), (first_key if label == "left" else last_key)
+            yield acc.emit(agg), (first_index if label == "left" else last_index)

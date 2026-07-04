@@ -19,6 +19,14 @@ def _reference_merge(values_list, index_list):
 # merge - indexed
 # ---------------------------------------------------------------------------
 
+def test_merge_node_raises_immediately():
+    """merge does not support DAG graph nodes; it must raise ValueError immediately."""
+    from screamer import Input
+    x = Input("x")
+    with pytest.raises(ValueError, match="not supported as a DAG graph node"):
+        streams.merge(x)
+
+
 def test_merge_indexed_two_int_sorted_series():
     a_v = np.array([10.0, 30.0, 50.0, 70.0])
     a_k = np.array([1, 3, 5, 7], dtype=np.int64)

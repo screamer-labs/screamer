@@ -228,7 +228,7 @@ positional maps to the engine's row-number keys at push. `Dag` outputs follow
 `align_outputs` in the new `(values, index)` shape. `_align_results` uses the new
 `combine_latest(*values, index=[...])` signature. Sweep `key(s)` -> `index` across
 the public Python surface and docs; the C++ `Key` template and internal `key`
-variables stay.
+variables are also renamed to `Index` / `index` (see Decision 10).
 
 ## Testing
 
