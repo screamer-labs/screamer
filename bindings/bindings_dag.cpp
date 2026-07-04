@@ -290,6 +290,11 @@ void init_bindings_dag(py::module& m) {
             return builder.add_dropna(std::move(inputs), how_all);
         }
 
+        std::size_t add_select(std::vector<std::size_t> inputs,
+                               std::vector<std::size_t> columns) {
+            return builder.add_select(std::move(inputs), std::move(columns));
+        }
+
         void set_outputs(std::vector<std::size_t> outs) {
             builder.set_outputs(std::move(outs));
         }
@@ -324,6 +329,11 @@ void init_bindings_dag(py::module& m) {
                               std::vector<std::size_t> inputs, bool how_all) {
             return b.add_dropna(std::move(inputs), how_all);
         }, py::arg("inputs"), py::arg("how_all") = false)
+        .def("add_select", [](PyGraphBuilder& b,
+                              std::vector<std::size_t> inputs,
+                              std::vector<std::size_t> columns) {
+            return b.add_select(std::move(inputs), std::move(columns));
+        }, py::arg("inputs"), py::arg("columns"))
         .def("set_outputs", &PyGraphBuilder::set_outputs, py::arg("output_ids"))
         .def("compile", [](PyGraphBuilder& b) { return b.compile(); })
         .def("run_batch", [](PyGraphBuilder& b, py::list feeds) {

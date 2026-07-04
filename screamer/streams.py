@@ -266,13 +266,24 @@ def _normalize_columns(columns):
     return cols, scalar
 
 
-def select(keys, values, columns):
+def select(keys, values=None, columns=None):
     """Pick column(s) from a wide (M, N) value stream.
 
     columns is an int (result is 1-D) or a sequence of ints (result is 2-D with
     those columns in order). Keys and row count are unchanged (shape op, not
     cardinality). Indices must be in range and non-negative.
+
+    Graph form: select(stream, columns) where stream is a Node.
     """
+    if is_node(keys):
+        # graph form: select(stream, columns) — columns may be the 2nd
+        # positional (the `values` slot) or the `columns` keyword.
+        cols = values if columns is None else columns
+        if cols is None:
+            raise ValueError("select: columns is required")
+        return make_combinator_node(select, (keys,), {"columns": cols})
+    if columns is None:
+        raise ValueError("select: columns is required")
     keys = np.asarray(keys)
     values = np.asarray(values, dtype=np.float64)
     cols, scalar = _normalize_columns(columns)

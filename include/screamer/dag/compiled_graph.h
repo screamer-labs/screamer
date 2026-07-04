@@ -19,6 +19,7 @@
 #include "screamer/dag/broadcast.h"
 #include "screamer/dag/combine_latest_node.h"
 #include "screamer/dag/dropna_node.h"
+#include "screamer/dag/select_node.h"
 #include "screamer/dag/frame.h"
 #include "screamer/dag/functor_node.h"
 #include "screamer/dag/graph.h"
@@ -118,6 +119,7 @@ public:
             case NodeKind::Functor:       node_width[id] = nd.op->n_out(); break;
             case NodeKind::CombineLatest: node_width[id] = nd.inputs.size(); break;
             case NodeKind::DropNa:        node_width[id] = node_width[nd.inputs[0]]; break;
+            case NodeKind::Select:        node_width[id] = nd.columns.size(); break;
             }
         }
         output_widths_.resize(num_out);
@@ -208,6 +210,14 @@ public:
                     return ptr;
                 };
                 owned_.push_back(dn);
+                break;
+            }
+            case NodeKind::Select: {
+                auto sn = std::make_shared<SelectNode<std::int64_t>>(ns.columns, *downstream);
+                node_input_sink[id] = [ptr = sn.get()](std::size_t) -> Sink<std::int64_t>* {
+                    return ptr;
+                };
+                owned_.push_back(sn);
                 break;
             }
             }

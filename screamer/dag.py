@@ -189,6 +189,10 @@ class Dag:
                     nid = gb.add_combine_latest(inp, kwargs.get("emit") == "when_all")
                 elif name == "dropna":
                     nid = gb.add_dropna(inp, kwargs.get("how") == "all")
+                elif name == "select":
+                    from .streams import _normalize_columns
+                    cols, _ = _normalize_columns(kwargs["columns"])
+                    nid = gb.add_select(inp, cols)
                 else:
                     raise ValueError(
                         f"{name} is not supported as a DAG graph node")
