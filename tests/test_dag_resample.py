@@ -138,3 +138,44 @@ def test_resample_by_key_negative_keys_graph():
     ek, ev = resample(keys, vals, width=10, agg="last")   # eager oracle
     np.testing.assert_array_equal(bk, ek); np.testing.assert_array_equal(bv.reshape(-1), ev)
     np.testing.assert_array_equal(sk, ek); np.testing.assert_array_equal(sv.reshape(-1), ev)
+
+
+@pytest.mark.parametrize("agg", AGGS)
+def test_resample_by_count_batch_stream_oracle(agg):
+    keys = np.array([10, 20, 30, 40, 50], dtype=np.int64)
+    vals = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
+    x = Input("x")
+    dag = Dag(inputs=[x], outputs=[resample(x, count=2, agg=agg)])
+    bk, bv = dag((keys, vals))
+    sk, sv = dag.stream((keys, vals))
+    ek, ev = resample(keys, vals, count=2, agg=agg)   # eager oracle (incl. trailing partial)
+    np.testing.assert_array_equal(bk, ek)
+    np.testing.assert_array_equal(bv.reshape(-1), ev)
+    np.testing.assert_array_equal(sk, ek)
+    np.testing.assert_array_equal(sv.reshape(-1), ev)
+
+
+def test_resample_by_count_right_label_in_graph():
+    keys = np.array([10, 20, 30, 40], dtype=np.int64)
+    vals = np.array([1.0, 2.0, 3.0, 4.0])
+    x = Input("x")
+    dag = Dag(inputs=[x], outputs=[resample(x, count=2, agg="last", label="right")])
+    bk, bv = dag((keys, vals))
+    sk, sv = dag.stream((keys, vals))
+    ek, ev = resample(keys, vals, count=2, agg="last", label="right")
+    np.testing.assert_array_equal(bk, ek); np.testing.assert_array_equal(bv.reshape(-1), ev)
+    np.testing.assert_array_equal(sk, ek); np.testing.assert_array_equal(sv.reshape(-1), ev)
+
+
+def test_resample_by_count_ohlc_in_graph():
+    keys = np.array([10, 20, 30, 40, 50], dtype=np.int64)
+    vals = np.array([4.0, 2.0, 8.0, 6.0, 7.0])
+    x = Input("x")
+    dag = Dag(inputs=[x], outputs=[resample(x, count=2, agg="ohlc")])
+    bk, bv = dag((keys, vals))
+    sk, sv = dag.stream((keys, vals))
+    ek, ev = resample(keys, vals, count=2, agg="ohlc")
+    assert bv.shape[1] == 4
+    np.testing.assert_array_equal(bv, ev)
+    np.testing.assert_array_equal(sv, ev)
+    np.testing.assert_array_equal(bk, ek)
