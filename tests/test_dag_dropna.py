@@ -63,3 +63,41 @@ def test_filter_rejected_in_graph():
     from screamer.streams import filter as sfilter
     with pytest.raises(ValueError, match="not supported"):
         sfilter(x, lambda r: r > 0)
+
+
+def test_dropna_all_over_wide_combine_latest():
+    # dropna(how="all") on a WIDE (width-2) stream produced by combine_latest:
+    # exercises the width-passthrough node_width path and the multi-value NaN
+    # scan in-graph. Assert graph == eager oracle AND batch == stream, without
+    # hand-predicting combine_latest's aligned output.
+    from screamer.streams import combine_latest
+    ak = np.array([1, 2, 3], dtype=np.int64); av = np.array([np.nan, 2.0, np.nan])
+    bk = np.array([1, 2, 3], dtype=np.int64); bv = np.array([np.nan, np.nan, 3.0])
+    a, b = Input("a"), Input("b")
+    dag = Dag(inputs=[a, b], outputs=[dropna(combine_latest(a, b), how="all")])
+    bk_, bv_ = dag((ak, av), (bk, bv))
+    sk_, sv_ = dag.stream((ak, av), (bk, bv))
+    # eager oracle: align, then drop all-NaN rows
+    ck, cv = combine_latest((ak, av), (bk, bv))
+    ek, ev = dropna(ck, cv, how="all")
+    np.testing.assert_array_equal(bk_, ek)
+    np.testing.assert_array_equal(bv_, ev)
+    np.testing.assert_array_equal(sk_, ek)
+    np.testing.assert_array_equal(sv_, ev)
+
+
+def test_dropna_fanout_to_two_consumers():
+    # dropna output feeds TWO downstream functors (Broadcast fan-out from a
+    # cardinality-reducing upstream). Both outputs must be batch == stream.
+    from screamer import RollingMean, Lag
+    keys = np.array([1, 2, 3, 4, 5], dtype=np.int64)
+    vals = np.array([2.0, np.nan, 4.0, 6.0, np.nan])
+    x = Input("x")
+    d = dropna(x)
+    dag = Dag(inputs=[x], outputs=[RollingMean(2)(d), Lag(1)(d)], align_outputs=False)
+    (bm, bl) = dag((keys, vals))
+    (sm, sl) = dag.stream((keys, vals))
+    np.testing.assert_array_equal(bm[0], sm[0]); np.testing.assert_array_equal(bm[1], sm[1])
+    np.testing.assert_array_equal(bl[0], sl[0]); np.testing.assert_array_equal(bl[1], sl[1])
+    # dropna removes the two NaN rows -> surviving keys [1,3,4]
+    np.testing.assert_array_equal(bm[0], [1, 3, 4])
