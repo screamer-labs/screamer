@@ -176,3 +176,5 @@ build_thijs
 build_thijs*.*
 experiments/
 bib/*
+# Superpowers SDD scratch (briefs, reports, ledger) - not part of the repo
+.superpowers/
