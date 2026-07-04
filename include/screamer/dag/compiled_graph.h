@@ -42,7 +42,7 @@ public:
     explicit GatherSink(OutputBuffer& buf) : buf_(buf) {}
     void push(const Frame<std::int64_t>& f) override {
         buf_.width = f.width;
-        buf_.keys.push_back(f.key);
+        buf_.keys.push_back(f.index);
         buf_.values.insert(buf_.values.end(), f.values, f.values + f.width);
     }
 private:
@@ -256,11 +256,11 @@ public:
 
     // Routes a single width-1 event into the graph without resetting state.
     // Bounds-checked: throws if input_idx >= num_in_.
-    void push_event(std::size_t input_idx, std::int64_t key, double value) {
+    void push_event(std::size_t input_idx, std::int64_t index, double value) {
         if (input_idx >= num_in_)
             throw std::runtime_error("push_event: input index out of range");
         double v = value;
-        Frame<std::int64_t> f{key, &v, 1};
+        Frame<std::int64_t> f{index, &v, 1};
         input_sinks_[input_idx]->push(f);
     }
 
@@ -317,7 +317,7 @@ public:
         double one;
         while (auto e = merge.next()) {
             one = e->value;
-            Frame<std::int64_t> f{e->key, &one, 1};
+            Frame<std::int64_t> f{e->index, &one, 1};
             input_sinks_[e->source]->push(f);
         }
         for (auto* s : input_sinks_) if (s) s->flush();

@@ -117,7 +117,7 @@ static py::tuple merge_batch(py::list key_arrays, py::list value_arrays) {
     MergeSource<Key> merge(child_ptrs);
     std::size_t i = 0;
     while (auto e = merge.next()) {
-        ok[i] = e->key;
+        ok[i] = e->index;
         ov[i] = e->value;
         os[i] = e->source;
         ++i;
@@ -136,7 +136,7 @@ public:
 
     py::object next() {
         if (auto e = merge_->next()) {
-            return py::make_tuple(e->key, e->value, e->source);
+            return py::make_tuple(e->index, e->value, e->source);
         }
         return py::none();
     }
@@ -173,7 +173,7 @@ static py::tuple combine_latest_batch(py::list key_arrays,
     MergeSource<Key> merge(child_ptrs);
     while (auto e = merge.next()) {
         if (cl.on_event(e->source, e->value)) {
-            out_k.push_back(e->key);
+            out_k.push_back(e->index);
             const std::vector<double>& row = cl.latest();
             out_v.insert(out_v.end(), row.begin(), row.end());
         }
@@ -206,7 +206,7 @@ public:
                 const std::vector<double>& row = cl_.latest();
                 py::tuple t(row.size());
                 for (std::size_t j = 0; j < row.size(); ++j) t[j] = row[j];
-                return py::make_tuple(e->key, t);
+                return py::make_tuple(e->index, t);
             }
         }
         return py::none();

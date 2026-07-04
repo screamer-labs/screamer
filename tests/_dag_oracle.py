@@ -14,7 +14,7 @@ def run_oracle(dag, feeds):
         op = node.op
         if isinstance(op, tuple) and op[0] == "input":
             result = _as_stream(feeds[op[1]])
-        elif isinstance(op, tuple) and op[0] == "combinator":
+        elif isinstance(op, tuple) and op[0] == "operator":
             fn, kwargs = op[1], op[2]
             result = fn(*[ev(i) for i in node.inputs], **kwargs)
         else:

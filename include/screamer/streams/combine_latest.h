@@ -11,7 +11,7 @@
 namespace screamer { namespace streams {
 
 // As-of latest-value join state for N sources fed a tagged event stream (in
-// key order). on_event() updates the emitting source's latest value and marks
+// index order). on_event() updates the emitting source's latest value and marks
 // it seen; it returns whether an aligned row should be emitted now:
 //   when_all: only once every source has produced at least one value
 //   on_any:   always (not-yet-seen sources read as NaN)

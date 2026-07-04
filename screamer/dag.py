@@ -14,7 +14,7 @@ class Node:
     op is one of:
       - ("input", name)
       - a configured functor instance (ScreamerBase / FunctorBase)
-      - ("combinator", fn, kwargs)
+      - ("operator", fn, kwargs)
     inputs is a tuple of upstream Nodes.
     """
     __slots__ = ("op", "inputs")
@@ -30,7 +30,7 @@ class Node:
     def __repr__(self):
         if isinstance(self.op, tuple) and self.op and self.op[0] == "input":
             return f"Input({self.op[1]!r})"
-        if isinstance(self.op, tuple) and self.op and self.op[0] == "combinator":
+        if isinstance(self.op, tuple) and self.op and self.op[0] == "operator":
             name = self.op[1].__name__
         else:
             name = type(self.op).__name__
@@ -55,9 +55,9 @@ def make_functor_node(functor, args):
     return Node(functor, inputs)
 
 
-def make_combinator_node(fn, node_args, kwargs):
-    """Build a Node for a combinator applied to Node args."""
-    return Node(("combinator", fn, kwargs), tuple(node_args))
+def make_operator_node(fn, node_args, kwargs):
+    """Build a Node for a stream operator applied to Node args."""
+    return Node(("operator", fn, kwargs), tuple(node_args))
 
 
 def _as_stream(feed):
@@ -180,7 +180,7 @@ class Dag:
             op = node.op
             if isinstance(op, tuple) and op[0] == "input":
                 nid = gb.add_input()
-            elif isinstance(op, tuple) and op[0] == "combinator":
+            elif isinstance(op, tuple) and op[0] == "operator":
                 fn, kwargs = op[1], op[2]
                 name = getattr(fn, "__name__", "")
                 inp = [build(i) for i in node.inputs]

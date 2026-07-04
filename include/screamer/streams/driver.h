@@ -6,8 +6,8 @@
 namespace screamer { namespace streams {
 
 // Batch driver: pull every event from the source and push it into the graph.
-template <class Key>
-void run_batch(Source<Key>& src, Sink<Key>& sink) {
+template <class Index>
+void run_batch(Source<Index>& src, Sink<Index>& sink) {
     while (auto e = src.next()) {
         sink.push(*e);
     }

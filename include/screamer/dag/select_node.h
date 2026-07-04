@@ -9,30 +9,30 @@
 namespace screamer { namespace dag {
 
 // Projects selected columns out of a wide frame, emitting a width-M frame
-// (M = columns.size()) with the columns in the given order. Keys pass through;
+// (M = columns.size()) with the columns in the given order. Indices pass through;
 // row count unchanged. Reuses one output buffer (zero per-event allocation).
-template <class Key>
-class SelectNode : public Sink<Key> {
+template <class Index>
+class SelectNode : public Sink<Index> {
 public:
-    SelectNode(std::vector<std::size_t> columns, Sink<Key>& downstream)
+    SelectNode(std::vector<std::size_t> columns, Sink<Index>& downstream)
         : columns_(std::move(columns)), downstream_(downstream),
           out_(columns_.size()) {}
 
-    void push(const Frame<Key>& f) override {
+    void push(const Frame<Index>& f) override {
         for (std::size_t j = 0; j < columns_.size(); ++j) {
             if (columns_[j] >= f.width)
                 throw std::runtime_error(
                     "dag::SelectNode: column index out of range for frame width");
             out_[j] = f.values[columns_[j]];
         }
-        downstream_.push(Frame<Key>{f.key, out_.data(), out_.size()});
+        downstream_.push(Frame<Index>{f.index, out_.data(), out_.size()});
     }
 
     void flush() override { downstream_.flush(); }
 
 private:
     std::vector<std::size_t> columns_;
-    Sink<Key>& downstream_;
+    Sink<Index>& downstream_;
     std::vector<double> out_;   // reused every event
 };
 

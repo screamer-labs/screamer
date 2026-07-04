@@ -7,7 +7,7 @@
 namespace screamer { namespace streams {
 
 // Push node wrapping an existing 1->1 ScreamerBase functor. Shape-preserving:
-// one input event -> one output event, key and source tag passed through.
+// one input event -> one output event, index and source tag passed through.
 
 // INVARIANT: the graph path drives process_scalar() per event, bypassing any
 // overridden process_array_no_stride/process_array_stride fast paths. Bit-identity
@@ -15,21 +15,21 @@ namespace screamer { namespace streams {
 // override stays element-wise-equal to its process_scalar. A future functor whose
 // array override changes rounding/associativity (e.g. SIMD reassociation) would
 // diverge from the graph path here while both remain independently "correct".
-template <class Key>
-class FunctorNode : public Sink<Key> {
+template <class Index>
+class FunctorNode : public Sink<Index> {
 public:
-    FunctorNode(ScreamerBase& fn, Sink<Key>& downstream)
+    FunctorNode(ScreamerBase& fn, Sink<Index>& downstream)
         : fn_(fn), downstream_(downstream) {}
 
-    void push(const Event<Key>& e) override {
-        downstream_.push({e.key, fn_.process_scalar(e.value), e.source});
+    void push(const Event<Index>& e) override {
+        downstream_.push({e.index, fn_.process_scalar(e.value), e.source});
     }
 
     void flush() override { downstream_.flush(); }
 
 private:
     ScreamerBase& fn_;
-    Sink<Key>& downstream_;
+    Sink<Index>& downstream_;
 };
 
 }} // namespace screamer::streams

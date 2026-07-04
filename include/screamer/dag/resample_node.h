@@ -53,21 +53,21 @@ struct ResampleAccum {
     }
 };
 
-// Stateful windowing push-node. Buckets a width-1 stream by key-interval or event
+// Stateful windowing push-node. Buckets a width-1 stream by index-interval or event
 // count, reduces each bucket with a fixed C++ reducer, and emits the bucket on the
-// causal boundary (a key crossing the bucket end / the Nth event). flush() emits
+// causal boundary (an index crossing the bucket end / the Nth event). flush() emits
 // the trailing partial bucket and is idempotent (emit-then-clear).
-template <class Key>
-class ResampleNode : public Sink<Key> {
+template <class Index>
+class ResampleNode : public Sink<Index> {
 public:
-    ResampleNode(ResampleParams p, Sink<Key>& downstream)
+    ResampleNode(ResampleParams p, Sink<Index>& downstream)
         : p_(p), downstream_(downstream), out_(resample_width(p.agg)) { reset(); }
 
-    void push(const Frame<Key>& f) override {
+    void push(const Frame<Index>& f) override {
         if (f.width != 1)
             throw std::runtime_error("dag::ResampleNode: expects a width-1 input stream");
-        if (p_.mode == ResampleMode::ByKey) push_by_key(f.key, f.values[0]);
-        else                                push_by_count(f.key, f.values[0]);
+        if (p_.mode == ResampleMode::ByKey) push_by_key(f.index, f.values[0]);
+        else                                push_by_count(f.index, f.values[0]);
     }
 
     void flush() override {
@@ -87,13 +87,13 @@ public:
         acc_.reset();
         started_ = false;
         bucket_ = 0;
-        cur_label_ = Key{};
+        cur_label_ = Index{};
         count_in_bucket_ = 0;
-        first_key_ = last_key_ = Key{};
+        first_key_ = last_key_ = Index{};
     }
 
 private:
-    void push_by_key(Key k, double v) {
+    void push_by_key(Index k, double v) {
         std::int64_t nb = floordiv(static_cast<std::int64_t>(k) - p_.origin, p_.width);
         if (!started_) {
             started_ = true; bucket_ = nb; acc_.reset(); set_key_label(nb);
@@ -106,10 +106,10 @@ private:
 
     void set_key_label(std::int64_t nb) {
         std::int64_t start = p_.origin + nb * p_.width;
-        cur_label_ = static_cast<Key>(p_.label == ResampleLabel::Left ? start : start + p_.width);
+        cur_label_ = static_cast<Index>(p_.label == ResampleLabel::Left ? start : start + p_.width);
     }
 
-    void push_by_count(Key k, double v) {
+    void push_by_count(Index k, double v) {
         if (count_in_bucket_ == 0) first_key_ = k;
         last_key_ = k;
         acc_.add(v);
@@ -121,9 +121,9 @@ private:
         }
     }
 
-    void emit(Key label) {
+    void emit(Index label) {
         acc_.emit(p_.agg, out_.data());
-        downstream_.push(Frame<Key>{label, out_.data(), out_.size()});
+        downstream_.push(Frame<Index>{label, out_.data(), out_.size()});
     }
 
     static std::int64_t floordiv(std::int64_t a, std::int64_t b) {
@@ -133,14 +133,14 @@ private:
     }
 
     ResampleParams p_;
-    Sink<Key>& downstream_;
+    Sink<Index>& downstream_;
     std::vector<double> out_;
     ResampleAccum acc_;
     bool started_ = false;
     std::int64_t bucket_ = 0;
-    Key cur_label_{};
+    Index cur_label_{};
     std::int64_t count_in_bucket_ = 0;
-    Key first_key_{}, last_key_{};
+    Index first_key_{}, last_key_{};
 };
 
 }} // namespace screamer::dag

@@ -77,7 +77,7 @@ static std::size_t drive_ports(py::list key_arrays,
     double one;
     while (auto e = merge.next()) {
         one = e->value;
-        dag::Frame<std::int64_t> f{e->key, &one, 1};
+        dag::Frame<std::int64_t> f{e->index, &one, 1};
         node.port(e->source).push(f);
     }
     return total;
@@ -126,7 +126,7 @@ static py::tuple run_combine_latest_batch(py::list key_arrays,
         std::vector<std::int64_t>& k; std::vector<double>& v;
         Gather(std::vector<std::int64_t>& kk, std::vector<double>& vv) : k(kk), v(vv) {}
         void push(const dag::Frame<std::int64_t>& f) override {
-            k.push_back(f.key);
+            k.push_back(f.index);
             v.insert(v.end(), f.values, f.values + f.width);
         }
     } gather(out_k, out_v);
@@ -153,7 +153,7 @@ static py::tuple run_combine_then_sub_batch(py::list key_arrays,
         std::vector<std::int64_t>& k; std::vector<double>& v;
         Gather1(std::vector<std::int64_t>& kk, std::vector<double>& vv) : k(kk), v(vv) {}
         void push(const dag::Frame<std::int64_t>& f) override {
-            k.push_back(f.key); v.push_back(f.values[0]);
+            k.push_back(f.index); v.push_back(f.values[0]);
         }
     } gather(out_k, out_v);
 
@@ -181,7 +181,7 @@ static py::tuple run_combine_latest_fanout(py::list key_arrays,
         std::vector<std::int64_t>& k; std::vector<double>& v;
         GatherN(std::vector<std::int64_t>& kk, std::vector<double>& vv) : k(kk), v(vv) {}
         void push(const dag::Frame<std::int64_t>& f) override {
-            k.push_back(f.key);
+            k.push_back(f.index);
             v.insert(v.end(), f.values, f.values + f.width);
         }
     } gatherA(out_k1, out_v1), gatherB(out_k2, out_v2);

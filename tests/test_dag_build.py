@@ -15,7 +15,7 @@ def test_combinator_on_nodes_builds_node():
     n = combine_latest(a, b, func=None)
     assert is_node(n)
     assert n.inputs == (a, b)
-    assert n.op[0] == "combinator"
+    assert n.op[0] == "operator"
     assert n.op[2] == {"emit": "when_all", "func": None}
 
 

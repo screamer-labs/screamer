@@ -9,28 +9,28 @@
 namespace screamer { namespace dag {
 
 // Drives exactly one EvalOp. On each frame it evaluates op into its OWN reused
-// output buffer and emits a frame downstream. Shape-preserving: key passes
+// output buffer and emits a frame downstream. Shape-preserving: index passes
 // through; output width is op.n_out().
-template <class Key>
-class FunctorNode : public Sink<Key> {
+template <class Index>
+class FunctorNode : public Sink<Index> {
 public:
-    FunctorNode(EvalOp& op, Sink<Key>& downstream)
+    FunctorNode(EvalOp& op, Sink<Index>& downstream)
         : op_(op), downstream_(downstream), out_(op.n_out()) {}
 
-    void push(const Frame<Key>& f) override {
+    void push(const Frame<Index>& f) override {
         if (f.width != op_.n_in()) {
             throw std::runtime_error(
                 "dag::FunctorNode: frame width does not match op n_in");
         }
         op_.eval(f.values, out_.data());
-        downstream_.push(Frame<Key>{f.key, out_.data(), out_.size()});
+        downstream_.push(Frame<Index>{f.index, out_.data(), out_.size()});
     }
 
     void flush() override { downstream_.flush(); }
 
 private:
     EvalOp& op_;
-    Sink<Key>& downstream_;
+    Sink<Index>& downstream_;
     std::vector<double> out_;   // reused every event; zero per-event allocation
 };
 

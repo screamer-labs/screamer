@@ -9,12 +9,12 @@ namespace screamer { namespace dag {
 
 // Terminal sink: writes each frame's `width` values into a row-major (T, width)
 // output buffer.
-template <class Key>
-class Collector : public Sink<Key> {
+template <class Index>
+class Collector : public Sink<Index> {
 public:
     Collector(double* out, std::size_t width) : out_(out), width_(width), n_(0) {}
 
-    void push(const Frame<Key>& f) override {
+    void push(const Frame<Index>& f) override {
         assert(f.width == width_);
         for (std::size_t j = 0; j < f.width; ++j) out_[n_ * width_ + j] = f.values[j];
         ++n_;

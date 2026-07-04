@@ -1,4 +1,4 @@
-"""Streaming combinators (merge, combine_latest, pace, dropna, filter, split).
+"""Streaming operators (merge, combine_latest, pace, dropna, filter, split).
 
 Builds and runs C++ node graphs. dtype detection here chooses the int64 or
 float64 key instantiation; the per-event work is all C++.
@@ -9,7 +9,7 @@ import math
 import numpy as np
 
 from . import screamer_bindings as _b
-from .dag import is_node, make_combinator_node
+from .dag import is_node, make_operator_node
 
 __all__ = [
     "Stream",
@@ -63,7 +63,7 @@ class Stream:
 
 
 def _regime(inputs):
-    """Classify a combinator's inputs: 'graph' if any is a Node, 'stream' if any
+    """Classify a stream operator's inputs: 'graph' if any is a Node, 'stream' if any
     is a Stream, else 'raw'."""
     if any(is_node(x) for x in inputs):
         return "graph"
@@ -87,7 +87,7 @@ def _to_streams(inputs, index):
 
 
 def _adapt(regime, values, index):
-    """Shape a combinator result to match the input regime: Stream in -> Stream
+    """Shape a stream operator result to match the input regime: Stream in -> Stream
     out; raw -> (values, index) with index None for positional."""
     if regime == "stream":
         return Stream(values, index)
@@ -127,17 +127,17 @@ def _key_dtype_kind(keys):
     return "i64", np.ascontiguousarray(keys, dtype=np.int64)
 
 
-def _normalize_series(series, who):
-    """Normalize and validate a sequence of (keys, values) series.
+def _normalize_streams(streams, who):
+    """Normalize and validate a sequence of (keys, values) streams.
 
     Returns (kind, norm_keys, norm_vals) where kind is 'i64' or 'f64'.
-    Raises ValueError if series is empty, TypeError if key types differ.
+    Raises ValueError if streams is empty, TypeError if key types differ.
     """
-    if not series:
+    if not streams:
         raise ValueError(f"{who}: needs at least one series")
     kinds = set()
     norm_keys, norm_vals = [], []
-    for keys, values in series:
+    for keys, values in streams:
         kind, k = _key_dtype_kind(keys)
         kinds.add(kind)
         norm_keys.append(k)
@@ -147,28 +147,28 @@ def _normalize_series(series, who):
     return kinds.pop(), norm_keys, norm_vals
 
 
-def merge(*series):
-    """Merge N (keys, values) series into one key-sorted (keys, values, sources).
+def merge(*streams):
+    """Merge N (keys, values) streams into one key-sorted (keys, values, sources).
 
-    Each series must be individually sorted by key. `sources[i]` is the index
-    of the series that emitted event i. Ties break by series order.
+    Each stream must be individually sorted by key. `sources[i]` is the index
+    of the stream that emitted event i. Ties break by stream order.
     """
-    if any(is_node(s) for s in series):
-        return make_combinator_node(merge, series, {})
-    kind, norm_keys, norm_vals = _normalize_series(series, "merge")
+    if any(is_node(s) for s in streams):
+        return make_operator_node(merge, streams, {})
+    kind, norm_keys, norm_vals = _normalize_streams(streams, "merge")
     fn = _b._merge_f64 if kind == "f64" else _b._merge_i64
     return fn(norm_keys, norm_vals)
 
 
-def _make_merge_puller(series):
-    kind, norm_keys, norm_vals = _normalize_series(series, "merge_iter")
+def _make_merge_puller(streams):
+    kind, norm_keys, norm_vals = _normalize_streams(streams, "merge_iter")
     cls = _b._MergePuller_f64 if kind == "f64" else _b._MergePuller_i64
     return cls(norm_keys, norm_vals)
 
 
-def merge_iter(*series):
+def merge_iter(*streams):
     """Yield (key, value, source) events in key order, pulled one at a time."""
-    puller = _make_merge_puller(series)
+    puller = _make_merge_puller(streams)
     while True:
         event = puller.next()
         if event is None:
@@ -181,26 +181,26 @@ def _merge_events(*series):
     return list(merge_iter(*series))
 
 
-def combine_latest(*series, emit="when_all", func=None):
-    """As-of latest-value join of N (keys, values) series.
+def combine_latest(*streams, emit="when_all", func=None):
+    """As-of latest-value join of N (keys, values) streams.
 
     Emits an aligned row whenever any input advances, carrying each input's most
     recent value (forward-fill). Returns (keys, aligned) where aligned is (M, N);
-    aligned[:, j] is series j's latest value at each emitted key. emit="when_all"
+    aligned[:, j] is stream j's latest value at each emitted key. emit="when_all"
     (default) suppresses output until every input is warm; emit="on_any" emits
     from the first event with NaN for not-yet-seen inputs. If ``func`` is given it
     is applied per row (``func(*row)``) and (keys, reduced) is returned instead.
     """
     if emit not in ("when_all", "on_any"):
         raise ValueError('combine_latest: emit must be "when_all" or "on_any"')
-    if any(is_node(s) for s in series):
+    if any(is_node(s) for s in streams):
         if func is not None:
             raise ValueError(
                 "combine_latest(func=...) is not supported in a DAG graph "
                 "(graph ops are C++-only); apply a C++ functor to the aligned "
                 "output instead, e.g. Sub()(combine_latest(a, b))")
-        return make_combinator_node(combine_latest, series, {"emit": emit, "func": None})
-    kind, norm_keys, norm_vals = _normalize_series(series, "combine_latest")
+        return make_operator_node(combine_latest, streams, {"emit": emit, "func": None})
+    kind, norm_keys, norm_vals = _normalize_streams(streams, "combine_latest")
     fn = _b._combine_latest_f64 if kind == "f64" else _b._combine_latest_i64
     keys, aligned = fn(norm_keys, norm_vals, emit == "when_all")
     if func is None:
@@ -209,11 +209,11 @@ def combine_latest(*series, emit="when_all", func=None):
     return keys, reduced
 
 
-def combine_latest_iter(*series, emit="when_all"):
+def combine_latest_iter(*streams, emit="when_all"):
     """Yield (key, (v0, v1, ...)) aligned rows one at a time (streaming form)."""
     if emit not in ("when_all", "on_any"):
         raise ValueError('combine_latest: emit must be "when_all" or "on_any"')
-    kind, norm_keys, norm_vals = _normalize_series(series, "combine_latest")
+    kind, norm_keys, norm_vals = _normalize_streams(streams, "combine_latest")
     cls = _b._CombineLatestPuller_f64 if kind == "f64" else _b._CombineLatestPuller_i64
     puller = cls(norm_keys, norm_vals, emit == "when_all")
     while True:
@@ -223,8 +223,8 @@ def combine_latest_iter(*series, emit="when_all"):
         yield event
 
 
-async def pace(*series, speed=1.0, sleep=None):
-    """Replay merged series as an async event stream paced by key-deltas.
+async def pace(*streams, speed=1.0, sleep=None):
+    """Replay merged streams as an async event stream paced by key-deltas.
 
     Yields (key, value, source) in key order. Between consecutive events it
     awaits `sleep(key_delta / speed)` so wall-clock spacing tracks the key
@@ -238,7 +238,7 @@ async def pace(*series, speed=1.0, sleep=None):
         sleep = asyncio.sleep
     infinite = speed == float("inf")
     prev_key = None
-    for key, value, source in merge_iter(*series):
+    for key, value, source in merge_iter(*streams):
         if not infinite and prev_key is not None:
             delta = key - prev_key
             wait = delta / speed
@@ -259,7 +259,7 @@ def dropna(keys, values=None, how="any"):
     if how not in ("any", "all"):
         raise ValueError('dropna: how must be "any" or "all"')
     if is_node(keys):
-        return make_combinator_node(dropna, (keys,), {"how": how})
+        return make_operator_node(dropna, (keys,), {"how": how})
     keys = np.asarray(keys)
     values = np.asarray(values, dtype=np.float64)
     nan = np.isnan(values)
@@ -355,7 +355,7 @@ def select(keys, values=None, columns=None):
         cols = values if columns is None else columns
         if cols is None:
             raise ValueError("select: columns is required")
-        return make_combinator_node(select, (keys,), {"columns": cols})
+        return make_operator_node(select, (keys,), {"columns": cols})
     if values is None:
         raise ValueError("select: values is required (eager form is "
                          "select(keys, values, columns))")
@@ -482,7 +482,7 @@ def resample(keys, values=None, *, width=None, count=None, agg="last",
     """
     _resample_validate(width, count, agg, label)
     if is_node(keys):
-        return make_combinator_node(resample, (keys,), {
+        return make_operator_node(resample, (keys,), {
             "width": width, "count": count, "agg": agg,
             "origin": origin, "label": label})
     if values is None:

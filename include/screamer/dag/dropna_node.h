@@ -11,13 +11,13 @@ namespace screamer { namespace dag {
 // is NaN. how_all=true ("all"): drop only if every value is NaN (an empty frame
 // is never dropped). Cardinality-reducing; forwards the surviving frame pointer
 // unchanged (zero per-event allocation).
-template <class Key>
-class DropNaNode : public Sink<Key> {
+template <class Index>
+class DropNaNode : public Sink<Index> {
 public:
-    DropNaNode(bool how_all, Sink<Key>& downstream)
+    DropNaNode(bool how_all, Sink<Index>& downstream)
         : how_all_(how_all), downstream_(downstream) {}
 
-    void push(const Frame<Key>& f) override {
+    void push(const Frame<Index>& f) override {
         bool any_nan = false;
         bool all_nan = f.width > 0;
         for (std::size_t i = 0; i < f.width; ++i) {
@@ -32,7 +32,7 @@ public:
 
 private:
     bool how_all_;
-    Sink<Key>& downstream_;
+    Sink<Index>& downstream_;
 };
 
 }} // namespace screamer::dag
