@@ -48,7 +48,7 @@ def test_resample_aggregations():
     assert resample(vals, keys, every=10, agg="first")[0].tolist() == [4.0]
 
 
-def test_resample_ohlc_width4():
+def test_resample_ohlc_4col():
     keys = np.array([0, 1, 2, 3], dtype=np.int64)
     vals = np.array([4.0, 2.0, 8.0, 6.0])
     v, k = resample(vals, keys, every=10, agg="ohlc")

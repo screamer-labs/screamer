@@ -58,7 +58,7 @@ def test_resample_by_key_right_label_and_origin():
     np.testing.assert_array_equal(sk, ek); np.testing.assert_array_equal(sv.reshape(-1), ev)
 
 
-def test_resample_ohlc_width4_in_graph():
+def test_resample_ohlc_4col_in_graph():
     keys = np.array([0, 1, 2, 10, 11], dtype=np.int64)
     vals = np.array([4.0, 2.0, 8.0, 6.0, 7.0])
     x = Input("x")

@@ -556,7 +556,7 @@ def resample(values, index=None, *, every=None, count=None, agg="last",
     stream = values if isinstance(values, Stream) else Stream(values, index)
     vals = np.asarray(stream.values, dtype=np.float64)
     if vals.ndim != 1:
-        raise ValueError("resample: expects a 1-D value stream (width-1)")
+        raise ValueError("resample: expects a 1-D value stream")
 
     # Use explicit index or row positions when positional
     if stream.index is None:
