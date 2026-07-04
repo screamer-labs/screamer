@@ -1,8 +1,8 @@
 # `pace`
 
-Replay a stored `(keys, values)` series as an async event stream. `speed=inf`
-runs a max-speed backtest; a finite `speed` replays in wall-clock time, turning
-key deltas into sleep durations. The values and their order are identical to the
+Replay stored value streams as an async event stream. `speed=inf` runs a
+max-speed backtest; a finite `speed` replays in wall-clock time, turning index
+deltas into sleep durations. The values and their order are identical to the
 batch and streaming forms; only the timing differs.
 
 ```{eval-rst}
@@ -11,7 +11,8 @@ batch and streaming forms; only the timing differs.
 
 ## Example
 
-A max-speed backtest yields each `(key, value)` event in order, with no delay.
+A max-speed backtest yields each `(value, index, source)` event in order, with
+no delay.
 
 ```{eval-rst}
 .. exec_code::
@@ -22,8 +23,9 @@ A max-speed backtest yields each `(key, value)` event in order, with no delay.
    from screamer.streams import pace
    # --- hide: stop ---
    async def backtest():
-       series = (np.array([0, 1, 2]), np.array([1.0, 2.0, 3.0]))
-       return [(e[0], e[1]) async for e in pace(series, speed=float("inf"))]
+       vals = np.array([1.0, 2.0, 3.0])
+       idx  = np.array([0, 1, 2], dtype=np.int64)
+       return [(v, i, s) async for v, i, s in pace(vals, index=[idx], speed=float("inf"))]
 
    print(asyncio.run(backtest()))
 ```

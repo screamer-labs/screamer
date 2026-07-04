@@ -1,81 +1,115 @@
-# Streams, keys, and alignment
+# Streams, values, and alignment
 
-screamer's single-series operators (`RollingMean`, `RollingCorr`, …) assume
+screamer's single-series functors (`RollingMean`, `RollingCorr`, ...) assume
 lockstep alignment: row `i` of one input pairs with row `i` of another. Real
 multi-stream data breaks that assumption - feeds tick at different rates, arrive
 out of step, and drop samples. The `screamer.streams` module adds a small,
 composable layer for combining, splitting, filtering, and replaying streams that
-do **not** tick together, while keeping every existing operator unchanged.
+do **not** tick together, while keeping every existing functor unchanged.
 
 The whole design rests on four principles.
 
-## 1. Every stream has an order key
+## 1. A stream is values with an optional index
 
-A stream is a sequence of `(key, value)` events. The **key** is whatever you
-already use to order data - a `datetime64` timestamp, an `int64` tick count, a
-`float64` second, or, when you supply none, the **row number**. screamer only
-ever *orders* and *compares* keys; it never interprets them.
+A **stream** is a sequence of **values** (a 1-D or 2-D NumPy array), optionally
+annotated with an **index** (a 1-D array of the same length). The index is an
+ordering coordinate - a `datetime64` timestamp, an `int64` tick count, a
+`float64` second - that locates each value in a shared timeline. It is not a
+a dict entry and has no dict semantics; screamer only ever *orders* and *compares*
+index values.
 
-Two capability tiers:
+**`index=None` means positional.** A positional stream has no explicit ordering
+coordinate; its position (row number) is its logical place in time. Two
+positional streams are assumed to tick together - they are aligned clocks - so
+their rows pair by position. To model streams on *different* clocks, provide an
+index for each stream; without one, aligned clocks are assumed and the lengths
+must match.
 
-- **Comparable key** (can be ordered) - enough for `merge`, `combine_latest`,
-  and backtest replay. Row numbers and any numeric key qualify.
-- **Metric key** (differences are meaningful) - additionally enables wall-clock
-  replay (`pace`), because a sleep duration only exists when key deltas convert
-  to time.
+The `Stream` type is a thin wrapper over two arrays with no per-element
+overhead:
 
-Keys are numeric (`int64` or `double`), chosen from your array's dtype;
-`datetime64` is carried losslessly as its underlying `int64`. The lockstep
-behavior of the core operators is exactly the degenerate "no key → row number"
-case, so nothing you already rely on changes.
+```python
+from screamer.streams import Stream
 
-## 2. Compute preserves shape; combinators change cardinality
+s = Stream(values, index=None)   # positional
+s = Stream(values, index=timestamps)   # indexed
+
+s.values    # np.ndarray
+s.index     # np.ndarray or None (None == positional)
+len(s)      # number of rows
+Stream.from_pandas(series_or_frame)   # data -> values, pandas index -> index
+s.to_pandas()                          # Series / DataFrame
+```
+
+## 2. Stream operators are polymorphic
+
+Every stream operator (`combine_latest`, `merge`, `dropna`, `filter`, `select`,
+`resample`, `split`, `pace`) dispatches on the type of its inputs and mirrors
+that type on return:
+
+| Input type | Return type |
+|---|---|
+| raw value array(s), optional `index=` | `(values, index)` 2-tuple; `index is None` when positional |
+| `Stream` object(s) | a `Stream` |
+| graph `Node`(s) | a `Node` (builds the DAG) |
+
+Raw return is always values-first: `vals, idx = combine_latest(a, b)` always
+works; `idx is None` is a checkable flag meaning "no real ordering here." A bare
+array auto-wraps to a positional `Stream`; if any input was a `Stream` the
+output is also a `Stream`.
+
+## 3. Compute functors preserve cardinality; stream operators may change it
 
 | Layer | Cardinality | Examples |
 |---|---|---|
 | **Compute functors** | preserved (output length == input length) | `RollingMean`, `RollingCorr`, `FillNa`, `Ffill` |
-| **Combinators** | may change it | `merge`, `combine_latest`, `dropna`, `filter`, `split`, `pace` |
+| **Stream operators** | may change it | `merge`, `combine_latest`, `dropna`, `filter`, `split`, `pace` |
 
 Compute functors handle `NaN` internally via their `nan_policy` (see
-[NaN policy](nan_policy.md)) and never add or drop rows. Combinators own all
-time alignment and stream shaping. `dropna`/`filter`/`split` are the
-cardinality-changing tools; `fillna`/`ffill` are shape-preserving and belong to
-both worlds.
+[NaN policy](nan_policy.md)) and never add or drop rows. Stream operators own
+all time alignment and stream shaping. `dropna` / `filter` / `split` are the
+cardinality-changing tools; `fillna` / `ffill` are shape-preserving and belong
+to both worlds.
 
-## 3. Alignment is a separate layer from computation
+## 4. Alignment is a separate layer from computation
 
-Time-aware combinators do the key handling and hand *aligned* data to the
+Time-aware stream operators do the index handling and hand *aligned* data to the
 unchanged compute functors. The idiom is:
 
 ```python
 from screamer import combine_latest, RollingCorr
 
-# Two async price feeds, each a (timestamps, prices) pair.
-keys, aligned = combine_latest((t_a, p_a), (t_b, p_b))   # as-of latest-value join
-corr = RollingCorr(20)(aligned[:, 0], aligned[:, 1])      # functor, untouched
+# Two async price streams, each a (values, index) pair.
+aligned, idx = combine_latest(p_a, p_b, index=[t_a, t_b])   # as-of latest-value join
+corr = RollingCorr(20)(aligned[:, 0], aligned[:, 1])         # functor, untouched
 ```
 
-`combine_latest` emits an aligned row whenever any input advances, carrying each
-input's most recent value (forward-fill). `emit="when_all"` (default) waits
-until every input is warm; `emit="on_any"` emits from the first event with
-`NaN` for inputs not yet seen. Feed the aligned columns to any existing functor.
+`combine_latest` emits **one row per distinct index** (same-index events from
+different streams coalesce into a single settled row). `emit="when_all"`
+(default) waits until every input is warm; `emit="on_any"` emits from the first
+event with `NaN` for inputs not yet seen. Feed the aligned columns to any
+existing functor.
 
-Other combinators:
+Other stream operators:
 
-- `merge(*series)` → one key-sorted, source-tagged stream (`keys, values, sources`).
-- `split(keys, values, sources, n=None)` → the inverse of `merge`.
-- `dropna(keys, values, how="any")` / `filter(keys, values, predicate)` → drop events.
-- `pace(*series, speed=1.0)` → async replay; `speed=inf` is a max-speed backtest.
+- `merge(*values, index=None)` -> `(values, sources, index)`: one index-sorted,
+  source-tagged stream.
+- `split(values, sources, index=None)` -> the inverse of `merge`.
+- `dropna(values, index=None, how="any")` / `filter(values, predicate, index=None)`
+  -> drop events.
+- `pace(*values, index=None, speed=1.0)` -> async replay; `speed=inf` is a
+  max-speed backtest. Yields `(value, index, source)` per event.
 
-Four of the batch combinators have a streaming twin (`merge_iter`, `combine_latest_iter`,
-`dropna_iter`, `filter_iter`) that yields events one at a time. (`split` has no
-streaming form, and `pace` is itself the streaming/replay driver.)
+Four of the batch operators have a streaming twin (`merge_iter`,
+`combine_latest_iter`, `dropna_iter`, `filter_iter`) that yields events one at
+a time as `(value, index)` pairs. (`split` has no streaming form, and `pace`
+is itself the streaming/replay driver.)
 
-## 4. Causal, and identical across modes
+## 5. Causal, and identical across modes
 
-- **Causal**: an output at key `t` depends only on events at keys `≤ t`. There
+- **Causal**: an output at index `t` depends only on events at indices `<= t`. There
   is no backward-fill and no lookahead operator, ever.
-- **Batch == streaming == replay**: the batch form and its streaming twin emit
+- **Batch == streaming == graph**: the batch form and its streaming twin emit
   byte-identical event sequences; `pace` changes only *when* events are emitted,
   never their values or order. This is what lets you validate a pipeline on
   stored data and run the identical pipeline live. It is enforced by the
@@ -84,6 +118,6 @@ streaming form, and `pace` is itself the streaming/replay driver.)
 ## See also
 
 - [Polymorphic API](polymorphic_api.md) - the single-series input/output
-  contract; lockstep is the row-number-key special case of this page.
+  contract; lockstep is the positional (no-index) special case of this page.
 - [NaN policy](nan_policy.md) - how compute functors treat `NaN`; `ffill` is the
   same forward-fill carry that `combine_latest` uses.

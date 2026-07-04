@@ -1,8 +1,8 @@
 # `dropna`
 
 Drop events whose value is `NaN`. This changes the length of the stream (it is a
-cardinality-changing combinator, unlike the shape-preserving compute functors).
-Usable eagerly and inside a `Dag`.
+cardinality-changing stream operator, unlike the shape-preserving compute
+functors). Usable eagerly and inside a `Dag`.
 
 ```{eval-rst}
 .. autofunction:: screamer.streams.dropna
@@ -10,7 +10,8 @@ Usable eagerly and inside a `Dag`.
 
 ## Example
 
-The event at key 2 is `NaN`, so it is removed; the surviving values are returned.
+The event at index 2 is `NaN`, so it is removed; the surviving values are
+returned values-first.
 
 ```{eval-rst}
 .. exec_code::
@@ -19,6 +20,10 @@ The event at key 2 is `NaN`, so it is removed; the surviving values are returned
    import numpy as np
    from screamer.streams import dropna
    # --- hide: stop ---
-   keys, values = dropna(np.array([1, 2, 3]), np.array([1.0, np.nan, 3.0]))
-   print(values)
+   vals = np.array([1.0, np.nan, 3.0])
+   idx  = np.array([1, 2, 3])
+
+   clean_vals, clean_idx = dropna(vals, index=idx)
+   print(clean_vals)
+   print(clean_idx)
 ```

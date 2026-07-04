@@ -1,8 +1,8 @@
 # `merge`
 
-Interleave several streams into one key-sorted stream, tagging each event with
-the index of the source it came from. This is the causal, order-preserving way to
-fan several feeds into a single timeline.
+Interleave several streams into one index-sorted stream, tagging each event with
+the integer index of the source it came from. This is the causal, order-preserving
+way to fan several streams into a single timeline.
 
 ```{eval-rst}
 .. autofunction:: screamer.streams.merge
@@ -10,8 +10,8 @@ fan several feeds into a single timeline.
 
 ## Example
 
-Two feeds are merged into one stream ordered by key. `sources` records which feed
-each event came from.
+Two streams are merged into one stream ordered by index. `sources` records which
+stream each event came from.
 
 ```{eval-rst}
 .. exec_code::
@@ -20,11 +20,13 @@ each event came from.
    import numpy as np
    from screamer.streams import merge
    # --- hide: stop ---
-   keys, values, sources = merge(
-       (np.array([1, 3]), np.array([1.0, 3.0])),
-       (np.array([2, 4]), np.array([2.0, 4.0])),
-   )
-   print(list(zip(keys.tolist(), sources.tolist())))
+   a_v = np.array([1.0, 3.0])
+   a_k = np.array([1, 3])
+   b_v = np.array([2.0, 4.0])
+   b_k = np.array([2, 4])
+
+   values, sources, idx = merge(a_v, b_v, index=[a_k, b_k])
+   print(list(zip(idx.tolist(), sources.tolist())))
 ```
 
 `split` is the inverse: it restores the original per-source streams.
