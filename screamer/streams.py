@@ -382,6 +382,13 @@ class _ResampleAccum:
 def _resample_validate(width, count, agg, label):
     if (width is None) == (count is None):
         raise ValueError("resample: pass exactly one of width= or count=")
+    # Positivity guard: width=0 would reach the engine's floordiv(_, 0) -> a hard
+    # SIGFPE crash; count<1 never completes a bucket. Reject both up front (this
+    # runs before the Node dispatch, so it guards the graph path too).
+    if width is not None and int(width) <= 0:
+        raise ValueError("resample: width must be positive")
+    if count is not None and int(count) < 1:
+        raise ValueError("resample: count must be >= 1")
     if agg not in _RESAMPLE_AGGS:
         raise ValueError(f"resample: agg must be one of {_RESAMPLE_AGGS}")
     if label not in ("left", "right"):

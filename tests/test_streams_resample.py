@@ -144,3 +144,14 @@ def test_resample_by_count_iter_and_nan():
 def test_resample_empty_input():
     k, v = resample(np.array([], dtype=np.int64), np.array([]), width=10, agg="sum")
     assert len(k) == 0 and len(v) == 0
+
+
+def test_resample_nonpositive_width_count_rejected():
+    keys = np.array([0, 1], dtype=np.int64); vals = np.array([1.0, 2.0])
+    # width=0 would otherwise reach the engine floordiv(_, 0) -> SIGFPE crash
+    with pytest.raises(ValueError, match="width must be positive"):
+        resample(keys, vals, width=0)
+    with pytest.raises(ValueError, match="width must be positive"):
+        resample(keys, vals, width=-5)
+    with pytest.raises(ValueError, match="count must be"):
+        resample(keys, vals, count=0)
