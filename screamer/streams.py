@@ -12,6 +12,7 @@ from . import screamer_bindings as _b
 from .dag import is_node, make_combinator_node
 
 __all__ = [
+    "Stream",
     "merge", "merge_iter",
     "combine_latest", "combine_latest_iter",
     "pace",
@@ -48,7 +49,8 @@ class Stream:
     @classmethod
     def from_pandas(cls, obj):
         """Build a Stream from a pandas Series or DataFrame (data -> values,
-        pandas index -> index)."""
+        pandas index -> index). Note: a plain RangeIndex is kept as a numbered
+        index, not converted to positional None."""
         return cls(obj.to_numpy(), np.asarray(obj.index))
 
     def to_pandas(self):
