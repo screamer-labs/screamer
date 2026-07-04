@@ -183,11 +183,15 @@ class Dag:
                 nid = gb.add_input()
             elif isinstance(op, tuple) and op[0] == "combinator":
                 fn, kwargs = op[1], op[2]
-                if getattr(fn, "__name__", "") != "combine_latest":
-                    raise ValueError(
-                        f"{fn.__name__} is not supported as a DAG graph node")
+                name = getattr(fn, "__name__", "")
                 inp = [build(i) for i in node.inputs]
-                nid = gb.add_combine_latest(inp, kwargs.get("emit") == "when_all")
+                if name == "combine_latest":
+                    nid = gb.add_combine_latest(inp, kwargs.get("emit") == "when_all")
+                elif name == "dropna":
+                    nid = gb.add_dropna(inp, kwargs.get("how") == "all")
+                else:
+                    raise ValueError(
+                        f"{name} is not supported as a DAG graph node")
             else:                                    # functor instance (EvalOp)
                 inp = [build(i) for i in node.inputs]
                 nid = gb.add_functor(op, inp)

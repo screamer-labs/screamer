@@ -286,6 +286,10 @@ void init_bindings_dag(py::module& m) {
             return builder.add_combine_latest(std::move(inputs), when_all);
         }
 
+        std::size_t add_dropna(std::vector<std::size_t> inputs, bool how_all) {
+            return builder.add_dropna(std::move(inputs), how_all);
+        }
+
         void set_outputs(std::vector<std::size_t> outs) {
             builder.set_outputs(std::move(outs));
         }
@@ -316,6 +320,10 @@ void init_bindings_dag(py::module& m) {
                                       std::vector<std::size_t> inputs, bool when_all) {
             return b.add_combine_latest(std::move(inputs), when_all);
         }, py::arg("inputs"), py::arg("when_all") = true)
+        .def("add_dropna", [](PyGraphBuilder& b,
+                              std::vector<std::size_t> inputs, bool how_all) {
+            return b.add_dropna(std::move(inputs), how_all);
+        }, py::arg("inputs"), py::arg("how_all") = false)
         .def("set_outputs", &PyGraphBuilder::set_outputs, py::arg("output_ids"))
         .def("compile", [](PyGraphBuilder& b) { return b.compile(); })
         .def("run_batch", [](PyGraphBuilder& b, py::list feeds) {

@@ -18,6 +18,7 @@
 #include <vector>
 #include "screamer/dag/broadcast.h"
 #include "screamer/dag/combine_latest_node.h"
+#include "screamer/dag/dropna_node.h"
 #include "screamer/dag/frame.h"
 #include "screamer/dag/functor_node.h"
 #include "screamer/dag/graph.h"
@@ -69,27 +70,6 @@ public:
         // the vector does not reallocate while sinks hold references into it.
         outputs_.resize(num_out);
 
-        // Compute and store the expected width for each output based on its producer node.
-        output_widths_.resize(num_out);
-        for (std::size_t o = 0; o < num_out; ++o) {
-            std::size_t node_id = s.output_ids[o];
-            const auto& node = s.nodes[node_id];
-            switch (node.kind) {
-            case NodeKind::Functor:
-                output_widths_[o] = node.op->n_out();
-                break;
-            case NodeKind::CombineLatest:
-                output_widths_[o] = node.inputs.size();
-                break;
-            case NodeKind::Input:
-                output_widths_[o] = 1;
-                break;
-            default:
-                output_widths_[o] = 1;
-                break;
-            }
-        }
-
         // Create persistent GatherSinks pointing at outputs_.
         std::vector<GatherSink*> gather_ptrs;
         gather_ptrs.reserve(num_out);
@@ -126,6 +106,23 @@ public:
         // Cycle detection — Kahn's sort omits nodes involved in cycles.
         if (topo.size() != s.nodes.size())
             throw std::runtime_error("compile: graph has a cycle");
+
+        // Width of every node's emitted frame. Producers-first (reverse of the
+        // consumers-first topo) so a pass-through node can read its input's width.
+        std::vector<std::size_t> node_width(n, 1);
+        for (auto it = topo.rbegin(); it != topo.rend(); ++it) {
+            std::size_t id = *it;
+            const auto& nd = s.nodes[id];
+            switch (nd.kind) {
+            case NodeKind::Input:         node_width[id] = 1; break;
+            case NodeKind::Functor:       node_width[id] = nd.op->n_out(); break;
+            case NodeKind::CombineLatest: node_width[id] = nd.inputs.size(); break;
+            case NodeKind::DropNa:        node_width[id] = node_width[nd.inputs[0]]; break;
+            }
+        }
+        output_widths_.resize(num_out);
+        for (std::size_t o = 0; o < num_out; ++o)
+            output_widths_[o] = node_width[s.output_ids[o]];
 
         // Map output_id → which output indices it serves.
         std::vector<std::vector<std::size_t>> node_out_idx(n);
@@ -203,6 +200,14 @@ public:
                     return &ptr->port(slot);
                 };
                 owned_.push_back(cn);
+                break;
+            }
+            case NodeKind::DropNa: {
+                auto dn = std::make_shared<DropNaNode<std::int64_t>>(ns.how_all, *downstream);
+                node_input_sink[id] = [ptr = dn.get()](std::size_t) -> Sink<std::int64_t>* {
+                    return ptr;
+                };
+                owned_.push_back(dn);
                 break;
             }
             }

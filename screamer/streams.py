@@ -174,7 +174,7 @@ async def pace(*series, speed=1.0, sleep=None):
         yield key, value, source
 
 
-def dropna(keys, values, how="any"):
+def dropna(keys, values=None, how="any"):
     """Drop events whose value is NaN. `values` may be 1-D (M,) or 2-D (M, N).
 
     how="any" (default) drops a row if any component is NaN; how="all" only if
@@ -182,6 +182,8 @@ def dropna(keys, values, how="any"):
     rows. Returns (keys, values) restricted to the surviving rows. Surviving
     values are returned as float64 (values are cast for the NaN test).
     """
+    if is_node(keys):
+        return make_combinator_node(dropna, (keys,), {"how": how})
     if how not in ("any", "all"):
         raise ValueError('dropna: how must be "any" or "all"')
     keys = np.asarray(keys)
@@ -194,13 +196,17 @@ def dropna(keys, values, how="any"):
     return keys[mask], values[mask]
 
 
-def filter(keys, values, predicate):
+def filter(keys, values=None, predicate=None):
     """Keep events where predicate(row) is truthy.
 
     row is a scalar for a 1-D value stream, a 1-D array for a 2-D aligned stream.
     predicate is a Python callable (per-event), so heavy filtering should prefer
     dropna or numpy masks; filter is the general escape hatch.
     """
+    if is_node(keys):
+        raise ValueError(
+            "filter is not supported as a DAG graph node: the graph engine has "
+            "no Python predicates (no lambda). Use dropna for NaN removal.")
     keys = np.asarray(keys)
     values = np.asarray(values)
     mask = np.fromiter((bool(predicate(row)) for row in values),
