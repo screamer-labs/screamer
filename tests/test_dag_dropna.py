@@ -65,6 +65,13 @@ def test_filter_rejected_in_graph():
         sfilter(x, lambda r: r > 0)
 
 
+def test_dropna_graph_bad_how_rejected():
+    # graph form validates `how` up front, same as the eager form
+    x = Input("x")
+    with pytest.raises(ValueError, match="how must be"):
+        dropna(x, how="typo")
+
+
 def test_dropna_all_over_wide_combine_latest():
     # dropna(how="all") on a WIDE (width-2) stream produced by combine_latest:
     # exercises the width-passthrough node_width path and the multi-value NaN

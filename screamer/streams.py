@@ -182,10 +182,10 @@ def dropna(keys, values=None, how="any"):
     rows. Returns (keys, values) restricted to the surviving rows. Surviving
     values are returned as float64 (values are cast for the NaN test).
     """
-    if is_node(keys):
-        return make_combinator_node(dropna, (keys,), {"how": how})
     if how not in ("any", "all"):
         raise ValueError('dropna: how must be "any" or "all"')
+    if is_node(keys):
+        return make_combinator_node(dropna, (keys,), {"how": how})
     keys = np.asarray(keys)
     values = np.asarray(values, dtype=np.float64)
     nan = np.isnan(values)
