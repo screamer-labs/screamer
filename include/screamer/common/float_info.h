@@ -1,6 +1,9 @@
 #ifndef SCREAMER_FLOAT_INFO_H
 #define SCREAMER_FLOAT_INFO_H
 
+#include <cstdint>   // uint64_t / uint32_t used below (self-contained header)
+#include <cstring>   // std::memcpy
+
 /*
 we use -ffast_math, but...
 
