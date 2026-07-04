@@ -81,8 +81,12 @@ def _align_results(results, align_outputs):
         return results[0]
     if not align_outputs:
         return tuple(results)
-    from .streams import combine_latest
-    aligned_keys, aligned = combine_latest(*results, emit="when_all")
+    from .streams import combine_latest, Stream
+    # results is a list of (keys, values) pairs; wrap in Streams for new API
+    stream_list = [Stream(v, k) for k, v in results]
+    out = combine_latest(*stream_list, emit="when_all")  # returns Stream
+    aligned_keys = out.index   # already coalesced (one row per distinct index)
+    aligned = out.values
     _, inv_idx = np.unique(aligned_keys[::-1], return_index=True)
     last_idx = np.sort(len(aligned_keys) - 1 - inv_idx)
     aligned_keys = aligned_keys[last_idx]

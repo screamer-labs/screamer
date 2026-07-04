@@ -40,10 +40,17 @@ def test_merge_batch_equals_stream(n_series, dtype):
 @pytest.mark.parametrize("emit", ["when_all", "on_any"])
 def test_combine_latest_batch_equals_stream(n_series, dtype, emit):
     series = _make_series(n_series, 80, dtype, seed=200 + n_series)
-    bk, ba = streams.combine_latest(*series, emit=emit)
-    events = list(streams.combine_latest_iter(*series, emit=emit))
-    got_k = np.array([e[0] for e in events], dtype=bk.dtype)
-    got_a = np.array([list(e[1]) for e in events], dtype=np.float64).reshape(len(events), n_series)
+    # New API: pass Stream objects (values + index), receive Stream back.
+    stream_list = [streams.Stream(v, k) for k, v in series]
+    result = streams.combine_latest(*stream_list, emit=emit)
+    # result is a Stream (regime="stream"): one row per distinct index (coalesced)
+    bk = result.index
+    ba = result.values
+    events = list(streams.combine_latest_iter(*stream_list, emit=emit))
+    # combine_latest_iter yields (row, index) - coalesced, one per distinct index
+    got_k = np.array([idx for _, idx in events], dtype=bk.dtype)
+    got_a = np.array([np.asarray(row) for row, _ in events],
+                     dtype=np.float64).reshape(len(events), n_series)
     np.testing.assert_array_equal(got_k, bk)
     np.testing.assert_array_equal(got_a, ba)
 
@@ -68,12 +75,19 @@ def test_dropna_batch_equals_stream_on_combine_output():
     # combine_latest on_any produces NaN warmup rows; dropna must remove the
     # same rows whether applied to the batch array or the event stream.
     series = _make_series(3, 50, np.int64, seed=42)
-    bk, ba = streams.combine_latest(*series, emit="on_any")
+    stream_list = [streams.Stream(v, k) for k, v in series]
+    result = streams.combine_latest(*stream_list, emit="on_any")
+    bk = result.index
+    ba = result.values
     dk, dv = streams.dropna(bk, ba, how="any")
 
-    events = list(streams.combine_latest_iter(*series, emit="on_any"))
-    kept = list(streams.dropna_iter(events, how="any"))
-    np.testing.assert_array_equal(np.array([k for k, _ in kept], dtype=bk.dtype), dk)
-    stream_vals = np.array([list(v) for _, v in kept], dtype=np.float64).reshape(len(kept), -1)
-    assert stream_vals.shape[1] == 3
-    np.testing.assert_array_equal(stream_vals, dv)
+    events = list(streams.combine_latest_iter(*stream_list, emit="on_any"))
+    # combine_latest_iter yields (row, index); filter NaN rows inline
+    kept = [(row, idx) for row, idx in events
+            if not np.any(np.isnan(np.asarray(row, dtype=np.float64)))]
+    dk_stream = np.array([idx for _, idx in kept], dtype=bk.dtype)
+    dv_stream = np.array([np.asarray(row) for row, _ in kept],
+                         dtype=np.float64).reshape(len(kept), -1)
+    assert dv_stream.shape[1] == 3
+    np.testing.assert_array_equal(dk_stream, dk)
+    np.testing.assert_array_equal(dv_stream, dv)

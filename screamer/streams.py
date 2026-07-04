@@ -147,6 +147,39 @@ def _normalize_streams(streams, who):
     return kinds.pop(), norm_keys, norm_vals
 
 
+def _collapse_last_per_index(index, values):
+    """Keep the last row of each run of equal index (one row per distinct index).
+    index must be non-decreasing (the aligner emits in index order)."""
+    n = len(index)
+    if n == 0:
+        return index, values
+    keep = np.empty(n, dtype=bool)
+    keep[:-1] = index[:-1] != index[1:]
+    keep[-1] = True
+    return index[keep], values[keep]
+
+
+def _streams_to_keyed(streams, who):
+    """(kind, index_list, vals_list, positional). Uniform positional or indexed;
+    no-index requires equal length; mixing positional and indexed raises."""
+    indexed = [s.index is not None for s in streams]
+    if any(indexed) and not all(indexed):
+        raise ValueError(
+            f"{who}: cannot align positional and indexed streams; give every "
+            "stream an index, or none")
+    vals = [np.ascontiguousarray(s.values, dtype=np.float64) for s in streams]
+    if not any(indexed):
+        lens = {len(s) for s in streams}
+        if len(lens) != 1:
+            raise ValueError(
+                f"{who}: streams have no index, so they are assumed aligned - "
+                "lengths must match, or provide an index to align different clocks")
+        idx = [np.arange(len(streams[0]), dtype=np.int64) for _ in streams]
+        return "i64", idx, vals, True
+    kind, idx, _ = _normalize_streams([(s.index, s.values) for s in streams], who)
+    return kind, idx, vals, False
+
+
 def merge(*streams):
     """Merge N (keys, values) streams into one key-sorted (keys, values, sources).
 
@@ -181,46 +214,63 @@ def _merge_events(*streams):
     return list(merge_iter(*streams))
 
 
-def combine_latest(*streams, emit="when_all", func=None):
-    """As-of latest-value join of N (keys, values) streams.
+def combine_latest(*values, index=None, emit="when_all", func=None):
+    """As-of latest-value join of N streams: one row per distinct index (same-index
+    events coalesce). Values-first + polymorphic: raw arrays, Stream, or graph Node.
 
-    Emits an aligned row whenever any input advances, carrying each input's most
-    recent value (forward-fill). Returns (keys, aligned) where aligned is (M, N);
-    aligned[:, j] is stream j's latest value at each emitted key. emit="when_all"
-    (default) suppresses output until every input is warm; emit="on_any" emits
-    from the first event with NaN for not-yet-seen inputs. If ``func`` is given it
-    is applied per row (``func(*row)``) and (keys, reduced) is returned instead.
+    No-index (positional) inputs are treated as aligned clocks (equal length
+    required, lockstep); returns (aligned_values, None). Indexed inputs perform
+    an as-of join keyed on each stream's index, returning (aligned_values, index).
+    Stream inputs return a Stream. Node inputs return a Node.
+
+    emit="when_all" (default) suppresses output until every input has a value;
+    emit="on_any" emits from the first event (NaN for unseen inputs). If ``func``
+    is given it is applied per row (``func(*row)``) after alignment.
     """
     if emit not in ("when_all", "on_any"):
         raise ValueError('combine_latest: emit must be "when_all" or "on_any"')
-    if any(is_node(s) for s in streams):
+    if any(is_node(v) for v in values):
         if func is not None:
             raise ValueError(
                 "combine_latest(func=...) is not supported in a DAG graph "
-                "(graph ops are C++-only); apply a C++ functor to the aligned "
-                "output instead, e.g. Sub()(combine_latest(a, b))")
-        return make_operator_node(combine_latest, streams, {"emit": emit, "func": None})
-    kind, norm_keys, norm_vals = _normalize_streams(streams, "combine_latest")
+                "(graph ops are C++-only); apply a functor to the aligned output, "
+                "e.g. Sub()(combine_latest(a, b))")
+        return make_operator_node(combine_latest, values, {"emit": emit, "func": None})
+    regime = _regime(values)
+    streams = _to_streams(values, index)
+    kind, idx, vals, positional = _streams_to_keyed(streams, "combine_latest")
     fn = _b._combine_latest_f64 if kind == "f64" else _b._combine_latest_i64
-    keys, aligned = fn(norm_keys, norm_vals, emit == "when_all")
-    if func is None:
-        return keys, aligned
-    reduced = np.array([func(*row) for row in aligned], dtype=np.float64)
-    return keys, reduced
+    out_index, aligned = fn(idx, vals, emit == "when_all")
+    out_index, aligned = _collapse_last_per_index(out_index, aligned)
+    result_index = None if positional else out_index
+    if func is not None:
+        aligned = np.array([func(*row) for row in aligned], dtype=np.float64)
+    return _adapt(regime, aligned, result_index)
 
 
-def combine_latest_iter(*streams, emit="when_all"):
-    """Yield (key, (v0, v1, ...)) aligned rows one at a time (streaming form)."""
+def combine_latest_iter(*values, index=None, emit="when_all"):
+    """Yield coalesced (row, index) events: one per distinct index.
+
+    Positional (no-index) inputs yield (row, None). Indexed inputs yield
+    (row, index_value). Same coalescing semantics as combine_latest.
+    """
     if emit not in ("when_all", "on_any"):
         raise ValueError('combine_latest: emit must be "when_all" or "on_any"')
-    kind, norm_keys, norm_vals = _normalize_streams(streams, "combine_latest")
+    streams = _to_streams(values, index)
+    kind, idx, vals, positional = _streams_to_keyed(streams, "combine_latest")
     cls = _b._CombineLatestPuller_f64 if kind == "f64" else _b._CombineLatestPuller_i64
-    puller = cls(norm_keys, norm_vals, emit == "when_all")
+    puller = cls(idx, vals, emit == "when_all")
+    cur_index, cur_row = None, None
     while True:
         event = puller.next()
         if event is None:
-            return
-        yield event
+            break
+        ev_index, ev_row = event   # puller.next() returns (index, row_tuple)
+        if cur_index is not None and ev_index != cur_index:
+            yield cur_row, (None if positional else cur_index)
+        cur_index, cur_row = ev_index, ev_row
+    if cur_index is not None:
+        yield cur_row, (None if positional else cur_index)
 
 
 async def pace(*streams, speed=1.0, sleep=None):
