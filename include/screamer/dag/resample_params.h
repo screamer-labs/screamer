@@ -6,16 +6,16 @@
 
 namespace screamer { namespace dag {
 
-enum class ResampleMode  { ByKey, ByCount };
+enum class ResampleMode  { ByIndex, ByCount };
 enum class ResampleAgg   { First, Last, Min, Max, Sum, Count, Mean, Ohlc };
 enum class ResampleLabel { Left, Right };
 
 struct ResampleParams {
-    ResampleMode  mode  = ResampleMode::ByKey;
+    ResampleMode  mode  = ResampleMode::ByIndex;
     ResampleAgg   agg   = ResampleAgg::Last;
     ResampleLabel label = ResampleLabel::Left;
-    std::int64_t  width  = 1;   // ByKey
-    std::int64_t  origin = 0;   // ByKey
+    std::int64_t  width  = 1;   // ByIndex
+    std::int64_t  origin = 0;   // ByIndex
     std::int64_t  count  = 1;   // ByCount
 };
 

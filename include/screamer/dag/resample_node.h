@@ -66,15 +66,15 @@ public:
     void push(const Frame<Index>& f) override {
         if (f.width != 1)
             throw std::runtime_error("dag::ResampleNode: expects a width-1 input stream");
-        if (p_.mode == ResampleMode::ByKey) push_by_key(f.index, f.values[0]);
+        if (p_.mode == ResampleMode::ByIndex) push_by_index(f.index, f.values[0]);
         else                                push_by_count(f.index, f.values[0]);
     }
 
     void flush() override {
-        if (p_.mode == ResampleMode::ByKey) {
+        if (p_.mode == ResampleMode::ByIndex) {
             if (acc_.has) emit(cur_label_);
         } else {
-            if (count_in_bucket_ > 0) emit(p_.label == ResampleLabel::Left ? first_key_ : last_key_);
+            if (count_in_bucket_ > 0) emit(p_.label == ResampleLabel::Left ? first_index_ : last_index_);
         }
         // idempotent: clear so a repeat flush emits nothing
         started_ = false;
@@ -89,33 +89,33 @@ public:
         bucket_ = 0;
         cur_label_ = Index{};
         count_in_bucket_ = 0;
-        first_key_ = last_key_ = Index{};
+        first_index_ = last_index_ = Index{};
     }
 
 private:
-    void push_by_key(Index k, double v) {
+    void push_by_index(Index k, double v) {
         std::int64_t nb = floordiv(static_cast<std::int64_t>(k) - p_.origin, p_.width);
         if (!started_) {
-            started_ = true; bucket_ = nb; acc_.reset(); set_key_label(nb);
+            started_ = true; bucket_ = nb; acc_.reset(); set_index_label(nb);
         } else if (nb != bucket_) {
             if (acc_.has) emit(cur_label_);
-            bucket_ = nb; acc_.reset(); set_key_label(nb);
+            bucket_ = nb; acc_.reset(); set_index_label(nb);
         }
         acc_.add(v);
     }
 
-    void set_key_label(std::int64_t nb) {
+    void set_index_label(std::int64_t nb) {
         std::int64_t start = p_.origin + nb * p_.width;
         cur_label_ = static_cast<Index>(p_.label == ResampleLabel::Left ? start : start + p_.width);
     }
 
     void push_by_count(Index k, double v) {
-        if (count_in_bucket_ == 0) first_key_ = k;
-        last_key_ = k;
+        if (count_in_bucket_ == 0) first_index_ = k;
+        last_index_ = k;
         acc_.add(v);
         ++count_in_bucket_;
         if (count_in_bucket_ == p_.count) {
-            emit(p_.label == ResampleLabel::Left ? first_key_ : last_key_);
+            emit(p_.label == ResampleLabel::Left ? first_index_ : last_index_);
             acc_.reset();
             count_in_bucket_ = 0;
         }
@@ -140,7 +140,7 @@ private:
     std::int64_t bucket_ = 0;
     Index cur_label_{};
     std::int64_t count_in_bucket_ = 0;
-    Index first_key_{}, last_key_{};
+    Index first_index_{}, last_index_{};
 };
 
 }} // namespace screamer::dag

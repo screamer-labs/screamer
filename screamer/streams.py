@@ -254,7 +254,7 @@ def combine_latest(*values, index=None, emit="when_all", func=None):
 
     No-index (positional) inputs are treated as aligned clocks (equal length
     required, lockstep); returns (aligned_values, None). Indexed inputs perform
-    an as-of join keyed on each stream's index, returning (aligned_values, index).
+    an as-of join aligned on each stream's index, returning (aligned_values, index).
     Stream inputs return a Stream. Node inputs return a Node.
 
     emit="when_all" (default) suppresses output until every input has a value;
