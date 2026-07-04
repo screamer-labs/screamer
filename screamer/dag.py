@@ -4,6 +4,9 @@ import numpy as np
 
 __all__ = ["Node", "Input", "Dag"]
 
+_RESAMPLE_AGG_CODE = {"first": 0, "last": 1, "min": 2, "max": 3,
+                      "sum": 4, "count": 5, "mean": 6, "ohlc": 7}
+
 
 class Node:
     """An immutable handle for a stream in a computation graph.
@@ -193,6 +196,14 @@ class Dag:
                     from .streams import _normalize_columns
                     cols, _ = _normalize_columns(kwargs["columns"])
                     nid = gb.add_select(inp, cols)
+                elif name == "resample":
+                    mode = 1 if kwargs.get("count") is not None else 0   # 0=ByKey,1=ByCount
+                    agg = _RESAMPLE_AGG_CODE[kwargs.get("agg", "last")]
+                    label = 1 if kwargs.get("label", "left") == "right" else 0
+                    width = int(kwargs["width"]) if kwargs.get("width") is not None else 1
+                    origin = int(kwargs.get("origin", 0))
+                    count = int(kwargs["count"]) if kwargs.get("count") is not None else 1
+                    nid = gb.add_resample(inp, mode, agg, label, width, origin, count)
                 else:
                     raise ValueError(
                         f"{name} is not supported as a DAG graph node")
@@ -227,6 +238,7 @@ class Dag:
         mk, mv, ms = merge(*streams)
         for k, v, s in zip(mk, mv, ms):
             self._cg.push_event(int(s), int(k), float(v))
+        self._cg.flush()          # end-of-input: emit trailing resample buckets
         results = self._cg.drain()
         results = [(k, v.reshape(-1) if v.shape[1] == 1 else v) for (k, v) in results]
         return _align_results(results, self.align_outputs)

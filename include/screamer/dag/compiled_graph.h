@@ -20,6 +20,7 @@
 #include "screamer/dag/combine_latest_node.h"
 #include "screamer/dag/dropna_node.h"
 #include "screamer/dag/select_node.h"
+#include "screamer/dag/resample_node.h"
 #include "screamer/dag/frame.h"
 #include "screamer/dag/functor_node.h"
 #include "screamer/dag/graph.h"
@@ -120,6 +121,7 @@ public:
             case NodeKind::CombineLatest: node_width[id] = nd.inputs.size(); break;
             case NodeKind::DropNa:        node_width[id] = node_width[nd.inputs[0]]; break;
             case NodeKind::Select:        node_width[id] = nd.columns.size(); break;
+            case NodeKind::Resample:      node_width[id] = resample_width(nd.resample.agg); break;
             }
         }
         output_widths_.resize(num_out);
@@ -220,20 +222,36 @@ public:
                 owned_.push_back(sn);
                 break;
             }
+            case NodeKind::Resample: {
+                auto rn = std::make_shared<ResampleNode<std::int64_t>>(ns.resample, *downstream);
+                reset_resamples_.push_back(rn.get());
+                node_input_sink[id] = [ptr = rn.get()](std::size_t) -> Sink<std::int64_t>* {
+                    return ptr;
+                };
+                owned_.push_back(rn);
+                break;
+            }
             }
         }
     }
 
-    // Resets all stateful ops, combine nodes, and output buffers. Called at the
-    // start of every run_batch so each batch sees a clean initial state.
+    // Resets all stateful ops, combine nodes, resample nodes, and output buffers.
+    // Called at the start of every run_batch so each batch sees a clean initial state.
     void reset() {
         for (auto* op : reset_ops_)      op->reset();
         for (auto* c  : reset_combines_) c->reset();
+        for (auto* r  : reset_resamples_) r->reset();
         for (std::size_t o = 0; o < outputs_.size(); ++o) {
             outputs_[o].keys.clear();
             outputs_[o].values.clear();
             outputs_[o].width = output_widths_[o];
         }
+    }
+
+    // Emits every open trailing bucket (end-of-input signal). Existing nodes emit
+    // nothing on flush; resample nodes emit their partial bucket. Idempotent.
+    void flush() {
+        for (auto* s : input_sinks_) if (s) s->flush();
     }
 
     // Routes a single width-1 event into the graph without resetting state.
@@ -312,12 +330,13 @@ private:
 
     // Wiring (built once in constructor, persistent across all run_batch calls).
     std::size_t num_in_ = 0;
-    std::vector<std::shared_ptr<void>>            owned_;          // all heap nodes/broadcasts
-    std::vector<Sink<std::int64_t>*>              input_sinks_;    // per input signature index
-    std::vector<EvalOp*>                          reset_ops_;      // functor ops to reset
-    std::vector<CombineLatestNode<std::int64_t>*> reset_combines_; // combine nodes to reset
-    std::vector<OutputBuffer>                     outputs_;        // persistent output buffers
-    std::vector<std::size_t>                      output_widths_;  // expected width for each output
+    std::vector<std::shared_ptr<void>>            owned_;           // all heap nodes/broadcasts
+    std::vector<Sink<std::int64_t>*>              input_sinks_;     // per input signature index
+    std::vector<EvalOp*>                          reset_ops_;       // functor ops to reset
+    std::vector<CombineLatestNode<std::int64_t>*> reset_combines_;  // combine nodes to reset
+    std::vector<ResampleNode<std::int64_t>*>      reset_resamples_; // resample nodes to reset
+    std::vector<OutputBuffer>                     outputs_;         // persistent output buffers
+    std::vector<std::size_t>                      output_widths_;   // expected width for each output
 };
 
 // compile() wraps the spec into a CompiledGraph (wiring happens in constructor).

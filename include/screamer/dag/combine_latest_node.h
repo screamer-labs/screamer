@@ -40,12 +40,15 @@ private:
         }
     }
 
+    void flush_downstream() { downstream_.flush(); }
+
     // A single input port: routes an event to its owning node with its index.
     struct Port : Sink<Key> {
         CombineLatestNode& node;
         std::size_t idx;
         Port(CombineLatestNode& n, std::size_t i) : node(n), idx(i) {}
         void push(const Frame<Key>& f) override { node.on_port(idx, f); }
+        void flush() override { node.flush_downstream(); }
     };
     friend struct Port;
 
