@@ -22,6 +22,76 @@ __all__ = [
 ]
 
 
+class Stream:
+    """A sequence of values with an optional ordering index.
+
+    values : np.ndarray, shape (T,) or (T, N).
+    index  : np.ndarray of length T, or None. None means positional (row-number /
+             arrival order) and stores nothing. The index is an ordering
+             coordinate (timestamp, tick counter, ...), never a lookup key.
+    """
+    __slots__ = ("values", "index")
+
+    def __init__(self, values, index=None):
+        self.values = np.asarray(values)
+        self.index = None if index is None else np.asarray(index)
+        if self.index is not None and len(self.index) != len(self.values):
+            raise ValueError("Stream: index and values must have the same length")
+
+    def __len__(self):
+        return len(self.values)
+
+    def __repr__(self):
+        kind = "positional" if self.index is None else f"index={self.index!r}"
+        return f"Stream({self.values!r}, {kind})"
+
+    @classmethod
+    def from_pandas(cls, obj):
+        """Build a Stream from a pandas Series or DataFrame (data -> values,
+        pandas index -> index)."""
+        return cls(obj.to_numpy(), np.asarray(obj.index))
+
+    def to_pandas(self):
+        """Return a pandas Series (1-D values) or DataFrame (2-D). A positional
+        stream gets pandas' default RangeIndex."""
+        import pandas as pd
+        if self.values.ndim == 1:
+            return pd.Series(self.values, index=self.index)
+        return pd.DataFrame(self.values, index=self.index)
+
+
+def _regime(inputs):
+    """Classify a combinator's inputs: 'graph' if any is a Node, 'stream' if any
+    is a Stream, else 'raw'."""
+    if any(is_node(x) for x in inputs):
+        return "graph"
+    if any(isinstance(x, Stream) for x in inputs):
+        return "stream"
+    return "raw"
+
+
+def _to_streams(inputs, index):
+    """Normalize each input to a Stream. `index` is None (all positional) or a
+    list aligned with inputs (per-stream index array or None)."""
+    if index is not None and len(index) != len(inputs):
+        raise ValueError("index list length must match the number of streams")
+    out = []
+    for i, x in enumerate(inputs):
+        if isinstance(x, Stream):
+            out.append(x)
+        else:
+            out.append(Stream(x, None if index is None else index[i]))
+    return out
+
+
+def _adapt(regime, values, index):
+    """Shape a combinator result to match the input regime: Stream in -> Stream
+    out; raw -> (values, index) with index None for positional."""
+    if regime == "stream":
+        return Stream(values, index)
+    return values, index
+
+
 def _run_chain(functors, values, keys=None, return_keys=False):
     """Run source -> functors[0] -> ... -> collector in batch.
 
