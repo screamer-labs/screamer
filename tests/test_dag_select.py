@@ -68,7 +68,7 @@ def test_select_out_of_range_errors_batch_and_stream():
         dag.stream((av, ak), (bv, bk))
 
 
-def test_select_missing_columns_raises():
+def test_select_missing_columns_raises_dag():
     """columns is a required positional argument; omitting it raises TypeError."""
     with pytest.raises(TypeError):
         select(np.array([[1.0, 2.0], [3.0, 4.0]]))

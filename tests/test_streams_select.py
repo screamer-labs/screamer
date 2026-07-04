@@ -67,7 +67,7 @@ def test_select_positional_index_is_none():
     np.testing.assert_array_equal(v, [11.0, 21.0, 31.0])
 
 
-def test_select_missing_columns_raises():
+def test_select_missing_columns_raises_streams():
     """columns is required; omitting it raises TypeError (positional argument)."""
     values, _ = _wide()
     with pytest.raises(TypeError):

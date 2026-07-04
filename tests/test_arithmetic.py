@@ -20,8 +20,10 @@ def test_arithmetic_arrays():
 
 def test_sub_over_aligned_columns_TxN():
     # the graph spread idiom: align two series, then a C++ Sub over the columns.
-    ka = (np.array([1, 2, 3], dtype=np.int64), np.array([10.0, 30.0, 50.0]))
-    kb = (np.array([1, 2, 3], dtype=np.int64), np.array([1.0, 2.0, 3.0]))
-    _, aligned = combine_latest(ka, kb)           # (T, 2)
+    a_k = np.array([1, 2, 3], dtype=np.int64)
+    a_v = np.array([10.0, 30.0, 50.0])
+    b_k = np.array([1, 2, 3], dtype=np.int64)
+    b_v = np.array([1.0, 2.0, 3.0])
+    aligned, _ = combine_latest(a_v, b_v, index=[a_k, b_k])  # (T, 2)
     spread = Sub()(aligned)                        # (T,N) convention -> columns as inputs
     np.testing.assert_array_equal(spread, aligned[:, 0] - aligned[:, 1])

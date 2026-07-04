@@ -174,22 +174,22 @@ def test_split_inverts_merge():
     a_v = np.array([10.0, 30.0, 50.0])
     b_k = np.array([2, 4], dtype=np.int64)
     b_v = np.array([20.0, 40.0])
-    mk, mv, ms = streams.merge((a_k, a_v), (b_k, b_v))
-    parts = streams.split(mk, mv, ms)
+    mv, ms, mk = streams.merge(a_v, b_v, index=[a_k, b_k])   # values-first result
+    parts = streams.split(mv, ms, index=mk)                    # split(values, sources, index=)
     assert len(parts) == 2
-    np.testing.assert_array_equal(parts[0][0], a_k)
-    np.testing.assert_array_equal(parts[0][1], a_v)
-    np.testing.assert_array_equal(parts[1][0], b_k)
-    np.testing.assert_array_equal(parts[1][1], b_v)
+    np.testing.assert_array_equal(parts[0][0], a_v)   # parts[i] = (values, index)
+    np.testing.assert_array_equal(parts[0][1], a_k)
+    np.testing.assert_array_equal(parts[1][0], b_v)
+    np.testing.assert_array_equal(parts[1][1], b_k)
 
 
 def test_split_explicit_n_includes_empty():
     keys = np.array([1, 2], dtype=np.int64)
     vals = np.array([1.0, 2.0])
     src = np.array([0, 0], dtype=np.uint32)
-    parts = streams.split(keys, vals, src, n=3)   # sources 1 and 2 are empty
+    parts = streams.split(vals, src, index=keys, n=3)   # split(values, sources, index=, n=)
     assert len(parts) == 3
-    assert parts[1][0].size == 0 and parts[2][0].size == 0
+    assert parts[1][0].size == 0 and parts[2][0].size == 0   # parts[i][0]=values are empty
 
 
 def test_split_rejects_too_small_n():
@@ -197,4 +197,4 @@ def test_split_rejects_too_small_n():
     vals = np.array([1.0, 2.0, 3.0])
     src = np.array([0, 1, 2], dtype=np.uint32)     # needs n >= 3
     with pytest.raises(ValueError):
-        streams.split(keys, vals, src, n=2)         # would drop source 2 silently
+        streams.split(vals, src, index=keys, n=2)   # would drop source 2 silently

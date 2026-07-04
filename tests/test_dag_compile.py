@@ -71,7 +71,7 @@ def test_compile_combine_then_functor_equals_eager():
     g.set_outputs([z])
     (zk, zv), = g.run_batch([(a_k, a_v), (b_k, b_v)])
 
-    keys, aligned = combine_latest((a_k, a_v), (b_k, b_v))   # when_all
+    aligned, keys = combine_latest(a_v, b_v, index=[a_k, b_k])   # when_all, values-first
     exp = RollingMean(10)(aligned[:, 0] - aligned[:, 1])
     np.testing.assert_array_equal(zk, keys)
     np.testing.assert_array_equal(zv.reshape(-1), exp)
@@ -87,7 +87,7 @@ def test_compile_combine_same_input_twice():
     d = g.add_functor(Sub(), [c])
     g.set_outputs([d])
     (dk, dv), = g.run_batch([(xk, x)])
-    # Oracle: DAG-1 evaluates combine_latest(xi, xi) as combine_latest((x,x),(x,x)).
-    exp_k, aligned = combine_latest((xk, x), (xk, x))
+    # Oracle: DAG-1 evaluates combine_latest(xi, xi) as combine_latest(x, x, index=[xk, xk]).
+    aligned, exp_k = combine_latest(x, x, index=[xk, xk])
     np.testing.assert_array_equal(dk, exp_k)
     np.testing.assert_array_equal(dv.reshape(-1), aligned[:, 0] - aligned[:, 1])

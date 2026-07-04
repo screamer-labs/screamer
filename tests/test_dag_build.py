@@ -19,13 +19,15 @@ def test_combinator_on_nodes_builds_node():
     assert n.op[2] == {"emit": "when_all", "func": None}
 
 
-def test_combinator_on_data_still_computes():
+def test_stream_operator_on_data_still_computes():
     # no Node args -> normal eager behavior, returns arrays not a Node
-    a = (np.array([1, 2, 3], dtype=np.int64), np.array([1.0, 2.0, 3.0]))
-    b = (np.array([1, 2, 3], dtype=np.int64), np.array([4.0, 5.0, 6.0]))
-    keys, aligned = combine_latest(a, b)
-    assert not is_node(keys)
-    assert aligned.shape == (5, 2)  # 5 emissions: one per event, once both inputs are warm
+    a_k = np.array([1, 2, 3], dtype=np.int64)
+    a_v = np.array([1.0, 2.0, 3.0])
+    b_k = np.array([1, 2, 3], dtype=np.int64)
+    b_v = np.array([4.0, 5.0, 6.0])
+    aligned, keys = combine_latest(a_v, b_v, index=[a_k, b_k])
+    assert not is_node(aligned)
+    assert aligned.shape == (3, 2)  # 3 distinct index values (coalesced, one row per index)
 
 
 def test_functor_hook_single_node():

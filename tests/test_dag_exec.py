@@ -6,7 +6,7 @@ from screamer.dag import Input, Dag
 
 def _row(vals):
     v = np.asarray(vals, dtype=np.float64)
-    return (np.arange(v.size, dtype=np.int64), v)
+    return (v, np.arange(v.size, dtype=np.int64))   # (values, index) - values-first
 
 
 def test_single_output_equals_handwritten():
@@ -14,10 +14,10 @@ def test_single_output_equals_handwritten():
     y = Diff(1)(RollingMean(3)(x))
     dag = Dag(inputs=[x], outputs=[y])
     data = _row(np.arange(20.0))
-    (keys, vals) = dag(data)
-    exp = Diff(1)(RollingMean(3)(data[1]))
+    (vals, keys) = dag(data)              # values-first result
+    exp = Diff(1)(RollingMean(3)(data[0]))   # data[0] is values
     np.testing.assert_array_equal(vals, exp)
-    np.testing.assert_array_equal(keys, data[0])
+    np.testing.assert_array_equal(keys, data[1])  # data[1] is index
 
 
 def test_multi_output_returns_tuple():
@@ -29,8 +29,8 @@ def test_multi_output_returns_tuple():
     data = _row(np.arange(30.0))
     out = dag(data)
     assert isinstance(out, tuple) and len(out) == 2
-    np.testing.assert_array_equal(out[0][1], RollingMean(3)(data[1]))
-    np.testing.assert_array_equal(out[1][1], Diff(1)(data[1]))
+    np.testing.assert_array_equal(out[0][0], RollingMean(3)(data[0]))   # out[i][0]=values, data[0]=values
+    np.testing.assert_array_equal(out[1][0], Diff(1)(data[0]))
 
 
 def test_keyword_call_by_input_name():
@@ -38,8 +38,8 @@ def test_keyword_call_by_input_name():
     y = RollingMean(2)(x)
     dag = Dag(inputs=[x], outputs=[y])
     data = _row(np.arange(10.0))
-    (_, v_pos) = dag(data)
-    (_, v_kw) = dag(x=data)
+    (v_pos, _) = dag(data)          # values-first; v_pos = computed values
+    (v_kw, _) = dag(x=data)
     np.testing.assert_array_equal(v_pos, v_kw)
 
 
@@ -69,9 +69,9 @@ def test_fanout_wiring_correct():
     data = _row(np.arange(15.0))
     out = dag(data)
     assert isinstance(out, tuple) and len(out) == 2
-    rm3 = RollingMean(3)(data[1])
-    np.testing.assert_array_equal(out[0][1], Diff(1)(rm3))
-    np.testing.assert_array_equal(out[1][1], RollingMean(2)(rm3))
+    rm3 = RollingMean(3)(data[0])            # data[0] is values
+    np.testing.assert_array_equal(out[0][0], Diff(1)(rm3))     # out[i][0] is values
+    np.testing.assert_array_equal(out[1][0], RollingMean(2)(rm3))
 
 
 def test_align_outputs_default_coindexes_different_branches():
@@ -81,12 +81,12 @@ def test_align_outputs_default_coindexes_different_branches():
     ab = Sub()(combine_latest(a, b))   # keys = union(a, b)
     ac = Add()(combine_latest(a, c))   # keys = union(a, c)
     dag = Dag(inputs=[a, b, c], outputs=[ab, ac], align_outputs=True)
-    ka = (np.array([1, 2, 3, 4], dtype=np.int64), np.array([1.0, 2.0, 3.0, 4.0]))
-    kb = (np.array([1, 2], dtype=np.int64), np.array([10.0, 20.0]))
-    kc = (np.array([3, 4], dtype=np.int64), np.array([30.0, 40.0]))
+    ka = (np.array([1.0, 2.0, 3.0, 4.0]), np.array([1, 2, 3, 4], dtype=np.int64))   # (values, index)
+    kb = (np.array([10.0, 20.0]), np.array([1, 2], dtype=np.int64))
+    kc = (np.array([30.0, 40.0]), np.array([3, 4], dtype=np.int64))
     out = dag(ka, kb, kc)
     assert len(out) == 2
-    assert out[0][0].shape == out[1][0].shape        # co-indexed, equal length
+    assert out[0][0].shape == out[1][0].shape        # co-indexed, equal length (out[i][0]=values)
 
     # align_outputs=False leaves the branches at their natural (differing) lengths
     dag2 = Dag(inputs=[a, b, c], outputs=[ab, ac], align_outputs=False)

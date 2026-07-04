@@ -1,7 +1,7 @@
 """Streaming operators (merge, combine_latest, pace, dropna, filter, split).
 
 Builds and runs C++ node graphs. dtype detection here chooses the int64 or
-float64 key instantiation; the per-event work is all C++.
+float64 index-type instantiation; the per-event work is all C++.
 """
 import asyncio
 import math
@@ -94,57 +94,57 @@ def _adapt(regime, values, index):
     return values, index
 
 
-def _run_chain(functors, values, keys=None, return_keys=False):
+def _run_chain(functors, values, index=None, return_index=False):
     """Run source -> functors[0] -> ... -> collector in batch.
 
-    Returns values array by default. Pass return_keys=True to get
-    (out_keys, out_values) instead.
+    Returns values array by default. Pass return_index=True to get
+    (out_index, out_values) instead.
 
-    keys=None uses the row number (int64) as the ordering key.
+    index=None uses the row number (int64) as the ordering index.
     """
     values = np.ascontiguousarray(values, dtype=np.float64)
     n = values.shape[0]
     functors = list(functors)
 
-    if keys is None:
-        keys = np.arange(n, dtype=np.int64)
+    if index is None:
+        index = np.arange(n, dtype=np.int64)
         kind = "i64"
     else:
-        kind, keys = _key_dtype_kind(keys)
+        kind, index = _index_dtype_kind(index)
 
     fn = _b._run_chain_f64 if kind == "f64" else _b._run_chain_i64
-    result = fn(functors, keys, values, return_keys)
-    return result  # tuple (keys, values) if return_keys else values array
+    result = fn(functors, index, values, return_index)
+    return result  # tuple (index, values) if return_index else values array
 
 
-def _key_dtype_kind(keys):
-    """Return ('f64' | 'i64', normalized_keys) for a single key array."""
-    keys = np.asarray(keys)
-    if np.issubdtype(keys.dtype, np.floating):
-        return "f64", np.ascontiguousarray(keys, dtype=np.float64)
-    if keys.dtype.kind == "M":
-        keys = keys.view("int64")
-    return "i64", np.ascontiguousarray(keys, dtype=np.int64)
+def _index_dtype_kind(index):
+    """Return ('f64' | 'i64', normalized_index) for a single index array."""
+    index = np.asarray(index)
+    if np.issubdtype(index.dtype, np.floating):
+        return "f64", np.ascontiguousarray(index, dtype=np.float64)
+    if index.dtype.kind == "M":
+        index = index.view("int64")
+    return "i64", np.ascontiguousarray(index, dtype=np.int64)
 
 
 def _normalize_streams(streams, who):
-    """Normalize and validate a sequence of (keys, values) streams.
+    """Normalize and validate a sequence of (index, values) streams.
 
-    Returns (kind, norm_keys, norm_vals) where kind is 'i64' or 'f64'.
-    Raises ValueError if streams is empty, TypeError if key types differ.
+    Returns (kind, norm_index, norm_vals) where kind is 'i64' or 'f64'.
+    Raises ValueError if streams is empty, TypeError if index types differ.
     """
     if not streams:
         raise ValueError(f"{who}: needs at least one stream")
     kinds = set()
-    norm_keys, norm_vals = [], []
-    for keys, values in streams:
-        kind, k = _key_dtype_kind(keys)
+    norm_index, norm_vals = [], []
+    for idx, values in streams:
+        kind, k = _index_dtype_kind(idx)
         kinds.add(kind)
-        norm_keys.append(k)
+        norm_index.append(k)
         norm_vals.append(np.ascontiguousarray(values, dtype=np.float64))
     if len(kinds) != 1:
         raise TypeError(f"{who}: all streams must share one index type (all int/datetime or all float)")
-    return kinds.pop(), norm_keys, norm_vals
+    return kinds.pop(), norm_index, norm_vals
 
 
 def _collapse_last_per_index(index, values):
@@ -205,8 +205,8 @@ def _merge_to_keyed(values, index, who):
         # Positional: use row-number per stream (no equal-length check for merge)
         idx_list = [np.arange(len(v), dtype=np.int64) for v in vals]
         return "i64", idx_list, vals, True
-    kind, norm_keys, _ = _normalize_streams(list(zip(per_stream_idx, values)), who)
-    return kind, norm_keys, vals, False
+    kind, norm_index, _ = _normalize_streams(list(zip(per_stream_idx, values)), who)
+    return kind, norm_index, vals, False
 
 
 def merge(*values, index=None):
@@ -258,6 +258,7 @@ def combine_latest(*values, index=None, emit="when_all", func=None):
     emit="when_all" (default) suppresses output until every input has a value;
     emit="on_any" emits from the first event (NaN for unseen inputs). If ``func``
     is given it is applied per row (``func(*row)``) after alignment.
+    When a ``Stream`` is passed it carries its own index; ``index=`` applies only to raw arrays.
     """
     if emit not in ("when_all", "on_any"):
         raise ValueError('combine_latest: emit must be "when_all" or "on_any"')
@@ -314,7 +315,7 @@ async def pace(*values, index=None, speed=1.0, sleep=None):
     changes values or order. ``sleep`` is injectable for testing; defaults to
     asyncio.sleep. Requires a metric (subtractable) index.
 
-    Positional (index=None): uses row-number as the pacing/ordering key; yields
+    Positional (index=None): uses row-number as the pacing/ordering index; yields
     (value, None, source). Indexed: yields (value, index_value, source).
     """
     if speed <= 0:
@@ -349,6 +350,7 @@ def dropna(values, index=None, how="any"):
     Stream / Node restricted to the surviving rows. Surviving values are returned
     as float64. Causal and cardinality-changing: batch and streaming drop the
     same rows.
+    When ``values`` is a ``Stream`` it carries its own index; ``index=`` applies only to raw arrays.
     """
     if how not in ("any", "all"):
         raise ValueError('dropna: how must be "any" or "all"')
@@ -374,6 +376,7 @@ def filter(values, predicate, index=None):
     dropna or numpy masks; filter is the general escape hatch. Values-first +
     polymorphic: raw arrays or Stream. Node first arg raises ValueError (no
     Python predicates in the graph engine).
+    When ``values`` is a ``Stream`` it carries its own index; ``index=`` applies only to raw arrays.
     """
     if is_node(values):
         raise ValueError(
@@ -461,6 +464,7 @@ def select(values, columns, index=None):
     Values-first + polymorphic: raw arrays, Stream, or graph Node.
     index=None means positional (no index allocation). Returns (values, index) /
     Stream / Node.
+    When ``values`` is a ``Stream`` it carries its own index; ``index=`` applies only to raw arrays.
     """
     if is_node(values):
         return make_operator_node(select, (values,), {"columns": columns})
@@ -580,18 +584,19 @@ def resample(values, index=None, *, every=None, count=None, agg="last",
              origin=0, label="left"):
     """Causal windowed downsample of a 1-D value stream.
 
-    Exactly one of `every` (fixed key-interval; buckets [origin+n*every,
+    Exactly one of `every` (fixed index-interval; buckets [origin+n*every,
     origin+(n+1)*every)) or `count` (fixed event-count). agg is one of
     first/last/min/max/sum/count/mean/ohlc (ohlc -> 4 columns). label "left"
-    stamps the bucket start (by-key) or first key (by-count); "right" stamps the
-    bucket end / last key. NaN values are ignored. Only non-empty buckets emit;
-    the trailing partial bucket is emitted at end of input. Integer key-space.
+    stamps the bucket start (by-index) or first index (by-count); "right" stamps the
+    bucket end / last index. NaN values are ignored. Only non-empty buckets emit;
+    the trailing partial bucket is emitted at end of input. Integer index-space.
 
     Values-first + polymorphic: raw arrays, Stream, or graph Node. The returned
     index is always the bar labels (a real array, never None) - even for a
     positional (no-index) input, which resamples by row position.
 
     Graph form: resample(node, ...) where node is a Node.
+    When ``values`` is a ``Stream`` it carries its own index; ``index=`` applies only to raw arrays.
     """
     _resample_validate(every, count, agg, label)
     if is_node(values):

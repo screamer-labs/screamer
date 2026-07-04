@@ -246,7 +246,7 @@ def test_resample_raw_stream_node_mirror():
     # Node (via Dag)
     x = Input("x")
     dag = Dag(inputs=[x], outputs=[resample(x, every=10, agg="sum")])
-    dag_k, dag_v = dag((keys, vals))
+    dag_v, dag_k = dag((vals, keys))        # (values, index) feed; values-first result
 
     np.testing.assert_array_equal(rv, stream_out.values)
     np.testing.assert_array_equal(rk, stream_out.index)
