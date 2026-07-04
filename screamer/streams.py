@@ -282,6 +282,9 @@ def select(keys, values=None, columns=None):
         if cols is None:
             raise ValueError("select: columns is required")
         return make_combinator_node(select, (keys,), {"columns": cols})
+    if values is None:
+        raise ValueError("select: values is required (eager form is "
+                         "select(keys, values, columns))")
     if columns is None:
         raise ValueError("select: columns is required")
     keys = np.asarray(keys)
