@@ -4,6 +4,7 @@ Builds and runs C++ node graphs. dtype detection here chooses the int64 or
 float64 key instantiation; the per-event work is all C++.
 """
 import asyncio
+import math
 
 import numpy as np
 
@@ -17,6 +18,7 @@ __all__ = [
     "dropna", "dropna_iter",
     "filter", "filter_iter",
     "split",
+    "resample", "resample_iter",
 ]
 
 
@@ -319,3 +321,200 @@ def select_iter(events, columns):
             yield key, float(arr[cols[0]])
         else:
             yield key, [float(arr[c]) for c in cols]
+
+
+_RESAMPLE_AGGS = ("first", "last", "min", "max", "sum", "count", "mean", "ohlc")
+
+
+class _ResampleAccum:
+    """Single-pass O(1) NaN-ignore accumulator. Mirrors the C++ ResampleAccum."""
+    __slots__ = ("count", "s", "mn", "mx", "first", "last", "has")
+
+    def __init__(self):
+        self.reset()
+
+    def reset(self):
+        self.count = 0
+        self.s = 0.0
+        self.mn = 0.0
+        self.mx = 0.0
+        self.first = 0.0
+        self.last = 0.0
+        self.has = False
+
+    def add(self, v):
+        self.has = True
+        if math.isnan(v):
+            return
+        if self.count == 0:
+            self.mn = self.mx = self.first = self.last = v
+        else:
+            if v < self.mn:
+                self.mn = v
+            if v > self.mx:
+                self.mx = v
+            self.last = v
+        self.s += v
+        self.count += 1
+
+    def emit(self, agg):
+        nan = float("nan")
+        c = self.count
+        if agg == "first":
+            return self.first if c else nan
+        if agg == "last":
+            return self.last if c else nan
+        if agg == "min":
+            return self.mn if c else nan
+        if agg == "max":
+            return self.mx if c else nan
+        if agg == "sum":
+            return self.s
+        if agg == "count":
+            return float(c)
+        if agg == "mean":
+            return self.s / c if c else nan
+        # ohlc
+        return [self.first if c else nan, self.mx if c else nan,
+                self.mn if c else nan, self.last if c else nan]
+
+
+def _resample_validate(width, count, agg, label):
+    if (width is None) == (count is None):
+        raise ValueError("resample: pass exactly one of width= or count=")
+    if agg not in _RESAMPLE_AGGS:
+        raise ValueError(f"resample: agg must be one of {_RESAMPLE_AGGS}")
+    if label not in ("left", "right"):
+        raise ValueError('resample: label must be "left" or "right"')
+
+
+def resample(keys, values=None, *, width=None, count=None, agg="last",
+             origin=0, label="left"):
+    """Causal windowed downsample of a width-1 (key, value) stream.
+
+    Exactly one of `width` (fixed key-interval; buckets [origin+n*width,
+    origin+(n+1)*width)) or `count` (fixed event-count). agg is one of
+    first/last/min/max/sum/count/mean/ohlc (ohlc -> width-4). label "left"
+    stamps the bucket start (by-key) or first key (by-count); "right" stamps the
+    bucket end / last key. NaN values are ignored. Only non-empty buckets emit;
+    the trailing partial bucket is emitted at end of input. Integer key-space.
+
+    Graph form: resample(stream, ...) where stream is a Node.
+    """
+    _resample_validate(width, count, agg, label)
+    if is_node(keys):
+        return make_combinator_node(resample, (keys,), {
+            "width": width, "count": count, "agg": agg,
+            "origin": origin, "label": label})
+    if values is None:
+        raise ValueError("resample: values is required (eager form is "
+                         "resample(keys, values, ...))")
+    keys = np.asarray(keys)
+    values = np.asarray(values, dtype=np.float64)
+    if values.ndim != 1:
+        raise ValueError("resample: expects a 1-D value stream (width-1)")
+
+    out_keys, out_vals = [], []
+    acc = _ResampleAccum()
+
+    def flush_bucket(label_key):
+        out_keys.append(label_key)
+        out_vals.append(acc.emit(agg))
+
+    if width is not None:
+        w = int(width)
+        o = int(origin)
+        started = False
+        bucket = 0
+        cur_label = 0
+        for k, v in zip(keys.tolist(), values.tolist()):
+            k = int(k)
+            nb = (k - o) // w          # Python // is floor division
+            if not started:
+                started = True
+                bucket = nb
+                acc.reset()
+                cur_label = (o + nb * w) if label == "left" else (o + (nb + 1) * w)
+            elif nb != bucket:
+                if acc.has:
+                    flush_bucket(cur_label)
+                bucket = nb
+                acc.reset()
+                cur_label = (o + nb * w) if label == "left" else (o + (nb + 1) * w)
+            acc.add(v)
+        if acc.has:
+            flush_bucket(cur_label)
+    else:
+        n = int(count)
+        cib = 0
+        first_key = 0
+        last_key = 0
+        for k, v in zip(keys.tolist(), values.tolist()):
+            k = int(k)
+            if cib == 0:
+                first_key = k
+            last_key = k
+            acc.add(v)
+            cib += 1
+            if cib == n:
+                flush_bucket(first_key if label == "left" else last_key)
+                acc.reset()
+                cib = 0
+        if cib > 0:
+            flush_bucket(first_key if label == "left" else last_key)
+
+    ok = np.array(out_keys, dtype=np.int64)
+    if agg == "ohlc":
+        ov = (np.array(out_vals, dtype=np.float64).reshape(-1, 4)
+              if out_vals else np.empty((0, 4), dtype=np.float64))
+    else:
+        ov = np.array(out_vals, dtype=np.float64)
+    return ok, ov
+
+
+def resample_iter(events, *, width=None, count=None, agg="last",
+                  origin=0, label="left"):
+    """Streaming resample over (key, value) tuples. Yields (label_key, value)."""
+    _resample_validate(width, count, agg, label)
+    acc = _ResampleAccum()
+    if width is not None:
+        w = int(width)
+        o = int(origin)
+        started = False
+        bucket = 0
+        cur_label = 0
+        for k, v in events:
+            k = int(k)
+            nb = (k - o) // w
+            if not started:
+                started = True
+                bucket = nb
+                acc.reset()
+                cur_label = (o + nb * w) if label == "left" else (o + (nb + 1) * w)
+            elif nb != bucket:
+                if acc.has:
+                    yield cur_label, acc.emit(agg)
+                bucket = nb
+                acc.reset()
+                cur_label = (o + nb * w) if label == "left" else (o + (nb + 1) * w)
+            acc.add(float(v))
+        if acc.has:
+            yield cur_label, acc.emit(agg)
+    else:
+        n = int(count)
+        cib = 0
+        first_key = 0
+        last_key = 0
+        for k, v in events:
+            k = int(k)
+            if cib == 0:
+                first_key = k
+            last_key = k
+            acc.add(float(v))
+            cib += 1
+            if cib == n:
+                yield (first_key if label == "left" else last_key), acc.emit(agg)
+                acc.reset()
+                cib = 0
+        if cib > 0:
+            yield (first_key if label == "left" else last_key), acc.emit(agg)
