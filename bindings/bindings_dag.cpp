@@ -7,8 +7,6 @@
 #include <pybind11/numpy.h>
 #include <pybind11/stl.h>
 #include "screamer/common/eval_op.h"
-#include "screamer/arithmetic.h"
-#include "screamer/dag/frame.h"
 #include "screamer/dag/functor_node.h"
 #include "screamer/dag/collector.h"
 #include "screamer/dag/driver.h"
