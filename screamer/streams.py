@@ -180,38 +180,70 @@ def _streams_to_keyed(streams, who):
     return kind, idx, vals, False
 
 
-def merge(*streams):
-    """Merge N (keys, values) streams into one key-sorted (keys, values, sources).
+def _merge_to_keyed(values, index, who):
+    """Prepare merge inputs for the C++ backend.
 
-    Each stream must be individually sorted by key. `sources[i]` is the index
-    of the stream that emitted event i. Ties break by stream order.
+    Positional (index=None or all-None list): uses per-stream row-number index
+    (no equal-length check - unlike combine_latest). Indexed: uses the given
+    index arrays. Mixing positional with indexed raises.
+
+    Returns (kind, idx_list, vals_list, positional).
     """
-    if any(is_node(s) for s in streams):
-        return make_operator_node(merge, streams, {})
-    kind, norm_keys, norm_vals = _normalize_streams(streams, "merge")
+    n = len(values)
+    if n == 0:
+        raise ValueError(f"{who}: needs at least one stream")
+    per_stream_idx = [None] * n if index is None else list(index)
+    if len(per_stream_idx) != n:
+        raise ValueError(f"{who}: index list length must match number of streams")
+    has_idx = [idx is not None for idx in per_stream_idx]
+    if any(has_idx) and not all(has_idx):
+        raise ValueError(
+            f"{who}: cannot mix positional and indexed streams; give every "
+            "stream an index, or none")
+    vals = [np.ascontiguousarray(v, dtype=np.float64) for v in values]
+    if not any(has_idx):
+        # Positional: use row-number per stream (no equal-length check for merge)
+        idx_list = [np.arange(len(v), dtype=np.int64) for v in vals]
+        return "i64", idx_list, vals, True
+    kind, norm_keys, _ = _normalize_streams(list(zip(per_stream_idx, values)), who)
+    return kind, norm_keys, vals, False
+
+
+def merge(*values, index=None):
+    """Merge N value streams into one index-sorted (values, sources, index).
+
+    Each stream must be individually sorted by its index. sources[i] is the
+    source-stream index of event i. Ties break by stream order.
+
+    Positional (index=None): uses row-number per stream; returned index is None.
+    Unlike combine_latest, positional merge does NOT require equal lengths.
+    Indexed (index=[idx0, idx1, ...]): merges by the given index arrays; returns
+    the merged index array. Mixing positional and indexed raises ValueError.
+    A Node input builds a graph node.
+    """
+    if any(is_node(v) for v in values):
+        return make_operator_node(merge, values, {})
+    kind, idx_list, vals_list, positional = _merge_to_keyed(values, index, "merge")
     fn = _b._merge_f64 if kind == "f64" else _b._merge_i64
-    return fn(norm_keys, norm_vals)
+    merged_keys, merged_vals, sources = fn(idx_list, vals_list)
+    return merged_vals, sources, (None if positional else merged_keys)
 
 
-def _make_merge_puller(streams):
-    kind, norm_keys, norm_vals = _normalize_streams(streams, "merge_iter")
+def merge_iter(*values, index=None):
+    """Yield (value, index, source) events in index order.
+
+    Positional inputs yield (value, None, source). Indexed inputs yield
+    (value, index_value, source). See merge() for the positional/indexed rules.
+    """
+    kind, idx_list, vals_list, positional = _merge_to_keyed(values, index, "merge_iter")
     cls = _b._MergePuller_f64 if kind == "f64" else _b._MergePuller_i64
-    return cls(norm_keys, norm_vals)
-
-
-def merge_iter(*streams):
-    """Yield (key, value, source) events in key order, pulled one at a time."""
-    puller = _make_merge_puller(streams)
+    puller = cls(idx_list, vals_list)
     while True:
         event = puller.next()
         if event is None:
             return
-        yield event
-
-
-def _merge_events(*streams):
-    """Return a list of (value, index, source) tuples from merge_iter (test helper)."""
-    return list(merge_iter(*streams))
+        ev_key, ev_val, ev_source = event
+        yield ev_val, (None if positional else ev_key), ev_source
 
 
 def combine_latest(*values, index=None, emit="when_all", func=None):
@@ -273,29 +305,39 @@ def combine_latest_iter(*values, index=None, emit="when_all"):
         yield cur_row, (None if positional else cur_index)
 
 
-async def pace(*streams, speed=1.0, sleep=None):
-    """Replay merged streams as an async event stream paced by key-deltas.
+async def pace(*values, index=None, speed=1.0, sleep=None):
+    """Replay merged streams as an async event stream paced by index-deltas.
 
-    Yields (key, value, source) in key order. Between consecutive events it
-    awaits `sleep(key_delta / speed)` so wall-clock spacing tracks the key
+    Yields (value, index, source) in index order. Between consecutive events it
+    awaits ``sleep(key_delta / speed)`` so wall-clock spacing tracks the index
     spacing. speed=inf disables pacing (backtest at max speed). Pacing never
-    changes values or order. `sleep` is injectable for testing; defaults to
-    asyncio.sleep. Requires a metric (subtractable) key.
+    changes values or order. ``sleep`` is injectable for testing; defaults to
+    asyncio.sleep. Requires a metric (subtractable) index.
+
+    Positional (index=None): uses row-number as the pacing/ordering key; yields
+    (value, None, source). Indexed: yields (value, index_value, source).
     """
     if speed <= 0:
         raise ValueError("pace: speed must be positive (or float('inf') for no pacing)")
     if sleep is None:
         sleep = asyncio.sleep
     infinite = speed == float("inf")
+    kind, idx_list, vals_list, positional = _merge_to_keyed(values, index, "pace")
+    cls = _b._MergePuller_f64 if kind == "f64" else _b._MergePuller_i64
+    puller = cls(idx_list, vals_list)
     prev_key = None
-    for key, value, source in merge_iter(*streams):
+    while True:
+        event = puller.next()
+        if event is None:
+            return
+        ev_key, ev_val, ev_source = event
         if not infinite and prev_key is not None:
-            delta = key - prev_key
+            delta = ev_key - prev_key
             wait = delta / speed
             if wait > 0:
                 await sleep(wait)
-        prev_key = key
-        yield key, value, source
+        prev_key = ev_key
+        yield ev_val, (None if positional else ev_key), ev_source
 
 
 def dropna(values, index=None, how="any"):
@@ -373,14 +415,15 @@ def filter_iter(events, predicate):
             yield value, index
 
 
-def split(keys, values, sources, n=None):
-    """Partition a merged tagged stream back into per-source (keys, values).
+def split(values, sources, index=None, n=None):
+    """Partition a merged tagged stream back into per-source (values, index) pairs.
 
-    The inverse of merge: ``split(*merge(*series))`` reconstructs the inputs.
-    ``n`` sets how many output streams to produce (default: max(sources)+1); pass it
-    explicitly to include sources that emitted nothing.
+    The inverse of merge: ``split(*merge(a_v, b_v, index=[a_k, b_k]))``
+    reconstructs the inputs as ``[(a_v, a_k), (b_v, b_k)]``.
+    Positional (index=None) returns ``(values_subset, None)`` per source.
+    ``n`` sets how many output streams to produce (default: max(sources)+1); pass
+    it explicitly to include sources that emitted nothing.
     """
-    keys = np.asarray(keys)
     values = np.asarray(values)
     sources = np.asarray(sources)
     if n is None:
@@ -389,7 +432,10 @@ def split(keys, values, sources, n=None):
         raise ValueError(
             f"split: n={n} is too small for sources up to {int(sources.max())}; "
             "events would be dropped")
-    return [(keys[sources == i], values[sources == i]) for i in range(n)]
+    if index is None:
+        return [(values[sources == i], None) for i in range(n)]
+    idx = np.asarray(index)
+    return [(values[sources == i], idx[sources == i]) for i in range(n)]
 
 
 def _normalize_columns(columns):

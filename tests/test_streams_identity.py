@@ -27,12 +27,34 @@ CONFIGS = [
 
 
 @pytest.mark.parametrize("n_series,dtype", CONFIGS)
-def test_merge_batch_equals_stream(n_series, dtype):
+def test_merge_batch_equals_stream_indexed(n_series, dtype):
     series = _make_series(n_series, 80, dtype, seed=100 + n_series)
-    bk, bv, bs = streams.merge(*series)
-    events = list(streams.merge_iter(*series))
-    np.testing.assert_array_equal([e[0] for e in events], bk)
-    np.testing.assert_array_equal([e[1] for e in events], bv)
+    vals = [v for _, v in series]
+    idxs = [k for k, _ in series]
+
+    bv, bs, bi = streams.merge(*vals, index=idxs)
+    events = list(streams.merge_iter(*vals, index=idxs))
+
+    ev_v = np.array([e[0] for e in events])
+    ev_i = np.array([e[1] for e in events], dtype=bi.dtype)
+    ev_s = np.array([e[2] for e in events], dtype=np.uint32)
+    np.testing.assert_array_equal(ev_v, bv)
+    np.testing.assert_array_equal(ev_i, bi)
+    np.testing.assert_array_equal(ev_s, bs)
+
+
+@pytest.mark.parametrize("n_series", [2, 3, 5])
+def test_merge_batch_equals_stream_positional(n_series):
+    rng = np.random.default_rng(seed=150 + n_series)
+    # unequal lengths are allowed for positional merge
+    vals = [rng.standard_normal(rng.integers(30, 80)) for _ in range(n_series)]
+
+    bv, bs, bi = streams.merge(*vals)
+    assert bi is None
+    events = list(streams.merge_iter(*vals))
+
+    np.testing.assert_array_equal(np.array([e[0] for e in events]), bv)
+    assert all(e[1] is None for e in events)
     np.testing.assert_array_equal(np.array([e[2] for e in events], dtype=np.uint32), bs)
 
 
@@ -56,19 +78,41 @@ def test_combine_latest_batch_equals_stream(n_series, dtype, emit):
 
 
 @pytest.mark.parametrize("n_series,dtype", CONFIGS)
-def test_pace_infinite_equals_merge(n_series, dtype):
+def test_pace_infinite_equals_merge_indexed(n_series, dtype):
     series = _make_series(n_series, 60, dtype, seed=300 + n_series)
-    bk, bv, _ = streams.merge(*series)
+    vals = [v for _, v in series]
+    idxs = [k for k, _ in series]
+
+    bv, _, bi = streams.merge(*vals, index=idxs)
 
     async def drain():
         out = []
-        async for e in streams.pace(*series, speed=float("inf")):
+        async for e in streams.pace(*vals, index=idxs, speed=float("inf")):
             out.append(e)
         return out
 
     events = asyncio.run(drain())
-    np.testing.assert_array_equal([e[0] for e in events], bk)
-    np.testing.assert_array_equal([e[1] for e in events], bv)
+    np.testing.assert_array_equal(np.array([e[0] for e in events]), bv)
+    np.testing.assert_array_equal(np.array([e[1] for e in events], dtype=bi.dtype), bi)
+
+
+@pytest.mark.parametrize("n_series", [2, 3, 5])
+def test_pace_infinite_equals_merge_positional(n_series):
+    rng = np.random.default_rng(seed=350 + n_series)
+    vals = [rng.standard_normal(60) for _ in range(n_series)]
+
+    bv, _, bi = streams.merge(*vals)
+    assert bi is None
+
+    async def drain():
+        out = []
+        async for e in streams.pace(*vals, speed=float("inf")):
+            out.append(e)
+        return out
+
+    events = asyncio.run(drain())
+    np.testing.assert_array_equal(np.array([e[0] for e in events]), bv)
+    assert all(e[1] is None for e in events)
 
 
 def test_dropna_batch_equals_stream_on_combine_output():
@@ -79,7 +123,8 @@ def test_dropna_batch_equals_stream_on_combine_output():
     result = streams.combine_latest(*stream_list, emit="on_any")
     bk = result.index
     ba = result.values
-    dk, dv = streams.dropna(bk, ba, how="any")
+    # dropna is values-first: dropna(values, index, ...) -> (filtered_values, filtered_index)
+    dv, dk = streams.dropna(ba, bk, how="any")
 
     events = list(streams.combine_latest_iter(*stream_list, emit="on_any"))
     # combine_latest_iter yields (row, index); filter NaN rows inline

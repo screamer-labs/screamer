@@ -1,72 +1,167 @@
 import asyncio
 
 import numpy as np
+import pytest
 from screamer import streams
 
 
-def _reference_merge(series):
-    # Stable global sort by key, ties broken by source index (the series order).
-    keys = np.concatenate([np.asarray(k) for k, _ in series])
-    vals = np.concatenate([np.asarray(v) for _, v in series])
-    src = np.concatenate([np.full(len(k), i, dtype=np.uint32)
-                          for i, (k, _) in enumerate(series)])
-    order = np.argsort(keys, kind="stable")   # stable => source-order tie-break
-    return keys[order], vals[order], src[order]
+def _reference_merge(values_list, index_list):
+    """Reference: stable sort by index, ties broken by source index."""
+    all_idx = np.concatenate([np.asarray(k) for k in index_list])
+    all_vals = np.concatenate([np.asarray(v) for v in values_list])
+    all_src = np.concatenate([np.full(len(k), i, dtype=np.uint32)
+                              for i, k in enumerate(index_list)])
+    order = np.argsort(all_idx, kind="stable")
+    return all_vals[order], all_src[order], all_idx[order]
 
 
-def test_merge_two_int_sorted_series():
-    a_k = np.array([1, 3, 5, 7], dtype=np.int64)
+# ---------------------------------------------------------------------------
+# merge - indexed
+# ---------------------------------------------------------------------------
+
+def test_merge_indexed_two_int_sorted_series():
     a_v = np.array([10.0, 30.0, 50.0, 70.0])
-    b_k = np.array([2, 4, 6], dtype=np.int64)
+    a_k = np.array([1, 3, 5, 7], dtype=np.int64)
     b_v = np.array([20.0, 40.0, 60.0])
-    got_k, got_v, got_s = streams.merge((a_k, a_v), (b_k, b_v))
-    exp_k, exp_v, exp_s = _reference_merge([(a_k, a_v), (b_k, b_v)])
-    np.testing.assert_array_equal(got_k, exp_k)
+    b_k = np.array([2, 4, 6], dtype=np.int64)
+    got_v, got_s, got_i = streams.merge(a_v, b_v, index=[a_k, b_k])
+    exp_v, exp_s, exp_i = _reference_merge([a_v, b_v], [a_k, b_k])
     np.testing.assert_array_equal(got_v, exp_v)
     np.testing.assert_array_equal(got_s, exp_s)
+    np.testing.assert_array_equal(got_i, exp_i)
 
 
-def test_merge_ties_break_by_source_order():
-    a_k = np.array([1, 2, 2], dtype=np.int64)
+def test_merge_indexed_ties_break_by_source_order():
     a_v = np.array([1.0, 2.0, 2.5])
-    b_k = np.array([2, 3], dtype=np.int64)
+    a_k = np.array([1, 2, 2], dtype=np.int64)
     b_v = np.array([20.0, 30.0])
-    got_k, got_v, got_s = streams.merge((a_k, a_v), (b_k, b_v))
+    b_k = np.array([2, 3], dtype=np.int64)
+    got_v, got_s, got_i = streams.merge(a_v, b_v, index=[a_k, b_k])
     # at key==2: source 0's events (2.0, 2.5) come before source 1's (20.0)
-    np.testing.assert_array_equal(got_k, np.array([1, 2, 2, 2, 3], dtype=np.int64))
+    np.testing.assert_array_equal(got_i, np.array([1, 2, 2, 2, 3], dtype=np.int64))
     np.testing.assert_array_equal(got_v, np.array([1.0, 2.0, 2.5, 20.0, 30.0]))
     np.testing.assert_array_equal(got_s, np.array([0, 0, 0, 1, 1], dtype=np.uint32))
 
 
-def test_merge_float_keys():
-    a_k = np.array([0.5, 2.5], dtype=np.float64)
+def test_merge_indexed_float_keys():
     a_v = np.array([5.0, 25.0])
-    b_k = np.array([1.5], dtype=np.float64)
+    a_k = np.array([0.5, 2.5], dtype=np.float64)
     b_v = np.array([15.0])
-    got_k, got_v, got_s = streams.merge((a_k, a_v), (b_k, b_v))
-    exp_k, exp_v, exp_s = _reference_merge([(a_k, a_v), (b_k, b_v)])
-    np.testing.assert_array_equal(got_k, exp_k)
+    b_k = np.array([1.5], dtype=np.float64)
+    got_v, got_s, got_i = streams.merge(a_v, b_v, index=[a_k, b_k])
+    exp_v, exp_s, exp_i = _reference_merge([a_v, b_v], [a_k, b_k])
     np.testing.assert_array_equal(got_v, exp_v)
     np.testing.assert_array_equal(got_s, exp_s)
+    np.testing.assert_array_equal(got_i, exp_i)
 
 
-def test_pull_iter_matches_batch_identity():
+# ---------------------------------------------------------------------------
+# merge - positional
+# ---------------------------------------------------------------------------
+
+def test_merge_positional_returns_none_index():
+    a_v = np.array([10.0, 20.0, 30.0])
+    b_v = np.array([5.0, 15.0, 25.0])
+    got_v, got_s, got_i = streams.merge(a_v, b_v)
+    assert got_i is None
+    # positional: both streams share row-numbers [0,1,2]; ties go source-0-first
+    np.testing.assert_array_equal(got_v, np.array([10.0, 5.0, 20.0, 15.0, 30.0, 25.0]))
+    np.testing.assert_array_equal(got_s, np.array([0, 1, 0, 1, 0, 1], dtype=np.uint32))
+
+
+def test_merge_positional_unequal_length_allowed():
+    # Unlike combine_latest, positional merge does NOT require equal lengths
+    a_v = np.array([1.0, 2.0, 3.0])
+    b_v = np.array([10.0, 20.0])
+    got_v, got_s, got_i = streams.merge(a_v, b_v)
+    assert got_i is None
+    assert len(got_v) == 5   # 3 + 2
+    assert len(got_s) == 5
+
+
+def test_merge_mixing_positional_and_indexed_raises():
+    a_v = np.array([1.0, 2.0])
+    a_k = np.array([0, 1], dtype=np.int64)
+    b_v = np.array([10.0, 20.0])
+    with pytest.raises(ValueError, match="mix"):
+        streams.merge(a_v, b_v, index=[a_k, None])
+
+
+# ---------------------------------------------------------------------------
+# merge_iter - indexed and positional
+# ---------------------------------------------------------------------------
+
+def test_merge_iter_indexed_matches_batch():
     rng = np.random.default_rng(7)
     a_k = np.sort(rng.integers(0, 1000, size=200)).astype(np.int64)
     a_v = rng.standard_normal(200)
     b_k = np.sort(rng.integers(0, 1000, size=150)).astype(np.int64)
     b_v = rng.standard_normal(150)
 
-    bk, bv, bs = streams.merge((a_k, a_v), (b_k, b_v))              # batch
-    events = list(streams.merge_iter((a_k, a_v), (b_k, b_v)))       # streaming pull
+    bv, bs, bi = streams.merge(a_v, b_v, index=[a_k, b_k])
+    events = list(streams.merge_iter(a_v, b_v, index=[a_k, b_k]))
 
-    got_k = np.array([e[0] for e in events], dtype=np.int64)
-    got_v = np.array([e[1] for e in events])
-    got_s = np.array([e[2] for e in events], dtype=np.uint32)
-    np.testing.assert_array_equal(got_k, bk)
-    np.testing.assert_array_equal(got_v, bv)
-    np.testing.assert_array_equal(got_s, bs)
+    ev_v = np.array([e[0] for e in events])
+    ev_i = np.array([e[1] for e in events], dtype=np.int64)
+    ev_s = np.array([e[2] for e in events], dtype=np.uint32)
+    np.testing.assert_array_equal(ev_v, bv)
+    np.testing.assert_array_equal(ev_i, bi)
+    np.testing.assert_array_equal(ev_s, bs)
 
+
+def test_merge_iter_positional_yields_none_index():
+    a_v = np.array([1.0, 2.0])
+    b_v = np.array([10.0, 20.0])
+    events = list(streams.merge_iter(a_v, b_v))
+    for value, ev_index, source in events:
+        assert ev_index is None
+
+
+# ---------------------------------------------------------------------------
+# split - round-trip
+# ---------------------------------------------------------------------------
+
+def test_split_indexed_round_trip():
+    a_v = np.array([10.0, 20.0, 30.0])
+    a_k = np.array([1, 3, 5], dtype=np.int64)
+    b_v = np.array([5.0, 15.0, 25.0])
+    b_k = np.array([2, 4, 6], dtype=np.int64)
+
+    parts = streams.split(*streams.merge(a_v, b_v, index=[a_k, b_k]))
+
+    np.testing.assert_array_equal(parts[0][0], a_v)
+    np.testing.assert_array_equal(parts[0][1], a_k)
+    np.testing.assert_array_equal(parts[1][0], b_v)
+    np.testing.assert_array_equal(parts[1][1], b_k)
+
+
+def test_split_positional_round_trip():
+    a_v = np.array([1.0, 2.0, 3.0])
+    b_v = np.array([10.0, 20.0, 30.0])
+
+    parts = streams.split(*streams.merge(a_v, b_v))
+
+    np.testing.assert_array_equal(parts[0][0], a_v)
+    assert parts[0][1] is None
+    np.testing.assert_array_equal(parts[1][0], b_v)
+    assert parts[1][1] is None
+
+
+def test_split_n_explicit():
+    # n can be set to include sources that emitted nothing
+    a_v = np.array([1.0, 2.0])
+    a_k = np.array([0, 1], dtype=np.int64)
+    merged_v, sources, merged_i = streams.merge(a_v, index=[a_k])
+    parts = streams.split(merged_v, sources, merged_i, n=3)
+    assert len(parts) == 3
+    np.testing.assert_array_equal(parts[0][0], a_v)
+    assert len(parts[1][0]) == 0
+    assert len(parts[2][0]) == 0
+
+
+# ---------------------------------------------------------------------------
+# pace
+# ---------------------------------------------------------------------------
 
 def _drain(agen):
     async def run():
@@ -77,46 +172,57 @@ def _drain(agen):
     return asyncio.run(run())
 
 
-def test_pace_preserves_order_and_scales_sleeps():
-    a_k = np.array([0, 10, 30], dtype=np.int64)     # deltas 10, 20
+def test_pace_indexed_preserves_order_and_scales_sleeps():
     a_v = np.array([0.0, 1.0, 3.0])
-    b_k = np.array([5, 20], dtype=np.int64)          # interleaves -> 0,5,10,20,30
+    a_k = np.array([0, 10, 30], dtype=np.int64)
     b_v = np.array([0.5, 2.0])
+    b_k = np.array([5, 20], dtype=np.int64)
 
     slept = []
 
     async def fake_sleep(seconds):
         slept.append(seconds)
 
-    events = _drain(streams.pace((a_k, a_v), (b_k, b_v), speed=2.0, sleep=fake_sleep))
+    events = _drain(streams.pace(a_v, b_v, index=[a_k, b_k], speed=2.0, sleep=fake_sleep))
 
-    # Order identical to a plain merge
-    bk, bv, bs = streams.merge((a_k, a_v), (b_k, b_v))
-    np.testing.assert_array_equal(np.array([e[0] for e in events], dtype=np.int64), bk)
-    np.testing.assert_array_equal(np.array([e[1] for e in events]), bv)
-    np.testing.assert_array_equal(np.array([e[2] for e in events], dtype=np.uint32), bs)
+    # Order and values identical to a plain merge
+    got_v, got_s, got_i = streams.merge(a_v, b_v, index=[a_k, b_k])
+    np.testing.assert_array_equal(np.array([e[0] for e in events]), got_v)
+    np.testing.assert_array_equal(np.array([e[1] for e in events], dtype=np.int64), got_i)
+    np.testing.assert_array_equal(np.array([e[2] for e in events], dtype=np.uint32), got_s)
 
-    # Sleeps == successive key deltas / speed (first event has no preceding sleep).
-    # merged keys: 0,5,10,20,30 -> deltas 5,5,10,10 -> /2.0 -> 2.5,2.5,5,5
+    # Sleeps: merged indices 0,5,10,20,30 -> deltas 5,5,10,10 -> /2.0 -> 2.5,2.5,5,5
     assert slept == [2.5, 2.5, 5.0, 5.0]
 
 
-def test_pace_infinite_speed_no_sleep():
-    a_k = np.array([0, 100], dtype=np.int64)
+def test_pace_positional_yields_none_index():
     a_v = np.array([0.0, 1.0])
+    b_v = np.array([10.0, 11.0])
     slept = []
 
     async def fake_sleep(seconds):
         slept.append(seconds)
 
-    events = _drain(streams.pace((a_k, a_v), speed=float("inf"), sleep=fake_sleep))
-    assert [e[0] for e in events] == [0, 100]
-    assert slept == []          # no pacing at infinite speed
+    events = _drain(streams.pace(a_v, b_v, speed=float("inf"), sleep=fake_sleep))
+    assert all(e[1] is None for e in events)
+    assert slept == []
+
+
+def test_pace_indexed_infinite_speed_no_sleep():
+    a_v = np.array([0.0, 1.0])
+    a_k = np.array([0, 100], dtype=np.int64)
+    slept = []
+
+    async def fake_sleep(seconds):
+        slept.append(seconds)
+
+    events = _drain(streams.pace(a_v, index=[a_k], speed=float("inf"), sleep=fake_sleep))
+    assert [e[1] for e in events] == [0, 100]
+    assert slept == []
 
 
 def test_pace_rejects_nonpositive_speed():
-    import pytest
-    a_k = np.array([0, 10], dtype=np.int64)
     a_v = np.array([0.0, 1.0])
+    a_k = np.array([0, 10], dtype=np.int64)
     with pytest.raises(ValueError):
-        _drain(streams.pace((a_k, a_v), speed=0.0))
+        _drain(streams.pace(a_v, index=[a_k], speed=0.0))
