@@ -244,3 +244,58 @@ def split(keys, values, sources, n=None):
             f"split: n={n} is too small for sources up to {int(sources.max())}; "
             "events would be dropped")
     return [(keys[sources == i], values[sources == i]) for i in range(n)]
+
+
+def _normalize_columns(columns):
+    """Validate columns (int or non-negative int sequence) -> (list_of_ints, scalar).
+
+    Returns (cols, is_scalar). is_scalar is True when a bare int was given (the
+    eager result is then 1-D). Negative indices are rejected explicitly.
+    """
+    scalar = np.ndim(columns) == 0
+    cols = [int(columns)] if scalar else [int(c) for c in columns]
+    for c in cols:
+        if c < 0:
+            raise ValueError(f"select: column index must be non-negative, got {c}")
+    return cols, scalar
+
+
+def select(keys, values, columns):
+    """Pick column(s) from a wide (M, N) value stream.
+
+    columns is an int (result is 1-D) or a sequence of ints (result is 2-D with
+    those columns in order). Keys and row count are unchanged (shape op, not
+    cardinality). Indices must be in range and non-negative.
+    """
+    keys = np.asarray(keys)
+    values = np.asarray(values, dtype=np.float64)
+    cols, scalar = _normalize_columns(columns)
+    if values.ndim == 1:
+        width = 1
+    else:
+        width = values.shape[1]
+    for c in cols:
+        if c >= width:
+            raise ValueError(
+                f"select: column {c} out of range for width {width}")
+    if values.ndim == 1:
+        # width 1: only column 0 is valid; result mirrors input
+        picked = values if scalar else values.reshape(-1, 1)
+    else:
+        picked = values[:, cols[0]] if scalar else values[:, cols]
+    return keys, picked
+
+
+def select_iter(events, columns):
+    """Streaming select over (key, value) tuples. value is scalar or sequence."""
+    cols, scalar = _normalize_columns(columns)
+    for key, value in events:
+        arr = np.atleast_1d(np.asarray(value, dtype=np.float64))
+        for c in cols:
+            if c >= arr.size:
+                raise ValueError(
+                    f"select_iter: column {c} out of range for width {arr.size}")
+        if scalar:
+            yield key, float(arr[cols[0]])
+        else:
+            yield key, [float(arr[c]) for c in cols]
