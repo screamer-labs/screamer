@@ -61,37 +61,54 @@ def make_operator_node(fn, node_args, kwargs):
 
 
 def _as_stream(feed):
-    """Normalize a feed to a (keys, values) stream tuple.
+    """Normalize a feed to (index_array, values_array) for the compiled engine.
 
-    Accepts a bare value array (keys = row-number int64) or a
-    (keys, values) pair and returns the canonical (keys, values) form.
+    Accepts:
+    - bare value array -> positional (index = row-number int64 via np.arange)
+    - Stream          -> uses .values / .index (.index None -> row-number)
+    - (values, index) pair -> values-first user convention; flipped for engine
     """
+    from .streams import Stream
+    if isinstance(feed, Stream):
+        idx = feed.index
+        if idx is None:
+            idx = np.arange(len(feed.values), dtype=np.int64)
+        return (
+            np.ascontiguousarray(idx, dtype=np.int64),
+            np.ascontiguousarray(feed.values, dtype=np.float64),
+        )
     if isinstance(feed, tuple) and len(feed) == 2:
-        return feed
+        values, index = feed   # user provides (values, index) - values-first
+        return (
+            np.ascontiguousarray(index, dtype=np.int64),
+            np.ascontiguousarray(values, dtype=np.float64),
+        )
     values = np.asarray(feed, dtype=np.float64)
     return (np.arange(values.shape[0], dtype=np.int64), values)
 
 
 def _align_results(results, align_outputs):
-    """Boundary align: single stream for M==1; tuple of independent streams for
-    align_outputs=False; co-indexed tuple (combine_latest + one-row-per-key) for
-    align_outputs=True. Operates on already-computed (keys, values) output streams.
+    """Return (values, index) for M==1; tuple of (values, index) pairs otherwise.
+
+    align_outputs=False: independent per-output (values, index) pairs.
+    align_outputs=True:  co-indexed via combine_latest (coalesces - one row per
+    distinct index), all pairs share the same index array.
+
+    Input ``results`` is a list of (index_array, values_array) pairs as returned
+    by the compiled engine.
     """
     if len(results) == 1:
-        return results[0]
+        k, v = results[0]
+        return (v, k)   # values-first
     if not align_outputs:
-        return tuple(results)
+        return tuple((v, k) for k, v in results)   # values-first
     from .streams import combine_latest, Stream
-    # results is a list of (keys, values) pairs; wrap in Streams for new API
+    # wrap in Streams; combine_latest coalesces (one row per distinct index)
     stream_list = [Stream(v, k) for k, v in results]
-    out = combine_latest(*stream_list, emit="when_all")  # returns Stream
-    aligned_keys = out.index   # already coalesced (one row per distinct index)
-    aligned = out.values
-    _, inv_idx = np.unique(aligned_keys[::-1], return_index=True)
-    last_idx = np.sort(len(aligned_keys) - 1 - inv_idx)
-    aligned_keys = aligned_keys[last_idx]
-    aligned = aligned[last_idx]
-    return tuple((aligned_keys, aligned[:, j]) for j in range(len(results)))
+    out = combine_latest(*stream_list, emit="when_all")   # returns Stream
+    aligned_index = out.index   # one row per distinct index - already coalesced
+    aligned = out.values        # shape (N, M)
+    return tuple((aligned[:, j], aligned_index) for j in range(len(results)))  # values-first
 
 
 def _reachable_inputs(outputs):
@@ -137,16 +154,18 @@ class Dag:
       signature. Feeds are bound positionally, or by name via a keyword call.
     - ``outputs``: ordered list of output nodes to evaluate.
     - ``align_outputs`` (default ``True``): when ``True``, co-index all M outputs
-      onto a shared, sorted key axis, so each output carries its as-of value at
-      every unique union key (combine_latest's per-event intermediate rows are
-      collapsed to one row per key) and the returned (keys, values) pairs have
+      onto a shared, sorted index axis, so each output carries its as-of value at
+      every unique union index (combine_latest's per-event intermediate rows are
+      collapsed to one row per index) and the returned (values, index) pairs have
       equal length. When ``False``, return independent per-output streams whose
       lengths may differ.
 
     Call ``dag(*feeds)`` (positional) or ``dag(**named_feeds)`` (by Input name)
-    to evaluate the graph: it returns a single (keys, values) pair when M == 1,
-    or a tuple of pairs when M > 1. Use ``dag.stream(*feeds)`` to run the same
-    graph live, event by event, with byte-identical results.
+    to evaluate the graph. Each feed may be a bare value array (positional, index
+    = row-number), a ``Stream``, or a ``(values, index)`` pair (values-first).
+    Returns a single ``(values, index)`` pair when M == 1, or a tuple of pairs
+    when M > 1. Use ``dag.stream(*feeds)`` to run the same graph live, event by
+    event, with byte-identical results.
     """
 
     def __init__(self, inputs, outputs, align_outputs=True):
@@ -178,9 +197,9 @@ class Dag:
         ids = {}   # id(node) -> C++ node id
 
         def build(node):
-            key = id(node)
-            if key in ids:
-                return ids[key]
+            node_id = id(node)
+            if node_id in ids:
+                return ids[node_id]
             op = node.op
             if isinstance(op, tuple) and op[0] == "input":
                 nid = gb.add_input()
@@ -197,7 +216,7 @@ class Dag:
                     cols, _ = _normalize_columns(kwargs["columns"])
                     nid = gb.add_select(inp, cols)
                 elif name == "resample":
-                    mode = 1 if kwargs.get("count") is not None else 0   # 0=ByKey,1=ByCount
+                    mode = 1 if kwargs.get("count") is not None else 0   # 0=ByIndex,1=ByCount
                     agg = _RESAMPLE_AGG_CODE[kwargs.get("agg", "last")]
                     label = 1 if kwargs.get("label", "left") == "right" else 0
                     width = int(kwargs["every"]) if kwargs.get("every") is not None else 1
@@ -210,7 +229,7 @@ class Dag:
             else:                                    # functor instance (EvalOp)
                 inp = [build(i) for i in node.inputs]
                 nid = gb.add_functor(op, inp)
-            ids[key] = nid
+            ids[node_id] = nid
             return nid
 
         # build Input nodes first so their ids follow signature order
@@ -224,7 +243,7 @@ class Dag:
     def __call__(self, *args, **kwargs):
         feeds = self._bind_args(args, kwargs)
         streams = [_as_stream(feeds[nm]) for nm in self._input_order]
-        results = self._cg.run_batch(streams)      # M independent (keys, values2d)
+        results = self._cg.run_batch(streams)      # M independent (index, values2d)
         results = [(k, v.reshape(-1) if v.shape[1] == 1 else v) for (k, v) in results]
         return _align_results(results, self.align_outputs)
 
@@ -234,10 +253,12 @@ class Dag:
         feeds = self._bind_args(args, kwargs)
         streams = [_as_stream(feeds[nm]) for nm in self._input_order]
         self._cg.reset()
-        # feed the merged (key-ordered, source-tagged) events one at a time
-        mk, mv, ms = merge(*streams)
-        for k, v, s in zip(mk, mv, ms):
-            self._cg.push_event(int(s), int(k), float(v))
+        # split (index_arr, values_arr) pairs so merge can align them by index
+        idx_arrays = [s[0] for s in streams]
+        val_arrays = [s[1] for s in streams]
+        merged_vals, merged_sources, merged_index = merge(*val_arrays, index=idx_arrays)
+        for v, src, k in zip(merged_vals, merged_sources, merged_index):
+            self._cg.push_event(int(src), int(k), float(v))
         self._cg.flush()          # end-of-input: emit trailing resample buckets
         results = self._cg.drain()
         results = [(k, v.reshape(-1) if v.shape[1] == 1 else v) for (k, v) in results]
@@ -256,5 +277,3 @@ class Dag:
             raise TypeError(
                 f"expected {len(self._names)} inputs, got {len(args)}")
         return {nm: val for nm, val in zip(self._names, args)}
-
-

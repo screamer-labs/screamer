@@ -6,10 +6,10 @@ from screamer.streams import dropna
 
 
 def _run_modes(dag, feed):
-    """Return (batch, stream) results as (keys, values) for a single-output dag."""
-    bk, bv = dag(feed)
-    sk, sv = dag.stream(feed)
-    return (bk, bv), (sk, sv)
+    """Return (batch, stream) results as (values, index) for a single-output dag."""
+    bv, bk = dag(feed)
+    sv, sk = dag.stream(feed)
+    return (bv, bk), (sv, sk)
 
 
 def test_dropna_graph_matches_eager_any():
@@ -17,7 +17,7 @@ def test_dropna_graph_matches_eager_any():
     vals = np.array([1.0, np.nan, 3.0, np.nan, 5.0])
     x = Input("x")
     dag = Dag(inputs=[x], outputs=[dropna(x)])
-    (bk, bv), (sk, sv) = _run_modes(dag, (keys, vals))
+    (bv, bk), (sv, sk) = _run_modes(dag, (vals, keys))    # (values, index) feed
     ev, ek = dropna(vals, index=keys)          # eager oracle (values-first)
     np.testing.assert_array_equal(bk, ek)
     np.testing.assert_array_equal(bv.reshape(-1), ev)
@@ -30,7 +30,7 @@ def test_dropna_graph_all_dropped():
     vals = np.array([np.nan, np.nan])
     x = Input("x")
     dag = Dag(inputs=[x], outputs=[dropna(x)])
-    bk, bv = dag((keys, vals))
+    bv, bk = dag((vals, keys))
     assert len(bk) == 0
 
 
@@ -39,7 +39,7 @@ def test_dropna_graph_none_dropped():
     vals = np.array([1.0, 2.0, 3.0])
     x = Input("x")
     dag = Dag(inputs=[x], outputs=[dropna(x)])
-    bk, bv = dag((keys, vals))
+    bv, bk = dag((vals, keys))
     np.testing.assert_array_equal(bk, keys)
     np.testing.assert_array_equal(bv.reshape(-1), vals)
 
@@ -50,8 +50,8 @@ def test_dropna_before_functor():
     vals = np.array([2.0, np.nan, 4.0, 6.0])
     x = Input("x")
     dag = Dag(inputs=[x], outputs=[RollingMean(2)(dropna(x))])
-    bk, bv = dag((keys, vals))
-    sk, sv = dag.stream((keys, vals))
+    bv, bk = dag((vals, keys))
+    sv, sk = dag.stream((vals, keys))
     np.testing.assert_array_equal(bk, sk)
     np.testing.assert_array_equal(bv, sv)
     # dropna removes the NaN row, leaving keys [1,3,4]; RollingMean(2) over [2,4,6]
@@ -82,8 +82,8 @@ def test_dropna_all_over_wide_combine_latest():
     bk = np.array([1, 2, 3], dtype=np.int64); bv = np.array([np.nan, np.nan, 3.0])
     a, b = Input("a"), Input("b")
     dag = Dag(inputs=[a, b], outputs=[dropna(combine_latest(a, b), how="all")])
-    bk_, bv_ = dag((ak, av), (bk, bv))
-    sk_, sv_ = dag.stream((ak, av), (bk, bv))
+    bv_, bk_ = dag((av, ak), (bv, bk))
+    sv_, sk_ = dag.stream((av, ak), (bv, bk))
     # eager oracle: align (values-first), then drop all-NaN rows (values-first)
     cv, ck = combine_latest(av, bv, index=[ak, bk])
     ev, ek = dropna(cv, index=ck, how="all")
@@ -102,9 +102,10 @@ def test_dropna_fanout_to_two_consumers():
     x = Input("x")
     d = dropna(x)
     dag = Dag(inputs=[x], outputs=[RollingMean(2)(d), Lag(1)(d)], align_outputs=False)
-    (bm, bl) = dag((keys, vals))
-    (sm, sl) = dag.stream((keys, vals))
+    (bm, bl) = dag((vals, keys))
+    (sm, sl) = dag.stream((vals, keys))
+    # each pair is (values, index)
     np.testing.assert_array_equal(bm[0], sm[0]); np.testing.assert_array_equal(bm[1], sm[1])
     np.testing.assert_array_equal(bl[0], sl[0]); np.testing.assert_array_equal(bl[1], sl[1])
     # dropna removes the two NaN rows -> surviving keys [1,3,4]
-    np.testing.assert_array_equal(bm[0], [1, 3, 4])
+    np.testing.assert_array_equal(bm[1], [1, 3, 4])
