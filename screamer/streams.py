@@ -116,8 +116,8 @@ def combine_latest(*series, emit="when_all", func=None):
     recent value (forward-fill). Returns (keys, aligned) where aligned is (M, N);
     aligned[:, j] is series j's latest value at each emitted key. emit="when_all"
     (default) suppresses output until every input is warm; emit="on_any" emits
-    from the first event with NaN for not-yet-seen inputs. If `func` is given it is
-    applied per row (func(*row)) and (keys, reduced) is returned instead.
+    from the first event with NaN for not-yet-seen inputs. If ``func`` is given it
+    is applied per row (``func(*row)``) and (keys, reduced) is returned instead.
     """
     if emit not in ("when_all", "on_any"):
         raise ValueError('combine_latest: emit must be "when_all" or "on_any"')
@@ -238,8 +238,8 @@ def filter_iter(events, predicate):
 def split(keys, values, sources, n=None):
     """Partition a merged tagged stream back into per-source (keys, values).
 
-    The inverse of merge: split(*merge(*series)) reconstructs the inputs. `n`
-    sets how many output streams to produce (default: max(sources)+1); pass it
+    The inverse of merge: ``split(*merge(*series))`` reconstructs the inputs.
+    ``n`` sets how many output streams to produce (default: max(sources)+1); pass it
     explicitly to include sources that emitted nothing.
     """
     keys = np.asarray(keys)

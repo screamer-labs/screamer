@@ -135,18 +135,18 @@ class Dag:
     outputs : list[Node]
         Ordered list of output nodes to evaluate.
     align_outputs : bool, default True
-        True  – co-index all M outputs onto a shared, sorted key axis.
-                 Each output carries its as-of value at every unique union key
-                 (combine_latest's per-event intermediate rows are collapsed to
-                 one row per key).  Returns a tuple of (keys, values) pairs of
-                 equal length.
-        False – return independent per-output streams; lengths may differ.
+        When True (default), co-index all M outputs onto a shared, sorted key
+        axis: each output carries its as-of value at every unique union key
+        (combine_latest's per-event intermediate rows are collapsed to one row
+        per key), returning a tuple of equal-length (keys, values) pairs. When
+        False, return independent per-output streams whose lengths may differ.
 
-    Calling
-    -------
-    dag(*feeds)  or  dag(**named_feeds)
-        Evaluate the graph.  Returns a single (keys, values) pair when M == 1,
-        or a tuple of (keys, values) pairs when M > 1.
+    Notes
+    -----
+    Call ``dag(*feeds)`` (positional) or ``dag(**named_feeds)`` (by Input name)
+    to evaluate the graph. Returns a single (keys, values) pair when M == 1, or a
+    tuple of (keys, values) pairs when M > 1. Use ``dag.stream(*feeds)`` to run
+    the same graph live, event by event, with byte-identical results.
     """
 
     def __init__(self, inputs, outputs, align_outputs=True):
