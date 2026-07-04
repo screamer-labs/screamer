@@ -18,7 +18,7 @@ def test_dropna_graph_matches_eager_any():
     x = Input("x")
     dag = Dag(inputs=[x], outputs=[dropna(x)])
     (bk, bv), (sk, sv) = _run_modes(dag, (keys, vals))
-    ek, ev = dropna(keys, vals)          # eager oracle
+    ev, ek = dropna(vals, index=keys)          # eager oracle (values-first)
     np.testing.assert_array_equal(bk, ek)
     np.testing.assert_array_equal(bv.reshape(-1), ev)
     np.testing.assert_array_equal(sk, ek)
@@ -84,9 +84,9 @@ def test_dropna_all_over_wide_combine_latest():
     dag = Dag(inputs=[a, b], outputs=[dropna(combine_latest(a, b), how="all")])
     bk_, bv_ = dag((ak, av), (bk, bv))
     sk_, sv_ = dag.stream((ak, av), (bk, bv))
-    # eager oracle: align, then drop all-NaN rows
-    ck, cv = combine_latest((ak, av), (bk, bv))
-    ek, ev = dropna(ck, cv, how="all")
+    # eager oracle: align (values-first), then drop all-NaN rows (values-first)
+    cv, ck = combine_latest(av, bv, index=[ak, bk])
+    ev, ek = dropna(cv, index=ck, how="all")
     np.testing.assert_array_equal(bk_, ek)
     np.testing.assert_array_equal(bv_, ev)
     np.testing.assert_array_equal(sk_, ek)

@@ -298,63 +298,79 @@ async def pace(*streams, speed=1.0, sleep=None):
         yield key, value, source
 
 
-def dropna(keys, values=None, how="any"):
+def dropna(values, index=None, how="any"):
     """Drop events whose value is NaN. `values` may be 1-D (M,) or 2-D (M, N).
 
     how="any" (default) drops a row if any component is NaN; how="all" only if
-    all are. Causal and cardinality-changing: batch and streaming drop the same
-    rows. Returns (keys, values) restricted to the surviving rows. Surviving
-    values are returned as float64 (values are cast for the NaN test).
+    all are. Values-first + polymorphic: raw arrays, Stream, or graph Node.
+    index=None means positional (no index allocation). Returns (values, index) /
+    Stream / Node restricted to the surviving rows. Surviving values are returned
+    as float64. Causal and cardinality-changing: batch and streaming drop the
+    same rows.
     """
     if how not in ("any", "all"):
         raise ValueError('dropna: how must be "any" or "all"')
-    if is_node(keys):
-        return make_operator_node(dropna, (keys,), {"how": how})
-    keys = np.asarray(keys)
-    values = np.asarray(values, dtype=np.float64)
-    nan = np.isnan(values)
-    if values.ndim == 1:
+    if is_node(values):
+        return make_operator_node(dropna, (values,), {"how": how})
+    regime = "stream" if isinstance(values, Stream) else "raw"
+    stream = values if isinstance(values, Stream) else Stream(values, index)
+    vals = np.asarray(stream.values, dtype=np.float64)
+    idx = stream.index
+    nan = np.isnan(vals)
+    if vals.ndim == 1:
         mask = ~nan
     else:
         mask = ~(nan.any(axis=1) if how == "any" else nan.all(axis=1))
-    return keys[mask], values[mask]
+    return _adapt(regime, vals[mask], None if idx is None else idx[mask])
 
 
-def filter(keys, values=None, predicate=None):
+def filter(values, predicate, index=None):
     """Keep events where predicate(row) is truthy.
 
     row is a scalar for a 1-D value stream, a 1-D array for a 2-D aligned stream.
     predicate is a Python callable (per-event), so heavy filtering should prefer
-    dropna or numpy masks; filter is the general escape hatch.
+    dropna or numpy masks; filter is the general escape hatch. Values-first +
+    polymorphic: raw arrays or Stream. Node first arg raises ValueError (no
+    Python predicates in the graph engine).
     """
-    if is_node(keys):
+    if is_node(values):
         raise ValueError(
             "filter is not supported as a DAG graph node: the graph engine has "
             "no Python predicates (no lambda). Use dropna for NaN removal.")
-    keys = np.asarray(keys)
-    values = np.asarray(values)
-    mask = np.fromiter((bool(predicate(row)) for row in values),
-                       dtype=bool, count=len(values))
-    return keys[mask], values[mask]
+    regime = "stream" if isinstance(values, Stream) else "raw"
+    stream = values if isinstance(values, Stream) else Stream(values, index)
+    vals = np.asarray(stream.values)
+    idx = stream.index
+    mask = np.fromiter((bool(predicate(row)) for row in vals),
+                       dtype=bool, count=len(vals))
+    return _adapt(regime, vals[mask], None if idx is None else idx[mask])
 
 
 def dropna_iter(events, how="any"):
-    """Streaming dropna over (key, value) tuples. value may be scalar or sequence."""
+    """Streaming dropna over (value, index) tuples. value may be scalar or sequence.
+
+    A positional live feed uses index=None. Surviving events are yielded as
+    (value, index) with the original index passed through unchanged.
+    """
     if how not in ("any", "all"):
         raise ValueError('dropna_iter: how must be "any" or "all"')
-    for key, value in events:
+    for value, index in events:
         arr = np.atleast_1d(np.asarray(value, dtype=np.float64))
         nan = np.isnan(arr)
         drop = nan.any() if how == "any" else nan.all()
         if not drop:
-            yield key, value
+            yield value, index
 
 
 def filter_iter(events, predicate):
-    """Streaming filter over (key, value) tuples."""
-    for key, value in events:
+    """Streaming filter over (value, index) tuples.
+
+    A positional live feed uses index=None. Surviving events are yielded as
+    (value, index) with the original index passed through unchanged.
+    """
+    for value, index in events:
         if predicate(value):
-            yield key, value
+            yield value, index
 
 
 def split(keys, values, sources, n=None):
@@ -390,59 +406,56 @@ def _normalize_columns(columns):
     return cols, scalar
 
 
-def select(keys, values=None, columns=None):
+def select(values, columns, index=None):
     """Pick column(s) from a wide (M, N) value stream.
 
     columns is an int (result is 1-D) or a sequence of ints (result is 2-D with
-    those columns in order). Keys and row count are unchanged (shape op, not
-    cardinality). Indices must be in range and non-negative.
-
-    Graph form: select(stream, columns) where stream is a Node.
+    those columns in order). Row count and index are unchanged (row-preserving
+    shape op, not cardinality). Column indices must be in range and non-negative.
+    Values-first + polymorphic: raw arrays, Stream, or graph Node.
+    index=None means positional (no index allocation). Returns (values, index) /
+    Stream / Node.
     """
-    if is_node(keys):
-        # graph form: select(stream, columns) - columns may be the 2nd
-        # positional (the `values` slot) or the `columns` keyword.
-        cols = values if columns is None else columns
-        if cols is None:
-            raise ValueError("select: columns is required")
-        return make_operator_node(select, (keys,), {"columns": cols})
-    if values is None:
-        raise ValueError("select: values is required (eager form is "
-                         "select(keys, values, columns))")
-    if columns is None:
-        raise ValueError("select: columns is required")
-    keys = np.asarray(keys)
-    values = np.asarray(values, dtype=np.float64)
+    if is_node(values):
+        return make_operator_node(select, (values,), {"columns": columns})
+    regime = "stream" if isinstance(values, Stream) else "raw"
+    stream = values if isinstance(values, Stream) else Stream(values, index)
+    vals = np.asarray(stream.values, dtype=np.float64)
+    idx = stream.index
     cols, scalar = _normalize_columns(columns)
-    if values.ndim == 1:
+    if vals.ndim == 1:
         width = 1
     else:
-        width = values.shape[1]
+        width = vals.shape[1]
     for c in cols:
         if c >= width:
             raise ValueError(
                 f"select: column {c} out of range for width {width}")
-    if values.ndim == 1:
+    if vals.ndim == 1:
         # width 1: only column 0 is valid; result mirrors input
-        picked = values if scalar else values.reshape(-1, 1)
+        picked = vals if scalar else vals.reshape(-1, 1)
     else:
-        picked = values[:, cols[0]] if scalar else values[:, cols]
-    return keys, picked
+        picked = vals[:, cols[0]] if scalar else vals[:, cols]
+    return _adapt(regime, picked, idx)   # index is unchanged (row-preserving)
 
 
 def select_iter(events, columns):
-    """Streaming select over (key, value) tuples. value is scalar or sequence."""
+    """Streaming select over (value, index) tuples. value is scalar or sequence.
+
+    A positional live feed uses index=None. Projected events are yielded as
+    (value, index) with the original index passed through unchanged.
+    """
     cols, scalar = _normalize_columns(columns)
-    for key, value in events:
+    for value, index in events:
         arr = np.atleast_1d(np.asarray(value, dtype=np.float64))
         for c in cols:
             if c >= arr.size:
                 raise ValueError(
                     f"select_iter: column {c} out of range for width {arr.size}")
         if scalar:
-            yield key, float(arr[cols[0]])
+            yield float(arr[cols[0]]), index
         else:
-            yield key, [float(arr[c]) for c in cols]
+            yield [float(arr[c]) for c in cols], index
 
 
 _RESAMPLE_AGGS = ("first", "last", "min", "max", "sum", "count", "mean", "ohlc")

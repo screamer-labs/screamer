@@ -15,10 +15,10 @@ def test_select_column_from_combine_latest():
     sk_, sv_ = dag.stream((ak, av), (bk, bv))
     np.testing.assert_array_equal(bk_, sk_)
     np.testing.assert_array_equal(bv_, sv_)
-    # eager oracle: align, then project — regression-proof against combine_latest
-    # emit changes (no hand-counted row expectations).
-    ck, cv = combine_latest((ak, av), (bk, bv))
-    ek, ev = select(ck, cv, 0)
+    # eager oracle (values-first): align, then project – regression-proof against
+    # combine_latest emit changes (no hand-counted row expectations).
+    cv, ck = combine_latest(av, bv, index=[ak, bk])
+    ev, ek = select(cv, 0, index=ck)
     np.testing.assert_array_equal(bk_, ek)
     np.testing.assert_array_equal(bv_.reshape(-1), ev)
 
@@ -33,8 +33,8 @@ def test_select_two_columns_reorder():
     np.testing.assert_array_equal(bk_, sk_)
     np.testing.assert_array_equal(bv_, sv_)
     # [1,0] swaps columns; compare against the eager oracle.
-    ck, cv = combine_latest((ak, av), (bk, bv))
-    ek, ev = select(ck, cv, [1, 0])
+    cv, ck = combine_latest(av, bv, index=[ak, bk])
+    ev, ek = select(cv, [1, 0], index=ck)
     np.testing.assert_array_equal(bk_, ek)
     np.testing.assert_array_equal(bv_, ev)
 
@@ -50,8 +50,8 @@ def test_select_feeds_functor():
     np.testing.assert_array_equal(bk_, sk_)
     np.testing.assert_array_equal(bv_, sv_)
     # value oracle: same graph computed eagerly (align -> select col 0 -> RollingMean(2))
-    ck, cv = combine_latest((ak, av), (bk, bv))
-    _, sel = select(ck, cv, 0)
+    cv, ck = combine_latest(av, bv, index=[ak, bk])
+    sel, _ = select(cv, 0, index=ck)
     ev = RollingMean(2)(sel)
     np.testing.assert_array_equal(bv_.reshape(-1), ev)
 
@@ -68,7 +68,7 @@ def test_select_out_of_range_errors_batch_and_stream():
         dag.stream((ak, av), (bk, bv))
 
 
-def test_select_eager_missing_values_errors():
-    # eager form requires values; omitting it gives a clear error, not a cryptic one
-    with pytest.raises(ValueError, match="values is required"):
-        select(np.array([1, 2], dtype=np.int64), columns=0)
+def test_select_missing_columns_raises():
+    """columns is a required positional argument; omitting it raises TypeError."""
+    with pytest.raises(TypeError):
+        select(np.array([[1.0, 2.0], [3.0, 4.0]]))
