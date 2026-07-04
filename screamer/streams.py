@@ -514,14 +514,14 @@ class _ResampleAccum:
                 self.mn if c else nan, self.last if c else nan]
 
 
-def _resample_validate(width, count, agg, label):
-    if (width is None) == (count is None):
-        raise ValueError("resample: pass exactly one of width= or count=")
-    # Positivity guard: width=0 would reach the engine's floordiv(_, 0) -> a hard
+def _resample_validate(every, count, agg, label):
+    if (every is None) == (count is None):
+        raise ValueError("resample: pass exactly one of every= or count=")
+    # Positivity guard: every=0 would reach the engine's floordiv(_, 0) -> a hard
     # SIGFPE crash; count<1 never completes a bucket. Reject both up front (this
     # runs before the Node dispatch, so it guards the graph path too).
-    if width is not None and int(width) <= 0:
-        raise ValueError("resample: width must be positive")
+    if every is not None and int(every) <= 0:
+        raise ValueError("resample: every must be positive")
     if count is not None and int(count) < 1:
         raise ValueError("resample: count must be >= 1")
     if agg not in _RESAMPLE_AGGS:
@@ -530,46 +530,54 @@ def _resample_validate(width, count, agg, label):
         raise ValueError('resample: label must be "left" or "right"')
 
 
-def resample(keys, values=None, *, width=None, count=None, agg="last",
+def resample(values, index=None, *, every=None, count=None, agg="last",
              origin=0, label="left"):
-    """Causal windowed downsample of a width-1 (key, value) stream.
+    """Causal windowed downsample of a 1-D value stream.
 
-    Exactly one of `width` (fixed key-interval; buckets [origin+n*width,
-    origin+(n+1)*width)) or `count` (fixed event-count). agg is one of
-    first/last/min/max/sum/count/mean/ohlc (ohlc -> width-4). label "left"
+    Exactly one of `every` (fixed key-interval; buckets [origin+n*every,
+    origin+(n+1)*every)) or `count` (fixed event-count). agg is one of
+    first/last/min/max/sum/count/mean/ohlc (ohlc -> 4 columns). label "left"
     stamps the bucket start (by-key) or first key (by-count); "right" stamps the
     bucket end / last key. NaN values are ignored. Only non-empty buckets emit;
     the trailing partial bucket is emitted at end of input. Integer key-space.
 
-    Graph form: resample(stream, ...) where stream is a Node.
+    Values-first + polymorphic: raw arrays, Stream, or graph Node. The returned
+    index is always the bar labels (a real array, never None) - even for a
+    positional (no-index) input, which resamples by row position.
+
+    Graph form: resample(node, ...) where node is a Node.
     """
-    _resample_validate(width, count, agg, label)
-    if is_node(keys):
-        return make_operator_node(resample, (keys,), {
-            "width": width, "count": count, "agg": agg,
+    _resample_validate(every, count, agg, label)
+    if is_node(values):
+        return make_operator_node(resample, (values,), {
+            "every": every, "count": count, "agg": agg,
             "origin": origin, "label": label})
-    if values is None:
-        raise ValueError("resample: values is required (eager form is "
-                         "resample(keys, values, ...))")
-    keys = np.asarray(keys)
-    values = np.asarray(values, dtype=np.float64)
-    if values.ndim != 1:
+    regime = "stream" if isinstance(values, Stream) else "raw"
+    stream = values if isinstance(values, Stream) else Stream(values, index)
+    vals = np.asarray(stream.values, dtype=np.float64)
+    if vals.ndim != 1:
         raise ValueError("resample: expects a 1-D value stream (width-1)")
 
-    out_keys, out_vals = [], []
+    # Use explicit index or row positions when positional
+    if stream.index is None:
+        idx = np.arange(len(vals), dtype=np.int64)
+    else:
+        idx = np.asarray(stream.index)
+
+    out_labels, out_vals = [], []
     acc = _ResampleAccum()
 
     def flush_bucket(label_key):
-        out_keys.append(label_key)
+        out_labels.append(label_key)
         out_vals.append(acc.emit(agg))
 
-    if width is not None:
-        w = int(width)
+    if every is not None:
+        w = int(every)
         o = int(origin)
         started = False
         bucket = 0
         cur_label = 0
-        for k, v in zip(keys.tolist(), values.tolist()):
+        for k, v in zip(idx.tolist(), vals.tolist()):
             k = int(k)
             nb = (k - o) // w          # Python // is floor division
             if not started:
@@ -591,7 +599,7 @@ def resample(keys, values=None, *, width=None, count=None, agg="last",
         cib = 0
         first_key = 0
         last_key = 0
-        for k, v in zip(keys.tolist(), values.tolist()):
+        for k, v in zip(idx.tolist(), vals.tolist()):
             k = int(k)
             if cib == 0:
                 first_key = k
@@ -605,27 +613,27 @@ def resample(keys, values=None, *, width=None, count=None, agg="last",
         if cib > 0:
             flush_bucket(first_key if label == "left" else last_key)
 
-    ok = np.array(out_keys, dtype=np.int64)
+    out_idx = np.array(out_labels, dtype=np.int64)
     if agg == "ohlc":
-        ov = (np.array(out_vals, dtype=np.float64).reshape(-1, 4)
-              if out_vals else np.empty((0, 4), dtype=np.float64))
+        out_v = (np.array(out_vals, dtype=np.float64).reshape(-1, 4)
+                 if out_vals else np.empty((0, 4), dtype=np.float64))
     else:
-        ov = np.array(out_vals, dtype=np.float64)
-    return ok, ov
+        out_v = np.array(out_vals, dtype=np.float64)
+    return _adapt(regime, out_v, out_idx)   # index is always real bar labels
 
 
-def resample_iter(events, *, width=None, count=None, agg="last",
+def resample_iter(events, *, every=None, count=None, agg="last",
                   origin=0, label="left"):
-    """Streaming resample over (key, value) tuples. Yields (label_key, value)."""
-    _resample_validate(width, count, agg, label)
+    """Streaming resample over (value, index) tuples. Yields (value, label_index)."""
+    _resample_validate(every, count, agg, label)
     acc = _ResampleAccum()
-    if width is not None:
-        w = int(width)
+    if every is not None:
+        w = int(every)
         o = int(origin)
         started = False
         bucket = 0
         cur_label = 0
-        for k, v in events:
+        for v, k in events:
             k = int(k)
             nb = (k - o) // w
             if not started:
@@ -635,19 +643,19 @@ def resample_iter(events, *, width=None, count=None, agg="last",
                 cur_label = (o + nb * w) if label == "left" else (o + (nb + 1) * w)
             elif nb != bucket:
                 if acc.has:
-                    yield cur_label, acc.emit(agg)
+                    yield acc.emit(agg), cur_label
                 bucket = nb
                 acc.reset()
                 cur_label = (o + nb * w) if label == "left" else (o + (nb + 1) * w)
             acc.add(float(v))
         if acc.has:
-            yield cur_label, acc.emit(agg)
+            yield acc.emit(agg), cur_label
     else:
         n = int(count)
         cib = 0
         first_key = 0
         last_key = 0
-        for k, v in events:
+        for v, k in events:
             k = int(k)
             if cib == 0:
                 first_key = k
@@ -655,8 +663,8 @@ def resample_iter(events, *, width=None, count=None, agg="last",
             acc.add(float(v))
             cib += 1
             if cib == n:
-                yield (first_key if label == "left" else last_key), acc.emit(agg)
+                yield acc.emit(agg), (first_key if label == "left" else last_key)
                 acc.reset()
                 cib = 0
         if cib > 0:
-            yield (first_key if label == "left" else last_key), acc.emit(agg)
+            yield acc.emit(agg), (first_key if label == "left" else last_key)

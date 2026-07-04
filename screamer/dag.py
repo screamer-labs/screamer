@@ -200,7 +200,7 @@ class Dag:
                     mode = 1 if kwargs.get("count") is not None else 0   # 0=ByKey,1=ByCount
                     agg = _RESAMPLE_AGG_CODE[kwargs.get("agg", "last")]
                     label = 1 if kwargs.get("label", "left") == "right" else 0
-                    width = int(kwargs["width"]) if kwargs.get("width") is not None else 1
+                    width = int(kwargs["every"]) if kwargs.get("every") is not None else 1
                     origin = int(kwargs.get("origin", 0))
                     count = int(kwargs["count"]) if kwargs.get("count") is not None else 1
                     nid = gb.add_resample(inp, mode, agg, label, width, origin, count)
