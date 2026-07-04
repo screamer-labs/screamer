@@ -56,7 +56,7 @@ Atan2()(1.0,  0.0)             # +pi/2  (point on +y axis)
 Atan2()(-1.0, 0.0)             # -pi/2  (point on -y axis)
 Atan2()(0.0, -1.0)             # +pi    (point on -x axis)
 
-# Two parallel arrays — wind direction from u/v components
+# Two parallel arrays - wind direction from u/v components
 ux = np.random.randn(100)
 uy = np.random.randn(100)
 direction = Atan2()(uy, ux)

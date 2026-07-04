@@ -32,7 +32,7 @@ nan_policy: ignore
 
 ## Description
 
-The Schmitt trigger (Otto Schmitt, 1934) is a hysteresis comparator: a circuit whose output changes only when the input crosses the *opposite* threshold from the one that last triggered it. This double-threshold behavior gives the trigger its noise immunity — a noisy input that briefly dips back across a single threshold cannot rapidly toggle the output.
+The Schmitt trigger (Otto Schmitt, 1934) is a hysteresis comparator: a circuit whose output changes only when the input crosses the *opposite* threshold from the one that last triggered it. This double-threshold behavior gives the trigger its noise immunity - a noisy input that briefly dips back across a single threshold cannot rapidly toggle the output.
 
 $$
 \text{output}[t] = \begin{cases}
@@ -44,7 +44,7 @@ $$
 
 The window `[lower, upper]` is the *dead band*. Inside it the output is latched: whichever value (1.0 or 0.0) the trigger last committed to is held until the input crosses out the other side.
 
-Until the first input crosses either threshold the output is `NaN` — the trigger has no prior state to retain.
+Until the first input crosses either threshold the output is `NaN` - the trigger has no prior state to retain.
 
 ## Parameters
 

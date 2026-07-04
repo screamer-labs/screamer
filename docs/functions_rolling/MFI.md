@@ -27,7 +27,7 @@ nan_policy: ignore
 
 ## Description
 
-Money Flow Index — a volume-weighted analogue of RSI on the typical price:
+Money Flow Index - a volume-weighted analogue of RSI on the typical price:
 
 $$
 \begin{aligned}

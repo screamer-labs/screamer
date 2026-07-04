@@ -8,7 +8,7 @@ tags:
 - rocr
 - rate-of-change
 - talib
-short: x[t] / x[t-k] — TA-Lib's ROCR.
+short: x[t] / x[t-k] - TA-Lib's ROCR.
 inputs: 1
 outputs: 1
 parameters:

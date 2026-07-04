@@ -40,7 +40,7 @@ Rolling OLS fit of `y ≈ slope · x + intercept + ε`, returning four outputs p
 | `slope` | $(n S_{xy} - S_x S_y) / (n S_{xx} - S_x^2)$ |
 | `intercept` | $(S_y - \text{slope} \cdot S_x) / n$ |
 | `r_squared` | $(n S_{xy} - S_x S_y)^2 / [(n S_{xx} - S_x^2)(n S_{yy} - S_y^2)]$ |
-| `stderr` | $\sqrt{\text{SSE} / (n-2)}$ — RMSE of residuals |
+| `stderr` | $\sqrt{\text{SSE} / (n-2)}$ - RMSE of residuals |
 
 **Note on `stderr`**: this is the standard error of the *estimate* (RMSE of the fit), not
 the standard error of the *slope coefficient*. Multiply by `1/sqrt(Σ(x - mean_x)²)` to get

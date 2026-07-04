@@ -37,7 +37,7 @@ This expression is averaged with a rolling mean over `window_size` bars to form 
 variant returns `sqrt(Var)` (bit-exact via the same internal state).
 
 **4-input, 1-output** on `(open, high, low, close)`. Slightly less efficient (~6x vs
-close-to-close) than Garman-Klass but **drift-robust** — works correctly when the underlying
+close-to-close) than Garman-Klass but **drift-robust** - works correctly when the underlying
 drift is non-zero, a much more realistic assumption for trending markets.
 
 

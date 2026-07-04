@@ -10,7 +10,7 @@ tags:
 - regression
 - capm
 - pair
-short: cov(x, y) / var(y) — regression slope of x on y.
+short: cov(x, y) / var(y) - regression slope of x on y.
 inputs: 2
 outputs: 1
 parameters:

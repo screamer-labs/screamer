@@ -34,7 +34,7 @@ the function, not its purpose.
 | `fin` | Finance-specific accumulators that don't fit `rolling` or `ew` (cumulative, since-inception, event-driven). | `Drawdown`, `MaxDrawdown` |
 | `signal` | DSP filters (IIR, FIR, state-space). | `Butter`, `MovingAverage`, `KalmanFilter` |
 
-(Some current placements are debatable — `MACD` and `KAMA` live in
+(Some current placements are debatable - `MACD` and `KAMA` live in
 `functions_rolling/` but are more "EW composites". That's
 sphinx-history, not a hard constraint. We can shuffle if it matters,
 but for this taxonomy we accept the current layout.)
@@ -43,7 +43,7 @@ but for this taxonomy we accept the current layout.)
 ## Topics (17)
 
 These are **use-case** buckets for the deep.fund frontend's "Browse by
-purpose" UI. A function picks **all that apply** (typically 1–3).
+purpose" UI. A function picks **all that apply** (typically 1-3).
 The list is curated and stable: new topics should only be added when
 they have ≥3 members.
 
@@ -63,7 +63,7 @@ Volume-aware indicators.
 - ✓ `OBV`, `AD`, `ADOSC`, `MFI`, `RollingVWAP`
 
 ### `trend`
-Indicators that estimate the *direction* of a series — slow-moving
+Indicators that estimate the *direction* of a series - slow-moving
 averages whose primary use is to identify regimes of monotonic motion.
 
 - ✓ `RollingMean`, `EwMean`, `WMA`, `DEMA`, `TEMA`, `TRIMA`, `HullMA`, `KAMA`, `MACD`
@@ -77,9 +77,9 @@ frequencies rather than preserve them.
 
 - ✓ `Butter` (low-pass), `MovingAverage`, `KalmanFilter`
 - ✓ Also: `EwMean`, `RollingMean` (both `trend` and `smoothing`)
-- ✗ NOT `ButterHighpass` / `ButterBandstop` — those are
+- ✗ NOT `ButterHighpass` / `ButterBandstop` - those are
   `signal-processing` only (they reject smooth components).
-- ✗ NOT `KAMA` / `HullMA` etc — those are `trend`-only by convention.
+- ✗ NOT `KAMA` / `HullMA` etc - those are `trend`-only by convention.
 
 ### `momentum`
 Rate-of-change family. Outputs proportional to recent change in the
@@ -88,11 +88,11 @@ input.
 - ✓ `Momentum`, `ROC`, `ROCP`, `ROCR`, `TRIX`, `Diff`, `Diff2`
 
 ### `oscillator`
-Bounded indicators that swing between fixed extremes (typically 0–100
+Bounded indicators that swing between fixed extremes (typically 0-100
 or −100..+100). Used for overbought/oversold logic.
 
 - ✓ `RollingRSI`, `Stoch`, `StochRSI`, `WilliamsR`, `CCI`, `UltimateOscillator`, `BOP`
-- ✗ NOT `MACD` (unbounded — that's `trend`).
+- ✗ NOT `MACD` (unbounded - that's `trend`).
 
 ### `channels`
 Bands / envelopes around price.
@@ -114,7 +114,7 @@ Fits a parametric model (line, polynomial) to a window.
 - ✓ `Linear`, `Linear2` (stateless, but fit-shape)
 
 ### `statistics`
-Distributional summaries beyond mean/variance — order statistics,
+Distributional summaries beyond mean/variance - order statistics,
 shape statistics, ranks.
 
 - ✓ `RollingSkew`, `RollingKurt`, `EwSkew`, `EwKurt`
@@ -176,7 +176,7 @@ distinct because users coming from a DSP background look here.
 
 ## Tags
 
-Tags are **free-form** keywords for search — not a controlled
+Tags are **free-form** keywords for search - not a controlled
 vocabulary. Use them for:
 
 - **Identifiers / authors**: `wilder`, `kaufman`, `mulloy`, `peters`, `parkinson`, `garman-klass`, `anis-lloyd`
@@ -235,13 +235,13 @@ tags: [trigonometry, polar, pair]
 
 ## Resolved borderline cases
 
-- **`smoothing` vs `signal-processing`** — kept separate. Signal-
+- **`smoothing` vs `signal-processing`** - kept separate. Signal-
   processing covers filters that *remove* signal content (high-pass,
   band-stop, band-pass), which aren't smoothing.
-- **`returns`** — demoted to tag. `Return` and `LogReturn` go in
+- **`returns`** - demoted to tag. `Return` and `LogReturn` go in
   `transforms` topic with `returns` tag.
-- **`MACD`** — `trend` (despite the name).
-- **Borderline functions** — tag generously, topic-assign sparingly.
+- **`MACD`** - `trend` (despite the name).
+- **Borderline functions** - tag generously, topic-assign sparingly.
 
 Every function in `screamer/__init__.py` gets frontmatter following
 this taxonomy, and the help registry build validates the result.

@@ -548,7 +548,7 @@
       }
     ],
     "nan_policy": "ignore",
-    "details": "## Description\n\nThe Rogers-Satchell (1991) range-based volatility estimator. Per-bar variance contribution:\n\n$$\n\\sigma^2_\\text{RS}[t] = \\ln\\tfrac{H}{C}\\ \\ln\\tfrac{H}{O} + \\ln\\tfrac{L}{C}\\ \\ln\\tfrac{L}{O}\n$$\n\nThis expression is averaged with a exponentially-weighted mean to form the estimator. The `Vol`\nvariant returns `sqrt(Var)` (bit-exact via the same internal state).\n\n**4-input, 1-output** on `(open, high, low, close)`. Slightly less efficient (~6x vs\nclose-to-close) than Garman-Klass but **drift-robust** — works correctly when the underlying\ndrift is non-zero, a much more realistic assumption for trending markets.\n\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
+    "details": "## Description\n\nThe Rogers-Satchell (1991) range-based volatility estimator. Per-bar variance contribution:\n\n$$\n\\sigma^2_\\text{RS}[t] = \\ln\\tfrac{H}{C}\\ \\ln\\tfrac{H}{O} + \\ln\\tfrac{L}{C}\\ \\ln\\tfrac{L}{O}\n$$\n\nThis expression is averaged with a exponentially-weighted mean to form the estimator. The `Vol`\nvariant returns `sqrt(Var)` (bit-exact via the same internal state).\n\n**4-input, 1-output** on `(open, high, low, close)`. Slightly less efficient (~6x vs\nclose-to-close) than Garman-Klass but **drift-robust** - works correctly when the underlying\ndrift is non-zero, a much more realistic assumption for trending markets.\n\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
     "examples": []
   },
   "EwRogersSatchellVol": {
@@ -596,7 +596,7 @@
       }
     ],
     "nan_policy": "ignore",
-    "details": "## Description\n\nThe Rogers-Satchell (1991) range-based volatility estimator. Per-bar variance contribution:\n\n$$\n\\sigma^2_\\text{RS}[t] = \\ln\\tfrac{H}{C}\\ \\ln\\tfrac{H}{O} + \\ln\\tfrac{L}{C}\\ \\ln\\tfrac{L}{O}\n$$\n\nThis expression is averaged with a exponentially-weighted mean to form the estimator. The `Vol`\nvariant returns `sqrt(Var)` (bit-exact via the same internal state).\n\n**4-input, 1-output** on `(open, high, low, close)`. Slightly less efficient (~6x vs\nclose-to-close) than Garman-Klass but **drift-robust** — works correctly when the underlying\ndrift is non-zero, a much more realistic assumption for trending markets.\n\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
+    "details": "## Description\n\nThe Rogers-Satchell (1991) range-based volatility estimator. Per-bar variance contribution:\n\n$$\n\\sigma^2_\\text{RS}[t] = \\ln\\tfrac{H}{C}\\ \\ln\\tfrac{H}{O} + \\ln\\tfrac{L}{C}\\ \\ln\\tfrac{L}{O}\n$$\n\nThis expression is averaged with a exponentially-weighted mean to form the estimator. The `Vol`\nvariant returns `sqrt(Var)` (bit-exact via the same internal state).\n\n**4-input, 1-output** on `(open, high, low, close)`. Slightly less efficient (~6x vs\nclose-to-close) than Garman-Klass but **drift-robust** - works correctly when the underlying\ndrift is non-zero, a much more realistic assumption for trending markets.\n\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
     "examples": []
   },
   "EwSkew": {
@@ -834,7 +834,7 @@
       "log-return",
       "returns"
     ],
-    "short": "log(x[t] / x[t-k]) — log return at lag k.",
+    "short": "log(x[t] / x[t-k]) - log return at lag k.",
     "inputs": 1,
     "outputs": 1,
     "parameters": [
@@ -887,7 +887,7 @@
       "rate-of-change",
       "talib"
     ],
-    "short": "100 * (x[t] / x[t-k] - 1) — TA-Lib's ROC.",
+    "short": "100 * (x[t] / x[t-k] - 1) - TA-Lib's ROC.",
     "inputs": 1,
     "outputs": 1,
     "parameters": [
@@ -915,7 +915,7 @@
       "rate-of-change",
       "talib"
     ],
-    "short": "x[t] / x[t-k] - 1 — TA-Lib's ROCP. Identical to Return.",
+    "short": "x[t] / x[t-k] - 1 - TA-Lib's ROCP. Identical to Return.",
     "inputs": 1,
     "outputs": 1,
     "parameters": [
@@ -943,7 +943,7 @@
       "rate-of-change",
       "talib"
     ],
-    "short": "x[t] / x[t-k] — TA-Lib's ROCR.",
+    "short": "x[t] / x[t-k] - TA-Lib's ROCR.",
     "inputs": 1,
     "outputs": 1,
     "parameters": [
@@ -971,7 +971,7 @@
       "pct-change",
       "returns"
     ],
-    "short": "(x[t] - x[t-k]) / x[t-k] — the simple percentage return at lag k.",
+    "short": "(x[t] - x[t-k]) / x[t-k] - the simple percentage return at lag k.",
     "inputs": 1,
     "outputs": 1,
     "parameters": [
@@ -1048,7 +1048,7 @@
       "capm",
       "pair"
     ],
-    "short": "cov(x, y) / var(y) — regression slope of x on y.",
+    "short": "cov(x, y) / var(y) - regression slope of x on y.",
     "inputs": 2,
     "outputs": 1,
     "parameters": [
@@ -1315,7 +1315,7 @@
       }
     ],
     "nan_policy": "ignore",
-    "details": "## Description\n\nRolling OLS fit of `y ≈ slope · x + intercept + ε`, returning four outputs per step:\n\n| Output | Formula |\n|---|---|\n| `slope` | $(n S_{xy} - S_x S_y) / (n S_{xx} - S_x^2)$ |\n| `intercept` | $(S_y - \\text{slope} \\cdot S_x) / n$ |\n| `r_squared` | $(n S_{xy} - S_x S_y)^2 / [(n S_{xx} - S_x^2)(n S_{yy} - S_y^2)]$ |\n| `stderr` | $\\sqrt{\\text{SSE} / (n-2)}$ — RMSE of residuals |\n\n**Note on `stderr`**: this is the standard error of the *estimate* (RMSE of the fit), not\nthe standard error of the *slope coefficient*. Multiply by `1/sqrt(Σ(x - mean_x)²)` to get\nslope confidence.\n\n**2-input, 4-output** (`FunctorBase<_, 2, 4>`). Inputs `(y, x)`; outputs\n`(slope, intercept, r_squared, stderr)`. First valid output at sample index\n`window_size - 1`. First 2→4 consumer of the Plan E `N→M` dispatcher.\n\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
+    "details": "## Description\n\nRolling OLS fit of `y ≈ slope · x + intercept + ε`, returning four outputs per step:\n\n| Output | Formula |\n|---|---|\n| `slope` | $(n S_{xy} - S_x S_y) / (n S_{xx} - S_x^2)$ |\n| `intercept` | $(S_y - \\text{slope} \\cdot S_x) / n$ |\n| `r_squared` | $(n S_{xy} - S_x S_y)^2 / [(n S_{xx} - S_x^2)(n S_{yy} - S_y^2)]$ |\n| `stderr` | $\\sqrt{\\text{SSE} / (n-2)}$ - RMSE of residuals |\n\n**Note on `stderr`**: this is the standard error of the *estimate* (RMSE of the fit), not\nthe standard error of the *slope coefficient*. Multiply by `1/sqrt(Σ(x - mean_x)²)` to get\nslope confidence.\n\n**2-input, 4-output** (`FunctorBase<_, 2, 4>`). Inputs `(y, x)`; outputs\n`(slope, intercept, r_squared, stderr)`. First valid output at sample index\n`window_size - 1`. First 2→4 consumer of the Plan E `N→M` dispatcher.\n\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
     "examples": []
   },
   "RollingMaxDrawdown": {
@@ -1546,7 +1546,7 @@
       "hedge",
       "pair"
     ],
-    "short": "x - beta(x,y) * y — hedge-adjusted residual.",
+    "short": "x - beta(x,y) * y - hedge-adjusted residual.",
     "inputs": 2,
     "outputs": 1,
     "parameters": [
@@ -1735,7 +1735,7 @@
       {
         "language": "python",
         "caption": "Usage example",
-        "code": "import numpy as np\nfrom screamer import Atan2\n\nAtan2()(1.0,  0.0)             # +pi/2  (point on +y axis)\nAtan2()(-1.0, 0.0)             # -pi/2  (point on -y axis)\nAtan2()(0.0, -1.0)             # +pi    (point on -x axis)\n\n# Two parallel arrays — wind direction from u/v components\nux = np.random.randn(100)\nuy = np.random.randn(100)\ndirection = Atan2()(uy, ux)"
+        "code": "import numpy as np\nfrom screamer import Atan2\n\nAtan2()(1.0,  0.0)             # +pi/2  (point on +y axis)\nAtan2()(-1.0, 0.0)             # -pi/2  (point on -y axis)\nAtan2()(0.0, -1.0)             # +pi    (point on -x axis)\n\n# Two parallel arrays - wind direction from u/v components\nux = np.random.randn(100)\nuy = np.random.randn(100)\ndirection = Atan2()(uy, ux)"
       }
     ]
   },
@@ -2635,7 +2635,7 @@
       }
     ],
     "nan_policy": "propagate",
-    "details": "## Description\n\nThe `Diff2` function computes the *second-order* finite difference of the input — the discrete analogue of a second derivative. It is the result of applying a one-step difference twice.\n\n*Equation*:\n\n$$\ny[t] = x[t] - 2 \\, x[t-1] + x[t-2]\n$$\n\nequivalent to $\\Delta(\\Delta x)$.\n\n*Parameters*:\n\n- `start_policy` (str, optional): warmup behaviour, `\"strict\"` (default), `\"truncate\"`, or `\"zero\"`. Two warmup samples are needed before a valid output is produced.\n\n*NaN handling*: Under `start_policy=\"strict\"` the first two outputs are `NaN`. NaN inputs propagate.\n\n*Note*: `Diff2` is **not** the same as `Diff(2)`. `Diff(2)` is the *lag-2 first* difference $x[t] - x[t-2]$. `Diff2` is the *second-order* difference, i.e. the difference of differences. On a quadratic input $x[t] = a t^2 + b t + c$ the result is the constant $2a$.\n\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `propagate`.** Input `NaN` values are stored in the lookback. Output is `NaN` at any index where the function's positional formula references a `NaN` input; recovery happens once the `NaN` slides out of the lookback.\n<!-- NAN_FOOTNOTE_END -->",
+    "details": "## Description\n\nThe `Diff2` function computes the *second-order* finite difference of the input - the discrete analogue of a second derivative. It is the result of applying a one-step difference twice.\n\n*Equation*:\n\n$$\ny[t] = x[t] - 2 \\, x[t-1] + x[t-2]\n$$\n\nequivalent to $\\Delta(\\Delta x)$.\n\n*Parameters*:\n\n- `start_policy` (str, optional): warmup behaviour, `\"strict\"` (default), `\"truncate\"`, or `\"zero\"`. Two warmup samples are needed before a valid output is produced.\n\n*NaN handling*: Under `start_policy=\"strict\"` the first two outputs are `NaN`. NaN inputs propagate.\n\n*Note*: `Diff2` is **not** the same as `Diff(2)`. `Diff(2)` is the *lag-2 first* difference $x[t] - x[t-2]$. `Diff2` is the *second-order* difference, i.e. the difference of differences. On a quadratic input $x[t] = a t^2 + b t + c$ the result is the constant $2a$.\n\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `propagate`.** Input `NaN` values are stored in the lookback. Output is `NaN` at any index where the function's positional formula references a `NaN` input; recovery happens once the `NaN` slides out of the lookback.\n<!-- NAN_FOOTNOTE_END -->",
     "examples": [
       {
         "language": "python",
@@ -3365,7 +3365,7 @@
       }
     ],
     "nan_policy": "ignore",
-    "details": "## Description\n\nMoney Flow Index — a volume-weighted analogue of RSI on the typical price:\n\n$$\n\\begin{aligned}\n\\text{TP}[t]     &= (H + L + C) / 3 \\\\\n\\text{MF}[t]     &= \\text{TP} \\cdot V \\\\\n\\text{pos\\_MF}_w &= \\sum_w \\text{MF}[\\text{where}\\ \\text{TP} > \\text{TP}_{t-1}] \\\\\n\\text{neg\\_MF}_w &= \\sum_w \\text{MF}[\\text{where}\\ \\text{TP} < \\text{TP}_{t-1}] \\\\\n\\text{MFI}[t]    &= 100\\ \\cdot\\ \\dfrac{\\text{pos\\_MF}_w}{\\text{pos\\_MF}_w + \\text{neg\\_MF}_w}\n\\end{aligned}\n$$\n\n**4-input, 1-output** on `(high, low, close, volume)`. First valid output at sample index\n`window_size`. Bit-exact to `talib.MFI` (~1e-14).\n\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
+    "details": "## Description\n\nMoney Flow Index - a volume-weighted analogue of RSI on the typical price:\n\n$$\n\\begin{aligned}\n\\text{TP}[t]     &= (H + L + C) / 3 \\\\\n\\text{MF}[t]     &= \\text{TP} \\cdot V \\\\\n\\text{pos\\_MF}_w &= \\sum_w \\text{MF}[\\text{where}\\ \\text{TP} > \\text{TP}_{t-1}] \\\\\n\\text{neg\\_MF}_w &= \\sum_w \\text{MF}[\\text{where}\\ \\text{TP} < \\text{TP}_{t-1}] \\\\\n\\text{MFI}[t]    &= 100\\ \\cdot\\ \\dfrac{\\text{pos\\_MF}_w}{\\text{pos\\_MF}_w + \\text{neg\\_MF}_w}\n\\end{aligned}\n$$\n\n**4-input, 1-output** on `(high, low, close, volume)`. First valid output at sample index\n`window_size`. Bit-exact to `talib.MFI` (~1e-14).\n\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
     "examples": []
   },
   "NATR": {
@@ -3595,7 +3595,7 @@
       "Estimating the Hurst exponent (arXiv:1805.08931)"
     ],
     "nan_policy": "ignore",
-    "details": "## Description\n\nRolling-window estimator of the **Hurst exponent** $H$, a measure of long-range\ndependence in a time series:\n\n- $H \\approx 0.5$ — uncorrelated (e.g. Brownian / white noise / GBM log-returns).\n- $H > 0.5$ — persistent (trends tend to continue).\n- $H < 0.5$ — anti-persistent (reversion).\n\nEstimation is via **rescaled-range (R/S) analysis** with the Anis-Lloyd\nsmall-sample correction. Within the trailing window of `window_size` samples,\nthe series is partitioned into non-overlapping blocks of length\n$n_k = \\texttt{min\\_scale}, 2\\cdot\\texttt{min\\_scale}, \\dots, W/2$ (dyadic\nscales). For each scale we compute the average rescaled range across blocks,\nadjust for the small-sample bias, and regress on $\\log n$:\n\n$$\n\\begin{aligned}\n\\text{R/S}(n) &= \\frac{1}{\\lfloor W/n \\rfloor}\n  \\sum_{p=0}^{\\lfloor W/n \\rfloor-1}\n  \\frac{\\max_j Y_{p,j} - \\min_j Y_{p,j}}{\\sigma_p},\n  \\quad Y_{p,j} = \\sum_{i=1}^{j}(x_{p,i} - \\bar x_p) \\\\[2pt]\n\\text{rsal}(n) &= \\text{R/S}(n) - \\text{ers}(n) + \\sqrt{\\tfrac{\\pi n}{2}} \\\\[2pt]\n\\hat H &= \\text{slope of } \\log \\text{rsal}(n_k) \\text{ on } \\log n_k\n\\end{aligned}\n$$\n\nwhere $\\text{ers}(n)$ is the Anis-Lloyd theoretical R/S for $H = 1/2$:\n\n$$\n\\text{ers}(n) = \\frac{\\Gamma\\!\\left(\\tfrac{n-1}{2}\\right)}{\\sqrt{\\pi}\\,\\Gamma\\!\\left(\\tfrac{n}{2}\\right)}\n\\sum_{i=1}^{n-1} \\sqrt{\\tfrac{n-i}{i}} \\qquad (n \\le 340; \\text{asymptotic form otherwise}).\n$$\n\n## Parameters\n\n- `window_size` (int): trailing-window length $W$. Must satisfy\n  $W \\ge 4\\,\\texttt{min\\_scale}$ so the regression has at least 3 scales.\n- `min_scale` (int, default `4`): smallest block size $n_0$. Larger values\n  reduce small-sample bias but cost scales for the regression.\n- `method` (str, default `'rs'`): only `'rs'` is supported in v1 (Anis-Lloyd\n  corrected R/S, matching method 2 of the reference paper).\n\n*Warmup*: first valid output at sample index `window_size - 1`. Earlier samples\nreturn `NaN`. Also returns `NaN` if any block in the window has zero variance.\n\n## Notes on usage\n\n- For asset prices, apply `RollingHurst` to **returns** (or log-returns), not\n  the price itself. Prices are typically integrated (random-walk-like) and\n  would estimate $H \\approx 1$ regardless of return-level memory.\n- With `window_size=256` and `min_scale=4` the regression has 6 scales\n  (4, 8, 16, 32, 64, 128). Smaller windows are noisier; larger windows\n  trade responsiveness for stability.\n- `'rs'` is the classical Hurst estimator; alternative families\n  (DFA, generalised-Hurst from $|\\Delta x|^q$ moments) may follow in later\n  releases as additional `method` options.\n\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
+    "details": "## Description\n\nRolling-window estimator of the **Hurst exponent** $H$, a measure of long-range\ndependence in a time series:\n\n- $H \\approx 0.5$ - uncorrelated (e.g. Brownian / white noise / GBM log-returns).\n- $H > 0.5$ - persistent (trends tend to continue).\n- $H < 0.5$ - anti-persistent (reversion).\n\nEstimation is via **rescaled-range (R/S) analysis** with the Anis-Lloyd\nsmall-sample correction. Within the trailing window of `window_size` samples,\nthe series is partitioned into non-overlapping blocks of length\n$n_k = \\texttt{min\\_scale}, 2\\cdot\\texttt{min\\_scale}, \\dots, W/2$ (dyadic\nscales). For each scale we compute the average rescaled range across blocks,\nadjust for the small-sample bias, and regress on $\\log n$:\n\n$$\n\\begin{aligned}\n\\text{R/S}(n) &= \\frac{1}{\\lfloor W/n \\rfloor}\n  \\sum_{p=0}^{\\lfloor W/n \\rfloor-1}\n  \\frac{\\max_j Y_{p,j} - \\min_j Y_{p,j}}{\\sigma_p},\n  \\quad Y_{p,j} = \\sum_{i=1}^{j}(x_{p,i} - \\bar x_p) \\\\[2pt]\n\\text{rsal}(n) &= \\text{R/S}(n) - \\text{ers}(n) + \\sqrt{\\tfrac{\\pi n}{2}} \\\\[2pt]\n\\hat H &= \\text{slope of } \\log \\text{rsal}(n_k) \\text{ on } \\log n_k\n\\end{aligned}\n$$\n\nwhere $\\text{ers}(n)$ is the Anis-Lloyd theoretical R/S for $H = 1/2$:\n\n$$\n\\text{ers}(n) = \\frac{\\Gamma\\!\\left(\\tfrac{n-1}{2}\\right)}{\\sqrt{\\pi}\\,\\Gamma\\!\\left(\\tfrac{n}{2}\\right)}\n\\sum_{i=1}^{n-1} \\sqrt{\\tfrac{n-i}{i}} \\qquad (n \\le 340; \\text{asymptotic form otherwise}).\n$$\n\n## Parameters\n\n- `window_size` (int): trailing-window length $W$. Must satisfy\n  $W \\ge 4\\,\\texttt{min\\_scale}$ so the regression has at least 3 scales.\n- `min_scale` (int, default `4`): smallest block size $n_0$. Larger values\n  reduce small-sample bias but cost scales for the regression.\n- `method` (str, default `'rs'`): only `'rs'` is supported in v1 (Anis-Lloyd\n  corrected R/S, matching method 2 of the reference paper).\n\n*Warmup*: first valid output at sample index `window_size - 1`. Earlier samples\nreturn `NaN`. Also returns `NaN` if any block in the window has zero variance.\n\n## Notes on usage\n\n- For asset prices, apply `RollingHurst` to **returns** (or log-returns), not\n  the price itself. Prices are typically integrated (random-walk-like) and\n  would estimate $H \\approx 1$ regardless of return-level memory.\n- With `window_size=256` and `min_scale=4` the regression has 6 scales\n  (4, 8, 16, 32, 64, 128). Smaller windows are noisier; larger windows\n  trade responsiveness for stability.\n- `'rs'` is the classical Hurst estimator; alternative families\n  (DFA, generalised-Hurst from $|\\Delta x|^q$ moments) may follow in later\n  releases as additional `method` options.\n\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
     "examples": [
       {
         "language": "python",
@@ -4340,7 +4340,7 @@
       }
     ],
     "nan_policy": "ignore",
-    "details": "## Description\n\nThe Rogers-Satchell (1991) range-based volatility estimator. Per-bar variance contribution:\n\n$$\n\\sigma^2_\\text{RS}[t] = \\ln\\tfrac{H}{C}\\ \\ln\\tfrac{H}{O} + \\ln\\tfrac{L}{C}\\ \\ln\\tfrac{L}{O}\n$$\n\nThis expression is averaged with a rolling mean over `window_size` bars to form the estimator. The `Vol`\nvariant returns `sqrt(Var)` (bit-exact via the same internal state).\n\n**4-input, 1-output** on `(open, high, low, close)`. Slightly less efficient (~6x vs\nclose-to-close) than Garman-Klass but **drift-robust** — works correctly when the underlying\ndrift is non-zero, a much more realistic assumption for trending markets.\n\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
+    "details": "## Description\n\nThe Rogers-Satchell (1991) range-based volatility estimator. Per-bar variance contribution:\n\n$$\n\\sigma^2_\\text{RS}[t] = \\ln\\tfrac{H}{C}\\ \\ln\\tfrac{H}{O} + \\ln\\tfrac{L}{C}\\ \\ln\\tfrac{L}{O}\n$$\n\nThis expression is averaged with a rolling mean over `window_size` bars to form the estimator. The `Vol`\nvariant returns `sqrt(Var)` (bit-exact via the same internal state).\n\n**4-input, 1-output** on `(open, high, low, close)`. Slightly less efficient (~6x vs\nclose-to-close) than Garman-Klass but **drift-robust** - works correctly when the underlying\ndrift is non-zero, a much more realistic assumption for trending markets.\n\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
     "examples": []
   },
   "RollingRogersSatchellVol": {
@@ -4371,7 +4371,7 @@
       }
     ],
     "nan_policy": "ignore",
-    "details": "## Description\n\nThe Rogers-Satchell (1991) range-based volatility estimator. Per-bar variance contribution:\n\n$$\n\\sigma^2_\\text{RS}[t] = \\ln\\tfrac{H}{C}\\ \\ln\\tfrac{H}{O} + \\ln\\tfrac{L}{C}\\ \\ln\\tfrac{L}{O}\n$$\n\nThis expression is averaged with a rolling mean over `window_size` bars to form the estimator. The `Vol`\nvariant returns `sqrt(Var)` (bit-exact via the same internal state).\n\n**4-input, 1-output** on `(open, high, low, close)`. Slightly less efficient (~6x vs\nclose-to-close) than Garman-Klass but **drift-robust** — works correctly when the underlying\ndrift is non-zero, a much more realistic assumption for trending markets.\n\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
+    "details": "## Description\n\nThe Rogers-Satchell (1991) range-based volatility estimator. Per-bar variance contribution:\n\n$$\n\\sigma^2_\\text{RS}[t] = \\ln\\tfrac{H}{C}\\ \\ln\\tfrac{H}{O} + \\ln\\tfrac{L}{C}\\ \\ln\\tfrac{L}{O}\n$$\n\nThis expression is averaged with a rolling mean over `window_size` bars to form the estimator. The `Vol`\nvariant returns `sqrt(Var)` (bit-exact via the same internal state).\n\n**4-input, 1-output** on `(open, high, low, close)`. Slightly less efficient (~6x vs\nclose-to-close) than Garman-Klass but **drift-robust** - works correctly when the underlying\ndrift is non-zero, a much more realistic assumption for trending markets.\n\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
     "examples": []
   },
   "RollingSigmaClip": {
@@ -5429,7 +5429,7 @@
       }
     ],
     "nan_policy": "ignore",
-    "details": "## Description\n\nThe Schmitt trigger (Otto Schmitt, 1934) is a hysteresis comparator: a circuit whose output changes only when the input crosses the *opposite* threshold from the one that last triggered it. This double-threshold behavior gives the trigger its noise immunity — a noisy input that briefly dips back across a single threshold cannot rapidly toggle the output.\n\n$$\n\\text{output}[t] = \\begin{cases}\n1.0 & \\text{if } x[t] > \\text{upper} \\\\\\\\\n0.0 & \\text{if } x[t] < \\text{lower} \\\\\\\\\n\\text{output}[t-1] & \\text{otherwise}\n\\end{cases}\n$$\n\nThe window `[lower, upper]` is the *dead band*. Inside it the output is latched: whichever value (1.0 or 0.0) the trigger last committed to is held until the input crosses out the other side.\n\nUntil the first input crosses either threshold the output is `NaN` — the trigger has no prior state to retain.\n\n## Parameters\n\n- `lower`: lower threshold. Must be strictly less than `upper`. The output latches to `0.0` when the input falls below this value.\n- `upper`: upper threshold. The output latches to `1.0` when the input rises above this value.\n\n## Implementation Details\n\nO(1) per step. One scalar of state (the latched output). The constructor rejects `lower >= upper` and non-finite thresholds; `reset()` clears the latched state back to `NaN`.",
+    "details": "## Description\n\nThe Schmitt trigger (Otto Schmitt, 1934) is a hysteresis comparator: a circuit whose output changes only when the input crosses the *opposite* threshold from the one that last triggered it. This double-threshold behavior gives the trigger its noise immunity - a noisy input that briefly dips back across a single threshold cannot rapidly toggle the output.\n\n$$\n\\text{output}[t] = \\begin{cases}\n1.0 & \\text{if } x[t] > \\text{upper} \\\\\\\\\n0.0 & \\text{if } x[t] < \\text{lower} \\\\\\\\\n\\text{output}[t-1] & \\text{otherwise}\n\\end{cases}\n$$\n\nThe window `[lower, upper]` is the *dead band*. Inside it the output is latched: whichever value (1.0 or 0.0) the trigger last committed to is held until the input crosses out the other side.\n\nUntil the first input crosses either threshold the output is `NaN` - the trigger has no prior state to retain.\n\n## Parameters\n\n- `lower`: lower threshold. Must be strictly less than `upper`. The output latches to `0.0` when the input falls below this value.\n- `upper`: upper threshold. The output latches to `1.0` when the input rises above this value.\n\n## Implementation Details\n\nO(1) per step. One scalar of state (the latched output). The constructor rejects `lower >= upper` and non-finite thresholds; `reset()` clears the latched state back to `NaN`.",
     "examples": [
       {
         "language": "python",

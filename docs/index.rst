@@ -103,7 +103,7 @@ Build for speed
 
 Engineered in C++ with state-of-the-art numerical algorithms, Screamer delivers exceptional 
 computational efficiency, consistently outperforming traditional libraries like NumPy and 
-Pandas—often by factors of two or more, and in some cases by orders of magnitude.
+Pandas-often by factors of two or more, and in some cases by orders of magnitude.
 
 
 .. image:: /img/speed.png
@@ -164,6 +164,8 @@ For a step-by-step walkthrough see the :doc:`User Guide <usage>`.
    topic_signal
    topic_fin
    topic_misc
+   topic_streams
+   topic_dag
 
 
 .. toctree::
@@ -182,15 +184,7 @@ For a step-by-step walkthrough see the :doc:`User Guide <usage>`.
    polymorphic_api
    conventions
    nan_policy
-
-
-.. toctree::
-   :maxdepth: 1
-   :caption: Streams & DAG
-   :hidden:
-
    multistream
-   streams_dag_api
 
 
 .. toctree::

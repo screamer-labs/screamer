@@ -22,7 +22,7 @@ Pair statistics: covariance, correlation, regression beta, hedge-adjusted spread
    * - :doc:`RollingAlpha </functions_fin/RollingAlpha>`
      - Rolling OLS intercept of target on regressor (companion to RollingBeta).
    * - :doc:`RollingBeta </functions_fin/RollingBeta>`
-     - cov(x, y) / var(y) — regression slope of x on y.
+     - cov(x, y) / var(y) - regression slope of x on y.
    * - :doc:`RollingCorr </functions_fin/RollingCorr>`
      - Rolling Pearson correlation of two parallel streams.
    * - :doc:`RollingCov </functions_fin/RollingCov>`
@@ -30,4 +30,4 @@ Pair statistics: covariance, correlation, regression beta, hedge-adjusted spread
    * - :doc:`RollingResidualStd </functions_fin/RollingResidualStd>`
      - Standard deviation of the rolling-hedge-adjusted residual y - beta*x.
    * - :doc:`RollingSpread </functions_fin/RollingSpread>`
-     - x - beta(x,y) * y — hedge-adjusted residual.
+     - x - beta(x,y) * y - hedge-adjusted residual.

@@ -70,7 +70,7 @@ against every Python in `CIBW_BUILD` using the same wheel.
 | 4 OS × 4 Python versions = **16 wheels** per release | 4 OS × 1 abi3 wheel = **4 wheels** per release (for 3.12+) |
 | New Python (3.15+) needs new wheels | Existing abi3 wheel just works |
 | ~3.5 GB CI artifacts per release | ~1 GB |
-| Build time per release ≈ 25–45 min | ≈ 8–12 min |
+| Build time per release ≈ 25-45 min | ≈ 8-12 min |
 | pybind11 internal ABI bumps (e.g. 2.x→3.0) force coordinated re-releases | Stable ABI insulates us |
 
 There's also a smaller win: nanobind benchmarks ~2× faster argument parsing
@@ -80,7 +80,7 @@ not the headline reason.
 
 ### What it would cost
 
-Roughly **a focused 1–2 day session**. The API surface we use is small and
+Roughly **a focused 1-2 day session**. The API surface we use is small and
 nanobind mirrors pybind11 closely.
 
 Files needing edits (line counts approximate):
@@ -129,7 +129,7 @@ Triggers in roughly order of likelihood:
 1. **Python 3.15 ships (October 2026)**, if anyone wants to use it before we
    cut a release with `cp315-*` in the matrix, they'll hit source builds.
    Repeated complaints = migrate.
-2. **CI minutes become a budget concern**, 16 wheels × 4–5 minutes each is
+2. **CI minutes become a budget concern**, 16 wheels × 4-5 minutes each is
    reasonable today, but if the matrix grows or we add benchmarks to CI,
    abi3 cuts that to a quarter.
 3. **pybind11 ships first-class STABLE_ABI**, if discussion #4474 ever

@@ -32,9 +32,9 @@ Element-wise or stateful series transformations: lag, diff, detrend, cumulative 
    * - :doc:`Lag </functions_misc/Lag>`
      - Output is the input delayed by k samples.
    * - :doc:`LogReturn </functions_fin/LogReturn>`
-     - log(x[t] / x[t-k]) — log return at lag k.
+     - log(x[t] / x[t-k]) - log return at lag k.
    * - :doc:`Return </functions_fin/Return>`
-     - (x[t] - x[t-k]) / x[t-k] — the simple percentage return at lag k.
+     - (x[t] - x[t-k]) / x[t-k] - the simple percentage return at lag k.
    * - :doc:`RollingSum </functions_rolling/RollingSum>`
      - Trailing-window sum.
    * - :doc:`SchmittTrigger </functions_signal/SchmittTrigger>`

@@ -278,7 +278,7 @@ def select(keys, values=None, columns=None):
     Graph form: select(stream, columns) where stream is a Node.
     """
     if is_node(keys):
-        # graph form: select(stream, columns) — columns may be the 2nd
+        # graph form: select(stream, columns) - columns may be the 2nd
         # positional (the `values` slot) or the `columns` keyword.
         cols = values if columns is None else columns
         if cols is None:

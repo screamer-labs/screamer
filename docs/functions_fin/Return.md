@@ -8,7 +8,7 @@ tags:
 - return
 - pct-change
 - returns
-short: (x[t] - x[t-k]) / x[t-k] — the simple percentage return at lag k.
+short: (x[t] - x[t-k]) / x[t-k] - the simple percentage return at lag k.
 inputs: 1
 outputs: 1
 parameters:

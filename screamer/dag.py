@@ -42,7 +42,7 @@ def is_node(obj):
 
 
 def Input(name):
-    """Create a source Node — a named placeholder for a timed stream."""
+    """Create a source Node - a named placeholder for a timed stream."""
     return Node(("input", name))
 
 
@@ -127,26 +127,22 @@ def _check_stateful_safety(outputs):
 class Dag:
     """A positional N-in / M-out callable that evaluates a computation graph.
 
-    Parameters
-    ----------
-    inputs : list[Node]
-        Ordered list of Input(...) nodes that define the call signature.
-        Feeds are bound positionally (or by name via keyword call).
-    outputs : list[Node]
-        Ordered list of output nodes to evaluate.
-    align_outputs : bool, default True
-        When True (default), co-index all M outputs onto a shared, sorted key
-        axis: each output carries its as-of value at every unique union key
-        (combine_latest's per-event intermediate rows are collapsed to one row
-        per key), returning a tuple of equal-length (keys, values) pairs. When
-        False, return independent per-output streams whose lengths may differ.
+    Arguments:
 
-    Notes
-    -----
+    - ``inputs``: ordered list of ``Input(...)`` nodes that define the call
+      signature. Feeds are bound positionally, or by name via a keyword call.
+    - ``outputs``: ordered list of output nodes to evaluate.
+    - ``align_outputs`` (default ``True``): when ``True``, co-index all M outputs
+      onto a shared, sorted key axis, so each output carries its as-of value at
+      every unique union key (combine_latest's per-event intermediate rows are
+      collapsed to one row per key) and the returned (keys, values) pairs have
+      equal length. When ``False``, return independent per-output streams whose
+      lengths may differ.
+
     Call ``dag(*feeds)`` (positional) or ``dag(**named_feeds)`` (by Input name)
-    to evaluate the graph. Returns a single (keys, values) pair when M == 1, or a
-    tuple of (keys, values) pairs when M > 1. Use ``dag.stream(*feeds)`` to run
-    the same graph live, event by event, with byte-identical results.
+    to evaluate the graph: it returns a single (keys, values) pair when M == 1,
+    or a tuple of pairs when M > 1. Use ``dag.stream(*feeds)`` to run the same
+    graph live, event by event, with byte-identical results.
     """
 
     def __init__(self, inputs, outputs, align_outputs=True):

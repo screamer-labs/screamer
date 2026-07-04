@@ -9,7 +9,7 @@ tags:
 - spread
 - hedge
 - pair
-short: x - beta(x,y) * y — hedge-adjusted residual.
+short: x - beta(x,y) * y - hedge-adjusted residual.
 inputs: 2
 outputs: 1
 parameters:

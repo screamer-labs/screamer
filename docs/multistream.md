@@ -2,7 +2,7 @@
 
 screamer's single-series operators (`RollingMean`, `RollingCorr`, …) assume
 lockstep alignment: row `i` of one input pairs with row `i` of another. Real
-multi-stream data breaks that assumption — feeds tick at different rates, arrive
+multi-stream data breaks that assumption - feeds tick at different rates, arrive
 out of step, and drop samples. The `screamer.streams` module adds a small,
 composable layer for combining, splitting, filtering, and replaying streams that
 do **not** tick together, while keeping every existing operator unchanged.
@@ -12,15 +12,15 @@ The whole design rests on four principles.
 ## 1. Every stream has an order key
 
 A stream is a sequence of `(key, value)` events. The **key** is whatever you
-already use to order data — a `datetime64` timestamp, an `int64` tick count, a
+already use to order data - a `datetime64` timestamp, an `int64` tick count, a
 `float64` second, or, when you supply none, the **row number**. screamer only
 ever *orders* and *compares* keys; it never interprets them.
 
 Two capability tiers:
 
-- **Comparable key** (can be ordered) — enough for `merge`, `combine_latest`,
+- **Comparable key** (can be ordered) - enough for `merge`, `combine_latest`,
   and backtest replay. Row numbers and any numeric key qualify.
-- **Metric key** (differences are meaningful) — additionally enables wall-clock
+- **Metric key** (differences are meaningful) - additionally enables wall-clock
   replay (`pace`), because a sleep duration only exists when key deltas convert
   to time.
 
@@ -83,7 +83,7 @@ streaming form, and `pace` is itself the streaming/replay driver.)
 
 ## See also
 
-- [Polymorphic API](polymorphic_api.md) — the single-series input/output
+- [Polymorphic API](polymorphic_api.md) - the single-series input/output
   contract; lockstep is the row-number-key special case of this page.
-- [NaN policy](nan_policy.md) — how compute functors treat `NaN`; `ffill` is the
+- [NaN policy](nan_policy.md) - how compute functors treat `NaN`; `ffill` is the
   same forward-fill carry that `combine_latest` uses.

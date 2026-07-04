@@ -8,7 +8,7 @@ tags:
 - rocp
 - rate-of-change
 - talib
-short: x[t] / x[t-k] - 1 — TA-Lib's ROCP. Identical to Return.
+short: x[t] / x[t-k] - 1 - TA-Lib's ROCP. Identical to Return.
 inputs: 1
 outputs: 1
 parameters:

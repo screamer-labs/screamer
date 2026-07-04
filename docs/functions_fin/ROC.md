@@ -8,7 +8,7 @@ tags:
 - roc
 - rate-of-change
 - talib
-short: 100 * (x[t] / x[t-k] - 1) — TA-Lib's ROC.
+short: 100 * (x[t] / x[t-k] - 1) - TA-Lib's ROC.
 inputs: 1
 outputs: 1
 parameters:

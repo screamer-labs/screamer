@@ -22,7 +22,7 @@ Fits a parametric model (line, polynomial) to a trailing window.
    * - :doc:`RollingAlpha </functions_fin/RollingAlpha>`
      - Rolling OLS intercept of target on regressor (companion to RollingBeta).
    * - :doc:`RollingBeta </functions_fin/RollingBeta>`
-     - cov(x, y) / var(y) — regression slope of x on y.
+     - cov(x, y) / var(y) - regression slope of x on y.
    * - :doc:`RollingLinearRegression </functions_fin/RollingLinearRegression>`
      - Full OLS fit returning (slope, intercept, r_squared, stderr).
    * - :doc:`RollingOU </functions_rolling/RollingOU>`
@@ -34,6 +34,6 @@ Fits a parametric model (line, polynomial) to a trailing window.
    * - :doc:`RollingResidualStd </functions_fin/RollingResidualStd>`
      - Standard deviation of the rolling-hedge-adjusted residual y - beta*x.
    * - :doc:`RollingSpread </functions_fin/RollingSpread>`
-     - x - beta(x,y) * y — hedge-adjusted residual.
+     - x - beta(x,y) * y - hedge-adjusted residual.
    * - :doc:`RollingTSF </functions_fin/RollingTSF>`
      - Linear regression of y on time, projected one step ahead. TA-Lib's TSF.

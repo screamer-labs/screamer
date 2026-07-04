@@ -38,9 +38,9 @@ nan_policy: ignore
 Rolling-window estimator of the **Hurst exponent** $H$, a measure of long-range
 dependence in a time series:
 
-- $H \approx 0.5$ — uncorrelated (e.g. Brownian / white noise / GBM log-returns).
-- $H > 0.5$ — persistent (trends tend to continue).
-- $H < 0.5$ — anti-persistent (reversion).
+- $H \approx 0.5$ - uncorrelated (e.g. Brownian / white noise / GBM log-returns).
+- $H > 0.5$ - persistent (trends tend to continue).
+- $H < 0.5$ - anti-persistent (reversion).
 
 Estimation is via **rescaled-range (R/S) analysis** with the Anis-Lloyd
 small-sample correction. Within the trailing window of `window_size` samples,

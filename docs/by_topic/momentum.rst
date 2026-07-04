@@ -20,10 +20,10 @@ Rate-of-change indicators: outputs proportional to recent change in the input.
    * - :doc:`Momentum </functions_misc/Momentum>`
      - x[t] - x[t-k], TA-Lib's MOM. Mathematically identical to Diff(k).
    * - :doc:`ROC </functions_fin/ROC>`
-     - 100 * (x[t] / x[t-k] - 1) — TA-Lib's ROC.
+     - 100 * (x[t] / x[t-k] - 1) - TA-Lib's ROC.
    * - :doc:`ROCP </functions_fin/ROCP>`
-     - x[t] / x[t-k] - 1 — TA-Lib's ROCP. Identical to Return.
+     - x[t] / x[t-k] - 1 - TA-Lib's ROCP. Identical to Return.
    * - :doc:`ROCR </functions_fin/ROCR>`
-     - x[t] / x[t-k] — TA-Lib's ROCR.
+     - x[t] / x[t-k] - TA-Lib's ROCR.
    * - :doc:`TRIX </functions_rolling/TRIX>`
      - ROC of a triple-smoothed EMA.

@@ -1,8 +1,8 @@
 # NaN policy
 
-Screamer is a streaming library. A common real-world condition is that some samples in the input are `NaN` — produced by an upstream filter's warmup, a missing market tick, a sensor dropout, or whatever. This page defines exactly how every function in the library responds to a `NaN` input.
+Screamer is a streaming library. A common real-world condition is that some samples in the input are `NaN` - produced by an upstream filter's warmup, a missing market tick, a sensor dropout, or whatever. This page defines exactly how every function in the library responds to a `NaN` input.
 
-The policy is dogmatic: every function declares one of three NaN policies in its frontmatter, the build refuses to publish a function that doesn't declare one, and the test suite verifies that the runtime behavior matches the declaration. There are no "it depends" answers — the function's documentation page tells you what happens, and CI guarantees the page is not lying.
+The policy is dogmatic: every function declares one of three NaN policies in its frontmatter, the build refuses to publish a function that doesn't declare one, and the test suite verifies that the runtime behavior matches the declaration. There are no "it depends" answers - the function's documentation page tells you what happens, and CI guarantees the page is not lying.
 
 > For dropping vs filling `NaN` **across streams** (`dropna`, `fillna`/`ffill`
 > in the combinator layer), see [Streams, keys, and alignment](multistream.md).
@@ -10,7 +10,7 @@ The policy is dogmatic: every function declares one of three NaN policies in its
 
 ## The contract
 
-A `NaN` in the input never corrupts internal state. Output may be `NaN` at and around the input `NaN` index depending on the function's policy, but the function always recovers — there is no "sticky `NaN`" that poisons subsequent outputs forever.
+A `NaN` in the input never corrupts internal state. Output may be `NaN` at and around the input `NaN` index depending on the function's policy, but the function always recovers - there is no "sticky `NaN`" that poisons subsequent outputs forever.
 
 `process_scalar` always consumes one sample and emits one sample. The output array is the same length as the input array. `NaN` inputs do not collapse, expand, or shift the timeline.
 
@@ -25,7 +25,7 @@ Used by every summary-statistic function (rolling means/variances/quantiles/poly
 1. Emit `NaN` at output index `t`.
 2. Leave internal state exactly as it was at the end of step `t − 1`. The sample is not stored in the lookback buffer, not added to running sums, not used to advance EW decay.
 
-The function behaves at step `t + 1` as if step `t` had not happened — except that one output slot has been filled with `NaN` to preserve the 1:1 length invariant.
+The function behaves at step `t + 1` as if step `t` had not happened - except that one output slot has been filled with `NaN` to preserve the 1:1 length invariant.
 
 This is implemented as a one-line early return at the top of `process_scalar`:
 
@@ -52,21 +52,21 @@ double process_scalar(double x) override {
 
 Single input `NaN` → single output `NaN`. Recovery is immediate.
 
-**Semantic consequence.** Under `ignore`, the window length is measured in *finite samples*, not in input positions. If an input stream has many `NaN` gaps, the windowed statistic effectively spans more positions than the nominal window size. This is the right default for a streaming library — but if a downstream consumer needs strictly time-positional semantics, they should fill or drop the `NaN` upstream (with [`FillNa`](functions_preprocessing/FillNa.md) or [`Ffill`](functions_preprocessing/Ffill.md)) before feeding the statistic.
+**Semantic consequence.** Under `ignore`, the window length is measured in *finite samples*, not in input positions. If an input stream has many `NaN` gaps, the windowed statistic effectively spans more positions than the nominal window size. This is the right default for a streaming library - but if a downstream consumer needs strictly time-positional semantics, they should fill or drop the `NaN` upstream (with [`FillNa`](functions_preprocessing/FillNa.md) or [`Ffill`](functions_preprocessing/Ffill.md)) before feeding the statistic.
 
 ### `propagate`
 
 Used by functions whose output references the input by an explicit positional offset: [`Lag`](functions_misc/Lag.md), [`Diff`](functions_misc/Diff.md), [`Diff2`](functions_misc/Diff2.md), [`Momentum`](functions_misc/Momentum.md), [`ROC`](functions_fin/ROC.md), [`ROCP`](functions_fin/ROCP.md), [`ROCR`](functions_fin/ROCR.md), [`LogReturn`](functions_fin/LogReturn.md), [`Return`](functions_fin/Return.md).
 
-**Rule.** The function stores every input — including `NaN` — in its lookback. Output at index `t` is computed by the function's positional formula, with IEEE arithmetic propagating `NaN` naturally. Output recovers once the `NaN` slides out of the lookback.
+**Rule.** The function stores every input - including `NaN` - in its lookback. Output at index `t` is computed by the function's positional formula, with IEEE arithmetic propagating `NaN` naturally. Output recovers once the `NaN` slides out of the lookback.
 
-**Why these functions use propagate and not ignore.** `Lag(3)` is contractually "the value 3 positions ago." If we silently dropped `NaN` from the buffer, `Lag(3)` would become "the value 3 *finite samples* ago" — silently shorter than 3 positions whenever the stream has gaps. Same argument for `Diff`, `ROC`, etc.: their semantics require honest positional offsets. Propagate gives the user a visible `NaN` that says "I can't answer that" rather than a wrong-but-finite answer.
+**Why these functions use propagate and not ignore.** `Lag(3)` is contractually "the value 3 positions ago." If we silently dropped `NaN` from the buffer, `Lag(3)` would become "the value 3 *finite samples* ago" - silently shorter than 3 positions whenever the stream has gaps. Same argument for `Diff`, `ROC`, etc.: their semantics require honest positional offsets. Propagate gives the user a visible `NaN` that says "I can't answer that" rather than a wrong-but-finite answer.
 
 **Worked example.** `Diff(1)` on `[1, 2, 3, NaN, 5, 6]`:
 
 | index | x[t] | x[t-1] | output |
 |---|---|---|---|
-| 0 | 1   | —    | `NaN` (warmup, no previous) |
+| 0 | 1   | -    | `NaN` (warmup, no previous) |
 | 1 | 2   | 1    | 1   |
 | 2 | 3   | 2    | 1   |
 | 3 | `NaN` | 3  | `NaN` (input is `NaN`) |
@@ -84,7 +84,7 @@ One input `NaN` → two output `NaN`s (the input's own index, and one more while
 
 Used by functions whose **purpose** is to handle `NaN`: [`FillNa`](functions_preprocessing/FillNa.md), [`Ffill`](functions_preprocessing/Ffill.md), and any future `Bfill`-style additions.
 
-**Rule.** The function's own documentation defines what happens — `NaN` input is the input it was designed to process, and the output is by design *not* `NaN`. These functions are the only place in the library where input `NaN` can become a finite output.
+**Rule.** The function's own documentation defines what happens - `NaN` input is the input it was designed to process, and the output is by design *not* `NaN`. These functions are the only place in the library where input `NaN` can become a finite output.
 
 ## Which functions use which policy
 
@@ -112,7 +112,7 @@ The original motivation for this policy. Chaining `RollingPoly1(window=21)` on t
 - Under `ignore`, those leading `NaN`s do not enter `RollingPoly1`'s state. `RollingPoly1` simply doesn't see them.
 - `RollingPoly1` runs its own warmup over the finite samples that follow. First valid output appears at index `(EwKurt warmup) + (RollingPoly1 window − 1)`.
 
-Concretely, on a 200-sample finite input, the chain emits roughly 23 `NaN` outputs followed by 177 finite values — versus the previous behavior of 200 `NaN`s out of 200.
+Concretely, on a 200-sample finite input, the chain emits roughly 23 `NaN` outputs followed by 177 finite values - versus the previous behavior of 200 `NaN`s out of 200.
 
 ### Single mid-stream `NaN`
 
@@ -159,6 +159,6 @@ These tests are deterministic and run on every commit. If a function's runtime b
 
 ## Implementation notes for contributors
 
-When writing a new function, pick the policy that matches the function's mathematical meaning, declare it in the frontmatter (`nan_policy: ignore | propagate | nan-aware`), and implement it. The `ignore` case is almost always one line of code (`if (isnan2(x)) return NaN;` at the top of `process_scalar`). The `propagate` case typically needs no `NaN` handling at all — IEEE arithmetic does the right thing — but the lookback buffer must store `NaN` faithfully.
+When writing a new function, pick the policy that matches the function's mathematical meaning, declare it in the frontmatter (`nan_policy: ignore | propagate | nan-aware`), and implement it. The `ignore` case is almost always one line of code (`if (isnan2(x)) return NaN;` at the top of `process_scalar`). The `propagate` case typically needs no `NaN` handling at all - IEEE arithmetic does the right thing - but the lookback buffer must store `NaN` faithfully.
 
 If a function genuinely needs different semantics from any of the three policies, that's a signal to discuss the API before merging. We have not yet found a case where one of the three doesn't fit.

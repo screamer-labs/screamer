@@ -8,7 +8,7 @@ tags:
 - return
 - log-return
 - returns
-short: log(x[t] / x[t-k]) — log return at lag k.
+short: log(x[t] / x[t-k]) - log return at lag k.
 inputs: 1
 outputs: 1
 parameters:

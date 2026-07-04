@@ -16,20 +16,20 @@ All claims here are continuously checked by `tests/test_third_party_alignment.py
 | `WMA` | `WMA` | `wma` | linear weights, identical formula |
 | `TRIMA` | `TRIMA` | `trima` | TA-Lib's asymmetric inner/outer split for even windows |
 | `RollingMean` | `SMA` | `sma` | |
-| `RollingMin` / `RollingMax` | `MIN` / `MAX` | -- | |
-| `RollingArgmin` / `RollingArgmax` | `MININDEX` / `MAXINDEX` | -- | TA-Lib returns *absolute* sample index; we return *window offset*. The two are deterministically related: `talib_idx = our_offset + (t − w + 1)`. The test transforms one into the other. |
-| `RollingMedian` | -- | `median` | |
-| `HullMA` | -- | `hma` | TA-Lib does not have HullMA |
+| `RollingMin` / `RollingMax` | `MIN` / `MAX` | - | |
+| `RollingArgmin` / `RollingArgmax` | `MININDEX` / `MAXINDEX` | - | TA-Lib returns *absolute* sample index; we return *window offset*. The two are deterministically related: `talib_idx = our_offset + (t − w + 1)`. The test transforms one into the other. |
+| `RollingMedian` | - | `median` | |
+| `HullMA` | - | `hma` | TA-Lib does not have HullMA |
 | `BollingerBands` middle band | `BBANDS` (mid) | `bbands` | |
-| `RollingStd` | `STDDEV` (ddof=1) | -- | We follow pandas's `ddof=1` (sample std). See divergence below for `pandas-ta-classic.stdev`. |
+| `RollingStd` | `STDDEV` (ddof=1) | - | We follow pandas's `ddof=1` (sample std). See divergence below for `pandas-ta-classic.stdev`. |
 | `RollingRSI` (default: Wilder) | `RSI` | `rsi` | Default smoothing is Wilder's, matching TA-Lib and pandas-ta. Pass `method="cutler"` for the SMA-smoothed variant; see divergence below. |
 | `KAMA` | `KAMA` | `kama` | Kaufman's defaults (`fast=2`, `slow=30`) match TA-Lib. First valid output is at sample index `window_size`, seeded with `KAMA[n-1] = x[n-1]`. |
 
 ## Where we deliberately diverge
 
-These are not bugs -- they are well-known convention splits in the technical-analysis ecosystem. Knowing which side a library sits on is part of using it correctly.
+These are not bugs - they are well-known convention splits in the technical-analysis ecosystem. Knowing which side a library sits on is part of using it correctly.
 
-### `EwMean` (and therefore `DEMA`, `TEMA`) -- bias-corrected EMA vs Wilder/recursive EMA
+### `EwMean` (and therefore `DEMA`, `TEMA`) - bias-corrected EMA vs Wilder/recursive EMA
 
 `screamer.EwMean` uses pandas's default `adjust=True` form:
 
@@ -45,11 +45,11 @@ $$
 \text{EMA}[t] = \alpha \cdot x[t] + (1-\alpha) \cdot \text{EMA}[t-1]
 $$
 
-with the seed `EMA[w-1] = SMA(x[0..w-1])` -- a window-sized SMA "warmup" plus undefined output for the first `w-1` samples. The two converge as `t → ∞` but disagree for early samples; for `span=10` the gap is on the order of a few percent for the first 30-50 samples.
+with the seed `EMA[w-1] = SMA(x[0..w-1])` - a window-sized SMA "warmup" plus undefined output for the first `w-1` samples. The two converge as `t → ∞` but disagree for early samples; for `span=10` the gap is on the order of a few percent for the first 30-50 samples.
 
-`DEMA`, `TEMA`, and `MACD` are pure compositions of `EwMean`, so they inherit this divergence. Each of them matches the equivalent `pandas.Series.ewm(...).mean()` composition bit-exactly; each differs from TA-Lib by a few percent during early samples, converging as `t → ∞`. The decision is deliberate -- TA-Lib's SMA-seeded recursive form is a useful engineering shortcut but is not a statistically clean choice (it splices uniform weights onto exponential weights at an arbitrary cutoff). Our default favours the principled formula. If you need TA-Lib-bit-exact output for a backtest, file an issue.
+`DEMA`, `TEMA`, and `MACD` are pure compositions of `EwMean`, so they inherit this divergence. Each of them matches the equivalent `pandas.Series.ewm(...).mean()` composition bit-exactly; each differs from TA-Lib by a few percent during early samples, converging as `t → ∞`. The decision is deliberate - TA-Lib's SMA-seeded recursive form is a useful engineering shortcut but is not a statistically clean choice (it splices uniform weights onto exponential weights at an arbitrary cutoff). Our default favours the principled formula. If you need TA-Lib-bit-exact output for a backtest, file an issue.
 
-### `RollingStd` -- ddof=1 (sample) vs ddof=0 (population)
+### `RollingStd` - ddof=1 (sample) vs ddof=0 (population)
 
 `screamer.RollingStd` follows pandas's default of `ddof=1` (the unbiased sample estimator):
 
@@ -61,9 +61,9 @@ $$
 
 This divergence cascades into `BollingerBands`: the middle band (an SMA) matches TA-Lib exactly, but the upper/lower bands inherit the std difference (TA-Lib uses ddof=0 in `BBANDS` by default).
 
-### `RollingRSI(method="cutler")` -- the opt-in alternative to Wilder
+### `RollingRSI(method="cutler")` - the opt-in alternative to Wilder
 
-`screamer.RollingRSI` defaults to **Wilder's** smoothing (matching TA-Lib and pandas-ta-classic exactly). The constructor argument `method="cutler"` switches to **Cutler's RSI** -- a simple-moving-average smoothing of gains and losses:
+`screamer.RollingRSI` defaults to **Wilder's** smoothing (matching TA-Lib and pandas-ta-classic exactly). The constructor argument `method="cutler"` switches to **Cutler's RSI** - a simple-moving-average smoothing of gains and losses:
 
 $$
 \text{avg\_gain}_W[t] = \frac{(w-1) \cdot \text{avg\_gain}_W[t-1] + \text{gain}[t]}{w}

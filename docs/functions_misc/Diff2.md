@@ -28,7 +28,7 @@ nan_policy: propagate
 
 ## Description
 
-The `Diff2` function computes the *second-order* finite difference of the input — the discrete analogue of a second derivative. It is the result of applying a one-step difference twice.
+The `Diff2` function computes the *second-order* finite difference of the input - the discrete analogue of a second derivative. It is the result of applying a one-step difference twice.
 
 *Equation*:
 

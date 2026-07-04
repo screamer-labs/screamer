@@ -60,6 +60,10 @@ myst_enable_extensions = [
     "dollarmath"  # allows using $...$ for inline math and $$...$$ for display math
 ]
 
+# Disable docutils "smart quotes": keep hyphens as hyphens (no auto em/en dashes
+# from -- / ---), straight quotes, and literal ... instead of an ellipsis glyph.
+smartquotes = False
+
 source_suffix = {
     '.rst': 'restructuredtext',
     '.md': 'myst-nb',     # markdown, parsed by myst-nb (which wraps myst-parser)
@@ -71,7 +75,7 @@ source_suffix = {
 # -----------------------------------------------------------------------------
 # The docs/notebooks/*.ipynb files are committed WITHOUT stored outputs, so
 # myst-nb executes them at build time and captures fresh outputs (plots,
-# printed values) — the same build-time-execution model that sphinx-exec-code
+# printed values) - the same build-time-execution model that sphinx-exec-code
 # and sphinx-plotly-directive already use here. The notebooks are seeded and
 # deterministic, so output is stable across rebuilds.
 nb_execution_mode = "auto"          # execute notebooks that have no stored outputs
