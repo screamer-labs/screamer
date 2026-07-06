@@ -73,6 +73,11 @@ from .dag import (
 __all__ = [
     {", ".join([f'"{name}"' for name in public_members + stream_names + dag_names])}
 ]
+
+# Wrap functor classes so each instance records its constructor arguments
+# (powers readable reprs, DAG node labels, and DAG serialization).
+from ._functor_params import install_param_capture
+install_param_capture(globals())
 '''
 
     # Write the content to the output file
