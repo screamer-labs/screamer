@@ -202,13 +202,16 @@ _xfail_propagation = _xfail_if_in(
 )
 
 
+# Only compute functors carry the nan_policy contract; stream operators and DAG
+# names (kind != "functor") are excluded.
+_FUNCTORS = {n: e for n, e in HELP.items() if e.get("kind", "functor") == "functor"}
 PARAMS_STICKY = [
     pytest.param(name, entry, id=name, marks=_xfail_sticky(name))
-    for name, entry in sorted(HELP.items())
+    for name, entry in sorted(_FUNCTORS.items())
 ]
 PARAMS_PROPAGATION = [
     pytest.param(name, entry, id=name, marks=_xfail_propagation(name))
-    for name, entry in sorted(HELP.items())
+    for name, entry in sorted(_FUNCTORS.items())
 ]
 
 

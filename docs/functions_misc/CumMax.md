@@ -3,8 +3,7 @@ name: CumMax
 title: Cumulative maximum
 implementation_family: misc
 topics:
-- transforms
-- statistics
+- cumulative
 tags:
 - cumulative
 - max

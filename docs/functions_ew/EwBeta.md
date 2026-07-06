@@ -3,7 +3,6 @@ name: EwBeta
 title: Exponentially-weighted beta
 implementation_family: ew
 topics:
-- correlation
 - regression
 tags:
 - ew

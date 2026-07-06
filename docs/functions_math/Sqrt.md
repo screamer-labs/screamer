@@ -3,7 +3,7 @@ name: Sqrt
 title: Square root
 implementation_family: math
 topics:
-- math
+- arithmetic
 tags:
 - sqrt
 short: Square root of each element.

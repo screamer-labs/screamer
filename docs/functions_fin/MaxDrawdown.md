@@ -3,6 +3,7 @@ name: MaxDrawdown
 title: Maximum drawdown
 implementation_family: fin
 topics:
+- cumulative
 - risk
 tags:
 - drawdown

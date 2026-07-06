@@ -4,8 +4,7 @@
 Statistics
 ==========
 
-Distributional summaries beyond mean/variance: order statistics, skewness, kurtosis, ranks.
-
+Windowed summary statistics: central tendency, dispersion, quantiles, moments, and extremes.
 
 .. list-table::
    :header-rows: 1
@@ -13,14 +12,6 @@ Distributional summaries beyond mean/variance: order statistics, skewness, kurto
 
    * - Function
      - Description
-   * - :doc:`CumMax </functions_misc/CumMax>`
-     - Running maximum from t=0.
-   * - :doc:`CumMin </functions_misc/CumMin>`
-     - Running minimum from t=0.
-   * - :doc:`EwCorr </functions_ew/EwCorr>`
-     - EW Pearson correlation of two parallel streams.
-   * - :doc:`EwCov </functions_ew/EwCov>`
-     - EW covariance of two parallel streams.
    * - :doc:`EwKurt </functions_ew/EwKurt>`
      - EW excess kurtosis.
    * - :doc:`EwMean </functions_ew/EwMean>`
@@ -33,18 +24,10 @@ Distributional summaries beyond mean/variance: order statistics, skewness, kurto
      - EW standard deviation.
    * - :doc:`EwVar </functions_ew/EwVar>`
      - EW variance (pandas adjust=True bias-corrected).
-   * - :doc:`EwZscore </functions_ew/EwZscore>`
-     - Latest sample standardised by EW mean and std.
    * - :doc:`RollingArgmax </functions_rolling/RollingArgmax>`
      - Window-offset of the trailing-window maximum (TA-Lib MAXINDEX).
    * - :doc:`RollingArgmin </functions_rolling/RollingArgmin>`
      - Window-offset of the trailing-window minimum (TA-Lib MININDEX).
-   * - :doc:`RollingCorr </functions_fin/RollingCorr>`
-     - Rolling Pearson correlation of two parallel streams.
-   * - :doc:`RollingCov </functions_fin/RollingCov>`
-     - Rolling sample covariance of two parallel streams.
-   * - :doc:`RollingHurst </functions_rolling/RollingHurst>`
-     - Rolling-window Hurst exponent via Anis-Lloyd corrected rescaled-range analysis.
    * - :doc:`RollingIqr </functions_rolling/RollingIqr>`
      - Q3 minus Q1 over the trailing window.
    * - :doc:`RollingKurt </functions_rolling/RollingKurt>`
@@ -57,6 +40,8 @@ Distributional summaries beyond mean/variance: order statistics, skewness, kurto
      - Trailing-window arithmetic mean (simple moving average).
    * - :doc:`RollingMedian </functions_rolling/RollingMedian>`
      - Trailing-window median.
+   * - :doc:`RollingMedianAD </functions_rolling/RollingMedianAD>`
+     - Rolling median absolute deviation, median(\|x - median\|), a robust scale estimate.
    * - :doc:`RollingMin </functions_rolling/RollingMin>`
      - Trailing-window minimum (monotonic deque).
    * - :doc:`RollingMinMax </functions_rolling/RollingMinMax>`
@@ -79,5 +64,3 @@ Distributional summaries beyond mean/variance: order statistics, skewness, kurto
      - Trailing-window sum.
    * - :doc:`RollingVar </functions_rolling/RollingVar>`
      - Trailing-window sample variance (ddof=1).
-   * - :doc:`RollingZscore </functions_rolling/RollingZscore>`
-     - Latest sample standardised by trailing-window mean and std.

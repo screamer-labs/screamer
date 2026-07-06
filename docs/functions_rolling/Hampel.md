@@ -3,7 +3,8 @@ name: Hampel
 title: Hampel filter
 implementation_family: rolling
 topics:
-- data-handling
+- filtering
+- outliers
 tags:
 - outlier
 - despike

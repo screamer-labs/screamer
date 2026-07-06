@@ -3,7 +3,7 @@ name: FillNa
 title: Replace NaNs with a constant
 implementation_family: preprocessing
 topics:
-- data-handling
+- missing-data
 tags:
 - nan
 - fill

@@ -3,7 +3,7 @@ name: EwZscore
 title: Exponentially-weighted z-score
 implementation_family: ew
 topics:
-- statistics
+- standardization
 tags:
 - ew
 - zscore

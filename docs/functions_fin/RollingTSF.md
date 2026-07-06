@@ -3,6 +3,7 @@ name: RollingTSF
 title: Rolling Time-Series Forecast (TSF)
 implementation_family: fin
 topics:
+- trend
 - regression
 tags:
 - tsf

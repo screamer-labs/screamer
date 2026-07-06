@@ -4,8 +4,7 @@
 Volatility
 ==========
 
-Estimators of dispersion / risk per unit time -- return-based, range-based, and bar-aware.
-
+The size of fluctuations and risk: standard deviation and variance, RMS, range-based OHLC estimators, and ATR.
 
 .. list-table::
    :header-rows: 1
@@ -35,6 +34,8 @@ Estimators of dispersion / risk per unit time -- return-based, range-based, and 
      - EW standard deviation.
    * - :doc:`EwVar </functions_ew/EwVar>`
      - EW variance (pandas adjust=True bias-corrected).
+   * - :doc:`KeltnerChannels </functions_rolling/KeltnerChannels>`
+     - Volatility-adapted envelope: EMA midline plus/minus a multiple of ATR.
    * - :doc:`NATR </functions_rolling/NATR>`
      - ATR scaled to a percentage of the current close.
    * - :doc:`RollingGarmanKlassVar </functions_rolling/RollingGarmanKlassVar>`
@@ -45,6 +46,8 @@ Estimators of dispersion / risk per unit time -- return-based, range-based, and 
      - Var form of the Parkinson range-based volatility estimator (uses high & low).
    * - :doc:`RollingParkinsonVol </functions_rolling/RollingParkinsonVol>`
      - Vol form of the Parkinson range-based volatility estimator (uses high & low).
+   * - :doc:`RollingRange </functions_rolling/RollingRange>`
+     - Trailing-window max minus min.
    * - :doc:`RollingRms </functions_rolling/RollingRms>`
      - Trailing-window root-mean-square.
    * - :doc:`RollingRogersSatchellVar </functions_rolling/RollingRogersSatchellVar>`

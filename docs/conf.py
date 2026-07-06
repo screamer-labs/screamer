@@ -60,6 +60,10 @@ myst_enable_extensions = [
     "dollarmath"  # allows using $...$ for inline math and $$...$$ for display math
 ]
 
+# Generate slug anchors for headings h1-h3 so in-page links like [text](#warmup)
+# and [text](#ignore) resolve to the matching heading.
+myst_heading_anchors = 3
+
 # Disable docutils "smart quotes": keep hyphens as hyphens (no auto em/en dashes
 # from -- / ---), straight quotes, and literal ... instead of an ellipsis glyph.
 smartquotes = False
@@ -90,6 +94,7 @@ nb_execution_raise_on_error = True  # a broken notebook fails the docs build (do
 html_theme = 'sphinx_rtd_theme'
 
 html_static_path = ['_static']
+html_css_files = ['css/custom.css']
 
 html_theme_options = {
     'collapse_navigation': True,  # Enable collapsible sidebar sections

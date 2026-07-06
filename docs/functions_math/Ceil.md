@@ -3,7 +3,7 @@ name: Ceil
 title: Ceiling
 implementation_family: math
 topics:
-- math
+- arithmetic
 tags:
 - ceil
 - rounding

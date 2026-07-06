@@ -3,8 +3,8 @@ name: HullMA
 title: Hull MA
 implementation_family: rolling
 topics:
-- trend
 - smoothing
+- trend
 tags:
 - hull
 - hullma

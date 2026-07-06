@@ -3,6 +3,7 @@ name: TRIX
 title: TRIX (rate of change of triple EMA)
 implementation_family: rolling
 topics:
+- trend
 - momentum
 tags:
 - trix

@@ -3,6 +3,7 @@ name: AD
 title: Accumulation/Distribution Line (Chaikin)
 implementation_family: rolling
 topics:
+- cumulative
 - volume
 tags:
 - ad

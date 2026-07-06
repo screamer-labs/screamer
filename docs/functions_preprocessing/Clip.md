@@ -3,7 +3,8 @@ name: Clip
 title: Clip to bounds
 implementation_family: preprocessing
 topics:
-- data-handling
+- arithmetic
+- outliers
 tags:
 - clip
 - bound

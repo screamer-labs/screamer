@@ -3,7 +3,7 @@ name: Power
 title: Power
 implementation_family: math
 topics:
-- math
+- arithmetic
 tags:
 - power
 - pow

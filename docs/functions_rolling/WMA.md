@@ -3,7 +3,6 @@ name: WMA
 title: Weighted Moving Average (WMA)
 implementation_family: rolling
 topics:
-- trend
 - smoothing
 tags:
 - wma

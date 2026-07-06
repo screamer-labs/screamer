@@ -3,8 +3,8 @@ name: BollingerBands
 title: Bollinger Bands
 implementation_family: rolling
 topics:
-- channels
 - volatility
+- bands
 tags:
 - bollinger
 - bands

@@ -1,3 +1,14 @@
+---
+name: resample
+title: resample
+kind: function
+short: Causal windowed downsample of a 1-D value stream.
+topics:
+- streams
+covers:
+- resample_iter
+---
+
 # `resample`
 
 Causal windowed downsampling. Group a stream into fixed index-interval buckets
@@ -6,8 +17,11 @@ one of `first`, `last`, `min`, `max`, `sum`, `count`, `mean`, or `ohlc`. A
 bucket emits only once a later index proves it complete, and the trailing partial
 bucket emits at the end of the input. Usable eagerly and inside a `Dag`.
 
+<!-- HELP_END -->
+
 ```{eval-rst}
 .. autofunction:: screamer.streams.resample
+.. autofunction:: screamer.streams.resample_iter
 ```
 
 ## Example

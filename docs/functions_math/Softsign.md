@@ -3,7 +3,7 @@ name: Softsign
 title: Softsign
 implementation_family: math
 topics:
-- activation
+- activations
 tags:
 - activation
 - softsign

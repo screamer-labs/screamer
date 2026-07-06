@@ -3,7 +3,7 @@ name: Sign
 title: Sign
 implementation_family: math
 topics:
-- math
+- arithmetic
 tags:
 - sign
 - signum

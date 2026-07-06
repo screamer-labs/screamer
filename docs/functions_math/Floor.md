@@ -3,7 +3,7 @@ name: Floor
 title: Floor
 implementation_family: math
 topics:
-- math
+- arithmetic
 tags:
 - floor
 - rounding

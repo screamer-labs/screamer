@@ -3,7 +3,7 @@ name: StochRSI
 title: Stochastic RSI
 implementation_family: rolling
 topics:
-- oscillator
+- momentum
 tags:
 - stochrsi
 - rsi

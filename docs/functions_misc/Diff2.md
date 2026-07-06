@@ -3,8 +3,7 @@ name: Diff2
 title: Second difference
 implementation_family: misc
 topics:
-- transforms
-- momentum
+- returns
 tags:
 - diff
 - second-derivative

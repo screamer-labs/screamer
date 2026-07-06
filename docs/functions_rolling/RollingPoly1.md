@@ -3,6 +3,7 @@ name: RollingPoly1
 title: Rolling 1st-order polynomial fit
 implementation_family: rolling
 topics:
+- trend
 - regression
 tags:
 - regression

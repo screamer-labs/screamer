@@ -3,7 +3,7 @@ name: Ffill
 title: Forward-fill NaNs
 implementation_family: preprocessing
 topics:
-- data-handling
+- missing-data
 tags:
 - nan
 - fill

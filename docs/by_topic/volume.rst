@@ -4,8 +4,7 @@
 Volume
 ======
 
-Volume-aware indicators (OBV, AD line, MFI, VWAP, ...).
-
+Volume-based indicators.
 
 .. list-table::
    :header-rows: 1

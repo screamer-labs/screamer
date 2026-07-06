@@ -1,0 +1,92 @@
+# Canonical topic registry for the screamer function index.
+#
+# Single source of truth: each function page declares topic *slugs* in its
+# frontmatter (e.g. `topics: [volatility, statistics]`); this file maps each slug
+# to its display name and one-line definition. The generated topic index and the
+# per-page "Topics:" links both read from here, so renaming a topic is a one-line
+# edit. CI validates every frontmatter slug against these keys and fails the build
+# on an unknown slug or a function with zero topics.
+#
+# Slug rules: lowercase ASCII, hyphen-separated, full words (no abbreviations).
+# Order below is the display order for the index.
+
+topics:
+  arithmetic:
+    name: "Arithmetic"
+    desc: "Elementwise numeric operations: rounding, powers, logs, exponentials, affine transforms, sign, and special functions."
+
+  trig:
+    name: "Trigonometry & geometry"
+    desc: "Angles, inverse trigonometric functions, coordinate conversions, and distances."
+
+  activations:
+    name: "Activations"
+    desc: "Neural-network activation functions."
+
+  smoothing:
+    name: "Smoothing & moving averages"
+    desc: "Track the level of a series and suppress short-term noise."
+
+  filtering:
+    name: "Filtering"
+    desc: "Designed frequency-domain and state-space filters."
+
+  statistics:
+    name: "Statistics"
+    desc: "Windowed summary statistics: central tendency, dispersion, quantiles, moments, and extremes."
+
+  volatility:
+    name: "Volatility"
+    desc: "The size of fluctuations and risk: standard deviation and variance, RMS, range-based OHLC estimators, and ATR."
+
+  standardization:
+    name: "Standardization & normalization"
+    desc: "Put values on a comparable scale: z-scores, affine rescaling, and detrending."
+
+  returns:
+    name: "Returns & changes"
+    desc: "Differences, returns, rates of change, and lags."
+
+  cumulative:
+    name: "Cumulative"
+    desc: "Running aggregates from the start of the series."
+
+  trend:
+    name: "Trend"
+    desc: "Direction and trend-following: trend-tracking averages, slope fits, ADX, and channels."
+
+  momentum:
+    name: "Momentum & oscillators"
+    desc: "Rate-of-change and overbought/oversold indicators."
+
+  bands:
+    name: "Bands & channels"
+    desc: "Envelopes around price."
+
+  volume:
+    name: "Volume"
+    desc: "Volume-based indicators."
+
+  regression:
+    name: "Correlation & regression"
+    desc: "Relationships between series: correlation, covariance, regression, hedging, pairs, and mean-reversion."
+
+  risk:
+    name: "Risk & performance"
+    desc: "Drawdowns and performance ratios."
+
+  missing-data:
+    name: "Missing data"
+    desc: "Filling and removing NaN values."
+
+  outliers:
+    name: "Outliers & robustness"
+    desc: "Despiking and robust estimators."
+
+  streams:
+    name: "Streams"
+    desc: "Aligning, combining, reshaping, and replaying event streams."
+
+  graphs:
+    name: "Computation graphs"
+    desc: "Building and running a DAG."

@@ -3,7 +3,7 @@ name: ImpulseClip
 title: Impulse clip
 implementation_family: rolling
 topics:
-- data-handling
+- outliers
 tags:
 - outlier
 - despike

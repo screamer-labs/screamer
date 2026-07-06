@@ -3,8 +3,7 @@ name: RollingCorr
 title: Rolling correlation
 implementation_family: fin
 topics:
-- correlation
-- statistics
+- regression
 tags:
 - correlation
 - pearson

@@ -3,6 +3,7 @@ name: RollingLinearRegression
 title: Rolling linear regression (2->4 OLS fit)
 implementation_family: fin
 topics:
+- trend
 - regression
 tags:
 - regression

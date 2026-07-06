@@ -3,7 +3,7 @@ name: Sigmoid
 title: Sigmoid
 implementation_family: math
 topics:
-- activation
+- activations
 tags:
 - activation
 - sigmoid

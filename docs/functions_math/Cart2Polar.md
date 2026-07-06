@@ -3,7 +3,7 @@ name: Cart2Polar
 title: Cartesian to polar
 implementation_family: math
 topics:
-- geometry
+- trig
 tags:
 - polar
 - conversion

@@ -4,6 +4,7 @@ title: Rolling median
 implementation_family: rolling
 topics:
 - statistics
+- outliers
 tags:
 - median
 - rolling

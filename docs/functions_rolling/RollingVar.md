@@ -3,8 +3,8 @@ name: RollingVar
 title: Rolling variance
 implementation_family: rolling
 topics:
-- volatility
 - statistics
+- volatility
 tags:
 - variance
 - rolling

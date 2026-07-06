@@ -3,8 +3,7 @@ name: EwCorr
 title: Exponentially-weighted correlation
 implementation_family: ew
 topics:
-- correlation
-- statistics
+- regression
 tags:
 - ew
 - correlation

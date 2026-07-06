@@ -3,7 +3,7 @@ name: RollingSigmaClip
 title: Rolling sigma-clip
 implementation_family: rolling
 topics:
-- data-handling
+- outliers
 tags:
 - outlier
 - sigma-clip

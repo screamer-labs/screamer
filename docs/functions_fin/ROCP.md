@@ -3,7 +3,7 @@ name: ROCP
 title: Rate of change percent (ROCP)
 implementation_family: fin
 topics:
-- momentum
+- returns
 tags:
 - rocp
 - rate-of-change

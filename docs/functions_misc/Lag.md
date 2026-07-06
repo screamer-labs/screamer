@@ -3,7 +3,7 @@ name: Lag
 title: Lag (delay)
 implementation_family: misc
 topics:
-- transforms
+- returns
 tags:
 - lag
 - delay

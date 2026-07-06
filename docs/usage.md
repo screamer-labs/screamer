@@ -1,24 +1,15 @@
-# Using `screamer` Functions
+# Using screamer
 
-Every `screamer` function follows the same two-step pattern:
+This guide walks through screamer's core ideas in the order they build on each
+other: how a function is called, why the same call works on stored data and on a
+live stream, how data shape is handled, and how functions compose into larger
+pipelines. Each section is short and links to a runnable notebook or a reference
+page where you can go deeper.
 
-1. Create an object with the parameters you want, for example
-   `obj = RollingMean(window_size=30)`.
-2. Call the object on your data, for example `result = obj(data)`.
+## Construct, then call
 
-The object holds the algorithm state. The call applies it. You can call
-the same object many times.
-
-The same object accepts a single number, a NumPy array, a Python list,
-or a generator. The output type matches the input type. This is what
-makes the same code work for backtests on historical arrays and for live
-event loops on streams.
-
----
-
-## One scalar at a time
-
-The simplest use is feeding values one by one.
+Every screamer function is used in two steps. First you create an **object**,
+configured with its parameters. Then you call that object on your data.
 
 ```{eval-rst}
 .. exec_code::
@@ -26,23 +17,22 @@ The simplest use is feeding values one by one.
    # --- hide: start ---
    import numpy as np
    from screamer import RollingMean
-   np.random.seed(42)
    # --- hide: stop ---
-   rolling = RollingMean(window_size=3)
-
-   for x in [1.0, 2.0, 3.0, 4.0, 5.0]:
-       y = rolling(x)
-       print(f"in: {x:.1f}   out: {y:.4f}")
+   ma = RollingMean(window_size=3)      # 1. construct, with parameters
+   result = ma(np.array([1.0, 2.0, 3.0, 4.0, 5.0]))   # 2. call, on data
+   print(result)
 ```
 
-The first two outputs are `nan` because the window of size 3 is not full
-yet. From the third value onwards the rolling mean is defined.
+The object holds the algorithm's state, so you can keep a reference to it and
+call it many times. The first two outputs are `NaN` because the window of size
+3 is not full yet; see [Warmup](#warmup) below.
 
----
+## One object, any input
 
-## A whole array at once
-
-Pass a NumPy array and get a NumPy array of the same shape back.
+The same object accepts a single value, a NumPy array, a Python list, or an
+iterator, and the type of the output mirrors the type of the input. This is the
+central idea in screamer: you write a calculation once and use it on a single
+number, a stored array, or a live feed, without changing anything.
 
 ```{eval-rst}
 .. exec_code::
@@ -50,48 +40,55 @@ Pass a NumPy array and get a NumPy array of the same shape back.
    # --- hide: start ---
    import numpy as np
    from screamer import RollingMean
-   np.random.seed(42)
+   # --- hide: stop ---
+   print("scalar:", RollingMean(3)(2.0))                          # -> a float
+   print("array :", RollingMean(3)(np.array([1., 2., 3., 4., 5.])))  # -> an array
+   print("list  :", RollingMean(3)([1., 2., 3., 4., 5.]))         # -> an array
+   print("stream:", list(RollingMean(3)(iter([1., 2., 3., 4., 5.]))))  # -> lazy
+```
+
+An array or list is processed eagerly, in one pass. An iterator is processed
+lazily: results come out one at a time as you advance it, which is what a live
+event loop needs. The exact input-to-output contract for every type is in the
+[Polymorphic API reference](polymorphic_api.md). A worked version of this
+example is in the [quickstart notebook](notebooks/01-quickstart-polymorphic-api).
+
+## Batch equals streaming
+
+Because the same object runs both ways, the numbers it produces are identical
+whether you pass a whole array at once or feed values one at a time. You can
+develop and test on stored history, then run the exact same code live.
+
+```{eval-rst}
+.. exec_code::
+
+   # --- hide: start ---
+   import numpy as np
+   from screamer import RollingMean
    # --- hide: stop ---
    data = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
 
-   result = RollingMean(window_size=3)(data)
-   print(result)
+   batch = RollingMean(3)(data)              # whole array at once
+
+   live = RollingMean(3)
+   streamed = [live(x) for x in data]        # one value at a time
+
+   print("batch   :", batch)
+   print("streamed:", np.array(streamed))
+   print("identical:", np.allclose(batch, streamed, equal_nan=True))
 ```
 
-This produces the same numbers as the scalar loop above. Calling the
-function on an array is equivalent to looping over the array and feeding
-each value to a fresh object. Both forms are supported so you can pick
-whichever is convenient.
+This holds because every function is **causal**: its output at each step depends
+only on the current and past inputs, never on future ones. There is no
+look-ahead, so a value computed live matches the one computed in a backtest. The
+[streaming notebook](notebooks/06-streaming-live-events) shows this on a longer
+example.
 
-You can also call the constructor and apply the function in a single
-expression:
+## Many series at once
 
-```python
-result = RollingMean(window_size=3)(data)
-```
-
-or build the object first and reuse it across several arrays:
-
-```python
-rolling = RollingMean(window_size=3)
-result_a = rolling(data_a)   # fresh state, then reset
-result_b = rolling(data_b)   # fresh state again
-```
-
-When you pass an array, the object resets its internal state at the
-start of the call and at the end. Two array calls on the same object
-behave the same as two array calls on two fresh objects.
-
----
-
-## Time runs along axis 0
-
-For 2-D arrays, `screamer` reads the **first axis as time** and every
-other axis as parallel independent series. A `(100, 4)` array means
-100 time samples for 4 series.
-
-![Column processing](img/per_column.png "Processing columns separately as
-individual streams")
+For a 2-D array, screamer treats the **first axis as time** and every other axis
+as a parallel, independent series. A `(T, K)` array is `K` series of length `T`,
+each processed on its own.
 
 ```{eval-rst}
 .. exec_code::
@@ -99,40 +96,28 @@ individual streams")
    # --- hide: start ---
    import numpy as np
    from screamer import RollingMean
-   np.random.seed(0)
    # --- hide: stop ---
-   data = np.array([
-       [1.0,  10.0],   # t=0
-       [2.0,  20.0],   # t=1
-       [3.0,  30.0],   # t=2
-       [4.0,  40.0],   # t=3
-       [5.0,  50.0],   # t=4
-   ])
+   data = np.array([[1.0, 10.0],
+                    [2.0, 20.0],
+                    [3.0, 30.0],
+                    [4.0, 40.0]])
 
-   result = RollingMean(window_size=3)(data)
-   print(result)
+   print(RollingMean(3)(data))     # shape (4, 2): the two columns are independent
 ```
 
-Column 0 and column 1 are processed independently. The state from one
-column does not leak into the next, because the object resets between
-columns.
+The state of one column never leaks into another. There is no `axis=` argument
+to set, because axis 0 is always time; if you need the operation along a
+different axis, transpose the array before passing it. The full convention,
+including higher-dimensional arrays, is in the
+[Polymorphic API reference](polymorphic_api.md).
 
-This means `RollingMean(3)(data)[:, k]` is equivalent to
-`RollingMean(3)(data[:, k])` for every column `k`. The same convention
-applies to higher dimensions: a `(T, J, K)` array is treated as `J * K`
-parallel streams of length `T`.
+## Warmup
 
-If you want the rolling operation to run along a different axis,
-transpose the array yourself before passing it.
-
----
-
-## Iterators and generators (streaming)
-
-When you pass a Python iterator or generator, the function returns a
-lazy iterator that produces values one at a time as you advance it. The
-state is preserved across calls to `next()`, which is exactly what
-live event loops need.
+Most functions need a few samples before they can produce a defined value — a
+mean over a window of 20 has nothing to report until 20 samples have arrived.
+During this warmup they emit `NaN`. The `start_policy` argument controls the
+behaviour: the default `"strict"` waits for a full window, while `"expanding"`
+produces a value from the first sample using whatever data is available so far.
 
 ```{eval-rst}
 .. exec_code::
@@ -140,31 +125,21 @@ live event loops need.
    # --- hide: start ---
    import numpy as np
    from screamer import RollingMean
-   np.random.seed(42)
    # --- hide: stop ---
-   def live_feed():
-       for x in [1.0, 2.0, 3.0, 4.0, 5.0]:
-           yield x
+   data = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
 
-   rolling = RollingMean(window_size=3)
-   for y in rolling(live_feed()):
-       print(f"{y:.4f}")
+   print("strict   :", RollingMean(3)(data))
+   print("expanding:", RollingMean(3, start_policy="expanding")(data))
 ```
 
-The output matches the array form and the scalar loop. The same
-algorithm, the same numbers, three different input shapes.
+The full definition of each policy, and how warmup interacts with missing data,
+is in [NaN and warmup](nan_and_warmup.md).
 
-> Lists and tuples take the eager path: `obj([1, 2, 3])` returns a
-> NumPy array of length 3. Use `iter([1, 2, 3])` if you want the lazy
-> path.
+## Chaining functions
 
----
-
-## Composing functions
-
-Because every function accepts the output of every other function,
-chaining is straightforward. Here `Diff` produces 3-step differences,
-and `RollingMax` takes the rolling maximum of those differences.
+Every function accepts the output of another, so calculations compose by
+nesting. A chain runs identically in batch and streaming, exactly like a single
+function.
 
 ```{eval-rst}
 .. exec_code::
@@ -172,33 +147,19 @@ and `RollingMax` takes the rolling maximum of those differences.
    # --- hide: start ---
    import numpy as np
    from screamer import RollingMax, Diff
-   np.random.seed(42)
    # --- hide: stop ---
-   data = np.random.normal(size=10)
+   data = np.array([1.0, 3.0, 2.0, 5.0, 4.0, 7.0])
 
-   diff = Diff(3)
-   rmax = RollingMax(window_size=4)
-   result = rmax(diff(data))
-
-   print(result)
+   diff = Diff(1)                      # step-to-step change
+   rmax = RollingMax(window_size=3)    # rolling maximum of that change
+   print(rmax(diff(data)))
 ```
 
-The same chain works on a generator without any change:
+## Functions with several inputs
 
-```python
-chained = rmax(diff(live_feed()))
-for y in chained:
-    publish(y)
-```
-
----
-
-## Two-input functions
-
-Some functions take more than one stream. `RollingCorr` is the rolling
-Pearson correlation of two series. The call shape mirrors the
-single-input one: scalars produce a scalar, arrays produce an array,
-generators produce a lazy iterator.
+Some functions take more than one series. `RollingCorr`, for example, is the
+rolling correlation of two inputs. The call shape mirrors the single-input case:
+two scalars give a scalar, two arrays give an array, two streams give a stream.
 
 ```{eval-rst}
 .. exec_code::
@@ -206,77 +167,124 @@ generators produce a lazy iterator.
    # --- hide: start ---
    import numpy as np
    from screamer import RollingCorr
-   np.random.seed(42)
    # --- hide: stop ---
    x = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
    y = np.array([2.0, 4.0, 6.0, 8.0, 10.0])
 
-   result = RollingCorr(window_size=3)(x, y)
-   print(result)
+   print(RollingCorr(window_size=3)(x, y))   # y = 2x, so correlation is 1.0 once warm
 ```
 
-`y` is `2 * x`, so the correlation is `1.0` once the window is full.
+The multi-input contract, including the `(T, N)` array form used for OHLC
+indicators, is in the [Polymorphic API reference](polymorphic_api.md), and the
+[financial-indicators notebook](notebooks/03-financial-indicators) puts it to
+work.
 
-For 2-D arrays, the column-by-column rule still applies. Two arrays of
-shape `(T, K)` produce a `(T, K)` result, where column `k` is the
-rolling correlation of `X[:, k]` against `Y[:, k]`. Cross pairs (column
-`j` of one with column `k` of the other) are not computed.
+## Functions with several outputs
+
+Some functions produce more than one value per step. `BollingerBands` returns a
+lower, middle, and upper band. The output gains a trailing axis of that size.
+
+```{eval-rst}
+.. exec_code::
+
+   # --- hide: start ---
+   import numpy as np
+   from screamer import BollingerBands
+   # --- hide: stop ---
+   data = np.random.default_rng(0).standard_normal(100)
+
+   bands = BollingerBands(20)(data)
+   print("shape:", bands.shape)     # (100, 3): lower, mid, upper
+```
+
+## Missing data
+
+Real streams have gaps — a missing tick, a sensor dropout, a `NaN` left by an
+upstream function's warmup. Every screamer function declares exactly how it
+responds to a `NaN` input, following one of three policies (`ignore`,
+`propagate`, `nan-aware`). A `NaN` never corrupts internal state, and the
+function always recovers. The full contract, and the `FillNa` / `Ffill`
+functions for cleaning gaps, are in [NaN and warmup](nan_and_warmup.md); the
+[NaN-handling notebook](notebooks/05-nan-handling) demonstrates each policy.
+
+## Streams that don't tick together
+
+The examples above assume inputs are aligned — row `i` of one pairs with row `i`
+of another. When feeds arrive on different clocks, at different rates, or with
+dropped samples, the `screamer.streams` layer aligns them before they reach a
+function. It provides operators to combine streams (`combine_latest`, `merge`),
+reshape them (`dropna`, `filter`, `select`), downsample them (`resample`), and
+replay stored data as a live feed (`replay`). The model — streams, their index,
+and alignment — is described in
+[Streams, values, and alignment](multistream.md), with the [`Stream`](functions_streams/Stream.md)
+type as its object form. The [Working with streams](notebooks/07-working-with-streams)
+notebook shows them in use.
+
+## Whole pipelines: the graph
+
+A `Dag` lets you wire functions and stream operators into a **computational
+dependency graph** you define once and run either on stored data or live, with
+identical results. You build it by naming your sources with `Input` and applying
+functions to them; the code reads top-to-bottom like an ordinary script, but
+what you are describing is a graph of dependencies. Building it only records the
+structure — nothing computes until you call the compiled graph, at which point
+the engine evaluates each node in dependency order.
 
 ```python
-X = returns_per_asset                # shape (T, K)
-Y = factor_returns                   # shape (T, K)
-RollingCorr(window_size=20)(X, Y)    # shape (T, K)
+from screamer import Input, Dag, RollingMean, Sub
+from screamer.streams import combine_latest
+
+a, b = Input("a"), Input("b")         # two named sources
+spread = Sub()(combine_latest(a, b))  # a node: align the two sources, then subtract
+signal = RollingMean(10)(spread)      # a node that depends on `spread`
+
+dag = Dag(inputs=[a, b], outputs=[signal])   # compile the graph
+
+# dag(feed_a, feed_b)        -> run on stored arrays
+# dag.stream(feed_a, feed_b) -> run live, event by event, with identical results
 ```
 
-For element-by-element streaming, call the object with two scalars:
+Each operation is a node whose parents are its inputs, and calling the graph
+evaluates every node the requested outputs depend on. The model and its
+guarantees are in [The computational graph](dag.md); the
+[DAG notebook](notebooks/09-computational-dag) builds and runs a complete one.
 
-```python
-corr = RollingCorr(window_size=20)
-for x, y in zip(stream_a, stream_b):
-    c = corr(x, y)
-    publish(c)
+## Resetting state
+
+Because an object carries state, it matters when that state clears. screamer
+resets it for you on the batch paths: at the start and end of every array or
+list call, and between the columns of a multi-column array. So passing an array
+gives the same result as constructing a fresh object for it, and columns never
+influence each other.
+
+On the streaming paths — feeding scalars or an iterator — state is deliberately
+**not** reset, because preserving it across calls is the whole point of
+streaming. To start over mid-stream, call `reset()` or build a new object.
+
+```{eval-rst}
+.. exec_code::
+
+   # --- hide: start ---
+   import numpy as np
+   from screamer import RollingMean
+   # --- hide: stop ---
+   ma = RollingMean(window_size=3)
+   ma(1.0)
+   ma(2.0)          # the object now holds two samples of state
+   ma.reset()       # back to empty; the next call starts a fresh window
+   print("reset done")
 ```
 
----
+The precise reset rules are in the [Polymorphic API reference](polymorphic_api.md).
 
-## Equivalence in one place
+## Where to go next
 
-For any `screamer` function `f`, the following all produce the same
-sequence of numbers (modulo `nan` placement during warmup):
-
-```python
-# 1. Scalar loop
-out = []
-g = f()
-for x in xs:
-    out.append(g(x))
-
-# 2. Eager array
-out = f()(np.asarray(xs))
-
-# 3. Lazy generator
-out = list(f()(iter(xs)))
-```
-
-This equivalence is what makes the same code suitable for both batch
-analysis and live deployment.
-
----
-
-## Reset
-
-The object's internal state is reset for you in two situations:
-
-- At the start and end of every batch call (an array, a list, a tuple).
-- Between columns of a multi-dimensional array.
-
-The state is **not** reset on the streaming paths (scalar loop, generator,
-async generator). If you want a fresh start during streaming, call
-`obj.reset()` explicitly or build a new object.
-
-```python
-rolling = RollingMean(window_size=3)
-rolling(1.0)
-rolling(2.0)
-rolling.reset()        # back to warmup
-```
+- **Worked examples** — the [example notebooks](notebooks/01-quickstart-polymorphic-api)
+  cover statistics, financial indicators, signal processing, async streams, and
+  the DAG, each self-contained and runnable.
+- **Concepts and contracts** — [Polymorphic API](polymorphic_api.md),
+  [NaN and warmup](nan_and_warmup.md),
+  [Streams, values, and alignment](multistream.md), and
+  [The computational graph](dag.md) give the precise behaviour.
+- **The function catalog** — browse every function by family or by use case in
+  the reference sections.

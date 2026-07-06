@@ -3,7 +3,6 @@ name: RollingSpread
 title: Rolling spread
 implementation_family: fin
 topics:
-- correlation
 - regression
 tags:
 - spread

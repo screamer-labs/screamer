@@ -3,7 +3,6 @@ name: RollingMean
 title: Rolling mean
 implementation_family: rolling
 topics:
-- trend
 - smoothing
 - statistics
 tags:

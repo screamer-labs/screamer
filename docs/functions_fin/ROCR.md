@@ -3,7 +3,7 @@ name: ROCR
 title: Rate of change ratio (ROCR)
 implementation_family: fin
 topics:
-- momentum
+- returns
 tags:
 - rocr
 - rate-of-change

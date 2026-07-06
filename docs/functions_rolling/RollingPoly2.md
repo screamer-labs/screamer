@@ -3,7 +3,8 @@ name: RollingPoly2
 title: Rolling 2nd-order polynomial fit
 implementation_family: rolling
 topics:
-- regression
+- smoothing
+- trend
 tags:
 - regression
 - quadratic

@@ -3,7 +3,7 @@ name: Cos
 title: Cosine
 implementation_family: math
 topics:
-- math
+- trig
 tags:
 - trigonometry
 - cos

@@ -1,10 +1,48 @@
 {
+  "Dag": {
+    "name": "Dag",
+    "title": "Dag",
+    "kind": "graph",
+    "short": "A positional N-in / M-out callable that evaluates a computation graph.",
+    "topics": [
+      "graphs"
+    ],
+    "covers": [
+      "Input",
+      "Node"
+    ],
+    "details": "Define a computation graph once, then run it in batch or live with identical\nresults. `Input` names a source stream; calling functors and stream operators on\nthose handles records the graph. `Dag(inputs=[...], outputs=[...])` compiles it\ninto a callable: `dag(...)` runs it on stored arrays, `dag.stream(...)` runs it\nlive, event by event, and the two produce byte-identical output.\n\nFor the conceptual model — how the graph is built, when to reach for it, and the\ndefine-once-run-anywhere guarantee — see\n[The computational graph](../dag.md). This page is the reference contract.",
+    "examples": []
+  },
+  "Input": {
+    "name": "Input",
+    "title": "Input",
+    "short": "Create a source Node - a named placeholder for a timed stream.",
+    "kind": "graph",
+    "topics": [
+      "graphs"
+    ],
+    "index": false,
+    "details": "",
+    "examples": []
+  },
+  "Node": {
+    "name": "Node",
+    "title": "Node",
+    "short": "An immutable handle for a stream in a computation graph.",
+    "kind": "graph",
+    "topics": [
+      "graphs"
+    ],
+    "index": false,
+    "details": "",
+    "examples": []
+  },
   "EwBeta": {
     "name": "EwBeta",
     "title": "Exponentially-weighted beta",
     "implementation_family": "ew",
     "topics": [
-      "correlation",
       "regression"
     ],
     "tags": [
@@ -57,8 +95,7 @@
     "title": "Exponentially-weighted correlation",
     "implementation_family": "ew",
     "topics": [
-      "correlation",
-      "statistics"
+      "regression"
     ],
     "tags": [
       "ew",
@@ -114,8 +151,7 @@
     "title": "Exponentially-weighted covariance",
     "implementation_family": "ew",
     "topics": [
-      "correlation",
-      "statistics"
+      "regression"
     ],
     "tags": [
       "ew",
@@ -310,7 +346,6 @@
     "title": "Exponentially-weighted mean",
     "implementation_family": "ew",
     "topics": [
-      "trend",
       "smoothing",
       "statistics"
     ],
@@ -457,8 +492,8 @@
     "title": "Exponentially-weighted RMS",
     "implementation_family": "ew",
     "topics": [
-      "volatility",
-      "statistics"
+      "statistics",
+      "volatility"
     ],
     "tags": [
       "ew",
@@ -654,8 +689,8 @@
     "title": "Exponentially-weighted standard deviation",
     "implementation_family": "ew",
     "topics": [
-      "volatility",
-      "statistics"
+      "statistics",
+      "volatility"
     ],
     "tags": [
       "ew",
@@ -706,8 +741,8 @@
     "title": "Exponentially-weighted variance",
     "implementation_family": "ew",
     "topics": [
-      "volatility",
-      "statistics"
+      "statistics",
+      "volatility"
     ],
     "tags": [
       "ew",
@@ -757,7 +792,7 @@
     "title": "Exponentially-weighted z-score",
     "implementation_family": "ew",
     "topics": [
-      "statistics"
+      "standardization"
     ],
     "tags": [
       "ew",
@@ -809,6 +844,7 @@
     "title": "Drawdown",
     "implementation_family": "fin",
     "topics": [
+      "cumulative",
       "risk"
     ],
     "tags": [
@@ -827,7 +863,7 @@
     "title": "Log return",
     "implementation_family": "fin",
     "topics": [
-      "transforms"
+      "returns"
     ],
     "tags": [
       "return",
@@ -861,6 +897,7 @@
     "title": "Maximum drawdown",
     "implementation_family": "fin",
     "topics": [
+      "cumulative",
       "risk"
     ],
     "tags": [
@@ -880,6 +917,7 @@
     "title": "Rate of change (ROC)",
     "implementation_family": "fin",
     "topics": [
+      "returns",
       "momentum"
     ],
     "tags": [
@@ -908,7 +946,7 @@
     "title": "Rate of change percent (ROCP)",
     "implementation_family": "fin",
     "topics": [
-      "momentum"
+      "returns"
     ],
     "tags": [
       "rocp",
@@ -936,7 +974,7 @@
     "title": "Rate of change ratio (ROCR)",
     "implementation_family": "fin",
     "topics": [
-      "momentum"
+      "returns"
     ],
     "tags": [
       "rocr",
@@ -964,7 +1002,7 @@
     "title": "Simple return",
     "implementation_family": "fin",
     "topics": [
-      "transforms"
+      "returns"
     ],
     "tags": [
       "return",
@@ -998,7 +1036,6 @@
     "title": "Rolling alpha (regression intercept)",
     "implementation_family": "fin",
     "topics": [
-      "correlation",
       "regression"
     ],
     "tags": [
@@ -1039,7 +1076,6 @@
     "title": "Rolling beta",
     "implementation_family": "fin",
     "topics": [
-      "correlation",
       "regression"
     ],
     "tags": [
@@ -1128,8 +1164,7 @@
     "title": "Rolling correlation",
     "implementation_family": "fin",
     "topics": [
-      "correlation",
-      "statistics"
+      "regression"
     ],
     "tags": [
       "correlation",
@@ -1174,8 +1209,7 @@
     "title": "Rolling covariance",
     "implementation_family": "fin",
     "topics": [
-      "correlation",
-      "statistics"
+      "regression"
     ],
     "tags": [
       "covariance",
@@ -1283,6 +1317,7 @@
     "title": "Rolling linear regression (2->4 OLS fit)",
     "implementation_family": "fin",
     "topics": [
+      "trend",
       "regression"
     ],
     "tags": [
@@ -1413,7 +1448,6 @@
     "title": "Rolling residual std",
     "implementation_family": "fin",
     "topics": [
-      "correlation",
       "regression"
     ],
     "tags": [
@@ -1538,7 +1572,6 @@
     "title": "Rolling spread",
     "implementation_family": "fin",
     "topics": [
-      "correlation",
       "regression"
     ],
     "tags": [
@@ -1584,6 +1617,7 @@
     "title": "Rolling Time-Series Forecast (TSF)",
     "implementation_family": "fin",
     "topics": [
+      "trend",
       "regression"
     ],
     "tags": [
@@ -1613,7 +1647,7 @@
     "title": "Absolute value",
     "implementation_family": "math",
     "topics": [
-      "math"
+      "arithmetic"
     ],
     "tags": [
       "abs",
@@ -1638,7 +1672,7 @@
     "title": "Arccosine",
     "implementation_family": "math",
     "topics": [
-      "math"
+      "trig"
     ],
     "tags": [
       "trigonometry",
@@ -1659,12 +1693,31 @@
       }
     ]
   },
+  "Add": {
+    "name": "Add",
+    "title": "Add",
+    "implementation_family": "math",
+    "topics": [
+      "arithmetic"
+    ],
+    "tags": [
+      "arithmetic",
+      "binary"
+    ],
+    "short": "Elementwise sum of two aligned streams (x + y).",
+    "inputs": 2,
+    "outputs": 1,
+    "parameters": [],
+    "nan_policy": "ignore",
+    "details": "## Description\n\n`Add` computes the elementwise sum of two aligned input streams, `x + y`. It takes two inputs and returns one output; a `NaN` in\neither input yields `NaN` at that step.\n\n*Parameters*: `Add` takes no parameters.\n\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
+    "examples": []
+  },
   "Asin": {
     "name": "Asin",
     "title": "Arcsine",
     "implementation_family": "math",
     "topics": [
-      "math"
+      "trig"
     ],
     "tags": [
       "trigonometry",
@@ -1690,7 +1743,7 @@
     "title": "Arctangent",
     "implementation_family": "math",
     "topics": [
-      "math"
+      "trig"
     ],
     "tags": [
       "trigonometry",
@@ -1716,8 +1769,7 @@
     "title": "Two-argument arctangent",
     "implementation_family": "math",
     "topics": [
-      "math",
-      "geometry"
+      "trig"
     ],
     "tags": [
       "trigonometry",
@@ -1744,7 +1796,7 @@
     "title": "Cartesian to polar",
     "implementation_family": "math",
     "topics": [
-      "geometry"
+      "trig"
     ],
     "tags": [
       "polar",
@@ -1770,7 +1822,7 @@
     "title": "Ceiling",
     "implementation_family": "math",
     "topics": [
-      "math"
+      "arithmetic"
     ],
     "tags": [
       "ceil",
@@ -1795,7 +1847,7 @@
     "title": "Cosine",
     "implementation_family": "math",
     "topics": [
-      "math"
+      "trig"
     ],
     "tags": [
       "trigonometry",
@@ -1820,7 +1872,7 @@
     "title": "Cube",
     "implementation_family": "math",
     "topics": [
-      "math"
+      "arithmetic"
     ],
     "tags": [
       "cube",
@@ -1840,12 +1892,31 @@
       }
     ]
   },
+  "Div": {
+    "name": "Div",
+    "title": "Div",
+    "implementation_family": "math",
+    "topics": [
+      "arithmetic"
+    ],
+    "tags": [
+      "arithmetic",
+      "binary"
+    ],
+    "short": "Elementwise quotient of two aligned streams (x / y).",
+    "inputs": 2,
+    "outputs": 1,
+    "parameters": [],
+    "nan_policy": "ignore",
+    "details": "## Description\n\n`Div` computes the elementwise quotient of two aligned input streams, `x / y`. It takes two inputs and returns one output; a `NaN` in\neither input yields `NaN` at that step.\n\n*Parameters*: `Div` takes no parameters.\n\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
+    "examples": []
+  },
   "Elu": {
     "name": "Elu",
     "title": "ELU",
     "implementation_family": "math",
     "topics": [
-      "activation"
+      "activations"
     ],
     "tags": [
       "activation",
@@ -1871,7 +1942,7 @@
     "title": "Error function",
     "implementation_family": "math",
     "topics": [
-      "math"
+      "arithmetic"
     ],
     "tags": [
       "erf",
@@ -1896,7 +1967,7 @@
     "title": "Complementary error function",
     "implementation_family": "math",
     "topics": [
-      "math"
+      "arithmetic"
     ],
     "tags": [
       "erfc",
@@ -1921,7 +1992,7 @@
     "title": "Exponential",
     "implementation_family": "math",
     "topics": [
-      "math"
+      "arithmetic"
     ],
     "tags": [
       "exp"
@@ -1945,7 +2016,7 @@
     "title": "Floor",
     "implementation_family": "math",
     "topics": [
-      "math"
+      "arithmetic"
     ],
     "tags": [
       "floor",
@@ -1970,8 +2041,7 @@
     "title": "Hypotenuse",
     "implementation_family": "math",
     "topics": [
-      "math",
-      "geometry"
+      "trig"
     ],
     "tags": [
       "hypotenuse",
@@ -1998,8 +2068,8 @@
     "title": "Linear (affine)",
     "implementation_family": "math",
     "topics": [
-      "math",
-      "regression"
+      "arithmetic",
+      "standardization"
     ],
     "tags": [
       "affine",
@@ -2038,8 +2108,7 @@
     "title": "Linear (two-input affine)",
     "implementation_family": "math",
     "topics": [
-      "math",
-      "regression"
+      "arithmetic"
     ],
     "tags": [
       "affine",
@@ -2084,7 +2153,7 @@
     "title": "Natural logarithm",
     "implementation_family": "math",
     "topics": [
-      "math"
+      "arithmetic"
     ],
     "tags": [
       "log",
@@ -2104,12 +2173,31 @@
       }
     ]
   },
+  "Mul": {
+    "name": "Mul",
+    "title": "Mul",
+    "implementation_family": "math",
+    "topics": [
+      "arithmetic"
+    ],
+    "tags": [
+      "arithmetic",
+      "binary"
+    ],
+    "short": "Elementwise product of two aligned streams (x * y).",
+    "inputs": 2,
+    "outputs": 1,
+    "parameters": [],
+    "nan_policy": "ignore",
+    "details": "## Description\n\n`Mul` computes the elementwise product of two aligned input streams, `x * y`. It takes two inputs and returns one output; a `NaN` in\neither input yields `NaN` at that step.\n\n*Parameters*: `Mul` takes no parameters.\n\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
+    "examples": []
+  },
   "Polar2Cart": {
     "name": "Polar2Cart",
     "title": "Polar to Cartesian",
     "implementation_family": "math",
     "topics": [
-      "geometry"
+      "trig"
     ],
     "tags": [
       "polar",
@@ -2135,7 +2223,7 @@
     "title": "Power",
     "implementation_family": "math",
     "topics": [
-      "math"
+      "arithmetic"
     ],
     "tags": [
       "power",
@@ -2167,7 +2255,7 @@
     "title": "ReLU",
     "implementation_family": "math",
     "topics": [
-      "activation"
+      "activations"
     ],
     "tags": [
       "activation",
@@ -2193,7 +2281,7 @@
     "title": "Round (banker's rounding)",
     "implementation_family": "math",
     "topics": [
-      "math"
+      "arithmetic"
     ],
     "tags": [
       "round",
@@ -2219,7 +2307,7 @@
     "title": "SELU",
     "implementation_family": "math",
     "topics": [
-      "activation"
+      "activations"
     ],
     "tags": [
       "activation",
@@ -2245,7 +2333,7 @@
     "title": "Sigmoid",
     "implementation_family": "math",
     "topics": [
-      "activation"
+      "activations"
     ],
     "tags": [
       "activation",
@@ -2271,7 +2359,7 @@
     "title": "Sign",
     "implementation_family": "math",
     "topics": [
-      "math"
+      "arithmetic"
     ],
     "tags": [
       "sign",
@@ -2296,7 +2384,7 @@
     "title": "Sine",
     "implementation_family": "math",
     "topics": [
-      "math"
+      "trig"
     ],
     "tags": [
       "trigonometry",
@@ -2321,7 +2409,7 @@
     "title": "Softsign",
     "implementation_family": "math",
     "topics": [
-      "activation"
+      "activations"
     ],
     "tags": [
       "activation",
@@ -2346,7 +2434,7 @@
     "title": "Square root",
     "implementation_family": "math",
     "topics": [
-      "math"
+      "arithmetic"
     ],
     "tags": [
       "sqrt"
@@ -2370,7 +2458,7 @@
     "title": "Square",
     "implementation_family": "math",
     "topics": [
-      "math"
+      "arithmetic"
     ],
     "tags": [
       "square",
@@ -2390,12 +2478,32 @@
       }
     ]
   },
+  "Sub": {
+    "name": "Sub",
+    "title": "Sub",
+    "implementation_family": "math",
+    "topics": [
+      "arithmetic"
+    ],
+    "tags": [
+      "arithmetic",
+      "binary"
+    ],
+    "short": "Elementwise difference of two aligned streams (x - y).",
+    "inputs": 2,
+    "outputs": 1,
+    "parameters": [],
+    "nan_policy": "ignore",
+    "details": "## Description\n\n`Sub` computes the elementwise difference of two aligned input streams, `x - y`. It takes two inputs and returns one output; a `NaN` in\neither input yields `NaN` at that step.\n\n*Parameters*: `Sub` takes no parameters.\n\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
+    "examples": []
+  },
   "Tanh": {
     "name": "Tanh",
     "title": "Tanh",
     "implementation_family": "math",
     "topics": [
-      "activation"
+      "trig",
+      "activations"
     ],
     "tags": [
       "activation",
@@ -2420,8 +2528,7 @@
     "title": "Cumulative maximum",
     "implementation_family": "misc",
     "topics": [
-      "transforms",
-      "statistics"
+      "cumulative"
     ],
     "tags": [
       "cumulative",
@@ -2446,8 +2553,7 @@
     "title": "Cumulative minimum",
     "implementation_family": "misc",
     "topics": [
-      "transforms",
-      "statistics"
+      "cumulative"
     ],
     "tags": [
       "cumulative",
@@ -2472,7 +2578,7 @@
     "title": "Cumulative product",
     "implementation_family": "misc",
     "topics": [
-      "transforms"
+      "cumulative"
     ],
     "tags": [
       "cumulative",
@@ -2497,7 +2603,7 @@
     "title": "Cumulative sum",
     "implementation_family": "misc",
     "topics": [
-      "transforms"
+      "cumulative"
     ],
     "tags": [
       "cumulative",
@@ -2522,7 +2628,8 @@
     "title": "Detrend",
     "implementation_family": "misc",
     "topics": [
-      "transforms"
+      "standardization",
+      "trend"
     ],
     "tags": [
       "detrend",
@@ -2566,8 +2673,7 @@
     "title": "Discrete difference",
     "implementation_family": "misc",
     "topics": [
-      "transforms",
-      "momentum"
+      "returns"
     ],
     "tags": [
       "diff",
@@ -2611,8 +2717,7 @@
     "title": "Second difference",
     "implementation_family": "misc",
     "topics": [
-      "transforms",
-      "momentum"
+      "returns"
     ],
     "tags": [
       "diff",
@@ -2649,7 +2754,7 @@
     "title": "Identity",
     "implementation_family": "misc",
     "topics": [
-      "transforms"
+      "arithmetic"
     ],
     "tags": [
       "identity",
@@ -2674,7 +2779,7 @@
     "title": "Lag (delay)",
     "implementation_family": "misc",
     "topics": [
-      "transforms"
+      "returns"
     ],
     "tags": [
       "lag",
@@ -2718,6 +2823,7 @@
     "title": "Momentum",
     "implementation_family": "misc",
     "topics": [
+      "returns",
       "momentum"
     ],
     "tags": [
@@ -2757,7 +2863,8 @@
     "title": "Clip to bounds",
     "implementation_family": "preprocessing",
     "topics": [
-      "data-handling"
+      "arithmetic",
+      "outliers"
     ],
     "tags": [
       "clip",
@@ -2796,7 +2903,7 @@
     "title": "Forward-fill NaNs",
     "implementation_family": "preprocessing",
     "topics": [
-      "data-handling"
+      "missing-data"
     ],
     "tags": [
       "nan",
@@ -2822,7 +2929,7 @@
     "title": "Replace NaNs with a constant",
     "implementation_family": "preprocessing",
     "topics": [
-      "data-handling"
+      "missing-data"
     ],
     "tags": [
       "nan",
@@ -2854,6 +2961,7 @@
     "title": "Accumulation/Distribution Line (Chaikin)",
     "implementation_family": "rolling",
     "topics": [
+      "cumulative",
       "volume"
     ],
     "tags": [
@@ -2876,8 +2984,8 @@
     "title": "Chaikin A/D Oscillator (ADOSC)",
     "implementation_family": "rolling",
     "topics": [
-      "volume",
-      "oscillator"
+      "momentum",
+      "volume"
     ],
     "tags": [
       "adosc",
@@ -2915,7 +3023,7 @@
     "implementation_family": "rolling",
     "topics": [
       "trend",
-      "oscillator"
+      "momentum"
     ],
     "tags": [
       "adx",
@@ -2981,7 +3089,7 @@
     "title": "Balance of Power (BOP)",
     "implementation_family": "rolling",
     "topics": [
-      "oscillator"
+      "momentum"
     ],
     "tags": [
       "bop",
@@ -3002,8 +3110,8 @@
     "title": "Bollinger Bands",
     "implementation_family": "rolling",
     "topics": [
-      "channels",
-      "volatility"
+      "volatility",
+      "bands"
     ],
     "tags": [
       "bollinger",
@@ -3055,7 +3163,7 @@
     "title": "Commodity Channel Index (CCI)",
     "implementation_family": "rolling",
     "topics": [
-      "oscillator"
+      "momentum"
     ],
     "tags": [
       "cci",
@@ -3085,8 +3193,8 @@
     "title": "Double Exponential MA (DEMA)",
     "implementation_family": "rolling",
     "topics": [
-      "trend",
-      "smoothing"
+      "smoothing",
+      "trend"
     ],
     "tags": [
       "dema",
@@ -3138,7 +3246,8 @@
     "title": "Donchian Channels",
     "implementation_family": "rolling",
     "topics": [
-      "channels"
+      "trend",
+      "bands"
     ],
     "tags": [
       "donchian",
@@ -3167,7 +3276,8 @@
     "title": "Hampel filter",
     "implementation_family": "rolling",
     "topics": [
-      "data-handling"
+      "filtering",
+      "outliers"
     ],
     "tags": [
       "outlier",
@@ -3228,8 +3338,8 @@
     "title": "Hull MA",
     "implementation_family": "rolling",
     "topics": [
-      "trend",
-      "smoothing"
+      "smoothing",
+      "trend"
     ],
     "tags": [
       "hull",
@@ -3263,7 +3373,7 @@
     "title": "Impulse clip",
     "implementation_family": "rolling",
     "topics": [
-      "data-handling"
+      "outliers"
     ],
     "tags": [
       "outlier",
@@ -3325,8 +3435,8 @@
     "title": "Kaufman Adaptive MA (KAMA)",
     "implementation_family": "rolling",
     "topics": [
-      "trend",
-      "smoothing"
+      "smoothing",
+      "trend"
     ],
     "tags": [
       "kama",
@@ -3375,7 +3485,8 @@
     "title": "Keltner Channels",
     "implementation_family": "rolling",
     "topics": [
-      "channels"
+      "volatility",
+      "bands"
     ],
     "tags": [
       "keltner",
@@ -3411,7 +3522,8 @@
     "title": "MACD",
     "implementation_family": "rolling",
     "topics": [
-      "trend"
+      "trend",
+      "momentum"
     ],
     "tags": [
       "macd",
@@ -3465,8 +3577,8 @@
     "title": "Money Flow Index (MFI)",
     "implementation_family": "rolling",
     "topics": [
-      "volume",
-      "oscillator"
+      "momentum",
+      "volume"
     ],
     "tags": [
       "mfi",
@@ -3526,6 +3638,7 @@
     "title": "On-Balance Volume (OBV)",
     "implementation_family": "rolling",
     "topics": [
+      "cumulative",
       "volume"
     ],
     "tags": [
@@ -3673,7 +3786,8 @@
     "title": "Rolling Hurst Exponent",
     "implementation_family": "rolling",
     "topics": [
-      "statistics"
+      "trend",
+      "regression"
     ],
     "tags": [
       "hurst",
@@ -3811,7 +3925,8 @@
     "title": "Rolling mean absolute deviation",
     "implementation_family": "rolling",
     "topics": [
-      "statistics"
+      "statistics",
+      "outliers"
     ],
     "tags": [
       "mad",
@@ -3889,7 +4004,6 @@
     "title": "Rolling mean",
     "implementation_family": "rolling",
     "topics": [
-      "trend",
       "smoothing",
       "statistics"
     ],
@@ -3936,7 +4050,8 @@
     "title": "Rolling median",
     "implementation_family": "rolling",
     "topics": [
-      "statistics"
+      "statistics",
+      "outliers"
     ],
     "tags": [
       "median",
@@ -3969,7 +4084,8 @@
     "title": "Rolling median absolute deviation",
     "implementation_family": "rolling",
     "topics": [
-      "data-handling"
+      "statistics",
+      "outliers"
     ],
     "tags": [
       "robust",
@@ -4195,6 +4311,7 @@
     "title": "Rolling 1st-order polynomial fit",
     "implementation_family": "rolling",
     "topics": [
+      "trend",
       "regression"
     ],
     "tags": [
@@ -4251,7 +4368,8 @@
     "title": "Rolling 2nd-order polynomial fit",
     "implementation_family": "rolling",
     "topics": [
-      "regression"
+      "smoothing",
+      "trend"
     ],
     "tags": [
       "regression",
@@ -4350,7 +4468,7 @@
     "title": "Rolling RSI",
     "implementation_family": "rolling",
     "topics": [
-      "oscillator"
+      "momentum"
     ],
     "tags": [
       "rsi",
@@ -4401,7 +4519,8 @@
     "title": "Rolling range",
     "implementation_family": "rolling",
     "topics": [
-      "statistics"
+      "statistics",
+      "volatility"
     ],
     "tags": [
       "range",
@@ -4436,8 +4555,8 @@
     "title": "Rolling root-mean-square",
     "implementation_family": "rolling",
     "topics": [
-      "volatility",
-      "statistics"
+      "statistics",
+      "volatility"
     ],
     "tags": [
       "rms",
@@ -4543,7 +4662,7 @@
     "title": "Rolling sigma-clip",
     "implementation_family": "rolling",
     "topics": [
-      "data-handling"
+      "outliers"
     ],
     "tags": [
       "outlier",
@@ -4646,8 +4765,8 @@
     "title": "Rolling standard deviation",
     "implementation_family": "rolling",
     "topics": [
-      "volatility",
-      "statistics"
+      "statistics",
+      "volatility"
     ],
     "tags": [
       "std",
@@ -4692,7 +4811,6 @@
     "title": "Rolling sum",
     "implementation_family": "rolling",
     "topics": [
-      "transforms",
       "statistics"
     ],
     "tags": [
@@ -4766,8 +4884,8 @@
     "title": "Rolling variance",
     "implementation_family": "rolling",
     "topics": [
-      "volatility",
-      "statistics"
+      "statistics",
+      "volatility"
     ],
     "tags": [
       "variance",
@@ -4875,7 +4993,7 @@
     "title": "Rolling z-score",
     "implementation_family": "rolling",
     "topics": [
-      "statistics"
+      "standardization"
     ],
     "tags": [
       "zscore",
@@ -4921,7 +5039,7 @@
     "title": "Stochastic Oscillator",
     "implementation_family": "rolling",
     "topics": [
-      "oscillator"
+      "momentum"
     ],
     "tags": [
       "stoch",
@@ -4970,7 +5088,7 @@
     "title": "Stochastic RSI",
     "implementation_family": "rolling",
     "topics": [
-      "oscillator"
+      "momentum"
     ],
     "tags": [
       "stochrsi",
@@ -5020,8 +5138,8 @@
     "title": "Triple Exponential MA (TEMA)",
     "implementation_family": "rolling",
     "topics": [
-      "trend",
-      "smoothing"
+      "smoothing",
+      "trend"
     ],
     "tags": [
       "tema",
@@ -5073,7 +5191,6 @@
     "title": "Triangular MA (TRIMA)",
     "implementation_family": "rolling",
     "topics": [
-      "trend",
       "smoothing"
     ],
     "tags": [
@@ -5108,6 +5225,7 @@
     "title": "TRIX (rate of change of triple EMA)",
     "implementation_family": "rolling",
     "topics": [
+      "trend",
       "momentum"
     ],
     "tags": [
@@ -5165,7 +5283,7 @@
     "title": "Ultimate Oscillator",
     "implementation_family": "rolling",
     "topics": [
-      "oscillator"
+      "momentum"
     ],
     "tags": [
       "ultimate-oscillator",
@@ -5206,7 +5324,6 @@
     "title": "Weighted Moving Average (WMA)",
     "implementation_family": "rolling",
     "topics": [
-      "trend",
       "smoothing"
     ],
     "tags": [
@@ -5252,7 +5369,7 @@
     "title": "Williams %R",
     "implementation_family": "rolling",
     "topics": [
-      "oscillator"
+      "momentum"
     ],
     "tags": [
       "williams-r",
@@ -5292,8 +5409,8 @@
     "title": "Butterworth low-pass filter",
     "implementation_family": "signal",
     "topics": [
-      "signal-processing",
-      "smoothing"
+      "smoothing",
+      "filtering"
     ],
     "tags": [
       "butterworth",
@@ -5335,7 +5452,7 @@
     "title": "Butterworth band-pass filter",
     "implementation_family": "signal",
     "topics": [
-      "signal-processing"
+      "filtering"
     ],
     "tags": [
       "butterworth",
@@ -5385,7 +5502,7 @@
     "title": "Butterworth band-stop filter",
     "implementation_family": "signal",
     "topics": [
-      "signal-processing"
+      "filtering"
     ],
     "tags": [
       "butterworth",
@@ -5436,7 +5553,7 @@
     "title": "Butterworth high-pass filter",
     "implementation_family": "signal",
     "topics": [
-      "signal-processing"
+      "filtering"
     ],
     "tags": [
       "butterworth",
@@ -5472,8 +5589,8 @@
     "title": "Scalar Kalman filter",
     "implementation_family": "signal",
     "topics": [
-      "signal-processing",
-      "smoothing"
+      "smoothing",
+      "filtering"
     ],
     "tags": [
       "kalman",
@@ -5527,8 +5644,8 @@
     "title": "FIR moving average (arbitrary taps)",
     "implementation_family": "signal",
     "topics": [
-      "signal-processing",
-      "smoothing"
+      "smoothing",
+      "filtering"
     ],
     "tags": [
       "fir",
@@ -5565,8 +5682,7 @@
     "title": "Schmitt trigger (hysteresis comparator)",
     "implementation_family": "signal",
     "topics": [
-      "signal-processing",
-      "transforms"
+      "filtering"
     ],
     "tags": [
       "schmitt",
@@ -5601,5 +5717,196 @@
         "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import SchmittTrigger\n\n# A noisy sine wave that repeatedly crosses zero.\nt = np.linspace(0, 4 * np.pi, 400)\nx = np.sin(t) + 0.25 * np.random.default_rng(0).standard_normal(400)\n\n# A naive zero-cross comparator would chatter on the noise. The\n# Schmitt trigger requires the signal to swing past +/- 0.3 before\n# toggling, so it produces a clean square wave.\ntrig = SchmittTrigger(lower=-0.3, upper=0.3)\ny = trig(x)\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True,\n                    row_heights=[0.6, 0.4], vertical_spacing=0.05)\nfig.add_trace(go.Scatter(y=x, mode='lines', name='input'),     row=1, col=1)\nfig.add_hline(y=+0.3, line_dash='dash', line_color='gray', row=1, col=1)\nfig.add_hline(y=-0.3, line_dash='dash', line_color='gray', row=1, col=1)\nfig.add_trace(go.Scatter(y=y, mode='lines', name='trigger',\n                         line=dict(color='red')),             row=2, col=1)\nfig.update_layout(\n    title=\"Schmitt trigger on a noisy sine wave (lower=-0.3, upper=+0.3)\",\n    xaxis2_title=\"Sample\", yaxis=dict(title=\"Input\"),\n    yaxis2=dict(title=\"Trigger\", range=[-0.2, 1.2]),\n    margin=dict(l=20, r=20, t=60, b=20),\n    legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02,\n                xanchor=\"right\", x=1),\n)\nfig.show()"
       }
     ]
+  },
+  "Stream": {
+    "name": "Stream",
+    "title": "Stream",
+    "kind": "function",
+    "short": "A sequence of values with an optional ordering index.",
+    "topics": [
+      "streams"
+    ],
+    "details": "The object form of a stream: a values array paired with an optional index (the\nordering coordinate). Instead of passing and receiving loose `(values, index)`\ntuples, you can pass a `Stream` and get a `Stream` back, with the index carried\nalong. Accepted by every stream operator that preserves the stream shape.",
+    "examples": []
+  },
+  "combine_latest": {
+    "name": "combine_latest",
+    "title": "combine_latest",
+    "kind": "function",
+    "short": "As-of latest-value join of N streams: one row per distinct index (same-index events coalesce).",
+    "topics": [
+      "streams"
+    ],
+    "covers": [
+      "combine_latest_iter"
+    ],
+    "details": "An as-of join for streams that tick on different clocks. It aligns N streams by\ncarrying each input's most recent value forward and emitting **one row per\ndistinct index** - same-index events from multiple streams coalesce into a\nsingle settled row. `emit=\"when_all\"` (default) waits until every input is warm;\n`emit=\"on_any\"` starts from the first event.",
+    "examples": []
+  },
+  "combine_latest_iter": {
+    "name": "combine_latest_iter",
+    "title": "combine_latest_iter",
+    "short": "Yield coalesced (row, index) events: one per distinct index.",
+    "kind": "function",
+    "topics": [
+      "streams"
+    ],
+    "index": false,
+    "details": "",
+    "examples": []
+  },
+  "dropna": {
+    "name": "dropna",
+    "title": "dropna",
+    "kind": "function",
+    "short": "Drop events whose value is NaN.",
+    "topics": [
+      "missing-data",
+      "streams"
+    ],
+    "covers": [
+      "dropna_iter"
+    ],
+    "details": "Drop events whose value is `NaN`. This changes the length of the stream (it is a\ncardinality-changing stream operator, unlike the shape-preserving compute\nfunctors). Usable eagerly and inside a `Dag`.",
+    "examples": []
+  },
+  "dropna_iter": {
+    "name": "dropna_iter",
+    "title": "dropna_iter",
+    "short": "Streaming dropna over (value, index) tuples.",
+    "kind": "function",
+    "topics": [
+      "missing-data",
+      "streams"
+    ],
+    "index": false,
+    "details": "",
+    "examples": []
+  },
+  "filter": {
+    "name": "filter",
+    "title": "filter",
+    "kind": "function",
+    "short": "Keep events where predicate(row) is truthy.",
+    "topics": [
+      "streams"
+    ],
+    "covers": [
+      "filter_iter"
+    ],
+    "details": "Keep only the events a predicate accepts. The predicate is a Python callable, so\n`filter` is eager-only; it is not available inside a `Dag` (the graph engine runs\npure C++ functors, no Python callbacks). For the common case of removing `NaN`,\nprefer `dropna`.",
+    "examples": []
+  },
+  "filter_iter": {
+    "name": "filter_iter",
+    "title": "filter_iter",
+    "short": "Streaming filter over (value, index) tuples.",
+    "kind": "function",
+    "topics": [
+      "streams"
+    ],
+    "index": false,
+    "details": "",
+    "examples": []
+  },
+  "merge": {
+    "name": "merge",
+    "title": "merge",
+    "kind": "function",
+    "short": "Merge N value streams into one index-sorted (values, sources, index).",
+    "topics": [
+      "streams"
+    ],
+    "covers": [
+      "merge_iter"
+    ],
+    "details": "Interleave several streams into one index-sorted stream, tagging each event with\nthe integer index of the source it came from. This is the causal, order-preserving\nway to fan several streams into a single timeline.",
+    "examples": []
+  },
+  "merge_iter": {
+    "name": "merge_iter",
+    "title": "merge_iter",
+    "short": "Yield (value, index, source) events in index order.",
+    "kind": "function",
+    "topics": [
+      "streams"
+    ],
+    "index": false,
+    "details": "",
+    "examples": []
+  },
+  "replay": {
+    "name": "replay",
+    "title": "replay",
+    "kind": "function",
+    "short": "Replay merged streams as an async event stream paced by index-deltas.",
+    "topics": [
+      "streams"
+    ],
+    "details": "Replay stored value streams as an async event stream. `speed=inf` runs a\nmax-speed backtest; a finite `speed` replays in wall-clock time, turning index\ndeltas into sleep durations. The values and their order are identical to the\nbatch and streaming forms; only the timing differs.",
+    "examples": []
+  },
+  "resample": {
+    "name": "resample",
+    "title": "resample",
+    "kind": "function",
+    "short": "Causal windowed downsample of a 1-D value stream.",
+    "topics": [
+      "streams"
+    ],
+    "covers": [
+      "resample_iter"
+    ],
+    "details": "Causal windowed downsampling. Group a stream into fixed index-interval buckets\n(`every=`) or fixed event-count buckets (`count=`), and reduce each bucket with\none of `first`, `last`, `min`, `max`, `sum`, `count`, `mean`, or `ohlc`. A\nbucket emits only once a later index proves it complete, and the trailing partial\nbucket emits at the end of the input. Usable eagerly and inside a `Dag`.",
+    "examples": []
+  },
+  "resample_iter": {
+    "name": "resample_iter",
+    "title": "resample_iter",
+    "short": "Streaming resample over (value, index) tuples.",
+    "kind": "function",
+    "topics": [
+      "streams"
+    ],
+    "index": false,
+    "details": "",
+    "examples": []
+  },
+  "select": {
+    "name": "select",
+    "title": "select",
+    "kind": "function",
+    "short": "Pick column(s) from a wide (M, N) value stream.",
+    "topics": [
+      "streams"
+    ],
+    "covers": [
+      "select_iter"
+    ],
+    "details": "Pick one or more columns from a wide `(rows, columns)` value stream by position.\nThe index and the number of rows are unchanged; only the width changes. Usable\neagerly and inside a `Dag`.",
+    "examples": []
+  },
+  "select_iter": {
+    "name": "select_iter",
+    "title": "select_iter",
+    "short": "Streaming select over (value, index) tuples.",
+    "kind": "function",
+    "topics": [
+      "streams"
+    ],
+    "index": false,
+    "details": "",
+    "examples": []
+  },
+  "split": {
+    "name": "split",
+    "title": "split",
+    "kind": "function",
+    "short": "Partition a merged tagged stream back into per-source streams.",
+    "topics": [
+      "streams"
+    ],
+    "details": "The inverse of `merge`: partition a source-tagged stream back into one stream per\nsource. `split(*merge(a_v, b_v, index=[a_k, b_k]))` reconstructs the original\nstreams.",
+    "examples": []
   }
 }

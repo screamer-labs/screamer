@@ -1,0 +1,175 @@
+# screamer function index (name, short description)
+
+# Functors
+AD, Chaikin Accumulation/Distribution Line.
+ADOSC, Difference of fast and slow EMA of the Accumulation/Distribution line.
+ADX, Wilder's ADX with +DI and -DI (3 inputs -> 3 outputs).
+ATR, Wilder-smoothed average of TrueRange.
+Abs, Absolute value of each element.
+Acos, Inverse cosine of each element (radians, input in [-1, 1]).
+Asin, Inverse sine of each element (radians, input in [-1, 1]).
+Atan, Inverse tangent of each element (radians).
+Atan2, Signed angle of (x, y) from the positive x-axis (numpy.arctan2 order).
+BOP, (close - open) / (high - low) per bar. No smoothing.
+BollingerBands, Mean +/- num_std rolling standard deviations.
+Butter, General-order IIR Butterworth low-pass filter.
+ButterBandpass, General-order IIR Butterworth band-pass filter.
+ButterBandstop, General-order IIR Butterworth band-stop (notch) filter.
+ButterHighpass, General-order IIR Butterworth high-pass filter (rejects low frequencies).
+CCI, Commodity Channel Index over typical price.
+Cart2Polar, Convert (x, y) to (r, theta).
+Ceil, Round each element toward positive infinity.
+Clip, Bound each element below and/or above.
+Cos, Cosine of each element (radians).
+Cube, x cubed (faster than Power(3)).
+CumMax, Running maximum from t=0.
+CumMin, Running minimum from t=0.
+CumProd, Running product from t=0.
+CumSum, Running sum from t=0.
+DEMA, Mulloy's Double EMA: 2*EMA - EMA(EMA).
+Detrend, x[t] minus its rolling mean.
+Diff, x[t] - x[t-k] (first difference at lag k).
+Diff2, Second-order finite difference (discrete second derivative).
+DonchianChannels, Trend-following envelope: rolling max(high), rolling min(low), and midline.
+Drawdown, Running drawdown from the cumulative peak.
+Elu, Exponential linear unit.
+Erf, Gauss error function.
+Erfc, Complementary error function (1 - erf).
+EwBeta, EW CAPM beta: cov(target, regressor) / var(regressor).
+EwCorr, EW Pearson correlation of two parallel streams.
+EwCov, EW covariance of two parallel streams.
+EwGarmanKlassVar, Var form of the Garman-Klass range-based volatility estimator (OHLC).
+EwGarmanKlassVol, Vol form of the Garman-Klass range-based volatility estimator (OHLC).
+EwKurt, EW excess kurtosis.
+EwMean, Exponentially-weighted moving average (pandas adjust=True).
+EwParkinsonVar, Var form of the Parkinson range-based volatility estimator (uses high & low).
+EwParkinsonVol, Vol form of the Parkinson range-based volatility estimator (uses high & low).
+EwRms, EW root-mean-square.
+EwRogersSatchellVar, Var form of the Rogers-Satchell drift-robust range-based estimator.
+EwRogersSatchellVol, Vol form of the Rogers-Satchell drift-robust range-based estimator.
+EwSkew, EW skewness.
+EwStd, EW standard deviation.
+EwVar, EW variance (pandas adjust=True bias-corrected).
+EwZscore, Latest sample standardised by EW mean and std.
+Exp, e to the power of each element.
+Ffill, Replace NaN with the most recent finite value.
+FillNa, Replace NaN with a user-specified scalar.
+Floor, Round each element toward negative infinity.
+Hampel, Robust Hampel despiker, replace samples far from the window median (in MAD units).
+HullMA, Hull's responsive MA: WMA(2*WMA(n/2) - WMA(n), sqrt(n)).
+Hypot, Euclidean distance sqrt(x^2 + y^2), numerically stable.
+Identity, Pass-through (y = x).
+ImpulseClip, Causal impulse remover, detects spikes on the trend-free first difference.
+KAMA, Adaptive MA whose smoothing constant responds to the efficiency ratio.
+KalmanFilter, Scalar 1-D Kalman filter for a noisy random-walk model.
+KeltnerChannels, Volatility-adapted envelope: EMA midline plus/minus a multiple of ATR.
+Lag, Output is the input delayed by k samples.
+Linear, Affine transform: scale * x + shift.
+Linear2, Two-input affine combination: a*x + b*y + c.
+Log, Natural logarithm of each element.
+LogReturn, log(x[t] / x[t-k]) - log return at lag k.
+MACD, MACD line, signal line, and histogram (3 outputs).
+MFI, Volume-weighted analogue of RSI on the typical price.
+MaxDrawdown, Worst drawdown experienced so far (since reset).
+Momentum, x[t] - x[t-k], TA-Lib's MOM. Mathematically identical to Diff(k).
+MovingAverage, Finite-impulse-response filter with user-supplied taps.
+NATR, ATR scaled to a percentage of the current close.
+OBV, On-Balance Volume: signed cumulative volume by close-direction (Granville, 1963).
+Polar2Cart, Convert (r, theta) to (x, y).
+Power, x raised to a fixed exponent p.
+ROC, 100 * (x[t] / x[t-k] - 1) - TA-Lib's ROC.
+ROCP, x[t] / x[t-k] - 1 - TA-Lib's ROCP. Identical to Return.
+ROCR, x[t] / x[t-k] - TA-Lib's ROCR.
+Relu, Rectified linear unit: max(0, x).
+Return, (x[t] - x[t-k]) / x[t-k] - the simple percentage return at lag k.
+RollingAlpha, Rolling OLS intercept of target on regressor (companion to RollingBeta).
+RollingArgmax, Window-offset of the trailing-window maximum (TA-Lib MAXINDEX).
+RollingArgmin, Window-offset of the trailing-window minimum (TA-Lib MININDEX).
+RollingBeta, cov(x, y) / var(y) - regression slope of x on y.
+RollingCalmar, Annualised return divided by the worst rolling drawdown.
+RollingCorr, Rolling Pearson correlation of two parallel streams.
+RollingCov, Rolling sample covariance of two parallel streams.
+RollingGarmanKlassVar, Var form of the Garman-Klass range-based volatility estimator (OHLC).
+RollingGarmanKlassVol, Vol form of the Garman-Klass range-based volatility estimator (OHLC).
+RollingHitRate, Fraction of strictly-positive samples in a trailing window.
+RollingHurst, Rolling-window Hurst exponent via Anis-Lloyd corrected rescaled-range analysis.
+RollingInfoRatio, Annualised information ratio: Sharpe of active returns against a benchmark.
+RollingIqr, Q3 minus Q1 over the trailing window.
+RollingKurt, Trailing-window excess kurtosis.
+RollingLinearRegression, Full OLS fit returning (slope, intercept, r_squared, stderr).
+RollingMad, Trailing-window mean absolute deviation from the rolling mean.
+RollingMax, Trailing-window maximum (monotonic deque).
+RollingMaxDrawdown, Worst peak-to-trough drawdown inside a trailing window.
+RollingMean, Trailing-window arithmetic mean (simple moving average).
+RollingMedian, Trailing-window median.
+RollingMedianAD, Rolling median absolute deviation, median(|x - median|), a robust scale estimate.
+RollingMin, Trailing-window minimum (monotonic deque).
+RollingMinMax, Trailing-window (min, max) returned as a 2-tuple per step.
+RollingOU, Rolling MLE fit of a mean-reverting Ornstein-Uhlenbeck process.
+RollingParkinsonVar, Var form of the Parkinson range-based volatility estimator (uses high & low).
+RollingParkinsonVol, Vol form of the Parkinson range-based volatility estimator (uses high & low).
+RollingPercentile, Percentile (rank/window) of the current value in the trailing window.
+RollingPoly1, OLS fit y = a + b*t over a trailing window. derivative_order selects value/slope/zero.
+RollingPoly2, OLS fit y = a + b*t + c*t^2 over a trailing window.
+RollingQuantile, Trailing-window quantile (e.g. 0.25 = lower quartile).
+RollingRSI, Relative Strength Index. Wilder's smoothing by default; Cutler's via method='cutler'.
+RollingRange, Trailing-window max minus min.
+RollingRank, Rank of the current value within the trailing window (1-based, average tie rule).
+RollingResidualStd, Standard deviation of the rolling-hedge-adjusted residual y - beta*x.
+RollingRms, Trailing-window root-mean-square.
+RollingRogersSatchellVar, Var form of the Rogers-Satchell drift-robust range-based estimator.
+RollingRogersSatchellVol, Vol form of the Rogers-Satchell drift-robust range-based estimator.
+RollingSharpe, Annualised Sharpe ratio over a trailing window of returns.
+RollingSigmaClip, Replace samples outside [mean - lower*std, mean + upper*std] with NaN or the clipped bound.
+RollingSkew, Trailing-window skewness.
+RollingSortino, Annualised Sortino ratio: Sharpe with downside-only deviation.
+RollingSpread, x - beta(x,y) * y - hedge-adjusted residual.
+RollingStd, Trailing-window sample standard deviation (ddof=1).
+RollingSum, Trailing-window sum.
+RollingTSF, Linear regression of y on time, projected one step ahead. TA-Lib's TSF.
+RollingVWAP, Rolling volume-weighted average price (typical-price weighted).
+RollingVar, Trailing-window sample variance (ddof=1).
+RollingYangZhangVar, Var form of the Yang-Zhang estimator (drift + gap robust).
+RollingYangZhangVol, Vol form of the Yang-Zhang estimator (drift + gap robust).
+RollingZscore, Latest sample standardised by trailing-window mean and std.
+Round, Round each element to the nearest integer (half-to-even).
+SchmittTrigger, Hysteresis comparator. Latches 1.0 above the upper threshold, 0.0 below the lower threshold, and retains its previous value in between.
+Selu, Scaled exponential linear unit (self-normalizing networks).
+Sigmoid, Logistic sigmoid: 1 / (1 + exp(-x)).
+Sign, Sign of each element: -1, 0, or +1.
+Sin, Sine of each element (radians).
+Softsign, Softsign: x / (1 + |x|).
+Sqrt, Square root of each element.
+Square, x squared (faster than Power(2)).
+Stoch, Stochastic oscillator %K and %D (3 inputs -> 2 outputs).
+StochRSI, Stochastic applied to RSI (1 input -> 2 outputs).
+TEMA, Mulloy's Triple EMA: 3*EMA - 3*EMA(EMA) + EMA(EMA(EMA)).
+TRIMA, Triangular MA: SMA of an SMA. Heavier center-weighting than WMA.
+TRIX, ROC of a triple-smoothed EMA.
+Tanh, Hyperbolic tangent.
+TrueRange, Per-bar true range accounting for overnight gaps (Wilder, 1978).
+UltimateOscillator, Three-period weighted oscillator (Williams, 1976).
+WMA, Linearly-weighted moving average. O(1) per step.
+WilliamsR, Inverse stochastic oscillator in [-100, 0].
+
+# Stream operators
+Stream, A sequence of values with an optional ordering index.
+merge, Merge N value streams into one index-sorted (values, sources, index).
+merge_iter, Yield (value, index, source) events in index order.
+combine_latest, As-of latest-value join of N streams: one row per distinct index (same-index events coalesce).
+combine_latest_iter, Yield coalesced (row, index) events: one per distinct index.
+replay, Replay merged streams as an async event stream paced by index-deltas.
+dropna, Drop events whose value is NaN.
+dropna_iter, Streaming dropna over (value, index) tuples.
+filter, Keep events where predicate(row) is truthy.
+filter_iter, Streaming filter over (value, index) tuples.
+select, Pick column(s) from a wide (M, N) value stream.
+select_iter, Streaming select over (value, index) tuples.
+split, Partition a merged tagged stream back into per-source streams.
+resample, Causal windowed downsample of a 1-D value stream.
+resample_iter, Streaming resample over (value, index) tuples.
+
+# Computational DAG
+Input, Create a source Node - a named placeholder for a timed stream.
+Dag, A positional N-in / M-out callable that evaluates a computation graph.
+Node, An immutable handle for a stream in a computation graph.

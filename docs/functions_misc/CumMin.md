@@ -3,8 +3,7 @@ name: CumMin
 title: Cumulative minimum
 implementation_family: misc
 topics:
-- transforms
-- statistics
+- cumulative
 tags:
 - cumulative
 - min

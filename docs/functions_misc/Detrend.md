@@ -3,7 +3,8 @@ name: Detrend
 title: Detrend
 implementation_family: misc
 topics:
-- transforms
+- standardization
+- trend
 tags:
 - detrend
 - centered

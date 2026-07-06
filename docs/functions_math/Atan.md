@@ -3,7 +3,7 @@ name: Atan
 title: Arctangent
 implementation_family: math
 topics:
-- math
+- trig
 tags:
 - trigonometry
 - atan

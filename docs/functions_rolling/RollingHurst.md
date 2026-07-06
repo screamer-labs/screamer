@@ -2,7 +2,7 @@
 name: RollingHurst
 title: Rolling Hurst Exponent
 implementation_family: rolling
-topics: [statistics]
+topics: [trend, regression]
 tags: [hurst, long-memory, fractal, r/s, anis-lloyd, regime]
 short: Rolling-window Hurst exponent via Anis-Lloyd corrected rescaled-range analysis.
 inputs: 1

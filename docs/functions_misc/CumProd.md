@@ -3,7 +3,7 @@ name: CumProd
 title: Cumulative product
 implementation_family: misc
 topics:
-- transforms
+- cumulative
 tags:
 - cumulative
 - product

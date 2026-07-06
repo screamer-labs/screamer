@@ -3,7 +3,8 @@ name: DonchianChannels
 title: Donchian Channels
 implementation_family: rolling
 topics:
-- channels
+- trend
+- bands
 tags:
 - donchian
 - channels

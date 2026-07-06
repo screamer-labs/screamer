@@ -3,8 +3,8 @@ name: RollingRms
 title: Rolling root-mean-square
 implementation_family: rolling
 topics:
-- volatility
 - statistics
+- volatility
 tags:
 - rms
 - rolling

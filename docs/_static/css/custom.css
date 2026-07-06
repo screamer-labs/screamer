@@ -1,0 +1,8 @@
+/* Reference tables: keep inline code (function names such as RollingMean) on one
+   line so a narrow first column does not wrap them character-by-character. */
+.rst-content table.docutils td code,
+.rst-content table.docutils th code {
+    white-space: nowrap;
+    word-break: normal;
+    overflow-wrap: normal;
+}

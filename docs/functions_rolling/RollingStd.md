@@ -3,8 +3,8 @@ name: RollingStd
 title: Rolling standard deviation
 implementation_family: rolling
 topics:
-- volatility
 - statistics
+- volatility
 tags:
 - std
 - volatility

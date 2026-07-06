@@ -3,7 +3,7 @@ name: RollingRSI
 title: Rolling RSI
 implementation_family: rolling
 topics:
-- oscillator
+- momentum
 tags:
 - rsi
 - wilder

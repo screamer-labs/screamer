@@ -3,8 +3,8 @@ name: TEMA
 title: Triple Exponential MA (TEMA)
 implementation_family: rolling
 topics:
-- trend
 - smoothing
+- trend
 tags:
 - tema
 - ema

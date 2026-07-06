@@ -3,8 +3,8 @@ name: MovingAverage
 title: FIR moving average (arbitrary taps)
 implementation_family: signal
 topics:
-- signal-processing
 - smoothing
+- filtering
 tags:
 - fir
 - convolution

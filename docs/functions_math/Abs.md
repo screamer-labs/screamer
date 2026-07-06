@@ -3,7 +3,7 @@ name: Abs
 title: Absolute value
 implementation_family: math
 topics:
-- math
+- arithmetic
 tags:
 - abs
 - magnitude

@@ -3,7 +3,7 @@ name: Stoch
 title: Stochastic Oscillator
 implementation_family: rolling
 topics:
-- oscillator
+- momentum
 tags:
 - stoch
 - oscillator

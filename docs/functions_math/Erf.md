@@ -3,7 +3,7 @@ name: Erf
 title: Error function
 implementation_family: math
 topics:
-- math
+- arithmetic
 tags:
 - erf
 - gauss
