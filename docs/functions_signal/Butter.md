@@ -3,8 +3,8 @@ name: Butter
 title: Butterworth low-pass filter
 implementation_family: signal
 topics:
-- signal-processing
 - smoothing
+- filtering
 tags:
 - butterworth
 - iir

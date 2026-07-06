@@ -3,7 +3,8 @@ name: KeltnerChannels
 title: Keltner Channels
 implementation_family: rolling
 topics:
-- channels
+- volatility
+- bands
 tags:
 - keltner
 - channels

@@ -4,6 +4,7 @@ title: Rolling range
 implementation_family: rolling
 topics:
 - statistics
+- volatility
 tags:
 - range
 - min

@@ -3,7 +3,7 @@ name: CCI
 title: Commodity Channel Index (CCI)
 implementation_family: rolling
 topics:
-- oscillator
+- momentum
 tags:
 - cci
 - lambert

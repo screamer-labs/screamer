@@ -25,27 +25,23 @@ their rows pair by position. To model streams on *different* clocks, provide an
 index for each stream; without one, aligned clocks are assumed and the lengths
 must match.
 
-The `Stream` type is a thin wrapper over two arrays with no per-element
-overhead:
+The `Stream` type is a thin wrapper over two arrays (`.values` and `.index`)
+with no per-element overhead, plus `from_pandas` / `to_pandas` converters:
 
 ```python
-from screamer.streams import Stream
+from screamer import Stream
 
-s = Stream(values, index=None)   # positional
+s = Stream(values, index=None)         # positional
 s = Stream(values, index=timestamps)   # indexed
-
-s.values    # np.ndarray
-s.index     # np.ndarray or None (None == positional)
-len(s)      # number of rows
-Stream.from_pandas(series_or_frame)   # data -> values, pandas index -> index
-s.to_pandas()                          # Series / DataFrame
 ```
+
+See the [`Stream` reference](functions_streams/Stream.md) for the full contract:
+constructor, shape rules, attributes, methods, and the pandas round-trip.
 
 ## 2. Stream operators are polymorphic
 
-Every stream operator (`combine_latest`, `merge`, `dropna`, `filter`, `select`,
-`resample`, `split`, `pace`) dispatches on the type of its inputs and mirrors
-that type on return:
+Most stream operators (`combine_latest`, `dropna`, `filter`, `select`,
+`resample`) dispatch on the type of their inputs and mirror that type on return:
 
 | Input type | Return type |
 |---|---|
@@ -58,15 +54,21 @@ works; `idx is None` is a checkable flag meaning "no real ordering here." A bare
 array auto-wraps to a positional `Stream`; if any input was a `Stream` the
 output is also a `Stream`.
 
+`merge`, `split`, and `replay` accept `Stream` inputs too, but their *outputs*
+differ because they carry a per-event `sources` tag: `merge` returns
+`(values, sources, index)` and `replay` yields `(value, index, source)` events.
+`split` given a `Stream` returns a list of `Stream`s (one per source); given raw
+arrays it returns `(values, index)` pairs.
+
 ## 3. Compute functors preserve cardinality; stream operators may change it
 
 | Layer | Cardinality | Examples |
 |---|---|---|
 | **Compute functors** | preserved (output length == input length) | `RollingMean`, `RollingCorr`, `FillNa`, `Ffill` |
-| **Stream operators** | may change it | `merge`, `combine_latest`, `dropna`, `filter`, `split`, `pace` |
+| **Stream operators** | may change it | `merge`, `combine_latest`, `dropna`, `filter`, `split`, `replay` |
 
 Compute functors handle `NaN` internally via their `nan_policy` (see
-[NaN policy](nan_policy.md)) and never add or drop rows. Stream operators own
+[NaN and warmup](nan_and_warmup.md)) and never add or drop rows. Stream operators own
 all time alignment and stream shaping. `dropna` / `filter` / `split` are the
 cardinality-changing tools; `fillna` / `ffill` are shape-preserving and belong
 to both worlds.
@@ -97,12 +99,12 @@ Other stream operators:
 - `split(values, sources, index=None)` -> the inverse of `merge`.
 - `dropna(values, index=None, how="any")` / `filter(values, predicate, index=None)`
   -> drop events.
-- `pace(*values, index=None, speed=1.0)` -> async replay; `speed=inf` is a
+- `replay(*values, index=None, speed=1.0)` -> async replay; `speed=inf` is a
   max-speed backtest. Yields `(value, index, source)` per event.
 
 Four of the batch operators have a streaming twin (`merge_iter`,
 `combine_latest_iter`, `dropna_iter`, `filter_iter`) that yields events one at
-a time as `(value, index)` pairs. (`split` has no streaming form, and `pace`
+a time as `(value, index)` pairs. (`split` has no streaming form, and `replay`
 is itself the streaming/replay driver.)
 
 ## 5. Causal, and identical across modes
@@ -110,7 +112,7 @@ is itself the streaming/replay driver.)
 - **Causal**: an output at index `t` depends only on events at indices `<= t`. There
   is no backward-fill and no lookahead operator, ever.
 - **Batch == streaming == graph**: the batch form and its streaming twin emit
-  byte-identical event sequences; `pace` changes only *when* events are emitted,
+  byte-identical event sequences; `replay` changes only *when* events are emitted,
   never their values or order. This is what lets you validate a pipeline on
   stored data and run the identical pipeline live. It is enforced by the
   identity matrix in `tests/test_streams_identity.py`.
@@ -119,5 +121,7 @@ is itself the streaming/replay driver.)
 
 - [Polymorphic API](polymorphic_api.md) - the single-stream input/output
   contract; lockstep is the positional (no-index) special case of this page.
-- [NaN policy](nan_policy.md) - how compute functors treat `NaN`; `ffill` is the
-  same forward-fill carry that `combine_latest` uses.
+- [The computational graph](dag.md) - wiring stream operators and functions into
+  a graph you define once and run batch or live.
+- [NaN and warmup](nan_and_warmup.md) - how compute functors treat `NaN`; `ffill`
+  is the same forward-fill carry that `combine_latest` uses.

@@ -3,7 +3,7 @@ name: Identity
 title: Identity
 implementation_family: misc
 topics:
-- transforms
+- arithmetic
 tags:
 - identity
 - noop

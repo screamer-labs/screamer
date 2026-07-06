@@ -1,3 +1,14 @@
+---
+name: filter
+title: filter
+kind: function
+short: Keep events where predicate(row) is truthy.
+topics:
+- streams
+covers:
+- filter_iter
+---
+
 # `filter`
 
 Keep only the events a predicate accepts. The predicate is a Python callable, so
@@ -5,8 +16,11 @@ Keep only the events a predicate accepts. The predicate is a Python callable, so
 pure C++ functors, no Python callbacks). For the common case of removing `NaN`,
 prefer `dropna`.
 
+<!-- HELP_END -->
+
 ```{eval-rst}
 .. autofunction:: screamer.streams.filter
+.. autofunction:: screamer.streams.filter_iter
 ```
 
 ## Example

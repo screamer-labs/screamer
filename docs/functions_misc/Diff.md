@@ -3,8 +3,7 @@ name: Diff
 title: Discrete difference
 implementation_family: misc
 topics:
-- transforms
-- momentum
+- returns
 tags:
 - diff
 - difference

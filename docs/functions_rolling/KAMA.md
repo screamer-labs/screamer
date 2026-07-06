@@ -3,8 +3,8 @@ name: KAMA
 title: Kaufman Adaptive MA (KAMA)
 implementation_family: rolling
 topics:
-- trend
 - smoothing
+- trend
 tags:
 - kama
 - kaufman

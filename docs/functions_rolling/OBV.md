@@ -3,6 +3,7 @@ name: OBV
 title: On-Balance Volume (OBV)
 implementation_family: rolling
 topics:
+- cumulative
 - volume
 tags:
 - obv

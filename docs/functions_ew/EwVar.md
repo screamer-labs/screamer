@@ -3,8 +3,8 @@ name: EwVar
 title: Exponentially-weighted variance
 implementation_family: ew
 topics:
-- volatility
 - statistics
+- volatility
 tags:
 - ew
 - variance

@@ -3,7 +3,7 @@ name: ButterHighpass
 title: Butterworth high-pass filter
 implementation_family: signal
 topics:
-- signal-processing
+- filtering
 tags:
 - butterworth
 - iir

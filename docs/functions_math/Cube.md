@@ -3,7 +3,7 @@ name: Cube
 title: Cube
 implementation_family: math
 topics:
-- math
+- arithmetic
 tags:
 - cube
 - pow3

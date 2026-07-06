@@ -3,7 +3,7 @@ name: Selu
 title: SELU
 implementation_family: math
 topics:
-- activation
+- activations
 tags:
 - activation
 - selu

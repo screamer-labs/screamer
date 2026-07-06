@@ -3,7 +3,7 @@ name: LogReturn
 title: Log return
 implementation_family: fin
 topics:
-- transforms
+- returns
 tags:
 - return
 - log-return

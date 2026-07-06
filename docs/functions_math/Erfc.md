@@ -3,7 +3,7 @@ name: Erfc
 title: Complementary error function
 implementation_family: math
 topics:
-- math
+- arithmetic
 tags:
 - erfc
 - gauss

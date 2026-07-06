@@ -1,3 +1,14 @@
+---
+name: combine_latest
+title: combine_latest
+kind: function
+short: "As-of latest-value join of N streams: one row per distinct index (same-index events coalesce)."
+topics:
+- streams
+covers:
+- combine_latest_iter
+---
+
 # `combine_latest`
 
 An as-of join for streams that tick on different clocks. It aligns N streams by
@@ -6,8 +17,11 @@ distinct index** - same-index events from multiple streams coalesce into a
 single settled row. `emit="when_all"` (default) waits until every input is warm;
 `emit="on_any"` starts from the first event.
 
+<!-- HELP_END -->
+
 ```{eval-rst}
 .. autofunction:: screamer.streams.combine_latest
+.. autofunction:: screamer.streams.combine_latest_iter
 ```
 
 ## Example

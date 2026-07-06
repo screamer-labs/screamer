@@ -3,8 +3,8 @@ name: Linear
 title: Linear (affine)
 implementation_family: math
 topics:
-- math
-- regression
+- arithmetic
+- standardization
 tags:
 - affine
 - linear

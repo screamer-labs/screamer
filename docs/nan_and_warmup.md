@@ -1,8 +1,17 @@
-# NaN policy
+# NaN and warmup
 
-Screamer is a streaming library. A common real-world condition is that some samples in the input are `NaN` - produced by an upstream filter's warmup, a missing market tick, a sensor dropout, or whatever. This page defines exactly how every function in the library responds to a `NaN` input.
+Two closely related situations produce `NaN` in a streaming statistic: a `NaN`
+in the *input*, and the *warmup* period before a function has seen enough data
+to produce a value. This page defines both — how every function responds to a
+`NaN` input, and how the `start_policy` argument controls warmup.
 
-The policy is dogmatic: every function declares one of three NaN policies in its frontmatter, the build refuses to publish a function that doesn't declare one, and the test suite verifies that the runtime behavior matches the declaration. There are no "it depends" answers - the function's documentation page tells you what happens, and CI guarantees the page is not lying.
+The first half is the **NaN policy**: every function declares one of three NaN
+policies in its frontmatter, the build refuses to publish a function that doesn't
+declare one, and the test suite verifies that the runtime behavior matches the
+declaration. There are no "it depends" answers - the function's documentation
+page tells you what happens, and CI guarantees the page is not lying. The second
+half is **warmup and `start_policy`**, which is the authoritative definition that
+the individual function pages refer to.
 
 > For dropping vs filling `NaN` **across streams** (`dropna`, `fillna`/`ffill`
 > in the stream operator layer), see [Streams, values, and alignment](multistream.md).
@@ -156,6 +165,60 @@ It is tempting to say "if `x[t]` is `NaN`, just pretend it's 0 and keep going." 
 4. **`nan-aware` invariant.** No invariant beyond what the function's own page documents.
 
 These tests are deterministic and run on every commit. If a function's runtime behavior diverges from its declared policy, CI fails.
+
+## Warmup and `start_policy`
+
+Separate from input `NaN`s, most windowed and recurrence-based functions have a
+**warmup** period at the start of a stream, before they have seen enough samples
+to produce a defined value. A `RollingMean(20)` has no mean to report until 20
+samples have arrived. What happens during that period is controlled by the
+`start_policy` argument.
+
+This section is the canonical definition; individual function pages refer here
+rather than repeating it.
+
+### The three policies
+
+`start_policy` accepts one of three values. The default everywhere is
+`"strict"`.
+
+- **`"strict"`** (default) — return `NaN` for every step until the full window
+  has been seen (`window_size` samples for a rolling function). Nothing is
+  reported until the statistic is fully defined.
+- **`"expanding"`** — compute with whatever samples are available, starting from
+  the first one and growing the effective window until it reaches
+  `window_size`. Early outputs are defined but based on fewer samples. Some
+  functions need a minimum count before any output is meaningful (for example a
+  correlation needs at least two samples); those return `NaN` until the minimum
+  is met.
+- **`"zero"`** — behave as if the stream were pre-filled with `window_size`
+  zeros before the real data, so the window is "full" from the first real
+  sample. Early outputs are defined but biased toward zero by the padding.
+
+Warmup is measured in *finite* samples. Under the `ignore` NaN policy, a `NaN`
+input is skipped and does not advance warmup — so a stream with gaps reaches the
+end of warmup after the same number of *finite* samples, not the same number of
+positions. (See the [`ignore`](#ignore) policy above.)
+
+### Which value to choose
+
+`"strict"` is the honest default: no output until the statistic is genuinely
+defined, which is what you want for a backtest that must not act on
+half-formed values. `"expanding"` trades some statistical stability for earlier
+output, useful when you cannot afford a long dead period at the start of a
+stream. `"zero"` is rarely the right choice for analysis — the zero padding
+biases the early window — but it is occasionally convenient when a downstream
+consumer requires a value at every index and you will discard the early region
+anyway.
+
+### Warmup interacts with chained functions
+
+When one function feeds another, warmup regions stack, and the `ignore` policy
+keeps them honest. A leading run of `NaN`s from an upstream function's warmup
+does not enter the downstream function's state; the downstream function simply
+runs its own warmup over the finite samples that follow. The worked example is
+in [Leading `NaN` warmup from another function](#leading-nan-warmup-from-another-function)
+above.
 
 ## Implementation notes for contributors
 

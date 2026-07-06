@@ -3,7 +3,6 @@ name: RollingResidualStd
 title: Rolling residual std
 implementation_family: fin
 topics:
-- correlation
 - regression
 tags:
 - residual

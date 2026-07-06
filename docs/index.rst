@@ -2,8 +2,8 @@ Screamer
 ========
 
 
-Screamer is a high-performance Python library for time series analysis, designed for speed, 
-accuracy, and versatility in handling both NumPy arrays and streaming data. 
+Screamer computes rolling statistics, technical indicators, and signal filters on
+time series. The same functions run on NumPy arrays and on live streams.
 
 
 .. code-block:: console
@@ -31,12 +31,11 @@ accuracy, and versatility in handling both NumPy arrays and streaming data.
    :target: https://pypi.org/project/screamer/
    :alt: PyPI
 
-Easy to use, and powerfull 
---------------------------
+A short example
+---------------
 
-The `3-lines-of-code` example below shows a stream processor that fits a trendline to a sliding 
-window of the last 50 values. It then returns the slope of this fitted line. This slope is fed into a 
-second stream processor, which outputs the sign of the slope, indicating the trend direction (upward or downward).
+The example below fits a line to each sliding window of 50 values and returns its
+slope, then takes the sign of the slope to give the trend direction (up or down).
 
 
 .. code-block:: python
@@ -50,7 +49,7 @@ second stream processor, which outputs the sign of the slope, indicating the tre
     result = sign(slope(data))
 
 
-The plot below shows the input data (top, blue), the slope calculated over the previous 50 samples 
+The plot shows the input data (top, blue), the slope over the previous 50 samples
 (middle, orange), and the sign of the slope (bottom, red).
 
 
@@ -74,7 +73,7 @@ The plot below shows the input data (top, blue), the slope calculated over the p
         vertical_spacing=0.02
     )
 
-    # rolling mean
+    # slope over a rolling window
     slope = RollingPoly2(window_size=50, derivative_order=1)
 
     # sign
@@ -90,7 +89,7 @@ The plot below shows the input data (top, blue), the slope calculated over the p
         title=None,
         xaxis3_title="Sample index",
         yaxis=dict(title="Data"),
-        yaxis2=dict(title="Moving Average"),
+        yaxis2=dict(title="Slope"),
         yaxis3=dict(title="Sign"),
          margin=dict(l=20, r=20, t=20, b=20)  # Adjust left, right, top, and bottom margins        
     )
@@ -98,12 +97,11 @@ The plot below shows the input data (top, blue), the slope calculated over the p
     fig.show()
 
 
-Build for speed
----------------
+Speed
+-----
 
-Engineered in C++ with state-of-the-art numerical algorithms, Screamer delivers exceptional 
-computational efficiency, consistently outperforming traditional libraries like NumPy and 
-Pandas-often by factors of two or more, and in some cases by orders of magnitude.
+Screamer's functions are implemented in C++. For the operations shown below, they
+run faster than equivalent NumPy and pandas code.
 
 
 .. image:: /img/speed.png
@@ -111,16 +109,14 @@ Pandas-often by factors of two or more, and in some cases by orders of magnitude
    :alt: speed comparison
 
 
-Streaming- or batch- processing
--------------------------------
+Batch and streaming
+-------------------
 
-Screamer seamlessly handles both batch and streaming data with the same code, producing identical 
-results regardless of the data source. This design means that models tested offline on batch 
-datasets will perform exactly the same when deployed with live streaming data, providing 
-confidence in the consistency and reliability of your results.
+The same code runs on a stored array or a live stream and produces identical
+results, so code tested on historical data can be deployed to production unchanged.
 
-Screamer's streaming design ensures that all transformations are naturally free from look-ahead bias, 
-guaranteeing accurate and reliable results
+Every function is causal: its output depends only on current and past inputs, not
+on future ones, which eliminates look-ahead bias.
 
 
 
@@ -141,39 +137,13 @@ For a step-by-step walkthrough see the :doc:`User Guide <usage>`.
 
    notebooks/01-quickstart-polymorphic-api
    notebooks/02-rolling-and-ew-statistics
-   notebooks/03-streaming-live-events
-   notebooks/04-financial-indicators
+   notebooks/03-financial-indicators
+   notebooks/04-signal-processing
    notebooks/05-nan-handling
-   notebooks/06-signal-processing
-   notebooks/07-aligning-async-streams
+   notebooks/06-streaming-live-events
+   notebooks/07-working-with-streams
    notebooks/08-replay-backtest-live
-   notebooks/09-stream-shaping
-   notebooks/10-computational-dag
-
-
-.. toctree::
-   :maxdepth: 2
-   :caption: Functions
-   :hidden:
-   :titlesonly:
-
-   topic_math
-   topic_preprocessing
-   topic_rolling
-   topic_ew
-   topic_signal
-   topic_fin
-   topic_misc
-   topic_streams
-   topic_dag
-
-
-.. toctree::
-   :maxdepth: 1
-   :caption: Browse by topic
-   :hidden:
-
-   by_topic_index
+   notebooks/09-computational-dag
 
 
 .. toctree::
@@ -182,18 +152,18 @@ For a step-by-step walkthrough see the :doc:`User Guide <usage>`.
    :hidden:
 
    polymorphic_api
-   conventions
-   nan_policy
+   nan_and_warmup
    multistream
+   dag
+   conventions
 
 
 .. toctree::
    :maxdepth: 1
-   :caption: Roadmap
+   :caption: Functions
    :hidden:
 
-   ROADMAP_functions
-   ROADMAP_nanobind
+   by_topic_index
 
 
 .. toctree::
@@ -202,5 +172,3 @@ For a step-by-step walkthrough see the :doc:`User Guide <usage>`.
    :hidden:
 
    changelog
-
-

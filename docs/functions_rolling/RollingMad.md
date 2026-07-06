@@ -4,6 +4,7 @@ title: Rolling mean absolute deviation
 implementation_family: rolling
 topics:
 - statistics
+- outliers
 tags:
 - mad
 - deviation

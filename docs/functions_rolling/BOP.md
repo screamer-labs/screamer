@@ -3,7 +3,7 @@ name: BOP
 title: Balance of Power (BOP)
 implementation_family: rolling
 topics:
-- oscillator
+- momentum
 tags:
 - bop
 - oscillator

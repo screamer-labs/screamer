@@ -3,8 +3,7 @@ name: Hypot
 title: Hypotenuse
 implementation_family: math
 topics:
-- math
-- geometry
+- trig
 tags:
 - hypotenuse
 - norm

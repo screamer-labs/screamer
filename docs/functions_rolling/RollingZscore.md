@@ -3,7 +3,7 @@ name: RollingZscore
 title: Rolling z-score
 implementation_family: rolling
 topics:
-- statistics
+- standardization
 tags:
 - zscore
 - standardization

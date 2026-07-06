@@ -3,7 +3,6 @@ name: RollingSum
 title: Rolling sum
 implementation_family: rolling
 topics:
-- transforms
 - statistics
 tags:
 - sum

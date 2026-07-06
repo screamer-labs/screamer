@@ -3,7 +3,7 @@ name: Acos
 title: Arccosine
 implementation_family: math
 topics:
-- math
+- trig
 tags:
 - trigonometry
 - acos

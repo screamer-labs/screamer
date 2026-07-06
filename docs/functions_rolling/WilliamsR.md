@@ -3,7 +3,7 @@ name: WilliamsR
 title: Williams %R
 implementation_family: rolling
 topics:
-- oscillator
+- momentum
 tags:
 - williams-r
 - oscillator

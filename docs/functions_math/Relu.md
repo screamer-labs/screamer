@@ -3,7 +3,7 @@ name: Relu
 title: ReLU
 implementation_family: math
 topics:
-- activation
+- activations
 tags:
 - activation
 - relu

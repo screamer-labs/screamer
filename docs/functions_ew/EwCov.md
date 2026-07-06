@@ -3,8 +3,7 @@ name: EwCov
 title: Exponentially-weighted covariance
 implementation_family: ew
 topics:
-- correlation
-- statistics
+- regression
 tags:
 - ew
 - covariance

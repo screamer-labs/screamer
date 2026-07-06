@@ -3,7 +3,6 @@ name: TRIMA
 title: Triangular MA (TRIMA)
 implementation_family: rolling
 topics:
-- trend
 - smoothing
 tags:
 - trima

@@ -3,6 +3,7 @@ name: Drawdown
 title: Drawdown
 implementation_family: fin
 topics:
+- cumulative
 - risk
 tags:
 - drawdown

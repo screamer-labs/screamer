@@ -3,7 +3,6 @@ name: RollingAlpha
 title: Rolling alpha (regression intercept)
 implementation_family: fin
 topics:
-- correlation
 - regression
 tags:
 - alpha

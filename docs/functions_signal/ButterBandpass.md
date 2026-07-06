@@ -3,7 +3,7 @@ name: ButterBandpass
 title: Butterworth band-pass filter
 implementation_family: signal
 topics:
-- signal-processing
+- filtering
 tags:
 - butterworth
 - iir

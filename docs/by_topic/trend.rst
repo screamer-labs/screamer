@@ -4,8 +4,7 @@
 Trend
 =====
 
-Indicators that estimate the direction of a series -- moving averages and related.
-
+Direction and trend-following: trend-tracking averages, slope fits, ADX, and channels.
 
 .. list-table::
    :header-rows: 1
@@ -17,19 +16,27 @@ Indicators that estimate the direction of a series -- moving averages and relate
      - Wilder's ADX with +DI and -DI (3 inputs -> 3 outputs).
    * - :doc:`DEMA </functions_rolling/DEMA>`
      - Mulloy's Double EMA: 2*EMA - EMA(EMA).
-   * - :doc:`EwMean </functions_ew/EwMean>`
-     - Exponentially-weighted moving average (pandas adjust=True).
+   * - :doc:`Detrend </functions_misc/Detrend>`
+     - x[t] minus its rolling mean.
+   * - :doc:`DonchianChannels </functions_rolling/DonchianChannels>`
+     - Trend-following envelope: rolling max(high), rolling min(low), and midline.
    * - :doc:`HullMA </functions_rolling/HullMA>`
      - Hull's responsive MA: WMA(2*WMA(n/2) - WMA(n), sqrt(n)).
    * - :doc:`KAMA </functions_rolling/KAMA>`
      - Adaptive MA whose smoothing constant responds to the efficiency ratio.
    * - :doc:`MACD </functions_rolling/MACD>`
      - MACD line, signal line, and histogram (3 outputs).
-   * - :doc:`RollingMean </functions_rolling/RollingMean>`
-     - Trailing-window arithmetic mean (simple moving average).
+   * - :doc:`RollingHurst </functions_rolling/RollingHurst>`
+     - Rolling-window Hurst exponent via Anis-Lloyd corrected rescaled-range analysis.
+   * - :doc:`RollingLinearRegression </functions_fin/RollingLinearRegression>`
+     - Full OLS fit returning (slope, intercept, r_squared, stderr).
+   * - :doc:`RollingPoly1 </functions_rolling/RollingPoly1>`
+     - OLS fit y = a + b*t over a trailing window. derivative_order selects value/slope/zero.
+   * - :doc:`RollingPoly2 </functions_rolling/RollingPoly2>`
+     - OLS fit y = a + b*t + c*t^2 over a trailing window.
+   * - :doc:`RollingTSF </functions_fin/RollingTSF>`
+     - Linear regression of y on time, projected one step ahead. TA-Lib's TSF.
    * - :doc:`TEMA </functions_rolling/TEMA>`
      - Mulloy's Triple EMA: 3*EMA - 3*EMA(EMA) + EMA(EMA(EMA)).
-   * - :doc:`TRIMA </functions_rolling/TRIMA>`
-     - Triangular MA: SMA of an SMA. Heavier center-weighting than WMA.
-   * - :doc:`WMA </functions_rolling/WMA>`
-     - Linearly-weighted moving average. O(1) per step.
+   * - :doc:`TRIX </functions_rolling/TRIX>`
+     - ROC of a triple-smoothed EMA.

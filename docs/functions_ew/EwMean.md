@@ -3,7 +3,6 @@ name: EwMean
 title: Exponentially-weighted mean
 implementation_family: ew
 topics:
-- trend
 - smoothing
 - statistics
 tags:

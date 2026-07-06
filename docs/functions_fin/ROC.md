@@ -3,6 +3,7 @@ name: ROC
 title: Rate of change (ROC)
 implementation_family: fin
 topics:
+- returns
 - momentum
 tags:
 - roc

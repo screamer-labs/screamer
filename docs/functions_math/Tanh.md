@@ -3,7 +3,8 @@ name: Tanh
 title: Tanh
 implementation_family: math
 topics:
-- activation
+- trig
+- activations
 tags:
 - activation
 - tanh

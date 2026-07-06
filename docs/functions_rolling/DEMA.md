@@ -3,8 +3,8 @@ name: DEMA
 title: Double Exponential MA (DEMA)
 implementation_family: rolling
 topics:
-- trend
 - smoothing
+- trend
 tags:
 - dema
 - ema

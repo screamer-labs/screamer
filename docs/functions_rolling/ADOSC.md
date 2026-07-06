@@ -3,8 +3,8 @@ name: ADOSC
 title: Chaikin A/D Oscillator (ADOSC)
 implementation_family: rolling
 topics:
+- momentum
 - volume
-- oscillator
 tags:
 - adosc
 - chaikin

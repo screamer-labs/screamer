@@ -3,7 +3,8 @@ name: RollingMedianAD
 title: Rolling median absolute deviation
 implementation_family: rolling
 topics:
-- data-handling
+- statistics
+- outliers
 tags:
 - robust
 - scale

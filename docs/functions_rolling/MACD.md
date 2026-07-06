@@ -4,6 +4,7 @@ title: MACD
 implementation_family: rolling
 topics:
 - trend
+- momentum
 tags:
 - macd
 - ema

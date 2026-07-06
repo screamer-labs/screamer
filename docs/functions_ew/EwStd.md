@@ -3,8 +3,8 @@ name: EwStd
 title: Exponentially-weighted standard deviation
 implementation_family: ew
 topics:
-- volatility
 - statistics
+- volatility
 tags:
 - ew
 - std

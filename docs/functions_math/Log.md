@@ -3,7 +3,7 @@ name: Log
 title: Natural logarithm
 implementation_family: math
 topics:
-- math
+- arithmetic
 tags:
 - log
 - ln

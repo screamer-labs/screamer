@@ -4,7 +4,7 @@ title: Average Directional Index (ADX)
 implementation_family: rolling
 topics:
 - trend
-- oscillator
+- momentum
 tags:
 - adx
 - wilder

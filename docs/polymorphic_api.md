@@ -1,15 +1,19 @@
 # Polymorphic input/output behavior
 
-A defining feature of screamer is that **the same callable works for every
-input shape**, a single scalar, a NumPy array, a strided view, a list, an
-iterator, an async generator. The same code you write to backtest on a
-historical dataset runs unchanged in a live event loop. This page is the
-contract: exactly what each input type does and what each returns.
+This page is the exhaustive contract for how a screamer function handles each
+input type: exactly what you may pass, what you get back, and the dispatch rules
+that decide. For a gentle, example-led introduction to the same idea, see
+[Using screamer](usage.md); this page is the reference behind it.
+
+The one property the whole contract exists to guarantee: the same object works
+on a single scalar, a NumPy array, a strided view, a list, an iterator, or an
+async generator, so code written against stored data runs unchanged on a live
+stream.
 
 > For combining, splitting, filtering, or replaying streams that do **not** tick
 > together (different rates, async arrival, missing samples), see
-> [Streams, keys, and alignment](multistream.md). The lockstep contract on this
-> page is the degenerate "no time key → row number" case of that model.
+> [Streams, values, and alignment](multistream.md). The lockstep contract on this
+> page is the degenerate "no index → row number" case of that model.
 
 The contract has two layers:
 
@@ -353,7 +357,7 @@ the dual training/live workflow practical:
 | Reusing an instance vs. constructing a fresh one | ✓ identical (one `reset()` happens automatically before and after each batch call) |
 
 
-## State, reset, and warmup
+## State, reset, and causality
 
 - All state lives on the instance. `reset()` zeroes it out.
 - The eager array paths call `reset()` at the start of every call and at
@@ -365,35 +369,35 @@ the dual training/live workflow practical:
   point of streaming is preserving state across `__next__` calls. If you
   want to start over, construct a new instance or call `instance.reset()`
   yourself.
-- Warmup semantics depend on the algorithm and on its `start_policy`
-  argument (`"strict"`, `"expanding"`, `"zero"`). Strict policies emit
-  `NaN` until enough samples have arrived; expanding policies compute
-  with whatever is available. The default everywhere is `"strict"`.
+- **Causal.** Output at index `t` depends only on inputs at indices `<= t`;
+  no function looks ahead. This is what makes the batch and streaming results
+  identical: a value computed live matches the one computed in a backtest.
+
+Warmup — the leading region where a function has not yet seen enough samples,
+and the `start_policy` argument (`"strict"`, `"expanding"`, `"zero"`) that
+controls it — is documented in [NaN and warmup](nan_and_warmup.md).
 
 
-## Why this design
+## Design notes
 
-The polymorphism is not an accident or a convenience layer, it is the
-load‑bearing element of the API.
+The single polymorphic dispatch is the load-bearing element of the API, for
+four reasons:
 
-1. **One mental model for two very different runtimes.** A backtest reads
-   from a Pandas DataFrame; a live system reads from a queue, a websocket,
-   or a clock-driven simulator. Both shapes route to the same C++ inner
-   loop because the dispatcher is the only place that touches the input
-   surface.
+1. **One mental model for two runtimes.** A backtest reads from a pandas
+   DataFrame; a live system reads from a queue, a websocket, or a clock-driven
+   simulator. Both route to the same C++ inner loop, because the dispatcher is
+   the only place that touches the input surface.
 
-2. **The numbers are bit-exact across shapes.** No "training/serving
-   skew." The cause of "live values disagree with what we backtested" is
-   reduced to: did your live data feed match your historical data? The
-   library cannot be the source of disagreement.
+2. **Numbers are bit-exact across shapes.** There is no training/serving skew:
+   if live values disagree with a backtest, the cause is a difference in the
+   data feed, not the library.
 
-3. **Adding a new algorithm costs nothing on the dispatch side.** A new
-   class only has to implement `process_scalar(double)` (and optionally
-   the array fast paths). All ten input shapes are inherited.
+3. **Adding an algorithm costs nothing on the dispatch side.** A new class
+   implements `process_scalar(double)` (and optionally the array fast paths),
+   and inherits all input shapes.
 
-4. **The multi-dimensional convention is explicit.** No `axis=` argument
-   to forget. No accidental "you transposed your data and got nonsense."
-   Time is always axis 0. Anything else is parallel.
+4. **The multi-dimensional convention is explicit.** There is no `axis=`
+   argument to forget: time is always axis 0, everything else is parallel.
 
 
 ## See also

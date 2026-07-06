@@ -3,7 +3,7 @@ name: Square
 title: Square
 implementation_family: math
 topics:
-- math
+- arithmetic
 tags:
 - square
 - pow2

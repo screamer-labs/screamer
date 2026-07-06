@@ -232,7 +232,6 @@ namespace screamer {
                 Zxx, Zxx2, Zx2x2, d,
                 a, b, c
             );
-            std::cout << "a=" << a << " b=" << b << " c=" << c << std::endl;
 
             // Calculating endpoint, slope, and curvature based on derivative_order_
             double endpoint = a * (n_ - 1) * (n_ - 1) + b * (n_ - 1) + c;

@@ -3,8 +3,7 @@ name: Linear2
 title: Linear (two-input affine)
 implementation_family: math
 topics:
-- math
-- regression
+- arithmetic
 tags:
 - affine
 - linear

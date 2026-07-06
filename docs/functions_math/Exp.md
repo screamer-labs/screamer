@@ -3,7 +3,7 @@ name: Exp
 title: Exponential
 implementation_family: math
 topics:
-- math
+- arithmetic
 tags:
 - exp
 short: e to the power of each element.

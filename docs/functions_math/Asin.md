@@ -3,7 +3,7 @@ name: Asin
 title: Arcsine
 implementation_family: math
 topics:
-- math
+- trig
 tags:
 - trigonometry
 - asin

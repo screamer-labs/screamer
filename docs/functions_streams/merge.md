@@ -1,11 +1,25 @@
+---
+name: merge
+title: merge
+kind: function
+short: Merge N value streams into one index-sorted (values, sources, index).
+topics:
+- streams
+covers:
+- merge_iter
+---
+
 # `merge`
 
 Interleave several streams into one index-sorted stream, tagging each event with
 the integer index of the source it came from. This is the causal, order-preserving
 way to fan several streams into a single timeline.
 
+<!-- HELP_END -->
+
 ```{eval-rst}
 .. autofunction:: screamer.streams.merge
+.. autofunction:: screamer.streams.merge_iter
 ```
 
 ## Example

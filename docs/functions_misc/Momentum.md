@@ -3,6 +3,7 @@ name: Momentum
 title: Momentum
 implementation_family: misc
 topics:
+- returns
 - momentum
 tags:
 - momentum

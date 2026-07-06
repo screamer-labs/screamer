@@ -3,8 +3,8 @@ name: KalmanFilter
 title: Scalar Kalman filter
 implementation_family: signal
 topics:
-- signal-processing
 - smoothing
+- filtering
 tags:
 - kalman
 - state-space

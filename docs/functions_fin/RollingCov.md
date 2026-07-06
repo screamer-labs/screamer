@@ -3,8 +3,7 @@ name: RollingCov
 title: Rolling covariance
 implementation_family: fin
 topics:
-- correlation
-- statistics
+- regression
 tags:
 - covariance
 - pair

@@ -3,8 +3,7 @@ name: SchmittTrigger
 title: Schmitt trigger (hysteresis comparator)
 implementation_family: signal
 topics:
-- signal-processing
-- transforms
+- filtering
 tags:
 - schmitt
 - trigger

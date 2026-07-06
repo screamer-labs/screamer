@@ -3,8 +3,7 @@ name: Atan2
 title: Two-argument arctangent
 implementation_family: math
 topics:
-- math
-- geometry
+- trig
 tags:
 - trigonometry
 - atan2

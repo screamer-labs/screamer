@@ -3,7 +3,6 @@ name: RollingBeta
 title: Rolling beta
 implementation_family: fin
 topics:
-- correlation
 - regression
 tags:
 - beta

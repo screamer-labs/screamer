@@ -3,7 +3,7 @@ name: Elu
 title: ELU
 implementation_family: math
 topics:
-- activation
+- activations
 tags:
 - activation
 - elu

@@ -3,7 +3,7 @@ name: UltimateOscillator
 title: Ultimate Oscillator
 implementation_family: rolling
 topics:
-- oscillator
+- momentum
 tags:
 - ultimate-oscillator
 - williams

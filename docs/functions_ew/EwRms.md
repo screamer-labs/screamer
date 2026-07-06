@@ -3,8 +3,8 @@ name: EwRms
 title: Exponentially-weighted RMS
 implementation_family: ew
 topics:
-- volatility
 - statistics
+- volatility
 tags:
 - ew
 - rms

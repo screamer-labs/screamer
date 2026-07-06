@@ -3,7 +3,7 @@ name: CumSum
 title: Cumulative sum
 implementation_family: misc
 topics:
-- transforms
+- cumulative
 tags:
 - cumulative
 - sum

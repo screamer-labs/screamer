@@ -3,7 +3,7 @@ name: Return
 title: Simple return
 implementation_family: fin
 topics:
-- transforms
+- returns
 tags:
 - return
 - pct-change

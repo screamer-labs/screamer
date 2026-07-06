@@ -3,8 +3,8 @@ name: MFI
 title: Money Flow Index (MFI)
 implementation_family: rolling
 topics:
+- momentum
 - volume
-- oscillator
 tags:
 - mfi
 - money-flow
