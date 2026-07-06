@@ -5,8 +5,8 @@ on:
     tags: ['v*']
   workflow_dispatch:
     inputs:
-      publish:
-        description: "Publish to private PyPI after build (requires PRIVATE_PYPI_URL var + secrets)"
+      testpypi:
+        description: "Publish built artifacts to TestPyPI (a dry run of the release pipeline via OIDC)"
         type: boolean
         default: false
 
@@ -33,21 +33,17 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # TEMP: reduced to ubuntu-only during active development to cut
-        # CI/CD costs. Revert to the full matrix below before release.
-        #
         # macos-14 (Apple Silicon) cross-compiles BOTH x86_64 and arm64 wheels
-        # via cibuildwheel's archs=["x86_64","arm64"] setting in pyproject.toml.
-        # macos-13 (Intel runners) was dropped because GitHub Actions has
-        # severely throttled Intel mac runners in 2026 -- jobs hang in the
-        # queue waiting for capacity that may never come, blocking the
-        # downstream publish step (which `needs: [build_wheels]`).
-        # Full matrix: os: [ubuntu-latest, macos-14, windows-latest]
-        os: [ubuntu-latest]
+        # via cibuildwheel's archs=["x86_64","arm64"] in pyproject.toml.
+        # macos-13 (Intel runners) is intentionally omitted -- GitHub Actions
+        # has throttled Intel mac runners, and macos-14 covers x86_64 anyway.
+        os: [ubuntu-latest, macos-14, windows-latest]
     steps:
       - uses: actions/checkout@v5
 
       - name: Build wheels
+        # NOTE: verify this cibuildwheel version builds CPython 3.14 wheels
+        # before tagging a release; bump the pin if cp314 is missing.
         uses: pypa/cibuildwheel@v2.22
         env:
           # Wheels must run on any CPU, so leave SCREAMER_NATIVE_ARCH off.
@@ -100,53 +96,49 @@ jobs:
           files: dist/*
           generate_release_notes: true
 
-  publish_private_pypi:
-    name: Publish to private PyPI
+  publish_pypi:
+    name: Publish to PyPI (OIDC)
     needs: [build_wheels, build_sdist]
     runs-on: ubuntu-latest
-    # Activates when:
-    #   - a tag push and the PRIVATE_PYPI_URL repo variable is set, OR
-    #   - workflow_dispatch with inputs.publish=true
-    # Until then this job is skipped automatically.
-    if: |
-      (startsWith(github.ref, 'refs/tags/v') && vars.PRIVATE_PYPI_URL != '')
-      || (github.event_name == 'workflow_dispatch' && inputs.publish)
-    environment: private-pypi
+    # Real releases only: a pushed version tag.
+    if: startsWith(github.ref, 'refs/tags/v')
+    environment:
+      name: pypi
+      url: https://pypi.org/project/screamer/
+    permissions:
+      id-token: write   # Trusted Publishing: PyPI verifies this workflow via OIDC
     steps:
       - uses: actions/download-artifact@v6
         with:
           path: dist
           merge-multiple: true
 
-      - uses: actions/setup-python@v6
+      - name: Publish to PyPI
+        # No username/password/token: with id-token write and a trusted
+        # publisher configured on pypi.org (repo simu-ai/screamer, workflow
+        # build-wheels.yml, environment pypi), the action mints a short-lived
+        # OIDC token automatically.
+        uses: pypa/gh-action-pypi-publish@release/v1
+
+  publish_testpypi:
+    name: Publish to TestPyPI (OIDC dry run)
+    needs: [build_wheels, build_sdist]
+    runs-on: ubuntu-latest
+    # Manual dry run only: workflow_dispatch with testpypi=true. Requires a
+    # separate trusted publisher configured on test.pypi.org.
+    if: github.event_name == 'workflow_dispatch' && inputs.testpypi
+    environment:
+      name: testpypi
+      url: https://test.pypi.org/project/screamer/
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v6
         with:
-          python-version: '3.11'
+          path: dist
+          merge-multiple: true
 
-      - name: Install twine
-        run: pip install --upgrade twine
-
-      - name: Upload to pypi.deep.fund
-        # No --skip-existing: twine 6 rejects it at pre-flight for any
-        # repository it doesn't recognise (only pypi.org / test.pypi.org
-        # are recognised). Instead, upload one file at a time and treat
-        # HTTP 409 (file already exists) as success, so re-running CI
-        # for an existing tag is idempotent.
-        env:
-          TWINE_REPOSITORY_URL: ${{ vars.PRIVATE_PYPI_URL }}
-          TWINE_USERNAME: ${{ secrets.PRIVATE_PYPI_USERNAME }}
-          TWINE_PASSWORD: ${{ secrets.PRIVATE_PYPI_PASSWORD }}
-        run: |
-          for f in dist/*; do
-            echo ">>> uploading $f"
-            if ! out=$(twine upload --non-interactive --verbose "$f" 2>&1); then
-              if echo "$out" | grep -qiE 'already exists|409'; then
-                echo "$out"
-                echo ">>> $f already on server -- treating as success"
-              else
-                echo "$out"
-                exit 1
-              fi
-            else
-              echo "$out"
-            fi
-          done
+      - name: Publish to TestPyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/

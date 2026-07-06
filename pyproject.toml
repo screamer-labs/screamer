@@ -18,7 +18,7 @@ description = "Screamingly fast financial technical indicators with C++ performa
 
 readme = "README.md"
 
-license = {text = "Commerical"}
+license = {text = "MIT"}
 
 dependencies = ["pybind11>=2.9"]
 
@@ -41,11 +41,11 @@ classifiers=[
 ]
 
 [project.urls]
-Homepage = "https://github.com/quantfinlib/screamer"
+Homepage = "https://github.com/simu-ai/screamer"
 Documentation = "https://screamer.readthedocs.io/en/latest/"
-Repository = "https://github.com/quantfinlib/screamer.git"
-Issues = "https://github.com/quantfinlib/screamer/issues"
-Changelog = "https://github.com/quantfinlib/screamer/blob/master/CHANGELOG.md"
+Repository = "https://github.com/simu-ai/screamer.git"
+Issues = "https://github.com/simu-ai/screamer/issues"
+Changelog = "https://github.com/simu-ai/screamer/blob/main/CHANGELOG.md"
 
 # Optional install groups, PEP 621 style. Use with:
 #   pip install -e .[test]   # runtime deps + pytest etc.
@@ -110,7 +110,7 @@ authors = ["Thijs van den Berg <thijs@sitmo.com>, Mohammadjavad Vakili <mohammad
 maintainers = [
     "Thijs van den Berg <thijs@sitmo.com>" 
 ]
-license = "Commercial"
+license = "MIT"
 readme = "README.md"
 packages = [{ include = "screamer" }]
 
