@@ -61,6 +61,12 @@ test = [
     "pandas>=2.2",
     "PyYAML>=6.0",
 ]
+# DAG visualization: Dag.to_graphviz() and the Jupyter SVG repr. Rendering also
+# needs the system Graphviz `dot` binary (e.g. `brew install graphviz`,
+# `apt install graphviz`). Dag.to_text() and Dag.to_dot() work without this.
+viz = [
+    "graphviz>=0.20",
+]
 # Cross-validation against independent third-party libraries. These
 # tests are skipped when the libraries are not importable, so the
 # group is opt-in. TA-Lib's Python wrapper requires its C library
