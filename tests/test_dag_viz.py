@@ -75,6 +75,11 @@ def test_to_text_marks_inputs():
     assert "a  #0 (input)" in text or "a  #1 (input)" in text
 
 
+def test_to_text_uses_box_drawing():
+    text = to_text(_diamond())
+    assert "└─" in text and "├─" in text  # Unicode corners, not ASCII fallback
+
+
 def test_to_dot_has_all_nodes_and_edges():
     dag = _simple()
     nodes, _, _ = build_graph(dag)

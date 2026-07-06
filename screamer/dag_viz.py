@@ -81,7 +81,7 @@ def to_text(dag):
 
     def render(nid, prefix, is_last, root_label=None):
         node = info[nid]
-        connector = "" if root_label is not None else ("`- " if is_last else "|- ")
+        connector = "" if root_label is not None else ("└─ " if is_last else "├─ ")
         head = f"{root_label} = " if root_label is not None else ""
         if nid in printed and node.in_ids:
             lines.append(f"{prefix}{connector}{head}^#{nid} {node.name}")
@@ -89,7 +89,7 @@ def to_text(dag):
         printed.add(nid)
         tag = f"  #{nid}" if node.kind != "input" else f"  #{nid} (input)"
         lines.append(f"{prefix}{connector}{head}{_label(node)}{tag}")
-        child_prefix = prefix + ("   " if (is_last or root_label is not None) else "|  ")
+        child_prefix = prefix + ("   " if (is_last or root_label is not None) else "│  ")
         for i, cid in enumerate(node.in_ids):
             render(cid, child_prefix, i == len(node.in_ids) - 1)
 
