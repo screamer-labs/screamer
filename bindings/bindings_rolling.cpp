@@ -12,6 +12,9 @@
 #include "screamer/rolling_min.h"
 #include "screamer/rolling_max.h"
 #include "screamer/rolling_median.h"
+#include "screamer/rolling_median_ad.h"
+#include "screamer/hampel.h"
+#include "screamer/impulse_clip.h"
 #include "screamer/rolling_quantile.h"
 #include "screamer/rolling_rms.h"
 #include "screamer/rolling_poly1.h"
@@ -154,6 +157,16 @@ void init_bindings_rolling(py::module& m) {
             py::arg("start_policy") = "strict")
         .def("__call__", &screamer::RollingMad::operator(), py::arg("value"))
         .def("reset", &screamer::RollingMad::reset, "Reset to the initial state.");
+
+    // Robust scale: the median absolute deviation, median(|x - median|), over the
+    // trailing window. Unlike RollingMad (mean absolute deviation) it is robust to
+    // outliers, and it is the scale primitive behind Hampel and ImpulseClip.
+    py::class_<screamer::RollingMedianAD, screamer::ScreamerBase>(m, "RollingMedianAD")
+        .def(py::init<int, const std::string&>(),
+            py::arg("window_size") = 20,
+            py::arg("start_policy") = "strict")
+        .def("__call__", &screamer::RollingMedianAD::operator(), py::arg("value"))
+        .def("reset", &screamer::RollingMedianAD::reset, "Reset to the initial state.");
 
     // Inter-quartile range = q75 - q25. Single shared OST queried
     // twice (vs. two RollingQuantile instances which would use two
@@ -533,6 +546,30 @@ void init_bindings_rolling(py::module& m) {
         )
         .def("__call__", &screamer::RollingSigmaClip::operator(), py::arg("value"))
         .def("reset", &screamer::RollingSigmaClip::reset, "Reset to the initial state.");
+
+    // Canonical Hampel filter (causal trailing-window): flag samples that are
+    // more than n_sigma robust std devs (1.4826 * MAD) from the window median and
+    // replace them with that median. output: 0 cleaned, 1 outlier flag, 2 NaN.
+    py::class_<screamer::Hampel, screamer::ScreamerBase>(m, "Hampel")
+        .def(py::init<int, double, std::optional<int>, const std::string&>(),
+            py::arg("window_size") = 20,
+            py::arg("n_sigma") = 3.0,
+            py::arg("output") = std::nullopt,
+            py::arg("start_policy") = "strict")
+        .def("__call__", &screamer::Hampel::operator(), py::arg("value"))
+        .def("reset", &screamer::Hampel::reset, "Reset to the initial state.");
+
+    // Causal impulse/glitch remover for non-stationary signals: detects spikes on
+    // the trailing first difference (trend-free) and replaces them with the window
+    // median. output: 0 cleaned, 1 outlier flag, 2 NaN.
+    py::class_<screamer::ImpulseClip, screamer::ScreamerBase>(m, "ImpulseClip")
+        .def(py::init<int, double, std::optional<int>, const std::string&>(),
+            py::arg("window_size") = 20,
+            py::arg("n_sigma") = 4.0,
+            py::arg("output") = std::nullopt,
+            py::arg("start_policy") = "strict")
+        .def("__call__", &screamer::ImpulseClip::operator(), py::arg("value"))
+        .def("reset", &screamer::ImpulseClip::reset, "Reset to the initial state.");
 
 
      py::class_<screamer::RollingOU, screamer::ScreamerBase>(m, "RollingOU")
