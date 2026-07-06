@@ -1,4 +1,4 @@
-"""Streaming operators (merge, combine_latest, pace, dropna, filter, split).
+"""Streaming operators (merge, combine_latest, replay, dropna, filter, split).
 
 Builds and runs C++ node graphs. dtype detection here chooses the int64 or
 float64 index-type instantiation; the per-event work is all C++.
@@ -15,7 +15,7 @@ __all__ = [
     "Stream",
     "merge", "merge_iter",
     "combine_latest", "combine_latest_iter",
-    "pace",
+    "replay",
     "dropna", "dropna_iter",
     "filter", "filter_iter",
     "select", "select_iter",
@@ -182,31 +182,31 @@ def _streams_to_indexed(streams, who):
 
 
 def _merge_to_indexed(values, index, who):
-    """Prepare merge inputs for the C++ backend.
+    """Prepare merge/replay inputs for the C++ backend.
 
-    Positional (index=None or all-None list): uses per-stream row-number index
-    (no equal-length check - unlike combine_latest). Indexed: uses the given
-    index arrays. Mixing positional with indexed raises.
+    Each input may be a raw value array or a ``Stream`` (which carries its own
+    index; ``index=`` then applies only to the raw inputs). Positional (no index
+    anywhere): uses per-stream row-number index (no equal-length check - unlike
+    combine_latest). Indexed: uses the given index arrays. Mixing positional with
+    indexed raises.
 
     Returns (kind, idx_list, vals_list, positional).
     """
     n = len(values)
     if n == 0:
         raise ValueError(f"{who}: needs at least one stream")
-    per_stream_idx = [None] * n if index is None else list(index)
-    if len(per_stream_idx) != n:
-        raise ValueError(f"{who}: index list length must match number of streams")
-    has_idx = [idx is not None for idx in per_stream_idx]
+    streams = _to_streams(values, index)   # Stream passthrough; raw wrapped with index[i]
+    has_idx = [s.index is not None for s in streams]
     if any(has_idx) and not all(has_idx):
         raise ValueError(
             f"{who}: cannot mix positional and indexed streams; give every "
             "stream an index, or none")
-    vals = [np.ascontiguousarray(v, dtype=np.float64) for v in values]
+    vals = [np.ascontiguousarray(s.values, dtype=np.float64) for s in streams]
     if not any(has_idx):
         # Positional: use row-number per stream (no equal-length check for merge)
         idx_list = [np.arange(len(v), dtype=np.int64) for v in vals]
         return "i64", idx_list, vals, True
-    kind, norm_index, _ = _normalize_streams(list(zip(per_stream_idx, values)), who)
+    kind, norm_index, _ = _normalize_streams([(s.index, s.values) for s in streams], who)
     return kind, norm_index, vals, False
 
 
@@ -238,6 +238,10 @@ def merge_iter(*values, index=None):
     Positional inputs yield (value, None, source). Indexed inputs yield
     (value, index_value, source). See merge() for the positional/indexed rules.
     """
+    if any(is_node(v) for v in values):
+        raise ValueError(
+            "merge_iter is not supported as a DAG graph node (it is input routing; "
+            "feed streams to a Dag directly)")
     kind, idx_list, vals_list, positional = _merge_to_indexed(values, index, "merge_iter")
     cls = _b._MergePuller_f64 if kind == "f64" else _b._MergePuller_i64
     puller = cls(idx_list, vals_list)
@@ -309,24 +313,29 @@ def combine_latest_iter(*values, index=None, emit="when_all"):
         yield cur_row, (None if positional else cur_index)
 
 
-async def pace(*values, index=None, speed=1.0, sleep=None):
+async def replay(*values, index=None, speed=1.0, sleep=None):
     """Replay merged streams as an async event stream paced by index-deltas.
 
-    Yields (value, index, source) in index order. Between consecutive events it
-    awaits ``sleep(delta / speed)`` (where ``delta`` is the index delta) so
-    wall-clock spacing tracks the index spacing. speed=inf disables pacing (backtest at max speed). Pacing never
-    changes values or order. ``sleep`` is injectable for testing; defaults to
-    asyncio.sleep. Requires a metric (subtractable) index.
+    Each input may be a raw value array or a ``Stream``. Yields (value, index,
+    source) in index order. Between consecutive events it awaits
+    ``sleep(delta / speed)`` (where ``delta`` is the index delta) so wall-clock
+    spacing tracks the index spacing. speed=inf disables pacing (backtest at max
+    speed). Pacing never changes values or order. ``sleep`` is injectable for
+    testing; defaults to asyncio.sleep. Requires a metric (subtractable) index.
 
     Positional (index=None): uses row-number as the pacing/ordering index; yields
     (value, None, source). Indexed: yields (value, index_value, source).
     """
+    if any(is_node(v) for v in values):
+        raise ValueError(
+            "replay is not supported as a DAG graph node (it is input routing; "
+            "feed streams to a Dag directly)")
     if speed <= 0:
-        raise ValueError("pace: speed must be positive (or float('inf') for no pacing)")
+        raise ValueError("replay: speed must be positive (or float('inf') for no pacing)")
     if sleep is None:
         sleep = asyncio.sleep
     infinite = speed == float("inf")
-    kind, idx_list, vals_list, positional = _merge_to_indexed(values, index, "pace")
+    kind, idx_list, vals_list, positional = _merge_to_indexed(values, index, "replay")
     cls = _b._MergePuller_f64 if kind == "f64" else _b._MergePuller_i64
     puller = cls(idx_list, vals_list)
     prev_index = None
@@ -422,14 +431,21 @@ def filter_iter(events, predicate):
 
 
 def split(values, sources, index=None, n=None):
-    """Partition a merged tagged stream back into per-source (values, index) pairs.
+    """Partition a merged tagged stream back into per-source streams.
 
-    The inverse of merge: ``split(*merge(a_v, b_v, index=[a_k, b_k]))``
-    reconstructs the inputs as ``[(a_v, a_k), (b_v, b_k)]``.
-    Positional (index=None) returns ``(values_subset, None)`` per source.
+    The inverse of merge. ``values`` may be a raw value array or a ``Stream``
+    (which carries its own index); ``sources`` is always passed separately.
+    Raw in -> a list of ``(values, index)`` pairs; a ``Stream`` in -> a list of
+    ``Stream`` objects, for type consistency:
+    ``split(*merge(a_v, b_v, index=[a_k, b_k]))`` reconstructs ``[(a_v, a_k),
+    (b_v, b_k)]``. Positional (index=None) uses ``None`` for the per-source index.
     ``n`` sets how many output streams to produce (default: max(sources)+1); pass
     it explicitly to include sources that emitted nothing.
     """
+    as_stream = isinstance(values, Stream)
+    if as_stream:
+        index = values.index          # the Stream carries its own index
+        values = values.values
     values = np.asarray(values)
     sources = np.asarray(sources)
     if n is None:
@@ -439,9 +455,13 @@ def split(values, sources, index=None, n=None):
             f"split: n={n} is too small for sources up to {int(sources.max())}; "
             "events would be dropped")
     if index is None:
-        return [(values[sources == i], None) for i in range(n)]
-    idx = np.asarray(index)
-    return [(values[sources == i], idx[sources == i]) for i in range(n)]
+        parts = [(values[sources == i], None) for i in range(n)]
+    else:
+        idx = np.asarray(index)
+        parts = [(values[sources == i], idx[sources == i]) for i in range(n)]
+    if as_stream:
+        return [Stream(v, k) for v, k in parts]
+    return parts
 
 
 def _normalize_columns(columns):

@@ -78,7 +78,7 @@ def test_combine_latest_batch_equals_stream(n_series, dtype, emit):
 
 
 @pytest.mark.parametrize("n_series,dtype", CONFIGS)
-def test_pace_infinite_equals_merge_indexed(n_series, dtype):
+def test_replay_infinite_equals_merge_indexed(n_series, dtype):
     series = _make_series(n_series, 60, dtype, seed=300 + n_series)
     vals = [v for _, v in series]
     idxs = [k for k, _ in series]
@@ -87,7 +87,7 @@ def test_pace_infinite_equals_merge_indexed(n_series, dtype):
 
     async def drain():
         out = []
-        async for e in streams.pace(*vals, index=idxs, speed=float("inf")):
+        async for e in streams.replay(*vals, index=idxs, speed=float("inf")):
             out.append(e)
         return out
 
@@ -97,7 +97,7 @@ def test_pace_infinite_equals_merge_indexed(n_series, dtype):
 
 
 @pytest.mark.parametrize("n_series", [2, 3, 5])
-def test_pace_infinite_equals_merge_positional(n_series):
+def test_replay_infinite_equals_merge_positional(n_series):
     rng = np.random.default_rng(seed=350 + n_series)
     vals = [rng.standard_normal(60) for _ in range(n_series)]
 
@@ -106,7 +106,7 @@ def test_pace_infinite_equals_merge_positional(n_series):
 
     async def drain():
         out = []
-        async for e in streams.pace(*vals, speed=float("inf")):
+        async for e in streams.replay(*vals, speed=float("inf")):
             out.append(e)
         return out
 

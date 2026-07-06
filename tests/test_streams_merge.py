@@ -168,7 +168,7 @@ def test_split_n_explicit():
 
 
 # ---------------------------------------------------------------------------
-# pace
+# replay
 # ---------------------------------------------------------------------------
 
 def _drain(agen):
@@ -180,7 +180,7 @@ def _drain(agen):
     return asyncio.run(run())
 
 
-def test_pace_indexed_preserves_order_and_scales_sleeps():
+def test_replay_indexed_preserves_order_and_scales_sleeps():
     a_v = np.array([0.0, 1.0, 3.0])
     a_k = np.array([0, 10, 30], dtype=np.int64)
     b_v = np.array([0.5, 2.0])
@@ -191,7 +191,7 @@ def test_pace_indexed_preserves_order_and_scales_sleeps():
     async def fake_sleep(seconds):
         slept.append(seconds)
 
-    events = _drain(streams.pace(a_v, b_v, index=[a_k, b_k], speed=2.0, sleep=fake_sleep))
+    events = _drain(streams.replay(a_v, b_v, index=[a_k, b_k], speed=2.0, sleep=fake_sleep))
 
     # Order and values identical to a plain merge
     got_v, got_s, got_i = streams.merge(a_v, b_v, index=[a_k, b_k])
@@ -203,7 +203,7 @@ def test_pace_indexed_preserves_order_and_scales_sleeps():
     assert slept == [2.5, 2.5, 5.0, 5.0]
 
 
-def test_pace_positional_yields_none_index():
+def test_replay_positional_yields_none_index():
     a_v = np.array([0.0, 1.0])
     b_v = np.array([10.0, 11.0])
     slept = []
@@ -211,12 +211,12 @@ def test_pace_positional_yields_none_index():
     async def fake_sleep(seconds):
         slept.append(seconds)
 
-    events = _drain(streams.pace(a_v, b_v, speed=float("inf"), sleep=fake_sleep))
+    events = _drain(streams.replay(a_v, b_v, speed=float("inf"), sleep=fake_sleep))
     assert all(e[1] is None for e in events)
     assert slept == []
 
 
-def test_pace_indexed_infinite_speed_no_sleep():
+def test_replay_indexed_infinite_speed_no_sleep():
     a_v = np.array([0.0, 1.0])
     a_k = np.array([0, 100], dtype=np.int64)
     slept = []
@@ -224,13 +224,13 @@ def test_pace_indexed_infinite_speed_no_sleep():
     async def fake_sleep(seconds):
         slept.append(seconds)
 
-    events = _drain(streams.pace(a_v, index=[a_k], speed=float("inf"), sleep=fake_sleep))
+    events = _drain(streams.replay(a_v, index=[a_k], speed=float("inf"), sleep=fake_sleep))
     assert [e[1] for e in events] == [0, 100]
     assert slept == []
 
 
-def test_pace_rejects_nonpositive_speed():
+def test_replay_rejects_nonpositive_speed():
     a_v = np.array([0.0, 1.0])
     a_k = np.array([0, 10], dtype=np.int64)
     with pytest.raises(ValueError):
-        _drain(streams.pace(a_v, index=[a_k], speed=0.0))
+        _drain(streams.replay(a_v, index=[a_k], speed=0.0))
