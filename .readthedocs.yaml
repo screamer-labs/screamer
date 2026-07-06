@@ -1,0 +1,24 @@
+# Read the Docs build configuration.
+# https://docs.readthedocs.io/en/stable/config-file/v2.html
+version: 2
+
+build:
+  os: ubuntu-24.04
+  tools:
+    python: "3.12"
+  apt_packages:
+    # The Graphviz `dot` binary renders the DAG diagrams (Dag.to_graphviz()).
+    # Without it the docs still build, but graphs fall back to the text tree.
+    - graphviz
+
+sphinx:
+  configuration: docs/conf.py
+
+# Installing the package compiles the pybind11 extension (scikit-build-core) and
+# pulls the docs dependencies; the docs import and execute screamer at build time.
+python:
+  install:
+    - method: pip
+      path: .
+      extra_requirements:
+        - docs
