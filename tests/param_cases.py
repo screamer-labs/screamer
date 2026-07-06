@@ -117,7 +117,10 @@ test_definitions = [
     ( tuple(ew_classes)          , {"com": [10]}),
     ( tuple(no_arg_classes)      , {"array_type": ["positive"]}),
     ( ('Butter',)                , {"order": [2,3,4,5,6,7,8,9,10], "cutoff_freq": [0.2]}),
-    ( ('Diff','Lag')             , {"window_size": [10]})
+    ( ('Diff','Lag')             , {"window_size": [10]}),
+    # Despikers (not 'Rolling'-prefixed, so listed explicitly). RollingMedianAD
+    # is auto-included via the rolling_classes group above.
+    ( ('Hampel','ImpulseClip')   , {"window_size": [20]}),
 ]
 
 
