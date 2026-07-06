@@ -19,5 +19,11 @@ Clean, sanitize, or pre-process input -- NaN handling, outlier removal, clipping
      - Replace NaN with the most recent finite value.
    * - :doc:`FillNa </functions_preprocessing/FillNa>`
      - Replace NaN with a user-specified scalar.
+   * - :doc:`Hampel </functions_rolling/Hampel>`
+     - Robust Hampel despiker, replace samples far from the window median (in MAD units).
+   * - :doc:`ImpulseClip </functions_rolling/ImpulseClip>`
+     - Causal impulse remover, detects spikes on the trend-free first difference.
+   * - :doc:`RollingMedianAD </functions_rolling/RollingMedianAD>`
+     - Rolling median absolute deviation, median(\|x - median\|), a robust scale estimate.
    * - :doc:`RollingSigmaClip </functions_rolling/RollingSigmaClip>`
      - Replace samples outside [mean - lower*std, mean + upper*std] with NaN or the clipped bound.

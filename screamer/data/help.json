@@ -3162,6 +3162,67 @@
     "details": "## Description\n\nTrend-following envelope. The upper line is the rolling max of `high`, the lower line is\nthe rolling min of `low`, and the midline is their average:\n\n$$\n\\begin{aligned}\n\\text{upper}[t] &= \\max(\\text{high},\\ w\\ \\text{bars}) \\\\\n\\text{lower}[t] &= \\min(\\text{low},\\ w\\ \\text{bars}) \\\\\n\\text{mid}[t]   &= (\\text{upper} + \\text{lower}) / 2\n\\end{aligned}\n$$\n\n**2-input, 3-output** (`FunctorBase<_, 2, 3>`). Inputs `(high, low)`; outputs\n`(lower, mid, upper)`. First valid at sample index `window_size - 1`.\n\nComposes two `detail::MonotonicDeque` instances. Amortised O(1) per step. Bit-exact to\n`pandas-ta-classic.donchian`.\n\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
     "examples": []
   },
+  "Hampel": {
+    "name": "Hampel",
+    "title": "Hampel filter",
+    "implementation_family": "rolling",
+    "topics": [
+      "data-handling"
+    ],
+    "tags": [
+      "outlier",
+      "despike",
+      "hampel",
+      "robust",
+      "rolling"
+    ],
+    "short": "Robust Hampel despiker, replace samples far from the window median (in MAD units).",
+    "inputs": 1,
+    "outputs": 1,
+    "parameters": [
+      {
+        "name": "window_size",
+        "type": "int",
+        "default": 20,
+        "min": 1,
+        "description": "Trailing-window length."
+      },
+      {
+        "name": "n_sigma",
+        "type": "float",
+        "default": 3.0,
+        "min": 0,
+        "description": "Threshold in robust standard deviations (1.4826 * MAD)."
+      },
+      {
+        "name": "output",
+        "type": "int|null",
+        "default": null,
+        "enum": [
+          0,
+          1,
+          2,
+          null
+        ],
+        "description": "0 = cleaned signal, 1 = outlier flag, 2 = outliers as NaN. None = cleaned."
+      },
+      {
+        "name": "start_policy",
+        "type": "str",
+        "default": "strict",
+        "description": "Warmup handling before the window is full (strict, expanding, or zero)."
+      }
+    ],
+    "nan_policy": "ignore",
+    "details": "## Description\n\n`Hampel` is the canonical robust despiker (the **Hampel filter** or Hampel\nidentifier), in its causal trailing-window form. Over the trailing window it computes\nthe median `m` and the median absolute deviation `MAD`, and flags a sample as an\noutlier when\n\n$$ \\bigl| x_t - m_t \\bigr| > \\texttt{n\\_sigma} \\times 1.4826 \\times \\text{MAD}_t $$\n\n(the factor `1.4826` makes the MAD a Gaussian-consistent standard-deviation estimate).\nBecause it uses the median and MAD rather than the mean and standard deviation, a few\nspikes cannot drag the centre or inflate the scale. A flagged sample is replaced by\nthe window median, and the replacement, not the raw outlier, is fed back into the\nwindow so a burst of spikes cannot pollute later scale estimates.\n\nIt is strictly causal (trailing window only), so batch and streaming results are\nidentical. For strongly non-stationary signals see [`ImpulseClip`](ImpulseClip.md),\nwhich detects on the trend-free first difference.\n\n*Parameters*:\n- **`window_size`**: *(int)* Trailing-window length. Must be positive.\n- **`n_sigma`**: *(float)* Detection threshold in robust standard deviations. Larger\n  values flag fewer samples. Typical value `3.0`.\n- **`output`**: *(optional, int)* What to return:\n  - `0` (or `None`): the cleaned signal, outliers replaced by the median.\n  - `1`: an outlier flag, `1.0` where a sample is flagged, else `0.0`.\n  - `2`: the input with flagged samples replaced by `NaN`.\n- **`start_policy`**: Warmup handling before `window_size` samples are available\n  (`\"strict\"`, `\"expanding\"`, or `\"zero\"`).\n\nA degenerate note: when the window is exactly constant the MAD is zero, so no sample is\nflagged (there is no scale to measure against).\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip\nthat step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite\nsamples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage example",
+        "code": "import numpy as np\nfrom screamer import Hampel\n\nrng = np.random.default_rng(0)\nx = np.sin(np.linspace(0, 8, 300)) + 0.05 * rng.standard_normal(300)\nx[150] += 6.0                       # a spike\n\ncleaned = Hampel(window_size=21, n_sigma=3.0)(x)          # spike removed\nflags = Hampel(window_size=21, n_sigma=3.0, output=1)(x)  # 1.0 at the spike"
+      }
+    ]
+  },
   "HullMA": {
     "name": "HullMA",
     "title": "Hull MA",
@@ -3194,6 +3255,68 @@
         "language": "python",
         "caption": "Usage example",
         "code": "import numpy as np\nfrom screamer import HullMA, WMA\n\nx = np.cumsum(np.random.randn(200))\nn = 16\n\n# Direct\nours = HullMA(n)(x)\n\n# Algorithmically equivalent composition (post-warmup; the test suite\n# verifies bit-equality)\nn_half = n // 2\nn_sqrt = int(np.sqrt(n))\nw_half = WMA(n_half, \"expanding\")(x)\nw_full = WMA(n,      \"expanding\")(x)\nw_outer = WMA(n_sqrt, \"expanding\")(2*w_half - w_full)\nwarmup = n + n_sqrt - 1\nnp.testing.assert_allclose(ours[warmup - 1:], w_outer[warmup - 1:], atol=1e-12)"
+      }
+    ]
+  },
+  "ImpulseClip": {
+    "name": "ImpulseClip",
+    "title": "Impulse clip",
+    "implementation_family": "rolling",
+    "topics": [
+      "data-handling"
+    ],
+    "tags": [
+      "outlier",
+      "despike",
+      "impulse",
+      "glitch",
+      "robust",
+      "rolling"
+    ],
+    "short": "Causal impulse remover, detects spikes on the trend-free first difference.",
+    "inputs": 1,
+    "outputs": 1,
+    "parameters": [
+      {
+        "name": "window_size",
+        "type": "int",
+        "default": 20,
+        "min": 1,
+        "description": "Trailing-window length."
+      },
+      {
+        "name": "n_sigma",
+        "type": "float",
+        "default": 4.0,
+        "min": 0,
+        "description": "Threshold in robust standard deviations (1.4826 * MAD of the differences)."
+      },
+      {
+        "name": "output",
+        "type": "int|null",
+        "default": null,
+        "enum": [
+          0,
+          1,
+          2,
+          null
+        ],
+        "description": "0 = cleaned signal, 1 = outlier flag, 2 = outliers as NaN. None = cleaned."
+      },
+      {
+        "name": "start_policy",
+        "type": "str",
+        "default": "strict",
+        "description": "Warmup handling before the window is full (strict, expanding, or zero)."
+      }
+    ],
+    "nan_policy": "ignore",
+    "details": "## Description\n\n`ImpulseClip` removes impulse spikes (glitches) from a signal that may be strongly\nnon-stationary. A spike is a large, isolated jump: hard to separate from the signal's\nown swing in the raw level, but obvious in the sample-to-sample change. So detection\nruns on the first difference, whose scale is trend-free:\n\n$$ d_t = x_t - x_{t-1}, \\qquad\n   \\text{outlier if } |d_t| > \\texttt{n\\_sigma} \\times 1.4826 \\times \\text{MAD}(d)_t, $$\n\nwhere `MAD(d)` is the rolling median absolute deviation of the differences. A flagged\nsample is replaced by the trailing median of the values.\n\nIt is strictly causal with zero latency, so batch and streaming results are identical.\nTwo consequences of detecting without looking ahead: an impulse is a `+/-` doublet in\nthe difference (a jump onto the spike and a jump back), so both the spike and its\nreturn sample are flagged, replacing two consecutive samples (the second nudged to the\nmedian); and a genuine level shift keeps its body, but its onset sample is clipped.\nPreserving these would require a one-sample lookahead, which is deliberately not done.\nFor stationary data or multi-sample outliers, prefer [`Hampel`](Hampel.md).\n\n*Parameters*:\n- **`window_size`**: *(int)* Trailing-window length. Must be positive.\n- **`n_sigma`**: *(float)* Detection threshold in robust standard deviations of the\n  differences. Larger values flag fewer samples. Typical value `4.0`.\n- **`output`**: *(optional, int)* What to return:\n  - `0` (or `None`): the cleaned signal, outliers replaced by the median.\n  - `1`: an outlier flag, `1.0` where a sample is flagged, else `0.0`.\n  - `2`: the input with flagged samples replaced by `NaN`.\n- **`start_policy`**: Warmup handling before `window_size` samples are available\n  (`\"strict\"`, `\"expanding\"`, or `\"zero\"`).\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip\nthat step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite\nsamples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage example",
+        "code": "import numpy as np\nfrom screamer import ImpulseClip\n\nrng = np.random.default_rng(7)\nt = np.linspace(0, 6 * np.pi, 400)\nx = np.sin(t) + 0.3 * rng.standard_normal(t.size)   # oscillating + noise\nx[[80, 210, 330]] += 4.0                            # spikes\n\ncleaned = ImpulseClip(window_size=31, n_sigma=4.0)(x)   # spikes removed"
       }
     ]
   },
@@ -3838,6 +3961,47 @@
         "language": "python",
         "caption": "Usage example",
         "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom screamer import RollingMedian\n\n# Generate example data\nN = 300\nwindow_size = 30\ndata = np.cumsum(np.random.normal(size=300))\n\n# Apply rolling maximum calculation\nrolling_median = RollingMedian(window_size)\nresults = rolling_median(data)\n\n# Plotting with Plotly\nfig = go.Figure()\nfig.add_trace(go.Scatter(y=data, mode='lines', name='Input Data'))\nfig.add_trace(go.Scatter(y=results, mode='lines', name='Rolling Median', line=dict(color='red')))\nfig.update_layout(title=f\"Rolling median with Window Size = {window_size}\",\n    xaxis_title=\"Index\",\n    yaxis_title=\"Value\",\n    margin=dict(l=20, r=20, t=80, b=20),\n    legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1)        \n)\nfig.show()"
+      }
+    ]
+  },
+  "RollingMedianAD": {
+    "name": "RollingMedianAD",
+    "title": "Rolling median absolute deviation",
+    "implementation_family": "rolling",
+    "topics": [
+      "data-handling"
+    ],
+    "tags": [
+      "robust",
+      "scale",
+      "dispersion",
+      "rolling"
+    ],
+    "short": "Rolling median absolute deviation, median(|x - median|), a robust scale estimate.",
+    "inputs": 1,
+    "outputs": 1,
+    "parameters": [
+      {
+        "name": "window_size",
+        "type": "int",
+        "default": 20,
+        "min": 1,
+        "description": "Trailing-window length."
+      },
+      {
+        "name": "start_policy",
+        "type": "str",
+        "default": "strict",
+        "description": "Warmup handling before the window is full (strict, expanding, or zero)."
+      }
+    ],
+    "nan_policy": "ignore",
+    "details": "## Description\n\n`RollingMedianAD` computes the rolling **median absolute deviation** (MAD): for the\ntrailing window it takes the median of the absolute deviations from the window\nmedian,\n\n$$ \\text{MAD}_t = \\text{median}_{i \\in W_t}\\; \\bigl| x_i - \\text{median}(W_t) \\bigr|. $$\n\nUnlike [`RollingMad`](RollingMad.md), which is the *mean* absolute deviation, this is\na **robust** scale estimate: a few extreme samples cannot inflate it. It is the scale\nprimitive behind the [`Hampel`](Hampel.md) and [`ImpulseClip`](ImpulseClip.md)\ndespikers. The raw MAD is returned; multiply by `1.4826` for a Gaussian-consistent\nstandard-deviation estimate.\n\n*Parameters*:\n- **`window_size`**: *(int)* Trailing-window length. Must be positive.\n- **`start_policy`**: How the initial phase is handled before `window_size` samples\n  are available:\n  - `\"strict\"`: `NaN` until the window is full.\n  - `\"expanding\"`: compute over the samples seen so far, from the first sample.\n  - `\"zero\"`: treat missing samples as zeros (a full window of zeros to start).\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip\nthat step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite\nsamples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage example",
+        "code": "import numpy as np\nfrom screamer import RollingMedianAD\n\nx = np.array([1.0, 2.0, 1.0, 2.0, 50.0, 2.0, 1.0])\nprint(RollingMedianAD(5)(x))   # robust scale, barely moved by the spike"
       }
     ]
   },

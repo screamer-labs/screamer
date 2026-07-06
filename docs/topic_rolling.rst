@@ -10,12 +10,15 @@ Rolling Window Functions
    functions_rolling/AD
    functions_rolling/ADOSC
    functions_rolling/ADX
+   functions_rolling/ATR
    functions_rolling/BOP
    functions_rolling/BollingerBands
    functions_rolling/CCI
    functions_rolling/DEMA
    functions_rolling/DonchianChannels
+   functions_rolling/Hampel
    functions_rolling/HullMA
+   functions_rolling/ImpulseClip
    functions_rolling/KAMA
    functions_rolling/KeltnerChannels
    functions_rolling/MACD
@@ -33,6 +36,7 @@ Rolling Window Functions
    functions_rolling/RollingMax
    functions_rolling/RollingMean
    functions_rolling/RollingMedian
+   functions_rolling/RollingMedianAD
    functions_rolling/RollingMin
    functions_rolling/RollingMinMax
    functions_rolling/RollingOU
