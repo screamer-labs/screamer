@@ -50,13 +50,20 @@ class ScreamerInstallInfo:
 
     def _load_module_from_file_path(self, module_name, file_path):
         original_sys_path = sys.path.copy()
-        sys.path = [os.path.dirname(os.path.dirname(file_path))]
+        # Prepend (do not replace) the project root so the local screamer package
+        # resolves first while the stdlib and site-packages stay importable.
+        # Replacing sys.path outright broke uncached stdlib imports run during
+        # module init, e.g. ``import asyncio`` in streams.py, which fail unless
+        # something happened to import them earlier (see test.yml regression).
+        sys.path = [os.path.dirname(os.path.dirname(file_path)), *original_sys_path]
         logger.debug(f'loading {module_name}, changed sys.path to {sys.path}')
-        spec = importlib.util.spec_from_file_location(module_name, file_path)
-        logger.debug(f'loading... spec = {spec}')
-        self.module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(self.module)
-        sys.path = original_sys_path
+        try:
+            spec = importlib.util.spec_from_file_location(module_name, file_path)
+            logger.debug(f'loading... spec = {spec}')
+            self.module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(self.module)
+        finally:
+            sys.path = original_sys_path
         return self.module
        
     def load_local_screamer_binding(self):
