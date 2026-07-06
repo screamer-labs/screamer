@@ -290,6 +290,29 @@ class Dag:
         from .dag_viz import repr_mimebundle
         return repr_mimebundle(self)
 
+    # -- serialization -------------------------------------------------------
+    def to_dict(self):
+        """A JSON-native dict describing the graph (round-trips via :meth:`from_dict`)."""
+        from .dag_io import to_dict
+        return to_dict(self)
+
+    def to_json(self, indent=2):
+        """A JSON string describing the graph (round-trips via :meth:`from_json`)."""
+        from .dag_io import to_json
+        return to_json(self, indent)
+
+    @classmethod
+    def from_dict(cls, data):
+        """Rebuild a runnable ``Dag`` from a dict produced by :meth:`to_dict`."""
+        from .dag_io import from_dict
+        return from_dict(data)
+
+    @classmethod
+    def from_json(cls, text):
+        """Rebuild a runnable ``Dag`` from JSON produced by :meth:`to_json`."""
+        from .dag_io import from_json
+        return from_json(text)
+
     def _bind_args(self, args, kwargs):
         if args and kwargs:
             raise TypeError("pass inputs either positionally or by name, not both")
