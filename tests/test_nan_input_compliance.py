@@ -203,15 +203,26 @@ _xfail_propagation = _xfail_if_in(
 
 
 # Only compute functors carry the nan_policy contract; stream operators and DAG
-# names (kind != "functor") are excluded.
-_FUNCTORS = {n: e for n, e in HELP.items() if e.get("kind", "functor") == "functor"}
+# names (kind != "functor") are excluded. ``nan-aware`` functions have
+# function-specific contracts documented on their own pages, so the universal
+# recovery/propagation properties below do not apply -- they are filtered out at
+# collection (rather than skipped in the body) so the suite reports no skips.
+_FUNCTORS = {
+    n: e for n, e in HELP.items()
+    if e.get("kind", "functor") == "functor" and e.get("nan_policy") != "nan-aware"
+}
 PARAMS_STICKY = [
     pytest.param(name, entry, id=name, marks=_xfail_sticky(name))
     for name, entry in sorted(_FUNCTORS.items())
 ]
+# The NaN-at-NaN-index property additionally does not apply to KNOWN_STICKY_NAN
+# functions (output already all-NaN from a known bug) or to PROPAGATE_NOT_AT_T
+# functions (Lag et al. read x[t-n], so a NaN at input t surfaces at output t+n,
+# not t); both are excluded here rather than skipped in the body.
 PARAMS_PROPAGATION = [
     pytest.param(name, entry, id=name, marks=_xfail_propagation(name))
     for name, entry in sorted(_FUNCTORS.items())
+    if name not in KNOWN_STICKY_NAN and name not in PROPAGATE_NOT_AT_T
 ]
 
 
@@ -220,14 +231,11 @@ def test_no_sticky_nan(name: str, entry: dict):
     """Three leading NaN inputs must not poison state forever.
 
     For ``ignore`` and ``propagate`` policies, the last output of a 500-sample
-    stream (3 leading NaN + 497 finite) must be finite. ``nan-aware`` is
-    skipped -- those functions have function-specific contracts documented
-    on their own pages.
+    stream (3 leading NaN + 497 finite) must be finite. ``nan-aware`` functions
+    are excluded at collection (see _FUNCTORS) -- they have function-specific
+    contracts documented on their own pages.
     """
     policy = entry["nan_policy"]
-    if policy == "nan-aware":
-        pytest.skip("nan-aware policy is function-specific; not covered here")
-
     n_inputs = int(entry.get("inputs", 1))
     arrays = _input_for(name, n_inputs, n_samples=500)
     instance = _instantiate(entry)
@@ -252,28 +260,13 @@ def test_nan_at_nan_index(name: str, entry: dict):
     For multi-input functions, the input NaN is set in all input streams at
     the same index.
 
-    Two skip categories:
-    * ``KNOWN_STICKY_NAN`` functions are skipped: their outputs are already
-      all-NaN because of the sticky-NaN bug, so this property "trivially
-      holds" in a way that tells us nothing. When the sticky-NaN fix lands
-      and the function is removed from that set, this test starts checking
-      it for real.
-    * :data:`PROPAGATE_NOT_AT_T` functions are skipped because the universal
-      invariant doesn't apply to them by design.
+    Functions the invariant does not apply to are excluded at collection (see
+    PARAMS_PROPAGATION): ``KNOWN_STICKY_NAN`` (output already all-NaN from a
+    known bug, so it would trivially pass), :data:`PROPAGATE_NOT_AT_T` (x[t-n]
+    formulas surface a NaN at output t+n, not t), and ``nan-aware`` functions
+    (function-specific contracts documented on their own pages).
     """
-    if name in KNOWN_STICKY_NAN:
-        pytest.skip(
-            f"{name} is on the KNOWN_STICKY_NAN list; output is all-NaN "
-            "until that bug is fixed, so this test would trivially pass."
-        )
-    if name in PROPAGATE_NOT_AT_T:
-        pytest.skip(
-            f"{name}'s propagate formula uses x[t-n] at index t; NaN at "
-            "input index t propagates to output index t+n, not t."
-        )
     policy = entry["nan_policy"]
-    if policy == "nan-aware":
-        pytest.skip("nan-aware policy is function-specific; not covered here")
 
     n_inputs = int(entry.get("inputs", 1))
     arrays = _input_for(name, n_inputs, n_samples=500)
