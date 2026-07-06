@@ -11,21 +11,39 @@ import pytest
 from screamer import RollingMedianAD
 
 
-def _manual_median_ad(x, w):
-    """Strict-policy reference: NaN warmup, then median(|v - median(v)|)."""
+def _manual_median_ad(x, w, policy="strict"):
+    """Reference for every start policy: median(|v - median(v)|) over the window.
+
+    strict    -> NaN until the window is full
+    expanding -> compute over the samples seen so far, from the first
+    zero      -> window pre-filled with `w` zeros (missing counts as 0)
+    NaN input is skipped (state untouched), emitting NaN.
+    """
     out = np.full(len(x), np.nan)
-    for i in range(w - 1, len(x)):
-        v = x[i - w + 1:i + 1]
-        out[i] = np.median(np.abs(v - np.median(v)))
+    buf = [0.0] * w if policy == "zero" else []
+    for i, v in enumerate(x):
+        if np.isnan(v):
+            out[i] = np.nan
+            continue
+        buf.append(v)
+        if len(buf) > w:
+            buf.pop(0)
+        if policy == "strict" and len(buf) < w:
+            out[i] = np.nan
+            continue
+        m = np.median(buf)
+        out[i] = np.median(np.abs(np.array(buf) - m))
     return out
 
 
-@pytest.mark.parametrize("w", [2, 3, 5, 10, 20])
-def test_matches_manual_numpy_reference(w):
+@pytest.mark.parametrize("w", [1, 2, 3, 5, 10, 20])
+@pytest.mark.parametrize("policy", ["strict", "expanding", "zero"])
+def test_matches_manual_numpy_reference(w, policy):
     rng = np.random.default_rng(w)
     x = rng.standard_normal(80)
-    np.testing.assert_allclose(RollingMedianAD(w)(x), _manual_median_ad(x, w),
-                               equal_nan=True, atol=1e-12)
+    got = RollingMedianAD(w, start_policy=policy)(x)
+    exp = _manual_median_ad(x, w, policy)
+    np.testing.assert_allclose(got, exp, equal_nan=True, atol=1e-12)
 
 
 def test_even_and_odd_window_median_convention():
@@ -53,11 +71,12 @@ def test_robust_to_a_single_spike():
     np.testing.assert_allclose(out[-1], 0.0, atol=1e-12)
 
 
-def test_batch_equals_stream():
+@pytest.mark.parametrize("policy", ["strict", "expanding", "zero"])
+def test_batch_equals_stream(policy):
     rng = np.random.default_rng(3)
     x = rng.standard_normal(200)
-    batch = np.asarray(RollingMedianAD(15)(x))
-    f = RollingMedianAD(15)
+    batch = np.asarray(RollingMedianAD(15, start_policy=policy)(x))
+    f = RollingMedianAD(15, start_policy=policy)
     stream = np.array([f(v) for v in x])
     np.testing.assert_allclose(batch, stream, equal_nan=True)
 
@@ -71,11 +90,14 @@ def test_nan_ignore_and_recovery():
 
 
 def test_mid_stream_nan_is_skipped():
-    clean = RollingMedianAD(3)(np.array([1.0, 2.0, 3.0, 4.0, 5.0]))
-    withnan = RollingMedianAD(3)(np.array([1.0, 2.0, np.nan, 3.0, 4.0, 5.0]))
-    # The NaN emits NaN and is skipped; the finite outputs line up once shifted.
-    assert np.isnan(withnan[2])
-    np.testing.assert_allclose(np.asarray(clean)[-1], np.asarray(withnan)[-1])
+    base = np.array([1.0, 2.0, 3.0, 4.0, 5.0, 6.0])
+    withnan = np.array([1.0, 2.0, np.nan, 3.0, 4.0, 5.0, 6.0])
+    clean_out = np.asarray(RollingMedianAD(3)(base))
+    nan_out = np.asarray(RollingMedianAD(3)(withnan))
+    # The NaN emits NaN and is skipped; every finite output matches the clean run
+    # once the inserted NaN slot is removed (state is untouched by the NaN).
+    assert np.isnan(nan_out[2])
+    np.testing.assert_allclose(np.delete(nan_out, 2), clean_out, equal_nan=True)
 
 
 def test_expanding_policy_has_no_warmup_nan():

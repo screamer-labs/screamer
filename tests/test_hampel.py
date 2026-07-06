@@ -12,8 +12,8 @@ from screamer import Hampel
 MAD_TO_STD = 1.4826
 
 
-def _ref_hampel(x, w, n_sigma, output=0):
-    buf = []
+def _ref_hampel(x, w, n_sigma, output=0, policy="strict"):
+    buf = [0.0] * w if policy == "zero" else []
     out = np.full(len(x), np.nan)
     for i, v in enumerate(x):
         if np.isnan(v):
@@ -22,7 +22,7 @@ def _ref_hampel(x, w, n_sigma, output=0):
         buf.append(v)
         if len(buf) > w:
             buf.pop(0)
-        if len(buf) < w:  # strict warmup
+        if policy == "strict" and len(buf) < w:  # strict warmup
             out[i] = np.nan
             continue
         m = np.median(buf)
@@ -36,17 +36,18 @@ def _ref_hampel(x, w, n_sigma, output=0):
     return out
 
 
-@pytest.mark.parametrize("w", [5, 11, 21])
+@pytest.mark.parametrize("w", [1, 5, 11, 21])
 @pytest.mark.parametrize("n_sigma", [2.0, 3.0])
 @pytest.mark.parametrize("output", [0, 1, 2])
-def test_matches_reference(w, n_sigma, output):
+@pytest.mark.parametrize("policy", ["strict", "expanding", "zero"])
+def test_matches_reference(w, n_sigma, output, policy):
     rng = np.random.default_rng(w + output)
     x = rng.standard_normal(200)
     x[30] += 8.0
     x[95] -= 7.0
     x[160] += 6.0
-    got = np.asarray(Hampel(w, n_sigma, output)(x))
-    exp = _ref_hampel(x, w, n_sigma, output)
+    got = np.asarray(Hampel(w, n_sigma, output, policy)(x))
+    exp = _ref_hampel(x, w, n_sigma, output, policy)
     np.testing.assert_allclose(got, exp, equal_nan=True, atol=1e-12)
 
 
@@ -90,13 +91,14 @@ def test_output_two_marks_outliers_nan():
     np.testing.assert_allclose(out[41], x[41])  # a clean sample passes through
 
 
-def test_batch_equals_stream():
+@pytest.mark.parametrize("policy", ["strict", "expanding", "zero"])
+def test_batch_equals_stream(policy):
     rng = np.random.default_rng(4)
     x = rng.standard_normal(300)
     x[100] += 9.0
     for out_mode in (0, 1, 2):
-        batch = np.asarray(Hampel(21, 3.0, out_mode)(x))
-        f = Hampel(21, 3.0, out_mode)
+        batch = np.asarray(Hampel(21, 3.0, out_mode, policy)(x))
+        f = Hampel(21, 3.0, out_mode, policy)
         stream = np.array([f(v) for v in x])
         np.testing.assert_allclose(batch, stream, equal_nan=True)
 
