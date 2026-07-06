@@ -1,6 +1,8 @@
 """Tests for DAG visualization (screamer/dag_viz.py): the shared graph walk,
 the ASCII tree, DOT output, and the Jupyter repr.
 """
+import sys
+
 import numpy as np
 import pytest
 
@@ -119,9 +121,10 @@ def test_to_graphviz_returns_source_when_available():
     assert "digraph screamer_dag" in src.source
 
 
-def test_to_graphviz_without_package_raises_helpful_error():
-    import importlib.util
-    if importlib.util.find_spec("graphviz") is not None:
-        pytest.skip("graphviz is installed")
+def test_to_graphviz_without_package_raises_helpful_error(monkeypatch):
+    # Simulate graphviz being absent (None in sys.modules makes ``import
+    # graphviz`` raise ImportError) so the helpful-error path is always
+    # exercised, whether or not graphviz is installed in the environment.
+    monkeypatch.setitem(sys.modules, "graphviz", None)
     with pytest.raises(ImportError, match="graphviz"):
         _simple().to_graphviz()

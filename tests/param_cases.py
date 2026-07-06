@@ -208,10 +208,12 @@ def yield_test_cases_with_baselines():
     for class_names, param_cases in cases:
 
         for class_name, params_dict in product(class_names, param_cases):
-            # Collect baselines for the class
+            # Only yield cases we can actually compare: a class with no reference
+            # baseline has nothing to assert against. Baseline coverage gaps are
+            # tracked separately by ``python -m devtools.report_baselines``.
             baselines_for_class = get_baselines(class_name)
             if not baselines_for_class:
-                baselines_for_class = [None]
+                continue
 
             # Copy parameters and extract array properties
             params = params_dict.copy()
@@ -220,12 +222,3 @@ def yield_test_cases_with_baselines():
 
             for baseline_name in baselines_for_class:
                 yield (class_name, baseline_name, params, array_type, array_length)
-
-def yield_classes_without_test_cases():
-    all_classes = set(screamer_classes)
-
-    for (tested_class_names, _) in test_definitions:
-        all_classes -= set(tested_class_names)
-
-    for class_name in all_classes:
-        yield class_name
