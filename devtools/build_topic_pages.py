@@ -62,12 +62,16 @@ def build_topic_page(title: str, desc: str, members: list[str],
     return "\n".join(lines)
 
 
-def build_index(topic_slugs: list[str], all_refs: set[str]) -> str:
-    lines = [GENERATED_BANNER + "Functions", "=========", "",
+def build_index(topics: dict, all_refs: set[str]) -> str:
+    # ``:orphan:`` keeps this landing page out of the sidebar: the left nav lists
+    # the 20 topic pages directly under the "Functions" caption (see docs/index.rst).
+    # The page stays reachable via in-text links (e.g. the notebooks) and still
+    # homes every reference page through the hidden toctree below.
+    lines = [":orphan:", "", GENERATED_BANNER + "Functions", "=========", "",
              "Every function, grouped by topic. Topics are many-to-many, so a "
-             "function may appear under more than one.", "",
-             ".. toctree::", "   :maxdepth: 1", ""]
-    lines += [f"   by_topic/{slug}" for slug in topic_slugs]
+             "function may appear under more than one.", ""]
+    for slug, meta in topics.items():
+        lines.append(f"* :doc:`{meta['name']} <by_topic/{slug}>`")
     # Hidden toctree so every reference page is included exactly once (no orphans).
     lines += ["", ".. toctree::", "   :hidden:", ""]
     lines += [f"   {ref}" for ref in sorted(all_refs)]
@@ -97,7 +101,7 @@ def main():
                                 sorted(members[slug], key=str.lower), refs, shorts)
         (OUT_DIR / f"{slug}.rst").write_text(page)
 
-    INDEX_FILE.write_text(build_index(list(topics), set(refs.values())))
+    INDEX_FILE.write_text(build_index(topics, set(refs.values())))
     print(f"Wrote {INDEX_FILE.name} and {len(topics)} topic pages "
           f"({sum(len(m) for m in members.values())} listings over {len(refs)} pages).")
 
