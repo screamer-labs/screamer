@@ -12,6 +12,7 @@ The captured params power three things: a readable ``repr``
 (``RollingMean(window_size=20)``), DAG node labels, and DAG serialization.
 """
 import json
+import warnings
 from importlib import resources
 
 from . import screamer_bindings as _b
@@ -20,13 +21,22 @@ _HELP = None
 
 
 def _load_help():
-    """Load the parameter schema registry (screamer/data/help.json), once."""
+    """Load the parameter schema registry (screamer/data/help.json), once.
+
+    A missing registry degrades gracefully (params captured positionally). A
+    present-but-broken registry is a real problem, so it warns rather than
+    silently losing every parameter name.
+    """
     global _HELP
     if _HELP is None:
         try:
             with resources.files("screamer").joinpath("data/help.json").open() as fh:
                 _HELP = json.load(fh)
-        except Exception:
+        except FileNotFoundError:
+            _HELP = {}
+        except Exception as exc:  # corrupt JSON, permissions, ...
+            warnings.warn(f"screamer: could not read help.json, functor parameter "
+                          f"names will be unavailable: {exc}")
             _HELP = {}
     return _HELP
 

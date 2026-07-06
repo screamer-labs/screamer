@@ -8,6 +8,8 @@ labels stay consistent.
 """
 import json
 
+import numpy as np
+
 from . import streams
 from .dag import Dag, Input
 from .dag_viz import build_graph
@@ -23,9 +25,30 @@ _OPERATORS = {
 }
 
 
+def _jsonable(value):
+    """Coerce a captured param value to a JSON-native type.
+
+    Constructor args are stored verbatim, so a common ``RollingMean(arr.size // 10)``
+    yields a numpy scalar. numpy scalars/arrays are cast to Python ints/floats/lists.
+    """
+    if isinstance(value, np.ndarray):
+        return [_jsonable(v) for v in value.tolist()]
+    if isinstance(value, np.bool_):
+        return bool(value)
+    if isinstance(value, np.integer):
+        return int(value)
+    if isinstance(value, np.floating):
+        return float(value)
+    if isinstance(value, (list, tuple)):
+        return [_jsonable(v) for v in value]
+    if isinstance(value, dict):
+        return {k: _jsonable(v) for k, v in value.items()}
+    return value
+
+
 def _clean(params):
-    """Drop None-valued params (defaults / internal placeholders) for a compact config."""
-    return {k: v for k, v in params.items() if v is not None}
+    """Drop None-valued params and coerce the rest to JSON-native types."""
+    return {k: _jsonable(v) for k, v in params.items() if v is not None}
 
 
 def to_dict(dag):

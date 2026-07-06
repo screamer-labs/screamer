@@ -18,6 +18,7 @@ __all__ = [
     "pace",
     "dropna", "dropna_iter",
     "filter", "filter_iter",
+    "select", "select_iter",
     "split",
     "resample", "resample_iter",
 ]
@@ -26,10 +27,10 @@ __all__ = [
 class Stream:
     """A sequence of values with an optional ordering index.
 
-    values : np.ndarray, shape (T,) or (T, N).
-    index  : np.ndarray of length T, or None. None means positional (row-number /
-             arrival order) and stores nothing. The index is an ordering
-             coordinate (timestamp, tick counter, ...), never a lookup key.
+    ``values`` is a 1-D ``(T,)`` or 2-D ``(T, N)`` array. ``index`` is a 1-D array
+    of length ``T``, or ``None``. ``None`` means positional (row number, arrival
+    order) and stores nothing. The index is an ordering coordinate such as a
+    timestamp or a tick counter, not a lookup key.
     """
     __slots__ = ("values", "index")
 

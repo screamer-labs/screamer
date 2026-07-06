@@ -3,10 +3,12 @@
 The backbone is round-trip equivalence: a graph -> JSON -> graph must run
 identically. Also covers the schema shape and load-time error handling.
 """
+import json
+
 import numpy as np
 import pytest
 
-from screamer import RollingMean, EwMean, Sub, Input, Dag
+from screamer import RollingMean, EwMean, RollingMinMax, Sub, Input, Dag
 from screamer.streams import combine_latest, dropna, resample, select
 
 
@@ -121,3 +123,50 @@ def test_from_dict_does_not_mutate_input():
     snapshot = copy.deepcopy(d)
     Dag.from_dict(d)
     assert d == snapshot
+
+
+def test_numpy_scalar_params_serialize_and_round_trip():
+    # A numpy scalar arg (common: RollingMean(arr.size // 10)) must serialize.
+    a = Input("a")
+    dag = Dag([a], [RollingMean(np.int64(20))(a)])
+    d = dag.to_dict()
+    assert type(d["nodes"][-1]["params"]["window_size"]) is int  # coerced to native
+    json.dumps(d)  # must not raise
+    rebuilt = Dag.from_json(dag.to_json())
+    x = np.arange(40.0)
+    np.testing.assert_allclose(np.asarray(dag(x)[0]), np.asarray(rebuilt(x)[0]), equal_nan=True)
+
+
+def test_multi_output_functor_round_trip():
+    # RollingMinMax is a 1-input, 2-output functor.
+    a = Input("a")
+    dag = Dag([a], [RollingMinMax(5)(a)])
+    x = np.arange(30.0)
+    rebuilt = Dag.from_json(dag.to_json())
+    np.testing.assert_array_equal(np.asarray(dag(x)[0]), np.asarray(rebuilt(x)[0]))
+
+
+def test_select_numpy_columns_round_trip():
+    a, b = Input("a"), Input("b")
+    dag = Dag([a, b], [select(combine_latest(a, b), columns=np.array([0]))])
+    json.dumps(dag.to_dict())  # numpy array columns coerced to a list
+    fa, fb = _feeds()
+    assert _equal(dag(fa, fb), Dag.from_json(dag.to_json())(fa, fb))
+
+
+def test_from_dict_positional_args_fallback():
+    # A functor serialized in the schema-less positional form reconstructs.
+    a = Input("a")
+    d = Dag([a], [RollingMean(20)(a)]).to_dict()
+    for node in d["nodes"]:
+        if node["kind"] == "functor":
+            node["params"] = {"args": [20]}
+    rebuilt = Dag.from_dict(d)
+    x = np.arange(30.0)
+    np.testing.assert_allclose(np.asarray(rebuilt(x)[0]),
+                               np.asarray(RollingMean(20)(x)), equal_nan=True)
+
+
+def test_select_is_public():
+    import screamer
+    assert screamer.select is select

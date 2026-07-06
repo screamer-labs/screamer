@@ -67,8 +67,10 @@ def _label(node):
 def to_text(dag):
     """An indented, tree-style view rooted at each output, descending to inputs.
 
-    A node shared by several consumers is printed once and later referenced by
-    id (``^#3``), so a diamond reads as a diamond instead of being duplicated.
+    A shared node that has inputs of its own (an operator or functor) is expanded
+    once and later referenced by id (``^#3``), so a diamond reads as a diamond
+    instead of duplicating a whole subtree. Leaf inputs, having no subtree, are
+    just reprinted where they feed.
     """
     nodes, input_ids, output_ids = build_graph(dag)
     info = {n.id: n for n in nodes}
