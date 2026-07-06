@@ -1,13 +1,15 @@
 name: Tests
 
-# TEMP: CI/CD cost reduction during active development.
-# - triggered only on version tags (was: every push to main + every PR)
-# - matrix reduced to ubuntu-latest + Python 3.12 only (was: ubuntu+macos x 4 Pythons)
-# Revert by restoring the `push: branches: [main]` + `pull_request: [main]`
-# triggers and the full os/python-version matrix below.
+# Lean on every push/PR (ubuntu + py3.12), full matrix on version tags
+# (ubuntu + macOS x Python 3.11-3.14). Windows is covered by the wheel
+# smoke test (test-command) in build-wheels.yml -- tests.yml builds via
+# `make`, which GitHub's Windows runners don't ship.
 on:
   push:
+    branches: [main]
     tags: ['v*']
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 
 concurrency:
@@ -21,17 +23,34 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
 jobs:
+  matrix:
+    name: Select matrix
+    runs-on: ubuntu-latest
+    outputs:
+      os: ${{ steps.pick.outputs.os }}
+      python: ${{ steps.pick.outputs.python }}
+    steps:
+      - id: pick
+        # Full os/python fan-out only on version tags; lean elsewhere to keep
+        # per-commit CI cheap.
+        run: |
+          if [[ "${{ startsWith(github.ref, 'refs/tags/v') }}" == "true" ]]; then
+            echo 'os=["ubuntu-latest","macos-14"]' >> "$GITHUB_OUTPUT"
+            echo 'python=["3.11","3.12","3.13","3.14"]' >> "$GITHUB_OUTPUT"
+          else
+            echo 'os=["ubuntu-latest"]' >> "$GITHUB_OUTPUT"
+            echo 'python=["3.12"]' >> "$GITHUB_OUTPUT"
+          fi
+
   pytest:
     name: pytest (${{ matrix.os }}, py${{ matrix.python-version }})
+    needs: matrix
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        # TEMP: reduced to ubuntu + py3.12 only during dev. Revert to:
-        #   os: [ubuntu-latest, macos-14]
-        #   python-version: ['3.11', '3.12', '3.13', '3.14']
-        os: [ubuntu-latest]
-        python-version: ['3.12']
+        os: ${{ fromJSON(needs.matrix.outputs.os) }}
+        python-version: ${{ fromJSON(needs.matrix.outputs.python) }}
     steps:
       - uses: actions/checkout@v5
 

@@ -1,11 +1,12 @@
 name: Docs
 
-# Manual for now (matches the cost-reduced posture of tests.yml). Enable the
-# push / pull_request triggers below to build docs as a PR/main check.
+# Build docs as a PR gate (catches doc/notebook breakage before merge).
+# Read the Docs builds and hosts on push to main once the RTD project is
+# connected, so there is no push trigger here -- this is just the check.
 on:
   workflow_dispatch:
-  # push:         { branches: [main] }
-  # pull_request: { branches: [main] }
+  pull_request:
+    branches: [main]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}

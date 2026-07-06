@@ -10,9 +10,9 @@ Screamer is a high-performance Python library for time series analysis, designed
 accuracy, and versatility in handling both NumPy arrays and streaming data. 
 
 
-[![License](https://img.shields.io/pypi/l/screamer?color=#28A745)](https://github.com/quantfinlib/screamer/blob/main/LICENSE)
+[![License](https://img.shields.io/pypi/l/screamer?color=#28A745)](https://github.com/simu-ai/screamer/blob/main/LICENSE)
 ![Python Versions](https://img.shields.io/pypi/pyversions/screamer)
-[![tests](https://github.com/quantfinlib/screamer/actions/workflows/test.yml/badge.svg)](https://github.com/quantfinlib/screamer/actions/workflows/test.yml)
+[![tests](https://github.com/simu-ai/screamer/actions/workflows/tests.yml/badge.svg)](https://github.com/simu-ai/screamer/actions/workflows/tests.yml)
 [![Docs](https://readthedocs.org/projects/screamer/badge/?version=latest)](https://screamer.readthedocs.io/en/latest/?badge=latest) 
 [![PyPI](https://img.shields.io/pypi/v/screamer)](https://pypi.org/project/screamer/)
 
