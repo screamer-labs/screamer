@@ -148,6 +148,33 @@ For a step-by-step walkthrough see the :doc:`User Guide <usage>`.
 
 .. toctree::
    :maxdepth: 1
+   :caption: Functions
+   :hidden:
+
+   by_topic/arithmetic
+   by_topic/trig
+   by_topic/activations
+   by_topic/smoothing
+   by_topic/filtering
+   by_topic/statistics
+   by_topic/volatility
+   by_topic/standardization
+   by_topic/returns
+   by_topic/cumulative
+   by_topic/trend
+   by_topic/momentum
+   by_topic/bands
+   by_topic/volume
+   by_topic/regression
+   by_topic/risk
+   by_topic/missing-data
+   by_topic/outliers
+   by_topic/streams
+   by_topic/graphs
+
+
+.. toctree::
+   :maxdepth: 1
    :caption: Concepts
    :hidden:
 
@@ -156,14 +183,6 @@ For a step-by-step walkthrough see the :doc:`User Guide <usage>`.
    multistream
    dag
    conventions
-
-
-.. toctree::
-   :maxdepth: 1
-   :caption: Functions
-   :hidden:
-
-   by_topic_index
 
 
 .. toctree::
