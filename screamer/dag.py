@@ -11,11 +11,10 @@ _RESAMPLE_AGG_CODE = {"first": 0, "last": 1, "min": 2, "max": 3,
 class Node:
     """An immutable handle for a stream in a computation graph.
 
-    op is one of:
-      - ("input", name)
-      - a configured functor instance (ScreamerBase / FunctorBase)
-      - ("operator", fn, kwargs)
-    inputs is a tuple of upstream Nodes.
+    You do not usually construct a Node directly: ``Input(name)`` returns one, and
+    applying a functor or a stream operator to a Node returns another. ``op``
+    records the operation (an input, a functor instance, or an operator) and
+    ``inputs`` is a tuple of upstream Nodes.
     """
     __slots__ = ("op", "inputs")
     is_node = True
@@ -263,6 +262,33 @@ class Dag:
         results = self._cg.drain()
         results = [(k, v.reshape(-1) if v.shape[1] == 1 else v) for (k, v) in results]
         return _align_results(results, self.align_outputs)
+
+    # -- inspection / visualization ------------------------------------------
+    def __repr__(self):
+        return f"Dag({len(self.inputs)} input(s), {len(self.outputs)} output(s))"
+
+    def __str__(self):
+        from .dag_viz import to_text
+        return to_text(self)
+
+    def to_text(self):
+        """An indented, ``tree``-style text view of the graph (zero dependencies)."""
+        from .dag_viz import to_text
+        return to_text(self)
+
+    def to_dot(self):
+        """A Graphviz DOT string for the graph (zero dependencies)."""
+        from .dag_viz import to_dot
+        return to_dot(self)
+
+    def to_graphviz(self):
+        """A ``graphviz.Source`` for the graph (needs the optional ``graphviz`` package)."""
+        from .dag_viz import to_graphviz
+        return to_graphviz(self)
+
+    def _repr_mimebundle_(self, include=None, exclude=None):
+        from .dag_viz import repr_mimebundle
+        return repr_mimebundle(self)
 
     def _bind_args(self, args, kwargs):
         if args and kwargs:
