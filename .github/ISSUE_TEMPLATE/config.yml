@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Documentation
+    url: https://screamer.readthedocs.io/en/latest/
+    about: Function reference, guides, and runnable examples.
+  - name: Security report
+    url: https://github.com/screamer-labs/screamer/security/advisories/new
+    about: Please report vulnerabilities privately, not as a public issue.
