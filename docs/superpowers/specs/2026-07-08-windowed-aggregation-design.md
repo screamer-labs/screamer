@@ -154,12 +154,20 @@ Settled:
 - New string aggs: `ohlcv`, `ohlcv2` (multi-input, see above).
 - Labelled multi-column output: plain 2-D `float64` matrix + labels carried on
   `Stream.columns`; no pandas, no structured arrays (see "Labelled output").
+- Unify *all* `resample` returns on `Stream`: one return type across the raw /
+  Stream / Node regimes.
 
-Still open:
+Follow-up (not this cut):
 
-- Unify *all* `resample` returns on `Stream`, or only the multi-column aggs
-  (recommend: unify on `Stream`).
-- General masked sum as a 2-input reducer (`SumWhere`): defer past this cut.
+- **Comparison family** `Gt/Lt/Ge/Le/Eq`: elementwise C++ functors with `0/1`
+  output. This is the foundational piece for producing masks; screamer currently
+  has no way to express `x > threshold` (only `Sign`/`Clip`/`Relu`/
+  `SchmittTrigger`). Consider `CrossOver`/`CrossUnder` too for time-series events.
+- **`SumWhere(value, mask)`**: 2-input reducer, `sum(value)` where `mask != 0`
+  (the bool/int cast; NaN in either input skips the sample). Functionally
+  `sum(value * mask)`, so it is a named convenience that depends on the
+  comparison family to be broadly useful. Not needed for buy/sell volume, which
+  `PosPart`/`NegPart` already handle.
 
 ## Implementation phases (behavior-preserving first)
 
