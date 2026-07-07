@@ -116,7 +116,7 @@ jobs:
 
       - name: Publish to PyPI
         # No username/password/token: with id-token write and a trusted
-        # publisher configured on pypi.org (repo simu-ai/screamer, workflow
+        # publisher configured on pypi.org (repo screamer-labs/screamer, workflow
         # build-wheels.yml, environment pypi), the action mints a short-lived
         # OIDC token automatically.
         uses: pypa/gh-action-pypi-publish@release/v1
