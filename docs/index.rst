@@ -13,14 +13,14 @@ time series. The same functions run on NumPy arrays and on live streams.
 
 
 .. image:: https://img.shields.io/pypi/l/screamer?color=#28A745
-   :target: https://github.com/simu-ai/screamer/blob/main/LICENSE
+   :target: https://github.com/screamer-labs/screamer/blob/main/LICENSE
    :alt: License
 
 .. image:: https://img.shields.io/pypi/pyversions/screamer
    :alt: Python Versions
 
-.. image:: https://github.com/simu-ai/screamer/actions/workflows/tests.yml/badge.svg
-   :target: https://github.com/simu-ai/screamer/actions/workflows/tests.yml
+.. image:: https://github.com/screamer-labs/screamer/actions/workflows/tests.yml/badge.svg
+   :target: https://github.com/screamer-labs/screamer/actions/workflows/tests.yml
    :alt: Tests
 
 .. image:: https://readthedocs.org/projects/screamer/badge/?version=latest
