@@ -1,5 +1,8 @@
 blank_issues_enabled: true
 contact_links:
+  - name: Questions & discussion
+    url: https://research.io/p/screamer
+    about: Ask questions and discuss screamer with the community.
   - name: Documentation
     url: https://screamer.readthedocs.io/en/latest/
     about: Function reference, guides, and runnable examples.
