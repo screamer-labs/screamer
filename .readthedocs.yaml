@@ -10,6 +10,14 @@ build:
     # The Graphviz `dot` binary renders the DAG diagrams (Dag.to_graphviz()).
     # Without it the docs still build, but graphs fall back to the text tree.
     - graphviz
+  jobs:
+    post_install:
+      # The docs' exec-code blocks import screamer from the source tree (conf.py
+      # puts the repo root first on sys.path, matching `make build` locally, which
+      # drops the compiled extension into screamer/). RTD installs the wheel into
+      # site-packages instead and never runs `make build`, so copy the built
+      # screamer_bindings extension into the source package so those imports work.
+      - cp $READTHEDOCS_VIRTUALENV_PATH/lib/python*/site-packages/screamer/screamer_bindings*.so screamer/
 
 sphinx:
   configuration: docs/conf.py
