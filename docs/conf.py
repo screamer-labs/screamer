@@ -17,7 +17,13 @@ sys.path.insert(0, os.path.abspath('../../screamer'))  # Adjust the relative pat
 project = 'screamer'
 copyright = '2026, Thijs van den Berg'
 author = 'Thijs van den Berg'
-release = '0.1.46'
+# Read the version from the installed package metadata so the docs never drift
+# from the release (was hardcoded to a stale 0.1.46).
+try:
+    from importlib.metadata import version as _pkg_version
+    release = _pkg_version('screamer')
+except Exception:
+    release = '0.0.0'
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
