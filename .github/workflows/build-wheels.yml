@@ -1,5 +1,7 @@
 name: Build wheels
 
+# Release pipeline: test -> build -> publish, as dependent jobs so wheels are
+# never built and nothing is ever published unless the test suite passes first.
 on:
   push:
     tags: ['v*']
@@ -27,8 +29,40 @@ env:
   MACOSX_DEPLOYMENT_TARGET: "10.13"
 
 jobs:
+  test:
+    # Gate for the whole release: the full suite across every supported Python
+    # on Linux. Python-version-specific bugs (e.g. the RollingZscore member-init
+    # bug on CPython 3.14) are the ones that slip past a single-version run; each
+    # built wheel is additionally smoke-tested per-platform by cibuildwheel's
+    # test-command (pyproject [tool.cibuildwheel]).
+    name: pytest (ubuntu, py${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.11', '3.12', '3.13', '3.14']
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      - name: Install test deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install numpy scipy pandas pytest pyyaml
+
+      - name: Build C++ extension
+        run: make build
+
+      - name: Run pytest
+        run: pytest -q
+
   build_wheels:
     name: Wheels (${{ matrix.os }})
+    needs: test
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -59,6 +93,7 @@ jobs:
 
   build_sdist:
     name: Source distribution
+    needs: test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
