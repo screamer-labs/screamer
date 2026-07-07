@@ -36,8 +36,16 @@ drive it, and so bindings expose it uniformly.
 
 `agg` accepts three forms, all resolved to a C++ reducer:
 
-- **string** (existing shorthands: `first/last/min/max/sum/count/mean/ohlc`) maps
-  to a builtin C++ reducer. Kept as convenient sugar.
+- **string** shorthands map to a builtin C++ reducer. Existing:
+  `first/last/min/max/sum/count/mean/ohlc`. New:
+  - `ohlcv`  -> `[open, high, low, close, volume]` (volume = sum of the volume input).
+  - `ohlcv2` -> `[open, high, low, close, buy_vol, sell_vol]`, where
+    `buy_vol = sum of positive volume` and `sell_vol = sum of |negative volume|`.
+
+  `ohlc` reads one price stream. `ohlcv` and `ohlcv2` are **multi-input**: the
+  `values` argument is a 2-column stream (`[price, volume]` for `ohlcv`,
+  `[price, signed_volume]` for `ohlcv2`), using the existing "(T, N) array as N
+  inputs" model. Their output columns are labelled (see "Labelled output").
 - **functor** (any `EvalOp`): the C++ windowing node feeds every in-bar sample to
   the functor, samples its output at bar close, then calls `reset()`. Supports
   N->M reducers (for example `ohlc` is effectively 1->4; a custom reducer may be
@@ -58,6 +66,31 @@ do) and be callable one sample at a time (they are).
 bar only sees the last 20 in-bar samples, not the whole bar. So the natural
 reducers for per-bar stats are the `Expanding*` family below.
 
+#### Labelled output for multi-column aggs
+
+`ohlc`, `ohlcv`, `ohlcv2`, and `dict` aggs produce a multi-column bar matrix with
+named columns. How the names travel:
+
+- The C++ node returns a plain 2-D `float64` bar matrix plus the column labels as
+  strings (and the bar index). Plain `float64` keeps the frame composable: you
+  can do matrix math on it or feed a column into another functor. No structured
+  arrays (awkward for math) and no pandas (a runtime dependency, and not
+  WASM-portable).
+- Labels travel **with the data** on the `Stream` type: extend `Stream` with an
+  optional `columns` tuple. A multi-column resample returns a `Stream` whose
+  `.values` is 2-D, `.index` is the bar labels, and `.columns` are the names.
+  Named access via `stream["buy_vol"]` (and `.column("buy_vol")`), returning a
+  1-D view. Column order is the dict insertion order, or the fixed OHLC(V) order.
+- The JS/WASM binding exposes the same `(matrix, index, names)`; the labelled
+  container is a thin shim with no compute. (A distinct `Frame` type is an
+  option instead of extending `Stream`, but `Stream` with 2-D values already *is*
+  a frame indexed by bar label, so reuse it and avoid a new public type.)
+
+Sub-decision (pre-1.0, low stakes): whether *all* `resample` returns unify on
+`Stream`, or only the multi-column aggs return a labelled `Stream` while scalar
+aggs keep returning a plain `(values, index)`. Recommend unifying on `Stream` for
+one return type across the raw / Stream / Node regimes.
+
 ### 2. `Expanding*` statistic family
 
 New C++ functors that accumulate from `reset()` over all samples seen, with no
@@ -77,9 +110,9 @@ are exactly the expanding sum / extrema / product. Decision:
 - **Keep** `Cum*` for those four (`cumsum` is too well-known to drop).
 - **Add** `Expanding*` for the moment stats and slope (`ExpandingMean` reads far
   better than `CumMean`).
-- Optionally add thin `Expanding{Sum,Max,Min,Prod}` **aliases** to the `Cum*`
-  implementations for a single discoverable prefix. Aliases only, never
-  duplicate logic.
+- Add thin `Expanding{Sum,Max,Min,Prod}` **aliases** to the `Cum*`
+  implementations, giving one discoverable `Expanding*` prefix alongside the
+  well-known `Cum*` names. Aliases only, never duplicate logic.
 
 ### 4. `PosPart` / `NegPart`
 
@@ -111,16 +144,22 @@ masked sum, `resample(size * (side > 0), agg="sum")`, and can grow a named
   op handle; dict -> build a multi-reducer node plus column labels), dispatch
   raw / Stream / Node, marshal arrays. No numeric loops.
 
-## Open decisions (confirm before implementation)
+## Decisions
 
-- The `Expanding*` set for the first cut. Proposal: `Mean`, `Var`, `Std`,
-  `Skew`, `Slope`; add `Kurt` if cheap.
-- How a `dict` agg surfaces labelled columns in the return (structured array,
-  plain 2D plus a names list, or a Stream carrying column names).
-- Whether string aggs stay as sugar or become internal aliases to the builtin
-  C++ reducers (recommend: keep the sugar, back it by the builtins).
-- Whether to add the `Expanding{Sum,Max,Min,Prod}` aliases now or defer.
-- Multi-input reducers as `agg` (2-input masked sum): defer.
+Settled:
+
+- `Expanding*` first cut: `Mean`, `Var`, `Std`, `Skew`, `Kurt`, `Slope`.
+- `Expanding{Sum,Max,Min,Prod}` aliases to `Cum*`: yes.
+- String aggs: keep as sugar, backed by the builtin C++ reducers.
+- New string aggs: `ohlcv`, `ohlcv2` (multi-input, see above).
+- Labelled multi-column output: plain 2-D `float64` matrix + labels carried on
+  `Stream.columns`; no pandas, no structured arrays (see "Labelled output").
+
+Still open:
+
+- Unify *all* `resample` returns on `Stream`, or only the multi-column aggs
+  (recommend: unify on `Stream`).
+- General masked sum as a 2-input reducer (`SumWhere`): defer past this cut.
 
 ## Implementation phases (behavior-preserving first)
 
