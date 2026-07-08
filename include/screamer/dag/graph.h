@@ -8,7 +8,8 @@
 
 namespace screamer { namespace dag {
 
-enum class NodeKind { Input, Functor, CombineLatest, DropNa, Select, Resample };
+enum class NodeKind { Input, Functor, CombineLatest, DropNa, Select, Resample,
+                      MultiResample };
 
 // Pure data: one node of a graph definition.
 struct NodeSpec {
@@ -17,8 +18,9 @@ struct NodeSpec {
     bool when_all = true;                 // CombineLatest only
     bool how_all = false;                 // DropNa only
     std::vector<std::size_t> columns;     // Select only
-    ResampleParams resample;              // Resample only
+    ResampleParams resample;              // Resample / MultiResample (the clock)
     std::vector<std::size_t> inputs;      // producer node ids (edges into this node)
+    std::vector<EvalOp*> reducers;        // MultiResample only (one per input port)
 };
 
 struct GraphSpec {
@@ -58,6 +60,15 @@ public:
     }
     std::size_t add_resample(std::vector<std::size_t> inputs, ResampleParams rp) {
         NodeSpec ns{NodeKind::Resample, nullptr, true, false, {}, rp, std::move(inputs)};
+        spec_.nodes.push_back(std::move(ns));
+        return spec_.nodes.size() - 1;
+    }
+    std::size_t add_multicolumn_resample(std::vector<std::size_t> inputs,
+                                         ResampleParams clock,
+                                         std::vector<EvalOp*> reducers) {
+        NodeSpec ns{NodeKind::MultiResample, nullptr, true, false, {}, clock,
+                    std::move(inputs)};
+        ns.reducers = std::move(reducers);
         spec_.nodes.push_back(std::move(ns));
         return spec_.nodes.size() - 1;
     }

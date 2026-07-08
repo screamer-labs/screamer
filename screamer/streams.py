@@ -933,6 +933,26 @@ def resample(values, index=None, *, every=None, count=None, agg="last",
     return Stream(out_v, out_idx, columns=cols)
 
 
+def multi_resample(inputs, reducers, every=None, count=None, origin=0,
+                   label="left", fill="skip"):
+    """Low-level multi-column bar node: N port streams, N per-bar reducers, one clock.
+
+    ``inputs[i]`` (a Node) is reduced by ``reducers[i]`` (an EvalOp) within each
+    bar; the node emits one aligned row per bar with the reducers' outputs
+    concatenated. Transforms belong upstream in ``inputs[i]``. Column labels are
+    attached by the caller (see ``bars``). This is the graph (Node) primitive;
+    place it in a Dag and bind data at call time.
+    """
+    if len(inputs) != len(reducers):
+        raise ValueError(
+            "multi_resample: inputs and reducers must have equal length")
+    if not all(is_node(x) for x in inputs):
+        raise ValueError("multi_resample: every input must be a graph Node")
+    return make_operator_node(multi_resample, tuple(inputs), {
+        "reducers": list(reducers), "every": every, "count": count,
+        "origin": origin, "label": label, "fill": fill})
+
+
 def resample_iter(events, *, every=None, count=None, agg="last",
                   origin=0, label="left"):
     """Streaming resample over (value, index) tuples. Yields (value, label_index)."""
