@@ -90,3 +90,18 @@ def test_dict_agg_count_bucketing():
     ref_f, _ = resample(x, idx, count=4, agg="first")
     np.testing.assert_allclose(bars["s"], ref_s)
     np.testing.assert_allclose(bars["f"], ref_f)
+
+
+def test_dict_agg_literal_values():
+    """Hand-computed anchor: verify sum and max of two 5-element bars against literals.
+
+    bar0 = values 0..4 -> sum=10, max=4
+    bar1 = values 5..9 -> sum=35, max=9
+    This catches reducer bugs that a self-referential comparison would miss.
+    """
+    x = np.arange(10.0)
+    idx = np.arange(10, dtype=np.int64)
+    bars = resample(x, idx, every=5, agg={"s": "sum", "mx": "max"})
+    expected = np.array([[10.0, 4.0], [35.0, 9.0]])
+    np.testing.assert_array_equal(bars.values, expected)
+    assert tuple(bars.columns) == ("s", "mx")

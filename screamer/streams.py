@@ -64,6 +64,8 @@ class Stream:
             self.columns = None
 
     def __len__(self):
+        """Return the number of rows (T). Note: ``len(stream) == T`` (row count)
+        even though ``list(stream)`` yields 2 items ``[values, index]``."""
         return len(self.values)
 
     def __repr__(self):
@@ -832,7 +834,9 @@ def resample(values, index=None, *, every=None, count=None, agg="last",
     * **functor** -- any :class:`screamer.EvalOp` reducer (e.g.
       ``ExpandingSkew()``).  The functor is ``reset()`` at each bar boundary
       and fed every in-bar sample; its last output before the close is emitted.
-      Must produce exactly 1 output column (``num_outputs == 1``).
+      A single-output functor returns a 1-D ``Stream``; a multi-output functor
+      returns an unlabelled 2-D ``Stream``.  The functor must accept exactly
+      1 input (single-value stream); a multi-input functor raises at runtime.
     * **dict** ``{name: str|functor, ...}`` -- runs each sub-reducer over the
       same bucketing and returns a labelled ``Stream`` whose ``.columns``
       are the dict keys (insertion order).  Each entry must produce exactly
@@ -867,7 +871,6 @@ def resample(values, index=None, *, every=None, count=None, agg="last",
         return make_operator_node(resample, (values,), {
             "every": every, "count": count, "agg": agg,
             "origin": origin, "label": label})
-    regime = "stream" if isinstance(values, Stream) else "raw"
     stream = values if isinstance(values, Stream) else Stream(values, index)
     vals = np.asarray(stream.values, dtype=np.float64)
     # ohlcv / ohlcv2 require exactly 2 input columns [price, volume|signed_volume].
@@ -914,6 +917,10 @@ def resample(values, index=None, *, every=None, count=None, agg="last",
 def resample_iter(events, *, every=None, count=None, agg="last",
                   origin=0, label="left"):
     """Streaming resample over (value, index) tuples. Yields (value, label_index)."""
+    if not isinstance(agg, str):
+        raise ValueError(
+            "resample_iter supports only builtin string aggs; "
+            "functor and dict aggs are eager-only for now")
     _resample_validate(every, count, agg, label)
     if agg in ("ohlcv", "ohlcv2"):
         raise ValueError(

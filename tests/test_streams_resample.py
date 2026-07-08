@@ -2,6 +2,7 @@ import math
 import numpy as np
 import pytest
 
+from screamer import ExpandingSum
 from screamer.streams import resample, resample_iter, Stream
 from screamer.dag import is_node
 
@@ -256,3 +257,21 @@ def test_resample_raw_stream_node_mirror():
     np.testing.assert_array_equal(rk, stream_out.index)
     np.testing.assert_array_equal(rv, dag_v.reshape(-1))
     np.testing.assert_array_equal(rk, dag_k)
+
+
+# ---------------------------------------------------------------------------
+# resample_iter rejects non-string aggs (functor / dict are eager-only)
+# ---------------------------------------------------------------------------
+
+def test_resample_iter_rejects_functor_agg():
+    """resample_iter must raise ValueError for a functor agg (eager-only)."""
+    events = [(float(i), i) for i in range(10)]
+    with pytest.raises(ValueError, match="functor"):
+        list(resample_iter(events, every=5, agg=ExpandingSum()))
+
+
+def test_resample_iter_rejects_dict_agg():
+    """resample_iter must raise ValueError for a dict agg (eager-only)."""
+    events = [(float(i), i) for i in range(10)]
+    with pytest.raises(ValueError, match="functor"):
+        list(resample_iter(events, every=5, agg={"s": "sum"}))

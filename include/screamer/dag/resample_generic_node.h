@@ -31,6 +31,11 @@ public:
         if (!reducer_)
             throw std::runtime_error(
                 "dag::GenericResampleNode: null reducer");
+        if (reducer_->n_in() != 1)
+            throw std::runtime_error(
+                "dag::GenericResampleNode: reducer must have exactly 1 input "
+                "(this is a single-value stream reducer); got n_in=" +
+                std::to_string(reducer_->n_in()));
         reset();
     }
 
