@@ -877,9 +877,20 @@ def resample(values, index=None, *, every=None, count=None, agg="last",
     _resample_validate(every, count, agg, label, fill)
     if is_node(values):
         if isinstance(agg, dict):
-            raise ValueError(
-                "resample: dict agg is an eager convenience and is not supported "
-                "in the graph (Node) regime. Use one resample Node per reducer.")
+            # Lazy multi-column bars: each value is Reducer()(sub_expr). `values` is
+            # the clock/timeline `t`. Split each expr into (reducer, port); one shared
+            # clock drives empty time-bar finalization in every= mode.
+            if not agg:
+                raise ValueError("resample: agg dict is empty")
+            names, ports, reducers = [], [], []
+            for nm, expr in agg.items():
+                red, port = _split_reducer_expr(nm, expr)
+                names.append(nm)
+                ports.append(port)
+                reducers.append(red)
+            return multi_resample(ports, reducers, clock=values, every=every,
+                                  count=count, origin=origin, label=label,
+                                  fill=fill, columns=tuple(names))
         if agg in ("ohlcv", "ohlcv2"):
             raise ValueError(
                 f"resample: agg='{agg}' is an eager-only convenience (v1) and is "
@@ -933,8 +944,32 @@ def resample(values, index=None, *, every=None, count=None, agg="last",
     return Stream(out_v, out_idx, columns=cols)
 
 
+def _split_reducer_expr(name, expr):
+    """A dict-agg value must be ``Reducer()(sub_expr)``: a functor Node with exactly one
+    input. Returns ``(reducer_evalop, port_node)``. Raises a clear error otherwise."""
+    if not is_node(expr):
+        raise ValueError(
+            f"resample: agg[{name!r}] must be a lazy expression like "
+            f"First()(price); got {type(expr).__name__}. In the graph regime the "
+            f"dict values are code fragments (functors applied to Nodes), not strings.")
+    op = expr.op
+    # A functor node's op is the EvalOp instance (not a tuple).
+    # An operator/input node's op is a tuple: ("input", name) or ("operator", fn, kwargs).
+    if isinstance(op, tuple):
+        kind = op[0] if op else "?"
+        raise ValueError(
+            f"resample: agg[{name!r}] must be a single reducer functor applied to a "
+            f"stream (e.g. ExpandingSum()(PosPart()(vol))); its top node is a "
+            f"{kind!r} node, not a reducer functor.")
+    if len(expr.inputs) != 1:
+        raise ValueError(
+            f"resample: agg[{name!r}] reducer must take exactly one input stream; "
+            f"got {len(expr.inputs)}.")
+    return op, expr.inputs[0]
+
+
 def multi_resample(inputs, reducers, clock=None, every=None, count=None, origin=0,
-                   label="left", fill="skip"):
+                   label="left", fill="skip", columns=None):
     """Low-level multi-column bar node: N port streams, N per-bar reducers, one clock.
 
     ``inputs[i]`` (a Node) is reduced by ``reducers[i]`` (an EvalOp) within each
@@ -950,6 +985,9 @@ def multi_resample(inputs, reducers, clock=None, every=None, count=None, origin=
     clock tick crossing a bucket boundary closes the current bar even with no
     trades, so empty time-bars finalize straight from the data (ByIndex/``every=``
     only). Omit it to bucket purely by the columns' own shared ticks.
+
+    ``columns`` (optional tuple of str): column labels for the output. Not passed to
+    the C++ engine; used by the Dag to label the returned Stream.
     """
     if len(inputs) != len(reducers):
         raise ValueError(
@@ -963,7 +1001,7 @@ def multi_resample(inputs, reducers, clock=None, every=None, count=None, origin=
         raise ValueError("multi_resample: every input must be a graph Node")
     return make_operator_node(multi_resample, tuple(node_inputs), {
         "reducers": list(reducers), "every": every, "count": count,
-        "origin": origin, "label": label, "fill": fill})
+        "origin": origin, "label": label, "fill": fill, "columns": columns})
 
 
 def resample_iter(events, *, every=None, count=None, agg="last",

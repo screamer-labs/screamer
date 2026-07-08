@@ -174,7 +174,7 @@ class _LiveDag:
         """Aligned outputs accumulated so far (drains the buffers)."""
         results = self._cg.drain()
         results = [(k, v.reshape(-1) if v.shape[1] == 1 else v) for (k, v) in results]
-        return _align_results(results, self._dag.align_outputs)
+        return self._dag._label(_align_results(results, self._dag.align_outputs))
 
 
 class Dag:
@@ -290,12 +290,38 @@ class Dag:
         # map signature order -> the add_input order (they match: inputs built first)
         return gb.compile(), list(self._names)
 
+    @staticmethod
+    def _output_columns(node):
+        """Return the column-name tuple stored on a multi_resample node, or None."""
+        op = getattr(node, "op", None)
+        if (isinstance(op, tuple) and len(op) == 3 and op[0] == "operator"
+                and getattr(op[1], "__name__", None) == "multi_resample"):
+            return op[2].get("columns")
+        return None
+
+    def _label(self, result):
+        """Wrap multi-column bar outputs as labelled Streams; pass others through."""
+        from .streams import Stream
+        cols = [self._output_columns(o) for o in self.outputs]
+        if len(self.outputs) == 1:
+            if cols[0] is not None:
+                v, k = result
+                return Stream(v, k, columns=list(cols[0]))
+            return result
+        # Multi-output, non-aligned (align_outputs=False) or independent pairs.
+        # Only label in the non-aligned case (each element is an independent (v, k) pair).
+        # The aligned case (combine_latest column-slicing) is out of scope for labelling.
+        out = []
+        for (v, k), c in zip(result, cols):
+            out.append(Stream(v, k, columns=list(c)) if c is not None else (v, k))
+        return tuple(out)
+
     def __call__(self, *args, **kwargs):
         feeds = self._bind_args(args, kwargs)
         streams = [_as_stream(feeds[nm]) for nm in self._input_order]
         results = self._cg.run_batch(streams)      # M independent (index, values2d)
         results = [(k, v.reshape(-1) if v.shape[1] == 1 else v) for (k, v) in results]
-        return _align_results(results, self.align_outputs)
+        return self._label(_align_results(results, self.align_outputs))
 
     def stream(self, *args, **kwargs):
         """Drive the compiled graph live, event by event (byte-identical to __call__)."""
@@ -312,7 +338,7 @@ class Dag:
         self._cg.flush()          # end-of-input: emit trailing resample buckets
         results = self._cg.drain()
         results = [(k, v.reshape(-1) if v.shape[1] == 1 else v) for (k, v) in results]
-        return _align_results(results, self.align_outputs)
+        return self._label(_align_results(results, self.align_outputs))
 
     def live(self):
         """Open a live streaming session: push events and drive a clock yourself.
