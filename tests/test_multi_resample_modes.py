@@ -205,3 +205,29 @@ def test_column_only_byindex_regression():
         rv, rk = resample(vals, idx, every=W, agg=agg)
         np.testing.assert_array_equal(k, rk)
         np.testing.assert_array_equal(v[:, col], rv)
+
+
+# ---------------------------------------------------------------------------
+# advance() parks an empty bucket; a later data event in a further bucket fills
+# the parked bucket per the fill policy (locks the intended empty-bar semantics
+# that the clock port relies on; see task 6a review Minor #1).
+# ---------------------------------------------------------------------------
+
+def test_advance_then_later_event_fills_parked_bucket():
+    price = Input("p")
+    bars = multi_resample([price], [Last()], every=100, fill="nan")
+    dag = Dag([price], [bars])
+
+    live = dag.live()
+    live.push("p", 0, 10.0)     # bucket 0
+    live.advance(150)           # emit bucket 0 (=10); park empty bucket 1 (open)
+    live.push("p", 320, 40.0)   # bucket 3 -> crosses past parked bucket 1 and bucket 2
+    live.flush()                # emit trailing bucket 3 (=40)
+    v, k = live.result()
+
+    v = np.asarray(v).reshape(-1)
+    np.testing.assert_array_equal(k, [0, 100, 200, 300])  # parked bucket 1 IS filled
+    assert v[0] == 10.0
+    assert np.isnan(v[1])       # parked-then-crossed empty bucket -> NaN fill
+    assert np.isnan(v[2])
+    assert v[3] == 40.0
