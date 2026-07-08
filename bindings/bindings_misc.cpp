@@ -9,6 +9,8 @@
 #include "screamer/cum_prod.h"
 #include "screamer/cum_max.h"
 #include "screamer/cum_min.h"
+#include "screamer/first.h"
+#include "screamer/last.h"
 #include "screamer/detrend.h"
 
 namespace py = pybind11;
@@ -61,6 +63,16 @@ void init_bindings_misc(py::module& m) {
         .def(py::init<>())
         .def("__call__", &screamer::CumMin::operator(), py::arg("value"))
         .def("reset", &screamer::CumMin::reset, "Reset to the initial state.");
+
+    py::class_<screamer::First, screamer::ScreamerBase>(m, "First")
+        .def(py::init<>())
+        .def("__call__", &screamer::First::operator(), py::arg("value"))
+        .def("reset", &screamer::First::reset, "Reset to the initial state.");
+
+    py::class_<screamer::Last, screamer::ScreamerBase>(m, "Last")
+        .def(py::init<>())
+        .def("__call__", &screamer::Last::operator(), py::arg("value"))
+        .def("reset", &screamer::Last::reset, "Reset to the initial state.");
 
     // Detrend: y[t] = x[t] - RollingMean(window)(x)[t].
     py::class_<screamer::Detrend, screamer::ScreamerBase>(m, "Detrend")

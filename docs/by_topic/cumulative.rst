@@ -32,6 +32,10 @@ Running aggregates from the start of the series.
      - Running product from t=0.
    * - :doc:`ExpandingSum </functions_expanding/ExpandingSum>`
      - Running sum from t=0.
+   * - :doc:`First </functions_misc/First>`
+     - Latch the first finite value seen since reset.
+   * - :doc:`Last </functions_misc/Last>`
+     - Return the most recent finite value seen since reset.
    * - :doc:`MaxDrawdown </functions_fin/MaxDrawdown>`
      - Worst drawdown experienced so far (since reset).
    * - :doc:`OBV </functions_rolling/OBV>`
