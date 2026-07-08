@@ -42,6 +42,10 @@ Elementwise numeric operations: rounding, powers, logs, exponentials, affine tra
      - Natural logarithm of each element.
    * - :doc:`Mul </functions_math/Mul>`
      - Elementwise product of two aligned streams (x * y).
+   * - :doc:`NegPart </functions_math/NegPart>`
+     - Negative part of x: max(-x, 0).
+   * - :doc:`PosPart </functions_math/PosPart>`
+     - Positive part of x: max(x, 0).
    * - :doc:`Power </functions_math/Power>`
      - x raised to a fixed exponent p.
    * - :doc:`Round </functions_math/Round>`

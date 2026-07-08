@@ -144,6 +144,7 @@ For a step-by-step walkthrough see the :doc:`User Guide <usage>`.
    notebooks/07-working-with-streams
    notebooks/08-replay-backtest-live
    notebooks/09-computational-dag
+   notebooks/10-tick-bars-and-custom-aggregations
 
 
 .. toctree::

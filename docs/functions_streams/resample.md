@@ -2,7 +2,7 @@
 name: resample
 title: resample
 kind: function
-short: Causal windowed downsample of a 1-D value stream.
+short: Causal windowed downsample of a 1-D or multi-column value stream.
 topics:
 - streams
 covers:
@@ -12,10 +12,47 @@ covers:
 # `resample`
 
 Causal windowed downsampling. Group a stream into fixed index-interval buckets
-(`every=`) or fixed event-count buckets (`count=`), and reduce each bucket with
-one of `first`, `last`, `min`, `max`, `sum`, `count`, `mean`, or `ohlc`. A
-bucket emits only once a later index proves it complete, and the trailing partial
-bucket emits at the end of the input. Usable eagerly and inside a `Dag`.
+(`every=`) or fixed event-count buckets (`count=`), reduce each bucket with a
+per-bar aggregation, and return a labelled `Stream`. A bucket emits only once a
+later index proves it complete; the trailing partial bucket emits at end of input.
+Usable eagerly (raw arrays or `Stream`) and inside a `Dag`.
+
+The `agg` parameter accepts three forms:
+
+**String shorthand** -- one of `first`, `last`, `min`, `max`, `sum`, `count`,
+`mean`, `ohlc`, `ohlcv`, `ohlcv2`. `ohlc` returns four columns
+(`open`, `high`, `low`, `close`). `ohlcv` and `ohlcv2` accept a two-column
+input `[price, volume]`; see below.
+
+**Any `EvalOp` functor** -- e.g. `ExpandingSkew()`. The functor is `reset()` at
+each bar boundary and fed every in-bar sample; its last output before the close
+is emitted as the bar value. All screamer functors are valid reducers.
+
+**Dict** `{name: str|functor}` -- runs each sub-reducer over the same bucketing
+and returns a labelled `Stream` whose `.columns` are the dict keys (insertion
+order). Dict agg is an eager convenience; it is not available in the graph
+(`Node`) regime.
+
+## Labelled output and `Stream.columns`
+
+Every `resample` call returns a `Stream`, which is also unpackable as
+`(values, index)` for backward-compatible tuple unpacking. Multi-column
+aggregations (`ohlc`, `ohlcv`, `ohlcv2`, dict) set `.columns` on the returned
+`Stream` to a tuple of column names; single-value aggregations leave `.columns`
+as `None`. Use `bars["close"]` to read a named 1-D column, or iterate
+`(values, index) = bars` for the full array.
+
+## `ohlcv` and `ohlcv2` (two-column input)
+
+Both require `values` to be a `(T, 2)` array: column 0 is price, column 1 is
+volume (unsigned for `ohlcv`, signed for `ohlcv2`).
+
+`ohlcv` produces `(open, high, low, close, volume)`. The volume column is the sum
+of column-1 values inside each bar.
+
+`ohlcv2` produces `(open, high, low, close, buy_vol, sell_vol)`. Buy volume is
+`sum(PosPart(signed_vol))` and sell volume is `sum(NegPart(signed_vol))` per bar
+-- the signed-part decomposition.
 
 <!-- HELP_END -->
 
@@ -24,7 +61,9 @@ bucket emits at the end of the input. Usable eagerly and inside a `Dag`.
 .. autofunction:: screamer.streams.resample_iter
 ```
 
-## Example
+## Examples
+
+### Mean bar
 
 Downsample tick values into buckets of width 10 and take the mean of each bucket.
 
@@ -38,10 +77,75 @@ Downsample tick values into buckets of width 10 and take the mean of each bucket
    idx  = np.array([0, 3, 10, 12, 20])
    vals = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
 
-   bar_means, bar_idx = resample(vals, index=idx, every=10, agg="mean")
-   print(bar_means)
-   print(bar_idx)
+   bars = resample(vals, index=idx, every=10, agg="mean")
+   print(bars.values)
+   print(bars.index)
 ```
 
-Use `agg="ohlc"` for an open/high/low/close bar (a four-column result), or
-`count=` to bucket by a fixed number of events instead of an index interval.
+### OHLCV bars from tick data
+
+Pass a two-column `[price, volume]` array and use `agg="ohlcv"` for a
+labelled five-column bar stream.
+
+```{eval-rst}
+.. exec_code::
+
+   # --- hide: start ---
+   import numpy as np
+   from screamer.streams import resample
+   np.random.seed(0)
+   # --- hide: stop ---
+   price  = np.array([100., 101., 99., 102., 98., 103., 97., 104., 96., 105.])
+   volume = np.array([10., 20., 15., 30., 12., 22., 18., 25., 14., 28.])
+   idx    = np.arange(10, dtype=np.int64)
+
+   bars = resample(np.column_stack([price, volume]), idx, every=5, agg="ohlcv")
+   print(bars.columns)
+   print(bars.values.round(2))
+```
+
+### Custom per-bar statistic with a functor
+
+Any `EvalOp` functor resets at each bar boundary and accumulates within the
+bar. `ExpandingSkew()` returns the intra-bar price skewness at bar close.
+
+```{eval-rst}
+.. exec_code::
+
+   # --- hide: start ---
+   import numpy as np
+   from screamer import ExpandingSkew
+   from screamer.streams import resample
+   np.random.seed(0)
+   # --- hide: stop ---
+   price = np.random.normal(100, 1, 20)
+   idx   = np.arange(20, dtype=np.int64)
+
+   bars = resample(price, idx, every=5, agg=ExpandingSkew())
+   print(bars.values.round(4))
+```
+
+### Labelled multi-column bars with dict `agg`
+
+Pass a dict to run several reducers over the same bucketing in one call. Each
+entry must produce one output column; the keys become `.columns` of the result.
+
+```{eval-rst}
+.. exec_code::
+
+   # --- hide: start ---
+   import numpy as np
+   from screamer import ExpandingSkew, ExpandingSlope
+   from screamer.streams import resample
+   np.random.seed(0)
+   # --- hide: stop ---
+   price = 100 + np.cumsum(np.random.normal(0, 0.3, 20))
+   idx   = np.arange(20, dtype=np.int64)
+
+   bars = resample(price, idx, every=5,
+                   agg={"skew": ExpandingSkew(), "slope": ExpandingSlope()})
+   print(bars.columns)
+   print(bars.values.round(4))
+```
+
+Use `count=` to bucket by a fixed number of events instead of an index interval.

@@ -49,6 +49,16 @@ Every function, grouped by topic. Topics are many-to-many, so a function may app
    functions_ew/EwStd
    functions_ew/EwVar
    functions_ew/EwZscore
+   functions_expanding/ExpandingKurt
+   functions_expanding/ExpandingMax
+   functions_expanding/ExpandingMean
+   functions_expanding/ExpandingMin
+   functions_expanding/ExpandingProd
+   functions_expanding/ExpandingSkew
+   functions_expanding/ExpandingSlope
+   functions_expanding/ExpandingStd
+   functions_expanding/ExpandingSum
+   functions_expanding/ExpandingVar
    functions_fin/Drawdown
    functions_fin/LogReturn
    functions_fin/MaxDrawdown
@@ -93,7 +103,9 @@ Every function, grouped by topic. Topics are many-to-many, so a function may app
    functions_math/Linear2
    functions_math/Log
    functions_math/Mul
+   functions_math/NegPart
    functions_math/Polar2Cart
+   functions_math/PosPart
    functions_math/Power
    functions_math/Relu
    functions_math/Round

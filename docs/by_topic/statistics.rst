@@ -24,6 +24,16 @@ Windowed summary statistics: central tendency, dispersion, quantiles, moments, a
      - EW standard deviation.
    * - :doc:`EwVar </functions_ew/EwVar>`
      - EW variance (pandas adjust=True bias-corrected).
+   * - :doc:`ExpandingKurt </functions_expanding/ExpandingKurt>`
+     - Running bias-corrected excess kurtosis (Fisher) over the whole history.
+   * - :doc:`ExpandingMean </functions_expanding/ExpandingMean>`
+     - Running mean over the whole history since the last reset.
+   * - :doc:`ExpandingSkew </functions_expanding/ExpandingSkew>`
+     - Running bias-corrected sample skewness (G1) over the whole history.
+   * - :doc:`ExpandingStd </functions_expanding/ExpandingStd>`
+     - Running sample standard deviation (ddof=1) over the whole history.
+   * - :doc:`ExpandingVar </functions_expanding/ExpandingVar>`
+     - Running sample variance (ddof=1) over the whole history.
    * - :doc:`RollingArgmax </functions_rolling/RollingArgmax>`
      - Window-offset of the trailing-window maximum (TA-Lib MAXINDEX).
    * - :doc:`RollingArgmin </functions_rolling/RollingArgmin>`
