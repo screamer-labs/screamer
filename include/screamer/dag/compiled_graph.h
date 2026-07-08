@@ -267,6 +267,14 @@ public:
         for (auto* s : input_sinks_) if (s) s->flush();
     }
 
+    // Time-driven finalization: close every resample window whose boundary has passed
+    // by logical time `now`. Does not end the stream (unlike flush()); safe to call
+    // repeatedly with non-decreasing `now`.
+    void advance(std::int64_t now) {
+        for (auto* r : reset_resamples_)         r->advance(now);
+        for (auto* r : reset_generic_resamples_) r->advance(now);
+    }
+
     // Routes a single width-1 event into the graph without resetting state.
     // Bounds-checked: throws if input_idx >= num_in_.
     void push_event(std::size_t input_idx, std::int64_t index, double value) {

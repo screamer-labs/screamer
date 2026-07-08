@@ -105,6 +105,8 @@ void init_bindings_dag(py::module& m) {
 
         void flush() { cg->flush(); }
 
+        void advance(std::int64_t now) { cg->advance(now); }
+
         py::list drain() {
             return marshal_output_buffers(cg->drain());
         }
@@ -126,6 +128,7 @@ void init_bindings_dag(py::module& m) {
         .def("push_event",  &PyCompiledGraph::push_event,
              py::arg("input_idx"), py::arg("index"), py::arg("value"))
         .def("flush",       &PyCompiledGraph::flush)
+        .def("advance",     &PyCompiledGraph::advance, py::arg("now"))
         .def("drain",       &PyCompiledGraph::drain)
         .def("run_batch",   &PyCompiledGraph::run_batch, py::arg("feeds"));
 

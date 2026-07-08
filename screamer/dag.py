@@ -145,6 +145,36 @@ def _check_stateful_safety(outputs):
         stack.extend(node.inputs)
 
 
+class _LiveDag:
+    """A live streaming session over a compiled Dag. `input` in push() is an Input
+    name (str) or its positional index (int)."""
+    def __init__(self, dag):
+        self._dag = dag
+        self._cg = dag._cg
+        self._cg.reset()
+
+    def push(self, input, index, value):
+        src = input if isinstance(input, int) else self._dag._input_order.index(input)
+        self._cg.push_event(int(src), int(index), float(value))
+        return self
+
+    def advance(self, now):
+        """Close every window whose boundary has passed by logical time `now`."""
+        self._cg.advance(int(now))
+        return self
+
+    def flush(self):
+        """Finalize the current partial window(s) now (end-of-loop / on demand)."""
+        self._cg.flush()
+        return self
+
+    def result(self):
+        """Aligned outputs accumulated so far (drains the buffers)."""
+        results = self._cg.drain()
+        results = [(k, v.reshape(-1) if v.shape[1] == 1 else v) for (k, v) in results]
+        return _align_results(results, self._dag.align_outputs)
+
+
 class Dag:
     """A positional N-in / M-out callable that evaluates a computation graph.
 
@@ -272,6 +302,16 @@ class Dag:
         results = self._cg.drain()
         results = [(k, v.reshape(-1) if v.shape[1] == 1 else v) for (k, v) in results]
         return _align_results(results, self.align_outputs)
+
+    def live(self):
+        """Open a live streaming session: push events and drive a clock yourself.
+
+        Bind data AFTER definition, event by event - the same Dag that runs batch.
+        Push events with .push(input, index, value); close windows whose boundary has
+        passed with .advance(now) (e.g. on a clock tick, finalizing empty bars); force
+        the current partial window with .flush(); collect aligned outputs with .result().
+        """
+        return _LiveDag(self)
 
     # -- inspection / visualization ------------------------------------------
     def __repr__(self):

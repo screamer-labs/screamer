@@ -73,6 +73,27 @@ public:
         have_emitted_ = false;
     }
 
+    // Close every window whose end boundary has passed by logical time `now`, even
+    // when empty. Emits the current bucket (real row if it has data) and then any
+    // trailing empty buckets up to but NOT including the bucket that contains `now`
+    // (that bucket is still open). No-op for count mode (windows are event-counted,
+    // not timed) and when the node has not started (no event has anchored it yet).
+    void advance(Index now) {
+        if (p_.mode != ResampleMode::ByIndex) return;   // count mode: time has no meaning
+        if (!started_) return;                           // nothing to anchor trailing empties
+        std::int64_t target =
+            floordiv(static_cast<std::int64_t>(now) - p_.origin, p_.width);
+        if (target <= bucket_) return;                   // still inside the current bucket
+        // Close the current bucket: real row if it saw events, else a fill row.
+        if (has_) emit(cur_label_);
+        else if (p_.fill != ResampleFill::Skip) emit_fill(cur_label_);
+        // Trailing empty buckets strictly between the current one and `target`.
+        if (p_.fill != ResampleFill::Skip)
+            for (std::int64_t b = bucket_ + 1; b < target; ++b) emit_fill(label_for(b));
+        // Move to the (still open, empty) bucket that contains `now`.
+        bucket_ = target; clear_bucket(); set_index_label(target);
+    }
+
 private:
     void add(double v) {
         has_ = true;                       // any event, even NaN
