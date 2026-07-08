@@ -903,10 +903,10 @@ def resample(values, index=None, *, every=None, count=None, agg="last",
                                   fill=fill, columns=tuple(names))
         if agg in ("ohlcv", "ohlcv2"):
             raise ValueError(
-                f"resample: agg='{agg}' is an eager-only convenience (v1) and is "
-                "not supported in the graph (Node) regime. Split columns and use "
-                "separate resample Nodes (one for the price stream, one per volume "
-                "aggregation).")
+                f"resample: the agg='{agg}' string shorthand is eager-only and is "
+                "not supported in the graph (Node) regime. In a graph, build the "
+                "columns with a lazy agg dict instead, e.g. agg={'open': "
+                "First()(price), 'buy': ExpandingSum()(PosPart()(vol)), ...}.")
         return make_operator_node(resample, (values,), {
             "every": every, "count": count, "agg": agg,
             "origin": origin, "label": label, "fill": fill})

@@ -28,10 +28,20 @@ input `[price, volume]`; see below.
 each bar boundary and fed every in-bar sample; its last output before the close
 is emitted as the bar value. All screamer functors are valid reducers.
 
-**Dict** `{name: str|functor}` -- runs each sub-reducer over the same bucketing
-and returns a labelled `Stream` whose `.columns` are the dict keys (insertion
-order). Dict agg is an eager convenience; it is not available in the graph
-(`Node`) regime.
+**Dict** `{name: agg}` -- run several reducers over the same bucketing in one
+call, returning a labelled `Stream` whose `.columns` are the dict keys (insertion
+order). Each entry produces one column. There are two forms:
+
+- *Eager*, over raw arrays or a `Stream`: each value is a string or functor
+  reducer applied to the single value stream, e.g.
+  `{"open": "first", "vol": "sum"}`.
+- *Graph / lazy*, inside a `Dag` (`resample(t, agg={...})` where the dict values
+  are `Node` expressions): each value is a lazy `Reducer()(sub_expr)` -- its top
+  node is the per-bar reducer and its single input is the upstream port, so
+  per-tick transforms live in the expression, e.g.
+  `{"buy": ExpandingSum()(PosPart()(vol))}`. All columns share one bar clock and
+  cannot drift; the first positional argument `t` is the clock, and data binds at
+  call time.
 
 ## Labelled output and `Stream.columns`
 
@@ -146,6 +156,37 @@ entry must produce one output column; the keys become `.columns` of the result.
                    agg={"skew": ExpandingSkew(), "slope": ExpandingSlope()})
    print(bars.columns)
    print(bars.values.round(4))
+```
+
+### Multi-column bars in a `Dag` with a lazy dict
+
+Inside a graph, the dict values are lazy expressions rooted at `Input`s. One
+`resample` call builds a single bar node (one clock, N labelled columns) that you
+place in a `Dag` and bind to data at call time. All columns share the clock, so
+they cannot drift.
+
+```{eval-rst}
+.. exec_code::
+
+   # --- hide: start ---
+   import numpy as np
+   from screamer import First, Last, ExpandingMax, ExpandingMin
+   from screamer.streams import resample
+   from screamer.dag import Input, Dag
+   # --- hide: stop ---
+   t_arr  = np.arange(10, dtype=np.int64)
+   px     = np.array([100., 101., 99., 102., 98., 103., 97., 104., 96., 105.])
+
+   price, t = Input("price"), Input("t")
+   bars = resample(t, every=5, agg={
+       "open":  First()(price),
+       "high":  ExpandingMax()(price),
+       "low":   ExpandingMin()(price),
+       "close": Last()(price),
+   })
+   ohlc = Dag([t, price], [bars])(t=(t_arr.astype(float), t_arr), price=(px, t_arr))
+   print(ohlc.columns)
+   print(ohlc.values.round(2))
 ```
 
 Use `count=` to bucket by a fixed number of events instead of an index interval.
