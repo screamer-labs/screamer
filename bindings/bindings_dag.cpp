@@ -159,11 +159,12 @@ void init_bindings_dag(py::module& m) {
 
         std::size_t add_resample(std::vector<std::size_t> inputs, int mode, int agg,
                                  int label, std::int64_t width, std::int64_t origin,
-                                 std::int64_t count, py::object reducer) {
+                                 std::int64_t count, py::object reducer, int fill) {
             dag::ResampleParams rp;
             rp.mode   = static_cast<dag::ResampleMode>(mode);    // 0=ByIndex, 1=ByCount
             rp.agg    = static_cast<dag::ResampleAgg>(agg);      // 0..7 First..Ohlc
             rp.label  = static_cast<dag::ResampleLabel>(label);  // 0=Left, 1=Right
+            rp.fill   = static_cast<dag::ResampleFill>(fill);    // 0=Skip, 1=Nan, 2=Carry
             rp.width  = width;
             rp.origin = origin;
             rp.count  = count;
@@ -220,12 +221,12 @@ void init_bindings_dag(py::module& m) {
         .def("add_resample", [](PyGraphBuilder& b, std::vector<std::size_t> inputs,
                                 int mode, int agg, int label,
                                 std::int64_t width, std::int64_t origin, std::int64_t count,
-                                py::object reducer) {
+                                py::object reducer, int fill) {
             return b.add_resample(std::move(inputs), mode, agg, label, width, origin,
-                                  count, reducer);
+                                  count, reducer, fill);
         }, py::arg("inputs"), py::arg("mode"), py::arg("agg"), py::arg("label"),
            py::arg("width"), py::arg("origin"), py::arg("count"),
-           py::arg("reducer") = py::none())
+           py::arg("reducer") = py::none(), py::arg("fill") = 0)
         .def("set_outputs", &PyGraphBuilder::set_outputs, py::arg("output_ids"))
         .def("compile", [](PyGraphBuilder& b) { return b.compile(); })
         .def("run_batch", [](PyGraphBuilder& b, py::list feeds) {

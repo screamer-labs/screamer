@@ -606,6 +606,7 @@ def select_iter(events, columns):
 
 _RESAMPLE_AGGS = ("first", "last", "min", "max", "sum", "count", "mean", "ohlc",
                   "ohlcv", "ohlcv2")
+_RESAMPLE_FILLS = ("skip", "nan", "carry")
 _OHLC_COLUMNS  = ("open", "high", "low", "close")
 _OHLCV_COLUMNS = ("open", "high", "low", "close", "volume")
 _OHLCV2_COLUMNS = ("open", "high", "low", "close", "buy_vol", "sell_vol")
@@ -670,7 +671,8 @@ class _ResampleAccum:
                 self.mn if c else nan, self.last if c else nan]
 
 
-def _resample_eager_via_cpp(vals, idx, *, every, count, agg, origin, label):
+def _resample_eager_via_cpp(vals, idx, *, every, count, agg, origin, label,
+                            fill="skip"):
     """Run the eager resample on the C++ engine, not in Python.
 
     Builds a minimal one-node graph (Input -> Resample -> gather) and evaluates
@@ -685,12 +687,12 @@ def _resample_eager_via_cpp(vals, idx, *, every, count, agg, origin, label):
     from .dag import Input, Dag
     src = Input("x")
     node = resample(src, every=every, count=count, agg=agg,
-                    origin=origin, label=label)
+                    origin=origin, label=label, fill=fill)
     dag = Dag([src], [node])
     return dag((vals, idx))   # values-first (values, index)
 
 
-def _resample_validate(every, count, agg, label):
+def _resample_validate(every, count, agg, label, fill="skip"):
     if (every is None) == (count is None):
         raise ValueError("resample: pass exactly one of every= or count=")
     # Positivity guard: every=0 would reach the engine's floordiv(_, 0) -> a hard
@@ -707,9 +709,12 @@ def _resample_validate(every, count, agg, label):
         raise ValueError(f"resample: agg must be one of {_RESAMPLE_AGGS}")
     if label not in ("left", "right"):
         raise ValueError('resample: label must be "left" or "right"')
+    if fill not in _RESAMPLE_FILLS:
+        raise ValueError(f"resample: fill must be one of {_RESAMPLE_FILLS}")
 
 
-def _resample_dict(vals, idx, agg_dict, *, every, count, origin, label):
+def _resample_dict(vals, idx, agg_dict, *, every, count, origin, label,
+                   fill="skip"):
     """Run each sub-reducer in a dict agg independently over the same bucketing.
 
     Each entry ``{name: str|functor}`` is run through ``_resample_eager_via_cpp``
@@ -761,7 +766,7 @@ def _resample_dict(vals, idx, agg_dict, *, every, count, origin, label):
         # Delegate to the C++ engine - no Python numeric loop.
         out_v, sub_idx = _resample_eager_via_cpp(
             vals, idx, every=every, count=count, agg=sub_agg,
-            origin=origin, label=label)
+            origin=origin, label=label, fill=fill)
         out_cols.append(out_v)
         if out_idx is None:
             out_idx = sub_idx
@@ -772,7 +777,8 @@ def _resample_dict(vals, idx, agg_dict, *, every, count, origin, label):
     return Stream(stacked, out_idx, columns=tuple(agg_dict.keys()))
 
 
-def _resample_ohlcv(vals_2d, idx, agg, *, every, count, origin, label):
+def _resample_ohlcv(vals_2d, idx, agg, *, every, count, origin, label,
+                    fill="skip"):
     """Orchestrate ohlcv or ohlcv2 by composing existing C++ reducers.
 
     Splits the 2-column input [price, volume|signed_volume] into two 1-D arrays
@@ -793,13 +799,13 @@ def _resample_ohlcv(vals_2d, idx, agg, *, every, count, origin, label):
     # OHLC for price (C++ ohlc reducer -> 4 columns)
     ohlc_vals, out_idx = _resample_eager_via_cpp(
         price, idx, every=every, count=count, agg="ohlc",
-        origin=origin, label=label)
+        origin=origin, label=label, fill=fill)
 
     if agg == "ohlcv":
         # Total signed-volume sum (C++ sum reducer -> 1 column)
         vol_vals, _ = _resample_eager_via_cpp(
             volume, idx, every=every, count=count, agg="sum",
-            origin=origin, label=label)
+            origin=origin, label=label, fill=fill)
         stacked = np.column_stack([ohlc_vals, vol_vals])
         return Stream(stacked, out_idx, columns=_OHLCV_COLUMNS)
 
@@ -810,17 +816,17 @@ def _resample_ohlcv(vals_2d, idx, agg, *, every, count, origin, label):
 
     buy_vals, _  = _resample_eager_via_cpp(
         buy_arr,  idx, every=every, count=count, agg="sum",
-        origin=origin, label=label)
+        origin=origin, label=label, fill=fill)
     sell_vals, _ = _resample_eager_via_cpp(
         sell_arr, idx, every=every, count=count, agg="sum",
-        origin=origin, label=label)
+        origin=origin, label=label, fill=fill)
 
     stacked = np.column_stack([ohlc_vals, buy_vals, sell_vals])
     return Stream(stacked, out_idx, columns=_OHLCV2_COLUMNS)
 
 
 def resample(values, index=None, *, every=None, count=None, agg="last",
-             origin=0, label="left"):
+             origin=0, label="left", fill="skip"):
     """Causal windowed downsample of a 1-D value stream.
 
     Exactly one of ``every`` (fixed index-interval; buckets
@@ -845,8 +851,20 @@ def resample(values, index=None, *, every=None, count=None, agg="last",
       convenience only: not available in the graph (``Node``) regime.
 
     ``label`` is ``"left"`` (bucket start / first index) or ``"right"``
-    (bucket end / last index).  NaN values are ignored.  Only non-empty
-    buckets emit; the trailing partial bucket is emitted at end of input.
+    (bucket end / last index).  NaN values are ignored.
+
+    ``fill`` controls empty **internal** buckets (a gap between two events where
+    one or more buckets have no samples):
+
+    * ``"skip"`` (default) -- no row for an empty bucket (legacy behavior).
+    * ``"nan"`` -- an all-NaN row at each empty bucket's label.
+    * ``"carry"`` -- repeat the previous emitted row's values verbatim (v1: the
+      whole row is carried, including sum/volume-like columns; a per-column
+      "carry price / zero volume" refinement is out of scope).
+
+    Only internal gaps are filled; trailing empty buckets after the last event
+    are not synthesized here (that needs the clock/``advance()`` mechanism). The
+    trailing partial bucket is still emitted once at end of input.
     Integer index-space.
 
     Values-first + polymorphic: raw arrays, Stream, or graph Node. The returned
@@ -856,7 +874,7 @@ def resample(values, index=None, *, every=None, count=None, agg="last",
     Graph form: resample(node, ...) where node is a Node.
     When ``values`` is a ``Stream`` it carries its own index; ``index=`` applies only to raw arrays.
     """
-    _resample_validate(every, count, agg, label)
+    _resample_validate(every, count, agg, label, fill)
     if is_node(values):
         if isinstance(agg, dict):
             raise ValueError(
@@ -870,7 +888,7 @@ def resample(values, index=None, *, every=None, count=None, agg="last",
                 "aggregation).")
         return make_operator_node(resample, (values,), {
             "every": every, "count": count, "agg": agg,
-            "origin": origin, "label": label})
+            "origin": origin, "label": label, "fill": fill})
     stream = values if isinstance(values, Stream) else Stream(values, index)
     vals = np.asarray(stream.values, dtype=np.float64)
     # ohlcv / ohlcv2 require exactly 2 input columns [price, volume|signed_volume].
@@ -894,19 +912,20 @@ def resample(values, index=None, *, every=None, count=None, agg="last",
     # runs in the C++ engine via the existing single-agg path.
     if isinstance(agg, dict):
         return _resample_dict(vals, idx, agg, every=every, count=count,
-                              origin=origin, label=label)
+                              origin=origin, label=label, fill=fill)
 
     # ohlcv / ohlcv2: orchestrate existing C++ reducers over a 2-column input.
     # Python splits the columns, runs sub-resamples, and stacks; all numeric
     # bucketing and accumulation runs in C++ as with the single-column path.
     if agg in ("ohlcv", "ohlcv2"):
         return _resample_ohlcv(vals, idx, agg, every=every, count=count,
-                               origin=origin, label=label)
+                               origin=origin, label=label, fill=fill)
 
     # Delegate all bucketing/accumulation to the C++ engine (C++-first: no
     # Python numeric loop). Builds a one-node graph and runs it in batch.
     out_v, out_idx = _resample_eager_via_cpp(
-        vals, idx, every=every, count=count, agg=agg, origin=origin, label=label)
+        vals, idx, every=every, count=count, agg=agg, origin=origin, label=label,
+        fill=fill)
     # Attach column names for multi-column aggs; labels are pure Python marshalling.
     cols = _OHLC_COLUMNS if agg == "ohlc" else None
     # Both raw and Stream regimes return a Stream; Stream is unpackable as

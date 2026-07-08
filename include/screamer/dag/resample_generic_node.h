@@ -27,7 +27,10 @@ class GenericResampleNode : public Sink<Index> {
 public:
     GenericResampleNode(ResampleParams p, Sink<Index>& downstream)
         : p_(p), downstream_(downstream), reducer_(p.reducer),
-          out_(reducer_ ? reducer_->n_out() : 0) {
+          out_(reducer_ ? reducer_->n_out() : 0),
+          last_emitted_(reducer_ ? reducer_->n_out() : 0),
+          nan_row_(reducer_ ? reducer_->n_out() : 0,
+                   std::numeric_limits<double>::quiet_NaN()) {
         if (!reducer_)
             throw std::runtime_error(
                 "dag::GenericResampleNode: null reducer");
@@ -67,6 +70,7 @@ public:
         cur_label_ = Index{};
         count_in_bucket_ = 0;
         first_index_ = last_index_ = Index{};
+        have_emitted_ = false;
     }
 
 private:
@@ -89,15 +93,22 @@ private:
             started_ = true; bucket_ = nb; clear_bucket(); set_index_label(nb);
         } else if (nb != bucket_) {
             if (has_) emit(cur_label_);
+            // Fill internal gaps (empty buckets strictly between bucket_ and nb);
+            // trailing empties are handled by advance()/flush(), not here.
+            if (p_.fill != ResampleFill::Skip)
+                for (std::int64_t b = bucket_ + 1; b < nb; ++b)
+                    emit_fill(label_for(b));
             bucket_ = nb; clear_bucket(); set_index_label(nb);
         }
         add(v);
     }
 
-    void set_index_label(std::int64_t nb) {
+    Index label_for(std::int64_t nb) const {
         std::int64_t start = p_.origin + nb * p_.width;
-        cur_label_ = static_cast<Index>(p_.label == ResampleLabel::Left ? start : start + p_.width);
+        return static_cast<Index>(p_.label == ResampleLabel::Left ? start : start + p_.width);
     }
+
+    void set_index_label(std::int64_t nb) { cur_label_ = label_for(nb); }
 
     void push_by_count(Index k, double v) {
         if (count_in_bucket_ == 0) first_index_ = k;
@@ -117,7 +128,21 @@ private:
         if (!fed_)
             std::fill(out_.begin(), out_.end(),
                       std::numeric_limits<double>::quiet_NaN());
+        if (p_.fill == ResampleFill::Carry) {
+            last_emitted_.assign(out_.begin(), out_.end());
+            have_emitted_ = true;
+        }
         downstream_.push(Frame<Index>{label, out_.data(), out_.size()});
+    }
+
+    // Emit a filler row for an internal empty bucket. Nan -> an all-NaN row;
+    // Carry -> the previous emitted row verbatim (skipped if nothing emitted yet).
+    void emit_fill(Index label) {
+        if (p_.fill == ResampleFill::Nan) {
+            downstream_.push(Frame<Index>{label, nan_row_.data(), nan_row_.size()});
+        } else if (have_emitted_) {  // Carry
+            downstream_.push(Frame<Index>{label, last_emitted_.data(), last_emitted_.size()});
+        }
     }
 
     static std::int64_t floordiv(std::int64_t a, std::int64_t b) {
@@ -129,9 +154,12 @@ private:
     ResampleParams p_;
     Sink<Index>& downstream_;
     EvalOp* reducer_;
-    std::vector<double> out_;   // reducer's latest output (width n_out())
+    std::vector<double> out_;            // reducer's latest output (width n_out())
+    std::vector<double> last_emitted_;   // Carry: last emitted row
+    std::vector<double> nan_row_;        // Nan: reusable all-NaN row
     bool has_ = false;          // any event fell in the current bucket
     bool fed_ = false;          // reducer got >=1 finite sample this bucket
+    bool have_emitted_ = false; // Carry: any real row emitted yet
     bool started_ = false;
     std::int64_t bucket_ = 0;
     Index cur_label_{};

@@ -6,6 +6,7 @@ __all__ = ["Node", "Input", "Dag"]
 
 _RESAMPLE_AGG_CODE = {"first": 0, "last": 1, "min": 2, "max": 3,
                       "sum": 4, "count": 5, "mean": 6, "ohlc": 7}
+_RESAMPLE_FILL_CODE = {"skip": 0, "nan": 1, "carry": 2}
 
 
 class Node:
@@ -221,15 +222,16 @@ class Dag:
                     origin = int(kwargs.get("origin", 0))
                     count = int(kwargs["count"]) if kwargs.get("count") is not None else 1
                     agg_val = kwargs.get("agg", "last")
+                    fill = _RESAMPLE_FILL_CODE[kwargs.get("fill", "skip")]
                     if isinstance(agg_val, str):
                         # Builtin string agg: enum code, no functor reducer.
                         nid = gb.add_resample(inp, mode, _RESAMPLE_AGG_CODE[agg_val],
-                                              label, width, origin, count)
+                                              label, width, origin, count, fill=fill)
                     else:
                         # Arbitrary functor reducer (an EvalOp): agg code is ignored
                         # (pass 0); the reducer op drives GenericResampleNode.
                         nid = gb.add_resample(inp, mode, 0, label, width, origin,
-                                              count, agg_val)
+                                              count, agg_val, fill=fill)
                 else:
                     raise ValueError(
                         f"{name} is not supported as a DAG graph node")

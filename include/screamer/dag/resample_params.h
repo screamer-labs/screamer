@@ -10,11 +10,16 @@ namespace screamer { namespace dag {
 enum class ResampleMode  { ByIndex, ByCount };
 enum class ResampleAgg   { First, Last, Min, Max, Sum, Count, Mean, Ohlc };
 enum class ResampleLabel { Left, Right };
+// Empty-window fill policy for internal gaps (buckets with no events between two
+// events). Skip = no row (default, legacy behavior); Nan = an all-NaN row at the
+// gap's label; Carry = repeat the previous emitted row's values verbatim.
+enum class ResampleFill  { Skip, Nan, Carry };
 
 struct ResampleParams {
     ResampleMode  mode  = ResampleMode::ByIndex;
     ResampleAgg   agg   = ResampleAgg::Last;
     ResampleLabel label = ResampleLabel::Left;
+    ResampleFill  fill  = ResampleFill::Skip;
     std::int64_t  width  = 1;   // ByIndex
     std::int64_t  origin = 0;   // ByIndex
     std::int64_t  count  = 1;   // ByCount
