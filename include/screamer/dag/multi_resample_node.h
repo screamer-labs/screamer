@@ -127,9 +127,9 @@ private:
 
     void clear_bucket() {
         for (auto* r : reducers_) r->reset();
-        for (std::size_t i = 0; i < reducers_.size(); ++i)
-            std::fill(col_out_[i].begin(), col_out_[i].end(),
-                      std::numeric_limits<double>::quiet_NaN());
+        // col_out_[i] is only read in emit() when fed_[i] is true, i.e. after
+        // add() has written it via reducer eval; the !fed_[i] columns get NaN
+        // directly in emit(). So no per-bar NaN-fill of col_out_ is needed here.
         std::fill(fed_.begin(), fed_.end(), false);
         has_ = false;
     }
