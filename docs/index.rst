@@ -137,6 +137,7 @@ For a step-by-step walkthrough see the :doc:`User Guide <usage>`.
 
    notebooks/01-quickstart-polymorphic-api
    notebooks/02-rolling-and-ew-statistics
+   notebooks/11-expanding-statistics
    notebooks/03-financial-indicators
    notebooks/04-signal-processing
    notebooks/05-nan-handling
@@ -145,7 +146,6 @@ For a step-by-step walkthrough see the :doc:`User Guide <usage>`.
    notebooks/08-replay-backtest-live
    notebooks/09-computational-dag
    notebooks/10-tick-bars-and-custom-aggregations
-   notebooks/11-expanding-statistics
    notebooks/12-downsampling-with-resample
    notebooks/13-ohlcv2-and-the-dict-form
 
