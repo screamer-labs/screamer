@@ -43,6 +43,43 @@ order). Each entry produces one column. There are two forms:
   cannot drift; the first positional argument `t` is the clock, and data binds at
   call time.
 
+## Bucketing: `every=` vs `count=`
+
+Exactly one of `every=` or `count=` sets how bars are bounded, and they answer
+different questions.
+
+- `every=W` buckets along the **index**. Bar `n` is the half-open interval
+  `[origin + n*W, origin + (n+1)*W)`, so the index values decide membership. Bars
+  have equal width on the index but a variable number of ticks; a tick exactly on a
+  boundary starts the later bar. Boundaries are anchored at `origin` (default `0`,
+  i.e. multiples of `W`), **not** at the first tick -- set `origin=` to shift the
+  grid. Internal empty intervals are real and controlled by `fill=`.
+- `count=N` buckets by **arrival order**. A bar closes every `N` events and never
+  consults the index values to place boundaries. Bars have an equal number of ticks
+  but a variable width on the index, and one bar can straddle an arbitrary index gap
+  without noticing it.
+
+The `index` argument is **optional in both modes**. `count=` does not need it to
+find boundaries; `every=` uses it as the timeline being bucketed. If omitted, row
+position (`0, 1, 2, ...`) is used as the index.
+
+Bar **labels** depend on the mode and on `label=`:
+
+- `every=`: the bar's **grid edge** -- `origin + n*W` for `label="left"` (default)
+  or `origin + (n+1)*W` for `label="right"`. This is the interval boundary itself,
+  which need not equal any actual tick's index (and a right label can sit past the
+  last tick).
+- `count=`: an **actual tick index** -- the **first** tick of the bar for
+  `label="left"`, the **last** for `label="right"`.
+
+Concretely, eight ticks at index `[0, 1, 2, 10, 11, 20, 21, 22]`:
+
+- `every=10` -> bars `{0,1,2} {10,11} {20,21,22}` (counts 3, 2, 3), labels
+  `[0, 10, 20]` (grid edges).
+- `count=3`  -> bars `{0,1,2} {10,11,20} {21,22}` (counts 3, 3, 2), labels
+  `[0, 10, 21]` (first tick of each bar). The middle bar straddles the `11 -> 20`
+  gap because `count=` measures rows, not index distance.
+
 ## Labelled output and `Stream.columns`
 
 Every `resample` call returns a `Stream`, which is also unpackable as

@@ -829,8 +829,19 @@ def resample(values, index=None, *, every=None, count=None, agg="last",
              origin=0, label="left", fill="skip"):
     """Causal windowed downsample of a 1-D value stream.
 
-    Exactly one of ``every`` (fixed index-interval; buckets
-    ``[origin+n*every, origin+(n+1)*every)``) or ``count`` (fixed event-count).
+    Exactly one of ``every`` or ``count`` bounds the bars:
+
+    * ``every=W`` buckets along the **index**: bar ``n`` is the half-open interval
+      ``[origin+n*W, origin+(n+1)*W)`` (boundaries anchored at ``origin``, default 0,
+      i.e. multiples of ``W`` - not at the first tick). Equal width on the index,
+      variable ticks per bar; a tick exactly on a boundary starts the later bar.
+    * ``count=N`` buckets by **arrival order**: a bar closes every ``N`` events and
+      does not consult the index values for boundaries. Equal ticks per bar,
+      variable index width; a bar may straddle an arbitrary index gap.
+
+    ``index`` is optional in both modes; omit it to bucket/label by row position
+    (``0, 1, 2, ...``). ``count`` does not need it for boundaries; ``every`` uses it
+    as the timeline.
 
     ``agg`` controls the per-bucket aggregation:
 
@@ -860,8 +871,11 @@ def resample(values, index=None, *, every=None, count=None, agg="last",
         ``t`` is the clock; all columns share one bar clock, so they cannot drift.
         Place the result in a ``Dag`` and bind data at call time.
 
-    ``label`` is ``"left"`` (bucket start / first index) or ``"right"``
-    (bucket end / last index).  NaN values are ignored.
+    ``label`` picks each bar's index. For ``every=`` it is the **grid edge**
+    (``origin+n*W`` for ``"left"``, ``origin+(n+1)*W`` for ``"right"``) - the
+    interval boundary, which need not be an actual tick. For ``count=`` it is an
+    **actual tick index** (the bar's first tick for ``"left"``, its last for
+    ``"right"``).  NaN values are ignored.
 
     ``fill`` controls empty **internal** buckets (a gap between two events where
     one or more buckets have no samples):
