@@ -695,24 +695,100 @@ def _resample_validate(every, count, agg, label):
         raise ValueError("resample: every must be positive")
     if count is not None and int(count) < 1:
         raise ValueError("resample: count must be >= 1")
-    # agg may be a builtin string OR an arbitrary functor reducer (an EvalOp);
-    # only the string form is validated against the builtin set here.
+    # agg may be a builtin string, an arbitrary functor reducer (an EvalOp), or
+    # a dict of {name: str|functor} entries. Only string scalars are validated
+    # here; dict contents are validated in _resample_dict.
     if isinstance(agg, str) and agg not in _RESAMPLE_AGGS:
         raise ValueError(f"resample: agg must be one of {_RESAMPLE_AGGS}")
     if label not in ("left", "right"):
         raise ValueError('resample: label must be "left" or "right"')
 
 
+def _resample_dict(vals, idx, agg_dict, *, every, count, origin, label):
+    """Run each sub-reducer in a dict agg independently over the same bucketing.
+
+    Each entry ``{name: str|functor}`` is run through ``_resample_eager_via_cpp``
+    with the shared ``every``/``count``/``origin``/``label`` params.  Because all
+    sub-resamples see the same input and the same bucketing they produce identical
+    bar labels and the same number of bars, so their 1-D result columns align and
+    can be horizontally stacked.
+
+    Python only stacks the results and attaches names (marshalling); all numeric
+    bucketing and accumulation runs in the C++ engine.
+
+    Multi-column sub-aggs (``"ohlc"`` or a functor with ``num_outputs > 1``) are
+    rejected with a ``ValueError`` in v1 -- each dict entry must produce exactly
+    one column.  Use ``agg="ohlc"`` directly for a labelled 4-column ``Stream``.
+    """
+    if not agg_dict:
+        raise ValueError("resample: agg dict must not be empty")
+
+    out_cols = []
+    out_idx = None
+
+    for name, sub_agg in agg_dict.items():
+        # Validate the sub-agg and reject multi-column entries.
+        if isinstance(sub_agg, str):
+            if sub_agg not in _RESAMPLE_AGGS:
+                raise ValueError(
+                    f"resample: dict agg[{name!r}]: unknown string agg {sub_agg!r}; "
+                    f"must be one of {_RESAMPLE_AGGS}")
+            if sub_agg == "ohlc":
+                raise ValueError(
+                    f"resample: dict agg[{name!r}]: 'ohlc' produces 4 columns and "
+                    "cannot be used as a dict entry (v1: each entry must produce "
+                    "exactly 1 column). Use agg='ohlc' directly for a labelled "
+                    "4-column Stream.")
+        else:
+            # Functor: check num_outputs (exposed from EvalOp.n_out()).
+            n_out = getattr(sub_agg, "num_outputs", 1)
+            if n_out != 1:
+                raise ValueError(
+                    f"resample: dict agg[{name!r}]: functor produces {n_out} columns "
+                    "but each dict entry must produce exactly 1 column (v1 restriction). "
+                    "Use agg=functor directly for multi-column output.")
+
+        # Delegate to the C++ engine - no Python numeric loop.
+        out_v, sub_idx = _resample_eager_via_cpp(
+            vals, idx, every=every, count=count, agg=sub_agg,
+            origin=origin, label=label)
+        out_cols.append(out_v)
+        if out_idx is None:
+            out_idx = sub_idx
+
+    # All sub-aggs produce the same number of bars (same bucketing + same input),
+    # so column_stack is safe: shape (N,) per column -> (N, K) matrix.
+    stacked = np.column_stack(out_cols)
+    return Stream(stacked, out_idx, columns=tuple(agg_dict.keys()))
+
+
 def resample(values, index=None, *, every=None, count=None, agg="last",
              origin=0, label="left"):
     """Causal windowed downsample of a 1-D value stream.
 
-    Exactly one of `every` (fixed index-interval; buckets [origin+n*every,
-    origin+(n+1)*every)) or `count` (fixed event-count). agg is one of
-    first/last/min/max/sum/count/mean/ohlc (ohlc -> 4 columns). label "left"
-    stamps the bucket start (by-index) or first index (by-count); "right" stamps the
-    bucket end / last index. NaN values are ignored. Only non-empty buckets emit;
-    the trailing partial bucket is emitted at end of input. Integer index-space.
+    Exactly one of ``every`` (fixed index-interval; buckets
+    ``[origin+n*every, origin+(n+1)*every)``) or ``count`` (fixed event-count).
+
+    ``agg`` controls the per-bucket aggregation:
+
+    * **string** -- one of ``first``, ``last``, ``min``, ``max``, ``sum``,
+      ``count``, ``mean``, ``ohlc``.  ``ohlc`` returns 4 columns
+      ``(open, high, low, close)`` labelled on the returned ``Stream``.
+    * **functor** -- any :class:`screamer.EvalOp` reducer (e.g.
+      ``ExpandingSkew()``).  The functor is ``reset()`` at each bar boundary
+      and fed every in-bar sample; its last output before the close is emitted.
+      Must produce exactly 1 output column (``num_outputs == 1``).
+    * **dict** ``{name: str|functor, ...}`` -- runs each sub-reducer over the
+      same bucketing and returns a labelled ``Stream`` whose ``.columns``
+      are the dict keys (insertion order).  Each entry must produce exactly
+      1 column; ``"ohlc"`` and multi-output functors are rejected in v1 --
+      use ``agg="ohlc"`` directly for 4-column output.  Dict agg is an eager
+      convenience only: not available in the graph (``Node``) regime.
+
+    ``label`` is ``"left"`` (bucket start / first index) or ``"right"``
+    (bucket end / last index).  NaN values are ignored.  Only non-empty
+    buckets emit; the trailing partial bucket is emitted at end of input.
+    Integer index-space.
 
     Values-first + polymorphic: raw arrays, Stream, or graph Node. The returned
     index is always the bar labels (a real array, never None) - even for a
@@ -723,6 +799,10 @@ def resample(values, index=None, *, every=None, count=None, agg="last",
     """
     _resample_validate(every, count, agg, label)
     if is_node(values):
+        if isinstance(agg, dict):
+            raise ValueError(
+                "resample: dict agg is an eager convenience and is not supported "
+                "in the graph (Node) regime. Use one resample Node per reducer.")
         return make_operator_node(resample, (values,), {
             "every": every, "count": count, "agg": agg,
             "origin": origin, "label": label})
@@ -737,6 +817,13 @@ def resample(values, index=None, *, every=None, count=None, agg="last",
         idx = np.arange(len(vals), dtype=np.int64)
     else:
         idx = np.asarray(stream.index)
+
+    # Dict agg: run each sub-reducer over the shared bucketing and stack columns.
+    # Python only stacks the results and attaches names; all numeric reduction
+    # runs in the C++ engine via the existing single-agg path.
+    if isinstance(agg, dict):
+        return _resample_dict(vals, idx, agg, every=every, count=count,
+                              origin=origin, label=label)
 
     # Delegate all bucketing/accumulation to the C++ engine (C++-first: no
     # Python numeric loop). Builds a one-node graph and runs it in batch.
