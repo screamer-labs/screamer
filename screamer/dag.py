@@ -151,10 +151,12 @@ class _LiveDag:
     def __init__(self, dag):
         self._dag = dag
         self._cg = dag._cg
+        # name -> signature index, built once so per-event push() stays O(1)
+        self._src_of = {nm: i for i, nm in enumerate(dag._input_order)}
         self._cg.reset()
 
     def push(self, input, index, value):
-        src = input if isinstance(input, int) else self._dag._input_order.index(input)
+        src = input if isinstance(input, int) else self._src_of[input]
         self._cg.push_event(int(src), int(index), float(value))
         return self
 

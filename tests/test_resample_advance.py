@@ -146,3 +146,67 @@ def test_advance_closes_empty_windows_generic_reducer():
     assert v[0] == 10.0
     assert np.isnan(v[1])
     assert np.isnan(v[2])
+
+
+def test_advance_closes_empty_windows_generic_reducer_carry():
+    # Carry branch of the generic (functor-reducer) node: empty windows repeat
+    # the previous emitted row, not NaN.
+    src = Input("x")
+    node = resample(src, every=100, origin=0, agg=ExpandingSum(), fill="carry")
+    dag = Dag([src], [node])
+    live = dag.live()
+    live.push("x", 0, 10.0)
+    live.advance(350)
+    live.flush()
+    v, k = live.result()
+    v = np.asarray(v).reshape(-1)
+    np.testing.assert_array_equal(k, [0, 100, 200])
+    np.testing.assert_array_equal(v, [10.0, 10.0, 10.0])
+
+
+# ---------------------------------------------------------------------------
+# Idempotence / monotonicity: repeated advance must not double-emit, and a real
+# event landing in the still-open target bucket must EXTEND it (not re-open it).
+# ---------------------------------------------------------------------------
+
+def test_advance_idempotent_and_extends_open_target_bucket():
+    live = _live_last("nan")
+    live.push("x", 0, 10.0)
+    live.advance(350)   # closes 0(10), 100(nan), 200(nan); bucket 3 (label 300) open
+    live.advance(350)   # repeat same now -> no double-emit
+    live.advance(360)   # still inside bucket 3 -> no-op
+    live.push("x", 320, 30.0)   # real event lands in the open target bucket 3
+    live.advance(450)   # closes bucket 3 with the real value (label 300, value 30)
+    live.flush()        # bucket 4 (label 400) empty and open -> nothing
+    v, k = live.result()
+    np.testing.assert_array_equal(k, [0, 100, 200, 300])
+    assert v[0] == 10.0
+    assert np.isnan(v[1])
+    assert np.isnan(v[2])
+    assert v[3] == 30.0
+
+
+# ---------------------------------------------------------------------------
+# advance is a no-op before the first event (no anchor) and in count mode
+# (event-counted windows have no time semantics).
+# ---------------------------------------------------------------------------
+
+def test_advance_noop_not_started():
+    live = _live_last("nan")
+    live.advance(1000)   # no event yet -> nothing to anchor, emits nothing
+    live.flush()
+    v, k = live.result()
+    assert len(np.asarray(k)) == 0
+
+
+def test_advance_noop_count_mode():
+    src = Input("x")
+    node = resample(src, count=2, agg="last", fill="nan")
+    dag = Dag([src], [node])
+    live = dag.live()
+    live.push("x", 0, 10.0)
+    live.advance(10_000)   # count mode: advance has no time meaning -> no-op
+    live.flush()           # flush emits the 1-event partial bucket at label 0
+    v, k = live.result()
+    np.testing.assert_array_equal(k, [0])
+    np.testing.assert_array_equal(v, [10.0])
