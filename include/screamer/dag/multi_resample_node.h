@@ -17,7 +17,11 @@ namespace screamer { namespace dag {
 // EvalOp. Emits one row per bar: the N reducers' outputs concatenated (width =
 // sum of reducer n_out()), labelled by the bucket. Generalizes
 // GenericResampleNode (1 port) to N ports; mirrors CombineLatestNode's per-port
-// Sink fan-in and its all-ports-flushed coalescing. ByIndex only in v1.
+// Sink fan-in and its all-ports-flushed coalescing. Supports ByIndex and ByCount
+// (count = a bar every N DISTINCT ticks/indices, not per-port pushes) plus an
+// optional trailing clock port: an extra input that only advances the bucket
+// (feeds no reducer, adds no column) so a clock/timestamp stream can finalize
+// empty time-bars straight from the data (ByIndex only).
 // NaN-ignore per port: NaN samples are not fed to that port's reducer; a port
 // with no finite sample in a bar emits NaN for its columns; a bar with any event
 // (on any port) emits, empty bars follow the fill policy.
@@ -25,7 +29,7 @@ template <class Index>
 class MultiResampleNode {
 public:
     MultiResampleNode(ResampleParams clock, std::vector<EvalOp*> reducers,
-                      Sink<Index>& downstream)
+                      bool has_clock, Sink<Index>& downstream)
         : p_(clock), reducers_(std::move(reducers)), downstream_(downstream) {
         if (reducers_.empty())
             throw std::runtime_error("dag::MultiResampleNode: no reducers");
@@ -43,13 +47,16 @@ public:
         last_emitted_.assign(width_, 0.0);
         nan_row_.assign(width_, std::numeric_limits<double>::quiet_NaN());
         fed_.assign(reducers_.size(), false);
-        flushed_.assign(reducers_.size(), false);
         col_out_.resize(reducers_.size());
         for (std::size_t i = 0; i < reducers_.size(); ++i)
             col_out_[i].assign(reducers_[i]->n_out(),
                                std::numeric_limits<double>::quiet_NaN());
-        ports_.reserve(reducers_.size());   // reserve so port() addresses stay stable
-        for (std::size_t i = 0; i < reducers_.size(); ++i)
+        has_clock_ = has_clock;
+        clock_idx_ = reducers_.size();      // the extra trailing port index
+        std::size_t nports = reducers_.size() + (has_clock_ ? 1 : 0);
+        flushed_.assign(nports, false);     // clock port's flush is counted too
+        ports_.reserve(nports);             // reserve so port() addresses stay stable
+        for (std::size_t i = 0; i < nports; ++i)
             ports_.emplace_back(*this, i);
         reset();
     }
@@ -69,6 +76,7 @@ public:
         bucket_ = 0;
         cur_label_ = Index{};
         have_emitted_ = false;
+        ticks_ = 0;
         std::fill(flushed_.begin(), flushed_.end(), false);
         flushed_count_ = 0;
     }
@@ -93,29 +101,69 @@ private:
         MultiResampleNode& node;
         std::size_t idx;
         Port(MultiResampleNode& n, std::size_t i) : node(n), idx(i) {}
-        void push(const Frame<Index>& f) override { node.on_port(idx, f); }
-        void flush() override { node.flush_port(idx); }
+        void push(const Frame<Index>& f) override {
+            if (node.has_clock_ && idx == node.clock_idx_) node.on_clock(f);
+            else node.on_port(idx, f);
+        }
+        void flush() override { node.flush_port(idx); }  // flushed_ covers all ports
     };
     friend struct Port;
 
     void on_port(std::size_t i, const Frame<Index>& f) {
         if (f.width != 1)
             throw std::runtime_error("dag::MultiResampleNode: ports are width-1");
-        if (p_.mode != ResampleMode::ByIndex)
-            throw std::runtime_error("dag::MultiResampleNode: ByIndex only");
-        Index k = f.index;
-        double v = f.values[0];
+        if (p_.mode == ResampleMode::ByIndex) advance_index(f.index);
+        else                                  advance_count(f.index);
+        add(i, f.values[0]);
+    }
+
+    // The clock port advances the bucket without contributing a column. ByIndex
+    // only (count mode counts data ticks; a pure clock has no role there).
+    void on_clock(const Frame<Index>& f) {
+        if (f.width != 1)
+            throw std::runtime_error("dag::MultiResampleNode: clock port is width-1");
+        if (p_.mode == ResampleMode::ByIndex) advance_index(f.index);
+    }
+
+    // Bucket-by-index boundary logic. The added `else if (fill) emit_fill` branch
+    // closes an EMPTY current bucket (a clock tick crossing a bar with no trades)
+    // per policy. In column-only graphs the current bucket always has an event at
+    // a crossing (has_ is true), so that branch is inert there - no Task-5 change.
+    void advance_index(Index k) {
         std::int64_t nb = floordiv(static_cast<std::int64_t>(k) - p_.origin, p_.width);
         if (!started_) {
             started_ = true; bucket_ = nb; clear_bucket(); set_index_label(nb);
         } else if (nb != bucket_) {
             if (has_) emit(cur_label_);
-            // Fill internal gaps; trailing empties are handled by advance()/flush().
+            else if (p_.fill != ResampleFill::Skip) emit_fill(cur_label_);
             if (p_.fill != ResampleFill::Skip)
                 for (std::int64_t b = bucket_ + 1; b < nb; ++b) emit_fill(label_for(b));
             bucket_ = nb; clear_bucket(); set_index_label(nb);
         }
-        add(i, v);
+    }
+
+    // Count DISTINCT ticks. A bar holds `count` ticks; because a tick is complete
+    // only when the next distinct index arrives, a full bar closes on the NEXT new
+    // tick (deferred), never eagerly mid-tick. Label = first (Left) or last (Right)
+    // tick index of the closed bar.
+    void advance_count(Index k) {
+        if (!started_) {
+            started_ = true; ticks_ = 1; first_index_ = last_index_ = k; clear_bucket();
+        } else if (k != last_index_) {              // a new distinct tick
+            if (ticks_ >= p_.count) {               // current bar already full -> close
+                if (has_) emit(count_label());
+                clear_bucket(); ticks_ = 1; first_index_ = k;
+            } else {
+                ++ticks_;
+            }
+            last_index_ = k;
+        }
+        // k == last_index_: another port at the SAME tick -> no counter change
+    }
+
+    Index count_label() const {
+        return static_cast<Index>(
+            p_.label == ResampleLabel::Left ? first_index_ : last_index_);
     }
 
     void add(std::size_t i, double v) {
@@ -165,8 +213,8 @@ private:
     // propagating the flush downstream. A per-port bitmask dedups repeat flushes.
     void flush_port(std::size_t i) {
         if (!flushed_[i]) { flushed_[i] = true; ++flushed_count_; }
-        if (flushed_count_ < flushed_.size()) return;   // wait until ALL ports flush
-        if (has_) emit(cur_label_);                     // trailing partial, once
+        if (flushed_count_ < flushed_.size()) return;   // wait until ALL ports (incl clock) flush
+        if (has_) emit(p_.mode == ResampleMode::ByIndex ? cur_label_ : count_label());
         clear_bucket();
         started_ = false;
         std::fill(flushed_.begin(), flushed_.end(), false);
@@ -200,8 +248,12 @@ private:
     bool have_emitted_ = false;                  // Carry: any real row emitted yet
     std::int64_t bucket_ = 0;
     Index cur_label_{};
+    bool has_clock_ = false;                     // last port is a bucket-only clock
+    std::size_t clock_idx_ = 0;                  // index of the clock port (if any)
+    std::int64_t ticks_ = 0;                     // count mode: distinct ticks in current bar
+    Index first_index_{}, last_index_{};         // count mode: bar's first/last tick index
     std::vector<Port> ports_;
-    std::vector<bool> flushed_;                  // which ports flushed this cycle
+    std::vector<bool> flushed_;                  // which ports flushed this cycle (incl clock)
     std::size_t flushed_count_ = 0;
 };
 

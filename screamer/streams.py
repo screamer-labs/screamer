@@ -933,7 +933,7 @@ def resample(values, index=None, *, every=None, count=None, agg="last",
     return Stream(out_v, out_idx, columns=cols)
 
 
-def multi_resample(inputs, reducers, every=None, count=None, origin=0,
+def multi_resample(inputs, reducers, clock=None, every=None, count=None, origin=0,
                    label="left", fill="skip"):
     """Low-level multi-column bar node: N port streams, N per-bar reducers, one clock.
 
@@ -942,13 +942,26 @@ def multi_resample(inputs, reducers, every=None, count=None, origin=0,
     concatenated. Transforms belong upstream in ``inputs[i]``. Column labels are
     attached by the caller (see ``bars``). This is the graph (Node) primitive;
     place it in a Dag and bind data at call time.
+
+    ``count=N`` buckets by N DISTINCT ticks (indices): several ports pushing at the
+    same index count as ONE tick, and a full bar closes on the next new tick.
+
+    ``clock`` (optional Node): a timestamp/clock stream that drives bucketing. A
+    clock tick crossing a bucket boundary closes the current bar even with no
+    trades, so empty time-bars finalize straight from the data (ByIndex/``every=``
+    only). Omit it to bucket purely by the columns' own shared ticks.
     """
     if len(inputs) != len(reducers):
         raise ValueError(
             "multi_resample: inputs and reducers must have equal length")
-    if not all(is_node(x) for x in inputs):
+    node_inputs = list(inputs)
+    if clock is not None:
+        if not is_node(clock):
+            raise ValueError("multi_resample: clock must be a graph Node")
+        node_inputs.append(clock)   # clock is the LAST input (inferred as the clock port)
+    if not all(is_node(x) for x in node_inputs):
         raise ValueError("multi_resample: every input must be a graph Node")
-    return make_operator_node(multi_resample, tuple(inputs), {
+    return make_operator_node(multi_resample, tuple(node_inputs), {
         "reducers": list(reducers), "every": every, "count": count,
         "origin": origin, "label": label, "fill": fill})
 

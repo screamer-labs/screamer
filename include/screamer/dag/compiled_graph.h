@@ -251,8 +251,16 @@ public:
                 break;
             }
             case NodeKind::MultiResample: {
+                // The clock port (if present) is inferred structurally: one extra
+                // trailing input beyond the N reducers is the bucket-only clock.
+                if (ns.inputs.size() != ns.reducers.size() &&
+                    ns.inputs.size() != ns.reducers.size() + 1)
+                    throw std::runtime_error(
+                        "compile: MultiResample inputs must be N or N+1 (N reducers "
+                        "+ optional clock)");
+                bool has_clock = ns.inputs.size() == ns.reducers.size() + 1;
                 auto mn = std::make_shared<MultiResampleNode<std::int64_t>>(
-                    ns.resample, ns.reducers, *downstream);
+                    ns.resample, ns.reducers, has_clock, *downstream);
                 reset_multi_resamples_.push_back(mn.get());
                 node_input_sink[id] = [ptr = mn.get()](std::size_t slot) -> Sink<std::int64_t>* {
                     return &ptr->port(slot);
