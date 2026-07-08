@@ -843,12 +843,22 @@ def resample(values, index=None, *, every=None, count=None, agg="last",
       A single-output functor returns a 1-D ``Stream``; a multi-output functor
       returns an unlabelled 2-D ``Stream``.  The functor must accept exactly
       1 input (single-value stream); a multi-input functor raises at runtime.
-    * **dict** ``{name: str|functor, ...}`` -- runs each sub-reducer over the
-      same bucketing and returns a labelled ``Stream`` whose ``.columns``
-      are the dict keys (insertion order).  Each entry must produce exactly
-      1 column; ``"ohlc"`` and multi-output functors are rejected in v1 --
-      use ``agg="ohlc"`` directly for 4-column output.  Dict agg is an eager
-      convenience only: not available in the graph (``Node``) regime.
+    * **dict** ``{name: agg, ...}`` -- runs several reducers over the same
+      bucketing and returns a labelled ``Stream`` whose ``.columns`` are the dict
+      keys (insertion order).  Each entry must produce exactly 1 column; ``"ohlc"``
+      and multi-output functors are rejected -- use ``agg="ohlc"`` directly for
+      4-column output.  Two forms:
+
+      - **eager** (raw arrays / ``Stream``): each value is a string or functor
+        reducer applied to the single value stream, e.g.
+        ``{"open": "first", "vol": "sum"}``.
+      - **graph / lazy** (``resample(t, agg={...})`` where the values are Nodes):
+        each value is a lazy expression ``Reducer()(sub_expr)`` -- its top node is
+        the per-bar reducer, its single input is the upstream port (per-tick
+        transforms live there), e.g.
+        ``{"buy": ExpandingSum()(PosPart()(vol))}``.  The first positional argument
+        ``t`` is the clock; all columns share one bar clock, so they cannot drift.
+        Place the result in a ``Dag`` and bind data at call time.
 
     ``label`` is ``"left"`` (bucket start / first index) or ``"right"``
     (bucket end / last index).  NaN values are ignored.

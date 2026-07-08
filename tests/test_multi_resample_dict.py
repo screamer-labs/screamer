@@ -157,6 +157,13 @@ class TestCountModeDict:
         ref = ref_stream.values if isinstance(ref_stream, Stream) else ref_stream[0]
         np.testing.assert_allclose(self.out["close"], ref, rtol=1e-12)
 
+    def test_buy_matches_single_col_count(self):
+        # buy = ExpandingSum()(PosPart()(vol)); PosPart(x) = max(x, 0).
+        ref_stream = resample(np.maximum(self.vol_arr, 0.0), self.t_arr,
+                              count=self.COUNT, agg="sum")
+        ref = ref_stream.values if isinstance(ref_stream, Stream) else ref_stream[0]
+        np.testing.assert_allclose(self.out["buy"], ref, rtol=1e-12)
+
 
 # ---------------------------------------------------------------------------
 # Test 3: batch == stream (live mode)
@@ -202,6 +209,15 @@ class TestBatchEqualsStream:
         live.flush()
         live_out = live.result()
         assert live_out.columns == batch_out.columns
+
+    def test_stream_method_equals_batch(self):
+        # Dag.stream() is the third labelled path (alongside __call__ and _LiveDag).
+        dag, t_arr, price_arr = self._build()
+        batch_out = dag(t=t_arr, price=price_arr)
+        stream_out = dag.stream(t=t_arr, price=price_arr)
+        assert isinstance(stream_out, Stream)
+        assert stream_out.columns == batch_out.columns
+        np.testing.assert_allclose(stream_out.values, batch_out.values, rtol=1e-12)
 
 
 # ---------------------------------------------------------------------------
@@ -252,47 +268,46 @@ class TestValidationErrors:
         with pytest.raises(ValueError, match="empty"):
             resample(t, every=W, agg={})
 
+    def test_two_input_reducer_raises(self):
+        """A reducer expression whose top functor takes 2 inputs raises."""
+        from screamer.dag import make_functor_node
+        t, price = self._make_inputs()
+        price2 = Input("price2")
+        two_in = make_functor_node(ExpandingSum(), [price, price2])
+        with pytest.raises(ValueError, match="exactly one input"):
+            resample(t, every=W, agg={"x": two_in})
+
 
 # ---------------------------------------------------------------------------
 # Test 6: Empty time-bars via the clock (sparse price, dense clock t)
 # ---------------------------------------------------------------------------
 
 def test_empty_bars_via_clock():
-    """Sparse price stream + dense clock produces NaN-filled empty bars in the output.
+    """A dense clock finalizes an empty bar that the sparse data alone would not.
 
-    The clock `t` drives empty bar finalization even when there are no price
-    events in that window - via `advance()` in the live path or via the
-    engine's batch clock processing.
+    Price has a single trade (bar 0); the clock `t` ticks on through bar 1, so with
+    ``fill="nan"`` the empty bar 1 is closed and emitted as NaN when the clock crosses
+    its boundary. Without the clock only bar 0 would appear - trailing empties are not
+    synthesized from data alone. This isolates the clock port's contribution.
     """
-    # Dense clock every tick 0..29; price only at ticks 0, 10, 20 (one per bar).
-    t_clock = np.arange(30, dtype=np.int64)
-    t_price = np.array([0, 10, 20], dtype=np.int64)
-    price_vals = np.array([1.0, 2.0, 3.0])
+    t_clock = np.arange(30, dtype=np.int64)      # dense clock, ticks 0..29
+    clock_vals = np.zeros(30, dtype=np.float64)  # values irrelevant; only the index buckets
+    t_price = np.array([0], dtype=np.int64)      # a single trade, in bar 0
+    price_vals = np.array([1.0])
 
-    # Build a clock stream (all zeros as values - only the index matters for bucketing)
-    clock_vals = np.zeros(30, dtype=np.float64)
-
-    t      = Input("t")
-    price  = Input("price")
-    clock  = Input("clock")
-
-    bars = resample(t, every=10, agg={
+    t     = Input("t")       # t is the clock (first positional arg to resample)
+    price = Input("price")
+    bars = resample(t, every=10, fill="nan", agg={
         "open":  First()(price),
         "close": Last()(price),
     })
-    # Use 3 inputs: t (clock), price, clock (dummy feed to carry clock events)
-    # Actually: t is the clock for resample; price is the data port.
-    # We only have 2 inputs in this graph: t and price.
     dag = Dag([t, price], [bars])
-
-    # Feed: t has dense events [0..29]; price has sparse events at [0, 10, 20].
-    # _as_stream handles (values, index) pair (values-first user convention).
     out = dag(t=(clock_vals, t_clock), price=(price_vals, t_price))
 
     assert isinstance(out, Stream)
     assert out.columns == ("open", "close")
-    # We expect at least the 3 bars containing ticks 0, 10, 20.
-    assert len(out) >= 3
-    # The bars at 0, 10, 20 should have valid (non-NaN) open and close.
-    np.testing.assert_allclose(out["open"][:3], [1.0, 2.0, 3.0], rtol=1e-12)
-    np.testing.assert_allclose(out["close"][:3], [1.0, 2.0, 3.0], rtol=1e-12)
+    # bar 0 [0,10): the trade. bar 1 [10,20): empty, closed by the clock -> NaN.
+    # bar 2 [20,30): still open at end of input -> not emitted (flush does not fill).
+    np.testing.assert_array_equal(out.index, [0, 10])
+    np.testing.assert_array_equal(out["open"],  [1.0, np.nan])
+    np.testing.assert_array_equal(out["close"], [1.0, np.nan])

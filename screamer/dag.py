@@ -308,9 +308,12 @@ class Dag:
                 v, k = result
                 return Stream(v, k, columns=list(cols[0]))
             return result
-        # Multi-output, non-aligned (align_outputs=False) or independent pairs.
-        # Only label in the non-aligned case (each element is an independent (v, k) pair).
-        # The aligned case (combine_latest column-slicing) is out of scope for labelling.
+        # Multi-output. Only the non-aligned case yields one independent (v, k) pair
+        # per output, which we can safely label. The aligned case slices per column
+        # via combine_latest, so a multi-column bar node there cannot be labelled
+        # coherently; pass it through untouched rather than mislabel a column slice.
+        if self.align_outputs:
+            return result
         out = []
         for (v, k), c in zip(result, cols):
             out.append(Stream(v, k, columns=list(c)) if c is not None else (v, k))
