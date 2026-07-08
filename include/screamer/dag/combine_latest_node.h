@@ -1,6 +1,7 @@
 #ifndef SCREAMER_DAG_COMBINE_LATEST_NODE_H
 #define SCREAMER_DAG_COMBINE_LATEST_NODE_H
 
+#include <algorithm>
 #include <cassert>
 #include <cstddef>
 #include <vector>
@@ -13,14 +14,16 @@ namespace screamer { namespace dag {
 // updates the reused CombineLatest operator and, when it fires (per when_all),
 // buffers the latest aligned row. Coalescing: one frame is emitted per DISTINCT
 // index (same-index events update the buffer; the frame is pushed when the index
-// advances). flush() emits the final buffered frame (if any) and is idempotent
-// (clears buffer after emitting so repeat calls are no-ops).
+// advances). At end-of-input each port is flushed once; because a producer pushes
+// its final event just before flushing its own port, flush() must wait until EVERY
+// port has flushed before emitting the settled final row (once) — otherwise the
+// shared final index would be emitted once per port. flush() is idempotent.
 template <class Index>
 class CombineLatestNode {
 public:
     CombineLatestNode(std::size_t n, bool when_all, Sink<Index>& downstream)
         : cl_(n, when_all), downstream_(downstream), n_(n),
-          buffered_row_(n, 0.0) {
+          buffered_row_(n, 0.0), flushed_(n, false) {
         ports_.reserve(n);
         for (std::size_t i = 0; i < n; ++i) ports_.emplace_back(*this, i);
     }
@@ -36,6 +39,8 @@ public:
     void reset() {
         cl_.reset();
         has_buffered_ = false;
+        std::fill(flushed_.begin(), flushed_.end(), false);
+        flushed_count_ = 0;
     }
 
 private:
@@ -56,14 +61,30 @@ private:
         }
     }
 
-    void flush_downstream() {
-        // Emit the buffered final frame exactly once (idempotent).
+    // Called once per input port at end-of-input. Each producer pushes its final
+    // (same-index) event just BEFORE flushing its own port, so flushing eagerly on
+    // the first port would emit the final row with the other ports' values still
+    // stale (and again on the next port) — duplicating the shared final index. To
+    // coalesce (mirroring the mid-stream "emit on index advance" logic), we wait
+    // until EVERY port has flushed before emitting the settled final row once and
+    // propagating the flush downstream. A per-port bitmask dedups repeat flushes of
+    // one port (a producer with multiple upstreams flushes it more than once).
+    void flush_downstream(std::size_t i) {
+        if (!flushed_[i]) { flushed_[i] = true; ++flushed_count_; }
+        if (flushed_count_ < n_) return;   // not every port has flushed yet
+
+        // Every port has now delivered its final event: emit the settled row once.
         if (has_buffered_) {
             downstream_.push(Frame<Index>{buffered_index_,
                                           buffered_row_.data(), n_});
             has_buffered_ = false;
         }
         downstream_.flush();
+
+        // Re-arm for a subsequent flush cycle (idempotent: has_buffered_ is now
+        // false, so re-completing the mask forwards flush without re-emitting).
+        std::fill(flushed_.begin(), flushed_.end(), false);
+        flushed_count_ = 0;
     }
 
     // A single input port: routes an event to its owning node with its index.
@@ -72,7 +93,7 @@ private:
         std::size_t idx;
         Port(CombineLatestNode& n, std::size_t i) : node(n), idx(i) {}
         void push(const Frame<Index>& f) override { node.on_port(idx, f); }
-        void flush() override { node.flush_downstream(); }
+        void flush() override { node.flush_downstream(idx); }
     };
     friend struct Port;
 
@@ -85,6 +106,10 @@ private:
     bool has_buffered_ = false;
     Index buffered_index_{};
     std::vector<double> buffered_row_;
+
+    // End-of-input coalescing: which ports have flushed in the current cycle.
+    std::vector<bool> flushed_;
+    std::size_t flushed_count_ = 0;
 };
 
 }} // namespace screamer::dag
