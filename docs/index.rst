@@ -146,6 +146,7 @@ For a step-by-step walkthrough see the :doc:`User Guide <usage>`.
    notebooks/08-replay-backtest-live
    notebooks/09-computational-dag
    notebooks/10-resample-string-aggregations
+   notebooks/N2-custom-bar-statistics
    notebooks/12-custom-bars-with-agg-dict
 
 
