@@ -302,11 +302,20 @@ class Dag:
     def _label(self, result):
         """Wrap multi-column bar outputs as labelled Streams; pass others through."""
         from .streams import Stream
+
+        def labelled(v, k, cols):
+            # A labelled bar is always a 2-D (n_bars, n_cols) Stream, even for a
+            # single column (which __call__ has flattened to 1-D), so that named
+            # access like out["close"] works.
+            if v.ndim == 1:
+                v = v.reshape(-1, 1)
+            return Stream(v, k, columns=list(cols))
+
         cols = [self._output_columns(o) for o in self.outputs]
         if len(self.outputs) == 1:
             if cols[0] is not None:
                 v, k = result
-                return Stream(v, k, columns=list(cols[0]))
+                return labelled(v, k, cols[0])
             return result
         # Multi-output. Only the non-aligned case yields one independent (v, k) pair
         # per output, which we can safely label. The aligned case slices per column
@@ -316,7 +325,7 @@ class Dag:
             return result
         out = []
         for (v, k), c in zip(result, cols):
-            out.append(Stream(v, k, columns=list(c)) if c is not None else (v, k))
+            out.append(labelled(v, k, c) if c is not None else (v, k))
         return tuple(out)
 
     def __call__(self, *args, **kwargs):

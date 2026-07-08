@@ -99,6 +99,25 @@ notebook).
 holding `N` events, so empty bars cannot exist by construction and `fill=` has no
 effect.
 
+### `fill=` edge cases
+
+- **Leading buckets** (before the first event) are never synthesized on the eager
+  path: output starts at the bucket containing the first tick -- a tick at index 47
+  with `every=10` starts at label 40, not 0. Leading empty buckets arise only from a
+  clock (a `Dag` clock input or `advance()`) that advances time before the first data
+  event; there `"nan"` emits NaN rows and `"carry"` **skips** them, since there is no
+  previous row to repeat.
+- **`"carry"` is verbatim and uniform** across every column: it repeats the previous
+  bar's whole row, including count- or sum-like columns. So a genuinely empty bar
+  carries the previous bar's count, not 0. Use `"nan"` where that is wrong for your
+  columns; a per-column fill policy is out of scope in v1.
+- **`label="right"`** composes with `fill=` unchanged: a filled bucket is labelled at
+  its right grid edge, like any other bar.
+- **Functor reducers** are unaffected. A filled empty bucket emits a synthetic row
+  (a NaN row, or the carried row) without feeding or resetting the reducer; the
+  reducer is `reset()` only at the next real bar boundary. An expanding reducer
+  therefore starts each real bar clean and never accumulates across a filled gap.
+
 ## Labelled output and `Stream.columns`
 
 Every `resample` call returns a `Stream`, which is also unpackable as

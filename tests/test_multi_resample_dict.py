@@ -311,3 +311,19 @@ def test_empty_bars_via_clock():
     np.testing.assert_array_equal(out.index, [0, 10])
     np.testing.assert_array_equal(out["open"],  [1.0, np.nan])
     np.testing.assert_array_equal(out["close"], [1.0, np.nan])
+
+
+def test_single_column_dict_returns_labelled_stream():
+    # A one-entry lazy dict must return a (n_bars, 1) labelled Stream in a Dag
+    # (regression: __call__ flattens width-1 to 1-D; _label must restore 2-D so
+    # named column access works).
+    t_arr, price_arr, _ = _make_data()
+    t, price = Input("t"), Input("price")
+    bars = resample(t, every=W, agg={"close": Last()(price)})
+    out = Dag([t, price], [bars])(t=t_arr, price=price_arr)
+    assert isinstance(out, Stream)
+    assert out.columns == ("close",)
+    assert out.values.ndim == 2 and out.values.shape[1] == 1
+    ref = resample(price_arr, t_arr, every=W, agg="last")
+    ref_v = ref.values if isinstance(ref, Stream) else ref[0]
+    np.testing.assert_allclose(out["close"], ref_v, rtol=1e-12)

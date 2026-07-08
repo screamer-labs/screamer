@@ -888,10 +888,15 @@ def resample(values, index=None, *, every=None, count=None, agg="last",
       whole row is carried, including sum/volume-like columns; a per-column
       "carry price / zero volume" refinement is out of scope).
 
-    Only internal gaps are filled; trailing empty buckets after the last event
-    are not synthesized here (that needs the clock/``advance()`` mechanism). The
-    trailing partial bucket is still emitted once at end of input.
-    Integer index-space.
+    Only internal gaps are filled. Leading buckets before the first event and
+    trailing buckets after the last are not synthesized here (output starts at the
+    first tick's bucket; trailing empties need the clock/``advance()`` mechanism).
+    ``"carry"`` repeats the whole previous row verbatim across all columns (so an
+    empty bar carries a count/sum column's prior value, not 0 -- use ``"nan"`` if
+    that is wrong for a column), and skips a bucket that has no prior emitted row.
+    A filled bucket emits a synthetic row without feeding or resetting the reducer,
+    so a functor reducer starts each real bar clean. The trailing partial bucket is
+    still emitted once at end of input. Integer index-space.
 
     Values-first + polymorphic: raw arrays, Stream, or graph Node. The returned
     index is always the bar labels (a real array, never None) - even for a
