@@ -878,7 +878,9 @@ def resample(values, index=None, *, every=None, count=None, agg="last",
     ``"right"``).  NaN values are ignored.
 
     ``fill`` controls empty **internal** buckets (a gap between two events where
-    one or more buckets have no samples):
+    one or more buckets have no samples). It is meaningful only under ``every=``;
+    with ``count=`` a bar is defined by having ``N`` events, so empty bars cannot
+    occur and ``fill`` has no effect.
 
     * ``"skip"`` (default) -- no row for an empty bucket (legacy behavior).
     * ``"nan"`` -- an all-NaN row at each empty bucket's label.

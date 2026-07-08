@@ -80,6 +80,25 @@ Concretely, eight ticks at index `[0, 1, 2, 10, 11, 20, 21, 22]`:
   `[0, 10, 21]` (first tick of each bar). The middle bar straddles the `11 -> 20`
   gap because `count=` measures rows, not index distance.
 
+## Empty buckets: `fill=`
+
+`fill=` controls what happens when an `every=` bar contains no samples (an index
+interval with no ticks). It applies to eager arrays, `Stream`s, and graphs alike --
+it is not `Dag`-only.
+
+- `"skip"` (default) -- emit no row for an empty bucket (the legacy behavior).
+- `"nan"` -- emit an all-NaN row at the empty bucket's label.
+- `"carry"` -- repeat the previous emitted row's values verbatim.
+
+Only **internal** empty buckets (gaps between two events) are filled by `resample`
+itself. Trailing empty buckets after the last event are not synthesized here; that
+needs a clock, via `advance()` or a clock input on a `Dag` (see the custom-bars
+notebook).
+
+`fill=` is meaningful only under `every=`. With `count=`, a bar is defined by
+holding `N` events, so empty bars cannot exist by construction and `fill=` has no
+effect.
+
 ## Labelled output and `Stream.columns`
 
 Every `resample` call returns a `Stream`, which is also unpackable as
