@@ -2192,6 +2192,31 @@
     "details": "## Description\n\n`Mul` computes the elementwise product of two aligned input streams, `x * y`. It takes two inputs and returns one output; a `NaN` in\neither input yields `NaN` at that step.\n\n*Parameters*: `Mul` takes no parameters.\n\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
     "examples": []
   },
+  "NegPart": {
+    "name": "NegPart",
+    "title": "Negative Part",
+    "implementation_family": "math",
+    "topics": [
+      "arithmetic"
+    ],
+    "tags": [
+      "negative",
+      "part"
+    ],
+    "short": "Negative part of x: max(-x, 0).",
+    "inputs": 1,
+    "outputs": 1,
+    "parameters": [],
+    "nan_policy": "ignore",
+    "details": "## Description\n\nThe `NegPart` class computes the negative part of a value, returning `max(-x, 0)`. Together with `PosPart`, it decomposes any real number: `x = PosPart(x) - NegPart(x)`. This is useful for separating signed quantities into their positive and negative components, for example splitting signed trade volume into buy volume and sell volume.\n\n*Equation*:\n\n$$\nf(x) = \\max(-x, 0)\n$$\n\n*Parameters*: `NegPart` takes no parameters.\n\n*NaN handling*: `NaN` values pass through unchanged.\n\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage example",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom screamer import PosPart, NegPart\n\ndata = np.linspace(-3, 3, 100)\npos = PosPart()(data)\nneg = NegPart()(data)\n\nfig = go.Figure()\nfig.add_trace(go.Scatter(y=data, mode='lines', name='Input'))\nfig.add_trace(go.Scatter(y=pos, mode='lines', name='PosPart', line=dict(color='green')))\nfig.add_trace(go.Scatter(y=neg, mode='lines', name='NegPart', line=dict(color='red')))\n\nfig.update_layout(\n    title=\"PosPart and NegPart Decomposition\",\n    yaxis_title=\"Output\",\n    xaxis_title=\"Input\",\n    margin=dict(l=20, r=20, t=40, b=20)\n)\n\nfig.show()"
+      }
+    ]
+  },
   "Polar2Cart": {
     "name": "Polar2Cart",
     "title": "Polar to Cartesian",
@@ -2215,6 +2240,32 @@
         "language": "python",
         "caption": "Usage example",
         "code": "import numpy as np\nfrom screamer import Polar2Cart, Cart2Polar\n\n# Roundtrip with Cart2Polar (inverse pair)\nrng = np.random.default_rng(0)\nx = rng.standard_normal(100)\ny = rng.standard_normal(100)\n\npolar = Cart2Polar()(x, y)              # shape (100, 2)\nback = Polar2Cart()(polar[:, 0], polar[:, 1])\nnp.testing.assert_allclose(back[:, 0], x, atol=1e-12)\nnp.testing.assert_allclose(back[:, 1], y, atol=1e-12)"
+      }
+    ]
+  },
+  "PosPart": {
+    "name": "PosPart",
+    "title": "Positive Part",
+    "implementation_family": "math",
+    "topics": [
+      "arithmetic"
+    ],
+    "tags": [
+      "positive",
+      "part",
+      "relu"
+    ],
+    "short": "Positive part of x: max(x, 0).",
+    "inputs": 1,
+    "outputs": 1,
+    "parameters": [],
+    "nan_policy": "ignore",
+    "details": "## Description\n\nThe `PosPart` class computes the positive part of a value, returning `max(x, 0)`. Together with `NegPart`, it decomposes any real number: `x = PosPart(x) - NegPart(x)`. This is identical to the ReLU activation function and is useful as a building block for signed-quantity aggregations such as buy/sell volume.\n\n*Equation*:\n\n$$\nf(x) = \\max(x, 0)\n$$\n\n*Parameters*: `PosPart` takes no parameters.\n\n*NaN handling*: `NaN` values pass through unchanged.\n\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage example",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom screamer import PosPart, NegPart\n\ndata = np.linspace(-3, 3, 100)\npos = PosPart()(data)\nneg = NegPart()(data)\n\nfig = go.Figure()\nfig.add_trace(go.Scatter(y=data, mode='lines', name='Input'))\nfig.add_trace(go.Scatter(y=pos, mode='lines', name='PosPart', line=dict(color='green')))\nfig.add_trace(go.Scatter(y=neg, mode='lines', name='NegPart', line=dict(color='red')))\n\nfig.update_layout(\n    title=\"PosPart and NegPart Decomposition\",\n    yaxis_title=\"Output\",\n    xaxis_title=\"Input\",\n    margin=dict(l=20, r=20, t=40, b=20)\n)\n\nfig.show()"
       }
     ]
   },

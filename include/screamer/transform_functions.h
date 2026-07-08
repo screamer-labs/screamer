@@ -30,6 +30,14 @@ namespace screamer {
         return x > 0 ? x : 0;
     }
 
+    // PosPart: positive part of x, i.e. max(x, 0). Identical to relu.
+    // NaN propagates per the "ignore" policy.
+    inline double pos_part(double x) { return std::isnan(x) ? x : (x > 0.0 ? x : 0.0); }
+
+    // NegPart: negative part of x, i.e. max(-x, 0). Decomposes x = PosPart(x) - NegPart(x).
+    // NaN propagates per the "ignore" policy.
+    inline double neg_part(double x) { return std::isnan(x) ? x : (x < 0.0 ? -x : 0.0); }
+
     // ELU function (Exponential Linear Unit)
     inline double elu(double x) {
         return x > 0 ? x : (std::exp(x) - 1);
