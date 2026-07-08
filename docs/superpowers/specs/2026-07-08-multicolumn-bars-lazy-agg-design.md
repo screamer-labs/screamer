@@ -95,7 +95,10 @@ bars = resample(index=t, every=BAR, agg={
 - **NaN-ignore per column:** skip NaN samples; a column with no finite sample in a bar
   emits NaN.
 - **Emit:** exactly one row per bar with all N columns, in dict order, labelled via
-  `Stream.columns`. Only non-empty bars emit; the trailing partial bar flushes **once**.
+  `Stream.columns`. A bar is finalized when its window closes - triggered by an event
+  crossing the boundary, by a **time/clock advance**, or by an explicit **flush** (see
+  Part C). Empty bars are handled per the `fill` policy (Part C); the trailing partial
+  bar flushes **once**.
 - **Causal:** emit at bar close only. `batch == streaming == oracle`.
 - **Guarantee:** one clock means columns cannot drift; the row for bar `k` is
   `[col1_k, ..., colN_k]` by construction.
@@ -121,6 +124,63 @@ preferred:
 - kwargs: `resample(agg={...}, index=t, price=arr, volume=arr)` (concise but can
   collide with resample's own parameter names).
 
+---
+
+## Part C: time-driven and on-demand flush (cross-cutting)
+
+Today's bucketing is purely **event-driven**: a window closes only when the next event
+crosses its boundary, or at end-of-input. So with sparse trades, bars emit late and
+empty windows vanish. That is wrong for a continuous minute-bar series, and finalizing
+on demand is needed across the streaming operators, not just bars.
+
+Two finalization triggers, in addition to "an event crossed the boundary":
+
+- **On-demand flush** (`flush()`): finalize the current partial window now, e.g. at the
+  end of a processing loop. End-of-input flush is the special case at stream end.
+- **Time-driven finalization** (`advance(now)`): close every window whose boundary has
+  passed by logical time `now`, even if no event fell in it. With minute buckets, a
+  clock tick at the minute boundary closes that minute's bar with zero trades.
+
+### Empty-window policy (`fill`)
+
+When a window closes with no finite samples, its output depends on a `fill` policy:
+
+- `skip` - no row (today's behavior).
+- `nan` - an all-NaN row at the window label.
+- `carry` - carry forward (for OHLC: open=high=low=close=previous close; sums/volume=0).
+  The usual choice for a continuous minute-bar series.
+
+`fill` is per operator; for multi-column bars it may later be per column (OHLC carries,
+volume zeros). Recommend default `skip` to preserve current behavior, `carry`/`nan`
+opt-in.
+
+### Mechanism
+
+A clock is just another indexed, **value-less event** (a "heartbeat" / watermark) in
+screamer's stream model: any index advance, from a trade *or* a heartbeat, moves logical
+time forward and closes completed windows. So `advance(now)` is sugar for feeding a
+heartbeat at `now`. Provide both: feed heartbeats in a stream, or call `advance(now)` /
+`flush()` directly on the operator or the `Dag`. This needs a value-less event in the
+C++ `Frame` (a width-0 / punctuation event) so a heartbeat advances time without
+contributing a sample to any reducer.
+
+### Cross-cutting protocol
+
+`flush()` and `advance(t)` belong on the streaming interface generally - the multi-column
+bar node, `resample`, `combine_latest`, streaming stateful functors, and the `Dag` -
+via a common `Flushable` / `advance` protocol. The batch path finalizes at end-of-input
+as today; the live path gains explicit, clock-driven control. (This also gives
+`combine_latest` and friends a principled place to finalize, which ties back to Part A.)
+
+### Open questions
+
+- `fill` default (recommend `skip`; `carry`/`nan` opt-in).
+- Heartbeat-event vs explicit `advance(now)` call - recommend supporting both, with
+  `advance` as sugar over a heartbeat.
+- Scope of this pass: land `flush` + `advance` + `fill` on the resample / bar path first,
+  then extend the protocol to the other streaming operators - or do the whole protocol at
+  once (larger).
+
 ## Relationship to existing work
 
 - This **supersedes** the deferred follow-up "consolidate dict/`ohlcv` per-column
@@ -144,12 +204,19 @@ preferred:
 
 1. **Fix `combine_latest` flush coalescing** + regression test (independent, ships on
    its own).
-2. **`First` / `Last`** reducer functors (add-a-function checklist).
-3. **Multi-column resample node** (C++): one clock, N reducer sub-graphs, one aligned
-   labelled row per bar. Generalize `GenericResampleNode`.
-4. **Lazy-dict front-end** + input binding; compile the dict to the node.
-5. **Docs + a notebook** using the lazy form (replacing the two-call recipe in
-   `12-custom-bars-with-agg-dict` with the one-call lazy version).
+2. **Value-less heartbeat event + `flush()` / `advance(now)`** on the resample path,
+   plus the `fill` policy (`skip`/`nan`/`carry`) for empty windows (Part C). This is the
+   foundational streaming capability; land it on `resample` first with tests
+   (time-driven close of empty minute buckets; manual flush at loop end).
+3. **`First` / `Last`** reducer functors (add-a-function checklist).
+4. **Multi-column resample node** (C++): one clock, N reducer sub-graphs, one aligned
+   labelled row per bar; honors `flush`/`advance`/`fill` from phase 2. Generalize
+   `GenericResampleNode`.
+5. **Lazy-dict front-end** + input binding; compile the dict to the node.
+6. **Extend `flush`/`advance` across the streaming protocol** (`combine_latest`,
+   streaming functors, `Dag`) if not already, per the Part C scope decision.
+7. **Docs + a notebook** using the lazy form and a clock-driven minute-bar example
+   (replacing the two-call recipe in `12-custom-bars-with-agg-dict`).
 
 All numeric logic in C++ (the node, the reducers); Python stays a thin marshalling /
 compile shim, so pure-C++ and a future WASM binding get the full behavior.
