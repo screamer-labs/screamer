@@ -216,12 +216,20 @@ class Dag:
                     nid = gb.add_select(inp, cols)
                 elif name == "resample":
                     mode = 1 if kwargs.get("count") is not None else 0   # 0=ByIndex,1=ByCount
-                    agg = _RESAMPLE_AGG_CODE[kwargs.get("agg", "last")]
                     label = 1 if kwargs.get("label", "left") == "right" else 0
                     width = int(kwargs["every"]) if kwargs.get("every") is not None else 1
                     origin = int(kwargs.get("origin", 0))
                     count = int(kwargs["count"]) if kwargs.get("count") is not None else 1
-                    nid = gb.add_resample(inp, mode, agg, label, width, origin, count)
+                    agg_val = kwargs.get("agg", "last")
+                    if isinstance(agg_val, str):
+                        # Builtin string agg: enum code, no functor reducer.
+                        nid = gb.add_resample(inp, mode, _RESAMPLE_AGG_CODE[agg_val],
+                                              label, width, origin, count)
+                    else:
+                        # Arbitrary functor reducer (an EvalOp): agg code is ignored
+                        # (pass 0); the reducer op drives GenericResampleNode.
+                        nid = gb.add_resample(inp, mode, 0, label, width, origin,
+                                              count, agg_val)
                 else:
                     raise ValueError(
                         f"{name} is not supported as a DAG graph node")

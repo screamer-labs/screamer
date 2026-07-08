@@ -159,7 +159,7 @@ void init_bindings_dag(py::module& m) {
 
         std::size_t add_resample(std::vector<std::size_t> inputs, int mode, int agg,
                                  int label, std::int64_t width, std::int64_t origin,
-                                 std::int64_t count) {
+                                 std::int64_t count, py::object reducer) {
             dag::ResampleParams rp;
             rp.mode   = static_cast<dag::ResampleMode>(mode);    // 0=ByIndex, 1=ByCount
             rp.agg    = static_cast<dag::ResampleAgg>(agg);      // 0..7 First..Ohlc
@@ -167,6 +167,14 @@ void init_bindings_dag(py::module& m) {
             rp.width  = width;
             rp.origin = origin;
             rp.count  = count;
+            // Optional functor reducer: extract the base EvalOp* and keep the Python
+            // object alive for the compiled graph's lifetime (op_refs is copied into
+            // the _CompiledGraph at compile()). Raw pointer would else dangle on GC.
+            if (!reducer.is_none()) {
+                EvalOp* op = py::cast<EvalOp*>(reducer);
+                rp.reducer = op;
+                op_refs.push_back(reducer);
+            }
             return builder.add_resample(std::move(inputs), rp);
         }
 
@@ -211,10 +219,13 @@ void init_bindings_dag(py::module& m) {
         }, py::arg("inputs"), py::arg("columns"))
         .def("add_resample", [](PyGraphBuilder& b, std::vector<std::size_t> inputs,
                                 int mode, int agg, int label,
-                                std::int64_t width, std::int64_t origin, std::int64_t count) {
-            return b.add_resample(std::move(inputs), mode, agg, label, width, origin, count);
+                                std::int64_t width, std::int64_t origin, std::int64_t count,
+                                py::object reducer) {
+            return b.add_resample(std::move(inputs), mode, agg, label, width, origin,
+                                  count, reducer);
         }, py::arg("inputs"), py::arg("mode"), py::arg("agg"), py::arg("label"),
-           py::arg("width"), py::arg("origin"), py::arg("count"))
+           py::arg("width"), py::arg("origin"), py::arg("count"),
+           py::arg("reducer") = py::none())
         .def("set_outputs", &PyGraphBuilder::set_outputs, py::arg("output_ids"))
         .def("compile", [](PyGraphBuilder& b) { return b.compile(); })
         .def("run_batch", [](PyGraphBuilder& b, py::list feeds) {

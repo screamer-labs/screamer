@@ -623,7 +623,9 @@ def _resample_validate(every, count, agg, label):
         raise ValueError("resample: every must be positive")
     if count is not None and int(count) < 1:
         raise ValueError("resample: count must be >= 1")
-    if agg not in _RESAMPLE_AGGS:
+    # agg may be a builtin string OR an arbitrary functor reducer (an EvalOp);
+    # only the string form is validated against the builtin set here.
+    if isinstance(agg, str) and agg not in _RESAMPLE_AGGS:
         raise ValueError(f"resample: agg must be one of {_RESAMPLE_AGGS}")
     if label not in ("left", "right"):
         raise ValueError('resample: label must be "left" or "right"')
