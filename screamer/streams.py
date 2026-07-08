@@ -535,7 +535,13 @@ _RESAMPLE_AGGS = ("first", "last", "min", "max", "sum", "count", "mean", "ohlc")
 
 
 class _ResampleAccum:
-    """Single-pass O(1) NaN-ignore accumulator. Mirrors the C++ ResampleAccum."""
+    """Single-pass O(1) NaN-ignore accumulator. Mirrors the C++ ResampleAccum.
+
+    The eager array/Stream ``resample`` path no longer uses this - it runs on the
+    C++ engine. This remains for the ``resample_iter`` streaming generator, which
+    yields incrementally over ``(value, index)`` tuples and is out of scope for
+    the eager-path C++ migration.
+    """
     __slots__ = ("count", "s", "mn", "mx", "first", "last", "has")
 
     def __init__(self):
@@ -585,6 +591,26 @@ class _ResampleAccum:
         # ohlc
         return [self.first if c else nan, self.mx if c else nan,
                 self.mn if c else nan, self.last if c else nan]
+
+
+def _resample_eager_via_cpp(vals, idx, *, every, count, agg, origin, label):
+    """Run the eager resample on the C++ engine, not in Python.
+
+    Builds a minimal one-node graph (Input -> Resample -> gather) and evaluates
+    it in batch, reusing the exact ``Dag`` / ``CompiledGraph`` / ``ResampleNode``
+    path the graph (Node) regime already uses. No Python numeric loop: all
+    bucketing and NaN-ignore accumulation happens in the C++ core.
+
+    ``vals`` is a 1-D float array and ``idx`` an integer index array. Returns
+    ``(out_values, out_index)`` values-first, with ``out_values`` 1-D for scalar
+    aggs and 2-D (N, 4) for ``ohlc``.
+    """
+    from .dag import Input, Dag
+    src = Input("x")
+    node = resample(src, every=every, count=count, agg=agg,
+                    origin=origin, label=label)
+    dag = Dag([src], [node])
+    return dag((vals, idx))   # values-first (values, index)
 
 
 def _resample_validate(every, count, agg, label):
@@ -638,61 +664,10 @@ def resample(values, index=None, *, every=None, count=None, agg="last",
     else:
         idx = np.asarray(stream.index)
 
-    out_labels, out_vals = [], []
-    acc = _ResampleAccum()
-
-    def flush_bucket(label_index):
-        out_labels.append(label_index)
-        out_vals.append(acc.emit(agg))
-
-    if every is not None:
-        w = int(every)
-        o = int(origin)
-        started = False
-        bucket = 0
-        cur_label = 0
-        for k, v in zip(idx.tolist(), vals.tolist()):
-            k = int(k)
-            nb = (k - o) // w          # Python // is floor division
-            if not started:
-                started = True
-                bucket = nb
-                acc.reset()
-                cur_label = (o + nb * w) if label == "left" else (o + (nb + 1) * w)
-            elif nb != bucket:
-                if acc.has:
-                    flush_bucket(cur_label)
-                bucket = nb
-                acc.reset()
-                cur_label = (o + nb * w) if label == "left" else (o + (nb + 1) * w)
-            acc.add(v)
-        if acc.has:
-            flush_bucket(cur_label)
-    else:
-        n = int(count)
-        cib = 0
-        first_index = 0
-        last_index = 0
-        for k, v in zip(idx.tolist(), vals.tolist()):
-            k = int(k)
-            if cib == 0:
-                first_index = k
-            last_index = k
-            acc.add(v)
-            cib += 1
-            if cib == n:
-                flush_bucket(first_index if label == "left" else last_index)
-                acc.reset()
-                cib = 0
-        if cib > 0:
-            flush_bucket(first_index if label == "left" else last_index)
-
-    out_idx = np.array(out_labels, dtype=np.int64)
-    if agg == "ohlc":
-        out_v = (np.array(out_vals, dtype=np.float64).reshape(-1, 4)
-                 if out_vals else np.empty((0, 4), dtype=np.float64))
-    else:
-        out_v = np.array(out_vals, dtype=np.float64)
+    # Delegate all bucketing/accumulation to the C++ engine (C++-first: no
+    # Python numeric loop). Builds a one-node graph and runs it in batch.
+    out_v, out_idx = _resample_eager_via_cpp(
+        vals, idx, every=every, count=count, agg=agg, origin=origin, label=label)
     return _adapt(regime, out_v, out_idx)   # index is always real bar labels
 
 
