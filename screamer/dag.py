@@ -355,7 +355,7 @@ class Dag:
     def live(self):
         """Open a live streaming session: push events and drive a clock yourself.
 
-        Bind data AFTER definition, event by event - the same Dag that runs batch.
+        Bind data AFTER definition, event by event, on the same Dag that runs batch.
         Push events with .push(input, index, value); close windows whose boundary has
         passed with .advance(now) (e.g. on a clock tick, finalizing empty bars); force
         the current partial window with .flush(); collect aligned outputs with .result().

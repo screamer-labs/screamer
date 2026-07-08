@@ -11,7 +11,7 @@
       "Input",
       "Node"
     ],
-    "details": "Define a computation graph once, then run it in batch or live with identical\nresults. `Input` names a source stream; calling functors and stream operators on\nthose handles records the graph. `Dag(inputs=[...], outputs=[...])` compiles it\ninto a callable: `dag(...)` runs it on stored arrays, `dag.stream(...)` runs it\nlive, event by event, and the two produce byte-identical output.\n\nFor the conceptual model — how the graph is built, when to reach for it, and the\ndefine-once-run-anywhere guarantee — see\n[The computational graph](../dag.md). This page is the reference contract.",
+    "details": "Define a computation graph once, then run it in batch or live with identical\nresults. `Input` names a source stream; calling functors and stream operators on\nthose handles records the graph. `Dag(inputs=[...], outputs=[...])` compiles it\ninto a callable: `dag(...)` runs it on stored arrays, `dag.stream(...)` replays it\nevent by event, and `dag.live()` opens an incremental session you drive yourself.\nAll three produce byte-identical output on the same events.\n\nFor the conceptual model (how the graph is built, when to reach for it, and the\ndefine-once-run-anywhere guarantee), see\n[The computational graph](../dag.md). This page is the reference contract.",
     "examples": []
   },
   "Input": {
