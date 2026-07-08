@@ -350,6 +350,10 @@ class Dag:
         Push events with .push(input, index, value); close windows whose boundary has
         passed with .advance(now) (e.g. on a clock tick, finalizing empty bars); force
         the current partial window with .flush(); collect aligned outputs with .result().
+
+        The session drives this Dag's single compiled engine (shared with __call__ and
+        stream()), resetting it on open, so use one session at a time: do not interleave
+        a live session with a batch call or run two live sessions concurrently.
         """
         return _LiveDag(self)
 

@@ -199,6 +199,43 @@ def test_advance_noop_not_started():
     assert len(np.asarray(k)) == 0
 
 
+def test_advance_then_later_event_fills_parked_bucket_builtin():
+    # Single-column builtin reducer: advance() parks an empty bucket, a later event
+    # in a further bucket fills the parked one per fill policy (agrees with the
+    # multi-column node; see MultiResampleNode's equivalent test).
+    live = _live_last("nan")
+    live.push("x", 0, 10.0)
+    live.advance(150)          # emit bucket 0 (=10); park empty bucket 1
+    live.push("x", 320, 40.0)  # bucket 3 -> crosses past parked bucket 1 and bucket 2
+    live.flush()
+    v, k = live.result()
+    v = np.asarray(v).reshape(-1)
+    np.testing.assert_array_equal(k, [0, 100, 200, 300])
+    assert v[0] == 10.0
+    assert np.isnan(v[1])      # parked-then-crossed empty bucket -> NaN fill
+    assert np.isnan(v[2])
+    assert v[3] == 40.0
+
+
+def test_advance_then_later_event_fills_parked_bucket_generic():
+    # Same, single-column functor reducer (GenericResampleNode path).
+    src = Input("x")
+    node = resample(src, every=100, origin=0, agg=ExpandingSum(), fill="nan")
+    dag = Dag([src], [node])
+    live = dag.live()
+    live.push("x", 0, 10.0)
+    live.advance(150)
+    live.push("x", 320, 40.0)
+    live.flush()
+    v, k = live.result()
+    v = np.asarray(v).reshape(-1)
+    np.testing.assert_array_equal(k, [0, 100, 200, 300])
+    assert v[0] == 10.0
+    assert np.isnan(v[1])
+    assert np.isnan(v[2])
+    assert v[3] == 40.0
+
+
 def test_advance_noop_count_mode():
     src = Input("x")
     node = resample(src, count=2, agg="last", fill="nan")

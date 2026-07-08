@@ -295,7 +295,10 @@ public:
 
     // Time-driven finalization: close every resample window whose boundary has passed
     // by logical time `now`. Does not end the stream (unlike flush()); safe to call
-    // repeatedly with non-decreasing `now`.
+    // repeatedly with non-decreasing `now`. Resample nodes are advanced in registration
+    // (not topological) order and their emitted frames are not re-driven downstream
+    // within this call, so a resample fed by another resample sees an inner node's
+    // just-closed frame only on the next event/advance (delayed, never a wrong value).
     void advance(std::int64_t now) {
         for (auto* r : reset_resamples_)         r->advance(now);
         for (auto* r : reset_generic_resamples_) r->advance(now);
