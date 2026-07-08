@@ -125,8 +125,10 @@ Every function, grouped by topic. Topics are many-to-many, so a function may app
    functions_misc/Detrend
    functions_misc/Diff
    functions_misc/Diff2
+   functions_misc/First
    functions_misc/Identity
    functions_misc/Lag
+   functions_misc/Last
    functions_misc/Momentum
    functions_preprocessing/Clip
    functions_preprocessing/Ffill

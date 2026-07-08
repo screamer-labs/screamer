@@ -68,11 +68,14 @@ it sidesteps Part A entirely.
 ### Front-end: lazy `agg` dict
 
 Each dict value is a **lazy expression**: an input at the leaf, per-tick transforms in
-the middle, a per-bar reducer at the root.
+the middle, a per-bar reducer at the root. Inputs are **pure symbolic placeholders**;
+the bar aggregator is a **node authored via the dict** and placed in a `Dag`. Data
+(batch or stream) is bound **at call time**, not at input construction (see "Input
+binding" and [[project_dag_is_primitive]]).
 
 ```python
-price, volume = Input("price", price_arr), Input("volume", vol_arr)
-bars = resample(index=t, every=BAR, agg={
+price, volume, t = Input("price"), Input("volume"), Input("t")
+bars_node = bars(index=t, every=BAR, agg={
     "open":     First()(price),
     "high":     ExpandingMax()(price),
     "low":      ExpandingMin()(price),
@@ -80,8 +83,15 @@ bars = resample(index=t, every=BAR, agg={
     "buy_vol":  ExpandingSum()(PosPart()(volume)),
     "sell_vol": ExpandingSum()(NegPart()(volume)),
 })
+dag = Dag(inputs=[t, price, volume], outputs=[bars_node])
+bars = dag(t=t_arr, price=price_arr, volume=vol_arr)   # bind data, batch OR stream
 # bars: a Stream, .values (N_bars, 6), .columns = the dict keys
 ```
+
+The eager `resample(...)` stays single-input sugar; the multi-column, multi-input case
+is expressed as a `Dag` with a bar node. `bars(...)` is the node constructor that
+compiles the dict into the multi-column "collect and reset" node (Part B), so it can be
+placed anywhere in a graph and reused across datasets.
 
 ### Node contract
 
@@ -113,16 +123,23 @@ boundary)" function.
 `Identity` already behaves as last under per-bar reset, but a named `Last` reads
 better). Both stateless-to-reset, NaN policy `ignore`.
 
-### Input binding (RECOMMENDED, confirm on review)
+### Input binding (RESOLVED: define-then-bind, the Dag is the primitive)
 
-**Recommended: data-carrying `Input`.** Extend `Input` to optionally hold its stream:
-`Input("price", price_arr)`. Then the lazy expressions have their data, and the
-`resample(agg={...}, index=t, every=BAR)` call needs no separate data plumbing. Pure
-`Input("price")` (no data) keeps working for reusable graphs. Alternatives, if
-preferred:
-- explicit map: `resample(agg={...}, index=t, inputs={"price": arr, "volume": arr})`;
-- kwargs: `resample(agg={...}, index=t, price=arr, volume=arr)` (concise but can
-  collide with resample's own parameter names).
+`Input(name)` stays a **pure, data-less symbolic placeholder** - no data-carrying
+`Input`. The model is **define-then-bind** (the existing `Dag` contract, see
+[[project_dag_is_primitive]]):
+
+1. **Define:** author the lazy dict into a `bars(...)` node, then wrap it in a
+   `Dag(inputs=[...placeholders...], outputs=[bars_node])`. The `Dag` acts like a
+   reusable functor with named inputs and outputs.
+2. **Bind at call time:** `dag(t=t_arr, price=price_arr, volume=vol_arr)` by Input name
+   (or positionally, in `inputs` order). The same `Dag` runs a NumPy array (batch) or a
+   live stream, with `batch == stream`.
+
+No new binding plumbing is needed: `Dag.__call__` already binds by name / position and
+`get_input_nodes` already discovers the reachable `Input`s. The bar node's per-column
+sub-graphs are ordinary graph nodes rooted at those placeholders, so the existing
+compile + bind path carries them.
 
 ---
 
@@ -195,7 +212,9 @@ as today; the live path gains explicit, clock-driven control. (This also gives
 
 ## Open decisions (confirm before the plan)
 
-- Input-binding style (recommend data-carrying `Input`).
+- Input-binding style: RESOLVED - define-then-bind on a `Dag`, pure placeholder
+  `Input`, no data-carrying `Input`. The multi-column bars is a node placed in a `Dag`;
+  `resample` stays single-input eager sugar. (See "Input binding".)
 - Lazy-dict vs current single-input dict: coexist (recommended) or replace.
 - Whether `First`/`Last` also matter outside bars (they are already resample agg
   strings; the functors are new, needed for the lazy form).
