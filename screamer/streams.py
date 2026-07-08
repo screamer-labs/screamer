@@ -25,27 +25,96 @@ __all__ = [
 
 
 class Stream:
-    """A sequence of values with an optional ordering index.
+    """A sequence of values with an optional ordering index and optional column names.
 
     ``values`` is a 1-D ``(T,)`` or 2-D ``(T, N)`` array. ``index`` is a 1-D array
     of length ``T``, or ``None``. ``None`` means positional (row number, arrival
     order) and stores nothing. The index is an ordering coordinate such as a
     timestamp or a tick counter, not a lookup key.
-    """
-    __slots__ = ("values", "index")
 
-    def __init__(self, values, index=None):
+    ``columns`` is a tuple of string names for a 2-D ``values`` array, or ``None``
+    for unlabelled (including all 1-D) streams. When set, ``stream["name"]`` and
+    ``stream.column("name")`` return the corresponding 1-D column view.
+
+    Backward-compatible unpacking: ``v, k = stream`` always unpacks to
+    ``(stream.values, stream.index)``, so existing code that unpacked an eager
+    ``resample(...)`` result as a 2-tuple continues to work unchanged.
+    Integer subscript ``stream[0]`` returns ``values``; ``stream[1]`` returns
+    ``index``.
+    """
+    __slots__ = ("values", "index", "columns")
+
+    def __init__(self, values, index=None, columns=None):
         self.values = np.asarray(values)
         self.index = None if index is None else np.asarray(index)
         if self.index is not None and len(self.index) != len(self.values):
             raise ValueError("Stream: index and values must have the same length")
+        if columns is not None:
+            cols = tuple(columns)
+            if self.values.ndim != 2:
+                raise ValueError(
+                    "Stream: columns requires a 2-D values array "
+                    f"(got ndim={self.values.ndim})")
+            if len(cols) != self.values.shape[1]:
+                raise ValueError(
+                    f"Stream: columns length {len(cols)} does not match "
+                    f"values width {self.values.shape[1]}")
+            self.columns = cols
+        else:
+            self.columns = None
 
     def __len__(self):
         return len(self.values)
 
     def __repr__(self):
         kind = "positional" if self.index is None else f"index={self.index!r}"
-        return f"Stream({self.values!r}, {kind})"
+        cols = f", columns={self.columns!r}" if self.columns is not None else ""
+        return f"Stream({self.values!r}, {kind}{cols})"
+
+    def __iter__(self):
+        """Yield ``(values, index)`` so that ``v, k = stream`` unpacks correctly.
+
+        This is a deliberate 2-item iterator that preserves backward-compatible
+        tuple-unpacking of eager ``resample(...)`` results.  ``list(stream)``
+        returns ``[values_array, index_array]``.
+        """
+        return iter((self.values, self.index))
+
+    def __getitem__(self, key):
+        """Column or positional access.
+
+        * ``stream["name"]`` - returns the 1-D column view by name (requires
+          ``columns`` to be set; raises ``ValueError`` otherwise, ``KeyError``
+          if the name is absent).
+        * ``stream[0]`` - returns ``values`` (backward-compatible tuple index 0).
+        * ``stream[1]`` - returns ``index``  (backward-compatible tuple index 1).
+        """
+        if isinstance(key, int):
+            if key == 0:
+                return self.values
+            if key == 1:
+                return self.index
+            raise IndexError(f"Stream: integer index must be 0 or 1, got {key}")
+        return self.column(key)
+
+    def column(self, name):
+        """Return the 1-D array for the named column.
+
+        Raises ``ValueError`` if this stream has no column labels (``columns``
+        is ``None``).  Raises ``KeyError`` if ``name`` is not in ``columns``.
+        """
+        if self.columns is None:
+            raise ValueError(
+                "Stream: cannot access column by name - this stream has no "
+                "column labels (columns=None). Column labels are set for "
+                "multi-column aggs such as ohlc.")
+        try:
+            col_idx = self.columns.index(name)
+        except ValueError:
+            raise KeyError(
+                f"Stream: column {name!r} not found. "
+                f"Available columns: {self.columns}")
+        return self.values[:, col_idx]
 
     @classmethod
     def from_pandas(cls, obj):
@@ -56,11 +125,13 @@ class Stream:
 
     def to_pandas(self):
         """Return a pandas Series (1-D values) or DataFrame (2-D). A positional
-        stream gets pandas' default RangeIndex."""
+        stream gets pandas' default RangeIndex. Column names are set when
+        ``columns`` is not ``None``."""
         import pandas as pd
         if self.values.ndim == 1:
             return pd.Series(self.values, index=self.index)
-        return pd.DataFrame(self.values, index=self.index)
+        return pd.DataFrame(self.values, index=self.index,
+                            columns=list(self.columns) if self.columns else None)
 
 
 def _regime(inputs):
@@ -532,6 +603,7 @@ def select_iter(events, columns):
 
 
 _RESAMPLE_AGGS = ("first", "last", "min", "max", "sum", "count", "mean", "ohlc")
+_OHLC_COLUMNS = ("open", "high", "low", "close")
 
 
 class _ResampleAccum:
@@ -670,7 +742,11 @@ def resample(values, index=None, *, every=None, count=None, agg="last",
     # Python numeric loop). Builds a one-node graph and runs it in batch.
     out_v, out_idx = _resample_eager_via_cpp(
         vals, idx, every=every, count=count, agg=agg, origin=origin, label=label)
-    return _adapt(regime, out_v, out_idx)   # index is always real bar labels
+    # Attach column names for multi-column aggs; labels are pure Python marshalling.
+    cols = _OHLC_COLUMNS if agg == "ohlc" else None
+    # Both raw and Stream regimes return a Stream; Stream is unpackable as
+    # (values, index) for backward-compatible tuple unpacking.
+    return Stream(out_v, out_idx, columns=cols)
 
 
 def resample_iter(events, *, every=None, count=None, agg="last",
