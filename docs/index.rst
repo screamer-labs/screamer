@@ -147,6 +147,7 @@ For a step-by-step walkthrough see the :doc:`User Guide <usage>`.
    notebooks/10-tick-bars-and-custom-aggregations
    notebooks/11-expanding-statistics
    notebooks/12-downsampling-with-resample
+   notebooks/13-ohlcv2-and-the-dict-form
 
 
 .. toctree::
