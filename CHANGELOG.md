@@ -30,6 +30,48 @@ All notable changes to this project are documented in this file.
 [Unreleased] - yyyy-mm-dd
 -------------------------
 
+### Added
+
+#### Windowed aggregation and bar construction
+
+* **`resample` generalized** (`agg = str | functor | dict`). The `agg`
+  parameter now accepts any `EvalOp` functor as a per-bar reducer (reset at
+  each bar boundary, accumulates within the bar) or a dict
+  `{name: str|functor}` that runs multiple reducers over the same bucketing
+  and returns one labelled `Stream`. String shorthands are unchanged
+  (`first`, `last`, `min`, `max`, `sum`, `count`, `mean`, `ohlc`).
+* **`agg="ohlcv"` and `agg="ohlcv2"`** for two-column `[price, volume]`
+  input. `ohlcv` produces `(open, high, low, close, volume)`; `ohlcv2`
+  splits volume into buyer-initiated and seller-initiated halves using the
+  `PosPart`/`NegPart` decomposition, yielding
+  `(open, high, low, close, buy_vol, sell_vol)`.
+* **`resample` now returns a `Stream` in all regimes** (raw array, `Stream`,
+  or `Node`). Multi-column aggs (`ohlc`, `ohlcv`, `ohlcv2`, dict) set
+  `.columns` on the result; the `Stream` is still unpackable as
+  `(values, index)` for backward-compatible tuple unpacking.
+* **`Stream.columns`** -- optional tuple of column names; access a named
+  column with `stream["name"]`.
+
+#### Expanding statistics family
+
+* `ExpandingMean`, `ExpandingVar`, `ExpandingStd`, `ExpandingSkew`,
+  `ExpandingKurt`, `ExpandingSlope` -- bias-corrected whole-history running
+  statistics matching `pandas.Series.expanding()`. `O(1)` memory; resettable.
+* `ExpandingSum`, `ExpandingMax`, `ExpandingMin`, `ExpandingProd` -- aliases
+  for the existing `Cum*` family, grouped for discoverability.
+
+#### Signed-part helpers
+
+* `PosPart` -- `max(x, 0)` (positive part; identical to `Relu`).
+* `NegPart` -- `max(-x, 0)` (magnitude of the negative part). Together they
+  satisfy the identity `x = PosPart(x) - NegPart(x)`, which underpins the
+  `ohlcv2` buy/sell volume decomposition.
+
+---
+
+[Unreleased-previous] - yyyy-mm-dd
+------------------------------------
+
 This release more than doubles the indicator surface (67 → 153 exposed
 classes) and closes six of the seven roadmap sections. Almost every
 new class is cross-validated against TA-Lib, pandas, scipy, or

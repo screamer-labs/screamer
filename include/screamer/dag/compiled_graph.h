@@ -21,6 +21,7 @@
 #include "screamer/dag/dropna_node.h"
 #include "screamer/dag/select_node.h"
 #include "screamer/dag/resample_node.h"
+#include "screamer/dag/resample_generic_node.h"
 #include "screamer/dag/frame.h"
 #include "screamer/dag/functor_node.h"
 #include "screamer/dag/graph.h"
@@ -121,7 +122,7 @@ public:
             case NodeKind::CombineLatest: node_width[id] = nd.inputs.size(); break;
             case NodeKind::DropNa:        node_width[id] = node_width[nd.inputs[0]]; break;
             case NodeKind::Select:        node_width[id] = nd.columns.size(); break;
-            case NodeKind::Resample:      node_width[id] = resample_width(nd.resample.agg); break;
+            case NodeKind::Resample:      node_width[id] = resample_output_width(nd.resample); break;
             }
         }
         output_widths_.resize(num_out);
@@ -223,12 +224,23 @@ public:
                 break;
             }
             case NodeKind::Resample: {
-                auto rn = std::make_shared<ResampleNode<std::int64_t>>(ns.resample, *downstream);
-                reset_resamples_.push_back(rn.get());
-                node_input_sink[id] = [ptr = rn.get()](std::size_t) -> Sink<std::int64_t>* {
-                    return ptr;
-                };
-                owned_.push_back(rn);
+                if (ns.resample.reducer) {
+                    // Functor-reducer bucketing (GenericResampleNode).
+                    auto rn = std::make_shared<GenericResampleNode<std::int64_t>>(
+                        ns.resample, *downstream);
+                    reset_generic_resamples_.push_back(rn.get());
+                    node_input_sink[id] = [ptr = rn.get()](std::size_t) -> Sink<std::int64_t>* {
+                        return ptr;
+                    };
+                    owned_.push_back(rn);
+                } else {
+                    auto rn = std::make_shared<ResampleNode<std::int64_t>>(ns.resample, *downstream);
+                    reset_resamples_.push_back(rn.get());
+                    node_input_sink[id] = [ptr = rn.get()](std::size_t) -> Sink<std::int64_t>* {
+                        return ptr;
+                    };
+                    owned_.push_back(rn);
+                }
                 break;
             }
             }
@@ -241,6 +253,7 @@ public:
         for (auto* op : reset_ops_)      op->reset();
         for (auto* c  : reset_combines_) c->reset();
         for (auto* r  : reset_resamples_) r->reset();
+        for (auto* r  : reset_generic_resamples_) r->reset();
         for (std::size_t o = 0; o < outputs_.size(); ++o) {
             outputs_[o].indices.clear();
             outputs_[o].values.clear();
@@ -335,6 +348,7 @@ private:
     std::vector<EvalOp*>                          reset_ops_;       // functor ops to reset
     std::vector<CombineLatestNode<std::int64_t>*> reset_combines_;  // combine nodes to reset
     std::vector<ResampleNode<std::int64_t>*>      reset_resamples_; // resample nodes to reset
+    std::vector<GenericResampleNode<std::int64_t>*> reset_generic_resamples_; // functor-reducer resample nodes
     std::vector<OutputBuffer>                     outputs_;         // persistent output buffers
     std::vector<std::size_t>                      output_widths_;   // expected width for each output
 };

@@ -24,6 +24,14 @@ Running aggregates from the start of the series.
      - Running sum from t=0.
    * - :doc:`Drawdown </functions_fin/Drawdown>`
      - Running drawdown from the cumulative peak.
+   * - :doc:`ExpandingMax </functions_expanding/ExpandingMax>`
+     - Running maximum from t=0.
+   * - :doc:`ExpandingMin </functions_expanding/ExpandingMin>`
+     - Running minimum from t=0.
+   * - :doc:`ExpandingProd </functions_expanding/ExpandingProd>`
+     - Running product from t=0.
+   * - :doc:`ExpandingSum </functions_expanding/ExpandingSum>`
+     - Running sum from t=0.
    * - :doc:`MaxDrawdown </functions_fin/MaxDrawdown>`
      - Worst drawdown experienced so far (since reset).
    * - :doc:`OBV </functions_rolling/OBV>`

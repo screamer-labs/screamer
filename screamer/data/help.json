@@ -839,6 +839,264 @@
       }
     ]
   },
+  "ExpandingKurt": {
+    "name": "ExpandingKurt",
+    "title": "Expanding kurtosis",
+    "implementation_family": "expanding",
+    "topics": [
+      "statistics"
+    ],
+    "tags": [
+      "kurtosis",
+      "expanding"
+    ],
+    "short": "Running bias-corrected excess kurtosis (Fisher) over the whole history.",
+    "inputs": 1,
+    "outputs": 1,
+    "parameters": [],
+    "nan_policy": "ignore",
+    "details": "## Description\n\nThe `ExpandingKurt` function returns the bias-corrected Fisher excess kurtosis of every sample seen since the last `reset`, using the same estimator as `RollingKurt` and `pandas.Series.expanding().kurt()`. Undefined (`NaN`) until at least four samples have been seen. Memory is `O(1)`.\n\n*Equation*:\n\n$$\ny[t] = \\frac{n(n+1)}{(n-1)(n-2)(n-3)}\\sum_{i=0}^{t}\\left(\\frac{x[i]-\\bar{x}}{s}\\right)^4 - \\frac{3(n-1)^2}{(n-2)(n-3)}, \\quad n=t+1\n$$\n\n*Parameters*: none.\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in the input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage example",
+        "code": "import numpy as np\nfrom screamer import ExpandingKurt\n\nx = np.arange(1.0, 11.0)\ny = ExpandingKurt()(x)"
+      }
+    ]
+  },
+  "ExpandingMax": {
+    "name": "ExpandingMax",
+    "title": "Expanding maximum",
+    "implementation_family": "expanding",
+    "topics": [
+      "cumulative"
+    ],
+    "tags": [
+      "max",
+      "expanding",
+      "cumulative"
+    ],
+    "short": "Running maximum from t=0.",
+    "inputs": 1,
+    "outputs": 1,
+    "parameters": [],
+    "nan_policy": "ignore",
+    "details": "## Description\n\nThe `ExpandingMax` function returns the running maximum of every sample seen since the last `reset`. It is an alias of `CumMax` exposed under the expanding family and matches `pandas.Series.expanding().max()`.\n\n*Equation*:\n\n$$\ny[t] = \\max_{0 \\le i \\le t} x[i]\n$$\n\n*Parameters*: none.\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in the input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage example",
+        "code": "import numpy as np\nfrom screamer import ExpandingMax\n\nx = np.arange(1.0, 11.0)\ny = ExpandingMax()(x)"
+      }
+    ]
+  },
+  "ExpandingMean": {
+    "name": "ExpandingMean",
+    "title": "Expanding mean",
+    "implementation_family": "expanding",
+    "topics": [
+      "statistics"
+    ],
+    "tags": [
+      "mean",
+      "expanding",
+      "cumulative"
+    ],
+    "short": "Running mean over the whole history since the last reset.",
+    "inputs": 1,
+    "outputs": 1,
+    "parameters": [],
+    "nan_policy": "ignore",
+    "details": "## Description\n\nThe `ExpandingMean` function returns the arithmetic mean of every sample seen since the start of the stream (or since the last `reset`). It is the whole-history analogue of `RollingMean` and matches `pandas.Series.expanding().mean()`. Memory is `O(1)`.\n\n*Equation*:\n\n$$\ny[t] = \\frac{1}{t+1} \\sum_{i=0}^{t} x[i]\n$$\n\n*Parameters*: none.\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in the input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage example",
+        "code": "import numpy as np\nfrom screamer import ExpandingMean\n\nx = np.arange(1.0, 11.0)\ny = ExpandingMean()(x)"
+      }
+    ]
+  },
+  "ExpandingMin": {
+    "name": "ExpandingMin",
+    "title": "Expanding minimum",
+    "implementation_family": "expanding",
+    "topics": [
+      "cumulative"
+    ],
+    "tags": [
+      "min",
+      "expanding",
+      "cumulative"
+    ],
+    "short": "Running minimum from t=0.",
+    "inputs": 1,
+    "outputs": 1,
+    "parameters": [],
+    "nan_policy": "ignore",
+    "details": "## Description\n\nThe `ExpandingMin` function returns the running minimum of every sample seen since the last `reset`. It is an alias of `CumMin` exposed under the expanding family and matches `pandas.Series.expanding().min()`.\n\n*Equation*:\n\n$$\ny[t] = \\min_{0 \\le i \\le t} x[i]\n$$\n\n*Parameters*: none.\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in the input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage example",
+        "code": "import numpy as np\nfrom screamer import ExpandingMin\n\nx = np.arange(1.0, 11.0)\ny = ExpandingMin()(x)"
+      }
+    ]
+  },
+  "ExpandingProd": {
+    "name": "ExpandingProd",
+    "title": "Expanding product",
+    "implementation_family": "expanding",
+    "topics": [
+      "cumulative"
+    ],
+    "tags": [
+      "product",
+      "expanding",
+      "cumulative"
+    ],
+    "short": "Running product from t=0.",
+    "inputs": 1,
+    "outputs": 1,
+    "parameters": [],
+    "nan_policy": "ignore",
+    "details": "## Description\n\nThe `ExpandingProd` function returns the running product of every sample seen since the last `reset`. It is an alias of `CumProd` exposed under the expanding family and matches `numpy.cumprod` (skipping NaN).\n\n*Equation*:\n\n$$\ny[t] = \\prod_{i=0}^{t} x[i]\n$$\n\n*Parameters*: none.\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in the input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage example",
+        "code": "import numpy as np\nfrom screamer import ExpandingProd\n\nx = np.arange(1.0, 11.0)\ny = ExpandingProd()(x)"
+      }
+    ]
+  },
+  "ExpandingSkew": {
+    "name": "ExpandingSkew",
+    "title": "Expanding skewness",
+    "implementation_family": "expanding",
+    "topics": [
+      "statistics"
+    ],
+    "tags": [
+      "skew",
+      "expanding"
+    ],
+    "short": "Running bias-corrected sample skewness (G1) over the whole history.",
+    "inputs": 1,
+    "outputs": 1,
+    "parameters": [],
+    "nan_policy": "ignore",
+    "details": "## Description\n\nThe `ExpandingSkew` function returns the adjusted Fisher-Pearson standardized moment coefficient (G1) of every sample seen since the last `reset`. It uses the same bias-corrected estimator as `RollingSkew` and `pandas.Series.expanding().skew()`. Undefined (`NaN`) until at least three samples have been seen. Memory is `O(1)`.\n\n*Equation*:\n\n$$\ny[t] = \\frac{n}{(n-1)(n-2)}\\sum_{i=0}^{t}\\left(\\frac{x[i]-\\bar{x}}{s}\\right)^3, \\quad n=t+1\n$$\n\n*Parameters*: none.\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in the input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage example",
+        "code": "import numpy as np\nfrom screamer import ExpandingSkew\n\nx = np.arange(1.0, 11.0)\ny = ExpandingSkew()(x)"
+      }
+    ]
+  },
+  "ExpandingSlope": {
+    "name": "ExpandingSlope",
+    "title": "Expanding slope",
+    "implementation_family": "expanding",
+    "topics": [
+      "trend"
+    ],
+    "tags": [
+      "slope",
+      "regression",
+      "expanding"
+    ],
+    "short": "Running OLS slope of the series against time over the whole history.",
+    "inputs": 1,
+    "outputs": 1,
+    "parameters": [],
+    "nan_policy": "ignore",
+    "details": "## Description\n\nThe `ExpandingSlope` function returns the ordinary-least-squares slope of the samples seen so far against an implicit integer time axis `x = 0, 1, ..., n-1`. It is the whole-history analogue of `RollingPoly1` with `derivative_order=1`. Undefined (`NaN`) until at least two samples have been seen. Memory is `O(1)`.\n\n*Equation*:\n\n$$\ny[t] = \\frac{n\\sum i\\,x[i] - (\\sum i)(\\sum x[i])}{n\\sum i^2 - (\\sum i)^2}, \\quad i=0..t,\\; n=t+1\n$$\n\n*Parameters*: none.\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in the input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage example",
+        "code": "import numpy as np\nfrom screamer import ExpandingSlope\n\nx = np.arange(1.0, 11.0)\ny = ExpandingSlope()(x)"
+      }
+    ]
+  },
+  "ExpandingStd": {
+    "name": "ExpandingStd",
+    "title": "Expanding standard deviation",
+    "implementation_family": "expanding",
+    "topics": [
+      "statistics",
+      "volatility"
+    ],
+    "tags": [
+      "std",
+      "expanding"
+    ],
+    "short": "Running sample standard deviation (ddof=1) over the whole history.",
+    "inputs": 1,
+    "outputs": 1,
+    "parameters": [],
+    "nan_policy": "ignore",
+    "details": "## Description\n\nThe `ExpandingStd` function returns the sample standard deviation (`ddof=1`) of every sample seen since the last `reset`; it is the square root of `ExpandingVar` and matches `pandas.Series.expanding().std()`. Undefined (`NaN`) until at least two samples have been seen. Memory is `O(1)`.\n\n*Equation*:\n\n$$\ny[t] = \\sqrt{\\frac{1}{n-1}\\sum_{i=0}^{t}(x[i]-\\bar{x})^2}, \\quad n=t+1\n$$\n\n*Parameters*: none.\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in the input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage example",
+        "code": "import numpy as np\nfrom screamer import ExpandingStd\n\nx = np.arange(1.0, 11.0)\ny = ExpandingStd()(x)"
+      }
+    ]
+  },
+  "ExpandingSum": {
+    "name": "ExpandingSum",
+    "title": "Expanding sum",
+    "implementation_family": "expanding",
+    "topics": [
+      "cumulative"
+    ],
+    "tags": [
+      "sum",
+      "expanding",
+      "cumulative"
+    ],
+    "short": "Running sum from t=0.",
+    "inputs": 1,
+    "outputs": 1,
+    "parameters": [],
+    "nan_policy": "ignore",
+    "details": "## Description\n\nThe `ExpandingSum` function returns the running sum of every sample seen since the last `reset`. It is an alias of `CumSum` exposed under the expanding family and matches `pandas.Series.expanding().sum()`.\n\n*Equation*:\n\n$$\ny[t] = \\sum_{i=0}^{t} x[i]\n$$\n\n*Parameters*: none.\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in the input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage example",
+        "code": "import numpy as np\nfrom screamer import ExpandingSum\n\nx = np.arange(1.0, 11.0)\ny = ExpandingSum()(x)"
+      }
+    ]
+  },
+  "ExpandingVar": {
+    "name": "ExpandingVar",
+    "title": "Expanding variance",
+    "implementation_family": "expanding",
+    "topics": [
+      "statistics",
+      "volatility"
+    ],
+    "tags": [
+      "variance",
+      "expanding"
+    ],
+    "short": "Running sample variance (ddof=1) over the whole history.",
+    "inputs": 1,
+    "outputs": 1,
+    "parameters": [],
+    "nan_policy": "ignore",
+    "details": "## Description\n\nThe `ExpandingVar` function returns the sample variance (delta degrees of freedom `ddof=1`) of every sample seen since the last `reset`. It shares the ddof=1 convention with `RollingVar` and `pandas.Series.expanding().var()`. Undefined (`NaN`) until at least two samples have been seen. Memory is `O(1)`.\n\n*Equation*:\n\n$$\ny[t] = \\frac{1}{n-1}\\sum_{i=0}^{t}(x[i]-\\bar{x})^2, \\quad n=t+1\n$$\n\n*Parameters*: none.\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in the input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage example",
+        "code": "import numpy as np\nfrom screamer import ExpandingVar\n\nx = np.arange(1.0, 11.0)\ny = ExpandingVar()(x)"
+      }
+    ]
+  },
   "Drawdown": {
     "name": "Drawdown",
     "title": "Drawdown",
@@ -2192,6 +2450,31 @@
     "details": "## Description\n\n`Mul` computes the elementwise product of two aligned input streams, `x * y`. It takes two inputs and returns one output; a `NaN` in\neither input yields `NaN` at that step.\n\n*Parameters*: `Mul` takes no parameters.\n\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
     "examples": []
   },
+  "NegPart": {
+    "name": "NegPart",
+    "title": "Negative Part",
+    "implementation_family": "math",
+    "topics": [
+      "arithmetic"
+    ],
+    "tags": [
+      "negative",
+      "part"
+    ],
+    "short": "Negative part of x: max(-x, 0).",
+    "inputs": 1,
+    "outputs": 1,
+    "parameters": [],
+    "nan_policy": "ignore",
+    "details": "## Description\n\nThe `NegPart` class computes the negative part of a value, returning `max(-x, 0)`. Together with `PosPart`, it decomposes any real number: `x = PosPart(x) - NegPart(x)`. This is useful for separating signed quantities into their positive and negative components, for example splitting signed trade volume into buy volume and sell volume.\n\n*Equation*:\n\n$$\nf(x) = \\max(-x, 0)\n$$\n\n*Parameters*: `NegPart` takes no parameters.\n\n*NaN handling*: `NaN` values pass through unchanged.\n\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage example",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom screamer import PosPart, NegPart\n\ndata = np.linspace(-3, 3, 100)\npos = PosPart()(data)\nneg = NegPart()(data)\n\nfig = go.Figure()\nfig.add_trace(go.Scatter(y=data, mode='lines', name='Input'))\nfig.add_trace(go.Scatter(y=pos, mode='lines', name='PosPart', line=dict(color='green')))\nfig.add_trace(go.Scatter(y=neg, mode='lines', name='NegPart', line=dict(color='red')))\n\nfig.update_layout(\n    title=\"PosPart and NegPart Decomposition\",\n    yaxis_title=\"Output\",\n    xaxis_title=\"Input\",\n    margin=dict(l=20, r=20, t=40, b=20)\n)\n\nfig.show()"
+      }
+    ]
+  },
   "Polar2Cart": {
     "name": "Polar2Cart",
     "title": "Polar to Cartesian",
@@ -2215,6 +2498,32 @@
         "language": "python",
         "caption": "Usage example",
         "code": "import numpy as np\nfrom screamer import Polar2Cart, Cart2Polar\n\n# Roundtrip with Cart2Polar (inverse pair)\nrng = np.random.default_rng(0)\nx = rng.standard_normal(100)\ny = rng.standard_normal(100)\n\npolar = Cart2Polar()(x, y)              # shape (100, 2)\nback = Polar2Cart()(polar[:, 0], polar[:, 1])\nnp.testing.assert_allclose(back[:, 0], x, atol=1e-12)\nnp.testing.assert_allclose(back[:, 1], y, atol=1e-12)"
+      }
+    ]
+  },
+  "PosPart": {
+    "name": "PosPart",
+    "title": "Positive Part",
+    "implementation_family": "math",
+    "topics": [
+      "arithmetic"
+    ],
+    "tags": [
+      "positive",
+      "part",
+      "relu"
+    ],
+    "short": "Positive part of x: max(x, 0).",
+    "inputs": 1,
+    "outputs": 1,
+    "parameters": [],
+    "nan_policy": "ignore",
+    "details": "## Description\n\nThe `PosPart` class computes the positive part of a value, returning `max(x, 0)`. Together with `NegPart`, it decomposes any real number: `x = PosPart(x) - NegPart(x)`. This is identical to the ReLU activation function and is useful as a building block for signed-quantity aggregations such as buy/sell volume.\n\n*Equation*:\n\n$$\nf(x) = \\max(x, 0)\n$$\n\n*Parameters*: `PosPart` takes no parameters.\n\n*NaN handling*: `NaN` values pass through unchanged.\n\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage example",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom screamer import PosPart, NegPart\n\ndata = np.linspace(-3, 3, 100)\npos = PosPart()(data)\nneg = NegPart()(data)\n\nfig = go.Figure()\nfig.add_trace(go.Scatter(y=data, mode='lines', name='Input'))\nfig.add_trace(go.Scatter(y=pos, mode='lines', name='PosPart', line=dict(color='green')))\nfig.add_trace(go.Scatter(y=neg, mode='lines', name='NegPart', line=dict(color='red')))\n\nfig.update_layout(\n    title=\"PosPart and NegPart Decomposition\",\n    yaxis_title=\"Output\",\n    xaxis_title=\"Input\",\n    margin=dict(l=20, r=20, t=40, b=20)\n)\n\nfig.show()"
       }
     ]
   },
@@ -5850,14 +6159,14 @@
     "name": "resample",
     "title": "resample",
     "kind": "function",
-    "short": "Causal windowed downsample of a 1-D value stream.",
+    "short": "Causal windowed downsample of a 1-D or multi-column value stream.",
     "topics": [
       "streams"
     ],
     "covers": [
       "resample_iter"
     ],
-    "details": "Causal windowed downsampling. Group a stream into fixed index-interval buckets\n(`every=`) or fixed event-count buckets (`count=`), and reduce each bucket with\none of `first`, `last`, `min`, `max`, `sum`, `count`, `mean`, or `ohlc`. A\nbucket emits only once a later index proves it complete, and the trailing partial\nbucket emits at the end of the input. Usable eagerly and inside a `Dag`.",
+    "details": "Causal windowed downsampling. Group a stream into fixed index-interval buckets\n(`every=`) or fixed event-count buckets (`count=`), reduce each bucket with a\nper-bar aggregation, and return a labelled `Stream`. A bucket emits only once a\nlater index proves it complete; the trailing partial bucket emits at end of input.\nUsable eagerly (raw arrays or `Stream`) and inside a `Dag`.\n\nThe `agg` parameter accepts three forms:\n\n**String shorthand** -- one of `first`, `last`, `min`, `max`, `sum`, `count`,\n`mean`, `ohlc`, `ohlcv`, `ohlcv2`. `ohlc` returns four columns\n(`open`, `high`, `low`, `close`). `ohlcv` and `ohlcv2` accept a two-column\ninput `[price, volume]`; see below.\n\n**Any `EvalOp` functor** -- e.g. `ExpandingSkew()`. The functor is `reset()` at\neach bar boundary and fed every in-bar sample; its last output before the close\nis emitted as the bar value. All screamer functors are valid reducers.\n\n**Dict** `{name: str|functor}` -- runs each sub-reducer over the same bucketing\nand returns a labelled `Stream` whose `.columns` are the dict keys (insertion\norder). Dict agg is an eager convenience; it is not available in the graph\n(`Node`) regime.\n\n## Labelled output and `Stream.columns`\n\nEvery `resample` call returns a `Stream`, which is also unpackable as\n`(values, index)` for backward-compatible tuple unpacking. Multi-column\naggregations (`ohlc`, `ohlcv`, `ohlcv2`, dict) set `.columns` on the returned\n`Stream` to a tuple of column names; single-value aggregations leave `.columns`\nas `None`. Use `bars[\"close\"]` to read a named 1-D column, or iterate\n`(values, index) = bars` for the full array.\n\n## `ohlcv` and `ohlcv2` (two-column input)\n\nBoth require `values` to be a `(T, 2)` array: column 0 is price, column 1 is\nvolume (unsigned for `ohlcv`, signed for `ohlcv2`).\n\n`ohlcv` produces `(open, high, low, close, volume)`. The volume column is the sum\nof column-1 values inside each bar.\n\n`ohlcv2` produces `(open, high, low, close, buy_vol, sell_vol)`. Buy volume is\n`sum(PosPart(signed_vol))` and sell volume is `sum(NegPart(signed_vol))` per bar\n-- the signed-part decomposition.",
     "examples": []
   },
   "resample_iter": {

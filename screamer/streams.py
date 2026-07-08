@@ -25,27 +25,98 @@ __all__ = [
 
 
 class Stream:
-    """A sequence of values with an optional ordering index.
+    """A sequence of values with an optional ordering index and optional column names.
 
     ``values`` is a 1-D ``(T,)`` or 2-D ``(T, N)`` array. ``index`` is a 1-D array
     of length ``T``, or ``None``. ``None`` means positional (row number, arrival
     order) and stores nothing. The index is an ordering coordinate such as a
     timestamp or a tick counter, not a lookup key.
-    """
-    __slots__ = ("values", "index")
 
-    def __init__(self, values, index=None):
+    ``columns`` is a tuple of string names for a 2-D ``values`` array, or ``None``
+    for unlabelled (including all 1-D) streams. When set, ``stream["name"]`` and
+    ``stream.column("name")`` return the corresponding 1-D column view.
+
+    Backward-compatible unpacking: ``v, k = stream`` always unpacks to
+    ``(stream.values, stream.index)``, so existing code that unpacked an eager
+    ``resample(...)`` result as a 2-tuple continues to work unchanged.
+    Integer subscript ``stream[0]`` returns ``values``; ``stream[1]`` returns
+    ``index``.
+    """
+    __slots__ = ("values", "index", "columns")
+
+    def __init__(self, values, index=None, columns=None):
         self.values = np.asarray(values)
         self.index = None if index is None else np.asarray(index)
         if self.index is not None and len(self.index) != len(self.values):
             raise ValueError("Stream: index and values must have the same length")
+        if columns is not None:
+            cols = tuple(columns)
+            if self.values.ndim != 2:
+                raise ValueError(
+                    "Stream: columns requires a 2-D values array "
+                    f"(got ndim={self.values.ndim})")
+            if len(cols) != self.values.shape[1]:
+                raise ValueError(
+                    f"Stream: columns length {len(cols)} does not match "
+                    f"values width {self.values.shape[1]}")
+            self.columns = cols
+        else:
+            self.columns = None
 
     def __len__(self):
+        """Return the number of rows (T). Note: ``len(stream) == T`` (row count)
+        even though ``list(stream)`` yields 2 items ``[values, index]``."""
         return len(self.values)
 
     def __repr__(self):
         kind = "positional" if self.index is None else f"index={self.index!r}"
-        return f"Stream({self.values!r}, {kind})"
+        cols = f", columns={self.columns!r}" if self.columns is not None else ""
+        return f"Stream({self.values!r}, {kind}{cols})"
+
+    def __iter__(self):
+        """Yield ``(values, index)`` so that ``v, k = stream`` unpacks correctly.
+
+        This is a deliberate 2-item iterator that preserves backward-compatible
+        tuple-unpacking of eager ``resample(...)`` results.  ``list(stream)``
+        returns ``[values_array, index_array]``.
+        """
+        return iter((self.values, self.index))
+
+    def __getitem__(self, key):
+        """Column or positional access.
+
+        * ``stream["name"]`` - returns the 1-D column view by name (requires
+          ``columns`` to be set; raises ``ValueError`` otherwise, ``KeyError``
+          if the name is absent).
+        * ``stream[0]`` - returns ``values`` (backward-compatible tuple index 0).
+        * ``stream[1]`` - returns ``index``  (backward-compatible tuple index 1).
+        """
+        if isinstance(key, int):
+            if key == 0:
+                return self.values
+            if key == 1:
+                return self.index
+            raise IndexError(f"Stream: integer index must be 0 or 1, got {key}")
+        return self.column(key)
+
+    def column(self, name):
+        """Return the 1-D array for the named column.
+
+        Raises ``ValueError`` if this stream has no column labels (``columns``
+        is ``None``).  Raises ``KeyError`` if ``name`` is not in ``columns``.
+        """
+        if self.columns is None:
+            raise ValueError(
+                "Stream: cannot access column by name - this stream has no "
+                "column labels (columns=None). Column labels are set for "
+                "multi-column aggs such as ohlc.")
+        try:
+            col_idx = self.columns.index(name)
+        except ValueError:
+            raise KeyError(
+                f"Stream: column {name!r} not found. "
+                f"Available columns: {self.columns}")
+        return self.values[:, col_idx]
 
     @classmethod
     def from_pandas(cls, obj):
@@ -56,11 +127,13 @@ class Stream:
 
     def to_pandas(self):
         """Return a pandas Series (1-D values) or DataFrame (2-D). A positional
-        stream gets pandas' default RangeIndex."""
+        stream gets pandas' default RangeIndex. Column names are set when
+        ``columns`` is not ``None``."""
         import pandas as pd
         if self.values.ndim == 1:
             return pd.Series(self.values, index=self.index)
-        return pd.DataFrame(self.values, index=self.index)
+        return pd.DataFrame(self.values, index=self.index,
+                            columns=list(self.columns) if self.columns else None)
 
 
 def _regime(inputs):
@@ -531,11 +604,21 @@ def select_iter(events, columns):
             yield [float(arr[c]) for c in cols], index
 
 
-_RESAMPLE_AGGS = ("first", "last", "min", "max", "sum", "count", "mean", "ohlc")
+_RESAMPLE_AGGS = ("first", "last", "min", "max", "sum", "count", "mean", "ohlc",
+                  "ohlcv", "ohlcv2")
+_OHLC_COLUMNS  = ("open", "high", "low", "close")
+_OHLCV_COLUMNS = ("open", "high", "low", "close", "volume")
+_OHLCV2_COLUMNS = ("open", "high", "low", "close", "buy_vol", "sell_vol")
 
 
 class _ResampleAccum:
-    """Single-pass O(1) NaN-ignore accumulator. Mirrors the C++ ResampleAccum."""
+    """Single-pass O(1) NaN-ignore accumulator. Mirrors the C++ ResampleAccum.
+
+    The eager array/Stream ``resample`` path no longer uses this - it runs on the
+    C++ engine. This remains for the ``resample_iter`` streaming generator, which
+    yields incrementally over ``(value, index)`` tuples and is out of scope for
+    the eager-path C++ migration.
+    """
     __slots__ = ("count", "s", "mn", "mx", "first", "last", "has")
 
     def __init__(self):
@@ -587,6 +670,26 @@ class _ResampleAccum:
                 self.mn if c else nan, self.last if c else nan]
 
 
+def _resample_eager_via_cpp(vals, idx, *, every, count, agg, origin, label):
+    """Run the eager resample on the C++ engine, not in Python.
+
+    Builds a minimal one-node graph (Input -> Resample -> gather) and evaluates
+    it in batch, reusing the exact ``Dag`` / ``CompiledGraph`` / ``ResampleNode``
+    path the graph (Node) regime already uses. No Python numeric loop: all
+    bucketing and NaN-ignore accumulation happens in the C++ core.
+
+    ``vals`` is a 1-D float array and ``idx`` an integer index array. Returns
+    ``(out_values, out_index)`` values-first, with ``out_values`` 1-D for scalar
+    aggs and 2-D (N, 4) for ``ohlc``.
+    """
+    from .dag import Input, Dag
+    src = Input("x")
+    node = resample(src, every=every, count=count, agg=agg,
+                    origin=origin, label=label)
+    dag = Dag([src], [node])
+    return dag((vals, idx))   # values-first (values, index)
+
+
 def _resample_validate(every, count, agg, label):
     if (every is None) == (count is None):
         raise ValueError("resample: pass exactly one of every= or count=")
@@ -597,22 +700,154 @@ def _resample_validate(every, count, agg, label):
         raise ValueError("resample: every must be positive")
     if count is not None and int(count) < 1:
         raise ValueError("resample: count must be >= 1")
-    if agg not in _RESAMPLE_AGGS:
+    # agg may be a builtin string, an arbitrary functor reducer (an EvalOp), or
+    # a dict of {name: str|functor} entries. Only string scalars are validated
+    # here; dict contents are validated in _resample_dict.
+    if isinstance(agg, str) and agg not in _RESAMPLE_AGGS:
         raise ValueError(f"resample: agg must be one of {_RESAMPLE_AGGS}")
     if label not in ("left", "right"):
         raise ValueError('resample: label must be "left" or "right"')
+
+
+def _resample_dict(vals, idx, agg_dict, *, every, count, origin, label):
+    """Run each sub-reducer in a dict agg independently over the same bucketing.
+
+    Each entry ``{name: str|functor}`` is run through ``_resample_eager_via_cpp``
+    with the shared ``every``/``count``/``origin``/``label`` params.  Because all
+    sub-resamples see the same input and the same bucketing they produce identical
+    bar labels and the same number of bars, so their 1-D result columns align and
+    can be horizontally stacked.
+
+    Python only stacks the results and attaches names (marshalling); all numeric
+    bucketing and accumulation runs in the C++ engine.
+
+    Multi-column sub-aggs (``"ohlc"`` or a functor with ``num_outputs > 1``) are
+    rejected with a ``ValueError`` in v1 -- each dict entry must produce exactly
+    one column.  Use ``agg="ohlc"`` directly for a labelled 4-column ``Stream``.
+    """
+    if not agg_dict:
+        raise ValueError("resample: agg dict must not be empty")
+
+    out_cols = []
+    out_idx = None
+
+    for name, sub_agg in agg_dict.items():
+        # Validate the sub-agg and reject multi-column entries.
+        if isinstance(sub_agg, str):
+            if sub_agg not in _RESAMPLE_AGGS:
+                raise ValueError(
+                    f"resample: dict agg[{name!r}]: unknown string agg {sub_agg!r}; "
+                    f"must be one of {_RESAMPLE_AGGS}")
+            if sub_agg == "ohlc":
+                raise ValueError(
+                    f"resample: dict agg[{name!r}]: 'ohlc' produces 4 columns and "
+                    "cannot be used as a dict entry (v1: each entry must produce "
+                    "exactly 1 column). Use agg='ohlc' directly for a labelled "
+                    "4-column Stream.")
+            if sub_agg in ("ohlcv", "ohlcv2"):
+                raise ValueError(
+                    f"resample: dict agg[{name!r}]: '{sub_agg}' requires a 2-column "
+                    "input and cannot be used as a dict entry. "
+                    f"Use agg='{sub_agg}' directly with a [price, volume] input.")
+        else:
+            # Functor: check num_outputs (exposed from EvalOp.n_out()).
+            n_out = getattr(sub_agg, "num_outputs", 1)
+            if n_out != 1:
+                raise ValueError(
+                    f"resample: dict agg[{name!r}]: functor produces {n_out} columns "
+                    "but each dict entry must produce exactly 1 column (v1 restriction). "
+                    "Use agg=functor directly for multi-column output.")
+
+        # Delegate to the C++ engine - no Python numeric loop.
+        out_v, sub_idx = _resample_eager_via_cpp(
+            vals, idx, every=every, count=count, agg=sub_agg,
+            origin=origin, label=label)
+        out_cols.append(out_v)
+        if out_idx is None:
+            out_idx = sub_idx
+
+    # All sub-aggs produce the same number of bars (same bucketing + same input),
+    # so column_stack is safe: shape (N,) per column -> (N, K) matrix.
+    stacked = np.column_stack(out_cols)
+    return Stream(stacked, out_idx, columns=tuple(agg_dict.keys()))
+
+
+def _resample_ohlcv(vals_2d, idx, agg, *, every, count, origin, label):
+    """Orchestrate ohlcv or ohlcv2 by composing existing C++ reducers.
+
+    Splits the 2-column input [price, volume|signed_volume] into two 1-D arrays
+    and runs independent sub-resamples that all share the same bucketing
+    parameters. Because the input, every/count, origin, and label are identical
+    across sub-calls, bar labels and bar counts are guaranteed to be equal -
+    making ``column_stack`` on the results safe.
+
+    All numeric compute runs in C++ (OHLC via the existing ``ohlc`` reducer,
+    volume via ``sum``, buy/sell via ``PosPart``/``NegPart`` then ``sum``).
+    Python only splits columns, orchestrates the sub-calls, and attaches labels.
+    """
+    from screamer import PosPart, NegPart
+
+    price  = np.ascontiguousarray(vals_2d[:, 0], dtype=np.float64)
+    volume = np.ascontiguousarray(vals_2d[:, 1], dtype=np.float64)
+
+    # OHLC for price (C++ ohlc reducer -> 4 columns)
+    ohlc_vals, out_idx = _resample_eager_via_cpp(
+        price, idx, every=every, count=count, agg="ohlc",
+        origin=origin, label=label)
+
+    if agg == "ohlcv":
+        # Total signed-volume sum (C++ sum reducer -> 1 column)
+        vol_vals, _ = _resample_eager_via_cpp(
+            volume, idx, every=every, count=count, agg="sum",
+            origin=origin, label=label)
+        stacked = np.column_stack([ohlc_vals, vol_vals])
+        return Stream(stacked, out_idx, columns=_OHLCV_COLUMNS)
+
+    # ohlcv2: buy_vol = sum(PosPart(signed_vol)), sell_vol = sum(NegPart(signed_vol))
+    # PosPart/NegPart are C++ functors; applying them to the array runs in C++.
+    buy_arr  = np.asarray(PosPart()(volume), dtype=np.float64)
+    sell_arr = np.asarray(NegPart()(volume), dtype=np.float64)
+
+    buy_vals, _  = _resample_eager_via_cpp(
+        buy_arr,  idx, every=every, count=count, agg="sum",
+        origin=origin, label=label)
+    sell_vals, _ = _resample_eager_via_cpp(
+        sell_arr, idx, every=every, count=count, agg="sum",
+        origin=origin, label=label)
+
+    stacked = np.column_stack([ohlc_vals, buy_vals, sell_vals])
+    return Stream(stacked, out_idx, columns=_OHLCV2_COLUMNS)
 
 
 def resample(values, index=None, *, every=None, count=None, agg="last",
              origin=0, label="left"):
     """Causal windowed downsample of a 1-D value stream.
 
-    Exactly one of `every` (fixed index-interval; buckets [origin+n*every,
-    origin+(n+1)*every)) or `count` (fixed event-count). agg is one of
-    first/last/min/max/sum/count/mean/ohlc (ohlc -> 4 columns). label "left"
-    stamps the bucket start (by-index) or first index (by-count); "right" stamps the
-    bucket end / last index. NaN values are ignored. Only non-empty buckets emit;
-    the trailing partial bucket is emitted at end of input. Integer index-space.
+    Exactly one of ``every`` (fixed index-interval; buckets
+    ``[origin+n*every, origin+(n+1)*every)``) or ``count`` (fixed event-count).
+
+    ``agg`` controls the per-bucket aggregation:
+
+    * **string** -- one of ``first``, ``last``, ``min``, ``max``, ``sum``,
+      ``count``, ``mean``, ``ohlc``.  ``ohlc`` returns 4 columns
+      ``(open, high, low, close)`` labelled on the returned ``Stream``.
+    * **functor** -- any :class:`screamer.EvalOp` reducer (e.g.
+      ``ExpandingSkew()``).  The functor is ``reset()`` at each bar boundary
+      and fed every in-bar sample; its last output before the close is emitted.
+      A single-output functor returns a 1-D ``Stream``; a multi-output functor
+      returns an unlabelled 2-D ``Stream``.  The functor must accept exactly
+      1 input (single-value stream); a multi-input functor raises at runtime.
+    * **dict** ``{name: str|functor, ...}`` -- runs each sub-reducer over the
+      same bucketing and returns a labelled ``Stream`` whose ``.columns``
+      are the dict keys (insertion order).  Each entry must produce exactly
+      1 column; ``"ohlc"`` and multi-output functors are rejected in v1 --
+      use ``agg="ohlc"`` directly for 4-column output.  Dict agg is an eager
+      convenience only: not available in the graph (``Node``) regime.
+
+    ``label`` is ``"left"`` (bucket start / first index) or ``"right"``
+    (bucket end / last index).  NaN values are ignored.  Only non-empty
+    buckets emit; the trailing partial bucket is emitted at end of input.
+    Integer index-space.
 
     Values-first + polymorphic: raw arrays, Stream, or graph Node. The returned
     index is always the bar labels (a real array, never None) - even for a
@@ -623,13 +858,29 @@ def resample(values, index=None, *, every=None, count=None, agg="last",
     """
     _resample_validate(every, count, agg, label)
     if is_node(values):
+        if isinstance(agg, dict):
+            raise ValueError(
+                "resample: dict agg is an eager convenience and is not supported "
+                "in the graph (Node) regime. Use one resample Node per reducer.")
+        if agg in ("ohlcv", "ohlcv2"):
+            raise ValueError(
+                f"resample: agg='{agg}' is an eager-only convenience (v1) and is "
+                "not supported in the graph (Node) regime. Split columns and use "
+                "separate resample Nodes (one for the price stream, one per volume "
+                "aggregation).")
         return make_operator_node(resample, (values,), {
             "every": every, "count": count, "agg": agg,
             "origin": origin, "label": label})
-    regime = "stream" if isinstance(values, Stream) else "raw"
     stream = values if isinstance(values, Stream) else Stream(values, index)
     vals = np.asarray(stream.values, dtype=np.float64)
-    if vals.ndim != 1:
+    # ohlcv / ohlcv2 require exactly 2 input columns [price, volume|signed_volume].
+    if agg in ("ohlcv", "ohlcv2"):
+        if vals.ndim != 2 or vals.shape[1] != 2:
+            raise ValueError(
+                f"resample: agg='{agg}' requires exactly 2 columns "
+                f"[price, {'volume' if agg == 'ohlcv' else 'signed_volume'}]; "
+                f"got shape {vals.shape}. Pass np.column_stack([price, volume]).")
+    elif vals.ndim != 1:
         raise ValueError("resample: expects a 1-D value stream")
 
     # Use explicit index or row positions when positional
@@ -638,68 +889,45 @@ def resample(values, index=None, *, every=None, count=None, agg="last",
     else:
         idx = np.asarray(stream.index)
 
-    out_labels, out_vals = [], []
-    acc = _ResampleAccum()
+    # Dict agg: run each sub-reducer over the shared bucketing and stack columns.
+    # Python only stacks the results and attaches names; all numeric reduction
+    # runs in the C++ engine via the existing single-agg path.
+    if isinstance(agg, dict):
+        return _resample_dict(vals, idx, agg, every=every, count=count,
+                              origin=origin, label=label)
 
-    def flush_bucket(label_index):
-        out_labels.append(label_index)
-        out_vals.append(acc.emit(agg))
+    # ohlcv / ohlcv2: orchestrate existing C++ reducers over a 2-column input.
+    # Python splits the columns, runs sub-resamples, and stacks; all numeric
+    # bucketing and accumulation runs in C++ as with the single-column path.
+    if agg in ("ohlcv", "ohlcv2"):
+        return _resample_ohlcv(vals, idx, agg, every=every, count=count,
+                               origin=origin, label=label)
 
-    if every is not None:
-        w = int(every)
-        o = int(origin)
-        started = False
-        bucket = 0
-        cur_label = 0
-        for k, v in zip(idx.tolist(), vals.tolist()):
-            k = int(k)
-            nb = (k - o) // w          # Python // is floor division
-            if not started:
-                started = True
-                bucket = nb
-                acc.reset()
-                cur_label = (o + nb * w) if label == "left" else (o + (nb + 1) * w)
-            elif nb != bucket:
-                if acc.has:
-                    flush_bucket(cur_label)
-                bucket = nb
-                acc.reset()
-                cur_label = (o + nb * w) if label == "left" else (o + (nb + 1) * w)
-            acc.add(v)
-        if acc.has:
-            flush_bucket(cur_label)
-    else:
-        n = int(count)
-        cib = 0
-        first_index = 0
-        last_index = 0
-        for k, v in zip(idx.tolist(), vals.tolist()):
-            k = int(k)
-            if cib == 0:
-                first_index = k
-            last_index = k
-            acc.add(v)
-            cib += 1
-            if cib == n:
-                flush_bucket(first_index if label == "left" else last_index)
-                acc.reset()
-                cib = 0
-        if cib > 0:
-            flush_bucket(first_index if label == "left" else last_index)
-
-    out_idx = np.array(out_labels, dtype=np.int64)
-    if agg == "ohlc":
-        out_v = (np.array(out_vals, dtype=np.float64).reshape(-1, 4)
-                 if out_vals else np.empty((0, 4), dtype=np.float64))
-    else:
-        out_v = np.array(out_vals, dtype=np.float64)
-    return _adapt(regime, out_v, out_idx)   # index is always real bar labels
+    # Delegate all bucketing/accumulation to the C++ engine (C++-first: no
+    # Python numeric loop). Builds a one-node graph and runs it in batch.
+    out_v, out_idx = _resample_eager_via_cpp(
+        vals, idx, every=every, count=count, agg=agg, origin=origin, label=label)
+    # Attach column names for multi-column aggs; labels are pure Python marshalling.
+    cols = _OHLC_COLUMNS if agg == "ohlc" else None
+    # Both raw and Stream regimes return a Stream; Stream is unpackable as
+    # (values, index) for backward-compatible tuple unpacking.
+    return Stream(out_v, out_idx, columns=cols)
 
 
 def resample_iter(events, *, every=None, count=None, agg="last",
                   origin=0, label="left"):
     """Streaming resample over (value, index) tuples. Yields (value, label_index)."""
+    if not isinstance(agg, str):
+        raise ValueError(
+            "resample_iter supports only builtin string aggs; "
+            "functor and dict aggs are eager-only for now")
     _resample_validate(every, count, agg, label)
+    if agg in ("ohlcv", "ohlcv2"):
+        raise ValueError(
+            f"resample_iter: agg='{agg}' is not supported in the streaming "
+            "iterator (resample_iter handles only 1-D scalar value streams). "
+            "Use the eager resample() with np.column_stack([price, volume])."
+        )
     acc = _ResampleAccum()
     if every is not None:
         w = int(every)

@@ -2,6 +2,7 @@ import math
 import numpy as np
 import pytest
 
+from screamer import ExpandingSum
 from screamer.streams import resample, resample_iter, Stream
 from screamer.dag import is_node
 
@@ -188,13 +189,17 @@ def test_resample_empty_input():
 # Polymorphic regime: raw / Stream / Node + positional
 # ---------------------------------------------------------------------------
 
-def test_resample_raw_returns_tuple_with_real_labels():
-    """Raw input returns (values, index) where index is bar labels (not None)."""
+def test_resample_raw_returns_stream_with_real_labels():
+    """Raw input now returns a Stream; index holds bar labels (never None).
+
+    Stream is unpackable as (values, index) for backward-compatible unpacking,
+    so ``out_v, out_k = result`` still works.
+    """
     vals = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
     keys = np.array([0, 3, 10, 12, 20], dtype=np.int64)
     result = resample(vals, keys, every=10, agg="last")
-    assert isinstance(result, tuple) and len(result) == 2
-    out_v, out_k = result
+    assert isinstance(result, Stream)
+    out_v, out_k = result            # Stream unpacks as (values, index)
     assert out_k is not None         # bar labels are always a real array
     np.testing.assert_array_equal(out_v, [2.0, 4.0, 5.0])
     np.testing.assert_array_equal(out_k, [0, 10, 20])
@@ -252,3 +257,21 @@ def test_resample_raw_stream_node_mirror():
     np.testing.assert_array_equal(rk, stream_out.index)
     np.testing.assert_array_equal(rv, dag_v.reshape(-1))
     np.testing.assert_array_equal(rk, dag_k)
+
+
+# ---------------------------------------------------------------------------
+# resample_iter rejects non-string aggs (functor / dict are eager-only)
+# ---------------------------------------------------------------------------
+
+def test_resample_iter_rejects_functor_agg():
+    """resample_iter must raise ValueError for a functor agg (eager-only)."""
+    events = [(float(i), i) for i in range(10)]
+    with pytest.raises(ValueError, match="functor"):
+        list(resample_iter(events, every=5, agg=ExpandingSum()))
+
+
+def test_resample_iter_rejects_dict_agg():
+    """resample_iter must raise ValueError for a dict agg (eager-only)."""
+    events = [(float(i), i) for i in range(10)]
+    with pytest.raises(ValueError, match="functor"):
+        list(resample_iter(events, every=5, agg={"s": "sum"}))

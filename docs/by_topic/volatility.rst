@@ -34,6 +34,10 @@ The size of fluctuations and risk: standard deviation and variance, RMS, range-b
      - EW standard deviation.
    * - :doc:`EwVar </functions_ew/EwVar>`
      - EW variance (pandas adjust=True bias-corrected).
+   * - :doc:`ExpandingStd </functions_expanding/ExpandingStd>`
+     - Running sample standard deviation (ddof=1) over the whole history.
+   * - :doc:`ExpandingVar </functions_expanding/ExpandingVar>`
+     - Running sample variance (ddof=1) over the whole history.
    * - :doc:`KeltnerChannels </functions_rolling/KeltnerChannels>`
      - Volatility-adapted envelope: EMA midline plus/minus a multiple of ATR.
    * - :doc:`NATR </functions_rolling/NATR>`

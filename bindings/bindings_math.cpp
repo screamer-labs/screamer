@@ -58,6 +58,16 @@ void init_bindings_math(py::module& m) {
         .def("__call__", &screamer::Transform<(double (*)(double)) screamer::relu>::operator(), py::arg("value"))
         .def("reset", &screamer::Transform<(double (*)(double)) screamer::relu>::reset, "Reset to the initial state.");
 
+     py::class_<screamer::Transform<(double (*)(double)) screamer::pos_part>, screamer::ScreamerBase>(m, "PosPart")
+        .def(py::init<>())
+        .def("__call__", &screamer::Transform<(double (*)(double)) screamer::pos_part>::operator(), py::arg("value"))
+        .def("reset", &screamer::Transform<(double (*)(double)) screamer::pos_part>::reset, "Reset to the initial state.");
+
+     py::class_<screamer::Transform<(double (*)(double)) screamer::neg_part>, screamer::ScreamerBase>(m, "NegPart")
+        .def(py::init<>())
+        .def("__call__", &screamer::Transform<(double (*)(double)) screamer::neg_part>::operator(), py::arg("value"))
+        .def("reset", &screamer::Transform<(double (*)(double)) screamer::neg_part>::reset, "Reset to the initial state.");
+
      py::class_<screamer::Transform<(double (*)(double)) screamer::selu>, screamer::ScreamerBase>(m, "Selu")
         .def(py::init<>())
         .def("__call__", &screamer::Transform<(double (*)(double)) screamer::selu>::operator(), py::arg("value"))

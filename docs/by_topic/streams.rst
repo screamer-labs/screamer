@@ -23,7 +23,7 @@ Aligning, combining, reshaping, and replaying event streams.
    * - :doc:`replay </functions_streams/replay>`
      - Replay merged streams as an async event stream paced by index-deltas.
    * - :doc:`resample </functions_streams/resample>`
-     - Causal windowed downsample of a 1-D value stream.
+     - Causal windowed downsample of a 1-D or multi-column value stream.
    * - :doc:`select </functions_streams/select>`
      - Pick column(s) from a wide (M, N) value stream.
    * - :doc:`split </functions_streams/split>`

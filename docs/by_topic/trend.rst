@@ -20,6 +20,8 @@ Direction and trend-following: trend-tracking averages, slope fits, ADX, and cha
      - x[t] minus its rolling mean.
    * - :doc:`DonchianChannels </functions_rolling/DonchianChannels>`
      - Trend-following envelope: rolling max(high), rolling min(low), and midline.
+   * - :doc:`ExpandingSlope </functions_expanding/ExpandingSlope>`
+     - Running OLS slope of the series against time over the whole history.
    * - :doc:`HullMA </functions_rolling/HullMA>`
      - Hull's responsive MA: WMA(2*WMA(n/2) - WMA(n), sqrt(n)).
    * - :doc:`KAMA </functions_rolling/KAMA>`
