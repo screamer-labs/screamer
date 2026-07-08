@@ -11,8 +11,8 @@ for a full worked walkthrough, see the computational-graph example notebook.
 
 ## When you need a graph (and when you don't)
 
-For a single stream flowing through a chain of functors, you don't need a `Dag` —
-ordinary composition already runs identically in batch and live:
+For a single stream flowing through a chain of functors you don't need a `Dag`.
+Ordinary composition already runs identically in batch and live:
 
 ```python
 signal = Sign()(RollingPoly2(50, derivative_order=1)(data))
@@ -20,11 +20,11 @@ signal = Sign()(RollingPoly2(50, derivative_order=1)(data))
 
 A `Dag` earns its place when the pipeline is more than a single chain:
 
-- **several inputs that don't tick together** — two price feeds on different
+- **several inputs that don't tick together**: two price feeds on different
   clocks that must be aligned before they are combined,
-- **several outputs** — you want a raw spread *and* its smoothed signal from one
+- **several outputs**: you want a raw spread *and* its smoothed signal from one
   pass, co-indexed onto a shared timeline,
-- **one deployable object** — you want to hand the whole pipeline around, test it
+- **one deployable object**: you want to hand the whole pipeline around, test it
   on history, and run it live without re-wiring it.
 
 In short: reach for a `Dag` when you would otherwise be threading alignment and
@@ -34,7 +34,7 @@ multiple streams together by hand.
 
 Three names make up the surface, and they play distinct roles:
 
-- **`Input(name)`** marks a source — a named place where a stream will enter the
+- **`Input(name)`** marks a source: a named place where a stream will enter the
   graph. It returns a node.
 - **A node** is a *handle* to a stream inside the graph, not the data itself.
   You get the first nodes from `Input(...)`, then build more by applying functors
@@ -43,7 +43,7 @@ Three names make up the surface, and they play distinct roles:
 - **`Dag(inputs=[...], outputs=[...])`** compiles the graph reachable from those
   outputs into a single callable.
 
-Building the graph only *records structure* — nothing computes until you call the
+Building the graph only *records structure*; nothing computes until you call the
 compiled `Dag`. Applying `RollingMean(10)` to a node does not run a rolling mean;
 it adds a node that *will* run one when data flows.
 
@@ -62,10 +62,10 @@ dag = Dag(inputs=[a, b], outputs=[signal])   # compile the graph
 
 The compiled graph runs in two modes:
 
-- **Batch** — `dag(feed_a, feed_b)` evaluates the whole graph over stored inputs
+- **Batch**: `dag(feed_a, feed_b)` evaluates the whole graph over stored inputs
   in one pass.
-- **Live** — `dag.stream(feed_a, feed_b)` drives the same graph event by event,
-  as data arrives.
+- **Replay**: `dag.stream(feed_a, feed_b)` drives the same graph event by event
+  over stored inputs, as data would arrive live.
 
 The two return **byte-identical** output. This is the define-once-run-anywhere
 guarantee: you validate a pipeline on historical data, then deploy the exact same
@@ -73,9 +73,29 @@ graph object to production, and the library cannot be the source of any
 discrepancy between the two. Feeds can be bare arrays, `Stream`s, or
 `(values, index)` pairs; the result is always `(values, index)`.
 
+(dag-live)=
+### Incremental, clock-driven: `dag.live()`
+
+`dag.stream(...)` replays stored feeds. When you instead drive the graph yourself,
+event by event, `dag.live()` opens a session:
+
+- `.push(input, index, value)` feeds one event (`input` is an `Input` name or its
+  position);
+- `.advance(now)` moves logical time to `now`, closing every window whose boundary
+  has passed (this finalizes time-based bars even when no new data arrives, such as
+  an empty minute bar closed by a clock tick);
+- `.flush()` finalizes the current partial window on demand, for example at the end
+  of a loop;
+- `.result()` collects the aligned output so far.
+
+Feeding the same events and calling `.flush()` reproduces the batch result.
+`.advance()` (and a clock input wired into the graph) additionally let a windowing
+node emit bars that a purely event-driven pass would not, such as the empty leading
+and trailing bars in [`resample`](functions_streams/resample.md).
+
 ## Multiple outputs and alignment
 
-A graph can expose more than one output — for example the raw spread and its
+A graph can expose more than one output, for example the raw spread and its
 smoothed signal together. By default (`align_outputs=True`) all outputs are
 co-indexed onto one shared timeline, so every output is an equal-length
 `(values, index)` pair and column `k` of one lines up with column `k` of
@@ -96,7 +116,7 @@ the `Dag` simply preserves them across a whole composition.
 
 ## See also
 
-- [`Dag` reference](functions_dag/Dag.md) — constructor, feed forms, return
+- [`Dag` reference](functions_dag/Dag.md): constructor, feed forms, return
   shapes, and validation rules.
-- [Streams, values, and alignment](multistream.md) — the alignment model that
+- [Streams, values, and alignment](multistream.md): the alignment model that
   `combine_latest` and friends bring into a graph.

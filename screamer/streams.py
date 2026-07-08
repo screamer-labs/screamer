@@ -727,7 +727,7 @@ def _resample_dict(vals, idx, agg_dict, *, every, count, origin, label,
     bucketing and accumulation runs in the C++ engine.
 
     Multi-column sub-aggs (``"ohlc"`` or a functor with ``num_outputs > 1``) are
-    rejected with a ``ValueError`` in v1 -- each dict entry must produce exactly
+    rejected with a ``ValueError`` in v1; each dict entry must produce exactly
     one column.  Use ``agg="ohlc"`` directly for a labelled 4-column ``Stream``.
     """
     if not agg_dict:
@@ -845,34 +845,34 @@ def resample(values, index=None, *, every=None, count=None, agg="last",
 
     ``agg`` controls the per-bucket aggregation:
 
-    * **string** -- one of ``first``, ``last``, ``min``, ``max``, ``sum``,
+    * **string**: one of ``first``, ``last``, ``min``, ``max``, ``sum``,
       ``count``, ``mean``, ``ohlc``.  ``ohlc`` returns 4 columns
       ``(open, high, low, close)`` labelled on the returned ``Stream``.
-    * **functor** -- any :class:`screamer.EvalOp` reducer (e.g.
+    * **functor**: any :class:`screamer.EvalOp` reducer (e.g.
       ``ExpandingSkew()``).  The functor is ``reset()`` at each bar boundary
       and fed every in-bar sample; its last output before the close is emitted.
       A single-output functor returns a 1-D ``Stream``; a multi-output functor
       returns an unlabelled 2-D ``Stream``.  The functor must accept exactly
       1 input (single-value stream); a multi-input functor raises at runtime.
-    * **dict** ``{name: agg, ...}`` -- runs several reducers over the same
+    * **dict** ``{name: agg, ...}``: runs several reducers over the same
       bucketing and returns a labelled ``Stream`` whose ``.columns`` are the dict
       keys (insertion order).  Each entry must produce exactly 1 column; ``"ohlc"``
-      and multi-output functors are rejected -- use ``agg="ohlc"`` directly for
-      4-column output.  Two forms:
+      and multi-output functors are rejected (use ``agg="ohlc"`` directly for
+      4-column output).  Two forms:
 
       - **eager** (raw arrays / ``Stream``): each value is a string or functor
         reducer applied to the single value stream, e.g.
         ``{"open": "first", "vol": "sum"}``.
       - **graph / lazy** (``resample(t, agg={...})`` where the values are Nodes):
-        each value is a lazy expression ``Reducer()(sub_expr)`` -- its top node is
-        the per-bar reducer, its single input is the upstream port (per-tick
+        each value is a lazy expression ``Reducer()(sub_expr)`` whose top node is
+        the per-bar reducer and whose single input is the upstream port (per-tick
         transforms live there), e.g.
         ``{"buy": ExpandingSum()(PosPart()(vol))}``.  The first positional argument
         ``t`` is the clock; all columns share one bar clock, so they cannot drift.
         Place the result in a ``Dag`` and bind data at call time.
 
     ``label`` picks each bar's index. For ``every=`` it is the **grid edge**
-    (``origin+n*W`` for ``"left"``, ``origin+(n+1)*W`` for ``"right"``) - the
+    (``origin+n*W`` for ``"left"``, ``origin+(n+1)*W`` for ``"right"``), the
     interval boundary, which need not be an actual tick. For ``count=`` it is an
     **actual tick index** (the bar's first tick for ``"left"``, its last for
     ``"right"``).  NaN values are ignored.
@@ -882,9 +882,9 @@ def resample(values, index=None, *, every=None, count=None, agg="last",
     with ``count=`` a bar is defined by having ``N`` events, so empty bars cannot
     occur and ``fill`` has no effect.
 
-    * ``"skip"`` (default) -- no row for an empty bucket (legacy behavior).
-    * ``"nan"`` -- an all-NaN row at each empty bucket's label.
-    * ``"carry"`` -- repeat the previous emitted row's values verbatim (v1: the
+    * ``"skip"`` (default): no row for an empty bucket (legacy behavior).
+    * ``"nan"``: an all-NaN row at each empty bucket's label.
+    * ``"carry"``: repeat the previous emitted row's values verbatim (v1: the
       whole row is carried, including sum/volume-like columns; a per-column
       "carry price / zero volume" refinement is out of scope).
 
@@ -892,7 +892,7 @@ def resample(values, index=None, *, every=None, count=None, agg="last",
     trailing buckets after the last are not synthesized here (output starts at the
     first tick's bucket; trailing empties need the clock/``advance()`` mechanism).
     ``"carry"`` repeats the whole previous row verbatim across all columns (so an
-    empty bar carries a count/sum column's prior value, not 0 -- use ``"nan"`` if
+    empty bar carries a count/sum column's prior value, not 0; use ``"nan"`` if
     that is wrong for a column), and skips a bucket that has no prior emitted row.
     A filled bucket emits a synthetic row without feeding or resetting the reducer,
     so a functor reducer starts each real bar clean. The trailing partial bucket is

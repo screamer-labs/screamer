@@ -19,16 +19,16 @@ Usable eagerly (raw arrays or `Stream`) and inside a `Dag`.
 
 The `agg` parameter accepts three forms:
 
-**String shorthand** -- one of `first`, `last`, `min`, `max`, `sum`, `count`,
+**String shorthand**: one of `first`, `last`, `min`, `max`, `sum`, `count`,
 `mean`, `ohlc`, `ohlcv`, `ohlcv2`. `ohlc` returns four columns
 (`open`, `high`, `low`, `close`). `ohlcv` and `ohlcv2` accept a two-column
 input `[price, volume]`; see below.
 
-**Any `EvalOp` functor** -- e.g. `ExpandingSkew()`. The functor is `reset()` at
+**Any `EvalOp` functor**, e.g. `ExpandingSkew()`. The functor is `reset()` at
 each bar boundary and fed every in-bar sample; its last output before the close
 is emitted as the bar value. All screamer functors are valid reducers.
 
-**Dict** `{name: agg}` -- run several reducers over the same bucketing in one
+**Dict** `{name: agg}` runs several reducers over the same bucketing in one
 call, returning a labelled `Stream` whose `.columns` are the dict keys (insertion
 order). Each entry produces one column. There are two forms:
 
@@ -36,8 +36,8 @@ order). Each entry produces one column. There are two forms:
   reducer applied to the single value stream, e.g.
   `{"open": "first", "vol": "sum"}`.
 - *Graph / lazy*, inside a `Dag` (`resample(t, agg={...})` where the dict values
-  are `Node` expressions): each value is a lazy `Reducer()(sub_expr)` -- its top
-  node is the per-bar reducer and its single input is the upstream port, so
+  are `Node` expressions): each value is a lazy `Reducer()(sub_expr)` whose top
+  node is the per-bar reducer and whose single input is the upstream port, so
   per-tick transforms live in the expression, e.g.
   `{"buy": ExpandingSum()(PosPart()(vol))}`. All columns share one bar clock and
   cannot drift; the first positional argument `t` is the clock, and data binds at
@@ -52,7 +52,7 @@ different questions.
   `[origin + n*W, origin + (n+1)*W)`, so the index values decide membership. Bars
   have equal width on the index but a variable number of ticks; a tick exactly on a
   boundary starts the later bar. Boundaries are anchored at `origin` (default `0`,
-  i.e. multiples of `W`), **not** at the first tick -- set `origin=` to shift the
+  i.e. multiples of `W`), **not** at the first tick. Set `origin=` to shift the
   grid. Internal empty intervals are real and controlled by `fill=`.
 - `count=N` buckets by **arrival order**. A bar closes every `N` events and never
   consults the index values to place boundaries. Bars have an equal number of ticks
@@ -65,12 +65,12 @@ position (`0, 1, 2, ...`) is used as the index.
 
 Bar **labels** depend on the mode and on `label=`:
 
-- `every=`: the bar's **grid edge** -- `origin + n*W` for `label="left"` (default)
+- `every=`: the bar's **grid edge**, `origin + n*W` for `label="left"` (default)
   or `origin + (n+1)*W` for `label="right"`. This is the interval boundary itself,
   which need not equal any actual tick's index (and a right label can sit past the
   last tick).
-- `count=`: an **actual tick index** -- the **first** tick of the bar for
-  `label="left"`, the **last** for `label="right"`.
+- `count=`: an **actual tick index**, the **first** tick of the bar for
+  `label="left"` or the **last** for `label="right"`.
 
 Concretely, eight ticks at index `[0, 1, 2, 10, 11, 20, 21, 22]`:
 
@@ -83,17 +83,17 @@ Concretely, eight ticks at index `[0, 1, 2, 10, 11, 20, 21, 22]`:
 ## Empty buckets: `fill=`
 
 `fill=` controls what happens when an `every=` bar contains no samples (an index
-interval with no ticks). It applies to eager arrays, `Stream`s, and graphs alike --
+interval with no ticks). It applies to eager arrays, `Stream`s, and graphs alike;
 it is not `Dag`-only.
 
-- `"skip"` (default) -- emit no row for an empty bucket (the legacy behavior).
-- `"nan"` -- emit an all-NaN row at the empty bucket's label.
-- `"carry"` -- repeat the previous emitted row's values verbatim.
+- `"skip"` (default): emit no row for an empty bucket (the legacy behavior).
+- `"nan"`: emit an all-NaN row at the empty bucket's label.
+- `"carry"`: repeat the previous emitted row's values verbatim.
 
 Only **internal** empty buckets (gaps between two events) are filled by `resample`
 itself. Trailing empty buckets after the last event are not synthesized here; that
-needs a clock, via `advance()` or a clock input on a `Dag` (see the custom-bars
-notebook).
+needs a clock, via either [`dag.live().advance(now)`](#dag-live) or a clock input
+wired into a `Dag` (the custom-bars notebook shows both).
 
 `fill=` is meaningful only under `every=`. With `count=`, a bar is defined by
 holding `N` events, so empty bars cannot exist by construction and `fill=` has no
@@ -102,13 +102,13 @@ effect.
 ### `fill=` edge cases
 
 - **Leading buckets** (before the first event) are never synthesized on the eager
-  path: output starts at the bucket containing the first tick -- a tick at index 47
+  path: output starts at the bucket containing the first tick. A tick at index 47
   with `every=10` starts at label 40, not 0. Leading empty buckets arise only from a
-  clock (a `Dag` clock input or `advance()`) that advances time before the first data
-  event; there `"nan"` emits NaN rows and `"carry"` **skips** them, since there is no
-  previous row to repeat.
+  clock (a `Dag` clock input or [`advance()`](#dag-live)) that advances time before
+  the first data event; there `"nan"` emits NaN rows and `"carry"` **skips** them,
+  since there is no previous row to repeat.
 - **`"carry"` is verbatim and uniform** across every column: it repeats the previous
-  bar's whole row, including count- or sum-like columns. So a genuinely empty bar
+  bar's whole row, including count-like or sum-like columns. So a genuinely empty bar
   carries the previous bar's count, not 0. Use `"nan"` where that is wrong for your
   columns; a per-column fill policy is out of scope in v1.
 - **`label="right"`** composes with `fill=` unchanged: a filled bucket is labelled at
@@ -136,8 +136,8 @@ volume (unsigned for `ohlcv`, signed for `ohlcv2`).
 of column-1 values inside each bar.
 
 `ohlcv2` produces `(open, high, low, close, buy_vol, sell_vol)`. Buy volume is
-`sum(PosPart(signed_vol))` and sell volume is `sum(NegPart(signed_vol))` per bar
--- the signed-part decomposition.
+`sum(PosPart(signed_vol))` and sell volume is `sum(NegPart(signed_vol))` per bar,
+the signed-part decomposition.
 
 <!-- HELP_END -->
 
