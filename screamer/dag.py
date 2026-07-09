@@ -1,6 +1,7 @@
 """Computational DAG definition: symbolic Node handles (DAG-1)."""
 
 import numpy as np
+from collections import deque
 
 __all__ = ["Node", "Input", "Dag"]
 
@@ -177,6 +178,9 @@ class _LiveDag:
         return self._dag._label(_align_results(results, self._dag.align_outputs))
 
 
+_NOT_PULLED = object()   # sentinel: iterator head has not been fetched yet
+
+
 class _LazyDag:
     """Lazy pull driver: run the compiled graph event by event over input iterators.
 
@@ -184,6 +188,9 @@ class _LazyDag:
     (as-of, ascending) across inputs, pushed one at a time, and the outputs that
     closed after each push are yielded. On exhaustion the graph is flushed and the
     trailing rows are yielded. Values match the batch dag(...) result (the oracle).
+
+    Heads are fetched lazily: nothing is consumed from any feed until the first
+    call to __next__, so the driver is non-eager on construction.
     """
     def __init__(self, dag, feeds):
         self._dag = dag
@@ -191,10 +198,9 @@ class _LazyDag:
         self._cg.reset()
         # one (index, value) iterator per input, in signature order
         self._iters = [iter(feeds[nm]) for nm in dag._input_order]
-        self._heads = []                # current (index, value) per input, or None
-        for it in self._iters:
-            self._heads.append(self._pull(it))
-        self._pending = []              # buffered output rows (value, index) not yet yielded
+        # _heads[i] is _NOT_PULLED (not yet fetched), (idx, val) (ready), or None (done)
+        self._heads = [_NOT_PULLED] * len(self._iters)
+        self._pending = deque()         # buffered output rows not yet yielded
         self._done = False
 
     @staticmethod
@@ -209,21 +215,39 @@ class _LazyDag:
         return self
 
     def _drain_rows(self):
-        # Convert one drain() into (value, index) rows for a single output.
-        for (idx_arr, val_arr) in self._cg.drain():
-            for k, row in zip(idx_arr, val_arr):
-                yield (row[0] if getattr(row, "shape", None) and row.shape[0] == 1 else row, int(k))
+        drained = self._cg.drain()      # list of (idx_arr, vals_2d) per output
+        if len(drained) == 1:
+            idx_arr, vals = drained[0]
+            for k, row in zip(idx_arr, vals):
+                yield (float(row[0]) if vals.shape[1] == 1 else tuple(map(float, row)), int(k))
+            return
+        # multi-output with align_outputs=True: emit one row per index only when
+        # every output has a value at that index (mirrors combine_latest emit="when_all")
+        by_index = {}
+        for out_pos, (idx_arr, vals) in enumerate(drained):
+            for k, row in zip(idx_arr, vals):
+                cols = by_index.setdefault(int(k), [None] * len(drained))
+                cols[out_pos] = (float(row[0]) if vals.shape[1] == 1
+                                 else tuple(map(float, row)))
+        for k in sorted(by_index):
+            row = by_index[k]
+            if all(v is not None for v in row):
+                yield tuple(row) + (k,)
 
     def __next__(self):
         while True:
             if self._pending:
-                return self._pending.pop(0)
+                return self._pending.popleft()
             if self._done:
                 raise StopIteration
+            # lazily fill any heads that have not been fetched yet
+            for i, h in enumerate(self._heads):
+                if h is _NOT_PULLED:
+                    self._heads[i] = self._pull(self._iters[i])
             # pick the input with the smallest next index (as-of merge)
             nxt = min((h[0] for h in self._heads if h is not None), default=None)
             if nxt is None:
-                # all inputs exhausted: flush trailing, then stop
+                # all inputs exhausted: flush trailing events, then stop
                 self._cg.flush()
                 self._pending.extend(self._drain_rows())
                 self._done = True
@@ -232,7 +256,7 @@ class _LazyDag:
             for i, h in enumerate(self._heads):
                 if h is not None and h[0] == nxt:
                     self._cg.push_event(i, nxt, h[1])
-                    self._heads[i] = self._pull(self._iters[i])
+                    self._heads[i] = _NOT_PULLED    # mark for lazy refill
             self._pending.extend(self._drain_rows())
 
 
@@ -399,11 +423,12 @@ class Dag:
     @staticmethod
     def _all_lazy(feeds):
         # A feed is lazy iff it is an iterator (has __next__) and is not a
-        # list/tuple/ndarray/Stream (those are concrete/batch, per rule A).
-        import numpy as _np
+        # list, tuple, or ndarray (those are concrete/batch, per rule A).
+        # Stream lacks __next__ so it correctly falls through to the batch path
+        # without needing an explicit isinstance check.
         def lazy(x):
             return (hasattr(x, "__next__")
-                    and not isinstance(x, (list, tuple, _np.ndarray)))
+                    and not isinstance(x, (list, tuple, np.ndarray)))
         return len(feeds) > 0 and all(lazy(v) for v in feeds.values())
 
     def stream(self, *args, **kwargs):
