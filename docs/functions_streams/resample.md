@@ -93,7 +93,7 @@ it is not `Dag`-only.
 Only **internal** empty buckets (gaps between two events) are filled by `resample`
 itself. Trailing empty buckets after the last event are not synthesized here; that
 needs a clock, via either [`dag.live().advance(now)`](#dag-live) or a clock input
-wired into a `Dag` (the custom-bars notebook shows both).
+wired into a `Dag`. The [`dag.live()` reference](#dag-live) has a worked example.
 
 `fill=` is meaningful only under `every=`. With `count=`, a bar is defined by
 holding `N` events, so empty bars cannot exist by construction and `fill=` has no
