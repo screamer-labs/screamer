@@ -92,8 +92,8 @@ class TestDispatcher:
 
     def test_two_parallel_iterables(self):
         out = Linear2(2, -1, 0)(iter([1.0, 2.0, 3.0]), iter([0.5, 1.0, 1.5]))
-        assert isinstance(out, list)
-        np.testing.assert_allclose(out, [1.5, 3.0, 4.5])
+        assert hasattr(out, "__next__") and not isinstance(out, list)
+        np.testing.assert_allclose(list(out), [1.5, 3.0, 4.5])
 
     def test_2d_per_column_independence(self):
         rng = np.random.default_rng(2)

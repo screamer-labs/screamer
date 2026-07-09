@@ -140,11 +140,12 @@ class TestDispatcher:
         l = [5.0, 6.0, 7.0]
         c = [7.5, 8.5, 11.0]
         out = WilliamsR(1)(iter(h), iter(l), iter(c))
-        assert isinstance(out, list)
+        assert hasattr(out, "__next__") and not isinstance(out, list)
+        vals = list(out)
         # window=1: at each step, high_n=h[i], low_n=l[i], close=c[i].
         # %R[2] = -100 * (12 - 11) / (12 - 5 in window=1 = 12-7) ... wait window=1,
         # so high_n = h[2] = 12, low_n = l[2] = 7. %R = -100 * (12-11)/(12-7) = -20.
-        assert out[2] == pytest.approx(-20.0)
+        assert vals[2] == pytest.approx(-20.0)
 
 
 # ---------------------------------------------------------------------------

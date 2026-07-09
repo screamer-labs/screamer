@@ -12,6 +12,7 @@
 #include <iostream>
 #include "screamer/common/base.h"
 #include "screamer/common/eval_op.h"
+#include "screamer/common/lazy_eval_iterator.h"
 
 namespace screamer {
 
@@ -360,18 +361,10 @@ public:
             return handle_input_1i_Mo_numpy(input_pyarray);
         }
 
-        // Case 3: Iterable -> list of M-tuples (eager).
+        // Case 3: Iterable -> lazy iterator of M-tuples.
         if (py::isinstance<py::iterable>(input)) {
-            std::vector<ResultTuple> results;
-            for (auto item : input) {
-                try {
-                    InputArray input_array = {item.cast<double>()};
-                    results.push_back(call(input_array));
-                } catch (const py::cast_error&) {
-                    throw py::type_error("Iterable must contain numbers.");
-                }
-            }
-            return py::cast(results);
+            std::vector<py::object> sources{ py::reinterpret_borrow<py::object>(input) };
+            return py::cast(LazyEvalIterator(py::cast(this), std::move(sources)));
         }
 
         throw py::type_error("Unsupported input type. Supported types are number, numpy array, or iterable.");
@@ -527,45 +520,9 @@ public:
         }
 
         if (all_iterable) {
-
-            // Initialize iterators for each input iterable
-            std::array<py::iterator, N> iterators;
-
-            for (size_t i = 0; i < N; ++i) {
-                iterators[i] = py::iter(inputs[i]);
-            }
-
-            std::vector<ResultTuple> results;
-
-            // Loop until any of the iterators is exhausted
-            while (true) {
-                
-                InputArray array;
-                try {
-                    // Advance all iterators and collect the next items
-                    for (size_t i = 0; i < N; ++i) {
-
-                        // Check if the iterator is valid
-                        if (iterators[i] == py::iterator()) {
-                            throw py::stop_iteration();
-                        }
-
-                        auto val = *iterators[i];
-                        array[i] = val.template cast<double>();
-                        ++iterators[i];
-                    }
-                } catch (py::stop_iteration&) {
-                    // One of the iterators is exhausted; exit the loop
-                    break;
-                }
-
-                // store the call
-                results.push_back(call(array));
-
-            }
-
-            return py::cast(results);
-
+            std::vector<py::object> sources;
+            for (auto input : inputs) sources.push_back(py::reinterpret_borrow<py::object>(input));
+            return py::cast(LazyEvalIterator(py::cast(this), std::move(sources)));
         }
 
         // Case no match:
@@ -712,7 +669,7 @@ public:
             return handle_input_Ni_Mo_numpy(inputs);
         }
 
-        // Case 4: tuple of N iterables -> list of M-tuples (eager)
+        // Case 4: tuple of N iterables -> lazy iterator of M-tuples
         bool all_iterable = true;
         for (auto input : inputs) {
             all_iterable = all_iterable && py::isinstance<py::iterable>(input);
@@ -722,30 +679,9 @@ public:
         }
 
         if (all_iterable) {
-            std::array<py::iterator, N> iterators;
-            for (size_t i = 0; i < N; ++i) {
-                iterators[i] = py::iter(inputs[i]);
-            }
-
-            std::vector<ResultTuple> results;
-            while (true) {
-                InputArray array;
-                try {
-                    for (size_t i = 0; i < N; ++i) {
-                        if (iterators[i] == py::iterator()) {
-                            throw py::stop_iteration();
-                        }
-                        auto val = *iterators[i];
-                        array[i] = val.template cast<double>();
-                        ++iterators[i];
-                    }
-                } catch (py::stop_iteration&) {
-                    break;
-                }
-                results.push_back(call(array));
-            }
-
-            return py::cast(results);
+            std::vector<py::object> sources;
+            for (auto input : inputs) sources.push_back(py::reinterpret_borrow<py::object>(input));
+            return py::cast(LazyEvalIterator(py::cast(this), std::move(sources)));
         }
 
         throw py::type_error("Unsupported input type.");

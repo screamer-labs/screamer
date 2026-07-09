@@ -88,8 +88,10 @@ class TestCart2Polar:
 
     def test_iterables(self):
         out = Cart2Polar()(iter([3.0, 0.0]), iter([4.0, 1.0]))
-        assert isinstance(out, list) and len(out) == 2
-        assert out[0] == pytest.approx((5.0, np.arctan2(4.0, 3.0)))
+        assert hasattr(out, "__next__") and not isinstance(out, list)
+        rows = list(out)
+        assert len(rows) == 2
+        assert rows[0] == pytest.approx((5.0, np.arctan2(4.0, 3.0)))
 
     def test_2d_per_column_pairing(self):
         rng = np.random.default_rng(4)

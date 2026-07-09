@@ -80,11 +80,12 @@ class TestRollingMinMax:
         rc = RollingMinMax(window_size=5)
         np.testing.assert_array_equal(rc(view), rc(view.copy()))
 
-    def test_iterable_returns_list_of_tuples(self):
+    def test_iterable_returns_lazy_iterator_of_tuples(self):
         out = RollingMinMax(3)(iter([3.0, 1.0, 4.0, 1.0, 5.0]))
-        assert isinstance(out, list)
-        assert len(out) == 5
-        assert all(isinstance(p, tuple) and len(p) == 2 for p in out)
+        assert hasattr(out, "__next__") and not isinstance(out, list)
+        rows = list(out)
+        assert len(rows) == 5
+        assert all(isinstance(p, tuple) and len(p) == 2 for p in rows)
 
     def test_window_size_must_be_positive(self):
         with pytest.raises(ValueError):
@@ -144,11 +145,12 @@ class TestBollingerBands:
             ref = BollingerBands(10, num_std=2.0)(X[:, k].copy())
             np.testing.assert_array_equal(out_2d[:, k, :], ref)
 
-    def test_iterable_returns_list_of_tuples(self):
+    def test_iterable_returns_lazy_iterator_of_tuples(self):
         out = BollingerBands(3, num_std=1.0)(iter([1.0, 2.0, 3.0, 4.0, 5.0]))
-        assert isinstance(out, list)
-        assert len(out) == 5
-        assert all(isinstance(t, tuple) and len(t) == 3 for t in out)
+        assert hasattr(out, "__next__") and not isinstance(out, list)
+        rows = list(out)
+        assert len(rows) == 5
+        assert all(isinstance(t, tuple) and len(t) == 3 for t in rows)
 
     def test_window_size_must_be_at_least_two(self):
         with pytest.raises(ValueError):

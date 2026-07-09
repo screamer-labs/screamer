@@ -111,14 +111,15 @@ def test_list_of_pairs():
 
 
 def test_two_iterators():
-    """Two parallel iterables (generators) must produce a list of doubles."""
+    """Two parallel iterables (generators) must produce a lazy iterator of doubles."""
     rc = RollingCorr(window_size=3)
     x_iter = iter([1.0, 2.0, 3.0, 4.0, 5.0])
     y_iter = iter([2.0, 4.0, 6.0, 8.0, 10.0])
     out = rc(x_iter, y_iter)
-    assert isinstance(out, list)
-    assert math.isnan(out[0]) and math.isnan(out[1])
-    for v in out[2:]:
+    assert hasattr(out, "__next__") and not isinstance(out, list)
+    vals = list(out)
+    assert math.isnan(vals[0]) and math.isnan(vals[1])
+    for v in vals[2:]:
         assert math.isclose(v, 1.0, abs_tol=1e-12)
 
 

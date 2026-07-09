@@ -142,8 +142,8 @@ def test_list_of_pairs(cls):
 @pytest.mark.parametrize("cls", [RollingCov, RollingBeta, RollingSpread])
 def test_two_iterators(cls):
     out = cls(window_size=3)(iter([1.0, 2.0, 3.0]), iter([2.0, 4.0, 6.0]))
-    assert isinstance(out, list)
-    assert len(out) == 3
+    assert hasattr(out, "__next__") and not isinstance(out, list)
+    assert len(list(out)) == 3
 
 
 # ---------------------------------------------------------------------------

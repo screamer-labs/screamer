@@ -38,3 +38,24 @@ def test_1i1o_batch_equals_lazy():
 def test_empty_input_yields_empty():
     from screamer import CumSum
     assert list(CumSum()(x for x in [])) == []
+
+
+def test_Ni1o_lazy_separate_iterables():
+    from screamer import Add
+    a = [1.0, 2.0, 3.0]
+    b = [10.0, 20.0, 30.0]
+    batch = Add()(np.array(a), np.array(b))                 # two arrays -> array
+    out = Add()((x for x in a), (y for y in b))             # two generators -> lazy iter
+    assert hasattr(out, "__next__") and not isinstance(out, list)
+    np.testing.assert_allclose(np.asarray(list(out)), batch)
+
+
+def test_1iMo_lazy_multi_output_tuples():
+    from screamer import BollingerBands
+    xs = [10.0, 11.0, 12.0, 11.0, 13.0, 14.0, 12.0, 15.0]
+    batch = BollingerBands(5)(np.array(xs))                 # array -> 2D (rows, 3)
+    out = BollingerBands(5)(x for x in xs)                  # generator -> lazy iter of 3-tuples
+    assert hasattr(out, "__next__") and not isinstance(out, list)
+    rows = list(out)
+    assert all(isinstance(r, tuple) and len(r) == 3 for r in rows)
+    np.testing.assert_allclose(np.asarray(rows), batch, equal_nan=True)
