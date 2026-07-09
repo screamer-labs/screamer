@@ -234,8 +234,8 @@ The output container type mirrors the input container type. The split is between
    - a dict (or an iterable of dicts) unpacks by input name.
    Arity plus element type disambiguates: a 2-input function reads `(1.0, 2.0)` as one
    event, and `[(1.0, 2.0), (3.0, 4.0)]` as a two-event stream.
-5. `c(a, b)` with N positional arguments feeds the N inputs directly, each argument
-   independently a scalar, array, or iterable per rules 1 to 3.
+6. `c(a, b)` with N positional arguments feeds the N inputs directly, each argument
+   independently a scalar, array, or iterable per rules 1 to 4.
 
 ## What retires
 
