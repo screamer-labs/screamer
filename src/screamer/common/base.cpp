@@ -20,7 +20,17 @@ py::object ScreamerBase::operator()(py::object obj) {
         return py::float_(process_scalar(value));
     }
 
-    if (py::isinstance<py::array>(obj) || py::isinstance<py::list>(obj) || py::isinstance<py::tuple>(obj)) {
+    if (py::isinstance<py::list>(obj) || py::isinstance<py::tuple>(obj)) {
+        py::sequence seq = py::reinterpret_borrow<py::sequence>(obj);
+        reset();
+        py::list out;
+        for (auto item : seq) {
+            out.append(py::float_(process_scalar(item.cast<double>())));
+        }
+        return out;
+    }
+
+    if (py::isinstance<py::array>(obj)) {
         py::array_t<double> double_array_t = py::cast<py::array_t<double>>(obj);
         int size = double_array_t.size();
 

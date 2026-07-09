@@ -61,6 +61,18 @@ def test_1iMo_lazy_multi_output_tuples():
     np.testing.assert_allclose(np.asarray(rows), batch, equal_nan=True)
 
 
+def test_1i1o_list_input_returns_list():
+    from screamer import CumSum
+    out = CumSum()([1.0, 2.0, 3.0, 4.0])
+    assert isinstance(out, list)
+    assert out == [1.0, 3.0, 6.0, 10.0]
+    # numpy array in still returns a numpy array:
+    import numpy as np
+    arr = CumSum()(np.array([1.0, 2.0, 3.0, 4.0]))
+    assert isinstance(arr, np.ndarray)
+    np.testing.assert_allclose(arr, [1.0, 3.0, 6.0, 10.0])
+
+
 def test_raw_lists_stay_eager():
     # Rule A: concrete list/tuple inputs are eager (a list out), only lazy iterators stream.
     from screamer import Add, BollingerBands
