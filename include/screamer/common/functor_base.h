@@ -361,10 +361,25 @@ public:
             return handle_input_1i_Mo_numpy(input_pyarray);
         }
 
-        // Case 3: Iterable -> lazy iterator of M-tuples.
+        // Case 3: Iterable.
+        // True lazy iterators (generators, iter(...)) stream via LazyEvalIterator.
+        // Concrete list/tuple inputs are eager and return a list.
         if (py::isinstance<py::iterable>(input)) {
-            std::vector<py::object> sources{ py::reinterpret_borrow<py::object>(input) };
-            return py::cast(LazyEvalIterator(py::cast(this), std::move(sources)));
+            if (is_lazy_iterable(input)) {
+                std::vector<py::object> sources{ py::reinterpret_borrow<py::object>(input) };
+                return py::cast(LazyEvalIterator(py::cast(this), std::move(sources)));
+            }
+            // Eager path for list/tuple input.
+            std::vector<ResultTuple> results;
+            for (auto item : input) {
+                try {
+                    InputArray input_array = {item.cast<double>()};
+                    results.push_back(call(input_array));
+                } catch (const py::cast_error&) {
+                    throw py::type_error("Iterable must contain numbers.");
+                }
+            }
+            return py::cast(results);
         }
 
         throw py::type_error("Unsupported input type. Supported types are number, numpy array, or iterable.");
@@ -520,9 +535,41 @@ public:
         }
 
         if (all_iterable) {
-            std::vector<py::object> sources;
-            for (auto input : inputs) sources.push_back(py::reinterpret_borrow<py::object>(input));
-            return py::cast(LazyEvalIterator(py::cast(this), std::move(sources)));
+            // True lazy iterators (generators, iter(...)) stream via LazyEvalIterator.
+            // Concrete list/tuple inputs are eager and return a list.
+            bool all_lazy = true;
+            for (auto input : inputs) {
+                all_lazy = all_lazy && is_lazy_iterable(input);
+                if (!all_lazy) break;
+            }
+            if (all_lazy) {
+                std::vector<py::object> sources;
+                for (auto input : inputs) sources.push_back(py::reinterpret_borrow<py::object>(input));
+                return py::cast(LazyEvalIterator(py::cast(this), std::move(sources)));
+            }
+            // Eager path: iterate over each input in parallel.
+            std::array<py::iterator, N> iterators;
+            for (size_t i = 0; i < N; ++i) {
+                iterators[i] = py::iter(inputs[i]);
+            }
+            std::vector<ResultTuple> results;
+            while (true) {
+                InputArray array;
+                try {
+                    for (size_t i = 0; i < N; ++i) {
+                        if (iterators[i] == py::iterator()) {
+                            throw py::stop_iteration();
+                        }
+                        auto val = *iterators[i];
+                        array[i] = val.template cast<double>();
+                        ++iterators[i];
+                    }
+                } catch (py::stop_iteration&) {
+                    break;
+                }
+                results.push_back(call(array));
+            }
+            return py::cast(results);
         }
 
         // Case no match:
@@ -669,7 +716,9 @@ public:
             return handle_input_Ni_Mo_numpy(inputs);
         }
 
-        // Case 4: tuple of N iterables -> lazy iterator of M-tuples
+        // Case 4: tuple of N iterables.
+        // True lazy iterators (generators, iter(...)) stream via LazyEvalIterator.
+        // Concrete list/tuple inputs are eager and return a list of M-tuples.
         bool all_iterable = true;
         for (auto input : inputs) {
             all_iterable = all_iterable && py::isinstance<py::iterable>(input);
@@ -679,9 +728,39 @@ public:
         }
 
         if (all_iterable) {
-            std::vector<py::object> sources;
-            for (auto input : inputs) sources.push_back(py::reinterpret_borrow<py::object>(input));
-            return py::cast(LazyEvalIterator(py::cast(this), std::move(sources)));
+            bool all_lazy = true;
+            for (auto input : inputs) {
+                all_lazy = all_lazy && is_lazy_iterable(input);
+                if (!all_lazy) break;
+            }
+            if (all_lazy) {
+                std::vector<py::object> sources;
+                for (auto input : inputs) sources.push_back(py::reinterpret_borrow<py::object>(input));
+                return py::cast(LazyEvalIterator(py::cast(this), std::move(sources)));
+            }
+            // Eager path: iterate over each input in parallel.
+            std::array<py::iterator, N> iterators;
+            for (size_t i = 0; i < N; ++i) {
+                iterators[i] = py::iter(inputs[i]);
+            }
+            std::vector<ResultTuple> results;
+            while (true) {
+                InputArray array;
+                try {
+                    for (size_t i = 0; i < N; ++i) {
+                        if (iterators[i] == py::iterator()) {
+                            throw py::stop_iteration();
+                        }
+                        auto val = *iterators[i];
+                        array[i] = val.template cast<double>();
+                        ++iterators[i];
+                    }
+                } catch (py::stop_iteration&) {
+                    break;
+                }
+                results.push_back(call(array));
+            }
+            return py::cast(results);
         }
 
         throw py::type_error("Unsupported input type.");
@@ -719,6 +798,15 @@ public:
     
 
 private:
+    // Returns true iff h is an iterable that is NOT a list, tuple, or array.
+    // Generators and iter(...) objects satisfy this; raw list/tuple do not.
+    static bool is_lazy_iterable(py::handle h) {
+        return py::isinstance<py::iterable>(h)
+            && !py::isinstance<py::list>(h)
+            && !py::isinstance<py::tuple>(h)
+            && !py::isinstance<py::array>(h);
+    }
+
     InputArray cast_to_array(const py::tuple& tuple) {
         if (tuple.size() != N) {
             throw py::type_error("Tuple size does not match the number of expected inputs.");

@@ -59,3 +59,14 @@ def test_1iMo_lazy_multi_output_tuples():
     rows = list(out)
     assert all(isinstance(r, tuple) and len(r) == 3 for r in rows)
     np.testing.assert_allclose(np.asarray(rows), batch, equal_nan=True)
+
+
+def test_raw_lists_stay_eager():
+    # Rule A: concrete list/tuple inputs are eager (a list out), only lazy iterators stream.
+    from screamer import Add, BollingerBands
+    assert Add()([1.0, 2.0, 3.0], [4.0, 5.0, 6.0]) == [5.0, 7.0, 9.0]      # N raw lists -> eager list
+    out = BollingerBands(3)([10.0, 11.0, 12.0, 11.0, 13.0])                 # 1 raw list, M-out -> eager list of tuples
+    assert isinstance(out, list) and all(isinstance(t, tuple) for t in out)
+    # iterators still stream lazily:
+    lazy = Add()(iter([1.0, 2.0]), iter([3.0, 4.0]))
+    assert hasattr(lazy, "__next__") and not isinstance(lazy, list)
