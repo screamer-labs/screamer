@@ -6,6 +6,7 @@
 #include "screamer/common/base.h"
 #include "screamer/common/iterator.h"
 #include "screamer/common/async_generator.h"
+#include "screamer/common/lazy_eval_iterator.h"
 
 namespace py = pybind11;
 
@@ -27,6 +28,11 @@ void init_bindings_core(py::module& m) {
 
     py::class_<screamer::ScreamerBase, screamer::EvalOp>(m, "ScreamerBase")
         .def("process_scalar", &screamer::ScreamerBase::process_scalar);
+
+    py::class_<screamer::LazyEvalIterator>(m, "LazyEvalIterator")
+        .def("__iter__", &screamer::LazyEvalIterator::__iter__,
+             py::return_value_policy::reference_internal)
+        .def("__next__", &screamer::LazyEvalIterator::__next__);
 
     py::class_<screamer::LazyIterator>(m, "LazyIterator")
         .def("__iter__", &screamer::LazyIterator::__iter__, py::return_value_policy::reference_internal)
