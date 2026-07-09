@@ -183,20 +183,32 @@ no windowing operator needs a bespoke control method or a separate clock input.
 
 `resample` becomes a normal computation under the model, which resolves every
 complaint about its current signature. The two bad names `every=` / `count=` collapse
-into **one argument, `interval`**, whose meaning is read from the index:
+into **one argument, `freq`** (following pandas `date_range`, which likewise defines
+recurrent points in time), whose meaning is read from the index:
 
-- **No index** (`resample(values, interval=N)`): `interval` is a **bin size by count**,
-  a bar every `N` events. `resample` keeps its own internal counter.
-- **Integer index** (`resample(index, values, interval=W)`): `interval` is a **span in
-  index units**, bar `n` is the half-open interval
-  `[origin + n*W, origin + (n+1)*W)`.
-- **Timestamp index**: `interval` may additionally be a `timedelta`, converted to
-  integer index units internally. This is the one bit of unit-awareness, a thin
-  optional convenience over the integer core.
+- **No index** (`resample(values, freq=N)`): `freq` is a **bar size by count**, a bar
+  every `N` events. `resample` keeps its own internal counter.
+- **Integer index** (`resample(index, values, freq=W)`): `freq` is a **span in index
+  units**, bar `n` is the half-open interval `[origin + n*W, origin + (n+1)*W)`.
+- **Timestamp index** (`resample(index, values, freq="1min")`): `freq` is a time offset
+  or a `timedelta`, converted to integer index units internally.
 
 So there is no separate "mode" to name and no "index optional maybe there" ambiguity:
-providing an index makes `interval` a span, omitting it makes `interval` a count. The
-index is just input number 0 when present.
+providing an index makes `freq` a span, omitting it makes `freq` a count. The index is
+just input number 0 when present.
+
+**The timedelta convenience lives in the thin Python layer** (the C++ core stays pure
+integer index space). Python inspects the index dtype, pairs it with the compatible
+`freq` type, and raises a clear error when they are nonsensical together (for example a
+`timedelta` `freq` on an integer index, or a bare int `freq` where the index is
+`datetime64` and a wall-clock bar was intended). The valid `freq` types per index type
+are documented on the `resample` page:
+
+| index type | valid `freq` | meaning |
+|---|---|---|
+| none | `int` | bar every N events |
+| integer | `int` | span of N index units |
+| `datetime64` / timestamp | time offset str (`"1min"`) or `timedelta` | wall-clock bar |
 
 - **Output is `(bar_label, bar_value)` pairs** (or `(bar_label, col_0, ..., col_k)`
   for multi-column bars), so bars flow on to the next function as ordinary tuple data.
@@ -237,7 +249,7 @@ tuple unpacking:
   tuple/list of N, reads a 2D array as N columns, and casts the return to match; the
   work is to make the iterable path return a lazy iterator, add dict unpacking, and let
   operators and Dags share it.
-- `every=` / `count=` on `resample`, replaced by the single contextual `interval=`.
+- `every=` / `count=` on `resample`, replaced by the single contextual `freq=`.
 - Any separate clock concept (`advance()`, a clock input); the index is the clock.
 
 ## Migration
@@ -254,9 +266,11 @@ we take the break rather than carry a compatibility shim, but the plan should:
 
 ## Settled decisions (from spec review)
 
-1. **`resample`:** a single `interval=` argument, contextual to the index (count when
-   no index, index-span for an integer index, `timedelta` for a timestamp index). No
-   separate mode argument.
+1. **`resample`:** a single `freq=` argument, contextual to the index (int count when
+   no index, int index-span for an integer index, time offset or `timedelta` for a
+   `datetime64` index). No separate mode argument. The timedelta convenience is a v1
+   Python-layer feature that validates `freq` against the index dtype and documents the
+   valid pairings.
 2. **`Stream` is removed.** Streams are plain sequences of values / tuples / dicts, or
    2D arrays; the polymorphic parser handles it, and names travel beside the data.
 3. **No clock.** The index is the clock; a heartbeat is a `(index, NaN)` event.
@@ -266,13 +280,6 @@ we take the break rather than carry a compatibility shim, but the plan should:
    lazy iterator out). There is no separate "window-op return type"; cardinality is
    carried by the array or iterator, so window operators are fed arrays or iterators,
    not scalars one at a time.
-
-## Remaining open questions
-
-- Whether the `timedelta` convenience for timestamp indices is in v1 or deferred (the
-  integer-`interval` core is v1 regardless).
-- The exact spelling of `interval=` (versus `bin=` or `window=`), a naming preference
-  only.
 
 ## Testing strategy
 
@@ -297,6 +304,6 @@ This is large and cross-cutting: it touches the functor call convention, every s
 operator, the `Dag`, the `*_iter` layer, `Stream`, and `resample`. The implementation
 plan should decompose it into sequenced, independently-testable pieces (for example:
 callable-dispatch core with type propagation and cardinality; lazy-iterator output;
-multi-input tuple/dict unpacking and as-of alignment; `resample` single-`interval`
+multi-input tuple/dict unpacking and as-of alignment; `resample` single-`freq`
 re-signature and heartbeats; retire `*_iter` and the `Stream` type; docs and
 notebooks), each keeping `batch == pull == push` green.
