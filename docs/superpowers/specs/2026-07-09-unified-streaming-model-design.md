@@ -61,6 +61,11 @@ c.reset()     # clear streaming state
 - **Batch** is calling `c` on whole arrays. It resets, runs, and returns arrays.
 - **Pull** is calling `c` on iterables. It returns a lazy iterator.
 
+**The output type mirrors the input type** (this is already the parser's design):
+value in, value out; array in, array out; lazy iterator in, lazy iterator out. A live
+push loop is simply a lazy iterator whose source produces events as they arrive, so
+"push" is not a separate return convention, it is the iterator form with a live source.
+
 The same three modes work identically for a functor, an operator, and a `Dag`. There
 are no `stream()` / `live()` / `advance()` / `flush()` methods and no `*_iter`
 functions; they are all subsumed by this dispatch (see "What retires").
@@ -77,18 +82,21 @@ This is not an interface inconsistency; it is the same difference Python draws b
   events yield nothing; a boundary or a kept event yields one; gap-fill can yield
   several at once.
 
-Rule: **a push returns the outputs that became ready from that event, and a pull
-yields the same lazily.**
+Under type propagation this needs no special return convention; the array and the
+iterator carry the cardinality:
 
-- A map-like computation, being always exactly one, **auto-unwraps**: `cumsum(3.0)`
-  returns `6.0` (a scalar), `cumsum(array)` returns an array, `cumsum(iter)` yields
-  scalars. This keeps the pleasant functor ergonomics.
-- A window-like computation returns the ready outputs as a sequence per push
-  (possibly empty), and its pull yields each output event: `resample(...)` mid-bar
-  yields nothing, at a bar close yields one bar, across a filled gap yields several.
+- A **map-like** computation is 1:1, so `cumsum(3.0)` returns `6.0`, `cumsum(array)`
+  returns an equal-length array, `cumsum(iter)` yields one scalar per event. The pleasant
+  functor ergonomics are unchanged.
+- A **window-like** computation is fed an **array** (`resample(array)` returns the M
+  bars) or an **iterator** (`resample(iter)` yields each bar as it closes, nothing on a
+  mid-bar event, several across a filled gap). Because a single event yields zero or
+  more outputs, a window operator is fed an array or an iterator, not scalars one at a
+  time; the iterator is exactly where "zero or more" lives naturally. A live loop feeds
+  a window operator an iterator whose source is live.
 
-A computation knows which kind it is; the caller knows which operator they are using
-(a running sum vs a bar builder), so the output shape is predictable, not a surprise.
+A computation knows which kind it is, and the caller knows which operator they are using
+(a running sum versus a bar builder), so the shape is predictable, not a surprise.
 
 ### 3. Multi-input: positional, tuple (`*args`), or dict (`**kwargs`)
 
@@ -146,54 +154,53 @@ add(a, b) == add(combine_latest(a, b))     # same numbers, by construction
 - Mechanically: a k-way merge by index; pull from whichever input has the next index
   (for bare streams, both, in lockstep), keep each input's latest value, and emit once
   per merged index (same-index events coalesce, as `combine_latest` already does).
-- A **strict** join (emit only when inputs share an index) is an explicit opt-in for
-  the rare case you want coincidence-only. For bare equal-rate streams it is identical
-  to the default.
+As-of is the default (and the only join in v1) because every input always has a current
+value, nothing is silently dropped, and it is what the time-series case wants. A strict
+join (emit only when inputs share an index) is the rare coincidence-only case: for
+example, `price` at indices `{1,3,5}` and `volume` at `{2,4}` never coincide, so a
+strict join emits nothing while as-of emits at every index. That is niche, so it is out
+of scope for v1 and can be added as a named combinator later.
 
-As-of is the default because every input always has a current value, nothing is
-silently dropped, and it is what the time-series case wants.
+### 6. No separate clock; the index is the clock
 
-### 6. Clock and end-of-stream are events, not methods
+There is no clock concept and no `advance()`. "Advancing time" only ever means
+"`resample`'s index moved forward", and the index is already an ordinary input.
 
-- A **clock tick** is an event with no value on a dedicated clock input (or a valueless
-  heartbeat). Feeding it closes any window whose boundary has passed. This replaces
-  `advance(now)`: advancing time is pushing a clock event.
-- **End of stream** is the natural exhaustion of a pull iterator, or an explicit EOF
-  marker on push, which flushes the trailing partial window. This replaces `flush()`.
+- **Empty bars between events** are handled by the index gap alone: when the index
+  jumps across one or more empty buckets, `fill` decides what those buckets emit. No
+  clock needed.
+- **Finalizing a bar in real time** before the next event arrives is done by feeding an
+  event that advances the index but carries no value: `(index, NaN)`. `resample`
+  already ignores NaN for the aggregate but still buckets on the index, so a NaN-valued
+  event is a heartbeat. Nothing new is added.
+- **End of stream** is the natural exhaustion of a pull iterator (or the end of the
+  input array), which flushes the trailing partial window. This replaces `flush()`.
 
-No windowing operator needs bespoke control methods; time and termination are just
-events in the same stream.
+So time and termination are just events (and iterator exhaustion) in the same stream;
+no windowing operator needs a bespoke control method or a separate clock input.
 
 ## `resample` redesign (falls out of the model)
 
 `resample` becomes a normal computation under the model, which resolves every
-complaint about its current signature.
+complaint about its current signature. The two bad names `every=` / `count=` collapse
+into **one argument, `interval`**, whose meaning is read from the index:
 
-- **The index is input number 0** for time bars, and absent for count bars, so it is
-  never "optionally maybe there": time-mode has an index input, count-mode does not.
-- **Two modes, clearly separated:**
-  - **Time bars** bucket on the index: bar `n` is the half-open interval
-    `[origin + n*W, origin + (n+1)*W)`. Needs the index input. `W` is in index units.
-  - **Count bars** bucket by arrival order: a bar every `N` events. Index-free; keeps
-    an internal counter and can still label bars by count or by the first or last
-    event's index if an index input is supplied.
+- **No index** (`resample(values, interval=N)`): `interval` is a **bin size by count**,
+  a bar every `N` events. `resample` keeps its own internal counter.
+- **Integer index** (`resample(index, values, interval=W)`): `interval` is a **span in
+  index units**, bar `n` is the half-open interval
+  `[origin + n*W, origin + (n+1)*W)`.
+- **Timestamp index**: `interval` may additionally be a `timedelta`, converted to
+  integer index units internally. This is the one bit of unit-awareness, a thin
+  optional convenience over the integer core.
+
+So there is no separate "mode" to name and no "index optional maybe there" ambiguity:
+providing an index makes `interval` a span, omitting it makes `interval` a count. The
+index is just input number 0 when present.
+
 - **Output is `(bar_label, bar_value)` pairs** (or `(bar_label, col_0, ..., col_k)`
-  for multi-column bars), so bars flow on to the next function with no `Stream.index`.
-- **`fill=`** (empty-bar policy) and **`origin=`** and **`label=`** carry over
-  unchanged in behavior.
-
-### Argument naming (open decision, recommendation below)
-
-The bad names `every=` / `count=` are replaced. Recommended:
-
-- Time bars: `resample(index, values, interval=W, origin=0, label="left", fill="skip")`
-  where `interval` is the bar width in index units.
-- Count bars: `resample(values, size=N, label="left")` where `size` is the number of
-  events per bar.
-
-`interval` reads as "a span on the index"; `size` reads as "how many events per bar".
-Alternatives considered: `width=` for time (collides with the ohlc "width" notion),
-`ticks=` or `n=` for count. See "Open decisions".
+  for multi-column bars), so bars flow on to the next function as ordinary tuple data.
+- **`fill=`** (empty-bar policy), **`origin=`**, and **`label=`** carry over unchanged.
 
 ## Precise dispatch rules
 
@@ -216,15 +223,22 @@ tuple unpacking:
 ## What retires
 
 - `Dag.stream()`, `Dag.live()`, and the live-session methods `push` / `advance` /
-  `flush` / `result` (subsumed by the callable and by clock and EOF events).
+  `flush` / `result` (subsumed by the callable, by the index being an input, and by
+  iterator exhaustion).
 - Every `*_iter` stream operator (`resample_iter`, `merge_iter`,
   `combine_latest_iter`, `dropna_iter`, `filter_iter`, `select_iter`) and their Python
   reimplementations of the math. Pull is the callable on iterables, backed by the C++
   engine.
-- `Stream.index` as a metadata channel. A `Stream` (if it survives at all) becomes a
-  thin labelled-array view over output tuples, not an index carrier. (Open decision:
-  whether `Stream` remains as a convenience.)
-- `every=` / `count=` argument names on `resample`.
+- **The `Stream` type entirely.** A stream is just a sequence (list or lazy iterator)
+  of values, of tuples (`*args`), or of dicts (`**kwargs`), or a 2D array (columns =
+  inputs). Named multi-column output is a list of names carried beside the data, not a
+  wrapper. This builds on the existing polymorphic `__call__` in `functor_base.h`,
+  which already dispatches scalar / array / iterable, accepts N positional args or one
+  tuple/list of N, reads a 2D array as N columns, and casts the return to match; the
+  work is to make the iterable path return a lazy iterator, add dict unpacking, and let
+  operators and Dags share it.
+- `every=` / `count=` on `resample`, replaced by the single contextual `interval=`.
+- Any separate clock concept (`advance()`, a clock input); the index is the clock.
 
 ## Migration
 
@@ -238,22 +252,27 @@ we take the break rather than carry a compatibility shim, but the plan should:
 - provide a short migration table (old call to new call) for the notebooks and the
   changelog.
 
-## Open decisions (recommendations given; confirm on spec review)
+## Settled decisions (from spec review)
 
-1. **`resample` argument names:** `interval=` (time) and `size=` (count), per above.
-   Alternatives: `width=` / `ticks=`.
-2. **Does `Stream` survive?** Recommendation: keep a thin labelled view for the
-   multi-column bar case (named columns), but with columns as tuple positions and
-   labels as data, not as a hidden index. Or drop it entirely and return plain tuples
-   plus a separate names list. Lean: keep a minimal labelled view.
-3. **Clock input shape:** a dedicated named clock input on windowing operators, versus
-   a valueless heartbeat event interleaved on an existing input. Lean: a dedicated
-   clock input, because it is explicit and composes as ordinary data.
-4. **Strict-join surface:** the explicit opt-in name for coincidence-only alignment
-   (for example `zip_strict` or a flag on `combine_latest`). Lean: a distinct
-   combinator, so the default `combine_latest` has no mode flag.
-5. **Push return type for window-like ops:** a tuple, a list, or a small generator of
-   the ready outputs. Lean: a tuple (immutable, cheap, and iterable).
+1. **`resample`:** a single `interval=` argument, contextual to the index (count when
+   no index, index-span for an integer index, `timedelta` for a timestamp index). No
+   separate mode argument.
+2. **`Stream` is removed.** Streams are plain sequences of values / tuples / dicts, or
+   2D arrays; the polymorphic parser handles it, and names travel beside the data.
+3. **No clock.** The index is the clock; a heartbeat is a `(index, NaN)` event.
+4. **No strict-join in v1** (YAGNI). Only the as-of default (`combine_latest`). A named
+   strict combinator can be added later if a real need appears.
+5. **Type propagates** (value in, value out; array in, array out; lazy iterator in,
+   lazy iterator out). There is no separate "window-op return type"; cardinality is
+   carried by the array or iterator, so window operators are fed arrays or iterators,
+   not scalars one at a time.
+
+## Remaining open questions
+
+- Whether the `timedelta` convenience for timestamp indices is in v1 or deferred (the
+  integer-`interval` core is v1 regardless).
+- The exact spelling of `interval=` (versus `bin=` or `window=`), a naming preference
+  only.
 
 ## Testing strategy
 
@@ -264,9 +283,10 @@ we take the break rather than carry a compatibility shim, but the plan should:
   unpacking, single-tuple-event versus tuple-stream, and multi-output to multi-input
   composition.
 - **Alignment tests:** `add(a, b) == add(combine_latest(a, b))` for bare equal-rate
-  (equals `zip`) and for sparse timestamped inputs (as-of carry); strict-join opt-in.
-- **Clock and EOF tests:** clock events close empty time bars; EOF flushes the trailing
-  partial; both match the batch oracle.
+  (equals `zip`) and for sparse timestamped inputs (as-of carry).
+- **Index and heartbeat tests:** an index gap fills empty bars per `fill`; a
+  `(index, NaN)` heartbeat closes a time bar with no trade; iterator exhaustion flushes
+  the trailing partial; all match the batch oracle.
 - All numeric logic stays in C++ (the pull path must drive the C++ engine, not a Python
   reimplementation), so the pure-C++ library and a future WASM binding inherit the
   model.
@@ -276,6 +296,7 @@ we take the break rather than carry a compatibility shim, but the plan should:
 This is large and cross-cutting: it touches the functor call convention, every stream
 operator, the `Dag`, the `*_iter` layer, `Stream`, and `resample`. The implementation
 plan should decompose it into sequenced, independently-testable pieces (for example:
-callable-dispatch core and cardinality; multi-input unpacking and as-of alignment;
-clock and EOF events; `resample` re-signature; retire `*_iter` and `Stream.index`;
-docs and notebooks), each keeping `batch == pull == push` green.
+callable-dispatch core with type propagation and cardinality; lazy-iterator output;
+multi-input tuple/dict unpacking and as-of alignment; `resample` single-`interval`
+re-signature and heartbeats; retire `*_iter` and the `Stream` type; docs and
+notebooks), each keeping `batch == pull == push` green.
