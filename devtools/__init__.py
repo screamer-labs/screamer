@@ -98,7 +98,7 @@ def get_module_classes(screamer_module):
 def get_module_public_classes(screamer_module):
     return [
         cls for cls in get_module_classes(screamer_module)
-        if cls not in ["ScreamerBase", "EvalOp", "AnextAwaitable", "LazyAsyncIterator", "LazyIterator", "Awaiter",
+        if cls not in ["ScreamerBase", "EvalOp", "AnextAwaitable", "LazyAsyncIterator", "LazyIterator", "LazyEvalIterator", "Awaiter",
                        "Node", "Dag", "Stream"]   # DAG graph-handle / stream data types, not computation functors
     ]
 

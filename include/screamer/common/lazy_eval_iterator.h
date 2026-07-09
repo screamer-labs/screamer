@@ -24,7 +24,7 @@ public:
           op_(op_owner_.cast<EvalOp&>()),
           n_in_(op_.n_in()), n_out_(op_.n_out()),
           in_(op_.n_in()), out_(op_.n_out()) {
-        for (auto& it : iterables) iters_.push_back(py::iter(it));
+        for (auto& it : iterables) iters_.push_back(it.attr("__iter__")());
         unpack_tuples_ = (iters_.size() == 1 && n_in_ > 1);
         in_.resize(n_in_);
         out_.resize(n_out_);
@@ -52,17 +52,19 @@ public:
     }
 
 private:
-    static py::object next_or_stop(py::iterator& it) {
-        if (it == py::iterator()) throw py::stop_iteration();   // default-constructed sentinel
-        py::object v = py::reinterpret_borrow<py::object>(*it);
-        ++it;
-        return v;
+    static py::object next_or_stop(py::object& it) {
+        try {
+            return it.attr("__next__")();
+        } catch (py::error_already_set& e) {
+            if (e.matches(PyExc_StopIteration)) throw py::stop_iteration();
+            throw;
+        }
     }
 
     py::object op_owner_;                 // keeps the functor wrapper alive
     EvalOp& op_;
     std::size_t n_in_, n_out_;
-    std::vector<py::iterator> iters_;
+    std::vector<py::object> iters_;
     std::vector<double> in_, out_;
     bool unpack_tuples_ = false;
 };

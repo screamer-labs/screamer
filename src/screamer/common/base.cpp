@@ -1,6 +1,6 @@
 #include "screamer/common/base.h"
 #include "screamer/common/async_generator.h"
-#include "screamer/common/iterator.h"
+#include "screamer/common/lazy_eval_iterator.h"
 
 namespace screamer {
 
@@ -35,9 +35,8 @@ py::object ScreamerBase::operator()(py::object obj) {
     }
 
     if (py::isinstance<py::iterable>(obj)) {
-        // Pass our own Python wrapper so the lazy iterator keeps this functor
-        // alive while it is consumed (transient-functor safety).
-        return py::cast(LazyIterator(obj.cast<py::iterable>(), py::cast(this)));
+        std::vector<py::object> sources{obj};       // a single iterable of scalars (n_in==1)
+        return py::cast(LazyEvalIterator(py::cast(this), std::move(sources)));
     }
 
     if (is_async_generator(obj)) {

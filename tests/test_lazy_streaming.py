@@ -25,3 +25,16 @@ def test_lazy_iterator_is_lazy_and_correct():
     assert pulled == []                      # nothing consumed yet
     next(it)
     assert pulled == [1.0]                    # exactly one pulled
+
+
+def test_1i1o_batch_equals_lazy():
+    from screamer import CumSum
+    xs = [3.0, 1.0, 4.0, 1.0, 5.0, 9.0]
+    batch = CumSum()(np.array(xs))                 # array in, array out
+    lazy = list(CumSum()(x for x in xs))           # generator in, lazy iterator out
+    np.testing.assert_allclose(np.asarray(lazy), batch)
+
+
+def test_empty_input_yields_empty():
+    from screamer import CumSum
+    assert list(CumSum()(x for x in [])) == []
