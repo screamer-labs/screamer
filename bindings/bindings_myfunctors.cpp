@@ -4,7 +4,6 @@
 #include <tuple>
 #include <iterator>
 #include "screamer/common/eval_op.h"
-#include "screamer/common/functor_iterator.h"
 #include "screamer/my_functors.h"
 
 namespace py = pybind11;
@@ -28,8 +27,6 @@ void init_bindings_myfunctors(py::module& m) {
         .def(py::init<>())
         .def("__call__", &MyFunctor11::handle_input)
         .def("reset", &MyFunctor11::reset, "Reset to the initial state.");
-
-    bind_functor_iterator<MyFunctor11>(m, "MyFunctorIterator11");
 
     py::class_<MyFunctor22, screamer::EvalOp>(m, "MyFunctor22")
         .def(py::init<>())

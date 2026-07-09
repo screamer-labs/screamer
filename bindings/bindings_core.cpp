@@ -4,7 +4,6 @@
 #include <string>
 #include "screamer/common/eval_op.h"
 #include "screamer/common/base.h"
-#include "screamer/common/iterator.h"
 #include "screamer/common/async_generator.h"
 #include "screamer/common/lazy_eval_iterator.h"
 
@@ -33,10 +32,6 @@ void init_bindings_core(py::module& m) {
         .def("__iter__", &screamer::LazyEvalIterator::__iter__,
              py::return_value_policy::reference_internal)
         .def("__next__", &screamer::LazyEvalIterator::__next__);
-
-    py::class_<screamer::LazyIterator>(m, "LazyIterator")
-        .def("__iter__", &screamer::LazyIterator::__iter__, py::return_value_policy::reference_internal)
-        .def("__next__", &screamer::LazyIterator::__next__);
 
     py::class_<screamer::AnextAwaitable>(m, "AnextAwaitable")
         .def("__await__", &screamer::AnextAwaitable::__await__);
