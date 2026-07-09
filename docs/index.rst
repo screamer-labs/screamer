@@ -148,6 +148,7 @@ For a step-by-step walkthrough see the :doc:`User Guide <usage>`.
    notebooks/10-resample-string-aggregations
    notebooks/N2-custom-bar-statistics
    notebooks/N3-bucketing-and-empty-bars
+   notebooks/N4-multi-column-bars-in-a-dag
    notebooks/12-custom-bars-with-agg-dict
 
 
