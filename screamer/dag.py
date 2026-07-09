@@ -195,6 +195,13 @@ class _LazyDag:
     def __init__(self, dag, feeds):
         self._dag = dag
         self._cg = dag._cg
+        # The lazy multi-output path coalesces outputs at a shared index (when_all),
+        # matching align_outputs=True. The independent-per-output (align_outputs=False)
+        # multi-output case is not yet handled lazily; fail fast rather than misalign.
+        if not dag.align_outputs and len(dag.outputs) > 1:
+            raise NotImplementedError(
+                "lazy dag(iterables) with align_outputs=False and multiple outputs "
+                "is not yet supported; use the batch call dag(arrays) for now")
         self._cg.reset()
         # one (index, value) iterator per input, in signature order
         self._iters = [iter(feeds[nm]) for nm in dag._input_order]

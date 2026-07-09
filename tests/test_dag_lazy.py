@@ -59,8 +59,15 @@ def test_dag_lazy_equals_batch_multi_output():
     ga = ((float(v), int(k)) for v, k in zip(va, ia))
     gb = ((float(v), int(k)) for v, k in zip(vb, ib))
     rows = list(dag(ga, gb))                             # rows of (col0, col1, index)
-    # one row per output index; compare count against batch
-    assert len(rows) == len(np.asarray(batch[0][0]).reshape(-1))
+    # Compare against the batch oracle column by column and index by index.
+    # batch is a tuple of (values, index) pairs, one per output (co-indexed).
+    exp_col0 = np.asarray(batch[0][0]).reshape(-1)       # output 0 (spread)
+    exp_col1 = np.asarray(batch[1][0]).reshape(-1)       # output 1 (RollingMean of spread)
+    exp_idx = np.asarray(batch[0][1]).reshape(-1)
+    assert len(rows) == len(exp_col0)
+    np.testing.assert_allclose([r[0] for r in rows], exp_col0, equal_nan=True)
+    np.testing.assert_allclose([r[1] for r in rows], exp_col1, equal_nan=True)
+    np.testing.assert_array_equal([r[-1] for r in rows], exp_idx)
 
 
 def test_dag_batch_on_concrete_feed():
