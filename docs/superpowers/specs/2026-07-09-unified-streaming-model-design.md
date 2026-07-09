@@ -216,14 +216,19 @@ are documented on the `resample` page:
 
 ## Precise dispatch rules
 
-To make "call on a scalar vs an array vs an iterable" unambiguous, especially with
-tuple unpacking:
+The output container type mirrors the input container type. The split is between
+**concrete data** (eager) and a **lazy stream** (lazy), not between array and non-array:
 
-1. A **scalar** argument (a real number) is one event's value. `c(3.0)` is a push.
-2. An **array** argument is a batch. `c(np.array([...]))` resets and runs.
-3. An **iterable** argument (that is not an array) is a pull; `c` returns a lazy
-   iterator.
-4. For an **N-input** computation given a **single** argument:
+1. A **scalar** (a real number) is one event; `c(3.0)` returns a scalar.
+2. A **numpy array** is batch; `c(np.array([...]))` returns a numpy array (a 2D array
+   is read as N columns, and a multi-output result is a 2D array).
+3. A **list or tuple** is concrete data, so it is **eager**: `c([...])` runs it fully and
+   returns a **list** (a list of scalars, or a list of tuples for multi-output). A list of
+   tuples in gives a list of tuples out; it is not flattened to a 2D array.
+4. Only a **lazy iterator** (a generator, or `iter(...)`, i.e. an iterable that is not a
+   list, tuple, or numpy array) is **pull**: `c(gen)` returns a lazy iterator that yields as
+   it consumes.
+5. For an **N-input** computation given a **single** argument:
    - a tuple of N scalars is one aligned event, unpacked to the N inputs;
    - an iterable whose elements are N-tuples is a stream, each element unpacked;
    - a dict (or an iterable of dicts) unpacks by input name.
