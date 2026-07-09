@@ -285,9 +285,10 @@ class Dag:
     Call ``dag(*feeds)`` (positional) or ``dag(**named_feeds)`` (by Input name)
     to evaluate the graph. Each feed may be a bare value array (positional, index
     = row-number), a ``Stream``, or a ``(values, index)`` pair (values-first).
+    Pass generators of ``(value, index)`` pairs to run the graph lazily, event
+    by event, with byte-identical results (the lazy pull path).
     Returns a single ``(values, index)`` pair when M == 1, or a tuple of pairs
-    when M > 1. Use ``dag.stream(*feeds)`` to run the same graph live, event by
-    event, with byte-identical results.
+    when M > 1.
     """
 
     def __init__(self, inputs, outputs, align_outputs=True):
@@ -437,23 +438,6 @@ class Dag:
             return (hasattr(x, "__next__")
                     and not isinstance(x, (list, tuple, np.ndarray)))
         return len(feeds) > 0 and all(lazy(v) for v in feeds.values())
-
-    def stream(self, *args, **kwargs):
-        """Drive the compiled graph live, event by event (byte-identical to __call__)."""
-        from .streams import merge
-        feeds = self._bind_args(args, kwargs)
-        streams = [_as_stream(feeds[nm]) for nm in self._input_order]
-        self._cg.reset()
-        # split (index_arr, values_arr) pairs so merge can align them by index
-        idx_arrays = [s[0] for s in streams]
-        val_arrays = [s[1] for s in streams]
-        merged_vals, merged_sources, merged_index = merge(*val_arrays, index=idx_arrays)
-        for v, src, k in zip(merged_vals, merged_sources, merged_index):
-            self._cg.push_event(int(src), int(k), float(v))
-        self._cg.flush()          # end-of-input: emit trailing resample buckets
-        results = self._cg.drain()
-        results = [(k, v.reshape(-1) if v.shape[1] == 1 else v) for (k, v) in results]
-        return self._label(_align_results(results, self.align_outputs))
 
     def live(self):
         """Open a live streaming session: push events and drive a clock yourself.

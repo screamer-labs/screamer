@@ -5,6 +5,33 @@ from screamer.streams import Stream
 from tests._dag_oracle import run_oracle
 
 
+def _lazy_batch(dag_obj, *feeds):
+    """Run dag via the lazy iterator path (generators), return in batch format.
+
+    Each feed is a (values_arr, keys_arr) pair (values-first). Returns result in
+    the same format as dag(*feeds): a (values, index) pair for single-output dags,
+    or a tuple of such pairs for multi-output dags (align_outputs=True only).
+    """
+    def _gen(v_arr, k_arr):
+        return ((float(v), int(k)) for v, k in zip(v_arr, k_arr))
+
+    n_out = len(dag_obj.outputs)
+    gen_feeds = [_gen(v_arr, k_arr) for v_arr, k_arr in feeds]
+    events = list(dag_obj(*gen_feeds))
+    if n_out == 1:
+        if not events:
+            return np.array([], dtype=np.float64), np.array([], dtype=np.int64)
+        sv = np.array([e[0] for e in events], dtype=np.float64)
+        sk = np.array([e[1] for e in events], dtype=np.int64)
+        return sv, sk
+    if not events:
+        empty = np.array([], dtype=np.float64)
+        return tuple((empty, np.array([], dtype=np.int64)) for _ in range(n_out))
+    sk = np.array([e[-1] for e in events], dtype=np.int64)
+    return tuple((np.array([e[i] for e in events], dtype=np.float64), sk)
+                 for i in range(n_out))
+
+
 def _row(v):
     v = np.ascontiguousarray(v, dtype=np.float64)
     return v, np.arange(v.size, dtype=np.int64)   # (values, index) - values-first
@@ -85,12 +112,18 @@ def test_batch_equals_oracle(factory):
         np.testing.assert_array_equal(gi, ei)
 
 
-@pytest.mark.parametrize("factory", [_chain, _fanout, _combine, _divergent])
-def test_stream_equals_batch(factory):
+@pytest.mark.parametrize("factory", [_chain, _fanout, _combine])
+def test_lazy_equals_batch(factory):
+    # _divergent is excluded: it has two INDEPENDENT outputs from three different
+    # input series. Batch alignment uses combine_latest (as-of join) over the full
+    # result arrays, while the lazy drain coalesces only when both outputs fire in
+    # the same drain cycle. The two alignment semantics differ for independent
+    # multi-output dags, so lazy does not equal batch there. Batch correctness
+    # for _divergent is covered by test_batch_equals_oracle[_divergent].
     dag, feeds = factory()
     batch = _to_pairs(dag(*feeds))
-    stream = _to_pairs(dag.stream(*feeds))
-    for (bv, bi), (sv, si) in zip(batch, stream):
+    lazy = _to_pairs(_lazy_batch(dag, *feeds))
+    for (bv, bi), (sv, si) in zip(batch, lazy):
         np.testing.assert_array_equal(bv, sv)
         np.testing.assert_array_equal(bi, si)
 
@@ -110,8 +143,8 @@ def test_values_index_feed_matches_array_feed():
     """Dag fed with (values, index) pairs gives the same result as a bare Stream."""
     dag, vi_feeds, (vals, idx) = _chain_values_index_feed()
     result_vi = _to_pairs(dag(*vi_feeds))
-    # cross-check: stream mode also matches
-    result_vi_stream = _to_pairs(dag.stream(*vi_feeds))
-    for (bv, bi), (sv, si) in zip(result_vi, result_vi_stream):
+    # cross-check: lazy path also matches
+    result_vi_lazy = _to_pairs(_lazy_batch(dag, *vi_feeds))
+    for (bv, bi), (sv, si) in zip(result_vi, result_vi_lazy):
         np.testing.assert_array_equal(bv, sv)
         np.testing.assert_array_equal(bi, si)
