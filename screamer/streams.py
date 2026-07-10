@@ -15,7 +15,7 @@ from .dag import is_node, make_operator_node
 
 __all__ = [
     "Stream",
-    "merge", "merge_iter",
+    "merge",
     "combine_latest",
     "replay",
     "dropna",
@@ -324,6 +324,55 @@ def _merge_to_indexed(values, index, who):
     return kind, norm_index, vals, False
 
 
+def _merge_lazy(sources, positional):
+    """K-way merge of lazy sources by index, ties broken by source order.
+
+    Positional sources are ordered by a per-source arrival counter (row number)
+    and yield index None; indexed sources ((value, index)) order by their index
+    and yield it. Yields ``(value, index_or_None, source)`` - byte-identical to
+    the eager merge, event for event.
+    """
+    iters = [iter(s) for s in sources]
+    counters = [0] * len(iters)
+    heads = [None] * len(iters)         # (order_key, value, out_index) or None
+
+    def pull(i):
+        try:
+            item = next(iters[i])
+        except StopIteration:
+            return None
+        if positional:
+            key = counters[i]
+            counters[i] += 1
+            return (key, float(item), None)
+        value, index = item
+        return (index, float(value), index)   # preserve index type (int or float)
+
+    for i in range(len(iters)):
+        heads[i] = pull(i)
+    while True:
+        best = -1
+        for i, h in enumerate(heads):           # smallest key wins; ties -> lower i
+            if h is not None and (best < 0 or h[0] < heads[best][0]):
+                best = i
+        if best < 0:
+            return
+        _, value, out_index = heads[best]
+        yield value, out_index, best
+        heads[best] = pull(best)
+
+
+def _merge_lazy_dispatch(values):
+    """Deferred lazy dispatch: classify sources on first next(), then k-way merge.
+
+    Classification (and peeking one head per source) is deferred to the first
+    call to ``__next__``, so construction consumes nothing - matching the eager
+    operators' lazy contract.
+    """
+    positional, sources = _classify_lazy_sources(values, "merge")
+    yield from _merge_lazy(sources, positional)
+
+
 def merge(*values, index=None):
     """Merge N value streams into one index-sorted (values, sources, index).
 
@@ -334,37 +383,24 @@ def merge(*values, index=None):
     Unlike combine_latest, positional merge does NOT require equal lengths.
     Indexed (index=[idx0, idx1, ...]): merges by the given index arrays; returns
     the merged index array. Mixing positional and indexed raises ValueError.
-    A Node input builds a graph node.
+    A Node input builds a graph node. Lazy iterator inputs return a lazy iterator
+    of ``(value, index_or_None, source)`` events.
     """
     if any(is_node(v) for v in values):
         raise ValueError(
             "merge is not supported as a DAG graph node (it is input routing; "
             "feed streams to a Dag directly)")
+    if values and all(_is_lazy_stream(v) for v in values):
+        return _merge_lazy_dispatch(values)
+    if any(_is_lazy_stream(v) for v in values):
+        raise TypeError(
+            "merge: cannot mix lazy iterator and concrete inputs; pass all "
+            "generators or all arrays/Streams")
     kind, idx_list, vals_list, positional = _merge_to_indexed(values, index, "merge")
     fn = _b._merge_f64 if kind == "f64" else _b._merge_i64
     merged_index, merged_vals, sources = fn(idx_list, vals_list)
     return merged_vals, sources, (None if positional else merged_index)
 
-
-def merge_iter(*values, index=None):
-    """Yield (value, index, source) events in index order.
-
-    Positional inputs yield (value, None, source). Indexed inputs yield
-    (value, index_value, source). See merge() for the positional/indexed rules.
-    """
-    if any(is_node(v) for v in values):
-        raise ValueError(
-            "merge_iter is not supported as a DAG graph node (it is input routing; "
-            "feed streams to a Dag directly)")
-    kind, idx_list, vals_list, positional = _merge_to_indexed(values, index, "merge_iter")
-    cls = _b._MergePuller_f64 if kind == "f64" else _b._MergePuller_i64
-    puller = cls(idx_list, vals_list)
-    while True:
-        event = puller.next()
-        if event is None:
-            return
-        ev_index, ev_val, ev_source = event
-        yield ev_val, (None if positional else ev_index), ev_source
 
 
 def _combine_latest_zip_lazy(sources):

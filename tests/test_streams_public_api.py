@@ -3,7 +3,7 @@ from screamer import streams
 
 
 PUBLIC = [
-    "merge", "merge_iter", "combine_latest", "replay",
+    "merge", "combine_latest", "replay",
     "dropna", "filter", "select", "split",
 ]
 

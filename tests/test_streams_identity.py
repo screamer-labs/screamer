@@ -33,7 +33,10 @@ def test_merge_batch_equals_stream_indexed(n_series, dtype):
     idxs = [k for k, _ in series]
 
     bv, bs, bi = streams.merge(*vals, index=idxs)
-    events = list(streams.merge_iter(*vals, index=idxs))
+    # Use merge(*generators) with indexed (value, index) tuples; preserve dtype
+    gens = [((float(v), k) for v, k in zip(vals[i], idxs[i]))
+            for i in range(n_series)]
+    events = list(streams.merge(*gens))
 
     ev_v = np.array([e[0] for e in events])
     ev_i = np.array([e[1] for e in events], dtype=bi.dtype)
@@ -51,7 +54,9 @@ def test_merge_batch_equals_stream_positional(n_series):
 
     bv, bs, bi = streams.merge(*vals)
     assert bi is None
-    events = list(streams.merge_iter(*vals))
+    # Use merge(*generators) with bare-value (positional) sources
+    gens = [(float(v) for v in val_arr) for val_arr in vals]
+    events = list(streams.merge(*gens))
 
     np.testing.assert_array_equal(np.array([e[0] for e in events]), bv)
     assert all(e[1] is None for e in events)
