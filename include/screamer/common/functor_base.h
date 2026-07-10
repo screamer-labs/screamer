@@ -348,7 +348,7 @@ public:
     py::object handle_input_1i_Mo(py::object input) {
         // Case 1: Numpy array. Checked before the scalar cast so a length-1 array
         // is a time series of one (array in, array out - Rule A), not a scalar.
-        if (py::isinstance<py::array>(input)) {
+        if (is_series_array(input)) {
             py::array_t<double> input_pyarray = py::cast<py::array_t<double>>(input);
             return handle_input_1i_Mo_numpy(input_pyarray);
         }
@@ -392,7 +392,7 @@ public:
         // Case 1: Numpy array. Checked before the scalar cast so a length-1 array
         // is a time series of one (array in, array out - Rule A), not a scalar;
         // only an actual Python scalar returns a scalar.
-        if (py::isinstance<py::array>(input)) {
+        if (is_series_array(input)) {
             py::array_t<double> input_pyarray = py::cast<py::array_t<double>>(input);
             return handle_input_1i_1o_numpy(input_pyarray);
         }
@@ -513,7 +513,7 @@ public:
         // Case 2: a tuple of N numpy arrays, all of the same size (nparray, ...).
         // Checked before the scalar cast so N length-1 arrays are a series of one
         // (array in, array out - Rule A), not N scalars collapsing to one scalar.
-        if (py::isinstance<py::array>(inputs[0])) {
+        if (is_series_array(inputs[0])) {
             return handle_input_Ni_1o_numpy(inputs);
         }
 
@@ -707,7 +707,7 @@ public:
         // Case 2: tuple of N numpy arrays of matching shape. Checked before the
         // scalar cast so N length-1 arrays are a series of one (array in, array
         // out - Rule A), not N scalars collapsing to a single M-tuple.
-        if (py::isinstance<py::array>(inputs[0])) {
+        if (is_series_array(inputs[0])) {
             return handle_input_Ni_Mo_numpy(inputs);
         }
 
@@ -803,6 +803,13 @@ public:
     
 
 private:
+    // Returns true iff h is a numpy array of rank >= 1 (a time series). A 0-d
+    // array is rank 0 (one sample, no time axis) and behaves like a scalar, so it
+    // is excluded here and falls through to the scalar cast.
+    static bool is_series_array(py::handle h) {
+        return py::isinstance<py::array>(h) && py::cast<int>(h.attr("ndim")) > 0;
+    }
+
     // Returns true iff h is an iterable that is NOT a list, tuple, or array.
     // Generators and iter(...) objects satisfy this; raw list/tuple do not.
     static bool is_lazy_iterable(py::handle h) {

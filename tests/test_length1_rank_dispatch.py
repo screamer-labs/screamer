@@ -61,3 +61,15 @@ def test_2d_matrix_form_unchanged():
     # The vector-core matrix form is untouched: (T, N) -> (T,), time on axis 0.
     out = BOP()(np.array([[1.0, 2, 0.5, 1.5], [2, 3, 1, 2.5], [3, 4, 2, 3.5]]))
     assert np.asarray(out).shape == (3,)
+
+
+def test_1i_zero_d_array_returns_scalar():
+    # Rank 0 (a 0-d array) has no time axis: one sample -> scalar, like a Python
+    # scalar. Distinct from a length-1 array (rank 1 -> array).
+    out = CumSum()(np.array(4.0))
+    assert isinstance(out, float) and out == 4.0
+
+
+def test_Ni_zero_d_arrays_return_scalar():
+    out = BOP()(np.array(1.0), np.array(2.0), np.array(0.5), np.array(1.5))
+    assert isinstance(out, float) and out == pytest.approx((1.5 - 1.0) / (2.0 - 0.5))

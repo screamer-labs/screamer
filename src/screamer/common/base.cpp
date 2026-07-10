@@ -33,10 +33,15 @@ py::object ScreamerBase::operator()(py::object obj) {
     if (py::isinstance<py::array>(obj)) {
         // Container/rank preservation (Rule A): an ndarray input returns an
         // ndarray of the same shape, whatever its length. A length-1 array is a
-        // time series of one, not a scalar; only an actual Python scalar (handled
-        // above) returns a scalar. process_python_array handles size 0 (empty)
-        // and size 1 correctly, so no length special-case is needed.
+        // time series of one, not a scalar; only an actual scalar returns a
+        // scalar. process_python_array handles size 0 (empty) and size 1
+        // correctly, so no length special-case is needed.
         py::array_t<double> double_array_t = py::cast<py::array_t<double>>(obj);
+        if (double_array_t.ndim() == 0) {
+            // Rank 0: a 0-d array carries a single sample with no time axis, so
+            // it behaves like a scalar - one event in, one scalar out.
+            return py::float_(process_scalar(*double_array_t.data()));
+        }
         return process_python_array(double_array_t);
     }
 
