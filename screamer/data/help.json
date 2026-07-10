@@ -6097,22 +6097,7 @@
     "topics": [
       "streams"
     ],
-    "covers": [
-      "combine_latest_iter"
-    ],
     "details": "An as-of join for streams that tick on different clocks. It aligns N streams by\ncarrying each input's most recent value forward and emitting **one row per\ndistinct index** - same-index events from multiple streams coalesce into a\nsingle settled row. `emit=\"when_all\"` (default) waits until every input is warm;\n`emit=\"on_any\"` starts from the first event.",
-    "examples": []
-  },
-  "combine_latest_iter": {
-    "name": "combine_latest_iter",
-    "title": "combine_latest_iter",
-    "short": "Yield coalesced (row, index) events: one per distinct index.",
-    "kind": "function",
-    "topics": [
-      "streams"
-    ],
-    "index": false,
-    "details": "",
     "examples": []
   },
   "dropna": {
@@ -6146,22 +6131,7 @@
     "topics": [
       "streams"
     ],
-    "covers": [
-      "merge_iter"
-    ],
     "details": "Interleave several streams into one index-sorted stream, tagging each event with\nthe integer index of the source it came from. This is the causal, order-preserving\nway to fan several streams into a single timeline.",
-    "examples": []
-  },
-  "merge_iter": {
-    "name": "merge_iter",
-    "title": "merge_iter",
-    "short": "Yield (value, index, source) events in index order.",
-    "kind": "function",
-    "topics": [
-      "streams"
-    ],
-    "index": false,
-    "details": "",
     "examples": []
   },
   "replay": {

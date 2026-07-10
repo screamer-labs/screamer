@@ -5,8 +5,6 @@ kind: function
 short: Merge N value streams into one index-sorted (values, sources, index).
 topics:
 - streams
-covers:
-- merge_iter
 ---
 
 # `merge`
@@ -19,8 +17,12 @@ way to fan several streams into a single timeline.
 
 ```{eval-rst}
 .. autofunction:: screamer.streams.merge
-.. autofunction:: screamer.streams.merge_iter
 ```
+
+Feeding `merge` lazy iterators of `(value, index, source)` events returns a lazy
+iterator (each source is numbered by a per-source arrival counter); feeding
+arrays or `Stream` objects returns the eager `(values, sources, index)` 3-tuple
+(Rule A).
 
 ## Example
 
