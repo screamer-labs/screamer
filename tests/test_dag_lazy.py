@@ -70,6 +70,29 @@ def test_dag_lazy_equals_batch_multi_output():
     np.testing.assert_array_equal([r[-1] for r in rows], exp_idx)
 
 
+def test_dag_lazy_align_outputs_false_multi_raises():
+    """align_outputs=False multi-output cannot be represented as lazy rows; the
+    driver must fail fast rather than silently diverge from batch."""
+    import pytest
+    from screamer import CumSum, Lag
+    x = Input("x")
+    s = CumSum()(x)
+    dag = Dag(inputs=[x], outputs=[s, Lag(1)(s)], align_outputs=False)  # 2 outputs
+    g = ((float(v), int(k)) for v, k in zip([1.0, 2.0, 3.0], [0, 1, 2]))
+    with pytest.raises(NotImplementedError):
+        list(dag(g))
+
+
+def test_dag_mixed_lazy_and_concrete_feeds_raises():
+    """A mix of a lazy generator and a concrete array feed is ambiguous; raise."""
+    import pytest
+    a, b = Input("a"), Input("b")
+    dag = Dag(inputs=[a, b], outputs=[Sub()(combine_latest(a, b))])
+    gen_a = ((float(v), int(k)) for v, k in zip([1.0, 2.0], [0, 1]))
+    with pytest.raises(TypeError):
+        dag(gen_a, (np.array([1.0, 2.0]), np.array([0, 1])))
+
+
 def test_dag_batch_on_concrete_feed():
     """Rule A: ndarray and list feeds route to the batch path, not lazy."""
     from screamer import CumSum

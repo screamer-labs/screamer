@@ -3,33 +3,7 @@ import pytest
 
 from screamer import Input, Dag
 from screamer.streams import dropna
-
-
-def _lazy_batch(dag_obj, *feeds):
-    """Run dag via the lazy iterator path (generators), return in batch format.
-
-    Each feed is a (values_arr, keys_arr) pair (values-first). Returns result in
-    the same format as dag(*feeds): a (values, index) pair for single-output dags,
-    or a tuple of such pairs for multi-output dags (align_outputs=True only).
-    """
-    def _gen(v_arr, k_arr):
-        return ((float(v), int(k)) for v, k in zip(v_arr, k_arr))
-
-    n_out = len(dag_obj.outputs)
-    gen_feeds = [_gen(v_arr, k_arr) for v_arr, k_arr in feeds]
-    events = list(dag_obj(*gen_feeds))
-    if n_out == 1:
-        if not events:
-            return np.array([], dtype=np.float64), np.array([], dtype=np.int64)
-        sv = np.array([e[0] for e in events], dtype=np.float64)
-        sk = np.array([e[1] for e in events], dtype=np.int64)
-        return sv, sk
-    if not events:
-        empty = np.array([], dtype=np.float64)
-        return tuple((empty, np.array([], dtype=np.int64)) for _ in range(n_out))
-    sk = np.array([e[-1] for e in events], dtype=np.int64)
-    return tuple((np.array([e[i] for e in events], dtype=np.float64), sk)
-                 for i in range(n_out))
+from tests._dag_oracle import lazy_batch as _lazy_batch
 
 
 def _run_modes(dag, feed):

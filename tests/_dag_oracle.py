@@ -39,3 +39,31 @@ def run_oracle(dag, feeds):
 
     results = [ev(o) for o in dag.outputs]
     return _align_results(results, dag.align_outputs)
+
+
+def lazy_batch(dag_obj, *feeds):
+    """Run a dag through the lazy iterator path (generators), reshaped to batch form.
+
+    Each feed is a (values_arr, keys_arr) pair (values-first). Returns the same
+    shape as ``dag(*feeds)``: a (values, index) pair for a single-output dag, or a
+    tuple of such pairs for a multi-output dag (align_outputs=True only). Lets a
+    test assert the lazy path equals the batch oracle with one call.
+    """
+    def _gen(v_arr, k_arr):
+        return ((float(v), int(k)) for v, k in zip(v_arr, k_arr))
+
+    n_out = len(dag_obj.outputs)
+    gen_feeds = [_gen(v_arr, k_arr) for v_arr, k_arr in feeds]
+    events = list(dag_obj(*gen_feeds))
+    if n_out == 1:
+        if not events:
+            return np.array([], dtype=np.float64), np.array([], dtype=np.int64)
+        sv = np.array([e[0] for e in events], dtype=np.float64)
+        sk = np.array([e[1] for e in events], dtype=np.int64)
+        return sv, sk
+    if not events:
+        empty = np.array([], dtype=np.float64)
+        return tuple((empty, np.array([], dtype=np.int64)) for _ in range(n_out))
+    sk = np.array([e[-1] for e in events], dtype=np.int64)
+    return tuple((np.array([e[i] for e in events], dtype=np.float64), sk)
+                 for i in range(n_out))

@@ -258,10 +258,12 @@ class _LazyDag:
         """Emit one row per distinct buffered index < ``bound`` (all buffered when
         ``bound`` is None), forward-filling each output's as-of value. Suppress
         until every output has a value (when_all)."""
-        ready = [e for e in self._buf if bound is None or e[0] < bound]
+        keep, ready = [], []             # one partition pass over the buffer
+        for e in self._buf:
+            (ready if (bound is None or e[0] < bound) else keep).append(e)
         if not ready:
             return
-        self._buf = [e for e in self._buf if not (bound is None or e[0] < bound)]
+        self._buf = keep
         ready.sort(key=lambda e: e[0])   # stable: last drained value wins per index
         i, n = 0, len(ready)
         while i < n:
@@ -454,23 +456,26 @@ class Dag:
 
     def __call__(self, *args, **kwargs):
         feeds = self._bind_args(args, kwargs)
-        if self._all_lazy(feeds):
+        lazy = [self._is_lazy(v) for v in feeds.values()]
+        if feeds and all(lazy):
             return _LazyDag(self, feeds)
+        if any(lazy):
+            raise TypeError(
+                "dag(...) feeds must be either all lazy iterators or all concrete "
+                "(arrays / lists / Streams); a mix is ambiguous. Wrap the concrete "
+                "feed in a generator, or materialize the iterator into an array.")
         streams = [_as_stream(feeds[nm]) for nm in self._input_order]
         results = self._cg.run_batch(streams)      # M independent (index, values2d)
         results = [(k, v.reshape(-1) if v.shape[1] == 1 else v) for (k, v) in results]
         return self._label(_align_results(results, self.align_outputs))
 
     @staticmethod
-    def _all_lazy(feeds):
+    def _is_lazy(x):
         # A feed is lazy iff it is an iterator (has __next__) and is not a
         # list, tuple, or ndarray (those are concrete/batch, per rule A).
-        # Stream lacks __next__ so it correctly falls through to the batch path
+        # Stream lacks __next__ so it correctly counts as concrete (batch path)
         # without needing an explicit isinstance check.
-        def lazy(x):
-            return (hasattr(x, "__next__")
-                    and not isinstance(x, (list, tuple, np.ndarray)))
-        return len(feeds) > 0 and all(lazy(v) for v in feeds.values())
+        return hasattr(x, "__next__") and not isinstance(x, (list, tuple, np.ndarray))
 
     def live(self):
         """Open a live streaming session: push events and drive a clock yourself.
@@ -480,9 +485,9 @@ class Dag:
         passed with .advance(now) (e.g. on a clock tick, finalizing empty bars); force
         the current partial window with .flush(); collect aligned outputs with .result().
 
-        The session drives this Dag's single compiled engine (shared with __call__ and
-        stream()), resetting it on open, so use one session at a time: do not interleave
-        a live session with a batch call or run two live sessions concurrently.
+        The session drives this Dag's single compiled engine (shared with __call__),
+        resetting it on open, so use one session at a time: do not interleave a live
+        session with a batch call or run two live sessions concurrently.
         """
         return _LiveDag(self)
 
