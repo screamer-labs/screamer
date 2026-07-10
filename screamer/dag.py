@@ -1,6 +1,7 @@
 """Computational DAG definition: symbolic Node handles (DAG-1)."""
 
 import numpy as np
+from collections import deque
 
 __all__ = ["Node", "Input", "Dag"]
 
@@ -177,6 +178,130 @@ class _LiveDag:
         return self._dag._label(_align_results(results, self._dag.align_outputs))
 
 
+_NOT_PULLED = object()   # sentinel: iterator head has not been fetched yet
+
+
+class _LazyDag:
+    """Lazy pull driver: run the compiled graph event by event over input iterators.
+
+    Each feed is an iterator of (value, index) events. Events are merged by index
+    (as-of, ascending) across inputs, pushed one at a time, and the outputs that
+    closed after each push are yielded. On exhaustion the graph is flushed and the
+    trailing rows are yielded. Values match the batch dag(...) result (the oracle).
+
+    Heads are fetched lazily: nothing is consumed from any feed until the first
+    call to __next__, so the driver is non-eager on construction.
+    """
+    def __init__(self, dag, feeds):
+        self._dag = dag
+        self._cg = dag._cg
+        # The lazy multi-output path coalesces outputs at a shared index (when_all),
+        # matching align_outputs=True. The independent-per-output (align_outputs=False)
+        # multi-output case is not yet handled lazily; fail fast rather than misalign.
+        if not dag.align_outputs and len(dag.outputs) > 1:
+            raise NotImplementedError(
+                "lazy dag(iterables) with align_outputs=False and multiple outputs "
+                "is not yet supported; use the batch call dag(arrays) for now")
+        self._cg.reset()
+        # one (index, value) iterator per input, in signature order
+        self._iters = [iter(feeds[nm]) for nm in dag._input_order]
+        # _heads[i] is _NOT_PULLED (not yet fetched), (idx, val) (ready), or None (done)
+        self._heads = [_NOT_PULLED] * len(self._iters)
+        self._pending = deque()         # buffered output rows not yet yielded
+        self._done = False
+        # Watermark as-of join state for the multi-output when_all path. The M
+        # outputs drain at independent rates (one may race ahead of another), so
+        # their merged index stream is NOT globally sorted; we cannot forward-fill
+        # naively. Instead buffer drained events and only finalize an index once
+        # every output has drained strictly past it (its as-of value is then
+        # settled). Mirrors combine_latest(emit="when_all") + collapse-per-index.
+        self._latest = [None] * len(dag.outputs)   # each output's as-of value
+        self._wm = [None] * len(dag.outputs)       # highest index drained per output
+        self._buf = []                             # (index, out_pos, val), unsettled
+
+    @staticmethod
+    def _pull(it):
+        try:
+            v, k = next(it)
+            return (int(k), float(v))
+        except StopIteration:
+            return None
+
+    def __iter__(self):
+        return self
+
+    def _drain_rows(self):
+        drained = self._cg.drain()      # list of (idx_arr, vals_2d) per output
+        if len(drained) == 1:
+            idx_arr, vals = drained[0]
+            for k, row in zip(idx_arr, vals):
+                yield (float(row[0]) if vals.shape[1] == 1 else tuple(map(float, row)), int(k))
+            return
+        # multi-output with align_outputs=True: buffer this drain's events and
+        # advance the per-output watermarks, then settle every index the join can
+        # now finalize.
+        for out_pos, (idx_arr, vals) in enumerate(drained):
+            scalar = vals.shape[1] == 1
+            for k, row in zip(idx_arr, vals):
+                k = int(k)
+                val = float(row[0]) if scalar else tuple(map(float, row))
+                self._buf.append((k, out_pos, val))
+                if self._wm[out_pos] is None or k > self._wm[out_pos]:
+                    self._wm[out_pos] = k
+        if any(w is None for w in self._wm):
+            return                       # some output has not fired; nothing settled
+        # safe frontier: no output can still emit an index below min(watermark),
+        # so every index strictly less than it is final. Emit those now.
+        yield from self._settle(min(self._wm))
+
+    def _settle(self, bound):
+        """Emit one row per distinct buffered index < ``bound`` (all buffered when
+        ``bound`` is None), forward-filling each output's as-of value. Suppress
+        until every output has a value (when_all)."""
+        keep, ready = [], []             # one partition pass over the buffer
+        for e in self._buf:
+            (ready if (bound is None or e[0] < bound) else keep).append(e)
+        if not ready:
+            return
+        self._buf = keep
+        ready.sort(key=lambda e: e[0])   # stable: last drained value wins per index
+        i, n = 0, len(ready)
+        while i < n:
+            k = ready[i][0]
+            while i < n and ready[i][0] == k:
+                self._latest[ready[i][1]] = ready[i][2]
+                i += 1
+            if all(v is not None for v in self._latest):
+                yield tuple(self._latest) + (k,)
+
+    def __next__(self):
+        while True:
+            if self._pending:
+                return self._pending.popleft()
+            if self._done:
+                raise StopIteration
+            # lazily fill any heads that have not been fetched yet
+            for i, h in enumerate(self._heads):
+                if h is _NOT_PULLED:
+                    self._heads[i] = self._pull(self._iters[i])
+            # pick the input with the smallest next index (as-of merge)
+            nxt = min((h[0] for h in self._heads if h is not None), default=None)
+            if nxt is None:
+                # all inputs exhausted: flush trailing events, settle whatever the
+                # watermark join was still holding back, then stop
+                self._cg.flush()
+                self._pending.extend(self._drain_rows())
+                self._pending.extend(self._settle(None))
+                self._done = True
+                continue
+            # push every input whose head is at this index (same-index coalescing)
+            for i, h in enumerate(self._heads):
+                if h is not None and h[0] == nxt:
+                    self._cg.push_event(i, nxt, h[1])
+                    self._heads[i] = _NOT_PULLED    # mark for lazy refill
+            self._pending.extend(self._drain_rows())
+
+
 class Dag:
     """A positional N-in / M-out callable that evaluates a computation graph.
 
@@ -195,9 +320,10 @@ class Dag:
     Call ``dag(*feeds)`` (positional) or ``dag(**named_feeds)`` (by Input name)
     to evaluate the graph. Each feed may be a bare value array (positional, index
     = row-number), a ``Stream``, or a ``(values, index)`` pair (values-first).
+    Pass generators of ``(value, index)`` pairs to run the graph lazily, event
+    by event, with byte-identical results (the lazy pull path).
     Returns a single ``(values, index)`` pair when M == 1, or a tuple of pairs
-    when M > 1. Use ``dag.stream(*feeds)`` to run the same graph live, event by
-    event, with byte-identical results.
+    when M > 1.
     """
 
     def __init__(self, inputs, outputs, align_outputs=True):
@@ -330,27 +456,26 @@ class Dag:
 
     def __call__(self, *args, **kwargs):
         feeds = self._bind_args(args, kwargs)
+        lazy = [self._is_lazy(v) for v in feeds.values()]
+        if feeds and all(lazy):
+            return _LazyDag(self, feeds)
+        if any(lazy):
+            raise TypeError(
+                "dag(...) feeds must be either all lazy iterators or all concrete "
+                "(arrays / lists / Streams); a mix is ambiguous. Wrap the concrete "
+                "feed in a generator, or materialize the iterator into an array.")
         streams = [_as_stream(feeds[nm]) for nm in self._input_order]
         results = self._cg.run_batch(streams)      # M independent (index, values2d)
         results = [(k, v.reshape(-1) if v.shape[1] == 1 else v) for (k, v) in results]
         return self._label(_align_results(results, self.align_outputs))
 
-    def stream(self, *args, **kwargs):
-        """Drive the compiled graph live, event by event (byte-identical to __call__)."""
-        from .streams import merge
-        feeds = self._bind_args(args, kwargs)
-        streams = [_as_stream(feeds[nm]) for nm in self._input_order]
-        self._cg.reset()
-        # split (index_arr, values_arr) pairs so merge can align them by index
-        idx_arrays = [s[0] for s in streams]
-        val_arrays = [s[1] for s in streams]
-        merged_vals, merged_sources, merged_index = merge(*val_arrays, index=idx_arrays)
-        for v, src, k in zip(merged_vals, merged_sources, merged_index):
-            self._cg.push_event(int(src), int(k), float(v))
-        self._cg.flush()          # end-of-input: emit trailing resample buckets
-        results = self._cg.drain()
-        results = [(k, v.reshape(-1) if v.shape[1] == 1 else v) for (k, v) in results]
-        return self._label(_align_results(results, self.align_outputs))
+    @staticmethod
+    def _is_lazy(x):
+        # A feed is lazy iff it is an iterator (has __next__) and is not a
+        # list, tuple, or ndarray (those are concrete/batch, per rule A).
+        # Stream lacks __next__ so it correctly counts as concrete (batch path)
+        # without needing an explicit isinstance check.
+        return hasattr(x, "__next__") and not isinstance(x, (list, tuple, np.ndarray))
 
     def live(self):
         """Open a live streaming session: push events and drive a clock yourself.
@@ -360,9 +485,9 @@ class Dag:
         passed with .advance(now) (e.g. on a clock tick, finalizing empty bars); force
         the current partial window with .flush(); collect aligned outputs with .result().
 
-        The session drives this Dag's single compiled engine (shared with __call__ and
-        stream()), resetting it on open, so use one session at a time: do not interleave
-        a live session with a batch call or run two live sessions concurrently.
+        The session drives this Dag's single compiled engine (shared with __call__),
+        resetting it on open, so use one session at a time: do not interleave a live
+        session with a batch call or run two live sessions concurrently.
         """
         return _LiveDag(self)
 

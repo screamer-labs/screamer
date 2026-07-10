@@ -62,21 +62,20 @@ dag = Dag(inputs=[a, b], outputs=[signal])   # compile the graph
 
 The compiled graph runs in two modes:
 
-- **Batch**: `dag(feed_a, feed_b)` evaluates the whole graph over stored inputs
-  in one pass.
-- **Replay**: `dag.stream(feed_a, feed_b)` drives the same graph event by event
-  over stored inputs, as data would arrive live.
+- **Batch**: `dag(feed_a, feed_b)` evaluates the whole graph over stored arrays
+  in one pass and returns `(values, index)` arrays.
+- **Lazy (event-by-event)**: pass generators of `(value, index)` pairs instead
+  of arrays, `dag(gen_a, gen_b)`, and the graph runs event by event, pulling one
+  event at a time. The result is an iterator that yields output events; values are
+  byte-identical to the batch result.
 
-The two return **byte-identical** output. This is the define-once-run-anywhere
-guarantee: you validate a pipeline on historical data, then deploy the exact same
-graph object to production, and the library cannot be the source of any
-discrepancy between the two. Feeds can be bare arrays, `Stream`s, or
-`(values, index)` pairs; the result is always `(values, index)`.
+Both forms use the same C++ engine. Feeds can be bare arrays, `Stream`s,
+`(values, index)` pairs, or generators of `(value, index)` pairs.
 
 (dag-live)=
 ### Incremental, clock-driven: `dag.live()`
 
-`dag.stream(...)` replays stored feeds. When you instead drive the graph yourself,
+When you drive the graph yourself,
 event by event, `dag.live()` opens a session:
 
 - `.push(input, index, value)` feeds one event (`input` is an `Input` name or its
@@ -107,9 +106,9 @@ stream whose length may differ. The precise semantics are in the
 
 - **Causal.** Every node's output at index `t` depends only on events at indices
   `<= t`. Wiring functors into a graph does not introduce any lookahead.
-- **Batch == live.** `dag(...)` and `dag.stream(...)` emit the same values in the
-  same order; only *when* events are produced differs. The alignment a graph
-  performs is itself causal and identical across both modes.
+- **Batch == lazy.** `dag(arrays)` and `dag(generators)` emit the same values in
+  the same order; only the execution mode differs. The alignment a graph performs
+  is itself causal and identical across both modes.
 
 These are the same guarantees the single-functor API and the stream layer make;
 the `Dag` simply preserves them across a whole composition.

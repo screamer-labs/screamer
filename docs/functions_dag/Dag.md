@@ -15,9 +15,9 @@ covers:
 Define a computation graph once, then run it in batch or live with identical
 results. `Input` names a source stream; calling functors and stream operators on
 those handles records the graph. `Dag(inputs=[...], outputs=[...])` compiles it
-into a callable: `dag(...)` runs it on stored arrays, `dag.stream(...)` replays it
-event by event, and `dag.live()` opens an incremental session you drive yourself.
-All three produce byte-identical output on the same events.
+into a callable: `dag(arrays)` runs it in batch, `dag(generators)` runs it event
+by event (lazy pull path), and `dag.live()` opens an incremental session you drive
+yourself. All three produce byte-identical output on the same events.
 
 For the conceptual model (how the graph is built, when to reach for it, and the
 define-once-run-anywhere guarantee), see
@@ -30,7 +30,7 @@ define-once-run-anywhere guarantee), see
 .. autoclass:: screamer.dag.Node
    :special-members: __init__
 .. autoclass:: screamer.dag.Dag
-   :members: stream, live
+   :members: live
 ```
 
 ## The three names
@@ -79,17 +79,17 @@ when you feed `Stream`s:
 (One exception: an output that is a labelled multi-column bar node comes back as a
 `Stream` carrying its `.columns`.)
 
-`dag.stream(*feeds)` accepts the same feeds and returns results byte-identical to
-`dag(*feeds)`; only the execution mode differs (event by event rather than in one
-batch pass).
+Pass generators of `(value, index)` pairs instead of arrays to run the graph
+lazily, event by event: `dag(gen_a, gen_b)` returns an iterator that yields
+output events byte-identical to the batch result.
 
 ## Live, incremental sessions: `dag.live()`
 
-`dag()` and `dag.stream(...)` both consume complete feeds. When you drive the
-graph yourself, one event at a time, `dag.live()` opens a session object. It
+`dag(arrays)` and `dag(generators)` both consume complete feeds. When you drive
+the graph yourself, one event at a time, `dag.live()` opens a session object. It
 shares the compiled graph's single engine and resets it on open, so use one
-session at a time (do not interleave it with a `dag(...)` or `dag.stream(...)`
-call). Each method returns the session, so calls chain.
+session at a time (do not interleave it with a `dag(...)` call). Each method
+returns the session, so calls chain.
 
 - **`.push(input, index, value)`** feeds one event. `input` is an `Input` name
   (str) or its position (int) in the `inputs` list; `index` is the event's integer
@@ -158,9 +158,13 @@ live.
    spread, idx = dag(fa, fb)
    print(spread.reshape(-1))
 
-   # dag.stream(fa, fb) returns the identical result, event by event
-   sv, sk = dag.stream(fa, fb)
-   print(np.array_equal(spread, sv, equal_nan=True))
+   # dag(generators) returns the identical result, event by event (lazy path)
+   events = list(dag(
+       ((v, k) for v, k in zip(fa[0], fa[1])),
+       ((v, k) for v, k in zip(fb[0], fb[1])),
+   ))
+   sv = np.array([e[0] for e in events])
+   print(np.array_equal(spread.reshape(-1), sv, equal_nan=True))
 ```
 
 ## Inspecting a graph

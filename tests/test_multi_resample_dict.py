@@ -210,14 +210,19 @@ class TestBatchEqualsStream:
         live_out = live.result()
         assert live_out.columns == batch_out.columns
 
-    def test_stream_method_equals_batch(self):
-        # Dag.stream() is the third labelled path (alongside __call__ and _LiveDag).
+    def test_lazy_path_equals_batch(self):
+        # After retiring dag.stream(), the lazy path via dag(generators) is the
+        # event-by-event equivalent. Generators trigger _LazyDag; the values must
+        # match the batch result.
         dag, t_arr, price_arr = self._build()
         batch_out = dag(t=t_arr, price=price_arr)
-        stream_out = dag.stream(t=t_arr, price=price_arr)
-        assert isinstance(stream_out, Stream)
-        assert stream_out.columns == batch_out.columns
-        np.testing.assert_allclose(stream_out.values, batch_out.values, rtol=1e-12)
+        N = len(t_arr)
+        events = list(dag(
+            t=((float(t_arr[i]), i) for i in range(N)),
+            price=((float(price_arr[i]), i) for i in range(N)),
+        ))
+        sv = np.array([e[0] for e in events], dtype=np.float64)
+        np.testing.assert_allclose(sv, batch_out.values, rtol=1e-12)
 
 
 # ---------------------------------------------------------------------------

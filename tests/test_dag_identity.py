@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 from screamer import RollingMean, Diff, Sub, Add, Input, Dag, combine_latest
 from screamer.streams import Stream
-from tests._dag_oracle import run_oracle
+from tests._dag_oracle import run_oracle, lazy_batch as _lazy_batch
 
 
 def _row(v):
@@ -86,11 +86,14 @@ def test_batch_equals_oracle(factory):
 
 
 @pytest.mark.parametrize("factory", [_chain, _fanout, _combine, _divergent])
-def test_stream_equals_batch(factory):
+def test_lazy_equals_batch(factory):
+    # Includes _divergent (two outputs from three series with divergent indices):
+    # the lazy drain forward-fills each output's latest value across drains, so its
+    # multi-output when_all alignment matches batch combine_latest exactly.
     dag, feeds = factory()
     batch = _to_pairs(dag(*feeds))
-    stream = _to_pairs(dag.stream(*feeds))
-    for (bv, bi), (sv, si) in zip(batch, stream):
+    lazy = _to_pairs(_lazy_batch(dag, *feeds))
+    for (bv, bi), (sv, si) in zip(batch, lazy):
         np.testing.assert_array_equal(bv, sv)
         np.testing.assert_array_equal(bi, si)
 
@@ -110,8 +113,8 @@ def test_values_index_feed_matches_array_feed():
     """Dag fed with (values, index) pairs gives the same result as a bare Stream."""
     dag, vi_feeds, (vals, idx) = _chain_values_index_feed()
     result_vi = _to_pairs(dag(*vi_feeds))
-    # cross-check: stream mode also matches
-    result_vi_stream = _to_pairs(dag.stream(*vi_feeds))
-    for (bv, bi), (sv, si) in zip(result_vi, result_vi_stream):
+    # cross-check: lazy path also matches
+    result_vi_lazy = _to_pairs(_lazy_batch(dag, *vi_feeds))
+    for (bv, bi), (sv, si) in zip(result_vi, result_vi_lazy):
         np.testing.assert_array_equal(bv, sv)
         np.testing.assert_array_equal(bi, si)

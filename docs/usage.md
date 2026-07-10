@@ -240,8 +240,8 @@ signal = RollingMean(10)(spread)      # a node that depends on `spread`
 
 dag = Dag(inputs=[a, b], outputs=[signal])   # compile the graph
 
-# dag(feed_a, feed_b)        -> run on stored arrays
-# dag.stream(feed_a, feed_b) -> run live, event by event, with identical results
+# dag(arr_a, arr_b)          -> run on stored arrays (batch)
+# dag(gen_a, gen_b)          -> feed generators to run live, event by event, identical results
 ```
 
 Each operation is a node whose parents are its inputs, and calling the graph
