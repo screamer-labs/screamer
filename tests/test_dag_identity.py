@@ -112,14 +112,11 @@ def test_batch_equals_oracle(factory):
         np.testing.assert_array_equal(gi, ei)
 
 
-@pytest.mark.parametrize("factory", [_chain, _fanout, _combine])
+@pytest.mark.parametrize("factory", [_chain, _fanout, _combine, _divergent])
 def test_lazy_equals_batch(factory):
-    # _divergent is excluded: it has two INDEPENDENT outputs from three different
-    # input series. Batch alignment uses combine_latest (as-of join) over the full
-    # result arrays, while the lazy drain coalesces only when both outputs fire in
-    # the same drain cycle. The two alignment semantics differ for independent
-    # multi-output dags, so lazy does not equal batch there. Batch correctness
-    # for _divergent is covered by test_batch_equals_oracle[_divergent].
+    # Includes _divergent (two outputs from three series with divergent indices):
+    # the lazy drain forward-fills each output's latest value across drains, so its
+    # multi-output when_all alignment matches batch combine_latest exactly.
     dag, feeds = factory()
     batch = _to_pairs(dag(*feeds))
     lazy = _to_pairs(_lazy_batch(dag, *feeds))

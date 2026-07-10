@@ -209,6 +209,15 @@ class _LazyDag:
         self._heads = [_NOT_PULLED] * len(self._iters)
         self._pending = deque()         # buffered output rows not yet yielded
         self._done = False
+        # Watermark as-of join state for the multi-output when_all path. The M
+        # outputs drain at independent rates (one may race ahead of another), so
+        # their merged index stream is NOT globally sorted; we cannot forward-fill
+        # naively. Instead buffer drained events and only finalize an index once
+        # every output has drained strictly past it (its as-of value is then
+        # settled). Mirrors combine_latest(emit="when_all") + collapse-per-index.
+        self._latest = [None] * len(dag.outputs)   # each output's as-of value
+        self._wm = [None] * len(dag.outputs)       # highest index drained per output
+        self._buf = []                             # (index, out_pos, val), unsettled
 
     @staticmethod
     def _pull(it):
@@ -228,18 +237,40 @@ class _LazyDag:
             for k, row in zip(idx_arr, vals):
                 yield (float(row[0]) if vals.shape[1] == 1 else tuple(map(float, row)), int(k))
             return
-        # multi-output with align_outputs=True: emit one row per index only when
-        # every output has a value at that index (mirrors combine_latest emit="when_all")
-        by_index = {}
+        # multi-output with align_outputs=True: buffer this drain's events and
+        # advance the per-output watermarks, then settle every index the join can
+        # now finalize.
         for out_pos, (idx_arr, vals) in enumerate(drained):
+            scalar = vals.shape[1] == 1
             for k, row in zip(idx_arr, vals):
-                cols = by_index.setdefault(int(k), [None] * len(drained))
-                cols[out_pos] = (float(row[0]) if vals.shape[1] == 1
-                                 else tuple(map(float, row)))
-        for k in sorted(by_index):
-            row = by_index[k]
-            if all(v is not None for v in row):
-                yield tuple(row) + (k,)
+                k = int(k)
+                val = float(row[0]) if scalar else tuple(map(float, row))
+                self._buf.append((k, out_pos, val))
+                if self._wm[out_pos] is None or k > self._wm[out_pos]:
+                    self._wm[out_pos] = k
+        if any(w is None for w in self._wm):
+            return                       # some output has not fired; nothing settled
+        # safe frontier: no output can still emit an index below min(watermark),
+        # so every index strictly less than it is final. Emit those now.
+        yield from self._settle(min(self._wm))
+
+    def _settle(self, bound):
+        """Emit one row per distinct buffered index < ``bound`` (all buffered when
+        ``bound`` is None), forward-filling each output's as-of value. Suppress
+        until every output has a value (when_all)."""
+        ready = [e for e in self._buf if bound is None or e[0] < bound]
+        if not ready:
+            return
+        self._buf = [e for e in self._buf if not (bound is None or e[0] < bound)]
+        ready.sort(key=lambda e: e[0])   # stable: last drained value wins per index
+        i, n = 0, len(ready)
+        while i < n:
+            k = ready[i][0]
+            while i < n and ready[i][0] == k:
+                self._latest[ready[i][1]] = ready[i][2]
+                i += 1
+            if all(v is not None for v in self._latest):
+                yield tuple(self._latest) + (k,)
 
     def __next__(self):
         while True:
@@ -254,9 +285,11 @@ class _LazyDag:
             # pick the input with the smallest next index (as-of merge)
             nxt = min((h[0] for h in self._heads if h is not None), default=None)
             if nxt is None:
-                # all inputs exhausted: flush trailing events, then stop
+                # all inputs exhausted: flush trailing events, settle whatever the
+                # watermark join was still holding back, then stop
                 self._cg.flush()
                 self._pending.extend(self._drain_rows())
+                self._pending.extend(self._settle(None))
                 self._done = True
                 continue
             # push every input whose head is at this index (same-index coalescing)
