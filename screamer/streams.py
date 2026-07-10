@@ -457,7 +457,6 @@ def combine_latest(*values, index=None, emit="when_all", func=None):
     return _adapt(regime, aligned, result_index)
 
 
-
 async def replay(*values, index=None, speed=1.0, sleep=None):
     """Replay merged streams as an async event stream paced by index-deltas.
 

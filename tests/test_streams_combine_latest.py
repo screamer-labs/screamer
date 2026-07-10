@@ -110,3 +110,21 @@ def test_combine_latest_lazy_is_lazy():
     assert pulled == {"a": [], "b": []}      # nothing before first next()
     next(it)
     assert pulled["a"] == [1.0] and pulled["b"] == [10.0]   # one head per source
+
+
+def test_combine_latest_lazy_indexed_is_incremental():
+    """The indexed (as-of) path must pull on demand, not drain the whole stream
+    before the first result. The C++ node needs the next index to finalize a row,
+    so the first next() consumes 2 of 4 items per source - not all 4."""
+    from screamer.streams import combine_latest
+    pulled = {"a": [], "b": []}
+
+    def spy(name, items):
+        for i, v in enumerate(items):
+            pulled[name].append(v)
+            yield (float(v), i)          # (value, index) -> indexed source
+
+    it = combine_latest(spy("a", [1.0, 2.0, 3.0, 4.0]), spy("b", [10.0, 20.0, 30.0, 40.0]))
+    assert pulled == {"a": [], "b": []}  # construction consumes nothing
+    next(it)
+    assert pulled["a"] == [1.0, 2.0] and pulled["b"] == [10.0, 20.0]   # not the whole stream
