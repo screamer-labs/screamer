@@ -20,7 +20,7 @@ __all__ = [
     "filter", "filter_iter",
     "select", "select_iter",
     "split",
-    "resample", "resample_iter",
+    "resample",
 ]
 
 
@@ -134,6 +134,13 @@ class Stream:
             return pd.Series(self.values, index=self.index)
         return pd.DataFrame(self.values, index=self.index,
                             columns=list(self.columns) if self.columns else None)
+
+
+def _is_lazy_stream(x):
+    """Rule A: a lazy stream is an iterator (has ``__next__``) that is NOT a
+    concrete container (list, tuple, ndarray, or Stream). Generators and
+    ``iter(...)`` qualify; concrete data does not."""
+    return hasattr(x, "__next__") and not isinstance(x, (list, tuple, np.ndarray, Stream))
 
 
 def _regime(inputs):
@@ -612,84 +619,22 @@ _OHLCV_COLUMNS = ("open", "high", "low", "close", "volume")
 _OHLCV2_COLUMNS = ("open", "high", "low", "close", "buy_vol", "sell_vol")
 
 
-class _ResampleAccum:
-    """Single-pass O(1) NaN-ignore accumulator. Mirrors the C++ ResampleAccum.
+def _resample_via_cpp(feed, *, every, count, agg, origin, label, fill="skip"):
+    """Run resample on the C++ engine via a one-node Dag, for batch OR lazy input.
 
-    The eager array/Stream ``resample`` path no longer uses this - it runs on the
-    C++ engine. This remains for the ``resample_iter`` streaming generator, which
-    yields incrementally over ``(value, index)`` tuples and is out of scope for
-    the eager-path C++ migration.
-    """
-    __slots__ = ("count", "s", "mn", "mx", "first", "last", "has")
-
-    def __init__(self):
-        self.reset()
-
-    def reset(self):
-        self.count = 0
-        self.s = 0.0
-        self.mn = 0.0
-        self.mx = 0.0
-        self.first = 0.0
-        self.last = 0.0
-        self.has = False
-
-    def add(self, v):
-        self.has = True
-        if math.isnan(v):
-            return
-        if self.count == 0:
-            self.mn = self.mx = self.first = self.last = v
-        else:
-            if v < self.mn:
-                self.mn = v
-            if v > self.mx:
-                self.mx = v
-            self.last = v
-        self.s += v
-        self.count += 1
-
-    def emit(self, agg):
-        nan = float("nan")
-        c = self.count
-        if agg == "first":
-            return self.first if c else nan
-        if agg == "last":
-            return self.last if c else nan
-        if agg == "min":
-            return self.mn if c else nan
-        if agg == "max":
-            return self.mx if c else nan
-        if agg == "sum":
-            return self.s
-        if agg == "count":
-            return float(c)
-        if agg == "mean":
-            return self.s / c if c else nan
-        # ohlc
-        return [self.first if c else nan, self.mx if c else nan,
-                self.mn if c else nan, self.last if c else nan]
-
-
-def _resample_eager_via_cpp(vals, idx, *, every, count, agg, origin, label,
-                            fill="skip"):
-    """Run the eager resample on the C++ engine, not in Python.
-
-    Builds a minimal one-node graph (Input -> Resample -> gather) and evaluates
-    it in batch, reusing the exact ``Dag`` / ``CompiledGraph`` / ``ResampleNode``
-    path the graph (Node) regime already uses. No Python numeric loop: all
-    bucketing and NaN-ignore accumulation happens in the C++ core.
-
-    ``vals`` is a 1-D float array and ``idx`` an integer index array. Returns
-    ``(out_values, out_index)`` values-first, with ``out_values`` 1-D for scalar
-    aggs and 2-D (N, 4) for ``ohlc``.
+    Builds the minimal ``Input -> Resample`` graph the Node regime already uses,
+    then defers to ``dag(feed)``. Rule A on the Dag decides the mode: a concrete
+    ``(vals, idx)`` pair runs batch and returns ``(out_values, out_index)``; a lazy
+    iterator of ``(value, index)`` events returns a lazy iterator of
+    ``(bar_value, bar_label)``. No Python windowing - all bucketing and NaN-ignore
+    accumulation happens in the C++ core.
     """
     from .dag import Input, Dag
     src = Input("x")
     node = resample(src, every=every, count=count, agg=agg,
                     origin=origin, label=label, fill=fill)
     dag = Dag([src], [node])
-    return dag((vals, idx))   # values-first (values, index)
+    return dag(feed)
 
 
 def _resample_validate(every, count, agg, label, fill="skip"):
@@ -717,7 +662,7 @@ def _resample_dict(vals, idx, agg_dict, *, every, count, origin, label,
                    fill="skip"):
     """Run each sub-reducer in a dict agg independently over the same bucketing.
 
-    Each entry ``{name: str|functor}`` is run through ``_resample_eager_via_cpp``
+    Each entry ``{name: str|functor}`` is run through ``_resample_via_cpp``
     with the shared ``every``/``count``/``origin``/``label`` params.  Because all
     sub-resamples see the same input and the same bucketing they produce identical
     bar labels and the same number of bars, so their 1-D result columns align and
@@ -764,8 +709,8 @@ def _resample_dict(vals, idx, agg_dict, *, every, count, origin, label,
                     "Use agg=functor directly for multi-column output.")
 
         # Delegate to the C++ engine - no Python numeric loop.
-        out_v, sub_idx = _resample_eager_via_cpp(
-            vals, idx, every=every, count=count, agg=sub_agg,
+        out_v, sub_idx = _resample_via_cpp(
+            (vals, idx), every=every, count=count, agg=sub_agg,
             origin=origin, label=label, fill=fill)
         out_cols.append(out_v)
         if out_idx is None:
@@ -797,14 +742,14 @@ def _resample_ohlcv(vals_2d, idx, agg, *, every, count, origin, label,
     volume = np.ascontiguousarray(vals_2d[:, 1], dtype=np.float64)
 
     # OHLC for price (C++ ohlc reducer -> 4 columns)
-    ohlc_vals, out_idx = _resample_eager_via_cpp(
-        price, idx, every=every, count=count, agg="ohlc",
+    ohlc_vals, out_idx = _resample_via_cpp(
+        (price, idx), every=every, count=count, agg="ohlc",
         origin=origin, label=label, fill=fill)
 
     if agg == "ohlcv":
         # Total signed-volume sum (C++ sum reducer -> 1 column)
-        vol_vals, _ = _resample_eager_via_cpp(
-            volume, idx, every=every, count=count, agg="sum",
+        vol_vals, _ = _resample_via_cpp(
+            (volume, idx), every=every, count=count, agg="sum",
             origin=origin, label=label, fill=fill)
         stacked = np.column_stack([ohlc_vals, vol_vals])
         return Stream(stacked, out_idx, columns=_OHLCV_COLUMNS)
@@ -814,11 +759,11 @@ def _resample_ohlcv(vals_2d, idx, agg, *, every, count, origin, label,
     buy_arr  = np.asarray(PosPart()(volume), dtype=np.float64)
     sell_arr = np.asarray(NegPart()(volume), dtype=np.float64)
 
-    buy_vals, _  = _resample_eager_via_cpp(
-        buy_arr,  idx, every=every, count=count, agg="sum",
+    buy_vals, _  = _resample_via_cpp(
+        (buy_arr,  idx), every=every, count=count, agg="sum",
         origin=origin, label=label, fill=fill)
-    sell_vals, _ = _resample_eager_via_cpp(
-        sell_arr, idx, every=every, count=count, agg="sum",
+    sell_vals, _ = _resample_via_cpp(
+        (sell_arr, idx), every=every, count=count, agg="sum",
         origin=origin, label=label, fill=fill)
 
     stacked = np.column_stack([ohlc_vals, buy_vals, sell_vals])
@@ -931,6 +876,17 @@ def resample(values, index=None, *, every=None, count=None, agg="last",
         return make_operator_node(resample, (values,), {
             "every": every, "count": count, "agg": agg,
             "origin": origin, "label": label, "fill": fill})
+    if _is_lazy_stream(values):
+        # Rule A: a lazy iterator of (value, index) events -> a lazy iterator of
+        # (bar_value, bar_label). Drive the same C++ resample node as batch through
+        # the Stage-2 lazy Dag; no Python windowing (this retires _ResampleAccum).
+        if isinstance(agg, dict) or agg in ("ohlcv", "ohlcv2"):
+            raise ValueError(
+                "resample(<iterator>) supports string and functor scalar aggs "
+                "only; dict and ohlcv/ohlcv2 aggs are eager-only. Materialize the "
+                "stream to an array for those, or build the columns inside a Dag.")
+        return _resample_via_cpp(values, every=every, count=count, agg=agg,
+                                 origin=origin, label=label, fill=fill)
     stream = values if isinstance(values, Stream) else Stream(values, index)
     vals = np.asarray(stream.values, dtype=np.float64)
     # ohlcv / ohlcv2 require exactly 2 input columns [price, volume|signed_volume].
@@ -965,8 +921,8 @@ def resample(values, index=None, *, every=None, count=None, agg="last",
 
     # Delegate all bucketing/accumulation to the C++ engine (C++-first: no
     # Python numeric loop). Builds a one-node graph and runs it in batch.
-    out_v, out_idx = _resample_eager_via_cpp(
-        vals, idx, every=every, count=count, agg=agg, origin=origin, label=label,
+    out_v, out_idx = _resample_via_cpp(
+        (vals, idx), every=every, count=count, agg=agg, origin=origin, label=label,
         fill=fill)
     # Attach column names for multi-column aggs; labels are pure Python marshalling.
     cols = _OHLC_COLUMNS if agg == "ohlc" else None
@@ -1035,59 +991,3 @@ def multi_resample(inputs, reducers, clock=None, every=None, count=None, origin=
         "origin": origin, "label": label, "fill": fill, "columns": columns})
 
 
-def resample_iter(events, *, every=None, count=None, agg="last",
-                  origin=0, label="left"):
-    """Streaming resample over (value, index) tuples. Yields (value, label_index)."""
-    if not isinstance(agg, str):
-        raise ValueError(
-            "resample_iter supports only builtin string aggs; "
-            "functor and dict aggs are eager-only for now")
-    _resample_validate(every, count, agg, label)
-    if agg in ("ohlcv", "ohlcv2"):
-        raise ValueError(
-            f"resample_iter: agg='{agg}' is not supported in the streaming "
-            "iterator (resample_iter handles only 1-D scalar value streams). "
-            "Use the eager resample() with np.column_stack([price, volume])."
-        )
-    acc = _ResampleAccum()
-    if every is not None:
-        w = int(every)
-        o = int(origin)
-        started = False
-        bucket = 0
-        cur_label = 0
-        for v, k in events:
-            k = int(k)
-            nb = (k - o) // w
-            if not started:
-                started = True
-                bucket = nb
-                acc.reset()
-                cur_label = (o + nb * w) if label == "left" else (o + (nb + 1) * w)
-            elif nb != bucket:
-                if acc.has:
-                    yield acc.emit(agg), cur_label
-                bucket = nb
-                acc.reset()
-                cur_label = (o + nb * w) if label == "left" else (o + (nb + 1) * w)
-            acc.add(float(v))
-        if acc.has:
-            yield acc.emit(agg), cur_label
-    else:
-        n = int(count)
-        cib = 0
-        first_index = 0
-        last_index = 0
-        for v, k in events:
-            k = int(k)
-            if cib == 0:
-                first_index = k
-            last_index = k
-            acc.add(float(v))
-            cib += 1
-            if cib == n:
-                yield acc.emit(agg), (first_index if label == "left" else last_index)
-                acc.reset()
-                cib = 0
-        if cib > 0:
-            yield acc.emit(agg), (first_index if label == "left" else last_index)

@@ -3,7 +3,7 @@ import numpy as np
 import pytest
 
 from screamer import ExpandingSum
-from screamer.streams import resample, resample_iter, Stream
+from screamer.streams import resample, Stream
 from screamer.dag import is_node
 
 
@@ -104,30 +104,64 @@ def test_resample_by_count_right_label():
 
 
 # ---------------------------------------------------------------------------
-# Iter tests
+# Lazy (iterator) tests - resample dispatches on input type
 # ---------------------------------------------------------------------------
 
-def test_resample_iter_matches_batch():
-    keys = np.array([0, 3, 10, 12, 20], dtype=np.int64)
+def test_resample_lazy_equals_batch_every():
+    vals = np.array([1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0])
+    idx = np.array([0, 1, 2, 10, 11, 20, 21])
+    batch = resample(vals, idx, every=10, agg="mean")   # a Stream, unpackable
+    bv, bk = batch.values, batch.index
+    gen = ((float(v), int(k)) for v, k in zip(vals, idx))
+    out = resample(gen, every=10, agg="mean")
+    assert hasattr(out, "__next__") and not isinstance(out, tuple)
+    rows = list(out)                                     # [(bar_value, bar_label), ...]
+    np.testing.assert_allclose([r[0] for r in rows], np.asarray(bv), equal_nan=True)
+    np.testing.assert_array_equal([r[1] for r in rows], np.asarray(bk))
+
+
+def test_resample_lazy_equals_batch_count_and_nan():
+    vals = np.array([1.0, np.nan, 3.0, 4.0, 5.0, 6.0])
+    idx = np.array([0, 1, 2, 3, 4, 5])
+    batch = resample(vals, idx, count=2, agg="mean")
+    bv, bk = batch.values, batch.index
+    gen = ((float(v), int(k)) for v, k in zip(vals, idx))
+    rows = list(resample(gen, count=2, agg="mean"))
+    np.testing.assert_allclose([r[0] for r in rows], np.asarray(bv), equal_nan=True)
+    np.testing.assert_array_equal([r[1] for r in rows], np.asarray(bk))
+
+
+def test_resample_lazy_functor_agg_equals_batch():
     vals = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
-    bv, bk = resample(vals, keys, every=10, agg="mean")
-    events = list(zip(vals.tolist(), keys.tolist()))   # (value, index) events
-    got = list(resample_iter(events, every=10, agg="mean"))
-    assert [v for v, _ in got] == bv.tolist()
-    assert [k for _, k in got] == bk.tolist()
+    idx = np.array([0, 1, 2, 3, 4])
+    batch = resample(vals, idx, count=2, agg=ExpandingSum())
+    bv, bk = batch.values, batch.index
+    gen = ((float(v), int(k)) for v, k in zip(vals, idx))
+    rows = list(resample(gen, count=2, agg=ExpandingSum()))
+    np.testing.assert_allclose([r[0] for r in rows], np.asarray(bv), equal_nan=True)
+    np.testing.assert_array_equal([r[1] for r in rows], np.asarray(bk))
 
 
-def test_resample_by_count_iter_and_nan():
-    # by-count iter matches batch, and NaN is ignored inside a count bucket
-    keys = np.array([10, 20, 30, 40], dtype=np.int64)
-    vals = np.array([np.nan, 2.0, np.nan, 4.0])
-    bv, bk = resample(vals, keys, count=2, agg="mean")
-    np.testing.assert_array_equal(bv, [2.0, 4.0])
-    np.testing.assert_array_equal(bk, [10, 30])
-    events = list(zip(vals.tolist(), keys.tolist()))   # (value, index) events
-    got = list(resample_iter(events, count=2, agg="mean"))
-    assert [v for v, _ in got] == bv.tolist()
-    assert [k for _, k in got] == bk.tolist()
+def test_resample_lazy_rejects_multicolumn_aggs():
+    gen = ((float(v), int(v)) for v in range(4))
+    with pytest.raises(ValueError):
+        list(resample(gen, count=2, agg="ohlcv"))
+
+
+def test_resample_lazy_is_lazy():
+    """The lazy path must pull events on demand, not eagerly on construction."""
+    pulled = []
+
+    def spy():
+        for i, v in enumerate([1.0, 2.0, 3.0, 4.0]):
+            pulled.append(v)
+            yield (v, i)
+
+    it = resample(spy(), count=2, agg="last")
+    assert pulled == []            # nothing consumed before first next()
+    first = next(it)
+    assert pulled == [1.0, 2.0]    # exactly the first bucket's events consumed
+    assert first == (2.0, 0)       # count=2, last, label="left" -> value 2.0 at index 0
 
 
 # ---------------------------------------------------------------------------
@@ -257,21 +291,3 @@ def test_resample_raw_stream_node_mirror():
     np.testing.assert_array_equal(rk, stream_out.index)
     np.testing.assert_array_equal(rv, dag_v.reshape(-1))
     np.testing.assert_array_equal(rk, dag_k)
-
-
-# ---------------------------------------------------------------------------
-# resample_iter rejects non-string aggs (functor / dict are eager-only)
-# ---------------------------------------------------------------------------
-
-def test_resample_iter_rejects_functor_agg():
-    """resample_iter must raise ValueError for a functor agg (eager-only)."""
-    events = [(float(i), i) for i in range(10)]
-    with pytest.raises(ValueError, match="functor"):
-        list(resample_iter(events, every=5, agg=ExpandingSum()))
-
-
-def test_resample_iter_rejects_dict_agg():
-    """resample_iter must raise ValueError for a dict agg (eager-only)."""
-    events = [(float(i), i) for i in range(10)]
-    with pytest.raises(ValueError, match="functor"):
-        list(resample_iter(events, every=5, agg={"s": "sum"}))
