@@ -104,3 +104,19 @@ def test_dag_batch_on_concrete_feed():
     # list feed -> batch result (tuple), not a lazy iterator
     list_out = dag([1.0, 2.0, 3.0])
     assert isinstance(list_out, tuple) and not hasattr(list_out, "__next__")
+
+
+def test_dag_fractional_index_raises():
+    """The engine is int64-indexed; a fractional index must fail loudly (batch and
+    lazy) rather than be silently floored. Integer-valued floats (2.0) pass."""
+    import pytest
+    from screamer import CumSum
+    x = Input("x")
+    dag = Dag(inputs=[x], outputs=[CumSum()(x)])
+    with pytest.raises(TypeError):
+        dag((np.array([1.0, 2.0, 3.0]), np.array([0.0, 1.5, 2.0])))      # batch, fractional
+    with pytest.raises(TypeError):
+        list(dag(((float(v), 0.5 * v) for v in range(3))))               # lazy, fractional
+    # integer-valued float indices are lossless and must NOT raise
+    v_batch, k_batch = dag((np.array([1.0, 2.0]), np.array([0.0, 1.0])))
+    np.testing.assert_array_equal(k_batch, [0, 1])
