@@ -102,10 +102,26 @@ Other stream operators:
 - `replay(*values, index=None, speed=1.0)` -> async replay; `speed=inf` is a
   max-speed backtest. Yields `(value, index, source)` per event.
 
-Four of the batch operators have a streaming twin (`merge_iter`,
-`combine_latest_iter`, `dropna_iter`, `filter_iter`) that yields events one at
-a time as `(value, index)` pairs. (`split` has no streaming form, and `replay`
-is itself the streaming/replay driver.)
+`merge_iter` and `combine_latest_iter` yield `(value, index)` events one at a
+time. (`split` has no streaming form, and `replay` is itself the
+streaming/replay driver.)
+
+`resample`, `dropna`, `filter`, and `select` are unified: pass a lazy iterator
+of `(value, index)` pairs and the operator returns a lazy iterator; pass arrays
+or a `Stream` and the operator returns the batch result. No separate `*_iter`
+function is needed.
+
+## Migration from the retired `*_iter` names
+
+The per-operator streaming variants were removed in v0.5. The unified operators
+handle both batch and lazy inputs:
+
+| Old (removed) | New |
+|---|---|
+| `resample_iter(events, ...)` | `resample(events, ...)` |
+| `dropna_iter(events)` | `dropna(events)` |
+| `filter_iter(events, pred)` | `filter(events, pred)` |
+| `select_iter(events, cols)` | `select(events, cols)` |
 
 ## 5. Causal, and identical across modes
 

@@ -6,8 +6,6 @@ short: Drop events whose value is NaN.
 topics:
 - missing-data
 - streams
-covers:
-- dropna_iter
 ---
 
 # `dropna`
@@ -16,11 +14,12 @@ Drop events whose value is `NaN`. This changes the length of the stream (it is a
 cardinality-changing stream operator, unlike the shape-preserving compute
 functors). Usable eagerly and inside a `Dag`.
 
+Feeding a lazy iterator of `(value, index)` pairs returns a lazy iterator of the surviving events; feeding arrays or a `Stream` returns the batch result.
+
 <!-- HELP_END -->
 
 ```{eval-rst}
 .. autofunction:: screamer.streams.dropna
-.. autofunction:: screamer.streams.dropna_iter
 ```
 
 ## Example

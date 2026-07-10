@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from screamer.streams import select, select_iter, Stream
+from screamer.streams import select, Stream
 
 
 def _wide():
@@ -105,14 +105,14 @@ def test_select_node_in_node_out():
 
 
 # ---------------------------------------------------------------------------
-# select_iter – (value, index) event model
+# lazy operator dispatch - select (value, index) event model
 # ---------------------------------------------------------------------------
 
 def test_select_iter_matches_batch():
     values, keys = _wide()
     # events are (value_row, index) tuples
-    events = list(zip(values.tolist(), keys.tolist()))
-    got = list(select_iter(events, [0, 2]))
+    gen = ((row, k) for row, k in zip(values.tolist(), keys.tolist()))
+    got = list(select(gen, [0, 2]))
     assert [k for _, k in got] == [1, 2, 3]
     assert [list(v) for v, _ in got] == [[10.0, 12.0], [20.0, 22.0], [30.0, 32.0]]
 
@@ -120,8 +120,8 @@ def test_select_iter_matches_batch():
 def test_select_iter_scalar_int_yields_floats():
     """scalar-int path yields a bare float per event (not a 1-element list)."""
     values, keys = _wide()
-    events = list(zip(values.tolist(), keys.tolist()))
-    got = list(select_iter(events, 1))
+    gen = ((row, k) for row, k in zip(values.tolist(), keys.tolist()))
+    got = list(select(gen, 1))
     assert [k for _, k in got] == [1, 2, 3]
     vs = [v for v, _ in got]
     assert vs == [11.0, 21.0, 31.0]
@@ -131,7 +131,23 @@ def test_select_iter_scalar_int_yields_floats():
 def test_select_iter_positional():
     """Positional events use index=None; index passes through unchanged."""
     values, _ = _wide()
-    events = [(row, None) for row in values.tolist()]
-    got = list(select_iter(events, 1))
+    gen = ((row, None) for row in values.tolist())
+    got = list(select(gen, 1))
     assert [k for _, k in got] == [None, None, None]
     assert [v for v, _ in got] == [11.0, 21.0, 31.0]
+
+
+# ---------------------------------------------------------------------------
+# lazy dispatch oracle test
+# ---------------------------------------------------------------------------
+
+def test_select_lazy_equals_batch():
+    import numpy as np
+    from screamer.streams import select
+    vals = np.array([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0], [7.0, 8.0, 9.0]])
+    idx = np.array([0, 1, 2])
+    bv, bk = select(vals, 1, index=idx)                 # scalar column -> 1-D
+    gen = ((row.tolist(), int(k)) for row, k in zip(vals, idx))
+    rows = list(select(gen, 1))
+    np.testing.assert_allclose([r[0] for r in rows], np.asarray(bv))
+    np.testing.assert_array_equal([r[1] for r in rows], np.asarray(bk))

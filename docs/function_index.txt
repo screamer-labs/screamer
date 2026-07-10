@@ -7,6 +7,7 @@ ADX, Wilder's ADX with +DI and -DI (3 inputs -> 3 outputs).
 ATR, Wilder-smoothed average of TrueRange.
 Abs, Absolute value of each element.
 Acos, Inverse cosine of each element (radians, input in [-1, 1]).
+Add, Elementwise sum of two aligned streams (x + y).
 Asin, Inverse sine of each element (radians, input in [-1, 1]).
 Atan, Inverse tangent of each element (radians).
 Atan2, Signed angle of (x, y) from the positive x-axis (numpy.arctan2 order).
@@ -27,9 +28,11 @@ CumMin, Running minimum from t=0.
 CumProd, Running product from t=0.
 CumSum, Running sum from t=0.
 DEMA, Mulloy's Double EMA: 2*EMA - EMA(EMA).
+Dag, A positional N-in / M-out callable that evaluates a computation graph.
 Detrend, x[t] minus its rolling mean.
 Diff, x[t] - x[t-k] (first difference at lag k).
 Diff2, Second-order finite difference (discrete second derivative).
+Div, Elementwise quotient of two aligned streams (x / y).
 DonchianChannels, Trend-following envelope: rolling max(high), rolling min(low), and midline.
 Drawdown, Running drawdown from the cumulative peak.
 Elu, Exponential linear unit.
@@ -52,18 +55,31 @@ EwStd, EW standard deviation.
 EwVar, EW variance (pandas adjust=True bias-corrected).
 EwZscore, Latest sample standardised by EW mean and std.
 Exp, e to the power of each element.
+ExpandingKurt, Running bias-corrected excess kurtosis (Fisher) over the whole history.
+ExpandingMax, Running maximum from t=0.
+ExpandingMean, Running mean over the whole history since the last reset.
+ExpandingMin, Running minimum from t=0.
+ExpandingProd, Running product from t=0.
+ExpandingSkew, Running bias-corrected sample skewness (G1) over the whole history.
+ExpandingSlope, Running OLS slope of the series against time over the whole history.
+ExpandingStd, Running sample standard deviation (ddof=1) over the whole history.
+ExpandingSum, Running sum from t=0.
+ExpandingVar, Running sample variance (ddof=1) over the whole history.
 Ffill, Replace NaN with the most recent finite value.
 FillNa, Replace NaN with a user-specified scalar.
+First, Latch the first finite value seen since reset.
 Floor, Round each element toward negative infinity.
 Hampel, Robust Hampel despiker, replace samples far from the window median (in MAD units).
 HullMA, Hull's responsive MA: WMA(2*WMA(n/2) - WMA(n), sqrt(n)).
 Hypot, Euclidean distance sqrt(x^2 + y^2), numerically stable.
 Identity, Pass-through (y = x).
 ImpulseClip, Causal impulse remover, detects spikes on the trend-free first difference.
+Input, Create a source Node - a named placeholder for a timed stream.
 KAMA, Adaptive MA whose smoothing constant responds to the efficiency ratio.
 KalmanFilter, Scalar 1-D Kalman filter for a noisy random-walk model.
 KeltnerChannels, Volatility-adapted envelope: EMA midline plus/minus a multiple of ATR.
 Lag, Output is the input delayed by k samples.
+Last, Return the most recent finite value seen since reset.
 Linear, Affine transform: scale * x + shift.
 Linear2, Two-input affine combination: a*x + b*y + c.
 Log, Natural logarithm of each element.
@@ -73,9 +89,13 @@ MFI, Volume-weighted analogue of RSI on the typical price.
 MaxDrawdown, Worst drawdown experienced so far (since reset).
 Momentum, x[t] - x[t-k], TA-Lib's MOM. Mathematically identical to Diff(k).
 MovingAverage, Finite-impulse-response filter with user-supplied taps.
+Mul, Elementwise product of two aligned streams (x * y).
 NATR, ATR scaled to a percentage of the current close.
+NegPart, Negative part of x: max(-x, 0).
+Node, An immutable handle for a stream in a computation graph.
 OBV, On-Balance Volume: signed cumulative volume by close-direction (Granville, 1963).
 Polar2Cart, Convert (r, theta) to (x, y).
+PosPart, Positive part of x: max(x, 0).
 Power, x raised to a fixed exponent p.
 ROC, 100 * (x[t] / x[t-k] - 1) - TA-Lib's ROC.
 ROCP, x[t] / x[t-k] - 1 - TA-Lib's ROCP. Identical to Return.
@@ -143,6 +163,8 @@ Sqrt, Square root of each element.
 Square, x squared (faster than Power(2)).
 Stoch, Stochastic oscillator %K and %D (3 inputs -> 2 outputs).
 StochRSI, Stochastic applied to RSI (1 input -> 2 outputs).
+Stream, A sequence of values with an optional ordering index.
+Sub, Elementwise difference of two aligned streams (x - y).
 TEMA, Mulloy's Triple EMA: 3*EMA - 3*EMA(EMA) + EMA(EMA(EMA)).
 TRIMA, Triangular MA: SMA of an SMA. Heavier center-weighting than WMA.
 TRIX, ROC of a triple-smoothed EMA.
@@ -151,23 +173,29 @@ TrueRange, Per-bar true range accounting for overnight gaps (Wilder, 1978).
 UltimateOscillator, Three-period weighted oscillator (Williams, 1976).
 WMA, Linearly-weighted moving average. O(1) per step.
 WilliamsR, Inverse stochastic oscillator in [-100, 0].
+combine_latest, As-of latest-value join of N streams: one row per distinct index (same-index events coalesce).
+combine_latest_iter, Yield coalesced (row, index) events: one per distinct index.
+dropna, Drop events whose value is NaN.
+filter, Keep events where predicate(row) is truthy.
+merge, Merge N value streams into one index-sorted (values, sources, index).
+merge_iter, Yield (value, index, source) events in index order.
+replay, Replay merged streams as an async event stream paced by index-deltas.
+resample, Causal windowed downsample of a 1-D or multi-column value stream.
+select, Pick column(s) from a wide (M, N) value stream.
+split, Partition a merged tagged stream back into per-source streams.
 
 # Stream operators
-Stream, A sequence of values with an optional ordering index.
+Stream, A sequence of values with an optional ordering index and optional column names.
 merge, Merge N value streams into one index-sorted (values, sources, index).
 merge_iter, Yield (value, index, source) events in index order.
 combine_latest, As-of latest-value join of N streams: one row per distinct index (same-index events coalesce).
 combine_latest_iter, Yield coalesced (row, index) events: one per distinct index.
 replay, Replay merged streams as an async event stream paced by index-deltas.
 dropna, Drop events whose value is NaN.
-dropna_iter, Streaming dropna over (value, index) tuples.
 filter, Keep events where predicate(row) is truthy.
-filter_iter, Streaming filter over (value, index) tuples.
 select, Pick column(s) from a wide (M, N) value stream.
-select_iter, Streaming select over (value, index) tuples.
 split, Partition a merged tagged stream back into per-source streams.
 resample, Causal windowed downsample of a 1-D value stream.
-resample_iter, Streaming resample over (value, index) tuples.
 
 # Computational DAG
 Input, Create a source Node - a named placeholder for a timed stream.

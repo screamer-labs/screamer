@@ -128,40 +128,41 @@ def test_filter_node_raises():
 
 
 # ---------------------------------------------------------------------------
-# _iter twins – (value, index) event model
+# lazy operator dispatch - existing streaming tests (now via operator)
 # ---------------------------------------------------------------------------
 
 def test_dropna_iter_matches_batch():
     vals = np.array([1.0, np.nan, 3.0])
     idx = np.array([1, 2, 3], dtype=np.int64)
-    events = [(float(v), int(k)) for v, k in zip(vals, idx)]
-    got = list(streams.dropna_iter(events))
+    gen = ((float(v), int(k)) for v, k in zip(vals, idx))
+    got = list(streams.dropna(gen))
     assert got == [(1.0, 1), (3.0, 3)]
 
 
 def test_dropna_iter_positional_yields_none_index():
-    events = [(1.0, None), (float("nan"), None), (3.0, None)]
-    got = list(streams.dropna_iter(events))
+    events = iter([(1.0, None), (float("nan"), None), (3.0, None)])
+    got = list(streams.dropna(events))
     assert got == [(1.0, None), (3.0, None)]
 
 
 def test_dropna_iter_2d_rows():
-    events = [((1.0, 10.0), 1), ((np.nan, 20.0), 2), ((3.0, 30.0), 3)]
-    got_any = list(streams.dropna_iter(events, how="any"))
+    events = iter([((1.0, 10.0), 1), ((np.nan, 20.0), 2), ((3.0, 30.0), 3)])
+    got_any = list(streams.dropna(events, how="any"))
     assert [idx for _, idx in got_any] == [1, 3]
-    got_all = list(streams.dropna_iter(events, how="all"))
+    events2 = iter([((1.0, 10.0), 1), ((np.nan, 20.0), 2), ((3.0, 30.0), 3)])
+    got_all = list(streams.dropna(events2, how="all"))
     assert [idx for _, idx in got_all] == [1, 2, 3]    # no row is all-NaN
 
 
 def test_filter_iter_streaming():
-    events = [(-1.0, 1), (2.0, 2), (-3.0, 3), (4.0, 4)]
-    got = list(streams.filter_iter(events, lambda v: v > 0))
+    gen = (v for v in [(-1.0, 1), (2.0, 2), (-3.0, 3), (4.0, 4)])
+    got = list(streams.filter(gen, lambda v: v > 0))
     assert got == [(2.0, 2), (4.0, 4)]
 
 
 def test_filter_iter_positional():
-    events = [(-1.0, None), (2.0, None)]
-    got = list(streams.filter_iter(events, lambda v: v > 0))
+    gen = (v for v in [(-1.0, None), (2.0, None)])
+    got = list(streams.filter(gen, lambda v: v > 0))
     assert got == [(2.0, None)]
 
 
@@ -198,3 +199,53 @@ def test_split_rejects_too_small_n():
     src = np.array([0, 1, 2], dtype=np.uint32)     # needs n >= 3
     with pytest.raises(ValueError):
         streams.split(vals, src, index=keys, n=2)   # would drop source 2 silently
+
+
+# ---------------------------------------------------------------------------
+# lazy dispatch - oracle tests (batch == streaming)
+# ---------------------------------------------------------------------------
+
+def test_dropna_lazy_equals_batch():
+    import numpy as np
+    from screamer.streams import dropna
+    vals = np.array([1.0, np.nan, 3.0, np.nan, 5.0])
+    idx = np.array([10, 11, 12, 13, 14])
+    bv, bk = dropna(vals, idx)                          # raw -> (values, index)
+    gen = ((float(v), int(k)) for v, k in zip(vals, idx))
+    out = dropna(gen)
+    assert hasattr(out, "__next__") and not isinstance(out, tuple)
+    rows = list(out)
+    np.testing.assert_allclose([r[0] for r in rows], np.asarray(bv))
+    np.testing.assert_array_equal([r[1] for r in rows], np.asarray(bk))
+
+
+def test_filter_lazy_equals_batch():
+    import numpy as np
+    from screamer.streams import filter as sfilter
+    vals = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
+    idx = np.array([0, 1, 2, 3, 4])
+    bv, bk = sfilter(vals, lambda v: v > 2, index=idx)
+    gen = ((float(v), int(k)) for v, k in zip(vals, idx))
+    rows = list(sfilter(gen, lambda v: v > 2))
+    np.testing.assert_allclose([r[0] for r in rows], np.asarray(bv))
+    np.testing.assert_array_equal([r[1] for r in rows], np.asarray(bk))
+
+
+# ---------------------------------------------------------------------------
+# lazy dispatch - laziness test (no pull until next())
+# ---------------------------------------------------------------------------
+
+def test_dropna_lazy_is_lazy():
+    from screamer.streams import dropna
+    pulled = []
+
+    def spy():
+        for i, v in enumerate([1.0, 2.0, 3.0]):
+            pulled.append(v)
+            yield (v, i)
+
+    it = dropna(spy())
+    assert pulled == []
+    first = next(it)
+    assert pulled == [1.0]
+    assert first == (1.0, 0)
