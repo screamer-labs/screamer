@@ -9,7 +9,6 @@
 #include <pybind11/stl.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/numpy.h>
-#include <iostream>
 #include "screamer/common/base.h"
 #include "screamer/common/eval_op.h"
 #include "screamer/common/lazy_eval_iterator.h"
@@ -347,18 +346,18 @@ public:
 
     template <size_t TN = N, size_t TM = M, typename = std::enable_if_t<(TN == 1) && (TM > 1)>>
     py::object handle_input_1i_Mo(py::object input) {
-        // Case 1: Scalar input -> tuple of M floats
+        // Case 1: Numpy array. Checked before the scalar cast so a length-1 array
+        // is a time series of one (array in, array out - Rule A), not a scalar.
+        if (py::isinstance<py::array>(input)) {
+            py::array_t<double> input_pyarray = py::cast<py::array_t<double>>(input);
+            return handle_input_1i_Mo_numpy(input_pyarray);
+        }
+
+        // Case 2: Scalar input -> tuple of M floats (one streaming event)
         try {
             InputArray input_array = {input.cast<double>()};
             return py::cast(call(input_array));
         } catch (const py::cast_error&) {
-        }
-
-        // Case 2: Numpy array (and lists/tuples cast to arrays at the
-        // ScreamerBase boundary; here pure arrays are routed)
-        if (py::isinstance<py::array>(input)) {
-            py::array_t<double> input_pyarray = py::cast<py::array_t<double>>(input);
-            return handle_input_1i_Mo_numpy(input_pyarray);
         }
 
         // Case 3: Iterable.
@@ -389,19 +388,21 @@ public:
     // one input, one output
     template <size_t TN = N, size_t TM = M, typename = std::enable_if_t<(TN == 1) && (TM == 1)>>
     py::object handle_input_1i_1o(py::object input) {
-        
-        // Case 1: Scalar input
+
+        // Case 1: Numpy array. Checked before the scalar cast so a length-1 array
+        // is a time series of one (array in, array out - Rule A), not a scalar;
+        // only an actual Python scalar returns a scalar.
+        if (py::isinstance<py::array>(input)) {
+            py::array_t<double> input_pyarray = py::cast<py::array_t<double>>(input);
+            return handle_input_1i_1o_numpy(input_pyarray);
+        }
+
+        // Case 2: Scalar input (one streaming event)
         try {
             InputArray input_array = {input.cast<double>()};
             return py::cast(call(input_array));
         } catch (const py::cast_error&) {
             // If not a scalar, fall through to further checks
-        }
-
-        // Case 2: Numpy array
-        if (py::isinstance<py::array>(input)) {
-            py::array_t<double> input_pyarray = py::cast<py::array_t<double>>(input);
-            return handle_input_1i_1o_numpy(input_pyarray);
         }
 
         // Case 3: Iterable
@@ -509,7 +510,14 @@ public:
         // after this, now we handle cases where we have N arguments
         py::tuple inputs = args_to_tuple_n(args);
 
-        // Case 2: try a tuple of N scalar input: (0.3, 1.2, 4.0)
+        // Case 2: a tuple of N numpy arrays, all of the same size (nparray, ...).
+        // Checked before the scalar cast so N length-1 arrays are a series of one
+        // (array in, array out - Rule A), not N scalars collapsing to one scalar.
+        if (py::isinstance<py::array>(inputs[0])) {
+            return handle_input_Ni_1o_numpy(inputs);
+        }
+
+        // Case 3: a tuple of N scalar inputs: (0.3, 1.2, 4.0) -> one scalar event
         try {
             InputArray array;
             for (size_t i = 0; i < N; ++i) {
@@ -518,11 +526,6 @@ public:
             return py::cast(call(array));
         } catch (const py::cast_error&) {
             // If not a scalar, fall through to further checks
-        }
-
-        // Case 3: try a tuple of N numpy arrays, all of the same size.( nparray, nparray, nparray)
-        if (py::isinstance<py::array>(inputs[0])) {
-            return handle_input_Ni_1o_numpy(inputs);
         }
 
         // Case 4: a tuple of N iterables: ( [... != ], [...], [...] )
@@ -701,7 +704,14 @@ public:
 
         py::tuple inputs = args_to_tuple_n(args);
 
-        // Case 2: tuple of N scalars -> single M-tuple
+        // Case 2: tuple of N numpy arrays of matching shape. Checked before the
+        // scalar cast so N length-1 arrays are a series of one (array in, array
+        // out - Rule A), not N scalars collapsing to a single M-tuple.
+        if (py::isinstance<py::array>(inputs[0])) {
+            return handle_input_Ni_Mo_numpy(inputs);
+        }
+
+        // Case 3: tuple of N scalars -> single M-tuple (one streaming event)
         try {
             InputArray array;
             for (size_t i = 0; i < N; ++i) {
@@ -709,11 +719,6 @@ public:
             }
             return py::cast(call(array));
         } catch (const py::cast_error&) {
-        }
-
-        // Case 3: tuple of N numpy arrays of matching shape
-        if (py::isinstance<py::array>(inputs[0])) {
-            return handle_input_Ni_Mo_numpy(inputs);
         }
 
         // Case 4: tuple of N iterables.
