@@ -294,3 +294,14 @@ def test_resample_raw_stream_node_mirror():
     np.testing.assert_array_equal(rk, stream_out.index)
     np.testing.assert_array_equal(rv, dag_v.reshape(-1))
     np.testing.assert_array_equal(rk, dag_k)
+
+
+def test_resample_fractional_index_raises():
+    """resample rides the int64-indexed engine; a fractional index must raise
+    (both batch and lazy) instead of being silently floored."""
+    import pytest
+    vals, idx = np.array([1.0, 2.0, 3.0, 4.0]), np.array([0.0, 1.5, 2.0, 3.0])
+    with pytest.raises(TypeError):
+        resample(vals, idx, every=2, agg="mean")                          # batch
+    with pytest.raises(TypeError):
+        list(resample(((float(v), 0.5 * v) for v in range(4)), count=2, agg="mean"))  # lazy

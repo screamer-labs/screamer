@@ -61,6 +61,27 @@ def make_operator_node(fn, node_args, kwargs):
     return Node(("operator", fn, kwargs), tuple(node_args))
 
 
+def _int64_index(idx):
+    """Coerce an index array to contiguous int64, raising on a fractional value.
+
+    The engine is int64-indexed and float indices are not yet supported, so a
+    non-integer index is rejected loudly rather than silently truncated (a floored
+    index would change bucketing and alignment versus the caller's intent).
+    Integer-valued floats (2.0) are lossless and accepted. Integer dtypes skip the
+    check entirely, so the common path adds no scan.
+    """
+    arr = np.asarray(idx)
+    if arr.dtype.kind == "f":
+        out = arr.astype(np.int64)
+        if not np.array_equal(out, arr):
+            raise TypeError(
+                "index must be integer-valued; a fractional index was seen. The "
+                "streaming engine is int64-indexed (float indices are not yet "
+                "supported). Pass integer indices.")
+        return np.ascontiguousarray(out)
+    return np.ascontiguousarray(arr, dtype=np.int64)
+
+
 def _as_stream(feed):
     """Normalize a feed to (index_array, values_array) for the compiled engine.
 
@@ -75,13 +96,13 @@ def _as_stream(feed):
         if idx is None:
             idx = np.arange(len(feed.values), dtype=np.int64)
         return (
-            np.ascontiguousarray(idx, dtype=np.int64),
+            _int64_index(idx),
             np.ascontiguousarray(feed.values, dtype=np.float64),
         )
     if isinstance(feed, tuple) and len(feed) == 2:
         values, index = feed   # user provides (values, index) - values-first
         return (
-            np.ascontiguousarray(index, dtype=np.int64),
+            _int64_index(index),
             np.ascontiguousarray(values, dtype=np.float64),
         )
     values = np.asarray(feed, dtype=np.float64)
@@ -223,7 +244,13 @@ class _LazyDag:
     def _pull(it):
         try:
             v, k = next(it)
-            return (int(k), float(v))
+            ik = int(k)
+            if ik != k:
+                raise TypeError(
+                    "index must be integer-valued; a fractional index was seen. "
+                    "The streaming engine is int64-indexed (float indices are not "
+                    "yet supported). Pass integer indices.")
+            return (ik, float(v))
         except StopIteration:
             return None
 
