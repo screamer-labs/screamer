@@ -1,10 +1,12 @@
-"""Streaming operators (merge, combine_latest, replay, dropna, filter, split).
+"""Streaming operators (merge, combine_latest, replay, dropna, filter, select,
+split, resample).
 
-Builds and runs C++ node graphs. dtype detection here chooses the int64 or
-float64 index-type instantiation; the per-event work is all C++.
+Each operator dispatches on input type (Rule A): concrete data runs eager;
+a lazy iterator of (value, index) events returns a lazy iterator. Builds and
+runs C++ node graphs; dtype detection here chooses the int64 or float64
+index-type instantiation, and the per-event work is all C++.
 """
 import asyncio
-import math
 
 import numpy as np
 
