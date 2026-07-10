@@ -62,16 +62,21 @@ def test_merge_batch_equals_stream_positional(n_series):
 @pytest.mark.parametrize("emit", ["when_all", "on_any"])
 def test_combine_latest_batch_equals_stream(n_series, dtype, emit):
     series = _make_series(n_series, 80, dtype, seed=200 + n_series)
-    # New API: pass Stream objects (values + index), receive Stream back.
-    stream_list = [streams.Stream(v, k) for k, v in series]
+    vals = [v for _, v in series]
+    # Convert indices to int64: the lazy Dag path (via _LazyDag._pull) converts
+    # index to int, so we use int64 for both batch oracle and generators.
+    idxs_int = [k.astype(np.int64) for k, _ in series]
+    # Batch oracle with int64 indices
+    stream_list = [streams.Stream(v, k) for v, k in zip(vals, idxs_int)]
     result = streams.combine_latest(*stream_list, emit=emit)
-    # result is a Stream (regime="stream"): one row per distinct index (coalesced)
     bk = result.index
     ba = result.values
-    events = list(streams.combine_latest_iter(*stream_list, emit=emit))
-    # combine_latest_iter yields (row, index) - coalesced, one per distinct index
-    got_k = np.array([idx for _, idx in events], dtype=bk.dtype)
-    got_a = np.array([np.asarray(row) for row, _ in events],
+    # Lazy path: generators of (float(v), int(k)) -> indexed lazy sources
+    gens = [((float(v), int(k)) for v, k in zip(vals[i], idxs_int[i]))
+            for i in range(n_series)]
+    events = list(streams.combine_latest(*gens, emit=emit))
+    got_k = np.array([e[1] for e in events], dtype=bk.dtype)
+    got_a = np.array([list(e[0]) for e in events],
                      dtype=np.float64).reshape(len(events), n_series)
     np.testing.assert_array_equal(got_k, bk)
     np.testing.assert_array_equal(got_a, ba)
@@ -126,8 +131,11 @@ def test_dropna_batch_equals_stream_on_combine_output():
     # dropna is values-first: dropna(values, index, ...) -> (filtered_values, filtered_index)
     dv, dk = streams.dropna(ba, bk, how="any")
 
-    events = list(streams.combine_latest_iter(*stream_list, emit="on_any"))
-    # combine_latest_iter yields (row, index); filter NaN rows inline
+    # Lazy path: generators of (float(v), int(k)) (int64 indices from series)
+    gens = [((float(v), int(k)) for v, k in zip(s.values, s.index))
+            for s in stream_list]
+    events = list(streams.combine_latest(*gens, emit="on_any"))
+    # filter NaN rows inline
     kept = [(row, idx) for row, idx in events
             if not np.any(np.isnan(np.asarray(row, dtype=np.float64)))]
     dk_stream = np.array([idx for _, idx in kept], dtype=bk.dtype)

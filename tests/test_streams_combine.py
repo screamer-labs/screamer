@@ -1,6 +1,6 @@
 import numpy as np
 from screamer import RollingCorr
-from screamer.streams import combine_latest, combine_latest_iter
+from screamer.streams import combine_latest
 
 
 def _ref_combine_latest(streams, when_all):
@@ -65,24 +65,26 @@ def test_combine_latest_float_index_three_streams():
     np.testing.assert_array_equal(got_v, exp_v)
 
 
-def test_combine_latest_iter_matches_batch_identity():
+def test_combine_latest_lazy_matches_batch_identity():
+    """Lazy indexed generators must give the same result as batch combine_latest."""
     rng = np.random.default_rng(9)
     idx, vals = [], []
     for _ in range(3):
         idx.append(np.sort(rng.integers(0, 500, size=120)).astype(np.int64))
         vals.append(rng.standard_normal(120))
     bv, bi = combine_latest(*vals, index=idx)                      # batch (coalesced)
-    events = list(combine_latest_iter(*vals, index=idx))           # streaming (coalesced)
+    gens = [((float(v), int(k)) for v, k in zip(vals[i], idx[i])) for i in range(3)]
+    events = list(combine_latest(*gens))                           # lazy indexed
     got_i = np.array([e[1] for e in events], dtype=np.int64)
     got_v = np.array([list(e[0]) for e in events], dtype=np.float64).reshape(len(events), 3)
     np.testing.assert_array_equal(got_i, bi)
     np.testing.assert_array_equal(got_v, bv)
 
 
-def test_combine_latest_iter_positional():
-    # positional streams -> lockstep, iter yields (row, None) per position
+def test_combine_latest_lazy_positional():
+    """Positional lazy generators yield (row, None) per position, matching batch."""
     a = np.array([10.0, 20.0, 30.0]); b = np.array([1.0, 2.0, 3.0])
-    events = list(combine_latest_iter(a, b))
+    events = list(combine_latest((x for x in a), (x for x in b)))
     assert all(idx is None for _, idx in events)
     got = np.array([list(row) for row, _ in events])
     bv, bi = combine_latest(a, b)

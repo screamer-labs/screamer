@@ -16,7 +16,7 @@ from .dag import is_node, make_operator_node
 __all__ = [
     "Stream",
     "merge", "merge_iter",
-    "combine_latest", "combine_latest_iter",
+    "combine_latest",
     "replay",
     "dropna",
     "filter",
@@ -143,6 +143,38 @@ def _is_lazy_stream(x):
     concrete container (list, tuple, ndarray, or Stream). Generators and
     ``iter(...)`` qualify; concrete data does not."""
     return hasattr(x, "__next__") and not isinstance(x, (list, tuple, np.ndarray, Stream))
+
+
+_EMPTY = object()   # sentinel: a lazy source produced no first item
+
+
+def _classify_lazy_sources(values, who):
+    """Classify N lazy sources as positional or indexed and return
+    (positional, sources).
+
+    Peeks each source's first item: a bare scalar item means positional (its
+    index is a per-source arrival counter), a ``(value, index)`` 2-tuple means
+    indexed. Every source must be uniformly positional or indexed; a mix raises
+    ValueError (matching the eager operators). ``sources`` are the original
+    iterators re-chained with their peeked head, so no event is lost.
+    """
+    import itertools
+    iters = [iter(v) for v in values]
+    heads, sources = [], []
+    for it in iters:
+        try:
+            head = next(it)
+        except StopIteration:
+            head = _EMPTY
+        heads.append(head)
+        sources.append(it if head is _EMPTY else itertools.chain([head], it))
+    kinds = {isinstance(h, tuple) and len(h) == 2 for h in heads if h is not _EMPTY}
+    if len(kinds) > 1:
+        raise ValueError(
+            f"{who}: cannot mix positional (bare-value) and indexed "
+            "((value, index)) lazy sources; give every source an index, or none")
+    indexed = kinds.pop() if kinds else False   # all-empty -> positional (no rows)
+    return (not indexed), sources
 
 
 def _regime(inputs):
@@ -335,6 +367,51 @@ def merge_iter(*values, index=None):
         yield ev_val, (None if positional else ev_index), ev_source
 
 
+def _combine_latest_zip_lazy(sources):
+    """Positional (aligned-clock) combine_latest over lazy bare-value sources.
+
+    Strict lockstep: every source must have equal length, matching the eager
+    positional contract. Yields ``(row_tuple, None)``. Raises ValueError at the
+    first length mismatch (lengths are unknowable until the streams run out).
+    """
+    import itertools
+    for tup in itertools.zip_longest(*sources, fillvalue=_EMPTY):
+        if any(x is _EMPTY for x in tup):
+            raise ValueError(
+                "combine_latest: positional (no-index) lazy sources must have "
+                "equal length (aligned clocks); source lengths differ")
+        yield tuple(float(x) for x in tup), None
+
+
+def _combine_latest_asof_lazy(sources, emit):
+    """Indexed combine_latest over lazy (value, index) sources: as-of alignment
+    driven by the C++ combine_latest node through the Stage-2 lazy Dag. Yields
+    ``(row_tuple, index)`` - identical to the batch combine_latest.
+
+    The C++ node delays emission by one index step and collapses same-index
+    events, so no external per-index deduplication is needed here.
+    """
+    from .dag import Input, Dag
+    ins = [Input(f"_cl{i}") for i in range(len(sources))]
+    dag = Dag(inputs=ins, outputs=[combine_latest(*ins, emit=emit)])
+    yield from dag(*sources)
+
+
+def _combine_latest_lazy(values, emit):
+    """Dispatch gate for lazy combine_latest: classify sources on first next().
+
+    Classification (and peeking one head per source) is deferred to the first
+    call to ``__next__``, so construction consumes nothing. Positional sources
+    (bare scalars) route to strict-lockstep zip; indexed ((value, index))
+    sources route to the as-of Dag path.
+    """
+    positional, sources = _classify_lazy_sources(values, "combine_latest")
+    if positional:
+        yield from _combine_latest_zip_lazy(sources)
+    else:
+        yield from _combine_latest_asof_lazy(sources, emit)
+
+
 def combine_latest(*values, index=None, emit="when_all", func=None):
     """As-of latest-value join of N streams: one row per distinct index (same-index
     events coalesce). Values-first + polymorphic: raw arrays, Stream, or graph Node.
@@ -358,6 +435,16 @@ def combine_latest(*values, index=None, emit="when_all", func=None):
                 "(graph ops are C++-only); apply a functor to the aligned output, "
                 "e.g. Sub()(combine_latest(a, b))")
         return make_operator_node(combine_latest, values, {"emit": emit, "func": None})
+    if values and all(_is_lazy_stream(v) for v in values):
+        if func is not None:
+            raise ValueError(
+                "combine_latest(func=...) is not supported for lazy iterator "
+                "inputs; apply the function to the aligned output instead")
+        return _combine_latest_lazy(values, emit)
+    if any(_is_lazy_stream(v) for v in values):
+        raise TypeError(
+            "combine_latest: cannot mix lazy iterator and concrete inputs; pass "
+            "all generators or all arrays/Streams")
     regime = _regime(values)
     streams = _to_streams(values, index)
     kind, idx, vals, positional = _streams_to_indexed(streams, "combine_latest")
@@ -369,30 +456,6 @@ def combine_latest(*values, index=None, emit="when_all", func=None):
         aligned = np.array([func(*row) for row in aligned], dtype=np.float64)
     return _adapt(regime, aligned, result_index)
 
-
-def combine_latest_iter(*values, index=None, emit="when_all"):
-    """Yield coalesced (row, index) events: one per distinct index.
-
-    Positional (no-index) inputs yield (row, None). Indexed inputs yield
-    (row, index_value). Same coalescing semantics as combine_latest.
-    """
-    if emit not in ("when_all", "on_any"):
-        raise ValueError('combine_latest: emit must be "when_all" or "on_any"')
-    streams = _to_streams(values, index)
-    kind, idx, vals, positional = _streams_to_indexed(streams, "combine_latest")
-    cls = _b._CombineLatestPuller_f64 if kind == "f64" else _b._CombineLatestPuller_i64
-    puller = cls(idx, vals, emit == "when_all")
-    cur_index, cur_row = None, None
-    while True:
-        event = puller.next()
-        if event is None:
-            break
-        ev_index, ev_row = event   # puller.next() returns (index, row_tuple)
-        if cur_index is not None and ev_index != cur_index:
-            yield cur_row, (None if positional else cur_index)
-        cur_index, cur_row = ev_index, ev_row
-    if cur_index is not None:
-        yield cur_row, (None if positional else cur_index)
 
 
 async def replay(*values, index=None, speed=1.0, sleep=None):
