@@ -96,10 +96,10 @@ def test_merge_mixing_positional_and_indexed_raises():
 
 
 # ---------------------------------------------------------------------------
-# merge_iter - indexed and positional
+# merge lazy - indexed and positional (migrated from merge_iter)
 # ---------------------------------------------------------------------------
 
-def test_merge_iter_indexed_matches_batch():
+def test_merge_lazy_large_indexed_matches_batch():
     rng = np.random.default_rng(7)
     a_k = np.sort(rng.integers(0, 1000, size=200)).astype(np.int64)
     a_v = rng.standard_normal(200)
@@ -107,7 +107,9 @@ def test_merge_iter_indexed_matches_batch():
     b_v = rng.standard_normal(150)
 
     bv, bs, bi = streams.merge(a_v, b_v, index=[a_k, b_k])
-    events = list(streams.merge_iter(a_v, b_v, index=[a_k, b_k]))
+    ga = ((float(v), int(k)) for v, k in zip(a_v, a_k))
+    gb = ((float(v), int(k)) for v, k in zip(b_v, b_k))
+    events = list(streams.merge(ga, gb))
 
     ev_v = np.array([e[0] for e in events])
     ev_i = np.array([e[1] for e in events], dtype=np.int64)
@@ -117,10 +119,10 @@ def test_merge_iter_indexed_matches_batch():
     np.testing.assert_array_equal(ev_s, bs)
 
 
-def test_merge_iter_positional_yields_none_index():
+def test_merge_lazy_positional_yields_none_index():
     a_v = np.array([1.0, 2.0])
     b_v = np.array([10.0, 20.0])
-    events = list(streams.merge_iter(a_v, b_v))
+    events = list(streams.merge((x for x in a_v), (x for x in b_v)))
     for value, ev_index, source in events:
         assert ev_index is None
 
@@ -234,3 +236,51 @@ def test_replay_rejects_nonpositive_speed():
     a_k = np.array([0, 10], dtype=np.int64)
     with pytest.raises(ValueError):
         _drain(streams.replay(a_v, index=[a_k], speed=0.0))
+
+
+# ---------------------------------------------------------------------------
+# merge - lazy dispatch (oracle tests, written first)
+# ---------------------------------------------------------------------------
+
+def test_merge_lazy_is_lazy():
+    from screamer.streams import merge
+    pulled = {"a": [], "b": []}
+
+    def spy(name, items):
+        for i, v in enumerate(items):
+            pulled[name].append(v)
+            yield (float(v), i)
+
+    it = merge(spy("a", [1.0, 2.0]), spy("b", [10.0, 20.0]))
+    assert pulled == {"a": [], "b": []}
+    next(it)
+    assert pulled["a"] == [1.0] and pulled["b"] == [10.0]   # one head per source
+
+
+def test_merge_lazy_indexed_equals_batch():
+    import numpy as np
+    from screamer.streams import merge
+    av, ak = np.array([1.0, 2.0, 3.0]), np.array([0, 2, 4])
+    bv, bk = np.array([10.0, 20.0]),     np.array([1, 3])
+    mvals, msrc, midx = merge(av, bv, index=[ak, bk])          # batch oracle
+    ga = ((float(v), int(k)) for v, k in zip(av, ak))
+    gb = ((float(v), int(k)) for v, k in zip(bv, bk))
+    out = merge(ga, gb)
+    assert hasattr(out, "__next__") and not isinstance(out, tuple)
+    rows = list(out)                                           # [(value, index, source), ...]
+    np.testing.assert_allclose([r[0] for r in rows], np.asarray(mvals))
+    np.testing.assert_array_equal([r[1] for r in rows], np.asarray(midx))
+    np.testing.assert_array_equal([r[2] for r in rows], np.asarray(msrc))
+
+
+def test_merge_lazy_positional_equals_batch_unequal_lengths():
+    import numpy as np
+    from screamer.streams import merge
+    a = [1.0, 2.0, 3.0]
+    b = [10.0, 20.0]
+    mvals, msrc, midx = merge(np.array(a), np.array(b))        # positional, index None
+    rows = list(merge((x for x in a), (x for x in b)))         # bare-value sources
+    np.testing.assert_allclose([r[0] for r in rows], np.asarray(mvals))
+    assert all(r[1] is None for r in rows)                     # positional -> None index
+    np.testing.assert_array_equal([r[2] for r in rows], np.asarray(msrc))
+    assert midx is None

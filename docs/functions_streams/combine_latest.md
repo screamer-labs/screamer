@@ -5,8 +5,6 @@ kind: function
 short: "As-of latest-value join of N streams: one row per distinct index (same-index events coalesce)."
 topics:
 - streams
-covers:
-- combine_latest_iter
 ---
 
 # `combine_latest`
@@ -21,8 +19,12 @@ single settled row. `emit="when_all"` (default) waits until every input is warm;
 
 ```{eval-rst}
 .. autofunction:: screamer.streams.combine_latest
-.. autofunction:: screamer.streams.combine_latest_iter
 ```
+
+Feeding `combine_latest` lazy iterators of `(value, index)` events returns a
+lazy iterator (a no-index source is numbered by a per-source arrival counter);
+feeding arrays or `Stream` objects returns the eager `(aligned, index)` pair
+(Rule A).
 
 ## Example
 

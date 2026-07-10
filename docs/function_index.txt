@@ -174,11 +174,9 @@ UltimateOscillator, Three-period weighted oscillator (Williams, 1976).
 WMA, Linearly-weighted moving average. O(1) per step.
 WilliamsR, Inverse stochastic oscillator in [-100, 0].
 combine_latest, As-of latest-value join of N streams: one row per distinct index (same-index events coalesce).
-combine_latest_iter, Yield coalesced (row, index) events: one per distinct index.
 dropna, Drop events whose value is NaN.
 filter, Keep events where predicate(row) is truthy.
 merge, Merge N value streams into one index-sorted (values, sources, index).
-merge_iter, Yield (value, index, source) events in index order.
 replay, Replay merged streams as an async event stream paced by index-deltas.
 resample, Causal windowed downsample of a 1-D or multi-column value stream.
 select, Pick column(s) from a wide (M, N) value stream.
@@ -187,9 +185,7 @@ split, Partition a merged tagged stream back into per-source streams.
 # Stream operators
 Stream, A sequence of values with an optional ordering index and optional column names.
 merge, Merge N value streams into one index-sorted (values, sources, index).
-merge_iter, Yield (value, index, source) events in index order.
 combine_latest, As-of latest-value join of N streams: one row per distinct index (same-index events coalesce).
-combine_latest_iter, Yield coalesced (row, index) events: one per distinct index.
 replay, Replay merged streams as an async event stream paced by index-deltas.
 dropna, Drop events whose value is NaN.
 filter, Keep events where predicate(row) is truthy.

@@ -20,7 +20,7 @@ OUT = ROOT / "docs" / "function_index.txt"
 
 # Stream operators and DAG names, in a sensible reading order.
 STREAM_NAMES = [
-    "Stream", "merge", "merge_iter", "combine_latest", "combine_latest_iter",
+    "Stream", "merge", "combine_latest",
     "replay", "dropna", "filter",
     "select", "split", "resample",
 ]

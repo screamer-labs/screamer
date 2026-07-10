@@ -1,6 +1,7 @@
-"""The multi-stream operators (merge, merge_iter, replay, split) accept Stream
-inputs in addition to raw arrays, matching combine_latest and the single-input
-operators. Raw and Stream inputs must produce identical results.
+"""The multi-stream operators (merge, replay, split) accept Stream inputs in
+addition to raw arrays, matching combine_latest and the single-input operators.
+Raw and Stream inputs must produce identical results. Lazy (generator) inputs
+dispatch to the k-way merge path and yield identical events to the batch oracle.
 """
 import asyncio
 
@@ -8,7 +9,7 @@ import numpy as np
 import pytest
 
 from screamer import merge, split, Input
-from screamer.streams import Stream, merge_iter, replay
+from screamer.streams import Stream, replay
 
 
 def _drain(agen):
@@ -35,10 +36,15 @@ def test_merge_mixes_stream_and_raw():
         np.testing.assert_array_equal(np.asarray(x), np.asarray(y))
 
 
-def test_merge_iter_stream_equals_raw():
-    raw = list(merge_iter(AV, BV, index=[AK, BK]))
-    strm = list(merge_iter(Stream(AV, AK), Stream(BV, BK)))
-    assert raw == strm
+def test_merge_lazy_generators_equal_batch():
+    """Lazy merge(*generators) gives identical events to the batch merge oracle."""
+    bv, bs, bi = merge(AV, BV, index=[AK, BK])
+    ga = ((float(v), int(k)) for v, k in zip(AV, AK))
+    gb = ((float(v), int(k)) for v, k in zip(BV, BK))
+    events = list(merge(ga, gb))
+    np.testing.assert_allclose([e[0] for e in events], bv)
+    np.testing.assert_array_equal([e[1] for e in events], bi)
+    np.testing.assert_array_equal([e[2] for e in events], bs)
 
 
 def test_replay_stream_equals_raw():
@@ -81,10 +87,9 @@ def test_merge_roundtrips_through_split_streams():
     np.testing.assert_array_equal(parts[1].values, BV)
 
 
-@pytest.mark.parametrize("op", ["merge", "merge_iter", "replay"])
+@pytest.mark.parametrize("op", ["merge", "replay"])
 def test_node_input_raises_clear_error(op):
     a, b = Input("a"), Input("b")
-    fn = {"merge": merge, "merge_iter": lambda *v: list(merge_iter(*v)),
-          "replay": lambda *v: _drain(replay(*v))}[op]
+    fn = {"merge": merge, "replay": lambda *v: _drain(replay(*v))}[op]
     with pytest.raises(ValueError, match="not supported as a DAG graph node"):
         fn(a, b)
