@@ -5,8 +5,6 @@ kind: function
 short: Causal windowed downsample of a 1-D or multi-column value stream.
 topics:
 - streams
-covers:
-- resample_iter
 ---
 
 # `resample`
@@ -16,6 +14,8 @@ Causal windowed downsampling. Group a stream into fixed index-interval buckets
 per-bar aggregation, and return a labelled `Stream`. A bucket emits only once a
 later index proves it complete; the trailing partial bucket emits at end of input.
 Usable eagerly (raw arrays or `Stream`) and inside a `Dag`.
+
+Feeding a lazy iterator of `(value, index)` pairs returns a lazy iterator of bar events; feeding arrays or a `Stream` returns the batch result.
 
 The `agg` parameter accepts three forms:
 
@@ -143,7 +143,6 @@ the signed-part decomposition.
 
 ```{eval-rst}
 .. autofunction:: screamer.streams.resample
-.. autofunction:: screamer.streams.resample_iter
 ```
 
 ## Examples

@@ -5,8 +5,6 @@ kind: function
 short: Pick column(s) from a wide (M, N) value stream.
 topics:
 - streams
-covers:
-- select_iter
 ---
 
 # `select`
@@ -15,11 +13,12 @@ Pick one or more columns from a wide `(rows, columns)` value stream by position.
 The index and the number of rows are unchanged; only the width changes. Usable
 eagerly and inside a `Dag`.
 
+Feeding a lazy iterator of `(value, index)` pairs returns a lazy iterator of column-selected events; feeding arrays or a `Stream` returns the batch result.
+
 <!-- HELP_END -->
 
 ```{eval-rst}
 .. autofunction:: screamer.streams.select
-.. autofunction:: screamer.streams.select_iter
 ```
 
 ## Example
