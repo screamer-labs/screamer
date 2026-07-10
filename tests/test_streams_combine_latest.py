@@ -85,6 +85,22 @@ def test_combine_latest_lazy_positional_unequal_raises():
         list(out)                                              # error surfaces at exhaustion
 
 
+def test_combine_latest_lazy_fractional_index_raises():
+    """The lazy as-of path is int64-indexed: a fractional index would truncate
+    before alignment (collapsing distinct indices, changing row count/values), so
+    it must fail loudly rather than diverge from batch. Integer-valued floats pass."""
+    from screamer.streams import combine_latest
+    ga = ((float(v), 0.5 * k) for v, k in zip([10.0, 20.0, 30.0], [1, 3, 5]))  # 0.5,1.5,2.5
+    gb = ((float(v), 0.5 * k) for v, k in zip([1.0, 2.0, 3.0], [1, 3, 5]))
+    with pytest.raises(TypeError):
+        list(combine_latest(ga, gb))
+    # integer-valued float indices are lossless and must NOT raise
+    ha = ((float(v), float(k)) for v, k in zip([10.0, 20.0], [1, 2]))
+    hb = ((float(v), float(k)) for v, k in zip([1.0, 2.0], [1, 2]))
+    rows = list(combine_latest(ha, hb))
+    assert [r[1] for r in rows] == [1, 2]
+
+
 def test_combine_latest_lazy_mixed_sources_raise():
     from screamer.streams import combine_latest
     # mix positional (bare) and indexed ((v,k)) lazy sources -> ValueError

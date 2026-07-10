@@ -419,6 +419,24 @@ def _combine_latest_zip_lazy(sources):
         yield tuple(float(x) for x in tup), None
 
 
+def _require_integer_index(source):
+    """Pass ``(value, index)`` events through, raising on a non-integer index.
+
+    The lazy as-of path is driven by the int64-indexed engine, which truncates
+    the index BEFORE alignment - so a fractional index would not merely mislabel
+    a row: two distinct indices sharing an integer floor (0.3 and 0.7) would
+    collapse into one, changing the row count and values versus batch. Reject it
+    loudly instead of diverging silently. Integer-valued floats (2.0) pass.
+    """
+    for value, index in source:
+        if int(index) != index:
+            raise TypeError(
+                "combine_latest(<iterators>): the lazy as-of path is int64-indexed, "
+                "but a non-integer index was seen. Use integer indices for a lazy "
+                "combine_latest, or run the batch call combine_latest(arrays).")
+        yield value, index
+
+
 def _combine_latest_asof_lazy(sources, emit):
     """Indexed combine_latest over lazy (value, index) sources: as-of alignment
     driven by the C++ combine_latest node through the Stage-2 lazy Dag. Yields
@@ -430,7 +448,7 @@ def _combine_latest_asof_lazy(sources, emit):
     from .dag import Input, Dag
     ins = [Input(f"_cl{i}") for i in range(len(sources))]
     dag = Dag(inputs=ins, outputs=[combine_latest(*ins, emit=emit)])
-    yield from dag(*sources)
+    yield from dag(*(_require_integer_index(s) for s in sources))
 
 
 def _combine_latest_lazy(values, emit):
