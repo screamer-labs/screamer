@@ -879,7 +879,7 @@ def resample(values, index=None, *, every=None, count=None, agg="last",
     if _is_lazy_stream(values):
         # Rule A: a lazy iterator of (value, index) events -> a lazy iterator of
         # (bar_value, bar_label). Drive the same C++ resample node as batch through
-        # the Stage-2 lazy Dag; no Python windowing (this retires _ResampleAccum).
+        # the Stage-2 lazy Dag; no Python windowing accumulator runs here.
         if isinstance(agg, dict) or agg in ("ohlcv", "ohlcv2"):
             raise ValueError(
                 "resample(<iterator>) supports string and functor scalar aggs "

@@ -22,7 +22,7 @@ OUT = ROOT / "docs" / "function_index.txt"
 STREAM_NAMES = [
     "Stream", "merge", "merge_iter", "combine_latest", "combine_latest_iter",
     "replay", "dropna", "dropna_iter", "filter", "filter_iter",
-    "select", "select_iter", "split", "resample", "resample_iter",
+    "select", "select_iter", "split", "resample",
 ]
 DAG_NAMES = ["Input", "Dag", "Node"]
 

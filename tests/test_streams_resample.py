@@ -143,9 +143,12 @@ def test_resample_lazy_functor_agg_equals_batch():
 
 
 def test_resample_lazy_rejects_multicolumn_aggs():
-    gen = ((float(v), int(v)) for v in range(4))
-    with pytest.raises(ValueError):
-        list(resample(gen, count=2, agg="ohlcv"))
+    from screamer import ExpandingSum
+    # The reject fires eagerly at the resample(...) call (before any iteration),
+    # so assert on the call itself, not on list(...) of a would-be iterator.
+    for agg in ("ohlcv", "ohlcv2", {"x": ExpandingSum()}):
+        with pytest.raises(ValueError):
+            resample((e for e in ((1.0, 0), (2.0, 1))), count=2, agg=agg)
 
 
 def test_resample_lazy_is_lazy():
