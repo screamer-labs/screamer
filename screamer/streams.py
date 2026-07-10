@@ -16,9 +16,9 @@ __all__ = [
     "merge", "merge_iter",
     "combine_latest", "combine_latest_iter",
     "replay",
-    "dropna", "dropna_iter",
-    "filter", "filter_iter",
-    "select", "select_iter",
+    "dropna",
+    "filter",
+    "select",
     "split",
     "resample",
 ]
@@ -448,6 +448,8 @@ def dropna(values, index=None, how="any"):
         raise ValueError('dropna: how must be "any" or "all"')
     if is_node(values):
         return make_operator_node(dropna, (values,), {"how": how})
+    if _is_lazy_stream(values):
+        return _dropna_lazy(values, how)
     regime = "stream" if isinstance(values, Stream) else "raw"
     stream = values if isinstance(values, Stream) else Stream(values, index)
     vals = np.asarray(stream.values, dtype=np.float64)
@@ -474,6 +476,8 @@ def filter(values, predicate, index=None):
         raise ValueError(
             "filter is not supported as a DAG graph node: the graph engine has "
             "no Python predicates (no lambda). Use dropna for NaN removal.")
+    if _is_lazy_stream(values):
+        return _filter_lazy(values, predicate)
     regime = "stream" if isinstance(values, Stream) else "raw"
     stream = values if isinstance(values, Stream) else Stream(values, index)
     vals = np.asarray(stream.values)
@@ -483,14 +487,14 @@ def filter(values, predicate, index=None):
     return _adapt(regime, vals[mask], None if idx is None else idx[mask])
 
 
-def dropna_iter(events, how="any"):
+def _dropna_lazy(events, how="any"):
     """Streaming dropna over (value, index) tuples. value may be scalar or sequence.
 
     A positional live feed uses index=None. Surviving events are yielded as
     (value, index) with the original index passed through unchanged.
     """
     if how not in ("any", "all"):
-        raise ValueError('dropna_iter: how must be "any" or "all"')
+        raise ValueError('dropna: how must be "any" or "all"')
     for value, index in events:
         arr = np.atleast_1d(np.asarray(value, dtype=np.float64))
         nan = np.isnan(arr)
@@ -499,7 +503,7 @@ def dropna_iter(events, how="any"):
             yield value, index
 
 
-def filter_iter(events, predicate):
+def _filter_lazy(events, predicate):
     """Streaming filter over (value, index) tuples.
 
     A positional live feed uses index=None. Surviving events are yielded as
@@ -571,6 +575,8 @@ def select(values, columns, index=None):
     """
     if is_node(values):
         return make_operator_node(select, (values,), {"columns": columns})
+    if _is_lazy_stream(values):
+        return _select_lazy(values, columns)
     regime = "stream" if isinstance(values, Stream) else "raw"
     stream = values if isinstance(values, Stream) else Stream(values, index)
     vals = np.asarray(stream.values, dtype=np.float64)
@@ -592,7 +598,7 @@ def select(values, columns, index=None):
     return _adapt(regime, picked, idx)   # index is unchanged (row-preserving)
 
 
-def select_iter(events, columns):
+def _select_lazy(events, columns):
     """Streaming select over (value, index) tuples. value is scalar or sequence.
 
     A positional live feed uses index=None. Projected events are yielded as
@@ -604,7 +610,7 @@ def select_iter(events, columns):
         for c in cols:
             if c >= arr.size:
                 raise ValueError(
-                    f"select_iter: column {c} out of range for width {arr.size}")
+                    f"select: column {c} out of range for width {arr.size}")
         if scalar:
             yield float(arr[cols[0]]), index
         else:
