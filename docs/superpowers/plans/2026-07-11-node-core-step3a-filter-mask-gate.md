@@ -54,11 +54,12 @@
 
 - [ ] **Step 1:** capture the oracle: for data/mask arrays, the expected survivors are `data[i]` where `mask[i] != 0 and not isnan(mask[i])`, with the aligned index. Write `tests/test_filter_gate.py` asserting this for: all-keep, all-drop, alternating, NaN-in-mask drops, negative mask keeps, NaN data value kept when its mask is nonzero. Assert `batch == lazy == graph` byte-identical (build all three regimes).
 - [ ] **Step 2:** run - fails (`Filter` absent).
-- [ ] **Step 3:** implement `class Filter`: `__init__(self)` (no config in v1); `__call__(self, data, mask)`:
-  - if either arg `is_node` -> `make_operator_node(... add_filter ...)` returning a `Node` (mirror how `combine_latest` builds a 2-input node; register `filter` in the Dag compile map in `dag.py` so `add_filter` is emitted).
-  - if both lazy iterators -> a lazy driver over the 2-input FilterNode (mirror `_combine_latest_asof_lazy`, gating on the mask column and yielding only the data value).
-  - else (raw/tuple) -> build the 2-input Dag and run batch, returning `(survivor_values, survivor_index_or_None)`.
-  - Rule A container/rank preserved; positional (no index) -> index None.
+- [ ] **Step 3:** implement `class Filter` reusing the existing `Dag` machinery (do NOT hand-write separate batch/lazy drivers):
+  - Register in the `dag.py` compile map (`_compile_cpp`, ~line 395): `elif name == "Filter": nid = gb.add_filter(inp)`. Identity is `fn.__name__`, so passing the `Filter` class as the operator gives `name == "Filter"`.
+  - `__init__(self)` (no config in v1). `__call__(self, data, mask)`:
+    - if `is_node(data) or is_node(mask)` -> `return make_operator_node(Filter, (data, mask), {})` (a graph `Node`).
+    - else -> build a 2-input Dag and call it: `d, m = Input(), Input(); dag = Dag(inputs=[d, m], outputs=[Filter()(d, m)]); return dag(data, mask)`. The `dag(...)` call dispatches batch vs lazy via Rule A automatically (exactly as `_resample_via_cpp` does for 1 input), so a raw pair returns `(survivor_values, survivor_index_or_None)` and a lazy pair returns a lazy iterator - no bespoke driver. Confirm `Dag`/`Input` are importable in `streams.py` and the multi-input call convention `dag(feed_d, feed_m)` (read `_resample_via_cpp` + `Dag.__call__`).
+  - Rule A container/rank preserved by the Dag call; positional (no index) -> index None.
 - [ ] **Step 4:** DELETE `filter` and `_filter_lazy`. Grep for their callers in `screamer/` and tests; update or remove. Regenerate `screamer/__init__.py` (`PYTHONPATH=. python devtools/generate_screamer__init__.py`) and `help.json` if a doc page is added/removed (`PYTHONPATH=. python devtools/build_help_registry.py`).
 - [ ] **Step 5:** `make install-dev`; `pytest tests/test_filter_gate.py -q`; full suite green.
 - [ ] **Step 6: commit.**

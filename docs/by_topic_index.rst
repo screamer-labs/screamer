@@ -27,6 +27,7 @@ Every function, grouped by topic. Topics are many-to-many, so a function may app
 * :doc:`Missing data <by_topic/missing-data>`
 * :doc:`Outliers & robustness <by_topic/outliers>`
 * :doc:`Streams <by_topic/streams>`
+* :doc:`Logic & comparison <by_topic/logic>`
 * :doc:`Computation graphs <by_topic/graphs>`
 
 .. toctree::
@@ -85,6 +86,7 @@ Every function, grouped by topic. Topics are many-to-many, so a function may app
    functions_math/Abs
    functions_math/Acos
    functions_math/Add
+   functions_math/And
    functions_math/Asin
    functions_math/Atan
    functions_math/Atan2
@@ -94,16 +96,26 @@ Every function, grouped by topic. Topics are many-to-many, so a function may app
    functions_math/Cube
    functions_math/Div
    functions_math/Elu
+   functions_math/Equal
    functions_math/Erf
    functions_math/Erfc
    functions_math/Exp
    functions_math/Floor
+   functions_math/GreaterEqual
+   functions_math/GreaterThan
    functions_math/Hypot
+   functions_math/IsFinite
+   functions_math/IsNan
+   functions_math/LessEqual
+   functions_math/LessThan
    functions_math/Linear
    functions_math/Linear2
    functions_math/Log
    functions_math/Mul
    functions_math/NegPart
+   functions_math/Not
+   functions_math/NotEqual
+   functions_math/Or
    functions_math/Polar2Cart
    functions_math/PosPart
    functions_math/Power
@@ -118,6 +130,7 @@ Every function, grouped by topic. Topics are many-to-many, so a function may app
    functions_math/Square
    functions_math/Sub
    functions_math/Tanh
+   functions_math/Where
    functions_misc/CumMax
    functions_misc/CumMin
    functions_misc/CumProd
@@ -201,10 +214,10 @@ Every function, grouped by topic. Topics are many-to-many, so a function may app
    functions_signal/KalmanFilter
    functions_signal/MovingAverage
    functions_signal/SchmittTrigger
+   functions_streams/Filter
    functions_streams/Stream
    functions_streams/combine_latest
    functions_streams/dropna
-   functions_streams/filter
    functions_streams/merge
    functions_streams/replay
    functions_streams/resample
