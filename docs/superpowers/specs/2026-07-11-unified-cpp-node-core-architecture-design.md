@@ -63,7 +63,9 @@ index travels in push/emit. A stream is a sequence of `(value, index)` events, o
 
 ## Filter: a mask gate, no callback
 
-`Filter` takes the gate as an ordinary stream, not a host-language predicate. It is a 2-input node: a data stream and a mask stream. It emits each data row whose aligned mask value is nonzero (a zero test; the core is float, so nonzero keeps, zero drops). The mask is built from the data upstream with ordinary comparison and logic operators (`GreaterThan`, `And`, `Not`, ...), so the predicate logic is itself composed of C++ nodes. `Filter` is therefore a pure C++ node with no cross-boundary callback, reachable from any binding. (This requires the comparison/logic operators to exist as functors; some do, the rest are added with the port.) NaN in the mask drops the row (NaN is not nonzero).
+`Filter` takes the gate as an ordinary stream, not a host-language predicate. It is a 2-input node: a data stream and a mask stream. It emits each data row whose aligned mask value is nonzero (a zero test; the core is float, so nonzero keeps, zero drops). The mask is built from the data upstream with comparison and logic operators, so the predicate logic is itself composed of C++ nodes. `Filter` is therefore a pure C++ node with no cross-boundary callback, reachable from any binding. NaN in the mask drops the row (NaN is not nonzero).
+
+Dependency: only `Sign` and `Clip` exist today; the comparison/logic family (`GreaterThan`, `LessThan`, `GreaterEqual`, `LessEqual`, `Equal`, `NotEqual`, `And`, `Or`, `Not`, and a 3-way `Where(mask, a, b)`) must be added as C++ functors as part of the `Filter` port. This family is generally useful beyond `Filter`.
 
 ## Operator inventory on the model
 
