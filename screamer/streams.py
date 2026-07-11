@@ -736,10 +736,13 @@ _FINANCE_ALIASES = {
 
 # Statistical synonyms: map short stat names to the Expanding* functors that
 # implement them (the engine has no built-in code for these).
-_STAT_SYNONYMS = ("std", "var", "prod", "skew", "kurt")
+_STAT_SYNONYMS = {   # string synonym -> Expanding* functor class name
+    "std": "ExpandingStd", "var": "ExpandingVar", "prod": "ExpandingProd",
+    "skew": "ExpandingSkew", "kurt": "ExpandingKurt",
+}
 
 # Full set of accepted agg string names for error messages.
-_ALL_AGG_NAMES = _RESAMPLE_AGGS + tuple(_FINANCE_ALIASES) + _STAT_SYNONYMS
+_ALL_AGG_NAMES = _RESAMPLE_AGGS + tuple(_FINANCE_ALIASES) + tuple(_STAT_SYNONYMS)
 
 
 def _resolve_agg(agg):
@@ -759,17 +762,13 @@ def _resolve_agg(agg):
     if agg in _FINANCE_ALIASES:
         return _FINANCE_ALIASES[agg]
     if agg in _STAT_SYNONYMS:
-        from screamer import (  # deferred to avoid circular import at module load
-            ExpandingStd, ExpandingVar, ExpandingProd, ExpandingSkew, ExpandingKurt,
-        )
-        return {
-            "std":  ExpandingStd(),
-            "var":  ExpandingVar(),
-            "prod": ExpandingProd(),
-            "skew": ExpandingSkew(),
-            "kurt": ExpandingKurt(),
-        }[agg]
+        import screamer   # deferred to avoid circular import at module load
+        # instantiate only the requested reducer (a fresh instance per call, since
+        # reducers are stateful); do not build the four we would discard
+        return getattr(screamer, _STAT_SYNONYMS[agg])()
     return agg
+
+
 _OHLC_COLUMNS  = ("open", "high", "low", "close")
 _OHLCV_COLUMNS = ("open", "high", "low", "close", "volume")
 _OHLCV2_COLUMNS = ("open", "high", "low", "close", "buy_vol", "sell_vol")
