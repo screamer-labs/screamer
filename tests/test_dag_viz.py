@@ -7,19 +7,19 @@ import numpy as np
 import pytest
 
 from screamer import RollingMean, EwMean, Sub, Input, Dag
-from screamer.streams import combine_latest
+from screamer.streams import CombineLatest
 from screamer.dag_viz import build_graph, to_text, to_dot
 
 
 def _simple():
     a, b = Input("a"), Input("b")
-    return Dag([a, b], [Sub()(combine_latest(a, b))])
+    return Dag([a, b], [Sub()(CombineLatest()(a, b))])
 
 
 def _diamond():
     # combine_latest is shared by two outputs -> a diamond, two outputs.
     a, b = Input("a"), Input("b")
-    cl = combine_latest(a, b)
+    cl = CombineLatest()(a, b)
     return Dag([a, b], [RollingMean(20)(Sub()(cl)), EwMean(span=10)(cl)])
 
 

@@ -1,6 +1,6 @@
 import numpy as np
 import pytest
-from screamer import (RollingMean, Diff, Sub, Add, Input, Dag, combine_latest,
+from screamer import (RollingMean, Diff, Sub, Add, Input, Dag, CombineLatest,
                       Resample, ExpandingSum)
 from screamer.streams import Stream
 from tests._dag_oracle import run_oracle, lazy_batch as _lazy_batch
@@ -31,7 +31,7 @@ def _fanout():
 
 def _combine():
     a, b = Input("a"), Input("b")
-    z = RollingMean(4)(Sub()(combine_latest(a, b)))
+    z = RollingMean(4)(Sub()(CombineLatest()(a, b)))
     return Dag(inputs=[a, b], outputs=[z]), [_series(120, 2), _series(120, 3)]
 
 
@@ -44,8 +44,8 @@ def _resample_node():
 
 def _divergent():
     a, b, c = Input("a"), Input("b"), Input("c")
-    ab = Sub()(combine_latest(a, b))
-    ac = Add()(combine_latest(a, c))
+    ab = Sub()(CombineLatest()(a, b))
+    ac = Add()(CombineLatest()(a, c))
     dag = Dag(inputs=[a, b, c], outputs=[ab, ac], align_outputs=True)
     return dag, [_series(100, 5), _series(80, 6), _series(80, 7)]
 

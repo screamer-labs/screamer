@@ -118,7 +118,7 @@ def test_resample_lazy_equals_batch_every():
     bv, bk = batch.values, batch.index
     gen = ((float(v), int(k)) for v, k in zip(vals, idx))
     # lazy with every= (span mode): Resample(freq=10)(gen) would be count mode
-    out = resample(gen, every=10, agg="mean")
+    out = Resample(freq=10, agg="mean")(gen)
     assert hasattr(out, "__next__") and not isinstance(out, tuple)
     rows = list(out)                                     # [(bar_value, bar_label), ...]
     np.testing.assert_allclose([r[0] for r in rows], np.asarray(bv), equal_nan=True)
@@ -292,7 +292,7 @@ def test_resample_raw_stream_node_mirror():
 
     # Node (via Dag): use every= for span mode (Resample(freq=10)(node) -> count mode)
     x = Input("x")
-    dag = Dag(inputs=[x], outputs=[resample(x, every=10, agg="sum")])
+    dag = Dag(inputs=[x], outputs=[Resample(freq=10, agg="sum")(x)])
     dag_v, dag_k = dag((vals, keys))        # (values, index) feed; values-first result
 
     np.testing.assert_array_equal(rv, stream_out.values)

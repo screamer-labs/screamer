@@ -1,5 +1,5 @@
 import numpy as np
-from screamer import RollingMean, Diff, Sub, combine_latest, merge
+from screamer import RollingMean, Diff, Sub, Merge
 from screamer import screamer_bindings as _b
 
 
@@ -39,7 +39,7 @@ def test_stream_equals_batch_combine():
     (bk, bv), = cg.run_batch([(a_k, a_v), (b_k, b_v)])   # batch
 
     cg.reset()
-    mv, ms, mk = merge(a_v, b_v, index=[a_k, b_k])         # merged index-ordered arrays; values-first
+    mv, ms, mk = Merge()(a_v, b_v, index=[a_k, b_k])         # merged index-ordered arrays; values-first
     for k, v, src in zip(mk, mv, ms):                      # iterate event-by-event
         cg.push_event(int(src), int(k), float(v))
     cg.flush()                                              # flush pending combine_latest state

@@ -8,7 +8,7 @@ import numpy as np
 import pytest
 
 from screamer import ExpandingMax, ExpandingMin, ExpandingSum, First, Last, NegPart, PosPart
-from screamer.streams import Stream, combine_latest, resample
+from screamer.streams import Stream, CombineLatest, Resample
 
 # ---------------------------------------------------------------------------
 # Fixtures / shared data
@@ -44,13 +44,13 @@ class TestOHLCV2Composition:
         pos_vol = np.where(vol_arr > 0, vol_arr, 0.0)
         neg_vol = np.where(vol_arr < 0, -vol_arr, 0.0)
 
-        o   = resample(price_arr, t_arr, every=W, agg="first")
-        h   = resample(price_arr, t_arr, every=W, agg="max")
-        l   = resample(price_arr, t_arr, every=W, agg="min")
-        c   = resample(price_arr, t_arr, every=W, agg="last")
-        buy = resample(pos_vol,   t_arr, every=W, agg="sum")
-        sel = resample(neg_vol,   t_arr, every=W, agg="sum")
-        self.out, self.idx = combine_latest(o, h, l, c, buy, sel)
+        o   = Resample(freq=W, agg="first")(price_arr, t_arr)
+        h   = Resample(freq=W, agg="max")(price_arr, t_arr)
+        l   = Resample(freq=W, agg="min")(price_arr, t_arr)
+        c   = Resample(freq=W, agg="last")(price_arr, t_arr)
+        buy = Resample(freq=W, agg="sum")(pos_vol,   t_arr)
+        sel = Resample(freq=W, agg="sum")(neg_vol,   t_arr)
+        self.out, self.idx = CombineLatest()(o, h, l, c, buy, sel)
 
     def test_returns_ndarray(self):
         assert isinstance(self.out, np.ndarray)
@@ -63,7 +63,7 @@ class TestOHLCV2Composition:
     def _reference_col(self, agg_str, arr=None):
         if arr is None:
             arr = self.price_arr
-        ref = resample(arr, self.t_arr, every=W, agg=agg_str)
+        ref = Resample(freq=W, agg=agg_str)(arr, self.t_arr)
         return ref.values if isinstance(ref, Stream) else ref[0]
 
     def test_open_matches_reference(self):
@@ -110,10 +110,10 @@ class TestCountModeComposition:
 
         pos_vol = np.where(vol_arr > 0, vol_arr, 0.0)
 
-        o   = resample(price_arr, t_arr, count=self.COUNT, agg="first")
-        c   = resample(price_arr, t_arr, count=self.COUNT, agg="last")
-        buy = resample(pos_vol,   t_arr, count=self.COUNT, agg="sum")
-        self.out, self.idx = combine_latest(o, c, buy)
+        o   = Resample(count=self.COUNT, agg="first")(price_arr, t_arr)
+        c   = Resample(count=self.COUNT, agg="last")(price_arr, t_arr)
+        buy = Resample(count=self.COUNT, agg="sum")(pos_vol,   t_arr)
+        self.out, self.idx = CombineLatest()(o, c, buy)
 
     def test_shape(self):
         assert self.out.ndim == 2
@@ -121,18 +121,18 @@ class TestCountModeComposition:
         assert len(self.out) > 0
 
     def test_open_matches_single_col_count(self):
-        ref = resample(self.price_arr, self.t_arr, count=self.COUNT, agg="first")
+        ref = Resample(count=self.COUNT, agg="first")(self.price_arr, self.t_arr)
         ref_v = ref.values if isinstance(ref, Stream) else ref[0]
         np.testing.assert_allclose(self.out[:, 0], ref_v, rtol=1e-12)
 
     def test_close_matches_single_col_count(self):
-        ref = resample(self.price_arr, self.t_arr, count=self.COUNT, agg="last")
+        ref = Resample(count=self.COUNT, agg="last")(self.price_arr, self.t_arr)
         ref_v = ref.values if isinstance(ref, Stream) else ref[0]
         np.testing.assert_allclose(self.out[:, 1], ref_v, rtol=1e-12)
 
     def test_buy_matches_single_col_count(self):
         pos_vol = np.where(self.vol_arr > 0, self.vol_arr, 0.0)
-        ref = resample(pos_vol, self.t_arr, count=self.COUNT, agg="sum")
+        ref = Resample(count=self.COUNT, agg="sum")(pos_vol, self.t_arr)
         ref_v = ref.values if isinstance(ref, Stream) else ref[0]
         np.testing.assert_allclose(self.out[:, 2], ref_v, rtol=1e-12)
 
@@ -146,12 +146,12 @@ def test_ohlcv_via_composition():
     price = np.array([10., 11, 9, 12, 8, 13])
     vol   = np.array([1.,  2,  1,  3, 1,  2])
     k     = np.arange(6)
-    o = resample(price, k, freq=3, agg="first")
-    h = resample(price, k, freq=3, agg="max")
-    l = resample(price, k, freq=3, agg="min")
-    c = resample(price, k, freq=3, agg="last")
-    v = resample(vol,   k, freq=3, agg="sum")
-    rows, idx = combine_latest(o, h, l, c, v)
+    o = Resample(freq=3, agg="first")(price, k)
+    h = Resample(freq=3, agg="max")(price, k)
+    l = Resample(freq=3, agg="min")(price, k)
+    c = Resample(freq=3, agg="last")(price, k)
+    v = Resample(freq=3, agg="sum")(vol,   k)
+    rows, idx = CombineLatest()(o, h, l, c, v)
     # bar 0 [0,3): prices=10,11,9; vol=1,2,1
     np.testing.assert_array_equal(np.asarray(rows)[0], [10, 11, 9, 9, 4])
     # bar 1 [3,6): prices=12,8,13; vol=3,1,2
@@ -167,8 +167,8 @@ def test_vwap_via_composition():
     price = np.array([10., 20, 30, 40])
     vol   = np.array([1.,   3,  1,  1])
     k     = np.arange(4)
-    num  = resample(price * vol, k, freq=2, agg="sum")
-    den  = resample(vol,         k, freq=2, agg="sum")
+    num  = Resample(freq=2, agg="sum")(price * vol, k)
+    den  = Resample(freq=2, agg="sum")(vol,         k)
     vwap = np.asarray(num.values) / np.asarray(den.values)
     np.testing.assert_allclose(vwap, [(10 + 60) / 4, (30 + 40) / 2])
 
@@ -180,7 +180,7 @@ def test_vwap_via_composition():
 def test_agg_dict_raises_with_migration_hint():
     """Passing agg={...} to resample raises ValueError with a helpful message."""
     with pytest.raises((ValueError, TypeError)):
-        resample(np.array([1.0, 2, 3]), freq=3, agg={"open": First()})
+        Resample(freq=3, agg={"open": First()})(np.array([1.0, 2, 3]))
 
 
 def test_agg_dict_raises_eager():
@@ -188,7 +188,7 @@ def test_agg_dict_raises_eager():
     x   = np.arange(10.0)
     idx = np.arange(10, dtype=np.int64)
     with pytest.raises((ValueError, TypeError)):
-        resample(x, idx, every=5, agg={"s": "sum"})
+        Resample(freq=5, agg={"s": "sum"})(x, idx)
 
 
 # ---------------------------------------------------------------------------
@@ -198,10 +198,10 @@ def test_agg_dict_raises_eager():
 def test_composition_bar_index_aligned():
     """All per-stat resamples produce the same bar labels; combine_latest aligns them."""
     t_arr, price_arr, vol_arr = _make_data()
-    o = resample(price_arr, t_arr, every=W, agg="first")
-    c = resample(price_arr, t_arr, every=W, agg="last")
-    v = resample(np.abs(vol_arr), t_arr, every=W, agg="sum")
-    rows, idx = combine_latest(o, c, v)
+    o = Resample(freq=W, agg="first")(price_arr, t_arr)
+    c = Resample(freq=W, agg="last")(price_arr, t_arr)
+    v = Resample(freq=W, agg="sum")(np.abs(vol_arr), t_arr)
+    rows, idx = CombineLatest()(o, c, v)
     np.testing.assert_array_equal(idx, o.index)
     np.testing.assert_array_equal(idx, c.index)
     assert rows.shape == (N_BARS, 3)

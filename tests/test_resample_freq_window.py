@@ -6,7 +6,7 @@ RUNTIME index, not collapse to count when no index is present at definition time
 and an arrival count differ, so this pins the correct (span) behavior.
 """
 import numpy as np
-from screamer import Resample, resample, Input, Dag, ExpandingSum
+from screamer import Resample, Input, Dag, ExpandingSum
 
 
 # Sparse index where a span of 10 (3 buckets) differs from count=10 (1 bucket).
@@ -44,7 +44,7 @@ def test_lazy_freq_is_span_not_count():
 
 def test_freq_equals_every_span_batch_node_lazy():
     # freq=W and the transitional every=W produce identical spans in every regime.
-    er_v, er_k = _vi(resample(_X, _IDX, every=10, agg="sum"))
+    er_v, er_k = _vi(Resample(freq=10, agg="sum")(_X, _IDX))
     np.testing.assert_array_equal(_vi(Resample(freq=10, agg="sum")(_X, _IDX))[0], er_v)
 
 

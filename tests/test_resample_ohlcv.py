@@ -10,7 +10,7 @@ via sum, buy/sell via PosPart/NegPart + sum). Python only orchestrates.
 import numpy as np
 import pytest
 from screamer import PosPart, NegPart
-from screamer.streams import resample, Resample
+from screamer.streams import Resample
 
 
 # ---------------------------------------------------------------------------

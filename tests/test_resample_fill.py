@@ -13,7 +13,7 @@ internal gaps (between two events) are filled here.
 import numpy as np
 import pytest
 
-from screamer.streams import resample, Resample
+from screamer.streams import Resample
 from screamer import ExpandingSum
 
 
@@ -113,7 +113,7 @@ def test_fill_carry_graph_path():
     from screamer.dag import Input, Dag
     src = Input("x")
     # node-mode span: use every= (Resample(freq=1) resolves to count mode for nodes)
-    node = resample(src, every=1, agg="last", fill="carry")
+    node = Resample(freq=1, agg="last", fill="carry")(src)
     dag = Dag([src], [node])
     v, k = dag((VALS, IDX))
     np.testing.assert_array_equal(k, [0, 1, 2, 3])

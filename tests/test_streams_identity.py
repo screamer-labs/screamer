@@ -32,11 +32,11 @@ def test_merge_batch_equals_stream_indexed(n_series, dtype):
     vals = [v for _, v in series]
     idxs = [k for k, _ in series]
 
-    bv, bs, bi = streams.merge(*vals, index=idxs)
+    bv, bs, bi = streams.Merge()(*vals, index=idxs)
     # Use merge(*generators) with indexed (value, index) tuples; preserve dtype
     gens = [((float(v), k) for v, k in zip(vals[i], idxs[i]))
             for i in range(n_series)]
-    events = list(streams.merge(*gens))
+    events = list(streams.Merge()(*gens))
 
     ev_v = np.array([e[0] for e in events])
     ev_i = np.array([e[1] for e in events], dtype=bi.dtype)
@@ -52,11 +52,11 @@ def test_merge_batch_equals_stream_positional(n_series):
     # unequal lengths are allowed for positional merge
     vals = [rng.standard_normal(rng.integers(30, 80)) for _ in range(n_series)]
 
-    bv, bs, bi = streams.merge(*vals)
+    bv, bs, bi = streams.Merge()(*vals)
     assert bi is None
     # Use merge(*generators) with bare-value (positional) sources
     gens = [(float(v) for v in val_arr) for val_arr in vals]
-    events = list(streams.merge(*gens))
+    events = list(streams.Merge()(*gens))
 
     np.testing.assert_array_equal(np.array([e[0] for e in events]), bv)
     assert all(e[1] is None for e in events)
@@ -73,13 +73,13 @@ def test_combine_latest_batch_equals_stream(n_series, dtype, emit):
     idxs_int = [k.astype(np.int64) for k, _ in series]
     # Batch oracle with int64 indices
     stream_list = [streams.Stream(v, k) for v, k in zip(vals, idxs_int)]
-    result = streams.combine_latest(*stream_list, emit=emit)
+    result = streams.CombineLatest(emit=emit)(*stream_list)
     bk = result.index
     ba = result.values
     # Lazy path: generators of (float(v), int(k)) -> indexed lazy sources
     gens = [((float(v), int(k)) for v, k in zip(vals[i], idxs_int[i]))
             for i in range(n_series)]
-    events = list(streams.combine_latest(*gens, emit=emit))
+    events = list(streams.CombineLatest(emit=emit)(*gens))
     got_k = np.array([e[1] for e in events], dtype=bk.dtype)
     got_a = np.array([list(e[0]) for e in events],
                      dtype=np.float64).reshape(len(events), n_series)
@@ -93,7 +93,7 @@ def test_replay_infinite_equals_merge_indexed(n_series, dtype):
     vals = [v for _, v in series]
     idxs = [k for k, _ in series]
 
-    bv, _, bi = streams.merge(*vals, index=idxs)
+    bv, _, bi = streams.Merge()(*vals, index=idxs)
 
     async def drain():
         out = []
@@ -111,7 +111,7 @@ def test_replay_infinite_equals_merge_positional(n_series):
     rng = np.random.default_rng(seed=350 + n_series)
     vals = [rng.standard_normal(60) for _ in range(n_series)]
 
-    bv, _, bi = streams.merge(*vals)
+    bv, _, bi = streams.Merge()(*vals)
     assert bi is None
 
     async def drain():
@@ -130,16 +130,16 @@ def test_dropna_batch_equals_stream_on_combine_output():
     # same rows whether applied to the batch array or the event stream.
     series = _make_series(3, 50, np.int64, seed=42)
     stream_list = [streams.Stream(v, k) for k, v in series]
-    result = streams.combine_latest(*stream_list, emit="on_any")
+    result = streams.CombineLatest(emit="on_any")(*stream_list)
     bk = result.index
     ba = result.values
-    # dropna is values-first: dropna(values, index, ...) -> (filtered_values, filtered_index)
-    dv, dk = streams.dropna(ba, bk, how="any")
+    # dropna is values-first: Dropna()(values, index=...) -> (filtered_values, filtered_index)
+    dv, dk = streams.Dropna(how="any")(ba, index=bk)
 
     # Lazy path: generators of (float(v), int(k)) (int64 indices from series)
     gens = [((float(v), int(k)) for v, k in zip(s.values, s.index))
             for s in stream_list]
-    events = list(streams.combine_latest(*gens, emit="on_any"))
+    events = list(streams.CombineLatest(emit="on_any")(*gens))
     # filter NaN rows inline
     kept = [(row, idx) for row, idx in events
             if not np.any(np.isnan(np.asarray(row, dtype=np.float64)))]

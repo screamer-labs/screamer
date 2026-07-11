@@ -13,7 +13,7 @@ After the migration the same expected values must hold against the C++ path.
 """
 import numpy as np
 import pytest
-from screamer.streams import select, Stream
+from screamer.streams import Select, Stream
 
 
 # ---------------------------------------------------------------------------
@@ -70,7 +70,7 @@ def _cmp_nan(got_v, got_k, exp_v, exp_k):
 
 def test_select_1d_scalar_col0():
     """1-D input, scalar int 0 -> mirrors input (1-D result)."""
-    v, k = select(_V1D, 0, index=_K1D)
+    v, k = Select(0)(_V1D, index=_K1D)
     assert v.ndim == 1
     np.testing.assert_array_equal(v, _V1D)
     np.testing.assert_array_equal(k, _K1D)
@@ -78,7 +78,7 @@ def test_select_1d_scalar_col0():
 
 def test_select_1d_list_col0():
     """1-D input, list [0] -> 2-D (1 column) reshape."""
-    v, k = select(_V1D, [0], index=_K1D)
+    v, k = Select([0])(_V1D, index=_K1D)
     assert v.shape == (3, 1)
     np.testing.assert_array_equal(v.reshape(-1), _V1D)
     np.testing.assert_array_equal(k, _K1D)
@@ -87,7 +87,7 @@ def test_select_1d_list_col0():
 def test_select_1d_out_of_range_raises():
     """1-D input, column >= 1 is out of range."""
     with pytest.raises(ValueError, match="select: column 1 out of range for width 1"):
-        select(_V1D, 1, index=_K1D)
+        Select(1)(_V1D, index=_K1D)
 
 
 # ---------------------------------------------------------------------------
@@ -96,14 +96,14 @@ def test_select_1d_out_of_range_raises():
 
 def test_select_2d_scalar_col1_indexed():
     """Scalar int column 1 -> 1-D result, NaN passes through."""
-    v, k = select(_V3, 1, index=_K3)
+    v, k = Select(1)(_V3, index=_K3)
     assert v.ndim == 1
     _cmp_nan(v, k, _EV_COL1_1D, _K3)
 
 
 def test_select_2d_scalar_col1_positional():
     """Positional (index=None) -> returned index is None."""
-    v, k = select(_V3, 1)
+    v, k = Select(1)(_V3)
     assert k is None
     assert v.ndim == 1
     if not np.array_equal(v, _EV_COL1_1D, equal_nan=True):
@@ -116,7 +116,7 @@ def test_select_2d_scalar_col1_positional():
 
 def test_select_2d_multi_reordered():
     """List [2, 0] -> 2-D result with columns in that order."""
-    v, k = select(_V3, [2, 0], index=_K3)
+    v, k = Select([2, 0])(_V3, index=_K3)
     assert v.shape == (3, 2)
     np.testing.assert_array_equal(v, _EV_MULTI)
     np.testing.assert_array_equal(k, _K3)
@@ -124,7 +124,7 @@ def test_select_2d_multi_reordered():
 
 def test_select_2d_nan_passthrough():
     """NaN values are NOT dropped by select; they pass through unchanged."""
-    v, k = select(_VNAN, [0, 1], index=_KNAN)
+    v, k = Select([0, 1])(_VNAN, index=_KNAN)
     assert v.shape == (3, 2)
     _cmp_nan(v, k, _ENAN_BOTH, _KNAN)
 
@@ -136,20 +136,20 @@ def test_select_2d_nan_passthrough():
 def test_select_out_of_range_exact_message():
     """Out-of-range column raises ValueError with the exact message."""
     with pytest.raises(ValueError, match=r"select: column 5 out of range for width 3"):
-        select(_V3, 5, index=_K3)
+        Select(5)(_V3, index=_K3)
 
 
 def test_select_negative_raises():
     """Negative column index raises ValueError."""
     with pytest.raises(ValueError):
-        select(_V3, -1, index=_K3)
+        Select(-1)(_V3, index=_K3)
 
 
 def test_select_lazy_out_of_range_exact_message():
     """Lazy regime validates the column too, with the exact same message."""
     feed = ((row, int(k)) for row, k in zip(_V3, _K3))
     with pytest.raises(ValueError, match=r"select: column 5 out of range for width 3"):
-        list(select(feed, 5))
+        list(Select(5)(feed))
 
 
 # ---------------------------------------------------------------------------
@@ -158,7 +158,7 @@ def test_select_lazy_out_of_range_exact_message():
 
 def test_select_stream_scalar():
     """Stream in -> Stream out, single column."""
-    s = select(Stream(_V3, _K3), 1)
+    s = Select(1)(Stream(_V3, _K3))
     assert isinstance(s, Stream)
     assert s.index is not None
     np.testing.assert_array_equal(s.index, _K3)
@@ -167,7 +167,7 @@ def test_select_stream_scalar():
 
 def test_select_stream_multi():
     """Stream in -> Stream out, multiple columns."""
-    s = select(Stream(_V3, _K3), [2, 0])
+    s = Select([2, 0])(Stream(_V3, _K3))
     assert isinstance(s, Stream)
     np.testing.assert_array_equal(s.values, _EV_MULTI)
     np.testing.assert_array_equal(s.index, _K3)
@@ -175,7 +175,7 @@ def test_select_stream_multi():
 
 def test_select_stream_positional():
     """Positional Stream (index=None) -> Stream with index=None; values correct."""
-    s = select(Stream(_V3), 1)
+    s = Select(1)(Stream(_V3))
     assert isinstance(s, Stream)
     assert s.index is None
     if not np.array_equal(np.asarray(s.values), _EV_COL1_1D, equal_nan=True):
@@ -189,7 +189,7 @@ def test_select_stream_positional():
 def test_select_lazy_1d_indexed_scalar():
     """Lazy 1-D scalar events, column 0 -> same value passes through."""
     events = ((float(v), int(k)) for v, k in zip(_V1D.tolist(), _K1D.tolist()))
-    rows = list(select(events, 0))
+    rows = list(Select(0)(events))
     assert len(rows) == 3
     assert all(isinstance(v, float) for v, _ in rows)
     np.testing.assert_array_equal([v for v, _ in rows], _V1D)
@@ -203,7 +203,7 @@ def test_select_lazy_1d_indexed_scalar():
 def test_select_lazy_2d_scalar_col1():
     """Lazy 2-D events, scalar column 1 -> float per event, NaN passes through."""
     events = ((row, int(k)) for row, k in zip(_V3.tolist(), _K3.tolist()))
-    rows = list(select(events, 1))
+    rows = list(Select(1)(events))
     got_v = np.array([v for v, _ in rows], dtype=np.float64)
     got_k = np.array([k for _, k in rows], dtype=np.int64)
     assert all(isinstance(r[0], float) for r in rows), "scalar path must yield floats"
@@ -213,7 +213,7 @@ def test_select_lazy_2d_scalar_col1():
 def test_select_lazy_2d_multi_reordered():
     """Lazy 2-D events, multi-column [2, 0] -> list/tuple per event."""
     events = ((row, int(k)) for row, k in zip(_V3.tolist(), _K3.tolist()))
-    rows = list(select(events, [2, 0]))
+    rows = list(Select([2, 0])(events))
     got_k = np.array([k for _, k in rows], dtype=np.int64)
     got_v = np.array([list(v) for v, _ in rows], dtype=np.float64)
     np.testing.assert_array_equal(got_v, _EV_MULTI)
@@ -223,7 +223,7 @@ def test_select_lazy_2d_multi_reordered():
 def test_select_lazy_2d_positional_none_index():
     """Positional events (index=None) pass through with None index unchanged."""
     events = ((row, None) for row in _V3.tolist())
-    rows = list(select(events, 1))
+    rows = list(Select(1)(events))
     assert len(rows) == 3
     assert all(k is None for _, k in rows), "positional index must remain None"
     got_v = np.array([v for v, _ in rows], dtype=np.float64)
@@ -241,12 +241,12 @@ def test_batch_lazy_graph_2d_scalar():
     from tests._dag_oracle import lazy_batch as _lb
 
     a, b, c = Input("a"), Input("b"), Input("c")
-    dag = Dag([a, b, c], [select(combine_latest_node(a, b, c), columns=1)])
+    dag = Dag([a, b, c], [Select(1)(combine_latest_node(a, b, c))])
 
-    bv, bk = select(_V3, 1, index=_K3)
+    bv, bk = Select(1)(_V3, index=_K3)
 
     events = ((row, int(k)) for row, k in zip(_V3.tolist(), _K3.tolist()))
-    lazy_rows = list(select(events, 1))
+    lazy_rows = list(Select(1)(events))
     lv = np.array([r[0] for r in lazy_rows], dtype=np.float64)
     lk = np.array([r[1] for r in lazy_rows], dtype=np.int64)
 
@@ -271,12 +271,12 @@ def test_batch_lazy_graph_2d_multi():
     from tests._dag_oracle import lazy_batch as _lb
 
     a, b, c = Input("a"), Input("b"), Input("c")
-    dag = Dag([a, b, c], [select(combine_latest_node(a, b, c), columns=[2, 0])])
+    dag = Dag([a, b, c], [Select([2, 0])(combine_latest_node(a, b, c))])
 
-    bv, bk = select(_V3, [2, 0], index=_K3)
+    bv, bk = Select([2, 0])(_V3, index=_K3)
 
     events = ((row, int(k)) for row, k in zip(_V3.tolist(), _K3.tolist()))
-    lazy_rows = list(select(events, [2, 0]))
+    lazy_rows = list(Select([2, 0])(events))
     lv = np.array([list(v) for v, _ in lazy_rows], dtype=np.float64)
     lk = np.array([k for _, k in lazy_rows], dtype=np.int64)
 
@@ -299,6 +299,6 @@ def test_batch_lazy_graph_2d_multi():
 # ---------------------------------------------------------------------------
 
 def combine_latest_node(*nodes):
-    """combine_latest applied to Node inputs - returns a Node."""
-    from screamer.streams import combine_latest
-    return combine_latest(*nodes)
+    """CombineLatest applied to Node inputs - returns a Node."""
+    from screamer.streams import CombineLatest
+    return CombineLatest()(*nodes)

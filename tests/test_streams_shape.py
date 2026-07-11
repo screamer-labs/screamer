@@ -14,7 +14,7 @@ def test_dropna_any_on_aligned():
                      [3.0, np.nan],
                      [4.0, 40.0]])
     idx = np.array([1, 2, 3, 4], dtype=np.int64)
-    gv, gi = streams.dropna(vals, index=idx)          # how="any" default
+    gv, gi = streams.Dropna()(vals, index=idx)          # how="any" default
     np.testing.assert_array_equal(gi, np.array([1, 4], dtype=np.int64))
     np.testing.assert_array_equal(gv, np.array([[1.0, 10.0], [4.0, 40.0]]))
 
@@ -24,7 +24,7 @@ def test_dropna_all_on_aligned():
                      [np.nan, 2.0],
                      [3.0, 3.0]])
     idx = np.array([1, 2, 3], dtype=np.int64)
-    gv, gi = streams.dropna(vals, index=idx, how="all")
+    gv, gi = streams.Dropna(how="all")(vals, index=idx)
     np.testing.assert_array_equal(gi, np.array([2, 3], dtype=np.int64))
     np.testing.assert_array_equal(gv, np.array([[np.nan, 2.0], [3.0, 3.0]]))
 
@@ -32,7 +32,7 @@ def test_dropna_all_on_aligned():
 def test_dropna_1d():
     vals = np.array([1.0, np.nan, 3.0])
     idx = np.array([1, 2, 3], dtype=np.int64)
-    gv, gi = streams.dropna(vals, index=idx)
+    gv, gi = streams.Dropna()(vals, index=idx)
     np.testing.assert_array_equal(gi, np.array([1, 3], dtype=np.int64))
     np.testing.assert_array_equal(gv, np.array([1.0, 3.0]))
 
@@ -40,7 +40,7 @@ def test_dropna_1d():
 def test_dropna_positional_index_is_none():
     """index=None -> positional; returned index is None (no allocation)."""
     vals = np.array([1.0, np.nan, 3.0])
-    gv, gi = streams.dropna(vals)
+    gv, gi = streams.Dropna()(vals)
     assert gi is None
     np.testing.assert_array_equal(gv, np.array([1.0, 3.0]))
 
@@ -51,7 +51,7 @@ def test_dropna_positional_index_is_none():
 
 def test_dropna_stream_in_stream_out():
     s = Stream(np.array([1.0, np.nan, 3.0]), np.array([10, 20, 30], dtype=np.int64))
-    out = streams.dropna(s)
+    out = streams.Dropna()(s)
     assert isinstance(out, Stream)
     np.testing.assert_array_equal(out.values, [1.0, 3.0])
     np.testing.assert_array_equal(out.index, [10, 30])
@@ -59,7 +59,7 @@ def test_dropna_stream_in_stream_out():
 
 def test_dropna_stream_positional():
     s = Stream(np.array([1.0, np.nan, 3.0]))      # positional stream
-    out = streams.dropna(s)
+    out = streams.Dropna()(s)
     assert isinstance(out, Stream)
     assert out.index is None
     np.testing.assert_array_equal(out.values, [1.0, 3.0])
@@ -69,7 +69,7 @@ def test_dropna_node_in_node_out():
     from screamer import Input
     from screamer.dag import is_node
     x = Input("x")
-    assert is_node(streams.dropna(x))
+    assert is_node(streams.Dropna()(x))
 
 
 # ---------------------------------------------------------------------------
@@ -80,22 +80,22 @@ def test_dropna_iter_matches_batch():
     vals = np.array([1.0, np.nan, 3.0])
     idx = np.array([1, 2, 3], dtype=np.int64)
     gen = ((float(v), int(k)) for v, k in zip(vals, idx))
-    got = list(streams.dropna(gen))
+    got = list(streams.Dropna()(gen))
     assert got == [(1.0, 1), (3.0, 3)]
 
 
 def test_dropna_iter_positional_yields_none_index():
     events = iter([(1.0, None), (float("nan"), None), (3.0, None)])
-    got = list(streams.dropna(events))
+    got = list(streams.Dropna()(events))
     assert got == [(1.0, None), (3.0, None)]
 
 
 def test_dropna_iter_2d_rows():
     events = iter([((1.0, 10.0), 1), ((np.nan, 20.0), 2), ((3.0, 30.0), 3)])
-    got_any = list(streams.dropna(events, how="any"))
+    got_any = list(streams.Dropna(how="any")(events))
     assert [idx for _, idx in got_any] == [1, 3]
     events2 = iter([((1.0, 10.0), 1), ((np.nan, 20.0), 2), ((3.0, 30.0), 3)])
-    got_all = list(streams.dropna(events2, how="all"))
+    got_all = list(streams.Dropna(how="all")(events2))
     assert [idx for _, idx in got_all] == [1, 2, 3]    # no row is all-NaN
 
 
@@ -108,7 +108,7 @@ def test_split_inverts_merge():
     a_v = np.array([10.0, 30.0, 50.0])
     b_k = np.array([2, 4], dtype=np.int64)
     b_v = np.array([20.0, 40.0])
-    mv, ms, mk = streams.merge(a_v, b_v, index=[a_k, b_k])   # values-first result
+    mv, ms, mk = streams.Merge()(a_v, b_v, index=[a_k, b_k])   # values-first result
     parts = streams.split(mv, ms, index=mk)                    # split(values, sources, index=)
     assert len(parts) == 2
     np.testing.assert_array_equal(parts[0][0], a_v)   # parts[i] = (values, index)
@@ -140,12 +140,12 @@ def test_split_rejects_too_small_n():
 
 def test_dropna_lazy_equals_batch():
     import numpy as np
-    from screamer.streams import dropna
+    from screamer.streams import Dropna as _Dropna
     vals = np.array([1.0, np.nan, 3.0, np.nan, 5.0])
     idx = np.array([10, 11, 12, 13, 14])
-    bv, bk = dropna(vals, idx)                          # raw -> (values, index)
+    bv, bk = _Dropna()(vals, idx)                          # raw -> (values, index)
     gen = ((float(v), int(k)) for v, k in zip(vals, idx))
-    out = dropna(gen)
+    out = _Dropna()(gen)
     assert hasattr(out, "__next__") and not isinstance(out, tuple)
     rows = list(out)
     np.testing.assert_allclose([r[0] for r in rows], np.asarray(bv))
@@ -157,7 +157,7 @@ def test_dropna_lazy_equals_batch():
 # ---------------------------------------------------------------------------
 
 def test_dropna_lazy_is_lazy():
-    from screamer.streams import dropna
+    from screamer.streams import Dropna as _Dropna
     pulled = []
 
     def spy():
@@ -165,7 +165,7 @@ def test_dropna_lazy_is_lazy():
             pulled.append(v)
             yield (v, i)
 
-    it = dropna(spy())
+    it = _Dropna()(spy())
     assert pulled == []
     first = next(it)
     assert pulled == [1.0]

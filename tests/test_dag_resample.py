@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 
 from screamer import Input, Dag
-from screamer.streams import resample, Resample, combine_latest
+from screamer.streams import Resample, CombineLatest
 from tests._dag_oracle import lazy_batch as _lazy_batch
 
 
@@ -21,7 +21,7 @@ def test_resample_by_key_batch_stream_oracle(agg):
     vals = np.array([1.0, 2.0, 3.0, 4.0, 5.0, 6.0])
     x = Input("x")
     # node-mode: use every= (span) because Resample(freq=W)(node) resolves to count mode
-    dag = Dag(inputs=[x], outputs=[resample(x, every=10, agg=agg)])
+    dag = Dag(inputs=[x], outputs=[Resample(freq=10, agg=agg)(x)])
     (bv, bk), (sv, sk) = _stream_1d(dag, (vals, keys))
     ev, ek = Resample(freq=10, agg=agg)(vals, keys)   # eager oracle (values-first)
     np.testing.assert_array_equal(bk, ek)
@@ -38,7 +38,7 @@ def test_resample_by_key_nan_in_graph(agg):
     keys = np.array([0, 1, 2, 10, 11], dtype=np.int64)
     vals = np.array([np.nan, 4.0, np.nan, np.nan, np.nan])
     x = Input("x")
-    dag = Dag(inputs=[x], outputs=[resample(x, every=10, agg=agg)])
+    dag = Dag(inputs=[x], outputs=[Resample(freq=10, agg=agg)(x)])
     bv, bk = dag((vals, keys))
     sv, sk = _lazy_batch(dag, (vals, keys))
     ev, ek = Resample(freq=10, agg=agg)(vals, keys)   # eager oracle (values-first)
@@ -53,7 +53,7 @@ def test_resample_by_key_right_label_and_origin():
     keys = np.array([2, 7, 12, 19], dtype=np.int64)
     vals = np.array([1.0, 2.0, 3.0, 4.0])
     x = Input("x")
-    dag = Dag(inputs=[x], outputs=[resample(x, every=5, origin=2, agg="sum", label="right")])
+    dag = Dag(inputs=[x], outputs=[Resample(freq=5, origin=2, agg="sum", label="right")(x)])
     (bv, bk), (sv, sk) = _stream_1d(dag, (vals, keys))
     ev, ek = Resample(freq=5, origin=2, agg="sum", label="right")(vals, keys)
     np.testing.assert_array_equal(bk, ek); np.testing.assert_array_equal(bv.reshape(-1), ev)
@@ -64,7 +64,7 @@ def test_resample_ohlc_4col_in_graph():
     keys = np.array([0, 1, 2, 10, 11], dtype=np.int64)
     vals = np.array([4.0, 2.0, 8.0, 6.0, 7.0])
     x = Input("x")
-    dag = Dag(inputs=[x], outputs=[resample(x, every=10, agg="ohlc")])
+    dag = Dag(inputs=[x], outputs=[Resample(freq=10, agg="ohlc")(x)])
     bv, bk = dag((vals, keys))
     sv, sk = _lazy_batch(dag, (vals, keys))
     ev, ek = Resample(freq=10, agg="ohlc")(vals, keys)
@@ -79,7 +79,7 @@ def test_resample_trailing_bucket_flush_batch_equals_stream():
     keys = np.array([0, 10, 25], dtype=np.int64)
     vals = np.array([1.0, 2.0, 3.0])
     x = Input("x")
-    dag = Dag(inputs=[x], outputs=[resample(x, every=10, agg="last")])
+    dag = Dag(inputs=[x], outputs=[Resample(freq=10, agg="last")(x)])
     bv, bk = dag((vals, keys))
     sv, sk = _lazy_batch(dag, (vals, keys))
     np.testing.assert_array_equal(bk, [0, 10, 20])
@@ -95,7 +95,7 @@ def test_resample_flush_through_combine_latest():
     ak = np.array([0, 10, 25], dtype=np.int64); av = np.array([5.0, 6.0, 7.0])
     bk = np.array([0, 10, 25], dtype=np.int64); bv = np.array([1.0, 1.0, 1.0])
     a, b = Input("a"), Input("b")
-    dag = Dag(inputs=[a, b], outputs=[resample(Sub()(combine_latest(a, b)), every=10, agg="last")])
+    dag = Dag(inputs=[a, b], outputs=[Resample(freq=10, agg="last")(Sub()(CombineLatest()(a, b)))])
     rbv, rbk = dag((av, ak), (bv, bk))
     rsv, rsk = _lazy_batch(dag, (av, ak), (bv, bk))
     # batch == lazy is the key guarantee (trailing bucket present in both)
@@ -110,7 +110,7 @@ def test_resample_feeds_functor():
     keys = np.array([0, 1, 10, 11, 20], dtype=np.int64)
     vals = np.array([2.0, 4.0, 6.0, 8.0, 10.0])
     x = Input("x")
-    dag = Dag(inputs=[x], outputs=[RollingMean(2)(resample(x, every=10, agg="mean"))])
+    dag = Dag(inputs=[x], outputs=[RollingMean(2)(Resample(freq=10, agg="mean")(x))])
     bv, bk = dag((vals, keys))
     sv, sk = _lazy_batch(dag, (vals, keys))
     np.testing.assert_array_equal(bk, sk)
@@ -134,7 +134,7 @@ def test_resample_by_key_negative_keys_graph():
     keys = np.array([-15, -5, 5, 12], dtype=np.int64)
     vals = np.array([1.0, 2.0, 3.0, 4.0])
     x = Input("x")
-    dag = Dag(inputs=[x], outputs=[resample(x, every=10, agg="last")])
+    dag = Dag(inputs=[x], outputs=[Resample(freq=10, agg="last")(x)])
     bv, bk = dag((vals, keys))
     sv, sk = _lazy_batch(dag, (vals, keys))
     ev, ek = Resample(freq=10, agg="last")(vals, keys)   # eager oracle (values-first)

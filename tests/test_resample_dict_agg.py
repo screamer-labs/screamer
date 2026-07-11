@@ -9,7 +9,7 @@ import numpy as np
 import pytest
 
 from screamer import ExpandingSkew
-from screamer.streams import Stream, combine_latest, resample, Resample
+from screamer.streams import Stream, CombineLatest, Resample
 
 
 # ---------------------------------------------------------------------------
@@ -62,7 +62,7 @@ def test_composition_sum_and_skew_labelled_columns():
     idx = np.arange(20, dtype=np.int64)
     total_s = Resample(freq=5, agg="sum")(x, idx)
     skew_s  = Resample(freq=5, agg=ExpandingSkew())(x, idx)
-    rows, bar_idx = combine_latest(total_s, skew_s)
+    rows, bar_idx = CombineLatest()(total_s, skew_s)
     # column 0: sum; verify against single-agg sum
     ref_total, _ = Resample(freq=5, agg="sum")(x, idx)
     np.testing.assert_allclose(rows[:, 0], ref_total.values if hasattr(ref_total, "values") else ref_total)
@@ -76,7 +76,7 @@ def test_composition_column_order_preserved():
     z = Resample(freq=5, agg="last")(x, idx)
     a = Resample(freq=5, agg="first")(x, idx)
     m = Resample(freq=5, agg="mean")(x, idx)
-    rows, _ = combine_latest(z, a, m)
+    rows, _ = CombineLatest()(z, a, m)
     assert rows.shape[1] == 3
     # column 0 = last, 1 = first, 2 = mean
     ref_last,  _ = Resample(freq=5, agg="last")(x, idx)
@@ -92,7 +92,7 @@ def test_composition_matches_single_agg_values():
     s_s  = Resample(freq=5, agg="sum")(x, idx)
     mn_s = Resample(freq=5, agg="min")(x, idx)
     mx_s = Resample(freq=5, agg="max")(x, idx)
-    rows, _ = combine_latest(s_s, mn_s, mx_s)
+    rows, _ = CombineLatest()(s_s, mn_s, mx_s)
 
     for col, agg_str in enumerate(["sum", "min", "max"]):
         ref_vals, _ = Resample(freq=5, agg=agg_str)(x, idx)
@@ -105,7 +105,7 @@ def test_composition_bar_index_matches_single_agg():
     idx = np.arange(20, dtype=np.int64)
     s_s = Resample(freq=5, agg="sum")(x, idx)
     c_s = Resample(freq=5, agg="count")(x, idx)
-    rows, bar_idx = combine_latest(s_s, c_s)
+    rows, bar_idx = CombineLatest()(s_s, c_s)
     ref, ref_idx = Resample(freq=5, agg="sum")(x, idx)
     np.testing.assert_array_equal(bar_idx, ref_idx)
 
@@ -115,7 +115,7 @@ def test_composition_single_entry():
     x   = np.arange(10.0)
     idx = np.arange(10, dtype=np.int64)
     total_s = Resample(freq=5, agg="sum")(x, idx)
-    rows, _ = combine_latest(total_s)
+    rows, _ = CombineLatest()(total_s)
     assert rows.ndim == 2
     assert rows.shape[1] == 1
 
@@ -126,7 +126,7 @@ def test_composition_count_bucketing():
     idx = np.arange(12, dtype=np.int64)
     s_s = Resample(count=4, agg="sum")(x, idx)
     f_s = Resample(count=4, agg="first")(x, idx)
-    rows, _ = combine_latest(s_s, f_s)
+    rows, _ = CombineLatest()(s_s, f_s)
     assert rows.shape[1] == 2
     ref_s, _ = Resample(count=4, agg="sum")(x, idx)
     ref_f, _ = Resample(count=4, agg="first")(x, idx)
@@ -144,6 +144,6 @@ def test_composition_literal_values():
     idx = np.arange(10, dtype=np.int64)
     s_s  = Resample(freq=5, agg="sum")(x, idx)
     mx_s = Resample(freq=5, agg="max")(x, idx)
-    rows, _ = combine_latest(s_s, mx_s)
+    rows, _ = CombineLatest()(s_s, mx_s)
     expected = np.array([[10.0, 4.0], [35.0, 9.0]])
     np.testing.assert_array_equal(rows, expected)

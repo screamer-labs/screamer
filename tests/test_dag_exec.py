@@ -75,11 +75,11 @@ def test_fanout_wiring_correct():
 
 
 def test_align_outputs_default_coindexes_different_branches():
-    from screamer import combine_latest
+    from screamer import CombineLatest
     a = Input("a"); b = Input("b"); c = Input("c")
     # Two branches over different input pairs -> naturally different key sets.
-    ab = Sub()(combine_latest(a, b))   # keys = union(a, b)
-    ac = Add()(combine_latest(a, c))   # keys = union(a, c)
+    ab = Sub()(CombineLatest()(a, b))   # keys = union(a, b)
+    ac = Add()(CombineLatest()(a, c))   # keys = union(a, c)
     dag = Dag(inputs=[a, b, c], outputs=[ab, ac], align_outputs=True)
     ka = (np.array([1.0, 2.0, 3.0, 4.0]), np.array([1, 2, 3, 4], dtype=np.int64))   # (values, index)
     kb = (np.array([10.0, 20.0]), np.array([1, 2], dtype=np.int64))

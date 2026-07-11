@@ -12,7 +12,7 @@ After the migration the same expected values must hold against the C++ path.
 """
 import numpy as np
 import pytest
-from screamer.streams import dropna
+from screamer.streams import Dropna
 
 
 # ---------------------------------------------------------------------------
@@ -87,14 +87,14 @@ def _cmp_nan(got_v, got_k, exp_v, exp_k):
 # ---------------------------------------------------------------------------
 
 def test_dropna_1d_positional():
-    gv, gk = dropna(_V1)
+    gv, gk = Dropna()(_V1)
     assert gk is None, "positional input must return None index"
     _cmp(gv, np.arange(len(_EV1), dtype=np.int64), _EV1, np.arange(len(_EV1), dtype=np.int64))
     np.testing.assert_array_equal(gv, _EV1)
 
 
 def test_dropna_1d_indexed():
-    gv, gk = dropna(_V1, index=_K1)
+    gv, gk = Dropna()(_V1, index=_K1)
     _cmp(gv, gk, _EV1, _EK1)
 
 
@@ -103,12 +103,12 @@ def test_dropna_1d_indexed():
 # ---------------------------------------------------------------------------
 
 def test_dropna_2d_any_indexed():
-    gv, gk = dropna(_V2, index=_K2, how="any")
+    gv, gk = Dropna(how="any")(_V2, index=_K2)
     _cmp(gv, gk, _EV2_ANY, _EK2_ANY)
 
 
 def test_dropna_2d_any_positional():
-    gv, gk = dropna(_V2, how="any")
+    gv, gk = Dropna(how="any")(_V2)
     assert gk is None, "positional input must return None index"
     _cmp(gv, np.arange(len(_EV2_ANY), dtype=np.int64),
          _EV2_ANY, np.arange(len(_EV2_ANY), dtype=np.int64))
@@ -121,12 +121,12 @@ def test_dropna_2d_any_positional():
 
 def test_dropna_2d_all_indexed():
     """how='all' only drops the fully-NaN row; partial-NaN rows survive with NaN intact."""
-    gv, gk = dropna(_V2, index=_K2, how="all")
+    gv, gk = Dropna(how="all")(_V2, index=_K2)
     _cmp_nan(gv, gk, _EV2_ALL, _EK2_ALL)
 
 
 def test_dropna_2d_all_positional():
-    gv, gk = dropna(_V2, how="all")
+    gv, gk = Dropna(how="all")(_V2)
     assert gk is None, "positional input must return None index"
     if not np.array_equal(np.asarray(gv), np.asarray(_EV2_ALL), equal_nan=True):
         raise AssertionError(
@@ -140,7 +140,7 @@ def test_dropna_2d_all_positional():
 
 def test_dropna_stream_1d_indexed():
     from screamer.streams import Stream
-    s = dropna(Stream(_V1, _K1))
+    s = Dropna()(Stream(_V1, _K1))
     from screamer.streams import Stream as Sm
     assert isinstance(s, Sm)
     _cmp(s.values, s.index, _EV1, _EK1)
@@ -148,7 +148,7 @@ def test_dropna_stream_1d_indexed():
 
 def test_dropna_stream_1d_positional():
     from screamer.streams import Stream
-    s = dropna(Stream(_V1))
+    s = Dropna()(Stream(_V1))
     assert isinstance(s, Stream)
     assert s.index is None
     np.testing.assert_array_equal(s.values, _EV1)
@@ -156,14 +156,14 @@ def test_dropna_stream_1d_positional():
 
 def test_dropna_stream_2d_any():
     from screamer.streams import Stream
-    s = dropna(Stream(_V2, _K2), how="any")
+    s = Dropna(how="any")(Stream(_V2, _K2))
     assert isinstance(s, Stream)
     _cmp(s.values, s.index, _EV2_ANY, _EK2_ANY)
 
 
 def test_dropna_stream_2d_all():
     from screamer.streams import Stream
-    s = dropna(Stream(_V2, _K2), how="all")
+    s = Dropna(how="all")(Stream(_V2, _K2))
     assert isinstance(s, Stream)
     _cmp_nan(s.values, s.index, _EV2_ALL, _EK2_ALL)
 
@@ -174,7 +174,7 @@ def test_dropna_stream_2d_all():
 
 def test_dropna_lazy_1d_indexed_values():
     events = ((float(v), int(k)) for v, k in zip(_V1, _K1))
-    rows = list(dropna(events))
+    rows = list(Dropna()(events))
     got_v = np.array([r[0] for r in rows], dtype=np.float64)
     got_k = np.array([r[1] for r in rows], dtype=np.int64)
     _cmp(got_v, got_k, _EV1, _EK1)
@@ -189,7 +189,7 @@ def test_dropna_lazy_1d_indexed_is_lazy():
             pulled.append(v)
             yield float(v), int(k)
 
-    it = dropna(_spy())
+    it = Dropna()(_spy())
     assert pulled == [], "dropna must not consume events at construction time"
     next(it)
     assert len(pulled) >= 1
@@ -198,7 +198,7 @@ def test_dropna_lazy_1d_indexed_is_lazy():
 def test_dropna_lazy_1d_positional_none_index():
     """Positional events (index=None) survive and keep None as index."""
     events = iter([(1.0, None), (float("nan"), None), (3.0, None)])
-    rows = list(dropna(events))
+    rows = list(Dropna()(events))
     assert rows == [(1.0, None), (3.0, None)]
 
 
@@ -208,7 +208,7 @@ def test_dropna_lazy_1d_positional_none_index():
 
 def test_dropna_lazy_2d_any():
     events = ((tuple(float(x) for x in row), int(k)) for row, k in zip(_V2, _K2))
-    rows = list(dropna(events, how="any"))
+    rows = list(Dropna(how="any")(events))
     got_k = np.array([r[1] for r in rows], dtype=np.int64)
     got_v_arr = np.array([list(r[0]) for r in rows], dtype=np.float64)
     _cmp(got_v_arr, got_k, _EV2_ANY, _EK2_ANY)
@@ -217,7 +217,7 @@ def test_dropna_lazy_2d_any():
 def test_dropna_lazy_2d_all():
     """how='all' lazy: only the all-NaN row is dropped; partial-NaN rows survive."""
     events = ((tuple(float(x) for x in row), int(k)) for row, k in zip(_V2, _K2))
-    rows = list(dropna(events, how="all"))
+    rows = list(Dropna(how="all")(events))
     got_k = np.array([r[1] for r in rows], dtype=np.int64)
     got_v_arr = np.array([list(r[0]) for r in rows], dtype=np.float64)
     np.testing.assert_array_equal(got_k, _EK2_ALL)
@@ -237,12 +237,12 @@ def test_batch_lazy_graph_1d_any():
     from tests._dag_oracle import lazy_batch as _lb
 
     x = Input("x")
-    dag = Dag([x], [dropna(x, how="any")])
+    dag = Dag([x], [Dropna(how="any")(x)])
 
-    bv, bk = dropna(_V1, index=_K1)
+    bv, bk = Dropna()(_V1, index=_K1)
 
     events = ((float(v), int(k)) for v, k in zip(_V1, _K1))
-    lazy_rows = list(dropna(events))
+    lazy_rows = list(Dropna()(events))
     lv = np.array([r[0] for r in lazy_rows], dtype=np.float64)
     lk = np.array([r[1] for r in lazy_rows], dtype=np.int64)
 
@@ -258,16 +258,16 @@ def test_batch_lazy_graph_1d_any():
 def test_batch_lazy_graph_2d_any():
     """2-D any: batch, lazy, and graph match the oracle."""
     from screamer import Input, Dag
-    from screamer.streams import combine_latest
+    from screamer.streams import CombineLatest
     from tests._dag_oracle import lazy_batch as _lb
 
     a, b = Input("a"), Input("b")
-    dag = Dag([a, b], [dropna(combine_latest(a, b), how="any")])
+    dag = Dag([a, b], [Dropna(how="any")(CombineLatest()(a, b))])
 
-    bv, bk = dropna(_V2, index=_K2, how="any")
+    bv, bk = Dropna(how="any")(_V2, index=_K2)
 
     events = ((tuple(float(x) for x in row), int(k)) for row, k in zip(_V2, _K2))
-    lazy_rows = list(dropna(events, how="any"))
+    lazy_rows = list(Dropna(how="any")(events))
     lk = np.array([r[1] for r in lazy_rows], dtype=np.int64)
     lv = np.array([list(r[0]) for r in lazy_rows], dtype=np.float64)
 
@@ -285,16 +285,16 @@ def test_batch_lazy_graph_2d_any():
 def test_batch_lazy_graph_2d_all():
     """2-D all: batch, lazy, and graph match; NaN-retaining rows compared with equal_nan."""
     from screamer import Input, Dag
-    from screamer.streams import combine_latest
+    from screamer.streams import CombineLatest
     from tests._dag_oracle import lazy_batch as _lb
 
     a, b = Input("a"), Input("b")
-    dag = Dag([a, b], [dropna(combine_latest(a, b), how="all")])
+    dag = Dag([a, b], [Dropna(how="all")(CombineLatest()(a, b))])
 
-    bv, bk = dropna(_V2, index=_K2, how="all")
+    bv, bk = Dropna(how="all")(_V2, index=_K2)
 
     events = ((tuple(float(x) for x in row), int(k)) for row, k in zip(_V2, _K2))
-    lazy_rows = list(dropna(events, how="all"))
+    lazy_rows = list(Dropna(how="all")(events))
     lk = np.array([r[1] for r in lazy_rows], dtype=np.int64)
     lv = np.array([list(r[0]) for r in lazy_rows], dtype=np.float64)
 
