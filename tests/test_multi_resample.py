@@ -10,7 +10,7 @@ import numpy as np
 import pytest
 
 from screamer.dag import Input, Dag
-from screamer.streams import multi_resample, resample
+from screamer.streams import multi_resample, resample, Resample
 from screamer import (First, Last, ExpandingMax, ExpandingMin, ExpandingSum,
                       PosPart, NegPart)
 
@@ -35,7 +35,7 @@ def test_alignment_matches_stacked_single_resamples():
     assert v.shape == (4, 4)   # 20 / 5 = 4 bars, 4 columns
 
     for col, agg in enumerate(["first", "max", "min", "last"]):
-        rv, rk = resample(vals, idx, every=W, agg=agg)
+        rv, rk = Resample(freq=W, agg=agg)(vals, idx)
         np.testing.assert_array_equal(k, rk)
         np.testing.assert_array_equal(v[:, col], rv)
 
@@ -61,18 +61,18 @@ def test_two_inputs_ohlcv2_shape():
     assert v.shape == (3, 4)
 
     # column 0/1: first/last of price
-    rv, rk = resample(price, idx, every=W, agg="first")
+    rv, rk = Resample(freq=W, agg="first")(price, idx)
     np.testing.assert_array_equal(k, rk)
     np.testing.assert_array_equal(v[:, 0], rv)
-    rv, _ = resample(price, idx, every=W, agg="last")
+    rv, _ = Resample(freq=W, agg="last")(price, idx)
     np.testing.assert_array_equal(v[:, 1], rv)
 
     # column 2: sum of PosPart(vol); column 3: sum of NegPart(vol)
     pos = np.where(vol > 0, vol, 0.0)
     neg = np.where(vol < 0, -vol, 0.0)   # NegPart returns positive magnitude
-    rv, _ = resample(pos, idx, every=W, agg="sum")
+    rv, _ = Resample(freq=W, agg="sum")(pos, idx)
     np.testing.assert_array_equal(v[:, 2], rv)
-    rv, _ = resample(neg, idx, every=W, agg="sum")
+    rv, _ = Resample(freq=W, agg="sum")(neg, idx)
     np.testing.assert_array_equal(v[:, 3], rv)
 
 

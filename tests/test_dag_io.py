@@ -9,14 +9,14 @@ import numpy as np
 import pytest
 
 from screamer import RollingMean, EwMean, RollingMinMax, Sub, Input, Dag
-from screamer.streams import combine_latest, dropna, resample, select
+from screamer.streams import combine_latest, dropna, resample, Resample, select
 
 
 def _rich_dag(align_outputs):
     a, b = Input("a"), Input("b")
     cl = combine_latest(a, b)                     # 2-column shared node -> diamond
     sm = RollingMean(3)(dropna(Sub()(cl)))        # operator + functor + operator + functor
-    rs = resample(sm, every=2, agg="last")        # resample operator
+    rs = resample(sm, every=2, agg="last")         # resample operator (node-mode span)
     sel = select(cl, columns=[0])                 # select operator, second consumer of cl
     return Dag([a, b], [rs, sel], align_outputs=align_outputs)
 

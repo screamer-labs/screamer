@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 
 from screamer import Input, Dag
-from screamer.streams import resample, combine_latest
+from screamer.streams import resample, Resample, combine_latest
 from tests._dag_oracle import lazy_batch as _lazy_batch
 
 
@@ -20,9 +20,10 @@ def test_resample_by_key_batch_stream_oracle(agg):
     keys = np.array([0, 3, 10, 12, 20, 25], dtype=np.int64)
     vals = np.array([1.0, 2.0, 3.0, 4.0, 5.0, 6.0])
     x = Input("x")
+    # node-mode: use every= (span) because Resample(freq=W)(node) resolves to count mode
     dag = Dag(inputs=[x], outputs=[resample(x, every=10, agg=agg)])
     (bv, bk), (sv, sk) = _stream_1d(dag, (vals, keys))
-    ev, ek = resample(vals, keys, every=10, agg=agg)   # eager oracle (values-first)
+    ev, ek = Resample(freq=10, agg=agg)(vals, keys)   # eager oracle (values-first)
     np.testing.assert_array_equal(bk, ek)
     np.testing.assert_array_equal(bv.reshape(-1), ev)
     np.testing.assert_array_equal(sk, ek)
@@ -40,7 +41,7 @@ def test_resample_by_key_nan_in_graph(agg):
     dag = Dag(inputs=[x], outputs=[resample(x, every=10, agg=agg)])
     bv, bk = dag((vals, keys))
     sv, sk = _lazy_batch(dag, (vals, keys))
-    ev, ek = resample(vals, keys, every=10, agg=agg)   # eager oracle (values-first)
+    ev, ek = Resample(freq=10, agg=agg)(vals, keys)   # eager oracle (values-first)
     # assert_array_equal treats NaN==NaN as equal (not allclose)
     np.testing.assert_array_equal(bk, ek)
     np.testing.assert_array_equal(bv.reshape(-1), ev)
@@ -54,7 +55,7 @@ def test_resample_by_key_right_label_and_origin():
     x = Input("x")
     dag = Dag(inputs=[x], outputs=[resample(x, every=5, origin=2, agg="sum", label="right")])
     (bv, bk), (sv, sk) = _stream_1d(dag, (vals, keys))
-    ev, ek = resample(vals, keys, every=5, origin=2, agg="sum", label="right")
+    ev, ek = Resample(freq=5, origin=2, agg="sum", label="right")(vals, keys)
     np.testing.assert_array_equal(bk, ek); np.testing.assert_array_equal(bv.reshape(-1), ev)
     np.testing.assert_array_equal(sk, ek); np.testing.assert_array_equal(sv.reshape(-1), ev)
 
@@ -66,7 +67,7 @@ def test_resample_ohlc_4col_in_graph():
     dag = Dag(inputs=[x], outputs=[resample(x, every=10, agg="ohlc")])
     bv, bk = dag((vals, keys))
     sv, sk = _lazy_batch(dag, (vals, keys))
-    ev, ek = resample(vals, keys, every=10, agg="ohlc")
+    ev, ek = Resample(freq=10, agg="ohlc")(vals, keys)
     assert bv.shape[1] == 4
     np.testing.assert_array_equal(bv, ev)
     np.testing.assert_array_equal(sv, ev)
@@ -136,7 +137,7 @@ def test_resample_by_key_negative_keys_graph():
     dag = Dag(inputs=[x], outputs=[resample(x, every=10, agg="last")])
     bv, bk = dag((vals, keys))
     sv, sk = _lazy_batch(dag, (vals, keys))
-    ev, ek = resample(vals, keys, every=10, agg="last")   # eager oracle (values-first)
+    ev, ek = Resample(freq=10, agg="last")(vals, keys)   # eager oracle (values-first)
     np.testing.assert_array_equal(bk, ek); np.testing.assert_array_equal(bv.reshape(-1), ev)
     np.testing.assert_array_equal(sk, ek); np.testing.assert_array_equal(sv.reshape(-1), ev)
 
@@ -146,10 +147,10 @@ def test_resample_by_count_batch_stream_oracle(agg):
     keys = np.array([10, 20, 30, 40, 50], dtype=np.int64)
     vals = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
     x = Input("x")
-    dag = Dag(inputs=[x], outputs=[resample(x, count=2, agg=agg)])
+    dag = Dag(inputs=[x], outputs=[Resample(count=2, agg=agg)(x)])
     bv, bk = dag((vals, keys))
     sv, sk = _lazy_batch(dag, (vals, keys))
-    ev, ek = resample(vals, keys, count=2, agg=agg)   # eager oracle (incl. trailing partial)
+    ev, ek = Resample(count=2, agg=agg)(vals, keys)   # eager oracle (incl. trailing partial)
     np.testing.assert_array_equal(bk, ek)
     np.testing.assert_array_equal(bv.reshape(-1), ev)
     np.testing.assert_array_equal(sk, ek)
@@ -160,10 +161,10 @@ def test_resample_by_count_right_label_in_graph():
     keys = np.array([10, 20, 30, 40], dtype=np.int64)
     vals = np.array([1.0, 2.0, 3.0, 4.0])
     x = Input("x")
-    dag = Dag(inputs=[x], outputs=[resample(x, count=2, agg="last", label="right")])
+    dag = Dag(inputs=[x], outputs=[Resample(count=2, agg="last", label="right")(x)])
     bv, bk = dag((vals, keys))
     sv, sk = _lazy_batch(dag, (vals, keys))
-    ev, ek = resample(vals, keys, count=2, agg="last", label="right")
+    ev, ek = Resample(count=2, agg="last", label="right")(vals, keys)
     np.testing.assert_array_equal(bk, ek); np.testing.assert_array_equal(bv.reshape(-1), ev)
     np.testing.assert_array_equal(sk, ek); np.testing.assert_array_equal(sv.reshape(-1), ev)
 
@@ -172,10 +173,10 @@ def test_resample_by_count_ohlc_in_graph():
     keys = np.array([10, 20, 30, 40, 50], dtype=np.int64)
     vals = np.array([4.0, 2.0, 8.0, 6.0, 7.0])
     x = Input("x")
-    dag = Dag(inputs=[x], outputs=[resample(x, count=2, agg="ohlc")])
+    dag = Dag(inputs=[x], outputs=[Resample(count=2, agg="ohlc")(x)])
     bv, bk = dag((vals, keys))
     sv, sk = _lazy_batch(dag, (vals, keys))
-    ev, ek = resample(vals, keys, count=2, agg="ohlc")
+    ev, ek = Resample(count=2, agg="ohlc")(vals, keys)
     assert bv.shape[1] == 4
     np.testing.assert_array_equal(bv, ev)
     np.testing.assert_array_equal(sv, ev)

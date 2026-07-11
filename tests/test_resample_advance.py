@@ -11,7 +11,7 @@ index origin + nb*width), matching tests/test_resample_fill.py.
 import numpy as np
 import pytest
 
-from screamer.streams import resample
+from screamer.streams import resample, Resample
 from screamer.dag import Input, Dag
 from screamer import ExpandingSum
 
@@ -19,6 +19,7 @@ from screamer import ExpandingSum
 def _live_last(fill):
     """A width-100, origin-0, agg='last' single-column live Dag session."""
     src = Input("x")
+    # node-mode span: use every= (Resample(freq=100) resolves to count mode for nodes)
     node = resample(src, every=100, origin=0, agg="last", fill=fill)
     dag = Dag([src], [node])
     return dag.live()
@@ -118,6 +119,7 @@ def test_batch_parity_internal_gap_nan_unchanged():
     IDX = np.array([0, 3], dtype=np.int64)
     VALS = np.array([10.0, 40.0])
     src = Input("x")
+    # node-mode span: use every= for correct span semantics
     node = resample(src, every=1, agg="last", fill="nan")
     dag = Dag([src], [node])
     v, k = dag((VALS, IDX))
@@ -238,7 +240,7 @@ def test_advance_then_later_event_fills_parked_bucket_generic():
 
 def test_advance_noop_count_mode():
     src = Input("x")
-    node = resample(src, count=2, agg="last", fill="nan")
+    node = Resample(count=2, agg="last", fill="nan")(src)
     dag = Dag([src], [node])
     live = dag.live()
     live.push("x", 0, 10.0)

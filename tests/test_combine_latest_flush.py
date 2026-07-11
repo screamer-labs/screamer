@@ -9,7 +9,7 @@ import numpy as np
 import pytest
 
 from screamer.dag import Input, Dag
-from screamer.streams import resample, combine_latest
+from screamer.streams import resample, Resample, combine_latest
 from screamer import ExpandingMax, ExpandingMin
 
 
@@ -17,6 +17,7 @@ def test_repro_no_duplicate_final_row():
     t = np.arange(200, dtype=np.int64)
     price = 100 + np.cumsum(np.random.default_rng(7).normal(size=200))
     p = Input("price")
+    # node-mode span: use every= (Resample(freq=W)(node) resolves to count mode)
     dag = Dag([p], [combine_latest(resample(p, every=40, agg=ExpandingMax()),
                                    resample(p, every=40, agg=ExpandingMin()))])
     values, index = dag((price, t))
