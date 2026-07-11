@@ -12,19 +12,19 @@ Designed frequency-domain and state-space filters.
 
    * - Function
      - Description
-   * - :doc:`Butter </functions_signal/Butter>`
+   * - :doc:`Butterworth low-pass filter </functions_signal/Butter>`
      - General-order IIR Butterworth low-pass filter.
-   * - :doc:`ButterBandpass </functions_signal/ButterBandpass>`
+   * - :doc:`Butterworth band-pass filter </functions_signal/ButterBandpass>`
      - General-order IIR Butterworth band-pass filter.
-   * - :doc:`ButterBandstop </functions_signal/ButterBandstop>`
+   * - :doc:`Butterworth band-stop filter </functions_signal/ButterBandstop>`
      - General-order IIR Butterworth band-stop (notch) filter.
-   * - :doc:`ButterHighpass </functions_signal/ButterHighpass>`
+   * - :doc:`Butterworth high-pass filter </functions_signal/ButterHighpass>`
      - General-order IIR Butterworth high-pass filter (rejects low frequencies).
-   * - :doc:`Hampel </functions_rolling/Hampel>`
+   * - :doc:`Hampel filter </functions_rolling/Hampel>`
      - Robust Hampel despiker, replace samples far from the window median (in MAD units).
-   * - :doc:`KalmanFilter </functions_signal/KalmanFilter>`
+   * - :doc:`Scalar Kalman filter </functions_signal/KalmanFilter>`
      - Scalar 1-D Kalman filter for a noisy random-walk model.
-   * - :doc:`MovingAverage </functions_signal/MovingAverage>`
+   * - :doc:`FIR moving average (arbitrary taps) </functions_signal/MovingAverage>`
      - Finite-impulse-response filter with user-supplied taps.
-   * - :doc:`SchmittTrigger </functions_signal/SchmittTrigger>`
+   * - :doc:`Schmitt trigger (hysteresis comparator) </functions_signal/SchmittTrigger>`
      - Hysteresis comparator. Latches 1.0 above the upper threshold, 0.0 below the lower threshold, and retains its previous value in between.

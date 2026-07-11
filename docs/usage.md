@@ -216,8 +216,7 @@ function. It provides operators to combine streams (`CombineLatest`, `Merge`),
 reshape them (`Dropna`, `Filter`, `Select`), downsample them (`Resample`), and
 replay stored data as a live feed (`replay`). The model — streams, their index,
 and alignment — is described in
-[Streams, values, and alignment](multistream.md), with the [`Stream`](functions_streams/Stream.md)
-type as its object form. The [Working with streams](notebooks/07-working-with-streams)
+[Streams, values, and alignment](multistream.md). The [Working with streams](notebooks/07-working-with-streams)
 notebook shows them in use.
 
 ## Whole pipelines: the graph

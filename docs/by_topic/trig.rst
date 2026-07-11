@@ -12,23 +12,23 @@ Angles, inverse trigonometric functions, coordinate conversions, and distances.
 
    * - Function
      - Description
-   * - :doc:`Acos </functions_math/Acos>`
+   * - :doc:`Arccosine </functions_math/Acos>`
      - Inverse cosine of each element (radians, input in [-1, 1]).
-   * - :doc:`Asin </functions_math/Asin>`
+   * - :doc:`Arcsine </functions_math/Asin>`
      - Inverse sine of each element (radians, input in [-1, 1]).
-   * - :doc:`Atan </functions_math/Atan>`
+   * - :doc:`Arctangent </functions_math/Atan>`
      - Inverse tangent of each element (radians).
-   * - :doc:`Atan2 </functions_math/Atan2>`
+   * - :doc:`Two-argument arctangent </functions_math/Atan2>`
      - Signed angle of (x, y) from the positive x-axis (numpy.arctan2 order).
-   * - :doc:`Cart2Polar </functions_math/Cart2Polar>`
+   * - :doc:`Cartesian to polar </functions_math/Cart2Polar>`
      - Convert (x, y) to (r, theta).
-   * - :doc:`Cos </functions_math/Cos>`
+   * - :doc:`Cosine </functions_math/Cos>`
      - Cosine of each element (radians).
-   * - :doc:`Hypot </functions_math/Hypot>`
+   * - :doc:`Hypotenuse </functions_math/Hypot>`
      - Euclidean distance sqrt(x^2 + y^2), numerically stable.
-   * - :doc:`Polar2Cart </functions_math/Polar2Cart>`
+   * - :doc:`Polar to Cartesian </functions_math/Polar2Cart>`
      - Convert (r, theta) to (x, y).
-   * - :doc:`Sin </functions_math/Sin>`
+   * - :doc:`Sine </functions_math/Sin>`
      - Sine of each element (radians).
    * - :doc:`Tanh </functions_math/Tanh>`
      - Hyperbolic tangent.

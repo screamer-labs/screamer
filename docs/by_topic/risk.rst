@@ -14,17 +14,17 @@ Drawdowns and performance ratios.
      - Description
    * - :doc:`Drawdown </functions_fin/Drawdown>`
      - Running drawdown from the cumulative peak.
-   * - :doc:`MaxDrawdown </functions_fin/MaxDrawdown>`
+   * - :doc:`Maximum drawdown </functions_fin/MaxDrawdown>`
      - Worst drawdown experienced so far (since reset).
-   * - :doc:`RollingCalmar </functions_fin/RollingCalmar>`
+   * - :doc:`Rolling Calmar ratio </functions_fin/RollingCalmar>`
      - Annualised return divided by the worst rolling drawdown.
-   * - :doc:`RollingHitRate </functions_fin/RollingHitRate>`
+   * - :doc:`Rolling hit rate </functions_fin/RollingHitRate>`
      - Fraction of strictly-positive samples in a trailing window.
-   * - :doc:`RollingInfoRatio </functions_fin/RollingInfoRatio>`
+   * - :doc:`Rolling information ratio </functions_fin/RollingInfoRatio>`
      - Annualised information ratio: Sharpe of active returns against a benchmark.
-   * - :doc:`RollingMaxDrawdown </functions_fin/RollingMaxDrawdown>`
+   * - :doc:`Rolling maximum drawdown </functions_fin/RollingMaxDrawdown>`
      - Worst peak-to-trough drawdown inside a trailing window.
-   * - :doc:`RollingSharpe </functions_fin/RollingSharpe>`
+   * - :doc:`Rolling Sharpe ratio </functions_fin/RollingSharpe>`
      - Annualised Sharpe ratio over a trailing window of returns.
-   * - :doc:`RollingSortino </functions_fin/RollingSortino>`
+   * - :doc:`Rolling Sortino ratio </functions_fin/RollingSortino>`
      - Annualised Sortino ratio: Sharpe with downside-only deviation.

@@ -19,8 +19,7 @@ way to fan several streams into a single timeline.
 
 Feeding `Merge` lazy iterators of `(value, index, source)` events returns a lazy
 iterator (each source is numbered by a per-source arrival counter); feeding
-arrays or `Stream` objects returns the eager `(values, sources, index)` 3-tuple
-(Rule A).
+arrays or `(values, index)` tuples returns the eager `(values, sources, index)` 3-tuple.
 
 ## Example
 

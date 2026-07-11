@@ -12,31 +12,31 @@ Relationships between series: correlation, covariance, regression, hedging, pair
 
    * - Function
      - Description
-   * - :doc:`EwBeta </functions_ew/EwBeta>`
+   * - :doc:`Exponentially-weighted beta </functions_ew/EwBeta>`
      - EW CAPM beta: cov(target, regressor) / var(regressor).
-   * - :doc:`EwCorr </functions_ew/EwCorr>`
+   * - :doc:`Exponentially-weighted correlation </functions_ew/EwCorr>`
      - EW Pearson correlation of two parallel streams.
-   * - :doc:`EwCov </functions_ew/EwCov>`
+   * - :doc:`Exponentially-weighted covariance </functions_ew/EwCov>`
      - EW covariance of two parallel streams.
-   * - :doc:`RollingAlpha </functions_fin/RollingAlpha>`
+   * - :doc:`Rolling alpha (regression intercept) </functions_fin/RollingAlpha>`
      - Rolling OLS intercept of target on regressor (companion to RollingBeta).
-   * - :doc:`RollingBeta </functions_fin/RollingBeta>`
+   * - :doc:`Rolling beta </functions_fin/RollingBeta>`
      - cov(x, y) / var(y) - regression slope of x on y.
-   * - :doc:`RollingCorr </functions_fin/RollingCorr>`
+   * - :doc:`Rolling correlation </functions_fin/RollingCorr>`
      - Rolling Pearson correlation of two parallel streams.
-   * - :doc:`RollingCov </functions_fin/RollingCov>`
+   * - :doc:`Rolling covariance </functions_fin/RollingCov>`
      - Rolling sample covariance of two parallel streams.
-   * - :doc:`RollingHurst </functions_rolling/RollingHurst>`
+   * - :doc:`Rolling Hurst Exponent </functions_rolling/RollingHurst>`
      - Rolling-window Hurst exponent via Anis-Lloyd corrected rescaled-range analysis.
-   * - :doc:`RollingLinearRegression </functions_fin/RollingLinearRegression>`
+   * - :doc:`Rolling linear regression (2->4 OLS fit) </functions_fin/RollingLinearRegression>`
      - Full OLS fit returning (slope, intercept, r_squared, stderr).
-   * - :doc:`RollingOU </functions_rolling/RollingOU>`
+   * - :doc:`Rolling Ornstein-Uhlenbeck fit </functions_rolling/RollingOU>`
      - Rolling MLE fit of a mean-reverting Ornstein-Uhlenbeck process.
-   * - :doc:`RollingPoly1 </functions_rolling/RollingPoly1>`
+   * - :doc:`Rolling 1st-order polynomial fit </functions_rolling/RollingPoly1>`
      - OLS fit y = a + b*t over a trailing window. derivative_order selects value/slope/zero.
-   * - :doc:`RollingResidualStd </functions_fin/RollingResidualStd>`
+   * - :doc:`Rolling residual std </functions_fin/RollingResidualStd>`
      - Standard deviation of the rolling-hedge-adjusted residual y - beta*x.
-   * - :doc:`RollingSpread </functions_fin/RollingSpread>`
+   * - :doc:`Rolling spread </functions_fin/RollingSpread>`
      - x - beta(x,y) * y - hedge-adjusted residual.
-   * - :doc:`RollingTSF </functions_fin/RollingTSF>`
+   * - :doc:`Rolling Time-Series Forecast (TSF) </functions_fin/RollingTSF>`
      - Linear regression of y on time, projected one step ahead. TA-Lib's TSF.

@@ -12,11 +12,11 @@ Neural-network activation functions.
 
    * - Function
      - Description
-   * - :doc:`Elu </functions_math/Elu>`
+   * - :doc:`ELU </functions_math/Elu>`
      - Exponential linear unit.
-   * - :doc:`Relu </functions_math/Relu>`
+   * - :doc:`ReLU </functions_math/Relu>`
      - Rectified linear unit: max(0, x).
-   * - :doc:`Selu </functions_math/Selu>`
+   * - :doc:`SELU </functions_math/Selu>`
      - Scaled exponential linear unit (self-normalizing networks).
    * - :doc:`Sigmoid </functions_math/Sigmoid>`
      - Logistic sigmoid: 1 / (1 + exp(-x)).

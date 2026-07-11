@@ -12,31 +12,31 @@ Running aggregates from the start of the series.
 
    * - Function
      - Description
-   * - :doc:`AD </functions_rolling/AD>`
+   * - :doc:`Accumulation/Distribution Line (Chaikin) </functions_rolling/AD>`
      - Chaikin Accumulation/Distribution Line.
-   * - :doc:`CumMax </functions_misc/CumMax>`
+   * - :doc:`Cumulative maximum </functions_misc/CumMax>`
      - Running maximum from t=0.
-   * - :doc:`CumMin </functions_misc/CumMin>`
+   * - :doc:`Cumulative minimum </functions_misc/CumMin>`
      - Running minimum from t=0.
-   * - :doc:`CumProd </functions_misc/CumProd>`
+   * - :doc:`Cumulative product </functions_misc/CumProd>`
      - Running product from t=0.
-   * - :doc:`CumSum </functions_misc/CumSum>`
+   * - :doc:`Cumulative sum </functions_misc/CumSum>`
      - Running sum from t=0.
    * - :doc:`Drawdown </functions_fin/Drawdown>`
      - Running drawdown from the cumulative peak.
-   * - :doc:`ExpandingMax </functions_expanding/ExpandingMax>`
+   * - :doc:`Expanding maximum </functions_expanding/ExpandingMax>`
      - Running maximum from t=0.
-   * - :doc:`ExpandingMin </functions_expanding/ExpandingMin>`
+   * - :doc:`Expanding minimum </functions_expanding/ExpandingMin>`
      - Running minimum from t=0.
-   * - :doc:`ExpandingProd </functions_expanding/ExpandingProd>`
+   * - :doc:`Expanding product </functions_expanding/ExpandingProd>`
      - Running product from t=0.
-   * - :doc:`ExpandingSum </functions_expanding/ExpandingSum>`
+   * - :doc:`Expanding sum </functions_expanding/ExpandingSum>`
      - Running sum from t=0.
-   * - :doc:`First </functions_misc/First>`
+   * - :doc:`First finite value </functions_misc/First>`
      - Latch the first finite value seen since reset.
-   * - :doc:`Last </functions_misc/Last>`
+   * - :doc:`Last finite value </functions_misc/Last>`
      - Return the most recent finite value seen since reset.
-   * - :doc:`MaxDrawdown </functions_fin/MaxDrawdown>`
+   * - :doc:`Maximum drawdown </functions_fin/MaxDrawdown>`
      - Worst drawdown experienced so far (since reset).
-   * - :doc:`OBV </functions_rolling/OBV>`
+   * - :doc:`On-Balance Volume (OBV) </functions_rolling/OBV>`
      - On-Balance Volume: signed cumulative volume by close-direction (Granville, 1963).

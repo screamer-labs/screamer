@@ -12,31 +12,31 @@ Rate-of-change and overbought/oversold indicators.
 
    * - Function
      - Description
-   * - :doc:`ADOSC </functions_rolling/ADOSC>`
+   * - :doc:`Chaikin A/D Oscillator (ADOSC) </functions_rolling/ADOSC>`
      - Difference of fast and slow EMA of the Accumulation/Distribution line.
-   * - :doc:`ADX </functions_rolling/ADX>`
+   * - :doc:`Average Directional Index (ADX) </functions_rolling/ADX>`
      - Wilder's ADX with +DI and -DI (3 inputs -> 3 outputs).
-   * - :doc:`BOP </functions_rolling/BOP>`
+   * - :doc:`Balance of Power (BOP) </functions_rolling/BOP>`
      - (close - open) / (high - low) per bar. No smoothing.
-   * - :doc:`CCI </functions_rolling/CCI>`
+   * - :doc:`Commodity Channel Index (CCI) </functions_rolling/CCI>`
      - Commodity Channel Index over typical price.
    * - :doc:`MACD </functions_rolling/MACD>`
      - MACD line, signal line, and histogram (3 outputs).
-   * - :doc:`MFI </functions_rolling/MFI>`
+   * - :doc:`Money Flow Index (MFI) </functions_rolling/MFI>`
      - Volume-weighted analogue of RSI on the typical price.
    * - :doc:`Momentum </functions_misc/Momentum>`
      - x[t] - x[t-k], TA-Lib's MOM. Mathematically identical to Diff(k).
-   * - :doc:`ROC </functions_fin/ROC>`
+   * - :doc:`Rate of change (ROC) </functions_fin/ROC>`
      - 100 * (x[t] / x[t-k] - 1) - TA-Lib's ROC.
-   * - :doc:`RollingRSI </functions_rolling/RollingRSI>`
+   * - :doc:`Rolling RSI </functions_rolling/RollingRSI>`
      - Relative Strength Index. Wilder's smoothing by default; Cutler's via method='cutler'.
-   * - :doc:`Stoch </functions_rolling/Stoch>`
+   * - :doc:`Stochastic Oscillator </functions_rolling/Stoch>`
      - Stochastic oscillator %K and %D (3 inputs -> 2 outputs).
-   * - :doc:`StochRSI </functions_rolling/StochRSI>`
+   * - :doc:`Stochastic RSI </functions_rolling/StochRSI>`
      - Stochastic applied to RSI (1 input -> 2 outputs).
-   * - :doc:`TRIX </functions_rolling/TRIX>`
+   * - :doc:`TRIX (rate of change of triple EMA) </functions_rolling/TRIX>`
      - ROC of a triple-smoothed EMA.
-   * - :doc:`UltimateOscillator </functions_rolling/UltimateOscillator>`
+   * - :doc:`Ultimate Oscillator </functions_rolling/UltimateOscillator>`
      - Three-period weighted oscillator (Williams, 1976).
-   * - :doc:`WilliamsR </functions_rolling/WilliamsR>`
+   * - :doc:`Williams %R </functions_rolling/WilliamsR>`
      - Inverse stochastic oscillator in [-100, 0].

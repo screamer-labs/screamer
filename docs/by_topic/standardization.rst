@@ -14,9 +14,9 @@ Put values on a comparable scale: z-scores, affine rescaling, and detrending.
      - Description
    * - :doc:`Detrend </functions_misc/Detrend>`
      - x[t] minus its rolling mean.
-   * - :doc:`EwZscore </functions_ew/EwZscore>`
+   * - :doc:`Exponentially-weighted z-score </functions_ew/EwZscore>`
      - Latest sample standardised by EW mean and std.
-   * - :doc:`Linear </functions_math/Linear>`
+   * - :doc:`Linear (affine) </functions_math/Linear>`
      - Affine transform: scale * x + shift.
-   * - :doc:`RollingZscore </functions_rolling/RollingZscore>`
+   * - :doc:`Rolling z-score </functions_rolling/RollingZscore>`
      - Latest sample standardised by trailing-window mean and std.

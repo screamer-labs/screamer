@@ -49,13 +49,15 @@ def _page_refs() -> dict[str, str]:
 
 
 def build_topic_page(title: str, desc: str, members: list[str],
-                     refs: dict[str, str], shorts: dict[str, str]) -> str:
+                     refs: dict[str, str], shorts: dict[str, str],
+                     titles: dict[str, str] | None = None) -> str:
     lines = [GENERATED_BANNER + title, "=" * len(title), "", desc, "",
              ".. list-table::", "   :header-rows: 1", "   :widths: 30 70", "",
              "   * - Function", "     - Description"]
     for fn in members:
         ref = refs.get(fn)
-        doc_ref = f":doc:`{fn} </{ref}>`" if ref else f"``{fn}``"
+        display = (titles or {}).get(fn, fn)
+        doc_ref = f":doc:`{display} </{ref}>`" if ref else f"``{display}``"
         short = (shorts.get(fn) or "").replace("|", "\\|")
         lines += [f"   * - {doc_ref}", f"     - {short}"]
     lines.append("")
@@ -84,6 +86,7 @@ def main():
     help_data = json.loads(HELP_JSON.read_text())
     refs = _page_refs()
     shorts = {n: e.get("short", "") for n, e in help_data.items()}
+    titles = {n: e.get("title", n) for n, e in help_data.items()}
 
     members: dict[str, list[str]] = {slug: [] for slug in topics}
     for name, entry in help_data.items():
@@ -98,7 +101,8 @@ def main():
         stale.unlink()
     for slug, meta in topics.items():
         page = build_topic_page(meta["name"], meta["desc"],
-                                sorted(members[slug], key=str.lower), refs, shorts)
+                                sorted(members[slug], key=str.lower), refs, shorts,
+                                titles)
         (OUT_DIR / f"{slug}.rst").write_text(page)
 
     INDEX_FILE.write_text(build_index(topics, set(refs.values())))

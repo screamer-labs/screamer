@@ -21,8 +21,7 @@ single settled row. `emit="when_all"` (default) waits until every input is warm;
 
 Feeding `CombineLatest` lazy iterators of `(value, index)` events returns a
 lazy iterator (a no-index source is numbered by a per-source arrival counter);
-feeding arrays or `Stream` objects returns the eager `(aligned, index)` pair
-(Rule A).
+feeding arrays or `(values, index)` tuples returns the eager `(aligned, index)` pair.
 
 ## Example
 

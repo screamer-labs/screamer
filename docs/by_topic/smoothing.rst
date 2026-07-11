@@ -12,27 +12,27 @@ Track the level of a series and suppress short-term noise.
 
    * - Function
      - Description
-   * - :doc:`Butter </functions_signal/Butter>`
+   * - :doc:`Butterworth low-pass filter </functions_signal/Butter>`
      - General-order IIR Butterworth low-pass filter.
-   * - :doc:`DEMA </functions_rolling/DEMA>`
+   * - :doc:`Double Exponential MA (DEMA) </functions_rolling/DEMA>`
      - Mulloy's Double EMA: 2*EMA - EMA(EMA).
-   * - :doc:`EwMean </functions_ew/EwMean>`
+   * - :doc:`Exponentially-weighted mean </functions_ew/EwMean>`
      - Exponentially-weighted moving average (pandas adjust=True).
-   * - :doc:`HullMA </functions_rolling/HullMA>`
+   * - :doc:`Hull MA </functions_rolling/HullMA>`
      - Hull's responsive MA: WMA(2*WMA(n/2) - WMA(n), sqrt(n)).
-   * - :doc:`KalmanFilter </functions_signal/KalmanFilter>`
+   * - :doc:`Scalar Kalman filter </functions_signal/KalmanFilter>`
      - Scalar 1-D Kalman filter for a noisy random-walk model.
-   * - :doc:`KAMA </functions_rolling/KAMA>`
+   * - :doc:`Kaufman Adaptive MA (KAMA) </functions_rolling/KAMA>`
      - Adaptive MA whose smoothing constant responds to the efficiency ratio.
-   * - :doc:`MovingAverage </functions_signal/MovingAverage>`
+   * - :doc:`FIR moving average (arbitrary taps) </functions_signal/MovingAverage>`
      - Finite-impulse-response filter with user-supplied taps.
-   * - :doc:`RollingMean </functions_rolling/RollingMean>`
+   * - :doc:`Rolling mean </functions_rolling/RollingMean>`
      - Trailing-window arithmetic mean (simple moving average).
-   * - :doc:`RollingPoly2 </functions_rolling/RollingPoly2>`
+   * - :doc:`Rolling 2nd-order polynomial fit </functions_rolling/RollingPoly2>`
      - OLS fit y = a + b*t + c*t^2 over a trailing window.
-   * - :doc:`TEMA </functions_rolling/TEMA>`
+   * - :doc:`Triple Exponential MA (TEMA) </functions_rolling/TEMA>`
      - Mulloy's Triple EMA: 3*EMA - 3*EMA(EMA) + EMA(EMA(EMA)).
-   * - :doc:`TRIMA </functions_rolling/TRIMA>`
+   * - :doc:`Triangular MA (TRIMA) </functions_rolling/TRIMA>`
      - Triangular MA: SMA of an SMA. Heavier center-weighting than WMA.
-   * - :doc:`WMA </functions_rolling/WMA>`
+   * - :doc:`Weighted Moving Average (WMA) </functions_rolling/WMA>`
      - Linearly-weighted moving average. O(1) per step.
