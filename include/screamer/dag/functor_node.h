@@ -28,6 +28,11 @@ public:
 
     void flush() override { downstream_.flush(); }
 
+    void reset() override { op_.reset(); }
+
+    std::size_t n_in()  const override { return op_.n_in(); }
+    std::size_t n_out() const override { return op_.n_out(); }
+
 private:
     EvalOp& op_;
     Sink<Index>& downstream_;

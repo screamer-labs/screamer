@@ -23,6 +23,14 @@ struct Sink {
     virtual ~Sink() = default;
     virtual void push(const Frame<Index>& f) = 0;
     virtual void flush() {}
+    // Reset all internal state to initial conditions. Default is a no-op so
+    // stateless nodes inherit it without modification.
+    virtual void reset() {}
+    // Arity metadata: expected input frame width and emitted frame width.
+    // Returns 0 when the width is context-dependent (passthrough nodes, terminal
+    // sinks) or unknown at construction time. Operator nodes override both.
+    virtual std::size_t n_in()  const { return 0; }
+    virtual std::size_t n_out() const { return 0; }
 };
 
 }} // namespace screamer::dag

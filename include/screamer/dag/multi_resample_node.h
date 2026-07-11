@@ -106,6 +106,9 @@ private:
             else node.on_port(idx, f);
         }
         void flush() override { node.flush_port(idx); }  // flushed_ covers all ports
+        // Each port accepts one value per event; output is owned by the parent node.
+        std::size_t n_in()  const override { return 1; }
+        std::size_t n_out() const override { return 0; }
     };
     friend struct Port;
 

@@ -94,6 +94,9 @@ private:
         Port(CombineLatestNode& n, std::size_t i) : node(n), idx(i) {}
         void push(const Frame<Index>& f) override { node.on_port(idx, f); }
         void flush() override { node.flush_downstream(idx); }
+        // Each port accepts one value per event; output is owned by the parent node.
+        std::size_t n_in()  const override { return 1; }
+        std::size_t n_out() const override { return 0; }
     };
     friend struct Port;
 
