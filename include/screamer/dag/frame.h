@@ -2,6 +2,7 @@
 #define SCREAMER_DAG_FRAME_H
 
 #include <cstddef>
+#include "screamer/dag/resettable.h"
 
 namespace screamer { namespace dag {
 
@@ -17,9 +18,10 @@ struct Frame {
     std::size_t width;
 };
 
-// Receives frames. One method, one job.
+// Receives frames. Derives from Resettable so every Sink subtype can be reset
+// via a single polymorphic pointer without knowing the concrete type.
 template <class Index>
-struct Sink {
+struct Sink : public Resettable {
     virtual ~Sink() = default;
     virtual void push(const Frame<Index>& f) = 0;
     virtual void flush() {}

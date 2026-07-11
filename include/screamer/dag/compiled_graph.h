@@ -2,10 +2,10 @@
 #define SCREAMER_DAG_COMPILED_GRAPH_H
 
 // Design: CompiledGraph wires the push-graph ONCE in the constructor (compile
-// time). run_batch() resets all stateful ops/combine nodes, drives the merged
-// input stream, then returns a copy of the persistent output buffers. Wiring
-// cost is paid once; per-batch cost is pure event processing. Zero per-event
-// allocation is preserved.
+// time). run_batch() resets all stateful nodes via a single polymorphic pass,
+// drives the merged input stream, then returns a copy of the persistent output
+// buffers. Wiring cost is paid once; per-batch cost is pure event processing.
+// Zero per-event allocation is preserved.
 
 #include <algorithm>
 #include <cstddef>
@@ -26,6 +26,7 @@
 #include "screamer/dag/frame.h"
 #include "screamer/dag/functor_node.h"
 #include "screamer/dag/graph.h"
+#include "screamer/dag/resettable.h"
 #include "screamer/streams/merge_source.h"
 #include "screamer/streams/vector_source.h"
 
@@ -195,9 +196,11 @@ public:
                 input_sinks_[input_sig[id]] = downstream;
                 break;
             case NodeKind::Functor: {
-                // Record op for reset(); do NOT reset here — reset() handles it.
-                reset_ops_.push_back(ns.op);
+                // Push FunctorNode (not the bare EvalOp) into reset_nodes_: its
+                // reset() forwards to op_.reset(), so the old reset_ops_ EvalOp
+                // path is preserved via one polymorphic hop.
                 auto fn = std::make_shared<FunctorNode<std::int64_t>>(*ns.op, *downstream);
+                reset_nodes_.push_back(fn.get());
                 node_input_sink[id] = [ptr = fn.get()](std::size_t) -> Sink<std::int64_t>* {
                     return ptr;
                 };
@@ -207,7 +210,7 @@ public:
             case NodeKind::CombineLatest: {
                 auto cn = std::make_shared<CombineLatestNode<std::int64_t>>(
                     ns.inputs.size(), ns.when_all, *downstream);
-                reset_combines_.push_back(cn.get());
+                reset_nodes_.push_back(cn.get());
                 node_input_sink[id] = [ptr = cn.get()](std::size_t slot) -> Sink<std::int64_t>* {
                     return &ptr->port(slot);
                 };
@@ -235,14 +238,16 @@ public:
                     // Functor-reducer bucketing (GenericResampleNode).
                     auto rn = std::make_shared<GenericResampleNode<std::int64_t>>(
                         ns.resample, *downstream);
-                    reset_generic_resamples_.push_back(rn.get());
+                    reset_nodes_.push_back(rn.get());
+                    advance_generic_resamples_.push_back(rn.get());
                     node_input_sink[id] = [ptr = rn.get()](std::size_t) -> Sink<std::int64_t>* {
                         return ptr;
                     };
                     owned_.push_back(rn);
                 } else {
                     auto rn = std::make_shared<ResampleNode<std::int64_t>>(ns.resample, *downstream);
-                    reset_resamples_.push_back(rn.get());
+                    reset_nodes_.push_back(rn.get());
+                    advance_resamples_.push_back(rn.get());
                     node_input_sink[id] = [ptr = rn.get()](std::size_t) -> Sink<std::int64_t>* {
                         return ptr;
                     };
@@ -261,7 +266,8 @@ public:
                 bool has_clock = ns.inputs.size() == ns.reducers.size() + 1;
                 auto mn = std::make_shared<MultiResampleNode<std::int64_t>>(
                     ns.resample, ns.reducers, has_clock, *downstream);
-                reset_multi_resamples_.push_back(mn.get());
+                reset_nodes_.push_back(mn.get());
+                advance_multi_resamples_.push_back(mn.get());
                 node_input_sink[id] = [ptr = mn.get()](std::size_t slot) -> Sink<std::int64_t>* {
                     return &ptr->port(slot);
                 };
@@ -272,14 +278,10 @@ public:
         }
     }
 
-    // Resets all stateful ops, combine nodes, resample nodes, and output buffers.
+    // Resets all stateful nodes and output buffers via a single polymorphic pass.
     // Called at the start of every run_batch so each batch sees a clean initial state.
     void reset() {
-        for (auto* op : reset_ops_)      op->reset();
-        for (auto* c  : reset_combines_) c->reset();
-        for (auto* r  : reset_resamples_) r->reset();
-        for (auto* r  : reset_generic_resamples_) r->reset();
-        for (auto* r  : reset_multi_resamples_) r->reset();
+        for (auto* n : reset_nodes_) n->reset();
         for (std::size_t o = 0; o < outputs_.size(); ++o) {
             outputs_[o].indices.clear();
             outputs_[o].values.clear();
@@ -300,9 +302,9 @@ public:
     // within this call, so a resample fed by another resample sees an inner node's
     // just-closed frame only on the next event/advance (delayed, never a wrong value).
     void advance(std::int64_t now) {
-        for (auto* r : reset_resamples_)         r->advance(now);
-        for (auto* r : reset_generic_resamples_) r->advance(now);
-        for (auto* r : reset_multi_resamples_)   r->advance(now);
+        for (auto* r : advance_resamples_)         r->advance(now);
+        for (auto* r : advance_generic_resamples_) r->advance(now);
+        for (auto* r : advance_multi_resamples_)   r->advance(now);
     }
 
     // Routes a single width-1 event into the graph without resetting state.
@@ -383,11 +385,16 @@ private:
     std::size_t num_in_ = 0;
     std::vector<std::shared_ptr<void>>            owned_;           // all heap nodes/broadcasts
     std::vector<Sink<std::int64_t>*>              input_sinks_;     // per input signature index
-    std::vector<EvalOp*>                          reset_ops_;       // functor ops to reset
-    std::vector<CombineLatestNode<std::int64_t>*> reset_combines_;  // combine nodes to reset
-    std::vector<ResampleNode<std::int64_t>*>      reset_resamples_; // resample nodes to reset
-    std::vector<GenericResampleNode<std::int64_t>*> reset_generic_resamples_; // functor-reducer resample nodes
-    std::vector<MultiResampleNode<std::int64_t>*> reset_multi_resamples_; // multi-column resample nodes
+    // Polymorphic reset: every stateful node (FunctorNode, CombineLatestNode,
+    // ResampleNode, GenericResampleNode, MultiResampleNode) is pushed here once.
+    // reset() does one polymorphic pass instead of five typed loops.
+    std::vector<Resettable*>                      reset_nodes_;
+    // Typed lists for advance() only (resample nodes that support time-driven
+    // bucket finalization). These do NOT overlap with reset_nodes_ in purpose:
+    // reset() uses reset_nodes_, advance() uses these three.
+    std::vector<ResampleNode<std::int64_t>*>         advance_resamples_;
+    std::vector<GenericResampleNode<std::int64_t>*>  advance_generic_resamples_;
+    std::vector<MultiResampleNode<std::int64_t>*>    advance_multi_resamples_;
     std::vector<OutputBuffer>                     outputs_;         // persistent output buffers
     std::vector<std::size_t>                      output_widths_;   // expected width for each output
 };

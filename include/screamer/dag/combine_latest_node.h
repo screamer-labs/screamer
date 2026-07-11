@@ -6,6 +6,7 @@
 #include <cstddef>
 #include <vector>
 #include "screamer/dag/frame.h"
+#include "screamer/dag/resettable.h"
 #include "screamer/streams/combine_latest.h"
 
 namespace screamer { namespace dag {
@@ -16,10 +17,12 @@ namespace screamer { namespace dag {
 // index (same-index events update the buffer; the frame is pushed when the index
 // advances). At end-of-input each port is flushed once; because a producer pushes
 // its final event just before flushing its own port, flush() must wait until EVERY
-// port has flushed before emitting the settled final row (once) — otherwise the
+// port has flushed before emitting the settled final row (once) - otherwise the
 // shared final index would be emitted once per port. flush() is idempotent.
+// Derives from Resettable so CompiledGraph can reset it via a single polymorphic
+// list without knowing its concrete type (CombineLatestNode is not a Sink).
 template <class Index>
-class CombineLatestNode {
+class CombineLatestNode : public Resettable {
 public:
     CombineLatestNode(std::size_t n, bool when_all, Sink<Index>& downstream)
         : cl_(n, when_all), downstream_(downstream), n_(n),
@@ -36,7 +39,7 @@ public:
 
     Sink<Index>& port(std::size_t i) { return ports_[i]; }
 
-    void reset() {
+    void reset() override {
         cl_.reset();
         has_buffered_ = false;
         std::fill(flushed_.begin(), flushed_.end(), false);
