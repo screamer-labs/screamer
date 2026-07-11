@@ -17,7 +17,7 @@ def test_repro_no_duplicate_final_row():
     t = np.arange(200, dtype=np.int64)
     price = 100 + np.cumsum(np.random.default_rng(7).normal(size=200))
     p = Input("price")
-    # node-mode span: use every= (Resample(freq=W)(node) resolves to count mode)
+    # node-mode span window via freq= (resolved against the runtime index)
     dag = Dag([p], [CombineLatest()(Resample(freq=40, agg=ExpandingMax())(p),
                                    Resample(freq=40, agg=ExpandingMin())(p))])
     values, index = dag((price, t))

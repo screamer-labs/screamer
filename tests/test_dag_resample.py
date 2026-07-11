@@ -20,7 +20,7 @@ def test_resample_by_key_batch_stream_oracle(agg):
     keys = np.array([0, 3, 10, 12, 20, 25], dtype=np.int64)
     vals = np.array([1.0, 2.0, 3.0, 4.0, 5.0, 6.0])
     x = Input("x")
-    # node-mode: use every= (span) because Resample(freq=W)(node) resolves to count mode
+    # node-mode span window via freq= (resolved against the runtime index)
     dag = Dag(inputs=[x], outputs=[Resample(freq=10, agg=agg)(x)])
     (bv, bk), (sv, sk) = _stream_1d(dag, (vals, keys))
     ev, ek = Resample(freq=10, agg=agg)(vals, keys)   # eager oracle (values-first)

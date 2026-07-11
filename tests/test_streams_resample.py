@@ -117,7 +117,7 @@ def test_resample_lazy_equals_batch_every():
     batch = Resample(freq=10, agg="mean")(vals, idx)   # a Stream, unpackable
     bv, bk = batch.values, batch.index
     gen = ((float(v), int(k)) for v, k in zip(vals, idx))
-    # lazy with every= (span mode): Resample(freq=10)(gen) would be count mode
+    # lazy span window via freq= (resolved against the runtime index)
     out = Resample(freq=10, agg="mean")(gen)
     assert hasattr(out, "__next__") and not isinstance(out, tuple)
     rows = list(out)                                     # [(bar_value, bar_label), ...]
@@ -290,7 +290,7 @@ def test_resample_raw_stream_node_mirror():
     s = Stream(vals, keys)
     stream_out = Resample(freq=10, agg="sum")(s)
 
-    # Node (via Dag): use every= for span mode (Resample(freq=10)(node) -> count mode)
+    # Node (via Dag): span window via freq= (resolved against the runtime index)
     x = Input("x")
     dag = Dag(inputs=[x], outputs=[Resample(freq=10, agg="sum")(x)])
     dag_v, dag_k = dag((vals, keys))        # (values, index) feed; values-first result
@@ -325,9 +325,11 @@ def test_freq_no_index_equals_count():
 
 
 def test_freq_integer_index_equals_every():
+    # freq= (window) equals the transitional every= for an integer index.
+    # (When every= is removed in the final API-collapse task, drop this test.)
     v = np.array([1.0, 2, 3, 4, 5])
     k = np.array([0, 1, 2, 10, 11])
-    old = Resample(freq=10, agg="sum")(v, k)
+    old = resample(v, k, every=10, agg="sum")   # transitional function every=
     new = Resample(freq=10, agg="sum")(v, k)
     np.testing.assert_array_equal(np.asarray(new.values), np.asarray(old.values))
     np.testing.assert_array_equal(np.asarray(new.index), np.asarray(old.index))
@@ -342,7 +344,7 @@ def test_freq_stream_uses_its_own_index_not_kwarg():
     new = Resample(freq=10, agg="sum")(Stream(v, k))
     np.testing.assert_array_equal(np.asarray(new.values), np.asarray(old.values))
     np.testing.assert_array_equal(np.asarray(new.index), np.asarray(old.index))
-    # a Stream with no index -> count mode
+    # a Stream with no index: freq= spans the row numbers (== count here)
     cnt = Resample(freq=2, agg="sum")(Stream(v))
     ref = Resample(count=2, agg="sum")(v)
     np.testing.assert_array_equal(np.asarray(cnt.values), np.asarray(ref.values))

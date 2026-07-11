@@ -1155,9 +1155,12 @@ def resample(values, index=None, *, freq=None, every=None, count=None, agg="last
     """Causal windowed downsample of a 1-D value stream.
 
     Pass exactly one of ``freq``, ``every``, or ``count`` to bound the bars.
-    ``freq`` is the contextual form and the recommended one: with no index it is a
-    count (a bar every N events), with an integer index it is a span in index
-    units (equivalent to ``every``). ``every`` and ``count`` are the explicit forms:
+    ``freq`` is a **window** (a span over the index) and the recommended form: it
+    is always equivalent to ``every`` in every regime (batch, Node, and lazy),
+    resolved against the runtime index. For a positional (no-index) stream the
+    index is the row number, so a span of W coincides with ``count=W``. ``every``
+    is the same window as ``freq`` (retained for now); ``count`` is the arrival
+    form. ``every`` and ``count`` are the explicit forms:
 
     * ``every=W`` buckets along the **index**: bar ``n`` is the half-open interval
       ``[origin+n*W, origin+(n+1)*W)`` (boundaries anchored at ``origin``, default 0,

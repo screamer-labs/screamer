@@ -112,7 +112,7 @@ def test_fill_nan_functor_reducer():
 def test_fill_carry_graph_path():
     from screamer.dag import Input, Dag
     src = Input("x")
-    # node-mode span: use every= (Resample(freq=1) resolves to count mode for nodes)
+    # node-mode span window via freq= (resolved against the runtime index)
     node = Resample(freq=1, agg="last", fill="carry")(src)
     dag = Dag([src], [node])
     v, k = dag((VALS, IDX))

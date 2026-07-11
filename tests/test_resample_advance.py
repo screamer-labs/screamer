@@ -19,7 +19,7 @@ from screamer import ExpandingSum
 def _live_last(fill):
     """A width-100, origin-0, agg='last' single-column live Dag session."""
     src = Input("x")
-    # node-mode span: use every= (Resample(freq=100) resolves to count mode for nodes)
+    # node-mode span window via freq= (resolved against the runtime index)
     node = Resample(freq=100, origin=0, agg="last", fill=fill)(src)
     dag = Dag([src], [node])
     return dag.live()
