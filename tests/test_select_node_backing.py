@@ -13,7 +13,7 @@ After the migration the same expected values must hold against the C++ path.
 """
 import numpy as np
 import pytest
-from screamer.streams import Select, Stream
+from screamer.streams import Select
 
 
 # ---------------------------------------------------------------------------
@@ -153,33 +153,33 @@ def test_select_lazy_out_of_range_exact_message():
 
 
 # ---------------------------------------------------------------------------
-# Stream regime
+# Tuple regime
 # ---------------------------------------------------------------------------
 
-def test_select_stream_scalar():
-    """Stream in -> Stream out, single column."""
-    s = Select(1)(Stream(_V3, _K3))
-    assert isinstance(s, Stream)
-    assert s.index is not None
-    np.testing.assert_array_equal(s.index, _K3)
-    _cmp_nan(s.values, s.index, _EV_COL1_1D, _K3)
+def test_select_tuple_scalar():
+    """Tuple in -> tuple out, single column."""
+    s = Select(1)((_V3, _K3))
+    assert isinstance(s, tuple) and isinstance(s[0], np.ndarray)
+    assert s[1] is not None
+    np.testing.assert_array_equal(s[1], _K3)
+    _cmp_nan(s[0], s[1], _EV_COL1_1D, _K3)
 
 
-def test_select_stream_multi():
-    """Stream in -> Stream out, multiple columns."""
-    s = Select([2, 0])(Stream(_V3, _K3))
-    assert isinstance(s, Stream)
-    np.testing.assert_array_equal(s.values, _EV_MULTI)
-    np.testing.assert_array_equal(s.index, _K3)
+def test_select_tuple_multi():
+    """Tuple in -> tuple out, multiple columns."""
+    s = Select([2, 0])((_V3, _K3))
+    assert isinstance(s, tuple) and isinstance(s[0], np.ndarray)
+    np.testing.assert_array_equal(s[0], _EV_MULTI)
+    np.testing.assert_array_equal(s[1], _K3)
 
 
-def test_select_stream_positional():
-    """Positional Stream (index=None) -> Stream with index=None; values correct."""
-    s = Select(1)(Stream(_V3))
-    assert isinstance(s, Stream)
-    assert s.index is None
-    if not np.array_equal(np.asarray(s.values), _EV_COL1_1D, equal_nan=True):
-        raise AssertionError(f"values mismatch: got {s.values} want {_EV_COL1_1D}")
+def test_select_positional_array():
+    """Positional bare array -> tuple with index=None; values correct."""
+    s = Select(1)(_V3)
+    assert isinstance(s, tuple) and isinstance(s[0], np.ndarray)
+    assert s[1] is None
+    if not np.array_equal(np.asarray(s[0]), _EV_COL1_1D, equal_nan=True):
+        raise AssertionError(f"values mismatch: got {s[0]} want {_EV_COL1_1D}")
 
 
 # ---------------------------------------------------------------------------

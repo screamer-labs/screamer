@@ -12,13 +12,13 @@ Volume-based indicators.
 
    * - Function
      - Description
-   * - :doc:`AD </functions_rolling/AD>`
+   * - :doc:`Accumulation/Distribution Line (Chaikin) </functions_rolling/AD>`
      - Chaikin Accumulation/Distribution Line.
-   * - :doc:`ADOSC </functions_rolling/ADOSC>`
+   * - :doc:`Chaikin A/D Oscillator (ADOSC) </functions_rolling/ADOSC>`
      - Difference of fast and slow EMA of the Accumulation/Distribution line.
-   * - :doc:`MFI </functions_rolling/MFI>`
+   * - :doc:`Money Flow Index (MFI) </functions_rolling/MFI>`
      - Volume-weighted analogue of RSI on the typical price.
-   * - :doc:`OBV </functions_rolling/OBV>`
+   * - :doc:`On-Balance Volume (OBV) </functions_rolling/OBV>`
      - On-Balance Volume: signed cumulative volume by close-direction (Granville, 1963).
-   * - :doc:`RollingVWAP </functions_rolling/RollingVWAP>`
+   * - :doc:`Rolling VWAP </functions_rolling/RollingVWAP>`
      - Rolling volume-weighted average price (typical-price weighted).

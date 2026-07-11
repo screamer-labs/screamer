@@ -12,47 +12,47 @@ Elementwise numeric operations: rounding, powers, logs, exponentials, affine tra
 
    * - Function
      - Description
-   * - :doc:`Abs </functions_math/Abs>`
+   * - :doc:`Absolute value </functions_math/Abs>`
      - Absolute value of each element.
    * - :doc:`Add </functions_math/Add>`
      - Elementwise sum of two aligned streams (x + y).
-   * - :doc:`Ceil </functions_math/Ceil>`
+   * - :doc:`Ceiling </functions_math/Ceil>`
      - Round each element toward positive infinity.
-   * - :doc:`Clip </functions_preprocessing/Clip>`
+   * - :doc:`Clip to bounds </functions_preprocessing/Clip>`
      - Bound each element below and/or above.
    * - :doc:`Cube </functions_math/Cube>`
      - x cubed (faster than Power(3)).
    * - :doc:`Div </functions_math/Div>`
      - Elementwise quotient of two aligned streams (x / y).
-   * - :doc:`Erf </functions_math/Erf>`
+   * - :doc:`Error function </functions_math/Erf>`
      - Gauss error function.
-   * - :doc:`Erfc </functions_math/Erfc>`
+   * - :doc:`Complementary error function </functions_math/Erfc>`
      - Complementary error function (1 - erf).
-   * - :doc:`Exp </functions_math/Exp>`
+   * - :doc:`Exponential </functions_math/Exp>`
      - e to the power of each element.
    * - :doc:`Floor </functions_math/Floor>`
      - Round each element toward negative infinity.
    * - :doc:`Identity </functions_misc/Identity>`
      - Pass-through (y = x).
-   * - :doc:`Linear </functions_math/Linear>`
+   * - :doc:`Linear (affine) </functions_math/Linear>`
      - Affine transform: scale * x + shift.
-   * - :doc:`Linear2 </functions_math/Linear2>`
+   * - :doc:`Linear (two-input affine) </functions_math/Linear2>`
      - Two-input affine combination: a*x + b*y + c.
-   * - :doc:`Log </functions_math/Log>`
+   * - :doc:`Natural logarithm </functions_math/Log>`
      - Natural logarithm of each element.
    * - :doc:`Mul </functions_math/Mul>`
      - Elementwise product of two aligned streams (x * y).
-   * - :doc:`NegPart </functions_math/NegPart>`
+   * - :doc:`Negative Part </functions_math/NegPart>`
      - Negative part of x: max(-x, 0).
-   * - :doc:`PosPart </functions_math/PosPart>`
+   * - :doc:`Positive Part </functions_math/PosPart>`
      - Positive part of x: max(x, 0).
    * - :doc:`Power </functions_math/Power>`
      - x raised to a fixed exponent p.
-   * - :doc:`Round </functions_math/Round>`
+   * - :doc:`Round (banker's rounding) </functions_math/Round>`
      - Round each element to the nearest integer (half-to-even).
    * - :doc:`Sign </functions_math/Sign>`
      - Sign of each element: -1, 0, or +1.
-   * - :doc:`Sqrt </functions_math/Sqrt>`
+   * - :doc:`Square root </functions_math/Sqrt>`
      - Square root of each element.
    * - :doc:`Square </functions_math/Square>`
      - x squared (faster than Power(2)).

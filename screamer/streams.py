@@ -13,10 +13,11 @@ import re
 import numpy as np
 
 from . import screamer_bindings as _b
-from .dag import is_node, make_operator_node
+from .dag import is_node, make_operator_node, _is_vi_pair
 
 __all__ = [
-    "Stream",
+    "to_pandas",
+    "from_pandas",
     "replay",
     "Filter",
     "split",
@@ -28,123 +29,23 @@ __all__ = [
 ]
 
 
-class Stream:
-    """A sequence of values with an optional ordering index and optional column names.
-
-    ``values`` is a 1-D ``(T,)`` or 2-D ``(T, N)`` array. ``index`` is a 1-D array
-    of length ``T``, or ``None``. ``None`` means positional (row number, arrival
-    order) and stores nothing. The index is an ordering coordinate such as a
-    timestamp or a tick counter, not a lookup key.
-
-    ``columns`` is a tuple of string names for a 2-D ``values`` array, or ``None``
-    for unlabelled (including all 1-D) streams. When set, ``stream["name"]`` and
-    ``stream.column("name")`` return the corresponding 1-D column view.
-
-    Backward-compatible unpacking: ``v, k = stream`` always unpacks to
-    ``(stream.values, stream.index)``, so existing code that unpacked an eager
-    ``resample(...)`` result as a 2-tuple continues to work unchanged.
-    Integer subscript ``stream[0]`` returns ``values``; ``stream[1]`` returns
-    ``index``.
-    """
-    __slots__ = ("values", "index", "columns")
-
-    def __init__(self, values, index=None, columns=None):
-        self.values = np.asarray(values)
-        self.index = None if index is None else np.asarray(index)
-        if self.index is not None and len(self.index) != len(self.values):
-            raise ValueError("Stream: index and values must have the same length")
-        if columns is not None:
-            cols = tuple(columns)
-            if self.values.ndim != 2:
-                raise ValueError(
-                    "Stream: columns requires a 2-D values array "
-                    f"(got ndim={self.values.ndim})")
-            if len(cols) != self.values.shape[1]:
-                raise ValueError(
-                    f"Stream: columns length {len(cols)} does not match "
-                    f"values width {self.values.shape[1]}")
-            self.columns = cols
-        else:
-            self.columns = None
-
-    def __len__(self):
-        """Return the number of rows (T). Note: ``len(stream) == T`` (row count)
-        even though ``list(stream)`` yields 2 items ``[values, index]``."""
-        return len(self.values)
-
-    def __repr__(self):
-        kind = "positional" if self.index is None else f"index={self.index!r}"
-        cols = f", columns={self.columns!r}" if self.columns is not None else ""
-        return f"Stream({self.values!r}, {kind}{cols})"
-
-    def __iter__(self):
-        """Yield ``(values, index)`` so that ``v, k = stream`` unpacks correctly.
-
-        This is a deliberate 2-item iterator that preserves backward-compatible
-        tuple-unpacking of eager ``resample(...)`` results.  ``list(stream)``
-        returns ``[values_array, index_array]``.
-        """
-        return iter((self.values, self.index))
-
-    def __getitem__(self, key):
-        """Column or positional access.
-
-        * ``stream["name"]`` - returns the 1-D column view by name (requires
-          ``columns`` to be set; raises ``ValueError`` otherwise, ``KeyError``
-          if the name is absent).
-        * ``stream[0]`` - returns ``values`` (backward-compatible tuple index 0).
-        * ``stream[1]`` - returns ``index``  (backward-compatible tuple index 1).
-        """
-        if isinstance(key, int):
-            if key == 0:
-                return self.values
-            if key == 1:
-                return self.index
-            raise IndexError(f"Stream: integer index must be 0 or 1, got {key}")
-        return self.column(key)
-
-    def column(self, name):
-        """Return the 1-D array for the named column.
-
-        Raises ``ValueError`` if this stream has no column labels (``columns``
-        is ``None``).  Raises ``KeyError`` if ``name`` is not in ``columns``.
-        """
-        if self.columns is None:
-            raise ValueError(
-                "Stream: cannot access column by name - this stream has no "
-                "column labels (columns=None). Column labels are set for "
-                "multi-column aggs such as ohlc.")
-        try:
-            col_idx = self.columns.index(name)
-        except ValueError:
-            raise KeyError(
-                f"Stream: column {name!r} not found. "
-                f"Available columns: {self.columns}")
-        return self.values[:, col_idx]
-
-    @classmethod
-    def from_pandas(cls, obj):
-        """Build a Stream from a pandas Series or DataFrame (data -> values,
-        pandas index -> index). Note: a plain RangeIndex is kept as a numbered
-        index, not converted to positional None."""
-        return cls(obj.to_numpy(), np.asarray(obj.index))
-
-    def to_pandas(self):
-        """Return a pandas Series (1-D values) or DataFrame (2-D). A positional
-        stream gets pandas' default RangeIndex. Column names are set when
-        ``columns`` is not ``None``."""
-        import pandas as pd
-        if self.values.ndim == 1:
-            return pd.Series(self.values, index=self.index)
-        return pd.DataFrame(self.values, index=self.index,
-                            columns=list(self.columns) if self.columns else None)
-
-
 def _is_lazy_stream(x):
     """Rule A: a lazy stream is an iterator (has ``__next__``) that is NOT a
-    concrete container (list, tuple, ndarray, or Stream). Generators and
+    concrete container (list, tuple, or ndarray). Generators and
     ``iter(...)`` qualify; concrete data does not."""
-    return hasattr(x, "__next__") and not isinstance(x, (list, tuple, np.ndarray, Stream))
+    return hasattr(x, "__next__") and not isinstance(x, (list, tuple, np.ndarray))
+
+
+def _as_vi(x, idx):
+    """Normalize a data input to (values_ndarray, index_or_None).
+
+    Accepts:
+    - a bare array (positional or with explicit idx) -> (np.asarray(x), idx)
+    - a (values, index) 2-tuple -> pass through
+    """
+    if _is_vi_pair(x):
+        return x[0], x[1]
+    return np.asarray(x), idx
 
 
 _EMPTY = object()   # sentinel: a lazy source produced no first item
@@ -189,36 +90,38 @@ def _classify_lazy_sources(values, who):
     return (not indexed), sources, kind
 
 
-def _regime(inputs):
-    """Classify a stream operator's inputs: 'graph' if any is a Node, 'stream' if any
-    is a Stream, else 'raw'."""
-    if any(is_node(x) for x in inputs):
-        return "graph"
-    if any(isinstance(x, Stream) for x in inputs):
-        return "stream"
-    return "raw"
-
-
 def _to_streams(inputs, index):
-    """Normalize each input to a Stream. `index` is None (all positional) or a
-    list aligned with inputs (per-stream index array or None)."""
+    """Normalize each input to a (values, index) tuple. `index` is None (all
+    positional) or a list aligned with inputs (per-stream index array or None)."""
     if index is not None and len(index) != len(inputs):
         raise ValueError("index list length must match the number of streams")
-    out = []
-    for i, x in enumerate(inputs):
-        if isinstance(x, Stream):
-            out.append(x)
-        else:
-            out.append(Stream(x, None if index is None else index[i]))
-    return out
+    return [_as_vi(x, None if index is None else index[i])
+            for i, x in enumerate(inputs)]
 
 
-def _adapt(regime, values, index):
-    """Shape a stream operator result to match the input regime: Stream in -> Stream
-    out; raw -> (values, index) with index None for positional."""
-    if regime == "stream":
-        return Stream(values, index)
-    return values, index
+def to_pandas(values, index=None, columns=None):
+    """Return a pandas Series (1-D values) or DataFrame (2-D).
+
+    A positional stream (index=None) gets pandas' default RangeIndex.
+    Column names are set when columns is not None.
+    """
+    import pandas as pd
+    values = np.asarray(values)
+    if values.ndim == 1:
+        return pd.Series(values, index=index)
+    return pd.DataFrame(values, index=index,
+                        columns=list(columns) if columns else None)
+
+
+def from_pandas(obj):
+    """Build a (values, index) tuple from a pandas Series or DataFrame.
+
+    data -> values (numpy array), pandas index -> index array. Note: pandas
+    always materializes an index (a RangeIndex for a default one), so a
+    positional stream does not round-trip to index=None through
+    to_pandas/from_pandas - it comes back with an explicit 0,1,2,... index.
+    """
+    return np.asarray(obj.to_numpy()), np.asarray(obj.index)
 
 
 def _run_chain(functors, values, index=None, return_index=False):
@@ -289,50 +192,50 @@ def _collapse_last_per_index(index, values):
 def _streams_to_indexed(streams, who):
     """(kind, index_list, vals_list, positional). Uniform positional or indexed;
     no-index requires equal length; mixing positional and indexed raises."""
-    indexed = [s.index is not None for s in streams]
+    indexed = [s[1] is not None for s in streams]
     if any(indexed) and not all(indexed):
         raise ValueError(
             f"{who}: cannot align positional and indexed streams; give every "
             "stream an index, or none")
-    vals = [np.ascontiguousarray(s.values, dtype=np.float64) for s in streams]
+    vals = [np.ascontiguousarray(s[0], dtype=np.float64) for s in streams]
     if not any(indexed):
-        lens = {len(s) for s in streams}
+        lens = {len(s[0]) for s in streams}
         if len(lens) != 1:
             raise ValueError(
                 f"{who}: streams have no index, so they are assumed aligned - "
                 "lengths must match, or provide an index to align different clocks")
-        idx = [np.arange(len(streams[0]), dtype=np.int64) for _ in streams]
+        idx = [np.arange(len(streams[0][0]), dtype=np.int64) for _ in streams]
         return "i64", idx, vals, True
-    kind, idx, _ = _normalize_streams([(s.index, s.values) for s in streams], who)
+    kind, idx, _ = _normalize_streams([(s[1], s[0]) for s in streams], who)
     return kind, idx, vals, False
 
 
 def _merge_to_indexed(values, index, who):
     """Prepare merge/replay inputs for the C++ backend.
 
-    Each input may be a raw value array or a ``Stream`` (which carries its own
-    index; ``index=`` then applies only to the raw inputs). Positional (no index
-    anywhere): uses per-stream row-number index (no equal-length check - unlike
-    combine_latest). Indexed: uses the given index arrays. Mixing positional with
-    indexed raises.
+    Each input may be a raw value array or a ``(values, index)`` tuple (which
+    carries its own index; ``index=`` then applies only to the raw inputs).
+    Positional (no index anywhere): uses per-stream row-number index (no
+    equal-length check - unlike combine_latest). Indexed: uses the given index
+    arrays. Mixing positional with indexed raises.
 
     Returns (kind, idx_list, vals_list, positional).
     """
     n = len(values)
     if n == 0:
         raise ValueError(f"{who}: needs at least one stream")
-    streams = _to_streams(values, index)   # Stream passthrough; raw wrapped with index[i]
-    has_idx = [s.index is not None for s in streams]
+    streams = _to_streams(values, index)   # (values, index) passthrough; raw wrapped with index[i]
+    has_idx = [s[1] is not None for s in streams]
     if any(has_idx) and not all(has_idx):
         raise ValueError(
             f"{who}: cannot mix positional and indexed streams; give every "
             "stream an index, or none")
-    vals = [np.ascontiguousarray(s.values, dtype=np.float64) for s in streams]
+    vals = [np.ascontiguousarray(s[0], dtype=np.float64) for s in streams]
     if not any(has_idx):
         # Positional: use row-number per stream (no equal-length check for merge)
         idx_list = [np.arange(len(v), dtype=np.int64) for v in vals]
         return "i64", idx_list, vals, True
-    kind, norm_index, _ = _normalize_streams([(s.index, s.values) for s in streams], who)
+    kind, norm_index, _ = _normalize_streams([(s[1], s[0]) for s in streams], who)
     return kind, norm_index, vals, False
 
 
@@ -377,7 +280,7 @@ def merge(*values, index=None):
     if any(_is_lazy_stream(v) for v in values):
         raise TypeError(
             "merge: cannot mix lazy iterator and concrete inputs; pass all "
-            "generators or all arrays/Streams")
+            "generators or all arrays")
     kind, idx_list, vals_list, positional = _merge_to_indexed(values, index, "merge")
     fn = _b._merge_f64 if kind == "f64" else _b._merge_i64
     merged_index, merged_vals, sources = fn(idx_list, vals_list)
@@ -433,55 +336,44 @@ def _combine_latest_lazy(values, emit):
         yield from _combine_latest_asof_lazy(sources, emit)
 
 
-def combine_latest(*values, index=None, emit="when_all", func=None):
+def combine_latest(*values, index=None, emit="when_all"):
     """As-of latest-value join of N streams: one row per distinct index (same-index
-    events coalesce). Values-first + polymorphic: raw arrays, Stream, or graph Node.
+    events coalesce). Values-first + polymorphic: raw arrays, (values, index)
+    tuples, or graph Nodes.
 
     No-index (positional) inputs are treated as aligned clocks (equal length
     required, lockstep); returns (aligned_values, None). Indexed inputs perform
     an as-of join aligned on each stream's index, returning (aligned_values, index).
-    Stream inputs return a Stream. Node inputs return a Node.
+    Node inputs return a Node.
 
     emit="when_all" (default) suppresses output until every input has a value;
-    emit="on_any" emits from the first event (NaN for unseen inputs). If ``func``
-    is given it is applied per row (``func(*row)``) after alignment.
-    When a ``Stream`` is passed it carries its own index; ``index=`` applies only to raw arrays.
+    emit="on_any" emits from the first event (NaN for unseen inputs). To transform
+    each aligned row, apply a functor to the output, e.g. Sub()(combine_latest(a, b)).
+    When a (values, index) tuple is passed it carries its own index; index=
+    applies only to raw arrays.
     """
     if emit not in ("when_all", "on_any"):
         raise ValueError('combine_latest: emit must be "when_all" or "on_any"')
     if any(is_node(v) for v in values):
-        if func is not None:
-            raise ValueError(
-                "combine_latest(func=...) is not supported in a DAG graph "
-                "(graph ops are C++-only); apply a functor to the aligned output, "
-                "e.g. Sub()(combine_latest(a, b))")
         return make_operator_node(CombineLatest, values, {"emit": emit})
     if values and all(_is_lazy_stream(v) for v in values):
-        if func is not None:
-            raise ValueError(
-                "combine_latest(func=...) is not supported for lazy iterator "
-                "inputs; apply the function to the aligned output instead")
         return _combine_latest_lazy(values, emit)
     if any(_is_lazy_stream(v) for v in values):
         raise TypeError(
             "combine_latest: cannot mix lazy iterator and concrete inputs; pass "
-            "all generators or all arrays/Streams")
-    regime = _regime(values)
+            "all generators or all arrays")
     streams = _to_streams(values, index)
     kind, idx, vals, positional = _streams_to_indexed(streams, "combine_latest")
     fn = _b._combine_latest_f64 if kind == "f64" else _b._combine_latest_i64
     out_index, aligned = fn(idx, vals, emit == "when_all")
     out_index, aligned = _collapse_last_per_index(out_index, aligned)
-    result_index = None if positional else out_index
-    if func is not None:
-        aligned = np.array([func(*row) for row in aligned], dtype=np.float64)
-    return _adapt(regime, aligned, result_index)
+    return aligned, (None if positional else out_index)
 
 
 async def replay(*values, index=None, speed=1.0, sleep=None):
     """Replay merged streams as an async event stream paced by index-deltas.
 
-    Each input may be a raw value array or a ``Stream``. Yields (value, index,
+    Each input may be a raw value array or a ``(values, index)`` tuple. Yields (value, index,
     source) in index order. Between consecutive events it awaits
     ``sleep(delta / speed)`` (where ``delta`` is the index delta) so wall-clock
     spacing tracks the index spacing. speed=inf disables pacing (backtest at max
@@ -620,12 +512,14 @@ def dropna(values, index=None, how="any"):
     """Drop events whose value is NaN. `values` may be 1-D (M,) or 2-D (M, N).
 
     how="any" (default) drops a row if any component is NaN; how="all" only if
-    all are. Values-first + polymorphic: raw arrays, Stream, or graph Node.
+    all are. Values-first + polymorphic: raw arrays, (values, index) tuple, or
+    graph Node.
     index=None means positional (no index allocation). Returns (values, index) /
-    Stream / Node restricted to the surviving rows. Surviving values are returned
+    Node restricted to the surviving rows. Surviving values are returned
     as float64. Causal and cardinality-changing: batch and streaming drop the
     same rows.
-    When ``values`` is a ``Stream`` it carries its own index; ``index=`` applies only to raw arrays.
+    When ``values`` is a ``(values, index)`` tuple it carries its own index;
+    ``index=`` applies only to raw arrays.
     """
     if how not in ("any", "all"):
         raise ValueError('dropna: how must be "any" or "all"')
@@ -633,12 +527,10 @@ def dropna(values, index=None, how="any"):
         return make_operator_node(Dropna, (values,), {"how": how})
     if _is_lazy_stream(values):
         return _dropna_lazy_cpp(values, how)
-    regime = "stream" if isinstance(values, Stream) else "raw"
-    stream = values if isinstance(values, Stream) else Stream(values, index)
-    vals = np.asarray(stream.values, dtype=np.float64)
-    idx = stream.index
+    vals, idx = _as_vi(values, index)
+    vals = np.asarray(vals, dtype=np.float64)
     out_vals, out_idx = _dropna_via_cpp(vals, idx, how)
-    return _adapt(regime, out_vals, out_idx)
+    return out_vals, out_idx
 
 
 class Filter:
@@ -654,7 +546,7 @@ class Filter:
     All three regimes (batch, lazy, graph) are driven by the same C++
     FilterNode and return byte-identical results.
 
-    Batch (arrays or Streams)::
+    Batch (arrays or (values, index) tuples)::
 
         survivors, idx = Filter()(data_array, mask_array)
 
@@ -684,19 +576,17 @@ class Filter:
 def split(values, sources, index=None, n=None):
     """Partition a merged tagged stream back into per-source streams.
 
-    The inverse of merge. ``values`` may be a raw value array or a ``Stream``
-    (which carries its own index); ``sources`` is always passed separately.
-    Raw in -> a list of ``(values, index)`` pairs; a ``Stream`` in -> a list of
-    ``Stream`` objects, for type consistency:
-    ``split(*merge(a_v, b_v, index=[a_k, b_k]))`` reconstructs ``[(a_v, a_k),
-    (b_v, b_k)]``. Positional (index=None) uses ``None`` for the per-source index.
+    The inverse of merge. ``values`` may be a raw value array or a
+    ``(values, index)`` tuple (which carries its own index); ``sources`` is
+    always passed separately.
+    Returns a list of ``(values, index)`` pairs. Positional (index=None) uses
+    ``None`` for the per-source index.
     ``n`` sets how many output streams to produce (default: max(sources)+1); pass
     it explicitly to include sources that emitted nothing.
     """
-    as_stream = isinstance(values, Stream)
-    if as_stream:
-        index = values.index          # the Stream carries its own index
-        values = values.values
+    if _is_vi_pair(values):
+        index = values[1]          # the tuple carries its own index
+        values = values[0]
     values = np.asarray(values)
     sources = np.asarray(sources)
     if n is None:
@@ -710,8 +600,6 @@ def split(values, sources, index=None, n=None):
     else:
         idx = np.asarray(index)
         parts = [(values[sources == i], idx[sources == i]) for i in range(n)]
-    if as_stream:
-        return [Stream(v, k) for v, k in parts]
     return parts
 
 
@@ -846,19 +734,18 @@ def select(values, columns, index=None):
     columns is an int (result is 1-D) or a sequence of ints (result is 2-D with
     those columns in order). Row count and index are unchanged (row-preserving
     shape op, not cardinality). Column indices must be in range and non-negative.
-    Values-first + polymorphic: raw arrays, Stream, or graph Node.
+    Values-first + polymorphic: raw arrays, (values, index) tuple, or graph Node.
     index=None means positional (no index allocation). Returns (values, index) /
-    Stream / Node.
-    When ``values`` is a ``Stream`` it carries its own index; ``index=`` applies only to raw arrays.
+    Node.
+    When ``values`` is a ``(values, index)`` tuple it carries its own index;
+    ``index=`` applies only to raw arrays.
     """
     if is_node(values):
         return make_operator_node(Select, (values,), {"columns": columns})
     if _is_lazy_stream(values):
         return _select_lazy_cpp(values, columns)
-    regime = "stream" if isinstance(values, Stream) else "raw"
-    stream = values if isinstance(values, Stream) else Stream(values, index)
-    vals = np.asarray(stream.values, dtype=np.float64)
-    idx = stream.index
+    vals, idx = _as_vi(values, index)
+    vals = np.asarray(vals, dtype=np.float64)
     cols, scalar = _normalize_columns(columns)
     # Validate columns in Python before building the Dag (preserves exact
     # ValueError message regardless of which regime is active).
@@ -868,7 +755,7 @@ def select(values, columns, index=None):
             raise ValueError(
                 f"select: column {c} out of range for width {width}")
     picked, out_idx = _select_via_cpp(vals, idx, cols, scalar)
-    return _adapt(regime, picked, out_idx)   # index is unchanged (row-preserving)
+    return picked, out_idx   # index is unchanged (row-preserving)
 
 
 _RESAMPLE_AGGS = ("first", "last", "min", "max", "sum", "count", "mean", "ohlc",
@@ -916,11 +803,6 @@ def _resolve_agg(agg):
         # reducers are stateful); do not build the four we would discard
         return getattr(screamer, _STAT_SYNONYMS[agg])()
     return agg
-
-
-_OHLC_COLUMNS  = ("open", "high", "low", "close")
-_OHLCV_COLUMNS = ("open", "high", "low", "close", "volume")
-_OHLCV2_COLUMNS = ("open", "high", "low", "close", "buy_vol", "sell_vol")
 
 
 _OFFSET_UNIT_MAP = {   # offset unit -> numpy timedelta64 unit
@@ -1109,7 +991,10 @@ def _resample_ohlcv(vals_2d, idx, agg, *, every, count, origin, label,
 
     All numeric compute runs in C++ (OHLC via the existing ``ohlc`` reducer,
     volume via ``sum``, buy/sell via ``PosPart``/``NegPart`` then ``sum``).
-    Python only splits columns, orchestrates the sub-calls, and attaches labels.
+    Python only splits columns, orchestrates the sub-calls, and stacks.
+
+    Column order: open(0), high(1), low(2), close(3)[, volume(4)[, buy_vol(4),
+    sell_vol(5)]].
     """
     from screamer import PosPart, NegPart
 
@@ -1127,7 +1012,7 @@ def _resample_ohlcv(vals_2d, idx, agg, *, every, count, origin, label,
             (volume, idx), every=every, count=count, agg="sum",
             origin=origin, label=label, fill=fill)
         stacked = np.column_stack([ohlc_vals, vol_vals])
-        return Stream(stacked, out_idx, columns=_OHLCV_COLUMNS)
+        return stacked, out_idx
 
     # ohlcv2: buy_vol = sum(PosPart(signed_vol)), sell_vol = sum(NegPart(signed_vol))
     # PosPart/NegPart are C++ functors; applying them to the array runs in C++.
@@ -1142,7 +1027,7 @@ def _resample_ohlcv(vals_2d, idx, agg, *, every, count, origin, label,
         origin=origin, label=label, fill=fill)
 
     stacked = np.column_stack([ohlc_vals, buy_vals, sell_vals])
-    return Stream(stacked, out_idx, columns=_OHLCV2_COLUMNS)
+    return stacked, out_idx
 
 
 def resample(values, index=None, *, freq=None, every=None, count=None, agg="last",
@@ -1173,12 +1058,12 @@ def resample(values, index=None, *, freq=None, every=None, count=None, agg="last
 
     * **string**: one of ``first``, ``last``, ``min``, ``max``, ``sum``,
       ``count``, ``mean``, ``ohlc``.  ``ohlc`` returns 4 columns
-      ``(open, high, low, close)`` labelled on the returned ``Stream``.
+      ``(open, high, low, close)``.
     * **functor**: any :class:`screamer.EvalOp` reducer (e.g.
       ``ExpandingSkew()``).  The functor is ``reset()`` at each bar boundary
       and fed every in-bar sample; its last output before the close is emitted.
-      A single-output functor returns a 1-D ``Stream``; a multi-output functor
-      returns an unlabelled 2-D ``Stream``.  The functor must accept exactly
+      A single-output functor returns a 1-D result; a multi-output functor
+      returns a 2-D result.  The functor must accept exactly
       1 input (single-value stream); a multi-input functor raises at runtime.
     ``label`` picks each bar's index. For ``every=`` it is the **grid edge**
     (``origin+n*W`` for ``"left"``, ``origin+(n+1)*W`` for ``"right"``), the
@@ -1207,12 +1092,13 @@ def resample(values, index=None, *, freq=None, every=None, count=None, agg="last
     so a functor reducer starts each real bar clean. The trailing partial bucket is
     still emitted once at end of input. Integer index-space.
 
-    Values-first + polymorphic: raw arrays, Stream, or graph Node. The returned
-    index is always the bar labels (a real array, never None) - even for a
-    positional (no-index) input, which resamples by row position.
+    Values-first + polymorphic: raw arrays, (values, index) tuple, or graph Node.
+    The returned index is always the bar labels (a real array, never None) - even
+    for a positional (no-index) input, which resamples by row position.
 
     Graph form: resample(node, ...) where node is a Node.
-    When ``values`` is a ``Stream`` it carries its own index; ``index=`` applies only to raw arrays.
+    When ``values`` is a ``(values, index)`` tuple it carries its own index;
+    ``index=`` applies only to raw arrays.
     """
     agg = _resolve_agg(agg)
     _resample_validate(freq, every, count, agg, label, fill)
@@ -1220,8 +1106,8 @@ def resample(values, index=None, *, freq=None, every=None, count=None, agg="last
     # block every and count follow the existing internal convention so all
     # downstream code is unchanged.
     if freq is not None:
-        if isinstance(values, Stream):
-            _idx_ctx = values.index     # Stream carries its own index
+        if _is_vi_pair(values):
+            _idx_ctx = values[1]     # (values, index) tuple carries its own index
         else:
             _idx_ctx = index            # raw array, Node, or lazy stream
         _mode, _width = _resample_freq_to_engine(freq, _idx_ctx)
@@ -1249,8 +1135,8 @@ def resample(values, index=None, *, freq=None, every=None, count=None, agg="last
                 "stream to an array for those.")
         return _resample_via_cpp(values, every=every, count=count, agg=agg,
                                  origin=origin, label=label, fill=fill)
-    stream = values if isinstance(values, Stream) else Stream(values, index)
-    vals = np.asarray(stream.values, dtype=np.float64)
+    vals, idx_in = _as_vi(values, index)
+    vals = np.asarray(vals, dtype=np.float64)
     # ohlcv / ohlcv2 require exactly 2 input columns [price, volume|signed_volume].
     if agg in ("ohlcv", "ohlcv2"):
         if vals.ndim != 2 or vals.shape[1] != 2:
@@ -1262,28 +1148,22 @@ def resample(values, index=None, *, freq=None, every=None, count=None, agg="last
         raise ValueError("resample: expects a 1-D value stream")
 
     # Use explicit index or row positions when positional
-    if stream.index is None:
+    if idx_in is None:
         idx = np.arange(len(vals), dtype=np.int64)
     else:
-        idx = np.asarray(stream.index)
+        idx = np.asarray(idx_in)
 
     # ohlcv / ohlcv2: orchestrate existing C++ reducers over a 2-column input.
-    # Python splits the columns, runs sub-resamples, and stacks; all numeric
-    # bucketing and accumulation runs in C++ as with the single-column path.
     if agg in ("ohlcv", "ohlcv2"):
         return _resample_ohlcv(vals, idx, agg, every=every, count=count,
                                origin=origin, label=label, fill=fill)
 
-    # Delegate all bucketing/accumulation to the C++ engine (C++-first: no
-    # Python numeric loop). Builds a one-node graph and runs it in batch.
+    # Delegate all bucketing/accumulation to the C++ engine.
     out_v, out_idx = _resample_via_cpp(
         (vals, idx), every=every, count=count, agg=agg, origin=origin, label=label,
         fill=fill)
-    # Attach column names for multi-column aggs; labels are pure Python marshalling.
-    cols = _OHLC_COLUMNS if agg == "ohlc" else None
-    # Both raw and Stream regimes return a Stream; Stream is unpackable as
-    # (values, index) for backward-compatible tuple unpacking.
-    return Stream(out_v, out_idx, columns=cols)
+    # Always return a (values, index) tuple; bar labels are always real (never None).
+    return out_v, out_idx
 
 
 
@@ -1373,41 +1253,3 @@ class Resample:
 # transitional: the public API for the five operators above is their CamelCase
 # class. The lowercase functions remain as the shared implementation and as
 # backward-compatible shims; they are removed in the final 3E task.
-
-
-def multi_resample(inputs, reducers, clock=None, every=None, count=None, origin=0,
-                   label="left", fill="skip", columns=None):
-    """Low-level multi-column bar node: N port streams, N per-bar reducers, one clock.
-
-    ``inputs[i]`` (a Node) is reduced by ``reducers[i]`` (an EvalOp) within each
-    bar; the node emits one aligned row per bar with the reducers' outputs
-    concatenated. Transforms belong upstream in ``inputs[i]``. Column labels are
-    attached by the caller (see ``bars``). This is the graph (Node) primitive;
-    place it in a Dag and bind data at call time.
-
-    ``count=N`` buckets by N DISTINCT ticks (indices): several ports pushing at the
-    same index count as ONE tick, and a full bar closes on the next new tick.
-
-    ``clock`` (optional Node): a timestamp/clock stream that drives bucketing. A
-    clock tick crossing a bucket boundary closes the current bar even with no
-    trades, so empty time-bars finalize straight from the data (ByIndex/``every=``
-    only). Omit it to bucket purely by the columns' own shared ticks.
-
-    ``columns`` (optional tuple of str): column labels for the output. Not passed to
-    the C++ engine; used by the Dag to label the returned Stream.
-    """
-    if len(inputs) != len(reducers):
-        raise ValueError(
-            "multi_resample: inputs and reducers must have equal length")
-    node_inputs = list(inputs)
-    if clock is not None:
-        if not is_node(clock):
-            raise ValueError("multi_resample: clock must be a graph Node")
-        node_inputs.append(clock)   # clock is the LAST input (inferred as the clock port)
-    if not all(is_node(x) for x in node_inputs):
-        raise ValueError("multi_resample: every input must be a graph Node")
-    return make_operator_node(multi_resample, tuple(node_inputs), {
-        "reducers": list(reducers), "every": every, "count": count,
-        "origin": origin, "label": label, "fill": fill, "columns": columns})
-
-

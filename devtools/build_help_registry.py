@@ -195,8 +195,25 @@ def validate(entry: dict, screamer_module, valid_topics=None) -> None:
     kind (``function`` for stream operators, ``graph`` for the DAG names) gets a
     lighter, signature-based check with no round-trip, since those call
     conventions vary (``*values``, predicates, async generators, ...).
+    ``kind: guide`` pages document conventions rather than Python objects and
+    only receive topic validation.
     """
     name = entry["name"]
+
+    # Guide pages document conventions, not Python objects; skip module lookup.
+    if entry.get("kind") == "guide":
+        topics = entry.get("topics") or []
+        if not topics:
+            raise ValueError(
+                f"{name}: frontmatter must declare at least one topic (see docs/topics.yml)")
+        if valid_topics is not None:
+            unknown = [t for t in topics if t not in valid_topics]
+            if unknown:
+                raise ValueError(
+                    f"{name}: unknown topic slug(s) {sorted(unknown)}; "
+                    "valid slugs are the keys of docs/topics.yml")
+        return
+
     obj = getattr(screamer_module, name, None)
     if obj is None:
         raise RuntimeError(f"screamer has no name {name!r}")

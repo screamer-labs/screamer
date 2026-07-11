@@ -64,7 +64,7 @@ def test_fill_carry_carries_previous_row_for_internal_gaps():
 
 def test_fill_nan_ohlc_multicolumn():
     s = Resample(freq=1, agg="ohlc", fill="nan")(VALS, IDX)
-    v, k = s.values, s.index
+    v, k = s[0], s[1]
     np.testing.assert_array_equal(k, [0, 1, 2, 3])
     assert v.shape == (4, 4)
     np.testing.assert_array_equal(v[0], [10.0, 10.0, 10.0, 10.0])
@@ -75,7 +75,7 @@ def test_fill_nan_ohlc_multicolumn():
 
 def test_fill_carry_ohlc_multicolumn():
     s = Resample(freq=1, agg="ohlc", fill="carry")(VALS, IDX)
-    v, k = s.values, s.index
+    v, k = s[0], s[1]
     np.testing.assert_array_equal(k, [0, 1, 2, 3])
     assert v.shape == (4, 4)
     np.testing.assert_array_equal(v[0], [10.0, 10.0, 10.0, 10.0])

@@ -12,17 +12,17 @@ Despiking and robust estimators.
 
    * - Function
      - Description
-   * - :doc:`Clip </functions_preprocessing/Clip>`
+   * - :doc:`Clip to bounds </functions_preprocessing/Clip>`
      - Bound each element below and/or above.
-   * - :doc:`Hampel </functions_rolling/Hampel>`
+   * - :doc:`Hampel filter </functions_rolling/Hampel>`
      - Robust Hampel despiker, replace samples far from the window median (in MAD units).
-   * - :doc:`ImpulseClip </functions_rolling/ImpulseClip>`
+   * - :doc:`Impulse clip </functions_rolling/ImpulseClip>`
      - Causal impulse remover, detects spikes on the trend-free first difference.
-   * - :doc:`RollingMad </functions_rolling/RollingMad>`
+   * - :doc:`Rolling mean absolute deviation </functions_rolling/RollingMad>`
      - Trailing-window mean absolute deviation from the rolling mean.
-   * - :doc:`RollingMedian </functions_rolling/RollingMedian>`
+   * - :doc:`Rolling median </functions_rolling/RollingMedian>`
      - Trailing-window median.
-   * - :doc:`RollingMedianAD </functions_rolling/RollingMedianAD>`
+   * - :doc:`Rolling median absolute deviation </functions_rolling/RollingMedianAD>`
      - Rolling median absolute deviation, median(\|x - median\|), a robust scale estimate.
-   * - :doc:`RollingSigmaClip </functions_rolling/RollingSigmaClip>`
+   * - :doc:`Rolling sigma-clip </functions_rolling/RollingSigmaClip>`
      - Replace samples outside [mean - lower*std, mean + upper*std] with NaN or the clipped bound.

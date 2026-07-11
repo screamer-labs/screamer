@@ -25,18 +25,18 @@ their rows pair by position. To model streams on *different* clocks, provide an
 index for each stream; without one, aligned clocks are assumed and the lengths
 must match.
 
-The `Stream` type is a thin wrapper over two arrays (`.values` and `.index`)
-with no per-element overhead, plus `from_pandas` / `to_pandas` converters:
+A stream value is either a bare ndarray (positional) or a `(values, index)` 2-tuple
+(indexed). `from_pandas` / `to_pandas` convert between these and pandas objects:
 
 ```python
-from screamer import Stream
+from screamer import to_pandas, from_pandas
 
-s = Stream(values, index=None)         # positional
-s = Stream(values, index=timestamps)   # indexed
+values, index = from_pandas(df)       # DataFrame -> (values, index) tuple
+series = to_pandas(values, index)     # (values, index) -> Series or DataFrame
 ```
 
-See the [`Stream` reference](functions_streams/Stream.md) for the full contract:
-constructor, shape rules, attributes, methods, and the pandas round-trip.
+See the [tuple convention guide](functions_streams/Stream.md) for the full contract
+and the pandas round-trip.
 
 ## 2. Stream operators are polymorphic
 
@@ -45,20 +45,18 @@ Most stream operators (`CombineLatest`, `Dropna`, `Filter`, `Select`,
 
 | Input type | Return type |
 |---|---|
-| raw value array(s), optional `index=` | `(values, index)` 2-tuple; `index is None` when positional |
-| `Stream` object(s) | a `Stream` |
+| bare ndarray(s), optional `index=` | `(values, index)` 2-tuple; `index is None` when positional |
+| `(values, index)` tuple(s) | `(values, index)` 2-tuple |
 | graph `Node`(s) | a `Node` (builds the DAG) |
 
-Raw return is always values-first: `vals, idx = CombineLatest()(a, b)` always
+Batch return is always a `(values, index)` 2-tuple: `vals, idx = CombineLatest()(a, b)` always
 works; `idx is None` is a checkable flag meaning "no real ordering here." A bare
-array auto-wraps to a positional `Stream`; if any input was a `Stream` the
-output is also a `Stream`.
+array is treated as a positional stream with `index=None`.
 
-`Merge`, `split`, and `replay` accept `Stream` inputs too, but their *outputs*
+`Merge`, `split`, and `replay` follow the same input convention but their *outputs*
 differ because they carry a per-event `sources` tag: `Merge` returns
 `(values, sources, index)` and `replay` yields `(value, index, source)` events.
-`split` given a `Stream` returns a list of `Stream`s (one per source); given raw
-arrays it returns `(values, index)` pairs.
+`split` returns per-source `(values, index)` pairs.
 
 ## 3. Compute functors preserve cardinality; stream operators may change it
 
@@ -103,7 +101,7 @@ Other stream operators:
   max-speed backtest. Yields `(value, index, source)` per event.
 
 `Merge` and `CombineLatest` are unified: pass lazy iterators of events and the
-operator returns a lazy iterator; pass arrays or a `Stream` and the operator
+operator returns a lazy iterator; pass arrays or `(values, index)` tuples and the operator
 returns the batch result. No separate `*_iter` function is needed.
 (`split` has no streaming form, and `replay` is itself the streaming/replay
 driver.)

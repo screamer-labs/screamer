@@ -72,10 +72,10 @@ def test_combine_latest_batch_equals_stream(n_series, dtype, emit):
     # index to int, so we use int64 for both batch oracle and generators.
     idxs_int = [k.astype(np.int64) for k, _ in series]
     # Batch oracle with int64 indices
-    stream_list = [streams.Stream(v, k) for v, k in zip(vals, idxs_int)]
+    stream_list = [(v, k) for v, k in zip(vals, idxs_int)]
     result = streams.CombineLatest(emit=emit)(*stream_list)
-    bk = result.index
-    ba = result.values
+    bk = result[1]
+    ba = result[0]
     # Lazy path: generators of (float(v), int(k)) -> indexed lazy sources
     gens = [((float(v), int(k)) for v, k in zip(vals[i], idxs_int[i]))
             for i in range(n_series)]
@@ -129,15 +129,15 @@ def test_dropna_batch_equals_stream_on_combine_output():
     # combine_latest on_any produces NaN warmup rows; dropna must remove the
     # same rows whether applied to the batch array or the event stream.
     series = _make_series(3, 50, np.int64, seed=42)
-    stream_list = [streams.Stream(v, k) for k, v in series]
+    stream_list = [(v, k) for k, v in series]
     result = streams.CombineLatest(emit="on_any")(*stream_list)
-    bk = result.index
-    ba = result.values
+    bk = result[1]
+    ba = result[0]
     # dropna is values-first: Dropna()(values, index=...) -> (filtered_values, filtered_index)
     dv, dk = streams.Dropna(how="any")(ba, index=bk)
 
     # Lazy path: generators of (float(v), int(k)) (int64 indices from series)
-    gens = [((float(v), int(k)) for v, k in zip(s.values, s.index))
+    gens = [((float(v), int(k)) for v, k in zip(s[0], s[1]))
             for s in stream_list]
     events = list(streams.CombineLatest(emit="on_any")(*gens))
     # filter NaN rows inline

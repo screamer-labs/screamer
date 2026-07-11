@@ -66,18 +66,13 @@ single functor instance backs more than one node.
 Feeds are passed positionally in input order, `dag(*feeds)`, or by input name,
 `dag(**named_feeds)`. Each feed may be:
 
-- a bare array (positional, with the index taken as the row number),
-- a `Stream`, or
+- a bare array (positional, with the index taken as the row number), or
 - a `(values, index)` pair.
 
-The return is always `(values, index)` tuples, never `Stream` objects, even
-when you feed `Stream`s:
+The return is always `(values, index)` tuples:
 
 - **one output**, a single `(values, index)` pair,
 - **multiple outputs**, a tuple of such pairs, one per output.
-
-(One exception: an output that is a labelled multi-column bar node comes back as a
-`Stream` carrying its `.columns`.)
 
 Pass generators of `(value, index)` pairs instead of arrays to run the graph
 lazily, event by event: `dag(gen_a, gen_b)` returns an iterator that yields
@@ -103,8 +98,7 @@ returns the session, so calls chain.
   the end of a processing loop. The end-of-input flush that `dag(...)` performs
   implicitly is the special case.
 - **`.result()`** returns the output accumulated so far, in the same shape
-  `dag(...)` returns (a labelled `Stream` for a multi-column bar node), and drains
-  the internal buffers.
+  `dag(...)` returns, and drains the internal buffers.
 
 Feeding the same events in index order and then calling `.flush()` reproduces the
 batch result exactly. `.advance()` (and a clock input wired into the graph)

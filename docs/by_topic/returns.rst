@@ -12,21 +12,21 @@ Differences, returns, rates of change, and lags.
 
    * - Function
      - Description
-   * - :doc:`Diff </functions_misc/Diff>`
+   * - :doc:`Discrete difference </functions_misc/Diff>`
      - x[t] - x[t-k] (first difference at lag k).
-   * - :doc:`Diff2 </functions_misc/Diff2>`
+   * - :doc:`Second difference </functions_misc/Diff2>`
      - Second-order finite difference (discrete second derivative).
-   * - :doc:`Lag </functions_misc/Lag>`
+   * - :doc:`Lag (delay) </functions_misc/Lag>`
      - Output is the input delayed by k samples.
-   * - :doc:`LogReturn </functions_fin/LogReturn>`
+   * - :doc:`Log return </functions_fin/LogReturn>`
      - log(x[t] / x[t-k]) - log return at lag k.
    * - :doc:`Momentum </functions_misc/Momentum>`
      - x[t] - x[t-k], TA-Lib's MOM. Mathematically identical to Diff(k).
-   * - :doc:`Return </functions_fin/Return>`
+   * - :doc:`Simple return </functions_fin/Return>`
      - (x[t] - x[t-k]) / x[t-k] - the simple percentage return at lag k.
-   * - :doc:`ROC </functions_fin/ROC>`
+   * - :doc:`Rate of change (ROC) </functions_fin/ROC>`
      - 100 * (x[t] / x[t-k] - 1) - TA-Lib's ROC.
-   * - :doc:`ROCP </functions_fin/ROCP>`
+   * - :doc:`Rate of change percent (ROCP) </functions_fin/ROCP>`
      - x[t] / x[t-k] - 1 - TA-Lib's ROCP. Identical to Return.
-   * - :doc:`ROCR </functions_fin/ROCR>`
+   * - :doc:`Rate of change ratio (ROCR) </functions_fin/ROCR>`
      - x[t] / x[t-k] - TA-Lib's ROCR.

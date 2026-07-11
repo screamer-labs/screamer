@@ -18,6 +18,8 @@ Aligning, combining, reshaping, and replaying event streams.
      - Drop events whose value is NaN.
    * - :doc:`Filter </functions_streams/Filter>`
      - 2-input mask gate - keep each data value whose aligned mask is nonzero.
+   * - :doc:`from_pandas </functions_streams/from_pandas>`
+     - Convert a pandas Series or DataFrame to a (values, index) tuple.
    * - :doc:`Merge </functions_streams/Merge>`
      - Merge N value streams into one index-sorted (values, sources, index).
    * - :doc:`replay </functions_streams/replay>`
@@ -28,5 +30,7 @@ Aligning, combining, reshaping, and replaying event streams.
      - Pick column(s) from a wide (M, N) value stream.
    * - :doc:`split </functions_streams/split>`
      - Partition a merged tagged stream back into per-source streams.
-   * - :doc:`Stream </functions_streams/Stream>`
-     - A sequence of values with an optional ordering index.
+   * - :doc:`Stream tuple convention </functions_streams/Stream>`
+     - The (values, index) tuple at every operator boundary.
+   * - :doc:`to_pandas </functions_streams/to_pandas>`
+     - Convert a (values, index) tuple to a pandas Series or DataFrame.

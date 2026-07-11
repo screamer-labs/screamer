@@ -14,9 +14,9 @@ Filling and removing NaN values.
      - Description
    * - :doc:`Dropna </functions_streams/Dropna>`
      - Drop events whose value is NaN.
-   * - :doc:`Ffill </functions_preprocessing/Ffill>`
+   * - :doc:`Forward-fill NaNs </functions_preprocessing/Ffill>`
      - Replace NaN with the most recent finite value.
-   * - :doc:`FillNa </functions_preprocessing/FillNa>`
+   * - :doc:`Replace NaNs with a constant </functions_preprocessing/FillNa>`
      - Replace NaN with a user-specified scalar.
    * - :doc:`IsFinite </functions_math/IsFinite>`
      - Returns 1.0 for finite values, 0.0 for NaN or inf. Does not propagate NaN.

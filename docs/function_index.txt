@@ -180,7 +180,6 @@ Sqrt, Square root of each element.
 Square, x squared (faster than Power(2)).
 Stoch, Stochastic oscillator %K and %D (3 inputs -> 2 outputs).
 StochRSI, Stochastic applied to RSI (1 input -> 2 outputs).
-Stream, A sequence of values with an optional ordering index.
 Sub, Elementwise difference of two aligned streams (x - y).
 TEMA, Mulloy's Triple EMA: 3*EMA - 3*EMA(EMA) + EMA(EMA(EMA)).
 TRIMA, Triangular MA: SMA of an SMA. Heavier center-weighting than WMA.
@@ -191,16 +190,13 @@ UltimateOscillator, Three-period weighted oscillator (Williams, 1976).
 WMA, Linearly-weighted moving average. O(1) per step.
 Where, Returns a if mask is nonzero, b otherwise. NaN mask yields NaN.
 WilliamsR, Inverse stochastic oscillator in [-100, 0].
-combine_latest, As-of latest-value join of N streams: one row per distinct index (same-index events coalesce).
-dropna, Drop events whose value is NaN.
-merge, Merge N value streams into one index-sorted (values, sources, index).
+from_pandas, Convert a pandas Series or DataFrame to a (values, index) tuple.
 replay, Replay merged streams as an async event stream paced by index-deltas.
-resample, Causal windowed downsample of a 1-D value stream.
-select, Pick column(s) from a wide (M, N) value stream.
 split, Partition a merged tagged stream back into per-source streams.
+stream-tuple-convention, The (values, index) tuple at every operator boundary.
+to_pandas, Convert a (values, index) tuple to a pandas Series or DataFrame.
 
 # Stream operators
-Stream, A sequence of values with an optional ordering index and optional column names.
 Merge, Index-sorted N-way merge.
 CombineLatest, As-of latest-value join.
 replay, Replay merged streams as an async event stream paced by index-deltas.

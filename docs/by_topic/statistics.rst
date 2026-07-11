@@ -12,65 +12,65 @@ Windowed summary statistics: central tendency, dispersion, quantiles, moments, a
 
    * - Function
      - Description
-   * - :doc:`EwKurt </functions_ew/EwKurt>`
+   * - :doc:`Exponentially-weighted kurtosis </functions_ew/EwKurt>`
      - EW excess kurtosis.
-   * - :doc:`EwMean </functions_ew/EwMean>`
+   * - :doc:`Exponentially-weighted mean </functions_ew/EwMean>`
      - Exponentially-weighted moving average (pandas adjust=True).
-   * - :doc:`EwRms </functions_ew/EwRms>`
+   * - :doc:`Exponentially-weighted RMS </functions_ew/EwRms>`
      - EW root-mean-square.
-   * - :doc:`EwSkew </functions_ew/EwSkew>`
+   * - :doc:`Exponentially-weighted skewness </functions_ew/EwSkew>`
      - EW skewness.
-   * - :doc:`EwStd </functions_ew/EwStd>`
+   * - :doc:`Exponentially-weighted standard deviation </functions_ew/EwStd>`
      - EW standard deviation.
-   * - :doc:`EwVar </functions_ew/EwVar>`
+   * - :doc:`Exponentially-weighted variance </functions_ew/EwVar>`
      - EW variance (pandas adjust=True bias-corrected).
-   * - :doc:`ExpandingKurt </functions_expanding/ExpandingKurt>`
+   * - :doc:`Expanding kurtosis </functions_expanding/ExpandingKurt>`
      - Running bias-corrected excess kurtosis (Fisher) over the whole history.
-   * - :doc:`ExpandingMean </functions_expanding/ExpandingMean>`
+   * - :doc:`Expanding mean </functions_expanding/ExpandingMean>`
      - Running mean over the whole history since the last reset.
-   * - :doc:`ExpandingSkew </functions_expanding/ExpandingSkew>`
+   * - :doc:`Expanding skewness </functions_expanding/ExpandingSkew>`
      - Running bias-corrected sample skewness (G1) over the whole history.
-   * - :doc:`ExpandingStd </functions_expanding/ExpandingStd>`
+   * - :doc:`Expanding standard deviation </functions_expanding/ExpandingStd>`
      - Running sample standard deviation (ddof=1) over the whole history.
-   * - :doc:`ExpandingVar </functions_expanding/ExpandingVar>`
+   * - :doc:`Expanding variance </functions_expanding/ExpandingVar>`
      - Running sample variance (ddof=1) over the whole history.
-   * - :doc:`RollingArgmax </functions_rolling/RollingArgmax>`
+   * - :doc:`Rolling argmax </functions_rolling/RollingArgmax>`
      - Window-offset of the trailing-window maximum (TA-Lib MAXINDEX).
-   * - :doc:`RollingArgmin </functions_rolling/RollingArgmin>`
+   * - :doc:`Rolling argmin </functions_rolling/RollingArgmin>`
      - Window-offset of the trailing-window minimum (TA-Lib MININDEX).
-   * - :doc:`RollingIqr </functions_rolling/RollingIqr>`
+   * - :doc:`Rolling interquartile range </functions_rolling/RollingIqr>`
      - Q3 minus Q1 over the trailing window.
-   * - :doc:`RollingKurt </functions_rolling/RollingKurt>`
+   * - :doc:`Rolling kurtosis </functions_rolling/RollingKurt>`
      - Trailing-window excess kurtosis.
-   * - :doc:`RollingMad </functions_rolling/RollingMad>`
+   * - :doc:`Rolling mean absolute deviation </functions_rolling/RollingMad>`
      - Trailing-window mean absolute deviation from the rolling mean.
-   * - :doc:`RollingMax </functions_rolling/RollingMax>`
+   * - :doc:`Rolling maximum </functions_rolling/RollingMax>`
      - Trailing-window maximum (monotonic deque).
-   * - :doc:`RollingMean </functions_rolling/RollingMean>`
+   * - :doc:`Rolling mean </functions_rolling/RollingMean>`
      - Trailing-window arithmetic mean (simple moving average).
-   * - :doc:`RollingMedian </functions_rolling/RollingMedian>`
+   * - :doc:`Rolling median </functions_rolling/RollingMedian>`
      - Trailing-window median.
-   * - :doc:`RollingMedianAD </functions_rolling/RollingMedianAD>`
+   * - :doc:`Rolling median absolute deviation </functions_rolling/RollingMedianAD>`
      - Rolling median absolute deviation, median(\|x - median\|), a robust scale estimate.
-   * - :doc:`RollingMin </functions_rolling/RollingMin>`
+   * - :doc:`Rolling minimum </functions_rolling/RollingMin>`
      - Trailing-window minimum (monotonic deque).
-   * - :doc:`RollingMinMax </functions_rolling/RollingMinMax>`
+   * - :doc:`Rolling min and max </functions_rolling/RollingMinMax>`
      - Trailing-window (min, max) returned as a 2-tuple per step.
-   * - :doc:`RollingPercentile </functions_fin/RollingPercentile>`
+   * - :doc:`Rolling percentile </functions_fin/RollingPercentile>`
      - Percentile (rank/window) of the current value in the trailing window.
-   * - :doc:`RollingQuantile </functions_rolling/RollingQuantile>`
+   * - :doc:`Rolling quantile </functions_rolling/RollingQuantile>`
      - Trailing-window quantile (e.g. 0.25 = lower quartile).
-   * - :doc:`RollingRange </functions_rolling/RollingRange>`
+   * - :doc:`Rolling range </functions_rolling/RollingRange>`
      - Trailing-window max minus min.
-   * - :doc:`RollingRank </functions_fin/RollingRank>`
+   * - :doc:`Rolling rank </functions_fin/RollingRank>`
      - Rank of the current value within the trailing window (1-based, average tie rule).
-   * - :doc:`RollingRms </functions_rolling/RollingRms>`
+   * - :doc:`Rolling root-mean-square </functions_rolling/RollingRms>`
      - Trailing-window root-mean-square.
-   * - :doc:`RollingSkew </functions_rolling/RollingSkew>`
+   * - :doc:`Rolling skewness </functions_rolling/RollingSkew>`
      - Trailing-window skewness.
-   * - :doc:`RollingStd </functions_rolling/RollingStd>`
+   * - :doc:`Rolling standard deviation </functions_rolling/RollingStd>`
      - Trailing-window sample standard deviation (ddof=1).
-   * - :doc:`RollingSum </functions_rolling/RollingSum>`
+   * - :doc:`Rolling sum </functions_rolling/RollingSum>`
      - Trailing-window sum.
-   * - :doc:`RollingVar </functions_rolling/RollingVar>`
+   * - :doc:`Rolling variance </functions_rolling/RollingVar>`
      - Trailing-window sample variance (ddof=1).

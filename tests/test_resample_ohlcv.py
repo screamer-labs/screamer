@@ -18,12 +18,13 @@ from screamer.streams import Resample
 # ---------------------------------------------------------------------------
 
 def test_ohlcv_columns():
-    """Resample(..., agg='ohlcv') returns a Stream with exactly the right columns."""
+    """Resample(..., agg='ohlcv') returns a tuple with 5 positional columns."""
     price = np.arange(20.0)
     vol = np.ones(20)
     idx = np.arange(20, dtype=np.int64)
     bars = Resample(freq=5, agg="ohlcv")(np.column_stack([price, vol]), idx)
-    assert tuple(bars.columns) == ("open", "high", "low", "close", "volume")
+    assert isinstance(bars, tuple) and isinstance(bars[0], np.ndarray)
+    assert bars[0].shape[1] == 5  # open(0),high(1),low(2),close(3),volume(4)
 
 
 def test_ohlcv_ohlc_block_matches_ohlc_agg():
@@ -32,8 +33,8 @@ def test_ohlcv_ohlc_block_matches_ohlc_agg():
     vol = np.ones(20)
     idx = np.arange(20, dtype=np.int64)
     bars = Resample(freq=5, agg="ohlcv")(np.column_stack([price, vol]), idx)
-    ohlc = Resample(freq=5, agg="ohlc")(price, idx)
-    np.testing.assert_allclose(bars.values[:, :4], ohlc.values)
+    ohlc, _ = Resample(freq=5, agg="ohlc")(price, idx)
+    np.testing.assert_allclose(bars[0][:, :4], ohlc)
 
 
 def test_ohlcv_volume_column_matches_sum_agg():
@@ -43,7 +44,7 @@ def test_ohlcv_volume_column_matches_sum_agg():
     idx = np.arange(20, dtype=np.int64)
     bars = Resample(freq=5, agg="ohlcv")(np.column_stack([price, vol]), idx)
     vol_sum, _ = Resample(freq=5, agg="sum")(vol, idx)
-    np.testing.assert_allclose(bars["volume"], vol_sum)
+    np.testing.assert_allclose(bars[0][:, 4], vol_sum)
 
 
 # ---------------------------------------------------------------------------
@@ -51,12 +52,13 @@ def test_ohlcv_volume_column_matches_sum_agg():
 # ---------------------------------------------------------------------------
 
 def test_ohlcv2_columns():
-    """Resample(..., agg='ohlcv2') returns a Stream with exactly the right columns."""
+    """Resample(..., agg='ohlcv2') returns a tuple with 6 positional columns."""
     price = np.arange(20.0)
     svol = np.where(np.arange(20) % 2, 1.0, -1.0)
     idx = np.arange(20, dtype=np.int64)
     bars = Resample(freq=5, agg="ohlcv2")(np.column_stack([price, svol]), idx)
-    assert tuple(bars.columns) == ("open", "high", "low", "close", "buy_vol", "sell_vol")
+    assert isinstance(bars, tuple) and isinstance(bars[0], np.ndarray)
+    assert bars[0].shape[1] == 6  # open(0),high(1),low(2),close(3),buy_vol(4),sell_vol(5)
 
 
 def test_ohlcv2_ohlc_block_matches_ohlc_agg():
@@ -65,8 +67,8 @@ def test_ohlcv2_ohlc_block_matches_ohlc_agg():
     svol = np.where(np.arange(20) % 2, 1.0, -1.0)
     idx = np.arange(20, dtype=np.int64)
     bars = Resample(freq=5, agg="ohlcv2")(np.column_stack([price, svol]), idx)
-    ohlc = Resample(freq=5, agg="ohlc")(price, idx)
-    np.testing.assert_allclose(bars.values[:, :4], ohlc.values)
+    ohlc, _ = Resample(freq=5, agg="ohlc")(price, idx)
+    np.testing.assert_allclose(bars[0][:, :4], ohlc)
 
 
 def test_ohlcv2_buy_vol_matches_pospart_sum():
@@ -76,7 +78,7 @@ def test_ohlcv2_buy_vol_matches_pospart_sum():
     idx = np.arange(20, dtype=np.int64)
     bars = Resample(freq=5, agg="ohlcv2")(np.column_stack([price, svol]), idx)
     buy_ref, _ = Resample(freq=5, agg="sum")(np.asarray(PosPart()(svol)), idx)
-    np.testing.assert_allclose(bars["buy_vol"], buy_ref)
+    np.testing.assert_allclose(bars[0][:, 4], buy_ref)
 
 
 def test_ohlcv2_sell_vol_matches_negpart_sum():
@@ -86,7 +88,7 @@ def test_ohlcv2_sell_vol_matches_negpart_sum():
     idx = np.arange(20, dtype=np.int64)
     bars = Resample(freq=5, agg="ohlcv2")(np.column_stack([price, svol]), idx)
     sell_ref, _ = Resample(freq=5, agg="sum")(np.asarray(NegPart()(svol)), idx)
-    np.testing.assert_allclose(bars["sell_vol"], sell_ref)
+    np.testing.assert_allclose(bars[0][:, 5], sell_ref)
 
 
 def test_ohlcv2_matches_composition():
@@ -95,11 +97,11 @@ def test_ohlcv2_matches_composition():
     vol = np.where(np.arange(20) % 2, 1.0, -1.0)
     idx = np.arange(20, dtype=np.int64)
     bars = Resample(freq=5, agg="ohlcv2")(np.column_stack([price, vol]), idx)
-    assert tuple(bars.columns) == ("open", "high", "low", "close", "buy_vol", "sell_vol")
-    o = Resample(freq=5, agg="ohlc")(price, idx)
-    np.testing.assert_allclose(bars.values[:, :4], o.values)
+    assert bars[0].shape[1] == 6  # open(0),high(1),low(2),close(3),buy_vol(4),sell_vol(5)
+    o, _ = Resample(freq=5, agg="ohlc")(price, idx)
+    np.testing.assert_allclose(bars[0][:, :4], o)
     buy, _ = Resample(freq=5, agg="sum")(np.asarray(PosPart()(vol)), idx)
-    np.testing.assert_allclose(bars["buy_vol"], buy.values if hasattr(buy, "values") else buy)
+    np.testing.assert_allclose(bars[0][:, 4], buy)
 
 
 # ---------------------------------------------------------------------------
@@ -121,12 +123,12 @@ def test_ohlcv_hand_computed():
     idx   = np.arange(10, dtype=np.int64)
     bars  = Resample(freq=5, agg="ohlcv")(np.column_stack([price, vol]), idx)
 
-    assert bars.values.shape == (2, 5)
+    assert bars[0].shape == (2, 5)
     expected = np.array([
         [0.0, 4.0, 0.0, 4.0, 15.0],
         [5.0, 9.0, 5.0, 9.0, 40.0],
     ])
-    np.testing.assert_allclose(bars.values, expected)
+    np.testing.assert_allclose(bars[0], expected)
 
 
 def test_ohlcv2_hand_computed():
@@ -148,12 +150,12 @@ def test_ohlcv2_hand_computed():
     idx   = np.arange(10, dtype=np.int64)
     bars  = Resample(freq=5, agg="ohlcv2")(np.column_stack([price, svol]), idx)
 
-    assert bars.values.shape == (2, 6)
+    assert bars[0].shape == (2, 6)
     expected = np.array([
         [0.0, 4.0, 0.0, 4.0, 3.0, 2.0],
         [5.0, 9.0, 5.0, 9.0, 3.0, 2.0],
     ])
-    np.testing.assert_allclose(bars.values, expected)
+    np.testing.assert_allclose(bars[0], expected)
 
 
 # ---------------------------------------------------------------------------
@@ -185,22 +187,22 @@ def test_ohlcv_rejects_wrong_column_count():
 
 
 def test_ohlcv_bar_index_is_real_array():
-    """ohlcv returns a Stream whose .index is a real (non-None) array."""
+    """ohlcv returns a tuple whose index (element 1) is a real (non-None) array."""
     price = np.arange(10.0)
     vol = np.ones(10)
     idx = np.arange(10, dtype=np.int64)
     bars = Resample(freq=5, agg="ohlcv")(np.column_stack([price, vol]), idx)
-    assert bars.index is not None
-    assert len(bars.index) == 2
+    assert bars[1] is not None
+    assert len(bars[1]) == 2
 
 
-def test_ohlcv_stream_input():
-    """ohlcv works when the input is a Stream (not a raw array)."""
-    from screamer.streams import Stream
+def test_ohlcv_tuple_input():
+    """ohlcv works when the input is a (values, index) tuple (not a raw array)."""
     price = np.arange(10.0)
     vol = np.ones(10)
     idx = np.arange(10, dtype=np.int64)
-    s = Stream(np.column_stack([price, vol]), idx)
+    s = (np.column_stack([price, vol]), idx)
     bars = Resample(freq=5, agg="ohlcv")(s)
-    assert tuple(bars.columns) == ("open", "high", "low", "close", "volume")
-    assert bars.values.shape == (2, 5)
+    assert isinstance(bars, tuple) and isinstance(bars[0], np.ndarray)
+    assert bars[0].shape[1] == 5  # open(0),high(1),low(2),close(3),volume(4)
+    assert bars[0].shape == (2, 5)

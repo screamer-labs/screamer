@@ -12,33 +12,33 @@ Direction and trend-following: trend-tracking averages, slope fits, ADX, and cha
 
    * - Function
      - Description
-   * - :doc:`ADX </functions_rolling/ADX>`
+   * - :doc:`Average Directional Index (ADX) </functions_rolling/ADX>`
      - Wilder's ADX with +DI and -DI (3 inputs -> 3 outputs).
-   * - :doc:`DEMA </functions_rolling/DEMA>`
+   * - :doc:`Double Exponential MA (DEMA) </functions_rolling/DEMA>`
      - Mulloy's Double EMA: 2*EMA - EMA(EMA).
    * - :doc:`Detrend </functions_misc/Detrend>`
      - x[t] minus its rolling mean.
-   * - :doc:`DonchianChannels </functions_rolling/DonchianChannels>`
+   * - :doc:`Donchian Channels </functions_rolling/DonchianChannels>`
      - Trend-following envelope: rolling max(high), rolling min(low), and midline.
-   * - :doc:`ExpandingSlope </functions_expanding/ExpandingSlope>`
+   * - :doc:`Expanding slope </functions_expanding/ExpandingSlope>`
      - Running OLS slope of the series against time over the whole history.
-   * - :doc:`HullMA </functions_rolling/HullMA>`
+   * - :doc:`Hull MA </functions_rolling/HullMA>`
      - Hull's responsive MA: WMA(2*WMA(n/2) - WMA(n), sqrt(n)).
-   * - :doc:`KAMA </functions_rolling/KAMA>`
+   * - :doc:`Kaufman Adaptive MA (KAMA) </functions_rolling/KAMA>`
      - Adaptive MA whose smoothing constant responds to the efficiency ratio.
    * - :doc:`MACD </functions_rolling/MACD>`
      - MACD line, signal line, and histogram (3 outputs).
-   * - :doc:`RollingHurst </functions_rolling/RollingHurst>`
+   * - :doc:`Rolling Hurst Exponent </functions_rolling/RollingHurst>`
      - Rolling-window Hurst exponent via Anis-Lloyd corrected rescaled-range analysis.
-   * - :doc:`RollingLinearRegression </functions_fin/RollingLinearRegression>`
+   * - :doc:`Rolling linear regression (2->4 OLS fit) </functions_fin/RollingLinearRegression>`
      - Full OLS fit returning (slope, intercept, r_squared, stderr).
-   * - :doc:`RollingPoly1 </functions_rolling/RollingPoly1>`
+   * - :doc:`Rolling 1st-order polynomial fit </functions_rolling/RollingPoly1>`
      - OLS fit y = a + b*t over a trailing window. derivative_order selects value/slope/zero.
-   * - :doc:`RollingPoly2 </functions_rolling/RollingPoly2>`
+   * - :doc:`Rolling 2nd-order polynomial fit </functions_rolling/RollingPoly2>`
      - OLS fit y = a + b*t + c*t^2 over a trailing window.
-   * - :doc:`RollingTSF </functions_fin/RollingTSF>`
+   * - :doc:`Rolling Time-Series Forecast (TSF) </functions_fin/RollingTSF>`
      - Linear regression of y on time, projected one step ahead. TA-Lib's TSF.
-   * - :doc:`TEMA </functions_rolling/TEMA>`
+   * - :doc:`Triple Exponential MA (TEMA) </functions_rolling/TEMA>`
      - Mulloy's Triple EMA: 3*EMA - 3*EMA(EMA) + EMA(EMA(EMA)).
-   * - :doc:`TRIX </functions_rolling/TRIX>`
+   * - :doc:`TRIX (rate of change of triple EMA) </functions_rolling/TRIX>`
      - ROC of a triple-smoothed EMA.

@@ -128,7 +128,7 @@ private:
         } else if (nb != bucket_) {
             if (acc_.has) emit(cur_label_);
             // A parked empty current bucket (e.g. advance() left it open with no
-            // event) is filled too, so advance()+fill agrees with MultiResampleNode.
+            // event) is filled too, matching advance()+fill semantics.
             else if (p_.fill != ResampleFill::Skip) emit_fill(cur_label_);
             // Fill internal gaps (empty buckets strictly between bucket_ and nb).
             // Trailing empties (after the last event) are handled by advance()/

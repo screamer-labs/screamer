@@ -68,8 +68,7 @@ The compiled graph runs in two modes:
   event at a time. The result is an iterator that yields output events; values are
   byte-identical to the batch result.
 
-Both forms use the same C++ engine. Feeds can be bare arrays, `Stream`s,
-`(values, index)` pairs, or generators of `(value, index)` pairs.
+Both forms use the same C++ engine. Feeds can be bare arrays, `(values, index)` pairs, or generators of `(value, index)` pairs.
 
 (dag-live)=
 ### Incremental, clock-driven: `dag.live()`

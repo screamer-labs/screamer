@@ -23,7 +23,6 @@
 #include "screamer/dag/select_node.h"
 #include "screamer/dag/resample_node.h"
 #include "screamer/dag/resample_generic_node.h"
-#include "screamer/dag/multi_resample_node.h"
 #include "screamer/dag/frame.h"
 #include "screamer/dag/functor_node.h"
 #include "screamer/dag/graph.h"
@@ -126,12 +125,6 @@ public:
             case NodeKind::DropNa:        node_width[id] = node_width[nd.inputs[0]]; break;
             case NodeKind::Select:        node_width[id] = nd.columns.size(); break;
             case NodeKind::Resample:      node_width[id] = resample_output_width(nd.resample); break;
-            case NodeKind::MultiResample: {
-                std::size_t w = 0;
-                for (auto* r : nd.reducers) w += r->n_out();
-                node_width[id] = w;
-                break;
-            }
             case NodeKind::Filter:        node_width[id] = 1; break;
             }
         }
@@ -257,25 +250,6 @@ public:
                 }
                 break;
             }
-            case NodeKind::MultiResample: {
-                // The clock port (if present) is inferred structurally: one extra
-                // trailing input beyond the N reducers is the bucket-only clock.
-                if (ns.inputs.size() != ns.reducers.size() &&
-                    ns.inputs.size() != ns.reducers.size() + 1)
-                    throw std::runtime_error(
-                        "compile: MultiResample inputs must be N or N+1 (N reducers "
-                        "+ optional clock)");
-                bool has_clock = ns.inputs.size() == ns.reducers.size() + 1;
-                auto mn = std::make_shared<MultiResampleNode<std::int64_t>>(
-                    ns.resample, ns.reducers, has_clock, *downstream);
-                reset_nodes_.push_back(mn.get());
-                advance_multi_resamples_.push_back(mn.get());
-                node_input_sink[id] = [ptr = mn.get()](std::size_t slot) -> Sink<std::int64_t>* {
-                    return &ptr->port(slot);
-                };
-                owned_.push_back(mn);
-                break;
-            }
             case NodeKind::Filter: {
                 // inputs[0] = data (port 0), inputs[1] = mask (port 1).
                 // node_input_sink returns &fn->port(slot) so data wires to port 0
@@ -318,7 +292,6 @@ public:
     void advance(std::int64_t now) {
         for (auto* r : advance_resamples_)         r->advance(now);
         for (auto* r : advance_generic_resamples_) r->advance(now);
-        for (auto* r : advance_multi_resamples_)   r->advance(now);
     }
 
     // Routes a single width-1 event into the graph without resetting state.
@@ -400,15 +373,14 @@ private:
     std::vector<std::shared_ptr<void>>            owned_;           // all heap nodes/broadcasts
     std::vector<Sink<std::int64_t>*>              input_sinks_;     // per input signature index
     // Polymorphic reset: every stateful node (FunctorNode, CombineLatestNode,
-    // ResampleNode, GenericResampleNode, MultiResampleNode) is pushed here once.
-    // reset() does one polymorphic pass instead of five typed loops.
+    // FilterNode, ResampleNode, GenericResampleNode) is pushed here once.
+    // reset() does one polymorphic pass instead of multiple typed loops.
     std::vector<Resettable*>                      reset_nodes_;
     // Typed lists for advance() only (resample nodes that support time-driven
     // bucket finalization). These do NOT overlap with reset_nodes_ in purpose:
-    // reset() uses reset_nodes_, advance() uses these three.
+    // reset() uses reset_nodes_, advance() uses these two.
     std::vector<ResampleNode<std::int64_t>*>         advance_resamples_;
     std::vector<GenericResampleNode<std::int64_t>*>  advance_generic_resamples_;
-    std::vector<MultiResampleNode<std::int64_t>*>    advance_multi_resamples_;
     std::vector<OutputBuffer>                     outputs_;         // persistent output buffers
     std::vector<std::size_t>                      output_widths_;   // expected width for each output
 };

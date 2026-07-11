@@ -13,11 +13,11 @@ covers:
 
 Causal windowed downsampling. Group a stream into fixed index-interval buckets
 (`freq=`) or fixed event-count buckets (`count=`), reduce each bucket with a
-per-bar aggregation, and return a labelled `Stream`. A bucket emits only once a
+per-bar aggregation, and return a `(values, index)` tuple. A bucket emits only once a
 later index proves it complete; the trailing partial bucket emits at end of input.
-Usable eagerly (raw arrays or `Stream`) and inside a `Dag`.
+Usable eagerly (raw arrays or `(values, index)` tuples) and inside a `Dag`.
 
-Feeding a lazy iterator of `(value, index)` pairs returns a lazy iterator of bar events; feeding arrays or a `Stream` returns the batch result.
+Feeding a lazy iterator of `(value, index)` pairs returns a lazy iterator of bar events; feeding arrays or `(values, index)` tuples returns the batch result.
 
 The `agg` parameter accepts two forms:
 
@@ -79,7 +79,7 @@ Concretely, eight ticks at index `[0, 1, 2, 10, 11, 20, 21, 22]`:
 ## Empty buckets: `fill=`
 
 `fill=` controls what happens when a `freq=` bar contains no samples (an index
-interval with no ticks). It applies to eager arrays, `Stream`s, and graphs alike;
+interval with no ticks). It applies to eager arrays, `(values, index)` tuples, and graphs alike;
 it is not `Dag`-only.
 
 - `"skip"` (default): emit no row for an empty bucket (the legacy behavior).
@@ -114,14 +114,14 @@ effect.
   reducer is `reset()` only at the next real bar boundary. An expanding reducer
   therefore starts each real bar clean and never accumulates across a filled gap.
 
-## Labelled output and `Stream.columns`
+## Output format and column order
 
-Every `Resample` call returns a `Stream`, which is also unpackable as
-`(values, index)` for backward-compatible tuple unpacking. Multi-column
-aggregations (`ohlc`, `ohlcv`, `ohlcv2`) set `.columns` on the returned
-`Stream` to a tuple of column names; single-value aggregations leave `.columns`
-as `None`. Use `bars["close"]` to read a named 1-D column, or iterate
-`(values, index) = bars` for the full array.
+Every `Resample` call returns a `(values, index)` tuple. Unpack it as
+`values, index = Resample(...)(data, idx)`. Multi-column aggregations (`ohlc`,
+`ohlcv`, `ohlcv2`) return a 2-D values array; columns are positional in
+documented order. Use `to_pandas(values, index, columns=["open","high","low","close"])`
+to attach names for display. See [OHLC column order](Stream.md#ohlc-column-order)
+for the full column listing.
 
 ## `ohlcv` and `ohlcv2` (two-column input)
 
@@ -153,9 +153,9 @@ Downsample tick values into buckets of width 10 and take the mean of each bucket
    idx  = np.array([0, 3, 10, 12, 20])
    vals = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
 
-   bars = Resample(freq=10, agg="mean")(vals, idx)
-   print(bars.values)
-   print(bars.index)
+   values, index = Resample(freq=10, agg="mean")(vals, idx)
+   print(values)
+   print(index)
 ```
 
 ### OHLCV bars from tick data
@@ -175,9 +175,10 @@ labelled five-column bar stream.
    volume = np.array([10., 20., 15., 30., 12., 22., 18., 25., 14., 28.])
    idx    = np.arange(10, dtype=np.int64)
 
-   bars = Resample(freq=5, agg="ohlcv")(np.column_stack([price, volume]), idx)
-   print(bars.columns)
-   print(bars.values.round(2))
+   values, index = Resample(freq=5, agg="ohlcv")(np.column_stack([price, volume]), idx)
+   # columns positional: open(0), high(1), low(2), close(3), volume(4)
+   print(index)
+   print(values.round(2))
 ```
 
 ### Custom per-bar statistic with a functor
@@ -196,8 +197,8 @@ bar. `ExpandingSkew()` returns the intra-bar price skewness at bar close.
    price = np.random.normal(100, 1, 20)
    idx   = np.arange(20, dtype=np.int64)
 
-   bars = Resample(freq=5, agg=ExpandingSkew())(price, idx)
-   print(bars.values.round(4))
+   values, index = Resample(freq=5, agg=ExpandingSkew())(price, idx)
+   print(values.round(4))
 ```
 
 ### Several statistics over the same bucketing

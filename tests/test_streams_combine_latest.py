@@ -1,6 +1,6 @@
 import numpy as np
 import pytest
-from screamer.streams import combine_latest, CombineLatest, Stream
+from screamer.streams import combine_latest, CombineLatest
 
 
 def test_positional_lockstep_equal_length():
@@ -23,18 +23,18 @@ def test_indexed_coalesces_same_index_rows():
     np.testing.assert_array_equal(v, [[10, 1], [20, 1], [20, 3], [40, 4]])
 
 
-def test_stream_in_stream_out():
-    a = Stream(np.array([10.0, 20.0]), np.array([1, 2]))
-    b = Stream(np.array([1.0, 2.0]), np.array([1, 2]))
+def test_tuple_in_tuple_out():
+    a = (np.array([10.0, 20.0]), np.array([1, 2]))
+    b = (np.array([1.0, 2.0]), np.array([1, 2]))
     out = CombineLatest()(a, b)
-    assert isinstance(out, Stream)
-    np.testing.assert_array_equal(out.index, [1, 2])
+    assert isinstance(out, tuple) and isinstance(out[0], np.ndarray)
+    np.testing.assert_array_equal(out[1], [1, 2])
 
 
 def test_mixed_positional_and_indexed_raises():
     with pytest.raises(ValueError, match="positional"):
-        CombineLatest()(Stream(np.array([1.0, 2.0]), np.array([1, 2])),
-                        Stream(np.array([3.0, 4.0])))
+        CombineLatest()((np.array([1.0, 2.0]), np.array([1, 2])),
+                        np.array([3.0, 4.0]))
 
 
 def test_node_in_node_out():

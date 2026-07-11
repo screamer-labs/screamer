@@ -12,9 +12,9 @@ Envelopes around price.
 
    * - Function
      - Description
-   * - :doc:`BollingerBands </functions_rolling/BollingerBands>`
+   * - :doc:`Bollinger Bands </functions_rolling/BollingerBands>`
      - Mean +/- num_std rolling standard deviations.
-   * - :doc:`DonchianChannels </functions_rolling/DonchianChannels>`
+   * - :doc:`Donchian Channels </functions_rolling/DonchianChannels>`
      - Trend-following envelope: rolling max(high), rolling min(low), and midline.
-   * - :doc:`KeltnerChannels </functions_rolling/KeltnerChannels>`
+   * - :doc:`Keltner Channels </functions_rolling/KeltnerChannels>`
      - Volatility-adapted envelope: EMA midline plus/minus a multiple of ATR.

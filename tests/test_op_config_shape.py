@@ -21,7 +21,6 @@ from screamer.streams import (
     Merge,
     Resample,
     Select,
-    Stream,
     combine_latest,
     dropna,
     merge,
@@ -35,15 +34,11 @@ from screamer.streams import (
 # ---------------------------------------------------------------------------
 
 def _eq(a, b):
-    """Compare two results that may be arrays, tuples, Streams, or None (NaN-aware)."""
+    """Compare two results that may be arrays, tuples, or None (NaN-aware)."""
     if a is None and b is None:
         return True
     if a is None or b is None:
         return False
-    if isinstance(a, Stream) and isinstance(b, Stream):
-        return (np.array_equal(a.values, b.values, equal_nan=True)
-                and (np.array_equal(a.index, b.index)
-                     if a.index is not None else b.index is None))
     if isinstance(a, tuple) and isinstance(b, tuple):
         return all(_eq(x, y) for x, y in zip(a, b))
     a, b = np.asarray(a), np.asarray(b)
@@ -155,7 +150,7 @@ class TestDropna:
                    dropna(x2d, self.idx, how="all"))
 
     def test_batch_stream_input(self):
-        s = Stream(self.x, self.idx)
+        s = (self.x, self.idx)
         cls_out = Dropna()(s)
         fn_out = dropna(s)
         assert _eq(cls_out, fn_out)
@@ -207,7 +202,7 @@ class TestSelect:
         assert _eq(cls_out, fn_out)
 
     def test_batch_stream_input(self):
-        s = Stream(self.vals, self.idx)
+        s = (self.vals, self.idx)
         cls_out = Select(1)(s)
         fn_out = select(s, 1)
         assert _eq(cls_out, fn_out)

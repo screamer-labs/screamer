@@ -18,8 +18,7 @@ _EXP_K = [0, 10, 20]
 
 
 def _vi(r):
-    return (np.asarray(r.values), np.asarray(r.index)) if hasattr(r, "values") \
-        else (np.asarray(r[0]), np.asarray(r[1]))
+    return (np.asarray(r[0]), np.asarray(r[1]))
 
 
 def test_eager_freq_is_span():
