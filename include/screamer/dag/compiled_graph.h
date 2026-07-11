@@ -373,7 +373,7 @@ private:
     std::vector<std::shared_ptr<void>>            owned_;           // all heap nodes/broadcasts
     std::vector<Sink<std::int64_t>*>              input_sinks_;     // per input signature index
     // Polymorphic reset: every stateful node (FunctorNode, CombineLatestNode,
-    // ResampleNode, GenericResampleNode) is pushed here once.
+    // FilterNode, ResampleNode, GenericResampleNode) is pushed here once.
     // reset() does one polymorphic pass instead of multiple typed loops.
     std::vector<Resettable*>                      reset_nodes_;
     // Typed lists for advance() only (resample nodes that support time-driven
