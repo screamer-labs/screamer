@@ -301,3 +301,29 @@ def test_filter_in_all():
     """Filter must be present in screamer.__all__."""
     assert "Filter" in screamer.__all__
     assert "filter" not in screamer.__all__
+
+
+def test_filter_composes_as_graph_node():
+    """Filter composes with upstream/downstream nodes inside one Dag: data from an
+    upstream functor, mask from a 1-input classifier, and the gated output feeding
+    a downstream functor - all in C++, no eager mask."""
+    import numpy as np
+    from screamer import Filter, IsFinite, RollingMean, Input, Dag
+    x = np.array([1., 2, np.nan, 4, 5, 6], dtype=float)
+    idx = np.arange(len(x), dtype=np.int64)
+
+    # upstream data node + 1-in mask node
+    d = Input("x")
+    up = Dag(inputs=[d], outputs=[Filter()(RollingMean(2)(d), IsFinite()(d))])
+    uv, uk = up((x, idx))
+
+    # Filter feeding a downstream node
+    d2 = Input("x")
+    down = Dag(inputs=[d2], outputs=[RollingMean(2)(Filter()(d2, IsFinite()(d2)))])
+    dv, dk = down((x, idx))
+
+    # index 2 (x=NaN) is dropped in both; kept indices are [0,1,3,4,5]
+    np.testing.assert_array_equal(uk, np.array([0, 1, 3, 4, 5], dtype=np.int64))
+    np.testing.assert_array_equal(dk, np.array([0, 1, 3, 4, 5], dtype=np.int64))
+    # downstream RollingMean(2) over the survivors [1,2,4,5,6] -> [nan,1.5,3,4.5,5.5]
+    np.testing.assert_allclose(dv, [np.nan, 1.5, 3.0, 4.5, 5.5], equal_nan=True)
