@@ -1,11 +1,10 @@
 import numpy as np
 import pytest
 from screamer import streams
-from screamer.streams import Stream
 
 
 # ---------------------------------------------------------------------------
-# dropna – raw array
+# dropna - raw array
 # ---------------------------------------------------------------------------
 
 def test_dropna_any_on_aligned():
@@ -46,23 +45,23 @@ def test_dropna_positional_index_is_none():
 
 
 # ---------------------------------------------------------------------------
-# dropna – Stream / Node mirroring
+# dropna - tuple / Node mirroring
 # ---------------------------------------------------------------------------
 
 def test_dropna_stream_in_stream_out():
-    s = Stream(np.array([1.0, np.nan, 3.0]), np.array([10, 20, 30], dtype=np.int64))
+    s = (np.array([1.0, np.nan, 3.0]), np.array([10, 20, 30], dtype=np.int64))
     out = streams.Dropna()(s)
-    assert isinstance(out, Stream)
-    np.testing.assert_array_equal(out.values, [1.0, 3.0])
-    np.testing.assert_array_equal(out.index, [10, 30])
+    assert isinstance(out, tuple) and isinstance(out[0], np.ndarray)
+    np.testing.assert_array_equal(out[0], [1.0, 3.0])
+    np.testing.assert_array_equal(out[1], [10, 30])
 
 
 def test_dropna_stream_positional():
-    s = Stream(np.array([1.0, np.nan, 3.0]))      # positional stream
+    s = np.array([1.0, np.nan, 3.0])      # positional bare array
     out = streams.Dropna()(s)
-    assert isinstance(out, Stream)
-    assert out.index is None
-    np.testing.assert_array_equal(out.values, [1.0, 3.0])
+    assert isinstance(out, tuple) and isinstance(out[0], np.ndarray)
+    assert out[1] is None
+    np.testing.assert_array_equal(out[0], [1.0, 3.0])
 
 
 def test_dropna_node_in_node_out():
@@ -100,7 +99,7 @@ def test_dropna_iter_2d_rows():
 
 
 # ---------------------------------------------------------------------------
-# split / merge (unchanged API – sanity checks kept)
+# split / merge (unchanged API - sanity checks kept)
 # ---------------------------------------------------------------------------
 
 def test_split_inverts_merge():

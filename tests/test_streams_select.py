@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from screamer.streams import Select, Stream
+from screamer.streams import Select
 
 
 def _wide():
@@ -14,7 +14,7 @@ def _wide():
 
 
 # ---------------------------------------------------------------------------
-# select – raw array, values-first
+# select - raw array, values-first
 # ---------------------------------------------------------------------------
 
 def test_select_single_int_returns_1d():
@@ -75,26 +75,25 @@ def test_select_missing_columns_raises_streams():
 
 
 # ---------------------------------------------------------------------------
-# select – Stream / Node mirroring
+# select - tuple / Node mirroring
 # ---------------------------------------------------------------------------
 
-def test_select_stream_in_stream_out():
+def test_select_tuple_in_tuple_out():
     values, keys = _wide()
-    s = Stream(values, keys)
+    s = (values, keys)
     out = Select(1)(s)
-    assert isinstance(out, Stream)
+    assert isinstance(out, tuple) and isinstance(out[0], np.ndarray)
     # index is row-preserving (unchanged)
-    np.testing.assert_array_equal(out.index, keys)
-    np.testing.assert_array_equal(out.values, [11.0, 21.0, 31.0])
+    np.testing.assert_array_equal(out[1], keys)
+    np.testing.assert_array_equal(out[0], [11.0, 21.0, 31.0])
 
 
-def test_select_stream_positional():
+def test_select_positional_array():
     values, _ = _wide()
-    s = Stream(values)                # positional stream
-    out = Select(0)(s)
-    assert isinstance(out, Stream)
-    assert out.index is None
-    np.testing.assert_array_equal(out.values, [10.0, 20.0, 30.0])
+    out = Select(0)(values)   # bare array is positional
+    assert isinstance(out, tuple) and isinstance(out[0], np.ndarray)
+    assert out[1] is None
+    np.testing.assert_array_equal(out[0], [10.0, 20.0, 30.0])
 
 
 def test_select_node_in_node_out():

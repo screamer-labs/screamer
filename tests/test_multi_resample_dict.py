@@ -8,7 +8,7 @@ import numpy as np
 import pytest
 
 from screamer import ExpandingMax, ExpandingMin, ExpandingSum, First, Last, NegPart, PosPart
-from screamer.streams import Stream, CombineLatest, Resample
+from screamer.streams import CombineLatest, Resample
 
 # ---------------------------------------------------------------------------
 # Fixtures / shared data
@@ -64,7 +64,7 @@ class TestOHLCV2Composition:
         if arr is None:
             arr = self.price_arr
         ref = Resample(freq=W, agg=agg_str)(arr, self.t_arr)
-        return ref.values if isinstance(ref, Stream) else ref[0]
+        return ref[0]
 
     def test_open_matches_reference(self):
         ref = self._reference_col("first")
@@ -122,18 +122,18 @@ class TestCountModeComposition:
 
     def test_open_matches_single_col_count(self):
         ref = Resample(count=self.COUNT, agg="first")(self.price_arr, self.t_arr)
-        ref_v = ref.values if isinstance(ref, Stream) else ref[0]
+        ref_v = ref[0]
         np.testing.assert_allclose(self.out[:, 0], ref_v, rtol=1e-12)
 
     def test_close_matches_single_col_count(self):
         ref = Resample(count=self.COUNT, agg="last")(self.price_arr, self.t_arr)
-        ref_v = ref.values if isinstance(ref, Stream) else ref[0]
+        ref_v = ref[0]
         np.testing.assert_allclose(self.out[:, 1], ref_v, rtol=1e-12)
 
     def test_buy_matches_single_col_count(self):
         pos_vol = np.where(self.vol_arr > 0, self.vol_arr, 0.0)
         ref = Resample(count=self.COUNT, agg="sum")(pos_vol, self.t_arr)
-        ref_v = ref.values if isinstance(ref, Stream) else ref[0]
+        ref_v = ref[0]
         np.testing.assert_allclose(self.out[:, 2], ref_v, rtol=1e-12)
 
 
@@ -169,7 +169,7 @@ def test_vwap_via_composition():
     k     = np.arange(4)
     num  = Resample(freq=2, agg="sum")(price * vol, k)
     den  = Resample(freq=2, agg="sum")(vol,         k)
-    vwap = np.asarray(num.values) / np.asarray(den.values)
+    vwap = np.asarray(num[0]) / np.asarray(den[0])
     np.testing.assert_allclose(vwap, [(10 + 60) / 4, (30 + 40) / 2])
 
 
@@ -202,6 +202,6 @@ def test_composition_bar_index_aligned():
     c = Resample(freq=W, agg="last")(price_arr, t_arr)
     v = Resample(freq=W, agg="sum")(np.abs(vol_arr), t_arr)
     rows, idx = CombineLatest()(o, c, v)
-    np.testing.assert_array_equal(idx, o.index)
-    np.testing.assert_array_equal(idx, c.index)
+    np.testing.assert_array_equal(idx, o[1])
+    np.testing.assert_array_equal(idx, c[1])
     assert rows.shape == (N_BARS, 3)

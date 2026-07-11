@@ -7,7 +7,7 @@ from screamer import (
     ExpandingStd, ExpandingVar, ExpandingProd, ExpandingSkew, ExpandingKurt,
     ExpandingMean,
 )
-from screamer.streams import Resample, Stream
+from screamer.streams import Resample
 from screamer.dag import is_node
 
 
@@ -114,8 +114,8 @@ def test_resample_by_count_right_label():
 def test_resample_lazy_equals_batch_every():
     vals = np.array([1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0])
     idx = np.array([0, 1, 2, 10, 11, 20, 21])
-    batch = Resample(freq=10, agg="mean")(vals, idx)   # a Stream, unpackable
-    bv, bk = batch.values, batch.index
+    batch = Resample(freq=10, agg="mean")(vals, idx)   # now a (values, index) tuple
+    bv, bk = batch[0], batch[1]
     gen = ((float(v), int(k)) for v, k in zip(vals, idx))
     # lazy span window via freq= (resolved against the runtime index)
     out = Resample(freq=10, agg="mean")(gen)
@@ -129,7 +129,7 @@ def test_resample_lazy_equals_batch_count_and_nan():
     vals = np.array([1.0, np.nan, 3.0, 4.0, 5.0, 6.0])
     idx = np.array([0, 1, 2, 3, 4, 5])
     batch = Resample(count=2, agg="mean")(vals, idx)
-    bv, bk = batch.values, batch.index
+    bv, bk = batch[0], batch[1]
     gen = ((float(v), int(k)) for v, k in zip(vals, idx))
     rows = list(Resample(count=2, agg="mean")(gen))
     np.testing.assert_allclose([r[0] for r in rows], np.asarray(bv), equal_nan=True)
@@ -140,7 +140,7 @@ def test_resample_lazy_functor_agg_equals_batch():
     vals = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
     idx = np.array([0, 1, 2, 3, 4])
     batch = Resample(count=2, agg=ExpandingSum())(vals, idx)
-    bv, bk = batch.values, batch.index
+    bv, bk = batch[0], batch[1]
     gen = ((float(v), int(k)) for v, k in zip(vals, idx))
     rows = list(Resample(count=2, agg=ExpandingSum())(gen))
     np.testing.assert_allclose([r[0] for r in rows], np.asarray(bv), equal_nan=True)
@@ -231,31 +231,27 @@ def test_resample_empty_input():
 # Polymorphic regime: raw / Stream / Node + positional
 # ---------------------------------------------------------------------------
 
-def test_resample_raw_returns_stream_with_real_labels():
-    """Raw input now returns a Stream; index holds bar labels (never None).
-
-    Stream is unpackable as (values, index) for backward-compatible unpacking,
-    so ``out_v, out_k = result`` still works.
-    """
+def test_resample_raw_returns_tuple_with_real_labels():
+    """Raw input returns a (values, index) tuple; index holds bar labels (never None)."""
     vals = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
     keys = np.array([0, 3, 10, 12, 20], dtype=np.int64)
     result = Resample(freq=10, agg="last")(vals, keys)
-    assert isinstance(result, Stream)
-    out_v, out_k = result            # Stream unpacks as (values, index)
+    assert isinstance(result, tuple) and isinstance(result[0], np.ndarray)
+    out_v, out_k = result
     assert out_k is not None         # bar labels are always a real array
     np.testing.assert_array_equal(out_v, [2.0, 4.0, 5.0])
     np.testing.assert_array_equal(out_k, [0, 10, 20])
 
 
-def test_resample_stream_input_returns_stream():
-    """Stream input returns a Stream; index holds the bar labels."""
+def test_resample_tuple_input_returns_tuple():
+    """Tuple input returns a (values, index) tuple; index holds the bar labels."""
     vals = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
     keys = np.array([0, 3, 10, 12, 20], dtype=np.int64)
-    s = Stream(vals, keys)
+    s = (vals, keys)
     result = Resample(freq=10, agg="last")(s)
-    assert isinstance(result, Stream)
-    np.testing.assert_array_equal(result.values, [2.0, 4.0, 5.0])
-    np.testing.assert_array_equal(result.index, [0, 10, 20])
+    assert isinstance(result, tuple) and isinstance(result[0], np.ndarray)
+    np.testing.assert_array_equal(result[0], [2.0, 4.0, 5.0])
+    np.testing.assert_array_equal(result[1], [0, 10, 20])
 
 
 def test_resample_node_input_returns_node():
@@ -278,7 +274,7 @@ def test_resample_positional_input_uses_row_positions():
 
 
 def test_resample_raw_stream_node_mirror():
-    """Raw, Stream, and Node inputs all produce the same output values and labels."""
+    """Raw, tuple, and Node inputs all produce the same output values and labels."""
     from screamer import Input, Dag
     vals = np.array([1.0, 2.0, 3.0, 4.0])
     keys = np.array([0, 5, 10, 15], dtype=np.int64)
@@ -286,8 +282,8 @@ def test_resample_raw_stream_node_mirror():
     # Raw
     rv, rk = Resample(freq=10, agg="sum")(vals, keys)
 
-    # Stream
-    s = Stream(vals, keys)
+    # Tuple input
+    s = (vals, keys)
     stream_out = Resample(freq=10, agg="sum")(s)
 
     # Node (via Dag): span window via freq= (resolved against the runtime index)
@@ -295,8 +291,8 @@ def test_resample_raw_stream_node_mirror():
     dag = Dag(inputs=[x], outputs=[Resample(freq=10, agg="sum")(x)])
     dag_v, dag_k = dag((vals, keys))        # (values, index) feed; values-first result
 
-    np.testing.assert_array_equal(rv, stream_out.values)
-    np.testing.assert_array_equal(rk, stream_out.index)
+    np.testing.assert_array_equal(rv, stream_out[0])
+    np.testing.assert_array_equal(rk, stream_out[1])
     np.testing.assert_array_equal(rv, dag_v.reshape(-1))
     np.testing.assert_array_equal(rk, dag_k)
 
@@ -320,8 +316,8 @@ def test_freq_no_index_equals_count():
     v = np.array([1.0, 2, 3, 4, 5, 6])
     old = Resample(count=2, agg="mean")(v)
     new = Resample(freq=2, agg="mean")(v)
-    np.testing.assert_array_equal(np.asarray(new.values), np.asarray(old.values))
-    np.testing.assert_array_equal(np.asarray(new.index), np.asarray(old.index))
+    np.testing.assert_array_equal(np.asarray(new[0]), np.asarray(old[0]))
+    np.testing.assert_array_equal(np.asarray(new[1]), np.asarray(old[1]))
 
 
 def test_freq_integer_index_equals_count():
@@ -330,23 +326,23 @@ def test_freq_integer_index_equals_count():
     v = np.array([1.0, 2, 3, 4, 5])
     k = np.array([0, 1, 2, 10, 11])
     result = Resample(freq=10, agg="sum")(v, k)
-    np.testing.assert_array_equal(np.asarray(result.values), [6.0, 9.0])
-    np.testing.assert_array_equal(np.asarray(result.index), [0, 10])
+    np.testing.assert_array_equal(np.asarray(result[0]), [6.0, 9.0])
+    np.testing.assert_array_equal(np.asarray(result[1]), [0, 10])
 
 
 def test_freq_stream_uses_its_own_index_not_kwarg():
-    # A Stream carries its own index, so freq reads span-vs-count from s.index,
-    # not the index= kwarg. Stream(v, int index) + freq -> span (== every).
+    # A (values, index) tuple carries its own index, so freq reads span-vs-count
+    # from the tuple index, not the index= kwarg. (v, int_index) + freq -> span (== every).
     v = np.array([1.0, 2, 3, 4, 5])
     k = np.array([0, 1, 2, 10, 11])
     old = Resample(freq=10, agg="sum")(v, k)
-    new = Resample(freq=10, agg="sum")(Stream(v, k))
-    np.testing.assert_array_equal(np.asarray(new.values), np.asarray(old.values))
-    np.testing.assert_array_equal(np.asarray(new.index), np.asarray(old.index))
-    # a Stream with no index: freq= spans the row numbers (== count here)
-    cnt = Resample(freq=2, agg="sum")(Stream(v))
+    new = Resample(freq=10, agg="sum")((v, k))   # (values, index) tuple
+    np.testing.assert_array_equal(np.asarray(new[0]), np.asarray(old[0]))
+    np.testing.assert_array_equal(np.asarray(new[1]), np.asarray(old[1]))
+    # a tuple with no index: freq= spans the row numbers (== count here)
+    cnt = Resample(freq=2, agg="sum")((v, None))   # positional tuple
     ref = Resample(count=2, agg="sum")(v)
-    np.testing.assert_array_equal(np.asarray(cnt.values), np.asarray(ref.values))
+    np.testing.assert_array_equal(np.asarray(cnt[0]), np.asarray(ref[0]))
 
 
 def test_freq_rejects_nonpositive_and_missing():
@@ -366,7 +362,7 @@ def test_freq_datetime_offset_and_timedelta_agree():
     v = np.array([1.0, 2.0, 3.0])
     a = Resample(freq="1min", agg="sum")(v, t)
     b = Resample(freq=np.timedelta64(60, "s"), agg="sum")(v, t)
-    np.testing.assert_array_equal(np.asarray(a.values), np.asarray(b.values))
+    np.testing.assert_array_equal(np.asarray(a[0]), np.asarray(b[0]))
 
 
 def test_freq_timedelta_on_integer_index_raises():
@@ -380,7 +376,7 @@ def test_freq_datetime_offset_string_minute_bars():
                   "2020-01-01T00:01:10"], dtype="datetime64[s]")
     v = np.array([1.0, 2.0, 3.0])
     result = Resample(freq="1min", agg="sum")(v, t)
-    np.testing.assert_array_equal(np.asarray(result.values), [3.0, 3.0])
+    np.testing.assert_array_equal(np.asarray(result[0]), [3.0, 3.0])
 
 
 def test_freq_datetime_timedelta_object():
@@ -389,7 +385,7 @@ def test_freq_datetime_timedelta_object():
                   "2020-01-01T00:01:10"], dtype="datetime64[s]")
     v = np.array([1.0, 2.0, 3.0])
     result = Resample(freq=datetime.timedelta(minutes=1), agg="sum")(v, t)
-    np.testing.assert_array_equal(np.asarray(result.values), [3.0, 3.0])
+    np.testing.assert_array_equal(np.asarray(result[0]), [3.0, 3.0])
 
 
 def test_freq_datetime_offset_units():
@@ -399,7 +395,7 @@ def test_freq_datetime_offset_units():
     v = np.array([1.0, 2.0, 3.0])
     a = Resample(freq="T", agg="sum")(v, t)
     b = Resample(freq="1min", agg="sum")(v, t)
-    np.testing.assert_array_equal(np.asarray(a.values), np.asarray(b.values))
+    np.testing.assert_array_equal(np.asarray(a[0]), np.asarray(b[0]))
 
 
 def test_freq_datetime_nanosecond_resolution():
@@ -408,7 +404,7 @@ def test_freq_datetime_nanosecond_resolution():
                   "2020-01-01T00:01:10"], dtype="datetime64[ns]")
     v = np.array([1.0, 2.0, 3.0])
     result = Resample(freq="1min", agg="sum")(v, t)
-    np.testing.assert_array_equal(np.asarray(result.values), [3.0, 3.0])
+    np.testing.assert_array_equal(np.asarray(result[0]), [3.0, 3.0])
 
 
 def test_freq_int_on_datetime_index_raises():

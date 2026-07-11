@@ -135,37 +135,31 @@ def test_dropna_2d_all_positional():
 
 
 # ---------------------------------------------------------------------------
-# Stream regime (dropna returns Stream, not tuple)
+# Tuple regime (dropna returns (values, index) tuple)
 # ---------------------------------------------------------------------------
 
-def test_dropna_stream_1d_indexed():
-    from screamer.streams import Stream
-    s = Dropna()(Stream(_V1, _K1))
-    from screamer.streams import Stream as Sm
-    assert isinstance(s, Sm)
-    _cmp(s.values, s.index, _EV1, _EK1)
+def test_dropna_tuple_1d_indexed():
+    s = Dropna()((_V1, _K1))
+    assert isinstance(s, tuple) and isinstance(s[0], np.ndarray)
+    _cmp(s[0], s[1], _EV1, _EK1)
 
 
-def test_dropna_stream_1d_positional():
-    from screamer.streams import Stream
-    s = Dropna()(Stream(_V1))
-    assert isinstance(s, Stream)
-    assert s.index is None
-    np.testing.assert_array_equal(s.values, _EV1)
+def test_dropna_positional_array_1d():
+    s = Dropna()(_V1)
+    assert isinstance(s, tuple) and s[1] is None
+    np.testing.assert_array_equal(s[0], _EV1)
 
 
-def test_dropna_stream_2d_any():
-    from screamer.streams import Stream
-    s = Dropna(how="any")(Stream(_V2, _K2))
-    assert isinstance(s, Stream)
-    _cmp(s.values, s.index, _EV2_ANY, _EK2_ANY)
+def test_dropna_tuple_2d_any():
+    s = Dropna(how="any")((_V2, _K2))
+    assert isinstance(s, tuple) and isinstance(s[0], np.ndarray)
+    _cmp(s[0], s[1], _EV2_ANY, _EK2_ANY)
 
 
-def test_dropna_stream_2d_all():
-    from screamer.streams import Stream
-    s = Dropna(how="all")(Stream(_V2, _K2))
-    assert isinstance(s, Stream)
-    _cmp_nan(s.values, s.index, _EV2_ALL, _EK2_ALL)
+def test_dropna_tuple_2d_all():
+    s = Dropna(how="all")((_V2, _K2))
+    assert isinstance(s, tuple) and isinstance(s[0], np.ndarray)
+    _cmp_nan(s[0], s[1], _EV2_ALL, _EK2_ALL)
 
 
 # ---------------------------------------------------------------------------

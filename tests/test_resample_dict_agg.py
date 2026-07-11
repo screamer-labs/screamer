@@ -9,7 +9,7 @@ import numpy as np
 import pytest
 
 from screamer import ExpandingSkew
-from screamer.streams import Stream, CombineLatest, Resample
+from screamer.streams import CombineLatest, Resample
 
 
 # ---------------------------------------------------------------------------
@@ -65,7 +65,7 @@ def test_composition_sum_and_skew_labelled_columns():
     rows, bar_idx = CombineLatest()(total_s, skew_s)
     # column 0: sum; verify against single-agg sum
     ref_total, _ = Resample(freq=5, agg="sum")(x, idx)
-    np.testing.assert_allclose(rows[:, 0], ref_total.values if hasattr(ref_total, "values") else ref_total)
+    np.testing.assert_allclose(rows[:, 0], ref_total)
 
 
 def test_composition_column_order_preserved():
@@ -81,8 +81,8 @@ def test_composition_column_order_preserved():
     # column 0 = last, 1 = first, 2 = mean
     ref_last,  _ = Resample(freq=5, agg="last")(x, idx)
     ref_first, _ = Resample(freq=5, agg="first")(x, idx)
-    np.testing.assert_allclose(rows[:, 0], ref_last.values if hasattr(ref_last, "values") else ref_last)
-    np.testing.assert_allclose(rows[:, 1], ref_first.values if hasattr(ref_first, "values") else ref_first)
+    np.testing.assert_allclose(rows[:, 0], ref_last)
+    np.testing.assert_allclose(rows[:, 1], ref_first)
 
 
 def test_composition_matches_single_agg_values():

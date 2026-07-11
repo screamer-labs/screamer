@@ -2,7 +2,6 @@ import numpy as np
 import pytest
 from screamer import (RollingMean, Diff, Sub, Add, Input, Dag, CombineLatest,
                       Resample, ExpandingSum)
-from screamer.streams import Stream
 from tests._dag_oracle import run_oracle, lazy_batch as _lazy_batch
 
 
@@ -51,11 +50,11 @@ def _divergent():
 
 
 def _chain_stream_feed():
-    """Same graph as _chain but fed via Stream objects."""
+    """Same graph as _chain but fed via (values, index) tuples."""
     rng = np.random.default_rng(42)
     vals = rng.standard_normal(80)
     idx = np.sort(rng.integers(0, 300, size=80)).astype(np.int64)
-    stream_feed = Stream(vals, idx)
+    stream_feed = (vals, idx)
     x = Input("x")
     dag = Dag(inputs=[x], outputs=[Diff(1)(RollingMean(5)(x))])
     return dag, [stream_feed], (vals, idx)
@@ -107,7 +106,7 @@ def test_lazy_equals_batch(factory):
 
 
 def test_stream_feed_matches_array_feed():
-    """Dag fed with Stream objects gives the same result as bare (values, index) pairs."""
+    """Dag fed with (values, index) tuples gives the same result as bare (values, index) pairs."""
     dag, stream_feeds, (vals, idx) = _chain_stream_feed()
     array_feed = (vals, idx)   # (values, index) pair
     result_stream = _to_pairs(dag(*stream_feeds))

@@ -87,24 +87,15 @@ def _as_stream(feed):
 
     Accepts:
     - bare value array -> positional (index = row-number int64 via np.arange)
-    - Stream          -> uses .values / .index (.index None -> row-number)
     - (values, index) pair -> values-first user convention; flipped for engine
+      (index None -> row-number)
     """
-    from .streams import Stream
-    if isinstance(feed, Stream):
-        idx = feed.index
-        if idx is None:
-            idx = np.arange(len(feed.values), dtype=np.int64)
-        return (
-            _int64_index(idx),
-            np.ascontiguousarray(feed.values, dtype=np.float64),
-        )
     if isinstance(feed, tuple) and len(feed) == 2:
         values, index = feed   # user provides (values, index) - values-first
-        return (
-            _int64_index(index),
-            np.ascontiguousarray(values, dtype=np.float64),
-        )
+        values_arr = np.ascontiguousarray(values, dtype=np.float64)
+        if index is None:
+            return (np.arange(values_arr.shape[0], dtype=np.int64), values_arr)
+        return (_int64_index(index), values_arr)
     values = np.asarray(feed, dtype=np.float64)
     return (np.arange(values.shape[0], dtype=np.int64), values)
 
@@ -124,12 +115,10 @@ def _align_results(results, align_outputs):
         return (v, k)   # values-first
     if not align_outputs:
         return tuple((v, k) for k, v in results)   # values-first
-    from .streams import combine_latest, Stream
-    # wrap in Streams; combine_latest coalesces (one row per distinct index)
-    stream_list = [Stream(v, k) for k, v in results]
-    out = combine_latest(*stream_list, emit="when_all")   # returns Stream
-    aligned_index = out.index   # one row per distinct index - already coalesced
-    aligned = out.values        # shape (N, M)
+    from .streams import combine_latest
+    # combine_latest accepts (values, index) tuples; coalesces to one row per index
+    vi_list = [(v, k) for k, v in results]
+    aligned, aligned_index = combine_latest(*vi_list, emit="when_all")
     return tuple((aligned[:, j], aligned_index) for j in range(len(results)))  # values-first
 
 
@@ -346,7 +335,7 @@ class Dag:
 
     Call ``dag(*feeds)`` (positional) or ``dag(**named_feeds)`` (by Input name)
     to evaluate the graph. Each feed may be a bare value array (positional, index
-    = row-number), a ``Stream``, or a ``(values, index)`` pair (values-first).
+    = row-number), or a ``(values, index)`` pair (values-first).
     Pass generators of ``(value, index)`` pairs to run the graph lazily, event
     by event, with byte-identical results (the lazy pull path).
     Returns a single ``(values, index)`` pair when M == 1, or a tuple of pairs
@@ -444,8 +433,9 @@ class Dag:
         if any(lazy):
             raise TypeError(
                 "dag(...) feeds must be either all lazy iterators or all concrete "
-                "(arrays / lists / Streams); a mix is ambiguous. Wrap the concrete "
-                "feed in a generator, or materialize the iterator into an array.")
+                "(arrays / lists / (values, index) tuples); a mix is ambiguous. "
+                "Wrap the concrete feed in a generator, or materialize the "
+                "iterator into an array.")
         streams = [_as_stream(feeds[nm]) for nm in self._input_order]
         results = self._cg.run_batch(streams)      # M independent (index, values2d)
         results = [(k, v.reshape(-1) if v.shape[1] == 1 else v) for (k, v) in results]
@@ -455,8 +445,6 @@ class Dag:
     def _is_lazy(x):
         # A feed is lazy iff it is an iterator (has __next__) and is not a
         # list, tuple, or ndarray (those are concrete/batch, per rule A).
-        # Stream lacks __next__ so it correctly counts as concrete (batch path)
-        # without needing an explicit isinstance check.
         return hasattr(x, "__next__") and not isinstance(x, (list, tuple, np.ndarray))
 
     def live(self):
