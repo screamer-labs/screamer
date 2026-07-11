@@ -348,3 +348,86 @@ def test_freq_rejects_nonpositive_and_missing():
         resample(np.array([1.0, 2, 3]))                 # freq is required
     with pytest.raises(ValueError):
         resample(np.array([1.0, 2, 3]), freq=0)         # must be positive
+
+
+# ---------------------------------------------------------------------------
+# datetime64 index + offset string / timedelta freq (Task 2)
+# ---------------------------------------------------------------------------
+
+def test_freq_datetime_offset_and_timedelta_agree():
+    t = np.array(["2020-01-01T00:00:00", "2020-01-01T00:00:30",
+                  "2020-01-01T00:01:10"], dtype="datetime64[s]")
+    v = np.array([1.0, 2.0, 3.0])
+    a = resample(v, t, freq="1min", agg="sum")
+    b = resample(v, t, freq=np.timedelta64(60, "s"), agg="sum")
+    np.testing.assert_array_equal(np.asarray(a.values), np.asarray(b.values))
+
+
+def test_freq_timedelta_on_integer_index_raises():
+    with pytest.raises((TypeError, ValueError)):
+        resample(np.array([1.0, 2, 3]), np.array([0, 1, 2]), freq="1min", agg="sum")
+
+
+def test_freq_datetime_offset_string_minute_bars():
+    # Two ticks in [00:00, 00:01), one tick in [00:01, 00:02)
+    t = np.array(["2020-01-01T00:00:00", "2020-01-01T00:00:30",
+                  "2020-01-01T00:01:10"], dtype="datetime64[s]")
+    v = np.array([1.0, 2.0, 3.0])
+    result = resample(v, t, freq="1min", agg="sum")
+    np.testing.assert_array_equal(np.asarray(result.values), [3.0, 3.0])
+
+
+def test_freq_datetime_timedelta_object():
+    import datetime
+    t = np.array(["2020-01-01T00:00:00", "2020-01-01T00:00:30",
+                  "2020-01-01T00:01:10"], dtype="datetime64[s]")
+    v = np.array([1.0, 2.0, 3.0])
+    result = resample(v, t, freq=datetime.timedelta(minutes=1), agg="sum")
+    np.testing.assert_array_equal(np.asarray(result.values), [3.0, 3.0])
+
+
+def test_freq_datetime_offset_units():
+    # "T" is alias for "min"
+    t = np.array(["2020-01-01T00:00:00", "2020-01-01T00:00:30",
+                  "2020-01-01T00:01:10"], dtype="datetime64[s]")
+    v = np.array([1.0, 2.0, 3.0])
+    a = resample(v, t, freq="T", agg="sum")
+    b = resample(v, t, freq="1min", agg="sum")
+    np.testing.assert_array_equal(np.asarray(a.values), np.asarray(b.values))
+
+
+def test_freq_datetime_nanosecond_resolution():
+    # index in ns; "1min" -> span of 60_000_000_000 ns
+    t = np.array(["2020-01-01T00:00:00", "2020-01-01T00:00:30",
+                  "2020-01-01T00:01:10"], dtype="datetime64[ns]")
+    v = np.array([1.0, 2.0, 3.0])
+    result = resample(v, t, freq="1min", agg="sum")
+    np.testing.assert_array_equal(np.asarray(result.values), [3.0, 3.0])
+
+
+def test_freq_int_on_datetime_index_raises():
+    t = np.array(["2020-01-01T00:00:00", "2020-01-01T00:00:30"], dtype="datetime64[s]")
+    with pytest.raises((TypeError, ValueError)):
+        resample(np.array([1.0, 2.0]), t, freq=60, agg="sum")
+
+
+def test_freq_datetime_unsupported_offset_raises():
+    t = np.array(["2020-01-01", "2020-02-01"], dtype="datetime64[D]")
+    with pytest.raises((NotImplementedError, ValueError)):
+        resample(np.array([1.0, 2.0]), t, freq="1M", agg="sum")
+
+
+def test_freq_datetime_offset_not_exact_multiple_raises():
+    # index in seconds; "1min" = 60s is exact, but "7s" into a "1min" span fails
+    # Here we test offset that isn't a multiple: "7s" on datetime64[ms] (7000ms)
+    # Actually let's test a truly non-divisible case: 7-second bars on ms index
+    # 7000 ms divides evenly so use something that genuinely does not
+    t = np.array(["2020-01-01T00:00:00"], dtype="datetime64[s]")
+    # "7s" into datetime64[ms] = 7000ms, which is exact - fine.
+    # Use timedelta64 that doesn't divide: 1.5s into datetime64[ms] -> 1500ms (exact).
+    # Use 1s timedelta64 in "us" units on "ms" index: 1_000_000 us = 1000ms (exact).
+    # Genuine non-exact: timedelta of 1500ms on datetime64[s] -> 1.5s, not integer.
+    t_s = np.array(["2020-01-01T00:00:00"], dtype="datetime64[s]")
+    with pytest.raises(ValueError):
+        resample(np.array([1.0]), t_s,
+                 freq=np.timedelta64(1500, "ms"), agg="sum")

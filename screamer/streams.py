@@ -728,18 +728,123 @@ _OHLCV_COLUMNS = ("open", "high", "low", "close", "volume")
 _OHLCV2_COLUMNS = ("open", "high", "low", "close", "buy_vol", "sell_vol")
 
 
+_OFFSET_UNIT_MAP = {
+    "s":   ("s",  1),
+    "min": ("m",  1),
+    "T":   ("m",  1),
+    "h":   ("h",  1),
+    "D":   ("D",  1),
+}
+
+
+def _parse_offset_string(s):
+    """Parse an offset string like '5min', '1h', 'D' into a np.timedelta64.
+
+    Supported units: s, min (alias T), h, D.
+    A bare unit without a multiplier means multiplier 1 (e.g. 'min' == '1min').
+    Raises ValueError for an unrecognised or calendar-based (M, Y) unit.
+    """
+    import re
+    m = re.fullmatch(r"(\d+)?([a-zA-Z]+)", s.strip())
+    if m is None:
+        raise ValueError(
+            f"resample: cannot parse offset string {s!r}; "
+            "expected '<N><unit>', e.g. '5min', '1h', '30s'")
+    mult_str, unit = m.group(1), m.group(2)
+    mult = int(mult_str) if mult_str else 1
+    if unit not in _OFFSET_UNIT_MAP:
+        raise ValueError(
+            f"resample: unsupported offset unit {unit!r} in {s!r}; "
+            "supported: s, min, T, h, D "
+            "(calendar offsets such as month/year are not supported)")
+    np_unit, _ = _OFFSET_UNIT_MAP[unit]
+    return np.timedelta64(mult, np_unit)
+
+
+def _resample_datetime_freq(freq, index):
+    """Convert freq (offset string, timedelta, or np.timedelta64) to an integer
+    span in the index's own datetime64 resolution units.
+
+    Returns ("span", width_int64).
+    Raises TypeError for int/float freq on a datetime64 index.
+    Raises ValueError for unsupported/calendar offset units or a non-exact conversion.
+    """
+    import datetime as _dt
+
+    # Reject numeric freq types on a datetime64 index.
+    # Note: np.timedelta64 inherits from np.integer, so exclude it explicitly.
+    _is_number = (isinstance(freq, (int, float, np.integer, np.floating))
+                  and not isinstance(freq, np.timedelta64))
+    if _is_number:
+        raise TypeError(
+            f"resample: freq={freq!r} is a number but the index is datetime64; "
+            "pass an offset string (e.g. '1min') or a datetime.timedelta / "
+            "np.timedelta64 for a datetime64 index")
+
+    # Convert freq to np.timedelta64
+    if isinstance(freq, str):
+        td = _parse_offset_string(freq)
+    elif isinstance(freq, _dt.timedelta):
+        # Use exact integer arithmetic: timedelta stores days, seconds, microseconds.
+        total_us = (freq.days * 86_400 * 1_000_000
+                    + freq.seconds * 1_000_000
+                    + freq.microseconds)
+        td = np.timedelta64(total_us, "us")
+    elif isinstance(freq, np.timedelta64):
+        td = freq
+        unit = np.datetime_data(td)[0]
+        if unit in ("M", "Y"):
+            raise ValueError(
+                f"resample: offset {freq!r} uses a calendar unit ('{unit}') "
+                "which has variable length and cannot map to a fixed span; "
+                "use D, h, min, or s instead")
+    else:
+        raise TypeError(
+            f"resample: for a datetime64 index, freq must be a string offset, "
+            f"datetime.timedelta, or np.timedelta64; got {type(freq).__name__!r}")
+
+    # Determine the index's datetime64 resolution unit (e.g. 'ns', 's', 'ms', 'us')
+    idx = np.asarray(index)
+    res_unit = np.datetime_data(idx.dtype)[0]
+
+    # Compute the span width as a float, then verify it is an exact integer.
+    try:
+        td_in_res = td / np.timedelta64(1, res_unit)
+    except TypeError as exc:
+        raise ValueError(
+            f"resample: cannot convert offset {freq!r} to index resolution "
+            f"'{res_unit}': {exc}") from exc
+
+    width_int = int(td_in_res)
+    if width_int != td_in_res:
+        raise ValueError(
+            f"resample: offset {freq!r} = {td} is not an exact multiple of the "
+            f"index resolution '{res_unit}' (result {td_in_res} is not an integer); "
+            "choose an offset that divides evenly into the index resolution units")
+    if width_int <= 0:
+        raise ValueError(
+            f"resample: offset {freq!r} produces a non-positive span ({width_int}); "
+            "freq must be positive")
+
+    return ("span", width_int)
+
+
 def _resample_freq_to_engine(freq, index):
     """Translate the contextual freq into (mode, width) for the engine.
 
     index is None       -> width = int(freq); mode "count".
     index integer dtype -> width = int(freq); mode "span".
-    index datetime64    -> offset/timedelta -> int64 units (Task 2).
+    index datetime64    -> offset/timedelta -> int64 units via _resample_datetime_freq.
     Raises on a non-positive width or a nonsensical (index dtype, freq type) pair.
     """
     if index is not None and np.asarray(index).dtype.kind == "M":   # datetime64
-        raise NotImplementedError(
-            "resample: datetime64 index support via freq= is not yet implemented "
-            "(planned next); use an integer index or omit it for now")
+        return _resample_datetime_freq(freq, index)
+    if isinstance(freq, (str,)) or hasattr(freq, "total_seconds"):
+        # offset string or timedelta on a non-datetime64 index - not supported
+        raise TypeError(
+            f"resample: freq={freq!r} is an offset/timedelta but the index is not "
+            "datetime64; pass an integer span for an integer index, or use a "
+            "datetime64 index with an offset string / timedelta")
     width = int(freq)
     if width <= 0:
         raise ValueError("resample: freq must be a positive integer")
