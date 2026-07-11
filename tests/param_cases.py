@@ -25,9 +25,9 @@ screamer_classes = get_module_public_classes(screamer_module)
 #                      tests/test_rolling_corr.py and friends.
 _ROLLING_AUTO_EXCLUDE = {
     'RollingQuantile',
-    # 2-input (FunctorBase<_, 2, 1>) -- need parallel arrays
+    # 2-input (FunctorBase<_, 2, 1>) - need parallel arrays
     'RollingCorr', 'RollingCov', 'RollingBeta', 'RollingSpread',
-    # 1-input M>1-output (FunctorBase<_, 1, M>) -- output shape is
+    # 1-input M>1-output (FunctorBase<_, 1, M>) - output shape is
     # (..., M), incompatible with the 1-in/1-out auto harness.
     'RollingMinMax',
     # BollingerBands also has different shape (..., 3) and needs
@@ -74,23 +74,28 @@ ew_classes = [cls for cls in screamer_classes
 # (FunctorBase<_, N, _>) or multi-output (FunctorBase<_, _, M>), which the
 # 1-in/1-out auto harness can't drive. Tested in their own files instead.
 _NO_ARG_AUTO_EXCLUDE = {
-    # 2-input (FunctorBase<_, 2, _>) -- need two parallel arrays
+    # 2-input (FunctorBase<_, 2, _>) - need two parallel arrays
     'Hypot', 'Atan2', 'Cart2Polar', 'Polar2Cart',
-    # binary arithmetic (FunctorBase<_, 2, 1>) -- tested in test_arithmetic.py
+    # binary arithmetic (FunctorBase<_, 2, 1>) - tested in test_arithmetic.py
     'Add', 'Sub', 'Mul', 'Div',
     # Stateful 2->2 demo functor (validated in tests/test_geometry.py)
     'MyFunctor22',
-    # 4-input OHLC (FunctorBase<_, 4, 1>) -- tested in test_oscillators_hlc.py
+    # 4-input OHLC (FunctorBase<_, 4, 1>) - tested in test_oscillators_hlc.py
     'BOP',
-    # 3-input HLC (FunctorBase<_, 3, 1>) -- tested in test_atr_family.py
+    # 3-input HLC (FunctorBase<_, 3, 1>) - tested in test_atr_family.py
     'TrueRange',
-    # 2-input volume (FunctorBase<_, 2, 1>) -- tested in test_adx_and_volume.py
+    # 2-input volume (FunctorBase<_, 2, 1>) - tested in test_adx_and_volume.py
     'OBV',
-    # 4-input OHLCV (FunctorBase<_, 4, 1>) -- tested in test_adx_and_volume.py
+    # 4-input OHLCV (FunctorBase<_, 4, 1>) - tested in test_adx_and_volume.py
     'AD', 'ADOSC',
+    # 2-input comparison / logic masks (FunctorBase<_, 2, 1>) - tested in test_logic_ops.py
+    'GreaterThan', 'LessThan', 'GreaterEqual', 'LessEqual',
+    'Equal', 'NotEqual', 'And', 'Or',
+    # 3-input conditional select (FunctorBase<_, 3, 1>) - tested in test_logic_ops.py
+    'Where',
 }
 # Linear2 takes constructor args (a, b, c) so it is not a no-arg class
-# and would not be picked up here -- listed for clarity only.
+# and would not be picked up here - listed for clarity only.
 no_arg_classes = [
     cls for cls in screamer_classes
     if len(get_constructor_arguments(getattr(screamer_module, cls)))==0

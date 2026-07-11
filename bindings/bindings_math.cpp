@@ -8,6 +8,7 @@
 #include "screamer/power.h"
 #include "screamer/geometry.h"
 #include "screamer/arithmetic.h"
+#include "screamer/logic.h"
 
 namespace py = pybind11;
 
@@ -218,5 +219,81 @@ void init_bindings_math(py::module& m) {
         .def(py::init<>())
         .def("__call__", &screamer::Div::handle_input)
         .def("reset", &screamer::Div::reset, "Reset to the initial state.");
+
+     // -----------------------------------------------------------------------
+     // Comparison operators: 2 inputs -> 1.0/0.0 mask.  NaN in -> NaN out.
+     // -----------------------------------------------------------------------
+
+     py::class_<screamer::GreaterThan, screamer::EvalOp>(m, "GreaterThan")
+        .def(py::init<>())
+        .def("__call__", &screamer::GreaterThan::handle_input)
+        .def("reset", &screamer::GreaterThan::reset, "Reset to the initial state.");
+
+     py::class_<screamer::LessThan, screamer::EvalOp>(m, "LessThan")
+        .def(py::init<>())
+        .def("__call__", &screamer::LessThan::handle_input)
+        .def("reset", &screamer::LessThan::reset, "Reset to the initial state.");
+
+     py::class_<screamer::GreaterEqual, screamer::EvalOp>(m, "GreaterEqual")
+        .def(py::init<>())
+        .def("__call__", &screamer::GreaterEqual::handle_input)
+        .def("reset", &screamer::GreaterEqual::reset, "Reset to the initial state.");
+
+     py::class_<screamer::LessEqual, screamer::EvalOp>(m, "LessEqual")
+        .def(py::init<>())
+        .def("__call__", &screamer::LessEqual::handle_input)
+        .def("reset", &screamer::LessEqual::reset, "Reset to the initial state.");
+
+     py::class_<screamer::Equal, screamer::EvalOp>(m, "Equal")
+        .def(py::init<>())
+        .def("__call__", &screamer::Equal::handle_input)
+        .def("reset", &screamer::Equal::reset, "Reset to the initial state.");
+
+     py::class_<screamer::NotEqual, screamer::EvalOp>(m, "NotEqual")
+        .def(py::init<>())
+        .def("__call__", &screamer::NotEqual::handle_input)
+        .def("reset", &screamer::NotEqual::reset, "Reset to the initial state.");
+
+     // -----------------------------------------------------------------------
+     // Logical operators: nonzero test, 2 inputs.  NaN propagates.
+     // -----------------------------------------------------------------------
+
+     py::class_<screamer::And, screamer::EvalOp>(m, "And")
+        .def(py::init<>())
+        .def("__call__", &screamer::And::handle_input)
+        .def("reset", &screamer::And::reset, "Reset to the initial state.");
+
+     py::class_<screamer::Or, screamer::EvalOp>(m, "Or")
+        .def(py::init<>())
+        .def("__call__", &screamer::Or::handle_input)
+        .def("reset", &screamer::Or::reset, "Reset to the initial state.");
+
+     // -----------------------------------------------------------------------
+     // Where: 3-input conditional select.  NaN mask -> NaN output.
+     // -----------------------------------------------------------------------
+
+     py::class_<screamer::Where, screamer::EvalOp>(m, "Where")
+        .def(py::init<>())
+        .def("__call__", &screamer::Where::handle_input)
+        .def("reset", &screamer::Where::reset, "Reset to the initial state.");
+
+     // -----------------------------------------------------------------------
+     // Unary logic: Not, IsNan, IsFinite.
+     // -----------------------------------------------------------------------
+
+     py::class_<screamer::Not, screamer::EvalOp>(m, "Not")
+        .def(py::init<>())
+        .def("__call__", &screamer::Not::handle_input)
+        .def("reset", &screamer::Not::reset, "Reset to the initial state.");
+
+     py::class_<screamer::IsNan, screamer::EvalOp>(m, "IsNan")
+        .def(py::init<>())
+        .def("__call__", &screamer::IsNan::handle_input)
+        .def("reset", &screamer::IsNan::reset, "Reset to the initial state.");
+
+     py::class_<screamer::IsFinite, screamer::EvalOp>(m, "IsFinite")
+        .def(py::init<>())
+        .def("__call__", &screamer::IsFinite::handle_input)
+        .def("reset", &screamer::IsFinite::reset, "Reset to the initial state.");
 
 }

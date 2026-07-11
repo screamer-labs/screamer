@@ -1,5 +1,7 @@
+#include <cstdint>
 #include <cstring>
 #include <memory>
+#include <queue>
 #include <vector>
 #include <pybind11/pybind11.h>
 #include <pybind11/numpy.h>
@@ -16,6 +18,122 @@
 namespace py = pybind11;
 using namespace screamer;
 using namespace screamer::streams;
+
+// ---------------------------------------------------------------------------
+// PySource: a Source<Index> that pulls events from a Python iterator.
+//
+// positional=true  - item is a bare scalar; index = arrival counter (int64).
+// positional=false - item is a (value, index) tuple; index extracted as Index.
+//
+// GIL note: next() is called from C++ while Python drives the puller, so the
+// GIL is held. No acquire/release needed.
+// ---------------------------------------------------------------------------
+template <class Index>
+class PySource : public Source<Index> {
+public:
+    PySource(py::object it, bool positional)
+        : it_(std::move(it)), positional_(positional), counter_(0) {}
+
+    std::optional<Event<Index>> next() override {
+        py::object item;
+        try {
+            item = it_.attr("__next__")();
+        } catch (py::error_already_set& e) {
+            // Normal end-of-iterator: swallow StopIteration as flow control.
+            // (matches() leaves the fetched exception to be released by e's
+            // destructor; do NOT write it as unraisable - that is just noise.)
+            if (e.matches(PyExc_StopIteration)) return std::nullopt;
+            throw;
+        }
+        // source is assigned by MergeLazyPuller from the child slot, not here.
+        Event<Index> ev;
+        if (positional_) {
+            ev.index = static_cast<Index>(counter_++);
+            ev.value = item.cast<double>();
+        } else {
+            py::tuple tup = item.cast<py::tuple>();
+            ev.value = tup[0].cast<double>();
+            ev.index = tup[1].cast<Index>();
+        }
+        return ev;
+    }
+
+private:
+    py::object it_;
+    bool positional_;
+    std::int64_t counter_;
+};
+
+// ---------------------------------------------------------------------------
+// MergeLazyPuller: k-way merge of Python-iterator sources through a C++ heap.
+//
+// Uses deferred refill: after popping the winning event, the winning source is
+// NOT refilled until the NEXT call to next(). This mirrors the Python generator
+// "prime -> yield -> refill" pattern so that the number of Python iterator
+// advances per next() call is identical to the old _merge_lazy implementation.
+//
+// Tuple order: (value, index_or_None, source) - identical to _merge_lazy yield.
+// Positional sources: index emitted as py::none(); internal counter drives order.
+// ---------------------------------------------------------------------------
+template <class Index>
+class MergeLazyPuller {
+public:
+    MergeLazyPuller(py::list iter_list, bool positional)
+        : positional_(positional), pending_source_(-1) {
+        std::size_t n = iter_list.size();
+        sources_.reserve(n);
+        child_ptrs_.reserve(n);
+        for (py::handle h : iter_list) {
+            sources_.push_back(
+                std::make_unique<PySource<Index>>(h.cast<py::object>(), positional));
+            child_ptrs_.push_back(sources_.back().get());
+        }
+        // Prime the heap with the first event from each child.
+        for (std::size_t i = 0; i < n; ++i) {
+            prime_child(i);
+        }
+    }
+
+    py::object next() {
+        // Deferred refill: advance the winning source from the previous call.
+        if (pending_source_ >= 0) {
+            prime_child(static_cast<std::size_t>(pending_source_));
+            pending_source_ = -1;
+        }
+        if (heap_.empty()) return py::none();
+        Node top = heap_.top();
+        heap_.pop();
+        pending_source_ = static_cast<int>(top.source);
+        py::object idx = positional_ ? py::none() : py::cast(top.index);
+        return py::make_tuple(top.value, idx, top.source);
+    }
+
+private:
+    struct Node {
+        Index index;
+        std::uint32_t source;
+        double value;
+    };
+    // Min-heap: smaller index first; ties -> smaller source index (stable order).
+    struct Greater {
+        bool operator()(const Node& a, const Node& b) const {
+            if (a.index != b.index) return a.index > b.index;
+            return a.source > b.source;
+        }
+    };
+
+    void prime_child(std::size_t i) {
+        if (auto e = child_ptrs_[i]->next()) {
+            heap_.push(Node{e->index, static_cast<std::uint32_t>(i), e->value});
+        }
+    }
+
+    bool positional_;
+    int pending_source_;
+    std::vector<std::unique_ptr<PySource<Index>>> sources_;
+    std::vector<Source<Index>*> child_ptrs_;
+    std::priority_queue<Node, std::vector<Node>, Greater> heap_;
+};
 
 template <class Index>
 static py::object run_chain(std::vector<ScreamerBase*> fns,
@@ -248,4 +366,10 @@ void init_bindings_streams(py::module& m) {
     py::class_<CombineLatestPuller<double>>(m, "_CombineLatestPuller_f64")
         .def(py::init<py::list, py::list, bool>())
         .def("next", &CombineLatestPuller<double>::next);
+    py::class_<MergeLazyPuller<std::int64_t>>(m, "_MergeLazyPuller_i64")
+        .def(py::init<py::list, bool>())
+        .def("next", &MergeLazyPuller<std::int64_t>::next);
+    py::class_<MergeLazyPuller<double>>(m, "_MergeLazyPuller_f64")
+        .def(py::init<py::list, bool>())
+        .def("next", &MergeLazyPuller<double>::next);
 }
