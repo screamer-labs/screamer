@@ -191,7 +191,6 @@ WMA, Linearly-weighted moving average. O(1) per step.
 Where, Returns a if mask is nonzero, b otherwise. NaN mask yields NaN.
 WilliamsR, Inverse stochastic oscillator in [-100, 0].
 from_pandas, Convert a pandas Series or DataFrame to a (values, index) tuple.
-replay, Replay merged streams as an async event stream paced by index-deltas.
 split, Partition a merged tagged stream back into per-source streams.
 stream-tuple-convention, The (values, index) tuple at every operator boundary.
 to_pandas, Convert a (values, index) tuple to a pandas Series or DataFrame.
@@ -199,7 +198,6 @@ to_pandas, Convert a (values, index) tuple to a pandas Series or DataFrame.
 # Stream operators
 Merge, Index-sorted N-way merge.
 CombineLatest, As-of latest-value join.
-replay, Replay merged streams as an async event stream paced by index-deltas.
 Dropna, Drop NaN events.
 Filter, 2-input mask gate: keep each data value whose aligned mask is nonzero (zero or NaN drops).
 Select, Pick columns from a wide stream.

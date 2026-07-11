@@ -1,5 +1,3 @@
-import asyncio
-
 import numpy as np
 import pytest
 
@@ -85,44 +83,6 @@ def test_combine_latest_batch_equals_stream(n_series, dtype, emit):
                      dtype=np.float64).reshape(len(events), n_series)
     np.testing.assert_array_equal(got_k, bk)
     np.testing.assert_array_equal(got_a, ba)
-
-
-@pytest.mark.parametrize("n_series,dtype", CONFIGS)
-def test_replay_infinite_equals_merge_indexed(n_series, dtype):
-    series = _make_series(n_series, 60, dtype, seed=300 + n_series)
-    vals = [v for _, v in series]
-    idxs = [k for k, _ in series]
-
-    bv, _, bi = streams.Merge()(*vals, index=idxs)
-
-    async def drain():
-        out = []
-        async for e in streams.replay(*vals, index=idxs, speed=float("inf")):
-            out.append(e)
-        return out
-
-    events = asyncio.run(drain())
-    np.testing.assert_array_equal(np.array([e[0] for e in events]), bv)
-    np.testing.assert_array_equal(np.array([e[1] for e in events], dtype=bi.dtype), bi)
-
-
-@pytest.mark.parametrize("n_series", [2, 3, 5])
-def test_replay_infinite_equals_merge_positional(n_series):
-    rng = np.random.default_rng(seed=350 + n_series)
-    vals = [rng.standard_normal(60) for _ in range(n_series)]
-
-    bv, _, bi = streams.Merge()(*vals)
-    assert bi is None
-
-    async def drain():
-        out = []
-        async for e in streams.replay(*vals, speed=float("inf")):
-            out.append(e)
-        return out
-
-    events = asyncio.run(drain())
-    np.testing.assert_array_equal(np.array([e[0] for e in events]), bv)
-    assert all(e[1] is None for e in events)
 
 
 def test_dropna_batch_equals_stream_on_combine_output():

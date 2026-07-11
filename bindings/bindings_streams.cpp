@@ -244,29 +244,6 @@ static py::tuple merge_batch(py::list index_arrays, py::list value_arrays) {
 }
 
 template <class Index>
-class MergePuller {
-public:
-    MergePuller(py::list index_arrays, py::list value_arrays) {
-        std::vector<Source<Index>*> child_ptrs;
-        build_vector_sources<Index>(index_arrays, value_arrays, indices_, vals_, sources_, child_ptrs);
-        merge_ = std::make_unique<MergeSource<Index>>(child_ptrs);
-    }
-
-    py::object next() {
-        if (auto e = merge_->next()) {
-            return py::make_tuple(e->index, e->value, e->source);
-        }
-        return py::none();
-    }
-
-private:
-    std::vector<py::array_t<Index>> indices_;
-    std::vector<py::array_t<double>> vals_;
-    std::vector<std::unique_ptr<VectorSource<Index>>> sources_;
-    std::unique_ptr<MergeSource<Index>> merge_;
-};
-
-template <class Index>
 static py::tuple combine_latest_batch(py::list index_arrays,
                                       py::list value_arrays,
                                       bool when_all) {
@@ -350,12 +327,6 @@ void init_bindings_streams(py::module& m) {
           py::arg("index_arrays"), py::arg("value_arrays"));
     m.def("_merge_f64", &merge_batch<double>,
           py::arg("index_arrays"), py::arg("value_arrays"));
-    py::class_<MergePuller<std::int64_t>>(m, "_MergePuller_i64")
-        .def(py::init<py::list, py::list>())
-        .def("next", &MergePuller<std::int64_t>::next);
-    py::class_<MergePuller<double>>(m, "_MergePuller_f64")
-        .def(py::init<py::list, py::list>())
-        .def("next", &MergePuller<double>::next);
     m.def("_combine_latest_i64", &combine_latest_batch<std::int64_t>,
           py::arg("index_arrays"), py::arg("value_arrays"), py::arg("when_all"));
     m.def("_combine_latest_f64", &combine_latest_batch<double>,

@@ -1,4 +1,4 @@
-"""Streaming operators (merge, combine_latest, replay, dropna, Filter, select,
+"""Streaming operators (merge, combine_latest, dropna, Filter, select,
 split, resample).
 
 Each operator dispatches on input type (Rule A): concrete data runs eager;
@@ -6,7 +6,6 @@ a lazy iterator of (value, index) events returns a lazy iterator. Builds and
 runs C++ node graphs; dtype detection here chooses the int64 or float64
 index-type instantiation, and the per-event work is all C++.
 """
-import asyncio
 import datetime
 import re
 
@@ -18,7 +17,6 @@ from .dag import is_node, make_operator_node, _is_vi_pair
 __all__ = [
     "to_pandas",
     "from_pandas",
-    "replay",
     "Filter",
     "split",
     "Merge",
@@ -211,7 +209,7 @@ def _streams_to_indexed(streams, who):
 
 
 def _merge_to_indexed(values, index, who):
-    """Prepare merge/replay inputs for the C++ backend.
+    """Prepare merge inputs for the C++ backend.
 
     Each input may be a raw value array or a ``(values, index)`` tuple (which
     carries its own index; ``index=`` then applies only to the raw inputs).
@@ -369,45 +367,6 @@ def combine_latest(*values, index=None, emit="when_all"):
     out_index, aligned = _collapse_last_per_index(out_index, aligned)
     return aligned, (None if positional else out_index)
 
-
-async def replay(*values, index=None, speed=1.0, sleep=None):
-    """Replay merged streams as an async event stream paced by index-deltas.
-
-    Each input may be a raw value array or a ``(values, index)`` tuple. Yields (value, index,
-    source) in index order. Between consecutive events it awaits
-    ``sleep(delta / speed)`` (where ``delta`` is the index delta) so wall-clock
-    spacing tracks the index spacing. speed=inf disables pacing (backtest at max
-    speed). Pacing never changes values or order. ``sleep`` is injectable for
-    testing; defaults to asyncio.sleep. Requires a metric (subtractable) index.
-
-    Positional (index=None): uses row-number as the pacing/ordering index; yields
-    (value, None, source). Indexed: yields (value, index_value, source).
-    """
-    if any(is_node(v) for v in values):
-        raise ValueError(
-            "replay is not supported as a DAG graph node (it is input routing; "
-            "feed streams to a Dag directly)")
-    if speed <= 0:
-        raise ValueError("replay: speed must be positive (or float('inf') for no pacing)")
-    if sleep is None:
-        sleep = asyncio.sleep
-    infinite = speed == float("inf")
-    kind, idx_list, vals_list, positional = _merge_to_indexed(values, index, "replay")
-    cls = _b._MergePuller_f64 if kind == "f64" else _b._MergePuller_i64
-    puller = cls(idx_list, vals_list)
-    prev_index = None
-    while True:
-        event = puller.next()
-        if event is None:
-            return
-        ev_index, ev_val, ev_source = event
-        if not infinite and prev_index is not None:
-            delta = ev_index - prev_index
-            wait = delta / speed
-            if wait > 0:
-                await sleep(wait)
-        prev_index = ev_index
-        yield ev_val, (None if positional else ev_index), ev_source
 
 
 def _dropna_via_cpp(vals, idx, how):

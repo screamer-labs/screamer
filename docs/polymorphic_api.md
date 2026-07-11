@@ -10,7 +10,7 @@ on a single scalar, a NumPy array, a strided view, a list, an iterator, or an
 async generator, so code written against stored data runs unchanged on a live
 stream.
 
-> For combining, splitting, filtering, or replaying streams that do **not** tick
+> For combining, splitting, or filtering streams that do **not** tick
 > together (different rates, async arrival, missing samples), see
 > [Streams, values, and alignment](multistream.md). The lockstep contract on this
 > page is the degenerate "no index → row number" case of that model.

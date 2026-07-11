@@ -85,7 +85,7 @@ topics:
 
   streams:
     name: "Streams"
-    desc: "Aligning, combining, reshaping, and replaying event streams."
+    desc: "Aligning, combining, and reshaping event streams."
 
   logic:
     name: "Logic & comparison"

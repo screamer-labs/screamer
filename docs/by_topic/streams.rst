@@ -4,7 +4,7 @@
 Streams
 =======
 
-Aligning, combining, reshaping, and replaying event streams.
+Aligning, combining, and reshaping event streams.
 
 .. list-table::
    :header-rows: 1
@@ -22,8 +22,6 @@ Aligning, combining, reshaping, and replaying event streams.
      - Convert a pandas Series or DataFrame to a (values, index) tuple.
    * - :doc:`Merge </functions_streams/Merge>`
      - Merge N value streams into one index-sorted (values, sources, index).
-   * - :doc:`replay </functions_streams/replay>`
-     - Replay merged streams as an async event stream paced by index-deltas.
    * - :doc:`Resample </functions_streams/Resample>`
      - Causal windowed downsample of a 1-D or multi-column value stream.
    * - :doc:`Select </functions_streams/Select>`

@@ -1,4 +1,4 @@
-"""The multi-stream operators (merge, replay, split) accept tuple inputs in
+"""The multi-stream operators (merge, split) accept tuple inputs in
 addition to raw arrays, matching combine_latest and the single-input operators.
 Raw and tuple inputs must produce identical results. Lazy (generator) inputs
 dispatch to the k-way merge path and yield identical events to the batch oracle.
@@ -9,7 +9,6 @@ import numpy as np
 import pytest
 
 from screamer import Merge, split, Input
-from screamer.streams import replay
 
 
 def _drain(agen):
@@ -47,11 +46,6 @@ def test_merge_lazy_generators_equal_batch():
     np.testing.assert_array_equal([e[2] for e in events], bs)
 
 
-def test_replay_stream_equals_raw():
-    raw = _drain(replay(AV, BV, index=[AK, BK], speed=float("inf")))
-    strm = _drain(replay((AV, AK), (BV, BK), speed=float("inf")))
-    assert raw == strm
-
 
 def test_positional_streams_independent_lengths():
     # merge's positional mode allows unequal lengths (unlike combine_latest).
@@ -87,9 +81,7 @@ def test_merge_roundtrips_through_split_streams():
     np.testing.assert_array_equal(parts[1][0], BV)
 
 
-@pytest.mark.parametrize("op", ["merge", "replay"])
-def test_node_input_raises_clear_error(op):
+def test_node_input_raises_clear_error():
     a, b = Input("a"), Input("b")
-    fn = {"merge": Merge(), "replay": lambda *v: _drain(replay(*v))}[op]
     with pytest.raises(ValueError, match="not supported as a DAG graph node"):
-        fn(a, b)
+        Merge()(a, b)

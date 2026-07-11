@@ -6421,17 +6421,6 @@
     "details": "Free helper: converts a pandas Series or DataFrame to the screamer\n`(values, index)` tuple convention. The pandas data becomes the values array\nand the pandas index becomes the index array.",
     "examples": []
   },
-  "replay": {
-    "name": "replay",
-    "title": "replay",
-    "kind": "function",
-    "short": "Replay merged streams as an async event stream paced by index-deltas.",
-    "topics": [
-      "streams"
-    ],
-    "details": "Replay stored value streams as an async event stream. `speed=inf` runs a\nmax-speed backtest; a finite `speed` replays in wall-clock time, turning index\ndeltas into sleep durations. The values and their order are identical to the\nbatch and streaming forms; only the timing differs.",
-    "examples": []
-  },
   "split": {
     "name": "split",
     "title": "split",

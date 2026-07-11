@@ -1,5 +1,3 @@
-import asyncio
-
 import numpy as np
 import pytest
 from screamer import streams
@@ -167,75 +165,6 @@ def test_split_n_explicit():
     np.testing.assert_array_equal(parts[0][0], a_v)
     assert len(parts[1][0]) == 0
     assert len(parts[2][0]) == 0
-
-
-# ---------------------------------------------------------------------------
-# replay
-# ---------------------------------------------------------------------------
-
-def _drain(agen):
-    async def run():
-        out = []
-        async for e in agen:
-            out.append(e)
-        return out
-    return asyncio.run(run())
-
-
-def test_replay_indexed_preserves_order_and_scales_sleeps():
-    a_v = np.array([0.0, 1.0, 3.0])
-    a_k = np.array([0, 10, 30], dtype=np.int64)
-    b_v = np.array([0.5, 2.0])
-    b_k = np.array([5, 20], dtype=np.int64)
-
-    slept = []
-
-    async def fake_sleep(seconds):
-        slept.append(seconds)
-
-    events = _drain(streams.replay(a_v, b_v, index=[a_k, b_k], speed=2.0, sleep=fake_sleep))
-
-    # Order and values identical to a plain merge
-    got_v, got_s, got_i = streams.Merge()(a_v, b_v, index=[a_k, b_k])
-    np.testing.assert_array_equal(np.array([e[0] for e in events]), got_v)
-    np.testing.assert_array_equal(np.array([e[1] for e in events], dtype=np.int64), got_i)
-    np.testing.assert_array_equal(np.array([e[2] for e in events], dtype=np.uint32), got_s)
-
-    # Sleeps: merged indices 0,5,10,20,30 -> deltas 5,5,10,10 -> /2.0 -> 2.5,2.5,5,5
-    assert slept == [2.5, 2.5, 5.0, 5.0]
-
-
-def test_replay_positional_yields_none_index():
-    a_v = np.array([0.0, 1.0])
-    b_v = np.array([10.0, 11.0])
-    slept = []
-
-    async def fake_sleep(seconds):
-        slept.append(seconds)
-
-    events = _drain(streams.replay(a_v, b_v, speed=float("inf"), sleep=fake_sleep))
-    assert all(e[1] is None for e in events)
-    assert slept == []
-
-
-def test_replay_indexed_infinite_speed_no_sleep():
-    a_v = np.array([0.0, 1.0])
-    a_k = np.array([0, 100], dtype=np.int64)
-    slept = []
-
-    async def fake_sleep(seconds):
-        slept.append(seconds)
-
-    events = _drain(streams.replay(a_v, index=[a_k], speed=float("inf"), sleep=fake_sleep))
-    assert [e[1] for e in events] == [0, 100]
-    assert slept == []
-
-
-def test_replay_rejects_nonpositive_speed():
-    a_v = np.array([0.0, 1.0])
-    a_k = np.array([0, 10], dtype=np.int64)
-    with pytest.raises(ValueError):
-        _drain(streams.replay(a_v, index=[a_k], speed=0.0))
 
 
 # ---------------------------------------------------------------------------

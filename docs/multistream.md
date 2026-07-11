@@ -4,7 +4,7 @@ screamer's single-stream functors (`RollingMean`, `RollingCorr`, ...) assume
 lockstep alignment: row `i` of one input pairs with row `i` of another. Real
 multi-stream data breaks that assumption - feeds tick at different rates, arrive
 out of step, and drop samples. The `screamer.streams` module adds a small,
-composable layer for combining, splitting, filtering, and replaying streams that
+composable layer for combining, splitting, and filtering streams that
 do **not** tick together, while keeping every existing functor unchanged.
 
 The whole design rests on four principles.
@@ -53,9 +53,9 @@ Batch return is always a `(values, index)` 2-tuple: `vals, idx = CombineLatest()
 works; `idx is None` is a checkable flag meaning "no real ordering here." A bare
 array is treated as a positional stream with `index=None`.
 
-`Merge`, `split`, and `replay` follow the same input convention but their *outputs*
+`Merge` and `split` follow the same input convention but their *outputs*
 differ because they carry a per-event `sources` tag: `Merge` returns
-`(values, sources, index)` and `replay` yields `(value, index, source)` events.
+`(values, sources, index)`.
 `split` returns per-source `(values, index)` pairs.
 
 ## 3. Compute functors preserve cardinality; stream operators may change it
@@ -63,7 +63,7 @@ differ because they carry a per-event `sources` tag: `Merge` returns
 | Layer | Cardinality | Examples |
 |---|---|---|
 | **Compute functors** | preserved (output length == input length) | `RollingMean`, `RollingCorr`, `FillNa`, `Ffill` |
-| **Stream operators** | may change it | `Merge`, `CombineLatest`, `Dropna`, `Filter`, `split`, `replay` |
+| **Stream operators** | may change it | `Merge`, `CombineLatest`, `Dropna`, `Filter`, `split` |
 
 Compute functors handle `NaN` internally via their `nan_policy` (see
 [NaN and warmup](nan_and_warmup.md)) and never add or drop rows. Stream operators own
@@ -97,14 +97,10 @@ Other stream operators:
 - `split(values, sources, index=None)` -> the inverse of `Merge`.
 - `Dropna(how="any")(values, index=None)` -> drop NaN events.
 - `Filter()(data, mask)` -> keep each data value whose aligned mask is nonzero.
-- `replay(*values, index=None, speed=1.0)` -> async replay; `speed=inf` is a
-  max-speed backtest. Yields `(value, index, source)` per event.
-
 `Merge` and `CombineLatest` are unified: pass lazy iterators of events and the
 operator returns a lazy iterator; pass arrays or `(values, index)` tuples and the operator
 returns the batch result. No separate `*_iter` function is needed.
-(`split` has no streaming form, and `replay` is itself the streaming/replay
-driver.)
+(`split` has no streaming form.)
 
 ## Migration from the retired `*_iter` names
 
@@ -125,8 +121,7 @@ handle both batch and lazy inputs:
 - **Causal**: an output at index `t` depends only on events at indices `<= t`. There
   is no backward-fill and no lookahead operator, ever.
 - **Batch == streaming == graph**: the batch form and its streaming twin emit
-  byte-identical event sequences; `replay` changes only *when* events are emitted,
-  never their values or order. This is what lets you validate a pipeline on
+  byte-identical event sequences. This is what lets you validate a pipeline on
   stored data and run the identical pipeline live. It is enforced by the
   identity matrix in `tests/test_streams_identity.py`.
 

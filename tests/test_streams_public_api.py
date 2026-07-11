@@ -6,7 +6,7 @@ from screamer import streams
 # Only the CamelCase class forms are public.
 PUBLIC_CLASSES = [
     "Merge", "CombineLatest", "Dropna", "Select", "Resample",
-    "replay", "Filter", "split",
+    "Filter", "split",
 ]
 
 # The lowercase functions are internal implementation details (not public).

@@ -222,6 +222,5 @@ Every function, grouped by topic. Topics are many-to-many, so a function may app
    functions_streams/Select
    functions_streams/Stream
    functions_streams/from_pandas
-   functions_streams/replay
    functions_streams/split
    functions_streams/to_pandas
