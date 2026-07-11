@@ -150,13 +150,16 @@ _EMPTY = object()   # sentinel: a lazy source produced no first item
 
 def _classify_lazy_sources(values, who):
     """Classify N lazy sources as positional or indexed and return
-    (positional, sources).
+    (positional, sources, kind).
 
     Peeks each source's first item: a bare scalar item means positional (its
     index is a per-source arrival counter), a ``(value, index)`` 2-tuple means
     indexed. Every source must be uniformly positional or indexed; a mix raises
     ValueError (matching the eager operators). ``sources`` are the original
     iterators re-chained with their peeked head, so no event is lost.
+
+    ``kind`` is ``"i64"`` or ``"f64"`` and reflects the index dtype of the first
+    non-empty indexed head (positional sources always use ``"i64"``).
     """
     import itertools
     iters = [iter(v) for v in values]
@@ -174,7 +177,14 @@ def _classify_lazy_sources(values, who):
             f"{who}: cannot mix positional (bare-value) and indexed "
             "((value, index)) lazy sources; give every source an index, or none")
     indexed = kinds.pop() if kinds else False   # all-empty -> positional (no rows)
-    return (not indexed), sources
+    kind = "i64"
+    if indexed:
+        for h in heads:
+            if h is not _EMPTY:
+                _, idx_val = h
+                kind = "f64" if isinstance(idx_val, (float, np.floating)) else "i64"
+                break
+    return (not indexed), sources, kind
 
 
 def _regime(inputs):
@@ -324,53 +334,23 @@ def _merge_to_indexed(values, index, who):
     return kind, norm_index, vals, False
 
 
-def _merge_lazy(sources, positional):
-    """K-way merge of lazy sources by index, ties broken by source order.
-
-    Positional sources are ordered by a per-source arrival counter (row number)
-    and yield index None; indexed sources ((value, index)) order by their index
-    and yield it. Yields ``(value, index_or_None, source)`` - byte-identical to
-    the eager merge, event for event.
-    """
-    iters = [iter(s) for s in sources]
-    counters = [0] * len(iters)
-    heads = [None] * len(iters)         # (order_key, value, out_index) or None
-
-    def pull(i):
-        try:
-            item = next(iters[i])
-        except StopIteration:
-            return None
-        if positional:
-            key = counters[i]
-            counters[i] += 1
-            return (key, float(item), None)
-        value, index = item
-        return (index, float(value), index)   # preserve index type (int or float)
-
-    for i in range(len(iters)):
-        heads[i] = pull(i)
-    while True:
-        best = -1
-        for i, h in enumerate(heads):           # smallest key wins; ties -> lower i
-            if h is not None and (best < 0 or h[0] < heads[best][0]):
-                best = i
-        if best < 0:
-            return
-        _, value, out_index = heads[best]
-        yield value, out_index, best
-        heads[best] = pull(best)
-
-
 def _merge_lazy_dispatch(values):
     """Deferred lazy dispatch: classify sources on first next(), then k-way merge.
 
     Classification (and peeking one head per source) is deferred to the first
     call to ``__next__``, so construction consumes nothing - matching the eager
-    operators' lazy contract.
+    operators' lazy contract. Merge selection runs in the C++ MergeLazyPuller.
+    Yields ``(value, index_or_None, source)`` byte-identical to the old Python loop.
     """
-    positional, sources = _classify_lazy_sources(values, "merge")
-    yield from _merge_lazy(sources, positional)
+    positional, sources, kind = _classify_lazy_sources(values, "merge")
+    cls = (_b._MergeLazyPuller_i64 if (positional or kind == "i64")
+           else _b._MergeLazyPuller_f64)
+    puller = cls(list(sources), positional)
+    while True:
+        ev = puller.next()
+        if ev is None:
+            return
+        yield ev
 
 
 def merge(*values, index=None):
@@ -444,7 +424,7 @@ def _combine_latest_lazy(values, emit):
     (bare scalars) route to strict-lockstep zip; indexed ((value, index))
     sources route to the as-of Dag path.
     """
-    positional, sources = _classify_lazy_sources(values, "combine_latest")
+    positional, sources, _ = _classify_lazy_sources(values, "combine_latest")
     if positional:
         yield from _combine_latest_zip_lazy(sources)
     else:
