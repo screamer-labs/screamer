@@ -39,11 +39,14 @@ public:
         try {
             item = it_.attr("__next__")();
         } catch (py::error_already_set& e) {
+            // Normal end-of-iterator: swallow StopIteration as flow control.
+            // (matches() leaves the fetched exception to be released by e's
+            // destructor; do NOT write it as unraisable - that is just noise.)
             if (e.matches(PyExc_StopIteration)) return std::nullopt;
             throw;
         }
+        // source is assigned by MergeLazyPuller from the child slot, not here.
         Event<Index> ev;
-        ev.source = 0;
         if (positional_) {
             ev.index = static_cast<Index>(counter_++);
             ev.value = item.cast<double>();
