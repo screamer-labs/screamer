@@ -7,7 +7,7 @@
 namespace screamer { namespace dag {
 
 // One event on a graph edge. `values` points at the EMITTER's reused buffer and
-// is valid only for the duration of the synchronous push() call — a consumer
+// is valid only for the duration of the synchronous push() call - a consumer
 // reads it immediately and does not retain the pointer. `width` is the number
 // of doubles (1 for a normal functor, N for an aligned combine_latest, M for a
 // multi-output functor).
@@ -27,7 +27,7 @@ struct Sink : public Resettable {
     virtual void flush() {}
     // Reset all internal state to initial conditions. Default is a no-op so
     // stateless nodes inherit it without modification.
-    virtual void reset() {}
+    void reset() override {}
     // Arity metadata: expected input frame width and emitted frame width.
     // Returns 0 when the width is context-dependent (passthrough nodes, terminal
     // sinks) or unknown at construction time. Operator nodes override both.
