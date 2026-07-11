@@ -13,7 +13,7 @@ import re
 import numpy as np
 
 from . import screamer_bindings as _b
-from .dag import is_node, make_operator_node
+from .dag import is_node, make_operator_node, _is_vi_pair
 
 __all__ = [
     "to_pandas",
@@ -43,7 +43,7 @@ def _as_vi(x, idx):
     - a bare array (positional or with explicit idx) -> (np.asarray(x), idx)
     - a (values, index) 2-tuple -> pass through
     """
-    if isinstance(x, tuple) and len(x) == 2 and isinstance(x[0], np.ndarray):
+    if _is_vi_pair(x):
         return x[0], x[1]
     return np.asarray(x), idx
 
@@ -90,31 +90,13 @@ def _classify_lazy_sources(values, who):
     return (not indexed), sources, kind
 
 
-def _regime(inputs):
-    """Classify a stream operator's inputs: 'graph' if any is a Node, else 'raw'."""
-    if any(is_node(x) for x in inputs):
-        return "graph"
-    return "raw"
-
-
 def _to_streams(inputs, index):
     """Normalize each input to a (values, index) tuple. `index` is None (all
     positional) or a list aligned with inputs (per-stream index array or None)."""
     if index is not None and len(index) != len(inputs):
         raise ValueError("index list length must match the number of streams")
-    out = []
-    for i, x in enumerate(inputs):
-        if isinstance(x, tuple) and len(x) == 2 and isinstance(x[0], np.ndarray):
-            out.append(x)  # (values, index) passthrough
-        else:
-            out.append((np.asarray(x), None if index is None else index[i]))
-    return out
-
-
-def _adapt(regime, values, index):
-    """Shape a stream operator result: always (values, index) with index None
-    for positional."""
-    return values, index
+    return [_as_vi(x, None if index is None else index[i])
+            for i, x in enumerate(inputs)]
 
 
 def to_pandas(values, index=None, columns=None):
@@ -354,9 +336,10 @@ def _combine_latest_lazy(values, emit):
         yield from _combine_latest_asof_lazy(sources, emit)
 
 
-def combine_latest(*values, index=None, emit="when_all", func=None):
+def combine_latest(*values, index=None, emit="when_all"):
     """As-of latest-value join of N streams: one row per distinct index (same-index
-    events coalesce). Values-first + polymorphic: raw arrays, Stream, or graph Node.
+    events coalesce). Values-first + polymorphic: raw arrays, (values, index)
+    tuples, or graph Nodes.
 
     No-index (positional) inputs are treated as aligned clocks (equal length
     required, lockstep); returns (aligned_values, None). Indexed inputs perform
@@ -364,39 +347,27 @@ def combine_latest(*values, index=None, emit="when_all", func=None):
     Node inputs return a Node.
 
     emit="when_all" (default) suppresses output until every input has a value;
-    emit="on_any" emits from the first event (NaN for unseen inputs). If ``func``
-    is given it is applied per row (``func(*row)``) after alignment.
-    When a ``(values, index)`` tuple is passed it carries its own index; ``index=`` applies only to raw arrays.
+    emit="on_any" emits from the first event (NaN for unseen inputs). To transform
+    each aligned row, apply a functor to the output, e.g. Sub()(combine_latest(a, b)).
+    When a (values, index) tuple is passed it carries its own index; index=
+    applies only to raw arrays.
     """
     if emit not in ("when_all", "on_any"):
         raise ValueError('combine_latest: emit must be "when_all" or "on_any"')
     if any(is_node(v) for v in values):
-        if func is not None:
-            raise ValueError(
-                "combine_latest(func=...) is not supported in a DAG graph "
-                "(graph ops are C++-only); apply a functor to the aligned output, "
-                "e.g. Sub()(combine_latest(a, b))")
         return make_operator_node(CombineLatest, values, {"emit": emit})
     if values and all(_is_lazy_stream(v) for v in values):
-        if func is not None:
-            raise ValueError(
-                "combine_latest(func=...) is not supported for lazy iterator "
-                "inputs; apply the function to the aligned output instead")
         return _combine_latest_lazy(values, emit)
     if any(_is_lazy_stream(v) for v in values):
         raise TypeError(
             "combine_latest: cannot mix lazy iterator and concrete inputs; pass "
             "all generators or all arrays")
-    regime = _regime(values)
     streams = _to_streams(values, index)
     kind, idx, vals, positional = _streams_to_indexed(streams, "combine_latest")
     fn = _b._combine_latest_f64 if kind == "f64" else _b._combine_latest_i64
     out_index, aligned = fn(idx, vals, emit == "when_all")
     out_index, aligned = _collapse_last_per_index(out_index, aligned)
-    result_index = None if positional else out_index
-    if func is not None:
-        aligned = np.array([func(*row) for row in aligned], dtype=np.float64)
-    return _adapt(regime, aligned, result_index)
+    return aligned, (None if positional else out_index)
 
 
 async def replay(*values, index=None, speed=1.0, sleep=None):
@@ -613,7 +584,7 @@ def split(values, sources, index=None, n=None):
     ``n`` sets how many output streams to produce (default: max(sources)+1); pass
     it explicitly to include sources that emitted nothing.
     """
-    if isinstance(values, tuple) and len(values) == 2 and isinstance(values[0], np.ndarray):
+    if _is_vi_pair(values):
         index = values[1]          # the tuple carries its own index
         values = values[0]
     values = np.asarray(values)
@@ -1135,7 +1106,7 @@ def resample(values, index=None, *, freq=None, every=None, count=None, agg="last
     # block every and count follow the existing internal convention so all
     # downstream code is unchanged.
     if freq is not None:
-        if isinstance(values, tuple) and len(values) == 2 and isinstance(values[0], np.ndarray):
+        if _is_vi_pair(values):
             _idx_ctx = values[1]     # (values, index) tuple carries its own index
         else:
             _idx_ctx = index            # raw array, Node, or lazy stream

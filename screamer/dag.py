@@ -82,6 +82,13 @@ def _int64_index(idx):
     return np.ascontiguousarray(arr, dtype=np.int64)
 
 
+def _is_vi_pair(x):
+    """The canonical concrete-stream detection: a (values, index) 2-tuple whose
+    first element is an ndarray. Defined once so every site that may receive a
+    bare array or a (values, index) pair applies the same rule."""
+    return isinstance(x, tuple) and len(x) == 2 and isinstance(x[0], np.ndarray)
+
+
 def _as_stream(feed):
     """Normalize a feed to (index_array, values_array) for the compiled engine.
 
@@ -90,7 +97,7 @@ def _as_stream(feed):
     - (values, index) pair -> values-first user convention; flipped for engine
       (index None -> row-number)
     """
-    if isinstance(feed, tuple) and len(feed) == 2:
+    if _is_vi_pair(feed):
         values, index = feed   # user provides (values, index) - values-first
         values_arr = np.ascontiguousarray(values, dtype=np.float64)
         if index is None:

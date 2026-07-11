@@ -1,6 +1,6 @@
 import numpy as np
 import pytest
-from screamer.streams import _regime, _to_streams, _adapt, to_pandas, from_pandas, resample
+from screamer.streams import _to_streams, to_pandas, from_pandas, resample
 from screamer import Input
 
 
@@ -13,22 +13,6 @@ def test_to_pandas_in_all():
     import screamer.streams as s
     assert "to_pandas" in s.__all__
     assert "from_pandas" in s.__all__
-
-
-def test_regime_classifies_raw():
-    assert _regime([np.array([1.0]), np.array([2.0])]) == "raw"
-
-
-def test_regime_classifies_graph():
-    assert _regime([Input("a"), np.array([2.0])]) == "graph"
-    assert _regime([Input("a"), Input("b")]) == "graph"
-
-
-def test_regime_tuple_input_is_raw():
-    v = np.array([1.0, 2.0])
-    k = np.array([10, 20])
-    # (values, index) tuple is concrete data, not a Node -> raw
-    assert _regime([(v, k), np.array([3.0, 4.0])]) == "raw"
 
 
 def test_to_streams_tuple_passthrough():
@@ -47,17 +31,6 @@ def test_to_streams_bare_array_gets_index():
     result = _to_streams([a, b], index=[np.array([10, 20]), np.array([30, 40])])
     np.testing.assert_array_equal(result[0][1], [10, 20])
     np.testing.assert_array_equal(result[1][1], [30, 40])
-
-
-def test_adapt_always_returns_tuple():
-    v = np.array([1.0, 2.0])
-    idx = np.array([10, 20])
-    out = _adapt("raw", v, idx)
-    assert isinstance(out, tuple) and len(out) == 2
-    np.testing.assert_array_equal(out[0], v)
-    np.testing.assert_array_equal(out[1], idx)
-    out2 = _adapt("graph", v, None)
-    assert isinstance(out2, tuple) and out2[1] is None
 
 
 def test_to_pandas_1d():
