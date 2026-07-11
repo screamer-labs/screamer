@@ -2,6 +2,7 @@
 #define SCREAMER_DAG_GRAPH_H
 
 #include <cstddef>
+#include <stdexcept>
 #include <vector>
 #include "screamer/common/eval_op.h"
 #include "screamer/dag/resample_params.h"
@@ -64,6 +65,10 @@ public:
         return spec_.nodes.size() - 1;
     }
     std::size_t add_filter(std::vector<std::size_t> inputs) {
+        // Filter is a fixed 2-input gate (data, mask); fail early on wrong arity
+        // rather than half-wire the node and misbehave at run time.
+        if (inputs.size() != 2)
+            throw std::runtime_error("add_filter: Filter needs exactly 2 inputs (data, mask)");
         spec_.nodes.push_back(NodeSpec{NodeKind::Filter, nullptr, true, false,
                                        {}, {}, std::move(inputs)});
         return spec_.nodes.size() - 1;

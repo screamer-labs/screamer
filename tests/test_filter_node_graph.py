@@ -153,3 +153,46 @@ def test_filter_negative_mask_keeps_row():
     (out_k, out_v), = g.run_batch([_feed(data), _feed(mask)])
     np.testing.assert_array_equal(out_k, np.array([0, 2], dtype=np.int64))
     np.testing.assert_array_equal(out_v.reshape(-1), np.array([7.0, 9.0]))
+
+
+# ---------------------------------------------------------------------------
+# Negative-zero mask drops (IEEE 754: -0.0 == 0.0)
+# ---------------------------------------------------------------------------
+
+def test_filter_negative_zero_mask_drops_row():
+    """-0.0 compares equal to 0.0, so it drops the row like +0.0."""
+    g = _build_filter_graph()
+    data = [1.0, 2.0, 3.0]
+    mask = [-0.0, 1.0, 0.0]
+    (out_k, out_v), = g.run_batch([_feed(data), _feed(mask)])
+    np.testing.assert_array_equal(out_k, np.array([1], dtype=np.int64))
+    np.testing.assert_array_equal(out_v.reshape(-1), np.array([2.0]))
+
+
+# ---------------------------------------------------------------------------
+# True same-index overwrite: two events at one index before the index advances.
+# The last value at an index wins; the gate is applied to the settled row.
+# ---------------------------------------------------------------------------
+
+def test_filter_same_index_overwrite_settles_last():
+    """Two data events at index 0 (10 then 20) with the mask flipping to keep
+    only settle the LAST value; the gate uses the settled mask at that index."""
+    g = _build_filter_graph()
+    # data: index 0 twice (10, 20), then index 1 (30)
+    # mask: index 0 (0 -> would drop), then index 0 again (1 -> keeps), index 1 (1)
+    data_k = np.array([0, 0, 1], dtype=np.int64)
+    data_v = np.array([10.0, 20.0, 30.0], dtype=np.float64)
+    mask_k = np.array([0, 0, 1], dtype=np.int64)
+    mask_v = np.array([0.0, 1.0, 1.0], dtype=np.float64)
+    (out_k, out_v), = g.run_batch([(data_k, data_v), (mask_k, mask_v)])
+    # index 0 settles to data=20, mask=1 -> kept; index 1 -> kept
+    np.testing.assert_array_equal(out_k, np.array([0, 1], dtype=np.int64))
+    np.testing.assert_array_equal(out_v.reshape(-1), np.array([20.0, 30.0]))
+
+
+def test_filter_wrong_arity_raises():
+    """add_filter requires exactly 2 inputs (data, mask)."""
+    g = _b._GraphBuilder()
+    a = g.add_input()
+    with pytest.raises(Exception):
+        g.add_filter([a])
