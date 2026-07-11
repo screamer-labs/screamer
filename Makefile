@@ -110,6 +110,7 @@ tidy: build
 # poetry env, so sphinx-build resolves to the right binary even if the
 # user's pyenv has a different (broken) sphinx setup.
 docs:
+	$(PY) devtools/stream_diagrams.py
 	$(POETRY_RUN) $(MAKE) -C docs clean
 	$(POETRY_RUN) $(MAKE) -C docs html
 	@echo "Docs built at docs/_build/html/index.html"

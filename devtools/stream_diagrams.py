@@ -15,6 +15,9 @@ Output goes to docs/_static/diagrams/<operator>.svg.
 import os
 import matplotlib
 matplotlib.use("Agg")
+# Deterministic SVG output: a fixed salt gives stable element ids, so re-running
+# the generator (in `make docs` or on Read the Docs) does not churn the files.
+matplotlib.rcParams["svg.hashsalt"] = "screamer-stream-diagrams"
 import matplotlib.pyplot as plt
 from matplotlib.patches import FancyBboxPatch, FancyArrowPatch, Rectangle
 
@@ -128,7 +131,7 @@ def main():
     os.makedirs(OUT_DIR, exist_ok=True)
     for name, fig in diagrams().items():
         path = os.path.join(OUT_DIR, name + ".svg")
-        fig.savefig(path, bbox_inches="tight", transparent=True)
+        fig.savefig(path, bbox_inches="tight", transparent=True, metadata={"Date": None})
         plt.close(fig)
         print("wrote", os.path.normpath(path))
 

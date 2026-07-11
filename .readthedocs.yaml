@@ -18,6 +18,10 @@ build:
       # site-packages instead and never runs `make build`, so copy the built
       # screamer_bindings extension into the source package so those imports work.
       - cp $READTHEDOCS_VIRTUALENV_PATH/lib/python*/site-packages/screamer/screamer_bindings*.so screamer/
+    pre_build:
+      # Regenerate the multi-stream operator diagrams (docs/_static/diagrams/*.svg)
+      # so they always match devtools/stream_diagrams.py.
+      - python devtools/stream_diagrams.py
 
 sphinx:
   configuration: docs/conf.py
