@@ -196,7 +196,7 @@ class _LiveDag:
         """Aligned outputs accumulated so far (drains the buffers)."""
         results = self._cg.drain()
         results = [(k, v.reshape(-1) if v.shape[1] == 1 else v) for (k, v) in results]
-        return self._dag._label(_align_results(results, self._dag.align_outputs))
+        return _align_results(results, self._dag.align_outputs)
 
 
 _NOT_PULLED = object()   # sentinel: iterator head has not been fetched yet
@@ -419,15 +419,6 @@ class Dag:
                         # (pass 0); the reducer op drives GenericResampleNode.
                         nid = gb.add_resample(inp, mode, 0, label, width, origin,
                                               count, agg_val, fill=fill)
-                elif name == "multi_resample":
-                    mode = 1 if kwargs.get("count") is not None else 0
-                    label = 1 if kwargs.get("label", "left") == "right" else 0
-                    width = int(kwargs["every"]) if kwargs.get("every") is not None else 1
-                    origin = int(kwargs.get("origin", 0))
-                    count = int(kwargs["count"]) if kwargs.get("count") is not None else 1
-                    fill = _RESAMPLE_FILL_CODE[kwargs.get("fill", "skip")]
-                    nid = gb.add_multicolumn_resample(inp, mode, label, width, origin,
-                                                      count, fill, kwargs["reducers"])
                 else:
                     raise ValueError(
                         f"{name} is not supported as a DAG graph node")
@@ -445,44 +436,6 @@ class Dag:
         # map signature order -> the add_input order (they match: inputs built first)
         return gb.compile(), list(self._names)
 
-    @staticmethod
-    def _output_columns(node):
-        """Return the column-name tuple stored on a multi_resample node, or None."""
-        op = getattr(node, "op", None)
-        if (isinstance(op, tuple) and len(op) == 3 and op[0] == "operator"
-                and getattr(op[1], "__name__", None) == "multi_resample"):
-            return op[2].get("columns")
-        return None
-
-    def _label(self, result):
-        """Wrap multi-column bar outputs as labelled Streams; pass others through."""
-        from .streams import Stream
-
-        def labelled(v, k, cols):
-            # A labelled bar is always a 2-D (n_bars, n_cols) Stream, even for a
-            # single column (which __call__ has flattened to 1-D), so that named
-            # access like out["close"] works.
-            if v.ndim == 1:
-                v = v.reshape(-1, 1)
-            return Stream(v, k, columns=list(cols))
-
-        cols = [self._output_columns(o) for o in self.outputs]
-        if len(self.outputs) == 1:
-            if cols[0] is not None:
-                v, k = result
-                return labelled(v, k, cols[0])
-            return result
-        # Multi-output. Only the non-aligned case yields one independent (v, k) pair
-        # per output, which we can safely label. The aligned case slices per column
-        # via combine_latest, so a multi-column bar node there cannot be labelled
-        # coherently; pass it through untouched rather than mislabel a column slice.
-        if self.align_outputs:
-            return result
-        out = []
-        for (v, k), c in zip(result, cols):
-            out.append(labelled(v, k, c) if c is not None else (v, k))
-        return tuple(out)
-
     def __call__(self, *args, **kwargs):
         feeds = self._bind_args(args, kwargs)
         lazy = [self._is_lazy(v) for v in feeds.values()]
@@ -496,7 +449,7 @@ class Dag:
         streams = [_as_stream(feeds[nm]) for nm in self._input_order]
         results = self._cg.run_batch(streams)      # M independent (index, values2d)
         results = [(k, v.reshape(-1) if v.shape[1] == 1 else v) for (k, v) in results]
-        return self._label(_align_results(results, self.align_outputs))
+        return _align_results(results, self.align_outputs)
 
     @staticmethod
     def _is_lazy(x):

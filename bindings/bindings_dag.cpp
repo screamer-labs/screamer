@@ -186,31 +186,6 @@ void init_bindings_dag(py::module& m) {
             return builder.add_resample(std::move(inputs), rp);
         }
 
-        std::size_t add_multicolumn_resample(std::vector<std::size_t> inputs, int mode,
-                                             int label, std::int64_t width,
-                                             std::int64_t origin, std::int64_t count,
-                                             int fill, py::list reducers) {
-            dag::ResampleParams clock;
-            clock.mode  = static_cast<dag::ResampleMode>(mode);   // 0=ByIndex, 1=ByCount
-            clock.label = static_cast<dag::ResampleLabel>(label); // 0=Left, 1=Right
-            clock.fill  = static_cast<dag::ResampleFill>(fill);   // 0=Skip, 1=Nan, 2=Carry
-            clock.width  = width;
-            clock.origin = origin;
-            clock.count  = count;
-            clock.reducer = nullptr;   // the N reducers ride in the reducers vector
-            // Extract each reducer's base EvalOp* and keep the Python object alive
-            // for the compiled graph's lifetime (raw pointers would else dangle).
-            std::vector<EvalOp*> ops;
-            ops.reserve(reducers.size());
-            for (auto h : reducers) {
-                py::object o = py::reinterpret_borrow<py::object>(h);
-                ops.push_back(py::cast<EvalOp*>(o));
-                op_refs.push_back(o);                 // keep alive - MANDATORY
-            }
-            return builder.add_multicolumn_resample(std::move(inputs), clock,
-                                                    std::move(ops));
-        }
-
         void set_outputs(std::vector<std::size_t> outs) {
             builder.set_outputs(std::move(outs));
         }
@@ -262,15 +237,6 @@ void init_bindings_dag(py::module& m) {
         }, py::arg("inputs"), py::arg("mode"), py::arg("agg"), py::arg("label"),
            py::arg("width"), py::arg("origin"), py::arg("count"),
            py::arg("reducer") = py::none(), py::arg("fill") = 0)
-        .def("add_multicolumn_resample", [](PyGraphBuilder& b,
-                                            std::vector<std::size_t> inputs, int mode,
-                                            int label, std::int64_t width,
-                                            std::int64_t origin, std::int64_t count,
-                                            int fill, py::list reducers) {
-            return b.add_multicolumn_resample(std::move(inputs), mode, label, width,
-                                              origin, count, fill, reducers);
-        }, py::arg("inputs"), py::arg("mode"), py::arg("label"), py::arg("width"),
-           py::arg("origin"), py::arg("count"), py::arg("fill"), py::arg("reducers"))
         .def("set_outputs", &PyGraphBuilder::set_outputs, py::arg("output_ids"))
         .def("compile", [](PyGraphBuilder& b) { return b.compile(); })
         .def("run_batch", [](PyGraphBuilder& b, py::list feeds) {

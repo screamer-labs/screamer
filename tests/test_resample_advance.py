@@ -203,8 +203,7 @@ def test_advance_noop_not_started():
 
 def test_advance_then_later_event_fills_parked_bucket_builtin():
     # Single-column builtin reducer: advance() parks an empty bucket, a later event
-    # in a further bucket fills the parked one per fill policy (agrees with the
-    # multi-column node; see MultiResampleNode's equivalent test).
+    # in a further bucket fills the parked one per fill policy.
     live = _live_last("nan")
     live.push("x", 0, 10.0)
     live.advance(150)          # emit bucket 0 (=10); park empty bucket 1

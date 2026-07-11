@@ -127,18 +127,3 @@ def test_compile_resample_reset_between_runs():
     np.testing.assert_allclose(np.array(rv1), np.array(rv2), equal_nan=True)
 
 
-def test_compile_multi_resample_reset_between_runs():
-    """Running the same compiled multi_resample graph twice must give identical output.
-    A missed reset leaves buckets half-filled from run 1 (wrong values on run 2)."""
-    from screamer import First, Last
-    idx = np.arange(20, dtype=np.int64)
-    vals = np.arange(20.0)
-    g = _b._GraphBuilder()
-    xi = g.add_input()
-    # mode=0 (ByIndex), label=0 (Left), width=5, origin=0, count=0, fill=0 (skip)
-    mn = g.add_multicolumn_resample([xi, xi], 0, 0, 5, 0, 0, 0, [First(), Last()])
-    g.set_outputs([mn])
-    (mk1, mv1), = g.run_batch([(idx, vals)])
-    (mk2, mv2), = g.run_batch([(idx, vals)])
-    np.testing.assert_array_equal(mk1, mk2)
-    np.testing.assert_allclose(np.array(mv1), np.array(mv2), equal_nan=True)
