@@ -546,7 +546,7 @@ class Filter:
     All three regimes (batch, lazy, graph) are driven by the same C++
     FilterNode and return byte-identical results.
 
-    Batch (arrays or Streams)::
+    Batch (arrays or (values, index) tuples)::
 
         survivors, idx = Filter()(data_array, mask_array)
 
