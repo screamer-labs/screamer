@@ -1026,11 +1026,15 @@ def _resample_datetime_freq(freq, index):
 
 
 def _resample_freq_to_engine(freq, index):
-    """Translate the contextual freq into (mode, width) for the engine.
+    """Translate freq into (mode, width) for the engine. freq is always a WINDOW
+    (a span over the index); Option B: freq=window, count=arrival.
 
-    index is None       -> width = int(freq); mode "count".
-    index integer dtype -> width = int(freq); mode "span".
-    index datetime64    -> offset/timedelta -> int64 units via _resample_datetime_freq.
+    integer freq     -> width = int(freq); mode "span" (a span in index units).
+                        For a positional/no-index stream the index is the row
+                        number, so a span of W coincides with count=W; for a Node
+                        or lazy stream the span is resolved against the runtime
+                        index (which is why freq cannot be forced to count here).
+    datetime64 index -> offset/timedelta -> int64 units via _resample_datetime_freq.
     Raises on a non-positive width or a nonsensical (index dtype, freq type) pair.
     """
     if index is not None and np.asarray(index).dtype.kind == "M":   # datetime64
@@ -1045,7 +1049,7 @@ def _resample_freq_to_engine(freq, index):
     width = int(freq)
     if width <= 0:
         raise ValueError("resample: freq must be a positive integer")
-    return ("count" if index is None else "span"), width
+    return "span", width
 
 
 def _resample_via_cpp(feed, *, every, count, agg, origin, label, fill="skip"):
