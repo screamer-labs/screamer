@@ -2,12 +2,12 @@
 
 import numpy as np
 from screamer import Input, Dag, RollingMean, Sub
-from screamer.streams import combine_latest
+from screamer.streams import CombineLatest
 
 
 def _spread_dag():
     a, b = Input("a"), Input("b")
-    return Dag(inputs=[a, b], outputs=[RollingMean(3)(Sub()(combine_latest(a, b)))]), a, b
+    return Dag(inputs=[a, b], outputs=[RollingMean(3)(Sub()(CombineLatest()(a, b)))]), a, b
 
 
 def test_dag_lazy_equals_batch_single_output():
@@ -51,7 +51,7 @@ def test_dag_lazy_is_lazy():
 def test_dag_lazy_equals_batch_multi_output():
     """Multi-output lazy rows must match the batch result column by column."""
     a, b = Input("a"), Input("b")
-    spread = Sub()(combine_latest(a, b))
+    spread = Sub()(CombineLatest()(a, b))
     dag = Dag(inputs=[a, b], outputs=[spread, RollingMean(2)(spread)])  # 2 outputs
     va, ia = np.array([10.0, 20.0, 30.0]), np.array([1, 2, 3])
     vb, ib = np.array([1.0, 2.0, 3.0]),   np.array([1, 2, 3])
@@ -87,7 +87,7 @@ def test_dag_mixed_lazy_and_concrete_feeds_raises():
     """A mix of a lazy generator and a concrete array feed is ambiguous; raise."""
     import pytest
     a, b = Input("a"), Input("b")
-    dag = Dag(inputs=[a, b], outputs=[Sub()(combine_latest(a, b))])
+    dag = Dag(inputs=[a, b], outputs=[Sub()(CombineLatest()(a, b))])
     gen_a = ((float(v), int(k)) for v, k in zip([1.0, 2.0], [0, 1]))
     with pytest.raises(TypeError):
         dag(gen_a, (np.array([1.0, 2.0]), np.array([0, 1])))

@@ -392,17 +392,17 @@ class Dag:
                 fn, kwargs = op[1], op[2]
                 name = getattr(fn, "__name__", "")
                 inp = [build(i) for i in node.inputs]
-                if name == "combine_latest":
+                if name == "CombineLatest":
                     nid = gb.add_combine_latest(inp, kwargs.get("emit") == "when_all")
                 elif name == "Filter":
                     nid = gb.add_filter(inp)
-                elif name == "dropna":
+                elif name == "Dropna":
                     nid = gb.add_dropna(inp, kwargs.get("how") == "all")
-                elif name == "select":
+                elif name == "Select":
                     from .streams import _normalize_columns
                     cols, _ = _normalize_columns(kwargs["columns"])
                     nid = gb.add_select(inp, cols)
-                elif name == "resample":
+                elif name == "Resample":
                     mode = 1 if kwargs.get("count") is not None else 0   # 0=ByIndex,1=ByCount
                     label = 1 if kwargs.get("label", "left") == "right" else 0
                     width = int(kwargs["every"]) if kwargs.get("every") is not None else 1

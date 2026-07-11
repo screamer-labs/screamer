@@ -40,8 +40,8 @@ constructor, shape rules, attributes, methods, and the pandas round-trip.
 
 ## 2. Stream operators are polymorphic
 
-Most stream operators (`combine_latest`, `dropna`, `Filter`, `select`,
-`resample`) dispatch on the type of their inputs and mirror that type on return:
+Most stream operators (`CombineLatest`, `Dropna`, `Filter`, `Select`,
+`Resample`) dispatch on the type of their inputs and mirror that type on return:
 
 | Input type | Return type |
 |---|---|
@@ -49,13 +49,13 @@ Most stream operators (`combine_latest`, `dropna`, `Filter`, `select`,
 | `Stream` object(s) | a `Stream` |
 | graph `Node`(s) | a `Node` (builds the DAG) |
 
-Raw return is always values-first: `vals, idx = combine_latest(a, b)` always
+Raw return is always values-first: `vals, idx = CombineLatest()(a, b)` always
 works; `idx is None` is a checkable flag meaning "no real ordering here." A bare
 array auto-wraps to a positional `Stream`; if any input was a `Stream` the
 output is also a `Stream`.
 
-`merge`, `split`, and `replay` accept `Stream` inputs too, but their *outputs*
-differ because they carry a per-event `sources` tag: `merge` returns
+`Merge`, `split`, and `replay` accept `Stream` inputs too, but their *outputs*
+differ because they carry a per-event `sources` tag: `Merge` returns
 `(values, sources, index)` and `replay` yields `(value, index, source)` events.
 `split` given a `Stream` returns a list of `Stream`s (one per source); given raw
 arrays it returns `(values, index)` pairs.
@@ -65,11 +65,11 @@ arrays it returns `(values, index)` pairs.
 | Layer | Cardinality | Examples |
 |---|---|---|
 | **Compute functors** | preserved (output length == input length) | `RollingMean`, `RollingCorr`, `FillNa`, `Ffill` |
-| **Stream operators** | may change it | `merge`, `combine_latest`, `dropna`, `Filter`, `split`, `replay` |
+| **Stream operators** | may change it | `Merge`, `CombineLatest`, `Dropna`, `Filter`, `split`, `replay` |
 
 Compute functors handle `NaN` internally via their `nan_policy` (see
 [NaN and warmup](nan_and_warmup.md)) and never add or drop rows. Stream operators own
-all time alignment and stream shaping. `dropna` / `Filter` / `split` are the
+all time alignment and stream shaping. `Dropna` / `Filter` / `split` are the
 cardinality-changing tools; `fillna` / `ffill` are shape-preserving and belong
 to both worlds.
 
@@ -79,14 +79,14 @@ Time-aware stream operators do the index handling and hand *aligned* data to the
 unchanged compute functors. The idiom is:
 
 ```python
-from screamer import combine_latest, RollingCorr
+from screamer import CombineLatest, RollingCorr
 
 # Two async price streams, each a (values, index) pair.
-aligned, idx = combine_latest(p_a, p_b, index=[t_a, t_b])   # as-of latest-value join
+aligned, idx = CombineLatest()(p_a, p_b, index=[t_a, t_b])   # as-of latest-value join
 corr = RollingCorr(20)(aligned[:, 0], aligned[:, 1])         # functor, untouched
 ```
 
-`combine_latest` emits **one row per distinct index** (same-index events from
+`CombineLatest` emits **one row per distinct index** (same-index events from
 different streams coalesce into a single settled row). `emit="when_all"`
 (default) waits until every input is warm; `emit="on_any"` emits from the first
 event with `NaN` for inputs not yet seen. Feed the aligned columns to any
@@ -94,15 +94,15 @@ existing functor.
 
 Other stream operators:
 
-- `merge(*values, index=None)` -> `(values, sources, index)`: one index-sorted,
+- `Merge()(*values, index=None)` -> `(values, sources, index)`: one index-sorted,
   source-tagged stream.
-- `split(values, sources, index=None)` -> the inverse of `merge`.
-- `dropna(values, index=None, how="any")` -> drop NaN events.
+- `split(values, sources, index=None)` -> the inverse of `Merge`.
+- `Dropna(how="any")(values, index=None)` -> drop NaN events.
 - `Filter()(data, mask)` -> keep each data value whose aligned mask is nonzero.
 - `replay(*values, index=None, speed=1.0)` -> async replay; `speed=inf` is a
   max-speed backtest. Yields `(value, index, source)` per event.
 
-`merge` and `combine_latest` are unified: pass lazy iterators of events and the
+`Merge` and `CombineLatest` are unified: pass lazy iterators of events and the
 operator returns a lazy iterator; pass arrays or a `Stream` and the operator
 returns the batch result. No separate `*_iter` function is needed.
 (`split` has no streaming form, and `replay` is itself the streaming/replay
@@ -115,12 +115,12 @@ handle both batch and lazy inputs:
 
 | Old (removed) | New |
 |---|---|
-| `resample_iter(events, ...)` | `resample(events, ...)` |
-| `dropna_iter(events)` | `dropna(events)` |
+| `resample_iter(events, ...)` | `Resample(...)(events)` |
+| `dropna_iter(events)` | `Dropna()(events)` |
 | `filter_iter(events, pred)` | `Filter()(data, mask)` (mask replaces predicate) |
-| `select_iter(events, cols)` | `select(events, cols)` |
-| `combine_latest_iter(a, b)` | `combine_latest(a, b)` |
-| `merge_iter(a, b)` | `merge(a, b)` |
+| `select_iter(events, cols)` | `Select(cols)(events)` |
+| `combine_latest_iter(a, b)` | `CombineLatest()(a, b)` |
+| `merge_iter(a, b)` | `Merge()(a, b)` |
 
 ## 5. Causal, and identical across modes
 
@@ -139,4 +139,4 @@ handle both batch and lazy inputs:
 - [The computational graph](dag.md) - wiring stream operators and functions into
   a graph you define once and run batch or live.
 - [NaN and warmup](nan_and_warmup.md) - how compute functors treat `NaN`; `ffill`
-  is the same forward-fill carry that `combine_latest` uses.
+  is the same forward-fill carry that `CombineLatest` uses.

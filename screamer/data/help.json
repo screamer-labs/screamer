@@ -3319,7 +3319,7 @@
       {
         "language": "python",
         "caption": "Usage example",
-        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom screamer import First\nfrom screamer.streams import resample\n\nrng = np.random.default_rng(42)\nn = 100\nx = np.cumsum(rng.normal(0.0, 1.0, size=n))\nidx = np.arange(n, dtype=np.int64)\nopens, bar_idx = resample(x, idx, every=10, agg=First())\n\nfig = go.Figure()\nfig.add_trace(go.Scatter(y=x, mode='lines', name='x[t]',\n                         line=dict(color='steelblue')))\nfig.add_trace(go.Scatter(x=bar_idx, y=opens, mode='markers',\n                         name='bar open (First)',\n                         marker=dict(color='orange', size=8)))\nfig.update_layout(\n    title=\"First: Opening Value of Each Bar\",\n    xaxis_title=\"Index\",\n    yaxis_title=\"Value\",\n    margin=dict(l=20, r=20, t=60, b=20),\n    legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1)\n)\nfig.show()"
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom screamer import First, Resample\n\nrng = np.random.default_rng(42)\nn = 100\nx = np.cumsum(rng.normal(0.0, 1.0, size=n))\nidx = np.arange(n, dtype=np.int64)\nopens, bar_idx = Resample(freq=10, agg=First())(x, idx)\n\nfig = go.Figure()\nfig.add_trace(go.Scatter(y=x, mode='lines', name='x[t]',\n                         line=dict(color='steelblue')))\nfig.add_trace(go.Scatter(x=bar_idx, y=opens, mode='markers',\n                         name='bar open (First)',\n                         marker=dict(color='orange', size=8)))\nfig.update_layout(\n    title=\"First: Opening Value of Each Bar\",\n    xaxis_title=\"Index\",\n    yaxis_title=\"Value\",\n    margin=dict(l=20, r=20, t=60, b=20),\n    legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1)\n)\nfig.show()"
       }
     ]
   },
@@ -3413,7 +3413,7 @@
       {
         "language": "python",
         "caption": "Usage example",
-        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom screamer import Last\nfrom screamer.streams import resample\n\nrng = np.random.default_rng(42)\nn = 100\nx = np.cumsum(rng.normal(0.0, 1.0, size=n))\nidx = np.arange(n, dtype=np.int64)\ncloses, bar_idx = resample(x, idx, every=10, agg=Last())\n\nfig = go.Figure()\nfig.add_trace(go.Scatter(y=x, mode='lines', name='x[t]',\n                         line=dict(color='steelblue')))\nfig.add_trace(go.Scatter(x=bar_idx, y=closes, mode='markers',\n                         name='bar close (Last)',\n                         marker=dict(color='green', size=8)))\nfig.update_layout(\n    title=\"Last: Closing Value of Each Bar\",\n    xaxis_title=\"Index\",\n    yaxis_title=\"Value\",\n    margin=dict(l=20, r=20, t=60, b=20),\n    legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1)\n)\nfig.show()"
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom screamer import Last, Resample\n\nrng = np.random.default_rng(42)\nn = 100\nx = np.cumsum(rng.normal(0.0, 1.0, size=n))\nidx = np.arange(n, dtype=np.int64)\ncloses, bar_idx = Resample(freq=10, agg=Last())(x, idx)\n\nfig = go.Figure()\nfig.add_trace(go.Scatter(y=x, mode='lines', name='x[t]',\n                         line=dict(color='steelblue')))\nfig.add_trace(go.Scatter(x=bar_idx, y=closes, mode='markers',\n                         name='bar close (Last)',\n                         marker=dict(color='green', size=8)))\nfig.update_layout(\n    title=\"Last: Closing Value of Each Bar\",\n    xaxis_title=\"Index\",\n    yaxis_title=\"Value\",\n    margin=dict(l=20, r=20, t=60, b=20),\n    legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1)\n)\nfig.show()"
       }
     ]
   },
@@ -6317,6 +6317,35 @@
       }
     ]
   },
+  "CombineLatest": {
+    "name": "CombineLatest",
+    "title": "CombineLatest",
+    "kind": "class",
+    "short": "As-of latest-value join of N streams: one row per distinct index (same-index events coalesce).",
+    "topics": [
+      "streams"
+    ],
+    "covers": [
+      "combine_latest"
+    ],
+    "details": "An as-of join for streams that tick on different clocks. It aligns N streams by\ncarrying each input's most recent value forward and emitting **one row per\ndistinct index** - same-index events from multiple streams coalesce into a\nsingle settled row. `emit=\"when_all\"` (default) waits until every input is warm;\n`emit=\"on_any\"` starts from the first event.",
+    "examples": []
+  },
+  "Dropna": {
+    "name": "Dropna",
+    "title": "Dropna",
+    "kind": "class",
+    "short": "Drop events whose value is NaN.",
+    "topics": [
+      "missing-data",
+      "streams"
+    ],
+    "covers": [
+      "dropna"
+    ],
+    "details": "Drop events whose value is `NaN`. This changes the length of the stream (it is a\ncardinality-changing stream operator, unlike the shape-preserving compute\nfunctors). Usable eagerly and inside a `Dag`.\n\nFeeding a lazy iterator of `(value, index)` pairs returns a lazy iterator of the surviving events; feeding arrays or a `Stream` returns the batch result.",
+    "examples": []
+  },
   "Filter": {
     "name": "Filter",
     "title": "Filter",
@@ -6326,6 +6355,48 @@
       "streams"
     ],
     "details": "A 2-input mask gate: keep each data value whose aligned mask value is nonzero\n(zero or NaN drops, any other value keeps). The mask is an ordinary stream\nbuilt from upstream comparison or logic ops. No Python predicate or callback -\nthe gate logic runs entirely in C++ for batch, lazy, and graph regimes.\n\nGate rule: `mask == 0` or `isnan(mask)` drops the aligned data value; any\nother mask value (positive, negative, non-NaN) keeps it. A NaN data value\npasses through unmodified when its aligned mask is nonzero.",
+    "examples": []
+  },
+  "Merge": {
+    "name": "Merge",
+    "title": "Merge",
+    "kind": "class",
+    "short": "Merge N value streams into one index-sorted (values, sources, index).",
+    "topics": [
+      "streams"
+    ],
+    "covers": [
+      "merge"
+    ],
+    "details": "Interleave several streams into one index-sorted stream, tagging each event with\nthe integer index of the source it came from. This is the causal, order-preserving\nway to fan several streams into a single timeline.",
+    "examples": []
+  },
+  "Resample": {
+    "name": "Resample",
+    "title": "Resample",
+    "kind": "class",
+    "short": "Causal windowed downsample of a 1-D or multi-column value stream.",
+    "topics": [
+      "streams"
+    ],
+    "covers": [
+      "resample"
+    ],
+    "details": "Causal windowed downsampling. Group a stream into fixed index-interval buckets\n(`freq=`) or fixed event-count buckets (`count=`), reduce each bucket with a\nper-bar aggregation, and return a labelled `Stream`. A bucket emits only once a\nlater index proves it complete; the trailing partial bucket emits at end of input.\nUsable eagerly (raw arrays or `Stream`) and inside a `Dag`.\n\nFeeding a lazy iterator of `(value, index)` pairs returns a lazy iterator of bar events; feeding arrays or a `Stream` returns the batch result.\n\nThe `agg` parameter accepts two forms:\n\n**String shorthand**: one of `first`, `last`, `min`, `max`, `sum`, `count`,\n`mean`, `ohlc`, `ohlcv`, `ohlcv2`. `ohlc` returns four columns\n(`open`, `high`, `low`, `close`). `ohlcv` and `ohlcv2` accept a two-column\ninput `[price, volume]`; see below.\n\n**Any `EvalOp` functor**, e.g. `ExpandingSkew()`. The functor is `reset()` at\neach bar boundary and fed every in-bar sample; its last output before the close\nis emitted as the bar value. All screamer functors are valid reducers.\n\n**Several reducers at once**: run one `Resample` per statistic over the same\nbucketing and align the results with `CombineLatest`. Because every `Resample`\nshares the same `freq=` (or `count=`) and clock, the bars line up exactly and\ncannot drift, e.g.\n`CombineLatest()(Resample(freq=5, agg=\"first\")(price, t), Resample(freq=5, agg=\"sum\")(vol, t))`.\nInside a `Dag`, place each per-stat `Resample` node on its upstream expression\nand combine them the same way; per-tick transforms live in the expression, e.g.\n`Resample(freq=5, agg=ExpandingSum())(PosPart()(vol))`.\n\n## Bucketing: `freq=` vs `count=`\n\nExactly one of `freq=` or `count=` sets how bars are bounded, and they answer\ndifferent questions.\n\n- `freq=W` buckets along the **index**. Bar `n` is the half-open interval\n  `[origin + n*W, origin + (n+1)*W)`, so the index values decide membership. Bars\n  have equal width on the index but a variable number of ticks; a tick exactly on a\n  boundary starts the later bar. Boundaries are anchored at `origin` (default `0`,\n  i.e. multiples of `W`), **not** at the first tick. Set `origin=` to shift the\n  grid. Internal empty intervals are real and controlled by `fill=`.\n- `count=N` buckets by **arrival order**. A bar closes every `N` events and never\n  consults the index values to place boundaries. Bars have an equal number of ticks\n  but a variable width on the index, and one bar can straddle an arbitrary index gap\n  without noticing it.\n\nThe `index` argument is **optional in both modes**. `count=` does not need it to\nfind boundaries; `freq=` uses it as the timeline being bucketed. If omitted, row\nposition (`0, 1, 2, ...`) is used as the index.\n\nBar **labels** depend on the mode and on `label=`:\n\n- `freq=`: the bar's **grid edge**, `origin + n*W` for `label=\"left\"` (default)\n  or `origin + (n+1)*W` for `label=\"right\"`. This is the interval boundary itself,\n  which need not equal any actual tick's index (and a right label can sit past the\n  last tick).\n- `count=`: an **actual tick index**, the **first** tick of the bar for\n  `label=\"left\"` or the **last** for `label=\"right\"`.\n\nConcretely, eight ticks at index `[0, 1, 2, 10, 11, 20, 21, 22]`:\n\n- `freq=10` -> bars `{0,1,2} {10,11} {20,21,22}` (counts 3, 2, 3), labels\n  `[0, 10, 20]` (grid edges).\n- `count=3`  -> bars `{0,1,2} {10,11,20} {21,22}` (counts 3, 3, 2), labels\n  `[0, 10, 21]` (first tick of each bar). The middle bar straddles the `11 -> 20`\n  gap because `count=` measures rows, not index distance.\n\n## Empty buckets: `fill=`\n\n`fill=` controls what happens when a `freq=` bar contains no samples (an index\ninterval with no ticks). It applies to eager arrays, `Stream`s, and graphs alike;\nit is not `Dag`-only.\n\n- `\"skip\"` (default): emit no row for an empty bucket (the legacy behavior).\n- `\"nan\"`: emit an all-NaN row at the empty bucket's label.\n- `\"carry\"`: repeat the previous emitted row's values verbatim.\n\nOnly **internal** empty buckets (gaps between two events) are filled by `Resample`\nitself. Trailing empty buckets after the last event are not synthesized here; that\nneeds a clock, via either [`dag.live().advance(now)`](#dag-live) or a clock input\nwired into a `Dag`. The [`dag.live()` reference](#dag-live) has a worked example.\n\n`fill=` is meaningful only under `freq=`. With `count=`, a bar is defined by\nholding `N` events, so empty bars cannot exist by construction and `fill=` has no\neffect.\n\n### `fill=` edge cases\n\n- **Leading buckets** (before the first event) are never synthesized on the eager\n  path: output starts at the bucket containing the first tick. A tick at index 47\n  with `freq=10` starts at label 40, not 0. Leading empty buckets arise only from a\n  clock (a `Dag` clock input or [`advance()`](#dag-live)) that advances time before\n  the first data event; there `\"nan\"` emits NaN rows and `\"carry\"` **skips** them,\n  since there is no previous row to repeat.\n- **`\"carry\"` is verbatim and uniform** across every column: it repeats the previous\n  bar's whole row, including count-like or sum-like columns. So a genuinely empty bar\n  carries the previous bar's count, not 0. Use `\"nan\"` where that is wrong for your\n  columns; a per-column fill policy is out of scope in v1.\n- **`label=\"right\"`** composes with `fill=` unchanged: a filled bucket is labelled at\n  its right grid edge, like any other bar.\n- **Functor reducers** are unaffected. A filled empty bucket emits a synthetic row\n  (a NaN row, or the carried row) without feeding or resetting the reducer; the\n  reducer is `reset()` only at the next real bar boundary. An expanding reducer\n  therefore starts each real bar clean and never accumulates across a filled gap.\n\n## Labelled output and `Stream.columns`\n\nEvery `Resample` call returns a `Stream`, which is also unpackable as\n`(values, index)` for backward-compatible tuple unpacking. Multi-column\naggregations (`ohlc`, `ohlcv`, `ohlcv2`) set `.columns` on the returned\n`Stream` to a tuple of column names; single-value aggregations leave `.columns`\nas `None`. Use `bars[\"close\"]` to read a named 1-D column, or iterate\n`(values, index) = bars` for the full array.\n\n## `ohlcv` and `ohlcv2` (two-column input)\n\nBoth require `values` to be a `(T, 2)` array: column 0 is price, column 1 is\nvolume (unsigned for `ohlcv`, signed for `ohlcv2`).\n\n`ohlcv` produces `(open, high, low, close, volume)`. The volume column is the sum\nof column-1 values inside each bar.\n\n`ohlcv2` produces `(open, high, low, close, buy_vol, sell_vol)`. Buy volume is\n`sum(PosPart(signed_vol))` and sell volume is `sum(NegPart(signed_vol))` per bar,\nthe signed-part decomposition.",
+    "examples": []
+  },
+  "Select": {
+    "name": "Select",
+    "title": "Select",
+    "kind": "class",
+    "short": "Pick column(s) from a wide (M, N) value stream.",
+    "topics": [
+      "streams"
+    ],
+    "covers": [
+      "select"
+    ],
+    "details": "Pick one or more columns from a wide `(rows, columns)` value stream by position.\nThe index and the number of rows are unchanged; only the width changes. Usable\neagerly and inside a `Dag`.\n\nFeeding a lazy iterator of `(value, index)` pairs returns a lazy iterator of column-selected events; feeding arrays or a `Stream` returns the batch result.",
     "examples": []
   },
   "Stream": {
@@ -6339,40 +6410,6 @@
     "details": "The object form of a stream: a values array paired with an optional index (the\nordering coordinate). Instead of passing and receiving loose `(values, index)`\ntuples, you can pass a `Stream` and get a `Stream` back, with the index carried\nalong. Accepted by every stream operator that preserves the stream shape.",
     "examples": []
   },
-  "combine_latest": {
-    "name": "combine_latest",
-    "title": "combine_latest",
-    "kind": "function",
-    "short": "As-of latest-value join of N streams: one row per distinct index (same-index events coalesce).",
-    "topics": [
-      "streams"
-    ],
-    "details": "An as-of join for streams that tick on different clocks. It aligns N streams by\ncarrying each input's most recent value forward and emitting **one row per\ndistinct index** - same-index events from multiple streams coalesce into a\nsingle settled row. `emit=\"when_all\"` (default) waits until every input is warm;\n`emit=\"on_any\"` starts from the first event.",
-    "examples": []
-  },
-  "dropna": {
-    "name": "dropna",
-    "title": "dropna",
-    "kind": "function",
-    "short": "Drop events whose value is NaN.",
-    "topics": [
-      "missing-data",
-      "streams"
-    ],
-    "details": "Drop events whose value is `NaN`. This changes the length of the stream (it is a\ncardinality-changing stream operator, unlike the shape-preserving compute\nfunctors). Usable eagerly and inside a `Dag`.\n\nFeeding a lazy iterator of `(value, index)` pairs returns a lazy iterator of the surviving events; feeding arrays or a `Stream` returns the batch result.",
-    "examples": []
-  },
-  "merge": {
-    "name": "merge",
-    "title": "merge",
-    "kind": "function",
-    "short": "Merge N value streams into one index-sorted (values, sources, index).",
-    "topics": [
-      "streams"
-    ],
-    "details": "Interleave several streams into one index-sorted stream, tagging each event with\nthe integer index of the source it came from. This is the causal, order-preserving\nway to fan several streams into a single timeline.",
-    "examples": []
-  },
   "replay": {
     "name": "replay",
     "title": "replay",
@@ -6384,28 +6421,6 @@
     "details": "Replay stored value streams as an async event stream. `speed=inf` runs a\nmax-speed backtest; a finite `speed` replays in wall-clock time, turning index\ndeltas into sleep durations. The values and their order are identical to the\nbatch and streaming forms; only the timing differs.",
     "examples": []
   },
-  "resample": {
-    "name": "resample",
-    "title": "resample",
-    "kind": "function",
-    "short": "Causal windowed downsample of a 1-D or multi-column value stream.",
-    "topics": [
-      "streams"
-    ],
-    "details": "Causal windowed downsampling. Group a stream into fixed index-interval buckets\n(`every=`) or fixed event-count buckets (`count=`), reduce each bucket with a\nper-bar aggregation, and return a labelled `Stream`. A bucket emits only once a\nlater index proves it complete; the trailing partial bucket emits at end of input.\nUsable eagerly (raw arrays or `Stream`) and inside a `Dag`.\n\nFeeding a lazy iterator of `(value, index)` pairs returns a lazy iterator of bar events; feeding arrays or a `Stream` returns the batch result.\n\nThe `agg` parameter accepts three forms:\n\n**String shorthand**: one of `first`, `last`, `min`, `max`, `sum`, `count`,\n`mean`, `ohlc`, `ohlcv`, `ohlcv2`. `ohlc` returns four columns\n(`open`, `high`, `low`, `close`). `ohlcv` and `ohlcv2` accept a two-column\ninput `[price, volume]`; see below.\n\n**Any `EvalOp` functor**, e.g. `ExpandingSkew()`. The functor is `reset()` at\neach bar boundary and fed every in-bar sample; its last output before the close\nis emitted as the bar value. All screamer functors are valid reducers.\n\n**Dict** `{name: agg}` runs several reducers over the same bucketing in one\ncall, returning a labelled `Stream` whose `.columns` are the dict keys (insertion\norder). Each entry produces one column. There are two forms:\n\n- *Eager*, over raw arrays or a `Stream`: each value is a string or functor\n  reducer applied to the single value stream, e.g.\n  `{\"open\": \"first\", \"vol\": \"sum\"}`.\n- *Graph / lazy*, inside a `Dag` (`resample(t, agg={...})` where the dict values\n  are `Node` expressions): each value is a lazy `Reducer()(sub_expr)` whose top\n  node is the per-bar reducer and whose single input is the upstream port, so\n  per-tick transforms live in the expression, e.g.\n  `{\"buy\": ExpandingSum()(PosPart()(vol))}`. All columns share one bar clock and\n  cannot drift; the first positional argument `t` is the clock, and data binds at\n  call time.\n\n## Bucketing: `every=` vs `count=`\n\nExactly one of `every=` or `count=` sets how bars are bounded, and they answer\ndifferent questions.\n\n- `every=W` buckets along the **index**. Bar `n` is the half-open interval\n  `[origin + n*W, origin + (n+1)*W)`, so the index values decide membership. Bars\n  have equal width on the index but a variable number of ticks; a tick exactly on a\n  boundary starts the later bar. Boundaries are anchored at `origin` (default `0`,\n  i.e. multiples of `W`), **not** at the first tick. Set `origin=` to shift the\n  grid. Internal empty intervals are real and controlled by `fill=`.\n- `count=N` buckets by **arrival order**. A bar closes every `N` events and never\n  consults the index values to place boundaries. Bars have an equal number of ticks\n  but a variable width on the index, and one bar can straddle an arbitrary index gap\n  without noticing it.\n\nThe `index` argument is **optional in both modes**. `count=` does not need it to\nfind boundaries; `every=` uses it as the timeline being bucketed. If omitted, row\nposition (`0, 1, 2, ...`) is used as the index.\n\nBar **labels** depend on the mode and on `label=`:\n\n- `every=`: the bar's **grid edge**, `origin + n*W` for `label=\"left\"` (default)\n  or `origin + (n+1)*W` for `label=\"right\"`. This is the interval boundary itself,\n  which need not equal any actual tick's index (and a right label can sit past the\n  last tick).\n- `count=`: an **actual tick index**, the **first** tick of the bar for\n  `label=\"left\"` or the **last** for `label=\"right\"`.\n\nConcretely, eight ticks at index `[0, 1, 2, 10, 11, 20, 21, 22]`:\n\n- `every=10` -> bars `{0,1,2} {10,11} {20,21,22}` (counts 3, 2, 3), labels\n  `[0, 10, 20]` (grid edges).\n- `count=3`  -> bars `{0,1,2} {10,11,20} {21,22}` (counts 3, 3, 2), labels\n  `[0, 10, 21]` (first tick of each bar). The middle bar straddles the `11 -> 20`\n  gap because `count=` measures rows, not index distance.\n\n## Empty buckets: `fill=`\n\n`fill=` controls what happens when an `every=` bar contains no samples (an index\ninterval with no ticks). It applies to eager arrays, `Stream`s, and graphs alike;\nit is not `Dag`-only.\n\n- `\"skip\"` (default): emit no row for an empty bucket (the legacy behavior).\n- `\"nan\"`: emit an all-NaN row at the empty bucket's label.\n- `\"carry\"`: repeat the previous emitted row's values verbatim.\n\nOnly **internal** empty buckets (gaps between two events) are filled by `resample`\nitself. Trailing empty buckets after the last event are not synthesized here; that\nneeds a clock, via either [`dag.live().advance(now)`](#dag-live) or a clock input\nwired into a `Dag`. The [`dag.live()` reference](#dag-live) has a worked example.\n\n`fill=` is meaningful only under `every=`. With `count=`, a bar is defined by\nholding `N` events, so empty bars cannot exist by construction and `fill=` has no\neffect.\n\n### `fill=` edge cases\n\n- **Leading buckets** (before the first event) are never synthesized on the eager\n  path: output starts at the bucket containing the first tick. A tick at index 47\n  with `every=10` starts at label 40, not 0. Leading empty buckets arise only from a\n  clock (a `Dag` clock input or [`advance()`](#dag-live)) that advances time before\n  the first data event; there `\"nan\"` emits NaN rows and `\"carry\"` **skips** them,\n  since there is no previous row to repeat.\n- **`\"carry\"` is verbatim and uniform** across every column: it repeats the previous\n  bar's whole row, including count-like or sum-like columns. So a genuinely empty bar\n  carries the previous bar's count, not 0. Use `\"nan\"` where that is wrong for your\n  columns; a per-column fill policy is out of scope in v1.\n- **`label=\"right\"`** composes with `fill=` unchanged: a filled bucket is labelled at\n  its right grid edge, like any other bar.\n- **Functor reducers** are unaffected. A filled empty bucket emits a synthetic row\n  (a NaN row, or the carried row) without feeding or resetting the reducer; the\n  reducer is `reset()` only at the next real bar boundary. An expanding reducer\n  therefore starts each real bar clean and never accumulates across a filled gap.\n\n## Labelled output and `Stream.columns`\n\nEvery `resample` call returns a `Stream`, which is also unpackable as\n`(values, index)` for backward-compatible tuple unpacking. Multi-column\naggregations (`ohlc`, `ohlcv`, `ohlcv2`, dict) set `.columns` on the returned\n`Stream` to a tuple of column names; single-value aggregations leave `.columns`\nas `None`. Use `bars[\"close\"]` to read a named 1-D column, or iterate\n`(values, index) = bars` for the full array.\n\n## `ohlcv` and `ohlcv2` (two-column input)\n\nBoth require `values` to be a `(T, 2)` array: column 0 is price, column 1 is\nvolume (unsigned for `ohlcv`, signed for `ohlcv2`).\n\n`ohlcv` produces `(open, high, low, close, volume)`. The volume column is the sum\nof column-1 values inside each bar.\n\n`ohlcv2` produces `(open, high, low, close, buy_vol, sell_vol)`. Buy volume is\n`sum(PosPart(signed_vol))` and sell volume is `sum(NegPart(signed_vol))` per bar,\nthe signed-part decomposition.",
-    "examples": []
-  },
-  "select": {
-    "name": "select",
-    "title": "select",
-    "kind": "function",
-    "short": "Pick column(s) from a wide (M, N) value stream.",
-    "topics": [
-      "streams"
-    ],
-    "details": "Pick one or more columns from a wide `(rows, columns)` value stream by position.\nThe index and the number of rows are unchanged; only the width changes. Usable\neagerly and inside a `Dag`.\n\nFeeding a lazy iterator of `(value, index)` pairs returns a lazy iterator of column-selected events; feeding arrays or a `Stream` returns the batch result.",
-    "examples": []
-  },
   "split": {
     "name": "split",
     "title": "split",
@@ -6414,7 +6429,7 @@
     "topics": [
       "streams"
     ],
-    "details": "The inverse of `merge`: partition a source-tagged stream back into one stream per\nsource. `split(*merge(a_v, b_v, index=[a_k, b_k]))` reconstructs the original\nstreams.",
+    "details": "The inverse of `Merge`: partition a source-tagged stream back into one stream per\nsource. `split(*Merge()(a_v, b_v, index=[a_k, b_k]))` reconstructs the original\nstreams.",
     "examples": []
   }
 }

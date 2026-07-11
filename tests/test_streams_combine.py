@@ -1,6 +1,6 @@
 import numpy as np
-from screamer import RollingCorr
-from screamer.streams import combine_latest
+from screamer import RollingCorr, Sub
+from screamer.streams import CombineLatest
 
 
 def _ref_combine_latest(streams, when_all):
@@ -38,7 +38,7 @@ def _ref_combine_latest(streams, when_all):
 def test_combine_latest_when_all_default():
     ta = np.array([1, 3, 5], dtype=np.int64); a = np.array([10.0, 30.0, 50.0])
     tb = np.array([2, 4], dtype=np.int64);     b = np.array([20.0, 40.0])
-    got_v, got_i = combine_latest(a, b, index=[ta, tb])
+    got_v, got_i = CombineLatest()(a, b, index=[ta, tb])
     exp_v, exp_i = _ref_combine_latest([(ta, a), (tb, b)], when_all=True)
     np.testing.assert_array_equal(got_i, exp_i)
     np.testing.assert_array_equal(got_v, exp_v)
@@ -47,7 +47,7 @@ def test_combine_latest_when_all_default():
 def test_combine_latest_on_any_warmup_is_nan():
     ta = np.array([1, 3, 5], dtype=np.int64); a = np.array([10.0, 30.0, 50.0])
     tb = np.array([2, 4], dtype=np.int64);     b = np.array([20.0, 40.0])
-    got_v, got_i = combine_latest(a, b, index=[ta, tb], emit="on_any")
+    got_v, got_i = CombineLatest(emit="on_any")(a, b, index=[ta, tb])
     exp_v, exp_i = _ref_combine_latest([(ta, a), (tb, b)], when_all=False)
     np.testing.assert_array_equal(got_i, exp_i)
     np.testing.assert_array_equal(got_v, exp_v)       # first row has NaN for b
@@ -59,7 +59,7 @@ def test_combine_latest_float_index_three_streams():
     for _ in range(3):
         idx.append(np.sort(rng.uniform(0, 100, size=40)))
         vals.append(rng.standard_normal(40))
-    got_v, got_i = combine_latest(*vals, index=idx)
+    got_v, got_i = CombineLatest()(*vals, index=idx)
     exp_v, exp_i = _ref_combine_latest(list(zip(idx, vals)), when_all=True)
     np.testing.assert_array_equal(got_i, exp_i)
     np.testing.assert_array_equal(got_v, exp_v)
@@ -72,9 +72,9 @@ def test_combine_latest_lazy_matches_batch_identity():
     for _ in range(3):
         idx.append(np.sort(rng.integers(0, 500, size=120)).astype(np.int64))
         vals.append(rng.standard_normal(120))
-    bv, bi = combine_latest(*vals, index=idx)                      # batch (coalesced)
+    bv, bi = CombineLatest()(*vals, index=idx)                      # batch (coalesced)
     gens = [((float(v), int(k)) for v, k in zip(vals[i], idx[i])) for i in range(3)]
-    events = list(combine_latest(*gens))                           # lazy indexed
+    events = list(CombineLatest()(*gens))                           # lazy indexed
     got_i = np.array([e[1] for e in events], dtype=np.int64)
     got_v = np.array([list(e[0]) for e in events], dtype=np.float64).reshape(len(events), 3)
     np.testing.assert_array_equal(got_i, bi)
@@ -84,19 +84,21 @@ def test_combine_latest_lazy_matches_batch_identity():
 def test_combine_latest_lazy_positional():
     """Positional lazy generators yield (row, None) per position, matching batch."""
     a = np.array([10.0, 20.0, 30.0]); b = np.array([1.0, 2.0, 3.0])
-    events = list(combine_latest((x for x in a), (x for x in b)))
+    events = list(CombineLatest()((x for x in a), (x for x in b)))
     assert all(idx is None for _, idx in events)
     got = np.array([list(row) for row, _ in events])
-    bv, bi = combine_latest(a, b)
+    bv, bi = CombineLatest()(a, b)
     assert bi is None
     np.testing.assert_array_equal(got, bv)
 
 
 def test_combine_latest_func_reducer_spread():
+    # func= has been removed from the public API; compose Sub on the aligned output.
     ta = np.array([1, 3, 5], dtype=np.int64); a = np.array([10.0, 30.0, 50.0])
     tb = np.array([2, 4], dtype=np.int64);     b = np.array([20.0, 40.0])
-    spread, _ = combine_latest(a, b, index=[ta, tb], func=lambda x, y: x - y)
-    aligned, _ = combine_latest(a, b, index=[ta, tb])
+    aligned, _ = CombineLatest()(a, b, index=[ta, tb])
+    spread = Sub()(np.ascontiguousarray(aligned[:, 0]),
+                   np.ascontiguousarray(aligned[:, 1]))
     np.testing.assert_array_equal(spread, aligned[:, 0] - aligned[:, 1])
 
 
@@ -105,7 +107,7 @@ def test_rollingcorr_over_combine_latest():
     rng = np.random.default_rng(21)
     ta = np.sort(rng.integers(0, 2000, size=300)).astype(np.int64); a = rng.standard_normal(300)
     tb = np.sort(rng.integers(0, 2000, size=250)).astype(np.int64); b = rng.standard_normal(250)
-    aligned, idx = combine_latest(a, b, index=[ta, tb])
+    aligned, idx = CombineLatest()(a, b, index=[ta, tb])
     ref_v, ref_i = _ref_combine_latest([(ta, a), (tb, b)], when_all=True)
     np.testing.assert_array_equal(idx, ref_i)
     np.testing.assert_array_equal(aligned, ref_v)

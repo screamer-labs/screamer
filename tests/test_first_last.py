@@ -9,7 +9,7 @@ import numpy as np
 import pytest
 
 from screamer import First, Last
-from screamer.streams import resample
+from screamer.streams import resample, Resample
 
 
 # ---------------------------------------------------------------------------
@@ -92,15 +92,15 @@ def _make_resample_data(bar_width=5, n_bars=4):
 
 def test_first_functor_equals_builtin_first():
     vals, idx, w = _make_resample_data()
-    v_str, k_str = resample(vals, idx, every=w, agg="first")
-    v_fun, k_fun = resample(vals, idx, every=w, agg=First())
+    v_str, k_str = Resample(freq=w, agg="first")(vals, idx)
+    v_fun, k_fun = Resample(freq=w, agg=First())(vals, idx)
     np.testing.assert_array_equal(np.asarray(k_str), np.asarray(k_fun))
     np.testing.assert_array_equal(np.asarray(v_str), np.asarray(v_fun))
 
 
 def test_last_functor_equals_builtin_last():
     vals, idx, w = _make_resample_data()
-    v_str, k_str = resample(vals, idx, every=w, agg="last")
-    v_fun, k_fun = resample(vals, idx, every=w, agg=Last())
+    v_str, k_str = Resample(freq=w, agg="last")(vals, idx)
+    v_fun, k_fun = Resample(freq=w, agg=Last())(vals, idx)
     np.testing.assert_array_equal(np.asarray(k_str), np.asarray(k_fun))
     np.testing.assert_array_equal(np.asarray(v_str), np.asarray(v_fun))

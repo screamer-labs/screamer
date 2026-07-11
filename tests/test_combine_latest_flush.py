@@ -9,7 +9,7 @@ import numpy as np
 import pytest
 
 from screamer.dag import Input, Dag
-from screamer.streams import resample, combine_latest
+from screamer.streams import Resample, CombineLatest
 from screamer import ExpandingMax, ExpandingMin
 
 
@@ -17,8 +17,9 @@ def test_repro_no_duplicate_final_row():
     t = np.arange(200, dtype=np.int64)
     price = 100 + np.cumsum(np.random.default_rng(7).normal(size=200))
     p = Input("price")
-    dag = Dag([p], [combine_latest(resample(p, every=40, agg=ExpandingMax()),
-                                   resample(p, every=40, agg=ExpandingMin()))])
+    # node-mode span window via freq= (resolved against the runtime index)
+    dag = Dag([p], [CombineLatest()(Resample(freq=40, agg=ExpandingMax())(p),
+                                   Resample(freq=40, agg=ExpandingMin())(p))])
     values, index = dag((price, t))
 
     # Exactly one row per distinct index, no duplicated final index.
@@ -31,14 +32,14 @@ def test_columns_equal_single_column_resample():
     price = 100 + np.cumsum(np.random.default_rng(7).normal(size=200))
     p = Input("price")
 
-    dag = Dag([p], [combine_latest(resample(p, every=40, agg=ExpandingMax()),
-                                   resample(p, every=40, agg=ExpandingMin()))])
+    dag = Dag([p], [CombineLatest()(Resample(freq=40, agg=ExpandingMax())(p),
+                                   Resample(freq=40, agg=ExpandingMin())(p))])
     values, index = dag((price, t))
 
     # Each combined column must equal the corresponding single-stream resample.
-    dag_max = Dag([p], [resample(p, every=40, agg=ExpandingMax())])
+    dag_max = Dag([p], [Resample(freq=40, agg=ExpandingMax())(p)])
     vmax, imax = dag_max((price, t))
-    dag_min = Dag([p], [resample(p, every=40, agg=ExpandingMin())])
+    dag_min = Dag([p], [Resample(freq=40, agg=ExpandingMin())(p)])
     vmin, imin = dag_min((price, t))
 
     np.testing.assert_array_equal(index, imax)
@@ -50,22 +51,20 @@ def test_columns_equal_single_column_resample():
 def test_shared_final_index_matches_eager_combine_latest():
     """Two graph streams that share their final index emit exactly the distinct
     indices, with values equal to the eager combine_latest on the same data."""
-    from screamer.streams import combine_latest as eager_combine_latest
-
     t = np.arange(200, dtype=np.int64)
     price = 100 + np.cumsum(np.random.default_rng(11).normal(size=200))
     p = Input("price")
 
-    smax = resample(p, every=40, agg=ExpandingMax())
-    smin = resample(p, every=40, agg=ExpandingMin())
-    dag = Dag([p], [combine_latest(smax, smin)])
+    smax = Resample(freq=40, agg=ExpandingMax())(p)
+    smin = Resample(freq=40, agg=ExpandingMin())(p)
+    dag = Dag([p], [CombineLatest()(smax, smin)])
     values, index = dag((price, t))
 
-    # Materialize each stream separately to feed the eager combine_latest.
+    # Materialize each stream separately to feed the eager CombineLatest.
     vmax, imax = Dag([p], [smax])((price, t))
     vmin, imin = Dag([p], [smin])((price, t))
 
-    ev, ei = eager_combine_latest(
+    ev, ei = CombineLatest()(
         np.asarray(vmax).ravel(), np.asarray(vmin).ravel(),
         index=[np.asarray(imax), np.asarray(imin)])
 

@@ -10,7 +10,7 @@ import screamer
 import screamer.screamer_bindings as _b
 from screamer import (RollingMean, EwMean, Sub, RollingCorr, MovingAverage,
                       ImpulseClip, Input, Dag)
-from screamer.streams import combine_latest
+from screamer.streams import CombineLatest
 from screamer._functor_params import bind_params, format_call
 
 
@@ -67,7 +67,7 @@ def test_single_input_functor_runs_in_dag():
 
 def test_multi_input_functor_runs_in_dag():
     a, b = Input("a"), Input("b")
-    dag = Dag([a, b], [Sub()(combine_latest(a, b))])
+    dag = Dag([a, b], [Sub()(CombineLatest()(a, b))])
     fa = (np.array([10.0, 20.0, 30.0]), np.array([1, 2, 3]))
     fb = (np.array([1.0, 2.0, 3.0]), np.array([1, 2, 3]))
     np.testing.assert_allclose(np.asarray(dag(fa, fb)[0]).reshape(-1), [9.0, 18.0, 27.0])

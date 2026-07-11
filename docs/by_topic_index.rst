@@ -214,12 +214,12 @@ Every function, grouped by topic. Topics are many-to-many, so a function may app
    functions_signal/KalmanFilter
    functions_signal/MovingAverage
    functions_signal/SchmittTrigger
+   functions_streams/CombineLatest
+   functions_streams/Dropna
    functions_streams/Filter
+   functions_streams/Merge
+   functions_streams/Resample
+   functions_streams/Select
    functions_streams/Stream
-   functions_streams/combine_latest
-   functions_streams/dropna
-   functions_streams/merge
    functions_streams/replay
-   functions_streams/resample
-   functions_streams/select
    functions_streams/split

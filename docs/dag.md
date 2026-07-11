@@ -48,12 +48,11 @@ compiled `Dag`. Applying `RollingMean(10)` to a node does not run a rolling mean
 it adds a node that *will* run one when data flows.
 
 ```python
-from screamer import Input, Dag, RollingMean, Sub
-from screamer.streams import combine_latest
+from screamer import Input, Dag, RollingMean, Sub, CombineLatest
 
-a, b = Input("a"), Input("b")        # two named sources
-spread = Sub()(combine_latest(a, b)) # align, then difference -> a node
-signal = RollingMean(10)(spread)     # smooth it -> another node
+a, b = Input("a"), Input("b")         # two named sources
+spread = Sub()(CombineLatest()(a, b)) # align, then difference -> a node
+signal = RollingMean(10)(spread)      # smooth it -> another node
 
 dag = Dag(inputs=[a, b], outputs=[signal])   # compile the graph
 ```
@@ -90,7 +89,7 @@ event by event, `dag.live()` opens a session:
 Feeding the same events and calling `.flush()` reproduces the batch result.
 `.advance()` (and a clock input wired into the graph) additionally let a windowing
 node emit bars that a purely event-driven pass would not, such as the empty leading
-and trailing bars in [`resample`](functions_streams/resample.md).
+and trailing bars in [`Resample`](functions_streams/Resample.md).
 
 ## Multiple outputs and alignment
 
@@ -118,4 +117,4 @@ the `Dag` simply preserves them across a whole composition.
 - [`Dag` reference](functions_dag/Dag.md): constructor, feed forms, return
   shapes, and validation rules.
 - [Streams, values, and alignment](multistream.md): the alignment model that
-  `combine_latest` and friends bring into a graph.
+  `CombineLatest` and friends bring into a graph.

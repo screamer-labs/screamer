@@ -13,7 +13,7 @@ internal gaps (between two events) are filled here.
 import numpy as np
 import pytest
 
-from screamer.streams import resample
+from screamer.streams import Resample
 from screamer import ExpandingSum
 
 
@@ -26,8 +26,8 @@ VALS = np.array([10.0, 40.0])
 # ---------------------------------------------------------------------------
 
 def test_fill_skip_is_default_and_unchanged():
-    v_default, k_default = resample(VALS, IDX, every=1, agg="last")
-    v_skip, k_skip = resample(VALS, IDX, every=1, agg="last", fill="skip")
+    v_default, k_default = Resample(freq=1, agg="last")(VALS, IDX)
+    v_skip, k_skip = Resample(freq=1, agg="last", fill="skip")(VALS, IDX)
     np.testing.assert_array_equal(v_default, v_skip)
     np.testing.assert_array_equal(k_default, k_skip)
     # 2 rows only: buckets 0 and 3
@@ -40,7 +40,7 @@ def test_fill_skip_is_default_and_unchanged():
 # ---------------------------------------------------------------------------
 
 def test_fill_nan_emits_nan_rows_for_internal_gaps():
-    v, k = resample(VALS, IDX, every=1, agg="last", fill="nan")
+    v, k = Resample(freq=1, agg="last", fill="nan")(VALS, IDX)
     np.testing.assert_array_equal(k, [0, 1, 2, 3])
     assert v[0] == 10.0
     assert np.isnan(v[1])
@@ -53,7 +53,7 @@ def test_fill_nan_emits_nan_rows_for_internal_gaps():
 # ---------------------------------------------------------------------------
 
 def test_fill_carry_carries_previous_row_for_internal_gaps():
-    v, k = resample(VALS, IDX, every=1, agg="last", fill="carry")
+    v, k = Resample(freq=1, agg="last", fill="carry")(VALS, IDX)
     np.testing.assert_array_equal(k, [0, 1, 2, 3])
     np.testing.assert_array_equal(v, [10.0, 10.0, 10.0, 40.0])
 
@@ -63,7 +63,7 @@ def test_fill_carry_carries_previous_row_for_internal_gaps():
 # ---------------------------------------------------------------------------
 
 def test_fill_nan_ohlc_multicolumn():
-    s = resample(VALS, IDX, every=1, agg="ohlc", fill="nan")
+    s = Resample(freq=1, agg="ohlc", fill="nan")(VALS, IDX)
     v, k = s.values, s.index
     np.testing.assert_array_equal(k, [0, 1, 2, 3])
     assert v.shape == (4, 4)
@@ -74,7 +74,7 @@ def test_fill_nan_ohlc_multicolumn():
 
 
 def test_fill_carry_ohlc_multicolumn():
-    s = resample(VALS, IDX, every=1, agg="ohlc", fill="carry")
+    s = Resample(freq=1, agg="ohlc", fill="carry")(VALS, IDX)
     v, k = s.values, s.index
     np.testing.assert_array_equal(k, [0, 1, 2, 3])
     assert v.shape == (4, 4)
@@ -89,14 +89,14 @@ def test_fill_carry_ohlc_multicolumn():
 # ---------------------------------------------------------------------------
 
 def test_fill_carry_functor_reducer():
-    v, k = resample(VALS, IDX, every=1, agg=ExpandingSum(), fill="carry")
+    v, k = Resample(freq=1, agg=ExpandingSum(), fill="carry")(VALS, IDX)
     np.testing.assert_array_equal(k, [0, 1, 2, 3])
     # bucket 0 sum=10, gaps carry 10, bucket 3 sum=40
     np.testing.assert_array_equal(np.asarray(v).reshape(-1), [10.0, 10.0, 10.0, 40.0])
 
 
 def test_fill_nan_functor_reducer():
-    v, k = resample(VALS, IDX, every=1, agg=ExpandingSum(), fill="nan")
+    v, k = Resample(freq=1, agg=ExpandingSum(), fill="nan")(VALS, IDX)
     v = np.asarray(v).reshape(-1)
     np.testing.assert_array_equal(k, [0, 1, 2, 3])
     assert v[0] == 10.0
@@ -112,7 +112,8 @@ def test_fill_nan_functor_reducer():
 def test_fill_carry_graph_path():
     from screamer.dag import Input, Dag
     src = Input("x")
-    node = resample(src, every=1, agg="last", fill="carry")
+    # node-mode span window via freq= (resolved against the runtime index)
+    node = Resample(freq=1, agg="last", fill="carry")(src)
     dag = Dag([src], [node])
     v, k = dag((VALS, IDX))
     np.testing.assert_array_equal(k, [0, 1, 2, 3])
@@ -125,7 +126,7 @@ def test_fill_carry_graph_path():
 
 def test_fill_invalid_raises():
     with pytest.raises(ValueError):
-        resample(VALS, IDX, every=1, agg="last", fill="bogus")
+        Resample(freq=1, agg="last", fill="bogus")(VALS, IDX)
 
 
 # ---------------------------------------------------------------------------
@@ -134,7 +135,7 @@ def test_fill_invalid_raises():
 # ---------------------------------------------------------------------------
 
 def test_fill_no_trailing_empties():
-    v, k = resample(VALS, IDX, every=1, agg="last", fill="nan")
+    v, k = Resample(freq=1, agg="last", fill="nan")(VALS, IDX)
     # last label is 3 (the last event's bucket); nothing after it.
     assert k[-1] == 3
     assert len(k) == 4

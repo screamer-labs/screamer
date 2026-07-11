@@ -13,9 +13,9 @@ page tells you what happens, and CI guarantees the page is not lying. The second
 half is **warmup and `start_policy`**, which is the authoritative definition that
 the individual function pages refer to.
 
-> For dropping vs filling `NaN` **across streams** (`dropna`, `fillna`/`ffill`
+> For dropping vs filling `NaN` **across streams** (`Dropna`, `fillna`/`ffill`
 > in the stream operator layer), see [Streams, values, and alignment](multistream.md).
-> `ffill` there is the same forward-fill carry that `combine_latest` uses.
+> `ffill` there is the same forward-fill carry that `CombineLatest` uses.
 
 ## The contract
 

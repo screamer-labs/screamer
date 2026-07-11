@@ -202,7 +202,7 @@ reference example with `N = 2`.
 | Mixed kinds (one scalar + one array, etc.) | `TypeError` |
 
 This is the array form of `obj(A[:, 0], A[:, 1], ...)`, and is what makes
-`RollingCorr(w)(combine_latest(a, b)[1])` work directly.
+`RollingCorr(w)(CombineLatest()(a, b)[1])` work directly.
 
 ```python
 from screamer import RollingCorr

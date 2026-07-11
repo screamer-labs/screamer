@@ -1,5 +1,5 @@
 import numpy as np
-from screamer import RollingMean, Diff, Sub, combine_latest
+from screamer import RollingMean, Diff, Sub, CombineLatest
 from screamer import screamer_bindings as _b
 
 
@@ -71,14 +71,14 @@ def test_compile_combine_then_functor_equals_eager():
     g.set_outputs([z])
     (zk, zv), = g.run_batch([(a_k, a_v), (b_k, b_v)])
 
-    aligned, keys = combine_latest(a_v, b_v, index=[a_k, b_k])   # when_all, values-first
+    aligned, keys = CombineLatest()(a_v, b_v, index=[a_k, b_k])   # when_all, values-first
     exp = RollingMean(10)(aligned[:, 0] - aligned[:, 1])
     np.testing.assert_array_equal(zk, keys)
     np.testing.assert_array_equal(zv.reshape(-1), exp)
 
 
 def test_compile_combine_same_input_twice():
-    from screamer import Sub, combine_latest
+    from screamer import Sub, CombineLatest as _CL
     x = np.random.default_rng(9).standard_normal(40)
     xk = np.arange(x.size, dtype=np.int64)
     g = _b._GraphBuilder()
@@ -87,8 +87,8 @@ def test_compile_combine_same_input_twice():
     d = g.add_functor(Sub(), [c])
     g.set_outputs([d])
     (dk, dv), = g.run_batch([(xk, x)])
-    # Oracle: DAG-1 evaluates combine_latest(xi, xi) as combine_latest(x, x, index=[xk, xk]).
-    aligned, exp_k = combine_latest(x, x, index=[xk, xk])
+    # Oracle: DAG-1 evaluates CombineLatest()(xi, xi) as CombineLatest()(x, x, index=[xk, xk]).
+    aligned, exp_k = _CL()(x, x, index=[xk, xk])
     np.testing.assert_array_equal(dk, exp_k)
     np.testing.assert_array_equal(dv.reshape(-1), aligned[:, 0] - aligned[:, 1])
 

@@ -12,19 +12,19 @@ Aligning, combining, reshaping, and replaying event streams.
 
    * - Function
      - Description
-   * - :doc:`combine_latest </functions_streams/combine_latest>`
+   * - :doc:`CombineLatest </functions_streams/CombineLatest>`
      - As-of latest-value join of N streams: one row per distinct index (same-index events coalesce).
-   * - :doc:`dropna </functions_streams/dropna>`
+   * - :doc:`Dropna </functions_streams/Dropna>`
      - Drop events whose value is NaN.
    * - :doc:`Filter </functions_streams/Filter>`
      - 2-input mask gate - keep each data value whose aligned mask is nonzero.
-   * - :doc:`merge </functions_streams/merge>`
+   * - :doc:`Merge </functions_streams/Merge>`
      - Merge N value streams into one index-sorted (values, sources, index).
    * - :doc:`replay </functions_streams/replay>`
      - Replay merged streams as an async event stream paced by index-deltas.
-   * - :doc:`resample </functions_streams/resample>`
+   * - :doc:`Resample </functions_streams/Resample>`
      - Causal windowed downsample of a 1-D or multi-column value stream.
-   * - :doc:`select </functions_streams/select>`
+   * - :doc:`Select </functions_streams/Select>`
      - Pick column(s) from a wide (M, N) value stream.
    * - :doc:`split </functions_streams/split>`
      - Partition a merged tagged stream back into per-source streams.

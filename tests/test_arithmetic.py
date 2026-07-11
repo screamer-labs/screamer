@@ -1,5 +1,5 @@
 import numpy as np
-from screamer import Add, Sub, Mul, Div, combine_latest
+from screamer import Add, Sub, Mul, Div, CombineLatest
 
 
 def test_arithmetic_scalar():
@@ -24,6 +24,6 @@ def test_sub_over_aligned_columns_TxN():
     a_v = np.array([10.0, 30.0, 50.0])
     b_k = np.array([1, 2, 3], dtype=np.int64)
     b_v = np.array([1.0, 2.0, 3.0])
-    aligned, _ = combine_latest(a_v, b_v, index=[a_k, b_k])  # (T, 2)
+    aligned, _ = CombineLatest()(a_v, b_v, index=[a_k, b_k])  # (T, 2)
     spread = Sub()(aligned)                        # (T,N) convention -> columns as inputs
     np.testing.assert_array_equal(spread, aligned[:, 0] - aligned[:, 1])

@@ -9,15 +9,15 @@ import numpy as np
 import pytest
 
 from screamer import RollingMean, EwMean, RollingMinMax, Sub, Input, Dag
-from screamer.streams import combine_latest, dropna, resample, select
+from screamer.streams import CombineLatest, Dropna, Resample, Select
 
 
 def _rich_dag(align_outputs):
     a, b = Input("a"), Input("b")
-    cl = combine_latest(a, b)                     # 2-column shared node -> diamond
-    sm = RollingMean(3)(dropna(Sub()(cl)))        # operator + functor + operator + functor
-    rs = resample(sm, every=2, agg="last")        # resample operator
-    sel = select(cl, columns=[0])                 # select operator, second consumer of cl
+    cl = CombineLatest()(a, b)                     # 2-column shared node -> diamond
+    sm = RollingMean(3)(Dropna()(Sub()(cl)))       # operator + functor + operator + functor
+    rs = Resample(freq=2, agg="last")(sm)          # resample operator (node-mode span)
+    sel = Select([0])(cl)                          # select operator, second consumer of cl
     return Dag([a, b], [rs, sel], align_outputs=align_outputs)
 
 
@@ -53,7 +53,7 @@ def test_round_trip_via_dict(align):
 
 def test_single_output_round_trip():
     a, b = Input("a"), Input("b")
-    dag = Dag([a, b], [Sub()(combine_latest(a, b))])
+    dag = Dag([a, b], [Sub()(CombineLatest()(a, b))])
     rebuilt = Dag.from_json(dag.to_json())
     fa, fb = _feeds()
     np.testing.assert_array_equal(np.asarray(dag(fa, fb)[0]),
@@ -86,7 +86,7 @@ def test_schema_shape():
 def test_input_order_preserved():
     x, y, z = Input("x"), Input("y"), Input("z")
     # declare in a specific order; outputs discover them in another
-    dag = Dag([x, y, z], [Sub()(combine_latest(z, x)), EwMean(span=3)(y)])
+    dag = Dag([x, y, z], [Sub()(CombineLatest()(z, x)), EwMean(span=3)(y)])
     assert Dag.from_json(dag.to_json())._names == ["x", "y", "z"]
 
 
@@ -148,7 +148,7 @@ def test_multi_output_functor_round_trip():
 
 def test_select_numpy_columns_round_trip():
     a, b = Input("a"), Input("b")
-    dag = Dag([a, b], [select(combine_latest(a, b), columns=np.array([0]))])
+    dag = Dag([a, b], [Select(np.array([0]))(CombineLatest()(a, b))])
     json.dumps(dag.to_dict())  # numpy array columns coerced to a list
     fa, fb = _feeds()
     assert _equal(dag(fa, fb), Dag.from_json(dag.to_json())(fa, fb))
@@ -167,6 +167,6 @@ def test_from_dict_positional_args_fallback():
                                np.asarray(RollingMean(20)(x)), equal_nan=True)
 
 
-def test_select_is_public():
+def test_select_class_is_public():
     import screamer
-    assert screamer.select is select
+    assert screamer.Select is Select

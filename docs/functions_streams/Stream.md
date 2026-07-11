@@ -67,9 +67,9 @@ Stream operators accept three input forms and mirror the form on return:
 | a `Stream` | a `Stream` |
 | a graph `Node` | a `Node` (builds the DAG) |
 
-So `combine_latest`, `dropna`, `select`, `Filter`, and `resample` take a
+So `CombineLatest`, `Dropna`, `Select`, `Filter`, and `Resample` take a
 `Stream` and return a `Stream`. A bare array is treated as positional
-(`index=None`). `merge` and `split` are the exception: they work on raw tagged
+(`index=None`). `Merge` and `split` are the exception: they work on raw tagged
 arrays, not on `Stream` objects.
 
 ## Example
@@ -82,11 +82,11 @@ Build an indexed `Stream` and pass it straight to an operator, which returns a
 
    # --- hide: start ---
    import numpy as np
-   from screamer import Stream, resample
+   from screamer import Stream, Resample
    # --- hide: stop ---
    s = Stream(np.array([1.0, 2.0, 3.0, 4.0]), index=np.array([0, 3, 10, 12]))
 
-   bars = resample(s, every=10, agg="mean")   # a Stream in, a Stream out
+   bars = Resample(freq=10, agg="mean")(s)   # a Stream in, a Stream out
    print(bars.values, bars.index)
 ```
 

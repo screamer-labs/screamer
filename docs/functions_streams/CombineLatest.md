@@ -1,13 +1,15 @@
 ---
-name: combine_latest
-title: combine_latest
-kind: function
+name: CombineLatest
+title: CombineLatest
+kind: class
 short: "As-of latest-value join of N streams: one row per distinct index (same-index events coalesce)."
 topics:
 - streams
+covers:
+- combine_latest
 ---
 
-# `combine_latest`
+# `CombineLatest`
 
 An as-of join for streams that tick on different clocks. It aligns N streams by
 carrying each input's most recent value forward and emitting **one row per
@@ -17,18 +19,14 @@ single settled row. `emit="when_all"` (default) waits until every input is warm;
 
 <!-- HELP_END -->
 
-```{eval-rst}
-.. autofunction:: screamer.streams.combine_latest
-```
-
-Feeding `combine_latest` lazy iterators of `(value, index)` events returns a
+Feeding `CombineLatest` lazy iterators of `(value, index)` events returns a
 lazy iterator (a no-index source is numbered by a per-source arrival counter);
 feeding arrays or `Stream` objects returns the eager `(aligned, index)` pair
 (Rule A).
 
 ## Example
 
-Two streams, `a` and `b`, tick at different indices. `combine_latest` produces
+Two streams, `a` and `b`, tick at different indices. `CombineLatest` produces
 one aligned row per distinct index, coalescing the two events that share
 index 4 into a single row.
 
@@ -37,14 +35,14 @@ index 4 into a single row.
 
    # --- hide: start ---
    import numpy as np
-   from screamer.streams import combine_latest
+   from screamer import CombineLatest
    # --- hide: stop ---
    a_v = np.array([10.0, 20.0, 40.0])
    a_k = np.array([1, 2, 4])
    b_v = np.array([1.0, 3.0, 4.0])
    b_k = np.array([1, 3, 4])
 
-   aligned, idx = combine_latest(a_v, b_v, index=[a_k, b_k])
+   aligned, idx = CombineLatest()(a_v, b_v, index=[a_k, b_k])
    print(idx)
    print(aligned)
 ```

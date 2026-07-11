@@ -1,11 +1,11 @@
 import numpy as np
 import pytest
-from screamer.streams import resample, Stream
+from screamer.streams import resample, Resample, Stream
 
 
 def test_resample_returns_stream_with_columns():
     x = np.arange(20.0); idx = np.arange(20, dtype=np.int64)
-    bars = resample(x, idx, every=5, agg="ohlc")
+    bars = Resample(freq=5, agg="ohlc")(x, idx)
     assert isinstance(bars, Stream)
     assert tuple(bars.columns) == ("open", "high", "low", "close")
     np.testing.assert_allclose(bars["open"], bars.values[:, 0])
@@ -13,7 +13,7 @@ def test_resample_returns_stream_with_columns():
 
 def test_resample_scalar_agg_columns_none():
     x = np.arange(20.0); idx = np.arange(20, dtype=np.int64)
-    bars = resample(x, idx, every=5, agg="sum")
+    bars = Resample(freq=5, agg="sum")(x, idx)
     assert isinstance(bars, Stream)
     assert bars.columns is None
 

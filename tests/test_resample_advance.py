@@ -11,7 +11,7 @@ index origin + nb*width), matching tests/test_resample_fill.py.
 import numpy as np
 import pytest
 
-from screamer.streams import resample
+from screamer.streams import Resample
 from screamer.dag import Input, Dag
 from screamer import ExpandingSum
 
@@ -19,7 +19,8 @@ from screamer import ExpandingSum
 def _live_last(fill):
     """A width-100, origin-0, agg='last' single-column live Dag session."""
     src = Input("x")
-    node = resample(src, every=100, origin=0, agg="last", fill=fill)
+    # node-mode span window via freq= (resolved against the runtime index)
+    node = Resample(freq=100, origin=0, agg="last", fill=fill)(src)
     dag = Dag([src], [node])
     return dag.live()
 
@@ -118,7 +119,8 @@ def test_batch_parity_internal_gap_nan_unchanged():
     IDX = np.array([0, 3], dtype=np.int64)
     VALS = np.array([10.0, 40.0])
     src = Input("x")
-    node = resample(src, every=1, agg="last", fill="nan")
+    # node-mode span: use every= for correct span semantics
+    node = Resample(freq=1, agg="last", fill="nan")(src)
     dag = Dag([src], [node])
     v, k = dag((VALS, IDX))
     np.testing.assert_array_equal(k, [0, 1, 2, 3])
@@ -134,7 +136,7 @@ def test_batch_parity_internal_gap_nan_unchanged():
 
 def test_advance_closes_empty_windows_generic_reducer():
     src = Input("x")
-    node = resample(src, every=100, origin=0, agg=ExpandingSum(), fill="nan")
+    node = Resample(freq=100, origin=0, agg=ExpandingSum(), fill="nan")(src)
     dag = Dag([src], [node])
     live = dag.live()
     live.push("x", 0, 10.0)
@@ -152,7 +154,7 @@ def test_advance_closes_empty_windows_generic_reducer_carry():
     # Carry branch of the generic (functor-reducer) node: empty windows repeat
     # the previous emitted row, not NaN.
     src = Input("x")
-    node = resample(src, every=100, origin=0, agg=ExpandingSum(), fill="carry")
+    node = Resample(freq=100, origin=0, agg=ExpandingSum(), fill="carry")(src)
     dag = Dag([src], [node])
     live = dag.live()
     live.push("x", 0, 10.0)
@@ -220,7 +222,7 @@ def test_advance_then_later_event_fills_parked_bucket_builtin():
 def test_advance_then_later_event_fills_parked_bucket_generic():
     # Same, single-column functor reducer (GenericResampleNode path).
     src = Input("x")
-    node = resample(src, every=100, origin=0, agg=ExpandingSum(), fill="nan")
+    node = Resample(freq=100, origin=0, agg=ExpandingSum(), fill="nan")(src)
     dag = Dag([src], [node])
     live = dag.live()
     live.push("x", 0, 10.0)
@@ -238,7 +240,7 @@ def test_advance_then_later_event_fills_parked_bucket_generic():
 
 def test_advance_noop_count_mode():
     src = Input("x")
-    node = resample(src, count=2, agg="last", fill="nan")
+    node = Resample(count=2, agg="last", fill="nan")(src)
     dag = Dag([src], [node])
     live = dag.live()
     live.push("x", 0, 10.0)
