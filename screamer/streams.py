@@ -728,6 +728,22 @@ _OHLCV_COLUMNS = ("open", "high", "low", "close", "volume")
 _OHLCV2_COLUMNS = ("open", "high", "low", "close", "buy_vol", "sell_vol")
 
 
+def _resample_freq_to_engine(freq, index):
+    """Translate the contextual freq into (mode, width) for the engine.
+
+    index is None       -> width = int(freq); mode "count".
+    index integer dtype -> width = int(freq); mode "span".
+    index datetime64    -> offset/timedelta -> int64 units (Task 2).
+    Raises on a non-positive width or a nonsensical (index dtype, freq type) pair.
+    """
+    if index is not None and np.asarray(index).dtype.kind == "M":   # datetime64
+        return _resample_datetime_freq(freq, index)                 # Task 2
+    width = int(freq)
+    if width <= 0:
+        raise ValueError("resample: freq must be a positive integer")
+    return ("count" if index is None else "span"), width
+
+
 def _resample_via_cpp(feed, *, every, count, agg, origin, label, fill="skip"):
     """Run resample on the C++ engine via a one-node Dag, for batch OR lazy input.
 
@@ -746,12 +762,15 @@ def _resample_via_cpp(feed, *, every, count, agg, origin, label, fill="skip"):
     return dag(feed)
 
 
-def _resample_validate(every, count, agg, label, fill="skip"):
-    if (every is None) == (count is None):
-        raise ValueError("resample: pass exactly one of every= or count=")
+def _resample_validate(freq, every, count, agg, label, fill="skip"):
+    # Exactly one of freq, every, count must be provided.
+    given = sum(x is not None for x in [freq, every, count])
+    if given != 1:
+        raise ValueError("resample: pass exactly one of freq=, every=, or count=")
     # Positivity guard: every=0 would reach the engine's floordiv(_, 0) -> a hard
     # SIGFPE crash; count<1 never completes a bucket. Reject both up front (this
     # runs before the Node dispatch, so it guards the graph path too).
+    # freq positivity is checked inside _resample_freq_to_engine.
     if every is not None and int(every) <= 0:
         raise ValueError("resample: every must be positive")
     if count is not None and int(count) < 1:
@@ -879,7 +898,7 @@ def _resample_ohlcv(vals_2d, idx, agg, *, every, count, origin, label,
     return Stream(stacked, out_idx, columns=_OHLCV2_COLUMNS)
 
 
-def resample(values, index=None, *, every=None, count=None, agg="last",
+def resample(values, index=None, *, freq=None, every=None, count=None, agg="last",
              origin=0, label="left", fill="skip"):
     """Causal windowed downsample of a 1-D value stream.
 
@@ -959,7 +978,18 @@ def resample(values, index=None, *, every=None, count=None, agg="last",
     Graph form: resample(node, ...) where node is a Node.
     When ``values`` is a ``Stream`` it carries its own index; ``index=`` applies only to raw arrays.
     """
-    _resample_validate(every, count, agg, label, fill)
+    _resample_validate(freq, every, count, agg, label, fill)
+    # Translate freq= into every=/count= using the index context.  After this
+    # block every and count follow the existing internal convention so all
+    # downstream code is unchanged.
+    if freq is not None:
+        if isinstance(values, Stream):
+            _idx_ctx = values.index     # Stream carries its own index
+        else:
+            _idx_ctx = index            # raw array, Node, or lazy stream
+        _mode, _width = _resample_freq_to_engine(freq, _idx_ctx)
+        every = _width if _mode == "span" else None
+        count = _width if _mode == "count" else None
     if is_node(values):
         if isinstance(agg, dict):
             # Lazy multi-column bars: each value is Reducer()(sub_expr). `values` is

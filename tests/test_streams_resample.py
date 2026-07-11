@@ -305,3 +305,31 @@ def test_resample_fractional_index_raises():
         resample(vals, idx, every=2, agg="mean")                          # batch
     with pytest.raises(TypeError):
         list(resample(((float(v), 0.5 * v) for v in range(4)), count=2, agg="mean"))  # lazy
+
+
+# ---------------------------------------------------------------------------
+# freq= parameter (Task 1)
+# ---------------------------------------------------------------------------
+
+def test_freq_no_index_equals_count():
+    v = np.array([1.0, 2, 3, 4, 5, 6])
+    old = resample(v, count=2, agg="mean")
+    new = resample(v, freq=2, agg="mean")
+    np.testing.assert_array_equal(np.asarray(new.values), np.asarray(old.values))
+    np.testing.assert_array_equal(np.asarray(new.index), np.asarray(old.index))
+
+
+def test_freq_integer_index_equals_every():
+    v = np.array([1.0, 2, 3, 4, 5])
+    k = np.array([0, 1, 2, 10, 11])
+    old = resample(v, k, every=10, agg="sum")
+    new = resample(v, k, freq=10, agg="sum")
+    np.testing.assert_array_equal(np.asarray(new.values), np.asarray(old.values))
+    np.testing.assert_array_equal(np.asarray(new.index), np.asarray(old.index))
+
+
+def test_freq_rejects_nonpositive_and_missing():
+    with pytest.raises((TypeError, ValueError)):
+        resample(np.array([1.0, 2, 3]))                 # freq is required
+    with pytest.raises(ValueError):
+        resample(np.array([1.0, 2, 3]), freq=0)         # must be positive
