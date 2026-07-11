@@ -87,6 +87,10 @@ topics:
     name: "Streams"
     desc: "Aligning, combining, reshaping, and replaying event streams."
 
+  logic:
+    name: "Logic & comparison"
+    desc: "Boolean masks, comparisons, and conditional selection. Outputs are 1.0 (true) or 0.0 (false)."
+
   graphs:
     name: "Computation graphs"
     desc: "Building and running a DAG."

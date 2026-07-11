@@ -88,6 +88,11 @@ _NO_ARG_AUTO_EXCLUDE = {
     'OBV',
     # 4-input OHLCV (FunctorBase<_, 4, 1>) -- tested in test_adx_and_volume.py
     'AD', 'ADOSC',
+    # 2-input comparison / logic masks (FunctorBase<_, 2, 1>) -- tested in test_logic_ops.py
+    'GreaterThan', 'LessThan', 'GreaterEqual', 'LessEqual',
+    'Equal', 'NotEqual', 'And', 'Or',
+    # 3-input conditional select (FunctorBase<_, 3, 1>) -- tested in test_logic_ops.py
+    'Where',
 }
 # Linear2 takes constructor args (a, b, c) so it is not a no-arg class
 # and would not be picked up here -- listed for clarity only.
