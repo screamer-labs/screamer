@@ -9,7 +9,7 @@ import numpy as np
 import pytest
 
 from screamer import RollingMean, EwMean, RollingMinMax, Sub, Input, Dag
-from screamer.streams import CombineLatest, Dropna, Resample, Select, select
+from screamer.streams import CombineLatest, Dropna, Resample, Select
 
 
 def _rich_dag(align_outputs):
@@ -167,6 +167,6 @@ def test_from_dict_positional_args_fallback():
                                np.asarray(RollingMean(20)(x)), equal_nan=True)
 
 
-def test_select_is_public():
+def test_select_class_is_public():
     import screamer
-    assert screamer.select is select
+    assert screamer.Select is Select

@@ -7,7 +7,7 @@ from screamer import (
     ExpandingStd, ExpandingVar, ExpandingProd, ExpandingSkew, ExpandingKurt,
     ExpandingMean,
 )
-from screamer.streams import resample, Resample, Stream
+from screamer.streams import Resample, Stream
 from screamer.dag import is_node
 
 
@@ -173,33 +173,33 @@ def test_resample_lazy_is_lazy():
 
 
 # ---------------------------------------------------------------------------
-# Validation errors (test function's transitional surface; kept on resample)
+# Validation errors (guards that prevent SIGFPE/misuse)
 # ---------------------------------------------------------------------------
 
 def test_resample_validation_errors():
     vals = np.array([1.0, 2.0])
     keys = np.array([0, 1], dtype=np.int64)
     with pytest.raises(ValueError, match="exactly one"):
-        resample(vals)                              # none of freq/every/count
+        Resample()(vals)                            # none of freq/count
     with pytest.raises(ValueError, match="exactly one"):
-        resample(vals, keys, every=10, count=2)    # both
+        Resample(freq=10, count=2)(vals, keys)      # both (mutual exclusion)
     with pytest.raises(ValueError, match="agg"):
-        resample(vals, keys, every=10, agg="nope")
+        Resample(freq=10, agg="nope")(vals, keys)
     with pytest.raises(ValueError, match="label"):
-        resample(vals, keys, every=10, label="middle")
+        Resample(freq=10, label="middle")(vals, keys)
     with pytest.raises(ValueError, match="1-D"):
-        resample(np.zeros((2, 2)), every=10)        # wide input
+        Resample(freq=10)(np.zeros((2, 2)))          # wide input
 
 
 def test_resample_nonpositive_every_count_rejected():
     vals = np.array([1.0, 2.0])
-    # every=0 would otherwise reach the engine floordiv(_, 0) -> SIGFPE crash
-    with pytest.raises(ValueError, match="every must be positive"):
-        resample(vals, every=0)
-    with pytest.raises(ValueError, match="every must be positive"):
-        resample(vals, every=-5)
-    with pytest.raises(ValueError, match="count must be"):
-        resample(vals, count=0)
+    # freq=0 would otherwise reach the engine floordiv(_, 0) -> SIGFPE crash
+    with pytest.raises(ValueError, match="freq must"):
+        Resample(freq=0)(vals)
+    with pytest.raises(ValueError, match="freq must"):
+        Resample(freq=-5)(vals)
+    with pytest.raises(ValueError, match="count must"):
+        Resample(count=0)(vals)
 
 
 # ---------------------------------------------------------------------------
@@ -324,15 +324,14 @@ def test_freq_no_index_equals_count():
     np.testing.assert_array_equal(np.asarray(new.index), np.asarray(old.index))
 
 
-def test_freq_integer_index_equals_every():
-    # freq= (window) equals the transitional every= for an integer index.
-    # (When every= is removed in the final API-collapse task, drop this test.)
+def test_freq_integer_index_equals_count():
+    # freq= on an integer index spans bars by index value (every= semantic).
+    # Pins that freq=10 + int index bucketing is stable.
     v = np.array([1.0, 2, 3, 4, 5])
     k = np.array([0, 1, 2, 10, 11])
-    old = resample(v, k, every=10, agg="sum")   # transitional function every=
-    new = Resample(freq=10, agg="sum")(v, k)
-    np.testing.assert_array_equal(np.asarray(new.values), np.asarray(old.values))
-    np.testing.assert_array_equal(np.asarray(new.index), np.asarray(old.index))
+    result = Resample(freq=10, agg="sum")(v, k)
+    np.testing.assert_array_equal(np.asarray(result.values), [6.0, 9.0])
+    np.testing.assert_array_equal(np.asarray(result.index), [0, 10])
 
 
 def test_freq_stream_uses_its_own_index_not_kwarg():

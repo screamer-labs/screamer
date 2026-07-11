@@ -17,14 +17,9 @@ from .dag import is_node, make_operator_node
 
 __all__ = [
     "Stream",
-    "merge",
-    "combine_latest",
     "replay",
-    "dropna",
     "Filter",
-    "select",
     "split",
-    "resample",
     "Merge",
     "CombineLatest",
     "Dropna",

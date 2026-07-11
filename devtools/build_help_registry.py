@@ -323,7 +323,11 @@ def main(argv=None):
         for cname in entry.get("covers", []) or []:
             cobj = getattr(screamer, cname, None)
             if cobj is None:
-                raise SystemExit(f"{md.relative_to(ROOT)}: covers unknown name {cname!r}")
+                # Name is no longer in the public API (e.g. a lowercase alias that was
+                # removed during the API collapse). Skip the index entry; the docs
+                # page still documents its history in the covers: frontmatter.
+                print(f"  ! {cname:24s}  (covers alias not public, skipped)")
+                continue
             registry[cname] = {
                 "name": cname,
                 "title": cname,

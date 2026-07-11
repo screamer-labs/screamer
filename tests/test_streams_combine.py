@@ -1,6 +1,6 @@
 import numpy as np
-from screamer import RollingCorr
-from screamer.streams import combine_latest, CombineLatest
+from screamer import RollingCorr, Sub
+from screamer.streams import CombineLatest
 
 
 def _ref_combine_latest(streams, when_all):
@@ -93,10 +93,12 @@ def test_combine_latest_lazy_positional():
 
 
 def test_combine_latest_func_reducer_spread():
+    # func= has been removed from the public API; compose Sub on the aligned output.
     ta = np.array([1, 3, 5], dtype=np.int64); a = np.array([10.0, 30.0, 50.0])
     tb = np.array([2, 4], dtype=np.int64);     b = np.array([20.0, 40.0])
-    spread, _ = combine_latest(a, b, index=[ta, tb], func=lambda x, y: x - y)
     aligned, _ = CombineLatest()(a, b, index=[ta, tb])
+    spread = Sub()(np.ascontiguousarray(aligned[:, 0]),
+                   np.ascontiguousarray(aligned[:, 1]))
     np.testing.assert_array_equal(spread, aligned[:, 0] - aligned[:, 1])
 
 

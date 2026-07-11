@@ -1,6 +1,6 @@
 import numpy as np
 from screamer.dag import Node, Input, is_node
-from screamer import combine_latest, CombineLatest, RollingCorr
+from screamer import CombineLatest, RollingCorr
 
 
 def test_input_is_a_node():
@@ -45,11 +45,9 @@ def test_functor_hook_multiple_nodes():
     assert n.inputs == (a, b)
 
 
-def test_combine_latest_func_on_nodes_raises():
-    import pytest
+def test_combine_latest_composes_in_graph():
+    # func= is gone from the public API; CombineLatest() in a graph does alignment only.
+    # Confirm CombineLatest() on Nodes builds a Node (no func= needed).
     a, b = Input("a"), Input("b")
-    with pytest.raises(ValueError):
-        combine_latest(a, b, func=lambda p, q: p - q)   # func not allowed in a graph
-    # func=None on nodes is still valid (alignment-only) — should NOT raise:
     n = CombineLatest()(a, b)
     assert is_node(n)
