@@ -1,8 +1,8 @@
-"""DAG-1 reference oracle — the original pure-Python executor, kept for tests."""
+"""DAG-1 reference oracle - the original pure-Python executor, kept for tests."""
 import numpy as np
 from screamer.dag import is_node, _align_results
 from screamer.dag import _as_stream  # module-level in dag.py
-from screamer.streams import Stream
+from screamer.streams import Stream, Resample
 
 
 def run_oracle(dag, feeds):
@@ -28,7 +28,14 @@ def run_oracle(dag, feeds):
             # CamelCase class operators are config-first: Op(**cfg)(*inputs).
             # Legacy function operators are data-first: fn(*inputs, **cfg).
             if isinstance(fn, type):
-                out = fn(**kwargs)(*stream_inputs)
+                call_kwargs = dict(kwargs)
+                # Resample nodes store the function-style 'every' span; the
+                # Resample class takes 'freq' (Option B). Translate for the class.
+                if fn is Resample and "every" in call_kwargs:
+                    every_span = call_kwargs.pop("every")
+                    if every_span is not None:
+                        call_kwargs["freq"] = every_span
+                out = fn(**call_kwargs)(*stream_inputs)
             else:
                 out = fn(*stream_inputs, **kwargs)
             # Convert Stream output back to (keys, values) for oracle consistency

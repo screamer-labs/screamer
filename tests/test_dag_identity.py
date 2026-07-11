@@ -1,6 +1,7 @@
 import numpy as np
 import pytest
-from screamer import RollingMean, Diff, Sub, Add, Input, Dag, combine_latest
+from screamer import (RollingMean, Diff, Sub, Add, Input, Dag, combine_latest,
+                      Resample, ExpandingSum)
 from screamer.streams import Stream
 from tests._dag_oracle import run_oracle, lazy_batch as _lazy_batch
 
@@ -32,6 +33,13 @@ def _combine():
     a, b = Input("a"), Input("b")
     z = RollingMean(4)(Sub()(combine_latest(a, b)))
     return Dag(inputs=[a, b], outputs=[z]), [_series(120, 2), _series(120, 3)]
+
+
+def _resample_node():
+    # Exercises the oracle's Resample class-node reconstruction (freq<-every).
+    # Graph resample needs a FUNCTOR agg (string aggs are eager-only in a graph).
+    x = Input("x")
+    return Dag(inputs=[x], outputs=[Resample(freq=5, agg=ExpandingSum())(x)]), [_series(120, 7)]
 
 
 def _divergent():
@@ -75,7 +83,7 @@ def _to_pairs(result):
     return list(result)
 
 
-@pytest.mark.parametrize("factory", [_chain, _fanout, _combine, _divergent])
+@pytest.mark.parametrize("factory", [_chain, _fanout, _combine, _divergent, _resample_node])
 def test_batch_equals_oracle(factory):
     dag, feeds = factory()
     got = _to_pairs(dag(*feeds))
@@ -85,7 +93,7 @@ def test_batch_equals_oracle(factory):
         np.testing.assert_array_equal(gi, ei)
 
 
-@pytest.mark.parametrize("factory", [_chain, _fanout, _combine, _divergent])
+@pytest.mark.parametrize("factory", [_chain, _fanout, _combine, _divergent, _resample_node])
 def test_lazy_equals_batch(factory):
     # Includes _divergent (two outputs from three series with divergent indices):
     # the lazy drain forward-fills each output's latest value across drains, so its

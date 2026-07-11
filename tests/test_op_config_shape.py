@@ -228,6 +228,7 @@ class TestSelect:
         cls_v, cls_k = _collect_lazy(Select(0)(iter(events)))
         fn_v, fn_k = _collect_lazy(select(iter(events), 0))
         np.testing.assert_array_equal(cls_v, fn_v)
+        np.testing.assert_array_equal(cls_k, fn_k)
 
 
 # ---------------------------------------------------------------------------
