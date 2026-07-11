@@ -42,8 +42,8 @@ def test_build_graph_is_in_dependency_order():
 
 def test_shared_node_deduplicated():
     nodes, _, output_ids = build_graph(_diamond())
-    # the shared combine_latest appears exactly once
-    operators = [n for n in nodes if n.kind == "operator" and n.name == "combine_latest"]
+    # the shared CombineLatest appears exactly once
+    operators = [n for n in nodes if n.kind == "operator" and n.name == "CombineLatest"]
     assert len(operators) == 1
     # and it feeds two different consumers
     cl_id = operators[0].id
@@ -55,7 +55,7 @@ def test_functor_and_operator_labels_carry_params():
     dot = to_dot(_diamond())
     assert "RollingMean(window_size=20)" in dot
     assert "EwMean(span=10)" in dot
-    assert "combine_latest(emit='when_all')" in dot  # None-valued params dropped
+    assert "CombineLatest(emit='when_all')" in dot  # None-valued params dropped
     assert "func=None" not in dot
 
 
@@ -69,7 +69,7 @@ def test_to_text_references_shared_node():
     text = to_text(_diamond())
     # the shared node is expanded once and referenced (^#) the second time
     assert "^#" in text
-    assert text.count("combine_latest(emit=") == 1
+    assert text.count("CombineLatest(emit=") == 1
 
 
 def test_to_text_marks_inputs():

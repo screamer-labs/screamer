@@ -16,7 +16,9 @@ def test_combinator_on_nodes_builds_node():
     assert is_node(n)
     assert n.inputs == (a, b)
     assert n.op[0] == "operator"
-    assert n.op[2] == {"emit": "when_all", "func": None}
+    # func= is not forwarded to the node kwargs (not a graph-level concept);
+    # only emit= is stored.
+    assert n.op[2] == {"emit": "when_all"}
 
 
 def test_stream_operator_on_data_still_computes():

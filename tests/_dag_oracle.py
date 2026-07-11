@@ -25,7 +25,12 @@ def run_oracle(dag, feeds):
                 and isinstance(x[0], np.ndarray) else x
                 for x in raw_inputs
             ]
-            out = fn(*stream_inputs, **kwargs)
+            # CamelCase class operators are config-first: Op(**cfg)(*inputs).
+            # Legacy function operators are data-first: fn(*inputs, **cfg).
+            if isinstance(fn, type):
+                out = fn(**kwargs)(*stream_inputs)
+            else:
+                out = fn(*stream_inputs, **kwargs)
             # Convert Stream output back to (keys, values) for oracle consistency
             if isinstance(out, Stream):
                 result = (out.index, out.values)

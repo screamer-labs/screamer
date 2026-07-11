@@ -16,8 +16,14 @@ from .dag_viz import build_graph
 
 SCHEMA_VERSION = 1
 
-# The four operators that can be graph nodes (mirrors Dag._compile_cpp's support).
+# Operators that can be graph nodes (mirrors Dag._compile_cpp's support).
+# CamelCase keys: current serialized format (operator identity = class name).
+# lowercase keys: backward compat for graphs serialized before step 3E.
 _OPERATORS = {
+    "CombineLatest": streams.combine_latest,
+    "Dropna": streams.dropna,
+    "Select": streams.select,
+    "Resample": streams.resample,
     "combine_latest": streams.combine_latest,
     "dropna": streams.dropna,
     "select": streams.select,

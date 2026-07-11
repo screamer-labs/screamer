@@ -5,6 +5,8 @@ kind: function
 short: Pick column(s) from a wide (M, N) value stream.
 topics:
 - streams
+covers:
+- Select
 ---
 
 # `select`

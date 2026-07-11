@@ -5,6 +5,8 @@ kind: function
 short: Merge N value streams into one index-sorted (values, sources, index).
 topics:
 - streams
+covers:
+- Merge
 ---
 
 # `merge`

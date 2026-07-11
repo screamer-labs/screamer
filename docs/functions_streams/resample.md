@@ -5,6 +5,8 @@ kind: function
 short: Causal windowed downsample of a 1-D or multi-column value stream.
 topics:
 - streams
+covers:
+- Resample
 ---
 
 # `resample`

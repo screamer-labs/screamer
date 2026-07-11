@@ -25,6 +25,11 @@ __all__ = [
     "select",
     "split",
     "resample",
+    "Merge",
+    "CombineLatest",
+    "Dropna",
+    "Select",
+    "Resample",
 ]
 
 
@@ -455,7 +460,7 @@ def combine_latest(*values, index=None, emit="when_all", func=None):
                 "combine_latest(func=...) is not supported in a DAG graph "
                 "(graph ops are C++-only); apply a functor to the aligned output, "
                 "e.g. Sub()(combine_latest(a, b))")
-        return make_operator_node(combine_latest, values, {"emit": emit, "func": None})
+        return make_operator_node(CombineLatest, values, {"emit": emit})
     if values and all(_is_lazy_stream(v) for v in values):
         if func is not None:
             raise ValueError(
@@ -630,7 +635,7 @@ def dropna(values, index=None, how="any"):
     if how not in ("any", "all"):
         raise ValueError('dropna: how must be "any" or "all"')
     if is_node(values):
-        return make_operator_node(dropna, (values,), {"how": how})
+        return make_operator_node(Dropna, (values,), {"how": how})
     if _is_lazy_stream(values):
         return _dropna_lazy_cpp(values, how)
     regime = "stream" if isinstance(values, Stream) else "raw"
@@ -852,7 +857,7 @@ def select(values, columns, index=None):
     When ``values`` is a ``Stream`` it carries its own index; ``index=`` applies only to raw arrays.
     """
     if is_node(values):
-        return make_operator_node(select, (values,), {"columns": columns})
+        return make_operator_node(Select, (values,), {"columns": columns})
     if _is_lazy_stream(values):
         return _select_lazy_cpp(values, columns)
     regime = "stream" if isinstance(values, Stream) else "raw"
@@ -1228,7 +1233,7 @@ def resample(values, index=None, *, freq=None, every=None, count=None, agg="last
                 "multi-column bars with combine_latest of per-stat resample nodes, "
                 "e.g. combine_latest(resample(price, every=W, agg='first'), "
                 "resample(vol, every=W, agg='sum')).")
-        return make_operator_node(resample, (values,), {
+        return make_operator_node(Resample, (values,), {
             "every": every, "count": count, "agg": agg,
             "origin": origin, "label": label, "fill": fill})
     if _is_lazy_stream(values):
@@ -1278,6 +1283,94 @@ def resample(values, index=None, *, freq=None, every=None, count=None, agg="last
     # (values, index) for backward-compatible tuple unpacking.
     return Stream(out_v, out_idx, columns=cols)
 
+
+
+# ---------------------------------------------------------------------------
+# CamelCase config-first classes (public API, step 3E).
+# The lowercase functions below remain as transitional shims during migration
+# and are removed in the final 3E task.
+# ---------------------------------------------------------------------------
+
+
+class Merge:
+    """Index-sorted N-way merge.  Config-first form of :func:`merge`.
+
+    ``Merge()(*values, index=None)`` is equivalent to
+    ``merge(*values, index=None)``.  No configuration at construction time.
+    """
+
+    def __call__(self, *values, index=None):
+        return merge(*values, index=index)
+
+
+class CombineLatest:
+    """As-of latest-value join.  Config-first form of :func:`combine_latest`.
+
+    ``CombineLatest(emit="when_all")(*values, index=None)`` is equivalent to
+    ``combine_latest(*values, index=None, emit="when_all")``.
+
+    ``func=`` is not available on the class surface; apply a functor to the
+    aligned output instead, e.g.
+    ``Sub()(CombineLatest()(a, b))``.
+    """
+
+    def __init__(self, emit="when_all"):
+        self._emit = emit
+
+    def __call__(self, *values, index=None):
+        return combine_latest(*values, index=index, emit=self._emit)
+
+
+class Dropna:
+    """Drop NaN events.  Config-first form of :func:`dropna`.
+
+    ``Dropna(how="any")(values, index=None)`` is equivalent to
+    ``dropna(values, index, how="any")``.
+    """
+
+    def __init__(self, how="any"):
+        self._how = how
+
+    def __call__(self, values, index=None):
+        return dropna(values, index, how=self._how)
+
+
+class Select:
+    """Pick columns from a wide stream.  Config-first form of :func:`select`.
+
+    ``Select(columns)(values, index=None)`` is equivalent to
+    ``select(values, columns, index=None)``.
+    """
+
+    def __init__(self, columns):
+        self._columns = columns
+
+    def __call__(self, values, index=None):
+        return select(values, self._columns, index)
+
+
+class Resample:
+    """Causal windowed downsample.  Config-first form of :func:`resample`.
+
+    ``Resample(freq=None, count=None, ...)(values, index=None)`` is equivalent
+    to ``resample(values, index, freq=freq, count=count, ...)``.
+
+    ``every=`` is not available on the class surface (Option B: freq/count
+    only).  Use the :func:`resample` function directly if you need ``every=``.
+    """
+
+    def __init__(self, freq=None, count=None, agg="last", origin=0,
+                 label="left", fill="skip"):
+        self._cfg = dict(freq=freq, count=count, agg=agg, origin=origin,
+                         label=label, fill=fill)
+
+    def __call__(self, values, index=None):
+        return resample(values, index, **self._cfg)
+
+
+# transitional: the public API for the five operators above is their CamelCase
+# class. The lowercase functions remain as the shared implementation and as
+# backward-compatible shims; they are removed in the final 3E task.
 
 
 def multi_resample(inputs, reducers, clock=None, every=None, count=None, origin=0,

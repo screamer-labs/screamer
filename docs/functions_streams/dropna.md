@@ -6,6 +6,8 @@ short: Drop events whose value is NaN.
 topics:
 - missing-data
 - streams
+covers:
+- Dropna
 ---
 
 # `dropna`

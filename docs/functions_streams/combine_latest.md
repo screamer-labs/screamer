@@ -5,6 +5,8 @@ kind: function
 short: "As-of latest-value join of N streams: one row per distinct index (same-index events coalesce)."
 topics:
 - streams
+covers:
+- CombineLatest
 ---
 
 # `combine_latest`
