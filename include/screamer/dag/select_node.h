@@ -30,6 +30,10 @@ public:
 
     void flush() override { downstream_.flush(); }
 
+    // n_in is context-dependent (accepts any width >= max(columns_)); n_out is
+    // always the number of selected columns.
+    std::size_t n_out() const override { return columns_.size(); }
+
 private:
     std::vector<std::size_t> columns_;
     Sink<Index>& downstream_;

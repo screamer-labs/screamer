@@ -86,7 +86,7 @@ public:
         downstream_.flush();
     }
 
-    void reset() {
+    void reset() override {
         acc_.reset();
         started_ = false;
         bucket_ = 0;
@@ -95,6 +95,9 @@ public:
         first_index_ = last_index_ = Index{};
         have_emitted_ = false;
     }
+
+    std::size_t n_in()  const override { return 1; }
+    std::size_t n_out() const override { return out_.size(); }
 
     // Close every window whose end boundary has passed by logical time `now`, even
     // when empty. Emits the current bucket (real row if it has data) and then any

@@ -10,6 +10,7 @@
 #include "screamer/common/float_info.h"
 #include "screamer/dag/frame.h"
 #include "screamer/dag/resample_params.h"
+#include "screamer/dag/resettable.h"
 
 namespace screamer { namespace dag {
 
@@ -25,8 +26,10 @@ namespace screamer { namespace dag {
 // NaN-ignore per port: NaN samples are not fed to that port's reducer; a port
 // with no finite sample in a bar emits NaN for its columns; a bar with any event
 // (on any port) emits, empty bars follow the fill policy.
+// Derives from Resettable so CompiledGraph can reset it via a single polymorphic
+// list without knowing its concrete type (MultiResampleNode is not a Sink).
 template <class Index>
-class MultiResampleNode {
+class MultiResampleNode : public Resettable {
 public:
     MultiResampleNode(ResampleParams clock, std::vector<EvalOp*> reducers,
                       bool has_clock, Sink<Index>& downstream)
@@ -70,7 +73,7 @@ public:
     Sink<Index>& port(std::size_t i) { return ports_[i]; }
     std::size_t width() const { return width_; }
 
-    void reset() {
+    void reset() override {
         clear_bucket();
         started_ = false;
         bucket_ = 0;
@@ -106,6 +109,9 @@ private:
             else node.on_port(idx, f);
         }
         void flush() override { node.flush_port(idx); }  // flushed_ covers all ports
+        // Each port accepts one value per event; output is owned by the parent node.
+        std::size_t n_in()  const override { return 1; }
+        std::size_t n_out() const override { return 0; }
     };
     friend struct Port;
 
