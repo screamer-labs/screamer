@@ -142,10 +142,9 @@ For a step-by-step walkthrough see the :doc:`User Guide <usage>`.
    notebooks/05-nan-handling
    notebooks/06-streaming-live-events
    notebooks/07-multi-stream-operators
-   notebooks/08-replay-backtest-live
-   notebooks/09-computational-dag
-   notebooks/10-bars-from-ticks
-   notebooks/11-custom-and-multi-column-bars
+   notebooks/08-computational-dag
+   notebooks/09-bars-from-ticks
+   notebooks/10-custom-and-multi-column-bars
 
 
 .. toctree::

@@ -244,7 +244,7 @@ dag = Dag(inputs=[a, b], outputs=[signal])   # compile the graph
 Each operation is a node whose parents are its inputs, and calling the graph
 evaluates every node the requested outputs depend on. The model and its
 guarantees are in [The computational graph](dag.md); the
-[DAG notebook](notebooks/09-computational-dag) builds and runs a complete one.
+[DAG notebook](notebooks/08-computational-dag) builds and runs a complete one.
 
 ## Resetting state
 
