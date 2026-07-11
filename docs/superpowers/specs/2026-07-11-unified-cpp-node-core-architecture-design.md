@@ -13,7 +13,7 @@
 - Two unjustified API shapes: math ops are functor classes, stream ops are functions. The split is an artifact of C++ classes versus Python glue, not a design choice.
 - The `Stream` type persists although index-as-data supersedes it.
 
-`resample` and `combine_latest` already do it right (C++ compute in every regime, thin Python) and are the existence proof.
+`Resample` and `CombineLatest` already do it right (C++ compute in every regime, thin Python) and are the existence proof.
 
 ## The single node contract
 
@@ -28,7 +28,7 @@ flush()                          -> emits any trailing rows held past the last i
 ```
 
 - **Variable output cardinality.** A push emits 0 (dropna of a NaN, resample mid-bar), 1 (a math functor, resample at a boundary), or many.
-- **Multi-input.** `input_index` selects the port; a node with `n_in > 1` aligns internally (as-of / combine_latest semantics live inside the node, fed by per-port pushes).
+- **Multi-input.** `input_index` selects the port; a node with `n_in > 1` aligns internally (the alignment is `CombineLatest`, fed by per-port pushes).
 - **Stateful.** State is per-instance; `reset()` clears it. One instance backs one graph position (the existing rule).
 - **index is ordinary data** carried in push/emit. No separate index channel, no `Stream`.
 
@@ -54,31 +54,31 @@ A binding exposes exactly the node classes plus the three drivers. Nothing opera
 
 - config (window, freq, agg, how, columns, emit, predicate) in the constructor; data in the call.
 - Rule A dispatch on the applied data: scalar to scalar, ndarray to ndarray, list to list, lazy iterator to lazy iterator, Node to Node. Multi-input ops apply variadically: `CombineLatest()(a, b, c)`.
-- Operators are CamelCase classes. Stream operators are renamed: `resample` to `Resample`, `dropna` to `Dropna`, `select` to `Select`, `filter` to `Filter`, `combine_latest` to `CombineLatest`, `merge` to `Merge`. (Trades pandas/SQL lowercase familiarity for one coherent shape; see Open decisions.)
+- Operators are CamelCase classes, matching the existing functor convention (`Asin()(data)`, `RollingMean(5)(x)`). Stream operators are renamed to it: `resample` to `Resample`, `dropna` to `Dropna`, `select` to `Select`, `filter` to `Filter`, `combine_latest` to `CombineLatest`, `merge` to `Merge`. One convention, no lowercase aliases.
 - agg composition: `Resample(freq=..., agg=ExpandingMean())` feeds each bar's rows to the agg functor and resets it per bar (the settled resample-agg design). agg accepts a functor or a short string synonym.
 
 ## index-as-data, Stream removal
 
 index travels in push/emit. A stream is a sequence of `(value, index)` events, or bare values (positional). The `Stream` type is deleted; its roles (carrying an index, column labels) become `(value, index)` events and positional output columns. This subsumes the earlier index-as-data stage.
 
-## filter: the one host callback
+## Filter: a mask gate, no callback
 
-`Filter`'s predicate is host-language code. The C++ `Filter` node holds a callback and invokes it per pushed row to decide emit or drop. Python passes a Python callable; a JS/WASM binding passes a JS function. Everything else in `Filter` (the streaming scaffold) is C++. This is the single deliberate cross-boundary point; a pure-C++ use of `Filter` with no host function is therefore not possible.
+`Filter` takes the gate as an ordinary stream, not a host-language predicate. It is a 2-input node: a data stream and a mask stream. It emits each data row whose aligned mask value is nonzero (a zero test; the core is float, so nonzero keeps, zero drops). The mask is built from the data upstream with ordinary comparison and logic operators (`GreaterThan`, `And`, `Not`, ...), so the predicate logic is itself composed of C++ nodes. `Filter` is therefore a pure C++ node with no cross-boundary callback, reachable from any binding. (This requires the comparison/logic operators to exist as functors; some do, the rest are added with the port.) NaN in the mask drops the row (NaN is not nonzero).
 
 ## Operator inventory on the model
 
 - **Math functors (~178):** 1-in-1-out (or N-in-1-out like `BOP`); emit one row per push; no flush; no cardinality change. Already conform; get the fast-eval path.
 - **Dropna(how):** 1-in; emits 0 or 1 per push. No flush.
 - **Select(columns):** 1-in (multi-column); emits 1 per push (projected columns).
-- **Filter(predicate):** 1-in; emits 0 or 1 per push via the host callback.
-- **CombineLatest(emit):** N-in; as-of align; emits a coalesced row when the join fires; last-value state per port.
+- **Filter():** 2-in (data, mask); emits a data row when the aligned mask is nonzero, else nothing. No host callback.
+- **CombineLatest(emit):** N-in; aligns and coalesces the ports, emitting one row per distinct index once the join condition is met; last-value state per port.
 - **Merge():** N-in; emits one row per push in index order, with `source` as an extra output column.
 - **Resample(freq | count, agg, origin, label, fill):** 1-in; accumulates into the owned agg functor; emits a bar row at each boundary and on flush. Contextual `freq` (index/time window) and `count` (arrival) per the resample design; the two are mutually exclusive.
 
 ## Migration / sequencing
 
 1. Define the C++ node contract and the three generic drivers; adapt the existing `EvalOp` math nodes to declare the fast-eval shape (no behavior change).
-2. Port `Dropna`, `Select`, `Merge` to C++ nodes on the contract; delete the numpy-eager and Python-lazy duplicates. `Filter`: C++ scaffold plus host callback.
+2. Port `Dropna`, `Select`, `Merge`, `Filter` to C++ nodes on the contract; delete the numpy-eager and Python-lazy duplicates. `Filter` is a mask gate (add the comparison/logic operators it needs).
 3. Collapse the API to `Op(config)(data)`; rename the stream operators to CamelCase; retire the function forms.
 4. Fold `Resample` onto the contract, carrying the freq/agg/composition semantics already built (Tasks 1-4 on `feat/resample-redesign`); drop the resample-branch Task 5 (it migrates to the old shape).
 5. Delete the `Stream` type; index-as-data throughout.
@@ -93,13 +93,16 @@ Each step keeps the suite green and the `batch == lazy == graph` invariant.
 - Causality (no lookahead) and `batch == lazy == graph` equality as the oracle.
 - Rule A container/rank dispatch (fixed this session).
 
-## Open decisions
+## Settled (from discussion)
 
-1. **Naming.** CamelCase for all operators (`Dropna`, `Select`, `Filter`, `CombineLatest`, `Merge`) is coherent but breaks pandas/SQL lowercase familiarity. Confirm, or keep lowercase aliases.
-2. **Fast-eval signal.** A node capability flag versus a separate synchronous method on the contract. Implementation-level; resolve at build.
-3. **Joins.** Confirm as-of (`combine_latest`) is the only built-in multi-input join in v1 (no strict join), consistent with the earlier streaming spec.
-4. **filter callback under WASM.** Accept that `Filter` requires a host function; everything else is host-free.
-5. **Scope.** This supersedes the standalone resample redesign and the index-as-data / Stream-retirement stages; they fold in here. Confirm the resample branch is parked (not merged) and its semantics migrate into `Resample`.
+- **Naming:** CamelCase for every operator, matching the existing functor convention; no lowercase aliases.
+- **Filter:** a 2-input mask gate (nonzero keeps), no host callback; the predicate is composed from comparison/logic operators upstream.
+- **Joins:** `CombineLatest` is the only multi-input join; not a choice, it is the one that exists.
+- **Scope:** this supersedes the standalone resample redesign and the index-as-data / Stream-retirement stages; they fold in here. The resample branch is parked (not merged); its freq/count/agg/composition semantics migrate into `Resample`.
+
+## Open (implementation-level)
+
+- **Fast-eval signal.** A node capability flag versus a separate synchronous method on the contract, so the batch driver picks the tight 1-1 loop. Resolve at build.
 
 ## Testing / invariants
 
