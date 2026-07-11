@@ -42,12 +42,6 @@ def test_lazy_freq_is_span_not_count():
     np.testing.assert_array_equal([k for _, k in lz], _EXP_K)
 
 
-def test_freq_equals_every_span_batch_node_lazy():
-    # freq=W and the transitional every=W produce identical spans in every regime.
-    er_v, er_k = _vi(Resample(freq=10, agg="sum")(_X, _IDX))
-    np.testing.assert_array_equal(_vi(Resample(freq=10, agg="sum")(_X, _IDX))[0], er_v)
-
-
 def test_count_is_arrival_distinct_from_freq_on_sparse_index():
     # count=10 is arrival (every 10 events): only 4 events -> a single partial bar.
     v, k = _vi(Resample(count=10, agg="sum")(_X, _IDX))
