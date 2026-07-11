@@ -3067,7 +3067,7 @@
     "inputs": 3,
     "outputs": 1,
     "parameters": [],
-    "nan_policy": "ignore",
+    "nan_policy": "nan-aware",
     "details": "## Description\n\n`Where` is a conditional element-wise selector over three aligned input streams. Given inputs `mask`, `a`, and `b`:\n\n- output is `a` when `mask` is nonzero (any nonzero value counts as true)\n- output is `b` when `mask` is zero\n\nIf `mask` is NaN, the output is NaN. If the selected branch (`a` when mask is nonzero, `b` when zero) is NaN, that NaN passes through as the output.\n\n*Parameters*: `Where` takes no parameters.",
     "examples": []
   },

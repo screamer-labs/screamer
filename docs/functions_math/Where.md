@@ -12,7 +12,7 @@ short: Returns a if mask is nonzero, b otherwise. NaN mask yields NaN.
 inputs: 3
 outputs: 1
 parameters: []
-nan_policy: ignore
+nan_policy: nan-aware
 ---
 
 # `Where`

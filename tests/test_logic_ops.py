@@ -82,6 +82,10 @@ class TestLessThan:
         assert math.isnan(result[0])
         assert result[1] == 0.0
 
+    def test_nan_second_input_propagates(self):
+        result = apply(screamer.LessThan(), [1.0], [nan])
+        assert math.isnan(result[0])
+
     def test_scalar(self):
         assert apply_scalar(screamer.LessThan(), 1.0, 2.0) == 1.0
         assert apply_scalar(screamer.LessThan(), 2.0, 2.0) == 0.0
@@ -100,6 +104,10 @@ class TestGreaterEqual:
         result = apply(screamer.GreaterEqual(), [nan], [1.0])
         assert math.isnan(result[0])
 
+    def test_nan_second_input_propagates(self):
+        result = apply(screamer.GreaterEqual(), [1.0], [nan])
+        assert math.isnan(result[0])
+
     def test_scalar(self):
         assert apply_scalar(screamer.GreaterEqual(), 2.0, 2.0) == 1.0
         assert apply_scalar(screamer.GreaterEqual(), 1.0, 2.0) == 0.0
@@ -116,6 +124,10 @@ class TestLessEqual:
 
     def test_nan_propagates(self):
         result = apply(screamer.LessEqual(), [nan], [1.0])
+        assert math.isnan(result[0])
+
+    def test_nan_second_input_propagates(self):
+        result = apply(screamer.LessEqual(), [1.0], [nan])
         assert math.isnan(result[0])
 
     def test_scalar(self):
@@ -261,6 +273,26 @@ class TestWhere:
             [nan],
         )
         assert math.isnan(result[0])
+
+    def test_nan_unselected_b_does_not_leak(self):
+        # mask nonzero selects a; a NaN in the unselected b must NOT leak
+        result = apply(
+            screamer.Where(),
+            [1.0],
+            [7.0],
+            [nan],
+        )
+        assert result[0] == 7.0
+
+    def test_nan_unselected_a_does_not_leak(self):
+        # mask zero selects b; a NaN in the unselected a must NOT leak
+        result = apply(
+            screamer.Where(),
+            [0.0],
+            [nan],
+            [9.0],
+        )
+        assert result[0] == 9.0
 
     def test_scalar(self):
         assert apply_scalar(screamer.Where(), 1.0, 10.0, 99.0) == 10.0
