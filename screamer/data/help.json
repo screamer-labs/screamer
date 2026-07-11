@@ -6317,6 +6317,17 @@
       }
     ]
   },
+  "Filter": {
+    "name": "Filter",
+    "title": "Filter",
+    "kind": "class",
+    "short": "2-input mask gate - keep each data value whose aligned mask is nonzero.",
+    "topics": [
+      "streams"
+    ],
+    "details": "A 2-input mask gate: keep each data value whose aligned mask value is nonzero\n(zero or NaN drops, any other value keeps). The mask is an ordinary stream\nbuilt from upstream comparison or logic ops. No Python predicate or callback -\nthe gate logic runs entirely in C++ for batch, lazy, and graph regimes.\n\nGate rule: `mask == 0` or `isnan(mask)` drops the aligned data value; any\nother mask value (positive, negative, non-NaN) keeps it. A NaN data value\npasses through unmodified when its aligned mask is nonzero.",
+    "examples": []
+  },
   "Stream": {
     "name": "Stream",
     "title": "Stream",
@@ -6349,17 +6360,6 @@
       "streams"
     ],
     "details": "Drop events whose value is `NaN`. This changes the length of the stream (it is a\ncardinality-changing stream operator, unlike the shape-preserving compute\nfunctors). Usable eagerly and inside a `Dag`.\n\nFeeding a lazy iterator of `(value, index)` pairs returns a lazy iterator of the surviving events; feeding arrays or a `Stream` returns the batch result.",
-    "examples": []
-  },
-  "Filter": {
-    "name": "Filter",
-    "title": "Filter",
-    "kind": "class",
-    "short": "2-input mask gate - keep each data value whose aligned mask is nonzero.",
-    "topics": [
-      "streams"
-    ],
-    "details": "A 2-input mask gate: keep each data value whose aligned mask value is nonzero\n(zero or NaN drops, any other value keeps). The mask is an ordinary stream\nbuilt from upstream comparison or logic ops. No Python predicate or callback -\nthe gate logic runs entirely in C++ for batch, lazy, and graph regimes.\n\nGate rule: `mask == 0` or `isnan(mask)` drops the aligned data value; any\nother mask value (positive, negative, non-NaN) keeps it. A NaN data value\npasses through unmodified when its aligned mask is nonzero.",
     "examples": []
   },
   "merge": {

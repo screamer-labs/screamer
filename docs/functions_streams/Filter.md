@@ -32,7 +32,7 @@ Keep the positive values by building a mask with `GreaterThan`.
    from screamer import Filter, GreaterThan
    # --- hide: stop ---
    x = np.array([5.0, -2.0, 8.0, -1.0, 3.0])
-   mask = GreaterThan()(x, 0.0)
+   mask = GreaterThan()(x, np.zeros_like(x))
    survivors, idx = Filter()(x, mask)
    print(survivors)
 ```

@@ -8,6 +8,7 @@ ATR, Wilder-smoothed average of TrueRange.
 Abs, Absolute value of each element.
 Acos, Inverse cosine of each element (radians, input in [-1, 1]).
 Add, Elementwise sum of two aligned streams (x + y).
+And, Returns 1.0 if both inputs are nonzero, else 0.0. NaN in either input yields NaN.
 Asin, Inverse sine of each element (radians, input in [-1, 1]).
 Atan, Inverse tangent of each element (radians).
 Atan2, Signed angle of (x, y) from the positive x-axis (numpy.arctan2 order).
@@ -36,6 +37,7 @@ Div, Elementwise quotient of two aligned streams (x / y).
 DonchianChannels, Trend-following envelope: rolling max(high), rolling min(low), and midline.
 Drawdown, Running drawdown from the cumulative peak.
 Elu, Exponential linear unit.
+Equal, Returns 1.0 if a == b, else 0.0. NaN in either input yields NaN.
 Erf, Gauss error function.
 Erfc, Complementary error function (1 - erf).
 EwBeta, EW CAPM beta: cov(target, regressor) / var(regressor).
@@ -67,19 +69,26 @@ ExpandingSum, Running sum from t=0.
 ExpandingVar, Running sample variance (ddof=1) over the whole history.
 Ffill, Replace NaN with the most recent finite value.
 FillNa, Replace NaN with a user-specified scalar.
+Filter, 2-input mask gate - keep each data value whose aligned mask is nonzero.
 First, Latch the first finite value seen since reset.
 Floor, Round each element toward negative infinity.
+GreaterEqual, Returns 1.0 if a >= b, else 0.0. NaN in either input yields NaN.
+GreaterThan, Returns 1.0 if a > b, else 0.0. NaN in either input yields NaN.
 Hampel, Robust Hampel despiker, replace samples far from the window median (in MAD units).
 HullMA, Hull's responsive MA: WMA(2*WMA(n/2) - WMA(n), sqrt(n)).
 Hypot, Euclidean distance sqrt(x^2 + y^2), numerically stable.
 Identity, Pass-through (y = x).
 ImpulseClip, Causal impulse remover, detects spikes on the trend-free first difference.
 Input, Create a source Node - a named placeholder for a timed stream.
+IsFinite, Returns 1.0 for finite values, 0.0 for NaN or inf. Does not propagate NaN.
+IsNan, Returns 1.0 if the input is NaN, else 0.0. Does not propagate NaN.
 KAMA, Adaptive MA whose smoothing constant responds to the efficiency ratio.
 KalmanFilter, Scalar 1-D Kalman filter for a noisy random-walk model.
 KeltnerChannels, Volatility-adapted envelope: EMA midline plus/minus a multiple of ATR.
 Lag, Output is the input delayed by k samples.
 Last, Return the most recent finite value seen since reset.
+LessEqual, Returns 1.0 if a <= b, else 0.0. NaN in either input yields NaN.
+LessThan, Returns 1.0 if a < b, else 0.0. NaN in either input yields NaN.
 Linear, Affine transform: scale * x + shift.
 Linear2, Two-input affine combination: a*x + b*y + c.
 Log, Natural logarithm of each element.
@@ -93,7 +102,10 @@ Mul, Elementwise product of two aligned streams (x * y).
 NATR, ATR scaled to a percentage of the current close.
 NegPart, Negative part of x: max(-x, 0).
 Node, An immutable handle for a stream in a computation graph.
+Not, Returns 0.0 if input is nonzero, 1.0 if zero. NaN propagates.
+NotEqual, Returns 1.0 if a != b, else 0.0. NaN in either input yields NaN.
 OBV, On-Balance Volume: signed cumulative volume by close-direction (Granville, 1963).
+Or, Returns 1.0 if either input is nonzero, else 0.0. NaN in either input yields NaN.
 Polar2Cart, Convert (r, theta) to (x, y).
 PosPart, Positive part of x: max(x, 0).
 Power, x raised to a fixed exponent p.
@@ -172,10 +184,10 @@ Tanh, Hyperbolic tangent.
 TrueRange, Per-bar true range accounting for overnight gaps (Wilder, 1978).
 UltimateOscillator, Three-period weighted oscillator (Williams, 1976).
 WMA, Linearly-weighted moving average. O(1) per step.
+Where, Returns a if mask is nonzero, b otherwise. NaN mask yields NaN.
 WilliamsR, Inverse stochastic oscillator in [-100, 0].
 combine_latest, As-of latest-value join of N streams: one row per distinct index (same-index events coalesce).
 dropna, Drop events whose value is NaN.
-filter, Keep events where predicate(row) is truthy.
 merge, Merge N value streams into one index-sorted (values, sources, index).
 replay, Replay merged streams as an async event stream paced by index-deltas.
 resample, Causal windowed downsample of a 1-D or multi-column value stream.
@@ -188,7 +200,7 @@ merge, Merge N value streams into one index-sorted (values, sources, index).
 combine_latest, As-of latest-value join of N streams: one row per distinct index (same-index events coalesce).
 replay, Replay merged streams as an async event stream paced by index-deltas.
 dropna, Drop events whose value is NaN.
-filter, Keep events where predicate(row) is truthy.
+Filter, 2-input mask gate: keep each data value whose aligned mask is nonzero (zero or NaN drops).
 select, Pick column(s) from a wide (M, N) value stream.
 split, Partition a merged tagged stream back into per-source streams.
 resample, Causal windowed downsample of a 1-D value stream.

@@ -213,7 +213,7 @@ The examples above assume inputs are aligned — row `i` of one pairs with row `
 of another. When feeds arrive on different clocks, at different rates, or with
 dropped samples, the `screamer.streams` layer aligns them before they reach a
 function. It provides operators to combine streams (`combine_latest`, `merge`),
-reshape them (`dropna`, `filter`, `select`), downsample them (`resample`), and
+reshape them (`dropna`, `Filter`, `select`), downsample them (`resample`), and
 replay stored data as a live feed (`replay`). The model — streams, their index,
 and alignment — is described in
 [Streams, values, and alignment](multistream.md), with the [`Stream`](functions_streams/Stream.md)

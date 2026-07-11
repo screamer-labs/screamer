@@ -40,7 +40,7 @@ constructor, shape rules, attributes, methods, and the pandas round-trip.
 
 ## 2. Stream operators are polymorphic
 
-Most stream operators (`combine_latest`, `dropna`, `filter`, `select`,
+Most stream operators (`combine_latest`, `dropna`, `Filter`, `select`,
 `resample`) dispatch on the type of their inputs and mirror that type on return:
 
 | Input type | Return type |
@@ -65,11 +65,11 @@ arrays it returns `(values, index)` pairs.
 | Layer | Cardinality | Examples |
 |---|---|---|
 | **Compute functors** | preserved (output length == input length) | `RollingMean`, `RollingCorr`, `FillNa`, `Ffill` |
-| **Stream operators** | may change it | `merge`, `combine_latest`, `dropna`, `filter`, `split`, `replay` |
+| **Stream operators** | may change it | `merge`, `combine_latest`, `dropna`, `Filter`, `split`, `replay` |
 
 Compute functors handle `NaN` internally via their `nan_policy` (see
 [NaN and warmup](nan_and_warmup.md)) and never add or drop rows. Stream operators own
-all time alignment and stream shaping. `dropna` / `filter` / `split` are the
+all time alignment and stream shaping. `dropna` / `Filter` / `split` are the
 cardinality-changing tools; `fillna` / `ffill` are shape-preserving and belong
 to both worlds.
 
@@ -97,8 +97,8 @@ Other stream operators:
 - `merge(*values, index=None)` -> `(values, sources, index)`: one index-sorted,
   source-tagged stream.
 - `split(values, sources, index=None)` -> the inverse of `merge`.
-- `dropna(values, index=None, how="any")` / `filter(values, predicate, index=None)`
-  -> drop events.
+- `dropna(values, index=None, how="any")` -> drop NaN events.
+- `Filter()(data, mask)` -> keep each data value whose aligned mask is nonzero.
 - `replay(*values, index=None, speed=1.0)` -> async replay; `speed=inf` is a
   max-speed backtest. Yields `(value, index, source)` per event.
 
@@ -117,7 +117,7 @@ handle both batch and lazy inputs:
 |---|---|
 | `resample_iter(events, ...)` | `resample(events, ...)` |
 | `dropna_iter(events)` | `dropna(events)` |
-| `filter_iter(events, pred)` | `filter(events, pred)` |
+| `filter_iter(events, pred)` | `Filter()(data, mask)` (mask replaces predicate) |
 | `select_iter(events, cols)` | `select(events, cols)` |
 | `combine_latest_iter(a, b)` | `combine_latest(a, b)` |
 | `merge_iter(a, b)` | `merge(a, b)` |
