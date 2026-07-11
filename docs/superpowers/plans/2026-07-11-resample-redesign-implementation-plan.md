@@ -28,7 +28,7 @@
 
 - **D-a. `count` reducer.** Add a small `ExpandingCount` C++ functor (counts non-NaN inputs since reset) so `agg="count"` is a real functor like the rest. [Recommended over a resample-layer special-case, to keep `agg` uniformly a functor.]
 - **D-b. datetime64 offset scope.** Support `timedelta` / `np.timedelta64` directly, plus a small string parser for the common calendar-free offsets (`"s"`, `"min"`/`"T"`, `"h"`, `"D"`, with an integer multiplier, e.g. `"5min"`). No pandas dependency; month/business offsets are out of scope for v1 (raise a clear error). [Keeps the core dependency-free.]
-- **D-c. finance aliases.** Ship the general names as canonical (`max`, `min`, `first`, `last`) plus the `ohlc` combo; finance aliases `high`/`low`/`open`/`close` are optional synonyms. [Recommend general + `ohlc` now, add finance aliases only if wanted.]
+- **D-c. finance aliases. RESOLVED (user): include them.** Ship the general names (`max`, `min`, `first`, `last`) AND the finance synonyms `high`->max, `low`->min, `open`->first, `close`->last, plus the `ohlc` combo. The `resample` docs must explicitly mention that these string synonyms exist (and that any functor is also accepted).
 
 ---
 
@@ -150,7 +150,7 @@ def test_freq_timedelta_on_integer_index_raises():
 - Modify: `screamer/streams.py` (`_AGG_SYNONYMS` map; resolve a string `agg` to a functor)
 - Test: `tests/test_streams_resample.py`
 
-**Interfaces:** Consumes the working `agg=<functor>` path. Produces `_AGG_SYNONYMS = {"sum": ExpandingSum, "mean": ExpandingMean, "max": ExpandingMax, "min": ExpandingMin, "first": First, "last": Last, "std": ExpandingStd, "var": ExpandingVar, "count": ExpandingCount, ...}` and `agg="ohlc"` multi-output (kept from the current ohlc path).
+**Interfaces:** Consumes the working `agg=<functor>` path. Produces `_AGG_SYNONYMS = {"sum": ExpandingSum, "mean": ExpandingMean, "max": ExpandingMax, "high": ExpandingMax, "min": ExpandingMin, "low": ExpandingMin, "first": First, "open": First, "last": Last, "close": Last, "std": ExpandingStd, "var": ExpandingVar, "count": ExpandingCount}` (finance synonyms high/low/open/close included per D-c) and `agg="ohlc"` multi-output (kept from the current ohlc path).
 
 - [ ] **Step 1: Failing tests** (each synonym equals its functor; count works; unknown string raises; functor still accepted):
 
@@ -253,7 +253,7 @@ def test_agg_dict_raises_with_migration_hint():
 **Files:** every `resample(..., every=|count=)` and `agg={...}` public call site in `screamer/` and `tests/`; `docs/functions_streams/resample.md`; the 4 resample notebooks; `docs/multistream.md` (migration table); regenerate `screamer/data/help.json` + `docs/function_index.txt`.
 
 - [ ] **Step 1: Grep and migrate** `every=`/`count=` -> `freq=` (no index -> was count; with index -> was every) and any `agg={...}` -> composition, across `screamer/` and the ~14 test files. Run the suite after each batch; keep it green.
-- [ ] **Step 2: Update `docs/functions_streams/resample.md`** to document `freq=` (the index-type table), `agg=` (the string-synonym table + "any functor" + the value-at-bar-end / single-input caveats), and the composition recipe for multi-column / VWAP. Remove `every=`/`count=`/`agg={dict}`. (The deeper docs+notebook rewrite and the "Dag as a reusable user-defined function" framing are the separate deferred docs task - this step is the minimal cutover so the page is not wrong.)
+- [ ] **Step 2: Update `docs/functions_streams/resample.md`** to document `freq=` (the index-type table), `agg=` (the string-synonym table (general max/min/first/last AND finance high/low/open/close, plus a sentence stating synonyms exist) + "any functor" + the value-at-bar-end / single-input caveats), and the composition recipe for multi-column / VWAP. Remove `every=`/`count=`/`agg={dict}`. (The deeper docs+notebook rewrite and the "Dag as a reusable user-defined function" framing are the separate deferred docs task - this step is the minimal cutover so the page is not wrong.)
 - [ ] **Step 3: Migrate the 4 resample notebooks** to `freq=`/`agg=` and the composition OHLCV; re-execute clean (nbmake).
 - [ ] **Step 4: Add `every=`/`count=`/`agg={dict}` -> new-form rows to the `docs/multistream.md` migration table.**
 - [ ] **Step 5: Regenerate** `help.json` + `function_index.txt`; confirm no `every=`/`count=` remain in the resample signature or generated artifacts.
