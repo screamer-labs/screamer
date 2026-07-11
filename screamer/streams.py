@@ -7,6 +7,8 @@ runs C++ node graphs; dtype detection here chooses the int64 or float64
 index-type instantiation, and the per-event work is all C++.
 """
 import asyncio
+import datetime
+import re
 
 import numpy as np
 
@@ -707,9 +709,173 @@ def _select_lazy(events, columns):
 _RESAMPLE_AGGS = ("first", "last", "min", "max", "sum", "count", "mean", "ohlc",
                   "ohlcv", "ohlcv2")
 _RESAMPLE_FILLS = ("skip", "nan", "carry")
+
+# Finance aliases: map short OHLC names to their canonical engine strings.
+_FINANCE_ALIASES = {
+    "high":  "max",
+    "low":   "min",
+    "open":  "first",
+    "close": "last",
+}
+
+# Statistical synonyms: map short stat names to the Expanding* functors that
+# implement them (the engine has no built-in code for these).
+_STAT_SYNONYMS = {   # string synonym -> Expanding* functor class name
+    "std": "ExpandingStd", "var": "ExpandingVar", "prod": "ExpandingProd",
+    "skew": "ExpandingSkew", "kurt": "ExpandingKurt",
+}
+
+# Full set of accepted agg string names for error messages.
+_ALL_AGG_NAMES = _RESAMPLE_AGGS + tuple(_FINANCE_ALIASES) + tuple(_STAT_SYNONYMS)
+
+
+def _resolve_agg(agg):
+    """Normalise an agg alias or synonym to the form the engine/functor path expects.
+
+    - Finance aliases ('high', 'low', 'open', 'close') become their canonical
+      engine strings ('max', 'min', 'first', 'last') and continue on the fast
+      engine path.
+    - Statistical synonyms ('std', 'var', 'prod', 'skew', 'kurt') become the
+      corresponding Expanding* functor instances and route through the functor-agg
+      path that already exists.
+    - Everything else (canonical engine strings, arbitrary functors, dicts) is
+      returned unchanged.
+    """
+    if not isinstance(agg, str):
+        return agg
+    if agg in _FINANCE_ALIASES:
+        return _FINANCE_ALIASES[agg]
+    if agg in _STAT_SYNONYMS:
+        import screamer   # deferred to avoid circular import at module load
+        # instantiate only the requested reducer (a fresh instance per call, since
+        # reducers are stateful); do not build the four we would discard
+        return getattr(screamer, _STAT_SYNONYMS[agg])()
+    return agg
+
+
 _OHLC_COLUMNS  = ("open", "high", "low", "close")
 _OHLCV_COLUMNS = ("open", "high", "low", "close", "volume")
 _OHLCV2_COLUMNS = ("open", "high", "low", "close", "buy_vol", "sell_vol")
+
+
+_OFFSET_UNIT_MAP = {   # offset unit -> numpy timedelta64 unit
+    "s":   "s",
+    "min": "m",
+    "T":   "m",
+    "h":   "h",
+    "D":   "D",
+}
+
+
+def _parse_offset_string(s):
+    """Parse an offset string like '5min', '1h', 'D' into a np.timedelta64.
+
+    Supported units: s, min (alias T), h, D.
+    A bare unit without a multiplier means multiplier 1 (e.g. 'min' == '1min').
+    Raises ValueError for an unrecognised or calendar-based (M, Y) unit.
+    """
+    m = re.fullmatch(r"(\d+)?([a-zA-Z]+)", s.strip())
+    if m is None:
+        raise ValueError(
+            f"resample: cannot parse offset string {s!r}; "
+            "expected '<N><unit>', e.g. '5min', '1h', '30s'")
+    mult_str, unit = m.group(1), m.group(2)
+    mult = int(mult_str) if mult_str else 1
+    if unit not in _OFFSET_UNIT_MAP:
+        raise ValueError(
+            f"resample: unsupported offset unit {unit!r} in {s!r}; "
+            "supported: s, min, T, h, D "
+            "(calendar offsets such as month/year are not supported)")
+    return np.timedelta64(mult, _OFFSET_UNIT_MAP[unit])
+
+
+def _resample_datetime_freq(freq, index):
+    """Convert freq (offset string, timedelta, or np.timedelta64) to an integer
+    span in the index's own datetime64 resolution units.
+
+    Returns ("span", width_int64).
+    Raises TypeError for int/float freq on a datetime64 index.
+    Raises ValueError for unsupported/calendar offset units or a non-exact conversion.
+    """
+    # Reject numeric freq types on a datetime64 index.
+    # Note: np.timedelta64 inherits from np.integer, so exclude it explicitly.
+    _is_number = (isinstance(freq, (int, float, np.integer, np.floating))
+                  and not isinstance(freq, np.timedelta64))
+    if _is_number:
+        raise TypeError(
+            f"resample: freq={freq!r} is a number but the index is datetime64; "
+            "pass an offset string (e.g. '1min') or a datetime.timedelta / "
+            "np.timedelta64 for a datetime64 index")
+
+    # Convert freq to np.timedelta64
+    if isinstance(freq, str):
+        td = _parse_offset_string(freq)
+    elif isinstance(freq, datetime.timedelta):
+        # Use exact integer arithmetic: timedelta stores days, seconds, microseconds.
+        total_us = (freq.days * 86_400 * 1_000_000
+                    + freq.seconds * 1_000_000
+                    + freq.microseconds)
+        td = np.timedelta64(total_us, "us")
+    elif isinstance(freq, np.timedelta64):
+        td = freq
+        unit = np.datetime_data(td)[0]
+        if unit in ("M", "Y"):
+            raise ValueError(
+                f"resample: offset {freq!r} uses a calendar unit ('{unit}') "
+                "which has variable length and cannot map to a fixed span; "
+                "use D, h, min, or s instead")
+    else:
+        raise TypeError(
+            f"resample: for a datetime64 index, freq must be a string offset, "
+            f"datetime.timedelta, or np.timedelta64; got {type(freq).__name__!r}")
+
+    # Determine the index's datetime64 resolution unit (e.g. 'ns', 's', 'ms', 'us')
+    idx = np.asarray(index)
+    res_unit = np.datetime_data(idx.dtype)[0]
+
+    # Compute the span width as a float, then verify it is an exact integer.
+    try:
+        td_in_res = td / np.timedelta64(1, res_unit)
+    except TypeError as exc:
+        raise ValueError(
+            f"resample: cannot convert offset {freq!r} to index resolution "
+            f"'{res_unit}': {exc}") from exc
+
+    width_int = int(td_in_res)
+    if width_int != td_in_res:
+        raise ValueError(
+            f"resample: offset {freq!r} = {td} is not an exact multiple of the "
+            f"index resolution '{res_unit}' (result {td_in_res} is not an integer); "
+            "choose an offset that divides evenly into the index resolution units")
+    if width_int <= 0:
+        raise ValueError(
+            f"resample: offset {freq!r} produces a non-positive span ({width_int}); "
+            "freq must be positive")
+
+    return ("span", width_int)
+
+
+def _resample_freq_to_engine(freq, index):
+    """Translate the contextual freq into (mode, width) for the engine.
+
+    index is None       -> width = int(freq); mode "count".
+    index integer dtype -> width = int(freq); mode "span".
+    index datetime64    -> offset/timedelta -> int64 units via _resample_datetime_freq.
+    Raises on a non-positive width or a nonsensical (index dtype, freq type) pair.
+    """
+    if index is not None and np.asarray(index).dtype.kind == "M":   # datetime64
+        return _resample_datetime_freq(freq, index)
+    if isinstance(freq, (str, np.timedelta64)) or hasattr(freq, "total_seconds"):
+        # offset string, np.timedelta64, or datetime.timedelta on a non-datetime64
+        # index - not supported (an integer index expects an integer span)
+        raise TypeError(
+            f"resample: freq={freq!r} is an offset/timedelta but the index is not "
+            "datetime64; pass an integer span for an integer index, or use a "
+            "datetime64 index with an offset string / timedelta")
+    width = int(freq)
+    if width <= 0:
+        raise ValueError("resample: freq must be a positive integer")
+    return ("count" if index is None else "span"), width
 
 
 def _resample_via_cpp(feed, *, every, count, agg, origin, label, fill="skip"):
@@ -730,89 +896,36 @@ def _resample_via_cpp(feed, *, every, count, agg, origin, label, fill="skip"):
     return dag(feed)
 
 
-def _resample_validate(every, count, agg, label, fill="skip"):
-    if (every is None) == (count is None):
-        raise ValueError("resample: pass exactly one of every= or count=")
+def _resample_validate(freq, every, count, agg, label, fill="skip"):
+    # Exactly one of freq, every, count must be provided.
+    given = sum(x is not None for x in [freq, every, count])
+    if given != 1:
+        raise ValueError("resample: pass exactly one of freq=, every=, or count=")
     # Positivity guard: every=0 would reach the engine's floordiv(_, 0) -> a hard
     # SIGFPE crash; count<1 never completes a bucket. Reject both up front (this
     # runs before the Node dispatch, so it guards the graph path too).
+    # freq positivity is checked inside _resample_freq_to_engine.
     if every is not None and int(every) <= 0:
         raise ValueError("resample: every must be positive")
     if count is not None and int(count) < 1:
         raise ValueError("resample: count must be >= 1")
-    # agg may be a builtin string, an arbitrary functor reducer (an EvalOp), or
-    # a dict of {name: str|functor} entries. Only string scalars are validated
-    # here; dict contents are validated in _resample_dict.
+    # agg may be a builtin string or an arbitrary functor reducer (an EvalOp).
+    # dict agg is no longer supported; raise immediately with a migration hint.
+    if isinstance(agg, dict):
+        raise ValueError(
+            "resample no longer accepts agg={...}; build columns with "
+            "combine_latest of per-stat resamples, e.g. "
+            "combine_latest(resample(price, freq=..., agg='first'), "
+            "resample(vol, freq=..., agg='sum')); see docs")
     if isinstance(agg, str) and agg not in _RESAMPLE_AGGS:
-        raise ValueError(f"resample: agg must be one of {_RESAMPLE_AGGS}")
+        raise ValueError(
+            f"resample: unknown agg string {agg!r}; "
+            f"valid names are {sorted(_ALL_AGG_NAMES)}")
     if label not in ("left", "right"):
         raise ValueError('resample: label must be "left" or "right"')
     if fill not in _RESAMPLE_FILLS:
         raise ValueError(f"resample: fill must be one of {_RESAMPLE_FILLS}")
 
-
-def _resample_dict(vals, idx, agg_dict, *, every, count, origin, label,
-                   fill="skip"):
-    """Run each sub-reducer in a dict agg independently over the same bucketing.
-
-    Each entry ``{name: str|functor}`` is run through ``_resample_via_cpp``
-    with the shared ``every``/``count``/``origin``/``label`` params.  Because all
-    sub-resamples see the same input and the same bucketing they produce identical
-    bar labels and the same number of bars, so their 1-D result columns align and
-    can be horizontally stacked.
-
-    Python only stacks the results and attaches names (marshalling); all numeric
-    bucketing and accumulation runs in the C++ engine.
-
-    Multi-column sub-aggs (``"ohlc"`` or a functor with ``num_outputs > 1``) are
-    rejected with a ``ValueError`` in v1; each dict entry must produce exactly
-    one column.  Use ``agg="ohlc"`` directly for a labelled 4-column ``Stream``.
-    """
-    if not agg_dict:
-        raise ValueError("resample: agg dict must not be empty")
-
-    out_cols = []
-    out_idx = None
-
-    for name, sub_agg in agg_dict.items():
-        # Validate the sub-agg and reject multi-column entries.
-        if isinstance(sub_agg, str):
-            if sub_agg not in _RESAMPLE_AGGS:
-                raise ValueError(
-                    f"resample: dict agg[{name!r}]: unknown string agg {sub_agg!r}; "
-                    f"must be one of {_RESAMPLE_AGGS}")
-            if sub_agg == "ohlc":
-                raise ValueError(
-                    f"resample: dict agg[{name!r}]: 'ohlc' produces 4 columns and "
-                    "cannot be used as a dict entry (v1: each entry must produce "
-                    "exactly 1 column). Use agg='ohlc' directly for a labelled "
-                    "4-column Stream.")
-            if sub_agg in ("ohlcv", "ohlcv2"):
-                raise ValueError(
-                    f"resample: dict agg[{name!r}]: '{sub_agg}' requires a 2-column "
-                    "input and cannot be used as a dict entry. "
-                    f"Use agg='{sub_agg}' directly with a [price, volume] input.")
-        else:
-            # Functor: check num_outputs (exposed from EvalOp.n_out()).
-            n_out = getattr(sub_agg, "num_outputs", 1)
-            if n_out != 1:
-                raise ValueError(
-                    f"resample: dict agg[{name!r}]: functor produces {n_out} columns "
-                    "but each dict entry must produce exactly 1 column (v1 restriction). "
-                    "Use agg=functor directly for multi-column output.")
-
-        # Delegate to the C++ engine - no Python numeric loop.
-        out_v, sub_idx = _resample_via_cpp(
-            (vals, idx), every=every, count=count, agg=sub_agg,
-            origin=origin, label=label, fill=fill)
-        out_cols.append(out_v)
-        if out_idx is None:
-            out_idx = sub_idx
-
-    # All sub-aggs produce the same number of bars (same bucketing + same input),
-    # so column_stack is safe: shape (N,) per column -> (N, K) matrix.
-    stacked = np.column_stack(out_cols)
-    return Stream(stacked, out_idx, columns=tuple(agg_dict.keys()))
 
 
 def _resample_ohlcv(vals_2d, idx, agg, *, every, count, origin, label,
@@ -863,11 +976,14 @@ def _resample_ohlcv(vals_2d, idx, agg, *, every, count, origin, label,
     return Stream(stacked, out_idx, columns=_OHLCV2_COLUMNS)
 
 
-def resample(values, index=None, *, every=None, count=None, agg="last",
+def resample(values, index=None, *, freq=None, every=None, count=None, agg="last",
              origin=0, label="left", fill="skip"):
     """Causal windowed downsample of a 1-D value stream.
 
-    Exactly one of ``every`` or ``count`` bounds the bars:
+    Pass exactly one of ``freq``, ``every``, or ``count`` to bound the bars.
+    ``freq`` is the contextual form and the recommended one: with no index it is a
+    count (a bar every N events), with an integer index it is a span in index
+    units (equivalent to ``every``). ``every`` and ``count`` are the explicit forms:
 
     * ``every=W`` buckets along the **index**: bar ``n`` is the half-open interval
       ``[origin+n*W, origin+(n+1)*W)`` (boundaries anchored at ``origin``, default 0,
@@ -892,23 +1008,6 @@ def resample(values, index=None, *, every=None, count=None, agg="last",
       A single-output functor returns a 1-D ``Stream``; a multi-output functor
       returns an unlabelled 2-D ``Stream``.  The functor must accept exactly
       1 input (single-value stream); a multi-input functor raises at runtime.
-    * **dict** ``{name: agg, ...}``: runs several reducers over the same
-      bucketing and returns a labelled ``Stream`` whose ``.columns`` are the dict
-      keys (insertion order).  Each entry must produce exactly 1 column; ``"ohlc"``
-      and multi-output functors are rejected (use ``agg="ohlc"`` directly for
-      4-column output).  Two forms:
-
-      - **eager** (raw arrays / ``Stream``): each value is a string or functor
-        reducer applied to the single value stream, e.g.
-        ``{"open": "first", "vol": "sum"}``.
-      - **graph / lazy** (``resample(t, agg={...})`` where the values are Nodes):
-        each value is a lazy expression ``Reducer()(sub_expr)`` whose top node is
-        the per-bar reducer and whose single input is the upstream port (per-tick
-        transforms live there), e.g.
-        ``{"buy": ExpandingSum()(PosPart()(vol))}``.  The first positional argument
-        ``t`` is the clock; all columns share one bar clock, so they cannot drift.
-        Place the result in a ``Dag`` and bind data at call time.
-
     ``label`` picks each bar's index. For ``every=`` it is the **grid edge**
     (``origin+n*W`` for ``"left"``, ``origin+(n+1)*W`` for ``"right"``), the
     interval boundary, which need not be an actual tick. For ``count=`` it is an
@@ -943,29 +1042,27 @@ def resample(values, index=None, *, every=None, count=None, agg="last",
     Graph form: resample(node, ...) where node is a Node.
     When ``values`` is a ``Stream`` it carries its own index; ``index=`` applies only to raw arrays.
     """
-    _resample_validate(every, count, agg, label, fill)
+    agg = _resolve_agg(agg)
+    _resample_validate(freq, every, count, agg, label, fill)
+    # Translate freq= into every=/count= using the index context.  After this
+    # block every and count follow the existing internal convention so all
+    # downstream code is unchanged.
+    if freq is not None:
+        if isinstance(values, Stream):
+            _idx_ctx = values.index     # Stream carries its own index
+        else:
+            _idx_ctx = index            # raw array, Node, or lazy stream
+        _mode, _width = _resample_freq_to_engine(freq, _idx_ctx)
+        every = _width if _mode == "span" else None
+        count = _width if _mode == "count" else None
     if is_node(values):
-        if isinstance(agg, dict):
-            # Lazy multi-column bars: each value is Reducer()(sub_expr). `values` is
-            # the clock/timeline `t`. Split each expr into (reducer, port); one shared
-            # clock drives empty time-bar finalization in every= mode.
-            if not agg:
-                raise ValueError("resample: agg dict is empty")
-            names, ports, reducers = [], [], []
-            for nm, expr in agg.items():
-                red, port = _split_reducer_expr(nm, expr)
-                names.append(nm)
-                ports.append(port)
-                reducers.append(red)
-            return multi_resample(ports, reducers, clock=values, every=every,
-                                  count=count, origin=origin, label=label,
-                                  fill=fill, columns=tuple(names))
         if agg in ("ohlcv", "ohlcv2"):
             raise ValueError(
                 f"resample: the agg='{agg}' string shorthand is eager-only and is "
-                "not supported in the graph (Node) regime. In a graph, build the "
-                "columns with a lazy agg dict instead, e.g. agg={'open': "
-                "First()(price), 'buy': ExpandingSum()(PosPart()(vol)), ...}.")
+                "not supported in the graph (Node) regime. In a graph, build "
+                "multi-column bars with combine_latest of per-stat resample nodes, "
+                "e.g. combine_latest(resample(price, every=W, agg='first'), "
+                "resample(vol, every=W, agg='sum')).")
         return make_operator_node(resample, (values,), {
             "every": every, "count": count, "agg": agg,
             "origin": origin, "label": label, "fill": fill})
@@ -973,11 +1070,11 @@ def resample(values, index=None, *, every=None, count=None, agg="last",
         # Rule A: a lazy iterator of (value, index) events -> a lazy iterator of
         # (bar_value, bar_label). Drive the same C++ resample node as batch through
         # the Stage-2 lazy Dag; no Python windowing accumulator runs here.
-        if isinstance(agg, dict) or agg in ("ohlcv", "ohlcv2"):
+        if agg in ("ohlcv", "ohlcv2"):
             raise ValueError(
                 "resample(<iterator>) supports string and functor scalar aggs "
-                "only; dict and ohlcv/ohlcv2 aggs are eager-only. Materialize the "
-                "stream to an array for those, or build the columns inside a Dag.")
+                "only; ohlcv/ohlcv2 aggs are eager-only. Materialize the "
+                "stream to an array for those.")
         return _resample_via_cpp(values, every=every, count=count, agg=agg,
                                  origin=origin, label=label, fill=fill)
     stream = values if isinstance(values, Stream) else Stream(values, index)
@@ -998,13 +1095,6 @@ def resample(values, index=None, *, every=None, count=None, agg="last",
     else:
         idx = np.asarray(stream.index)
 
-    # Dict agg: run each sub-reducer over the shared bucketing and stack columns.
-    # Python only stacks the results and attaches names; all numeric reduction
-    # runs in the C++ engine via the existing single-agg path.
-    if isinstance(agg, dict):
-        return _resample_dict(vals, idx, agg, every=every, count=count,
-                              origin=origin, label=label, fill=fill)
-
     # ohlcv / ohlcv2: orchestrate existing C++ reducers over a 2-column input.
     # Python splits the columns, runs sub-resamples, and stacks; all numeric
     # bucketing and accumulation runs in C++ as with the single-column path.
@@ -1023,29 +1113,6 @@ def resample(values, index=None, *, every=None, count=None, agg="last",
     # (values, index) for backward-compatible tuple unpacking.
     return Stream(out_v, out_idx, columns=cols)
 
-
-def _split_reducer_expr(name, expr):
-    """A dict-agg value must be ``Reducer()(sub_expr)``: a functor Node with exactly one
-    input. Returns ``(reducer_evalop, port_node)``. Raises a clear error otherwise."""
-    if not is_node(expr):
-        raise ValueError(
-            f"resample: agg[{name!r}] must be a lazy expression like "
-            f"First()(price); got {type(expr).__name__}. In the graph regime the "
-            f"dict values are code fragments (functors applied to Nodes), not strings.")
-    op = expr.op
-    # A functor node's op is the EvalOp instance (not a tuple).
-    # An operator/input node's op is a tuple: ("input", name) or ("operator", fn, kwargs).
-    if isinstance(op, tuple):
-        kind = op[0] if op else "?"
-        raise ValueError(
-            f"resample: agg[{name!r}] must be a single reducer functor applied to a "
-            f"stream (e.g. ExpandingSum()(PosPart()(vol))); its top node is a "
-            f"{kind!r} node, not a reducer functor.")
-    if len(expr.inputs) != 1:
-        raise ValueError(
-            f"resample: agg[{name!r}] reducer must take exactly one input stream; "
-            f"got {len(expr.inputs)}.")
-    return op, expr.inputs[0]
 
 
 def multi_resample(inputs, reducers, clock=None, every=None, count=None, origin=0,

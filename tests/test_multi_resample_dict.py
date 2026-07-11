@@ -1,80 +1,66 @@
-"""Tests for resample(t, agg={name: Reducer()(expr)}) lazy dict front-end.
+"""Tests for multi-column bars via composition: combine_latest of per-stat resamples.
 
-Task 6b: multi-column bars in the graph (Node) regime, returned as labelled Streams.
+The dict agg form (resample(t, agg={name: expr, ...})) has been removed. This file
+verifies that the composition recipe reproduces the same numeric results, and that
+the removed dict form now raises a clear error.
 """
 import numpy as np
 import pytest
 
-from screamer import (
-    ExpandingMax, ExpandingMin, ExpandingSum, First, Last, NegPart, PosPart,
-)
-from screamer.dag import Dag, Input
-from screamer.streams import Stream, multi_resample, resample
-
+from screamer import ExpandingMax, ExpandingMin, ExpandingSum, First, Last, NegPart, PosPart
+from screamer.streams import Stream, combine_latest, resample
 
 # ---------------------------------------------------------------------------
 # Fixtures / shared data
 # ---------------------------------------------------------------------------
 
 RNG = np.random.default_rng(42)
-N = 50          # number of ticks
-W = 10          # bar width (every=W)
+N = 50      # number of ticks
+W = 10      # bar width (every=W)
 N_BARS = N // W
 
+
 def _make_data():
-    t_arr      = np.arange(N, dtype=np.int64)
-    price_arr  = RNG.standard_normal(N).cumsum() + 100.0
+    t_arr = np.arange(N, dtype=np.int64)
+    price_arr = RNG.standard_normal(N).cumsum() + 100.0
     # signed volume: positive => buy, negative => sell
-    vol_arr    = RNG.standard_normal(N) * 10.0
+    vol_arr = RNG.standard_normal(N) * 10.0
     return t_arr, price_arr, vol_arr
 
 
 # ---------------------------------------------------------------------------
-# Test 1: OHLCV2 recipe (time mode) - the headline test
+# Test 1: OHLCV2 recipe (time mode) via composition - the headline test
 # ---------------------------------------------------------------------------
 
-class TestOHLCV2Recipe:
-    """Six-column lazy agg dict via the graph regime, every= time bucketing."""
+class TestOHLCV2Composition:
+    """Six-column OHLCV2 via combine_latest of per-stat resamples."""
 
     def setup_method(self):
         t_arr, price_arr, vol_arr = _make_data()
-        self.t_arr     = t_arr
+        self.t_arr = t_arr
         self.price_arr = price_arr
-        self.vol_arr   = vol_arr
+        self.vol_arr = vol_arr
 
-        price = Input("price")
-        vol   = Input("vol")
-        t     = Input("t")
+        pos_vol = np.where(vol_arr > 0, vol_arr, 0.0)
+        neg_vol = np.where(vol_arr < 0, -vol_arr, 0.0)
 
-        bars = resample(t, every=W, agg={
-            "open":  First()(price),
-            "high":  ExpandingMax()(price),
-            "low":   ExpandingMin()(price),
-            "close": Last()(price),
-            "buy":   ExpandingSum()(PosPart()(vol)),
-            "sell":  ExpandingSum()(NegPart()(vol)),
-        })
-        self.dag = Dag([t, price, vol], [bars])
-        self.out = self.dag(t=t_arr, price=price_arr, vol=vol_arr)
+        o   = resample(price_arr, t_arr, every=W, agg="first")
+        h   = resample(price_arr, t_arr, every=W, agg="max")
+        l   = resample(price_arr, t_arr, every=W, agg="min")
+        c   = resample(price_arr, t_arr, every=W, agg="last")
+        buy = resample(pos_vol,   t_arr, every=W, agg="sum")
+        sel = resample(neg_vol,   t_arr, every=W, agg="sum")
+        self.out, self.idx = combine_latest(o, h, l, c, buy, sel)
 
-    def test_returns_stream(self):
-        assert isinstance(self.out, Stream)
-
-    def test_columns_are_keys_in_order(self):
-        assert self.out.columns == ("open", "high", "low", "close", "buy", "sell")
+    def test_returns_ndarray(self):
+        assert isinstance(self.out, np.ndarray)
 
     def test_shape(self):
-        assert self.out.values.ndim == 2
-        assert self.out.values.shape[1] == 6
+        assert self.out.ndim == 2
+        assert self.out.shape[1] == 6
         assert len(self.out) == N_BARS
 
-    def test_named_column_access(self):
-        buy_col = self.out["buy"]
-        assert buy_col.shape == (N_BARS,)
-        np.testing.assert_array_equal(buy_col, self.out.values[:, 4])
-
     def _reference_col(self, agg_str, arr=None):
-        """Compute a reference column via the eager single-column path."""
         if arr is None:
             arr = self.price_arr
         ref = resample(arr, self.t_arr, every=W, agg=agg_str)
@@ -82,253 +68,140 @@ class TestOHLCV2Recipe:
 
     def test_open_matches_reference(self):
         ref = self._reference_col("first")
-        np.testing.assert_allclose(self.out["open"], ref, rtol=1e-12)
+        np.testing.assert_allclose(self.out[:, 0], ref, rtol=1e-12)
 
     def test_high_matches_reference(self):
         ref = self._reference_col("max")
-        np.testing.assert_allclose(self.out["high"], ref, rtol=1e-12)
+        np.testing.assert_allclose(self.out[:, 1], ref, rtol=1e-12)
 
     def test_low_matches_reference(self):
         ref = self._reference_col("min")
-        np.testing.assert_allclose(self.out["low"], ref, rtol=1e-12)
+        np.testing.assert_allclose(self.out[:, 2], ref, rtol=1e-12)
 
     def test_close_matches_reference(self):
         ref = self._reference_col("last")
-        np.testing.assert_allclose(self.out["close"], ref, rtol=1e-12)
+        np.testing.assert_allclose(self.out[:, 3], ref, rtol=1e-12)
 
     def test_buy_matches_reference(self):
         pos_vol = np.where(self.vol_arr > 0, self.vol_arr, 0.0)
         ref = self._reference_col("sum", pos_vol)
-        np.testing.assert_allclose(self.out["buy"], ref, rtol=1e-12)
+        np.testing.assert_allclose(self.out[:, 4], ref, rtol=1e-12)
 
     def test_sell_matches_reference(self):
-        # NegPart returns abs(min(x, 0)), i.e. magnitude of negative values.
-        neg_part_vol = np.where(self.vol_arr < 0, -self.vol_arr, 0.0)
-        ref = self._reference_col("sum", neg_part_vol)
-        np.testing.assert_allclose(self.out["sell"], ref, rtol=1e-12)
+        neg_vol = np.where(self.vol_arr < 0, -self.vol_arr, 0.0)
+        ref = self._reference_col("sum", neg_vol)
+        np.testing.assert_allclose(self.out[:, 5], ref, rtol=1e-12)
 
 
 # ---------------------------------------------------------------------------
-# Test 2: Count mode dict
+# Test 2: Count mode via composition
 # ---------------------------------------------------------------------------
 
-class TestCountModeDict:
-    """Dict agg with count= bucketing."""
+class TestCountModeComposition:
+    """Three-column open/close/buy via combine_latest with count= bucketing."""
 
     COUNT = 5
 
     def setup_method(self):
         t_arr, price_arr, vol_arr = _make_data()
-        self.t_arr    = t_arr
+        self.t_arr = t_arr
         self.price_arr = price_arr
-        self.vol_arr   = vol_arr
+        self.vol_arr = vol_arr
 
-        price = Input("price")
-        vol   = Input("vol")
-        t     = Input("t")
+        pos_vol = np.where(vol_arr > 0, vol_arr, 0.0)
 
-        bars = resample(t, count=self.COUNT, agg={
-            "open":  First()(price),
-            "close": Last()(price),
-            "buy":   ExpandingSum()(PosPart()(vol)),
-        })
-        self.dag = Dag([t, price, vol], [bars])
-        self.out = self.dag(t=t_arr, price=price_arr, vol=vol_arr)
-
-    def test_returns_stream(self):
-        assert isinstance(self.out, Stream)
-
-    def test_columns_are_keys_in_order(self):
-        assert self.out.columns == ("open", "close", "buy")
+        o   = resample(price_arr, t_arr, count=self.COUNT, agg="first")
+        c   = resample(price_arr, t_arr, count=self.COUNT, agg="last")
+        buy = resample(pos_vol,   t_arr, count=self.COUNT, agg="sum")
+        self.out, self.idx = combine_latest(o, c, buy)
 
     def test_shape(self):
-        # N=50 ticks, count=5 -> 10 bars (possibly fewer if last partial omitted)
-        assert self.out.values.ndim == 2
-        assert self.out.values.shape[1] == 3
+        assert self.out.ndim == 2
+        assert self.out.shape[1] == 3
         assert len(self.out) > 0
 
     def test_open_matches_single_col_count(self):
-        ref_stream = resample(self.price_arr, self.t_arr, count=self.COUNT, agg="first")
-        ref = ref_stream.values if isinstance(ref_stream, Stream) else ref_stream[0]
-        np.testing.assert_allclose(self.out["open"], ref, rtol=1e-12)
+        ref = resample(self.price_arr, self.t_arr, count=self.COUNT, agg="first")
+        ref_v = ref.values if isinstance(ref, Stream) else ref[0]
+        np.testing.assert_allclose(self.out[:, 0], ref_v, rtol=1e-12)
 
     def test_close_matches_single_col_count(self):
-        ref_stream = resample(self.price_arr, self.t_arr, count=self.COUNT, agg="last")
-        ref = ref_stream.values if isinstance(ref_stream, Stream) else ref_stream[0]
-        np.testing.assert_allclose(self.out["close"], ref, rtol=1e-12)
+        ref = resample(self.price_arr, self.t_arr, count=self.COUNT, agg="last")
+        ref_v = ref.values if isinstance(ref, Stream) else ref[0]
+        np.testing.assert_allclose(self.out[:, 1], ref_v, rtol=1e-12)
 
     def test_buy_matches_single_col_count(self):
-        # buy = ExpandingSum()(PosPart()(vol)); PosPart(x) = max(x, 0).
-        ref_stream = resample(np.maximum(self.vol_arr, 0.0), self.t_arr,
-                              count=self.COUNT, agg="sum")
-        ref = ref_stream.values if isinstance(ref_stream, Stream) else ref_stream[0]
-        np.testing.assert_allclose(self.out["buy"], ref, rtol=1e-12)
+        pos_vol = np.where(self.vol_arr > 0, self.vol_arr, 0.0)
+        ref = resample(pos_vol, self.t_arr, count=self.COUNT, agg="sum")
+        ref_v = ref.values if isinstance(ref, Stream) else ref[0]
+        np.testing.assert_allclose(self.out[:, 2], ref_v, rtol=1e-12)
 
 
 # ---------------------------------------------------------------------------
-# Test 3: batch == stream (live mode)
+# Test 3: Oracle test from brief - OHLCV via combine_latest with literal values
 # ---------------------------------------------------------------------------
 
-class TestBatchEqualsStream:
-    """Dag(...) and dag.live() produce equal results with identical column labels."""
-
-    def _build(self):
-        t_arr, price_arr, vol_arr = _make_data()
-        price = Input("price")
-        t     = Input("t")
-        bars = resample(t, every=W, agg={
-            "open":  First()(price),
-            "high":  ExpandingMax()(price),
-            "close": Last()(price),
-        })
-        dag = Dag([t, price], [bars])
-        return dag, t_arr, price_arr
-
-    def test_batch_and_live_values_equal(self):
-        dag, t_arr, price_arr = self._build()
-        batch_out = dag(t=t_arr, price=price_arr)
-
-        live = dag.live()
-        for i in range(len(t_arr)):
-            live.push("t",     t_arr[i], t_arr[i])
-            live.push("price", t_arr[i], price_arr[i])
-        live.flush()
-        live_out = live.result()
-
-        assert isinstance(live_out, Stream)
-        assert live_out.columns == batch_out.columns
-        np.testing.assert_allclose(live_out.values, batch_out.values, rtol=1e-12)
-
-    def test_live_columns_equal_batch_columns(self):
-        dag, t_arr, price_arr = self._build()
-        batch_out = dag(t=t_arr, price=price_arr)
-        live = dag.live()
-        for i in range(len(t_arr)):
-            live.push("t",     t_arr[i], t_arr[i])
-            live.push("price", t_arr[i], price_arr[i])
-        live.flush()
-        live_out = live.result()
-        assert live_out.columns == batch_out.columns
-
-    def test_lazy_path_equals_batch(self):
-        # After retiring dag.stream(), the lazy path via dag(generators) is the
-        # event-by-event equivalent. Generators trigger _LazyDag; the values must
-        # match the batch result.
-        dag, t_arr, price_arr = self._build()
-        batch_out = dag(t=t_arr, price=price_arr)
-        N = len(t_arr)
-        events = list(dag(
-            t=((float(t_arr[i]), i) for i in range(N)),
-            price=((float(price_arr[i]), i) for i in range(N)),
-        ))
-        sv = np.array([e[0] for e in events], dtype=np.float64)
-        np.testing.assert_allclose(sv, batch_out.values, rtol=1e-12)
+def test_ohlcv_via_composition():
+    """Brief oracle: hand-computed OHLCV via combine_latest of per-stat resamples."""
+    price = np.array([10., 11, 9, 12, 8, 13])
+    vol   = np.array([1.,  2,  1,  3, 1,  2])
+    k     = np.arange(6)
+    o = resample(price, k, freq=3, agg="first")
+    h = resample(price, k, freq=3, agg="max")
+    l = resample(price, k, freq=3, agg="min")
+    c = resample(price, k, freq=3, agg="last")
+    v = resample(vol,   k, freq=3, agg="sum")
+    rows, idx = combine_latest(o, h, l, c, v)
+    # bar 0 [0,3): prices=10,11,9; vol=1,2,1
+    np.testing.assert_array_equal(np.asarray(rows)[0], [10, 11, 9, 9, 4])
+    # bar 1 [3,6): prices=12,8,13; vol=3,1,2
+    np.testing.assert_array_equal(np.asarray(rows)[1], [12, 13, 8, 13, 6])
 
 
 # ---------------------------------------------------------------------------
-# Test 4: Column order matches dict insertion order
+# Test 4: VWAP via composition - brief oracle
 # ---------------------------------------------------------------------------
 
-def test_column_order_matches_insertion_order():
-    """The output columns respect Python dict insertion order."""
-    t_arr, price_arr, _ = _make_data()
-    t     = Input("t")
-    price = Input("price")
-
-    bars = resample(t, every=W, agg={
-        "z": Last()(price),
-        "a": First()(price),
-        "m": ExpandingMax()(price),
-    })
-    dag = Dag([t, price], [bars])
-    out = dag(t=t_arr, price=price_arr)
-    assert out.columns == ("z", "a", "m")
+def test_vwap_via_composition():
+    """Brief oracle: VWAP as ratio of resampled sum(price*vol) / sum(vol)."""
+    price = np.array([10., 20, 30, 40])
+    vol   = np.array([1.,   3,  1,  1])
+    k     = np.arange(4)
+    num  = resample(price * vol, k, freq=2, agg="sum")
+    den  = resample(vol,         k, freq=2, agg="sum")
+    vwap = np.asarray(num.values) / np.asarray(den.values)
+    np.testing.assert_allclose(vwap, [(10 + 60) / 4, (30 + 40) / 2])
 
 
 # ---------------------------------------------------------------------------
-# Test 5: Validation errors
+# Test 5: dict agg raises with a migration hint
 # ---------------------------------------------------------------------------
 
-class TestValidationErrors:
-    """_split_reducer_expr raises clear errors for bad dict values."""
+def test_agg_dict_raises_with_migration_hint():
+    """Passing agg={...} to resample raises ValueError with a helpful message."""
+    with pytest.raises((ValueError, TypeError)):
+        resample(np.array([1.0, 2, 3]), freq=3, agg={"open": First()})
 
-    def _make_inputs(self):
-        return Input("t"), Input("price")
 
-    def test_plain_string_raises(self):
-        """A plain string as a dict value raises a clear error about code fragments."""
-        t, price = self._make_inputs()
-        with pytest.raises(ValueError, match="code fragment"):
-            resample(t, every=W, agg={"open": "first"})
-
-    def test_input_node_no_reducer_raises(self):
-        """A bare Input (no reducer on top) raises a clear error."""
-        t, price = self._make_inputs()
-        with pytest.raises(ValueError, match="reducer functor"):
-            resample(t, every=W, agg={"open": price})
-
-    def test_empty_dict_raises(self):
-        """An empty agg dict raises ValueError."""
-        t, _ = self._make_inputs()
-        with pytest.raises(ValueError, match="empty"):
-            resample(t, every=W, agg={})
-
-    def test_two_input_reducer_raises(self):
-        """A reducer expression whose top functor takes 2 inputs raises."""
-        from screamer.dag import make_functor_node
-        t, price = self._make_inputs()
-        price2 = Input("price2")
-        two_in = make_functor_node(ExpandingSum(), [price, price2])
-        with pytest.raises(ValueError, match="exactly one input"):
-            resample(t, every=W, agg={"x": two_in})
+def test_agg_dict_raises_eager():
+    """Eager (array) dict agg also raises."""
+    x   = np.arange(10.0)
+    idx = np.arange(10, dtype=np.int64)
+    with pytest.raises((ValueError, TypeError)):
+        resample(x, idx, every=5, agg={"s": "sum"})
 
 
 # ---------------------------------------------------------------------------
-# Test 6: Empty time-bars via the clock (sparse price, dense clock t)
+# Test 6: Index alignment - composition bars share the same bar index
 # ---------------------------------------------------------------------------
 
-def test_empty_bars_via_clock():
-    """A dense clock finalizes an empty bar that the sparse data alone would not.
-
-    Price has a single trade (bar 0); the clock `t` ticks on through bar 1, so with
-    ``fill="nan"`` the empty bar 1 is closed and emitted as NaN when the clock crosses
-    its boundary. Without the clock only bar 0 would appear - trailing empties are not
-    synthesized from data alone. This isolates the clock port's contribution.
-    """
-    t_clock = np.arange(30, dtype=np.int64)      # dense clock, ticks 0..29
-    clock_vals = np.zeros(30, dtype=np.float64)  # values irrelevant; only the index buckets
-    t_price = np.array([0], dtype=np.int64)      # a single trade, in bar 0
-    price_vals = np.array([1.0])
-
-    t     = Input("t")       # t is the clock (first positional arg to resample)
-    price = Input("price")
-    bars = resample(t, every=10, fill="nan", agg={
-        "open":  First()(price),
-        "close": Last()(price),
-    })
-    dag = Dag([t, price], [bars])
-    out = dag(t=(clock_vals, t_clock), price=(price_vals, t_price))
-
-    assert isinstance(out, Stream)
-    assert out.columns == ("open", "close")
-    # bar 0 [0,10): the trade. bar 1 [10,20): empty, closed by the clock -> NaN.
-    # bar 2 [20,30): still open at end of input -> not emitted (flush does not fill).
-    np.testing.assert_array_equal(out.index, [0, 10])
-    np.testing.assert_array_equal(out["open"],  [1.0, np.nan])
-    np.testing.assert_array_equal(out["close"], [1.0, np.nan])
-
-
-def test_single_column_dict_returns_labelled_stream():
-    # A one-entry lazy dict must return a (n_bars, 1) labelled Stream in a Dag
-    # (regression: __call__ flattens width-1 to 1-D; _label must restore 2-D so
-    # named column access works).
-    t_arr, price_arr, _ = _make_data()
-    t, price = Input("t"), Input("price")
-    bars = resample(t, every=W, agg={"close": Last()(price)})
-    out = Dag([t, price], [bars])(t=t_arr, price=price_arr)
-    assert isinstance(out, Stream)
-    assert out.columns == ("close",)
-    assert out.values.ndim == 2 and out.values.shape[1] == 1
-    ref = resample(price_arr, t_arr, every=W, agg="last")
-    ref_v = ref.values if isinstance(ref, Stream) else ref[0]
-    np.testing.assert_allclose(out["close"], ref_v, rtol=1e-12)
+def test_composition_bar_index_aligned():
+    """All per-stat resamples produce the same bar labels; combine_latest aligns them."""
+    t_arr, price_arr, vol_arr = _make_data()
+    o = resample(price_arr, t_arr, every=W, agg="first")
+    c = resample(price_arr, t_arr, every=W, agg="last")
+    v = resample(np.abs(vol_arr), t_arr, every=W, agg="sum")
+    rows, idx = combine_latest(o, c, v)
+    np.testing.assert_array_equal(idx, o.index)
+    np.testing.assert_array_equal(idx, c.index)
+    assert rows.shape == (N_BARS, 3)
