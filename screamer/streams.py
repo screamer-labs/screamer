@@ -134,7 +134,10 @@ def to_pandas(values, index=None, columns=None):
 def from_pandas(obj):
     """Build a (values, index) tuple from a pandas Series or DataFrame.
 
-    data -> values (numpy array), pandas index -> index array.
+    data -> values (numpy array), pandas index -> index array. Note: pandas
+    always materializes an index (a RangeIndex for a default one), so a
+    positional stream does not round-trip to index=None through
+    to_pandas/from_pandas - it comes back with an explicit 0,1,2,... index.
     """
     return np.asarray(obj.to_numpy()), np.asarray(obj.index)
 
@@ -829,11 +832,6 @@ def _resolve_agg(agg):
         # reducers are stateful); do not build the four we would discard
         return getattr(screamer, _STAT_SYNONYMS[agg])()
     return agg
-
-
-_OHLC_COLUMNS  = ("open", "high", "low", "close")
-_OHLCV_COLUMNS = ("open", "high", "low", "close", "volume")
-_OHLCV2_COLUMNS = ("open", "high", "low", "close", "buy_vol", "sell_vol")
 
 
 _OFFSET_UNIT_MAP = {   # offset unit -> numpy timedelta64 unit
