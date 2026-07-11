@@ -48,3 +48,14 @@ def test_count_is_arrival_distinct_from_freq_on_sparse_index():
     assert len(v) == 1 and v[0] == 4.0        # all 4 ticks in one arrival bar
     # freq=10 (span) gives 3 buckets - the two modes are genuinely different.
     assert len(_EXP_V) == 3
+
+
+def test_positional_freq_right_label_is_grid_edge():
+    """freq= is a window in EVERY regime, so a positional stream with
+    label="right" grid-edge-labels (like the indexed regime), NOT actual-tick.
+    This is the intended consequence of the freq=window thesis; pin it so the
+    behavior is documented and cannot silently drift back."""
+    x = np.arange(10.0)
+    v, k = _vi(Resample(freq=3, agg="sum", label="right")(x))
+    np.testing.assert_array_equal(v, [3.0, 12.0, 21.0, 9.0])   # values unchanged
+    np.testing.assert_array_equal(k, [3, 6, 9, 12])            # grid edges (origin+n*W)
