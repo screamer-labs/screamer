@@ -59,11 +59,11 @@ def test_dropna_before_functor():
     np.testing.assert_array_equal(bk, [1, 3, 4])
 
 
-def test_filter_rejected_in_graph():
-    x = Input("x")
-    from screamer.streams import filter as sfilter
-    with pytest.raises(ValueError, match="not supported"):
-        sfilter(x, lambda r: r > 0)
+def test_old_predicate_filter_is_gone():
+    # The predicate-based filter function was removed in favour of Filter (mask gate).
+    import screamer.streams as _s
+    assert not hasattr(_s, "filter"), \
+        "screamer.streams.filter (predicate-based function) must be removed"
 
 
 def test_dropna_graph_bad_how_rejected():

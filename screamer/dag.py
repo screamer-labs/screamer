@@ -394,6 +394,8 @@ class Dag:
                 inp = [build(i) for i in node.inputs]
                 if name == "combine_latest":
                     nid = gb.add_combine_latest(inp, kwargs.get("emit") == "when_all")
+                elif name == "Filter":
+                    nid = gb.add_filter(inp)
                 elif name == "dropna":
                     nid = gb.add_dropna(inp, kwargs.get("how") == "all")
                 elif name == "select":

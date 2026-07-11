@@ -73,61 +73,6 @@ def test_dropna_node_in_node_out():
 
 
 # ---------------------------------------------------------------------------
-# filter – raw array
-# ---------------------------------------------------------------------------
-
-def test_filter_1d_predicate():
-    vals = np.array([-1.0, 2.0, -3.0, 4.0])
-    idx = np.array([1, 2, 3, 4], dtype=np.int64)
-    gv, gi = streams.filter(vals, lambda v: v > 0, index=idx)
-    np.testing.assert_array_equal(gi, np.array([2, 4], dtype=np.int64))
-    np.testing.assert_array_equal(gv, np.array([2.0, 4.0]))
-
-
-def test_filter_positional_index_is_none():
-    vals = np.array([-1.0, 2.0, -3.0, 4.0])
-    gv, gi = streams.filter(vals, lambda v: v > 0)
-    assert gi is None
-    np.testing.assert_array_equal(gv, np.array([2.0, 4.0]))
-
-
-def test_filter_2d_row_predicate():
-    vals = np.array([[1.0, 1.0], [5.0, 5.0], [2.0, 2.0]])
-    idx = np.array([1, 2, 3], dtype=np.int64)
-    gv, gi = streams.filter(vals, lambda row: row.sum() > 5.0, index=idx)
-    np.testing.assert_array_equal(gi, np.array([2], dtype=np.int64))
-    np.testing.assert_array_equal(gv, np.array([[5.0, 5.0]]))
-
-
-# ---------------------------------------------------------------------------
-# filter – Stream / Node mirroring
-# ---------------------------------------------------------------------------
-
-def test_filter_stream_in_stream_out():
-    s = Stream(np.array([-1.0, 2.0, -3.0, 4.0]),
-               np.array([1, 2, 3, 4], dtype=np.int64))
-    out = streams.filter(s, lambda v: v > 0)
-    assert isinstance(out, Stream)
-    np.testing.assert_array_equal(out.values, [2.0, 4.0])
-    np.testing.assert_array_equal(out.index, [2, 4])
-
-
-def test_filter_stream_positional():
-    s = Stream(np.array([-1.0, 2.0, -3.0]))      # positional stream
-    out = streams.filter(s, lambda v: v > 0)
-    assert isinstance(out, Stream)
-    assert out.index is None
-    np.testing.assert_array_equal(out.values, [2.0])
-
-
-def test_filter_node_raises():
-    from screamer import Input
-    x = Input("x")
-    with pytest.raises(ValueError, match="not supported"):
-        streams.filter(x, lambda v: v > 0)
-
-
-# ---------------------------------------------------------------------------
 # lazy operator dispatch - existing streaming tests (now via operator)
 # ---------------------------------------------------------------------------
 
@@ -152,18 +97,6 @@ def test_dropna_iter_2d_rows():
     events2 = iter([((1.0, 10.0), 1), ((np.nan, 20.0), 2), ((3.0, 30.0), 3)])
     got_all = list(streams.dropna(events2, how="all"))
     assert [idx for _, idx in got_all] == [1, 2, 3]    # no row is all-NaN
-
-
-def test_filter_iter_streaming():
-    gen = (v for v in [(-1.0, 1), (2.0, 2), (-3.0, 3), (4.0, 4)])
-    got = list(streams.filter(gen, lambda v: v > 0))
-    assert got == [(2.0, 2), (4.0, 4)]
-
-
-def test_filter_iter_positional():
-    gen = (v for v in [(-1.0, None), (2.0, None)])
-    got = list(streams.filter(gen, lambda v: v > 0))
-    assert got == [(2.0, None)]
 
 
 # ---------------------------------------------------------------------------
@@ -215,18 +148,6 @@ def test_dropna_lazy_equals_batch():
     out = dropna(gen)
     assert hasattr(out, "__next__") and not isinstance(out, tuple)
     rows = list(out)
-    np.testing.assert_allclose([r[0] for r in rows], np.asarray(bv))
-    np.testing.assert_array_equal([r[1] for r in rows], np.asarray(bk))
-
-
-def test_filter_lazy_equals_batch():
-    import numpy as np
-    from screamer.streams import filter as sfilter
-    vals = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
-    idx = np.array([0, 1, 2, 3, 4])
-    bv, bk = sfilter(vals, lambda v: v > 2, index=idx)
-    gen = ((float(v), int(k)) for v, k in zip(vals, idx))
-    rows = list(sfilter(gen, lambda v: v > 2))
     np.testing.assert_allclose([r[0] for r in rows], np.asarray(bv))
     np.testing.assert_array_equal([r[1] for r in rows], np.asarray(bk))
 
