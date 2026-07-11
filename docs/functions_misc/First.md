@@ -42,14 +42,13 @@ nan_policy: ignore
 
     import numpy as np
     import plotly.graph_objects as go
-    from screamer import First
-    from screamer.streams import resample
+    from screamer import First, Resample
 
     rng = np.random.default_rng(42)
     n = 100
     x = np.cumsum(rng.normal(0.0, 1.0, size=n))
     idx = np.arange(n, dtype=np.int64)
-    opens, bar_idx = resample(x, idx, every=10, agg=First())
+    opens, bar_idx = Resample(freq=10, agg=First())(x, idx)
 
     fig = go.Figure()
     fig.add_trace(go.Scatter(y=x, mode='lines', name='x[t]',

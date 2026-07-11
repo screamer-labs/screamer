@@ -110,29 +110,28 @@ Feeding the same events in index order and then calling `.flush()` reproduces th
 batch result exactly. `.advance()` (and a clock input wired into the graph)
 additionally let a windowing node emit bars a purely event-driven pass would not,
 the empty leading and trailing bars in
-[`resample`](../functions_streams/resample.md), for instance.
+[`Resample`](../functions_streams/Resample.md), for instance.
 
 ```{eval-rst}
 .. exec_code::
 
    # --- hide: start ---
    import numpy as np
-   from screamer import Input, Dag, First, Last
-   from screamer.streams import resample
+   from screamer import Input, Dag, First, Last, Resample, CombineLatest
    # --- hide: stop ---
-   price, t = Input("price"), Input("t")
-   bars = resample(t, every=10, fill="nan",
-                   agg={"open": First()(price), "close": Last()(price)})
-   dag = Dag(inputs=[t, price], outputs=[bars])
+   price = Input("price")
+   open_b  = Resample(freq=10, fill="nan", agg=First())(price)
+   close_b = Resample(freq=10, fill="nan", agg=Last())(price)
+   bars = CombineLatest()(open_b, close_b)
+   dag = Dag(inputs=[price], outputs=[bars])
 
    live = dag.live()
    live.push("price", 0, 100.0)   # one trade in bar [0, 10)
    live.advance(30)               # clock passes bars [10,20) and [20,30): empty -> NaN
    live.flush()
-   out = live.result()
-   print(out.columns)
-   print(out.index)
-   print(out.values)
+   values, index = live.result()
+   print(index)
+   print(values)
 ```
 
 ## Example
@@ -145,11 +144,10 @@ live.
 
    # --- hide: start ---
    import numpy as np
-   from screamer import Input, Dag, Sub
-   from screamer.streams import combine_latest
+   from screamer import Input, Dag, Sub, CombineLatest
    # --- hide: stop ---
    a, b = Input("a"), Input("b")
-   dag = Dag(inputs=[a, b], outputs=[Sub()(combine_latest(a, b))])
+   dag = Dag(inputs=[a, b], outputs=[Sub()(CombineLatest()(a, b))])
 
    # feeds are (values, index) - values-first
    fa = (np.array([10.0, 20.0, 30.0]), np.array([1, 2, 3]))
@@ -173,7 +171,7 @@ live.
 each output and descending to the inputs. A node shared by several consumers is
 printed once and then referenced by id, so a diamond reads as a diamond. Node
 labels carry the functor and operator parameters (`RollingMean(window_size=20)`,
-`resample(every=5)`).
+`Resample(every=5, ...)`).
 
 For a diagram, `dag.to_dot()` returns a Graphviz DOT string with no dependencies,
 and `dag.to_graphviz()` returns a rendered `graphviz.Source` when the optional
@@ -185,11 +183,10 @@ inline, falling back to the text tree when graphviz is not available.
 .. exec_code::
 
    # --- hide: start ---
-   from screamer import Input, Dag, RollingMean, Sub
-   from screamer.streams import combine_latest
+   from screamer import Input, Dag, RollingMean, Sub, CombineLatest
    # --- hide: stop ---
    a, b = Input("a"), Input("b")
-   dag = Dag(inputs=[a, b], outputs=[RollingMean(20)(Sub()(combine_latest(a, b)))])
+   dag = Dag(inputs=[a, b], outputs=[RollingMean(20)(Sub()(CombineLatest()(a, b)))])
    print(dag.to_text())
 ```
 
@@ -206,11 +203,10 @@ plain dict.
 
    # --- hide: start ---
    import numpy as np
-   from screamer import Input, Dag, RollingMean, Sub
-   from screamer.streams import combine_latest
+   from screamer import Input, Dag, RollingMean, Sub, CombineLatest
    # --- hide: stop ---
    a, b = Input("a"), Input("b")
-   dag = Dag(inputs=[a, b], outputs=[RollingMean(20)(Sub()(combine_latest(a, b)))])
+   dag = Dag(inputs=[a, b], outputs=[RollingMean(20)(Sub()(CombineLatest()(a, b)))])
 
    config = dag.to_json()          # save this string to a file
    restored = Dag.from_json(config)

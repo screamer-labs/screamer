@@ -22,6 +22,7 @@ CCI, Commodity Channel Index over typical price.
 Cart2Polar, Convert (x, y) to (r, theta).
 Ceil, Round each element toward positive infinity.
 Clip, Bound each element below and/or above.
+CombineLatest, As-of latest-value join of N streams: one row per distinct index (same-index events coalesce).
 Cos, Cosine of each element (radians).
 Cube, x cubed (faster than Power(3)).
 CumMax, Running maximum from t=0.
@@ -36,6 +37,7 @@ Diff2, Second-order finite difference (discrete second derivative).
 Div, Elementwise quotient of two aligned streams (x / y).
 DonchianChannels, Trend-following envelope: rolling max(high), rolling min(low), and midline.
 Drawdown, Running drawdown from the cumulative peak.
+Dropna, Drop events whose value is NaN.
 Elu, Exponential linear unit.
 Equal, Returns 1.0 if a == b, else 0.0. NaN in either input yields NaN.
 Erf, Gauss error function.
@@ -96,6 +98,7 @@ LogReturn, log(x[t] / x[t-k]) - log return at lag k.
 MACD, MACD line, signal line, and histogram (3 outputs).
 MFI, Volume-weighted analogue of RSI on the typical price.
 MaxDrawdown, Worst drawdown experienced so far (since reset).
+Merge, Merge N value streams into one index-sorted (values, sources, index).
 Momentum, x[t] - x[t-k], TA-Lib's MOM. Mathematically identical to Diff(k).
 MovingAverage, Finite-impulse-response filter with user-supplied taps.
 Mul, Elementwise product of two aligned streams (x * y).
@@ -113,6 +116,7 @@ ROC, 100 * (x[t] / x[t-k] - 1) - TA-Lib's ROC.
 ROCP, x[t] / x[t-k] - 1 - TA-Lib's ROCP. Identical to Return.
 ROCR, x[t] / x[t-k] - TA-Lib's ROCR.
 Relu, Rectified linear unit: max(0, x).
+Resample, Causal windowed downsample of a 1-D or multi-column value stream.
 Return, (x[t] - x[t-k]) / x[t-k] - the simple percentage return at lag k.
 RollingAlpha, Rolling OLS intercept of target on regressor (companion to RollingBeta).
 RollingArgmax, Window-offset of the trailing-window maximum (TA-Lib MAXINDEX).
@@ -166,6 +170,7 @@ RollingYangZhangVol, Vol form of the Yang-Zhang estimator (drift + gap robust).
 RollingZscore, Latest sample standardised by trailing-window mean and std.
 Round, Round each element to the nearest integer (half-to-even).
 SchmittTrigger, Hysteresis comparator. Latches 1.0 above the upper threshold, 0.0 below the lower threshold, and retains its previous value in between.
+Select, Pick column(s) from a wide (M, N) value stream.
 Selu, Scaled exponential linear unit (self-normalizing networks).
 Sigmoid, Logistic sigmoid: 1 / (1 + exp(-x)).
 Sign, Sign of each element: -1, 0, or +1.
@@ -190,20 +195,20 @@ combine_latest, As-of latest-value join of N streams: one row per distinct index
 dropna, Drop events whose value is NaN.
 merge, Merge N value streams into one index-sorted (values, sources, index).
 replay, Replay merged streams as an async event stream paced by index-deltas.
-resample, Causal windowed downsample of a 1-D or multi-column value stream.
+resample, Causal windowed downsample of a 1-D value stream.
 select, Pick column(s) from a wide (M, N) value stream.
 split, Partition a merged tagged stream back into per-source streams.
 
 # Stream operators
 Stream, A sequence of values with an optional ordering index and optional column names.
-merge, Merge N value streams into one index-sorted (values, sources, index).
-combine_latest, As-of latest-value join of N streams: one row per distinct index (same-index events coalesce).
+Merge, Index-sorted N-way merge.
+CombineLatest, As-of latest-value join.
 replay, Replay merged streams as an async event stream paced by index-deltas.
-dropna, Drop events whose value is NaN.
+Dropna, Drop NaN events.
 Filter, 2-input mask gate: keep each data value whose aligned mask is nonzero (zero or NaN drops).
-select, Pick column(s) from a wide (M, N) value stream.
+Select, Pick columns from a wide stream.
 split, Partition a merged tagged stream back into per-source streams.
-resample, Causal windowed downsample of a 1-D value stream.
+Resample, Causal windowed downsample.
 
 # Computational DAG
 Input, Create a source Node - a named placeholder for a timed stream.

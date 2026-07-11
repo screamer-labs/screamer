@@ -12,7 +12,7 @@ Filling and removing NaN values.
 
    * - Function
      - Description
-   * - :doc:`dropna </functions_streams/dropna>`
+   * - :doc:`Dropna </functions_streams/Dropna>`
      - Drop events whose value is NaN.
    * - :doc:`Ffill </functions_preprocessing/Ffill>`
      - Replace NaN with the most recent finite value.

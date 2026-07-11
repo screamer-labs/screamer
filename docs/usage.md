@@ -212,8 +212,8 @@ functions for cleaning gaps, are in [NaN and warmup](nan_and_warmup.md); the
 The examples above assume inputs are aligned — row `i` of one pairs with row `i`
 of another. When feeds arrive on different clocks, at different rates, or with
 dropped samples, the `screamer.streams` layer aligns them before they reach a
-function. It provides operators to combine streams (`combine_latest`, `merge`),
-reshape them (`dropna`, `Filter`, `select`), downsample them (`resample`), and
+function. It provides operators to combine streams (`CombineLatest`, `Merge`),
+reshape them (`Dropna`, `Filter`, `Select`), downsample them (`Resample`), and
 replay stored data as a live feed (`replay`). The model — streams, their index,
 and alignment — is described in
 [Streams, values, and alignment](multistream.md), with the [`Stream`](functions_streams/Stream.md)
@@ -231,11 +231,10 @@ structure — nothing computes until you call the compiled graph, at which point
 the engine evaluates each node in dependency order.
 
 ```python
-from screamer import Input, Dag, RollingMean, Sub
-from screamer.streams import combine_latest
+from screamer import Input, Dag, RollingMean, Sub, CombineLatest
 
 a, b = Input("a"), Input("b")         # two named sources
-spread = Sub()(combine_latest(a, b))  # a node: align the two sources, then subtract
+spread = Sub()(CombineLatest()(a, b)) # a node: align the two sources, then subtract
 signal = RollingMean(10)(spread)      # a node that depends on `spread`
 
 dag = Dag(inputs=[a, b], outputs=[signal])   # compile the graph
