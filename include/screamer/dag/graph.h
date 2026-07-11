@@ -9,7 +9,7 @@
 namespace screamer { namespace dag {
 
 enum class NodeKind { Input, Functor, CombineLatest, DropNa, Select, Resample,
-                      MultiResample };
+                      MultiResample, Filter };
 
 // Pure data: one node of a graph definition.
 struct NodeSpec {
@@ -61,6 +61,11 @@ public:
     std::size_t add_resample(std::vector<std::size_t> inputs, ResampleParams rp) {
         NodeSpec ns{NodeKind::Resample, nullptr, true, false, {}, rp, std::move(inputs)};
         spec_.nodes.push_back(std::move(ns));
+        return spec_.nodes.size() - 1;
+    }
+    std::size_t add_filter(std::vector<std::size_t> inputs) {
+        spec_.nodes.push_back(NodeSpec{NodeKind::Filter, nullptr, true, false,
+                                       {}, {}, std::move(inputs)});
         return spec_.nodes.size() - 1;
     }
     std::size_t add_multicolumn_resample(std::vector<std::size_t> inputs,

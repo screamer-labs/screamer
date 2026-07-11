@@ -19,6 +19,7 @@
 #include "screamer/dag/broadcast.h"
 #include "screamer/dag/combine_latest_node.h"
 #include "screamer/dag/dropna_node.h"
+#include "screamer/dag/filter_node.h"
 #include "screamer/dag/select_node.h"
 #include "screamer/dag/resample_node.h"
 #include "screamer/dag/resample_generic_node.h"
@@ -131,6 +132,7 @@ public:
                 node_width[id] = w;
                 break;
             }
+            case NodeKind::Filter:        node_width[id] = 1; break;
             }
         }
         output_widths_.resize(num_out);
@@ -272,6 +274,18 @@ public:
                     return &ptr->port(slot);
                 };
                 owned_.push_back(mn);
+                break;
+            }
+            case NodeKind::Filter: {
+                // inputs[0] = data (port 0), inputs[1] = mask (port 1).
+                // node_input_sink returns &fn->port(slot) so data wires to port 0
+                // and mask wires to port 1, matching the input order exactly.
+                auto fn = std::make_shared<FilterNode<std::int64_t>>(*downstream);
+                reset_nodes_.push_back(fn.get());
+                node_input_sink[id] = [ptr = fn.get()](std::size_t slot) -> Sink<std::int64_t>* {
+                    return &ptr->port(slot);
+                };
+                owned_.push_back(fn);
                 break;
             }
             }
