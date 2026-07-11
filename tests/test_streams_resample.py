@@ -175,7 +175,7 @@ def test_resample_validation_errors():
     vals = np.array([1.0, 2.0])
     keys = np.array([0, 1], dtype=np.int64)
     with pytest.raises(ValueError, match="exactly one"):
-        resample(vals)                              # neither every nor count
+        resample(vals)                              # none of freq/every/count
     with pytest.raises(ValueError, match="exactly one"):
         resample(vals, keys, every=10, count=2)    # both
     with pytest.raises(ValueError, match="agg"):
@@ -326,6 +326,21 @@ def test_freq_integer_index_equals_every():
     new = resample(v, k, freq=10, agg="sum")
     np.testing.assert_array_equal(np.asarray(new.values), np.asarray(old.values))
     np.testing.assert_array_equal(np.asarray(new.index), np.asarray(old.index))
+
+
+def test_freq_stream_uses_its_own_index_not_kwarg():
+    # A Stream carries its own index, so freq reads span-vs-count from s.index,
+    # not the index= kwarg. Stream(v, int index) + freq -> span (== every).
+    v = np.array([1.0, 2, 3, 4, 5])
+    k = np.array([0, 1, 2, 10, 11])
+    old = resample(v, k, every=10, agg="sum")
+    new = resample(Stream(v, k), freq=10, agg="sum")
+    np.testing.assert_array_equal(np.asarray(new.values), np.asarray(old.values))
+    np.testing.assert_array_equal(np.asarray(new.index), np.asarray(old.index))
+    # a Stream with no index -> count mode
+    cnt = resample(Stream(v), freq=2, agg="sum")
+    ref = resample(v, count=2, agg="sum")
+    np.testing.assert_array_equal(np.asarray(cnt.values), np.asarray(ref.values))
 
 
 def test_freq_rejects_nonpositive_and_missing():

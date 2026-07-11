@@ -737,7 +737,9 @@ def _resample_freq_to_engine(freq, index):
     Raises on a non-positive width or a nonsensical (index dtype, freq type) pair.
     """
     if index is not None and np.asarray(index).dtype.kind == "M":   # datetime64
-        return _resample_datetime_freq(freq, index)                 # Task 2
+        raise NotImplementedError(
+            "resample: datetime64 index support via freq= is not yet implemented "
+            "(planned next); use an integer index or omit it for now")
     width = int(freq)
     if width <= 0:
         raise ValueError("resample: freq must be a positive integer")
@@ -902,7 +904,10 @@ def resample(values, index=None, *, freq=None, every=None, count=None, agg="last
              origin=0, label="left", fill="skip"):
     """Causal windowed downsample of a 1-D value stream.
 
-    Exactly one of ``every`` or ``count`` bounds the bars:
+    Pass exactly one of ``freq``, ``every``, or ``count`` to bound the bars.
+    ``freq`` is the contextual form and the recommended one: with no index it is a
+    count (a bar every N events), with an integer index it is a span in index
+    units (equivalent to ``every``). ``every`` and ``count`` are the explicit forms:
 
     * ``every=W`` buckets along the **index**: bar ``n`` is the half-open interval
       ``[origin+n*W, origin+(n+1)*W)`` (boundaries anchored at ``origin``, default 0,
