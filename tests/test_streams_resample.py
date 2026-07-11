@@ -2,7 +2,11 @@ import math
 import numpy as np
 import pytest
 
-from screamer import ExpandingSum
+from screamer import (
+    ExpandingSum,
+    ExpandingStd, ExpandingVar, ExpandingProd, ExpandingSkew, ExpandingKurt,
+    ExpandingMean,
+)
 from screamer.streams import resample, Stream
 from screamer.dag import is_node
 
@@ -432,3 +436,104 @@ def test_freq_timedelta64_on_integer_index_raises_clearly():
     with pytest.raises(TypeError):
         resample(np.array([1.0, 2, 3]), np.array([0, 1, 2]),
                  freq=np.timedelta64(1, "m"), agg="sum")
+
+
+# ---------------------------------------------------------------------------
+# Agg string aliases and synonyms (task-3)
+# ---------------------------------------------------------------------------
+
+_AGG_ALIAS_DATA_VALS = np.array([4.0, 2.0, 8.0, 6.0])
+_AGG_ALIAS_DATA_KEYS = np.array([0, 1, 2, 3], dtype=np.int64)
+
+
+def _resample_alias(agg):
+    return resample(_AGG_ALIAS_DATA_VALS, _AGG_ALIAS_DATA_KEYS, every=10, agg=agg)
+
+
+def test_finance_alias_high_equals_max():
+    v_alias, k_alias = _resample_alias("high")
+    v_canon, k_canon = _resample_alias("max")
+    np.testing.assert_array_equal(v_alias, v_canon)
+    np.testing.assert_array_equal(k_alias, k_canon)
+
+
+def test_finance_alias_low_equals_min():
+    v_alias, k_alias = _resample_alias("low")
+    v_canon, k_canon = _resample_alias("min")
+    np.testing.assert_array_equal(v_alias, v_canon)
+    np.testing.assert_array_equal(k_alias, k_canon)
+
+
+def test_finance_alias_open_equals_first():
+    v_alias, k_alias = _resample_alias("open")
+    v_canon, k_canon = _resample_alias("first")
+    np.testing.assert_array_equal(v_alias, v_canon)
+    np.testing.assert_array_equal(k_alias, k_canon)
+
+
+def test_finance_alias_close_equals_last():
+    v_alias, k_alias = _resample_alias("close")
+    v_canon, k_canon = _resample_alias("last")
+    np.testing.assert_array_equal(v_alias, v_canon)
+    np.testing.assert_array_equal(k_alias, k_canon)
+
+
+def test_stat_synonym_std_equals_functor():
+    v_syn, k_syn = _resample_alias("std")
+    v_fun, k_fun = _resample_alias(ExpandingStd())
+    np.testing.assert_allclose(v_syn, v_fun, rtol=1e-12)
+    np.testing.assert_array_equal(k_syn, k_fun)
+
+
+def test_stat_synonym_var_equals_functor():
+    v_syn, k_syn = _resample_alias("var")
+    v_fun, k_fun = _resample_alias(ExpandingVar())
+    np.testing.assert_allclose(v_syn, v_fun, rtol=1e-12)
+    np.testing.assert_array_equal(k_syn, k_fun)
+
+
+def test_stat_synonym_prod_equals_functor():
+    v_syn, k_syn = _resample_alias("prod")
+    v_fun, k_fun = _resample_alias(ExpandingProd())
+    np.testing.assert_allclose(v_syn, v_fun, rtol=1e-12)
+    np.testing.assert_array_equal(k_syn, k_fun)
+
+
+def test_stat_synonym_skew_equals_functor():
+    vals = np.array([1.0, 2.0, 3.0, 4.0, 5.0, 6.0])
+    keys = np.array([0, 1, 2, 3, 4, 5], dtype=np.int64)
+    v_syn, k_syn = resample(vals, keys, every=10, agg="skew")
+    v_fun, k_fun = resample(vals, keys, every=10, agg=ExpandingSkew())
+    np.testing.assert_allclose(v_syn, v_fun, rtol=1e-12, equal_nan=True)
+    np.testing.assert_array_equal(k_syn, k_fun)
+
+
+def test_stat_synonym_kurt_equals_functor():
+    vals = np.array([1.0, 2.0, 3.0, 4.0, 5.0, 6.0])
+    keys = np.array([0, 1, 2, 3, 4, 5], dtype=np.int64)
+    v_syn, k_syn = resample(vals, keys, every=10, agg="kurt")
+    v_fun, k_fun = resample(vals, keys, every=10, agg=ExpandingKurt())
+    np.testing.assert_allclose(v_syn, v_fun, rtol=1e-12, equal_nan=True)
+    np.testing.assert_array_equal(k_syn, k_fun)
+
+
+def test_existing_mean_equals_expanding_mean():
+    """Regression: the built-in engine 'mean' still equals ExpandingMean()."""
+    v_str, k_str = _resample_alias("mean")
+    v_fun, k_fun = _resample_alias(ExpandingMean())
+    np.testing.assert_allclose(v_str, v_fun, rtol=1e-12)
+    np.testing.assert_array_equal(k_str, k_fun)
+
+
+def test_unknown_agg_string_raises_value_error():
+    with pytest.raises(ValueError, match="unknown agg string"):
+        resample(_AGG_ALIAS_DATA_VALS, _AGG_ALIAS_DATA_KEYS, every=10, agg="bogus")
+
+
+def test_functor_agg_still_works():
+    """A functor agg passed directly continues to work unchanged."""
+    vals = np.array([1.0, 2.0, 3.0, 4.0])
+    keys = np.array([0, 1, 2, 3], dtype=np.int64)
+    v, k = resample(vals, keys, every=10, agg=ExpandingSum())
+    assert v.tolist() == [10.0]
+    np.testing.assert_array_equal(k, [0])

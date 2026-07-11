@@ -725,6 +725,51 @@ def _select_lazy(events, columns):
 _RESAMPLE_AGGS = ("first", "last", "min", "max", "sum", "count", "mean", "ohlc",
                   "ohlcv", "ohlcv2")
 _RESAMPLE_FILLS = ("skip", "nan", "carry")
+
+# Finance aliases: map short OHLC names to their canonical engine strings.
+_FINANCE_ALIASES = {
+    "high":  "max",
+    "low":   "min",
+    "open":  "first",
+    "close": "last",
+}
+
+# Statistical synonyms: map short stat names to the Expanding* functors that
+# implement them (the engine has no built-in code for these).
+_STAT_SYNONYMS = ("std", "var", "prod", "skew", "kurt")
+
+# Full set of accepted agg string names for error messages.
+_ALL_AGG_NAMES = _RESAMPLE_AGGS + tuple(_FINANCE_ALIASES) + _STAT_SYNONYMS
+
+
+def _resolve_agg(agg):
+    """Normalise an agg alias or synonym to the form the engine/functor path expects.
+
+    - Finance aliases ('high', 'low', 'open', 'close') become their canonical
+      engine strings ('max', 'min', 'first', 'last') and continue on the fast
+      engine path.
+    - Statistical synonyms ('std', 'var', 'prod', 'skew', 'kurt') become the
+      corresponding Expanding* functor instances and route through the functor-agg
+      path that already exists.
+    - Everything else (canonical engine strings, arbitrary functors, dicts) is
+      returned unchanged.
+    """
+    if not isinstance(agg, str):
+        return agg
+    if agg in _FINANCE_ALIASES:
+        return _FINANCE_ALIASES[agg]
+    if agg in _STAT_SYNONYMS:
+        from screamer import (  # deferred to avoid circular import at module load
+            ExpandingStd, ExpandingVar, ExpandingProd, ExpandingSkew, ExpandingKurt,
+        )
+        return {
+            "std":  ExpandingStd(),
+            "var":  ExpandingVar(),
+            "prod": ExpandingProd(),
+            "skew": ExpandingSkew(),
+            "kurt": ExpandingKurt(),
+        }[agg]
+    return agg
 _OHLC_COLUMNS  = ("open", "high", "low", "close")
 _OHLCV_COLUMNS = ("open", "high", "low", "close", "volume")
 _OHLCV2_COLUMNS = ("open", "high", "low", "close", "buy_vol", "sell_vol")
@@ -885,7 +930,9 @@ def _resample_validate(freq, every, count, agg, label, fill="skip"):
     # a dict of {name: str|functor} entries. Only string scalars are validated
     # here; dict contents are validated in _resample_dict.
     if isinstance(agg, str) and agg not in _RESAMPLE_AGGS:
-        raise ValueError(f"resample: agg must be one of {_RESAMPLE_AGGS}")
+        raise ValueError(
+            f"resample: unknown agg string {agg!r}; "
+            f"valid names are {sorted(_ALL_AGG_NAMES)}")
     if label not in ("left", "right"):
         raise ValueError('resample: label must be "left" or "right"')
     if fill not in _RESAMPLE_FILLS:
@@ -916,12 +963,13 @@ def _resample_dict(vals, idx, agg_dict, *, every, count, origin, label,
     out_idx = None
 
     for name, sub_agg in agg_dict.items():
+        sub_agg = _resolve_agg(sub_agg)
         # Validate the sub-agg and reject multi-column entries.
         if isinstance(sub_agg, str):
             if sub_agg not in _RESAMPLE_AGGS:
                 raise ValueError(
                     f"resample: dict agg[{name!r}]: unknown string agg {sub_agg!r}; "
-                    f"must be one of {_RESAMPLE_AGGS}")
+                    f"valid names are {sorted(_ALL_AGG_NAMES)}")
             if sub_agg == "ohlc":
                 raise ValueError(
                     f"resample: dict agg[{name!r}]: 'ohlc' produces 4 columns and "
@@ -1087,6 +1135,7 @@ def resample(values, index=None, *, freq=None, every=None, count=None, agg="last
     Graph form: resample(node, ...) where node is a Node.
     When ``values`` is a ``Stream`` it carries its own index; ``index=`` applies only to raw arrays.
     """
+    agg = _resolve_agg(agg)
     _resample_validate(freq, every, count, agg, label, fill)
     # Translate freq= into every=/count= using the index context.  After this
     # block every and count follow the existing internal convention so all
