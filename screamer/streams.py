@@ -518,6 +518,104 @@ async def replay(*values, index=None, speed=1.0, sleep=None):
         yield ev_val, (None if positional else ev_index), ev_source
 
 
+def _dropna_via_cpp(vals, idx, how):
+    """Route eager dropna through the C++ DropNaNode via a Dag.
+
+    vals: float64 ndarray, 1-D or 2-D
+    idx: index array or None (positional)
+    how: "any" | "all"
+
+    Returns (out_vals, out_idx) where out_idx mirrors the caller's positional
+    convention: None when the input index was None, otherwise the surviving
+    subset of the input index.
+
+    1-D: builds a one-input Dag([x], [dropna(x, how=how)]).
+    2-D: packs N columns via combine_latest then drops via
+    Dag([c0..cN], [dropna(combine_latest(c0..cN), how=how)]).
+    All NaN-gate logic runs in the C++ DropNaNode; no numpy mask compute here.
+    """
+    from .dag import Input, Dag
+    positional = idx is None
+    real_idx = np.arange(len(vals), dtype=np.int64) if positional else idx
+
+    if vals.ndim == 1:
+        src = Input("x")
+        dag = Dag([src], [dropna(src, how=how)])
+        out_vals, out_idx = dag((vals, real_idx))
+    else:
+        N = vals.shape[1]
+        col_inputs = [Input(f"c{i}") for i in range(N)]
+        dag = Dag(col_inputs, [dropna(combine_latest(*col_inputs), how=how)])
+        out_vals, out_idx = dag(*((vals[:, i], real_idx) for i in range(N)))
+
+    return out_vals, (None if positional else out_idx)
+
+
+def _dropna_lazy_cpp(events, how):
+    """Route lazy dropna through the C++ DropNaNode via the Dag lazy path.
+
+    Generator function: no events are consumed until the first next() call.
+    Peeks the first event to determine dimensionality and index type.
+
+    1-D events (scalar values): drives a one-input Dag.
+    2-D events (multi-value rows): tees the stream into N per-column iterators
+    and drives an N-input combine_latest + dropna Dag.  The N tee'd iterators
+    are advanced in lockstep by _LazyDag, so the tee buffer is at most O(N)
+    elements (constant in stream length - O(1) per event).
+
+    Positional feeds (index=None) are converted to row-number indices
+    internally and the None index is restored on output.
+    """
+    import itertools
+    from .dag import Input, Dag
+
+    try:
+        head = next(events)
+    except StopIteration:
+        return
+
+    head_val, head_idx = head
+    all_events = itertools.chain([head], events)
+    N = np.atleast_1d(np.asarray(head_val, dtype=np.float64)).size
+    positional = head_idx is None
+
+    if positional:
+        def _add_rownum(evs):
+            for i, (v, _k) in enumerate(evs):
+                yield v, i
+        working_events = _add_rownum(all_events)
+    else:
+        working_events = all_events
+
+    if N == 1:
+        # 1-D: ensure the value passed to _LazyDag._pull is a Python float
+        def _as_scalar(evs):
+            for v, k in evs:
+                yield float(np.atleast_1d(np.asarray(v, dtype=np.float64))[0]), k
+        src = Input("x")
+        dag = Dag([src], [dropna(src, how=how)])
+        inner = dag(_as_scalar(working_events))
+    else:
+        # 2-D: tee N copies; each copy is consumed once per event (lockstep)
+        tees = itertools.tee(working_events, N)
+
+        def _col(teed, col):
+            for row_val, k in teed:
+                r = np.atleast_1d(np.asarray(row_val, dtype=np.float64))
+                yield float(r[col]), k
+
+        col_iters = [_col(tees[i], i) for i in range(N)]
+        col_inputs = [Input(f"c{i}") for i in range(N)]
+        dag = Dag(col_inputs, [dropna(combine_latest(*col_inputs), how=how)])
+        inner = dag(*col_iters)
+
+    if positional:
+        for v, _k in inner:
+            yield v, None
+    else:
+        yield from inner
+
+
 def dropna(values, index=None, how="any"):
     """Drop events whose value is NaN. `values` may be 1-D (M,) or 2-D (M, N).
 
@@ -534,17 +632,13 @@ def dropna(values, index=None, how="any"):
     if is_node(values):
         return make_operator_node(dropna, (values,), {"how": how})
     if _is_lazy_stream(values):
-        return _dropna_lazy(values, how)
+        return _dropna_lazy_cpp(values, how)
     regime = "stream" if isinstance(values, Stream) else "raw"
     stream = values if isinstance(values, Stream) else Stream(values, index)
     vals = np.asarray(stream.values, dtype=np.float64)
     idx = stream.index
-    nan = np.isnan(vals)
-    if vals.ndim == 1:
-        mask = ~nan
-    else:
-        mask = ~(nan.any(axis=1) if how == "any" else nan.all(axis=1))
-    return _adapt(regime, vals[mask], None if idx is None else idx[mask])
+    out_vals, out_idx = _dropna_via_cpp(vals, idx, how)
+    return _adapt(regime, out_vals, out_idx)
 
 
 class Filter:
@@ -585,22 +679,6 @@ class Filter:
         d, m = Input("data"), Input("mask")
         dag = Dag(inputs=[d, m], outputs=[Filter()(d, m)])
         return dag(data, mask)
-
-
-def _dropna_lazy(events, how="any"):
-    """Streaming dropna over (value, index) tuples. value may be scalar or sequence.
-
-    A positional live feed uses index=None. Surviving events are yielded as
-    (value, index) with the original index passed through unchanged.
-    """
-    if how not in ("any", "all"):
-        raise ValueError('dropna: how must be "any" or "all"')
-    for value, index in events:
-        arr = np.atleast_1d(np.asarray(value, dtype=np.float64))
-        nan = np.isnan(arr)
-        drop = nan.any() if how == "any" else nan.all()
-        if not drop:
-            yield value, index
 
 
 def split(values, sources, index=None, n=None):
@@ -651,6 +729,117 @@ def _normalize_columns(columns):
     return cols, scalar
 
 
+def _select_via_cpp(vals, idx, cols, scalar):
+    """Route eager select through the C++ SelectNode via a Dag.
+
+    vals: float64 ndarray, 1-D or 2-D
+    idx: index array or None (positional)
+    cols: validated list of non-negative int column indices
+    scalar: True when a bare int was given (result is 1-D)
+
+    Returns (picked_vals, out_idx) where out_idx mirrors the input: None for
+    positional, original idx array otherwise.
+
+    1-D input: trivial passthrough or reshape; no SelectNode needed.
+    2-D input: packs N columns via combine_latest then picks via
+    Dag([c0..cN], [select(combine_latest(c0..cN), columns=columns)]).
+    All column-pick logic runs in the C++ SelectNode; no numpy column-pick here.
+    """
+    from .dag import Input, Dag
+
+    if vals.ndim == 1:
+        # Width-1 passthrough: no column-pick compute, only scalar/list reshape.
+        picked = vals if scalar else vals.reshape(-1, 1)
+        return picked, idx
+
+    # 2-D: route through SelectNode via Dag.
+    positional = idx is None
+    real_idx = np.arange(len(vals), dtype=np.int64) if positional else idx
+    N = vals.shape[1]
+    col_inputs = [Input(f"c{i}") for i in range(N)]
+    columns_arg = cols[0] if scalar else cols
+    dag = Dag(col_inputs, [select(combine_latest(*col_inputs), columns=columns_arg)])
+    out_vals, out_idx = dag(*((vals[:, i], real_idx) for i in range(N)))
+    return out_vals, (None if positional else out_idx)
+
+
+def _select_lazy_cpp(events, columns):
+    """Route lazy select through the C++ SelectNode via the Dag lazy path.
+
+    Generator function: no events are consumed until the first next() call.
+    Peeks the first event to determine dimensionality and index type.
+
+    1-D events (scalar values): passthrough with column 0 projection in Python
+    (no SelectNode needed for a width-1 stream).
+    2-D events (multi-value rows): tees the stream into N per-column iterators
+    and drives an N-input combine_latest + select Dag.  The N tee'd iterators
+    are advanced in lockstep by _LazyDag, so the tee buffer is at most O(N)
+    elements (constant in stream length - O(1) per event).
+
+    Positional feeds (index=None) are converted to row-number indices
+    internally and the None index is restored on output.
+    """
+    import itertools
+    from .dag import Input, Dag
+
+    cols, scalar = _normalize_columns(columns)
+
+    try:
+        head = next(events)
+    except StopIteration:
+        return
+
+    head_val, head_idx = head
+    all_events = itertools.chain([head], events)
+    N = np.atleast_1d(np.asarray(head_val, dtype=np.float64)).size
+    positional = head_idx is None
+
+    # Validate column range against the first event's width.
+    for c in cols:
+        if c >= N:
+            raise ValueError(
+                f"select: column {c} out of range for width {N}")
+
+    if N == 1:
+        # 1-D: width-1 passthrough; SelectNode adds no value here.
+        for v, k in all_events:
+            val = float(np.atleast_1d(np.asarray(v, dtype=np.float64))[0])
+            if scalar:
+                yield val, k
+            else:
+                yield [val], k
+        return
+
+    # 2-D: convert positional None indices to row numbers before feeding the Dag.
+    if positional:
+        def _add_rownum(evs):
+            for i, (v, _k) in enumerate(evs):
+                yield v, i
+        working_events = _add_rownum(all_events)
+    else:
+        working_events = all_events
+
+    # Tee N copies (lockstep); each copy is consumed once per event.
+    tees = itertools.tee(working_events, N)
+
+    def _col(teed, col):
+        for row_val, k in teed:
+            r = np.atleast_1d(np.asarray(row_val, dtype=np.float64))
+            yield float(r[col]), k
+
+    col_iters = [_col(tees[i], i) for i in range(N)]
+    col_inputs = [Input(f"c{i}") for i in range(N)]
+    columns_arg = cols[0] if scalar else cols
+    dag = Dag(col_inputs, [select(combine_latest(*col_inputs), columns=columns_arg)])
+    inner = dag(*col_iters)
+
+    if positional:
+        for v, _k in inner:
+            yield v, None
+    else:
+        yield from inner
+
+
 def select(values, columns, index=None):
     """Pick column(s) from a wide (M, N) value stream.
 
@@ -665,45 +854,21 @@ def select(values, columns, index=None):
     if is_node(values):
         return make_operator_node(select, (values,), {"columns": columns})
     if _is_lazy_stream(values):
-        return _select_lazy(values, columns)
+        return _select_lazy_cpp(values, columns)
     regime = "stream" if isinstance(values, Stream) else "raw"
     stream = values if isinstance(values, Stream) else Stream(values, index)
     vals = np.asarray(stream.values, dtype=np.float64)
     idx = stream.index
     cols, scalar = _normalize_columns(columns)
-    if vals.ndim == 1:
-        width = 1
-    else:
-        width = vals.shape[1]
+    # Validate columns in Python before building the Dag (preserves exact
+    # ValueError message regardless of which regime is active).
+    width = 1 if vals.ndim == 1 else vals.shape[1]
     for c in cols:
         if c >= width:
             raise ValueError(
                 f"select: column {c} out of range for width {width}")
-    if vals.ndim == 1:
-        # width 1: only column 0 is valid; result mirrors input
-        picked = vals if scalar else vals.reshape(-1, 1)
-    else:
-        picked = vals[:, cols[0]] if scalar else vals[:, cols]
-    return _adapt(regime, picked, idx)   # index is unchanged (row-preserving)
-
-
-def _select_lazy(events, columns):
-    """Streaming select over (value, index) tuples. value is scalar or sequence.
-
-    A positional live feed uses index=None. Projected events are yielded as
-    (value, index) with the original index passed through unchanged.
-    """
-    cols, scalar = _normalize_columns(columns)
-    for value, index in events:
-        arr = np.atleast_1d(np.asarray(value, dtype=np.float64))
-        for c in cols:
-            if c >= arr.size:
-                raise ValueError(
-                    f"select: column {c} out of range for width {arr.size}")
-        if scalar:
-            yield float(arr[cols[0]]), index
-        else:
-            yield [float(arr[c]) for c in cols], index
+    picked, out_idx = _select_via_cpp(vals, idx, cols, scalar)
+    return _adapt(regime, picked, out_idx)   # index is unchanged (row-preserving)
 
 
 _RESAMPLE_AGGS = ("first", "last", "min", "max", "sum", "count", "mean", "ohlc",
