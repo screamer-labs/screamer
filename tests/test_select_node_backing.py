@@ -145,6 +145,13 @@ def test_select_negative_raises():
         select(_V3, -1, index=_K3)
 
 
+def test_select_lazy_out_of_range_exact_message():
+    """Lazy regime validates the column too, with the exact same message."""
+    feed = ((row, int(k)) for row, k in zip(_V3, _K3))
+    with pytest.raises(ValueError, match=r"select: column 5 out of range for width 3"):
+        list(select(feed, 5))
+
+
 # ---------------------------------------------------------------------------
 # Stream regime
 # ---------------------------------------------------------------------------
@@ -167,10 +174,12 @@ def test_select_stream_multi():
 
 
 def test_select_stream_positional():
-    """Positional Stream (index=None) -> Stream with index=None."""
+    """Positional Stream (index=None) -> Stream with index=None; values correct."""
     s = select(Stream(_V3), 1)
     assert isinstance(s, Stream)
     assert s.index is None
+    if not np.array_equal(np.asarray(s.values), _EV_COL1_1D, equal_nan=True):
+        raise AssertionError(f"values mismatch: got {s.values} want {_EV_COL1_1D}")
 
 
 # ---------------------------------------------------------------------------
@@ -279,10 +288,10 @@ def test_batch_lazy_graph_2d_multi():
     np.testing.assert_array_equal(bk, _K3)
     # lazy == batch
     np.testing.assert_array_equal(lk, bk)
-    np.testing.assert_array_equal(lv, bv)
+    assert np.array_equal(lv, bv, equal_nan=True)
     # graph == batch
     np.testing.assert_array_equal(gk, bk)
-    np.testing.assert_array_equal(gv, bv)
+    assert np.array_equal(gv, bv, equal_nan=True)
 
 
 # ---------------------------------------------------------------------------
