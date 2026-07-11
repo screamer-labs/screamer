@@ -18,3 +18,7 @@ Filling and removing NaN values.
      - Replace NaN with the most recent finite value.
    * - :doc:`FillNa </functions_preprocessing/FillNa>`
      - Replace NaN with a user-specified scalar.
+   * - :doc:`IsFinite </functions_math/IsFinite>`
+     - Returns 1.0 for finite values, 0.0 for NaN or inf. Does not propagate NaN.
+   * - :doc:`IsNan </functions_math/IsNan>`
+     - Returns 1.0 if the input is NaN, else 0.0. Does not propagate NaN.

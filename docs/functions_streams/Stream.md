@@ -67,7 +67,7 @@ Stream operators accept three input forms and mirror the form on return:
 | a `Stream` | a `Stream` |
 | a graph `Node` | a `Node` (builds the DAG) |
 
-So `combine_latest`, `dropna`, `select`, `filter`, and `resample` take a
+So `combine_latest`, `dropna`, `select`, `Filter`, and `resample` take a
 `Stream` and return a `Stream`. A bare array is treated as positional
 (`index=None`). `merge` and `split` are the exception: they work on raw tagged
 arrays, not on `Stream` objects.

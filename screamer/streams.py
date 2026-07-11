@@ -1,4 +1,4 @@
-"""Streaming operators (merge, combine_latest, replay, dropna, filter, select,
+"""Streaming operators (merge, combine_latest, replay, dropna, Filter, select,
 split, resample).
 
 Each operator dispatches on input type (Rule A): concrete data runs eager;
@@ -19,7 +19,7 @@ __all__ = [
     "combine_latest",
     "replay",
     "dropna",
-    "filter",
+    "Filter",
     "select",
     "split",
     "resample",
@@ -545,29 +545,44 @@ def dropna(values, index=None, how="any"):
     return _adapt(regime, vals[mask], None if idx is None else idx[mask])
 
 
-def filter(values, predicate, index=None):
-    """Keep events where predicate(row) is truthy.
+class Filter:
+    """2-input mask gate: keep each data value whose aligned mask is nonzero
+    (zero or NaN drops). The mask is an ordinary stream built from upstream
+    comparison or logic ops, e.g. ``Filter()(x, GreaterThan()(x, 0.0))``.
+    No Python predicate or callback.
 
-    row is a scalar for a 1-D value stream, a 1-D array for a 2-D aligned stream.
-    predicate is a Python callable (per-event), so heavy filtering should prefer
-    dropna or numpy masks; filter is the general escape hatch. Values-first +
-    polymorphic: raw arrays or Stream. Node first arg raises ValueError (no
-    Python predicates in the graph engine).
-    When ``values`` is a ``Stream`` it carries its own index; ``index=`` applies only to raw arrays.
+    Gate rule: a mask value of zero or NaN drops the aligned data value; any
+    other mask value (positive, negative, non-NaN) keeps it. A NaN data value
+    passes through unmodified when its aligned mask is nonzero.
+
+    All three regimes (batch, lazy, graph) are driven by the same C++
+    FilterNode and return byte-identical results.
+
+    Batch (arrays or Streams)::
+
+        survivors, idx = Filter()(data_array, mask_array)
+
+    Lazy (iterators of (value, index) pairs)::
+
+        for val, idx in Filter()(iter(data_events), iter(mask_events)):
+            ...
+
+    Graph (Node inputs)::
+
+        d, m = Input("d"), Input("m")
+        dag = Dag(inputs=[d, m], outputs=[Filter()(d, m)])
+        survivors, idx = dag(data_array, mask_array)
     """
-    if is_node(values):
-        raise ValueError(
-            "filter is not supported as a DAG graph node: the graph engine has "
-            "no Python predicates (no lambda). Use dropna for NaN removal.")
-    if _is_lazy_stream(values):
-        return _filter_lazy(values, predicate)
-    regime = "stream" if isinstance(values, Stream) else "raw"
-    stream = values if isinstance(values, Stream) else Stream(values, index)
-    vals = np.asarray(stream.values)
-    idx = stream.index
-    mask = np.fromiter((bool(predicate(row)) for row in vals),
-                       dtype=bool, count=len(vals))
-    return _adapt(regime, vals[mask], None if idx is None else idx[mask])
+
+    __name__ = "Filter"
+
+    def __call__(self, data, mask):
+        if is_node(data) or is_node(mask):
+            return make_operator_node(Filter, (data, mask), {})
+        from .dag import Input, Dag
+        d, m = Input("data"), Input("mask")
+        dag = Dag(inputs=[d, m], outputs=[Filter()(d, m)])
+        return dag(data, mask)
 
 
 def _dropna_lazy(events, how="any"):
@@ -583,17 +598,6 @@ def _dropna_lazy(events, how="any"):
         nan = np.isnan(arr)
         drop = nan.any() if how == "any" else nan.all()
         if not drop:
-            yield value, index
-
-
-def _filter_lazy(events, predicate):
-    """Streaming filter over (value, index) tuples.
-
-    A positional live feed uses index=None. Surviving events are yielded as
-    (value, index) with the original index passed through unchanged.
-    """
-    for value, index in events:
-        if predicate(value):
             yield value, index
 
 

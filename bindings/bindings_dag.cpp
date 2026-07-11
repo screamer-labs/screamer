@@ -151,6 +151,10 @@ void init_bindings_dag(py::module& m) {
             return builder.add_combine_latest(std::move(inputs), when_all);
         }
 
+        std::size_t add_filter(std::vector<std::size_t> inputs) {
+            return builder.add_filter(std::move(inputs));
+        }
+
         std::size_t add_dropna(std::vector<std::size_t> inputs, bool how_all) {
             return builder.add_dropna(std::move(inputs), how_all);
         }
@@ -237,6 +241,9 @@ void init_bindings_dag(py::module& m) {
                                       std::vector<std::size_t> inputs, bool when_all) {
             return b.add_combine_latest(std::move(inputs), when_all);
         }, py::arg("inputs"), py::arg("when_all") = true)
+        .def("add_filter", [](PyGraphBuilder& b, std::vector<std::size_t> inputs) {
+            return b.add_filter(std::move(inputs));
+        }, py::arg("inputs"))
         .def("add_dropna", [](PyGraphBuilder& b,
                               std::vector<std::size_t> inputs, bool how_all) {
             return b.add_dropna(std::move(inputs), how_all);

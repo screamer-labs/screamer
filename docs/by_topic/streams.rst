@@ -16,8 +16,8 @@ Aligning, combining, reshaping, and replaying event streams.
      - As-of latest-value join of N streams: one row per distinct index (same-index events coalesce).
    * - :doc:`dropna </functions_streams/dropna>`
      - Drop events whose value is NaN.
-   * - :doc:`filter </functions_streams/filter>`
-     - Keep events where predicate(row) is truthy.
+   * - :doc:`Filter </functions_streams/Filter>`
+     - 2-input mask gate - keep each data value whose aligned mask is nonzero.
    * - :doc:`merge </functions_streams/merge>`
      - Merge N value streams into one index-sorted (values, sources, index).
    * - :doc:`replay </functions_streams/replay>`
