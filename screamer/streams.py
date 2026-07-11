@@ -7,6 +7,8 @@ runs C++ node graphs; dtype detection here chooses the int64 or float64
 index-type instantiation, and the per-event work is all C++.
 """
 import asyncio
+import datetime
+import re
 
 import numpy as np
 
@@ -728,12 +730,12 @@ _OHLCV_COLUMNS = ("open", "high", "low", "close", "volume")
 _OHLCV2_COLUMNS = ("open", "high", "low", "close", "buy_vol", "sell_vol")
 
 
-_OFFSET_UNIT_MAP = {
-    "s":   ("s",  1),
-    "min": ("m",  1),
-    "T":   ("m",  1),
-    "h":   ("h",  1),
-    "D":   ("D",  1),
+_OFFSET_UNIT_MAP = {   # offset unit -> numpy timedelta64 unit
+    "s":   "s",
+    "min": "m",
+    "T":   "m",
+    "h":   "h",
+    "D":   "D",
 }
 
 
@@ -744,7 +746,6 @@ def _parse_offset_string(s):
     A bare unit without a multiplier means multiplier 1 (e.g. 'min' == '1min').
     Raises ValueError for an unrecognised or calendar-based (M, Y) unit.
     """
-    import re
     m = re.fullmatch(r"(\d+)?([a-zA-Z]+)", s.strip())
     if m is None:
         raise ValueError(
@@ -757,8 +758,7 @@ def _parse_offset_string(s):
             f"resample: unsupported offset unit {unit!r} in {s!r}; "
             "supported: s, min, T, h, D "
             "(calendar offsets such as month/year are not supported)")
-    np_unit, _ = _OFFSET_UNIT_MAP[unit]
-    return np.timedelta64(mult, np_unit)
+    return np.timedelta64(mult, _OFFSET_UNIT_MAP[unit])
 
 
 def _resample_datetime_freq(freq, index):
@@ -769,8 +769,6 @@ def _resample_datetime_freq(freq, index):
     Raises TypeError for int/float freq on a datetime64 index.
     Raises ValueError for unsupported/calendar offset units or a non-exact conversion.
     """
-    import datetime as _dt
-
     # Reject numeric freq types on a datetime64 index.
     # Note: np.timedelta64 inherits from np.integer, so exclude it explicitly.
     _is_number = (isinstance(freq, (int, float, np.integer, np.floating))
@@ -784,7 +782,7 @@ def _resample_datetime_freq(freq, index):
     # Convert freq to np.timedelta64
     if isinstance(freq, str):
         td = _parse_offset_string(freq)
-    elif isinstance(freq, _dt.timedelta):
+    elif isinstance(freq, datetime.timedelta):
         # Use exact integer arithmetic: timedelta stores days, seconds, microseconds.
         total_us = (freq.days * 86_400 * 1_000_000
                     + freq.seconds * 1_000_000
@@ -839,8 +837,9 @@ def _resample_freq_to_engine(freq, index):
     """
     if index is not None and np.asarray(index).dtype.kind == "M":   # datetime64
         return _resample_datetime_freq(freq, index)
-    if isinstance(freq, (str,)) or hasattr(freq, "total_seconds"):
-        # offset string or timedelta on a non-datetime64 index - not supported
+    if isinstance(freq, (str, np.timedelta64)) or hasattr(freq, "total_seconds"):
+        # offset string, np.timedelta64, or datetime.timedelta on a non-datetime64
+        # index - not supported (an integer index expects an integer span)
         raise TypeError(
             f"resample: freq={freq!r} is an offset/timedelta but the index is not "
             "datetime64; pass an integer span for an integer index, or use a "

@@ -418,16 +418,17 @@ def test_freq_datetime_unsupported_offset_raises():
 
 
 def test_freq_datetime_offset_not_exact_multiple_raises():
-    # index in seconds; "1min" = 60s is exact, but "7s" into a "1min" span fails
-    # Here we test offset that isn't a multiple: "7s" on datetime64[ms] (7000ms)
-    # Actually let's test a truly non-divisible case: 7-second bars on ms index
-    # 7000 ms divides evenly so use something that genuinely does not
-    t = np.array(["2020-01-01T00:00:00"], dtype="datetime64[s]")
-    # "7s" into datetime64[ms] = 7000ms, which is exact - fine.
-    # Use timedelta64 that doesn't divide: 1.5s into datetime64[ms] -> 1500ms (exact).
-    # Use 1s timedelta64 in "us" units on "ms" index: 1_000_000 us = 1000ms (exact).
-    # Genuine non-exact: timedelta of 1500ms on datetime64[s] -> 1.5s, not integer.
+    # A freq that is not a whole multiple of the index resolution must raise, not
+    # silently truncate: 1500ms into a datetime64[s] index is 1.5s (non-integer).
     t_s = np.array(["2020-01-01T00:00:00"], dtype="datetime64[s]")
     with pytest.raises(ValueError):
         resample(np.array([1.0]), t_s,
                  freq=np.timedelta64(1500, "ms"), agg="sum")
+
+
+def test_freq_timedelta64_on_integer_index_raises_clearly():
+    # np.timedelta64 subclasses np.integer, so guard against it being treated as a
+    # numeric span on an integer index; must raise a clear TypeError.
+    with pytest.raises(TypeError):
+        resample(np.array([1.0, 2, 3]), np.array([0, 1, 2]),
+                 freq=np.timedelta64(1, "m"), agg="sum")
