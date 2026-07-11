@@ -925,9 +925,14 @@ def _resample_validate(freq, every, count, agg, label, fill="skip"):
         raise ValueError("resample: every must be positive")
     if count is not None and int(count) < 1:
         raise ValueError("resample: count must be >= 1")
-    # agg may be a builtin string, an arbitrary functor reducer (an EvalOp), or
-    # a dict of {name: str|functor} entries. Only string scalars are validated
-    # here; dict contents are validated in _resample_dict.
+    # agg may be a builtin string or an arbitrary functor reducer (an EvalOp).
+    # dict agg is no longer supported; raise immediately with a migration hint.
+    if isinstance(agg, dict):
+        raise ValueError(
+            "resample no longer accepts agg={...}; build columns with "
+            "combine_latest of per-stat resamples, e.g. "
+            "combine_latest(resample(price, freq=..., agg='first'), "
+            "resample(vol, freq=..., agg='sum')); see docs")
     if isinstance(agg, str) and agg not in _RESAMPLE_AGGS:
         raise ValueError(
             f"resample: unknown agg string {agg!r}; "
@@ -937,70 +942,6 @@ def _resample_validate(freq, every, count, agg, label, fill="skip"):
     if fill not in _RESAMPLE_FILLS:
         raise ValueError(f"resample: fill must be one of {_RESAMPLE_FILLS}")
 
-
-def _resample_dict(vals, idx, agg_dict, *, every, count, origin, label,
-                   fill="skip"):
-    """Run each sub-reducer in a dict agg independently over the same bucketing.
-
-    Each entry ``{name: str|functor}`` is run through ``_resample_via_cpp``
-    with the shared ``every``/``count``/``origin``/``label`` params.  Because all
-    sub-resamples see the same input and the same bucketing they produce identical
-    bar labels and the same number of bars, so their 1-D result columns align and
-    can be horizontally stacked.
-
-    Python only stacks the results and attaches names (marshalling); all numeric
-    bucketing and accumulation runs in the C++ engine.
-
-    Multi-column sub-aggs (``"ohlc"`` or a functor with ``num_outputs > 1``) are
-    rejected with a ``ValueError`` in v1; each dict entry must produce exactly
-    one column.  Use ``agg="ohlc"`` directly for a labelled 4-column ``Stream``.
-    """
-    if not agg_dict:
-        raise ValueError("resample: agg dict must not be empty")
-
-    out_cols = []
-    out_idx = None
-
-    for name, sub_agg in agg_dict.items():
-        sub_agg = _resolve_agg(sub_agg)
-        # Validate the sub-agg and reject multi-column entries.
-        if isinstance(sub_agg, str):
-            if sub_agg not in _RESAMPLE_AGGS:
-                raise ValueError(
-                    f"resample: dict agg[{name!r}]: unknown string agg {sub_agg!r}; "
-                    f"valid names are {sorted(_ALL_AGG_NAMES)}")
-            if sub_agg == "ohlc":
-                raise ValueError(
-                    f"resample: dict agg[{name!r}]: 'ohlc' produces 4 columns and "
-                    "cannot be used as a dict entry (v1: each entry must produce "
-                    "exactly 1 column). Use agg='ohlc' directly for a labelled "
-                    "4-column Stream.")
-            if sub_agg in ("ohlcv", "ohlcv2"):
-                raise ValueError(
-                    f"resample: dict agg[{name!r}]: '{sub_agg}' requires a 2-column "
-                    "input and cannot be used as a dict entry. "
-                    f"Use agg='{sub_agg}' directly with a [price, volume] input.")
-        else:
-            # Functor: check num_outputs (exposed from EvalOp.n_out()).
-            n_out = getattr(sub_agg, "num_outputs", 1)
-            if n_out != 1:
-                raise ValueError(
-                    f"resample: dict agg[{name!r}]: functor produces {n_out} columns "
-                    "but each dict entry must produce exactly 1 column (v1 restriction). "
-                    "Use agg=functor directly for multi-column output.")
-
-        # Delegate to the C++ engine - no Python numeric loop.
-        out_v, sub_idx = _resample_via_cpp(
-            (vals, idx), every=every, count=count, agg=sub_agg,
-            origin=origin, label=label, fill=fill)
-        out_cols.append(out_v)
-        if out_idx is None:
-            out_idx = sub_idx
-
-    # All sub-aggs produce the same number of bars (same bucketing + same input),
-    # so column_stack is safe: shape (N,) per column -> (N, K) matrix.
-    stacked = np.column_stack(out_cols)
-    return Stream(stacked, out_idx, columns=tuple(agg_dict.keys()))
 
 
 def _resample_ohlcv(vals_2d, idx, agg, *, every, count, origin, label,
@@ -1083,23 +1024,6 @@ def resample(values, index=None, *, freq=None, every=None, count=None, agg="last
       A single-output functor returns a 1-D ``Stream``; a multi-output functor
       returns an unlabelled 2-D ``Stream``.  The functor must accept exactly
       1 input (single-value stream); a multi-input functor raises at runtime.
-    * **dict** ``{name: agg, ...}``: runs several reducers over the same
-      bucketing and returns a labelled ``Stream`` whose ``.columns`` are the dict
-      keys (insertion order).  Each entry must produce exactly 1 column; ``"ohlc"``
-      and multi-output functors are rejected (use ``agg="ohlc"`` directly for
-      4-column output).  Two forms:
-
-      - **eager** (raw arrays / ``Stream``): each value is a string or functor
-        reducer applied to the single value stream, e.g.
-        ``{"open": "first", "vol": "sum"}``.
-      - **graph / lazy** (``resample(t, agg={...})`` where the values are Nodes):
-        each value is a lazy expression ``Reducer()(sub_expr)`` whose top node is
-        the per-bar reducer and whose single input is the upstream port (per-tick
-        transforms live there), e.g.
-        ``{"buy": ExpandingSum()(PosPart()(vol))}``.  The first positional argument
-        ``t`` is the clock; all columns share one bar clock, so they cannot drift.
-        Place the result in a ``Dag`` and bind data at call time.
-
     ``label`` picks each bar's index. For ``every=`` it is the **grid edge**
     (``origin+n*W`` for ``"left"``, ``origin+(n+1)*W`` for ``"right"``), the
     interval boundary, which need not be an actual tick. For ``count=`` it is an
@@ -1148,27 +1072,13 @@ def resample(values, index=None, *, freq=None, every=None, count=None, agg="last
         every = _width if _mode == "span" else None
         count = _width if _mode == "count" else None
     if is_node(values):
-        if isinstance(agg, dict):
-            # Lazy multi-column bars: each value is Reducer()(sub_expr). `values` is
-            # the clock/timeline `t`. Split each expr into (reducer, port); one shared
-            # clock drives empty time-bar finalization in every= mode.
-            if not agg:
-                raise ValueError("resample: agg dict is empty")
-            names, ports, reducers = [], [], []
-            for nm, expr in agg.items():
-                red, port = _split_reducer_expr(nm, expr)
-                names.append(nm)
-                ports.append(port)
-                reducers.append(red)
-            return multi_resample(ports, reducers, clock=values, every=every,
-                                  count=count, origin=origin, label=label,
-                                  fill=fill, columns=tuple(names))
         if agg in ("ohlcv", "ohlcv2"):
             raise ValueError(
                 f"resample: the agg='{agg}' string shorthand is eager-only and is "
-                "not supported in the graph (Node) regime. In a graph, build the "
-                "columns with a lazy agg dict instead, e.g. agg={'open': "
-                "First()(price), 'buy': ExpandingSum()(PosPart()(vol)), ...}.")
+                "not supported in the graph (Node) regime. In a graph, build "
+                "multi-column bars with combine_latest of per-stat resample nodes, "
+                "e.g. combine_latest(resample(price, every=W, agg='first'), "
+                "resample(vol, every=W, agg='sum')).")
         return make_operator_node(resample, (values,), {
             "every": every, "count": count, "agg": agg,
             "origin": origin, "label": label, "fill": fill})
@@ -1176,11 +1086,11 @@ def resample(values, index=None, *, freq=None, every=None, count=None, agg="last
         # Rule A: a lazy iterator of (value, index) events -> a lazy iterator of
         # (bar_value, bar_label). Drive the same C++ resample node as batch through
         # the Stage-2 lazy Dag; no Python windowing accumulator runs here.
-        if isinstance(agg, dict) or agg in ("ohlcv", "ohlcv2"):
+        if agg in ("ohlcv", "ohlcv2"):
             raise ValueError(
                 "resample(<iterator>) supports string and functor scalar aggs "
-                "only; dict and ohlcv/ohlcv2 aggs are eager-only. Materialize the "
-                "stream to an array for those, or build the columns inside a Dag.")
+                "only; ohlcv/ohlcv2 aggs are eager-only. Materialize the "
+                "stream to an array for those.")
         return _resample_via_cpp(values, every=every, count=count, agg=agg,
                                  origin=origin, label=label, fill=fill)
     stream = values if isinstance(values, Stream) else Stream(values, index)
@@ -1201,13 +1111,6 @@ def resample(values, index=None, *, freq=None, every=None, count=None, agg="last
     else:
         idx = np.asarray(stream.index)
 
-    # Dict agg: run each sub-reducer over the shared bucketing and stack columns.
-    # Python only stacks the results and attaches names; all numeric reduction
-    # runs in the C++ engine via the existing single-agg path.
-    if isinstance(agg, dict):
-        return _resample_dict(vals, idx, agg, every=every, count=count,
-                              origin=origin, label=label, fill=fill)
-
     # ohlcv / ohlcv2: orchestrate existing C++ reducers over a 2-column input.
     # Python splits the columns, runs sub-resamples, and stacks; all numeric
     # bucketing and accumulation runs in C++ as with the single-column path.
@@ -1226,29 +1129,6 @@ def resample(values, index=None, *, freq=None, every=None, count=None, agg="last
     # (values, index) for backward-compatible tuple unpacking.
     return Stream(out_v, out_idx, columns=cols)
 
-
-def _split_reducer_expr(name, expr):
-    """A dict-agg value must be ``Reducer()(sub_expr)``: a functor Node with exactly one
-    input. Returns ``(reducer_evalop, port_node)``. Raises a clear error otherwise."""
-    if not is_node(expr):
-        raise ValueError(
-            f"resample: agg[{name!r}] must be a lazy expression like "
-            f"First()(price); got {type(expr).__name__}. In the graph regime the "
-            f"dict values are code fragments (functors applied to Nodes), not strings.")
-    op = expr.op
-    # A functor node's op is the EvalOp instance (not a tuple).
-    # An operator/input node's op is a tuple: ("input", name) or ("operator", fn, kwargs).
-    if isinstance(op, tuple):
-        kind = op[0] if op else "?"
-        raise ValueError(
-            f"resample: agg[{name!r}] must be a single reducer functor applied to a "
-            f"stream (e.g. ExpandingSum()(PosPart()(vol))); its top node is a "
-            f"{kind!r} node, not a reducer functor.")
-    if len(expr.inputs) != 1:
-        raise ValueError(
-            f"resample: agg[{name!r}] reducer must take exactly one input stream; "
-            f"got {len(expr.inputs)}.")
-    return op, expr.inputs[0]
 
 
 def multi_resample(inputs, reducers, clock=None, every=None, count=None, origin=0,
