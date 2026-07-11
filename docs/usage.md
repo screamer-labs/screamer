@@ -214,9 +214,9 @@ of another. When feeds arrive on different clocks, at different rates, or with
 dropped samples, the `screamer.streams` layer aligns them before they reach a
 function. It provides operators to combine streams (`CombineLatest`, `Merge`),
 reshape them (`Dropna`, `Filter`, `Select`), downsample them (`Resample`), and
-replay stored data as a live feed (`replay`). The model — streams, their index,
-and alignment — is described in
-[Streams, values, and alignment](multistream.md). The [Working with streams](notebooks/07-working-with-streams)
+replay stored data as a live feed (`replay`). The model (streams, their index,
+and alignment) is described in
+[Streams, values, and alignment](multistream.md). The [Multi-stream operators](notebooks/07-multi-stream-operators)
 notebook shows them in use.
 
 ## Whole pipelines: the graph

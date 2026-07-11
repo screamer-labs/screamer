@@ -136,19 +136,16 @@ For a step-by-step walkthrough see the :doc:`User Guide <usage>`.
    :hidden:
 
    notebooks/01-quickstart-polymorphic-api
-   notebooks/02-rolling-and-ew-statistics
-   notebooks/11-expanding-statistics
+   notebooks/02-window-statistics
    notebooks/03-financial-indicators
    notebooks/04-signal-processing
    notebooks/05-nan-handling
    notebooks/06-streaming-live-events
-   notebooks/07-working-with-streams
+   notebooks/07-multi-stream-operators
    notebooks/08-replay-backtest-live
    notebooks/09-computational-dag
-   notebooks/10-resample-string-aggregations
-   notebooks/N2-custom-bar-statistics
-   notebooks/N3-bucketing-and-empty-bars
-   notebooks/N4-multi-column-bars-in-a-dag
+   notebooks/10-bars-from-ticks
+   notebooks/11-custom-and-multi-column-bars
 
 
 .. toctree::
