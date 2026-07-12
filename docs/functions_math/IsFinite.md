@@ -25,3 +25,17 @@ nan_policy: nan-aware
 Unlike most screamer functions, `IsFinite` does **not** propagate NaN; it converts NaN into a definite `0.0` flag. Use it to build validity masks that distinguish well-defined observations from missing or overflow values.
 
 *Parameters*: `IsFinite` takes no parameters.
+
+## Examples
+
+### Usage example
+
+```{eval-rst}
+.. exec_code::
+
+    import numpy as np
+    from screamer import IsFinite
+
+    x = np.array([1.0, np.inf, np.nan, -np.inf, 4.0, 5.0])
+    print(IsFinite()(x))     # -> [1. 0. 0. 0. 1. 1.]  (1.0 only for finite values, 0.0 for inf/nan)
+```

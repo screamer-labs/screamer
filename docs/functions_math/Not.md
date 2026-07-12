@@ -23,3 +23,17 @@ nan_policy: ignore
 *NaN handling*: NaN input yields NaN output.
 
 *Parameters*: `Not` takes no parameters.
+
+## Examples
+
+### Usage example
+
+```{eval-rst}
+.. exec_code::
+
+    import numpy as np
+    from screamer import Not
+
+    m = np.array([1.0, 0.0, 1.0, 1.0, 0.0, 1.0])
+    print(Not()(m))     # -> [0. 1. 0. 0. 1. 0.]  (flips the mask: 1.0 where the input is zero)
+```

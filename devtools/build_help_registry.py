@@ -49,11 +49,11 @@ H1_RE = re.compile(r"^# .*\n", re.M)
 EXAMPLES_H2_RE = re.compile(r"^## Examples\s*\n", re.M)
 H3_SPLIT_RE = re.compile(r"^### (.+)$", re.M)
 FENCE_RE = re.compile(r"\A```(\S*)\s*\n(.*?)\n```", re.S)
-PLOTLY_DIRECTIVE_RE = re.compile(
-    r"\A\.\. plotly::\s*\n"        # ".. plotly::" + newline
-    r"((?:[ \t]+:[^\n]*\n)*)"      # zero or more ":option: value" lines
-    r"\s*\n"                       # blank line
-    r"(.+)",                       # indented body (captured)
+EVAL_RST_DIRECTIVE_RE = re.compile(
+    r"\A\.\. (?:plotly|exec_code)::\s*\n"  # ".. plotly::" or ".. exec_code::"
+    r"((?:[ \t]+:[^\n]*\n)*)"              # zero or more ":option: value" lines
+    r"\s*\n"                               # blank line
+    r"(.+)",                               # indented body (captured)
     re.S,
 )
 # pybind11 emits ``__init__(self: <type>, foo: int, bar: str = 'x') -> None``
@@ -100,16 +100,16 @@ def parse_help_file_text(text: str) -> dict | None:
     return entry
 
 
-def _unwrap_plotly(eval_rst_body: str) -> str:
-    """Extract the indented python body from a `.. plotly::` directive.
+def _unwrap_eval_rst(eval_rst_body: str) -> str:
+    """Extract the indented python body from a `.. plotly::` or `.. exec_code::` directive.
 
-    Raises ValueError if the eval-rst body is not a plotly directive.
+    Raises ValueError if the eval-rst body is not one of those directives.
     """
-    m = PLOTLY_DIRECTIVE_RE.match(eval_rst_body)
+    m = EVAL_RST_DIRECTIVE_RE.match(eval_rst_body)
     if not m:
         raise ValueError(
             "unsupported eval-rst directive in `## Examples` "
-            "(only `.. plotly::` is recognized)"
+            "(only `.. plotly::` and `.. exec_code::` are recognized)"
         )
     indented_body = m.group(2)
     return textwrap.dedent(indented_body).strip("\n")
@@ -140,7 +140,7 @@ def _parse_examples_region(text: str) -> list[dict]:
         language = m.group(1).strip() or "python"
         code = m.group(2)
         if language == "{eval-rst}":
-            code = _unwrap_plotly(code)
+            code = _unwrap_eval_rst(code)
             language = "python"
         examples.append({"language": language, "caption": caption, "code": code})
     return examples

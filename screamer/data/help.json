@@ -242,7 +242,13 @@
     ],
     "nan_policy": "ignore",
     "details": "## Description\n\nThe Garman-Klass (1980) range-based volatility estimator. Per-bar variance contribution:\n\n$$\n\\sigma^2_\\text{GK}[t] = \\tfrac{1}{2}\\big(\\ln H/L\\big)^2 - (2\\ln 2 - 1)\\big(\\ln C/O\\big)^2\n$$\n\nThis expression is averaged with a exponentially-weighted mean to form the estimator. The `Vol`\nvariant returns `sqrt(Var)` (bit-exact via the same internal state).\n\n**4-input, 1-output** on `(open, high, low, close)`. ~7.4x more statistically efficient\nthan close-to-close `RollingStd` *under the model's assumptions* (zero drift, no overnight\ngaps).\n\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
-    "examples": []
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage example",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import EwGarmanKlassVar\n\nnp.random.seed(0)\nclose = 100*np.exp(np.cumsum(np.random.normal(0, 0.01, size=300)))\nopen_ = np.concatenate([[close[0]], close[:-1]])\nwick = np.abs(np.random.normal(0, 0.4, size=300))\nhigh = np.maximum(open_, close) + wick\nlow  = np.minimum(open_, close) - wick\nvar = EwGarmanKlassVar(span=20)(open_, high, low, close)\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True,\n                    row_heights=[0.55, 0.45], vertical_spacing=0.08)\nfig.add_trace(go.Scatter(y=close, name=\"close\"), row=1, col=1)\nfig.add_trace(go.Scatter(y=var, name=\"EwGarmanKlassVar\", line=dict(color=\"red\")), row=2, col=1)\nfig.update_layout(title=\"EW Garman-Klass variance from OHLC bars (EwGarmanKlassVar)\",\n                  margin=dict(l=20, r=20, t=60, b=20),\n                  legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1))\nfig.update_yaxes(title_text=\"price\", row=1, col=1)\nfig.update_yaxes(title_text=\"variance\", row=2, col=1)\nfig.show()"
+      }
+    ]
   },
   "EwGarmanKlassVol": {
     "name": "EwGarmanKlassVol",
@@ -289,7 +295,13 @@
     ],
     "nan_policy": "ignore",
     "details": "## Description\n\nThe Garman-Klass (1980) range-based volatility estimator. Per-bar variance contribution:\n\n$$\n\\sigma^2_\\text{GK}[t] = \\tfrac{1}{2}\\big(\\ln H/L\\big)^2 - (2\\ln 2 - 1)\\big(\\ln C/O\\big)^2\n$$\n\nThis expression is averaged with a exponentially-weighted mean to form the estimator. The `Vol`\nvariant returns `sqrt(Var)` (bit-exact via the same internal state).\n\n**4-input, 1-output** on `(open, high, low, close)`. ~7.4x more statistically efficient\nthan close-to-close `RollingStd` *under the model's assumptions* (zero drift, no overnight\ngaps).\n\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
-    "examples": []
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage example",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import EwGarmanKlassVol\n\nnp.random.seed(0)\nclose = 100*np.exp(np.cumsum(np.random.normal(0, 0.01, size=300)))\nopen_ = np.concatenate([[close[0]], close[:-1]])\nwick = np.abs(np.random.normal(0, 0.4, size=300))\nhigh = np.maximum(open_, close) + wick\nlow  = np.minimum(open_, close) - wick\nvol = EwGarmanKlassVol(span=20)(open_, high, low, close)\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True,\n                    row_heights=[0.55, 0.45], vertical_spacing=0.08)\nfig.add_trace(go.Scatter(y=close, name=\"close\"), row=1, col=1)\nfig.add_trace(go.Scatter(y=vol, name=\"EwGarmanKlassVol\", line=dict(color=\"red\")), row=2, col=1)\nfig.update_layout(title=\"EW Garman-Klass volatility from OHLC bars (EwGarmanKlassVol)\",\n                  margin=dict(l=20, r=20, t=60, b=20),\n                  legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1))\nfig.update_yaxes(title_text=\"price\", row=1, col=1)\nfig.update_yaxes(title_text=\"volatility\", row=2, col=1)\nfig.show()"
+      }
+    ]
   },
   "EwKurt": {
     "name": "EwKurt",
@@ -438,7 +450,13 @@
     ],
     "nan_policy": "ignore",
     "details": "## Description\n\nThe Parkinson (1980) range-based volatility estimator. Per-bar variance contribution:\n\n$$\n\\sigma^2_\\text{Parkinson}[t] = \\frac{1}{4 \\ln 2}\\ \\big(\\ln H/L\\big)^2\n$$\n\nThis expression is then averaged with a exponentially-weighted mean to form the estimator. The\n`Vol` variant returns `sqrt(Var)`; the two are bit-exact via the same internal state.\n\n**2-input, 1-output** on `(high, low)`. ~5x more statistically efficient than\nclose-to-close `RollingStd` *under the model's assumptions* (zero drift, no overnight gaps).\n\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
-    "examples": []
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage example",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import EwParkinsonVar\n\nnp.random.seed(0)\nclose = 100*np.exp(np.cumsum(np.random.normal(0, 0.01, size=300)))\nopen_ = np.concatenate([[close[0]], close[:-1]])\nwick = np.abs(np.random.normal(0, 0.4, size=300))\nhigh = np.maximum(open_, close) + wick\nlow  = np.minimum(open_, close) - wick\nvar = EwParkinsonVar(span=20)(high, low)\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True,\n                    row_heights=[0.55, 0.45], vertical_spacing=0.08)\nfig.add_trace(go.Scatter(y=high, name=\"high\"), row=1, col=1)\nfig.add_trace(go.Scatter(y=low, name=\"low\"), row=1, col=1)\nfig.add_trace(go.Scatter(y=var, name=\"EwParkinsonVar\", line=dict(color=\"red\")), row=2, col=1)\nfig.update_layout(title=\"EW Parkinson variance from high-low range (EwParkinsonVar)\",\n                  margin=dict(l=20, r=20, t=60, b=20),\n                  legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1))\nfig.update_yaxes(title_text=\"price\", row=1, col=1)\nfig.update_yaxes(title_text=\"variance\", row=2, col=1)\nfig.show()"
+      }
+    ]
   },
   "EwParkinsonVol": {
     "name": "EwParkinsonVol",
@@ -485,7 +503,13 @@
     ],
     "nan_policy": "ignore",
     "details": "## Description\n\nThe Parkinson (1980) range-based volatility estimator. Per-bar variance contribution:\n\n$$\n\\sigma^2_\\text{Parkinson}[t] = \\frac{1}{4 \\ln 2}\\ \\big(\\ln H/L\\big)^2\n$$\n\nThis expression is then averaged with a exponentially-weighted mean to form the estimator. The\n`Vol` variant returns `sqrt(Var)`; the two are bit-exact via the same internal state.\n\n**2-input, 1-output** on `(high, low)`. ~5x more statistically efficient than\nclose-to-close `RollingStd` *under the model's assumptions* (zero drift, no overnight gaps).\n\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
-    "examples": []
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage example",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import EwParkinsonVol\n\nnp.random.seed(0)\nclose = 100*np.exp(np.cumsum(np.random.normal(0, 0.01, size=300)))\nopen_ = np.concatenate([[close[0]], close[:-1]])\nwick = np.abs(np.random.normal(0, 0.4, size=300))\nhigh = np.maximum(open_, close) + wick\nlow  = np.minimum(open_, close) - wick\nvol = EwParkinsonVol(span=20)(high, low)\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True,\n                    row_heights=[0.55, 0.45], vertical_spacing=0.08)\nfig.add_trace(go.Scatter(y=high, name=\"high\"), row=1, col=1)\nfig.add_trace(go.Scatter(y=low, name=\"low\"), row=1, col=1)\nfig.add_trace(go.Scatter(y=vol, name=\"EwParkinsonVol\", line=dict(color=\"red\")), row=2, col=1)\nfig.update_layout(title=\"EW Parkinson volatility from high-low range (EwParkinsonVol)\",\n                  margin=dict(l=20, r=20, t=60, b=20),\n                  legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1))\nfig.update_yaxes(title_text=\"price\", row=1, col=1)\nfig.update_yaxes(title_text=\"volatility\", row=2, col=1)\nfig.show()"
+      }
+    ]
   },
   "EwRms": {
     "name": "EwRms",
@@ -584,7 +608,13 @@
     ],
     "nan_policy": "ignore",
     "details": "## Description\n\nThe Rogers-Satchell (1991) range-based volatility estimator. Per-bar variance contribution:\n\n$$\n\\sigma^2_\\text{RS}[t] = \\ln\\tfrac{H}{C}\\ \\ln\\tfrac{H}{O} + \\ln\\tfrac{L}{C}\\ \\ln\\tfrac{L}{O}\n$$\n\nThis expression is averaged with a exponentially-weighted mean to form the estimator. The `Vol`\nvariant returns `sqrt(Var)` (bit-exact via the same internal state).\n\n**4-input, 1-output** on `(open, high, low, close)`. Slightly less efficient (~6x vs\nclose-to-close) than Garman-Klass but **drift-robust** - works correctly when the underlying\ndrift is non-zero, a much more realistic assumption for trending markets.\n\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
-    "examples": []
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage example",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import EwRogersSatchellVar\n\nnp.random.seed(0)\nclose = 100*np.exp(np.cumsum(np.random.normal(0, 0.01, size=300)))\nopen_ = np.concatenate([[close[0]], close[:-1]])\nwick = np.abs(np.random.normal(0, 0.4, size=300))\nhigh = np.maximum(open_, close) + wick\nlow  = np.minimum(open_, close) - wick\nvar = EwRogersSatchellVar(span=20)(open_, high, low, close)\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True,\n                    row_heights=[0.55, 0.45], vertical_spacing=0.08)\nfig.add_trace(go.Scatter(y=close, name=\"close\"), row=1, col=1)\nfig.add_trace(go.Scatter(y=var, name=\"EwRogersSatchellVar\", line=dict(color=\"red\")), row=2, col=1)\nfig.update_layout(title=\"EW Rogers-Satchell variance from OHLC bars (EwRogersSatchellVar)\",\n                  margin=dict(l=20, r=20, t=60, b=20),\n                  legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1))\nfig.update_yaxes(title_text=\"price\", row=1, col=1)\nfig.update_yaxes(title_text=\"variance\", row=2, col=1)\nfig.show()"
+      }
+    ]
   },
   "EwRogersSatchellVol": {
     "name": "EwRogersSatchellVol",
@@ -632,7 +662,13 @@
     ],
     "nan_policy": "ignore",
     "details": "## Description\n\nThe Rogers-Satchell (1991) range-based volatility estimator. Per-bar variance contribution:\n\n$$\n\\sigma^2_\\text{RS}[t] = \\ln\\tfrac{H}{C}\\ \\ln\\tfrac{H}{O} + \\ln\\tfrac{L}{C}\\ \\ln\\tfrac{L}{O}\n$$\n\nThis expression is averaged with a exponentially-weighted mean to form the estimator. The `Vol`\nvariant returns `sqrt(Var)` (bit-exact via the same internal state).\n\n**4-input, 1-output** on `(open, high, low, close)`. Slightly less efficient (~6x vs\nclose-to-close) than Garman-Klass but **drift-robust** - works correctly when the underlying\ndrift is non-zero, a much more realistic assumption for trending markets.\n\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
-    "examples": []
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage example",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import EwRogersSatchellVol\n\nnp.random.seed(0)\nclose = 100*np.exp(np.cumsum(np.random.normal(0, 0.01, size=300)))\nopen_ = np.concatenate([[close[0]], close[:-1]])\nwick = np.abs(np.random.normal(0, 0.4, size=300))\nhigh = np.maximum(open_, close) + wick\nlow  = np.minimum(open_, close) - wick\nvol = EwRogersSatchellVol(span=20)(open_, high, low, close)\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True,\n                    row_heights=[0.55, 0.45], vertical_spacing=0.08)\nfig.add_trace(go.Scatter(y=close, name=\"close\"), row=1, col=1)\nfig.add_trace(go.Scatter(y=vol, name=\"EwRogersSatchellVol\", line=dict(color=\"red\")), row=2, col=1)\nfig.update_layout(title=\"EW Rogers-Satchell volatility from OHLC bars (EwRogersSatchellVol)\",\n                  margin=dict(l=20, r=20, t=60, b=20),\n                  legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1))\nfig.update_yaxes(title_text=\"price\", row=1, col=1)\nfig.update_yaxes(title_text=\"volatility\", row=2, col=1)\nfig.show()"
+      }
+    ]
   },
   "EwSkew": {
     "name": "EwSkew",
@@ -1114,7 +1150,13 @@
     "parameters": [],
     "nan_policy": "ignore",
     "details": "## Description\n\nRunning drawdown from the cumulative-since-inception peak:\n\n$$\n\\text{Drawdown}[t] = \\frac{\\text{price}[t]}{\\text{CumMax}(\\text{price})[t]} - 1\n$$\n\nA flat or new-high series gives `0`. A 30 % loss from the prior peak gives `-0.30`.\nComposes `CumMax`. No warmup.\n\n## Notes\n\n- Bit-exact to a `pandas.Series.cummax`-based reference.\n- See also `MaxDrawdown` (running min of `Drawdown`) and `RollingMaxDrawdown` (worst drawdown inside a trailing window).\n\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
-    "examples": []
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage example",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import Drawdown\n\nnp.random.seed(0)\nprice = 100 * np.exp(np.cumsum(np.random.normal(0.0005, 0.02, size=300)))\ndd = Drawdown()(price)                  # 0 at a new peak, negative in a drawdown\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True,\n                    row_heights=[0.6, 0.4], vertical_spacing=0.08)\nfig.add_trace(go.Scatter(y=price, mode=\"lines\", name=\"price\"), row=1, col=1)\nfig.add_trace(go.Scatter(y=dd, mode=\"lines\", name=\"drawdown\",\n                         line=dict(color=\"red\"), fill=\"tozeroy\"), row=2, col=1)\nfig.update_layout(title=\"Running drawdown from the peak (Drawdown)\",\n                  margin=dict(l=20, r=20, t=60, b=20),\n                  legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1))\nfig.update_yaxes(title_text=\"price\", row=1, col=1)\nfig.update_yaxes(title_text=\"drawdown\", row=2, col=1)\nfig.show()"
+      }
+    ]
   },
   "LogReturn": {
     "name": "LogReturn",
@@ -1168,7 +1210,13 @@
     "parameters": [],
     "nan_policy": "ignore",
     "details": "## Description\n\nThe worst (most negative) drawdown ever observed since the start (or last `reset()`):\n\n$$\n\\text{MaxDrawdown}[t] = \\min_{k \\le t}\\ \\text{Drawdown}[k]\n$$\n\nMonotonically non-increasing in time. Composes `Drawdown` + `CumMin`.\n\n## Notes\n\n- For the trailing-window equivalent see `RollingMaxDrawdown`.\n\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
-    "examples": []
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage example",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import MaxDrawdown\n\nnp.random.seed(0)\nprice = 100 * np.exp(np.cumsum(np.random.normal(0.0005, 0.02, size=300)))\nmdd = MaxDrawdown()(price)              # worst drawdown seen so far, only gets deeper\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True,\n                    row_heights=[0.55, 0.45], vertical_spacing=0.08)\nfig.add_trace(go.Scatter(y=price, mode=\"lines\", name=\"price\"), row=1, col=1)\nfig.add_trace(go.Scatter(y=mdd, mode=\"lines\", name=\"max drawdown\",\n                         line=dict(color=\"red\"), fill=\"tozeroy\"), row=2, col=1)\nfig.update_layout(title=\"Worst drawdown so far (MaxDrawdown)\",\n                  margin=dict(l=20, r=20, t=60, b=20),\n                  legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1))\nfig.update_yaxes(title_text=\"price\", row=1, col=1)\nfig.update_yaxes(title_text=\"max drawdown\", row=2, col=1)\nfig.show()"
+      }
+    ]
   },
   "ROC": {
     "name": "ROC",
@@ -1197,7 +1245,13 @@
     ],
     "nan_policy": "propagate",
     "details": "## Description\n\n`ROC(k)` is the **rate of change** over `k` steps, expressed as a percentage:\n\n$$\n\\text{ROC}[t] = 100 \\cdot \\frac{x[t] - x[t-k]}{x[t-k]}\n$$\n\nThe three rate-of-change variants in this library, all matching their TA-Lib namesakes:\n\n| Class | Formula | Returns |\n|---|---|---|\n| **`ROC`** | $100 \\cdot (x[t] - x[t-k]) / x[t-k]$ | percentage (e.g. `5.0` = +5%) |\n| `ROCP` | $(x[t] - x[t-k]) / x[t-k]$ | fraction (e.g. `0.05` = +5%); same as [`Return`](Return.md) |\n| `ROCR` | $x[t] / x[t-k]$ | ratio (e.g. `1.05`) |\n\n*Parameters*:\n\n- `window_size` (int, positive): the lookback `k`.\n\n*NaN handling*: NaN for the first `k` samples (no `x[t-k]` yet). Also NaN if `x[t-k] == 0` (division by zero).\n\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `propagate`.** Input `NaN` values are stored in the lookback. Output is `NaN` at any index where the function's positional formula references a `NaN` input; recovery happens once the `NaN` slides out of the lookback.\n<!-- NAN_FOOTNOTE_END -->",
-    "examples": []
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage example",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import ROC\n\nnp.random.seed(0)\nprice = 100 * np.exp(np.cumsum(np.random.normal(0.0005, 0.02, size=300)))\nroc = ROC(window_size=20)(price)        # percent change over the last 20 bars\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True,\n                    row_heights=[0.55, 0.45], vertical_spacing=0.08)\nfig.add_trace(go.Scatter(y=price, mode=\"lines\", name=\"price\"), row=1, col=1)\nfig.add_trace(go.Scatter(y=roc, mode=\"lines\", name=\"ROC\",\n                         line=dict(color=\"red\")), row=2, col=1)\nfig.update_layout(title=\"Rate of change over 20 bars (ROC)\",\n                  margin=dict(l=20, r=20, t=60, b=20),\n                  legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1))\nfig.update_yaxes(title_text=\"price\", row=1, col=1)\nfig.update_yaxes(title_text=\"percent\", row=2, col=1)\nfig.show()"
+      }
+    ]
   },
   "ROCP": {
     "name": "ROCP",
@@ -1225,7 +1279,13 @@
     ],
     "nan_policy": "propagate",
     "details": "## Description\n\n`ROCP(k)` is the **rate of change** over `k` steps, expressed as a *fraction*:\n\n$$\n\\text{ROCP}[t] = \\frac{x[t] - x[t-k]}{x[t-k]}\n$$\n\n**This is exactly `Return(k)`.** It exists as a separately-named class because TA-Lib calls this indicator `ROCP`. Internally `ROCP` is a thin subclass of `Return` -- the implementation (delay buffer + subtract + divide) is shared, not duplicated.\n\n| You want... | Use |\n|---|---|\n| TA-Lib parity (writing `ROCP` in ported code) | `ROCP(k)` |\n| Any other context (returns workflows, log-returns family) | `Return(k)` |\n\n*Parameters*:\n\n- `window_size` (int, positive): the lookback `k`.\n\n*NaN handling*: NaN for the first `k` samples; NaN when `x[t-k] == 0`.\n\n## See also\n\n- [`Return`](Return.md) -- same class, the documentation lives there.\n- [`ROC`](ROC.md) -- `100 * ROCP` (percentage form).\n- [`ROCR`](ROCR.md) -- `x[t] / x[t-k]` (ratio form).\n\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `propagate`.** Input `NaN` values are stored in the lookback. Output is `NaN` at any index where the function's positional formula references a `NaN` input; recovery happens once the `NaN` slides out of the lookback.\n<!-- NAN_FOOTNOTE_END -->",
-    "examples": []
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage example",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import ROCP\n\nnp.random.seed(0)\nprice = 100 * np.exp(np.cumsum(np.random.normal(0.0005, 0.02, size=300)))\nrocp = ROCP(window_size=20)(price)      # fractional change over the last 20 bars\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True,\n                    row_heights=[0.55, 0.45], vertical_spacing=0.08)\nfig.add_trace(go.Scatter(y=price, mode=\"lines\", name=\"price\"), row=1, col=1)\nfig.add_trace(go.Scatter(y=rocp, mode=\"lines\", name=\"ROCP\",\n                         line=dict(color=\"red\")), row=2, col=1)\nfig.update_layout(title=\"Fractional rate of change over 20 bars (ROCP)\",\n                  margin=dict(l=20, r=20, t=60, b=20),\n                  legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1))\nfig.update_yaxes(title_text=\"price\", row=1, col=1)\nfig.update_yaxes(title_text=\"fraction\", row=2, col=1)\nfig.show()"
+      }
+    ]
   },
   "ROCR": {
     "name": "ROCR",
@@ -1253,7 +1313,13 @@
     ],
     "nan_policy": "propagate",
     "details": "## Description\n\n`ROCR(k)` is the **rate of change** over `k` steps, expressed as a *ratio*:\n\n$$\n\\text{ROCR}[t] = \\frac{x[t]}{x[t-k]}\n$$\n\nThe ratio form is convenient when you want to chain returns multiplicatively (e.g. cumulative-product wealth paths) without subtracting 1 each step.\n\n*Parameters*:\n\n- `window_size` (int, positive): the lookback `k`.\n\n*NaN handling*: NaN for the first `k` samples; NaN when `x[t-k] == 0`.\n\n## Identity to ROCP\n\n`ROCR(k) - 1 == ROCP(k)` exactly. Pick whichever form keeps the calling code cleaner.\n\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `propagate`.** Input `NaN` values are stored in the lookback. Output is `NaN` at any index where the function's positional formula references a `NaN` input; recovery happens once the `NaN` slides out of the lookback.\n<!-- NAN_FOOTNOTE_END -->",
-    "examples": []
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage example",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import ROCR\n\nnp.random.seed(0)\nprice = 100 * np.exp(np.cumsum(np.random.normal(0.0005, 0.02, size=300)))\nrocr = ROCR(window_size=20)(price)      # price ratio versus 20 bars ago, 1.0 = unchanged\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True,\n                    row_heights=[0.55, 0.45], vertical_spacing=0.08)\nfig.add_trace(go.Scatter(y=price, mode=\"lines\", name=\"price\"), row=1, col=1)\nfig.add_trace(go.Scatter(y=rocr, mode=\"lines\", name=\"ROCR\",\n                         line=dict(color=\"red\")), row=2, col=1)\nfig.update_layout(title=\"Price ratio over 20 bars (ROCR)\",\n                  margin=dict(l=20, r=20, t=60, b=20),\n                  legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1))\nfig.update_yaxes(title_text=\"price\", row=1, col=1)\nfig.update_yaxes(title_text=\"ratio\", row=2, col=1)\nfig.show()"
+      }
+    ]
   },
   "Return": {
     "name": "Return",
@@ -1327,7 +1393,13 @@
     ],
     "nan_policy": "ignore",
     "details": "## Description\n\nCompanion to `RollingBeta`. The regression intercept of `y` on `x`:\n\n$$\n\\alpha[t] = \\overline{y}_w - \\beta[t]\\ \\cdot\\ \\overline{x}_w\n$$\n\n**2-input, 1-output** on `(target, regressor)` -- same convention as `RollingBeta`.\nComposes `RollingBeta` + two `RollingMean` instances. O(1) per step.\n\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
-    "examples": []
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage example",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import RollingAlpha\n\nnp.random.seed(0)\nmarket_ret = np.random.normal(0.0004, 0.012, size=300)\nasset_ret = 0.6 * market_ret + np.random.normal(0.0003, 0.008, size=300)\nalpha = RollingAlpha(window_size=63)(asset_ret, market_ret)   # regression intercept of asset on market\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True,\n                    row_heights=[0.55, 0.45], vertical_spacing=0.08)\nfig.add_trace(go.Scatter(y=asset_ret, mode=\"lines\", name=\"asset returns\"), row=1, col=1)\nfig.add_trace(go.Scatter(y=market_ret, mode=\"lines\", name=\"market returns\"), row=1, col=1)\nfig.add_trace(go.Scatter(y=alpha, mode=\"lines\", name=\"alpha\",\n                         line=dict(color=\"red\")), row=2, col=1)\nfig.update_layout(title=\"Rolling alpha of asset on market over 63 bars (RollingAlpha)\",\n                  margin=dict(l=20, r=20, t=60, b=20),\n                  legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1))\nfig.update_yaxes(title_text=\"returns\", row=1, col=1)\nfig.update_yaxes(title_text=\"alpha\", row=2, col=1)\nfig.show()"
+      }
+    ]
   },
   "RollingBeta": {
     "name": "RollingBeta",
@@ -1412,8 +1484,8 @@
     "examples": [
       {
         "language": "python",
-        "caption": "Description",
-        "code": "calmar = ppy * RollingMean(window)(returns) / abs(RollingMaxDrawdown(window)(price))"
+        "caption": "Usage example",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import RollingCalmar\n\nnp.random.seed(0)\nret = np.random.normal(0.0005, 0.01, size=300)\ncalmar = RollingCalmar(window_size=63, periods_per_year=252)(ret)   # annualised return over worst rolling drawdown\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True,\n                    row_heights=[0.55, 0.45], vertical_spacing=0.08)\nfig.add_trace(go.Scatter(y=ret, mode=\"lines\", name=\"returns\"), row=1, col=1)\nfig.add_trace(go.Scatter(y=calmar, mode=\"lines\", name=\"Calmar\",\n                         line=dict(color=\"red\")), row=2, col=1)\nfig.update_layout(title=\"Annualised Calmar over 63 bars (RollingCalmar)\",\n                  margin=dict(l=20, r=20, t=60, b=20),\n                  legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1))\nfig.update_yaxes(title_text=\"returns\", row=1, col=1)\nfig.update_yaxes(title_text=\"Calmar\", row=2, col=1)\nfig.show()"
       }
     ]
   },
@@ -1532,7 +1604,13 @@
     ],
     "nan_policy": "ignore",
     "details": "## Description\n\nFraction of strictly-positive samples in the trailing window:\n\n$$\n\\text{HitRate}[t] = \\frac{1}{w}\\ \\text{count}(r_i > 0,\\ i \\in \\text{window})\n$$\n\nOutput in `[0, 1]`. Composes `detail::RollingSum` over the indicator `(r > 0)`.\n\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
-    "examples": []
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage example",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import RollingHitRate\n\nnp.random.seed(0)\nret = np.random.normal(0.0005, 0.01, size=300)\nhit = RollingHitRate(window_size=63)(ret)   # fraction of positive returns in the last 63 bars\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True,\n                    row_heights=[0.55, 0.45], vertical_spacing=0.08)\nfig.add_trace(go.Scatter(y=ret, mode=\"lines\", name=\"returns\"), row=1, col=1)\nfig.add_trace(go.Scatter(y=hit, mode=\"lines\", name=\"hit rate\",\n                         line=dict(color=\"red\")), row=2, col=1)\nfig.update_layout(title=\"Fraction of positive returns over 63 bars (RollingHitRate)\",\n                  margin=dict(l=20, r=20, t=60, b=20),\n                  legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1))\nfig.update_yaxes(title_text=\"returns\", row=1, col=1)\nfig.update_yaxes(title_text=\"hit rate\", row=2, col=1)\nfig.show()"
+      }
+    ]
   },
   "RollingInfoRatio": {
     "name": "RollingInfoRatio",
@@ -1568,7 +1646,13 @@
     ],
     "nan_policy": "ignore",
     "details": "## Description\n\nInformation ratio against a benchmark:\n\n$$\n\\text{IR}[t] = \\sqrt{\\text{ppy}}\\ \\cdot\\ \\frac{\\text{mean}(r - b)}{\\text{std}(r - b)}\n$$\n\n**2-input, 1-output** on `(returns, benchmark)`. Effectively `RollingSharpe` applied to the\nactive-return series `r - b`.\n\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
-    "examples": []
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage example",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import RollingInfoRatio\n\nnp.random.seed(0)\nbench_ret = np.random.normal(0.0004, 0.012, size=300)\nasset_ret = bench_ret + np.random.normal(0.0003, 0.006, size=300)\ninfo = RollingInfoRatio(window_size=63)(asset_ret, bench_ret)   # Sharpe of active returns vs benchmark\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True,\n                    row_heights=[0.55, 0.45], vertical_spacing=0.08)\nfig.add_trace(go.Scatter(y=asset_ret, mode=\"lines\", name=\"asset returns\"), row=1, col=1)\nfig.add_trace(go.Scatter(y=bench_ret, mode=\"lines\", name=\"benchmark returns\"), row=1, col=1)\nfig.add_trace(go.Scatter(y=info, mode=\"lines\", name=\"info ratio\",\n                         line=dict(color=\"red\")), row=2, col=1)\nfig.update_layout(title=\"Rolling information ratio over 63 bars (RollingInfoRatio)\",\n                  margin=dict(l=20, r=20, t=60, b=20),\n                  legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1))\nfig.update_yaxes(title_text=\"returns\", row=1, col=1)\nfig.update_yaxes(title_text=\"info ratio\", row=2, col=1)\nfig.show()"
+      }
+    ]
   },
   "RollingLinearRegression": {
     "name": "RollingLinearRegression",
@@ -1609,7 +1693,13 @@
     ],
     "nan_policy": "ignore",
     "details": "## Description\n\nRolling OLS fit of `y ≈ slope · x + intercept + ε`, returning four outputs per step:\n\n| Output | Formula |\n|---|---|\n| `slope` | $(n S_{xy} - S_x S_y) / (n S_{xx} - S_x^2)$ |\n| `intercept` | $(S_y - \\text{slope} \\cdot S_x) / n$ |\n| `r_squared` | $(n S_{xy} - S_x S_y)^2 / [(n S_{xx} - S_x^2)(n S_{yy} - S_y^2)]$ |\n| `stderr` | $\\sqrt{\\text{SSE} / (n-2)}$ - RMSE of residuals |\n\n**Note on `stderr`**: this is the standard error of the *estimate* (RMSE of the fit), not\nthe standard error of the *slope coefficient*. Multiply by `1/sqrt(Σ(x - mean_x)²)` to get\nslope confidence.\n\n**2-input, 4-output** (`FunctorBase<_, 2, 4>`). Inputs `(y, x)`; outputs\n`(slope, intercept, r_squared, stderr)`. First valid output at sample index\n`window_size - 1`. First 2→4 consumer of the Plan E `N→M` dispatcher.\n\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
-    "examples": []
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage example",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import RollingLinearRegression\n\nnp.random.seed(0)\nx = np.random.normal(0.0004, 0.012, size=300)\ny = 0.8 * x + np.random.normal(0.0003, 0.007, size=300)\nout = RollingLinearRegression(window_size=63)(y, x)   # columns: slope, intercept, r_squared, stderr\nslope = out[:, 0]\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True,\n                    row_heights=[0.55, 0.45], vertical_spacing=0.08)\nfig.add_trace(go.Scatter(y=y, mode=\"lines\", name=\"y returns\"), row=1, col=1)\nfig.add_trace(go.Scatter(y=x, mode=\"lines\", name=\"x returns\"), row=1, col=1)\nfig.add_trace(go.Scatter(y=slope, mode=\"lines\", name=\"slope\",\n                         line=dict(color=\"red\")), row=2, col=1)\nfig.update_layout(title=\"Rolling OLS slope of y on x over 63 bars (RollingLinearRegression)\",\n                  margin=dict(l=20, r=20, t=60, b=20),\n                  legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1))\nfig.update_yaxes(title_text=\"returns\", row=1, col=1)\nfig.update_yaxes(title_text=\"slope\", row=2, col=1)\nfig.show()"
+      }
+    ]
   },
   "RollingMaxDrawdown": {
     "name": "RollingMaxDrawdown",
@@ -1640,8 +1730,8 @@
     "examples": [
       {
         "language": "python",
-        "caption": "Implementation",
-        "code": "rolling_dd = price / RollingMax(window)(price) - 1"
+        "caption": "Usage example",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import RollingMaxDrawdown\n\nnp.random.seed(0)\nprice = 100 * np.exp(np.cumsum(np.random.normal(0.0005, 0.02, size=300)))\nrmdd = RollingMaxDrawdown(window_size=63)(price)   # worst drawdown in the last 63 bars\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True,\n                    row_heights=[0.55, 0.45], vertical_spacing=0.08)\nfig.add_trace(go.Scatter(y=price, mode=\"lines\", name=\"price\"), row=1, col=1)\nfig.add_trace(go.Scatter(y=rmdd, mode=\"lines\", name=\"rolling max drawdown\",\n                         line=dict(color=\"red\"), fill=\"tozeroy\"), row=2, col=1)\nfig.update_layout(title=\"Worst drawdown in a trailing window (RollingMaxDrawdown)\",\n                  margin=dict(l=20, r=20, t=60, b=20),\n                  legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1))\nfig.update_yaxes(title_text=\"price\", row=1, col=1)\nfig.update_yaxes(title_text=\"rolling max drawdown\", row=2, col=1)\nfig.show()"
       }
     ]
   },
@@ -1671,7 +1761,13 @@
     ],
     "nan_policy": "ignore",
     "details": "## Description\n\nPercentile position of the current value within the trailing window:\n\n$$\n\\text{percentile}[t] = \\text{rank}[t] / w\n$$\n\nwith the same \"average\" tie rule as `RollingRank`. Returns values in `[1/w, 1]`. Bit-exact\n(0.0) to `pandas.Series.rolling(w).rank(pct=True)`.\n\n1→1. O(W) per step.\n\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
-    "examples": []
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage example",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import RollingPercentile\n\nnp.random.seed(0)\nprice = 100 * np.exp(np.cumsum(np.random.normal(0.0005, 0.02, size=300)))\npct = RollingPercentile(window_size=50)(price)   # where the latest price sits in the last 50 bars, 0 to 1\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True,\n                    row_heights=[0.55, 0.45], vertical_spacing=0.08)\nfig.add_trace(go.Scatter(y=price, mode=\"lines\", name=\"price\"), row=1, col=1)\nfig.add_trace(go.Scatter(y=pct, mode=\"lines\", name=\"percentile\",\n                         line=dict(color=\"red\")), row=2, col=1)\nfig.update_layout(title=\"Percentile of latest price in a 50-bar window (RollingPercentile)\",\n                  margin=dict(l=20, r=20, t=60, b=20),\n                  legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1))\nfig.update_yaxes(title_text=\"price\", row=1, col=1)\nfig.update_yaxes(title_text=\"percentile\", row=2, col=1)\nfig.show()"
+      }
+    ]
   },
   "RollingRank": {
     "name": "RollingRank",
@@ -1699,7 +1795,13 @@
     ],
     "nan_policy": "ignore",
     "details": "## Description\n\nWhere does the current value sit within the trailing window?\n\n$$\n\\text{rank}[t] = (\\text{\\#values} < y_t) + 1 + \\tfrac{1}{2}(\\text{\\#ties} - 1)\n$$\n\nPandas's \"average\" tie-breaking rule (mean rank among tied values). Returns a 1-based rank\nin `[1, w]`.\n\n1→1. Circular window buffer + per-step counting sweep; O(W) per step. Bit-exact (0.0) to\n`pandas.Series.rolling(w).rank()`.\n\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
-    "examples": []
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage example",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import RollingRank\n\nnp.random.seed(0)\nprice = 100 * np.exp(np.cumsum(np.random.normal(0.0005, 0.02, size=300)))\nrank = RollingRank(window_size=50)(price)   # 1-based rank of the latest price in the last 50 bars\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True,\n                    row_heights=[0.55, 0.45], vertical_spacing=0.08)\nfig.add_trace(go.Scatter(y=price, mode=\"lines\", name=\"price\"), row=1, col=1)\nfig.add_trace(go.Scatter(y=rank, mode=\"lines\", name=\"rank\",\n                         line=dict(color=\"red\")), row=2, col=1)\nfig.update_layout(title=\"Rank of latest price in a 50-bar window (RollingRank)\",\n                  margin=dict(l=20, r=20, t=60, b=20),\n                  legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1))\nfig.update_yaxes(title_text=\"price\", row=1, col=1)\nfig.update_yaxes(title_text=\"rank\", row=2, col=1)\nfig.show()"
+      }
+    ]
   },
   "RollingResidualStd": {
     "name": "RollingResidualStd",
@@ -1743,8 +1845,8 @@
     "examples": [
       {
         "language": "python",
-        "caption": "Description",
-        "code": "z = (current_spread - mean_spread) / RollingResidualStd(60)(y, x)"
+        "caption": "Usage example",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import RollingResidualStd\n\nnp.random.seed(0)\nx = np.random.normal(0.0004, 0.012, size=300)\ny = 0.8 * x + np.random.normal(0.0003, 0.007, size=300)\nresid = RollingResidualStd(window_size=63)(y, x)   # std of the hedge-adjusted residual y - beta*x\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True,\n                    row_heights=[0.55, 0.45], vertical_spacing=0.08)\nfig.add_trace(go.Scatter(y=y, mode=\"lines\", name=\"y returns\"), row=1, col=1)\nfig.add_trace(go.Scatter(y=x, mode=\"lines\", name=\"x returns\"), row=1, col=1)\nfig.add_trace(go.Scatter(y=resid, mode=\"lines\", name=\"residual std\",\n                         line=dict(color=\"red\")), row=2, col=1)\nfig.update_layout(title=\"Rolling residual std over 63 bars (RollingResidualStd)\",\n                  margin=dict(l=20, r=20, t=60, b=20),\n                  legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1))\nfig.update_yaxes(title_text=\"returns\", row=1, col=1)\nfig.update_yaxes(title_text=\"residual std\", row=2, col=1)\nfig.show()"
       }
     ]
   },
@@ -1781,7 +1883,13 @@
     ],
     "nan_policy": "ignore",
     "details": "## Description\n\nAnnualised Sharpe ratio over a trailing window of returns:\n\n$$\n\\text{Sharpe}[t] = \\sqrt{\\text{ppy}}\\ \\cdot\\ \\frac{\\text{RollingMean}(r)}{\\text{RollingStd}(r)}\n$$\n\nComposes `RollingMean` + `RollingStd` (sample std, ddof=1 to match pandas). Returns `NaN`\nwhere the std is zero.\n\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
-    "examples": []
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage example",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import RollingSharpe\n\nnp.random.seed(0)\nret = np.random.normal(0.0005, 0.01, size=300)\nsharpe = RollingSharpe(window_size=63, periods_per_year=252)(ret)   # annualised Sharpe over 63 bars\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True,\n                    row_heights=[0.55, 0.45], vertical_spacing=0.08)\nfig.add_trace(go.Scatter(y=ret, mode=\"lines\", name=\"returns\"), row=1, col=1)\nfig.add_trace(go.Scatter(y=sharpe, mode=\"lines\", name=\"Sharpe\",\n                         line=dict(color=\"red\")), row=2, col=1)\nfig.update_layout(title=\"Annualised Sharpe over 63 bars (RollingSharpe)\",\n                  margin=dict(l=20, r=20, t=60, b=20),\n                  legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1))\nfig.update_yaxes(title_text=\"returns\", row=1, col=1)\nfig.update_yaxes(title_text=\"Sharpe\", row=2, col=1)\nfig.show()"
+      }
+    ]
   },
   "RollingSortino": {
     "name": "RollingSortino",
@@ -1823,7 +1931,13 @@
     ],
     "nan_policy": "ignore",
     "details": "## Description\n\nAnnualised Sortino ratio:\n\n$$\n\\text{Sortino}[t] = \\sqrt{\\text{ppy}}\\ \\cdot\\ \\frac{\\text{mean}(r) - \\text{target}}{\\sqrt{\\text{mean}(\\min(r - \\text{target},\\ 0)^2)}}\n$$\n\nSame as Sharpe but the denominator is the *downside* deviation -- only bars below `target`\ncontribute, so upside variability is not penalised.\n\n## Implementation\n\n`O(window_size)` per step. The downside-RMS denominator does not have a closed-form\nO(1) update.\n\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
-    "examples": []
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage example",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import RollingSortino\n\nnp.random.seed(0)\nret = np.random.normal(0.0005, 0.01, size=300)\nsortino = RollingSortino(window_size=63, periods_per_year=252)(ret)   # Sharpe using only downside deviation\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True,\n                    row_heights=[0.55, 0.45], vertical_spacing=0.08)\nfig.add_trace(go.Scatter(y=ret, mode=\"lines\", name=\"returns\"), row=1, col=1)\nfig.add_trace(go.Scatter(y=sortino, mode=\"lines\", name=\"Sortino\",\n                         line=dict(color=\"red\")), row=2, col=1)\nfig.update_layout(title=\"Annualised Sortino over 63 bars (RollingSortino)\",\n                  margin=dict(l=20, r=20, t=60, b=20),\n                  legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1))\nfig.update_yaxes(title_text=\"returns\", row=1, col=1)\nfig.update_yaxes(title_text=\"Sortino\", row=2, col=1)\nfig.show()"
+      }
+    ]
   },
   "RollingSpread": {
     "name": "RollingSpread",
@@ -1898,7 +2012,13 @@
     ],
     "nan_policy": "ignore",
     "details": "## Description\n\nTA-Lib's *Time-Series Forecast*: fits `y = slope · t + intercept` on the trailing window\n`{(0, y_{t-w+1}), …, (w-1, y_t)}` and returns the line evaluated at the *next* bar (local\n`t = w`):\n\n$$\n\\text{TSF}[t] = \\text{intercept} + \\text{slope} \\cdot w\n$$\n\n1→1. Bit-exact match to `talib.TSF(real, timeperiod)`. Composes two `detail::RollingSum`\nbuffers + precomputed time-axis constants. O(1) per step.\n\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
-    "examples": []
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage example",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import RollingTSF\n\nnp.random.seed(0)\nprice = 100 * np.exp(np.cumsum(np.random.normal(0.0005, 0.02, size=300)))\ntsf = RollingTSF(window_size=20)(price)   # one-step-ahead value of the 20-bar trend line\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True,\n                    row_heights=[0.55, 0.45], vertical_spacing=0.08)\nfig.add_trace(go.Scatter(y=price, mode=\"lines\", name=\"price\"), row=1, col=1)\nfig.add_trace(go.Scatter(y=tsf, mode=\"lines\", name=\"TSF\",\n                         line=dict(color=\"red\")), row=2, col=1)\nfig.update_layout(title=\"Time-series forecast over 20 bars (RollingTSF)\",\n                  margin=dict(l=20, r=20, t=60, b=20),\n                  legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1))\nfig.update_yaxes(title_text=\"price\", row=1, col=1)\nfig.update_yaxes(title_text=\"forecast\", row=2, col=1)\nfig.show()"
+      }
+    ]
   },
   "Abs": {
     "name": "Abs",
@@ -1967,8 +2087,14 @@
     "outputs": 1,
     "parameters": [],
     "nan_policy": "ignore",
-    "details": "## Description\n\n`Add` computes the elementwise sum of two aligned input streams, `x + y`. It takes two inputs and returns one output; a `NaN` in\neither input yields `NaN` at that step.\n\n*Parameters*: `Add` takes no parameters.\n\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
-    "examples": []
+    "details": "## Description\n\n`Add` computes the elementwise sum of two aligned input streams, `x + y`. It takes two inputs and returns one output; a `NaN` in\neither input yields `NaN` at that step.\n\n*Parameters*: `Add` takes no parameters.",
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage example",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import Add\n\nnp.random.seed(0)\na = np.cumsum(np.random.normal(size=200))\nb = np.cumsum(np.random.normal(size=200))\nout = Add()(a, b)                       # elementwise a + b\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True,\n                    row_heights=[0.55, 0.45], vertical_spacing=0.08)\nfig.add_trace(go.Scatter(y=a, mode=\"lines\", name=\"a\"), row=1, col=1)\nfig.add_trace(go.Scatter(y=b, mode=\"lines\", name=\"b\"), row=1, col=1)\nfig.add_trace(go.Scatter(y=out, mode=\"lines\", name=\"a + b\",\n                         line=dict(color=\"red\")), row=2, col=1)\nfig.update_layout(title=\"Elementwise sum of two signals (Add)\",\n                  margin=dict(l=20, r=20, t=60, b=20),\n                  legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1))\nfig.update_yaxes(title_text=\"inputs\", row=1, col=1)\nfig.update_yaxes(title_text=\"a + b\", row=2, col=1)\nfig.show()"
+      }
+    ]
   },
   "And": {
     "name": "And",
@@ -1987,7 +2113,13 @@
     "parameters": [],
     "nan_policy": "ignore",
     "details": "## Description\n\n`And` applies a logical AND to two aligned input streams: outputs `1.0` when both inputs are nonzero, and `0.0` otherwise. Any nonzero floating-point value (not just `1.0`) counts as true.\n\n*NaN handling*: if either input is NaN at step `t`, the output is NaN.\n\n*Parameters*: `And` takes no parameters.",
-    "examples": []
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage example",
+        "code": "import numpy as np\nfrom screamer import And\n\nm1 = np.array([1.0, 0.0, 1.0, 1.0, 0.0, 1.0])\nm2 = np.array([1.0, 0.0, 0.0, 1.0, 1.0, 1.0])\nprint(And()(m1, m2))     # -> [1. 0. 0. 1. 0. 1.]  (1.0 only where both masks are nonzero)"
+      }
+    ]
   },
   "Asin": {
     "name": "Asin",
@@ -2185,8 +2317,14 @@
     "outputs": 1,
     "parameters": [],
     "nan_policy": "ignore",
-    "details": "## Description\n\n`Div` computes the elementwise quotient of two aligned input streams, `x / y`. It takes two inputs and returns one output; a `NaN` in\neither input yields `NaN` at that step.\n\n*Parameters*: `Div` takes no parameters.\n\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
-    "examples": []
+    "details": "## Description\n\n`Div` computes the elementwise quotient of two aligned input streams, `x / y`. It takes two inputs and returns one output; a `NaN` in\neither input yields `NaN` at that step.\n\n*Parameters*: `Div` takes no parameters.",
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage example",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import Div\n\nnp.random.seed(0)\na = np.cumsum(np.random.normal(size=200))\nb = 2 + np.abs(np.cumsum(np.random.normal(size=200)))   # kept positive to avoid divide-by-zero\nout = Div()(a, b)                       # elementwise a / b\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True,\n                    row_heights=[0.55, 0.45], vertical_spacing=0.08)\nfig.add_trace(go.Scatter(y=a, mode=\"lines\", name=\"a\"), row=1, col=1)\nfig.add_trace(go.Scatter(y=b, mode=\"lines\", name=\"b\"), row=1, col=1)\nfig.add_trace(go.Scatter(y=out, mode=\"lines\", name=\"a / b\",\n                         line=dict(color=\"red\")), row=2, col=1)\nfig.update_layout(title=\"Elementwise quotient of two signals (Div)\",\n                  margin=dict(l=20, r=20, t=60, b=20),\n                  legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1))\nfig.update_yaxes(title_text=\"inputs\", row=1, col=1)\nfig.update_yaxes(title_text=\"a / b\", row=2, col=1)\nfig.show()"
+      }
+    ]
   },
   "Elu": {
     "name": "Elu",
@@ -2232,7 +2370,13 @@
     "parameters": [],
     "nan_policy": "ignore",
     "details": "## Description\n\n`Equal` compares two aligned input streams element-wise and outputs `1.0` where `a == b` and `0.0` otherwise.\n\n*NaN handling*: if either input is NaN at step `t`, the output is NaN (NaN is not equal to anything, including itself, by IEEE 754).\n\n*Parameters*: `Equal` takes no parameters.",
-    "examples": []
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage example",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import Equal\n\nnp.random.seed(0)\n# a discrete signal that repeatedly revisits whole-number levels\nt = np.linspace(0, 6 * np.pi, 200)\nx = np.round(3 + 2 * np.sin(t) + np.random.normal(0, 0.3, size=200))\nthreshold = np.full_like(x, 3.0)        # a constant level, as a stream\nmask = Equal()(x, threshold)            # 1.0 where x == 3.0, else 0.0\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True,\n                    row_heights=[0.65, 0.35], vertical_spacing=0.08)\nfig.add_trace(go.Scatter(y=x, mode=\"lines\", name=\"x\"), row=1, col=1)\nfig.add_trace(go.Scatter(y=threshold, mode=\"lines\", name=\"level = 3.0\",\n                         line=dict(dash=\"dash\")), row=1, col=1)\nfig.add_trace(go.Scatter(y=mask, mode=\"lines\", name=\"x == level\",\n                         line=dict(color=\"red\", shape=\"hv\")), row=2, col=1)\nfig.update_layout(title=\"Exactly on a level (Equal)\",\n                  margin=dict(l=20, r=20, t=60, b=20),\n                  legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1))\nfig.update_yaxes(title_text=\"signal\", row=1, col=1)\nfig.update_yaxes(title_text=\"mask (0/1)\", range=[-0.1, 1.1], row=2, col=1)\nfig.show()"
+      }
+    ]
   },
   "Erf": {
     "name": "Erf",
@@ -2351,7 +2495,13 @@
     "parameters": [],
     "nan_policy": "ignore",
     "details": "## Description\n\n`GreaterEqual` compares two aligned input streams element-wise and outputs `1.0` where `a >= b` and `0.0` otherwise.\n\n*NaN handling*: if either input is NaN at step `t`, the output is NaN.\n\n*Parameters*: `GreaterEqual` takes no parameters.",
-    "examples": []
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage example",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import GreaterEqual\n\nnp.random.seed(1)\nx = np.cumsum(np.random.normal(size=200))\nthreshold = np.full_like(x, 2.0)        # a constant threshold, as a stream\nmask = GreaterEqual()(x, threshold)     # 1.0 where x >= threshold, else 0.0\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True,\n                    row_heights=[0.65, 0.35], vertical_spacing=0.08)\nfig.add_trace(go.Scatter(y=x, mode=\"lines\", name=\"x\"), row=1, col=1)\nfig.add_trace(go.Scatter(y=threshold, mode=\"lines\", name=\"threshold = 2.0\",\n                         line=dict(dash=\"dash\")), row=1, col=1)\nfig.add_trace(go.Scatter(y=mask, mode=\"lines\", name=\"x >= threshold\",\n                         line=dict(color=\"red\", shape=\"hv\")), row=2, col=1)\nfig.update_layout(title=\"At or above a threshold (GreaterEqual)\",\n                  margin=dict(l=20, r=20, t=60, b=20),\n                  legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1))\nfig.update_yaxes(title_text=\"signal\", row=1, col=1)\nfig.update_yaxes(title_text=\"mask (0/1)\", range=[-0.1, 1.1], row=2, col=1)\nfig.show()"
+      }
+    ]
   },
   "GreaterThan": {
     "name": "GreaterThan",
@@ -2371,7 +2521,13 @@
     "parameters": [],
     "nan_policy": "ignore",
     "details": "## Description\n\n`GreaterThan` compares two aligned input streams element-wise and outputs `1.0` where `a > b` and `0.0` otherwise. The output is a floating-point mask suitable for use with `Where` or `Filter`.\n\n*NaN handling*: if either input is NaN at step `t`, the output is NaN (an unknown comparison cannot yield a definite mask value).\n\n*Parameters*: `GreaterThan` takes no parameters.",
-    "examples": []
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage example",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import GreaterThan\n\nnp.random.seed(1)\nx = np.cumsum(np.random.normal(size=200))\nthreshold = np.full_like(x, 2.0)        # a constant threshold, as a stream\nabove = GreaterThan()(x, threshold)     # 1.0 where x > threshold, else 0.0\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True,\n                    row_heights=[0.65, 0.35], vertical_spacing=0.08)\nfig.add_trace(go.Scatter(y=x, mode=\"lines\", name=\"x\"), row=1, col=1)\nfig.add_trace(go.Scatter(y=threshold, mode=\"lines\", name=\"threshold = 2.0\",\n                         line=dict(dash=\"dash\")), row=1, col=1)\nfig.add_trace(go.Scatter(y=above, mode=\"lines\", name=\"x > threshold\",\n                         line=dict(color=\"red\", shape=\"hv\")), row=2, col=1)\nfig.update_layout(title=\"Threshold crossing (GreaterThan)\",\n                  margin=dict(l=20, r=20, t=60, b=20),\n                  legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1))\nfig.update_yaxes(title_text=\"signal\", row=1, col=1)\nfig.update_yaxes(title_text=\"mask (0/1)\", range=[-0.1, 1.1], row=2, col=1)\nfig.show()"
+      }
+    ]
   },
   "Hypot": {
     "name": "Hypot",
@@ -2419,7 +2575,13 @@
     "parameters": [],
     "nan_policy": "nan-aware",
     "details": "## Description\n\n`IsFinite` classifies each input element: outputs `1.0` when the input is a finite number (not NaN and not infinite), and `0.0` for NaN, positive infinity, or negative infinity.\n\nUnlike most screamer functions, `IsFinite` does **not** propagate NaN; it converts NaN into a definite `0.0` flag. Use it to build validity masks that distinguish well-defined observations from missing or overflow values.\n\n*Parameters*: `IsFinite` takes no parameters.",
-    "examples": []
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage example",
+        "code": "import numpy as np\nfrom screamer import IsFinite\n\nx = np.array([1.0, np.inf, np.nan, -np.inf, 4.0, 5.0])\nprint(IsFinite()(x))     # -> [1. 0. 0. 0. 1. 1.]  (1.0 only for finite values, 0.0 for inf/nan)"
+      }
+    ]
   },
   "IsNan": {
     "name": "IsNan",
@@ -2440,7 +2602,13 @@
     "parameters": [],
     "nan_policy": "nan-aware",
     "details": "## Description\n\n`IsNan` classifies each input element: outputs `1.0` when the input is NaN, and `0.0` for any finite or infinite value.\n\nUnlike most screamer functions, `IsNan` does **not** propagate NaN; instead, it converts NaN into a definite `1.0` flag. This makes it useful for building masks that mark missing data positions before passing them to `Where` or other logic operators.\n\n*Parameters*: `IsNan` takes no parameters.",
-    "examples": []
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage example",
+        "code": "import numpy as np\nfrom screamer import IsNan\n\nx = np.array([1.0, np.nan, 3.0, np.nan, 5.0])\nprint(IsNan()(x))     # -> [0. 1. 0. 1. 0.]  (1.0 where the input is NaN)"
+      }
+    ]
   },
   "LessEqual": {
     "name": "LessEqual",
@@ -2460,7 +2628,13 @@
     "parameters": [],
     "nan_policy": "ignore",
     "details": "## Description\n\n`LessEqual` compares two aligned input streams element-wise and outputs `1.0` where `a <= b` and `0.0` otherwise.\n\n*NaN handling*: if either input is NaN at step `t`, the output is NaN.\n\n*Parameters*: `LessEqual` takes no parameters.",
-    "examples": []
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage example",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import LessEqual\n\nnp.random.seed(1)\nx = np.cumsum(np.random.normal(size=200))\nthreshold = np.full_like(x, 2.0)        # a constant threshold, as a stream\nmask = LessEqual()(x, threshold)        # 1.0 where x <= threshold, else 0.0\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True,\n                    row_heights=[0.65, 0.35], vertical_spacing=0.08)\nfig.add_trace(go.Scatter(y=x, mode=\"lines\", name=\"x\"), row=1, col=1)\nfig.add_trace(go.Scatter(y=threshold, mode=\"lines\", name=\"threshold = 2.0\",\n                         line=dict(dash=\"dash\")), row=1, col=1)\nfig.add_trace(go.Scatter(y=mask, mode=\"lines\", name=\"x <= threshold\",\n                         line=dict(color=\"red\", shape=\"hv\")), row=2, col=1)\nfig.update_layout(title=\"At or below a threshold (LessEqual)\",\n                  margin=dict(l=20, r=20, t=60, b=20),\n                  legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1))\nfig.update_yaxes(title_text=\"signal\", row=1, col=1)\nfig.update_yaxes(title_text=\"mask (0/1)\", range=[-0.1, 1.1], row=2, col=1)\nfig.show()"
+      }
+    ]
   },
   "LessThan": {
     "name": "LessThan",
@@ -2480,7 +2654,13 @@
     "parameters": [],
     "nan_policy": "ignore",
     "details": "## Description\n\n`LessThan` compares two aligned input streams element-wise and outputs `1.0` where `a < b` and `0.0` otherwise. The output is a floating-point mask suitable for use with `Where` or `Filter`.\n\n*NaN handling*: if either input is NaN at step `t`, the output is NaN.\n\n*Parameters*: `LessThan` takes no parameters.",
-    "examples": []
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage example",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import LessThan\n\nnp.random.seed(1)\nx = np.cumsum(np.random.normal(size=200))\nthreshold = np.full_like(x, 2.0)        # a constant threshold, as a stream\nmask = LessThan()(x, threshold)         # 1.0 where x < threshold, else 0.0\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True,\n                    row_heights=[0.65, 0.35], vertical_spacing=0.08)\nfig.add_trace(go.Scatter(y=x, mode=\"lines\", name=\"x\"), row=1, col=1)\nfig.add_trace(go.Scatter(y=threshold, mode=\"lines\", name=\"threshold = 2.0\",\n                         line=dict(dash=\"dash\")), row=1, col=1)\nfig.add_trace(go.Scatter(y=mask, mode=\"lines\", name=\"x < threshold\",\n                         line=dict(color=\"red\", shape=\"hv\")), row=2, col=1)\nfig.update_layout(title=\"Below a threshold (LessThan)\",\n                  margin=dict(l=20, r=20, t=60, b=20),\n                  legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1))\nfig.update_yaxes(title_text=\"signal\", row=1, col=1)\nfig.update_yaxes(title_text=\"mask (0/1)\", range=[-0.1, 1.1], row=2, col=1)\nfig.show()"
+      }
+    ]
   },
   "Linear": {
     "name": "Linear",
@@ -2608,8 +2788,14 @@
     "outputs": 1,
     "parameters": [],
     "nan_policy": "ignore",
-    "details": "## Description\n\n`Mul` computes the elementwise product of two aligned input streams, `x * y`. It takes two inputs and returns one output; a `NaN` in\neither input yields `NaN` at that step.\n\n*Parameters*: `Mul` takes no parameters.\n\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
-    "examples": []
+    "details": "## Description\n\n`Mul` computes the elementwise product of two aligned input streams, `x * y`. It takes two inputs and returns one output; a `NaN` in\neither input yields `NaN` at that step.\n\n*Parameters*: `Mul` takes no parameters.",
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage example",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import Mul\n\nnp.random.seed(0)\na = np.cumsum(np.random.normal(size=200))\nb = np.cumsum(np.random.normal(size=200))\nout = Mul()(a, b)                       # elementwise a * b\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True,\n                    row_heights=[0.55, 0.45], vertical_spacing=0.08)\nfig.add_trace(go.Scatter(y=a, mode=\"lines\", name=\"a\"), row=1, col=1)\nfig.add_trace(go.Scatter(y=b, mode=\"lines\", name=\"b\"), row=1, col=1)\nfig.add_trace(go.Scatter(y=out, mode=\"lines\", name=\"a * b\",\n                         line=dict(color=\"red\")), row=2, col=1)\nfig.update_layout(title=\"Elementwise product of two signals (Mul)\",\n                  margin=dict(l=20, r=20, t=60, b=20),\n                  legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1))\nfig.update_yaxes(title_text=\"inputs\", row=1, col=1)\nfig.update_yaxes(title_text=\"a * b\", row=2, col=1)\nfig.show()"
+      }
+    ]
   },
   "NegPart": {
     "name": "NegPart",
@@ -2653,7 +2839,13 @@
     "parameters": [],
     "nan_policy": "ignore",
     "details": "## Description\n\n`Not` applies a logical NOT to a single input stream: outputs `0.0` when the input is nonzero, and `1.0` when the input is zero. Any nonzero floating-point value (not just `1.0`) counts as true.\n\n*NaN handling*: NaN input yields NaN output.\n\n*Parameters*: `Not` takes no parameters.",
-    "examples": []
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage example",
+        "code": "import numpy as np\nfrom screamer import Not\n\nm = np.array([1.0, 0.0, 1.0, 1.0, 0.0, 1.0])\nprint(Not()(m))     # -> [0. 1. 0. 0. 1. 0.]  (flips the mask: 1.0 where the input is zero)"
+      }
+    ]
   },
   "NotEqual": {
     "name": "NotEqual",
@@ -2673,7 +2865,13 @@
     "parameters": [],
     "nan_policy": "ignore",
     "details": "## Description\n\n`NotEqual` compares two aligned input streams element-wise and outputs `1.0` where `a != b` and `0.0` otherwise.\n\n*NaN handling*: if either input is NaN at step `t`, the output is NaN.\n\n*Parameters*: `NotEqual` takes no parameters.",
-    "examples": []
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage example",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import NotEqual\n\nnp.random.seed(0)\n# a discrete signal that repeatedly revisits whole-number levels\nt = np.linspace(0, 6 * np.pi, 200)\nx = np.round(3 + 2 * np.sin(t) + np.random.normal(0, 0.3, size=200))\nthreshold = np.full_like(x, 3.0)        # a constant level, as a stream\nmask = NotEqual()(x, threshold)         # 1.0 where x != 3.0, else 0.0\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True,\n                    row_heights=[0.65, 0.35], vertical_spacing=0.08)\nfig.add_trace(go.Scatter(y=x, mode=\"lines\", name=\"x\"), row=1, col=1)\nfig.add_trace(go.Scatter(y=threshold, mode=\"lines\", name=\"level = 3.0\",\n                         line=dict(dash=\"dash\")), row=1, col=1)\nfig.add_trace(go.Scatter(y=mask, mode=\"lines\", name=\"x != level\",\n                         line=dict(color=\"red\", shape=\"hv\")), row=2, col=1)\nfig.update_layout(title=\"Off a level (NotEqual)\",\n                  margin=dict(l=20, r=20, t=60, b=20),\n                  legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1))\nfig.update_yaxes(title_text=\"signal\", row=1, col=1)\nfig.update_yaxes(title_text=\"mask (0/1)\", range=[-0.1, 1.1], row=2, col=1)\nfig.show()"
+      }
+    ]
   },
   "Or": {
     "name": "Or",
@@ -2692,7 +2890,13 @@
     "parameters": [],
     "nan_policy": "ignore",
     "details": "## Description\n\n`Or` applies a logical OR to two aligned input streams: outputs `1.0` when at least one input is nonzero, and `0.0` otherwise. Any nonzero floating-point value (not just `1.0`) counts as true.\n\n*NaN handling*: if either input is NaN at step `t`, the output is NaN.\n\n*Parameters*: `Or` takes no parameters.",
-    "examples": []
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage example",
+        "code": "import numpy as np\nfrom screamer import Or\n\nm1 = np.array([1.0, 0.0, 1.0, 1.0, 0.0, 1.0])\nm2 = np.array([1.0, 0.0, 0.0, 1.0, 1.0, 1.0])\nprint(Or()(m1, m2))     # -> [1. 0. 1. 1. 1. 1.]  (1.0 where at least one mask is nonzero)"
+      }
+    ]
   },
   "Polar2Cart": {
     "name": "Polar2Cart",
@@ -3023,7 +3227,13 @@
     "parameters": [],
     "nan_policy": "ignore",
     "details": "## Description\n\n`Sub` computes the elementwise difference of two aligned input streams, `x - y`. It takes two inputs and returns one output; a `NaN` in\neither input yields `NaN` at that step.\n\n*Parameters*: `Sub` takes no parameters.\n\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
-    "examples": []
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage example",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import Sub\n\nnp.random.seed(0)\nx = np.cumsum(np.random.normal(size=200))\ny = np.cumsum(np.random.normal(size=200))\ndiff = Sub()(x, y)\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True,\n                    row_heights=[0.5, 0.5], vertical_spacing=0.08)\nfig.add_trace(go.Scatter(y=x, mode=\"lines\", name=\"x\"), row=1, col=1)\nfig.add_trace(go.Scatter(y=y, mode=\"lines\", name=\"y\"), row=1, col=1)\nfig.add_trace(go.Scatter(y=diff, mode=\"lines\", name=\"x - y\", line=dict(color=\"red\")), row=2, col=1)\nfig.update_layout(title=\"Elementwise difference (Sub)\",\n                  margin=dict(l=20, r=20, t=60, b=20),\n                  legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1))\nfig.update_yaxes(title_text=\"inputs\", row=1, col=1)\nfig.update_yaxes(title_text=\"x - y\", row=2, col=1)\nfig.show()"
+      }
+    ]
   },
   "Tanh": {
     "name": "Tanh",
@@ -3069,7 +3279,13 @@
     "parameters": [],
     "nan_policy": "nan-aware",
     "details": "## Description\n\n`Where` is a conditional element-wise selector over three aligned input streams. Given inputs `mask`, `a`, and `b`:\n\n- output is `a` when `mask` is nonzero (any nonzero value counts as true)\n- output is `b` when `mask` is zero\n\nIf `mask` is NaN, the output is NaN. If the selected branch (`a` when mask is nonzero, `b` when zero) is NaN, that NaN passes through as the output.\n\n*Parameters*: `Where` takes no parameters.",
-    "examples": []
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage example",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import Where, GreaterEqual\n\nnp.random.seed(0)\na = np.cumsum(np.random.normal(size=200))\nb = np.cumsum(np.random.normal(size=200))\ncond = GreaterEqual()(a, b)             # 1.0 where a >= b, else 0.0\nout = Where()(cond, a, b)               # pick a where cond is nonzero, else b\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True,\n                    row_heights=[0.55, 0.45], vertical_spacing=0.08)\nfig.add_trace(go.Scatter(y=a, mode=\"lines\", name=\"a\"), row=1, col=1)\nfig.add_trace(go.Scatter(y=b, mode=\"lines\", name=\"b\"), row=1, col=1)\nfig.add_trace(go.Scatter(y=out, mode=\"lines\", name=\"a if a >= b else b\",\n                         line=dict(color=\"red\")), row=2, col=1)\nfig.update_layout(title=\"Pick the larger of two signals (Where)\",\n                  margin=dict(l=20, r=20, t=60, b=20),\n                  legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1))\nfig.update_yaxes(title_text=\"inputs\", row=1, col=1)\nfig.update_yaxes(title_text=\"selected\", row=2, col=1)\nfig.show()"
+      }
+    ]
   },
   "CumMax": {
     "name": "CumMax",
@@ -3455,7 +3671,13 @@
     ],
     "nan_policy": "propagate",
     "details": "## Description\n\n`Momentum(k)` returns the *raw price displacement* over `k` steps:\n\n$$\n\\text{Momentum}[t] = x[t] - x[t-k]\n$$\n\n**This is exactly `Diff(k)`.** It exists as a separately-named class because TA-Lib calls this indicator `MOM` and traders look for \"momentum\" in the API. Internally `Momentum` is a thin subclass of `Diff` -- the implementation (delay buffer + subtraction) is shared, not duplicated.\n\n*Parameters*:\n\n- `window_size` (int, positive): the lookback `k`.\n- `start_policy` (str, optional): `\"strict\"` (default), `\"expanding\"`, or `\"zero\"`. Same semantics as `Diff`.\n\n## When to use which\n\n| You want... | Use |\n|---|---|\n| TA-Lib parity (writing `MOM` in published strategies) | `Momentum(k)` |\n| Any other context | `Diff(k)` |\n\nBoth produce identical output bit-for-bit (matches `talib.MOM` to 0.0 -- exact integer arithmetic).\n\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `propagate`.** Input `NaN` values are stored in the lookback. Output is `NaN` at any index where the function's positional formula references a `NaN` input; recovery happens once the `NaN` slides out of the lookback.\n<!-- NAN_FOOTNOTE_END -->",
-    "examples": []
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage example",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import Momentum\n\nnp.random.seed(0)\nx = np.cumsum(np.random.normal(size=200))\nmom = Momentum(window_size=20)(x)\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True,\n                    row_heights=[0.55, 0.45], vertical_spacing=0.08)\nfig.add_trace(go.Scatter(y=x, name=\"price\"), row=1, col=1)\nfig.add_trace(go.Scatter(y=mom, name=\"Momentum\", line=dict(color=\"red\")), row=2, col=1)\nfig.update_layout(title=\"Change over the last 20 steps (Momentum)\",\n                  margin=dict(l=20, r=20, t=60, b=20),\n                  legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1))\nfig.update_yaxes(title_text=\"price\", row=1, col=1)\nfig.update_yaxes(title_text=\"momentum\", row=2, col=1)\nfig.show()"
+      }
+    ]
   },
   "Clip": {
     "name": "Clip",
@@ -3576,7 +3798,13 @@
     "parameters": [],
     "nan_policy": "ignore",
     "details": "## Description\n\nChaikin Accumulation/Distribution Line:\n\n$$\n\\text{CLV}[t] = \\dfrac{(C - L) - (H - C)}{H - L}\n\\qquad\n\\text{AD}[t]  = \\text{AD}[t-1] + \\text{CLV}\\ \\cdot\\ V[t]\n$$\n\nThe \"close location value\" is in `[-1, +1]`: +1 means close at the high (full\naccumulation), -1 at the low (full distribution). When `high == low` the CLV is undefined\nand the AD line is unchanged (TA-Lib's convention).\n\n**4-input, 1-output** on `(high, low, close, volume)`. Cumulative; no window. Bit-exact\nto `talib.AD`.\n\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
-    "examples": []
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage example",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import AD\n\nnp.random.seed(0)\nclose = 100*np.exp(np.cumsum(np.random.normal(0, 0.01, size=300)))\nopen_ = np.concatenate([[close[0]], close[:-1]])\nwick = np.abs(np.random.normal(0, 0.4, size=300))\nhigh = np.maximum(open_, close) + wick\nlow  = np.minimum(open_, close) - wick\nvolume = np.random.uniform(1e5, 5e5, size=300)\nout = AD()(high, low, close, volume)\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True,\n                    row_heights=[0.55, 0.45], vertical_spacing=0.08)\nfig.add_trace(go.Scatter(y=close, name=\"close\", line=dict(color=\"royalblue\")), row=1, col=1)\nfig.add_trace(go.Scatter(y=out, name=\"AD line\", line=dict(color=\"red\")), row=2, col=1)\nfig.update_layout(title=\"Accumulation/distribution line (AD)\",\n                  margin=dict(l=20, r=20, t=60, b=20),\n                  legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1))\nfig.update_yaxes(title_text=\"close\", row=1, col=1)\nfig.update_yaxes(title_text=\"AD line\", row=2, col=1)\nfig.show()"
+      }
+    ]
   },
   "ADOSC": {
     "name": "ADOSC",
@@ -3614,7 +3842,13 @@
     ],
     "nan_policy": "ignore",
     "details": "## Description\n\nChaikin A/D Oscillator: difference of two EMAs of the `AD` line.\n\n$$\n\\text{ADOSC}[t] = \\text{EMA}(\\text{AD},\\ \\text{fast})[t] - \\text{EMA}(\\text{AD},\\ \\text{slow})[t]\n$$\n\n**4-input, 1-output** on `(high, low, close, volume)`. Default `(fast=3, slow=10)` matches\nTA-Lib.\n\nThe underlying EMA is `screamer.EwMean` (pandas `adjust=True`), so `ADOSC` inherits the\nsame documented divergence from TA-Lib's `ADOSC` as `DEMA`/`TEMA`/`MACD`/`TRIX`. The class\nmatches the explicit pandas-composition reference bit-exactly. See `docs/conventions.md`\nfor the divergence detail.\n\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
-    "examples": []
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage example",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import ADOSC\n\nnp.random.seed(0)\nclose = 100*np.exp(np.cumsum(np.random.normal(0, 0.01, size=300)))\nopen_ = np.concatenate([[close[0]], close[:-1]])\nwick = np.abs(np.random.normal(0, 0.4, size=300))\nhigh = np.maximum(open_, close) + wick\nlow  = np.minimum(open_, close) - wick\nvolume = np.random.uniform(1e5, 5e5, size=300)\nout = ADOSC(3, 10)(high, low, close, volume)\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True,\n                    row_heights=[0.55, 0.45], vertical_spacing=0.08)\nfig.add_trace(go.Scatter(y=close, name=\"close\", line=dict(color=\"royalblue\")), row=1, col=1)\nfig.add_trace(go.Scatter(y=out, name=\"ADOSC(3,10)\", line=dict(color=\"red\")), row=2, col=1)\nfig.update_layout(title=\"Accumulation/distribution oscillator (ADOSC)\",\n                  margin=dict(l=20, r=20, t=60, b=20),\n                  legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1))\nfig.update_yaxes(title_text=\"close\", row=1, col=1)\nfig.update_yaxes(title_text=\"ADOSC\", row=2, col=1)\nfig.show()"
+      }
+    ]
   },
   "ADX": {
     "name": "ADX",
@@ -3681,7 +3915,13 @@
     ],
     "nan_policy": "ignore",
     "details": "## Description\n\nWilder-smoothed rolling average of `TrueRange`:\n\n$$\n\\begin{aligned}\n\\text{ATR}[w] &= \\frac{1}{w} \\sum_{i=1}^{w} \\text{TR}[i] \\quad\\text{(SMA seed)} \\\\\n\\text{ATR}[t] &= \\frac{(w - 1) \\cdot \\text{ATR}[t - 1] + \\text{TR}[t]}{w} \\quad\\text{for } t > w\n\\end{aligned}\n$$\n\n**3-input, 1-output** on `(high, low, close)`. First valid output at sample index\n`window_size`. Matches `talib.ATR` bit-exactly post-warmup.\n\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
-    "examples": []
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage example",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import ATR\n\nnp.random.seed(0)\nclose = 100*np.exp(np.cumsum(np.random.normal(0, 0.01, size=300)))\nopen_ = np.concatenate([[close[0]], close[:-1]])\nwick = np.abs(np.random.normal(0, 0.4, size=300))\nhigh = np.maximum(open_, close) + wick\nlow  = np.minimum(open_, close) - wick\nout = ATR(14)(high, low, close)\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True,\n                    row_heights=[0.55, 0.45], vertical_spacing=0.08)\nfig.add_trace(go.Scatter(y=high, name=\"high\", line=dict(color=\"#888\")), row=1, col=1)\nfig.add_trace(go.Scatter(y=low, name=\"low\", line=dict(color=\"#bbb\")), row=1, col=1)\nfig.add_trace(go.Scatter(y=close, name=\"close\", line=dict(color=\"royalblue\")), row=1, col=1)\nfig.add_trace(go.Scatter(y=out, name=\"ATR(14)\", line=dict(color=\"red\")), row=2, col=1)\nfig.update_layout(title=\"Average true range (ATR)\",\n                  margin=dict(l=20, r=20, t=60, b=20),\n                  legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1))\nfig.update_yaxes(title_text=\"price\", row=1, col=1)\nfig.update_yaxes(title_text=\"ATR\", row=2, col=1)\nfig.show()"
+      }
+    ]
   },
   "BOP": {
     "name": "BOP",
@@ -3702,7 +3942,13 @@
     "parameters": [],
     "nan_policy": "ignore",
     "details": "## Description\n\n`BOP` (Balance of Power, Igor Livshin) measures whether a bar closes near its high (buyers in control) or its low (sellers in control):\n\n$$\n\\text{BOP}[t] = \\frac{\\text{close} - \\text{open}}{\\text{high} - \\text{low}}\n$$\n\nOutput range is `[-1, +1]` for any sensibly-formed bar (where `low ≤ open, close ≤ high`).\n\n**4-input, 1-output** (`FunctorBase<_, 4, 1>`). Argument order matches TA-Lib's `BOP`: `(open, high, low, close)`.\n\n*Warmup*: none -- stateless, value defined for every input.\n\n*Range-zero*: returns `0` when `high == low` (flat bar; convention matches TA-Lib).\n\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
-    "examples": []
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage example",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import BOP\n\nnp.random.seed(0)\nclose = 100*np.exp(np.cumsum(np.random.normal(0, 0.01, size=300)))\nopen_ = np.concatenate([[close[0]], close[:-1]])\nwick = np.abs(np.random.normal(0, 0.4, size=300))\nhigh = np.maximum(open_, close) + wick\nlow  = np.minimum(open_, close) - wick\nout = BOP()(open_, high, low, close)\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True,\n                    row_heights=[0.55, 0.45], vertical_spacing=0.08)\nfig.add_trace(go.Scatter(y=close, name=\"close\", line=dict(color=\"royalblue\")), row=1, col=1)\nfig.add_trace(go.Scatter(y=out, name=\"BOP\", line=dict(color=\"red\")), row=2, col=1)\nfig.update_layout(title=\"Balance of power (BOP)\",\n                  margin=dict(l=20, r=20, t=60, b=20),\n                  legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1))\nfig.update_yaxes(title_text=\"close\", row=1, col=1)\nfig.update_yaxes(title_text=\"BOP (-1 to 1)\", row=2, col=1)\nfig.show()"
+      }
+    ]
   },
   "BollingerBands": {
     "name": "BollingerBands",
@@ -3785,7 +4031,13 @@
     ],
     "nan_policy": "ignore",
     "details": "## Description\n\n`CCI` (Commodity Channel Index, Donald Lambert) measures how far the current bar's typical price has moved from its rolling mean, normalised by the mean absolute deviation of the same window:\n\n$$\n\\begin{aligned}\n\\text{TP}[t]      &= (\\text{high} + \\text{low} + \\text{close}) / 3 \\\\\n\\overline{\\text{TP}} &= \\text{SMA}(\\text{TP},\\ n) \\\\\n\\text{MAD}        &= \\text{mean}\\big(\\ |\\text{TP} - \\overline{\\text{TP}}|\\ \\big) \\quad \\text{over the same window} \\\\\n\\text{CCI}[t]     &= \\frac{\\text{TP}[t] - \\overline{\\text{TP}}[t]}{0.015 \\cdot \\text{MAD}[t]}\n\\end{aligned}\n$$\n\nThe 0.015 constant is a Lambert convention: roughly 70-80% of CCI readings fall in `[-100, +100]` for a normal-distributed input.\n\n**3-input, 1-output** (`FunctorBase<_, 3, 1>`) on `(high, low, close)`.\n\n*Parameters*:\n\n- `window_size` (int, default `14`).\n\n*Warmup*: NaN for the first `window_size - 1` samples.\n\n*Range-zero*: returns `0` when the MAD is 0 (a perfectly flat window).\n\n*NaN handling*: NaN inputs poison the rolling sum.\n\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
-    "examples": []
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage example",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import CCI\n\nnp.random.seed(0)\nclose = 100*np.exp(np.cumsum(np.random.normal(0, 0.01, size=300)))\nopen_ = np.concatenate([[close[0]], close[:-1]])\nwick = np.abs(np.random.normal(0, 0.4, size=300))\nhigh = np.maximum(open_, close) + wick\nlow  = np.minimum(open_, close) - wick\nout = CCI(20)(high, low, close)\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True,\n                    row_heights=[0.55, 0.45], vertical_spacing=0.08)\nfig.add_trace(go.Scatter(y=high, name=\"high\", line=dict(color=\"#888\")), row=1, col=1)\nfig.add_trace(go.Scatter(y=low, name=\"low\", line=dict(color=\"#bbb\")), row=1, col=1)\nfig.add_trace(go.Scatter(y=close, name=\"close\", line=dict(color=\"royalblue\")), row=1, col=1)\nfig.add_trace(go.Scatter(y=out, name=\"CCI(20)\", line=dict(color=\"red\")), row=2, col=1)\nfig.update_layout(title=\"Commodity channel index (CCI)\",\n                  margin=dict(l=20, r=20, t=60, b=20),\n                  legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1))\nfig.update_yaxes(title_text=\"price\", row=1, col=1)\nfig.update_yaxes(title_text=\"CCI\", row=2, col=1)\nfig.show()"
+      }
+    ]
   },
   "DEMA": {
     "name": "DEMA",
@@ -3868,7 +4120,13 @@
     ],
     "nan_policy": "ignore",
     "details": "## Description\n\nTrend-following envelope. The upper line is the rolling max of `high`, the lower line is\nthe rolling min of `low`, and the midline is their average:\n\n$$\n\\begin{aligned}\n\\text{upper}[t] &= \\max(\\text{high},\\ w\\ \\text{bars}) \\\\\n\\text{lower}[t] &= \\min(\\text{low},\\ w\\ \\text{bars}) \\\\\n\\text{mid}[t]   &= (\\text{upper} + \\text{lower}) / 2\n\\end{aligned}\n$$\n\n**2-input, 3-output** (`FunctorBase<_, 2, 3>`). Inputs `(high, low)`; outputs\n`(lower, mid, upper)`. First valid at sample index `window_size - 1`.\n\nComposes two `detail::MonotonicDeque` instances. Amortised O(1) per step. Bit-exact to\n`pandas-ta-classic.donchian`.\n\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
-    "examples": []
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage example",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import DonchianChannels\n\nnp.random.seed(0)\nclose = 100*np.exp(np.cumsum(np.random.normal(0, 0.01, size=300)))\nopen_ = np.concatenate([[close[0]], close[:-1]])\nwick = np.abs(np.random.normal(0, 0.4, size=300))\nhigh = np.maximum(open_, close) + wick\nlow  = np.minimum(open_, close) - wick\nout = np.asarray(DonchianChannels(20)(high, low))\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True,\n                    row_heights=[0.55, 0.45], vertical_spacing=0.08)\nfig.add_trace(go.Scatter(y=high, name=\"high\", line=dict(color=\"#888\")), row=1, col=1)\nfig.add_trace(go.Scatter(y=low, name=\"low\", line=dict(color=\"#bbb\")), row=1, col=1)\nfig.add_trace(go.Scatter(y=out[:, 2], name=\"upper\", line=dict(color=\"red\")), row=2, col=1)\nfig.add_trace(go.Scatter(y=out[:, 1], name=\"mid\", line=dict(color=\"gray\")), row=2, col=1)\nfig.add_trace(go.Scatter(y=out[:, 0], name=\"lower\", line=dict(color=\"green\")), row=2, col=1)\nfig.update_layout(title=\"Donchian channels (DonchianChannels)\",\n                  margin=dict(l=20, r=20, t=60, b=20),\n                  legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1))\nfig.update_yaxes(title_text=\"high / low\", row=1, col=1)\nfig.update_yaxes(title_text=\"channel bands\", row=2, col=1)\nfig.show()"
+      }
+    ]
   },
   "Hampel": {
     "name": "Hampel",
@@ -4114,7 +4372,13 @@
     ],
     "nan_policy": "ignore",
     "details": "## Description\n\nVolatility-adapted envelope. The midline is an EMA of close; the upper/lower lines are\noffset by a multiple of ATR:\n\n$$\n\\begin{aligned}\n\\text{mid}[t]   &= \\text{EMA}(\\text{close},\\ \\text{window\\_size}) \\\\\n\\text{atr}[t]   &= \\text{ATR}(\\text{high},\\ \\text{low},\\ \\text{close},\\ \\text{window\\_size}) \\\\\n\\text{upper}[t] &= \\text{mid} + \\text{num\\_atr}\\ \\cdot\\ \\text{atr} \\\\\n\\text{lower}[t] &= \\text{mid} - \\text{num\\_atr}\\ \\cdot\\ \\text{atr}\n\\end{aligned}\n$$\n\n**3-input, 3-output** (`FunctorBase<_, 3, 3>`). Inputs `(high, low, close)`; outputs\n`(lower, mid, upper)`. First valid at sample index `window_size`.\n\nComposes one `EwMean(span=window_size)` for the midline + one `ATR(window_size)`. O(1)\nper step.\n\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
-    "examples": []
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage example",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import KeltnerChannels\n\nnp.random.seed(0)\nclose = 100*np.exp(np.cumsum(np.random.normal(0, 0.01, size=300)))\nopen_ = np.concatenate([[close[0]], close[:-1]])\nwick = np.abs(np.random.normal(0, 0.4, size=300))\nhigh = np.maximum(open_, close) + wick\nlow  = np.minimum(open_, close) - wick\nout = np.asarray(KeltnerChannels(20)(high, low, close))\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True,\n                    row_heights=[0.55, 0.45], vertical_spacing=0.08)\nfig.add_trace(go.Scatter(y=close, name=\"close\", line=dict(color=\"royalblue\")), row=1, col=1)\nfig.add_trace(go.Scatter(y=close, name=\"close\", line=dict(color=\"royalblue\")), row=2, col=1)\nfig.add_trace(go.Scatter(y=out[:, 2], name=\"upper\", line=dict(color=\"red\")), row=2, col=1)\nfig.add_trace(go.Scatter(y=out[:, 1], name=\"mid\", line=dict(color=\"gray\")), row=2, col=1)\nfig.add_trace(go.Scatter(y=out[:, 0], name=\"lower\", line=dict(color=\"green\")), row=2, col=1)\nfig.update_layout(title=\"Keltner channels (KeltnerChannels)\",\n                  margin=dict(l=20, r=20, t=60, b=20),\n                  legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1))\nfig.update_yaxes(title_text=\"close\", row=1, col=1)\nfig.update_yaxes(title_text=\"close and bands\", row=2, col=1)\nfig.show()"
+      }
+    ]
   },
   "MACD": {
     "name": "MACD",
@@ -4200,7 +4464,13 @@
     ],
     "nan_policy": "ignore",
     "details": "## Description\n\nMoney Flow Index - a volume-weighted analogue of RSI on the typical price:\n\n$$\n\\begin{aligned}\n\\text{TP}[t]     &= (H + L + C) / 3 \\\\\n\\text{MF}[t]     &= \\text{TP} \\cdot V \\\\\n\\text{pos\\_MF}_w &= \\sum_w \\text{MF}[\\text{where}\\ \\text{TP} > \\text{TP}_{t-1}] \\\\\n\\text{neg\\_MF}_w &= \\sum_w \\text{MF}[\\text{where}\\ \\text{TP} < \\text{TP}_{t-1}] \\\\\n\\text{MFI}[t]    &= 100\\ \\cdot\\ \\dfrac{\\text{pos\\_MF}_w}{\\text{pos\\_MF}_w + \\text{neg\\_MF}_w}\n\\end{aligned}\n$$\n\n**4-input, 1-output** on `(high, low, close, volume)`. First valid output at sample index\n`window_size`. Bit-exact to `talib.MFI` (~1e-14).\n\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
-    "examples": []
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage example",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import MFI\n\nnp.random.seed(0)\nclose = 100*np.exp(np.cumsum(np.random.normal(0, 0.01, size=300)))\nopen_ = np.concatenate([[close[0]], close[:-1]])\nwick = np.abs(np.random.normal(0, 0.4, size=300))\nhigh = np.maximum(open_, close) + wick\nlow  = np.minimum(open_, close) - wick\nvolume = np.random.uniform(1e5, 5e5, size=300)\nout = MFI(14)(high, low, close, volume)\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True,\n                    row_heights=[0.55, 0.45], vertical_spacing=0.08)\nfig.add_trace(go.Scatter(y=close, name=\"close\", line=dict(color=\"royalblue\")), row=1, col=1)\nfig.add_trace(go.Scatter(y=out, name=\"MFI(14)\", line=dict(color=\"red\")), row=2, col=1)\nfig.update_layout(title=\"Money flow index (MFI)\",\n                  margin=dict(l=20, r=20, t=60, b=20),\n                  legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1))\nfig.update_yaxes(title_text=\"close\", row=1, col=1)\nfig.update_yaxes(title_text=\"MFI (0-100)\", row=2, col=1)\nfig.show()"
+      }
+    ]
   },
   "NATR": {
     "name": "NATR",
@@ -4230,7 +4500,13 @@
     ],
     "nan_policy": "ignore",
     "details": "## Description\n\nATR scaled to a percentage of the current close:\n\n$$\n\\text{NATR}[t] = 100\\ \\cdot\\ \\frac{\\text{ATR}[t]}{C[t]}\n$$\n\nUseful for cross-instrument comparison (an ATR of \\$1 on a \\$10 stock is much larger than\nthe same ATR on a \\$1000 stock).\n\n**3-input, 1-output** on `(high, low, close)`. Bit-exact to `talib.NATR`.\n\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
-    "examples": []
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage example",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import NATR\n\nnp.random.seed(0)\nclose = 100*np.exp(np.cumsum(np.random.normal(0, 0.01, size=300)))\nopen_ = np.concatenate([[close[0]], close[:-1]])\nwick = np.abs(np.random.normal(0, 0.4, size=300))\nhigh = np.maximum(open_, close) + wick\nlow  = np.minimum(open_, close) - wick\nout = NATR(14)(high, low, close)\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True,\n                    row_heights=[0.55, 0.45], vertical_spacing=0.08)\nfig.add_trace(go.Scatter(y=high, name=\"high\", line=dict(color=\"#888\")), row=1, col=1)\nfig.add_trace(go.Scatter(y=low, name=\"low\", line=dict(color=\"#bbb\")), row=1, col=1)\nfig.add_trace(go.Scatter(y=close, name=\"close\", line=dict(color=\"royalblue\")), row=1, col=1)\nfig.add_trace(go.Scatter(y=out, name=\"NATR(14)\", line=dict(color=\"red\")), row=2, col=1)\nfig.update_layout(title=\"Normalized average true range (NATR)\",\n                  margin=dict(l=20, r=20, t=60, b=20),\n                  legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1))\nfig.update_yaxes(title_text=\"price\", row=1, col=1)\nfig.update_yaxes(title_text=\"NATR (%)\", row=2, col=1)\nfig.show()"
+      }
+    ]
   },
   "OBV": {
     "name": "OBV",
@@ -4252,7 +4528,13 @@
     "parameters": [],
     "nan_policy": "ignore",
     "details": "## Description\n\nOn-Balance Volume (Granville, 1963):\n\n$$\n\\text{OBV}[t] = \\text{OBV}[t-1] + \\text{sign}(C - C_{t-1})\\ \\cdot\\ V[t]\n$$\n\nwith seed `OBV[0] = volume[0]` (TA-Lib's convention). **2-input, 1-output** on\n`(close, volume)`. Cumulative; no window.\n\nBit-exact to `talib.OBV` (0.0 difference).\n\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
-    "examples": []
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage example",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import OBV\n\nnp.random.seed(0)\nclose = 100*np.exp(np.cumsum(np.random.normal(0, 0.01, size=300)))\nvolume = np.random.uniform(1e5, 5e5, size=300)\nout = OBV()(close, volume)\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True,\n                    row_heights=[0.55, 0.45], vertical_spacing=0.08)\nfig.add_trace(go.Scatter(y=close, name=\"close\", line=dict(color=\"royalblue\")), row=1, col=1)\nfig.add_trace(go.Scatter(y=out, name=\"OBV\", line=dict(color=\"red\")), row=2, col=1)\nfig.update_layout(title=\"On-balance volume (OBV)\",\n                  margin=dict(l=20, r=20, t=60, b=20),\n                  legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1))\nfig.update_yaxes(title_text=\"close\", row=1, col=1)\nfig.update_yaxes(title_text=\"OBV\", row=2, col=1)\nfig.show()"
+      }
+    ]
   },
   "RollingArgmax": {
     "name": "RollingArgmax",
@@ -4348,7 +4630,13 @@
     ],
     "nan_policy": "ignore",
     "details": "## Description\n\nThe Garman-Klass (1980) range-based volatility estimator. Per-bar variance contribution:\n\n$$\n\\sigma^2_\\text{GK}[t] = \\tfrac{1}{2}\\big(\\ln H/L\\big)^2 - (2\\ln 2 - 1)\\big(\\ln C/O\\big)^2\n$$\n\nThis expression is averaged with a rolling mean over `window_size` bars to form the estimator. The `Vol`\nvariant returns `sqrt(Var)` (bit-exact via the same internal state).\n\n**4-input, 1-output** on `(open, high, low, close)`. ~7.4x more statistically efficient\nthan close-to-close `RollingStd` *under the model's assumptions* (zero drift, no overnight\ngaps).\n\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
-    "examples": []
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage example",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import RollingGarmanKlassVar\n\nnp.random.seed(0)\nclose = 100*np.exp(np.cumsum(np.random.normal(0, 0.01, size=300)))\nopen_ = np.concatenate([[close[0]], close[:-1]])\nwick = np.abs(np.random.normal(0, 0.4, size=300))\nhigh = np.maximum(open_, close) + wick\nlow  = np.minimum(open_, close) - wick\nout = RollingGarmanKlassVar(window_size=20)(open_, high, low, close)\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True,\n                    row_heights=[0.55, 0.45], vertical_spacing=0.08)\nfig.add_trace(go.Scatter(y=close, name=\"close\"), row=1, col=1)\nfig.add_trace(go.Scatter(y=out, name=\"RollingGarmanKlassVar\", line=dict(color=\"red\")), row=2, col=1)\nfig.update_layout(title=\"Rolling Garman-Klass variance (RollingGarmanKlassVar)\",\n                  margin=dict(l=20, r=20, t=60, b=20),\n                  legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1))\nfig.update_yaxes(title_text=\"price\", row=1, col=1)\nfig.update_yaxes(title_text=\"variance\", row=2, col=1)\nfig.show()"
+      }
+    ]
   },
   "RollingGarmanKlassVol": {
     "name": "RollingGarmanKlassVol",
@@ -4378,7 +4666,13 @@
     ],
     "nan_policy": "ignore",
     "details": "## Description\n\nThe Garman-Klass (1980) range-based volatility estimator. Per-bar variance contribution:\n\n$$\n\\sigma^2_\\text{GK}[t] = \\tfrac{1}{2}\\big(\\ln H/L\\big)^2 - (2\\ln 2 - 1)\\big(\\ln C/O\\big)^2\n$$\n\nThis expression is averaged with a rolling mean over `window_size` bars to form the estimator. The `Vol`\nvariant returns `sqrt(Var)` (bit-exact via the same internal state).\n\n**4-input, 1-output** on `(open, high, low, close)`. ~7.4x more statistically efficient\nthan close-to-close `RollingStd` *under the model's assumptions* (zero drift, no overnight\ngaps).\n\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
-    "examples": []
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage example",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import RollingGarmanKlassVol\n\nnp.random.seed(0)\nclose = 100*np.exp(np.cumsum(np.random.normal(0, 0.01, size=300)))\nopen_ = np.concatenate([[close[0]], close[:-1]])\nwick = np.abs(np.random.normal(0, 0.4, size=300))\nhigh = np.maximum(open_, close) + wick\nlow  = np.minimum(open_, close) - wick\nout = RollingGarmanKlassVol(window_size=20)(open_, high, low, close)\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True,\n                    row_heights=[0.55, 0.45], vertical_spacing=0.08)\nfig.add_trace(go.Scatter(y=close, name=\"close\"), row=1, col=1)\nfig.add_trace(go.Scatter(y=out, name=\"RollingGarmanKlassVol\", line=dict(color=\"red\")), row=2, col=1)\nfig.update_layout(title=\"Rolling Garman-Klass volatility (RollingGarmanKlassVol)\",\n                  margin=dict(l=20, r=20, t=60, b=20),\n                  legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1))\nfig.update_yaxes(title_text=\"price\", row=1, col=1)\nfig.update_yaxes(title_text=\"volatility\", row=2, col=1)\nfig.show()"
+      }
+    ]
   },
   "RollingHurst": {
     "name": "RollingHurst",
@@ -4873,7 +5167,13 @@
     ],
     "nan_policy": "ignore",
     "details": "## Description\n\nThe Parkinson (1980) range-based volatility estimator. Per-bar variance contribution:\n\n$$\n\\sigma^2_\\text{Parkinson}[t] = \\frac{1}{4 \\ln 2}\\ \\big(\\ln H/L\\big)^2\n$$\n\nThis expression is then averaged with a rolling mean over `window_size` bars to form the estimator. The\n`Vol` variant returns `sqrt(Var)`; the two are bit-exact via the same internal state.\n\n**2-input, 1-output** on `(high, low)`. ~5x more statistically efficient than\nclose-to-close `RollingStd` *under the model's assumptions* (zero drift, no overnight gaps).\n\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
-    "examples": []
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage example",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import RollingParkinsonVar\n\nnp.random.seed(0)\nclose = 100*np.exp(np.cumsum(np.random.normal(0, 0.01, size=300)))\nopen_ = np.concatenate([[close[0]], close[:-1]])\nwick = np.abs(np.random.normal(0, 0.4, size=300))\nhigh = np.maximum(open_, close) + wick\nlow  = np.minimum(open_, close) - wick\nout = RollingParkinsonVar(window_size=20)(high, low)\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True,\n                    row_heights=[0.55, 0.45], vertical_spacing=0.08)\nfig.add_trace(go.Scatter(y=high, name=\"high\"), row=1, col=1)\nfig.add_trace(go.Scatter(y=low, name=\"low\"), row=1, col=1)\nfig.add_trace(go.Scatter(y=out, name=\"RollingParkinsonVar\", line=dict(color=\"red\")), row=2, col=1)\nfig.update_layout(title=\"Rolling Parkinson variance (RollingParkinsonVar)\",\n                  margin=dict(l=20, r=20, t=60, b=20),\n                  legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1))\nfig.update_yaxes(title_text=\"price\", row=1, col=1)\nfig.update_yaxes(title_text=\"variance\", row=2, col=1)\nfig.show()"
+      }
+    ]
   },
   "RollingParkinsonVol": {
     "name": "RollingParkinsonVol",
@@ -4903,7 +5203,13 @@
     ],
     "nan_policy": "ignore",
     "details": "## Description\n\nThe Parkinson (1980) range-based volatility estimator. Per-bar variance contribution:\n\n$$\n\\sigma^2_\\text{Parkinson}[t] = \\frac{1}{4 \\ln 2}\\ \\big(\\ln H/L\\big)^2\n$$\n\nThis expression is then averaged with a rolling mean over `window_size` bars to form the estimator. The\n`Vol` variant returns `sqrt(Var)`; the two are bit-exact via the same internal state.\n\n**2-input, 1-output** on `(high, low)`. ~5x more statistically efficient than\nclose-to-close `RollingStd` *under the model's assumptions* (zero drift, no overnight gaps).\n\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
-    "examples": []
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage example",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import RollingParkinsonVol\n\nnp.random.seed(0)\nclose = 100*np.exp(np.cumsum(np.random.normal(0, 0.01, size=300)))\nopen_ = np.concatenate([[close[0]], close[:-1]])\nwick = np.abs(np.random.normal(0, 0.4, size=300))\nhigh = np.maximum(open_, close) + wick\nlow  = np.minimum(open_, close) - wick\nout = RollingParkinsonVol(window_size=20)(high, low)\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True,\n                    row_heights=[0.55, 0.45], vertical_spacing=0.08)\nfig.add_trace(go.Scatter(y=high, name=\"high\"), row=1, col=1)\nfig.add_trace(go.Scatter(y=low, name=\"low\"), row=1, col=1)\nfig.add_trace(go.Scatter(y=out, name=\"RollingParkinsonVol\", line=dict(color=\"red\")), row=2, col=1)\nfig.update_layout(title=\"Rolling Parkinson volatility (RollingParkinsonVol)\",\n                  margin=dict(l=20, r=20, t=60, b=20),\n                  legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1))\nfig.update_yaxes(title_text=\"price\", row=1, col=1)\nfig.update_yaxes(title_text=\"volatility\", row=2, col=1)\nfig.show()"
+      }
+    ]
   },
   "RollingPoly1": {
     "name": "RollingPoly1",
@@ -5111,7 +5417,13 @@
     ],
     "nan_policy": "ignore",
     "details": "## Description\n\nWilder's Relative Strength Index. Up- and down-moves are separately smoothed; the index\nis `100 - 100 / (1 + RS)` where `RS` is the smoothed ratio of average up to average down\nmoves:\n\n$$\n\\begin{aligned}\n\\Delta[t] &= x[t] - x[t-1] \\\\\nU[t] &= \\max(\\Delta, 0),\\quad D[t] = \\max(-\\Delta, 0) \\\\\n\\overline{U}[t] &= \\text{smooth}(U,\\ \\text{window\\_size}),\\quad \\overline{D}[t] = \\text{smooth}(D,\\ \\text{window\\_size}) \\\\\n\\text{RS}[t] &= \\overline{U}[t] / \\overline{D}[t] \\\\\n\\text{RSI}[t] &= 100 - 100 / (1 + \\text{RS})\n\\end{aligned}\n$$\n\nThe smoothing depends on `method`:\n\n- `'wilder'` (default) -- Wilder's smoothing\n  $\\overline{X}[t] = \\overline{X}[t-1] + (X[t] - \\overline{X}[t-1]) / w$, with the\n  SMA-of-the-first-`w` seed. Matches `talib.RSI` and `pandas-ta-classic.rsi` bit-exactly\n  post-warmup.\n- `'cutler'` -- plain rolling-mean smoothing. Cutler's variant. Useful if you specifically\n  want the SMA-form (some legacy systems use it). Does **not** match TA-Lib.\n\n## Notes\n\n- First valid output at sample index `window_size`.\n- Output is bounded in `[0, 100]`.\n- The default was changed from 'cutler' to 'wilder' in a recent release to align with\n  TA-Lib and pandas-ta-classic. Pass `method='cutler'` to recover the old behaviour.\n\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
-    "examples": []
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage example",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import RollingRSI\n\nnp.random.seed(0)\nprice = 100*np.exp(np.cumsum(np.random.normal(0.0005, 0.02, size=300)))\nrsi = RollingRSI(window_size=14)(price)\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True,\n                    row_heights=[0.55, 0.45], vertical_spacing=0.08)\nfig.add_trace(go.Scatter(y=price, name=\"price\"), row=1, col=1)\nfig.add_trace(go.Scatter(y=rsi, name=\"RollingRSI\", line=dict(color=\"red\")), row=2, col=1)\nfig.update_layout(title=\"Price with RSI (RollingRSI)\",\n                  margin=dict(l=20, r=20, t=60, b=20),\n                  legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1))\nfig.update_yaxes(title_text=\"price\", row=1, col=1)\nfig.update_yaxes(title_text=\"RSI (0-100)\", row=2, col=1)\nfig.show()"
+      }
+    ]
   },
   "RollingRange": {
     "name": "RollingRange",
@@ -5223,7 +5535,13 @@
     ],
     "nan_policy": "ignore",
     "details": "## Description\n\nThe Rogers-Satchell (1991) range-based volatility estimator. Per-bar variance contribution:\n\n$$\n\\sigma^2_\\text{RS}[t] = \\ln\\tfrac{H}{C}\\ \\ln\\tfrac{H}{O} + \\ln\\tfrac{L}{C}\\ \\ln\\tfrac{L}{O}\n$$\n\nThis expression is averaged with a rolling mean over `window_size` bars to form the estimator. The `Vol`\nvariant returns `sqrt(Var)` (bit-exact via the same internal state).\n\n**4-input, 1-output** on `(open, high, low, close)`. Slightly less efficient (~6x vs\nclose-to-close) than Garman-Klass but **drift-robust** - works correctly when the underlying\ndrift is non-zero, a much more realistic assumption for trending markets.\n\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
-    "examples": []
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage example",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import RollingRogersSatchellVar\n\nnp.random.seed(0)\nclose = 100*np.exp(np.cumsum(np.random.normal(0, 0.01, size=300)))\nopen_ = np.concatenate([[close[0]], close[:-1]])\nwick = np.abs(np.random.normal(0, 0.4, size=300))\nhigh = np.maximum(open_, close) + wick\nlow  = np.minimum(open_, close) - wick\nout = RollingRogersSatchellVar(window_size=20)(open_, high, low, close)\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True,\n                    row_heights=[0.55, 0.45], vertical_spacing=0.08)\nfig.add_trace(go.Scatter(y=close, name=\"close\"), row=1, col=1)\nfig.add_trace(go.Scatter(y=out, name=\"RollingRogersSatchellVar\", line=dict(color=\"red\")), row=2, col=1)\nfig.update_layout(title=\"Rolling Rogers-Satchell variance (RollingRogersSatchellVar)\",\n                  margin=dict(l=20, r=20, t=60, b=20),\n                  legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1))\nfig.update_yaxes(title_text=\"price\", row=1, col=1)\nfig.update_yaxes(title_text=\"variance\", row=2, col=1)\nfig.show()"
+      }
+    ]
   },
   "RollingRogersSatchellVol": {
     "name": "RollingRogersSatchellVol",
@@ -5254,7 +5572,13 @@
     ],
     "nan_policy": "ignore",
     "details": "## Description\n\nThe Rogers-Satchell (1991) range-based volatility estimator. Per-bar variance contribution:\n\n$$\n\\sigma^2_\\text{RS}[t] = \\ln\\tfrac{H}{C}\\ \\ln\\tfrac{H}{O} + \\ln\\tfrac{L}{C}\\ \\ln\\tfrac{L}{O}\n$$\n\nThis expression is averaged with a rolling mean over `window_size` bars to form the estimator. The `Vol`\nvariant returns `sqrt(Var)` (bit-exact via the same internal state).\n\n**4-input, 1-output** on `(open, high, low, close)`. Slightly less efficient (~6x vs\nclose-to-close) than Garman-Klass but **drift-robust** - works correctly when the underlying\ndrift is non-zero, a much more realistic assumption for trending markets.\n\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
-    "examples": []
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage example",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import RollingRogersSatchellVol\n\nnp.random.seed(0)\nclose = 100*np.exp(np.cumsum(np.random.normal(0, 0.01, size=300)))\nopen_ = np.concatenate([[close[0]], close[:-1]])\nwick = np.abs(np.random.normal(0, 0.4, size=300))\nhigh = np.maximum(open_, close) + wick\nlow  = np.minimum(open_, close) - wick\nout = RollingRogersSatchellVol(window_size=20)(open_, high, low, close)\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True,\n                    row_heights=[0.55, 0.45], vertical_spacing=0.08)\nfig.add_trace(go.Scatter(y=close, name=\"close\"), row=1, col=1)\nfig.add_trace(go.Scatter(y=out, name=\"RollingRogersSatchellVol\", line=dict(color=\"red\")), row=2, col=1)\nfig.update_layout(title=\"Rolling Rogers-Satchell volatility (RollingRogersSatchellVol)\",\n                  margin=dict(l=20, r=20, t=60, b=20),\n                  legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1))\nfig.update_yaxes(title_text=\"price\", row=1, col=1)\nfig.update_yaxes(title_text=\"volatility\", row=2, col=1)\nfig.show()"
+      }
+    ]
   },
   "RollingSigmaClip": {
     "name": "RollingSigmaClip",
@@ -5476,7 +5800,13 @@
     ],
     "nan_policy": "ignore",
     "details": "## Description\n\nRolling volume-weighted average price using the typical price as the weighting basis:\n\n$$\n\\text{TP}[t] = (\\text{high} + \\text{low} + \\text{close}) / 3\n\\qquad\n\\text{VWAP}[t] = \\dfrac{\\sum_w \\text{TP} \\cdot \\text{volume}}{\\sum_w \\text{volume}}\n$$\n\n**4-input, 1-output** on `(high, low, close, volume)`. Matches `pandas-ta-classic.vwap`.\nFor a *session-VWAP* (cumulative since some reset point), call `reset()` at the session\nboundary.\n\nFirst valid output at sample index `window_size - 1`. Composes two `detail::RollingSum`\ninstances; O(1) per step.\n\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
-    "examples": []
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage example",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import RollingVWAP\n\nnp.random.seed(0)\nclose = 100*np.exp(np.cumsum(np.random.normal(0, 0.01, size=300)))\nopen_ = np.concatenate([[close[0]], close[:-1]])\nwick = np.abs(np.random.normal(0, 0.4, size=300))\nhigh = np.maximum(open_, close) + wick\nlow  = np.minimum(open_, close) - wick\nvolume = np.random.uniform(1e5, 5e5, size=300)\nvwap = RollingVWAP(window_size=20)(high, low, close, volume)\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True,\n                    row_heights=[0.55, 0.45], vertical_spacing=0.08)\nfig.add_trace(go.Scatter(y=close, name=\"close\"), row=1, col=1)\nfig.add_trace(go.Scatter(y=vwap, name=\"RollingVWAP\", line=dict(color=\"red\")), row=1, col=1)\nfig.add_trace(go.Bar(y=volume, name=\"volume\"), row=2, col=1)\nfig.update_layout(title=\"Price with rolling VWAP (RollingVWAP)\",\n                  margin=dict(l=20, r=20, t=60, b=20),\n                  legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1))\nfig.update_yaxes(title_text=\"price\", row=1, col=1)\nfig.update_yaxes(title_text=\"volume\", row=2, col=1)\nfig.show()"
+      }
+    ]
   },
   "RollingVar": {
     "name": "RollingVar",
@@ -5553,7 +5883,13 @@
     ],
     "nan_policy": "ignore",
     "details": "## Description\n\nThe Yang-Zhang (2000) estimator combines three variance components:\n\n$$\n\\begin{aligned}\n\\sigma^2_o    &= \\text{sample variance of overnight log returns } \\ln(O_t / C_{t-1}) \\\\\n\\sigma^2_c    &= \\text{sample variance of open-to-close log returns } \\ln(C_t / O_t) \\\\\n\\sigma^2_{RS} &= \\text{mean of per-bar Rogers-Satchell estimates} \\\\\nk             &= \\dfrac{0.34}{1.34 + (n+1)/(n-1)} \\\\\n\\sigma^2_{YZ} &= \\sigma^2_o + k\\ \\cdot\\ \\sigma^2_c + (1-k)\\ \\cdot\\ \\sigma^2_{RS}\n\\end{aligned}\n$$\n\nThe only classical estimator that handles **both** drift *and* overnight gaps. ~14x\nefficient vs close-to-close.\n\n**4-input, 1-output** on `(open, high, low, close)`. First valid output at sample index\n`window_size` (we need n+1 price bars to form n overnight returns). The `Vol` variant\nreturns `sqrt(Var)` (bit-exact via the same internal state).\n\nNo EW form is exposed because the `k` factor depends on a discrete window size; any\n\"EW analogue\" would require an arbitrary mapping from `span` to `n` that varies by\nconvention.\n\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
-    "examples": []
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage example",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import RollingYangZhangVar\n\nnp.random.seed(0)\nclose = 100*np.exp(np.cumsum(np.random.normal(0, 0.01, size=300)))\nopen_ = np.concatenate([[close[0]], close[:-1]])\nwick = np.abs(np.random.normal(0, 0.4, size=300))\nhigh = np.maximum(open_, close) + wick\nlow  = np.minimum(open_, close) - wick\nout = RollingYangZhangVar(window_size=20)(open_, high, low, close)\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True,\n                    row_heights=[0.55, 0.45], vertical_spacing=0.08)\nfig.add_trace(go.Scatter(y=close, name=\"close\"), row=1, col=1)\nfig.add_trace(go.Scatter(y=out, name=\"RollingYangZhangVar\", line=dict(color=\"red\")), row=2, col=1)\nfig.update_layout(title=\"Rolling Yang-Zhang variance (RollingYangZhangVar)\",\n                  margin=dict(l=20, r=20, t=60, b=20),\n                  legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1))\nfig.update_yaxes(title_text=\"price\", row=1, col=1)\nfig.update_yaxes(title_text=\"variance\", row=2, col=1)\nfig.show()"
+      }
+    ]
   },
   "RollingYangZhangVol": {
     "name": "RollingYangZhangVol",
@@ -5585,7 +5921,13 @@
     ],
     "nan_policy": "ignore",
     "details": "## Description\n\nThe Yang-Zhang (2000) estimator combines three variance components:\n\n$$\n\\begin{aligned}\n\\sigma^2_o    &= \\text{sample variance of overnight log returns } \\ln(O_t / C_{t-1}) \\\\\n\\sigma^2_c    &= \\text{sample variance of open-to-close log returns } \\ln(C_t / O_t) \\\\\n\\sigma^2_{RS} &= \\text{mean of per-bar Rogers-Satchell estimates} \\\\\nk             &= \\dfrac{0.34}{1.34 + (n+1)/(n-1)} \\\\\n\\sigma^2_{YZ} &= \\sigma^2_o + k\\ \\cdot\\ \\sigma^2_c + (1-k)\\ \\cdot\\ \\sigma^2_{RS}\n\\end{aligned}\n$$\n\nThe only classical estimator that handles **both** drift *and* overnight gaps. ~14x\nefficient vs close-to-close.\n\n**4-input, 1-output** on `(open, high, low, close)`. First valid output at sample index\n`window_size` (we need n+1 price bars to form n overnight returns). The `Vol` variant\nreturns `sqrt(Var)` (bit-exact via the same internal state).\n\nNo EW form is exposed because the `k` factor depends on a discrete window size; any\n\"EW analogue\" would require an arbitrary mapping from `span` to `n` that varies by\nconvention.\n\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
-    "examples": []
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage example",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import RollingYangZhangVol\n\nnp.random.seed(0)\nclose = 100*np.exp(np.cumsum(np.random.normal(0, 0.01, size=300)))\nopen_ = np.concatenate([[close[0]], close[:-1]])\nwick = np.abs(np.random.normal(0, 0.4, size=300))\nhigh = np.maximum(open_, close) + wick\nlow  = np.minimum(open_, close) - wick\nout = RollingYangZhangVol(window_size=20)(open_, high, low, close)\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True,\n                    row_heights=[0.55, 0.45], vertical_spacing=0.08)\nfig.add_trace(go.Scatter(y=close, name=\"close\"), row=1, col=1)\nfig.add_trace(go.Scatter(y=out, name=\"RollingYangZhangVol\", line=dict(color=\"red\")), row=2, col=1)\nfig.update_layout(title=\"Rolling Yang-Zhang volatility (RollingYangZhangVol)\",\n                  margin=dict(l=20, r=20, t=60, b=20),\n                  legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1))\nfig.update_yaxes(title_text=\"price\", row=1, col=1)\nfig.update_yaxes(title_text=\"volatility\", row=2, col=1)\nfig.show()"
+      }
+    ]
   },
   "RollingZscore": {
     "name": "RollingZscore",
@@ -5730,7 +6072,13 @@
     ],
     "nan_policy": "ignore",
     "details": "## Description\n\n`StochRSI` (Chande & Kroll, 1994) applies the Stochastic oscillator formula to an RSI series rather than to price. It is a \"rate of change of momentum\" indicator: more responsive than RSI alone and useful for spotting RSI turning points.\n\n$$\n\\begin{aligned}\n\\text{RSI}[t]   &= \\text{RollingRSI}(\\text{rsi\\_period},\\ \\text{method}=\\text{wilder})(x)[t] \\\\\n\\text{raw\\_K}   &= 100 \\cdot \\frac{\\text{RSI} - \\min(\\text{RSI},\\ \\text{stoch\\_period})}{\\max(\\text{RSI},\\ \\text{stoch\\_period}) - \\min(\\text{RSI},\\ \\text{stoch\\_period})} \\\\\n\\%K[t]          &= \\text{SMA}(\\text{raw\\_K},\\ \\text{smooth\\_k}) \\\\\n\\%D[t]          &= \\text{SMA}(\\%K,\\ d)\n\\end{aligned}\n$$\n\n**1-input, 2-output** (`FunctorBase<_, 1, 2>`).\n\n## Setting it up\n\n| Configuration | Constructor | TA-Lib equivalent |\n|---|---|---|\n| **Fast StochRSI** (TA-Lib's `STOCHRSI`) -- default | `StochRSI(14, 14, 1, 3)` | `STOCHRSI(close, timeperiod=14, fastk_period=14, fastd_period=3)` |\n| **Slow StochRSI** -- add smoothing on K | `StochRSI(14, 14, 3, 3)` | not in TA-Lib; common in pandas-ta `stochrsi(..., k=3, ...)` |\n\n`smooth_k=1` is the identity SMA, collapsing `%K = raw_K` (the \"fast\" form). `smooth_k >= 2` gives the slow form.\n\n## Parameters\n\n- `rsi_period` (int, default `14`): RSI lookback. Uses Wilder smoothing internally.\n- `stoch_period` (int, default `14`): rolling min/max window applied to the RSI series.\n- `smooth_k` (int, default `1`): SMA period applied to `raw_K`.\n- `d` (int, default `3`): SMA period applied to `%K` to produce `%D`.\n\n*Warmup*: both outputs are NaN until `%D` is valid, at sample index `rsi_period + stoch_period + smooth_k + d - 3` (TA-Lib's convention -- gate both K and D together). For defaults that is index 29.\n\n*Range-zero*: when the RSI window is flat (`max == min`), `raw_K` is undefined; we return `0`.\n\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
-    "examples": []
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage example",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import StochRSI\n\nnp.random.seed(0)\nclose = 100*np.exp(np.cumsum(np.random.normal(0, 0.01, size=300)))\nout = StochRSI(14, 14, 1, 3)(close)\nk = out[:, 0]\nd = out[:, 1]\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True,\n                    row_heights=[0.55, 0.45], vertical_spacing=0.08)\nfig.add_trace(go.Scatter(y=close, name=\"close\"), row=1, col=1)\nfig.add_trace(go.Scatter(y=k, name=\"%K\", line=dict(color=\"red\")), row=2, col=1)\nfig.add_trace(go.Scatter(y=d, name=\"%D\", line=dict(color=\"orange\")), row=2, col=1)\nfig.update_layout(title=\"Price with Stochastic RSI (StochRSI)\",\n                  margin=dict(l=20, r=20, t=60, b=20),\n                  legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1))\nfig.update_yaxes(title_text=\"price\", row=1, col=1)\nfig.update_yaxes(title_text=\"%K / %D (0-100)\", row=2, col=1)\nfig.show()"
+      }
+    ]
   },
   "TEMA": {
     "name": "TEMA",
@@ -5875,7 +6223,13 @@
     "parameters": [],
     "nan_policy": "ignore",
     "details": "## Description\n\nThe per-bar true-range quantity that accounts for overnight gaps:\n\n$$\n\\text{TR}[t] = \\max\\big(\\ H - L,\\ \\ |H - C_{t-1}|,\\ \\ |L - C_{t-1}|\\ \\big)\n$$\n\n**3-input, 1-output** on `(high, low, close)`. The first sample returns `NaN` (no previous\nclose). Otherwise stateless. Bit-exact to `talib.TRANGE`.\n\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
-    "examples": []
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage example",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import TrueRange\n\nnp.random.seed(0)\nclose = 100*np.exp(np.cumsum(np.random.normal(0, 0.01, size=300)))\nopen_ = np.concatenate([[close[0]], close[:-1]])\nwick = np.abs(np.random.normal(0, 0.4, size=300))\nhigh = np.maximum(open_, close) + wick\nlow  = np.minimum(open_, close) - wick\nout = TrueRange()(high, low, close)\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True,\n                    row_heights=[0.55, 0.45], vertical_spacing=0.08)\nfig.add_trace(go.Scatter(y=high, name=\"high\", line=dict(color=\"#888\")), row=1, col=1)\nfig.add_trace(go.Scatter(y=low, name=\"low\", line=dict(color=\"#bbb\")), row=1, col=1)\nfig.add_trace(go.Scatter(y=close, name=\"close\", line=dict(color=\"royalblue\")), row=1, col=1)\nfig.add_trace(go.Scatter(y=out, name=\"TrueRange\", line=dict(color=\"red\")), row=2, col=1)\nfig.update_layout(title=\"True range per bar (TrueRange)\",\n                  margin=dict(l=20, r=20, t=60, b=20),\n                  legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1))\nfig.update_yaxes(title_text=\"price\", row=1, col=1)\nfig.update_yaxes(title_text=\"true range\", row=2, col=1)\nfig.show()"
+      }
+    ]
   },
   "UltimateOscillator": {
     "name": "UltimateOscillator",
@@ -5916,7 +6270,13 @@
     ],
     "nan_policy": "ignore",
     "details": "## Description\n\n`UltimateOscillator` (Larry Williams, 1976) combines three timeframes of \"buying pressure to true range\" ratios into a single weighted oscillator. The three timeframes are intended to capture short, medium, and long momentum simultaneously.\n\n$$\n\\begin{aligned}\n\\text{BP}[t]   &= \\text{close} - \\min(\\text{low},\\ \\text{close}_{t-1}) \\\\\n\\text{TR}[t]   &= \\max(\\text{high},\\ \\text{close}_{t-1}) - \\min(\\text{low},\\ \\text{close}_{t-1}) \\\\\n\\text{avg}_k   &= \\frac{\\sum \\text{BP} \\text{ over } \\text{period}_k}{\\sum \\text{TR} \\text{ over } \\text{period}_k} \\\\\n\\text{UO}[t]   &= 100 \\cdot \\frac{4 \\cdot \\text{avg}_1 + 2 \\cdot \\text{avg}_2 + \\text{avg}_3}{7}\n\\end{aligned}\n$$\n\nThe 4 / 2 / 1 weighting puts the heaviest emphasis on the shortest period.\n\n**3-input, 1-output** (`FunctorBase<_, 3, 1>`) on `(high, low, close)`.\n\n*Parameters*:\n\n- `period1` (default `7`): shortest timeframe.\n- `period2` (default `14`): medium timeframe.\n- `period3` (default `28`): longest timeframe.\n\n*Warmup*: NaN until sample index `max(period1, period2, period3)` (TA-Lib's convention; gates on the longest window).\n\n*Output range*: `[0, 100]`.\n\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
-    "examples": []
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage example",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import UltimateOscillator\n\nnp.random.seed(0)\nclose = 100*np.exp(np.cumsum(np.random.normal(0, 0.01, size=300)))\nopen_ = np.concatenate([[close[0]], close[:-1]])\nwick = np.abs(np.random.normal(0, 0.4, size=300))\nhigh = np.maximum(open_, close) + wick\nlow  = np.minimum(open_, close) - wick\nout = UltimateOscillator()(high, low, close)\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True,\n                    row_heights=[0.55, 0.45], vertical_spacing=0.08)\nfig.add_trace(go.Scatter(y=high, name=\"high\", line=dict(color=\"#888\")), row=1, col=1)\nfig.add_trace(go.Scatter(y=low, name=\"low\", line=dict(color=\"#bbb\")), row=1, col=1)\nfig.add_trace(go.Scatter(y=close, name=\"close\", line=dict(color=\"royalblue\")), row=1, col=1)\nfig.add_trace(go.Scatter(y=out, name=\"UO(7,14,28)\", line=dict(color=\"red\")), row=2, col=1)\nfig.update_layout(title=\"Ultimate oscillator (UltimateOscillator)\",\n                  margin=dict(l=20, r=20, t=60, b=20),\n                  legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1))\nfig.update_yaxes(title_text=\"price\", row=1, col=1)\nfig.update_yaxes(title_text=\"UO (0-100)\", row=2, col=1)\nfig.show()"
+      }
+    ]
   },
   "WMA": {
     "name": "WMA",

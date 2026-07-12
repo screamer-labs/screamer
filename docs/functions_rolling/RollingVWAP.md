@@ -47,4 +47,39 @@ instances; O(1) per step.
 **Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
 <!-- NAN_FOOTNOTE_END -->
 
+## Examples
+
+### Usage example
+
+```{eval-rst}
+.. plotly::
+    :include-source: True
+
+    import numpy as np
+    import plotly.graph_objects as go
+    from plotly.subplots import make_subplots
+    from screamer import RollingVWAP
+
+    np.random.seed(0)
+    close = 100*np.exp(np.cumsum(np.random.normal(0, 0.01, size=300)))
+    open_ = np.concatenate([[close[0]], close[:-1]])
+    wick = np.abs(np.random.normal(0, 0.4, size=300))
+    high = np.maximum(open_, close) + wick
+    low  = np.minimum(open_, close) - wick
+    volume = np.random.uniform(1e5, 5e5, size=300)
+    vwap = RollingVWAP(window_size=20)(high, low, close, volume)
+
+    fig = make_subplots(rows=2, cols=1, shared_xaxes=True,
+                        row_heights=[0.55, 0.45], vertical_spacing=0.08)
+    fig.add_trace(go.Scatter(y=close, name="close"), row=1, col=1)
+    fig.add_trace(go.Scatter(y=vwap, name="RollingVWAP", line=dict(color="red")), row=1, col=1)
+    fig.add_trace(go.Bar(y=volume, name="volume"), row=2, col=1)
+    fig.update_layout(title="Price with rolling VWAP (RollingVWAP)",
+                      margin=dict(l=20, r=20, t=60, b=20),
+                      legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
+    fig.update_yaxes(title_text="price", row=1, col=1)
+    fig.update_yaxes(title_text="volume", row=2, col=1)
+    fig.show()
+```
+
 <!-- HELP_END -->

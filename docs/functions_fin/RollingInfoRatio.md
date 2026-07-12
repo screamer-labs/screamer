@@ -46,4 +46,36 @@ active-return series `r - b`.
 **Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
 <!-- NAN_FOOTNOTE_END -->
 
+## Examples
+
+### Usage example
+
+```{eval-rst}
+.. plotly::
+    :include-source: True
+
+    import numpy as np
+    import plotly.graph_objects as go
+    from plotly.subplots import make_subplots
+    from screamer import RollingInfoRatio
+
+    np.random.seed(0)
+    bench_ret = np.random.normal(0.0004, 0.012, size=300)
+    asset_ret = bench_ret + np.random.normal(0.0003, 0.006, size=300)
+    info = RollingInfoRatio(window_size=63)(asset_ret, bench_ret)   # Sharpe of active returns vs benchmark
+
+    fig = make_subplots(rows=2, cols=1, shared_xaxes=True,
+                        row_heights=[0.55, 0.45], vertical_spacing=0.08)
+    fig.add_trace(go.Scatter(y=asset_ret, mode="lines", name="asset returns"), row=1, col=1)
+    fig.add_trace(go.Scatter(y=bench_ret, mode="lines", name="benchmark returns"), row=1, col=1)
+    fig.add_trace(go.Scatter(y=info, mode="lines", name="info ratio",
+                             line=dict(color="red")), row=2, col=1)
+    fig.update_layout(title="Rolling information ratio over 63 bars (RollingInfoRatio)",
+                      margin=dict(l=20, r=20, t=60, b=20),
+                      legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
+    fig.update_yaxes(title_text="returns", row=1, col=1)
+    fig.update_yaxes(title_text="info ratio", row=2, col=1)
+    fig.show()
+```
+
 <!-- HELP_END -->

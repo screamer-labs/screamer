@@ -23,3 +23,18 @@ nan_policy: ignore
 *NaN handling*: if either input is NaN at step `t`, the output is NaN.
 
 *Parameters*: `Or` takes no parameters.
+
+## Examples
+
+### Usage example
+
+```{eval-rst}
+.. exec_code::
+
+    import numpy as np
+    from screamer import Or
+
+    m1 = np.array([1.0, 0.0, 1.0, 1.0, 0.0, 1.0])
+    m2 = np.array([1.0, 0.0, 0.0, 1.0, 1.0, 1.0])
+    print(Or()(m1, m2))     # -> [1. 0. 1. 1. 1. 1.]  (1.0 where at least one mask is nonzero)
+```

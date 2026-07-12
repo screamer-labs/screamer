@@ -46,10 +46,32 @@ directly:
 
 ## Examples
 
-### Implementation
+### Usage example
 
-```python
-rolling_dd = price / RollingMax(window)(price) - 1
+```{eval-rst}
+.. plotly::
+    :include-source: True
+
+    import numpy as np
+    import plotly.graph_objects as go
+    from plotly.subplots import make_subplots
+    from screamer import RollingMaxDrawdown
+
+    np.random.seed(0)
+    price = 100 * np.exp(np.cumsum(np.random.normal(0.0005, 0.02, size=300)))
+    rmdd = RollingMaxDrawdown(window_size=63)(price)   # worst drawdown in the last 63 bars
+
+    fig = make_subplots(rows=2, cols=1, shared_xaxes=True,
+                        row_heights=[0.55, 0.45], vertical_spacing=0.08)
+    fig.add_trace(go.Scatter(y=price, mode="lines", name="price"), row=1, col=1)
+    fig.add_trace(go.Scatter(y=rmdd, mode="lines", name="rolling max drawdown",
+                             line=dict(color="red"), fill="tozeroy"), row=2, col=1)
+    fig.update_layout(title="Worst drawdown in a trailing window (RollingMaxDrawdown)",
+                      margin=dict(l=20, r=20, t=60, b=20),
+                      legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
+    fig.update_yaxes(title_text="price", row=1, col=1)
+    fig.update_yaxes(title_text="rolling max drawdown", row=2, col=1)
+    fig.show()
 ```
 
 <!-- HELP_END -->

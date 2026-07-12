@@ -23,3 +23,18 @@ nan_policy: ignore
 *NaN handling*: if either input is NaN at step `t`, the output is NaN.
 
 *Parameters*: `And` takes no parameters.
+
+## Examples
+
+### Usage example
+
+```{eval-rst}
+.. exec_code::
+
+    import numpy as np
+    from screamer import And
+
+    m1 = np.array([1.0, 0.0, 1.0, 1.0, 0.0, 1.0])
+    m2 = np.array([1.0, 0.0, 0.0, 1.0, 1.0, 1.0])
+    print(And()(m1, m2))     # -> [1. 0. 0. 1. 0. 1.]  (1.0 only where both masks are nonzero)
+```

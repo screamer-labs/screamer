@@ -47,6 +47,26 @@ are positional in documented order.
 between the tuple convention and pandas objects. Both are importable from the top level:
 `from screamer import to_pandas, from_pandas`.
 
+## Example
+
+```{eval-rst}
+.. exec_code::
+
+    import numpy as np
+    from screamer import CombineLatest, to_pandas
+
+    a = np.array([10.0, 20.0, 40.0])
+    b = np.array([1.0, 3.0, 4.0])
+
+    # a stream operator returns a (values, index) pair
+    values, index = CombineLatest()(a, b, index=[np.array([1, 2, 4]), np.array([1, 3, 4])])
+    print(values)     # (T, 2): one column per input
+    print(index)      # the shared index
+
+    # to_pandas turns the pair into a labelled DataFrame
+    print(to_pandas(values, index, columns=["a", "b"]))
+```
+
 ## See also
 
 - [to_pandas](to_pandas.md) - convert tuple to Series/DataFrame.

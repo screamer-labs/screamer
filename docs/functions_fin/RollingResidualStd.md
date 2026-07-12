@@ -56,10 +56,34 @@ Composes `RollingSpread` + `RollingStd`. O(1) per step. NaN-poisoning during
 
 ## Examples
 
-### Description
+### Usage example
 
-```python
-z = (current_spread - mean_spread) / RollingResidualStd(60)(y, x)
+```{eval-rst}
+.. plotly::
+    :include-source: True
+
+    import numpy as np
+    import plotly.graph_objects as go
+    from plotly.subplots import make_subplots
+    from screamer import RollingResidualStd
+
+    np.random.seed(0)
+    x = np.random.normal(0.0004, 0.012, size=300)
+    y = 0.8 * x + np.random.normal(0.0003, 0.007, size=300)
+    resid = RollingResidualStd(window_size=63)(y, x)   # std of the hedge-adjusted residual y - beta*x
+
+    fig = make_subplots(rows=2, cols=1, shared_xaxes=True,
+                        row_heights=[0.55, 0.45], vertical_spacing=0.08)
+    fig.add_trace(go.Scatter(y=y, mode="lines", name="y returns"), row=1, col=1)
+    fig.add_trace(go.Scatter(y=x, mode="lines", name="x returns"), row=1, col=1)
+    fig.add_trace(go.Scatter(y=resid, mode="lines", name="residual std",
+                             line=dict(color="red")), row=2, col=1)
+    fig.update_layout(title="Rolling residual std over 63 bars (RollingResidualStd)",
+                      margin=dict(l=20, r=20, t=60, b=20),
+                      legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
+    fig.update_yaxes(title_text="returns", row=1, col=1)
+    fig.update_yaxes(title_text="residual std", row=2, col=1)
+    fig.show()
 ```
 
 <!-- HELP_END -->
