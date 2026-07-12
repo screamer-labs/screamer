@@ -100,13 +100,15 @@ The plot shows the input data (top, blue), the slope over the previous 50 sample
 Speed
 -----
 
-Screamer's functions are implemented in C++. For the operations shown below, they
-run faster than equivalent NumPy and pandas code.
+screamer runs batch operations as fast as or faster than NumPy and pandas, and
+many times faster for rolling-window statistics, because each function updates in
+constant time per sample. See the :doc:`Performance <performance>` page for the
+full breakdown.
 
 
-.. image:: /img/speed.png
-   :target: /img/speed.png
-   :alt: speed comparison
+.. image:: /img/speed_chart.png
+   :target: /img/speed_chart.png
+   :alt: screamer speedup versus the fastest alternative
 
 
 Batch and streaming
@@ -183,6 +185,7 @@ For a step-by-step walkthrough see the :doc:`User Guide <usage>`.
    nan_and_warmup
    multistream
    pipelines
+   performance
    conventions
 
 
