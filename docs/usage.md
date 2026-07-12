@@ -156,9 +156,12 @@ function.
 
 ## Functions with several inputs
 
-Some functions take more than one series. `RollingCorr`, for example, is the
-rolling correlation of two inputs. The call shape mirrors the single-input case:
-two scalars give a scalar, two arrays give an array, two streams give a stream.
+Some functions take more than one series. You can pass the series in either of two
+shapes, whichever your data is already in: as separate arguments, one per series,
+or as the columns of a single 2-D array. The two forms are equivalent and return
+the same result.
+
+`RollingCorr`, the rolling correlation of two series, accepts both:
 
 ```{eval-rst}
 .. exec_code::
@@ -168,18 +171,20 @@ two scalars give a scalar, two arrays give an array, two streams give a stream.
    from screamer import RollingCorr
    # --- hide: stop ---
    x = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
-   y = np.array([2.0, 4.0, 6.0, 8.0, 10.0])
+   y = np.array([2.0, 4.0, 6.0, 8.0, 10.0])   # y = 2x, so correlation is 1.0 once warm
+   xy = np.column_stack([x, y])               # x and y as the two columns of one array
 
-   print(RollingCorr(window_size=3)(x, y))   # y = 2x, so correlation is 1.0 once warm
+   print("separate:", RollingCorr(window_size=3)(x, y))
+   print("packed  :", RollingCorr(window_size=3)(xy))
 ```
 
-The several inputs can arrive either as separate arguments, as above, or packed
-into the columns of one `(T, N)` array, whichever your data is already in. Both
-give the same result: `ATR(14)(high, low, close)` and `ATR(14)(hlc)`, where `hlc`
-is a `(T, 3)` array, are read identically. The
-[financial-indicators notebook](notebooks/03-financial-indicators) works through the
-price indicators, and the [Polymorphic API reference](polymorphic_api.md) has the
-exact contract.
+Each argument still follows the single-input rules, so two scalars give a scalar,
+two arrays give an array, and two streams give a stream. The OHLC indicators take
+their price series the same way: `ATR(14)(high, low, close)` and `ATR(14)(hlc)`, a
+`(T, 3)` array, read identically. The
+[financial-indicators notebook](notebooks/03-financial-indicators) works through
+them, and the [Polymorphic API reference](polymorphic_api.md) has the exact
+contract.
 
 ## Functions with several outputs
 
