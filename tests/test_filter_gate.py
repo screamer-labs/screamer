@@ -16,7 +16,7 @@ import math
 import numpy as np
 import pytest
 
-from screamer import Filter, GreaterThan, Input, Dag
+from screamer import Filter, GreaterThan, Input, Pipeline
 import screamer
 import screamer.streams as _streams
 
@@ -55,9 +55,9 @@ def _run_lazy(data, mask):
 
 
 def _run_graph(data, mask):
-    """Graph call: Dag with two Inputs -> Filter node -> run batch."""
+    """Graph call: Pipeline with two Inputs -> Filter node -> run batch."""
     d, m = Input("data"), Input("mask")
-    dag = Dag(inputs=[d, m], outputs=[Filter()(d, m)])
+    dag = Pipeline(inputs=[d, m], outputs=[Filter()(d, m)])
     return dag(data, mask)
 
 
@@ -217,11 +217,11 @@ def test_filter_via_greater_than_mask():
 
 
 def test_filter_graph_two_input_dag():
-    """Build a 2-input Dag with Filter and verify it gives the same result as batch."""
+    """Build a 2-input Pipeline with Filter and verify it gives the same result as batch."""
     d_in = Input("data")
     m_in = Input("mask")
     out_node = Filter()(d_in, m_in)
-    dag = Dag(inputs=[d_in, m_in], outputs=[out_node])
+    dag = Pipeline(inputs=[d_in, m_in], outputs=[out_node])
     x = np.array([5.0, -2.0, 8.0, -1.0, 3.0])
     # mask: keep positives (1) and drop non-positives (0)
     mask = np.array([1.0, 0.0, 1.0, 0.0, 1.0])
@@ -304,22 +304,22 @@ def test_filter_in_all():
 
 
 def test_filter_composes_as_graph_node():
-    """Filter composes with upstream/downstream nodes inside one Dag: data from an
+    """Filter composes with upstream/downstream nodes inside one Pipeline: data from an
     upstream functor, mask from a 1-input classifier, and the gated output feeding
     a downstream functor - all in C++, no eager mask."""
     import numpy as np
-    from screamer import Filter, IsFinite, RollingMean, Input, Dag
+    from screamer import Filter, IsFinite, RollingMean, Input, Pipeline
     x = np.array([1., 2, np.nan, 4, 5, 6], dtype=float)
     idx = np.arange(len(x), dtype=np.int64)
 
     # upstream data node + 1-in mask node
     d = Input("x")
-    up = Dag(inputs=[d], outputs=[Filter()(RollingMean(2)(d), IsFinite()(d))])
+    up = Pipeline(inputs=[d], outputs=[Filter()(RollingMean(2)(d), IsFinite()(d))])
     uv, uk = up((x, idx))
 
     # Filter feeding a downstream node
     d2 = Input("x")
-    down = Dag(inputs=[d2], outputs=[RollingMean(2)(Filter()(d2, IsFinite()(d2)))])
+    down = Pipeline(inputs=[d2], outputs=[RollingMean(2)(Filter()(d2, IsFinite()(d2)))])
     dv, dk = down((x, idx))
 
     # index 2 (x=NaN) is dropped in both; kept indices are [0,1,3,4,5]

@@ -47,7 +47,7 @@ Most stream operators (`CombineLatest`, `Dropna`, `Filter`, `Select`,
 |---|---|
 | bare ndarray(s), optional `index=` | `(values, index)` 2-tuple; `index is None` when positional |
 | `(values, index)` tuple(s) | `(values, index)` 2-tuple |
-| graph `Node`(s) | a `Node` (builds the DAG) |
+| graph `Node`(s) | a `Node` (builds the Pipeline) |
 
 Batch return is always a `(values, index)` 2-tuple: `vals, idx = CombineLatest()(a, b)` always
 works; `idx is None` is a checkable flag meaning "no real ordering here." A bare
@@ -129,7 +129,7 @@ handle both batch and lazy inputs:
 
 - [Polymorphic API](polymorphic_api.md) - the single-stream input/output
   contract; lockstep is the positional (no-index) special case of this page.
-- [The computational graph](dag.md) - wiring stream operators and functions into
+- [Pipelines](pipelines.md) - wiring stream operators and functions into
   a graph you define once and run batch or live.
 - [NaN and warmup](nan_and_warmup.md) - how compute functors treat `NaN`; `ffill`
   is the same forward-fill carry that `CombineLatest` uses.

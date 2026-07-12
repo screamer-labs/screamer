@@ -1,24 +1,24 @@
-# The computational graph
+# Pipelines
 
-A `Dag` lets you wire functors and stream operators into a pipeline you define
+A `Pipeline` lets you wire functors and stream operators into a pipeline you define
 **once** and run either on stored data or live, event by event, with identical
 results. It is the capstone of screamer's batch-equals-streaming property: the
 same guarantee that holds for a single functor holds for a whole graph of them.
 
 This page explains the model and when to reach for it. For the exact
-constructor, feed forms, and return shapes, see the [`Dag` reference](functions_dag/Dag.md);
-for a full worked walkthrough, see the computational-graph example notebook.
+constructor, feed forms, and return shapes, see the [`Pipeline` reference](functions_dag/Pipeline.md);
+for a full worked walkthrough, see the pipelines example notebook.
 
-## When you need a graph (and when you don't)
+## When you need a Pipeline (and when you don't)
 
-For a single stream flowing through a chain of functors you don't need a `Dag`.
+For a single stream flowing through a chain of functors you don't need a `Pipeline`.
 Ordinary composition already runs identically in batch and live:
 
 ```python
 signal = Sign()(RollingPoly2(50, derivative_order=1)(data))
 ```
 
-A `Dag` earns its place when the pipeline is more than a single chain:
+A `Pipeline` earns its place when the pipeline is more than a single chain:
 
 - **several inputs that don't tick together**: two price feeds on different
   clocks that must be aligned before they are combined,
@@ -27,7 +27,7 @@ A `Dag` earns its place when the pipeline is more than a single chain:
 - **one deployable object**: you want to hand the whole pipeline around, test it
   on history, and run it live without re-wiring it.
 
-In short: reach for a `Dag` when you would otherwise be threading alignment and
+In short: reach for a `Pipeline` when you would otherwise be threading alignment and
 multiple streams together by hand.
 
 ## The model: inputs, nodes, and the graph
@@ -40,41 +40,41 @@ Three names make up the surface, and they play distinct roles:
   You get the first nodes from `Input(...)`, then build more by applying functors
   and stream operators to existing nodes. Applying an operator to a node returns
   a new node.
-- **`Dag(inputs=[...], outputs=[...])`** compiles the graph reachable from those
+- **`Pipeline(inputs=[...], outputs=[...])`** compiles the graph reachable from those
   outputs into a single callable.
 
 Building the graph only *records structure*; nothing computes until you call the
-compiled `Dag`. Applying `RollingMean(10)` to a node does not run a rolling mean;
+compiled `Pipeline`. Applying `RollingMean(10)` to a node does not run a rolling mean;
 it adds a node that *will* run one when data flows.
 
 ```python
-from screamer import Input, Dag, RollingMean, Sub, CombineLatest
+from screamer import Input, Pipeline, RollingMean, Sub, CombineLatest
 
 a, b = Input("a"), Input("b")         # two named sources
 spread = Sub()(CombineLatest()(a, b)) # align, then difference -> a node
 signal = RollingMean(10)(spread)      # smooth it -> another node
 
-dag = Dag(inputs=[a, b], outputs=[signal])   # compile the graph
+pipe = Pipeline(inputs=[a, b], outputs=[signal])   # compile the graph
 ```
 
 ## Two ways to run, one set of numbers
 
 The compiled graph runs in two modes:
 
-- **Batch**: `dag(feed_a, feed_b)` evaluates the whole graph over stored arrays
+- **Batch**: `pipe(feed_a, feed_b)` evaluates the whole graph over stored arrays
   in one pass and returns `(values, index)` arrays.
 - **Lazy (event-by-event)**: pass generators of `(value, index)` pairs instead
-  of arrays, `dag(gen_a, gen_b)`, and the graph runs event by event, pulling one
+  of arrays, `pipe(gen_a, gen_b)`, and the graph runs event by event, pulling one
   event at a time. The result is an iterator that yields output events; values are
   byte-identical to the batch result.
 
 Both forms use the same C++ engine. Feeds can be bare arrays, `(values, index)` pairs, or generators of `(value, index)` pairs.
 
-(dag-live)=
-### Incremental, clock-driven: `dag.live()`
+(pipeline-live)=
+### Incremental, clock-driven: `pipe.live()`
 
 When you drive the graph yourself,
-event by event, `dag.live()` opens a session:
+event by event, `pipe.live()` opens a session:
 
 - `.push(input, index, value)` feeds one event (`input` is an `Input` name or its
   position);
@@ -98,22 +98,22 @@ co-indexed onto one shared timeline, so every output is an equal-length
 `(values, index)` pair and column `k` of one lines up with column `k` of
 another. Set `align_outputs=False` when you want each output as an independent
 stream whose length may differ. The precise semantics are in the
-[reference](functions_dag/Dag.md).
+[reference](functions_dag/Pipeline.md).
 
 ## The guarantees
 
 - **Causal.** Every node's output at index `t` depends only on events at indices
   `<= t`. Wiring functors into a graph does not introduce any lookahead.
-- **Batch == lazy.** `dag(arrays)` and `dag(generators)` emit the same values in
+- **Batch == lazy.** `pipe(arrays)` and `pipe(generators)` emit the same values in
   the same order; only the execution mode differs. The alignment a graph performs
   is itself causal and identical across both modes.
 
 These are the same guarantees the single-functor API and the stream layer make;
-the `Dag` simply preserves them across a whole composition.
+the `Pipeline` simply preserves them across a whole composition.
 
 ## See also
 
-- [`Dag` reference](functions_dag/Dag.md): constructor, feed forms, return
+- [`Pipeline` reference](functions_dag/Pipeline.md): constructor, feed forms, return
   shapes, and validation rules.
 - [Streams, values, and alignment](multistream.md): the alignment model that
   `CombineLatest` and friends bring into a graph.

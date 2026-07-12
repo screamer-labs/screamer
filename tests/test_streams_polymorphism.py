@@ -83,5 +83,5 @@ def test_merge_roundtrips_through_split_streams():
 
 def test_node_input_raises_clear_error():
     a, b = Input("a"), Input("b")
-    with pytest.raises(ValueError, match="not supported as a DAG graph node"):
+    with pytest.raises(ValueError, match="not supported as a Pipeline graph node"):
         Merge()(a, b)

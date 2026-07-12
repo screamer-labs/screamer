@@ -66,7 +66,7 @@ def test_merge_batch_equals_stream_positional(n_series):
 def test_combine_latest_batch_equals_stream(n_series, dtype, emit):
     series = _make_series(n_series, 80, dtype, seed=200 + n_series)
     vals = [v for _, v in series]
-    # Convert indices to int64: the lazy Dag path (via _LazyDag._pull) converts
+    # Convert indices to int64: the lazy Pipeline path (via _LazyDag._pull) converts
     # index to int, so we use int64 for both batch oracle and generators.
     idxs_int = [k.astype(np.int64) for k, _ in series]
     # Batch oracle with int64 indices

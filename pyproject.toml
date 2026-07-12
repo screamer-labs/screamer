@@ -61,9 +61,9 @@ test = [
     "pandas>=2.2",
     "PyYAML>=6.0",
 ]
-# DAG visualization: Dag.to_graphviz() and the Jupyter SVG repr. Rendering also
+# Pipeline visualization: Pipeline.to_graphviz() and the Jupyter SVG repr. Rendering also
 # needs the system Graphviz `dot` binary (e.g. `brew install graphviz`,
-# `apt install graphviz`). Dag.to_text() and Dag.to_dot() work without this.
+# `apt install graphviz`). Pipeline.to_text() and Pipeline.to_dot() work without this.
 viz = [
     "graphviz>=0.20",
 ]

@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from screamer import Input, Dag, RollingMean
+from screamer import Input, Pipeline, RollingMean
 from screamer.streams import Select, CombineLatest
 from tests._dag_oracle import lazy_batch as _lazy_batch
 
@@ -11,7 +11,7 @@ def test_select_column_from_combine_latest():
     bk = np.array([1, 2, 3], dtype=np.int64); bv = np.array([1.0, 2.0, 3.0])
     a, b = Input("a"), Input("b")
     # CombineLatest()(a, b) is width-2; select column 0 -> a's latest.
-    dag = Dag(inputs=[a, b], outputs=[Select(0)(CombineLatest()(a, b))])
+    dag = Pipeline(inputs=[a, b], outputs=[Select(0)(CombineLatest()(a, b))])
     bv_, bk_ = dag((av, ak), (bv, bk))     # (values, index) feeds; values-first result
     sv_, sk_ = _lazy_batch(dag, (av, ak), (bv, bk))
     np.testing.assert_array_equal(bk_, sk_)
@@ -28,7 +28,7 @@ def test_select_two_columns_reorder():
     ak = np.array([1, 2], dtype=np.int64); av = np.array([10.0, 20.0])
     bk = np.array([1, 2], dtype=np.int64); bv = np.array([1.0, 2.0])
     a, b = Input("a"), Input("b")
-    dag = Dag(inputs=[a, b], outputs=[Select([1, 0])(CombineLatest()(a, b))])
+    dag = Pipeline(inputs=[a, b], outputs=[Select([1, 0])(CombineLatest()(a, b))])
     bv_, bk_ = dag((av, ak), (bv, bk))
     sv_, sk_ = _lazy_batch(dag, (av, ak), (bv, bk))
     np.testing.assert_array_equal(bk_, sk_)
@@ -45,7 +45,7 @@ def test_select_feeds_functor():
     bk = np.array([1, 2, 3], dtype=np.int64); bv = np.array([0.0, 0.0, 0.0])
     a, b = Input("a"), Input("b")
     # select a's column then smooth it
-    dag = Dag(inputs=[a, b], outputs=[RollingMean(2)(Select(0)(CombineLatest()(a, b)))])
+    dag = Pipeline(inputs=[a, b], outputs=[RollingMean(2)(Select(0)(CombineLatest()(a, b)))])
     bv_, bk_ = dag((av, ak), (bv, bk))
     sv_, sk_ = _lazy_batch(dag, (av, ak), (bv, bk))
     np.testing.assert_array_equal(bk_, sk_)
@@ -62,7 +62,7 @@ def test_select_out_of_range_errors_batch_and_stream():
     bk = np.array([1], dtype=np.int64); bv = np.array([1.0])
     a, b = Input("a"), Input("b")
     # CombineLatest()(a, b) is width-2; column 5 is out of range.
-    dag = Dag(inputs=[a, b], outputs=[Select(5)(CombineLatest()(a, b))])
+    dag = Pipeline(inputs=[a, b], outputs=[Select(5)(CombineLatest()(a, b))])
     with pytest.raises(RuntimeError, match="out of range"):
         dag((av, ak), (bv, bk))
     with pytest.raises(RuntimeError, match="out of range"):

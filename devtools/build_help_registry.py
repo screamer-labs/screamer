@@ -335,7 +335,7 @@ def main(argv=None):
         print(f"  + {entry['name']:24s}  ({md.relative_to(ROOT)}, {n_ex} examples)")
 
         # Names documented on this same page (the _iter twins, Input/Node on
-        # Dag.md). Emit an index:false entry each, inheriting the page's topics,
+        # Pipeline.md). Emit an index:false entry each, inheriting the page's topics,
         # so every public name is covered without a dedicated page.
         for cname in entry.get("covers", []) or []:
             cobj = getattr(screamer, cname, None)

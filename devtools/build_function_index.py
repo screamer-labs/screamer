@@ -24,7 +24,7 @@ STREAM_NAMES = [
     "Dropna", "Filter",
     "Select", "split", "Resample",
 ]
-DAG_NAMES = ["Input", "Dag", "Node"]
+DAG_NAMES = ["Input", "Pipeline", "Node"]
 
 
 def first_sentence(obj):
@@ -43,7 +43,7 @@ def main():
     lines += ["", "# Stream operators"]
     for name in STREAM_NAMES:
         lines.append(f"{name}, {first_sentence(getattr(streams, name))}")
-    lines += ["", "# Computational DAG"]
+    lines += ["", "# Pipeline"]
     for name in DAG_NAMES:
         lines.append(f"{name}, {first_sentence(getattr(dag, name))}")
     OUT.write_text("\n".join(lines) + "\n")

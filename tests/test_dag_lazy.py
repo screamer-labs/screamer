@@ -1,13 +1,13 @@
 """Tests for the lazy pull driver: dag(generators) -> lazy iterator."""
 
 import numpy as np
-from screamer import Input, Dag, RollingMean, Sub
+from screamer import Input, Pipeline, RollingMean, Sub
 from screamer.streams import CombineLatest
 
 
 def _spread_dag():
     a, b = Input("a"), Input("b")
-    return Dag(inputs=[a, b], outputs=[RollingMean(3)(Sub()(CombineLatest()(a, b)))]), a, b
+    return Pipeline(inputs=[a, b], outputs=[RollingMean(3)(Sub()(CombineLatest()(a, b)))]), a, b
 
 
 def test_dag_lazy_equals_batch_single_output():
@@ -40,7 +40,7 @@ def test_dag_lazy_is_lazy():
             yield (v, i)
 
     x = Input("x")
-    dag = Dag(inputs=[x], outputs=[CumSum()(x)])
+    dag = Pipeline(inputs=[x], outputs=[CumSum()(x)])
     it = dag(spy([1.0, 2.0, 3.0]))
     assert pulled == []            # nothing consumed before first next()
     first = next(it)
@@ -52,7 +52,7 @@ def test_dag_lazy_equals_batch_multi_output():
     """Multi-output lazy rows must match the batch result column by column."""
     a, b = Input("a"), Input("b")
     spread = Sub()(CombineLatest()(a, b))
-    dag = Dag(inputs=[a, b], outputs=[spread, RollingMean(2)(spread)])  # 2 outputs
+    dag = Pipeline(inputs=[a, b], outputs=[spread, RollingMean(2)(spread)])  # 2 outputs
     va, ia = np.array([10.0, 20.0, 30.0]), np.array([1, 2, 3])
     vb, ib = np.array([1.0, 2.0, 3.0]),   np.array([1, 2, 3])
     batch = dag((va, ia), (vb, ib))                     # tuple of (values, index) pairs
@@ -77,7 +77,7 @@ def test_dag_lazy_align_outputs_false_multi_raises():
     from screamer import CumSum, Lag
     x = Input("x")
     s = CumSum()(x)
-    dag = Dag(inputs=[x], outputs=[s, Lag(1)(s)], align_outputs=False)  # 2 outputs
+    dag = Pipeline(inputs=[x], outputs=[s, Lag(1)(s)], align_outputs=False)  # 2 outputs
     g = ((float(v), int(k)) for v, k in zip([1.0, 2.0, 3.0], [0, 1, 2]))
     with pytest.raises(NotImplementedError):
         list(dag(g))
@@ -87,7 +87,7 @@ def test_dag_mixed_lazy_and_concrete_feeds_raises():
     """A mix of a lazy generator and a concrete array feed is ambiguous; raise."""
     import pytest
     a, b = Input("a"), Input("b")
-    dag = Dag(inputs=[a, b], outputs=[Sub()(CombineLatest()(a, b))])
+    dag = Pipeline(inputs=[a, b], outputs=[Sub()(CombineLatest()(a, b))])
     gen_a = ((float(v), int(k)) for v, k in zip([1.0, 2.0], [0, 1]))
     with pytest.raises(TypeError):
         dag(gen_a, (np.array([1.0, 2.0]), np.array([0, 1])))
@@ -97,7 +97,7 @@ def test_dag_batch_on_concrete_feed():
     """Rule A: ndarray and list feeds route to the batch path, not lazy."""
     from screamer import CumSum
     x = Input("x")
-    dag = Dag(inputs=[x], outputs=[CumSum()(x)])
+    dag = Pipeline(inputs=[x], outputs=[CumSum()(x)])
     # ndarray feed -> batch result (tuple), not a lazy iterator
     arr_out = dag(np.array([1.0, 2.0, 3.0]))
     assert isinstance(arr_out, tuple) and not hasattr(arr_out, "__next__")
@@ -112,7 +112,7 @@ def test_dag_fractional_index_raises():
     import pytest
     from screamer import CumSum
     x = Input("x")
-    dag = Dag(inputs=[x], outputs=[CumSum()(x)])
+    dag = Pipeline(inputs=[x], outputs=[CumSum()(x)])
     with pytest.raises(TypeError):
         dag((np.array([1.0, 2.0, 3.0]), np.array([0.0, 1.5, 2.0])))      # batch, fractional
     with pytest.raises(TypeError):

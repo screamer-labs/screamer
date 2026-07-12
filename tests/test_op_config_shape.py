@@ -4,7 +4,7 @@ For each of the five operators (Resample, Dropna, Select, CombineLatest, Merge)
 assert byte-identical output across:
 - batch regime (raw arrays / Streams)
 - lazy regime (generator iterators)
-- graph regime (Node inputs / Dag compilation)
+- graph regime (Node inputs / Pipeline compilation)
 
 These tests PIN the class-function equivalence before any call-site migration,
 so that later batch tasks can replace the function calls safely.
@@ -14,7 +14,7 @@ import itertools
 import numpy as np
 import pytest
 
-from screamer import Input, Dag
+from screamer import Input, Pipeline
 from screamer.streams import (
     CombineLatest,
     Dropna,
@@ -105,8 +105,8 @@ class TestResample:
 
     def test_graph_class_equals_function(self):
         src = Input("x")
-        dag_cls = Dag([src], [Resample(freq=3, agg="sum")(src)])
-        dag_fn = Dag([src], [resample(src, freq=3, agg="sum")])
+        dag_cls = Pipeline([src], [Resample(freq=3, agg="sum")(src)])
+        dag_fn = Pipeline([src], [resample(src, freq=3, agg="sum")])
         feed = (self.x, self.idx)
         v_cls, k_cls = dag_cls(feed)
         v_fn, k_fn = dag_fn(feed)
@@ -115,8 +115,8 @@ class TestResample:
 
     def test_graph_count_equals_function(self):
         src = Input("x")
-        dag_cls = Dag([src], [Resample(count=2, agg="mean")(src)])
-        dag_fn = Dag([src], [resample(src, count=2, agg="mean")])
+        dag_cls = Pipeline([src], [Resample(count=2, agg="mean")(src)])
+        dag_fn = Pipeline([src], [resample(src, count=2, agg="mean")])
         feed = (self.x, self.idx)
         v_cls, k_cls = dag_cls(feed)
         v_fn, k_fn = dag_fn(feed)
@@ -157,8 +157,8 @@ class TestDropna:
 
     def test_graph_class_equals_function(self):
         src = Input("x")
-        dag_cls = Dag([src], [Dropna()(src)])
-        dag_fn = Dag([src], [dropna(src)])
+        dag_cls = Pipeline([src], [Dropna()(src)])
+        dag_fn = Pipeline([src], [dropna(src)])
         feed = (self.x, self.idx)
         v_cls, k_cls = dag_cls(feed)
         v_fn, k_fn = dag_fn(feed)
@@ -167,8 +167,8 @@ class TestDropna:
 
     def test_graph_how_all(self):
         a, b = Input("a"), Input("b")
-        dag_cls = Dag([a, b], [Dropna(how="all")(CombineLatest()(a, b))])
-        dag_fn = Dag([a, b], [dropna(combine_latest(a, b), how="all")])
+        dag_cls = Pipeline([a, b], [Dropna(how="all")(CombineLatest()(a, b))])
+        dag_fn = Pipeline([a, b], [dropna(combine_latest(a, b), how="all")])
         fa = (np.array([1.0, float("nan"), 3.0]), np.array([0, 1, 2]))
         fb = (np.array([10.0, 20.0, float("nan")]), np.array([0, 1, 2]))
         v_cls, k_cls = dag_cls(fa, fb)
@@ -209,8 +209,8 @@ class TestSelect:
 
     def test_graph_class_equals_function(self):
         a, b = Input("a"), Input("b")
-        dag_cls = Dag([a, b], [Select([0])(CombineLatest()(a, b))])
-        dag_fn = Dag([a, b], [select(combine_latest(a, b), columns=[0])])
+        dag_cls = Pipeline([a, b], [Select([0])(CombineLatest()(a, b))])
+        dag_fn = Pipeline([a, b], [select(combine_latest(a, b), columns=[0])])
         fa = (np.array([1.0, 2.0, 3.0]), np.array([0, 1, 2]))
         fb = (np.array([10.0, 20.0, 30.0]), np.array([0, 1, 2]))
         v_cls, k_cls = dag_cls(fa, fb)
@@ -257,8 +257,8 @@ class TestCombineLatest:
 
     def test_graph_class_equals_function(self):
         a, b = Input("a"), Input("b")
-        dag_cls = Dag([a, b], [CombineLatest()(a, b)])
-        dag_fn = Dag([a, b], [combine_latest(a, b)])
+        dag_cls = Pipeline([a, b], [CombineLatest()(a, b)])
+        dag_fn = Pipeline([a, b], [combine_latest(a, b)])
         fa = (self.a, self.idx_a)
         fb = (self.b, self.idx_b)
         v_cls, k_cls = dag_cls(fa, fb)
@@ -268,8 +268,8 @@ class TestCombineLatest:
 
     def test_graph_on_any_equals_function(self):
         a, b = Input("a"), Input("b")
-        dag_cls = Dag([a, b], [CombineLatest(emit="on_any")(a, b)])
-        dag_fn = Dag([a, b], [combine_latest(a, b, emit="on_any")])
+        dag_cls = Pipeline([a, b], [CombineLatest(emit="on_any")(a, b)])
+        dag_fn = Pipeline([a, b], [combine_latest(a, b, emit="on_any")])
         fa = (self.a, self.idx_a)
         fb = (self.b, self.idx_b)
         v_cls, k_cls = dag_cls(fa, fb)
@@ -280,8 +280,8 @@ class TestCombineLatest:
     def test_graph_dropna_compose(self):
         """Dropna()(CombineLatest()(a, b)) compiles and matches the function form."""
         a, b = Input("a"), Input("b")
-        dag_cls = Dag([a, b], [Dropna()(CombineLatest()(a, b))])
-        dag_fn = Dag([a, b], [dropna(combine_latest(a, b))])
+        dag_cls = Pipeline([a, b], [Dropna()(CombineLatest()(a, b))])
+        dag_fn = Pipeline([a, b], [dropna(combine_latest(a, b))])
         fa = (np.array([1.0, float("nan"), 3.0]), np.array([0, 1, 2]))
         fb = (np.array([10.0, 20.0, 30.0]), np.array([0, 1, 2]))
         v_cls, k_cls = dag_cls(fa, fb)
@@ -350,5 +350,5 @@ class TestMerge:
     def test_merge_raises_on_node_input(self):
         """Merge raises for Node inputs (same as merge function)."""
         a = Input("a")
-        with pytest.raises(ValueError, match="merge is not supported as a DAG"):
+        with pytest.raises(ValueError, match="merge is not supported as a Pipeline"):
             Merge()(a)

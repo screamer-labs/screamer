@@ -7,7 +7,7 @@ build:
   tools:
     python: "3.12"
   apt_packages:
-    # The Graphviz `dot` binary renders the DAG diagrams (Dag.to_graphviz()).
+    # The Graphviz `dot` binary renders the Pipeline diagrams (Pipeline.to_graphviz()).
     # Without it the docs still build, but graphs fall back to the text tree.
     - graphviz
   jobs:

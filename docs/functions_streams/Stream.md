@@ -26,7 +26,7 @@ A stream value at an operator boundary is one of:
 |---|---|
 | bare ndarray | positional (index is row number; not stored) |
 | `(values, index)` 2-tuple | indexed (this is the standard return form) |
-| `Node` | graph node (builds a DAG) |
+| `Node` | graph node (builds a Pipeline) |
 | lazy iterator | lazy streaming (unchanged) |
 
 All batch operators return `(values, index)`. For positional streams `index`

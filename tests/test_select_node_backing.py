@@ -237,11 +237,11 @@ def test_select_lazy_2d_positional_none_index():
 
 def test_batch_lazy_graph_2d_scalar():
     """2-D scalar: batch, lazy, and graph all produce identical 1-D values+index."""
-    from screamer import Input, Dag
+    from screamer import Input, Pipeline
     from tests._dag_oracle import lazy_batch as _lb
 
     a, b, c = Input("a"), Input("b"), Input("c")
-    dag = Dag([a, b, c], [Select(1)(combine_latest_node(a, b, c))])
+    dag = Pipeline([a, b, c], [Select(1)(combine_latest_node(a, b, c))])
 
     bv, bk = Select(1)(_V3, index=_K3)
 
@@ -267,11 +267,11 @@ def test_batch_lazy_graph_2d_scalar():
 
 def test_batch_lazy_graph_2d_multi():
     """2-D multi-column [2,0]: batch, lazy, and graph all produce identical 2-D results."""
-    from screamer import Input, Dag
+    from screamer import Input, Pipeline
     from tests._dag_oracle import lazy_batch as _lb
 
     a, b, c = Input("a"), Input("b"), Input("c")
-    dag = Dag([a, b, c], [Select([2, 0])(combine_latest_node(a, b, c))])
+    dag = Pipeline([a, b, c], [Select([2, 0])(combine_latest_node(a, b, c))])
 
     bv, bk = Select([2, 0])(_V3, index=_K3)
 

@@ -110,11 +110,11 @@ def test_fill_nan_functor_reducer():
 # ---------------------------------------------------------------------------
 
 def test_fill_carry_graph_path():
-    from screamer.dag import Input, Dag
+    from screamer.dag import Input, Pipeline
     src = Input("x")
     # node-mode span window via freq= (resolved against the runtime index)
     node = Resample(freq=1, agg="last", fill="carry")(src)
-    dag = Dag([src], [node])
+    dag = Pipeline([src], [node])
     v, k = dag((VALS, IDX))
     np.testing.assert_array_equal(k, [0, 1, 2, 3])
     np.testing.assert_array_equal(v, [10.0, 10.0, 10.0, 40.0])

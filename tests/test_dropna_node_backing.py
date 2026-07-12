@@ -227,11 +227,11 @@ def test_dropna_lazy_2d_all():
 
 def test_batch_lazy_graph_1d_any():
     """1-D any: batch, lazy, and graph all produce the same values and index."""
-    from screamer import Input, Dag
+    from screamer import Input, Pipeline
     from tests._dag_oracle import lazy_batch as _lb
 
     x = Input("x")
-    dag = Dag([x], [Dropna(how="any")(x)])
+    dag = Pipeline([x], [Dropna(how="any")(x)])
 
     bv, bk = Dropna()(_V1, index=_K1)
 
@@ -251,12 +251,12 @@ def test_batch_lazy_graph_1d_any():
 
 def test_batch_lazy_graph_2d_any():
     """2-D any: batch, lazy, and graph match the oracle."""
-    from screamer import Input, Dag
+    from screamer import Input, Pipeline
     from screamer.streams import CombineLatest
     from tests._dag_oracle import lazy_batch as _lb
 
     a, b = Input("a"), Input("b")
-    dag = Dag([a, b], [Dropna(how="any")(CombineLatest()(a, b))])
+    dag = Pipeline([a, b], [Dropna(how="any")(CombineLatest()(a, b))])
 
     bv, bk = Dropna(how="any")(_V2, index=_K2)
 
@@ -278,12 +278,12 @@ def test_batch_lazy_graph_2d_any():
 
 def test_batch_lazy_graph_2d_all():
     """2-D all: batch, lazy, and graph match; NaN-retaining rows compared with equal_nan."""
-    from screamer import Input, Dag
+    from screamer import Input, Pipeline
     from screamer.streams import CombineLatest
     from tests._dag_oracle import lazy_batch as _lb
 
     a, b = Input("a"), Input("b")
-    dag = Dag([a, b], [Dropna(how="all")(CombineLatest()(a, b))])
+    dag = Pipeline([a, b], [Dropna(how="all")(CombineLatest()(a, b))])
 
     bv, bk = Dropna(how="all")(_V2, index=_K2)
 

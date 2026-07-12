@@ -8,7 +8,7 @@ import json
 import numpy as np
 import pytest
 
-from screamer import RollingMean, EwMean, RollingMinMax, Sub, Input, Dag
+from screamer import RollingMean, EwMean, RollingMinMax, Sub, Input, Pipeline
 from screamer.streams import CombineLatest, Dropna, Resample, Select
 
 
@@ -18,7 +18,7 @@ def _rich_dag(align_outputs):
     sm = RollingMean(3)(Dropna()(Sub()(cl)))       # operator + functor + operator + functor
     rs = Resample(freq=2, agg="last")(sm)          # resample operator (node-mode span)
     sel = Select([0])(cl)                          # select operator, second consumer of cl
-    return Dag([a, b], [rs, sel], align_outputs=align_outputs)
+    return Pipeline([a, b], [rs, sel], align_outputs=align_outputs)
 
 
 def _feeds():
@@ -38,7 +38,7 @@ def _equal(r0, r1):
 @pytest.mark.parametrize("align", [True, False])
 def test_round_trip_identical(align):
     dag = _rich_dag(align)
-    rebuilt = Dag.from_json(dag.to_json())
+    rebuilt = Pipeline.from_json(dag.to_json())
     fa, fb = _feeds()
     assert _equal(dag(fa, fb), rebuilt(fa, fb))
 
@@ -46,15 +46,15 @@ def test_round_trip_identical(align):
 @pytest.mark.parametrize("align", [True, False])
 def test_round_trip_via_dict(align):
     dag = _rich_dag(align)
-    rebuilt = Dag.from_dict(dag.to_dict())
+    rebuilt = Pipeline.from_dict(dag.to_dict())
     fa, fb = _feeds()
     assert _equal(dag(fa, fb), rebuilt(fa, fb))
 
 
 def test_single_output_round_trip():
     a, b = Input("a"), Input("b")
-    dag = Dag([a, b], [Sub()(CombineLatest()(a, b))])
-    rebuilt = Dag.from_json(dag.to_json())
+    dag = Pipeline([a, b], [Sub()(CombineLatest()(a, b))])
+    rebuilt = Pipeline.from_json(dag.to_json())
     fa, fb = _feeds()
     np.testing.assert_array_equal(np.asarray(dag(fa, fb)[0]),
                                   np.asarray(rebuilt(fa, fb)[0]))
@@ -62,11 +62,11 @@ def test_single_output_round_trip():
 
 def test_functor_params_preserved_through_json():
     a = Input("a")
-    dag = Dag([a], [RollingMean(7)(a)])
+    dag = Pipeline([a], [RollingMean(7)(a)])
     node = [n for n in dag.to_dict()["nodes"] if n["kind"] == "functor"][0]
     assert node["cls"] == "RollingMean"
     assert node["params"] == {"window_size": 7}
-    rebuilt = Dag.from_json(dag.to_json())
+    rebuilt = Pipeline.from_json(dag.to_json())
     x = np.arange(20.0)
     np.testing.assert_allclose(np.asarray(dag(x)[0]), np.asarray(rebuilt(x)[0]), equal_nan=True)
 
@@ -86,15 +86,15 @@ def test_schema_shape():
 def test_input_order_preserved():
     x, y, z = Input("x"), Input("y"), Input("z")
     # declare in a specific order; outputs discover them in another
-    dag = Dag([x, y, z], [Sub()(CombineLatest()(z, x)), EwMean(span=3)(y)])
-    assert Dag.from_json(dag.to_json())._names == ["x", "y", "z"]
+    dag = Pipeline([x, y, z], [Sub()(CombineLatest()(z, x)), EwMean(span=3)(y)])
+    assert Pipeline.from_json(dag.to_json())._names == ["x", "y", "z"]
 
 
 def test_bad_version_raises():
     d = _rich_dag(True).to_dict()
     d["screamer_dag"] = 999
     with pytest.raises(ValueError, match="version"):
-        Dag.from_dict(d)
+        Pipeline.from_dict(d)
 
 
 def test_unknown_functor_raises():
@@ -104,7 +104,7 @@ def test_unknown_functor_raises():
             node["cls"] = "NoSuchFunctor"
             break
     with pytest.raises(ValueError, match="unknown functor"):
-        Dag.from_dict(d)
+        Pipeline.from_dict(d)
 
 
 def test_unknown_operator_raises():
@@ -114,25 +114,25 @@ def test_unknown_operator_raises():
             node["op"] = "no_such_operator"
             break
     with pytest.raises(ValueError, match="unknown DAG operator"):
-        Dag.from_dict(d)
+        Pipeline.from_dict(d)
 
 
 def test_from_dict_does_not_mutate_input():
     import copy
     d = _rich_dag(True).to_dict()
     snapshot = copy.deepcopy(d)
-    Dag.from_dict(d)
+    Pipeline.from_dict(d)
     assert d == snapshot
 
 
 def test_numpy_scalar_params_serialize_and_round_trip():
     # A numpy scalar arg (common: RollingMean(arr.size // 10)) must serialize.
     a = Input("a")
-    dag = Dag([a], [RollingMean(np.int64(20))(a)])
+    dag = Pipeline([a], [RollingMean(np.int64(20))(a)])
     d = dag.to_dict()
     assert type(d["nodes"][-1]["params"]["window_size"]) is int  # coerced to native
     json.dumps(d)  # must not raise
-    rebuilt = Dag.from_json(dag.to_json())
+    rebuilt = Pipeline.from_json(dag.to_json())
     x = np.arange(40.0)
     np.testing.assert_allclose(np.asarray(dag(x)[0]), np.asarray(rebuilt(x)[0]), equal_nan=True)
 
@@ -140,28 +140,28 @@ def test_numpy_scalar_params_serialize_and_round_trip():
 def test_multi_output_functor_round_trip():
     # RollingMinMax is a 1-input, 2-output functor.
     a = Input("a")
-    dag = Dag([a], [RollingMinMax(5)(a)])
+    dag = Pipeline([a], [RollingMinMax(5)(a)])
     x = np.arange(30.0)
-    rebuilt = Dag.from_json(dag.to_json())
+    rebuilt = Pipeline.from_json(dag.to_json())
     np.testing.assert_array_equal(np.asarray(dag(x)[0]), np.asarray(rebuilt(x)[0]))
 
 
 def test_select_numpy_columns_round_trip():
     a, b = Input("a"), Input("b")
-    dag = Dag([a, b], [Select(np.array([0]))(CombineLatest()(a, b))])
+    dag = Pipeline([a, b], [Select(np.array([0]))(CombineLatest()(a, b))])
     json.dumps(dag.to_dict())  # numpy array columns coerced to a list
     fa, fb = _feeds()
-    assert _equal(dag(fa, fb), Dag.from_json(dag.to_json())(fa, fb))
+    assert _equal(dag(fa, fb), Pipeline.from_json(dag.to_json())(fa, fb))
 
 
 def test_from_dict_positional_args_fallback():
     # A functor serialized in the schema-less positional form reconstructs.
     a = Input("a")
-    d = Dag([a], [RollingMean(20)(a)]).to_dict()
+    d = Pipeline([a], [RollingMean(20)(a)]).to_dict()
     for node in d["nodes"]:
         if node["kind"] == "functor":
             node["params"] = {"args": [20]}
-    rebuilt = Dag.from_dict(d)
+    rebuilt = Pipeline.from_dict(d)
     x = np.arange(30.0)
     np.testing.assert_allclose(np.asarray(rebuilt(x)[0]),
                                np.asarray(RollingMean(20)(x)), equal_nan=True)

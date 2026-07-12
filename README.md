@@ -25,7 +25,7 @@ pip install screamer
   future ones, which eliminates look-ahead bias.
 - **Batteries included.** 150+ rolling and exponentially-weighted statistics,
   technical indicators (MACD, RSI, Bollinger Bands, ATR, and more), OHLC volatility
-  estimators, signal filters, plus stream operators and a computational DAG.
+  estimators, signal filters, plus stream operators and composable pipelines.
 
 ## Quick example
 

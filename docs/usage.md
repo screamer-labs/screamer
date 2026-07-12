@@ -220,7 +220,7 @@ notebook shows them in use.
 
 ## Whole pipelines: the graph
 
-A `Dag` lets you wire functions and stream operators into a **computational
+A `Pipeline` lets you wire functions and stream operators into a **computational
 dependency graph** you define once and run either on stored data or live, with
 identical results. You build it by naming your sources with `Input` and applying
 functions to them; the code reads top-to-bottom like an ordinary script, but
@@ -229,22 +229,22 @@ structure — nothing computes until you call the compiled graph, at which point
 the engine evaluates each node in dependency order.
 
 ```python
-from screamer import Input, Dag, RollingMean, Sub, CombineLatest
+from screamer import Input, Pipeline, RollingMean, Sub, CombineLatest
 
 a, b = Input("a"), Input("b")         # two named sources
 spread = Sub()(CombineLatest()(a, b)) # a node: align the two sources, then subtract
 signal = RollingMean(10)(spread)      # a node that depends on `spread`
 
-dag = Dag(inputs=[a, b], outputs=[signal])   # compile the graph
+pipe = Pipeline(inputs=[a, b], outputs=[signal])   # compile the graph
 
-# dag(arr_a, arr_b)          -> run on stored arrays (batch)
-# dag(gen_a, gen_b)          -> feed generators to run live, event by event, identical results
+# pipe(arr_a, arr_b)          -> run on stored arrays (batch)
+# pipe(gen_a, gen_b)          -> feed generators to run live, event by event, identical results
 ```
 
 Each operation is a node whose parents are its inputs, and calling the graph
 evaluates every node the requested outputs depend on. The model and its
-guarantees are in [The computational graph](dag.md); the
-[DAG notebook](notebooks/08-computational-dag) builds and runs a complete one.
+guarantees are in [Pipelines](pipelines.md); the
+[Pipelines notebook](notebooks/08-pipelines) builds and runs a complete one.
 
 ## Resetting state
 
@@ -278,10 +278,10 @@ The precise reset rules are in the [Polymorphic API reference](polymorphic_api.m
 
 - **Worked examples** — the [example notebooks](notebooks/01-quickstart-polymorphic-api)
   cover statistics, financial indicators, signal processing, async streams, and
-  the DAG, each self-contained and runnable.
+  pipelines, each self-contained and runnable.
 - **Concepts and contracts** — [Polymorphic API](polymorphic_api.md),
   [NaN and warmup](nan_and_warmup.md),
   [Streams, values, and alignment](multistream.md), and
-  [The computational graph](dag.md) give the precise behaviour.
+  [Pipelines](pipelines.md) give the precise behaviour.
 - **The function catalog** — browse every function by family or by use case in
   the reference sections.

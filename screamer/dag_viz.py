@@ -1,4 +1,4 @@
-"""Render a ``Dag`` for inspection: an ASCII tree, Graphviz DOT, and a Jupyter
+"""Render a ``Pipeline`` for inspection: an ASCII tree, Graphviz DOT, and a Jupyter
 repr. The graph walk here (``build_graph``) is also reused by ``dag_io`` for
 serialization, so labels and structure stay consistent.
 """
@@ -27,7 +27,7 @@ def _classify(node):
 
 
 def build_graph(dag):
-    """Walk the Dag's outputs into an ordered node list plus the input/output ids.
+    """Walk the Pipeline's outputs into an ordered node list plus the input/output ids.
 
     Nodes are deduplicated by identity (a shared node appears once) and numbered
     in dependency order. Returns (nodes, input_ids, output_ids).
@@ -74,7 +74,7 @@ def to_text(dag):
     """
     nodes, input_ids, output_ids = build_graph(dag)
     info = {n.id: n for n in nodes}
-    header = (f"Dag({len(input_ids)} input(s), {len(output_ids)} output(s), "
+    header = (f"Pipeline({len(input_ids)} input(s), {len(output_ids)} output(s), "
               f"align_outputs={dag.align_outputs})")
     lines = [header]
     printed = set()

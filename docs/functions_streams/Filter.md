@@ -48,8 +48,8 @@ Lazy (iterators of (value, index) pairs)::
     for val, idx in Filter()(iter(data_events), iter(mask_events)):
         ...
 
-Graph (Node inputs inside a Dag)::
+Graph (Node inputs inside a Pipeline)::
 
     d, m = Input("d"), Input("m")
-    dag = Dag(inputs=[d, m], outputs=[Filter()(d, m)])
-    survivors, idx = dag(data_array, mask_array)
+    pipe = Pipeline(inputs=[d, m], outputs=[Filter()(d, m)])
+    survivors, idx = pipe(data_array, mask_array)

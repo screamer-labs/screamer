@@ -8,7 +8,7 @@ the flush path must too.
 import numpy as np
 import pytest
 
-from screamer.dag import Input, Dag
+from screamer.dag import Input, Pipeline
 from screamer.streams import Resample, CombineLatest
 from screamer import ExpandingMax, ExpandingMin
 
@@ -18,7 +18,7 @@ def test_repro_no_duplicate_final_row():
     price = 100 + np.cumsum(np.random.default_rng(7).normal(size=200))
     p = Input("price")
     # node-mode span window via freq= (resolved against the runtime index)
-    dag = Dag([p], [CombineLatest()(Resample(freq=40, agg=ExpandingMax())(p),
+    dag = Pipeline([p], [CombineLatest()(Resample(freq=40, agg=ExpandingMax())(p),
                                    Resample(freq=40, agg=ExpandingMin())(p))])
     values, index = dag((price, t))
 
@@ -32,14 +32,14 @@ def test_columns_equal_single_column_resample():
     price = 100 + np.cumsum(np.random.default_rng(7).normal(size=200))
     p = Input("price")
 
-    dag = Dag([p], [CombineLatest()(Resample(freq=40, agg=ExpandingMax())(p),
+    dag = Pipeline([p], [CombineLatest()(Resample(freq=40, agg=ExpandingMax())(p),
                                    Resample(freq=40, agg=ExpandingMin())(p))])
     values, index = dag((price, t))
 
     # Each combined column must equal the corresponding single-stream resample.
-    dag_max = Dag([p], [Resample(freq=40, agg=ExpandingMax())(p)])
+    dag_max = Pipeline([p], [Resample(freq=40, agg=ExpandingMax())(p)])
     vmax, imax = dag_max((price, t))
-    dag_min = Dag([p], [Resample(freq=40, agg=ExpandingMin())(p)])
+    dag_min = Pipeline([p], [Resample(freq=40, agg=ExpandingMin())(p)])
     vmin, imin = dag_min((price, t))
 
     np.testing.assert_array_equal(index, imax)
@@ -57,12 +57,12 @@ def test_shared_final_index_matches_eager_combine_latest():
 
     smax = Resample(freq=40, agg=ExpandingMax())(p)
     smin = Resample(freq=40, agg=ExpandingMin())(p)
-    dag = Dag([p], [CombineLatest()(smax, smin)])
+    dag = Pipeline([p], [CombineLatest()(smax, smin)])
     values, index = dag((price, t))
 
     # Materialize each stream separately to feed the eager CombineLatest.
-    vmax, imax = Dag([p], [smax])((price, t))
-    vmin, imin = Dag([p], [smin])((price, t))
+    vmax, imax = Pipeline([p], [smax])((price, t))
+    vmin, imin = Pipeline([p], [smin])((price, t))
 
     ev, ei = CombineLatest()(
         np.asarray(vmax).ravel(), np.asarray(vmin).ravel(),

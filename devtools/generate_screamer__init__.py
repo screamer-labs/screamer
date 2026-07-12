@@ -75,7 +75,7 @@ __all__ = [
 ]
 
 # Wrap functor classes so each instance records its constructor arguments
-# (powers readable reprs, DAG node labels, and DAG serialization).
+# (powers readable reprs, Pipeline node labels, and Pipeline serialization).
 from ._functor_params import install_param_capture
 install_param_capture(globals())
 '''

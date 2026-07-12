@@ -21,7 +21,7 @@ def test_merge_node_raises_immediately():
     """merge does not support DAG graph nodes; it must raise ValueError immediately."""
     from screamer import Input
     x = Input("x")
-    with pytest.raises(ValueError, match="not supported as a DAG graph node"):
+    with pytest.raises(ValueError, match="not supported as a Pipeline graph node"):
         streams.Merge()(x)
 
 

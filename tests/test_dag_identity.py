@@ -1,6 +1,6 @@
 import numpy as np
 import pytest
-from screamer import (RollingMean, Diff, Sub, Add, Input, Dag, CombineLatest,
+from screamer import (RollingMean, Diff, Sub, Add, Input, Pipeline, CombineLatest,
                       Resample, ExpandingSum)
 from tests._dag_oracle import run_oracle, lazy_batch as _lazy_batch
 
@@ -19,33 +19,33 @@ def _series(size, seed):
 
 def _chain():
     x = Input("x")
-    return Dag(inputs=[x], outputs=[Diff(1)(RollingMean(5)(x))]), [_row(np.random.default_rng(0).standard_normal(150))]
+    return Pipeline(inputs=[x], outputs=[Diff(1)(RollingMean(5)(x))]), [_row(np.random.default_rng(0).standard_normal(150))]
 
 
 def _fanout():
     x = Input("x")
     s = RollingMean(5)(x)
-    return Dag(inputs=[x], outputs=[Diff(1)(s), RollingMean(3)(s)]), [_row(np.random.default_rng(1).standard_normal(150))]
+    return Pipeline(inputs=[x], outputs=[Diff(1)(s), RollingMean(3)(s)]), [_row(np.random.default_rng(1).standard_normal(150))]
 
 
 def _combine():
     a, b = Input("a"), Input("b")
     z = RollingMean(4)(Sub()(CombineLatest()(a, b)))
-    return Dag(inputs=[a, b], outputs=[z]), [_series(120, 2), _series(120, 3)]
+    return Pipeline(inputs=[a, b], outputs=[z]), [_series(120, 2), _series(120, 3)]
 
 
 def _resample_node():
     # Exercises the oracle's Resample class-node reconstruction (freq<-every).
     # Graph resample needs a FUNCTOR agg (string aggs are eager-only in a graph).
     x = Input("x")
-    return Dag(inputs=[x], outputs=[Resample(freq=5, agg=ExpandingSum())(x)]), [_series(120, 7)]
+    return Pipeline(inputs=[x], outputs=[Resample(freq=5, agg=ExpandingSum())(x)]), [_series(120, 7)]
 
 
 def _divergent():
     a, b, c = Input("a"), Input("b"), Input("c")
     ab = Sub()(CombineLatest()(a, b))
     ac = Add()(CombineLatest()(a, c))
-    dag = Dag(inputs=[a, b, c], outputs=[ab, ac], align_outputs=True)
+    dag = Pipeline(inputs=[a, b, c], outputs=[ab, ac], align_outputs=True)
     return dag, [_series(100, 5), _series(80, 6), _series(80, 7)]
 
 
@@ -56,7 +56,7 @@ def _chain_stream_feed():
     idx = np.sort(rng.integers(0, 300, size=80)).astype(np.int64)
     stream_feed = (vals, idx)
     x = Input("x")
-    dag = Dag(inputs=[x], outputs=[Diff(1)(RollingMean(5)(x))])
+    dag = Pipeline(inputs=[x], outputs=[Diff(1)(RollingMean(5)(x))])
     return dag, [stream_feed], (vals, idx)
 
 
@@ -67,7 +67,7 @@ def _chain_values_index_feed():
     idx = np.sort(rng.integers(0, 200, size=60)).astype(np.int64)
     vi_feed = (vals, idx)   # values-first pair
     x = Input("x")
-    dag = Dag(inputs=[x], outputs=[Diff(1)(RollingMean(5)(x))])
+    dag = Pipeline(inputs=[x], outputs=[Diff(1)(RollingMean(5)(x))])
     return dag, [vi_feed], (vals, idx)
 
 
@@ -106,7 +106,7 @@ def test_lazy_equals_batch(factory):
 
 
 def test_stream_feed_matches_array_feed():
-    """Dag fed with (values, index) tuples gives the same result as bare (values, index) pairs."""
+    """Pipeline fed with (values, index) tuples gives the same result as bare (values, index) pairs."""
     dag, stream_feeds, (vals, idx) = _chain_stream_feed()
     array_feed = (vals, idx)   # (values, index) pair
     result_stream = _to_pairs(dag(*stream_feeds))
@@ -117,7 +117,7 @@ def test_stream_feed_matches_array_feed():
 
 
 def test_values_index_feed_matches_array_feed():
-    """Dag fed with (values, index) pairs gives the same result as a bare Stream."""
+    """Pipeline fed with (values, index) pairs gives the same result as a bare Stream."""
     dag, vi_feeds, (vals, idx) = _chain_values_index_feed()
     result_vi = _to_pairs(dag(*vi_feeds))
     # cross-check: lazy path also matches

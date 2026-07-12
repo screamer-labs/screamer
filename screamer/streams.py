@@ -271,8 +271,8 @@ def merge(*values, index=None):
     """
     if any(is_node(v) for v in values):
         raise ValueError(
-            "merge is not supported as a DAG graph node (it is input routing; "
-            "feed streams to a Dag directly)")
+            "merge is not supported as a Pipeline graph node (it is input routing; "
+            "feed streams to a Pipeline directly)")
     if values and all(_is_lazy_stream(v) for v in values):
         return _merge_lazy_dispatch(values)
     if any(_is_lazy_stream(v) for v in values):
@@ -304,7 +304,7 @@ def _combine_latest_zip_lazy(sources):
 
 def _combine_latest_asof_lazy(sources, emit):
     """Indexed combine_latest over lazy (value, index) sources: as-of alignment
-    driven by the C++ combine_latest node through the Stage-2 lazy Dag. Yields
+    driven by the C++ combine_latest node through the Stage-2 lazy Pipeline. Yields
     ``(row_tuple, index)`` - identical to the batch combine_latest.
 
     The C++ node delays emission by one index step and collapses same-index
@@ -313,9 +313,9 @@ def _combine_latest_asof_lazy(sources, emit):
     correct: truncating a fractional index before alignment would collapse
     distinct indices and diverge from batch.
     """
-    from .dag import Input, Dag
+    from .dag import Input, Pipeline
     ins = [Input(f"_cl{i}") for i in range(len(sources))]
-    dag = Dag(inputs=ins, outputs=[combine_latest(*ins, emit=emit)])
+    dag = Pipeline(inputs=ins, outputs=[combine_latest(*ins, emit=emit)])
     yield from dag(*sources)
 
 
@@ -325,7 +325,7 @@ def _combine_latest_lazy(values, emit):
     Classification (and peeking one head per source) is deferred to the first
     call to ``__next__``, so construction consumes nothing. Positional sources
     (bare scalars) route to strict-lockstep zip; indexed ((value, index))
-    sources route to the as-of Dag path.
+    sources route to the as-of Pipeline path.
     """
     positional, sources, _ = _classify_lazy_sources(values, "combine_latest")
     if positional:
@@ -370,7 +370,7 @@ def combine_latest(*values, index=None, emit="when_all"):
 
 
 def _dropna_via_cpp(vals, idx, how):
-    """Route eager dropna through the C++ DropNaNode via a Dag.
+    """Route eager dropna through the C++ DropNaNode via a Pipeline.
 
     vals: float64 ndarray, 1-D or 2-D
     idx: index array or None (positional)
@@ -380,37 +380,37 @@ def _dropna_via_cpp(vals, idx, how):
     convention: None when the input index was None, otherwise the surviving
     subset of the input index.
 
-    1-D: builds a one-input Dag([x], [dropna(x, how=how)]).
+    1-D: builds a one-input Pipeline([x], [dropna(x, how=how)]).
     2-D: packs N columns via combine_latest then drops via
-    Dag([c0..cN], [dropna(combine_latest(c0..cN), how=how)]).
+    Pipeline([c0..cN], [dropna(combine_latest(c0..cN), how=how)]).
     All NaN-gate logic runs in the C++ DropNaNode; no numpy mask compute here.
     """
-    from .dag import Input, Dag
+    from .dag import Input, Pipeline
     positional = idx is None
     real_idx = np.arange(len(vals), dtype=np.int64) if positional else idx
 
     if vals.ndim == 1:
         src = Input("x")
-        dag = Dag([src], [dropna(src, how=how)])
+        dag = Pipeline([src], [dropna(src, how=how)])
         out_vals, out_idx = dag((vals, real_idx))
     else:
         N = vals.shape[1]
         col_inputs = [Input(f"c{i}") for i in range(N)]
-        dag = Dag(col_inputs, [dropna(combine_latest(*col_inputs), how=how)])
+        dag = Pipeline(col_inputs, [dropna(combine_latest(*col_inputs), how=how)])
         out_vals, out_idx = dag(*((vals[:, i], real_idx) for i in range(N)))
 
     return out_vals, (None if positional else out_idx)
 
 
 def _dropna_lazy_cpp(events, how):
-    """Route lazy dropna through the C++ DropNaNode via the Dag lazy path.
+    """Route lazy dropna through the C++ DropNaNode via the Pipeline lazy path.
 
     Generator function: no events are consumed until the first next() call.
     Peeks the first event to determine dimensionality and index type.
 
-    1-D events (scalar values): drives a one-input Dag.
+    1-D events (scalar values): drives a one-input Pipeline.
     2-D events (multi-value rows): tees the stream into N per-column iterators
-    and drives an N-input combine_latest + dropna Dag.  The N tee'd iterators
+    and drives an N-input combine_latest + dropna Pipeline.  The N tee'd iterators
     are advanced in lockstep by _LazyDag, so the tee buffer is at most O(N)
     elements (constant in stream length - O(1) per event).
 
@@ -418,7 +418,7 @@ def _dropna_lazy_cpp(events, how):
     internally and the None index is restored on output.
     """
     import itertools
-    from .dag import Input, Dag
+    from .dag import Input, Pipeline
 
     try:
         head = next(events)
@@ -444,7 +444,7 @@ def _dropna_lazy_cpp(events, how):
             for v, k in evs:
                 yield float(np.atleast_1d(np.asarray(v, dtype=np.float64))[0]), k
         src = Input("x")
-        dag = Dag([src], [dropna(src, how=how)])
+        dag = Pipeline([src], [dropna(src, how=how)])
         inner = dag(_as_scalar(working_events))
     else:
         # 2-D: tee N copies; each copy is consumed once per event (lockstep)
@@ -457,7 +457,7 @@ def _dropna_lazy_cpp(events, how):
 
         col_iters = [_col(tees[i], i) for i in range(N)]
         col_inputs = [Input(f"c{i}") for i in range(N)]
-        dag = Dag(col_inputs, [dropna(combine_latest(*col_inputs), how=how)])
+        dag = Pipeline(col_inputs, [dropna(combine_latest(*col_inputs), how=how)])
         inner = dag(*col_iters)
 
     if positional:
@@ -517,7 +517,7 @@ class Filter:
     Graph (Node inputs)::
 
         d, m = Input("d"), Input("m")
-        dag = Dag(inputs=[d, m], outputs=[Filter()(d, m)])
+        dag = Pipeline(inputs=[d, m], outputs=[Filter()(d, m)])
         survivors, idx = dag(data_array, mask_array)
     """
 
@@ -526,9 +526,9 @@ class Filter:
     def __call__(self, data, mask):
         if is_node(data) or is_node(mask):
             return make_operator_node(Filter, (data, mask), {})
-        from .dag import Input, Dag
+        from .dag import Input, Pipeline
         d, m = Input("data"), Input("mask")
-        dag = Dag(inputs=[d, m], outputs=[Filter()(d, m)])
+        dag = Pipeline(inputs=[d, m], outputs=[Filter()(d, m)])
         return dag(data, mask)
 
 
@@ -577,7 +577,7 @@ def _normalize_columns(columns):
 
 
 def _select_via_cpp(vals, idx, cols, scalar):
-    """Route eager select through the C++ SelectNode via a Dag.
+    """Route eager select through the C++ SelectNode via a Pipeline.
 
     vals: float64 ndarray, 1-D or 2-D
     idx: index array or None (positional)
@@ -589,29 +589,29 @@ def _select_via_cpp(vals, idx, cols, scalar):
 
     1-D input: trivial passthrough or reshape; no SelectNode needed.
     2-D input: packs N columns via combine_latest then picks via
-    Dag([c0..cN], [select(combine_latest(c0..cN), columns=columns)]).
+    Pipeline([c0..cN], [select(combine_latest(c0..cN), columns=columns)]).
     All column-pick logic runs in the C++ SelectNode; no numpy column-pick here.
     """
-    from .dag import Input, Dag
+    from .dag import Input, Pipeline
 
     if vals.ndim == 1:
         # Width-1 passthrough: no column-pick compute, only scalar/list reshape.
         picked = vals if scalar else vals.reshape(-1, 1)
         return picked, idx
 
-    # 2-D: route through SelectNode via Dag.
+    # 2-D: route through SelectNode via Pipeline.
     positional = idx is None
     real_idx = np.arange(len(vals), dtype=np.int64) if positional else idx
     N = vals.shape[1]
     col_inputs = [Input(f"c{i}") for i in range(N)]
     columns_arg = cols[0] if scalar else cols
-    dag = Dag(col_inputs, [select(combine_latest(*col_inputs), columns=columns_arg)])
+    dag = Pipeline(col_inputs, [select(combine_latest(*col_inputs), columns=columns_arg)])
     out_vals, out_idx = dag(*((vals[:, i], real_idx) for i in range(N)))
     return out_vals, (None if positional else out_idx)
 
 
 def _select_lazy_cpp(events, columns):
-    """Route lazy select through the C++ SelectNode via the Dag lazy path.
+    """Route lazy select through the C++ SelectNode via the Pipeline lazy path.
 
     Generator function: no events are consumed until the first next() call.
     Peeks the first event to determine dimensionality and index type.
@@ -619,7 +619,7 @@ def _select_lazy_cpp(events, columns):
     1-D events (scalar values): passthrough with column 0 projection in Python
     (no SelectNode needed for a width-1 stream).
     2-D events (multi-value rows): tees the stream into N per-column iterators
-    and drives an N-input combine_latest + select Dag.  The N tee'd iterators
+    and drives an N-input combine_latest + select Pipeline.  The N tee'd iterators
     are advanced in lockstep by _LazyDag, so the tee buffer is at most O(N)
     elements (constant in stream length - O(1) per event).
 
@@ -627,7 +627,7 @@ def _select_lazy_cpp(events, columns):
     internally and the None index is restored on output.
     """
     import itertools
-    from .dag import Input, Dag
+    from .dag import Input, Pipeline
 
     cols, scalar = _normalize_columns(columns)
 
@@ -657,7 +657,7 @@ def _select_lazy_cpp(events, columns):
                 yield [val], k
         return
 
-    # 2-D: convert positional None indices to row numbers before feeding the Dag.
+    # 2-D: convert positional None indices to row numbers before feeding the Pipeline.
     if positional:
         def _add_rownum(evs):
             for i, (v, _k) in enumerate(evs):
@@ -677,7 +677,7 @@ def _select_lazy_cpp(events, columns):
     col_iters = [_col(tees[i], i) for i in range(N)]
     col_inputs = [Input(f"c{i}") for i in range(N)]
     columns_arg = cols[0] if scalar else cols
-    dag = Dag(col_inputs, [select(combine_latest(*col_inputs), columns=columns_arg)])
+    dag = Pipeline(col_inputs, [select(combine_latest(*col_inputs), columns=columns_arg)])
     inner = dag(*col_iters)
 
     if positional:
@@ -706,7 +706,7 @@ def select(values, columns, index=None):
     vals, idx = _as_vi(values, index)
     vals = np.asarray(vals, dtype=np.float64)
     cols, scalar = _normalize_columns(columns)
-    # Validate columns in Python before building the Dag (preserves exact
+    # Validate columns in Python before building the Pipeline (preserves exact
     # ValueError message regardless of which regime is active).
     width = 1 if vals.ndim == 1 else vals.shape[1]
     for c in cols:
@@ -889,20 +889,20 @@ def _resample_freq_to_engine(freq, index):
 
 
 def _resample_via_cpp(feed, *, every, count, agg, origin, label, fill="skip"):
-    """Run resample on the C++ engine via a one-node Dag, for batch OR lazy input.
+    """Run resample on the C++ engine via a one-node Pipeline, for batch OR lazy input.
 
     Builds the minimal ``Input -> Resample`` graph the Node regime already uses,
-    then defers to ``dag(feed)``. Rule A on the Dag decides the mode: a concrete
+    then defers to ``dag(feed)``. Rule A on the Pipeline decides the mode: a concrete
     ``(vals, idx)`` pair runs batch and returns ``(out_values, out_index)``; a lazy
     iterator of ``(value, index)`` events returns a lazy iterator of
     ``(bar_value, bar_label)``. No Python windowing - all bucketing and NaN-ignore
     accumulation happens in the C++ core.
     """
-    from .dag import Input, Dag
+    from .dag import Input, Pipeline
     src = Input("x")
     node = resample(src, every=every, count=count, agg=agg,
                     origin=origin, label=label, fill=fill)
-    dag = Dag([src], [node])
+    dag = Pipeline([src], [node])
     return dag(feed)
 
 
@@ -1086,7 +1086,7 @@ def resample(values, index=None, *, freq=None, every=None, count=None, agg="last
     if _is_lazy_stream(values):
         # Rule A: a lazy iterator of (value, index) events -> a lazy iterator of
         # (bar_value, bar_label). Drive the same C++ resample node as batch through
-        # the Stage-2 lazy Dag; no Python windowing accumulator runs here.
+        # the Stage-2 lazy Pipeline; no Python windowing accumulator runs here.
         if agg in ("ohlcv", "ohlcv2"):
             raise ValueError(
                 "resample(<iterator>) supports string and functor scalar aggs "

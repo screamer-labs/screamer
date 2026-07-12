@@ -6,7 +6,7 @@ RUNTIME index, not collapse to count when no index is present at definition time
 and an arrival count differ, so this pins the correct (span) behavior.
 """
 import numpy as np
-from screamer import Resample, Input, Dag, ExpandingSum
+from screamer import Resample, Input, Pipeline, ExpandingSum
 
 
 # Sparse index where a span of 10 (3 buckets) differs from count=10 (1 bucket).
@@ -29,7 +29,7 @@ def test_eager_freq_is_span():
 
 def test_node_freq_is_span_not_count():
     s = Input("x")
-    dag = Dag([s], [Resample(freq=10, agg=ExpandingSum())(s)])
+    dag = Pipeline([s], [Resample(freq=10, agg=ExpandingSum())(s)])
     v, k = _vi(dag((_X, _IDX)))
     np.testing.assert_array_equal(v, _EXP_V)
     np.testing.assert_array_equal(k, _EXP_K)

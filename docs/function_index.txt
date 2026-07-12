@@ -30,7 +30,6 @@ CumMin, Running minimum from t=0.
 CumProd, Running product from t=0.
 CumSum, Running sum from t=0.
 DEMA, Mulloy's Double EMA: 2*EMA - EMA(EMA).
-Dag, A positional N-in / M-out callable that evaluates a computation graph.
 Detrend, x[t] minus its rolling mean.
 Diff, x[t] - x[t-k] (first difference at lag k).
 Diff2, Second-order finite difference (discrete second derivative).
@@ -109,6 +108,7 @@ Not, Returns 0.0 if input is nonzero, 1.0 if zero. NaN propagates.
 NotEqual, Returns 1.0 if a != b, else 0.0. NaN in either input yields NaN.
 OBV, On-Balance Volume: signed cumulative volume by close-direction (Granville, 1963).
 Or, Returns 1.0 if either input is nonzero, else 0.0. NaN in either input yields NaN.
+Pipeline, A reusable N-in / M-out function you define once and call on stored or live data.
 Polar2Cart, Convert (r, theta) to (x, y).
 PosPart, Positive part of x: max(x, 0).
 Power, x raised to a fixed exponent p.
@@ -204,7 +204,7 @@ Select, Pick columns from a wide stream.
 split, Partition a merged tagged stream back into per-source streams.
 Resample, Causal windowed downsample.
 
-# Computational DAG
+# Pipeline
 Input, Create a source Node - a named placeholder for a timed stream.
-Dag, A positional N-in / M-out callable that evaluates a computation graph.
+Pipeline, A positional N-in / M-out callable that evaluates a computation graph.
 Node, An immutable handle for a stream in a computation graph.

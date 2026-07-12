@@ -15,7 +15,7 @@ Causal windowed downsampling. Group a stream into fixed index-interval buckets
 (`freq=`) or fixed event-count buckets (`count=`), reduce each bucket with a
 per-bar aggregation, and return a `(values, index)` tuple. A bucket emits only once a
 later index proves it complete; the trailing partial bucket emits at end of input.
-Usable eagerly (raw arrays or `(values, index)` tuples) and inside a `Dag`.
+Usable eagerly (raw arrays or `(values, index)` tuples) and inside a `Pipeline`.
 
 Feeding a lazy iterator of `(value, index)` pairs returns a lazy iterator of bar events; feeding arrays or `(values, index)` tuples returns the batch result.
 
@@ -35,7 +35,7 @@ bucketing and align the results with `CombineLatest`. Because every `Resample`
 shares the same `freq=` (or `count=`) and clock, the bars line up exactly and
 cannot drift, e.g.
 `CombineLatest()(Resample(freq=5, agg="first")(price, t), Resample(freq=5, agg="sum")(vol, t))`.
-Inside a `Dag`, place each per-stat `Resample` node on its upstream expression
+Inside a `Pipeline`, place each per-stat `Resample` node on its upstream expression
 and combine them the same way; per-tick transforms live in the expression, e.g.
 `Resample(freq=5, agg=ExpandingSum())(PosPart()(vol))`.
 
@@ -80,7 +80,7 @@ Concretely, eight ticks at index `[0, 1, 2, 10, 11, 20, 21, 22]`:
 
 `fill=` controls what happens when a `freq=` bar contains no samples (an index
 interval with no ticks). It applies to eager arrays, `(values, index)` tuples, and graphs alike;
-it is not `Dag`-only.
+it is not `Pipeline`-only.
 
 - `"skip"` (default): emit no row for an empty bucket (the legacy behavior).
 - `"nan"`: emit an all-NaN row at the empty bucket's label.
@@ -88,8 +88,8 @@ it is not `Dag`-only.
 
 Only **internal** empty buckets (gaps between two events) are filled by `Resample`
 itself. Trailing empty buckets after the last event are not synthesized here; that
-needs a clock, via either [`dag.live().advance(now)`](#dag-live) or a clock input
-wired into a `Dag`. The [`dag.live()` reference](#dag-live) has a worked example.
+needs a clock, via either [`pipe.live().advance(now)`](#pipeline-live) or a clock input
+wired into a `Pipeline`. The [`pipe.live()` reference](#pipeline-live) has a worked example.
 
 `fill=` is meaningful only under `freq=`. With `count=`, a bar is defined by
 holding `N` events, so empty bars cannot exist by construction and `fill=` has no
@@ -100,7 +100,7 @@ effect.
 - **Leading buckets** (before the first event) are never synthesized on the eager
   path: output starts at the bucket containing the first tick. A tick at index 47
   with `freq=10` starts at label 40, not 0. Leading empty buckets arise only from a
-  clock (a `Dag` clock input or [`advance()`](#dag-live)) that advances time before
+  clock (a `Pipeline` clock input or [`advance()`](#pipeline-live)) that advances time before
   the first data event; there `"nan"` emits NaN rows and `"carry"` **skips** them,
   since there is no previous row to repeat.
 - **`"carry"` is verbatim and uniform** across every column: it repeats the previous
@@ -224,7 +224,7 @@ Run one `Resample` per statistic and align them with `CombineLatest`. Every
    print(aligned.round(4))
 ```
 
-### Multi-column bars in a `Dag`
+### Multi-column bars in a `Pipeline`
 
 Inside a graph, place a `Resample` node on each per-tick expression rooted at an
 `Input`, then align them with `CombineLatest`. All bars share the same `freq=` and
@@ -236,7 +236,7 @@ clock, so they cannot drift. You bind data to the named inputs at call time.
    # --- hide: start ---
    import numpy as np
    from screamer import First, Last, ExpandingMax, ExpandingMin, Resample, CombineLatest
-   from screamer.dag import Input, Dag
+   from screamer.dag import Input, Pipeline
    # --- hide: stop ---
    t_arr  = np.arange(10, dtype=np.int64)
    px     = np.array([100., 101., 99., 102., 98., 103., 97., 104., 96., 105.])
@@ -247,7 +247,7 @@ clock, so they cannot drift. You bind data to the named inputs at call time.
    low_b   = Resample(freq=5, agg=ExpandingMin())(price)
    close_b = Resample(freq=5, agg=Last())(price)
    bars = CombineLatest()(open_b, high_b, low_b, close_b)
-   ohlc, ohlc_idx = Dag([price], [bars])(price=(px, t_arr))
+   ohlc, ohlc_idx = Pipeline([price], [bars])(price=(px, t_arr))
    print(ohlc_idx)
    print(ohlc.round(2))
 ```

@@ -6,10 +6,10 @@ module wraps every functor class in a thin, same-named Python subclass whose
 ``__init__`` calls the C++ constructor (which validates) and then records the
 passed arguments, bound to their parameter names, on the instance as
 ``_screamer_params``. Everything else -- the per-sample compute, ``isinstance``
-against the C++ class, and the DAG graph-building hook -- is inherited unchanged.
+against the C++ class, and the Pipeline graph-building hook -- is inherited unchanged.
 
 The captured params power three things: a readable ``repr``
-(``RollingMean(window_size=20)``), DAG node labels, and DAG serialization.
+(``RollingMean(window_size=20)``), Pipeline node labels, and Pipeline serialization.
 """
 import json
 import warnings

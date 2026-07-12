@@ -63,6 +63,6 @@ def test_topics_registry_loads_in_display_order():
     assert list(topics)[0] == "arithmetic" and list(topics)[-1] == "graphs"
 
 
-@pytest.mark.parametrize("name", ["Add", "Sub", "Merge", "Dag", "RollingMean"])
+@pytest.mark.parametrize("name", ["Add", "Sub", "Merge", "Pipeline", "RollingMean"])
 def test_representative_names_present(name):
     assert name in HELP and HELP[name].get("topics")

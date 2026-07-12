@@ -14,7 +14,7 @@ covers:
 
 Drop events whose value is `NaN`. This changes the length of the stream (it is a
 cardinality-changing stream operator, unlike the shape-preserving compute
-functors). Usable eagerly and inside a `Dag`.
+functors). Usable eagerly and inside a `Pipeline`.
 
 Feeding a lazy iterator of `(value, index)` pairs returns a lazy iterator of the surviving events; feeding arrays or `(values, index)` tuples returns the batch result.
 

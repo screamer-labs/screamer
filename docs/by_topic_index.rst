@@ -28,12 +28,12 @@ Every function, grouped by topic. Topics are many-to-many, so a function may app
 * :doc:`Outliers & robustness <by_topic/outliers>`
 * :doc:`Streams <by_topic/streams>`
 * :doc:`Logic & comparison <by_topic/logic>`
-* :doc:`Computation graphs <by_topic/graphs>`
+* :doc:`Pipelines <by_topic/graphs>`
 
 .. toctree::
    :hidden:
 
-   functions_dag/Dag
+   functions_dag/Pipeline
    functions_ew/EwBeta
    functions_ew/EwCorr
    functions_ew/EwCov

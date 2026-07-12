@@ -3,7 +3,7 @@
 import numpy as np
 from collections import deque
 
-__all__ = ["Node", "Input", "Dag"]
+__all__ = ["Node", "Input", "Pipeline"]
 
 _RESAMPLE_AGG_CODE = {"first": 0, "last": 1, "min": 2, "max": 3,
                       "sum": 4, "count": 5, "mean": 6, "ohlc": 7}
@@ -164,7 +164,7 @@ def _check_stateful_safety(outputs):
 
 
 class _LiveDag:
-    """A live streaming session over a compiled Dag. `input` in push() is an Input
+    """A live streaming session over a compiled Pipeline. `input` in push() is an Input
     name (str) or its positional index (int)."""
     def __init__(self, dag):
         self._dag = dag
@@ -325,7 +325,7 @@ class _LazyDag:
             self._pending.extend(self._drain_rows())
 
 
-class Dag:
+class Pipeline:
     """A positional N-in / M-out callable that evaluates a computation graph.
 
     Arguments:
@@ -457,12 +457,12 @@ class Dag:
     def live(self):
         """Open a live streaming session: push events and drive a clock yourself.
 
-        Bind data AFTER definition, event by event, on the same Dag that runs batch.
+        Bind data AFTER definition, event by event, on the same Pipeline that runs batch.
         Push events with .push(input, index, value); close windows whose boundary has
         passed with .advance(now) (e.g. on a clock tick, finalizing empty bars); force
         the current partial window with .flush(); collect aligned outputs with .result().
 
-        The session drives this Dag's single compiled engine (shared with __call__),
+        The session drives this Pipeline's single compiled engine (shared with __call__),
         resetting it on open, so use one session at a time: do not interleave a live
         session with a batch call or run two live sessions concurrently.
         """
@@ -470,7 +470,7 @@ class Dag:
 
     # -- inspection / visualization ------------------------------------------
     def __repr__(self):
-        return f"Dag({len(self.inputs)} input(s), {len(self.outputs)} output(s))"
+        return f"Pipeline({len(self.inputs)} input(s), {len(self.outputs)} output(s))"
 
     def __str__(self):
         from .dag_viz import to_text
@@ -508,13 +508,13 @@ class Dag:
 
     @classmethod
     def from_dict(cls, data):
-        """Rebuild a runnable ``Dag`` from a dict produced by :meth:`to_dict`."""
+        """Rebuild a runnable ``Pipeline`` from a dict produced by :meth:`to_dict`."""
         from .dag_io import from_dict
         return from_dict(data)
 
     @classmethod
     def from_json(cls, text):
-        """Rebuild a runnable ``Dag`` from JSON produced by :meth:`to_json`."""
+        """Rebuild a runnable ``Pipeline`` from JSON produced by :meth:`to_json`."""
         from .dag_io import from_json
         return from_json(text)
 

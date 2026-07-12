@@ -1,8 +1,8 @@
-"""Serialize a ``Dag`` to a JSON-native dict (and back).
+"""Serialize a ``Pipeline`` to a JSON-native dict (and back).
 
-A Dag is captured as its ordered input names, its nodes (each input / operator /
+A Pipeline is captured as its ordered input names, its nodes (each input / operator /
 functor with params and the ids of the nodes feeding it), its outputs, and
-``align_outputs``. ``from_dict`` rebuilds a runnable Dag, so a graph round-trips
+``align_outputs``. ``from_dict`` rebuilds a runnable Pipeline, so a graph round-trips
 as a config file. Reuses the same graph walk as the visualizer so structure and
 labels stay consistent.
 """
@@ -11,12 +11,12 @@ import json
 import numpy as np
 
 from . import streams
-from .dag import Dag, Input
+from .dag import Pipeline, Input
 from .dag_viz import build_graph
 
 SCHEMA_VERSION = 1
 
-# Operators that can be graph nodes (mirrors Dag._compile_cpp's support).
+# Operators that can be graph nodes (mirrors Pipeline._compile_cpp's support).
 # CamelCase keys: current serialized format (operator identity = class name).
 # lowercase keys: backward compat for graphs serialized before step 3E.
 _OPERATORS = {
@@ -85,7 +85,7 @@ def to_json(dag, indent=2):
 
 
 def from_dict(data):
-    """Rebuild a runnable ``Dag`` from a dict produced by :func:`to_dict`."""
+    """Rebuild a runnable ``Pipeline`` from a dict produced by :func:`to_dict`."""
     version = data.get("screamer_dag")
     if version != SCHEMA_VERSION:
         raise ValueError(
@@ -118,7 +118,7 @@ def from_dict(data):
                     for spec in data["nodes"] if spec["kind"] == "input"}
     inputs = [name_to_node[name] for name in data["inputs"]]
     outputs = [built[i] for i in data["outputs"]]
-    return Dag(inputs, outputs, align_outputs=data.get("align_outputs", True))
+    return Pipeline(inputs, outputs, align_outputs=data.get("align_outputs", True))
 
 
 def from_json(text):

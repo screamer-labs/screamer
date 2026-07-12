@@ -28,7 +28,7 @@ jobs:
           python-version: '3.12'
           cache: pip
 
-      - name: Install Graphviz (dot binary for the DAG diagrams)
+      - name: Install Graphviz (dot binary for the Pipeline diagrams)
         run: sudo apt-get update && sudo apt-get install -y graphviz
 
       - name: Install screamer + docs deps

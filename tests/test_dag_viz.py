@@ -6,21 +6,21 @@ import sys
 import numpy as np
 import pytest
 
-from screamer import RollingMean, EwMean, Sub, Input, Dag
+from screamer import RollingMean, EwMean, Sub, Input, Pipeline
 from screamer.streams import CombineLatest
 from screamer.dag_viz import build_graph, to_text, to_dot
 
 
 def _simple():
     a, b = Input("a"), Input("b")
-    return Dag([a, b], [Sub()(CombineLatest()(a, b))])
+    return Pipeline([a, b], [Sub()(CombineLatest()(a, b))])
 
 
 def _diamond():
     # combine_latest is shared by two outputs -> a diamond, two outputs.
     a, b = Input("a"), Input("b")
     cl = CombineLatest()(a, b)
-    return Dag([a, b], [RollingMean(20)(Sub()(cl)), EwMean(span=10)(cl)])
+    return Pipeline([a, b], [RollingMean(20)(Sub()(cl)), EwMean(span=10)(cl)])
 
 
 def test_build_graph_kinds_and_counts():
@@ -61,7 +61,7 @@ def test_functor_and_operator_labels_carry_params():
 
 def test_to_text_header_and_outputs():
     text = to_text(_diamond())
-    assert text.startswith("Dag(2 input(s), 2 output(s)")
+    assert text.startswith("Pipeline(2 input(s), 2 output(s)")
     assert "out[0] =" in text and "out[1] =" in text
 
 
@@ -100,7 +100,7 @@ def test_to_dot_styles_inputs_and_outputs():
 
 
 def test_repr_is_concise():
-    assert repr(_diamond()) == "Dag(2 input(s), 2 output(s))"
+    assert repr(_diamond()) == "Pipeline(2 input(s), 2 output(s))"
 
 
 def test_str_equals_to_text():

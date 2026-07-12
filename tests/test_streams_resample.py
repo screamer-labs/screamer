@@ -275,7 +275,7 @@ def test_resample_positional_input_uses_row_positions():
 
 def test_resample_raw_stream_node_mirror():
     """Raw, tuple, and Node inputs all produce the same output values and labels."""
-    from screamer import Input, Dag
+    from screamer import Input, Pipeline
     vals = np.array([1.0, 2.0, 3.0, 4.0])
     keys = np.array([0, 5, 10, 15], dtype=np.int64)
 
@@ -286,9 +286,9 @@ def test_resample_raw_stream_node_mirror():
     s = (vals, keys)
     stream_out = Resample(freq=10, agg="sum")(s)
 
-    # Node (via Dag): span window via freq= (resolved against the runtime index)
+    # Node (via Pipeline): span window via freq= (resolved against the runtime index)
     x = Input("x")
-    dag = Dag(inputs=[x], outputs=[Resample(freq=10, agg="sum")(x)])
+    dag = Pipeline(inputs=[x], outputs=[Resample(freq=10, agg="sum")(x)])
     dag_v, dag_k = dag((vals, keys))        # (values, index) feed; values-first result
 
     np.testing.assert_array_equal(rv, stream_out[0])

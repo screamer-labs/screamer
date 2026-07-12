@@ -142,7 +142,7 @@ For a step-by-step walkthrough see the :doc:`User Guide <usage>`.
    notebooks/05-nan-handling
    notebooks/06-streaming-live-events
    notebooks/07-multi-stream-operators
-   notebooks/08-computational-dag
+   notebooks/08-pipelines
    notebooks/09-bars-from-ticks
    notebooks/10-custom-and-multi-column-bars
 
@@ -182,7 +182,7 @@ For a step-by-step walkthrough see the :doc:`User Guide <usage>`.
    polymorphic_api
    nan_and_warmup
    multistream
-   dag
+   pipelines
    conventions
 
 

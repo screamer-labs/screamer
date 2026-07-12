@@ -12,16 +12,16 @@ import numpy as np
 import pytest
 
 from screamer.streams import Resample
-from screamer.dag import Input, Dag
+from screamer.dag import Input, Pipeline
 from screamer import ExpandingSum
 
 
 def _live_last(fill):
-    """A width-100, origin-0, agg='last' single-column live Dag session."""
+    """A width-100, origin-0, agg='last' single-column live Pipeline session."""
     src = Input("x")
     # node-mode span window via freq= (resolved against the runtime index)
     node = Resample(freq=100, origin=0, agg="last", fill=fill)(src)
-    dag = Dag([src], [node])
+    dag = Pipeline([src], [node])
     return dag.live()
 
 
@@ -121,7 +121,7 @@ def test_batch_parity_internal_gap_nan_unchanged():
     src = Input("x")
     # node-mode span: use every= for correct span semantics
     node = Resample(freq=1, agg="last", fill="nan")(src)
-    dag = Dag([src], [node])
+    dag = Pipeline([src], [node])
     v, k = dag((VALS, IDX))
     np.testing.assert_array_equal(k, [0, 1, 2, 3])
     assert v[0] == 10.0
@@ -137,7 +137,7 @@ def test_batch_parity_internal_gap_nan_unchanged():
 def test_advance_closes_empty_windows_generic_reducer():
     src = Input("x")
     node = Resample(freq=100, origin=0, agg=ExpandingSum(), fill="nan")(src)
-    dag = Dag([src], [node])
+    dag = Pipeline([src], [node])
     live = dag.live()
     live.push("x", 0, 10.0)
     live.advance(350)
@@ -155,7 +155,7 @@ def test_advance_closes_empty_windows_generic_reducer_carry():
     # the previous emitted row, not NaN.
     src = Input("x")
     node = Resample(freq=100, origin=0, agg=ExpandingSum(), fill="carry")(src)
-    dag = Dag([src], [node])
+    dag = Pipeline([src], [node])
     live = dag.live()
     live.push("x", 0, 10.0)
     live.advance(350)
@@ -222,7 +222,7 @@ def test_advance_then_later_event_fills_parked_bucket_generic():
     # Same, single-column functor reducer (GenericResampleNode path).
     src = Input("x")
     node = Resample(freq=100, origin=0, agg=ExpandingSum(), fill="nan")(src)
-    dag = Dag([src], [node])
+    dag = Pipeline([src], [node])
     live = dag.live()
     live.push("x", 0, 10.0)
     live.advance(150)
@@ -240,7 +240,7 @@ def test_advance_then_later_event_fills_parked_bucket_generic():
 def test_advance_noop_count_mode():
     src = Input("x")
     node = Resample(count=2, agg="last", fill="nan")(src)
-    dag = Dag([src], [node])
+    dag = Pipeline([src], [node])
     live = dag.live()
     live.push("x", 0, 10.0)
     live.advance(10_000)   # count mode: advance has no time meaning -> no-op

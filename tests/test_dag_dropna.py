@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from screamer import Input, Dag
+from screamer import Input, Pipeline
 from screamer.streams import Dropna
 from tests._dag_oracle import lazy_batch as _lazy_batch
 
@@ -17,7 +17,7 @@ def test_dropna_graph_matches_eager_any():
     keys = np.array([1, 2, 3, 4, 5], dtype=np.int64)
     vals = np.array([1.0, np.nan, 3.0, np.nan, 5.0])
     x = Input("x")
-    dag = Dag(inputs=[x], outputs=[Dropna()(x)])
+    dag = Pipeline(inputs=[x], outputs=[Dropna()(x)])
     (bv, bk), (sv, sk) = _run_modes(dag, (vals, keys))    # (values, index) feed
     ev, ek = Dropna()(vals, index=keys)          # eager oracle (values-first)
     np.testing.assert_array_equal(bk, ek)
@@ -30,7 +30,7 @@ def test_dropna_graph_all_dropped():
     keys = np.array([1, 2], dtype=np.int64)
     vals = np.array([np.nan, np.nan])
     x = Input("x")
-    dag = Dag(inputs=[x], outputs=[Dropna()(x)])
+    dag = Pipeline(inputs=[x], outputs=[Dropna()(x)])
     bv, bk = dag((vals, keys))
     assert len(bk) == 0
 
@@ -39,7 +39,7 @@ def test_dropna_graph_none_dropped():
     keys = np.array([1, 2, 3], dtype=np.int64)
     vals = np.array([1.0, 2.0, 3.0])
     x = Input("x")
-    dag = Dag(inputs=[x], outputs=[Dropna()(x)])
+    dag = Pipeline(inputs=[x], outputs=[Dropna()(x)])
     bv, bk = dag((vals, keys))
     np.testing.assert_array_equal(bk, keys)
     np.testing.assert_array_equal(bv.reshape(-1), vals)
@@ -50,7 +50,7 @@ def test_dropna_before_functor():
     keys = np.array([1, 2, 3, 4], dtype=np.int64)
     vals = np.array([2.0, np.nan, 4.0, 6.0])
     x = Input("x")
-    dag = Dag(inputs=[x], outputs=[RollingMean(2)(Dropna()(x))])
+    dag = Pipeline(inputs=[x], outputs=[RollingMean(2)(Dropna()(x))])
     bv, bk = dag((vals, keys))
     sv, sk = _lazy_batch(dag, (vals, keys))
     np.testing.assert_array_equal(bk, sk)
@@ -82,7 +82,7 @@ def test_dropna_all_over_wide_combine_latest():
     ak = np.array([1, 2, 3], dtype=np.int64); av = np.array([np.nan, 2.0, np.nan])
     bk = np.array([1, 2, 3], dtype=np.int64); bv = np.array([np.nan, np.nan, 3.0])
     a, b = Input("a"), Input("b")
-    dag = Dag(inputs=[a, b], outputs=[Dropna(how="all")(CombineLatest()(a, b))])
+    dag = Pipeline(inputs=[a, b], outputs=[Dropna(how="all")(CombineLatest()(a, b))])
     bv_, bk_ = dag((av, ak), (bv, bk))
     sv_, sk_ = _lazy_batch(dag, (av, ak), (bv, bk))
     # eager oracle: align (values-first), then drop all-NaN rows (values-first)
@@ -104,7 +104,7 @@ def test_dropna_fanout_to_two_consumers():
     vals = np.array([2.0, np.nan, 4.0, 6.0, np.nan])
     x = Input("x")
     d = Dropna()(x)
-    dag = Dag(inputs=[x], outputs=[RollingMean(2)(d), Lag(1)(d)], align_outputs=False)
+    dag = Pipeline(inputs=[x], outputs=[RollingMean(2)(d), Lag(1)(d)], align_outputs=False)
     (bm, bl) = dag((vals, keys))
     # each pair is (values, index)
     # dropna removes the two NaN rows -> surviving keys [1,3,4]
