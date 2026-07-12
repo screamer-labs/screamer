@@ -30,9 +30,8 @@ call it many times. The first two outputs are `NaN` because the window of size
 ## One object, any input
 
 The same object accepts a single value, a NumPy array, a Python list, or an
-iterator, and the type of the output mirrors the type of the input. This is the
-central idea in screamer: you write a calculation once and use it on a single
-number, a stored array, or a live feed, without changing anything.
+iterator, and the output type mirrors the input type. This is the central idea in
+screamer: write a calculation once and run it anywhere, without changing it.
 
 ```{eval-rst}
 .. exec_code::
@@ -112,7 +111,7 @@ including higher-dimensional arrays, is in the
 
 ## Warmup
 
-Most functions need a few samples before they can produce a defined value — a
+Most functions need a few samples before they can produce a defined value: a
 mean over a window of 20 has nothing to report until 20 samples have arrived.
 During this warmup they emit `NaN`. The `start_policy` argument controls the
 behaviour: the default `"strict"` waits for a full window, while `"expanding"`
@@ -178,9 +177,9 @@ the same result.
    print("packed  :", RollingCorr(window_size=3)(xy))
 ```
 
-Each argument still follows the single-input rules, so two scalars give a scalar,
-two arrays give an array, and two streams give a stream. The OHLC indicators take
-their price series the same way: `ATR(14)(high, low, close)` and `ATR(14)(hlc)`, a
+Each argument follows the single-input rules, so the output type mirrors the
+input type. Price indicators built on open, high, low, and close (OHLC) bars take
+their series the same way: `ATR(14)(high, low, close)` and `ATR(14)(hlc)`, a
 `(T, 3)` array, read identically. The
 [financial-indicators notebook](notebooks/03-financial-indicators) works through
 them, and the [Polymorphic API reference](polymorphic_api.md) has the exact
@@ -206,7 +205,7 @@ lower, middle, and upper band. The output gains a trailing axis of that size.
 
 ## Missing data
 
-Real streams have gaps — a missing tick, a sensor dropout, a `NaN` left by an
+Real streams have gaps: a missing tick, a sensor dropout, a `NaN` left by an
 upstream function's warmup. Every screamer function declares exactly how it
 responds to a `NaN` input, following one of three policies (`ignore`,
 `propagate`, `nan-aware`). A `NaN` never corrupts internal state, and the
@@ -216,7 +215,7 @@ functions for cleaning gaps, are in [NaN and warmup](nan_and_warmup.md); the
 
 ## Streams that don't tick together
 
-The examples above assume inputs are aligned — row `i` of one pairs with row `i`
+The examples above assume inputs are aligned: row `i` of one pairs with row `i`
 of another. When feeds arrive on different clocks, at different rates, or with
 dropped samples, the `screamer.streams` layer aligns them before they reach a
 function. It provides operators to combine streams (`CombineLatest`, `Merge`),
@@ -258,7 +257,7 @@ list call, and between the columns of a multi-column array. So passing an array
 gives the same result as constructing a fresh object for it, and columns never
 influence each other.
 
-On the streaming paths — feeding scalars or an iterator — state is deliberately
+On the streaming paths (feeding scalars or an iterator), state is deliberately
 **not** reset, because preserving it across calls is the whole point of
 streaming. To start over mid-stream, call `reset()` or build a new object.
 
@@ -280,12 +279,12 @@ The precise reset rules are in the [Polymorphic API reference](polymorphic_api.m
 
 ## Where to go next
 
-- **Worked examples** — the [example notebooks](notebooks/01-quickstart-polymorphic-api)
+- **Worked examples**: the [example notebooks](notebooks/01-quickstart-polymorphic-api)
   cover statistics, financial indicators, signal processing, async streams, and
   pipelines, each self-contained and runnable.
-- **Concepts and contracts** — [Polymorphic API](polymorphic_api.md),
+- **Concepts and contracts**: [Polymorphic API](polymorphic_api.md),
   [NaN and warmup](nan_and_warmup.md),
   [Streams, values, and alignment](multistream.md), and
   [Pipelines](pipelines.md) give the precise behaviour.
-- **The function catalog** — browse every function by family or by use case in
+- **The function catalog**: browse every function by family or by use case in
   the reference sections.
