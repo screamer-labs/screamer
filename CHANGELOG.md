@@ -2,6 +2,77 @@
 
 All notable changes to this project are documented in this file.
 
+[0.7.0] - 2026-07-12
+--------------------
+
+The v2 API: one consistent call shape, streams as plain tuples, and pipelines.
+
+### Changed (breaking)
+
+* Stream operators are now CamelCase config-first classes, called like the
+  functors as `Op(config)(data)`: `Resample`, `Dropna`, `Select`, `Filter`,
+  `CombineLatest`, `Merge`. The lowercase function forms are removed from the
+  public API.
+* The `Stream` class is removed. A stream is a plain `(values, index)` tuple;
+  `to_pandas` / `from_pandas` convert to and from pandas.
+* `Dag` is renamed to `Pipeline` (`from screamer import Pipeline`).
+* `Resample` takes `freq=` (a time window) or `count=` (a number of arrivals),
+  and `agg=` a functor or string. The `every=`, `func=`, and `agg={dict}` forms
+  are gone; compose several reducers with `CombineLatest` instead.
+* `replay` and `multi_resample` are removed; compose the existing operators.
+
+### Added
+
+* Comparison and logic operators: `GreaterThan`, `LessThan`, `GreaterEqual`,
+  `LessEqual`, `Equal`, `NotEqual`, `And`, `Or`, `Not`, `Where`, `IsNan`,
+  `IsFinite`. These build the masks the new `Filter` gate consumes.
+* Expanding whole-history statistics: `ExpandingMean`, `ExpandingVar`,
+  `ExpandingStd`, `ExpandingSkew`, `ExpandingKurt`, `ExpandingSlope`, and the
+  running `ExpandingSum` / `ExpandingMax` / `ExpandingMin` / `ExpandingProd`.
+* `PosPart` (`max(x, 0)`) and `NegPart` (`max(-x, 0)`).
+* OHLC bar aggregations for `Resample`: `agg="ohlc"`, `"ohlcv"`, `"ohlcv2"`.
+
+### Internal
+
+* All stream-operator compute moved into C++ (dropna, select, filter, and merge
+  as graph nodes), so the Python bindings stay thin.
+
+### Fixed
+
+* `Clip` vectorizes to SIMD min/max, about 2x faster; it had regressed to 2x
+  slower than `np.clip`.
+
+
+[0.6.0] - 2026-07-06
+--------------------
+
+Multi-stream and pipeline infrastructure.
+
+### Added
+
+* The streams layer, for aligning and reshaping feeds that do not tick together:
+  `CombineLatest`, `Merge`, `Dropna`, `Filter`, `Select`, `split`, and time- or
+  count-based `Resample`.
+* Pipelines (then named `Dag`): wire operators into a reusable graph, run it in
+  batch or live with identical results, serialize it to JSON, and visualize it as
+  a text tree or Graphviz.
+* Despiking functors: `RollingMedianAD`, `Hampel`, `ImpulseClip`.
+* A topic taxonomy and unified frontmatter across all function reference pages.
+
+
+[0.5.0] - 2026-05-21
+--------------------
+
+### Added
+
+* `SchmittTrigger`, a hysteresis comparator.
+
+### Changed
+
+* The `ignore` NaN policy is applied consistently across the library: a `NaN`
+  input is skipped and never corrupts a function's internal state.
+
+
 [0.4.0] - 2026-05-20
 -------------------------
 
@@ -27,50 +98,8 @@ All notable changes to this project are documented in this file.
   `### Caption` per example. The sphinx-rendered pages adopt the same
   structure.
 
-[Unreleased] - yyyy-mm-dd
--------------------------
-
-### Added
-
-#### Windowed aggregation and bar construction
-
-* **`resample` generalized** (`agg = str | functor | dict`). The `agg`
-  parameter now accepts any `EvalOp` functor as a per-bar reducer (reset at
-  each bar boundary, accumulates within the bar) or a dict
-  `{name: str|functor}` that runs multiple reducers over the same bucketing
-  and returns one labelled `Stream`. String shorthands are unchanged
-  (`first`, `last`, `min`, `max`, `sum`, `count`, `mean`, `ohlc`).
-* **`agg="ohlcv"` and `agg="ohlcv2"`** for two-column `[price, volume]`
-  input. `ohlcv` produces `(open, high, low, close, volume)`; `ohlcv2`
-  splits volume into buyer-initiated and seller-initiated halves using the
-  `PosPart`/`NegPart` decomposition, yielding
-  `(open, high, low, close, buy_vol, sell_vol)`.
-* **`resample` now returns a `Stream` in all regimes** (raw array, `Stream`,
-  or `Node`). Multi-column aggs (`ohlc`, `ohlcv`, `ohlcv2`, dict) set
-  `.columns` on the result; the `Stream` is still unpackable as
-  `(values, index)` for backward-compatible tuple unpacking.
-* **`Stream.columns`** -- optional tuple of column names; access a named
-  column with `stream["name"]`.
-
-#### Expanding statistics family
-
-* `ExpandingMean`, `ExpandingVar`, `ExpandingStd`, `ExpandingSkew`,
-  `ExpandingKurt`, `ExpandingSlope` -- bias-corrected whole-history running
-  statistics matching `pandas.Series.expanding()`. `O(1)` memory; resettable.
-* `ExpandingSum`, `ExpandingMax`, `ExpandingMin`, `ExpandingProd` -- aliases
-  for the existing `Cum*` family, grouped for discoverability.
-
-#### Signed-part helpers
-
-* `PosPart` -- `max(x, 0)` (positive part; identical to `Relu`).
-* `NegPart` -- `max(-x, 0)` (magnitude of the negative part). Together they
-  satisfy the identity `x = PosPart(x) - NegPart(x)`, which underpins the
-  `ohlcv2` buy/sell volume decomposition.
-
----
-
-[Unreleased-previous] - yyyy-mm-dd
-------------------------------------
+[0.3.0] - 2026-05-11
+--------------------
 
 This release more than doubles the indicator surface (67 → 153 exposed
 classes) and closes six of the seven roadmap sections. Almost every
