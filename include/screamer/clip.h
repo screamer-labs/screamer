@@ -4,8 +4,6 @@
 #include <limits>
 #include "screamer/common/base.h"
 #include <algorithm>
-#include <execution>
-#include <cmath>
 namespace screamer {
 
     class Clip : public ScreamerBase {
@@ -25,22 +23,15 @@ namespace screamer {
         }
 
         void process_array_no_stride(double* y, const double* x, size_t size) override {
-            size_t i = 0;
+            const double lower_bound = lower_.value_or(std::numeric_limits<double>::lowest());
+            const double upper_bound = upper_.value_or(std::numeric_limits<double>::max());
 
-            double lower_bound = lower_.value_or(std::numeric_limits<double>::lowest());
-            double upper_bound = upper_.value_or(std::numeric_limits<double>::max());
-
-            // Process elements in chunks of 4 for optimization
-            for (; i + 4 <= size; i += 4) {
-                y[i]     = std::clamp(x[i],     lower_bound, upper_bound);
-                y[i + 1] = std::clamp(x[i + 1], lower_bound, upper_bound);
-                y[i + 2] = std::clamp(x[i + 2], lower_bound, upper_bound);
-                y[i + 3] = std::clamp(x[i + 3], lower_bound, upper_bound);
-            }
-
-            // Process any remaining elements
-            for (; i < size; i++) {
-                y[i] = std::clamp(x[i], lower_bound, upper_bound);
+            // std::min(std::max(...)) is branchless and matches numpy's
+            // minimum(maximum(x, lo), hi), so the compiler vectorizes it to SIMD
+            // min/max. std::clamp's three-way branch does not vectorize. NaN is
+            // preserved either way (the comparisons are false for NaN).
+            for (size_t i = 0; i < size; ++i) {
+                y[i] = std::min(std::max(x[i], lower_bound), upper_bound);
             }
         }
 
@@ -52,7 +43,7 @@ namespace screamer {
             double upper_bound = upper_.value_or(std::numeric_limits<double>::max());
 
             for (size_t i = 0; i < size; i++) {
-                y[yi] = std::clamp(x[xi], lower_bound, upper_bound);
+                y[yi] = std::min(std::max(x[xi], lower_bound), upper_bound);
                 xi += dxi;
                 yi += dyi;
             }
