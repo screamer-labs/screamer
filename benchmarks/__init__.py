@@ -26,8 +26,9 @@ def read_expiriments(func=None):
         experiments.append(df)
     experiments = pd.concat(experiments,axis=0)
 
-    # Group by all columns except 'time' and reduce to the minimum 'time' for each group
-    experiments = experiments.groupby(['func', 'lib', 'var', 'window_size', 'n'], as_index=False).agg({'time': 'mean'})
+    # Reduce the repeats to the best (minimum) time per configuration. Min is the
+    # robust benchmark metric: it is the run least disturbed by other processes.
+    experiments = experiments.groupby(['func', 'lib', 'var', 'window_size', 'n'], as_index=False).agg({'time': 'min'})
 
     # sort 
     experiments = experiments.sort_values(by=['func', 'lib', 'var', 'window_size', 'n'])

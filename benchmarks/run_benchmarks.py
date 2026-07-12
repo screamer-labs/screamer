@@ -69,9 +69,14 @@ def main():
                     if window_size >= n:
                         break
 
-                    if row['lib'] == 'numpy':
-                        if window_size > 1000:
-                            break
+                    # The numpy references (and the hand-rolled RollingPoly1
+                    # references) do O(n * window) work over a sliding view, so cap
+                    # them by n * window to keep memory and time bounded. Native
+                    # pandas rollings are O(n) and left uncapped. Elementwise funcs
+                    # have no window, so this never triggers for them.
+                    heavy = (row['lib'] == 'numpy' or row['func'] == 'RollingPoly1')
+                    if heavy and 'window_size' in row['args'] and n * window_size > 10_000_000:
+                        break
 
                     args['window_size'] = window_size
 

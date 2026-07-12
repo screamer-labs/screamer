@@ -52,13 +52,16 @@ def Abs__numpy(array): return np.abs(array)
 def Sign__screamer(array): return sc.Sign()(array)
 def Sign__numpy(array): return np.sign(array)
 
-def Sqrt__screamer(array): return sc.Sqrt()(array)
+# Log / Sqrt / LogReturn are for positive (price) series. The runner feeds signed
+# random data, so both the screamer and the reference variants take np.abs first,
+# to compare the same positive input rather than screamer's log-of-negative path.
+def Sqrt__screamer(array): return sc.Sqrt()(np.abs(array))
 def Sqrt__numpy(array): return np.sqrt(np.abs(array))
 
 def Exp__screamer(array): return sc.Exp()(array)
 def Exp__numpy(array): return np.exp(array)
 
-def Log__screamer(array): return sc.Log()(array)
+def Log__screamer(array): return sc.Log()(np.abs(array))
 def Log__numpy(array): return np.log(np.abs(array))
 
 def Erf__screamer(array): return sc.Erf()(array)
@@ -106,7 +109,7 @@ def Return__screamer(array, window_size): return sc.Return(window_size)(array)
 def Return__numpy(array, window_size): return array[window_size:] / array[:-window_size] - 1.0
 def Return__pandas(array, window_size): return pd.Series(array).pct_change(window_size).to_numpy()
 
-def LogReturn__screamer(array, window_size): return sc.LogReturn(window_size)(array)
+def LogReturn__screamer(array, window_size): return sc.LogReturn(window_size)(np.abs(array))
 def LogReturn__numpy(array, window_size):
     return np.log(np.abs(array[window_size:] / array[:-window_size]))
 def LogReturn__pandas(array, window_size):
@@ -200,16 +203,27 @@ def RollingQuantile__numpy(array, window_size, quantile):
 
 def RollingPoly1__screamer(array, window_size, derivative_order):
     return sc.RollingPoly1(window_size, derivative_order)(array)
-def _poly1(w_data, derivative_order):
-    x = np.arange(w_data.shape[1]); xm = x.mean()
-    slope = (w_data * (x - xm)).sum(axis=1) / ((x - xm) ** 2).sum()
+def _poly1(array, w, derivative_order):
+    # closed-form OLS slope/level per window, accumulated over shifted slices so
+    # memory stays O(n) instead of materializing the (n, w) window matrix.
+    length = len(array) - w + 1
+    x = np.arange(w)
+    xm = x.mean()
+    sxx = ((x - xm) ** 2).sum()
+    num = np.zeros(length)
+    total = np.zeros(length)
+    for j in range(w):
+        seg = array[j:j + length]
+        num += (x[j] - xm) * seg
+        total += seg
+    slope = num / sxx
     if derivative_order == 1:
         return slope
-    return w_data.mean(axis=1) + slope * ((w_data.shape[1] - 1) - xm)
+    return total / w + slope * ((w - 1) - xm)
 def RollingPoly1__numpy(array, window_size, derivative_order):
-    return _poly1(swv(array, window_size), derivative_order)
+    return _poly1(array, window_size, derivative_order)
 def RollingPoly1__pandas(array, window_size, derivative_order):
-    return _poly1(swv(pd.Series(array).to_numpy(), window_size), derivative_order)
+    return _poly1(pd.Series(array).to_numpy(), window_size, derivative_order)
 
 
 def all():

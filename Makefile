@@ -120,6 +120,7 @@ docs:
 # ---------------------------------------------------------------------------
 benchmark:
 	$(PY) benchmarks/run_benchmarks.py
+	$(PY) benchmarks/make_speed_chart.py
 	$(PY) benchmarks/make_plots.py
 	$(PY) benchmarks/make_rank_plot.py
 
