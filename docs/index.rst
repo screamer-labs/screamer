@@ -134,23 +134,6 @@ For a step-by-step walkthrough see the :doc:`User Guide <usage>`.
 
 .. toctree::
    :maxdepth: 1
-   :caption: Examples
-   :hidden:
-
-   notebooks/01-quickstart-polymorphic-api
-   notebooks/02-window-statistics
-   notebooks/03-financial-indicators
-   notebooks/04-signal-processing
-   notebooks/05-nan-handling
-   notebooks/06-streaming-live-events
-   notebooks/07-multi-stream-operators
-   notebooks/08-pipelines
-   notebooks/09-bars-from-ticks
-   notebooks/10-custom-and-multi-column-bars
-
-
-.. toctree::
-   :maxdepth: 1
    :caption: Functions
    :hidden:
 
@@ -178,7 +161,24 @@ For a step-by-step walkthrough see the :doc:`User Guide <usage>`.
 
 .. toctree::
    :maxdepth: 1
-   :caption: Concepts
+   :caption: Examples
+   :hidden:
+
+   notebooks/01-quickstart-polymorphic-api
+   notebooks/02-window-statistics
+   notebooks/03-financial-indicators
+   notebooks/04-signal-processing
+   notebooks/05-nan-handling
+   notebooks/06-streaming-live-events
+   notebooks/07-multi-stream-operators
+   notebooks/08-pipelines
+   notebooks/09-bars-from-ticks
+   notebooks/10-custom-and-multi-column-bars
+
+
+.. toctree::
+   :maxdepth: 1
+   :caption: References
    :hidden:
 
    polymorphic_api
