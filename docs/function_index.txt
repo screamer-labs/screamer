@@ -103,7 +103,7 @@ MovingAverage, Finite-impulse-response filter with user-supplied taps.
 Mul, Elementwise product of two aligned streams (x * y).
 NATR, ATR scaled to a percentage of the current close.
 NegPart, Negative part of x: max(-x, 0).
-Node, An immutable handle for a stream in a computation graph.
+Node, An immutable handle for a stream inside a pipeline.
 Not, Returns 0.0 if input is nonzero, 1.0 if zero. NaN propagates.
 NotEqual, Returns 1.0 if a != b, else 0.0. NaN in either input yields NaN.
 OBV, On-Balance Volume: signed cumulative volume by close-direction (Granville, 1963).
@@ -206,5 +206,5 @@ Resample, Causal windowed downsample.
 
 # Pipeline
 Input, Create a source Node - a named placeholder for a timed stream.
-Pipeline, A positional N-in / M-out callable that evaluates a computation graph.
-Node, An immutable handle for a stream in a computation graph.
+Pipeline, A reusable N-in / M-out function you define once and call on stored or live data.
+Node, An immutable handle for a stream inside a pipeline.

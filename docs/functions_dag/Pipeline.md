@@ -12,14 +12,14 @@ covers:
 
 # `Pipeline`
 
-Define a computation graph once, then run it in batch or live with identical
+Define a pipeline once, then run it in batch or live with identical
 results. `Input` names a source stream; calling functors and stream operators on
-those handles records the graph. `Pipeline(inputs=[...], outputs=[...])` compiles it
+those handles records the pipeline. `Pipeline(inputs=[...], outputs=[...])` compiles it
 into a callable: `pipe(arrays)` runs it in batch, `pipe(generators)` runs it event
 by event (lazy pull path), and `pipe.live()` opens an incremental session you drive
 yourself. All three produce byte-identical output on the same events.
 
-For the conceptual model (how the graph is built, when to reach for it, and the
+For the conceptual model (how the pipeline is built, when to reach for it, and the
 define-once-run-anywhere guarantee), see
 [Pipelines](../pipelines.md). This page is the reference contract.
 
@@ -37,12 +37,12 @@ define-once-run-anywhere guarantee), see
 
 - **`Input(name)`**: a function that returns a `Node`, a named source handle.
   The `inputs` list of a `Pipeline` is made of these, and their order and names
-  define the graph's call signature.
-- **`Node`**: the handle type for a stream inside the graph. It is user-facing
+  define the pipeline's call signature.
+- **`Node`**: the handle type for a stream inside the pipeline. It is user-facing
   as a *type*, but you rarely construct `Node(...)` by hand; you obtain nodes
   from `Input(...)` and by applying functors and stream operators to existing
   nodes.
-- **`Pipeline`**: the callable compiled graph.
+- **`Pipeline`**: the compiled, runnable object built from `inputs` and `outputs`.
 
 ## Constructor
 
@@ -56,12 +56,12 @@ define-once-run-anywhere guarantee), see
   pair. When `False`, each output is returned as an independent stream whose
   length may differ from the others.
 
-The constructor validates the graph and raises a clear `ValueError` if: an
+The constructor validates the pipeline and raises a clear `ValueError` if: an
 `inputs` entry is not an `Input(...)` node; an `outputs` entry is not a `Node`;
 an output references an undeclared input; a declared input is never used; or a
 single functor instance backs more than one node.
 
-## Calling the graph
+## Calling the pipeline
 
 Feeds are passed positionally in input order, `pipe(*feeds)`, or by input name,
 `pipe(**named_feeds)`. Each feed may be:
@@ -74,15 +74,15 @@ The return is always `(values, index)` tuples:
 - **one output**, a single `(values, index)` pair,
 - **multiple outputs**, a tuple of such pairs, one per output.
 
-Pass generators of `(value, index)` pairs instead of arrays to run the graph
+Pass generators of `(value, index)` pairs instead of arrays to run the pipeline
 lazily, event by event: `pipe(gen_a, gen_b)` returns an iterator that yields
 output events byte-identical to the batch result.
 
 ## Live, incremental sessions: `pipe.live()`
 
 `pipe(arrays)` and `pipe(generators)` both consume complete feeds. When you drive
-the graph yourself, one event at a time, `pipe.live()` opens a session object. It
-shares the compiled graph's single engine and resets it on open, so use one
+the pipeline yourself, one event at a time, `pipe.live()` opens a session object. It
+shares the pipeline's single engine and resets it on open, so use one
 session at a time (do not interleave it with a `pipe(...)` call). Each method
 returns the session, so calls chain.
 
@@ -101,7 +101,7 @@ returns the session, so calls chain.
   `pipe(...)` returns, and drains the internal buffers.
 
 Feeding the same events in index order and then calling `.flush()` reproduces the
-batch result exactly. `.advance()` (and a clock input wired into the graph)
+batch result exactly. `.advance()` (and a clock input wired into the pipeline)
 additionally let a windowing node emit bars a purely event-driven pass would not,
 the empty leading and trailing bars in
 [`Resample`](../functions_streams/Resample.md), for instance.
@@ -130,7 +130,7 @@ the empty leading and trailing bars in
 
 ## Example
 
-Align two streams and take their difference. The same graph runs in batch and
+Align two streams and take their difference. The same pipeline runs in batch and
 live.
 
 ```{eval-rst}
@@ -159,9 +159,9 @@ live.
    print(np.array_equal(spread.reshape(-1), sv, equal_nan=True))
 ```
 
-## Inspecting a graph
+## Inspecting a pipeline
 
-`print(pipe)` (or `pipe.to_text()`) shows the graph as an indented tree, rooted at
+`print(pipe)` (or `pipe.to_text()`) shows the pipeline as an indented tree, rooted at
 each output and descending to the inputs. A node shared by several consumers is
 printed once and then referenced by id, so a diamond reads as a diamond. Node
 labels carry the functor and operator parameters (`RollingMean(window_size=20)`,
@@ -184,11 +184,11 @@ inline, falling back to the text tree when graphviz is not available.
    print(pipe.to_text())
 ```
 
-## Saving and loading a graph
+## Saving and loading a pipeline
 
-`pipe.to_json()` serializes the graph to JSON (its inputs, nodes with their
+`pipe.to_json()` serializes the pipeline to JSON (its inputs, nodes with their
 parameters, outputs, and `align_outputs`), and `Pipeline.from_json(text)` rebuilds a
-runnable `Pipeline` from it. This round-trips exactly, so a graph can be saved as a
+runnable `Pipeline` from it. This round-trips exactly, so a pipeline can be saved as a
 config file and reloaded. `to_dict` / `from_dict` give the same round-trip with a
 plain dict.
 
@@ -214,4 +214,4 @@ plain dict.
 
 - [Pipelines](../pipelines.md): the conceptual model and walkthrough.
 - [Streams, values, and alignment](../multistream.md): the alignment model the
-  graph relies on.
+  pipeline relies on.

@@ -100,9 +100,9 @@ indistinguishable from constructing a fresh instance each time.
 
 ### Convention 2. Eager for collections, lazy for iterators
 
-Lists, tuples, and NumPy arrays are processed **eagerly** in one C++ pass.
-Iterators and generators are processed **lazily**: screamer wraps them in
-`LazyIterator` and produces values only when you advance the iteration.
+Lists, tuples, and NumPy arrays are processed all at once, in one C++ pass.
+Iterators and generators are processed one value at a time: screamer wraps them
+in `LazyIterator` and produces each value only when you advance the iteration.
 That separation is what makes the live-event use case work, your
 generator can yield from a socket, a Kafka stream, a clock-driven simulator,
 and screamer applies the algorithm at exactly the same cadence.
@@ -126,7 +126,7 @@ for y in mean(stream()):                        # screamer.LazyIterator
 
 The discriminator is whether the input is a Python `list`/`tuple` /
 `numpy.ndarray` (eager paths) or some other iterable (lazy path). A list
-is *first* materialised into a NumPy array and then processed in one shot;
+is *first* converted into a NumPy array and then processed at once;
 the fact that lists are technically iterable does not matter, the
 list/array branch is checked before the iterable branch in the dispatcher.
 
@@ -370,8 +370,8 @@ the dual training/live workflow practical:
   want to start over, construct a new instance or call `instance.reset()`
   yourself.
 - **Causal.** Output at index `t` depends only on inputs at indices `<= t`;
-  no function looks ahead. This is what makes the batch and streaming results
-  identical: a value computed live matches the one computed in a backtest.
+  no function looks ahead. That is what makes a value computed live match the one
+  computed in a backtest.
 
 Warmup — the leading region where a function has not yet seen enough samples,
 and the `start_policy` argument (`"strict"`, `"expanding"`, `"zero"`) that

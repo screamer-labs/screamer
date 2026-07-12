@@ -19,7 +19,7 @@ the individual function pages refer to.
 
 ## The contract
 
-A `NaN` in the input never corrupts internal state. Output may be `NaN` at and around the input `NaN` index depending on the function's policy, but the function always recovers - there is no "sticky `NaN`" that poisons subsequent outputs forever.
+A `NaN` in the input never corrupts internal state. Output may be `NaN` at and around the input `NaN` index depending on the function's policy, but the function always recovers; no "sticky `NaN`" poisons later outputs.
 
 `process_scalar` always consumes one sample and emits one sample. The output array is the same length as the input array. `NaN` inputs do not collapse, expand, or shift the timeline.
 

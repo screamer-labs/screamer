@@ -11,7 +11,7 @@ _RESAMPLE_FILL_CODE = {"skip": 0, "nan": 1, "carry": 2}
 
 
 class Node:
-    """An immutable handle for a stream in a computation graph.
+    """An immutable handle for a stream inside a pipeline.
 
     You do not usually construct a Node directly: ``Input(name)`` returns one, and
     applying a functor or a stream operator to a Node returns another. ``op``
@@ -326,7 +326,7 @@ class _LazyDag:
 
 
 class Pipeline:
-    """A positional N-in / M-out callable that evaluates a computation graph.
+    """A reusable N-in / M-out function you define once and call on stored or live data.
 
     Arguments:
 
@@ -340,10 +340,10 @@ class Pipeline:
       equal length. When ``False``, return independent per-output streams whose
       lengths may differ.
 
-    Call ``dag(*feeds)`` (positional) or ``dag(**named_feeds)`` (by Input name)
-    to evaluate the graph. Each feed may be a bare value array (positional, index
+    Call ``pipe(*feeds)`` (positional) or ``pipe(**named_feeds)`` (by Input name)
+    to run the pipeline. Each feed may be a bare value array (positional, index
     = row-number), or a ``(values, index)`` pair (values-first).
-    Pass generators of ``(value, index)`` pairs to run the graph lazily, event
+    Pass generators of ``(value, index)`` pairs to run the pipeline lazily, event
     by event, with byte-identical results (the lazy pull path).
     Returns a single ``(values, index)`` pair when M == 1, or a tuple of pairs
     when M > 1.

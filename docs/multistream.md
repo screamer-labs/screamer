@@ -15,15 +15,13 @@ A **stream** is a sequence of **values** (a 1-D or 2-D NumPy array), optionally
 annotated with an **index** (a 1-D array of the same length). The index is an
 ordering coordinate - a `datetime64` timestamp, an `int64` tick count, a
 `float64` second - that locates each value in a shared timeline. It is not a
-a dict entry and has no dict semantics; screamer only ever *orders* and *compares*
-index values.
+dict entry; screamer only ever *orders* and *compares* index values.
 
 **`index=None` means positional.** A positional stream has no explicit ordering
 coordinate; its position (row number) is its logical place in time. Two
-positional streams are assumed to tick together - they are aligned clocks - so
-their rows pair by position. To model streams on *different* clocks, provide an
-index for each stream; without one, aligned clocks are assumed and the lengths
-must match.
+positional streams are assumed to tick together, so their rows pair by position
+and must have equal length. To model streams on *different* clocks, provide an
+index for each stream.
 
 A stream value is either a bare ndarray (positional) or a `(values, index)` 2-tuple
 (indexed). `from_pandas` / `to_pandas` convert between these and pandas objects:

@@ -1,9 +1,9 @@
 # Pipelines
 
-A `Pipeline` lets you wire functors and stream operators into a pipeline you define
-**once** and run either on stored data or live, event by event, with identical
-results. It is the capstone of screamer's batch-equals-streaming property: the
-same guarantee that holds for a single functor holds for a whole graph of them.
+A `Pipeline` wires functors and stream operators into a reusable computation you
+define **once** and run either on stored data or live, event by event, with
+identical results. It is the capstone of screamer's batch-equals-streaming property: the
+same guarantee that holds for a single functor holds for a whole pipeline built from them.
 
 This page explains the model and when to reach for it. For the exact
 constructor, feed forms, and return shapes, see the [`Pipeline` reference](functions_dag/Pipeline.md);
@@ -30,20 +30,20 @@ A `Pipeline` earns its place when the pipeline is more than a single chain:
 In short: reach for a `Pipeline` when you would otherwise be threading alignment and
 multiple streams together by hand.
 
-## The model: inputs, nodes, and the graph
+## The model: inputs, nodes, and the pipeline
 
 Three names make up the surface, and they play distinct roles:
 
 - **`Input(name)`** marks a source: a named place where a stream will enter the
-  graph. It returns a node.
-- **A node** is a *handle* to a stream inside the graph, not the data itself.
+  pipeline. It returns a node.
+- **A node** is a *handle* to a stream inside the pipeline, not the data itself.
   You get the first nodes from `Input(...)`, then build more by applying functors
   and stream operators to existing nodes. Applying an operator to a node returns
   a new node.
-- **`Pipeline(inputs=[...], outputs=[...])`** compiles the graph reachable from those
+- **`Pipeline(inputs=[...], outputs=[...])`** compiles the nodes reachable from those
   outputs into a single callable.
 
-Building the graph only *records structure*; nothing computes until you call the
+Building the pipeline only *records structure*; nothing computes until you call the
 compiled `Pipeline`. Applying `RollingMean(10)` to a node does not run a rolling mean;
 it adds a node that *will* run one when data flows.
 
@@ -54,17 +54,17 @@ a, b = Input("a"), Input("b")         # two named sources
 spread = Sub()(CombineLatest()(a, b)) # align, then difference -> a node
 signal = RollingMean(10)(spread)      # smooth it -> another node
 
-pipe = Pipeline(inputs=[a, b], outputs=[signal])   # compile the graph
+pipe = Pipeline(inputs=[a, b], outputs=[signal])   # compile the pipeline
 ```
 
 ## Two ways to run, one set of numbers
 
-The compiled graph runs in two modes:
+The pipeline runs in two modes:
 
-- **Batch**: `pipe(feed_a, feed_b)` evaluates the whole graph over stored arrays
+- **Batch**: `pipe(feed_a, feed_b)` evaluates the whole pipeline over stored arrays
   in one pass and returns `(values, index)` arrays.
 - **Lazy (event-by-event)**: pass generators of `(value, index)` pairs instead
-  of arrays, `pipe(gen_a, gen_b)`, and the graph runs event by event, pulling one
+  of arrays, `pipe(gen_a, gen_b)`, and the pipeline runs event by event, pulling one
   event at a time. The result is an iterator that yields output events; values are
   byte-identical to the batch result.
 
@@ -73,7 +73,7 @@ Both forms use the same C++ engine. Feeds can be bare arrays, `(values, index)` 
 (pipeline-live)=
 ### Incremental, clock-driven: `pipe.live()`
 
-When you drive the graph yourself,
+When you drive the pipeline yourself,
 event by event, `pipe.live()` opens a session:
 
 - `.push(input, index, value)` feeds one event (`input` is an `Input` name or its
@@ -86,13 +86,13 @@ event by event, `pipe.live()` opens a session:
 - `.result()` collects the aligned output so far.
 
 Feeding the same events and calling `.flush()` reproduces the batch result.
-`.advance()` (and a clock input wired into the graph) additionally let a windowing
+`.advance()` (and a clock input wired into the pipeline) additionally let a windowing
 node emit bars that a purely event-driven pass would not, such as the empty leading
 and trailing bars in [`Resample`](functions_streams/Resample.md).
 
 ## Multiple outputs and alignment
 
-A graph can expose more than one output, for example the raw spread and its
+A pipeline can expose more than one output, for example the raw spread and its
 smoothed signal together. By default (`align_outputs=True`) all outputs are
 co-indexed onto one shared timeline, so every output is an equal-length
 `(values, index)` pair and column `k` of one lines up with column `k` of
@@ -103,9 +103,9 @@ stream whose length may differ. The precise semantics are in the
 ## The guarantees
 
 - **Causal.** Every node's output at index `t` depends only on events at indices
-  `<= t`. Wiring functors into a graph does not introduce any lookahead.
+  `<= t`. Wiring functors into a pipeline does not introduce any lookahead.
 - **Batch == lazy.** `pipe(arrays)` and `pipe(generators)` emit the same values in
-  the same order; only the execution mode differs. The alignment a graph performs
+  the same order; only the execution mode differs. The alignment a pipeline performs
   is itself causal and identical across both modes.
 
 These are the same guarantees the single-functor API and the stream layer make;
@@ -116,4 +116,4 @@ the `Pipeline` simply preserves them across a whole composition.
 - [`Pipeline` reference](functions_dag/Pipeline.md): constructor, feed forms, return
   shapes, and validation rules.
 - [Streams, values, and alignment](multistream.md): the alignment model that
-  `CombineLatest` and friends bring into a graph.
+  `CombineLatest` and friends bring into a pipeline.

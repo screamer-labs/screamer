@@ -11,7 +11,7 @@
       "Input",
       "Node"
     ],
-    "details": "Define a computation graph once, then run it in batch or live with identical\nresults. `Input` names a source stream; calling functors and stream operators on\nthose handles records the graph. `Pipeline(inputs=[...], outputs=[...])` compiles it\ninto a callable: `pipe(arrays)` runs it in batch, `pipe(generators)` runs it event\nby event (lazy pull path), and `pipe.live()` opens an incremental session you drive\nyourself. All three produce byte-identical output on the same events.\n\nFor the conceptual model (how the graph is built, when to reach for it, and the\ndefine-once-run-anywhere guarantee), see\n[Pipelines](../pipelines.md). This page is the reference contract.",
+    "details": "Define a pipeline once, then run it in batch or live with identical\nresults. `Input` names a source stream; calling functors and stream operators on\nthose handles records the pipeline. `Pipeline(inputs=[...], outputs=[...])` compiles it\ninto a callable: `pipe(arrays)` runs it in batch, `pipe(generators)` runs it event\nby event (lazy pull path), and `pipe.live()` opens an incremental session you drive\nyourself. All three produce byte-identical output on the same events.\n\nFor the conceptual model (how the pipeline is built, when to reach for it, and the\ndefine-once-run-anywhere guarantee), see\n[Pipelines](../pipelines.md). This page is the reference contract.",
     "examples": []
   },
   "Input": {
@@ -29,7 +29,7 @@
   "Node": {
     "name": "Node",
     "title": "Node",
-    "short": "An immutable handle for a stream in a computation graph.",
+    "short": "An immutable handle for a stream inside a pipeline.",
     "kind": "graph",
     "topics": [
       "graphs"

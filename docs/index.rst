@@ -115,8 +115,8 @@ Batch and streaming
 The same code runs on a stored array or a live stream and produces identical
 results, so code tested on historical data can be deployed to production unchanged.
 
-Every function is causal: its output depends only on current and past inputs, not
-on future ones, which eliminates look-ahead bias.
+Every function is causal: its output depends only on current and past inputs,
+which eliminates look-ahead bias.
 
 
 

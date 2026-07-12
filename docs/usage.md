@@ -47,9 +47,8 @@ number, a stored array, or a live feed, without changing anything.
    print("stream:", list(RollingMean(3)(iter([1., 2., 3., 4., 5.]))))  # -> lazy
 ```
 
-An array or list is processed eagerly, in one pass. An iterator is processed
-lazily: results come out one at a time as you advance it, which is what a live
-event loop needs. The exact input-to-output contract for every type is in the
+An array or list is processed all at once. An iterator is processed one value at
+a time as you pull from it, which is what a live event loop needs. The exact input-to-output contract for every type is in the
 [Polymorphic API reference](polymorphic_api.md). A worked version of this
 example is in the [quickstart notebook](notebooks/01-quickstart-polymorphic-api).
 
@@ -79,8 +78,8 @@ develop and test on stored history, then run the exact same code live.
 ```
 
 This holds because every function is **causal**: its output at each step depends
-only on the current and past inputs, never on future ones. There is no
-look-ahead, so a value computed live matches the one computed in a backtest. The
+only on current and past inputs, so a value computed live matches the one from a
+backtest. The
 [streaming notebook](notebooks/06-streaming-live-events) shows this on a longer
 example.
 
@@ -174,10 +173,12 @@ two scalars give a scalar, two arrays give an array, two streams give a stream.
    print(RollingCorr(window_size=3)(x, y))   # y = 2x, so correlation is 1.0 once warm
 ```
 
-The multi-input contract, including the `(T, N)` array form used for OHLC
-indicators, is in the [Polymorphic API reference](polymorphic_api.md), and the
-[financial-indicators notebook](notebooks/03-financial-indicators) puts it to
-work.
+Multi-input functions also accept the series packed into one array instead of as
+separate arguments: a `(T, N)` array is read as `N` aligned series. This is how the
+OHLC indicators (`ATR`, `Stoch`, and the rest) take their open, high, low, and close
+columns in a single argument. The
+[financial-indicators notebook](notebooks/03-financial-indicators) works through them,
+and the [Polymorphic API reference](polymorphic_api.md) has the exact contract.
 
 ## Functions with several outputs
 
@@ -218,31 +219,28 @@ and alignment) is described in
 [Streams, values, and alignment](multistream.md). The [Multi-stream operators](notebooks/07-multi-stream-operators)
 notebook shows them in use.
 
-## Whole pipelines: the graph
+## Whole pipelines
 
-A `Pipeline` lets you wire functions and stream operators into a **computational
-dependency graph** you define once and run either on stored data or live, with
-identical results. You build it by naming your sources with `Input` and applying
-functions to them; the code reads top-to-bottom like an ordinary script, but
-what you are describing is a graph of dependencies. Building it only records the
-structure — nothing computes until you call the compiled graph, at which point
-the engine evaluates each node in dependency order.
+A `Pipeline` wires functions and stream operators into a reusable unit you define
+once and run on stored data or live, with identical results. You name your sources
+with `Input`, apply functions to them, and the code reads top-to-bottom like an
+ordinary script. Building a `Pipeline` records the wiring; nothing runs until you
+call it.
 
 ```python
 from screamer import Input, Pipeline, RollingMean, Sub, CombineLatest
 
 a, b = Input("a"), Input("b")         # two named sources
-spread = Sub()(CombineLatest()(a, b)) # a node: align the two sources, then subtract
-signal = RollingMean(10)(spread)      # a node that depends on `spread`
+spread = Sub()(CombineLatest()(a, b)) # align the two sources, then subtract
+signal = RollingMean(10)(spread)      # smooth the spread
 
-pipe = Pipeline(inputs=[a, b], outputs=[signal])   # compile the graph
+pipe = Pipeline(inputs=[a, b], outputs=[signal])   # build the pipeline
 
 # pipe(arr_a, arr_b)          -> run on stored arrays (batch)
 # pipe(gen_a, gen_b)          -> feed generators to run live, event by event, identical results
 ```
 
-Each operation is a node whose parents are its inputs, and calling the graph
-evaluates every node the requested outputs depend on. The model and its
+Calling a `Pipeline` runs every step its outputs depend on. The model and its
 guarantees are in [Pipelines](pipelines.md); the
 [Pipelines notebook](notebooks/08-pipelines) builds and runs a complete one.
 
