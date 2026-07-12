@@ -173,12 +173,13 @@ two scalars give a scalar, two arrays give an array, two streams give a stream.
    print(RollingCorr(window_size=3)(x, y))   # y = 2x, so correlation is 1.0 once warm
 ```
 
-Multi-input functions also accept the series packed into one array instead of as
-separate arguments: a `(T, N)` array is read as `N` aligned series. This is how the
-OHLC indicators (`ATR`, `Stoch`, and the rest) take their open, high, low, and close
-columns in a single argument. The
-[financial-indicators notebook](notebooks/03-financial-indicators) works through them,
-and the [Polymorphic API reference](polymorphic_api.md) has the exact contract.
+The several inputs can arrive either as separate arguments, as above, or packed
+into the columns of one `(T, N)` array, whichever your data is already in. Both
+give the same result: `ATR(14)(high, low, close)` and `ATR(14)(hlc)`, where `hlc`
+is a `(T, 3)` array, are read identically. The
+[financial-indicators notebook](notebooks/03-financial-indicators) works through the
+price indicators, and the [Polymorphic API reference](polymorphic_api.md) has the
+exact contract.
 
 ## Functions with several outputs
 
