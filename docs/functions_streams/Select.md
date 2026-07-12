@@ -26,10 +26,9 @@ Keep column 1 of a two-column stream.
 ```{eval-rst}
 .. exec_code::
 
-   # --- hide: start ---
    import numpy as np
    from screamer import Select
-   # --- hide: stop ---
+
    wide = np.array([[10.0, 11.0],
                     [20.0, 21.0],
                     [30.0, 31.0]])

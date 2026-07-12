@@ -32,10 +32,9 @@ index 4 into a single row.
 ```{eval-rst}
 .. exec_code::
 
-   # --- hide: start ---
    import numpy as np
    from screamer import CombineLatest
-   # --- hide: stop ---
+
    a_v = np.array([10.0, 20.0, 40.0])
    a_k = np.array([1, 2, 4])
    b_v = np.array([1.0, 3.0, 4.0])

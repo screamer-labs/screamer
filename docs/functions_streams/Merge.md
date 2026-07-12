@@ -29,10 +29,9 @@ stream each event came from.
 ```{eval-rst}
 .. exec_code::
 
-   # --- hide: start ---
    import numpy as np
    from screamer import Merge
-   # --- hide: stop ---
+
    a_v = np.array([1.0, 3.0])
    a_k = np.array([1, 3])
    b_v = np.array([2.0, 4.0])

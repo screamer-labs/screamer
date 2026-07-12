@@ -146,10 +146,9 @@ Downsample tick values into buckets of width 10 and take the mean of each bucket
 ```{eval-rst}
 .. exec_code::
 
-   # --- hide: start ---
    import numpy as np
    from screamer import Resample
-   # --- hide: stop ---
+
    idx  = np.array([0, 3, 10, 12, 20])
    vals = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
 
@@ -166,11 +165,10 @@ labelled five-column bar stream.
 ```{eval-rst}
 .. exec_code::
 
-   # --- hide: start ---
    import numpy as np
    from screamer import Resample
    np.random.seed(0)
-   # --- hide: stop ---
+
    price  = np.array([100., 101., 99., 102., 98., 103., 97., 104., 96., 105.])
    volume = np.array([10., 20., 15., 30., 12., 22., 18., 25., 14., 28.])
    idx    = np.arange(10, dtype=np.int64)
@@ -189,11 +187,10 @@ bar. `ExpandingSkew()` returns the intra-bar price skewness at bar close.
 ```{eval-rst}
 .. exec_code::
 
-   # --- hide: start ---
    import numpy as np
    from screamer import ExpandingSkew, Resample
    np.random.seed(0)
-   # --- hide: stop ---
+
    price = np.random.normal(100, 1, 20)
    idx   = np.arange(20, dtype=np.int64)
 
@@ -209,11 +206,10 @@ Run one `Resample` per statistic and align them with `CombineLatest`. Every
 ```{eval-rst}
 .. exec_code::
 
-   # --- hide: start ---
    import numpy as np
    from screamer import ExpandingSkew, ExpandingSlope, Resample, CombineLatest
    np.random.seed(0)
-   # --- hide: stop ---
+
    price = 100 + np.cumsum(np.random.normal(0, 0.3, 20))
    idx   = np.arange(20, dtype=np.int64)
 
@@ -233,11 +229,10 @@ clock, so they cannot drift. You bind data to the named inputs at call time.
 ```{eval-rst}
 .. exec_code::
 
-   # --- hide: start ---
    import numpy as np
    from screamer import First, Last, ExpandingMax, ExpandingMin, Resample, CombineLatest
-   from screamer.dag import Input, Pipeline
-   # --- hide: stop ---
+   from screamer import Input, Pipeline
+
    t_arr  = np.arange(10, dtype=np.int64)
    px     = np.array([100., 101., 99., 102., 98., 103., 97., 104., 96., 105.])
 

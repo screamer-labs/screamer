@@ -16,7 +16,7 @@ streams.
 <!-- HELP_END -->
 
 ```{eval-rst}
-.. autofunction:: screamer.streams.split
+.. autofunction:: screamer.split
 ```
 
 ## Example
@@ -26,10 +26,9 @@ Merge two streams, then split them apart again and read back the first source.
 ```{eval-rst}
 .. exec_code::
 
-   # --- hide: start ---
    import numpy as np
    from screamer import Merge, split
-   # --- hide: stop ---
+
    a_v = np.array([1.0, 3.0])
    a_k = np.array([1, 3])
    b_v = np.array([2.0, 4.0])

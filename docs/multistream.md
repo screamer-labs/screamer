@@ -3,11 +3,11 @@
 screamer's single-stream functors (`RollingMean`, `RollingCorr`, ...) assume
 lockstep alignment: row `i` of one input pairs with row `i` of another. Real
 multi-stream data breaks that assumption - feeds tick at different rates, arrive
-out of step, and drop samples. The `screamer.streams` module adds a small,
-composable layer for combining, splitting, and filtering streams that
+out of step, and drop samples. screamer adds a small, composable set of
+operators for combining, splitting, and filtering streams that
 do **not** tick together, while keeping every existing functor unchanged.
 
-The whole design rests on four principles.
+The whole design rests on five principles.
 
 ## 1. A stream is values with an optional index
 

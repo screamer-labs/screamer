@@ -137,6 +137,9 @@ exec_code_example_dir = '../examples/'
 # Display the type hints but hide the 'self' argument
 autodoc_typehints = "description"  # Shows type hints in the description, not in the signature
 autodoc_typehints_format = "short"  # Simplifies the displayed types (e.g., 'numpy.ndarray' instead of the full path)
+# The public API is flat (everything imports from the top-level `screamer`), so
+# render bare class/function names, not their internal module path.
+add_module_names = False
 autodoc_default_options = {
     'special-members': '__init__, __call__',  # Include both __call__ and __init__ in the documentation    
 }

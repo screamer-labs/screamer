@@ -44,8 +44,8 @@ are positional in documented order.
 ## pandas helpers
 
 `to_pandas(values, index=None, columns=None)` and `from_pandas(obj)` convert
-between the tuple convention and pandas objects. Both are importable from
-`screamer` or `screamer.streams`.
+between the tuple convention and pandas objects. Both are importable from the top level:
+`from screamer import to_pandas, from_pandas`.
 
 ## See also
 

@@ -28,10 +28,9 @@ returned values-first.
 ```{eval-rst}
 .. exec_code::
 
-   # --- hide: start ---
    import numpy as np
    from screamer import Dropna
-   # --- hide: stop ---
+
    vals = np.array([1.0, np.nan, 3.0])
    idx  = np.array([1, 2, 3])
 

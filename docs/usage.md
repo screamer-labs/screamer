@@ -1,15 +1,20 @@
 # Using screamer
 
-This guide walks through screamer's core ideas in the order they build on each
-other: how a function is called, why the same call works on stored data and on a
-live stream, how data shape is handled, and how functions compose into larger
-pipelines. Each section is short and links to a runnable notebook or a reference
-page where you can go deeper.
+screamer builds a calculation once and runs it on stored data or a live stream
+without changes. This guide covers how functions are constructed and called, how
+they handle data shape and missing values, and how they compose into pipelines.
+Each section links to a runnable notebook and a reference page where you can go
+deeper.
 
-## Construct, then call
+## Constructing and calling a function
 
-Every screamer function is used in two steps. First you create an **object**,
-configured with its parameters. Then you call that object on your data.
+Some calculations look at each value in isolation. `abs(x)` is one: the result
+at every step depends only on the input at that step. Others need memory. A mean
+over the last three samples cannot produce its value at a given step without the
+two samples before it, so it has to carry them forward. That carried-forward
+data is the object's state, and it is why screamer splits construction from the
+call. Constructing the object sets up its state; calling it feeds in data and
+advances that state.
 
 ```{eval-rst}
 .. exec_code::
@@ -23,15 +28,13 @@ configured with its parameters. Then you call that object on your data.
    print(result)
 ```
 
-The object holds the algorithm's state, so you can keep a reference to it and
-call it many times. The first two outputs are `NaN` because the window of size
-3 is not full yet; see [Warmup](#warmup) below.
+The first two outputs are `NaN` because the window of size 3 is not full yet;
+see [Warmup](#warmup) below. Because the object carries state between calls,
+feeding it values one at a time accumulates history.
 
-## One object, any input
+## Stored data and live streams, one calculation
 
-The same object accepts a single value, a NumPy array, a Python list, or an
-iterator, and the output type mirrors the input type. This is the central idea in
-screamer: write a calculation once and run it anywhere, without changing it.
+When you pass an array or a list, screamer has the whole dataset in hand and processes it in one go. When you pass an iterator, it works as a live stream, taking one value at a time as you pull from it, which is what an event loop needs. A single scalar is just a stream of length one. The output type always mirrors the input.
 
 ```{eval-rst}
 .. exec_code::
@@ -46,16 +49,8 @@ screamer: write a calculation once and run it anywhere, without changing it.
    print("stream:", list(RollingMean(3)(iter([1., 2., 3., 4., 5.]))))  # -> lazy
 ```
 
-An array or list is processed all at once. An iterator is processed one value at
-a time as you pull from it, which is what a live event loop needs. The exact input-to-output contract for every type is in the
-[Polymorphic API reference](polymorphic_api.md). A worked version of this
-example is in the [quickstart notebook](notebooks/01-quickstart-polymorphic-api).
-
-## Batch equals streaming
-
-Because the same object runs both ways, the numbers it produces are identical
-whether you pass a whole array at once or feed values one at a time. You can
-develop and test on stored history, then run the exact same code live.
+The two modes produce identical numbers. You can develop and test on stored
+history, then run the same code live.
 
 ```{eval-rst}
 .. exec_code::
@@ -66,23 +61,25 @@ develop and test on stored history, then run the exact same code live.
    # --- hide: stop ---
    data = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
 
-   batch = RollingMean(3)(data)              # whole array at once
+   whole = RollingMean(3)(data)              # whole array at once
 
    live = RollingMean(3)
    streamed = [live(x) for x in data]        # one value at a time
 
-   print("batch   :", batch)
+   print("whole   :", whole)
    print("streamed:", np.array(streamed))
-   print("identical:", np.allclose(batch, streamed, equal_nan=True))
+   print("identical:", np.allclose(whole, streamed, equal_nan=True))
 ```
 
 This holds because every function is **causal**: its output at each step depends
-only on current and past inputs, so a value computed live matches the one from a
-backtest. The
-[streaming notebook](notebooks/06-streaming-live-events) shows this on a longer
-example.
+only on current and past inputs, never future ones. A value computed live
+matches the one from a backtest. The exact input-to-output contract for every
+type is in the [Polymorphic API reference](polymorphic_api.md). A worked version
+of this example is in the [quickstart notebook](notebooks/01-quickstart-polymorphic-api),
+and the [streaming notebook](notebooks/06-streaming-live-events) shows the live
+path on a longer example.
 
-## Many series at once
+## Processing several series
 
 For a 2-D array, screamer treats the **first axis as time** and every other axis
 as a parallel, independent series. A `(T, K)` array is `K` series of length `T`,
@@ -136,8 +133,8 @@ is in [NaN and warmup](nan_and_warmup.md).
 ## Chaining functions
 
 Every function accepts the output of another, so calculations compose by
-nesting. A chain runs identically in batch and streaming, exactly like a single
-function.
+nesting. A chain runs identically on stored data and on a live stream, exactly
+like a single function.
 
 ```{eval-rst}
 .. exec_code::
@@ -155,10 +152,10 @@ function.
 
 ## Functions with several inputs
 
-Some functions take more than one series. You can pass the series in either of two
-shapes, whichever your data is already in: as separate arguments, one per series,
-or as the columns of a single 2-D array. The two forms are equivalent and return
-the same result.
+Some functions take more than one series. You can pass the series in either of
+two shapes, whichever your data is already in: as separate arguments, one per
+series, or as the columns of a single 2-D array. The two forms are equivalent
+and return the same result.
 
 `RollingCorr`, the rolling correlation of two series, accepts both:
 
@@ -213,16 +210,17 @@ function always recovers. The full contract, and the `FillNa` / `Ffill`
 functions for cleaning gaps, are in [NaN and warmup](nan_and_warmup.md); the
 [NaN-handling notebook](notebooks/05-nan-handling) demonstrates each policy.
 
-## Streams that don't tick together
+## Aligning streams
 
 The examples above assume inputs are aligned: row `i` of one pairs with row `i`
 of another. When feeds arrive on different clocks, at different rates, or with
-dropped samples, the `screamer.streams` layer aligns them before they reach a
-function. It provides operators to combine streams (`CombineLatest`, `Merge`),
-reshape them (`Dropna`, `Filter`, `Select`), and downsample them (`Resample`). The model (streams, their index,
-and alignment) is described in
-[Streams, values, and alignment](multistream.md). The [Multi-stream operators](notebooks/07-multi-stream-operators)
-notebook shows them in use.
+dropped samples, screamer's stream operators align them before they reach a
+function. They combine streams (`CombineLatest`, `Merge`), reshape them
+(`Dropna`, `Filter`, `Select`), and downsample them (`Resample`).
+The model (streams, their index, and alignment) is described in
+[Streams, values, and alignment](multistream.md). The
+[Multi-stream operators](notebooks/07-multi-stream-operators) notebook shows them
+in use.
 
 ## Whole pipelines
 
@@ -241,7 +239,7 @@ signal = RollingMean(10)(spread)      # smooth the spread
 
 pipe = Pipeline(inputs=[a, b], outputs=[signal])   # build the pipeline
 
-# pipe(arr_a, arr_b)          -> run on stored arrays (batch)
+# pipe(arr_a, arr_b)          -> run on stored arrays
 # pipe(gen_a, gen_b)          -> feed generators to run live, event by event, identical results
 ```
 
@@ -252,10 +250,10 @@ guarantees are in [Pipelines](pipelines.md); the
 ## Resetting state
 
 Because an object carries state, it matters when that state clears. screamer
-resets it for you on the batch paths: at the start and end of every array or
-list call, and between the columns of a multi-column array. So passing an array
-gives the same result as constructing a fresh object for it, and columns never
-influence each other.
+resets it for you on the stored-data paths: at the start and end of every array
+or list call, and between the columns of a multi-column array. So passing an
+array gives the same result as constructing a fresh object for it, and columns
+never influence each other.
 
 On the streaming paths (feeding scalars or an iterator), state is deliberately
 **not** reset, because preserving it across calls is the whole point of

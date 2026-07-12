@@ -202,7 +202,7 @@ reference example with `N = 2`.
 | Mixed kinds (one scalar + one array, etc.) | `TypeError` |
 
 This is the array form of `obj(A[:, 0], A[:, 1], ...)`, and is what makes
-`RollingCorr(w)(CombineLatest()(a, b)[1])` work directly.
+`RollingCorr(w)(CombineLatest()(a, b)[0])` work directly.
 
 ```python
 from screamer import RollingCorr
@@ -373,9 +373,9 @@ the dual training/live workflow practical:
   no function looks ahead. That is what makes a value computed live match the one
   computed in a backtest.
 
-Warmup — the leading region where a function has not yet seen enough samples,
-and the `start_policy` argument (`"strict"`, `"expanding"`, `"zero"`) that
-controls it — is documented in [NaN and warmup](nan_and_warmup.md).
+[NaN and warmup](nan_and_warmup.md) documents warmup, the leading region where a
+function has not yet seen enough samples, and the `start_policy` argument
+(`"strict"`, `"expanding"`, `"zero"`) that controls it.
 
 
 ## Design notes

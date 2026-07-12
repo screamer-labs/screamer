@@ -26,10 +26,10 @@ define-once-run-anywhere guarantee), see
 <!-- HELP_END -->
 
 ```{eval-rst}
-.. autoclass:: screamer.dag.Input
-.. autoclass:: screamer.dag.Node
+.. autoclass:: screamer.Input
+.. autoclass:: screamer.Node
    :special-members: __init__
-.. autoclass:: screamer.dag.Pipeline
+.. autoclass:: screamer.Pipeline
    :members: live
 ```
 
@@ -109,10 +109,9 @@ the empty leading and trailing bars in
 ```{eval-rst}
 .. exec_code::
 
-   # --- hide: start ---
    import numpy as np
    from screamer import Input, Pipeline, First, Last, Resample, CombineLatest
-   # --- hide: stop ---
+
    price = Input("price")
    open_b  = Resample(freq=10, fill="nan", agg=First())(price)
    close_b = Resample(freq=10, fill="nan", agg=Last())(price)
@@ -136,10 +135,9 @@ live.
 ```{eval-rst}
 .. exec_code::
 
-   # --- hide: start ---
    import numpy as np
    from screamer import Input, Pipeline, Sub, CombineLatest
-   # --- hide: stop ---
+
    a, b = Input("a"), Input("b")
    pipe = Pipeline(inputs=[a, b], outputs=[Sub()(CombineLatest()(a, b))])
 
@@ -176,9 +174,8 @@ inline, falling back to the text tree when graphviz is not available.
 ```{eval-rst}
 .. exec_code::
 
-   # --- hide: start ---
    from screamer import Input, Pipeline, RollingMean, Sub, CombineLatest
-   # --- hide: stop ---
+
    a, b = Input("a"), Input("b")
    pipe = Pipeline(inputs=[a, b], outputs=[RollingMean(20)(Sub()(CombineLatest()(a, b)))])
    print(pipe.to_text())
@@ -195,10 +192,9 @@ plain dict.
 ```{eval-rst}
 .. exec_code::
 
-   # --- hide: start ---
    import numpy as np
    from screamer import Input, Pipeline, RollingMean, Sub, CombineLatest
-   # --- hide: stop ---
+
    a, b = Input("a"), Input("b")
    pipe = Pipeline(inputs=[a, b], outputs=[RollingMean(20)(Sub()(CombineLatest()(a, b)))])
 
