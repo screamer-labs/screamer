@@ -128,10 +128,8 @@ public:
     using ResultTuple = std::conditional_t<M == 1, double, typename detail::TupleOfDoubles<M>>;
 
     // call() is the algorithm: takes N inputs, returns ResultTuple (1 or M doubles).
-    // Derived classes override this. Plan B (this session): single-method
-    // call interface. The split process_input()/get_output() interface that
-    // was being trialled here is reverted until we genuinely need it for
-    // sparse-output algorithms (Plan C).
+    // Derived classes override this single method. There is no separate
+    // process_input()/get_output() split; a sparse-output variant would need one.
     virtual ResultTuple call(const InputArray& inputs) = 0;
     void reset() override {}
 
@@ -580,7 +578,7 @@ public:
     }
 
     // ---------------------------------------------------------
-    // MULTIPLE INPUTS, MULTIPLE OUTPUTS HANDLER (Plan E)
+    // MULTIPLE INPUTS, MULTIPLE OUTPUTS HANDLER
     // ---------------------------------------------------------
     // The natural composition of the N->1 and 1->M rules:
     //   - inputs are paired column-by-column (from N->1)

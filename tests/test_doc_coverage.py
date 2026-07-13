@@ -20,7 +20,6 @@ HELP = json.loads((Path(screamer.__file__).parent / "data" / "help.json").read_t
 _NOT_DOCUMENTED = {
     "EvalOp", "ScreamerBase",                          # abstract bases
     "LazyIterator", "LazyAsyncIterator", "AnextAwaitable",  # iterator plumbing
-    "MyFunctor11", "MyFunctor22", "MyFunctorIterator11",   # demo/test functors
 }
 
 

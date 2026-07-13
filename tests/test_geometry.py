@@ -174,21 +174,18 @@ class TestDispatcherErrors:
 
 
 # ---------------------------------------------------------------------------
-# Stateful 2->2 sanity check using MyFunctor22 (validates per-column reset)
+# Stateful N->M per-column reset (the dispatcher must reset() between columns)
 # ---------------------------------------------------------------------------
 
-def test_stateful_2x2_resets_between_columns():
-    """The dispatcher must reset() between columns of a 2D batch, otherwise
-    state leaks. MyFunctor22 accumulates a sum_state; if reset is honoured
-    each column starts from zero."""
-    from screamer import MyFunctor22
-    X = np.array([[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]])
-    Y = np.array([[1.0, 2.0], [1.0, 2.0], [1.0, 2.0]])
-    # call returns (a-b, sum_state); sum_state accumulates a+b.
-    out = MyFunctor22()(X, Y)
-    # Column 0: x=[1,3,5], y=[1,1,1] -> sum_state = 2, 6, 12
-    np.testing.assert_array_equal(out[:, 0, 1], [2.0, 6.0, 12.0])
-    # Column 1: x=[2,4,6], y=[2,2,2] -> sum_state = 4, 10, 18
-    # If reset wasn't called between columns, this would start at 12 and
-    # produce [16, 22, 30] instead.
-    np.testing.assert_array_equal(out[:, 1, 1], [4.0, 10.0, 18.0])
+def test_stateful_nxm_resets_between_columns():
+    """The N->M dispatcher must reset() between columns of a 2D batch. Feeding
+    two identical input columns to a stateful multi-output functor must yield
+    two identical output columns; if rolling state leaked across the column
+    boundary the second column would differ from the first."""
+    from screamer import RollingLinearRegression
+    y = np.array([1.0, 3.0, 2.0, 5.0, 4.0, 6.0, 3.0, 7.0])
+    x = np.arange(len(y), dtype=float)
+    Y = np.column_stack([y, y])              # two identical dependent columns
+    X = np.column_stack([x, x])              # two identical regressor columns
+    out = np.asarray(RollingLinearRegression(4)(Y, X))   # (T, 2, 4)
+    np.testing.assert_array_equal(out[:, 0, :], out[:, 1, :])

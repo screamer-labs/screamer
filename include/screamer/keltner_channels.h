@@ -10,8 +10,7 @@
 //     lower[t] = mid - num_atr * atr
 //
 // 3 -> 3 functor over (high, low, close). Returns (lower, mid, upper)
-// per step. The first 3->M consumer in screamer (uses the Plan E
-// N->M dispatcher).
+// per step. The first 3->M consumer of the N->M dispatcher.
 //
 // Composition: holds one EwMean (the EMA on close) and one ATR (the
 // Wilder-smoothed True Range). First valid output at sample index

@@ -37,10 +37,20 @@ def read_public_names(path):
 def generate_init_py(module, output_path='screamer/__init__.py'):
     version = read_project_version()
 
+    # Internal machinery that pybind11 binds so functors can inherit from it or
+    # return it, but which is not part of the public API. Kept out of the
+    # exported namespace and __all__.
+    internal = {
+        "EvalOp", "ScreamerBase",           # functor base classes
+        "AnextAwaitable", "Awaiter",         # async iteration helpers
+        "LazyAsyncIterator", "LazyEvalIterator", "LazyIterator",
+    }
+
     # Get all classes and functions not starting with an underscore
     public_members = [
         name for name, obj in inspect.getmembers(module)
         if name[0].isupper() and (inspect.isclass(obj) or inspect.isfunction(obj))
+        and name not in internal
     ]
 
     stream_names = read_public_names('screamer/streams.py')

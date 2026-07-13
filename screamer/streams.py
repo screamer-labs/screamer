@@ -1018,7 +1018,7 @@ def resample(values, index=None, *, freq=None, every=None, count=None, agg="last
     * **string**: one of ``first``, ``last``, ``min``, ``max``, ``sum``,
       ``count``, ``mean``, ``ohlc``.  ``ohlc`` returns 4 columns
       ``(open, high, low, close)``.
-    * **functor**: any :class:`screamer.EvalOp` reducer (e.g.
+    * **functor**: any screamer functor used as a reducer (e.g.
       ``ExpandingSkew()``).  The functor is ``reset()`` at each bar boundary
       and fed every in-bar sample; its last output before the close is emitted.
       A single-output functor returns a 1-D result; a multi-output functor

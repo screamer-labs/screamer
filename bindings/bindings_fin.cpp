@@ -159,7 +159,7 @@ void init_bindings_fin(py::module& m) {
         .def("reset", &screamer::RollingResidualStd::reset, "Reset.");
 
     // 2 -> 4 OLS fit returning (slope, intercept, r_squared, stderr).
-    // First 2->4 consumer of the N->M dispatcher (Plan E).
+    // First 2->4 consumer of the N->M dispatcher.
     py::class_<screamer::RollingLinearRegression, screamer::EvalOp>(m, "RollingLinearRegression")
         .def(py::init<int, const std::string&>(),
              py::arg("window_size") = 20,

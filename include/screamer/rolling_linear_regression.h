@@ -12,7 +12,7 @@
 //   r_squared = (n*Sxy - Sx*Sy)^2 / ((n*Sxx - Sx*Sx) * (n*Syy - Sy*Sy))
 //   stderr    = sqrt(SSE / (n - 2)),  SSE = SST - SSR
 //
-// 2 -> 4 functor; uses the Plan E N->M dispatcher. Convention
+// 2 -> 4 functor over the N->M dispatcher. Convention
 // matches RollingBeta: FIRST argument is the dependent (target),
 // SECOND is the regressor. Composes five detail::RollingSum buffers
 // (Sx, Sy, Sxx, Syy, Sxy). O(1) per step.
