@@ -91,6 +91,10 @@ topics:
     name: "Logic & comparison"
     desc: "Boolean masks, comparisons, and conditional selection. Outputs are 1.0 (true) or 0.0 (false)."
 
+  microstructure:
+    name: "Microstructure"
+    desc: "Order flow, price impact, and liquidity indicators derived from trade and order-book data."
+
   graphs:
     name: "Pipelines"
     desc: "Building and running a pipeline."

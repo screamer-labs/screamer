@@ -3287,6 +3287,28 @@
       }
     ]
   },
+  "OFI": {
+    "name": "OFI",
+    "title": "Order-Flow Imbalance",
+    "implementation_family": "micro",
+    "topics": [
+      "microstructure"
+    ],
+    "tags": [
+      "order flow",
+      "imbalance",
+      "ofi",
+      "flow",
+      "microstructure"
+    ],
+    "short": "Normalized signed order flow, (buy - sell) / (buy + sell).",
+    "inputs": 2,
+    "outputs": 1,
+    "parameters": [],
+    "nan_policy": "ignore",
+    "details": "## Description\n\n`OFI` is the order-flow imbalance: the net of buy-aggressor and sell-aggressor\nvolume, normalized by their total. It lives in `[-1, 1]`, is positive when buyers\nlift the offer more than sellers hit the bid, and is `0` on an empty bucket.\n\nOrder-flow imbalance is the standard short-horizon driver of price: over a bar it\nexplains a large share of the price change (see `RollingKyleLambda`). Feed\n`OFI(buy_volume, sell_volume)` as a signal, or pair it with returns to estimate\nprice impact. References: Cont, Kukanov, Stoikov (2014), \"The price impact of\norder book events\".",
+    "examples": []
+  },
   "CumMax": {
     "name": "CumMax",
     "title": "Cumulative maximum",
