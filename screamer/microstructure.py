@@ -7,12 +7,12 @@ guarantee from the engine. Popular models are exposed under their canonical name
 with teaching-quality docs (see docs/functions_micro/).
 """
 import numpy as np
-from . import Diff, Sign, Abs, Div, Ffill, RollingSum, RollingStd, Erf
+from . import Diff, Lag, Sign, Abs, Div, Ffill, RollingSum, RollingStd, Erf, RollingCov
 from .screamer_bindings import RollingBeta, EwBeta, RollingMean
 
 __all__ = ["OFI", "SignedVolume", "TickRuleSign", "RollingKyleLambda", "EwKyleLambda",
            "AmihudIlliquidity", "RollingOrderImbalance", "LeeReadySign",
-           "BulkVolumeClassifier"]
+           "BulkVolumeClassifier", "RollSpread"]
 
 
 class OFI:
@@ -191,3 +191,27 @@ class BulkVolumeClassifier:
     def reset(self):
         self._std.reset()
         self._erf.reset()
+
+
+class RollSpread:
+    """Roll's (1984) effective spread from trade prices alone:
+    2 * sqrt(-cov(dP_t, dP_{t-1})) over a trailing window, where dP is the price
+    change. Bid-ask bounce makes successive price changes negatively correlated;
+    a non-negative covariance leaves the estimate undefined (returns NaN).
+    """
+
+    def __init__(self, window_size=20, start_policy="strict"):
+        """__init__(self: RollSpread, window_size: int = 20, start_policy: str = 'strict') -> None"""
+        self._diff = Diff(1)
+        self._lag = Lag(1)
+        self._cov = RollingCov(window_size, start_policy)
+
+    def __call__(self, price):
+        d = self._diff(price)                        # dP_t
+        cov = np.asarray(self._cov(d, self._lag(d)), dtype=float)   # cov(dP_t, dP_{t-1})
+        return 2.0 * np.sqrt(np.where(cov < 0.0, -cov, np.nan))
+
+    def reset(self):
+        self._diff.reset()
+        self._lag.reset()
+        self._cov.reset()

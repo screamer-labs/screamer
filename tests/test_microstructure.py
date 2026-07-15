@@ -148,6 +148,18 @@ def test_lee_ready_sign_is_causal():
     np.testing.assert_allclose(full[:3], trunc, equal_nan=True)
 
 
+def test_roll_spread_recovers_bounce_and_is_nan_when_undefined():
+    from screamer.microstructure import RollSpread
+    # a clean +/-0.1 bid-ask bounce around 100 -> serial cov of price changes is
+    # negative -> Roll spread is defined and positive
+    price = 100.0 + 0.1 * np.array([0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1], dtype=float)
+    out = RollSpread(window_size=6)(price)
+    assert np.isfinite(out[-1]) and out[-1] > 0.0
+    # a monotonic ramp -> serial cov >= 0 -> undefined -> NaN
+    ramp = np.arange(12.0)
+    assert np.isnan(RollSpread(window_size=6)(ramp)[-1])
+
+
 def test_bvc_is_normal_cdf_of_standardized_return():
     from screamer import RollingStd, Erf
     from screamer.microstructure import BulkVolumeClassifier
