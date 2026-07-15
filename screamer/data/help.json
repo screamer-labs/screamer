@@ -3287,6 +3287,202 @@
       }
     ]
   },
+  "AmihudIlliquidity": {
+    "name": "AmihudIlliquidity",
+    "title": "Amihud Illiquidity",
+    "implementation_family": "micro",
+    "topics": [
+      "microstructure",
+      "statistics"
+    ],
+    "tags": [
+      "illiquidity",
+      "amihud",
+      "liquidity",
+      "impact",
+      "microstructure"
+    ],
+    "short": "Rolling mean of |return| / notional (Amihud 2002 illiquidity ratio).",
+    "inputs": 2,
+    "outputs": 1,
+    "parameters": [
+      {
+        "name": "window_size",
+        "type": "int",
+        "default": 20,
+        "min": 2,
+        "description": "Window length in observations."
+      },
+      {
+        "name": "start_policy",
+        "type": "str",
+        "default": "strict",
+        "enum": [
+          "strict",
+          "expanding",
+          "zero"
+        ],
+        "description": "Warmup behaviour."
+      }
+    ],
+    "nan_policy": "ignore",
+    "see_also": [
+      "RollingKyleLambda",
+      "RollingMean"
+    ],
+    "details": "## Description\n\nThe Amihud (2002) illiquidity ratio measures how much the price moves per unit\nof trading volume (notional). At each bar it computes `|return| / notional`,\nthen takes a trailing-window mean over `window_size` observations. A large\nvalue indicates an illiquid, high-impact regime: a small trade moves the price\nsubstantially. A small value indicates a liquid market where large volume is\nabsorbed with little price effect.\n\n`AmihudIlliquidity(window_size, start_policy)(return_, notional)` returns\n`RollingMean(window_size, start_policy)(|return_| / notional)`.\n\nThe ratio is elementwise: if either `return_` or `notional` is `NaN` at a\ngiven bar, the ratio for that bar is `NaN` and `RollingMean` skips it\n(inheriting `nan_policy: ignore` from the C++ engine).\n\nA common pipeline is:\n\n1. Compute bar returns with `LogReturn` or `Return`.\n2. Compute `notional` as price times volume for the same bar.\n3. Feed both to `AmihudIlliquidity` to obtain a rolling illiquidity estimate.\n\n*Parameters*:\n\n- **`window_size`** (`int`, >= 2): size of the trailing window.\n- **`start_policy`** (`str`, default `\"strict\"`): controls warmup behavior.\n  `\"strict\"` emits `NaN` until `window_size` observations have been seen.\n  `\"expanding\"` uses however many observations are available. `\"zero\"` fills\n  the warmup period with zero.\n\n*Return value*: the Amihud illiquidity estimate at each time step. `NaN`\nduring warmup under `\"strict\"`, and whenever `notional` is zero or missing.\n\nCompared to `RollingKyleLambda` (which requires signed order-flow data),\n`AmihudIlliquidity` needs only a price return and a traded volume, making it\ncheap to compute from standard OHLCV bars without trade-level data.\n\n**Reference**: Amihud, Y. (2002). \"Illiquidity and stock returns: cross-section\nand time-series effects.\" *Journal of Financial Markets*, 5(1), 31-56.",
+    "examples": []
+  },
+  "EwKyleLambda": {
+    "name": "EwKyleLambda",
+    "title": "Kyle's Lambda (exponentially weighted)",
+    "implementation_family": "micro",
+    "topics": [
+      "microstructure",
+      "regression"
+    ],
+    "tags": [
+      "price impact",
+      "illiquidity",
+      "market impact",
+      "kyle",
+      "lambda",
+      "microstructure",
+      "ew"
+    ],
+    "short": "Exponentially-weighted price-impact slope of return on signed order flow.",
+    "inputs": 2,
+    "outputs": 1,
+    "parameters": [
+      {
+        "name": "span",
+        "type": "float",
+        "default": 20.0,
+        "description": "EW span (alpha = 2 / (span + 1)). Controls the effective lookback."
+      }
+    ],
+    "nan_policy": "ignore",
+    "see_also": [
+      "EwBeta",
+      "RollingKyleLambda"
+    ],
+    "details": "## Description\n\n`EwKyleLambda` estimates Kyle's lambda (the price-impact / illiquidity\ncoefficient) using exponential weighting rather than a fixed rolling window.\nRecent observations receive higher weight, so the estimate adapts faster to\nchanging liquidity conditions than `RollingKyleLambda`.\n\n`EwKyleLambda(span)(signed_flow, return_)` returns the EW regression slope\nof `return_` on `signed_flow`. It is a documented specialization of `EwBeta`:\ninternally it calls `EwBeta(span=span)(return_, signed_flow)`.\n\nKyle's lambda (Kyle 1985) is the slope of price change on signed order flow:\na high value signals an illiquid market with large price impact per unit of\nnet flow, a low value signals a liquid one.\n\n*Parameters*:\n\n- **`span`** (`float`, default `20.0`): EW span, where the decay factor is\n  `alpha = 2 / (span + 1)`. Larger spans place more weight on older data and\n  produce smoother, slower-adapting estimates.\n\n*Return value*: the price-impact coefficient lambda at each time step. The\nfirst output is `NaN` (EwBeta warmup). Subsequent `NaN` values occur when\n`signed_flow` has zero variance over the effective EW window.\n\nBecause the implementation delegates entirely to `EwBeta`, causality and the\n`nan_policy: ignore` contract are inherited from the C++ engine.\n\n**Reference**: Kyle, A. S. (1985). \"Continuous Auctions and Insider Trading.\"\n*Econometrica*, 53(6), 1315-1335.",
+    "examples": []
+  },
+  "OFI": {
+    "name": "OFI",
+    "title": "Order-Flow Imbalance",
+    "implementation_family": "micro",
+    "topics": [
+      "microstructure"
+    ],
+    "tags": [
+      "order flow",
+      "imbalance",
+      "ofi",
+      "flow",
+      "microstructure"
+    ],
+    "short": "Normalized signed order flow, (buy - sell) / (buy + sell).",
+    "inputs": 2,
+    "outputs": 1,
+    "parameters": [],
+    "nan_policy": "ignore",
+    "details": "## Description\n\n`OFI` is the order-flow imbalance: the net of buy-aggressor and sell-aggressor\nvolume, normalized by their total. It lives in `[-1, 1]`, is positive when buyers\nlift the offer more than sellers hit the bid, and is `0` on an empty bucket.\n\nOrder-flow imbalance is the standard short-horizon driver of price: over a bar it\nexplains a large share of the price change (see `RollingKyleLambda`). Feed\n`OFI(buy_volume, sell_volume)` as a signal, or pair it with returns to estimate\nprice impact. References: Cont, Kukanov, Stoikov (2014), \"The price impact of\norder book events\".",
+    "examples": []
+  },
+  "RollingKyleLambda": {
+    "name": "RollingKyleLambda",
+    "title": "Kyle's Lambda (rolling)",
+    "implementation_family": "micro",
+    "topics": [
+      "microstructure",
+      "regression"
+    ],
+    "tags": [
+      "price impact",
+      "illiquidity",
+      "market impact",
+      "kyle",
+      "lambda",
+      "microstructure"
+    ],
+    "short": "Rolling-window price-impact slope of return on signed order flow (Kyle 1985).",
+    "inputs": 2,
+    "outputs": 1,
+    "parameters": [
+      {
+        "name": "window_size",
+        "type": "int",
+        "default": 20,
+        "min": 2,
+        "description": "Window length in observations."
+      },
+      {
+        "name": "start_policy",
+        "type": "str",
+        "default": "strict",
+        "enum": [
+          "strict",
+          "expanding",
+          "zero"
+        ],
+        "description": "Warmup behaviour."
+      }
+    ],
+    "nan_policy": "ignore",
+    "see_also": [
+      "RollingBeta",
+      "RollingLinearRegression",
+      "AmihudIlliquidity"
+    ],
+    "details": "## Description\n\nKyle's lambda (Kyle 1985) is the slope of price change on signed order flow.\nIt quantifies how much a unit of net buying or selling pressure moves the\nprice: a high lambda means the market is illiquid (large price impact per\nunit of flow), a low lambda means it is liquid.\n\n`RollingKyleLambda(window_size, start_policy)(signed_flow, return_)` returns\nthe trailing-window OLS slope of `return_` on `signed_flow` over the most\nrecent `window_size` observations. It is a documented specialization of\n`RollingBeta`: internally it calls `RollingBeta(window_size, start_policy)(return_, signed_flow)`.\n\nThe two inputs should be co-sampled and aligned in time. A common pipeline is:\n\n1. Compute `signed_flow` with `SignedVolume` (or `OFI`) on tick data.\n2. Compute `return_` as a log-return over the same bar.\n3. Feed both to `RollingKyleLambda` to obtain a rolling price-impact estimate.\n\nBecause the implementation delegates entirely to `RollingBeta`, causality,\nwarmup behavior (`start_policy`), and the `nan_policy: ignore` contract are\nall inherited from the C++ engine.\n\n*Parameters*:\n\n- **`window_size`** (`int`, >= 2): size of the trailing window.\n- **`start_policy`** (`str`, default `\"strict\"`): controls warmup behavior.\n  `\"strict\"` emits `NaN` until `window_size` observations have been seen.\n  `\"expanding\"` uses however many observations are available. `\"zero\"` fills\n  the warmup period with zero.\n\n*Return value*: the price-impact coefficient lambda at each time step. `NaN`\nduring warmup (under `strict`) or when `signed_flow` has zero variance within\nthe window.\n\n**Reference**: Kyle, A. S. (1985). \"Continuous Auctions and Insider Trading.\"\n*Econometrica*, 53(6), 1315-1335.",
+    "examples": []
+  },
+  "SignedVolume": {
+    "name": "SignedVolume",
+    "title": "Signed Volume",
+    "implementation_family": "micro",
+    "topics": [
+      "microstructure"
+    ],
+    "tags": [
+      "signed volume",
+      "order flow",
+      "flow",
+      "microstructure"
+    ],
+    "short": "Aggressor-signed volume, sign * volume.",
+    "inputs": 2,
+    "outputs": 1,
+    "parameters": [],
+    "nan_policy": "ignore",
+    "details": "## Description\n\n`SignedVolume` multiplies a trade sign by volume to give aggressor-signed order\nflow. Pair a sign source (`TickRuleSign`, or an aggressor flag) with volume, then\nfeed the result to `RollingKyleLambda` for price impact.",
+    "examples": []
+  },
+  "TickRuleSign": {
+    "name": "TickRuleSign",
+    "title": "Tick Rule Sign",
+    "implementation_family": "micro",
+    "topics": [
+      "microstructure"
+    ],
+    "tags": [
+      "trade sign",
+      "tick rule",
+      "lee ready",
+      "classification",
+      "flow",
+      "microstructure"
+    ],
+    "short": "Trade sign by the tick rule (+1 up-tick, -1 down-tick, carry on unchanged).",
+    "inputs": 1,
+    "outputs": 1,
+    "parameters": [],
+    "nan_policy": "ignore",
+    "details": "## Description\n\n`TickRuleSign` classifies each trade as buyer-initiated (`+1`) or\nseller-initiated (`-1`) by the tick rule: a trade above the previous price is a\nbuy, below is a sell, and an unchanged price carries the previous sign. It is the\nsimplest trade-sign classifier and needs only the price series. References: the\ntick rule, and Lee, Ready (1991), \"Inferring Trade Direction from Intraday Data\".",
+    "examples": []
+  },
   "CumMax": {
     "name": "CumMax",
     "title": "Cumulative maximum",

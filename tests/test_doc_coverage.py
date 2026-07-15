@@ -30,7 +30,9 @@ def _documentable_names():
         and issubclass(getattr(screamer, n), _b.EvalOp)
         and getattr(screamer, n) not in (_b.EvalOp, _b.ScreamerBase)
     }
-    names = functors | set(screamer.streams.__all__) | set(screamer.dag.__all__)
+    import screamer.microstructure as _micro
+    micro = set(_micro.__all__)
+    names = functors | set(screamer.streams.__all__) | set(screamer.dag.__all__) | micro
     return names - _NOT_DOCUMENTED
 
 

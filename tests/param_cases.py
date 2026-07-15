@@ -12,7 +12,14 @@ screamer_module = sii.load_screamer_module()
 
 # List of all screamer class names
 # screamer_classes = [cls for cls in dir(screamer_module) if cls[0].isupper() and cls not in helperClasses]
-screamer_classes = get_module_public_classes(screamer_module)
+# The microstructure operators are pure-Python wrappers/compositions, not C++
+# functors, so they are outside this harness (which drives the C++ binding surface
+# - tensor, view, matrix, stream-vs-batch). Their causality and batch == stream are
+# covered by tests/test_microstructure.py; exclude them here.
+import screamer.microstructure as _micro
+_PYTHON_OPERATORS = set(_micro.__all__)
+screamer_classes = [c for c in get_module_public_classes(screamer_module)
+                    if c not in _PYTHON_OPERATORS]
 
 # The Rolling classes that fit the standard 1-input/1-output auto-test
 # pattern. Exclusions:
@@ -94,9 +101,14 @@ _NO_ARG_AUTO_EXCLUDE = {
 }
 # Linear2 takes constructor args (a, b, c) so it is not a no-arg class
 # and would not be picked up here - listed for clarity only.
+# get_constructor_arguments returns None for a class whose constructor cannot be
+# introspected from a pybind11 signature docstring - e.g. the pure-Python
+# microstructure operators (OFI, SignedVolume, ...) that have no __init__. Those
+# are not C++ functors, so they are outside this parameter sweep; skip them.
 no_arg_classes = [
     cls for cls in screamer_classes
-    if len(get_constructor_arguments(getattr(screamer_module, cls)))==0
+    if (ctor_args := get_constructor_arguments(getattr(screamer_module, cls))) is not None
+       and len(ctor_args) == 0
        and cls not in _NO_ARG_AUTO_EXCLUDE
 ]
 
