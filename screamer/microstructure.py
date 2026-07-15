@@ -12,7 +12,7 @@ from .screamer_bindings import RollingBeta, EwBeta, RollingMean
 
 __all__ = ["OFI", "SignedVolume", "TickRuleSign", "RollingKyleLambda", "EwKyleLambda",
            "AmihudIlliquidity", "RollingOrderImbalance", "LeeReadySign",
-           "BulkVolumeClassifier", "RollSpread", "HawkesIntensity"]
+           "BulkVolumeClassifier", "RollSpread", "HawkesIntensity", "Propagator"]
 
 
 class OFI:
@@ -247,5 +247,40 @@ class HawkesIntensity:
     def __call__(self, x):
         scalar = np.ndim(x) == 0
         arr = np.atleast_1d(np.asarray(x, dtype=float))
+        out = np.array([self._step(float(v)) for v in arr])
+        return out[0] if scalar else out
+
+
+class Propagator:
+    """Bouchaud-Gefen-Potters-Wyart (2004) propagator model: price impact as a
+    decaying-kernel convolution over past signed order flow,
+    impact_t = sum_k G(k)*flow_{t-k} with G(k) = g0*(k+1)^(-gamma) over a fixed
+    window. Captures that flow moves price with a memory that decays but does not
+    vanish at once. Warmup (fewer than `window` samples) is NaN. The per-sample
+    update keeps a fixed-length buffer, identical for array and scalar driving, so
+    batch==stream.
+    """
+
+    def __init__(self, window=20, g0=1.0, gamma=0.5):
+        """__init__(self: Propagator, window: int = 20, g0: float = 1.0, gamma: float = 0.5) -> None"""
+        self.window = window
+        self._g = g0 * (np.arange(window) + 1.0) ** (-gamma)
+        self._buf = []
+
+    def reset(self):
+        self._buf = []
+
+    def _step(self, x):
+        self._buf.append(x)
+        if len(self._buf) > self.window:
+            self._buf.pop(0)
+        if len(self._buf) < self.window:
+            return np.nan                       # warmup
+        # buf[-1] is x_t (k=0), buf[-1-k] is x_{t-k}
+        return float(sum(self._g[k] * self._buf[-1 - k] for k in range(self.window)))
+
+    def __call__(self, flow):
+        scalar = np.ndim(flow) == 0
+        arr = np.atleast_1d(np.asarray(flow, dtype=float))
         out = np.array([self._step(float(v)) for v in arr])
         return out[0] if scalar else out

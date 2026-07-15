@@ -3524,6 +3524,69 @@
     "details": "## Description\n\n`OFI` is the order-flow imbalance: the net of buy-aggressor and sell-aggressor\nvolume, normalized by their total. It lives in `[-1, 1]`, is positive when buyers\nlift the offer more than sellers hit the bid, and is `0` on an empty bucket.\n\nOrder-flow imbalance is the standard short-horizon driver of price: over a bar it\nexplains a large share of the price change (see `RollingKyleLambda`). Feed\n`OFI(buy_volume, sell_volume)` as a signal, or pair it with returns to estimate\nprice impact. References: Cont, Kukanov, Stoikov (2014), \"The price impact of\norder book events\".",
     "examples": []
   },
+  "Propagator": {
+    "name": "Propagator",
+    "title": "Bouchaud Propagator Price Impact",
+    "implementation_family": "micro",
+    "topics": [
+      "microstructure"
+    ],
+    "tags": [
+      "propagator",
+      "price impact",
+      "order flow",
+      "long memory",
+      "bouchaud",
+      "microstructure"
+    ],
+    "short": "Bouchaud (2004) propagator model: price impact as a decaying-kernel convolution over past signed order flow.",
+    "inputs": 1,
+    "outputs": 1,
+    "parameters": [
+      {
+        "name": "window",
+        "type": "int",
+        "default": 20,
+        "min": 2,
+        "description": "Number of past flow samples included in the convolution (the kernel support)."
+      },
+      {
+        "name": "g0",
+        "type": "float",
+        "default": 1.0,
+        "description": "Kernel amplitude; scales the overall impact magnitude."
+      },
+      {
+        "name": "gamma",
+        "type": "float",
+        "default": 0.5,
+        "description": "Power-law decay exponent. Larger values make the kernel decay faster."
+      }
+    ],
+    "nan_policy": "ignore",
+    "see_also": [
+      "RollingKyleLambda",
+      "HawkesIntensity"
+    ],
+    "details": "## Description\n\n`Propagator` computes the predicted price impact at each time step by convolving\npast signed order flow with a power-law decaying kernel. The model was introduced\nby Bouchaud, Gefen, Potters, and Wyart (2004) to capture the empirical observation\nthat the price impact of a trade does not disappear instantly but decays slowly\nover many subsequent periods.\n\nThe predicted impact at time `t` is:\n\n    impact_t = sum_{k=0}^{window-1} G(k) * flow_{t-k}\n\nwhere the propagator kernel is:\n\n    G(k) = g0 * (k + 1)^(-gamma)\n\nHere `flow_{t-k}` is the signed order flow `k` periods in the past. The kernel\n`G` assigns full weight `g0` to the current period (`k = 0`) and gradually\ndecreasing weight to older flow, following a power law with exponent `gamma`.\nWhen `gamma = 0.5` (the default), the memory decays slowly enough to be called\nlong-memory: past flow continues to affect the predicted price even after many\nperiods.\n\nThe operator requires `window` samples before producing its first output. The\nfirst `window - 1` outputs are `NaN` (warmup period).\n\nA NaN flow value enters the buffer unchanged. While it remains within the window\nit makes the convolution output NaN, and once it drops out of the window the\noutput recovers. This is the windowed nan_policy: ignore behavior.\n\nThe per-sample update appends to a fixed-length buffer and computes the kernel\ndot product. This same `_step` method drives both the whole-array and scalar\ncalling paths, so batch and streaming results are identical by construction.\n\n**References:**\n\n- Bouchaud, J.-P., Gefen, Y., Potters, M., and Wyart, M. (2004). \"Fluctuations\n  and response in financial markets: the subtle nature of 'random' price changes.\"\n  *Quantitative Finance*, 4(2), 176-190.",
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Basic usage",
+        "code": "import numpy as np\nfrom screamer.microstructure import Propagator\n\n# Isolated unit of buy flow at t=0 and t=3; window=3 reveals the kernel shape\nflow = np.array([1.0, 0.0, 0.0, 1.0, 0.0, 0.0])\nimpact = Propagator(window=3, g0=1.0, gamma=0.5)(flow)\n# G = [1.0, 2^-0.5, 3^-0.5] = [1.0, 0.70711, 0.57735]\n# t=0, t=1: NaN (warmup, fewer than window samples seen)\n# t=2: G[0]*flow[2] + G[1]*flow[1] + G[2]*flow[0] = 0 + 0 + 0.57735 = 0.57735\n# t=3: G[0]*flow[3] + G[1]*flow[2] + G[2]*flow[1] = 1.0 + 0 + 0 = 1.0\n# t=4: G[0]*flow[4] + G[1]*flow[3] + G[2]*flow[2] = 0 + 0.70711 + 0 = 0.70711\n# t=5: G[0]*flow[5] + G[1]*flow[4] + G[2]*flow[3] = 0 + 0 + 0.57735 = 0.57735"
+      },
+      {
+        "language": "python",
+        "caption": "Streaming one sample at a time",
+        "code": "op = Propagator(window=20, g0=1.0, gamma=0.5)\nfor signed_flow in flow_stream:\n    predicted_impact = op(float(signed_flow))"
+      },
+      {
+        "language": "python",
+        "caption": "Reset clears accumulated history",
+        "code": "op = Propagator(window=10)\nimpact_first_pass = op(flow)\nop.reset()\nimpact_second_pass = op(flow)   # identical to first pass"
+      }
+    ]
+  },
   "RollSpread": {
     "name": "RollSpread",
     "title": "Roll Effective Spread",

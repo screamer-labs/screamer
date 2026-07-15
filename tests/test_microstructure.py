@@ -199,3 +199,31 @@ def test_hawkes_reset_restarts_state():
     op = HawkesIntensity(decay=0.8)
     a = [op(v) for v in x]; op.reset(); b = [op(v) for v in x]
     np.testing.assert_allclose(a, b)
+
+
+def test_propagator_kernel_convolution_and_warmup():
+    from screamer.microstructure import Propagator
+    flow = np.array([1.0, 0.0, 0.0, 1.0, 0.0, 0.0])
+    out = Propagator(window=3, g0=1.0, gamma=0.5)(flow)
+    # G = [1, 2^-0.5, 3^-0.5] = [1, 0.70711, 0.57735]
+    # warmup: t=0,1 -> NaN ; t=2: G0*f2+G1*f1+G2*f0 = 0.57735 ;
+    # t=3: G0*f3+G1*f2+G2*f1 = 1.0 ; t=4: G2*f2? = G0*f4+G1*f3+G2*f2 = 0.70711 ;
+    # t=5: G0*f5+G1*f4+G2*f3 = 0.57735
+    assert np.isnan(out[0]) and np.isnan(out[1])
+    np.testing.assert_allclose(out[2:], [0.57735, 1.0, 0.70711, 0.57735], atol=1e-4)
+
+
+def test_propagator_stream_equals_batch():
+    from screamer.microstructure import Propagator
+    rng = np.random.default_rng(3); flow = rng.normal(size=60)
+    batch = Propagator(window=5)(flow)
+    op = Propagator(window=5); stream = np.array([op(float(v)) for v in flow])
+    np.testing.assert_allclose(batch, stream, equal_nan=True)
+
+
+def test_propagator_reset_clears_buffer():
+    from screamer.microstructure import Propagator
+    flow = [1.0, 2.0, 3.0, 4.0]
+    op = Propagator(window=2)
+    a = [op(v) for v in flow]; op.reset(); b = [op(v) for v in flow]
+    np.testing.assert_allclose(a, b, equal_nan=True)

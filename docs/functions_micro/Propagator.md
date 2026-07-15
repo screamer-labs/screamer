@@ -1,0 +1,115 @@
+---
+name: Propagator
+title: Bouchaud Propagator Price Impact
+implementation_family: micro
+topics:
+- microstructure
+tags:
+- propagator
+- price impact
+- order flow
+- long memory
+- bouchaud
+- microstructure
+short: "Bouchaud (2004) propagator model: price impact as a decaying-kernel convolution over past signed order flow."
+inputs: 1
+outputs: 1
+parameters:
+- name: window
+  type: int
+  default: 20
+  min: 2
+  description: Number of past flow samples included in the convolution (the kernel support).
+- name: g0
+  type: float
+  default: 1.0
+  description: Kernel amplitude; scales the overall impact magnitude.
+- name: gamma
+  type: float
+  default: 0.5
+  description: Power-law decay exponent. Larger values make the kernel decay faster.
+nan_policy: ignore
+see_also:
+- RollingKyleLambda
+- HawkesIntensity
+---
+
+# `Propagator`
+
+## Description
+
+`Propagator` computes the predicted price impact at each time step by convolving
+past signed order flow with a power-law decaying kernel. The model was introduced
+by Bouchaud, Gefen, Potters, and Wyart (2004) to capture the empirical observation
+that the price impact of a trade does not disappear instantly but decays slowly
+over many subsequent periods.
+
+The predicted impact at time `t` is:
+
+    impact_t = sum_{k=0}^{window-1} G(k) * flow_{t-k}
+
+where the propagator kernel is:
+
+    G(k) = g0 * (k + 1)^(-gamma)
+
+Here `flow_{t-k}` is the signed order flow `k` periods in the past. The kernel
+`G` assigns full weight `g0` to the current period (`k = 0`) and gradually
+decreasing weight to older flow, following a power law with exponent `gamma`.
+When `gamma = 0.5` (the default), the memory decays slowly enough to be called
+long-memory: past flow continues to affect the predicted price even after many
+periods.
+
+The operator requires `window` samples before producing its first output. The
+first `window - 1` outputs are `NaN` (warmup period).
+
+A NaN flow value enters the buffer unchanged. While it remains within the window
+it makes the convolution output NaN, and once it drops out of the window the
+output recovers. This is the windowed nan_policy: ignore behavior.
+
+The per-sample update appends to a fixed-length buffer and computes the kernel
+dot product. This same `_step` method drives both the whole-array and scalar
+calling paths, so batch and streaming results are identical by construction.
+
+**References:**
+
+- Bouchaud, J.-P., Gefen, Y., Potters, M., and Wyart, M. (2004). "Fluctuations
+  and response in financial markets: the subtle nature of 'random' price changes."
+  *Quantitative Finance*, 4(2), 176-190.
+
+## Examples
+
+### Basic usage
+
+```python
+import numpy as np
+from screamer.microstructure import Propagator
+
+# Isolated unit of buy flow at t=0 and t=3; window=3 reveals the kernel shape
+flow = np.array([1.0, 0.0, 0.0, 1.0, 0.0, 0.0])
+impact = Propagator(window=3, g0=1.0, gamma=0.5)(flow)
+# G = [1.0, 2^-0.5, 3^-0.5] = [1.0, 0.70711, 0.57735]
+# t=0, t=1: NaN (warmup, fewer than window samples seen)
+# t=2: G[0]*flow[2] + G[1]*flow[1] + G[2]*flow[0] = 0 + 0 + 0.57735 = 0.57735
+# t=3: G[0]*flow[3] + G[1]*flow[2] + G[2]*flow[1] = 1.0 + 0 + 0 = 1.0
+# t=4: G[0]*flow[4] + G[1]*flow[3] + G[2]*flow[2] = 0 + 0.70711 + 0 = 0.70711
+# t=5: G[0]*flow[5] + G[1]*flow[4] + G[2]*flow[3] = 0 + 0 + 0.57735 = 0.57735
+```
+
+### Streaming one sample at a time
+
+```python
+op = Propagator(window=20, g0=1.0, gamma=0.5)
+for signed_flow in flow_stream:
+    predicted_impact = op(float(signed_flow))
+```
+
+### Reset clears accumulated history
+
+```python
+op = Propagator(window=10)
+impact_first_pass = op(flow)
+op.reset()
+impact_second_pass = op(flow)   # identical to first pass
+```
+
+<!-- HELP_END -->
