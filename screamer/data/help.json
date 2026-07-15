@@ -3287,6 +3287,42 @@
       }
     ]
   },
+  "EwKyleLambda": {
+    "name": "EwKyleLambda",
+    "title": "Kyle's Lambda (exponentially weighted)",
+    "implementation_family": "micro",
+    "topics": [
+      "microstructure",
+      "regression"
+    ],
+    "tags": [
+      "price impact",
+      "illiquidity",
+      "market impact",
+      "kyle",
+      "lambda",
+      "microstructure",
+      "ew"
+    ],
+    "short": "Exponentially-weighted price-impact slope of return on signed order flow.",
+    "inputs": 2,
+    "outputs": 1,
+    "parameters": [
+      {
+        "name": "span",
+        "type": "float",
+        "default": 20.0,
+        "description": "EW span (alpha = 2 / (span + 1)). Controls the effective lookback."
+      }
+    ],
+    "nan_policy": "ignore",
+    "see_also": [
+      "EwBeta",
+      "RollingKyleLambda"
+    ],
+    "details": "## Description\n\n`EwKyleLambda` estimates Kyle's lambda (the price-impact / illiquidity\ncoefficient) using exponential weighting rather than a fixed rolling window.\nRecent observations receive higher weight, so the estimate adapts faster to\nchanging liquidity conditions than `RollingKyleLambda`.\n\n`EwKyleLambda(span)(signed_flow, return_)` returns the EW regression slope\nof `return_` on `signed_flow`. It is a documented specialization of `EwBeta`:\ninternally it calls `EwBeta(span=span)(return_, signed_flow)`.\n\nKyle's lambda (Kyle 1985) is the slope of price change on signed order flow:\na high value signals an illiquid market with large price impact per unit of\nnet flow, a low value signals a liquid one.\n\n*Parameters*:\n\n- **`span`** (`float`, default `20.0`): EW span, where the decay factor is\n  `alpha = 2 / (span + 1)`. Larger spans place more weight on older data and\n  produce smoother, slower-adapting estimates.\n\n*Return value*: the price-impact coefficient lambda at each time step. The\nfirst output is `NaN` (EwBeta warmup). Subsequent `NaN` values occur when\n`signed_flow` has zero variance over the effective EW window.\n\nBecause the implementation delegates entirely to `EwBeta`, causality and the\n`nan_policy: ignore` contract are inherited from the C++ engine.\n\n**Reference**: Kyle, A. S. (1985). \"Continuous Auctions and Insider Trading.\"\n*Econometrica*, 53(6), 1315-1335.",
+    "examples": []
+  },
   "OFI": {
     "name": "OFI",
     "title": "Order-Flow Imbalance",
@@ -3307,6 +3343,54 @@
     "parameters": [],
     "nan_policy": "ignore",
     "details": "## Description\n\n`OFI` is the order-flow imbalance: the net of buy-aggressor and sell-aggressor\nvolume, normalized by their total. It lives in `[-1, 1]`, is positive when buyers\nlift the offer more than sellers hit the bid, and is `0` on an empty bucket.\n\nOrder-flow imbalance is the standard short-horizon driver of price: over a bar it\nexplains a large share of the price change (see `RollingKyleLambda`). Feed\n`OFI(buy_volume, sell_volume)` as a signal, or pair it with returns to estimate\nprice impact. References: Cont, Kukanov, Stoikov (2014), \"The price impact of\norder book events\".",
+    "examples": []
+  },
+  "RollingKyleLambda": {
+    "name": "RollingKyleLambda",
+    "title": "Kyle's Lambda (rolling)",
+    "implementation_family": "micro",
+    "topics": [
+      "microstructure",
+      "regression"
+    ],
+    "tags": [
+      "price impact",
+      "illiquidity",
+      "market impact",
+      "kyle",
+      "lambda",
+      "microstructure"
+    ],
+    "short": "Rolling-window price-impact slope of return on signed order flow (Kyle 1985).",
+    "inputs": 2,
+    "outputs": 1,
+    "parameters": [
+      {
+        "name": "window_size",
+        "type": "int",
+        "default": 20,
+        "min": 2,
+        "description": "Window length in observations."
+      },
+      {
+        "name": "start_policy",
+        "type": "str",
+        "default": "strict",
+        "enum": [
+          "strict",
+          "expanding",
+          "zero"
+        ],
+        "description": "Warmup behaviour."
+      }
+    ],
+    "nan_policy": "ignore",
+    "see_also": [
+      "RollingBeta",
+      "RollingLinearRegression",
+      "AmihudIlliquidity"
+    ],
+    "details": "## Description\n\nKyle's lambda (Kyle 1985) is the slope of price change on signed order flow.\nIt quantifies how much a unit of net buying or selling pressure moves the\nprice: a high lambda means the market is illiquid (large price impact per\nunit of flow), a low lambda means it is liquid.\n\n`RollingKyleLambda(window_size, start_policy)(signed_flow, return_)` returns\nthe trailing-window OLS slope of `return_` on `signed_flow` over the most\nrecent `window_size` observations. It is a documented specialization of\n`RollingBeta`: internally it calls `RollingBeta(window_size, start_policy)(return_, signed_flow)`.\n\nThe two inputs should be co-sampled and aligned in time. A common pipeline is:\n\n1. Compute `signed_flow` with `SignedVolume` (or `OFI`) on tick data.\n2. Compute `return_` as a log-return over the same bar.\n3. Feed both to `RollingKyleLambda` to obtain a rolling price-impact estimate.\n\nBecause the implementation delegates entirely to `RollingBeta`, causality,\nwarmup behavior (`start_policy`), and the `nan_policy: ignore` contract are\nall inherited from the C++ engine.\n\n*Parameters*:\n\n- **`window_size`** (`int`, >= 2): size of the trailing window.\n- **`start_policy`** (`str`, default `\"strict\"`): controls warmup behavior.\n  `\"strict\"` emits `NaN` until `window_size` observations have been seen.\n  `\"expanding\"` uses however many observations are available. `\"zero\"` fills\n  the warmup period with zero.\n\n*Return value*: the price-impact coefficient lambda at each time step. `NaN`\nduring warmup (under `strict`) or when `signed_flow` has zero variance within\nthe window.\n\n**Reference**: Kyle, A. S. (1985). \"Continuous Auctions and Insider Trading.\"\n*Econometrica*, 53(6), 1315-1335.",
     "examples": []
   },
   "SignedVolume": {

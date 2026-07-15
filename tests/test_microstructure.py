@@ -63,3 +63,25 @@ def test_signed_volume_propagates_nan():
     from screamer.microstructure import SignedVolume
     out = SignedVolume()(np.array([1.0, np.nan]), np.array([np.nan, 3.0]))
     assert np.isnan(out).all()
+
+
+def test_kyle_lambda_equals_rolling_beta():
+    from screamer import RollingBeta
+    from screamer.microstructure import RollingKyleLambda
+    rng = np.random.default_rng(0)
+    flow = rng.normal(size=200)
+    ret = 2.5 * flow + rng.normal(scale=0.1, size=200)   # true impact slope 2.5
+    lam = RollingKyleLambda(window_size=50)(flow, ret)
+    ref = RollingBeta(50)(ret, flow)                     # slope of ret on flow
+    np.testing.assert_allclose(lam, ref, equal_nan=True)
+    # recovers the true slope once the window is full
+    assert abs(np.nanmedian(lam) - 2.5) < 0.2
+
+
+def test_ew_kyle_lambda_equals_ew_beta():
+    from screamer import EwBeta
+    from screamer.microstructure import EwKyleLambda
+    rng = np.random.default_rng(1)
+    flow = rng.normal(size=200); ret = 1.5 * flow + rng.normal(scale=0.1, size=200)
+    np.testing.assert_allclose(EwKyleLambda(span=30.0)(flow, ret),
+                               EwBeta(span=30.0)(ret, flow), equal_nan=True)

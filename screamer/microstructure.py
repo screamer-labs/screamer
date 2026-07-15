@@ -8,8 +8,9 @@ with teaching-quality docs (see docs/functions_micro/).
 """
 import numpy as np
 from . import Diff, Sign, Abs, Div, Ffill
+from .screamer_bindings import RollingBeta, EwBeta
 
-__all__ = ["OFI", "SignedVolume", "TickRuleSign"]
+__all__ = ["OFI", "SignedVolume", "TickRuleSign", "RollingKyleLambda", "EwKyleLambda"]
 
 
 class OFI:
@@ -51,3 +52,27 @@ class TickRuleSign:
         out = np.asarray(Ffill()(signed), dtype=float)
         out[np.isnan(price)] = np.nan       # missing price -> NaN (nan_policy: ignore)
         return out
+
+
+class RollingKyleLambda:
+    """Kyle's lambda over a trailing window: the price-impact / illiquidity slope
+    of return on signed order flow (Kyle 1985). Specializes RollingBeta.
+    """
+
+    def __init__(self, window_size=20, start_policy="strict"):
+        """__init__(self: RollingKyleLambda, window_size: int = 20, start_policy: str = 'strict') -> None"""
+        self._beta = RollingBeta(window_size, start_policy)
+
+    def __call__(self, signed_flow, return_):
+        return self._beta(return_, signed_flow)   # slope of return on flow
+
+
+class EwKyleLambda:
+    """Kyle's lambda, exponentially weighted (recursive). Specializes EwBeta."""
+
+    def __init__(self, span=20.0):
+        """__init__(self: EwKyleLambda, span: float = 20.0) -> None"""
+        self._beta = EwBeta(span=span)
+
+    def __call__(self, signed_flow, return_):
+        return self._beta(return_, signed_flow)
