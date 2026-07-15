@@ -146,3 +146,16 @@ def test_lee_ready_sign_is_causal():
     full = LeeReadySign()(price, mid)
     trunc = LeeReadySign()(price[:3], mid[:3])
     np.testing.assert_allclose(full[:3], trunc, equal_nan=True)
+
+
+def test_bvc_is_normal_cdf_of_standardized_return():
+    from screamer import RollingStd, Erf
+    from screamer.microstructure import BulkVolumeClassifier
+    rng = np.random.default_rng(0)
+    ret = rng.normal(scale=0.01, size=200)
+    out = BulkVolumeClassifier(window_size=50)(ret)
+    sigma = np.asarray(RollingStd(50)(ret))
+    z = ret / sigma
+    ref = 0.5 * (1.0 + np.asarray(Erf()(z / np.sqrt(2.0))))
+    np.testing.assert_allclose(out, ref, equal_nan=True)
+    assert np.nanmin(out) >= 0.0 and np.nanmax(out) <= 1.0   # a fraction

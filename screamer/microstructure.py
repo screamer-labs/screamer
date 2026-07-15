@@ -7,11 +7,12 @@ guarantee from the engine. Popular models are exposed under their canonical name
 with teaching-quality docs (see docs/functions_micro/).
 """
 import numpy as np
-from . import Diff, Sign, Abs, Div, Ffill, RollingSum
+from . import Diff, Sign, Abs, Div, Ffill, RollingSum, RollingStd, Erf
 from .screamer_bindings import RollingBeta, EwBeta, RollingMean
 
 __all__ = ["OFI", "SignedVolume", "TickRuleSign", "RollingKyleLambda", "EwKyleLambda",
-           "AmihudIlliquidity", "RollingOrderImbalance", "LeeReadySign"]
+           "AmihudIlliquidity", "RollingOrderImbalance", "LeeReadySign",
+           "BulkVolumeClassifier"]
 
 
 class OFI:
@@ -167,3 +168,26 @@ class LeeReadySign:
 
     def reset(self):
         self._tick.reset()
+
+
+class BulkVolumeClassifier:
+    """Bulk Volume Classification (Easley-Lopez de Prado-O'Hara 2012): the
+    buy-initiated share of a bar's volume, estimated as the standard normal CDF
+    of the bar return divided by its trailing-window volatility. Works on
+    aggregate bars, no tick data needed. Output is a fraction in [0, 1].
+    """
+
+    def __init__(self, window_size=20, start_policy="strict"):
+        """__init__(self: BulkVolumeClassifier, window_size: int = 20, start_policy: str = 'strict') -> None"""
+        self._std = RollingStd(window_size, start_policy)
+        self._erf = Erf()
+
+    def __call__(self, return_):
+        ret = np.asarray(return_, dtype=float)
+        sigma = np.asarray(self._std(ret), dtype=float)
+        z = ret / sigma
+        return 0.5 * (1.0 + np.asarray(self._erf(z / np.sqrt(2.0))))
+
+    def reset(self):
+        self._std.reset()
+        self._erf.reset()

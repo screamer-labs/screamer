@@ -3333,6 +3333,52 @@
     "details": "## Description\n\nThe Amihud (2002) illiquidity ratio measures how much the price moves per unit\nof trading volume (notional). At each bar it computes `|return| / notional`,\nthen takes a trailing-window mean over `window_size` observations. A large\nvalue indicates an illiquid, high-impact regime: a small trade moves the price\nsubstantially. A small value indicates a liquid market where large volume is\nabsorbed with little price effect.\n\n`AmihudIlliquidity(window_size, start_policy)(return_, notional)` returns\n`RollingMean(window_size, start_policy)(|return_| / notional)`.\n\nThe ratio is elementwise: if either `return_` or `notional` is `NaN` at a\ngiven bar, the ratio for that bar is `NaN` and `RollingMean` skips it\n(inheriting `nan_policy: ignore` from the C++ engine).\n\nA common pipeline is:\n\n1. Compute bar returns with `LogReturn` or `Return`.\n2. Compute `notional` as price times volume for the same bar.\n3. Feed both to `AmihudIlliquidity` to obtain a rolling illiquidity estimate.\n\n*Parameters*:\n\n- **`window_size`** (`int`, >= 2): size of the trailing window.\n- **`start_policy`** (`str`, default `\"strict\"`): controls warmup behavior.\n  `\"strict\"` emits `NaN` until `window_size` observations have been seen.\n  `\"expanding\"` uses however many observations are available. `\"zero\"` fills\n  the warmup period with zero.\n\n*Return value*: the Amihud illiquidity estimate at each time step. `NaN`\nduring warmup under `\"strict\"`, and whenever `notional` is zero or missing.\n\nCompared to `RollingKyleLambda` (which requires signed order-flow data),\n`AmihudIlliquidity` needs only a price return and a traded volume, making it\ncheap to compute from standard OHLCV bars without trade-level data.\n\n**Reference**: Amihud, Y. (2002). \"Illiquidity and stock returns: cross-section\nand time-series effects.\" *Journal of Financial Markets*, 5(1), 31-56.",
     "examples": []
   },
+  "BulkVolumeClassifier": {
+    "name": "BulkVolumeClassifier",
+    "title": "Bulk Volume Classifier (BVC)",
+    "implementation_family": "micro",
+    "topics": [
+      "microstructure"
+    ],
+    "tags": [
+      "trade sign",
+      "bulk volume",
+      "bvc",
+      "order flow",
+      "toxicity",
+      "microstructure"
+    ],
+    "short": "Buy-initiated share of a bar's volume estimated as the normal CDF of return / trailing-window volatility.",
+    "inputs": 1,
+    "outputs": 1,
+    "parameters": [
+      {
+        "name": "window_size",
+        "type": "int",
+        "default": 20,
+        "min": 2,
+        "description": "Window length in observations for the trailing standard deviation."
+      },
+      {
+        "name": "start_policy",
+        "type": "str",
+        "default": "strict",
+        "enum": [
+          "strict",
+          "expanding",
+          "zero"
+        ],
+        "description": "Warmup behaviour."
+      }
+    ],
+    "nan_policy": "ignore",
+    "see_also": [
+      "TickRuleSign",
+      "LeeReadySign"
+    ],
+    "details": "## Description\n\n`BulkVolumeClassifier` implements the Bulk Volume Classification (BVC) model of\nEasley, Lopez de Prado, and O'Hara (2012). It estimates the buy-initiated\nfraction of a bar's volume without tick-level data, using only the bar's return\nand its trailing volatility.\n\nAt each step the operator computes the standardized return\n`z = return_ / sigma_t`, where `sigma_t` is the rolling standard deviation of\n`return_` over the most recent `window_size` observations, and evaluates the\nstandard normal CDF `Phi(z) = 0.5 * (1 + erf(z / sqrt(2)))`. The result is a\nfraction in `[0, 1]`: values near 1 indicate a predominantly buy-driven bar,\nvalues near 0 indicate a sell-driven bar, and 0.5 indicates a neutral bar.\n\n`BulkVolumeClassifier` composes two existing screamer operators, `RollingStd`\nand `Erf`, so causality, warmup behavior, and the `nan_policy: ignore` contract\nare inherited from the C++ engine. Batch and streaming produce identical output.\n\nA common pipeline is:\n\n1. Compute bar log-returns with `LogReturn`.\n2. Feed the return series to `BulkVolumeClassifier` to obtain a per-bar\n   buy-fraction estimate.\n3. Multiply by the bar's total volume to recover an estimated buy volume.\n\n*Parameters*:\n\n- **`window_size`** (`int`, >= 2): number of observations in the trailing\n  standard deviation window.\n- **`start_policy`** (`str`, default `\"strict\"`): controls the warmup period\n  before `window_size` observations have been seen. `\"strict\"` emits `NaN`.\n  `\"expanding\"` uses all available observations. `\"zero\"` fills with zero.\n\n*Return value*: the buy fraction at each time step, in `[0, 1]`. `NaN` during\nwarmup (under `strict`) or when the input return is `NaN`.\n\n**Reference**: Easley, D., Lopez de Prado, M. M., & O'Hara, M. (2012).\n\"Bulk classification of trading activity.\" *Working Paper*, Cornell University.",
+    "examples": []
+  },
   "EwKyleLambda": {
     "name": "EwKyleLambda",
     "title": "Kyle's Lambda (exponentially weighted)",
