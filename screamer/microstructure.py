@@ -39,20 +39,29 @@ class SignedVolume:
 
 class TickRuleSign:
     """Trade sign by the tick rule: +1 on an up-tick, -1 on a down-tick, and the
-    previous sign carried forward when the price is unchanged (first bar 0).
+    previous sign carried forward when the price is unchanged (first bar NaN).
 
     Composed as Ffill(sign(diff) / |sign(diff)|): the division maps an unchanged
-    tick (0/0) to NaN, and Ffill carries the last known +/-1 across it. Built on
-    causal C++ operators, so it is causal and batch == stream by construction.
+    tick (0/0) to NaN, and Ffill carries the last known +/-1 across it. The C++
+    sub-operators are held on the instance so the state (Diff's previous price,
+    Ffill's last value) advances whether the instance is driven with a whole
+    array (batch) or one sample at a time (streaming) - so batch == stream holds.
+    A missing price (NaN input) yields NaN (nan_policy: ignore).
     """
 
+    def __init__(self):
+        self._diff = Diff(1)
+        self._sign = Sign()
+        self._abs = Abs()
+        self._div = Div()
+        self._ffill = Ffill()
+
     def __call__(self, price):
-        price = np.asarray(price, dtype=float)
-        d = Sign()(Diff(1)(price))          # -1 / 0 / +1; first bar NaN (Diff warmup)
-        signed = Div()(d, Abs()(d))         # unchanged tick (0/0) -> NaN, carried by Ffill
-        out = np.asarray(Ffill()(signed), dtype=float)
-        out[np.isnan(price)] = np.nan       # missing price -> NaN (nan_policy: ignore)
-        return out
+        d = self._sign(self._diff(price))        # -1 / 0 / +1; first bar NaN (Diff warmup)
+        signed = self._div(d, self._abs(d))      # unchanged tick (0/0) -> NaN, carried by Ffill
+        out = self._ffill(signed)
+        # missing price -> NaN; elementwise so it works for a scalar or an array step
+        return np.where(np.isnan(price), np.nan, out)
 
 
 class RollingKyleLambda:
