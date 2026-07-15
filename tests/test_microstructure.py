@@ -171,3 +171,31 @@ def test_bvc_is_normal_cdf_of_standardized_return():
     ref = 0.5 * (1.0 + np.asarray(Erf()(z / np.sqrt(2.0))))
     np.testing.assert_allclose(out, ref, equal_nan=True)
     assert np.nanmin(out) >= 0.0 and np.nanmax(out) <= 1.0   # a fraction
+
+
+def test_hawkes_intensity_hand_recursion_and_stream_equals_batch():
+    from screamer.microstructure import HawkesIntensity
+    x = np.array([1.0, 0.0, 0.0, 2.0, 0.0])
+    # lam0=0 ; lam1=0.9*(0+1)=0.9 ; lam2=0.9*0.9=0.81 ; lam3=0.9*0.81=0.729 ;
+    # lam4=0.9*(0.729+2)=2.4561
+    batch = HawkesIntensity(decay=0.9, alpha=1.0, mu=0.0)(x)
+    np.testing.assert_allclose(batch, [0.0, 0.9, 0.81, 0.729, 2.4561], atol=1e-9)
+    op = HawkesIntensity(decay=0.9, alpha=1.0, mu=0.0)
+    stream = np.array([op(float(v)) for v in x])   # one sample at a time
+    np.testing.assert_allclose(batch, stream, equal_nan=True)
+
+
+def test_hawkes_nan_does_not_poison_state():
+    from screamer.microstructure import HawkesIntensity
+    x = np.array([1.0, np.nan, 1.0])
+    out = HawkesIntensity(decay=0.5, alpha=1.0, mu=0.0)(x)
+    assert np.isnan(out[1])           # NaN input -> NaN output
+    assert np.isfinite(out[2])        # state recovered (not poisoned)
+
+
+def test_hawkes_reset_restarts_state():
+    from screamer.microstructure import HawkesIntensity
+    x = [1.0, 0.5, 2.0]
+    op = HawkesIntensity(decay=0.8)
+    a = [op(v) for v in x]; op.reset(); b = [op(v) for v in x]
+    np.testing.assert_allclose(a, b)

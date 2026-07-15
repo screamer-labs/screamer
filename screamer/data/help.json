@@ -3415,6 +3415,67 @@
     "details": "## Description\n\n`EwKyleLambda` estimates Kyle's lambda (the price-impact / illiquidity\ncoefficient) using exponential weighting rather than a fixed rolling window.\nRecent observations receive higher weight, so the estimate adapts faster to\nchanging liquidity conditions than `RollingKyleLambda`.\n\n`EwKyleLambda(span)(signed_flow, return_)` returns the EW regression slope\nof `return_` on `signed_flow`. It is a documented specialization of `EwBeta`:\ninternally it calls `EwBeta(span=span)(return_, signed_flow)`.\n\nKyle's lambda (Kyle 1985) is the slope of price change on signed order flow:\na high value signals an illiquid market with large price impact per unit of\nnet flow, a low value signals a liquid one.\n\n*Parameters*:\n\n- **`span`** (`float`, default `20.0`): EW span, where the decay factor is\n  `alpha = 2 / (span + 1)`. Larger spans place more weight on older data and\n  produce smoother, slower-adapting estimates.\n\n*Return value*: the price-impact coefficient lambda at each time step. The\nfirst output is `NaN` (EwBeta warmup). Subsequent `NaN` values occur when\n`signed_flow` has zero variance over the effective EW window.\n\nBecause the implementation delegates entirely to `EwBeta`, causality and the\n`nan_policy: ignore` contract are inherited from the C++ engine.\n\n**Reference**: Kyle, A. S. (1985). \"Continuous Auctions and Insider Trading.\"\n*Econometrica*, 53(6), 1315-1335.",
     "examples": []
   },
+  "HawkesIntensity": {
+    "name": "HawkesIntensity",
+    "title": "Hawkes Process Conditional Intensity",
+    "implementation_family": "micro",
+    "topics": [
+      "microstructure"
+    ],
+    "tags": [
+      "hawkes",
+      "self-exciting",
+      "intensity",
+      "order flow",
+      "clustering",
+      "microstructure"
+    ],
+    "short": "Conditional intensity of an exponential-kernel Hawkes process: lambda_t = mu + kappa_t.",
+    "inputs": 1,
+    "outputs": 1,
+    "parameters": [
+      {
+        "name": "decay",
+        "type": "float",
+        "default": 0.9,
+        "description": "Exponential decay rate applied to the self-exciting kernel each step. Must be in (0, 1)."
+      },
+      {
+        "name": "alpha",
+        "type": "float",
+        "default": 1.0,
+        "description": "Excitation amplitude; scales how much each event raises the intensity."
+      },
+      {
+        "name": "mu",
+        "type": "float",
+        "default": 0.0,
+        "description": "Baseline intensity (the unconditional floor)."
+      }
+    ],
+    "nan_policy": "ignore",
+    "see_also": [
+      "EwMean"
+    ],
+    "details": "## Description\n\n`HawkesIntensity` computes the conditional intensity of an exponential-kernel\nHawkes process driven by an event-mark series. A Hawkes process is\nself-exciting: each event raises the near-term rate of further events by an\namount proportional to the mark, and that excitation then decays exponentially\nover time. In order-flow terms, a burst of aggressive buying momentarily\nincreases the probability of more buying, capturing the clustering and momentum\nstructure of trades.\n\nThe recursion is:\n\n    lambda_t = mu + kappa_t\n    kappa_{t+1} = decay * (kappa_t + alpha * x_t)\n    kappa_0 = 0\n\nwhere `x_t` is the event mark at time `t` (trade count, signed flow magnitude,\nor a 0/1 event indicator), `mu` is the baseline intensity, `alpha` scales the\nexcitation from each event, and `decay` controls how fast the excitation fades.\n\nThe operator is causal: `lambda_t` depends only on `x_{t-1}` and earlier. At\n`t = 0`, when no history exists, the output is `mu`.\n\nA NaN event mark is treated as missing (nan_policy: ignore): the output at\nthat step is `NaN`, but `kappa` is not updated, so intensity recovers on the\nnext finite sample. This prevents a single bad tick from permanently corrupting\nthe state.\n\nThe per-sample update (`_step`) is used identically for whole-array and scalar\ndriving, so batch and streaming modes produce identical results.\n\n**References:**\n\n- Hawkes, A. G. (1971). \"Spectra of some self-exciting and mutually exciting\n  point processes.\" *Biometrika*, 58(1), 83-90.\n- Bacry, E., Mastromatteo, I., and Muzy, J.-F. (2015). \"Hawkes processes in\n  finance.\" *Market Microstructure and Liquidity*, 1(1), 1550005.",
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Basic usage",
+        "code": "import numpy as np\nfrom screamer.microstructure import HawkesIntensity\n\n# Event-mark series: one burst at t=0, then two events at t=3\nx = np.array([1.0, 0.0, 0.0, 2.0, 0.0])\nintensity = HawkesIntensity(decay=0.9, alpha=1.0, mu=0.0)(x)\n# Output: [0.0, 0.9, 0.81, 0.729, 2.4561]\n# At t=0: no prior history, intensity = mu = 0\n# At t=1: the event at t=0 excites intensity to 0.9\n# At t=3: the excitation has decayed to 0.729, then the 2-unit event fires\n# At t=4: the combined excitation from t=3 is 0.9*(0.729 + 1.0*2.0) = 2.4561"
+      },
+      {
+        "language": "python",
+        "caption": "Streaming one sample at a time",
+        "code": "op = HawkesIntensity(decay=0.9, alpha=1.0, mu=0.0)\nfor v in x:\n    lam = op(float(v))   # returns a Python float each call"
+      },
+      {
+        "language": "python",
+        "caption": "NaN tolerance",
+        "code": "x = np.array([1.0, np.nan, 1.0])\nout = HawkesIntensity(decay=0.5, alpha=1.0, mu=0.0)(x)\n# out[1] is NaN (missing input), but out[2] is finite (state not poisoned)"
+      }
+    ]
+  },
   "LeeReadySign": {
     "name": "LeeReadySign",
     "title": "Lee-Ready Trade Sign",

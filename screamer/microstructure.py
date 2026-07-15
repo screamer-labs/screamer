@@ -12,7 +12,7 @@ from .screamer_bindings import RollingBeta, EwBeta, RollingMean
 
 __all__ = ["OFI", "SignedVolume", "TickRuleSign", "RollingKyleLambda", "EwKyleLambda",
            "AmihudIlliquidity", "RollingOrderImbalance", "LeeReadySign",
-           "BulkVolumeClassifier", "RollSpread"]
+           "BulkVolumeClassifier", "RollSpread", "HawkesIntensity"]
 
 
 class OFI:
@@ -215,3 +215,37 @@ class RollSpread:
         self._diff.reset()
         self._lag.reset()
         self._cov.reset()
+
+
+class HawkesIntensity:
+    """Conditional intensity of an exponential-kernel Hawkes process - a
+    self-exciting model where each event raises the near-term rate of further
+    events (order-flow clustering / momentum). Recursion:
+    lambda_t = mu + kappa_t, kappa_{t+1} = decay*(kappa_t + alpha*x_t), kappa_0 = 0.
+    Causal (lambda_t depends on x up to t-1). A NaN event mark is ignored (output
+    NaN at that step, state left unchanged), so it does not poison the state. The
+    per-sample update is identical for array and scalar driving, so batch==stream.
+    """
+
+    def __init__(self, decay=0.9, alpha=1.0, mu=0.0):
+        """__init__(self: HawkesIntensity, decay: float = 0.9, alpha: float = 1.0, mu: float = 0.0) -> None"""
+        self.decay = decay
+        self.alpha = alpha
+        self.mu = mu
+        self._kappa = 0.0
+
+    def reset(self):
+        self._kappa = 0.0
+
+    def _step(self, x):
+        lam = self.mu + self._kappa
+        if np.isnan(x):
+            return np.nan                       # ignore: do not fold NaN into state
+        self._kappa = self.decay * (self._kappa + self.alpha * x)
+        return lam
+
+    def __call__(self, x):
+        scalar = np.ndim(x) == 0
+        arr = np.atleast_1d(np.asarray(x, dtype=float))
+        out = np.array([self._step(float(v)) for v in arr])
+        return out[0] if scalar else out
