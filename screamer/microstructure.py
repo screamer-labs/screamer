@@ -46,6 +46,8 @@ class TickRuleSign:
 
     def __call__(self, price):
         price = np.asarray(price, dtype=float)
-        d = Sign()(Diff(1)(price))          # -1 / 0 / +1, first is 0
-        signed = Div()(d, Abs()(d))         # 0/0 -> NaN on unchanged ticks
-        return Ffill()(signed)              # carry last +/-1 forward
+        d = Sign()(Diff(1)(price))          # -1 / 0 / +1; first bar NaN (Diff warmup)
+        signed = Div()(d, Abs()(d))         # unchanged tick (0/0) -> NaN, carried by Ffill
+        out = np.asarray(Ffill()(signed), dtype=float)
+        out[np.isnan(price)] = np.nan       # missing price -> NaN (nan_policy: ignore)
+        return out
