@@ -7,11 +7,11 @@ guarantee from the engine. Popular models are exposed under their canonical name
 with teaching-quality docs (see docs/functions_micro/).
 """
 import numpy as np
-from . import Diff, Sign, Abs, Div, Ffill
+from . import Diff, Sign, Abs, Div, Ffill, RollingSum
 from .screamer_bindings import RollingBeta, EwBeta, RollingMean
 
 __all__ = ["OFI", "SignedVolume", "TickRuleSign", "RollingKyleLambda", "EwKyleLambda",
-           "AmihudIlliquidity"]
+           "AmihudIlliquidity", "RollingOrderImbalance", "LeeReadySign"]
 
 
 class OFI:
@@ -56,6 +56,7 @@ class TickRuleSign:
     """
 
     def __init__(self):
+        """__init__(self: TickRuleSign) -> None"""
         self._diff = Diff(1)
         self._sign = Sign()
         self._abs = Abs()
@@ -125,3 +126,44 @@ class AmihudIlliquidity:
 
     def reset(self):
         self._mean.reset()
+
+
+class RollingOrderImbalance:
+    """Trailing-window sum of signed order flow (Chordia-Roll-Subrahmanyam order
+    imbalance). Specializes RollingSum.
+    """
+
+    def __init__(self, window_size=20, start_policy="strict"):
+        """__init__(self: RollingOrderImbalance, window_size: int = 20, start_policy: str = 'strict') -> None"""
+        self._sum = RollingSum(window_size, start_policy)
+
+    def __call__(self, signed_flow):
+        return self._sum(signed_flow)
+
+    def reset(self):
+        self._sum.reset()
+
+
+class LeeReadySign:
+    """Lee-Ready (1991) trade sign: +1 when the trade prints above the mid, -1
+    below, and the tick-rule sign of price when it prints exactly at the mid.
+
+    The tick-rule fallback is fed every price (not only at-mid ones) so its state
+    stays consistent whether the operator is driven by a whole array or one
+    sample at a time - so batch == stream holds. NaN in price or mid yields NaN.
+    """
+
+    def __init__(self):
+        """__init__(self: LeeReadySign) -> None"""
+        self._tick = TickRuleSign()
+
+    def __call__(self, price, mid):
+        price = np.asarray(price, dtype=float)
+        mid = np.asarray(mid, dtype=float)
+        tick = self._tick(price)                     # advance tick state on every sample
+        above = np.sign(price - mid)                 # +1 / 0 / -1 (NaN preserved)
+        out = np.where(above != 0.0, above, tick)    # at-mid (0) -> tick-rule fallback
+        return np.where(np.isnan(price) | np.isnan(mid), np.nan, out)
+
+    def reset(self):
+        self._tick.reset()

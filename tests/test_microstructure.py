@@ -121,3 +121,28 @@ def test_amihud_zero_notional_is_nan_not_inf():
     ret = np.array([0.01, 0.02, 0.03, 0.01]); notional = np.array([1e6, 0.0, 1e6, 1e6])
     out = AmihudIlliquidity(window_size=2)(ret, notional)
     assert not np.isinf(out).any()   # zero notional must not produce inf
+
+
+def test_rolling_order_imbalance_equals_rolling_sum():
+    from screamer import RollingSum
+    from screamer.microstructure import RollingOrderImbalance
+    flow = np.array([1.0, -2.0, 3.0, -1.0, 2.0])
+    np.testing.assert_allclose(RollingOrderImbalance(window_size=3)(flow),
+                               RollingSum(3)(flow), equal_nan=True)
+
+
+def test_lee_ready_sign_uses_mid_then_tick_fallback():
+    from screamer.microstructure import LeeReadySign
+    price = np.array([100.0, 101.0, 101.0, 100.0])
+    mid   = np.array([100.5, 100.5, 101.0, 100.5])
+    # p<mid -> -1 ; p>mid -> +1 ; p==mid -> tick rule (101 vs prev 101 = unchanged -> carry +1) ; p<mid -> -1
+    out = LeeReadySign()(price, mid)
+    np.testing.assert_allclose(out, [-1.0, 1.0, 1.0, -1.0])
+
+
+def test_lee_ready_sign_is_causal():
+    from screamer.microstructure import LeeReadySign
+    price = np.array([100.0, 101.0, 100.5, 101.0]); mid = np.array([100.0, 100.0, 100.0, 100.0])
+    full = LeeReadySign()(price, mid)
+    trunc = LeeReadySign()(price[:3], mid[:3])
+    np.testing.assert_allclose(full[:3], trunc, equal_nan=True)
