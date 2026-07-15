@@ -85,3 +85,13 @@ def test_ew_kyle_lambda_equals_ew_beta():
     flow = rng.normal(size=200); ret = 1.5 * flow + rng.normal(scale=0.1, size=200)
     np.testing.assert_allclose(EwKyleLambda(span=30.0)(flow, ret),
                                EwBeta(span=30.0)(ret, flow), equal_nan=True)
+
+
+def test_amihud_matches_rolling_mean_of_ratio():
+    from screamer import RollingMean
+    from screamer.microstructure import AmihudIlliquidity
+    ret = np.array([0.01, -0.02, 0.015, -0.005, 0.02])
+    notional = np.array([1e6, 2e6, 5e5, 1e6, 4e6])
+    out = AmihudIlliquidity(window_size=3)(ret, notional)
+    ref = RollingMean(3)(np.abs(ret) / notional)
+    np.testing.assert_allclose(out, ref, equal_nan=True)

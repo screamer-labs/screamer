@@ -8,9 +8,10 @@ with teaching-quality docs (see docs/functions_micro/).
 """
 import numpy as np
 from . import Diff, Sign, Abs, Div, Ffill
-from .screamer_bindings import RollingBeta, EwBeta
+from .screamer_bindings import RollingBeta, EwBeta, RollingMean
 
-__all__ = ["OFI", "SignedVolume", "TickRuleSign", "RollingKyleLambda", "EwKyleLambda"]
+__all__ = ["OFI", "SignedVolume", "TickRuleSign", "RollingKyleLambda", "EwKyleLambda",
+           "AmihudIlliquidity"]
 
 
 class OFI:
@@ -76,3 +77,19 @@ class EwKyleLambda:
 
     def __call__(self, signed_flow, return_):
         return self._beta(return_, signed_flow)
+
+
+class AmihudIlliquidity:
+    """Amihud (2002) illiquidity: rolling mean of |return| / notional. Large
+    values mean price moves a lot per dollar traded (an illiquid, high-impact
+    regime). A robust, cheap cousin of Kyle's lambda.
+    """
+
+    def __init__(self, window_size=20, start_policy="strict"):
+        """__init__(self: AmihudIlliquidity, window_size: int = 20, start_policy: str = 'strict') -> None"""
+        self._mean = RollingMean(window_size, start_policy)
+
+    def __call__(self, return_, notional):
+        ret = np.asarray(return_, dtype=float)
+        notl = np.asarray(notional, dtype=float)
+        return self._mean(np.abs(ret) / notl)
