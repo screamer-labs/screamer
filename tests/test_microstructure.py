@@ -121,3 +121,109 @@ def test_amihud_zero_notional_is_nan_not_inf():
     ret = np.array([0.01, 0.02, 0.03, 0.01]); notional = np.array([1e6, 0.0, 1e6, 1e6])
     out = AmihudIlliquidity(window_size=2)(ret, notional)
     assert not np.isinf(out).any()   # zero notional must not produce inf
+
+
+def test_rolling_order_imbalance_equals_rolling_sum():
+    from screamer import RollingSum
+    from screamer.microstructure import RollingOrderImbalance
+    flow = np.array([1.0, -2.0, 3.0, -1.0, 2.0])
+    np.testing.assert_allclose(RollingOrderImbalance(window_size=3)(flow),
+                               RollingSum(3)(flow), equal_nan=True)
+
+
+def test_lee_ready_sign_uses_mid_then_tick_fallback():
+    from screamer.microstructure import LeeReadySign
+    price = np.array([100.0, 101.0, 101.0, 100.0])
+    mid   = np.array([100.5, 100.5, 101.0, 100.5])
+    # p<mid -> -1 ; p>mid -> +1 ; p==mid -> tick rule (101 vs prev 101 = unchanged -> carry +1) ; p<mid -> -1
+    out = LeeReadySign()(price, mid)
+    np.testing.assert_allclose(out, [-1.0, 1.0, 1.0, -1.0])
+
+
+def test_lee_ready_sign_is_causal():
+    from screamer.microstructure import LeeReadySign
+    price = np.array([100.0, 101.0, 100.5, 101.0]); mid = np.array([100.0, 100.0, 100.0, 100.0])
+    full = LeeReadySign()(price, mid)
+    trunc = LeeReadySign()(price[:3], mid[:3])
+    np.testing.assert_allclose(full[:3], trunc, equal_nan=True)
+
+
+def test_roll_spread_recovers_bounce_and_is_nan_when_undefined():
+    from screamer.microstructure import RollSpread
+    # a clean +/-0.1 bid-ask bounce around 100 -> serial cov of price changes is
+    # negative -> Roll spread is defined and positive
+    price = 100.0 + 0.1 * np.array([0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1], dtype=float)
+    out = RollSpread(window_size=6)(price)
+    assert np.isfinite(out[-1]) and out[-1] > 0.0
+    # a monotonic ramp -> serial cov >= 0 -> undefined -> NaN
+    ramp = np.arange(12.0)
+    assert np.isnan(RollSpread(window_size=6)(ramp)[-1])
+
+
+def test_bvc_is_normal_cdf_of_standardized_return():
+    from screamer import RollingStd, Erf
+    from screamer.microstructure import BulkVolumeClassifier
+    rng = np.random.default_rng(0)
+    ret = rng.normal(scale=0.01, size=200)
+    out = BulkVolumeClassifier(window_size=50)(ret)
+    sigma = np.asarray(RollingStd(50)(ret))
+    z = ret / sigma
+    ref = 0.5 * (1.0 + np.asarray(Erf()(z / np.sqrt(2.0))))
+    np.testing.assert_allclose(out, ref, equal_nan=True)
+    assert np.nanmin(out) >= 0.0 and np.nanmax(out) <= 1.0   # a fraction
+
+
+def test_hawkes_intensity_hand_recursion_and_stream_equals_batch():
+    from screamer.microstructure import HawkesIntensity
+    x = np.array([1.0, 0.0, 0.0, 2.0, 0.0])
+    # lam0=0 ; lam1=0.9*(0+1)=0.9 ; lam2=0.9*0.9=0.81 ; lam3=0.9*0.81=0.729 ;
+    # lam4=0.9*(0.729+2)=2.4561
+    batch = HawkesIntensity(decay=0.9, alpha=1.0, mu=0.0)(x)
+    np.testing.assert_allclose(batch, [0.0, 0.9, 0.81, 0.729, 2.4561], atol=1e-9)
+    op = HawkesIntensity(decay=0.9, alpha=1.0, mu=0.0)
+    stream = np.array([op(float(v)) for v in x])   # one sample at a time
+    np.testing.assert_allclose(batch, stream, equal_nan=True)
+
+
+def test_hawkes_nan_does_not_poison_state():
+    from screamer.microstructure import HawkesIntensity
+    x = np.array([1.0, np.nan, 1.0])
+    out = HawkesIntensity(decay=0.5, alpha=1.0, mu=0.0)(x)
+    assert np.isnan(out[1])           # NaN input -> NaN output
+    assert np.isfinite(out[2])        # state recovered (not poisoned)
+
+
+def test_hawkes_reset_restarts_state():
+    from screamer.microstructure import HawkesIntensity
+    x = [1.0, 0.5, 2.0]
+    op = HawkesIntensity(decay=0.8)
+    a = [op(v) for v in x]; op.reset(); b = [op(v) for v in x]
+    np.testing.assert_allclose(a, b)
+
+
+def test_propagator_kernel_convolution_and_warmup():
+    from screamer.microstructure import Propagator
+    flow = np.array([1.0, 0.0, 0.0, 1.0, 0.0, 0.0])
+    out = Propagator(window=3, g0=1.0, gamma=0.5)(flow)
+    # G = [1, 2^-0.5, 3^-0.5] = [1, 0.70711, 0.57735]
+    # warmup: t=0,1 -> NaN ; t=2: G0*f2+G1*f1+G2*f0 = 0.57735 ;
+    # t=3: G0*f3+G1*f2+G2*f1 = 1.0 ; t=4: G2*f2? = G0*f4+G1*f3+G2*f2 = 0.70711 ;
+    # t=5: G0*f5+G1*f4+G2*f3 = 0.57735
+    assert np.isnan(out[0]) and np.isnan(out[1])
+    np.testing.assert_allclose(out[2:], [0.57735, 1.0, 0.70711, 0.57735], atol=1e-4)
+
+
+def test_propagator_stream_equals_batch():
+    from screamer.microstructure import Propagator
+    rng = np.random.default_rng(3); flow = rng.normal(size=60)
+    batch = Propagator(window=5)(flow)
+    op = Propagator(window=5); stream = np.array([op(float(v)) for v in flow])
+    np.testing.assert_allclose(batch, stream, equal_nan=True)
+
+
+def test_propagator_reset_clears_buffer():
+    from screamer.microstructure import Propagator
+    flow = [1.0, 2.0, 3.0, 4.0]
+    op = Propagator(window=2)
+    a = [op(v) for v in flow]; op.reset(); b = [op(v) for v in flow]
+    np.testing.assert_allclose(a, b, equal_nan=True)
