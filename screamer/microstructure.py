@@ -29,12 +29,18 @@ class OFI:
         safe = np.where(zero_total, 1.0, total)          # avoid 0/0; NaN stays NaN
         return np.where(zero_total, 0.0, (buy - sell) / safe)
 
+    def reset(self):
+        pass
+
 
 class SignedVolume:
     """Signed order flow: sign * volume (aggressor-signed volume)."""
 
     def __call__(self, sign, volume):
         return np.asarray(sign, dtype=float) * np.asarray(volume, dtype=float)
+
+    def reset(self):
+        pass
 
 
 class TickRuleSign:
@@ -63,6 +69,13 @@ class TickRuleSign:
         # missing price -> NaN; elementwise so it works for a scalar or an array step
         return np.where(np.isnan(price), np.nan, out)
 
+    def reset(self):
+        self._diff.reset()
+        self._sign.reset()
+        self._abs.reset()
+        self._div.reset()
+        self._ffill.reset()
+
 
 class RollingKyleLambda:
     """Kyle's lambda over a trailing window: the price-impact / illiquidity slope
@@ -76,6 +89,9 @@ class RollingKyleLambda:
     def __call__(self, signed_flow, return_):
         return self._beta(return_, signed_flow)   # slope of return on flow
 
+    def reset(self):
+        self._beta.reset()
+
 
 class EwKyleLambda:
     """Kyle's lambda, exponentially weighted (recursive). Specializes EwBeta."""
@@ -86,6 +102,9 @@ class EwKyleLambda:
 
     def __call__(self, signed_flow, return_):
         return self._beta(return_, signed_flow)
+
+    def reset(self):
+        self._beta.reset()
 
 
 class AmihudIlliquidity:
@@ -101,4 +120,8 @@ class AmihudIlliquidity:
     def __call__(self, return_, notional):
         ret = np.asarray(return_, dtype=float)
         notl = np.asarray(notional, dtype=float)
-        return self._mean(np.abs(ret) / notl)
+        ratio = np.where(notl == 0.0, np.nan, np.abs(ret) / np.where(notl == 0.0, 1.0, notl))
+        return self._mean(ratio)
+
+    def reset(self):
+        self._mean.reset()

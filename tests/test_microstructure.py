@@ -95,3 +95,29 @@ def test_amihud_matches_rolling_mean_of_ratio():
     out = AmihudIlliquidity(window_size=3)(ret, notional)
     ref = RollingMean(3)(np.abs(ret) / notional)
     np.testing.assert_allclose(out, ref, equal_nan=True)
+
+
+def test_operators_expose_reset():
+    from screamer.microstructure import (OFI, SignedVolume, TickRuleSign,
+        RollingKyleLambda, EwKyleLambda, AmihudIlliquidity)
+    for op in [OFI(), SignedVolume(), TickRuleSign(), RollingKyleLambda(),
+               EwKyleLambda(), AmihudIlliquidity()]:
+        op.reset()   # must exist and be callable
+
+
+def test_reset_restarts_streaming_state():
+    # scalar-stream, reset, scalar-stream again -> identical to a fresh instance
+    from screamer.microstructure import RollingKyleLambda
+    flow = [0.5, -0.3, 0.8, -0.1, 0.4, 0.2]; ret = [1.0, -0.6, 1.7, -0.2, 0.9, 0.5]
+    op = RollingKyleLambda(window_size=3)
+    a = [op(float(f), float(r)) for f, r in zip(flow, ret)]
+    op.reset()
+    b = [op(float(f), float(r)) for f, r in zip(flow, ret)]
+    np.testing.assert_allclose(np.asarray(a, float), np.asarray(b, float), equal_nan=True)
+
+
+def test_amihud_zero_notional_is_nan_not_inf():
+    from screamer.microstructure import AmihudIlliquidity
+    ret = np.array([0.01, 0.02, 0.03, 0.01]); notional = np.array([1e6, 0.0, 1e6, 1e6])
+    out = AmihudIlliquidity(window_size=2)(ret, notional)
+    assert not np.isinf(out).any()   # zero notional must not produce inf
