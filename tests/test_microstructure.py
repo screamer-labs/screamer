@@ -1,5 +1,4 @@
 import numpy as np
-import pytest
 from screamer.microstructure import OFI
 
 
@@ -16,3 +15,12 @@ def test_ofi_is_causal():
     full = OFI()(buy, sell)
     trunc = OFI()(buy[:2], sell[:2])
     np.testing.assert_allclose(full[:2], trunc)   # future rows do not change past values
+
+
+def test_ofi_propagates_nan_but_zeros_empty_bucket():
+    buy = np.array([np.nan, 0.0, 2.0])
+    sell = np.array([1.0, 0.0, 2.0])
+    out = OFI()(buy, sell)
+    assert np.isnan(out[0])          # NaN input -> NaN output (nan_policy: ignore)
+    assert out[1] == 0.0             # empty bucket -> 0.0, not NaN
+    assert out[2] == 0.0
