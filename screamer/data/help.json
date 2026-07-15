@@ -3309,6 +3309,50 @@
     "details": "## Description\n\n`OFI` is the order-flow imbalance: the net of buy-aggressor and sell-aggressor\nvolume, normalized by their total. It lives in `[-1, 1]`, is positive when buyers\nlift the offer more than sellers hit the bid, and is `0` on an empty bucket.\n\nOrder-flow imbalance is the standard short-horizon driver of price: over a bar it\nexplains a large share of the price change (see `RollingKyleLambda`). Feed\n`OFI(buy_volume, sell_volume)` as a signal, or pair it with returns to estimate\nprice impact. References: Cont, Kukanov, Stoikov (2014), \"The price impact of\norder book events\".",
     "examples": []
   },
+  "SignedVolume": {
+    "name": "SignedVolume",
+    "title": "Signed Volume",
+    "implementation_family": "micro",
+    "topics": [
+      "microstructure"
+    ],
+    "tags": [
+      "signed volume",
+      "order flow",
+      "flow",
+      "microstructure"
+    ],
+    "short": "Aggressor-signed volume, sign * volume.",
+    "inputs": 2,
+    "outputs": 1,
+    "parameters": [],
+    "nan_policy": "ignore",
+    "details": "## Description\n\n`SignedVolume` multiplies a trade sign by volume to give aggressor-signed order\nflow. Pair a sign source (`TickRuleSign`, or an aggressor flag) with volume, then\nfeed the result to `RollingKyleLambda` for price impact.",
+    "examples": []
+  },
+  "TickRuleSign": {
+    "name": "TickRuleSign",
+    "title": "Tick Rule Sign",
+    "implementation_family": "micro",
+    "topics": [
+      "microstructure"
+    ],
+    "tags": [
+      "trade sign",
+      "tick rule",
+      "lee ready",
+      "classification",
+      "flow",
+      "microstructure"
+    ],
+    "short": "Trade sign by the tick rule (+1 up-tick, -1 down-tick, carry on unchanged).",
+    "inputs": 1,
+    "outputs": 1,
+    "parameters": [],
+    "nan_policy": "ignore",
+    "details": "## Description\n\n`TickRuleSign` classifies each trade as buyer-initiated (`+1`) or\nseller-initiated (`-1`) by the tick rule: a trade above the previous price is a\nbuy, below is a sell, and an unchanged price carries the previous sign. It is the\nsimplest trade-sign classifier and needs only the price series. References: the\ntick rule, and Lee, Ready (1991), \"Inferring Trade Direction from Intraday Data\".",
+    "examples": []
+  },
   "CumMax": {
     "name": "CumMax",
     "title": "Cumulative maximum",
