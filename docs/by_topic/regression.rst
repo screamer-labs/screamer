@@ -18,6 +18,8 @@ Relationships between series: correlation, covariance, regression, hedging, pair
      - EW Pearson correlation of two parallel streams.
    * - :doc:`Exponentially-weighted covariance </functions_ew/EwCov>`
      - EW covariance of two parallel streams.
+   * - :doc:`Kyle's Lambda (exponentially weighted) </functions_micro/EwKyleLambda>`
+     - Exponentially-weighted price-impact slope of return on signed order flow.
    * - :doc:`Rolling alpha (regression intercept) </functions_fin/RollingAlpha>`
      - Rolling OLS intercept of target on regressor (companion to RollingBeta).
    * - :doc:`Rolling beta </functions_fin/RollingBeta>`
@@ -28,6 +30,8 @@ Relationships between series: correlation, covariance, regression, hedging, pair
      - Rolling sample covariance of two parallel streams.
    * - :doc:`Rolling Hurst Exponent </functions_rolling/RollingHurst>`
      - Rolling-window Hurst exponent via Anis-Lloyd corrected rescaled-range analysis.
+   * - :doc:`Kyle's Lambda (rolling) </functions_micro/RollingKyleLambda>`
+     - Rolling-window price-impact slope of return on signed order flow (Kyle 1985).
    * - :doc:`Rolling linear regression (2->4 OLS fit) </functions_fin/RollingLinearRegression>`
      - Full OLS fit returning (slope, intercept, r_squared, stderr).
    * - :doc:`Rolling Ornstein-Uhlenbeck fit </functions_rolling/RollingOU>`

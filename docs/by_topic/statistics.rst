@@ -12,6 +12,8 @@ Windowed summary statistics: central tendency, dispersion, quantiles, moments, a
 
    * - Function
      - Description
+   * - :doc:`Amihud Illiquidity </functions_micro/AmihudIlliquidity>`
+     - Rolling mean of \|return\| / notional (Amihud 2002 illiquidity ratio).
    * - :doc:`Exponentially-weighted kurtosis </functions_ew/EwKurt>`
      - EW excess kurtosis.
    * - :doc:`Exponentially-weighted mean </functions_ew/EwMean>`

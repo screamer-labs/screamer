@@ -156,6 +156,8 @@ For a step-by-step walkthrough see the :doc:`User Guide <usage>`.
    by_topic/missing-data
    by_topic/outliers
    by_topic/streams
+   by_topic/logic
+   by_topic/microstructure
    by_topic/graphs
 
 
@@ -187,6 +189,7 @@ For a step-by-step walkthrough see the :doc:`User Guide <usage>`.
    nan_and_warmup
    multistream
    pipelines
+   microstructure
    performance
    conventions
 

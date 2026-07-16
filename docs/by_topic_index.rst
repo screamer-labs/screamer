@@ -28,6 +28,7 @@ Every function, grouped by topic. Topics are many-to-many, so a function may app
 * :doc:`Outliers & robustness <by_topic/outliers>`
 * :doc:`Streams <by_topic/streams>`
 * :doc:`Logic & comparison <by_topic/logic>`
+* :doc:`Microstructure <by_topic/microstructure>`
 * :doc:`Pipelines <by_topic/graphs>`
 
 .. toctree::
@@ -131,6 +132,18 @@ Every function, grouped by topic. Topics are many-to-many, so a function may app
    functions_math/Sub
    functions_math/Tanh
    functions_math/Where
+   functions_micro/AmihudIlliquidity
+   functions_micro/BulkVolumeClassifier
+   functions_micro/EwKyleLambda
+   functions_micro/HawkesIntensity
+   functions_micro/LeeReadySign
+   functions_micro/OFI
+   functions_micro/Propagator
+   functions_micro/RollSpread
+   functions_micro/RollingKyleLambda
+   functions_micro/RollingOrderImbalance
+   functions_micro/SignedVolume
+   functions_micro/TickRuleSign
    functions_misc/CumMax
    functions_misc/CumMin
    functions_misc/CumProd
