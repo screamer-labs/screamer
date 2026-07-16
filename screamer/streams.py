@@ -175,18 +175,6 @@ def _normalize_streams(streams, who):
     return kinds.pop(), norm_index, norm_vals
 
 
-def _collapse_last_per_index(index, values):
-    """Keep the last row of each run of equal index (one row per distinct index).
-    index must be non-decreasing (the aligner emits in index order)."""
-    n = len(index)
-    if n == 0:
-        return index, values
-    keep = np.empty(n, dtype=bool)
-    keep[:-1] = index[:-1] != index[1:]
-    keep[-1] = True
-    return index[keep], values[keep]
-
-
 def _streams_to_indexed(streams, who):
     """(kind, index_list, vals_list, positional). Uniform positional or indexed;
     no-index requires equal length; mixing positional and indexed raises."""
@@ -363,8 +351,7 @@ def combine_latest(*values, index=None, emit="when_all"):
     streams = _to_streams(values, index)
     kind, idx, vals, positional = _streams_to_indexed(streams, "combine_latest")
     fn = _b._combine_latest_f64 if kind == "f64" else _b._combine_latest_i64
-    out_index, aligned = fn(idx, vals, emit == "when_all")
-    out_index, aligned = _collapse_last_per_index(out_index, aligned)
+    out_index, aligned = fn(idx, vals, emit == "when_all")   # coalesced in C++
     return aligned, (None if positional else out_index)
 
 
