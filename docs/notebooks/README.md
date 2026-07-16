@@ -1,7 +1,10 @@
 # Demo notebooks
 
-Runnable notebooks showcasing screamer. Each is self-contained (seeded synthetic
-data, no downloads) and uses only the public API.
+Runnable notebooks showcasing screamer, using only the public API. Notebooks
+01-10 are self-contained with seeded synthetic data. The microstructure
+notebooks (11-12) read a small committed real-data slice from `data/` (six hours
+of Deribit BTC- and ETH-perpetual trades). Everything runs offline with no
+downloads.
 
 ## Run / verify
 
