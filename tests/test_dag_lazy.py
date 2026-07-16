@@ -120,3 +120,7 @@ def test_dag_fractional_index_raises():
     # integer-valued float indices are lossless and must NOT raise
     v_batch, k_batch = dag((np.array([1.0, 2.0]), np.array([0.0, 1.0])))
     np.testing.assert_array_equal(k_batch, [0, 1])
+    # non-finite float indices (inf/nan) must fail loudly, not cast to garbage
+    for bad in (float("inf"), float("nan")):
+        with pytest.raises(TypeError):
+            list(dag((1.0, b) for b in [0.0, bad]))    # lazy generator feed

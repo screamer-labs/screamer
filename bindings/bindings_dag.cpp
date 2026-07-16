@@ -16,6 +16,7 @@
 #include "screamer/streams/merge_source.h"
 #include "screamer/streams/py_source.h"
 #include <algorithm>
+#include <cassert>
 #include <deque>
 #include <tuple>
 
@@ -87,6 +88,7 @@ private:
     // One output: buffer each drained frame directly as a (value, index) row.
     void collect_single() {
         std::vector<dag::OutputBuffer> bufs = cg_.drain();
+        assert(bufs.size() == 1 && "collect_single: graph must have one output");
         const dag::OutputBuffer& b = bufs[0];
         const std::size_t w = b.width;
         const std::size_t rows = b.indices.size();
@@ -101,6 +103,7 @@ private:
     // lowest watermark - no output can still emit below it).
     void collect_multi() {
         std::vector<dag::OutputBuffer> bufs = cg_.drain();
+        assert(bufs.size() == n_out_ && "collect_multi: drain count must equal n_out");
         for (std::size_t out_pos = 0; out_pos < bufs.size(); ++out_pos) {
             const dag::OutputBuffer& b = bufs[out_pos];
             const std::size_t w = b.width;

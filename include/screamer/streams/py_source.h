@@ -53,10 +53,15 @@ public:
                 py::handle idx = tup[1];
                 if (py::isinstance<py::float_>(idx)) {
                     double d = idx.cast<double>();
-                    if (std::floor(d) != d) {
+                    // Reject non-finite (inf/nan) and fractional floats: only a
+                    // finite integer-valued float maps to an int64 index. Guarding
+                    // finiteness first avoids UB in the static_cast below (casting
+                    // inf/nan to int64 is undefined).
+                    if (!std::isfinite(d) || std::floor(d) != d) {
                         throw py::type_error(
-                            "stream index must be integer-valued; got a "
-                            "fractional float. The engine is int64-indexed.");
+                            "stream index must be a finite integer-valued number; "
+                            "got a fractional or non-finite float. The engine is "
+                            "int64-indexed.");
                     }
                     ev.index = static_cast<Index>(d);
                 } else {
