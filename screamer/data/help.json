@@ -3522,7 +3522,13 @@
     "parameters": [],
     "nan_policy": "ignore",
     "details": "## Description\n\n`OFI` is the order-flow imbalance: the net of buy-aggressor and sell-aggressor\nvolume, normalized by their total. It lives in `[-1, 1]`, is positive when buyers\nlift the offer more than sellers hit the bid, and is `0` on an empty bucket.\n\nOrder-flow imbalance is the standard short-horizon driver of price: over a bar it\nexplains a large share of the price change (see `RollingKyleLambda`). Feed\n`OFI(buy_volume, sell_volume)` as a signal, or pair it with returns to estimate\nprice impact. References: Cont, Kukanov, Stoikov (2014), \"The price impact of\norder book events\".",
-    "examples": []
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage plot",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import OFI\n\nrng = np.random.default_rng(4)\nn = 200\nwave = np.sin(np.linspace(0, 4 * np.pi, n))          # slow shift in pressure\nbuy = np.abs(rng.standard_normal(n)) + 1 + 2 * wave.clip(0)\nsell = np.abs(rng.standard_normal(n)) + 1 + 2 * (-wave).clip(0)\nofi = OFI()(buy, sell)\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.55, 0.45],\n                    vertical_spacing=0.08)\nfig.add_trace(go.Bar(y=buy, name='buy volume', marker_color='seagreen'), row=1, col=1)\nfig.add_trace(go.Bar(y=-sell, name='sell volume', marker_color='crimson'), row=1, col=1)\nfig.add_trace(go.Scatter(y=ofi, name='OFI', line=dict(color='navy')), row=2, col=1)\nfig.update_layout(barmode='relative',\n                  title='OFI: order-flow imbalance in [-1, 1]',\n                  yaxis=dict(title='volume'), yaxis2=dict(title='OFI', range=[-1, 1]),\n                  margin=dict(l=20, r=20, t=60, b=20), legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1))\nfig.show()"
+      }
+    ]
   },
   "Propagator": {
     "name": "Propagator",
@@ -3749,7 +3755,13 @@
     "parameters": [],
     "nan_policy": "ignore",
     "details": "## Description\n\n`SignedVolume` multiplies a trade sign by volume to give aggressor-signed order\nflow. Pair a sign source (`TickRuleSign`, or an aggressor flag) with volume, then\nfeed the result to `RollingKyleLambda` for price impact.",
-    "examples": []
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage plot",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import SignedVolume\n\nrng = np.random.default_rng(2)\nn = 120\nsign = rng.choice([-1.0, 1.0], size=n)\nsize = rng.exponential(1.0, size=n)\nflow = SignedVolume()(sign, size)\n\ncolors = np.where(flow >= 0, 'seagreen', 'crimson')\nfig = go.Figure(go.Bar(y=flow, marker_color=colors, name='signed volume'))\nfig.update_layout(title='SignedVolume: buyer-initiated (+) and seller-initiated (-) flow',\n                  xaxis_title='trade', yaxis_title='signed volume',\n                  margin=dict(l=20, r=20, t=60, b=20))\nfig.show()"
+      }
+    ]
   },
   "TickRuleSign": {
     "name": "TickRuleSign",
@@ -3772,7 +3784,13 @@
     "parameters": [],
     "nan_policy": "ignore",
     "details": "## Description\n\n`TickRuleSign` classifies each trade as buyer-initiated (`+1`) or\nseller-initiated (`-1`) by the tick rule: a trade above the previous price is a\nbuy, below is a sell, and an unchanged price carries the previous sign. It is the\nsimplest trade-sign classifier and needs only the price series. References: the\ntick rule, and Lee, Ready (1991), \"Inferring Trade Direction from Intraday Data\".\n\nThe output stays `NaN` until the first price change: the initial bar is always\n`NaN` (no prior price), and if subsequent prices are all unchanged there is no\ndirectional tick yet and no sign to carry forward.",
-    "examples": []
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage plot",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import TickRuleSign\n\nrng = np.random.default_rng(0)\nprice = 100 + np.cumsum(rng.standard_normal(200) * 0.05)\nsign = TickRuleSign()(price)\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.7, 0.3],\n                    vertical_spacing=0.08)\nfig.add_trace(go.Scatter(y=price, mode='lines', name='price',\n                         line=dict(color='steelblue')), row=1, col=1)\nfig.add_trace(go.Scatter(y=sign, mode='lines', line_shape='hv', name='tick sign',\n                         line=dict(color='crimson')), row=2, col=1)\nfig.update_layout(title='TickRuleSign: +1 on an up-tick, -1 on a down-tick',\n                  yaxis=dict(title='price'), yaxis2=dict(title='sign', dtick=1),\n                  margin=dict(l=20, r=20, t=60, b=20), legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1))\nfig.show()"
+      }
+    ]
   },
   "CumMax": {
     "name": "CumMax",
