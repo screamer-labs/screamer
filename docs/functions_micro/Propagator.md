@@ -126,20 +126,27 @@ impact_second_pass = op(flow)   # identical to first pass
     from plotly.subplots import make_subplots
     from screamer import Propagator
 
-    # A single unit of buy flow, so the output traces out the impact kernel: impact
-    # builds and then relaxes through the decaying propagator.
-    flow = np.zeros(80)
-    flow[10] = 1.0
-    impact = Propagator(window=40, g0=1.0, gamma=0.5)(flow)
+    # One unit of buy flow, fired after the warmup window so the output traces the
+    # whole impact kernel: impact peaks with the trade, then relaxes.
+    window = 30
+    n = window + 45
+    flow = np.zeros(n)
+    trade = window + 5
+    flow[trade] = 1.0
+    impact = Propagator(window=window, g0=1.0, gamma=0.9)(flow)
 
+    lo = trade - 2
+    t = np.arange(lo, n) - trade                 # time since the trade (0 = the trade)
     fig = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.35, 0.65],
                         vertical_spacing=0.08)
-    fig.add_trace(go.Bar(y=flow, name='signed flow', marker_color='seagreen'),
+    fig.add_trace(go.Bar(x=t, y=flow[lo:], name='signed flow', marker_color='seagreen'),
                   row=1, col=1)
-    fig.add_trace(go.Scatter(y=impact, name='price impact',
+    fig.add_trace(go.Scatter(x=t, y=impact[lo:], name='price impact',
                              line=dict(color='teal')), row=2, col=1)
-    fig.update_layout(title='Propagator: impact of one trade decays over time',
+    fig.update_layout(title='Propagator: impact of one trade peaks, then decays',
                       yaxis=dict(title='flow'), yaxis2=dict(title='impact'),
-                      margin=dict(l=20, r=20, t=60, b=20), legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1))
+                      xaxis2=dict(title='time since the trade'),
+                      margin=dict(l=20, r=20, t=60, b=40),
+                      legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1))
     fig.show()
 ```
