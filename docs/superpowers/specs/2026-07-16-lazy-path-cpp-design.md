@@ -125,6 +125,31 @@ semantics (buffer unsettled events, settle every index strictly below
 faithfully, and the single-output fast path kept. It is the one item that
 warrants implementing on its own, after 1 and 2.
 
+**Resolution (implemented).** Done as a C++ `LazyDriver` in `bindings_dag.cpp`
+that merges the feeds (`streams::MergeSource`, made lazy-refill so it never
+reads further ahead than requested), drives the `CompiledGraph`, and yields
+rows. One output yields `(value, index)`; M>1 co-indexed outputs run the
+watermark as-of join in C++ (buffer drained events, per-output watermarks,
+settle every index below `min(watermark)`, suppress until every output has a
+value) and yield flat `(col0, ..., col_{M-1}, index)` rows. `_LazyDag` is
+deleted.
+
+We first tried folding the M outputs into one in-graph `CombineLatestNode` (so
+the graph would be single-output and no driver-level join was needed). **This
+does not work**, and the `_divergent` identity test proves why: that node
+coalesces by "emit on index advance," which assumes its port events arrive in
+globally non-decreasing index order. That holds when the node's inputs are raw
+input streams (all driven by one merged monotonic feed), but breaks when the
+inputs are outputs that buffer internally (e.g. nested `CombineLatest`): the
+outputs emit at independently-lagging indices, arrive out of order at the outer
+node's shared buffer, and trigger premature flushes (189 duplicated rows vs the
+oracle's 131). The watermark join is therefore a genuinely distinct algorithm
+from `CombineLatestNode`, not a second copy of it - it waits for the safe
+frontier (`min(watermark)`) and re-sorts, which the emit-on-advance node cannot.
+The batch path keeps combining pre-sorted materialized arrays via
+`combine_latest`, which is correct because materialization makes each output's
+index axis globally sorted.
+
 ## Correctness and testing
 
 - The invariant is `batch == lazy == graph`, byte-identical. The existing suites

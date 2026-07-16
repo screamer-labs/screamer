@@ -297,7 +297,7 @@ def _combine_latest_asof_lazy(sources, emit):
 
     The C++ node delays emission by one index step and collapses same-index
     events, so no external per-index deduplication is needed here. A non-integer
-    index is rejected by the int64-indexed engine (_LazyDag._pull), which is
+    index is rejected by the int64-indexed engine (the C++ PySource), which is
     correct: truncating a fractional index before alignment would collapse
     distinct indices and diverge from batch.
     """
@@ -398,7 +398,7 @@ def _dropna_lazy_cpp(events, how):
     1-D events (scalar values): drives a one-input Pipeline.
     2-D events (multi-value rows): tees the stream into N per-column iterators
     and drives an N-input combine_latest + dropna Pipeline.  The N tee'd iterators
-    are advanced in lockstep by _LazyDag, so the tee buffer is at most O(N)
+    are advanced in lockstep by the C++ lazy driver, so the tee buffer is at most O(N)
     elements (constant in stream length - O(1) per event).
 
     Positional feeds (index=None) are converted to row-number indices
@@ -426,7 +426,7 @@ def _dropna_lazy_cpp(events, how):
         working_events = all_events
 
     if N == 1:
-        # 1-D: ensure the value passed to _LazyDag._pull is a Python float
+        # 1-D: ensure the value passed to the C++ lazy driver is a Python float
         def _as_scalar(evs):
             for v, k in evs:
                 yield float(np.atleast_1d(np.asarray(v, dtype=np.float64))[0]), k
@@ -610,7 +610,7 @@ def _select_lazy_cpp(events, columns):
     (no SelectNode needed for a width-1 stream).
     2-D events (multi-value rows): tees the stream into N per-column iterators
     and drives an N-input combine_latest + select Pipeline.  The N tee'd iterators
-    are advanced in lockstep by _LazyDag, so the tee buffer is at most O(N)
+    are advanced in lockstep by the C++ lazy driver, so the tee buffer is at most O(N)
     elements (constant in stream length - O(1) per event).
 
     Positional feeds (index=None) are converted to row-number indices
