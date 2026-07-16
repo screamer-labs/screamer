@@ -1,8 +1,10 @@
 #ifndef SCREAMER_STREAMS_PY_SOURCE_H
 #define SCREAMER_STREAMS_PY_SOURCE_H
 
+#include <cmath>
 #include <cstdint>
 #include <optional>
+#include <type_traits>
 #include <utility>
 #include <pybind11/pybind11.h>
 #include "screamer/streams/event.h"
@@ -41,7 +43,28 @@ public:
         } else {
             py::tuple tup = item.cast<py::tuple>();
             ev.value = tup[0].cast<double>();
-            ev.index = tup[1].cast<Index>();
+            if constexpr (std::is_integral_v<Index>) {
+                // An integer-indexed consumer (the DAG engine): accept Python
+                // ints exactly (no precision loss across the full int64 range)
+                // and integer-valued floats (2.0), but reject fractional floats
+                // rather than silently flooring them. Mirrors _LazyDag's
+                // `int(k) != k` guard. A float-indexed merge (Index=double)
+                // takes the branch below and preserves fractional indices.
+                py::handle idx = tup[1];
+                if (py::isinstance<py::float_>(idx)) {
+                    double d = idx.cast<double>();
+                    if (std::floor(d) != d) {
+                        throw py::type_error(
+                            "stream index must be integer-valued; got a "
+                            "fractional float. The engine is int64-indexed.");
+                    }
+                    ev.index = static_cast<Index>(d);
+                } else {
+                    ev.index = idx.cast<Index>();
+                }
+            } else {
+                ev.index = tup[1].cast<Index>();
+            }
         }
         return ev;
     }

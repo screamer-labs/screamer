@@ -12,9 +12,84 @@
 #include "screamer/dag/driver.h"
 #include "screamer/dag/graph.h"
 #include "screamer/dag/compiled_graph.h"
+#include "screamer/streams/event.h"
+#include "screamer/streams/merge_source.h"
+#include "screamer/streams/py_source.h"
+#include <deque>
 
 namespace py = pybind11;
 using namespace screamer;
+
+// ---------------------------------------------------------------------------
+// LazyDriver: run a compiled single-output graph over Python-iterator feeds,
+// event by event, in C++. It merges the per-input (value, index) iterators by
+// index (streams::MergeSource, ascending, same-index ties by input order),
+// pushes each merged event into the CompiledGraph, drains the frames the graph
+// emitted, and yields them as (value, index) rows - the same rows the Python
+// _LazyDag produced. Holds a keepalive to the owning _CompiledGraph object.
+//
+// Single-output only; the multi-output watermark join stays on the Python path.
+// ---------------------------------------------------------------------------
+class LazyDriver {
+public:
+    LazyDriver(py::object cg_keepalive, dag::CompiledGraph& cg, py::list iterators)
+        : cg_keepalive_(std::move(cg_keepalive)), cg_(cg) {
+        for (py::handle h : iterators) {
+            sources_.push_back(std::make_unique<streams::PySource<std::int64_t>>(
+                py::reinterpret_borrow<py::object>(h), /*positional=*/false));
+            child_ptrs_.push_back(sources_.back().get());
+        }
+        merge_ = std::make_unique<streams::MergeSource<std::int64_t>>(child_ptrs_);
+        cg_.reset();
+    }
+
+    py::object next() {
+        while (pending_.empty() && !done_) {
+            if (auto e = merge_->next()) {
+                cg_.push_event(static_cast<std::size_t>(e->source), e->index, e->value);
+                collect();
+            } else {
+                cg_.flush();
+                collect();
+                done_ = true;
+            }
+        }
+        if (pending_.empty()) throw py::stop_iteration();
+        py::object row = std::move(pending_.front());
+        pending_.pop_front();
+        return row;
+    }
+
+private:
+    // Drain the frames the graph emitted since the last drain and buffer them as
+    // (value, index) rows. A width-1 output yields a scalar value; a wider output
+    // yields a tuple - matching _LazyDag's single-output rows.
+    void collect() {
+        std::vector<dag::OutputBuffer> bufs = cg_.drain();
+        const dag::OutputBuffer& b = bufs[0];
+        const std::size_t w = b.width;
+        const std::size_t rows = b.indices.size();
+        for (std::size_t r = 0; r < rows; ++r) {
+            py::object val;
+            if (w == 1) {
+                val = py::float_(b.values[r]);
+            } else {
+                py::tuple t(w);
+                for (std::size_t j = 0; j < w; ++j) t[j] = py::float_(b.values[r * w + j]);
+                val = std::move(t);
+            }
+            pending_.push_back(py::make_tuple(std::move(val), py::int_(b.indices[r])));
+        }
+    }
+
+    py::object cg_keepalive_;                 // keep the _CompiledGraph alive
+    dag::CompiledGraph& cg_;
+    std::vector<std::unique_ptr<streams::PySource<std::int64_t>>> sources_;
+    std::vector<streams::Source<std::int64_t>*> child_ptrs_;
+    std::unique_ptr<streams::MergeSource<std::int64_t>> merge_;
+    std::deque<py::object> pending_;
+    bool done_ = false;
+};
 
 // Hand-wire source -> FunctorNode(op) -> collector and run it in batch.
 // `values` is (T,) [width 1] or (T, W) [width W]; returns (T, op.n_out()).
@@ -131,6 +206,16 @@ void init_bindings_dag(py::module& m) {
         .def("advance",     &PyCompiledGraph::advance, py::arg("now"))
         .def("drain",       &PyCompiledGraph::drain)
         .def("run_batch",   &PyCompiledGraph::run_batch, py::arg("feeds"));
+
+    // Lazy driver over a single-output compiled graph and Python-iterator feeds.
+    py::class_<LazyDriver>(m, "_LazyDriver")
+        .def(py::init([](py::object cg_obj, py::list iterators) {
+                 PyCompiledGraph& pcg = cg_obj.cast<PyCompiledGraph&>();
+                 return std::make_unique<LazyDriver>(cg_obj, *pcg.cg, iterators);
+             }),
+             py::arg("cg"), py::arg("iterators"))
+        .def("__iter__", [](py::object self) { return self; })
+        .def("__next__", &LazyDriver::next);
 
     // Python-facing GraphBuilder wrapper that keeps functor Python objects alive
     // for the lifetime of the builder (raw EvalOp* point into Python objects;

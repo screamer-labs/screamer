@@ -436,6 +436,12 @@ class Pipeline:
         feeds = self._bind_args(args, kwargs)
         lazy = [self._is_lazy(v) for v in feeds.values()]
         if feeds and all(lazy):
+            if len(self.outputs) == 1:
+                # single output: the C++ lazy driver merges, drives the graph, and
+                # yields rows. The multi-output watermark join stays in _LazyDag.
+                from . import screamer_bindings as _b
+                iters = [iter(feeds[nm]) for nm in self._input_order]
+                return _b._LazyDriver(self._cg, iters)
             return _LazyDag(self, feeds)
         if any(lazy):
             raise TypeError(
