@@ -10,6 +10,9 @@
 #include "screamer/propagator.h"
 #include "screamer/vpin.h"
 #include "screamer/micro_price.h"
+#include "screamer/cont_ofi.h"
+#include "screamer/effective_spread.h"
+#include "screamer/realized_spread.h"
 
 namespace py = pybind11;
 
@@ -71,5 +74,20 @@ void init_bindings_micro(py::module& m) {
         .def(py::init<>())
         .def("__call__", &screamer::MicroPrice::handle_input)
         .def("reset", &screamer::MicroPrice::reset, "Reset to the initial state.");
+
+    py::class_<screamer::ContOFI, screamer::EvalOp>(m, "ContOFI")
+        .def(py::init<>())
+        .def("__call__", &screamer::ContOFI::handle_input)
+        .def("reset", &screamer::ContOFI::reset, "Reset to the initial state.");
+
+    py::class_<screamer::EffectiveSpread, screamer::EvalOp>(m, "EffectiveSpread")
+        .def(py::init<>())
+        .def("__call__", &screamer::EffectiveSpread::handle_input)
+        .def("reset", &screamer::EffectiveSpread::reset, "Reset to the initial state.");
+
+    py::class_<screamer::RealizedSpread, screamer::EvalOp>(m, "RealizedSpread")
+        .def(py::init<int>(), py::arg("lag") = 1)
+        .def("__call__", &screamer::RealizedSpread::handle_input)
+        .def("reset", &screamer::RealizedSpread::reset, "Reset to the initial state.");
 
 }

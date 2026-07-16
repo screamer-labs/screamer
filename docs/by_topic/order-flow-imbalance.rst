@@ -12,6 +12,8 @@ Net buying pressure and its toxicity: trade-flow imbalance, book imbalance, and 
 
    * - Function
      - Description
+   * - :doc:`Cont Order-Flow Imbalance (order book) </functions_micro/ContOFI>`
+     - Cont-Kukanov-Stoikov (2014) order-flow imbalance from L1 book events.
    * - :doc:`Order-Flow Imbalance </functions_micro/OFI>`
      - Normalized signed order flow, (buy - sell) / (buy + sell).
    * - :doc:`Queue (Book) Imbalance </functions_micro/QueueImbalance>`

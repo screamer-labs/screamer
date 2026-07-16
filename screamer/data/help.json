@@ -3379,6 +3379,72 @@
     "details": "## Description\n\n`BulkVolumeClassifier` implements the Bulk Volume Classification (BVC) model of\nEasley, Lopez de Prado, and O'Hara (2012). It estimates the buy-initiated\nfraction of a bar's volume without tick-level data, using only the bar's return\nand its trailing volatility.\n\nAt each step the operator computes the standardized return\n`z = return_ / sigma_t`, where `sigma_t` is the rolling standard deviation of\n`return_` over the most recent `window_size` observations, and evaluates the\nstandard normal CDF `Phi(z) = 0.5 * (1 + erf(z / sqrt(2)))`. The result is a\nfraction in `[0, 1]`: values near 1 indicate a predominantly buy-driven bar,\nvalues near 0 indicate a sell-driven bar, and 0.5 indicates a neutral bar.\n\nThe operator maintains a rolling standard deviation of the return (two running\nsums, O(1) per step) and evaluates the standard normal CDF of the standardized\nreturn. It is causal and honors `nan_policy: ignore`; a zero-variance window\nleaves the classification undefined and returns `NaN`. Batch and streaming\nproduce identical output.\n\nA common pipeline is:\n\n1. Compute bar log-returns with `LogReturn`.\n2. Feed the return series to `BulkVolumeClassifier` to obtain a per-bar\n   buy-fraction estimate.\n3. Multiply by the bar's total volume to recover an estimated buy volume.\n\n*Parameters*:\n\n- **`window_size`** (`int`, >= 2): number of observations in the trailing\n  standard deviation window.\n- **`start_policy`** (`str`, default `\"strict\"`): controls the warmup period\n  before `window_size` observations have been seen. `\"strict\"` emits `NaN`.\n  `\"expanding\"` uses all available observations. `\"zero\"` fills with zero.\n\n*Return value*: the buy fraction at each time step, in `[0, 1]`. `NaN` during\nwarmup (under `strict`) or when the input return is `NaN`.\n\n**Reference**: Easley, D., Lopez de Prado, M. M., & O'Hara, M. (2012).\n\"Bulk classification of trading activity.\" *Working Paper*, Cornell University.",
     "examples": []
   },
+  "ContOFI": {
+    "name": "ContOFI",
+    "title": "Cont Order-Flow Imbalance (order book)",
+    "implementation_family": "micro",
+    "topics": [
+      "order-flow-imbalance"
+    ],
+    "tags": [
+      "order flow imbalance",
+      "ofi",
+      "order book",
+      "book events",
+      "cont",
+      "cont-kukanov-stoikov",
+      "microstructure"
+    ],
+    "short": "Cont-Kukanov-Stoikov (2014) order-flow imbalance from L1 book events.",
+    "inputs": 4,
+    "outputs": 1,
+    "parameters": [],
+    "nan_policy": "ignore",
+    "see_also": [
+      "OFI",
+      "QueueImbalance"
+    ],
+    "details": "## Description\n\n`ContOFI` is the order-flow imbalance of Cont, Kukanov, and Stoikov (2014),\ncomputed from top-of-book (L1) events rather than from trades. On each update of\n`(bid, ask, bid_size, ask_size)` it measures the signed change in resting depth:\n\n    e_bid = bid_size * 1(bid >= prev_bid) - prev_bid_size * 1(bid <= prev_bid)\n    e_ask = ask_size * 1(ask <= prev_ask) - prev_ask_size * 1(ask >= prev_ask)\n    OFI   = e_bid - e_ask.\n\nA bid that ticks up contributes its full size (buyers stepping in front), a bid\nthat ticks down removes the vanished size, and an unchanged bid contributes the\nsize change; the ask side is symmetric. Summed over a short window it is one of\nthe strongest short-horizon predictors of the next price move. This is the\ncanonical *order-book* OFI, distinct from the trade-flow [`OFI`](OFI.md). The\nfirst event has no baseline and returns `NaN`. References: Cont, Kukanov, Stoikov\n(2014), \"The price impact of order book events\".",
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage plot",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import ContOFI\n\nrng = np.random.default_rng(0)\nn = 300\n# a mid that drifts with cumulative book pressure, quoted around it\npressure = np.cumsum(rng.standard_normal(n))\nmid = 100 + 0.02 * pressure\nbid, ask = mid - 0.05, mid + 0.05\nbid_size = np.abs(rng.standard_normal(n)) + 1 + 0.3 * pressure.clip(0)\nask_size = np.abs(rng.standard_normal(n)) + 1 - 0.3 * pressure.clip(None, 0)\nofi = ContOFI()(bid, ask, bid_size, ask_size)\ncum = np.cumsum(np.nan_to_num(ofi))          # running book order-flow imbalance\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.55, 0.45],\n                    vertical_spacing=0.08)\nfig.add_trace(go.Scatter(y=mid, mode='lines', name='mid price',\n                         line=dict(color='steelblue')), row=1, col=1)\nfig.add_trace(go.Scatter(y=cum, mode='lines', name='cumulative ContOFI',\n                         line=dict(color='crimson')), row=2, col=1)\nfig.update_layout(title='ContOFI: book order flow tracks the mid',\n                  yaxis=dict(title='mid'), yaxis2=dict(title='sum OFI'),\n                  margin=dict(l=20, r=20, t=60, b=20), legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1))\nfig.show()"
+      }
+    ]
+  },
+  "EffectiveSpread": {
+    "name": "EffectiveSpread",
+    "title": "Effective Spread",
+    "implementation_family": "micro",
+    "topics": [
+      "price-impact"
+    ],
+    "tags": [
+      "effective spread",
+      "transaction cost",
+      "spread",
+      "liquidity",
+      "microstructure"
+    ],
+    "short": "Effective spread, 2*|price - mid|: the round-trip cost paid relative to the mid.",
+    "inputs": 2,
+    "outputs": 1,
+    "parameters": [],
+    "nan_policy": "ignore",
+    "see_also": [
+      "RealizedSpread",
+      "RollSpread"
+    ],
+    "details": "## Description\n\n`EffectiveSpread` is twice the absolute distance of the trade price from the\nmid-quote at trade time,\n\n    effective = 2 * |price - mid|.\n\nIt is the round-trip cost actually paid relative to the mid: a buy lifts the\noffer and a sell hits the bid, so the print sits away from the mid by about half\nthe spread. Unlike the quoted spread it reflects where trades really occur,\nincluding price improvement and trading through the quote. Pair it with\n[`RealizedSpread`](RealizedSpread.md) to split that cost into a realized\n(liquidity) part and a price-impact (adverse-selection) part.",
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage plot",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import EffectiveSpread\n\nrng = np.random.default_rng(1)\nn = 250\nmid = 100 + np.cumsum(rng.standard_normal(n) * 0.02)\nhalf_spread = 0.10\nprice = mid + rng.choice([-half_spread, half_spread], size=n)   # trades at bid or offer\neff = EffectiveSpread()(price, mid)\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.6, 0.4],\n                    vertical_spacing=0.08)\nfig.add_trace(go.Scatter(y=mid, mode='lines', name='mid', line=dict(color='steelblue')),\n              row=1, col=1)\nfig.add_trace(go.Scatter(y=price, mode='markers', name='trade price',\n                         marker=dict(color='lightslategray', size=4)), row=1, col=1)\nfig.add_trace(go.Scatter(y=eff, mode='lines', name='effective spread',\n                         line=dict(color='crimson')), row=2, col=1)\nfig.add_hline(y=2 * half_spread, line=dict(color='gray', dash='dot'), row=2, col=1)\nfig.update_layout(title='EffectiveSpread: 2*|price - mid|, the cost paid per trade',\n                  yaxis=dict(title='price'), yaxis2=dict(title='eff. spread'),\n                  margin=dict(l=20, r=20, t=60, b=20), legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1))\nfig.show()"
+      }
+    ]
+  },
   "EwKyleLambda": {
     "name": "EwKyleLambda",
     "title": "Kyle's Lambda (exponentially weighted)",
@@ -3656,6 +3722,46 @@
         "language": "python",
         "caption": "Usage plot",
         "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer.microstructure import QueueImbalance\n\nrng = np.random.default_rng(2)\nn = 200\nwave = np.sin(np.linspace(0, 4 * np.pi, n))\nbid_size = np.abs(rng.standard_normal(n)) + 1 + 2 * wave.clip(0)\nask_size = np.abs(rng.standard_normal(n)) + 1 + 2 * (-wave).clip(0)\nimbalance = QueueImbalance()(bid_size, ask_size)\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.55, 0.45],\n                    vertical_spacing=0.08)\nfig.add_trace(go.Bar(y=bid_size, name='bid size', marker_color='seagreen'), row=1, col=1)\nfig.add_trace(go.Bar(y=-ask_size, name='ask size', marker_color='crimson'), row=1, col=1)\nfig.add_trace(go.Scatter(y=imbalance, name='queue imbalance', line=dict(color='navy')),\n              row=2, col=1)\nfig.update_layout(barmode='relative',\n                  title='QueueImbalance: L1 book pressure in [-1, 1]',\n                  yaxis=dict(title='resting size'), yaxis2=dict(title='imbalance', range=[-1, 1]),\n                  margin=dict(l=20, r=20, t=60, b=20), legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1))\nfig.show()"
+      }
+    ]
+  },
+  "RealizedSpread": {
+    "name": "RealizedSpread",
+    "title": "Realized Spread",
+    "implementation_family": "micro",
+    "topics": [
+      "price-impact"
+    ],
+    "tags": [
+      "realized spread",
+      "price impact",
+      "adverse selection",
+      "transaction cost",
+      "microstructure"
+    ],
+    "short": "Realized spread, 2*D*(price - mid a few steps later): the liquidity part of the effective spread.",
+    "inputs": 2,
+    "outputs": 1,
+    "parameters": [
+      {
+        "name": "lag",
+        "type": "int",
+        "default": 1,
+        "min": 1,
+        "description": "How many steps ahead the mid is measured (the price-impact horizon)."
+      }
+    ],
+    "nan_policy": "ignore",
+    "see_also": [
+      "EffectiveSpread",
+      "RollSpread"
+    ],
+    "details": "## Description\n\n`RealizedSpread` is the part of the effective spread that the liquidity provider\nkeeps once the price has moved. With the quote-based trade direction (a print\nabove the mid is a buy, below is a sell), `D = sign(price - mid)`,\n\n    realized = 2 * D * (price - mid measured `lag` steps later).\n\nIt compares a past trade's price to the mid `lag` steps afterward. What the\neffective spread does not keep, `effective - realized`, is the price-impact or\nadverse-selection component: how far the mid moved in the trade's direction after\nit printed. The value at each step references a trade `lag` steps in the past, so\nit is causal (never a future trade). The first `lag` samples are `NaN` (warmup).",
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage plot",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import EffectiveSpread, RealizedSpread\n\nrng = np.random.default_rng(2)\nn = 4000\nhalf_spread = 0.10\nmid = np.empty(n)\nmid[0] = 100.0\nprice = np.empty(n)\nside = rng.choice([-1.0, 1.0], size=n)                 # trade direction\nfor t in range(n):\n    price[t] = mid[t] + side[t] * half_spread          # trade at bid/offer\n    step = rng.standard_normal() * 0.01 + side[t] * 0.02   # adverse drift after the trade\n    if t + 1 < n:\n        mid[t + 1] = mid[t] + step\n\nlag = 20\neff = EffectiveSpread()(price, mid)\nreal = RealizedSpread(lag=lag)(price, mid)\nimpact = eff - real                                    # price-impact / adverse selection\n\nfig = go.Figure()\nlabels = ['effective spread', 'realized spread', 'price impact']\nseries = [eff, real, impact]\ncolors = ['crimson', 'seagreen', 'steelblue']\nfor lab, s, c in zip(labels, series, colors):\n    fig.add_trace(go.Bar(x=[lab], y=[np.nanmean(s)], marker_color=c, name=lab))\nfig.update_layout(title='Effective = realized + impact (means, lag=20)',\n                  yaxis_title='spread', showlegend=False,\n                  margin=dict(l=20, r=20, t=60, b=20))\nfig.show()"
       }
     ]
   },

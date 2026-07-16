@@ -102,6 +102,8 @@ _NO_ARG_AUTO_EXCLUDE = {
     'OFI', 'LeeReadySign',
     # 4-input micro-price (FunctorBase<_, 4, 1>) - tested in test_microstructure.py
     'MicroPrice',
+    # 4-input book-event OFI + 2-input effective spread - tested in test_microstructure.py
+    'ContOFI', 'EffectiveSpread',
 }
 # Linear2 takes constructor args (a, b, c) so it is not a no-arg class
 # and would not be picked up here - listed for clarity only.

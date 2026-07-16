@@ -37,6 +37,8 @@ driver of price:
   imbalance applied to the resting L1 book sizes rather than to trade flow.
 - [`VPIN`](functions_micro/VPIN.md): order-flow toxicity, the average one-sidedness
   of flow over a volume clock (Easley-Lopez de Prado-O'Hara).
+- [`ContOFI`](functions_micro/ContOFI.md): the canonical order-book-event OFI from
+  L1 quote changes (Cont-Kukanov-Stoikov).
 
 **Price impact and liquidity** measure how far flow moves price and what trading
 costs:
@@ -48,6 +50,10 @@ costs:
   dollar traded, comparable across assets.
 - [`RollSpread`](functions_micro/RollSpread.md): the effective bid-ask spread
   implied by trade prices.
+- [`EffectiveSpread`](functions_micro/EffectiveSpread.md) and
+  [`RealizedSpread`](functions_micro/RealizedSpread.md): the round-trip cost paid,
+  and the part of it the liquidity provider keeps after the price moves (their
+  difference is the price-impact / adverse-selection component).
 - [`Propagator`](functions_micro/Propagator.md): the Bouchaud model, where impact
   builds and then relaxes through a decaying kernel.
 - [`MicroPrice`](functions_micro/MicroPrice.md): an imbalance-weighted fair value

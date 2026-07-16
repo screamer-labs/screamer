@@ -14,7 +14,16 @@ All notable changes to this project are documented in this file.
     value that leans toward the thinner side of the book.
   * `QueueImbalance`: L1 book (queue) imbalance, a documented synonym of `OFI`
     applied to resting bid/ask sizes.
+* Microstructure tranche 3, order-book flow and spread decomposition:
+  * `ContOFI` (Cont-Kukanov-Stoikov 2014): the canonical order-flow imbalance
+    from L1 book events, distinct from the trade-flow `OFI`.
+  * `EffectiveSpread` (`2*|price - mid|`) and `RealizedSpread` (the liquidity
+    part kept after the price moves); their difference is the price-impact /
+    adverse-selection component.
 * Each ships with a reference page, a plotted usage example, and tests.
+* Docs: the flat "Microstructure" function topic is split into four groups -
+  Trade signing, Order-flow imbalance, Price impact & liquidity, and Order-flow
+  arrivals - with "microstructure" kept as a search tag.
 
 [0.8.0] - 2026-07-16
 --------------------

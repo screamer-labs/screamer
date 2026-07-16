@@ -137,6 +137,8 @@ Every function, grouped by topic. Topics are many-to-many, so a function may app
    functions_math/Where
    functions_micro/AmihudIlliquidity
    functions_micro/BulkVolumeClassifier
+   functions_micro/ContOFI
+   functions_micro/EffectiveSpread
    functions_micro/EwKyleLambda
    functions_micro/HawkesIntensity
    functions_micro/LeeReadySign
@@ -144,6 +146,7 @@ Every function, grouped by topic. Topics are many-to-many, so a function may app
    functions_micro/OFI
    functions_micro/Propagator
    functions_micro/QueueImbalance
+   functions_micro/RealizedSpread
    functions_micro/RollSpread
    functions_micro/RollingKyleLambda
    functions_micro/RollingOrderImbalance

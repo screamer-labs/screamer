@@ -322,3 +322,81 @@ def test_queue_imbalance_matches_ofi():
                                OFI()(bid_size, ask_size))
     np.testing.assert_allclose(QueueImbalance()(bid_size, ask_size),
                                [0.8, -0.8, 0.0, 0.0])
+
+
+# --- ContOFI (order-book-event order-flow imbalance) --------------------------
+
+def test_cont_ofi_book_events():
+    from screamer import ContOFI
+    bid = np.array([100.0, 100.0, 100.1, 100.0])
+    ask = np.array([100.2, 100.2, 100.2, 100.2])
+    bid_size = np.array([5.0, 8.0, 4.0, 3.0])
+    ask_size = np.array([5.0, 5.0, 5.0, 5.0])
+    out = ContOFI()(bid, ask, bid_size, ask_size)
+    assert np.isnan(out[0])                       # no baseline on the first event
+    # t1: bid unchanged, size 5->8 -> e_bid=8-5=3; ask unchanged -> 0; OFI=3
+    # t2: bid up -> e_bid=bid_size=4; ask unchanged -> 0; OFI=4
+    # t3: bid down 100.1->100.0 -> e_bid=-prev_bid_size=-4; ask 0; OFI=-4
+    np.testing.assert_allclose(out[1:], [3.0, 4.0, -4.0])
+
+
+def test_cont_ofi_causal_and_nan():
+    from screamer import ContOFI
+    rng = np.random.default_rng(0)
+    bid = 100 + np.cumsum(rng.standard_normal(50) * 0.01)
+    ask = bid + 0.1
+    bs, as_ = np.abs(rng.standard_normal(50)) + 1, np.abs(rng.standard_normal(50)) + 1
+    full = ContOFI()(bid, ask, bs, as_)
+    trunc = ContOFI()(bid[:25], ask[:25], bs[:25], as_[:25])
+    np.testing.assert_allclose(full[:25], trunc, equal_nan=True)
+    out = ContOFI()(np.array([1.0, np.nan, 1.0]), np.array([2.0, 2.0, 2.0]),
+                    np.array([1.0, 1.0, 1.0]), np.array([1.0, 1.0, 1.0]))
+    assert np.isnan(out[0]) and np.isnan(out[1])   # NaN input -> NaN, prev untouched
+    assert out[2] == 0.0                            # resumes against the last good quote
+
+
+# --- EffectiveSpread / RealizedSpread -----------------------------------------
+
+def test_effective_spread_is_twice_abs_distance():
+    from screamer import EffectiveSpread
+    price = np.array([100.6, 99.7, 100.0])
+    mid = np.array([100.0, 100.0, 100.0])
+    np.testing.assert_allclose(EffectiveSpread()(price, mid), [1.2, 0.6, 0.0])
+
+
+def test_realized_spread_lagged_and_causal():
+    from screamer import RealizedSpread
+    price = np.array([100.6, 100.6, 100.6, 100.6])
+    mid = np.array([100.0, 100.0, 100.3, 100.5])
+    out = RealizedSpread(lag=2)(price, mid)
+    assert np.isnan(out[0]) and np.isnan(out[1])   # warmup
+    # t2: 2*D0*(P0 - mid2) = 2*1*(100.6-100.3)=0.6 ; t3: 2*1*(100.6-100.5)=0.2
+    np.testing.assert_allclose(out[2:], [0.6, 0.2])
+    trunc = RealizedSpread(lag=2)(price[:3], mid[:3])
+    np.testing.assert_allclose(out[:3], trunc, equal_nan=True)
+
+
+def test_realized_below_effective_under_adverse_selection():
+    from screamer import EffectiveSpread, RealizedSpread
+    rng = np.random.default_rng(2)
+    n, hs = 4000, 0.10
+    mid = np.empty(n); mid[0] = 100.0
+    price = np.empty(n); side = rng.choice([-1.0, 1.0], size=n)
+    for t in range(n):
+        price[t] = mid[t] + side[t] * hs
+        if t + 1 < n:
+            mid[t + 1] = mid[t] + rng.standard_normal() * 0.01 + side[t] * 0.02
+    eff = np.nanmean(EffectiveSpread()(price, mid))
+    real = np.nanmean(RealizedSpread(lag=20)(price, mid))
+    assert real < eff and (eff - real) > 0         # positive price-impact component
+
+
+def test_realized_spread_stream_equals_batch():
+    from screamer import RealizedSpread
+    rng = np.random.default_rng(3)
+    price = 100 + np.cumsum(rng.standard_normal(200) * 0.05)
+    mid = price - rng.choice([-0.05, 0.05], size=200)
+    op = RealizedSpread(lag=5)
+    stream = np.array([op(float(p), float(m)) for p, m in zip(price, mid)])
+    batch = RealizedSpread(lag=5)(price, mid)
+    np.testing.assert_allclose(np.nan_to_num(stream), np.nan_to_num(batch))
