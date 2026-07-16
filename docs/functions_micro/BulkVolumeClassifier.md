@@ -78,3 +78,36 @@ warmup (under `strict`) or when the input return is `NaN`.
 "Bulk classification of trading activity." *Working Paper*, Cornell University.
 
 <!-- HELP_END -->
+
+## Examples
+
+### Usage plot
+
+```{eval-rst}
+.. plotly::
+    :include-source: True
+
+    import numpy as np
+    import plotly.graph_objects as go
+    from plotly.subplots import make_subplots
+    from screamer import BulkVolumeClassifier
+
+    rng = np.random.default_rng(3)
+    n = 300
+    drift = np.concatenate([np.full(n // 2, 0.004), np.full(n - n // 2, -0.004)])
+    ret = drift + rng.standard_normal(n) * 0.01     # up-trend then down-trend
+    price = 100 * np.exp(np.cumsum(ret))
+    buy_frac = BulkVolumeClassifier(30)(ret)
+
+    fig = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.6, 0.4],
+                        vertical_spacing=0.08)
+    fig.add_trace(go.Scatter(y=price, mode='lines', name='price',
+                             line=dict(color='steelblue')), row=1, col=1)
+    fig.add_trace(go.Scatter(y=buy_frac, mode='lines', name='buy fraction',
+                             line=dict(color='seagreen')), row=2, col=1)
+    fig.add_hline(y=0.5, line=dict(color='gray', dash='dot'), row=2, col=1)
+    fig.update_layout(title='BulkVolumeClassifier: estimated buy share (>0.5 buy-driven)',
+                      yaxis=dict(title='price'), yaxis2=dict(title='buy fraction', range=[0, 1]),
+                      margin=dict(l=20, r=20, t=60, b=20), legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1))
+    fig.show()
+```

@@ -114,3 +114,32 @@ impact_second_pass = op(flow)   # identical to first pass
 ```
 
 <!-- HELP_END -->
+
+### Usage plot
+
+```{eval-rst}
+.. plotly::
+    :include-source: True
+
+    import numpy as np
+    import plotly.graph_objects as go
+    from plotly.subplots import make_subplots
+    from screamer import Propagator
+
+    # A single unit of buy flow, so the output traces out the impact kernel: impact
+    # builds and then relaxes through the decaying propagator.
+    flow = np.zeros(80)
+    flow[10] = 1.0
+    impact = Propagator(window=40, g0=1.0, gamma=0.5)(flow)
+
+    fig = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.35, 0.65],
+                        vertical_spacing=0.08)
+    fig.add_trace(go.Bar(y=flow, name='signed flow', marker_color='seagreen'),
+                  row=1, col=1)
+    fig.add_trace(go.Scatter(y=impact, name='price impact',
+                             line=dict(color='teal')), row=2, col=1)
+    fig.update_layout(title='Propagator: impact of one trade decays over time',
+                      yaxis=dict(title='flow'), yaxis2=dict(title='impact'),
+                      margin=dict(l=20, r=20, t=60, b=20), legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1))
+    fig.show()
+```

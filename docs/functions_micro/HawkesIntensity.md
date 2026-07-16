@@ -107,3 +107,33 @@ out = HawkesIntensity(decay=0.5, alpha=1.0, mu=0.0)(x)
 ```
 
 <!-- HELP_END -->
+
+### Usage plot
+
+```{eval-rst}
+.. plotly::
+    :include-source: True
+
+    import numpy as np
+    import plotly.graph_objects as go
+    from plotly.subplots import make_subplots
+    from screamer import HawkesIntensity
+
+    rng = np.random.default_rng(10)
+    n = 300
+    events = np.zeros(n)
+    bursts = np.sort(rng.choice(n, size=70, replace=False))   # clustered arrivals
+    events[bursts] = 1.0
+    intensity = HawkesIntensity(decay=0.9, alpha=0.6, mu=0.2)(events)
+
+    fig = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.35, 0.65],
+                        vertical_spacing=0.08)
+    fig.add_trace(go.Bar(y=events, name='events', marker_color='lightslategray'),
+                  row=1, col=1)
+    fig.add_trace(go.Scatter(y=intensity, name='intensity',
+                             line=dict(color='purple')), row=2, col=1)
+    fig.update_layout(title='HawkesIntensity: each event raises the arrival rate',
+                      yaxis=dict(title='event'), yaxis2=dict(title='intensity'),
+                      margin=dict(l=20, r=20, t=60, b=20), legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1))
+    fig.show()
+```

@@ -69,3 +69,36 @@ Imbalance, Liquidity, and Market Returns." *Journal of Financial Economics*,
 65(1), 111-130.
 
 <!-- HELP_END -->
+
+## Examples
+
+### Usage plot
+
+```{eval-rst}
+.. plotly::
+    :include-source: True
+
+    import numpy as np
+    import plotly.graph_objects as go
+    from plotly.subplots import make_subplots
+    from screamer import RollingOrderImbalance, SignedVolume
+
+    rng = np.random.default_rng(5)
+    n = 300
+    sign = rng.choice([-1.0, 1.0], size=n, p=[0.42, 0.58])   # mild buy bias
+    size = rng.exponential(1.0, size=n)
+    flow = SignedVolume()(sign, size)
+    imbalance = RollingOrderImbalance(30)(flow)
+
+    fig = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.5, 0.5],
+                        vertical_spacing=0.08)
+    colors = np.where(flow >= 0, 'seagreen', 'crimson')
+    fig.add_trace(go.Bar(y=flow, marker_color=colors, name='signed flow'), row=1, col=1)
+    fig.add_trace(go.Scatter(y=imbalance, name='rolling imbalance',
+                             line=dict(color='darkorange')), row=2, col=1)
+    fig.add_hline(y=0, line=dict(color='gray', dash='dot'), row=2, col=1)
+    fig.update_layout(title='RollingOrderImbalance: trailing sum of signed flow',
+                      yaxis=dict(title='signed flow'), yaxis2=dict(title='imbalance'),
+                      margin=dict(l=20, r=20, t=60, b=20), legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1))
+    fig.show()
+```

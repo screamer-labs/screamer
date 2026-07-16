@@ -77,3 +77,35 @@ cheap to compute from standard OHLCV bars without trade-level data.
 and time-series effects." *Journal of Financial Markets*, 5(1), 31-56.
 
 <!-- HELP_END -->
+
+## Examples
+
+### Usage plot
+
+```{eval-rst}
+.. plotly::
+    :include-source: True
+
+    import numpy as np
+    import plotly.graph_objects as go
+    from plotly.subplots import make_subplots
+    from screamer import AmihudIlliquidity
+
+    rng = np.random.default_rng(8)
+    n = 300
+    ret = rng.standard_normal(n) * 0.01
+    notional = np.abs(rng.standard_normal(n)) + 1.0
+    notional[130:200] *= 0.25                    # a thin, illiquid patch
+    amihud = AmihudIlliquidity(30)(ret, notional)
+
+    fig = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.5, 0.5],
+                        vertical_spacing=0.08)
+    fig.add_trace(go.Scatter(y=notional, name='notional', line=dict(color='steelblue')),
+                  row=1, col=1)
+    fig.add_trace(go.Scatter(y=amihud, name='Amihud illiquidity',
+                             line=dict(color='crimson')), row=2, col=1)
+    fig.update_layout(title='AmihudIlliquidity: price move per dollar traded',
+                      yaxis=dict(title='notional'), yaxis2=dict(title='illiquidity'),
+                      margin=dict(l=20, r=20, t=60, b=20), legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1))
+    fig.show()
+```

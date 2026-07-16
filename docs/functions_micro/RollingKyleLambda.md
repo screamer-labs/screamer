@@ -76,3 +76,34 @@ the window.
 *Econometrica*, 53(6), 1315-1335.
 
 <!-- HELP_END -->
+
+## Examples
+
+### Usage plot
+
+```{eval-rst}
+.. plotly::
+    :include-source: True
+
+    import numpy as np
+    import plotly.graph_objects as go
+    from plotly.subplots import make_subplots
+    from screamer import RollingKyleLambda
+
+    rng = np.random.default_rng(6)
+    n = 400
+    flow = rng.standard_normal(n)
+    true_lambda = 0.5
+    ret = true_lambda * flow + rng.standard_normal(n) * 0.5   # return = lambda*flow + noise
+    lam = RollingKyleLambda(60)(flow, ret)
+
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(y=lam, mode='lines', name='estimated lambda',
+                             line=dict(color='steelblue')))
+    fig.add_hline(y=true_lambda, line=dict(color='crimson', dash='dot'),
+                  annotation_text='true lambda = 0.5')
+    fig.update_layout(title='RollingKyleLambda: recovered price-impact slope',
+                      xaxis_title='observation', yaxis_title="Kyle's lambda",
+                      margin=dict(l=20, r=20, t=60, b=20), legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1))
+    fig.show()
+```

@@ -61,3 +61,38 @@ Because the implementation delegates entirely to `EwBeta`, causality and the
 *Econometrica*, 53(6), 1315-1335.
 
 <!-- HELP_END -->
+
+## Examples
+
+### Usage plot
+
+```{eval-rst}
+.. plotly::
+    :include-source: True
+
+    import numpy as np
+    import plotly.graph_objects as go
+    from plotly.subplots import make_subplots
+    from screamer import EwKyleLambda, RollingKyleLambda
+
+    rng = np.random.default_rng(7)
+    n = 400
+    flow = rng.standard_normal(n)
+    # the true impact slope steps up halfway through
+    true_lambda = np.where(np.arange(n) < n // 2, 0.3, 0.7)
+    ret = true_lambda * flow + rng.standard_normal(n) * 0.5
+    ew = EwKyleLambda(60.0)(flow, ret)
+    roll = RollingKyleLambda(60)(flow, ret)
+
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(y=true_lambda, mode='lines', name='true lambda',
+                             line=dict(color='gray', dash='dot')))
+    fig.add_trace(go.Scatter(y=roll, mode='lines', name='rolling',
+                             line=dict(color='lightslategray')))
+    fig.add_trace(go.Scatter(y=ew, mode='lines', name='exponentially weighted',
+                             line=dict(color='steelblue')))
+    fig.update_layout(title='EwKyleLambda: adapts faster to a change in liquidity',
+                      xaxis_title='observation', yaxis_title="Kyle's lambda",
+                      margin=dict(l=20, r=20, t=60, b=20), legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1))
+    fig.show()
+```
