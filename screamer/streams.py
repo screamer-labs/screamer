@@ -546,8 +546,8 @@ def split(values, sources, index=None, n=None):
     if _is_vi_pair(values):
         index = values[1]          # the tuple carries its own index
         values = values[0]
-    values = np.asarray(values)
-    sources = np.asarray(sources)
+    values = np.ascontiguousarray(values, dtype=np.float64)
+    sources = np.ascontiguousarray(sources, dtype=np.uint32)
     if n is None:
         n = int(sources.max()) + 1 if sources.size else 0
     elif sources.size and n <= int(sources.max()):
@@ -555,11 +555,14 @@ def split(values, sources, index=None, n=None):
             f"split: n={n} is too small for sources up to {int(sources.max())}; "
             "events would be dropped")
     if index is None:
-        parts = [(values[sources == i], None) for i in range(n)]
-    else:
-        idx = np.asarray(index)
-        parts = [(values[sources == i], idx[sources == i]) for i in range(n)]
-    return parts
+        # positional: partition values only; a row-number index rides along the
+        # C++ partition and is dropped to None on the way out.
+        placeholder = np.arange(values.shape[0], dtype=np.int64)
+        parts = _b._split_i64(values, sources, placeholder, n)
+        return [(v, None) for (v, _k) in parts]
+    kind, idx = _index_dtype_kind(index)
+    fn = _b._split_f64 if kind == "f64" else _b._split_i64
+    return list(fn(values, sources, idx, n))
 
 
 def _normalize_columns(columns):

@@ -243,6 +243,57 @@ static py::tuple merge_batch(py::list index_arrays, py::list value_arrays) {
     return py::make_tuple(out_k, out_v, out_s);
 }
 
+// Partition a tagged (values, sources, index) stream back into n per-source
+// (values, index) pairs - the inverse of merge_batch. One counting pass sizes
+// each output, a second scatters into it, O(N) total. Source order within each
+// output is preserved (stable).
+template <class Index>
+static py::list split_batch(py::array_t<double> values,
+                            py::array_t<std::uint32_t> sources,
+                            py::array_t<Index> index, int n) {
+    auto vinfo = values.request();
+    auto sinfo = sources.request();
+    auto iinfo = index.request();
+    const std::size_t total = static_cast<std::size_t>(vinfo.shape[0]);
+    if (static_cast<std::size_t>(sinfo.shape[0]) != total ||
+        static_cast<std::size_t>(iinfo.shape[0]) != total) {
+        throw std::runtime_error("split: values/sources/index length differ");
+    }
+    if (n < 0) {
+        throw std::runtime_error("split: n must be non-negative");
+    }
+    const double* v = static_cast<const double*>(vinfo.ptr);
+    const std::uint32_t* s = static_cast<const std::uint32_t*>(sinfo.ptr);
+    const Index* k = static_cast<const Index*>(iinfo.ptr);
+
+    std::vector<std::size_t> counts(static_cast<std::size_t>(n), 0);
+    for (std::size_t j = 0; j < total; ++j) {
+        if (s[j] >= static_cast<std::uint32_t>(n)) {
+            throw std::runtime_error("split: a source tag is >= n; events would be dropped");
+        }
+        counts[s[j]]++;
+    }
+
+    py::list out;
+    std::vector<double*> vptr(static_cast<std::size_t>(n));
+    std::vector<Index*> kptr(static_cast<std::size_t>(n));
+    std::vector<std::size_t> pos(static_cast<std::size_t>(n), 0);
+    for (int i = 0; i < n; ++i) {
+        py::array_t<double> ov(static_cast<py::ssize_t>(counts[i]));
+        py::array_t<Index> ok(static_cast<py::ssize_t>(counts[i]));
+        vptr[i] = static_cast<double*>(ov.request().ptr);
+        kptr[i] = static_cast<Index*>(ok.request().ptr);
+        out.append(py::make_tuple(ov, ok));   // holds the buffers alive
+    }
+    for (std::size_t j = 0; j < total; ++j) {
+        const std::uint32_t src = s[j];
+        vptr[src][pos[src]] = v[j];
+        kptr[src][pos[src]] = k[j];
+        pos[src]++;
+    }
+    return out;
+}
+
 template <class Index>
 static py::tuple combine_latest_batch(py::list index_arrays,
                                       py::list value_arrays,
@@ -327,6 +378,10 @@ void init_bindings_streams(py::module& m) {
           py::arg("index_arrays"), py::arg("value_arrays"));
     m.def("_merge_f64", &merge_batch<double>,
           py::arg("index_arrays"), py::arg("value_arrays"));
+    m.def("_split_i64", &split_batch<std::int64_t>,
+          py::arg("values"), py::arg("sources"), py::arg("index"), py::arg("n"));
+    m.def("_split_f64", &split_batch<double>,
+          py::arg("values"), py::arg("sources"), py::arg("index"), py::arg("n"));
     m.def("_combine_latest_i64", &combine_latest_batch<std::int64_t>,
           py::arg("index_arrays"), py::arg("value_arrays"), py::arg("when_all"));
     m.def("_combine_latest_f64", &combine_latest_batch<double>,
