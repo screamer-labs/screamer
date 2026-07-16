@@ -1,82 +1,31 @@
-"""Microstructure and order-flow operators.
+"""Microstructure and order-flow operators (Python synonym layer).
 
-Causal streaming operators for order flow, price impact, and liquidity.
-Stateless elementwise operators (such as OFI) are trivially causal on their
-own. Operators that compose or alias screamer nodes inherit the batch == stream
-guarantee from the engine. Popular models are exposed under their canonical name
-with teaching-quality docs (see docs/functions_micro/).
+The order-flow MODELS - order-flow imbalance, tick-rule / bulk-volume signing,
+Kyle's lambda, Amihud illiquidity, Roll's spread, Hawkes intensity, and the
+Bouchaud propagator - are C++ core operators (see the docs/functions_micro
+pages). This module holds only the thin Python bindings the design allows: a
+documented synonym of a single operator, or a specialization that binds one
+operator's parameters. None of them add logic of their own.
 """
-import numpy as np
-from . import Diff, Lag, Sign, Abs, Div, Ffill, RollingSum, RollingStd, Erf, RollingCov
-from .screamer_bindings import RollingBeta, EwBeta, RollingMean
+from . import Mul, RollingSum
+from .screamer_bindings import RollingBeta, EwBeta
 
-__all__ = ["OFI", "SignedVolume", "TickRuleSign", "RollingKyleLambda", "EwKyleLambda",
-           "AmihudIlliquidity", "RollingOrderImbalance", "LeeReadySign",
-           "BulkVolumeClassifier", "RollSpread", "HawkesIntensity", "Propagator"]
-
-
-class OFI:
-    """Order-flow imbalance: (buy_volume - sell_volume) / (buy_volume + sell_volume).
-
-    Cont-Kukanov-Stoikov style normalized signed flow, in [-1, 1]; 0 on an empty
-    bucket. Stateless and elementwise, so it is trivially causal.
-    """
-
-    def __call__(self, buy_volume, sell_volume):
-        buy = np.asarray(buy_volume, dtype=float)
-        sell = np.asarray(sell_volume, dtype=float)
-        total = buy + sell
-        zero_total = (total == 0.0)                      # empty bucket -> 0.0
-        safe = np.where(zero_total, 1.0, total)          # avoid 0/0; NaN stays NaN
-        return np.where(zero_total, 0.0, (buy - sell) / safe)
-
-    def reset(self):
-        pass
+__all__ = ["SignedVolume", "RollingKyleLambda", "EwKyleLambda", "RollingOrderImbalance"]
 
 
 class SignedVolume:
-    """Signed order flow: sign * volume (aggressor-signed volume)."""
-
-    def __call__(self, sign, volume):
-        return np.asarray(sign, dtype=float) * np.asarray(volume, dtype=float)
-
-    def reset(self):
-        pass
-
-
-class TickRuleSign:
-    """Trade sign by the tick rule: +1 on an up-tick, -1 on a down-tick, and the
-    previous sign carried forward when the price is unchanged (first bar NaN).
-
-    Composed as Ffill(sign(diff) / |sign(diff)|): the division maps an unchanged
-    tick (0/0) to NaN, and Ffill carries the last known +/-1 across it. The C++
-    sub-operators are held on the instance so the state (Diff's previous price,
-    Ffill's last value) advances whether the instance is driven with a whole
-    array (batch) or one sample at a time (streaming) - so batch == stream holds.
-    A missing price (NaN input) yields NaN (nan_policy: ignore).
-    """
+    """Signed order flow: sign * volume (aggressor-signed volume). A documented
+    synonym of the elementwise Mul operator."""
 
     def __init__(self):
-        """__init__(self: TickRuleSign) -> None"""
-        self._diff = Diff(1)
-        self._sign = Sign()
-        self._abs = Abs()
-        self._div = Div()
-        self._ffill = Ffill()
+        """__init__(self: SignedVolume) -> None"""
+        self._mul = Mul()
 
-    def __call__(self, price):
-        d = self._sign(self._diff(price))        # -1 / 0 / +1; first bar NaN (Diff warmup)
-        signed = self._div(d, self._abs(d))      # unchanged tick (0/0) -> NaN, carried by Ffill
-        out = self._ffill(signed)
-        # missing price -> NaN; elementwise so it works for a scalar or an array step
-        return np.where(np.isnan(price), np.nan, out)
+    def __call__(self, sign, volume):
+        return self._mul(sign, volume)
 
     def reset(self):
-        self._diff.reset()
-        self._sign.reset()
-        self._abs.reset()
-        self._div.reset()
-        self._ffill.reset()
+        self._mul.reset()
 
 
 class RollingKyleLambda:
@@ -109,26 +58,6 @@ class EwKyleLambda:
         self._beta.reset()
 
 
-class AmihudIlliquidity:
-    """Amihud (2002) illiquidity: rolling mean of |return| / notional. Large
-    values mean price moves a lot per dollar traded (an illiquid, high-impact
-    regime). A robust, cheap cousin of Kyle's lambda.
-    """
-
-    def __init__(self, window_size=20, start_policy="strict"):
-        """__init__(self: AmihudIlliquidity, window_size: int = 20, start_policy: str = 'strict') -> None"""
-        self._mean = RollingMean(window_size, start_policy)
-
-    def __call__(self, return_, notional):
-        ret = np.asarray(return_, dtype=float)
-        notl = np.asarray(notional, dtype=float)
-        ratio = np.where(notl == 0.0, np.nan, np.abs(ret) / np.where(notl == 0.0, 1.0, notl))
-        return self._mean(ratio)
-
-    def reset(self):
-        self._mean.reset()
-
-
 class RollingOrderImbalance:
     """Trailing-window sum of signed order flow (Chordia-Roll-Subrahmanyam order
     imbalance). Specializes RollingSum.
@@ -143,144 +72,3 @@ class RollingOrderImbalance:
 
     def reset(self):
         self._sum.reset()
-
-
-class LeeReadySign:
-    """Lee-Ready (1991) trade sign: +1 when the trade prints above the mid, -1
-    below, and the tick-rule sign of price when it prints exactly at the mid.
-
-    The tick-rule fallback is fed every price (not only at-mid ones) so its state
-    stays consistent whether the operator is driven by a whole array or one
-    sample at a time - so batch == stream holds. NaN in price or mid yields NaN.
-    """
-
-    def __init__(self):
-        """__init__(self: LeeReadySign) -> None"""
-        self._tick = TickRuleSign()
-
-    def __call__(self, price, mid):
-        price = np.asarray(price, dtype=float)
-        mid = np.asarray(mid, dtype=float)
-        tick = self._tick(price)                     # advance tick state on every sample
-        above = np.sign(price - mid)                 # +1 / 0 / -1 (NaN preserved)
-        out = np.where(above != 0.0, above, tick)    # at-mid (0) -> tick-rule fallback
-        return np.where(np.isnan(price) | np.isnan(mid), np.nan, out)
-
-    def reset(self):
-        self._tick.reset()
-
-
-class BulkVolumeClassifier:
-    """Bulk Volume Classification (Easley-Lopez de Prado-O'Hara 2012): the
-    buy-initiated share of a bar's volume, estimated as the standard normal CDF
-    of the bar return divided by its trailing-window volatility. Works on
-    aggregate bars, no tick data needed. Output is a fraction in [0, 1].
-    """
-
-    def __init__(self, window_size=20, start_policy="strict"):
-        """__init__(self: BulkVolumeClassifier, window_size: int = 20, start_policy: str = 'strict') -> None"""
-        self._std = RollingStd(window_size, start_policy)
-        self._erf = Erf()
-
-    def __call__(self, return_):
-        ret = np.asarray(return_, dtype=float)
-        sigma = np.asarray(self._std(ret), dtype=float)
-        z = ret / sigma
-        return 0.5 * (1.0 + np.asarray(self._erf(z / np.sqrt(2.0))))
-
-    def reset(self):
-        self._std.reset()
-        self._erf.reset()
-
-
-class RollSpread:
-    """Roll's (1984) effective spread from trade prices alone:
-    2 * sqrt(-cov(dP_t, dP_{t-1})) over a trailing window, where dP is the price
-    change. Bid-ask bounce makes successive price changes negatively correlated;
-    a non-negative covariance leaves the estimate undefined (returns NaN).
-    """
-
-    def __init__(self, window_size=20, start_policy="strict"):
-        """__init__(self: RollSpread, window_size: int = 20, start_policy: str = 'strict') -> None"""
-        self._diff = Diff(1)
-        self._lag = Lag(1)
-        self._cov = RollingCov(window_size, start_policy)
-
-    def __call__(self, price):
-        d = self._diff(price)                        # dP_t
-        cov = np.asarray(self._cov(d, self._lag(d)), dtype=float)   # cov(dP_t, dP_{t-1})
-        return 2.0 * np.sqrt(np.where(cov < 0.0, -cov, np.nan))
-
-    def reset(self):
-        self._diff.reset()
-        self._lag.reset()
-        self._cov.reset()
-
-
-class HawkesIntensity:
-    """Conditional intensity of an exponential-kernel Hawkes process - a
-    self-exciting model where each event raises the near-term rate of further
-    events (order-flow clustering / momentum). Recursion:
-    lambda_t = mu + kappa_t, kappa_{t+1} = decay*(kappa_t + alpha*x_t), kappa_0 = 0.
-    Causal (lambda_t depends on x up to t-1). A NaN event mark is ignored (output
-    NaN at that step, state left unchanged), so it does not poison the state. The
-    per-sample update is identical for array and scalar driving, so batch==stream.
-    """
-
-    def __init__(self, decay=0.9, alpha=1.0, mu=0.0):
-        """__init__(self: HawkesIntensity, decay: float = 0.9, alpha: float = 1.0, mu: float = 0.0) -> None"""
-        self.decay = decay
-        self.alpha = alpha
-        self.mu = mu
-        self._kappa = 0.0
-
-    def reset(self):
-        self._kappa = 0.0
-
-    def _step(self, x):
-        lam = self.mu + self._kappa
-        if np.isnan(x):
-            return np.nan                       # ignore: do not fold NaN into state
-        self._kappa = self.decay * (self._kappa + self.alpha * x)
-        return lam
-
-    def __call__(self, x):
-        scalar = np.ndim(x) == 0
-        arr = np.atleast_1d(np.asarray(x, dtype=float))
-        out = np.array([self._step(float(v)) for v in arr])
-        return out[0] if scalar else out
-
-
-class Propagator:
-    """Bouchaud-Gefen-Potters-Wyart (2004) propagator model: price impact as a
-    decaying-kernel convolution over past signed order flow,
-    impact_t = sum_k G(k)*flow_{t-k} with G(k) = g0*(k+1)^(-gamma) over a fixed
-    window. Captures that flow moves price with a memory that decays but does not
-    vanish at once. Warmup (fewer than `window` samples) is NaN. The per-sample
-    update keeps a fixed-length buffer, identical for array and scalar driving, so
-    batch==stream.
-    """
-
-    def __init__(self, window=20, g0=1.0, gamma=0.5):
-        """__init__(self: Propagator, window: int = 20, g0: float = 1.0, gamma: float = 0.5) -> None"""
-        self.window = window
-        self._g = g0 * (np.arange(window) + 1.0) ** (-gamma)
-        self._buf = []
-
-    def reset(self):
-        self._buf = []
-
-    def _step(self, x):
-        self._buf.append(x)
-        if len(self._buf) > self.window:
-            self._buf.pop(0)
-        if len(self._buf) < self.window:
-            return np.nan                       # warmup
-        # buf[-1] is x_t (k=0), buf[-1-k] is x_{t-k}
-        return float(sum(self._g[k] * self._buf[-1 - k] for k in range(self.window)))
-
-    def __call__(self, flow):
-        scalar = np.ndim(flow) == 0
-        arr = np.atleast_1d(np.asarray(flow, dtype=float))
-        out = np.array([self._step(float(v)) for v in arr])
-        return out[0] if scalar else out

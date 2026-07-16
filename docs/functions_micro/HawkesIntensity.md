@@ -62,8 +62,8 @@ that step is `NaN`, but `kappa` is not updated, so intensity recovers on the
 next finite sample. This prevents a single bad tick from permanently corrupting
 the state.
 
-The per-sample update (`_step`) is used identically for whole-array and scalar
-driving, so batch and streaming modes produce identical results.
+The operator processes one sample per step, so batch and streaming modes produce
+identical results.
 
 **References:**
 
@@ -78,7 +78,7 @@ driving, so batch and streaming modes produce identical results.
 
 ```python
 import numpy as np
-from screamer.microstructure import HawkesIntensity
+from screamer import HawkesIntensity
 
 # Event-mark series: one burst at t=0, then two events at t=3
 x = np.array([1.0, 0.0, 0.0, 2.0, 0.0])
