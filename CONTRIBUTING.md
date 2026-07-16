@@ -5,6 +5,44 @@ setup, the build/test loop, and the conventions that keep the library fast, corr
 and well documented. By participating you agree to the
 [Code of Conduct](CODE_OF_CONDUCT.md).
 
+## Design principles
+
+The library serves four goals at once. Every design decision serves them, and the
+rules below fall out of them. Read this before adding or changing an operator.
+
+1. **Correct, clean, well-tested code.** One clear implementation per behavior. No
+   parallel or duplicate implementations of the same operator.
+2. **State-of-the-art speed and memory, in C++.** The compute is C++. No Python loops
+   over the data, and no needless data crossing the Python/C++ boundary.
+3. **A friendly, uniform API.** Polymorphic argument handling, and batch and streaming
+   modes that produce identical results from the same engine.
+4. **C++ is a first-class consumer, and more bindings are coming (JS, R).** A user of
+   the C++ core, or a future binding, must get the whole library. So all logic must
+   live in the C++ core, not in any one binding.
+
+From these, the hard rules:
+
+- **All operator logic lives in the C++ core.** A new operator is a C++ node plus a
+  thin binding (see [Adding a function](#adding-a-function)). Never implement an
+  operator's computation, or a numerical primitive, in Python.
+- **The Python layer is bindings and structure only.** The only logic that may
+  originate in Python is (a) a name or argument **synonym** of exactly one C++
+  operator, or (b) a **special instance** that binds the parameters of exactly one C++
+  operator. Combining two or more operators, adding arithmetic, or holding new state
+  must be a C++ node. If you are chaining ops or writing a data loop in Python, stop:
+  it belongs in C++.
+- **One implementation per operator.** Never ship a second implementation of the same
+  behavior (for example a C++ eager path plus a separate Python lazy path). Batch and
+  stream are the same compiled engine; a divergent second path is a maintenance and a
+  correctness-parity defect.
+- **No Python orchestration of the data path.** The Pipeline/DAG compiles to and runs
+  in C++ so data does not cross the boundary per event. Do not orchestrate windowing,
+  joins, aggregation, or event scheduling in Python.
+- **Applications reuse the core, never re-implement it.** Downstream projects must call
+  screamer operators, not hand-roll a rolling mean, regression, lag, or forward-fill in
+  numpy or pandas. A missing capability is a request for a new core operator, not a
+  local reimplementation.
+
 ## Development setup
 
 You need a C++17 compiler, CMake, and Python 3.11 or newer.
@@ -42,6 +80,11 @@ should be green with zero skips before you open a PR.
 
 ## Core rules
 
+- **Logic lives in C++.** See [Design principles](#design-principles): operator
+  computation and numerical primitives belong in the C++ core, the Python layer is thin
+  bindings plus single-operator synonyms/instances, and there is one implementation per
+  behavior. A reviewer rejects Python that chains operators, loops over data, or
+  duplicates a C++ path.
 - **Causality is non-negotiable.** Every function must depend only on current and past
   inputs, never future ones (no backfilling, no look-ahead). Batch and streaming calls
   must produce identical results; this is enforced by the stream-vs-batch tests.

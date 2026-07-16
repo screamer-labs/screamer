@@ -14,6 +14,7 @@ void init_bindings_preprocessing(py::module& m);
 void init_bindings_signal(py::module& m);
 void init_bindings_fin(py::module& m);
 void init_bindings_misc(py::module& m);
+void init_bindings_micro(py::module& m);
 void init_bindings_streams(py::module& m);
 void init_bindings_dag(py::module& m);
 
@@ -27,6 +28,7 @@ PYBIND11_MODULE(screamer_bindings, m) {
     init_bindings_signal(m);
     init_bindings_fin(m);
     init_bindings_misc(m);
+    init_bindings_micro(m);
     init_bindings_streams(m);
     init_bindings_dag(m);
 }

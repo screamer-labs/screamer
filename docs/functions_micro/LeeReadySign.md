@@ -35,12 +35,11 @@ two steps.
    An up-tick is a buy; a down-tick is a sell; an unchanged tick carries the
    previous sign.
 
-`LeeReadySign()(price, mid)` returns the signed array. It composes
-`TickRuleSign` for the fallback: the tick-rule state is advanced on every
-price (not only at-mid samples) so the result is the same whether the
-operator is driven by a whole array or one sample at a time (batch == stream).
-
-A missing price or mid (`NaN`) yields `NaN` (nan_policy: ignore).
+`LeeReadySign()(price, mid)` returns the signed series. The tick-rule fallback
+state advances on every price (not only at-mid samples), so the classification
+is consistent between whole-array and one-sample-at-a-time driving
+(batch == stream). A missing price or mid (`NaN`) yields `NaN`
+(nan_policy: ignore).
 
 *Return value*: an array of `+1.0` and `-1.0` trade signs (or `NaN` where
 input is missing). The first sample is `NaN` when the tick-rule fallback is

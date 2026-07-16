@@ -52,15 +52,15 @@ each time step. When the serial covariance is non-negative (no bid-ask
 bounce detected, or a trending period), the estimate is undefined and
 the output is `NaN`.
 
-The implementation composes three C++ operators:
+Internally the operator:
 
-- `Diff(1)` to form consecutive price changes `dP`.
-- `Lag(1)` to form the lagged series `dP_{t-1}`.
-- `RollingCov(window_size, start_policy)` to estimate `cov(dP_t, dP_{t-1})`.
+- forms consecutive price changes `dP_t = price_t - price_{t-1}`;
+- pairs each `dP_t` with its one-step lag `dP_{t-1}`;
+- maintains a rolling sample covariance of that pair over the window (three
+  running sums, O(1) per step).
 
-All state is held on the three sub-operators. Causality, warmup behavior,
-and the `nan_policy: ignore` contract are inherited from the C++ engine.
-Batch and streaming modes produce identical results.
+The operator is causal and honors `nan_policy: ignore`; batch and streaming
+modes produce identical results.
 
 *Parameters*:
 
@@ -83,7 +83,7 @@ Bid-Ask Spread in an Efficient Market." *Journal of Finance*, 39(4), 1127-1139.
 
 ```python
 import numpy as np
-from screamer.microstructure import RollSpread
+from screamer import RollSpread
 
 # Synthetic bid-ask bounce: price alternates between bid and ask
 price = 100.0 + 0.05 * np.array([0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1], dtype=float)

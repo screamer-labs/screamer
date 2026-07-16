@@ -28,7 +28,7 @@ parameters:
   type: float
   default: 0.5
   description: Power-law decay exponent. Larger values make the kernel decay faster.
-nan_policy: ignore
+nan_policy: propagate
 see_also:
 - RollingKyleLambda
 - HawkesIntensity
@@ -62,13 +62,14 @@ periods.
 The operator requires `window` samples before producing its first output. The
 first `window - 1` outputs are `NaN` (warmup period).
 
-A NaN flow value enters the buffer unchanged. While it remains within the window
-it makes the convolution output NaN, and once it drops out of the window the
-output recovers. This is the windowed nan_policy: ignore behavior.
+Because this is a positional (FIR) filter, it follows the `propagate` NaN policy,
+like `Lag` and `Diff`: a NaN flow value is kept in the window and flows through
+the convolution, so the output is NaN while the NaN is inside the window and
+recovers once it drops out. Dropping the NaN instead (as an `ignore`-policy
+statistic would) would misalign the kernel with the wrong lags.
 
-The per-sample update appends to a fixed-length buffer and computes the kernel
-dot product. This same `_step` method drives both the whole-array and scalar
-calling paths, so batch and streaming results are identical by construction.
+The operator processes one sample per step, so batch and streaming modes produce
+identical results.
 
 **References:**
 
@@ -82,7 +83,7 @@ calling paths, so batch and streaming results are identical by construction.
 
 ```python
 import numpy as np
-from screamer.microstructure import Propagator
+from screamer import Propagator
 
 # Isolated unit of buy flow at t=0 and t=3; window=3 reveals the kernel shape
 flow = np.array([1.0, 0.0, 0.0, 1.0, 0.0, 0.0])

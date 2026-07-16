@@ -98,6 +98,8 @@ _NO_ARG_AUTO_EXCLUDE = {
     'Equal', 'NotEqual', 'And', 'Or',
     # 3-input conditional select (FunctorBase<_, 3, 1>) - tested in test_logic_ops.py
     'Where',
+    # 2-input microstructure ops (FunctorBase<_, 2, 1>) - tested in test_microstructure.py
+    'OFI', 'LeeReadySign',
 }
 # Linear2 takes constructor args (a, b, c) so it is not a no-arg class
 # and would not be picked up here - listed for clarity only.
