@@ -274,19 +274,27 @@ def merge(*values, index=None):
 
 
 
+# Sanctioned Python (input adaptation, not core logic): this pairs Python
+# iterators step by step; it does not implement the combine itself. Pure-C++ (or
+# other-binding) users do a positional combine by feeding row-number indices to
+# the C++ CombineLatest node - the alignment lives there. What stays here is the
+# iterator ergonomics plus the "stay in step" check, which is specific to Python
+# iterators. See docs/superpowers/specs/2026-07-16-lazy-path-cpp-design.md.
 def _combine_latest_zip_lazy(sources):
-    """Positional (aligned-clock) combine_latest over lazy bare-value sources.
+    """Positional (no-index) combine_latest over lazy sources.
 
-    Strict lockstep: every source must have equal length, matching the eager
-    positional contract. Yields ``(row_tuple, None)``. Raises ValueError at the
-    first length mismatch (lengths are unknowable until the streams run out).
+    The sources are paired by position: each step takes one value from every
+    source. They must therefore stay in step and end together. If one source runs
+    out while the others are still producing values, they were never aligned, and
+    this raises. Matches the eager positional path, which rejects the same case.
+    Yields ``(row_tuple, None)``.
     """
     import itertools
     for tup in itertools.zip_longest(*sources, fillvalue=_EMPTY):
         if any(x is _EMPTY for x in tup):
             raise ValueError(
-                "combine_latest: positional (no-index) lazy sources must have "
-                "equal length (aligned clocks); source lengths differ")
+                "combine_latest: positional (no-index) sources must stay in step "
+                "and end together; one source ran out before the others")
         yield tuple(float(x) for x in tup), None
 
 
@@ -327,10 +335,10 @@ def combine_latest(*values, index=None, emit="when_all"):
     events coalesce). Values-first + polymorphic: raw arrays, (values, index)
     tuples, or graph Nodes.
 
-    No-index (positional) inputs are treated as aligned clocks (equal length
-    required, lockstep); returns (aligned_values, None). Indexed inputs perform
-    an as-of join aligned on each stream's index, returning (aligned_values, index).
-    Node inputs return a Node.
+    No-index (positional) inputs are paired by position: each step takes one
+    value from every input, so they must stay in step and end together; returns
+    (aligned_values, None). Indexed inputs perform an as-of join aligned on each
+    stream's index, returning (aligned_values, index). Node inputs return a Node.
 
     emit="when_all" (default) suppresses output until every input has a value;
     emit="on_any" emits from the first event (NaN for unseen inputs). To transform

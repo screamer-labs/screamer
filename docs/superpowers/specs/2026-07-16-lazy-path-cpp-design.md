@@ -1,6 +1,6 @@
 # screamer: Move the lazy-path logic into the C++ core - Design
 
-**Status:** draft design, pending review
+**Status:** implemented (item 1 sanctioned as Python; items 2 and 3 done in C++)
 **Date:** 2026-07-16
 **Scope:** the lazy (iterator) streaming path in `screamer/streams.py` and `screamer/dag.py`
 
@@ -60,6 +60,20 @@ path for both positional and indexed.
 
 **Risk:** low. The C++ puller already exists and is tested; this removes Python,
 does not add C++.
+
+**Resolution (sanctioned as Python).** Kept `_combine_latest_zip_lazy` in
+Python. It is not core logic and is unreachable from C++: it pairs Python
+iterators step by step and does not implement the combine. A pure-C++ (or
+other-binding) user does a positional combine by feeding row-number indices to
+the C++ `CombineLatest` node - the alignment lives there. What stays in Python
+is the iterator ergonomics plus the "stay in step and end together" check, which
+is specific to Python iterators (it detects one source ending while others keep
+producing values - the only thing observable on an iterator; there is no length
+to read, and for an endless stream it never fires). It matches the eager
+positional path, which rejects the same case, so `batch == lazy` holds. Routing
+it through the array-based `CombineLatestPuller` was rejected: materializing an
+endless stream is impossible. This is binding-layer input adaptation, in the
+same bucket as `_resample_ohlcv` and the datetime-offset parsing.
 
 ### 2. Make the eager `combine_latest` coalesce in C++ (like the graph node already does)
 
@@ -168,7 +182,9 @@ index axis globally sorted.
 - **Order:** 1 then 2 (both small, self-contained, delete Python) first; 3 (the
   C++ lazy driver + watermark join) as its own focused effort.
 - **Out:** `_resample_ohlcv` (sanctioned composition); the datetime offset
-  parsing in resample (binding-specific input adaptation, stays Python); the two
+  parsing in resample (binding-specific input adaptation, stays Python);
+  `_combine_latest_zip_lazy` (sanctioned - Python-iterator ergonomics + a
+  stay-in-step guardrail, no core logic; see item 1 resolution); the two
   capability-gap operators (`stack_lags`, bars->bars resample) which are new C++
   ops, not lazy-path fixes.
 
