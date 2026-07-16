@@ -2,6 +2,37 @@
 
 All notable changes to this project are documented in this file.
 
+[0.8.0] - 2026-07-16
+--------------------
+
+Microstructure and order-flow operators, and the lazy Pipeline path moved into
+the C++ core.
+
+### Added
+
+* Microstructure and order-flow operators, all implemented as C++ core nodes:
+  * Trade signing: `TickRuleSign`, `LeeReadySign`, `SignedVolume`, and the
+    bar-level `BulkVolumeClassifier` (BVC).
+  * Order flow: `OFI` (order-flow imbalance) and `RollingOrderImbalance`.
+  * Price impact and liquidity: `RollingKyleLambda`, `EwKyleLambda`,
+    `AmihudIlliquidity`, `RollSpread` (Roll effective spread), and the Bouchaud
+    `Propagator`.
+  * Event intensity: `HawkesIntensity`, a self-exciting arrival-rate model.
+* Two demo notebooks driven by a small committed real-data slice (six hours of
+  Deribit BTC- and ETH-perpetual trades): order flow and trade signing, and
+  price impact and liquidity.
+
+### Internal
+
+* The lazy (Python-iterator) `Pipeline` path now runs in the C++ core. A C++
+  driver merges the input feeds, drives the compiled graph, and runs the
+  multi-output watermark as-of join, replacing the previous Python driver. The
+  `batch == lazy == graph` invariant is now enforced by one implementation
+  rather than by parallel ones agreeing. The k-way merge refills lazily, so it
+  never reads further ahead than requested (safe for endless streams).
+* Eager `combine_latest` coalesces per index in C++ (the Python dedup is gone),
+  and `split` runs in C++.
+
 [0.7.0] - 2026-07-12
 --------------------
 
