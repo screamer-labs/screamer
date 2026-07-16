@@ -24,8 +24,8 @@ namespace screamer {
         Propagator(int window = 20, double g0 = 1.0, double gamma = 0.5)
             : window_(window)
         {
-            if (window_ < 1) {
-                throw std::invalid_argument("window must be at least 1");
+            if (window_ < 2) {
+                throw std::invalid_argument("window must be 2 or more.");
             }
             kernel_.resize(window_);
             for (int k = 0; k < window_; ++k) {

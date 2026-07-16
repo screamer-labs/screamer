@@ -17,7 +17,7 @@ def test_ofi_is_causal():
     np.testing.assert_allclose(full[:2], trunc)   # future rows do not change past values
 
 
-def test_ofi_propagates_nan_but_zeros_empty_bucket():
+def test_ofi_nan_and_empty_bucket():
     buy = np.array([np.nan, 0.0, 2.0])
     sell = np.array([1.0, 0.0, 2.0])
     out = OFI()(buy, sell)
