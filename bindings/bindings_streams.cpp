@@ -315,14 +315,31 @@ static py::tuple combine_latest_batch(py::list index_arrays,
     out_k.reserve(total);
     out_v.reserve(total * n);
 
+    // Coalesce to one row per distinct index, exactly as the graph
+    // CombineLatestNode does: same-index events update a buffered row; the row is
+    // emitted when the index advances, and the final buffered row is emitted at
+    // the end. MergeSource yields index-sorted events, so equal indices are
+    // consecutive and this keeps the last row per index.
     CombineLatest cl(n, when_all);
     MergeSource<Index> merge(child_ptrs);
+    bool has_buffered = false;
+    Index buffered_index{};
+    std::vector<double> buffered_row(n, 0.0);
     while (auto e = merge.next()) {
         if (cl.on_event(e->source, e->value)) {
-            out_k.push_back(e->index);
             const std::vector<double>& row = cl.latest();
-            out_v.insert(out_v.end(), row.begin(), row.end());
+            if (has_buffered && e->index != buffered_index) {
+                out_k.push_back(buffered_index);
+                out_v.insert(out_v.end(), buffered_row.begin(), buffered_row.end());
+            }
+            buffered_index = e->index;
+            std::copy(row.begin(), row.end(), buffered_row.begin());
+            has_buffered = true;
         }
+    }
+    if (has_buffered) {
+        out_k.push_back(buffered_index);
+        out_v.insert(out_v.end(), buffered_row.begin(), buffered_row.end());
     }
 
     std::size_t m = out_k.size();
