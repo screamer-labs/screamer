@@ -100,6 +100,8 @@ _NO_ARG_AUTO_EXCLUDE = {
     'Where',
     # 2-input microstructure ops (FunctorBase<_, 2, 1>) - tested in test_microstructure.py
     'OFI', 'LeeReadySign',
+    # 4-input micro-price (FunctorBase<_, 4, 1>) - tested in test_microstructure.py
+    'MicroPrice',
 }
 # Linear2 takes constructor args (a, b, c) so it is not a no-arg class
 # and would not be picked up here - listed for clarity only.

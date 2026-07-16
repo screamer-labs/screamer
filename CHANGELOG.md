@@ -2,6 +2,20 @@
 
 All notable changes to this project are documented in this file.
 
+[Unreleased]
+------------
+
+### Added
+
+* Microstructure tranche 2, order-flow toxicity and book features:
+  * `VPIN` (Easley-Lopez de Prado-O'Hara 2012): order-flow toxicity over a
+    self-contained volume clock (equal-volume buckets, boundary-splitting).
+  * `MicroPrice` (Stoikov 2018, first-order): the imbalance-weighted mid, a fair
+    value that leans toward the thinner side of the book.
+  * `QueueImbalance`: L1 book (queue) imbalance, a documented synonym of `OFI`
+    applied to resting bid/ask sizes.
+* Each ships with a reference page, a plotted usage example, and tests.
+
 [0.8.0] - 2026-07-16
 --------------------
 

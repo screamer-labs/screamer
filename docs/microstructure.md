@@ -33,6 +33,10 @@ driver of price:
 - [`OFI`](functions_micro/OFI.md): normalized imbalance, `(buy - sell) / (buy + sell)`.
 - [`RollingOrderImbalance`](functions_micro/RollingOrderImbalance.md): the trailing
   sum of signed flow.
+- [`QueueImbalance`](functions_micro/QueueImbalance.md): the same normalized
+  imbalance applied to the resting L1 book sizes rather than to trade flow.
+- [`VPIN`](functions_micro/VPIN.md): order-flow toxicity, the average one-sidedness
+  of flow over a volume clock (Easley-Lopez de Prado-O'Hara).
 
 **Price impact and liquidity** measure how far flow moves price and what trading
 costs:
@@ -46,6 +50,8 @@ costs:
   implied by trade prices.
 - [`Propagator`](functions_micro/Propagator.md): the Bouchaud model, where impact
   builds and then relaxes through a decaying kernel.
+- [`MicroPrice`](functions_micro/MicroPrice.md): an imbalance-weighted fair value
+  that leans toward the thinner side of the book (Stoikov).
 
 **Event intensity** measures the clustering of activity:
 

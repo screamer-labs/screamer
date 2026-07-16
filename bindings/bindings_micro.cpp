@@ -8,6 +8,8 @@
 #include "screamer/bulk_volume_classifier.h"
 #include "screamer/roll_spread.h"
 #include "screamer/propagator.h"
+#include "screamer/vpin.h"
+#include "screamer/micro_price.h"
 
 namespace py = pybind11;
 
@@ -58,5 +60,16 @@ void init_bindings_micro(py::module& m) {
              py::arg("window") = 20, py::arg("g0") = 1.0, py::arg("gamma") = 0.5)
         .def("__call__", &screamer::Propagator::operator(), py::arg("value"))
         .def("reset", &screamer::Propagator::reset, "Reset to the initial state.");
+
+    py::class_<screamer::VPIN, screamer::EvalOp>(m, "VPIN")
+        .def(py::init<double, int>(),
+             py::arg("bucket_volume") = 1.0, py::arg("n_buckets") = 50)
+        .def("__call__", &screamer::VPIN::handle_input)
+        .def("reset", &screamer::VPIN::reset, "Reset to the initial state.");
+
+    py::class_<screamer::MicroPrice, screamer::EvalOp>(m, "MicroPrice")
+        .def(py::init<>())
+        .def("__call__", &screamer::MicroPrice::handle_input)
+        .def("reset", &screamer::MicroPrice::reset, "Reset to the initial state.");
 
 }

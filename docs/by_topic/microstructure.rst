@@ -22,10 +22,14 @@ Order flow, price impact, and liquidity indicators derived from trade and order-
      - Conditional intensity of an exponential-kernel Hawkes process: lambda_t = mu + kappa_t.
    * - :doc:`Lee-Ready Trade Sign </functions_micro/LeeReadySign>`
      - Trade sign by the Lee-Ready (1991) rule: quote test with tick-rule fallback.
+   * - :doc:`Micro-Price (imbalance-weighted mid) </functions_micro/MicroPrice>`
+     - Imbalance-weighted mid (Stoikov 2018, first-order): fair value that leans toward the thinner side of the book.
    * - :doc:`Order-Flow Imbalance </functions_micro/OFI>`
      - Normalized signed order flow, (buy - sell) / (buy + sell).
    * - :doc:`Bouchaud Propagator Price Impact </functions_micro/Propagator>`
      - Bouchaud (2004) propagator model: price impact as a decaying-kernel convolution over past signed order flow.
+   * - :doc:`Queue (Book) Imbalance </functions_micro/QueueImbalance>`
+     - Normalized L1 book imbalance, (bid_size - ask_size) / (bid_size + ask_size).
    * - :doc:`Kyle's Lambda (rolling) </functions_micro/RollingKyleLambda>`
      - Rolling-window price-impact slope of return on signed order flow (Kyle 1985).
    * - :doc:`Rolling Order Imbalance </functions_micro/RollingOrderImbalance>`
@@ -36,3 +40,5 @@ Order flow, price impact, and liquidity indicators derived from trade and order-
      - Aggressor-signed volume, sign * volume.
    * - :doc:`Tick Rule Sign </functions_micro/TickRuleSign>`
      - Trade sign by the tick rule (+1 up-tick, -1 down-tick, carry on unchanged).
+   * - :doc:`VPIN Order-Flow Toxicity </functions_micro/VPIN>`
+     - Volume-synchronized probability of informed trading (Easley-Lopez de Prado-O'Hara 2012): order-flow toxicity.

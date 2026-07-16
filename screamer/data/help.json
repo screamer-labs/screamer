@@ -3502,6 +3502,40 @@
     "details": "## Description\n\n`LeeReadySign` classifies each trade as buyer-initiated (`+1`) or\nseller-initiated (`-1`) using the Lee-Ready (1991) algorithm. The rule has\ntwo steps.\n\n1. **Quote test**: if the trade price is above the mid-quote, it is a buy\n   (`+1`); if it is below, it is a sell (`-1`).\n2. **Tick-rule fallback**: if the trade price equals the mid-quote exactly,\n   the sign of the most recent price change is used instead (the tick rule).\n   An up-tick is a buy; a down-tick is a sell; an unchanged tick carries the\n   previous sign.\n\n`LeeReadySign()(price, mid)` returns the signed series. The tick-rule fallback\nstate advances on every price (not only at-mid samples), so the classification\nis consistent between whole-array and one-sample-at-a-time driving\n(batch == stream). A missing price or mid (`NaN`) yields `NaN`\n(nan_policy: ignore).\n\n*Return value*: an array of `+1.0` and `-1.0` trade signs (or `NaN` where\ninput is missing). The first sample is `NaN` when the tick-rule fallback is\nneeded at index 0 (no prior price to compute a tick direction).\n\n**Reference**: Lee, C. M. C., and Ready, M. J. (1991). \"Inferring Trade\nDirection from Intraday Data.\" *Journal of Finance*, 46(2), 733-746.",
     "examples": []
   },
+  "MicroPrice": {
+    "name": "MicroPrice",
+    "title": "Micro-Price (imbalance-weighted mid)",
+    "implementation_family": "micro",
+    "topics": [
+      "microstructure"
+    ],
+    "tags": [
+      "micro-price",
+      "microprice",
+      "fair value",
+      "weighted mid",
+      "stoikov",
+      "order book",
+      "microstructure"
+    ],
+    "short": "Imbalance-weighted mid (Stoikov 2018, first-order): fair value that leans toward the thinner side of the book.",
+    "inputs": 4,
+    "outputs": 1,
+    "parameters": [],
+    "nan_policy": "ignore",
+    "see_also": [
+      "OFI",
+      "QueueImbalance"
+    ],
+    "details": "## Description\n\n`MicroPrice` is the imbalance-weighted mid, a fair value that leans toward the\nthinner side of the order book (Stoikov 2018, first-order form). With\n`I = bid_size / (bid_size + ask_size)` the fraction of resting size on the bid,\n\n    micro = I * ask + (1 - I) * bid.\n\nWhen the bid queue is heavier (`I` near 1) the price is pulled toward the ask\n(upward pressure); when the ask queue is heavier it is pulled toward the bid. A\nbalanced or empty book gives the plain mid. `MicroPrice(bid, ask, bid_size,\nask_size)` predicts the next mid better than the plain mid because it uses the\nqueue imbalance. This is the widely-used weighted-mid form; the full Stoikov\nmicro-price with a calibrated adjustment function is not modelled here.\nReferences: Stoikov (2018), \"The micro-price: a high-frequency estimator of future\nprices\".",
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage plot",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import MicroPrice\n\nrng = np.random.default_rng(1)\nn = 200\nmid = 100 + np.cumsum(rng.standard_normal(n) * 0.02)\nbid, ask = mid - 0.25, mid + 0.25          # a 0.5-wide spread\nbid_size = np.abs(rng.standard_normal(n)) + 0.5\nask_size = np.abs(rng.standard_normal(n)) + 0.5\nmicro = MicroPrice()(bid, ask, bid_size, ask_size)\nimbalance = (bid_size - ask_size) / (bid_size + ask_size)\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.5, 0.5],\n                    vertical_spacing=0.08)\nfig.add_trace(go.Scatter(y=micro - mid, mode='lines', name='micro-price - mid',\n                         line=dict(color='teal')), row=1, col=1)\nfig.add_hline(y=0, line=dict(color='gray', dash='dot'), row=1, col=1)\nfig.add_trace(go.Scatter(y=imbalance, mode='lines', name='queue imbalance',\n                         line=dict(color='steelblue')), row=2, col=1)\nfig.update_layout(title='MicroPrice: fair value leans toward the heavier queue',\n                  yaxis=dict(title='micro - mid'), yaxis2=dict(title='imbalance', range=[-1, 1]),\n                  margin=dict(l=20, r=20, t=60, b=20), legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1))\nfig.show()"
+      }
+    ]
+  },
   "OFI": {
     "name": "OFI",
     "title": "Order-Flow Imbalance",
@@ -3590,6 +3624,38 @@
         "language": "python",
         "caption": "Reset clears accumulated history",
         "code": "op = Propagator(window=10)\nimpact_first_pass = op(flow)\nop.reset()\nimpact_second_pass = op(flow)   # identical to first pass"
+      }
+    ]
+  },
+  "QueueImbalance": {
+    "name": "QueueImbalance",
+    "title": "Queue (Book) Imbalance",
+    "implementation_family": "micro",
+    "topics": [
+      "microstructure"
+    ],
+    "tags": [
+      "queue imbalance",
+      "book imbalance",
+      "order book imbalance",
+      "order flow",
+      "microstructure"
+    ],
+    "short": "Normalized L1 book imbalance, (bid_size - ask_size) / (bid_size + ask_size).",
+    "inputs": 2,
+    "outputs": 1,
+    "parameters": [],
+    "nan_policy": "ignore",
+    "see_also": [
+      "OFI",
+      "MicroPrice"
+    ],
+    "details": "## Description\n\n`QueueImbalance` is the L1 order-book (queue) imbalance,\n\n    (bid_size - ask_size) / (bid_size + ask_size),\n\nin `[-1, 1]`. It is positive when more size rests on the bid than the ask\n(buy pressure) and negative when the ask is heavier. It is one of the most\nwidely used short-horizon predictors: a heavy bid queue tends to precede an\nup-move. Feed the resting sizes at the top of book: `QueueImbalance(bid_size,\nask_size)`. An empty book (both sizes 0) has no imbalance and returns 0.\n\n`QueueImbalance` is a documented synonym of `OFI`: the same normalized-imbalance\noperator, applied to resting queue sizes rather than to trade flow.",
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage plot",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer.microstructure import QueueImbalance\n\nrng = np.random.default_rng(2)\nn = 200\nwave = np.sin(np.linspace(0, 4 * np.pi, n))\nbid_size = np.abs(rng.standard_normal(n)) + 1 + 2 * wave.clip(0)\nask_size = np.abs(rng.standard_normal(n)) + 1 + 2 * (-wave).clip(0)\nimbalance = QueueImbalance()(bid_size, ask_size)\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.55, 0.45],\n                    vertical_spacing=0.08)\nfig.add_trace(go.Bar(y=bid_size, name='bid size', marker_color='seagreen'), row=1, col=1)\nfig.add_trace(go.Bar(y=-ask_size, name='ask size', marker_color='crimson'), row=1, col=1)\nfig.add_trace(go.Scatter(y=imbalance, name='queue imbalance', line=dict(color='navy')),\n              row=2, col=1)\nfig.update_layout(barmode='relative',\n                  title='QueueImbalance: L1 book pressure in [-1, 1]',\n                  yaxis=dict(title='resting size'), yaxis2=dict(title='imbalance', range=[-1, 1]),\n                  margin=dict(l=20, r=20, t=60, b=20), legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1))\nfig.show()"
       }
     ]
   },
@@ -3789,6 +3855,52 @@
         "language": "python",
         "caption": "Usage plot",
         "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import TickRuleSign\n\nrng = np.random.default_rng(0)\nprice = 100 + np.cumsum(rng.standard_normal(200) * 0.05)\nsign = TickRuleSign()(price)\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.7, 0.3],\n                    vertical_spacing=0.08)\nfig.add_trace(go.Scatter(y=price, mode='lines', name='price',\n                         line=dict(color='steelblue')), row=1, col=1)\nfig.add_trace(go.Scatter(y=sign, mode='lines', line_shape='hv', name='tick sign',\n                         line=dict(color='crimson')), row=2, col=1)\nfig.update_layout(title='TickRuleSign: +1 on an up-tick, -1 on a down-tick',\n                  yaxis=dict(title='price'), yaxis2=dict(title='sign', dtick=1),\n                  margin=dict(l=20, r=20, t=60, b=20), legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1))\nfig.show()"
+      }
+    ]
+  },
+  "VPIN": {
+    "name": "VPIN",
+    "title": "VPIN Order-Flow Toxicity",
+    "implementation_family": "micro",
+    "topics": [
+      "microstructure"
+    ],
+    "tags": [
+      "vpin",
+      "toxicity",
+      "informed trading",
+      "order flow",
+      "volume clock",
+      "microstructure"
+    ],
+    "short": "Volume-synchronized probability of informed trading (Easley-Lopez de Prado-O'Hara 2012): order-flow toxicity.",
+    "inputs": 2,
+    "outputs": 1,
+    "parameters": [
+      {
+        "name": "bucket_volume",
+        "type": "float",
+        "default": 1.0,
+        "description": "Volume that fills one bucket (the volume clock). Set it to your instrument's volume scale."
+      },
+      {
+        "name": "n_buckets",
+        "type": "int",
+        "default": 50,
+        "description": "Number of trailing buckets averaged."
+      }
+    ],
+    "nan_policy": "ignore",
+    "see_also": [
+      "OFI",
+      "BulkVolumeClassifier"
+    ],
+    "details": "## Description\n\n`VPIN` (Volume-Synchronized Probability of Informed Trading; Easley, Lopez de\nPrado, O'Hara 2012) measures order-flow **toxicity**: how one-sided trading is,\nmeasured on a volume clock rather than a wall clock. Trades are packed into\nequal-volume buckets of `bucket_volume`; each closed bucket contributes its\nabsolute order imbalance `|buy - sell|`, and `VPIN` is the mean of that imbalance\nover the last `n_buckets` buckets, normalized by the bucket volume, giving a\nvalue in `[0, 1]`. A high value means flow is dominated by one side, a sign of\ninformed or toxic trading that often precedes adverse price moves.\n\nFeed per-trade buy and sell volume (from a signing rule such as `TickRuleSign` or\n`BulkVolumeClassifier`). A trade that straddles a bucket boundary is split\nproportionally across buckets, so the volume clock is exact. The output is `NaN`\nuntil `n_buckets` buckets have closed. References: Easley, Lopez de Prado, O'Hara\n(2012), \"Flow Toxicity and Liquidity in a High-Frequency World\".",
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage plot",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import VPIN\n\nrng = np.random.default_rng(0)\nn = 600\nbuy = rng.exponential(1.0, n)\nsell = rng.exponential(1.0, n)\nsell[250:350] *= 0.2                       # a one-sided (toxic) buying burst\nvpin = VPIN(bucket_volume=20.0, n_buckets=20)(buy, sell)\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.45, 0.55],\n                    vertical_spacing=0.08)\nfig.add_trace(go.Scatter(y=buy - sell, mode='lines', name='net flow (buy - sell)',\n                         line=dict(color='lightslategray')), row=1, col=1)\nfig.add_trace(go.Scatter(y=vpin, mode='lines', name='VPIN',\n                         line=dict(color='crimson')), row=2, col=1)\nfig.update_layout(title='VPIN: toxicity spikes during a one-sided burst',\n                  yaxis=dict(title='net flow'), yaxis2=dict(title='VPIN', range=[0, 1]),\n                  margin=dict(l=20, r=20, t=60, b=20), legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1))\nfig.show()"
       }
     ]
   },

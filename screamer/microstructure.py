@@ -8,9 +8,10 @@ documented synonym of a single operator, or a specialization that binds one
 operator's parameters. None of them add logic of their own.
 """
 from . import Mul, RollingSum
-from .screamer_bindings import RollingBeta, EwBeta
+from .screamer_bindings import RollingBeta, EwBeta, OFI
 
-__all__ = ["SignedVolume", "RollingKyleLambda", "EwKyleLambda", "RollingOrderImbalance"]
+__all__ = ["SignedVolume", "RollingKyleLambda", "EwKyleLambda",
+           "RollingOrderImbalance", "QueueImbalance"]
 
 
 class SignedVolume:
@@ -72,3 +73,20 @@ class RollingOrderImbalance:
 
     def reset(self):
         self._sum.reset()
+
+
+class QueueImbalance:
+    """L1 order-book (queue) imbalance: (bid_size - ask_size) / (bid_size +
+    ask_size), in [-1, 1]. A documented synonym of OFI (the same normalized
+    imbalance operator) applied to resting queue sizes rather than trade flow.
+    """
+
+    def __init__(self):
+        """__init__(self: QueueImbalance) -> None"""
+        self._ofi = OFI()
+
+    def __call__(self, bid_size, ask_size):
+        return self._ofi(bid_size, ask_size)
+
+    def reset(self):
+        self._ofi.reset()

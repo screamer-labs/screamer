@@ -228,3 +228,97 @@ def test_propagator_reset_clears_buffer():
     op = Propagator(window=2)
     a = [op(v) for v in flow]; op.reset(); b = [op(v) for v in flow]
     np.testing.assert_allclose(a, b, equal_nan=True)
+
+
+# --- VPIN (order-flow toxicity) ------------------------------------------------
+
+def test_vpin_toxicity_warmup_and_transition():
+    from screamer import VPIN
+    # bucket_volume=10 so each trade fills exactly one bucket; n_buckets=3.
+    buy = np.array([10.0, 10.0, 10.0, 5.0, 5.0, 5.0])
+    sell = np.array([0.0, 0.0, 0.0, 5.0, 5.0, 5.0])
+    out = VPIN(bucket_volume=10.0, n_buckets=3)(buy, sell)
+    assert np.isnan(out[0]) and np.isnan(out[1])          # warmup: < 3 buckets closed
+    # all-buy buckets -> imbalance 10/10 = 1.0, then balanced buckets pull it down
+    np.testing.assert_allclose(out[2:], [1.0, 2 / 3, 1 / 3, 0.0])
+
+
+def test_vpin_splits_trade_across_buckets():
+    from screamer import VPIN
+    # One trade of 30 volume with a fixed 5:1 buy:sell ratio, bucket_volume=10,
+    # n_buckets=3: it fills exactly 3 buckets, each with imbalance |8.333-1.667|.
+    out = VPIN(bucket_volume=10.0, n_buckets=3)(np.array([25.0]), np.array([5.0]))
+    np.testing.assert_allclose(out, [(25 - 5) / 30])       # = 2/3, normalized imbalance
+
+
+def test_vpin_is_in_unit_range_and_causal():
+    from screamer import VPIN
+    rng = np.random.default_rng(0)
+    buy, sell = rng.exponential(1.0, 300), rng.exponential(1.0, 300)
+    full = VPIN(bucket_volume=15.0, n_buckets=10)(buy, sell)
+    finite = full[~np.isnan(full)]
+    assert np.all((finite >= 0.0) & (finite <= 1.0))
+    trunc = VPIN(bucket_volume=15.0, n_buckets=10)(buy[:150], sell[:150])
+    np.testing.assert_allclose(full[:150], trunc, equal_nan=True)
+
+
+def test_vpin_nan_input_leaves_state_untouched():
+    from screamer import VPIN
+    op = VPIN(bucket_volume=10.0, n_buckets=2)
+    a = op(10.0, 0.0)              # closes bucket 1
+    b = op(np.nan, 5.0)           # NaN -> NaN, no bucket change
+    c = op(10.0, 0.0)             # closes bucket 2 -> first finite VPIN
+    assert np.isnan(a) and np.isnan(b) and c == 1.0
+
+
+def test_vpin_stream_equals_batch():
+    from screamer import VPIN
+    rng = np.random.default_rng(1)
+    buy, sell = rng.exponential(1.0, 200), rng.exponential(1.0, 200)
+    op = VPIN(bucket_volume=12.0, n_buckets=8)
+    stream = np.array([op(float(bi), float(si)) for bi, si in zip(buy, sell)])
+    batch = VPIN(bucket_volume=12.0, n_buckets=8)(buy, sell)
+    np.testing.assert_allclose(np.nan_to_num(stream), np.nan_to_num(batch))
+
+
+def test_vpin_reset_restarts():
+    from screamer import VPIN
+    buy, sell = np.array([10.0, 10.0, 10.0]), np.array([0.0, 0.0, 0.0])
+    op = VPIN(bucket_volume=10.0, n_buckets=2)
+    a = [op(float(b), float(s)) for b, s in zip(buy, sell)]
+    op.reset()
+    b = [op(float(b_), float(s_)) for b_, s_ in zip(buy, sell)]
+    np.testing.assert_allclose(np.nan_to_num(a), np.nan_to_num(b))
+
+
+# --- MicroPrice (imbalance-weighted mid) ---------------------------------------
+
+def test_microprice_leans_toward_heavier_queue():
+    from screamer import MicroPrice
+    bid = np.array([100.0, 100.0, 100.0, 100.0])
+    ask = np.array([101.0, 101.0, 101.0, 101.0])
+    bid_size = np.array([9.0, 1.0, 5.0, 0.0])
+    ask_size = np.array([1.0, 9.0, 5.0, 0.0])
+    out = MicroPrice()(bid, ask, bid_size, ask_size)
+    # heavy bid -> toward ask (100.9); heavy ask -> toward bid (100.1);
+    # balanced and empty book -> plain mid (100.5)
+    np.testing.assert_allclose(out, [100.9, 100.1, 100.5, 100.5])
+
+
+def test_microprice_nan_input_is_nan():
+    from screamer import MicroPrice
+    out = MicroPrice()(np.array([100.0, np.nan]), np.array([101.0, 101.0]),
+                       np.array([1.0, 1.0]), np.array([1.0, 1.0]))
+    assert out[0] == 100.5 and np.isnan(out[1])
+
+
+# --- QueueImbalance (L1 book imbalance = OFI synonym) --------------------------
+
+def test_queue_imbalance_matches_ofi():
+    from screamer.microstructure import QueueImbalance
+    bid_size = np.array([9.0, 1.0, 5.0, 0.0])
+    ask_size = np.array([1.0, 9.0, 5.0, 0.0])
+    np.testing.assert_allclose(QueueImbalance()(bid_size, ask_size),
+                               OFI()(bid_size, ask_size))
+    np.testing.assert_allclose(QueueImbalance()(bid_size, ask_size),
+                               [0.8, -0.8, 0.0, 0.0])

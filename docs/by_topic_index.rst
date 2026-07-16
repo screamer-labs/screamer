@@ -137,13 +137,16 @@ Every function, grouped by topic. Topics are many-to-many, so a function may app
    functions_micro/EwKyleLambda
    functions_micro/HawkesIntensity
    functions_micro/LeeReadySign
+   functions_micro/MicroPrice
    functions_micro/OFI
    functions_micro/Propagator
+   functions_micro/QueueImbalance
    functions_micro/RollSpread
    functions_micro/RollingKyleLambda
    functions_micro/RollingOrderImbalance
    functions_micro/SignedVolume
    functions_micro/TickRuleSign
+   functions_micro/VPIN
    functions_misc/CumMax
    functions_misc/CumMin
    functions_misc/CumProd
