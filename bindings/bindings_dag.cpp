@@ -12,9 +12,169 @@
 #include "screamer/dag/driver.h"
 #include "screamer/dag/graph.h"
 #include "screamer/dag/compiled_graph.h"
+#include "screamer/streams/event.h"
+#include "screamer/streams/merge_source.h"
+#include "screamer/streams/py_source.h"
+#include <algorithm>
+#include <cassert>
+#include <deque>
+#include <tuple>
 
 namespace py = pybind11;
 using namespace screamer;
+
+// Build the Python value for row r of an output buffer: a scalar for a width-1
+// output, a tuple for a wider one.
+static py::object make_output_value(const dag::OutputBuffer& b, std::size_t r,
+                                    std::size_t w) {
+    if (w == 1) return py::float_(b.values[r]);
+    py::tuple t(w);
+    for (std::size_t j = 0; j < w; ++j) t[j] = py::float_(b.values[r * w + j]);
+    return std::move(t);
+}
+
+// ---------------------------------------------------------------------------
+// LazyDriver: run a compiled graph over Python-iterator feeds, event by event,
+// in C++. It merges the per-input (value, index) iterators by index
+// (streams::MergeSource, ascending, same-index ties by input order), pushes each
+// merged event into the CompiledGraph, drains the frames the graph emitted, and
+// yields output rows - the same rows the Python _LazyDag produced. Holds a
+// keepalive to the owning _CompiledGraph object.
+//
+// One output (n_out == 1): yield (value, index) rows, value scalar or tuple.
+// M>1 co-indexed outputs: run the same watermark as-of join _LazyDag used. The M
+// outputs drain at independent rates, so their merged index stream is NOT
+// globally sorted; forward-filling naively would misalign. Instead buffer drained
+// events and finalize an index only once every output has drained strictly past
+// it (its as-of value is then settled), emitting one row per index with every
+// output's latest value. Rows are (col0, ..., col_{M-1}, index).
+// ---------------------------------------------------------------------------
+class LazyDriver {
+public:
+    LazyDriver(py::object cg_keepalive, dag::CompiledGraph& cg, py::list iterators,
+               std::size_t n_out)
+        : cg_keepalive_(std::move(cg_keepalive)), cg_(cg), n_out_(n_out),
+          latest_(n_out, py::none()), wm_val_(n_out, 0), wm_set_(n_out, 0) {
+        for (py::handle h : iterators) {
+            sources_.push_back(std::make_unique<streams::PySource<std::int64_t>>(
+                py::reinterpret_borrow<py::object>(h), /*positional=*/false));
+            child_ptrs_.push_back(sources_.back().get());
+        }
+        merge_ = std::make_unique<streams::MergeSource<std::int64_t>>(child_ptrs_);
+        cg_.reset();
+    }
+
+    py::object next() {
+        while (pending_.empty() && !done_) {
+            if (auto e = merge_->next()) {
+                cg_.push_event(static_cast<std::size_t>(e->source), e->index, e->value);
+                collect();
+            } else {
+                cg_.flush();
+                collect();
+                if (n_out_ > 1) settle(0, /*has_bound=*/false);  // emit the tail
+                done_ = true;
+            }
+        }
+        if (pending_.empty()) throw py::stop_iteration();
+        py::object row = std::move(pending_.front());
+        pending_.pop_front();
+        return row;
+    }
+
+private:
+    void collect() { (n_out_ == 1) ? collect_single() : collect_multi(); }
+
+    // One output: buffer each drained frame directly as a (value, index) row.
+    void collect_single() {
+        std::vector<dag::OutputBuffer> bufs = cg_.drain();
+        assert(bufs.size() == 1 && "collect_single: graph must have one output");
+        const dag::OutputBuffer& b = bufs[0];
+        const std::size_t w = b.width;
+        const std::size_t rows = b.indices.size();
+        for (std::size_t r = 0; r < rows; ++r) {
+            pending_.push_back(py::make_tuple(make_output_value(b, r, w),
+                                              py::int_(b.indices[r])));
+        }
+    }
+
+    // M>1 outputs: buffer this drain's events, advance each output's watermark,
+    // then settle every index the join can now finalize (strictly below the
+    // lowest watermark - no output can still emit below it).
+    void collect_multi() {
+        std::vector<dag::OutputBuffer> bufs = cg_.drain();
+        assert(bufs.size() == n_out_ && "collect_multi: drain count must equal n_out");
+        for (std::size_t out_pos = 0; out_pos < bufs.size(); ++out_pos) {
+            const dag::OutputBuffer& b = bufs[out_pos];
+            const std::size_t w = b.width;
+            const std::size_t rows = b.indices.size();
+            for (std::size_t r = 0; r < rows; ++r) {
+                const std::int64_t k = b.indices[r];
+                buf_.emplace_back(k, out_pos, make_output_value(b, r, w));
+                if (!wm_set_[out_pos] || k > wm_val_[out_pos]) {
+                    wm_val_[out_pos] = k;
+                    wm_set_[out_pos] = 1;
+                }
+            }
+        }
+        for (unsigned char s : wm_set_) if (!s) return;   // an output has not fired
+        std::int64_t bound = wm_val_[0];
+        for (std::size_t j = 1; j < n_out_; ++j) bound = std::min(bound, wm_val_[j]);
+        settle(bound, /*has_bound=*/true);
+    }
+
+    // Emit one row per distinct buffered index < bound (all buffered when
+    // !has_bound), forward-filling each output's as-of value. Suppress until every
+    // output has a value (when_all). Stable order: the last drained value wins per
+    // (index, output).
+    void settle(std::int64_t bound, bool has_bound) {
+        if (buf_.empty()) return;
+        std::vector<Buffered> keep, ready;
+        for (const Buffered& e : buf_) {
+            if (!has_bound || std::get<0>(e) < bound) ready.push_back(e);
+            else keep.push_back(e);
+        }
+        if (ready.empty()) return;                        // buf_ left intact
+        buf_ = std::move(keep);
+        std::stable_sort(ready.begin(), ready.end(),
+            [](const Buffered& a, const Buffered& b) {
+                return std::get<0>(a) < std::get<0>(b);
+            });
+        std::size_t i = 0;
+        const std::size_t n = ready.size();
+        while (i < n) {
+            const std::int64_t k = std::get<0>(ready[i]);
+            while (i < n && std::get<0>(ready[i]) == k) {
+                latest_[std::get<1>(ready[i])] = std::get<2>(ready[i]);
+                ++i;
+            }
+            bool all_set = true;
+            for (const py::object& o : latest_) if (o.is_none()) { all_set = false; break; }
+            if (all_set) {
+                py::tuple row(n_out_ + 1);
+                for (std::size_t j = 0; j < n_out_; ++j) row[j] = latest_[j];
+                row[n_out_] = py::int_(k);
+                pending_.push_back(std::move(row));
+            }
+        }
+    }
+
+    using Buffered = std::tuple<std::int64_t, std::size_t, py::object>;  // (index, out, value)
+
+    py::object cg_keepalive_;                 // keep the _CompiledGraph alive
+    dag::CompiledGraph& cg_;
+    std::size_t n_out_;
+    std::vector<std::unique_ptr<streams::PySource<std::int64_t>>> sources_;
+    std::vector<streams::Source<std::int64_t>*> child_ptrs_;
+    std::unique_ptr<streams::MergeSource<std::int64_t>> merge_;
+    std::deque<py::object> pending_;
+    // Watermark as-of join state (M>1 outputs only).
+    std::vector<py::object> latest_;          // each output's as-of value (None = unset)
+    std::vector<std::int64_t> wm_val_;        // highest index drained per output
+    std::vector<unsigned char> wm_set_;       // whether each output has drained yet
+    std::vector<Buffered> buf_;               // drained-but-unsettled events
+    bool done_ = false;
+};
 
 // Hand-wire source -> FunctorNode(op) -> collector and run it in batch.
 // `values` is (T,) [width 1] or (T, W) [width W]; returns (T, op.n_out()).
@@ -131,6 +291,16 @@ void init_bindings_dag(py::module& m) {
         .def("advance",     &PyCompiledGraph::advance, py::arg("now"))
         .def("drain",       &PyCompiledGraph::drain)
         .def("run_batch",   &PyCompiledGraph::run_batch, py::arg("feeds"));
+
+    // Lazy driver over a single-output compiled graph and Python-iterator feeds.
+    py::class_<LazyDriver>(m, "_LazyDriver")
+        .def(py::init([](py::object cg_obj, py::list iterators, std::size_t n_out) {
+                 PyCompiledGraph& pcg = cg_obj.cast<PyCompiledGraph&>();
+                 return std::make_unique<LazyDriver>(cg_obj, *pcg.cg, iterators, n_out);
+             }),
+             py::arg("cg"), py::arg("iterators"), py::arg("n_out"))
+        .def("__iter__", [](py::object self) { return self; })
+        .def("__next__", &LazyDriver::next);
 
     // Python-facing GraphBuilder wrapper that keeps functor Python objects alive
     // for the lifetime of the builder (raw EvalOp* point into Python objects;

@@ -16,23 +16,29 @@ template <class Index>
 class MergeSource : public Source<Index> {
 public:
     explicit MergeSource(std::vector<Source<Index>*> children)
-        : children_(std::move(children)) {
-        // Prime the heap with the first event from each child.
+        : children_(std::move(children)), dirty_(children_.size(), 1) {
+        // No priming here: children are pulled lazily on the first next(). This
+        // keeps the merge from reading further ahead than the caller has asked
+        // for, which matters for live and infinite sources.
+    }
+
+    std::optional<Event<Index>> next() override {
+        // Refill every slot that owes a pull (all of them on the first call,
+        // then just the slot emitted by the previous call). A child that
+        // returns nullopt is exhausted and stays out of the heap for good.
         for (std::uint32_t i = 0; i < children_.size(); ++i) {
+            if (!dirty_[i]) continue;
+            dirty_[i] = 0;
             if (auto e = children_[i]->next()) {
                 heap_.push(Node{e->index, i, e->value});
             }
         }
-    }
-
-    std::optional<Event<Index>> next() override {
         if (heap_.empty()) return std::nullopt;
         Node top = heap_.top();
         heap_.pop();
-        // Pull the child's next event to keep the heap primed.
-        if (auto e = children_[top.source]->next()) {
-            heap_.push(Node{e->index, top.source, e->value});
-        }
+        // Defer this child's refill to the next call, so we never pull its
+        // successor before the caller requests another event.
+        dirty_[top.source] = 1;
         return Event<Index>{top.index, top.value, top.source};
     }
 
@@ -52,6 +58,8 @@ private:
     };
 
     std::vector<Source<Index>*> children_;
+    // Per-child "owes a pull" flags (uint8 to avoid vector<bool> proxies).
+    std::vector<std::uint8_t> dirty_;
     std::priority_queue<Node, std::vector<Node>, Greater> heap_;
 };
 
