@@ -3,7 +3,7 @@ name: MicroPrice
 title: Micro-Price (imbalance-weighted mid)
 implementation_family: micro
 topics:
-- microstructure
+- price-impact
 tags:
 - micro-price
 - microprice

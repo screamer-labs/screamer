@@ -3,7 +3,7 @@ name: LeeReadySign
 title: Lee-Ready Trade Sign
 implementation_family: micro
 topics:
-- microstructure
+- trade-signing
 tags:
 - trade sign
 - lee ready

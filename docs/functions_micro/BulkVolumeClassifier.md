@@ -3,7 +3,7 @@ name: BulkVolumeClassifier
 title: Bulk Volume Classifier (BVC)
 implementation_family: micro
 topics:
-- microstructure
+- trade-signing
 tags:
 - trade sign
 - bulk volume

@@ -3,7 +3,7 @@ name: SignedVolume
 title: Signed Volume
 implementation_family: micro
 topics:
-- microstructure
+- trade-signing
 tags:
 - signed volume
 - order flow

@@ -3,7 +3,7 @@ name: RollSpread
 title: Roll Effective Spread
 implementation_family: micro
 topics:
-- microstructure
+- price-impact
 tags:
 - spread
 - roll

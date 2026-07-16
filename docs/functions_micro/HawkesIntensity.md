@@ -3,7 +3,7 @@ name: HawkesIntensity
 title: Hawkes Process Conditional Intensity
 implementation_family: micro
 topics:
-- microstructure
+- order-flow-arrivals
 tags:
 - hawkes
 - self-exciting

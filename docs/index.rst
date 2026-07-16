@@ -157,7 +157,10 @@ For a step-by-step walkthrough see the :doc:`User Guide <usage>`.
    by_topic/outliers
    by_topic/streams
    by_topic/logic
-   by_topic/microstructure
+   by_topic/trade-signing
+   by_topic/order-flow-imbalance
+   by_topic/price-impact
+   by_topic/order-flow-arrivals
    by_topic/graphs
 
 

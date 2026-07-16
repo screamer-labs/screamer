@@ -3,7 +3,7 @@ name: TickRuleSign
 title: Tick Rule Sign
 implementation_family: micro
 topics:
-- microstructure
+- trade-signing
 tags:
 - trade sign
 - tick rule

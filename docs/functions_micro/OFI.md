@@ -3,7 +3,7 @@ name: OFI
 title: Order-Flow Imbalance
 implementation_family: micro
 topics:
-- microstructure
+- order-flow-imbalance
 tags:
 - order flow
 - imbalance

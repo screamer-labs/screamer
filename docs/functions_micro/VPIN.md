@@ -3,7 +3,7 @@ name: VPIN
 title: VPIN Order-Flow Toxicity
 implementation_family: micro
 topics:
-- microstructure
+- order-flow-imbalance
 tags:
 - vpin
 - toxicity

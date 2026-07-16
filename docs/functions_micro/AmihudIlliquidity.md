@@ -3,7 +3,7 @@ name: AmihudIlliquidity
 title: Amihud Illiquidity
 implementation_family: micro
 topics:
-- microstructure
+- price-impact
 - statistics
 tags:
 - illiquidity

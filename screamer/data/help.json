@@ -3292,7 +3292,7 @@
     "title": "Amihud Illiquidity",
     "implementation_family": "micro",
     "topics": [
-      "microstructure",
+      "price-impact",
       "statistics"
     ],
     "tags": [
@@ -3338,7 +3338,7 @@
     "title": "Bulk Volume Classifier (BVC)",
     "implementation_family": "micro",
     "topics": [
-      "microstructure"
+      "trade-signing"
     ],
     "tags": [
       "trade sign",
@@ -3384,7 +3384,7 @@
     "title": "Kyle's Lambda (exponentially weighted)",
     "implementation_family": "micro",
     "topics": [
-      "microstructure",
+      "price-impact",
       "regression"
     ],
     "tags": [
@@ -3420,7 +3420,7 @@
     "title": "Hawkes Process Conditional Intensity",
     "implementation_family": "micro",
     "topics": [
-      "microstructure"
+      "order-flow-arrivals"
     ],
     "tags": [
       "hawkes",
@@ -3481,7 +3481,7 @@
     "title": "Lee-Ready Trade Sign",
     "implementation_family": "micro",
     "topics": [
-      "microstructure"
+      "trade-signing"
     ],
     "tags": [
       "trade sign",
@@ -3507,7 +3507,7 @@
     "title": "Micro-Price (imbalance-weighted mid)",
     "implementation_family": "micro",
     "topics": [
-      "microstructure"
+      "price-impact"
     ],
     "tags": [
       "micro-price",
@@ -3541,7 +3541,7 @@
     "title": "Order-Flow Imbalance",
     "implementation_family": "micro",
     "topics": [
-      "microstructure"
+      "order-flow-imbalance"
     ],
     "tags": [
       "order flow",
@@ -3569,7 +3569,7 @@
     "title": "Bouchaud Propagator Price Impact",
     "implementation_family": "micro",
     "topics": [
-      "microstructure"
+      "price-impact"
     ],
     "tags": [
       "propagator",
@@ -3632,7 +3632,7 @@
     "title": "Queue (Book) Imbalance",
     "implementation_family": "micro",
     "topics": [
-      "microstructure"
+      "order-flow-imbalance"
     ],
     "tags": [
       "queue imbalance",
@@ -3664,7 +3664,7 @@
     "title": "Roll Effective Spread",
     "implementation_family": "micro",
     "topics": [
-      "microstructure"
+      "price-impact"
     ],
     "tags": [
       "spread",
@@ -3715,7 +3715,7 @@
     "title": "Kyle's Lambda (rolling)",
     "implementation_family": "micro",
     "topics": [
-      "microstructure",
+      "price-impact",
       "regression"
     ],
     "tags": [
@@ -3763,7 +3763,7 @@
     "title": "Rolling Order Imbalance",
     "implementation_family": "micro",
     "topics": [
-      "microstructure"
+      "order-flow-imbalance"
     ],
     "tags": [
       "order imbalance",
@@ -3807,7 +3807,7 @@
     "title": "Signed Volume",
     "implementation_family": "micro",
     "topics": [
-      "microstructure"
+      "trade-signing"
     ],
     "tags": [
       "signed volume",
@@ -3834,7 +3834,7 @@
     "title": "Tick Rule Sign",
     "implementation_family": "micro",
     "topics": [
-      "microstructure"
+      "trade-signing"
     ],
     "tags": [
       "trade sign",
@@ -3863,7 +3863,7 @@
     "title": "VPIN Order-Flow Toxicity",
     "implementation_family": "micro",
     "topics": [
-      "microstructure"
+      "order-flow-imbalance"
     ],
     "tags": [
       "vpin",

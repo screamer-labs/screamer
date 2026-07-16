@@ -3,7 +3,7 @@ name: EwKyleLambda
 title: Kyle's Lambda (exponentially weighted)
 implementation_family: micro
 topics:
-- microstructure
+- price-impact
 - regression
 tags:
 - price impact

@@ -3,7 +3,7 @@ name: RollingKyleLambda
 title: Kyle's Lambda (rolling)
 implementation_family: micro
 topics:
-- microstructure
+- price-impact
 - regression
 tags:
 - price impact

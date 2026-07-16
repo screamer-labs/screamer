@@ -3,7 +3,7 @@ name: RollingOrderImbalance
 title: Rolling Order Imbalance
 implementation_family: micro
 topics:
-- microstructure
+- order-flow-imbalance
 tags:
 - order imbalance
 - order flow

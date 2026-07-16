@@ -3,7 +3,7 @@ name: Propagator
 title: Bouchaud Propagator Price Impact
 implementation_family: micro
 topics:
-- microstructure
+- price-impact
 tags:
 - propagator
 - price impact

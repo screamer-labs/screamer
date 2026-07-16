@@ -3,7 +3,7 @@ name: QueueImbalance
 title: Queue (Book) Imbalance
 implementation_family: micro
 topics:
-- microstructure
+- order-flow-imbalance
 tags:
 - queue imbalance
 - book imbalance

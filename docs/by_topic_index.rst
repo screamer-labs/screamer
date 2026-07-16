@@ -28,7 +28,10 @@ Every function, grouped by topic. Topics are many-to-many, so a function may app
 * :doc:`Outliers & robustness <by_topic/outliers>`
 * :doc:`Streams <by_topic/streams>`
 * :doc:`Logic & comparison <by_topic/logic>`
-* :doc:`Microstructure <by_topic/microstructure>`
+* :doc:`Trade signing <by_topic/trade-signing>`
+* :doc:`Order-flow imbalance <by_topic/order-flow-imbalance>`
+* :doc:`Price impact & liquidity <by_topic/price-impact>`
+* :doc:`Order-flow arrivals <by_topic/order-flow-arrivals>`
 * :doc:`Pipelines <by_topic/graphs>`
 
 .. toctree::
