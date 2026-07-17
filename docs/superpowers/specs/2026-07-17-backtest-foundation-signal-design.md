@@ -27,22 +27,37 @@ Every engine, whatever its clock or strategy interface, ends the same way:
 ```
 
 One accounting core, a **pluggable fill model**, one output schema. Engines are
-named by their **input data model** (not by strategy; market-making is a use case
-expressed through two-sided quote inputs, not an engine):
+named by their **input data model**, and the interface / fill fidelity match the
+data richness (the sophisticated order model only appears where the data supports
+it). This is a **suite** so users at every data level get a sensible backtest:
 
-| Engine | Data model | Input | Fill model | Sub-project |
+| Engine | Input data | Interface | Fill model | Sub-project |
 |---|---|---|---|---|
-| **`BacktestSignal`** | sample / bar values | `signal, price` | fill at market, position = signal | **1 (this spec)** |
-| **`BacktestOHLC`** | OHLC bars | quotes/orders + `high, low, close` | fill if the bar reaches the price (touch/breach) | 3 (own spec, optional) |
-| **`BacktestEvents`** | async event streams | order-event stream x trade/L1 stream (merged) | resting-order book, fill when a market event crosses your price | 2 (own spec, the realistic one) |
+| **`BacktestSignal`** | value series `(signal, price)` | target position | full, market (taker) | **1 (this spec)** |
+| **`BacktestL1`** | L1 quotes `(bid, ask, bid_size, ask_size)` events | two-sided quotes + market | crossing, partial up to L1 size, exact maker/taker | 2 (own spec, the prize) |
+| **`BacktestTrades`** | trade tape `(price, size)` events + order stream | limit / market / cancel | crossing on a print, partial up to trade size, touch/breach | 3 (own spec) |
+| **`BacktestOHLC`** | bars `(open, high, low, close)` | directional limit + market | limit maker (touch/breach at the limit price, gap-aware), market taker at next open | 4 (own spec, lean) |
 
-**Build order:** sub-project 1 (this) proves the spine on the directional engine.
-Sub-project 2 (`BacktestEvents`) is the async, screamer-native backtest and gets
-its own brainstorm and spec. Sub-project 3 (`BacktestOHLC`) is an optional middle
-tier, worth it only if OHLC turns out to be the common source data; it also gets
-its own spec. Because sub-project 1 fixes `detail::PnLAccount`, the output schema,
-the statistics, and `backtest_report`, the later engines are additive: a new fill
-model feeding the same core and schema, not a rewrite.
+**Fill stream (extra output).** The three market-data engines emit, in addition
+to the shared account, a **fill-event stream** `(price, size, side, maker/taker,
+fee)`. The shared `[equity, pnl, position, cost]` is the running aggregate of
+those fills through `detail::PnLAccount`; fill-level detail is an engine-specific
+extra, not a schema change.
+
+**Notes fixed during design:**
+- **`BacktestL1` is the realistic, market-making engine** (real bid/ask/sizes,
+  exact maker vs taker, partial fills, two-sided quoting). It is the top of the
+  fidelity range; deeper book / queue-position is documented, not built.
+- **`BacktestOHLC` stays lean and directional** (limit + market orders, no
+  two-sided market-making): a bar has no intra-bar path, so maker/taker is
+  inferred from order type against the `spread` param, market orders fill at the
+  **next open** (no lookahead), and limits fill on touch/breach at the limit
+  price. Two-sided MM fidelity belongs in `BacktestL1`.
+
+**Build order:** sub-project 1 (this) proves the spine on the directional engine
+and fixes `detail::PnLAccount`, the output schema (including the optional fill
+stream), the statistics, and `backtest_report`, so 2-4 are additive (a new fill
+model feeding the same core), not rewrites. Priority after 1 is `BacktestL1`.
 
 ## Design principles
 
@@ -167,24 +182,28 @@ every engine in the family.
 docs pages with a plotted example, tests, and one demo notebook.
 
 **Out (their own specs / not built):**
-- `BacktestEvents` (async order-stream x market-stream matching engine) and
-  `BacktestOHLC` (bar fills): separate sub-projects, each its own spec. The spine
-  here is designed so they are additive.
-- Partial fills and queue-position modelling; multi-level book depth; multi-asset
-  / portfolio backtests (a portfolio is a sum of per-instrument PnLs the caller
-  builds); financing / funding carry; fixed per-trade commissions; position sizing
-  (Kelly, vol targeting), which the caller applies to the signal upstream.
+- `BacktestL1`, `BacktestTrades`, `BacktestOHLC`: separate sub-projects, each its
+  own spec. The spine here (accounting core, output schema, optional fill stream,
+  statistics, report) is designed so they are additive.
+- Queue-position modelling and multi-level book depth (`BacktestL1` is the
+  top-of-book ceiling); multi-asset / portfolio backtests (a portfolio is a sum of
+  per-instrument PnLs the caller builds); financing / funding carry; fixed
+  per-trade commissions; position sizing (Kelly, vol targeting), which the caller
+  applies to the signal upstream.
 
 ## Resolved decisions
 
-1. **A backtest family with one spine.** `detail::PnLAccount` + the
-   `[equity, pnl, position, cost]` schema + composed statistics + `backtest_report`
-   are shared; engines are pluggable fill models named by input data model
-   (`BacktestSignal`, `BacktestOHLC`, `BacktestEvents`).
-2. **This sub-project ships `BacktestSignal`** (sample, directional, taker).
+1. **A backtest suite with one spine.** `detail::PnLAccount` + the
+   `[equity, pnl, position, cost]` schema (+ an optional fill-event stream for the
+   market-data engines) + composed statistics + `backtest_report` are shared;
+   engines are pluggable fill models named by input data model (`BacktestSignal`,
+   `BacktestL1`, `BacktestTrades`, `BacktestOHLC`), with interface / fidelity
+   matched to the data.
+2. **This sub-project ships `BacktestSignal`** (value series, directional, taker).
 3. **Signal is a position in units; PnL is dollars;** equity is a running sum.
 4. **Cost via the fill price plus a signed fee;** `BacktestSignal` is a taker
-   (`spread` + `fee`). Maker economics live in the order-based engines.
-5. **The event-driven `BacktestEvents` engine is the real target and gets its own
-   spec** (sub-project 2); `BacktestOHLC` is an optional middle tier (sub-project
-   3) if OHLC proves to be the common source data.
+   (`spread` + `fee`). Maker economics and rebates live in the market-data engines.
+5. **`BacktestL1` is the realistic prize** (real bid/ask/sizes, exact maker/taker,
+   partial fills, two-sided quoting) and is sub-project 2. `BacktestTrades` (tape,
+   sub-project 3) and a lean directional `BacktestOHLC` (bars, sub-project 4)
+   follow, each its own spec.
