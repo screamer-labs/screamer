@@ -188,8 +188,9 @@ void init_bindings_fin(py::module& m) {
         .def("reset", &screamer::BacktestOHLC::reset, "Reset.");
 
     py::class_<screamer::BacktestTrades, screamer::EvalOp>(m, "BacktestTrades")
-        .def(py::init<double, const std::string&>(),
-             py::arg("maker_fee") = 0.0, py::arg("fill") = "touch")
+        .def(py::init<double, const std::string&, double>(),
+             py::arg("maker_fee") = 0.0, py::arg("fill") = "touch",
+             py::arg("participation_ratio") = 1.0)
         .def("__call__", &screamer::BacktestTrades::handle_input)
         .def("reset", &screamer::BacktestTrades::reset, "Reset.");
 

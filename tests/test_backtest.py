@@ -139,9 +139,43 @@ def test_trades_fill_and_adverse_selection():
 
 def test_trades_partial_up_to_print_size():
     from screamer import BacktestTrades
-    # resting buy 5 @ 100; a print of size 2 fills only 2
+    # resting buy 5 @ 100; a print AT 100 size 2 fills min(5, 1.0*2)=2 (participation 1.0)
     t = BacktestTrades()(np.array([100.]), np.array([5.]), np.array([100.]), np.array([2.]))
     assert t[0, 2] == 2.0
+
+
+def test_trades_through_fills_full_order_not_print_size():
+    from screamer import BacktestTrades
+    # resting buy 10 @ 100; a print of size 2 at 99 trades THROUGH -> full 10 fills
+    t = BacktestTrades()(np.array([100.]), np.array([10.]), np.array([99.]), np.array([2.]))
+    assert t[0, 2] == 10.0                                  # swept: full order, not min(10,2)
+
+
+def test_trades_at_fills_participation_of_trade_size():
+    from screamer import BacktestTrades
+    # resting buy 10 @ 100; a print of size 8 AT 100, participation 0.5 -> min(10, 0.5*8)=4
+    t = BacktestTrades(participation_ratio=0.5)(
+        np.array([100.]), np.array([10.]), np.array([100.]), np.array([8.]))
+    assert t[0, 2] == 4.0
+
+
+def test_trades_participation_capped_by_order_no_zeno():
+    from screamer import BacktestTrades
+    # participation*trade_size exceeds the order -> full fill, capped by remaining
+    t = BacktestTrades(participation_ratio=0.5)(
+        np.array([100.]), np.array([10.]), np.array([100.]), np.array([100.]))
+    assert t[0, 2] == 10.0                                  # min(10, 0.5*100)=10, no dust
+
+
+def test_trades_breach_ignores_at_price():
+    from screamer import BacktestTrades
+    # breach: a print exactly AT 100 does not fill; only strictly through does
+    at = BacktestTrades(fill="breach")(np.array([100.]), np.array([10.]),
+                                       np.array([100.]), np.array([8.]))
+    assert at[0, 2] == 0.0
+    through = BacktestTrades(fill="breach")(np.array([100.]), np.array([10.]),
+                                            np.array([99.]), np.array([2.]))
+    assert through[0, 2] == 10.0
 
 
 def test_trades_stream_equals_batch():
