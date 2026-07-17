@@ -270,3 +270,69 @@ def test_l1_stream_equals_batch():
     stream = np.array([op(*(float(a[i]) for a in args)) for i in range(n)])
     batch = BacktestL1()(*args)
     np.testing.assert_allclose(np.nan_to_num(stream), np.nan_to_num(batch))
+
+
+# --- BacktestL1Trades --------------------------------------------------------
+
+def test_l1trades_passive_fill_from_trade():
+    from screamer import BacktestL1Trades
+    # my_bid 100 resting inside (market 99.5/100.5); a sell-print AT 100 size 8, participation 0.5
+    # -> min(10, 0.5*8)=4 at 100 (maker). NaN trade rows do not fill.
+    out = BacktestL1Trades(participation_ratio=0.5)(
+        np.array([99.5, 99.5]), np.array([100.5, 100.5]),
+        np.array([5., 5]), np.array([5., 5]),
+        np.array([100., 100.]), np.array([10., 10.]),
+        np.array([np.nan, np.nan]), np.array([np.nan, np.nan]),
+        np.array([np.nan, 100.]), np.array([np.nan, 8.]))     # quote row, then a trade row
+    assert out[0, 2] == 0.0                                    # NaN trade -> no fill, mark only
+    assert out[1, 2] == 4.0                                    # trade at 100 -> participation fill
+
+
+def test_l1trades_through_trade_fills_full():
+    from screamer import BacktestL1Trades
+    # a sell-print THROUGH my_bid (99 < 100) fills the full resting size
+    out = BacktestL1Trades()(
+        np.array([99.5]), np.array([100.5]), np.array([5.]), np.array([5.]),
+        np.array([100.]), np.array([10.]), np.array([np.nan]), np.array([np.nan]),
+        np.array([99.]), np.array([2.]))
+    assert out[0, 2] == 10.0
+
+
+def test_l1trades_run_over_fills_without_a_trade():
+    from screamer import BacktestL1Trades
+    # no trade (NaN), but the quote ask crosses my_bid -> run-over full fill at my_bid
+    out = BacktestL1Trades()(
+        np.array([100., 99.]), np.array([101., 99.5]),
+        np.array([5., 5]), np.array([5., 5]),
+        np.array([100., 100.]), np.array([10., 10.]),
+        np.array([np.nan, np.nan]), np.array([np.nan, np.nan]),
+        np.array([np.nan, np.nan]), np.array([np.nan, np.nan]))
+    assert out[0, 2] == 0.0                                    # passive
+    assert out[1, 2] == 10.0                                   # run-over on the cross
+
+
+def test_l1trades_submitted_crossing_is_taker():
+    from screamer import BacktestL1Trades
+    # my_bid 100 appears already marketable (ask 99): taker, full fill, overflow at ask+tick.
+    # ask_size 4, size 10, tick 0.5 -> VWAP=(4*99+6*99.5)/10=99.3; mid=(98+99)/2=98.5
+    out = BacktestL1Trades(tick_size=0.5)(
+        np.array([98.]), np.array([99.]), np.array([5.]), np.array([4.]),
+        np.array([100.]), np.array([10.]), np.array([np.nan]), np.array([np.nan]),
+        np.array([np.nan]), np.array([np.nan]))
+    assert out[0, 2] == 10.0
+    np.testing.assert_allclose(out[0, 3], 10 * (99.3 - 98.5), atol=1e-9)
+
+
+def test_l1trades_stream_equals_batch():
+    from screamer import BacktestL1Trades
+    rng = np.random.default_rng(9); n = 200
+    mid = 100 + np.cumsum(rng.standard_normal(n) * 0.05)
+    bid, ask = mid - 0.05, mid + 0.05
+    tp = np.where(rng.standard_normal(n) > 0.5, mid, np.nan)   # sparse trades
+    ts = np.where(np.isnan(tp), np.nan, 1.0)
+    args = (bid, ask, np.full(n, 5.0), np.full(n, 5.0),
+            bid, np.full(n, 1.0), ask, np.full(n, 1.0), tp, ts)
+    op = BacktestL1Trades()
+    stream = np.array([op(*(float(a[i]) for a in args)) for i in range(n)])
+    batch = BacktestL1Trades()(*args)
+    np.testing.assert_allclose(np.nan_to_num(stream), np.nan_to_num(batch))
