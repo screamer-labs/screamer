@@ -53,6 +53,9 @@ namespace screamer {
                 return std::make_tuple(nan, nan, nan, nan);   // ignore
             }
 
+            // Bars carry no per-level volume, so a triggered order fills its full
+            // target (no participation_ratio here). The intrabar path is unknown;
+            // see BacktestL1Trades for volume-aware fills.
             const double dpos = target - account_.position();
             double fill_dpos = 0.0, fill_price = close, fee = 0.0;
             if (dpos != 0.0) {

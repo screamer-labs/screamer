@@ -110,6 +110,14 @@ def test_ohlc_limit_fills_only_when_range_reaches():
     assert touch[0, 2] == 1.0 and breach[0, 2] == 0.0
 
 
+def test_ohlc_limit_fills_full_target_no_participation():
+    from screamer import BacktestOHLC
+    # a large target with a touched limit fills fully (bars carry no volume)
+    out = BacktestOHLC()(np.array([1000.]), np.array([99.]), np.array([100.]),
+                         np.array([101.]), np.array([98.]), np.array([100.]))
+    assert out[0, 2] == 1000.0
+
+
 def test_ohlc_stream_equals_batch_and_reset():
     from screamer import BacktestOHLC
     rng = np.random.default_rng(0); n = 100
