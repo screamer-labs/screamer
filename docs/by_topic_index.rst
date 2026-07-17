@@ -64,6 +64,7 @@ Every function, grouped by topic. Topics are many-to-many, so a function may app
    functions_expanding/ExpandingStd
    functions_expanding/ExpandingSum
    functions_expanding/ExpandingVar
+   functions_fin/BacktestSignal
    functions_fin/Drawdown
    functions_fin/LogReturn
    functions_fin/MaxDrawdown
@@ -87,6 +88,7 @@ Every function, grouped by topic. Topics are many-to-many, so a function may app
    functions_fin/RollingSortino
    functions_fin/RollingSpread
    functions_fin/RollingTSF
+   functions_fin/backtest_report
    functions_math/Abs
    functions_math/Acos
    functions_math/Add

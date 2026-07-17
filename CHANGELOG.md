@@ -2,6 +2,20 @@
 
 All notable changes to this project are documented in this file.
 
+[Unreleased]
+------------
+
+### Added
+
+* Backtesting (foundation): `BacktestSignal`, a causal C++ engine that turns a
+  position signal and a price into a costed mark-to-market equity curve, emitting
+  `[equity, pnl, position, cost]` with a fractional `spread` (crossing cost) and
+  `fee`. The `backtest_report` helper bundles the running statistics and a summary
+  (total PnL, max drawdown, cost, turnover, trades, Sharpe). First of a planned
+  backtest suite (an `L1`/`Trades`/`OHLC` engine share the same accounting core
+  and output schema). Reference pages with a plotted example, tests, and a demo
+  notebook.
+
 [0.9.0] - 2026-07-17
 --------------------
 

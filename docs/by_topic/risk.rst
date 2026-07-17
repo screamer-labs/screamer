@@ -12,6 +12,10 @@ Drawdowns and performance ratios.
 
    * - Function
      - Description
+   * - :doc:`backtest_report </functions_fin/backtest_report>`
+     - Running statistics and a summary for a backtest engine's output.
+   * - :doc:`Backtest a position signal </functions_fin/BacktestSignal>`
+     - Backtest a position signal against a price series into a costed mark-to-market equity curve.
    * - :doc:`Drawdown </functions_fin/Drawdown>`
      - Running drawdown from the cumulative peak.
    * - :doc:`Maximum drawdown </functions_fin/MaxDrawdown>`

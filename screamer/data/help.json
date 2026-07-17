@@ -1133,6 +1133,55 @@
       }
     ]
   },
+  "BacktestSignal": {
+    "name": "BacktestSignal",
+    "title": "Backtest a position signal",
+    "implementation_family": "fin",
+    "topics": [
+      "risk"
+    ],
+    "tags": [
+      "backtest",
+      "pnl",
+      "mark to market",
+      "equity curve",
+      "transaction cost",
+      "strategy",
+      "risk"
+    ],
+    "short": "Backtest a position signal against a price series into a costed mark-to-market equity curve.",
+    "inputs": 2,
+    "outputs": 4,
+    "parameters": [
+      {
+        "name": "spread",
+        "type": "float",
+        "default": 0.0,
+        "min": 0.0,
+        "description": "Fractional bid-ask spread crossed on each trade (e.g. 0.0005 = 5 bps). Default 0 is frictionless."
+      },
+      {
+        "name": "fee",
+        "type": "float",
+        "default": 0.0,
+        "description": "Fractional taker fee charged on the traded notional."
+      }
+    ],
+    "nan_policy": "ignore",
+    "see_also": [
+      "Drawdown",
+      "MaxDrawdown",
+      "RollingInfoRatio"
+    ],
+    "details": "## Description\n\n`BacktestSignal` turns a position signal into a costed profit-and-loss curve. The\n`signal` is the target position in units (its sign is long, short, or flat, any\nmagnitude); `price` is the mark. Each bar the position moves to the signal via a\nmarket order that crosses half of the fractional `spread` (a buy fills at\n`price * (1 + spread/2)`, a sell at `price * (1 - spread/2)`) and pays the\nfractional `fee` on the traded notional. With the default `spread = fee = 0` the\nbacktest is frictionless.\n\nIt emits four positional columns: `0 = equity` (cumulative dollar PnL), `1 = pnl`\n(per bar), `2 = position`, and `3 = cost` (per bar). It is causal: the signal at\n`t` enters PnL only at `t+1`, through the position it sets, so a future signal\nnever changes a past row. A `NaN` signal or price skips the bar (an all-`NaN` row,\nthe position held across the gap; `nan_policy: ignore`).\n\nThe equity curve feeds the existing risk operators directly (dollar drawdown is\n`equity - CumMax(equity)`), and [`backtest_report`](backtest_report.md) bundles\nthe common statistics (drawdown, cost, turnover, trades, Sharpe) in one call.",
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage plot",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import BacktestSignal, RollingMean\n\nrng = np.random.default_rng(0)\nn = 500\nprice = 100 + np.cumsum(rng.standard_normal(n) * 0.3)\n# a trend signal: long when the fast average is above the slow one, else short\nfast = RollingMean(10)(price)\nslow = RollingMean(50)(price)\nsignal = np.sign(np.nan_to_num(fast - slow))\n\nfree = BacktestSignal()(signal, price)[:, 0]                    # frictionless equity\ncosted = BacktestSignal(spread=0.001, fee=0.0002)(signal, price)\neq = costed[:, 0]\ndd = eq - np.maximum.accumulate(eq)                            # running dollar drawdown\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.6, 0.4],\n                    vertical_spacing=0.08)\nfig.add_trace(go.Scatter(y=free, name='equity (frictionless)',\n                         line=dict(color='gray', dash='dot')), row=1, col=1)\nfig.add_trace(go.Scatter(y=eq, name='equity (with cost)',\n                         line=dict(color='steelblue')), row=1, col=1)\nfig.add_trace(go.Scatter(y=dd, name='drawdown', line=dict(color='crimson'),\n                         fill='tozeroy'), row=2, col=1)\nfig.update_layout(title='BacktestSignal: a trend signal turned into a costed equity curve',\n                  yaxis=dict(title='equity ($)'), yaxis2=dict(title='drawdown ($)'),\n                  margin=dict(l=20, r=20, t=60, b=20),\n                  legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1))\nfig.show()"
+      }
+    ]
+  },
   "Drawdown": {
     "name": "Drawdown",
     "title": "Drawdown",
@@ -2019,6 +2068,17 @@
         "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import RollingTSF\n\nnp.random.seed(0)\nprice = 100 * np.exp(np.cumsum(np.random.normal(0.0005, 0.02, size=300)))\ntsf = RollingTSF(window_size=20)(price)   # one-step-ahead value of the 20-bar trend line\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True,\n                    row_heights=[0.55, 0.45], vertical_spacing=0.08)\nfig.add_trace(go.Scatter(y=price, mode=\"lines\", name=\"price\"), row=1, col=1)\nfig.add_trace(go.Scatter(y=tsf, mode=\"lines\", name=\"TSF\",\n                         line=dict(color=\"red\")), row=2, col=1)\nfig.update_layout(title=\"Time-series forecast over 20 bars (RollingTSF)\",\n                  margin=dict(l=20, r=20, t=60, b=20),\n                  legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1))\nfig.update_yaxes(title_text=\"price\", row=1, col=1)\nfig.update_yaxes(title_text=\"forecast\", row=2, col=1)\nfig.show()"
       }
     ]
+  },
+  "backtest_report": {
+    "name": "backtest_report",
+    "title": "backtest_report",
+    "kind": "function",
+    "short": "Running statistics and a summary for a backtest engine's output.",
+    "topics": [
+      "risk"
+    ],
+    "details": "Free helper: takes a backtest engine's `[equity, pnl, position, cost]` output (the\nfour positional columns that [`BacktestSignal`](BacktestSignal.md) and the other\nbacktest engines emit) and returns `(running, summary)`.\n\n- `running` is a pandas `DataFrame`, one row per bar, with the engine columns plus\n  the running `drawdown` (dollar), `cum_cost`, `turnover` (units traded), and\n  `trades` (count). Each is a causal series whose last value is the summary.\n- `summary` is a pandas `Series` of the final statistics: `total_pnl`,\n  `max_drawdown`, `total_cost`, `turnover`, `num_trades`, and `sharpe`.\n\nIt only aggregates the engine's outputs (no operator logic of its own), so it\nworks for every engine in the backtest family.",
+    "examples": []
   },
   "Abs": {
     "name": "Abs",

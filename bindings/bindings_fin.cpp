@@ -13,6 +13,7 @@
 #include "screamer/rolling_spread.h"
 #include "screamer/drawdown.h"
 #include "screamer/max_drawdown.h"
+#include "screamer/backtest_signal.h"
 #include "screamer/rolling_max_drawdown.h"
 #include "screamer/rolling_sharpe.h"
 #include "screamer/rolling_sortino.h"
@@ -166,4 +167,10 @@ void init_bindings_fin(py::module& m) {
              py::arg("start_policy") = "strict")
         .def("__call__", &screamer::RollingLinearRegression::handle_input)
         .def("reset", &screamer::RollingLinearRegression::reset, "Reset.");
+
+    py::class_<screamer::BacktestSignal, screamer::EvalOp>(m, "BacktestSignal")
+        .def(py::init<double, double>(),
+             py::arg("spread") = 0.0, py::arg("fee") = 0.0)
+        .def("__call__", &screamer::BacktestSignal::handle_input)
+        .def("reset", &screamer::BacktestSignal::reset, "Reset.");
 }

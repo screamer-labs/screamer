@@ -182,6 +182,7 @@ For a step-by-step walkthrough see the :doc:`User Guide <usage>`.
    notebooks/11-microstructure-order-flow
    notebooks/12-microstructure-price-impact
    notebooks/13-microstructure-toxicity-and-book
+   notebooks/14-backtesting-a-signal
 
 
 .. toctree::
