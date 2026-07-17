@@ -12,20 +12,30 @@ All notable changes to this project are documented in this file.
   and `RollingCVaR` (historical Conditional Value-at-Risk / Expected Shortfall,
   the mean loss in the worst alpha tail; VaR is `-RollingQuantile`). Each with a
   reference page, a plotted example, and tests.
-* Backtesting: a suite of four causal C++ engines named by the market data they
+* Backtesting: a suite of five causal C++ engines named by the market data they
   consume, all sharing one accounting core (`detail::PnLAccount`) and the
-  `[equity, pnl, position, cost]` output schema.
+  `[equity, pnl, position, cost]` output schema. Fills follow one rule set: a
+  trade or quote *through* your price fills the full remaining, a fill *at* your
+  price is `min(remaining, participation_ratio * available_size)`, and a
+  marketable order fills fully with `tick_size` slippage. Resting orders fill at
+  their limit price (maker); an order submitted already crossing is a taker.
   * `BacktestSignal` (2 inputs): marks a position signal to a price, with a
     fractional `spread` (crossing cost) and `fee`.
   * `BacktestOHLC` (6 inputs): a directional target-position strategy on OHLC
     bars, with market orders (fill at the open, crossing half the `spread`, paying
-    `taker_fee`) and limit orders (fill on `"touch"`/`"breach"` of the bar range,
-    paying `maker_fee`).
-  * `BacktestTrades` (4 inputs): a resting limit order against the trade tape,
-    filling on crossing prints up to the print size, front-of-queue.
-  * `BacktestL1` (8 inputs): a two-sided market maker against top-of-book quotes,
-    filling when the market crosses either quote, with an inventory cap
-    (`min_position`/`max_position`) and maker rebates.
+    `taker_fee`) and limit orders (`"touch"`/`"breach"` of the bar range, paying
+    `maker_fee`); bars fill in full.
+  * `BacktestTrades` (4 inputs): a resting limit order against the trade tape;
+    a through-print sweeps the full order, an at-print fills a `participation_ratio`
+    share.
+  * `BacktestL1` (8 inputs): a two-sided maker against top-of-book quotes only.
+    Fills are a documented heuristic: `"breach"` (default) fills on a through,
+    `"touch"` adds a participation partial once per lock episode. Inventory cap,
+    `taker_fee`, and `tick_size` for marketable orders.
+  * `BacktestL1Trades` (10 inputs): the preferred maker engine. Quotes mark the
+    position, the trade tape drives fills (each trade on its own event row, so no
+    fill-versus-cancel ambiguity), a quote cross with no explaining trade is the
+    run-over fallback.
   The `backtest_report` helper bundles the running statistics and a summary (total
   PnL, max drawdown, cost, turnover, trades, Sharpe) for any engine. Reference
   pages with plotted examples, tests, and two demo notebooks (a signal on bars,
