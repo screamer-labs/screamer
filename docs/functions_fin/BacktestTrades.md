@@ -27,12 +27,18 @@ parameters:
 - name: fill
   type: str
   default: touch
-  description: Fill rule. "touch" fills when a print reaches the order price, "breach" only when it trades through.
+  description: Fill rule. "touch" fills a participation partial when a print reaches the order price, "breach" only fills when it trades through.
+- name: participation_ratio
+  type: float
+  default: 1.0
+  min: 0.0
+  max: 1.0
+  description: Fraction of the at-price trade volume captured (front-of-queue at 1.0). A trade through your price fills the full order.
 nan_policy: ignore
 see_also:
+- BacktestL1Trades
 - BacktestL1
 - BacktestOHLC
-- BacktestSignal
 - backtest_report
 ---
 
@@ -46,13 +52,16 @@ limit order `(order_price, order_size)` (align your order stream to the tape wit
 `combine_latest` upstream). `order_size` is signed: positive rests a buy, negative
 a sell, and `NaN` or zero is no order.
 
-A resting order fills when a print crosses it, a buy when
-`trade_price <= order_price` and a sell when `trade_price >= order_price`
-(`fill = "touch"`, strict for `"breach"`), filling `min(order size, trade size)` at
-the order price and paying `maker_fee` (negative for a rebate). Fills are partial
-up to the print size and front-of-queue (optimistic, no queue-position modelling).
-Positions mark to the last trade price, so a fill just before the tape moves against
-you shows up immediately as an adverse cost.
+A resting order fills against a print by where the print lands relative to the
+order price. A print **through** the order price (a buy when `trade_price <
+order_price`, a sell when `trade_price > order_price`) sweeps the level and fills
+the **full order**: the small print at the through-price is the residual after the
+sweep, so it does not bound the fill. A print **at** the order price fills
+`min(order size, participation_ratio * trade_size)`, front-of-queue, capturing a
+share of the volume that traded there. `fill = "breach"` keeps only the through
+case. Fills pay `maker_fee` (negative for a rebate). Positions mark to the last
+trade price, so a fill just before the tape moves against you shows up immediately
+as an adverse cost.
 
 Inputs are `(order_price, order_size, trade_price, trade_size)`. It emits the four
 positional columns shared by the backtest family: `0 = equity` (cumulative dollar
@@ -60,6 +69,13 @@ PnL), `1 = pnl` (per event), `2 = position`, and `3 = cost` (per event). A `NaN`
 trade field skips the event (`nan_policy: ignore`); a `NaN` order price simply means
 no resting order. [`backtest_report`](backtest_report.md) summarizes the resulting
 equity curve.
+
+## Limitations
+
+Fills are front-of-queue and optimistic: a trade at your price fills
+`min(remaining, participation_ratio * trade_size)`, a trade through it fills the
+full order. There is no queue-position modelling. Orders are counterfactual (zero
+volume, no market impact), so a fill never alters the tape it reads.
 
 ## Examples
 
