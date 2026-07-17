@@ -92,36 +92,52 @@ start flat, mark PnL 0, so only the entry cost is charged.
 
 **Inputs:** `(target_position, limit_price, high, low, close)`.
 - `target_position`: the position the strategy wants this bar.
-- `limit_price`: `NaN` submits a **market** order; a finite value submits a
-  **limit** order at that price.
-- `high`, `low`: the bar range, used to decide limit fills.
+- `limit_price`: the order's limit. `NaN` is a **market** order (the ergonomic
+  spelling of an infinitely marketable price); a finite value is a limit order,
+  which is a taker or a maker depending on whether it crosses (below).
+- `high`, `low`: the bar range, used to decide passive (maker) fills.
 - `close`: the mark price for M2M.
 
-**Parameters:** `spread` (fractional, for market-order slippage), `taker_fee`
-(fractional), `maker_fee` (fractional, signed; negative is a rebate), and `fill`
-(`"touch"` or `"breach"`). All costs default to `0.0`; `fill` defaults to
-`"touch"`.
+**Parameters:** `spread` (fractional bid-ask, default `0.0`), `taker_fee`
+(fractional, default `0.0`), `maker_fee` (fractional, signed, default `0.0`;
+negative is a rebate), and `fill` (`"touch"` or `"breach"`, default `"touch"`).
 
-**Per bar** (cancel-replace: each bar submits a fresh order, no resting order
-carries over):
+**Maker vs taker is a rule, not a mode.** A single order type (a limit at
+`limit_price`) expresses both. With `h = close * spread/2` (so ask = `close + h`,
+bid = `close - h`):
+- **Taker** (cross the spread, pay `taker_fee`): a market order (`limit_price`
+  NaN), or a *marketable* limit (buy `L >= close + h`, sell `L <= close - h`).
+  Fills this bar at the ask (buy) or bid (sell), `close +/- h`.
+- **Maker** (rest, earn the spread, `maker_fee`): a *passive* limit (buy
+  `L < close + h`, sell `L > close - h`). Fills only if the bar reaches it, at
+  `limit_price`.
+
+**Per bar** (cancel-replace: each bar submits a fresh order, nothing rests
+across bars):
 ```
 dpos = target_position_t - position_prev
-if dpos == 0:            no order; account.step(close, 0, close, 0)   # just mark
-elif limit_price is NaN:                                   # market (taker)
-    side       = sign(dpos)
-    fill_price = close_t * (1 + side * spread/2)
-    account.step(close_t, dpos, fill_price, fee_rate = taker_fee)
-else:                                                      # limit (maker)
-    buy  = dpos > 0
-    hit  = (touch: low_t <= limit_price)  if buy else (high_t >= limit_price)
-    hit  = (breach: low_t <  limit_price) if buy else (high_t >  limit_price)   # per `fill`
-    if hit:  account.step(close_t, dpos, fill_price = limit_price, fee_rate = maker_fee)
-    else:    account.step(close_t, 0,    close_t,               0)   # unfilled: hold, mark only
+h    = close_t * spread/2
+if dpos == 0:
+    account.step(close_t, 0, close_t, 0)                     # no order, mark only
+elif dpos > 0:                                               # buy
+    if isnan(limit_price) or limit_price >= close_t + h:     # market / marketable -> taker
+        account.step(close_t, dpos, close_t + h, taker_fee)  # lift the offer at the ask
+    elif (touch: low_t <= limit_price) or (breach: low_t < limit_price):  # passive -> maker fill
+        account.step(close_t, dpos, limit_price, maker_fee)
+    else:
+        account.step(close_t, 0, close_t, 0)                 # resting order not hit: hold
+else:                                                        # sell (symmetric)
+    if isnan(limit_price) or limit_price <= close_t - h:     # market / marketable -> taker
+        account.step(close_t, dpos, close_t - h, taker_fee)  # hit the bid
+    elif (touch: high_t >= limit_price) or (breach: high_t > limit_price):
+        account.step(close_t, dpos, limit_price, maker_fee)
+    else:
+        account.step(close_t, 0, close_t, 0)
 ```
-A filled limit order trades at `limit_price` (favorable versus the mark, so the
-spread capture is automatic) and pays `maker_fee` (a rebate if negative). An
-unfilled bar holds the current position and only marks it. Market orders cross the
-spread and pay `taker_fee`.
+A taker fill crosses the spread (fills at `close +/- h`, so `dpos*(fill-close) =
+|dpos|*h`, the half-spread cost) and pays `taker_fee`. A maker fill trades at the
+favorable `limit_price` (a gain versus the mark) and pays `maker_fee` (a rebate if
+negative). A passive order the bar never reaches simply holds the position.
 
 **Causality.** Every decision at `t` uses only `t`'s inputs and the prior state;
 fills use `t`'s high/low, which are known once the bar closes. No future data.
@@ -177,11 +193,13 @@ summary (a labeled `pandas` Series). It contains no operator logic.
   `CumSum(prev_position * price_change)`; taker cost equals `turnover * price *
   spread/2 + fee notional`; long and short; causality (a changed future signal
   leaves past rows unchanged); batch == stream; reset; NaN skip.
-- **`BacktestMarketMaker`:** market orders reproduce `BacktestSignal` (given the
-  same effective cost); a limit order fills exactly when the bar range reaches the
-  price under `touch`, and only when it trades through under `breach`; an unfilled
-  bar holds position and marks only; a maker rebate (`maker_fee < 0`) increases
-  equity on fills; causality and batch == stream.
+- **`BacktestMarketMaker`:** a market order (NaN limit) reproduces
+  `BacktestSignal` given the same cost; a marketable limit is charged the taker
+  fee and fills at `close +/- h` (not the limit); a passive limit fills at its
+  price exactly when the range reaches it under `touch`, only when it trades
+  through under `breach`, and pays the maker fee; an unfilled passive order holds
+  position and marks only; a maker rebate (`maker_fee < 0`) increases equity on
+  fills; causality and batch == stream.
 - **`backtest_report`:** its statistics match composing the operators by hand; the
   summary equals the final row.
 - **Docs:** reference pages for both engines with a plotted example (a signal to
@@ -213,7 +231,11 @@ upstream.
    carries the spread economics; `fee_rate` is signed so maker rebates are
    negative. `BacktestSignal`: `spread` + taker `fee`. `BacktestMarketMaker`:
    `spread`, `taker_fee`, `maker_fee` (signed), `fill` mode.
-4. **Fills are full, cancel-replace each bar;** `touch` fills when the range
-   reaches the limit, `breach` only when it trades through.
+4. **One order type; maker vs taker is a marketability rule.** A market order
+   (`limit_price` NaN) or a marketable limit (crosses the ask/bid) is a taker
+   filled this bar at `close +/- h`; a passive limit is a maker filled at its
+   price only if the bar reaches it. Fills are full, cancel-replace each bar;
+   `touch` fills when the range reaches the limit, `breach` only when it trades
+   through.
 5. **Both emit `[equity, pnl, position, cost]`;** statistics compose from these,
    and `backtest_report` shares them through one `Pipeline` pass.
