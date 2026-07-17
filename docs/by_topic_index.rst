@@ -74,13 +74,16 @@ Every function, grouped by topic. Topics are many-to-many, so a function may app
    functions_fin/Return
    functions_fin/RollingAlpha
    functions_fin/RollingBeta
+   functions_fin/RollingCVaR
    functions_fin/RollingCalmar
    functions_fin/RollingCorr
    functions_fin/RollingCov
+   functions_fin/RollingDownsideDeviation
    functions_fin/RollingHitRate
    functions_fin/RollingInfoRatio
    functions_fin/RollingLinearRegression
    functions_fin/RollingMaxDrawdown
+   functions_fin/RollingOmega
    functions_fin/RollingPercentile
    functions_fin/RollingRank
    functions_fin/RollingResidualStd

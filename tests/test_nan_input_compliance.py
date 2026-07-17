@@ -134,11 +134,13 @@ def _build_input(n_inputs: int, n_samples: int) -> list[np.ndarray]:
 #   * RollingSortino target=0 + all-positive returns -> downside RMS = 0.
 #   * RollingCalmar + monotone-positive prices -> rolling drawdown = 0.
 #   * RollingInfoRatio with identical input streams -> excess = 0 -> std = 0.
+#   * RollingOmega with all-positive returns -> no downside -> ratio undefined.
 # For these, the test must use a centered input (and independent streams
 # for InfoRatio) so the function has something meaningful to compute.
 _NEEDS_CENTERED_INPUT: set[str] = {
     "RollingCalmar",
     "RollingInfoRatio",
+    "RollingOmega",
     "RollingSortino",
 }
 

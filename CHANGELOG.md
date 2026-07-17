@@ -7,6 +7,11 @@ All notable changes to this project are documented in this file.
 
 ### Added
 
+* Risk statistics: `RollingDownsideDeviation` (downside semideviation, the Sortino
+  denominator), `RollingOmega` (Omega ratio of gains to losses about a threshold),
+  and `RollingCVaR` (historical Conditional Value-at-Risk / Expected Shortfall,
+  the mean loss in the worst alpha tail; VaR is `-RollingQuantile`). Each with a
+  reference page, a plotted example, and tests.
 * Backtesting (foundation): `BacktestSignal`, a causal C++ engine that turns a
   position signal and a price into a costed mark-to-market equity curve, emitting
   `[equity, pnl, position, cost]` with a fractional `spread` (crossing cost) and

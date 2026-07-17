@@ -14,6 +14,9 @@
 #include "screamer/drawdown.h"
 #include "screamer/max_drawdown.h"
 #include "screamer/backtest_signal.h"
+#include "screamer/rolling_downside_deviation.h"
+#include "screamer/rolling_omega.h"
+#include "screamer/rolling_cvar.h"
 #include "screamer/rolling_max_drawdown.h"
 #include "screamer/rolling_sharpe.h"
 #include "screamer/rolling_sortino.h"
@@ -173,4 +176,23 @@ void init_bindings_fin(py::module& m) {
              py::arg("spread") = 0.0, py::arg("fee") = 0.0)
         .def("__call__", &screamer::BacktestSignal::handle_input)
         .def("reset", &screamer::BacktestSignal::reset, "Reset.");
+
+    py::class_<screamer::RollingDownsideDeviation, screamer::ScreamerBase>(m, "RollingDownsideDeviation")
+        .def(py::init<int, double, const std::string&>(),
+             py::arg("window_size") = 20, py::arg("mar") = 0.0,
+             py::arg("start_policy") = "strict")
+        .def("__call__", &screamer::RollingDownsideDeviation::operator(), py::arg("value"))
+        .def("reset", &screamer::RollingDownsideDeviation::reset, "Reset.");
+
+    py::class_<screamer::RollingOmega, screamer::ScreamerBase>(m, "RollingOmega")
+        .def(py::init<int, double>(),
+             py::arg("window_size") = 20, py::arg("threshold") = 0.0)
+        .def("__call__", &screamer::RollingOmega::operator(), py::arg("value"))
+        .def("reset", &screamer::RollingOmega::reset, "Reset.");
+
+    py::class_<screamer::RollingCVaR, screamer::ScreamerBase>(m, "RollingCVaR")
+        .def(py::init<int, double>(),
+             py::arg("window_size") = 20, py::arg("alpha") = 0.05)
+        .def("__call__", &screamer::RollingCVaR::operator(), py::arg("value"))
+        .def("reset", &screamer::RollingCVaR::reset, "Reset.");
 }

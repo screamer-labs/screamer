@@ -32,6 +32,8 @@ screamer_classes = [c for c in get_module_public_classes(screamer_module)
 #                      tests/test_rolling_corr.py and friends.
 _ROLLING_AUTO_EXCLUDE = {
     'RollingQuantile',
+    # extra non-window arg (mar / threshold / alpha) - tested in test_risk_stats.py
+    'RollingDownsideDeviation', 'RollingOmega', 'RollingCVaR',
     # 2-input (FunctorBase<_, 2, 1>) - need parallel arrays
     'RollingCorr', 'RollingCov', 'RollingBeta', 'RollingSpread',
     # 1-input M>1-output (FunctorBase<_, 1, M>) - output shape is

@@ -42,6 +42,8 @@ The size of fluctuations and risk: standard deviation and variance, RMS, range-b
      - Volatility-adapted envelope: EMA midline plus/minus a multiple of ATR.
    * - :doc:`Normalised ATR (NATR) </functions_rolling/NATR>`
      - ATR scaled to a percentage of the current close.
+   * - :doc:`Rolling Downside Deviation </functions_fin/RollingDownsideDeviation>`
+     - Trailing-window downside semideviation: the RMS of returns falling below a minimum acceptable return.
    * - :doc:`Rolling Garman-Klass varariance </functions_rolling/RollingGarmanKlassVar>`
      - Var form of the Garman-Klass range-based volatility estimator (OHLC).
    * - :doc:`Rolling Garman-Klass olatility </functions_rolling/RollingGarmanKlassVol>`

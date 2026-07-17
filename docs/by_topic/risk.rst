@@ -22,12 +22,18 @@ Drawdowns and performance ratios.
      - Worst drawdown experienced so far (since reset).
    * - :doc:`Rolling Calmar ratio </functions_fin/RollingCalmar>`
      - Annualised return divided by the worst rolling drawdown.
+   * - :doc:`Rolling Conditional Value-at-Risk (Expected Shortfall) </functions_fin/RollingCVaR>`
+     - Historical Conditional Value-at-Risk (Expected Shortfall): the mean loss in the worst alpha tail over a window.
+   * - :doc:`Rolling Downside Deviation </functions_fin/RollingDownsideDeviation>`
+     - Trailing-window downside semideviation: the RMS of returns falling below a minimum acceptable return.
    * - :doc:`Rolling hit rate </functions_fin/RollingHitRate>`
      - Fraction of strictly-positive samples in a trailing window.
    * - :doc:`Rolling information ratio </functions_fin/RollingInfoRatio>`
      - Annualised information ratio: Sharpe of active returns against a benchmark.
    * - :doc:`Rolling maximum drawdown </functions_fin/RollingMaxDrawdown>`
      - Worst peak-to-trough drawdown inside a trailing window.
+   * - :doc:`Rolling Omega Ratio </functions_fin/RollingOmega>`
+     - Omega ratio over a window: total gains above a threshold divided by total losses below it.
    * - :doc:`Rolling Sharpe ratio </functions_fin/RollingSharpe>`
      - Annualised Sharpe ratio over a trailing window of returns.
    * - :doc:`Rolling Sortino ratio </functions_fin/RollingSortino>`
