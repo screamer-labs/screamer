@@ -201,38 +201,72 @@ def test_trades_stream_equals_batch():
 
 # --- BacktestL1 --------------------------------------------------------------
 
-def test_l1_two_sided_fills_and_spread_capture():
+def test_l1_default_is_breach_full_fill_on_cross():
     from screamer import BacktestL1
-    # passive quotes at the market touch: buy the bid, sell the ask, earn the spread.
-    bid = np.array([99.5, 99.5]); ask = np.array([100.5, 100.5])
-    bsz = np.array([5., 5]); asz = np.array([5., 5])
-    # our bid at the market bid; the market ask reaches it only when ask <= 99.5 (never here)
-    # instead quote a bid the market crosses into: my_bid 100.5 (>= ask) fills a buy at 100.5
-    out = BacktestL1()(bid, ask, bsz, asz,
-                       np.array([100.5, 100.5]), np.array([1., 0.]),   # buy quote then withdrawn
-                       np.array([np.nan, 99.5]), np.array([np.nan, 1.]))  # then a sell quote
-    assert out[0, 2] == 1.0                              # bought
-    assert out[1, 2] == 0.0                              # sold back (market bid 99.5 >= my_ask 99.5)
+    # default breach: my_bid 100 rests passive (ask 101), then ask crosses to 99 -> full fill at 100 (maker)
+    out = BacktestL1()(np.array([100., 99.]), np.array([101., 99.5]),
+                       np.array([5., 5]), np.array([5., 5]),
+                       np.array([100., 100.]), np.array([10., 10.]),
+                       np.array([np.nan, np.nan]), np.array([np.nan, np.nan]))
+    assert out[0, 2] == 0.0                              # passive, no fill
+    assert out[1, 2] == 10.0                             # swept: full 10 at my_bid 100
+    assert out[1, 1] < 0.0                               # bought at 100, marks below -> adverse
+
+
+def test_l1_breach_no_fill_on_lock():
+    from screamer import BacktestL1
+    # breach: ask == my_bid (locked) must NOT fill
+    out = BacktestL1(fill="breach")(np.array([100.]), np.array([100.]),
+                                    np.array([5.]), np.array([5.]),
+                                    np.array([100.]), np.array([10.]),
+                                    np.array([np.nan]), np.array([np.nan]))
+    assert out[0, 2] == 0.0
+
+
+def test_l1_touch_lock_fills_participation_once():
+    from screamer import BacktestL1
+    # touch: my_bid 100 resting; then ask locks at 100 (size 8), participation 0.5 -> min(10, 0.5*8)=4;
+    # a second identical locked snapshot must NOT add (edge-triggered)
+    bid = np.array([100., 100., 100.]); ask = np.array([101., 100., 100.])
+    out = BacktestL1(fill="touch", participation_ratio=0.5)(
+        bid, ask, np.array([5., 5, 5]), np.array([8., 8, 8]),
+        np.array([100., 100, 100]), np.array([10., 10, 10]),
+        np.array([np.nan] * 3), np.array([np.nan] * 3))
+    assert out[0, 2] == 0.0                              # passive
+    assert out[1, 2] == 4.0                              # lock entry: min(10, 0.5*8)
+    assert out[2, 2] == 4.0                              # same lock: no further fill
+
+
+def test_l1_submitted_crossing_is_taker_with_tick_slippage():
+    from screamer import BacktestL1
+    # quote appears already marketable (my_bid 100 > ask 99): taker, full fill, overflow at ask+tick.
+    # ask_size 4, my_bid_size 10, tick 0.5 -> 4 @ 99, 6 @ 99.5; VWAP=(4*99+6*99.5)/10=99.3
+    out = BacktestL1(taker_fee=0.0, tick_size=0.5)(
+        np.array([98.]), np.array([99.]), np.array([5.]), np.array([4.]),
+        np.array([100.]), np.array([10.]), np.array([np.nan]), np.array([np.nan]))
+    assert out[0, 2] == 10.0                             # full taker fill
+    # marks to mid (98+99)/2=98.5; bought VWAP 99.3 -> immediate adverse cost = 10*(99.3-98.5)
+    np.testing.assert_allclose(out[0, 3], 10 * (99.3 - 98.5), atol=1e-9)
 
 
 def test_l1_inventory_cap():
     from screamer import BacktestL1
-    # max_position 1: two crossing buy events, the second cannot add
-    bid = np.array([100., 100]); ask = np.array([100., 100])
-    out = BacktestL1(max_position=1.0)(bid, ask, np.array([5., 5]), np.array([5., 5]),
-                                       np.array([100., 100]), np.array([1., 1]),
-                                       np.array([np.nan] * 2), np.array([np.nan] * 2))
-    np.testing.assert_allclose(out[:, 2], [1, 1])        # capped at 1
+    # ask 99 crosses through my_bid 100 (a taker sweep on first appearance);
+    # room = max_position - 0 = 3 caps the fill at 3 of the 10 quoted
+    out = BacktestL1(max_position=3.0)(
+        np.array([98.]), np.array([99.]), np.array([5.]), np.array([5.]),
+        np.array([100.]), np.array([10.]), np.array([np.nan]), np.array([np.nan]))
+    assert out[0, 2] == 3.0                              # capped even on a full sweep
 
 
 def test_l1_stream_equals_batch():
     from screamer import BacktestL1
-    rng = np.random.default_rng(2); n = 100
+    rng = np.random.default_rng(7); n = 200
     mid = 100 + np.cumsum(rng.standard_normal(n) * 0.1)
     bid, ask = mid - 0.05, mid + 0.05
-    out_op = BacktestL1(maker_fee=-0.0001)
-    args = (bid, ask, np.full(n, 3.0), np.full(n, 3.0),
-            bid, np.full(n, 1.0), ask, np.full(n, 1.0))
-    stream = np.array([out_op(*(float(a[i]) for a in args)) for i in range(n)])
-    batch = BacktestL1(maker_fee=-0.0001)(*args)
+    args = (bid, ask, np.full(n, 5.0), np.full(n, 5.0),
+            bid - 0.01, np.full(n, 1.0), ask + 0.01, np.full(n, 1.0))
+    op = BacktestL1()
+    stream = np.array([op(*(float(a[i]) for a in args)) for i in range(n)])
+    batch = BacktestL1()(*args)
     np.testing.assert_allclose(np.nan_to_num(stream), np.nan_to_num(batch))

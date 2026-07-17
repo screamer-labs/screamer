@@ -12,37 +12,40 @@
 
 namespace screamer {
 
-    // BacktestL1: 8 -> 4. A market-making backtest against a top-of-book (L1)
-    // stream. Each event carries the market quote (bid, ask, bid_size, ask_size)
-    // and the strategy's two-sided quote (my_bid, my_bid_size, my_ask, my_ask_size)
-    // (align your quote stream to the market with combine_latest upstream). Both
-    // sides rest; either or both can be lifted on one event, so the position is
-    // whatever the market fills.
-    //
-    // The resting buy at my_bid fills when the market can sell into it - the market
-    // ask reaches my_bid (`ask <= my_bid` for `"touch"`, strict for `"breach"`) -
-    // for min(my_bid_size, ask_size) at my_bid; the resting sell fills symmetrically
-    // when `bid >= my_ask`. Both are maker fills at the quoted price paying
-    // `maker_fee` (negative for a rebate); the favorable fill versus the mid is the
-    // captured spread. Fills are capped so the position stays within
-    // [min_position, max_position] (defaults unbounded), full up to the available
-    // size (no queue-position modelling). Positions mark to the mid. Outputs are
-    // [equity, pnl, position, cost]. nan_policy: ignore for the market quote; a NaN
-    // own-quote price means that side is not quoted.
+    // BacktestL1: 8 -> 4. Two-sided market maker against top-of-book quotes ONLY.
+    // Fills are a documented heuristic (see the reference page Limitations box):
+    // a resting quote fills full when the opposite side crosses through it, and in
+    // "touch" mode also fills a participation partial once per lock episode. A quote
+    // that appears already marketable is a taker (fills at market + tick_size). A
+    // resting quote the market runs through is a maker fill at the quoted price.
+    // Inputs (bid, ask, bid_size, ask_size, my_bid, my_bid_size, my_ask,
+    // my_ask_size); positions mark to the mid. Prefer BacktestL1Trades when a trade
+    // feed is available. Outputs [equity, pnl, position, cost]. nan_policy: ignore on
+    // the market quote; a NaN own-quote price means that side is not quoted.
     class BacktestL1 : public FunctorBase<BacktestL1, 8, 4> {
     public:
-        BacktestL1(double maker_fee = 0.0, const std::string& fill = "touch",
+        BacktestL1(double maker_fee = 0.0, double taker_fee = 0.0,
+                   const std::string& fill = "breach",
+                   double participation_ratio = 1.0, double tick_size = 0.0,
                    double max_position = std::numeric_limits<double>::infinity(),
                    double min_position = -std::numeric_limits<double>::infinity())
-            : maker_fee_(maker_fee), breach_(parse_fill(fill)),
-              max_position_(max_position), min_position_(min_position)
+            : maker_fee_(maker_fee), taker_fee_(taker_fee), breach_(parse_fill(fill)),
+              participation_(parse_participation(participation_ratio)),
+              tick_size_(tick_size), max_position_(max_position),
+              min_position_(min_position)
         {
-            if (min_position_ > max_position_) {
+            if (min_position_ > max_position_)
                 throw std::invalid_argument("min_position must not exceed max_position.");
-            }
+            if (tick_size_ < 0.0)
+                throw std::invalid_argument("tick_size must be non-negative.");
+            reset();
         }
 
-        void reset() override { account_.reset(); }
+        void reset() override {
+            account_.reset();
+            bid_passive_ = false; ask_passive_ = false;
+            bid_locked_ = false; ask_locked_ = false;
+        }
 
         ResultTuple call(const InputArray& inputs) override {
             const double bid = inputs[0], ask = inputs[1];
@@ -54,53 +57,96 @@ namespace screamer {
                 return std::make_tuple(nan, nan, nan, nan);   // ignore
             }
             const double mid = 0.5 * (bid + ask);
-            const double pos = account_.position();
+            double eq = 0, pnl = 0, position = account_.position(), cost = 0; bool did = false;
 
-            // Resting buy: filled when the market ask reaches our bid.
-            double buy_dpos = 0.0;
-            if (!isnan2(my_bid) && !isnan2(my_bid_size) && my_bid_size > 0.0) {
-                const bool hit = breach_ ? (ask < my_bid) : (ask <= my_bid);
-                if (hit) {
-                    const double room = max_position_ - pos;   // inventory cap
-                    buy_dpos = std::min(std::min(my_bid_size, ask_size),
-                                        std::max(room, 0.0));
-                }
-            }
-            // Resting sell: filled when the market bid reaches our ask.
-            double sell_dpos = 0.0;
-            if (!isnan2(my_ask) && !isnan2(my_ask_size) && my_ask_size > 0.0) {
-                const bool hit = breach_ ? (bid > my_ask) : (bid >= my_ask);
-                if (hit) {
-                    const double room = pos - min_position_;
-                    sell_dpos = -std::min(std::min(my_ask_size, bid_size),
-                                          std::max(room, 0.0));
-                }
+            // Buy side: resting buy at my_bid filled by the market ask.
+            const double room_buy = std::max(max_position_ - account_.position(), 0.0);
+            SideFill b = compute_side(/*buy=*/true, my_bid, my_bid_size, ask, ask_size,
+                                      room_buy, bid_passive_, bid_locked_);
+            if (b.dpos != 0.0) {
+                auto [e, p, pos, c] = account_.step(mid, b.dpos, b.fill_price,
+                                                    b.is_taker ? taker_fee_ : maker_fee_);
+                eq = e; pnl += p; position = pos; cost += c; did = true;
             }
 
-            // First step always marks (against the mid); a second step for the
-            // other side adds only its trade cost (its mark move is zero).
-            auto [eq, pnl, position, cost] = account_.step(
-                mid, buy_dpos, (buy_dpos != 0.0) ? my_bid : mid,
-                (buy_dpos != 0.0) ? maker_fee_ : 0.0);
-            if (sell_dpos != 0.0) {
-                auto [eq2, pnl2, pos2, cost2] =
-                    account_.step(mid, sell_dpos, my_ask, maker_fee_);
-                eq = eq2; pnl += pnl2; position = pos2; cost += cost2;
+            // Sell side: resting sell at my_ask filled by the market bid.
+            const double room_sell = std::max(account_.position() - min_position_, 0.0);
+            SideFill s = compute_side(/*buy=*/false, my_ask, my_ask_size, bid, bid_size,
+                                      room_sell, ask_passive_, ask_locked_);
+            if (s.dpos != 0.0) {
+                auto [e, p, pos, c] = account_.step(mid, s.dpos, s.fill_price,
+                                                    s.is_taker ? taker_fee_ : maker_fee_);
+                eq = e; pnl += p; position = pos; cost += c; did = true;
+            }
+
+            if (!did) {
+                auto [e, p, pos, c] = account_.step(mid, 0.0, mid, 0.0);  // mark only
+                eq = e; pnl = p; position = pos; cost = c;
             }
             return std::make_tuple(eq, pnl, position, cost);
         }
 
     private:
+        struct SideFill { double dpos; double fill_price; bool is_taker; };
+
+        // Compute one side's fill and update that side's lock/passive state.
+        // buy: resting buy at my_price hit by opp (=ask); sell: resting sell at
+        // my_price hit by opp (=bid).
+        SideFill compute_side(bool buy, double my_price, double my_size,
+                              double opp_price, double opp_size, double room,
+                              bool& passive_prev, bool& locked) {
+            SideFill r{0.0, my_price, false};
+            if (isnan2(my_price) || isnan2(my_size) || my_size <= 0.0 || room <= 0.0) {
+                passive_prev = false; locked = false; return r;   // no quote this event
+            }
+            const bool through = buy ? (opp_price < my_price) : (opp_price > my_price);
+            const bool lock    = (opp_price == my_price);
+            const double remaining = std::min(my_size, room);
+
+            if (through) {
+                if (passive_prev) {                       // run over while resting: maker at my_price
+                    r.dpos = buy ? remaining : -remaining;
+                    r.fill_price = my_price; r.is_taker = false;
+                } else {                                  // submitted already crossing: taker + slippage
+                    const double disp = std::min(remaining, opp_size);
+                    const double over = remaining - disp;
+                    const double slip = buy ? tick_size_ : -tick_size_;
+                    const double vwap = (disp * opp_price + over * (opp_price + slip))
+                                        / remaining;
+                    r.dpos = buy ? remaining : -remaining;
+                    r.fill_price = vwap; r.is_taker = true;
+                }
+                passive_prev = false; locked = false;     // order consumed
+            } else if (lock) {
+                if (!breach_ && !locked) {                // touch mode, first event of this lock
+                    const double filled = std::min(remaining, participation_ * opp_size);
+                    if (filled > 0.0) {
+                        r.dpos = buy ? filled : -filled;
+                        r.fill_price = my_price; r.is_taker = false;
+                    }
+                }
+                locked = true; passive_prev = true;       // a lock is still resting
+            } else {                                       // opp on the far side: purely passive
+                passive_prev = true; locked = false;
+            }
+            return r;
+        }
+
         static bool parse_fill(const std::string& fill) {
             if (fill == "touch") return false;
             if (fill == "breach") return true;
             throw std::invalid_argument("fill must be \"touch\" or \"breach\".");
         }
+        static double parse_participation(double p) {
+            if (!(p > 0.0) || p > 1.0)
+                throw std::invalid_argument("participation_ratio must be in (0, 1].");
+            return p;
+        }
 
-        double maker_fee_;
+        double maker_fee_, taker_fee_;
         bool breach_;
-        double max_position_;
-        double min_position_;
+        double participation_, tick_size_, max_position_, min_position_;
+        bool bid_passive_, ask_passive_, bid_locked_, ask_locked_;
         detail::PnLAccount account_;
     };
 
