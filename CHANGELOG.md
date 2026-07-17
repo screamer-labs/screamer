@@ -24,6 +24,9 @@ All notable changes to this project are documented in this file.
 * Docs: the flat "Microstructure" function topic is split into four groups -
   Trade signing, Order-flow imbalance, Price impact & liquidity, and Order-flow
   arrivals - with "microstructure" kept as a search tag.
+* Docs: a third microstructure notebook (toxicity, book pressure, and spreads)
+  covering VPIN, QueueImbalance, MicroPrice, ContOFI, and the effective/realized
+  spread decomposition.
 
 [0.8.0] - 2026-07-16
 --------------------
