@@ -181,6 +181,7 @@ For a step-by-step walkthrough see the :doc:`User Guide <usage>`.
    notebooks/10-custom-and-multi-column-bars
    notebooks/11-microstructure-order-flow
    notebooks/12-microstructure-price-impact
+   notebooks/13-microstructure-toxicity-and-book
 
 
 .. toctree::
