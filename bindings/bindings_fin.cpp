@@ -14,6 +14,9 @@
 #include "screamer/drawdown.h"
 #include "screamer/max_drawdown.h"
 #include "screamer/backtest_signal.h"
+#include "screamer/backtest_ohlc.h"
+#include "screamer/backtest_trades.h"
+#include "screamer/backtest_l1.h"
 #include "screamer/rolling_downside_deviation.h"
 #include "screamer/rolling_omega.h"
 #include "screamer/rolling_cvar.h"
@@ -176,6 +179,27 @@ void init_bindings_fin(py::module& m) {
              py::arg("spread") = 0.0, py::arg("fee") = 0.0)
         .def("__call__", &screamer::BacktestSignal::handle_input)
         .def("reset", &screamer::BacktestSignal::reset, "Reset.");
+
+    py::class_<screamer::BacktestOHLC, screamer::EvalOp>(m, "BacktestOHLC")
+        .def(py::init<double, double, double, const std::string&>(),
+             py::arg("spread") = 0.0, py::arg("taker_fee") = 0.0,
+             py::arg("maker_fee") = 0.0, py::arg("fill") = "touch")
+        .def("__call__", &screamer::BacktestOHLC::handle_input)
+        .def("reset", &screamer::BacktestOHLC::reset, "Reset.");
+
+    py::class_<screamer::BacktestTrades, screamer::EvalOp>(m, "BacktestTrades")
+        .def(py::init<double, const std::string&>(),
+             py::arg("maker_fee") = 0.0, py::arg("fill") = "touch")
+        .def("__call__", &screamer::BacktestTrades::handle_input)
+        .def("reset", &screamer::BacktestTrades::reset, "Reset.");
+
+    py::class_<screamer::BacktestL1, screamer::EvalOp>(m, "BacktestL1")
+        .def(py::init<double, const std::string&, double, double>(),
+             py::arg("maker_fee") = 0.0, py::arg("fill") = "touch",
+             py::arg("max_position") = std::numeric_limits<double>::infinity(),
+             py::arg("min_position") = -std::numeric_limits<double>::infinity())
+        .def("__call__", &screamer::BacktestL1::handle_input)
+        .def("reset", &screamer::BacktestL1::reset, "Reset.");
 
     py::class_<screamer::RollingDownsideDeviation, screamer::ScreamerBase>(m, "RollingDownsideDeviation")
         .def(py::init<int, double, const std::string&>(),

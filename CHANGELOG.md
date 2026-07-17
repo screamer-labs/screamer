@@ -12,14 +12,24 @@ All notable changes to this project are documented in this file.
   and `RollingCVaR` (historical Conditional Value-at-Risk / Expected Shortfall,
   the mean loss in the worst alpha tail; VaR is `-RollingQuantile`). Each with a
   reference page, a plotted example, and tests.
-* Backtesting (foundation): `BacktestSignal`, a causal C++ engine that turns a
-  position signal and a price into a costed mark-to-market equity curve, emitting
-  `[equity, pnl, position, cost]` with a fractional `spread` (crossing cost) and
-  `fee`. The `backtest_report` helper bundles the running statistics and a summary
-  (total PnL, max drawdown, cost, turnover, trades, Sharpe). First of a planned
-  backtest suite (an `L1`/`Trades`/`OHLC` engine share the same accounting core
-  and output schema). Reference pages with a plotted example, tests, and a demo
-  notebook.
+* Backtesting: a suite of four causal C++ engines named by the market data they
+  consume, all sharing one accounting core (`detail::PnLAccount`) and the
+  `[equity, pnl, position, cost]` output schema.
+  * `BacktestSignal` (2 inputs): marks a position signal to a price, with a
+    fractional `spread` (crossing cost) and `fee`.
+  * `BacktestOHLC` (6 inputs): a directional target-position strategy on OHLC
+    bars, with market orders (fill at the open, crossing half the `spread`, paying
+    `taker_fee`) and limit orders (fill on `"touch"`/`"breach"` of the bar range,
+    paying `maker_fee`).
+  * `BacktestTrades` (4 inputs): a resting limit order against the trade tape,
+    filling on crossing prints up to the print size, front-of-queue.
+  * `BacktestL1` (8 inputs): a two-sided market maker against top-of-book quotes,
+    filling when the market crosses either quote, with an inventory cap
+    (`min_position`/`max_position`) and maker rebates.
+  The `backtest_report` helper bundles the running statistics and a summary (total
+  PnL, max drawdown, cost, turnover, trades, Sharpe) for any engine. Reference
+  pages with plotted examples, tests, and two demo notebooks (a signal on bars,
+  and the event-driven engines on a real tape).
 
 [0.9.0] - 2026-07-17
 --------------------

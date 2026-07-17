@@ -14,8 +14,14 @@ Drawdowns and performance ratios.
      - Description
    * - :doc:`backtest_report </functions_fin/backtest_report>`
      - Running statistics and a summary for a backtest engine's output.
+   * - :doc:`Backtest a two-sided market maker against L1 quotes </functions_fin/BacktestL1>`
+     - Backtest a two-sided market maker against a top-of-book (L1) quote stream, into a costed equity curve.
+   * - :doc:`Backtest a directional strategy on OHLC bars </functions_fin/BacktestOHLC>`
+     - Backtest a directional target-position strategy on OHLC bars, with market and limit orders, into a costed equity curve.
    * - :doc:`Backtest a position signal </functions_fin/BacktestSignal>`
      - Backtest a position signal against a price series into a costed mark-to-market equity curve.
+   * - :doc:`Backtest a resting limit order against the trade tape </functions_fin/BacktestTrades>`
+     - Backtest a resting limit order against the trade tape, filling on crossing prints, into a costed equity curve.
    * - :doc:`Drawdown </functions_fin/Drawdown>`
      - Running drawdown from the cumulative peak.
    * - :doc:`Maximum drawdown </functions_fin/MaxDrawdown>`

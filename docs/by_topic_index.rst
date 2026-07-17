@@ -64,7 +64,10 @@ Every function, grouped by topic. Topics are many-to-many, so a function may app
    functions_expanding/ExpandingStd
    functions_expanding/ExpandingSum
    functions_expanding/ExpandingVar
+   functions_fin/BacktestL1
+   functions_fin/BacktestOHLC
    functions_fin/BacktestSignal
+   functions_fin/BacktestTrades
    functions_fin/Drawdown
    functions_fin/LogReturn
    functions_fin/MaxDrawdown
