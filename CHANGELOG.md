@@ -37,10 +37,15 @@ All notable changes to this project are documented in this file.
     position, the trade tape drives fills (each trade on its own event row, so no
     fill-versus-cancel ambiguity), a quote cross with no explaining trade is the
     run-over fallback.
-  The `backtest_report` helper bundles the running statistics and a summary (total
-  PnL, max drawdown, cost, turnover, trades, Sharpe) for any engine. Reference
-  pages with plotted examples, tests, and two demo notebooks (a signal on bars,
-  and the event-driven engines on a real tape).
+  * `BacktestReport` (4 inputs, 6 outputs): the C++ node that turns an engine's
+    `[equity, pnl, position, cost]` into the running report columns (dollar
+    drawdown, cumulative cost, turnover, trade count, running max drawdown, and
+    running Sharpe), so pure-C++ callers get the statistics too.
+  The `backtest_report` helper wraps `BacktestReport`, labeling its columns and
+  reading the last row into a summary (total PnL, max drawdown, cost, turnover,
+  trades, Sharpe). It returns plain dicts of numpy arrays and needs no pandas.
+  Reference pages with plotted examples, tests, and two demo notebooks (a signal
+  on bars, and the event-driven engines on a real tape).
 
 [0.9.0] - 2026-07-17
 --------------------

@@ -18,6 +18,7 @@
 #include "screamer/backtest_trades.h"
 #include "screamer/backtest_l1.h"
 #include "screamer/backtest_l1_trades.h"
+#include "screamer/backtest_report.h"
 #include "screamer/rolling_downside_deviation.h"
 #include "screamer/rolling_omega.h"
 #include "screamer/rolling_cvar.h"
@@ -214,6 +215,11 @@ void init_bindings_fin(py::module& m) {
              py::arg("min_position") = -std::numeric_limits<double>::infinity())
         .def("__call__", &screamer::BacktestL1Trades::handle_input)
         .def("reset", &screamer::BacktestL1Trades::reset, "Reset.");
+
+    py::class_<screamer::BacktestReport, screamer::EvalOp>(m, "BacktestReport")
+        .def(py::init<>())
+        .def("__call__", &screamer::BacktestReport::handle_input)
+        .def("reset", &screamer::BacktestReport::reset, "Reset.");
 
     py::class_<screamer::RollingDownsideDeviation, screamer::ScreamerBase>(m, "RollingDownsideDeviation")
         .def(py::init<int, double, const std::string&>(),

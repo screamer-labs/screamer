@@ -1368,7 +1368,43 @@
       {
         "language": "python",
         "caption": "Usage plot",
-        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import BacktestOHLC, RollingMean\n\nrng = np.random.default_rng(2)\nn = 160\nclose = 100 + np.cumsum(rng.standard_normal(n) * 0.4)\nopen_ = close - rng.standard_normal(n) * 0.15\nhigh = np.maximum(open_, close) + np.abs(rng.standard_normal(n)) * 0.25\nlow = np.minimum(open_, close) - np.abs(rng.standard_normal(n)) * 0.25\n\n# trend target decided from each close; the engine defers it one bar (no manual lag)\nfast, slow = RollingMean(5)(close), RollingMean(20)(close)\nsignal = np.sign(np.nan_to_num(fast - slow))      # +1 long / -1 short, on each close\nmarket = np.full(n, np.nan)                        # market-on-open next bar\n\nout = BacktestOHLC(spread=0.001, taker_fee=0.0002)(signal, market, open_, high, low, close)\neq, pos = out[:, 0], out[:, 2]\n\nfig = make_subplots(rows=3, cols=1, shared_xaxes=True, row_heights=[0.5, 0.2, 0.3],\n                    vertical_spacing=0.05)\nfig.add_trace(go.Candlestick(open=open_, high=high, low=low, close=close,\n                             name='bars', showlegend=False), row=1, col=1)\nfig.add_trace(go.Scatter(y=signal, name='signal', line=dict(color='indigo', shape='hv')), row=2, col=1)\nfig.add_trace(go.Scatter(y=eq, name='equity', line=dict(color='steelblue')), row=3, col=1)\nfig.update_layout(title='BacktestOHLC: a trend signal on the bars, deferred one bar and traded',\n                  yaxis=dict(title='price'), yaxis2=dict(title='signal'),\n                  yaxis3=dict(title='equity ($)'),\n                  xaxis_rangeslider_visible=False,\n                  margin=dict(l=20, r=20, t=60, b=20),\n                  legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1))\nfig.show()"
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import BacktestOHLC, RollingMean\n\nrng = np.random.default_rng(5)\nn = 160\nclose = 100 + np.cumsum(rng.standard_normal(n) * 0.4)\nopen_ = close - rng.standard_normal(n) * 0.15\nhigh = np.maximum(open_, close) + np.abs(rng.standard_normal(n)) * 0.25\nlow = np.minimum(open_, close) - np.abs(rng.standard_normal(n)) * 0.25\n\n# trend target decided from each close; the engine defers it one bar (no manual lag)\nfast, slow = RollingMean(5)(close), RollingMean(20)(close)\nsignal = np.sign(np.nan_to_num(fast - slow))      # +1 long / -1 short, on each close\nmarket = np.full(n, np.nan)                        # market-on-open next bar\n\nout = BacktestOHLC(spread=0.001, taker_fee=0.0002)(signal, market, open_, high, low, close)\neq, pos = out[:, 0], out[:, 2]\n\nfig = make_subplots(rows=3, cols=1, shared_xaxes=True, row_heights=[0.5, 0.2, 0.3],\n                    vertical_spacing=0.05)\nfig.add_trace(go.Candlestick(open=open_, high=high, low=low, close=close,\n                             name='bars', showlegend=False), row=1, col=1)\nfig.add_trace(go.Scatter(y=signal, name='signal', line=dict(color='indigo', shape='hv')), row=2, col=1)\nfig.add_trace(go.Scatter(y=eq, name='equity', line=dict(color='steelblue')), row=3, col=1)\nfig.update_layout(title='BacktestOHLC: a trend signal on the bars, deferred one bar and traded',\n                  yaxis=dict(title='price'), yaxis2=dict(title='signal'),\n                  yaxis3=dict(title='equity ($)'),\n                  xaxis_rangeslider_visible=False,\n                  margin=dict(l=20, r=20, t=60, b=20),\n                  legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1))\nfig.show()"
+      }
+    ]
+  },
+  "BacktestReport": {
+    "name": "BacktestReport",
+    "title": "Running report columns for a backtest",
+    "implementation_family": "fin",
+    "topics": [
+      "backtesting"
+    ],
+    "tags": [
+      "backtest",
+      "pnl",
+      "drawdown",
+      "turnover",
+      "sharpe",
+      "equity curve",
+      "risk"
+    ],
+    "short": "Turn a backtest engine's [equity, pnl, position, cost] into running drawdown, cost, turnover, trades, and Sharpe.",
+    "inputs": 4,
+    "outputs": 6,
+    "parameters": [],
+    "nan_policy": "ignore",
+    "see_also": [
+      "backtest_report",
+      "BacktestSignal",
+      "Drawdown",
+      "MaxDrawdown"
+    ],
+    "details": "## Description\n\n`BacktestReport` turns a backtest engine's per-step `[equity, pnl, position, cost]`\ninto the running report columns. It carries the aggregation that a report needs so\nthat pure-C++ callers get it too, and the Python [`backtest_report`](backtest_report.md)\nhelper is a thin wrapper that labels these columns and reads the last row for the\nsummary.\n\nThe six outputs, in order, are:\n\n0. `drawdown`: `equity - running peak equity`, the dollar drawdown (`<= 0`). This\n   is the dollar form, not the percentage [`Drawdown`](Drawdown.md) op, because an\n   equity curve starts at zero and can go negative, where a percentage of the peak\n   is undefined.\n1. `cum_cost`: the running sum of `cost`.\n2. `turnover`: the running sum of `|position change|`; the first step counts the\n   move from flat.\n3. `trades`: the running count of steps that changed the position.\n4. `max_drawdown`: the running minimum of `drawdown`, the worst so far (`<= 0`).\n5. `sharpe`: the running `mean(pnl) / sample std(pnl)`, `NaN` until two finite `pnl`\n   values with positive dispersion.\n\nEvery column is a causal accumulator, so a full-sample statistic is the last\nfinite value: `total_pnl` is the last equity, `max_drawdown` the last\n`max_drawdown`, and so on. `nan_policy: ignore`: a row with any `NaN` field is a\nskipped bar, so the state holds and the output row is `NaN`, recovering at the\nnext finite bar, exactly as `CumSum` and the other accumulators do.",
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage plot",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import BacktestSignal, BacktestReport\n\nrng = np.random.default_rng(0)\nn = 500\nprice = 100 + np.cumsum(rng.standard_normal(n) * 0.3)\nsignal = np.sign(rng.standard_normal(n))\nequity, pnl, position, cost = (BacktestSignal(spread=0.0005)(signal, price).T)\n\nrep = BacktestReport()(equity, pnl, position, cost)   # (n, 7)\ndrawdown, trades = rep[:, 0], rep[:, 3]\n\nfig = make_subplots(rows=3, cols=1, shared_xaxes=True, row_heights=[0.4, 0.3, 0.3],\n                    vertical_spacing=0.06)\nfig.add_trace(go.Scatter(y=equity, name='equity', line=dict(color='steelblue')), row=1, col=1)\nfig.add_trace(go.Scatter(y=drawdown, name='drawdown', line=dict(color='crimson'),\n                         fill='tozeroy'), row=2, col=1)\nfig.add_trace(go.Scatter(y=trades, name='trades', line=dict(color='seagreen')), row=3, col=1)\nfig.update_layout(title='BacktestReport: running equity, drawdown, and trade count',\n                  yaxis=dict(title='equity ($)'), yaxis2=dict(title='drawdown ($)'),\n                  yaxis3=dict(title='trades'),\n                  margin=dict(l=20, r=20, t=60, b=20),\n                  legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1))\nfig.show()"
       }
     ]
   },
@@ -2527,7 +2563,7 @@
     "topics": [
       "backtesting"
     ],
-    "details": "Free helper: takes a backtest engine's `[equity, pnl, position, cost]` output (the\nfour positional columns that [`BacktestSignal`](BacktestSignal.md) and the other\nbacktest engines emit) and returns `(running, summary)`.\n\n- `running` is a pandas `DataFrame`, one row per bar, with the engine columns plus\n  the running `drawdown` (dollar), `cum_cost`, `turnover` (units traded), and\n  `trades` (count). Each is a causal series whose last value is the summary.\n- `summary` is a pandas `Series` of the final statistics: `total_pnl`,\n  `max_drawdown`, `total_cost`, `turnover`, `num_trades`, and `sharpe`.\n\nIt only aggregates the engine's outputs (no operator logic of its own), so it\nworks for every engine in the backtest family.",
+    "details": "Labels the output of the [`BacktestReport`](BacktestReport.md) node. It takes a\nbacktest engine's `[equity, pnl, position, cost]` output (the four positional\ncolumns that [`BacktestSignal`](BacktestSignal.md) and the other backtest engines\nemit) and returns `(running, summary)`.\n\n- `running` is a dict of numpy arrays: the four engine columns plus the\n  `BacktestReport` node's `drawdown` (dollar), `cum_cost`, `turnover` (units\n  traded), `trades` (count), `max_drawdown` (running worst), `sharpe` (running),\n  and `equity_held` (equity carried across skipped bars). Each is a causal series\n  whose last value is the summary.\n- `summary` is a dict of the final statistics: `total_pnl`, `max_drawdown`,\n  `total_cost`, `turnover`, `num_trades`, and `sharpe`.\n\nThe aggregation runs in the C++ `BacktestReport` node, so a pure-C++ user gets the\nsame statistics by calling that node directly. This wrapper only labels its\ncolumns and reads the last row, and needs no pandas. Wrap `running` in a\n`pandas.DataFrame` yourself if you want a frame.",
     "examples": []
   },
   "Abs": {

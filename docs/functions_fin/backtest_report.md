@@ -9,18 +9,23 @@ topics:
 
 # `backtest_report`
 
-Free helper: takes a backtest engine's `[equity, pnl, position, cost]` output (the
-four positional columns that [`BacktestSignal`](BacktestSignal.md) and the other
-backtest engines emit) and returns `(running, summary)`.
+Labels the output of the [`BacktestReport`](BacktestReport.md) node. It takes a
+backtest engine's `[equity, pnl, position, cost]` output (the four positional
+columns that [`BacktestSignal`](BacktestSignal.md) and the other backtest engines
+emit) and returns `(running, summary)`.
 
-- `running` is a pandas `DataFrame`, one row per bar, with the engine columns plus
-  the running `drawdown` (dollar), `cum_cost`, `turnover` (units traded), and
-  `trades` (count). Each is a causal series whose last value is the summary.
-- `summary` is a pandas `Series` of the final statistics: `total_pnl`,
-  `max_drawdown`, `total_cost`, `turnover`, `num_trades`, and `sharpe`.
+- `running` is a dict of numpy arrays: the four engine columns plus the
+  `BacktestReport` node's `drawdown` (dollar), `cum_cost`, `turnover` (units
+  traded), `trades` (count), `max_drawdown` (running worst), `sharpe` (running),
+  and `equity_held` (equity carried across skipped bars). Each is a causal series
+  whose last value is the summary.
+- `summary` is a dict of the final statistics: `total_pnl`, `max_drawdown`,
+  `total_cost`, `turnover`, `num_trades`, and `sharpe`.
 
-It only aggregates the engine's outputs (no operator logic of its own), so it
-works for every engine in the backtest family.
+The aggregation runs in the C++ `BacktestReport` node, so a pure-C++ user gets the
+same statistics by calling that node directly. This wrapper only labels its
+columns and reads the last row, and needs no pandas. Wrap `running` in a
+`pandas.DataFrame` yourself if you want a frame.
 
 <!-- HELP_END -->
 
@@ -28,8 +33,8 @@ works for every engine in the backtest family.
 
 `backtest_report(values, index=None)`
 
-`values` is the `(T, 4)` array a backtest engine emits. `index` optionally labels
-the rows (defaults to a `RangeIndex`).
+`values` is the `(T, 4)` array a backtest engine emits. `index` optionally adds an
+`"index"` array to `running` for labeling the rows.
 
 ## Example
 
@@ -43,7 +48,7 @@ the rows (defaults to a `RangeIndex`).
     signal = np.sign(np.random.default_rng(1).standard_normal(500))
 
     running, summary = backtest_report(BacktestSignal(spread=0.0005)(signal, price))
-    print(summary.round(4).to_string())
-    print()
-    print("last running row:", running.iloc[-1].round(4).to_dict())
+    for name, value in summary.items():
+        print(f"{name:13s} {value:10.4f}")
+    print("\nrunning columns:", list(running))
 ```

@@ -73,13 +73,30 @@ def test_reset_restarts():
 def test_backtest_report_shape_and_invariants():
     out = BacktestSignal(spread=0.01)(np.array([1., 1, 0]), np.array([100., 90, 95]))
     running, summary = backtest_report(out)
-    assert list(summary.index) == [
+    assert list(summary) == [
         "total_pnl", "max_drawdown", "total_cost", "turnover", "num_trades", "sharpe"]
     assert summary["num_trades"] == 2.0                    # enter long, exit
     assert summary["turnover"] == 2.0                      # 1 unit in, 1 out
     assert summary["max_drawdown"] <= 0.0
-    assert summary["total_pnl"] == running["equity"].ffill().iloc[-1]
-    assert summary["total_cost"] == running["cost"].sum()
+    assert summary["total_pnl"] == running["equity"][-1]
+    assert summary["total_cost"] == float(np.nansum(out[:, 3]))
+    # running is a plain dict of numpy arrays (no pandas), each column length T
+    assert isinstance(running, dict) and isinstance(summary, dict)
+    assert all(len(running[k]) == len(out) for k in
+               ("equity", "drawdown", "cum_cost", "turnover", "trades", "sharpe"))
+
+
+def test_backtest_report_node_matches_reference():
+    from screamer import BacktestReport
+    out = BacktestSignal()(np.sign(np.random.default_rng(0).standard_normal(200)),
+                           100 + np.cumsum(np.random.default_rng(1).standard_normal(200)))
+    eq, pnl, pos, cost = out[:, 0], out[:, 1], out[:, 2], out[:, 3]
+    rep = BacktestReport()(eq, pnl, pos, cost)             # (T, 6)
+    dd_ref = eq - np.maximum.accumulate(eq)                # dollar drawdown reference
+    np.testing.assert_allclose(rep[:, 0], dd_ref)                          # drawdown
+    np.testing.assert_allclose(rep[:, 1], np.cumsum(cost))                 # cum_cost
+    np.testing.assert_allclose(rep[:, 4], np.minimum.accumulate(dd_ref))   # max_drawdown
+    np.testing.assert_allclose(rep[:, 5][-1], pnl.mean() / pnl.std(ddof=1))  # sharpe
 
 
 # --- BacktestOHLC ------------------------------------------------------------

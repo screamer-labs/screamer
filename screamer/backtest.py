@@ -1,65 +1,62 @@
 """Backtest reporting helper.
 
-A thin convenience layer over the backtest engines (`BacktestSignal` and, later,
-the market-data engines). It only aggregates an engine's already-computed
-`[equity, pnl, position, cost]` output into the common running statistics and a
-summary; it adds no operator logic of its own, so it works for every engine in
-the family.
+A thin wrapper over the C++ ``BacktestReport`` node. That node does all the
+aggregation (drawdown, cumulative cost, turnover, trade count, running Sharpe);
+this helper only labels its columns and reads the last row for the summary, so
+pure-C++ users get the same functionality by calling ``BacktestReport`` directly.
+No pandas: ``running`` is a dict of numpy arrays and ``summary`` a dict of floats.
+Wrap ``running`` in ``pandas.DataFrame`` yourself if you want a frame.
 """
 import numpy as np
-import pandas as pd
+
+from .screamer_bindings import BacktestReport
 
 __all__ = ["backtest_report"]
 
+# Column order emitted by the C++ BacktestReport node.
+_REPORT_COLUMNS = ("drawdown", "cum_cost", "turnover", "trades", "max_drawdown", "sharpe")
+
 
 def backtest_report(values, index=None):
-    """Running statistics and a summary for a backtest engine's output.
+    """Running report columns and a summary for a backtest engine's output.
 
     ``values`` is the ``(T, 4)`` array a backtest engine emits, with columns
     ``[equity, pnl, position, cost]``. Returns ``(running, summary)``:
 
-    - ``running``: a pandas ``DataFrame`` with one row per bar, carrying the
-      engine columns plus the running ``drawdown`` (dollar), ``cum_cost``,
-      ``turnover`` (units traded), and ``trades`` (count). Each is a causal
-      series whose last value is the summary.
-    - ``summary``: a pandas ``Series`` of the final statistics: ``total_pnl``,
-      ``max_drawdown``, ``total_cost``, ``turnover``, ``num_trades``, ``sharpe``.
+    - ``running``: a dict of numpy arrays, the four engine columns plus the
+      ``BacktestReport`` node's ``drawdown`` (dollar), ``cum_cost``, ``turnover``
+      (units traded), ``trades`` (count), ``max_drawdown`` (running worst), and
+      ``sharpe`` (running). Each is a causal series whose last finite value is the
+      summary.
+    - ``summary``: a dict of the final statistics: ``total_pnl``, ``max_drawdown``,
+      ``total_cost``, ``turnover``, ``num_trades``, ``sharpe``.
+
+    The aggregation lives in the C++ ``BacktestReport`` node; this wrapper only
+    labels its columns and reads the last finite row. No pandas dependency.
     """
     values = np.asarray(values, dtype=float)
     if values.ndim != 2 or values.shape[1] != 4:
         raise ValueError(
             "values must be a (T, 4) array of [equity, pnl, position, cost]")
-    idx = pd.RangeIndex(len(values)) if index is None else pd.Index(np.asarray(index))
-    equity = pd.Series(values[:, 0], index=idx)
-    pnl = pd.Series(values[:, 1], index=idx)
-    position = pd.Series(values[:, 2], index=idx)
-    cost = pd.Series(values[:, 3], index=idx)
+    equity, pnl, position, cost = (values[:, i] for i in range(4))
 
-    # Units traded per bar, including the initial move from flat.
-    traded = position.diff()
-    if len(traded):
-        traded.iloc[0] = position.iloc[0]
-    traded = traded.abs()
+    report = np.asarray(BacktestReport()(equity, pnl, position, cost), dtype=float)
+    running = {"equity": equity, "pnl": pnl, "position": position, "cost": cost}
+    for i, name in enumerate(_REPORT_COLUMNS):
+        running[name] = report[:, i]
+    if index is not None:
+        running["index"] = np.asarray(index)
 
-    eq = equity.ffill().fillna(0.0)                 # a skipped (NaN) bar holds the last equity
-    running = pd.DataFrame({
-        "equity": equity,
-        "pnl": pnl,
-        "position": position,
-        "cost": cost,
-        "drawdown": eq - eq.cummax(),               # dollar drawdown, <= 0
-        "cum_cost": cost.fillna(0.0).cumsum(),
-        "turnover": traded.fillna(0.0).cumsum(),
-        "trades": (traded.fillna(0.0) > 0).cumsum().astype(float),
-    })
-    pnl_valid = pnl.dropna()
-    summary = pd.Series({
-        "total_pnl": eq.iloc[-1] if len(eq) else np.nan,
-        "max_drawdown": running["drawdown"].min() if len(running) else np.nan,
-        "total_cost": running["cum_cost"].iloc[-1] if len(running) else np.nan,
-        "turnover": running["turnover"].iloc[-1] if len(running) else np.nan,
-        "num_trades": running["trades"].iloc[-1] if len(running) else np.nan,
-        "sharpe": (pnl_valid.mean() / pnl_valid.std()
-                   if len(pnl_valid) > 1 and pnl_valid.std() > 0 else np.nan),
-    })
+    def _last_finite(a):
+        finite = a[np.isfinite(a)]
+        return float(finite[-1]) if finite.size else float("nan")
+
+    summary = {
+        "total_pnl": _last_finite(equity),
+        "max_drawdown": _last_finite(running["max_drawdown"]),
+        "total_cost": _last_finite(running["cum_cost"]),
+        "turnover": _last_finite(running["turnover"]),
+        "num_trades": _last_finite(running["trades"]),
+        "sharpe": _last_finite(running["sharpe"]),
+    }
     return running, summary

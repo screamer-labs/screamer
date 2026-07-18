@@ -20,6 +20,8 @@ Simulate a strategy against market data into a costed equity curve: signals, bar
      - Backtest a two-sided market maker against top-of-book quotes with a trade tape driving the fills, into a costed equity curve.
    * - :doc:`Backtest a directional strategy on OHLC bars </functions_fin/BacktestOHLC>`
      - Backtest a directional target-position strategy on OHLC bars, with market and limit orders, into a costed equity curve.
+   * - :doc:`Running report columns for a backtest </functions_fin/BacktestReport>`
+     - Turn a backtest engine's [equity, pnl, position, cost] into running drawdown, cost, turnover, trades, and Sharpe.
    * - :doc:`Backtest a position signal </functions_fin/BacktestSignal>`
      - Backtest a position signal against a price series into a costed mark-to-market equity curve.
    * - :doc:`Backtest a resting limit order against the trade tape </functions_fin/BacktestTrades>`
