@@ -84,38 +84,45 @@ def test_backtest_report_shape_and_invariants():
 
 # --- BacktestOHLC ------------------------------------------------------------
 
-def test_ohlc_market_order_marks_to_close():
+def test_ohlc_target_is_deferred_one_bar_causal():
     from screamer import BacktestOHLC
-    o = BacktestOHLC()(np.array([1., 1, 0]), np.array([np.nan] * 3),
-                       np.array([100., 101, 102]), np.array([100., 101, 103]),
-                       np.array([99., 100, 101]), np.array([100., 101, 102]))
-    np.testing.assert_allclose(o[:, 0], [0, 1, 2])       # equity: long 1 from 100 to 102
-    np.testing.assert_allclose(o[:, 2], [1, 1, 0])       # position
+    # target decided on bar t's close executes on bar t+1 (causal, no manual lag):
+    # target=1 at bar 0 -> position becomes 1 at bar 1, then held.
+    o = BacktestOHLC()(np.array([1., 1, 1, 0]), np.array([np.nan] * 4),
+                       np.array([100., 101, 102, 103]), np.array([100., 101, 102, 103]),
+                       np.array([100., 101, 102, 103]), np.array([100., 101, 102, 103]))
+    np.testing.assert_allclose(o[:, 2], [0, 1, 1, 1])    # flat bar 0, long from bar 1 (deferred)
+    np.testing.assert_allclose(o[:, 0], [0, 0, 1, 2])    # equity: long 1 earns 101->103 = +2
 
 
-def test_ohlc_limit_fills_only_when_range_reaches():
+def test_ohlc_limit_fills_only_when_next_bar_reaches():
     from screamer import BacktestOHLC
-    # buy limit 99: the bar low 98 reaches it -> fill; next bar low 99.5 does not
-    reached = BacktestOHLC()(np.array([1.]), np.array([99.]), np.array([100.]),
-                             np.array([101.]), np.array([98.]), np.array([100.]))
-    assert reached[0, 2] == 1.0
-    missed = BacktestOHLC()(np.array([1.]), np.array([99.]), np.array([100.]),
-                            np.array([101.]), np.array([99.5]), np.array([100.]))
-    assert missed[0, 2] == 0.0                           # not reached -> no fill
-    # breach is stricter than touch at the exact level
-    touch = BacktestOHLC(fill="touch")(np.array([1.]), np.array([99.]), np.array([100.]),
-                                       np.array([101.]), np.array([99.]), np.array([100.]))
-    breach = BacktestOHLC(fill="breach")(np.array([1.]), np.array([99.]), np.array([100.]),
-                                         np.array([101.]), np.array([99.]), np.array([100.]))
-    assert touch[0, 2] == 1.0 and breach[0, 2] == 0.0
+    # a buy limit 99 decided on bar 0 rests during bar 1; it fills iff bar 1's low reaches it
+    reached = BacktestOHLC()(np.array([1., 1.]), np.array([99., 99.]),
+                             np.array([100., 100.]), np.array([101., 101.]),
+                             np.array([100., 98.]), np.array([100., 100.]))
+    assert reached[1, 2] == 1.0                           # bar 1 low 98 <= 99 -> fill
+    missed = BacktestOHLC()(np.array([1., 1.]), np.array([99., 99.]),
+                            np.array([100., 100.]), np.array([101., 101.]),
+                            np.array([100., 99.5]), np.array([100., 100.]))
+    assert missed[1, 2] == 0.0                            # bar 1 low 99.5 never reaches 99
+    # touch vs breach at the exact level, on the executing bar (bar 1)
+    touch = BacktestOHLC(fill="touch")(np.array([1., 1.]), np.array([99., 99.]),
+                                       np.array([100., 100.]), np.array([101., 101.]),
+                                       np.array([100., 99.]), np.array([100., 100.]))
+    breach = BacktestOHLC(fill="breach")(np.array([1., 1.]), np.array([99., 99.]),
+                                         np.array([100., 100.]), np.array([101., 101.]),
+                                         np.array([100., 99.]), np.array([100., 100.]))
+    assert touch[1, 2] == 1.0 and breach[1, 2] == 0.0
 
 
 def test_ohlc_limit_fills_full_target_no_participation():
     from screamer import BacktestOHLC
-    # a large target with a touched limit fills fully (bars carry no volume)
-    out = BacktestOHLC()(np.array([1000.]), np.array([99.]), np.array([100.]),
-                         np.array([101.]), np.array([98.]), np.array([100.]))
-    assert out[0, 2] == 1000.0
+    # a large target with a limit reached on the next bar fills fully (bars carry no volume)
+    out = BacktestOHLC()(np.array([1000., 1000.]), np.array([99., 99.]),
+                         np.array([100., 100.]), np.array([101., 101.]),
+                         np.array([100., 98.]), np.array([100., 100.]))
+    assert out[1, 2] == 1000.0
 
 
 def test_ohlc_stream_equals_batch_and_reset():

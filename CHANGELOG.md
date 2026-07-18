@@ -24,7 +24,8 @@ All notable changes to this project are documented in this file.
   * `BacktestOHLC` (6 inputs): a directional target-position strategy on OHLC
     bars, with market orders (fill at the open, crossing half the `spread`, paying
     `taker_fee`) and limit orders (`"touch"`/`"breach"` of the bar range, paying
-    `maker_fee`); bars fill in full.
+    `maker_fee`); bars fill in full. Causal by design: the target decided on a
+    bar's close is deferred and traded on the next bar, so no manual lag is needed.
   * `BacktestTrades` (4 inputs): a resting limit order against the trade tape;
     a through-print sweeps the full order, an at-print fills a `participation_ratio`
     share.

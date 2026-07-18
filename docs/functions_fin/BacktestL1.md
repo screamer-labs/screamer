@@ -115,29 +115,32 @@ under the `tick_size` slippage assumption.
     from plotly.subplots import make_subplots
     from screamer import BacktestL1, Lag
 
-    rng = np.random.default_rng(3)
-    n = 800
-    mid = 100 + np.cumsum(rng.standard_normal(n) * 0.05)
-    half = 0.5
-    bid, ask = mid - half, mid + half
-    bid_size = ask_size = np.full(n, 5.0)
+    rng = np.random.default_rng(4)
+    n = 600
+    t = np.arange(n)
+    tick = 0.5
+    # a discrete tick-grid, mean-reverting mid (real books are gridded, so locks occur)
+    mid = np.round((100 + 3 * np.sin(2 * np.pi * t / n * 4) + rng.standard_normal(n) * 0.4) / tick) * tick
+    bid, ask = mid - tick, mid + tick
+    five, one = np.full(n, 5.0), np.ones(n)
 
-    # rest last event's touch on both sides (a passive maker); a market move through
-    # the quote fills it. touch mode captures half the locked size; inventory bounded.
+    # rest last event's touch on both sides; the market trading back through fills it.
+    # touch mode captures a participation share on each lock; inventory bounded.
     my_bid = np.nan_to_num(Lag(1)(bid), nan=bid[0])
     my_ask = np.nan_to_num(Lag(1)(ask), nan=ask[0])
-    one = np.ones(n)
     out = BacktestL1(fill="touch", maker_fee=-0.0001, participation_ratio=0.5,
-                     max_position=15.0, min_position=-15.0)(
-        bid, ask, bid_size, ask_size, my_bid, one, my_ask, one)
+                     max_position=8.0, min_position=-8.0)(
+        bid, ask, five, five, my_bid, one, my_ask, one)
     eq, pos = out[:, 0], out[:, 2]
 
-    fig = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.6, 0.4],
-                        vertical_spacing=0.08)
-    fig.add_trace(go.Scatter(y=eq, name='equity', line=dict(color='steelblue')), row=1, col=1)
-    fig.add_trace(go.Scatter(y=pos, name='inventory', line=dict(color='mediumpurple')), row=2, col=1)
-    fig.update_layout(title='BacktestL1: a two-sided maker under an inventory cap',
-                      yaxis=dict(title='equity ($)'), yaxis2=dict(title='inventory'),
+    fig = make_subplots(rows=3, cols=1, shared_xaxes=True, row_heights=[0.4, 0.3, 0.3],
+                        vertical_spacing=0.06)
+    fig.add_trace(go.Scatter(y=mid, name='mid (gridded)', line=dict(color='gray')), row=1, col=1)
+    fig.add_trace(go.Scatter(y=eq, name='equity', line=dict(color='steelblue')), row=2, col=1)
+    fig.add_trace(go.Scatter(y=pos, name='inventory', line=dict(color='mediumpurple')), row=3, col=1)
+    fig.update_layout(title='BacktestL1: a quotes-only maker (heuristic fills), inventory capped',
+                      yaxis=dict(title='mid'), yaxis2=dict(title='equity ($)'),
+                      yaxis3=dict(title='inventory'),
                       margin=dict(l=20, r=20, t=60, b=20),
                       legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1))
     fig.show()

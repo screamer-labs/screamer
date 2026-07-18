@@ -33,13 +33,17 @@ the rows (defaults to a `RangeIndex`).
 
 ## Example
 
-```python
-import numpy as np
-from screamer import BacktestSignal, backtest_report
+```{eval-rst}
+.. exec_code::
 
-price = 100 + np.cumsum(np.random.default_rng(0).standard_normal(500) * 0.3)
-signal = np.sign(np.random.default_rng(1).standard_normal(500))
+    import numpy as np
+    from screamer import BacktestSignal, backtest_report
 
-running, summary = backtest_report(BacktestSignal(spread=0.0005)(signal, price))
-print(summary)          # total_pnl, max_drawdown, total_cost, turnover, num_trades, sharpe
+    price = 100 + np.cumsum(np.random.default_rng(0).standard_normal(500) * 0.3)
+    signal = np.sign(np.random.default_rng(1).standard_normal(500))
+
+    running, summary = backtest_report(BacktestSignal(spread=0.0005)(signal, price))
+    print(summary.round(4).to_string())
+    print()
+    print("last running row:", running.iloc[-1].round(4).to_dict())
 ```

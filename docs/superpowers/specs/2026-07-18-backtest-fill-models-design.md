@@ -55,15 +55,20 @@ Notation: a resting buy at price `L` for `remaining` lots. Sells are symmetric.
 
 ### BacktestOHLC (bars, 6 inputs)
 
-Bars carry no intra-bar path or per-level volume, so fills are full.
+Bars carry no intra-bar path or per-level volume, so fills are full. **Causal by
+design**: the `target_position` and `limit_price` passed on a bar are decided from
+that bar's close, and the engine defers them one bar and executes on the next bar
+(a target from a bar's close cannot trade within that same bar, whose open already
+happened). No manual lag is needed, matching `BacktestSignal`'s timing. The
+deferred order executes on the next bar:
 
-- Market order (`limit_price` NaN): full fill at `open`, crossing half `spread`,
-  pays `taker_fee`.
+- Market order (`limit_price` NaN): full fill at that bar's `open`, crossing half
+  `spread`, pays `taker_fee`.
 - Limit order: `fill = "touch"` fills when `low <= L`, `"breach"` when `low < L`;
   full fill at `L`, pays `maker_fee`.
 
-No `participation_ratio` (no volume to participate in). Unchanged from the
-committed engine except to confirm full-fill semantics.
+No `participation_ratio` (no volume to participate in). A `NaN` target places no
+order for the next bar (the position holds).
 
 ### BacktestTrades (tape, 4 inputs)
 

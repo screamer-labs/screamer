@@ -49,22 +49,29 @@ see_also:
 
 ## Description
 
-`BacktestOHLC` is a lean directional backtest on OHLC bars. Each bar the strategy
-names a `target_position` and submits one order, both decided from data up to the
-previous bar (feed a lagged target to avoid lookahead); the order is live over the
-current bar. A market order (`limit_price` is `NaN`) fills at the bar's `open`,
-crossing half the fractional `spread` and paying `taker_fee`. A limit order fills
-only if the bar range reaches its price (`fill = "touch"` when the range touches
-the level, `"breach"` when it trades through), at the limit price, paying
-`maker_fee` (negative for a rebate); an unreached limit holds the position.
-Positions mark to the `close`.
+`BacktestOHLC` is a lean directional backtest on OHLC bars. It is **causal by
+design**: the `target_position` and `limit_price` you pass on a bar are decided
+from that bar's close, and the engine executes them on the **next** bar, so you
+feed the raw signal with no manual lag. The deferred order is live over the next
+bar. A market order (`limit_price` is `NaN`) fills at that bar's `open`, crossing
+half the fractional `spread` and paying `taker_fee`. A limit order fills only if
+the bar range reaches its price (`fill = "touch"` when the range touches the level,
+`"breach"` when it trades through), at the limit price, paying `maker_fee`
+(negative for a rebate); an unreached limit holds the position. Positions mark to
+the `close`.
+
+The one-bar deferral is what keeps the backtest honest: a target computed from a
+bar's close cannot trade within that same bar (the open already happened), so the
+engine holds it and trades the next open instead. This mirrors `BacktestSignal`,
+where a signal set at `t` earns from `t+1`. You never call `Lag` yourself.
 
 Inputs are `(target_position, limit_price, open, high, low, close)`. It emits the
 four positional columns shared by the backtest family: `0 = equity` (cumulative
 dollar PnL), `1 = pnl` (per bar), `2 = position`, and `3 = cost` (per bar). A bar
 has no intra-bar path, so two-sided market-making is out of scope here (use
 [`BacktestL1`](BacktestL1.md)). A `NaN` in any bar field skips the bar
-(`nan_policy: ignore`); a `NaN` `limit_price` is a market order, not a skip.
+(`nan_policy: ignore`); a `NaN` `limit_price` is a market order, not a skip; a
+`NaN` `target_position` places no order for the next bar (the position holds).
 [`backtest_report`](backtest_report.md) summarizes the resulting equity curve.
 
 ## Examples
@@ -78,29 +85,33 @@ has no intra-bar path, so two-sided market-making is out of scope here (use
     import numpy as np
     import plotly.graph_objects as go
     from plotly.subplots import make_subplots
-    from screamer import BacktestOHLC, RollingMean, Lag
+    from screamer import BacktestOHLC, RollingMean
 
-    rng = np.random.default_rng(1)
-    n = 400
-    close = 100 + np.cumsum(rng.standard_normal(n) * 0.3)
-    open_ = close - rng.standard_normal(n) * 0.1
-    high = np.maximum(open_, close) + np.abs(rng.standard_normal(n)) * 0.2
-    low = np.minimum(open_, close) - np.abs(rng.standard_normal(n)) * 0.2
+    rng = np.random.default_rng(5)
+    n = 160
+    close = 100 + np.cumsum(rng.standard_normal(n) * 0.4)
+    open_ = close - rng.standard_normal(n) * 0.15
+    high = np.maximum(open_, close) + np.abs(rng.standard_normal(n)) * 0.25
+    low = np.minimum(open_, close) - np.abs(rng.standard_normal(n)) * 0.25
 
-    # trend target, lagged one bar so the decision uses only past data
-    fast, slow = RollingMean(10)(close), RollingMean(50)(close)
-    target = Lag(1)(np.sign(np.nan_to_num(fast - slow)))
-    market = np.full(n, np.nan)                       # all-market: fill at each open
+    # trend target decided from each close; the engine defers it one bar (no manual lag)
+    fast, slow = RollingMean(5)(close), RollingMean(20)(close)
+    signal = np.sign(np.nan_to_num(fast - slow))      # +1 long / -1 short, on each close
+    market = np.full(n, np.nan)                        # market-on-open next bar
 
-    out = BacktestOHLC(spread=0.001, taker_fee=0.0002)(target, market, open_, high, low, close)
+    out = BacktestOHLC(spread=0.001, taker_fee=0.0002)(signal, market, open_, high, low, close)
     eq, pos = out[:, 0], out[:, 2]
 
-    fig = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.65, 0.35],
-                        vertical_spacing=0.08)
-    fig.add_trace(go.Scatter(y=eq, name='equity', line=dict(color='steelblue')), row=1, col=1)
-    fig.add_trace(go.Scatter(y=pos, name='position', line=dict(color='seagreen', shape='hv')), row=2, col=1)
-    fig.update_layout(title='BacktestOHLC: a lagged trend target traded market-on-open',
-                      yaxis=dict(title='equity ($)'), yaxis2=dict(title='position'),
+    fig = make_subplots(rows=3, cols=1, shared_xaxes=True, row_heights=[0.5, 0.2, 0.3],
+                        vertical_spacing=0.05)
+    fig.add_trace(go.Candlestick(open=open_, high=high, low=low, close=close,
+                                 name='bars', showlegend=False), row=1, col=1)
+    fig.add_trace(go.Scatter(y=signal, name='signal', line=dict(color='indigo', shape='hv')), row=2, col=1)
+    fig.add_trace(go.Scatter(y=eq, name='equity', line=dict(color='steelblue')), row=3, col=1)
+    fig.update_layout(title='BacktestOHLC: a trend signal on the bars, deferred one bar and traded',
+                      yaxis=dict(title='price'), yaxis2=dict(title='signal'),
+                      yaxis3=dict(title='equity ($)'),
+                      xaxis_rangeslider_visible=False,
                       margin=dict(l=20, r=20, t=60, b=20),
                       legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1))
     fig.show()

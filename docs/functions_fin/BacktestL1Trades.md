@@ -110,32 +110,35 @@ beyond the displayed size only under the `tick_size` slippage assumption.
     import numpy as np
     import plotly.graph_objects as go
     from plotly.subplots import make_subplots
-    from screamer import BacktestL1Trades, Lag
+    from screamer import BacktestL1Trades
 
-    rng = np.random.default_rng(5)
-    n = 800
-    mid = 100 + np.cumsum(rng.standard_normal(n) * 0.05)
-    half = 0.5
+    rng = np.random.default_rng(1)
+    n = 600
+    t = np.arange(n)
+    mid = 100 + 2 * np.sin(2 * np.pi * t / n * 3) + rng.standard_normal(n) * 0.2
+    half = 0.25
     bid, ask = mid - half, mid + half
     five, one = np.full(n, 5.0), np.ones(n)
 
-    # rest last event's touch on both sides; the trade tape (a print each event) fills them
-    my_bid = np.nan_to_num(Lag(1)(bid), nan=bid[0])
-    my_ask = np.nan_to_num(Lag(1)(ask), nan=ask[0])
-    trade_price = mid                                    # a print at the mid each event
+    # quote at the touch on both sides; trades print at the bid (a seller hits it) or
+    # the ask (a buyer lifts it), and those prints drive the fills.
+    at_ask = rng.standard_normal(n) > 0
+    trade_price = np.where(at_ask, ask, bid)
     trade_size = np.abs(rng.standard_normal(n)) + 0.5
 
     out = BacktestL1Trades(fill="touch", maker_fee=-0.0001, participation_ratio=0.3,
                            max_position=15.0, min_position=-15.0)(
-        bid, ask, five, five, my_bid, one, my_ask, one, trade_price, trade_size)
+        bid, ask, five, five, bid, one, ask, one, trade_price, trade_size)
     eq, pos = out[:, 0], out[:, 2]
 
-    fig = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.6, 0.4],
-                        vertical_spacing=0.08)
-    fig.add_trace(go.Scatter(y=eq, name='equity', line=dict(color='steelblue')), row=1, col=1)
-    fig.add_trace(go.Scatter(y=pos, name='inventory', line=dict(color='seagreen')), row=2, col=1)
+    fig = make_subplots(rows=3, cols=1, shared_xaxes=True, row_heights=[0.4, 0.3, 0.3],
+                        vertical_spacing=0.06)
+    fig.add_trace(go.Scatter(y=mid, name='mid', line=dict(color='gray')), row=1, col=1)
+    fig.add_trace(go.Scatter(y=eq, name='equity', line=dict(color='steelblue')), row=2, col=1)
+    fig.add_trace(go.Scatter(y=pos, name='inventory', line=dict(color='seagreen')), row=3, col=1)
     fig.update_layout(title='BacktestL1Trades: fills driven by the trade tape, inventory bounded',
-                      yaxis=dict(title='equity ($)'), yaxis2=dict(title='inventory'),
+                      yaxis=dict(title='mid'), yaxis2=dict(title='equity ($)'),
+                      yaxis3=dict(title='inventory'),
                       margin=dict(l=20, r=20, t=60, b=20),
                       legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1))
     fig.show()

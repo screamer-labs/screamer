@@ -11,11 +11,12 @@
 
 namespace screamer {
 
-    // BacktestOHLC: 6 -> 4. A lean, directional backtest on OHLC bars. Each bar the
-    // strategy targets a position and submits one order, decided from data up to
-    // the previous bar (feed a lagged target to avoid lookahead); it is live over
-    // this bar:
-    //   - a market order (limit_price NaN) fills at this bar's open, crossing half
+    // BacktestOHLC: 6 -> 4. A lean, directional backtest on OHLC bars. Causal by
+    // design: the `target_position` and `limit_price` you pass on bar t are decided
+    // from data through bar t's close, and the engine executes them on bar t+1, so
+    // no manual lag is needed (feed the raw signal). The deferred order is live over
+    // the next bar:
+    //   - a market order (limit_price NaN) fills at that bar's open, crossing half
     //     the fractional `spread`, and pays `taker_fee`;
     //   - a limit order fills only if the bar's range reaches its price -
     //     `fill = "touch"` when the range touches the level, `"breach"` when it
@@ -25,7 +26,8 @@ namespace screamer {
     // (target_position, limit_price, open, high, low, close); the four outputs are
     // [equity, pnl, position, cost]. A bar has no intra-bar path, so two-sided
     // market-making is out of scope here (use BacktestL1). nan_policy: ignore for
-    // the bar fields (a NaN limit_price is a market order, not a skip).
+    // the bar fields; a NaN limit_price is a market order (not a skip); a NaN target
+    // places no order for the next bar (the position holds).
     class BacktestOHLC : public FunctorBase<BacktestOHLC, 6, 4> {
     public:
         BacktestOHLC(double spread = 0.0, double taker_fee = 0.0,
@@ -36,9 +38,15 @@ namespace screamer {
             if (spread_ < 0.0) {
                 throw std::invalid_argument("spread must be non-negative.");
             }
+            reset();
         }
 
-        void reset() override { account_.reset(); }
+        void reset() override {
+            account_.reset();
+            has_pending_ = false;
+            pending_target_ = 0.0;
+            pending_limit_ = 0.0;
+        }
 
         ResultTuple call(const InputArray& inputs) override {
             const double target = inputs[0];
@@ -47,37 +55,48 @@ namespace screamer {
             const double high   = inputs[3];
             const double low    = inputs[4];
             const double close  = inputs[5];
-            if (isnan2(target) || isnan2(open) || isnan2(high) ||
-                isnan2(low) || isnan2(close)) {
+            if (isnan2(open) || isnan2(high) || isnan2(low) || isnan2(close)) {
                 const double nan = std::numeric_limits<double>::quiet_NaN();
-                return std::make_tuple(nan, nan, nan, nan);   // ignore
+                return std::make_tuple(nan, nan, nan, nan);   // ignore the bad bar; hold pending
             }
 
-            // Bars carry no per-level volume, so a triggered order fills its full
-            // target (no participation_ratio here). The intrabar path is unknown;
+            // Execute the order decided on the PREVIOUS bar against THIS bar (causal:
+            // decide on the close, trade the next bar). Bars carry no per-level
+            // volume, so a triggered order fills its full target (no participation);
             // see BacktestL1Trades for volume-aware fills.
-            const double dpos = target - account_.position();
             double fill_dpos = 0.0, fill_price = close, fee = 0.0;
-            if (dpos != 0.0) {
-                const double side = (dpos > 0.0) ? 1.0 : -1.0;
-                if (isnan2(limit)) {                          // market at open (taker)
-                    fill_dpos  = dpos;
-                    fill_price = open * (1.0 + side * spread_ / 2.0);
-                    fee        = taker_fee_;
-                } else {                                      // resting limit (maker)
-                    const bool buy = dpos > 0.0;
-                    const bool hit = buy
-                        ? (breach_ ? (low  < limit) : (low  <= limit))
-                        : (breach_ ? (high > limit) : (high >= limit));
-                    if (hit) {
+            if (has_pending_) {
+                const double dpos = pending_target_ - account_.position();
+                if (dpos != 0.0) {
+                    const double side = (dpos > 0.0) ? 1.0 : -1.0;
+                    if (isnan2(pending_limit_)) {             // market at open (taker)
                         fill_dpos  = dpos;
-                        fill_price = limit;
-                        fee        = maker_fee_;
+                        fill_price = open * (1.0 + side * spread_ / 2.0);
+                        fee        = taker_fee_;
+                    } else {                                  // resting limit (maker)
+                        const bool buy = dpos > 0.0;
+                        const bool hit = buy
+                            ? (breach_ ? (low  < pending_limit_) : (low  <= pending_limit_))
+                            : (breach_ ? (high > pending_limit_) : (high >= pending_limit_));
+                        if (hit) {
+                            fill_dpos  = dpos;
+                            fill_price = pending_limit_;
+                            fee        = maker_fee_;
+                        }
                     }
                 }
             }
             auto [equity, pnl, position, cost] =
                 account_.step(close, fill_dpos, fill_price, fee);
+
+            // Store this bar's decision to execute on the next bar.
+            if (isnan2(target)) {
+                has_pending_ = false;                         // no order next bar; hold
+            } else {
+                has_pending_ = true;
+                pending_target_ = target;
+                pending_limit_ = limit;
+            }
             return std::make_tuple(equity, pnl, position, cost);
         }
 
@@ -92,6 +111,9 @@ namespace screamer {
         double taker_fee_;
         double maker_fee_;
         bool breach_;
+        bool has_pending_;
+        double pending_target_;
+        double pending_limit_;
         detail::PnLAccount account_;
     };
 

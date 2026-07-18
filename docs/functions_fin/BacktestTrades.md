@@ -90,24 +90,28 @@ volume, no market impact), so a fill never alters the tape it reads.
     from plotly.subplots import make_subplots
     from screamer import BacktestTrades
 
-    rng = np.random.default_rng(2)
+    rng = np.random.default_rng(1)
     n = 600
-    price = 100 + np.cumsum(rng.standard_normal(n) * 0.05)       # the trade tape
-    size = np.abs(rng.standard_normal(n)) + 0.5
+    t = np.arange(n)
+    price = 100 + 2 * np.sin(2 * np.pi * t / n * 3) + rng.standard_normal(n) * 0.25   # tape
+    size = np.ones(n)
 
-    # a passive buyer: always rest a bid one tick below the last print, size 1
-    order_price = price - 0.02
-    order_size = np.ones(n)
-
-    out = BacktestTrades(maker_fee=-0.0001)(order_price, order_size, price, size)
+    # a mean-reverting maker: rest at the print, buy when cheap (< 100), sell when rich.
+    # each at-price fill captures participation_ratio of the print, so inventory cycles.
+    order_price = price
+    order_size = np.sign(100 - price)
+    out = BacktestTrades(participation_ratio=0.1, maker_fee=-0.0001)(
+        order_price, order_size, price, size)
     eq, pos = out[:, 0], out[:, 2]
 
-    fig = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.6, 0.4],
-                        vertical_spacing=0.08)
-    fig.add_trace(go.Scatter(y=eq, name='equity', line=dict(color='steelblue')), row=1, col=1)
-    fig.add_trace(go.Scatter(y=pos, name='inventory', line=dict(color='darkorange')), row=2, col=1)
-    fig.update_layout(title='BacktestTrades: a passive bid accumulating inventory off the tape',
-                      yaxis=dict(title='equity ($)'), yaxis2=dict(title='inventory'),
+    fig = make_subplots(rows=3, cols=1, shared_xaxes=True, row_heights=[0.4, 0.3, 0.3],
+                        vertical_spacing=0.06)
+    fig.add_trace(go.Scatter(y=price, name='price (tape)', line=dict(color='gray')), row=1, col=1)
+    fig.add_trace(go.Scatter(y=eq, name='equity', line=dict(color='steelblue')), row=2, col=1)
+    fig.add_trace(go.Scatter(y=pos, name='inventory', line=dict(color='darkorange')), row=3, col=1)
+    fig.update_layout(title='BacktestTrades: a mean-reverting maker filling off the tape',
+                      yaxis=dict(title='price'), yaxis2=dict(title='equity ($)'),
+                      yaxis3=dict(title='inventory'),
                       margin=dict(l=20, r=20, t=60, b=20),
                       legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1))
     fig.show()
