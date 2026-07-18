@@ -126,12 +126,12 @@ build and cross-link, but they leave the visible sidebar top level. Cards are
 title-and-description to start; a small committed thumbnail image per notebook is a
 later enhancement, not part of this change.
 
-## Migration and compatibility
+## Migration
 
-- Old `by_topic/<topic>.html` URLs change to `by_group/<group>.html#<topic>`. If a
-  URL-stable redirect matters for the public site, add a `sphinx-reredirects` map
-  from each old topic page to its group-page anchor. Otherwise accept that the
-  versioned docs move (older tags keep the old URLs).
+- Old `by_topic/<topic>.html` URLs change to `by_group/<group>.html#<topic>`. No
+  redirects are added: the versioned docs move, older tags keep their old URLs,
+  and a clear structure is preferred over a backward-compatibility shim. The old
+  `docs/by_topic/` directory and its generated pages are removed.
 - `tests/test_doc_coverage.py` currently checks topic-slug validity and that every
   function has at least one topic. It gains a check that every topic belongs to a
   group, and the topic-index assertions point at the group structure.
