@@ -3,7 +3,7 @@ name: BacktestL1
 title: Backtest a two-sided market maker against L1 quotes
 implementation_family: fin
 topics:
-- risk
+- backtesting
 tags:
 - backtest
 - pnl

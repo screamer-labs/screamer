@@ -153,6 +153,7 @@ For a step-by-step walkthrough see the :doc:`User Guide <usage>`.
    by_topic/volume
    by_topic/regression
    by_topic/risk
+   by_topic/backtesting
    by_topic/missing-data
    by_topic/outliers
    by_topic/streams

@@ -4,7 +4,7 @@ title: backtest_report
 kind: function
 short: Running statistics and a summary for a backtest engine's output.
 topics:
-- risk
+- backtesting
 ---
 
 # `backtest_report`

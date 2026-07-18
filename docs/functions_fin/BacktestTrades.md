@@ -3,7 +3,7 @@ name: BacktestTrades
 title: Backtest a resting limit order against the trade tape
 implementation_family: fin
 topics:
-- risk
+- backtesting
 tags:
 - backtest
 - pnl

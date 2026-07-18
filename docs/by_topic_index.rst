@@ -24,6 +24,7 @@ Every function, grouped by topic. Topics are many-to-many, so a function may app
 * :doc:`Volume <by_topic/volume>`
 * :doc:`Correlation & regression <by_topic/regression>`
 * :doc:`Risk & performance <by_topic/risk>`
+* :doc:`Backtesting <by_topic/backtesting>`
 * :doc:`Missing data <by_topic/missing-data>`
 * :doc:`Outliers & robustness <by_topic/outliers>`
 * :doc:`Streams <by_topic/streams>`

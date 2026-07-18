@@ -3,7 +3,7 @@ name: BacktestOHLC
 title: Backtest a directional strategy on OHLC bars
 implementation_family: fin
 topics:
-- risk
+- backtesting
 tags:
 - backtest
 - pnl

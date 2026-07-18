@@ -3,7 +3,7 @@ name: BacktestSignal
 title: Backtest a position signal
 implementation_family: fin
 topics:
-- risk
+- backtesting
 tags:
 - backtest
 - pnl

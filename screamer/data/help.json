@@ -1138,7 +1138,7 @@
     "title": "Backtest a two-sided market maker against L1 quotes",
     "implementation_family": "fin",
     "topics": [
-      "risk"
+      "backtesting"
     ],
     "tags": [
       "backtest",
@@ -1224,7 +1224,7 @@
     "title": "Backtest a market maker against L1 quotes and trades",
     "implementation_family": "fin",
     "topics": [
-      "risk"
+      "backtesting"
     ],
     "tags": [
       "backtest",
@@ -1311,7 +1311,7 @@
     "title": "Backtest a directional strategy on OHLC bars",
     "implementation_family": "fin",
     "topics": [
-      "risk"
+      "backtesting"
     ],
     "tags": [
       "backtest",
@@ -1377,7 +1377,7 @@
     "title": "Backtest a position signal",
     "implementation_family": "fin",
     "topics": [
-      "risk"
+      "backtesting"
     ],
     "tags": [
       "backtest",
@@ -1426,7 +1426,7 @@
     "title": "Backtest a resting limit order against the trade tape",
     "implementation_family": "fin",
     "topics": [
-      "risk"
+      "backtesting"
     ],
     "tags": [
       "backtest",
@@ -2525,7 +2525,7 @@
     "kind": "function",
     "short": "Running statistics and a summary for a backtest engine's output.",
     "topics": [
-      "risk"
+      "backtesting"
     ],
     "details": "Free helper: takes a backtest engine's `[equity, pnl, position, cost]` output (the\nfour positional columns that [`BacktestSignal`](BacktestSignal.md) and the other\nbacktest engines emit) and returns `(running, summary)`.\n\n- `running` is a pandas `DataFrame`, one row per bar, with the engine columns plus\n  the running `drawdown` (dollar), `cum_cost`, `turnover` (units traded), and\n  `trades` (count). Each is a causal series whose last value is the summary.\n- `summary` is a pandas `Series` of the final statistics: `total_pnl`,\n  `max_drawdown`, `total_cost`, `turnover`, `num_trades`, and `sharpe`.\n\nIt only aggregates the engine's outputs (no operator logic of its own), so it\nworks for every engine in the backtest family.",
     "examples": []

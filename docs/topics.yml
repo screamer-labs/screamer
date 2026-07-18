@@ -75,6 +75,10 @@ topics:
     name: "Risk & performance"
     desc: "Drawdowns and performance ratios."
 
+  backtesting:
+    name: "Backtesting"
+    desc: "Simulate a strategy against market data into a costed equity curve: signals, bars, the trade tape, and top-of-book quotes."
+
   missing-data:
     name: "Missing data"
     desc: "Filling and removing NaN values."
