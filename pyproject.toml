@@ -78,7 +78,8 @@ validation = [
 ]
 docs = [
     "sphinx>=8.1",
-    "sphinx-rtd-theme>=3.0.1",
+    "pydata-sphinx-theme>=0.16",
+    "sphinx-design>=0.6",
     "sphinxcontrib-napoleon>=0.7",
     "sphinx-autodoc-typehints>=2.5",
     "myst-nb>=1.1",
@@ -151,7 +152,8 @@ pandas-ta-classic = "^0.5"
 matplotlib = "^3.9.2"
 numpy = { version = "^2.0.1", python = ">=3.10"}
 sphinx = { version = "^8.1", python = ">=3.10" }
-sphinx-rtd-theme = "^3.0.1"
+pydata-sphinx-theme = "^0.16"
+sphinx-design = "^0.6"
 sphinxcontrib-napoleon = "^0.7"
 sphinx-autodoc-typehints = { version = "^2.5", python = ">=3.10" }
 # myst-nb supersedes myst-parser (which it depends on) and renders the

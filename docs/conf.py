@@ -38,6 +38,7 @@ extensions = [
     "matplotlib.sphinxext.plot_directive",  # include matplotlib plots
     "sphinx_plotly_directive",  # include plotly plots
     "sphinx_exec_code",  # execute python snippets in docs and show output
+    "sphinx_design",     # grid layouts, cards, tabs, badges
     # myst-nb replaces the plain 'myst_parser' extension (it loads myst-parser
     # itself, so listing both would conflict) and renders the
     # docs/notebooks/*.ipynb demo notebooks. It supersedes the abandoned
@@ -97,16 +98,26 @@ nb_execution_raise_on_error = True  # a broken notebook fails the docs build (do
 # HTML Outpiut options
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
 # -----------------------------------------------------------------------------
-html_theme = 'sphinx_rtd_theme'
+html_theme = 'pydata_sphinx_theme'
 
 html_static_path = ['_static']
 html_css_files = ['css/custom.css']
 
 html_theme_options = {
-    'collapse_navigation': True,  # Enable collapsible sidebar sections
-    #'collapse_navigation': False,  # Disable collapsible side navigation
-    'navigation_depth': 4,         # Limit depth to prevent subsection display
-    'titles_only': True,          # Shows only the top-level titles in the sidebar    
+    "navbar_start": ["navbar-logo"],
+    "navbar_center": ["navbar-nav"],           # top-level toctree captions become nav items
+    "navbar_end": ["theme-switcher", "navbar-icon-links"],
+    "secondary_sidebar_items": ["page-toc"],   # right "on this page" sidebar
+    "show_nav_level": 1,                        # sidebar shows the current section only
+    "navigation_depth": 3,
+    "icon_links": [
+        {"name": "GitHub",
+         "url": "https://github.com/screamer-labs/screamer",
+         "icon": "fa-brands fa-github"},
+        {"name": "PyPI",
+         "url": "https://pypi.org/project/screamer/",
+         "icon": "fa-solid fa-box"},
+    ],
 }
 
 # -----------------------------------------------------------------------------
