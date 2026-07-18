@@ -153,21 +153,7 @@ For a step-by-step walkthrough see the :doc:`User Guide <usage>`.
    :caption: Examples
    :hidden:
 
-   notebooks/01-quickstart-polymorphic-api
-   notebooks/02-window-statistics
-   notebooks/03-financial-indicators
-   notebooks/04-signal-processing
-   notebooks/05-nan-handling
-   notebooks/06-streaming-live-events
-   notebooks/07-multi-stream-operators
-   notebooks/08-pipelines
-   notebooks/09-bars-from-ticks
-   notebooks/10-custom-and-multi-column-bars
-   notebooks/11-microstructure-order-flow
-   notebooks/12-microstructure-price-impact
-   notebooks/13-microstructure-toxicity-and-book
-   notebooks/14-backtesting-a-signal
-   notebooks/15-event-driven-backtests
+   notebooks/index
 
 
 .. toctree::
