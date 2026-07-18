@@ -50,11 +50,10 @@ standard normal CDF `Phi(z) = 0.5 * (1 + erf(z / sqrt(2)))`. The result is a
 fraction in `[0, 1]`: values near 1 indicate a predominantly buy-driven bar,
 values near 0 indicate a sell-driven bar, and 0.5 indicates a neutral bar.
 
-The operator maintains a rolling standard deviation of the return (two running
-sums, O(1) per step) and evaluates the standard normal CDF of the standardized
-return. It is causal and honors `nan_policy: ignore`; a zero-variance window
-leaves the classification undefined and returns `NaN`. Batch and streaming
-produce identical output.
+The rolling standard deviation is tracked with two running sums, so each step
+costs O(1). The operator is causal and honors `nan_policy: ignore`; a
+zero-variance window leaves the classification undefined and returns `NaN`.
+Batch and streaming produce identical output.
 
 A common pipeline is:
 

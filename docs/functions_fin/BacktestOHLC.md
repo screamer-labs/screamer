@@ -49,8 +49,8 @@ see_also:
 
 ## Description
 
-`BacktestOHLC` is a lean directional backtest on OHLC bars. It is **causal by
-design**: the `target_position` and `limit_price` you pass on a bar are decided
+`BacktestOHLC` is a lean directional backtest on OHLC bars. It is causal by
+design: the `target_position` and `limit_price` you pass on a bar are decided
 from that bar's close, and the engine executes them on the **next** bar, so you
 feed the raw signal with no manual lag. The deferred order is live over the next
 bar. A market order (`limit_price` is `NaN`) fills at that bar's `open`, crossing
@@ -60,10 +60,10 @@ the bar range reaches its price (`fill = "touch"` when the range touches the lev
 (negative for a rebate); an unreached limit holds the position. Positions mark to
 the `close`.
 
-The one-bar deferral is what keeps the backtest honest: a target computed from a
-bar's close cannot trade within that same bar (the open already happened), so the
-engine holds it and trades the next open instead. This mirrors `BacktestSignal`,
-where a signal set at `t` earns from `t+1`. You never call `Lag` yourself.
+The deferral is what prevents look-ahead: a target computed from a bar's close
+cannot trade within that same bar (the open already happened), so the engine holds
+it and trades the next open instead. This mirrors `BacktestSignal`, where a signal
+set at `t` earns from `t+1`.
 
 Inputs are `(target_position, limit_price, open, high, low, close)`. It emits the
 four positional columns shared by the backtest family: `0 = equity` (cumulative

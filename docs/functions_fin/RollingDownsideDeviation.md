@@ -48,8 +48,8 @@ the root-mean-square of the shortfalls below a minimum acceptable return `mar`,
     sqrt( mean( min(return - mar, 0)^2 ) ).
 
 Only returns below `mar` contribute; anything at or above it counts as zero. It is
-the one-sided risk measure that penalizes losses but not upside volatility, and it
-is exactly the denominator of the Sortino ratio, exposed on its own. A `NaN`
+a one-sided risk measure that penalizes losses but not upside volatility, and it
+equals the denominator of the Sortino ratio on its own. A `NaN`
 return leaves the window untouched and yields `NaN` (`nan_policy: ignore`).
 
 ## Examples

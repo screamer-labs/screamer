@@ -31,18 +31,16 @@ see_also:
 
 ## Description
 
-`EwKyleLambda` estimates Kyle's lambda (the price-impact / illiquidity
-coefficient) using exponential weighting rather than a fixed rolling window.
-Recent observations receive higher weight, so the estimate adapts faster to
-changing liquidity conditions than `RollingKyleLambda`.
+Kyle's lambda (Kyle 1985) is the slope of price change on signed order flow,
+the price-impact or illiquidity coefficient: a high value signals an illiquid
+market with large price impact per unit of net flow, a low value signals a
+liquid one. `EwKyleLambda` estimates it using exponential weighting rather than
+a fixed rolling window, so recent observations receive higher weight and the
+estimate adapts faster to changing liquidity conditions than `RollingKyleLambda`.
 
 `EwKyleLambda(span)(signed_flow, return_)` returns the EW regression slope
 of `return_` on `signed_flow`. It is a documented specialization of `EwBeta`:
 internally it calls `EwBeta(span=span)(return_, signed_flow)`.
-
-Kyle's lambda (Kyle 1985) is the slope of price change on signed order flow:
-a high value signals an illiquid market with large price impact per unit of
-net flow, a low value signals a liquid one.
 
 *Parameters*:
 

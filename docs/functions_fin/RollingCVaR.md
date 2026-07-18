@@ -40,8 +40,8 @@ of a return series over a trailing window. With the worst
 
     CVaR = -mean(the k smallest returns),
 
-a positive number: the average loss you suffer in the worst `alpha` tail. It is the
-coherent tail-risk measure that plain Value-at-Risk is not. Value-at-Risk is only
+a positive number: the average loss you suffer in the worst `alpha` tail. Unlike
+plain Value-at-Risk, CVaR is a coherent tail-risk measure. Value-at-Risk is only
 the tail quantile itself, `-RollingQuantile(window, alpha)`; CVaR averages the
 losses *beyond* it, so it captures how bad the tail gets, not just where it starts.
 The window is held in an order-statistic tree (`O(log W)` to update, `O(k)` to read
