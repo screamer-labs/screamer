@@ -10,6 +10,51 @@
 # Slug rules: lowercase ASCII, hyphen-separated, full words (no abbreviations).
 # Order below is the display order for the index.
 
+# Broad groups for the left-nav. Each group lists its member topic slugs (from
+# `topics:` below) in display order. Every topic must belong to exactly one group.
+# Group order here is the display order in the sidebar. Names avoid "rolling",
+# "window", and "moving" (every operator is windowed, so those do not distinguish).
+groups:
+  statistics:
+    name: "Statistics"
+    desc: "Measures of a window: central tendency, dispersion, quantiles, moments, z-scores, running totals, and cross-series relationships."
+    topics: [statistics, volatility, standardization, cumulative, regression]
+
+  smoothing-filters:
+    name: "Smoothing & filters"
+    desc: "Track and denoise the level of a series: moving averages and designed filters."
+    topics: [smoothing, filtering]
+
+  indicators:
+    name: "Technical indicators"
+    desc: "Market indicators: trend, momentum, bands, volume, and returns."
+    topics: [trend, momentum, bands, volume, returns]
+
+  microstructure:
+    name: "Market microstructure"
+    desc: "Order flow and liquidity from trades and quotes: trade signing, imbalance, price impact, and arrival intensity."
+    topics: [trade-signing, order-flow-imbalance, price-impact, order-flow-arrivals]
+
+  backtesting-risk:
+    name: "Backtesting & risk"
+    desc: "Turn signals into costed equity curves, and measure drawdown and performance."
+    topics: [risk, backtesting]
+
+  math-logic:
+    name: "Math & logic"
+    desc: "Elementwise numeric, trigonometric, activation, and boolean operations."
+    topics: [arithmetic, trig, activations, logic]
+
+  data-prep:
+    name: "Data preparation"
+    desc: "Clean a series before analysis: fill or drop missing values, and despike outliers."
+    topics: [missing-data, outliers]
+
+  streaming:
+    name: "Streaming & pipelines"
+    desc: "Align and reshape event streams, and wire operators into a runnable pipeline."
+    topics: [streams, graphs]
+
 topics:
   arithmetic:
     name: "Arithmetic"
