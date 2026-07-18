@@ -124,6 +124,47 @@ which eliminates look-ahead bias.
 
 For a step-by-step walkthrough see the :doc:`User Guide <usage>`.
 
+
+.. grid:: 1 2 2 3
+   :gutter: 3
+
+   .. grid-item-card:: Statistics
+      :link: by_group/statistics
+      :link-type: doc
+
+      Central tendency, dispersion, quantiles, moments, and correlation.
+
+   .. grid-item-card:: Smoothing & filters
+      :link: by_group/smoothing-filters
+      :link-type: doc
+
+      Moving averages and designed filters.
+
+   .. grid-item-card:: Technical indicators
+      :link: by_group/indicators
+      :link-type: doc
+
+      Trend, momentum, bands, volume, and returns.
+
+   .. grid-item-card:: Market microstructure
+      :link: by_group/microstructure
+      :link-type: doc
+
+      Trade signing, imbalance, price impact, and arrivals.
+
+   .. grid-item-card:: Backtesting & risk
+      :link: by_group/backtesting-risk
+      :link-type: doc
+
+      Costed equity curves, drawdown, and performance.
+
+   .. grid-item-card:: Examples
+      :link: notebooks/index
+      :link-type: doc
+
+      Runnable notebooks grouped by task.
+
+
 .. toctree::
    :maxdepth: 1
    :caption: User Guide
