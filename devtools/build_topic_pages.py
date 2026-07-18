@@ -83,7 +83,12 @@ def build_index(groups, all_refs) -> str:
         lines += [f"   .. grid-item-card:: {g['name']}",
                   f"      :link: by_group/{slug}", "      :link-type: doc", "",
                   f"      {g['desc']}", ""]
-    # Hidden toctree so every reference page is homed exactly once (no orphans).
+    # Visible toctree: the 8 group pages nest under this Functions landing, so they
+    # appear in the left sidebar of the Functions section, not as top-navbar links.
+    lines += [".. toctree::", "   :maxdepth: 1", ""]
+    lines += [f"   by_group/{slug}" for slug in groups]
+    lines.append("")
+    # Hidden toctree so every function reference page is homed exactly once (no orphans).
     lines += [".. toctree::", "   :hidden:", ""]
     lines += [f"   {ref}" for ref in sorted(all_refs)]
     lines.append("")

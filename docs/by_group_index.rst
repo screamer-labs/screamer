@@ -58,6 +58,18 @@ Every function, grouped by what it does. Pick a group to browse; the search box 
       Align and reshape event streams, and wire operators into a runnable pipeline.
 
 .. toctree::
+   :maxdepth: 1
+
+   by_group/statistics
+   by_group/smoothing-filters
+   by_group/indicators
+   by_group/microstructure
+   by_group/backtesting-risk
+   by_group/math-logic
+   by_group/data-prep
+   by_group/streaming
+
+.. toctree::
    :hidden:
 
    functions_dag/Pipeline

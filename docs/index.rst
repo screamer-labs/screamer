@@ -197,14 +197,6 @@ For a step-by-step walkthrough see the :doc:`User Guide <usage>`.
    :hidden:
 
    by_group_index
-   by_group/statistics
-   by_group/smoothing-filters
-   by_group/indicators
-   by_group/microstructure
-   by_group/backtesting-risk
-   by_group/math-logic
-   by_group/data-prep
-   by_group/streaming
 
 
 .. toctree::
@@ -220,13 +212,7 @@ For a step-by-step walkthrough see the :doc:`User Guide <usage>`.
    :caption: References
    :hidden:
 
-   polymorphic_api
-   nan_and_warmup
-   multistream
-   pipelines
-   microstructure
-   performance
-   conventions
+   references_index
 
 
 .. toctree::
