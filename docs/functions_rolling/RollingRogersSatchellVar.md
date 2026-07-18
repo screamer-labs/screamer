@@ -1,6 +1,6 @@
 ---
 name: RollingRogersSatchellVar
-title: Rolling Rogers-Satchell varariance
+title: Rolling Rogers-Satchell variance
 implementation_family: rolling
 topics:
 - volatility

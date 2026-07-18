@@ -1,6 +1,6 @@
 ---
 name: EwRogersSatchellVol
-title: EW Rogers-Satchell olatility
+title: EW Rogers-Satchell volatility
 implementation_family: ew
 topics:
 - volatility

@@ -1,6 +1,6 @@
 ---
 name: EwParkinsonVar
-title: Exponentially-weighted Parkinson varariance
+title: Exponentially-weighted Parkinson variance
 implementation_family: ew
 topics:
 - volatility

@@ -1,6 +1,6 @@
 ---
 name: RollingRogersSatchellVol
-title: Rolling Rogers-Satchell olatility
+title: Rolling Rogers-Satchell volatility
 implementation_family: rolling
 topics:
 - volatility

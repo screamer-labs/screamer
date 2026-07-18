@@ -1,6 +1,6 @@
 ---
 name: EwRogersSatchellVar
-title: EW Rogers-Satchell varariance
+title: EW Rogers-Satchell variance
 implementation_family: ew
 topics:
 - volatility

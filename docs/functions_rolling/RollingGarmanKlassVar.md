@@ -1,6 +1,6 @@
 ---
 name: RollingGarmanKlassVar
-title: Rolling Garman-Klass varariance
+title: Rolling Garman-Klass variance
 implementation_family: rolling
 topics:
 - volatility

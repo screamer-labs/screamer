@@ -1,6 +1,6 @@
 ---
 name: RollingYangZhangVar
-title: Rolling Yang-Zhang varariance
+title: Rolling Yang-Zhang variance
 implementation_family: rolling
 topics:
 - volatility

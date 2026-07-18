@@ -1,6 +1,6 @@
 ---
 name: RollingParkinsonVar
-title: Rolling Parkinson varariance
+title: Rolling Parkinson variance
 implementation_family: rolling
 topics:
 - volatility

@@ -97,19 +97,19 @@ The size of fluctuations and risk: standard deviation and variance, RMS, range-b
      - Wilder-smoothed average of TrueRange.
    * - :doc:`Bollinger Bands </functions_rolling/BollingerBands>`
      - Mean +/- num_std rolling standard deviations.
-   * - :doc:`EW Garman-Klass varariance </functions_ew/EwGarmanKlassVar>`
+   * - :doc:`EW Garman-Klass variance </functions_ew/EwGarmanKlassVar>`
      - Var form of the Garman-Klass range-based volatility estimator (OHLC).
-   * - :doc:`EW Garman-Klass olatility </functions_ew/EwGarmanKlassVol>`
+   * - :doc:`EW Garman-Klass volatility </functions_ew/EwGarmanKlassVol>`
      - Vol form of the Garman-Klass range-based volatility estimator (OHLC).
-   * - :doc:`Exponentially-weighted Parkinson varariance </functions_ew/EwParkinsonVar>`
+   * - :doc:`Exponentially-weighted Parkinson variance </functions_ew/EwParkinsonVar>`
      - Var form of the Parkinson range-based volatility estimator (uses high & low).
-   * - :doc:`Exponentially-weighted Parkinson olatility </functions_ew/EwParkinsonVol>`
+   * - :doc:`Exponentially-weighted Parkinson volatility </functions_ew/EwParkinsonVol>`
      - Vol form of the Parkinson range-based volatility estimator (uses high & low).
    * - :doc:`Exponentially-weighted RMS </functions_ew/EwRms>`
      - EW root-mean-square.
-   * - :doc:`EW Rogers-Satchell varariance </functions_ew/EwRogersSatchellVar>`
+   * - :doc:`EW Rogers-Satchell variance </functions_ew/EwRogersSatchellVar>`
      - Var form of the Rogers-Satchell drift-robust range-based estimator.
-   * - :doc:`EW Rogers-Satchell olatility </functions_ew/EwRogersSatchellVol>`
+   * - :doc:`EW Rogers-Satchell volatility </functions_ew/EwRogersSatchellVol>`
      - Vol form of the Rogers-Satchell drift-robust range-based estimator.
    * - :doc:`Exponentially-weighted standard deviation </functions_ew/EwStd>`
      - EW standard deviation.
@@ -125,29 +125,29 @@ The size of fluctuations and risk: standard deviation and variance, RMS, range-b
      - ATR scaled to a percentage of the current close.
    * - :doc:`Rolling Downside Deviation </functions_fin/RollingDownsideDeviation>`
      - Trailing-window downside semideviation: the RMS of returns falling below a minimum acceptable return.
-   * - :doc:`Rolling Garman-Klass varariance </functions_rolling/RollingGarmanKlassVar>`
+   * - :doc:`Rolling Garman-Klass variance </functions_rolling/RollingGarmanKlassVar>`
      - Var form of the Garman-Klass range-based volatility estimator (OHLC).
-   * - :doc:`Rolling Garman-Klass olatility </functions_rolling/RollingGarmanKlassVol>`
+   * - :doc:`Rolling Garman-Klass volatility </functions_rolling/RollingGarmanKlassVol>`
      - Vol form of the Garman-Klass range-based volatility estimator (OHLC).
-   * - :doc:`Rolling Parkinson varariance </functions_rolling/RollingParkinsonVar>`
+   * - :doc:`Rolling Parkinson variance </functions_rolling/RollingParkinsonVar>`
      - Var form of the Parkinson range-based volatility estimator (uses high & low).
-   * - :doc:`Rolling Parkinson olatility </functions_rolling/RollingParkinsonVol>`
+   * - :doc:`Rolling Parkinson volatility </functions_rolling/RollingParkinsonVol>`
      - Vol form of the Parkinson range-based volatility estimator (uses high & low).
    * - :doc:`Rolling range </functions_rolling/RollingRange>`
      - Trailing-window max minus min.
    * - :doc:`Rolling root-mean-square </functions_rolling/RollingRms>`
      - Trailing-window root-mean-square.
-   * - :doc:`Rolling Rogers-Satchell varariance </functions_rolling/RollingRogersSatchellVar>`
+   * - :doc:`Rolling Rogers-Satchell variance </functions_rolling/RollingRogersSatchellVar>`
      - Var form of the Rogers-Satchell drift-robust range-based estimator.
-   * - :doc:`Rolling Rogers-Satchell olatility </functions_rolling/RollingRogersSatchellVol>`
+   * - :doc:`Rolling Rogers-Satchell volatility </functions_rolling/RollingRogersSatchellVol>`
      - Vol form of the Rogers-Satchell drift-robust range-based estimator.
    * - :doc:`Rolling standard deviation </functions_rolling/RollingStd>`
      - Trailing-window sample standard deviation (ddof=1).
    * - :doc:`Rolling variance </functions_rolling/RollingVar>`
      - Trailing-window sample variance (ddof=1).
-   * - :doc:`Rolling Yang-Zhang varariance </functions_rolling/RollingYangZhangVar>`
+   * - :doc:`Rolling Yang-Zhang variance </functions_rolling/RollingYangZhangVar>`
      - Var form of the Yang-Zhang estimator (drift + gap robust).
-   * - :doc:`Rolling Yang-Zhang olatility </functions_rolling/RollingYangZhangVol>`
+   * - :doc:`Rolling Yang-Zhang volatility </functions_rolling/RollingYangZhangVol>`
      - Vol form of the Yang-Zhang estimator (drift + gap robust).
    * - :doc:`True Range (Wilder) </functions_rolling/TrueRange>`
      - Per-bar true range accounting for overnight gaps (Wilder, 1978).

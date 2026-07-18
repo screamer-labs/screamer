@@ -1,6 +1,6 @@
 ---
 name: RollingParkinsonVol
-title: Rolling Parkinson olatility
+title: Rolling Parkinson volatility
 implementation_family: rolling
 topics:
 - volatility

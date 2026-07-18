@@ -1,6 +1,6 @@
 ---
 name: EwGarmanKlassVol
-title: EW Garman-Klass olatility
+title: EW Garman-Klass volatility
 implementation_family: ew
 topics:
 - volatility

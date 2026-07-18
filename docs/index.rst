@@ -158,6 +158,24 @@ For a step-by-step walkthrough see the :doc:`User Guide <usage>`.
 
       Costed equity curves, drawdown, and performance.
 
+   .. grid-item-card:: Math & logic
+      :link: by_group/math-logic
+      :link-type: doc
+
+      Elementwise numeric, trigonometric, activation, and boolean operations.
+
+   .. grid-item-card:: Data preparation
+      :link: by_group/data-prep
+      :link-type: doc
+
+      Fill or drop missing values, and despike outliers.
+
+   .. grid-item-card:: Streaming & pipelines
+      :link: by_group/streaming
+      :link-type: doc
+
+      Align and reshape event streams, and build a runnable pipeline.
+
    .. grid-item-card:: Examples
       :link: notebooks/index
       :link-type: doc

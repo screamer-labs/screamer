@@ -1,6 +1,6 @@
 ---
 name: EwGarmanKlassVar
-title: EW Garman-Klass varariance
+title: EW Garman-Klass variance
 implementation_family: ew
 topics:
 - volatility

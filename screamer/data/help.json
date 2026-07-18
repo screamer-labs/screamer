@@ -199,7 +199,7 @@
   },
   "EwGarmanKlassVar": {
     "name": "EwGarmanKlassVar",
-    "title": "EW Garman-Klass varariance",
+    "title": "EW Garman-Klass variance",
     "implementation_family": "ew",
     "topics": [
       "volatility"
@@ -252,7 +252,7 @@
   },
   "EwGarmanKlassVol": {
     "name": "EwGarmanKlassVol",
-    "title": "EW Garman-Klass olatility",
+    "title": "EW Garman-Klass volatility",
     "implementation_family": "ew",
     "topics": [
       "volatility"
@@ -407,7 +407,7 @@
   },
   "EwParkinsonVar": {
     "name": "EwParkinsonVar",
-    "title": "Exponentially-weighted Parkinson varariance",
+    "title": "Exponentially-weighted Parkinson variance",
     "implementation_family": "ew",
     "topics": [
       "volatility"
@@ -460,7 +460,7 @@
   },
   "EwParkinsonVol": {
     "name": "EwParkinsonVol",
-    "title": "Exponentially-weighted Parkinson olatility",
+    "title": "Exponentially-weighted Parkinson volatility",
     "implementation_family": "ew",
     "topics": [
       "volatility"
@@ -564,7 +564,7 @@
   },
   "EwRogersSatchellVar": {
     "name": "EwRogersSatchellVar",
-    "title": "EW Rogers-Satchell varariance",
+    "title": "EW Rogers-Satchell variance",
     "implementation_family": "ew",
     "topics": [
       "volatility"
@@ -618,7 +618,7 @@
   },
   "EwRogersSatchellVol": {
     "name": "EwRogersSatchellVol",
-    "title": "EW Rogers-Satchell olatility",
+    "title": "EW Rogers-Satchell volatility",
     "implementation_family": "ew",
     "topics": [
       "volatility"
@@ -5873,7 +5873,7 @@
   },
   "RollingGarmanKlassVar": {
     "name": "RollingGarmanKlassVar",
-    "title": "Rolling Garman-Klass varariance",
+    "title": "Rolling Garman-Klass variance",
     "implementation_family": "rolling",
     "topics": [
       "volatility"
@@ -5909,7 +5909,7 @@
   },
   "RollingGarmanKlassVol": {
     "name": "RollingGarmanKlassVol",
-    "title": "Rolling Garman-Klass olatility",
+    "title": "Rolling Garman-Klass volatility",
     "implementation_family": "rolling",
     "topics": [
       "volatility"
@@ -6410,7 +6410,7 @@
   },
   "RollingParkinsonVar": {
     "name": "RollingParkinsonVar",
-    "title": "Rolling Parkinson varariance",
+    "title": "Rolling Parkinson variance",
     "implementation_family": "rolling",
     "topics": [
       "volatility"
@@ -6446,7 +6446,7 @@
   },
   "RollingParkinsonVol": {
     "name": "RollingParkinsonVol",
-    "title": "Rolling Parkinson olatility",
+    "title": "Rolling Parkinson volatility",
     "implementation_family": "rolling",
     "topics": [
       "volatility"
@@ -6777,7 +6777,7 @@
   },
   "RollingRogersSatchellVar": {
     "name": "RollingRogersSatchellVar",
-    "title": "Rolling Rogers-Satchell varariance",
+    "title": "Rolling Rogers-Satchell variance",
     "implementation_family": "rolling",
     "topics": [
       "volatility"
@@ -6814,7 +6814,7 @@
   },
   "RollingRogersSatchellVol": {
     "name": "RollingRogersSatchellVol",
-    "title": "Rolling Rogers-Satchell olatility",
+    "title": "Rolling Rogers-Satchell volatility",
     "implementation_family": "rolling",
     "topics": [
       "volatility"
@@ -7124,7 +7124,7 @@
   },
   "RollingYangZhangVar": {
     "name": "RollingYangZhangVar",
-    "title": "Rolling Yang-Zhang varariance",
+    "title": "Rolling Yang-Zhang variance",
     "implementation_family": "rolling",
     "topics": [
       "volatility"
@@ -7162,7 +7162,7 @@
   },
   "RollingYangZhangVol": {
     "name": "RollingYangZhangVol",
-    "title": "Rolling Yang-Zhang olatility",
+    "title": "Rolling Yang-Zhang volatility",
     "implementation_family": "rolling",
     "topics": [
       "volatility"
