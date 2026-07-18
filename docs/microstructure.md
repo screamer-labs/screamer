@@ -101,8 +101,4 @@ Two notebooks work these models end to end on a real slice of Deribit trades:
   Kyle's lambda, Amihud illiquidity, the Roll spread, and the Bouchaud propagator,
   and compare liquidity across BTC and ETH.
 
-For the complete list with signatures and formulas, see the function index for
-each group: [Trade signing](by_topic/trade-signing),
-[Order-flow imbalance](by_topic/order-flow-imbalance),
-[Price impact & liquidity](by_topic/price-impact), and
-[Order-flow arrivals](by_topic/order-flow-arrivals).
+For the complete list with signatures and formulas, see the [Microstructure](by_group/microstructure) function index.

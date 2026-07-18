@@ -137,32 +137,15 @@ For a step-by-step walkthrough see the :doc:`User Guide <usage>`.
    :caption: Functions
    :hidden:
 
-   by_topic/arithmetic
-   by_topic/trig
-   by_topic/activations
-   by_topic/smoothing
-   by_topic/filtering
-   by_topic/statistics
-   by_topic/volatility
-   by_topic/standardization
-   by_topic/returns
-   by_topic/cumulative
-   by_topic/trend
-   by_topic/momentum
-   by_topic/bands
-   by_topic/volume
-   by_topic/regression
-   by_topic/risk
-   by_topic/backtesting
-   by_topic/missing-data
-   by_topic/outliers
-   by_topic/streams
-   by_topic/logic
-   by_topic/trade-signing
-   by_topic/order-flow-imbalance
-   by_topic/price-impact
-   by_topic/order-flow-arrivals
-   by_topic/graphs
+   by_group_index
+   by_group/statistics
+   by_group/smoothing-filters
+   by_group/indicators
+   by_group/microstructure
+   by_group/backtesting-risk
+   by_group/math-logic
+   by_group/data-prep
+   by_group/streaming
 
 
 .. toctree::
