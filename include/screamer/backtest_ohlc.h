@@ -1,6 +1,7 @@
 #ifndef SCREAMER_BACKTEST_OHLC_H
 #define SCREAMER_BACKTEST_OHLC_H
 
+#include <algorithm>
 #include <limits>
 #include <stdexcept>
 #include <string>
@@ -31,12 +32,18 @@ namespace screamer {
     class BacktestOHLC : public FunctorBase<BacktestOHLC, 6, 4> {
     public:
         BacktestOHLC(double spread = 0.0, double taker_fee = 0.0,
-                     double maker_fee = 0.0, const std::string& fill = "touch")
+                     double maker_fee = 0.0, const std::string& fill = "touch",
+                     double min_position = -std::numeric_limits<double>::infinity(),
+                     double max_position =  std::numeric_limits<double>::infinity())
             : spread_(spread), taker_fee_(taker_fee), maker_fee_(maker_fee),
-              breach_(parse_fill(fill))
+              breach_(parse_fill(fill)),
+              min_position_(min_position), max_position_(max_position)
         {
             if (spread_ < 0.0) {
                 throw std::invalid_argument("spread must be non-negative.");
+            }
+            if (min_position_ > max_position_) {
+                throw std::invalid_argument("min_position must be <= max_position.");
             }
             reset();
         }
@@ -66,7 +73,8 @@ namespace screamer {
             // see BacktestL1Trades for volume-aware fills.
             double fill_dpos = 0.0, fill_price = close, fee = 0.0;
             if (has_pending_) {
-                const double dpos = pending_target_ - account_.position();
+                const double target = std::clamp(pending_target_, min_position_, max_position_);
+                const double dpos = target - account_.position();
                 if (dpos != 0.0) {
                     const double side = (dpos > 0.0) ? 1.0 : -1.0;
                     if (isnan2(pending_limit_)) {             // market at open (taker)
@@ -111,6 +119,8 @@ namespace screamer {
         double taker_fee_;
         double maker_fee_;
         bool breach_;
+        double min_position_;
+        double max_position_;
         bool has_pending_;
         double pending_target_;
         double pending_limit_;

@@ -185,9 +185,11 @@ void init_bindings_fin(py::module& m) {
         .def("reset", &screamer::BacktestSignal::reset, "Reset.");
 
     py::class_<screamer::BacktestOHLC, screamer::EvalOp>(m, "BacktestOHLC")
-        .def(py::init<double, double, double, const std::string&>(),
+        .def(py::init<double, double, double, const std::string&, double, double>(),
              py::arg("spread") = 0.0, py::arg("taker_fee") = 0.0,
-             py::arg("maker_fee") = 0.0, py::arg("fill") = "touch")
+             py::arg("maker_fee") = 0.0, py::arg("fill") = "touch",
+             py::arg("min_position") = -std::numeric_limits<double>::infinity(),
+             py::arg("max_position") =  std::numeric_limits<double>::infinity())
         .def("__call__", &screamer::BacktestOHLC::handle_input)
         .def("reset", &screamer::BacktestOHLC::reset, "Reset.");
 

@@ -173,6 +173,17 @@ def test_ohlc_stream_equals_batch_and_reset():
     np.testing.assert_allclose(np.nan_to_num(stream), np.nan_to_num(batch))
 
 
+def test_ohlc_position_cap_clamps_target():
+    from screamer import BacktestOHLC
+    import numpy as np
+    # target 5 decided on bar 0, executed on bar 1 (deferred), clamped to max 1
+    out = BacktestOHLC(max_position=1.0)(
+        np.array([5., 5.]), np.array([np.nan, np.nan]),
+        np.array([100., 100.]), np.array([101., 101.]),
+        np.array([100., 100.]), np.array([100., 100.]))
+    assert out[1, 2] == 1.0
+
+
 # --- BacktestTrades ----------------------------------------------------------
 
 def test_trades_fill_and_adverse_selection():

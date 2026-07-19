@@ -1354,6 +1354,18 @@
         "type": "str",
         "default": "touch",
         "description": "Limit fill rule. \"touch\" fills when the bar range reaches the limit, \"breach\" only when it trades through."
+      },
+      {
+        "name": "min_position",
+        "type": "float",
+        "default": -Infinity,
+        "description": "Lower bound on the filled position. The deferred target is clamped to [min_position, max_position] before the fill executes."
+      },
+      {
+        "name": "max_position",
+        "type": "float",
+        "default": Infinity,
+        "description": "Upper bound on the filled position. The deferred target is clamped to [min_position, max_position] before the fill executes."
       }
     ],
     "nan_policy": "ignore",
@@ -1363,7 +1375,7 @@
       "BacktestL1",
       "backtest_report"
     ],
-    "details": "## Description\n\n`BacktestOHLC` is a lean directional backtest on OHLC bars. It is causal by\ndesign: the `target_position` and `limit_price` you pass on a bar are decided\nfrom that bar's close, and the engine executes them on the **next** bar, so you\nfeed the raw signal with no manual lag. The deferred order is live over the next\nbar. A market order (`limit_price` is `NaN`) fills at that bar's `open`, crossing\nhalf the fractional `spread` and paying `taker_fee`. A limit order fills only if\nthe bar range reaches its price (`fill = \"touch\"` when the range touches the level,\n`\"breach\"` when it trades through), at the limit price, paying `maker_fee`\n(negative for a rebate); an unreached limit holds the position. Positions mark to\nthe `close`.\n\nThe deferral is what prevents look-ahead: a target computed from a bar's close\ncannot trade within that same bar (the open already happened), so the engine holds\nit and trades the next open instead. This mirrors `BacktestSignal`, where a signal\nset at `t` earns from `t+1`.\n\nInputs are `(target_position, limit_price, open, high, low, close)`. It emits the\nfour positional columns shared by the backtest family: `0 = equity` (cumulative\ndollar PnL), `1 = pnl` (per bar), `2 = position`, and `3 = cost` (per bar). A bar\nhas no intra-bar path, so two-sided market-making is out of scope here (use\n[`BacktestL1`](BacktestL1.md)). A `NaN` in any bar field skips the bar\n(`nan_policy: ignore`); a `NaN` `limit_price` is a market order, not a skip; a\n`NaN` `target_position` places no order for the next bar (the position holds).\n[`backtest_report`](backtest_report.md) summarizes the resulting equity curve.",
+    "details": "## Description\n\n`BacktestOHLC` is a lean directional backtest on OHLC bars. It is causal by\ndesign: the `target_position` and `limit_price` you pass on a bar are decided\nfrom that bar's close, and the engine executes them on the **next** bar, so you\nfeed the raw signal with no manual lag. The deferred order is live over the next\nbar. A market order (`limit_price` is `NaN`) fills at that bar's `open`, crossing\nhalf the fractional `spread` and paying `taker_fee`. A limit order fills only if\nthe bar range reaches its price (`fill = \"touch\"` when the range touches the level,\n`\"breach\"` when it trades through), at the limit price, paying `maker_fee`\n(negative for a rebate); an unreached limit holds the position. Positions mark to\nthe `close`.\n\nThe deferral is what prevents look-ahead: a target computed from a bar's close\ncannot trade within that same bar (the open already happened), so the engine holds\nit and trades the next open instead. This mirrors `BacktestSignal`, where a signal\nset at `t` earns from `t+1`.\n\nThe optional `min_position` / `max_position` parameters cap the inventory. The\ndeferred target is clamped to the interval `[min_position, max_position]` before\nthe fill is computed, so the engine never carries a position outside that range.\n\nInputs are `(target_position, limit_price, open, high, low, close)`. It emits the\nfour positional columns shared by the backtest family: `0 = equity` (cumulative\ndollar PnL), `1 = pnl` (per bar), `2 = position`, and `3 = cost` (per bar). A bar\nhas no intra-bar path, so two-sided market-making is out of scope here (use\n[`BacktestL1`](BacktestL1.md)). A `NaN` in any bar field skips the bar\n(`nan_policy: ignore`); a `NaN` `limit_price` is a market order, not a skip; a\n`NaN` `target_position` places no order for the next bar (the position holds).\n[`backtest_report`](backtest_report.md) summarizes the resulting equity curve.",
     "examples": [
       {
         "language": "python",

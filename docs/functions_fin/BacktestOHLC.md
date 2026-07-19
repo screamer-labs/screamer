@@ -37,6 +37,14 @@ parameters:
   type: str
   default: touch
   description: Limit fill rule. "touch" fills when the bar range reaches the limit, "breach" only when it trades through.
+- name: min_position
+  type: float
+  default: -.inf
+  description: Lower bound on the filled position. The deferred target is clamped to [min_position, max_position] before the fill executes.
+- name: max_position
+  type: float
+  default: .inf
+  description: Upper bound on the filled position. The deferred target is clamped to [min_position, max_position] before the fill executes.
 nan_policy: ignore
 see_also:
 - BacktestSignal
@@ -64,6 +72,10 @@ The deferral is what prevents look-ahead: a target computed from a bar's close
 cannot trade within that same bar (the open already happened), so the engine holds
 it and trades the next open instead. This mirrors `BacktestSignal`, where a signal
 set at `t` earns from `t+1`.
+
+The optional `min_position` / `max_position` parameters cap the inventory. The
+deferred target is clamped to the interval `[min_position, max_position]` before
+the fill is computed, so the engine never carries a position outside that range.
 
 Inputs are `(target_position, limit_price, open, high, low, close)`. It emits the
 four positional columns shared by the backtest family: `0 = equity` (cumulative
