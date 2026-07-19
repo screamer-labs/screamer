@@ -21,9 +21,9 @@ and each engine exposes a different order interface.
 
 The engines already agree on one thing: they all return
 `[equity, pnl, position, cost]` and share `detail::PnLAccount`. The redesign
-extends that agreement to the inputs, so every engine accepts the same order and
-risk controls and differs only in its market-data columns. screamer is pre-1.0, so
-this is an allowed breaking change.
+extends that agreement to the inputs, so every engine accepts the same order
+strategies and the same risk controls and differs only in its market-data columns.
+screamer is pre-1.0, so this is an allowed breaking change.
 
 ## Goals
 
@@ -31,80 +31,82 @@ Make four concerns orthogonal, each expressed identically on every engine:
 
 1. **Data model** (which fill simulation runs): the only thing that differs
    between engines.
-2. **Order intent** (what the strategy posts): one universal two-sided quote that
-   spells market, limit, and market-making.
-3. **Position management** (target and inventory cap): one `[min, max]` band.
+2. **Order intent** (what the strategy posts): the same two forms on every engine,
+   directional (a target position) and market-making (a two-sided quote).
+3. **Fill cap** (inventory limit): one static `[min_position, max_position]` that
+   truncates fills on every engine.
 4. **Cost and fill fidelity**: fees, slippage, and the touch/breach and
    participation knobs.
 
 The output stays `[equity, pnl, position, cost]`.
 
-## Non-goals
+## Axis 2: order intent, two forms
 
-- L2 / L3 (full-depth) engines. Future work; the primitive here is two-sided
-  (one bid, one ask), not a ladder.
-- Changing `detail::PnLAccount`, `backtest_report`, or the `BacktestReport` node.
-- The `SchmittTrigger` warmup NaN (a separate, related finding; see below).
+A strategy is either directional (I want to *be* at a position) or a market maker
+(I *post* quotes and take what fills). These are genuinely different intents, so
+each is its own input form. Both are available on every data model, and both share
+the market-order price encoding below.
 
-## Axis 2: the universal order primitive
+**Directional (target).** Per event:
 
-Per event the strategy posts at most two resting orders, a buy and a sell:
+```
+target_position, limit_price
+```
+
+The engine trades toward `target_position` (sizing `target - position` itself,
+since only it knows the live position). `limit_price` sets how: a finite price is a
+resting limit, a non-finite price is a market order (see the encoding). This is
+`BacktestSignal(signal, price)` and `BacktestOHLC(target, limit, ...)` as they
+already work.
+
+**Market-making (quote).** Per event, up to two resting orders, a buy and a sell:
 
 ```
 bid_price, bid_size,   ask_price, ask_size
 ```
 
-**Size gates presence.** `size <= 0` or `NaN` size means no order on that side;
-the price is then ignored.
+`size <= 0` or `NaN` size means no order on that side. The position emerges from
+whichever side fills, capped by the static fill cap (axis 3).
 
-**A market order is a limit at the maximally aggressive price.** This is the key
-idea: market is not a flag, it is a price, so the direction falls out of the
-normal fill comparison and needs no special case.
+### Market order = a limit at the maximally aggressive price
 
-| `size` | `price` | bid (buy) | ask (sell) |
-|---|---|---|---|
-| `0` / `NaN` | any | no order | no order |
-| `> 0` | finite | limit buy at `price` | limit sell at `price` |
-| `> 0` | `+inf` | market buy (clears any offer) | limit at `+inf`, never fills |
-| `> 0` | `-inf` | limit at `-inf`, never fills | market sell (hits any bid) |
-| `> 0` | `NaN` | market buy | market sell |
+Market is not a flag, it is a price, so direction falls out of the normal fill
+comparison and needs no special case. This encoding applies to `limit_price` and to
+each quote price:
+
+| `price` | buy side (bid / target up) | sell side (ask / target down) |
+|---|---|---|
+| finite | limit at `price` | limit at `price` |
+| `+inf` | market (clears any offer) | limit at `+inf`, never fills |
+| `-inf` | limit at `-inf`, never fills | market (hits any bid) |
+| `NaN` | market | market |
 
 A buy limit at `price` fills when the market reaches `<= price`, so `+inf` always
 fills (market) and `-inf` never does; the sell side is the mirror. `+inf`/`-inf`
-therefore need no handling at all. The only substitution is the side-agnostic
-`NaN`: on a bid it becomes `+inf`, on an ask it becomes `-inf`. A wrong-direction
-infinity (`-inf` bid, `+inf` ask) is a harmless never-fill limit, not a surprise
-market order.
+therefore need no handling. The only substitution is the side-agnostic `NaN`: on a
+buy it becomes `+inf`, on a sell `-inf`. A wrong-direction infinity (`-inf` buy,
+`+inf` sell) is a harmless never-fill limit, not a surprise market order.
 
 `screamer.MARKET` is a convenience constant (backed by `inf`) for the common
-spelling; `NaN` and `+inf`/`-inf` are all accepted. `screamer.MARKET` on a bid is
-`+inf`, on an ask is `-inf` (the constant resolves per side, or use `NaN` to avoid
-thinking about direction).
+spelling; `NaN`, `+inf`, and `-inf` are all accepted. An order that is marketable
+on submission is a taker and pays `taker_fee`; a resting limit filled later is a
+maker and pays `maker_fee`.
 
-**Maker vs taker follows from the price.** An order that is marketable on
-submission (crosses immediately) is a taker and pays `taker_fee`; a resting limit
-filled later is a maker and pays `maker_fee`.
+## Axis 3: the static fill cap
 
-## Axis 3: position management as a band
+Two static parameters, `min_position` and `max_position` (default `-inf` / `+inf`),
+cap the inventory. They are a fill limit, not a target: a fill is the minimum of
 
-Two more inputs carry the position controls, per event so they can vary in time:
+1. the order size,
+2. the counterparty volume available (the print size, the displayed quote size, or
+   the bar's reachable range), and
+3. the room left to the cap: `max_position - position` when buying,
+   `position - min_position` when selling.
 
-```
-min_position, max_position
-```
-
-Fills are clamped so the position stays inside `[min_position, max_position]`; a
-fill that would breach a bound is truncated to the room left. The band expresses
-both position concerns that used to be separate features:
-
-| intent | band |
-|---|---|
-| **Directional target `X`** | `min = max = X` (no room once reached; a moving `X` retargets) |
-| **Market-maker inventory limit** | `min = -cap, max = +cap` (a range the quotes fill within) |
-| **Unbounded** | `min = -inf, max = +inf` |
-
-So "target position" and "inventory cap", previously a `BacktestSignal` idea and a
-`BacktestL1` parameter, are the same `[min, max]` band.
+Whichever is smallest truncates the fill. This matters most for market-making,
+where the position emerges from the quotes and must be bounded; it applies under
+the directional form too (a target beyond the cap is truncated). This is exactly
+how `BacktestL1`'s cap already works, made static config on every engine.
 
 ## Axis 4: cost and fill fidelity (static config)
 
@@ -118,69 +120,63 @@ Every engine takes the same static parameters:
 
 ## The unified contract
 
-Every engine is:
+Every engine returns `[equity, pnl, position, cost]` and takes the market-data
+columns for its data model plus one of the two order forms, with the static cap and
+cost config above. Only the market-data prefix differs:
 
-```
-[market-data columns] + [bid_price, bid_size, ask_price, ask_size,
-                         min_position, max_position]
-    ->  [equity, pnl, position, cost]
-```
+| Engine | market-data columns |
+|---|---|
+| `BacktestSignal` (value series) | `price` |
+| `BacktestOHLC` (bars) | `open, high, low, close` |
+| `BacktestTrades` (tape) | `trade_price, trade_size` |
+| `BacktestL1` (quotes) | `market_bid, market_ask, market_bid_size, market_ask_size` |
+| `BacktestL1Trades` (quotes + trades) | `+ trade_price, trade_size` |
 
-with the static config above. Only the market-data prefix differs:
-
-| Engine | market-data columns | total inputs |
-|---|---|---|
-| `BacktestValue` | `price` | 7 |
-| `BacktestOHLC` | `open, high, low, close` | 10 |
-| `BacktestTape` | `trade_price, trade_size` | 8 |
-| `BacktestL1` | `market_bid, market_ask, market_bid_size, market_ask_size` | 10 |
-| `BacktestL1Trades` | `market_bid, market_ask, market_bid_size, market_ask_size, trade_price, trade_size` | 12 |
-
-The order/bounds columns are named to avoid colliding with the L1 market quote
-(the market's book is `market_bid`/`market_ask`; the strategy's orders are
-`bid`/`ask`).
+The quote form's order columns are named to avoid colliding with the L1 market book
+(the market is `market_bid`/`market_ask`; the strategy's orders are `bid`/`ask`).
 
 Each engine's fill simulation is the only thing that differs:
 
-- **Value**: a limit fills if the price crosses it between events; a market fills
-  at the price. (One-price series, so limit fidelity is coarse.)
-- **OHLC**: market fills at the open (plus half `spread`); a limit fills on the
-  bar's low/high reaching it (`touch`/`breach`).
-- **Tape**: a limit fills when a print crosses it, up to `participation_ratio` of
+- **value**: a limit fills if the price crosses it between events; a market fills at
+  the price (one-price series, so limit fidelity is coarse).
+- **bars**: market fills at the open (plus half `spread`); a limit fills when the
+  bar's low/high reaches it (`touch`/`breach`).
+- **tape**: a limit fills when a print crosses it, up to `participation_ratio` of
   the print; a through-print sweeps the order.
 - **L1**: a resting quote fills when the opposite side of the market reaches it; a
   marketable order takes the displayed size plus `tick_size` overflow.
 - **L1+trades**: trades drive the fills; a quote cross with no explaining trade is
   the run-over fallback.
 
-Market-making on bars and on the tape now exist by construction: they are the same
-two-sided order primitive, only the fill simulation changes.
+Market-making on bars and on the tape now exist by construction: they are the
+quote form on those data models, only the fill simulation changes.
+
+### Directional and market-making per engine
+
+Each data model supports both order forms. Where an engine already covers a form it
+keeps its name; the missing market-making forms on bars and the tape are the new
+work. Whether a data model exposes the two forms as one engine with both input sets
+or as a directional engine plus a `*Maker` engine is an implementation choice for
+the plan; the contract (same cap, cost, and output) is fixed here.
 
 ## Convenience wrappers
 
-The full form is verbose for everyday research, so thin wrappers expand to it and
-keep the common cases one-liners:
-
-- `BacktestSignal(signal, price)`: sets `min = max = signal`, `bid_price = MARKET`,
-  `ask_price = MARKET` (market-to-target). Unchanged for the caller.
-- `BacktestOHLC.directional(target, limit, o, h, l, c)`: `min = max = target`, one
-  limit side toward the target.
-- `BacktestL1.maker(...)`, `BacktestOHLC.maker(...)`: pass a two-sided quote and a
-  static inventory band.
-
-Wrappers are the only place the "market = aggressive price" and "target = band"
-conventions are hidden; the raw engines are uniform.
+The directional form is a one-liner already (`BacktestSignal(signal, price)`); it
+stays. The market-making form is more verbose, so a wrapper takes a static
+inventory cap and a two-sided quote and expands to the full column set. The
+market-order price encoding and the fill cap are the only conventions a caller
+learns.
 
 ## Coverage, before and after
 
 The redesign closes the matrix. Rows are the data model; columns are the order
-strategy; every cell is now covered:
+strategy; every cell is covered:
 
 | Data model | market | limit (directional) | market-making |
 |---|---|---|---|
-| Value series | yes | (coarse) | yes |
+| value series | yes | (coarse) | yes |
 | OHLC bars | yes | yes | **yes (was gap)** |
-| Trade tape | yes | yes | **yes (was gap)** |
+| trade tape | yes | yes | **yes (was gap)** |
 | L1 quotes | yes | yes | yes |
 | L1 + trades | yes | yes | yes |
 
@@ -190,15 +186,14 @@ auto-generated, so the matrix lives beside it).
 
 ## Migration
 
-- The five engines adopt the unified input contract. Their current signatures
-  become the convenience wrappers where they map (`BacktestSignal`,
-  `BacktestOHLC` directional), or are re-expressed in the new form.
-- `BacktestTrades` is renamed `BacktestTape` for consistency with the data-model
-  naming; `BacktestSignal` may become `BacktestValue` with `BacktestSignal` kept
-  as the wrapper name.
+- The engines keep their current names (`BacktestSignal`, `BacktestOHLC`,
+  `BacktestTrades`, `BacktestL1`, `BacktestL1Trades`). No renames.
+- Each engine gains the static `min_position`/`max_position` cap and the full cost
+  config, so the four axes are uniform.
+- The market-making form is added on bars and the tape (the two gaps).
 - `detail::PnLAccount`, `backtest_report`, and `BacktestReport` are unchanged.
-- The unreleased `[Unreleased]` changelog entry for the backtest suite is rewritten
-  to describe the unified contract rather than the five divergent engines.
+- The unreleased backtest-suite changelog entry is rewritten to describe the
+  unified contract rather than the five divergent engines.
 
 ## Related finding (separate spec)
 
@@ -209,9 +204,9 @@ low/flat state. Out of scope here; noted so it is not lost.
 
 ## Validation
 
-- Each engine reproduces its old behavior through the convenience wrappers
-  (parity tests on the pre-redesign outputs where they overlap).
+- Each engine reproduces its old behavior (parity tests on the pre-redesign
+  outputs where they overlap; the directional forms are unchanged).
 - The new market-making-on-bars and market-making-on-tape paths get hand-computed
-  fill tests (two-sided quotes, breach fills, inventory-cap truncation), plus the
-  standard causality, batch==stream, NaN, and reset checks.
+  fill tests (two-sided quotes, breach fills, fill-cap truncation via the three-way
+  minimum), plus the standard causality, batch==stream, NaN, and reset checks.
 - One worked example per data model in the docs, and the coverage matrix renders.
