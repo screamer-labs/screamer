@@ -157,3 +157,31 @@ Differences, returns, rates of change, and lags.
      - x[t] / x[t-k] - 1 - TA-Lib's ROCP. Identical to Return.
    * - :doc:`Rate of change ratio (ROCR) </functions_fin/ROCR>`
      - x[t] / x[t-k] - TA-Lib's ROCR.
+
+.. toctree::
+   :hidden:
+
+   /functions_rolling/ADX
+   /functions_rolling/DonchianChannels
+   /functions_expanding/ExpandingSlope
+   /functions_rolling/MACD
+   /functions_rolling/TRIX
+   /functions_rolling/ADOSC
+   /functions_rolling/BOP
+   /functions_rolling/CCI
+   /functions_rolling/MFI
+   /functions_misc/Momentum
+   /functions_fin/ROC
+   /functions_rolling/RollingRSI
+   /functions_rolling/Stoch
+   /functions_rolling/StochRSI
+   /functions_rolling/UltimateOscillator
+   /functions_rolling/WilliamsR
+   /functions_rolling/RollingVWAP
+   /functions_misc/Diff
+   /functions_misc/Diff2
+   /functions_misc/Lag
+   /functions_fin/LogReturn
+   /functions_fin/Return
+   /functions_fin/ROCP
+   /functions_fin/ROCR

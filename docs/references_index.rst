@@ -6,7 +6,7 @@ warmup behave, how streams align, how pipelines run, the microstructure model, t
 performance notes, and where screamer diverges from third-party libraries.
 
 .. toctree::
-   :maxdepth: 1
+   :hidden:
 
    polymorphic_api
    nan_and_warmup

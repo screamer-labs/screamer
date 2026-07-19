@@ -69,3 +69,22 @@ Designed frequency-domain and state-space filters.
      - Finite-impulse-response filter with user-supplied taps.
    * - :doc:`Schmitt trigger (hysteresis comparator) </functions_signal/SchmittTrigger>`
      - Hysteresis comparator. Latches 1.0 above the upper threshold, 0.0 below the lower threshold, and retains its previous value in between.
+
+.. toctree::
+   :hidden:
+
+   /functions_signal/Butter
+   /functions_rolling/DEMA
+   /functions_rolling/HullMA
+   /functions_signal/KalmanFilter
+   /functions_rolling/KAMA
+   /functions_signal/MovingAverage
+   /functions_rolling/RollingPoly2
+   /functions_rolling/TEMA
+   /functions_rolling/TRIMA
+   /functions_rolling/WMA
+   /functions_signal/ButterBandpass
+   /functions_signal/ButterBandstop
+   /functions_signal/ButterHighpass
+   /functions_rolling/Hampel
+   /functions_signal/SchmittTrigger

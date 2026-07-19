@@ -89,3 +89,22 @@ The timing and clustering of trades: self-exciting arrival intensity.
      - Description
    * - :doc:`Hawkes Process Conditional Intensity </functions_micro/HawkesIntensity>`
      - Conditional intensity of an exponential-kernel Hawkes process: lambda_t = mu + kappa_t.
+
+.. toctree::
+   :hidden:
+
+   /functions_micro/BulkVolumeClassifier
+   /functions_micro/LeeReadySign
+   /functions_micro/SignedVolume
+   /functions_micro/TickRuleSign
+   /functions_micro/ContOFI
+   /functions_micro/OFI
+   /functions_micro/QueueImbalance
+   /functions_micro/RollingOrderImbalance
+   /functions_micro/VPIN
+   /functions_micro/EffectiveSpread
+   /functions_micro/MicroPrice
+   /functions_micro/Propagator
+   /functions_micro/RealizedSpread
+   /functions_micro/RollSpread
+   /functions_micro/HawkesIntensity

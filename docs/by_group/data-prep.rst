@@ -53,3 +53,12 @@ Despiking and robust estimators.
      - Rolling median absolute deviation, median(\|x - median\|), a robust scale estimate.
    * - :doc:`Rolling sigma-clip </functions_rolling/RollingSigmaClip>`
      - Replace samples outside [mean - lower*std, mean + upper*std] with NaN or the clipped bound.
+
+.. toctree::
+   :hidden:
+
+   /functions_streams/Dropna
+   /functions_preprocessing/Ffill
+   /functions_preprocessing/FillNa
+   /functions_rolling/ImpulseClip
+   /functions_rolling/RollingSigmaClip

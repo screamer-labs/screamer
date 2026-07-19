@@ -51,3 +51,17 @@ Building and running a pipeline.
      - Description
    * - :doc:`Pipeline </functions_dag/Pipeline>`
      - A reusable N-in / M-out function you define once and call on stored or live data.
+
+.. toctree::
+   :hidden:
+
+   /functions_streams/CombineLatest
+   /functions_streams/Filter
+   /functions_streams/from_pandas
+   /functions_streams/Merge
+   /functions_streams/Resample
+   /functions_streams/Select
+   /functions_streams/split
+   /functions_streams/Stream
+   /functions_streams/to_pandas
+   /functions_dag/Pipeline

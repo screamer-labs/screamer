@@ -62,7 +62,7 @@ def _table(members, refs, shorts, titles) -> list[str]:
     return lines
 
 
-def build_group_page(group, topics, members, refs, shorts, titles) -> str:
+def build_group_page(group, topics, members, refs, shorts, titles, homed) -> str:
     title = group["name"]
     lines = [GENERATED_BANNER + title, "=" * len(title), "", group["desc"], ""]
     for tslug in group["topics"]:
@@ -71,10 +71,17 @@ def build_group_page(group, topics, members, refs, shorts, titles) -> str:
         lines += [heading, "-" * len(heading), "", meta["desc"], ""]
         lines += _table(sorted(members.get(tslug, []), key=str.lower),
                         refs, shorts, titles)
+    # Hidden toctree homes this group's function pages under it, so they nest in the
+    # sidebar under the group (ordered by topic) instead of dumping flat on the
+    # Functions landing.
+    if homed:
+        lines += [".. toctree::", "   :hidden:", ""]
+        lines += [f"   /{ref}" for ref in homed]
+        lines.append("")
     return "\n".join(lines)
 
 
-def build_index(groups, all_refs) -> str:
+def build_index(groups, leftover) -> str:
     lines = [GENERATED_BANNER + "Functions", "=========", "",
              "Every function, grouped by what it does. Pick a group to browse; "
              "the search box finds a function by name.", "",
@@ -83,14 +90,13 @@ def build_index(groups, all_refs) -> str:
         lines += [f"   .. grid-item-card:: {g['name']}",
                   f"      :link: by_group/{slug}", "      :link-type: doc", "",
                   f"      {g['desc']}", ""]
-    # Visible toctree: the 8 group pages nest under this Functions landing, so they
-    # appear in the left sidebar of the Functions section, not as top-navbar links.
-    lines += [".. toctree::", "   :maxdepth: 1", ""]
-    lines += [f"   by_group/{slug}" for slug in groups]
-    lines.append("")
-    # Hidden toctree so every function reference page is homed exactly once (no orphans).
+    # Hidden toctree homes the 8 group pages under this landing: the sidebar shows
+    # the groups, the body shows only the cards (no duplicate list). Any function
+    # page not homed under a group (a covered twin with no grouped topic) is homed
+    # here as a fallback so nothing is orphaned.
     lines += [".. toctree::", "   :hidden:", ""]
-    lines += [f"   {ref}" for ref in sorted(all_refs)]
+    lines += [f"   by_group/{slug}" for slug in groups]
+    lines += [f"   /{ref}" for ref in leftover]
     lines.append("")
     return "\n".join(lines)
 
@@ -104,6 +110,7 @@ def main():
     shorts = {n: e.get("short", "") for n, e in help_data.items()}
     titles = {n: e.get("title", n) for n, e in help_data.items()}
 
+    # Table membership (visible rows): grouped, index:false twins excluded.
     members: dict[str, list[str]] = {slug: [] for slug in topics}
     for name, entry in help_data.items():
         if entry.get("index") is False:      # covered twins (_iter, Input, Node)
@@ -111,6 +118,24 @@ def main():
         for slug in entry.get("topics", []):
             if slug in members:
                 members[slug].append(name)
+
+    # Homing (sidebar nav): every function page is homed under exactly one group,
+    # the first group (in group order) whose topics include one of its topics. This
+    # includes index:false twins, so no page is orphaned; they are navigable but not
+    # listed in the tables. Order within a group is topic order, then name.
+    homed: dict[str, list[str]] = {slug: [] for slug in groups}
+    seen: set[str] = set()
+    for gslug, g in groups.items():
+        for tslug in g["topics"]:
+            fns = sorted((n for n, e in help_data.items()
+                          if tslug in e.get("topics", []) and n in refs),
+                         key=str.lower)
+            for fn in fns:
+                ref = refs[fn]
+                if ref not in seen:
+                    seen.add(ref)
+                    homed[gslug].append(ref)
+    leftover = sorted(set(refs.values()) - seen)   # pages with no grouped topic
 
     if OLD_DIR.exists():                      # drop the previous per-topic taxonomy
         for stale in OLD_DIR.glob("*.rst"):
@@ -120,13 +145,15 @@ def main():
     for stale in OUT_DIR.glob("*.rst"):
         stale.unlink()
     for slug, group in groups.items():
-        page = build_group_page(group, topics, members, refs, shorts, titles)
+        page = build_group_page(group, topics, members, refs, shorts, titles,
+                                homed[slug])
         (OUT_DIR / f"{slug}.rst").write_text(page)
 
-    INDEX_FILE.write_text(build_index(groups, set(refs.values())))
+    INDEX_FILE.write_text(build_index(groups, leftover))
     listed = sum(len(members[t]) for g in groups.values() for t in g["topics"])
     print(f"Wrote {INDEX_FILE.name} and {len(groups)} group pages "
-          f"({listed} listings over {len(refs)} pages).")
+          f"({listed} listings, {len(seen)} homed + {len(leftover)} leftover "
+          f"over {len(refs)} pages).")
 
 
 if __name__ == "__main__":

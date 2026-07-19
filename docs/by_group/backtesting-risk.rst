@@ -65,3 +65,22 @@ Simulate a strategy against market data into a costed equity curve: signals, bar
      - Backtest a position signal against a price series into a costed mark-to-market equity curve.
    * - :doc:`Backtest a resting limit order against the trade tape </functions_fin/BacktestTrades>`
      - Backtest a resting limit order against the trade tape, filling on crossing prints, into a costed equity curve.
+
+.. toctree::
+   :hidden:
+
+   /functions_fin/RollingCalmar
+   /functions_fin/RollingCVaR
+   /functions_fin/RollingHitRate
+   /functions_fin/RollingInfoRatio
+   /functions_fin/RollingMaxDrawdown
+   /functions_fin/RollingOmega
+   /functions_fin/RollingSharpe
+   /functions_fin/RollingSortino
+   /functions_fin/backtest_report
+   /functions_fin/BacktestL1
+   /functions_fin/BacktestL1Trades
+   /functions_fin/BacktestOHLC
+   /functions_fin/BacktestReport
+   /functions_fin/BacktestSignal
+   /functions_fin/BacktestTrades
