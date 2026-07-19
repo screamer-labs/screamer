@@ -444,3 +444,48 @@ def test_l1trades_stream_equals_batch():
     stream = np.array([op(*(float(a[i]) for a in args)) for i in range(n)])
     batch = BacktestL1Trades()(*args)
     np.testing.assert_allclose(np.nan_to_num(stream), np.nan_to_num(batch))
+
+
+# --- BacktestTradesMaker -----------------------------------------------------
+
+def test_trades_maker_two_sided_fills_on_prints():
+    from screamer import BacktestTradesMaker
+    import numpy as np
+    # resting bid 100 size 5; a sell-print at 99 (<=100) size 8, participation 1.0 -> buy 5 at 100
+    out = BacktestTradesMaker()(
+        np.array([100.]), np.array([5.]), np.array([np.nan]), np.array([0.]),
+        np.array([99.]), np.array([8.]))
+    assert out[0, 2] == 5.0
+
+def test_trades_maker_cap_and_participation():
+    from screamer import BacktestTradesMaker
+    import numpy as np
+    # at-price print size 8, participation 0.5 -> min(remaining, 0.5*8)=4, capped by max 3
+    out = BacktestTradesMaker(participation_ratio=0.5, max_position=3.0)(
+        np.array([100.]), np.array([10.]), np.array([np.nan]), np.array([0.]),
+        np.array([100.]), np.array([8.]))
+    assert out[0, 2] == 3.0
+
+def test_trades_maker_stream_equals_batch():
+    from screamer import BacktestTradesMaker
+    import numpy as np
+    rng = np.random.default_rng(1); n = 200
+    price = 100 + np.cumsum(rng.standard_normal(n) * 0.1)
+    size = np.abs(rng.standard_normal(n)) + 0.5
+    bid, ask = price - 0.05, price + 0.05
+    one = np.ones(n)
+    args = (bid, one, ask, one, price, size)
+    op = BacktestTradesMaker(max_position=8.0, min_position=-8.0)
+    stream = np.array([op(*(float(a[i]) for a in args)) for i in range(n)])
+    op.reset()
+    batch = BacktestTradesMaker(max_position=8.0, min_position=-8.0)(*args)
+    np.testing.assert_allclose(np.nan_to_num(stream), np.nan_to_num(batch))
+
+def test_trades_maker_market_buy_fills_on_any_print():
+    from screamer import BacktestTradesMaker, MARKET
+    import numpy as np
+    # a market bid (inf price via MARKET) is swept by any print as a taker
+    out = BacktestTradesMaker()(
+        np.array([MARKET]), np.array([2.]), np.array([np.nan]), np.array([0.]),
+        np.array([101.]), np.array([5.]))
+    assert out[0, 2] == 2.0        # bought 2 (bid_size) against the print

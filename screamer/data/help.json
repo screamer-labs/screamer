@@ -1639,6 +1639,91 @@
       }
     ]
   },
+  "BacktestTradesMaker": {
+    "name": "BacktestTradesMaker",
+    "title": "Backtest a market maker against the trade tape",
+    "implementation_family": "fin",
+    "topics": [
+      "backtesting"
+    ],
+    "tags": [
+      "backtest",
+      "pnl",
+      "mark to market",
+      "equity curve",
+      "market making",
+      "trades",
+      "tape",
+      "inventory",
+      "transaction cost",
+      "risk"
+    ],
+    "short": "Backtest a two-sided market maker against the trade tape, filling resting quotes when prints cross them, into a costed equity curve.",
+    "inputs": 6,
+    "outputs": 4,
+    "parameters": [
+      {
+        "name": "maker_fee",
+        "type": "float",
+        "default": 0.0,
+        "description": "Fractional fee on a maker fill; negative for a rebate."
+      },
+      {
+        "name": "taker_fee",
+        "type": "float",
+        "default": 0.0,
+        "description": "Fractional fee on a taker fill (a market order that sweeps any print)."
+      },
+      {
+        "name": "fill",
+        "type": "str",
+        "default": "touch",
+        "description": "Fill rule for a trade at your price. \"touch\" fills a participation partial; \"breach\" fills only on a trade through."
+      },
+      {
+        "name": "participation_ratio",
+        "type": "float",
+        "default": 1.0,
+        "min": 0.0,
+        "max": 1.0,
+        "description": "Fraction of an at-price trade's size captured (front-of-queue at 1.0)."
+      },
+      {
+        "name": "tick_size",
+        "type": "float",
+        "default": 0.0,
+        "min": 0.0,
+        "description": "Accepted for interface uniformity; currently unused on the tape (see Limitations)."
+      },
+      {
+        "name": "min_position",
+        "type": "float",
+        "default": -Infinity,
+        "description": "Inventory floor; sell fills are capped so the position never falls below it."
+      },
+      {
+        "name": "max_position",
+        "type": "float",
+        "default": Infinity,
+        "description": "Inventory ceiling; buy fills are capped so the position never exceeds it."
+      }
+    ],
+    "nan_policy": "ignore",
+    "see_also": [
+      "BacktestTrades",
+      "BacktestL1Trades",
+      "BacktestOHLCMaker",
+      "backtest_report"
+    ],
+    "details": "## Description\n\n`BacktestTradesMaker` backtests a two-sided market-making strategy against the\nraw trade tape. Each event is a print `(trade_price, trade_size)` paired with\nthe strategy's resting quote `(bid_price, bid_size, ask_price, ask_size)`.\n\nFill logic per event:\n\n- **Buy side.** A resting bid at `bid_price` fills when a sell-print crosses it.\n  With `fill=\"touch\"` a print at exactly `bid_price` fills\n  `min(bid_size, participation_ratio * trade_size, room)` at `bid_price`\n  (maker fill, paying `maker_fee`). A print strictly below `bid_price`\n  sweeps the full remaining `min(bid_size, room)` without a participation cap.\n  With `fill=\"breach\"` the at-price case is skipped; only a strict breach fills.\n- **Sell side.** Symmetric for a resting ask against buy-prints.\n- **Market orders.** A `NaN` bid price is treated as a market order (+inf limit),\n  which sweeps on any print; that fill uses `taker_fee`. Pass `MARKET` (which\n  equals `math.inf`) directly to the price argument for the same effect.\n- **Inventory caps.** All fills are capped so the position stays in\n  `[min_position, max_position]`.\n- **Mark.** The position marks to the last trade price.\n\nIf both sides fill on the same print (possible when a spread collapses), each\nside updates the account in sequence, so the final equity and position reflect\nboth fills.\n\nInput contract: a `NaN` `trade_price` or `trade_size` is a no-trade event. The\n`nan_policy` is `ignore`: the row emits all-NaN outputs and state is unchanged.\nOnly real prints drive fills. Inputs are\n`(bid_price, bid_size, ask_price, ask_size, trade_price, trade_size)`.\nOutputs are `(equity, pnl, position, cost)`, the four standard backtest columns\naccepted by [`backtest_report`](backtest_report.md).\n\n## Limitations\n\nQueue priority is not tracked per order; at-price fills use `participation_ratio`\nas a front-of-queue proxy.\n\n`tick_size` is accepted for interface uniformity with `BacktestL1Trades` and\n`BacktestOHLCMaker`, but it is inert on the tape: a marketable resting order\nfills at the print price without walking the book, so there is no displayed-size\noverflow to price. It is kept as a no-op parameter so strategies can share a\nuniform parameter set across engines.",
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage plot",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import BacktestTradesMaker\n\nrng = np.random.default_rng(3)\nn = 600\nt = np.arange(n)\nmid = 100 + 2 * np.sin(2 * np.pi * t / n * 3) + rng.standard_normal(n) * 0.15\nhalf = 0.20\nbid, ask = mid - half, mid + half\none = np.ones(n)\n\n# alternate between seller-initiated and buyer-initiated prints\nat_ask = rng.standard_normal(n) > 0\ntrade_price = np.where(at_ask, ask, bid)\ntrade_size = np.abs(rng.standard_normal(n)) + 0.5\n\nout = BacktestTradesMaker(maker_fee=-0.0001, participation_ratio=0.4,\n                          max_position=12.0, min_position=-12.0)(\n    bid, one, ask, one, trade_price, trade_size)\neq, pos = out[:, 0], out[:, 2]\n\nfig = make_subplots(rows=3, cols=1, shared_xaxes=True, row_heights=[0.4, 0.3, 0.3],\n                    vertical_spacing=0.06)\nfig.add_trace(go.Scatter(y=mid, name='mid', line=dict(color='gray')), row=1, col=1)\nfig.add_trace(go.Scatter(y=eq, name='equity', line=dict(color='steelblue')), row=2, col=1)\nfig.add_trace(go.Scatter(y=pos, name='inventory', line=dict(color='seagreen')), row=3, col=1)\nfig.update_layout(title='BacktestTradesMaker: fills driven by the trade tape, inventory bounded',\n                  yaxis=dict(title='mid'), yaxis2=dict(title='equity ($)'),\n                  yaxis3=dict(title='inventory'),\n                  margin=dict(l=20, r=20, t=60, b=20),\n                  legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1))\nfig.show()"
+      }
+    ]
+  },
   "Drawdown": {
     "name": "Drawdown",
     "title": "Drawdown",
