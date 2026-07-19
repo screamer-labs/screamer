@@ -191,7 +191,7 @@ void init_bindings_fin(py::module& m) {
              py::arg("spread") = 0.0, py::arg("taker_fee") = 0.0,
              py::arg("maker_fee") = 0.0, py::arg("fill") = "touch",
              py::arg("min_position") = -std::numeric_limits<double>::infinity(),
-             py::arg("max_position") =  std::numeric_limits<double>::infinity())
+             py::arg("max_position") = std::numeric_limits<double>::infinity())
         .def("__call__", &screamer::BacktestOHLC::handle_input)
         .def("reset", &screamer::BacktestOHLC::reset, "Reset.");
 

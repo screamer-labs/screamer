@@ -472,7 +472,7 @@ def test_trades_maker_stream_equals_batch():
     rng = np.random.default_rng(1); n = 200
     price = 100 + np.cumsum(rng.standard_normal(n) * 0.1)
     size = np.abs(rng.standard_normal(n)) + 0.5
-    bid, ask = price - 0.05, price + 0.05
+    bid, ask = price + 0.05, price - 0.05
     one = np.ones(n)
     args = (bid, one, ask, one, price, size)
     op = BacktestTradesMaker(max_position=8.0, min_position=-8.0)

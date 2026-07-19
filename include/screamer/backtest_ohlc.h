@@ -34,7 +34,7 @@ namespace screamer {
         BacktestOHLC(double spread = 0.0, double taker_fee = 0.0,
                      double maker_fee = 0.0, const std::string& fill = "touch",
                      double min_position = -std::numeric_limits<double>::infinity(),
-                     double max_position =  std::numeric_limits<double>::infinity())
+                     double max_position = std::numeric_limits<double>::infinity())
             : spread_(spread), taker_fee_(taker_fee), maker_fee_(maker_fee),
               breach_(parse_fill(fill)),
               min_position_(min_position), max_position_(max_position)
