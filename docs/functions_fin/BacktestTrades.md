@@ -34,6 +34,14 @@ parameters:
   min: 0.0
   max: 1.0
   description: Fraction of the at-price trade volume captured (front-of-queue at 1.0). A trade through your price fills the full order.
+- name: min_position
+  type: float
+  default: -.inf
+  description: Lower bound on the position. A fill that would push the position below this limit is truncated to the available room.
+- name: max_position
+  type: float
+  default: .inf
+  description: Upper bound on the position. A fill that would push the position above this limit is truncated to the available room.
 nan_policy: ignore
 see_also:
 - BacktestL1Trades
@@ -69,6 +77,11 @@ PnL), `1 = pnl` (per event), `2 = position`, and `3 = cost` (per event). A `NaN`
 trade field skips the event (`nan_policy: ignore`); a `NaN` order price simply means
 no resting order. [`backtest_report`](backtest_report.md) summarizes the resulting
 equity curve.
+
+`min_position` and `max_position` set a static inventory cap. When a fill would
+push the position outside `[min_position, max_position]`, the fill is truncated to
+the available room rather than rejected outright. With the default unbounded cap
+(`-inf`, `+inf`) the behaviour is identical to having no cap.
 
 ## Limitations
 

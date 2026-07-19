@@ -1524,6 +1524,18 @@
         "min": 0.0,
         "max": 1.0,
         "description": "Fraction of the at-price trade volume captured (front-of-queue at 1.0). A trade through your price fills the full order."
+      },
+      {
+        "name": "min_position",
+        "type": "float",
+        "default": -Infinity,
+        "description": "Lower bound on the position. A fill that would push the position below this limit is truncated to the available room."
+      },
+      {
+        "name": "max_position",
+        "type": "float",
+        "default": Infinity,
+        "description": "Upper bound on the position. A fill that would push the position above this limit is truncated to the available room."
       }
     ],
     "nan_policy": "ignore",
@@ -1533,7 +1545,7 @@
       "BacktestOHLC",
       "backtest_report"
     ],
-    "details": "## Description\n\n`BacktestTrades` is an event-driven backtest against the trade tape. Each event is\na print `(trade_price, trade_size)` together with the strategy's current resting\nlimit order `(order_price, order_size)` (align your order stream to the tape with\n`combine_latest` upstream). `order_size` is signed: positive rests a buy, negative\na sell, and `NaN` or zero is no order.\n\nA resting order fills against a print by where the print lands relative to the\norder price. A print **through** the order price (a buy when `trade_price <\norder_price`, a sell when `trade_price > order_price`) sweeps the level and fills\nthe **full order**: the small print at the through-price is the residual after the\nsweep, so it does not bound the fill. A print **at** the order price fills\n`min(order size, participation_ratio * trade_size)`, front-of-queue, capturing a\nshare of the volume that traded there. `fill = \"breach\"` keeps only the through\ncase. Fills pay `maker_fee` (negative for a rebate). Positions mark to the last\ntrade price, so a fill just before the tape moves against you shows up immediately\nas an adverse cost.\n\nInputs are `(order_price, order_size, trade_price, trade_size)`. It emits the four\npositional columns shared by the backtest family: `0 = equity` (cumulative dollar\nPnL), `1 = pnl` (per event), `2 = position`, and `3 = cost` (per event). A `NaN`\ntrade field skips the event (`nan_policy: ignore`); a `NaN` order price simply means\nno resting order. [`backtest_report`](backtest_report.md) summarizes the resulting\nequity curve.\n\n## Limitations\n\nFills are front-of-queue and optimistic: a trade at your price fills\n`min(remaining, participation_ratio * trade_size)`, a trade through it fills the\nfull order. There is no queue-position modelling. Orders are counterfactual (zero\nvolume, no market impact), so a fill never alters the tape it reads.",
+    "details": "## Description\n\n`BacktestTrades` is an event-driven backtest against the trade tape. Each event is\na print `(trade_price, trade_size)` together with the strategy's current resting\nlimit order `(order_price, order_size)` (align your order stream to the tape with\n`combine_latest` upstream). `order_size` is signed: positive rests a buy, negative\na sell, and `NaN` or zero is no order.\n\nA resting order fills against a print by where the print lands relative to the\norder price. A print **through** the order price (a buy when `trade_price <\norder_price`, a sell when `trade_price > order_price`) sweeps the level and fills\nthe **full order**: the small print at the through-price is the residual after the\nsweep, so it does not bound the fill. A print **at** the order price fills\n`min(order size, participation_ratio * trade_size)`, front-of-queue, capturing a\nshare of the volume that traded there. `fill = \"breach\"` keeps only the through\ncase. Fills pay `maker_fee` (negative for a rebate). Positions mark to the last\ntrade price, so a fill just before the tape moves against you shows up immediately\nas an adverse cost.\n\nInputs are `(order_price, order_size, trade_price, trade_size)`. It emits the four\npositional columns shared by the backtest family: `0 = equity` (cumulative dollar\nPnL), `1 = pnl` (per event), `2 = position`, and `3 = cost` (per event). A `NaN`\ntrade field skips the event (`nan_policy: ignore`); a `NaN` order price simply means\nno resting order. [`backtest_report`](backtest_report.md) summarizes the resulting\nequity curve.\n\n`min_position` and `max_position` set a static inventory cap. When a fill would\npush the position outside `[min_position, max_position]`, the fill is truncated to\nthe available room rather than rejected outright. With the default unbounded cap\n(`-inf`, `+inf`) the behaviour is identical to having no cap.\n\n## Limitations\n\nFills are front-of-queue and optimistic: a trade at your price fills\n`min(remaining, participation_ratio * trade_size)`, a trade through it fills the\nfull order. There is no queue-position modelling. Orders are counterfactual (zero\nvolume, no market impact), so a fill never alters the tape it reads.",
     "examples": [
       {
         "language": "python",

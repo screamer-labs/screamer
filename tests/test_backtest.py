@@ -251,6 +251,15 @@ def test_trades_stream_equals_batch():
     np.testing.assert_allclose(np.nan_to_num(stream), np.nan_to_num(batch))
 
 
+def test_trades_fill_truncated_by_cap():
+    from screamer import BacktestTrades
+    import numpy as np
+    # resting buy 10 @ 100, a through-print would fill 10, but max_position 3 caps it
+    out = BacktestTrades(max_position=3.0)(
+        np.array([100.]), np.array([10.]), np.array([99.]), np.array([2.]))
+    assert out[0, 2] == 3.0
+
+
 # --- BacktestL1 --------------------------------------------------------------
 
 def test_l1_default_is_breach_full_fill_on_cross():

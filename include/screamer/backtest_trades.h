@@ -31,10 +31,17 @@ namespace screamer {
     class BacktestTrades : public FunctorBase<BacktestTrades, 4, 4> {
     public:
         BacktestTrades(double maker_fee = 0.0, const std::string& fill = "touch",
-                       double participation_ratio = 1.0)
+                       double participation_ratio = 1.0,
+                       double min_position = -std::numeric_limits<double>::infinity(),
+                       double max_position =  std::numeric_limits<double>::infinity())
             : maker_fee_(maker_fee), breach_(parse_fill(fill)),
-              participation_ratio_(parse_participation(participation_ratio))
-        {}
+              participation_ratio_(parse_participation(participation_ratio)),
+              min_position_(min_position), max_position_(max_position)
+        {
+            if (min_position_ > max_position_)
+                throw std::invalid_argument(
+                    "min_position must be <= max_position.");
+        }
 
         void reset() override { account_.reset(); }
 
@@ -55,12 +62,16 @@ namespace screamer {
                 const bool through = buy ? (trade_price < order_price)
                                          : (trade_price > order_price);
                 const bool at = !breach_ && (trade_price == order_price);
+                const double room = buy
+                    ? std::max(max_position_ - account_.position(), 0.0)
+                    : std::max(account_.position() - min_position_, 0.0);
                 double filled = 0.0;
                 if (through) {
                     filled = remaining;                                 // swept: full remaining
                 } else if (at) {
                     filled = std::min(remaining, participation_ratio_ * trade_size);
                 }
+                filled = std::min(filled, room);                       // truncate to position cap
                 if (filled > 0.0) {
                     fill_dpos  = buy ? filled : -filled;
                     fill_price = order_price;
@@ -86,6 +97,8 @@ namespace screamer {
         double maker_fee_;
         bool breach_;
         double participation_ratio_;
+        double min_position_;
+        double max_position_;
         detail::PnLAccount account_;
     };
 
