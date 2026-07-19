@@ -69,6 +69,13 @@ Simulate a strategy against market data into a costed equity curve: signals, bar
 .. toctree::
    :hidden:
 
+   /functions_fin/backtest_report
+   /functions_fin/BacktestL1
+   /functions_fin/BacktestL1Trades
+   /functions_fin/BacktestOHLC
+   /functions_fin/BacktestReport
+   /functions_fin/BacktestSignal
+   /functions_fin/BacktestTrades
    /functions_fin/RollingCalmar
    /functions_fin/RollingCVaR
    /functions_fin/RollingHitRate
@@ -77,10 +84,3 @@ Simulate a strategy against market data into a costed equity curve: signals, bar
    /functions_fin/RollingOmega
    /functions_fin/RollingSharpe
    /functions_fin/RollingSortino
-   /functions_fin/backtest_report
-   /functions_fin/BacktestL1
-   /functions_fin/BacktestL1Trades
-   /functions_fin/BacktestOHLC
-   /functions_fin/BacktestReport
-   /functions_fin/BacktestSignal
-   /functions_fin/BacktestTrades

@@ -259,22 +259,63 @@ Relationships between series: correlation, covariance, regression, hedging, pair
 .. toctree::
    :hidden:
 
+   /functions_rolling/AD
    /functions_micro/AmihudIlliquidity
+   /functions_rolling/ATR
+   /functions_rolling/BollingerBands
+   /functions_misc/CumMax
+   /functions_misc/CumMin
+   /functions_misc/CumProd
+   /functions_misc/CumSum
+   /functions_misc/Detrend
+   /functions_fin/Drawdown
+   /functions_ew/EwBeta
+   /functions_ew/EwCorr
+   /functions_ew/EwCov
+   /functions_ew/EwGarmanKlassVar
+   /functions_ew/EwGarmanKlassVol
    /functions_ew/EwKurt
+   /functions_micro/EwKyleLambda
    /functions_ew/EwMean
+   /functions_ew/EwParkinsonVar
+   /functions_ew/EwParkinsonVol
    /functions_ew/EwRms
+   /functions_ew/EwRogersSatchellVar
+   /functions_ew/EwRogersSatchellVol
    /functions_ew/EwSkew
    /functions_ew/EwStd
    /functions_ew/EwVar
+   /functions_ew/EwZscore
    /functions_expanding/ExpandingKurt
+   /functions_expanding/ExpandingMax
    /functions_expanding/ExpandingMean
+   /functions_expanding/ExpandingMin
+   /functions_expanding/ExpandingProd
    /functions_expanding/ExpandingSkew
    /functions_expanding/ExpandingStd
+   /functions_expanding/ExpandingSum
    /functions_expanding/ExpandingVar
+   /functions_misc/First
+   /functions_rolling/KeltnerChannels
+   /functions_misc/Last
+   /functions_math/Linear
+   /functions_fin/MaxDrawdown
+   /functions_rolling/NATR
+   /functions_rolling/OBV
+   /functions_fin/RollingAlpha
    /functions_rolling/RollingArgmax
    /functions_rolling/RollingArgmin
+   /functions_fin/RollingBeta
+   /functions_fin/RollingCorr
+   /functions_fin/RollingCov
+   /functions_fin/RollingDownsideDeviation
+   /functions_rolling/RollingGarmanKlassVar
+   /functions_rolling/RollingGarmanKlassVol
+   /functions_rolling/RollingHurst
    /functions_rolling/RollingIqr
    /functions_rolling/RollingKurt
+   /functions_micro/RollingKyleLambda
+   /functions_fin/RollingLinearRegression
    /functions_rolling/RollingMad
    /functions_rolling/RollingMax
    /functions_rolling/RollingMean
@@ -282,66 +323,25 @@ Relationships between series: correlation, covariance, regression, hedging, pair
    /functions_rolling/RollingMedianAD
    /functions_rolling/RollingMin
    /functions_rolling/RollingMinMax
+   /functions_rolling/RollingOU
+   /functions_rolling/RollingParkinsonVar
+   /functions_rolling/RollingParkinsonVol
    /functions_fin/RollingPercentile
+   /functions_rolling/RollingPoly1
    /functions_rolling/RollingQuantile
    /functions_rolling/RollingRange
    /functions_fin/RollingRank
+   /functions_fin/RollingResidualStd
    /functions_rolling/RollingRms
-   /functions_rolling/RollingSkew
-   /functions_rolling/RollingStd
-   /functions_rolling/RollingSum
-   /functions_rolling/RollingVar
-   /functions_rolling/ATR
-   /functions_rolling/BollingerBands
-   /functions_ew/EwGarmanKlassVar
-   /functions_ew/EwGarmanKlassVol
-   /functions_ew/EwParkinsonVar
-   /functions_ew/EwParkinsonVol
-   /functions_ew/EwRogersSatchellVar
-   /functions_ew/EwRogersSatchellVol
-   /functions_rolling/KeltnerChannels
-   /functions_rolling/NATR
-   /functions_fin/RollingDownsideDeviation
-   /functions_rolling/RollingGarmanKlassVar
-   /functions_rolling/RollingGarmanKlassVol
-   /functions_rolling/RollingParkinsonVar
-   /functions_rolling/RollingParkinsonVol
    /functions_rolling/RollingRogersSatchellVar
    /functions_rolling/RollingRogersSatchellVol
+   /functions_rolling/RollingSkew
+   /functions_fin/RollingSpread
+   /functions_rolling/RollingStd
+   /functions_rolling/RollingSum
+   /functions_fin/RollingTSF
+   /functions_rolling/RollingVar
    /functions_rolling/RollingYangZhangVar
    /functions_rolling/RollingYangZhangVol
-   /functions_rolling/TrueRange
-   /functions_misc/Detrend
-   /functions_ew/EwZscore
-   /functions_math/Linear
    /functions_rolling/RollingZscore
-   /functions_rolling/AD
-   /functions_misc/CumMax
-   /functions_misc/CumMin
-   /functions_misc/CumProd
-   /functions_misc/CumSum
-   /functions_fin/Drawdown
-   /functions_expanding/ExpandingMax
-   /functions_expanding/ExpandingMin
-   /functions_expanding/ExpandingProd
-   /functions_expanding/ExpandingSum
-   /functions_misc/First
-   /functions_misc/Last
-   /functions_fin/MaxDrawdown
-   /functions_rolling/OBV
-   /functions_ew/EwBeta
-   /functions_ew/EwCorr
-   /functions_ew/EwCov
-   /functions_micro/EwKyleLambda
-   /functions_fin/RollingAlpha
-   /functions_fin/RollingBeta
-   /functions_fin/RollingCorr
-   /functions_fin/RollingCov
-   /functions_rolling/RollingHurst
-   /functions_micro/RollingKyleLambda
-   /functions_fin/RollingLinearRegression
-   /functions_rolling/RollingOU
-   /functions_rolling/RollingPoly1
-   /functions_fin/RollingResidualStd
-   /functions_fin/RollingSpread
-   /functions_fin/RollingTSF
+   /functions_rolling/TrueRange

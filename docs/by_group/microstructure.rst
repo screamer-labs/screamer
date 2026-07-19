@@ -94,17 +94,17 @@ The timing and clustering of trades: self-exciting arrival intensity.
    :hidden:
 
    /functions_micro/BulkVolumeClassifier
+   /functions_micro/ContOFI
+   /functions_micro/EffectiveSpread
+   /functions_micro/HawkesIntensity
    /functions_micro/LeeReadySign
+   /functions_micro/MicroPrice
+   /functions_micro/OFI
+   /functions_micro/Propagator
+   /functions_micro/QueueImbalance
+   /functions_micro/RealizedSpread
+   /functions_micro/RollingOrderImbalance
+   /functions_micro/RollSpread
    /functions_micro/SignedVolume
    /functions_micro/TickRuleSign
-   /functions_micro/ContOFI
-   /functions_micro/OFI
-   /functions_micro/QueueImbalance
-   /functions_micro/RollingOrderImbalance
    /functions_micro/VPIN
-   /functions_micro/EffectiveSpread
-   /functions_micro/MicroPrice
-   /functions_micro/Propagator
-   /functions_micro/RealizedSpread
-   /functions_micro/RollSpread
-   /functions_micro/HawkesIntensity

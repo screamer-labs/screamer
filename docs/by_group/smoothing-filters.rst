@@ -74,17 +74,17 @@ Designed frequency-domain and state-space filters.
    :hidden:
 
    /functions_signal/Butter
+   /functions_signal/ButterBandpass
+   /functions_signal/ButterBandstop
+   /functions_signal/ButterHighpass
    /functions_rolling/DEMA
+   /functions_rolling/Hampel
    /functions_rolling/HullMA
    /functions_signal/KalmanFilter
    /functions_rolling/KAMA
    /functions_signal/MovingAverage
    /functions_rolling/RollingPoly2
+   /functions_signal/SchmittTrigger
    /functions_rolling/TEMA
    /functions_rolling/TRIMA
    /functions_rolling/WMA
-   /functions_signal/ButterBandpass
-   /functions_signal/ButterBandstop
-   /functions_signal/ButterHighpass
-   /functions_rolling/Hampel
-   /functions_signal/SchmittTrigger

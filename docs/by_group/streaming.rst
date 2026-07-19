@@ -59,9 +59,9 @@ Building and running a pipeline.
    /functions_streams/Filter
    /functions_streams/from_pandas
    /functions_streams/Merge
+   /functions_dag/Pipeline
    /functions_streams/Resample
    /functions_streams/Select
    /functions_streams/split
    /functions_streams/Stream
    /functions_streams/to_pandas
-   /functions_dag/Pipeline

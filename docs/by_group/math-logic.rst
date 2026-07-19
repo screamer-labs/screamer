@@ -160,51 +160,51 @@ Boolean masks, comparisons, and conditional selection. Outputs are 1.0 (true) or
    :hidden:
 
    /functions_math/Abs
-   /functions_math/Add
-   /functions_math/Ceil
-   /functions_preprocessing/Clip
-   /functions_math/Cube
-   /functions_math/Div
-   /functions_math/Erf
-   /functions_math/Erfc
-   /functions_math/Exp
-   /functions_math/Floor
-   /functions_misc/Identity
-   /functions_math/Linear2
-   /functions_math/Log
-   /functions_math/Mul
-   /functions_math/NegPart
-   /functions_math/PosPart
-   /functions_math/Power
-   /functions_math/Round
-   /functions_math/Sign
-   /functions_math/Sqrt
-   /functions_math/Square
-   /functions_math/Sub
    /functions_math/Acos
+   /functions_math/Add
+   /functions_math/And
    /functions_math/Asin
    /functions_math/Atan
    /functions_math/Atan2
    /functions_math/Cart2Polar
+   /functions_math/Ceil
+   /functions_preprocessing/Clip
    /functions_math/Cos
-   /functions_math/Hypot
-   /functions_math/Polar2Cart
-   /functions_math/Sin
-   /functions_math/Tanh
+   /functions_math/Cube
+   /functions_math/Div
    /functions_math/Elu
-   /functions_math/Relu
-   /functions_math/Selu
-   /functions_math/Sigmoid
-   /functions_math/Softsign
-   /functions_math/And
    /functions_math/Equal
+   /functions_math/Erf
+   /functions_math/Erfc
+   /functions_math/Exp
+   /functions_math/Floor
    /functions_math/GreaterEqual
    /functions_math/GreaterThan
+   /functions_math/Hypot
+   /functions_misc/Identity
    /functions_math/IsFinite
    /functions_math/IsNan
    /functions_math/LessEqual
    /functions_math/LessThan
+   /functions_math/Linear2
+   /functions_math/Log
+   /functions_math/Mul
+   /functions_math/NegPart
    /functions_math/Not
    /functions_math/NotEqual
    /functions_math/Or
+   /functions_math/Polar2Cart
+   /functions_math/PosPart
+   /functions_math/Power
+   /functions_math/Relu
+   /functions_math/Round
+   /functions_math/Selu
+   /functions_math/Sigmoid
+   /functions_math/Sign
+   /functions_math/Sin
+   /functions_math/Softsign
+   /functions_math/Sqrt
+   /functions_math/Square
+   /functions_math/Sub
+   /functions_math/Tanh
    /functions_math/Where

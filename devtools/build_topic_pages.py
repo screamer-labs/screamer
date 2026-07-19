@@ -122,19 +122,21 @@ def main():
     # Homing (sidebar nav): every function page is homed under exactly one group,
     # the first group (in group order) whose topics include one of its topics. This
     # includes index:false twins, so no page is orphaned; they are navigable but not
-    # listed in the tables. Order within a group is topic order, then name.
-    homed: dict[str, list[str]] = {slug: [] for slug in groups}
+    # listed in the tables. Within a group the functions are sorted alphabetically
+    # by name, so the sidebar is scannable (a reader looking for MovingAverage finds
+    # it under M, not buried by topic order).
+    homed_names: dict[str, list[str]] = {slug: [] for slug in groups}
     seen: set[str] = set()
     for gslug, g in groups.items():
         for tslug in g["topics"]:
-            fns = sorted((n for n, e in help_data.items()
-                          if tslug in e.get("topics", []) and n in refs),
-                         key=str.lower)
-            for fn in fns:
+            for fn in (n for n, e in help_data.items()
+                       if tslug in e.get("topics", []) and n in refs):
                 ref = refs[fn]
                 if ref not in seen:
                     seen.add(ref)
-                    homed[gslug].append(ref)
+                    homed_names[gslug].append(fn)
+    homed = {slug: [refs[fn] for fn in sorted(names, key=str.lower)]
+             for slug, names in homed_names.items()}
     leftover = sorted(set(refs.values()) - seen)   # pages with no grouped topic
 
     if OLD_DIR.exists():                      # drop the previous per-topic taxonomy
