@@ -7,11 +7,17 @@ pure-C++ users get the same functionality by calling ``BacktestReport`` directly
 No pandas: ``running`` is a dict of numpy arrays and ``summary`` a dict of floats.
 Wrap ``running`` in ``pandas.DataFrame`` yourself if you want a frame.
 """
+import math
 import numpy as np
 
 from .screamer_bindings import BacktestReport
 
-__all__ = ["backtest_report"]
+#: Market-order price sentinel for the backtest engines. A quote or limit price of
+#: ``MARKET`` (or any non-finite price) is a market order in the aggressive
+#: direction; ``NaN`` works as a side-agnostic shorthand.
+MARKET = math.inf
+
+__all__ = ["backtest_report", "MARKET"]
 
 # Column order emitted by the C++ BacktestReport node.
 _REPORT_COLUMNS = ("drawdown", "cum_cost", "turnover", "trades", "max_drawdown", "sharpe")

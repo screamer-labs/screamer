@@ -1,5 +1,14 @@
+import math
 import numpy as np
 from screamer import BacktestSignal, backtest_report
+
+
+def test_market_constant_and_encoding():
+    from screamer import MARKET, BacktestSignal
+    assert MARKET == math.inf
+    # a directional market buy to +1 via MARKET fills fully at the price (frictionless)
+    out = BacktestSignal()(np.array([1., 1]), np.array([100., 101.]))
+    assert out[1, 2] == 1.0
 
 
 def test_frictionless_marks_to_market():
