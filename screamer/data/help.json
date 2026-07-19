@@ -1440,6 +1440,18 @@
         "type": "float",
         "default": 0.0,
         "description": "Fractional taker fee charged on the traded notional."
+      },
+      {
+        "name": "min_position",
+        "type": "float",
+        "default": -Infinity,
+        "description": "Lower bound on the target position. Signals below this value are clamped to it."
+      },
+      {
+        "name": "max_position",
+        "type": "float",
+        "default": Infinity,
+        "description": "Upper bound on the target position. Signals above this value are clamped to it."
       }
     ],
     "nan_policy": "ignore",
@@ -1448,7 +1460,7 @@
       "MaxDrawdown",
       "RollingInfoRatio"
     ],
-    "details": "## Description\n\n`BacktestSignal` turns a position signal into a costed profit-and-loss curve. The\n`signal` is the target position in units (its sign is long, short, or flat, any\nmagnitude); `price` is the mark. Each bar the position moves to the signal via a\nmarket order that crosses half of the fractional `spread` (a buy fills at\n`price * (1 + spread/2)`, a sell at `price * (1 - spread/2)`) and pays the\nfractional `fee` on the traded notional. With the default `spread = fee = 0` the\nbacktest is frictionless.\n\nIt emits four positional columns: `0 = equity` (cumulative dollar PnL), `1 = pnl`\n(per bar), `2 = position`, and `3 = cost` (per bar). It is causal: the signal at\n`t` enters PnL only at `t+1`, through the position it sets, so a future signal\nnever changes a past row. A `NaN` signal or price skips the bar (an all-`NaN` row,\nthe position held across the gap; `nan_policy: ignore`).\n\nThe equity curve feeds the existing risk operators directly (dollar drawdown is\n`equity - CumMax(equity)`), and [`backtest_report`](backtest_report.md) bundles\nthe common statistics (drawdown, cost, turnover, trades, Sharpe) in one call.",
+    "details": "## Description\n\n`BacktestSignal` turns a position signal into a costed profit-and-loss curve. The\n`signal` is the target position in units (its sign is long, short, or flat, any\nmagnitude); `price` is the mark. Each bar the position moves to the signal via a\nmarket order that crosses half of the fractional `spread` (a buy fills at\n`price * (1 + spread/2)`, a sell at `price * (1 - spread/2)`) and pays the\nfractional `fee` on the traded notional. With the default `spread = fee = 0` the\nbacktest is frictionless.\n\nA target outside `[min_position, max_position]` is clamped to the nearest boundary\nbefore the order is computed; the default bounds are unbounded so the behavior is\nunchanged when the cap is not set.\n\nIt emits four positional columns: `0 = equity` (cumulative dollar PnL), `1 = pnl`\n(per bar), `2 = position`, and `3 = cost` (per bar). It is causal: the signal at\n`t` enters PnL only at `t+1`, through the position it sets, so a future signal\nnever changes a past row. A `NaN` signal or price skips the bar (an all-`NaN` row,\nthe position held across the gap; `nan_policy: ignore`).\n\nThe equity curve feeds the existing risk operators directly (dollar drawdown is\n`equity - CumMax(equity)`), and [`backtest_report`](backtest_report.md) bundles\nthe common statistics (drawdown, cost, turnover, trades, Sharpe) in one call.",
     "examples": [
       {
         "language": "python",

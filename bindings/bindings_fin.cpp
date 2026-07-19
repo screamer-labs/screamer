@@ -177,8 +177,10 @@ void init_bindings_fin(py::module& m) {
         .def("reset", &screamer::RollingLinearRegression::reset, "Reset.");
 
     py::class_<screamer::BacktestSignal, screamer::EvalOp>(m, "BacktestSignal")
-        .def(py::init<double, double>(),
-             py::arg("spread") = 0.0, py::arg("fee") = 0.0)
+        .def(py::init<double, double, double, double>(),
+             py::arg("spread") = 0.0, py::arg("fee") = 0.0,
+             py::arg("min_position") = -std::numeric_limits<double>::infinity(),
+             py::arg("max_position") = std::numeric_limits<double>::infinity())
         .def("__call__", &screamer::BacktestSignal::handle_input)
         .def("reset", &screamer::BacktestSignal::reset, "Reset.");
 

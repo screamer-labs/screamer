@@ -25,6 +25,14 @@ parameters:
   type: float
   default: 0.0
   description: Fractional taker fee charged on the traded notional.
+- name: min_position
+  type: float
+  default: -.inf
+  description: Lower bound on the target position. Signals below this value are clamped to it.
+- name: max_position
+  type: float
+  default: .inf
+  description: Upper bound on the target position. Signals above this value are clamped to it.
 nan_policy: ignore
 see_also:
 - Drawdown
@@ -43,6 +51,10 @@ market order that crosses half of the fractional `spread` (a buy fills at
 `price * (1 + spread/2)`, a sell at `price * (1 - spread/2)`) and pays the
 fractional `fee` on the traded notional. With the default `spread = fee = 0` the
 backtest is frictionless.
+
+A target outside `[min_position, max_position]` is clamped to the nearest boundary
+before the order is computed; the default bounds are unbounded so the behavior is
+unchanged when the cap is not set.
 
 It emits four positional columns: `0 = equity` (cumulative dollar PnL), `1 = pnl`
 (per bar), `2 = position`, and `3 = cost` (per bar). It is causal: the signal at

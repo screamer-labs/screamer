@@ -1,6 +1,7 @@
 #ifndef SCREAMER_BACKTEST_SIGNAL_H
 #define SCREAMER_BACKTEST_SIGNAL_H
 
+#include <algorithm>
 #include <limits>
 #include <stdexcept>
 #include <tuple>
@@ -23,14 +24,20 @@ namespace screamer {
     // future signal never changes a past row. Default spread = fee = 0 is
     // frictionless. nan_policy: ignore - a NaN signal or price emits an all-NaN
     // row and leaves the account untouched.
+    // The optional [min_position, max_position] cap clamps the target before any
+    // order is computed; signals outside the range are treated as if they were at
+    // the nearest boundary.
     class BacktestSignal : public FunctorBase<BacktestSignal, 2, 4> {
     public:
-        BacktestSignal(double spread = 0.0, double fee = 0.0)
-            : spread_(spread), fee_(fee)
+        BacktestSignal(double spread = 0.0, double fee = 0.0,
+                       double min_position = -std::numeric_limits<double>::infinity(),
+                       double max_position = std::numeric_limits<double>::infinity())
+            : spread_(spread), fee_(fee),
+              min_position_(min_position), max_position_(max_position)
         {
-            if (spread_ < 0.0) {
-                throw std::invalid_argument("spread must be non-negative.");
-            }
+            if (spread_ < 0.0) throw std::invalid_argument("spread must be non-negative.");
+            if (min_position_ > max_position_)
+                throw std::invalid_argument("min_position must not exceed max_position.");
         }
 
         void reset() override { account_.reset(); }
@@ -42,7 +49,8 @@ namespace screamer {
                 const double nan = std::numeric_limits<double>::quiet_NaN();
                 return std::make_tuple(nan, nan, nan, nan);   // ignore
             }
-            const double dpos = signal - account_.position();
+            const double target = std::clamp(signal, min_position_, max_position_);
+            const double dpos = target - account_.position();
             const double side = (dpos > 0.0) ? 1.0 : (dpos < 0.0 ? -1.0 : 0.0);
             const double fill_price = price * (1.0 + side * spread_ / 2.0);
             auto [equity, pnl, position, cost] =
@@ -53,6 +61,8 @@ namespace screamer {
     private:
         double spread_;
         double fee_;
+        double min_position_;
+        double max_position_;
         detail::PnLAccount account_;
     };
 

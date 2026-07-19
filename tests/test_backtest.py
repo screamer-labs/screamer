@@ -108,6 +108,14 @@ def test_backtest_report_node_matches_reference():
     np.testing.assert_allclose(rep[:, 5][-1], pnl.mean() / pnl.std(ddof=1))  # sharpe
 
 
+def test_signal_position_cap_clamps_target():
+    from screamer import BacktestSignal
+    import numpy as np
+    out = BacktestSignal(max_position=1.0, min_position=-1.0)(
+        np.array([5., -5., 0.]), np.array([100., 100., 100.]))
+    np.testing.assert_allclose(out[:, 2], [1, -1, 0])   # target 5 clamped to 1, -5 to -1
+
+
 # --- BacktestOHLC ------------------------------------------------------------
 
 def test_ohlc_target_is_deferred_one_bar_causal():
