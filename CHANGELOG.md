@@ -2,6 +2,34 @@
 
 All notable changes to this project are documented in this file.
 
+[Unreleased]
+------------
+
+### Added
+
+* Backtesting: unified contract across all engines. Every engine now accepts
+  `min_position` and `max_position` constructor parameters (default unbounded)
+  that cap the inventory at each fill with a three-way minimum
+  (`order_size`, `participation_limit`, and remaining room to the bound).
+* Backtesting: standardised market-order encoding via `limit_price` / quote
+  price. A finite price is a resting limit (maker); `NaN` is a side-agnostic
+  market order (taker); `+inf` (alias `screamer.MARKET`) is a market buy
+  (never-fill sell); `-inf` is a market sell (never-fill buy). The
+  `screamer.MARKET` constant provides a readable name for the common case.
+* `BacktestOHLCMaker` (8 inputs): two-sided market-making on OHLC bars. Each
+  bar the strategy posts a resting bid and ask; both sides can fill on the same
+  bar when the bar's range reaches them. Market orders are handled via the
+  `market_limit` encoding (NaN price). Inventory stays in
+  `[min_position, max_position]`.
+* `BacktestTradesMaker` (6 inputs): two-sided market-making against the raw
+  trade tape. Fills trigger when a print crosses the resting quote; at-price
+  fills apply a `participation_ratio`. Closing these two engines completes the
+  coverage matrix: every data model (value series, bars, tape, L1, L1+trades)
+  now has a market-making engine.
+* Docs: `choosing_a_backtest_engine` overview page with the full coverage
+  matrix (data model by order strategy), the market-order encoding table, and
+  the fill-cap rule.
+
 0.10.0 - 2026-07-18
 ------------
 

@@ -69,6 +69,8 @@ Simulate a strategy against market data into a costed equity curve: signals, bar
      - Backtest a resting limit order against the trade tape, filling on crossing prints, into a costed equity curve.
    * - :doc:`Backtest a market maker against the trade tape </functions_fin/BacktestTradesMaker>`
      - Backtest a two-sided market maker against the trade tape, filling resting quotes when prints cross them, into a costed equity curve.
+   * - :doc:`Choosing a backtest engine </functions_fin/choosing_a_backtest_engine>`
+     - A coverage matrix of all backtest engines by data model and order strategy.
 
 .. toctree::
    :hidden:
@@ -82,6 +84,7 @@ Simulate a strategy against market data into a costed equity curve: signals, bar
    /functions_fin/BacktestSignal
    /functions_fin/BacktestTrades
    /functions_fin/BacktestTradesMaker
+   /functions_fin/choosing_a_backtest_engine
    /functions_fin/RollingCalmar
    /functions_fin/RollingCVaR
    /functions_fin/RollingHitRate
