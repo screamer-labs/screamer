@@ -384,6 +384,53 @@ def test_l1trades_submitted_crossing_is_taker():
     np.testing.assert_allclose(out[0, 3], 10 * (99.3 - 98.5), atol=1e-9)
 
 
+# --- BacktestOHLCMaker -------------------------------------------------------
+
+def test_ohlc_maker_two_sided_fills_on_range():
+    from screamer import BacktestOHLCMaker
+    import numpy as np
+    # bid 99 rests; the bar low 98 reaches it -> buy 1 at 99; no ask this bar
+    out = BacktestOHLCMaker()(
+        np.array([99.]), np.array([1.]), np.array([np.nan]), np.array([0.]),
+        np.array([100.]), np.array([101.]), np.array([98.]), np.array([100.]))
+    assert out[0, 2] == 1.0                       # bought 1 at the bid
+    # marks to close 100 vs fill 99 -> +1 mark, cost 0 (maker), equity +1
+    np.testing.assert_allclose(out[0, 0], 1.0, atol=1e-9)
+
+def test_ohlc_maker_inventory_cap():
+    from screamer import BacktestOHLCMaker
+    import numpy as np
+    # bid 99 size 10, low reaches it, but max_position 2 caps the buy
+    out = BacktestOHLCMaker(max_position=2.0)(
+        np.array([99.]), np.array([10.]), np.array([np.nan]), np.array([0.]),
+        np.array([100.]), np.array([101.]), np.array([98.]), np.array([100.]))
+    assert out[0, 2] == 2.0
+
+def test_ohlc_maker_stream_equals_batch():
+    from screamer import BacktestOHLCMaker
+    import numpy as np
+    rng = np.random.default_rng(0); n = 200
+    close = 100 + np.cumsum(rng.standard_normal(n) * 0.2)
+    o, h, l = close - 0.1, close + 0.3, close - 0.3
+    bid, ask = close - 0.2, close + 0.2
+    one = np.ones(n)
+    args = (bid, one, ask, one, o, h, l, close)
+    op = BacktestOHLCMaker(max_position=5.0, min_position=-5.0)
+    stream = np.array([op(*(float(a[i]) for a in args)) for i in range(n)])
+    op.reset()
+    batch = BacktestOHLCMaker(max_position=5.0, min_position=-5.0)(*args)
+    np.testing.assert_allclose(np.nan_to_num(stream), np.nan_to_num(batch))
+
+def test_ohlc_maker_market_buy_fills_at_open():
+    from screamer import BacktestOHLCMaker, MARKET
+    import numpy as np
+    # a market bid (inf price via MARKET) fills at the open as a taker, not at the low
+    out = BacktestOHLCMaker()(
+        np.array([MARKET]), np.array([1.]), np.array([np.nan]), np.array([0.]),
+        np.array([100.]), np.array([101.]), np.array([99.5]), np.array([100.]))
+    assert out[0, 2] == 1.0        # bought 1 at the open (market order)
+
+
 def test_l1trades_stream_equals_batch():
     from screamer import BacktestL1Trades
     rng = np.random.default_rng(9); n = 200

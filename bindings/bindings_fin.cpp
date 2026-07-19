@@ -18,6 +18,7 @@
 #include "screamer/backtest_trades.h"
 #include "screamer/backtest_l1.h"
 #include "screamer/backtest_l1_trades.h"
+#include "screamer/backtest_ohlc_maker.h"
 #include "screamer/backtest_report.h"
 #include "screamer/rolling_downside_deviation.h"
 #include "screamer/rolling_omega.h"
@@ -192,6 +193,16 @@ void init_bindings_fin(py::module& m) {
              py::arg("max_position") =  std::numeric_limits<double>::infinity())
         .def("__call__", &screamer::BacktestOHLC::handle_input)
         .def("reset", &screamer::BacktestOHLC::reset, "Reset.");
+
+    py::class_<screamer::BacktestOHLCMaker, screamer::EvalOp>(m, "BacktestOHLCMaker")
+        .def(py::init<double, double, const std::string&, double, double, double, double>(),
+             py::arg("maker_fee") = 0.0, py::arg("taker_fee") = 0.0,
+             py::arg("fill") = "touch", py::arg("participation_ratio") = 1.0,
+             py::arg("tick_size") = 0.0,
+             py::arg("min_position") = -std::numeric_limits<double>::infinity(),
+             py::arg("max_position") = std::numeric_limits<double>::infinity())
+        .def("__call__", &screamer::BacktestOHLCMaker::handle_input)
+        .def("reset", &screamer::BacktestOHLCMaker::reset, "Reset.");
 
     py::class_<screamer::BacktestTrades, screamer::EvalOp>(m, "BacktestTrades")
         .def(py::init<double, const std::string&, double, double, double>(),
