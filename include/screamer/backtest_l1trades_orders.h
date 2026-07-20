@@ -25,8 +25,8 @@ namespace screamer {
         BacktestL1TradesOrders(double maker_fee = 0.0, double taker_fee = 0.0,
                          const std::string& fill = "touch",
                          double participation_ratio = 1.0, double tick_size = 0.0,
-                         double max_position = std::numeric_limits<double>::infinity(),
-                         double min_position = -std::numeric_limits<double>::infinity())
+                         double min_position = -std::numeric_limits<double>::infinity(),
+                         double max_position = std::numeric_limits<double>::infinity())
             : maker_fee_(maker_fee), taker_fee_(taker_fee), breach_(parse_fill(fill)),
               participation_(parse_participation(participation_ratio)),
               tick_size_(tick_size), max_position_(max_position),

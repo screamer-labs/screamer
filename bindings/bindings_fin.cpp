@@ -238,8 +238,8 @@ void init_bindings_fin(py::module& m) {
              py::arg("maker_fee") = 0.0, py::arg("taker_fee") = 0.0,
              py::arg("fill") = "touch", py::arg("participation_ratio") = 1.0,
              py::arg("tick_size") = 0.0,
-             py::arg("max_position") = std::numeric_limits<double>::infinity(),
-             py::arg("min_position") = -std::numeric_limits<double>::infinity())
+             py::arg("min_position") = -std::numeric_limits<double>::infinity(),
+             py::arg("max_position") = std::numeric_limits<double>::infinity())
         .def("__call__", &screamer::BacktestL1TradesOrders::handle_input)
         .def("reset", &screamer::BacktestL1TradesOrders::reset, "Reset.");
 

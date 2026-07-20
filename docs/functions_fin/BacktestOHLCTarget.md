@@ -39,8 +39,8 @@ parameters:
 nan_policy: ignore
 see_also:
 - BacktestOHLCOrders
-- BacktestTrades
-- BacktestL1
+- BacktestTradesTarget
+- BacktestL1Target
 - backtest_report
 ---
 

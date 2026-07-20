@@ -53,7 +53,7 @@ parameters:
 nan_policy: ignore
 see_also:
 - BacktestTradesTarget
-- BacktestL1Trades
+- BacktestL1TradesOrders
 - BacktestOHLCOrders
 - backtest_report
 ---
@@ -98,7 +98,7 @@ accepted by [`backtest_report`](backtest_report.md).
 Queue priority is not tracked per order; at-price fills use `participation_ratio`
 as a front-of-queue proxy.
 
-`tick_size` is accepted for interface uniformity with `BacktestL1Trades` and
+`tick_size` is accepted for interface uniformity with `BacktestL1TradesOrders` and
 `BacktestOHLCOrders`, but it is inert on the tape: a marketable resting order
 fills at the print price without walking the book, so there is no displayed-size
 overflow to price. It is kept as a no-op parameter so strategies can share a

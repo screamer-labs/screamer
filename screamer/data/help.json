@@ -1272,7 +1272,7 @@
     "nan_policy": "ignore",
     "see_also": [
       "BacktestL1Orders",
-      "BacktestL1Trades",
+      "BacktestL1TradesOrders",
       "BacktestTradesTarget",
       "BacktestOHLCTarget",
       "backtest_report"
@@ -1510,8 +1510,8 @@
     "nan_policy": "ignore",
     "see_also": [
       "BacktestOHLCOrders",
-      "BacktestTrades",
-      "BacktestL1",
+      "BacktestTradesTarget",
+      "BacktestL1Target",
       "backtest_report"
     ],
     "details": "## Description\n\n`BacktestOHLCTarget` is a lean directional backtest on OHLC bars. It is causal by\ndesign: the `target_position` you pass on bar t is decided from that bar's close,\nand the engine executes it on bar t+1 as a market order at the open. No manual lag\nis needed; feed the raw signal directly.\n\nThe deferral prevents look-ahead: a target computed from a bar's close cannot\ntrade within that same bar (the open already happened), so the engine holds it and\ntrades the next open. This mirrors `BacktestPriceTarget`, where a signal set at t\nearns from t+1.\n\nThe market order fills at `open + tick_size` (buy) or `open - tick_size` (sell),\npaying `taker_fee` on the traded notional. Positions mark to the close each bar.\n\nThe optional `min_position` / `max_position` parameters cap the inventory. The\ndeferred target is clamped to `[min_position, max_position]` before the order\nsize is computed, so the engine never carries a position outside that range.\n\nInputs are `(target_position, open, high, low, close)`. Outputs are the four\nstandard backtest columns: `0 = equity` (cumulative dollar PnL), `1 = pnl` (per\nbar), `2 = position`, and `3 = cost` (per bar). A `NaN` in any bar field (open,\nhigh, low, close) skips the bar (`nan_policy: ignore`). A `NaN` target holds the\nposition for the next bar without issuing a new order.\n[`backtest_report`](backtest_report.md) summarizes the resulting equity curve.",
@@ -1692,11 +1692,11 @@
     "nan_policy": "ignore",
     "see_also": [
       "BacktestTradesTarget",
-      "BacktestL1Trades",
+      "BacktestL1TradesOrders",
       "BacktestOHLCOrders",
       "backtest_report"
     ],
-    "details": "## Description\n\n`BacktestTradesOrders` backtests a two-sided order-posting strategy against the\nraw trade tape. Each event is a print `(trade_price, trade_size)` paired with\nthe strategy's resting quote `(bid_price, bid_size, ask_price, ask_size)`.\n\nFill logic per event:\n\n- **Buy side.** A resting bid at `bid_price` fills when a sell-print crosses it.\n  With `fill=\"touch\"` a print at exactly `bid_price` fills\n  `min(bid_size, participation_ratio * trade_size, room)` at `bid_price`\n  (maker fill, paying `maker_fee`). A print strictly below `bid_price`\n  sweeps the full remaining `min(bid_size, room)` without a participation cap.\n  With `fill=\"breach\"` the at-price case is skipped; only a strict breach fills.\n- **Sell side.** Symmetric for a resting ask against buy-prints.\n- **Market orders.** A `NaN` bid price is treated as a market order (+inf limit),\n  which sweeps on any print; that fill uses `taker_fee`. Pass `MARKET` (which\n  equals `math.inf`) directly to the price argument for the same effect.\n- **Inventory caps.** All fills are capped so the position stays in\n  `[min_position, max_position]`.\n- **Mark.** The position marks to the last trade price.\n\nIf both sides fill on the same print (possible when a spread collapses), each\nside updates the account in sequence, so the final equity and position reflect\nboth fills.\n\nInput contract: a `NaN` `trade_price` or `trade_size` is a no-trade event. The\n`nan_policy` is `ignore`: the row emits all-NaN outputs and state is unchanged.\nOnly real prints drive fills. Inputs are\n`(bid_price, bid_size, ask_price, ask_size, trade_price, trade_size)`.\nOutputs are `(equity, pnl, position, cost)`, the four standard backtest columns\naccepted by [`backtest_report`](backtest_report.md).\n\n## Limitations\n\nQueue priority is not tracked per order; at-price fills use `participation_ratio`\nas a front-of-queue proxy.\n\n`tick_size` is accepted for interface uniformity with `BacktestL1Trades` and\n`BacktestOHLCOrders`, but it is inert on the tape: a marketable resting order\nfills at the print price without walking the book, so there is no displayed-size\noverflow to price. It is kept as a no-op parameter so strategies can share a\nuniform parameter set across engines.",
+    "details": "## Description\n\n`BacktestTradesOrders` backtests a two-sided order-posting strategy against the\nraw trade tape. Each event is a print `(trade_price, trade_size)` paired with\nthe strategy's resting quote `(bid_price, bid_size, ask_price, ask_size)`.\n\nFill logic per event:\n\n- **Buy side.** A resting bid at `bid_price` fills when a sell-print crosses it.\n  With `fill=\"touch\"` a print at exactly `bid_price` fills\n  `min(bid_size, participation_ratio * trade_size, room)` at `bid_price`\n  (maker fill, paying `maker_fee`). A print strictly below `bid_price`\n  sweeps the full remaining `min(bid_size, room)` without a participation cap.\n  With `fill=\"breach\"` the at-price case is skipped; only a strict breach fills.\n- **Sell side.** Symmetric for a resting ask against buy-prints.\n- **Market orders.** A `NaN` bid price is treated as a market order (+inf limit),\n  which sweeps on any print; that fill uses `taker_fee`. Pass `MARKET` (which\n  equals `math.inf`) directly to the price argument for the same effect.\n- **Inventory caps.** All fills are capped so the position stays in\n  `[min_position, max_position]`.\n- **Mark.** The position marks to the last trade price.\n\nIf both sides fill on the same print (possible when a spread collapses), each\nside updates the account in sequence, so the final equity and position reflect\nboth fills.\n\nInput contract: a `NaN` `trade_price` or `trade_size` is a no-trade event. The\n`nan_policy` is `ignore`: the row emits all-NaN outputs and state is unchanged.\nOnly real prints drive fills. Inputs are\n`(bid_price, bid_size, ask_price, ask_size, trade_price, trade_size)`.\nOutputs are `(equity, pnl, position, cost)`, the four standard backtest columns\naccepted by [`backtest_report`](backtest_report.md).\n\n## Limitations\n\nQueue priority is not tracked per order; at-price fills use `participation_ratio`\nas a front-of-queue proxy.\n\n`tick_size` is accepted for interface uniformity with `BacktestL1TradesOrders` and\n`BacktestOHLCOrders`, but it is inert on the tape: a marketable resting order\nfills at the print price without walking the book, so there is no displayed-size\noverflow to price. It is kept as a no-op parameter so strategies can share a\nuniform parameter set across engines.",
     "examples": [
       {
         "language": "python",
@@ -1758,7 +1758,7 @@
     "see_also": [
       "BacktestTradesOrders",
       "BacktestOHLCTarget",
-      "BacktestL1Trades",
+      "BacktestL1TradesOrders",
       "backtest_report"
     ],
     "details": "## Description\n\n`BacktestTradesTarget` is a lean directional backtest on the raw trade tape. It is\nimmediate: the `target_position` you pass on event t executes on the same print,\nunlike `BacktestOHLCTarget` which defers to the next bar's open.\n\nEach print the engine computes the desired trade as\n`clamp(target, min_position, max_position) - current_position` and takes it\nagainst the current print as a marketable (taker) order. The fill pays `taker_fee`\non the traded notional and the position marks to the print price. If the target\nequals the current position, no order is placed and the event is a mark-only step.\n\nInputs are `(target_position, trade_price, trade_size)`. Outputs are the four\nstandard backtest columns: `0 = equity` (cumulative dollar PnL), `1 = pnl` (per\nevent), `2 = position`, and `3 = cost` (per event). A `NaN` `trade_price` or\n`trade_size` skips the event and returns all-NaN (`nan_policy: ignore`).\n[`backtest_report`](backtest_report.md) summarizes the resulting equity curve.\n\nThe optional `min_position` and `max_position` parameters cap the inventory. The\ntarget is clamped before the order size is computed, so the engine never carries a\nposition outside that range.\n\n## Limitations\n\nThe fill model is optimistic: the full order size executes at the print price with\nno market impact or slippage beyond `taker_fee`. Orders are counterfactual (zero\nmarket impact), so the tape is unaffected by the strategy's activity.",
