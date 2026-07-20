@@ -1,6 +1,6 @@
 ---
-name: BacktestOHLCMaker
-title: Backtest a two-sided market maker on OHLC bars
+name: BacktestOHLCOrders
+title: Backtest a two-sided order poster on OHLC bars
 implementation_family: fin
 topics:
 - backtesting
@@ -15,7 +15,7 @@ tags:
 - inventory
 - transaction cost
 - risk
-short: "Backtest a two-sided market maker on OHLC bars, posting resting bids and asks that fill when the bar's range reaches them."
+short: "Backtest a two-sided order poster on OHLC bars, posting resting bids and asks that fill when the bar's range reaches them."
 inputs: 8
 outputs: 4
 parameters:
@@ -52,17 +52,17 @@ parameters:
   description: Inventory ceiling; buy fills are capped so the position never exceeds it.
 nan_policy: ignore
 see_also:
-- BacktestOHLC
+- BacktestOHLCTarget
 - BacktestL1
 - BacktestTrades
 - backtest_report
 ---
 
-# `BacktestOHLCMaker`
+# `BacktestOHLCOrders`
 
 ## Description
 
-`BacktestOHLCMaker` runs a two-sided market-making backtest on OHLC bars. Each
+`BacktestOHLCOrders` runs a two-sided order-posting backtest on OHLC bars. Each
 bar the strategy posts a resting bid `(bid_price, bid_size)` and a resting ask
 `(ask_price, ask_size)`. Both sides execute on the same bar (same-bar fill model,
 no deferral), so the position is whatever the bar's range allows.
@@ -111,7 +111,7 @@ when intra-bar sequencing matters.
     import numpy as np
     import plotly.graph_objects as go
     from plotly.subplots import make_subplots
-    from screamer import BacktestOHLCMaker
+    from screamer import BacktestOHLCOrders
 
     rng = np.random.default_rng(7)
     n = 300
@@ -126,7 +126,7 @@ when intra-bar sequencing matters.
     bid = close - 0.2
     ask = close + 0.2
     one = np.ones(n)
-    out = BacktestOHLCMaker(maker_fee=-0.0001, max_position=8.0, min_position=-8.0)(
+    out = BacktestOHLCOrders(maker_fee=-0.0001, max_position=8.0, min_position=-8.0)(
         bid, one, ask, one, o, h, l, close)
     eq, pos = out[:, 0], out[:, 2]
 
@@ -135,7 +135,7 @@ when intra-bar sequencing matters.
     fig.add_trace(go.Scatter(y=close, name='close', line=dict(color='gray')), row=1, col=1)
     fig.add_trace(go.Scatter(y=eq, name='equity', line=dict(color='steelblue')), row=2, col=1)
     fig.add_trace(go.Scatter(y=pos, name='inventory', line=dict(color='mediumpurple')), row=3, col=1)
-    fig.update_layout(title='BacktestOHLCMaker: two-sided bar maker, inventory capped at +/-8',
+    fig.update_layout(title='BacktestOHLCOrders: two-sided bar order poster, inventory capped at +/-8',
                       yaxis=dict(title='close'), yaxis2=dict(title='equity ($)'),
                       yaxis3=dict(title='inventory'),
                       margin=dict(l=20, r=20, t=60, b=20),

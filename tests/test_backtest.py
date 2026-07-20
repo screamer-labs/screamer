@@ -125,69 +125,39 @@ def test_price_target_reaches_target_and_costs():
     assert out[0, 3] > 0.0                                        # taker fee charged on the buy
 
 
-# --- BacktestOHLC ------------------------------------------------------------
+# --- BacktestOHLCTarget (causal market-at-open) --------------------------------
 
 def test_ohlc_target_is_deferred_one_bar_causal():
-    from screamer import BacktestOHLC
+    from screamer import BacktestOHLCTarget
     # target decided on bar t's close executes on bar t+1 (causal, no manual lag):
     # target=1 at bar 0 -> position becomes 1 at bar 1, then held.
-    o = BacktestOHLC()(np.array([1., 1, 1, 0]), np.array([np.nan] * 4),
-                       np.array([100., 101, 102, 103]), np.array([100., 101, 102, 103]),
-                       np.array([100., 101, 102, 103]), np.array([100., 101, 102, 103]))
+    o = BacktestOHLCTarget()(np.array([1., 1, 1, 0]),
+                              np.array([100., 101, 102, 103]), np.array([100., 101, 102, 103]),
+                              np.array([100., 101, 102, 103]), np.array([100., 101, 102, 103]))
     np.testing.assert_allclose(o[:, 2], [0, 1, 1, 1])    # flat bar 0, long from bar 1 (deferred)
     np.testing.assert_allclose(o[:, 0], [0, 0, 1, 2])    # equity: long 1 earns 101->103 = +2
 
 
-def test_ohlc_limit_fills_only_when_next_bar_reaches():
-    from screamer import BacktestOHLC
-    # a buy limit 99 decided on bar 0 rests during bar 1; it fills iff bar 1's low reaches it
-    reached = BacktestOHLC()(np.array([1., 1.]), np.array([99., 99.]),
-                             np.array([100., 100.]), np.array([101., 101.]),
-                             np.array([100., 98.]), np.array([100., 100.]))
-    assert reached[1, 2] == 1.0                           # bar 1 low 98 <= 99 -> fill
-    missed = BacktestOHLC()(np.array([1., 1.]), np.array([99., 99.]),
-                            np.array([100., 100.]), np.array([101., 101.]),
-                            np.array([100., 99.5]), np.array([100., 100.]))
-    assert missed[1, 2] == 0.0                            # bar 1 low 99.5 never reaches 99
-    # touch vs breach at the exact level, on the executing bar (bar 1)
-    touch = BacktestOHLC(fill="touch")(np.array([1., 1.]), np.array([99., 99.]),
-                                       np.array([100., 100.]), np.array([101., 101.]),
-                                       np.array([100., 99.]), np.array([100., 100.]))
-    breach = BacktestOHLC(fill="breach")(np.array([1., 1.]), np.array([99., 99.]),
-                                         np.array([100., 100.]), np.array([101., 101.]),
-                                         np.array([100., 99.]), np.array([100., 100.]))
-    assert touch[1, 2] == 1.0 and breach[1, 2] == 0.0
-
-
-def test_ohlc_limit_fills_full_target_no_participation():
-    from screamer import BacktestOHLC
-    # a large target with a limit reached on the next bar fills fully (bars carry no volume)
-    out = BacktestOHLC()(np.array([1000., 1000.]), np.array([99., 99.]),
-                         np.array([100., 100.]), np.array([101., 101.]),
-                         np.array([100., 98.]), np.array([100., 100.]))
-    assert out[1, 2] == 1000.0
-
-
-def test_ohlc_stream_equals_batch_and_reset():
-    from screamer import BacktestOHLC
+def test_ohlc_target_stream_equals_batch_and_reset():
+    from screamer import BacktestOHLCTarget
     rng = np.random.default_rng(0); n = 100
     c = 100 + np.cumsum(rng.standard_normal(n) * 0.3)
     o, h, l = c - 0.1, c + 0.5, c - 0.5
-    tgt = np.sign(rng.standard_normal(n)); lim = np.full(n, np.nan)
-    op = BacktestOHLC(spread=0.001)
-    stream = np.array([op(float(tgt[i]), lim[i], float(o[i]), float(h[i]), float(l[i]), float(c[i]))
+    tgt = np.sign(rng.standard_normal(n))
+    op = BacktestOHLCTarget(taker_fee=0.001)
+    stream = np.array([op(float(tgt[i]), float(o[i]), float(h[i]), float(l[i]), float(c[i]))
                        for i in range(n)])
     op.reset()
-    batch = BacktestOHLC(spread=0.001)(tgt, lim, o, h, l, c)
+    batch = BacktestOHLCTarget(taker_fee=0.001)(tgt, o, h, l, c)
     np.testing.assert_allclose(np.nan_to_num(stream), np.nan_to_num(batch))
 
 
-def test_ohlc_position_cap_clamps_target():
-    from screamer import BacktestOHLC
+def test_ohlc_target_position_cap_clamps_target():
+    from screamer import BacktestOHLCTarget
     import numpy as np
     # target 5 decided on bar 0, executed on bar 1 (deferred), clamped to max 1
-    out = BacktestOHLC(max_position=1.0)(
-        np.array([5., 5.]), np.array([np.nan, np.nan]),
+    out = BacktestOHLCTarget(max_position=1.0)(
+        np.array([5., 5.]),
         np.array([100., 100.]), np.array([101., 101.]),
         np.array([100., 100.]), np.array([100., 100.]))
     assert out[1, 2] == 1.0
@@ -393,30 +363,30 @@ def test_l1trades_submitted_crossing_is_taker():
     np.testing.assert_allclose(out[0, 3], 10 * (99.3 - 98.5), atol=1e-9)
 
 
-# --- BacktestOHLCMaker -------------------------------------------------------
+# --- BacktestOHLCOrders ------------------------------------------------------
 
-def test_ohlc_maker_two_sided_fills_on_range():
-    from screamer import BacktestOHLCMaker
+def test_ohlc_orders_two_sided_fills_on_range():
+    from screamer import BacktestOHLCOrders
     import numpy as np
     # bid 99 rests; the bar low 98 reaches it -> buy 1 at 99; no ask this bar
-    out = BacktestOHLCMaker()(
+    out = BacktestOHLCOrders()(
         np.array([99.]), np.array([1.]), np.array([np.nan]), np.array([0.]),
         np.array([100.]), np.array([101.]), np.array([98.]), np.array([100.]))
     assert out[0, 2] == 1.0                       # bought 1 at the bid
     # marks to close 100 vs fill 99 -> +1 mark, cost 0 (maker), equity +1
     np.testing.assert_allclose(out[0, 0], 1.0, atol=1e-9)
 
-def test_ohlc_maker_inventory_cap():
-    from screamer import BacktestOHLCMaker
+def test_ohlc_orders_inventory_cap():
+    from screamer import BacktestOHLCOrders
     import numpy as np
     # bid 99 size 10, low reaches it, but max_position 2 caps the buy
-    out = BacktestOHLCMaker(max_position=2.0)(
+    out = BacktestOHLCOrders(max_position=2.0)(
         np.array([99.]), np.array([10.]), np.array([np.nan]), np.array([0.]),
         np.array([100.]), np.array([101.]), np.array([98.]), np.array([100.]))
     assert out[0, 2] == 2.0
 
-def test_ohlc_maker_stream_equals_batch():
-    from screamer import BacktestOHLCMaker
+def test_ohlc_orders_stream_equals_batch():
+    from screamer import BacktestOHLCOrders
     import numpy as np
     rng = np.random.default_rng(0); n = 200
     close = 100 + np.cumsum(rng.standard_normal(n) * 0.2)
@@ -424,17 +394,17 @@ def test_ohlc_maker_stream_equals_batch():
     bid, ask = close - 0.2, close + 0.2
     one = np.ones(n)
     args = (bid, one, ask, one, o, h, l, close)
-    op = BacktestOHLCMaker(max_position=5.0, min_position=-5.0)
+    op = BacktestOHLCOrders(max_position=5.0, min_position=-5.0)
     stream = np.array([op(*(float(a[i]) for a in args)) for i in range(n)])
     op.reset()
-    batch = BacktestOHLCMaker(max_position=5.0, min_position=-5.0)(*args)
+    batch = BacktestOHLCOrders(max_position=5.0, min_position=-5.0)(*args)
     np.testing.assert_allclose(np.nan_to_num(stream), np.nan_to_num(batch))
 
-def test_ohlc_maker_market_buy_fills_at_open():
-    from screamer import BacktestOHLCMaker, MARKET
+def test_ohlc_orders_market_buy_fills_at_open():
+    from screamer import BacktestOHLCOrders, MARKET
     import numpy as np
     # a market bid (inf price via MARKET) fills at the open as a taker, not at the low
-    out = BacktestOHLCMaker()(
+    out = BacktestOHLCOrders()(
         np.array([MARKET]), np.array([1.]), np.array([np.nan]), np.array([0.]),
         np.array([100.]), np.array([101.]), np.array([99.5]), np.array([100.]))
     assert out[0, 2] == 1.0        # bought 1 at the open (market order)
@@ -498,3 +468,35 @@ def test_trades_maker_market_buy_fills_on_any_print():
         np.array([MARKET]), np.array([2.]), np.array([np.nan]), np.array([0.]),
         np.array([101.]), np.array([5.]))
     assert out[0, 2] == 2.0        # bought 2 (bid_size) against the print
+
+
+# --- BacktestOHLCOrders ------------------------------------------------------
+
+def test_ohlc_orders_two_sided_fill():
+    import numpy as np
+    from screamer import BacktestOHLCOrders
+    out = BacktestOHLCOrders()(
+        np.array([99.]), np.array([1.]), np.array([np.nan]), np.array([0.]),
+        np.array([100.]), np.array([101.]), np.array([98.]), np.array([100.]))
+    assert out[0, 2] == 1.0                                # resting bid hit on the low
+
+
+# --- BacktestOHLCTarget ------------------------------------------------------
+
+def test_ohlc_target_defers_to_next_open():
+    import numpy as np
+    from screamer import BacktestOHLCTarget
+    # target +1 decided on bar 0 executes at bar 1's open (deferred); bar 0 stays flat
+    out = BacktestOHLCTarget()(
+        np.array([1., 1.]), np.array([100., 105.]),
+        np.array([100., 105.]), np.array([100., 105.]), np.array([100., 105.]))
+    assert out[0, 2] == 0.0                                # nothing executes on bar 0
+    assert out[1, 2] == 1.0                                # filled at bar 1 open
+
+def test_ohlc_target_market_capped():
+    import numpy as np
+    from screamer import BacktestOHLCTarget
+    out = BacktestOHLCTarget(max_position=1.0)(
+        np.array([5., 5.]), np.array([100., 100.]),
+        np.array([100., 100.]), np.array([100., 100.]), np.array([100., 100.]))
+    assert out[1, 2] == 1.0                                # target 5 clamped to the cap

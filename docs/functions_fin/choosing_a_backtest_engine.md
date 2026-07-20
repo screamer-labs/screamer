@@ -22,19 +22,20 @@ order types; the `MARKET`/NaN encoding selects which one at call time (see below
 
 | Data model     | Market orders              | Limit (directional)        | Market-making              |
 |:---------------|:---------------------------|:---------------------------|:---------------------------|
-| Value series   | `BacktestSignal`           | `BacktestSignal` (coarse)  | n/a                        |
-| OHLC bars      | `BacktestOHLC`             | `BacktestOHLC`             | `BacktestOHLCMaker`        |
+| Value series   | `BacktestPriceTarget`      | `BacktestPriceTarget` (coarse) | n/a                    |
+| OHLC bars      | `BacktestOHLCTarget`       | `BacktestOHLCOrders`       | `BacktestOHLCOrders`       |
 | Trade tape     | `BacktestTrades`           | `BacktestTrades`           | `BacktestTradesMaker`      |
 | L1 quotes      | `BacktestL1`               | `BacktestL1`               | `BacktestL1`               |
 | L1 + trades    | `BacktestL1Trades`         | `BacktestL1Trades`         | `BacktestL1Trades`         |
 
-**Value series** (`BacktestSignal`) takes a raw position signal and a scalar price.
-Limit-order fidelity is coarse: the signal can encode a directional target, but
-there is no bar range or tape to test a resting limit against.
+**Value series** (`BacktestPriceTarget`) takes a raw position signal and a scalar
+price. Limit-order fidelity is coarse: the signal can encode a directional target,
+but there is no bar range or tape to test a resting limit against.
 
-**OHLC bars** split into two engines: `BacktestOHLC` for directional strategies
-that post a single target position per bar, and `BacktestOHLCMaker` for two-sided
-strategies that post simultaneous bid and ask quotes and earn the spread.
+**OHLC bars** split into two engines: `BacktestOHLCTarget` for directional
+strategies that post a target position per bar (executes as a market order at the
+next bar's open, causal), and `BacktestOHLCOrders` for two-sided strategies that
+post simultaneous bid and ask quotes and earn the spread.
 
 **Trade tape** splits the same way: `BacktestTrades` for directional resting orders,
 `BacktestTradesMaker` for two-sided market-making driven by crossing prints.
@@ -59,9 +60,10 @@ from a marketable order.
 `screamer.MARKET` equals `+math.inf` and is provided as a readable constant for
 passing a market buy without writing `float('inf')` or `math.inf` directly.
 
-For `BacktestOHLC`, the encoding applies to `limit_price`: a `NaN` limit price is
-a market order that fills at the bar's open; a finite price is a resting limit that
-waits for the bar's range.
+For `BacktestOHLCTarget`, the target decided on bar t is always executed as a
+market order at bar t+1's open. For `BacktestOHLCOrders`, a `NaN` bid or ask
+price is a market order that fills at the bar's open; a finite price is a resting
+limit that waits for the bar's range.
 
 ## Fill-cap rule
 

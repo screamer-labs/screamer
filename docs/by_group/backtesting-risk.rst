@@ -57,14 +57,14 @@ Simulate a strategy against market data into a costed equity curve: signals, bar
      - Backtest a two-sided market maker against a top-of-book (L1) quote stream, into a costed equity curve.
    * - :doc:`Backtest a market maker against L1 quotes and trades </functions_fin/BacktestL1Trades>`
      - Backtest a two-sided market maker against top-of-book quotes with a trade tape driving the fills, into a costed equity curve.
-   * - :doc:`Backtest a directional strategy on OHLC bars </functions_fin/BacktestOHLC>`
-     - Backtest a directional target-position strategy on OHLC bars, with market and limit orders, into a costed equity curve.
-   * - :doc:`Backtest a two-sided market maker on OHLC bars </functions_fin/BacktestOHLCMaker>`
-     - Backtest a two-sided market maker on OHLC bars, posting resting bids and asks that fill when the bar's range reaches them.
+   * - :doc:`Backtest a two-sided order poster on OHLC bars </functions_fin/BacktestOHLCOrders>`
+     - Backtest a two-sided order poster on OHLC bars, posting resting bids and asks that fill when the bar's range reaches them.
+   * - :doc:`Backtest a target-position strategy on OHLC bars </functions_fin/BacktestOHLCTarget>`
+     - Backtest a target-position strategy on OHLC bars, executing market orders at the next bar's open (causal, no manual lag).
+   * - :doc:`Backtest a target position on a value series </functions_fin/BacktestPriceTarget>`
+     - Backtest a target position against a value series (price/mark) into a costed mark-to-market equity curve.
    * - :doc:`Running report columns for a backtest </functions_fin/BacktestReport>`
      - Turn a backtest engine's [equity, pnl, position, cost] into running drawdown, cost, turnover, trades, and Sharpe.
-   * - :doc:`Backtest a position signal </functions_fin/BacktestSignal>`
-     - Backtest a position signal against a price series into a costed mark-to-market equity curve.
    * - :doc:`Backtest a resting limit order against the trade tape </functions_fin/BacktestTrades>`
      - Backtest a resting limit order against the trade tape, filling on crossing prints, into a costed equity curve.
    * - :doc:`Backtest a market maker against the trade tape </functions_fin/BacktestTradesMaker>`
@@ -78,10 +78,10 @@ Simulate a strategy against market data into a costed equity curve: signals, bar
    /functions_fin/backtest_report
    /functions_fin/BacktestL1
    /functions_fin/BacktestL1Trades
-   /functions_fin/BacktestOHLC
-   /functions_fin/BacktestOHLCMaker
+   /functions_fin/BacktestOHLCOrders
+   /functions_fin/BacktestOHLCTarget
+   /functions_fin/BacktestPriceTarget
    /functions_fin/BacktestReport
-   /functions_fin/BacktestSignal
    /functions_fin/BacktestTrades
    /functions_fin/BacktestTradesMaker
    /functions_fin/choosing_a_backtest_engine

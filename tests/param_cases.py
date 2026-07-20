@@ -109,7 +109,9 @@ _NO_ARG_AUTO_EXCLUDE = {
     # 4-input, 7-output backtest report node - tested in test_backtest.py
     'BacktestReport',
     # 8-input two-sided market-making engine - tested in test_backtest.py
-    'BacktestOHLCMaker',
+    'BacktestOHLCOrders',
+    # 5-input deferred target engine - tested in test_backtest.py
+    'BacktestOHLCTarget',
     # 6-input two-sided tape market-making engine - tested in test_backtest.py
     'BacktestTradesMaker',
 }
