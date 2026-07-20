@@ -130,7 +130,7 @@ beyond the displayed size only under the `tick_size` slippage assumption.
 
     out = BacktestL1TradesOrders(fill="touch", maker_fee=-0.0001, participation_ratio=0.3,
                            max_position=15.0, min_position=-15.0)(
-        bid, ask, five, five, bid, one, ask, one, trade_price, trade_size)
+        bid, one, ask, one, bid, ask, five, five, trade_price, trade_size)
     eq, pos = out[:, 0], out[:, 2]
 
     fig = make_subplots(rows=3, cols=1, shared_xaxes=True, row_heights=[0.4, 0.3, 0.3],
