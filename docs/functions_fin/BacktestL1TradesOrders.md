@@ -1,5 +1,5 @@
 ---
-name: BacktestL1Trades
+name: BacktestL1TradesOrders
 title: Backtest a market maker against L1 quotes and trades
 implementation_family: fin
 topics:
@@ -54,29 +54,29 @@ parameters:
   description: Inventory floor; sell fills are capped so the position never falls below it.
 nan_policy: ignore
 see_also:
-- BacktestL1
-- BacktestTrades
+- BacktestL1Orders
+- BacktestTradesOrders
 - BacktestOHLCTarget
 - backtest_report
 ---
 
-# `BacktestL1Trades`
+# `BacktestL1TradesOrders`
 
 ## Description
 
-`BacktestL1Trades` is the preferred market-making backtest: it takes both the
+`BacktestL1TradesOrders` is the preferred market-making backtest: it takes both the
 top-of-book quote and the trade tape, so fills come from actual executions rather
-than inferred from quote-size changes. Each event carries the market quote
-`(bid, ask, bid_size, ask_size)`, the strategy's own quote
-`(my_bid, my_bid_size, my_ask, my_ask_size)`, and a print `(trade_price,
-trade_size)` (align the three streams with `combine_latest` upstream).
+than inferred from quote-size changes. Each event carries the strategy's own quote
+`(bid_price, bid_size, ask_price, ask_size)`, the market top-of-book
+`(market_bid, market_ask, market_bid_size, market_ask_size)`, and a print
+`(trade_price, trade_size)` (align the three streams with `combine_latest` upstream).
 
 Quotes mark the position (to the mid) and seed context; **trades drive the
-fills**. A sell-print through `my_bid` fills the full remaining, a sell-print at
-`my_bid` fills `min(remaining, participation_ratio * trade_size)`, both maker fills
-at `my_bid` paying `maker_fee`. A quote that crosses your resting price with no
-explaining trade is the run-over fallback (a full maker fill), and a quote
-submitted already crossing the spread is a taker (fills at the market, walking
+fills**. A sell-print through `bid_price` fills the full remaining, a sell-print at
+`bid_price` fills `min(remaining, participation_ratio * trade_size)`, both maker
+fills at `bid_price` paying `maker_fee`. A market quote that crosses your resting
+price with no explaining trade is the run-over fallback (a full maker fill), and a
+quote submitted already crossing the spread is a taker (fills at the market, walking
 `tick_size` for the overflow, paying `taker_fee`). The sell side is symmetric.
 Fills are capped to `[min_position, max_position]`.
 
@@ -85,8 +85,10 @@ not forward-filled**. A `NaN` trade is a quote-only update (mark, no fill), whic
 is `nan_policy: ignore`, so each real trade appears on exactly one row and fills at
 most once. There is no double-counting and no fill-versus-cancel ambiguity.
 
-Inputs are `(bid, ask, bid_size, ask_size, my_bid, my_bid_size, my_ask,
-my_ask_size, trade_price, trade_size)`. It emits the four positional columns shared
+Inputs are `(bid_price, bid_size, ask_price, ask_size, market_bid, market_ask,
+market_bid_size, market_ask_size, trade_price, trade_size)`, where the first four
+slots carry the strategy's own resting quotes and the next four carry the top-of-book
+market quote. It emits the four positional columns shared
 by the backtest family: `0 = equity` (cumulative dollar PnL), `1 = pnl` (per
 event), `2 = position`, and `3 = cost` (per event). A `NaN` in the market quote
 skips the event; a `NaN` own-quote price means that side is not quoted.
@@ -110,7 +112,7 @@ beyond the displayed size only under the `tick_size` slippage assumption.
     import numpy as np
     import plotly.graph_objects as go
     from plotly.subplots import make_subplots
-    from screamer import BacktestL1Trades
+    from screamer import BacktestL1TradesOrders
 
     rng = np.random.default_rng(1)
     n = 600
@@ -126,7 +128,7 @@ beyond the displayed size only under the `tick_size` slippage assumption.
     trade_price = np.where(at_ask, ask, bid)
     trade_size = np.abs(rng.standard_normal(n)) + 0.5
 
-    out = BacktestL1Trades(fill="touch", maker_fee=-0.0001, participation_ratio=0.3,
+    out = BacktestL1TradesOrders(fill="touch", maker_fee=-0.0001, participation_ratio=0.3,
                            max_position=15.0, min_position=-15.0)(
         bid, ask, five, five, bid, one, ask, one, trade_price, trade_size)
     eq, pos = out[:, 0], out[:, 2]
@@ -136,7 +138,7 @@ beyond the displayed size only under the `tick_size` slippage assumption.
     fig.add_trace(go.Scatter(y=mid, name='mid', line=dict(color='gray')), row=1, col=1)
     fig.add_trace(go.Scatter(y=eq, name='equity', line=dict(color='steelblue')), row=2, col=1)
     fig.add_trace(go.Scatter(y=pos, name='inventory', line=dict(color='seagreen')), row=3, col=1)
-    fig.update_layout(title='BacktestL1Trades: fills driven by the trade tape, inventory bounded',
+    fig.update_layout(title='BacktestL1TradesOrders: fills driven by the trade tape, inventory bounded',
                       yaxis=dict(title='mid'), yaxis2=dict(title='equity ($)'),
                       yaxis3=dict(title='inventory'),
                       margin=dict(l=20, r=20, t=60, b=20),

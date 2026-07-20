@@ -1,5 +1,5 @@
-#ifndef SCREAMER_BACKTEST_L1_TRADES_H
-#define SCREAMER_BACKTEST_L1_TRADES_H
+#ifndef SCREAMER_BACKTEST_L1TRADES_ORDERS_H
+#define SCREAMER_BACKTEST_L1TRADES_ORDERS_H
 
 #include <algorithm>
 #include <limits>
@@ -12,17 +12,17 @@
 
 namespace screamer {
 
-    // BacktestL1Trades: 10 -> 4. The preferred market-making engine: quotes mark the
+    // BacktestL1TradesOrders: 10 -> 4. The preferred market-making engine: quotes mark the
     // position and seed context, TRADES drive passive fills (unambiguous execution
     // events), and a quote cross with no explaining trade is the run-over fallback.
-    // Inputs (bid, ask, bid_size, ask_size, my_bid, my_bid_size, my_ask, my_ask_size,
-    // trade_price, trade_size). Trades are NOT forward-filled: a NaN trade is a
-    // quote-only update (mark, no fill), which is nan_policy: ignore, so each real
-    // trade fills at most once. Positions mark to the mid. Outputs
-    // [equity, pnl, position, cost].
-    class BacktestL1Trades : public FunctorBase<BacktestL1Trades, 10, 4> {
+    // Inputs (bid_price, bid_size, ask_price, ask_size, market_bid, market_ask,
+    // market_bid_size, market_ask_size, trade_price, trade_size). Trades are NOT
+    // forward-filled: a NaN trade is a quote-only update (mark, no fill), which is
+    // nan_policy: ignore, so each real trade fills at most once. Positions mark to
+    // the mid. Outputs [equity, pnl, position, cost].
+    class BacktestL1TradesOrders : public FunctorBase<BacktestL1TradesOrders, 10, 4> {
     public:
-        BacktestL1Trades(double maker_fee = 0.0, double taker_fee = 0.0,
+        BacktestL1TradesOrders(double maker_fee = 0.0, double taker_fee = 0.0,
                          const std::string& fill = "touch",
                          double participation_ratio = 1.0, double tick_size = 0.0,
                          double max_position = std::numeric_limits<double>::infinity(),
@@ -42,24 +42,29 @@ namespace screamer {
         void reset() override { account_.reset(); bid_passive_ = false; ask_passive_ = false; }
 
         ResultTuple call(const InputArray& inputs) override {
-            const double bid = inputs[0], ask = inputs[1];
-            const double bid_size = inputs[2], ask_size = inputs[3];
-            const double my_bid = inputs[4], my_bid_size = inputs[5];
-            const double my_ask = inputs[6], my_ask_size = inputs[7];
+            // Own quote (strategy's resting orders).
+            const double my_bid = inputs[0], my_bid_size = inputs[1];
+            const double my_ask = inputs[2], my_ask_size = inputs[3];
+            // Market L1 (top of book).
+            const double market_bid = inputs[4], market_ask = inputs[5];
+            const double market_bid_size = inputs[6], market_ask_size = inputs[7];
+            // Trade tape.
             const double trade_price = inputs[8], trade_size = inputs[9];
-            if (isnan2(bid) || isnan2(ask) || isnan2(bid_size) || isnan2(ask_size)) {
+
+            if (isnan2(market_bid) || isnan2(market_ask) ||
+                isnan2(market_bid_size) || isnan2(market_ask_size)) {
                 const double nan = std::numeric_limits<double>::quiet_NaN();
                 return std::make_tuple(nan, nan, nan, nan);   // ignore
             }
-            const double mid = 0.5 * (bid + ask);
+            const double mid = 0.5 * (market_bid + market_ask);
             const bool has_trade = !isnan2(trade_price) && !isnan2(trade_size);
 
             double eq = 0, pnl = 0, position = account_.position(), cost = 0; bool did = false;
 
-            // Buy side.
+            // Buy side: my resting bid vs the market ask.
             const double room_buy = std::max(max_position_ - account_.position(), 0.0);
             double b_dpos = 0.0, b_price = my_bid; bool b_taker = false;
-            resolve_side(true, my_bid, my_bid_size, ask, ask_size, room_buy,
+            resolve_side(true, my_bid, my_bid_size, market_ask, market_ask_size, room_buy,
                          has_trade, trade_price, trade_size, bid_passive_,
                          b_dpos, b_price, b_taker);
             if (b_dpos != 0.0) {
@@ -68,10 +73,10 @@ namespace screamer {
                 eq = e; pnl += p; position = pos; cost += c; did = true;
             }
 
-            // Sell side.
+            // Sell side: my resting ask vs the market bid.
             const double room_sell = std::max(account_.position() - min_position_, 0.0);
             double s_dpos = 0.0, s_price = my_ask; bool s_taker = false;
-            resolve_side(false, my_ask, my_ask_size, bid, bid_size, room_sell,
+            resolve_side(false, my_ask, my_ask_size, market_bid, market_bid_size, room_sell,
                          has_trade, trade_price, trade_size, ask_passive_,
                          s_dpos, s_price, s_taker);
             if (s_dpos != 0.0) {
@@ -156,4 +161,4 @@ namespace screamer {
 
 } // namespace screamer
 
-#endif // SCREAMER_BACKTEST_L1_TRADES_H
+#endif // SCREAMER_BACKTEST_L1TRADES_ORDERS_H
