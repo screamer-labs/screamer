@@ -10,7 +10,7 @@ All notable changes to this project are documented in this file.
 * Backtesting: engines are renamed and reorganised into a
   `Backtest<DataModel><OrderDef>` grid. The data model (Price, OHLC, Trades,
   L1, L1Trades) names the market feed; the order definition (Target, Orders)
-  names the strategy's output contract. Eight engines fill the six useful
+  names the strategy's output contract. Eight engines fill eight of the ten
   cells of the 5x2 matrix; `BacktestPriceOrders` and `BacktestL1TradesTarget`
   are intentionally not provided (see `choosing_a_backtest_engine`).
 * **Target engines** (`BacktestPriceTarget`, `BacktestOHLCTarget`,
