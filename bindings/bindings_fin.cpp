@@ -18,7 +18,8 @@
 #include "screamer/backtest_ohlc_target.h"
 #include "screamer/backtest_trades_orders.h"
 #include "screamer/backtest_trades_target.h"
-#include "screamer/backtest_l1.h"
+#include "screamer/backtest_l1_orders.h"
+#include "screamer/backtest_l1_target.h"
 #include "screamer/backtest_l1_trades.h"
 #include "screamer/backtest_report.h"
 #include "screamer/rolling_downside_deviation.h"
@@ -214,15 +215,23 @@ void init_bindings_fin(py::module& m) {
         .def("__call__", &screamer::BacktestTradesOrders::handle_input)
         .def("reset", &screamer::BacktestTradesOrders::reset, "Reset.");
 
-    py::class_<screamer::BacktestL1, screamer::EvalOp>(m, "BacktestL1")
+    py::class_<screamer::BacktestL1Orders, screamer::EvalOp>(m, "BacktestL1Orders")
         .def(py::init<double, double, const std::string&, double, double, double, double>(),
              py::arg("maker_fee") = 0.0, py::arg("taker_fee") = 0.0,
              py::arg("fill") = "breach", py::arg("participation_ratio") = 1.0,
              py::arg("tick_size") = 0.0,
-             py::arg("max_position") = std::numeric_limits<double>::infinity(),
-             py::arg("min_position") = -std::numeric_limits<double>::infinity())
-        .def("__call__", &screamer::BacktestL1::handle_input)
-        .def("reset", &screamer::BacktestL1::reset, "Reset.");
+             py::arg("min_position") = -std::numeric_limits<double>::infinity(),
+             py::arg("max_position") = std::numeric_limits<double>::infinity())
+        .def("__call__", &screamer::BacktestL1Orders::handle_input)
+        .def("reset", &screamer::BacktestL1Orders::reset, "Reset.");
+
+    py::class_<screamer::BacktestL1Target, screamer::EvalOp>(m, "BacktestL1Target")
+        .def(py::init<double, double, double, double>(),
+             py::arg("taker_fee") = 0.0, py::arg("tick_size") = 0.0,
+             py::arg("min_position") = -std::numeric_limits<double>::infinity(),
+             py::arg("max_position") = std::numeric_limits<double>::infinity())
+        .def("__call__", &screamer::BacktestL1Target::handle_input)
+        .def("reset", &screamer::BacktestL1Target::reset, "Reset.");
 
     py::class_<screamer::BacktestL1Trades, screamer::EvalOp>(m, "BacktestL1Trades")
         .def(py::init<double, double, const std::string&, double, double, double, double>(),

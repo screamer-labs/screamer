@@ -1133,8 +1133,8 @@
       }
     ]
   },
-  "BacktestL1": {
-    "name": "BacktestL1",
+  "BacktestL1Orders": {
+    "name": "BacktestL1Orders",
     "title": "Backtest a two-sided market maker against L1 quotes",
     "implementation_family": "fin",
     "topics": [
@@ -1191,31 +1191,98 @@
         "description": "Price step a marketable order walks for the size beyond the displayed quote."
       },
       {
+        "name": "min_position",
+        "type": "float",
+        "default": -Infinity,
+        "description": "Inventory floor; sell fills are capped so the position never falls below it."
+      },
+      {
         "name": "max_position",
         "type": "float",
         "default": Infinity,
         "description": "Inventory ceiling; buy fills are capped so the position never exceeds it."
+      }
+    ],
+    "nan_policy": "ignore",
+    "see_also": [
+      "BacktestL1Target",
+      "BacktestL1Trades",
+      "BacktestTradesOrders",
+      "BacktestOHLCTarget",
+      "backtest_report"
+    ],
+    "details": "## Description\n\n`BacktestL1Orders` is a two-sided market-making backtest against a top-of-book (L1)\nstream. Each event carries the strategy's own quote\n`(bid_price, bid_size, ask_price, ask_size)` and the market's current book\n`(market_bid, market_ask, market_bid_size, market_ask_size)`. Both sides rest, and\neither or both can be lifted on one event, so the position is whatever the market\nfills.\n\nFills follow where the market moves relative to your quote. When the market\n`ask` trades **through** `bid_price` (`market_ask < bid_price`), the resting buy is\nrun over and fills its **full remaining** at `bid_price`, a maker fill paying\n`maker_fee`. In `\"touch\"` mode a **lock** (`market_ask == bid_price`) also fills\nonce on entry, for `min(remaining, participation_ratio * market_ask_size)` at\n`bid_price`; further size changes at the same locked price are ignored (a static\nquote cannot be told from a cancel, so it does not re-fill). The `\"breach\"` default\nkeeps only the through case. A quote that appears **already crossing** the spread\n(`bid_price >= market_ask` on submission) is a taker: it fills its full size at the\nmarket, walking `tick_size` for the part beyond the displayed quote, and pays\n`taker_fee`. The sell side is symmetric. Fills are capped so the position stays\nwithin `[min_position, max_position]` (unbounded by default). Positions mark to the\nmid.\n\nInputs are `(bid_price, bid_size, ask_price, ask_size, market_bid, market_ask,\nmarket_bid_size, market_ask_size)`. It emits the four positional columns shared by\nthe backtest family: `0 = equity` (cumulative dollar PnL), `1 = pnl` (per event),\n`2 = position`, and `3 = cost` (per event). A `NaN` in any market quote field skips\nthe event (`nan_policy: ignore`); a `NaN` own-quote price means that side is not\nquoted. [`backtest_report`](backtest_report.md) summarizes the resulting equity\ncurve.\n\nFor a target-position variant that takes the book immediately instead of posting\na resting order, see [`BacktestL1Target`](BacktestL1Target.md). When a trade feed\nis available, [`BacktestL1Trades`](BacktestL1Trades.md) uses real prints to drive\nfills rather than quote-level heuristics.\n\n## Limitations\n\nQuotes-only fills are a heuristic: a size change at a static price is fill,\ncancel, and re-quote all at once, and cannot be told apart. The `\"breach\"` default\nfills only when the market trades through your quote, so it can **under-fill**.\n`\"touch\"` adds a participation partial once per lock episode and can **over-fill**\nwhen a lock's size came from cancels rather than trades. Prefer\n[`BacktestL1Trades`](BacktestL1Trades.md) when a trade feed is available: real\ntrades drive the fills and remove this ambiguity. Orders are counterfactual (zero\nvolume, no market impact); a marketable order fills beyond the displayed size only\nunder the `tick_size` slippage assumption.",
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage plot",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import BacktestL1Orders, Lag\n\nrng = np.random.default_rng(4)\nn = 600\nt = np.arange(n)\ntick = 0.5\n# a discrete tick-grid, mean-reverting mid (real books are gridded, so locks occur)\nmid = np.round((100 + 3 * np.sin(2 * np.pi * t / n * 4) + rng.standard_normal(n) * 0.4) / tick) * tick\nmarket_bid, market_ask = mid - tick, mid + tick\nfive, one = np.full(n, 5.0), np.ones(n)\n\n# rest last event's touch on both sides; the market trading back through fills it.\n# touch mode captures a participation share on each lock; inventory bounded.\nmy_bid = np.nan_to_num(Lag(1)(market_bid), nan=market_bid[0])\nmy_ask = np.nan_to_num(Lag(1)(market_ask), nan=market_ask[0])\nout = BacktestL1Orders(fill=\"touch\", maker_fee=-0.0001, participation_ratio=0.5,\n                       max_position=8.0, min_position=-8.0)(\n    my_bid, one, my_ask, one,\n    market_bid, market_ask, five, five)\neq, pos = out[:, 0], out[:, 2]\n\nfig = make_subplots(rows=3, cols=1, shared_xaxes=True, row_heights=[0.4, 0.3, 0.3],\n                    vertical_spacing=0.06)\nfig.add_trace(go.Scatter(y=mid, name='mid (gridded)', line=dict(color='gray')), row=1, col=1)\nfig.add_trace(go.Scatter(y=eq, name='equity', line=dict(color='steelblue')), row=2, col=1)\nfig.add_trace(go.Scatter(y=pos, name='inventory', line=dict(color='mediumpurple')), row=3, col=1)\nfig.update_layout(title='BacktestL1Orders: a quotes-only maker (heuristic fills), inventory capped',\n                  yaxis=dict(title='mid'), yaxis2=dict(title='equity ($)'),\n                  yaxis3=dict(title='inventory'),\n                  margin=dict(l=20, r=20, t=60, b=20),\n                  legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1))\nfig.show()"
+      }
+    ]
+  },
+  "BacktestL1Target": {
+    "name": "BacktestL1Target",
+    "title": "Backtest a target-position strategy against the L1 book",
+    "implementation_family": "fin",
+    "topics": [
+      "backtesting"
+    ],
+    "tags": [
+      "backtest",
+      "pnl",
+      "mark to market",
+      "equity curve",
+      "l1",
+      "top of book",
+      "market order",
+      "transaction cost",
+      "strategy",
+      "risk"
+    ],
+    "short": "Backtest a target-position strategy against the L1 book, taking each quote update as a market fill to reach the target immediately.",
+    "inputs": 5,
+    "outputs": 4,
+    "parameters": [
+      {
+        "name": "taker_fee",
+        "type": "float",
+        "default": 0.0,
+        "description": "Fractional fee charged on each taker fill."
+      },
+      {
+        "name": "tick_size",
+        "type": "float",
+        "default": 0.0,
+        "min": 0.0,
+        "description": "Price step a marketable order walks for the size beyond the displayed quote."
       },
       {
         "name": "min_position",
         "type": "float",
         "default": -Infinity,
-        "description": "Inventory floor; sell fills are capped so the position never falls below it."
+        "description": "Inventory floor. The target is clamped to [min_position, max_position] before the fill size is computed."
+      },
+      {
+        "name": "max_position",
+        "type": "float",
+        "default": Infinity,
+        "description": "Inventory ceiling. The target is clamped to [min_position, max_position] before the fill size is computed."
       }
     ],
     "nan_policy": "ignore",
     "see_also": [
+      "BacktestL1Orders",
       "BacktestL1Trades",
-      "BacktestTrades",
+      "BacktestTradesTarget",
       "BacktestOHLCTarget",
       "backtest_report"
     ],
-    "details": "## Description\n\n`BacktestL1` is a two-sided market-making backtest against a top-of-book (L1)\nstream. Each event carries the market quote `(bid, ask, bid_size, ask_size)` and\nthe strategy's own quote `(my_bid, my_bid_size, my_ask, my_ask_size)` (align your\nquote stream to the market with `combine_latest` upstream). Both sides rest, and\neither or both can be lifted on one event, so the position is whatever the market\nfills.\n\nFills follow where the market moves relative to your quote. When the market\n`ask` trades **through** `my_bid` (`ask < my_bid`), the resting buy is run over\nand fills its **full remaining** at `my_bid`, a maker fill paying `maker_fee`. In\n`\"touch\"` mode a **lock** (`ask == my_bid`) also fills once on entry, for\n`min(remaining, participation_ratio * ask_size)` at `my_bid`; further size changes\nat the same locked price are ignored (a static quote cannot be told from a cancel,\nso it does not re-fill). The `\"breach\"` default keeps only the through case. A\nquote that appears **already crossing** the spread (`my_bid >= ask` on submission)\nis a taker: it fills its full size at the market, walking `tick_size` for the part\nbeyond the displayed quote, and pays `taker_fee`. The sell side is symmetric.\nFills are capped so the position stays within `[min_position, max_position]`\n(unbounded by default). Positions mark to the mid.\n\nInputs are `(bid, ask, bid_size, ask_size, my_bid, my_bid_size, my_ask,\nmy_ask_size)`. It emits the four positional columns shared by the backtest family:\n`0 = equity` (cumulative dollar PnL), `1 = pnl` (per event), `2 = position`, and\n`3 = cost` (per event). A `NaN` in the market quote skips the event\n(`nan_policy: ignore`); a `NaN` own-quote price means that side is not quoted.\n[`backtest_report`](backtest_report.md) summarizes the resulting equity curve.\n\n## Limitations\n\nQuotes-only fills are a heuristic: a size change at a static price is fill,\ncancel, and re-quote all at once, and cannot be told apart. The `\"breach\"` default\nfills only when the market trades through your quote, so it can **under-fill**.\n`\"touch\"` adds a participation partial once per lock episode and can **over-fill**\nwhen a lock's size came from cancels rather than trades. Prefer\n[`BacktestL1Trades`](BacktestL1Trades.md) when a trade feed is available: real\ntrades drive the fills and remove this ambiguity. Orders are counterfactual (zero\nvolume, no market impact); a marketable order fills beyond the displayed size only\nunder the `tick_size` slippage assumption.",
+    "details": "## Description\n\n`BacktestL1Target` is a lean directional backtest on the L1 quote stream. It is\nimmediate: the `target_position` you pass on event t executes on the same quote\nupdate, unlike `BacktestOHLCTarget` which defers to the next bar's open.\n\nEach event the engine computes the desired trade as\n`clamp(target, min_position, max_position) - current_position` and takes it as a\nmarketable (taker) order against the displayed L1 book. A buy order sweeps the ask\nside; a sell order sweeps the bid side. The fill pays `taker_fee` on the traded\nnotional. If the displayed size is smaller than the desired size, the overflow is\nfilled at `ask + tick_size` (buy) or `bid - tick_size` (sell). Positions mark to\nthe mid. If the target equals the current position, no order is placed and the\nevent is a mark-only step.\n\nInputs are `(target_position, market_bid, market_ask, market_bid_size,\nmarket_ask_size)`. Outputs are the four standard backtest columns: `0 = equity`\n(cumulative dollar PnL), `1 = pnl` (per event), `2 = position`, and `3 = cost`\n(per event). A `NaN` in any market field skips the event and returns all-NaN\n(`nan_policy: ignore`). [`backtest_report`](backtest_report.md) summarizes the\nresulting equity curve.\n\nThe optional `min_position` and `max_position` parameters cap the inventory. The\ntarget is clamped before the order size is computed, so the engine never carries a\nposition outside that range.\n\nFor a two-sided resting-order variant, see\n[`BacktestL1Orders`](BacktestL1Orders.md). When a trade feed is available,\n[`BacktestTradesTarget`](BacktestTradesTarget.md) uses real prints instead of\nquote updates.\n\n## Limitations\n\nThe fill model is optimistic: the order executes immediately at the displayed book\nprice with no queue or market impact beyond the `tick_size` overflow slippage.\nOrders are counterfactual (zero market impact), so the book is unaffected by the\nstrategy's activity.",
     "examples": [
       {
         "language": "python",
         "caption": "Usage plot",
-        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import BacktestL1, Lag\n\nrng = np.random.default_rng(4)\nn = 600\nt = np.arange(n)\ntick = 0.5\n# a discrete tick-grid, mean-reverting mid (real books are gridded, so locks occur)\nmid = np.round((100 + 3 * np.sin(2 * np.pi * t / n * 4) + rng.standard_normal(n) * 0.4) / tick) * tick\nbid, ask = mid - tick, mid + tick\nfive, one = np.full(n, 5.0), np.ones(n)\n\n# rest last event's touch on both sides; the market trading back through fills it.\n# touch mode captures a participation share on each lock; inventory bounded.\nmy_bid = np.nan_to_num(Lag(1)(bid), nan=bid[0])\nmy_ask = np.nan_to_num(Lag(1)(ask), nan=ask[0])\nout = BacktestL1(fill=\"touch\", maker_fee=-0.0001, participation_ratio=0.5,\n                 max_position=8.0, min_position=-8.0)(\n    bid, ask, five, five, my_bid, one, my_ask, one)\neq, pos = out[:, 0], out[:, 2]\n\nfig = make_subplots(rows=3, cols=1, shared_xaxes=True, row_heights=[0.4, 0.3, 0.3],\n                    vertical_spacing=0.06)\nfig.add_trace(go.Scatter(y=mid, name='mid (gridded)', line=dict(color='gray')), row=1, col=1)\nfig.add_trace(go.Scatter(y=eq, name='equity', line=dict(color='steelblue')), row=2, col=1)\nfig.add_trace(go.Scatter(y=pos, name='inventory', line=dict(color='mediumpurple')), row=3, col=1)\nfig.update_layout(title='BacktestL1: a quotes-only maker (heuristic fills), inventory capped',\n                  yaxis=dict(title='mid'), yaxis2=dict(title='equity ($)'),\n                  yaxis3=dict(title='inventory'),\n                  margin=dict(l=20, r=20, t=60, b=20),\n                  legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1))\nfig.show()"
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import BacktestL1Target\n\nrng = np.random.default_rng(6)\nn = 400\nt = np.arange(n)\nmid = 100 + 2 * np.sin(2 * np.pi * t / n * 4) + np.cumsum(rng.standard_normal(n) * 0.1)\ntick = 0.1\nmarket_bid, market_ask = mid - tick, mid + tick\nsize = np.ones(n)\n\n# a simple mean-reversion signal: go long when cheap, short when rich\nsignal = np.sign(100 - mid)\n\nout = BacktestL1Target(taker_fee=0.0002, max_position=3.0, min_position=-3.0)(\n    signal, market_bid, market_ask, size, size)\neq, pos = out[:, 0], out[:, 2]\n\nfig = make_subplots(rows=3, cols=1, shared_xaxes=True, row_heights=[0.4, 0.3, 0.3],\n                    vertical_spacing=0.06)\nfig.add_trace(go.Scatter(y=mid, name='mid', line=dict(color='gray')), row=1, col=1)\nfig.add_trace(go.Scatter(y=eq, name='equity', line=dict(color='steelblue')), row=2, col=1)\nfig.add_trace(go.Scatter(y=pos, name='position', line=dict(color='darkorange', shape='hv')),\n              row=3, col=1)\nfig.update_layout(title='BacktestL1Target: immediate taker fills on each L1 quote update',\n                  yaxis=dict(title='mid'), yaxis2=dict(title='equity ($)'),\n                  yaxis3=dict(title='position'),\n                  margin=dict(l=20, r=20, t=60, b=20),\n                  legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1))\nfig.show()"
       }
     ]
   },

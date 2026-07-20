@@ -53,8 +53,10 @@ Simulate a strategy against market data into a costed equity curve: signals, bar
      - Description
    * - :doc:`backtest_report </functions_fin/backtest_report>`
      - Running statistics and a summary for a backtest engine's output.
-   * - :doc:`Backtest a two-sided market maker against L1 quotes </functions_fin/BacktestL1>`
+   * - :doc:`Backtest a two-sided market maker against L1 quotes </functions_fin/BacktestL1Orders>`
      - Backtest a two-sided market maker against a top-of-book (L1) quote stream, into a costed equity curve.
+   * - :doc:`Backtest a target-position strategy against the L1 book </functions_fin/BacktestL1Target>`
+     - Backtest a target-position strategy against the L1 book, taking each quote update as a market fill to reach the target immediately.
    * - :doc:`Backtest a market maker against L1 quotes and trades </functions_fin/BacktestL1Trades>`
      - Backtest a two-sided market maker against top-of-book quotes with a trade tape driving the fills, into a costed equity curve.
    * - :doc:`Backtest a two-sided order poster on OHLC bars </functions_fin/BacktestOHLCOrders>`
@@ -76,7 +78,8 @@ Simulate a strategy against market data into a costed equity curve: signals, bar
    :hidden:
 
    /functions_fin/backtest_report
-   /functions_fin/BacktestL1
+   /functions_fin/BacktestL1Orders
+   /functions_fin/BacktestL1Target
    /functions_fin/BacktestL1Trades
    /functions_fin/BacktestOHLCOrders
    /functions_fin/BacktestOHLCTarget
