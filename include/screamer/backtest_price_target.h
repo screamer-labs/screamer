@@ -1,5 +1,5 @@
-#ifndef SCREAMER_BACKTEST_SIGNAL_H
-#define SCREAMER_BACKTEST_SIGNAL_H
+#ifndef SCREAMER_BACKTEST_PRICE_TARGET_H
+#define SCREAMER_BACKTEST_PRICE_TARGET_H
 
 #include <algorithm>
 #include <limits>
@@ -11,27 +11,28 @@
 
 namespace screamer {
 
-    // BacktestSignal: 2 -> 4. Backtest a position signal against a price series,
-    // marking to market and charging a taker cost. `signal` is the target
-    // position in units (sign is long / short / flat, any magnitude); `price` is
-    // the mark (mid). Each bar the position moves to the signal via a market
-    // order that crosses half of the fractional `spread` (a buy fills at
-    // price*(1 + spread/2), a sell at price*(1 - spread/2)) and pays the
-    // fractional `fee` on the traded notional. It emits four positional columns:
+    // BacktestPriceTarget: 2 -> 4. Backtest a target position against a value
+    // series (a price/mark); reaches a target position by taking liquidity.
+    // `signal` is the target position in units (sign is long / short / flat,
+    // any magnitude); `price` is the mark (mid). Each bar the position moves
+    // to the signal via a market order that crosses half of the fractional
+    // `spread` (a buy fills at price*(1 + spread/2), a sell at
+    // price*(1 - spread/2)) and pays the fractional `fee` on the traded
+    // notional. It emits four positional columns:
     //     0 = equity (cumulative dollar PnL), 1 = pnl (per-step),
     //     2 = position, 3 = cost (per-step).
-    // Causal: `signal_t` enters PnL only at t+1 (through the held position), so a
-    // future signal never changes a past row. Default spread = fee = 0 is
-    // frictionless. nan_policy: ignore - a NaN signal or price emits an all-NaN
-    // row and leaves the account untouched.
-    // The optional [min_position, max_position] cap clamps the target before any
-    // order is computed; signals outside the range are treated as if they were at
-    // the nearest boundary.
-    class BacktestSignal : public FunctorBase<BacktestSignal, 2, 4> {
+    // Causal: `signal_t` enters PnL only at t+1 (through the held position),
+    // so a future signal never changes a past row. Default spread = fee = 0 is
+    // frictionless. nan_policy: ignore - a NaN signal or price emits an
+    // all-NaN row and leaves the account untouched.
+    // The optional [min_position, max_position] cap clamps the target before
+    // any order is computed; signals outside the range are treated as if they
+    // were at the nearest boundary.
+    class BacktestPriceTarget : public FunctorBase<BacktestPriceTarget, 2, 4> {
     public:
-        BacktestSignal(double spread = 0.0, double fee = 0.0,
-                       double min_position = -std::numeric_limits<double>::infinity(),
-                       double max_position = std::numeric_limits<double>::infinity())
+        BacktestPriceTarget(double spread = 0.0, double fee = 0.0,
+                            double min_position = -std::numeric_limits<double>::infinity(),
+                            double max_position = std::numeric_limits<double>::infinity())
             : spread_(spread), fee_(fee),
               min_position_(min_position), max_position_(max_position)
         {
@@ -68,4 +69,4 @@ namespace screamer {
 
 } // namespace screamer
 
-#endif // SCREAMER_BACKTEST_SIGNAL_H
+#endif // SCREAMER_BACKTEST_PRICE_TARGET_H

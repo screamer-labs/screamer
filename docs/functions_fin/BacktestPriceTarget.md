@@ -1,6 +1,6 @@
 ---
-name: BacktestSignal
-title: Backtest a position signal
+name: BacktestPriceTarget
+title: Backtest a target position on a value series
 implementation_family: fin
 topics:
 - backtesting
@@ -12,7 +12,7 @@ tags:
 - transaction cost
 - strategy
 - risk
-short: "Backtest a position signal against a price series into a costed mark-to-market equity curve."
+short: "Backtest a target position against a value series (price/mark) into a costed mark-to-market equity curve."
 inputs: 2
 outputs: 4
 parameters:
@@ -40,14 +40,15 @@ see_also:
 - RollingInfoRatio
 ---
 
-# `BacktestSignal`
+# `BacktestPriceTarget`
 
 ## Description
 
-`BacktestSignal` turns a position signal into a costed profit-and-loss curve. The
-`signal` is the target position in units (its sign is long, short, or flat, any
-magnitude); `price` is the mark. Each bar the position moves to the signal via a
-market order that crosses half of the fractional `spread` (a buy fills at
+`BacktestPriceTarget` turns a target position on a value series (a price or mark)
+into a costed profit-and-loss curve by reaching that target through taker liquidity.
+The `signal` is the target position in units (its sign is long, short, or flat, any
+magnitude); `price` is the mark (mid). Each bar the position moves to the signal via
+a market order that crosses half of the fractional `spread` (a buy fills at
 `price * (1 + spread/2)`, a sell at `price * (1 - spread/2)`) and pays the
 fractional `fee` on the traded notional. With the default `spread = fee = 0` the
 backtest is frictionless.
@@ -77,7 +78,7 @@ the common statistics (drawdown, cost, turnover, trades, Sharpe) in one call.
     import numpy as np
     import plotly.graph_objects as go
     from plotly.subplots import make_subplots
-    from screamer import BacktestSignal, RollingMean
+    from screamer import BacktestPriceTarget, RollingMean
 
     rng = np.random.default_rng(0)
     n = 500
@@ -87,8 +88,8 @@ the common statistics (drawdown, cost, turnover, trades, Sharpe) in one call.
     slow = RollingMean(50)(price)
     signal = np.sign(np.nan_to_num(fast - slow))
 
-    free = BacktestSignal()(signal, price)[:, 0]                    # frictionless equity
-    costed = BacktestSignal(spread=0.001, fee=0.0002)(signal, price)
+    free = BacktestPriceTarget()(signal, price)[:, 0]                    # frictionless equity
+    costed = BacktestPriceTarget(spread=0.001, fee=0.0002)(signal, price)
     eq = costed[:, 0]
     dd = eq - np.maximum.accumulate(eq)                            # running dollar drawdown
 
@@ -100,7 +101,7 @@ the common statistics (drawdown, cost, turnover, trades, Sharpe) in one call.
                              line=dict(color='steelblue')), row=1, col=1)
     fig.add_trace(go.Scatter(y=dd, name='drawdown', line=dict(color='crimson'),
                              fill='tozeroy'), row=2, col=1)
-    fig.update_layout(title='BacktestSignal: a trend signal turned into a costed equity curve',
+    fig.update_layout(title='BacktestPriceTarget: a trend signal turned into a costed equity curve',
                       yaxis=dict(title='equity ($)'), yaxis2=dict(title='drawdown ($)'),
                       margin=dict(l=20, r=20, t=60, b=20),
                       legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1))

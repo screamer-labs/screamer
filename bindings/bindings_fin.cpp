@@ -13,7 +13,7 @@
 #include "screamer/rolling_spread.h"
 #include "screamer/drawdown.h"
 #include "screamer/max_drawdown.h"
-#include "screamer/backtest_signal.h"
+#include "screamer/backtest_price_target.h"
 #include "screamer/backtest_ohlc.h"
 #include "screamer/backtest_trades.h"
 #include "screamer/backtest_l1.h"
@@ -178,13 +178,13 @@ void init_bindings_fin(py::module& m) {
         .def("__call__", &screamer::RollingLinearRegression::handle_input)
         .def("reset", &screamer::RollingLinearRegression::reset, "Reset.");
 
-    py::class_<screamer::BacktestSignal, screamer::EvalOp>(m, "BacktestSignal")
+    py::class_<screamer::BacktestPriceTarget, screamer::EvalOp>(m, "BacktestPriceTarget")
         .def(py::init<double, double, double, double>(),
              py::arg("spread") = 0.0, py::arg("fee") = 0.0,
              py::arg("min_position") = -std::numeric_limits<double>::infinity(),
              py::arg("max_position") = std::numeric_limits<double>::infinity())
-        .def("__call__", &screamer::BacktestSignal::handle_input)
-        .def("reset", &screamer::BacktestSignal::reset, "Reset.");
+        .def("__call__", &screamer::BacktestPriceTarget::handle_input)
+        .def("reset", &screamer::BacktestPriceTarget::reset, "Reset.");
 
     py::class_<screamer::BacktestOHLC, screamer::EvalOp>(m, "BacktestOHLC")
         .def(py::init<double, double, double, const std::string&, double, double>(),
