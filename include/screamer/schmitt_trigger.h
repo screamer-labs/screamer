@@ -12,10 +12,13 @@
 //   input < lower          ->  0.0  (low,  latched)
 //   lower <= input <= upper ->  previous output (no change)
 //
-// Until the first sample crosses either threshold the output is NaN
-// because the trigger has no prior state to latch. Subsequent NaN
-// inputs are skipped per the library's "ignore" NaN policy: output is
-// NaN at that index and the latched state is left untouched.
+// Until the first sample crosses either threshold the output holds the
+// ``initial`` latch seed. The default is 0.0 (the low state), so a
+// signal that starts inside the dead band reads low rather than NaN.
+// Pass ``initial=1.0`` to start high, or ``initial=NaN`` to leave the
+// output undefined until the first crossing. A NaN input is skipped per
+// the library's "ignore" NaN policy: output is NaN at that index and the
+// latched state is left untouched.
 //
 // O(1) per step. One scalar of state.
 
@@ -28,8 +31,8 @@ namespace screamer {
 
 class SchmittTrigger : public ScreamerBase {
 public:
-    SchmittTrigger(double lower, double upper)
-        : lower_(lower), upper_(upper)
+    SchmittTrigger(double lower, double upper, double initial = 0.0)
+        : lower_(lower), upper_(upper), initial_(initial)
     {
         if (!(lower < upper)) {
             throw std::invalid_argument(
@@ -38,11 +41,15 @@ public:
         if (isnan2(lower) || isnan2(upper)) {
             throw std::invalid_argument("lower and upper must be finite.");
         }
+        if (!(initial == 0.0 || initial == 1.0 || isnan2(initial))) {
+            throw std::invalid_argument(
+                "initial must be 0.0, 1.0, or NaN.");
+        }
         reset();
     }
 
     void reset() override {
-        output_ = std::numeric_limits<double>::quiet_NaN();
+        output_ = initial_;
     }
 
 private:
@@ -60,6 +67,7 @@ private:
 
     const double lower_;
     const double upper_;
+    const double initial_;
     double output_ = std::numeric_limits<double>::quiet_NaN();
 };
 

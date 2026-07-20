@@ -24,6 +24,12 @@ parameters:
   default: 1.0
   description: Upper threshold. The output latches to 1.0 when the input rises strictly
     above this value. Must be strictly greater than `lower`.
+- name: initial
+  type: float
+  default: 0.0
+  description: Latch value held before the first threshold crossing. Must be 0.0 (low),
+    1.0 (high), or NaN (undefined until the first crossing). Defaults to 0.0, so a signal
+    that starts inside the dead band reads low rather than NaN.
 nan_policy: ignore
 ---
 
@@ -43,16 +49,17 @@ $$
 
 The window `[lower, upper]` is the *dead band*. Inside it the output is latched: whichever value (1.0 or 0.0) the trigger last committed to is held until the input crosses out the other side.
 
-Until the first input crosses either threshold the output is `NaN` - the trigger has no prior state to retain.
+Until the first input crosses either threshold the output holds the `initial` latch seed. The default is `0.0` (the low state), so a signal that starts inside the dead band reads low rather than `NaN`. Pass `initial=1.0` to start high, or `initial=nan` to leave the output undefined until the first crossing.
 
 ## Parameters
 
 - `lower`: lower threshold. Must be strictly less than `upper`. The output latches to `0.0` when the input falls below this value.
 - `upper`: upper threshold. The output latches to `1.0` when the input rises above this value.
+- `initial`: the latch value held before the first threshold crossing. Must be `0.0` (low), `1.0` (high), or `nan` (undefined until the first crossing). Defaults to `0.0`.
 
 ## Implementation Details
 
-O(1) per step. One scalar of state (the latched output). The constructor rejects `lower >= upper` and non-finite thresholds; `reset()` clears the latched state back to `NaN`.
+O(1) per step. One scalar of state (the latched output). The constructor rejects `lower >= upper`, non-finite thresholds, and an `initial` that is not `0.0`, `1.0`, or `nan`; `reset()` restores the latched state to `initial`.
 
 ## Examples
 

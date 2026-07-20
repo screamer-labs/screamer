@@ -58,8 +58,9 @@ void init_bindings_signal(py::module& m) {
 
     // SchmittTrigger: hysteresis comparator with latched binary output.
     py::class_<screamer::SchmittTrigger, screamer::ScreamerBase>(m, "SchmittTrigger")
-        .def(py::init<double, double>(),
-             py::arg("lower"), py::arg("upper"))
+        .def(py::init<double, double, double>(),
+             py::arg("lower"), py::arg("upper"), py::arg("initial") = 0.0)
         .def("__call__", &screamer::SchmittTrigger::operator(), py::arg("value"))
-        .def("reset", &screamer::SchmittTrigger::reset, "Reset to NaN latched state.");
+        .def("reset", &screamer::SchmittTrigger::reset,
+             "Reset to the initial latched state.");
 }

@@ -42,6 +42,14 @@ All notable changes to this project are documented in this file.
   market sell (never-fill buy).
 * Docs: `choosing_a_backtest_engine` grid overview page with the 5x2 matrix,
   order-definition interfaces, MARKET encoding table, and fill-cap rule.
+* `SchmittTrigger` gains an `initial` latch seed (`0.0`, `1.0`, or `NaN`).
+
+### Changed (breaking)
+
+* `SchmittTrigger` now seeds its latch with `initial` (default `0.0`, low) instead
+  of `NaN`, so a signal that starts inside the dead band reads low during warmup
+  rather than `NaN`. Pass `initial=nan` to restore the previous undefined-until-first-crossing
+  behavior; pass `initial=1.0` to start high.
 
 0.10.0 - 2026-07-18
 ------------

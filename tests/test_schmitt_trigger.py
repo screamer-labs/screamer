@@ -6,9 +6,11 @@ The trigger has three documented behaviors:
 2. Cross-below-lower -> latches 0.0.
 3. In the dead band ``[lower, upper]`` -> output unchanged.
 
-Plus the library-wide invariants: NaN input emits NaN with no state
-update, ``reset()`` returns the latched state to NaN, and streaming
-must match batch on identical input.
+Plus the ``initial`` latch seed (default 0.0, the low state) that the
+output holds until the first threshold crossing, and the library-wide
+invariants: NaN input emits NaN with no state update, ``reset()``
+returns the latched state to the initial seed, and streaming must match
+batch on identical input.
 """
 import math
 
@@ -32,10 +34,31 @@ def test_constructor_rejects_non_finite_thresholds():
         SchmittTrigger(lower=-1.0, upper=float("nan"))
 
 
-def test_initial_output_is_nan_until_first_trigger():
-    """Until any input crosses a threshold, the latched value is NaN."""
+def test_constructor_rejects_invalid_initial():
+    with pytest.raises(ValueError):
+        SchmittTrigger(lower=-1.0, upper=1.0, initial=0.5)
+    with pytest.raises(ValueError):
+        SchmittTrigger(lower=-1.0, upper=1.0, initial=-1.0)
+
+
+def test_default_warmup_reads_low():
+    """By default the latch seeds low, so a signal that starts inside the
+    dead band reads 0.0 (not NaN) until it first crosses a threshold."""
     trig = SchmittTrigger(lower=-1.0, upper=1.0)
-    # All inside dead band -> output remains the initial NaN.
+    out = trig(np.array([0.0, 0.5, -0.5, 0.9, -0.9]))
+    np.testing.assert_array_equal(out, np.zeros(5))
+
+
+def test_initial_high_reads_high_during_warmup():
+    """initial=1.0 seeds the latch high until the first cross below lower."""
+    trig = SchmittTrigger(lower=-1.0, upper=1.0, initial=1.0)
+    out = trig(np.array([0.0, 0.5, -0.5, 0.9]))
+    np.testing.assert_array_equal(out, np.ones(4))
+
+
+def test_initial_nan_reproduces_undefined_warmup():
+    """initial=NaN restores the old behavior: undefined until first crossing."""
+    trig = SchmittTrigger(lower=-1.0, upper=1.0, initial=float("nan"))
     out = trig(np.array([0.0, 0.5, -0.5, 0.9, -0.9]))
     assert np.all(np.isnan(out))
 
@@ -79,9 +102,10 @@ def test_full_round_trip_high_to_low_to_high():
 def test_exactly_at_threshold_does_not_trigger():
     """Strict inequality: x == upper is INSIDE the dead band, not above."""
     trig = SchmittTrigger(lower=-1.0, upper=1.0)
-    # First sample sits exactly on the upper threshold: dead band -> NaN.
+    # Every sample sits exactly on a threshold (dead band), so the latch never
+    # leaves its low seed: == upper does not trigger high, == lower stays low.
     out = trig(np.array([1.0, -1.0, 1.0]))
-    assert np.all(np.isnan(out))
+    np.testing.assert_array_equal(out, np.zeros(3))
 
 
 def test_nan_input_emits_nan_state_untouched():
@@ -100,13 +124,18 @@ def test_nan_input_emits_nan_state_untouched():
     assert out[6] == 0.0          # latched low preserved
 
 
-def test_reset_returns_to_nan():
+def test_reset_returns_to_initial():
     trig = SchmittTrigger(lower=-1.0, upper=1.0)
     trig(np.array([2.0, 0.0, 0.0]))
     trig.reset()
-    # After reset, the trigger has no latched state again.
+    # After reset, the latch is back at its initial seed (default low).
     out = trig(np.array([0.5, 0.0]))
-    assert np.all(np.isnan(out))
+    np.testing.assert_array_equal(out, np.zeros(2))
+    # With initial=NaN, reset restores the undefined warmup.
+    trig_nan = SchmittTrigger(lower=-1.0, upper=1.0, initial=float("nan"))
+    trig_nan(np.array([2.0, 0.0]))
+    trig_nan.reset()
+    assert np.all(np.isnan(trig_nan(np.array([0.5, 0.0]))))
 
 
 def test_stream_matches_batch():
