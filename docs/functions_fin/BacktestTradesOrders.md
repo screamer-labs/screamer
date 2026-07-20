@@ -1,6 +1,6 @@
 ---
-name: BacktestTradesMaker
-title: Backtest a market maker against the trade tape
+name: BacktestTradesOrders
+title: Backtest a two-sided order poster against the trade tape
 implementation_family: fin
 topics:
 - backtesting
@@ -15,7 +15,7 @@ tags:
 - inventory
 - transaction cost
 - risk
-short: "Backtest a two-sided market maker against the trade tape, filling resting quotes when prints cross them, into a costed equity curve."
+short: "Backtest a two-sided order poster against the trade tape, filling resting quotes when prints cross them, into a costed equity curve."
 inputs: 6
 outputs: 4
 parameters:
@@ -52,17 +52,17 @@ parameters:
   description: Inventory ceiling; buy fills are capped so the position never exceeds it.
 nan_policy: ignore
 see_also:
-- BacktestTrades
+- BacktestTradesTarget
 - BacktestL1Trades
 - BacktestOHLCOrders
 - backtest_report
 ---
 
-# `BacktestTradesMaker`
+# `BacktestTradesOrders`
 
 ## Description
 
-`BacktestTradesMaker` backtests a two-sided market-making strategy against the
+`BacktestTradesOrders` backtests a two-sided order-posting strategy against the
 raw trade tape. Each event is a print `(trade_price, trade_size)` paired with
 the strategy's resting quote `(bid_price, bid_size, ask_price, ask_size)`.
 
@@ -115,7 +115,7 @@ uniform parameter set across engines.
     import numpy as np
     import plotly.graph_objects as go
     from plotly.subplots import make_subplots
-    from screamer import BacktestTradesMaker
+    from screamer import BacktestTradesOrders
 
     rng = np.random.default_rng(3)
     n = 600
@@ -130,8 +130,8 @@ uniform parameter set across engines.
     trade_price = np.where(at_ask, ask, bid)
     trade_size = np.abs(rng.standard_normal(n)) + 0.5
 
-    out = BacktestTradesMaker(maker_fee=-0.0001, participation_ratio=0.4,
-                              max_position=12.0, min_position=-12.0)(
+    out = BacktestTradesOrders(maker_fee=-0.0001, participation_ratio=0.4,
+                               max_position=12.0, min_position=-12.0)(
         bid, one, ask, one, trade_price, trade_size)
     eq, pos = out[:, 0], out[:, 2]
 
@@ -140,7 +140,7 @@ uniform parameter set across engines.
     fig.add_trace(go.Scatter(y=mid, name='mid', line=dict(color='gray')), row=1, col=1)
     fig.add_trace(go.Scatter(y=eq, name='equity', line=dict(color='steelblue')), row=2, col=1)
     fig.add_trace(go.Scatter(y=pos, name='inventory', line=dict(color='seagreen')), row=3, col=1)
-    fig.update_layout(title='BacktestTradesMaker: fills driven by the trade tape, inventory bounded',
+    fig.update_layout(title='BacktestTradesOrders: fills driven by the trade tape, inventory bounded',
                       yaxis=dict(title='mid'), yaxis2=dict(title='equity ($)'),
                       yaxis3=dict(title='inventory'),
                       margin=dict(l=20, r=20, t=60, b=20),

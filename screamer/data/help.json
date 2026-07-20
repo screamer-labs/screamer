@@ -1553,82 +1553,9 @@
       }
     ]
   },
-  "BacktestTrades": {
-    "name": "BacktestTrades",
-    "title": "Backtest a resting limit order against the trade tape",
-    "implementation_family": "fin",
-    "topics": [
-      "backtesting"
-    ],
-    "tags": [
-      "backtest",
-      "pnl",
-      "mark to market",
-      "equity curve",
-      "trades",
-      "tape",
-      "limit order",
-      "event driven",
-      "transaction cost",
-      "market making",
-      "risk"
-    ],
-    "short": "Backtest a resting limit order against the trade tape, filling on crossing prints, into a costed equity curve.",
-    "inputs": 4,
-    "outputs": 4,
-    "parameters": [
-      {
-        "name": "maker_fee",
-        "type": "float",
-        "default": 0.0,
-        "description": "Fractional fee on a fill; negative for a maker rebate."
-      },
-      {
-        "name": "fill",
-        "type": "str",
-        "default": "touch",
-        "description": "Fill rule. \"touch\" fills a participation partial when a print reaches the order price, \"breach\" only fills when it trades through."
-      },
-      {
-        "name": "participation_ratio",
-        "type": "float",
-        "default": 1.0,
-        "min": 0.0,
-        "max": 1.0,
-        "description": "Fraction of the at-price trade volume captured (front-of-queue at 1.0). A trade through your price fills the full order."
-      },
-      {
-        "name": "min_position",
-        "type": "float",
-        "default": -Infinity,
-        "description": "Lower bound on the position. A fill that would push the position below this limit is truncated to the available room."
-      },
-      {
-        "name": "max_position",
-        "type": "float",
-        "default": Infinity,
-        "description": "Upper bound on the position. A fill that would push the position above this limit is truncated to the available room."
-      }
-    ],
-    "nan_policy": "ignore",
-    "see_also": [
-      "BacktestL1Trades",
-      "BacktestL1",
-      "BacktestOHLCTarget",
-      "backtest_report"
-    ],
-    "details": "## Description\n\n`BacktestTrades` is an event-driven backtest against the trade tape. Each event is\na print `(trade_price, trade_size)` together with the strategy's current resting\nlimit order `(order_price, order_size)` (align your order stream to the tape with\n`combine_latest` upstream). `order_size` is signed: positive rests a buy, negative\na sell, and `NaN` or zero is no order.\n\nA resting order fills against a print by where the print lands relative to the\norder price. A print **through** the order price (a buy when `trade_price <\norder_price`, a sell when `trade_price > order_price`) sweeps the level and fills\nthe **full order**: the small print at the through-price is the residual after the\nsweep, so it does not bound the fill. A print **at** the order price fills\n`min(order size, participation_ratio * trade_size)`, front-of-queue, capturing a\nshare of the volume that traded there. `fill = \"breach\"` keeps only the through\ncase. Fills pay `maker_fee` (negative for a rebate). Positions mark to the last\ntrade price, so a fill just before the tape moves against you shows up immediately\nas an adverse cost.\n\nInputs are `(order_price, order_size, trade_price, trade_size)`. It emits the four\npositional columns shared by the backtest family: `0 = equity` (cumulative dollar\nPnL), `1 = pnl` (per event), `2 = position`, and `3 = cost` (per event). A `NaN`\ntrade field skips the event (`nan_policy: ignore`); a `NaN` order price simply means\nno resting order. [`backtest_report`](backtest_report.md) summarizes the resulting\nequity curve.\n\n`min_position` and `max_position` set a static inventory cap. When a fill would\npush the position outside `[min_position, max_position]`, the fill is truncated to\nthe available room rather than rejected outright. With the default unbounded cap\n(`-inf`, `+inf`) the behaviour is identical to having no cap.\n\n## Limitations\n\nFills are front-of-queue and optimistic: a trade at your price fills\n`min(remaining, participation_ratio * trade_size)`, a trade through it fills the\nfull order. There is no queue-position modelling. Orders are counterfactual (zero\nvolume, no market impact), so a fill never alters the tape it reads.",
-    "examples": [
-      {
-        "language": "python",
-        "caption": "Usage plot",
-        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import BacktestTrades\n\nrng = np.random.default_rng(1)\nn = 600\nt = np.arange(n)\nprice = 100 + 2 * np.sin(2 * np.pi * t / n * 3) + rng.standard_normal(n) * 0.25   # tape\nsize = np.ones(n)\n\n# a mean-reverting maker: rest at the print, buy when cheap (< 100), sell when rich.\n# each at-price fill captures participation_ratio of the print, so inventory cycles.\norder_price = price\norder_size = np.sign(100 - price)\nout = BacktestTrades(participation_ratio=0.1, maker_fee=-0.0001)(\n    order_price, order_size, price, size)\neq, pos = out[:, 0], out[:, 2]\n\nfig = make_subplots(rows=3, cols=1, shared_xaxes=True, row_heights=[0.4, 0.3, 0.3],\n                    vertical_spacing=0.06)\nfig.add_trace(go.Scatter(y=price, name='price (tape)', line=dict(color='gray')), row=1, col=1)\nfig.add_trace(go.Scatter(y=eq, name='equity', line=dict(color='steelblue')), row=2, col=1)\nfig.add_trace(go.Scatter(y=pos, name='inventory', line=dict(color='darkorange')), row=3, col=1)\nfig.update_layout(title='BacktestTrades: a mean-reverting maker filling off the tape',\n                  yaxis=dict(title='price'), yaxis2=dict(title='equity ($)'),\n                  yaxis3=dict(title='inventory'),\n                  margin=dict(l=20, r=20, t=60, b=20),\n                  legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1))\nfig.show()"
-      }
-    ]
-  },
-  "BacktestTradesMaker": {
-    "name": "BacktestTradesMaker",
-    "title": "Backtest a market maker against the trade tape",
+  "BacktestTradesOrders": {
+    "name": "BacktestTradesOrders",
+    "title": "Backtest a two-sided order poster against the trade tape",
     "implementation_family": "fin",
     "topics": [
       "backtesting"
@@ -1645,7 +1572,7 @@
       "transaction cost",
       "risk"
     ],
-    "short": "Backtest a two-sided market maker against the trade tape, filling resting quotes when prints cross them, into a costed equity curve.",
+    "short": "Backtest a two-sided order poster against the trade tape, filling resting quotes when prints cross them, into a costed equity curve.",
     "inputs": 6,
     "outputs": 4,
     "parameters": [
@@ -1697,17 +1624,82 @@
     ],
     "nan_policy": "ignore",
     "see_also": [
-      "BacktestTrades",
+      "BacktestTradesTarget",
       "BacktestL1Trades",
       "BacktestOHLCOrders",
       "backtest_report"
     ],
-    "details": "## Description\n\n`BacktestTradesMaker` backtests a two-sided market-making strategy against the\nraw trade tape. Each event is a print `(trade_price, trade_size)` paired with\nthe strategy's resting quote `(bid_price, bid_size, ask_price, ask_size)`.\n\nFill logic per event:\n\n- **Buy side.** A resting bid at `bid_price` fills when a sell-print crosses it.\n  With `fill=\"touch\"` a print at exactly `bid_price` fills\n  `min(bid_size, participation_ratio * trade_size, room)` at `bid_price`\n  (maker fill, paying `maker_fee`). A print strictly below `bid_price`\n  sweeps the full remaining `min(bid_size, room)` without a participation cap.\n  With `fill=\"breach\"` the at-price case is skipped; only a strict breach fills.\n- **Sell side.** Symmetric for a resting ask against buy-prints.\n- **Market orders.** A `NaN` bid price is treated as a market order (+inf limit),\n  which sweeps on any print; that fill uses `taker_fee`. Pass `MARKET` (which\n  equals `math.inf`) directly to the price argument for the same effect.\n- **Inventory caps.** All fills are capped so the position stays in\n  `[min_position, max_position]`.\n- **Mark.** The position marks to the last trade price.\n\nIf both sides fill on the same print (possible when a spread collapses), each\nside updates the account in sequence, so the final equity and position reflect\nboth fills.\n\nInput contract: a `NaN` `trade_price` or `trade_size` is a no-trade event. The\n`nan_policy` is `ignore`: the row emits all-NaN outputs and state is unchanged.\nOnly real prints drive fills. Inputs are\n`(bid_price, bid_size, ask_price, ask_size, trade_price, trade_size)`.\nOutputs are `(equity, pnl, position, cost)`, the four standard backtest columns\naccepted by [`backtest_report`](backtest_report.md).\n\n## Limitations\n\nQueue priority is not tracked per order; at-price fills use `participation_ratio`\nas a front-of-queue proxy.\n\n`tick_size` is accepted for interface uniformity with `BacktestL1Trades` and\n`BacktestOHLCOrders`, but it is inert on the tape: a marketable resting order\nfills at the print price without walking the book, so there is no displayed-size\noverflow to price. It is kept as a no-op parameter so strategies can share a\nuniform parameter set across engines.",
+    "details": "## Description\n\n`BacktestTradesOrders` backtests a two-sided order-posting strategy against the\nraw trade tape. Each event is a print `(trade_price, trade_size)` paired with\nthe strategy's resting quote `(bid_price, bid_size, ask_price, ask_size)`.\n\nFill logic per event:\n\n- **Buy side.** A resting bid at `bid_price` fills when a sell-print crosses it.\n  With `fill=\"touch\"` a print at exactly `bid_price` fills\n  `min(bid_size, participation_ratio * trade_size, room)` at `bid_price`\n  (maker fill, paying `maker_fee`). A print strictly below `bid_price`\n  sweeps the full remaining `min(bid_size, room)` without a participation cap.\n  With `fill=\"breach\"` the at-price case is skipped; only a strict breach fills.\n- **Sell side.** Symmetric for a resting ask against buy-prints.\n- **Market orders.** A `NaN` bid price is treated as a market order (+inf limit),\n  which sweeps on any print; that fill uses `taker_fee`. Pass `MARKET` (which\n  equals `math.inf`) directly to the price argument for the same effect.\n- **Inventory caps.** All fills are capped so the position stays in\n  `[min_position, max_position]`.\n- **Mark.** The position marks to the last trade price.\n\nIf both sides fill on the same print (possible when a spread collapses), each\nside updates the account in sequence, so the final equity and position reflect\nboth fills.\n\nInput contract: a `NaN` `trade_price` or `trade_size` is a no-trade event. The\n`nan_policy` is `ignore`: the row emits all-NaN outputs and state is unchanged.\nOnly real prints drive fills. Inputs are\n`(bid_price, bid_size, ask_price, ask_size, trade_price, trade_size)`.\nOutputs are `(equity, pnl, position, cost)`, the four standard backtest columns\naccepted by [`backtest_report`](backtest_report.md).\n\n## Limitations\n\nQueue priority is not tracked per order; at-price fills use `participation_ratio`\nas a front-of-queue proxy.\n\n`tick_size` is accepted for interface uniformity with `BacktestL1Trades` and\n`BacktestOHLCOrders`, but it is inert on the tape: a marketable resting order\nfills at the print price without walking the book, so there is no displayed-size\noverflow to price. It is kept as a no-op parameter so strategies can share a\nuniform parameter set across engines.",
     "examples": [
       {
         "language": "python",
         "caption": "Usage plot",
-        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import BacktestTradesMaker\n\nrng = np.random.default_rng(3)\nn = 600\nt = np.arange(n)\nmid = 100 + 2 * np.sin(2 * np.pi * t / n * 3) + rng.standard_normal(n) * 0.15\nhalf = 0.20\nbid, ask = mid - half, mid + half\none = np.ones(n)\n\n# alternate between seller-initiated and buyer-initiated prints\nat_ask = rng.standard_normal(n) > 0\ntrade_price = np.where(at_ask, ask, bid)\ntrade_size = np.abs(rng.standard_normal(n)) + 0.5\n\nout = BacktestTradesMaker(maker_fee=-0.0001, participation_ratio=0.4,\n                          max_position=12.0, min_position=-12.0)(\n    bid, one, ask, one, trade_price, trade_size)\neq, pos = out[:, 0], out[:, 2]\n\nfig = make_subplots(rows=3, cols=1, shared_xaxes=True, row_heights=[0.4, 0.3, 0.3],\n                    vertical_spacing=0.06)\nfig.add_trace(go.Scatter(y=mid, name='mid', line=dict(color='gray')), row=1, col=1)\nfig.add_trace(go.Scatter(y=eq, name='equity', line=dict(color='steelblue')), row=2, col=1)\nfig.add_trace(go.Scatter(y=pos, name='inventory', line=dict(color='seagreen')), row=3, col=1)\nfig.update_layout(title='BacktestTradesMaker: fills driven by the trade tape, inventory bounded',\n                  yaxis=dict(title='mid'), yaxis2=dict(title='equity ($)'),\n                  yaxis3=dict(title='inventory'),\n                  margin=dict(l=20, r=20, t=60, b=20),\n                  legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1))\nfig.show()"
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import BacktestTradesOrders\n\nrng = np.random.default_rng(3)\nn = 600\nt = np.arange(n)\nmid = 100 + 2 * np.sin(2 * np.pi * t / n * 3) + rng.standard_normal(n) * 0.15\nhalf = 0.20\nbid, ask = mid - half, mid + half\none = np.ones(n)\n\n# alternate between seller-initiated and buyer-initiated prints\nat_ask = rng.standard_normal(n) > 0\ntrade_price = np.where(at_ask, ask, bid)\ntrade_size = np.abs(rng.standard_normal(n)) + 0.5\n\nout = BacktestTradesOrders(maker_fee=-0.0001, participation_ratio=0.4,\n                           max_position=12.0, min_position=-12.0)(\n    bid, one, ask, one, trade_price, trade_size)\neq, pos = out[:, 0], out[:, 2]\n\nfig = make_subplots(rows=3, cols=1, shared_xaxes=True, row_heights=[0.4, 0.3, 0.3],\n                    vertical_spacing=0.06)\nfig.add_trace(go.Scatter(y=mid, name='mid', line=dict(color='gray')), row=1, col=1)\nfig.add_trace(go.Scatter(y=eq, name='equity', line=dict(color='steelblue')), row=2, col=1)\nfig.add_trace(go.Scatter(y=pos, name='inventory', line=dict(color='seagreen')), row=3, col=1)\nfig.update_layout(title='BacktestTradesOrders: fills driven by the trade tape, inventory bounded',\n                  yaxis=dict(title='mid'), yaxis2=dict(title='equity ($)'),\n                  yaxis3=dict(title='inventory'),\n                  margin=dict(l=20, r=20, t=60, b=20),\n                  legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1))\nfig.show()"
+      }
+    ]
+  },
+  "BacktestTradesTarget": {
+    "name": "BacktestTradesTarget",
+    "title": "Backtest a target-position strategy against the trade tape",
+    "implementation_family": "fin",
+    "topics": [
+      "backtesting"
+    ],
+    "tags": [
+      "backtest",
+      "pnl",
+      "mark to market",
+      "equity curve",
+      "trades",
+      "tape",
+      "market order",
+      "transaction cost",
+      "strategy",
+      "risk"
+    ],
+    "short": "Backtest a target-position strategy against the trade tape, taking each print as a market fill to reach the target immediately.",
+    "inputs": 3,
+    "outputs": 4,
+    "parameters": [
+      {
+        "name": "taker_fee",
+        "type": "float",
+        "default": 0.0,
+        "description": "Fractional fee charged on each taker fill at the print price."
+      },
+      {
+        "name": "tick_size",
+        "type": "float",
+        "default": 0.0,
+        "min": 0.0,
+        "description": "Accepted for interface uniformity; currently unused on the tape."
+      },
+      {
+        "name": "min_position",
+        "type": "float",
+        "default": -Infinity,
+        "description": "Inventory floor. The target is clamped to [min_position, max_position] before the fill size is computed."
+      },
+      {
+        "name": "max_position",
+        "type": "float",
+        "default": Infinity,
+        "description": "Inventory ceiling. The target is clamped to [min_position, max_position] before the fill size is computed."
+      }
+    ],
+    "nan_policy": "ignore",
+    "see_also": [
+      "BacktestTradesOrders",
+      "BacktestOHLCTarget",
+      "BacktestL1Trades",
+      "backtest_report"
+    ],
+    "details": "## Description\n\n`BacktestTradesTarget` is a lean directional backtest on the raw trade tape. It is\nimmediate: the `target_position` you pass on event t executes on the same print,\nunlike `BacktestOHLCTarget` which defers to the next bar's open.\n\nEach print the engine computes the desired trade as\n`clamp(target, min_position, max_position) - current_position` and takes it\nagainst the current print as a marketable (taker) order. The fill pays `taker_fee`\non the traded notional and the position marks to the print price. If the target\nequals the current position, no order is placed and the event is a mark-only step.\n\nInputs are `(target_position, trade_price, trade_size)`. Outputs are the four\nstandard backtest columns: `0 = equity` (cumulative dollar PnL), `1 = pnl` (per\nevent), `2 = position`, and `3 = cost` (per event). A `NaN` `trade_price` or\n`trade_size` skips the event and returns all-NaN (`nan_policy: ignore`).\n[`backtest_report`](backtest_report.md) summarizes the resulting equity curve.\n\nThe optional `min_position` and `max_position` parameters cap the inventory. The\ntarget is clamped before the order size is computed, so the engine never carries a\nposition outside that range.\n\n## Limitations\n\nThe fill model is optimistic: the full order size executes at the print price with\nno market impact or slippage beyond `taker_fee`. Orders are counterfactual (zero\nmarket impact), so the tape is unaffected by the strategy's activity.",
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage plot",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import BacktestTradesTarget\n\nrng = np.random.default_rng(5)\nn = 400\nt = np.arange(n)\nprice = 100 + 2 * np.sin(2 * np.pi * t / n * 4) + np.cumsum(rng.standard_normal(n) * 0.1)\nsize = np.ones(n)\n\n# a simple mean-reversion signal: go long when cheap, short when rich\nsignal = np.sign(100 - price)\n\nout = BacktestTradesTarget(taker_fee=0.0002, max_position=3.0, min_position=-3.0)(\n    signal, price, size)\neq, pos = out[:, 0], out[:, 2]\n\nfig = make_subplots(rows=3, cols=1, shared_xaxes=True, row_heights=[0.4, 0.3, 0.3],\n                    vertical_spacing=0.06)\nfig.add_trace(go.Scatter(y=price, name='price', line=dict(color='gray')), row=1, col=1)\nfig.add_trace(go.Scatter(y=eq, name='equity', line=dict(color='steelblue')), row=2, col=1)\nfig.add_trace(go.Scatter(y=pos, name='position', line=dict(color='darkorange', shape='hv')),\n              row=3, col=1)\nfig.update_layout(title='BacktestTradesTarget: immediate taker fills on each print',\n                  yaxis=dict(title='price'), yaxis2=dict(title='equity ($)'),\n                  yaxis3=dict(title='position'),\n                  margin=dict(l=20, r=20, t=60, b=20),\n                  legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1))\nfig.show()"
       }
     ]
   },

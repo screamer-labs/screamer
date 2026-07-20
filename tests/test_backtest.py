@@ -163,79 +163,103 @@ def test_ohlc_target_position_cap_clamps_target():
     assert out[1, 2] == 1.0
 
 
-# --- BacktestTrades ----------------------------------------------------------
+# --- BacktestTrades (now BacktestTradesOrders one-sided) ----------------------
+# BacktestTrades accepted signed order_size (positive=buy, negative=sell). The
+# same behaviour is available from BacktestTradesOrders by zeroing the idle side.
 
 def test_trades_fill_and_adverse_selection():
-    from screamer import BacktestTrades
+    from screamer import BacktestTradesOrders
     # resting buy 1 @ 100; a print at 99 (<=100) size 2 fills 1 @ 100, marks at 99 (down 1);
     # then a print at 101 with the order still resting (101 > 100, no fill) marks the position up
-    t = BacktestTrades()(np.array([100., 100]), np.array([1., 1]),
-                         np.array([99., 101]), np.array([2., 5]))
+    t = BacktestTradesOrders()(np.array([100., 100]), np.array([1., 1]),
+                               np.array([np.nan, np.nan]), np.array([0., 0.]),
+                               np.array([99., 101]), np.array([2., 5]))
     np.testing.assert_allclose(t[:, 2], [1, 1])          # position filled then held
     np.testing.assert_allclose(t[0], [-1, -1, 1, 1])     # bought at 100 vs 99 mark -> cost 1
     np.testing.assert_allclose(t[1, 0], 1.0)             # mark 99 -> 101 recovers to +1
 
 
 def test_trades_partial_up_to_print_size():
-    from screamer import BacktestTrades
+    from screamer import BacktestTradesOrders
     # resting buy 5 @ 100; a print AT 100 size 2 fills min(5, 1.0*2)=2 (participation 1.0)
-    t = BacktestTrades()(np.array([100.]), np.array([5.]), np.array([100.]), np.array([2.]))
+    t = BacktestTradesOrders()(np.array([100.]), np.array([5.]),
+                               np.array([np.nan]), np.array([0.]),
+                               np.array([100.]), np.array([2.]))
     assert t[0, 2] == 2.0
 
 
 def test_trades_through_fills_full_order_not_print_size():
-    from screamer import BacktestTrades
+    from screamer import BacktestTradesOrders
     # resting buy 10 @ 100; a print of size 2 at 99 trades THROUGH -> full 10 fills
-    t = BacktestTrades()(np.array([100.]), np.array([10.]), np.array([99.]), np.array([2.]))
+    t = BacktestTradesOrders()(np.array([100.]), np.array([10.]),
+                               np.array([np.nan]), np.array([0.]),
+                               np.array([99.]), np.array([2.]))
     assert t[0, 2] == 10.0                                  # swept: full order, not min(10,2)
 
 
 def test_trades_at_fills_participation_of_trade_size():
-    from screamer import BacktestTrades
+    from screamer import BacktestTradesOrders
     # resting buy 10 @ 100; a print of size 8 AT 100, participation 0.5 -> min(10, 0.5*8)=4
-    t = BacktestTrades(participation_ratio=0.5)(
-        np.array([100.]), np.array([10.]), np.array([100.]), np.array([8.]))
+    t = BacktestTradesOrders(participation_ratio=0.5)(
+        np.array([100.]), np.array([10.]),
+        np.array([np.nan]), np.array([0.]),
+        np.array([100.]), np.array([8.]))
     assert t[0, 2] == 4.0
 
 
 def test_trades_participation_capped_by_order_no_zeno():
-    from screamer import BacktestTrades
+    from screamer import BacktestTradesOrders
     # participation*trade_size exceeds the order -> full fill, capped by remaining
-    t = BacktestTrades(participation_ratio=0.5)(
-        np.array([100.]), np.array([10.]), np.array([100.]), np.array([100.]))
+    t = BacktestTradesOrders(participation_ratio=0.5)(
+        np.array([100.]), np.array([10.]),
+        np.array([np.nan]), np.array([0.]),
+        np.array([100.]), np.array([100.]))
     assert t[0, 2] == 10.0                                  # min(10, 0.5*100)=10, no dust
 
 
 def test_trades_breach_ignores_at_price():
-    from screamer import BacktestTrades
+    from screamer import BacktestTradesOrders
     # breach: a print exactly AT 100 does not fill; only strictly through does
-    at = BacktestTrades(fill="breach")(np.array([100.]), np.array([10.]),
-                                       np.array([100.]), np.array([8.]))
+    at = BacktestTradesOrders(fill="breach")(
+        np.array([100.]), np.array([10.]),
+        np.array([np.nan]), np.array([0.]),
+        np.array([100.]), np.array([8.]))
     assert at[0, 2] == 0.0
-    through = BacktestTrades(fill="breach")(np.array([100.]), np.array([10.]),
-                                            np.array([99.]), np.array([2.]))
+    through = BacktestTradesOrders(fill="breach")(
+        np.array([100.]), np.array([10.]),
+        np.array([np.nan]), np.array([0.]),
+        np.array([99.]), np.array([2.]))
     assert through[0, 2] == 10.0
 
 
 def test_trades_stream_equals_batch():
-    from screamer import BacktestTrades
+    from screamer import BacktestTradesOrders
     rng = np.random.default_rng(1); n = 100
     price = 100 + np.cumsum(rng.standard_normal(n) * 0.2)
     op = np.where(rng.standard_normal(n) > 0, price - 0.1, price + 0.1)   # order near the print
-    os_ = rng.choice([-1.0, 1.0], n)
+    os_ = rng.choice([-1.0, 1.0], n)                                       # signed: +1=buy, -1=sell
     ts = np.abs(rng.standard_normal(n)) + 1
-    eng = BacktestTrades(maker_fee=-0.0001)
-    stream = np.array([eng(float(op[i]), float(os_[i]), float(price[i]), float(ts[i])) for i in range(n)])
-    batch = BacktestTrades(maker_fee=-0.0001)(op, os_, price, ts)
+    # split signed order into explicit bid/ask sides
+    bid_p = np.where(os_ > 0, op, np.nan)
+    bid_s = np.where(os_ > 0, 1.0, 0.0)
+    ask_p = np.where(os_ < 0, op, np.nan)
+    ask_s = np.where(os_ < 0, 1.0, 0.0)
+    eng = BacktestTradesOrders(maker_fee=-0.0001)
+    stream = np.array([eng(bid_p[i], bid_s[i], ask_p[i], ask_s[i], price[i], ts[i])
+                       for i in range(n)])
+    eng.reset()
+    batch = BacktestTradesOrders(maker_fee=-0.0001)(bid_p, bid_s, ask_p, ask_s, price, ts)
     np.testing.assert_allclose(np.nan_to_num(stream), np.nan_to_num(batch))
 
 
 def test_trades_fill_truncated_by_cap():
-    from screamer import BacktestTrades
+    from screamer import BacktestTradesOrders
     import numpy as np
     # resting buy 10 @ 100, a through-print would fill 10, but max_position 3 caps it
-    out = BacktestTrades(max_position=3.0)(
-        np.array([100.]), np.array([10.]), np.array([99.]), np.array([2.]))
+    out = BacktestTradesOrders(max_position=3.0)(
+        np.array([100.]), np.array([10.]),
+        np.array([np.nan]), np.array([0.]),
+        np.array([99.]), np.array([2.]))
     assert out[0, 2] == 3.0
 
 
@@ -425,28 +449,28 @@ def test_l1trades_stream_equals_batch():
     np.testing.assert_allclose(np.nan_to_num(stream), np.nan_to_num(batch))
 
 
-# --- BacktestTradesMaker -----------------------------------------------------
+# --- BacktestTradesOrders (two-sided fills on prints) ------------------------
 
 def test_trades_maker_two_sided_fills_on_prints():
-    from screamer import BacktestTradesMaker
+    from screamer import BacktestTradesOrders
     import numpy as np
     # resting bid 100 size 5; a sell-print at 99 (<=100) size 8, participation 1.0 -> buy 5 at 100
-    out = BacktestTradesMaker()(
+    out = BacktestTradesOrders()(
         np.array([100.]), np.array([5.]), np.array([np.nan]), np.array([0.]),
         np.array([99.]), np.array([8.]))
     assert out[0, 2] == 5.0
 
 def test_trades_maker_cap_and_participation():
-    from screamer import BacktestTradesMaker
+    from screamer import BacktestTradesOrders
     import numpy as np
     # at-price print size 8, participation 0.5 -> min(remaining, 0.5*8)=4, capped by max 3
-    out = BacktestTradesMaker(participation_ratio=0.5, max_position=3.0)(
+    out = BacktestTradesOrders(participation_ratio=0.5, max_position=3.0)(
         np.array([100.]), np.array([10.]), np.array([np.nan]), np.array([0.]),
         np.array([100.]), np.array([8.]))
     assert out[0, 2] == 3.0
 
 def test_trades_maker_stream_equals_batch():
-    from screamer import BacktestTradesMaker
+    from screamer import BacktestTradesOrders
     import numpy as np
     rng = np.random.default_rng(1); n = 200
     price = 100 + np.cumsum(rng.standard_normal(n) * 0.1)
@@ -454,17 +478,17 @@ def test_trades_maker_stream_equals_batch():
     bid, ask = price + 0.05, price - 0.05
     one = np.ones(n)
     args = (bid, one, ask, one, price, size)
-    op = BacktestTradesMaker(max_position=8.0, min_position=-8.0)
+    op = BacktestTradesOrders(max_position=8.0, min_position=-8.0)
     stream = np.array([op(*(float(a[i]) for a in args)) for i in range(n)])
     op.reset()
-    batch = BacktestTradesMaker(max_position=8.0, min_position=-8.0)(*args)
+    batch = BacktestTradesOrders(max_position=8.0, min_position=-8.0)(*args)
     np.testing.assert_allclose(np.nan_to_num(stream), np.nan_to_num(batch))
 
 def test_trades_maker_market_buy_fills_on_any_print():
-    from screamer import BacktestTradesMaker, MARKET
+    from screamer import BacktestTradesOrders, MARKET
     import numpy as np
     # a market bid (inf price via MARKET) is swept by any print as a taker
-    out = BacktestTradesMaker()(
+    out = BacktestTradesOrders()(
         np.array([MARKET]), np.array([2.]), np.array([np.nan]), np.array([0.]),
         np.array([101.]), np.array([5.]))
     assert out[0, 2] == 2.0        # bought 2 (bid_size) against the print
@@ -500,3 +524,30 @@ def test_ohlc_target_market_capped():
         np.array([5., 5.]), np.array([100., 100.]),
         np.array([100., 100.]), np.array([100., 100.]), np.array([100., 100.]))
     assert out[1, 2] == 1.0                                # target 5 clamped to the cap
+
+
+# --- BacktestTradesOrders / BacktestTradesTarget ---------------------------------
+
+def test_trades_orders_one_sided_equals_resting_limit():
+    import numpy as np
+    from screamer import BacktestTradesOrders
+    # a resting bid at 100 size 5; a sell-print at 99 sweeps it -> buy 5
+    out = BacktestTradesOrders()(
+        np.array([100.]), np.array([5.]), np.array([np.nan]), np.array([0.]),
+        np.array([99.]), np.array([8.]))
+    assert out[0, 2] == 5.0
+
+def test_trades_target_takes_prints_to_reach_target():
+    import numpy as np
+    from screamer import BacktestTradesTarget
+    # target +2 taken against the print; participation caps to the print size where needed
+    out = BacktestTradesTarget()(
+        np.array([2., 2.]), np.array([100., 100.]), np.array([10., 10.]))
+    assert out[-1, 2] == 2.0
+
+def test_trades_target_capped():
+    import numpy as np
+    from screamer import BacktestTradesTarget
+    out = BacktestTradesTarget(max_position=1.0)(
+        np.array([9.]), np.array([100.]), np.array([100.]))
+    assert out[0, 2] == 1.0
