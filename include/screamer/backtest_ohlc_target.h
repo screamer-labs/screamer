@@ -2,7 +2,6 @@
 #define SCREAMER_BACKTEST_OHLC_TARGET_H
 
 #include <limits>
-#include <tuple>
 #include "screamer/common/functor_base.h"
 #include "screamer/common/float_info.h"
 #include "screamer/detail/ohlc_fill.h"

@@ -4,7 +4,6 @@
 #include <limits>
 #include <stdexcept>
 #include <string>
-#include <tuple>
 #include "screamer/common/functor_base.h"
 #include "screamer/detail/ohlc_fill.h"
 

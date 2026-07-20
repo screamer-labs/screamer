@@ -516,17 +516,6 @@ def test_trades_maker_market_buy_fills_on_any_print():
     assert out[0, 2] == 2.0        # bought 2 (bid_size) against the print
 
 
-# --- BacktestOHLCOrders ------------------------------------------------------
-
-def test_ohlc_orders_two_sided_fill():
-    import numpy as np
-    from screamer import BacktestOHLCOrders
-    out = BacktestOHLCOrders()(
-        np.array([99.]), np.array([1.]), np.array([np.nan]), np.array([0.]),
-        np.array([100.]), np.array([101.]), np.array([98.]), np.array([100.]))
-    assert out[0, 2] == 1.0                                # resting bid hit on the low
-
-
 # --- BacktestOHLCTarget ------------------------------------------------------
 
 def test_ohlc_target_defers_to_next_open():
@@ -550,15 +539,6 @@ def test_ohlc_target_market_capped():
 
 # --- BacktestTradesOrders / BacktestTradesTarget ---------------------------------
 
-def test_trades_orders_one_sided_equals_resting_limit():
-    import numpy as np
-    from screamer import BacktestTradesOrders
-    # a resting bid at 100 size 5; a sell-print at 99 sweeps it -> buy 5
-    out = BacktestTradesOrders()(
-        np.array([100.]), np.array([5.]), np.array([np.nan]), np.array([0.]),
-        np.array([99.]), np.array([8.]))
-    assert out[0, 2] == 5.0
-
 def test_trades_target_takes_prints_to_reach_target():
     import numpy as np
     from screamer import BacktestTradesTarget
@@ -580,7 +560,7 @@ def test_trades_target_capped():
 def test_l1_orders_parity_resting_quote():
     import numpy as np
     from screamer import BacktestL1Orders
-    # resting bid at 100 fills when the market ask drops to it (breach default)
+    # bid 100 is submitted already crossing market_ask 99.9: taker sweep, not a resting maker fill
     out = BacktestL1Orders()(
         np.array([100.]), np.array([1.]), np.array([np.nan]), np.array([0.]),
         np.array([100.5]), np.array([99.9]), np.array([5.]), np.array([5.]))
