@@ -53,8 +53,8 @@ parameters:
 nan_policy: ignore
 see_also:
 - BacktestOHLCTarget
-- BacktestL1
-- BacktestTrades
+- BacktestL1Orders
+- BacktestTradesOrders
 - backtest_report
 ---
 
@@ -96,8 +96,8 @@ a NaN or zero `bid_size` / `ask_size` suppresses that side entirely.
 OHLC bars carry no intra-bar path, so the engine cannot distinguish whether the
 low preceded the high or vice versa. When both the bid and ask fill on the same
 bar the engine processes the buy first, then the sell; the ordering can affect the
-position and PnL when inventory bounds are active. Use [`BacktestL1`](BacktestL1.md)
-or [`BacktestL1Trades`](BacktestL1Trades.md) with a tick-level or quote-level feed
+position and PnL when inventory bounds are active. Use [`BacktestL1Orders`](BacktestL1Orders.md)
+or [`BacktestL1TradesOrders`](BacktestL1TradesOrders.md) with a tick-level or quote-level feed
 when intra-bar sequencing matters.
 
 ## Examples

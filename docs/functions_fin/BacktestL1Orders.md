@@ -54,7 +54,7 @@ parameters:
 nan_policy: ignore
 see_also:
 - BacktestL1Target
-- BacktestL1Trades
+- BacktestL1TradesOrders
 - BacktestTradesOrders
 - BacktestOHLCTarget
 - backtest_report
@@ -95,7 +95,7 @@ curve.
 
 For a target-position variant that takes the book immediately instead of posting
 a resting order, see [`BacktestL1Target`](BacktestL1Target.md). When a trade feed
-is available, [`BacktestL1Trades`](BacktestL1Trades.md) uses real prints to drive
+is available, [`BacktestL1TradesOrders`](BacktestL1TradesOrders.md) uses real prints to drive
 fills rather than quote-level heuristics.
 
 ## Limitations
@@ -105,7 +105,7 @@ cancel, and re-quote all at once, and cannot be told apart. The `"breach"` defau
 fills only when the market trades through your quote, so it can **under-fill**.
 `"touch"` adds a participation partial once per lock episode and can **over-fill**
 when a lock's size came from cancels rather than trades. Prefer
-[`BacktestL1Trades`](BacktestL1Trades.md) when a trade feed is available: real
+[`BacktestL1TradesOrders`](BacktestL1TradesOrders.md) when a trade feed is available: real
 trades drive the fills and remove this ambiguity. Orders are counterfactual (zero
 volume, no market impact); a marketable order fills beyond the displayed size only
 under the `tick_size` slippage assumption.

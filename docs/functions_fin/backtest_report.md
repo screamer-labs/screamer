@@ -11,7 +11,7 @@ topics:
 
 Labels the output of the [`BacktestReport`](BacktestReport.md) node. It takes a
 backtest engine's `[equity, pnl, position, cost]` output (the four positional
-columns that [`BacktestSignal`](BacktestSignal.md) and the other backtest engines
+columns that [`BacktestPriceTarget`](BacktestPriceTarget.md) and the other backtest engines
 emit) and returns `(running, summary)`.
 
 - `running` is a dict of numpy arrays: the four engine columns plus the
@@ -42,12 +42,12 @@ columns and reads the last row, and needs no pandas. Wrap `running` in a
 .. exec_code::
 
     import numpy as np
-    from screamer import BacktestSignal, backtest_report
+    from screamer import BacktestPriceTarget, backtest_report
 
     price = 100 + np.cumsum(np.random.default_rng(0).standard_normal(500) * 0.3)
     signal = np.sign(np.random.default_rng(1).standard_normal(500))
 
-    running, summary = backtest_report(BacktestSignal(spread=0.0005)(signal, price))
+    running, summary = backtest_report(BacktestPriceTarget(spread=0.0005)(signal, price))
     for name, value in summary.items():
         print(f"{name:13s} {value:10.4f}")
     print("\nrunning columns:", list(running))

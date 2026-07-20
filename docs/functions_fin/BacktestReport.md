@@ -19,7 +19,7 @@ parameters: []
 nan_policy: ignore
 see_also:
 - backtest_report
-- BacktestSignal
+- BacktestPriceTarget
 - Drawdown
 - MaxDrawdown
 ---
@@ -65,13 +65,13 @@ next finite bar, exactly as `CumSum` and the other accumulators do.
     import numpy as np
     import plotly.graph_objects as go
     from plotly.subplots import make_subplots
-    from screamer import BacktestSignal, BacktestReport
+    from screamer import BacktestPriceTarget, BacktestReport
 
     rng = np.random.default_rng(0)
     n = 500
     price = 100 + np.cumsum(rng.standard_normal(n) * 0.3)
     signal = np.sign(rng.standard_normal(n))
-    equity, pnl, position, cost = (BacktestSignal(spread=0.0005)(signal, price).T)
+    equity, pnl, position, cost = (BacktestPriceTarget(spread=0.0005)(signal, price).T)
 
     rep = BacktestReport()(equity, pnl, position, cost)   # (n, 7)
     drawdown, trades = rep[:, 0], rep[:, 3]

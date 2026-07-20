@@ -7,28 +7,41 @@ All notable changes to this project are documented in this file.
 
 ### Added
 
-* Backtesting: unified contract across all engines. Every engine now accepts
-  `min_position` and `max_position` constructor parameters (default unbounded)
-  that cap the inventory at each fill with a three-way minimum
-  (`order_size`, `participation_limit`, and remaining room to the bound).
-* Backtesting: standardised market-order encoding via `limit_price` / quote
-  price. A finite price is a resting limit (maker); `NaN` is a side-agnostic
-  market order (taker); `+inf` (alias `screamer.MARKET`) is a market buy
-  (never-fill sell); `-inf` is a market sell (never-fill buy). The
-  `screamer.MARKET` constant provides a readable name for the common case.
-* `BacktestOHLCMaker` (8 inputs): two-sided market-making on OHLC bars. Each
-  bar the strategy posts a resting bid and ask; both sides can fill on the same
-  bar when the bar's range reaches them. Market orders are handled via the
-  `market_limit` encoding (NaN price). Inventory stays in
-  `[min_position, max_position]`.
-* `BacktestTradesMaker` (6 inputs): two-sided market-making against the raw
-  trade tape. Fills trigger when a print crosses the resting quote; at-price
-  fills apply a `participation_ratio`. Closing these two engines completes the
-  coverage matrix: every data model (value series, bars, tape, L1, L1+trades)
-  now has a market-making engine.
-* Docs: `choosing_a_backtest_engine` overview page with the full coverage
-  matrix (data model by order strategy), the market-order encoding table, and
-  the fill-cap rule.
+* Backtesting: engines are renamed and reorganised into a
+  `Backtest<DataModel><OrderDef>` grid. The data model (Price, OHLC, Trades,
+  L1, L1Trades) names the market feed; the order definition (Target, Orders)
+  names the strategy's output contract. Eight engines fill the six useful
+  cells of the 5x2 matrix; `BacktestPriceOrders` and `BacktestL1TradesTarget`
+  are intentionally not provided (see `choosing_a_backtest_engine`).
+* **Target engines** (`BacktestPriceTarget`, `BacktestOHLCTarget`,
+  `BacktestTradesTarget`, `BacktestL1Target`): receive a scalar target
+  position each event, compute the delta to the current position, and take
+  liquidity to reach it. The target is clamped to the static
+  `[min_position, max_position]` cap before sizing the order.
+  `BacktestOHLCTarget` defers execution to the next bar's open (causal;
+  no manual lag needed). `BacktestTradesTarget` and `BacktestL1Target` execute
+  immediately against the current event.
+* **Orders engines** (`BacktestOHLCOrders`, `BacktestTradesOrders`,
+  `BacktestL1Orders`, `BacktestL1TradesOrders`): receive a two-sided resting
+  quote `(bid_price, bid_size, ask_price, ask_size)` each event plus the
+  market data columns. Either or both sides can fill on the same event. A
+  quote submitted already crossing the spread is a taker.
+* New engines completing the useful grid cells:
+  `BacktestOHLCTarget` and `BacktestOHLCOrders` (replacing `BacktestOHLC` /
+  `BacktestOHLCMaker`), `BacktestTradesTarget` and `BacktestTradesOrders`
+  (replacing `BacktestTrades` / `BacktestTradesMaker`), `BacktestL1Target` and
+  `BacktestL1Orders` (replacing `BacktestL1`), `BacktestL1TradesOrders`
+  (replacing `BacktestL1Trades`), and `BacktestPriceTarget` (replacing
+  `BacktestSignal`).
+* All engines accept `min_position` and `max_position` (default unbounded).
+  Fills are capped by a three-way minimum: order size, participation limit
+  (where applicable), and remaining room to the position bound.
+* MARKET/NaN/inf encoding shared across all engines: a finite price is a
+  resting limit (maker); `NaN` is a side-agnostic market order (taker);
+  `+inf` / `screamer.MARKET` is a market buy (never-fill sell); `-inf` is a
+  market sell (never-fill buy).
+* Docs: `choosing_a_backtest_engine` grid overview page with the 5x2 matrix,
+  order-definition interfaces, MARKET encoding table, and fill-cap rule.
 
 0.10.0 - 2026-07-18
 ------------
