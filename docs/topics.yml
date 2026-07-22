@@ -55,6 +55,11 @@ groups:
     desc: "Align and reshape event streams, and wire operators into a runnable pipeline."
     topics: [streams, graphs]
 
+  machine-learning:
+    name: "Machine learning"
+    desc: "Utilities for building supervised learning datasets from time-series data."
+    topics: [supervised]
+
 topics:
   arithmetic:
     name: "Arithmetic"
@@ -159,3 +164,7 @@ topics:
   graphs:
     name: "Pipelines"
     desc: "Building and running a pipeline."
+
+  supervised:
+    name: "Supervised learning"
+    desc: "Building forecasting training sets from causal time-series features and targets."

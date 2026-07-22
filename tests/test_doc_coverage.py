@@ -61,7 +61,7 @@ def test_topics_registry_loads_in_display_order():
     from devtools.topics import load_topics
     topics = load_topics()
     assert len(topics) >= 15
-    assert list(topics)[0] == "arithmetic" and list(topics)[-1] == "graphs"
+    assert list(topics)[0] == "arithmetic" and list(topics)[-1] == "supervised"
 
 
 @pytest.mark.parametrize("name", ["Add", "Sub", "Merge", "Pipeline", "RollingMean"])
@@ -73,6 +73,6 @@ def test_every_topic_belongs_to_exactly_one_group():
     from devtools.topics import load_groups, load_topics, validate_groups
     validate_groups()                       # raises if any topic is unmapped/double-mapped
     groups = load_groups()
-    assert len(groups) == 8
+    assert len(groups) == 9
     mapped = [t for g in groups.values() for t in g["topics"]]
     assert sorted(mapped) == sorted(load_topics())     # exact cover, no dupes

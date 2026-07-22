@@ -57,6 +57,12 @@ Every function, grouped by what it does. Pick a group to browse; the search box 
 
       Align and reshape event streams, and wire operators into a runnable pipeline.
 
+   .. grid-item-card:: Machine learning
+      :link: by_group/machine-learning
+      :link-type: doc
+
+      Utilities for building supervised learning datasets from time-series data.
+
 .. toctree::
    :hidden:
 
@@ -68,3 +74,4 @@ Every function, grouped by what it does. Pick a group to browse; the search box 
    by_group/math-logic
    by_group/data-prep
    by_group/streaming
+   by_group/machine-learning

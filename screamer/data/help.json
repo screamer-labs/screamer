@@ -8372,5 +8372,17 @@
     ],
     "details": "Free helper: converts the screamer `(values, index)` tuple convention to a\npandas Series (1-D) or DataFrame (2-D). Pass `columns` to label a 2-D result.\nA positional stream (`index=None`) gets pandas' default RangeIndex.",
     "examples": []
+  },
+  "forecast_pairs": {
+    "name": "forecast_pairs",
+    "title": "forecast_pairs",
+    "kind": "function",
+    "short": "Build a forecasting training set by aligning lagged features with a future causal target.",
+    "topics": [
+      "supervised"
+    ],
+    "covers": [],
+    "details": "`forecast_pairs` pairs historical features with a future target so that a model\ncan learn to predict `count` events (or `duration` index-units) ahead. Row `t`\nin the output holds the features from `count` events ago aligned with the target\nvalue that is known at time `t`. The pairing is fully causal: it lags `X`,\nnever leads `y`, so nothing here peeks into the future.",
+    "examples": []
   }
 }

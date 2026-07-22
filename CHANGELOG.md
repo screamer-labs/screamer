@@ -46,6 +46,10 @@ All notable changes to this project are documented in this file.
 * `Delay(duration)` stream op: re-stamp each event's index by a time offset (the
   time-based counterpart of `Lag`). Requires an explicit index; lossless, 1:1,
   no warmup.
+* `screamer.supervised.forecast_pairs(X, y, count=|duration=)`: build a forecasting
+  training set by lagging features to align with a future causal target. Returns
+  `(X_shifted, y, as_of)`; `count=` is event-based, `duration=` is time-based (uses
+  `Delay`, needs an index). Fully causal (lags X, never leads y).
 
 ### Changed (breaking)
 
