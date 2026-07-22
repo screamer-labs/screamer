@@ -57,3 +57,61 @@ def test_batch_equals_stream():
     op = BayesianRegression(alpha=0.05)
     stream = np.array([op(float(y[i]), float(x[i])) for i in range(n)])
     np.testing.assert_allclose(np.nan_to_num(stream), np.nan_to_num(batch), rtol=1e-11)
+
+
+def test_predictive_intervals_are_calibrated():
+    rng = np.random.default_rng(0)
+    n = 4000
+    x = rng.standard_normal(n)
+    y = 1.5 - 0.8 * x + rng.standard_normal(n) * 0.5
+    out = BayesianRegression(alpha=1e-4)(y, x)
+    pm, ps = out[200:, 0], out[200:, 1]            # skip the early learning
+    within1 = (np.abs(y[200:] - pm) <= ps).mean()
+    within2 = (np.abs(y[200:] - pm) <= 2 * ps).mean()
+    assert 0.63 < within1 < 0.73                    # ~68%
+    assert 0.92 < within2 < 0.97                    # ~95%
+
+
+def test_intervals_shrink_as_evidence_grows():
+    rng = np.random.default_rng(3)
+    n = 3000
+    x = rng.standard_normal(n)
+    y = 2.0 * x + rng.standard_normal(n) * 0.3
+    out = BayesianRegression(alpha=1e-4)(y, x)     # long memory -> certainty grows
+    early = out[10:60, 1].mean()
+    late = out[-50:, 1].mean()
+    assert late < early                             # predictive std tightens with data
+
+
+def test_forgetting_tracks_a_slope_change():
+    rng = np.random.default_rng(4)
+    n = 4000; h = n // 2
+    x = rng.standard_normal(n)
+    y = np.empty(n)
+    y[:h] = 1.5 - 0.8 * x[:h] + rng.standard_normal(h) * 0.5
+    y[h:] = 1.5 + 2.0 * x[h:] + rng.standard_normal(n - h) * 0.5
+    out = BayesianRegression(alpha=0.02)(y, x)     # finite memory
+    assert abs(out[h - 50, 2] - (-0.8)) < 0.2       # tracked the first regime
+    assert abs(out[-1, 2] - 2.0) < 0.2              # followed the change
+
+
+def test_prior_regularizes_a_degenerate_sample():
+    # near-constant x: OLS slope is ill-posed; the prior keeps it finite and shrunk
+    x = np.full(40, 3.0) + 1e-9 * np.arange(40)
+    y = np.arange(40, dtype=float)
+    out = BayesianRegression(alpha=0.05, prior_precision=1.0)(y, x)
+    assert np.all(np.isfinite(out))
+    assert abs(out[-1, 2]) < 50.0                   # slope stays bounded, not a blow-up
+
+
+def test_parity_with_rolling_linear_regression_in_the_limit():
+    from screamer import RollingLinearRegression
+    rng = np.random.default_rng(5)
+    n = 6000
+    x = rng.standard_normal(n)
+    y = 1.5 - 0.8 * x + rng.standard_normal(n) * 0.5
+    br = BayesianRegression(alpha=1e-4, prior_precision=1e-6)(y, x)   # long memory, weak prior
+    rlr = np.asarray(RollingLinearRegression(2000)(y, x))            # OLS over a long window
+    # both estimate the same stationary line; compare end slope/intercept loosely
+    assert abs(br[-1, 2] - rlr[-1, 0]) < 0.05        # slope
+    assert abs(br[-1, 3] - rlr[-1, 1]) < 0.05        # intercept
