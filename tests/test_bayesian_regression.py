@@ -115,3 +115,27 @@ def test_parity_with_rolling_linear_regression_in_the_limit():
     # both estimate the same stationary line; compare end slope/intercept loosely
     assert abs(br[-1, 2] - rlr[-1, 0]) < 0.05        # slope
     assert abs(br[-1, 3] - rlr[-1, 1]) < 0.05        # intercept
+
+
+def test_forgetting_parameterizations_are_equivalent():
+    # span=39, com=19, and alpha=0.05 all map to the same alpha, so identical output
+    rng = np.random.default_rng(9)
+    n = 500
+    x = rng.standard_normal(n)
+    y = 0.5 * x - 0.2 + rng.standard_normal(n) * 0.4
+    a = BayesianRegression(alpha=0.05)(y, x)
+    s = BayesianRegression(span=39)(y, x)
+    c = BayesianRegression(com=19)(y, x)
+    np.testing.assert_allclose(a, s, atol=1e-12)
+    np.testing.assert_allclose(a, c, atol=1e-12)
+    assert np.all(np.isfinite(BayesianRegression(halflife=10)(y, x)))
+
+
+def test_prior_sigma_scales_early_predictive_std():
+    rng = np.random.default_rng(10)
+    n = 500
+    x = rng.standard_normal(n)
+    y = 0.5 * x - 0.2 + rng.standard_normal(n) * 0.4
+    lo = BayesianRegression(alpha=0.1, prior_sigma=0.5)(y, x)
+    hi = BayesianRegression(alpha=0.1, prior_sigma=5.0)(y, x)
+    assert hi[2, 1] > lo[2, 1]                      # a bigger prior noise scale -> wider early interval
