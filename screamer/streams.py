@@ -1217,6 +1217,7 @@ def delay(values, index=None, *, duration):
     duration = int(duration)
     if is_node(values):
         return make_operator_node(Delay, (values,), {"duration": duration})
+    values, index = _as_vi(values, index)
     if index is None:
         raise TypeError(
             "Delay requires an explicit index (duration is time-based); "

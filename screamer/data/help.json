@@ -8233,15 +8233,21 @@
     "name": "Delay",
     "title": "Delay",
     "kind": "class",
-    "short": "Shift each event's index by a fixed duration; values are unchanged.",
+    "short": "Re-stamp each event's index by a fixed time offset (a latency line).",
     "topics": [
       "streams"
     ],
     "covers": [
       "delay"
     ],
-    "details": "Stateless index re-stamp. Each event is forwarded with its index shifted by\n`duration` (in index units); the values array is passed through unchanged. The\noperation is lossless, 1:1, and order-preserving (a positive constant shift\nkeeps events monotonic). No warmup, no state.\n\nAn explicit index is required. Calling `Delay(duration)(values)` without an\nindex raises `TypeError`. Usable eagerly (raw `(values, index)` tuples) and\ninside a `Pipeline`.",
-    "examples": []
+    "details": "`Delay(duration)` shifts every event's index by `duration` (in index units) and\nleaves its value unchanged: event `(t, v)` becomes `(t + duration, v)`. It is the\ntime-based counterpart of `Lag`, which shifts by a fixed number of events. On a\nregular grid the two coincide (`duration = N * step` equals `Lag(N)`); on an\nirregular feed `Delay` shifts by wall-time and `Lag` shifts by event count.\n\nThe shift is lossless, one output per input, order-preserving, and starts `duration`\nlate (no NaN warmup). `duration` is numeric in index units (a millisecond index uses\n`Delay(600_000)` for a 10-minute delay); there is no calendar parsing.\n\n`Delay` requires an explicit index (there is nothing to shift against without one);\ncalling it on a bare array is a `TypeError`.\n\n## Parameters\n\n- `duration`: the index offset to add to every event, numeric, in index units.\n\n## Limitations\n\nA `Delay` feeding a downstream merge (`CombineLatest`) inside a single live\n`Pipeline` emits the delayed event eagerly, so the merge would align it against a\nnot-yet-advanced input. For an as-of alignment across a delay, apply `Delay` and\n`CombineLatest` as separate calls (batch `CombineLatest` sees all events), which is\nwhat `forecast_pairs` does. A fused-live-merge form needs a reorder buffer and is a\nplanned follow-on.",
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Delaying an irregular feed",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom screamer import Delay\n\nidx = np.array([0, 7, 14, 21, 28], dtype=np.int64)\nvals = np.array([1.0, 3.0, 2.0, 4.0, 3.5])\ndv, di = Delay(5)(vals, idx)\n\nfig = go.Figure()\nfig.add_trace(go.Scatter(x=idx, y=vals, mode=\"lines+markers\", name=\"input\"))\nfig.add_trace(go.Scatter(x=di, y=dv, mode=\"lines+markers\", name=\"Delay(5)\"))\nfig.update_layout(title=\"Delay shifts the index by 5 units\",\n                  xaxis_title=\"index\", yaxis_title=\"value\",\n                  margin=dict(l=20, r=20, t=50, b=20))\nfig.show()"
+      }
+    ]
   },
   "delay": {
     "name": "delay",

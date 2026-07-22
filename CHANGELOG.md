@@ -43,6 +43,9 @@ All notable changes to this project are documented in this file.
 * Docs: `choosing_a_backtest_engine` grid overview page with the 5x2 matrix,
   order-definition interfaces, MARKET encoding table, and fill-cap rule.
 * `SchmittTrigger` gains an `initial` latch seed (`0.0`, `1.0`, or `NaN`).
+* `Delay(duration)` stream op: re-stamp each event's index by a time offset (the
+  time-based counterpart of `Lag`). Requires an explicit index; lossless, 1:1,
+  no warmup.
 
 ### Changed (breaking)
 

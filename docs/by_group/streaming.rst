@@ -19,6 +19,8 @@ Aligning, combining, and reshaping event streams.
      - Description
    * - :doc:`CombineLatest </functions_streams/CombineLatest>`
      - As-of latest-value join of N streams: one row per distinct index (same-index events coalesce).
+   * - :doc:`Delay </functions_streams/Delay>`
+     - Re-stamp each event's index by a fixed time offset (a latency line).
    * - :doc:`Dropna </functions_streams/Dropna>`
      - Drop events whose value is NaN.
    * - :doc:`Filter </functions_streams/Filter>`
@@ -56,6 +58,7 @@ Building and running a pipeline.
    :hidden:
 
    /functions_streams/CombineLatest
+   /functions_streams/Delay
    /functions_streams/Filter
    /functions_streams/from_pandas
    /functions_streams/Merge
