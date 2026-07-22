@@ -25,7 +25,6 @@ __all__ = [
     "Select",
     "Resample",
     "Delay",
-    "delay",
 ]
 
 

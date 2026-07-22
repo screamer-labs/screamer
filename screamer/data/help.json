@@ -8249,18 +8249,6 @@
       }
     ]
   },
-  "delay": {
-    "name": "delay",
-    "title": "delay",
-    "short": "Re-stamp each event's index by `duration` (index units); values unchanged.",
-    "kind": "class",
-    "topics": [
-      "streams"
-    ],
-    "index": false,
-    "details": "",
-    "examples": []
-  },
   "Dropna": {
     "name": "Dropna",
     "title": "Dropna",
