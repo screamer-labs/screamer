@@ -96,6 +96,8 @@ from .backtest import (
     {", ".join(backtest_names)}
 )
 
+from . import supervised  # noqa: F401
+
 __all__ = [
     {", ".join([f'"{name}"' for name in public_members + stream_names + dag_names + micro_names + backtest_names])}
 ]
