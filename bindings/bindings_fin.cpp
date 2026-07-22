@@ -34,6 +34,7 @@
 #include "screamer/rolling_alpha.h"
 #include "screamer/rolling_residual_std.h"
 #include "screamer/rolling_linear_regression.h"
+#include "screamer/bayesian_regression.h"
 
 namespace py = pybind11;
 
@@ -178,6 +179,17 @@ void init_bindings_fin(py::module& m) {
              py::arg("start_policy") = "strict")
         .def("__call__", &screamer::RollingLinearRegression::handle_input)
         .def("reset", &screamer::RollingLinearRegression::reset, "Reset.");
+
+    // 2 -> 4 online Bayesian regression returning (pred_mean, pred_std, slope, intercept).
+    // Uses exponential forgetting with a conjugate Normal-Inverse-Gamma prior.
+    py::class_<screamer::BayesianRegression, screamer::EvalOp>(m, "BayesianRegression")
+        .def(py::init<std::optional<double>, std::optional<double>, std::optional<double>,
+                      std::optional<double>, double, double>(),
+             py::arg("com") = std::nullopt, py::arg("span") = std::nullopt,
+             py::arg("halflife") = std::nullopt, py::arg("alpha") = std::nullopt,
+             py::arg("prior_precision") = 1.0, py::arg("prior_sigma") = 1.0)
+        .def("__call__", &screamer::BayesianRegression::handle_input)
+        .def("reset", &screamer::BayesianRegression::reset, "Reset to the prior.");
 
     py::class_<screamer::BacktestPriceTarget, screamer::EvalOp>(m, "BacktestPriceTarget")
         .def(py::init<double, double, double, double>(),
