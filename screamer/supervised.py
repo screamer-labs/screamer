@@ -48,7 +48,8 @@ def forecast_pairs(X, y, *, count=None, duration=None, dropna=False):
 
     Returns (X_shifted, y, as_of). Row t holds the features from `count` events ago
     aligned with the target at t, so a model learns to predict `count` ahead. The
-    first `count` rows of X_shifted are NaN (warmup); `dropna=True` drops them.
+    first `count` rows of X_shifted are NaN (warmup); `dropna=True` drops any row
+    whose shifted features or target is NaN, so it returns a clean training set.
     `as_of` is each row's completion index (when its target is realized).
 
     Exactly one of `count` / `duration`. `count` is event-based and needs no index;
@@ -66,6 +67,6 @@ def forecast_pairs(X, y, *, count=None, duration=None, dropna=False):
     Xs = np.asarray(Lag(int(count))(X), dtype=float)
     as_of = np.arange(len(X))
     if dropna:
-        keep = _leading_nan_mask(Xs)
+        keep = _leading_nan_mask(Xs) & _leading_nan_mask(y)   # clean both, like duration mode
         return Xs[keep], y[keep], as_of[keep]
     return Xs, y, as_of

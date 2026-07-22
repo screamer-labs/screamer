@@ -5,6 +5,18 @@ All notable changes to this project are documented in this file.
 [Unreleased]
 ------------
 
+### Added
+
+* Example notebook 16, "Supervised forecasting with `forecast_pairs`": build a
+  leak-safe training set, fit a least-squares model, check it out of sample, and
+  tie the prediction into a backtest.
+
+### Fixed
+
+* `forecast_pairs(count=..., dropna=True)` now also drops rows whose target is NaN
+  (not only feature-warmup rows), matching `duration=` mode, so it returns a clean
+  training set.
+
 0.11.0 - 2026-07-22
 ------------
 

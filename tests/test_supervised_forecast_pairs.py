@@ -84,3 +84,14 @@ def test_forecast_pairs_duration_async_pairs_by_walltime():
     np.testing.assert_array_equal(ys, [100.0, 200.0, 300.0])
     np.testing.assert_allclose(Xs, [1.0, 3.0, 4.0])
     np.testing.assert_array_equal(as_of, [15, 30, 45])
+
+
+def test_forecast_pairs_count_dropna_also_drops_target_nan():
+    # dropna must return a clean training set: rows with a NaN target are dropped too
+    # (matching duration mode), not just feature-warmup rows.
+    X = np.arange(8.0)
+    y = np.array([0., 1., 2., np.nan, 4., 5., np.nan, 7.])
+    Xs, ys, as_of = forecast_pairs(X, y, count=1, dropna=True)
+    assert not np.isnan(Xs).any() and not np.isnan(ys).any()
+    # count=1 lags X by 1 (row 0 warmup dropped); rows 3 and 6 dropped for NaN target
+    np.testing.assert_array_equal(as_of, [1, 2, 4, 5, 7])

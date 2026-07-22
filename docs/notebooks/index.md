@@ -123,6 +123,18 @@ Fills on bars, the trade tape, and top-of-book quotes.
 :::
 ```
 
+## Machine learning
+
+```{grid} 1 2 2 2
+:gutter: 3
+
+:::{grid-item-card} Supervised forecasting
+:link: 16-supervised-forecasting
+:link-type: doc
+Build a leak-safe training set with `forecast_pairs`, fit, and backtest.
+:::
+```
+
 ```{toctree}
 :hidden:
 
@@ -141,4 +153,5 @@ Fills on bars, the trade tape, and top-of-book quotes.
 13-microstructure-toxicity-and-book
 14-backtesting-a-signal
 15-event-driven-backtests
+16-supervised-forecasting
 ```
