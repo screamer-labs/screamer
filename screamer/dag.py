@@ -284,6 +284,8 @@ class Pipeline:
                         # (pass 0); the reducer op drives GenericResampleNode.
                         nid = gb.add_resample(inp, mode, 0, label, width, origin,
                                               count, agg_val, fill=fill)
+                elif name == "Delay":
+                    nid = gb.add_delay(inp, int(kwargs["duration"]))
                 else:
                     raise ValueError(
                         f"{name} is not supported as a DAG graph node")

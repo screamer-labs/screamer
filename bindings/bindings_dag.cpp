@@ -334,6 +334,10 @@ void init_bindings_dag(py::module& m) {
             return builder.add_select(std::move(inputs), std::move(columns));
         }
 
+        std::size_t add_delay(std::vector<std::size_t> inputs, std::int64_t duration) {
+            return builder.add_delay(std::move(inputs), duration);
+        }
+
         std::size_t add_resample(std::vector<std::size_t> inputs, int mode, int agg,
                                  int label, std::int64_t width, std::int64_t origin,
                                  std::int64_t count, py::object reducer, int fill) {
@@ -398,6 +402,10 @@ void init_bindings_dag(py::module& m) {
                               std::vector<std::size_t> columns) {
             return b.add_select(std::move(inputs), std::move(columns));
         }, py::arg("inputs"), py::arg("columns"))
+        .def("add_delay", [](PyGraphBuilder& b, std::vector<std::size_t> inputs,
+                             std::int64_t duration) {
+            return b.add_delay(std::move(inputs), duration);
+        }, py::arg("inputs"), py::arg("duration"))
         .def("add_resample", [](PyGraphBuilder& b, std::vector<std::size_t> inputs,
                                 int mode, int agg, int label,
                                 std::int64_t width, std::int64_t origin, std::int64_t count,

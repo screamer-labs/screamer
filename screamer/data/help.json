@@ -8229,6 +8229,32 @@
     "details": "An as-of join for streams that tick on different clocks. It aligns N streams by\ncarrying each input's most recent value forward and emitting **one row per\ndistinct index** - same-index events from multiple streams coalesce into a\nsingle settled row. `emit=\"when_all\"` (default) waits until every input is warm;\n`emit=\"on_any\"` starts from the first event.",
     "examples": []
   },
+  "Delay": {
+    "name": "Delay",
+    "title": "Delay",
+    "kind": "class",
+    "short": "Shift each event's index by a fixed duration; values are unchanged.",
+    "topics": [
+      "streams"
+    ],
+    "covers": [
+      "delay"
+    ],
+    "details": "Stateless index re-stamp. Each event is forwarded with its index shifted by\n`duration` (in index units); the values array is passed through unchanged. The\noperation is lossless, 1:1, and order-preserving (a positive constant shift\nkeeps events monotonic). No warmup, no state.\n\nAn explicit index is required. Calling `Delay(duration)(values)` without an\nindex raises `TypeError`. Usable eagerly (raw `(values, index)` tuples) and\ninside a `Pipeline`.",
+    "examples": []
+  },
+  "delay": {
+    "name": "delay",
+    "title": "delay",
+    "short": "Re-stamp each event's index by `duration` (index units); values unchanged.",
+    "kind": "class",
+    "topics": [
+      "streams"
+    ],
+    "index": false,
+    "details": "",
+    "examples": []
+  },
   "Dropna": {
     "name": "Dropna",
     "title": "Dropna",

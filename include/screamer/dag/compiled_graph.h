@@ -21,6 +21,7 @@
 #include "screamer/dag/dropna_node.h"
 #include "screamer/dag/filter_node.h"
 #include "screamer/dag/select_node.h"
+#include "screamer/dag/delay_node.h"
 #include "screamer/dag/resample_node.h"
 #include "screamer/dag/resample_generic_node.h"
 #include "screamer/dag/frame.h"
@@ -126,6 +127,7 @@ public:
             case NodeKind::Select:        node_width[id] = nd.columns.size(); break;
             case NodeKind::Resample:      node_width[id] = resample_output_width(nd.resample); break;
             case NodeKind::Filter:        node_width[id] = 1; break;
+            case NodeKind::Delay:         node_width[id] = node_width[nd.inputs[0]]; break;
             }
         }
         output_widths_.resize(num_out);
@@ -261,6 +263,12 @@ public:
                 };
                 owned_.push_back(fn);
                 break;
+            }
+            case NodeKind::Delay: {
+                auto dn = std::make_shared<DelayNode<std::int64_t>>(ns.delay_duration, *downstream);
+                node_input_sink[id] = [ptr = dn.get()](std::size_t) -> Sink<std::int64_t>* { return ptr; };
+                owned_.push_back(dn);
+                break;                                        // stateless: not added to reset_nodes_
             }
             }
         }

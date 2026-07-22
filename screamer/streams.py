@@ -24,6 +24,8 @@ __all__ = [
     "Dropna",
     "Select",
     "Resample",
+    "Delay",
+    "delay",
 ]
 
 
@@ -1205,6 +1207,45 @@ class Resample:
 
     def __call__(self, values, index=None):
         return resample(values, index, **self._cfg)
+
+
+def delay(values, index=None, *, duration):
+    """Re-stamp each event's index by `duration` (index units); values unchanged.
+
+    Requires an explicit index (duration is time-based). Returns (values, index +
+    duration) as a concrete stream, or a graph Node when `values` is a Node."""
+    duration = int(duration)
+    if is_node(values):
+        return make_operator_node(Delay, (values,), {"duration": duration})
+    if index is None:
+        raise TypeError(
+            "Delay requires an explicit index (duration is time-based); "
+            "call Delay(duration)(values, index).")
+    return _delay_via_cpp((values, index), duration=duration)
+
+
+def _delay_via_cpp(feed, *, duration):
+    from .dag import Input, Pipeline
+    src = Input("x")
+    node = delay(src, duration=duration)
+    dag = Pipeline([src], [node])
+    return dag(feed)
+
+
+class Delay:
+    """Index re-stamp operator. Config-first form: ``Delay(duration)(values, index)``.
+
+    Shifts each event's index by `duration` (in index units) while leaving values
+    unchanged. Stateless, 1:1, lossless. Requires an explicit index.
+    """
+
+    __name__ = "Delay"
+
+    def __init__(self, duration):
+        self._duration = int(duration)
+
+    def __call__(self, values, index=None):
+        return delay(values, index, duration=self._duration)
 
 
 # transitional: the public API for the five operators above is their CamelCase
