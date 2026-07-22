@@ -7,6 +7,11 @@ All notable changes to this project are documented in this file.
 
 ### Added
 
+* `BayesianRegression`: online Bayesian univariate regression that emits a causal
+  one-step-ahead predictive mean and standard deviation plus the current slope and
+  intercept. Normal-Inverse-Gamma posterior (noise learned online, Student-t
+  predictive) with exponential forgetting (`com`/`span`/`halflife`/`alpha`) and a weak
+  prior, so estimates and intervals are defined from the first sample.
 * Example notebook 16, "Supervised forecasting with `forecast_pairs`": build a
   leak-safe training set, fit a least-squares model, check it out of sample, and
   tie the prediction into a backtest.
