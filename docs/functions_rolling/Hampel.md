@@ -86,16 +86,31 @@ samples are processed as if step `t` had not occurred.
 
 ### Usage example
 
-```python
-import numpy as np
-from screamer import Hampel
+```{eval-rst}
+.. plotly::
+    :include-source: True
 
-rng = np.random.default_rng(0)
-x = np.sin(np.linspace(0, 8, 300)) + 0.05 * rng.standard_normal(300)
-x[150] += 6.0                       # a spike
+    import numpy as np
+    import plotly.graph_objects as go
+    from screamer import Hampel
 
-cleaned = Hampel(window_size=21, n_sigma=3.0)(x)                      # spike removed
-flags = Hampel(window_size=21, n_sigma=3.0, output="flag")(x)         # 1.0 at the spike
+    rng = np.random.default_rng(0)
+    N = 300
+    data = np.cumsum(rng.standard_normal(N))
+    data[[100, 150, 200]] += 15
+
+    cleaned = Hampel(window_size=21, n_sigma=3.0)(data)
+
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(y=data, mode='lines', name='Raw (with spikes)', line=dict(color='steelblue')))
+    fig.add_trace(go.Scatter(y=cleaned, mode='lines', name='Hampel(window_size=21, n_sigma=3.0)', line=dict(color='crimson')))
+    fig.update_layout(
+        title='Hampel filter: robust despiker on a random walk',
+        xaxis_title='Index', yaxis_title='Value',
+        margin=dict(l=20, r=20, t=60, b=20),
+        legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1),
+    )
+    fig.show()
 ```
 
 <!-- HELP_END -->
