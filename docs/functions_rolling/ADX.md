@@ -60,9 +60,6 @@ For the default `window_size=14`, `+DI`/`-DI` start at sample 14 and `ADX` at sa
 
 TA-Lib's Wilder smoother for the DI/DM/TR triplet uses a slightly different seed than its ATR smoother: accumulate `w-1` values during warmup, then apply the recurrence at the `w`-th value (sum form). The ADX smoother itself uses the standard SMA-of-`w`-values seed (average form). `screamer.ADX` implements both conventions inline to match TA-Lib exactly; it does **not** share state with the existing `ATR` class.
 
-## Usage
-
-
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
