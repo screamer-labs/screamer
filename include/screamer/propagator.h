@@ -12,12 +12,12 @@ namespace screamer {
 
     // Bouchaud-Gefen-Potters-Wyart (2004) propagator model: price impact as a
     // decaying-kernel convolution over past signed order flow,
-    //     impact_t = sum_{k=0}^{window-1} G(k) * flow_{t-k},   G(k) = g0 * (k+1)^(-gamma).
+    //     impact_t = sum_{k=0}^{window_size-1} G(k) * flow_{t-k},   G(k) = g0 * (k+1)^(-gamma).
     // Flow moves price with a memory that decays but does not vanish at once.
     // This is a positional (FIR) filter, so it follows the "propagate" NaN
     // policy: a NaN flow is kept in the window and flows through the convolution
     // (the output is NaN while the NaN is inside the window and recovers once it
-    // leaves), exactly as Lag/Diff propagate. The first window-1 samples are NaN
+    // leaves), exactly as Lag/Diff propagate. The first window_size-1 samples are NaN
     // (warmup, the window is not yet full).
     class Propagator : public ScreamerBase {
     public:
