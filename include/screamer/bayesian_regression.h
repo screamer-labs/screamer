@@ -44,8 +44,8 @@ public:
         else if (com.has_value())     a = 1.0 / (1.0 + com.value());
         else if (span.has_value())    a = 2.0 / (span.value() + 1.0);
         else                          a = 1.0 - std::exp(-std::log(2.0) / halflife.value());
-        if (a <= 0.0 || a >= 1.0)
-            throw std::invalid_argument("Alpha must be between 0 and 1 (exclusive)");
+        if (!std::isfinite(a) || a <= 0.0 || a >= 1.0)
+            throw std::invalid_argument("Alpha must be a finite value between 0 and 1 (exclusive)");
         if (prior_precision_ <= 0.0)
             throw std::invalid_argument("prior_precision must be positive");
         if (prior_sigma_ <= 0.0)

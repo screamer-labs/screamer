@@ -23,3 +23,14 @@ def test_propagator_uses_window_size():
     assert len(out) == 30
     with pytest.raises(TypeError):
         Propagator(window=10)                # old name is gone
+
+
+def test_nonfinite_alpha_is_rejected():
+    from screamer import EwMean, EwStd, BayesianRegression
+    for op in [EwMean, EwStd]:
+        with pytest.raises((ValueError, Exception)):
+            op(alpha=float("nan"))
+        with pytest.raises((ValueError, Exception)):
+            op(alpha=float("inf"))
+    with pytest.raises((ValueError, Exception)):
+        BayesianRegression(alpha=float("nan"))
