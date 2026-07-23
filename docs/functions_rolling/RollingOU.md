@@ -19,15 +19,14 @@ parameters:
   min: 2
   description: Trailing-window length.
 - name: output
-  type: int|null
-  default: null
+  type: str
+  default: mrr
   enum:
-  - 0
-  - 1
-  - 2
-  - null
-  description: 'Which fitted parameter to return: 0=mu, 1=theta, 2=sigma. None returns
-    all three (1->3).'
+  - mrr
+  - mean
+  - relmean
+  - std
+  description: 'Which fitted parameter to return: "mrr" = mean-reversion rate, "mean" = long-run mean, "relmean" = mean relative to current value, "std" = noise standard deviation.'
 - name: start_policy
   type: str
   default: strict
@@ -61,11 +60,11 @@ where $ x[i] $ is the current value, $ x[i-1] $ is the previous value, $ \mu $ i
 
 **`window_size`** *(int)*: The size of the rolling window used to fit the OU model. A larger window provides a smoother estimate but may be less responsive to rapid changes.
 
-**`output`** *(int)*: Specifies the output type:
-- **0**: Returns the mean reversion rate (mrr).
-- **1**: Returns the estimated mean ($\mu$).
-- **2**: Returns the relative mean ($\mu^\prime = \mu - x[i]$), the mean relative to the last value.
-- **3**: Returns the estimated standard deviation of the noise ($\sigma$).
+**`output`** *(str, default `"mrr"`)*: Specifies which fitted parameter to return:
+- **`"mrr"`**: Returns the mean-reversion rate.
+- **`"mean"`**: Returns the estimated long-run mean ($\mu$).
+- **`"relmean"`**: Returns the relative mean ($\mu - x[i]$), the mean relative to the current value.
+- **`"std"`**: Returns the estimated standard deviation of the noise ($\sigma$).
 
 - **`start_policy`**: Defines how the function handles the initial phase when fewer than `window_size` data points are available. This parameter accepts one of the following three values:
   - `"strict"`: Returns `NaN` for all calculations until `window_size` elements have been processed.
@@ -97,9 +96,9 @@ where $ x[i] $ is the current value, $ x[i-1] $ is the previous value, $ \mu $ i
     data = np.cumsum(np.random.normal(0, 1, 500))
 
     # Define a rolling OU model with window size of 50
-    rolling_ou_mrr = RollingOU(window_size=50, output=0)
-    rolling_ou_mean = RollingOU(window_size=50, output=1)
-    rolling_ou_std = RollingOU(window_size=50, output=3)
+    rolling_ou_mrr = RollingOU(window_size=50, output="mrr")
+    rolling_ou_mean = RollingOU(window_size=50, output="mean")
+    rolling_ou_std = RollingOU(window_size=50, output="std")
 
     # Apply RollingOU on the data for each output type
     mrr_estimates = [rolling_ou_mrr(d) for d in data]

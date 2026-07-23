@@ -10,27 +10,32 @@ namespace screamer {
     class RollingSigmaClip : public ScreamerBase {
     public:
 
+        static int parse_output(const std::string& s) {
+            if (s == "clipped") return 0;
+            if (s == "mean")    return 1;
+            if (s == "std")     return 2;
+            if (s == "nan")     return 3;
+            throw std::invalid_argument(
+                "output must be \"clipped\", \"mean\", \"std\", or \"nan\".");
+        }
+
         RollingSigmaClip(
             int window_size,
-            std::optional<double> lower = std::nullopt, 
+            std::optional<double> lower = std::nullopt,
             std::optional<double> upper = std::nullopt,
-            std::optional<int> output = std::nullopt,
+            const std::string& output = "clipped",
             const std::string& start_policy = "strict"
-        ) : 
-            window_size_(window_size), 
+        ) :
+            window_size_(window_size),
             lower_bound_(lower.value_or(std::numeric_limits<double>::lowest())),
             upper_bound_(upper.value_or(std::numeric_limits<double>::max())),
-            output_(output.value_or(0)),
+            output_(parse_output(output)),
             start_policy_(detail::parse_start_policy(start_policy)),
             sum_x_buffer(window_size, start_policy),
-            sum_xx_buffer(window_size, start_policy)           
+            sum_xx_buffer(window_size, start_policy)
         {
             if (window_size_ <= 0) {
                 throw std::invalid_argument("Window size must be positive.");
-            }
-
-            if (output_ < 0 || output_ > 3) {
-                throw std::invalid_argument("Output order must be 0 (clipped value), 1 (mean est.), or 2 (std est.) or 3 clipped as NaN.");
             }
 
             if (lower_bound_ >= upper_bound_ ) {

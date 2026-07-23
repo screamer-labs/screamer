@@ -50,3 +50,17 @@ def test_hampel_impulseclip_string_output_modes():
         assert np.isnan(nan).any()
         with pytest.raises((ValueError, Exception)):
             Op(window_size=5, output="bogus")
+
+
+def test_sigmaclip_ou_string_output_modes():
+    from screamer import RollingSigmaClip, RollingOU
+    rng = np.random.default_rng(1)
+    x = rng.standard_normal(200)
+    for mode in ("clipped", "mean", "std", "nan"):
+        assert len(RollingSigmaClip(20, output=mode)(x)) == 200
+    with pytest.raises((ValueError, Exception)):
+        RollingSigmaClip(20, output="bogus")
+    for mode in ("mrr", "mean", "relmean", "std"):
+        assert len(RollingOU(20, output=mode)(np.cumsum(x))) == 200
+    with pytest.raises((ValueError, Exception)):
+        RollingOU(20, output="bogus")

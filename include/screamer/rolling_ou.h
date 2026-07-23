@@ -36,13 +36,22 @@ namespace screamer {
     class RollingOU : public ScreamerBase {
     public:
 
+        static int parse_output(const std::string& s) {
+            if (s == "mrr")     return 0;
+            if (s == "mean")    return 1;
+            if (s == "relmean") return 2;
+            if (s == "std")     return 3;
+            throw std::invalid_argument(
+                "output must be \"mrr\", \"mean\", \"relmean\", or \"std\".");
+        }
+
         RollingOU(
-            int window_size, 
-            std::optional<int> output = std::nullopt,
+            int window_size,
+            const std::string& output = "mrr",
             const std::string& start_policy = "strict"
-        ) : 
+        ) :
             window_size_(window_size),
-            output_(output.value_or(0)),
+            output_(parse_output(output)),
             start_policy_(detail::parse_start_policy(start_policy)),
             sum_y_buffer(window_size - 1, start_policy),
             sum_yy_buffer(window_size - 1, start_policy),
@@ -50,10 +59,6 @@ namespace screamer {
         {
             if (window_size <= 0) {
                 throw std::invalid_argument("Window size must be positive.");
-            }
-
-            if (output_ < 0 || output_ > 3) {
-                throw std::invalid_argument("Output order must be 0 (mean reversion rate), 1 (mean), 2 (relative mean), or 3 (std).");
             }
 
             reset();
