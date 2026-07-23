@@ -49,7 +49,7 @@ Every 1‑in/1‑out class supports the following input/output shapes:
 | Python `tuple` of numbers | Python `list` of same length | processed eagerly in one pass; the output is a `list` |
 | Python iterator (`iter(...)`, generator, anything iterable that is not list/tuple/array) | a screamer `LazyEvalIterator` | results yielded **one at a time on demand** |
 | Async generator (`async def` with `yield`) | a screamer `LazyAsyncIterator` | results awaited one at a time |
-| Anything else | `TypeError` | "Unsupported input type" |
+| Anything else | `ValueError` | "Unsupported input type for call: ..." |
 
 There are two important conventions hidden in this table.
 
@@ -170,7 +170,10 @@ The exact decision tree implemented in `ScreamerBase::operator()`
 5. **Is it an async generator?** (`hasattr(obj, "__aiter__")` and
    `hasattr(obj, "__anext__")`.) Wrap in `LazyAsyncIterator`.
 
-6. **Anything else** → `TypeError("Unsupported input type for call: ...")`.
+6. **Anything else** → `ValueError("Unsupported input type for call: ...")`.
+   (Multi-input functors instead raise `TypeError` for a wrong argument
+   count, mixed input kinds, or mismatched shapes; see the multi-input
+   section.)
 
 
 ### Some concrete consequences of this order
@@ -186,7 +189,7 @@ The exact decision tree implemented in `ScreamerBase::operator()`
   `iter(...)` is iterable but not a list, tuple, or array.
 - `obj(np.float32(2.5))` returns a Python `float`, because NumPy scalars
   are recognised in step 1.
-- `obj(decimal.Decimal("1.5"))` raises `TypeError`. `Decimal` is not in the
+- `obj(decimal.Decimal("1.5"))` raises `ValueError`. `Decimal` is not in the
   scalar table; we deliberately avoid silent precision conversion.
 - 8‑bit and 16‑bit NumPy integers are also not in the scalar table. If
   this becomes annoying for a use case, raise an issue, adding them is a
