@@ -26,8 +26,9 @@ The contract has two layers:
 - **1‑input / M‑output classes** (`RollingMinMax`, `BollingerBands`).
   These inherit from `FunctorBase<Derived, 1, M>`.
 
-The general N‑input / M‑output case is not yet implemented; calling such
-a class raises `TypeError: Unsupported functor type`.
+The general N‑input / M‑output case is also supported (`Cart2Polar`,
+`Polar2Cart`), inheriting from `FunctorBase<Derived, N, M>`. All four
+arities follow the same dispatch and eager/lazy rules described below.
 
 
 ## The single-input contract (`ScreamerBase`)
@@ -38,14 +39,15 @@ Every 1‑in/1‑out class supports the following input/output shapes:
 |---|---|---|
 | `int`, `float`, `bool` | `float` | one `process_scalar` call |
 | `numpy.float32/64`, `numpy.int32/64`, `numpy.uint32/64` | `float` | one `process_scalar` call |
-| 1D NumPy array, length 1 | `float` | unwrapped, treated as scalar |
+| 0‑D NumPy array | `float` | rank 0, treated as a scalar |
+| 1D NumPy array, length 1 | 1D NumPy array, shape `(1,)` | shape preserved; length 1 is still rank 1, not a scalar |
 | 1D NumPy array, length ≥ 2 | 1D NumPy array, same shape | one `process_*` pass over the buffer |
 | 1D strided NumPy view | 1D NumPy array, same shape | strided pass; output is contiguous |
 | 2D NumPy array `(T, K)` | 2D NumPy array `(T, K)` | one independent stream per column; `reset()` between columns |
 | N‑D NumPy array `(T, J, K, ...)` | same shape | `J·K·...` independent streams along axis 0 |
-| Python `list` of numbers | NumPy array of same length | converted to 1D `array_t<double>`, processed in one pass |
-| Python `tuple` of numbers | NumPy array of same length | same |
-| Python iterator (`iter(...)`, generator, anything iterable that is not list/tuple/array) | a screamer `LazyIterator` | results yielded **one at a time on demand** |
+| Python `list` of numbers | Python `list` of same length | container type preserved; processed eagerly in one pass |
+| Python `tuple` of numbers | Python `list` of same length | processed eagerly in one pass; the output is a `list` |
+| Python iterator (`iter(...)`, generator, anything iterable that is not list/tuple/array) | a screamer `LazyEvalIterator` | results yielded **one at a time on demand** |
 | Async generator (`async def` with `yield`) | a screamer `LazyAsyncIterator` | results awaited one at a time |
 | Anything else | `TypeError` | "Unsupported input type" |
 
@@ -102,7 +104,7 @@ indistinguishable from constructing a fresh instance each time.
 
 Lists, tuples, and NumPy arrays are processed all at once, in one C++ pass.
 Iterators and generators are processed one value at a time: screamer wraps them
-in `LazyIterator` and produces each value only when you advance the iteration.
+in `LazyEvalIterator` and produces each value only when you advance the iteration.
 That separation is what makes the live-event use case work, your
 generator can yield from a socket, a Kafka stream, a clock-driven simulator,
 and screamer applies the algorithm at exactly the same cadence.
@@ -120,15 +122,17 @@ def stream():
     for x in some_live_source():
         yield x
 
-for y in mean(stream()):                        # screamer.LazyIterator
+for y in mean(stream()):                        # screamer.LazyEvalIterator
     publish(y)                                  # back-pressure preserved
 ```
 
 The discriminator is whether the input is a Python `list`/`tuple` /
 `numpy.ndarray` (eager paths) or some other iterable (lazy path). A list
-is *first* converted into a NumPy array and then processed at once;
-the fact that lists are technically iterable does not matter, the
-list/array branch is checked before the iterable branch in the dispatcher.
+or tuple is handled by its own eager branch and returns a Python `list`;
+a NumPy array is handled by the array branch and returns an array. The
+fact that lists are technically iterable does not matter, the
+list/tuple and array branches are checked before the iterable branch in
+the dispatcher.
 
 Async generators are handled symmetrically through `LazyAsyncIterator`.
 
@@ -150,28 +154,36 @@ The exact decision tree implemented in `ScreamerBase::operator()`
    `include/screamer/common/cast_double.h`. If yes, call
    `process_scalar(value)` and return a Python `float`.
 
-2. **Is it a NumPy array, list, or tuple?** Cast to
-   `numpy.ndarray<float64>`. Two sub‑cases:
-   - **Length 1**: extract the single element and treat it as a scalar.
-   - **Length ≥ 2**: route to `process_python_array`, which is the
-     multi‑dimensional handler described in *Convention 1*.
+2. **Is it a list or tuple?** Process each element eagerly in one pass and
+   return a Python `list` of the same length. The container type is
+   preserved; a list or tuple is not converted to a NumPy array.
 
-3. **Is it an iterable?** Wrap in `LazyIterator`. Iteration is lazy; each
+3. **Is it a NumPy array?** A 0‑D array is treated as a scalar and returns a
+   `float`. Any array of rank ≥ 1 routes to `process_python_array`, the
+   multi‑dimensional handler described in *Convention 1*, and the output
+   shape equals the input shape. A length‑1 1‑D array returns a 1‑D array of
+   shape `(1,)`, not a scalar.
+
+4. **Is it an iterable?** Wrap in `LazyEvalIterator`. Iteration is lazy; each
    `next()` advances the source and produces one output.
 
-4. **Is it an async generator?** (`hasattr(obj, "__aiter__")` and
+5. **Is it an async generator?** (`hasattr(obj, "__aiter__")` and
    `hasattr(obj, "__anext__")`.) Wrap in `LazyAsyncIterator`.
 
-5. **Anything else** → `TypeError("Unsupported input type for call: ...")`.
+6. **Anything else** → `TypeError("Unsupported input type for call: ...")`.
 
 
 ### Some concrete consequences of this order
 
-- `obj([1, 2, 3])` returns a NumPy array of length 3, not a `LazyIterator`,
-  because lists are matched in step 2 before reaching the iterable branch.
-- `obj([1])` returns a `float`, not a length‑1 array.
-- `obj(iter([1, 2, 3]))` returns a `LazyIterator`, because `iter(...)` is
-  iterable but not a list, tuple, or array.
+- `obj([1, 2, 3])` returns a Python `list` of length 3, not a NumPy array and
+  not a lazy iterator, because lists are matched in step 2 before the generic
+  iterable branch.
+- `obj([1])` returns a `list` of length 1, not a `float`; a length‑1 list does
+  not collapse to a scalar.
+- `obj(np.array([1.0]))` returns a NumPy array of shape `(1,)`, not a scalar;
+  a length‑1 array keeps its rank. Only a 0‑D array collapses to a `float`.
+- `obj(iter([1, 2, 3]))` returns a lazy iterator (`LazyEvalIterator`), because
+  `iter(...)` is iterable but not a list, tuple, or array.
 - `obj(np.float32(2.5))` returns a Python `float`, because NumPy scalars
   are recognised in step 1.
 - `obj(decimal.Decimal("1.5"))` raises `TypeError`. `Decimal` is not in the
@@ -196,7 +208,7 @@ reference example with `N = 2`.
 | `obj(X, Y)` - `N` parallel 2D arrays of shape `(T, K)` | `numpy.ndarray` of shape `(T, K)`, where column `k` is `obj(X[:, k], Y[:, k])` (bit-exact) |
 | `obj(X, Y)` - `N` parallel N-D arrays `(T, J, K, ...)` | same shape; `J*K*...` independent paired streams |
 | `obj(X_view, Y_view)` - strided views | works; result is contiguous |
-| `obj(x_iter, y_iter)` - `N` parallel iterables | `list[float]` (advanced in lock-step until the first stops) |
+| `obj(x_iter, y_iter)` - `N` parallel iterables | a lazy iterator (`LazyEvalIterator`), advancing every input in lock-step and yielding one `float` per step until the first input stops |
 | `obj(A)` - a single 2-D array of shape `(T, N)` | `numpy.ndarray` of shape `(T,)` - the `N` columns are the `N` inputs; column `j` → input `j`. Accepted iff `A.shape[1] == N`; any other single-array shape is a `TypeError`/`ValueError`. |
 | Mismatched shapes or ndim across the `N` inputs | `TypeError` with a clear message |
 | Mixed kinds (one scalar + one array, etc.) | `TypeError` |
@@ -252,20 +264,18 @@ a single batch call, just like for the single-input array path.
 
 ### Caveats specific to multi-input
 
-- The `N` parallel iterables case is **eager**, not lazy: the helper
-  builds a `std::vector<double>` of all results before returning. There
-  is no `LazyIterator` at the moment for `N > 1`. If you want truly
-  streaming multi-input processing today, feed the values yourself in
-  a loop:
+- The eager/lazy rule is the same as for single input. `N` parallel
+  concrete collections (lists, tuples, arrays) are processed eagerly in
+  one pass; `N` parallel lazy iterables (generators, `iter(...)`) return
+  a lazy iterator that advances every input in lock-step and yields one
+  result per step, until the first input stops. Feed generators
+  directly:
 
   ```python
   corr = RollingCorr(window_size=20)
-  for x, y in zip(stream_a, stream_b):
-      yield corr(x, y)
+  for c in corr(gen_a(), gen_b()):
+      publish(c)
   ```
-
-  (Each scalar call is constant time and matches the dispatcher's first
-  row in the table.)
 
 - All `N` inputs must be the same kind (all scalars, all numpy arrays,
   all iterables) and the same shape. Mixing them raises `TypeError`.
@@ -284,7 +294,7 @@ one rule added: the output gets an extra trailing axis of size `M`.
 | 1-D array of shape `(T,)` | NumPy array of shape `(T, M)` |
 | 2-D array of shape `(T, K)` | NumPy array of shape `(T, K, M)` |
 | N-D array of shape `(T, ..., K)` | NumPy array of shape `(T, ..., K, M)` |
-| iterable | `list[tuple[float, ...]]` of length matching the input (eager) |
+| iterable | a lazy iterator (`LazyEvalIterator`) yielding one `tuple` of `M` floats per step |
 
 The shape rule is exactly: `output.shape == input.shape + (M,)`. The same
 input-axis-preservation guarantee from the single-output path holds here
@@ -304,8 +314,9 @@ Per-step access uses the trailing axis: `bb[:, 0]` is the lower band,
 `bb[:, 1]` the mid, `bb[:, 2]` the upper. For a 2-D input, it would be
 `bb[:, k, 0]`, `bb[:, k, 1]`, `bb[:, k, 2]` for each parallel series `k`.
 
-Like the multi-input path, the iterable case is eager: it returns
-`list[tuple[...]]`, not a lazy iterator.
+Like the multi-input path, the iterable case is lazy: a generator or
+`iter(...)` returns a lazy iterator yielding one `tuple` of `M` floats
+per step, while a list, tuple, or array is processed eagerly.
 
 
 ## The multi-input multi-output contract (`FunctorBase<_, N, M>`)
@@ -319,7 +330,7 @@ Functions that map `N` parallel input streams to `M` parallel output streams com
 | `obj([(x1, y1), (x2, y2), ...])` (list of `N`-tuples) | `list[tuple[float, ...]]` of the same length |
 | `N` parallel 1D arrays of shape `(T,)` | NumPy array of shape `(T, M)` |
 | `N` parallel 2D arrays of shape `(T, K)` | NumPy array of shape `(T, K, M)`; column `k` is `obj(X[:, k], Y[:, k])` (bit-exact) |
-| `N` parallel iterables | `list[tuple[float, ...]]` (eager) |
+| `N` parallel iterables | a lazy iterator (`LazyEvalIterator`) yielding one `tuple` of `M` floats per step |
 | `obj(A)` - a single 2-D array of shape `(T, N)` | NumPy array of shape `(T, M)` - the `N` columns are the `N` inputs; column `j` → input `j`. Accepted iff `A.shape[1] == N`; any other single-array shape is a `TypeError`/`ValueError`. |
 
 The shape rule is exactly: `output.shape == single_input.shape + (M,)`. Mismatched shapes across the `N` inputs raise `TypeError`, same as `N → 1`. The dispatcher calls `reset()` between independent paired streams in a 2D/N-D batch, so stateful `N → M` functors don't leak state across columns.

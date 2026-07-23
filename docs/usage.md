@@ -43,7 +43,7 @@ When you pass an array or a list, screamer has the whole dataset in hand and pro
    # --- hide: stop ---
    print("scalar:", RollingMean(3)(2.0))                          # -> a float
    print("array :", RollingMean(3)(np.array([1., 2., 3., 4., 5.])))  # -> an array
-   print("list  :", RollingMean(3)([1., 2., 3., 4., 5.]))         # -> an array
+   print("list  :", RollingMean(3)([1., 2., 3., 4., 5.]))         # -> a list
    print("stream:", list(RollingMean(3)(iter([1., 2., 3., 4., 5.]))))  # -> lazy
 ```
 
