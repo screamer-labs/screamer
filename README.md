@@ -10,9 +10,16 @@ batch NumPy arrays and live streams.
 [![Docs](https://readthedocs.org/projects/screamer/badge/?version=latest)](https://screamer.readthedocs.io/en/latest/?badge=latest)
 [![PyPI](https://img.shields.io/pypi/v/screamer)](https://pypi.org/project/screamer/)
 
+**Python 3.11 or newer required.**
+
 ```bash
 pip install screamer
 ```
+
+The wheel is self-contained; the only runtime dependency (`pybind11`) is
+bundled. For development setup and running the example notebooks see the
+[Installation](https://screamer.readthedocs.io/en/latest/installation.html)
+page in the docs.
 
 ## Why screamer
 
