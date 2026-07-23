@@ -88,25 +88,37 @@ By definition `EwBeta(x, y) == EwCov(x, y) / EwVar(y)`. Verified to ~1e-12 in th
 
 ### Usage example
 
-```python
-import numpy as np
-import pandas as pd
-from screamer import EwBeta
+```{eval-rst}
+.. plotly::
+    :include-source: True
 
-rng = np.random.default_rng(0)
-market = rng.standard_normal(500)
-# An asset with true beta = 1.5 plus idiosyncratic noise
-asset = 1.5 * market + 0.5 * rng.standard_normal(500)
+    import numpy as np
+    import plotly.graph_objects as go
+    from plotly.subplots import make_subplots
+    from screamer import EwBeta
 
-# CAPM convention: dependent first, regressor second
-beta = EwBeta(span=60)(asset, market)
+    rng = np.random.default_rng(0)
+    N = 300
+    market = np.cumsum(rng.standard_normal(N))
+    asset = 1.5 * market + np.cumsum(0.3 * rng.standard_normal(N))
+    ewbeta = EwBeta(span=60)(asset, market)
 
-# Validate against pandas cov/var
-ref = (
-    pd.Series(asset).ewm(span=60).cov(pd.Series(market)).to_numpy()
-    / pd.Series(market).ewm(span=60).var().to_numpy()
-)
-np.testing.assert_allclose(beta, ref, equal_nan=True, atol=1e-10)
+    fig = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.5, 0.5],
+                        vertical_spacing=0.08)
+    fig.add_trace(go.Scatter(y=asset, name='asset', line=dict(color='steelblue')),
+                  row=1, col=1)
+    fig.add_trace(go.Scatter(y=market, name='market', line=dict(color='orange')),
+                  row=1, col=1)
+    fig.add_trace(go.Scatter(y=ewbeta, name='EwBeta(span=60)',
+                             line=dict(color='crimson')), row=2, col=1)
+    fig.update_layout(
+        title='EwBeta: rolling CAPM beta of asset on market (true beta = 1.5)',
+        yaxis=dict(title='price level'),
+        yaxis2=dict(title='beta'),
+        margin=dict(l=20, r=20, t=60, b=20),
+        legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1),
+    )
+    fig.show()
 ```
 
 <!-- HELP_END -->

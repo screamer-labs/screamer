@@ -50,9 +50,6 @@ One of the following decay parameters is required to calculate `alpha`, where a 
 
 *NaN handling*: NaN values are ignored in the mean calculation.
 
-### Usage Example and Plot
-
-
 ### Formula Details
 
 `EwMean` computes the exponentially weighted moving mean recursively. This calculation approach provides a fast, iterative update for each new value without recalculating the entire window, giving more weight to recent observations. The weighted mean formula aligns with the Pandas `ewm` interface by adjusting for the weighted contribution of each new element.

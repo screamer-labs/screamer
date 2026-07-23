@@ -51,9 +51,6 @@ One of the following decay parameters is required to calculate `alpha`, where a 
 
 *NaN handling*: NaN values are ignored in the mean calculation.
 
-### Usage Example and Plot
-
-
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 

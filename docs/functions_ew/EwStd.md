@@ -51,9 +51,6 @@ One of the following decay parameters is required to calculate `alpha`, where a 
 
 *NaN handling*: NaN values are ignored in the mean calculation.
 
-### Usage Example and Plot
-
-
 ### Formula Details
 
 `EwStd` computes the exponentially weighted moving standard deviation recursively, with a bias correction that uses an effective sample size, $N_{eff}$, calculated from the sum of weights. This ensures an unbiased estimate even as the influence of older observations diminishes over time.
