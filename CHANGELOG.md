@@ -5,6 +5,9 @@ All notable changes to this project are documented in this file.
 [Unreleased]
 ------------
 
+0.12.0 - 2026-07-23
+------------
+
 ### Added
 
 * `BayesianRegression`: online Bayesian univariate regression that emits a causal
@@ -21,6 +24,13 @@ All notable changes to this project are documented in this file.
 * `forecast_pairs(count=..., dropna=True)` now also drops rows whose target is NaN
   (not only feature-warmup rows), matching `duration=` mode, so it returns a clean
   training set.
+
+### Docs
+
+* Documentation rewritten to the NumPy and scikit-learn voice. Removed the repeated
+  batch-vs-live-stream property from per-operator docs and notebook closers (it is
+  stated once, where streaming is the subject), the verification cells that only
+  demonstrated equivalence, and the closing summary sections.
 
 0.11.0 - 2026-07-22
 ------------
