@@ -20,6 +20,11 @@ All notable changes to this project are documented in this file.
   `RollingSigmaClip` uses `"clipped"`, `"mean"`, `"std"`, `"nan"`;
   `RollingOU` uses `"mrr"`, `"mean"`, `"relmean"`, `"std"`.
 
+### Added
+
+* `RollingSigmaClip` now exposes `start_policy` in its binding (previously omitted),
+  defaulting to `"strict"` to match the other rolling operators.
+
 ### Fixed
 
 * `EwMean`, `EwStd`, `BayesianRegression` and all other `Ew*` operators now raise
