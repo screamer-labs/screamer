@@ -23,7 +23,7 @@ parameters:
 - name: alpha
   type: float
   default: 0.05
-  description: Tail probability (e.g. 0.05 for the worst 5%).
+  description: Tail probability level in (0, 1); 0.05 means the 5% CVaR (average loss in the worst 5% of the window).
 nan_policy: ignore
 see_also:
 - RollingQuantile

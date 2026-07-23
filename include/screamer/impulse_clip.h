@@ -22,13 +22,12 @@
 // would need a 1-sample lookahead, which is deliberately not done.
 //
 // output modes:
-//   0 : cleaned signal (outliers replaced by the median)  [default]
-//   1 : outlier flag (1.0 where an outlier is detected, else 0.0)
-//   2 : input with outliers replaced by NaN
+//   "cleaned" : cleaned signal (outliers replaced by the median)  [default]
+//   "flag"    : outlier flag (1.0 where an outlier is detected, else 0.0)
+//   "nan"     : input with outliers replaced by NaN
 
 #include <cmath>
 #include <limits>
-#include <optional>
 #include <stdexcept>
 #include <string>
 
@@ -41,14 +40,22 @@ namespace screamer {
 
 class ImpulseClip : public ScreamerBase {
 public:
+    static int parse_output(const std::string& s) {
+        if (s == "cleaned") return 0;
+        if (s == "flag")    return 1;
+        if (s == "nan")     return 2;
+        throw std::invalid_argument(
+            "output must be \"cleaned\", \"flag\", or \"nan\".");
+    }
+
     ImpulseClip(
         int window_size,
         double n_sigma = 4.0,
-        std::optional<int> output = std::nullopt,
+        const std::string& output = "cleaned",
         const std::string& start_policy = "strict"
     )
         : n_sigma_(n_sigma),
-          output_(output.value_or(0)),
+          output_(parse_output(output)),
           start_policy_(detail::parse_start_policy(start_policy)),
           value_window_(window_size),
           diff_window_(window_size)
@@ -58,10 +65,6 @@ public:
         }
         if (n_sigma_ <= 0.0) {
             throw std::invalid_argument("n_sigma must be positive.");
-        }
-        if (output_ < 0 || output_ > 2) {
-            throw std::invalid_argument(
-                "output must be 0 (cleaned), 1 (outlier flag), or 2 (outliers as NaN).");
         }
         reset();
     }

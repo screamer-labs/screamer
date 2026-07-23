@@ -26,14 +26,13 @@ parameters:
   min: 0
   description: Threshold in robust standard deviations (1.4826 * MAD).
 - name: output
-  type: int|null
-  default: null
+  type: str
+  default: cleaned
   enum:
-  - 0
-  - 1
-  - 2
-  - null
-  description: 0 = cleaned signal, 1 = outlier flag, 2 = outliers as NaN. None = cleaned.
+  - cleaned
+  - flag
+  - nan
+  description: '"cleaned" replaces outliers with the median, "flag" emits 1.0 at outliers (else 0.0), "nan" replaces outliers with NaN.'
 - name: start_policy
   type: str
   default: strict
@@ -65,10 +64,10 @@ which detects on the trend-free first difference.
 - **`window_size`**: *(int)* Trailing-window length. Must be positive.
 - **`n_sigma`**: *(float)* Detection threshold in robust standard deviations. Larger
   values flag fewer samples. Typical value `3.0`.
-- **`output`**: *(optional, int)* What to return:
-  - `0` (or `None`): the cleaned signal, outliers replaced by the median.
-  - `1`: an outlier flag, `1.0` where a sample is flagged, else `0.0`.
-  - `2`: the input with flagged samples replaced by `NaN`.
+- **`output`**: *(str)* What to return:
+  - `"cleaned"` (default): the cleaned signal, outliers replaced by the median.
+  - `"flag"`: an outlier flag, `1.0` where a sample is flagged, else `0.0`.
+  - `"nan"`: the input with flagged samples replaced by `NaN`.
 - **`start_policy`**: Warmup handling before `window_size` samples are available
   (`"strict"`, `"expanding"`, or `"zero"`).
 
@@ -95,8 +94,8 @@ rng = np.random.default_rng(0)
 x = np.sin(np.linspace(0, 8, 300)) + 0.05 * rng.standard_normal(300)
 x[150] += 6.0                       # a spike
 
-cleaned = Hampel(window_size=21, n_sigma=3.0)(x)          # spike removed
-flags = Hampel(window_size=21, n_sigma=3.0, output=1)(x)  # 1.0 at the spike
+cleaned = Hampel(window_size=21, n_sigma=3.0)(x)                      # spike removed
+flags = Hampel(window_size=21, n_sigma=3.0, output="flag")(x)         # 1.0 at the spike
 ```
 
 <!-- HELP_END -->

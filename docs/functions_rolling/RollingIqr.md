@@ -34,9 +34,6 @@ A robust spread measure: discards the top and bottom 25% of the window, so it is
 
 *Parameters*: `window_size` (int, positive).
 
-*NaN handling*: NaN values should be preprocessed.
-
-
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 

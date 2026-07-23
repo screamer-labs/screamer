@@ -538,44 +538,45 @@ void init_bindings_rolling(py::module& m) {
 
 
      py::class_<screamer::RollingSigmaClip, screamer::ScreamerBase>(m, "RollingSigmaClip")
-        .def(py::init<int, std::optional<double>, std::optional<double>, std::optional<int>>(),
+        .def(py::init<int, std::optional<double>, std::optional<double>, const std::string&, const std::string&>(),
             py::arg("window_size") = 20,
             py::arg("lower") = std::nullopt,
             py::arg("upper") = std::nullopt,
-            py::arg("output") = std::nullopt
+            py::arg("output") = "clipped",
+            py::arg("start_policy") = "strict"
         )
         .def("__call__", &screamer::RollingSigmaClip::operator(), py::arg("value"))
         .def("reset", &screamer::RollingSigmaClip::reset, "Reset to the initial state.");
 
     // Canonical Hampel filter (causal trailing-window): flag samples that are
     // more than n_sigma robust std devs (1.4826 * MAD) from the window median and
-    // replace them with that median. output: 0 cleaned, 1 outlier flag, 2 NaN.
+    // replace them with that median. output: "cleaned", "flag", or "nan".
     py::class_<screamer::Hampel, screamer::ScreamerBase>(m, "Hampel")
-        .def(py::init<int, double, std::optional<int>, const std::string&>(),
+        .def(py::init<int, double, const std::string&, const std::string&>(),
             py::arg("window_size") = 20,
             py::arg("n_sigma") = 3.0,
-            py::arg("output") = std::nullopt,
+            py::arg("output") = "cleaned",
             py::arg("start_policy") = "strict")
         .def("__call__", &screamer::Hampel::operator(), py::arg("value"))
         .def("reset", &screamer::Hampel::reset, "Reset to the initial state.");
 
     // Causal impulse/glitch remover for non-stationary signals: detects spikes on
     // the trailing first difference (trend-free) and replaces them with the window
-    // median. output: 0 cleaned, 1 outlier flag, 2 NaN.
+    // median. output: "cleaned", "flag", or "nan".
     py::class_<screamer::ImpulseClip, screamer::ScreamerBase>(m, "ImpulseClip")
-        .def(py::init<int, double, std::optional<int>, const std::string&>(),
+        .def(py::init<int, double, const std::string&, const std::string&>(),
             py::arg("window_size") = 20,
             py::arg("n_sigma") = 4.0,
-            py::arg("output") = std::nullopt,
+            py::arg("output") = "cleaned",
             py::arg("start_policy") = "strict")
         .def("__call__", &screamer::ImpulseClip::operator(), py::arg("value"))
         .def("reset", &screamer::ImpulseClip::reset, "Reset to the initial state.");
 
 
      py::class_<screamer::RollingOU, screamer::ScreamerBase>(m, "RollingOU")
-        .def(py::init<int, std::optional<int>, const std::string&>(),
+        .def(py::init<int, const std::string&, const std::string&>(),
             py::arg("window_size") = 20,
-            py::arg("output") = std::nullopt,
+            py::arg("output") = "mrr",
             py::arg("start_policy") = "strict")
         .def("__call__", &screamer::RollingOU::operator(), py::arg("value"))
         .def("reset", &screamer::RollingOU::reset, "Reset to the initial state.");

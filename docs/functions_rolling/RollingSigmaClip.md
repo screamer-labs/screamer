@@ -28,13 +28,22 @@ parameters:
   default: null
   description: Upper sigma threshold (None disables upper clipping).
 - name: output
-  type: int|null
-  default: null
+  type: str
+  default: clipped
   enum:
-  - 0
-  - 1
-  - null
-  description: 0 = clipped value, 1 = boolean flag, None = boolean flag.
+  - clipped
+  - mean
+  - std
+  - nan
+  description: 'Which value to return: "clipped" = clipped value, "mean" = rolling mean estimate, "std" = rolling std estimate, "nan" = outliers replaced by NaN.'
+- name: start_policy
+  type: str
+  default: strict
+  enum:
+  - strict
+  - expanding
+  - zero
+  description: Warmup behaviour.
 nan_policy: ignore
 ---
 
@@ -51,12 +60,12 @@ The `RollingSigmaClip` class performs rolling statistical clipping on a data seq
   The lower z-score threshold for clipping. Data points with z-scores below this threshold are set to the lower bound. If unspecified, there is no lower clipping based on z-score.
 - **`upper`**: *(optional, float)*  
   The upper z-score threshold for clipping. Data points with z-scores above this threshold are set to the upper bound. If unspecified, there is no upper clipping based on z-score.
-- **`output`**: *(optional, int)*  
+- **`output`**: *(str, default `"clipped"`)*  
   Determines the type of output returned by the function:
-  - `0`: Returns the clipped data sequence.
-  - `1`: Returns the rolling mean.
-  - `2`: Returns the rolling standard deviation.
-  - `3`: Returns the original data with outliers (beyond the bounds) replaced by `NaN`.
+  - `"clipped"`: Returns the clipped data sequence.
+  - `"mean"`: Returns the rolling mean estimate.
+  - `"std"`: Returns the rolling standard deviation estimate.
+  - `"nan"`: Returns the original data with outliers replaced by `NaN`.
 - **`start_policy`**: Defines how the function handles the initial phase when fewer than `window_size` data points are available. This parameter accepts one of the following three values:
   - `"strict"`: Returns `NaN` for all calculations until `window_size` elements have been processed.
   - `"expanding"`: Adapts the computation by dynamically reducing the window size to include all available data, starting from a single point and growing until `window_size` is reached.
@@ -94,8 +103,8 @@ The `RollingSigmaClip` class performs rolling statistical clipping on a data seq
 
     # Get the clipped data
     clipped_data = RollingSigmaClip(window_size=window_size, lower=lower_z, upper=upper_z)(data)
-    rolling_mean = RollingSigmaClip(window_size=window_size, lower=lower_z, upper=upper_z, output=1)(data)
-    rolling_std = RollingSigmaClip(window_size=window_size, lower=lower_z, upper=upper_z, output=2)(data)
+    rolling_mean = RollingSigmaClip(window_size=window_size, lower=lower_z, upper=upper_z, output="mean")(data)
+    rolling_std = RollingSigmaClip(window_size=window_size, lower=lower_z, upper=upper_z, output="std")(data)
 
     # Calculate upper and lower bounds
     upper_bound = rolling_mean + upper_z * rolling_std

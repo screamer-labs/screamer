@@ -38,8 +38,8 @@ public:
         else if (span.has_value())      alpha_ = 2.0 / (span.value() + 1.0);
         else                            alpha_ = 1.0 - std::exp(-std::log(2.0) / halflife.value());
 
-        if (alpha_ <= 0.0 || alpha_ >= 1.0) {
-            throw std::invalid_argument("Alpha must be between 0 and 1 (exclusive)");
+        if (!std::isfinite(alpha_) || alpha_ <= 0.0 || alpha_ >= 1.0) {
+            throw std::invalid_argument("Alpha must be a finite value between 0 and 1 (exclusive)");
         }
         one_minus_alpha_  = 1.0 - alpha_;
         one_minus_alpha2_ = one_minus_alpha_ * one_minus_alpha_;

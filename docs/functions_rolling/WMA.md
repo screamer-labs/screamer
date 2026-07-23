@@ -45,8 +45,6 @@ WMA is one of the three classical moving averages alongside `RollingMean` (SMA) 
 - `window_size` (int, positive).
 - `start_policy` (str, optional): `"strict"` (default), `"expanding"`, or `"zero"`. See **Warmup behaviour** below.
 
-*NaN handling*: NaN values should be preprocessed; an NaN input poisons subsequent outputs through the rolling sum.
-
 ## Implementation Details
 
 ### Why O(1) per step?

@@ -30,9 +30,6 @@ nan_policy: ignore
 
 *Parameters*: `window_size` (int, positive).
 
-*NaN handling*: NaN values should be preprocessed.
-
-
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 

@@ -8,9 +8,9 @@
 // step relaxes the posterior toward the prior by (1 - lambda), then folds in the new
 // observation). Emits a causal one-step-ahead Student-t predictive for y_t from x_t
 // using data before t, then updates. 2 -> 4:
-//   [pred_mean, pred_std, slope, intercept].
-// pred_mean / pred_std use data before t (the forecast); slope / intercept are the
-// posterior means after folding in t (the current model). O(1) per step (2x2).
+//   [slope, intercept, pred_mean, pred_std].
+// slope / intercept are the posterior means after folding in t (the current model);
+// pred_mean / pred_std use data before t (the forecast). O(1) per step (2x2).
 // nan_policy: ignore - a NaN x or y emits an all-NaN row and leaves state untouched.
 
 #include <cmath>
@@ -44,8 +44,8 @@ public:
         else if (com.has_value())     a = 1.0 / (1.0 + com.value());
         else if (span.has_value())    a = 2.0 / (span.value() + 1.0);
         else                          a = 1.0 - std::exp(-std::log(2.0) / halflife.value());
-        if (a <= 0.0 || a >= 1.0)
-            throw std::invalid_argument("Alpha must be between 0 and 1 (exclusive)");
+        if (!std::isfinite(a) || a <= 0.0 || a >= 1.0)
+            throw std::invalid_argument("Alpha must be a finite value between 0 and 1 (exclusive)");
         if (prior_precision_ <= 0.0)
             throw std::invalid_argument("prior_precision must be positive");
         if (prior_sigma_ <= 0.0)
@@ -70,7 +70,7 @@ public:
         const double x = inputs[1];
         const double nan = std::numeric_limits<double>::quiet_NaN();
         if (isnan2(y) || isnan2(x))
-            return std::make_tuple(nan, nan, nan, nan);   // ignore: state untouched
+            return std::make_tuple(nan, nan, nan, nan);  // ignore: state untouched
 
         const double one_minus = 1.0 - lambda_;
 
@@ -108,7 +108,7 @@ public:
         det = L11_ * L22_ - L12_ * L12_;
         double slope     = (-L12_ * eta1_ + L11_ * eta2_) / det;
         double intercept = ( L22_ * eta1_ - L12_ * eta2_) / det;
-        return std::make_tuple(pred_mean, pred_std, slope, intercept);
+        return std::make_tuple(slope, intercept, pred_mean, pred_std);
     }
 
 private:

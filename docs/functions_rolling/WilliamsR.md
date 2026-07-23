@@ -43,8 +43,6 @@ This is a **3-input, 1-output** function (`FunctorBase<_, 3, 1>`). Input order i
 
 *Range-zero handling*: when `H_n == L_n` over the period (a perfectly flat segment), the formula is mathematically undefined. We return `0` in that case, matching TA-Lib.
 
-*NaN handling*: NaN inputs should be preprocessed (the deque comparisons treat NaN as never beating an existing element).
-
 ## Implementation Details
 
 Pure composition of two `detail::MonotonicDeque` instances -- the same primitive used by `RollingMin`/`RollingMax`/`RollingMinMax`/`RollingArgmin`/`RollingArgmax`/`RollingRange`. Amortised O(1) per step.

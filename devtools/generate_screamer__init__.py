@@ -112,6 +112,14 @@ __all__ = [
 # (powers readable reprs, Pipeline node labels, and Pipeline serialization).
 from ._functor_params import install_param_capture
 install_param_capture(globals())
+
+# Remove internal names that entered the namespace via imports above.
+# They are implementation details and must not appear in dir(screamer).
+del install_param_capture
+try:
+    del screamer_bindings  # bound by Python's package machinery on normal import
+except NameError:
+    pass  # not bound when module is loaded via exec_module (dev tooling path)
 '''
 
     # Write the content to the output file

@@ -18,14 +18,17 @@ parameters:
   type: int
   default: 7
   min: 2
+  description: Short averaging period (bars).
 - name: period2
   type: int
   default: 14
   min: 2
+  description: Medium averaging period (bars).
 - name: period3
   type: int
   default: 28
   min: 2
+  description: Long averaging period (bars).
 nan_policy: ignore
 ---
 

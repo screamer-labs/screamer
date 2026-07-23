@@ -48,9 +48,9 @@ class RollingKyleLambda:
 class EwKyleLambda:
     """Kyle's lambda, exponentially weighted (recursive). Specializes EwBeta."""
 
-    def __init__(self, span=20.0):
-        """__init__(self: EwKyleLambda, span: float = 20.0) -> None"""
-        self._beta = EwBeta(span=span)
+    def __init__(self, com=None, span=None, halflife=None, alpha=None):
+        """__init__(self: EwKyleLambda, com: float = None, span: float = None, halflife: float = None, alpha: float = None) -> None"""
+        self._beta = EwBeta(com=com, span=span, halflife=halflife, alpha=alpha)
 
     def __call__(self, signed_flow, return_):
         return self._beta(return_, signed_flow)

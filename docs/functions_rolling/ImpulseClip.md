@@ -26,14 +26,13 @@ parameters:
   min: 0
   description: Threshold in robust standard deviations (1.4826 * MAD of the differences).
 - name: output
-  type: int|null
-  default: null
+  type: str
+  default: cleaned
   enum:
-  - 0
-  - 1
-  - 2
-  - null
-  description: 0 = cleaned signal, 1 = outlier flag, 2 = outliers as NaN. None = cleaned.
+  - cleaned
+  - flag
+  - nan
+  description: '"cleaned" replaces outliers with the median, "flag" emits 1.0 at outliers (else 0.0), "nan" replaces outliers with NaN.'
 - name: start_policy
   type: str
   default: strict
@@ -68,10 +67,10 @@ For stationary data or multi-sample outliers, prefer [`Hampel`](Hampel.md).
 - **`window_size`**: *(int)* Trailing-window length. Must be positive.
 - **`n_sigma`**: *(float)* Detection threshold in robust standard deviations of the
   differences. Larger values flag fewer samples. Typical value `4.0`.
-- **`output`**: *(optional, int)* What to return:
-  - `0` (or `None`): the cleaned signal, outliers replaced by the median.
-  - `1`: an outlier flag, `1.0` where a sample is flagged, else `0.0`.
-  - `2`: the input with flagged samples replaced by `NaN`.
+- **`output`**: *(str)* What to return:
+  - `"cleaned"` (default): the cleaned signal, outliers replaced by the median.
+  - `"flag"`: an outlier flag, `1.0` where a sample is flagged, else `0.0`.
+  - `"nan"`: the input with flagged samples replaced by `NaN`.
 - **`start_policy`**: Warmup handling before `window_size` samples are available
   (`"strict"`, `"expanding"`, or `"zero"`).
 
@@ -96,7 +95,8 @@ t = np.linspace(0, 6 * np.pi, 400)
 x = np.sin(t) + 0.3 * rng.standard_normal(t.size)   # oscillating + noise
 x[[80, 210, 330]] += 4.0                            # spikes
 
-cleaned = ImpulseClip(window_size=31, n_sigma=4.0)(x)   # spikes removed
+cleaned = ImpulseClip(window_size=31, n_sigma=4.0)(x)               # default: "cleaned"
+flag    = ImpulseClip(window_size=31, n_sigma=4.0, output="flag")(x) # 1.0 at flagged samples
 ```
 
 <!-- HELP_END -->

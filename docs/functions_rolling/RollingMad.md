@@ -46,9 +46,6 @@ A robust scale measure: less sensitive to outliers than `RollingStd` because it 
 - `window_size` (int, positive).
 - `start_policy` (str, optional): `"strict"` (default), `"expanding"`, or `"zero"`. Same semantics as `RollingMean`.
 
-*NaN handling*: NaN values should be preprocessed.
-
-
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 

@@ -13,6 +13,9 @@ from screamer import ImpulseClip
 MAD_TO_STD = 1.4826
 
 
+_OUTPUT_INT_TO_STR = {0: "cleaned", 1: "flag", 2: "nan"}
+
+
 def _ref_impulse(x, w, n_sigma, output=0, policy="strict"):
     if policy == "zero":
         vbuf, dbuf = [0.0] * w, [0.0] * w
@@ -65,7 +68,7 @@ def test_matches_reference(w, n_sigma, output, policy):
     x = np.sin(t) + 0.2 * rng.standard_normal(t.size)
     x[60] += 5.0
     x[130] -= 4.0
-    got = np.asarray(ImpulseClip(w, n_sigma, output, policy)(x))
+    got = np.asarray(ImpulseClip(w, n_sigma, _OUTPUT_INT_TO_STR[output], policy)(x))
     exp = _ref_impulse(x, w, n_sigma, output, policy)
     np.testing.assert_allclose(got, exp, equal_nan=True, atol=1e-12)
 
@@ -89,7 +92,7 @@ def test_isolated_spike_flags_return_sample():
     # sample after it.
     x = 0.1 * np.random.default_rng(0).standard_normal(60)
     x[30] += 20.0
-    flag = np.asarray(ImpulseClip(21, 4.0, 1)(x))
+    flag = np.asarray(ImpulseClip(21, 4.0, "flag")(x))
     assert flag[30] == 1.0
     assert flag[31] == 1.0
     assert np.nansum(flag) == 2.0
@@ -100,7 +103,7 @@ def test_level_shift_body_preserved():
     # is kept (jumps back to ~0 after the onset).
     x = np.concatenate([np.zeros(40), np.full(40, 5.0)])
     x += 0.001 * np.random.default_rng(0).standard_normal(x.size)
-    flag = np.asarray(ImpulseClip(21, 4.0, 1)(x))
+    flag = np.asarray(ImpulseClip(21, 4.0, "flag")(x))
     assert flag[40] == 1.0          # onset flagged
     assert np.nansum(flag[41:]) == 0.0  # body of the step untouched
 
@@ -110,7 +113,7 @@ def test_batch_equals_stream(policy):
     rng = np.random.default_rng(4)
     x = np.sin(np.linspace(0, 20, 300)) + 0.2 * rng.standard_normal(300)
     x[100] += 9.0
-    for out_mode in (0, 1, 2):
+    for out_mode in ("cleaned", "flag", "nan"):
         batch = np.asarray(ImpulseClip(21, 4.0, out_mode, policy)(x))
         f = ImpulseClip(21, 4.0, out_mode, policy)
         stream = np.array([f(v) for v in x])
@@ -124,13 +127,13 @@ def test_mid_stream_nan_spans_the_gap():
     rng = np.random.default_rng(11)
     x = np.sin(np.linspace(0, 10, 120)) + 0.05 * rng.standard_normal(120)
     x[60] = np.nan
-    out = np.asarray(ImpulseClip(21, 4.0, 1)(x))
+    out = np.asarray(ImpulseClip(21, 4.0, "flag")(x))
     assert np.isnan(out[60])                 # the NaN emits NaN
     assert out[61] == 0.0                    # small jump across the gap not flagged
     # a genuine spike right after the gap is still caught
     y = x.copy()
     y[62] += 6.0
-    flag = np.asarray(ImpulseClip(21, 4.0, 1)(y))
+    flag = np.asarray(ImpulseClip(21, 4.0, "flag")(y))
     assert flag[62] == 1.0
 
 
@@ -139,7 +142,7 @@ def test_flat_signal_diff_mad_zero_flags_nothing():
     # near-zero differences, so MAD(diff) == 0 and nothing is flagged.
     x = np.full(60, 5.0)
     x[30] = 99.0
-    flag = np.asarray(ImpulseClip(21, 4.0, 1)(x))
+    flag = np.asarray(ImpulseClip(21, 4.0, "flag")(x))
     assert np.nansum(flag) == 0.0
 
 
@@ -154,21 +157,21 @@ def test_start_policies_run():
     rng = np.random.default_rng(5)
     x = np.sin(np.linspace(0, 10, 60)) + 0.1 * rng.standard_normal(60)
     for policy in ("strict", "expanding", "zero"):
-        out = np.asarray(ImpulseClip(10, 4.0, 0, policy)(x))
+        out = np.asarray(ImpulseClip(10, 4.0, "cleaned", policy)(x))
         assert out.shape == x.shape
     # zero policy has a previous value (0) from the start, so no leading NaN
-    assert np.isfinite(np.asarray(ImpulseClip(10, 4.0, 0, "zero")(x))[0])
+    assert np.isfinite(np.asarray(ImpulseClip(10, 4.0, "cleaned", "zero")(x))[0])
 
 
 def test_two_dimensional_columns_independent():
     rng = np.random.default_rng(6)
     x = np.tile(np.sin(np.linspace(0, 10, 80)), (3, 1)).T + 0.1 * rng.standard_normal((80, 3))
     x[40, 1] += 12.0
-    out = ImpulseClip(21, 4.0, 1)(x)
+    out = ImpulseClip(21, 4.0, "flag")(x)
     assert out.shape == (80, 3)
     assert out[40, 1] == 1.0
     for c in range(3):
-        np.testing.assert_allclose(out[:, c], np.asarray(ImpulseClip(21, 4.0, 1)(x[:, c])),
+        np.testing.assert_allclose(out[:, c], np.asarray(ImpulseClip(21, 4.0, "flag")(x[:, c])),
                                    equal_nan=True)
 
 
@@ -187,4 +190,4 @@ def test_invalid_arguments_raise():
     with pytest.raises(Exception):
         ImpulseClip(20, -1.0)
     with pytest.raises(Exception):
-        ImpulseClip(20, 4.0, 9)
+        ImpulseClip(20, 4.0, "bogus")
