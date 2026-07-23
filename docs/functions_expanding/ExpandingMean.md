@@ -39,12 +39,28 @@ $$
 
 ### Usage example
 
-```python
-import numpy as np
-from screamer import ExpandingMean
+```{eval-rst}
+.. plotly::
+    :include-source: True
 
-x = np.arange(1.0, 11.0)
-y = ExpandingMean()(x)
+    import numpy as np
+    import plotly.graph_objects as go
+    from screamer import ExpandingMean
+
+    rng = np.random.default_rng(0)
+    N = 300
+    data = np.cumsum(rng.standard_normal(N))
+
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(y=data, mode='lines', name='Input', line=dict(color='steelblue', width=1)))
+    fig.add_trace(go.Scatter(y=ExpandingMean()(data), mode='lines', name='ExpandingMean', line=dict(color='crimson', width=2)))
+    fig.update_layout(
+        title="Expanding mean over a random walk",
+        xaxis_title="Index", yaxis_title="Value",
+        margin=dict(l=20, r=20, t=80, b=20),
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+    )
+    fig.show()
 ```
 
 <!-- HELP_END -->

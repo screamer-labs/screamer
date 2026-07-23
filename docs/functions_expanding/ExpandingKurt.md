@@ -38,12 +38,32 @@ $$
 
 ### Usage example
 
-```python
-import numpy as np
-from screamer import ExpandingKurt
+```{eval-rst}
+.. plotly::
+    :include-source: True
 
-x = np.arange(1.0, 11.0)
-y = ExpandingKurt()(x)
+    import numpy as np
+    import plotly.graph_objects as go
+    from plotly.subplots import make_subplots
+    from screamer import ExpandingKurt
+
+    rng = np.random.default_rng(0)
+    N = 300
+    data = np.cumsum(rng.standard_normal(N))
+
+    fig = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.5, 0.5],
+                        vertical_spacing=0.08)
+    fig.add_trace(go.Scatter(y=data, mode='lines', name='Input', line=dict(color='steelblue', width=1)),
+                  row=1, col=1)
+    fig.add_trace(go.Scatter(y=ExpandingKurt()(data), mode='lines', name='ExpandingKurt',
+                             line=dict(color='seagreen', width=2)), row=2, col=1)
+    fig.update_layout(
+        title="Expanding kurtosis over a random walk",
+        yaxis=dict(title='Input'), yaxis2=dict(title='Excess kurtosis'),
+        margin=dict(l=20, r=20, t=60, b=20),
+        legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1),
+    )
+    fig.show()
 ```
 
 <!-- HELP_END -->
