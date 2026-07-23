@@ -5,6 +5,12 @@ All notable changes to this project are documented in this file.
 [Unreleased]
 ------------
 
+### Changed (breaking)
+
+* `BayesianRegression` output columns reordered to `[slope, intercept, pred_mean, pred_std]`
+  (was `[pred_mean, pred_std, slope, intercept]`), so slope and intercept sit at columns
+  0 and 1 as in `RollingLinearRegression`.
+
 0.12.0 - 2026-07-23
 ------------
 

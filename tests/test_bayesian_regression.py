@@ -16,7 +16,7 @@ def test_recovers_true_slope_and_intercept():
     x = rng.standard_normal(n)
     y = 1.5 - 0.8 * x + rng.standard_normal(n) * 0.5
     out = BayesianRegression(alpha=1e-4)(y, x)     # long memory
-    pred_mean, pred_std, slope, intercept = out.T
+    slope, intercept, pred_mean, pred_std = out.T
     assert abs(slope[-1] - (-0.8)) < 0.05
     assert abs(intercept[-1] - 1.5) < 0.05
 
@@ -25,7 +25,7 @@ def test_defined_from_first_step_no_nan_warmup():
     out = BayesianRegression(alpha=0.1)(np.array([1.0, 2.0, 3.0]),
                                         np.array([0.5, -0.5, 1.0]))
     assert np.all(np.isfinite(out))                # no NaN warmup, unlike RollingLinearRegression
-    assert (out[:, 1] > 0).all()                   # pred_std positive
+    assert (out[:, 3] > 0).all()                   # pred_std positive
 
 
 def test_nan_input_emits_nan_row_state_untouched():
@@ -65,7 +65,7 @@ def test_predictive_intervals_are_calibrated():
     x = rng.standard_normal(n)
     y = 1.5 - 0.8 * x + rng.standard_normal(n) * 0.5
     out = BayesianRegression(alpha=1e-4)(y, x)
-    pm, ps = out[200:, 0], out[200:, 1]            # skip the early learning
+    pm, ps = out[200:, 2], out[200:, 3]            # skip the early learning
     within1 = (np.abs(y[200:] - pm) <= ps).mean()
     within2 = (np.abs(y[200:] - pm) <= 2 * ps).mean()
     assert 0.63 < within1 < 0.73                    # ~68%
@@ -78,8 +78,8 @@ def test_intervals_shrink_as_evidence_grows():
     x = rng.standard_normal(n)
     y = 2.0 * x + rng.standard_normal(n) * 0.3
     out = BayesianRegression(alpha=1e-4)(y, x)     # long memory -> certainty grows
-    early = out[10:60, 1].mean()
-    late = out[-50:, 1].mean()
+    early = out[10:60, 3].mean()
+    late = out[-50:, 3].mean()
     assert late < early                             # predictive std tightens with data
 
 
@@ -91,8 +91,8 @@ def test_forgetting_tracks_a_slope_change():
     y[:h] = 1.5 - 0.8 * x[:h] + rng.standard_normal(h) * 0.5
     y[h:] = 1.5 + 2.0 * x[h:] + rng.standard_normal(n - h) * 0.5
     out = BayesianRegression(alpha=0.02)(y, x)     # finite memory
-    assert abs(out[h - 50, 2] - (-0.8)) < 0.2       # tracked the first regime
-    assert abs(out[-1, 2] - 2.0) < 0.2              # followed the change
+    assert abs(out[h - 50, 0] - (-0.8)) < 0.2       # tracked the first regime
+    assert abs(out[-1, 0] - 2.0) < 0.2              # followed the change
 
 
 def test_prior_regularizes_a_degenerate_sample():
@@ -101,7 +101,7 @@ def test_prior_regularizes_a_degenerate_sample():
     y = np.arange(40, dtype=float)
     out = BayesianRegression(alpha=0.05, prior_precision=1.0)(y, x)
     assert np.all(np.isfinite(out))
-    assert abs(out[-1, 2]) < 50.0                   # slope stays bounded, not a blow-up
+    assert abs(out[-1, 0]) < 50.0                   # slope stays bounded, not a blow-up
 
 
 def test_parity_with_rolling_linear_regression_in_the_limit():
@@ -113,8 +113,8 @@ def test_parity_with_rolling_linear_regression_in_the_limit():
     br = BayesianRegression(alpha=1e-4, prior_precision=1e-6)(y, x)   # long memory, weak prior
     rlr = np.asarray(RollingLinearRegression(2000)(y, x))            # OLS over a long window
     # both estimate the same stationary line; compare end slope/intercept loosely
-    assert abs(br[-1, 2] - rlr[-1, 0]) < 0.05        # slope
-    assert abs(br[-1, 3] - rlr[-1, 1]) < 0.05        # intercept
+    assert abs(br[-1, 0] - rlr[-1, 0]) < 0.05        # slope
+    assert abs(br[-1, 1] - rlr[-1, 1]) < 0.05        # intercept
 
 
 def test_forgetting_parameterizations_are_equivalent():
@@ -138,4 +138,4 @@ def test_prior_sigma_scales_early_predictive_std():
     y = 0.5 * x - 0.2 + rng.standard_normal(n) * 0.4
     lo = BayesianRegression(alpha=0.1, prior_sigma=0.5)(y, x)
     hi = BayesianRegression(alpha=0.1, prior_sigma=5.0)(y, x)
-    assert hi[2, 1] > lo[2, 1]                      # a bigger prior noise scale -> wider early interval
+    assert hi[2, 3] > lo[2, 3]                      # a bigger prior noise scale -> wider early interval

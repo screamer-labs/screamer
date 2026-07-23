@@ -10,7 +10,7 @@ tags:
 - regression
 - online
 - pair
-short: Causal one-step-ahead predictive mean and std plus current slope and intercept via Normal-Inverse-Gamma posterior.
+short: Current slope and intercept via Normal-Inverse-Gamma posterior plus causal one-step-ahead predictive mean and std.
 inputs: 2
 outputs: 4
 parameters:
@@ -48,19 +48,19 @@ nan_policy: ignore
 `BayesianRegression` fits a univariate linear model `y ≈ slope * x + intercept + noise`
 online using a Normal-Inverse-Gamma (NIG) conjugate posterior. It is a **2-input,
 4-output** operator (`FunctorBase<_, 2, 4>`). Inputs are `(y, x)`; outputs per step are
-`(pred_mean, pred_std, slope, intercept)`.
+`(slope, intercept, pred_mean, pred_std)`.
 
 At every step the operator emits a **causal, one-step-ahead prediction** for the current
 `y` using the posterior mean from all previous data, then updates the posterior with the
 new observation. The prediction is formed before the update, so no future information
 enters the output.
 
-| Output | Description |
-|---|---|
-| `pred_mean` | Predictive mean of `y` given `x` and the prior posterior |
-| `pred_std` | Predictive standard deviation (Student-t predictive, finite from step 1) |
-| `slope` | Current posterior mean slope |
-| `intercept` | Current posterior mean intercept |
+| Output | Column | Description |
+|---|---|---|
+| `slope` | 0 | Current posterior mean slope |
+| `intercept` | 1 | Current posterior mean intercept |
+| `pred_mean` | 2 | Predictive mean of `y` given `x` and the prior posterior |
+| `pred_std` | 3 | Predictive standard deviation (Student-t predictive, finite from step 1) |
 
 ### Bayesian update
 
@@ -134,8 +134,8 @@ coefficients.
     y = true_slope * x + rng.standard_normal(n) * 0.4
 
     out = BayesianRegression(span=40)(y, x)
-    pred_mean = out[:, 0]
-    pred_std  = out[:, 1]
+    pred_mean = out[:, 2]
+    pred_std  = out[:, 3]
 
     fig = go.Figure()
     fig.add_trace(go.Scatter(y=y, mode="lines", name="y (observed)",
