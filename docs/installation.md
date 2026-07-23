@@ -4,8 +4,8 @@ This page covers the prerequisites and installation options for screamer.
 
 ## Prerequisites
 
-Python 3.11 or newer is required (`requires-python = ">=3.11"`; the published
-wheels cover Python 3.11 through 3.14).
+Python 3.11 or newer is required (`requires-python = ">=3.11"`; Python 3.11
+through 3.14 are supported).
 
 ## Installing screamer
 
