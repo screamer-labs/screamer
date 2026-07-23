@@ -46,6 +46,47 @@ $$
 **Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
 <!-- NAN_FOOTNOTE_END -->
 
+## Examples
+
+### Usage example
+
+```{eval-rst}
+.. plotly::
+    :include-source: True
+
+    import numpy as np
+    import plotly.graph_objects as go
+    from screamer import ButterHighpass
+
+    rng = np.random.default_rng(0)
+    fs = 500.0
+    N = 1000
+    t = np.arange(N) / fs
+
+    # Composite: slow drift (2 Hz) + high-frequency detail (60 Hz) + noise
+    slow = 2.0 * np.sin(2 * np.pi * 2 * t)
+    detail = 0.5 * np.sin(2 * np.pi * 60 * t)
+    noise = 0.15 * rng.standard_normal(N)
+    signal = slow + detail + noise
+
+    # High-pass: reject below 20 Hz (normalised: 20/250=0.08)
+    filtered = ButterHighpass(order=4, cutoff_freq=0.08)(signal)
+
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(y=signal, mode='lines', name='Raw (2 Hz drift + 60 Hz detail)',
+                             line=dict(color='lightblue'), opacity=0.7))
+    fig.add_trace(go.Scatter(y=filtered, mode='lines',
+                             name='ButterHighpass(order=4, cutoff_freq=0.08)',
+                             line=dict(color='red')))
+    fig.update_layout(
+        title="Butterworth high-pass filter (cutoff: 20 Hz, rejects slow drift)",
+        xaxis_title="Sample", yaxis_title="Amplitude",
+        margin=dict(l=20, r=20, t=80, b=20),
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+    )
+    fig.show()
+```
+
 <!-- HELP_END -->
 
 ## Implementation Details

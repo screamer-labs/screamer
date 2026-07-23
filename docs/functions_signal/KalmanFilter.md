@@ -75,21 +75,42 @@ Constant-time O(1) per step; no buffer, two scalar state variables (`x`, `P`).
 
 ### Usage example
 
-```python
-import numpy as np
-from screamer import KalmanFilter
+```{eval-rst}
+.. plotly::
+    :include-source: True
 
-# Noisy observations of a roughly-constant value.
-truth = 5.0
-obs = truth + np.random.normal(0, 1.0, 200)
+    import numpy as np
+    import plotly.graph_objects as go
+    from screamer import KalmanFilter
 
-# Trust the model more than the measurements (slow / smooth).
-kf = KalmanFilter(process_var=0.001, observation_var=1.0)
-smoothed = kf(obs)
+    rng = np.random.default_rng(0)
+    N = 300
+    t = np.linspace(0, 6 * np.pi, N)
 
-# Edge cases:
-# - process_var -> 0 collapses to the running mean
-# - process_var -> infinity collapses to "output the latest measurement"
+    # Smooth true signal: slow sine wave
+    true_signal = np.sin(t)
+    # Noisy observations
+    obs = true_signal + rng.standard_normal(N)
+
+    # Kalman smoother: trust model more than measurements
+    kf_smooth = KalmanFilter(process_var=0.01, observation_var=1.0)
+    smoothed = kf_smooth(obs)
+
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(y=obs, mode='lines', name='Noisy observations',
+                             line=dict(color='lightblue'), opacity=0.7))
+    fig.add_trace(go.Scatter(y=true_signal, mode='lines', name='True signal',
+                             line=dict(color='green', dash='dash')))
+    fig.add_trace(go.Scatter(y=smoothed, mode='lines',
+                             name='KalmanFilter(process_var=0.01, observation_var=1.0)',
+                             line=dict(color='red')))
+    fig.update_layout(
+        title="Scalar Kalman filter: recovering a sine from noisy observations",
+        xaxis_title="Index", yaxis_title="Value",
+        margin=dict(l=20, r=20, t=80, b=20),
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+    )
+    fig.show()
 ```
 
 <!-- HELP_END -->

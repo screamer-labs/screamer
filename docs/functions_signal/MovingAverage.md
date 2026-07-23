@@ -56,17 +56,37 @@ Circular buffer of the last `L = len(taps)` samples plus an in-order convolution
 
 ### Usage example
 
-```python
-import numpy as np
-from screamer import MovingAverage
+```{eval-rst}
+.. plotly::
+    :include-source: True
 
-# Hamming-windowed low-pass smoother (unity gain).
-taps = np.hamming(11)
-taps /= taps.sum()
-out = MovingAverage(list(taps))(signal)
+    import numpy as np
+    import plotly.graph_objects as go
+    from screamer import MovingAverage
 
-# Uniform taps -> simple rolling mean (equivalent to RollingMean).
-out = MovingAverage([1/7] * 7)(signal)
+    rng = np.random.default_rng(0)
+    N = 300
+    data = np.cumsum(rng.standard_normal(N))
+
+    # Hamming-windowed low-pass smoother (unity gain)
+    taps = np.hamming(21)
+    taps /= taps.sum()
+
+    smoothed = MovingAverage(list(taps))(data)
+
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(y=data, mode='lines', name='Input',
+                             line=dict(color='lightblue'), opacity=0.8))
+    fig.add_trace(go.Scatter(y=smoothed, mode='lines',
+                             name='MovingAverage (21-tap Hamming)',
+                             line=dict(color='red')))
+    fig.update_layout(
+        title="FIR moving average with 21-tap Hamming window",
+        xaxis_title="Index", yaxis_title="Value",
+        margin=dict(l=20, r=20, t=80, b=20),
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+    )
+    fig.show()
 ```
 
 <!-- HELP_END -->

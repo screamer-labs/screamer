@@ -57,13 +57,43 @@ Bit-exact match to `scipy.signal.butter(order, [low, high], btype='bandstop')` +
 
 ## Examples
 
-### Description
+### Usage example
 
-```python
-from screamer import ButterBandstop
-# 60 Hz notch on 1kHz-sampled data: Nyquist = 500 Hz, cutoffs ~58/500 .. 62/500
-notch = ButterBandstop(order=2, low_cutoff=0.116, high_cutoff=0.124)
-out = notch(signal)
+```{eval-rst}
+.. plotly::
+    :include-source: True
+
+    import numpy as np
+    import plotly.graph_objects as go
+    from screamer import ButterBandstop
+
+    rng = np.random.default_rng(0)
+    fs = 500.0
+    N = 1000
+    t = np.arange(N) / fs
+
+    # Composite: slow drift (3 Hz) + interference at 40 Hz + noise
+    slow = np.sin(2 * np.pi * 3 * t)
+    interference = 0.8 * np.sin(2 * np.pi * 40 * t)
+    noise = 0.15 * rng.standard_normal(N)
+    signal = slow + interference + noise
+
+    # Band-stop: reject 30-55 Hz (normalised: 30/250=0.12, 55/250=0.22)
+    filtered = ButterBandstop(order=4, low_cutoff=0.12, high_cutoff=0.22)(signal)
+
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(y=signal, mode='lines', name='Raw (3 Hz drift + 40 Hz interference)',
+                             line=dict(color='lightblue'), opacity=0.7))
+    fig.add_trace(go.Scatter(y=filtered, mode='lines',
+                             name='ButterBandstop(order=4, low=0.12, high=0.22)',
+                             line=dict(color='red')))
+    fig.update_layout(
+        title="Butterworth band-stop filter (reject band: 30-55 Hz)",
+        xaxis_title="Sample", yaxis_title="Amplitude",
+        margin=dict(l=20, r=20, t=80, b=20),
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+    )
+    fig.show()
 ```
 
 <!-- HELP_END -->
