@@ -189,10 +189,6 @@ For a step-by-step walkthrough see the :doc:`User Guide <usage>`.
 
    usage
    choosing_an_operator
-   polymorphic_api
-   nan_and_warmup
-   multistream
-   pipelines
 
 
 .. toctree::

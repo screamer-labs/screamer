@@ -84,7 +84,7 @@ For a worked pairs-trading example using `RollingBeta`, `RollingSpread`, `Rollin
 
 ## Expanding (whole-history) vs rolling (trailing-window)
 
-Many operators come in both flavors. A rolling operator sees only the most recent `window_size` samples, so its estimates adapt quickly but can be noisy when the window is short. An expanding operator (prefix "Expanding") uses all data from the start of the stream, which gives a more stable estimate but never forgets early, possibly unrepresentative, observations. For stationary series where the distribution is unlikely to shift, expanding operators are often preferable because they use more information. For non-stationary series - prices, regime-shifting volatility, or any signal expected to drift - a rolling window keeps estimates current.
+Many operators come in both flavors. A rolling operator sees only the most recent `window_size` samples, so its estimates adapt quickly but can be noisy when the window is short. An expanding operator (prefix "Expanding") uses all data from the start of the stream, which gives a more stable estimate but never forgets early, possibly unrepresentative, observations. For stationary series where the distribution is unlikely to shift, expanding operators are often preferable because they use more information. For non-stationary series such as prices, regime-shifting volatility, or any signal expected to drift, a rolling window keeps estimates current.
 
 ## Align or combine streams
 
