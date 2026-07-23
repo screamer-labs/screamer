@@ -133,6 +133,12 @@ Fills on bars, the trade tape, and top-of-book quotes.
 :link-type: doc
 Recover a latent signal with `KalmanFilter` and forecast online with a calibrated interval using `BayesianRegression`.
 :::
+
+:::{grid-item-card} Pairs trading and mean reversion
+:link: 18-pairs-and-mean-reversion
+:link-type: doc
+Estimate a hedge ratio, extract a stationary spread, and fit an Ornstein-Uhlenbeck model using `RollingBeta`, `RollingSpread`, `RollingAlpha`, and `RollingOU`.
+:::
 ```
 
 ## Machine learning
@@ -167,4 +173,5 @@ Build a leak-safe training set with `forecast_pairs`, fit, and backtest.
 15-event-driven-backtests
 16-supervised-forecasting
 17-filtering-and-forecasting-with-uncertainty
+18-pairs-and-mean-reversion
 ```
