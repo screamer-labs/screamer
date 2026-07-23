@@ -32,7 +32,6 @@ Returns a `pandas.Series` (1-D) or `pandas.DataFrame` (2-D).
 ```{eval-rst}
 .. exec_code::
 
-    import numpy as np
     import pandas as pd
     from screamer import from_pandas, to_pandas
 
