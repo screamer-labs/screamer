@@ -73,7 +73,7 @@ The underlying EMA is pandas's `adjust=True` (bias-corrected weighted mean -- th
 
     rng = np.random.default_rng(0)
     N = 300
-    data = np.cumsum(rng.standard_normal(N))
+    data = 100.0 + np.cumsum(rng.standard_normal(N))
 
     fig = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.5, 0.5],
                         vertical_spacing=0.08)
@@ -82,7 +82,7 @@ The underlying EMA is pandas's `adjust=True` (bias-corrected weighted mean -- th
     fig.add_trace(go.Scatter(y=TRIX(span=14)(data), mode='lines', name='TRIX(span=14)',
                              line=dict(color='crimson', width=2)), row=2, col=1)
     fig.update_layout(
-        title="TRIX momentum oscillator over a random walk",
+        title="TRIX momentum oscillator over a price series",
         yaxis=dict(title='Input'), yaxis2=dict(title='TRIX'),
         margin=dict(l=20, r=20, t=60, b=20),
         legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1),

@@ -93,10 +93,4 @@ $$
 
 Bit-exact match to `scipy.signal.butter(order, cutoff, btype='highpass')` + `scipy.signal.lfilter`. Verified to ~1e-12 in `tests/test_signal.py`.
 
-```python
-from screamer import ButterHighpass
-hp = ButterHighpass(order=4, cutoff_freq=0.1)
-out = hp(noisy_signal)
-```
-
-Uses the same `IIRFilter` engine as the existing `Butter` low-pass class -- O(order) per step.
+Uses the same `IIRFilter` engine as the existing `Butter` low-pass class, O(order) per step.
