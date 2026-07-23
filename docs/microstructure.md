@@ -3,8 +3,7 @@
 Screamer ships a set of operators that read the trade and order-flow tape: who is
 trading, how their flow moves price, and how liquid the market is. They turn a raw
 stream of trades into the signals that short-horizon models are built on. Like
-every screamer operator they are causal and run in the C++ core, so they give
-identical results in batch and live streaming.
+every screamer operator they are causal and run in the C++ core.
 
 This page maps out what is available and shows a typical use. For each operator's
 exact signature and formula, follow its link to the reference page; for full
@@ -87,7 +86,6 @@ ret        = LogReturn(1)(close)
 kyle_lambda = RollingKyleLambda(30)(net, ret)
 ```
 
-The same chain runs unchanged on a live feed, one trade at a time.
 
 ## Worked examples
 

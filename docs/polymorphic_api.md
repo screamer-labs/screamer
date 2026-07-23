@@ -345,8 +345,7 @@ back = Polar2Cart()(polar[:, 0], polar[:, 1])    # equals (x, y)
 ## Symmetry table
 
 The same algorithm produces the same numbers across every input shape
-(modulo `NaN`/precision noise around warmup). That property is what makes
-the dual training/live workflow practical:
+(modulo `NaN`/precision noise around warmup):
 
 | Property | Holds? |
 |---|---|
@@ -370,8 +369,7 @@ the dual training/live workflow practical:
   want to start over, construct a new instance or call `instance.reset()`
   yourself.
 - **Causal.** Output at index `t` depends only on inputs at indices `<= t`;
-  no function looks ahead. That is what makes a value computed live match the one
-  computed in a backtest.
+  no function looks ahead.
 
 [NaN and warmup](nan_and_warmup.md) documents warmup, the leading region where a
 function has not yet seen enough samples, and the `start_policy` argument

@@ -1,9 +1,9 @@
 # Pipelines
 
 A `Pipeline` wires functors and stream operators into a reusable computation you
-define **once** and run either on stored data or live, event by event, with
-identical results. It is the capstone of screamer's batch-equals-streaming property: the
-same guarantee that holds for a single functor holds for a whole pipeline built from them.
+define once and run either on stored data or live, event by event. The same
+guarantee that holds for a single functor - causal output, no lookahead - holds
+for a whole pipeline built from them.
 
 This page explains the model and when to reach for it. For the exact
 constructor, feed forms, and return shapes, see the [`Pipeline` reference](functions_dag/Pipeline.md);
@@ -12,7 +12,7 @@ for a full worked walkthrough, see the pipelines example notebook.
 ## When you need a Pipeline (and when you don't)
 
 For a single stream flowing through a chain of functors you don't need a `Pipeline`.
-Ordinary composition already runs identically in batch and live:
+Ordinary composition is enough:
 
 ```python
 signal = Sign()(RollingPoly2(50, derivative_order=1)(data))
@@ -57,7 +57,7 @@ signal = RollingMean(10)(spread)      # smooth it -> another node
 pipe = Pipeline(inputs=[a, b], outputs=[signal])   # compile the pipeline
 ```
 
-## Two ways to run, one set of numbers
+## Running a pipeline
 
 The pipeline runs in two modes:
 
@@ -104,9 +104,10 @@ stream whose length may differ. The precise semantics are in the
 
 - **Causal.** Every node's output at index `t` depends only on events at indices
   `<= t`. Wiring functors into a pipeline does not introduce any lookahead.
-- **Batch == lazy.** `pipe(arrays)` and `pipe(generators)` emit the same values in
-  the same order; only the execution mode differs. The alignment a pipeline performs
-  is itself causal and identical across both modes.
+- **Mode-consistent.** `pipe(arrays)` and `pipe(generators)` emit the same values
+  in the same order; only the execution mode differs. The alignment a pipeline
+  performs is causal and identical whether you run on a stored dataset or feed
+  events one at a time.
 
 These are the same guarantees the single-functor API and the stream layer make;
 the `Pipeline` simply preserves them across a whole composition.

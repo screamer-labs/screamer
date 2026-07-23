@@ -53,7 +53,6 @@ values near 0 indicate a sell-driven bar, and 0.5 indicates a neutral bar.
 The rolling standard deviation is tracked with two running sums, so each step
 costs O(1). The operator is causal and honors `nan_policy: ignore`; a
 zero-variance window leaves the classification undefined and returns `NaN`.
-Batch and streaming produce identical output.
 
 A common pipeline is:
 

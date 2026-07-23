@@ -77,4 +77,4 @@ print(RollingMedianAD(5)(x))   # robust scale, barely moved by the spike
 O(W) per step: the window median shifts every step, so the absolute deviations
 cannot be updated incrementally. Each step copies the active window, finds the median
 with `std::nth_element`, then finds the median of the absolute deviations the same
-way. Strictly causal, so batch and streaming results are identical.
+way. Strictly causal.

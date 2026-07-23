@@ -59,8 +59,7 @@ Internally the operator:
 - maintains a rolling sample covariance of that pair over the window (three
   running sums, O(1) per step).
 
-The operator is causal and honors `nan_policy: ignore`; batch and streaming
-modes produce identical results.
+The operator is causal and honors `nan_policy: ignore`.
 
 *Parameters*:
 

@@ -56,7 +56,7 @@ $$ d_t = x_t - x_{t-1}, \qquad
 where `MAD(d)` is the rolling median absolute deviation of the differences. A flagged
 sample is replaced by the trailing median of the values.
 
-It is strictly causal with zero latency, so batch and streaming results are identical.
+It is strictly causal with zero latency.
 Two consequences of detecting without looking ahead: an impulse is a `+/-` doublet in
 the difference (a jump onto the spike and a jump back), so both the spike and its
 return sample are flagged, replacing two consecutive samples (the second nudged to the

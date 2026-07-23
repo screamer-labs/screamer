@@ -114,14 +114,12 @@ handle both batch and lazy inputs:
 | `combine_latest_iter(a, b)` | `CombineLatest()(a, b)` |
 | `merge_iter(a, b)` | `Merge()(a, b)` |
 
-## 5. Causal, and identical across modes
+## 5. Causality
 
 - **Causal**: an output at index `t` depends only on events at indices `<= t`. There
-  is no backward-fill and no lookahead operator, ever.
-- **Batch == streaming == graph**: the batch form and its streaming twin emit
-  byte-identical event sequences. This is what lets you validate a pipeline on
-  stored data and run the identical pipeline live. It is enforced by the
-  identity matrix in `tests/test_streams_identity.py`.
+  is no backward-fill and no lookahead operator, ever. This guarantee holds whether
+  you run the operator on a stored dataset or feed it events one at a time live.
+  Conformance is enforced by `tests/test_streams_identity.py`.
 
 ## See also
 

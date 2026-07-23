@@ -1,10 +1,8 @@
 # Using screamer
 
 screamer builds a calculation once and runs it on stored data or a live stream
-without changes. This guide covers how functions are constructed and called, how
-they handle data shape and missing values, and how they compose into pipelines.
-Each section links to a runnable notebook and a reference page where you can go
-deeper.
+without changes. Each section below links to a runnable notebook and a reference
+page for deeper treatment.
 
 ## Constructing and calling a function
 
@@ -49,33 +47,12 @@ When you pass an array or a list, screamer has the whole dataset in hand and pro
    print("stream:", list(RollingMean(3)(iter([1., 2., 3., 4., 5.]))))  # -> lazy
 ```
 
-The two modes produce identical numbers. You can develop and test on stored
-history, then run the same code live.
-
-```{eval-rst}
-.. exec_code::
-
-   # --- hide: start ---
-   import numpy as np
-   from screamer import RollingMean
-   # --- hide: stop ---
-   data = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
-
-   whole = RollingMean(3)(data)              # whole array at once
-
-   live = RollingMean(3)
-   streamed = [live(x) for x in data]        # one value at a time
-
-   print("whole   :", whole)
-   print("streamed:", np.array(streamed))
-   print("identical:", np.allclose(whole, streamed, equal_nan=True))
-```
-
-This holds because every function is **causal**: its output at each step depends
-only on current and past inputs, never future ones. A value computed live
-matches the one from a backtest. The exact input-to-output contract for every
-type is in the [Polymorphic API reference](polymorphic_api.md). A worked version
-of this example is in the [quickstart notebook](notebooks/01-quickstart-polymorphic-api),
+Every function is **causal**: its output at each step depends only on current
+and past inputs, never future ones. That is why code developed on stored
+history can be deployed against a live feed without changes. The exact
+input-to-output contract for every type is in the
+[Polymorphic API reference](polymorphic_api.md). A worked version of this
+example is in the [quickstart notebook](notebooks/01-quickstart-polymorphic-api),
 and the [streaming notebook](notebooks/06-streaming-live-events) shows the live
 path on a longer example.
 
@@ -133,8 +110,7 @@ is in [NaN and warmup](nan_and_warmup.md).
 ## Chaining functions
 
 Every function accepts the output of another, so calculations compose by
-nesting. A chain runs identically on stored data and on a live stream, exactly
-like a single function.
+nesting.
 
 ```{eval-rst}
 .. exec_code::
@@ -225,10 +201,9 @@ in use.
 ## Whole pipelines
 
 A `Pipeline` wires functions and stream operators into a reusable unit you define
-once and run on stored data or live, with identical results. You name your sources
-with `Input`, apply functions to them, and the code reads top-to-bottom like an
-ordinary script. Building a `Pipeline` records the wiring; nothing runs until you
-call it.
+once and call. You name your sources with `Input`, apply
+functions to them, and the code reads top-to-bottom like an ordinary script.
+Building a `Pipeline` records the wiring; nothing runs until you call it.
 
 ```python
 from screamer import Input, Pipeline, RollingMean, Sub, CombineLatest
@@ -240,7 +215,7 @@ signal = RollingMean(10)(spread)      # smooth the spread
 pipe = Pipeline(inputs=[a, b], outputs=[signal])   # build the pipeline
 
 # pipe(arr_a, arr_b)          -> run on stored arrays
-# pipe(gen_a, gen_b)          -> feed generators to run live, event by event, identical results
+# pipe(gen_a, gen_b)          -> feed generators to run live, event by event
 ```
 
 Calling a `Pipeline` runs every step its outputs depend on. The model and its

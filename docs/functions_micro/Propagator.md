@@ -68,8 +68,7 @@ the convolution, so the output is NaN while the NaN is inside the window and
 recovers once it drops out. Dropping the NaN instead (as an `ignore`-policy
 statistic would) would misalign the kernel with the wrong lags.
 
-The operator processes one sample per step, so batch and streaming modes produce
-identical results.
+The operator processes one sample per step.
 
 **References:**
 

@@ -58,8 +58,7 @@ spikes cannot drag the centre or inflate the scale. A flagged sample is replaced
 the window median, and the replacement, not the raw outlier, is fed back into the
 window so a burst of spikes cannot pollute later scale estimates.
 
-It is strictly causal (trailing window only), so batch and streaming results are
-identical. For strongly non-stationary signals see [`ImpulseClip`](ImpulseClip.md),
+It is strictly causal (trailing window only). For strongly non-stationary signals see [`ImpulseClip`](ImpulseClip.md),
 which detects on the trend-free first difference.
 
 *Parameters*:

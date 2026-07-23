@@ -111,14 +111,13 @@ full breakdown.
    :alt: screamer speedup versus the fastest alternative
 
 
-Batch and streaming
--------------------
-
-The same code runs on a stored array or a live stream and produces identical
-results, so code tested on historical data can be deployed to production unchanged.
+Causal and deployable
+---------------------
 
 Every function is causal: its output depends only on current and past inputs,
-which eliminates look-ahead bias.
+which eliminates look-ahead bias. Code that runs on stored data can be
+deployed to production against a live feed without changes, because the same
+C++ implementation handles both.
 
 
 

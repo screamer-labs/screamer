@@ -37,8 +37,8 @@ two steps.
 
 `LeeReadySign()(price, mid)` returns the signed series. The tick-rule fallback
 state advances on every price (not only at-mid samples), so the classification
-is consistent between whole-array and one-sample-at-a-time driving
-(batch == stream). A missing price or mid (`NaN`) yields `NaN`
+is consistent between whole-array and one-sample-at-a-time driving.
+A missing price or mid (`NaN`) yields `NaN`
 (nan_policy: ignore).
 
 *Return value*: an array of `+1.0` and `-1.0` trade signs (or `NaN` where

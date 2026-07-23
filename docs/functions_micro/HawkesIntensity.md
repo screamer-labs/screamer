@@ -62,8 +62,7 @@ that step is `NaN`, but `kappa` is not updated, so intensity recovers on the
 next finite sample. This prevents a single bad tick from permanently corrupting
 the state.
 
-The operator processes one sample per step, so batch and streaming modes produce
-identical results.
+The operator processes one sample per step.
 
 **References:**
 

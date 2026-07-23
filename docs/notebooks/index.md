@@ -53,7 +53,7 @@ Filters and smoothers on noisy series.
 :::{grid-item-card} Streaming live events
 :link: 06-streaming-live-events
 :link-type: doc
-Feed events one at a time; identical results to batch.
+Feed events one at a time from an iterator or generator.
 :::
 
 :::{grid-item-card} Multi-stream operators
