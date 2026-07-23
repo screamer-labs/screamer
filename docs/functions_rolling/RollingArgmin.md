@@ -27,9 +27,6 @@ nan_policy: ignore
 
 *Parameters*: `window_size` (int, positive).
 
-*NaN handling*: NaN values should be preprocessed (the deque comparison treats NaN as never beating an existing element).
-
-
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 

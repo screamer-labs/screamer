@@ -39,8 +39,6 @@ The construction subtracts a slow `WMA` from twice a fast `WMA` (anticipating th
 
 - `window_size` (int, **at least 4**). The construction degenerates below `n=4` because `n_half` must be `>= 2` and `floor(sqrt(n))` must be `>= 2`.
 
-*NaN handling*: NaN values should be preprocessed.
-
 ## Implementation Details
 
 ### Algorithm

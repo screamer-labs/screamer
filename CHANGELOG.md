@@ -7,9 +7,28 @@ All notable changes to this project are documented in this file.
 
 ### Changed (breaking)
 
+* `EwKyleLambda` now accepts only the standard EW mutex (`com`, `span`, `halflife`,
+  `alpha`), exactly one required. The previous positional `window` parameter is removed.
+* `Propagator` parameter renamed from `window` to `window_size` for consistency with
+  other windowed operators. Passing `window=` raises `TypeError`.
 * `BayesianRegression` output columns reordered to `[slope, intercept, pred_mean, pred_std]`
   (was `[pred_mean, pred_std, slope, intercept]`), so slope and intercept sit at columns
   0 and 1 as in `RollingLinearRegression`.
+* `Hampel`, `ImpulseClip`, `RollingSigmaClip`, `RollingOU`: the `output` parameter now
+  accepts a string mode name instead of an integer. Passing an integer raises an error.
+  Valid values: `Hampel`/`ImpulseClip` use `"cleaned"`, `"flag"`, `"nan"`;
+  `RollingSigmaClip` uses `"clipped"`, `"mean"`, `"std"`, `"nan"`;
+  `RollingOU` uses `"mrr"`, `"mean"`, `"relmean"`, `"std"`.
+
+### Fixed
+
+* `EwMean`, `EwStd`, `BayesianRegression` and all other `Ew*` operators now raise
+  `ValueError` when `alpha` is non-finite (`NaN` or `inf`).
+* Removed contradictory "NaN values should be preprocessed" sentences from 16 docs pages
+  that also carried a generated `Policy: ignore` footnote. The footnote is the authoritative
+  statement; the body sentences were stale.
+* Fixed incorrect comment in `bindings/bindings_misc.cpp` that said NaN "propagates" for
+  `CumSum`/`CumProd`/`CumMax`/`CumMin`; they follow the standard `ignore` policy.
 
 0.12.0 - 2026-07-23
 ------------

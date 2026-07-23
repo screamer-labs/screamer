@@ -69,8 +69,6 @@ The one class covers every common parameterisation by choosing `smooth_k`:
 
 *Range-zero handling*: when `H_n == L_n` over the period (a perfectly flat segment) the raw stochastic is undefined; we return 0, matching TA-Lib.
 
-*NaN handling*: NaN inputs should be preprocessed.
-
 ## Implementation Details
 
 Pure composition of two `detail::MonotonicDeque` (one each for high / low) plus two `detail::RollingMean` instances (`smooth_k` and `d`). Amortised O(1) per step.

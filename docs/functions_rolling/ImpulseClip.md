@@ -95,7 +95,8 @@ t = np.linspace(0, 6 * np.pi, 400)
 x = np.sin(t) + 0.3 * rng.standard_normal(t.size)   # oscillating + noise
 x[[80, 210, 330]] += 4.0                            # spikes
 
-cleaned = ImpulseClip(window_size=31, n_sigma=4.0)(x)   # spikes removed
+cleaned = ImpulseClip(window_size=31, n_sigma=4.0)(x)               # default: "cleaned"
+flag    = ImpulseClip(window_size=31, n_sigma=4.0, output="flag")(x) # 1.0 at flagged samples
 ```
 
 <!-- HELP_END -->

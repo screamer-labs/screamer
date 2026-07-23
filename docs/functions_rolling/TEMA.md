@@ -49,8 +49,6 @@ The three-term combination further reduces lag: `TEMA` typically tracks faster t
 
 Same `com / span / halflife / alpha` mutex as `EwMean` -- specify exactly one. The same value is used for all three internal EMAs.
 
-*NaN handling*: NaN values should be preprocessed.
-
 ## Implementation Details
 
 ### Algorithm

@@ -224,7 +224,7 @@ Relationships between series: correlation, covariance, regression, hedging, pair
    * - Function
      - Description
    * - :doc:`Online Bayesian univariate regression (2->4 posterior fit) </functions_fin/BayesianRegression>`
-     - Causal one-step-ahead predictive mean and std plus current slope and intercept via Normal-Inverse-Gamma posterior.
+     - Current slope and intercept via Normal-Inverse-Gamma posterior plus causal one-step-ahead predictive mean and std.
    * - :doc:`Exponentially-weighted beta </functions_ew/EwBeta>`
      - EW CAPM beta: cov(target, regressor) / var(regressor).
    * - :doc:`Exponentially-weighted correlation </functions_ew/EwCorr>`

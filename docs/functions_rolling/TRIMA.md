@@ -43,8 +43,6 @@ In both cases `n_inner + n_outer - 1 == n`, so the effective triangular weightin
 
 - `window_size` (int, positive). Total triangle width.
 
-*NaN handling*: NaN values should be preprocessed.
-
 ## Implementation Details
 
 ### Algorithm

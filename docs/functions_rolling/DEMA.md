@@ -49,8 +49,6 @@ The construction subtracts the *lag* of a single EMA from twice that EMA. The re
 
 Same `com / span / halflife / alpha` mutex as `EwMean` -- specify exactly one. The same value is used for both internal EMAs.
 
-*NaN handling*: NaN values should be preprocessed.
-
 ## Implementation Details
 
 ### Algorithm

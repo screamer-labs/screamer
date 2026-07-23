@@ -42,8 +42,8 @@ void init_bindings_misc(py::module& m) {
         .def("__call__", &screamer::Lag::operator(), py::arg("value"))
         .def("reset", &screamer::Lag::reset, "Reset to the initial state.");
 
-    // Cumulative reductions from t=0. O(1) memory each. NaN propagates
-    // (matches numpy semantics, not pandas skipna=True).
+    // Cumulative reductions from t=0. O(1) memory each. NaN policy: ignore
+    // (a NaN input leaves state unchanged and emits NaN at that step only).
     py::class_<screamer::CumSum, screamer::ScreamerBase>(m, "CumSum")
         .def(py::init<>())
         .def("__call__", &screamer::CumSum::operator(), py::arg("value"))

@@ -64,3 +64,9 @@ def test_sigmaclip_ou_string_output_modes():
         assert len(RollingOU(20, output=mode)(np.cumsum(x))) == 200
     with pytest.raises((ValueError, Exception)):
         RollingOU(20, output="bogus")
+
+
+def test_internal_names_not_public():
+    import screamer
+    assert "install_param_capture" not in dir(screamer)
+    assert "screamer_bindings" not in dir(screamer)

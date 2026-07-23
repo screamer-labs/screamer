@@ -26,8 +26,7 @@ nan_policy: ignore
 The `RollingMedian` class computes the median value within a moving window of specified size over a sequence of data. 
 
 
-*Initial values*: The constructor requires a positive integer `window_size` parameter to define the rolling window.  
-*NaN handling*: NaN values are not handled natively and should be preprocessed if necessary.
+*Initial values*: The constructor requires a positive integer `window_size` parameter to define the rolling window.
 
 
 <!-- NAN_FOOTNOTE_START -->
