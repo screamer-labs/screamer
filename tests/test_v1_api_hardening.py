@@ -34,3 +34,19 @@ def test_nonfinite_alpha_is_rejected():
             op(alpha=float("inf"))
     with pytest.raises((ValueError, Exception)):
         BayesianRegression(alpha=float("nan"))
+
+
+def test_hampel_impulseclip_string_output_modes():
+    from screamer import Hampel, ImpulseClip
+    rng = np.random.default_rng(42)
+    x = rng.standard_normal(100)
+    x[50] += 20.0   # one large spike
+    for Op in (Hampel, ImpulseClip):
+        cleaned = Op(window_size=5, output="cleaned")(x)
+        flag = Op(window_size=5, output="flag")(x)
+        nan = Op(window_size=5, output="nan")(x)
+        # flag marks the spike as 1.0 somewhere; nan-mode puts a NaN where flag is 1
+        assert np.nanmax(flag) == 1.0
+        assert np.isnan(nan).any()
+        with pytest.raises((ValueError, Exception)):
+            Op(window_size=5, output="bogus")

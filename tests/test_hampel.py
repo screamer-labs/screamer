@@ -12,6 +12,9 @@ from screamer import Hampel
 MAD_TO_STD = 1.4826
 
 
+_OUTPUT_INT_TO_STR = {0: "cleaned", 1: "flag", 2: "nan"}
+
+
 def _ref_hampel(x, w, n_sigma, output=0, policy="strict"):
     buf = [0.0] * w if policy == "zero" else []
     out = np.full(len(x), np.nan)
@@ -46,7 +49,7 @@ def test_matches_reference(w, n_sigma, output, policy):
     x[30] += 8.0
     x[95] -= 7.0
     x[160] += 6.0
-    got = np.asarray(Hampel(w, n_sigma, output, policy)(x))
+    got = np.asarray(Hampel(w, n_sigma, _OUTPUT_INT_TO_STR[output], policy)(x))
     exp = _ref_hampel(x, w, n_sigma, output, policy)
     np.testing.assert_allclose(got, exp, equal_nan=True, atol=1e-12)
 
@@ -59,10 +62,10 @@ def test_spikes_flagged_and_replaced():
     spikes = [40, 130, 250]
     for s in spikes:
         x[s] += 6.0
-    flag = np.asarray(Hampel(21, 3.0, 1)(x))
+    flag = np.asarray(Hampel(21, 3.0, "flag")(x))
     for s in spikes:
         assert flag[s] == 1.0
-    cleaned = np.asarray(Hampel(21, 3.0, 0)(x))
+    cleaned = np.asarray(Hampel(21, 3.0, "cleaned")(x))
     # cleaned output at the spike is far closer to the smooth base than the spike
     for s in spikes:
         assert abs(cleaned[s] - base[s]) < abs(x[s] - base[s])
@@ -71,7 +74,7 @@ def test_spikes_flagged_and_replaced():
 def test_clean_data_mostly_unflagged():
     rng = np.random.default_rng(2)
     x = rng.standard_normal(1000)
-    flag = np.asarray(Hampel(21, 3.0, 1)(x))
+    flag = np.asarray(Hampel(21, 3.0, "flag")(x))
     # A 3-sigma robust threshold flags only a small fraction of clean normal data.
     assert np.nansum(flag) < 0.05 * len(x)
 
@@ -79,14 +82,14 @@ def test_clean_data_mostly_unflagged():
 def test_constant_window_flags_nothing():
     # MAD == 0 -> no scale -> never flag (documented degenerate case).
     x = np.concatenate([np.full(30, 5.0), [99.0], np.full(10, 5.0)])
-    flag = np.asarray(Hampel(21, 3.0, 1)(x))
+    flag = np.asarray(Hampel(21, 3.0, "flag")(x))
     assert np.nansum(flag) == 0.0
 
 
-def test_output_two_marks_outliers_nan():
+def test_output_nan_marks_outliers_nan():
     x = 0.1 * np.random.default_rng(0).standard_normal(60)
     x[40] += 20.0
-    out = np.asarray(Hampel(21, 3.0, 2)(x))
+    out = np.asarray(Hampel(21, 3.0, "nan")(x))
     assert np.isnan(out[40])                 # outlier -> NaN
     np.testing.assert_allclose(out[41], x[41])  # a clean sample passes through
 
@@ -96,7 +99,7 @@ def test_batch_equals_stream(policy):
     rng = np.random.default_rng(4)
     x = rng.standard_normal(300)
     x[100] += 9.0
-    for out_mode in (0, 1, 2):
+    for out_mode in ("cleaned", "flag", "nan"):
         batch = np.asarray(Hampel(21, 3.0, out_mode, policy)(x))
         f = Hampel(21, 3.0, out_mode, policy)
         stream = np.array([f(v) for v in x])
@@ -114,22 +117,22 @@ def test_start_policies_run():
     rng = np.random.default_rng(5)
     x = rng.standard_normal(50)
     for policy in ("strict", "expanding", "zero"):
-        out = np.asarray(Hampel(10, 3.0, 0, policy)(x))
+        out = np.asarray(Hampel(10, 3.0, "cleaned", policy)(x))
         assert out.shape == x.shape
     # expanding / zero emit a finite value from the first sample
-    assert np.isfinite(np.asarray(Hampel(10, 3.0, 0, "expanding")(x))[0])
-    assert np.isfinite(np.asarray(Hampel(10, 3.0, 0, "zero")(x))[0])
+    assert np.isfinite(np.asarray(Hampel(10, 3.0, "cleaned", "expanding")(x))[0])
+    assert np.isfinite(np.asarray(Hampel(10, 3.0, "cleaned", "zero")(x))[0])
 
 
 def test_two_dimensional_columns_independent():
     rng = np.random.default_rng(6)
     x = rng.standard_normal((80, 3))
     x[40, 1] += 10.0
-    out = Hampel(21, 3.0, 1)(x)
+    out = Hampel(21, 3.0, "flag")(x)
     assert out.shape == (80, 3)
     assert out[40, 1] == 1.0
     for c in range(3):
-        np.testing.assert_allclose(out[:, c], np.asarray(Hampel(21, 3.0, 1)(x[:, c])),
+        np.testing.assert_allclose(out[:, c], np.asarray(Hampel(21, 3.0, "flag")(x[:, c])),
                                    equal_nan=True)
 
 
@@ -148,4 +151,4 @@ def test_invalid_arguments_raise():
     with pytest.raises(Exception):
         Hampel(20, 0.0)
     with pytest.raises(Exception):
-        Hampel(20, 3.0, 5)
+        Hampel(20, 3.0, "bogus")
