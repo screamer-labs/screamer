@@ -67,25 +67,28 @@ The inner WMAs run with `start_policy="expanding"` so they never emit `NaN` (whi
 
 ### Usage example
 
-```python
-import numpy as np
-from screamer import HullMA, WMA
+```{eval-rst}
+.. plotly::
+    :include-source: True
 
-x = np.cumsum(np.random.randn(200))
-n = 16
+    import numpy as np
+    import plotly.graph_objects as go
+    from screamer import HullMA
 
-# Direct
-ours = HullMA(n)(x)
+    rng = np.random.default_rng(0)
+    N = 300
+    data = np.cumsum(rng.standard_normal(N))
 
-# Algorithmically equivalent composition (post-warmup; the test suite
-# verifies bit-equality)
-n_half = n // 2
-n_sqrt = int(np.sqrt(n))
-w_half = WMA(n_half, "expanding")(x)
-w_full = WMA(n,      "expanding")(x)
-w_outer = WMA(n_sqrt, "expanding")(2*w_half - w_full)
-warmup = n + n_sqrt - 1
-np.testing.assert_allclose(ours[warmup - 1:], w_outer[warmup - 1:], atol=1e-12)
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(y=data, mode='lines', name='Input', line=dict(color='steelblue', width=1)))
+    fig.add_trace(go.Scatter(y=HullMA(window_size=20)(data), mode='lines', name='HullMA(window_size=20)', line=dict(color='crimson', width=2)))
+    fig.update_layout(
+        title="HullMA smoother over a random walk",
+        xaxis_title="Index", yaxis_title="Value",
+        margin=dict(l=20, r=20, t=80, b=20),
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+    )
+    fig.show()
 ```
 
 <!-- HELP_END -->

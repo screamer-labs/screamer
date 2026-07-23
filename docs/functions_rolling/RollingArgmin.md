@@ -37,16 +37,33 @@ nan_policy: ignore
 
 ### Usage example
 
-```python
-import numpy as np
-from screamer import RollingArgmin, RollingMin
+```{eval-rst}
+.. plotly::
+    :include-source: True
 
-x = np.array([3, 1, 4, 1, 5, 9, 2, 6, 5, 3, 5], dtype=float)
-RollingArgmin(5)(x)        # window offsets, 0 = oldest in window
-RollingMin(5)(x)           # corresponding minima
+    import numpy as np
+    import plotly.graph_objects as go
+    from plotly.subplots import make_subplots
+    from screamer import RollingArgmin
 
-# Example: how long ago was the running low? Convert offset to "steps ago":
-steps_ago = (5 - 1) - RollingArgmin(5)(x).astype(int)
+    rng = np.random.default_rng(0)
+    N = 300
+    data = np.cumsum(rng.standard_normal(N))
+
+    fig = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.5, 0.5],
+                        vertical_spacing=0.08)
+    fig.add_trace(go.Scatter(y=data, mode='lines', name='Input', line=dict(color='steelblue', width=1)),
+                  row=1, col=1)
+    fig.add_trace(go.Scatter(y=RollingArgmin(window_size=30)(data), mode='lines',
+                             name='RollingArgmin(window_size=30)',
+                             line=dict(color='crimson', width=2)), row=2, col=1)
+    fig.update_layout(
+        title="Rolling argmin (window offset of minimum) over a random walk",
+        yaxis=dict(title='Input'), yaxis2=dict(title='Argmin offset'),
+        margin=dict(l=20, r=20, t=60, b=20),
+        legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1),
+    )
+    fig.show()
 ```
 
 <!-- HELP_END -->

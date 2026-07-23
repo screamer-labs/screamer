@@ -85,23 +85,28 @@ The warmup numerators agree exactly at the moment the window first fills, so the
 
 ### Usage example
 
-```python
-import numpy as np
-import pandas as pd
-from screamer import WMA
+```{eval-rst}
+.. plotly::
+    :include-source: True
 
-rng = np.random.default_rng(0)
-x = rng.standard_normal(100)
-w = 10
+    import numpy as np
+    import plotly.graph_objects as go
+    from screamer import WMA
 
-ours = WMA(w)(x)
+    rng = np.random.default_rng(0)
+    N = 300
+    data = np.cumsum(rng.standard_normal(N))
 
-# Reference: explicit per-window dot product (same definition pandas uses)
-ref = pd.Series(x).rolling(w).apply(
-    lambda v: np.dot(v, np.arange(1, w + 1)) / (w * (w + 1) / 2),
-    raw=True,
-).to_numpy()
-np.testing.assert_allclose(ours, ref, equal_nan=True, atol=1e-12)
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(y=data, mode='lines', name='Input', line=dict(color='steelblue', width=1)))
+    fig.add_trace(go.Scatter(y=WMA(window_size=20)(data), mode='lines', name='WMA(window_size=20)', line=dict(color='crimson', width=2)))
+    fig.update_layout(
+        title="WMA smoother over a random walk",
+        xaxis_title="Index", yaxis_title="Value",
+        margin=dict(l=20, r=20, t=80, b=20),
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+    )
+    fig.show()
 ```
 
 <!-- HELP_END -->

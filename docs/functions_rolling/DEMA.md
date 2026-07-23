@@ -71,19 +71,28 @@ Same `com / span / halflife / alpha` mutex as `EwMean` -- specify exactly one. T
 
 ### Usage example
 
-```python
-import numpy as np
-from screamer import DEMA, EwMean
+```{eval-rst}
+.. plotly::
+    :include-source: True
 
-x = np.cumsum(np.random.randn(100))
+    import numpy as np
+    import plotly.graph_objects as go
+    from screamer import DEMA
 
-# Direct
-ours = DEMA(span=10)(x)
+    rng = np.random.default_rng(0)
+    N = 300
+    data = np.cumsum(rng.standard_normal(N))
 
-# Algorithmically equivalent composition (the test suite verifies bit-equality)
-e1 = EwMean(span=10)(x)
-e2 = EwMean(span=10)(e1)
-np.testing.assert_allclose(ours, 2*e1 - e2, atol=1e-12)
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(y=data, mode='lines', name='Input', line=dict(color='steelblue', width=1)))
+    fig.add_trace(go.Scatter(y=DEMA(span=20)(data), mode='lines', name='DEMA(span=20)', line=dict(color='crimson', width=2)))
+    fig.update_layout(
+        title="DEMA smoother over a random walk",
+        xaxis_title="Index", yaxis_title="Value",
+        margin=dict(l=20, r=20, t=80, b=20),
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+    )
+    fig.show()
 ```
 
 <!-- HELP_END -->
