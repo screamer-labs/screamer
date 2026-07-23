@@ -15,7 +15,7 @@ short: "Bouchaud (2004) propagator model: price impact as a decaying-kernel conv
 inputs: 1
 outputs: 1
 parameters:
-- name: window
+- name: window_size
   type: int
   default: 20
   min: 2
@@ -46,7 +46,7 @@ over many subsequent periods.
 
 The predicted impact at time `t` is:
 
-    impact_t = sum_{k=0}^{window-1} G(k) * flow_{t-k}
+    impact_t = sum_{k=0}^{window_size-1} G(k) * flow_{t-k}
 
 where the propagator kernel is:
 
@@ -59,8 +59,8 @@ When `gamma = 0.5` (the default), the memory decays slowly enough to be called
 long-memory: past flow continues to affect the predicted price even after many
 periods.
 
-The operator requires `window` samples before producing its first output. The
-first `window - 1` outputs are `NaN` (warmup period).
+The operator requires `window_size` samples before producing its first output. The
+first `window_size - 1` outputs are `NaN` (warmup period).
 
 Because this is a positional (FIR) filter, it follows the `propagate` NaN policy,
 like `Lag` and `Diff`: a NaN flow value is kept in the window and flows through
@@ -86,9 +86,9 @@ from screamer import Propagator
 
 # Isolated unit of buy flow at t=0 and t=3; window=3 reveals the kernel shape
 flow = np.array([1.0, 0.0, 0.0, 1.0, 0.0, 0.0])
-impact = Propagator(window=3, g0=1.0, gamma=0.5)(flow)
+impact = Propagator(window_size=3, g0=1.0, gamma=0.5)(flow)
 # G = [1.0, 2^-0.5, 3^-0.5] = [1.0, 0.70711, 0.57735]
-# t=0, t=1: NaN (warmup, fewer than window samples seen)
+# t=0, t=1: NaN (warmup, fewer than window_size samples seen)
 # t=2: G[0]*flow[2] + G[1]*flow[1] + G[2]*flow[0] = 0 + 0 + 0.57735 = 0.57735
 # t=3: G[0]*flow[3] + G[1]*flow[2] + G[2]*flow[1] = 1.0 + 0 + 0 = 1.0
 # t=4: G[0]*flow[4] + G[1]*flow[3] + G[2]*flow[2] = 0 + 0.70711 + 0 = 0.70711
@@ -98,7 +98,7 @@ impact = Propagator(window=3, g0=1.0, gamma=0.5)(flow)
 ### Streaming one sample at a time
 
 ```python
-op = Propagator(window=20, g0=1.0, gamma=0.5)
+op = Propagator(window_size=20, g0=1.0, gamma=0.5)
 for signed_flow in flow_stream:
     predicted_impact = op(float(signed_flow))
 ```
@@ -106,7 +106,7 @@ for signed_flow in flow_stream:
 ### Reset clears accumulated history
 
 ```python
-op = Propagator(window=10)
+op = Propagator(window_size=10)
 impact_first_pass = op(flow)
 op.reset()
 impact_second_pass = op(flow)   # identical to first pass
@@ -132,7 +132,7 @@ impact_second_pass = op(flow)   # identical to first pass
     flow = np.zeros(n)
     trade = window + 5
     flow[trade] = 1.0
-    impact = Propagator(window=window, g0=1.0, gamma=0.9)(flow)
+    impact = Propagator(window_size=window, g0=1.0, gamma=0.9)(flow)
 
     lo = trade - 2
     t = np.arange(lo, n) - trade                 # time since the trade (0 = the trade)

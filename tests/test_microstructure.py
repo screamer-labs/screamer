@@ -102,7 +102,7 @@ def test_operators_expose_reset():
     from screamer import OFI, TickRuleSign, AmihudIlliquidity
     from screamer.microstructure import SignedVolume, RollingKyleLambda, EwKyleLambda
     for op in [OFI(), SignedVolume(), TickRuleSign(), RollingKyleLambda(),
-               EwKyleLambda(), AmihudIlliquidity()]:
+               EwKyleLambda(span=20), AmihudIlliquidity()]:
         op.reset()   # must exist and be callable
 
 
@@ -205,7 +205,7 @@ def test_hawkes_reset_restarts_state():
 def test_propagator_kernel_convolution_and_warmup():
     from screamer import Propagator
     flow = np.array([1.0, 0.0, 0.0, 1.0, 0.0, 0.0])
-    out = Propagator(window=3, g0=1.0, gamma=0.5)(flow)
+    out = Propagator(window_size=3, g0=1.0, gamma=0.5)(flow)
     # G = [1, 2^-0.5, 3^-0.5] = [1, 0.70711, 0.57735]
     # warmup: t=0,1 -> NaN ; t=2: G0*f2+G1*f1+G2*f0 = 0.57735 ;
     # t=3: G0*f3+G1*f2+G2*f1 = 1.0 ; t=4: G2*f2? = G0*f4+G1*f3+G2*f2 = 0.70711 ;
@@ -217,15 +217,15 @@ def test_propagator_kernel_convolution_and_warmup():
 def test_propagator_stream_equals_batch():
     from screamer import Propagator
     rng = np.random.default_rng(3); flow = rng.normal(size=60)
-    batch = Propagator(window=5)(flow)
-    op = Propagator(window=5); stream = np.array([op(float(v)) for v in flow])
+    batch = Propagator(window_size=5)(flow)
+    op = Propagator(window_size=5); stream = np.array([op(float(v)) for v in flow])
     np.testing.assert_allclose(batch, stream, equal_nan=True)
 
 
 def test_propagator_reset_clears_buffer():
     from screamer import Propagator
     flow = [1.0, 2.0, 3.0, 4.0]
-    op = Propagator(window=2)
+    op = Propagator(window_size=2)
     a = [op(v) for v in flow]; op.reset(); b = [op(v) for v in flow]
     np.testing.assert_allclose(a, b, equal_nan=True)
 

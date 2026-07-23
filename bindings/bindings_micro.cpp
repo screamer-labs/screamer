@@ -60,7 +60,7 @@ void init_bindings_micro(py::module& m) {
 
     py::class_<screamer::Propagator, screamer::ScreamerBase>(m, "Propagator")
         .def(py::init<int, double, double>(),
-             py::arg("window") = 20, py::arg("g0") = 1.0, py::arg("gamma") = 0.5)
+             py::arg("window_size") = 20, py::arg("g0") = 1.0, py::arg("gamma") = 0.5)
         .def("__call__", &screamer::Propagator::operator(), py::arg("value"))
         .def("reset", &screamer::Propagator::reset, "Reset to the initial state.");
 

@@ -4341,10 +4341,28 @@
     "outputs": 1,
     "parameters": [
       {
+        "name": "com",
+        "type": "float",
+        "default": null,
+        "description": "Center of mass (alpha = 1 / (1 + com)). Exclusive with span/halflife/alpha."
+      },
+      {
         "name": "span",
         "type": "float",
         "default": 20.0,
-        "description": "EW span (alpha = 2 / (span + 1)). Controls the effective lookback."
+        "description": "Span (alpha = 2 / (span + 1)). Default smoothing parameter. Exclusive with com/halflife/alpha."
+      },
+      {
+        "name": "halflife",
+        "type": "float",
+        "default": null,
+        "description": "Half-life in periods (alpha = 1 - 0.5^(1/halflife)). Exclusive with com/span/alpha."
+      },
+      {
+        "name": "alpha",
+        "type": "float",
+        "default": null,
+        "description": "Direct smoothing factor in (0, 1]. Exclusive with com/span/halflife."
       }
     ],
     "nan_policy": "ignore",
@@ -4352,7 +4370,7 @@
       "EwBeta",
       "RollingKyleLambda"
     ],
-    "details": "## Description\n\nKyle's lambda (Kyle 1985) is the slope of price change on signed order flow,\nthe price-impact or illiquidity coefficient: a high value signals an illiquid\nmarket with large price impact per unit of net flow, a low value signals a\nliquid one. `EwKyleLambda` estimates it using exponential weighting rather than\na fixed rolling window, so recent observations receive higher weight and the\nestimate adapts faster to changing liquidity conditions than `RollingKyleLambda`.\n\n`EwKyleLambda(span)(signed_flow, return_)` returns the EW regression slope\nof `return_` on `signed_flow`. It is a documented specialization of `EwBeta`:\ninternally it calls `EwBeta(span=span)(return_, signed_flow)`.\n\n*Parameters*:\n\n- **`span`** (`float`, default `20.0`): EW span, where the decay factor is\n  `alpha = 2 / (span + 1)`. Larger spans place more weight on older data and\n  produce smoother, slower-adapting estimates.\n\n*Return value*: the price-impact coefficient lambda at each time step. The\nfirst output is `NaN` (EwBeta warmup). Subsequent `NaN` values occur when\n`signed_flow` has zero variance over the effective EW window.\n\nBecause the implementation delegates entirely to `EwBeta`, causality and the\n`nan_policy: ignore` contract are inherited from the C++ engine.\n\n**Reference**: Kyle, A. S. (1985). \"Continuous Auctions and Insider Trading.\"\n*Econometrica*, 53(6), 1315-1335.",
+    "details": "## Description\n\nKyle's lambda (Kyle 1985) is the slope of price change on signed order flow,\nthe price-impact or illiquidity coefficient: a high value signals an illiquid\nmarket with large price impact per unit of net flow, a low value signals a\nliquid one. `EwKyleLambda` estimates it using exponential weighting rather than\na fixed rolling window, so recent observations receive higher weight and the\nestimate adapts faster to changing liquidity conditions than `RollingKyleLambda`.\n\n`EwKyleLambda(span=...)(signed_flow, return_)` returns the EW regression slope\nof `return_` on `signed_flow`. It is a documented specialization of `EwBeta`:\ninternally it calls `EwBeta(com=com, span=span, halflife=halflife, alpha=alpha)(return_, signed_flow)`.\n\nThe decay rate is specified by exactly one of the following mutex parameters:\n\n- **`com`** (`float`): Center of mass; `alpha = 1 / (1 + com)`.\n- **`span`** (`float`): EW span; `alpha = 2 / (span + 1)`.\n- **`halflife`** (`float`): Half-life in periods; `alpha = 1 - exp(-log(2) / halflife)`.\n- **`alpha`** (`float`): Direct smoothing factor in `(0, 1]`; weight of the current observation.\n\nPassing none of these or more than one raises an error from the underlying `EwBeta` constructor.\n\n*Return value*: the price-impact coefficient lambda at each time step. The\nfirst output is `NaN` (EwBeta warmup). Subsequent `NaN` values occur when\n`signed_flow` has zero variance over the effective EW window.\n\nBecause the implementation delegates entirely to `EwBeta`, causality and the\n`nan_policy: ignore` contract are inherited from the C++ engine.\n\n**Reference**: Kyle, A. S. (1985). \"Continuous Auctions and Insider Trading.\"\n*Econometrica*, 53(6), 1315-1335.",
     "examples": []
   },
   "HawkesIntensity": {
@@ -4524,7 +4542,7 @@
     "outputs": 1,
     "parameters": [
       {
-        "name": "window",
+        "name": "window_size",
         "type": "int",
         "default": 20,
         "min": 2,
@@ -4548,22 +4566,22 @@
       "RollingKyleLambda",
       "HawkesIntensity"
     ],
-    "details": "## Description\n\n`Propagator` computes the predicted price impact at each time step by convolving\npast signed order flow with a power-law decaying kernel. The model was introduced\nby Bouchaud, Gefen, Potters, and Wyart (2004) to capture the empirical observation\nthat the price impact of a trade does not disappear instantly but decays slowly\nover many subsequent periods.\n\nThe predicted impact at time `t` is:\n\n    impact_t = sum_{k=0}^{window-1} G(k) * flow_{t-k}\n\nwhere the propagator kernel is:\n\n    G(k) = g0 * (k + 1)^(-gamma)\n\nHere `flow_{t-k}` is the signed order flow `k` periods in the past. The kernel\n`G` assigns full weight `g0` to the current period (`k = 0`) and gradually\ndecreasing weight to older flow, following a power law with exponent `gamma`.\nWhen `gamma = 0.5` (the default), the memory decays slowly enough to be called\nlong-memory: past flow continues to affect the predicted price even after many\nperiods.\n\nThe operator requires `window` samples before producing its first output. The\nfirst `window - 1` outputs are `NaN` (warmup period).\n\nBecause this is a positional (FIR) filter, it follows the `propagate` NaN policy,\nlike `Lag` and `Diff`: a NaN flow value is kept in the window and flows through\nthe convolution, so the output is NaN while the NaN is inside the window and\nrecovers once it drops out. Dropping the NaN instead (as an `ignore`-policy\nstatistic would) would misalign the kernel with the wrong lags.\n\nThe operator processes one sample per step.\n\n**References:**\n\n- Bouchaud, J.-P., Gefen, Y., Potters, M., and Wyart, M. (2004). \"Fluctuations\n  and response in financial markets: the subtle nature of 'random' price changes.\"\n  *Quantitative Finance*, 4(2), 176-190.",
+    "details": "## Description\n\n`Propagator` computes the predicted price impact at each time step by convolving\npast signed order flow with a power-law decaying kernel. The model was introduced\nby Bouchaud, Gefen, Potters, and Wyart (2004) to capture the empirical observation\nthat the price impact of a trade does not disappear instantly but decays slowly\nover many subsequent periods.\n\nThe predicted impact at time `t` is:\n\n    impact_t = sum_{k=0}^{window_size-1} G(k) * flow_{t-k}\n\nwhere the propagator kernel is:\n\n    G(k) = g0 * (k + 1)^(-gamma)\n\nHere `flow_{t-k}` is the signed order flow `k` periods in the past. The kernel\n`G` assigns full weight `g0` to the current period (`k = 0`) and gradually\ndecreasing weight to older flow, following a power law with exponent `gamma`.\nWhen `gamma = 0.5` (the default), the memory decays slowly enough to be called\nlong-memory: past flow continues to affect the predicted price even after many\nperiods.\n\nThe operator requires `window_size` samples before producing its first output. The\nfirst `window_size - 1` outputs are `NaN` (warmup period).\n\nBecause this is a positional (FIR) filter, it follows the `propagate` NaN policy,\nlike `Lag` and `Diff`: a NaN flow value is kept in the window and flows through\nthe convolution, so the output is NaN while the NaN is inside the window and\nrecovers once it drops out. Dropping the NaN instead (as an `ignore`-policy\nstatistic would) would misalign the kernel with the wrong lags.\n\nThe operator processes one sample per step.\n\n**References:**\n\n- Bouchaud, J.-P., Gefen, Y., Potters, M., and Wyart, M. (2004). \"Fluctuations\n  and response in financial markets: the subtle nature of 'random' price changes.\"\n  *Quantitative Finance*, 4(2), 176-190.",
     "examples": [
       {
         "language": "python",
         "caption": "Basic usage",
-        "code": "import numpy as np\nfrom screamer import Propagator\n\n# Isolated unit of buy flow at t=0 and t=3; window=3 reveals the kernel shape\nflow = np.array([1.0, 0.0, 0.0, 1.0, 0.0, 0.0])\nimpact = Propagator(window=3, g0=1.0, gamma=0.5)(flow)\n# G = [1.0, 2^-0.5, 3^-0.5] = [1.0, 0.70711, 0.57735]\n# t=0, t=1: NaN (warmup, fewer than window samples seen)\n# t=2: G[0]*flow[2] + G[1]*flow[1] + G[2]*flow[0] = 0 + 0 + 0.57735 = 0.57735\n# t=3: G[0]*flow[3] + G[1]*flow[2] + G[2]*flow[1] = 1.0 + 0 + 0 = 1.0\n# t=4: G[0]*flow[4] + G[1]*flow[3] + G[2]*flow[2] = 0 + 0.70711 + 0 = 0.70711\n# t=5: G[0]*flow[5] + G[1]*flow[4] + G[2]*flow[3] = 0 + 0 + 0.57735 = 0.57735"
+        "code": "import numpy as np\nfrom screamer import Propagator\n\n# Isolated unit of buy flow at t=0 and t=3; window=3 reveals the kernel shape\nflow = np.array([1.0, 0.0, 0.0, 1.0, 0.0, 0.0])\nimpact = Propagator(window_size=3, g0=1.0, gamma=0.5)(flow)\n# G = [1.0, 2^-0.5, 3^-0.5] = [1.0, 0.70711, 0.57735]\n# t=0, t=1: NaN (warmup, fewer than window_size samples seen)\n# t=2: G[0]*flow[2] + G[1]*flow[1] + G[2]*flow[0] = 0 + 0 + 0.57735 = 0.57735\n# t=3: G[0]*flow[3] + G[1]*flow[2] + G[2]*flow[1] = 1.0 + 0 + 0 = 1.0\n# t=4: G[0]*flow[4] + G[1]*flow[3] + G[2]*flow[2] = 0 + 0.70711 + 0 = 0.70711\n# t=5: G[0]*flow[5] + G[1]*flow[4] + G[2]*flow[3] = 0 + 0 + 0.57735 = 0.57735"
       },
       {
         "language": "python",
         "caption": "Streaming one sample at a time",
-        "code": "op = Propagator(window=20, g0=1.0, gamma=0.5)\nfor signed_flow in flow_stream:\n    predicted_impact = op(float(signed_flow))"
+        "code": "op = Propagator(window_size=20, g0=1.0, gamma=0.5)\nfor signed_flow in flow_stream:\n    predicted_impact = op(float(signed_flow))"
       },
       {
         "language": "python",
         "caption": "Reset clears accumulated history",
-        "code": "op = Propagator(window=10)\nimpact_first_pass = op(flow)\nop.reset()\nimpact_second_pass = op(flow)   # identical to first pass"
+        "code": "op = Propagator(window_size=10)\nimpact_first_pass = op(flow)\nop.reset()\nimpact_second_pass = op(flow)   # identical to first pass"
       }
     ]
   },

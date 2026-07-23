@@ -17,10 +17,22 @@ short: Exponentially-weighted price-impact slope of return on signed order flow.
 inputs: 2
 outputs: 1
 parameters:
+- name: com
+  type: float
+  default: null
+  description: Center of mass (alpha = 1 / (1 + com)). Exclusive with span/halflife/alpha.
 - name: span
   type: float
   default: 20.0
-  description: EW span (alpha = 2 / (span + 1)). Controls the effective lookback.
+  description: Span (alpha = 2 / (span + 1)). Default smoothing parameter. Exclusive with com/halflife/alpha.
+- name: halflife
+  type: float
+  default: null
+  description: Half-life in periods (alpha = 1 - 0.5^(1/halflife)). Exclusive with com/span/alpha.
+- name: alpha
+  type: float
+  default: null
+  description: Direct smoothing factor in (0, 1]. Exclusive with com/span/halflife.
 nan_policy: ignore
 see_also:
 - EwBeta
@@ -38,15 +50,18 @@ liquid one. `EwKyleLambda` estimates it using exponential weighting rather than
 a fixed rolling window, so recent observations receive higher weight and the
 estimate adapts faster to changing liquidity conditions than `RollingKyleLambda`.
 
-`EwKyleLambda(span)(signed_flow, return_)` returns the EW regression slope
+`EwKyleLambda(span=...)(signed_flow, return_)` returns the EW regression slope
 of `return_` on `signed_flow`. It is a documented specialization of `EwBeta`:
-internally it calls `EwBeta(span=span)(return_, signed_flow)`.
+internally it calls `EwBeta(com=com, span=span, halflife=halflife, alpha=alpha)(return_, signed_flow)`.
 
-*Parameters*:
+The decay rate is specified by exactly one of the following mutex parameters:
 
-- **`span`** (`float`, default `20.0`): EW span, where the decay factor is
-  `alpha = 2 / (span + 1)`. Larger spans place more weight on older data and
-  produce smoother, slower-adapting estimates.
+- **`com`** (`float`): Center of mass; `alpha = 1 / (1 + com)`.
+- **`span`** (`float`): EW span; `alpha = 2 / (span + 1)`.
+- **`halflife`** (`float`): Half-life in periods; `alpha = 1 - exp(-log(2) / halflife)`.
+- **`alpha`** (`float`): Direct smoothing factor in `(0, 1]`; weight of the current observation.
+
+Passing none of these or more than one raises an error from the underlying `EwBeta` constructor.
 
 *Return value*: the price-impact coefficient lambda at each time step. The
 first output is `NaN` (EwBeta warmup). Subsequent `NaN` values occur when
@@ -79,7 +94,7 @@ Because the implementation delegates entirely to `EwBeta`, causality and the
     # the true impact slope steps up halfway through
     true_lambda = np.where(np.arange(n) < n // 2, 0.3, 0.7)
     ret = true_lambda * flow + rng.standard_normal(n) * 0.5
-    ew = EwKyleLambda(60.0)(flow, ret)
+    ew = EwKyleLambda(span=60.0)(flow, ret)
     roll = RollingKyleLambda(60)(flow, ret)
 
     fig = go.Figure()
