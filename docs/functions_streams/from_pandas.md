@@ -23,13 +23,18 @@ and the pandas index becomes the index array.
 
 Returns `(values, index)` where both are NumPy arrays.
 
-## Example
+## Examples
 
-```python
-import pandas as pd
-from screamer import from_pandas
+### Usage example
 
-ser = pd.Series([1.0, 2.0, 3.0], index=[100, 200, 300])
-values, index = from_pandas(ser)
-# values -> array([1., 2., 3.]), index -> array([100, 200, 300])
+```{eval-rst}
+.. exec_code::
+
+    import pandas as pd
+    from screamer import from_pandas
+
+    ser = pd.Series([1.0, 2.0, 3.0], index=[100, 200, 300])
+    values, index = from_pandas(ser)
+    print("values:", values)
+    print("index: ", index)
 ```

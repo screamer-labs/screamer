@@ -45,22 +45,31 @@ $$
 
 ### Usage example
 
-```python
-import numpy as np
-from screamer import Hypot
+```{eval-rst}
+.. plotly::
+    :include-source: True
 
-# Scalar pair
-Hypot()(3.0, 4.0)              # 5.0
+    import numpy as np
+    import plotly.graph_objects as go
+    from screamer import Hypot
 
-# Two parallel 1D arrays
-ux = np.random.randn(100)
-uy = np.random.randn(100)
-speed = Hypot()(ux, uy)        # shape (100,)
+    rng = np.random.default_rng(0)
+    N = 200
+    x = np.cumsum(rng.standard_normal(N))
+    y = np.cumsum(rng.standard_normal(N))
+    r = Hypot()(x, y)
 
-# Two parallel 2D arrays (column-by-column pairing)
-UX = np.random.randn(100, 4)
-UY = np.random.randn(100, 4)
-Hypot()(UX, UY).shape          # (100, 4)
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(y=x, mode='lines', name='x', opacity=0.7))
+    fig.add_trace(go.Scatter(y=y, mode='lines', name='y', opacity=0.7))
+    fig.add_trace(go.Scatter(y=r, mode='lines', name='Hypot(x, y)', line=dict(color='red')))
+    fig.update_layout(
+        title="Hypot: Euclidean length sqrt(x^2 + y^2)",
+        xaxis_title="Index", yaxis_title="Value",
+        margin=dict(l=20, r=20, t=80, b=20),
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+    )
+    fig.show()
 ```
 
 <!-- HELP_END -->

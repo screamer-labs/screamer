@@ -65,22 +65,28 @@ Pure composition of two chained `detail::RollingMean` instances. Both run with `
 
 ### Usage example
 
-```python
-import numpy as np
-from screamer import TRIMA, RollingMean
+```{eval-rst}
+.. plotly::
+    :include-source: True
 
-x = np.cumsum(np.random.randn(100))
-n = 10
+    import numpy as np
+    import plotly.graph_objects as go
+    from screamer import TRIMA
 
-# Direct
-ours = TRIMA(n)(x)
+    rng = np.random.default_rng(0)
+    N = 300
+    data = np.cumsum(rng.standard_normal(N))
 
-# Algorithmically equivalent composition (post-warmup, the test suite
-# verifies bit-equality)
-n_inner, n_outer = (n // 2 + 1, n // 2) if n % 2 == 0 else ((n + 1) // 2, (n + 1) // 2)
-inner = RollingMean(n_inner, "expanding")(x)
-outer = RollingMean(n_outer, "expanding")(inner)
-np.testing.assert_allclose(ours[n - 1:], outer[n - 1:], atol=1e-12)
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(y=data, mode='lines', name='Input', line=dict(color='steelblue', width=1)))
+    fig.add_trace(go.Scatter(y=TRIMA(window_size=20)(data), mode='lines', name='TRIMA(window_size=20)', line=dict(color='crimson', width=2)))
+    fig.update_layout(
+        title="TRIMA smoother over a random walk",
+        xaxis_title="Index", yaxis_title="Value",
+        margin=dict(l=20, r=20, t=80, b=20),
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+    )
+    fig.show()
 ```
 
 <!-- HELP_END -->

@@ -41,14 +41,14 @@ $$
 
 ### Usage example
 
-```python
-from screamer import Identity, RollingMean
+```{eval-rst}
+.. exec_code::
 
-# A pipeline slot that can later be swapped for a real transform.
-preproc = Identity()
-smoother = RollingMean(10)
+    import numpy as np
+    from screamer import Identity
 
-stream = (smoother(preproc(v)) for v in source)
+    x = np.array([1.0, 2.0, 3.0])
+    print(Identity()(x))
 ```
 
 <!-- HELP_END -->

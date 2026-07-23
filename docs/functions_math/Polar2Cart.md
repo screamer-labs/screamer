@@ -56,19 +56,31 @@ Same shape rule as `Cart2Polar`:
 
 ### Usage example
 
-```python
-import numpy as np
-from screamer import Polar2Cart, Cart2Polar
+```{eval-rst}
+.. plotly::
+    :include-source: True
 
-# Roundtrip with Cart2Polar (inverse pair)
-rng = np.random.default_rng(0)
-x = rng.standard_normal(100)
-y = rng.standard_normal(100)
+    import numpy as np
+    import plotly.graph_objects as go
+    from screamer import Polar2Cart
 
-polar = Cart2Polar()(x, y)              # shape (100, 2)
-back = Polar2Cart()(polar[:, 0], polar[:, 1])
-np.testing.assert_allclose(back[:, 0], x, atol=1e-12)
-np.testing.assert_allclose(back[:, 1], y, atol=1e-12)
+    N = 200
+    theta = np.linspace(0, 2 * np.pi, N)
+    r = np.ones(N)
+    out = Polar2Cart()(r, theta)   # shape (N, 2); out[:,0] = x, out[:,1] = y
+    cart_x = out[:, 0]
+    cart_y = out[:, 1]
+
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(x=cart_x, y=cart_y, mode='lines', name='unit circle (r=1)'))
+    fig.update_layout(
+        title="Polar2Cart: unit circle traced by sweeping theta from 0 to 2*pi",
+        xaxis_title="x", yaxis_title="y",
+        xaxis=dict(scaleanchor="y"),
+        margin=dict(l=20, r=20, t=80, b=20),
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+    )
+    fig.show()
 ```
 
 <!-- HELP_END -->

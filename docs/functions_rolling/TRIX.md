@@ -62,17 +62,32 @@ The underlying EMA is pandas's `adjust=True` (bias-corrected weighted mean -- th
 
 ### Usage example
 
-```python
-import numpy as np, pandas as pd
-from screamer import TRIX
+```{eval-rst}
+.. plotly::
+    :include-source: True
 
-x = 100 + np.cumsum(np.random.default_rng(0).standard_normal(200))
-trix = TRIX(14)(x)
+    import numpy as np
+    import plotly.graph_objects as go
+    from plotly.subplots import make_subplots
+    from screamer import TRIX
 
-# Algorithmically equivalent composition (pandas adjust=True):
-s = pd.Series(x)
-e3 = s.ewm(span=14, adjust=True).mean().ewm(span=14, adjust=True).mean().ewm(span=14, adjust=True).mean()
-np.testing.assert_allclose(trix, 100 * e3.pct_change(), equal_nan=True, atol=1e-12)
+    rng = np.random.default_rng(0)
+    N = 300
+    data = 100.0 + np.cumsum(rng.standard_normal(N))
+
+    fig = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.5, 0.5],
+                        vertical_spacing=0.08)
+    fig.add_trace(go.Scatter(y=data, mode='lines', name='Input', line=dict(color='steelblue', width=1)),
+                  row=1, col=1)
+    fig.add_trace(go.Scatter(y=TRIX(span=14)(data), mode='lines', name='TRIX(span=14)',
+                             line=dict(color='crimson', width=2)), row=2, col=1)
+    fig.update_layout(
+        title="TRIX momentum oscillator over a price series",
+        yaxis=dict(title='Input'), yaxis2=dict(title='TRIX'),
+        margin=dict(l=20, r=20, t=60, b=20),
+        legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1),
+    )
+    fig.show()
 ```
 
 <!-- HELP_END -->

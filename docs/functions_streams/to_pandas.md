@@ -25,15 +25,17 @@ A positional stream (`index=None`) gets pandas' default RangeIndex.
 
 Returns a `pandas.Series` (1-D) or `pandas.DataFrame` (2-D).
 
-## Example
+## Examples
 
-```python
-import numpy as np
-from screamer import Resample, to_pandas
+### Usage example
 
-v = np.arange(10.0)
-k = np.arange(10, dtype=np.int64)
-values, index = Resample(freq=5, agg="ohlc")(v, k)
-# label the positional columns by name
-df = to_pandas(values, index, columns=["open", "high", "low", "close"])
+```{eval-rst}
+.. exec_code::
+
+    import pandas as pd
+    from screamer import from_pandas, to_pandas
+
+    ser = pd.Series([1.0, 2.0, 3.0], index=[100, 200, 300])
+    values, index = from_pandas(ser)
+    print(to_pandas(values, index))
 ```

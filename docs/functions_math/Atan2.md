@@ -47,18 +47,30 @@ $$
 
 ### Usage example
 
-```python
-import numpy as np
-from screamer import Atan2
+```{eval-rst}
+.. plotly::
+    :include-source: True
 
-Atan2()(1.0,  0.0)             # +pi/2  (point on +y axis)
-Atan2()(-1.0, 0.0)             # -pi/2  (point on -y axis)
-Atan2()(0.0, -1.0)             # +pi    (point on -x axis)
+    import numpy as np
+    import plotly.graph_objects as go
+    from screamer import Atan2
 
-# Two parallel arrays - wind direction from u/v components
-ux = np.random.randn(100)
-uy = np.random.randn(100)
-direction = Atan2()(uy, ux)
+    N = 200
+    t = np.linspace(-np.pi, np.pi, N)
+    y = np.sin(t)
+    x = np.cos(t)
+    angle = Atan2()(y, x)
+
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(y=t, mode='lines', name='Angle t (input)', line=dict(dash='dash')))
+    fig.add_trace(go.Scatter(y=angle, mode='lines', name='Atan2(sin t, cos t)', line=dict(color='red')))
+    fig.update_layout(
+        title="Atan2: recovering the angle from (sin t, cos t)",
+        xaxis_title="Index", yaxis_title="Radians",
+        margin=dict(l=20, r=20, t=80, b=20),
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+    )
+    fig.show()
 ```
 
 <!-- HELP_END -->

@@ -86,17 +86,31 @@ samples are processed as if step `t` had not occurred.
 
 ### Usage example
 
-```python
-import numpy as np
-from screamer import ImpulseClip
+```{eval-rst}
+.. plotly::
+    :include-source: True
 
-rng = np.random.default_rng(7)
-t = np.linspace(0, 6 * np.pi, 400)
-x = np.sin(t) + 0.3 * rng.standard_normal(t.size)   # oscillating + noise
-x[[80, 210, 330]] += 4.0                            # spikes
+    import numpy as np
+    import plotly.graph_objects as go
+    from screamer import ImpulseClip
 
-cleaned = ImpulseClip(window_size=31, n_sigma=4.0)(x)               # default: "cleaned"
-flag    = ImpulseClip(window_size=31, n_sigma=4.0, output="flag")(x) # 1.0 at flagged samples
+    rng = np.random.default_rng(0)
+    N = 300
+    data = np.cumsum(rng.standard_normal(N))
+    data[[100, 150, 200]] += 15
+
+    cleaned = ImpulseClip(window_size=21, n_sigma=4.0)(data)
+
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(y=data, mode='lines', name='Raw (with spikes)', line=dict(color='steelblue')))
+    fig.add_trace(go.Scatter(y=cleaned, mode='lines', name='ImpulseClip(window_size=21, n_sigma=4.0)', line=dict(color='crimson')))
+    fig.update_layout(
+        title='ImpulseClip: causal impulse remover on a random walk',
+        xaxis_title='Index', yaxis_title='Value',
+        margin=dict(l=20, r=20, t=60, b=20),
+        legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1),
+    )
+    fig.show()
 ```
 
 <!-- HELP_END -->

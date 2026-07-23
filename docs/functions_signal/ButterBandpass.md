@@ -56,12 +56,43 @@ Bit-exact match to `scipy.signal.butter(order, [low, high], btype='bandpass')` +
 
 ## Examples
 
-### Description
+### Usage example
 
-```python
-from screamer import ButterBandpass
-bp = ButterBandpass(order=4, low_cutoff=0.1, high_cutoff=0.3)
-out = bp(signal)
+```{eval-rst}
+.. plotly::
+    :include-source: True
+
+    import numpy as np
+    import plotly.graph_objects as go
+    from screamer import ButterBandpass
+
+    rng = np.random.default_rng(0)
+    fs = 500.0
+    N = 1000
+    t = np.arange(N) / fs
+
+    # Composite: low-frequency component (5 Hz) + high-frequency component (80 Hz) + noise
+    low_freq = np.sin(2 * np.pi * 5 * t)
+    high_freq = 0.5 * np.sin(2 * np.pi * 80 * t)
+    noise = 0.2 * rng.standard_normal(N)
+    signal = low_freq + high_freq + noise
+
+    # Band-pass: keep 20-60 Hz (normalised: 20/250=0.08, 60/250=0.24)
+    filtered = ButterBandpass(order=4, low_cutoff=0.08, high_cutoff=0.24)(signal)
+
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(y=signal, mode='lines', name='Raw (5 Hz + 80 Hz + noise)',
+                             line=dict(color='lightblue'), opacity=0.7))
+    fig.add_trace(go.Scatter(y=filtered, mode='lines',
+                             name='ButterBandpass(order=4, low=0.08, high=0.24)',
+                             line=dict(color='red')))
+    fig.update_layout(
+        title="Butterworth band-pass filter (pass band: 20-60 Hz)",
+        xaxis_title="Sample", yaxis_title="Amplitude",
+        margin=dict(l=20, r=20, t=80, b=20),
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+    )
+    fig.show()
 ```
 
 <!-- HELP_END -->

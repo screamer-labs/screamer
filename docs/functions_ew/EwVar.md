@@ -49,9 +49,6 @@ You must specify one of the following parameters to calculate `alpha`:
 
 *NaN handling*: NaN values are ignored in the variance calculation.
 
-### Usage Example and Plot
-
-
 ### Formula Details
 
 `EwVar` computes the exponentially weighted moving variance recursively, with a bias correction that uses an effective sample size, $N_{eff}$, calculated from the sum of weights. This ensures an unbiased estimate even as the weighting of older observations diminishes over time.

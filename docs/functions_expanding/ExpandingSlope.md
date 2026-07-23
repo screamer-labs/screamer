@@ -39,12 +39,32 @@ $$
 
 ### Usage example
 
-```python
-import numpy as np
-from screamer import ExpandingSlope
+```{eval-rst}
+.. plotly::
+    :include-source: True
 
-x = np.arange(1.0, 11.0)
-y = ExpandingSlope()(x)
+    import numpy as np
+    import plotly.graph_objects as go
+    from plotly.subplots import make_subplots
+    from screamer import ExpandingSlope
+
+    rng = np.random.default_rng(0)
+    N = 300
+    data = np.cumsum(rng.standard_normal(N))
+
+    fig = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.5, 0.5],
+                        vertical_spacing=0.08)
+    fig.add_trace(go.Scatter(y=data, mode='lines', name='Input', line=dict(color='steelblue', width=1)),
+                  row=1, col=1)
+    fig.add_trace(go.Scatter(y=ExpandingSlope()(data), mode='lines', name='ExpandingSlope',
+                             line=dict(color='darkorchid', width=2)), row=2, col=1)
+    fig.update_layout(
+        title="Expanding OLS slope over a random walk",
+        yaxis=dict(title='Input'), yaxis2=dict(title='Slope (units/step)'),
+        margin=dict(l=20, r=20, t=60, b=20),
+        legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1),
+    )
+    fig.show()
 ```
 
 <!-- HELP_END -->

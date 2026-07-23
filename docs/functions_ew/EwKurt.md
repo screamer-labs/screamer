@@ -50,10 +50,6 @@ One of the following decay parameters is required to calculate `alpha`, where a 
 *NaN handling*: NaN values are ignored in the mean calculation.
 
 
-### Usage Example and Plot
-
-
-
 ### Formula Details
 
 `EwKurt` computes the exponentially weighted excess kurtosis recursively, with a bias correction that uses an effective sample size, $N_{eff}$, derived from the sum of weights. This approach ensures an unbiased estimate even as older observations' influence diminishes over time, aligning with Pandas’ convention for excess kurtosis.

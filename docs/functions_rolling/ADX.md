@@ -60,9 +60,6 @@ For the default `window_size=14`, `+DI`/`-DI` start at sample 14 and `ADX` at sa
 
 TA-Lib's Wilder smoother for the DI/DM/TR triplet uses a slightly different seed than its ATR smoother: accumulate `w-1` values during warmup, then apply the recurrence at the `w`-th value (sum form). The ADX smoother itself uses the standard SMA-of-`w`-values seed (average form). `screamer.ADX` implements both conventions inline to match TA-Lib exactly; it does **not** share state with the existing `ATR` class.
 
-## Usage
-
-
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
@@ -71,21 +68,42 @@ TA-Lib's Wilder smoother for the DI/DM/TR triplet uses a slightly different seed
 
 ## Examples
 
-### Usage
+### Usage example
 
-```python
-import numpy as np
-from screamer import ADX
+```{eval-rst}
+.. plotly::
+    :include-source: True
 
-rng = np.random.default_rng(0)
-n = 300
-close = 100 + np.cumsum(rng.normal(0, 1, n))
-high = close + np.abs(rng.normal(0, 0.5, n))
-low = close - np.abs(rng.normal(0, 0.5, n))
+    import numpy as np
+    import plotly.graph_objects as go
+    from plotly.subplots import make_subplots
+    from screamer import ADX
 
-out = ADX(14)(high, low, close)
-plus_di, minus_di, adx = out[:, 0], out[:, 1], out[:, 2]
-# adx > 25 -> trending; adx < 20 -> ranging (Wilder's heuristic)
+    rng = np.random.default_rng(0)
+    N = 300
+    close = 100 + np.cumsum(rng.standard_normal(N))
+    high = close + np.abs(rng.standard_normal(N))
+    low = close - np.abs(rng.standard_normal(N))
+
+    out = ADX(window_size=14)(high, low, close)
+    plus_di  = out[:, 0]
+    minus_di = out[:, 1]
+    adx      = out[:, 2]
+
+    fig = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.5, 0.5],
+                        vertical_spacing=0.08)
+    fig.add_trace(go.Scatter(y=close, name='Close', line=dict(color='steelblue')),
+                  row=1, col=1)
+    fig.add_trace(go.Scatter(y=adx, name='ADX', line=dict(color='crimson')), row=2, col=1)
+    fig.add_trace(go.Scatter(y=plus_di, name='+DI', line=dict(color='green', dash='dot')), row=2, col=1)
+    fig.add_trace(go.Scatter(y=minus_di, name='-DI', line=dict(color='orange', dash='dot')), row=2, col=1)
+    fig.update_layout(
+        title='ADX: trend strength over synthetic OHLC data',
+        yaxis=dict(title='Price'), yaxis2=dict(title='ADX / DI (0-100)'),
+        margin=dict(l=20, r=20, t=60, b=20),
+        legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1),
+    )
+    fig.show()
 ```
 
 <!-- HELP_END -->

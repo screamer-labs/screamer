@@ -70,21 +70,37 @@ where $N_{\text{eff}} = S_w^2 / S_{ww}$ is the effective sample size, computed e
 
 ### Usage example
 
-```python
-import numpy as np
-import pandas as pd
-from screamer import EwCov
+```{eval-rst}
+.. plotly::
+    :include-source: True
 
-rng = np.random.default_rng(0)
-x = rng.standard_normal(200)
-y = 0.7 * x + 0.3 * rng.standard_normal(200)
+    import numpy as np
+    import plotly.graph_objects as go
+    from plotly.subplots import make_subplots
+    from screamer import EwCov
 
-# Streaming
-ours = EwCov(span=20)(x, y)
+    rng = np.random.default_rng(0)
+    N = 300
+    x = rng.standard_normal(N)
+    y = 1.5 * x + 0.5 * rng.standard_normal(N)
+    ewcov = EwCov(span=60)(x, y)
 
-# Pandas reference (matches to ~1e-12)
-ref = pd.Series(x).ewm(span=20).cov(pd.Series(y)).to_numpy()
-np.testing.assert_allclose(ours, ref, equal_nan=True, atol=1e-12)
+    fig = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.5, 0.5],
+                        vertical_spacing=0.08)
+    fig.add_trace(go.Scatter(y=x, name='x', line=dict(color='steelblue')),
+                  row=1, col=1)
+    fig.add_trace(go.Scatter(y=y, name='y = 1.5x + noise', line=dict(color='orange')),
+                  row=1, col=1)
+    fig.add_trace(go.Scatter(y=ewcov, name='EwCov(span=60)',
+                             line=dict(color='crimson')), row=2, col=1)
+    fig.update_layout(
+        title='EwCov: exponentially weighted covariance of two return streams',
+        yaxis=dict(title='returns'),
+        yaxis2=dict(title='covariance'),
+        margin=dict(l=20, r=20, t=60, b=20),
+        legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1),
+    )
+    fig.show()
 ```
 
 <!-- HELP_END -->
