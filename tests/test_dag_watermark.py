@@ -1,3 +1,5 @@
+import itertools
+
 import numpy as np
 import pytest
 from screamer.dag import Input, Pipeline
@@ -318,3 +320,31 @@ def test_advance_releases_idle_delayed_buffer():
         f"Expected >= 2 rows after advance(100), got {len(np.asarray(i)) if i is not None else 0}. "
         "advance(now) is not propagating as a watermark through the graph."
     )
+
+
+@pytest.mark.parametrize("d,emit", list(itertools.product([1, 7, 50], ["on_any", "when_all"])))
+def test_two_input_delayed_merge_sweep(d, emit):
+    from screamer.dag import Input, Pipeline
+    from screamer.streams import CombineLatest, Delay
+    rng = np.random.default_rng((d * 7 + len(emit)) % (2**32))
+    n = 120
+    ia = np.cumsum(rng.integers(1, 6, size=n)).astype(np.int64)
+    va = rng.standard_normal(n)
+    ib = np.cumsum(rng.integers(1, 6, size=n)).astype(np.int64)
+    vb = rng.standard_normal(n)
+    a, b = Input("a"), Input("b")
+    cl = CombineLatest(emit=emit)
+    pipe = Pipeline([a, b], [cl(a, Delay(d)(b))])
+    bv, bi = pipe((va, ia), (vb, ib))
+    s = pipe.live()
+    # feed a and b events interleaved by raw arrival index (a real event loop order)
+    events = sorted([("a", int(t), float(v)) for t, v in zip(ia, va)] +
+                    [("b", int(t), float(v)) for t, v in zip(ib, vb)],
+                    key=lambda e: e[1])
+    for name, t, v in events:
+        s.push(name, t, v)
+    s.flush()
+    lv, li = s.result()
+    ob, ol = np.argsort(bi, kind="stable"), np.argsort(li, kind="stable")
+    np.testing.assert_array_equal(np.asarray(li)[ol], np.asarray(bi)[ob])
+    np.testing.assert_allclose(np.asarray(lv)[ol], np.asarray(bv)[ob], equal_nan=True)
