@@ -560,25 +560,34 @@ git commit -m "docs(delay): the live Delay->merge limitation is fixed"
 **Files:**
 - Test: add a parametrized sweep to `tests/test_dag_watermark.py`
 
-- [ ] **Step 1: Add a composition sweep** asserting batch==live across delay durations, feed regularities, and a `when_all` merge:
+- [ ] **Step 1: Add a two-input composition sweep** asserting batch==live across delay durations, feed regularities, and a `when_all` merge.
+
+IMPORTANT: use TWO DISTINCT `Input` nodes (`a`, `b`). A single input feeding both merge ports drives batch and live through the identical synchronous path and does NOT exercise the reorder logic (this is why Tasks 1-3 use two distinct inputs). The two-input `batch == live` here is a broad regression guard on top of the hand-derived as-of oracle already committed in `test_two_input_delayed_merge_matches_asof_oracle`.
 
 ```python
 import itertools
 
 @pytest.mark.parametrize("d,emit", list(itertools.product([1, 7, 50], ["on_any", "when_all"])))
-def test_fused_delay_merge_sweep(d, emit):
+def test_two_input_delayed_merge_sweep(d, emit):
     from screamer.dag import Input, Pipeline
     from screamer.streams import CombineLatest, Delay
-    rng = np.random.default_rng(hash((d, emit)) % (2**32))
-    idx = np.cumsum(rng.integers(1, 6, size=120)).astype(np.int64)
-    vals = rng.standard_normal(120)
-    x = Input("x")
+    rng = np.random.default_rng((d * 7 + len(emit)) % (2**32))
+    n = 120
+    ia = np.cumsum(rng.integers(1, 6, size=n)).astype(np.int64)
+    va = rng.standard_normal(n)
+    ib = np.cumsum(rng.integers(1, 6, size=n)).astype(np.int64)
+    vb = rng.standard_normal(n)
+    a, b = Input("a"), Input("b")
     cl = CombineLatest(emit=emit) if emit == "when_all" else CombineLatest()
-    pipe = Pipeline([x], [cl(x, Delay(d)(x))])
-    bv, bi = pipe((vals, idx))
+    pipe = Pipeline([a, b], [cl(a, Delay(d)(b))])
+    bv, bi = pipe((va, ia), (vb, ib))
     s = pipe.live()
-    for t, v in zip(idx.tolist(), vals.tolist()):
-        s.push("x", int(t), float(v))
+    # feed a and b events interleaved by raw arrival index (a real event loop order)
+    events = sorted([("a", int(t), float(v)) for t, v in zip(ia, va)] +
+                    [("b", int(t), float(v)) for t, v in zip(ib, vb)],
+                    key=lambda e: e[1])
+    for name, t, v in events:
+        s.push(name, t, v)
     s.flush()
     lv, li = s.result()
     ob, ol = np.argsort(bi, kind="stable"), np.argsort(li, kind="stable")
@@ -586,7 +595,7 @@ def test_fused_delay_merge_sweep(d, emit):
     np.testing.assert_allclose(np.asarray(lv)[ol], np.asarray(bv)[ob], equal_nan=True)
 ```
 
-(Confirm the `emit=` value for a when-all merge from `tests/test_streams_combine_latest.py`; use the exact spelling.)
+(Confirm the `emit=` value for a when-all merge and the two-indexed-input batch call form `pipe((va,ia),(vb,ib))` from `tests/test_dag_watermark.py` and `tests/test_streams_combine_latest.py`; use the exact spelling.)
 
 - [ ] **Step 2: Run the whole suite and build the docs.**
 
