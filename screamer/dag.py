@@ -218,10 +218,11 @@ class Pipeline:
     when M > 1.
     """
 
-    def __init__(self, inputs, outputs, align_outputs=True):
+    def __init__(self, inputs, outputs, align_outputs=True, max_pending=1_000_000):
         self.inputs = list(inputs)
         self.outputs = list(outputs)
         self.align_outputs = align_outputs
+        self.max_pending = int(max_pending)
         for n in self.inputs:
             if not is_node(n) or not (isinstance(n.op, tuple) and n.op[0] == "input"):
                 raise ValueError("every entry in inputs must be an Input(...) node")
@@ -258,7 +259,8 @@ class Pipeline:
                 name = getattr(fn, "__name__", "")
                 inp = [build(i) for i in node.inputs]
                 if name == "CombineLatest":
-                    nid = gb.add_combine_latest(inp, kwargs.get("emit") == "when_all")
+                    nid = gb.add_combine_latest(inp, kwargs.get("emit") == "when_all",
+                                               self.max_pending)
                 elif name == "Filter":
                     nid = gb.add_filter(inp)
                 elif name == "Dropna":

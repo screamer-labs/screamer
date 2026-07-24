@@ -27,8 +27,12 @@ namespace screamer { namespace dag {
 template <class Index>
 class CombineLatestNode : public Resettable {
 public:
-    CombineLatestNode(std::size_t n, bool when_all, Sink<Index>& downstream)
+    static constexpr std::size_t DEFAULT_MAX_PENDING = 1'000'000;
+
+    CombineLatestNode(std::size_t n, bool when_all, Sink<Index>& downstream,
+                      std::size_t max_pending = DEFAULT_MAX_PENDING)
         : cl_(n, when_all), downstream_(downstream), n_(n),
+          max_pending_(max_pending),
           buffered_row_(n, 0.0),
           wm_(n, std::numeric_limits<Index>::min()),
           flushed_(n, false) {
@@ -76,6 +80,10 @@ private:
         assert(f.width == 1);
         if (wm_[i] < f.index) wm_[i] = f.index;   // a data frame advances the port watermark
         pending_.push(Pending{f.index, static_cast<std::uint32_t>(i), next_seq_++, f.values[0]});
+        if (pending_.size() > max_pending_)
+            throw std::runtime_error(
+                "CombineLatest reorder buffer overflow: an input has not advanced; "
+                "a stream is stalled. Call advance(now) or check the feed.");
         release();
     }
 
@@ -152,6 +160,7 @@ private:
     screamer::streams::CombineLatest cl_;   // reused operator (no re-derivation)
     Sink<Index>& downstream_;
     std::size_t n_;
+    std::size_t max_pending_;
     std::vector<Port> ports_;
 
     // Coalescing buffer: holds the latest aligned row at the current index.

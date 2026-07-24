@@ -317,8 +317,9 @@ void init_bindings_dag(py::module& m) {
             return builder.add_functor(op, std::move(inputs));
         }
 
-        std::size_t add_combine_latest(std::vector<std::size_t> inputs, bool when_all) {
-            return builder.add_combine_latest(std::move(inputs), when_all);
+        std::size_t add_combine_latest(std::vector<std::size_t> inputs, bool when_all,
+                                       std::size_t max_pending = 1'000'000) {
+            return builder.add_combine_latest(std::move(inputs), when_all, max_pending);
         }
 
         std::size_t add_filter(std::vector<std::size_t> inputs) {
@@ -387,9 +388,11 @@ void init_bindings_dag(py::module& m) {
             return b.add_functor(op, std::move(inputs));
         }, py::arg("op"), py::arg("inputs"))
         .def("add_combine_latest", [](PyGraphBuilder& b,
-                                      std::vector<std::size_t> inputs, bool when_all) {
-            return b.add_combine_latest(std::move(inputs), when_all);
-        }, py::arg("inputs"), py::arg("when_all") = true)
+                                      std::vector<std::size_t> inputs, bool when_all,
+                                      std::size_t max_pending) {
+            return b.add_combine_latest(std::move(inputs), when_all, max_pending);
+        }, py::arg("inputs"), py::arg("when_all") = true,
+           py::arg("max_pending") = static_cast<std::size_t>(1'000'000))
         .def("add_filter", [](PyGraphBuilder& b, std::vector<std::size_t> inputs) {
             return b.add_filter(std::move(inputs));
         }, py::arg("inputs"))

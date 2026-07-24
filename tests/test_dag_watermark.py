@@ -277,6 +277,17 @@ def test_dropna_before_delayed_merge_releases_incrementally():
                                err_msg="batch and live value mismatch")
 
 
+def test_reorder_buffer_overflow_raises():
+    from screamer.dag import Input, Pipeline
+    from screamer.streams import CombineLatest, Delay
+    a, b = Input("a"), Input("b")
+    pipe = Pipeline([a, b], [CombineLatest()(a, Delay(1)(b))], max_pending=8)
+    s = pipe.live()
+    with pytest.raises(RuntimeError):
+        for t in range(100):
+            s.push("b", t, float(t))    # a never advances -> b's delayed rows pile up
+
+
 def test_advance_releases_idle_delayed_buffer():
     """advance(now) must release buffered delayed-b rows when a goes idle.
 

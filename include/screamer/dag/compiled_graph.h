@@ -206,7 +206,7 @@ public:
             }
             case NodeKind::CombineLatest: {
                 auto cn = std::make_shared<CombineLatestNode<std::int64_t>>(
-                    ns.inputs.size(), ns.when_all, *downstream);
+                    ns.inputs.size(), ns.when_all, *downstream, ns.max_pending);
                 reset_nodes_.push_back(cn.get());
                 node_input_sink[id] = [ptr = cn.get()](std::size_t slot) -> Sink<std::int64_t>* {
                     return &ptr->port(slot);
