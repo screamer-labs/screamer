@@ -8,7 +8,9 @@ namespace screamer { namespace dag {
 
 // Stateless index re-stamp. Forwards each frame with index shifted by `duration`,
 // values untouched. Lossless, 1:1, order-preserving (a constant positive shift keeps
-// events monotonic), no warmup. See Delay.md for the live-merge-fusion limitation.
+// events monotonic), no warmup. When this node feeds a CombineLatest merge inside a
+// Pipeline, the merge holds future-dated frames in a bounded reorder buffer and
+// releases them in index order as watermarks advance. See Delay.md for details.
 template <class Index>
 class DelayNode : public Sink<Index> {
 public:

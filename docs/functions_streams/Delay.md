@@ -28,14 +28,21 @@ calling it on a bare array is a `TypeError`.
 
 - `duration`: the index offset to add to every event, numeric, in index units.
 
-## Limitations
+## Delay inside a Pipeline merge
 
-A `Delay` feeding a downstream merge (`CombineLatest`) inside a single live
-`Pipeline` emits the delayed event eagerly, so the merge would align it against a
-not-yet-advanced input. For an as-of alignment across a delay, apply `Delay` and
-`CombineLatest` as separate calls (batch `CombineLatest` sees all events), which is
-what `forecast_pairs` does. A fused-live-merge form needs a reorder buffer and is a
-planned follow-on.
+A `Delay` feeding a `CombineLatest` merge inside a single compiled `Pipeline` is now
+correct in both batch and live modes. Before the fix, the merge received delayed frames
+too early because the batch merge sorted raw inputs before the delay re-stamped their
+indices; batch and live agreed, but both produced lookahead results.
+
+The fix introduces a bounded reorder buffer inside the fused merge. Frames with a
+future-dated index are held in the buffer and released in global index order once every
+per-port watermark has advanced past them. When a sibling stream is idle, `advance(now)`
+releases buffered rows so the merge does not wait for a stalled input. A genuinely stalled
+stream trips the reorder cap (`max_pending`, default 1,000,000) and raises a `RuntimeError`
+with a clear message.
+
+The `forecast_pairs` / separate-call pattern continues to work unchanged.
 
 ## Examples
 
