@@ -56,6 +56,7 @@ public:
         std::fill(wm_.begin(), wm_.end(), std::numeric_limits<Index>::min());
         while (!pending_.empty()) pending_.pop();
         next_seq_ = 0;
+        last_forwarded_wm_ = std::numeric_limits<Index>::min();
     }
 
 private:
@@ -112,7 +113,10 @@ private:
                                           buffered_row_.data(), n_});
             has_buffered_ = false;
         }
-        if (low != std::numeric_limits<Index>::min()) downstream_.on_watermark(low);
+        if (low != std::numeric_limits<Index>::min() && low > last_forwarded_wm_) {
+            last_forwarded_wm_ = low;
+            downstream_.on_watermark(low);
+        }
     }
 
     // Called once per input port at end-of-input. Each producer pushes its final
@@ -184,6 +188,10 @@ private:
     };
     std::priority_queue<Pending, std::vector<Pending>, PendGreater> pending_;
     std::uint64_t next_seq_ = 0;   // monotonic arrival counter for pending_
+
+    // Last watermark forwarded downstream: skip a redundant virtual call when the
+    // settled watermark has not advanced.
+    Index last_forwarded_wm_ = std::numeric_limits<Index>::min();
 
     // End-of-input coalescing: which ports have flushed in the current cycle.
     std::vector<bool> flushed_;

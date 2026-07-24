@@ -60,7 +60,7 @@ private:
 class CompiledGraph {
 public:
     // Non-copyable: nodes/gather-sinks hold raw pointers into this object's own
-    // members (outputs_, owned_). Move IS safe — std::vector move keeps element
+    // members (outputs_, owned_). Move IS safe - std::vector move keeps element
     // addresses (heap) unchanged and shared_ptr move doesn't relocate the pointee;
     // compile() returns a prvalue so C++17 elides the move entirely.
     CompiledGraph(const CompiledGraph&) = delete;
@@ -109,7 +109,7 @@ public:
         }
         std::reverse(topo.begin(), topo.end()); // consumers first
 
-        // Cycle detection — Kahn's sort omits nodes involved in cycles.
+        // Cycle detection - Kahn's sort omits nodes involved in cycles.
         if (topo.size() != s.nodes.size())
             throw std::runtime_error("compile: graph has a cycle");
 
@@ -254,7 +254,7 @@ public:
                 // inputs[0] = data (port 0), inputs[1] = mask (port 1).
                 // node_input_sink returns &fn->port(slot) so data wires to port 0
                 // and mask wires to port 1, matching the input order exactly.
-                auto fn = std::make_shared<FilterNode<std::int64_t>>(*downstream);
+                auto fn = std::make_shared<FilterNode<std::int64_t>>(*downstream, ns.max_pending);
                 reset_nodes_.push_back(fn.get());
                 node_input_sink[id] = [ptr = fn.get()](std::size_t slot) -> Sink<std::int64_t>* {
                     return &ptr->port(slot);

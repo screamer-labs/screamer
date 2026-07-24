@@ -3,7 +3,7 @@ import itertools
 import numpy as np
 import pytest
 from screamer.dag import Input, Pipeline
-from screamer.streams import CombineLatest, Delay, Dropna
+from screamer.streams import CombineLatest, Delay, Dropna, Filter, Resample
 
 
 def _fused_delay_merge_batch_vs_live(duration, idx, vals):
@@ -348,3 +348,69 @@ def test_two_input_delayed_merge_sweep(d, emit):
     ob, ol = np.argsort(bi, kind="stable"), np.argsort(li, kind="stable")
     np.testing.assert_array_equal(np.asarray(li)[ol], np.asarray(bi)[ob])
     np.testing.assert_allclose(np.asarray(lv)[ol], np.asarray(bv)[ob], equal_nan=True)
+
+
+def test_filter_with_delayed_input_asof_oracle():
+    """Filter with a DELAYED mask input must gate as-of the merged index.
+
+    FilterNode is a 2-port fan-in (port 0 = data, port 1 = mask) built on
+    CombineLatest(2, when_all=true). A delayed sibling (Delay on the mask) makes the
+    mask's frames future-dated relative to its raw index. Without a reorder buffer,
+    the node applies events in ARRIVAL order and merges the future-dated mask frame
+    too early against a stale data value, gating rows at the wrong index. This is the
+    same causality bug the reorder buffer fixed in CombineLatestNode.
+
+    Setup (two DISTINCT inputs, the topology that exposes the bug):
+      data d at indices [10, 20, 30, 40], values [1.0, 2.0, 3.0, 4.0]
+      mask m at indices [ 8, 15, 25],     values [1.0, 0.0, 1.0]
+      Delay(5) applied to m -> delayed-m at indices [13, 20, 30]
+
+    Pipeline: Filter()(d, Delay(5)(m))  (when_all: fires once both ports seen)
+
+    Oracle derivation (as-of gate, distinct-index coalescing):
+      k=10: data d@10=1.0, delayed-m: no index <=10 -> when_all not yet fired -> skip
+      k=13: data as-of <=13 = d@10 = 1.0, mask delayed-m@13 (raw m@8) = 1.0
+            -> gate KEEP -> emit data 1.0 at index 13
+      k=20: data d@20=2.0, mask delayed-m@20 (raw m@15) = 0.0 -> gate DROP
+      k=30: data d@30=3.0, mask delayed-m@30 (raw m@25) = 1.0 -> gate KEEP -> emit 3.0
+      k=40: data d@40=4.0, mask as-of <=40 = delayed-m@30 = 1.0 -> KEEP -> emit 4.0
+
+    Pre-fix (arrival order) the first KEEP lands at index 10 (data merged with a mask
+    that had not yet reached its true index 13). The oracle KEEP indices are 13,30,40.
+    """
+    d = Input("d")
+    m = Input("m")
+    pipe = Pipeline([d, m], [Filter()(d, Delay(5)(m))])
+
+    dv = np.array([1.0, 2.0, 3.0, 4.0])
+    di = np.array([10, 20, 30, 40], dtype=np.int64)
+    mv = np.array([1.0, 0.0, 1.0])
+    mi = np.array([8, 15, 25], dtype=np.int64)
+
+    expected = [(13, 1.0), (30, 3.0), (40, 4.0)]  # 20 dropped
+
+    # --- live path ---
+    merged = sorted(
+        [("d", int(t), float(v)) for t, v in zip(di, dv)]
+        + [("m", int(t), float(v)) for t, v in zip(mi, mv)],
+        key=lambda e: e[1],
+    )
+    sess = pipe.live()
+    for src, t, v in merged:
+        sess.push(src, t, v)
+    sess.flush()
+    live_v, live_i = sess.result()
+    live_v = np.asarray(live_v)
+    live_i = np.asarray(live_i)
+    order = np.argsort(live_i, kind="stable")
+    live_rows = [(int(live_i[k]), float(np.ravel(live_v[k])[0])) for k in order]
+
+    assert live_rows == expected, f"live {live_rows} != oracle {expected}"
+
+    # --- batch path (must agree with live) ---
+    batch_v, batch_i = pipe((dv, di), (mv, mi))
+    batch_v = np.asarray(batch_v)
+    batch_i = np.asarray(batch_i)
+    ob = np.argsort(batch_i, kind="stable")
+    batch_rows = [(int(batch_i[k]), float(np.ravel(batch_v[k])[0])) for k in ob]
+    assert batch_rows == expected, f"batch {batch_rows} != oracle {expected}"
