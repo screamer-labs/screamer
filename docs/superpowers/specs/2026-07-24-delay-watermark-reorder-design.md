@@ -13,13 +13,19 @@ pushes it downstream immediately, so the merge receives a future-dated frame whi
 sibling ports are still at `t`. The merge aligns the delayed event against stale
 as-of values.
 
-Batch does not have this problem: `MergeSource` (a min-heap over the input sources)
-feeds the graph in global index order, so when a delayed frame at `t+d` reaches the
-merge, every sibling frame with index `<= t+d` has already been applied.
+Batch has the SAME defect. `MergeSource` (a min-heap over the input sources) sorts by
+RAW input index, but that ordering happens BEFORE `DelayNode` re-stamps `t -> t+d`
+inside the graph. So a frame merged at raw index `t` is re-stamped to `t+d` and reaches
+the merge while siblings are still near `t` - the fused `Delay -> merge` violates
+causality in batch too, not just live. The pre-fix `batch == live` agreement is
+agreement on the same wrong answer.
 
 `batch == live` is a hard invariant in screamer (the causality rule: stored-data and
-streaming paths must give identical results). Batch feeds the merge in global index
-order, so **live must too**. The current live path does not, which is the defect.
+streaming paths must give identical results), but it is NOT a correctness oracle: a
+fused topology can be wrong-but-equal in both paths. The real requirement is causal
+as-of output. The reorder buffer restores it in both batch and live: it holds incoming
+frames until the merge can prove, by the minimum per-port watermark, that every sibling
+with a lower index has been applied.
 
 ## Core idea
 
@@ -31,9 +37,11 @@ The merge holds incoming frames in a bounded reorder buffer and releases them in
 existing as-of logic in global index order, gated by the minimum per-port watermark.
 `Delay` shifts the watermark by `+duration` (mirroring what it does to the data index).
 `Filter` / `DropNa` forward the watermark past frames they drop. `Resample` closes
-windows on the watermark, retiring its separate `advance()` path. Live thereby
-reproduces batch's global-order delivery: `batch == live` holds by construction, and
-the fix composes through the whole operator set rather than being a merge-only patch.
+windows on the watermark, retiring its separate `advance()` path. The reorder buffer
+runs in BOTH batch and live (it sits inside the merge node, not in the driver), so both
+paths now deliver frames into the as-of logic in true global index order: `batch ==
+live` holds by construction on the CORRECT answer, and the fix composes through the
+whole operator set rather than being a merge-only patch.
 
 ### Why an explicit watermark, not inferred progress
 
@@ -152,17 +160,21 @@ Default cap: a generous constant (proposed 1_000_000 frames), overridable at
 
 ## Batch path and `batch == live`
 
-Batch keeps `MergeSource` for input ordering (correct and the hot path; unchanged). The
-merge node is watermark-aware in both modes. In batch, frames arrive already in global
-index order, so the reorder buffer is a passthrough (each frame's index immediately
-`<= low_wm`) and behavior is identical to today. Batch `flush` drains normally.
+Batch keeps `MergeSource` for input ordering (the hot path; unchanged). But
+`MergeSource` sorts RAW input indices, and any `Delay` re-stamps `t -> t+d` INSIDE the
+graph, after that sort. So at the merge node frames do NOT arrive in global index order
+in batch either: the reorder buffer is load-bearing in batch, not a passthrough. It
+runs identically in both modes and holds each frame until `min_j wm[j]` proves every
+lower-indexed sibling has been applied.
 
-`batch == live` becomes a directly tested invariant: the release rule "emit buffered
-frames with index `<= min_j wm[j]`" is exactly `MergeSource`'s safety condition ("a
-frame at index `e` is safe once no port can still produce index `< e`"). Correct
-watermarks imply live delivery order equals global index order equals batch order;
-`flush` drains the tail. Equivalence is asserted across the Delay/merge topologies and
-the Filter/DropNa/Resample compositions.
+`batch == live` is a directly tested invariant, but on its own it is not a correctness
+oracle: a fused topology can be wrong-but-equal in both paths (which is exactly what the
+pre-fix code was). The tests therefore pair `batch == live` with a hand-derived as-of
+oracle. The release rule "emit buffered frames with index `<= min_j wm[j]`" is the merge
+safety condition ("a frame at index `e` is safe once no port can still produce index
+`< e`"); correct watermarks make both batch and live deliver in true global index order.
+`flush` drains the tail. Equivalence and the as-of oracle are asserted across the
+Delay/merge topologies and the Filter/DropNa/Resample compositions.
 
 ## Edge cases
 

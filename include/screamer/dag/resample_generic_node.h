@@ -76,11 +76,21 @@ public:
     std::size_t n_in()  const override { return 1; }
     std::size_t n_out() const override { return out_.size(); }
 
-    // Event-time watermark: close windows up to `w` then forward the watermark
-    // downstream so any merge or combinator downstream does not stall.
+    // Event-time watermark: close windows up to `w` then forward a watermark
+    // clamped to the smallest index this node might STILL emit, so a merge or
+    // combinator downstream does not stall AND never receives `w` before a lower-
+    // indexed frame it will later emit. advance(w) leaves the bucket CONTAINING w
+    // open with emit-label cur_label_. For label="left" that label is the bucket's
+    // left edge (<= w), so a later frame at index < w is still coming; we must
+    // forward min(w, cur_label_). For label="right" the label is the right edge
+    // (> w), so min(w, cur_label_) == w and forwarding w is already safe. Before
+    // any event has anchored a bucket (not started_) there is nothing pending, so
+    // forward w unchanged.
     void on_watermark(Index w) override {
         advance(w);
-        downstream_.on_watermark(w);
+        Index fwd = w;
+        if (started_ && cur_label_ < fwd) fwd = cur_label_;
+        downstream_.on_watermark(fwd);
     }
 
     // Close every window whose end boundary has passed by logical time `now`, even

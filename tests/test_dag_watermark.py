@@ -414,3 +414,63 @@ def test_filter_with_delayed_input_asof_oracle():
     ob = np.argsort(batch_i, kind="stable")
     batch_rows = [(int(batch_i[k]), float(np.ravel(batch_v[k])[0])) for k in ob]
     assert batch_rows == expected, f"batch {batch_rows} != oracle {expected}"
+
+
+@pytest.mark.parametrize("label", ["left", "right"])
+def test_resample_on_merge_port_batch_equals_live_and_ordered(label):
+    """A Resample feeding one merge port must not forward a watermark past its open bucket.
+
+    Resample.on_watermark(w) closes windows up to w then forwards w downstream. For
+    label="left", advance(w) leaves the bucket CONTAINING w open with an emit-label
+    (left edge) < w. Forwarding w tells the downstream merge "no future frame with
+    index < w", yet that open bucket later closes and emits at index < w -> the merge
+    mis-aligns and emits out of order, diverging batch from live.
+
+    Topology: CombineLatest()(Resample(freq=20, label)(a), Delay(0)(b)), advance()-driven.
+
+    Asserts (a) batch == live, (b) live emission indices are non-decreasing (no
+    out-of-order emission), and (c) values match batch. label="left" is the broken
+    case; label="right" is a guard (its emit-index >= w, so forwarding w is safe).
+    """
+    a = Input("a")
+    b = Input("b")
+    pipe = Pipeline([a, b], [CombineLatest()(Resample(freq=20, label=label)(a), Delay(0)(b))])
+
+    ai = np.array([5, 30, 45], dtype=np.int64)
+    av = np.array([1.0, 2.0, 3.0])
+    bi = np.array([0, 22, 24], dtype=np.int64)
+    bv = np.array([9.0, 8.0, 7.0])
+
+    # --- batch ---
+    batch_v, batch_i = pipe((av, ai), (bv, bi))
+    batch_v = np.asarray(batch_v)
+    batch_i = np.asarray(batch_i)
+    ob = np.argsort(batch_i, kind="stable")
+    batch_rows = [(int(batch_i[k]), tuple(np.ravel(batch_v[k]).tolist())) for k in ob]
+
+    # --- live (advance-driven to close resample's early bucket while b is ahead) ---
+    s = pipe.live()
+    s.push("b", 0, 9.0)
+    s.push("a", 5, 1.0)
+    s.push("b", 22, 8.0)
+    s.push("b", 24, 7.0)
+    s.advance(25)
+    s.push("a", 30, 2.0)
+    s.push("a", 45, 3.0)
+    s.flush()
+    live_v, live_i = s.result()
+    live_v = np.asarray(live_v)
+    live_i = np.asarray(live_i)
+
+    # (b) raw emission order must be non-decreasing in index (no out-of-order rows).
+    raw_idx = np.asarray(live_i).tolist()
+    assert raw_idx == sorted(raw_idx), (
+        f"live emitted out of order for label={label}: {raw_idx}"
+    )
+
+    # (a) + (c) batch == live after sorting.
+    ol = np.argsort(live_i, kind="stable")
+    live_rows = [(int(live_i[k]), tuple(np.ravel(live_v[k]).tolist())) for k in ol]
+    assert live_rows == batch_rows, (
+        f"batch != live for label={label}:\n  batch={batch_rows}\n  live={live_rows}"
+    )
