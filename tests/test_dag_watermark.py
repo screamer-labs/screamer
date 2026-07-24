@@ -474,3 +474,86 @@ def test_resample_on_merge_port_batch_equals_live_and_ordered(label):
     assert live_rows == batch_rows, (
         f"batch != live for label={label}:\n  batch={batch_rows}\n  live={live_rows}"
     )
+
+
+@pytest.mark.parametrize("label", ["left", "right"])
+def test_resample_count_mode_on_merge_port_ordered_under_advance(label):
+    """Count-mode Resample feeding a merge port must clamp its watermark to the
+    pending bucket's emit-index, not forward the raw watermark.
+
+    In count mode, advance() is a no-op (count windows are not time-based), so
+    on_watermark(w) used to forward w unchanged. But a non-empty count bucket has a
+    pending emit-index below w (first_index_ for label="left", last_index_ for
+    label="right" at the time advance is called). Forwarding w tells the downstream
+    merge "no future frame with index < w" while a sub-w frame is still coming, causing
+    out-of-order emission and batch != live.
+
+    Topology: CombineLatest()(Resample(count=2, label=label)(a), Delay(0)(b)),
+    advance()-driven mid-bucket.
+
+    Setup:
+      a at indices [5, 30, 45], values [1.0, 2.0, 3.0]
+      b at indices [0, 22, 24], values [9.0, 8.0, 7.0]
+
+      Live push sequence: b@0, a@5, b@22, b@24, advance(25), a@30, a@45, flush.
+
+    For label="left":
+      Resample(count=2) emits at first_index_=5 (value 2.0, last of [1.0,2.0])
+      when a@30 closes the bucket. Open bucket at advance(25) has pending=5.
+      Without the fix: on_watermark(25) is forwarded, the merge discards or
+      mis-aligns the later frame at index 5, so live diverges from batch.
+
+    For label="right":
+      Pending emit-index is last_index_ which starts at 5 (only a@5 has arrived);
+      the fix clamps watermark to 5. After a@30 completes the bucket the emit index
+      is 30, which is above the forwarded watermark, so no ordering violation.
+
+    Asserts: (a) live emission indices non-decreasing, (b) batch == live, (c) values.
+    """
+    a = Input("a")
+    b = Input("b")
+    pipe = Pipeline(
+        [a, b],
+        [CombineLatest()(Resample(count=2, label=label)(a), Delay(0)(b))],
+    )
+
+    ai = np.array([5, 30, 45], dtype=np.int64)
+    av = np.array([1.0, 2.0, 3.0])
+    bi = np.array([0, 22, 24], dtype=np.int64)
+    bv = np.array([9.0, 8.0, 7.0])
+
+    # --- batch ---
+    batch_v, batch_i = pipe((av, ai), (bv, bi))
+    batch_v = np.asarray(batch_v)
+    batch_i = np.asarray(batch_i)
+    ob = np.argsort(batch_i, kind="stable")
+    batch_rows = [(int(batch_i[k]), tuple(np.ravel(batch_v[k]).tolist())) for k in ob]
+
+    # --- live: advance(25) is called while the count=2 bucket is still open (only
+    # a@5 has arrived). Without the fix the watermark 25 is forwarded raw, lying to
+    # the merge about what index the resample port might still emit. ---
+    s = pipe.live()
+    s.push("b", 0, 9.0)
+    s.push("a", 5, 1.0)
+    s.push("b", 22, 8.0)
+    s.push("b", 24, 7.0)
+    s.advance(25)
+    s.push("a", 30, 2.0)
+    s.push("a", 45, 3.0)
+    s.flush()
+    live_v, live_i = s.result()
+    live_v = np.asarray(live_v)
+    live_i = np.asarray(live_i)
+
+    # (a) Raw emission order must be non-decreasing (no out-of-order rows).
+    raw_idx = np.asarray(live_i).tolist()
+    assert raw_idx == sorted(raw_idx), (
+        f"live emitted out of order for label={label}: {raw_idx}"
+    )
+
+    # (b) + (c) batch == live after sorting.
+    ol = np.argsort(live_i, kind="stable")
+    live_rows = [(int(live_i[k]), tuple(np.ravel(live_v[k]).tolist())) for k in ol]
+    assert live_rows == batch_rows, (
+        f"batch != live for label={label}:\n  batch={batch_rows}\n  live={live_rows}"
+    )

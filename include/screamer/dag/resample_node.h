@@ -112,7 +112,20 @@ public:
     void on_watermark(Index w) override {
         advance(w);
         Index fwd = w;
-        if (started_ && cur_label_ < fwd) fwd = cur_label_;
+        if (p_.mode == ResampleMode::ByIndex) {
+            // Index mode: advance() may have left an open bucket whose emit-label
+            // (cur_label_) is below w. Forward at most cur_label_ so the downstream
+            // merge is not told "no frame < w" while one is still pending.
+            if (started_ && cur_label_ < fwd) fwd = cur_label_;
+        } else {
+            // Count mode: advance() is a no-op; clamp to the pending emit-index of
+            // the open bucket (first_index_ for label=left, last_index_ for right).
+            if (count_in_bucket_ > 0) {
+                Index pending = (p_.label == ResampleLabel::Left
+                                 ? first_index_ : last_index_);
+                if (pending < fwd) fwd = pending;
+            }
+        }
         downstream_.on_watermark(fwd);
     }
 
