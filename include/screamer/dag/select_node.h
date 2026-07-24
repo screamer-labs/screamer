@@ -29,6 +29,7 @@ public:
     }
 
     void flush() override { downstream_.flush(); }
+    void on_watermark(Index w) override { downstream_.on_watermark(w); }
 
     // n_in is context-dependent (accepts any width >= max(columns_)); n_out is
     // always the number of selected columns.

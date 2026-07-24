@@ -294,36 +294,40 @@ git commit -m "feat(dag): watermark protocol + CombineLatest reorder buffer for 
 - Consumes: `Sink::on_watermark` from Task 1.
 - Produces: nothing new; `DropNaNode` and `FilterNode` now forward watermarks (and the index of a dropped frame) downstream.
 
-- [ ] **Step 1: Write the failing test.** A `DropNa` between the input and a delayed merge port drops NaN rows; if the dropped frame's index does not advance the merge watermark, the merge stalls and diverges from batch. In `tests/test_dag_watermark.py`:
+- [ ] **Step 1: Write a test that genuinely fails without forward-on-drop.**
+
+CRITICAL lesson from Task 1: a single input feeding both merge ports (`CombineLatest(x, Delay(x))`) drives batch and live through the identical synchronous path and does NOT exercise the reorder logic. Use TWO DISTINCT inputs. Also, a final `batch == live` assertion after `flush()` will NOT catch this bug: `flush()` sets every port watermark to MAX and drains the buffer in order, so the final drained output is correct whether or not drops forward the watermark. The observable difference is INCREMENTAL release before flush: without forward-on-drop, a run of dropped frames on the delayed input stalls that port's watermark, so the merge holds rows that should already be safe; with it, they release as the dropped indices advance the watermark.
+
+Write `test_dropna_before_delayed_merge_releases_incrementally` in `tests/test_dag_watermark.py` using two distinct inputs, `a` direct and `b` through `Dropna` then `Delay`, and assert incremental release by calling `result()` BEFORE `flush()`:
 
 ```python
-def test_dropna_before_delayed_merge_does_not_stall():
+def test_dropna_before_delayed_merge_releases_incrementally():
     from screamer.dag import Input, Pipeline
-    from screamer.streams import CombineLatest, Delay, Dropna
-    x = Input("x")
-    # x is cleaned by Dropna, delayed, and merged against raw x.
-    pipe = Pipeline([x], [CombineLatest()(x, Delay(20)(Dropna()(x)))])
-    idx = (np.arange(20, dtype=np.int64)) * 10
-    vals = np.arange(20, dtype=float)
-    vals[5] = np.nan      # a dropped row: its index must still advance the watermark
-    vals[11] = np.nan
-    bv, bi = pipe((vals, idx))
+    from screamer.streams import CombineLatest, Delay, Dropna    # confirm exact names in tests/test_streams_dropna.py
+    a, b = Input("a"), Input("b")
+    pipe = Pipeline([a, b], [CombineLatest()(a, Delay(5)(Dropna()(b)))])
     s = pipe.live()
-    for t, v in zip(idx.tolist(), vals.tolist()):
-        s.push("x", int(t), float(v))
-    s.flush()
-    lv, li = s.result()
-    ob, ol = np.argsort(bi, kind="stable"), np.argsort(li, kind="stable")
-    np.testing.assert_array_equal(np.asarray(li)[ol], np.asarray(bi)[ob])
-    np.testing.assert_allclose(np.asarray(lv)[ol], np.asarray(bv)[ob], equal_nan=True)
+    # b produces a value then a long run of dropped NaNs; a keeps advancing far past
+    # the delayed b index. Without forward-on-drop, b's port watermark stalls at the
+    # last kept delayed index, so a's rows pile up unreleased until flush.
+    s.push("b", 0, 1.0)           # kept -> delayed to index 5
+    for t in range(1, 12):
+        s.push("b", t, float("nan"))   # dropped: must still advance b's watermark
+    for t in range(0, 40, 2):
+        s.push("a", t, float(t))
+    mid = s.result()              # drained BEFORE flush
+    # With forward-on-drop the merge has released rows (a advanced past the delayed b
+    # watermark); without it, mid is empty/short. Assert real incremental progress:
+    mid_v = mid[0] if isinstance(mid, tuple) else mid
+    assert mid_v is not None and len(np.asarray(mid_v)) >= 5
 ```
 
-(If the `Dropna` stream operator name differs, confirm it from `tests/test_streams_dropna.py` and use the exact name.)
+The implementer MUST confirm this test FAILS on the current (post-Task-1) code before implementing Step 3 (that is the RED gate). If it does not fail, the observable is wrong: try a larger drop run, or compose the merge output into a downstream `Delay` + second `CombineLatest` so a stalled forwarded watermark changes the final flushed output, or otherwise construct a case that is RED without the fix. If no failing test can be built, STOP and report BLOCKED with the analysis (it would mean forward-on-drop has no observable effect, which must be surfaced). Also add a secondary two-input batch==live assertion (durations sweep) as a regression guard.
 
-- [ ] **Step 2: Run it, expect failure or stall-divergence.**
+- [ ] **Step 2: Run it, confirm RED.**
 
-Run: `make install-dev && poetry run python -m pytest tests/test_dag_watermark.py::test_dropna_before_delayed_merge_does_not_stall -q`
-Expected: FAIL (`live != batch`; the merge held the delayed events because the dropped indices never advanced its watermark).
+Run: `make install-dev && poetry run python -m pytest tests/test_dag_watermark.py::test_dropna_before_delayed_merge_releases_incrementally -q`
+Expected: FAIL (the merge stalled on the dropped run; `mid` is empty or short).
 
 - [ ] **Step 3: Forward-on-drop in `DropNaNode`.** In `include/screamer/dag/dropna_node.h`, change `push` so a dropped frame still advances downstream time, and add watermark forwarding:
 
@@ -556,25 +560,34 @@ git commit -m "docs(delay): the live Delay->merge limitation is fixed"
 **Files:**
 - Test: add a parametrized sweep to `tests/test_dag_watermark.py`
 
-- [ ] **Step 1: Add a composition sweep** asserting batch==live across delay durations, feed regularities, and a `when_all` merge:
+- [ ] **Step 1: Add a two-input composition sweep** asserting batch==live across delay durations, feed regularities, and a `when_all` merge.
+
+IMPORTANT: use TWO DISTINCT `Input` nodes (`a`, `b`). A single input feeding both merge ports drives batch and live through the identical synchronous path and does NOT exercise the reorder logic (this is why Tasks 1-3 use two distinct inputs). The two-input `batch == live` here is a broad regression guard on top of the hand-derived as-of oracle already committed in `test_two_input_delayed_merge_matches_asof_oracle`.
 
 ```python
 import itertools
 
 @pytest.mark.parametrize("d,emit", list(itertools.product([1, 7, 50], ["on_any", "when_all"])))
-def test_fused_delay_merge_sweep(d, emit):
+def test_two_input_delayed_merge_sweep(d, emit):
     from screamer.dag import Input, Pipeline
     from screamer.streams import CombineLatest, Delay
-    rng = np.random.default_rng(hash((d, emit)) % (2**32))
-    idx = np.cumsum(rng.integers(1, 6, size=120)).astype(np.int64)
-    vals = rng.standard_normal(120)
-    x = Input("x")
+    rng = np.random.default_rng((d * 7 + len(emit)) % (2**32))
+    n = 120
+    ia = np.cumsum(rng.integers(1, 6, size=n)).astype(np.int64)
+    va = rng.standard_normal(n)
+    ib = np.cumsum(rng.integers(1, 6, size=n)).astype(np.int64)
+    vb = rng.standard_normal(n)
+    a, b = Input("a"), Input("b")
     cl = CombineLatest(emit=emit) if emit == "when_all" else CombineLatest()
-    pipe = Pipeline([x], [cl(x, Delay(d)(x))])
-    bv, bi = pipe((vals, idx))
+    pipe = Pipeline([a, b], [cl(a, Delay(d)(b))])
+    bv, bi = pipe((va, ia), (vb, ib))
     s = pipe.live()
-    for t, v in zip(idx.tolist(), vals.tolist()):
-        s.push("x", int(t), float(v))
+    # feed a and b events interleaved by raw arrival index (a real event loop order)
+    events = sorted([("a", int(t), float(v)) for t, v in zip(ia, va)] +
+                    [("b", int(t), float(v)) for t, v in zip(ib, vb)],
+                    key=lambda e: e[1])
+    for name, t, v in events:
+        s.push(name, t, v)
     s.flush()
     lv, li = s.result()
     ob, ol = np.argsort(bi, kind="stable"), np.argsort(li, kind="stable")
@@ -582,7 +595,7 @@ def test_fused_delay_merge_sweep(d, emit):
     np.testing.assert_allclose(np.asarray(lv)[ol], np.asarray(bv)[ob], equal_nan=True)
 ```
 
-(Confirm the `emit=` value for a when-all merge from `tests/test_streams_combine_latest.py`; use the exact spelling.)
+(Confirm the `emit=` value for a when-all merge and the two-indexed-input batch call form `pipe((va,ia),(vb,ib))` from `tests/test_dag_watermark.py` and `tests/test_streams_combine_latest.py`; use the exact spelling.)
 
 - [ ] **Step 2: Run the whole suite and build the docs.**
 

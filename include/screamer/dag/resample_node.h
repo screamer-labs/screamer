@@ -99,6 +99,36 @@ public:
     std::size_t n_in()  const override { return 1; }
     std::size_t n_out() const override { return out_.size(); }
 
+    // Event-time watermark: close windows up to `w` then forward a watermark
+    // clamped to the smallest index this node might STILL emit, so a merge or
+    // combinator downstream does not stall AND never receives `w` before a lower-
+    // indexed frame it will later emit. advance(w) leaves the bucket CONTAINING w
+    // open with emit-label cur_label_. For label="left" that label is the bucket's
+    // left edge (<= w), so a later frame at index < w is still coming; we must
+    // forward min(w, cur_label_). For label="right" the label is the right edge
+    // (> w), so min(w, cur_label_) == w and forwarding w is already safe. Before
+    // any event has anchored a bucket (not started_) there is nothing pending, so
+    // forward w unchanged.
+    void on_watermark(Index w) override {
+        advance(w);
+        Index fwd = w;
+        if (p_.mode == ResampleMode::ByIndex) {
+            // Index mode: advance() may have left an open bucket whose emit-label
+            // (cur_label_) is below w. Forward at most cur_label_ so the downstream
+            // merge is not told "no frame < w" while one is still pending.
+            if (started_ && cur_label_ < fwd) fwd = cur_label_;
+        } else {
+            // Count mode: advance() is a no-op; clamp to the pending emit-index of
+            // the open bucket (first_index_ for label=left, last_index_ for right).
+            if (count_in_bucket_ > 0) {
+                Index pending = (p_.label == ResampleLabel::Left
+                                 ? first_index_ : last_index_);
+                if (pending < fwd) fwd = pending;
+            }
+        }
+        downstream_.on_watermark(fwd);
+    }
+
     // Close every window whose end boundary has passed by logical time `now`, even
     // when empty. Emits the current bucket (real row if it has data) and then any
     // trailing empty buckets up to but NOT including the bucket that contains `now`

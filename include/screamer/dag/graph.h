@@ -20,6 +20,7 @@ struct NodeSpec {
     std::vector<std::size_t> columns;     // Select only
     ResampleParams resample;              // Resample only
     std::int64_t delay_duration = 0;     // Delay only
+    std::size_t max_pending = 1'000'000;  // CombineLatest only: reorder buffer cap
     std::vector<std::size_t> inputs;      // producer node ids (edges into this node)
 };
 
@@ -33,38 +34,61 @@ struct GraphSpec {
 class GraphBuilder {
 public:
     std::size_t add_input() {
-        spec_.nodes.push_back(NodeSpec{NodeKind::Input, nullptr, true, false, {}, {}, 0, {}});
+        NodeSpec ns;
+        ns.kind = NodeKind::Input;
+        spec_.nodes.push_back(std::move(ns));
         std::size_t id = spec_.nodes.size() - 1;
         spec_.input_ids.push_back(id);
         return id;
     }
     std::size_t add_functor(EvalOp* op, std::vector<std::size_t> inputs) {
-        spec_.nodes.push_back(NodeSpec{NodeKind::Functor, op, true, false, {}, {}, 0, std::move(inputs)});
+        NodeSpec ns;
+        ns.kind   = NodeKind::Functor;
+        ns.op     = op;
+        ns.inputs = std::move(inputs);
+        spec_.nodes.push_back(std::move(ns));
         return spec_.nodes.size() - 1;
     }
-    std::size_t add_combine_latest(std::vector<std::size_t> inputs, bool when_all) {
-        spec_.nodes.push_back(NodeSpec{NodeKind::CombineLatest, nullptr, when_all, false,
-                                       {}, {}, 0, std::move(inputs)});
+    std::size_t add_combine_latest(std::vector<std::size_t> inputs, bool when_all,
+                                   std::size_t max_pending = 1'000'000) {
+        NodeSpec ns;
+        ns.kind        = NodeKind::CombineLatest;
+        ns.when_all    = when_all;
+        ns.max_pending = max_pending;
+        ns.inputs      = std::move(inputs);
+        spec_.nodes.push_back(std::move(ns));
         return spec_.nodes.size() - 1;
     }
     std::size_t add_dropna(std::vector<std::size_t> inputs, bool how_all) {
-        spec_.nodes.push_back(NodeSpec{NodeKind::DropNa, nullptr, true, how_all,
-                                       {}, {}, 0, std::move(inputs)});
+        NodeSpec ns;
+        ns.kind    = NodeKind::DropNa;
+        ns.how_all = how_all;
+        ns.inputs  = std::move(inputs);
+        spec_.nodes.push_back(std::move(ns));
         return spec_.nodes.size() - 1;
     }
     std::size_t add_select(std::vector<std::size_t> inputs,
                            std::vector<std::size_t> columns) {
-        NodeSpec ns{NodeKind::Select, nullptr, true, false, std::move(columns), {}, 0, std::move(inputs)};
+        NodeSpec ns;
+        ns.kind    = NodeKind::Select;
+        ns.columns = std::move(columns);
+        ns.inputs  = std::move(inputs);
         spec_.nodes.push_back(std::move(ns));
         return spec_.nodes.size() - 1;
     }
     std::size_t add_resample(std::vector<std::size_t> inputs, ResampleParams rp) {
-        NodeSpec ns{NodeKind::Resample, nullptr, true, false, {}, rp, 0, std::move(inputs)};
+        NodeSpec ns;
+        ns.kind     = NodeKind::Resample;
+        ns.resample = rp;
+        ns.inputs   = std::move(inputs);
         spec_.nodes.push_back(std::move(ns));
         return spec_.nodes.size() - 1;
     }
     std::size_t add_delay(std::vector<std::size_t> inputs, std::int64_t duration) {
-        NodeSpec ns{NodeKind::Delay, nullptr, true, false, {}, {}, duration, std::move(inputs)};
+        NodeSpec ns;
+        ns.kind           = NodeKind::Delay;
+        ns.delay_duration = duration;
+        ns.inputs         = std::move(inputs);
         spec_.nodes.push_back(std::move(ns));
         return spec_.nodes.size() - 1;
     }
@@ -73,8 +97,10 @@ public:
         // rather than half-wire the node and misbehave at run time.
         if (inputs.size() != 2)
             throw std::runtime_error("add_filter: Filter needs exactly 2 inputs (data, mask)");
-        spec_.nodes.push_back(NodeSpec{NodeKind::Filter, nullptr, true, false,
-                                       {}, {}, 0, std::move(inputs)});
+        NodeSpec ns;
+        ns.kind   = NodeKind::Filter;
+        ns.inputs = std::move(inputs);
+        spec_.nodes.push_back(std::move(ns));
         return spec_.nodes.size() - 1;
     }
     void set_outputs(std::vector<std::size_t> outs) { spec_.output_ids = std::move(outs); }

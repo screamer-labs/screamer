@@ -25,6 +25,10 @@ struct Sink : public Resettable {
     virtual ~Sink() = default;
     virtual void push(const Frame<Index>& f) = 0;
     virtual void flush() {}
+    // Event-time watermark: no future frame delivered to this sink will have
+    // index < w. Monotone non-decreasing. Default is a no-op so terminal sinks
+    // consume it; pass-through nodes forward it, gating nodes override.
+    virtual void on_watermark(Index /*w*/) {}
     // Reset all internal state to initial conditions. Default is a no-op so
     // stateless nodes inherit it without modification.
     void reset() override {}

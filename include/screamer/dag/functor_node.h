@@ -27,6 +27,7 @@ public:
     }
 
     void flush() override { downstream_.flush(); }
+    void on_watermark(Index w) override { downstream_.on_watermark(w); }
 
     void reset() override { op_.reset(); }
 

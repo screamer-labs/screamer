@@ -60,7 +60,7 @@ private:
 class CompiledGraph {
 public:
     // Non-copyable: nodes/gather-sinks hold raw pointers into this object's own
-    // members (outputs_, owned_). Move IS safe — std::vector move keeps element
+    // members (outputs_, owned_). Move IS safe - std::vector move keeps element
     // addresses (heap) unchanged and shared_ptr move doesn't relocate the pointee;
     // compile() returns a prvalue so C++17 elides the move entirely.
     CompiledGraph(const CompiledGraph&) = delete;
@@ -109,7 +109,7 @@ public:
         }
         std::reverse(topo.begin(), topo.end()); // consumers first
 
-        // Cycle detection — Kahn's sort omits nodes involved in cycles.
+        // Cycle detection - Kahn's sort omits nodes involved in cycles.
         if (topo.size() != s.nodes.size())
             throw std::runtime_error("compile: graph has a cycle");
 
@@ -206,7 +206,7 @@ public:
             }
             case NodeKind::CombineLatest: {
                 auto cn = std::make_shared<CombineLatestNode<std::int64_t>>(
-                    ns.inputs.size(), ns.when_all, *downstream);
+                    ns.inputs.size(), ns.when_all, *downstream, ns.max_pending);
                 reset_nodes_.push_back(cn.get());
                 node_input_sink[id] = [ptr = cn.get()](std::size_t slot) -> Sink<std::int64_t>* {
                     return &ptr->port(slot);
@@ -236,7 +236,6 @@ public:
                     auto rn = std::make_shared<GenericResampleNode<std::int64_t>>(
                         ns.resample, *downstream);
                     reset_nodes_.push_back(rn.get());
-                    advance_generic_resamples_.push_back(rn.get());
                     node_input_sink[id] = [ptr = rn.get()](std::size_t) -> Sink<std::int64_t>* {
                         return ptr;
                     };
@@ -244,7 +243,6 @@ public:
                 } else {
                     auto rn = std::make_shared<ResampleNode<std::int64_t>>(ns.resample, *downstream);
                     reset_nodes_.push_back(rn.get());
-                    advance_resamples_.push_back(rn.get());
                     node_input_sink[id] = [ptr = rn.get()](std::size_t) -> Sink<std::int64_t>* {
                         return ptr;
                     };
@@ -256,7 +254,7 @@ public:
                 // inputs[0] = data (port 0), inputs[1] = mask (port 1).
                 // node_input_sink returns &fn->port(slot) so data wires to port 0
                 // and mask wires to port 1, matching the input order exactly.
-                auto fn = std::make_shared<FilterNode<std::int64_t>>(*downstream);
+                auto fn = std::make_shared<FilterNode<std::int64_t>>(*downstream, ns.max_pending);
                 reset_nodes_.push_back(fn.get());
                 node_input_sink[id] = [ptr = fn.get()](std::size_t slot) -> Sink<std::int64_t>* {
                     return &ptr->port(slot);
@@ -291,15 +289,13 @@ public:
         for (auto* s : input_sinks_) if (s) s->flush();
     }
 
-    // Time-driven finalization: close every resample window whose boundary has passed
-    // by logical time `now`. Does not end the stream (unlike flush()); safe to call
-    // repeatedly with non-decreasing `now`. Resample nodes are advanced in registration
-    // (not topological) order and their emitted frames are not re-driven downstream
-    // within this call, so a resample fed by another resample sees an inner node's
-    // just-closed frame only on the next event/advance (delayed, never a wrong value).
+    // Time-driven finalization: inject a watermark at every input sink so the
+    // signal flows through the full graph topology. Resample nodes close their
+    // open windows on the watermark (via on_watermark -> advance), and
+    // combinators (CombineLatest, Filter) unblock buffered rows whose index is
+    // now safe to release. Safe to call repeatedly with non-decreasing `now`.
     void advance(std::int64_t now) {
-        for (auto* r : advance_resamples_)         r->advance(now);
-        for (auto* r : advance_generic_resamples_) r->advance(now);
+        for (auto* s : input_sinks_) if (s) s->on_watermark(now);
     }
 
     // Routes a single width-1 event into the graph without resetting state.
@@ -384,11 +380,6 @@ private:
     // FilterNode, ResampleNode, GenericResampleNode) is pushed here once.
     // reset() does one polymorphic pass instead of multiple typed loops.
     std::vector<Resettable*>                      reset_nodes_;
-    // Typed lists for advance() only (resample nodes that support time-driven
-    // bucket finalization). These do NOT overlap with reset_nodes_ in purpose:
-    // reset() uses reset_nodes_, advance() uses these two.
-    std::vector<ResampleNode<std::int64_t>*>         advance_resamples_;
-    std::vector<GenericResampleNode<std::int64_t>*>  advance_generic_resamples_;
     std::vector<OutputBuffer>                     outputs_;         // persistent output buffers
     std::vector<std::size_t>                      output_widths_;   // expected width for each output
 };

@@ -130,8 +130,12 @@ def test_combine_latest_lazy_is_lazy():
 
 def test_combine_latest_lazy_indexed_is_incremental():
     """The indexed (as-of) path must pull on demand, not drain the whole stream
-    before the first result. The C++ node needs the next index to finalize a row,
-    so the first next() consumes 2 of 4 items per source - not all 4."""
+    before the first result. The merge node gates each frame on the minimum per-port
+    watermark, so finalizing row@0 needs BOTH ports to reach index 1: it releases
+    a@1 only once b@1 proves index 0 is settled. Delivering b@1 in global order costs
+    the merge one 1-ahead peek on the leading source (a@2). So the first next()
+    consumes 3 of 4 items from the leading source and 2 of 4 from the other, never
+    all 4. The first row's value is still the correct as-of pair ((1.0, 10.0), 0)."""
     from screamer.streams import CombineLatest as _CL
     pulled = {"a": [], "b": []}
 
@@ -142,5 +146,6 @@ def test_combine_latest_lazy_indexed_is_incremental():
 
     it = _CL()(spy("a", [1.0, 2.0, 3.0, 4.0]), spy("b", [10.0, 20.0, 30.0, 40.0]))
     assert pulled == {"a": [], "b": []}  # construction consumes nothing
-    next(it)
-    assert pulled["a"] == [1.0, 2.0] and pulled["b"] == [10.0, 20.0]   # not the whole stream
+    row = next(it)
+    assert row == ((1.0, 10.0), 0)                                     # correct as-of value
+    assert pulled["a"] == [1.0, 2.0, 3.0] and pulled["b"] == [10.0, 20.0]  # not the whole stream
