@@ -275,3 +275,35 @@ def test_dropna_before_delayed_merge_releases_incrementally():
     np.testing.assert_allclose(np.asarray(batch_v)[ob], live_v[ol],
                                rtol=0, atol=0,
                                err_msg="batch and live value mismatch")
+
+
+def test_advance_releases_idle_delayed_buffer():
+    """advance(now) must release buffered delayed-b rows when a goes idle.
+
+    When input a stops producing events, the delayed-b rows accumulate in
+    CombineLatest's reorder buffer. Calling advance(now) injects a watermark at
+    input a's sink, which propagates through the graph and unblocks the merge.
+    Without the Task-3 fix, advance() only reaches resample nodes directly and
+    the merge never sees the watermark, so result() stays empty.
+    """
+    a, b = Input("a"), Input("b")
+    # b is delayed and merged against a. a stops early; advance(now) must let the
+    # buffered delayed-b rows settle against a's last value.
+    pipe = Pipeline([a, b], [CombineLatest()(a, Delay(5)(b))])
+    s = pipe.live()
+    s.push("a", 0, 10.0)
+    s.push("b", 0, 1.0)     # delayed to index 5
+    s.push("b", 3, 2.0)     # delayed to index 8
+    # Before advance: delayed-b rows are buffered; a is idle so merge cannot
+    # safely release them (it does not know a has stopped).
+    v_before, i_before = s.result()
+    assert (i_before is None or len(np.asarray(i_before)) == 0), (
+        "Expected no rows before advance; merge should not have released anything yet"
+    )
+    s.advance(100)          # a is idle; advancing time releases the buffered rows
+    v, i = s.result()
+    # both delayed b rows are now settled against a-as-of (a=10.0 at every index >=0)
+    assert i is not None and len(np.asarray(i)) >= 2, (
+        f"Expected >= 2 rows after advance(100), got {len(np.asarray(i)) if i is not None else 0}. "
+        "advance(now) is not propagating as a watermark through the graph."
+    )

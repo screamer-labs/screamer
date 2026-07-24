@@ -85,14 +85,24 @@ private:
     }
 
     // Apply every pending frame the merge can now prove is safe (index <= the
-    // minimum per-port watermark), in global index order, then forward the
-    // settled watermark downstream.
+    // minimum per-port watermark), in global index order, then flush any
+    // coalescing buffer whose index is strictly below the settled watermark
+    // (the next event must arrive at a higher index, so the buffer is done),
+    // then forward the settled watermark downstream.
     void release() {
         Index low = wm_[0];
         for (std::size_t j = 1; j < n_; ++j) low = std::min(low, wm_[j]);
         while (!pending_.empty() && pending_.top().index <= low) {
             Pending p = pending_.top(); pending_.pop();
             apply_ordered(p.port, p.index, p.value);
+        }
+        // The coalescing buffer holds the settled row for the latest index that
+        // has been applied. If the watermark is now strictly above that index,
+        // no future event can share the same index, so it is safe to emit.
+        if (has_buffered_ && buffered_index_ < low) {
+            downstream_.push(Frame<Index>{buffered_index_,
+                                          buffered_row_.data(), n_});
+            has_buffered_ = false;
         }
         if (low != std::numeric_limits<Index>::min()) downstream_.on_watermark(low);
     }

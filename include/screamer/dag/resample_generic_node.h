@@ -76,6 +76,13 @@ public:
     std::size_t n_in()  const override { return 1; }
     std::size_t n_out() const override { return out_.size(); }
 
+    // Event-time watermark: close windows up to `w` then forward the watermark
+    // downstream so any merge or combinator downstream does not stall.
+    void on_watermark(Index w) override {
+        advance(w);
+        downstream_.on_watermark(w);
+    }
+
     // Close every window whose end boundary has passed by logical time `now`, even
     // when empty. Emits the current bucket (real row if it has data) and then any
     // trailing empty buckets up to but NOT including the bucket that contains `now`

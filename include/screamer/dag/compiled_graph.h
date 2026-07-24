@@ -236,7 +236,6 @@ public:
                     auto rn = std::make_shared<GenericResampleNode<std::int64_t>>(
                         ns.resample, *downstream);
                     reset_nodes_.push_back(rn.get());
-                    advance_generic_resamples_.push_back(rn.get());
                     node_input_sink[id] = [ptr = rn.get()](std::size_t) -> Sink<std::int64_t>* {
                         return ptr;
                     };
@@ -244,7 +243,6 @@ public:
                 } else {
                     auto rn = std::make_shared<ResampleNode<std::int64_t>>(ns.resample, *downstream);
                     reset_nodes_.push_back(rn.get());
-                    advance_resamples_.push_back(rn.get());
                     node_input_sink[id] = [ptr = rn.get()](std::size_t) -> Sink<std::int64_t>* {
                         return ptr;
                     };
@@ -291,15 +289,13 @@ public:
         for (auto* s : input_sinks_) if (s) s->flush();
     }
 
-    // Time-driven finalization: close every resample window whose boundary has passed
-    // by logical time `now`. Does not end the stream (unlike flush()); safe to call
-    // repeatedly with non-decreasing `now`. Resample nodes are advanced in registration
-    // (not topological) order and their emitted frames are not re-driven downstream
-    // within this call, so a resample fed by another resample sees an inner node's
-    // just-closed frame only on the next event/advance (delayed, never a wrong value).
+    // Time-driven finalization: inject a watermark at every input sink so the
+    // signal flows through the full graph topology. Resample nodes close their
+    // open windows on the watermark (via on_watermark -> advance), and
+    // combinators (CombineLatest, Filter) unblock buffered rows whose index is
+    // now safe to release. Safe to call repeatedly with non-decreasing `now`.
     void advance(std::int64_t now) {
-        for (auto* r : advance_resamples_)         r->advance(now);
-        for (auto* r : advance_generic_resamples_) r->advance(now);
+        for (auto* s : input_sinks_) if (s) s->on_watermark(now);
     }
 
     // Routes a single width-1 event into the graph without resetting state.
@@ -384,11 +380,6 @@ private:
     // FilterNode, ResampleNode, GenericResampleNode) is pushed here once.
     // reset() does one polymorphic pass instead of multiple typed loops.
     std::vector<Resettable*>                      reset_nodes_;
-    // Typed lists for advance() only (resample nodes that support time-driven
-    // bucket finalization). These do NOT overlap with reset_nodes_ in purpose:
-    // reset() uses reset_nodes_, advance() uses these two.
-    std::vector<ResampleNode<std::int64_t>*>         advance_resamples_;
-    std::vector<GenericResampleNode<std::int64_t>*>  advance_generic_resamples_;
     std::vector<OutputBuffer>                     outputs_;         // persistent output buffers
     std::vector<std::size_t>                      output_widths_;   // expected width for each output
 };
