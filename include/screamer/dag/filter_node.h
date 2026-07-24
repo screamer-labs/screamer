@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <cassert>
 #include <cstddef>
+#include <limits>
 #include <vector>
 #include "screamer/common/float_info.h"
 #include "screamer/dag/frame.h"
@@ -28,7 +29,8 @@ template <class Index>
 class FilterNode : public Resettable {
 public:
     explicit FilterNode(Sink<Index>& downstream)
-        : cl_(2, true), downstream_(downstream), flushed_(2, false) {
+        : cl_(2, true), downstream_(downstream),
+          wm_(2, std::numeric_limits<Index>::min()), flushed_(2, false) {
         ports_.reserve(2);
         for (std::size_t i = 0; i < 2; ++i) ports_.emplace_back(*this, i);
     }
@@ -46,6 +48,7 @@ public:
         has_buffered_ = false;
         std::fill(flushed_.begin(), flushed_.end(), false);
         flushed_count_ = 0;
+        std::fill(wm_.begin(), wm_.end(), std::numeric_limits<Index>::min());
     }
 
 private:
@@ -67,10 +70,13 @@ private:
 
     // Emit the buffered row if it passes the mask gate, then clear the buffer.
     // The DATA value is forwarded unchanged; only the MASK gates.
+    // When the gate drops the row, emit on_watermark so downstream time advances.
     void emit_buffered() {
-        if (has_buffered_ && buffered_mask_ != 0.0 &&
-                !screamer::isnan2(buffered_mask_)) {
-            downstream_.push(Frame<Index>{buffered_index_, &buffered_data_, 1});
+        if (has_buffered_) {
+            if (buffered_mask_ != 0.0 && !screamer::isnan2(buffered_mask_))
+                downstream_.push(Frame<Index>{buffered_index_, &buffered_data_, 1});
+            else
+                downstream_.on_watermark(buffered_index_);   // dropped: advance time only
         }
         has_buffered_ = false;
     }
@@ -92,6 +98,12 @@ private:
         flushed_count_ = 0;
     }
 
+    void on_port_watermark(std::size_t i, Index w) {
+        if (wm_[i] < w) wm_[i] = w;
+        Index low = std::min(wm_[0], wm_[1]);
+        if (low != std::numeric_limits<Index>::min()) downstream_.on_watermark(low);
+    }
+
     // A single input port: routes an event to its owning node with its index.
     struct Port : Sink<Index> {
         FilterNode& node;
@@ -99,6 +111,7 @@ private:
         Port(FilterNode& n, std::size_t i) : node(n), idx(i) {}
         void push(const Frame<Index>& f) override { node.on_port(idx, f); }
         void flush() override { node.flush_downstream(idx); }
+        void on_watermark(Index w) override { node.on_port_watermark(idx, w); }
         // Each port accepts one value per event; output is owned by the parent node.
         std::size_t n_in()  const override { return 1; }
         std::size_t n_out() const override { return 0; }
@@ -114,6 +127,9 @@ private:
     Index buffered_index_{};
     double buffered_data_ = 0.0;  // stored as member so &buffered_data_ is stable
     double buffered_mask_ = 0.0;
+
+    // Per-port watermark for forwarding past dropped rows (INT64_MIN = unseen).
+    std::vector<Index> wm_;
 
     // End-of-input coalescing: which ports have flushed in the current cycle.
     std::vector<bool> flushed_;

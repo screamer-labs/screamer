@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 from screamer.dag import Input, Pipeline
-from screamer.streams import CombineLatest, Delay
+from screamer.streams import CombineLatest, Delay, Dropna
 
 
 def _fused_delay_merge_batch_vs_live(duration, idx, vals):
@@ -202,3 +202,76 @@ def test_watermark_propagates_through_a_functor():
     ob, ol = np.argsort(bi, kind="stable"), np.argsort(li, kind="stable")
     np.testing.assert_array_equal(np.asarray(li)[ol], np.asarray(bi)[ob])
     np.testing.assert_allclose(np.asarray(lv)[ol], np.asarray(bv)[ob])
+
+
+def test_dropna_before_delayed_merge_releases_incrementally():
+    """DropNa before Delay+merge must forward watermarks for dropped frames.
+
+    Without forward-on-drop, a run of NaNs in b stalls b's port watermark at the
+    last kept (delayed) index. The merge then holds every row from a that arrived
+    during the NaN run, releasing nothing until flush(). With the fix, dropped
+    frames emit on_watermark(f.index), so the merge's b-port watermark advances
+    and a's rows are released incrementally before flush().
+
+    PRIMARY assertion: result() BEFORE flush() returns >= 5 rows.
+    SECONDARY assertion: batch == live after flush().
+    """
+    a, b = Input("a"), Input("b")
+    # b is Dropna'd then delayed by 5 before merging with a.
+    pipe = Pipeline([a, b], [CombineLatest()(a, Delay(5)(Dropna()(b)))])
+    s = pipe.live()
+
+    # b: one real value at index 0 (delayed to 5), then a long run of NaN.
+    s.push("b", 0, 1.0)
+    for t in range(1, 20):
+        s.push("b", t, float("nan"))   # all dropped; must still advance watermark
+
+    # a: values at even indices 0..38; many land AFTER delayed-b watermark of 5.
+    # Without forward-on-drop, b's port watermark is stuck at 5 (last kept delayed
+    # index), so nothing beyond index 5 in a can be released incrementally.
+    for t in range(0, 40, 2):
+        s.push("a", t, float(t))
+
+    # Collect BEFORE flush - this is the observable: rows that were released
+    # incrementally (i.e., without needing flush to drain the reorder buffer).
+    mid = s.result()
+    mid_v = mid[0] if isinstance(mid, tuple) else mid
+    mid_arr = np.asarray(mid_v) if mid_v is not None else np.array([])
+
+    # Must have released at least 5 rows before flush; without the fix this is 0
+    # or 1 (only the row at the delayed-b index 5 is safe).
+    assert len(mid_arr) >= 5, (
+        f"Expected >= 5 incrementally released rows before flush, got {len(mid_arr)}. "
+        "DropNa is not forwarding watermarks past dropped frames."
+    )
+
+    # Secondary: batch == live (full agreement). result() drains incrementally, so
+    # we must combine pre-flush (mid) and post-flush results to get the full live
+    # output, then compare against batch.
+    s.flush()
+    rest_v, rest_i = s.result()
+
+    # mid is (values_2d, index_1d); rest is the same shape.
+    mid_v_arr = np.asarray(mid[0]) if len(mid[0]) > 0 else np.empty((0, 2))
+    mid_i_arr = np.asarray(mid[1])
+    rest_v_arr = np.asarray(rest_v) if len(rest_v) > 0 else np.empty((0, 2))
+    rest_i_arr = np.asarray(rest_i)
+    live_v = np.concatenate([mid_v_arr, rest_v_arr], axis=0)
+    live_i = np.concatenate([mid_i_arr, rest_i_arr])
+
+    a2, b2 = Input("a"), Input("b")
+    pipe2 = Pipeline([a2, b2], [CombineLatest()(a2, Delay(5)(Dropna()(b2)))])
+    av = np.array([float(t) for t in range(0, 40, 2)], dtype=float)
+    ai = np.arange(0, 40, 2, dtype=np.int64)
+    bv = np.concatenate([[1.0], [float("nan")] * 19])
+    bi = np.arange(0, 20, dtype=np.int64)
+    batch_v, batch_i = pipe2((av, ai), (bv, bi))
+
+    batch_i = np.asarray(batch_i)
+    ob = np.argsort(batch_i, kind="stable")
+    ol = np.argsort(live_i, kind="stable")
+    np.testing.assert_array_equal(batch_i[ob], live_i[ol],
+                                  err_msg="batch and live index mismatch")
+    np.testing.assert_allclose(np.asarray(batch_v)[ob], live_v[ol],
+                               rtol=0, atol=0,
+                               err_msg="batch and live value mismatch")

@@ -26,7 +26,10 @@ public:
         }
         bool drop = how_all_ ? all_nan : any_nan;
         if (!drop) downstream_.push(f);
+        else       downstream_.on_watermark(f.index);   // dropped: advance time only
     }
+
+    void on_watermark(Index w) override { downstream_.on_watermark(w); }
 
     void flush() override { downstream_.flush(); }
 
