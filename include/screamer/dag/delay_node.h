@@ -21,6 +21,7 @@ public:
     }
 
     void flush() override { downstream_.flush(); }
+    void on_watermark(Index w) override { downstream_.on_watermark(w + duration_); }
     void reset() override {}                      // stateless
 
     std::size_t n_in()  const override { return 1; }
