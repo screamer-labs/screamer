@@ -100,7 +100,7 @@ private:
     // Called once per input port at end-of-input. Each producer pushes its final
     // (same-index) event just BEFORE flushing its own port, so flushing eagerly on
     // the first port would emit the final row with the other ports' values still
-    // stale (and again on the next port) — duplicating the shared final index. To
+    // stale (and again on the next port) - duplicating the shared final index. To
     // coalesce (mirroring the mid-stream "emit on index advance" logic), we wait
     // until EVERY port has flushed before emitting the settled final row once and
     // propagating the flush downstream. A per-port bitmask dedups repeat flushes of
