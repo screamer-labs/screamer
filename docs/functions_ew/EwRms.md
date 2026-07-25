@@ -36,8 +36,15 @@ nan_policy: ignore
 
 ## Description
 
-`EwRms` calculates the exponentially weighted moving root mean square (RMS), highlighting fluctuations in signal magnitude over time with an emphasis on recent values.
+`EwRms` computes the exponentially weighted root-mean-square of the input, using an exponential forgetting factor specified by the com/span/halflife/alpha family.
 
+*Equation*:
+
+$$
+\text{EwRms}[t] = \sqrt{\frac{S_{xx}}{S_w}}
+$$
+
+where $S_{xx} = S_{xx} \times (1 - \alpha) + x_t^2$ and $S_w = S_w \times (1 - \alpha) + 1$ are the exponentially weighted sum of squared values and cumulative weight respectively. This is the square root of the EW mean of squared values, with no additional bias correction.
 
 ### Parameters
 

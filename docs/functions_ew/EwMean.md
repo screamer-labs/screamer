@@ -37,7 +37,7 @@ nan_policy: ignore
 
 ## Description
 
-`EwMean` computes the exponentially weighted moving mean of a data sequence, applying more weight to recent data points and allowing for a smoother, lagged response. You specify the decay rate through `alpha`, calculated from `com`, `span`, `halflife`, or `alpha` itself, aligning with the Pandas `ewm` interface.
+`EwMean` computes the exponentially weighted mean of the input, using an exponential forgetting factor specified by the com/span/halflife/alpha family. The decay parameter is converted to `alpha` and the result matches the pandas `ewm(adjust=True).mean()` convention.
 
 ### Parameters
 

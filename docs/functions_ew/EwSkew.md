@@ -35,7 +35,7 @@ nan_policy: ignore
 
 ## Description
 
-`EwSkew` calculates the exponentially weighted moving skewness, capturing the asymmetry of the distribution within a moving window weighted toward recent data points.
+`EwSkew` computes the exponentially weighted skewness of the input, using an exponential forgetting factor specified by the com/span/halflife/alpha family. The result is bias-corrected using an effective sample size $N_{eff}$ derived from the sum of weights.
 
 
 ### Parameters

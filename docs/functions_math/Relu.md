@@ -19,7 +19,7 @@ nan_policy: ignore
 
 ## Description
 
-The `Relu` class implements the Rectified Linear Unit activation function, a common function in neural networks and data processing that outputs the input directly if it is positive and outputs zero otherwise. This function is especially useful for introducing non-linearity while maintaining positive gradients.
+`Relu` (Rectified Linear Unit) computes the elementwise map f(x) = max(0, x), returning the input unchanged for positive values and zero for negative values. It is a piecewise-linear activation function.
 
 *Equation*:
 

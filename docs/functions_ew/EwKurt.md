@@ -35,7 +35,7 @@ nan_policy: ignore
 
 ## Description
 
-`EwKurt` computes the exponentially weighted moving kurtosis, indicating the "tailedness" of the data distribution while emphasizing recent values.
+`EwKurt` computes the exponentially weighted excess kurtosis of the input, using an exponential forgetting factor specified by the com/span/halflife/alpha family. The result is bias-corrected to match the pandas `ewm(adjust=True).kurt()` convention.
 
 
 ### Parameters

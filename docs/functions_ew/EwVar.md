@@ -36,7 +36,7 @@ nan_policy: ignore
 
 ## Description
 
-`EwVar` computes the exponentially weighted moving variance, tracking the variability of recent data while giving more weight to the latest values. Specify decay through `alpha`, derived from `com`, `span`, `halflife`, or `alpha` itself.
+`EwVar` computes the exponentially weighted variance of the input, using an exponential forgetting factor specified by the com/span/halflife/alpha family. The result is bias-corrected using an effective sample size $N_{eff}$ and matches the pandas `ewm(adjust=True).var()` convention.
 
 ### Parameters
 

@@ -19,7 +19,7 @@ nan_policy: ignore
 
 ## Description
 
-The `Elu` (Exponential Linear Unit) class introduces an exponential component for negative inputs, providing smooth and continuous output. It helps mitigate the vanishing gradient problem by ensuring a non-zero gradient for negative inputs.
+`Elu` (Exponential Linear Unit) computes the elementwise map f(x) = x for x >= 0, and alpha * (exp(x) - 1) for x < 0. It is an activation function that keeps negative outputs bounded below zero while passing positive inputs unchanged.
 
 *Equation*:
 

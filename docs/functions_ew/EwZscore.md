@@ -37,8 +37,15 @@ nan_policy: ignore
 
 ## Description
 
-`EwZscore` computes the exponentially weighted moving z-score, which standardizes data based on an exponentially weighted mean and standard deviation, identifying outliers and deviations in real-time.
+`EwZscore` computes the exponentially weighted z-score of the input, standardizing each sample by the running EW mean and EW standard deviation computed with the same forgetting factor.
 
+*Equation*:
+
+$$
+\text{EwZscore}[t] = \frac{x_t - \text{EwMean}[t]}{\text{EwStd}[t]}
+$$
+
+where $\text{EwMean}[t] = S_x / S_w$ and $\text{EwStd}[t] = \sqrt{\text{EwVar}[t]}$ uses the bias-corrected EW variance (see `EwStd`). The decay parameter is specified by the com/span/halflife/alpha family.
 
 ### Parameters
 

@@ -37,7 +37,7 @@ nan_policy: ignore
 
 ## Description
 
-`EwStd` calculates the exponentially weighted moving standard deviation, providing insight into the spread of recent values, with an emphasis on more recent observations.
+`EwStd` computes the exponentially weighted standard deviation of the input, using an exponential forgetting factor specified by the com/span/halflife/alpha family. The result is bias-corrected using an effective sample size $N_{eff}$ and matches the pandas `ewm(adjust=True).std()` convention.
 
 
 ### Parameters

@@ -37,7 +37,7 @@ nan_policy: ignore
 
 ## Description
 
-The Schmitt trigger (Otto Schmitt, 1934) is a hysteresis comparator: a circuit whose output changes only when the input crosses the *opposite* threshold from the one that last triggered it. This double-threshold behavior gives the trigger its noise immunity - a noisy input that briefly dips back across a single threshold cannot rapidly toggle the output.
+`SchmittTrigger` is a hysteresis comparator with two thresholds. The output switches to 1.0 when the input rises above the upper threshold and to 0.0 when it falls below the lower threshold; between the two thresholds the output holds its previous value. Because both thresholds must be crossed in opposite directions to produce a state change, a signal that wanders within the dead band does not affect the output.
 
 $$
 \text{output}[t] = \begin{cases}
