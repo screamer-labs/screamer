@@ -114,13 +114,14 @@ full breakdown.
    :alt: screamer speedup versus the fastest alternative
 
 
-Causal and deployable
----------------------
+Causality
+---------
 
 Every function is causal: its output depends only on current and past inputs,
-which eliminates look-ahead bias. Code that runs on stored data can be
-deployed to production against a live feed without changes, because the same
-C++ implementation handles both.
+so there is no look-ahead bias. Moving from a stored dataset to a live feed
+requires no change to the operator logic, since the same C++ engine handles
+both; only the surrounding code changes, reading from a live source instead of
+an array.
 
 
 

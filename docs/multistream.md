@@ -52,9 +52,10 @@ works; `idx is None` is a checkable flag meaning "no real ordering here." A bare
 array is treated as a positional stream with `index=None`.
 
 `Merge` and `split` follow the same input convention but their *outputs*
-differ because they carry a per-event `sources` tag: `Merge` returns
-`(values, sources, index)`.
-`split` returns per-source `(values, index)` pairs.
+differ because they carry a per-event `sources` tag. `Merge` returns
+`(values, sources, index)`, where `sources` is a `uint32` array whose `i`-th
+entry is the index of the input stream that event `i` came from. `split` inverts
+this, returning per-source `(values, index)` pairs.
 
 ## 3. Compute functors preserve cardinality; stream operators may change it
 
@@ -95,9 +96,9 @@ Other stream operators:
 - `split(values, sources, index=None)` -> the inverse of `Merge`.
 - `Dropna(how="any")(values, index=None)` -> drop NaN events.
 - `Filter()(data, mask)` -> keep each data value whose aligned mask is nonzero.
-`Merge` and `CombineLatest` are unified: pass lazy iterators of events and the
-operator returns a lazy iterator; pass arrays or `(values, index)` tuples and the operator
-returns the batch result. No separate `*_iter` function is needed.
+Every stream operator is polymorphic over its input: pass lazy iterators of
+events and it returns a lazy iterator; pass arrays or `(values, index)` tuples
+and it returns the batch result. No separate `*_iter` function is needed.
 (`split` has no streaming form.)
 
 ## Migration from the retired `*_iter` names
@@ -127,5 +128,4 @@ handle both batch and lazy inputs:
   contract; lockstep is the positional (no-index) special case of this page.
 - [Pipelines](pipelines.md) - wiring stream operators and functions into
   a graph you define once and run batch or live.
-- [NaN and warmup](nan_and_warmup.md) - how compute functors treat `NaN`; `ffill`
-  is the same forward-fill carry that `CombineLatest` uses.
+- [NaN and warmup](nan_and_warmup.md) - how compute functors treat `NaN`.

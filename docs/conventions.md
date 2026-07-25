@@ -47,7 +47,7 @@ $$
 
 with the seed `EMA[w-1] = SMA(x[0..w-1])` - a window-sized SMA "warmup" plus undefined output for the first `w-1` samples. The two converge as `t → ∞` but disagree for early samples; for `span=10` the gap is on the order of a few percent for the first 30-50 samples.
 
-`DEMA`, `TEMA`, and `MACD` are pure compositions of `EwMean`, so they inherit this divergence. Each of them matches the equivalent `pandas.Series.ewm(...).mean()` composition bit-exactly; each differs from TA-Lib by a few percent during early samples, converging as `t → ∞`. The decision is deliberate - TA-Lib's SMA-seeded recursive form is a useful engineering shortcut but is not a statistically clean choice (it splices uniform weights onto exponential weights at an arbitrary cutoff). Our default favours the principled formula. If you need TA-Lib-bit-exact output for a backtest, file an issue.
+`DEMA`, `TEMA`, and `MACD` are pure compositions of `EwMean`, so they inherit this divergence. Each of them matches the equivalent `pandas.Series.ewm(...).mean()` composition bit-exactly; each differs from TA-Lib by a few percent during early samples, converging as `t → ∞`. The decision is deliberate: TA-Lib's SMA-seeded recursive form splices uniform weights onto exponential weights at an arbitrary cutoff, so it agrees with the pure exponential form only as `t → ∞`. Our default uses the pure bias-corrected exponential weighting throughout. If you need TA-Lib-bit-exact output for a backtest, file an issue.
 
 ### `RollingStd` - ddof=1 (sample) vs ddof=0 (population)
 
@@ -75,7 +75,7 @@ $$
 \qquad\text{(Cutler, opt-in)}
 $$
 
-The two methods disagree by up to ~10 RSI points during early periods and converge only slowly. In the wider literature both definitions are common; Wilder's is what almost every charting platform shows, Cutler's is what you get from a naive `pandas.Series.diff().rolling(w).mean()` decomposition and is used in some quantitative-research papers because the algebra is cleaner. There is also a one-sample offset: Wilder's first valid output is at sample index `n` (zero-indexed); Cutler's is at `n - 1`.
+The two methods disagree by up to ~10 RSI points during early periods and converge only slowly. In the wider literature both definitions are common; Wilder's is what almost every charting platform shows, Cutler's is what you get from a naive `pandas.Series.diff().rolling(w).mean()` decomposition and is used in some quantitative-research papers because it is a direct rolling-mean decomposition. There is also a one-sample offset: Wilder's first valid output is at sample index `n` (zero-indexed); Cutler's is at `n - 1`.
 
 ## How to verify these claims yourself
 

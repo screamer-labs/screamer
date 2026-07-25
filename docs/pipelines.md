@@ -18,7 +18,7 @@ Ordinary composition is enough:
 signal = Sign()(RollingPoly2(50, derivative_order=1)(data))
 ```
 
-A `Pipeline` earns its place when the pipeline is more than a single chain:
+A `Pipeline` is worth using when the computation is more than a single chain:
 
 - **several inputs that don't tick together**: two price feeds on different
   clocks that must be aligned before they are combined,
