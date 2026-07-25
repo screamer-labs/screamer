@@ -47,7 +47,7 @@ nan_policy: ignore
 The discretized form of the OU model is:
 
 $$
-x[i] = \mu - (x[i-1] - \mu) \cdot \text{mrr} + \sigma \cdot \epsilon
+x[i] = (1 - \text{mrr}) \cdot x[i-1] + \text{mrr} \cdot \mu + \sigma \cdot \epsilon
 $$
 
 where $ x[i] $ is the current value, $ x[i-1] $ is the previous value, $ \mu $ is the mean, $ \text{mrr} $ is the mean reversion rate, $ \sigma $ is the standard deviation of the noise, and $ \epsilon \sim \mathcal{N}(0,1) $ is a standard normal random variable. The parameter `mrr` controls the rate and nature of mean reversion:

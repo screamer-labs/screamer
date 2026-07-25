@@ -32,8 +32,8 @@ nan_policy: ignore
 $$
 \begin{aligned}
 \text{TR}[t]  &= \max(H - L,\ |H - C_{t-1}|,\ |L - C_{t-1}|) \\
-+\text{DM}[t] &= H - C_{t-1}\quad\text{if}\quad H - C_{t-1} > C_{t-1} - L > 0,\ \text{else}\ 0 \\
--\text{DM}[t] &= C_{t-1} - L\quad\text{if}\quad C_{t-1} - L > H - C_{t-1} > 0,\ \text{else}\ 0 \\
++\text{DM}[t] &= \max(H - H_{t-1},\ 0)\quad\text{if}\quad H - H_{t-1} > L_{t-1} - L,\ \text{else}\ 0 \\
+-\text{DM}[t] &= \max(L_{t-1} - L,\ 0)\quad\text{if}\quad L_{t-1} - L > H - H_{t-1},\ \text{else}\ 0 \\
 \text{ATR}   &= \text{Wilder}(\text{TR},\ w) \\
 +\text{DI}   &= 100 \cdot \text{Wilder}(+\text{DM},\ w) / \text{ATR} \\
 -\text{DI}   &= 100 \cdot \text{Wilder}(-\text{DM},\ w) / \text{ATR} \\
