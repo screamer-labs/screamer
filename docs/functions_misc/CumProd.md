@@ -18,7 +18,7 @@ nan_policy: ignore
 
 ## Description
 
-The `CumProd` function returns the running product of all samples seen since the start of the stream (or since the last `reset`). It is the streaming equivalent of `numpy.cumprod`. Memory is `O(1)` regardless of how many samples have been processed.
+The `CumProd` function returns the running product of all samples seen since the start of the stream (or since the last `reset`). Memory is `O(1)` regardless of how many samples have been processed.
 
 *Equation*:
 
@@ -28,7 +28,7 @@ $$
 
 *Parameters*: none.
 
-*NaN handling*: NaN propagates by ordinary IEEE-754 multiplication. A single zero input pins the running product to zero from that point onward.
+*NaN handling*: A NaN input is skipped; the accumulator is left unchanged, the output at that index is NaN, and the next finite sample resumes from the prior product. This matches `pandas.Series.cumprod(skipna=True)`, not `numpy.cumprod`. A single zero input pins the running product to zero from that point onward.
 
 
 <!-- NAN_FOOTNOTE_START -->
@@ -76,4 +76,4 @@ $$
 
 ## Implementation Details
 
-`CumProd` keeps a single `double` accumulator initialised to `1.0`. Every input multiplies it in-place, and the running product is returned. There is no warmup. The numpy reference is `numpy.cumprod`.
+`CumProd` keeps a single `double` accumulator initialised to `1.0`. Every finite input multiplies it in-place, and the running product is returned. There is no warmup.

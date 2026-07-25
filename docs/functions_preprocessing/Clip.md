@@ -94,4 +94,4 @@ This element-wise operation ensures that each data point falls within the specif
 
 ### Performance
 
-The `Clip` has comparable speed to  numpy's clip, and is approximately 10x faster than Pandas clip..
+The `Clip` operation is `O(1)` per sample with no internal state, making it suitable for real-time or streaming data applications.

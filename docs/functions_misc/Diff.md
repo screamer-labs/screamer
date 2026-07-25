@@ -32,19 +32,21 @@ nan_policy: propagate
 
 ## Description
 
-The `Diff` function calculates the difference between each element in a sequence and the element `delay` positions before it. This allows for quick derivation of trends or changes over a given interval.
+The `Diff` function calculates the difference between each element in a sequence and the element `window_size` positions before it.
 
 *Equation*:
 
 $$
-y[i] = x[i] - x[i - \text{delay}]
+y[i] = x[i] - x[i - k]
 $$
+
+where `k` is `window_size`.
 
 *Parameters*:
 
-- `delay` (int): The number of steps backward to use for the difference calculation. Must be non-negative.
+- `window_size` (int): The number of steps backward to use for the difference calculation. Must be positive.
 
-*NaN handling*: When `delay` exceeds the available data points at the start of the sequence, the resulting elements are set to `NaN`.
+*NaN handling*: When `window_size` exceeds the available data points at the start of the sequence, the resulting elements are set to `NaN`.
 
 
 <!-- NAN_FOOTNOTE_START -->
@@ -90,4 +92,4 @@ $$
 
 ## Implementation Details
 
-`Diff` uses a simple array subtraction operation with efficient memory handling to produce the difference between elements separated by the `delay`. For edge cases where data points are not available due to the `delay`, the function outputs `NaN` to maintain alignment.
+`Diff` uses a simple array subtraction operation with efficient memory handling to produce the difference between elements separated by `window_size` steps. For edge cases where data points are not available due to the `window_size`, the function outputs `NaN` to maintain alignment.

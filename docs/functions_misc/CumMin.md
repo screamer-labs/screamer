@@ -18,7 +18,7 @@ nan_policy: ignore
 
 ## Description
 
-The `CumMin` function returns the running minimum of all samples seen since the start of the stream (or since the last `reset`). The output is monotonically non-increasing while inputs are finite. It is the streaming equivalent of `numpy.minimum.accumulate`. Memory is `O(1)` regardless of how many samples have been processed.
+The `CumMin` function returns the running minimum of all samples seen since the start of the stream (or since the last `reset`). The output is monotonically non-increasing while inputs are finite. Memory is `O(1)` regardless of how many samples have been processed.
 
 This is an *expanding* (cumulative-from-zero) reduction, not a sliding window. For a fixed-window trough see `RollingMin`.
 
@@ -30,7 +30,7 @@ $$
 
 *Parameters*: none.
 
-*NaN handling*: Once an input is NaN, every subsequent output is NaN. This matches `numpy.minimum.accumulate`.
+*NaN handling*: A NaN input is skipped; the running minimum is left unchanged, the output at that index is NaN, and the next finite sample resumes from the prior minimum. This matches `pandas.Series.cummin(skipna=True)`, not `numpy.minimum.accumulate`.
 
 
 <!-- NAN_FOOTNOTE_START -->
@@ -86,4 +86,4 @@ $$
 
 ## Implementation Details
 
-`CumMin` keeps a single `double` initialised to `+infinity`. Each input is compared and the smaller value retained. There is no warmup. The numpy reference is `numpy.minimum.accumulate`.
+`CumMin` keeps a single `double` initialised to `+infinity`. Each finite input is compared and the smaller value retained. There is no warmup.

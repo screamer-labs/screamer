@@ -32,19 +32,21 @@ nan_policy: propagate
 
 ## Description
 
-The `Lag` function returns the values from a sequence offset by a specified number of steps backward. It shifts each element in the input by `delay` positions, effectively providing past values for analysis or comparison.
+The `Lag` function returns the values from a sequence offset by a specified number of steps backward. It shifts each element in the input by `window_size` positions, providing past values for analysis or comparison.
 
 *Equation*:
 
 $$
-y[i] = x[i - \text{delay}]
+y[i] = x[i - k]
 $$
+
+where `k` is `window_size`.
 
 *Parameters*:
 
-- `delay` (int): The number of steps by which to shift the input. Must be non-negative.
+- `window_size` (int): The number of steps by which to shift the input. Must be positive.
 
-*NaN handling*: When `delay` is larger than the available data at the beginning of the sequence, resulting elements are set to `NaN`.
+*NaN handling*: When `window_size` is larger than the available data at the beginning of the sequence, resulting elements are set to `NaN`.
 
 
 <!-- NAN_FOOTNOTE_START -->
@@ -90,4 +92,4 @@ $$
 
 ## Implementation Details
 
-The `Lag` function shifts the input array by the specified `delay`. Internally, it uses an efficient buffer to access elements and insert NaNs as placeholders when necessary.
+The `Lag` function shifts the input array by `window_size` steps. Internally, it uses an efficient buffer to access elements and insert NaNs as placeholders when necessary.

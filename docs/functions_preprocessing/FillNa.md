@@ -98,4 +98,4 @@ The `FillNa` function checks each data point for `NaN` values and substitutes an
 
 ### Performance
 
- `Ffill` is a lightweight operation that process data efficiently. They are suitable for real-time or streaming data applications where missing values need to be managed with minimal overhead.
+`FillNa` is a lightweight operation that processes data efficiently. It is suitable for real-time or streaming data applications where missing values need to be managed with minimal overhead.

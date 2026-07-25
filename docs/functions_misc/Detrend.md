@@ -46,7 +46,7 @@ where $w$ is the `window_size`.
 *Parameters*:
 
 - `window_size` (int): width of the rolling-mean window in samples.
-- `start_policy` (str, optional): warmup behaviour, `"strict"` (default), `"truncate"`, or `"zero"`. Same semantics as the rolling functions.
+- `start_policy` (str, optional): warmup behaviour, `"strict"` (default), `"expanding"`, or `"zero"`. Same semantics as the rolling functions.
 
 *NaN handling*: Under `start_policy="strict"` the rolling mean is NaN until `window_size` samples have been observed, and `Detrend` therefore emits NaN during that warmup. NaN inputs propagate through the rolling buffer.
 

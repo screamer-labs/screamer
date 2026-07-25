@@ -31,17 +31,15 @@ nan_policy: ignore
 
 ## Description
 
-`Butter` is a generic-order Butterworth low-pass filter. This filter design ensures a maximally flat frequency response in the passband, ideal for applications that require minimal ripple while attenuating high-frequency components beyond a specified cutoff frequency. The order of the filter, specified as `N`, determines the sharpness of the frequency roll-off, with higher orders providing steeper transitions. This low-pass filter is particularly useful for smoothing data, reducing noise, and maintaining the signal's essential low-frequency components.
+`Butter` is a causal IIR Butterworth low-pass filter of configurable order. The Butterworth design produces a maximally flat frequency response in the passband, attenuating high-frequency components beyond a specified cutoff. Higher filter orders give a steeper rolloff.
 
-The Butterworth filter is implemented using a digital Infinite Impulse Response (IIR) filter design, which converts the analog filter specifications to the digital domain. This design leverages the bilinear transform to map the continuous filter’s poles and zeros into the discrete domain.
+The filter is implemented in the digital domain using a bilinear transform of the analog Butterworth poles.
 
 ### Parameters
 
-**`N`** *(int)*: The order of the filter, specifying the steepness of the frequency cutoff. A higher order results in a sharper cutoff but may introduce more computational complexity.
+**`order`** *(int)*: The filter order. A higher order results in a sharper frequency cutoff.
 
-**`cutoff_freq`** *(float)*: The normalized cutoff frequency for the low-pass filter, expressed as a fraction of the Nyquist frequency (half the sampling rate). It must be in the range 0 to 0.5.
-
-*NaN handling*: NaN values may propagate through the filter unless handled separately in preprocessing.
+**`cutoff_freq`** *(float)*: The normalised cutoff frequency, expressed as a fraction of the Nyquist frequency (half the sampling rate). Must be in the range (0, 0.5).
 
 
 <!-- NAN_FOOTNOTE_START -->

@@ -24,19 +24,21 @@ nan_policy: propagate
 
 ## Description
 
-The `LogReturn` function computes the natural logarithm of the ratio between an element and the element `delay` positions before it. This function is a key tool in financial analysis for modeling continuously compounded returns, as it provides a symmetric measure for gains and losses.
+The `LogReturn` function computes the natural logarithm of the ratio between an element and the element `window_size` positions before it.
 
 *Equation*:
 
 $$
-y[i] = \ln \left(\frac{x[i]}{x[i - \text{delay}]}\right)
+y[i] = \ln \left(\frac{x[i]}{x[i - k]}\right)
 $$
+
+where `k` is `window_size`.
 
 *Parameters*:
 
-- `delay` (int): The number of steps backward to use for calculating the log return. Must be non-negative.
+- `window_size` (int): The number of steps backward to use for calculating the log return. Must be positive.
 
-*NaN handling*: When `delay` exceeds the available data points at the start of the sequence or if `x[i - \text{delay}]` is zero or negative (to avoid invalid operations in the logarithm), the output is set to `NaN`.
+*NaN handling*: When `window_size` exceeds the available data points at the start of the sequence or if `x[i - k]` is zero or negative (to avoid invalid operations in the logarithm), the output is set to `NaN`.
 
 
 <!-- NAN_FOOTNOTE_START -->

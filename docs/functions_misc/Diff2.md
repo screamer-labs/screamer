@@ -39,7 +39,7 @@ equivalent to $\Delta(\Delta x)$.
 
 *Parameters*:
 
-- `start_policy` (str, optional): warmup behaviour, `"strict"` (default), `"truncate"`, or `"zero"`. Two warmup samples are needed before a valid output is produced.
+- `start_policy` (str, optional): warmup behaviour, `"strict"` (default), `"expanding"`, or `"zero"`. Two warmup samples are needed before a valid output is produced.
 
 *NaN handling*: Under `start_policy="strict"` the first two outputs are `NaN`. NaN inputs propagate.
 

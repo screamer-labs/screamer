@@ -24,19 +24,21 @@ nan_policy: propagate
 
 ## Description
 
-The `Return` function computes the simple return between an element and the element `delay` positions before it. This function is commonly used to measure the relative change between data points, facilitating analysis of growth or decline over a specified interval.
+The `Return` function computes the simple return between an element and the element `window_size` positions before it.
 
 *Equation*:
 
 $$
-y[i] = \frac{x[i] - x[i - \text{delay}]}{x[i - \text{delay}]}
+y[i] = \frac{x[i] - x[i - k]}{x[i - k]}
 $$
+
+where `k` is `window_size`.
 
 *Parameters*:
 
-- `delay` (int): The number of steps backward to use for calculating the return. Must be non-negative.
+- `window_size` (int): The number of steps backward to use for calculating the return. Must be positive.
 
-*NaN handling*: When `delay` exceeds the available data points at the start of the sequence, or if `x[i - \text{delay}]` equals zero (to avoid division by zero), the output is set to `NaN`.
+*NaN handling*: When `window_size` exceeds the available data points at the start of the sequence, or if `x[i - k]` equals zero (to avoid division by zero), the output is set to `NaN`.
 
 
 <!-- NAN_FOOTNOTE_START -->

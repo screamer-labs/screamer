@@ -18,7 +18,7 @@ nan_policy: ignore
 
 ## Description
 
-The `CumSum` function returns the running sum of all samples seen since the start of the stream (or since the last `reset`). It is the streaming equivalent of `numpy.cumsum`. Memory is `O(1)` regardless of how many samples have been processed.
+The `CumSum` function returns the running sum of all samples seen since the start of the stream (or since the last `reset`). Memory is `O(1)` regardless of how many samples have been processed.
 
 *Equation*:
 
@@ -28,7 +28,7 @@ $$
 
 *Parameters*: none.
 
-*NaN handling*: NaN propagates by ordinary IEEE-754 addition. Once a NaN enters the input, every subsequent output is NaN. This matches `numpy.cumsum`, not `pandas.Series.cumsum(skipna=True)`.
+*NaN handling*: A NaN input is skipped; the accumulator is left unchanged, the output at that index is NaN, and the next finite sample resumes from the prior total. This matches `pandas.Series.cumsum(skipna=True)`, not `numpy.cumsum`.
 
 
 <!-- NAN_FOOTNOTE_START -->
@@ -74,4 +74,4 @@ $$
 
 ## Implementation Details
 
-`CumSum` keeps a single `double` accumulator. Every input is added in-place, and the running total is returned. There is no warmup. The numpy reference is `numpy.cumsum`.
+`CumSum` keeps a single `double` accumulator. Every finite input is added in-place, and the running total is returned. There is no warmup.

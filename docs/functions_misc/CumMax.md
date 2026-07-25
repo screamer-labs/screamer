@@ -18,7 +18,7 @@ nan_policy: ignore
 
 ## Description
 
-The `CumMax` function returns the running maximum of all samples seen since the start of the stream (or since the last `reset`). The output is monotonically non-decreasing while inputs are finite. It is the streaming equivalent of `numpy.maximum.accumulate`. Memory is `O(1)` regardless of how many samples have been processed.
+The `CumMax` function returns the running maximum of all samples seen since the start of the stream (or since the last `reset`). The output is monotonically non-decreasing while inputs are finite. Memory is `O(1)` regardless of how many samples have been processed.
 
 This is an *expanding* (cumulative-from-zero) reduction, not a sliding window. For a fixed-window peak see `RollingMax`.
 
@@ -30,7 +30,7 @@ $$
 
 *Parameters*: none.
 
-*NaN handling*: Once an input is NaN, every subsequent output is NaN. This matches `numpy.maximum.accumulate`.
+*NaN handling*: A NaN input is skipped; the running maximum is left unchanged, the output at that index is NaN, and the next finite sample resumes from the prior maximum. This matches `pandas.Series.cummax(skipna=True)`, not `numpy.maximum.accumulate`.
 
 
 <!-- NAN_FOOTNOTE_START -->
@@ -75,4 +75,4 @@ $$
 
 ## Implementation Details
 
-`CumMax` keeps a single `double` initialised to `-infinity`. Each input is compared and the larger value retained. There is no warmup. The numpy reference is `numpy.maximum.accumulate`.
+`CumMax` keeps a single `double` initialised to `-infinity`. Each finite input is compared and the larger value retained. There is no warmup.
