@@ -2,7 +2,7 @@
 
 All notable changes to this project are documented in this file.
 
-1.0.0 - 2026-07-25
+1.0.0 - 2026-07-26
 ------------
 
 First stable release. The public API is stable from this point and follows
