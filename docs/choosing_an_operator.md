@@ -23,7 +23,7 @@ Each section below maps a common signal-processing task to the operators that co
 | Triple exponential moving average | `TEMA` | Further reduces lag at the cost of overshoot on sharp moves. |
 | Triangular moving average, double-smoothed for extra noise rejection | `TRIMA` | Effective on slow, noisy signals; longer effective lag. |
 | Hull moving average, low lag with reduced whipsaw | `HullMA` | Good balance of lag and smoothness for trend following. |
-| Adaptive moving average that slows during ranging markets | `KAMA` | Adjusts its speed to market volatility automatically. |
+| Adaptive moving average that slows during ranging markets | `KAMA` | Speeds up when the move is directional, slows when it chops (the efficiency ratio). |
 | Frequency-domain Butterworth low-pass filter | `Butter` | Set `cutoff_freq` to keep only slow components. |
 | Minimum-phase IIR filter for any custom passband | `MovingAverage` | General-purpose FIR/IIR; see its page for coefficient inputs. |
 | Optimal linear filter tracking a latent state with noise | `KalmanFilter` | Use when signal and observation noise variances are known or can be estimated; see [notebook 17](notebooks/17-filtering-and-forecasting-with-uncertainty). |
@@ -91,7 +91,7 @@ Many operators come in both flavors. A rolling operator sees only the most recen
 | Intent | Operator(s) | Note |
 |:-------|:------------|:-----|
 | Combine two or more streams, emitting on every new event with the last-known value for silent streams | `CombineLatest` | The main operator for merging asynchronous feeds. |
-| Concatenate or interleave streams in arrival order | `Merge` | Preserves all events from all inputs; output may be unsorted if feeds are not synchronized. |
+| Interleave several index-sorted streams into one timeline | `Merge` | Keeps every event, tagged with its source; each input must be individually index-sorted. |
 | Resample a stream to a regular frequency or event count | `Resample` | Use `freq=` for time-based resampling or `count=` for event-count-based. |
 | Drop rows that contain NaN from any input | `Dropna` | Useful after alignment when some inputs have not yet ticked. |
 | Keep only rows that satisfy a boolean condition | `Filter` | Passes through rows where the condition stream is true. |

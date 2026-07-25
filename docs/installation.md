@@ -13,9 +13,8 @@ through 3.14 are supported).
 pip install screamer
 ```
 
-The wheel includes the compiled C++ extension. The only runtime dependency is
-`pybind11>=2.9`, which is bundled in the wheel and does not need a separate
-install step.
+The wheel includes the compiled C++ extension. `pip install screamer` also installs
+`pybind11`, its one declared dependency.
 
 ## Running the example notebooks
 

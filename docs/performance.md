@@ -2,10 +2,12 @@
 
 screamer runs batch computations as fast as or faster than the equivalent numpy
 and pandas code, and many times faster for rolling-window statistics. The reason
-is the algorithms, not just the C++: every function updates its result in constant
-time per sample and makes a single pass, so a rolling statistic costs the same
-whether the window is 10 or 10,000. numpy rebuilds each window, so its cost grows
-with the window; pandas carries per-call overhead on top of its own pass.
+is the algorithms, not just the C++: most functions update their result in constant
+time per sample and make a single pass, so their cost does not grow with the window.
+The rank-based statistics (the rolling median, quantiles, IQR, and CVaR) keep a
+sorted structure and update in O(log window). numpy rebuilds each window, so its cost
+grows linearly with the window; pandas carries per-call overhead on top of its own
+pass.
 
 ## Batch speedups
 
@@ -57,17 +59,20 @@ screamer's does not. Full numbers, against numpy and pandas separately:
 
 ## Why it is fast
 
-- **Constant work per sample.** A rolling mean keeps a running sum; a rolling
-  standard deviation keeps running moments; a rolling maximum keeps a monotonic
-  deque. Each new sample updates that state in O(1), so a full pass is O(n) for
-  any window size.
+- **Constant or logarithmic work per sample.** A rolling mean keeps a running sum,
+  a rolling standard deviation keeps running moments, and a rolling maximum keeps a
+  monotonic deque; each new sample updates that state in O(1). The rank-based
+  statistics (rolling median, quantiles, IQR, CVaR) keep a balanced search tree and
+  update in O(log window). Neither rebuilds the window, so a full pass is O(n) or
+  O(n log window), against numpy's O(n * window).
 - **One pass, no window rebuild.** The numpy sliding-window approach scans every
   window, which is O(n * window). screamer never looks back over the window.
 - **C++ with thin bindings.** The compute runs in C++, the same code the batch,
   streaming, and pipeline paths all share, so there is no per-element Python.
 
-The same speed applies live: because a value computed on a stream is the same
-code as the batch pass, the streaming path processes each event in O(1) too.
+The same cost applies live: a value computed on a stream runs the same code as the
+batch pass, so the streaming path does the same per-event work, O(1) or
+O(log window).
 
 ## Reproduce it
 
