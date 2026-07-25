@@ -2,6 +2,15 @@
 
 All notable changes to this project are documented in this file.
 
+[Unreleased]
+------------
+
+### Changed
+
+* screamer now installs with no runtime dependencies. `pybind11` is a build-time-only,
+  header-only dependency and has been removed from the runtime requirements; it stays in
+  the build-system requirements. Existing installs are unaffected.
+
 1.0.0 - 2026-07-26
 ------------
 
