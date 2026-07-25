@@ -35,8 +35,6 @@ nan_policy: ignore
 
 `RollingBeta` computes the rolling regression slope of `x` on `y` over a sliding window of fixed size. The first argument is the dependent variable (target), the second is the independent variable (regressor).
 
-This is the CAPM-style β: `RollingBeta(asset_returns, market_returns, w)` returns the asset's beta with respect to the market.
-
 *Equation*:
 
 $$

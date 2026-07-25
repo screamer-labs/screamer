@@ -29,8 +29,7 @@ see_also:
 ## Description
 
 `BacktestReport` turns a backtest engine's per-step `[equity, pnl, position, cost]`
-into the running report columns. It carries the aggregation that a report needs so
-that pure-C++ callers get it too, and the Python [`backtest_report`](backtest_report.md)
+into the running report columns. The Python [`backtest_report`](backtest_report.md)
 helper is a thin wrapper that labels these columns and reads the last row for the
 summary.
 

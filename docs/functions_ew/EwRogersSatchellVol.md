@@ -38,18 +38,19 @@ nan_policy: ignore
 
 ## Description
 
-The Rogers-Satchell (1991) range-based volatility estimator. Per-bar variance contribution:
+`EwRogersSatchellVol` returns the square root of the Rogers-Satchell (1991) range-based
+variance estimate: `sqrt(EwRogersSatchellVar)`. The per-bar variance contribution is:
 
 $$
 \sigma^2_\text{RS}[t] = \ln\tfrac{H}{C}\ \ln\tfrac{H}{O} + \ln\tfrac{L}{C}\ \ln\tfrac{L}{O}
 $$
 
-This expression is averaged with a exponentially-weighted mean to form the estimator. The `Vol`
-variant returns `sqrt(Var)` (bit-exact via the same internal state).
+This expression is averaged with an exponentially-weighted mean to form the estimator, and the
+square root is taken to produce a volatility in the same units as the log-price process.
 
 **4-input, 1-output** on `(open, high, low, close)`. Slightly less efficient (~6x vs
-close-to-close) than Garman-Klass but **drift-robust** - works correctly when the underlying
-drift is non-zero, a much more realistic assumption for trending markets.
+close-to-close `RollingVar`) than Garman-Klass, but **drift-robust**: it does not assume
+zero drift, so it remains consistent when the underlying process has a non-zero mean.
 
 
 <!-- NAN_FOOTNOTE_START -->

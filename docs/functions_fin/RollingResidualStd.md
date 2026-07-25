@@ -41,9 +41,6 @@ $$
 \sigma_\text{spread}[t] = \text{RollingStd}\big(\text{RollingSpread}(y, x)\big)[t]
 $$
 
-Useful for pairs-trading z-score normalisation:
-
-
 Composes `RollingSpread` + `RollingStd`. O(1) per step. NaN-poisoning during
 `RollingSpread`'s own warmup is gated explicitly so the std accumulator stays clean.
 

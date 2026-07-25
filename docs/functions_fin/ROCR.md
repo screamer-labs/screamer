@@ -30,8 +30,6 @@ $$
 \text{ROCR}[t] = \frac{x[t]}{x[t-k]}
 $$
 
-The ratio form is convenient when you want to chain returns multiplicatively (e.g. cumulative-product wealth paths) without subtracting 1 each step.
-
 *Parameters*:
 
 - `window_size` (int, positive): the lookback `k`.

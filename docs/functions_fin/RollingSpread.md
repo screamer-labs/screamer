@@ -34,8 +34,6 @@ nan_policy: ignore
 
 `RollingSpread` computes the rolling hedge-adjusted residual of `x` against `y`. At each time step it computes the rolling regression slope `β_w[t] = cov(x, y) / var(y)` over the window and returns `x[t] - β_w[t] · y[t]`.
 
-This is the building block for pairs trading: `RollingSpread(price_a, price_b, w)` is the residual of `price_a` after removing its rolling-best-fit linear exposure to `price_b`. A mean-reverting spread is the prototypical pairs-trading signal.
-
 *Equation*:
 
 $$

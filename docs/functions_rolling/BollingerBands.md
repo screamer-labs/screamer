@@ -38,7 +38,7 @@ nan_policy: ignore
 
 ## Description
 
-`BollingerBands` computes the classic Bollinger bands of a single stream over a sliding window: the middle band is the rolling mean, and the lower and upper bands sit `num_std` standard deviations away on either side. All three are returned per step.
+`BollingerBands` computes the Bollinger bands of a single stream over a sliding window: the middle band is the rolling mean, and the lower and upper bands sit `num_std` standard deviations away on either side. All three are returned per step.
 
 *Equation*:
 

@@ -63,7 +63,7 @@ If either denominator factor is zero (a constant input over the effective window
 
 ## Identity check
 
-`EwCorr` is exactly `EwCov / sqrt(EwVar(x) · EwVar(y))` because the bias factors cancel:
+`EwCorr` equals `EwCov / sqrt(EwVar(x) · EwVar(y))`; the bias-correction factors in numerator and denominator cancel, so the simpler unbiased weights used above give the same result. The identity is verified in Examples.
 
 
 <!-- NAN_FOOTNOTE_START -->

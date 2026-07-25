@@ -18,13 +18,13 @@ nan_policy: ignore
 
 ## Description
 
-The `Softsign` class smooths input values into the range \(-1\) to \(1\) with asymptotic behavior, providing a continuous, differentiable transformation useful for activation functions.
-
-*Equation*:
+The `Softsign` class applies the mapping `x / (1 + |x|)` element-wise:
 
 $$
 f(x) = \frac{x}{1 + |x|}
 $$
+
+The output approaches -1 and +1 asymptotically as x approaches negative and positive infinity.
 
 *Parameters*: `Softsign` takes no parameters.
 

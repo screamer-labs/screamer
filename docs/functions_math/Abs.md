@@ -18,7 +18,7 @@ nan_policy: ignore
 
 ## Description
 
-The `Abs` class computes the absolute value of each element in a data sequence, transforming all negative values to their positive counterparts. This function is useful in scenarios where only the magnitude of values is relevant, regardless of their sign.
+The `Abs` class computes the absolute value of each element in a data sequence, transforming all negative values to their positive counterparts.
 
 *Parameters*: `Abs` takes no parameters.
 

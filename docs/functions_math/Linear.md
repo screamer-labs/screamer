@@ -28,7 +28,7 @@ nan_policy: ignore
 
 ## Description
 
-The `Linear` class computes a linear transformation of each input value, defined by the equation  $y = \text{scale} \times x + \text{shift} $. This function is fundamental for adjusting the scale and location of data, often used in data preprocessing or custom activation functions in machine learning models.
+The `Linear` class computes an affine transformation of each input value, defined by the equation $y = \text{scale} \times x + \text{shift}$.
 
 *Equation*:
 

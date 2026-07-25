@@ -32,14 +32,13 @@ nan_policy: ignore
 
 ## Description
 
-The `RollingRms` class calculates the root mean square (RMS) of values within a specified moving window. This provides a measure of the magnitude of variation in the data, capturing both positive and negative values as positive magnitudes.
+`RollingRms` computes the root-mean-square over the `window_size` most recent values:
 
-*Parameters*: 
-- **`window_size`**: Specifies the size of the rolling window.
-- **`start_policy`**: Defines how the function handles the initial phase when fewer than `window_size` data points are available. This parameter accepts one of the following three values:
-  - `"strict"`: Returns `NaN` for all calculations until `window_size` elements have been processed.
-  - `"expanding"`: Adapts the computation by dynamically reducing the window size to include all available data, starting from a single point and growing until `window_size` is reached.
-  - `"zero"`: Simulates a full initial window of zeros, effectively pre-filling the data stream with `window_size` zeros before processing the actual input.
+$$
+\text{rms}_w[t] = \sqrt{\frac{1}{n} \sum_{i=t-w+1}^{t} x_i^2}
+$$
+
+where `n = window_size`.
 
 
 <!-- NAN_FOOTNOTE_START -->

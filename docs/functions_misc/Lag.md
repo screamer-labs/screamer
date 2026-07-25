@@ -32,7 +32,7 @@ nan_policy: propagate
 
 ## Description
 
-The `Lag` function returns the values from a sequence offset by a specified number of steps backward. It shifts each element in the input by `window_size` positions, providing past values for analysis or comparison.
+The `Lag` function returns the values from a sequence offset by a specified number of steps backward. It shifts each element in the input by `window_size` positions.
 
 *Equation*:
 

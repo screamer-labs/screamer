@@ -32,14 +32,7 @@ nan_policy: ignore
 
 ## Description
 
-The `RollingKurt` class computes the excess kurtosis of a data sequence within a specified moving window. This rolling calculation provides a measure of the "tailedness" of the data distribution over the window, with a correction applied for small sample sizes. The computed value represents excess kurtosis, meaning it is adjusted to measure how the distribution deviates from a normal distribution (where excess kurtosis is zero). Additionally, a bias correction (or sample correction) is included, making this estimate more accurate when sample sizes are small.
-
-*Parameters*: 
-- **`window_size`**: Specifies the size of the rolling window.
-- **`start_policy`**: Defines how the function handles the initial phase when fewer than `window_size` data points are available. This parameter accepts one of the following three values:
-  - `"strict"`: Returns `NaN` for all calculations until `window_size` elements have been processed.
-  - `"expanding"`: Adapts the computation by dynamically reducing the window size to include all available data, starting from a single point and growing until `window_size` is reached.
-  - `"zero"`: Simulates a full initial window of zeros, effectively pre-filling the data stream with `window_size` zeros before processing the actual input.
+`RollingKurt` computes the rolling excess kurtosis over the `window_size` most recent values, using the Fisher-Pearson bias-corrected estimator (the same formula as `pandas.Series.rolling(w).kurt()`). A normal distribution has excess kurtosis zero.
 
 
 <!-- NAN_FOOTNOTE_START -->

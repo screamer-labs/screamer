@@ -22,10 +22,8 @@ nan_policy: ignore
 # `RollingMax`
 
 ## Description
-The `RollingMax` class computes the maximum value within a moving window of specified size over a sequence of data. 
 
-
-*Initial values*: The constructor requires a positive integer `window_size` parameter to define the rolling window.
+`RollingMax` computes the maximum of the `window_size` most recent values. It is maintained with a monotonic deque (`detail::MaxDeque`), giving O(1) amortised time per step.
 
 
 <!-- NAN_FOOTNOTE_START -->

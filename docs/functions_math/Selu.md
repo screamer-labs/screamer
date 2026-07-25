@@ -19,7 +19,7 @@ nan_policy: ignore
 
 ## Description
 
-The `Selu` (Scaled Exponential Linear Unit) class scales the ELU function to induce self-normalizing properties, which help stabilize neural network training by keeping activations within a desired range.
+The `Selu` (Scaled Exponential Linear Unit) class scales the ELU function with fixed coefficients to induce self-normalizing properties.
 
 *Equation*:
 

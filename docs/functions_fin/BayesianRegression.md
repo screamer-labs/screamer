@@ -10,7 +10,7 @@ tags:
 - regression
 - online
 - pair
-short: Current slope and intercept via Normal-Inverse-Gamma posterior plus causal one-step-ahead predictive mean and std.
+short: Online exponentially-weighted (forgetting-factor) Bayesian linear regression - current slope and intercept via Normal-Inverse-Gamma posterior plus causal one-step-ahead predictive mean and std.
 inputs: 2
 outputs: 4
 parameters:

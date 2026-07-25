@@ -32,14 +32,8 @@ nan_policy: ignore
 # `RollingMean`
 
 ## Description
-The `RollingMean` (also known as `moving average`) class computes the mean value within a moving window of specified size over a sequence of data. 
 
-*Parameters*: 
-- **`window_size`**: Specifies the size of the rolling window.
-- **`start_policy`**: Defines how the function handles the initial phase when fewer than `window_size` data points are available. This parameter accepts one of the following three values:
-  - `"strict"`: Returns `NaN` for all calculations until `window_size` elements have been processed.
-  - `"expanding"`: Adapts the computation by dynamically reducing the window size to include all available data, starting from a single point and growing until `window_size` is reached.
-  - `"zero"`: Simulates a full initial window of zeros, effectively pre-filling the data stream with `window_size` zeros before processing the actual input.
+`RollingMean` computes the arithmetic mean of the `window_size` most recent values (also called a simple moving average).
 
 
 <!-- NAN_FOOTNOTE_START -->

@@ -49,7 +49,7 @@ see_also:
 
 ## Description
 
-`BacktestL1Target` is a lean directional backtest on the L1 quote stream. It is
+`BacktestL1Target` is a directional backtest on the L1 quote stream. It is
 immediate: the `target_position` you pass on event t executes on the same quote
 update, unlike `BacktestOHLCTarget` which defers to the next bar's open.
 

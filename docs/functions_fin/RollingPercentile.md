@@ -31,7 +31,7 @@ $$
 $$
 
 with the same "average" tie rule as `RollingRank`. Returns values in `[1/w, 1]`. Bit-exact
-(0.0) to `pandas.Series.rolling(w).rank(pct=True)`.
+to `pandas.Series.rolling(w).rank(pct=True)`.
 
 1→1. O(W) per step.
 

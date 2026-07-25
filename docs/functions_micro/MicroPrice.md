@@ -34,9 +34,7 @@ thinner side of the order book (Stoikov 2018, first-order form). With
 
 When the bid queue is heavier (`I` near 1) the price is pulled toward the ask
 (upward pressure); when the ask queue is heavier it is pulled toward the bid. A
-balanced or empty book gives the plain mid. `MicroPrice(bid, ask, bid_size,
-ask_size)` predicts the next mid better than the plain mid because it uses the
-queue imbalance. This is the widely-used weighted-mid form; the full Stoikov
+balanced or empty book gives the plain mid. This is the widely-used weighted-mid form; the full Stoikov
 micro-price with a calibrated adjustment function is not modelled here.
 References: Stoikov (2018), "The micro-price: a high-frequency estimator of future
 prices".

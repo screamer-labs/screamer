@@ -22,10 +22,8 @@ nan_policy: ignore
 # `RollingMin`
 
 ## Description
-The `RollingMin` class computes the minimum value within a moving window of specified size over a sequence of data. 
 
-
-*Initial values*: The constructor requires a positive integer `window_size` parameter to define the rolling window.
+`RollingMin` computes the minimum of the `window_size` most recent values. It is maintained with a monotonic deque (`detail::MinDeque`), giving O(1) amortised time per step.
 
 
 <!-- NAN_FOOTNOTE_START -->

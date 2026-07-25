@@ -23,10 +23,8 @@ nan_policy: ignore
 # `RollingMedian`
 
 ## Description
-The `RollingMedian` class computes the median value within a moving window of specified size over a sequence of data. 
 
-
-*Initial values*: The constructor requires a positive integer `window_size` parameter to define the rolling window.
+`RollingMedian` computes the median of the `window_size` most recent values. The window is maintained in two balanced `std::multiset` halves (lower and upper), allowing O(log window_size) insert and delete per step.
 
 
 <!-- NAN_FOOTNOTE_START -->

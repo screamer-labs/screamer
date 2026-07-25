@@ -37,9 +37,7 @@ window of returns about a `threshold`,
 
     omega = sum( (return - threshold)+ ) / sum( (threshold - return)+ ),
 
-the total gain above the threshold divided by the total shortfall below it. Unlike
-the Sharpe ratio, Omega uses the whole return distribution, so it reflects skew
-and fat tails rather than just the mean and variance. A value above 1 means gains
+the total gain above the threshold divided by the total shortfall below it. A value above 1 means gains
 outweigh losses at that threshold. A window with no downside (a zero denominator)
 has an undefined ratio and returns `NaN`, as does a `NaN` return
 (`nan_policy: ignore`).

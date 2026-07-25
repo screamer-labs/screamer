@@ -18,11 +18,11 @@ nan_policy: ignore
 
 ## Description
 
-The `Log` class computes the natural logarithm (ln) of each element in a data sequence. This function is useful for logarithmic scaling, often employed to stabilize variance or compress large data ranges.
+The `Log` class computes the natural logarithm (ln) of each element in a data sequence.
 
 *Parameters*: `Log` takes no parameters.
 
-*NaN handling*: `NaN` values and negative values (since they’re undefined for logarithms) are not modified and remain as `NaN`.
+*NaN handling*: A `NaN` input yields `NaN`. A negative or zero input also yields `NaN`, because the natural logarithm is undefined for non-positive values.
 
 
 <!-- NAN_FOOTNOTE_START -->

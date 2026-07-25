@@ -27,7 +27,7 @@ nan_policy: ignore
 
 ## Description
 
-`ADX` (Average Directional Index, J. Welles Wilder Jr. 1978) measures **trend strength**, not direction. It is the canonical filter for "are we trending or chopping?" Returns the triple `(+DI, -DI, ADX)` per step:
+`ADX` (Average Directional Index, J. Welles Wilder Jr. 1978) measures **trend strength**, not direction. Returns the triple `(+DI, -DI, ADX)` per step:
 
 $$
 \begin{aligned}

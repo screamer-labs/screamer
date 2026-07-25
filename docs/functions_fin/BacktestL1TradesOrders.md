@@ -64,7 +64,7 @@ see_also:
 
 ## Description
 
-`BacktestL1TradesOrders` is the preferred market-making backtest: it takes both the
+`BacktestL1TradesOrders` backtests a two-sided market maker against both the
 top-of-book quote and the trade tape, so fills come from actual executions rather
 than inferred from quote-size changes. Each event carries the strategy's own quote
 `(bid_price, bid_size, ask_price, ask_size)`, the market top-of-book

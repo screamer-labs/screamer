@@ -42,24 +42,7 @@ nan_policy: ignore
 
 ## Description
 
-The `RollingPoly2` class fits a quadratic polynomial (second-degree equation) to the data within a specified moving window. This rolling quadratic fit provides insights into the data’s overall trend, rate of change, and curvature. Depending on the `derivative_order`, the function can return:
-
-- **0**: The y-value at the endpoint of the fitted quadratic curve, offering a smooth continuation of the data.
-- **1**: The slope (first derivative) at the endpoint, representing the rate of change.
-- **2**: The curvature (second derivative) at the endpoint, which captures the concavity of the data.
-
-This method, which extends the idea of a causal Savitzky-Golay filter, enables more nuanced data analysis by capturing both linear and quadratic trends within each window.
-
-*Parameters*: 
-- **`window_size`**: Specifies the size of the rolling window.
-- **`derivative_order`**: 
-  - `0`: The y-value at the endpoint of the fitted quadratic curve, offering a smooth continuation of the data.
-  - `1`: The slope (first derivative) at the endpoint, representing the rate of change.
-  - `2`: The curvature (second derivative) at the endpoint, which captures the concavity of the data.
-- **`start_policy`**: Defines how the function handles the initial phase when fewer than `window_size` data points are available. This parameter accepts one of the following three values:
-  - `"strict"`: Returns `NaN` for all calculations until `window_size` elements have been processed.
-  - `"expanding"`: Adapts the computation by dynamically reducing the window size to include all available data, starting from a single point and growing until `window_size` is reached.
-  - `"zero"`: Simulates a full initial window of zeros, effectively pre-filling the data stream with `window_size` zeros before processing the actual input.
+`RollingPoly2` fits a degree-2 polynomial `y = a*t^2 + b*t + c` to the `window_size` most recent values by ordinary least squares, then returns a quantity evaluated at the trailing endpoint. `derivative_order` selects what is returned: `0` gives the fitted value at the endpoint, `1` gives the first derivative (slope), and `2` gives the second derivative (curvature).
 
 
 <!-- NAN_FOOTNOTE_START -->

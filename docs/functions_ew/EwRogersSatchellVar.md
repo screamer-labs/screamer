@@ -48,8 +48,8 @@ This expression is averaged with a exponentially-weighted mean to form the estim
 variant returns `sqrt(Var)` (bit-exact via the same internal state).
 
 **4-input, 1-output** on `(open, high, low, close)`. Slightly less efficient (~6x vs
-close-to-close) than Garman-Klass but **drift-robust** - works correctly when the underlying
-drift is non-zero, a much more realistic assumption for trending markets.
+close-to-close `RollingVar`) than Garman-Klass, but **drift-robust**: it does not assume
+zero drift, so it remains consistent when the underlying process has a non-zero mean.
 
 
 <!-- NAN_FOOTNOTE_START -->

@@ -40,7 +40,7 @@ nan_policy: ignore
 
 ## Description
 
-`StochRSI` (Chande & Kroll, 1994) applies the Stochastic oscillator formula to an RSI series rather than to price. It is a "rate of change of momentum" indicator: more responsive than RSI alone and useful for spotting RSI turning points.
+`StochRSI` (Chande & Kroll, 1994) applies the Stochastic oscillator formula to an RSI series rather than to price: it expresses the current RSI value as a position within its own rolling min-max range.
 
 $$
 \begin{aligned}

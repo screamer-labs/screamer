@@ -47,7 +47,7 @@ This expression is averaged with a exponentially-weighted mean to form the estim
 variant returns `sqrt(Var)` (bit-exact via the same internal state).
 
 **4-input, 1-output** on `(open, high, low, close)`. ~7.4x more statistically efficient
-than close-to-close `RollingStd` *under the model's assumptions* (zero drift, no overnight
+than close-to-close `RollingVar` *under the model's assumptions* (zero drift, no overnight
 gaps).
 
 

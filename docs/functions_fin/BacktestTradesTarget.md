@@ -48,7 +48,7 @@ see_also:
 
 ## Description
 
-`BacktestTradesTarget` is a lean directional backtest on the raw trade tape. It is
+`BacktestTradesTarget` is a directional backtest on the raw trade tape. It is
 immediate: the `target_position` you pass on event t executes on the same print,
 unlike `BacktestOHLCTarget` which defers to the next bar's open.
 

@@ -17,7 +17,7 @@ nan_policy: ignore
 
 ## Description
 
-The `Exp` class computes the exponential (e^x) of each element in a data sequence. This function is commonly used in exponential growth models and in scenarios requiring data scaling or transformations.
+The `Exp` class computes the exponential (e^x) of each element in a data sequence.
 
 *Parameters*: `Exp` takes no parameters.
 

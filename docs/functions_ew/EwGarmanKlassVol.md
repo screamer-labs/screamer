@@ -37,17 +37,18 @@ nan_policy: ignore
 
 ## Description
 
-The Garman-Klass (1980) range-based volatility estimator. Per-bar variance contribution:
+`EwGarmanKlassVol` returns the square root of the Garman-Klass (1980) range-based variance
+estimate: `sqrt(EwGarmanKlassVar)`. The per-bar variance contribution is:
 
 $$
 \sigma^2_\text{GK}[t] = \tfrac{1}{2}\big(\ln H/L\big)^2 - (2\ln 2 - 1)\big(\ln C/O\big)^2
 $$
 
-This expression is averaged with a exponentially-weighted mean to form the estimator. The `Vol`
-variant returns `sqrt(Var)` (bit-exact via the same internal state).
+This expression is averaged with an exponentially-weighted mean to form the estimator, and the
+square root is taken to produce a volatility in the same units as the log-price process.
 
 **4-input, 1-output** on `(open, high, low, close)`. ~7.4x more statistically efficient
-than close-to-close `RollingStd` *under the model's assumptions* (zero drift, no overnight
+than close-to-close `RollingVar` *under the model's assumptions* (zero drift, no overnight
 gaps).
 
 

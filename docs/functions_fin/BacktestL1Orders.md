@@ -16,7 +16,7 @@ tags:
 - inventory
 - transaction cost
 - risk
-short: "Backtest a two-sided market maker against a top-of-book (L1) quote stream, into a costed equity curve."
+short: "Backtest a two-sided market maker against a top-of-book (L1) quote stream."
 inputs: 8
 outputs: 4
 parameters:

@@ -17,11 +17,11 @@ nan_policy: ignore
 
 ## Description
 
-The `Sqrt` class computes the square root of each element in a data sequence. It’s often used to reduce the scale of data or to transform squared values back to their original units.
+The `Sqrt` class computes the square root of each element in a data sequence.
 
 *Parameters*: `Sqrt` takes no parameters.
 
-*NaN handling*: Negative values and `NaN` values are not modified, as the square root is undefined for negative numbers.
+*NaN handling*: A `NaN` input yields `NaN`. A negative input also yields `NaN`, because the square root is undefined for negative values.
 
 
 <!-- NAN_FOOTNOTE_START -->

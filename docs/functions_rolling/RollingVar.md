@@ -32,14 +32,13 @@ nan_policy: ignore
 
 ## Description
 
-The `RollingVar` class calculates the variance of data within a moving window. It provides a measure of the spread of values within each window, capturing the extent of variation over time.
+`RollingVar` computes the sample variance (ddof=1) over the `window_size` most recent values:
 
-*Parameters*: 
-- **`window_size`**: Specifies the size of the rolling window.
-- **`start_policy`**: Defines how the function handles the initial phase when fewer than `window_size` data points are available. This parameter accepts one of the following three values:
-  - `"strict"`: Returns `NaN` for all calculations until `window_size` elements have been processed.
-  - `"expanding"`: Adapts the computation by dynamically reducing the window size to include all available data, starting from a single point and growing until `window_size` is reached.
-  - `"zero"`: Simulates a full initial window of zeros, effectively pre-filling the data stream with `window_size` zeros before processing the actual input.
+$$
+\text{var}_w[t] = \frac{1}{n-1} \sum_{i=t-w+1}^{t} \bigl(x_i - \bar{x}_w[t]\bigr)^2
+$$
+
+where `n = window_size`. Matches `pandas.Series.rolling(w).var()`.
 
 
 <!-- NAN_FOOTNOTE_START -->

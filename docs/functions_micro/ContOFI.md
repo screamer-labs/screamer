@@ -36,9 +36,8 @@ computed from top-of-book (L1) events rather than from trades. On each update of
 
 A bid that ticks up contributes its full size (buyers stepping in front), a bid
 that ticks down removes the vanished size, and an unchanged bid contributes the
-size change; the ask side is symmetric. Summed over a short window it is one of
-the strongest short-horizon predictors of the next price move. This is the
-canonical *order-book* OFI, distinct from the trade-flow [`OFI`](OFI.md). The
+size change; the ask side is symmetric. This is the canonical *order-book* OFI,
+distinct from the trade-flow [`OFI`](OFI.md). The
 first event has no baseline and returns `NaN`. References: Cont, Kukanov, Stoikov
 (2014), "The price impact of order book events".
 

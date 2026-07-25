@@ -25,8 +25,6 @@ nan_policy: ignore
 
 ## Description
 
-Where does the current value sit within the trailing window?
-
 $$
 \text{rank}[t] = (\text{\#values} < y_t) + 1 + \tfrac{1}{2}(\text{\#ties} - 1)
 $$
@@ -34,8 +32,8 @@ $$
 Pandas's "average" tie-breaking rule (mean rank among tied values). Returns a 1-based rank
 in `[1, w]`.
 
-1→1. Circular window buffer + per-step counting sweep; O(W) per step. Bit-exact (0.0) to
-`pandas.Series.rolling(w).rank()`.
+1→1. Circular window buffer + per-step counting sweep; O(W) per step. Bit-exact
+to `pandas.Series.rolling(w).rank()`.
 
 
 <!-- NAN_FOOTNOTE_START -->

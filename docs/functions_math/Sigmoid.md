@@ -19,13 +19,13 @@ nan_policy: ignore
 
 ## Description
 
-The `Sigmoid` class transforms input values into the range \(0\) to \(1\), making it a staple activation function in neural networks, especially for binary classification problems.
-
-*Equation*:
+The `Sigmoid` class applies the logistic sigmoid function element-wise:
 
 $$
 f(x) = \frac{1}{1 + e^{-x}}
 $$
+
+The output lies in the open interval `(0, 1)` for all finite inputs.
 
 *Parameters*: `Sigmoid` takes no parameters.
 

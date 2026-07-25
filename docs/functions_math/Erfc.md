@@ -18,7 +18,7 @@ nan_policy: ignore
 
 ## Description
 
-The `Erfc` class computes the complementary error function (1 - erf(x)) for each element in the data sequence, often used in Gaussian models and probability.
+The `Erfc` class computes `erfc(x) = 1 - erf(x)` for each element in the data sequence.
 
 *Parameters*: `Erfc` takes no parameters.
 

@@ -19,7 +19,7 @@ nan_policy: nan-aware
 
 ## Description
 
-The `Ffill` class performs forward filling on a sequence of data, replacing any `NaN` values with the most recent non-`NaN` value. This approach is commonly used to handle missing values by carrying forward the last valid observation until a new valid value appears in the data.
+The `Ffill` class performs forward filling on a sequence of data, replacing any `NaN` values with the most recent non-`NaN` value.
 
 *Parameters*: `Ffill` takes no parameters; it simply operates over a data sequence and forward fills any `NaN` values encountered.
 

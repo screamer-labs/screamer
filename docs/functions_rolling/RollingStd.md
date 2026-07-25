@@ -33,14 +33,13 @@ nan_policy: ignore
 
 ## Description
 
-The `RollingStd` class computes the sample standard deviation of values within a moving window, quantifying the typical spread or dispersion from the mean. It’s useful for tracking variability in the data over a localized window.
+`RollingStd` computes the sample standard deviation (ddof=1) over the `window_size` most recent values:
 
-*Parameters*: 
-- **`window_size`**: Specifies the size of the rolling window.
-- **`start_policy`**: Defines how the function handles the initial phase when fewer than `window_size` data points are available. This parameter accepts one of the following three values:
-  - `"strict"`: Returns `NaN` for all calculations until `window_size` elements have been processed.
-  - `"expanding"`: Adapts the computation by dynamically reducing the window size to include all available data, starting from a single point and growing until `window_size` is reached.
-  - `"zero"`: Simulates a full initial window of zeros, effectively pre-filling the data stream with `window_size` zeros before processing the actual input.
+$$
+\text{std}_w[t] = \sqrt{\frac{1}{n-1} \sum_{i=t-w+1}^{t} \bigl(x_i - \bar{x}_w[t]\bigr)^2}
+$$
+
+where `n = window_size`. Matches `pandas.Series.rolling(w).std()`.
 
 
 <!-- NAN_FOOTNOTE_START -->

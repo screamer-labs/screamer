@@ -42,7 +42,7 @@ $$
 $$
 
 Same as Sharpe but the denominator is the *downside* deviation -- only bars below `target`
-contribute, so upside variability is not penalised.
+contribute.
 
 ## Implementation
 

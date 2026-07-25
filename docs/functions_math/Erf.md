@@ -18,7 +18,7 @@ nan_policy: ignore
 
 ## Description
 
-The `Erf` class computes the error function of each element in a data sequence, useful in probability, statistics, and Gaussian-based models. It maps values onto the range [-1, 1].
+The `Erf` class applies the standard mathematical error function element-wise. It maps each input value from `(-inf, +inf)` to the range `(-1, 1)`.
 
 *Parameters*: `Erf` takes no parameters.
 

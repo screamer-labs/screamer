@@ -37,17 +37,18 @@ nan_policy: ignore
 
 ## Description
 
-The Parkinson (1980) range-based volatility estimator. Per-bar variance contribution:
+`EwParkinsonVol` returns the square root of the Parkinson (1980) range-based variance
+estimate: `sqrt(EwParkinsonVar)`. The per-bar variance contribution is:
 
 $$
 \sigma^2_\text{Parkinson}[t] = \frac{1}{4 \ln 2}\ \big(\ln H/L\big)^2
 $$
 
-This expression is then averaged with a exponentially-weighted mean to form the estimator. The
-`Vol` variant returns `sqrt(Var)`; the two are bit-exact via the same internal state.
+This expression is averaged with an exponentially-weighted mean to form the estimator, and the
+square root is taken to produce a volatility in the same units as the log-price process.
 
 **2-input, 1-output** on `(high, low)`. ~5x more statistically efficient than
-close-to-close `RollingStd` *under the model's assumptions* (zero drift, no overnight gaps).
+close-to-close `RollingVar` *under the model's assumptions* (zero drift, no overnight gaps).
 
 
 <!-- NAN_FOOTNOTE_START -->
