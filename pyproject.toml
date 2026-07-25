@@ -20,12 +20,12 @@ readme = "README.md"
 
 license = {text = "MIT"}
 
-dependencies = ["pybind11>=2.9"]
+dependencies = []
 
 keywords = ["streaming", "indicators", "real-time", "algorithmic", "trading", "low-latency"]
 
 classifiers=[
-    "Development Status :: 4 - Beta",
+    "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
     "Intended Audience :: Financial and Insurance Industry",
     "Topic :: Software Development :: Libraries :: Python Modules",
