@@ -2,6 +2,16 @@
 
 All notable changes to this project are documented in this file.
 
+[Unreleased]
+------------
+
+### Changed (breaking)
+
+* `forecast_pairs` now returns `(X_shifted, y)` instead of `(X_shifted, y, as_of)`.
+  The third return (the row index) was redundant: the function delays `X` and passes
+  `y` through, so the output rows sit on the caller's own timeline. Keep your own index
+  alongside `X` and `y` if you need to map rows back to time.
+
 0.13.0 - 2026-07-24
 ------------
 

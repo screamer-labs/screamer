@@ -1,10 +1,10 @@
 """Offline supervised-learning helpers built on screamer's causal ops.
 
-forecast_pairs builds a forecasting training set: it lags the features so each row
-pairs features from the past with a target realized in their future. The pairing is
-causal (it lags X, never leads y), so nothing here peeks into the future; the target
-must itself be causal (known as-of its own index), typically a rolling trailing
-quantity. These utilities are training-time only.
+forecast_pairs builds a forecasting training set by delaying the features: each row
+pairs features from the past with a target from their future. It delays X and passes y
+through, so the pairing is causal and needs no future values of y. The target must
+itself be causal (known as of its own index), typically a rolling trailing quantity.
+These utilities are training-time only.
 """
 from __future__ import annotations
 
@@ -36,21 +36,20 @@ def _forecast_pairs_duration(X, y, duration, dropna):
     keep_clock = np.isin(cidx, np.asarray(yi, dtype=cidx.dtype))
     Xs = combined[keep_clock, 0]
     ys = combined[keep_clock, 1]
-    as_of = cidx[keep_clock]
     if dropna:
         m = np.isfinite(Xs) & np.isfinite(ys)
-        return Xs[m], ys[m], as_of[m]
-    return Xs, ys, as_of
+        return Xs[m], ys[m]
+    return Xs, ys
 
 
 def forecast_pairs(X, y, *, count=None, duration=None, dropna=False):
     """Pair features with a target `count` events (or `duration` index-units) ahead.
 
-    Returns (X_shifted, y, as_of). Row t holds the features from `count` events ago
-    aligned with the target at t, so a model learns to predict `count` ahead. The
-    first `count` rows of X_shifted are NaN (warmup); `dropna=True` drops any row
-    whose shifted features or target is NaN, so it returns a clean training set.
-    `as_of` is each row's completion index (when its target is realized).
+    Returns (X_shifted, y). Row t holds the features from `count` events ago aligned
+    with the target at t, so a model learns to predict `count` ahead. It delays X and
+    passes y through unchanged. The first `count` rows of X_shifted are NaN (warmup);
+    `dropna=True` drops any row whose shifted features or target is NaN. If you need to
+    map rows back to time, keep your own index alongside X and y.
 
     Exactly one of `count` / `duration`. `count` is event-based and needs no index;
     `duration` is time-based (see Delay) and needs an index on X and y.
@@ -65,8 +64,7 @@ def forecast_pairs(X, y, *, count=None, duration=None, dropna=False):
     if len(X) != len(y):
         raise ValueError("X and y must share the same length (time axis)")
     Xs = np.asarray(Lag(int(count))(X), dtype=float)
-    as_of = np.arange(len(X))
     if dropna:
-        keep = _leading_nan_mask(Xs) & _leading_nan_mask(y)   # clean both, like duration mode
-        return Xs[keep], y[keep], as_of[keep]
-    return Xs, y, as_of
+        keep = _leading_nan_mask(Xs) & _leading_nan_mask(y)   # drop rows where either is NaN
+        return Xs[keep], y[keep]
+    return Xs, y

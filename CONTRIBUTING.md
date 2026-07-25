@@ -129,6 +129,67 @@ Every function with a docs page must declare a `nan_policy` in its frontmatter. 
 The full contract and rationale live in `docs/nan_and_warmup.md`; compliance is verified
 by `tests/test_nan_input_compliance.py`.
 
+## Writing documentation
+
+This governs all prose in screamer: notebook cells, help pages, function docs,
+docstrings, and code comments. Aim for documentation that is correct, clear, and serves
+a purpose, in the register of the NumPy, PyTorch, and Boost references. Every sentence
+teaches a detail the reader needs. If a sentence only adds energy, cut it.
+
+### Content and purpose (what to write)
+
+- **Lead with what the thing is.** State its identity, not a property, a benefit, or a
+  side effect. `forecast_pairs` is a helper that aligns past features with a future
+  target; it is not "a guard against lookahead bias" (that is a consequence, not the
+  thing).
+- **Ground every claim in the actual behavior.** If you cannot point to the code or the
+  output that makes a sentence true, cut it. Do not write what sounds plausible; read
+  the implementation and describe what it does.
+- **One checkable point per paragraph or cell, and it maps to the code it describes.**
+  The reader should be able to hold the sentence against the code and confirm it.
+- **State the mechanism, not a vibe.** Give the sentence that explains how it works.
+  "`y[t]` is the sum of the last `h` returns; paired with features from `h` steps
+  earlier, it is the sum of the next `h` returns" is the mechanism. "A trailing sum is
+  what makes it work" is not.
+- **Write flat, not meta.** State the thing. Do not describe what the sentence is doing
+  or loop back on it ("writing it this way is what lets the function use it, and that
+  same value then becomes...").
+- **Concrete over abstract.** "`y[t]` is the sum of the last `h` returns" beats "a
+  trailing quantity."
+- **Introduce a name only where it is used, and give its purpose when you introduce it.**
+  Never leave the reader carrying an unexplained term and wondering why it matters.
+- **Use the thing's own terms, and stay unit-agnostic where it is.** Do not borrow a
+  domain unit for a general tool: a shift is a `count` of events or a `duration` of
+  time, not "bars." Name a position `index`; name one increment of a specific example
+  series `step`.
+- **Cut what serves no purpose, and do not teach generic knowledge the library does not
+  provide.** A train/test split is in scope only to the extent screamer provides it;
+  purge/embargo methodology is generic machine learning, so it is cut, not explained.
+
+### Tone of voice (how to write it)
+
+- **No hooks or lead-with-a-strong-statement openers.** State what the thing is or what
+  the section covers. Not "Predicting the future from the present is a classic trap."
+- **No personification of code.** Code does not trick, earn its place, take over, want,
+  or have things creep into it or drop into it. Say what it does.
+- **No editorializing adjectives.** Cut `genuine`, `classic`, `real`, `clean`,
+  `powerful`, `elegant`, `correctly`. Replace with a precise term or nothing.
+- **No emphasis for effect.** No bold for drama, no capitals for shouting (not "FADE").
+  Emphasis comes from sentence structure.
+- **Report, do not narrate.** "The coefficient is negative" (a fact), not "the model
+  learned to fade the signal" (a story).
+- **No em dashes** (ASCII hyphens only), and none of the usual tics: no
+  negation-affirmation for effect when the contrast carries no information, no "same X,
+  same Y" anaphora, no "so/because/therefore" gluing two true facts with no causal link.
+
+### Before you commit
+
+- **Verify, do not spot-fix.** Fixing the one sentence someone flagged while leaving the
+  same defect elsewhere is the most common failure. On each pass, hold the whole
+  document to these rules: grep for the term you changed, re-read every cell, and
+  re-execute the notebook or rebuild the docs.
+- **When unsure whether a claim is true, read the code.** Plausible is not correct.
+
 ## Pull requests
 
 1. Branch off `main`.

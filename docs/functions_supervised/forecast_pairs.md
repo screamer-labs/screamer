@@ -45,13 +45,14 @@ is a training set where knowing `X` at time `t - count` lets a model predict
 
 ## Returns
 
-A three-tuple `(X_shifted, y, as_of)`:
+A two-tuple `(X_shifted, y)`:
 
-- `X_shifted`: the features shifted back by the forecast horizon.
-- `y`: the target series, unchanged.
-- `as_of`: each row's completion index (the time when the target is realized).
-  For `count=` mode this is a zero-based integer position. For `duration=`
-  mode this is the target's index.
+- `X_shifted`: the features delayed by the forecast horizon (`X[t-count]` at row `t`).
+- `y`: the target, passed through unchanged apart from any rows removed by `dropna`.
+
+The rows stay in time order. To map a row back to its time, keep your own index
+alongside `X` and `y`: a pandas index, or the index you already pass in `duration=`
+mode.
 
 ## One-of constraint
 
@@ -75,10 +76,9 @@ neither raises `ValueError`.
     h = 5
     y = RollingSum(h)(X)
 
-    X_shifted, y_train, as_of = forecast_pairs(X, y, count=h, dropna=True)
+    X_shifted, y_train = forecast_pairs(X, y, count=h, dropna=True)
 
     print("training rows:", len(X_shifted))
     print("X_shifted[:3]:", X_shifted[:3].round(4))
     print("y_train[:3]  :", y_train[:3].round(4))
-    print("as_of[:3]    :", as_of[:3])
 ```

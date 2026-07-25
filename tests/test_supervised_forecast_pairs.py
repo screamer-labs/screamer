@@ -7,22 +7,20 @@ def test_forecast_pairs_count_pairs_features_with_future_target():
     # feature at row t pairs with the target `count` rows later
     X = np.arange(6.0)                       # 0,1,2,3,4,5
     y = np.arange(6.0) * 10                  # 0,10,20,30,40,50
-    Xs, ys, as_of = forecast_pairs(X, y, count=2)
+    Xs, ys = forecast_pairs(X, y, count=2)
     # row t holds feature X[t-2] and target y[t]; first 2 rows warm up to NaN
     assert np.isnan(Xs[:2]).all()
     np.testing.assert_array_equal(Xs[2:], [0.0, 1.0, 2.0, 3.0])   # X[t-2]
     np.testing.assert_array_equal(ys, y)                          # y untouched
-    np.testing.assert_array_equal(as_of, np.arange(6))
 
 
 def test_forecast_pairs_count_dropna_returns_clean_pairs():
     X = np.arange(6.0)
     y = np.arange(6.0) * 10
-    Xs, ys, as_of = forecast_pairs(X, y, count=2, dropna=True)
+    Xs, ys = forecast_pairs(X, y, count=2, dropna=True)
     assert not np.isnan(Xs).any()
     np.testing.assert_array_equal(Xs, [0.0, 1.0, 2.0, 3.0])
     np.testing.assert_array_equal(ys, [20.0, 30.0, 40.0, 50.0])
-    np.testing.assert_array_equal(as_of, [2, 3, 4, 5])
 
 
 def test_forecast_pairs_count_matches_forward_return_reference():
@@ -33,7 +31,7 @@ def test_forecast_pairs_count_matches_forward_return_reference():
     ret = rng.standard_normal(n) * 1e-3
     X = rng.standard_normal(n)
     y = np.asarray(RollingSum(h)(ret))
-    Xs, ys, as_of = forecast_pairs(X, y, count=h, dropna=True)
+    Xs, ys = forecast_pairs(X, y, count=h, dropna=True)
     # reference: X[s] paired with sum(ret[s+1..s+h]) for valid s
     fwd = np.array([ret[s + 1:s + 1 + h].sum() for s in range(n - h)])
     np.testing.assert_allclose(Xs, X[:n - h])
@@ -51,7 +49,7 @@ def test_forecast_pairs_requires_exactly_one_of_count_duration():
 def test_forecast_pairs_count_2d_features_per_column():
     X = np.column_stack([np.arange(6.0), np.arange(6.0) * 2])
     y = np.arange(6.0)
-    Xs, ys, as_of = forecast_pairs(X, y, count=2, dropna=True)
+    Xs, ys = forecast_pairs(X, y, count=2, dropna=True)
     np.testing.assert_array_equal(Xs, np.column_stack([[0, 1, 2, 3], [0, 2, 4, 6]]))
 
 
@@ -62,8 +60,8 @@ def test_forecast_pairs_duration_matches_count_on_regular_grid():
     idx = np.arange(n, dtype=np.int64) * step
     Xv = rng.standard_normal(n)
     yv = rng.standard_normal(n)
-    Xc, yc, ac = forecast_pairs(Xv, yv, count=h, dropna=True)
-    Xd, yd, ad = forecast_pairs((Xv, idx), (yv, idx), duration=h * step, dropna=True)
+    Xc, yc = forecast_pairs(Xv, yv, count=h, dropna=True)
+    Xd, yd = forecast_pairs((Xv, idx), (yv, idx), duration=h * step, dropna=True)
     np.testing.assert_allclose(Xd, Xc)
     np.testing.assert_allclose(yd, yc)
 
@@ -79,11 +77,10 @@ def test_forecast_pairs_duration_async_pairs_by_walltime():
     Xi = np.array([0, 10, 20, 30, 40, 50], dtype=np.int64)
     yv = np.array([100.0, 200.0, 300.0])
     yi = np.array([15, 30, 45], dtype=np.int64)
-    Xs, ys, as_of = forecast_pairs((Xv, Xi), (yv, yi), duration=10, dropna=True)
+    Xs, ys = forecast_pairs((Xv, Xi), (yv, yi), duration=10, dropna=True)
     # y at 15 -> X as-of 5 -> X at 0 = 1 ; y at 30 -> X as-of 20 = 3 ; y at 45 -> X as-of 35 -> X at 30 = 4
     np.testing.assert_array_equal(ys, [100.0, 200.0, 300.0])
     np.testing.assert_allclose(Xs, [1.0, 3.0, 4.0])
-    np.testing.assert_array_equal(as_of, [15, 30, 45])
 
 
 def test_forecast_pairs_count_dropna_also_drops_target_nan():
@@ -91,7 +88,8 @@ def test_forecast_pairs_count_dropna_also_drops_target_nan():
     # (matching duration mode), not just feature-warmup rows.
     X = np.arange(8.0)
     y = np.array([0., 1., 2., np.nan, 4., 5., np.nan, 7.])
-    Xs, ys, as_of = forecast_pairs(X, y, count=1, dropna=True)
+    Xs, ys = forecast_pairs(X, y, count=1, dropna=True)
     assert not np.isnan(Xs).any() and not np.isnan(ys).any()
     # count=1 lags X by 1 (row 0 warmup dropped); rows 3 and 6 dropped for NaN target
-    np.testing.assert_array_equal(as_of, [1, 2, 4, 5, 7])
+    np.testing.assert_array_equal(Xs, [0., 1., 3., 4., 6.])   # surviving X[t-1]
+    np.testing.assert_array_equal(ys, [1., 2., 4., 5., 7.])   # surviving targets
