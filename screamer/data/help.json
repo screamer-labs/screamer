@@ -86,7 +86,7 @@
       {
         "language": "python",
         "caption": "Usage example",
-        "code": "import numpy as np\nimport pandas as pd\nfrom screamer import EwBeta\n\nrng = np.random.default_rng(0)\nmarket = rng.standard_normal(500)\n# An asset with true beta = 1.5 plus idiosyncratic noise\nasset = 1.5 * market + 0.5 * rng.standard_normal(500)\n\n# CAPM convention: dependent first, regressor second\nbeta = EwBeta(span=60)(asset, market)\n\n# Validate against pandas cov/var\nref = (\n    pd.Series(asset).ewm(span=60).cov(pd.Series(market)).to_numpy()\n    / pd.Series(market).ewm(span=60).var().to_numpy()\n)\nnp.testing.assert_allclose(beta, ref, equal_nan=True, atol=1e-10)"
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import EwBeta\n\nrng = np.random.default_rng(0)\nN = 300\nmarket = np.cumsum(rng.standard_normal(N))\nasset = 1.5 * market + np.cumsum(0.3 * rng.standard_normal(N))\newbeta = EwBeta(span=60)(asset, market)\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.5, 0.5],\n                    vertical_spacing=0.08)\nfig.add_trace(go.Scatter(y=asset, name='asset', line=dict(color='steelblue')),\n              row=1, col=1)\nfig.add_trace(go.Scatter(y=market, name='market', line=dict(color='orange')),\n              row=1, col=1)\nfig.add_trace(go.Scatter(y=ewbeta, name='EwBeta(span=60)',\n                         line=dict(color='crimson')), row=2, col=1)\nfig.update_layout(\n    title='EwBeta: rolling CAPM beta of asset on market (true beta = 1.5)',\n    yaxis=dict(title='price level'),\n    yaxis2=dict(title='beta'),\n    margin=dict(l=20, r=20, t=60, b=20),\n    legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1),\n)\nfig.show()"
       }
     ]
   },
@@ -193,7 +193,7 @@
       {
         "language": "python",
         "caption": "Usage example",
-        "code": "import numpy as np\nimport pandas as pd\nfrom screamer import EwCov\n\nrng = np.random.default_rng(0)\nx = rng.standard_normal(200)\ny = 0.7 * x + 0.3 * rng.standard_normal(200)\n\n# Streaming\nours = EwCov(span=20)(x, y)\n\n# Pandas reference (matches to ~1e-12)\nref = pd.Series(x).ewm(span=20).cov(pd.Series(y)).to_numpy()\nnp.testing.assert_allclose(ours, ref, equal_nan=True, atol=1e-12)"
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import EwCov\n\nrng = np.random.default_rng(0)\nN = 300\nx = rng.standard_normal(N)\ny = 1.5 * x + 0.5 * rng.standard_normal(N)\newcov = EwCov(span=60)(x, y)\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.5, 0.5],\n                    vertical_spacing=0.08)\nfig.add_trace(go.Scatter(y=x, name='x', line=dict(color='steelblue')),\n              row=1, col=1)\nfig.add_trace(go.Scatter(y=y, name='y = 1.5x + noise', line=dict(color='orange')),\n              row=1, col=1)\nfig.add_trace(go.Scatter(y=ewcov, name='EwCov(span=60)',\n                         line=dict(color='crimson')), row=2, col=1)\nfig.update_layout(\n    title='EwCov: exponentially weighted covariance of two return streams',\n    yaxis=dict(title='returns'),\n    yaxis2=dict(title='covariance'),\n    margin=dict(l=20, r=20, t=60, b=20),\n    legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1),\n)\nfig.show()"
       }
     ]
   },
@@ -896,7 +896,7 @@
       {
         "language": "python",
         "caption": "Usage example",
-        "code": "import numpy as np\nfrom screamer import ExpandingKurt\n\nx = np.arange(1.0, 11.0)\ny = ExpandingKurt()(x)"
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import ExpandingKurt\n\nrng = np.random.default_rng(0)\nN = 300\ndata = np.cumsum(rng.standard_normal(N))\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.5, 0.5],\n                    vertical_spacing=0.08)\nfig.add_trace(go.Scatter(y=data, mode='lines', name='Input', line=dict(color='steelblue', width=1)),\n              row=1, col=1)\nfig.add_trace(go.Scatter(y=ExpandingKurt()(data), mode='lines', name='ExpandingKurt',\n                         line=dict(color='seagreen', width=2)), row=2, col=1)\nfig.update_layout(\n    title=\"Expanding kurtosis over a random walk\",\n    yaxis=dict(title='Input'), yaxis2=dict(title='Excess kurtosis'),\n    margin=dict(l=20, r=20, t=60, b=20),\n    legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1),\n)\nfig.show()"
       }
     ]
   },
@@ -922,7 +922,7 @@
       {
         "language": "python",
         "caption": "Usage example",
-        "code": "import numpy as np\nfrom screamer import ExpandingMax\n\nx = np.arange(1.0, 11.0)\ny = ExpandingMax()(x)"
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom screamer import ExpandingMax\n\nrng = np.random.default_rng(0)\nN = 300\ndata = np.cumsum(rng.standard_normal(N))\n\nfig = go.Figure()\nfig.add_trace(go.Scatter(y=data, mode='lines', name='Input', line=dict(color='steelblue', width=1)))\nfig.add_trace(go.Scatter(y=ExpandingMax()(data), mode='lines', name='ExpandingMax',\n                         line=dict(color='crimson', width=2)))\nfig.update_layout(\n    title=\"Expanding maximum: monotone upper envelope\",\n    xaxis_title=\"Index\", yaxis_title=\"Value\",\n    margin=dict(l=20, r=20, t=80, b=20),\n    legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1),\n)\nfig.show()"
       }
     ]
   },
@@ -948,7 +948,7 @@
       {
         "language": "python",
         "caption": "Usage example",
-        "code": "import numpy as np\nfrom screamer import ExpandingMean\n\nx = np.arange(1.0, 11.0)\ny = ExpandingMean()(x)"
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom screamer import ExpandingMean\n\nrng = np.random.default_rng(0)\nN = 300\ndata = np.cumsum(rng.standard_normal(N))\n\nfig = go.Figure()\nfig.add_trace(go.Scatter(y=data, mode='lines', name='Input', line=dict(color='steelblue', width=1)))\nfig.add_trace(go.Scatter(y=ExpandingMean()(data), mode='lines', name='ExpandingMean', line=dict(color='crimson', width=2)))\nfig.update_layout(\n    title=\"Expanding mean over a random walk\",\n    xaxis_title=\"Index\", yaxis_title=\"Value\",\n    margin=dict(l=20, r=20, t=80, b=20),\n    legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1),\n)\nfig.show()"
       }
     ]
   },
@@ -974,7 +974,7 @@
       {
         "language": "python",
         "caption": "Usage example",
-        "code": "import numpy as np\nfrom screamer import ExpandingMin\n\nx = np.arange(1.0, 11.0)\ny = ExpandingMin()(x)"
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom screamer import ExpandingMin\n\nrng = np.random.default_rng(0)\nN = 300\ndata = np.cumsum(rng.standard_normal(N))\n\nfig = go.Figure()\nfig.add_trace(go.Scatter(y=data, mode='lines', name='Input', line=dict(color='steelblue', width=1)))\nfig.add_trace(go.Scatter(y=ExpandingMin()(data), mode='lines', name='ExpandingMin',\n                         line=dict(color='crimson', width=2)))\nfig.update_layout(\n    title=\"Expanding minimum: monotone lower envelope\",\n    xaxis_title=\"Index\", yaxis_title=\"Value\",\n    margin=dict(l=20, r=20, t=80, b=20),\n    legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1),\n)\nfig.show()"
       }
     ]
   },
@@ -1000,7 +1000,7 @@
       {
         "language": "python",
         "caption": "Usage example",
-        "code": "import numpy as np\nfrom screamer import ExpandingProd\n\nx = np.arange(1.0, 11.0)\ny = ExpandingProd()(x)"
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import ExpandingProd\n\nrng = np.random.default_rng(0)\nN = 300\ndata = 1.0 + 0.01 * rng.standard_normal(N)\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.5, 0.5],\n                    vertical_spacing=0.08)\nfig.add_trace(go.Scatter(y=data, mode='lines', name='Gross returns', line=dict(color='steelblue', width=1)),\n              row=1, col=1)\nfig.add_trace(go.Scatter(y=ExpandingProd()(data), mode='lines', name='ExpandingProd',\n                         line=dict(color='darkorange', width=2)), row=2, col=1)\nfig.update_layout(\n    title=\"Expanding product of gross returns (cumulative growth curve)\",\n    yaxis=dict(title='Gross return'), yaxis2=dict(title='Cumulative growth'),\n    margin=dict(l=20, r=20, t=60, b=20),\n    legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1),\n)\nfig.show()"
       }
     ]
   },
@@ -1025,7 +1025,7 @@
       {
         "language": "python",
         "caption": "Usage example",
-        "code": "import numpy as np\nfrom screamer import ExpandingSkew\n\nx = np.arange(1.0, 11.0)\ny = ExpandingSkew()(x)"
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import ExpandingSkew\n\nrng = np.random.default_rng(0)\nN = 300\ndata = np.cumsum(rng.standard_normal(N))\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.5, 0.5],\n                    vertical_spacing=0.08)\nfig.add_trace(go.Scatter(y=data, mode='lines', name='Input', line=dict(color='steelblue', width=1)),\n              row=1, col=1)\nfig.add_trace(go.Scatter(y=ExpandingSkew()(data), mode='lines', name='ExpandingSkew',\n                         line=dict(color='purple', width=2)), row=2, col=1)\nfig.update_layout(\n    title=\"Expanding skewness over a random walk\",\n    yaxis=dict(title='Input'), yaxis2=dict(title='Skewness'),\n    margin=dict(l=20, r=20, t=60, b=20),\n    legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1),\n)\nfig.show()"
       }
     ]
   },
@@ -1051,7 +1051,7 @@
       {
         "language": "python",
         "caption": "Usage example",
-        "code": "import numpy as np\nfrom screamer import ExpandingSlope\n\nx = np.arange(1.0, 11.0)\ny = ExpandingSlope()(x)"
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import ExpandingSlope\n\nrng = np.random.default_rng(0)\nN = 300\ndata = np.cumsum(rng.standard_normal(N))\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.5, 0.5],\n                    vertical_spacing=0.08)\nfig.add_trace(go.Scatter(y=data, mode='lines', name='Input', line=dict(color='steelblue', width=1)),\n              row=1, col=1)\nfig.add_trace(go.Scatter(y=ExpandingSlope()(data), mode='lines', name='ExpandingSlope',\n                         line=dict(color='darkorchid', width=2)), row=2, col=1)\nfig.update_layout(\n    title=\"Expanding OLS slope over a random walk\",\n    yaxis=dict(title='Input'), yaxis2=dict(title='Slope (units/step)'),\n    margin=dict(l=20, r=20, t=60, b=20),\n    legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1),\n)\nfig.show()"
       }
     ]
   },
@@ -1077,7 +1077,7 @@
       {
         "language": "python",
         "caption": "Usage example",
-        "code": "import numpy as np\nfrom screamer import ExpandingStd\n\nx = np.arange(1.0, 11.0)\ny = ExpandingStd()(x)"
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import ExpandingStd\n\nrng = np.random.default_rng(0)\nN = 300\ndata = np.cumsum(rng.standard_normal(N))\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.5, 0.5],\n                    vertical_spacing=0.08)\nfig.add_trace(go.Scatter(y=data, mode='lines', name='Input', line=dict(color='steelblue', width=1)),\n              row=1, col=1)\nfig.add_trace(go.Scatter(y=ExpandingStd()(data), mode='lines', name='ExpandingStd',\n                         line=dict(color='crimson', width=2)), row=2, col=1)\nfig.update_layout(\n    title=\"Expanding standard deviation over a random walk\",\n    yaxis=dict(title='Input'), yaxis2=dict(title='Std'),\n    margin=dict(l=20, r=20, t=60, b=20),\n    legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1),\n)\nfig.show()"
       }
     ]
   },
@@ -1103,7 +1103,7 @@
       {
         "language": "python",
         "caption": "Usage example",
-        "code": "import numpy as np\nfrom screamer import ExpandingSum\n\nx = np.arange(1.0, 11.0)\ny = ExpandingSum()(x)"
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import ExpandingSum\n\nrng = np.random.default_rng(0)\nN = 300\ndata = np.cumsum(rng.standard_normal(N))\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.5, 0.5],\n                    vertical_spacing=0.08)\nfig.add_trace(go.Scatter(y=data, mode='lines', name='Input', line=dict(color='steelblue', width=1)),\n              row=1, col=1)\nfig.add_trace(go.Scatter(y=ExpandingSum()(data), mode='lines', name='ExpandingSum',\n                         line=dict(color='crimson', width=2)), row=2, col=1)\nfig.update_layout(\n    title=\"Expanding sum over a random walk\",\n    yaxis=dict(title='Input'), yaxis2=dict(title='Cumulative sum'),\n    margin=dict(l=20, r=20, t=60, b=20),\n    legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1),\n)\nfig.show()"
       }
     ]
   },
@@ -1129,7 +1129,7 @@
       {
         "language": "python",
         "caption": "Usage example",
-        "code": "import numpy as np\nfrom screamer import ExpandingVar\n\nx = np.arange(1.0, 11.0)\ny = ExpandingVar()(x)"
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import ExpandingVar\n\nrng = np.random.default_rng(0)\nN = 300\ndata = np.cumsum(rng.standard_normal(N))\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.5, 0.5],\n                    vertical_spacing=0.08)\nfig.add_trace(go.Scatter(y=data, mode='lines', name='Input', line=dict(color='steelblue', width=1)),\n              row=1, col=1)\nfig.add_trace(go.Scatter(y=ExpandingVar()(data), mode='lines', name='ExpandingVar',\n                         line=dict(color='darkorange', width=2)), row=2, col=1)\nfig.update_layout(\n    title=\"Expanding variance over a random walk\",\n    yaxis=dict(title='Input'), yaxis2=dict(title='Variance'),\n    margin=dict(l=20, r=20, t=60, b=20),\n    legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1),\n)\nfig.show()"
       }
     ]
   },
@@ -3070,7 +3070,7 @@
       {
         "language": "python",
         "caption": "Usage example",
-        "code": "import numpy as np\nfrom screamer import Atan2\n\nAtan2()(1.0,  0.0)             # +pi/2  (point on +y axis)\nAtan2()(-1.0, 0.0)             # -pi/2  (point on -y axis)\nAtan2()(0.0, -1.0)             # +pi    (point on -x axis)\n\n# Two parallel arrays - wind direction from u/v components\nux = np.random.randn(100)\nuy = np.random.randn(100)\ndirection = Atan2()(uy, ux)"
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom screamer import Atan2\n\nN = 200\nt = np.linspace(-np.pi, np.pi, N)\ny = np.sin(t)\nx = np.cos(t)\nangle = Atan2()(y, x)\n\nfig = go.Figure()\nfig.add_trace(go.Scatter(y=t, mode='lines', name='Angle t (input)', line=dict(dash='dash')))\nfig.add_trace(go.Scatter(y=angle, mode='lines', name='Atan2(sin t, cos t)', line=dict(color='red')))\nfig.update_layout(\n    title=\"Atan2: recovering the angle from (sin t, cos t)\",\n    xaxis_title=\"Index\", yaxis_title=\"Radians\",\n    margin=dict(l=20, r=20, t=80, b=20),\n    legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1),\n)\nfig.show()"
       }
     ]
   },
@@ -3426,7 +3426,7 @@
       {
         "language": "python",
         "caption": "Usage example",
-        "code": "import numpy as np\nfrom screamer import Hypot\n\n# Scalar pair\nHypot()(3.0, 4.0)              # 5.0\n\n# Two parallel 1D arrays\nux = np.random.randn(100)\nuy = np.random.randn(100)\nspeed = Hypot()(ux, uy)        # shape (100,)\n\n# Two parallel 2D arrays (column-by-column pairing)\nUX = np.random.randn(100, 4)\nUY = np.random.randn(100, 4)\nHypot()(UX, UY).shape          # (100, 4)"
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom screamer import Hypot\n\nrng = np.random.default_rng(0)\nN = 200\nx = np.cumsum(rng.standard_normal(N))\ny = np.cumsum(rng.standard_normal(N))\nr = Hypot()(x, y)\n\nfig = go.Figure()\nfig.add_trace(go.Scatter(y=x, mode='lines', name='x', opacity=0.7))\nfig.add_trace(go.Scatter(y=y, mode='lines', name='y', opacity=0.7))\nfig.add_trace(go.Scatter(y=r, mode='lines', name='Hypot(x, y)', line=dict(color='red')))\nfig.update_layout(\n    title=\"Hypot: Euclidean length sqrt(x^2 + y^2)\",\n    xaxis_title=\"Index\", yaxis_title=\"Value\",\n    margin=dict(l=20, r=20, t=80, b=20),\n    legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1),\n)\nfig.show()"
       }
     ]
   },
@@ -3794,7 +3794,7 @@
       {
         "language": "python",
         "caption": "Usage example",
-        "code": "import numpy as np\nfrom screamer import Polar2Cart, Cart2Polar\n\n# Roundtrip with Cart2Polar (inverse pair)\nrng = np.random.default_rng(0)\nx = rng.standard_normal(100)\ny = rng.standard_normal(100)\n\npolar = Cart2Polar()(x, y)              # shape (100, 2)\nback = Polar2Cart()(polar[:, 0], polar[:, 1])\nnp.testing.assert_allclose(back[:, 0], x, atol=1e-12)\nnp.testing.assert_allclose(back[:, 1], y, atol=1e-12)"
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom screamer import Polar2Cart\n\nN = 200\ntheta = np.linspace(0, 2 * np.pi, N)\nr = np.ones(N)\nout = Polar2Cart()(r, theta)   # shape (N, 2); out[:,0] = x, out[:,1] = y\ncart_x = out[:, 0]\ncart_y = out[:, 1]\n\nfig = go.Figure()\nfig.add_trace(go.Scatter(x=cart_x, y=cart_y, mode='lines', name='unit circle (r=1)'))\nfig.update_layout(\n    title=\"Polar2Cart: unit circle traced by sweeping theta from 0 to 2*pi\",\n    xaxis_title=\"x\", yaxis_title=\"y\",\n    xaxis=dict(scaleanchor=\"y\"),\n    margin=dict(l=20, r=20, t=80, b=20),\n    legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1),\n)\nfig.show()"
       }
     ]
   },
@@ -5175,7 +5175,7 @@
       {
         "language": "python",
         "caption": "Usage example",
-        "code": "from screamer import Identity, RollingMean\n\n# A pipeline slot that can later be swapped for a real transform.\npreproc = Identity()\nsmoother = RollingMean(10)\n\nstream = (smoother(preproc(v)) for v in source)"
+        "code": "import numpy as np\nfrom screamer import Identity\n\nx = np.array([1.0, 2.0, 3.0])\nprint(Identity()(x))"
       }
     ]
   },
@@ -5497,8 +5497,8 @@
     "examples": [
       {
         "language": "python",
-        "caption": "Usage",
-        "code": "import numpy as np\nfrom screamer import ADX\n\nrng = np.random.default_rng(0)\nn = 300\nclose = 100 + np.cumsum(rng.normal(0, 1, n))\nhigh = close + np.abs(rng.normal(0, 0.5, n))\nlow = close - np.abs(rng.normal(0, 0.5, n))\n\nout = ADX(14)(high, low, close)\nplus_di, minus_di, adx = out[:, 0], out[:, 1], out[:, 2]\n# adx > 25 -> trending; adx < 20 -> ranging (Wilder's heuristic)"
+        "caption": "Usage example",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import ADX\n\nrng = np.random.default_rng(0)\nN = 300\nclose = 100 + np.cumsum(rng.standard_normal(N))\nhigh = close + np.abs(rng.standard_normal(N))\nlow = close - np.abs(rng.standard_normal(N))\n\nout = ADX(window_size=14)(high, low, close)\nplus_di  = out[:, 0]\nminus_di = out[:, 1]\nadx      = out[:, 2]\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.5, 0.5],\n                    vertical_spacing=0.08)\nfig.add_trace(go.Scatter(y=close, name='Close', line=dict(color='steelblue')),\n              row=1, col=1)\nfig.add_trace(go.Scatter(y=adx, name='ADX', line=dict(color='crimson')), row=2, col=1)\nfig.add_trace(go.Scatter(y=plus_di, name='+DI', line=dict(color='green', dash='dot')), row=2, col=1)\nfig.add_trace(go.Scatter(y=minus_di, name='-DI', line=dict(color='orange', dash='dot')), row=2, col=1)\nfig.update_layout(\n    title='ADX: trend strength over synthetic OHLC data',\n    yaxis=dict(title='Price'), yaxis2=dict(title='ADX / DI (0-100)'),\n    margin=dict(l=20, r=20, t=60, b=20),\n    legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1),\n)\nfig.show()"
       }
     ]
   },
@@ -5703,7 +5703,7 @@
       {
         "language": "python",
         "caption": "Usage example",
-        "code": "import numpy as np\nfrom screamer import DEMA, EwMean\n\nx = np.cumsum(np.random.randn(100))\n\n# Direct\nours = DEMA(span=10)(x)\n\n# Algorithmically equivalent composition (the test suite verifies bit-equality)\ne1 = EwMean(span=10)(x)\ne2 = EwMean(span=10)(e1)\nnp.testing.assert_allclose(ours, 2*e1 - e2, atol=1e-12)"
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom screamer import DEMA\n\nrng = np.random.default_rng(0)\nN = 300\ndata = np.cumsum(rng.standard_normal(N))\n\nfig = go.Figure()\nfig.add_trace(go.Scatter(y=data, mode='lines', name='Input', line=dict(color='steelblue', width=1)))\nfig.add_trace(go.Scatter(y=DEMA(span=20)(data), mode='lines', name='DEMA(span=20)', line=dict(color='crimson', width=2)))\nfig.update_layout(\n    title=\"DEMA smoother over a random walk\",\n    xaxis_title=\"Index\", yaxis_title=\"Value\",\n    margin=dict(l=20, r=20, t=80, b=20),\n    legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1),\n)\nfig.show()"
       }
     ]
   },
@@ -5800,7 +5800,7 @@
       {
         "language": "python",
         "caption": "Usage example",
-        "code": "import numpy as np\nfrom screamer import Hampel\n\nrng = np.random.default_rng(0)\nx = np.sin(np.linspace(0, 8, 300)) + 0.05 * rng.standard_normal(300)\nx[150] += 6.0                       # a spike\n\ncleaned = Hampel(window_size=21, n_sigma=3.0)(x)                      # spike removed\nflags = Hampel(window_size=21, n_sigma=3.0, output=\"flag\")(x)         # 1.0 at the spike"
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom screamer import Hampel\n\nrng = np.random.default_rng(0)\nN = 300\ndata = np.cumsum(rng.standard_normal(N))\ndata[[100, 150, 200]] += 15\n\ncleaned = Hampel(window_size=21, n_sigma=3.0)(data)\n\nfig = go.Figure()\nfig.add_trace(go.Scatter(y=data, mode='lines', name='Raw (with spikes)', line=dict(color='steelblue')))\nfig.add_trace(go.Scatter(y=cleaned, mode='lines', name='Hampel(window_size=21, n_sigma=3.0)', line=dict(color='crimson')))\nfig.update_layout(\n    title='Hampel filter: robust despiker on a random walk',\n    xaxis_title='Index', yaxis_title='Value',\n    margin=dict(l=20, r=20, t=60, b=20),\n    legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1),\n)\nfig.show()"
       }
     ]
   },
@@ -5835,7 +5835,7 @@
       {
         "language": "python",
         "caption": "Usage example",
-        "code": "import numpy as np\nfrom screamer import HullMA, WMA\n\nx = np.cumsum(np.random.randn(200))\nn = 16\n\n# Direct\nours = HullMA(n)(x)\n\n# Algorithmically equivalent composition (post-warmup; the test suite\n# verifies bit-equality)\nn_half = n // 2\nn_sqrt = int(np.sqrt(n))\nw_half = WMA(n_half, \"expanding\")(x)\nw_full = WMA(n,      \"expanding\")(x)\nw_outer = WMA(n_sqrt, \"expanding\")(2*w_half - w_full)\nwarmup = n + n_sqrt - 1\nnp.testing.assert_allclose(ours[warmup - 1:], w_outer[warmup - 1:], atol=1e-12)"
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom screamer import HullMA\n\nrng = np.random.default_rng(0)\nN = 300\ndata = np.cumsum(rng.standard_normal(N))\n\nfig = go.Figure()\nfig.add_trace(go.Scatter(y=data, mode='lines', name='Input', line=dict(color='steelblue', width=1)))\nfig.add_trace(go.Scatter(y=HullMA(window_size=20)(data), mode='lines', name='HullMA(window_size=20)', line=dict(color='crimson', width=2)))\nfig.update_layout(\n    title=\"HullMA smoother over a random walk\",\n    xaxis_title=\"Index\", yaxis_title=\"Value\",\n    margin=dict(l=20, r=20, t=80, b=20),\n    legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1),\n)\nfig.show()"
       }
     ]
   },
@@ -5896,7 +5896,7 @@
       {
         "language": "python",
         "caption": "Usage example",
-        "code": "import numpy as np\nfrom screamer import ImpulseClip\n\nrng = np.random.default_rng(7)\nt = np.linspace(0, 6 * np.pi, 400)\nx = np.sin(t) + 0.3 * rng.standard_normal(t.size)   # oscillating + noise\nx[[80, 210, 330]] += 4.0                            # spikes\n\ncleaned = ImpulseClip(window_size=31, n_sigma=4.0)(x)               # default: \"cleaned\"\nflag    = ImpulseClip(window_size=31, n_sigma=4.0, output=\"flag\")(x) # 1.0 at flagged samples"
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom screamer import ImpulseClip\n\nrng = np.random.default_rng(0)\nN = 300\ndata = np.cumsum(rng.standard_normal(N))\ndata[[100, 150, 200]] += 15\n\ncleaned = ImpulseClip(window_size=21, n_sigma=4.0)(data)\n\nfig = go.Figure()\nfig.add_trace(go.Scatter(y=data, mode='lines', name='Raw (with spikes)', line=dict(color='steelblue')))\nfig.add_trace(go.Scatter(y=cleaned, mode='lines', name='ImpulseClip(window_size=21, n_sigma=4.0)', line=dict(color='crimson')))\nfig.update_layout(\n    title='ImpulseClip: causal impulse remover on a random walk',\n    xaxis_title='Index', yaxis_title='Value',\n    margin=dict(l=20, r=20, t=60, b=20),\n    legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1),\n)\nfig.show()"
       }
     ]
   },
@@ -6178,7 +6178,7 @@
       {
         "language": "python",
         "caption": "Usage example",
-        "code": "import numpy as np\nfrom screamer import RollingArgmax, RollingMax\n\nx = np.array([3, 1, 4, 1, 5, 9, 2, 6, 5, 3, 5], dtype=float)\nRollingArgmax(5)(x)        # window offsets, 0 = oldest in window\nRollingMax(5)(x)           # corresponding maxima"
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import RollingArgmax\n\nrng = np.random.default_rng(0)\nN = 300\ndata = np.cumsum(rng.standard_normal(N))\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.5, 0.5],\n                    vertical_spacing=0.08)\nfig.add_trace(go.Scatter(y=data, mode='lines', name='Input', line=dict(color='steelblue', width=1)),\n              row=1, col=1)\nfig.add_trace(go.Scatter(y=RollingArgmax(window_size=30)(data), mode='lines',\n                         name='RollingArgmax(window_size=30)',\n                         line=dict(color='crimson', width=2)), row=2, col=1)\nfig.update_layout(\n    title=\"Rolling argmax (window offset of maximum) over a random walk\",\n    yaxis=dict(title='Input'), yaxis2=dict(title='Argmax offset'),\n    margin=dict(l=20, r=20, t=60, b=20),\n    legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1),\n)\nfig.show()"
       }
     ]
   },
@@ -6211,7 +6211,7 @@
       {
         "language": "python",
         "caption": "Usage example",
-        "code": "import numpy as np\nfrom screamer import RollingArgmin, RollingMin\n\nx = np.array([3, 1, 4, 1, 5, 9, 2, 6, 5, 3, 5], dtype=float)\nRollingArgmin(5)(x)        # window offsets, 0 = oldest in window\nRollingMin(5)(x)           # corresponding minima\n\n# Example: how long ago was the running low? Convert offset to \"steps ago\":\nsteps_ago = (5 - 1) - RollingArgmin(5)(x).astype(int)"
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import RollingArgmin\n\nrng = np.random.default_rng(0)\nN = 300\ndata = np.cumsum(rng.standard_normal(N))\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.5, 0.5],\n                    vertical_spacing=0.08)\nfig.add_trace(go.Scatter(y=data, mode='lines', name='Input', line=dict(color='steelblue', width=1)),\n              row=1, col=1)\nfig.add_trace(go.Scatter(y=RollingArgmin(window_size=30)(data), mode='lines',\n                         name='RollingArgmin(window_size=30)',\n                         line=dict(color='crimson', width=2)), row=2, col=1)\nfig.update_layout(\n    title=\"Rolling argmin (window offset of minimum) over a random walk\",\n    yaxis=dict(title='Input'), yaxis2=dict(title='Argmin offset'),\n    margin=dict(l=20, r=20, t=60, b=20),\n    legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1),\n)\nfig.show()"
       }
     ]
   },
@@ -6377,7 +6377,7 @@
       {
         "language": "python",
         "caption": "Usage example",
-        "code": "import numpy as np\nimport pandas as pd\nfrom screamer import RollingIqr\n\nrng = np.random.default_rng(0)\nx = rng.standard_normal(500)\niqr = RollingIqr(30)(x)\n\n# Validate against pandas (post-warmup, to ~1e-12)\nref = (\n    pd.Series(x).rolling(30).quantile(0.75)\n    - pd.Series(x).rolling(30).quantile(0.25)\n).to_numpy()\nnp.testing.assert_allclose(iqr[29:], ref[29:], atol=1e-12)"
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import RollingIqr\n\nrng = np.random.default_rng(0)\nN = 300\ndata = np.cumsum(rng.standard_normal(N))\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.5, 0.5],\n                    vertical_spacing=0.08)\nfig.add_trace(go.Scatter(y=data, mode='lines', name='Input', line=dict(color='steelblue', width=1)),\n              row=1, col=1)\nfig.add_trace(go.Scatter(y=RollingIqr(window_size=30)(data), mode='lines', name='RollingIqr(window_size=30)',\n                         line=dict(color='crimson', width=2)), row=2, col=1)\nfig.update_layout(\n    title=\"Rolling interquartile range over a random walk\",\n    yaxis=dict(title='Input'), yaxis2=dict(title='IQR'),\n    margin=dict(l=20, r=20, t=60, b=20),\n    legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1),\n)\nfig.show()"
       }
     ]
   },
@@ -6623,7 +6623,7 @@
       {
         "language": "python",
         "caption": "Usage example",
-        "code": "import numpy as np\nfrom screamer import RollingMedianAD\n\nx = np.array([1.0, 2.0, 1.0, 2.0, 50.0, 2.0, 1.0])\nprint(RollingMedianAD(5)(x))   # robust scale, barely moved by the spike"
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import RollingMedianAD\n\nrng = np.random.default_rng(0)\nN = 300\ndata = np.cumsum(rng.standard_normal(N))\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.5, 0.5],\n                    vertical_spacing=0.08)\nfig.add_trace(go.Scatter(y=data, mode='lines', name='Input', line=dict(color='steelblue', width=1)),\n              row=1, col=1)\nfig.add_trace(go.Scatter(y=RollingMedianAD(window_size=30)(data), mode='lines',\n                         name='RollingMedianAD(window_size=30)',\n                         line=dict(color='crimson', width=2)), row=2, col=1)\nfig.update_layout(\n    title=\"Rolling median absolute deviation over a random walk\",\n    yaxis=dict(title='Input'), yaxis2=dict(title='MAD'),\n    margin=dict(l=20, r=20, t=60, b=20),\n    legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1),\n)\nfig.show()"
       }
     ]
   },
@@ -7070,7 +7070,7 @@
       {
         "language": "python",
         "caption": "Usage example",
-        "code": "import numpy as np\nfrom screamer import RollingRange, RollingMinMax\n\nx = np.cumsum(np.random.normal(size=200))\n\n# Direct\nrange_x = RollingRange(20)(x)\n\n# Algorithmically equivalent composition\nmm = RollingMinMax(20)(x)\nnp.testing.assert_array_equal(range_x, mm[:, 1] - mm[:, 0])"
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import RollingRange\n\nrng = np.random.default_rng(0)\nN = 300\ndata = np.cumsum(rng.standard_normal(N))\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.5, 0.5],\n                    vertical_spacing=0.08)\nfig.add_trace(go.Scatter(y=data, mode='lines', name='Input', line=dict(color='steelblue', width=1)),\n              row=1, col=1)\nfig.add_trace(go.Scatter(y=RollingRange(window_size=30)(data), mode='lines', name='RollingRange(window_size=30)',\n                         line=dict(color='crimson', width=2)), row=2, col=1)\nfig.update_layout(\n    title=\"Rolling range (max - min) over a random walk\",\n    yaxis=dict(title='Input'), yaxis2=dict(title='Range'),\n    margin=dict(l=20, r=20, t=60, b=20),\n    legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1),\n)\nfig.show()"
       }
     ]
   },
@@ -7754,7 +7754,7 @@
       {
         "language": "python",
         "caption": "Usage example",
-        "code": "import numpy as np\nfrom screamer import TEMA, EwMean\n\nx = np.cumsum(np.random.randn(100))\n\n# Direct\nours = TEMA(span=10)(x)\n\n# Algorithmically equivalent composition (the test suite verifies equality)\ne1 = EwMean(span=10)(x)\ne2 = EwMean(span=10)(e1)\ne3 = EwMean(span=10)(e2)\nnp.testing.assert_allclose(ours, 3*e1 - 3*e2 + e3, atol=1e-12)"
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom screamer import TEMA\n\nrng = np.random.default_rng(0)\nN = 300\ndata = np.cumsum(rng.standard_normal(N))\n\nfig = go.Figure()\nfig.add_trace(go.Scatter(y=data, mode='lines', name='Input', line=dict(color='steelblue', width=1)))\nfig.add_trace(go.Scatter(y=TEMA(span=20)(data), mode='lines', name='TEMA(span=20)', line=dict(color='crimson', width=2)))\nfig.update_layout(\n    title=\"TEMA smoother over a random walk\",\n    xaxis_title=\"Index\", yaxis_title=\"Value\",\n    margin=dict(l=20, r=20, t=80, b=20),\n    legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1),\n)\nfig.show()"
       }
     ]
   },
@@ -7788,7 +7788,7 @@
       {
         "language": "python",
         "caption": "Usage example",
-        "code": "import numpy as np\nfrom screamer import TRIMA, RollingMean\n\nx = np.cumsum(np.random.randn(100))\nn = 10\n\n# Direct\nours = TRIMA(n)(x)\n\n# Algorithmically equivalent composition (post-warmup, the test suite\n# verifies bit-equality)\nn_inner, n_outer = (n // 2 + 1, n // 2) if n % 2 == 0 else ((n + 1) // 2, (n + 1) // 2)\ninner = RollingMean(n_inner, \"expanding\")(x)\nouter = RollingMean(n_outer, \"expanding\")(inner)\nnp.testing.assert_allclose(ours[n - 1:], outer[n - 1:], atol=1e-12)"
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom screamer import TRIMA\n\nrng = np.random.default_rng(0)\nN = 300\ndata = np.cumsum(rng.standard_normal(N))\n\nfig = go.Figure()\nfig.add_trace(go.Scatter(y=data, mode='lines', name='Input', line=dict(color='steelblue', width=1)))\nfig.add_trace(go.Scatter(y=TRIMA(window_size=20)(data), mode='lines', name='TRIMA(window_size=20)', line=dict(color='crimson', width=2)))\nfig.update_layout(\n    title=\"TRIMA smoother over a random walk\",\n    xaxis_title=\"Index\", yaxis_title=\"Value\",\n    margin=dict(l=20, r=20, t=80, b=20),\n    legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1),\n)\nfig.show()"
       }
     ]
   },
@@ -7824,7 +7824,7 @@
       {
         "language": "python",
         "caption": "Usage example",
-        "code": "import numpy as np, pandas as pd\nfrom screamer import TRIX\n\nx = 100 + np.cumsum(np.random.default_rng(0).standard_normal(200))\ntrix = TRIX(14)(x)\n\n# Algorithmically equivalent composition (pandas adjust=True):\ns = pd.Series(x)\ne3 = s.ewm(span=14, adjust=True).mean().ewm(span=14, adjust=True).mean().ewm(span=14, adjust=True).mean()\nnp.testing.assert_allclose(trix, 100 * e3.pct_change(), equal_nan=True, atol=1e-12)"
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import TRIX\n\nrng = np.random.default_rng(0)\nN = 300\ndata = 100.0 + np.cumsum(rng.standard_normal(N))\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.5, 0.5],\n                    vertical_spacing=0.08)\nfig.add_trace(go.Scatter(y=data, mode='lines', name='Input', line=dict(color='steelblue', width=1)),\n              row=1, col=1)\nfig.add_trace(go.Scatter(y=TRIX(span=14)(data), mode='lines', name='TRIX(span=14)',\n                         line=dict(color='crimson', width=2)), row=2, col=1)\nfig.update_layout(\n    title=\"TRIX momentum oscillator over a price series\",\n    yaxis=dict(title='Input'), yaxis2=dict(title='TRIX'),\n    margin=dict(l=20, r=20, t=60, b=20),\n    legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1),\n)\nfig.show()"
       }
     ]
   },
@@ -7947,7 +7947,7 @@
       {
         "language": "python",
         "caption": "Usage example",
-        "code": "import numpy as np\nimport pandas as pd\nfrom screamer import WMA\n\nrng = np.random.default_rng(0)\nx = rng.standard_normal(100)\nw = 10\n\nours = WMA(w)(x)\n\n# Reference: explicit per-window dot product (same definition pandas uses)\nref = pd.Series(x).rolling(w).apply(\n    lambda v: np.dot(v, np.arange(1, w + 1)) / (w * (w + 1) / 2),\n    raw=True,\n).to_numpy()\nnp.testing.assert_allclose(ours, ref, equal_nan=True, atol=1e-12)"
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom screamer import WMA\n\nrng = np.random.default_rng(0)\nN = 300\ndata = np.cumsum(rng.standard_normal(N))\n\nfig = go.Figure()\nfig.add_trace(go.Scatter(y=data, mode='lines', name='Input', line=dict(color='steelblue', width=1)))\nfig.add_trace(go.Scatter(y=WMA(window_size=20)(data), mode='lines', name='WMA(window_size=20)', line=dict(color='crimson', width=2)))\nfig.update_layout(\n    title=\"WMA smoother over a random walk\",\n    xaxis_title=\"Index\", yaxis_title=\"Value\",\n    margin=dict(l=20, r=20, t=80, b=20),\n    legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1),\n)\nfig.show()"
       }
     ]
   },
@@ -8079,8 +8079,8 @@
     "examples": [
       {
         "language": "python",
-        "caption": "Description",
-        "code": "from screamer import ButterBandpass\nbp = ButterBandpass(order=4, low_cutoff=0.1, high_cutoff=0.3)\nout = bp(signal)"
+        "caption": "Usage example",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom screamer import ButterBandpass\n\nrng = np.random.default_rng(0)\nfs = 500.0\nN = 1000\nt = np.arange(N) / fs\n\n# Composite: low-frequency component (5 Hz) + high-frequency component (80 Hz) + noise\nlow_freq = np.sin(2 * np.pi * 5 * t)\nhigh_freq = 0.5 * np.sin(2 * np.pi * 80 * t)\nnoise = 0.2 * rng.standard_normal(N)\nsignal = low_freq + high_freq + noise\n\n# Band-pass: keep 20-60 Hz (normalised: 20/250=0.08, 60/250=0.24)\nfiltered = ButterBandpass(order=4, low_cutoff=0.08, high_cutoff=0.24)(signal)\n\nfig = go.Figure()\nfig.add_trace(go.Scatter(y=signal, mode='lines', name='Raw (5 Hz + 80 Hz + noise)',\n                         line=dict(color='lightblue'), opacity=0.7))\nfig.add_trace(go.Scatter(y=filtered, mode='lines',\n                         name='ButterBandpass(order=4, low=0.08, high=0.24)',\n                         line=dict(color='red')))\nfig.update_layout(\n    title=\"Butterworth band-pass filter (pass band: 20-60 Hz)\",\n    xaxis_title=\"Sample\", yaxis_title=\"Amplitude\",\n    margin=dict(l=20, r=20, t=80, b=20),\n    legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1),\n)\nfig.show()"
       }
     ]
   },
@@ -8130,8 +8130,8 @@
     "examples": [
       {
         "language": "python",
-        "caption": "Description",
-        "code": "from screamer import ButterBandstop\n# 60 Hz notch on 1kHz-sampled data: Nyquist = 500 Hz, cutoffs ~58/500 .. 62/500\nnotch = ButterBandstop(order=2, low_cutoff=0.116, high_cutoff=0.124)\nout = notch(signal)"
+        "caption": "Usage example",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom screamer import ButterBandstop\n\nrng = np.random.default_rng(0)\nfs = 500.0\nN = 1000\nt = np.arange(N) / fs\n\n# Composite: slow drift (3 Hz) + interference at 40 Hz + noise\nslow = np.sin(2 * np.pi * 3 * t)\ninterference = 0.8 * np.sin(2 * np.pi * 40 * t)\nnoise = 0.15 * rng.standard_normal(N)\nsignal = slow + interference + noise\n\n# Band-stop: reject 30-55 Hz (normalised: 30/250=0.12, 55/250=0.22)\nfiltered = ButterBandstop(order=4, low_cutoff=0.12, high_cutoff=0.22)(signal)\n\nfig = go.Figure()\nfig.add_trace(go.Scatter(y=signal, mode='lines', name='Raw (3 Hz drift + 40 Hz interference)',\n                         line=dict(color='lightblue'), opacity=0.7))\nfig.add_trace(go.Scatter(y=filtered, mode='lines',\n                         name='ButterBandstop(order=4, low=0.12, high=0.22)',\n                         line=dict(color='red')))\nfig.update_layout(\n    title=\"Butterworth band-stop filter (reject band: 30-55 Hz)\",\n    xaxis_title=\"Sample\", yaxis_title=\"Amplitude\",\n    margin=dict(l=20, r=20, t=80, b=20),\n    legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1),\n)\nfig.show()"
       }
     ]
   },
@@ -8169,7 +8169,13 @@
     ],
     "nan_policy": "ignore",
     "details": "## Description\n\nDigital high-pass Butterworth IIR filter, designed via the standard analog-prototype + `lp2hp` + bilinear pipeline.\n\n$$\n\\text{ButterHighpass}(N, W_c)\n$$\n\n- `order` (int, $\\ge 1$): filter order. Higher order = steeper roll-off, larger group delay.\n- `cutoff_freq` (float in $(0, 1)$): normalised cutoff. `1` is the Nyquist frequency (matches `scipy.signal.butter`'s `Wn` convention).\n\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
-    "examples": []
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage example",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom screamer import ButterHighpass\n\nrng = np.random.default_rng(0)\nfs = 500.0\nN = 1000\nt = np.arange(N) / fs\n\n# Composite: slow drift (2 Hz) + high-frequency detail (60 Hz) + noise\nslow = 2.0 * np.sin(2 * np.pi * 2 * t)\ndetail = 0.5 * np.sin(2 * np.pi * 60 * t)\nnoise = 0.15 * rng.standard_normal(N)\nsignal = slow + detail + noise\n\n# High-pass: reject below 20 Hz (normalised: 20/250=0.08)\nfiltered = ButterHighpass(order=4, cutoff_freq=0.08)(signal)\n\nfig = go.Figure()\nfig.add_trace(go.Scatter(y=signal, mode='lines', name='Raw (2 Hz drift + 60 Hz detail)',\n                         line=dict(color='lightblue'), opacity=0.7))\nfig.add_trace(go.Scatter(y=filtered, mode='lines',\n                         name='ButterHighpass(order=4, cutoff_freq=0.08)',\n                         line=dict(color='red')))\nfig.update_layout(\n    title=\"Butterworth high-pass filter (cutoff: 20 Hz, rejects slow drift)\",\n    xaxis_title=\"Sample\", yaxis_title=\"Amplitude\",\n    margin=dict(l=20, r=20, t=80, b=20),\n    legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1),\n)\nfig.show()"
+      }
+    ]
   },
   "KalmanFilter": {
     "name": "KalmanFilter",
@@ -8222,7 +8228,7 @@
       {
         "language": "python",
         "caption": "Usage example",
-        "code": "import numpy as np\nfrom screamer import KalmanFilter\n\n# Noisy observations of a roughly-constant value.\ntruth = 5.0\nobs = truth + np.random.normal(0, 1.0, 200)\n\n# Trust the model more than the measurements (slow / smooth).\nkf = KalmanFilter(process_var=0.001, observation_var=1.0)\nsmoothed = kf(obs)\n\n# Edge cases:\n# - process_var -> 0 collapses to the running mean\n# - process_var -> infinity collapses to \"output the latest measurement\""
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom screamer import KalmanFilter\n\nrng = np.random.default_rng(0)\nN = 300\nt = np.linspace(0, 6 * np.pi, N)\n\n# Smooth true signal: slow sine wave\ntrue_signal = np.sin(t)\n# Noisy observations\nobs = true_signal + rng.standard_normal(N)\n\n# Kalman smoother: trust model more than measurements\nkf_smooth = KalmanFilter(process_var=0.01, observation_var=1.0)\nsmoothed = kf_smooth(obs)\n\nfig = go.Figure()\nfig.add_trace(go.Scatter(y=obs, mode='lines', name='Noisy observations',\n                         line=dict(color='lightblue'), opacity=0.7))\nfig.add_trace(go.Scatter(y=true_signal, mode='lines', name='True signal',\n                         line=dict(color='green', dash='dash')))\nfig.add_trace(go.Scatter(y=smoothed, mode='lines',\n                         name='KalmanFilter(process_var=0.01, observation_var=1.0)',\n                         line=dict(color='red')))\nfig.update_layout(\n    title=\"Scalar Kalman filter: recovering a sine from noisy observations\",\n    xaxis_title=\"Index\", yaxis_title=\"Value\",\n    margin=dict(l=20, r=20, t=80, b=20),\n    legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1),\n)\nfig.show()"
       }
     ]
   },
@@ -8260,7 +8266,7 @@
       {
         "language": "python",
         "caption": "Usage example",
-        "code": "import numpy as np\nfrom screamer import MovingAverage\n\n# Hamming-windowed low-pass smoother (unity gain).\ntaps = np.hamming(11)\ntaps /= taps.sum()\nout = MovingAverage(list(taps))(signal)\n\n# Uniform taps -> simple rolling mean (equivalent to RollingMean).\nout = MovingAverage([1/7] * 7)(signal)"
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom screamer import MovingAverage\n\nrng = np.random.default_rng(0)\nN = 300\ndata = np.cumsum(rng.standard_normal(N))\n\n# Hamming-windowed low-pass smoother (unity gain)\ntaps = np.hamming(21)\ntaps /= taps.sum()\n\nsmoothed = MovingAverage(list(taps))(data)\n\nfig = go.Figure()\nfig.add_trace(go.Scatter(y=data, mode='lines', name='Input',\n                         line=dict(color='lightblue'), opacity=0.8))\nfig.add_trace(go.Scatter(y=smoothed, mode='lines',\n                         name='MovingAverage (21-tap Hamming)',\n                         line=dict(color='red')))\nfig.update_layout(\n    title=\"FIR moving average with 21-tap Hamming window\",\n    xaxis_title=\"Index\", yaxis_title=\"Value\",\n    margin=dict(l=20, r=20, t=80, b=20),\n    legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1),\n)\nfig.show()"
       }
     ]
   },
