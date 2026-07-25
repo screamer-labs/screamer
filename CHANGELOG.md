@@ -2,8 +2,11 @@
 
 All notable changes to this project are documented in this file.
 
-[Unreleased]
+1.0.0 - 2026-07-25
 ------------
+
+First stable release. The public API is stable from this point and follows
+semantic versioning.
 
 ### Changed (breaking)
 
@@ -11,6 +14,29 @@ All notable changes to this project are documented in this file.
   The third return (the row index) was redundant: the function delays `X` and passes
   `y` through, so the output rows sit on the caller's own timeline. Keep your own index
   alongside `X` and `y` if you need to map rows back to time.
+
+### Added
+
+* `Pipeline` accepts `max_pending` (default 1,000,000), the cap on the `CombineLatest`
+  reorder buffer. A stream that stalls long enough to exceed the cap raises a
+  `RuntimeError` instead of buffering without bound.
+
+### Fixed
+
+* A `Delay` feeding a `CombineLatest` merge inside a single `Pipeline` produced
+  lookahead: the merge aligned each delayed frame against inputs that had not yet
+  advanced, so the result was wrong in both batch and live mode. The DAG now carries an
+  event-time watermark (a monotone lower bound on future frame indices) that gates a
+  bounded reorder buffer at every fan-in, releasing frames in global index order once
+  every input has advanced past them. `Filter` and `Dropna` forward the watermark past
+  dropped frames, and `Resample` closes its windows on it, in both index and count modes.
+
+### Documentation
+
+* Full pass over the notebooks, guides, and every function reference page: corrected
+  formulas and claims that did not match the implementation, and rewrote descriptions to
+  lead with what each operator computes. Added a documentation writing guide to
+  `CONTRIBUTING.md`.
 
 0.13.0 - 2026-07-24
 ------------
