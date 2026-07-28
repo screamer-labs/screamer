@@ -1,7 +1,6 @@
 #ifndef SCREAMER_DAG_RESAMPLE_NODE_H
 #define SCREAMER_DAG_RESAMPLE_NODE_H
 
-#include <algorithm>
 #include <cstdint>
 #include <limits>
 #include <stdexcept>
@@ -61,6 +60,10 @@ struct ResampleAccum {
         //   consistent with NegPart() + sum used in the pre-C++-plan ohlcv2 path.
         case ResampleAgg::SumPos: out[0] = sum_pos;  break;
         case ResampleAgg::SumNeg: out[0] = -sum_neg; break;
+        case ResampleAgg::OhlcvBars:
+            // OhlcvBars is a node-level sentinel decomposed into a plan before any
+            // emit_one call; reaching this case is a bug in the caller.
+            throw std::logic_error("emit_one: OhlcvBars must be resolved to a plan before emission");
         case ResampleAgg::Ohlc:
             // Ohlc in the plan context: emit 4 values for one input column.
             // (Used for the legacy single-agg path; plan entries use single-value aggs.)
@@ -118,6 +121,18 @@ public:
             nan_row_.assign(out_width_, std::numeric_limits<double>::quiet_NaN());
             accums_.resize(num_accums_);
         }
+        if (p_.mode == ResampleMode::ByCumulative) {
+            // ByCumulative: input frame must be width 2 (value col + driver col).
+            // The driver is always the LAST column; value columns are all but last.
+            // In the current implementation value is width 1 (single value column)
+            // so the frame is always [value, driver] (width 2).
+            if (f.width != 2)
+                throw std::runtime_error(
+                    "dag::ResampleNode(ByCumulative): expects width-2 input "
+                    "[value, driver]; got width " + std::to_string(f.width));
+            push_by_cumulative(f.index, f.values[0], f.values[1]);
+            return;
+        }
         if (p_.plan.empty()) {
             // Single-column path: width must be 1.
             if (f.width != 1)
@@ -144,6 +159,10 @@ public:
     void flush() override {
         if (p_.mode == ResampleMode::ByIndex) {
             if (has_any()) emit(cur_label_);
+        } else if (p_.mode == ResampleMode::ByCumulative) {
+            // Emit trailing partial bucket if any events landed in it.
+            if (count_in_bucket_ > 0)
+                emit(p_.label == ResampleLabel::Left ? first_index_ : last_index_);
         } else {
             if (count_in_bucket_ > 0)
                 emit(p_.label == ResampleLabel::Left ? first_index_ : last_index_);
@@ -163,9 +182,13 @@ public:
         count_in_bucket_ = 0;
         first_index_ = last_index_ = Index{};
         have_emitted_ = false;
+        cum_driver_ = 0.0;
     }
 
-    std::size_t n_in()  const override { return p_.plan.empty() ? 1u : num_accums_; }
+    std::size_t n_in()  const override {
+        if (p_.mode == ResampleMode::ByCumulative) return 2u;
+        return p_.plan.empty() ? 1u : num_accums_;
+    }
     std::size_t n_out() const override { return out_width_; }
 
     // Event-time watermark: close windows up to `w` then forward a watermark
@@ -275,6 +298,29 @@ private:
         }
     }
 
+    // ByCumulative: value is the bar value; driver is the cumulative driver.
+    // NaN driver is ignored (does not advance the cumulative sum).
+    // The value is always added to the accumulator (even on a NaN driver row),
+    // consistent with nan_policy=ignore: NaN driver does not close the bar, but
+    // the observation's value DOES contribute to the bar's reducer.
+    void push_by_cumulative(Index k, double value, double driver) {
+        if (count_in_bucket_ == 0) first_index_ = k;
+        last_index_ = k;
+        // Always add the value (the price) to the accumulator.
+        accums_[0].add(value);
+        ++count_in_bucket_;
+        // Only advance the cumulative driver if it is not NaN.
+        if (!screamer::isnan2(driver)) {
+            cum_driver_ += driver;
+            if (cum_driver_ >= p_.threshold) {
+                emit(p_.label == ResampleLabel::Left ? first_index_ : last_index_);
+                reset_accums();
+                count_in_bucket_ = 0;
+                cum_driver_ = 0.0;
+            }
+        }
+    }
+
     Index label_for(std::int64_t nb) const {
         std::int64_t start = p_.origin + nb * p_.width;
         return static_cast<Index>(p_.label == ResampleLabel::Left ? start : start + p_.width);
@@ -327,6 +373,7 @@ private:
     Index cur_label_{};
     std::int64_t count_in_bucket_ = 0;
     Index first_index_{}, last_index_{};
+    double cum_driver_ = 0.0;         // ByCumulative: running driver accumulator
 };
 
 }} // namespace screamer::dag

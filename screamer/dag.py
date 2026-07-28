@@ -7,6 +7,8 @@ __all__ = ["Node", "Input", "Pipeline"]
 _RESAMPLE_AGG_CODE = {"first": 0, "last": 1, "min": 2, "max": 3,
                       "sum": 4, "count": 5, "mean": 6, "ohlc": 7,
                       "ohlcv_bars": 10}   # 10 = OhlcvBars (dynamic plan, built in C++)
+# ResampleMode enum codes (matching C++ enum ResampleMode).
+_RESAMPLE_MODE_CODE = {"by_index": 0, "by_count": 1, "by_cumulative": 2}
 _RESAMPLE_FILL_CODE = {"skip": 0, "nan": 1, "carry": 2}
 
 # ResampleAgg enum codes for plan entries (matching the C++ enum).
@@ -291,34 +293,44 @@ class Pipeline:
                     cols, _ = _normalize_columns(kwargs["columns"])
                     nid = gb.add_select(inp, cols)
                 elif name == "Resample":
-                    mode = 1 if kwargs.get("count") is not None else 0   # 0=ByIndex,1=ByCount
+                    threshold = kwargs.get("threshold")
+                    if threshold is not None:
+                        mode = 2  # ByCumulative
+                    elif kwargs.get("count") is not None:
+                        mode = 1  # ByCount
+                    else:
+                        mode = 0  # ByIndex
                     label = 1 if kwargs.get("label", "left") == "right" else 0
                     width = int(kwargs["every"]) if kwargs.get("every") is not None else 1
                     origin = int(kwargs.get("origin", 0))
                     count = int(kwargs["count"]) if kwargs.get("count") is not None else 1
                     agg_val = kwargs.get("agg", "last")
                     fill = _RESAMPLE_FILL_CODE[kwargs.get("fill", "skip")]
+                    threshold_val = float(threshold) if threshold is not None else 0.0
                     if isinstance(agg_val, str) and agg_val in _BAR_AGG_FIXED_PLANS:
                         # Multi-column bar agg with a fixed plan (ohlc_bars, ohlcv, ohlcv2).
                         plan = _BAR_AGG_FIXED_PLANS[agg_val]
                         nid = gb.add_resample(inp, mode, 0, label, width, origin,
-                                              count, fill=fill, plan=plan)
+                                              count, fill=fill, plan=plan,
+                                              threshold=threshold_val)
                     elif isinstance(agg_val, str) and agg_val == "ohlcv_bars":
                         # ohlcv_bars: plan depends on input width (unknown at graph-build
                         # time). Pass agg=10 (OhlcvBars enum value) with an empty plan;
                         # the C++ compiled graph builds make_ohlcv_bars_plan(input_width)
                         # at ResampleNode instantiation from the resolved input width.
                         nid = gb.add_resample(inp, mode, 10, label, width, origin,
-                                              count, fill=fill)
+                                              count, fill=fill, threshold=threshold_val)
                     elif isinstance(agg_val, str):
                         # Builtin string agg: enum code, no functor reducer.
                         nid = gb.add_resample(inp, mode, _RESAMPLE_AGG_CODE[agg_val],
-                                              label, width, origin, count, fill=fill)
+                                              label, width, origin, count, fill=fill,
+                                              threshold=threshold_val)
                     else:
                         # Arbitrary functor reducer (an EvalOp): agg code is ignored
                         # (pass 0); the reducer op drives GenericResampleNode.
                         nid = gb.add_resample(inp, mode, 0, label, width, origin,
-                                              count, agg_val, fill=fill)
+                                              count, agg_val, fill=fill,
+                                              threshold=threshold_val)
                 elif name == "Delay":
                     nid = gb.add_delay(inp, int(kwargs["duration"]))
                 else:

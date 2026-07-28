@@ -126,7 +126,12 @@ public:
             case NodeKind::DropNa:        node_width[id] = node_width[nd.inputs[0]]; break;
             case NodeKind::Select:        node_width[id] = nd.columns.size(); break;
             case NodeKind::Resample: {
-                if (nd.resample.agg == ResampleAgg::OhlcvBars && nd.resample.plan.empty()) {
+                if (nd.resample.mode == ResampleMode::ByCumulative) {
+                    // ByCumulative: output width is determined by the agg (single-col
+                    // plan or builtin agg). The input is always width-2 (value+driver)
+                    // but the output width is from the value reducer only.
+                    node_width[id] = resample_output_width(nd.resample);
+                } else if (nd.resample.agg == ResampleAgg::OhlcvBars && nd.resample.plan.empty()) {
                     // Dynamic ohlcv_bars: output width equals input width.
                     std::size_t inp_w = nd.inputs.empty() ? 1u : node_width[nd.inputs[0]];
                     node_width[id] = inp_w;

@@ -156,8 +156,46 @@ Output shape is `(bars, N)`. The number of trailing volume columns may vary free
 the plan is resolved from the actual input width at runtime. Supported in eager,
 graph, and lazy regimes.
 
-<!-- HELP_END -->
+## `threshold=` -- cumulative-driver (information bars)
 
+`threshold=T` is the fourth mutually exclusive mode selector. A bar closes when
+the cumulative sum of a **driver** stream since the last close reaches `T`. The
+observation that crosses the threshold is included in the closing bar; then the
+driver accumulator resets to 0.
+
+Typical use: volume bars (each bar contains exactly `T` units of traded volume),
+dollar bars (each bar contains `T` notional), or imbalance bars where the driver
+is a signed trade-flow measure. Call as
+`values, index = Resample(price_vi, driver, threshold=T, agg='ohlc')`.
+
+- `price_vi` is a `(values, index)` tuple (or a bare array with a separate
+  index). It supplies the bar's value stream and the time axis.
+- `driver` is a 1-D array of the same length as `price_vi`. It is the per-event
+  driver that accumulates toward `T`.
+- `threshold=T` must be `> 0` (raises `ValueError` otherwise).
+- `threshold=` is mutually exclusive with `freq=`, `every=`, and `count=`; passing
+  two mode selectors raises `ValueError`.
+- A `NaN` driver value is **ignored**: it does not advance the cumulative sum, and
+  the clock does not move. The observation's value **does** contribute to the bar's
+  reducer (the bar boundary is not affected by the NaN, but the price is still
+  accumulated).
+- Bar labels: by default (`label="left"`) each bar's index is the actual index of
+  the first event in that bar. With `label="right"` it is the index of the last
+  event (the crossing observation).
+- The trailing partial bar (events since the last close, before cumulative driver
+  reaches `T`) is always emitted at end of input.
+- All `agg=` forms work with `threshold=`: string aggs (`last`, `ohlc`, etc.) and
+  functor aggs (`ExpandingSkew()`, ...).
+- Works in eager, `Pipeline` graph, and lazy iterator regimes with identical results.
+
+**Graph regime** -- wire two `Input` nodes, one for the value stream and one for
+the driver, then call `Resample(value_node, driver_node, threshold=T, agg=...)`.
+For example: `x = Input('price'); d = Input('driver');
+node = Resample(x, d, threshold=500, agg='ohlc');
+dag = Pipeline([x, d], [node]);
+ohlc, bar_idx = dag((price_arr, idx), (volume_arr, idx))`.
+
+<!-- HELP_END -->
 ## Examples
 
 ### Mean bar
@@ -269,3 +307,24 @@ clock, so they cannot drift. You bind data to the named inputs at call time.
 ```
 
 Use `count=` to bucket by a fixed number of events instead of an index interval.
+
+### Volume bars with `threshold=`
+
+Build OHLC information bars that close once the cumulative traded volume reaches
+a threshold. The crossing observation is included in the closing bar.
+
+```{eval-rst}
+.. exec_code::
+
+   import numpy as np
+   from screamer.streams import Resample
+
+   price  = np.array([10., 11, 12, 13, 14, 15, 16, 17, 18])
+   volume = np.array([ 3.,  4,  2,  5,  1,  6,  2,  3,  4])
+   idx    = np.arange(9, dtype=np.int64)
+
+   ohlc, bar_idx = Resample((price, idx), volume, threshold=5, agg='ohlc')
+   # columns: open, high, low, close
+   for i, k in enumerate(bar_idx):
+       print(f"bar {k}: {ohlc[i]}")
+```

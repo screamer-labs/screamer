@@ -892,7 +892,8 @@ def _resample_freq_to_engine(freq, index):
     return "span", width
 
 
-def _resample_via_cpp(feed, *, every, count, agg, origin, label, fill="skip"):
+def _resample_via_cpp(feed, *, every, count, threshold, agg, origin, label,
+                      fill="skip"):
     """Run resample on the C++ engine via a one-node Pipeline, for batch OR lazy input.
 
     Builds the minimal ``Input -> Resample`` graph the Node regime already uses,
@@ -901,20 +902,29 @@ def _resample_via_cpp(feed, *, every, count, agg, origin, label, fill="skip"):
     iterator of ``(value, index)`` events returns a lazy iterator of
     ``(bar_value, bar_label)``. No Python windowing - all bucketing and NaN-ignore
     accumulation happens in the C++ core.
+
+    For ByCumulative mode (threshold is not None): feed is a (vals, idx) pair where
+    vals is 2-D (N, 2) with columns [value, driver]. The single Input node receives
+    the combined frame; the ResampleNode sees width-2 frames and uses ByCumulative
+    logic internally.
     """
     from .dag import Input, Pipeline
     src = Input("x")
-    node = resample(src, every=every, count=count, agg=agg,
+    node = resample(src, every=every, count=count, threshold=threshold, agg=agg,
                     origin=origin, label=label, fill=fill)
     dag = Pipeline([src], [node])
     return dag(feed)
 
 
-def _resample_validate(freq, every, count, agg, label, fill="skip"):
-    # Exactly one of freq, every, count must be provided.
-    given = sum(x is not None for x in [freq, every, count])
+def _resample_validate(freq, every, count, threshold, agg, label, fill="skip"):
+    # Exactly one of freq, every, count, threshold must be provided.
+    given = sum(x is not None for x in [freq, every, count, threshold])
     if given != 1:
-        raise ValueError("resample: pass exactly one of freq=, every=, or count=")
+        raise ValueError(
+            "resample: pass exactly one of freq=, every=, count=, or threshold=")
+    # threshold positivity guard.
+    if threshold is not None and float(threshold) <= 0.0:
+        raise ValueError("resample: threshold must be > 0")
     # Positivity guard: every=0 would reach the engine's floordiv(_, 0) -> a hard
     # SIGFPE crash; count<1 never completes a bucket. Reject both up front (this
     # runs before the Node dispatch, so it guards the graph path too).
@@ -942,8 +952,8 @@ def _resample_validate(freq, every, count, agg, label, fill="skip"):
 
 
 
-def resample(values, index=None, *, freq=None, every=None, count=None, agg="last",
-             origin=0, label="left", fill="skip"):
+def resample(values, driver=None, index=None, *, freq=None, every=None, count=None,
+             threshold=None, agg="last", origin=0, label="left", fill="skip"):
     """Causal windowed downsample of a 1-D value stream.
 
     Pass exactly one of ``freq``, ``every``, or ``count`` to bound the bars.
@@ -1013,7 +1023,7 @@ def resample(values, index=None, *, freq=None, every=None, count=None, agg="last
     ``index=`` applies only to raw arrays.
     """
     agg = _resolve_agg(agg)
-    _resample_validate(freq, every, count, agg, label, fill)
+    _resample_validate(freq, every, count, threshold, agg, label, fill)
     # Translate freq= into every=/count= using the index context.  After this
     # block every and count follow the existing internal convention so all
     # downstream code is unchanged.
@@ -1025,6 +1035,62 @@ def resample(values, index=None, *, freq=None, every=None, count=None, agg="last
         _mode, _width = _resample_freq_to_engine(freq, _idx_ctx)
         every = _width if _mode == "span" else None
         count = _width if _mode == "count" else None
+
+    # ByCumulative mode: values is the value stream, driver is the driver stream.
+    # The node expects a width-2 input [value, driver] combined on the same index.
+    if threshold is not None:
+        if is_node(values):
+            if driver is not None and is_node(driver):
+                # Graph regime: Resample(value_node, driver_node, threshold=T, agg=...)
+                # We build: combine_latest(values, driver) -> Resample(ByCumulative).
+                combined = make_operator_node(CombineLatest, (values, driver),
+                                             {"emit": "when_all"})
+                return make_operator_node(Resample, (combined,), {
+                    "threshold": threshold, "agg": agg,
+                    "every": None, "count": None,
+                    "origin": origin, "label": label, "fill": fill})
+            elif driver is None:
+                # Internal path: called from _resample_via_cpp with a single Input
+                # that already carries the combined width-2 frame (value+driver).
+                # Create the ResampleNode(ByCumulative) directly on the single input.
+                return make_operator_node(Resample, (values,), {
+                    "threshold": threshold, "agg": agg,
+                    "every": None, "count": None,
+                    "origin": origin, "label": label, "fill": fill})
+            else:
+                raise ValueError(
+                    "resample: threshold= requires a driver Node as the second argument")
+        # Eager / lazy path: combine value and driver into a width-2 frame.
+        if driver is None:
+            raise ValueError(
+                "resample: threshold= requires a driver stream as the second argument")
+        vals, idx_in = _as_vi(values, index)
+        vals = np.asarray(vals, dtype=np.float64)
+        if vals.ndim != 1:
+            raise ValueError(
+                "resample: threshold= requires a 1-D value stream; "
+                f"got shape {vals.shape}")
+        drv = np.asarray(driver, dtype=np.float64)
+        if drv.ndim != 1:
+            raise ValueError(
+                "resample: threshold= requires a 1-D driver stream; "
+                f"got shape {drv.shape}")
+        if len(drv) != len(vals):
+            raise ValueError(
+                "resample: value and driver must have the same length; "
+                f"got {len(vals)} and {len(drv)}")
+        if idx_in is None:
+            idx = np.arange(len(vals), dtype=np.int64)
+        else:
+            idx = np.asarray(idx_in)
+        # Combine value + driver into a (N, 2) array: col0=value, col1=driver.
+        combined_vals = np.ascontiguousarray(
+            np.column_stack([vals, drv]), dtype=np.float64)
+        out_v, out_idx = _resample_via_cpp(
+            (combined_vals, idx), every=None, count=None, threshold=threshold,
+            agg=agg, origin=origin, label=label, fill=fill)
+        return out_v, out_idx
+
     if is_node(values):
         return make_operator_node(Resample, (values,), {
             "every": every, "count": count, "agg": agg,
@@ -1033,8 +1099,8 @@ def resample(values, index=None, *, freq=None, every=None, count=None, agg="last
         # Rule A: a lazy iterator of (value, index) events -> a lazy iterator of
         # (bar_value, bar_label). Drive the same C++ resample node as batch through
         # the Stage-2 lazy Pipeline; no Python windowing accumulator runs here.
-        return _resample_via_cpp(values, every=every, count=count, agg=agg,
-                                 origin=origin, label=label, fill=fill)
+        return _resample_via_cpp(values, every=every, count=count, threshold=None,
+                                 agg=agg, origin=origin, label=label, fill=fill)
     vals, idx_in = _as_vi(values, index)
     vals = np.asarray(vals, dtype=np.float64)
     # Multi-column bar aggs require specific input widths.
@@ -1070,8 +1136,8 @@ def resample(values, index=None, *, freq=None, every=None, count=None, agg="last
     # path inside _resample_via_cpp via the compiled DAG which reads the plan
     # from _BAR_AGG_FIXED_PLANS or the dynamic OhlcvBars sentinel in C++.
     out_v, out_idx = _resample_via_cpp(
-        (vals, idx), every=every, count=count, agg=agg, origin=origin, label=label,
-        fill=fill)
+        (vals, idx), every=every, count=count, threshold=None, agg=agg,
+        origin=origin, label=label, fill=fill)
     # Always return a (values, index) tuple; bar labels are always real (never None).
     return out_v, out_idx
 
@@ -1144,20 +1210,62 @@ class Select:
 class Resample:
     """Causal windowed downsample.  Config-first form of :func:`resample`.
 
-    ``Resample(freq=None, count=None, ...)(values, index=None)`` is equivalent
-    to ``resample(values, index, freq=freq, count=count, ...)``.
+    Classic config-first form::
+
+        Resample(freq=5, agg='last')(values, index)
+        Resample(count=N, agg='ohlc')(values, index)
+
+    Cumulative-driver (information bar) form::
+
+        Resample(values, driver, threshold=T, agg='ohlc')
+
+    The cumulative-driver form is a direct-call shorthand that returns
+    ``(out_values, out_index)`` immediately. A bar closes when the cumulative
+    driver since the last close reaches ``threshold``.
 
     ``every=`` is not available on the class surface (Option B: freq/count
     only).  Use the :func:`resample` function directly if you need ``every=``.
     """
 
-    def __init__(self, freq=None, count=None, agg="last", origin=0,
+    def __new__(cls, values_or_freq=None, driver=None, *,
+                freq=None, count=None, threshold=None, agg="last", origin=0,
+                label="left", fill="skip"):
+        # Detect whether the first positional arg is data (cumulative-driver
+        # shorthand form) or a config param (classic config-first form).
+        # When data IS provided, compute and return the result directly.
+        _is_data = (values_or_freq is not None and
+                    not isinstance(values_or_freq, (int, float,
+                                                    np.integer, np.floating)))
+        if _is_data and threshold is not None:
+            # Direct call: Resample(value, driver, threshold=T, agg=...)
+            # Returns the resample result (a tuple), not a Resample instance.
+            return resample(values_or_freq, driver,
+                            freq=freq, count=count, threshold=threshold,
+                            agg=agg, origin=origin, label=label, fill=fill)
+        # Classic config-first: return a Resample instance.
+        return super().__new__(cls)
+
+    def __init__(self, values_or_freq=None, driver=None, *,
+                 freq=None, count=None, threshold=None, agg="last", origin=0,
                  label="left", fill="skip"):
-        self._cfg = dict(freq=freq, count=count, agg=agg, origin=origin,
-                         label=label, fill=fill)
+        # Skip init when __new__ already returned a non-Resample result.
+        if not isinstance(self, Resample):
+            return
+        # Classic config-first form: values_or_freq is a numeric freq or None.
+        eff_freq = (values_or_freq
+                    if (values_or_freq is not None and
+                        isinstance(values_or_freq, (int, float,
+                                                    np.integer, np.floating)))
+                    else freq)
+        self._cfg = dict(freq=eff_freq, count=count, threshold=threshold, agg=agg,
+                         origin=origin, label=label, fill=fill)
 
     def __call__(self, values, index=None):
-        return resample(values, index, **self._cfg)
+        # Classic config-first form: Resample(cfg)(values, index=None)
+        # For ByCumulative mode (threshold=), the caller passes values = a
+        # (values, index) tuple and there is no second positional arg (the driver
+        # is stored in the node spec built by the graph path).
+        return resample(values, None, index, **self._cfg)
 
 
 def delay(values, index=None, *, duration):

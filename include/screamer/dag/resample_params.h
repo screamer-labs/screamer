@@ -8,7 +8,7 @@
 
 namespace screamer { namespace dag {
 
-enum class ResampleMode  { ByIndex, ByCount };
+enum class ResampleMode  { ByIndex, ByCount, ByCumulative };
 // ResampleAgg enumerates single-column reducer kinds.
 // Each output column in a plan has one ResampleAgg applied to one input column.
 // SumPos: sum of max(v, 0) per non-NaN value (= total positive part).
@@ -41,6 +41,7 @@ struct ResampleParams {
     std::int64_t  width  = 1;   // ByIndex
     std::int64_t  origin = 0;   // ByIndex
     std::int64_t  count  = 1;   // ByCount
+    double        threshold = 0.0; // ByCumulative: close when cum_driver >= threshold
     // When non-null, the bucket reducer is this arbitrary functor (GenericResample
     // path) instead of the builtin `agg` enum. The pointee is owned by Python; the
     // graph builder holds a py::object ref so it outlives the compiled graph.
