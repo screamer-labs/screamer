@@ -59,6 +59,23 @@ mode.
 Exactly one of `count=` or `duration=` must be supplied. Passing both or
 neither raises `ValueError`.
 
+## Regimes
+
+`count=` mode runs identically in all three regimes and produces byte-identical
+output across them. The function dispatches on the input type:
+
+- **Eager** (numpy arrays): call directly; returns `(X_shifted, y)` as numpy arrays.
+- **Graph** (Node inputs): pass `Input(...)` nodes; returns a Node. Wrap it in a
+  `Pipeline` to run. The output node produces a 2-column array with columns
+  `[X_shifted, y]`; index 0 is `X_shifted`, index 1 is `y`.
+- **Lazy** (generators of `(value, index)` events): returns a lazy iterator of
+  `((xs_val, y_val), index)` events.
+
+`duration=` mode supports eager batch only. Graph and lazy regimes raise
+`NotImplementedError` until `CombineLatest` gains an `emit="on_right"` primitive
+in the C++ core (which would allow emitting only on the y-clock without Python-level
+index set membership).
+
 ## Example
 
 ```{eval-rst}

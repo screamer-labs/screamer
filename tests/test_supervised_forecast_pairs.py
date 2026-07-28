@@ -1,7 +1,13 @@
+import inspect
+
 import numpy as np
 import pytest
 from screamer.supervised import forecast_pairs
 
+
+# ---------------------------------------------------------------------------
+# Batch regression: output must be byte-identical to the original implementation
+# ---------------------------------------------------------------------------
 
 def test_forecast_pairs_count_pairs_features_with_future_target():
     # feature at row t pairs with the target `count` rows later
@@ -93,3 +99,97 @@ def test_forecast_pairs_count_dropna_also_drops_target_nan():
     # count=1 lags X by 1 (row 0 warmup dropped); rows 3 and 6 dropped for NaN target
     np.testing.assert_array_equal(Xs, [0., 1., 3., 4., 6.])   # surviving X[t-1]
     np.testing.assert_array_equal(ys, [1., 2., 4., 5., 7.])   # surviving targets
+
+
+# ---------------------------------------------------------------------------
+# All-regime: count mode runs identically in eager, graph, and lazy
+# ---------------------------------------------------------------------------
+
+def test_forecast_pairs_count_graph_matches_batch():
+    """Graph regime: call with Input nodes, wrap in a Pipeline, run, compare."""
+    from screamer import Input, Pipeline
+    from screamer.dag import is_node
+
+    X = np.arange(10.0)
+    y = X * 2
+    Xb, yb = forecast_pairs(X, y, count=2)
+
+    # Build graph by calling with Node inputs
+    X_in = Input("X")
+    y_in = Input("y")
+    combined_node = forecast_pairs(X_in, y_in, count=2)
+    assert is_node(combined_node), "graph mode must return a Node"
+
+    # Run the graph pipeline
+    dag = Pipeline([X_in, y_in], [combined_node])
+    result, _ = dag(X, y)
+    # result is (N, 2): col0 = Xs, col1 = y
+    Xg, yg = result[:, 0], result[:, 1]
+    np.testing.assert_allclose(Xg, Xb, equal_nan=True)
+    np.testing.assert_allclose(yg, yb)
+
+
+def test_forecast_pairs_count_graph_dropna_matches_batch():
+    """Graph regime with dropna=True."""
+    from screamer import Input, Pipeline
+    from screamer.dag import is_node
+
+    X = np.arange(10.0)
+    y = X * 2
+    Xb, yb = forecast_pairs(X, y, count=2, dropna=True)
+
+    X_in = Input("X")
+    y_in = Input("y")
+    combined_node = forecast_pairs(X_in, y_in, count=2, dropna=True)
+    assert is_node(combined_node)
+
+    dag = Pipeline([X_in, y_in], [combined_node])
+    result, _ = dag(X, y)
+    Xg, yg = result[:, 0], result[:, 1]
+    np.testing.assert_allclose(Xg, Xb, equal_nan=True)
+    np.testing.assert_allclose(yg, yb)
+
+
+def test_forecast_pairs_count_lazy_matches_batch():
+    """Lazy regime: pass (value, index) generators, collect rows, compare to batch."""
+    X = np.arange(10.0)
+    y = X * 2
+    Xb, yb = forecast_pairs(X, y, count=2)
+
+    gen_X = ((float(v), int(i)) for i, v in enumerate(X))
+    gen_y = ((float(v), int(i)) for i, v in enumerate(y))
+    it = forecast_pairs(gen_X, gen_y, count=2)
+    # each event: ((xs_val, y_val), index) or bare scalar pair
+    rows = list(it)
+    Xl = np.array([r[0][0] for r in rows], dtype=float)
+    yl = np.array([r[0][1] for r in rows], dtype=float)
+    np.testing.assert_allclose(Xl, Xb, equal_nan=True)
+    np.testing.assert_allclose(yl, yb)
+
+
+def test_forecast_pairs_count_lazy_dropna_matches_batch():
+    """Lazy regime with dropna=True."""
+    X = np.arange(10.0)
+    y = X * 2
+    Xb, yb = forecast_pairs(X, y, count=2, dropna=True)
+
+    gen_X = ((float(v), int(i)) for i, v in enumerate(X))
+    gen_y = ((float(v), int(i)) for i, v in enumerate(y))
+    it = forecast_pairs(gen_X, gen_y, count=2, dropna=True)
+    rows = list(it)
+    Xl = np.array([r[0][0] for r in rows], dtype=float)
+    yl = np.array([r[0][1] for r in rows], dtype=float)
+    np.testing.assert_allclose(Xl, Xb, equal_nan=True)
+    np.testing.assert_allclose(yl, yb)
+
+
+# ---------------------------------------------------------------------------
+# Compliance: no numpy data-path masking in supervised.py
+# ---------------------------------------------------------------------------
+
+def test_no_numpy_datapath_in_supervised():
+    """Verify banned numpy masking patterns are absent from supervised.py source."""
+    import screamer.supervised as S
+    src = inspect.getsource(S)
+    for banned in ("np.isfinite", "np.isin", "[keep]", "[m]", "_leading_nan_mask"):
+        assert banned not in src, f"data-path numpy still present: {banned!r}"
