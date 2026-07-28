@@ -10,6 +10,7 @@ import numpy as np
 import pytest
 from screamer import Input, Pipeline
 from screamer.streams import Resample
+from screamer import RollingMean  # a real EvalOp for functor-agg tests (C2)
 from tests._dag_oracle import lazy_batch as _lazy_batch
 
 
@@ -244,3 +245,91 @@ def test_clock_mode_runs_in_all_regimes():
                                err_msg="lazy != eager for clock mode")
     np.testing.assert_array_equal(lazy_k, eager_k,
                                   err_msg="lazy index != eager index for clock mode")
+
+
+# ---------------------------------------------------------------------------
+# I2(a): C1 — clock-listed-first Pipeline gives IDENTICAL result to value-first
+# ---------------------------------------------------------------------------
+
+def test_clock_tie_pipeline_order_independent():
+    """C1: Pipeline([c_in, x_in], ...) must give the same result as Pipeline([x_in, c_in], ...).
+
+    The (prev_tick, tick] inclusive semantic requires a value event at the SAME
+    index as a clock tick to land in that tick's bucket, regardless of which
+    input is listed first in Pipeline([...]).
+    """
+    # value at idx 5 = 99; clock ticks at idx 3 and idx 5
+    value_v = np.array([99.])
+    value_i = np.array([5], dtype=np.int64)
+    clock_v = np.zeros(2)
+    clock_i = np.array([3, 5], dtype=np.int64)
+
+    x = Input('x')
+    c = Input('c')
+    node_xc = Resample(x, c, clock=True, agg='last', fill='carry')
+    node_cx = Resample(x, c, clock=True, agg='last', fill='carry')
+
+    # value-first pipeline (previously correct)
+    dag_xc = Pipeline([x, c], [node_xc])
+    out_xc, idx_xc = dag_xc((value_v, value_i), (clock_v, clock_i))
+
+    # clock-first pipeline (was silently wrong — clock fires before value buffered)
+    dag_cx = Pipeline([c, x], [node_cx])
+    out_cx, idx_cx = dag_cx((clock_v, clock_i), (value_v, value_i))
+
+    # Both should see value 99 in the tick-5 bucket.
+    np.testing.assert_array_equal(idx_xc, idx_cx,
+                                   err_msg="indices differ by Pipeline input order")
+    np.testing.assert_allclose(out_xc, out_cx,
+                               err_msg="values differ by Pipeline input order — tie-order bug")
+
+
+# ---------------------------------------------------------------------------
+# I2(b): C2 — functor agg + clock= raises ValueError (no silent garbage)
+# ---------------------------------------------------------------------------
+
+def test_clock_functor_agg_raises():
+    """C2: clock= with a non-string agg (EvalOp functor) must raise ValueError.
+
+    Previously the ByClock/functor-agg combination silently routed to
+    GenericResampleNode which ignores the clock= mode.
+    """
+    x = Input('x')
+    c = Input('c')
+    with pytest.raises(ValueError):
+        Resample(x, c, clock=True, agg=RollingMean(5))
+
+
+# ---------------------------------------------------------------------------
+# I2(c): I1 — NaN-only value bucket behavior (ByClock + fill='carry')
+# ---------------------------------------------------------------------------
+
+def test_clock_nan_value_bucket_carries_with_fill_carry():
+    """I1: with fill='carry', a bucket whose only value is NaN should carry
+    the last real value (as-of semantics), not emit NaN.
+
+    This tests the corrected ByClock behavior: a NaN value event should not
+    count as 'has real data'. The accumulator's count (non-NaN entries) is
+    used for carry decisions.
+    """
+    # value stream: real=10 at 0, NaN at 4, real=30 at 8
+    # clock ticks at 2, 6, 10
+    # bucket (none, 2]: real 10 -> emit 10
+    # bucket (2,   6]: only NaN at 4 -> carry -> emit 10
+    # bucket (6,  10]: real 30 -> emit 30
+    value_v = np.array([10., float('nan'), 30.])
+    value_i = np.array([0, 4, 8], dtype=np.int64)
+    clock_v = np.zeros(3)
+    clock_i = np.array([2, 6, 10], dtype=np.int64)
+
+    out, idx = Resample((value_v, value_i), (clock_v, clock_i), clock=True,
+                        agg='last', fill='carry')
+    np.testing.assert_array_equal(idx, [2, 6, 10])
+    np.testing.assert_allclose(out[0], 10.)
+    # bucket (2,6] has only a NaN value: with fixed behavior it should carry 10
+    assert not np.isnan(out[1]), (
+        "NaN-only bucket with fill='carry' should carry last real value, got NaN. "
+        "This is the I1 bug: has=True was set before the NaN check."
+    )
+    np.testing.assert_allclose(out[1], 10.)
+    np.testing.assert_allclose(out[2], 30.)

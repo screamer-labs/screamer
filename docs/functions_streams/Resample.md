@@ -184,14 +184,16 @@ is a signed trade-flow measure. Call as
   event (the crossing observation).
 - The trailing partial bar (events since the last close, before cumulative driver
   reaches `T`) is always emitted at end of input.
-- Single-column-value `agg=` forms work with `threshold=`: string aggs
-  (`first`, `last`, `min`, `max`, `sum`, `count`, `mean`, `ohlc`) and functor
-  aggs (`ExpandingSkew()`, ...). `ohlc` is accepted because it builds 4 output
-  columns from 1 value column. The multi-column-value aggs `ohlcv`, `ohlcv2`,
-  `ohlc_bars`, and `ohlcv_bars` require a 2-D or wider value input that is not
-  available in `threshold=` mode and raise `ValueError`. To build OHLCV volume
-  bars, resample the OHLC and the volume separately with `agg='ohlc'` and
-  `agg='sum'` and combine with `CombineLatest`.
+- `threshold=` supports builtin string aggs only:
+  `first`, `last`, `min`, `max`, `sum`, `count`, `mean`, `ohlc`.
+  `ohlc` is accepted because it builds 4 output columns from 1 value column.
+  Functor aggs (`ExpandingSkew()`, ...) raise `ValueError`; apply the functor
+  downstream on the per-bar output instead.
+  The multi-column-value aggs `ohlcv`, `ohlcv2`, `ohlc_bars`, and `ohlcv_bars`
+  require a 2-D or wider value input that is not available in `threshold=` mode
+  and also raise `ValueError`. To build OHLCV volume bars, resample the OHLC and
+  the volume separately with `agg='ohlc'` and `agg='sum'` and combine with
+  `CombineLatest`.
 - Works in eager, `Pipeline` graph, and lazy iterator regimes with identical results.
 
 **Graph regime** -- wire two `Input` nodes, one for the value stream and one for
@@ -219,9 +221,11 @@ Call as `values, index = Resample(value_vi, clock_vi, clock=True, agg='last', fi
   It supplies the stream being resampled.
 - `clock_vi` is a `(clock_values, clock_index)` tuple. Its **index** drives bar
   boundaries; the clock values themselves are ignored.
-- `agg=` and `fill=` work as for the other modes. `fill='carry'` repeats the last
-  emitted row at every clock tick that has no value event; `fill='skip'` (the
-  default) suppresses emission at empty-bucket clock ticks.
+- `agg=` accepts the same builtin string aggs as the other modes (`first`, `last`,
+  `min`, `max`, `sum`, `count`, `mean`, `ohlc`). Functor aggs raise `ValueError`
+  with `clock=`; apply the functor downstream on the per-bar output instead.
+  `fill='carry'` repeats the last emitted row at every clock tick that has no value
+  event; `fill='skip'` (the default) suppresses emission at empty-bucket clock ticks.
 - `clock=True` is mutually exclusive with `freq=`, `every=`, `count=`, and
   `threshold=`; passing two mode selectors raises `ValueError`.
 - Events with index exactly equal to the clock tick are **included** in that bar

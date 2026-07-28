@@ -113,12 +113,10 @@ public:
     void push(const Frame<Index>& f) override {
         // OhlcvBars with deferred plan: build the plan from the first frame's width.
         if (p_.agg == ResampleAgg::OhlcvBars && p_.plan.empty()) {
-            // ByClock: the frame is [value_cols..., clock_col(ignored)]; the clock
-            // column is always the last; value width = frame.width - 1.
             // ByCumulative: the frame is [value, driver]; value width = 1.
             // All other modes: value width = frame.width.
             std::size_t val_width = f.width;
-            if (p_.mode == ResampleMode::ByClock || p_.mode == ResampleMode::ByCumulative)
+            if (p_.mode == ResampleMode::ByCumulative)
                 val_width = (f.width > 0) ? f.width - 1 : 0;
             p_.plan = make_ohlcv_bars_plan(val_width);
             num_accums_ = resample_plan_input_cols(p_.plan);
@@ -140,24 +138,8 @@ public:
             push_by_cumulative(f.index, f.values[0], f.values[1]);
             return;
         }
-        if (p_.mode == ResampleMode::ByClock) {
-            // ByClock: input frame is [value_cols..., clock_col].
-            // The last column is the clock discriminant (0=value event, 1=clock event).
-            // Value events accumulate; clock events close the bucket.
-            if (f.width < 2)
-                throw std::runtime_error(
-                    "dag::ResampleNode(ByClock): expects width >= 2 input "
-                    "[value..., is_clock]; got width " + std::to_string(f.width));
-            double is_clock = f.values[f.width - 1];
-            if (is_clock != 0.0) {
-                // Clock event: close bucket at this index.
-                push_by_clock_tick(f.index);
-            } else {
-                // Value event: accumulate.
-                push_by_clock_value(f.index, f.values, f.width - 1);
-            }
-            return;
-        }
+        // ByClock is always wired via 2-port (ClockPort) in the compiled graph;
+        // push() is never called for ByClock mode in practice.
         if (p_.plan.empty()) {
             // Single-column path: width must be 1.
             if (f.width != 1)
@@ -185,9 +167,16 @@ public:
         if (p_.mode == ResampleMode::ByIndex) {
             if (has_any()) emit(cur_label_);
         } else if (p_.mode == ResampleMode::ByClock) {
-            // ByClock: trailing partial bucket — no clock tick came to close it;
-            // per spec the last open bucket is NOT emitted (the clock drives emission).
-            // No-op: silence is the correct behavior for a clock-gated resample.
+            // ByClock: if a clock tick was deferred (pending_clock_tick_), emit it
+            // now — end-of-stream means no future events can arrive at the same index.
+            // After that, any remaining buffered value events are discarded (they
+            // arrived AFTER the last clock tick and have no bucket to close them).
+            if (pending_clock_tick_) {
+                do_clock_tick(pending_clock_tick_index_);
+                pending_clock_tick_ = false;
+            }
+            // Trailing partial bucket after the last clock tick is NOT emitted
+            // (the clock drives emission; no clock tick = no bar).
         } else if (p_.mode == ResampleMode::ByCumulative) {
             // Emit trailing partial bucket if any events landed in it.
             if (count_in_bucket_ > 0)
@@ -216,6 +205,8 @@ public:
         prev_clock_tick_ = Index{};
         clock_value_buf_.clear();
         clock_port_flush_count_ = 0;
+        pending_clock_tick_ = false;
+        pending_clock_tick_index_ = Index{};
     }
 
     std::size_t n_in()  const override {
@@ -296,9 +287,10 @@ public:
         void flush() override {
             node.clock_port_flush_count_++;
             if (node.clock_port_flush_count_ >= 2) {
-                // Both ports flushed: propagate flush downstream once.
+                // Both ports flushed: run the node's own flush() which emits any
+                // deferred pending clock tick and then propagates flush downstream.
                 node.clock_port_flush_count_ = 0;
-                node.downstream_.flush();
+                node.flush();
             }
         }
         void on_watermark(Index /*w*/) override {}
@@ -414,6 +406,12 @@ private:
     // events to arrive in original-index order but out of timeline-index order.
     // vals is the value portion of the frame (all but the last is_clock column).
     // num_val_cols is the count of value columns (frame.width - 1).
+    //
+    // Tie-order fix (C1): before buffering, check if a pending clock tick at a
+    // STRICTLY EARLIER index can now be emitted safely (the current value event
+    // arrives at a higher index, proving no same-index value events remain for
+    // the pending tick). This makes the output independent of whether the value
+    // or clock input is listed first in Pipeline([...]).
     void push_by_clock_value(Index k, const double* vals, std::size_t num_val_cols) {
         if (p_.plan.empty() && num_val_cols > 1) {
             // Multi-column single-agg ByClock: build a trivial plan on first push
@@ -429,6 +427,14 @@ private:
             nan_row_.assign(out_width_, std::numeric_limits<double>::quiet_NaN());
             accums_.resize(num_accums_);
         }
+        // Deferred-tick: if there is a pending clock tick at a strictly smaller
+        // index than the incoming value, emit it now before buffering the value.
+        // Equal index: do NOT emit — the value still belongs in the pending bucket.
+        if (pending_clock_tick_ &&
+                static_cast<std::int64_t>(k) > static_cast<std::int64_t>(pending_clock_tick_index_)) {
+            do_clock_tick(pending_clock_tick_index_);
+            pending_clock_tick_ = false;
+        }
         // Buffer the event (copy values) so the clock tick can drain it correctly.
         // Buffering handles the case where events arrive out of timeline order
         // (e.g., Delay shifting indices inside the same compiled graph).
@@ -436,12 +442,30 @@ private:
         clock_value_buf_.push_back({k, std::vector<double>(vals, vals + std::min(nc, num_val_cols))});
     }
 
-    // ByClock: a clock event closes the current bucket and emits at index k (the
-    // clock tick). The bucket spans value events with timeline index in (prev_tick, k].
-    // Events buffered in clock_value_buf_ are drained for those within (prev_tick, k];
-    // events with index > k remain in the buffer for subsequent clock ticks.
-    // fill= applies as usual (carry/nan/skip when no value arrived).
+    // ByClock: a clock event registers a pending tick at index k. The actual
+    // bucket is emitted only when a STRICTLY LATER event arrives (value or clock),
+    // ensuring that same-index value events are included regardless of Pipeline
+    // input order (MergeSource tie-breaking by source index).
+    //
+    // do_clock_tick(k) performs the immediate emission: drains buffered value
+    // events with index <= k into the accumulator, emits/fills, and resets.
     void push_by_clock_tick(Index k) {
+        // Deferred-tick: if there is already a pending tick, the new tick at k
+        // proves a strictly later event has arrived — emit the earlier pending tick.
+        if (pending_clock_tick_ &&
+                static_cast<std::int64_t>(k) > static_cast<std::int64_t>(pending_clock_tick_index_)) {
+            do_clock_tick(pending_clock_tick_index_);
+            pending_clock_tick_ = false;
+        }
+        // Register k as the new pending tick (replace if same index, defer if later).
+        pending_clock_tick_ = true;
+        pending_clock_tick_index_ = k;
+    }
+
+    // Immediately emit the clock bucket at index k. Drains value events with
+    // index <= k from the buffer, accumulates them, emits the reducer output or
+    // the fill value, then resets the accumulator state.
+    void do_clock_tick(Index k) {
         // Drain buffered value events with index <= k (they belong to this bucket).
         auto rem_it = clock_value_buf_.begin();
         for (auto it = clock_value_buf_.begin(); it != clock_value_buf_.end(); ++it) {
@@ -454,7 +478,8 @@ private:
                 } else {
                     if (!row.empty()) accums_[0].add(row[0]);
                 }
-                ++count_in_bucket_;
+                // count_in_bucket_ is not used for ByClock decision logic (has_real
+                // checks accum.count instead); reset happens at the end of each tick.
             } else {
                 // Future event: keep in buffer. Guard against self-move: if rem_it
                 // and it point to the same element (no elements were drained yet),
@@ -465,10 +490,18 @@ private:
         }
         clock_value_buf_.erase(rem_it, clock_value_buf_.end());
 
-        if (has_any()) {
+        // I1 fix (ByClock only): for fill='carry' as-of semantics, a bucket whose
+        // only value events are NaN should carry the last real value rather than
+        // emit NaN. Use count > 0 (non-NaN events) rather than has_any() to decide
+        // between emit and carry. Other modes (ByIndex/ByCount/ByCumulative) use
+        // has_any() and are unaffected (do_clock_tick is ByClock-exclusive).
+        bool has_real = false;
+        for (const auto& a : accums_) if (a.count > 0) { has_real = true; break; }
+
+        if (has_real) {
             emit(k);
         } else {
-            // Empty bucket: apply fill policy.
+            // Empty bucket (no events, or all-NaN events): apply fill policy.
             if (p_.fill == ResampleFill::Carry && have_emitted_) {
                 downstream_.push(Frame<Index>{k, last_emitted_.data(), last_emitted_.size()});
             } else if (p_.fill == ResampleFill::Nan) {
@@ -546,6 +579,12 @@ private:
     // ByClock 2-port wiring (created lazily on first port() call).
     std::vector<ClockPort> clock_ports_;
     std::size_t clock_port_flush_count_ = 0;
+    // ByClock deferred-tick state (C1 tie-order fix): a clock tick at
+    // pending_clock_tick_index_ is held until a strictly later event arrives,
+    // so same-index value events (regardless of Pipeline input order) are always
+    // included in the bucket before it closes.
+    bool pending_clock_tick_ = false;
+    Index pending_clock_tick_index_{};
 };
 
 }} // namespace screamer::dag

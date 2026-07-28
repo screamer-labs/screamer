@@ -908,10 +908,8 @@ def _resample_via_cpp(feed, *, every, count, threshold, agg, origin, label,
     the combined frame; the ResampleNode sees width-2 frames and uses ByCumulative
     logic internally.
 
-    For ByClock mode (clock=True): feed is a (vals, idx) pair where vals is 2-D
-    (N, N_val+1) with the last column being an is_clock flag (0=value event,
-    1=clock event). The merged value+clock events are fed as a single stream;
-    the ResampleNode sees the is_clock column and routes accordingly.
+    ByClock mode (clock=True) is NOT routed through this function; it uses
+    _resample_clock_batch / _resample_clock_lazy with a 2-input Pipeline instead.
     """
     from .dag import Input, Pipeline
     src = Input("x")
@@ -1000,6 +998,22 @@ def _resample_validate(freq, every, count, threshold, agg, label, fill="skip",
         raise ValueError("resample: every must be positive")
     if count is not None and int(count) < 1:
         raise ValueError("resample: count must be >= 1")
+    # clock= and threshold= only support builtin string aggs. A functor/EvalOp
+    # reducer is routed to GenericResampleNode which ignores the clock/cumulative
+    # mode, producing silently wrong output. Reject early with a clear message.
+    if not isinstance(agg, str) and not isinstance(agg, dict):
+        if clock:
+            raise ValueError(
+                "resample clock= mode requires a builtin string agg "
+                "(first/last/min/max/sum/count/mean/ohlc); "
+                "functor reducers are not supported with clock=. "
+                "Apply your functor to the resampled output instead.")
+        if threshold is not None:
+            raise ValueError(
+                "resample threshold= mode requires a builtin string agg "
+                "(first/last/min/max/sum/count/mean/ohlc); "
+                "functor reducers are not supported with threshold=. "
+                "Apply your functor to the resampled output instead.")
     # agg may be a builtin string or an arbitrary functor reducer (an EvalOp).
     # dict agg is no longer supported; raise immediately with a migration hint.
     if isinstance(agg, dict):
