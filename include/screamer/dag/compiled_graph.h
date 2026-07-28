@@ -131,6 +131,17 @@ public:
                     // plan or builtin agg). The input is always width-2 (value+driver)
                     // but the output width is from the value reducer only.
                     node_width[id] = resample_output_width(nd.resample);
+                } else if (nd.resample.mode == ResampleMode::ByClock) {
+                    // ByClock: output width is determined by the agg. The input is
+                    // width-(N+1) [value_cols..., is_clock] but output is the reduced
+                    // value width. For OhlcvBars, the value width is input_width-1.
+                    if (nd.resample.agg == ResampleAgg::OhlcvBars && nd.resample.plan.empty()) {
+                        // Dynamic: output width = input width - 1 (subtract the clock column).
+                        std::size_t inp_w = nd.inputs.empty() ? 2u : node_width[nd.inputs[0]];
+                        node_width[id] = inp_w > 1 ? inp_w - 1 : 1;
+                    } else {
+                        node_width[id] = resample_output_width(nd.resample);
+                    }
                 } else if (nd.resample.agg == ResampleAgg::OhlcvBars && nd.resample.plan.empty()) {
                     // Dynamic ohlcv_bars: output width equals input width.
                     std::size_t inp_w = nd.inputs.empty() ? 1u : node_width[nd.inputs[0]];
@@ -252,6 +263,19 @@ public:
                     reset_nodes_.push_back(rn.get());
                     node_input_sink[id] = [ptr = rn.get()](std::size_t) -> Sink<std::int64_t>* {
                         return ptr;
+                    };
+                    owned_.push_back(rn);
+                } else if (ns.resample.mode == ResampleMode::ByClock) {
+                    // ByClock: 2-port node (value port 0, clock port 1).
+                    // Each producer routes into the appropriate port.
+                    // Events arrive in global index order (MergeSource), so no
+                    // reorder buffer is needed inside the node.
+                    auto rn = std::make_shared<ResampleNode<std::int64_t>>(ns.resample, *downstream);
+                    reset_nodes_.push_back(rn.get());
+                    // Initialize ports eagerly here so the lambda captures are stable.
+                    rn->port(0);  // creates clock_ports_ on the node
+                    node_input_sink[id] = [ptr = rn.get()](std::size_t slot) -> Sink<std::int64_t>* {
+                        return &ptr->port(slot);
                     };
                     owned_.push_back(rn);
                 } else {

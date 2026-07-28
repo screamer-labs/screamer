@@ -8,7 +8,7 @@ _RESAMPLE_AGG_CODE = {"first": 0, "last": 1, "min": 2, "max": 3,
                       "sum": 4, "count": 5, "mean": 6, "ohlc": 7,
                       "ohlcv_bars": 10}   # 10 = OhlcvBars (dynamic plan, built in C++)
 # ResampleMode enum codes (matching C++ enum ResampleMode).
-_RESAMPLE_MODE_CODE = {"by_index": 0, "by_count": 1, "by_cumulative": 2}
+_RESAMPLE_MODE_CODE = {"by_index": 0, "by_count": 1, "by_cumulative": 2, "by_clock": 3}
 _RESAMPLE_FILL_CODE = {"skip": 0, "nan": 1, "carry": 2}
 
 # ResampleAgg enum codes for plan entries (matching the C++ enum).
@@ -294,7 +294,10 @@ class Pipeline:
                     nid = gb.add_select(inp, cols)
                 elif name == "Resample":
                     threshold = kwargs.get("threshold")
-                    if threshold is not None:
+                    clock = kwargs.get("clock", False)
+                    if clock:
+                        mode = 3  # ByClock
+                    elif threshold is not None:
                         mode = 2  # ByCumulative
                     elif kwargs.get("count") is not None:
                         mode = 1  # ByCount

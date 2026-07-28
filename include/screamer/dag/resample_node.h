@@ -113,7 +113,14 @@ public:
     void push(const Frame<Index>& f) override {
         // OhlcvBars with deferred plan: build the plan from the first frame's width.
         if (p_.agg == ResampleAgg::OhlcvBars && p_.plan.empty()) {
-            p_.plan = make_ohlcv_bars_plan(f.width);
+            // ByClock: the frame is [value_cols..., clock_col(ignored)]; the clock
+            // column is always the last; value width = frame.width - 1.
+            // ByCumulative: the frame is [value, driver]; value width = 1.
+            // All other modes: value width = frame.width.
+            std::size_t val_width = f.width;
+            if (p_.mode == ResampleMode::ByClock || p_.mode == ResampleMode::ByCumulative)
+                val_width = (f.width > 0) ? f.width - 1 : 0;
+            p_.plan = make_ohlcv_bars_plan(val_width);
             num_accums_ = resample_plan_input_cols(p_.plan);
             out_width_  = p_.plan.size();
             out_.assign(out_width_, 0.0);
@@ -131,6 +138,24 @@ public:
                     "dag::ResampleNode(ByCumulative): expects width-2 input "
                     "[value, driver]; got width " + std::to_string(f.width));
             push_by_cumulative(f.index, f.values[0], f.values[1]);
+            return;
+        }
+        if (p_.mode == ResampleMode::ByClock) {
+            // ByClock: input frame is [value_cols..., clock_col].
+            // The last column is the clock discriminant (0=value event, 1=clock event).
+            // Value events accumulate; clock events close the bucket.
+            if (f.width < 2)
+                throw std::runtime_error(
+                    "dag::ResampleNode(ByClock): expects width >= 2 input "
+                    "[value..., is_clock]; got width " + std::to_string(f.width));
+            double is_clock = f.values[f.width - 1];
+            if (is_clock != 0.0) {
+                // Clock event: close bucket at this index.
+                push_by_clock_tick(f.index);
+            } else {
+                // Value event: accumulate.
+                push_by_clock_value(f.index, f.values, f.width - 1);
+            }
             return;
         }
         if (p_.plan.empty()) {
@@ -159,6 +184,10 @@ public:
     void flush() override {
         if (p_.mode == ResampleMode::ByIndex) {
             if (has_any()) emit(cur_label_);
+        } else if (p_.mode == ResampleMode::ByClock) {
+            // ByClock: trailing partial bucket — no clock tick came to close it;
+            // per spec the last open bucket is NOT emitted (the clock drives emission).
+            // No-op: silence is the correct behavior for a clock-gated resample.
         } else if (p_.mode == ResampleMode::ByCumulative) {
             // Emit trailing partial bucket if any events landed in it.
             if (count_in_bucket_ > 0)
@@ -183,13 +212,19 @@ public:
         first_index_ = last_index_ = Index{};
         have_emitted_ = false;
         cum_driver_ = 0.0;
+        prev_clock_tick_set_ = false;
+        prev_clock_tick_ = Index{};
+        clock_value_buf_.clear();
+        clock_port_flush_count_ = 0;
     }
 
     std::size_t n_in()  const override {
-        // ByCumulative returns 2 here for graph-validation purposes, but the node
-        // is wired via a single width-2 input (a CombineLatest upstream collapses
-        // value + driver into one frame); the 2u is advisory, not a port count.
+        // ByCumulative and ByClock return 2 here for graph-validation purposes,
+        // but both modes are wired via a single width-N input (a CombineLatest
+        // upstream collapses value + driver/clock into one frame); the 2u is
+        // advisory, not a port count.
         if (p_.mode == ResampleMode::ByCumulative) return 2u;
+        if (p_.mode == ResampleMode::ByClock) return 2u;
         return p_.plan.empty() ? 1u : num_accums_;
     }
     std::size_t n_out() const override { return out_width_; }
@@ -234,6 +269,53 @@ public:
             for (std::int64_t b = bucket_ + 1; b < target; ++b) emit_fill(label_for(b));
         bucket_ = target; reset_accums(); set_index_label(target);
     }
+
+    // ByClock 2-port interface: port(0) = value stream, port(1) = clock stream.
+    // Used by the compiled graph to wire two separate input nodes directly into
+    // the ResampleNode without combining them into a single frame first.
+    // Events from both ports arrive in global index order (the compiled graph's
+    // MergeSource guarantees this), so no reorder buffer is needed.
+    //
+    // The port objects are created lazily on first call to port(). Non-movable:
+    // if the node is moved after port() was called the Port's back-references
+    // would dangle. The compiled graph creates nodes via shared_ptr and never
+    // moves them after creation, so this is safe in practice.
+    struct ClockPort : Sink<Index> {
+        ResampleNode& node;
+        std::size_t port_idx;  // 0 = value, 1 = clock
+        ClockPort(ResampleNode& n, std::size_t i) : node(n), port_idx(i) {}
+        void push(const Frame<Index>& f) override {
+            if (port_idx == 0) {
+                // Value port: accumulate all value columns.
+                node.push_by_clock_value(f.index, f.values, f.width);
+            } else {
+                // Clock port: close the bucket at this index (clock value ignored).
+                node.push_by_clock_tick(f.index);
+            }
+        }
+        void flush() override {
+            node.clock_port_flush_count_++;
+            if (node.clock_port_flush_count_ >= 2) {
+                // Both ports flushed: propagate flush downstream once.
+                node.clock_port_flush_count_ = 0;
+                node.downstream_.flush();
+            }
+        }
+        void on_watermark(Index /*w*/) override {}
+        std::size_t n_in()  const override { return 1; }
+        std::size_t n_out() const override { return 0; }
+    };
+    friend struct ClockPort;
+
+    // Returns the clock port for ByClock 2-port wiring. Creates ports on first call.
+    Sink<Index>& port(std::size_t i) {
+        if (clock_ports_.empty()) {
+            clock_ports_.emplace_back(*this, 0u);
+            clock_ports_.emplace_back(*this, 1u);
+        }
+        return clock_ports_[i];
+    }
+    friend class CompiledGraph;
 
 private:
     bool has_any() const {
@@ -324,6 +406,82 @@ private:
         }
     }
 
+    // ByClock: buffer a value event for deferred accumulation.
+    // Events are buffered (with their timeline index k) so that clock ticks can
+    // drain only the events whose index falls within the closing bucket.
+    // This supports the case where value events arrive with a shifted index
+    // (e.g., from a Delay node inside the same compiled graph), which can cause
+    // events to arrive in original-index order but out of timeline-index order.
+    // vals is the value portion of the frame (all but the last is_clock column).
+    // num_val_cols is the count of value columns (frame.width - 1).
+    void push_by_clock_value(Index k, const double* vals, std::size_t num_val_cols) {
+        if (p_.plan.empty() && num_val_cols > 1) {
+            // Multi-column single-agg ByClock: build a trivial plan on first push
+            // (one entry per input column, all using the same agg kind).
+            // This matches resample(multi_col, clock=..., agg='last') semantics:
+            // each column is reduced independently with the same reducer.
+            for (std::size_t c = 0; c < num_val_cols; ++c)
+                p_.plan.push_back({p_.agg, c});
+            num_accums_ = num_val_cols;
+            out_width_  = num_val_cols;
+            out_.assign(out_width_, 0.0);
+            last_emitted_.assign(out_width_, std::numeric_limits<double>::quiet_NaN());
+            nan_row_.assign(out_width_, std::numeric_limits<double>::quiet_NaN());
+            accums_.resize(num_accums_);
+        }
+        // Buffer the event (copy values) so the clock tick can drain it correctly.
+        // Buffering handles the case where events arrive out of timeline order
+        // (e.g., Delay shifting indices inside the same compiled graph).
+        std::size_t nc = p_.plan.empty() ? (num_val_cols >= 1 ? 1u : 0u) : num_accums_;
+        clock_value_buf_.push_back({k, std::vector<double>(vals, vals + std::min(nc, num_val_cols))});
+    }
+
+    // ByClock: a clock event closes the current bucket and emits at index k (the
+    // clock tick). The bucket spans value events with timeline index in (prev_tick, k].
+    // Events buffered in clock_value_buf_ are drained for those within (prev_tick, k];
+    // events with index > k remain in the buffer for subsequent clock ticks.
+    // fill= applies as usual (carry/nan/skip when no value arrived).
+    void push_by_clock_tick(Index k) {
+        // Drain buffered value events with index <= k (they belong to this bucket).
+        auto rem_it = clock_value_buf_.begin();
+        for (auto it = clock_value_buf_.begin(); it != clock_value_buf_.end(); ++it) {
+            if (static_cast<std::int64_t>(it->first) <= static_cast<std::int64_t>(k)) {
+                // This event belongs to the closing bucket: accumulate it.
+                const auto& row = it->second;
+                if (!p_.plan.empty()) {
+                    for (std::size_t c = 0; c < num_accums_ && c < row.size(); ++c)
+                        accums_[c].add(row[c]);
+                } else {
+                    if (!row.empty()) accums_[0].add(row[0]);
+                }
+                ++count_in_bucket_;
+            } else {
+                // Future event: keep in buffer. Guard against self-move: if rem_it
+                // and it point to the same element (no elements were drained yet),
+                // skip the assignment to avoid std::vector self-move UB.
+                if (rem_it != it) *rem_it = std::move(*it);
+                ++rem_it;
+            }
+        }
+        clock_value_buf_.erase(rem_it, clock_value_buf_.end());
+
+        if (has_any()) {
+            emit(k);
+        } else {
+            // Empty bucket: apply fill policy.
+            if (p_.fill == ResampleFill::Carry && have_emitted_) {
+                downstream_.push(Frame<Index>{k, last_emitted_.data(), last_emitted_.size()});
+            } else if (p_.fill == ResampleFill::Nan) {
+                downstream_.push(Frame<Index>{k, nan_row_.data(), nan_row_.size()});
+            }
+            // fill='skip': no emission.
+        }
+        reset_accums();
+        count_in_bucket_ = 0;
+        prev_clock_tick_set_ = true;
+        prev_clock_tick_ = k;
+    }
+
     Index label_for(std::int64_t nb) const {
         std::int64_t start = p_.origin + nb * p_.width;
         return static_cast<Index>(p_.label == ResampleLabel::Left ? start : start + p_.width);
@@ -377,6 +535,17 @@ private:
     std::int64_t count_in_bucket_ = 0;
     Index first_index_{}, last_index_{};
     double cum_driver_ = 0.0;         // ByCumulative: running driver accumulator
+    bool prev_clock_tick_set_ = false;  // ByClock: whether a clock tick has fired
+    Index prev_clock_tick_{};           // ByClock: index of the last clock tick
+    // ByClock value-event buffer: stores (index, values) pairs for deferred
+    // accumulation. Clock ticks drain events with index <= tick; the rest stay.
+    // Enables correct operation when value events arrive with shifted indices
+    // (e.g., from a Delay node in the same compiled graph causing out-of-order
+    // event delivery at the ResampleNode).
+    std::vector<std::pair<Index, std::vector<double>>> clock_value_buf_;
+    // ByClock 2-port wiring (created lazily on first port() call).
+    std::vector<ClockPort> clock_ports_;
+    std::size_t clock_port_flush_count_ = 0;
 };
 
 }} // namespace screamer::dag

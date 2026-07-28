@@ -893,7 +893,7 @@ def _resample_freq_to_engine(freq, index):
 
 
 def _resample_via_cpp(feed, *, every, count, threshold, agg, origin, label,
-                      fill="skip"):
+                      fill="skip", clock=False):
     """Run resample on the C++ engine via a one-node Pipeline, for batch OR lazy input.
 
     Builds the minimal ``Input -> Resample`` graph the Node regime already uses,
@@ -907,21 +907,72 @@ def _resample_via_cpp(feed, *, every, count, threshold, agg, origin, label,
     vals is 2-D (N, 2) with columns [value, driver]. The single Input node receives
     the combined frame; the ResampleNode sees width-2 frames and uses ByCumulative
     logic internally.
+
+    For ByClock mode (clock=True): feed is a (vals, idx) pair where vals is 2-D
+    (N, N_val+1) with the last column being an is_clock flag (0=value event,
+    1=clock event). The merged value+clock events are fed as a single stream;
+    the ResampleNode sees the is_clock column and routes accordingly.
     """
     from .dag import Input, Pipeline
     src = Input("x")
     node = resample(src, every=every, count=count, threshold=threshold, agg=agg,
-                    origin=origin, label=label, fill=fill)
+                    origin=origin, label=label, fill=fill, clock=clock)
     dag = Pipeline([src], [node])
     return dag(feed)
 
 
-def _resample_validate(freq, every, count, threshold, agg, label, fill="skip"):
-    # Exactly one of freq, every, count, threshold must be provided.
+def _resample_clock_batch(vals, val_idx, clk_vals, clk_idx, *, agg, fill,
+                           origin, label):
+    """Batch ByClock resample: run a 2-input Pipeline (value + clock) with the
+    C++ ResampleNode(ByClock) in 2-port mode.
+
+    Port 0 receives value events; port 1 receives clock events. Events from both
+    ports arrive in global index order (MergeSource in run_batch guarantees this).
+    The node accumulates value events and emits at each clock tick.
+    """
+    from .dag import Input, Pipeline
+    val_in = Input("v")
+    clk_in = Input("c")
+    node = resample(val_in, clk_in, clock=True, agg=agg, fill=fill,
+                    origin=origin, label=label)
+    dag = Pipeline([val_in, clk_in], [node])
+    val_idx = np.ascontiguousarray(val_idx, dtype=np.int64)
+    clk_idx = np.ascontiguousarray(clk_idx, dtype=np.int64)
+    vals_f = np.ascontiguousarray(vals, dtype=np.float64)
+    clk_f = np.ascontiguousarray(clk_vals if clk_vals.ndim == 1 else clk_vals[:, 0],
+                                  dtype=np.float64)
+    return dag((vals_f, val_idx), (clk_f, clk_idx))
+
+
+def _resample_clock_lazy(values, clock_stream, *, agg, fill, origin, label):
+    """Lazy ByClock resample: run a 2-input Pipeline (value + clock) in lazy mode.
+
+    Builds the same 2-input Pipeline as _resample_clock_batch but feeds it with
+    lazy iterators. The C++ _LazyDriver merges the two input iterators by index
+    and routes value events to port 0 and clock events to port 1 of the
+    ResampleNode(ByClock), producing a lazy output iterator.
+
+    The input iterators must yield (value, index) pairs where index is comparable.
+    Both must be consistently indexed (both positional or both (value, index) pairs).
+    """
+    from .dag import Input, Pipeline
+    val_in = Input("v")
+    clk_in = Input("c")
+    node = resample(val_in, clk_in, clock=True, agg=agg, fill=fill,
+                    origin=origin, label=label)
+    dag = Pipeline([val_in, clk_in], [node])
+    return dag(iter(values), iter(clock_stream))
+
+
+def _resample_validate(freq, every, count, threshold, agg, label, fill="skip",
+                       clock=False):
+    # Exactly one of freq, every, count, threshold, clock must be provided.
     given = sum(x is not None for x in [freq, every, count, threshold])
+    if clock:
+        given += 1
     if given != 1:
         raise ValueError(
-            "resample: pass exactly one of freq=, every=, count=, or threshold=")
+            "resample: pass exactly one of freq=, every=, count=, threshold=, or clock=")
     # threshold positivity guard.
     if threshold is not None and float(threshold) <= 0.0:
         raise ValueError("resample: threshold must be > 0")
@@ -969,7 +1020,7 @@ def _resample_validate(freq, every, count, threshold, agg, label, fill="skip"):
 
 
 def resample(values, driver=None, index=None, *, freq=None, every=None, count=None,
-             threshold=None, agg="last", origin=0, label="left", fill="skip"):
+             threshold=None, clock=False, agg="last", origin=0, label="left", fill="skip"):
     """Causal windowed downsample of a 1-D value stream.
 
     Pass exactly one of ``freq``, ``every``, or ``count`` to bound the bars.
@@ -1039,7 +1090,7 @@ def resample(values, driver=None, index=None, *, freq=None, every=None, count=No
     ``index=`` applies only to raw arrays.
     """
     agg = _resolve_agg(agg)
-    _resample_validate(freq, every, count, threshold, agg, label, fill)
+    _resample_validate(freq, every, count, threshold, agg, label, fill, clock)
     # Translate freq= into every=/count= using the index context.  After this
     # block every and count follow the existing internal convention so all
     # downstream code is unchanged.
@@ -1051,6 +1102,51 @@ def resample(values, driver=None, index=None, *, freq=None, every=None, count=No
         _mode, _width = _resample_freq_to_engine(freq, _idx_ctx)
         every = _width if _mode == "span" else None
         count = _width if _mode == "count" else None
+
+    # ByClock mode: values is the value stream, driver is the clock stream.
+    # At each clock event the current bucket is closed and emitted.
+    if clock:
+        if driver is None:
+            raise ValueError(
+                "resample: clock=True requires a clock stream as the second argument")
+        if is_node(values):
+            if not is_node(driver):
+                raise ValueError(
+                    "resample: clock= requires a clock Node as the second argument")
+            # Graph regime: wire two separate Input nodes into the 2-port
+            # ResampleNode(ByClock). The compiled graph routes port(0) <- value
+            # and port(1) <- clock.
+            return make_operator_node(Resample, (values, driver), {
+                "clock": True, "agg": agg,
+                "every": None, "count": None,
+                "origin": origin, "label": label, "fill": fill})
+        # Eager / lazy path: merge value and clock events into a tagged stream
+        # [value..., is_clock] where is_clock=0 for value events, 1 for clock.
+        # The merged stream is fed to the C++ ResampleNode(ByClock) which
+        # inspects the last column to route each event.
+        if _is_lazy_stream(values) or _is_lazy_stream(driver):
+            return _resample_clock_lazy(values, driver, agg=agg, fill=fill,
+                                        origin=origin, label=label)
+        vals, val_idx = _as_vi(values, index)
+        vals = np.asarray(vals, dtype=np.float64)
+        clk_vals, clk_idx = _as_vi(driver, None)
+        clk_vals = np.asarray(clk_vals, dtype=np.float64)
+        if val_idx is None:
+            val_idx = np.arange(len(vals), dtype=np.int64)
+        if clk_idx is None:
+            clk_idx = np.arange(len(clk_vals), dtype=np.int64)
+        return _resample_clock_batch(vals, np.asarray(val_idx), clk_vals, np.asarray(clk_idx),
+                                     agg=agg, fill=fill, origin=origin, label=label)
+
+    # Guard: a second positional argument (driver) without a mode selector is ambiguous
+    # when driver is a stream, Node, or (values, index) pair. Plain numpy arrays are
+    # silently ignored (legacy: the second positional was once treated as an index).
+    if driver is not None and threshold is None and not clock:
+        driver_is_plain_array = isinstance(driver, np.ndarray)
+        if not driver_is_plain_array:
+            raise ValueError(
+                "resample: a second positional argument (driver/clock stream) requires "
+                "either threshold= or clock=True to specify the mode")
 
     # ByCumulative mode: values is the value stream, driver is the driver stream.
     # The node expects a width-2 input [value, driver] combined on the same index.
@@ -1235,35 +1331,48 @@ class Resample:
 
         Resample(values, driver, threshold=T, agg='ohlc')
 
-    The cumulative-driver form is a direct-call shorthand that returns
-    ``(out_values, out_index)`` immediately. A bar closes when the cumulative
-    driver since the last close reaches ``threshold``.
+    Clock-mode (target-clock resample / as-of) form::
+
+        Resample(values, clock_stream, clock=True, agg='last', fill='carry')
+
+    The cumulative-driver and clock-mode forms are direct-call shorthands that
+    return ``(out_values, out_index)`` immediately.
 
     ``every=`` is not available on the class surface (Option B: freq/count
     only).  Use the :func:`resample` function directly if you need ``every=``.
     """
 
     def __new__(cls, values_or_freq=None, driver=None, *,
-                freq=None, count=None, threshold=None, agg="last", origin=0,
-                label="left", fill="skip"):
-        # Detect whether the first positional arg is data (cumulative-driver
-        # shorthand form) or a config param (classic config-first form).
+                freq=None, every=None, count=None, threshold=None, clock=False,
+                agg="last", origin=0, label="left", fill="skip"):
+        # Detect whether the first positional arg is data (cumulative-driver or
+        # clock-mode shorthand form) or a config param (classic config-first form).
         # When data IS provided, compute and return the result directly.
         _is_data = (values_or_freq is not None and
                     not isinstance(values_or_freq, (int, float,
                                                     np.integer, np.floating)))
-        if _is_data and threshold is not None:
-            # Direct call: Resample(value, driver, threshold=T, agg=...)
+        if _is_data and (threshold is not None or clock or every is not None):
+            # Direct call: Resample(value, driver, threshold=T, ...) or
+            #              Resample(value, clock, clock=True, ...) or
+            #              Resample(value, every=W, ...)
             # Returns the resample result (a tuple), not a Resample instance.
             return resample(values_or_freq, driver,
-                            freq=freq, count=count, threshold=threshold,
-                            agg=agg, origin=origin, label=label, fill=fill)
+                            freq=freq, every=every, count=count, threshold=threshold,
+                            clock=clock, agg=agg, origin=origin, label=label,
+                            fill=fill)
+        if _is_data and driver is not None:
+            # A driver (second positional arg) with no mode selector: route through
+            # resample() which will raise the "requires threshold= or clock=True" error.
+            return resample(values_or_freq, driver,
+                            freq=freq, every=every, count=count, threshold=threshold,
+                            clock=clock, agg=agg, origin=origin, label=label,
+                            fill=fill)
         # Classic config-first: return a Resample instance.
         return super().__new__(cls)
 
     def __init__(self, values_or_freq=None, driver=None, *,
-                 freq=None, count=None, threshold=None, agg="last", origin=0,
-                 label="left", fill="skip"):
+                 freq=None, every=None, count=None, threshold=None, clock=False,
+                 agg="last", origin=0, label="left", fill="skip"):
         # Skip init when __new__ already returned a non-Resample result.
         if not isinstance(self, Resample):
             return
@@ -1273,14 +1382,14 @@ class Resample:
                         isinstance(values_or_freq, (int, float,
                                                     np.integer, np.floating)))
                     else freq)
-        self._cfg = dict(freq=eff_freq, count=count, threshold=threshold, agg=agg,
-                         origin=origin, label=label, fill=fill)
+        self._cfg = dict(freq=eff_freq, every=every, count=count, threshold=threshold,
+                         clock=clock, agg=agg, origin=origin, label=label, fill=fill)
 
     def __call__(self, values, index=None):
         # Classic config-first form: Resample(cfg)(values, index=None)
-        # For ByCumulative mode (threshold=), the caller passes values = a
-        # (values, index) tuple and there is no second positional arg (the driver
-        # is stored in the node spec built by the graph path).
+        # For ByCumulative mode (threshold=) or ByClock mode (clock=True),
+        # the caller passes values as a (values, index) tuple and driver=None
+        # (the driver/clock is stored in the node spec built by the graph path).
         return resample(values, None, index, **self._cfg)
 
 

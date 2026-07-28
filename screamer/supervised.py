@@ -6,9 +6,9 @@ through, so the pairing is causal and needs no future values of y. The target mu
 itself be causal (known as of its own index), typically a rolling trailing quantity.
 These utilities are training-time only.
 
-All three regimes (eager, graph, lazy) are supported for count mode via a Pipeline
-of existing C++ nodes. Duration mode supports eager batch only; graph and lazy require
-a CombineLatest emit="on_right" primitive that does not yet exist in the C++ core.
+All three regimes (eager, graph, lazy) are supported for both count and duration mode.
+Duration mode uses Resample(clock=) to emit the last delayed X at each y-tick; this
+is an as-of join on the index axis driven by the y clock.
 """
 from __future__ import annotations
 
@@ -95,52 +95,47 @@ def _forecast_pairs_count(X, y, count, dropna_flag):
 
 
 def _forecast_pairs_duration(X, y, duration, dropna_flag):
-    """Duration-mode forecast_pairs: eager batch only.
+    """Duration-mode forecast_pairs: all regimes (eager, graph, lazy).
 
-    Shifts X's index by ``duration`` index units and aligns to y's clock via
-    CombineLatest. Only rows at y-tick timestamps are returned (the y-clock
-    selection is performed using a Python-level index set, since the existing
-    C++ nodes do not yet provide an emit="on_right" mode for CombineLatest).
+    Shifts X's index by ``duration`` index units via Delay, then resamples at
+    each y-tick using Resample(clock=y, agg='last', fill='carry'). CombineLatest
+    pairs the resampled Xs with the corresponding y value at each clock tick.
+    Dropna filters rows where either Xs or y is NaN when requested.
 
-    Graph and lazy regimes are not supported until CombineLatest gains an
-    emit="on_right" (or equivalent "emit only at the second stream's ticks")
-    mode in the C++ core.
+    Works in all three regimes by building a Pipeline of C++ nodes; no
+    Python-level data processing occurs.
     """
-    if is_node(X) or is_node(y):
-        raise NotImplementedError(
-            "forecast_pairs duration= mode does not support graph (Node) inputs. "
-            "The y-clock selection requires a CombineLatest emit='on_right' primitive "
-            "that does not yet exist in the C++ core. Use count= mode for graph/lazy regimes.")
-    if _is_lazy_stream(X) or _is_lazy_stream(y):
-        raise NotImplementedError(
-            "forecast_pairs duration= mode does not support lazy iterator inputs. "
-            "The y-clock selection requires a CombineLatest emit='on_right' primitive "
-            "that does not yet exist in the C++ core. Use count= mode for graph/lazy regimes.")
+    from .streams import Resample
 
+    def _build_dag(X_in, y_in):
+        """Build the duration-mode pipeline on the given input nodes."""
+        Xs_node = Resample(Delay(int(duration))(X_in), y_in,
+                           clock=True, agg='last', fill='carry')
+        combined = CombineLatest()(Xs_node, y_in)
+        if dropna_flag:
+            return Dropna(how="any")(combined)
+        return combined
+
+    if is_node(X) or is_node(y):
+        # Graph regime: wire directly on the provided Node handles.
+        return _build_dag(X, y)
+
+    if _is_lazy_stream(X) or _is_lazy_stream(y):
+        # Lazy regime: run a Pipeline over the two iterator feeds.
+        X_in = Input("X")
+        y_in = Input("y")
+        dag = Pipeline([X_in, y_in], [_build_dag(X_in, y_in)])
+        return dag(iter(X), iter(y))
+
+    # Eager regime: X and y must be (values, index) tuples (duration is index-based).
     if not (isinstance(X, tuple) and isinstance(y, tuple)):
         raise TypeError("duration= mode needs X and y as (values, index) pairs")
-    Xv, Xi = np.asarray(X[0], float), np.asarray(X[1])
-    yv, yi = np.asarray(y[0], float), np.asarray(y[1])
-    if Xv.ndim != 1 or yv.ndim != 1:
-        raise ValueError("duration= mode supports 1-D X and y (one feature, one target)")
 
-    # Delay X by duration (C++ node), then as-of join with y (C++ CombineLatest).
-    Xsv, Xsi = Delay(int(duration))((Xv, Xi))
-    combined, cidx = CombineLatest(emit="on_any")((Xsv, Xsi), (yv, yi))
-
-    # Select only y-clock ticks (rows where the event index belongs to yi).
-    # A Python-level set membership check is used because CombineLatest does not
-    # yet have an emit="on_right" mode; no numpy masking functions are used here.
-    yi_set = frozenset(cidx.dtype.type(v) for v in np.asarray(yi).tolist())
-    at_ytick = np.array([cidx[i] in yi_set for i in range(len(cidx))], dtype=bool)
-
-    Xs_out = combined[at_ytick, 0]
-    y_out = combined[at_ytick, 1]
-
-    if dropna_flag:
-        valid = ~(np.isnan(Xs_out) | np.isnan(y_out))
-        return Xs_out[valid], y_out[valid]
-    return Xs_out, y_out
+    X_in = Input("X")
+    y_in = Input("y")
+    dag = Pipeline([X_in, y_in], [_build_dag(X_in, y_in)])
+    result, _ = dag(X, y)
+    return result[:, 0], result[:, 1]
 
 
 def forecast_pairs(X, y, *, count=None, duration=None, dropna=False):
@@ -157,15 +152,15 @@ def forecast_pairs(X, y, *, count=None, duration=None, dropna=False):
 
     Regimes
     -------
-    count mode supports all three regimes:
+    Both count and duration mode support all three regimes:
 
     - Eager (arrays): call directly, returns ``(X_shifted, y)`` as numpy arrays.
     - Graph (Node inputs): returns a Node; wrap in a Pipeline to run it.
     - Lazy (generators of ``(value, index)`` events): returns a lazy iterator of
       ``((xs_val, y_val), index)`` events.
 
-    duration mode supports eager batch only. Graph and lazy regimes raise
-    NotImplementedError until CombineLatest gains an emit="on_right" mode.
+    Duration mode requires X and y to be ``(values, index)`` tuples in the eager
+    regime; graph and lazy regimes carry the index implicitly through the pipeline.
     """
     if (count is None) == (duration is None):
         raise ValueError("pass exactly one of count= or duration=")

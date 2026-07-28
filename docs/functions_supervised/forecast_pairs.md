@@ -71,10 +71,19 @@ output across them. The function dispatches on the input type:
 - **Lazy** (generators of `(value, index)` events): returns a lazy iterator of
   `((xs_val, y_val), index)` events.
 
-`duration=` mode supports eager batch only. Graph and lazy regimes raise
-`NotImplementedError` until `CombineLatest` gains an `emit="on_right"` primitive
-in the C++ core (which would allow emitting only on the y-clock without Python-level
-index set membership).
+`duration=` mode runs in all three regimes with byte-identical output across them.
+The function dispatches on the input type:
+
+- **Eager** `(duration=)`: pass `X` and `y` as `(values, index)` tuples. Returns
+  `(X_shifted, y)` as numpy arrays.
+- **Graph** `(duration=)`: pass `Input(...)` nodes; returns a Node. The output node
+  produces a 2-column array with columns `[X_shifted, y]`. Wrap in a `Pipeline`.
+- **Lazy** `(duration=)`: pass generators of `(value, index)` events; returns a lazy
+  iterator of `((xs_val, y_val), index)` events.
+
+Internally, duration mode uses `Resample(Delay(duration)(X), clock=y, agg='last',
+fill='carry')` paired with `CombineLatest`, running entirely in the C++ graph engine
+across all three regimes.
 
 ## Example
 

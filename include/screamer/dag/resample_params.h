@@ -8,7 +8,7 @@
 
 namespace screamer { namespace dag {
 
-enum class ResampleMode  { ByIndex, ByCount, ByCumulative };
+enum class ResampleMode  { ByIndex, ByCount, ByCumulative, ByClock };
 // ResampleAgg enumerates single-column reducer kinds.
 // Each output column in a plan has one ResampleAgg applied to one input column.
 // SumPos: sum of max(v, 0) per non-NaN value (= total positive part).

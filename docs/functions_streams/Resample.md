@@ -201,6 +201,38 @@ node = Resample(x, d, threshold=500, agg='ohlc');
 dag = Pipeline([x, d], [node]);
 ohlc, bar_idx = dag((price_arr, idx), (volume_arr, idx))`.
 
+## `clock=True` -- target-clock (as-of join)
+
+`clock=True` is the fifth mode selector. A bar closes at each event of a separate
+**clock** stream rather than at a fixed index interval, event count, or driver
+threshold. The bar accumulates value events with index in `(previous_tick, tick]`
+and emits at the clock tick.
+
+The canonical use is an **as-of join**: emit the last known value of one stream as
+of each event of another (the "clock" or "observation" stream). With `agg='last'`
+and `fill='carry'`, the output carries the most-recent value forward to every clock
+tick, even if the value stream has been silent since the previous tick.
+
+Call as `values, index = Resample(value_vi, clock_vi, clock=True, agg='last', fill='carry')`.
+
+- `value_vi` is a `(values, index)` tuple (or a bare array with a separate index).
+  It supplies the stream being resampled.
+- `clock_vi` is a `(clock_values, clock_index)` tuple. Its **index** drives bar
+  boundaries; the clock values themselves are ignored.
+- `agg=` and `fill=` work as for the other modes. `fill='carry'` repeats the last
+  emitted row at every clock tick that has no value event; `fill='skip'` (the
+  default) suppresses emission at empty-bucket clock ticks.
+- `clock=True` is mutually exclusive with `freq=`, `every=`, `count=`, and
+  `threshold=`; passing two mode selectors raises `ValueError`.
+- Events with index exactly equal to the clock tick are **included** in that bar
+  (the interval is closed on the right: `(prev_tick, tick]`).
+- There is no trailing partial bucket: only explicit clock ticks trigger emission.
+- Works in eager, `Pipeline` graph, and lazy iterator regimes with identical results.
+
+**Graph regime** -- wire two `Input` nodes and pass `clock=True`:
+`x = Input('price'); clk = Input('obs'); node = Resample(x, clk, clock=True, agg='last', fill='carry');
+dag = Pipeline([x, clk], [node])`.
+
 <!-- HELP_END -->
 ## Examples
 
@@ -333,4 +365,30 @@ a threshold. The crossing observation is included in the closing bar.
    # columns: open, high, low, close
    for i, k in enumerate(bar_idx):
        print(f"bar {k}: {ohlc[i]}")
+```
+
+### As-of join with `clock=True`
+
+Resample a value stream at every tick of a separate clock stream. With
+`agg='last'` and `fill='carry'` the output carries the most-recent value to every
+clock tick.
+
+```{eval-rst}
+.. exec_code::
+
+   import numpy as np
+   from screamer.streams import Resample
+
+   # Values arrive at irregular times.
+   vals = np.array([1., 2., 3.])
+   val_idx = np.array([5, 15, 25], dtype=np.int64)
+
+   # Clock ticks at regular intervals; the output is labelled at each tick.
+   clk_idx = np.array([10, 20, 30], dtype=np.int64)
+   clk_vals = np.zeros(3)
+
+   out, out_idx = Resample((vals, val_idx), (clk_vals, clk_idx),
+                           clock=True, agg='last', fill='carry')
+   print(out_idx)   # [10 20 30]
+   print(out)       # [1. 2. 3.] -- last value seen up to each tick
 ```

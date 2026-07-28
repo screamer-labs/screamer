@@ -283,3 +283,60 @@ def test_forecast_pairs_count_2d_dropna_equals_batch_reference():
     expected_ys = np.array([300., 400., 500.])
     np.testing.assert_allclose(Xs, expected_Xs, err_msg="2-D Xs oracle mismatch")
     np.testing.assert_allclose(ys, expected_ys, err_msg="2-D ys oracle mismatch")
+
+
+# ---------------------------------------------------------------------------
+# All-regime: duration mode runs identically in eager, graph, and lazy
+# ---------------------------------------------------------------------------
+
+def test_forecast_pairs_duration_graph_matches_batch():
+    """Graph regime (duration=): Node inputs return a Node; Pipeline matches batch."""
+    from screamer.dag import Input, Pipeline, is_node
+
+    n = 20
+    rng = np.random.default_rng(7)
+    idx = np.arange(n, dtype=np.int64) * 10      # spacing = 10
+    X_vals = rng.standard_normal(n)
+    y_vals = rng.standard_normal(n)
+    duration = 30                                   # 3 ticks at spacing 10
+
+    # Batch eager baseline.
+    Xb, yb = forecast_pairs((X_vals, idx), (y_vals, idx), duration=duration, dropna=True)
+
+    # Graph regime.
+    X_in = Input("X")
+    y_in = Input("y")
+    node = forecast_pairs(X_in, y_in, duration=duration, dropna=True)
+    assert is_node(node), "graph mode must return a Node"
+
+    dag = Pipeline([X_in, y_in], [node])
+    result, _ = dag((X_vals, idx), (y_vals, idx))
+    Xg, yg = result[:, 0], result[:, 1]
+    np.testing.assert_allclose(Xg, Xb, equal_nan=True,
+                               err_msg="graph Xs != batch Xs (duration)")
+    np.testing.assert_allclose(yg, yb, equal_nan=True,
+                               err_msg="graph ys != batch ys (duration)")
+
+
+def test_forecast_pairs_duration_lazy_matches_batch():
+    """Lazy regime (duration=): generators produce the same output as batch."""
+    n = 20
+    rng = np.random.default_rng(13)
+    idx = np.arange(n, dtype=np.int64) * 10
+    X_vals = rng.standard_normal(n)
+    y_vals = rng.standard_normal(n)
+    duration = 20
+
+    Xb, yb = forecast_pairs((X_vals, idx), (y_vals, idx), duration=duration, dropna=True)
+
+    gen_X = ((float(v), int(i)) for v, i in zip(X_vals, idx))
+    gen_y = ((float(v), int(i)) for v, i in zip(y_vals, idx))
+    it = forecast_pairs(gen_X, gen_y, duration=duration, dropna=True)
+    rows = list(it)
+    assert len(rows) == len(Xb), f"lazy row count {len(rows)} != batch {len(Xb)}"
+    Xl = np.array([r[0][0] for r in rows], dtype=float)
+    yl = np.array([r[0][1] for r in rows], dtype=float)
+    np.testing.assert_allclose(Xl, Xb, equal_nan=True,
+                               err_msg="lazy Xs != batch Xs (duration)")
+    np.testing.assert_allclose(yl, yb, equal_nan=True,
+                               err_msg="lazy ys != batch ys (duration)")
