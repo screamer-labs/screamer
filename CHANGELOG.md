@@ -2,6 +2,33 @@
 
 All notable changes to this project are documented in this file.
 
+1.1.0 - 2026-07-29
+------------
+
+### Added
+
+* `Hold(n, release=0.0)` - a time-based latch. On a nonzero input it holds that value
+  for `n` steps, then returns `release`. Complements `SchmittTrigger` (level hysteresis)
+  with time hysteresis.
+* `Resample` information bars: `Resample(value, driver, threshold=T, agg=...)` closes a
+  bar when a cumulative `driver` reaches `threshold`, giving volume bars, dollar bars,
+  and other event-clock bars from one mechanism.
+* `Resample` bar re-aggregation aggs `ohlc_bars` and `ohlcv_bars`: downsample
+  already-built `[O,H,L,C]` / `[O,H,L,C,V,...]` bars into coarser bars (first/max/min/last
+  on OHLC, sum on trailing columns) in a single C++ pass.
+* `Resample` target-clock mode: `Resample(value, clock, clock=True, agg='last',
+  fill='carry')` samples the last-known value as of each event of a separate clock stream
+  (an as-of / `merge_asof` / reindex-forward-fill).
+
+### Changed
+
+* The `ohlcv` and `ohlcv2` resample aggregations now run in every regime (eager, graph,
+  and lazy), not just eager. Batch results are unchanged; previously-rejected graph and
+  lazy calls now succeed.
+* `forecast_pairs` now runs in every regime (eager, graph, and lazy) for both `count=` and
+  `duration=` modes, so a training set can be built by streaming a live feature engine.
+  The public API and return values are unchanged.
+
 1.0.1 - 2026-07-26
 ------------
 
