@@ -139,6 +139,8 @@ Boolean masks, comparisons, and conditional selection. Outputs are 1.0 (true) or
      - Returns 1.0 if a >= b, else 0.0. NaN in either input yields NaN.
    * - :doc:`GreaterThan </functions_math/GreaterThan>`
      - Returns 1.0 if a > b, else 0.0. NaN in either input yields NaN.
+   * - :doc:`Hold (time-latch operator) </functions_signal/Hold>`
+     - Time-latch operator. Latches a nonzero finite input and holds it for n bars; returns the release value once the hold expires.
    * - :doc:`IsFinite </functions_math/IsFinite>`
      - Returns 1.0 for finite values, 0.0 for NaN or inf. Does not propagate NaN.
    * - :doc:`IsNan </functions_math/IsNan>`

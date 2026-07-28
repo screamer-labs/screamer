@@ -63,6 +63,8 @@ Designed frequency-domain and state-space filters.
      - General-order IIR Butterworth high-pass filter (rejects low frequencies).
    * - :doc:`Hampel filter </functions_rolling/Hampel>`
      - Robust Hampel despiker, replace samples far from the window median (in MAD units).
+   * - :doc:`Hold (time-latch operator) </functions_signal/Hold>`
+     - Time-latch operator. Latches a nonzero finite input and holds it for n bars; returns the release value once the hold expires.
    * - :doc:`Scalar Kalman filter </functions_signal/KalmanFilter>`
      - Scalar 1-D Kalman filter for a noisy random-walk model.
    * - :doc:`FIR moving average (arbitrary taps) </functions_signal/MovingAverage>`
@@ -79,6 +81,7 @@ Designed frequency-domain and state-space filters.
    /functions_signal/ButterHighpass
    /functions_rolling/DEMA
    /functions_rolling/Hampel
+   /functions_signal/Hold
    /functions_rolling/HullMA
    /functions_signal/KalmanFilter
    /functions_rolling/KAMA

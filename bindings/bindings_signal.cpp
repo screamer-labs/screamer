@@ -8,6 +8,7 @@
 #include "screamer/moving_average.h"
 #include "screamer/kalman_filter.h"
 #include "screamer/schmitt_trigger.h"
+#include "screamer/hold.h"
 
 namespace py = pybind11;
 
@@ -63,4 +64,13 @@ void init_bindings_signal(py::module& m) {
         .def("__call__", &screamer::SchmittTrigger::operator(), py::arg("value"))
         .def("reset", &screamer::SchmittTrigger::reset,
              "Reset to the initial latched state.");
+
+    // Hold: time-latch operator. Latches a nonzero finite input and holds it
+    // for n bars total; returns release after the hold expires.
+    py::class_<screamer::Hold, screamer::ScreamerBase>(m, "Hold")
+        .def(py::init<int, double>(),
+             py::arg("n"), py::arg("release") = 0.0)
+        .def("__call__", &screamer::Hold::operator(), py::arg("value"))
+        .def("reset", &screamer::Hold::reset,
+             "Reset to the initial state (remaining=0, held=release).");
 }
