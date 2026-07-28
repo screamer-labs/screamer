@@ -31,10 +31,26 @@ From these, the hard rules:
   operator. Combining two or more operators, adding arithmetic, or holding new state
   must be a C++ node. If you are chaining ops or writing a data loop in Python, stop:
   it belongs in C++.
+- **Gluing the outputs of C++ ops in Python is still a Python operator.** Stacking
+  columns, concatenating, masking or selecting rows, or doing arithmetic on the
+  results of one or more C++ operators is operator logic and belongs in the C++
+  node. "The reducers are already in C++" does not make a Python-orchestrated
+  combination compliant: the combination *is* the operator. The one sanctioned way
+  to combine operators is a `Pipeline`/DAG, which is graph *structure* (built once)
+  and compiles to C++ — the data never crosses into Python per event.
 - **One implementation per operator.** Never ship a second implementation of the same
   behavior (for example a C++ eager path plus a separate Python lazy path). Batch and
   stream are the same compiled engine; a divergent second path is a maintenance and a
   correctness-parity defect.
+- **Every operator works in every regime.** An operator must run in all three call
+  regimes — eager (arrays), graph (`Node`/`Pipeline`), and lazy (event iterator) —
+  and produce identical results across them (goal 3). No operator may be eager-only,
+  batch-only, or otherwise regime-restricted: an operator that raises in the graph or
+  lazy path is an *incomplete* operator, not a finished one. This holds for
+  training-time and dataset-assembly helpers too (someone will feed them a live
+  production stream). If a capability is awkward to express in the streaming engine,
+  design the C++ node (or a `Pipeline` of C++ nodes) correctly — do not ship an
+  eager-only shortcut.
 - **No Python orchestration of the data path.** The Pipeline/DAG compiles to and runs
   in C++ so data does not cross the boundary per event. Do not orchestrate windowing,
   joins, aggregation, or event scheduling in Python.
@@ -113,6 +129,11 @@ should be green with zero skips before you open a PR.
    poetry run python devtools/build_help_registry.py
    poetry run python devtools/build_topic_pages.py
    ```
+7. **Test every regime.** The operator is not done until a test proves it runs, with
+   identical output, in all three regimes: eager (arrays), graph (`Pipeline`), and
+   lazy (event iterator). This all-regime / batch==live test is the definition of
+   done — an operator that only a batch test exercises is not finished (see
+   [Design principles](#design-principles): every operator works in every regime).
 
 ### NaN policy
 
