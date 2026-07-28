@@ -60,9 +60,18 @@ def lazy_batch(dag_obj, *feeds):
     shape as ``dag(*feeds)``: a (values, index) pair for a single-output dag, or a
     tuple of such pairs for a multi-output dag (align_outputs=True only). Lets a
     test assert the lazy path equals the batch oracle with one call.
+
+    1-D values: emits (float, int) events.
+    2-D values: emits (tuple_of_floats, int) events for wide-input nodes.
     """
     def _gen(v_arr, k_arr):
-        return ((float(v), int(k)) for v, k in zip(v_arr, k_arr))
+        if np.ndim(v_arr) == 1:
+            return ((float(v), int(k)) for v, k in zip(v_arr, k_arr))
+        # 2-D: emit each row as a tuple of floats
+        return (
+            (tuple(float(x) for x in row), int(k))
+            for row, k in zip(v_arr, k_arr)
+        )
 
     n_out = len(dag_obj.outputs)
     gen_feeds = [_gen(v_arr, k_arr) for v_arr, k_arr in feeds]

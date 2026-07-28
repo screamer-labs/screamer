@@ -67,7 +67,14 @@ public:
     py::object next() {
         while (pending_.empty() && !done_) {
             if (auto e = merge_->next()) {
-                cg_.push_event(static_cast<std::size_t>(e->source), e->index, e->value);
+                const std::size_t src = static_cast<std::size_t>(e->source);
+                const auto* py_src = sources_[src].get();
+                if (py_src->is_wide()) {
+                    const auto& wv = py_src->wide_values();
+                    cg_.push_event_wide(src, e->index, wv.data(), wv.size());
+                } else {
+                    cg_.push_event(src, e->index, e->value);
+                }
                 collect();
             } else {
                 cg_.flush();
@@ -228,13 +235,15 @@ static py::list marshal_output_buffers(const std::vector<dag::OutputBuffer>& out
 
 // Helper: marshal a list of (index, values) feed tuples into raw C++ spans.
 // Fills ks/vs (keep-alive arrays), kp/vp (raw pointers), lens (lengths).
+// Also fills widths: 1 for a 1-D values array, W for a 2-D (N, W) values array.
 static void marshal_feeds(
         py::list feeds,
         std::vector<py::array_t<std::int64_t>>& ks,
         std::vector<py::array_t<double>>& vs,
         std::vector<const std::int64_t*>& kp,
         std::vector<const double*>& vp,
-        std::vector<std::size_t>& lens) {
+        std::vector<std::size_t>& lens,
+        std::vector<std::size_t>& widths) {
     for (auto item : feeds) {
         auto t = py::cast<py::tuple>(item);
         ks.push_back(py::cast<py::array_t<std::int64_t,
@@ -243,7 +252,11 @@ static void marshal_feeds(
                      py::array::c_style | py::array::forcecast>>(t[1]));
         kp.push_back(static_cast<const std::int64_t*>(ks.back().request().ptr));
         vp.push_back(static_cast<const double*>(vs.back().request().ptr));
-        lens.push_back(static_cast<std::size_t>(vs.back().request().shape[0]));
+        auto vinfo = vs.back().request();
+        lens.push_back(static_cast<std::size_t>(vinfo.shape[0]));
+        // Detect column width: 1 for 1-D arrays, shape[1] for 2-D arrays.
+        widths.push_back(vinfo.ndim >= 2
+            ? static_cast<std::size_t>(vinfo.shape[1]) : 1u);
     }
 }
 
@@ -263,6 +276,14 @@ void init_bindings_dag(py::module& m) {
             cg->push_event(input_idx, index, value);
         }
 
+        void push_event_wide(std::size_t input_idx, std::int64_t index,
+                             py::array_t<double, py::array::c_style | py::array::forcecast> vals) {
+            auto info = vals.request();
+            const double* ptr = static_cast<const double*>(info.ptr);
+            std::size_t w = static_cast<std::size_t>(info.size);
+            cg->push_event_wide(input_idx, index, ptr, w);
+        }
+
         void flush() { cg->flush(); }
 
         void advance(std::int64_t now) { cg->advance(now); }
@@ -277,20 +298,23 @@ void init_bindings_dag(py::module& m) {
             std::vector<const std::int64_t*> kp;
             std::vector<const double*> vp;
             std::vector<std::size_t> lens;
-            marshal_feeds(feeds, ks, vs, kp, vp, lens);
-            return marshal_output_buffers(cg->run_batch(kp, vp, lens));
+            std::vector<std::size_t> widths;
+            marshal_feeds(feeds, ks, vs, kp, vp, lens, widths);
+            return marshal_output_buffers(cg->run_batch(kp, vp, lens, widths));
         }
     };
 
     // Register _CompiledGraph before _GraphBuilder so compile() return type is known.
     py::class_<PyCompiledGraph>(m, "_CompiledGraph")
-        .def("reset",       &PyCompiledGraph::reset)
-        .def("push_event",  &PyCompiledGraph::push_event,
+        .def("reset",            &PyCompiledGraph::reset)
+        .def("push_event",       &PyCompiledGraph::push_event,
              py::arg("input_idx"), py::arg("index"), py::arg("value"))
-        .def("flush",       &PyCompiledGraph::flush)
-        .def("advance",     &PyCompiledGraph::advance, py::arg("now"))
-        .def("drain",       &PyCompiledGraph::drain)
-        .def("run_batch",   &PyCompiledGraph::run_batch, py::arg("feeds"));
+        .def("push_event_wide",  &PyCompiledGraph::push_event_wide,
+             py::arg("input_idx"), py::arg("index"), py::arg("values"))
+        .def("flush",            &PyCompiledGraph::flush)
+        .def("advance",          &PyCompiledGraph::advance, py::arg("now"))
+        .def("drain",            &PyCompiledGraph::drain)
+        .def("run_batch",        &PyCompiledGraph::run_batch, py::arg("feeds"));
 
     // Lazy driver over a single-output compiled graph and Python-iterator feeds.
     py::class_<LazyDriver>(m, "_LazyDriver")
@@ -341,15 +365,25 @@ void init_bindings_dag(py::module& m) {
 
         std::size_t add_resample(std::vector<std::size_t> inputs, int mode, int agg,
                                  int label, std::int64_t width, std::int64_t origin,
-                                 std::int64_t count, py::object reducer, int fill) {
+                                 std::int64_t count, py::object reducer, int fill,
+                                 py::list plan) {
             dag::ResampleParams rp;
             rp.mode   = static_cast<dag::ResampleMode>(mode);    // 0=ByIndex, 1=ByCount
-            rp.agg    = static_cast<dag::ResampleAgg>(agg);      // 0..7 First..Ohlc
+            rp.agg    = static_cast<dag::ResampleAgg>(agg);      // 0..9 First..SumNeg
             rp.label  = static_cast<dag::ResampleLabel>(label);  // 0=Left, 1=Right
             rp.fill   = static_cast<dag::ResampleFill>(fill);    // 0=Skip, 1=Nan, 2=Carry
             rp.width  = width;
             rp.origin = origin;
             rp.count  = count;
+            // Optional per-column reducer plan (multi-column bar aggs).
+            // Each plan entry is a (agg_code, input_col) tuple.
+            for (auto item : plan) {
+                auto t = py::cast<py::tuple>(item);
+                dag::ResamplePlanEntry e;
+                e.agg       = static_cast<dag::ResampleAgg>(t[0].cast<int>());
+                e.input_col = t[1].cast<std::size_t>();
+                rp.plan.push_back(e);
+            }
             // Optional functor reducer: extract the base EvalOp* and keep the Python
             // object alive for the compiled graph's lifetime (op_refs is copied into
             // the _CompiledGraph at compile()). Raw pointer would else dangle on GC.
@@ -412,12 +446,13 @@ void init_bindings_dag(py::module& m) {
         .def("add_resample", [](PyGraphBuilder& b, std::vector<std::size_t> inputs,
                                 int mode, int agg, int label,
                                 std::int64_t width, std::int64_t origin, std::int64_t count,
-                                py::object reducer, int fill) {
+                                py::object reducer, int fill, py::list plan) {
             return b.add_resample(std::move(inputs), mode, agg, label, width, origin,
-                                  count, reducer, fill);
+                                  count, reducer, fill, plan);
         }, py::arg("inputs"), py::arg("mode"), py::arg("agg"), py::arg("label"),
            py::arg("width"), py::arg("origin"), py::arg("count"),
-           py::arg("reducer") = py::none(), py::arg("fill") = 0)
+           py::arg("reducer") = py::none(), py::arg("fill") = 0,
+           py::arg("plan") = py::list{})
         .def("set_outputs", &PyGraphBuilder::set_outputs, py::arg("output_ids"))
         .def("compile", [](PyGraphBuilder& b) { return b.compile(); })
         .def("run_batch", [](PyGraphBuilder& b, py::list feeds) {
@@ -427,9 +462,10 @@ void init_bindings_dag(py::module& m) {
             std::vector<const std::int64_t*> kp;
             std::vector<const double*> vp;
             std::vector<std::size_t> lens;
-            marshal_feeds(feeds, ks, vs, kp, vp, lens);
+            std::vector<std::size_t> widths;
+            marshal_feeds(feeds, ks, vs, kp, vp, lens, widths);
             // Compile (stores spec) then run (builds + drives push-graph).
             dag::CompiledGraph g(b.spec());
-            return marshal_output_buffers(g.run_batch(kp, vp, lens));
+            return marshal_output_buffers(g.run_batch(kp, vp, lens, widths));
         }, py::arg("feeds"));
 }

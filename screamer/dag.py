@@ -5,8 +5,29 @@ import numpy as np
 __all__ = ["Node", "Input", "Pipeline"]
 
 _RESAMPLE_AGG_CODE = {"first": 0, "last": 1, "min": 2, "max": 3,
-                      "sum": 4, "count": 5, "mean": 6, "ohlc": 7}
+                      "sum": 4, "count": 5, "mean": 6, "ohlc": 7,
+                      "ohlcv_bars": 10}   # 10 = OhlcvBars (dynamic plan, built in C++)
 _RESAMPLE_FILL_CODE = {"skip": 0, "nan": 1, "carry": 2}
+
+# ResampleAgg enum codes for plan entries (matching the C++ enum).
+_PLAN_AGG = {
+    "first": 0, "last": 1, "min": 2, "max": 3,
+    "sum": 4, "sum_pos": 8, "sum_neg": 9,
+}
+
+# Per-column reducer plans for multi-column bar aggs. Each entry is a list of
+# (agg_code, input_col_index) tuples that map output columns to reducers.
+# ohlc_bars: [first O, max H, min L, last C] - 4 in, 4 out
+# ohlcv_bars: plan is dynamic (N in, N out); C++ builds it from the input width.
+# ohlcv:  [first price, max price, min price, last price, sum vol] - 2 in, 5 out
+# ohlcv2: [first price, max price, min price, last price, sumPos vol, sumNeg vol]
+_BAR_AGG_FIXED_PLANS = {
+    "ohlc_bars": [(0, 0), (3, 1), (2, 2), (1, 3)],   # first O, max H, min L, last C
+    "ohlcv":     [(0, 0), (3, 0), (2, 0), (1, 0), (4, 1)],   # OHLC from col0, sum from col1
+    "ohlcv2":    [(0, 0), (3, 0), (2, 0), (1, 0), (8, 1), (9, 1)],  # OHLC from col0, pos/neg from col1
+}
+# ohlcv_bars uses agg code 10 (OhlcvBars) with an empty plan; C++ builds the plan
+# dynamically from the actual input width at ResampleNode instantiation time.
 
 
 class Node:
@@ -277,7 +298,19 @@ class Pipeline:
                     count = int(kwargs["count"]) if kwargs.get("count") is not None else 1
                     agg_val = kwargs.get("agg", "last")
                     fill = _RESAMPLE_FILL_CODE[kwargs.get("fill", "skip")]
-                    if isinstance(agg_val, str):
+                    if isinstance(agg_val, str) and agg_val in _BAR_AGG_FIXED_PLANS:
+                        # Multi-column bar agg with a fixed plan (ohlc_bars, ohlcv, ohlcv2).
+                        plan = _BAR_AGG_FIXED_PLANS[agg_val]
+                        nid = gb.add_resample(inp, mode, 0, label, width, origin,
+                                              count, fill=fill, plan=plan)
+                    elif isinstance(agg_val, str) and agg_val == "ohlcv_bars":
+                        # ohlcv_bars: plan depends on input width (unknown at graph-build
+                        # time). Pass agg=10 (OhlcvBars enum value) with an empty plan;
+                        # the C++ compiled graph builds make_ohlcv_bars_plan(input_width)
+                        # at ResampleNode instantiation from the resolved input width.
+                        nid = gb.add_resample(inp, mode, 10, label, width, origin,
+                                              count, fill=fill)
+                    elif isinstance(agg_val, str):
                         # Builtin string agg: enum code, no functor reducer.
                         nid = gb.add_resample(inp, mode, _RESAMPLE_AGG_CODE[agg_val],
                                               label, width, origin, count, fill=fill)

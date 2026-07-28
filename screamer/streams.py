@@ -717,8 +717,13 @@ def select(values, columns, index=None):
 
 
 _RESAMPLE_AGGS = ("first", "last", "min", "max", "sum", "count", "mean", "ohlc",
-                  "ohlcv", "ohlcv2")
+                  "ohlcv", "ohlcv2", "ohlc_bars", "ohlcv_bars")
 _RESAMPLE_FILLS = ("skip", "nan", "carry")
+
+# Bar aggs that require multi-column (2-D) input.
+_BAR_AGGS_2COL = frozenset(("ohlcv", "ohlcv2"))       # exactly 2 columns
+_BAR_AGGS_4COL = frozenset(("ohlc_bars",))             # exactly 4 columns
+_BAR_AGGS_NCOL = frozenset(("ohlcv_bars",))            # 5+ columns
 
 # Finance aliases: map short OHLC names to their canonical engine strings.
 _FINANCE_ALIASES = {
@@ -937,57 +942,6 @@ def _resample_validate(freq, every, count, agg, label, fill="skip"):
 
 
 
-def _resample_ohlcv(vals_2d, idx, agg, *, every, count, origin, label,
-                    fill="skip"):
-    """Orchestrate ohlcv or ohlcv2 by composing existing C++ reducers.
-
-    Splits the 2-column input [price, volume|signed_volume] into two 1-D arrays
-    and runs independent sub-resamples that all share the same bucketing
-    parameters. Because the input, every/count, origin, and label are identical
-    across sub-calls, bar labels and bar counts are guaranteed to be equal -
-    making ``column_stack`` on the results safe.
-
-    All numeric compute runs in C++ (OHLC via the existing ``ohlc`` reducer,
-    volume via ``sum``, buy/sell via ``PosPart``/``NegPart`` then ``sum``).
-    Python only splits columns, orchestrates the sub-calls, and stacks.
-
-    Column order: open(0), high(1), low(2), close(3)[, volume(4)[, buy_vol(4),
-    sell_vol(5)]].
-    """
-    from screamer import PosPart, NegPart
-
-    price  = np.ascontiguousarray(vals_2d[:, 0], dtype=np.float64)
-    volume = np.ascontiguousarray(vals_2d[:, 1], dtype=np.float64)
-
-    # OHLC for price (C++ ohlc reducer -> 4 columns)
-    ohlc_vals, out_idx = _resample_via_cpp(
-        (price, idx), every=every, count=count, agg="ohlc",
-        origin=origin, label=label, fill=fill)
-
-    if agg == "ohlcv":
-        # Total signed-volume sum (C++ sum reducer -> 1 column)
-        vol_vals, _ = _resample_via_cpp(
-            (volume, idx), every=every, count=count, agg="sum",
-            origin=origin, label=label, fill=fill)
-        stacked = np.column_stack([ohlc_vals, vol_vals])
-        return stacked, out_idx
-
-    # ohlcv2: buy_vol = sum(PosPart(signed_vol)), sell_vol = sum(NegPart(signed_vol))
-    # PosPart/NegPart are C++ functors; applying them to the array runs in C++.
-    buy_arr  = np.asarray(PosPart()(volume), dtype=np.float64)
-    sell_arr = np.asarray(NegPart()(volume), dtype=np.float64)
-
-    buy_vals, _  = _resample_via_cpp(
-        (buy_arr,  idx), every=every, count=count, agg="sum",
-        origin=origin, label=label, fill=fill)
-    sell_vals, _ = _resample_via_cpp(
-        (sell_arr, idx), every=every, count=count, agg="sum",
-        origin=origin, label=label, fill=fill)
-
-    stacked = np.column_stack([ohlc_vals, buy_vals, sell_vals])
-    return stacked, out_idx
-
-
 def resample(values, index=None, *, freq=None, every=None, count=None, agg="last",
              origin=0, label="left", fill="skip"):
     """Causal windowed downsample of a 1-D value stream.
@@ -1072,13 +1026,6 @@ def resample(values, index=None, *, freq=None, every=None, count=None, agg="last
         every = _width if _mode == "span" else None
         count = _width if _mode == "count" else None
     if is_node(values):
-        if agg in ("ohlcv", "ohlcv2"):
-            raise ValueError(
-                f"resample: the agg='{agg}' string shorthand is eager-only and is "
-                "not supported in the graph (Node) regime. In a graph, build "
-                "multi-column bars with combine_latest of per-stat resample nodes, "
-                "e.g. combine_latest(resample(price, every=W, agg='first'), "
-                "resample(vol, every=W, agg='sum')).")
         return make_operator_node(Resample, (values,), {
             "every": every, "count": count, "agg": agg,
             "origin": origin, "label": label, "fill": fill})
@@ -1086,37 +1033,42 @@ def resample(values, index=None, *, freq=None, every=None, count=None, agg="last
         # Rule A: a lazy iterator of (value, index) events -> a lazy iterator of
         # (bar_value, bar_label). Drive the same C++ resample node as batch through
         # the Stage-2 lazy Pipeline; no Python windowing accumulator runs here.
-        if agg in ("ohlcv", "ohlcv2"):
-            raise ValueError(
-                "resample(<iterator>) supports string and functor scalar aggs "
-                "only; ohlcv/ohlcv2 aggs are eager-only. Materialize the "
-                "stream to an array for those.")
         return _resample_via_cpp(values, every=every, count=count, agg=agg,
                                  origin=origin, label=label, fill=fill)
     vals, idx_in = _as_vi(values, index)
     vals = np.asarray(vals, dtype=np.float64)
-    # ohlcv / ohlcv2 require exactly 2 input columns [price, volume|signed_volume].
-    if agg in ("ohlcv", "ohlcv2"):
+    # Multi-column bar aggs require specific input widths.
+    if agg in _BAR_AGGS_2COL:
         if vals.ndim != 2 or vals.shape[1] != 2:
+            col_desc = "volume" if agg == "ohlcv" else "signed_volume"
             raise ValueError(
                 f"resample: agg='{agg}' requires exactly 2 columns "
-                f"[price, {'volume' if agg == 'ohlcv' else 'signed_volume'}]; "
-                f"got shape {vals.shape}. Pass np.column_stack([price, volume]).")
+                f"[price, {col_desc}]; "
+                f"got shape {vals.shape}. Pass np.column_stack([price, {col_desc}]).")
+    elif agg in _BAR_AGGS_4COL:
+        if vals.ndim != 2 or vals.shape[1] != 4:
+            raise ValueError(
+                f"resample: agg='{agg}' requires exactly 4 columns "
+                f"[open, high, low, close]; got shape {vals.shape}. "
+                "Pass np.column_stack([open_arr, high_arr, low_arr, close_arr]).")
+    elif agg in _BAR_AGGS_NCOL:
+        if vals.ndim != 2 or vals.shape[1] < 5:
+            raise ValueError(
+                f"resample: agg='{agg}' requires a 2-D input with at least 5 columns "
+                f"[open, high, low, close, vol1, ...]; got shape {vals.shape}.")
     elif vals.ndim != 1:
         raise ValueError("resample: expects a 1-D value stream")
 
-    # Use explicit index or row positions when positional
+    # Use explicit index or row positions when positional.
     if idx_in is None:
         idx = np.arange(len(vals), dtype=np.int64)
     else:
         idx = np.asarray(idx_in)
 
-    # ohlcv / ohlcv2: orchestrate existing C++ reducers over a 2-column input.
-    if agg in ("ohlcv", "ohlcv2"):
-        return _resample_ohlcv(vals, idx, agg, every=every, count=count,
-                               origin=origin, label=label, fill=fill)
-
     # Delegate all bucketing/accumulation to the C++ engine.
+    # Multi-column bar aggs (ohlcv, ohlcv2, ohlc_bars, ohlcv_bars) use the plan
+    # path inside _resample_via_cpp via the compiled DAG which reads the plan
+    # from _BAR_AGG_FIXED_PLANS or the dynamic OhlcvBars sentinel in C++.
     out_v, out_idx = _resample_via_cpp(
         (vals, idx), every=every, count=count, agg=agg, origin=origin, label=label,
         fill=fill)

@@ -22,9 +22,10 @@ Feeding a lazy iterator of `(value, index)` pairs returns a lazy iterator of bar
 The `agg` parameter accepts two forms:
 
 **String shorthand**: one of `first`, `last`, `min`, `max`, `sum`, `count`,
-`mean`, `ohlc`, `ohlcv`, `ohlcv2`. `ohlc` returns four columns
-(`open`, `high`, `low`, `close`). `ohlcv` and `ohlcv2` accept a two-column
-input `[price, volume]`; see below.
+`mean`, `ohlc`, `ohlcv`, `ohlcv2`, `ohlc_bars`, `ohlcv_bars`. `ohlc` returns
+four columns (`open`, `high`, `low`, `close`). The multi-column bar aggs
+require a 2-D input; see below. All multi-column aggs work identically in
+eager, `Pipeline` graph, and lazy iterator regimes.
 
 **Any `EvalOp` functor**, e.g. `ExpandingSkew()`. The functor is `reset()` at
 each bar boundary and fed every in-bar sample; its last output before the close
@@ -118,22 +119,42 @@ effect.
 
 Every `Resample` call returns a `(values, index)` tuple. Unpack it as
 `values, index = Resample(...)(data, idx)`. Multi-column aggregations (`ohlc`,
-`ohlcv`, `ohlcv2`) return a 2-D values array; columns are positional in
-documented order. Use `to_pandas(values, index, columns=["open","high","low","close"])`
-to attach names for display. See [OHLC column order](Stream.md#ohlc-column-order)
-for the full column listing.
+`ohlcv`, `ohlcv2`, `ohlc_bars`, `ohlcv_bars`) return a 2-D values array; columns
+are positional in documented order. Use
+`to_pandas(values, index, columns=["open","high","low","close"])` to attach names
+for display. See [OHLC column order](Stream.md#ohlc-column-order) for the full
+column listing.
 
 ## `ohlcv` and `ohlcv2` (two-column input)
 
 Both require `values` to be a `(T, 2)` array: column 0 is price, column 1 is
-volume (unsigned for `ohlcv`, signed for `ohlcv2`).
+volume (unsigned for `ohlcv`, signed for `ohlcv2`). Both work in eager, graph,
+and lazy regimes.
 
 `ohlcv` produces `(open, high, low, close, volume)`. The volume column is the sum
 of column-1 values inside each bar.
 
 `ohlcv2` produces `(open, high, low, close, buy_vol, sell_vol)`. Buy volume is
-`sum(PosPart(signed_vol))` and sell volume is `sum(NegPart(signed_vol))` per bar,
-the signed-part decomposition.
+`sum(max(v, 0))` and sell volume is `sum(|min(v, 0)|)` per bar (both non-negative),
+the signed-part decomposition of the column-1 signed volume.
+
+## `ohlc_bars` (re-aggregate pre-built OHLC bars)
+
+`ohlc_bars` compresses already-built OHLC bars into wider bars. It requires a
+`(T, 4)` input: columns are `[open, high, low, close]`. The bar re-aggregation
+applies `first` to column 0, `max` to column 1, `min` to column 2, and `last` to
+column 3, preserving the OHLC interpretation across bar boundaries. Both `freq=`
+and `count=` bucketing work; the agg is supported in eager, graph, and lazy
+regimes without restriction.
+
+## `ohlcv_bars` (re-aggregate pre-built OHLCV bars)
+
+`ohlcv_bars` compresses OHLCV bars with one or more volume columns. It requires a
+`(T, N)` input with `N >= 5`: columns `[open, high, low, close, vol1, vol2, ...]`.
+The first four columns reduce as in `ohlc_bars`; every trailing column is summed.
+Output shape is `(bars, N)`. The number of trailing volume columns may vary freely;
+the plan is resolved from the actual input width at runtime. Supported in eager,
+graph, and lazy regimes.
 
 <!-- HELP_END -->
 

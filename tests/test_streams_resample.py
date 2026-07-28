@@ -147,13 +147,12 @@ def test_resample_lazy_functor_agg_equals_batch():
     np.testing.assert_array_equal([r[1] for r in rows], np.asarray(bk))
 
 
-def test_resample_lazy_rejects_multicolumn_aggs():
+def test_resample_lazy_rejects_dict_agg():
+    """dict agg is no longer supported and must raise in all paths including lazy."""
     from screamer import ExpandingSum
-    # The reject fires eagerly at the call (before any iteration),
-    # so assert on the call itself, not on list(...) of a would-be iterator.
-    for agg in ("ohlcv", "ohlcv2", {"x": ExpandingSum()}):
-        with pytest.raises(ValueError):
-            Resample(count=2, agg=agg)((e for e in ((1.0, 0), (2.0, 1))))
+    # The reject fires eagerly at the call (before any iteration).
+    with pytest.raises(ValueError):
+        Resample(count=2, agg={"x": ExpandingSum()})((e for e in ((1.0, 0), (2.0, 1))))
 
 
 def test_resample_lazy_is_lazy():

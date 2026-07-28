@@ -125,7 +125,16 @@ public:
             case NodeKind::CombineLatest: node_width[id] = nd.inputs.size(); break;
             case NodeKind::DropNa:        node_width[id] = node_width[nd.inputs[0]]; break;
             case NodeKind::Select:        node_width[id] = nd.columns.size(); break;
-            case NodeKind::Resample:      node_width[id] = resample_output_width(nd.resample); break;
+            case NodeKind::Resample: {
+                if (nd.resample.agg == ResampleAgg::OhlcvBars && nd.resample.plan.empty()) {
+                    // Dynamic ohlcv_bars: output width equals input width.
+                    std::size_t inp_w = nd.inputs.empty() ? 1u : node_width[nd.inputs[0]];
+                    node_width[id] = inp_w;
+                } else {
+                    node_width[id] = resample_output_width(nd.resample);
+                }
+                break;
+            }
             case NodeKind::Filter:        node_width[id] = 1; break;
             case NodeKind::Delay:         node_width[id] = node_width[nd.inputs[0]]; break;
             }
@@ -241,6 +250,10 @@ public:
                     };
                     owned_.push_back(rn);
                 } else {
+                    // OhlcvBars with no plan: the ResampleNode defers plan creation
+                    // to its first push() when the actual frame width is known.
+                    // Do NOT try to build make_ohlcv_bars_plan here - the input-node
+                    // width is always 1 at static inference time (unknown at compile time).
                     auto rn = std::make_shared<ResampleNode<std::int64_t>>(ns.resample, *downstream);
                     reset_nodes_.push_back(rn.get());
                     node_input_sink[id] = [ptr = rn.get()](std::size_t) -> Sink<std::int64_t>* {
@@ -308,6 +321,16 @@ public:
         input_sinks_[input_idx]->push(f);
     }
 
+    // Routes a single wide (width > 1) event into the graph without resetting state.
+    // The values span [values, values + width) must be contiguous and outlive the call.
+    void push_event_wide(std::size_t input_idx, std::int64_t index,
+                         const double* values, std::size_t width) {
+        if (input_idx >= num_in_)
+            throw std::runtime_error("push_event_wide: input index out of range");
+        Frame<std::int64_t> f{index, values, width};
+        input_sinks_[input_idx]->push(f);
+    }
+
     // Returns all OutputBuffers accumulated since the last drain()/reset(), then
     // clears the buffers in-place so GatherSink references remain valid (the
     // outputs_ vector is never reallocated; only the per-element indices/values are
@@ -323,11 +346,16 @@ public:
     }
 
     // in_* are per-input arrays (one entry per input, in signature order).
+    // in_widths: column count per input (empty = all width-1 / backward-compat).
+    //   Width-1 inputs emit scalar Frames as before.
+    //   Width-W inputs (W>1) emit W-wide Frames: the row-major in_vals pointer
+    //   is strided so event j from source i points to in_vals[i] + j*W.
     // Returns one OutputBuffer per output, in output_ids order.
     std::vector<OutputBuffer> run_batch(
             const std::vector<const std::int64_t*>& in_indices,
             const std::vector<const double*>& in_vals,
-            const std::vector<std::size_t>& in_lens) {
+            const std::vector<std::size_t>& in_lens,
+            const std::vector<std::size_t>& in_widths = {}) {
 
         // Validate caller-supplied input-array counts.
         if (in_indices.size() != num_in_)
@@ -342,11 +370,19 @@ public:
             throw std::runtime_error(
                 "run_batch: expected " + std::to_string(num_in_) +
                 " length arrays, got " + std::to_string(in_lens.size()));
+        if (!in_widths.empty() && in_widths.size() != num_in_)
+            throw std::runtime_error(
+                "run_batch: in_widths size must be 0 (use defaults) or equal to num inputs");
+
+        // Resolve widths: default to 1 per input when not specified.
+        std::vector<std::size_t> widths(num_in_, 1u);
+        if (!in_widths.empty()) widths = in_widths;
 
         // Reset all stateful state and clear output buffers.
         reset();
 
-        // Build VectorSources and drive via MergeSource.
+        // Build VectorSources for index-merge ordering (always width-1 view;
+        // the actual values for wide inputs are fetched below via row counters).
         std::vector<std::unique_ptr<streams::VectorSource<std::int64_t>>> srcs;
         std::vector<streams::Source<std::int64_t>*> child_ptrs;
         srcs.reserve(num_in_);
@@ -358,11 +394,26 @@ public:
         }
         streams::MergeSource<std::int64_t> merge(child_ptrs);
 
+        // Per-source row counters: track how many events each source has emitted
+        // so we can address the correct row in wide (multi-column) value arrays.
+        std::vector<std::size_t> row_idx(num_in_, 0u);
+
         double one;
         while (auto e = merge.next()) {
-            one = e->value;
-            Frame<std::int64_t> f{e->index, &one, 1};
-            input_sinks_[e->source]->push(f);
+            std::size_t src = e->source;
+            std::size_t w   = widths[src];
+            if (w == 1) {
+                // Scalar (width-1) path: use the event's value directly.
+                one = e->value;
+                Frame<std::int64_t> f{e->index, &one, 1};
+                input_sinks_[src]->push(f);
+            } else {
+                // Wide (width-W) path: point into the row-major value array.
+                const double* row_ptr = in_vals[src] + row_idx[src] * w;
+                Frame<std::int64_t> f{e->index, row_ptr, w};
+                input_sinks_[src]->push(f);
+            }
+            ++row_idx[src];
         }
         for (auto* s : input_sinks_) if (s) s->flush();
 
