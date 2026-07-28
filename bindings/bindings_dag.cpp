@@ -380,7 +380,7 @@ void init_bindings_dag(py::module& m) {
             // Each plan entry is a (agg_code, input_col) tuple.
             for (auto item : plan) {
                 auto t = py::cast<py::tuple>(item);
-                dag::ResamplePlanEntry e;
+                dag::ResamplePlanEntry e{};
                 e.agg       = static_cast<dag::ResampleAgg>(t[0].cast<int>());
                 e.input_col = t[1].cast<std::size_t>();
                 rp.plan.push_back(e);
