@@ -160,3 +160,50 @@ def test_cumulative_mode_runs_in_all_regimes():
         err_msg="lazy != eager for cumulative mode")
     np.testing.assert_array_equal(lazy_k, eager_k,
         err_msg="lazy index != eager index for cumulative mode")
+
+
+# ---------------------------------------------------------------------------
+# CRITICAL 1: threshold= with multi-column-value aggs must be rejected
+# ---------------------------------------------------------------------------
+
+_MULTICOL_VALUE_AGGS = ("ohlcv", "ohlcv2", "ohlc_bars", "ohlcv_bars")
+
+
+@pytest.mark.parametrize("agg", _MULTICOL_VALUE_AGGS)
+def test_threshold_rejects_multicol_value_agg(agg):
+    """threshold= mode requires a 1-D value stream; multi-column-value aggs
+    (ohlcv, ohlcv2, ohlc_bars, ohlcv_bars) silently fed only width-1 value
+    to the node -- they must be rejected with a clear ValueError."""
+    price  = np.array([10., 11, 12, 13, 14, 15])
+    volume = np.array([ 4.,  3,  5,  2,  6,  1])
+    idx    = np.arange(6)
+    with pytest.raises(ValueError, match="threshold="):
+        Resample((price, idx), volume, threshold=5, agg=agg)
+
+
+def test_threshold_ohlc_single_col_still_works():
+    """threshold= with agg='ohlc' must still work (ohlc builds 4 cols from 1 value)."""
+    price  = np.array([10., 11, 12, 13, 14, 15])
+    volume = np.array([ 4.,  3,  5,  2,  6,  1])
+    idx    = np.arange(6)
+    out, bar_idx = Resample((price, idx), volume, threshold=5, agg='ohlc')
+    assert out.shape[1] == 4
+    assert len(bar_idx) > 0
+
+
+# ---------------------------------------------------------------------------
+# label="right" test for ByCumulative
+# ---------------------------------------------------------------------------
+
+def test_threshold_label_right():
+    """label='right' uses the last event's index as the bar label."""
+    price  = np.array([10., 11, 12, 13, 14, 15])
+    volume = np.array([ 4.,  3,  5,  2,  6,  1])
+    idx    = np.arange(6)
+    # bar 0 spans obs 0..1 (cum 7>=5): last index = 1
+    # bar 1 spans obs 2 alone: last index = 2
+    # bar 2 spans obs 3..4: last index = 4
+    # bar 3 (trailing partial): last index = 5
+    out, bar_idx = Resample((price, idx), volume, threshold=5, agg='last',
+                            label='right')
+    np.testing.assert_array_equal(bar_idx, [1, 2, 4, 5])

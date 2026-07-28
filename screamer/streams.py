@@ -925,6 +925,22 @@ def _resample_validate(freq, every, count, threshold, agg, label, fill="skip"):
     # threshold positivity guard.
     if threshold is not None and float(threshold) <= 0.0:
         raise ValueError("resample: threshold must be > 0")
+    # threshold= feeds only a width-1 value to the node (the driver occupies col 1
+    # of the combined width-2 frame). Multi-column-value aggs (ohlcv, ohlcv2,
+    # ohlc_bars, ohlcv_bars) require input_col >= 1 which is never wired, so the
+    # volume column silently emits 0. Reject these combos with a clear message.
+    _THRESHOLD_MULTICOL_BLOCKED = frozenset(("ohlcv", "ohlcv2", "ohlc_bars", "ohlcv_bars"))
+    if threshold is not None and isinstance(agg, str) and agg in _THRESHOLD_MULTICOL_BLOCKED:
+        raise ValueError(
+            f"resample threshold= mode supports single-column value aggs "
+            f"(first/last/min/max/sum/count/mean/ohlc); "
+            f"agg={agg!r} requires multi-column value input that is not "
+            f"available in threshold= mode. "
+            f"For OHLCV volume bars, resample the OHLC and the volume "
+            f"separately and combine: e.g. "
+            f"combine_latest(Resample(price_vi, vol, threshold=T, agg='ohlc'), "
+            f"Resample(price_vi, vol, threshold=T, agg='sum'))."
+        )
     # Positivity guard: every=0 would reach the engine's floordiv(_, 0) -> a hard
     # SIGFPE crash; count<1 never completes a bucket. Reject both up front (this
     # runs before the Node dispatch, so it guards the graph path too).

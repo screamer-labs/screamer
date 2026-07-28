@@ -186,6 +186,9 @@ public:
     }
 
     std::size_t n_in()  const override {
+        // ByCumulative returns 2 here for graph-validation purposes, but the node
+        // is wired via a single width-2 input (a CombineLatest upstream collapses
+        // value + driver into one frame); the 2u is advisory, not a port count.
         if (p_.mode == ResampleMode::ByCumulative) return 2u;
         return p_.plan.empty() ? 1u : num_accums_;
     }

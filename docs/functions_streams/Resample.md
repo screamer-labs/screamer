@@ -184,8 +184,14 @@ is a signed trade-flow measure. Call as
   event (the crossing observation).
 - The trailing partial bar (events since the last close, before cumulative driver
   reaches `T`) is always emitted at end of input.
-- All `agg=` forms work with `threshold=`: string aggs (`last`, `ohlc`, etc.) and
-  functor aggs (`ExpandingSkew()`, ...).
+- Single-column-value `agg=` forms work with `threshold=`: string aggs
+  (`first`, `last`, `min`, `max`, `sum`, `count`, `mean`, `ohlc`) and functor
+  aggs (`ExpandingSkew()`, ...). `ohlc` is accepted because it builds 4 output
+  columns from 1 value column. The multi-column-value aggs `ohlcv`, `ohlcv2`,
+  `ohlc_bars`, and `ohlcv_bars` require a 2-D or wider value input that is not
+  available in `threshold=` mode and raise `ValueError`. To build OHLCV volume
+  bars, resample the OHLC and the volume separately with `agg='ohlc'` and
+  `agg='sum'` and combine with `CombineLatest`.
 - Works in eager, `Pipeline` graph, and lazy iterator regimes with identical results.
 
 **Graph regime** -- wire two `Input` nodes, one for the value stream and one for

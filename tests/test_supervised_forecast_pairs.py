@@ -188,8 +188,98 @@ def test_forecast_pairs_count_lazy_dropna_matches_batch():
 # ---------------------------------------------------------------------------
 
 def test_no_numpy_datapath_in_supervised():
-    """Verify banned numpy masking patterns are absent from supervised.py source."""
+    """Verify banned numpy masking/glue patterns are absent from supervised.py source."""
     import screamer.supervised as S
     src = inspect.getsource(S)
-    for banned in ("np.isfinite", "np.isin", "[keep]", "[m]", "_leading_nan_mask"):
+    banned_patterns = (
+        "np.isfinite", "np.isin", "[keep]", "[m]", "_leading_nan_mask",
+        "np.column_stack", "np.concatenate", "np.delete",
+        "np.stack", "np.hstack", "np.vstack",
+    )
+    for banned in banned_patterns:
         assert banned not in src, f"data-path numpy still present: {banned!r}"
+
+
+# ---------------------------------------------------------------------------
+# IMPORTANT 2: 2-D count-mode all-regime test (multi-feature X with dropna)
+# ---------------------------------------------------------------------------
+
+def test_forecast_pairs_count_2d_all_regimes():
+    """2-D X, count-mode with dropna: eager == graph == lazy, all all-C++ path."""
+    from screamer import Input, Pipeline
+
+    rng = np.random.default_rng(42)
+    n = 12
+    # Two-feature X; first count rows will be NaN in shifted X
+    X = np.column_stack([np.arange(n, dtype=float), rng.standard_normal(n)])
+    y = np.arange(n, dtype=float) * 3.0
+    count = 3
+
+    # Eager baseline (the result we lock the other regimes against)
+    Xb, yb = forecast_pairs(X, y, count=count, dropna=True)
+    assert Xb.shape[1] == 2, "eager result must have 2 feature columns"
+    assert not np.isnan(Xb).any() and not np.isnan(yb).any()
+
+    # Graph regime
+    X_in = Input("X0")
+    y_in = Input("y")
+    # For 2-D eager we pass X column-by-column via a 2-D array;
+    # for graph we build two separate Input nodes for the two feature columns.
+    # forecast_pairs with 2-D Node input is tested via the single-node API.
+    # The graph path in _forecast_pairs_count returns a combined Node when
+    # given Node inputs; we need to split columns from it.
+    from screamer import Lag
+    from screamer.streams import CombineLatest, Dropna, Select
+    # Replicate the 2-D all-C++ internal wiring by hand to verify the output.
+    X0_in = Input("X0")
+    X1_in = Input("X1")
+    y_in2 = Input("y")
+    Xs0 = Lag(count)(X0_in)
+    Xs1 = Lag(count)(X1_in)
+    combined = CombineLatest()(Xs0, Xs1, y_in2)
+    filtered = Dropna(how="any")(combined)
+    dag = Pipeline([X0_in, X1_in, y_in2], [filtered])
+    graph_out, _ = dag(X[:, 0], X[:, 1], y)
+    Xg = graph_out[:, :2]
+    yg = graph_out[:, 2]
+    np.testing.assert_allclose(Xg, Xb, equal_nan=True,
+                               err_msg="graph != eager for 2-D count+dropna")
+    np.testing.assert_allclose(yg, yb, equal_nan=True,
+                               err_msg="graph y != eager y for 2-D count+dropna")
+
+    # Lazy regime (using the dag above)
+    from tests._dag_oracle import lazy_batch as _lazy_batch
+    idx = np.arange(n, dtype=np.int64)
+    lazy_out, _ = _lazy_batch(dag, (X[:, 0], idx), (X[:, 1], idx), (y, idx))
+    Xl = lazy_out[:, :2]
+    yl = lazy_out[:, 2]
+    np.testing.assert_allclose(Xl, Xb, equal_nan=True,
+                               err_msg="lazy != eager for 2-D count+dropna")
+    np.testing.assert_allclose(yl, yb, equal_nan=True,
+                               err_msg="lazy y != eager y for 2-D count+dropna")
+
+
+def test_forecast_pairs_count_2d_dropna_equals_batch_reference():
+    """The current 2-D eager batch result is the concrete oracle for the refactored path.
+
+    This test locks in exact values so any regression in _forecast_pairs_count
+    (the 2-D ndim>1 branch) is caught against an independent computation.
+    """
+    X = np.array([[1., 10.],
+                  [2., 20.],
+                  [3., 30.],
+                  [4., 40.],
+                  [5., 50.]])
+    y = np.array([100., 200., 300., 400., 500.])
+    count = 2
+
+    Xs, ys = forecast_pairs(X, y, count=count, dropna=True)
+
+    # After lagging by 2 and dropping NaN warmup rows 0 and 1:
+    # row 2: Xs=[1,10], y=300; row 3: Xs=[2,20], y=400; row 4: Xs=[3,30], y=500
+    expected_Xs = np.array([[1., 10.],
+                             [2., 20.],
+                             [3., 30.]])
+    expected_ys = np.array([300., 400., 500.])
+    np.testing.assert_allclose(Xs, expected_Xs, err_msg="2-D Xs oracle mismatch")
+    np.testing.assert_allclose(ys, expected_ys, err_msg="2-D ys oracle mismatch")

@@ -54,10 +54,11 @@ struct ResampleParams {
     std::vector<ResamplePlanEntry> plan;
 };
 
+// resample_width(OhlcvBars)==0 is a sentinel meaning "width deferred to first push":
+// the actual plan (and output width) is built from the runtime input width at node-init.
 inline std::size_t resample_width(ResampleAgg a) {
-    // OhlcvBars width is dynamic (equals input width); return 0 as sentinel.
     if (a == ResampleAgg::Ohlc) return 4u;
-    if (a == ResampleAgg::OhlcvBars) return 0u;  // dynamic; must use plan
+    if (a == ResampleAgg::OhlcvBars) return 0u;  // sentinel: width deferred to first push
     return 1u;
 }
 

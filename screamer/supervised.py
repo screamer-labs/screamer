@@ -68,16 +68,25 @@ def _forecast_pairs_count(X, y, count, dropna_flag):
         raise ValueError("X and y must share the same length (time axis)")
 
     if X.ndim > 1:
-        # Multi-column X: Lag handles 2-D natively via C++; use streams.dropna for
-        # the optional NaN-drop step. Each row of [Xs, y] is treated as one event.
-        from .streams import dropna as _dropna
-        Xs = np.asarray(Lag(int(count))(X), dtype=float)
-        if not dropna_flag:
-            return Xs, y
-        # Stack into one array and drop any row containing NaN via C++ DropNaNode.
-        combined = np.column_stack([Xs, y.reshape(-1, 1)])
-        filtered, _ = _dropna(combined, how="any")
-        return filtered[:, :-1], filtered[:, -1]
+        # Multi-column X: build an all-C++ Pipeline (CombineLatest + Dropna)
+        # so no data crosses the Python/C++ boundary per event.
+        # Lag handles 2-D natively; each feature column is Lag'd by count, then
+        # all feature columns and y are combined via CombineLatest and optionally
+        # filtered by Dropna. The output is a single (N+1)-wide array; the X
+        # columns are 0..N-1 and y is column N. Column extraction from the final
+        # batch result is shape-only I/O, not per-event Python logic.
+        N = X.shape[1]
+        col_inputs = [Input(f"X{i}") for i in range(N)]
+        y_in = Input("y")
+        lagged = [Lag(int(count))(c) for c in col_inputs]
+        combined = CombineLatest()(*lagged, y_in)
+        if dropna_flag:
+            combined = Dropna(how="any")(combined)
+        dag = Pipeline(col_inputs + [y_in], [combined])
+        col_feeds = [X[:, i] for i in range(N)]
+        result, _ = dag(*col_feeds, y)
+        # result is (rows, N+1): cols 0..N-1 are lagged features, col N is y.
+        return result[:, :N], result[:, N]
 
     # 1-D X: build and run the Pipeline.
     dag = _build_count_pipeline(count, dropna_flag)
