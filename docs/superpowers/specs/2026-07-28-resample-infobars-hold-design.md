@@ -245,3 +245,63 @@ selection on the data. The public API and return semantics are unchanged
 - #3: nonzero-is-trigger only; no configurable trigger predicate.
 - #4: same public API and return values; only the implementation and the accepted
   input regimes change. No new features on `forecast_pairs`.
+
+---
+
+## 5. (Addendum 2026-07-28) Target-clock resample + `forecast_pairs` duration rewire
+
+Resolves the Section-4 duration-mode gap by adding a fourth `Resample` clock
+source: **resample onto another stream's clock** (as-of / `merge_asof` /
+`reindex(ffill)`). Approved direction: a `Resample` clock source, not a one-off op.
+
+### 5a. `Resample` `clock=` mode (`ResampleMode::ByClock`)
+
+`Resample(value, clock, agg='last', fill='carry', ...)` — a bucket closes at each
+**event of the `clock` stream**; the `value` stream is aggregated over the interval
+`(previous clock tick, this clock tick]` and emitted labelled at the clock tick.
+
+- `clock=` is a 5th **mutually-exclusive** mode selector (with `freq`/`every`/
+  `count`/`threshold`) and requires a clock input (the 2nd input, via the existing
+  wide/2-input plumbing from Tasks 3-4). The clock input contributes **only its event
+  indices**; its values are ignored.
+- Bucketing: value events with index `<= t_k` and `> t_{k-1}` fall in the bucket for
+  clock tick `t_k`; value events before the first clock tick go in the first bucket.
+  Ties (a value event whose index equals a clock tick) are **inclusive** — the value
+  "as of t" includes an event exactly at t (this is the settled-row semantic and is
+  what a training pair `(X_t, y_t)` wants). Label is the clock tick (its right edge).
+- `agg='last'` + `fill='carry'` gives true as-of (last value at any time `<= t_k`,
+  carried when no value arrived in the bucket). Every other `agg`/`fill` is valid too
+  (e.g. `sum` = total value between clock ticks) and reuses the multi-column reducer,
+  so multi-feature `value` works in one pass.
+- All-regime + batch==live + C++-core, like every other clock source. No Python.
+- Naming: `clock=` (alternatives `onto=`/`at=` — a cheap rename if preferred).
+
+**Edges:** `clock=` with any of freq/every/count/threshold -> the "exactly one of"
+error extended to name `clock`; `clock=` without a clock input, or a clock input
+without a mode -> clear error; an empty clock stream -> empty output.
+
+### 5b. `forecast_pairs` duration mode via 5a (removes the last eager-only path)
+
+Rewire `_forecast_pairs_duration` to a pure `Pipeline`:
+`Xs = Resample(Delay(duration)(X), clock=y, agg='last', fill='carry')` (delayed
+features sampled at each y tick), paired with y (now on the same clock), then
+`Dropna` when requested. Delete the `frozenset` y-clock selection and the two
+`NotImplementedError` raises. Duration mode then runs in eager/graph/lazy with
+identical output; the `test_no_numpy_datapath_in_supervised` guard covers it.
+
+### Testing (Section 5)
+- 5a functional: as-of correctness on a hand-worked example (value clock != target
+  clock, gaps that exercise `fill='carry'`, a tie at a clock tick, values before the
+  first tick); `agg='sum'` between clock ticks; multi-column value.
+- 5a all-regime: eager == graph == lazy for `clock=`.
+- 5a edges: the rejections above.
+- 5b: `forecast_pairs` duration mode now returns the SAME batch output as before AND
+  runs in graph/lazy identically; the compliance guard passes with duration included.
+
+### Files (Section 5)
+- C++: `resample_params.h` (`ByClock`), `resample_node.h` (`push_by_clock` / clock as
+  2nd input, bucket close on clock tick), `compiled_graph.h`/`bindings_dag.cpp` width +
+  clock wiring, `screamer/streams.py`/`screamer/dag.py` (`clock=` dispatch + validation).
+- Python: `screamer/supervised.py` (duration rewire; delete frozenset + NotImplementedError).
+- Docs: `docs/functions_streams/Resample.md` (clock mode); `forecast_pairs.md` (now all-regime).
+- Tests: `tests/test_resample_clock.py` (new); extend `tests/test_supervised_forecast_pairs.py`.
