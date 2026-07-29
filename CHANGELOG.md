@@ -10,6 +10,7 @@ Unreleased
 * `Resample(..., clock=True, agg='last', fill='carry', max_age=N)` bounds the
   age of a carried scalar value in a target-clock as-of join. Once its age
   exceeds `N`, the output is `NaN`; omitting `max_age` retains unbounded carry.
+  Contributed by Édouard Tallent (@tagomatech).
 
 1.1.1 - 2026-07-29
 ------------
