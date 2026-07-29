@@ -920,7 +920,7 @@ def _resample_via_cpp(feed, *, every, count, threshold, agg, origin, label,
 
 
 def _resample_clock_batch(vals, val_idx, clk_vals, clk_idx, *, agg, fill,
-                           origin, label):
+                           origin, label, max_age):
     """Batch ByClock resample: run a 2-input Pipeline (value + clock) with the
     C++ ResampleNode(ByClock) in 2-port mode.
 
@@ -932,7 +932,7 @@ def _resample_clock_batch(vals, val_idx, clk_vals, clk_idx, *, agg, fill,
     val_in = Input("v")
     clk_in = Input("c")
     node = resample(val_in, clk_in, clock=True, agg=agg, fill=fill,
-                    origin=origin, label=label)
+                    origin=origin, label=label, max_age=max_age)
     dag = Pipeline([val_in, clk_in], [node])
     val_idx = np.ascontiguousarray(val_idx, dtype=np.int64)
     clk_idx = np.ascontiguousarray(clk_idx, dtype=np.int64)
@@ -942,7 +942,8 @@ def _resample_clock_batch(vals, val_idx, clk_vals, clk_idx, *, agg, fill,
     return dag((vals_f, val_idx), (clk_f, clk_idx))
 
 
-def _resample_clock_lazy(values, clock_stream, *, agg, fill, origin, label):
+def _resample_clock_lazy(values, clock_stream, *, agg, fill, origin, label,
+                           max_age):
     """Lazy ByClock resample: run a 2-input Pipeline (value + clock) in lazy mode.
 
     Builds the same 2-input Pipeline as _resample_clock_batch but feeds it with
@@ -957,13 +958,23 @@ def _resample_clock_lazy(values, clock_stream, *, agg, fill, origin, label):
     val_in = Input("v")
     clk_in = Input("c")
     node = resample(val_in, clk_in, clock=True, agg=agg, fill=fill,
-                    origin=origin, label=label)
+                    origin=origin, label=label, max_age=max_age)
     dag = Pipeline([val_in, clk_in], [node])
     return dag(iter(values), iter(clock_stream))
 
 
 def _resample_validate(freq, every, count, threshold, agg, label, fill="skip",
-                       clock=False):
+                       clock=False, max_age=None):
+    if max_age is not None:
+        if not clock or agg != "last" or fill != "carry":
+            raise ValueError(
+                "resample: max_age requires clock=True, agg='last', and fill='carry'")
+        if (isinstance(max_age, (bool, np.bool_)) or
+                not isinstance(max_age, (int, np.integer))):
+            raise TypeError(
+                "resample: max_age must be a non-negative integer in index units")
+        if max_age < 0:
+            raise ValueError("resample: max_age must be a non-negative integer")
     # Exactly one of freq, every, count, threshold, clock must be provided.
     given = sum(x is not None for x in [freq, every, count, threshold])
     if clock:
@@ -1034,7 +1045,8 @@ def _resample_validate(freq, every, count, threshold, agg, label, fill="skip",
 
 
 def resample(values, driver=None, index=None, *, freq=None, every=None, count=None,
-             threshold=None, clock=False, agg="last", origin=0, label="left", fill="skip"):
+             threshold=None, clock=False, agg="last", origin=0, label="left",
+             fill="skip", max_age=None):
     """Causal windowed downsample of a 1-D value stream.
 
     Pass exactly one of ``freq``, ``every``, or ``count`` to bound the bars.
@@ -1104,7 +1116,10 @@ def resample(values, driver=None, index=None, *, freq=None, every=None, count=No
     ``index=`` applies only to raw arrays.
     """
     agg = _resolve_agg(agg)
-    _resample_validate(freq, every, count, threshold, agg, label, fill, clock)
+    _resample_validate(freq, every, count, threshold, agg, label, fill, clock,
+                       max_age)
+    if max_age is not None:
+        max_age = int(max_age)
     # Translate freq= into every=/count= using the index context.  After this
     # block every and count follow the existing internal convention so all
     # downstream code is unchanged.
@@ -1133,16 +1148,20 @@ def resample(values, driver=None, index=None, *, freq=None, every=None, count=No
             return make_operator_node(Resample, (values, driver), {
                 "clock": True, "agg": agg,
                 "every": None, "count": None,
-                "origin": origin, "label": label, "fill": fill})
+                "origin": origin, "label": label, "fill": fill,
+                "max_age": max_age})
         # Eager / lazy path: merge value and clock events into a tagged stream
         # [value..., is_clock] where is_clock=0 for value events, 1 for clock.
         # The merged stream is fed to the C++ ResampleNode(ByClock) which
         # inspects the last column to route each event.
         if _is_lazy_stream(values) or _is_lazy_stream(driver):
             return _resample_clock_lazy(values, driver, agg=agg, fill=fill,
-                                        origin=origin, label=label)
+                                        origin=origin, label=label,
+                                        max_age=max_age)
         vals, val_idx = _as_vi(values, index)
         vals = np.asarray(vals, dtype=np.float64)
+        if max_age is not None and vals.ndim != 1:
+            raise ValueError("resample: max_age requires a 1-D value stream")
         clk_vals, clk_idx = _as_vi(driver, None)
         clk_vals = np.asarray(clk_vals, dtype=np.float64)
         if val_idx is None:
@@ -1150,7 +1169,8 @@ def resample(values, driver=None, index=None, *, freq=None, every=None, count=No
         if clk_idx is None:
             clk_idx = np.arange(len(clk_vals), dtype=np.int64)
         return _resample_clock_batch(vals, np.asarray(val_idx), clk_vals, np.asarray(clk_idx),
-                                     agg=agg, fill=fill, origin=origin, label=label)
+                                     agg=agg, fill=fill, origin=origin, label=label,
+                                     max_age=max_age)
 
     # Guard: a second positional argument (driver) without a mode selector is ambiguous
     # when driver is a stream, Node, or (values, index) pair. Plain numpy arrays are
@@ -1358,7 +1378,7 @@ class Resample:
 
     def __new__(cls, values_or_freq=None, driver=None, *,
                 freq=None, every=None, count=None, threshold=None, clock=False,
-                agg="last", origin=0, label="left", fill="skip"):
+                agg="last", origin=0, label="left", fill="skip", max_age=None):
         # Detect whether the first positional arg is data (cumulative-driver or
         # clock-mode shorthand form) or a config param (classic config-first form).
         # When data IS provided, compute and return the result directly.
@@ -1373,20 +1393,20 @@ class Resample:
             return resample(values_or_freq, driver,
                             freq=freq, every=every, count=count, threshold=threshold,
                             clock=clock, agg=agg, origin=origin, label=label,
-                            fill=fill)
+                            fill=fill, max_age=max_age)
         if _is_data and driver is not None:
             # A driver (second positional arg) with no mode selector: route through
             # resample() which will raise the "requires threshold= or clock=True" error.
             return resample(values_or_freq, driver,
                             freq=freq, every=every, count=count, threshold=threshold,
                             clock=clock, agg=agg, origin=origin, label=label,
-                            fill=fill)
+                            fill=fill, max_age=max_age)
         # Classic config-first: return a Resample instance.
         return super().__new__(cls)
 
     def __init__(self, values_or_freq=None, driver=None, *,
                  freq=None, every=None, count=None, threshold=None, clock=False,
-                 agg="last", origin=0, label="left", fill="skip"):
+                 agg="last", origin=0, label="left", fill="skip", max_age=None):
         # Skip init when __new__ already returned a non-Resample result.
         if not isinstance(self, Resample):
             return
@@ -1397,7 +1417,8 @@ class Resample:
                                                     np.integer, np.floating)))
                     else freq)
         self._cfg = dict(freq=eff_freq, every=every, count=count, threshold=threshold,
-                         clock=clock, agg=agg, origin=origin, label=label, fill=fill)
+                         clock=clock, agg=agg, origin=origin, label=label, fill=fill,
+                         max_age=max_age)
 
     def __call__(self, values, index=None):
         # Classic config-first form: Resample(cfg)(values, index=None)

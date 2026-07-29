@@ -200,6 +200,8 @@ public:
         count_in_bucket_ = 0;
         first_index_ = last_index_ = Index{};
         have_emitted_ = false;
+        have_last_finite_ = false;
+        last_finite_index_ = Index{};
         cum_driver_ = 0.0;
         prev_clock_tick_set_ = false;
         prev_clock_tick_ = Index{};
@@ -398,6 +400,14 @@ private:
         }
     }
 
+    bool clock_value_is_fresh(Index k) const {
+        const auto tick = static_cast<std::uint64_t>(
+            static_cast<std::int64_t>(k));
+        const auto last = static_cast<std::uint64_t>(
+            static_cast<std::int64_t>(last_finite_index_));
+        return tick - last <= static_cast<std::uint64_t>(p_.max_age);
+    }
+
     // ByClock: buffer a value event for deferred accumulation.
     // Events are buffered (with their timeline index k) so that clock ticks can
     // drain only the events whose index falls within the closing bucket.
@@ -413,6 +423,10 @@ private:
     // the pending tick). This makes the output independent of whether the value
     // or clock input is listed first in Pipeline([...]).
     void push_by_clock_value(Index k, const double* vals, std::size_t num_val_cols) {
+        if (p_.max_age >= 0 && num_val_cols != 1) {
+            throw std::runtime_error(
+                "dag::ResampleNode(ByClock): max_age requires a width-1 value stream");
+        }
         if (p_.plan.empty() && num_val_cols > 1) {
             // Multi-column single-agg ByClock: build a trivial plan on first push
             // (one entry per input column, all using the same agg kind).
@@ -478,6 +492,15 @@ private:
                 } else {
                     if (!row.empty()) accums_[0].add(row[0]);
                 }
+                // max_age is intentionally restricted to scalar last-value as-of
+                // joins. A finite source observation updates its event-time stamp;
+                // NaNs do not refresh freshness.
+                if (p_.max_age >= 0 && !row.empty() &&
+                        !screamer::isnan2(row[0]) &&
+                        (!have_last_finite_ || it->first > last_finite_index_)) {
+                    have_last_finite_ = true;
+                    last_finite_index_ = it->first;
+                }
                 // count_in_bucket_ is not used for ByClock decision logic (has_real
                 // checks accum.count instead); reset happens at the end of each tick.
             } else {
@@ -498,7 +521,15 @@ private:
         bool has_real = false;
         for (const auto& a : accums_) if (a.count > 0) { has_real = true; break; }
 
-        if (has_real) {
+        // Check after draining the current bucket: an observation in (prev, k]
+        // can still be too old at a sparse clock tick. Preserve the leading
+        // carry behavior before the first finite observation; only an observed
+        // value can expire.
+        const bool stale = p_.max_age >= 0 && have_last_finite_ &&
+            !clock_value_is_fresh(k);
+        if (stale) {
+            downstream_.push(Frame<Index>{k, nan_row_.data(), nan_row_.size()});
+        } else if (has_real) {
             emit(k);
         } else {
             // Empty bucket (no events, or all-NaN events): apply fill policy.
@@ -563,6 +594,8 @@ private:
     std::vector<ResampleAccum> accums_;
     bool started_ = false;
     bool have_emitted_ = false;
+    bool have_last_finite_ = false;
+    Index last_finite_index_{};
     std::int64_t bucket_ = 0;
     Index cur_label_{};
     std::int64_t count_in_bucket_ = 0;

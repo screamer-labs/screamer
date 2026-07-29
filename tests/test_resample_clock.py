@@ -333,3 +333,119 @@ def test_clock_nan_value_bucket_carries_with_fill_carry():
     )
     np.testing.assert_allclose(out[1], 10.)
     np.testing.assert_allclose(out[2], 30.)
+
+
+# ---------------------------------------------------------------------------
+# Freshness-bounded as-of joins: max_age=
+# ---------------------------------------------------------------------------
+
+def test_clock_max_age_boundary_expiry_and_recovery():
+    """A carried as-of value is fresh at the inclusive boundary, then expires.
+
+    A later finite observation resumes the output. The all-NaN expiry row keeps
+    the target-clock timeline intact for downstream joins.
+    """
+    value_v = np.array([10., 20.])
+    value_i = np.array([0, 12], dtype=np.int64)
+    clock_v = np.zeros(4)
+    clock_i = np.array([5, 11, 12, 17], dtype=np.int64)
+
+    out, idx = Resample((value_v, value_i), (clock_v, clock_i), clock=True,
+                        agg="last", fill="carry", max_age=5)
+
+    np.testing.assert_array_equal(idx, [5, 11, 12, 17])
+    np.testing.assert_allclose(out, [10., np.nan, 20., 20.], equal_nan=True)
+
+
+def test_clock_max_age_applies_to_a_nonempty_stale_bucket():
+    """A source event in the clock bucket can still be too old at its tick."""
+    value_v = np.array([10.])
+    value_i = np.array([0], dtype=np.int64)
+    clock_v = np.zeros(1)
+    clock_i = np.array([100], dtype=np.int64)
+
+    out, idx = Resample((value_v, value_i), (clock_v, clock_i), clock=True,
+                        agg="last", fill="carry", max_age=5)
+
+    np.testing.assert_array_equal(idx, [100])
+    assert np.isnan(out[0])
+
+
+def test_clock_max_age_nan_does_not_refresh_the_source_timestamp():
+    """A NaN observation is ignored and cannot extend an as-of value's lifetime."""
+    value_v = np.array([10., np.nan])
+    value_i = np.array([0, 9], dtype=np.int64)
+    clock_v = np.zeros(2)
+    clock_i = np.array([5, 10], dtype=np.int64)
+
+    out, idx = Resample((value_v, value_i), (clock_v, clock_i), clock=True,
+                        agg="last", fill="carry", max_age=5)
+
+    np.testing.assert_array_equal(idx, [5, 10])
+    np.testing.assert_allclose(out, [10., np.nan], equal_nan=True)
+
+
+def test_clock_max_age_tie_is_fresh_regardless_of_input_order():
+    """A value at the clock tick has age zero even when the clock input is first."""
+    value_v = np.array([99.])
+    value_i = np.array([5], dtype=np.int64)
+    clock_v = np.zeros(1)
+    clock_i = np.array([5], dtype=np.int64)
+
+    x = Input("x")
+    c = Input("c")
+    node = Resample(x, c, clock=True, agg="last", fill="carry", max_age=0)
+    dag = Pipeline([c, x], [node])
+    out, idx = dag((clock_v, clock_i), (value_v, value_i))
+
+    np.testing.assert_array_equal(idx, [5])
+    np.testing.assert_allclose(out, [99.])
+
+
+def test_clock_max_age_runs_in_eager_graph_lazy_and_live_regimes():
+    """Freshness decisions are byte-identical across every runtime regime."""
+    value_v = np.array([10., 20.])
+    value_i = np.array([0, 10], dtype=np.int64)
+    clock_v = np.zeros(3)
+    clock_i = np.array([5, 8, 12], dtype=np.int64)
+
+    eager_v, eager_k = Resample((value_v, value_i), (clock_v, clock_i),
+                                 clock=True, agg="last", fill="carry", max_age=5)
+
+    x = Input("x")
+    c = Input("c")
+    node = Resample(x, c, clock=True, agg="last", fill="carry", max_age=5)
+    dag = Pipeline([x, c], [node])
+    graph_v, graph_k = dag((value_v, value_i), (clock_v, clock_i))
+    lazy_v, lazy_k = _lazy_batch(dag, (value_v, value_i), (clock_v, clock_i))
+
+    live = dag.live()
+    live.push("x", 0, 10.)
+    live.push("c", 5, 0.)
+    live.push("c", 8, 0.)
+    live.push("x", 10, 20.)
+    live.push("c", 12, 0.)
+    live.flush()
+    live_v, live_k = live.result()
+
+    for actual_v, actual_k in ((graph_v, graph_k), (lazy_v, lazy_k),
+                               (live_v, live_k)):
+        np.testing.assert_allclose(actual_v, eager_v, equal_nan=True)
+        np.testing.assert_array_equal(actual_k, eager_k)
+
+
+@pytest.mark.parametrize(
+    "kwargs",
+    [
+        {"clock": True, "agg": "sum", "fill": "carry", "max_age": 5},
+        {"clock": True, "agg": "last", "fill": "nan", "max_age": 5},
+        {"clock": True, "agg": "last", "fill": "carry", "max_age": -1},
+        {"clock": True, "agg": "last", "fill": "carry", "max_age": 1.5},
+    ],
+)
+def test_clock_max_age_validates_its_narrow_asof_contract(kwargs):
+    """TTL is deliberately limited to an unambiguous last-value as-of join."""
+    values = (np.array([1.]), np.array([0], dtype=np.int64))
+    clock = (np.zeros(1), np.array([1], dtype=np.int64))
+    with pytest.raises((TypeError, ValueError), match="max_age"):
+        Resample(values, clock, **kwargs)
