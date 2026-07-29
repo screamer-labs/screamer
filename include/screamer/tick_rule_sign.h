@@ -44,9 +44,9 @@ namespace screamer {
         }
 
     private:
-        bool have_prev_;
-        double prev_price_;
-        double last_sign_;
+        bool have_prev_ = false;
+        double prev_price_ = 0.0;
+        double last_sign_ = std::numeric_limits<double>::quiet_NaN();
     };
 
 } // namespace screamer

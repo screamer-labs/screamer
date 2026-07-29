@@ -155,7 +155,7 @@ namespace screamer {
         double maker_fee_, taker_fee_;
         bool breach_;
         double participation_, tick_size_, max_position_, min_position_;
-        bool bid_passive_, ask_passive_;
+        bool bid_passive_ = false, ask_passive_ = false;
         detail::PnLAccount account_;
     };
 

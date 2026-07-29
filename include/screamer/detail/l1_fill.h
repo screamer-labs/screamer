@@ -135,7 +135,7 @@ namespace screamer { namespace detail {
         double maker_fee_, taker_fee_;
         bool breach_;
         double participation_, tick_size_, min_pos_, max_pos_;
-        bool bid_passive_, ask_passive_, bid_locked_, ask_locked_;
+        bool bid_passive_ = false, ask_passive_ = false, bid_locked_ = false, ask_locked_ = false;
     };
 
 }} // namespace screamer::detail

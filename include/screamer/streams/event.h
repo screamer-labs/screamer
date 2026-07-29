@@ -8,8 +8,8 @@ namespace screamer { namespace streams {
 
 template <class Index>
 struct Event {
-    Index index;
-    double value;
+    Index index{};
+    double value = 0.0;
     std::uint32_t source = 0;   // provenance tag; used by merge later
 };
 

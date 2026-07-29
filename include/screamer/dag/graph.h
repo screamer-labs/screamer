@@ -13,7 +13,7 @@ enum class NodeKind { Input, Functor, CombineLatest, DropNa, Select, Resample, F
 
 // Pure data: one node of a graph definition.
 struct NodeSpec {
-    NodeKind kind;
+    NodeKind kind = NodeKind::Input;
     EvalOp* op = nullptr;                 // Functor only
     bool when_all = true;                 // CombineLatest only
     bool how_all = false;                 // DropNa only

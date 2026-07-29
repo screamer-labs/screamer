@@ -85,12 +85,13 @@ namespace screamer {
         }
 
     private:
-        double peak_equity_, worst_dd_;
-        double cum_cost_, cum_turnover_, trade_count_;
-        bool has_prev_pos_;
-        double prev_pos_;
-        long long pnl_n_;
-        double pnl_mean_, pnl_m2_;
+        double peak_equity_ = -std::numeric_limits<double>::infinity();
+        double worst_dd_ = 0.0;
+        double cum_cost_ = 0.0, cum_turnover_ = 0.0, trade_count_ = 0.0;
+        bool has_prev_pos_ = false;
+        double prev_pos_ = 0.0;
+        long long pnl_n_ = 0;
+        double pnl_mean_ = 0.0, pnl_m2_ = 0.0;
     };
 
 } // namespace screamer

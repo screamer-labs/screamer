@@ -46,10 +46,10 @@ public:
     }
 
 private:
-    double position_;
-    double prev_close_;
-    double cum_equity_;
-    bool has_prev_;
+    double position_ = 0.0;
+    double prev_close_ = 0.0;
+    double cum_equity_ = 0.0;
+    bool has_prev_ = false;
 };
 
 }} // namespace screamer::detail
