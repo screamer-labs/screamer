@@ -89,7 +89,11 @@ The `Makefile` wraps the common tasks (run `make help` for the full list):
 | `make benchmark` | Run the benchmark suite and generate plots |
 
 After any C++ change, run `make build` (or `make install-dev`) before testing, or
-Python will import a stale binding.
+Python will import a stale binding. Before pushing a C++ change, also run
+`make tidy` (the clang-tidy `cppcoreguidelines-pro-type-member-init` check that CI
+enforces as an error): it catches uninitialized class members, the bug class that
+once broke `RollingZscore` on one platform. A new operator is not done until
+`make tidy` is clean.
 
 Run the tests directly with `poetry run pytest -q`. The suite has 3600+ tests and
 should be green with zero skips before you open a PR.
