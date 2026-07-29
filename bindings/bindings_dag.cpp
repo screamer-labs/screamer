@@ -366,7 +366,7 @@ void init_bindings_dag(py::module& m) {
         std::size_t add_resample(std::vector<std::size_t> inputs, int mode, int agg,
                                  int label, std::int64_t width, std::int64_t origin,
                                  std::int64_t count, py::object reducer, int fill,
-                                 py::list plan, double threshold) {
+                                 py::list plan, double threshold, std::int64_t max_age) {
             dag::ResampleParams rp;
             rp.mode      = static_cast<dag::ResampleMode>(mode);    // 0=ByIndex, 1=ByCount, 2=ByCumulative
             rp.agg       = static_cast<dag::ResampleAgg>(agg);      // 0..9 First..SumNeg
@@ -376,6 +376,7 @@ void init_bindings_dag(py::module& m) {
             rp.origin    = origin;
             rp.count     = count;
             rp.threshold = threshold;
+            rp.max_age   = max_age;
             // Optional per-column reducer plan (multi-column bar aggs).
             // Each plan entry is a (agg_code, input_col) tuple.
             for (auto item : plan) {
@@ -447,13 +448,15 @@ void init_bindings_dag(py::module& m) {
         .def("add_resample", [](PyGraphBuilder& b, std::vector<std::size_t> inputs,
                                 int mode, int agg, int label,
                                 std::int64_t width, std::int64_t origin, std::int64_t count,
-                                py::object reducer, int fill, py::list plan, double threshold) {
+                                py::object reducer, int fill, py::list plan, double threshold,
+                                std::int64_t max_age) {
             return b.add_resample(std::move(inputs), mode, agg, label, width, origin,
-                                  count, reducer, fill, plan, threshold);
+                                  count, reducer, fill, plan, threshold, max_age);
         }, py::arg("inputs"), py::arg("mode"), py::arg("agg"), py::arg("label"),
            py::arg("width"), py::arg("origin"), py::arg("count"),
            py::arg("reducer") = py::none(), py::arg("fill") = 0,
-           py::arg("plan") = py::list{}, py::arg("threshold") = 0.0)
+           py::arg("plan") = py::list{}, py::arg("threshold") = 0.0,
+           py::arg("max_age") = -1)
         .def("set_outputs", &PyGraphBuilder::set_outputs, py::arg("output_ids"))
         .def("compile", [](PyGraphBuilder& b) { return b.compile(); })
         .def("run_batch", [](PyGraphBuilder& b, py::list feeds) {

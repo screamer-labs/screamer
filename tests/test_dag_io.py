@@ -154,6 +154,21 @@ def test_select_numpy_columns_round_trip():
     assert _equal(dag(fa, fb), Pipeline.from_json(dag.to_json())(fa, fb))
 
 
+def test_clock_resample_max_age_round_trip():
+    values, clock = Input("values"), Input("clock")
+    dag = Pipeline(
+        [values, clock],
+        [Resample(values, clock, clock=True, agg="last", fill="carry", max_age=5)],
+    )
+    node = [n for n in dag.to_dict()["nodes"] if n["kind"] == "operator"][0]
+    assert node["params"]["max_age"] == 5
+
+    value_feed = (np.array([10.0, 20.0]), np.array([0, 12]))
+    clock_feed = (np.zeros(4), np.array([5, 11, 12, 17]))
+    rebuilt = Pipeline.from_json(dag.to_json())
+    assert _equal(dag(value_feed, clock_feed), rebuilt(value_feed, clock_feed))
+
+
 def test_from_dict_positional_args_fallback():
     # A functor serialized in the schema-less positional form reconstructs.
     a = Input("a")

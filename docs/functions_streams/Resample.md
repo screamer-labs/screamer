@@ -217,6 +217,13 @@ tick, even if the value stream has been silent since the previous tick.
 
 Call as `values, index = Resample(value_vi, clock_vi, clock=True, agg='last', fill='carry')`.
 
+For a freshness-bounded as-of join, add `max_age=N`, where `N` is an integer
+number of index units. It is deliberately limited to scalar
+`clock=True, agg='last', fill='carry'` joins: at a clock tick, the latest finite
+source value is used only when `tick_index - source_index <= max_age`. Once an
+observed source value expires, the clock row is emitted as NaN; a later finite
+value resumes the join. `max_age=None` (the default) preserves unbounded carry.
+
 - `value_vi` is a `(values, index)` tuple (or a bare array with a separate index).
   It supplies the stream being resampled.
 - `clock_vi` is a `(clock_values, clock_index)` tuple. Its **index** drives bar
@@ -388,11 +395,11 @@ clock tick.
    val_idx = np.array([5, 15, 25], dtype=np.int64)
 
    # Clock ticks at regular intervals; the output is labelled at each tick.
-   clk_idx = np.array([10, 20, 30], dtype=np.int64)
-   clk_vals = np.zeros(3)
+   clk_idx = np.array([10, 20, 30, 40], dtype=np.int64)
+   clk_vals = np.zeros(4)
 
    out, out_idx = Resample((vals, val_idx), (clk_vals, clk_idx),
-                           clock=True, agg='last', fill='carry')
-   print(out_idx)   # [10 20 30]
-   print(out)       # [1. 2. 3.] -- last value seen up to each tick
+                           clock=True, agg='last', fill='carry', max_age=8)
+   print(out_idx)   # [10 20 30 40]
+   print(out)       # [ 1.  2.  3. nan] -- the value at 25 is stale by tick 40
 ```
