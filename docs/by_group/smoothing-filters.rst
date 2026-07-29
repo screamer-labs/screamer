@@ -35,6 +35,8 @@ Track the level of a series and suppress short-term noise.
      - Trailing-window arithmetic mean (simple moving average).
    * - :doc:`Rolling 2nd-order polynomial fit </functions_rolling/RollingPoly2>`
      - OLS fit y = a + b*t + c*t^2 over a trailing window.
+   * - :doc:`Ehlers SuperSmoother lowpass filter </functions_signal/SuperSmoother>`
+     - Ehlers 2-pole low-lag lowpass filter.
    * - :doc:`Triple Exponential MA (TEMA) </functions_rolling/TEMA>`
      - Mulloy's Triple EMA: 3*EMA - 3*EMA(EMA) + EMA(EMA(EMA)).
    * - :doc:`Triangular MA (TRIMA) </functions_rolling/TRIMA>`
@@ -71,6 +73,8 @@ Designed frequency-domain and state-space filters.
      - Finite-impulse-response filter with user-supplied taps.
    * - :doc:`Schmitt trigger (hysteresis comparator) </functions_signal/SchmittTrigger>`
      - Hysteresis comparator. Latches 1.0 above the upper threshold, 0.0 below the lower threshold, and retains its previous value in between.
+   * - :doc:`Ehlers SuperSmoother lowpass filter </functions_signal/SuperSmoother>`
+     - Ehlers 2-pole low-lag lowpass filter.
 
 .. toctree::
    :hidden:
@@ -88,6 +92,7 @@ Designed frequency-domain and state-space filters.
    /functions_signal/MovingAverage
    /functions_rolling/RollingPoly2
    /functions_signal/SchmittTrigger
+   /functions_signal/SuperSmoother
    /functions_rolling/TEMA
    /functions_rolling/TRIMA
    /functions_rolling/WMA

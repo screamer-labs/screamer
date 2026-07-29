@@ -1,3 +1,4 @@
+#include <optional>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h> // for std::vector
 #include "screamer/common/base.h"
@@ -5,6 +6,7 @@
 #include "screamer/butter_highpass.h"
 #include "screamer/butter_bandpass.h"
 #include "screamer/butter_bandstop.h"
+#include "screamer/super_smoother.h"
 #include "screamer/moving_average.h"
 #include "screamer/kalman_filter.h"
 #include "screamer/schmitt_trigger.h"
@@ -38,6 +40,14 @@ void init_bindings_signal(py::module& m) {
              py::arg("order") = 2, py::arg("low_cutoff") = 0.05, py::arg("high_cutoff") = 0.2)
         .def("__call__", &screamer::ButterBandstop::operator(), py::arg("value"))
         .def("reset", &screamer::ButterBandstop::reset, "Reset.");
+
+    // SuperSmoother: Ehlers 2-pole low-lag lowpass. Exactly one of
+    // period (samples) or cutoff (fraction of Nyquist).
+    py::class_<screamer::SuperSmoother, screamer::ScreamerBase>(m, "SuperSmoother")
+        .def(py::init<std::optional<double>, std::optional<double>>(),
+             py::arg("period") = py::none(), py::arg("cutoff") = py::none())
+        .def("__call__", &screamer::SuperSmoother::operator(), py::arg("value"))
+        .def("reset", &screamer::SuperSmoother::reset, "Reset to the initial state.");
 
     // MovingAverage: FIR filter with user-supplied taps. Pre-compute
     // taps via numpy / scipy (np.hamming, np.kaiser, scipy.signal.firwin,
