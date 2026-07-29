@@ -2,6 +2,18 @@
 
 All notable changes to this project are documented in this file.
 
+1.1.1 - 2026-07-29
+------------
+
+### Fixed
+
+* Value-initialized several latent uninitialized class members flagged by
+  clang-tidy's member-init check (the resample plan entry, `BacktestReport`,
+  `BacktestL1TradesOrders`, the L1 fill and PnL-account helpers, `TickRuleSign`,
+  `LeeReadySign`, the stream `Event`, and the DAG node spec). These were
+  uninitialized-read hazards of the class that can surface as platform-specific
+  misbehavior; each fix is behavior-preserving (the values are set before use).
+
 1.1.0 - 2026-07-29
 ------------
 
