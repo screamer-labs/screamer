@@ -1,9 +1,13 @@
-import os
-import sys
 import re
 
-# Add project root to the Python path
-sys.path.insert(0, os.path.abspath('../../screamer'))  # Adjust the relative path as necessary
+# The docs import screamer from the environment they are built in, never from
+# the source tree. The `screamer/` package is only importable once a compiled
+# `screamer_bindings` extension sits next to its Python sources, and only a
+# local `make build` puts one there. Adding the repo root to sys.path let that
+# half-built source package shadow the installed one, so every build that
+# pip-installs screamer rather than compiling in place (CI, Read the Docs)
+# failed on `import screamer`. Install the package before building the docs:
+# `make install-dev` locally, `pip install '.[docs]'` everywhere else.
 
 
 # Configuration file for the Sphinx documentation builder.
@@ -137,18 +141,20 @@ plotly_html_show_formats = False
 # -----------------------------------------------------------------------------
 # Code fragment execution (sphinx-exec-code)
 # -----------------------------------------------------------------------------
-# Point at the project root so exec_code blocks can `import screamer`.
-exec_code_working_dir = '..'
-exec_code_folders = ['..']
+# Code blocks run as `python -c` in a subprocess, which puts the working
+# directory first on sys.path. Keeping that directory off the repo root stops
+# the `screamer/` source package from shadowing the installed one, so a block
+# imports screamer exactly as a reader of the docs would.
+exec_code_working_dir = '.'
+# No extra import folders: screamer comes from the environment. This also
+# silences one of the two "No Python packages found in <project>/src" warnings.
+# The extension picks up `src/` (C++ source here, no Python) as its default and
+# validates that default at setup time, before conf.py is read, so the setup
+# warning remains and no config can suppress it.
+exec_code_source_folders = []
+# Note: the earlier `exec_code_folders` spelling was not a config option the
+# extension knows, so it never took effect.
 exec_code_example_dir = '../examples/'
-
-# Known cosmetic warning: at startup the extension scans
-# `<project>/src/` for Python packages and warns when none are present.
-# Our `src/` directory holds C++ source. There is no supported config
-# to disable the scan and its logger sits outside Python's standard
-# hierarchy so a logging filter does not catch it. The build still
-# succeeds and exec_code blocks render correctly. Two cosmetic warnings
-# remain in `make docs` output and we accept them.
 
 # -----------------------------------------------------------------------------
 # Autodoc
