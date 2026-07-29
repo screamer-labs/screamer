@@ -67,6 +67,15 @@ name with teaching-quality documentation:
    past input, and passes the stream-vs-batch tests. Warm-up emits `NaN` and is
    identical across regimes.
 
+6. **General signal-processing operators, documented unit-agnostically.** The
+   cycle/spectral layer measures the instantaneous amplitude, phase, and frequency
+   and the dominant cycle of any sampled series. These are general DSP quantities,
+   used in audio, biomedical (EEG, ECG), vibration, and radar analysis, not only
+   price. Coverage goes beyond TA-Lib where a quantity is fundamental (instantaneous
+   frequency, cycle amplitude). Documentation follows CONTRIBUTING.md: the input is
+   a series, a shift is a count or a duration rather than "bars", the text teaches
+   the mechanism, and framing stays general where the tool is general.
+
 ## Naming
 
 Names follow screamer conventions, not TA-Lib's. Established short acronyms stay
@@ -81,7 +90,8 @@ bare (as `ADX`, `KAMA` already do); everything else is descriptive PascalCase (a
 | Filters | `Decycler` | 1 | (none, Ehlers) |
 | Cycle core | `DominantCycle` | 1 | `HT_DCPERIOD` |
 | Cycle core | `CyclePhase` | 1 | `HT_DCPHASE` |
-| Cycle core | `CycleAmplitude` | 1 | (envelope; implicit in TA) |
+| Cycle core | `CycleAmplitude` | 1 | (envelope; beyond TA) |
+| Cycle core | `CycleFrequency` | 1 | (beyond TA) |
 | Cycle core | `HilbertPhasor` | 2 (inphase, quadrature) | `HT_PHASOR` |
 | Cycle core | `CycleSine` | 2 (sine, leadsine) | `HT_SINE` |
 | Cycle core | `TrendMode` | 1 | `HT_TRENDMODE` |
@@ -97,17 +107,22 @@ Four layers, each built on the one below.
 
 ### Layer 1: reusable causal filters
 
-Each is a `ScreamerBase` node parameterized by a period, computing Ehlers'
-coefficients and feeding the shared `IIRFilter`, in the same shape as `Butter`.
+Each is a `ScreamerBase` node computing Ehlers' coefficients and feeding the shared
+`IIRFilter`, in the same shape as `Butter`. Each cutoff accepts either convention,
+resolved to one internally, as `Ew*` accepts `com|span|halflife|alpha`: a `period`
+in samples (Ehlers' convention) or a normalized `cutoff` in (0, 1) where 1 is
+Nyquist (the `Butter` convention). Exactly one is given.
 
-- **`SuperSmoother(period)`.** Ehlers' 2-pole low-lag lowpass. Coefficients from
-  the standard `exp(-sqrt(2) pi / period)` / `cos(sqrt(2) pi / period)` form.
-- **`Decycler(period)`.** Trend estimate: input minus its highpass component.
-  Removes cycles at or below `period`, leaving the trend.
-- **`RoofingFilter(hp_period, lp_period)`.** Highpass at `hp_period` then
-  `SuperSmoother` at `lp_period`. A bandpass that isolates the tradeable cycle
-  band. Composes the highpass and SuperSmoother inside one C++ node, as `MACD`
-  composes `EwMean`. This is the preprocessing every cycle-core operator applies.
+- **`SuperSmoother(period | cutoff)`.** Ehlers' 2-pole low-lag lowpass.
+  Coefficients from the standard `exp(-sqrt(2) pi / period)` /
+  `cos(sqrt(2) pi / period)` form.
+- **`Decycler(period | cutoff)`.** Trend estimate: input minus its highpass
+  component. Removes cycles at or below the cutoff, leaving the trend.
+- **`RoofingFilter(hp=..., lp=...)`.** Highpass at the `hp` cutoff then
+  `SuperSmoother` at the `lp` cutoff, each accepting `period` or `cutoff`. A
+  bandpass that isolates the cycle band. Composes the highpass and SuperSmoother
+  inside one C++ node, as `MACD` composes `EwMean`. This is the preprocessing
+  every cycle-core operator applies.
 
 The Ehlers highpass that `Decycler` and `RoofingFilter` share is not a standalone
 operator; its coefficient recipe lives in a `detail/` header both call, so there
@@ -128,13 +143,18 @@ batch == stream hold; the settling interval is a `NaN` warm-up.
   parts of the analytic signal. The building block the others read from.
 - **`DominantCycle(...)`** returns the measured cycle period in samples.
 - **`CyclePhase(...)`** returns the instantaneous phase in degrees, 0 to 360.
-- **`CycleAmplitude(...)`** returns the instantaneous amplitude (cycle envelope).
+- **`CycleAmplitude(...)`** returns the instantaneous amplitude (cycle envelope),
+  from the magnitude of the analytic signal. A general envelope detector, not TA-
+  Lib-specific.
+- **`CycleFrequency(...)`** returns the instantaneous frequency, the rate of change
+  of the phase. A general DSP quantity; the phase derivative that the dominant
+  cycle averages, exposed in its own right.
 - **`CycleSine(...)`** returns `(sine, leadsine)`, the sinewave-indicator pair.
 - **`TrendMode(...)`** returns a trend-versus-cycle classification.
 
 `nan_policy: ignore`. Docs family `signal`, new topic `cycles`.
 
-Shared roofing/analytic-signal machinery lives in a `detail/` header so the six
+Shared roofing/analytic-signal machinery lives in a `detail/` header so the seven
 operators read from one implementation rather than each re-deriving the quadrature.
 
 ### Layer 3: adaptive overlays
@@ -143,8 +163,9 @@ operators read from one implementation rather than each re-deriving the quadratu
   tracks the measured dominant cycle. Docs family `signal`, topic `smoothing`.
 - **`MAMA(...)`** returns `(mama, fama)`, the MESA Adaptive Moving Average and its
   following average. The adaptation rate is driven by the rate of change of the
-  measured phase. The acronym matches the `KAMA`/`DEMA`/`TEMA` convention. Docs
-  family `signal` or `rolling` (alongside the moving averages), topic `smoothing`.
+  measured phase. The acronym matches the `KAMA`/`DEMA`/`TEMA` convention. It ships
+  in the same docs family as the other adaptive moving averages (as `KAMA`), topic
+  `smoothing`.
 
 ## Tranche 2: directional movement (DMI)
 
@@ -193,16 +214,13 @@ which is bit-exact-matchable here.
   decision to revisit separately, not an oversight.
 - Parabolic SAR, T3, MAVP, and the trivial price-transform/math one-liners
   (`AVGPRICE`, `LOG10`, and so on). Parity-only follow-ups.
-- A standalone Ehlers bandpass and instantaneous-frequency operator. Their main
-  use is internal to the cycle core; expose later if a user needs them directly.
+- A standalone Ehlers bandpass operator. Its main use is internal to the cycle
+  core; expose later if a user needs it directly.
 
-## Open questions
+## Resolved decisions
 
-1. `MAMA` docs family and topic: group it with the moving averages (`rolling`,
-   `smoothing`) or with the cycle operators (`signal`, `cycles`)? It is a moving
-   average whose mechanism is the cycle core.
-2. `CycleAmplitude` has no distinct TA-Lib counterpart. Confirm it earns a place
-   as a first-class operator rather than being left implicit.
-3. Ehlers' filters are parameterized by `period` (samples), whereas `Butter` uses
-   a normalized cutoff. Confirm `period` is the friendlier argument for this
-   family and that the two conventions coexisting is acceptable.
+1. `MAMA` ships with the moving averages, topic `smoothing`.
+2. `CycleAmplitude` is first-class, and `CycleFrequency` joins it. Coverage goes
+   beyond TA-Lib for the fundamental DSP quantities, framed for general use.
+3. The Ehlers filters accept either a `period` (samples) or a normalized `cutoff`
+   in (0, 1), one per call, matching the `Ew*` multi-parameterization pattern.
