@@ -14,6 +14,7 @@
 #include "screamer/schmitt_trigger.h"
 #include "screamer/hold.h"
 #include "screamer/dominant_cycle.h"
+#include "screamer/hilbert_phasor.h"
 
 namespace py = pybind11;
 
@@ -109,4 +110,11 @@ void init_bindings_signal(py::module& m) {
         .def(py::init<>())
         .def("__call__", &screamer::DominantCycle::handle_input)
         .def("reset", &screamer::DominantCycle::reset, "Reset to the initial state.");
+
+    // HilbertPhasor: 1->2 in-phase / quadrature components of the analytic
+    // signal via Ehlers' Hilbert transform. See detail/hilbert_cycle.h.
+    py::class_<screamer::HilbertPhasor, screamer::EvalOp>(m, "HilbertPhasor")
+        .def(py::init<>())
+        .def("__call__", &screamer::HilbertPhasor::handle_input)
+        .def("reset", &screamer::HilbertPhasor::reset, "Reset to the initial state.");
 }

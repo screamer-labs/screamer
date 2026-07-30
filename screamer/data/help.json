@@ -8448,6 +8448,27 @@
     "details": "## Description\n\n`DominantCycle` measures the dominant cycle period of a series, in samples,\nusing John Ehlers' homodyne discriminator. It forms the analytic signal by a\nHilbert transform, then reads the cycle period from the rate of change of the\nphase between successive samples. The estimate is a general spectral quantity:\nthe same measurement applies to any sampled signal, not only price.\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in the input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
     "examples": []
   },
+  "HilbertPhasor": {
+    "name": "HilbertPhasor",
+    "title": "Hilbert in-phase / quadrature components",
+    "implementation_family": "signal",
+    "topics": [
+      "cycles"
+    ],
+    "tags": [
+      "ehlers",
+      "hilbert",
+      "cycle",
+      "analytic-signal"
+    ],
+    "short": "In-phase and quadrature components of the analytic signal via Ehlers' Hilbert transform.",
+    "inputs": 1,
+    "outputs": 2,
+    "parameters": [],
+    "nan_policy": "ignore",
+    "details": "## Description\n\n`HilbertPhasor` computes the in-phase and quadrature components of the\nanalytic signal formed from a series by John Ehlers' Hilbert transform. The\nin-phase component is the real part of the analytic signal and the\nquadrature component is its imaginary part, a version of the input phase-\nshifted by 90 degrees. Together they describe the instantaneous phase and\namplitude of the dominant cycle in the input, the same construction used by\n`DominantCycle`. The estimate is a general spectral quantity: the same\nmeasurement applies to any sampled signal, not only price.\n\nThis is a **1-input, 2-output** function (`FunctorBase<_, 1, 2>`). Outputs\nare stacked along a trailing axis of size 2: `out[..., 0]` is the in-phase\ncomponent, `out[..., 1]` is the quadrature component.\n\n*Parameters*: `HilbertPhasor` takes no parameters.\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in the input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
+    "examples": []
+  },
   "Hold": {
     "name": "Hold",
     "title": "Hold (time-latch operator)",

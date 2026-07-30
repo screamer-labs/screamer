@@ -185,6 +185,8 @@ Dominant cycle, phase, amplitude, and frequency from the analytic signal.
      - Description
    * - :doc:`Dominant cycle period </functions_signal/DominantCycle>`
      - Dominant cycle period via Ehlers' homodyne discriminator.
+   * - :doc:`Hilbert in-phase / quadrature components </functions_signal/HilbertPhasor>`
+     - In-phase and quadrature components of the analytic signal via Ehlers' Hilbert transform.
 
 .. toctree::
    :hidden:
@@ -200,6 +202,7 @@ Dominant cycle, phase, amplitude, and frequency from the analytic signal.
    /functions_rolling/DonchianChannels
    /functions_rolling/DX
    /functions_expanding/ExpandingSlope
+   /functions_signal/HilbertPhasor
    /functions_misc/Lag
    /functions_fin/LogReturn
    /functions_rolling/MACD
