@@ -6121,6 +6121,42 @@
       }
     ]
   },
+  "MinusDM": {
+    "name": "MinusDM",
+    "title": "Minus directional movement (-DM)",
+    "implementation_family": "rolling",
+    "topics": [
+      "trend"
+    ],
+    "tags": [
+      "wilder",
+      "dmi",
+      "directional-movement",
+      "talib",
+      "hl"
+    ],
+    "short": "Wilder smoothed negative directional movement.",
+    "inputs": 2,
+    "outputs": 1,
+    "parameters": [
+      {
+        "name": "window_size",
+        "type": "int",
+        "default": 14,
+        "min": 2,
+        "description": "Wilder smoothing period."
+      }
+    ],
+    "nan_policy": "ignore",
+    "details": "## Description\n\n`MinusDM` is Wilder's negative directional movement, `-DM` (Wilder, 1978),\nWilder-smoothed over `window_size` bars:\n\n$$\n-\\text{DM}[t] = \\max(L_{t-1} - L,\\ 0)\\quad\\text{if}\\quad L_{t-1} - L > H - H_{t-1},\\ \\text{else}\\ 0\n$$\n\n$$\n-\\text{DM}_{\\text{smoothed}} = \\text{Wilder}(-\\text{DM},\\ w)\n$$\n\n**2-input, 1-output** (`FunctorBase<_, 2, 1>`) on `(high, low)`. The value\ndepends on high and low only; it does not use close. `MinusDM` shares its\nsmoothing engine with `ADX` and `MinusDI`, which divide the same quantity by\nthe smoothed true range to form `-DI`. Use `MinusDM` on its own when the raw\nsmoothed directional movement is needed rather than the normalized indicator.\n\n### Parameters\n\n**`window_size`** *(int, default 14)*: The Wilder smoothing period. Because\n`MinusDM` shares its warmup timeline with the rest of the DMI family (which\nalso smooths the true range), the first valid output is at sample index\n`window_size`, one bar later than a plain Wilder sum of `-DM` alone would\ngive.\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage example",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import PlusDM, MinusDM\n\nrng = np.random.default_rng(0)\nN = 300\nclose = 100 + np.cumsum(rng.standard_normal(N))\nhigh = close + np.abs(rng.standard_normal(N))\nlow = close - np.abs(rng.standard_normal(N))\n\nplus_dm = PlusDM(window_size=14)(high, low)\nminus_dm = MinusDM(window_size=14)(high, low)\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.5, 0.5],\n                    vertical_spacing=0.08)\nfig.add_trace(go.Scatter(y=close, name='Close', line=dict(color='steelblue')),\n              row=1, col=1)\nfig.add_trace(go.Scatter(y=plus_dm, name='+DM', line=dict(color='green', dash='dot')), row=2, col=1)\nfig.add_trace(go.Scatter(y=minus_dm, name='-DM', line=dict(color='orange')), row=2, col=1)\nfig.update_layout(\n    title='MinusDM: smoothed negative directional movement',\n    yaxis=dict(title='Price'), yaxis2=dict(title='DM'),\n    margin=dict(l=20, r=20, t=60, b=20),\n    legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1),\n)\nfig.show()"
+      }
+    ]
+  },
   "NATR": {
     "name": "NATR",
     "title": "Normalised ATR (NATR)",
@@ -6218,6 +6254,42 @@
         "language": "python",
         "caption": "Usage example",
         "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import PlusDI, MinusDI\n\nrng = np.random.default_rng(0)\nN = 300\nclose = 100 + np.cumsum(rng.standard_normal(N))\nhigh = close + np.abs(rng.standard_normal(N))\nlow = close - np.abs(rng.standard_normal(N))\n\nplus_di = PlusDI(window_size=14)(high, low, close)\nminus_di = MinusDI(window_size=14)(high, low, close)\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.5, 0.5],\n                    vertical_spacing=0.08)\nfig.add_trace(go.Scatter(y=close, name='Close', line=dict(color='steelblue')),\n              row=1, col=1)\nfig.add_trace(go.Scatter(y=plus_di, name='+DI', line=dict(color='green')), row=2, col=1)\nfig.add_trace(go.Scatter(y=minus_di, name='-DI', line=dict(color='orange', dash='dot')), row=2, col=1)\nfig.update_layout(\n    title='PlusDI: strength of upward movement',\n    yaxis=dict(title='Price'), yaxis2=dict(title='DI (0-100)'),\n    margin=dict(l=20, r=20, t=60, b=20),\n    legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1),\n)\nfig.show()"
+      }
+    ]
+  },
+  "PlusDM": {
+    "name": "PlusDM",
+    "title": "Plus directional movement (+DM)",
+    "implementation_family": "rolling",
+    "topics": [
+      "trend"
+    ],
+    "tags": [
+      "wilder",
+      "dmi",
+      "directional-movement",
+      "talib",
+      "hl"
+    ],
+    "short": "Wilder smoothed positive directional movement.",
+    "inputs": 2,
+    "outputs": 1,
+    "parameters": [
+      {
+        "name": "window_size",
+        "type": "int",
+        "default": 14,
+        "min": 2,
+        "description": "Wilder smoothing period."
+      }
+    ],
+    "nan_policy": "ignore",
+    "details": "## Description\n\n`PlusDM` is Wilder's positive directional movement, `+DM` (Wilder, 1978),\nWilder-smoothed over `window_size` bars:\n\n$$\n+\\text{DM}[t] = \\max(H - H_{t-1},\\ 0)\\quad\\text{if}\\quad H - H_{t-1} > L_{t-1} - L,\\ \\text{else}\\ 0\n$$\n\n$$\n+\\text{DM}_{\\text{smoothed}} = \\text{Wilder}(+\\text{DM},\\ w)\n$$\n\n**2-input, 1-output** (`FunctorBase<_, 2, 1>`) on `(high, low)`. The value\ndepends on high and low only; it does not use close. `PlusDM` shares its\nsmoothing engine with `ADX` and `PlusDI`, which divide the same quantity by\nthe smoothed true range to form `+DI`. Use `PlusDM` on its own when the raw\nsmoothed directional movement is needed rather than the normalized indicator.\n\n### Parameters\n\n**`window_size`** *(int, default 14)*: The Wilder smoothing period. Because\n`PlusDM` shares its warmup timeline with the rest of the DMI family (which\nalso smooths the true range), the first valid output is at sample index\n`window_size`, one bar later than a plain Wilder sum of `+DM` alone would\ngive.\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage example",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import PlusDM, MinusDM\n\nrng = np.random.default_rng(0)\nN = 300\nclose = 100 + np.cumsum(rng.standard_normal(N))\nhigh = close + np.abs(rng.standard_normal(N))\nlow = close - np.abs(rng.standard_normal(N))\n\nplus_dm = PlusDM(window_size=14)(high, low)\nminus_dm = MinusDM(window_size=14)(high, low)\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.5, 0.5],\n                    vertical_spacing=0.08)\nfig.add_trace(go.Scatter(y=close, name='Close', line=dict(color='steelblue')),\n              row=1, col=1)\nfig.add_trace(go.Scatter(y=plus_dm, name='+DM', line=dict(color='green')), row=2, col=1)\nfig.add_trace(go.Scatter(y=minus_dm, name='-DM', line=dict(color='orange', dash='dot')), row=2, col=1)\nfig.update_layout(\n    title='PlusDM: smoothed positive directional movement',\n    yaxis=dict(title='Price'), yaxis2=dict(title='DM'),\n    margin=dict(l=20, r=20, t=60, b=20),\n    legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1),\n)\nfig.show()"
       }
     ]
   },

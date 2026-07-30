@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 import talib
 
-from screamer import ADX, PlusDI, MinusDI
+from screamer import ADX, PlusDI, MinusDI, PlusDM, MinusDM
 from tests.regime_helpers import assert_batch_equals_scalar
 
 
@@ -53,3 +53,31 @@ class TestPlusMinusDI:
         high, low, close = _ohlc(200, seed=3)
         assert_batch_equals_scalar(lambda: PlusDI(14), high, low, close)
         assert_batch_equals_scalar(lambda: MinusDI(14), high, low, close)
+
+
+class TestPlusMinusDM:
+    @pytest.mark.parametrize("w", [14, 20])
+    def test_plus_dm_matches_talib_aligned(self, w):
+        high, low, close = _ohlc(300, seed=w + 4)
+        ours = np.asarray(PlusDM(w)(high, low))
+        ref = talib.PLUS_DM(high, low, timeperiod=w)
+        # screamer uses a uniform first-valid index of window_size across the
+        # DMI family; talib emits PLUS_DM one bar earlier. Compare where both
+        # are finite (index >= window_size), where the values are identical.
+        m = np.isfinite(ours) & np.isfinite(ref)
+        assert m.sum() > 0
+        np.testing.assert_allclose(ours[m], ref[m], atol=1e-8)
+
+    @pytest.mark.parametrize("w", [14, 20])
+    def test_minus_dm_matches_talib_aligned(self, w):
+        high, low, close = _ohlc(300, seed=w + 5)
+        ours = np.asarray(MinusDM(w)(high, low))
+        ref = talib.MINUS_DM(high, low, timeperiod=w)
+        m = np.isfinite(ours) & np.isfinite(ref)
+        assert m.sum() > 0
+        np.testing.assert_allclose(ours[m], ref[m], atol=1e-8)
+
+    def test_dm_batch_equals_stream(self):
+        high, low, close = _ohlc(200, seed=6)
+        assert_batch_equals_scalar(lambda: PlusDM(14), high, low)
+        assert_batch_equals_scalar(lambda: MinusDM(14), high, low)

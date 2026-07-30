@@ -37,8 +37,12 @@ Direction and trend-following: trend-tracking averages, slope fits, ADX, and cha
      - MACD line, signal line, and histogram (3 outputs).
    * - :doc:`Minus directional indicator (-DI) </functions_rolling/MinusDI>`
      - Wilder negative directional indicator.
+   * - :doc:`Minus directional movement (-DM) </functions_rolling/MinusDM>`
+     - Wilder smoothed negative directional movement.
    * - :doc:`Plus directional indicator (+DI) </functions_rolling/PlusDI>`
      - Wilder positive directional indicator.
+   * - :doc:`Plus directional movement (+DM) </functions_rolling/PlusDM>`
+     - Wilder smoothed positive directional movement.
    * - :doc:`Rolling Hurst Exponent </functions_rolling/RollingHurst>`
      - Rolling-window Hurst exponent via Anis-Lloyd corrected rescaled-range analysis.
    * - :doc:`Rolling linear regression (2->4 OLS fit) </functions_fin/RollingLinearRegression>`
@@ -180,8 +184,10 @@ Differences, returns, rates of change, and lags.
    /functions_rolling/MACD
    /functions_rolling/MFI
    /functions_rolling/MinusDI
+   /functions_rolling/MinusDM
    /functions_misc/Momentum
    /functions_rolling/PlusDI
+   /functions_rolling/PlusDM
    /functions_fin/Return
    /functions_fin/ROC
    /functions_fin/ROCP
