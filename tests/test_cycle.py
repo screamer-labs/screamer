@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from screamer import DominantCycle, HilbertPhasor
+from screamer import DominantCycle, HilbertPhasor, CyclePhase, CycleFrequency
 from tests.regime_helpers import assert_batch_equals_scalar
 
 
@@ -41,3 +41,25 @@ class TestHilbertPhasor:
     def test_batch_equals_stream(self):
         x = _tone(20.0, n=400)
         assert_batch_equals_scalar(lambda: HilbertPhasor(), x)
+
+
+class TestCyclePhaseFrequency:
+    def test_frequency_recovers_period(self):
+        period = 20.0
+        x = _tone(period, n=800)
+        f = np.asarray(CycleFrequency()(x))
+        tail = f[-200:]; tail = tail[np.isfinite(tail)]
+        assert tail.size > 50
+        assert abs(np.median(tail) - 1.0 / period) / (1.0 / period) < 0.15
+
+    def test_phase_in_range(self):
+        x = _tone(20.0, n=800)
+        p = np.asarray(CyclePhase()(x))
+        m = np.isfinite(p)
+        assert m.sum() > 100
+        assert p[m].min() >= 0.0 and p[m].max() <= 360.0
+
+    def test_batch_equals_stream(self):
+        x = _tone(20.0, n=400)
+        assert_batch_equals_scalar(lambda: CyclePhase(), x)
+        assert_batch_equals_scalar(lambda: CycleFrequency(), x)

@@ -183,6 +183,10 @@ Dominant cycle, phase, amplitude, and frequency from the analytic signal.
 
    * - Function
      - Description
+   * - :doc:`Instantaneous cycle frequency </functions_signal/CycleFrequency>`
+     - Instantaneous frequency, in cycles per sample, via Ehlers' homodyne discriminator.
+   * - :doc:`Instantaneous cycle phase </functions_signal/CyclePhase>`
+     - Instantaneous phase, in degrees, of the analytic signal via Ehlers' homodyne discriminator.
    * - :doc:`Dominant cycle period </functions_signal/DominantCycle>`
      - Dominant cycle period via Ehlers' homodyne discriminator.
    * - :doc:`Hilbert in-phase / quadrature components </functions_signal/HilbertPhasor>`
@@ -196,6 +200,8 @@ Dominant cycle, phase, amplitude, and frequency from the analytic signal.
    /functions_rolling/ADXR
    /functions_rolling/BOP
    /functions_rolling/CCI
+   /functions_signal/CycleFrequency
+   /functions_signal/CyclePhase
    /functions_misc/Diff
    /functions_misc/Diff2
    /functions_signal/DominantCycle

@@ -15,6 +15,8 @@
 #include "screamer/hold.h"
 #include "screamer/dominant_cycle.h"
 #include "screamer/hilbert_phasor.h"
+#include "screamer/cycle_phase.h"
+#include "screamer/cycle_frequency.h"
 
 namespace py = pybind11;
 
@@ -117,4 +119,18 @@ void init_bindings_signal(py::module& m) {
         .def(py::init<>())
         .def("__call__", &screamer::HilbertPhasor::handle_input)
         .def("reset", &screamer::HilbertPhasor::reset, "Reset to the initial state.");
+
+    // CyclePhase: 1->1 instantaneous phase (degrees, 0..360) of the analytic
+    // signal via Ehlers' homodyne discriminator. See detail/hilbert_cycle.h.
+    py::class_<screamer::CyclePhase, screamer::EvalOp>(m, "CyclePhase")
+        .def(py::init<>())
+        .def("__call__", &screamer::CyclePhase::handle_input)
+        .def("reset", &screamer::CyclePhase::reset, "Reset to the initial state.");
+
+    // CycleFrequency: 1->1 instantaneous frequency (cycles per sample), the
+    // reciprocal of the dominant cycle period. See detail/hilbert_cycle.h.
+    py::class_<screamer::CycleFrequency, screamer::EvalOp>(m, "CycleFrequency")
+        .def(py::init<>())
+        .def("__call__", &screamer::CycleFrequency::handle_input)
+        .def("reset", &screamer::CycleFrequency::reset, "Reset to the initial state.");
 }
