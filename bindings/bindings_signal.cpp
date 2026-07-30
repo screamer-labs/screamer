@@ -13,6 +13,7 @@
 #include "screamer/kalman_filter.h"
 #include "screamer/schmitt_trigger.h"
 #include "screamer/hold.h"
+#include "screamer/dominant_cycle.h"
 
 namespace py = pybind11;
 
@@ -101,4 +102,11 @@ void init_bindings_signal(py::module& m) {
         .def("__call__", &screamer::Hold::operator(), py::arg("value"))
         .def("reset", &screamer::Hold::reset,
              "Reset to the initial state (remaining=0, held=release).");
+
+    // DominantCycle: 1->1 dominant cycle period (samples) via Ehlers'
+    // homodyne discriminator. See detail/hilbert_cycle.h.
+    py::class_<screamer::DominantCycle, screamer::EvalOp>(m, "DominantCycle")
+        .def(py::init<>())
+        .def("__call__", &screamer::DominantCycle::handle_input)
+        .def("reset", &screamer::DominantCycle::reset, "Reset to the initial state.");
 }

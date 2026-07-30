@@ -172,6 +172,20 @@ Differences, returns, rates of change, and lags.
    * - :doc:`Rate of change ratio (ROCR) </functions_fin/ROCR>`
      - x[t] / x[t-k] - TA-Lib's ROCR.
 
+Cycles & spectra
+----------------
+
+Dominant cycle, phase, amplitude, and frequency from the analytic signal.
+
+.. list-table::
+   :header-rows: 1
+   :widths: 30 70
+
+   * - Function
+     - Description
+   * - :doc:`Dominant cycle period </functions_signal/DominantCycle>`
+     - Dominant cycle period via Ehlers' homodyne discriminator.
+
 .. toctree::
    :hidden:
 
@@ -182,6 +196,7 @@ Differences, returns, rates of change, and lags.
    /functions_rolling/CCI
    /functions_misc/Diff
    /functions_misc/Diff2
+   /functions_signal/DominantCycle
    /functions_rolling/DonchianChannels
    /functions_rolling/DX
    /functions_expanding/ExpandingSlope
