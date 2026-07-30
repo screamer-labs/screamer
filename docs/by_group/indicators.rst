@@ -27,6 +27,8 @@ Direction and trend-following: trend-tracking averages, slope fits, ADX, and cha
      - x[t] minus its rolling mean.
    * - :doc:`Donchian Channels </functions_rolling/DonchianChannels>`
      - Trend-following envelope: rolling max(high), rolling min(low), and midline.
+   * - :doc:`Directional index (DX) </functions_rolling/DX>`
+     - Wilder directional index, the pre-average input to ADX.
    * - :doc:`Expanding slope </functions_expanding/ExpandingSlope>`
      - Running OLS slope of the series against time over the whole history.
    * - :doc:`Hull MA </functions_rolling/HullMA>`
@@ -178,6 +180,7 @@ Differences, returns, rates of change, and lags.
    /functions_misc/Diff
    /functions_misc/Diff2
    /functions_rolling/DonchianChannels
+   /functions_rolling/DX
    /functions_expanding/ExpandingSlope
    /functions_misc/Lag
    /functions_fin/LogReturn

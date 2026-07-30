@@ -57,6 +57,7 @@
 #include "screamer/minus_di.h"
 #include "screamer/plus_dm.h"
 #include "screamer/minus_dm.h"
+#include "screamer/dx.h"
 #include "screamer/vwap.h"
 #include "screamer/obv.h"
 #include "screamer/ad.h"
@@ -473,6 +474,12 @@ void init_bindings_rolling(py::module& m) {
         .def(py::init<int>(), py::arg("window_size") = 14)
         .def("__call__", &screamer::MinusDM::handle_input)
         .def("reset", &screamer::MinusDM::reset, "Reset to the initial state.");
+
+    // DX: standalone directional index, sharing DmiCore with ADX.
+    py::class_<screamer::DX, screamer::EvalOp>(m, "DX")
+        .def(py::init<int>(), py::arg("window_size") = 14)
+        .def("__call__", &screamer::DX::handle_input)
+        .def("reset", &screamer::DX::reset, "Reset to the initial state.");
 
     // Volume-aware indicators.
     py::class_<screamer::RollingVWAP, screamer::EvalOp>(m, "RollingVWAP")
