@@ -60,6 +60,12 @@ test = [
     "scipy>=1.14",
     "pandas>=2.2",
     "PyYAML>=6.0",
+    # Independent reference for the range-based volatility estimators.
+    # A plain wheel with no system library behind it, unlike TA-Lib, so it is
+    # a normal test dependency rather than an opt-in extra. Supplies
+    # ParkinsonSigma and GarmanKlassSigma5, which are the formulas
+    # RollingParkinson* and RollingGarmanKlass* implement.
+    "QuantLib>=1.30",
 ]
 # Pipeline visualization: Pipeline.to_graphviz() and the Jupyter SVG repr. Rendering also
 # needs the system Graphviz `dot` binary (e.g. `brew install graphviz`,

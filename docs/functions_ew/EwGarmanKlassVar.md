@@ -43,7 +43,16 @@ $$
 \sigma^2_\text{GK}[t] = \tfrac{1}{2}\big(\ln H/L\big)^2 - (2\ln 2 - 1)\big(\ln C/O\big)^2
 $$
 
-This expression is averaged with a exponentially-weighted mean to form the estimator. The `Vol`
+This expression is averaged with a exponentially-weighted mean to form the estimator. This is the paper's simplified estimator, the one written $\sigma_5$ in Garman
+and Klass's sequence and the form usually meant by "Garman-Klass". The paper
+also gives a higher-order approximation of the same quantity ($\sigma_4$), and
+variants carrying an overnight term driven by the fraction of the day the market
+is closed ($\sigma_1$, $\sigma_3$, $\sigma_6$). screamer ships only this one:
+$\sigma_4$ differs in the fourth significant figure, and the gap-aware variants
+are superseded by [`RollingYangZhang`](../functions_rolling/RollingYangZhangVar.md), which handles
+overnight gaps *and* drift.
+
+The `Vol`
 variant returns `sqrt(Var)` (bit-exact via the same internal state).
 
 **4-input, 1-output** on `(open, high, low, close)`. ~7.4x more statistically efficient

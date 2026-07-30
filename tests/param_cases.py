@@ -253,6 +253,12 @@ multi_input_definitions = [
     ( ('Equal','NotEqual','And','Or','Where',
        'GreaterThan','LessThan','GreaterEqual','LessEqual')
                                     , {"array_type": ["discrete"]}),
+    # Range-based volatility: needs coherent bars, see generate_ohlc_arrays.
+    ( ('RollingParkinsonVar','RollingParkinsonVol',
+       'RollingGarmanKlassVar','RollingGarmanKlassVol',
+       'RollingRogersSatchellVar','RollingRogersSatchellVol',
+       'RollingYangZhangVar','RollingYangZhangVol')
+                                    , {"window_size": [20], "array_type": ["ohlc"]}),
 ]
 
 
@@ -316,7 +322,31 @@ def generate_discrete_array(array_length):
     return np.random.randint(0, 3, array_length).astype(float)
 
 
+def generate_ohlc_arrays(array_length, n_inputs):
+    """Coherent OHLC bars, so high >= max(open, close) and low <= min.
+
+    The range-based volatility estimators take logs of H/L, H/O and L/C, so
+    independent draws per input would give high < low and produce NaN
+    everywhere. The bars here come from a random walk with a spread around
+    each close.
+
+    Returns (high, low) for a 2-input operator and (open, high, low, close)
+    for a 4-input one, which is the argument order this family uses.
+    """
+    rng = np.random.default_rng(20240730)
+    close = 100.0 * np.exp(np.cumsum(rng.normal(0.0, 0.01, array_length)))
+    open_ = close * np.exp(rng.normal(0.0, 0.004, array_length))
+    spread = np.abs(rng.normal(0.0, 0.006, array_length))
+    high = np.maximum(open_, close) * np.exp(spread)
+    low = np.minimum(open_, close) * np.exp(-spread)
+    if n_inputs == 2:
+        return [high, low]
+    return [open_, high, low, close]
+
+
 def generate_arrays(array_type, array_length, n_inputs):
+    if array_type == 'ohlc':
+        return generate_ohlc_arrays(array_length, n_inputs)
     """One array per input, drawn independently.
 
     Independence matters: feeding the same array to both sides of `Sub` gives

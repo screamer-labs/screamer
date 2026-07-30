@@ -86,6 +86,32 @@ Unreleased
   implementation, and each is compared on every run. Writing them is what
   exposed the `ROC` default above.
 
+* References for the eight range-based volatility operators, taking baseline
+  coverage to 129 of 213. `RollingParkinson*` and `RollingGarmanKlass*` are
+  checked against **QuantLib** (`ParkinsonSigma` and `GarmanKlassSigma5`), an
+  independent implementation of the formula rather than a transcription of it.
+  `RollingRogersSatchell*` and `RollingYangZhang*` are not in QuantLib and are
+  transcribed from their documented formulas.
+
+  Because a transcription cannot catch a wrong formula,
+  `tests/test_ohlc_volatility.py` anchors all four families against ground
+  truth: a geometric Brownian motion is simulated at fine intra-bar resolution,
+  aggregated into OHLC bars, and each estimator must recover the sigma that
+  generated it, in the regime its page claims. The negative claims are asserted
+  too. Under a drift of five times sigma, Rogers-Satchell stays on target while
+  Parkinson reads about 3x and Garman-Klass about 2x, and with overnight gaps
+  only Yang-Zhang reports the gap-inclusive total.
+
+  `QuantLib` is now a test dependency. It is a plain wheel with no system
+  library behind it, so unlike TA-Lib it installs in CI and these comparisons
+  run on every push.
+
+* The Garman-Klass pages now say *which* estimator from the paper is
+  implemented (the simplified sigma_5 form), why the higher-order sigma_4 and
+  the gap-aware sigma_1 / sigma_3 / sigma_6 variants are not shipped, and that
+  Yang-Zhang supersedes the gap-aware ones. Identifying the variant previously
+  meant testing all five against the formula.
+
 * The baseline harness now drives multi-input operators, one independent array
   per input, which is what let the two- and three-input math operators be
   compared at all: `Add`, `Sub`, `Mul`, `Div`, `Hypot`, `Atan2`, `Linear2`,
