@@ -5,6 +5,26 @@ All notable changes to this project are documented in this file.
 Unreleased
 ----------
 
+### Changed
+
+* The sliding-window extremum used by `RollingMin`, `RollingMax`,
+  `RollingRange`, `RollingArgmin`, `RollingArgmax`, `WilliamsR`, `Stoch`,
+  `StochRSI` and `DonchianChannels` now stores its candidates in a fixed ring
+  buffer instead of a `std::deque`. Nothing is allocated after construction,
+  which matters more for streaming latency than for throughput: it is about 12%
+  faster on the array path (`RollingMax(50)`, 9.9 to 8.7 ns/sample) and removes
+  the allocator from the per-event path. Results are unchanged.
+
+  This came out of a comparison against TA-Lib, where the family looked 6 to 7
+  times slower. Most of that gap is not fixable and should not be fixed: the
+  monotonic deque is O(1) per sample in the worst case, while the usual
+  alternative tracks the extremum and rescans the window when it expires, which
+  is quicker on typical data and degrades to O(window) on a monotone run. On a
+  monotonically falling series, `RollingMax(50)` costs 3.0 ns/sample against
+  TA-Lib's 16.2. A falling series is a sell-off, not a contrived input, so the
+  bounded worst case is the right trade for a streaming library.
+  `tests/test_extremum_worst_case.py` pins that property.
+
 ### Fixed
 
 * `ROC`, `ROCP` and `ROCR` defaulted to `window_size=1` while their pages
