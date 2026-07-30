@@ -284,3 +284,95 @@ def test_nan_at_nan_index(name: str, entry: dict):
         "but the input at that index is NaN. Every policy except "
         "nan-aware must emit NaN at the same index as the input NaN."
     )
+
+
+# ---------------------------------------------------------------------------
+# P3: an `ignore` NaN costs exactly one output slot
+# ---------------------------------------------------------------------------
+# The two properties above check that a NaN does not poison state forever and
+# that the NaN index itself is NaN. Neither checks the sample *after* the NaN,
+# which is where the `ignore` contract actually differs from `propagate`:
+# under `ignore` the sample is never stored, so splicing a NaN into a stream
+# must leave every other output untouched. MovingAverage declared `ignore`
+# while buffering the NaN, and passed both existing properties.
+# These fail the property today. All of them are pre-existing and unrelated to
+# the change that added this test, so they are tracked here rather than fixed
+# in one sweep. The differences are semantic, not rounding: an extra NaN in the
+# output (TrueRange, TRIX), many extra NaNs (RollingHurst, RollingIqr), or a
+# different finite value (Stoch differs by ~200, RollingMaxDrawdown by ~2e-4).
+# Several are multi-input OHLC functions that hold a previous-close or a
+# previous-bar term and store the NaN into it.
+#
+# xfail(strict=True), so fixing one of these fails the suite until it is
+# removed from this set.
+KNOWN_NOT_TRANSPARENT: set[str] = {
+    "ATR",
+    "BacktestOHLCTarget",
+    "KeltnerChannels",
+    "NATR",
+    "RollingHitRate",
+    "RollingHurst",
+    "RollingIqr",
+    "RollingMaxDrawdown",
+    "RollingTSF",
+    "RollingYangZhangVar",
+    "RollingYangZhangVol",
+    "Stoch",
+    "TRIX",
+    "TrueRange",
+    "WilliamsR",
+}
+
+_xfail_transparent = _xfail_if_in(
+    KNOWN_NOT_TRANSPARENT, "ignore-policy NaN is not state-transparent"
+)
+
+PARAMS_TRANSPARENCY = [
+    pytest.param(name, entry, id=name, marks=_xfail_transparent(name))
+    for name, entry in sorted(_FUNCTORS.items())
+    if entry["nan_policy"] == "ignore" and name not in KNOWN_STICKY_NAN
+]
+
+
+def _delete_index(out, idx: int):
+    """Drop one time step from every output stream."""
+    if isinstance(out, tuple):
+        return tuple(_delete_index(o, idx) for o in out)
+    return np.delete(out, idx, axis=0)
+
+
+def _assert_same(a, b, name: str, policy: str):
+    if isinstance(a, tuple):
+        for sub_a, sub_b in zip(a, b):
+            _assert_same(sub_a, sub_b, name, policy)
+        return
+    np.testing.assert_allclose(
+        a, b, rtol=1e-9, atol=1e-12, equal_nan=True,
+        err_msg=(
+            f"{name} ({policy}): splicing one NaN into the stream changed "
+            "outputs at other indices. Under `ignore` the sample must not "
+            "enter internal state, so removing the extra output slot must "
+            "reproduce the NaN-free run exactly. See docs/nan_and_warmup.md."
+        ),
+    )
+
+
+@pytest.mark.parametrize("name,entry", PARAMS_TRANSPARENCY)
+def test_ignore_nan_is_state_transparent(name: str, entry: dict):
+    """A mid-stream NaN must consume one output slot and nothing else.
+
+    Run the function on a clean stream, and on the same stream with a single
+    NaN spliced in. Deleting the spliced index from the second result must
+    reproduce the first.
+    """
+    policy = entry["nan_policy"]
+    n_inputs = int(entry.get("inputs", 1))
+    nan_idx = 250
+
+    clean = _input_for(name, n_inputs, n_samples=500)
+    holed = [np.insert(a, nan_idx, np.nan) for a in clean]
+
+    out_clean = _call(_instantiate(entry), clean)
+    out_holed = _call(_instantiate(entry), holed)
+
+    _assert_same(_delete_index(out_holed, nan_idx), out_clean, name, policy)

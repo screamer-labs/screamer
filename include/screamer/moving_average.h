@@ -13,65 +13,54 @@
 // for any normalisation (e.g. taps /= taps.sum() for a unity-gain
 // filter).
 //
-// 1 -> 1 stateless except for an internal circular buffer of the
-// last len(taps) samples. O(L) per step where L = len(taps). First
-// valid output at sample index L - 1.
+// 1 -> 1 stateless except for the circular buffer of the last
+// len(taps) samples held by detail::FirCore. O(L) per step where
+// L = len(taps). First valid output at sample index L - 1.
 
-#include <cstddef>
 #include <limits>
 #include <stdexcept>
 #include <vector>
 #include "screamer/common/base.h"
+#include "screamer/common/float_info.h"
+#include "screamer/detail/fir_core.h"
 
 namespace screamer {
 
 class MovingAverage : public ScreamerBase {
 public:
     explicit MovingAverage(const std::vector<double>& taps)
-        : taps_(taps)
-    {
-        if (taps_.empty()) {
-            throw std::invalid_argument("taps must be non-empty.");
-        }
-        buffer_.assign(taps_.size(), 0.0);
-        reset();
-    }
+        : fir_(validated(taps))
+    {}
 
     void reset() override {
-        std::fill(buffer_.begin(), buffer_.end(), 0.0);
-        index_ = 0;
-        n_seen_ = 0;
+        fir_.reset();
     }
 
     double process_scalar(double x) override {
-        buffer_[index_] = x;
-        index_++;
-        if (index_ == buffer_.size()) index_ = 0;
-
-        if (n_seen_ < static_cast<int>(taps_.size())) {
-            n_seen_++;
-            if (n_seen_ < static_cast<int>(taps_.size())) {
-                return std::numeric_limits<double>::quiet_NaN();
-            }
+        // nan_policy: ignore. The sample is not buffered and does not
+        // advance warmup, so the next finite sample continues from the
+        // state the filter already had.
+        if (isnan2(x)) {
+            return std::numeric_limits<double>::quiet_NaN();
         }
-
-        // Convolve: most recent sample is at buffer_[(index_ - 1) mod L].
-        // Iterate in time order from newest to oldest matching taps_.
-        const int L = static_cast<int>(taps_.size());
-        double acc = 0.0;
-        int idx = (index_ - 1 + L) % L;
-        for (int k = 0; k < L; ++k) {
-            acc += taps_[k] * buffer_[idx];
-            idx = (idx - 1 + L) % L;
+        fir_.push(x);
+        if (!fir_.warm()) {
+            return std::numeric_limits<double>::quiet_NaN();
         }
-        return acc;
+        return fir_.convolve();
     }
 
 private:
-    const std::vector<double> taps_;
-    std::vector<double> buffer_;
-    int index_ = 0;
-    int n_seen_ = 0;
+    // Runs before the member initialiser builds the filter, so invalid
+    // taps raise before anything is allocated.
+    static const std::vector<double>& validated(const std::vector<double>& taps) {
+        if (taps.empty()) {
+            throw std::invalid_argument("taps must be non-empty.");
+        }
+        return taps;
+    }
+
+    detail::FirCore fir_;
 };
 
 }  // namespace screamer
