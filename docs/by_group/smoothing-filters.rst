@@ -27,6 +27,8 @@ Track the level of a series and suppress short-term noise.
      - Exponentially-weighted moving average (pandas adjust=True).
    * - :doc:`Hull MA </functions_rolling/HullMA>`
      - Hull's responsive MA: WMA(2*WMA(n/2) - WMA(n), sqrt(n)).
+   * - :doc:`Instantaneous trendline </functions_signal/InstantaneousTrendline>`
+     - Adaptive 2-pole trendline whose smoothing tracks the measured dominant cycle.
    * - :doc:`Scalar Kalman filter </functions_signal/KalmanFilter>`
      - Scalar 1-D Kalman filter for a noisy random-walk model.
    * - :doc:`Kaufman Adaptive MA (KAMA) </functions_rolling/KAMA>`
@@ -96,6 +98,7 @@ Designed frequency-domain and state-space filters.
    /functions_rolling/Hampel
    /functions_signal/Hold
    /functions_rolling/HullMA
+   /functions_signal/InstantaneousTrendline
    /functions_signal/KalmanFilter
    /functions_rolling/KAMA
    /functions_signal/MAMA

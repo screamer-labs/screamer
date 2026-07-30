@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from screamer import MAMA
+from screamer import MAMA, InstantaneousTrendline
 from tests.regime_helpers import assert_batch_equals_scalar
 
 
@@ -36,3 +36,19 @@ class TestMAMA:
     def test_batch_equals_stream(self):
         x = _series(400, seed=3)
         assert_batch_equals_scalar(lambda: MAMA(), x)
+
+
+class TestInstantaneousTrendline:
+    def test_tracks_ramp_with_bounded_lag(self):
+        n = 800
+        x = np.linspace(0.0, 100.0, n)  # clean upward ramp
+        it = np.asarray(InstantaneousTrendline()(x))
+        tail = slice(-200, None)
+        m = np.isfinite(it[tail])
+        # On a steady ramp the trendline tracks price with small bounded error.
+        assert m.sum() > 50
+        assert np.max(np.abs(it[tail][m] - x[tail][m])) < 5.0
+
+    def test_batch_equals_stream(self):
+        x = _series(400, seed=5)
+        assert_batch_equals_scalar(lambda: InstantaneousTrendline(), x)

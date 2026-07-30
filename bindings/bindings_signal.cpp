@@ -21,6 +21,7 @@
 #include "screamer/cycle_sine.h"
 #include "screamer/trend_mode.h"
 #include "screamer/mama.h"
+#include "screamer/instantaneous_trendline.h"
 
 namespace py = pybind11;
 
@@ -171,4 +172,13 @@ void init_bindings_signal(py::module& m) {
              py::arg("fast_limit") = 0.5, py::arg("slow_limit") = 0.05)
         .def("__call__", &screamer::MAMA::handle_input)
         .def("reset", &screamer::MAMA::reset, "Reset to the initial state.");
+
+    // InstantaneousTrendline: 1->1 Ehlers adaptive 2-pole trendline. The
+    // smoothing factor is set from the measured dominant cycle period, so
+    // the trendline follows the trend and removes the dominant cycle. See
+    // detail/hilbert_cycle.h.
+    py::class_<screamer::InstantaneousTrendline, screamer::EvalOp>(m, "InstantaneousTrendline")
+        .def(py::init<>())
+        .def("__call__", &screamer::InstantaneousTrendline::handle_input)
+        .def("reset", &screamer::InstantaneousTrendline::reset, "Reset to the initial state.");
 }
