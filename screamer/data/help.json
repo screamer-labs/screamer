@@ -6085,6 +6085,42 @@
       }
     ]
   },
+  "MinusDI": {
+    "name": "MinusDI",
+    "title": "Minus directional indicator (-DI)",
+    "implementation_family": "rolling",
+    "topics": [
+      "trend"
+    ],
+    "tags": [
+      "wilder",
+      "dmi",
+      "directional-movement",
+      "talib",
+      "hlc"
+    ],
+    "short": "Wilder negative directional indicator.",
+    "inputs": 3,
+    "outputs": 1,
+    "parameters": [
+      {
+        "name": "window_size",
+        "type": "int",
+        "default": 14,
+        "min": 2,
+        "description": "Wilder smoothing period."
+      }
+    ],
+    "nan_policy": "ignore",
+    "details": "## Description\n\n`MinusDI` is Wilder's negative directional indicator, `-DI` (Wilder, 1978). It\nis 100 times the Wilder-smoothed negative directional movement divided by the\nsmoothed true range, so it measures the share of recent range attributable to\ndownward movement:\n\n$$\n\\begin{aligned}\n\\text{TR}[t]  &= \\max(H - L,\\ |H - C_{t-1}|,\\ |L - C_{t-1}|) \\\\\n-\\text{DM}[t] &= \\max(L_{t-1} - L,\\ 0)\\quad\\text{if}\\quad L_{t-1} - L > H - H_{t-1},\\ \\text{else}\\ 0 \\\\\n-\\text{DI}    &= 100 \\cdot \\text{Wilder}(-\\text{DM},\\ w) \\big/ \\text{Wilder}(\\text{TR},\\ w)\n\\end{aligned}\n$$\n\n**3-input, 1-output** (`FunctorBase<_, 3, 1>`) on `(high, low, close)`.\n`MinusDI` shares its smoothing engine with `ADX`, which returns `+DI`, `-DI`,\nand `ADX` together; use `MinusDI` on its own when only the negative\ndirectional indicator is needed.\n\n### Parameters\n\n**`window_size`** *(int, default 14)*: The Wilder smoothing period. The first\nvalid output is at sample index `window_size`.\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage example",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import PlusDI, MinusDI\n\nrng = np.random.default_rng(0)\nN = 300\nclose = 100 + np.cumsum(rng.standard_normal(N))\nhigh = close + np.abs(rng.standard_normal(N))\nlow = close - np.abs(rng.standard_normal(N))\n\nplus_di = PlusDI(window_size=14)(high, low, close)\nminus_di = MinusDI(window_size=14)(high, low, close)\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.5, 0.5],\n                    vertical_spacing=0.08)\nfig.add_trace(go.Scatter(y=close, name='Close', line=dict(color='steelblue')),\n              row=1, col=1)\nfig.add_trace(go.Scatter(y=plus_di, name='+DI', line=dict(color='green', dash='dot')), row=2, col=1)\nfig.add_trace(go.Scatter(y=minus_di, name='-DI', line=dict(color='orange')), row=2, col=1)\nfig.update_layout(\n    title='MinusDI: strength of downward movement',\n    yaxis=dict(title='Price'), yaxis2=dict(title='DI (0-100)'),\n    margin=dict(l=20, r=20, t=60, b=20),\n    legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1),\n)\nfig.show()"
+      }
+    ]
+  },
   "NATR": {
     "name": "NATR",
     "title": "Normalised ATR (NATR)",
@@ -6146,6 +6182,42 @@
         "language": "python",
         "caption": "Usage example",
         "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import OBV\n\nnp.random.seed(0)\nclose = 100*np.exp(np.cumsum(np.random.normal(0, 0.01, size=300)))\nvolume = np.random.uniform(1e5, 5e5, size=300)\nout = OBV()(close, volume)\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True,\n                    row_heights=[0.55, 0.45], vertical_spacing=0.08)\nfig.add_trace(go.Scatter(y=close, name=\"close\", line=dict(color=\"royalblue\")), row=1, col=1)\nfig.add_trace(go.Scatter(y=out, name=\"OBV\", line=dict(color=\"red\")), row=2, col=1)\nfig.update_layout(title=\"On-balance volume (OBV)\",\n                  margin=dict(l=20, r=20, t=60, b=20),\n                  legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1))\nfig.update_yaxes(title_text=\"close\", row=1, col=1)\nfig.update_yaxes(title_text=\"OBV\", row=2, col=1)\nfig.show()"
+      }
+    ]
+  },
+  "PlusDI": {
+    "name": "PlusDI",
+    "title": "Plus directional indicator (+DI)",
+    "implementation_family": "rolling",
+    "topics": [
+      "trend"
+    ],
+    "tags": [
+      "wilder",
+      "dmi",
+      "directional-movement",
+      "talib",
+      "hlc"
+    ],
+    "short": "Wilder positive directional indicator.",
+    "inputs": 3,
+    "outputs": 1,
+    "parameters": [
+      {
+        "name": "window_size",
+        "type": "int",
+        "default": 14,
+        "min": 2,
+        "description": "Wilder smoothing period."
+      }
+    ],
+    "nan_policy": "ignore",
+    "details": "## Description\n\n`PlusDI` is Wilder's positive directional indicator, `+DI` (Wilder, 1978). It is\n100 times the Wilder-smoothed positive directional movement divided by the\nsmoothed true range, so it measures the share of recent range attributable to\nupward movement:\n\n$$\n\\begin{aligned}\n\\text{TR}[t]  &= \\max(H - L,\\ |H - C_{t-1}|,\\ |L - C_{t-1}|) \\\\\n+\\text{DM}[t] &= \\max(H - H_{t-1},\\ 0)\\quad\\text{if}\\quad H - H_{t-1} > L_{t-1} - L,\\ \\text{else}\\ 0 \\\\\n+\\text{DI}    &= 100 \\cdot \\text{Wilder}(+\\text{DM},\\ w) \\big/ \\text{Wilder}(\\text{TR},\\ w)\n\\end{aligned}\n$$\n\n**3-input, 1-output** (`FunctorBase<_, 3, 1>`) on `(high, low, close)`. `PlusDI`\nshares its smoothing engine with `ADX`, which returns `+DI`, `-DI`, and `ADX`\ntogether; use `PlusDI` on its own when only the positive directional\nindicator is needed.\n\n### Parameters\n\n**`window_size`** *(int, default 14)*: The Wilder smoothing period. The first\nvalid output is at sample index `window_size`.\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage example",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import PlusDI, MinusDI\n\nrng = np.random.default_rng(0)\nN = 300\nclose = 100 + np.cumsum(rng.standard_normal(N))\nhigh = close + np.abs(rng.standard_normal(N))\nlow = close - np.abs(rng.standard_normal(N))\n\nplus_di = PlusDI(window_size=14)(high, low, close)\nminus_di = MinusDI(window_size=14)(high, low, close)\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.5, 0.5],\n                    vertical_spacing=0.08)\nfig.add_trace(go.Scatter(y=close, name='Close', line=dict(color='steelblue')),\n              row=1, col=1)\nfig.add_trace(go.Scatter(y=plus_di, name='+DI', line=dict(color='green')), row=2, col=1)\nfig.add_trace(go.Scatter(y=minus_di, name='-DI', line=dict(color='orange', dash='dot')), row=2, col=1)\nfig.update_layout(\n    title='PlusDI: strength of upward movement',\n    yaxis=dict(title='Price'), yaxis2=dict(title='DI (0-100)'),\n    margin=dict(l=20, r=20, t=60, b=20),\n    legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1),\n)\nfig.show()"
       }
     ]
   },

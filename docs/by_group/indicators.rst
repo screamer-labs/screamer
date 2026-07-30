@@ -35,6 +35,10 @@ Direction and trend-following: trend-tracking averages, slope fits, ADX, and cha
      - Adaptive MA whose smoothing constant responds to the efficiency ratio.
    * - :doc:`MACD </functions_rolling/MACD>`
      - MACD line, signal line, and histogram (3 outputs).
+   * - :doc:`Minus directional indicator (-DI) </functions_rolling/MinusDI>`
+     - Wilder negative directional indicator.
+   * - :doc:`Plus directional indicator (+DI) </functions_rolling/PlusDI>`
+     - Wilder positive directional indicator.
    * - :doc:`Rolling Hurst Exponent </functions_rolling/RollingHurst>`
      - Rolling-window Hurst exponent via Anis-Lloyd corrected rescaled-range analysis.
    * - :doc:`Rolling linear regression (2->4 OLS fit) </functions_fin/RollingLinearRegression>`
@@ -175,7 +179,9 @@ Differences, returns, rates of change, and lags.
    /functions_fin/LogReturn
    /functions_rolling/MACD
    /functions_rolling/MFI
+   /functions_rolling/MinusDI
    /functions_misc/Momentum
+   /functions_rolling/PlusDI
    /functions_fin/Return
    /functions_fin/ROC
    /functions_fin/ROCP

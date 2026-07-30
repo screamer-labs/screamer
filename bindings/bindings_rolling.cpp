@@ -53,6 +53,8 @@
 #include "screamer/keltner_channels.h"
 #include "screamer/yang_zhang.h"
 #include "screamer/adx.h"
+#include "screamer/plus_di.h"
+#include "screamer/minus_di.h"
 #include "screamer/vwap.h"
 #include "screamer/obv.h"
 #include "screamer/ad.h"
@@ -446,6 +448,17 @@ void init_bindings_rolling(py::module& m) {
         .def(py::init<int>(), py::arg("window_size") = 14)
         .def("__call__", &screamer::ADX::handle_input)
         .def("reset", &screamer::ADX::reset, "Reset to the initial state.");
+
+    // PlusDI / MinusDI: standalone +DI / -DI, sharing DmiCore with ADX.
+    py::class_<screamer::PlusDI, screamer::EvalOp>(m, "PlusDI")
+        .def(py::init<int>(), py::arg("window_size") = 14)
+        .def("__call__", &screamer::PlusDI::handle_input)
+        .def("reset", &screamer::PlusDI::reset, "Reset to the initial state.");
+
+    py::class_<screamer::MinusDI, screamer::EvalOp>(m, "MinusDI")
+        .def(py::init<int>(), py::arg("window_size") = 14)
+        .def("__call__", &screamer::MinusDI::handle_input)
+        .def("reset", &screamer::MinusDI::reset, "Reset to the initial state.");
 
     // Volume-aware indicators.
     py::class_<screamer::RollingVWAP, screamer::EvalOp>(m, "RollingVWAP")
