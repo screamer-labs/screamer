@@ -66,6 +66,10 @@ test = [
     # ParkinsonSigma and GarmanKlassSigma5, which are the formulas
     # RollingParkinson* and RollingGarmanKlass* implement.
     "QuantLib>=1.30",
+    # The reference for the technical-indicator family; several pages cite it
+    # as the definition they implement. Wheels have bundled the C library
+    # since 0.6, so this is a normal test dependency.
+    "TA-Lib>=0.6",
 ]
 # Pipeline visualization: Pipeline.to_graphviz() and the Jupyter SVG repr. Rendering also
 # needs the system Graphviz `dot` binary (e.g. `brew install graphviz`,

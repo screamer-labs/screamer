@@ -157,6 +157,15 @@ test_definitions = [
     # Despikers (not 'Rolling'-prefixed, so listed explicitly). RollingMedianAD
     # is auto-included via the rolling_classes group above.
     ( ('Hampel','ImpulseClip')   , {"window_size": [20]}),
+    # TA-Lib indicator family, 1-in/1-out members.
+    ( ('RollingRSI','KAMA','RollingArgmax','RollingArgmin')
+                                 , {"array_type": ["positive"]}),
+    # TA-Lib seeds its EMAs with an SMA of the first `timeperiod` samples while
+    # screamer runs the recursion from the first sample. Both converge, so
+    # compare on a series long enough that the last 10 values are past the
+    # transient: at 2000 samples they agree to ~1e-13, at 100 they do not.
+    ( ('TRIX',)                  , {"array_type": ["positive"],
+                                    "array_length": [2000]}),
     # Inverse trig: bounded input so the comparison sees finite values.
     ( ('Acos','Asin')            , {"array_type": ["unit"]}),
     # FracDiff: fractional and integer orders, and a threshold loose enough to
@@ -223,8 +232,12 @@ PARITY_EXEMPT.update({
 
 
 def _auto_adopted_classes():
+    # Both tables count as "named": an operator registered for the baseline
+    # comparison must not also be auto-adopted with constructor defaults, or it
+    # picks up a second, conflicting case. TRIX did, and failed on the
+    # duplicate rather than on the entry written for it.
     named = set()
-    for class_names, _ in test_definitions:
+    for class_names, _ in test_definitions + multi_input_definitions:
         named.update(class_names)
     return tuple(sorted(
         name for name, shape in SHAPES.items()
@@ -253,6 +266,22 @@ multi_input_definitions = [
     ( ('Equal','NotEqual','And','Or','Where',
        'GreaterThan','LessThan','GreaterEqual','LessEqual')
                                     , {"array_type": ["discrete"]}),
+    # TA-Lib indicator family. Coherent bars, and volume where the indicator
+    # is volume-weighted.
+    ( ('ATR','NATR','CCI','WilliamsR','TrueRange','ADX')
+                                    , {"array_type": ["ohlc"]}),
+    ( ('UltimateOscillator',)       , {"array_type": ["ohlc"]}),
+    ( ('Stoch',)                    , {"array_type": ["ohlc"]}),
+    ( ('BOP',)                      , {"array_type": ["ohlc"]}),
+    ( ('AD','MFI')                  , {"array_type": ["ohlcv"]}),
+    ( ('ADOSC',)                    , {"array_type": ["ohlcv"]}),
+    ( ('OBV',)                      , {"array_type": ["ohlcv"]}),
+    # Only the multi-output ones stay here. The 1-in/1-out members of this
+    # family live in `test_definitions`, so they get the tensor / view / matrix
+    # parity coverage as well as the baseline comparison.
+    ( ('StochRSI',)                 , {"array_type": ["positive"]}),
+    ( ('MACD',)                     , {"array_type": ["positive"],
+                                       "array_length": [2000]}),
     # EW range-based volatility: same coherent bars, EW weighting.
     ( ('EwParkinsonVar','EwParkinsonVol',
        'EwGarmanKlassVar','EwGarmanKlassVol',
@@ -348,12 +377,31 @@ def generate_ohlc_arrays(array_length, n_inputs):
     low = np.minimum(open_, close) * np.exp(-spread)
     if n_inputs == 2:
         return [high, low]
+    if n_inputs == 3:
+        return [high, low, close]
     return [open_, high, low, close]
+
+
+def generate_ohlcv_arrays(array_length, n_inputs):
+    """Coherent bars plus a positive volume series.
+
+    Returns (close, volume) for a 2-input operator and
+    (high, low, close, volume) for a 4-input one, which is the argument order
+    the volume-weighted indicators use.
+    """
+    rng = np.random.default_rng(20240731)
+    _, high, low, close = generate_ohlc_arrays(array_length, 4)
+    volume = rng.uniform(1e3, 1e6, array_length)
+    if n_inputs == 2:
+        return [close, volume]
+    return [high, low, close, volume]
 
 
 def generate_arrays(array_type, array_length, n_inputs):
     if array_type == 'ohlc':
         return generate_ohlc_arrays(array_length, n_inputs)
+    if array_type == 'ohlcv':
+        return generate_ohlcv_arrays(array_length, n_inputs)
     """One array per input, drawn independently.
 
     Independence matters: feeding the same array to both sides of `Sub` gives

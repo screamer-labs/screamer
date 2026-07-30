@@ -86,6 +86,24 @@ Unreleased
   implementation, and each is compared on every run. Writing them is what
   exposed the `ROC` default above.
 
+* TA-Lib references for the technical-indicator family, taking baseline
+  coverage to 158 of 213: `ATR`, `NATR`, `TrueRange`, `CCI`, `WilliamsR`,
+  `ADX`, `Stoch`, `StochRSI`, `UltimateOscillator`, `BOP`, `AD`, `ADOSC`,
+  `MFI`, `OBV`, `RollingRSI`, `KAMA`, `TRIX`, `MACD`, `RollingArgmax` and
+  `RollingArgmin`. Several of these pages already cite TA-Lib as the definition
+  they implement, so it is the right oracle rather than a second opinion.
+  Fourteen of the twenty matched on the first run.
+
+  `TA-Lib` is now a test dependency. Its wheels have bundled the C library
+  since 0.6, so it installs in CI like any other package.
+
+* `tests/test_baseline_defaults.py`: a reference's default arguments must match
+  the operator's documented ones. Three of this batch's apparent failures were
+  a reference defaulting to a different window than the operator (`KAMA` at 30
+  against 10, `CCI` at 20 against 14, `TRIX` at span 15 against 14), which
+  reads as an operator bug. Together with `tests/test_documented_defaults.py`
+  this pins operator, page and reference to one value.
+
 * References for the exponentially weighted volatility twins and the EW pair
   statistics, taking baseline coverage to 138 of 213. `EwParkinson*` and
   `EwGarmanKlass*` reuse the QuantLib per-bar kernel with EW weighting in place
