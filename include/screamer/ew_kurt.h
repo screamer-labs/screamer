@@ -81,19 +81,26 @@ namespace screamer {
             double mean = sum_x_ / sum_w_;
             double mean2 = mean * mean;
 
-            // Compute the weighted variance
-            double variance = (sum_xx_ / sum_w_) - mean2;
-            variance *= n_eff / (n_eff - 1.0);
-            double std_dev = std::sqrt(variance);
+            // Population (biased) second central moment, weighted.
+            double m2 = (sum_xx_ / sum_w_) - mean2;
 
             // Compute the fourth central moment (m4)
             double m4 = (sum_xxxx_ / sum_w_) - 4 * mean * (sum_xxx_ / sum_w_) +
                         6 * mean2 * (sum_xx_ / sum_w_) - 3 * mean2 * mean2;
 
-            // Calculate kurtosis with bias correction (similar to Pandas' convention)
-            double g2 = m4 / (variance * variance);
-            double excess_kurtosis = ((n_eff * (n_eff + 1) * g2 - 3 * (n_eff - 1) * (n_eff - 1)) /
-                                      ((n_eff - 1) * (n_eff - 2) * (n_eff - 3)));
+            // Adjusted excess kurtosis, the estimator scipy returns for
+            // bias=False and pandas returns from rolling().kurt():
+            //
+            //     G2 = (n-1)/((n-2)(n-3)) * ((n+1) * m4/m2^2 - 3(n-1))
+            //
+            // g2 is a ratio of *mean* moments. The previous form divided by
+            // (n-1)(n-2)(n-3) without the compensating factor, which shrank
+            // the result by roughly n: it returned ~0 for every distribution
+            // tested (uniform -1.2, laplace 3, exponential 6), and looked
+            // correct only on normal data, where the true answer is 0.
+            double g2 = m4 / (m2 * m2);
+            double excess_kurtosis = (n_eff - 1.0) / ((n_eff - 2.0) * (n_eff - 3.0)) *
+                                     ((n_eff + 1.0) * g2 - 3.0 * (n_eff - 1.0));
             if (n_eff <= 3.0) {
                 return std::numeric_limits<double>::quiet_NaN();
             } else {

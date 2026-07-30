@@ -78,17 +78,23 @@ namespace screamer {
             // Compute the weighted mean
             double mean = sum_x_ / sum_w_;
 
-            // Compute the weighted variance
-            double variance = (sum_xx_ / sum_w_) - (mean * mean);
-            variance *= n_eff / (n_eff - 1.0);
-            double std_dev = std::sqrt(variance);
-
-            // Compute the third central moment (m3)
+            // Population (biased) central moments, weighted.
+            double m2 = (sum_xx_ / sum_w_) - (mean * mean);
             double m3 = (sum_xxx_ / sum_w_) - 3 * mean * (sum_xx_ / sum_w_) + 2 * mean * mean * mean;
 
-            // Adjust skewness using Pandas-like bias correction
-            double g1 = m3 / (std_dev * std_dev * std_dev);
-            double skew = (n_eff * g1) / ((n_eff - 1.0) * (n_eff - 2.0));
+            // Adjusted Fisher-Pearson skewness, the estimator scipy returns
+            // for bias=False and pandas returns from rolling().skew():
+            //
+            //     G1 = sqrt(n(n-1))/(n-2) * m3 / m2^(3/2)
+            //
+            // g1 below is a ratio of *mean* moments, so sqrt(n(n-1))/(n-2) is
+            // the factor that turns it into G1. The previous form,
+            // n*g1/((n-1)(n-2)), applied a correction written for sum-based
+            // quantities and so divided the answer by roughly n: on
+            // exponential data (true skew 2.0) span=100 returned 0.019, and
+            // the value shrank further as the window grew.
+            double g1 = m3 / (m2 * std::sqrt(m2));
+            double skew = std::sqrt(n_eff * (n_eff - 1.0)) / (n_eff - 2.0) * g1;
             if (n_eff <= 2.0) {
                 return std::numeric_limits<double>::quiet_NaN();
             } else {

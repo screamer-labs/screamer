@@ -62,12 +62,9 @@ rolling_classes = [cls for cls in screamer_classes
                    if cls.startswith('Rolling') and cls not in _ROLLING_AUTO_EXCLUDE]
 
 # The Ew classes, except:
-#   EwSkew, EwKurt: todo baselines
 #   EwCov, EwCorr, EwBeta: 2-input (FunctorBase<_, 2, 1>); tested in
 #                          tests/test_ew_pair.py
 _EW_AUTO_EXCLUDE = {
-    # todo baselines
-    'EwSkew', 'EwKurt',
     # 2-input pair stats; tested in test_ew_pair.py
     'EwCov', 'EwCorr', 'EwBeta',
     # 2-input range-based volatility (H, L)
@@ -166,7 +163,7 @@ test_definitions = [
                                     "threshold": [1e-5, 1e-3]}),
     # 1-in/1-out classes whose constructor has a required argument, so the
     # auto-adoption below (which drives constructor defaults) cannot reach them.
-    ( ('DEMA','TEMA','EwKurt','EwSkew') , {"span": [10]}),
+    ( ('DEMA','TEMA')           , {"span": [10]}),
     ( ('Hold',)                  , {"n": [5]}),
     ( ('SchmittTrigger',)        , {"lower": [-1.0], "upper": [1.0]}),
 ]
@@ -203,31 +200,11 @@ def _shapes():
 
 SHAPES = _shapes()
 
-# Classes whose baseline comparison is skipped. They still get parity coverage
-# (stream vs batch, shapes); only the comparison against the reference is
-# skipped.
-#
-# EwSkew / EwKurt: both sides are wrong, so comparing them asserts nothing.
-# Neither is a convention difference; both apply the same bias-correction
-# formula and both misapply it.
-#
-#   screamer feeds mean-based moment ratios (m3/s^3, m4/s^4) into corrections
-#   written for sum-based quantities, which drops a factor of n_eff. The
-#   reported value shrinks as the window lengthens: on exponential data (true
-#   skew 2.0) EwSkew(span=100) returns 0.019, and EwSkew * (n_eff - 2)
-#   recovers 2.03. EwKurt behaves the same way.
-#
-#   The baseline standardizes each point by the *running* std inside the EW
-#   average instead of dividing the central moment once, and then subtracts 3
-#   from a correction that already returns excess kurtosis. EwKurt_pandas
-#   returns -6 on normal data at every span.
-#
-# Fixing the operators is tracked separately; this entry exists so the skip is
-# not mistaken for a tolerance issue.
-BASELINE_KNOWN_MISMATCH: dict[str, str] = {
-    "EwSkew": "operator and baseline are both wrong; see the note above",
-    "EwKurt": "operator and baseline are both wrong; see the note above",
-}
+# Baselines that compute a different quantity from the operator would assert
+# nothing, so they are skipped here. Empty: EwSkew and EwKurt used to sit here
+# because both the operator and its baseline were wrong; both were rewritten
+# from the standard adjusted estimators and are compared normally now.
+BASELINE_KNOWN_MISMATCH: dict[str, str] = {}
 
 # Named here rather than driven with defaults, each for a stated reason.
 PARITY_EXEMPT: dict[str, str] = {}

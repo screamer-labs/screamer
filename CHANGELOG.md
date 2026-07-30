@@ -7,6 +7,36 @@ Unreleased
 
 ### Fixed
 
+* `EwSkew` and `EwKurt` returned a value scaled down by roughly the effective
+  sample size, so the result shrank as the window lengthened. Both fed
+  *mean*-based moment ratios into bias corrections written for *sum*-based
+  quantities. On exponential data (true skew 2.0) `EwSkew(span=100)` returned
+  0.019; `EwKurt` returned about 0 for every distribution, which looked correct
+  only on normal data, where the true excess kurtosis is 0. Both now use the
+  adjusted Fisher-Pearson estimators, the same ones `scipy.stats` returns for
+  `bias=False`:
+
+      G1 = sqrt(n(n-1))/(n-2) * m3 / m2^(3/2)
+      G2 = (n-1)/((n-2)(n-3)) * ((n+1) * m4/m2^2 - 3(n-1))
+
+  **Output changes for both operators, by roughly a factor of `n_eff`.** Any
+  stored value or threshold calibrated against the old output needs recomputing.
+
+  Their reference implementations were wrong too, in a different way, which is
+  why the comparison had been disabled with a `# todo baselines` note rather
+  than investigated. Both baselines were rewritten from the estimators above,
+  the comparison is enabled, and `tests/test_ew_moments.py` anchors them: the
+  formulas reduce to `scipy.stats.skew/kurtosis(bias=False)` under equal
+  weights, they recover the known moments of four distributions, and the
+  estimate must not drift with window length on stationary input.
+
+* A baseline whose optional dependency is not installed (TA-Lib needs a C
+  library, so it sits in an opt-in extras group) raised out of
+  `devtools/baselines/__init__.py` and took down collection for the entire test
+  suite. Such a baseline is now skipped and recorded in
+  `baselines.missing_dependencies()`. Only `ImportError` is swallowed; a
+  baseline that fails for any other reason still raises.
+
 * `FillNa` on a strided array tested the *output* buffer for `NaN` instead of the
   input, so it filled arbitrary elements with the fill value and passed real `NaN`
   inputs through unchanged. Reachable from the public API on any strided input;
