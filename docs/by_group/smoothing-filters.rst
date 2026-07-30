@@ -31,6 +31,8 @@ Track the level of a series and suppress short-term noise.
      - Scalar 1-D Kalman filter for a noisy random-walk model.
    * - :doc:`Kaufman Adaptive MA (KAMA) </functions_rolling/KAMA>`
      - Adaptive MA whose smoothing constant responds to the efficiency ratio.
+   * - :doc:`MESA Adaptive Moving Average (MAMA) </functions_signal/MAMA>`
+     - Adaptive moving average pair (MAMA, FAMA) whose smoothing rate tracks the instantaneous-phase rate of change.
    * - :doc:`FIR moving average (arbitrary taps) </functions_signal/MovingAverage>`
      - Finite-impulse-response filter with user-supplied taps.
    * - :doc:`Rolling mean </functions_rolling/RollingMean>`
@@ -96,6 +98,7 @@ Designed frequency-domain and state-space filters.
    /functions_rolling/HullMA
    /functions_signal/KalmanFilter
    /functions_rolling/KAMA
+   /functions_signal/MAMA
    /functions_signal/MovingAverage
    /functions_rolling/RollingPoly2
    /functions_signal/RoofingFilter

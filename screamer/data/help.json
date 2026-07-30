@@ -8649,6 +8649,38 @@
       }
     ]
   },
+  "MAMA": {
+    "name": "MAMA",
+    "title": "MESA Adaptive Moving Average (MAMA)",
+    "implementation_family": "signal",
+    "topics": [
+      "smoothing"
+    ],
+    "tags": [
+      "ehlers",
+      "adaptive"
+    ],
+    "short": "Adaptive moving average pair (MAMA, FAMA) whose smoothing rate tracks the instantaneous-phase rate of change.",
+    "inputs": 1,
+    "outputs": 2,
+    "parameters": [
+      {
+        "name": "fast_limit",
+        "type": "float",
+        "default": 0.5,
+        "description": "Upper bound on the smoothing constant, applied when the phase advances quickly."
+      },
+      {
+        "name": "slow_limit",
+        "type": "float",
+        "default": 0.05,
+        "description": "Lower bound on the smoothing constant, applied when the phase stalls."
+      }
+    ],
+    "nan_policy": "ignore",
+    "details": "## Description\n\n`MAMA` (MESA Adaptive Moving Average, John Ehlers) smooths the input with a\nper-step smoothing constant that adapts to the rate of change of the\ninstantaneous phase of the analytic signal formed from the series by the\nHilbert transform, the same phase estimate as `CyclePhase`. When the phase\nadvances quickly, a new cycle is underway and the smoothing constant rises\ntoward `fast_limit`; when the phase advance stalls, the smoothing constant\nfalls toward `slow_limit`. `FAMA` (following adaptive moving average) is a\nsecond pass over `MAMA` at half the smoothing constant, and lags it.\n\n$$\n\\begin{aligned}\n\\Delta\\phi[t]   &= \\max\\big(\\phi[t-1] - \\phi[t],\\ 1\\big) \\\\\n\\alpha[t]       &= \\operatorname{clip}\\!\\left(\\frac{\\text{fast\\_limit}}{\\Delta\\phi[t]},\\ \\text{slow\\_limit},\\ \\text{fast\\_limit}\\right) \\\\\n\\text{MAMA}[t]  &= \\alpha[t] \\cdot x[t] + (1 - \\alpha[t]) \\cdot \\text{MAMA}[t-1] \\\\\n\\text{FAMA}[t]  &= 0.5\\,\\alpha[t] \\cdot \\text{MAMA}[t] + (1 - 0.5\\,\\alpha[t]) \\cdot \\text{FAMA}[t-1]\n\\end{aligned}\n$$\n\n`phi` is the instantaneous phase in degrees; `DeltaPhase` is floored at 1\ndegree so `alpha` never exceeds `fast_limit`. `MAMA` and `FAMA` are both\nseeded with the first finite input.\n\nThis is a **1-input, 2-output** function (`FunctorBase<_, 1, 2>`). Outputs\nare stacked along a trailing axis of size 2: `out[..., 0]` is `MAMA`,\n`out[..., 1]` is `FAMA`.\n\n## Parameters\n\n- `fast_limit` (float, default `0.5`): upper bound on the smoothing constant.\n- `slow_limit` (float, default `0.05`): lower bound on the smoothing constant.\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in the input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->\n\n## Reference\n\nEhlers, *Rocket Science for Traders* (2001). TA-Lib's `MAMA` uses the same\nadaptation rule over a different analytic-signal front end, so the two agree\nin shape and turning points but not to numerical precision.",
+    "examples": []
+  },
   "MovingAverage": {
     "name": "MovingAverage",
     "title": "FIR moving average (arbitrary taps)",

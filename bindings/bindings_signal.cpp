@@ -20,6 +20,7 @@
 #include "screamer/cycle_amplitude.h"
 #include "screamer/cycle_sine.h"
 #include "screamer/trend_mode.h"
+#include "screamer/mama.h"
 
 namespace py = pybind11;
 
@@ -161,4 +162,13 @@ void init_bindings_signal(py::module& m) {
         .def(py::init<double>(), py::arg("phase_rate_frac") = 0.5)
         .def("__call__", &screamer::TrendMode::handle_input)
         .def("reset", &screamer::TrendMode::reset, "Reset to the initial state.");
+
+    // MAMA: 1->2 MESA Adaptive Moving Average (mama, fama). The smoothing
+    // factor adapts to the instantaneous-phase rate of change. See
+    // detail/hilbert_cycle.h.
+    py::class_<screamer::MAMA, screamer::EvalOp>(m, "MAMA")
+        .def(py::init<double, double>(),
+             py::arg("fast_limit") = 0.5, py::arg("slow_limit") = 0.05)
+        .def("__call__", &screamer::MAMA::handle_input)
+        .def("reset", &screamer::MAMA::reset, "Reset to the initial state.");
 }
