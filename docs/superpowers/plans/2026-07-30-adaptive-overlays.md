@@ -57,8 +57,8 @@ def _series(n=600, seed=0):
 class TestMAMA:
     def test_mama_tracks_and_leads_fama(self):
         x = _series(600)
-        mama, fama = MAMA()(x)
-        mama = np.asarray(mama); fama = np.asarray(fama)
+        out = np.asarray(MAMA()(x))
+        mama, fama = out[:, 0], out[:, 1]
         m = np.isfinite(mama) & np.isfinite(fama)
         assert m.sum() > 100
         # MAMA and FAMA both track the series (bounded error), MAMA closer.
@@ -69,9 +69,8 @@ class TestMAMA:
     def test_loose_talib_reference(self):
         import talib
         x = _series(800, seed=2)
-        mama, _ = MAMA()(x)
+        mama = np.asarray(MAMA()(x))[:, 0]
         ref, _ = talib.MAMA(x, fastlimit=0.5, slowlimit=0.05)
-        mama = np.asarray(mama)
         m = np.isfinite(mama) & np.isfinite(ref)
         assert m.sum() > 100
         # Different analytic-signal front end -> not identical, but correlated.

@@ -24,7 +24,7 @@ The reference algorithm code in Task 1 is the implementer's starting point, tran
 - All operator logic in the C++ core; the Python layer is the pybind11 binding only. One implementation per behavior: the discriminator lives only in `HilbertCycle`; the seven operators read from it.
 - Every operator runs in all three regimes (eager arrays, graph `Pipeline`, lazy scalar loop) with identical output, and is causal (only current and past input). Batch output equals streaming output (`tests.regime_helpers.assert_batch_equals_scalar`).
 - `nan_policy: ignore`: a `NaN` input yields `NaN` output(s) and leaves the engine state unchanged for that step.
-- Multi-output operators (`HilbertPhasor`, `CycleSine`) use `FunctorBase<Derived, 1, 2>`. Single-output operators use `FunctorBase<Derived, 1, 1>`. Confirm the 1-output return convention (bare `double` vs 1-tuple) against an existing `FunctorBase<_, _, 1>` node (the DMI plan established `PlusDI` as one; if the DMI plan has not run, inspect `include/screamer/common/functor_base.h`). Bind against `screamer::EvalOp` with `.def("__call__", &Class::handle_input)` in `bindings/bindings_signal.cpp`.
+- Multi-output operators (`HilbertPhasor`, `CycleSine`) use `FunctorBase<Derived, 1, 2>`. Single-output operators use `FunctorBase<Derived, 1, 1>`. A multi-output op returns ONE `(n, n_out)` numpy array in eager mode (not a tuple of arrays); index columns as `out = np.asarray(op(x)); a, b = out[:, 0], out[:, 1]`. `assert_batch_equals_scalar` handles multi-output ops directly (confirmed with the 3-output `ADX`). Confirm the 1-output return convention (bare `double` vs 1-tuple) against an existing `FunctorBase<_, _, 1>` node (the DMI plan established `PlusDI` as one; if the DMI plan has not run, inspect `include/screamer/common/functor_base.h`). Bind against `screamer::EvalOp` with `.def("__call__", &Class::handle_input)` in `bindings/bindings_signal.cpp`.
 - New topic slug `cycles` added to `docs/topics.yml` under the `indicators` group (Task 1). Docs pages live in `docs/functions_signal/`.
 - Warm-up (the discriminator's settling transient) emits `NaN` until the engine has enough history; this is identical across regimes.
 - After any C++ change run `make build` before testing. `make tidy` must be clean.
@@ -405,8 +405,8 @@ from screamer import HilbertPhasor
 class TestHilbertPhasor:
     def test_quadrature_lags_inphase_on_tone(self):
         x = _tone(20.0, n=800)
-        inphase, quad = HilbertPhasor()(x)
-        inphase = np.asarray(inphase); quad = np.asarray(quad)
+        out = np.asarray(HilbertPhasor()(x))
+        inphase, quad = out[:, 0], out[:, 1]
         m = np.isfinite(inphase) & np.isfinite(quad)
         # I and Q are the two components of the analytic signal: both finite
         # after warm-up, and not identical (a nonzero quadrature exists).
@@ -670,8 +670,8 @@ from screamer import CycleSine
 class TestCycleSine:
     def test_sine_bounded_and_leads(self):
         x = _tone(20.0, n=800)
-        sine, lead = CycleSine()(x)
-        sine = np.asarray(sine); lead = np.asarray(lead)
+        out = np.asarray(CycleSine()(x))
+        sine, lead = out[:, 0], out[:, 1]
         m = np.isfinite(sine) & np.isfinite(lead)
         assert m.sum() > 100
         assert sine[m].min() >= -1.0001 and sine[m].max() <= 1.0001
