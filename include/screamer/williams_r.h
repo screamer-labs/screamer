@@ -26,6 +26,7 @@
 #include <limits>
 #include <stdexcept>
 #include "screamer/common/functor_base.h"
+#include "screamer/common/float_info.h"
 #include "screamer/detail/monotonic_deque.h"
 
 namespace screamer {
@@ -52,6 +53,11 @@ public:
         const double high  = inputs[0];
         const double low   = inputs[1];
         const double close = inputs[2];
+        // nan_policy: ignore. A bar with any missing field is skipped
+        // whole: nothing is stored and warmup does not advance.
+        if (any_nan(high, low, close)) {
+            return std::numeric_limits<double>::quiet_NaN();
+        }
 
         const double high_n = max_deque_.append(high);
         const double low_n  = min_deque_.append(low);

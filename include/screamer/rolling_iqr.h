@@ -45,13 +45,19 @@ public:
 
 private:
     double process_scalar(double newValue) override {
+        // nan_policy: ignore. Return before the append, so the sample does not
+        // occupy a window slot. Guarding only the tree insert (as this did)
+        // still let the NaN consume a position, which made the window
+        // positional rather than a count of finite samples.
+        if (isnan2(newValue)) {
+            return std::numeric_limits<double>::quiet_NaN();
+        }
         const double oldValue = buffer_.append(newValue);
+        // oldValue can still be NaN: the buffer is NaN-filled during warmup.
         if (!isnan2(oldValue)) {
             ost_.erase(oldValue);
         }
-        if (!isnan2(newValue)) {
-            ost_.insert(newValue);
-        }
+        ost_.insert(newValue);
 
         if (ost_.size() < window_size_) {
             return std::numeric_limits<double>::quiet_NaN();

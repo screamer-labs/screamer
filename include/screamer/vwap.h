@@ -42,6 +42,13 @@ public:
         const double low    = inputs[1];
         const double close  = inputs[2];
         const double volume = inputs[3];
+        // nan_policy: ignore. Both sums must accept or reject a bar together.
+        // Without this guard a missing high (say) makes tp*volume NaN, which
+        // the price-volume sum skips, while the finite volume is still added
+        // to the volume sum: the two run one sample out of step from then on.
+        if (any_nan(high, low, close, volume)) {
+            return std::numeric_limits<double>::quiet_NaN();
+        }
         const double tp = (high + low + close) / 3.0;
         const double pv = sum_pv_.append(tp * volume);
         const double sv = sum_v_.append(volume);

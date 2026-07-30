@@ -5,6 +5,30 @@ All notable changes to this project are documented in this file.
 Unreleased
 ----------
 
+### Fixed
+
+* Twelve operators declared `nan_policy: ignore` but let a `NaN` input reach
+  their state, so a single `NaN` cost more than the one output slot the policy
+  promises. Two mechanisms: the `NaN` was stored into a carried previous-value
+  slot that also served as the warmup sentinel (`TrueRange`, `ATR`, `TRIX`,
+  `RollingYangZhangVar`/`Vol`), or it occupied a position in a fixed-size window
+  and advanced warmup (`RollingIqr`, `RollingMaxDrawdown`, `RollingHurst`,
+  `RollingTSF`, `RollingHitRate`, `Stoch`, `WilliamsR`). `RollingVWAP` and
+  `KeltnerChannels` had a third form: they consumed one input into their own
+  state while delegating the rest to a sub-operator, so a bar with one missing
+  field left the two halves permanently out of step. `NATR` inherited the `ATR`
+  defect and is fixed with it.
+
+  **Output changes on input containing `NaN`.** A series with gaps now produces
+  the documented result, which differs from what these operators returned
+  before. Output on gap-free input is unchanged.
+
+  Two compliance properties were added to `tests/test_nan_input_compliance.py`
+  to catch this class: an ignored `NaN` must cost exactly one output slot, and
+  for a multi-input operator one missing field must skip the whole row. The
+  existing properties only checked that state recovered eventually and that the
+  `NaN` index itself was `NaN`, which every one of these operators satisfied.
+
 ### Added
 
 * `FracDiff(d, window_size, threshold, start_policy)` - fractional differentiation

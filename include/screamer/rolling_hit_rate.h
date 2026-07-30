@@ -16,6 +16,7 @@
 #include <limits>
 #include <stdexcept>
 #include "screamer/common/base.h"
+#include "screamer/common/float_info.h"
 #include "screamer/detail/rolling_sum.h"
 
 namespace screamer {
@@ -37,6 +38,12 @@ public:
     }
 
     double process_scalar(double x) override {
+        // nan_policy: ignore. Return before any state is touched, so the
+        // sample neither enters the window nor advances warmup.
+        if (isnan2(x)) {
+            return std::numeric_limits<double>::quiet_NaN();
+        }
+
         const double indicator = (x > 0.0) ? 1.0 : 0.0;
         const double total = hits_.append(indicator);
         if (n_seen_ < window_size_) {
