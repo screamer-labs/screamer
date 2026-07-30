@@ -53,6 +53,12 @@
 #include "screamer/keltner_channels.h"
 #include "screamer/yang_zhang.h"
 #include "screamer/adx.h"
+#include "screamer/plus_di.h"
+#include "screamer/minus_di.h"
+#include "screamer/plus_dm.h"
+#include "screamer/minus_dm.h"
+#include "screamer/dx.h"
+#include "screamer/adxr.h"
 #include "screamer/vwap.h"
 #include "screamer/obv.h"
 #include "screamer/ad.h"
@@ -446,6 +452,42 @@ void init_bindings_rolling(py::module& m) {
         .def(py::init<int>(), py::arg("window_size") = 14)
         .def("__call__", &screamer::ADX::handle_input)
         .def("reset", &screamer::ADX::reset, "Reset to the initial state.");
+
+    // PlusDI / MinusDI: standalone +DI / -DI, sharing DmiCore with ADX.
+    py::class_<screamer::PlusDI, screamer::EvalOp>(m, "PlusDI")
+        .def(py::init<int>(), py::arg("window_size") = 14)
+        .def("__call__", &screamer::PlusDI::handle_input)
+        .def("reset", &screamer::PlusDI::reset, "Reset to the initial state.");
+
+    py::class_<screamer::MinusDI, screamer::EvalOp>(m, "MinusDI")
+        .def(py::init<int>(), py::arg("window_size") = 14)
+        .def("__call__", &screamer::MinusDI::handle_input)
+        .def("reset", &screamer::MinusDI::reset, "Reset to the initial state.");
+
+    // PlusDM / MinusDM: standalone +DM / -DM, sharing DmiCore with ADX.
+    // High/low only; the node feeds close = high internally.
+    py::class_<screamer::PlusDM, screamer::EvalOp>(m, "PlusDM")
+        .def(py::init<int>(), py::arg("window_size") = 14)
+        .def("__call__", &screamer::PlusDM::handle_input)
+        .def("reset", &screamer::PlusDM::reset, "Reset to the initial state.");
+
+    py::class_<screamer::MinusDM, screamer::EvalOp>(m, "MinusDM")
+        .def(py::init<int>(), py::arg("window_size") = 14)
+        .def("__call__", &screamer::MinusDM::handle_input)
+        .def("reset", &screamer::MinusDM::reset, "Reset to the initial state.");
+
+    // DX: standalone directional index, sharing DmiCore with ADX.
+    py::class_<screamer::DX, screamer::EvalOp>(m, "DX")
+        .def(py::init<int>(), py::arg("window_size") = 14)
+        .def("__call__", &screamer::DX::handle_input)
+        .def("reset", &screamer::DX::reset, "Reset to the initial state.");
+
+    // ADXR: mean of ADX now and ADX (window_size - 1) bars ago, sharing
+    // DmiCore with ADX.
+    py::class_<screamer::ADXR, screamer::EvalOp>(m, "ADXR")
+        .def(py::init<int>(), py::arg("window_size") = 14)
+        .def("__call__", &screamer::ADXR::handle_input)
+        .def("reset", &screamer::ADXR::reset, "Reset to the initial state.");
 
     // Volume-aware indicators.
     py::class_<screamer::RollingVWAP, screamer::EvalOp>(m, "RollingVWAP")

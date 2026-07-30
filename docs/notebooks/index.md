@@ -43,6 +43,12 @@ Moving averages, momentum, bands, and volume.
 :link-type: doc
 Filters and smoothers on noisy series.
 :::
+
+:::{grid-item-card} Cycle and spectral analysis
+:link: 19-cycle-and-spectral-analysis
+:link-type: doc
+Dominant cycle, phase, and adaptive smoothing via the Hilbert transform.
+:::
 ```
 
 ## Streaming & pipelines
@@ -174,4 +180,5 @@ Build a leak-safe training set with `forecast_pairs`, fit, and backtest.
 16-supervised-forecasting
 17-filtering-and-forecasting-with-uncertainty
 18-pairs-and-mean-reversion
+19-cycle-and-spectral-analysis
 ```

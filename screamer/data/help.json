@@ -241,7 +241,7 @@
       }
     ],
     "nan_policy": "ignore",
-    "details": "## Description\n\nThe Garman-Klass (1980) range-based volatility estimator. Per-bar variance contribution:\n\n$$\n\\sigma^2_\\text{GK}[t] = \\tfrac{1}{2}\\big(\\ln H/L\\big)^2 - (2\\ln 2 - 1)\\big(\\ln C/O\\big)^2\n$$\n\nThis expression is averaged with a exponentially-weighted mean to form the estimator. The `Vol`\nvariant returns `sqrt(Var)` (bit-exact via the same internal state).\n\n**4-input, 1-output** on `(open, high, low, close)`. ~7.4x more statistically efficient\nthan close-to-close `RollingVar` *under the model's assumptions* (zero drift, no overnight\ngaps).\n\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
+    "details": "## Description\n\nThe Garman-Klass (1980) range-based volatility estimator. Per-bar variance contribution:\n\n$$\n\\sigma^2_\\text{GK}[t] = \\tfrac{1}{2}\\big(\\ln H/L\\big)^2 - (2\\ln 2 - 1)\\big(\\ln C/O\\big)^2\n$$\n\nThis expression is averaged with a exponentially-weighted mean to form the estimator. This is the paper's simplified estimator, the one written $\\sigma_5$ in Garman\nand Klass's sequence and the form usually meant by \"Garman-Klass\". The paper\nalso gives a higher-order approximation of the same quantity ($\\sigma_4$), and\nvariants carrying an overnight term driven by the fraction of the day the market\nis closed ($\\sigma_1$, $\\sigma_3$, $\\sigma_6$). screamer ships only this one:\n$\\sigma_4$ differs in the fourth significant figure, and the gap-aware variants\nare superseded by [`RollingYangZhang`](../functions_rolling/RollingYangZhangVar.md), which handles\novernight gaps *and* drift.\n\nThe `Vol`\nvariant returns `sqrt(Var)` (bit-exact via the same internal state).\n\n**4-input, 1-output** on `(open, high, low, close)`. ~7.4x more statistically efficient\nthan close-to-close `RollingVar` *under the model's assumptions* (zero drift, no overnight\ngaps).\n\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
     "examples": [
       {
         "language": "python",
@@ -5502,6 +5502,43 @@
       }
     ]
   },
+  "ADXR": {
+    "name": "ADXR",
+    "title": "Average Directional Index Rating (ADXR)",
+    "implementation_family": "rolling",
+    "topics": [
+      "trend"
+    ],
+    "tags": [
+      "adxr",
+      "wilder",
+      "dmi",
+      "directional-movement",
+      "talib",
+      "hlc"
+    ],
+    "short": "Wilder's ADXR, the mean of ADX now and ADX one window ago.",
+    "inputs": 3,
+    "outputs": 1,
+    "parameters": [
+      {
+        "name": "window_size",
+        "type": "int",
+        "default": 14,
+        "min": 2,
+        "description": "Wilder smoothing period."
+      }
+    ],
+    "nan_policy": "ignore",
+    "details": "## Description\n\n`ADXR` is Wilder's average directional index rating (Wilder, 1978), the mean\nof the current `ADX` and the `ADX` value `window_size - 1` bars earlier:\n\n$$\n\\text{ADXR}[t] = \\frac{\\text{ADX}[t] + \\text{ADX}[t - (\\text{window\\_size} - 1)]}{2}\n$$\n\n**3-input, 1-output** (`FunctorBase<_, 3, 1>`) on `(high, low, close)`. `ADXR`\nshares its smoothing engine with `ADX`, `PlusDI`, `MinusDI`, and `DX`. Averaging\n`ADX` against its own value one window back damps the swings of `ADX` itself,\ngiving a slower read on whether trend strength is rising or falling.\n\n### Parameters\n\n**`window_size`** *(int, default 14)*: The Wilder smoothing period, also the\nlag used for the second `ADX` term. Because `ADX` itself is only valid from\nsample `2 * window_size - 1` onward, the first valid `ADXR` output is at\nsample `3 * window_size - 2`.\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage example",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import ADXR, ADX\n\nrng = np.random.default_rng(0)\nN = 300\nclose = 100 + np.cumsum(rng.standard_normal(N))\nhigh = close + np.abs(rng.standard_normal(N))\nlow = close - np.abs(rng.standard_normal(N))\n\nadxr = ADXR(window_size=14)(high, low, close)\nadx = ADX(window_size=14)(high, low, close)[:, 2]\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.5, 0.5],\n                    vertical_spacing=0.08)\nfig.add_trace(go.Scatter(y=close, name='Close', line=dict(color='steelblue')),\n              row=1, col=1)\nfig.add_trace(go.Scatter(y=adx, name='ADX', line=dict(color='crimson', dash='dot')), row=2, col=1)\nfig.add_trace(go.Scatter(y=adxr, name='ADXR', line=dict(color='crimson')), row=2, col=1)\nfig.update_layout(\n    title='ADXR: ADX smoothed against its own value one window back',\n    yaxis=dict(title='Price'), yaxis2=dict(title='ADX / ADXR (0-100)'),\n    margin=dict(l=20, r=20, t=60, b=20),\n    legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1),\n)\nfig.show()"
+      }
+    ]
+  },
   "ATR": {
     "name": "ATR",
     "title": "Average True Range (ATR)",
@@ -5704,6 +5741,42 @@
         "language": "python",
         "caption": "Usage example",
         "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom screamer import DEMA\n\nrng = np.random.default_rng(0)\nN = 300\ndata = np.cumsum(rng.standard_normal(N))\n\nfig = go.Figure()\nfig.add_trace(go.Scatter(y=data, mode='lines', name='Input', line=dict(color='steelblue', width=1)))\nfig.add_trace(go.Scatter(y=DEMA(span=20)(data), mode='lines', name='DEMA(span=20)', line=dict(color='crimson', width=2)))\nfig.update_layout(\n    title=\"DEMA smoother over a random walk\",\n    xaxis_title=\"Index\", yaxis_title=\"Value\",\n    margin=dict(l=20, r=20, t=80, b=20),\n    legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1),\n)\nfig.show()"
+      }
+    ]
+  },
+  "DX": {
+    "name": "DX",
+    "title": "Directional index (DX)",
+    "implementation_family": "rolling",
+    "topics": [
+      "trend"
+    ],
+    "tags": [
+      "wilder",
+      "dmi",
+      "directional-movement",
+      "talib",
+      "hlc"
+    ],
+    "short": "Wilder directional index, the pre-average input to ADX.",
+    "inputs": 3,
+    "outputs": 1,
+    "parameters": [
+      {
+        "name": "window_size",
+        "type": "int",
+        "default": 14,
+        "min": 2,
+        "description": "Wilder smoothing period."
+      }
+    ],
+    "nan_policy": "ignore",
+    "details": "## Description\n\n`DX` is Wilder's directional index (Wilder, 1978), 100 times the absolute\ndifference of `+DI` and `-DI` divided by their sum:\n\n$$\n\\text{DX} = 100 \\cdot \\frac{|+\\text{DI} - -\\text{DI}|}{+\\text{DI} + -\\text{DI}}\n$$\n\n**3-input, 1-output** (`FunctorBase<_, 3, 1>`) on `(high, low, close)`. `DX`\nshares its smoothing engine with `ADX`, `PlusDI`, and `MinusDI`; `ADX` is the\nWilder moving average of `DX` itself. Use `DX` on its own when the raw,\nunsmoothed directional index is needed, for example to build a different\naverage over it than `ADX` applies.\n\n### Parameters\n\n**`window_size`** *(int, default 14)*: The Wilder smoothing period. The first\nvalid output is at sample index `window_size`.\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage example",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import DX, ADX\n\nrng = np.random.default_rng(0)\nN = 300\nclose = 100 + np.cumsum(rng.standard_normal(N))\nhigh = close + np.abs(rng.standard_normal(N))\nlow = close - np.abs(rng.standard_normal(N))\n\ndx = DX(window_size=14)(high, low, close)\nadx = ADX(window_size=14)(high, low, close)[:, 2]\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.5, 0.5],\n                    vertical_spacing=0.08)\nfig.add_trace(go.Scatter(y=close, name='Close', line=dict(color='steelblue')),\n              row=1, col=1)\nfig.add_trace(go.Scatter(y=dx, name='DX', line=dict(color='crimson')), row=2, col=1)\nfig.add_trace(go.Scatter(y=adx, name='ADX', line=dict(color='crimson', dash='dot')), row=2, col=1)\nfig.update_layout(\n    title='DX: directional index and its Wilder average',\n    yaxis=dict(title='Price'), yaxis2=dict(title='DX / ADX (0-100)'),\n    margin=dict(l=20, r=20, t=60, b=20),\n    legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1),\n)\nfig.show()"
       }
     ]
   },
@@ -6085,6 +6158,78 @@
       }
     ]
   },
+  "MinusDI": {
+    "name": "MinusDI",
+    "title": "Minus directional indicator (-DI)",
+    "implementation_family": "rolling",
+    "topics": [
+      "trend"
+    ],
+    "tags": [
+      "wilder",
+      "dmi",
+      "directional-movement",
+      "talib",
+      "hlc"
+    ],
+    "short": "Wilder negative directional indicator.",
+    "inputs": 3,
+    "outputs": 1,
+    "parameters": [
+      {
+        "name": "window_size",
+        "type": "int",
+        "default": 14,
+        "min": 2,
+        "description": "Wilder smoothing period."
+      }
+    ],
+    "nan_policy": "ignore",
+    "details": "## Description\n\n`MinusDI` is Wilder's negative directional indicator, `-DI` (Wilder, 1978). It\nis 100 times the Wilder-smoothed negative directional movement divided by the\nsmoothed true range, so it measures the share of recent range attributable to\ndownward movement:\n\n$$\n\\begin{aligned}\n\\text{TR}[t]  &= \\max(H - L,\\ |H - C_{t-1}|,\\ |L - C_{t-1}|) \\\\\n-\\text{DM}[t] &= \\max(L_{t-1} - L,\\ 0)\\quad\\text{if}\\quad L_{t-1} - L > H - H_{t-1},\\ \\text{else}\\ 0 \\\\\n-\\text{DI}    &= 100 \\cdot \\text{Wilder}(-\\text{DM},\\ w) \\big/ \\text{Wilder}(\\text{TR},\\ w)\n\\end{aligned}\n$$\n\n**3-input, 1-output** (`FunctorBase<_, 3, 1>`) on `(high, low, close)`.\n`MinusDI` shares its smoothing engine with `ADX`, which returns `+DI`, `-DI`,\nand `ADX` together; use `MinusDI` on its own when only the negative\ndirectional indicator is needed.\n\n### Parameters\n\n**`window_size`** *(int, default 14)*: The Wilder smoothing period. The first\nvalid output is at sample index `window_size`.\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage example",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import PlusDI, MinusDI\n\nrng = np.random.default_rng(0)\nN = 300\nclose = 100 + np.cumsum(rng.standard_normal(N))\nhigh = close + np.abs(rng.standard_normal(N))\nlow = close - np.abs(rng.standard_normal(N))\n\nplus_di = PlusDI(window_size=14)(high, low, close)\nminus_di = MinusDI(window_size=14)(high, low, close)\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.5, 0.5],\n                    vertical_spacing=0.08)\nfig.add_trace(go.Scatter(y=close, name='Close', line=dict(color='steelblue')),\n              row=1, col=1)\nfig.add_trace(go.Scatter(y=plus_di, name='+DI', line=dict(color='green', dash='dot')), row=2, col=1)\nfig.add_trace(go.Scatter(y=minus_di, name='-DI', line=dict(color='orange')), row=2, col=1)\nfig.update_layout(\n    title='MinusDI: strength of downward movement',\n    yaxis=dict(title='Price'), yaxis2=dict(title='DI (0-100)'),\n    margin=dict(l=20, r=20, t=60, b=20),\n    legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1),\n)\nfig.show()"
+      }
+    ]
+  },
+  "MinusDM": {
+    "name": "MinusDM",
+    "title": "Minus directional movement (-DM)",
+    "implementation_family": "rolling",
+    "topics": [
+      "trend"
+    ],
+    "tags": [
+      "wilder",
+      "dmi",
+      "directional-movement",
+      "talib",
+      "hl"
+    ],
+    "short": "Wilder smoothed negative directional movement.",
+    "inputs": 2,
+    "outputs": 1,
+    "parameters": [
+      {
+        "name": "window_size",
+        "type": "int",
+        "default": 14,
+        "min": 2,
+        "description": "Wilder smoothing period."
+      }
+    ],
+    "nan_policy": "ignore",
+    "details": "## Description\n\n`MinusDM` is Wilder's negative directional movement, `-DM` (Wilder, 1978),\nWilder-smoothed over `window_size` bars:\n\n$$\n-\\text{DM}[t] = \\max(L_{t-1} - L,\\ 0)\\quad\\text{if}\\quad L_{t-1} - L > H - H_{t-1},\\ \\text{else}\\ 0\n$$\n\n$$\n-\\text{DM}_{\\text{smoothed}} = \\text{Wilder}(-\\text{DM},\\ w)\n$$\n\n**2-input, 1-output** (`FunctorBase<_, 2, 1>`) on `(high, low)`. The value\ndepends on high and low only; it does not use close. `MinusDM` shares its\nsmoothing engine with `ADX` and `MinusDI`, which divide the same quantity by\nthe smoothed true range to form `-DI`. Use `MinusDM` on its own when the raw\nsmoothed directional movement is needed rather than the normalized indicator.\n\n### Parameters\n\n**`window_size`** *(int, default 14)*: The Wilder smoothing period. Because\n`MinusDM` shares its warmup timeline with the rest of the DMI family (which\nalso smooths the true range), the first valid output is at sample index\n`window_size`, one bar later than a plain Wilder sum of `-DM` alone would\ngive.\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage example",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import PlusDM, MinusDM\n\nrng = np.random.default_rng(0)\nN = 300\nclose = 100 + np.cumsum(rng.standard_normal(N))\nhigh = close + np.abs(rng.standard_normal(N))\nlow = close - np.abs(rng.standard_normal(N))\n\nplus_dm = PlusDM(window_size=14)(high, low)\nminus_dm = MinusDM(window_size=14)(high, low)\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.5, 0.5],\n                    vertical_spacing=0.08)\nfig.add_trace(go.Scatter(y=close, name='Close', line=dict(color='steelblue')),\n              row=1, col=1)\nfig.add_trace(go.Scatter(y=plus_dm, name='+DM', line=dict(color='green', dash='dot')), row=2, col=1)\nfig.add_trace(go.Scatter(y=minus_dm, name='-DM', line=dict(color='orange')), row=2, col=1)\nfig.update_layout(\n    title='MinusDM: smoothed negative directional movement',\n    yaxis=dict(title='Price'), yaxis2=dict(title='DM'),\n    margin=dict(l=20, r=20, t=60, b=20),\n    legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1),\n)\nfig.show()"
+      }
+    ]
+  },
   "NATR": {
     "name": "NATR",
     "title": "Normalised ATR (NATR)",
@@ -6146,6 +6291,78 @@
         "language": "python",
         "caption": "Usage example",
         "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import OBV\n\nnp.random.seed(0)\nclose = 100*np.exp(np.cumsum(np.random.normal(0, 0.01, size=300)))\nvolume = np.random.uniform(1e5, 5e5, size=300)\nout = OBV()(close, volume)\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True,\n                    row_heights=[0.55, 0.45], vertical_spacing=0.08)\nfig.add_trace(go.Scatter(y=close, name=\"close\", line=dict(color=\"royalblue\")), row=1, col=1)\nfig.add_trace(go.Scatter(y=out, name=\"OBV\", line=dict(color=\"red\")), row=2, col=1)\nfig.update_layout(title=\"On-balance volume (OBV)\",\n                  margin=dict(l=20, r=20, t=60, b=20),\n                  legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1))\nfig.update_yaxes(title_text=\"close\", row=1, col=1)\nfig.update_yaxes(title_text=\"OBV\", row=2, col=1)\nfig.show()"
+      }
+    ]
+  },
+  "PlusDI": {
+    "name": "PlusDI",
+    "title": "Plus directional indicator (+DI)",
+    "implementation_family": "rolling",
+    "topics": [
+      "trend"
+    ],
+    "tags": [
+      "wilder",
+      "dmi",
+      "directional-movement",
+      "talib",
+      "hlc"
+    ],
+    "short": "Wilder positive directional indicator.",
+    "inputs": 3,
+    "outputs": 1,
+    "parameters": [
+      {
+        "name": "window_size",
+        "type": "int",
+        "default": 14,
+        "min": 2,
+        "description": "Wilder smoothing period."
+      }
+    ],
+    "nan_policy": "ignore",
+    "details": "## Description\n\n`PlusDI` is Wilder's positive directional indicator, `+DI` (Wilder, 1978). It is\n100 times the Wilder-smoothed positive directional movement divided by the\nsmoothed true range, so it measures the share of recent range attributable to\nupward movement:\n\n$$\n\\begin{aligned}\n\\text{TR}[t]  &= \\max(H - L,\\ |H - C_{t-1}|,\\ |L - C_{t-1}|) \\\\\n+\\text{DM}[t] &= \\max(H - H_{t-1},\\ 0)\\quad\\text{if}\\quad H - H_{t-1} > L_{t-1} - L,\\ \\text{else}\\ 0 \\\\\n+\\text{DI}    &= 100 \\cdot \\text{Wilder}(+\\text{DM},\\ w) \\big/ \\text{Wilder}(\\text{TR},\\ w)\n\\end{aligned}\n$$\n\n**3-input, 1-output** (`FunctorBase<_, 3, 1>`) on `(high, low, close)`. `PlusDI`\nshares its smoothing engine with `ADX`, which returns `+DI`, `-DI`, and `ADX`\ntogether; use `PlusDI` on its own when only the positive directional\nindicator is needed.\n\n### Parameters\n\n**`window_size`** *(int, default 14)*: The Wilder smoothing period. The first\nvalid output is at sample index `window_size`.\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage example",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import PlusDI, MinusDI\n\nrng = np.random.default_rng(0)\nN = 300\nclose = 100 + np.cumsum(rng.standard_normal(N))\nhigh = close + np.abs(rng.standard_normal(N))\nlow = close - np.abs(rng.standard_normal(N))\n\nplus_di = PlusDI(window_size=14)(high, low, close)\nminus_di = MinusDI(window_size=14)(high, low, close)\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.5, 0.5],\n                    vertical_spacing=0.08)\nfig.add_trace(go.Scatter(y=close, name='Close', line=dict(color='steelblue')),\n              row=1, col=1)\nfig.add_trace(go.Scatter(y=plus_di, name='+DI', line=dict(color='green')), row=2, col=1)\nfig.add_trace(go.Scatter(y=minus_di, name='-DI', line=dict(color='orange', dash='dot')), row=2, col=1)\nfig.update_layout(\n    title='PlusDI: strength of upward movement',\n    yaxis=dict(title='Price'), yaxis2=dict(title='DI (0-100)'),\n    margin=dict(l=20, r=20, t=60, b=20),\n    legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1),\n)\nfig.show()"
+      }
+    ]
+  },
+  "PlusDM": {
+    "name": "PlusDM",
+    "title": "Plus directional movement (+DM)",
+    "implementation_family": "rolling",
+    "topics": [
+      "trend"
+    ],
+    "tags": [
+      "wilder",
+      "dmi",
+      "directional-movement",
+      "talib",
+      "hl"
+    ],
+    "short": "Wilder smoothed positive directional movement.",
+    "inputs": 2,
+    "outputs": 1,
+    "parameters": [
+      {
+        "name": "window_size",
+        "type": "int",
+        "default": 14,
+        "min": 2,
+        "description": "Wilder smoothing period."
+      }
+    ],
+    "nan_policy": "ignore",
+    "details": "## Description\n\n`PlusDM` is Wilder's positive directional movement, `+DM` (Wilder, 1978),\nWilder-smoothed over `window_size` bars:\n\n$$\n+\\text{DM}[t] = \\max(H - H_{t-1},\\ 0)\\quad\\text{if}\\quad H - H_{t-1} > L_{t-1} - L,\\ \\text{else}\\ 0\n$$\n\n$$\n+\\text{DM}_{\\text{smoothed}} = \\text{Wilder}(+\\text{DM},\\ w)\n$$\n\n**2-input, 1-output** (`FunctorBase<_, 2, 1>`) on `(high, low)`. The value\ndepends on high and low only; it does not use close. `PlusDM` shares its\nsmoothing engine with `ADX` and `PlusDI`, which divide the same quantity by\nthe smoothed true range to form `+DI`. Use `PlusDM` on its own when the raw\nsmoothed directional movement is needed rather than the normalized indicator.\n\n### Parameters\n\n**`window_size`** *(int, default 14)*: The Wilder smoothing period. Because\n`PlusDM` shares its warmup timeline with the rest of the DMI family (which\nalso smooths the true range), the first valid output is at sample index\n`window_size`, one bar later than a plain Wilder sum of `+DM` alone would\ngive.\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage example",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import PlusDM, MinusDM\n\nrng = np.random.default_rng(0)\nN = 300\nclose = 100 + np.cumsum(rng.standard_normal(N))\nhigh = close + np.abs(rng.standard_normal(N))\nlow = close - np.abs(rng.standard_normal(N))\n\nplus_dm = PlusDM(window_size=14)(high, low)\nminus_dm = MinusDM(window_size=14)(high, low)\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.5, 0.5],\n                    vertical_spacing=0.08)\nfig.add_trace(go.Scatter(y=close, name='Close', line=dict(color='steelblue')),\n              row=1, col=1)\nfig.add_trace(go.Scatter(y=plus_dm, name='+DM', line=dict(color='green')), row=2, col=1)\nfig.add_trace(go.Scatter(y=minus_dm, name='-DM', line=dict(color='orange', dash='dot')), row=2, col=1)\nfig.update_layout(\n    title='PlusDM: smoothed positive directional movement',\n    yaxis=dict(title='Price'), yaxis2=dict(title='DM'),\n    margin=dict(l=20, r=20, t=60, b=20),\n    legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1),\n)\nfig.show()"
       }
     ]
   },
@@ -6242,7 +6459,7 @@
       }
     ],
     "nan_policy": "ignore",
-    "details": "## Description\n\nThe Garman-Klass (1980) range-based volatility estimator. Per-bar variance contribution:\n\n$$\n\\sigma^2_\\text{GK}[t] = \\tfrac{1}{2}\\big(\\ln H/L\\big)^2 - (2\\ln 2 - 1)\\big(\\ln C/O\\big)^2\n$$\n\nThis expression is averaged with a rolling mean over `window_size` bars to form the estimator. The `Vol`\nvariant returns `sqrt(Var)` (bit-exact via the same internal state).\n\n**4-input, 1-output** on `(open, high, low, close)`. ~7.4x more statistically efficient\nthan close-to-close `RollingStd` *under the model's assumptions* (zero drift, no overnight\ngaps).\n\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
+    "details": "## Description\n\nThe Garman-Klass (1980) range-based volatility estimator. Per-bar variance contribution:\n\n$$\n\\sigma^2_\\text{GK}[t] = \\tfrac{1}{2}\\big(\\ln H/L\\big)^2 - (2\\ln 2 - 1)\\big(\\ln C/O\\big)^2\n$$\n\nThis expression is averaged with a rolling mean over `window_size` bars to form the estimator. This is the paper's simplified estimator, the one written $\\sigma_5$ in Garman\nand Klass's sequence and the form usually meant by \"Garman-Klass\". The paper\nalso gives a higher-order approximation of the same quantity ($\\sigma_4$), and\nvariants carrying an overnight term driven by the fraction of the day the market\nis closed ($\\sigma_1$, $\\sigma_3$, $\\sigma_6$). screamer ships only this one:\n$\\sigma_4$ differs in the fourth significant figure, and the gap-aware variants\nare superseded by [`RollingYangZhang`](RollingYangZhangVar.md), which handles\novernight gaps *and* drift.\n\nThe `Vol`\nvariant returns `sqrt(Var)` (bit-exact via the same internal state).\n\n**4-input, 1-output** on `(open, high, low, close)`. ~7.4x more statistically efficient\nthan close-to-close `RollingStd` *under the model's assumptions* (zero drift, no overnight\ngaps).\n\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
     "examples": [
       {
         "language": "python",
@@ -6278,7 +6495,7 @@
       }
     ],
     "nan_policy": "ignore",
-    "details": "## Description\n\nThe Garman-Klass (1980) range-based volatility estimator. Per-bar variance contribution:\n\n$$\n\\sigma^2_\\text{GK}[t] = \\tfrac{1}{2}\\big(\\ln H/L\\big)^2 - (2\\ln 2 - 1)\\big(\\ln C/O\\big)^2\n$$\n\nThis expression is averaged with a rolling mean over `window_size` bars to form the estimator. The `Vol`\nvariant returns `sqrt(Var)` (bit-exact via the same internal state).\n\n**4-input, 1-output** on `(open, high, low, close)`. ~7.4x more statistically efficient\nthan close-to-close `RollingStd` *under the model's assumptions* (zero drift, no overnight\ngaps).\n\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
+    "details": "## Description\n\nThe Garman-Klass (1980) range-based volatility estimator. Per-bar variance contribution:\n\n$$\n\\sigma^2_\\text{GK}[t] = \\tfrac{1}{2}\\big(\\ln H/L\\big)^2 - (2\\ln 2 - 1)\\big(\\ln C/O\\big)^2\n$$\n\nThis expression is averaged with a rolling mean over `window_size` bars to form the estimator. This is the paper's simplified estimator, the one written $\\sigma_5$ in Garman\nand Klass's sequence and the form usually meant by \"Garman-Klass\". The paper\nalso gives a higher-order approximation of the same quantity ($\\sigma_4$), and\nvariants carrying an overnight term driven by the fraction of the day the market\nis closed ($\\sigma_1$, $\\sigma_3$, $\\sigma_6$). screamer ships only this one:\n$\\sigma_4$ differs in the fourth significant figure, and the gap-aware variants\nare superseded by [`RollingYangZhang`](RollingYangZhangVar.md), which handles\novernight gaps *and* drift.\n\nThe `Vol`\nvariant returns `sqrt(Var)` (bit-exact via the same internal state).\n\n**4-input, 1-output** on `(open, high, low, close)`. ~7.4x more statistically efficient\nthan close-to-close `RollingStd` *under the model's assumptions* (zero drift, no overnight\ngaps).\n\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
     "examples": [
       {
         "language": "python",
@@ -8177,6 +8394,143 @@
       }
     ]
   },
+  "CycleAmplitude": {
+    "name": "CycleAmplitude",
+    "title": "Instantaneous cycle amplitude",
+    "implementation_family": "signal",
+    "topics": [
+      "cycles"
+    ],
+    "tags": [
+      "ehlers",
+      "hilbert",
+      "cycle",
+      "analytic-signal"
+    ],
+    "short": "Instantaneous amplitude (envelope) of the analytic signal via Ehlers' homodyne discriminator.",
+    "inputs": 1,
+    "outputs": 1,
+    "parameters": [],
+    "nan_policy": "ignore",
+    "details": "## Description\n\n`CycleAmplitude` reads the instantaneous amplitude, or envelope, of the\nanalytic signal formed from a series by John Ehlers' Hilbert transform. It\nshares the same in-phase and quadrature components as `HilbertPhasor` and\n`CyclePhase`: the amplitude is the magnitude of the point `(I, Q)` in the\ncomplex plane, `sqrt(I^2 + Q^2)`. It is a general envelope detector, tracking\nthe local size of any oscillation in the series regardless of its period, and\napplies to any sampled signal, not only price.\n\n*Parameters*: `CycleAmplitude` takes no parameters.\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in the input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
+    "examples": []
+  },
+  "CycleFrequency": {
+    "name": "CycleFrequency",
+    "title": "Instantaneous cycle frequency",
+    "implementation_family": "signal",
+    "topics": [
+      "cycles"
+    ],
+    "tags": [
+      "ehlers",
+      "hilbert",
+      "cycle"
+    ],
+    "short": "Instantaneous frequency, in cycles per sample, via Ehlers' homodyne discriminator.",
+    "inputs": 1,
+    "outputs": 1,
+    "parameters": [],
+    "nan_policy": "ignore",
+    "details": "## Description\n\n`CycleFrequency` measures the instantaneous frequency of a series, in cycles\nper sample, using John Ehlers' homodyne discriminator. It is the reciprocal\nof the dominant cycle period reported by `DominantCycle`: a period of 20\nsamples corresponds to a frequency of 0.05 cycles per sample. The estimate is\na general spectral quantity: the same measurement applies to any sampled\nsignal, not only price.\n\n*Parameters*: `CycleFrequency` takes no parameters.\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in the input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
+    "examples": []
+  },
+  "CyclePhase": {
+    "name": "CyclePhase",
+    "title": "Instantaneous cycle phase",
+    "implementation_family": "signal",
+    "topics": [
+      "cycles"
+    ],
+    "tags": [
+      "ehlers",
+      "hilbert",
+      "cycle",
+      "analytic-signal"
+    ],
+    "short": "Instantaneous phase, in degrees, of the analytic signal via Ehlers' homodyne discriminator.",
+    "inputs": 1,
+    "outputs": 1,
+    "parameters": [],
+    "nan_policy": "ignore",
+    "details": "## Description\n\n`CyclePhase` reads the instantaneous phase of the analytic signal formed from\na series by John Ehlers' Hilbert transform, in degrees, wrapped to `[0, 360)`.\nIt shares the same in-phase and quadrature components as `HilbertPhasor` and\nthe same period estimate as `DominantCycle`: the phase is the angle of the\npoint `(I, Q)` in the complex plane, and it advances by roughly `360 /\nperiod` degrees per sample while the dominant cycle stays stable. The\nestimate is a general spectral quantity: the same measurement applies to any\nsampled signal, not only price.\n\n*Parameters*: `CyclePhase` takes no parameters.\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in the input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
+    "examples": []
+  },
+  "CycleSine": {
+    "name": "CycleSine",
+    "title": "Cycle sinewave indicator",
+    "implementation_family": "signal",
+    "topics": [
+      "cycles"
+    ],
+    "tags": [
+      "ehlers",
+      "hilbert",
+      "cycle",
+      "analytic-signal"
+    ],
+    "short": "Sinewave indicator (sine, leadsine) from the instantaneous phase of the analytic signal.",
+    "inputs": 1,
+    "outputs": 2,
+    "parameters": [],
+    "nan_policy": "ignore",
+    "details": "## Description\n\n`CycleSine` computes John Ehlers' sinewave indicator from the instantaneous\nphase of the analytic signal formed from a series by the Hilbert transform.\nIt shares the same phase estimate as `CyclePhase`: given the phase in\ndegrees, `sine` is `sin(phase)` and `leadsine` is `sin(phase + 45deg)`, a\nversion of `sine` advanced by one eighth of a cycle. Because `sine` tracks\nthe phase directly, it turns at the same point in the cycle regardless of\nthe cycle's period, and the two outputs cross near the phase's turning\npoints. The estimate is a general spectral quantity: the same measurement\napplies to any sampled signal, not only price.\n\nThis is a **1-input, 2-output** function (`FunctorBase<_, 1, 2>`). Outputs\nare stacked along a trailing axis of size 2: `out[..., 0]` is `sine`,\n`out[..., 1]` is `leadsine`.\n\n*Parameters*: `CycleSine` takes no parameters.\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in the input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
+    "examples": []
+  },
+  "Decycler": {
+    "name": "Decycler",
+    "title": "Ehlers Decycler trend filter",
+    "implementation_family": "signal",
+    "topics": [
+      "smoothing",
+      "filtering"
+    ],
+    "tags": [
+      "ehlers",
+      "iir",
+      "trend"
+    ],
+    "short": "Ehlers trend estimate with short cycles removed.",
+    "inputs": 1,
+    "outputs": 1,
+    "parameters": [
+      {
+        "name": "period",
+        "type": "float",
+        "default": 60.0,
+        "description": "Cycles at or below this length in samples are removed. Give this or cutoff."
+      },
+      {
+        "name": "cutoff",
+        "type": "float",
+        "default": null,
+        "description": "Cutoff as a fraction of Nyquist in (0, 1). Give this or period, not both."
+      }
+    ],
+    "nan_policy": "ignore",
+    "details": "## Description\n\n`Decycler` is a causal filter from John Ehlers that estimates the trend of a\nseries by removing cycles at or below the cutoff. It is the input minus its\n1-pole highpass component, so slow movements pass through and fast cycles are\nsuppressed.\n\nThe cutoff is set by a cycle length in samples (`period`) or a fraction of the\nNyquist frequency (`cutoff`), related by `cutoff = 2 / period`.\n\n### Parameters\n\n**`period`** *(float)*: The shortest cycle length in samples that is removed.\n\n**`cutoff`** *(float)*: The cutoff as a fraction of the Nyquist frequency, in (0, 1). Provide exactly one of `period` or `cutoff`.\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in the input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
+    "examples": []
+  },
+  "DominantCycle": {
+    "name": "DominantCycle",
+    "title": "Dominant cycle period",
+    "implementation_family": "signal",
+    "topics": [
+      "cycles"
+    ],
+    "tags": [
+      "ehlers",
+      "hilbert",
+      "cycle"
+    ],
+    "short": "Dominant cycle period via Ehlers' homodyne discriminator.",
+    "inputs": 1,
+    "outputs": 1,
+    "parameters": [],
+    "nan_policy": "ignore",
+    "details": "## Description\n\n`DominantCycle` measures the dominant cycle period of a series, in samples,\nusing John Ehlers' homodyne discriminator. It forms the analytic signal by a\nHilbert transform, then reads the cycle period from the rate of change of the\nphase between successive samples. The estimate is a general spectral quantity:\nthe same measurement applies to any sampled signal, not only price.\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in the input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
+    "examples": []
+  },
   "FracDiff": {
     "name": "FracDiff",
     "title": "Fractional differentiation (FracDiff)",
@@ -8237,6 +8591,27 @@
       }
     ]
   },
+  "HilbertPhasor": {
+    "name": "HilbertPhasor",
+    "title": "Hilbert in-phase / quadrature components",
+    "implementation_family": "signal",
+    "topics": [
+      "cycles"
+    ],
+    "tags": [
+      "ehlers",
+      "hilbert",
+      "cycle",
+      "analytic-signal"
+    ],
+    "short": "In-phase and quadrature components of the analytic signal via Ehlers' Hilbert transform.",
+    "inputs": 1,
+    "outputs": 2,
+    "parameters": [],
+    "nan_policy": "ignore",
+    "details": "## Description\n\n`HilbertPhasor` computes the in-phase and quadrature components of the\nanalytic signal formed from a series by John Ehlers' Hilbert transform. The\nin-phase component is the real part of the analytic signal and the\nquadrature component is its imaginary part, a version of the input phase-\nshifted by 90 degrees. Together they describe the instantaneous phase and\namplitude of the dominant cycle in the input, the same construction used by\n`DominantCycle`. The estimate is a general spectral quantity: the same\nmeasurement applies to any sampled signal, not only price.\n\nThis is a **1-input, 2-output** function (`FunctorBase<_, 1, 2>`). Outputs\nare stacked along a trailing axis of size 2: `out[..., 0]` is the in-phase\ncomponent, `out[..., 1]` is the quadrature component.\n\n*Parameters*: `HilbertPhasor` takes no parameters.\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in the input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
+    "examples": []
+  },
   "Hold": {
     "name": "Hold",
     "title": "Hold (time-latch operator)",
@@ -8278,6 +8653,26 @@
         "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import Hold\n\n# A sparse signal with nonzero events and stretches of silence.\nrng = np.random.default_rng(42)\nx = np.zeros(120)\nevent_idx = rng.choice(120, size=8, replace=False)\nx[event_idx] = rng.standard_normal(8) * 2\n\n# Hold each event for 10 bars before returning to zero.\ny = Hold(n=10)(x)\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True,\n                    row_heights=[0.5, 0.5], vertical_spacing=0.05)\nfig.add_trace(go.Bar(y=x, name='input (sparse events)'), row=1, col=1)\nfig.add_trace(go.Scatter(y=y, mode='lines', name='Hold(n=10)',\n                         line=dict(color='red')), row=2, col=1)\nfig.update_layout(\n    title=\"Hold: latch each nonzero event for 10 bars\",\n    xaxis2_title=\"Sample\",\n    yaxis=dict(title=\"Input\"),\n    yaxis2=dict(title=\"Output\"),\n    margin=dict(l=20, r=20, t=60, b=20),\n    legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02,\n                xanchor=\"right\", x=1),\n)\nfig.show()"
       }
     ]
+  },
+  "InstantaneousTrendline": {
+    "name": "InstantaneousTrendline",
+    "title": "Instantaneous trendline",
+    "implementation_family": "signal",
+    "topics": [
+      "smoothing"
+    ],
+    "tags": [
+      "ehlers",
+      "adaptive",
+      "trend"
+    ],
+    "short": "Adaptive 2-pole trendline whose smoothing tracks the measured dominant cycle.",
+    "inputs": 1,
+    "outputs": 1,
+    "parameters": [],
+    "nan_policy": "ignore",
+    "details": "## Description\n\n`InstantaneousTrendline` (John Ehlers) is an adaptive trendline: a 2-pole\nrecursive filter whose smoothing factor is set, at every sample, from the\ndominant cycle period measured by the same Hilbert-transform engine as\n`DominantCycle`. Because the filter's time constant tracks the current cycle\nlength, the trendline removes the dominant cycle from the output and follows\nthe underlying trend rather than a fixed-period moving average.\n\n$$\n\\begin{aligned}\n\\alpha[t] &= \\frac{2}{\\text{period}[t] + 1} \\\\\n\\text{it}[t] &= \\left(\\alpha[t] - \\frac{\\alpha[t]^2}{4}\\right) x[t]\n  + \\frac{\\alpha[t]^2}{2} x[t-1]\n  - \\left(\\alpha[t] - \\frac{3\\alpha[t]^2}{4}\\right) x[t-2] \\\\\n  &\\quad + 2(1 - \\alpha[t]) \\, \\text{it}[t-1] - (1 - \\alpha[t])^2 \\, \\text{it}[t-2]\n\\end{aligned}\n$$\n\n`period` is the dominant cycle period in samples, the same quantity\n`DominantCycle` reports; `HilbertCycle` clamps it to `[6, 50]`, which bounds\n`alpha` to at most `2/7`. The recursion needs two samples of input and output\nhistory; until that history is available (right after the dominant cycle\nfirst becomes measurable), `InstantaneousTrendline` seeds its output with the\ncurrent price.\n\nThis is a parameterless function: the adaptation comes entirely from the\nmeasured cycle, with no smoothing constant to tune.\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in the input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->\n\n## Reference\n\nEhlers, *Cybernetic Analysis for Stocks and Futures* (2004). There is no\nbit-exact reference implementation for this recursion; correctness is gated\nby causality (batch and streaming agree) and by tracking behavior on a clean\ntrend.",
+    "examples": []
   },
   "KalmanFilter": {
     "name": "KalmanFilter",
@@ -8334,6 +8729,38 @@
       }
     ]
   },
+  "MAMA": {
+    "name": "MAMA",
+    "title": "MESA Adaptive Moving Average (MAMA)",
+    "implementation_family": "signal",
+    "topics": [
+      "smoothing"
+    ],
+    "tags": [
+      "ehlers",
+      "adaptive"
+    ],
+    "short": "Adaptive moving average pair (MAMA, FAMA) whose smoothing rate tracks the instantaneous-phase rate of change.",
+    "inputs": 1,
+    "outputs": 2,
+    "parameters": [
+      {
+        "name": "fast_limit",
+        "type": "float",
+        "default": 0.5,
+        "description": "Upper bound on the smoothing constant, applied when the phase advances quickly."
+      },
+      {
+        "name": "slow_limit",
+        "type": "float",
+        "default": 0.05,
+        "description": "Lower bound on the smoothing constant, applied when the phase stalls."
+      }
+    ],
+    "nan_policy": "ignore",
+    "details": "## Description\n\n`MAMA` (MESA Adaptive Moving Average, John Ehlers) smooths the input with a\nper-step smoothing constant that adapts to the rate of change of the\ninstantaneous phase of the analytic signal formed from the series by the\nHilbert transform, the same phase estimate as `CyclePhase`. When the phase\nadvances quickly, a new cycle is underway and the smoothing constant rises\ntoward `fast_limit`; when the phase advance stalls, the smoothing constant\nfalls toward `slow_limit`. `FAMA` (following adaptive moving average) is a\nsecond pass over `MAMA` at half the smoothing constant, and lags it.\n\n$$\n\\begin{aligned}\n\\Delta\\phi[t]   &= \\max\\big(\\phi[t-1] - \\phi[t],\\ 1\\big) \\\\\n\\alpha[t]       &= \\operatorname{clip}\\!\\left(\\frac{\\text{fast\\_limit}}{\\Delta\\phi[t]},\\ \\text{slow\\_limit},\\ \\text{fast\\_limit}\\right) \\\\\n\\text{MAMA}[t]  &= \\alpha[t] \\cdot x[t] + (1 - \\alpha[t]) \\cdot \\text{MAMA}[t-1] \\\\\n\\text{FAMA}[t]  &= 0.5\\,\\alpha[t] \\cdot \\text{MAMA}[t] + (1 - 0.5\\,\\alpha[t]) \\cdot \\text{FAMA}[t-1]\n\\end{aligned}\n$$\n\n`phi` is the instantaneous phase in degrees; `DeltaPhase` is floored at 1\ndegree so `alpha` never exceeds `fast_limit`. `MAMA` and `FAMA` are both\nseeded with the first finite input.\n\nThis is a **1-input, 2-output** function (`FunctorBase<_, 1, 2>`). Outputs\nare stacked along a trailing axis of size 2: `out[..., 0]` is `MAMA`,\n`out[..., 1]` is `FAMA`.\n\n## Parameters\n\n- `fast_limit` (float, default `0.5`): upper bound on the smoothing constant.\n- `slow_limit` (float, default `0.05`): lower bound on the smoothing constant.\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in the input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->\n\n## Reference\n\nEhlers, *Rocket Science for Traders* (2001). TA-Lib's `MAMA` uses the same\nadaptation rule over a different analytic-signal front end, so the two agree\nin shape and turning points but not to numerical precision.",
+    "examples": []
+  },
   "MovingAverage": {
     "name": "MovingAverage",
     "title": "FIR moving average (arbitrary taps)",
@@ -8371,6 +8798,51 @@
         "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom screamer import MovingAverage\n\nrng = np.random.default_rng(0)\nN = 300\ndata = np.cumsum(rng.standard_normal(N))\n\n# Hamming-windowed low-pass smoother (unity gain)\ntaps = np.hamming(21)\ntaps /= taps.sum()\n\nsmoothed = MovingAverage(list(taps))(data)\n\nfig = go.Figure()\nfig.add_trace(go.Scatter(y=data, mode='lines', name='Input',\n                         line=dict(color='lightblue'), opacity=0.8))\nfig.add_trace(go.Scatter(y=smoothed, mode='lines',\n                         name='MovingAverage (21-tap Hamming)',\n                         line=dict(color='red')))\nfig.update_layout(\n    title=\"FIR moving average with 21-tap Hamming window\",\n    xaxis_title=\"Index\", yaxis_title=\"Value\",\n    margin=dict(l=20, r=20, t=80, b=20),\n    legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1),\n)\nfig.show()"
       }
     ]
+  },
+  "RoofingFilter": {
+    "name": "RoofingFilter",
+    "title": "Ehlers roofing filter (bandpass)",
+    "implementation_family": "signal",
+    "topics": [
+      "filtering"
+    ],
+    "tags": [
+      "ehlers",
+      "iir",
+      "bandpass"
+    ],
+    "short": "Ehlers bandpass, a highpass then a SuperSmoother.",
+    "inputs": 1,
+    "outputs": 1,
+    "parameters": [
+      {
+        "name": "hp_period",
+        "type": "float",
+        "default": 48.0,
+        "description": "Highpass cutoff as a cycle length in samples. Give this or hp_cutoff."
+      },
+      {
+        "name": "lp_period",
+        "type": "float",
+        "default": 10.0,
+        "description": "Lowpass cutoff as a cycle length in samples. Give this or lp_cutoff."
+      },
+      {
+        "name": "hp_cutoff",
+        "type": "float",
+        "default": null,
+        "description": "Highpass cutoff as a fraction of Nyquist in (0, 1). Give this or hp_period."
+      },
+      {
+        "name": "lp_cutoff",
+        "type": "float",
+        "default": null,
+        "description": "Lowpass cutoff as a fraction of Nyquist in (0, 1). Give this or lp_period."
+      }
+    ],
+    "nan_policy": "ignore",
+    "details": "## Description\n\n`RoofingFilter` is a causal bandpass from John Ehlers. It applies a 2-pole\nhighpass at `hp_period` to remove the trend, then a `SuperSmoother` at\n`lp_period` to remove fast noise, leaving the band of cycles between the two\ncutoffs. It is the preprocessing step Ehlers applies before measuring a cycle,\nbecause a raw series carries a trend and high-frequency noise that distort the\nmeasurement.\n\nEach cutoff is a cycle length in samples (`hp_period`, `lp_period`) or a fraction\nof the Nyquist frequency (`hp_cutoff`, `lp_cutoff`), related by `cutoff = 2 / period`.\n\n### Parameters\n\n**`hp_period`** / **`hp_cutoff`** *(float)*: The highpass cutoff. Provide exactly one.\n\n**`lp_period`** / **`lp_cutoff`** *(float)*: The lowpass cutoff. Provide exactly one.\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in the input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
+    "examples": []
   },
   "SchmittTrigger": {
     "name": "SchmittTrigger",
@@ -8418,6 +8890,69 @@
         "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import SchmittTrigger\n\n# A noisy sine wave that repeatedly crosses zero.\nt = np.linspace(0, 4 * np.pi, 400)\nx = np.sin(t) + 0.25 * np.random.default_rng(0).standard_normal(400)\n\n# A naive zero-cross comparator would chatter on the noise. The\n# Schmitt trigger requires the signal to swing past +/- 0.3 before\n# toggling, so it produces a clean square wave.\ntrig = SchmittTrigger(lower=-0.3, upper=0.3)\ny = trig(x)\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True,\n                    row_heights=[0.6, 0.4], vertical_spacing=0.05)\nfig.add_trace(go.Scatter(y=x, mode='lines', name='input'),     row=1, col=1)\nfig.add_hline(y=+0.3, line_dash='dash', line_color='gray', row=1, col=1)\nfig.add_hline(y=-0.3, line_dash='dash', line_color='gray', row=1, col=1)\nfig.add_trace(go.Scatter(y=y, mode='lines', name='trigger',\n                         line=dict(color='red')),             row=2, col=1)\nfig.update_layout(\n    title=\"Schmitt trigger on a noisy sine wave (lower=-0.3, upper=+0.3)\",\n    xaxis2_title=\"Sample\", yaxis=dict(title=\"Input\"),\n    yaxis2=dict(title=\"Trigger\", range=[-0.2, 1.2]),\n    margin=dict(l=20, r=20, t=60, b=20),\n    legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02,\n                xanchor=\"right\", x=1),\n)\nfig.show()"
       }
     ]
+  },
+  "SuperSmoother": {
+    "name": "SuperSmoother",
+    "title": "Ehlers SuperSmoother lowpass filter",
+    "implementation_family": "signal",
+    "topics": [
+      "smoothing",
+      "filtering"
+    ],
+    "tags": [
+      "ehlers",
+      "iir",
+      "lowpass"
+    ],
+    "short": "Ehlers 2-pole low-lag lowpass filter.",
+    "inputs": 1,
+    "outputs": 1,
+    "parameters": [
+      {
+        "name": "period",
+        "type": "float",
+        "default": 20.0,
+        "description": "Cutoff as a cycle length in samples. Give this or cutoff, not both."
+      },
+      {
+        "name": "cutoff",
+        "type": "float",
+        "default": null,
+        "description": "Cutoff as a fraction of Nyquist in (0, 1). Give this or period, not both."
+      }
+    ],
+    "nan_policy": "ignore",
+    "details": "## Description\n\n`SuperSmoother` is a causal 2-pole IIR lowpass filter from John Ehlers. It passes\ncomponents of the input series slower than the cutoff and attenuates faster ones,\nwith less lag and less ringing than a Butterworth filter of comparable rolloff.\n\nThe cutoff is set by a cycle length in samples (`period`) or, equivalently, a\nfraction of the Nyquist frequency (`cutoff`), related by `cutoff = 2 / period`.\nThe filter coefficients follow Ehlers' critically damped design.\n\n### Parameters\n\n**`period`** *(float)*: The cutoff expressed as a cycle length in samples.\n\n**`cutoff`** *(float)*: The cutoff expressed as a fraction of the Nyquist frequency, in (0, 1). Provide exactly one of `period` or `cutoff`.\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in the input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
+    "examples": []
+  },
+  "TrendMode": {
+    "name": "TrendMode",
+    "title": "Trend-vs-cycle classifier",
+    "implementation_family": "signal",
+    "topics": [
+      "cycles"
+    ],
+    "tags": [
+      "ehlers",
+      "hilbert",
+      "cycle",
+      "analytic-signal"
+    ],
+    "short": "Classifies each sample as trending (1.0) or cycling (0.0) from the dominant-cycle phase advance.",
+    "inputs": 1,
+    "outputs": 1,
+    "parameters": [
+      {
+        "name": "phase_rate_frac",
+        "type": "float",
+        "default": 0.5,
+        "min": 0.0,
+        "description": "Threshold, as a fraction of the expected per-sample phase advance for the current dominant cycle, below which a sample is classified as trending."
+      }
+    ],
+    "nan_policy": "ignore",
+    "details": "## Description\n\n`TrendMode` classifies each sample of a series as trending or cycling, using\nthe same instantaneous phase and dominant-cycle period as `CyclePhase` and\n`DominantCycle`. While a series oscillates at a stable dominant cycle, the\nphase advances by close to `360 / period` degrees per sample. When the phase\nadvance stalls well below that rate, the dominant cycle has effectively\nstopped rotating, which this function reads as a trending market.\n\nThe rule: at each sample, compute the phase change from the previous sample\n(unwrapped to `[-180, 180]` degrees) and compare its magnitude to\n`phase_rate_frac * (360 / period)`, the expected per-sample advance scaled\nby `phase_rate_frac`. If the phase change is smaller, the output is `1.0`\n(trending); otherwise it is `0.0` (cycling).\n\nThis is a threshold classifier, not a transcription of any single reference\nformula: it is one simple, causal way to turn the phase and period estimates\ninto a binary trend/cycle flag. Lowering `phase_rate_frac` makes the\nclassifier stricter about calling a trend, raising it makes trend mode more\nfrequent.\n\n*Parameters*: `TrendMode` takes one parameter.\n\n### Parameters\n\n**`phase_rate_frac`** *(float, default `0.5`)*: The threshold, as a fraction\nof the expected per-sample phase advance for the current dominant cycle,\nbelow which a sample is classified as trending.\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in the input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
+    "examples": []
   },
   "CombineLatest": {
     "name": "CombineLatest",

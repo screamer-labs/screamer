@@ -26,9 +26,11 @@ from devtools import baselines, get_baselines
 HELP_JSON = Path(__file__).resolve().parent.parent / "screamer" / "data" / "help.json"
 HELP: dict[str, dict] = json.loads(HELP_JSON.read_text())
 
-# The exponentially weighted mutex: exactly one of these must be supplied, so
-# every one of them defaults to None on both sides. See test_documented_defaults.
-EW_MUTEX = {"com", "span", "halflife", "alpha"}
+# Members of a mutually exclusive argument group default to None on both sides,
+# because exactly one of the group must be supplied. The exponentially weighted
+# family and the Ehlers filters both work this way, so a None default on the
+# baseline is the marker rather than an enumerated list of names.
+# See test_documented_defaults.
 
 # Stale references, from before the operators moved their `output`/`quantile`
 # arguments. Pre-existing and unrelated to the change that added this test;
@@ -74,7 +76,7 @@ def test_baseline_defaults_match_the_documented_defaults(name: str, entry: dict)
         for param_name, param in signature.parameters.items():
             if param_name == "self" or param.default is inspect.Parameter.empty:
                 continue
-            if param_name in EW_MUTEX:
+            if param.default is None:
                 continue
             if (baseline_name, param_name) in KNOWN_STALE:
                 continue

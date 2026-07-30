@@ -28,13 +28,20 @@ import screamer
 HELP_JSON = Path(__file__).resolve().parent.parent / "screamer" / "data" / "help.json"
 HELP: dict[str, dict] = json.loads(HELP_JSON.read_text())
 
-# The exponentially weighted family takes a mutually exclusive group
-# (com / span / halflife / alpha) where exactly one must be supplied, so every
-# one of them defaults to None in the binding and constructing with no argument
-# raises. Their pages document `span: 20` as the value used throughout the
-# examples, not as a constructor default. Checking those here would assert a
-# convention the pages do not claim.
-_EW_MUTEX = {"com", "span", "halflife", "alpha"}
+# A parameter that is part of a mutually exclusive group defaults to None in
+# the binding, because exactly one member of the group must be supplied and the
+# constructor raises otherwise. The exponentially weighted family
+# (com / span / halflife / alpha) and the Ehlers filters (period / cutoff,
+# hp_period / hp_cutoff) both work this way. Their pages document a
+# representative value, `span: 20` or `period: 60`, which is the value used in
+# the examples rather than a constructor default.
+#
+# Rather than enumerate the groups, treat a binding default of None as the
+# marker. That is exactly the "no default, one of the group required" case, and
+# it does not exempt a real mismatch: ROC documented 10 against a binding
+# default of 1, and neither is None.
+def _is_mutex_member(binding_default: str) -> bool:
+    return binding_default.strip() == "None"
 
 
 def _binding_defaults(name: str) -> dict[str, str]:
@@ -96,7 +103,9 @@ def test_documented_default_matches_the_binding(name: str, entry: dict):
 
     for param in entry["parameters"]:
         pname = param["name"]
-        if pname in _EW_MUTEX or "default" not in param or pname not in actual:
+        if "default" not in param or pname not in actual:
+            continue
+        if _is_mutex_member(actual[pname]):
             continue
         documented = param["default"]
         if documented is None:

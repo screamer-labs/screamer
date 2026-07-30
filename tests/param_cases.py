@@ -119,6 +119,8 @@ _NO_ARG_AUTO_EXCLUDE = {
     'BacktestL1Target',
     # 10-input L1 quotes+trades market-making engine - tested in test_backtest.py
     'BacktestL1TradesOrders',
+    # 1-input, 2-output (FunctorBase<_, 1, 2>) - tested in test_cycle.py
+    'HilbertPhasor', 'CycleSine',
 }
 # Linear2 takes constructor args (a, b, c) so it is not a no-arg class
 # and would not be picked up here - listed for clarity only.
@@ -166,6 +168,10 @@ test_definitions = [
     # transient: at 2000 samples they agree to ~1e-13, at 100 they do not.
     ( ('TRIX',)                  , {"array_type": ["positive"],
                                     "array_length": [2000]}),
+    # Ehlers filters: period and cutoff are mutually exclusive with no
+    # default, so they cannot be auto-adopted with no arguments.
+    ( ('SuperSmoother','Decycler')  , {"period": [20.0]}),
+    ( ('RoofingFilter',)            , {"hp_period": [48.0], "lp_period": [10.0]}),
     # Inverse trig: bounded input so the comparison sees finite values.
     ( ('Acos','Asin')            , {"array_type": ["unit"]}),
     # FracDiff: fractional and integer orders, and a threshold loose enough to
@@ -501,5 +507,15 @@ def yield_test_cases_with_baselines():
                     try:
                         baseline_class(**params)
                     except TypeError:
+                        # Wrong arity: the baseline needs an argument this case
+                        # does not supply.
+                        continue
+                    except ValueError:
+                        # A mutually exclusive argument group with none of its
+                        # members supplied (the Ew com/span/halflife/alpha set,
+                        # or an Ehlers period/cutoff pair). Same situation as
+                        # the TypeError above: this case cannot drive this
+                        # baseline. Register the operator with explicit
+                        # parameters to compare it.
                         continue
                 yield (class_name, baseline_name, params, array_type, array_length)

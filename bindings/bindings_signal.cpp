@@ -1,3 +1,4 @@
+#include <optional>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h> // for std::vector
 #include "screamer/common/base.h"
@@ -5,11 +6,23 @@
 #include "screamer/butter_highpass.h"
 #include "screamer/butter_bandpass.h"
 #include "screamer/butter_bandstop.h"
+#include "screamer/super_smoother.h"
+#include "screamer/decycler.h"
+#include "screamer/roofing_filter.h"
 #include "screamer/moving_average.h"
 #include "screamer/frac_diff.h"
 #include "screamer/kalman_filter.h"
 #include "screamer/schmitt_trigger.h"
 #include "screamer/hold.h"
+#include "screamer/dominant_cycle.h"
+#include "screamer/hilbert_phasor.h"
+#include "screamer/cycle_phase.h"
+#include "screamer/cycle_frequency.h"
+#include "screamer/cycle_amplitude.h"
+#include "screamer/cycle_sine.h"
+#include "screamer/trend_mode.h"
+#include "screamer/mama.h"
+#include "screamer/instantaneous_trendline.h"
 
 namespace py = pybind11;
 
@@ -39,6 +52,30 @@ void init_bindings_signal(py::module& m) {
              py::arg("order") = 2, py::arg("low_cutoff") = 0.05, py::arg("high_cutoff") = 0.2)
         .def("__call__", &screamer::ButterBandstop::operator(), py::arg("value"))
         .def("reset", &screamer::ButterBandstop::reset, "Reset.");
+
+    // SuperSmoother: Ehlers 2-pole low-lag lowpass. Exactly one of
+    // period (samples) or cutoff (fraction of Nyquist).
+    py::class_<screamer::SuperSmoother, screamer::ScreamerBase>(m, "SuperSmoother")
+        .def(py::init<std::optional<double>, std::optional<double>>(),
+             py::arg("period") = py::none(), py::arg("cutoff") = py::none())
+        .def("__call__", &screamer::SuperSmoother::operator(), py::arg("value"))
+        .def("reset", &screamer::SuperSmoother::reset, "Reset to the initial state.");
+
+    // Decycler: Ehlers trend estimate (input minus a 1-pole highpass).
+    py::class_<screamer::Decycler, screamer::ScreamerBase>(m, "Decycler")
+        .def(py::init<std::optional<double>, std::optional<double>>(),
+             py::arg("period") = py::none(), py::arg("cutoff") = py::none())
+        .def("__call__", &screamer::Decycler::operator(), py::arg("value"))
+        .def("reset", &screamer::Decycler::reset, "Reset to the initial state.");
+
+    // RoofingFilter: Ehlers bandpass (2-pole highpass then SuperSmoother).
+    py::class_<screamer::RoofingFilter, screamer::ScreamerBase>(m, "RoofingFilter")
+        .def(py::init<std::optional<double>, std::optional<double>,
+                      std::optional<double>, std::optional<double>>(),
+             py::arg("hp_period") = py::none(), py::arg("lp_period") = py::none(),
+             py::arg("hp_cutoff") = py::none(), py::arg("lp_cutoff") = py::none())
+        .def("__call__", &screamer::RoofingFilter::operator(), py::arg("value"))
+        .def("reset", &screamer::RoofingFilter::reset, "Reset to the initial state.");
 
     // MovingAverage: FIR filter with user-supplied taps. Pre-compute
     // taps via numpy / scipy (np.hamming, np.kaiser, scipy.signal.firwin,
@@ -86,4 +123,75 @@ void init_bindings_signal(py::module& m) {
         .def("__call__", &screamer::Hold::operator(), py::arg("value"))
         .def("reset", &screamer::Hold::reset,
              "Reset to the initial state (remaining=0, held=release).");
+
+    // DominantCycle: 1->1 dominant cycle period (samples) via Ehlers'
+    // homodyne discriminator. See detail/hilbert_cycle.h.
+    py::class_<screamer::DominantCycle, screamer::EvalOp>(m, "DominantCycle")
+        .def(py::init<>())
+        .def("__call__", &screamer::DominantCycle::handle_input)
+        .def("reset", &screamer::DominantCycle::reset, "Reset to the initial state.");
+
+    // HilbertPhasor: 1->2 in-phase / quadrature components of the analytic
+    // signal via Ehlers' Hilbert transform. See detail/hilbert_cycle.h.
+    py::class_<screamer::HilbertPhasor, screamer::EvalOp>(m, "HilbertPhasor")
+        .def(py::init<>())
+        .def("__call__", &screamer::HilbertPhasor::handle_input)
+        .def("reset", &screamer::HilbertPhasor::reset, "Reset to the initial state.");
+
+    // CyclePhase: 1->1 instantaneous phase (degrees, 0..360) of the analytic
+    // signal via Ehlers' homodyne discriminator. See detail/hilbert_cycle.h.
+    py::class_<screamer::CyclePhase, screamer::EvalOp>(m, "CyclePhase")
+        .def(py::init<>())
+        .def("__call__", &screamer::CyclePhase::handle_input)
+        .def("reset", &screamer::CyclePhase::reset, "Reset to the initial state.");
+
+    // CycleFrequency: 1->1 instantaneous frequency (cycles per sample), the
+    // reciprocal of the dominant cycle period. See detail/hilbert_cycle.h.
+    py::class_<screamer::CycleFrequency, screamer::EvalOp>(m, "CycleFrequency")
+        .def(py::init<>())
+        .def("__call__", &screamer::CycleFrequency::handle_input)
+        .def("reset", &screamer::CycleFrequency::reset, "Reset to the initial state.");
+
+    // CycleAmplitude: 1->1 instantaneous amplitude (envelope) of the analytic
+    // signal, sqrt(I^2 + Q^2). See detail/hilbert_cycle.h.
+    py::class_<screamer::CycleAmplitude, screamer::EvalOp>(m, "CycleAmplitude")
+        .def(py::init<>())
+        .def("__call__", &screamer::CycleAmplitude::handle_input)
+        .def("reset", &screamer::CycleAmplitude::reset, "Reset to the initial state.");
+
+    // CycleSine: 1->2 sinewave indicator (sine, leadsine) = sin(phase) and
+    // sin(phase + 45 degrees), from the instantaneous phase of the analytic
+    // signal. See detail/hilbert_cycle.h.
+    py::class_<screamer::CycleSine, screamer::EvalOp>(m, "CycleSine")
+        .def(py::init<>())
+        .def("__call__", &screamer::CycleSine::handle_input)
+        .def("reset", &screamer::CycleSine::reset, "Reset to the initial state.");
+
+    // TrendMode: 1->1 trend-vs-cycle classifier. Outputs 1.0 when the
+    // dominant-cycle phase advance per sample is a small fraction
+    // (phase_rate_frac) of a full cycle's expected advance (trending), 0.0
+    // when the phase rotates at the cycle rate (cycling). See
+    // detail/hilbert_cycle.h.
+    py::class_<screamer::TrendMode, screamer::EvalOp>(m, "TrendMode")
+        .def(py::init<double>(), py::arg("phase_rate_frac") = 0.5)
+        .def("__call__", &screamer::TrendMode::handle_input)
+        .def("reset", &screamer::TrendMode::reset, "Reset to the initial state.");
+
+    // MAMA: 1->2 MESA Adaptive Moving Average (mama, fama). The smoothing
+    // factor adapts to the instantaneous-phase rate of change. See
+    // detail/hilbert_cycle.h.
+    py::class_<screamer::MAMA, screamer::EvalOp>(m, "MAMA")
+        .def(py::init<double, double>(),
+             py::arg("fast_limit") = 0.5, py::arg("slow_limit") = 0.05)
+        .def("__call__", &screamer::MAMA::handle_input)
+        .def("reset", &screamer::MAMA::reset, "Reset to the initial state.");
+
+    // InstantaneousTrendline: 1->1 Ehlers adaptive 2-pole trendline. The
+    // smoothing factor is set from the measured dominant cycle period, so
+    // the trendline follows the trend and removes the dominant cycle. See
+    // detail/hilbert_cycle.h.
+    py::class_<screamer::InstantaneousTrendline, screamer::EvalOp>(m, "InstantaneousTrendline")
+        .def(py::init<>())
+        .def("__call__", &screamer::InstantaneousTrendline::handle_input)
+        .def("reset", &screamer::InstantaneousTrendline::reset, "Reset to the initial state.");
 }

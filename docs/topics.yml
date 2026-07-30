@@ -28,7 +28,7 @@ groups:
   indicators:
     name: "Technical indicators"
     desc: "Market indicators: trend, momentum, bands, volume, and returns."
-    topics: [trend, momentum, bands, volume, returns]
+    topics: [trend, momentum, bands, volume, returns, cycles]
 
   microstructure:
     name: "Market microstructure"
@@ -96,6 +96,10 @@ topics:
   returns:
     name: "Returns & changes"
     desc: "Differences, returns, rates of change, and lags."
+
+  cycles:
+    name: "Cycles & spectra"
+    desc: "Dominant cycle, phase, amplitude, and frequency from the analytic signal."
 
   cumulative:
     name: "Cumulative"

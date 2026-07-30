@@ -19,22 +19,30 @@ Track the level of a series and suppress short-term noise.
      - Description
    * - :doc:`Butterworth low-pass filter </functions_signal/Butter>`
      - General-order IIR Butterworth low-pass filter.
+   * - :doc:`Ehlers Decycler trend filter </functions_signal/Decycler>`
+     - Ehlers trend estimate with short cycles removed.
    * - :doc:`Double Exponential MA (DEMA) </functions_rolling/DEMA>`
      - Mulloy's Double EMA: 2*EMA - EMA(EMA).
    * - :doc:`Exponentially-weighted mean </functions_ew/EwMean>`
      - Exponentially-weighted moving average (pandas adjust=True).
    * - :doc:`Hull MA </functions_rolling/HullMA>`
      - Hull's responsive MA: WMA(2*WMA(n/2) - WMA(n), sqrt(n)).
+   * - :doc:`Instantaneous trendline </functions_signal/InstantaneousTrendline>`
+     - Adaptive 2-pole trendline whose smoothing tracks the measured dominant cycle.
    * - :doc:`Scalar Kalman filter </functions_signal/KalmanFilter>`
      - Scalar 1-D Kalman filter for a noisy random-walk model.
    * - :doc:`Kaufman Adaptive MA (KAMA) </functions_rolling/KAMA>`
      - Adaptive MA whose smoothing constant responds to the efficiency ratio.
+   * - :doc:`MESA Adaptive Moving Average (MAMA) </functions_signal/MAMA>`
+     - Adaptive moving average pair (MAMA, FAMA) whose smoothing rate tracks the instantaneous-phase rate of change.
    * - :doc:`FIR moving average (arbitrary taps) </functions_signal/MovingAverage>`
      - Finite-impulse-response filter with user-supplied taps.
    * - :doc:`Rolling mean </functions_rolling/RollingMean>`
      - Trailing-window arithmetic mean (simple moving average).
    * - :doc:`Rolling 2nd-order polynomial fit </functions_rolling/RollingPoly2>`
      - OLS fit y = a + b*t + c*t^2 over a trailing window.
+   * - :doc:`Ehlers SuperSmoother lowpass filter </functions_signal/SuperSmoother>`
+     - Ehlers 2-pole low-lag lowpass filter.
    * - :doc:`Triple Exponential MA (TEMA) </functions_rolling/TEMA>`
      - Mulloy's Triple EMA: 3*EMA - 3*EMA(EMA) + EMA(EMA(EMA)).
    * - :doc:`Triangular MA (TRIMA) </functions_rolling/TRIMA>`
@@ -61,6 +69,8 @@ Designed frequency-domain and state-space filters.
      - General-order IIR Butterworth band-stop (notch) filter.
    * - :doc:`Butterworth high-pass filter </functions_signal/ButterHighpass>`
      - General-order IIR Butterworth high-pass filter (rejects low frequencies).
+   * - :doc:`Ehlers Decycler trend filter </functions_signal/Decycler>`
+     - Ehlers trend estimate with short cycles removed.
    * - :doc:`Fractional differentiation (FracDiff) </functions_signal/FracDiff>`
      - Fractional differencing filter. Removes the trend while keeping more of the series' memory than an integer difference.
    * - :doc:`Hampel filter </functions_rolling/Hampel>`
@@ -71,8 +81,12 @@ Designed frequency-domain and state-space filters.
      - Scalar 1-D Kalman filter for a noisy random-walk model.
    * - :doc:`FIR moving average (arbitrary taps) </functions_signal/MovingAverage>`
      - Finite-impulse-response filter with user-supplied taps.
+   * - :doc:`Ehlers roofing filter (bandpass) </functions_signal/RoofingFilter>`
+     - Ehlers bandpass, a highpass then a SuperSmoother.
    * - :doc:`Schmitt trigger (hysteresis comparator) </functions_signal/SchmittTrigger>`
      - Hysteresis comparator. Latches 1.0 above the upper threshold, 0.0 below the lower threshold, and retains its previous value in between.
+   * - :doc:`Ehlers SuperSmoother lowpass filter </functions_signal/SuperSmoother>`
+     - Ehlers 2-pole low-lag lowpass filter.
 
 .. toctree::
    :hidden:
@@ -81,15 +95,20 @@ Designed frequency-domain and state-space filters.
    /functions_signal/ButterBandpass
    /functions_signal/ButterBandstop
    /functions_signal/ButterHighpass
+   /functions_signal/Decycler
    /functions_rolling/DEMA
    /functions_rolling/Hampel
    /functions_signal/Hold
    /functions_rolling/HullMA
+   /functions_signal/InstantaneousTrendline
    /functions_signal/KalmanFilter
    /functions_rolling/KAMA
+   /functions_signal/MAMA
    /functions_signal/MovingAverage
    /functions_rolling/RollingPoly2
+   /functions_signal/RoofingFilter
    /functions_signal/SchmittTrigger
+   /functions_signal/SuperSmoother
    /functions_rolling/TEMA
    /functions_rolling/TRIMA
    /functions_rolling/WMA

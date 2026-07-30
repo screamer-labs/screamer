@@ -19,6 +19,8 @@ Direction and trend-following: trend-tracking averages, slope fits, ADX, and cha
      - Description
    * - :doc:`Average Directional Index (ADX) </functions_rolling/ADX>`
      - Wilder's ADX with +DI and -DI (3 inputs -> 3 outputs).
+   * - :doc:`Average Directional Index Rating (ADXR) </functions_rolling/ADXR>`
+     - Wilder's ADXR, the mean of ADX now and ADX one window ago.
    * - :doc:`Online Bayesian univariate regression (2->4 posterior fit) </functions_fin/BayesianRegression>`
      - Online exponentially-weighted (forgetting-factor) Bayesian linear regression - current slope and intercept via Normal-Inverse-Gamma posterior plus causal one-step-ahead predictive mean and std.
    * - :doc:`Double Exponential MA (DEMA) </functions_rolling/DEMA>`
@@ -27,6 +29,8 @@ Direction and trend-following: trend-tracking averages, slope fits, ADX, and cha
      - x[t] minus its rolling mean.
    * - :doc:`Donchian Channels </functions_rolling/DonchianChannels>`
      - Trend-following envelope: rolling max(high), rolling min(low), and midline.
+   * - :doc:`Directional index (DX) </functions_rolling/DX>`
+     - Wilder directional index, the pre-average input to ADX.
    * - :doc:`Expanding slope </functions_expanding/ExpandingSlope>`
      - Running OLS slope of the series against time over the whole history.
    * - :doc:`Hull MA </functions_rolling/HullMA>`
@@ -35,6 +39,14 @@ Direction and trend-following: trend-tracking averages, slope fits, ADX, and cha
      - Adaptive MA whose smoothing constant responds to the efficiency ratio.
    * - :doc:`MACD </functions_rolling/MACD>`
      - MACD line, signal line, and histogram (3 outputs).
+   * - :doc:`Minus directional indicator (-DI) </functions_rolling/MinusDI>`
+     - Wilder negative directional indicator.
+   * - :doc:`Minus directional movement (-DM) </functions_rolling/MinusDM>`
+     - Wilder smoothed negative directional movement.
+   * - :doc:`Plus directional indicator (+DI) </functions_rolling/PlusDI>`
+     - Wilder positive directional indicator.
+   * - :doc:`Plus directional movement (+DM) </functions_rolling/PlusDM>`
+     - Wilder smoothed positive directional movement.
    * - :doc:`Rolling Hurst Exponent </functions_rolling/RollingHurst>`
      - Rolling-window Hurst exponent via Anis-Lloyd corrected rescaled-range analysis.
    * - :doc:`Rolling linear regression (2->4 OLS fit) </functions_fin/RollingLinearRegression>`
@@ -160,22 +172,60 @@ Differences, returns, rates of change, and lags.
    * - :doc:`Rate of change ratio (ROCR) </functions_fin/ROCR>`
      - x[t] / x[t-k] - TA-Lib's ROCR.
 
+Cycles & spectra
+----------------
+
+Dominant cycle, phase, amplitude, and frequency from the analytic signal.
+
+.. list-table::
+   :header-rows: 1
+   :widths: 30 70
+
+   * - Function
+     - Description
+   * - :doc:`Instantaneous cycle amplitude </functions_signal/CycleAmplitude>`
+     - Instantaneous amplitude (envelope) of the analytic signal via Ehlers' homodyne discriminator.
+   * - :doc:`Instantaneous cycle frequency </functions_signal/CycleFrequency>`
+     - Instantaneous frequency, in cycles per sample, via Ehlers' homodyne discriminator.
+   * - :doc:`Instantaneous cycle phase </functions_signal/CyclePhase>`
+     - Instantaneous phase, in degrees, of the analytic signal via Ehlers' homodyne discriminator.
+   * - :doc:`Cycle sinewave indicator </functions_signal/CycleSine>`
+     - Sinewave indicator (sine, leadsine) from the instantaneous phase of the analytic signal.
+   * - :doc:`Dominant cycle period </functions_signal/DominantCycle>`
+     - Dominant cycle period via Ehlers' homodyne discriminator.
+   * - :doc:`Hilbert in-phase / quadrature components </functions_signal/HilbertPhasor>`
+     - In-phase and quadrature components of the analytic signal via Ehlers' Hilbert transform.
+   * - :doc:`Trend-vs-cycle classifier </functions_signal/TrendMode>`
+     - Classifies each sample as trending (1.0) or cycling (0.0) from the dominant-cycle phase advance.
+
 .. toctree::
    :hidden:
 
    /functions_rolling/ADOSC
    /functions_rolling/ADX
+   /functions_rolling/ADXR
    /functions_rolling/BOP
    /functions_rolling/CCI
+   /functions_signal/CycleAmplitude
+   /functions_signal/CycleFrequency
+   /functions_signal/CyclePhase
+   /functions_signal/CycleSine
    /functions_misc/Diff
    /functions_misc/Diff2
+   /functions_signal/DominantCycle
    /functions_rolling/DonchianChannels
+   /functions_rolling/DX
    /functions_expanding/ExpandingSlope
+   /functions_signal/HilbertPhasor
    /functions_misc/Lag
    /functions_fin/LogReturn
    /functions_rolling/MACD
    /functions_rolling/MFI
+   /functions_rolling/MinusDI
+   /functions_rolling/MinusDM
    /functions_misc/Momentum
+   /functions_rolling/PlusDI
+   /functions_rolling/PlusDM
    /functions_fin/Return
    /functions_fin/ROC
    /functions_fin/ROCP
@@ -184,6 +234,7 @@ Differences, returns, rates of change, and lags.
    /functions_rolling/RollingVWAP
    /functions_rolling/Stoch
    /functions_rolling/StochRSI
+   /functions_signal/TrendMode
    /functions_rolling/TRIX
    /functions_rolling/UltimateOscillator
    /functions_rolling/WilliamsR
