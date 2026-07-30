@@ -7,6 +7,12 @@ Unreleased
 
 ### Fixed
 
+* `FillNa` on a strided array tested the *output* buffer for `NaN` instead of the
+  input, so it filled arbitrary elements with the fill value and passed real `NaN`
+  inputs through unchanged. Reachable from the public API on any strided input;
+  the contiguous path was correct. Found by giving the parity harness coverage of
+  every operator (below).
+
 * Twelve operators declared `nan_policy: ignore` but let a `NaN` input reach
   their state, so a single `NaN` cost more than the one output slot the policy
   promises. Two mechanisms: the `NaN` was stored into a carried previous-value

@@ -52,7 +52,10 @@ namespace screamer {
             size_t xi = 0;
 
             for (size_t i=0; i<size; i++) {
-                if (isnan2(y[yi])) {
+                // Test the input, not the output: y is uninitialized on entry,
+                // so reading it filled random elements with `fill_` and let
+                // real NaN inputs through unchanged.
+                if (isnan2(x[xi])) {
                     y[yi] = fill_;
                 } else {
                     y[yi] = x[xi];

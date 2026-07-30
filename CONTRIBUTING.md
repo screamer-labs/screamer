@@ -37,19 +37,19 @@ From these, the hard rules:
   node. "The reducers are already in C++" does not make a Python-orchestrated
   combination compliant: the combination *is* the operator. The one sanctioned way
   to combine operators is a `Pipeline`/DAG, which is graph *structure* (built once)
-  and compiles to C++ — the data never crosses into Python per event.
+  and compiles to C++ - the data never crosses into Python per event.
 - **One implementation per operator.** Never ship a second implementation of the same
   behavior (for example a C++ eager path plus a separate Python lazy path). Batch and
   stream are the same compiled engine; a divergent second path is a maintenance and a
   correctness-parity defect.
 - **Every operator works in every regime.** An operator must run in all three call
-  regimes — eager (arrays), graph (`Node`/`Pipeline`), and lazy (event iterator) —
+  regimes - eager (arrays), graph (`Node`/`Pipeline`), and lazy (event iterator) -
   and produce identical results across them (goal 3). No operator may be eager-only,
   batch-only, or otherwise regime-restricted: an operator that raises in the graph or
   lazy path is an *incomplete* operator, not a finished one. This holds for
   training-time and dataset-assembly helpers too (someone will feed them a live
   production stream). If a capability is awkward to express in the streaming engine,
-  design the C++ node (or a `Pipeline` of C++ nodes) correctly — do not ship an
+  design the C++ node (or a `Pipeline` of C++ nodes) correctly - do not ship an
   eager-only shortcut.
 - **No Python orchestration of the data path.** The Pipeline/DAG compiles to and runs
   in C++ so data does not cross the boundary per event. Do not orchestrate windowing,
@@ -133,11 +133,50 @@ should be green with zero skips before you open a PR.
    poetry run python devtools/build_help_registry.py
    poetry run python devtools/build_topic_pages.py
    ```
-7. **Test every regime.** The operator is not done until a test proves it runs, with
-   identical output, in all three regimes: eager (arrays), graph (`Pipeline`), and
-   lazy (event iterator). This all-regime / batch==live test is the definition of
-   done — an operator that only a batch test exercises is not finished (see
-   [Design principles](#design-principles): every operator works in every regime).
+7. **Check the contract.** Run `pytest -q`. The registry-driven suites pick your
+   operator up from its docs page and assert every rule in
+   [The operator contract](#the-operator-contract) against it: causality, batch ==
+   stream, all three regimes, `reset()`, the `nan_policy` and `start_policy` you
+   declared, and the shape surface. You do not write those tests. Write the tests
+   that prove your operator computes the right numbers.
+
+### The operator contract
+
+An operator must satisfy every rule below. None of them are checked by a test you
+write yourself: each is asserted against every operator in the registry, and the
+registry is built from your docs page. Add the page and your operator is enrolled;
+there is no separate registration step, and no way to forget one.
+
+Read this list as the spec you are writing against.
+
+| Rule | What it means | Enforced by |
+|---|---|---|
+| **Causal** | Output at index `t` depends only on input up to `t`. Changing the future must not change the past. No backfill, no lookahead. | `test_contract_compliance.py::test_causal` |
+| **Batch == stream** | An array call and a sample-at-a-time call produce identical output. | `test_stream_vs_batch.py` |
+| **Every regime** | Eager (arrays), graph (`Pipeline`), and lazy (event iterator) produce identical output. | `test_contract_compliance.py::test_regimes_agree` |
+| **`reset()` is complete** | A reset operator behaves exactly like a fresh one; no state survives. | `test_contract_compliance.py::test_reset_restores_initial_state` |
+| **Declared `nan_policy` is the real one** | See below. Four properties, including that an ignored `NaN` costs exactly one output slot and never reaches internal state. | `test_nan_input_compliance.py` |
+| **Declared `start_policy` is the real one** | Warmup behaves as `strict` / `expanding` / `zero` claim, including on `NaN`-bearing input. | `test_nan_start_policy_compliance.py` |
+| **Shape surface** | Correct results through tensors, strided views, matrices, and every input/output size. | `test_tensor.py`, `test_view.py`, `test_matrix.py`, `test_io_size.py` |
+| **Documented and tagged** | A docs page with frontmatter and at least one topic from `docs/topics.yml`. | `test_doc_coverage.py` |
+| **Reachable by the harness** | Driven by `tests/param_cases.py`, or named in `PARITY_EXEMPT` with a reason. | `test_parity_registration.py` |
+
+A 1-input/1-output operator whose constructor arguments all have defaults is adopted
+by the parity harness automatically. Anything else needs a `test_definitions` entry
+in `tests/param_cases.py`, and `test_parity_registration.py` fails until it has one
+or an explicit exemption.
+
+**Writing a new contract test.** If a rule applies to every operator, it belongs in
+`tests/test_contract_compliance.py` (or the `nan` / `start_policy` compliance files)
+and must enumerate the registry. A contract test with a hardcoded list of function
+names is the smell: the next operator will not be covered by it. Per-operator
+numerical behaviour (does `ATR` match TA-Lib) is the opposite case and belongs in
+that operator's own file.
+
+**When a property finds pre-existing failures.** Add the offenders to the
+`KNOWN_*` set beside the property with `xfail(strict=True)` and a stated reason,
+rather than weakening the property or expanding the change. `strict=True` means
+fixing one fails the suite until the name is removed, so the list can only shrink.
 
 ### NaN policy
 
