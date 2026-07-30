@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from screamer import DominantCycle, HilbertPhasor, CyclePhase, CycleFrequency
+from screamer import DominantCycle, HilbertPhasor, CyclePhase, CycleFrequency, CycleAmplitude
 from tests.regime_helpers import assert_batch_equals_scalar
 
 
@@ -63,3 +63,18 @@ class TestCyclePhaseFrequency:
         x = _tone(20.0, n=400)
         assert_batch_equals_scalar(lambda: CyclePhase(), x)
         assert_batch_equals_scalar(lambda: CycleFrequency(), x)
+
+
+class TestCycleAmplitude:
+    @pytest.mark.parametrize("amp", [1.0, 3.0])
+    def test_recovers_amplitude(self, amp):
+        x = _tone(20.0, n=800, amp=amp)
+        a = np.asarray(CycleAmplitude()(x))
+        tail = a[-200:]; tail = tail[np.isfinite(tail)]
+        assert tail.size > 50
+        # Analytic-signal magnitude recovers the tone amplitude within 25%.
+        assert abs(np.median(tail) - amp) / amp < 0.25
+
+    def test_batch_equals_stream(self):
+        x = _tone(20.0, n=400)
+        assert_batch_equals_scalar(lambda: CycleAmplitude(), x)

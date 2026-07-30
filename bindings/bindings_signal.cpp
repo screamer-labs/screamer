@@ -17,6 +17,7 @@
 #include "screamer/hilbert_phasor.h"
 #include "screamer/cycle_phase.h"
 #include "screamer/cycle_frequency.h"
+#include "screamer/cycle_amplitude.h"
 
 namespace py = pybind11;
 
@@ -133,4 +134,11 @@ void init_bindings_signal(py::module& m) {
         .def(py::init<>())
         .def("__call__", &screamer::CycleFrequency::handle_input)
         .def("reset", &screamer::CycleFrequency::reset, "Reset to the initial state.");
+
+    // CycleAmplitude: 1->1 instantaneous amplitude (envelope) of the analytic
+    // signal, sqrt(I^2 + Q^2). See detail/hilbert_cycle.h.
+    py::class_<screamer::CycleAmplitude, screamer::EvalOp>(m, "CycleAmplitude")
+        .def(py::init<>())
+        .def("__call__", &screamer::CycleAmplitude::handle_input)
+        .def("reset", &screamer::CycleAmplitude::reset, "Reset to the initial state.");
 }

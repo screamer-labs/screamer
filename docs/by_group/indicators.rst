@@ -183,6 +183,8 @@ Dominant cycle, phase, amplitude, and frequency from the analytic signal.
 
    * - Function
      - Description
+   * - :doc:`Instantaneous cycle amplitude </functions_signal/CycleAmplitude>`
+     - Instantaneous amplitude (envelope) of the analytic signal via Ehlers' homodyne discriminator.
    * - :doc:`Instantaneous cycle frequency </functions_signal/CycleFrequency>`
      - Instantaneous frequency, in cycles per sample, via Ehlers' homodyne discriminator.
    * - :doc:`Instantaneous cycle phase </functions_signal/CyclePhase>`
@@ -200,6 +202,7 @@ Dominant cycle, phase, amplitude, and frequency from the analytic signal.
    /functions_rolling/ADXR
    /functions_rolling/BOP
    /functions_rolling/CCI
+   /functions_signal/CycleAmplitude
    /functions_signal/CycleFrequency
    /functions_signal/CyclePhase
    /functions_misc/Diff

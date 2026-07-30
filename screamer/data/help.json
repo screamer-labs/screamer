@@ -8394,6 +8394,27 @@
       }
     ]
   },
+  "CycleAmplitude": {
+    "name": "CycleAmplitude",
+    "title": "Instantaneous cycle amplitude",
+    "implementation_family": "signal",
+    "topics": [
+      "cycles"
+    ],
+    "tags": [
+      "ehlers",
+      "hilbert",
+      "cycle",
+      "analytic-signal"
+    ],
+    "short": "Instantaneous amplitude (envelope) of the analytic signal via Ehlers' homodyne discriminator.",
+    "inputs": 1,
+    "outputs": 1,
+    "parameters": [],
+    "nan_policy": "ignore",
+    "details": "## Description\n\n`CycleAmplitude` reads the instantaneous amplitude, or envelope, of the\nanalytic signal formed from a series by John Ehlers' Hilbert transform. It\nshares the same in-phase and quadrature components as `HilbertPhasor` and\n`CyclePhase`: the amplitude is the magnitude of the point `(I, Q)` in the\ncomplex plane, `sqrt(I^2 + Q^2)`. It is a general envelope detector, tracking\nthe local size of any oscillation in the series regardless of its period, and\napplies to any sampled signal, not only price.\n\n*Parameters*: `CycleAmplitude` takes no parameters.\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in the input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
+    "examples": []
+  },
   "CycleFrequency": {
     "name": "CycleFrequency",
     "title": "Instantaneous cycle frequency",
