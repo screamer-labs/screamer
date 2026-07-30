@@ -1,7 +1,7 @@
 print("TEST PARAM_CASES")
 from itertools import product
 import numpy as np
-from devtools import get_constructor_arguments, get_baselines, sii, get_module_public_classes
+from devtools import baselines, get_constructor_arguments, get_baselines, sii, get_module_public_classes
 import pytest
 
 screamer_module = sii.load_screamer_module()
@@ -164,7 +164,89 @@ test_definitions = [
     # truncate the tail against one tight enough to keep it.
     ( ('FracDiff',)              , {"d": [0.1, 0.4, 0.9, 1.0, 2.0], "window_size": [30],
                                     "threshold": [1e-5, 1e-3]}),
+    # 1-in/1-out classes whose constructor has a required argument, so the
+    # auto-adoption below (which drives constructor defaults) cannot reach them.
+    ( ('DEMA','TEMA','EwKurt','EwSkew') , {"span": [10]}),
+    ( ('Hold',)                  , {"n": [5]}),
+    ( ('SchmittTrigger',)        , {"lower": [-1.0], "upper": [1.0]}),
 ]
+
+
+# ----------------------------------------------------------------------
+# Auto-adoption: every 1-in/1-out functor the table above does not name
+# ----------------------------------------------------------------------
+# The groups above cover the Rolling* and Ew* prefixes and the no-argument
+# classes. Everything else used to need a hand-written line, and nothing
+# noticed when one was missing: 122 of 213 functors had no entry at all, so
+# they got no stream-vs-batch, tensor, view, matrix or io_size coverage.
+#
+# Instead of a static list that goes stale, adopt what the harness can drive:
+# any 1-input/1-output functor, run on its documented constructor defaults.
+# A new operator is picked up the day its docs page lands, with no
+# registration step. `tests/test_parity_registration.py` fails if a functor
+# ends up neither covered here nor exempt below.
+#
+# Multi-input and multi-output functors are structurally outside this harness
+# (it drives one array in, one array out) and are listed as exempt.
+
+def _shapes():
+    import json as _json
+    from pathlib import Path as _Path
+    help_json = _Path(__file__).resolve().parent.parent / "screamer" / "data" / "help.json"
+    entries = _json.loads(help_json.read_text())
+    return {
+        name: (int(e.get("inputs", 1)), int(e.get("outputs", 1)))
+        for name, e in entries.items()
+        if e.get("kind", "functor") == "functor"
+    }
+
+
+SHAPES = _shapes()
+
+# Classes whose baseline computes a different quantity, so comparing them
+# asserts nothing. They still get parity coverage (stream vs batch, shapes);
+# only the baseline comparison is skipped.
+#
+# EwSkew / EwKurt: pandas applies a bias correction to its exponentially
+# weighted third and fourth moments; screamer reports the plain EW moment. The
+# results differ by more than a constant factor (EwKurt is off by ~80x here),
+# so this is a definition gap, not a tolerance one. Carried over from the
+# "todo baselines" note these two used to sit under.
+BASELINE_KNOWN_MISMATCH: dict[str, str] = {
+    "EwSkew": "pandas bias-corrects the EW third moment; screamer does not",
+    "EwKurt": "pandas bias-corrects the EW fourth moment; screamer does not",
+}
+
+# Named here rather than driven with defaults, each for a stated reason.
+PARITY_EXEMPT: dict[str, str] = {}
+
+# Multi-input / multi-output functors: the auto harness drives a single array
+# in and a single array out, so these need bespoke drivers. They have them in
+# their own test files (test_backtest.py, test_atr_family.py,
+# test_oscillators_hlc.py, test_ew_pair.py, test_arithmetic.py, ...).
+PARITY_EXEMPT.update({
+    name: "multi-input/output; driven by its own test file"
+    for name, (n_in, n_out) in SHAPES.items()
+    if (n_in, n_out) != (1, 1)
+})
+
+
+def _auto_adopted_classes():
+    named = set()
+    for class_names, _ in test_definitions:
+        named.update(class_names)
+    return tuple(sorted(
+        name for name, shape in SHAPES.items()
+        if shape == (1, 1)
+        and name not in named
+        and name not in PARITY_EXEMPT
+        and name in screamer_classes
+    ))
+
+
+AUTO_ADOPTED = _auto_adopted_classes()
+if AUTO_ADOPTED:
+    test_definitions.append((AUTO_ADOPTED, {}))
 
 
 # ----------------------------------------------------------------------
@@ -263,5 +345,22 @@ def yield_test_cases_with_baselines():
             array_length = params.pop("array_length", 100)
             array_type = params.pop("array_type", "default")
 
+            if class_name in BASELINE_KNOWN_MISMATCH:
+                continue
+
             for baseline_name in baselines_for_class:
+                # A baseline is an independent reimplementation, so its
+                # constructor takes whatever its author chose. Auto-adopted
+                # classes are driven on screamer's defaults with no explicit
+                # parameters, which a baseline requiring an argument cannot
+                # accept. Pair them only where the baseline can actually be
+                # built; `python -m devtools.report_baselines` is what tracks
+                # baseline coverage, and parity for these classes is still
+                # covered by the stream-vs-batch and shape tests.
+                baseline_class = getattr(baselines, baseline_name, None)
+                if baseline_class is not None:
+                    try:
+                        baseline_class(**params)
+                    except TypeError:
+                        continue
                 yield (class_name, baseline_name, params, array_type, array_length)
