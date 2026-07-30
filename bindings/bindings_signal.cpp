@@ -6,6 +6,7 @@
 #include "screamer/butter_bandpass.h"
 #include "screamer/butter_bandstop.h"
 #include "screamer/moving_average.h"
+#include "screamer/frac_diff.h"
 #include "screamer/kalman_filter.h"
 #include "screamer/schmitt_trigger.h"
 #include "screamer/hold.h"
@@ -46,6 +47,18 @@ void init_bindings_signal(py::module& m) {
         .def(py::init<const std::vector<double>&>(), py::arg("taps") = std::vector<double>{0.25, 0.5, 0.25})
         .def("__call__", &screamer::MovingAverage::operator(), py::arg("value"))
         .def("reset", &screamer::MovingAverage::reset, "Reset.");
+
+    // FracDiff: fractional differentiation (Lopez de Prado, AFML ch. 5).
+    // FIR filter with taps w_k = (-1)^k * binom(d, k), truncated at
+    // window_size taps or at the first |w_k| < threshold.
+    py::class_<screamer::FracDiff, screamer::ScreamerBase>(m, "FracDiff")
+        .def(py::init<double, int, double, const std::string&>(),
+             py::arg("d") = 0.4,
+             py::arg("window_size") = 100,
+             py::arg("threshold") = 1e-5,
+             py::arg("start_policy") = "strict")
+        .def("__call__", &screamer::FracDiff::operator(), py::arg("value"))
+        .def("reset", &screamer::FracDiff::reset, "Reset to the initial state.");
 
     // KalmanFilter: scalar 1-D random-walk-with-noise model.
     py::class_<screamer::KalmanFilter, screamer::ScreamerBase>(m, "KalmanFilter")
