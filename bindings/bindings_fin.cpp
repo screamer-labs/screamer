@@ -55,17 +55,23 @@ void init_bindings_fin(py::module& m) {
     // users can port directly. ROCP is mathematically identical to
     // Return.
     py::class_<screamer::ROC, screamer::ScreamerBase>(m, "ROC")
-        .def(py::init<int>(), py::arg("window_size") = 1)
+        // TA-Lib's timeperiod default is 10, which is what the docs page and
+        // the sibling Momentum both declare. This was 1.
+        .def(py::init<int>(), py::arg("window_size") = 10)
         .def("__call__", &screamer::ROC::operator(), py::arg("value"))
         .def("reset", &screamer::ROC::reset, "Reset to the initial state.");
 
     py::class_<screamer::ROCP, screamer::ScreamerBase>(m, "ROCP")
-        .def(py::init<int>(), py::arg("window_size") = 1)
+        // TA-Lib's timeperiod default is 10, which is what the docs page and
+        // the sibling Momentum both declare. This was 1.
+        .def(py::init<int>(), py::arg("window_size") = 10)
         .def("__call__", &screamer::ROCP::operator(), py::arg("value"))
         .def("reset", &screamer::ROCP::reset, "Reset to the initial state.");
 
     py::class_<screamer::ROCR, screamer::ScreamerBase>(m, "ROCR")
-        .def(py::init<int>(), py::arg("window_size") = 1)
+        // TA-Lib's timeperiod default is 10, which is what the docs page and
+        // the sibling Momentum both declare. This was 1.
+        .def(py::init<int>(), py::arg("window_size") = 10)
         .def("__call__", &screamer::ROCR::operator(), py::arg("value"))
         .def("reset", &screamer::ROCR::reset, "Reset to the initial state.");
 

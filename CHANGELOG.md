@@ -7,6 +7,14 @@ Unreleased
 
 ### Fixed
 
+* `ROC`, `ROCP` and `ROCR` defaulted to `window_size=1` while their pages
+  documented `10`, TA-Lib's `timeperiod` default and the value the sibling
+  `Momentum` uses. `ROC()` computed a 1-period rate of change and the page said
+  otherwise. The bindings now default to 10. **Passing `window_size` explicitly
+  is unaffected.** `tests/test_documented_defaults.py` now asserts every
+  documented default against the pybind11 signature, so a page and its binding
+  cannot drift apart again.
+
 * `EwSkew` and `EwKurt` returned a value scaled down by roughly the effective
   sample size, so the result shrank as the window lengthened. Both fed
   *mean*-based moment ratios into bias corrections written for *sum*-based
@@ -66,6 +74,23 @@ Unreleased
   `NaN` index itself was `NaN`, which every one of these operators satisfied.
 
 ### Added
+
+* 34 reference implementations, taking baseline coverage from 62 of 213
+  operators to 96. Elementwise math (`Acos`, `Asin`, `Atan`, `Ceil`, `Cos`,
+  `Cube`, `Floor`, `Identity`, `IsFinite`, `IsNan`, `Not`, `Round`, `Sin`,
+  `Square`), cumulative and positional (`CumSum`, `CumProd`, `CumMax`,
+  `CumMin`, `Diff2`, `Momentum`, `ROC`, `ROCP`, `ROCR`, `Detrend`, `Drawdown`,
+  `MaxDrawdown`), and windowed (`RollingRange`, `RollingMad`,
+  `RollingMedianAD`, `RollingHitRate`, `WMA`, `TRIMA`, `DEMA`, `TEMA`). Each is
+  written from the documented definition rather than from screamer's
+  implementation, and each is compared on every run. Writing them is what
+  exposed the `ROC` default above.
+
+* `array_type: "unit"` in the test harness, giving the inverse trigonometric
+  operators input inside their domain. Driven with the previous `positive`
+  input (uniform 0.1 to 10) most samples fell outside the domain and both sides
+  returned `NaN`, so the comparison passed without asserting anything.
+
 
 * `FracDiff(d, window_size, threshold, start_policy)` - fractional differentiation
   (Lopez de Prado, *Advances in Financial Machine Learning*, chapter 5). An FIR

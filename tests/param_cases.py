@@ -157,6 +157,8 @@ test_definitions = [
     # Despikers (not 'Rolling'-prefixed, so listed explicitly). RollingMedianAD
     # is auto-included via the rolling_classes group above.
     ( ('Hampel','ImpulseClip')   , {"window_size": [20]}),
+    # Inverse trig: bounded input so the comparison sees finite values.
+    ( ('Acos','Asin')            , {"array_type": ["unit"]}),
     # FracDiff: fractional and integer orders, and a threshold loose enough to
     # truncate the tail against one tight enough to keep it.
     ( ('FracDiff',)              , {"d": [0.1, 0.4, 0.9, 1.0, 2.0], "window_size": [30],
@@ -270,7 +272,19 @@ def generate_default_array(array_length):
     """Generate a standard array with random normal values."""
     return np.random.randn(array_length)
 
+def generate_unit_array(array_length):
+    """Values in [-1, 1], the domain of the inverse trig functions.
+
+    Without this they are driven with `positive` (uniform 0.1 to 10), where
+    most samples are outside the domain and both sides return NaN. The
+    comparison then passes without asserting anything.
+    """
+    return np.random.uniform(-1.0, 1.0, array_length)
+
+
 def generate_array(array_type, array_length, **kwargs):
+    if array_type == 'unit':
+        return generate_unit_array(array_length)
     if array_type == 'positive':
         return generate_positive_array(array_length)
     if array_type == 'with_nan':
