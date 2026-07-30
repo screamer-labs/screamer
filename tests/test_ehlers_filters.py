@@ -70,3 +70,32 @@ class TestDecycler:
     def test_batch_equals_stream(self):
         x = _x(300, seed=9)
         assert_batch_equals_scalar(lambda: Decycler(period=40.0), x)
+
+
+from screamer import RoofingFilter
+
+
+def _highpass2_ba(period):
+    w = 0.707 * 2 * np.pi / period
+    alpha = (np.cos(w) + np.sin(w) - 1) / np.cos(w)
+    g = 1 - alpha / 2
+    om = 1 - alpha
+    b = [g * g, -2 * g * g, g * g]
+    a = [1.0, -2 * om, om * om]
+    return b, a
+
+
+class TestRoofingFilter:
+    @pytest.mark.parametrize("hp,lp", [(48.0, 10.0), (80.0, 20.0)])
+    def test_matches_reference(self, hp, lp):
+        x = _x(600, seed=int(hp + lp))
+        ours = np.asarray(RoofingFilter(hp_period=hp, lp_period=lp)(x))
+        b_hp, a_hp = _highpass2_ba(hp)
+        b_ss, a_ss = _supersmoother_ba(lp)
+        ref = lfilter(b_ss, a_ss, lfilter(b_hp, a_hp, x))
+        np.testing.assert_allclose(ours, ref, atol=1e-12)
+
+    def test_batch_equals_stream(self):
+        x = _x(400, seed=11)
+        assert_batch_equals_scalar(
+            lambda: RoofingFilter(hp_period=48.0, lp_period=10.0), x)

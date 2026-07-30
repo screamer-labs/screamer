@@ -8346,6 +8346,51 @@
       }
     ]
   },
+  "RoofingFilter": {
+    "name": "RoofingFilter",
+    "title": "Ehlers roofing filter (bandpass)",
+    "implementation_family": "signal",
+    "topics": [
+      "filtering"
+    ],
+    "tags": [
+      "ehlers",
+      "iir",
+      "bandpass"
+    ],
+    "short": "Ehlers bandpass, a highpass then a SuperSmoother.",
+    "inputs": 1,
+    "outputs": 1,
+    "parameters": [
+      {
+        "name": "hp_period",
+        "type": "float",
+        "default": 48.0,
+        "description": "Highpass cutoff as a cycle length in samples. Give this or hp_cutoff."
+      },
+      {
+        "name": "lp_period",
+        "type": "float",
+        "default": 10.0,
+        "description": "Lowpass cutoff as a cycle length in samples. Give this or lp_cutoff."
+      },
+      {
+        "name": "hp_cutoff",
+        "type": "float",
+        "default": null,
+        "description": "Highpass cutoff as a fraction of Nyquist in (0, 1). Give this or hp_period."
+      },
+      {
+        "name": "lp_cutoff",
+        "type": "float",
+        "default": null,
+        "description": "Lowpass cutoff as a fraction of Nyquist in (0, 1). Give this or lp_period."
+      }
+    ],
+    "nan_policy": "ignore",
+    "details": "## Description\n\n`RoofingFilter` is a causal bandpass from John Ehlers. It applies a 2-pole\nhighpass at `hp_period` to remove the trend, then a `SuperSmoother` at\n`lp_period` to remove fast noise, leaving the band of cycles between the two\ncutoffs. It is the preprocessing step Ehlers applies before measuring a cycle,\nbecause a raw series carries a trend and high-frequency noise that distort the\nmeasurement.\n\nEach cutoff is a cycle length in samples (`hp_period`, `lp_period`) or a fraction\nof the Nyquist frequency (`hp_cutoff`, `lp_cutoff`), related by `cutoff = 2 / period`.\n\n### Parameters\n\n**`hp_period`** / **`hp_cutoff`** *(float)*: The highpass cutoff. Provide exactly one.\n\n**`lp_period`** / **`lp_cutoff`** *(float)*: The lowpass cutoff. Provide exactly one.\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in the input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
+    "examples": []
+  },
   "SchmittTrigger": {
     "name": "SchmittTrigger",
     "title": "Schmitt trigger (hysteresis comparator)",

@@ -75,6 +75,8 @@ Designed frequency-domain and state-space filters.
      - Scalar 1-D Kalman filter for a noisy random-walk model.
    * - :doc:`FIR moving average (arbitrary taps) </functions_signal/MovingAverage>`
      - Finite-impulse-response filter with user-supplied taps.
+   * - :doc:`Ehlers roofing filter (bandpass) </functions_signal/RoofingFilter>`
+     - Ehlers bandpass, a highpass then a SuperSmoother.
    * - :doc:`Schmitt trigger (hysteresis comparator) </functions_signal/SchmittTrigger>`
      - Hysteresis comparator. Latches 1.0 above the upper threshold, 0.0 below the lower threshold, and retains its previous value in between.
    * - :doc:`Ehlers SuperSmoother lowpass filter </functions_signal/SuperSmoother>`
@@ -96,6 +98,7 @@ Designed frequency-domain and state-space filters.
    /functions_rolling/KAMA
    /functions_signal/MovingAverage
    /functions_rolling/RollingPoly2
+   /functions_signal/RoofingFilter
    /functions_signal/SchmittTrigger
    /functions_signal/SuperSmoother
    /functions_rolling/TEMA

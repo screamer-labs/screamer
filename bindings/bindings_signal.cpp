@@ -8,6 +8,7 @@
 #include "screamer/butter_bandstop.h"
 #include "screamer/super_smoother.h"
 #include "screamer/decycler.h"
+#include "screamer/roofing_filter.h"
 #include "screamer/moving_average.h"
 #include "screamer/kalman_filter.h"
 #include "screamer/schmitt_trigger.h"
@@ -56,6 +57,15 @@ void init_bindings_signal(py::module& m) {
              py::arg("period") = py::none(), py::arg("cutoff") = py::none())
         .def("__call__", &screamer::Decycler::operator(), py::arg("value"))
         .def("reset", &screamer::Decycler::reset, "Reset to the initial state.");
+
+    // RoofingFilter: Ehlers bandpass (2-pole highpass then SuperSmoother).
+    py::class_<screamer::RoofingFilter, screamer::ScreamerBase>(m, "RoofingFilter")
+        .def(py::init<std::optional<double>, std::optional<double>,
+                      std::optional<double>, std::optional<double>>(),
+             py::arg("hp_period") = py::none(), py::arg("lp_period") = py::none(),
+             py::arg("hp_cutoff") = py::none(), py::arg("lp_cutoff") = py::none())
+        .def("__call__", &screamer::RoofingFilter::operator(), py::arg("value"))
+        .def("reset", &screamer::RoofingFilter::reset, "Reset to the initial state.");
 
     // MovingAverage: FIR filter with user-supplied taps. Pre-compute
     // taps via numpy / scipy (np.hamming, np.kaiser, scipy.signal.firwin,
