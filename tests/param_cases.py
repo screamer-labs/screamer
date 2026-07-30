@@ -203,18 +203,30 @@ def _shapes():
 
 SHAPES = _shapes()
 
-# Classes whose baseline computes a different quantity, so comparing them
-# asserts nothing. They still get parity coverage (stream vs batch, shapes);
-# only the baseline comparison is skipped.
+# Classes whose baseline comparison is skipped. They still get parity coverage
+# (stream vs batch, shapes); only the comparison against the reference is
+# skipped.
 #
-# EwSkew / EwKurt: pandas applies a bias correction to its exponentially
-# weighted third and fourth moments; screamer reports the plain EW moment. The
-# results differ by more than a constant factor (EwKurt is off by ~80x here),
-# so this is a definition gap, not a tolerance one. Carried over from the
-# "todo baselines" note these two used to sit under.
+# EwSkew / EwKurt: both sides are wrong, so comparing them asserts nothing.
+# Neither is a convention difference; both apply the same bias-correction
+# formula and both misapply it.
+#
+#   screamer feeds mean-based moment ratios (m3/s^3, m4/s^4) into corrections
+#   written for sum-based quantities, which drops a factor of n_eff. The
+#   reported value shrinks as the window lengthens: on exponential data (true
+#   skew 2.0) EwSkew(span=100) returns 0.019, and EwSkew * (n_eff - 2)
+#   recovers 2.03. EwKurt behaves the same way.
+#
+#   The baseline standardizes each point by the *running* std inside the EW
+#   average instead of dividing the central moment once, and then subtracts 3
+#   from a correction that already returns excess kurtosis. EwKurt_pandas
+#   returns -6 on normal data at every span.
+#
+# Fixing the operators is tracked separately; this entry exists so the skip is
+# not mistaken for a tolerance issue.
 BASELINE_KNOWN_MISMATCH: dict[str, str] = {
-    "EwSkew": "pandas bias-corrects the EW third moment; screamer does not",
-    "EwKurt": "pandas bias-corrects the EW fourth moment; screamer does not",
+    "EwSkew": "operator and baseline are both wrong; see the note above",
+    "EwKurt": "operator and baseline are both wrong; see the note above",
 }
 
 # Named here rather than driven with defaults, each for a stated reason.
