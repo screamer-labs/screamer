@@ -8456,6 +8456,27 @@
     "details": "## Description\n\n`CyclePhase` reads the instantaneous phase of the analytic signal formed from\na series by John Ehlers' Hilbert transform, in degrees, wrapped to `[0, 360)`.\nIt shares the same in-phase and quadrature components as `HilbertPhasor` and\nthe same period estimate as `DominantCycle`: the phase is the angle of the\npoint `(I, Q)` in the complex plane, and it advances by roughly `360 /\nperiod` degrees per sample while the dominant cycle stays stable. The\nestimate is a general spectral quantity: the same measurement applies to any\nsampled signal, not only price.\n\n*Parameters*: `CyclePhase` takes no parameters.\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in the input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
     "examples": []
   },
+  "CycleSine": {
+    "name": "CycleSine",
+    "title": "Cycle sinewave indicator",
+    "implementation_family": "signal",
+    "topics": [
+      "cycles"
+    ],
+    "tags": [
+      "ehlers",
+      "hilbert",
+      "cycle",
+      "analytic-signal"
+    ],
+    "short": "Sinewave indicator (sine, leadsine) from the instantaneous phase of the analytic signal.",
+    "inputs": 1,
+    "outputs": 2,
+    "parameters": [],
+    "nan_policy": "ignore",
+    "details": "## Description\n\n`CycleSine` computes John Ehlers' sinewave indicator from the instantaneous\nphase of the analytic signal formed from a series by the Hilbert transform.\nIt shares the same phase estimate as `CyclePhase`: given the phase in\ndegrees, `sine` is `sin(phase)` and `leadsine` is `sin(phase + 45deg)`, a\nversion of `sine` advanced by one eighth of a cycle. Because `sine` tracks\nthe phase directly, it turns at the same point in the cycle regardless of\nthe cycle's period, and the two outputs cross near the phase's turning\npoints. The estimate is a general spectral quantity: the same measurement\napplies to any sampled signal, not only price.\n\nThis is a **1-input, 2-output** function (`FunctorBase<_, 1, 2>`). Outputs\nare stacked along a trailing axis of size 2: `out[..., 0]` is `sine`,\n`out[..., 1]` is `leadsine`.\n\n*Parameters*: `CycleSine` takes no parameters.\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in the input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
+    "examples": []
+  },
   "Decycler": {
     "name": "Decycler",
     "title": "Ehlers Decycler trend filter",

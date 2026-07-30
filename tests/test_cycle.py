@@ -1,7 +1,9 @@
 import numpy as np
 import pytest
 
-from screamer import DominantCycle, HilbertPhasor, CyclePhase, CycleFrequency, CycleAmplitude
+from screamer import (
+    DominantCycle, HilbertPhasor, CyclePhase, CycleFrequency, CycleAmplitude, CycleSine,
+)
 from tests.regime_helpers import assert_batch_equals_scalar
 
 
@@ -78,3 +80,18 @@ class TestCycleAmplitude:
     def test_batch_equals_stream(self):
         x = _tone(20.0, n=400)
         assert_batch_equals_scalar(lambda: CycleAmplitude(), x)
+
+
+class TestCycleSine:
+    def test_sine_bounded_and_leads(self):
+        x = _tone(20.0, n=800)
+        out = np.asarray(CycleSine()(x))
+        sine, lead = out[:, 0], out[:, 1]
+        m = np.isfinite(sine) & np.isfinite(lead)
+        assert m.sum() > 100
+        assert sine[m].min() >= -1.0001 and sine[m].max() <= 1.0001
+        assert lead[m].min() >= -1.0001 and lead[m].max() <= 1.0001
+
+    def test_batch_equals_stream(self):
+        x = _tone(20.0, n=400)
+        assert_batch_equals_scalar(lambda: CycleSine(), x)

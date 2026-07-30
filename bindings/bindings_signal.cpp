@@ -18,6 +18,7 @@
 #include "screamer/cycle_phase.h"
 #include "screamer/cycle_frequency.h"
 #include "screamer/cycle_amplitude.h"
+#include "screamer/cycle_sine.h"
 
 namespace py = pybind11;
 
@@ -141,4 +142,12 @@ void init_bindings_signal(py::module& m) {
         .def(py::init<>())
         .def("__call__", &screamer::CycleAmplitude::handle_input)
         .def("reset", &screamer::CycleAmplitude::reset, "Reset to the initial state.");
+
+    // CycleSine: 1->2 sinewave indicator (sine, leadsine) = sin(phase) and
+    // sin(phase + 45 degrees), from the instantaneous phase of the analytic
+    // signal. See detail/hilbert_cycle.h.
+    py::class_<screamer::CycleSine, screamer::EvalOp>(m, "CycleSine")
+        .def(py::init<>())
+        .def("__call__", &screamer::CycleSine::handle_input)
+        .def("reset", &screamer::CycleSine::reset, "Reset to the initial state.");
 }

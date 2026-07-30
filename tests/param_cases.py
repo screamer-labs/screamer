@@ -123,7 +123,7 @@ _NO_ARG_AUTO_EXCLUDE = {
     # 10-input L1 quotes+trades market-making engine - tested in test_backtest.py
     'BacktestL1TradesOrders',
     # 1-input, 2-output (FunctorBase<_, 1, 2>) - tested in test_cycle.py
-    'HilbertPhasor',
+    'HilbertPhasor', 'CycleSine',
 }
 # Linear2 takes constructor args (a, b, c) so it is not a no-arg class
 # and would not be picked up here - listed for clarity only.
