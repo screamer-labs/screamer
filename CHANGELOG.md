@@ -86,6 +86,14 @@ Unreleased
   implementation, and each is compared on every run. Writing them is what
   exposed the `ROC` default above.
 
+* References for the exponentially weighted volatility twins and the EW pair
+  statistics, taking baseline coverage to 138 of 213. `EwParkinson*` and
+  `EwGarmanKlass*` reuse the QuantLib per-bar kernel with EW weighting in place
+  of rolling; `EwRogersSatchell*` is transcribed and anchored by the simulation
+  test, which now covers the EW forms including the drift-robustness split.
+  `EwCov`, `EwCorr` and `EwBeta` are checked against `pandas.ewm().cov()`,
+  `.corr()` and `.var()`.
+
 * References for the eight range-based volatility operators, taking baseline
   coverage to 129 of 213. `RollingParkinson*` and `RollingGarmanKlass*` are
   checked against **QuantLib** (`ParkinsonSigma` and `GarmanKlassSigma5`), an

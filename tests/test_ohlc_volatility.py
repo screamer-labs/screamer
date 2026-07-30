@@ -144,3 +144,65 @@ def test_vol_is_the_square_root_of_var():
     ]
     for var, vol in pairs:
         np.testing.assert_allclose(np.sqrt(var), vol, equal_nan=True, rtol=1e-12)
+
+
+# ---------------------------------------------------------------------------
+# The exponentially weighted twins
+# ---------------------------------------------------------------------------
+# Same per-bar kernels, an EW mean in place of a rolling one, so they must
+# recover the same sigma in the same regimes. Their references share the
+# QuantLib kernel (Parkinson, Garman-Klass) or are transcriptions
+# (Rogers-Satchell), so the transcribed one needs this anchor for the same
+# reason the rolling form does.
+
+SPAN = 50
+
+
+def ew_estimates(o, h, l, c):
+    from screamer import (
+        EwGarmanKlassVar, EwParkinsonVar, EwRogersSatchellVar,
+    )
+    return {
+        "ew_parkinson": _sigma_of(EwParkinsonVar(span=SPAN)(h, l)),
+        "ew_garman_klass": _sigma_of(EwGarmanKlassVar(span=SPAN)(o, h, l, c)),
+        "ew_rogers_satchell": _sigma_of(EwRogersSatchellVar(span=SPAN)(o, h, l, c)),
+    }
+
+
+@pytest.mark.parametrize(
+    "name", ["ew_parkinson", "ew_garman_klass", "ew_rogers_satchell"]
+)
+def test_ew_forms_recover_sigma(name):
+    got = ew_estimates(*simulate_bars())[name]
+    assert got == pytest.approx(SIGMA, rel=0.10), (
+        f"{name} returned {got:.5f} for a path generated with sigma {SIGMA}"
+    )
+
+
+def test_ew_rogers_satchell_is_drift_robust():
+    """The EW form inherits the drift robustness of the per-bar kernel."""
+    got = ew_estimates(*simulate_bars(drift=5 * SIGMA))
+    assert got["ew_rogers_satchell"] == pytest.approx(SIGMA, rel=0.20), (
+        f"EwRogersSatchell returned {got['ew_rogers_satchell']:.5f} under heavy "
+        f"drift, against a true {SIGMA}"
+    )
+    for biased in ("ew_parkinson", "ew_garman_klass"):
+        assert got[biased] > 1.5 * SIGMA, (
+            f"{biased} returned {got[biased]:.5f} under heavy drift; it is not "
+            "drift-robust and should be inflated"
+        )
+
+
+def test_ew_vol_is_the_square_root_of_ew_var():
+    from screamer import (
+        EwGarmanKlassVar, EwGarmanKlassVol, EwParkinsonVar, EwParkinsonVol,
+        EwRogersSatchellVar, EwRogersSatchellVol,
+    )
+    o, h, l, c = simulate_bars()
+    pairs = [
+        (EwParkinsonVar(span=SPAN)(h, l), EwParkinsonVol(span=SPAN)(h, l)),
+        (EwGarmanKlassVar(span=SPAN)(o, h, l, c), EwGarmanKlassVol(span=SPAN)(o, h, l, c)),
+        (EwRogersSatchellVar(span=SPAN)(o, h, l, c), EwRogersSatchellVol(span=SPAN)(o, h, l, c)),
+    ]
+    for var, vol in pairs:
+        np.testing.assert_allclose(np.sqrt(var), vol, equal_nan=True, rtol=1e-12)

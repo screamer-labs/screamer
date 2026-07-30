@@ -253,6 +253,13 @@ multi_input_definitions = [
     ( ('Equal','NotEqual','And','Or','Where',
        'GreaterThan','LessThan','GreaterEqual','LessEqual')
                                     , {"array_type": ["discrete"]}),
+    # EW range-based volatility: same coherent bars, EW weighting.
+    ( ('EwParkinsonVar','EwParkinsonVol',
+       'EwGarmanKlassVar','EwGarmanKlassVol',
+       'EwRogersSatchellVar','EwRogersSatchellVol')
+                                    , {"span": [10], "array_type": ["ohlc"]}),
+    # EW pair statistics on two independent streams.
+    ( ('EwCov','EwCorr','EwBeta')   , {"span": [10]}),
     # Range-based volatility: needs coherent bars, see generate_ohlc_arrays.
     ( ('RollingParkinsonVar','RollingParkinsonVol',
        'RollingGarmanKlassVar','RollingGarmanKlassVol',
