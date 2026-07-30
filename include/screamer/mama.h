@@ -7,7 +7,6 @@
 // FAMA (following adaptive MA) is a second, slower pass. Returns (mama, fama).
 // Reuses detail::HilbertCycle for the phase.
 
-#include <algorithm>
 #include <cmath>
 #include <limits>
 #include "screamer/common/functor_base.h"

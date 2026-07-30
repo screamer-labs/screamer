@@ -4,6 +4,10 @@ from scipy.signal import lfilter
 
 class RoofingFilter_ehlers:
     def __init__(self, hp_period=None, lp_period=None, hp_cutoff=None, lp_cutoff=None):
+        if (hp_period is None) == (hp_cutoff is None):
+            raise ValueError("Provide exactly one of hp_period or hp_cutoff.")
+        if (lp_period is None) == (lp_cutoff is None):
+            raise ValueError("Provide exactly one of lp_period or lp_cutoff.")
         hp = hp_period if hp_period is not None else 2.0 / hp_cutoff
         lp = lp_period if lp_period is not None else 2.0 / lp_cutoff
         w = 0.707 * 2 * np.pi / hp

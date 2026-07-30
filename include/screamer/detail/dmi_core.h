@@ -45,7 +45,6 @@ public:
     }
 
     DmiResult update(double high, double low, double close) {
-        const double nan = std::numeric_limits<double>::quiet_NaN();
         DmiResult r;
         if (isnan2(high) || isnan2(low) || isnan2(close)) {
             return r;  // NaN policy "ignore": leave state, emit all NaN.

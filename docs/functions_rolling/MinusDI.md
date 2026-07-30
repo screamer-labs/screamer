@@ -96,4 +96,4 @@ valid output is at sample index `window_size`.
 
 ## Reference
 
-Matches `talib.MINUS_DI` bit-exactly (verified to ~1e-14 in `tests/test_third_party_alignment.py`).
+Matches `talib.MINUS_DI`; verified in `tests/test_dmi.py::TestPlusMinusDI`.
