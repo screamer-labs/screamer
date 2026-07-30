@@ -75,8 +75,8 @@ Unreleased
 
 ### Added
 
-* 34 reference implementations, taking baseline coverage from 62 of 213
-  operators to 96. Elementwise math (`Acos`, `Asin`, `Atan`, `Ceil`, `Cos`,
+* 59 reference implementations, taking baseline coverage from 62 of 213
+  operators to 121. Elementwise math (`Acos`, `Asin`, `Atan`, `Ceil`, `Cos`,
   `Cube`, `Floor`, `Identity`, `IsFinite`, `IsNan`, `Not`, `Round`, `Sin`,
   `Square`), cumulative and positional (`CumSum`, `CumProd`, `CumMax`,
   `CumMin`, `Diff2`, `Momentum`, `ROC`, `ROCP`, `ROCR`, `Detrend`, `Drawdown`,
@@ -85,6 +85,19 @@ Unreleased
   written from the documented definition rather than from screamer's
   implementation, and each is compared on every run. Writing them is what
   exposed the `ROC` default above.
+
+* The baseline harness now drives multi-input operators, one independent array
+  per input, which is what let the two- and three-input math operators be
+  compared at all: `Add`, `Sub`, `Mul`, `Div`, `Hypot`, `Atan2`, `Linear2`,
+  `Cart2Polar`, `Polar2Cart`, `Where`, and the comparison and logic family.
+  Independence matters, since feeding one array to both sides of `Sub` compares
+  all zeros. The `Butter*` family, `MovingAverage`, `SchmittTrigger`, `Hold` and
+  `KalmanFilter` gained references in the same pass.
+
+* `array_type: "discrete"`, small integers with repeats and real zeros, for the
+  logic, equality and select operators. On continuous input two independent
+  draws are never equal and are always both nonzero, so `Equal`, `And`, `Or`
+  and `Where` were each compared on one branch only and asserted nothing.
 
 * `array_type: "unit"` in the test harness, giving the inverse trigonometric
   operators input inside their domain. Driven with the previous `positive`

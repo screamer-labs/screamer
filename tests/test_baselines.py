@@ -1,6 +1,6 @@
 print("TEST: test_baselines.py")
 import numpy as np
-from .param_cases import yield_test_cases_with_baselines, generate_array
+from .param_cases import SHAPES, generate_arrays, yield_test_cases_with_baselines
 from devtools import baselines, sii
 import pytest
 
@@ -24,14 +24,21 @@ def test_screamer_vs_baseline(class_name, baseline_name, params, array_type, arr
     screamer_instance = screamer_class(**params)
     baseline_instance = baseline_class(**params)
 
-    # Generate the input array for the test
-    input_array = generate_array(array_type, array_length)
+    # One array per input. A 2-input operator gets two independent draws, so
+    # Sub is not compared on all zeros and Equal not on all ones.
+    n_inputs, _ = SHAPES.get(class_name, (1, 1))
+    input_arrays = generate_arrays(array_type, array_length, n_inputs)
 
     # Run both implementations
-    screamer_output = screamer_instance(input_array)
-    baseline_output = baseline_instance(input_array)
+    screamer_output = screamer_instance(*input_arrays)
+    baseline_output = baseline_instance(*input_arrays)
 
-    assert input_array.shape == baseline_output.shape, "Baseline output is not the same shape as its input."
+    screamer_output = np.asarray(screamer_output)
+    baseline_output = np.asarray(baseline_output)
+    assert screamer_output.shape == baseline_output.shape, (
+        f"{class_name}: baseline returns {baseline_output.shape}, "
+        f"operator returns {screamer_output.shape}"
+    )
 
     # compare outputs
     # todo: for now we only compare the last 10 elements because we have no clear

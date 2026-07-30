@@ -235,6 +235,27 @@ def _auto_adopted_classes():
     ))
 
 
+# Multi-input operators, driven only by tests/test_baselines.py.
+#
+# They are deliberately NOT in `test_definitions`: that table also feeds the
+# tensor / view / matrix / io_size / stream-vs-batch harnesses, which pass a
+# single array and cannot drive an operator taking two or three. The baseline
+# comparison generates one array per input, so it can.
+#
+# `positive` keeps Div away from zero denominators and Polar2Cart away from
+# negative radii. The logic and equality operators need `discrete` instead:
+# on continuous input two independent draws are never equal and always both
+# nonzero, so Equal, And, Or and Where would each be compared on a single
+# branch. See generate_discrete_array.
+multi_input_definitions = [
+    ( ('Add','Sub','Mul','Div','Hypot','Atan2','Linear2',
+       'Cart2Polar','Polar2Cart')   , {"array_type": ["positive"]}),
+    ( ('Equal','NotEqual','And','Or','Where',
+       'GreaterThan','LessThan','GreaterEqual','LessEqual')
+                                    , {"array_type": ["discrete"]}),
+]
+
+
 AUTO_ADOPTED = _auto_adopted_classes()
 if AUTO_ADOPTED:
     test_definitions.append((AUTO_ADOPTED, {}))
@@ -282,7 +303,37 @@ def generate_unit_array(array_length):
     return np.random.uniform(-1.0, 1.0, array_length)
 
 
-def generate_array(array_type, array_length, **kwargs):
+def generate_discrete_array(array_length):
+    """Small integers in {0, 1, 2}, as floats.
+
+    The logic and comparison operators are degenerate on continuous input:
+    two independent draws are never equal, are always both nonzero, and a
+    random mask never selects its second branch. Equal would be compared on
+    all-zeros, And and Or on all-ones, and Where on one branch only, so the
+    comparison would pass without exercising the operator. Repeated values and
+    genuine zeros fix that.
+    """
+    return np.random.randint(0, 3, array_length).astype(float)
+
+
+def generate_arrays(array_type, array_length, n_inputs):
+    """One array per input, drawn independently.
+
+    Independence matters: feeding the same array to both sides of `Sub` gives
+    all zeros, to `Div` all ones, to `Equal` all ones. The comparison would
+    pass on a degenerate case and assert nothing about the operator.
+    """
+    return [
+        generate_array(array_type, array_length, seed=k)
+        for k in range(n_inputs)
+    ]
+
+
+def generate_array(array_type, array_length, seed=None, **kwargs):
+    if seed is not None:
+        np.random.seed(1000 + seed)
+    if array_type == 'discrete':
+        return generate_discrete_array(array_length)
     if array_type == 'unit':
         return generate_unit_array(array_length)
     if array_type == 'positive':
@@ -332,7 +383,7 @@ def yield_test_cases():
 
 def yield_test_cases_with_baselines():
     """Yield tuples of (class_name, baseline_name, params_dict, array_type, array_length) for testing."""
-    cases = expanded_test_cases(test_definitions)
+    cases = expanded_test_cases(test_definitions + multi_input_definitions)
     for class_names, param_cases in cases:
 
         for class_name, params_dict in product(class_names, param_cases):
