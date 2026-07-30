@@ -3,6 +3,7 @@ import pytest
 
 from screamer import (
     DominantCycle, HilbertPhasor, CyclePhase, CycleFrequency, CycleAmplitude, CycleSine,
+    TrendMode,
 )
 from tests.regime_helpers import assert_batch_equals_scalar
 
@@ -95,3 +96,19 @@ class TestCycleSine:
     def test_batch_equals_stream(self):
         x = _tone(20.0, n=400)
         assert_batch_equals_scalar(lambda: CycleSine(), x)
+
+
+class TestTrendMode:
+    def test_binary_and_finite_after_warmup(self):
+        # A pure tone is a cycle, so trend mode should be mostly 0 on the tail.
+        x = _tone(20.0, n=1000)
+        tm = np.asarray(TrendMode()(x))
+        m = np.isfinite(tm)
+        assert m.sum() > 100
+        vals = set(np.unique(tm[m]).tolist())
+        assert vals.issubset({0.0, 1.0})
+        assert np.mean(tm[m]) < 0.5  # predominantly cycle on a clean tone
+
+    def test_batch_equals_stream(self):
+        x = _tone(20.0, n=400)
+        assert_batch_equals_scalar(lambda: TrendMode(), x)

@@ -19,6 +19,7 @@
 #include "screamer/cycle_frequency.h"
 #include "screamer/cycle_amplitude.h"
 #include "screamer/cycle_sine.h"
+#include "screamer/trend_mode.h"
 
 namespace py = pybind11;
 
@@ -150,4 +151,14 @@ void init_bindings_signal(py::module& m) {
         .def(py::init<>())
         .def("__call__", &screamer::CycleSine::handle_input)
         .def("reset", &screamer::CycleSine::reset, "Reset to the initial state.");
+
+    // TrendMode: 1->1 trend-vs-cycle classifier. Outputs 1.0 when the
+    // dominant-cycle phase advance per sample is a small fraction
+    // (phase_rate_frac) of a full cycle's expected advance (trending), 0.0
+    // when the phase rotates at the cycle rate (cycling). See
+    // detail/hilbert_cycle.h.
+    py::class_<screamer::TrendMode, screamer::EvalOp>(m, "TrendMode")
+        .def(py::init<double>(), py::arg("phase_rate_frac") = 0.5)
+        .def("__call__", &screamer::TrendMode::handle_input)
+        .def("reset", &screamer::TrendMode::reset, "Reset to the initial state.");
 }

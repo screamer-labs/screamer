@@ -8813,6 +8813,35 @@
     "details": "## Description\n\n`SuperSmoother` is a causal 2-pole IIR lowpass filter from John Ehlers. It passes\ncomponents of the input series slower than the cutoff and attenuates faster ones,\nwith less lag and less ringing than a Butterworth filter of comparable rolloff.\n\nThe cutoff is set by a cycle length in samples (`period`) or, equivalently, a\nfraction of the Nyquist frequency (`cutoff`), related by `cutoff = 2 / period`.\nThe filter coefficients follow Ehlers' critically damped design.\n\n### Parameters\n\n**`period`** *(float)*: The cutoff expressed as a cycle length in samples.\n\n**`cutoff`** *(float)*: The cutoff expressed as a fraction of the Nyquist frequency, in (0, 1). Provide exactly one of `period` or `cutoff`.\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in the input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
     "examples": []
   },
+  "TrendMode": {
+    "name": "TrendMode",
+    "title": "Trend-vs-cycle classifier",
+    "implementation_family": "signal",
+    "topics": [
+      "cycles"
+    ],
+    "tags": [
+      "ehlers",
+      "hilbert",
+      "cycle",
+      "analytic-signal"
+    ],
+    "short": "Classifies each sample as trending (1.0) or cycling (0.0) from the dominant-cycle phase advance.",
+    "inputs": 1,
+    "outputs": 1,
+    "parameters": [
+      {
+        "name": "phase_rate_frac",
+        "type": "float",
+        "default": 0.5,
+        "min": 0.0,
+        "description": "Threshold, as a fraction of the expected per-sample phase advance for the current dominant cycle, below which a sample is classified as trending."
+      }
+    ],
+    "nan_policy": "ignore",
+    "details": "## Description\n\n`TrendMode` classifies each sample of a series as trending or cycling, using\nthe same instantaneous phase and dominant-cycle period as `CyclePhase` and\n`DominantCycle`. While a series oscillates at a stable dominant cycle, the\nphase advances by close to `360 / period` degrees per sample. When the phase\nadvance stalls well below that rate, the dominant cycle has effectively\nstopped rotating, which this function reads as a trending market.\n\nThe rule: at each sample, compute the phase change from the previous sample\n(unwrapped to `[-180, 180]` degrees) and compare its magnitude to\n`phase_rate_frac * (360 / period)`, the expected per-sample advance scaled\nby `phase_rate_frac`. If the phase change is smaller, the output is `1.0`\n(trending); otherwise it is `0.0` (cycling).\n\nThis is a threshold classifier, not a transcription of any single reference\nformula: it is one simple, causal way to turn the phase and period estimates\ninto a binary trend/cycle flag. Lowering `phase_rate_frac` makes the\nclassifier stricter about calling a trend, raising it makes trend mode more\nfrequent.\n\n*Parameters*: `TrendMode` takes one parameter.\n\n### Parameters\n\n**`phase_rate_frac`** *(float, default `0.5`)*: The threshold, as a fraction\nof the expected per-sample phase advance for the current dominant cycle,\nbelow which a sample is classified as trending.\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in the input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
+    "examples": []
+  },
   "CombineLatest": {
     "name": "CombineLatest",
     "title": "CombineLatest",
