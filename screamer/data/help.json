@@ -5502,6 +5502,43 @@
       }
     ]
   },
+  "ADXR": {
+    "name": "ADXR",
+    "title": "Average Directional Index Rating (ADXR)",
+    "implementation_family": "rolling",
+    "topics": [
+      "trend"
+    ],
+    "tags": [
+      "adxr",
+      "wilder",
+      "dmi",
+      "directional-movement",
+      "talib",
+      "hlc"
+    ],
+    "short": "Wilder's ADXR, the mean of ADX now and ADX one window ago.",
+    "inputs": 3,
+    "outputs": 1,
+    "parameters": [
+      {
+        "name": "window_size",
+        "type": "int",
+        "default": 14,
+        "min": 2,
+        "description": "Wilder smoothing period."
+      }
+    ],
+    "nan_policy": "ignore",
+    "details": "## Description\n\n`ADXR` is Wilder's average directional index rating (Wilder, 1978), the mean\nof the current `ADX` and the `ADX` value `window_size - 1` bars earlier:\n\n$$\n\\text{ADXR}[t] = \\frac{\\text{ADX}[t] + \\text{ADX}[t - (\\text{window\\_size} - 1)]}{2}\n$$\n\n**3-input, 1-output** (`FunctorBase<_, 3, 1>`) on `(high, low, close)`. `ADXR`\nshares its smoothing engine with `ADX`, `PlusDI`, `MinusDI`, and `DX`. Averaging\n`ADX` against its own value one window back damps the swings of `ADX` itself,\ngiving a slower read on whether trend strength is rising or falling.\n\n### Parameters\n\n**`window_size`** *(int, default 14)*: The Wilder smoothing period, also the\nlag used for the second `ADX` term. Because `ADX` itself is only valid from\nsample `2 * window_size - 1` onward, the first valid `ADXR` output is at\nsample `3 * window_size - 2`.\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage example",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import ADXR, ADX\n\nrng = np.random.default_rng(0)\nN = 300\nclose = 100 + np.cumsum(rng.standard_normal(N))\nhigh = close + np.abs(rng.standard_normal(N))\nlow = close - np.abs(rng.standard_normal(N))\n\nadxr = ADXR(window_size=14)(high, low, close)\nadx = ADX(window_size=14)(high, low, close)[:, 2]\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.5, 0.5],\n                    vertical_spacing=0.08)\nfig.add_trace(go.Scatter(y=close, name='Close', line=dict(color='steelblue')),\n              row=1, col=1)\nfig.add_trace(go.Scatter(y=adx, name='ADX', line=dict(color='crimson', dash='dot')), row=2, col=1)\nfig.add_trace(go.Scatter(y=adxr, name='ADXR', line=dict(color='crimson')), row=2, col=1)\nfig.update_layout(\n    title='ADXR: ADX smoothed against its own value one window back',\n    yaxis=dict(title='Price'), yaxis2=dict(title='ADX / ADXR (0-100)'),\n    margin=dict(l=20, r=20, t=60, b=20),\n    legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1),\n)\nfig.show()"
+      }
+    ]
+  },
   "ATR": {
     "name": "ATR",
     "title": "Average True Range (ATR)",

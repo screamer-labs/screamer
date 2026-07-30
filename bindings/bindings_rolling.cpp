@@ -58,6 +58,7 @@
 #include "screamer/plus_dm.h"
 #include "screamer/minus_dm.h"
 #include "screamer/dx.h"
+#include "screamer/adxr.h"
 #include "screamer/vwap.h"
 #include "screamer/obv.h"
 #include "screamer/ad.h"
@@ -480,6 +481,13 @@ void init_bindings_rolling(py::module& m) {
         .def(py::init<int>(), py::arg("window_size") = 14)
         .def("__call__", &screamer::DX::handle_input)
         .def("reset", &screamer::DX::reset, "Reset to the initial state.");
+
+    // ADXR: mean of ADX now and ADX (window_size - 1) bars ago, sharing
+    // DmiCore with ADX.
+    py::class_<screamer::ADXR, screamer::EvalOp>(m, "ADXR")
+        .def(py::init<int>(), py::arg("window_size") = 14)
+        .def("__call__", &screamer::ADXR::handle_input)
+        .def("reset", &screamer::ADXR::reset, "Reset to the initial state.");
 
     // Volume-aware indicators.
     py::class_<screamer::RollingVWAP, screamer::EvalOp>(m, "RollingVWAP")

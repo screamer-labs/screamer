@@ -19,6 +19,8 @@ Direction and trend-following: trend-tracking averages, slope fits, ADX, and cha
      - Description
    * - :doc:`Average Directional Index (ADX) </functions_rolling/ADX>`
      - Wilder's ADX with +DI and -DI (3 inputs -> 3 outputs).
+   * - :doc:`Average Directional Index Rating (ADXR) </functions_rolling/ADXR>`
+     - Wilder's ADXR, the mean of ADX now and ADX one window ago.
    * - :doc:`Online Bayesian univariate regression (2->4 posterior fit) </functions_fin/BayesianRegression>`
      - Online exponentially-weighted (forgetting-factor) Bayesian linear regression - current slope and intercept via Normal-Inverse-Gamma posterior plus causal one-step-ahead predictive mean and std.
    * - :doc:`Double Exponential MA (DEMA) </functions_rolling/DEMA>`
@@ -175,6 +177,7 @@ Differences, returns, rates of change, and lags.
 
    /functions_rolling/ADOSC
    /functions_rolling/ADX
+   /functions_rolling/ADXR
    /functions_rolling/BOP
    /functions_rolling/CCI
    /functions_misc/Diff

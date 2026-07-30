@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 import talib
 
-from screamer import ADX, PlusDI, MinusDI, PlusDM, MinusDM, DX
+from screamer import ADX, PlusDI, MinusDI, PlusDM, MinusDM, DX, ADXR
 from tests.regime_helpers import assert_batch_equals_scalar
 
 
@@ -95,3 +95,18 @@ class TestDX:
     def test_dx_batch_equals_stream(self):
         high, low, close = _ohlc(200, seed=8)
         assert_batch_equals_scalar(lambda: DX(14), high, low, close)
+
+
+class TestADXR:
+    @pytest.mark.parametrize("w", [14, 20])
+    def test_adxr_matches_talib(self, w):
+        high, low, close = _ohlc(400, seed=w + 9)
+        ours = np.asarray(ADXR(w)(high, low, close))
+        ref = talib.ADXR(high, low, close, timeperiod=w)
+        m = np.isfinite(ours) & np.isfinite(ref)
+        assert m.sum() > 0
+        np.testing.assert_allclose(ours[m], ref[m], atol=1e-8)
+
+    def test_adxr_batch_equals_stream(self):
+        high, low, close = _ohlc(300, seed=10)
+        assert_batch_equals_scalar(lambda: ADXR(14), high, low, close)
