@@ -7,6 +7,22 @@ Unreleased
 
 ### Changed
 
+* `RollingMax`, `RollingMin` and `RollingRange` compute their array results by
+  block decomposition instead of by replaying the streaming recurrence, which
+  is 5 to 7 times faster and no longer depends on the shape of the data:
+  `RollingMax(50)` on 1M random samples goes from 8.6 to 1.2 ns/sample, and
+  from 10.6 to 1.2 on a random walk. Streaming is untouched.
+
+  The deque's real cost on random input is not its comparisons but its pop
+  loop, whose trip count depends on the data, so the loop-exit branch
+  mispredicts on most samples. Splitting the array into blocks of `window` and
+  taking a running extremum forward and backward through each gives the same
+  answers with two comparisons per element and no data-dependent branch. It
+  needs up to `window` samples of lookahead, so it can only be the array path;
+  the event path keeps the deque. The array path falls back to the streaming
+  recurrence when the operator already holds state or the input contains
+  `NaN`, so results are identical either way.
+
 * The sliding-window extremum used by `RollingMin`, `RollingMax`,
   `RollingRange`, `RollingArgmin`, `RollingArgmax`, `WilliamsR`, `Stoch`,
   `StochRSI` and `DonchianChannels` now stores its candidates in a fixed ring

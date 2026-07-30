@@ -14,7 +14,9 @@
 
 #include <cmath>
 #include <limits>
+#include <vector>
 #include "screamer/common/base.h"
+#include "screamer/detail/block_extremum.h"
 #include "screamer/detail/monotonic_deque.h"
 
 namespace screamer {
@@ -27,6 +29,26 @@ public:
     void reset() override {
         min_deque_.reset();
         max_deque_.reset();
+    }
+
+    // See RollingMax. Two block passes, one per extremum, still with no
+    // data-dependent branching.
+    void process_array_no_stride(double* y, const double* x, size_t size) override {
+        if (min_deque_.samples_seen() != 0 || detail::has_nan(x, size)) {
+            ScreamerBase::process_array_no_stride(y, x, size);
+            return;
+        }
+        std::vector<double> lows(size);
+        detail::block_extremum<false>(lows.data(), x, size, min_deque_.window_size());
+        detail::block_extremum<true>(y, x, size, max_deque_.window_size());
+        for (size_t i = 0; i < size; ++i) {
+            y[i] -= lows[i];
+        }
+        const size_t window = static_cast<size_t>(min_deque_.window_size());
+        for (size_t i = (size > window) ? size - window : 0; i < size; ++i) {
+            min_deque_.append(x[i]);
+            max_deque_.append(x[i]);
+        }
     }
 
 private:
