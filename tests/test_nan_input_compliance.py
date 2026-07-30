@@ -59,13 +59,7 @@ KNOWN_STICKY_NAN: set[str] = set()
 #     remaining finite samples instead of NaN.
 #   * Multi-input financial composites where the NaN of one input is masked
 #     by the formula.
-#   * The shared Ehlers Hilbert-cycle engine (detail/hilbert_cycle.h):
-#     update() early-returns on a NaN sample without invalidating
-#     readiness, so a lone mid-stream NaN holds the last good value at
-#     that index instead of surfacing NaN. Affects every functor built on
-#     that engine (DominantCycle, HilbertPhasor). Fixing this requires
-#     changing the shared engine; tracked as a follow-up, not fixed here.
-KNOWN_NO_NAN_PROPAGATION: set[str] = {"DominantCycle", "HilbertPhasor"}
+KNOWN_NO_NAN_PROPAGATION: set[str] = set()
 
 
 # Functions whose declared ``propagate`` policy formula does not reference

@@ -60,10 +60,17 @@ public:
         phase_ = std::numeric_limits<double>::quiet_NaN();
         amplitude_ = std::numeric_limits<double>::quiet_NaN();
         n_ = 0;
+        last_input_nan_ = false;
     }
 
     void update(double price) {
-        if (std::isnan(price)) return;  // NaN policy ignore.
+        if (std::isnan(price)) {
+            // NaN policy ignore: leave all running state untouched; the
+            // NaN itself is surfaced by the accessors via last_input_nan_.
+            last_input_nan_ = true;
+            return;
+        }
+        last_input_nan_ = false;
         shift(price_, price);
         const double sm = (4.0 * price_[0] + 3.0 * price_[1] + 2.0 * price_[2] + price_[3]) / 10.0;
         shift(smooth_, sm);
@@ -108,11 +115,11 @@ public:
     }
 
     bool ready() const { return n_ > kWarmup; }
-    double inphase() const { return ready() ? i2_ : nan(); }
-    double quadrature() const { return ready() ? q2_ : nan(); }
-    double period() const { return ready() ? smooth_period_ : nan(); }
-    double phase() const { return ready() ? phase_ : nan(); }
-    double amplitude() const { return ready() ? amplitude_ : nan(); }
+    double inphase() const { return (ready() && !last_input_nan_) ? i2_ : nan(); }
+    double quadrature() const { return (ready() && !last_input_nan_) ? q2_ : nan(); }
+    double period() const { return (ready() && !last_input_nan_) ? smooth_period_ : nan(); }
+    double phase() const { return (ready() && !last_input_nan_) ? phase_ : nan(); }
+    double amplitude() const { return (ready() && !last_input_nan_) ? amplitude_ : nan(); }
 
 private:
     static constexpr int kWarmup = 40;  // discriminator settling; tuned via pure-tone test.
@@ -142,6 +149,7 @@ private:
     double phase_ = nan();
     double amplitude_ = nan();
     int n_ = 0;
+    bool last_input_nan_ = false;
 };
 
 }  // namespace detail
