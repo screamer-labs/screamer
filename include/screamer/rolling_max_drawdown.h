@@ -22,6 +22,7 @@
 #include <vector>
 #include <algorithm>
 #include "screamer/common/base.h"
+#include "screamer/common/float_info.h"
 
 namespace screamer {
 
@@ -44,6 +45,12 @@ public:
     }
 
     double process_scalar(double price) override {
+        // nan_policy: ignore. Return before any state is touched, so the
+        // sample neither enters the window nor advances warmup.
+        if (isnan2(price)) {
+            return std::numeric_limits<double>::quiet_NaN();
+        }
+
         buffer_[index_] = price;
         index_++;
         if (index_ == window_size_) index_ = 0;

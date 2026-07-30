@@ -48,6 +48,12 @@ public:
     }
 
     double process_scalar(double x) override {
+        // nan_policy: ignore. Return before any state is touched, so the
+        // sample neither enters the window nor advances warmup.
+        if (isnan2(x)) {
+            return std::numeric_limits<double>::quiet_NaN();
+        }
+
         const double e1 = ema1_.process_scalar(x);
         const double e2 = ema2_.process_scalar(e1);
         const double e3 = ema3_.process_scalar(e2);

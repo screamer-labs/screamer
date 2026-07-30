@@ -62,6 +62,11 @@ public:
         const double H = inputs[1];
         const double L = inputs[2];
         const double C = inputs[3];
+        // nan_policy: ignore. A bar with any missing field is skipped whole,
+        // so prev_close_ keeps meaning "the close of the last usable bar".
+        if (any_nan(O, H, L, C)) {
+            return std::numeric_limits<double>::quiet_NaN();
+        }
 
         // Open-to-close log return; RS per-bar.
         const double oc = std::log(C / O);

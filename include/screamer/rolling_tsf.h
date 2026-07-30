@@ -19,6 +19,7 @@
 #include <limits>
 #include <stdexcept>
 #include "screamer/common/base.h"
+#include "screamer/common/float_info.h"
 #include "screamer/detail/rolling_sum.h"
 
 namespace screamer {
@@ -49,6 +50,12 @@ public:
     }
 
     double process_scalar(double y) override {
+        // nan_policy: ignore. Return before any state is touched, so the
+        // sample neither enters the window nor advances warmup.
+        if (isnan2(y)) {
+            return std::numeric_limits<double>::quiet_NaN();
+        }
+
         // We want a rolling regression of y[t-n+1..t] vs the local
         // time index 0..n-1. To maintain sum(y * t_local) cheaply, we
         // use the identity that updating from one window to the next

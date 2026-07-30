@@ -48,6 +48,14 @@ public:
 
     ResultTuple call(const InputArray& inputs) override {
         const double close = inputs[2];
+        // nan_policy: ignore. The guard has to be here, not left to ATR: the
+        // mid-line consumes `close` while ATR consumes the whole bar, so a bar
+        // with (say) a missing high would feed the mid-line a sample ATR
+        // skipped, and the two would drift apart for the rest of the stream.
+        if (any_nan(inputs[0], inputs[1], close)) {
+            const double nan = std::numeric_limits<double>::quiet_NaN();
+            return std::make_tuple(nan, nan, nan);
+        }
         const double m = mid_.process_scalar(close);
         const double a = atr_.call(inputs);
         if (isnan2(a)) {

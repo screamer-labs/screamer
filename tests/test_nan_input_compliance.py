@@ -10,7 +10,7 @@ The original symptom that motivated this test suite: leading-NaN inputs
 the running-sum state of downstream rolling/EW functions, making them emit
 all-NaN forever.
 
-Two independent properties are checked per function:
+Four independent properties are checked per function:
 
 1. **No sticky NaN** (:func:`test_no_sticky_nan`). Three leading NaN inputs
    followed by ~500 finite samples; the last output must be finite. This
@@ -20,6 +20,21 @@ Two independent properties are checked per function:
    single mid-stream NaN, the output at that same index must be NaN. This
    catches functions that silently drop NaN samples without emitting the
    NaN-in-NaN-out marker that the policy guarantees.
+
+3. **An ignored NaN costs exactly one output slot**
+   (:func:`test_ignore_nan_is_state_transparent`). Properties 1 and 2 say
+   nothing about the sample *after* the NaN, which is where `ignore` differs
+   from `propagate`: the sample is never stored, so splicing a NaN into a
+   stream must leave every other output untouched. Eleven operators were
+   writing the NaN into a carried previous-value slot or letting it occupy a
+   window position before this property existed.
+
+4. **One missing field skips the whole row**
+   (:func:`test_ignore_nan_is_state_transparent_per_input`). A multi-input
+   function can pass property 3 and still be wrong: if it feeds one input into
+   its own state and delegates the rest to a sub-operator, a row where only one
+   field is missing leaves the two halves consuming different numbers of
+   samples. This is what `RollingVWAP` and `KeltnerChannels` did.
 
 Functions known to violate either property are listed in the corresponding
 ``KNOWN_*`` set below and marked ``xfail(strict=True)``. When a function is
@@ -295,32 +310,33 @@ def test_nan_at_nan_index(name: str, entry: dict):
 # under `ignore` the sample is never stored, so splicing a NaN into a stream
 # must leave every other output untouched. MovingAverage declared `ignore`
 # while buffering the NaN, and passed both existing properties.
-# These fail the property today. All of them are pre-existing and unrelated to
-# the change that added this test, so they are tracked here rather than fixed
-# in one sweep. The differences are semantic, not rounding: an extra NaN in the
-# output (TrueRange, TRIX), many extra NaNs (RollingHurst, RollingIqr), or a
-# different finite value (Stoch differs by ~200, RollingMaxDrawdown by ~2e-4).
-# Several are multi-input OHLC functions that hold a previous-close or a
-# previous-bar term and store the NaN into it.
+# Empty, and it should stay that way: a function that declares `ignore` and is
+# not state-transparent is a bug, not a variation. xfail(strict=True), so a
+# name listed here that starts passing fails the suite until it is removed.
+KNOWN_NOT_TRANSPARENT: set[str] = set()
+
+# Not bugs: the backtest family declares `ignore` for its market-data inputs
+# but gives its order and target inputs a documented meaning for NaN, so a NaN
+# there legitimately changes state. Each page states its own contract: a NaN
+# target is "no target this bar, hold the position" (BacktestOHLCTarget,
+# BacktestL1Target, BacktestTradesTarget); a NaN bid or ask price is a market
+# order (BacktestOHLCOrders, BacktestTradesOrders, BacktestL1TradesOrders); a
+# NaN trade price or size is a no-trade event.
 #
-# xfail(strict=True), so fixing one of these fails the suite until it is
-# removed from this set.
-KNOWN_NOT_TRANSPARENT: set[str] = {
-    "ATR",
+# The transparency properties below set NaN in every input, or in one input at
+# a time, and cannot tell those two kinds of input apart. Encoding which index
+# means what for operators taking 3 to 10 inputs would duplicate the contract
+# these pages already carry, so the family is excluded here and its NaN
+# behaviour is covered by tests/test_backtest.py instead. What is therefore NOT
+# covered here: that a NaN in a *market* field of a backtest operator leaves
+# state untouched.
+MIXED_NAN_SEMANTICS: set[str] = {
+    "BacktestL1Target",
+    "BacktestL1TradesOrders",
+    "BacktestOHLCOrders",
     "BacktestOHLCTarget",
-    "KeltnerChannels",
-    "NATR",
-    "RollingHitRate",
-    "RollingHurst",
-    "RollingIqr",
-    "RollingMaxDrawdown",
-    "RollingTSF",
-    "RollingYangZhangVar",
-    "RollingYangZhangVol",
-    "Stoch",
-    "TRIX",
-    "TrueRange",
-    "WilliamsR",
+    "BacktestTradesOrders",
+    "BacktestTradesTarget",
 }
 
 _xfail_transparent = _xfail_if_in(
@@ -330,7 +346,20 @@ _xfail_transparent = _xfail_if_in(
 PARAMS_TRANSPARENCY = [
     pytest.param(name, entry, id=name, marks=_xfail_transparent(name))
     for name, entry in sorted(_FUNCTORS.items())
-    if entry["nan_policy"] == "ignore" and name not in KNOWN_STICKY_NAN
+    if entry["nan_policy"] == "ignore"
+    and name not in KNOWN_STICKY_NAN
+    and name not in MIXED_NAN_SEMANTICS
+]
+
+# Per-input variant: only multi-input functions, since for a single input it is
+# the same test.
+PARAMS_TRANSPARENCY_PER_INPUT = [
+    pytest.param(name, entry, id=name, marks=_xfail_transparent(name))
+    for name, entry in sorted(_FUNCTORS.items())
+    if entry["nan_policy"] == "ignore"
+    and name not in KNOWN_STICKY_NAN
+    and name not in MIXED_NAN_SEMANTICS
+    and int(entry.get("inputs", 1)) > 1
 ]
 
 
@@ -376,3 +405,36 @@ def test_ignore_nan_is_state_transparent(name: str, entry: dict):
     out_holed = _call(_instantiate(entry), holed)
 
     _assert_same(_delete_index(out_holed, nan_idx), out_clean, name, policy)
+
+
+@pytest.mark.parametrize("name,entry", PARAMS_TRANSPARENCY_PER_INPUT)
+def test_ignore_nan_is_state_transparent_per_input(name: str, entry: dict):
+    """One missing field must skip the whole row, not part of it.
+
+    The test above sets every input NaN at the same index. A multi-input
+    function can pass that and still be wrong: if it feeds one input into its
+    own state and delegates the rest to a sub-operator, a row where only one
+    field is missing leaves the two halves consuming different numbers of
+    samples, and they stay out of step for the rest of the stream.
+
+    So splice in a row where exactly one field is NaN and the others are
+    finite, one input at a time.
+    """
+    policy = entry["nan_policy"]
+    n_inputs = int(entry.get("inputs", 1))
+    nan_idx = 250
+
+    for bad in range(n_inputs):
+        clean = _input_for(name, n_inputs, n_samples=500)
+        # Every input gets the extra row so the streams stay aligned; only the
+        # one under test is missing a value there.
+        holed = [np.insert(a, nan_idx, a[nan_idx]) for a in clean]
+        holed[bad][nan_idx] = np.nan
+
+        out_clean = _call(_instantiate(entry), clean)
+        out_holed = _call(_instantiate(entry), holed)
+
+        _assert_same(
+            _delete_index(out_holed, nan_idx), out_clean,
+            f"{name} (NaN in input {bad} of {n_inputs})", policy,
+        )

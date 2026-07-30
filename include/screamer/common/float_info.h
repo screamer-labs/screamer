@@ -51,6 +51,21 @@ namespace screamer {
     static inline bool isinf2(float a)     { return load_ieee754_rep(a) << 1 == inf_float_shl1; }
     static inline bool isfinite2(float a)  { return load_ieee754_rep(a) << 1  < inf_float_shl1; }
 
+    // Multi-input NaN test for operators under the `ignore` policy, where one
+    // NaN field makes the whole bar unusable. Bitwise `|` rather than `||`:
+    // isnan2 is integer-only (a shift and a compare, no FP unit), so folding
+    // the results costs less than the extra branches short-circuiting would
+    // add. One branch at the call site instead of two or three.
+    static inline bool any_nan(double a, double b) {
+        return isnan2(a) | isnan2(b);
+    }
+    static inline bool any_nan(double a, double b, double c) {
+        return isnan2(a) | isnan2(b) | isnan2(c);
+    }
+    static inline bool any_nan(double a, double b, double c, double d) {
+        return isnan2(a) | isnan2(b) | isnan2(c) | isnan2(d);
+    }
+
 } // namespace
 
 #endif

@@ -11,11 +11,11 @@
 // 3 -> 1 over (high, low, close). First valid output at sample
 // index `window_size` (zero-indexed), matching TA-Lib's ATR.
 
-#include <cmath>
 #include <limits>
 #include <stdexcept>
 #include "screamer/common/float_info.h"
 #include "screamer/common/functor_base.h"
+#include "screamer/true_range.h"
 
 namespace screamer {
 
@@ -28,28 +28,21 @@ public:
     }
 
     void reset() override {
-        prev_close_ = std::numeric_limits<double>::quiet_NaN();
+        true_range_.reset();
         seed_sum_ = 0.0;
         atr_ = 0.0;
         n_tr_ = 0;
     }
 
     ResultTuple call(const InputArray& inputs) override {
-        const double high  = inputs[0];
-        const double low   = inputs[1];
-        const double close = inputs[2];
-
-        // Compute TR for this bar (TR is undefined at t=0).
-        if (isnan2(prev_close_)) {
-            prev_close_ = close;
+        // TrueRange owns the TR definition, the previous-close carry, and the
+        // `ignore` NaN policy for the bar. It returns NaN at t=0 and for any
+        // bar with a missing field, in both cases without advancing state, so
+        // the Wilder recursion below only ever sees a usable TR.
+        const double tr = true_range_.call(inputs);
+        if (isnan2(tr)) {
             return std::numeric_limits<double>::quiet_NaN();
         }
-        const double tr = std::max({
-            high - low,
-            std::abs(high - prev_close_),
-            std::abs(low  - prev_close_),
-        });
-        prev_close_ = close;
 
         n_tr_++;
         if (n_tr_ < window_size_) {
@@ -72,7 +65,7 @@ public:
 
 private:
     const int window_size_;
-    double prev_close_ = std::numeric_limits<double>::quiet_NaN();
+    TrueRange true_range_;
     double seed_sum_ = 0.0;
     double atr_ = 0.0;
     int n_tr_ = 0;
