@@ -112,3 +112,21 @@ class TestTrendMode:
     def test_batch_equals_stream(self):
         x = _tone(20.0, n=400)
         assert_batch_equals_scalar(lambda: TrendMode(), x)
+
+    def test_nan_input_preserves_phase_memory(self):
+        # nan_policy "ignore": a mid-stream NaN must not disturb internal
+        # state, so the first finite sample after the gap should be
+        # processed as if the NaN sample had never occurred.
+        x = np.linspace(0.0, 100.0, 300)  # a ramp: trend -> mostly 1.0
+        i = 150
+        xb = x.copy()
+        xb[i] = np.nan
+        tm_b = np.asarray(TrendMode()(xb))
+
+        xc = np.delete(x, i)  # as-if-skipped reference
+        tm_c = np.asarray(TrendMode()(xc))
+
+        tm_b_dropped = np.delete(tm_b, i)
+        m = np.isfinite(tm_b_dropped) & np.isfinite(tm_c)
+        assert m.sum() > 0
+        np.testing.assert_allclose(tm_b_dropped[m], tm_c[m])

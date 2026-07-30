@@ -26,7 +26,10 @@ public:
         const double per = engine_.period();
         const double nan = std::numeric_limits<double>::quiet_NaN();
         if (std::isnan(ph) || std::isnan(per) || per <= 0.0) {
-            prev_phase_ = ph;
+            // nan_policy "ignore": leave prev_phase_ untouched. During
+            // warm-up it is already NaN; on a mid-stream NaN input it must
+            // keep the last valid phase so the next finite sample computes
+            // the correct delta, as if this sample had not occurred.
             return nan;
         }
         double out = 0.0;
