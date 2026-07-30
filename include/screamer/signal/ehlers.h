@@ -64,6 +64,15 @@ inline void ehlers_highpass2_coeffs(double period, std::vector<double>& b,
     a = {1.0, -2.0 * om, om * om};
 }
 
+// Ehlers 1-pole highpass complement (a trend estimate).
+inline void decycler_coeffs(double period, std::vector<double>& b,
+                            std::vector<double>& a) {
+    const double w = 2.0 * M_PI / period;
+    const double alpha = (std::cos(w) + std::sin(w) - 1.0) / std::cos(w);
+    b = {alpha / 2.0, alpha / 2.0};
+    a = {1.0, -(1.0 - alpha)};
+}
+
 }  // namespace screamer
 
 #endif  // SCREAMER_SIGNAL_EHLERS

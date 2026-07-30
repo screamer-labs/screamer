@@ -45,3 +45,28 @@ class TestSuperSmoother:
     def test_batch_equals_stream(self):
         x = _x(300, seed=7)
         assert_batch_equals_scalar(lambda: SuperSmoother(period=15.0), x)
+
+
+from screamer import Decycler
+
+
+def _decycler_ba(period):
+    w = 2 * np.pi / period
+    alpha = (np.cos(w) + np.sin(w) - 1) / np.cos(w)
+    b = [alpha / 2, alpha / 2]
+    a = [1.0, -(1 - alpha)]
+    return b, a
+
+
+class TestDecycler:
+    @pytest.mark.parametrize("period", [30.0, 60.0, 125.0])
+    def test_matches_reference(self, period):
+        x = _x(500, seed=int(period))
+        ours = np.asarray(Decycler(period=period)(x))
+        b, a = _decycler_ba(period)
+        ref = lfilter(b, a, x)
+        np.testing.assert_allclose(ours, ref, atol=1e-12)
+
+    def test_batch_equals_stream(self):
+        x = _x(300, seed=9)
+        assert_batch_equals_scalar(lambda: Decycler(period=40.0), x)

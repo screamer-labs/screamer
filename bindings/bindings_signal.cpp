@@ -7,6 +7,7 @@
 #include "screamer/butter_bandpass.h"
 #include "screamer/butter_bandstop.h"
 #include "screamer/super_smoother.h"
+#include "screamer/decycler.h"
 #include "screamer/moving_average.h"
 #include "screamer/kalman_filter.h"
 #include "screamer/schmitt_trigger.h"
@@ -48,6 +49,13 @@ void init_bindings_signal(py::module& m) {
              py::arg("period") = py::none(), py::arg("cutoff") = py::none())
         .def("__call__", &screamer::SuperSmoother::operator(), py::arg("value"))
         .def("reset", &screamer::SuperSmoother::reset, "Reset to the initial state.");
+
+    // Decycler: Ehlers trend estimate (input minus a 1-pole highpass).
+    py::class_<screamer::Decycler, screamer::ScreamerBase>(m, "Decycler")
+        .def(py::init<std::optional<double>, std::optional<double>>(),
+             py::arg("period") = py::none(), py::arg("cutoff") = py::none())
+        .def("__call__", &screamer::Decycler::operator(), py::arg("value"))
+        .def("reset", &screamer::Decycler::reset, "Reset to the initial state.");
 
     // MovingAverage: FIR filter with user-supplied taps. Pre-compute
     // taps via numpy / scipy (np.hamming, np.kaiser, scipy.signal.firwin,

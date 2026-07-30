@@ -19,6 +19,8 @@ Track the level of a series and suppress short-term noise.
      - Description
    * - :doc:`Butterworth low-pass filter </functions_signal/Butter>`
      - General-order IIR Butterworth low-pass filter.
+   * - :doc:`Ehlers Decycler trend filter </functions_signal/Decycler>`
+     - Ehlers trend estimate with short cycles removed.
    * - :doc:`Double Exponential MA (DEMA) </functions_rolling/DEMA>`
      - Mulloy's Double EMA: 2*EMA - EMA(EMA).
    * - :doc:`Exponentially-weighted mean </functions_ew/EwMean>`
@@ -63,6 +65,8 @@ Designed frequency-domain and state-space filters.
      - General-order IIR Butterworth band-stop (notch) filter.
    * - :doc:`Butterworth high-pass filter </functions_signal/ButterHighpass>`
      - General-order IIR Butterworth high-pass filter (rejects low frequencies).
+   * - :doc:`Ehlers Decycler trend filter </functions_signal/Decycler>`
+     - Ehlers trend estimate with short cycles removed.
    * - :doc:`Hampel filter </functions_rolling/Hampel>`
      - Robust Hampel despiker, replace samples far from the window median (in MAD units).
    * - :doc:`Hold (time-latch operator) </functions_signal/Hold>`
@@ -83,6 +87,7 @@ Designed frequency-domain and state-space filters.
    /functions_signal/ButterBandpass
    /functions_signal/ButterBandstop
    /functions_signal/ButterHighpass
+   /functions_signal/Decycler
    /functions_rolling/DEMA
    /functions_rolling/Hampel
    /functions_signal/Hold
