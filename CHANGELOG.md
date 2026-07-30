@@ -7,11 +7,18 @@ Unreleased
 
 ### Changed
 
-* `RollingMax`, `RollingMin` and `RollingRange` compute their array results by
+* `RollingMax`, `RollingMin`, `RollingRange`, `RollingArgmax` and
+  `RollingArgmin` compute their array results by
   block decomposition instead of by replaying the streaming recurrence, which
   is 5 to 7 times faster and no longer depends on the shape of the data:
   `RollingMax(50)` on 1M random samples goes from 8.6 to 1.2 ns/sample, and
-  from 10.6 to 1.2 on a random walk. Streaming is untouched.
+  from 10.6 to 1.2 on a random walk; `RollingArgmax` goes from 8.9 to 2.1.
+  Streaming is untouched.
+
+  The argmin/argmax form carries indices through the same decomposition and
+  has to break ties the way the deque does, newest index first, or the two
+  paths disagree on flat stretches. That is asserted against the scalar path
+  on integer input, where ties are frequent.
 
   The deque's real cost on random input is not its comparisons but its pop
   loop, whose trip count depends on the data, so the loop-exit branch

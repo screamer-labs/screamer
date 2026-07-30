@@ -100,6 +100,81 @@ void block_extremum(double* y, const double* x, std::size_t size, int window) {
     }
 }
 
+// Same decomposition, returning the *position* of the extremum within the
+// window rather than its value: 0 is the oldest sample in the window.
+//
+// Ties must break the way the deque does, or the two paths disagree on flat
+// stretches. MonotonicDeque<true> pops while `back <= value`, so an equal
+// later sample displaces an earlier one and the newest index wins; the same
+// holds for min. So the forward scan replaces on `>=` (later wins), the
+// backward scan replaces only on `>` (so scanning right to left keeps the
+// later index), and a tie between the two halves goes to the prefix, which
+// is the later part of the window.
+template <bool IsMax>
+void block_arg_extremum(double* y, const double* x, std::size_t size, int window) {
+    const std::size_t w = static_cast<std::size_t>(window);
+    if (size == 0) {
+        return;
+    }
+
+    auto strictly_better = [](double a, double b) { return IsMax ? (a > b) : (a < b); };
+    auto at_least = [](double a, double b) { return IsMax ? (a >= b) : (a <= b); };
+
+    std::vector<double> suffix_value_current(w), suffix_value_previous(w);
+    std::vector<std::size_t> suffix_index_current(w), suffix_index_previous(w);
+
+    for (std::size_t start = 0; start < size; start += w) {
+        const std::size_t end = std::min(start + w, size);
+        const std::size_t length = end - start;
+
+        double best_value = x[end - 1];
+        std::size_t best_index = end - 1;
+        suffix_value_current[length - 1] = best_value;
+        suffix_index_current[length - 1] = best_index;
+        for (std::size_t j = length - 1; j-- > 0;) {
+            const std::size_t i = start + j;
+            if (strictly_better(x[i], best_value)) {   // strict: keep the later index on ties
+                best_value = x[i];
+                best_index = i;
+            }
+            suffix_value_current[j] = best_value;
+            suffix_index_current[j] = best_index;
+        }
+
+        double prefix_value = 0.0;
+        std::size_t prefix_index = 0;
+        for (std::size_t j = 0; j < length; ++j) {
+            const std::size_t i = start + j;
+            if (j == 0 || at_least(x[i], prefix_value)) {   // >=: a later equal wins
+                prefix_value = x[i];
+                prefix_index = i;
+            }
+
+            std::size_t chosen;
+            if (i + 1 < w) {
+                chosen = prefix_index;
+            } else {
+                const std::size_t low = i + 1 - w;
+                const bool in_this_block = (low >= start);
+                const double other_value = in_this_block
+                    ? suffix_value_current[low - start]
+                    : suffix_value_previous[low - (start - w)];
+                const std::size_t other_index = in_this_block
+                    ? suffix_index_current[low - start]
+                    : suffix_index_previous[low - (start - w)];
+                // Tie goes to the prefix half, which holds the later index.
+                chosen = strictly_better(other_value, prefix_value) ? other_index : prefix_index;
+            }
+
+            const std::size_t window_start = (i + 1 < w) ? 0 : (i + 1 - w);
+            y[i] = static_cast<double>(chosen - window_start);
+        }
+
+        suffix_value_previous.swap(suffix_value_current);
+        suffix_index_previous.swap(suffix_index_current);
+    }
+}
+
 }  // namespace detail
 }  // namespace screamer
 
