@@ -3,11 +3,11 @@
 Screamer is created and maintained by:
 
 - Thijs van den Berg <thijs@simu.ai>
-- Mohammadjavad Vakili <mohammadjavad.vakili@gmail.com>
 
 ## Contributors
 
 - Édouard Tallent (@tagomatech) - `max_age` for `Resample` clock joins
+- Mohammadjavad Vakili <mohammadjavad.vakili@gmail.com> - `FracDiff`, fractional differentiation
 
 With thanks to everyone who has contributed issues, fixes, and feedback. See the
 [contributors graph](https://github.com/screamer-labs/screamer/graphs/contributors)

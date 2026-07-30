@@ -61,6 +61,8 @@ Designed frequency-domain and state-space filters.
      - General-order IIR Butterworth band-stop (notch) filter.
    * - :doc:`Butterworth high-pass filter </functions_signal/ButterHighpass>`
      - General-order IIR Butterworth high-pass filter (rejects low frequencies).
+   * - :doc:`Fractional differentiation (FracDiff) </functions_signal/FracDiff>`
+     - Fractional differencing filter. Removes the trend while keeping more of the series' memory than an integer difference.
    * - :doc:`Hampel filter </functions_rolling/Hampel>`
      - Robust Hampel despiker, replace samples far from the window median (in MAD units).
    * - :doc:`Hold (time-latch operator) </functions_signal/Hold>`

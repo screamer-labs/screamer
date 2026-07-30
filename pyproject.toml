@@ -108,7 +108,8 @@ dev = [
 name = "screamer"
 version = "1.1.2"
 description = "Screamingly fast financial technical indicators with C++ performance and Python simplicity, built for both time series analysis and real-time, event-driven streaming."
-authors = ["Thijs van den Berg <thijs@sitmo.com>, Mohammadjavad Vakili <mohammadjavad.vakili@gmail.com>"]
+# Package author. Per-operator contributors are credited in AUTHORS.md.
+authors = ["Thijs van den Berg <thijs@sitmo.com>"]
 maintainers = [
     "Thijs van den Berg <thijs@sitmo.com>" 
 ]

@@ -160,6 +160,10 @@ test_definitions = [
     # Despikers (not 'Rolling'-prefixed, so listed explicitly). RollingMedianAD
     # is auto-included via the rolling_classes group above.
     ( ('Hampel','ImpulseClip')   , {"window_size": [20]}),
+    # FracDiff: fractional and integer orders, and a threshold loose enough to
+    # truncate the tail against one tight enough to keep it.
+    ( ('FracDiff',)              , {"d": [0.1, 0.4, 0.9, 1.0, 2.0], "window_size": [30],
+                                    "threshold": [1e-5, 1e-3]}),
 ]
 
 

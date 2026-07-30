@@ -7,6 +7,14 @@ Unreleased
 
 ### Added
 
+* `FracDiff(d, window_size, threshold, start_policy)` - fractional differentiation
+  (Lopez de Prado, *Advances in Financial Machine Learning*, chapter 5). An FIR
+  filter with taps `w_k = (-1)^k * binom(d, k)`, truncated at `window_size` taps or
+  at the first weight below `threshold`. `d=0` is the identity, `d=1` reproduces
+  `Diff(1)`, `d=2` reproduces `Diff2()`; fractional orders in between remove the
+  trend while keeping memory an integer difference discards. Contributed by
+  Mohammadjavad Vakili.
+
 * `Resample(..., clock=True, agg='last', fill='carry', max_age=N)` bounds the
   age of a carried scalar value in a target-clock as-of join. Once its age
   exceeds `N`, the output is `NaN`; omitting `max_age` retains unbounded carry.

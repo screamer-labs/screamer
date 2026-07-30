@@ -167,6 +167,8 @@ Put values on a comparable scale: z-scores, affine rescaling, and detrending.
      - x[t] minus its rolling mean.
    * - :doc:`Exponentially-weighted z-score </functions_ew/EwZscore>`
      - Latest sample standardised by EW mean and std.
+   * - :doc:`Fractional differentiation (FracDiff) </functions_signal/FracDiff>`
+     - Fractional differencing filter. Removes the trend while keeping more of the series' memory than an integer difference.
    * - :doc:`Linear (affine) </functions_math/Linear>`
      - Affine transform: scale * x + shift.
    * - :doc:`Rolling z-score </functions_rolling/RollingZscore>`
@@ -299,6 +301,7 @@ Relationships between series: correlation, covariance, regression, hedging, pair
    /functions_expanding/ExpandingSum
    /functions_expanding/ExpandingVar
    /functions_misc/First
+   /functions_signal/FracDiff
    /functions_rolling/KeltnerChannels
    /functions_misc/Last
    /functions_math/Linear
