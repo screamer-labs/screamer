@@ -17,26 +17,26 @@ Cost per sample over a one-million-sample array, window 100.
 
 | function | | screamer | numpy | pandas | TA-Lib |
 |---|---|---|---|---|---|
-| `RollingMean` | O(1) update | **1.5** | 16.7 | 5.2 | 1.3 |
-| `RollingStd` | O(1) update | **3.1** | 87.3 | 11.1 | 1.6 |
-| `RollingMax` | O(1) update | **1.3** | 12.5 | 16.5 | 1.1 |
-| `RollingMedian` | O(log window) update | **140** | 890 | 249 | - |
-| `RollingQuantile` | O(log window) update | **124** | 861 | 248 | - |
-| `RollingIqr` | O(log window) update | **145** | - | 485 | - |
-| `RollingSkew` | O(1) update | **3.5** | - | 7.3 | - |
-| `EwMean` | O(1) update | **4.0** | - | 3.8 | 1.7 |
+| `RollingMean` | O(1) update | **1.6** | 17.9 | 5.4 | 1.3 |
+| `RollingStd` | O(1) update | **3.3** | 93.8 | 11.3 | 1.8 |
+| `RollingMax` | O(1) update | **1.4** | 13.7 | 16.5 | 1.1 |
+| `RollingMedian` | O(log window) update | **149** | 913 | 268 | - |
+| `RollingQuantile` | O(log window) update | **133** | 894 | 266 | - |
+| `RollingIqr` | O(log window) update | **154** | - | 521 | - |
+| `RollingSkew` | O(1) update | **3.5** | - | 7.9 | - |
+| `EwMean` | O(1) update | **1.1** | - | 3.9 | 1.7 |
 | `RollingRSI` | indicator | **6.8** | - | - | 4.2 |
-| `ATR` | indicator, 3 inputs | **7.0** | - | - | 4.5 |
-| `RollingHurst` | screamer only | **536** | - | - | - |
-| `FracDiff` | screamer only | **65.9** | - | - | - |
-| `Hampel` | screamer only | **1,004** | - | - | - |
+| `ATR` | indicator, 3 inputs | **6.9** | - | - | 4.5 |
+| `RollingHurst` | screamer only | **575** | - | - | - |
+| `FracDiff` | screamer only | **70.9** | - | - | - |
+| `Hampel` | screamer only | **1,067** | - | - | - |
 
 Nanoseconds per sample, window 100, 1,000,000 samples. A dash means the library has no implementation.
 
 For the O(1) statistics screamer and TA-Lib are close, and both are well ahead
-of pandas and numpy. TA-Lib is quicker on several of them; those are single
-passes with little state, and the remaining difference is constant factors
-rather than algorithms.
+of pandas and numpy. TA-Lib is still quicker on `RollingStd` and on the two
+indicator rows; those are single passes with little state, and the remaining
+difference is constant factors rather than algorithms.
 
 The O(log window) rows are where the algorithm shows. screamer keeps a sorted
 structure and updates it per sample; numpy rebuilds every window, which is
@@ -48,9 +48,10 @@ range at all.
 
 The chart covers a wider set of 32 functions, comparing screamer against the
 fastest of numpy, pandas and scipy on a one-million-element array. screamer is
-faster on 29 of them and level on the other three: `EwMean` at 0.96x, `Abs` and
-`Sqrt` at 0.99x, which is parity within measurement noise on a single pass over
-memory.
+faster on 28 of them. The remaining four land within 2% of numpy, and which four
+they are changes between runs: they are elementwise functions like `Abs`, `Log`
+and `Sqrt`, a single pass over memory where both libraries are limited by
+bandwidth rather than by arithmetic. Read those as ties.
 
 ## Streaming
 
@@ -64,16 +65,16 @@ window again. That is O(window) per event however fast the library is.
 
 | function | | screamer | numpy | pandas | TA-Lib |
 |---|---|---|---|---|---|
-| `RollingMean` | O(1) update | **93.9** | 1,267 | 12,539 | 623 |
-| `RollingStd` | O(1) update | **92.8** | 3,922 | 17,962 | 645 |
-| `RollingMax` | O(1) update | **104** | 556 | 12,655 | 606 |
-| `RollingMedian` | O(log window) update | **251** | 6,081 | 23,290 | - |
-| `RollingQuantile` | O(log window) update | **227** | 16,618 | 88,056 | - |
-| `RollingIqr` | O(log window) update | **251** | - | 175,943 | - |
-| `RollingSkew` | O(1) update | **96.6** | - | 18,308 | - |
-| `EwMean` | O(1) update | **90.2** | - | 28,415 | 626 |
-| `RollingHurst` | screamer only | **684** | - | - | - |
-| `FracDiff` | screamer only | **181** | - | - | - |
+| `RollingMean` | O(1) update | **94.9** | 1,291 | 12,744 | 624 |
+| `RollingStd` | O(1) update | **94.4** | 4,036 | 18,164 | 640 |
+| `RollingMax` | O(1) update | **106** | 536 | 12,574 | 594 |
+| `RollingMedian` | O(log window) update | **263** | 6,274 | 23,601 | - |
+| `RollingQuantile` | O(log window) update | **232** | 16,827 | 87,814 | - |
+| `RollingIqr` | O(log window) update | **258** | - | 175,786 | - |
+| `RollingSkew` | O(1) update | **95.5** | - | 18,317 | - |
+| `EwMean` | O(1) update | **92.3** | - | 27,830 | 620 |
+| `RollingHurst` | screamer only | **681** | - | - | - |
+| `FracDiff` | screamer only | **182** | - | - | - |
 | `Hampel` | screamer only | **1,168** | - | - | - |
 
 Nanoseconds per event, window 100, 200,000 events. A dash means the library has no implementation.
