@@ -166,6 +166,10 @@ _skbuild/
 .claude/
 
 # Benchmark inputs and generated plots — regenerable via `make benchmark`
+# Cython build products for the streaming benchmark's compiled loops
+benchmarks/streaming_compiled.c
+benchmarks/streaming_compiled*.so
+benchmarks/build/
 benchmarks/experiments/
 benchmarks/experiments_streaming/
 benchmarks/plots/

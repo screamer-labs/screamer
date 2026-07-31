@@ -131,6 +131,7 @@ benchmark:
 # given the strongest implementation available rather than a naive one; see
 # benchmarks/streaming_impls.py.
 benchmark-streaming:
+	cd benchmarks && $(PY) build_compiled.py build_ext --inplace
 	$(PY) benchmarks/run_streaming_benchmarks.py
 
 # ---------------------------------------------------------------------------

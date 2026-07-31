@@ -60,6 +60,16 @@ try:
 except ImportError:                                  # pragma: no cover
     njit = None
 
+try:
+    import streaming_compiled as _cy
+except ImportError:                                  # pragma: no cover
+    _cy = None                                       # build it: see build_compiled.py
+
+try:
+    import talib
+except ImportError:                                  # pragma: no cover
+    talib = None
+
 import screamer as sc
 
 
@@ -321,6 +331,68 @@ if njit is not None:
 
     def RollingMax__numba_engine(values, window_size):
         return _numba_rolling_max(values, window_size)[-1]
+
+
+# ---------------------------------------------------------------------------
+# Compiled event loop, libraries still called through Python
+# ---------------------------------------------------------------------------
+# The realistic "so compile it" case: the user Cython-compiles the loop that
+# drives their event handler, but still calls screamer, TA-Lib, numpy or pandas
+# through their Python objects. Compiling removes the interpreter's loop
+# overhead; it does not remove the boundary crossing into each library, and it
+# removes it for nobody, so the comparison stays fair.
+#
+# Measured on 200k events, ns/event (macOS/arm64):
+#
+#     window          10     100    1000
+#     screamer      89.5    92.0    92.6      flat
+#     talib        547.4   618.8  1324.4      grows with the window
+#     numpy       1482.4  1521.4  1686.5
+#     pandas     11491.2 11708.7 12954.4
+#     hand-written   0.87    0.87    0.88     no boundary crossing at all
+#     screamer array 1.60    0.91    1.58     no boundary crossing either
+#
+# Three things fall out of that table.
+#
+# Compiling the loop helps: screamer goes from ~115 ns/event under a Python
+# loop to ~90. It helps everyone equally, and it does not change the ordering.
+#
+# In this regime screamer is 6-14x quicker than TA-Lib, 16-18x than numpy and
+# ~130x than pandas, and only screamer is flat in the window: the others have
+# to hand the whole window back every event because they have no incremental
+# state to update.
+#
+# But ~90 ns of that is the boundary crossing, not the operator, and the last
+# two columns are the interesting ones: a hand-written compiled loop and
+# screamer's own array path both run at ~1 ns/event, a hundred times quicker,
+# because neither crosses the boundary per event. That is the real lesson. The
+# per-event call is a tax every library pays, and the way out is to let the
+# loop live in compiled code. screamer hands you that loop already written, for
+# 231 operators, with the NaN policy and batch/stream equality that a
+# hand-written one does not have. TA-Lib has no equivalent to offer at all,
+# because it has no streaming API to compile a loop around.
+
+if _cy is not None:
+
+    def RollingMean__compiled_screamer(values, window_size):
+        return _cy.screamer_loop(values, sc.RollingMean(window_size))
+
+    def RollingMean__compiled_numpy(values, window_size):
+        return _cy.window_recompute_loop(values, np.mean, window_size)
+
+    def RollingMean__compiled_handwritten(values, window_size):
+        return _cy.hand_written_mean_loop(values, window_size)
+
+    if talib is not None:
+        def RollingMean__compiled_talib(values, window_size):
+            return _cy.window_recompute_loop(
+                values, lambda b: talib.SMA(b, window_size), window_size)
+
+    def RollingMax__compiled_screamer(values, window_size):
+        return _cy.screamer_loop(values, sc.RollingMax(window_size))
+
+    def RollingMax__compiled_numpy(values, window_size):
+        return _cy.window_recompute_loop(values, np.max, window_size)
 
 
 def all():
