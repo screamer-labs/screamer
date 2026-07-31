@@ -68,6 +68,30 @@ namespace screamer {
             return sum_x_ / sum_w_;
         }
 
+        // Batch path: the same recurrence over locals. The accumulators live
+        // behind `this`, and the compiler cannot prove the caller's output
+        // buffer does not alias the operator, so in a loop it reloads them
+        // every sample. Holding them in locals and writing back once is worth
+        // several times the cost here. See rolling_mean.h for the measurement
+        // that established this.
+        void process_array_no_stride(double* y, const double* x, size_t size) override {
+            const double decay = one_minus_alpha_;
+            double sum_x = sum_x_;
+            double sum_w = sum_w_;
+            for (size_t i = 0; i < size; ++i) {
+                const double v = x[i];
+                if (isnan2(v)) {
+                    y[i] = std::numeric_limits<double>::quiet_NaN();
+                    continue;
+                }
+                sum_x = sum_x * decay + v;
+                sum_w = sum_w * decay + 1.0;
+                y[i] = sum_x / sum_w;
+            }
+            sum_x_ = sum_x;
+            sum_w_ = sum_w;
+        }
+
         // Previous array overrides duplicated process_scalar's body with
         // their own local accumulators (which made them implicitly
         // NaN-unsafe). The scalar fallback in ScreamerBase honors the

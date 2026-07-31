@@ -7,6 +7,19 @@ Unreleased
 
 ### Changed
 
+* `EwMean`'s array path holds its accumulators in locals for the duration of
+  the loop, 4.0 to 1.0 ns/sample on 1M samples. It was the one operator where
+  an alternative was meaningfully ahead in the batch comparison, and it now
+  leads its row: TA-Lib's `EMA` is 1.74 ns and pandas 4.20. Streaming and every
+  result are unchanged.
+
+  Same cause as `RollingMean`: the accumulators live behind `this`, and the
+  compiler cannot prove the caller's output buffer does not alias the operator,
+  so in a batch loop it reloads them every sample.
+
+
+### Changed
+
 * `RollingMean`'s array path hoists the recurrence state into locals for the
   duration of the loop, 3.00 to 0.87 ns/sample on 1M samples. Streaming and
   every result are unchanged.
