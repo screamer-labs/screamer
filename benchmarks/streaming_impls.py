@@ -55,6 +55,11 @@ from collections import deque
 import numpy as np
 import pandas as pd
 
+try:
+    from numba import njit
+except ImportError:                                  # pragma: no cover
+    njit = None
+
 import screamer as sc
 
 
@@ -231,6 +236,91 @@ def RollingStd__screamer_engine(values, window_size):
 
 def EwMean__screamer_engine(values, window_size):
     return sc.EwMean(span=window_size)(values)[-1]
+
+
+# ---------------------------------------------------------------------------
+# Compiled Python
+# ---------------------------------------------------------------------------
+# The obvious reply to any of this is "so compile it". These are the answer:
+# the same recurrences under numba, consuming the whole stream inside compiled
+# code, which is the fair comparison against `screamer_engine` above.
+#
+# Calling a compiled function *per event* from Python is not that comparison
+# and is worth knowing about separately: a numba jitclass method costs about
+# 360 ns/event against screamer's 111, because every call boxes and unboxes its
+# arguments. Compiling the operator does not help if Python still drives the
+# loop; it helps when the loop itself is compiled.
+#
+# What these show: for a simple recurrence, compiled Python is in the same
+# league as the C++ engine, and the argument for screamer there is not speed
+# but that 231 operators are already written, NaN-compliant and identical in
+# batch. For anything with a real algorithm behind it the gap reopens, because
+# what matters is the algorithm rather than the language: the rolling maximum
+# below is a hand-written monotonic deque, which is the obvious thing to write
+# and several times slower than the block decomposition screamer uses.
+
+if njit is not None:
+
+    @njit(cache=True)
+    def _numba_rolling_mean(values, window):
+        n = len(values)
+        out = np.empty(n)
+        buffer = np.zeros(window)
+        position = 0
+        total = 0.0
+        seen = 0
+        for i in range(n):
+            v = values[i]
+            if np.isnan(v):                  # the `ignore` policy, as screamer has it
+                out[i] = np.nan
+                continue
+            total += v - buffer[position]
+            buffer[position] = v
+            position += 1
+            if position == window:
+                position = 0
+            if seen < window:
+                seen += 1
+            out[i] = total / window if seen == window else np.nan
+        return out
+
+    @njit(cache=True)
+    def _numba_rolling_max(values, window):
+        n = len(values)
+        out = np.empty(n)
+        capacity = window + 1
+        vals = np.empty(capacity)
+        idxs = np.empty(capacity, dtype=np.int64)
+        head = 0
+        count = 0
+        for i in range(n):
+            v = values[i]
+            while count > 0:
+                back = head + count - 1
+                if back >= capacity:
+                    back -= capacity
+                if vals[back] > v:
+                    break
+                count -= 1
+            slot = head + count
+            if slot >= capacity:
+                slot -= capacity
+            vals[slot] = v
+            idxs[slot] = i
+            count += 1
+            if idxs[head] <= i - window:
+                head += 1
+                if head == capacity:
+                    head = 0
+                count -= 1
+            out[i] = vals[head]
+        return out
+
+    def RollingMean__numba_engine(values, window_size):
+        return _numba_rolling_mean(values, window_size)[-1]
+
+    def RollingMax__numba_engine(values, window_size):
+        return _numba_rolling_max(values, window_size)[-1]
 
 
 def all():

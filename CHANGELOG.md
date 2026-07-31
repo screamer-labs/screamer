@@ -5,6 +5,23 @@ All notable changes to this project are documented in this file.
 Unreleased
 ----------
 
+### Changed
+
+* `RollingMean`'s array path hoists the recurrence state into locals for the
+  duration of the loop, 3.00 to 0.87 ns/sample on 1M samples. Streaming and
+  every result are unchanged.
+
+  The per-sample path keeps the running sum, buffer index and count behind
+  `this`. In a batch loop the compiler cannot prove the caller's output buffer
+  does not alias the operator, so it reloads all of it every iteration. Loading
+  it once, running the loop, and writing it back is worth 3.4x here, and it
+  takes the operator past an equivalent hand-written numba loop, which measures
+  1.42 ns/sample.
+
+  The same shape applies to every stateful operator's array path, so this is
+  one instance of a general opportunity rather than a one-off.
+
+
 ### Added
 
 * References for `RollingCorr`, `RollingCov`, `RollingBeta`, `RollingIqr`,

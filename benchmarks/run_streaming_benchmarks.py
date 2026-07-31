@@ -36,6 +36,7 @@ N_EVENTS = 20_000
 
 def time_one(callable_name, values, window_size, repeat):
     fn = getattr(streaming_impls, callable_name)
+    fn(values, window_size)          # warm up: numba compiles on first call
     best = min(
         timeit.timeit(lambda: fn(values, window_size), number=1) for _ in range(repeat)
     )

@@ -91,6 +91,22 @@ public:
         return start_policy_;
     }
 
+    // Accessors for a hoisted batch loop: see screamer/rolling_mean.h. The
+    // per-sample path keeps this state behind `this`, which the compiler must
+    // reload each iteration because it cannot prove the caller's output buffer
+    // does not alias the operator.
+    double* buffer_data() { return buffer_.data(); }
+    size_t capacity() const { return capacity_; }
+    size_t index() const { return index_; }
+    size_t count() const { return size_; }
+    double sum() const { return sum_; }
+    StartPolicy start_policy() const { return start_policy_; }
+    void restore(size_t index, size_t count, double sum) {
+        index_ = index;
+        size_ = count;
+        sum_ = sum;
+    }
+
 private:
     const size_t capacity_;
     const StartPolicy start_policy_; 
