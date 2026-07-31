@@ -5,6 +5,13 @@ All notable changes to this project are documented in this file.
 Unreleased
 ----------
 
+### Added
+
+* References for `RollingCorr`, `RollingCov`, `RollingBeta`, `RollingIqr`,
+  `HullMA` and `RollingVWAP`, taking baseline coverage to 174 of 231. The pair
+  statistics come from `pandas.rolling().corr()` / `.cov()` / `.var()`, which
+  are external implementations rather than transcriptions.
+
 ### Changed
 
 * `WilliamsR` computes its array result by block decomposition, 19.9 to 3.4

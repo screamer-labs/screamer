@@ -285,6 +285,8 @@ multi_input_definitions = [
     # Only the multi-output ones stay here. The 1-in/1-out members of this
     # family live in `test_definitions`, so they get the tensor / view / matrix
     # parity coverage as well as the baseline comparison.
+    ( ('RollingCorr','RollingCov','RollingBeta') , {"window_size": [20]}),
+    ( ('RollingVWAP',)              , {"window_size": [20], "array_type": ["ohlcv"]}),
     ( ('StochRSI',)                 , {"array_type": ["positive"]}),
     ( ('MACD',)                     , {"array_type": ["positive"],
                                        "array_length": [2000]}),
