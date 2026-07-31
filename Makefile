@@ -45,7 +45,7 @@ ifneq (,$(wildcard /opt/homebrew/opt/llvm/bin/clang-tidy))
   CLANG_TIDY = /opt/homebrew/opt/llvm/bin/clang-tidy
 endif
 
-.PHONY: help build test docs benchmark clean \
+.PHONY: help build test docs benchmark benchmark-streaming clean \
         regen-init install-dev tidy \
         notebooks \
         patch minor major release-push \
@@ -57,7 +57,8 @@ help:
 	@echo "  make test        Build, install -e, run pytest"
 	@echo "  make tidy        Run clang-tidy (catches uninit class members, etc.)"
 	@echo "  make docs        Build Sphinx HTML docs"
-	@echo "  make benchmark   Run benchmark suite + plots"
+	@echo "  make benchmark   Run the batch benchmark suite + plots"
+	@echo "  make benchmark-streaming  Run the per-event streaming benchmark"
 	@echo "  make patch       Bump patch (0.1.46 -> 0.1.47), commit + tag"
 	@echo "  make minor       Bump minor (0.1.46 -> 0.2.0), commit + tag"
 	@echo "  make major       Bump major (0.1.46 -> 1.0.0), commit + tag"
@@ -118,11 +119,19 @@ docs:
 # ---------------------------------------------------------------------------
 # Benchmarks
 # ---------------------------------------------------------------------------
+# Batch: whole array at once, which is the regime the reference libraries are
+# built for.
 benchmark:
 	$(PY) benchmarks/run_benchmarks.py
 	$(PY) benchmarks/make_speed_chart.py
 	$(PY) benchmarks/make_plots.py
 	$(PY) benchmarks/make_rank_plot.py
+
+# Streaming: cost per event, samples arriving one at a time. The references are
+# given the strongest implementation available rather than a naive one; see
+# benchmarks/streaming_impls.py.
+benchmark-streaming:
+	$(PY) benchmarks/run_streaming_benchmarks.py
 
 # ---------------------------------------------------------------------------
 # Release / version bumping (bump-my-version)

@@ -167,6 +167,7 @@ _skbuild/
 
 # Benchmark inputs and generated plots — regenerable via `make benchmark`
 benchmarks/experiments/
+benchmarks/experiments_streaming/
 benchmarks/plots/
 
 # Scratch / experimental code

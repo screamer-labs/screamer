@@ -20,6 +20,11 @@ from numpy.lib.stride_tricks import sliding_window_view as swv
 from scipy import signal as sp_signal
 from scipy import special as sp_special
 
+try:
+    import talib
+except ImportError:                                  # pragma: no cover
+    talib = None
+
 import screamer as sc
 
 warnings.filterwarnings("ignore")
@@ -235,3 +240,28 @@ def all():
         func, lib = name.split("__")
         rows.append(dict(func=func, lib=lib, callable=name, var="", args=_ARGS[func]))
     return pd.DataFrame(rows).sort_values(["func", "lib"]).reset_index(drop=True)
+
+
+# ---------------------------------------------------------------------------
+# TA-Lib
+# ---------------------------------------------------------------------------
+# TA-Lib is the reference implementation several operators are written against,
+# and the natural comparison for the windowed statistics. It is a test
+# dependency, but the benchmark still runs without it: `all()` drops any
+# variant whose library is missing.
+#
+# TA-Lib is batch-only. There is no incremental API to compare against in the
+# streaming suite, which is the asymmetry that suite exists to show.
+#
+# Only operators already in `_ARGS` are listed: a TA-Lib variant with no
+# screamer counterpart in the same table would time nothing useful. Widening
+# the benchmarked set is a separate change.
+
+if talib is not None:
+    def RollingMean__talib(array, window_size): return talib.SMA(array, window_size)
+    def RollingMax__talib(array, window_size): return talib.MAX(array, window_size)
+    def RollingMin__talib(array, window_size): return talib.MIN(array, window_size)
+    def RollingStd__talib(array, window_size): return talib.STDDEV(array, window_size)
+    def RollingVar__talib(array, window_size): return talib.VAR(array, window_size)
+    def RollingSum__talib(array, window_size): return talib.SUM(array, window_size)
+    def EwMean__talib(array, window_size): return talib.EMA(array, window_size)

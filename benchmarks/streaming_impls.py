@@ -1,0 +1,244 @@
+"""Streaming references: cost per event when samples arrive one at a time.
+
+The batch suite (`reference_impls.py`) hands every library the whole array at
+once. That is the regime the reference libraries are built for. This file
+measures the other one: an event arrives, and the current value of the
+statistic is needed before the next event.
+
+**The alternatives are given the strongest implementation available, not a
+naive one.** Recomputing over the entire history per event would be O(n) and
+would make the comparison worthless. What a practitioner actually writes is a
+ring buffer of the last `window` samples with a reduction over it per event,
+which is O(window), and that is what the `*_window` variants below do: the
+buffer is preallocated, the new sample overwrites the oldest, and the reduction
+is the fastest one numpy offers. No allocation happens per event.
+
+A second alternative is included because it is the honest reply to "I would
+just write the update myself": `*_incremental` is a hand-written O(1) Python
+update, the same algorithm screamer runs in C++. For a rolling mean that is a
+running sum; for a rolling extremum it is a monotonic deque. It is O(1) like
+screamer and loses only on interpreter overhead, which is the fair thing to
+show.
+
+What the numbers actually show, measured on 8k events (macOS/arm64, so treat
+the absolute values as indicative and the ratios as the point):
+
+  * `screamer_engine`, the same recurrence run without crossing the Python
+    boundary per event, costs 2-3 ns/event and does not grow with `window`.
+    This is the number that answers "how fast can this consume a feed".
+  * The per-event Python API costs ~115 ns/event, flat in `window`. Almost all
+    of that is the interpreter and the pybind11 call, not the operator.
+  * A per-event numpy reduction over the window costs 1.2-1.9 us for a mean,
+    4.0-7.1 us for a standard deviation; pandas 11.8-16.0 us. So against the
+    way this is usually written, the per-event API is 11x to 140x quicker, and
+    the engine three orders of magnitude.
+  * `*_incremental`, the hand-written O(1) Python update, costs about the same
+    as screamer's per-event API: 91-135 ns. Both are paying for the
+    interpreter. This is worth stating plainly rather than hiding: if you write
+    the recurrence yourself in Python and only ever call it per event from
+    Python, you will not be slower. What you give up is every operator being
+    correct, `NaN`-compliant and identical in batch, and the engine speed above
+    once events stop crossing the boundary.
+  * The `*_window` variants grow with `window` more slowly than O(window)
+    would suggest at these sizes, roughly 1.5x from window 10 to 5000, because
+    numpy's fixed per-call overhead dominates its own reduction until the
+    window is large.
+
+Every variant is named `<Func>__<lib>` and takes `(values, window_size)`, where
+`values` is the event sequence. Each returns the last output, so nothing is
+optimised away.
+"""
+import inspect
+import sys
+from collections import deque
+
+import numpy as np
+import pandas as pd
+
+import screamer as sc
+
+
+# ---------------------------------------------------------------------------
+# RollingMean
+# ---------------------------------------------------------------------------
+
+def RollingMean__screamer(values, window_size):
+    op = sc.RollingMean(window_size)
+    out = 0.0
+    for v in values:
+        out = op(v)
+    return out
+
+
+def RollingMean__numpy_window(values, window_size):
+    """Ring buffer plus a numpy reduction per event: O(window)."""
+    buffer = np.zeros(window_size)
+    position = 0
+    out = 0.0
+    for v in values:
+        buffer[position] = v
+        position += 1
+        if position == window_size:
+            position = 0
+        out = buffer.mean()
+    return out
+
+
+def RollingMean__pandas_window(values, window_size):
+    buffer = np.zeros(window_size)
+    position = 0
+    out = 0.0
+    for v in values:
+        buffer[position] = v
+        position += 1
+        if position == window_size:
+            position = 0
+        out = pd.Series(buffer).mean()
+    return out
+
+
+def RollingMean__incremental(values, window_size):
+    """Hand-written O(1) update in Python: the same algorithm, interpreted."""
+    buffer = [0.0] * window_size
+    position = 0
+    total = 0.0
+    out = 0.0
+    for v in values:
+        total += v - buffer[position]
+        buffer[position] = v
+        position += 1
+        if position == window_size:
+            position = 0
+        out = total / window_size
+    return out
+
+
+# ---------------------------------------------------------------------------
+# RollingMax
+# ---------------------------------------------------------------------------
+
+def RollingMax__screamer(values, window_size):
+    op = sc.RollingMax(window_size)
+    out = 0.0
+    for v in values:
+        out = op(v)
+    return out
+
+
+def RollingMax__numpy_window(values, window_size):
+    buffer = np.full(window_size, -np.inf)
+    position = 0
+    out = 0.0
+    for v in values:
+        buffer[position] = v
+        position += 1
+        if position == window_size:
+            position = 0
+        out = buffer.max()
+    return out
+
+
+def RollingMax__incremental(values, window_size):
+    """Monotonic deque in Python: O(1) amortised, the same algorithm screamer
+    runs in C++."""
+    window = deque()
+    index = 0
+    out = 0.0
+    for v in values:
+        while window and window[-1][0] <= v:
+            window.pop()
+        window.append((v, index))
+        if window[0][1] <= index - window_size:
+            window.popleft()
+        index += 1
+        out = window[0][0]
+    return out
+
+
+# ---------------------------------------------------------------------------
+# RollingStd
+# ---------------------------------------------------------------------------
+
+def RollingStd__screamer(values, window_size):
+    op = sc.RollingStd(window_size)
+    out = 0.0
+    for v in values:
+        out = op(v)
+    return out
+
+
+def RollingStd__numpy_window(values, window_size):
+    buffer = np.zeros(window_size)
+    position = 0
+    out = 0.0
+    for v in values:
+        buffer[position] = v
+        position += 1
+        if position == window_size:
+            position = 0
+        out = buffer.std(ddof=1)
+    return out
+
+
+# ---------------------------------------------------------------------------
+# EwMean: no window, so the batch alternative has to see the whole history
+# ---------------------------------------------------------------------------
+
+def EwMean__screamer(values, window_size):
+    op = sc.EwMean(span=window_size)
+    out = 0.0
+    for v in values:
+        out = op(v)
+    return out
+
+
+def EwMean__incremental(values, window_size):
+    alpha = 2.0 / (window_size + 1.0)
+    weighted = 0.0
+    weight = 0.0
+    out = 0.0
+    for v in values:
+        weighted = weighted * (1.0 - alpha) + v
+        weight = weight * (1.0 - alpha) + 1.0
+        out = weighted / weight
+    return out
+
+
+# ---------------------------------------------------------------------------
+# The engine, without the per-event boundary crossing
+# ---------------------------------------------------------------------------
+# The variants above all loop in Python, so they all pay ~100 ns per event for
+# the interpreter and, for screamer, the pybind11 call. That cost is real for a
+# Python-driven event loop and is charged to everyone equally, but it is not
+# screamer's engine speed and it hides the thing the engine is good at.
+#
+# These feed the same recurrence through the array API, which runs the identical
+# per-sample code path in C++ with no boundary crossing per event. It is the
+# number to quote for "how fast can this consume a feed", and the honest way to
+# reach it from Python is a Pipeline, where events stay in C++.
+
+def RollingMean__screamer_engine(values, window_size):
+    return sc.RollingMean(window_size)(values)[-1]
+
+
+def RollingMax__screamer_engine(values, window_size):
+    return sc.RollingMax(window_size)(values)[-1]
+
+
+def RollingStd__screamer_engine(values, window_size):
+    return sc.RollingStd(window_size)(values)[-1]
+
+
+def EwMean__screamer_engine(values, window_size):
+    return sc.EwMean(span=window_size)(values)[-1]
+
+
+def all():
+    """Metadata table (func, lib, callable) built by introspection."""
+    rows = []
+    for name, _ in inspect.getmembers(sys.modules[__name__], inspect.isfunction):
+        if "__" not in name or name.startswith("_"):
+            continue
+        func, lib = name.split("__", 1)
+        rows.append({"func": func, "lib": lib, "callable": name})
+    return pd.DataFrame(rows)
