@@ -129,6 +129,8 @@ benchmark:
 	# The docs page embeds this chart; copying it here keeps the published
 	# figure from drifting behind the code, which it had by 18 days.
 	cp benchmarks/plots/speed_chart.png docs/img/speed_chart.png
+	# The two comparison tables on the Performance page.
+	cd benchmarks && $(PY) make_comparison_tables.py
 
 # Streaming: cost per event, samples arriving one at a time. The references are
 # given the strongest implementation available rather than a naive one; see
