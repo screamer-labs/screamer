@@ -127,6 +127,26 @@ public:
     using OutputArray = std::array<double, M>;
     using ResultTuple = std::conditional_t<M == 1, double, typename detail::TupleOfDoubles<M>>;
 
+    // Optional batch path, for operators whose whole-array algorithm differs
+    // from replaying the per-event one. Return false to decline, which is the
+    // default and leaves the per-sample loop over call() in charge.
+    //
+    // The sliding-window extremum is the case this exists for: over an array
+    // it can be computed by block decomposition, with no data-dependent
+    // branching, but that needs lookahead and so cannot be the event path.
+    // See detail/block_extremum.h.
+    //
+    // The operator is freshly reset when this is called, and must leave state
+    // as the per-sample loop would. Overrides are expected to decline when
+    // they cannot apply (non-unit strides, NaN in the input) rather than
+    // change any result.
+    virtual bool process_columns(
+        double* /*output*/, std::ptrdiff_t /*output_stride*/,
+        const std::array<double*, N>& /*inputs*/,
+        const std::array<int64_t, N>& /*input_strides*/,
+        const std::array<size_t, N>& /*input_offsets*/,
+        size_t /*output_offset*/, size_t /*size*/) { return false; }
+
     // call() is the algorithm: takes N inputs, returns ResultTuple (1 or M doubles).
     // Derived classes override this single method. There is no separate
     // process_input()/get_output() split; a sparse-output variant would need one.
@@ -268,17 +288,20 @@ public:
 
             reset(); // reset before processing this column
 
-            InputArray call_array;
-            for (size_t i = 0; i < size; i++) {
-                for (size_t i = 0; i < TN; ++i) {
-                    call_array[i] = inputs_data[i][inputs_index[i]];
-                }
-                output_data[output_index] = call(call_array);
+            if (!process_columns(output_data, output_stride, inputs_data,
+                                 inputs_stride, inputs_index, output_index, size)) {
+                InputArray call_array;
+                for (size_t i = 0; i < size; i++) {
+                    for (size_t i = 0; i < TN; ++i) {
+                        call_array[i] = inputs_data[i][inputs_index[i]];
+                    }
+                    output_data[output_index] = call(call_array);
 
-                for (size_t i = 0; i < TN; ++i) {
-                    inputs_index[i] += inputs_stride[i];
+                    for (size_t i = 0; i < TN; ++i) {
+                        inputs_index[i] += inputs_stride[i];
+                    }
+                    output_index += output_stride;
                 }
-                output_index += output_stride;
             }
 
         }

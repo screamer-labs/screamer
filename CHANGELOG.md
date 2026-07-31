@@ -7,6 +7,22 @@ Unreleased
 
 ### Changed
 
+* `WilliamsR` computes its array result by block decomposition, 19.9 to 3.4
+  ns/sample on 1M samples, which puts it just ahead of TA-Lib's `WILLR` at 3.8.
+  Streaming is unchanged, and the array result is asserted identical to the
+  per-sample one.
+
+  `FunctorBase` gains an optional `process_columns` hook for this, the
+  multi-input counterpart of the `process_array_no_stride` override that
+  `ScreamerBase` already had. It defaults to declining, so every other
+  operator is untouched, and an override is expected to decline rather than
+  change a result when it cannot apply: here, non-contiguous input or a `NaN`
+  in the bars, which under `ignore` skips a bar and breaks the fixed block
+  structure.
+
+
+### Changed
+
 * `RollingMax`, `RollingMin`, `RollingRange`, `RollingArgmax` and
   `RollingArgmin` compute their array results by
   block decomposition instead of by replaying the streaming recurrence, which
