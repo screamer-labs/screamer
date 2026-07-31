@@ -5,6 +5,7 @@ and the one screamer implements. See RollingGarmanKlassVar for why Sigma4 and
 the gap-aware Sigma1/3/6 are not the right comparison.
 """
 import numpy as np
+import QuantLib as ql
 import pandas as pd
 
 from ._ohlc_vol import quantlib_per_bar_sigma
@@ -16,7 +17,6 @@ class EwGarmanKlassVar_quantlib:
         self.kw = dict(com=com, span=span, halflife=halflife, alpha=alpha)
 
     def _per_bar_variance(self, o, h, l, c):
-        import QuantLib as ql
         return quantlib_per_bar_sigma(
             ql.GarmanKlassSigma5(1.0),
             np.asarray(o, dtype=float), np.asarray(h, dtype=float),

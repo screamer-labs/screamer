@@ -11,8 +11,10 @@ and Sigma4 is a higher-order approximation of the same estimand that differs in
 the fourth significant figure. Sigma5 is the match.
 """
 import numpy as np
+import QuantLib as ql
 
-from ._ohlc_vol import quantlib_per_bar_sigma, rolling_mean
+from ._ohlc_vol import quantlib_per_bar_sigma
+from ._windowing import rolling_mean
 
 
 class RollingGarmanKlassVar_quantlib:
@@ -21,7 +23,6 @@ class RollingGarmanKlassVar_quantlib:
         self.window_size = window_size
 
     def _per_bar_variance(self, o, h, l, c):
-        import QuantLib as ql
         return quantlib_per_bar_sigma(ql.GarmanKlassSigma5(1.0), o, h, l, c) ** 2
 
     def __call__(self, open_, high, low, close):

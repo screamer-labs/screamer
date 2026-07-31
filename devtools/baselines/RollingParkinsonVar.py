@@ -5,8 +5,10 @@ The per-bar kernel comes from QuantLib's ParkinsonSigma, so the formula and its
 than against a transcription of the same expression.
 """
 import numpy as np
+import QuantLib as ql
 
-from ._ohlc_vol import quantlib_per_bar_sigma, rolling_mean
+from ._ohlc_vol import quantlib_per_bar_sigma
+from ._windowing import rolling_mean
 
 
 class RollingParkinsonVar_quantlib:
@@ -15,7 +17,6 @@ class RollingParkinsonVar_quantlib:
         self.window_size = window_size
 
     def _per_bar_variance(self, high, low):
-        import QuantLib as ql
         # ParkinsonSigma reads only high and low; open and close are ignored.
         sigma = quantlib_per_bar_sigma(ql.ParkinsonSigma(1.0), high, high, low, low)
         return sigma ** 2

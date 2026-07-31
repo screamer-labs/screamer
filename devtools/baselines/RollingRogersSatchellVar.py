@@ -9,7 +9,7 @@ this estimator exists for.
 """
 import numpy as np
 
-from ._ohlc_vol import rolling_mean
+from ._windowing import rolling_mean
 
 
 class RollingRogersSatchellVar_numpy:

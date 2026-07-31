@@ -1,4 +1,9 @@
-"""Shared helpers for the range-based volatility references.
+"""QuantLib-backed helper for the range-based volatility references.
+
+Importing this module requires QuantLib. That is deliberate: a baseline whose
+dependency is missing must fail at import so `devtools/baselines/__init__.py`
+skips it and records why, rather than failing at call time and failing the
+suite. References that do not need QuantLib must not import from here.
 
 QuantLib implements two of the four estimators screamer ships, and it is the
 reference used for those: it is an independent implementation of the formula
@@ -12,6 +17,7 @@ all four against ground truth: each must recover the sigma of a simulated GBM
 path in the regime its page claims to handle.
 """
 import numpy as np
+import QuantLib as ql
 
 
 def quantlib_per_bar_sigma(estimator, open_, high, low, close):
@@ -20,8 +26,6 @@ def quantlib_per_bar_sigma(estimator, open_, high, low, close):
     QuantLib wants a TimeSeries<IntervalPrice> keyed by Date. The dates are
     arbitrary here: these estimators are per-bar and do not read the calendar.
     """
-    import QuantLib as ql
-
     n = len(close)
     start = ql.Date(1, 1, 2020)
     dates = ql.DateVector([start + i for i in range(n)])
@@ -31,9 +35,3 @@ def quantlib_per_bar_sigma(estimator, open_, high, low, close):
     ])
     series = estimator.calculate(ql.IntervalPriceTimeSeries(dates, prices))
     return np.array([series[d] for d in series.dates()], dtype=float)
-
-
-def rolling_mean(values, window):
-    """Trailing mean with NaN before the window fills, matching `strict`."""
-    import pandas as pd
-    return pd.Series(values).rolling(window).mean().to_numpy()

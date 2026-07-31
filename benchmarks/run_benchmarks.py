@@ -91,7 +91,10 @@ def main():
         script_dir = os.path.dirname(os.path.abspath(__file__))
 
         # Define the path to save the plot in the same directory as the script
-        save_path = os.path.join(script_dir, 'experiments', f"bm__{row['callable']}.csv")
+        # The directory is gitignored, so it is absent in a fresh clone.
+        out_dir = os.path.join(script_dir, 'experiments')
+        os.makedirs(out_dir, exist_ok=True)
+        save_path = os.path.join(out_dir, f"bm__{row['callable']}.csv")
 
         # Save to disk
         results.to_csv(save_path, index=False)

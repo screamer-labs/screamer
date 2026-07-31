@@ -388,6 +388,10 @@ if _cy is not None:
             return _cy.window_recompute_loop(
                 values, lambda b: talib.SMA(b, window_size), window_size)
 
+    def RollingMean__compiled_pandas(values, window_size):
+        return _cy.window_recompute_loop(
+            values, lambda b: pd.Series(b).mean(), window_size)
+
     def RollingMax__compiled_screamer(values, window_size):
         return _cy.screamer_loop(values, sc.RollingMax(window_size))
 

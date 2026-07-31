@@ -7,6 +7,7 @@ one. `pandas.ewm(...).mean()` with its default `adjust=True` is the convention
 the EwMean baseline already uses.
 """
 import numpy as np
+import QuantLib as ql
 import pandas as pd
 
 from ._ohlc_vol import quantlib_per_bar_sigma
@@ -18,7 +19,6 @@ class EwParkinsonVar_quantlib:
         self.kw = dict(com=com, span=span, halflife=halflife, alpha=alpha)
 
     def _per_bar_variance(self, high, low):
-        import QuantLib as ql
         # ParkinsonSigma reads only the high and low fields.
         h = np.asarray(high, dtype=float)
         l = np.asarray(low, dtype=float)

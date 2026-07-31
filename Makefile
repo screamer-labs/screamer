@@ -126,6 +126,9 @@ benchmark:
 	$(PY) benchmarks/make_speed_chart.py
 	$(PY) benchmarks/make_plots.py
 	$(PY) benchmarks/make_rank_plot.py
+	# The docs page embeds this chart; copying it here keeps the published
+	# figure from drifting behind the code, which it had by 18 days.
+	cp benchmarks/plots/speed_chart.png docs/img/speed_chart.png
 
 # Streaming: cost per event, samples arriving one at a time. The references are
 # given the strongest implementation available rather than a naive one; see

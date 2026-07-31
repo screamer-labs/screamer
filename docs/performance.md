@@ -22,45 +22,48 @@ marks which library came second.
 
 ![screamer speedup versus the fastest alternative](img/speed_chart.png)
 
-Every one of the 32 functions is at least as fast as the fastest of numpy,
-pandas, and scipy. The rolling statistics run 1.7x to 6x faster than pandas, and
-far faster than numpy, whose sliding-window cost grows with the window while
-screamer's does not. Full numbers, against numpy and pandas separately:
+screamer is faster on 29 of the 32 functions and level on the other three:
+`EwMean` at 0.96x, `Abs` and `Sqrt` at 0.99x, which is parity within measurement
+noise. Those three are a single pass over memory with nothing to improve on.
+
+The rolling statistics run 1.8x to 14x faster than pandas, and far faster than
+numpy, whose sliding-window cost grows with the window while screamer's does
+not. Full numbers, against numpy and pandas separately:
 
 | function | vs numpy | vs pandas | vs fastest |
 |---|---|---|---|
+| `RollingMax` | 7.5x | 14x | **14x** |
+| `RollingMin` | 7.0x | 13x | **13x** |
 | `Clip` | 1.8x | 13x | **13x** |
 | `Sign` | 12x | - | **12x** |
-| `Return` | 2.0x | 8.8x | **8.8x** |
-| `RollingZscore` | 8.0x | 5.4x | **5.4x** |
-| `RollingStd` | 6.2x | 3.5x | **3.5x** |
-| `RollingVar` | 6.2x | 3.4x | **3.4x** |
-| `RollingQuantile` | 1.8x | 2.8x | **2.8x** |
-| `RollingSkew` | 30x | 2.3x | **2.3x** |
-| `RollingKurt` | 22x | 2.2x | **2.2x** |
-| `RollingRms` | 3.2x | 2.0x | **2.0x** |
-| `RollingMedian` | 1.3x | 1.9x | **1.9x** |
+| `Return` | 1.9x | 8.5x | **8.5x** |
+| `RollingMean` | 6.1x | 5.6x | **5.6x** |
+| `RollingZscore` | 7.9x | 5.2x | **5.2x** |
+| `RollingStd` | 6.1x | 3.4x | **3.4x** |
+| `RollingVar` | 6.1x | 3.3x | **3.3x** |
+| `RollingQuantile` | 1.7x | 2.8x | **2.8x** |
+| `RollingSkew` | 29x | 2.2x | **2.2x** |
+| `RollingKurt` | 24x | 2.2x | **2.2x** |
+| `RollingPoly1` | 2.0x | 2.0x | **2.0x** |
 | `Diff` | 1.0x | 1.9x | **1.9x** |
+| `RollingMedian` | 1.2x | 1.9x | **1.9x** |
 | `EwZscore` | - | 1.9x | **1.9x** |
-| `RollingPoly1` | 1.9x | 1.9x | **1.9x** |
-| `RollingSum` | 1.7x | 1.9x | **1.9x** |
-| `RollingMin` | 1.0x | 1.7x | **1.7x** |
-| `RollingMean` | 1.7x | 1.7x | **1.7x** |
-| `RollingMax` | 0.9x | 1.7x | **1.7x** |
-| `FillNa` | 2.5x | 1.6x | **1.6x** |
-| `Erf` | - | - | **1.3x** |
-| `EwMean` | 1.0x | 1.3x | **1.3x** |
+| `RollingSum` | 1.7x | 1.8x | **1.8x** |
+| `RollingRms` | 2.9x | 1.8x | **1.8x** |
+| `FillNa` | 2.6x | 1.4x | **1.4x** |
 | `Erfc` | - | - | **1.3x** |
-| `EwStd` | - | 1.2x | **1.2x** |
+| `Erf` | - | - | **1.2x** |
 | `Lag` | 1.0x | 1.2x | **1.2x** |
-| `Ffill` | 5.1x | 1.2x | **1.2x** |
+| `EwStd` | - | 1.1x | **1.1x** |
 | `LogReturn` | 1.0x | 1.1x | **1.1x** |
 | `Butter2` | - | - | **1.1x** |
-| `Exp` | 1.0x | - | **1.0x** |
+| `Exp` | 1.1x | - | **1.1x** |
+| `Ffill` | 5.0x | 1.1x | **1.1x** |
 | `EwVar` | - | 1.0x | **1.0x** |
 | `Log` | 1.0x | - | **1.0x** |
 | `Sqrt` | 1.0x | - | **1.0x** |
 | `Abs` | 1.0x | - | **1.0x** |
+| `EwMean` | 0.7x | 1.0x | **1.0x** |
 
 ## Streaming
 
@@ -76,14 +79,15 @@ Cost per event, on a stream of 200,000 samples of `RollingMean`:
 
 | window | screamer | TA-Lib | numpy | pandas |
 |---|---|---|---|---|
-| 10 | **90 ns** | 547 ns | 1482 ns | 11491 ns |
-| 100 | **92 ns** | 619 ns | 1521 ns | 11709 ns |
-| 1000 | **93 ns** | 1324 ns | 1687 ns | 12954 ns |
+| 10 | **93 ns** | 557 ns | 1530 ns | 12601 ns |
+| 100 | **92 ns** | 613 ns | 1532 ns | 12689 ns |
+| 1000 | **92 ns** | 1373 ns | 1675 ns | 13496 ns |
+| 5000 | **92 ns** | 4324 ns | 2230 ns | 15604 ns |
 
-screamer is 6x to 14x faster than TA-Lib here, 16x to 18x faster than numpy, and
-about 130x faster than pandas. It is also the only one whose cost does not grow
-with the window: at a window of 5000, TA-Lib reaches 4491 ns per event while
-screamer is unchanged.
+screamer is 6x to 47x faster than TA-Lib here, 16x to 24x faster than numpy, and
+135x to 170x faster than pandas. It is also the only one whose cost does not grow
+with the window: going from a window of 10 to 5000, TA-Lib goes from 557 to 4324
+ns per event and screamer does not move.
 
 The loop in that table is compiled, so the interpreter is not part of the
 measurement. Compiling the event loop is worth having, and it helps every
@@ -93,22 +97,22 @@ is whether they can update a result rather than recompute one.
 
 ### Let screamer own the loop
 
-Nearly all of those 90 nanoseconds are the call into the extension rather than
+Nearly all of those 92 nanoseconds are the call into the extension rather than
 the operator. Every library pays that on every event, and for all of them it is
 the dominant cost.
 
 The way past it is to stop calling per event and let the loop run inside
 screamer, which is what the array call and [`Pipeline`](pipelines.md) do. The
-same recurrence, over the same stream, then costs **about 1 ns per event**,
-roughly a hundred times less:
+same recurrence, over the same stream, then costs **1 to 2 ns per event**, some
+sixty times less:
 
 ```python
-# 90 ns per event: the loop is yours, and every event crosses into the extension
+# 92 ns per event: the loop is yours, and every event crosses into the extension
 op = screamer.RollingMean(100)
 for value in feed:
     current = op(value)
 
-# ~1 ns per event: the loop is screamer's, and events stay in C++
+# 1 to 2 ns per event: the loop is screamer's, and events stay in C++
 current = screamer.RollingMean(100)(values)
 ```
 
