@@ -1,24 +1,127 @@
 #ifndef SCREAMER_BASE_H
 #define SCREAMER_BASE_H
 
-#include <pybind11/stl.h>
-#include <pybind11/pybind11.h>
-#include <pybind11/numpy.h>
+#include <nanobind/nanobind.h>
+#include <nanobind/ndarray.h>
+#include <cstdint>
+#include <cstring>
+#include <string>
 #include <vector>
-#include <iostream>
 #include <sstream>
 #include "screamer/common/cast_double.h"
 #include "screamer/common/async_generator.h"
 #include "screamer/common/eval_op.h"
 
-namespace py = pybind11;
+namespace nb = nanobind;
 
 namespace screamer {
 
 // Returns true if obj is a screamer.dag.Node (duck-typed: has is_node True).
-bool is_dag_node(const py::object& obj);
+bool is_dag_node(const nb::object& obj);
 // Build a graph node from a callable `self` and its argument objects.
-py::object make_dag_functor_node(py::object self, py::object args_tuple);
+nb::object make_dag_functor_node(nb::object self, nb::object args_tuple);
+
+namespace detail {
+
+// Read one element of an arbitrary-dtype buffer at element index `idx`, coerced
+// to double. Mirrors pybind's `py::array_t<double, forcecast>` dtype coercion,
+// which nanobind's generic `nb::ndarray<>` does NOT do for free.
+inline double load_elem(const void* base, int64_t idx, const nb::dlpack::dtype& dt) {
+    using C = nb::dlpack::dtype_code;
+    if (dt.code == (uint8_t) C::Float) {
+        if (dt.bits == 64) return ((const double*)  base)[idx];
+        if (dt.bits == 32) return (double)((const float*) base)[idx];
+    } else if (dt.code == (uint8_t) C::Int) {
+        if (dt.bits == 64) return (double)((const int64_t*) base)[idx];
+        if (dt.bits == 32) return (double)((const int32_t*) base)[idx];
+        if (dt.bits == 16) return (double)((const int16_t*) base)[idx];
+        if (dt.bits == 8)  return (double)((const int8_t*)  base)[idx];
+    } else if (dt.code == (uint8_t) C::UInt) {
+        if (dt.bits == 64) return (double)((const uint64_t*) base)[idx];
+        if (dt.bits == 32) return (double)((const uint32_t*) base)[idx];
+        if (dt.bits == 16) return (double)((const uint16_t*) base)[idx];
+        if (dt.bits == 8)  return (double)((const uint8_t*)  base)[idx];
+    }
+    throw nb::type_error("Unsupported ndarray dtype; expected a numeric array.");
+}
+
+// Allocate a NEW numpy array that OWNS `data` via an owner capsule with a
+// delete[] deleter, and return it as an nb::object. There is no owning
+// ndarray(shape) constructor in nanobind; this is the required idiom. `data`
+// must be a `new double[...]` C-contiguous buffer matching `shape`.
+inline nb::object make_owned_array(double* data, const std::vector<size_t>& shape) {
+    nb::capsule owner(data, [](void* p) noexcept { delete[] (double*) p; });
+    return nb::cast(nb::ndarray<nb::numpy, double>(
+        data, shape.size(), shape.data(), owner));
+}
+
+// True iff `h` is an ndarray-like object (numpy array), regardless of dtype /
+// rank / strides. Replaces pybind's `py::isinstance<py::array>`. convert=false
+// so it accepts existing arrays only (not sequences that could be converted).
+inline bool is_ndarray(nb::handle h) {
+    nb::ndarray<> tmp;
+    return nb::try_cast<nb::ndarray<>>(h, tmp, /*convert=*/false);
+}
+
+// True iff `a` is C-contiguous (row-major, unit last stride).
+inline bool is_c_contiguous(const nb::ndarray<>& a) {
+    size_t nd = a.ndim();
+    if (nd == 0) return true;
+    int64_t expected = 1;
+    for (size_t d = nd; d-- > 0; ) {
+        if (a.stride(d) != expected) return false;
+        expected *= (int64_t) a.shape(d);
+    }
+    return true;
+}
+
+// A C-contiguous double copy of an ndarray of arbitrary dtype/stride, plus its
+// shape. Mirrors pybind's forcecast to `py::array_t<double>`.
+struct ContigDouble {
+    std::vector<double> data;   // C-contiguous
+    std::vector<size_t> shape;
+    size_t ndim()  const { return shape.size(); }
+    size_t total() const { size_t t = 1; for (size_t s : shape) t *= s; return t; }
+    size_t time()  const { return shape.empty() ? 0 : shape[0]; }
+    size_t cols()  const { size_t t = time(); return t ? total() / t : 0; }
+};
+
+inline ContigDouble read_contig_double(const nb::ndarray<>& a) {
+    ContigDouble r;
+    size_t nd = a.ndim();
+    r.shape.resize(nd);
+    size_t total = 1;
+    for (size_t i = 0; i < nd; ++i) { r.shape[i] = a.shape(i); total *= r.shape[i]; }
+    r.data.resize(total);
+    if (total == 0) return r;
+
+    const void* base = a.data();
+    nb::dlpack::dtype dt = a.dtype();
+
+    // Fast path: already C-contiguous float64 -> straight copy.
+    if (dt.code == (uint8_t) nb::dlpack::dtype_code::Float && dt.bits == 64
+        && is_c_contiguous(a)) {
+        std::memcpy(r.data.data(), base, total * sizeof(double));
+        return r;
+    }
+
+    std::vector<int64_t> strides(nd);
+    for (size_t i = 0; i < nd; ++i) strides[i] = a.stride(i);
+    std::vector<size_t> idx(nd, 0);
+    for (size_t lin = 0; lin < total; ++lin) {
+        int64_t off = 0;
+        for (size_t d = 0; d < nd; ++d) off += (int64_t) idx[d] * strides[d];
+        r.data[lin] = load_elem(base, off, dt);
+        // Odometer increment, C order (last axis fastest).
+        for (size_t d = nd; d-- > 0; ) {
+            if (++idx[d] < r.shape[d]) break;
+            idx[d] = 0;
+        }
+    }
+    return r;
+}
+
+}  // namespace detail
 
 class ScreamerBase : public EvalOp {
 public:
@@ -30,22 +133,24 @@ public:
     std::size_t n_out() const override { return 1; }
     void eval(const double* in, double* out) override { out[0] = process_scalar(in[0]); }
 
-    py::object operator()(py::object obj);
+    nb::object operator()(nb::object obj);
 
     virtual double process_scalar(double value) = 0;
 
     virtual void process_array_no_stride(double* result_data, const double* input_data, size_t size);
 
     virtual void process_array_stride(
-        double* result_data, 
+        double* result_data,
         size_t result_stride,
-        const double* input_data, 
+        const double* input_data,
         size_t input_stride,
         size_t size
     );
 
 protected:
-    py::array_t<double> process_python_array(py::array_t<double> input_array);
+    // Batch a >=1-D ndarray (any dtype/strides) -> a NEW C-contiguous float64
+    // array of the same shape. Caller has already handled the 0-d (scalar) case.
+    nb::object process_python_array(nb::ndarray<> input_array);
 };
 
 } // namespace screamer

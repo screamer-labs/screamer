@@ -2,10 +2,10 @@
 #define SCREAMER_LAZY_EVAL_ITERATOR_H
 
 #include <vector>
-#include <pybind11/pybind11.h>
+#include <nanobind/nanobind.h>
 #include "screamer/common/eval_op.h"
 
-namespace py = pybind11;
+namespace nb = nanobind;
 
 namespace screamer {
 
@@ -19,9 +19,9 @@ namespace screamer {
 //     used for the "one iterable of tuples" call form.
 class LazyEvalIterator {
 public:
-    LazyEvalIterator(py::object op_owner, std::vector<py::object> iterables)
+    LazyEvalIterator(nb::object op_owner, std::vector<nb::object> iterables)
         : op_owner_(std::move(op_owner)),
-          op_(op_owner_.cast<EvalOp&>()),
+          op_(nb::cast<EvalOp&>(op_owner_)),
           n_in_(op_.n_in()), n_out_(op_.n_out()),
           in_(op_.n_in()), out_(op_.n_out()) {
         for (auto& it : iterables) iters_.push_back(it.attr("__iter__")());
@@ -32,39 +32,39 @@ public:
 
     LazyEvalIterator& __iter__() { return *this; }
 
-    py::object __next__() {
+    nb::object __next__() {
         if (unpack_tuples_) {
-            py::object item = next_or_stop(iters_[0]);          // an n_in-tuple
-            py::sequence seq = py::cast<py::sequence>(item);
-            if (py::len(seq) != static_cast<py::ssize_t>(n_in_))
-                throw py::value_error("LazyEvalIterator: tuple size does not match n_in");
+            nb::object item = next_or_stop(iters_[0]);          // an n_in-tuple
+            nb::sequence seq = nb::cast<nb::sequence>(item);
+            if (nb::len(seq) != static_cast<Py_ssize_t>(n_in_))
+                throw nb::value_error("LazyEvalIterator: tuple size does not match n_in");
             for (std::size_t i = 0; i < n_in_; ++i)
-                in_[i] = seq[i].cast<double>();
+                in_[i] = nb::cast<double>(seq[i]);
         } else {
             for (std::size_t i = 0; i < n_in_; ++i)
-                in_[i] = next_or_stop(iters_[i]).cast<double>();
+                in_[i] = nb::cast<double>(next_or_stop(iters_[i]));
         }
         op_.eval(in_.data(), out_.data());
-        if (n_out_ == 1) return py::float_(out_[0]);
-        py::tuple t(n_out_);
-        for (std::size_t i = 0; i < n_out_; ++i) t[i] = py::float_(out_[i]);
-        return std::move(t);
+        if (n_out_ == 1) return nb::float_(out_[0]);
+        nb::list lst;
+        for (std::size_t i = 0; i < n_out_; ++i) lst.append(nb::float_(out_[i]));
+        return nb::steal(PySequence_Tuple(lst.ptr()));
     }
 
 private:
-    static py::object next_or_stop(py::object& it) {
+    static nb::object next_or_stop(nb::object& it) {
         try {
             return it.attr("__next__")();
-        } catch (py::error_already_set& e) {
-            if (e.matches(PyExc_StopIteration)) throw py::stop_iteration();
+        } catch (nb::python_error& e) {
+            if (e.matches(PyExc_StopIteration)) throw nb::stop_iteration();
             throw;
         }
     }
 
-    py::object op_owner_;                 // keeps the functor wrapper alive
+    nb::object op_owner_;                 // keeps the functor wrapper alive
     EvalOp& op_;
     std::size_t n_in_, n_out_;
-    std::vector<py::object> iters_;
+    std::vector<nb::object> iters_;
     std::vector<double> in_, out_;
     bool unpack_tuples_ = false;
 };

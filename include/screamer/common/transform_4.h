@@ -2,15 +2,11 @@
 #define SCREAMER_TRANSFORM_H
 
 #include <optional>
-#include <pybind11/pybind11.h>
-#include <pybind11/numpy.h>
 #include "screamer/common/base.h"
 #include <algorithm>
 #include <execution>
 #include <cmath>
 #include <functional>
-
-namespace py = pybind11;
 
 namespace screamer {
 

@@ -1,67 +1,68 @@
 #include "screamer/common/base.h"
 #include "screamer/common/async_generator.h"
 #include "screamer/common/lazy_eval_iterator.h"
+#include <nanobind/stl/vector.h>
+#include <stdexcept>
 
 namespace screamer {
 
-bool is_dag_node(const py::object& obj) {
-    return py::hasattr(obj, "is_node") &&
-           obj.attr("is_node").cast<bool>() == true;
+bool is_dag_node(const nb::object& obj) {
+    return nb::hasattr(obj, "is_node") &&
+           nb::cast<bool>(obj.attr("is_node")) == true;
 }
 
-py::object make_dag_functor_node(py::object self, py::object args_tuple) {
-    py::object mod = py::module_::import("screamer.dag");
+nb::object make_dag_functor_node(nb::object self, nb::object args_tuple) {
+    nb::object mod = nb::module_::import_("screamer.dag");
     return mod.attr("make_functor_node")(self, args_tuple);
 }
 
-py::object ScreamerBase::operator()(py::object obj) {
+nb::object ScreamerBase::operator()(nb::object obj) {
     if (can_cast_to_double(obj)) {
-        double value = py::cast<double>(obj);
-        return py::float_(process_scalar(value));
+        double value = nb::cast<double>(obj);
+        return nb::float_(process_scalar(value));
     }
 
-    if (py::isinstance<py::list>(obj) || py::isinstance<py::tuple>(obj)) {
-        py::sequence seq = py::reinterpret_borrow<py::sequence>(obj);
+    if (nb::isinstance<nb::list>(obj) || nb::isinstance<nb::tuple>(obj)) {
         reset();
-        py::list out;
-        for (auto item : seq) {
-            out.append(py::float_(process_scalar(item.cast<double>())));
+        nb::list out;
+        for (nb::handle item : obj) {
+            out.append(nb::float_(process_scalar(nb::cast<double>(item))));
         }
         return out;
     }
 
-    if (py::isinstance<py::array>(obj)) {
+    if (detail::is_ndarray(obj)) {
         // Container/rank preservation (Rule A): an ndarray input returns an
         // ndarray of the same shape, whatever its length. A length-1 array is a
         // time series of one, not a scalar; only an actual scalar returns a
-        // scalar. process_python_array handles size 0 (empty) and size 1
-        // correctly, so no length special-case is needed.
-        py::array_t<double> double_array_t = py::cast<py::array_t<double>>(obj);
-        if (double_array_t.ndim() == 0) {
+        // scalar.
+        nb::ndarray<> arr = nb::cast<nb::ndarray<>>(obj);
+        if (arr.ndim() == 0) {
             // Rank 0: a 0-d array carries a single sample with no time axis, so
             // it behaves like a scalar - one event in, one scalar out.
-            return py::float_(process_scalar(*double_array_t.data()));
+            nb::dlpack::dtype dt = arr.dtype();
+            return nb::float_(process_scalar(detail::load_elem(arr.data(), 0, dt)));
         }
-        return process_python_array(double_array_t);
+        return process_python_array(arr);
     }
 
-    if (py::isinstance<py::iterable>(obj)) {
-        std::vector<py::object> sources{obj};       // a single iterable of scalars (n_in==1)
-        return py::cast(LazyEvalIterator(py::cast(this), std::move(sources)));
+    if (nb::hasattr(obj, "__iter__")) {
+        std::vector<nb::object> sources{ obj };      // a single iterable of scalars (n_in==1)
+        return nb::cast(LazyEvalIterator(nb::find(*this), std::move(sources)));
     }
 
     if (is_async_generator(obj)) {
-        return py::cast(LazyAsyncIterator(obj, py::cast(this)));
+        return nb::cast(LazyAsyncIterator(obj, nb::find(*this)));
     }
 
     if (is_dag_node(obj)) {
-        py::object self = py::cast(this);
-        return make_dag_functor_node(self, py::make_tuple(obj));
+        nb::object self = nb::find(*this);
+        return make_dag_functor_node(self, nb::make_tuple(obj));
     }
 
-    auto type_str = std::string(py::str(py::type::of(obj)));
+    nb::str type_repr(nb::handle((PyObject*) Py_TYPE(obj.ptr())));
     std::ostringstream oss;
-    oss << "Unsupported input type for call: [" << type_str << "]";
+    oss << "Unsupported input type for call: [" << type_repr.c_str() << "]";
     throw std::invalid_argument(oss.str());
 }
 
@@ -72,9 +73,9 @@ void ScreamerBase::process_array_no_stride(double* result_data, const double* in
 }
 
 void ScreamerBase::process_array_stride(
-    double* result_data, 
+    double* result_data,
     size_t result_stride,
-    const double* input_data, 
+    const double* input_data,
     size_t input_stride,
     size_t size
 ) {
@@ -88,79 +89,47 @@ void ScreamerBase::process_array_stride(
     }
 }
 
-py::array_t<double> ScreamerBase::process_python_array(py::array_t<double> input_array) {
-    py::buffer_info buf_info = input_array.request();
+nb::object ScreamerBase::process_python_array(nb::ndarray<> input) {
+    size_t nd = input.ndim();
 
-    if (buf_info.ndim < 1 || buf_info.itemsize != sizeof(double)) {
-        throw std::runtime_error("Input array must have at least one dimension and contain doubles");
+    std::vector<size_t> shape(nd);
+    size_t total = 1;
+    for (size_t i = 0; i < nd; ++i) { shape[i] = input.shape(i); total *= shape[i]; }
+
+    double* out = new double[total ? total : 1];
+    if (total == 0) {
+        return detail::make_owned_array(out, shape);
     }
 
-    double* input_data = static_cast<double*>(buf_info.ptr);
-    py::array_t<double> result(buf_info.shape);
-    py::buffer_info result_buf = result.request();
-    double* result_data = static_cast<double*>(result_buf.ptr);
-    size_t size = buf_info.shape[0];
+    size_t size = shape[0];
+    size_t rest = total / size;
 
-    if (size == 0) {
-        return result;
+    // Materialise a C-contiguous double view of the input. The fast path avoids
+    // the copy for an already-C-contiguous float64 array.
+    nb::dlpack::dtype dt = input.dtype();
+    bool f64 = (dt.code == (uint8_t) nb::dlpack::dtype_code::Float && dt.bits == 64);
+    detail::ContigDouble tmp;
+    const double* in;
+    if (f64 && detail::is_c_contiguous(input)) {
+        in = (const double*) input.data();
+    } else {
+        tmp = detail::read_contig_double(input);
+        in = tmp.data.data();
     }
 
-    if (buf_info.ndim == 1 && buf_info.strides[0] == sizeof(double)) {
+    if (nd == 1) {
         reset();
-        process_array_no_stride(result_data, input_data, size);
+        process_array_no_stride(out, in, size);
         reset();
-        return result;
-    }
-
-    size_t rest_size = 1;  
-    for (int i = 1; i < buf_info.ndim; ++i) {
-        rest_size *= buf_info.shape[i];
-    }
-
-    std::vector<size_t> input_strides(buf_info.ndim);
-    std::vector<size_t> result_strides(buf_info.ndim);
-
-    for (int i = 0; i < buf_info.ndim; ++i) {
-        input_strides[i] = buf_info.strides[i] / sizeof(double);
-        result_strides[i] = result_buf.strides[i] / sizeof(double);
-    }
-
-    std::vector<size_t> col_input_offsets(rest_size);
-    std::vector<size_t> col_result_offsets(rest_size);
-
-    for (size_t col = 0; col < rest_size; ++col) {
-        size_t temp_col = col;
-        size_t col_input_offset = 0;
-        size_t col_result_offset = 0;
-
-        for (int dim = buf_info.ndim - 1; dim > 0; --dim) {
-            size_t index_in_dim = temp_col % buf_info.shape[dim];
-            col_input_offset += index_in_dim * input_strides[dim];
-            col_result_offset += index_in_dim * result_strides[dim];
-            temp_col /= buf_info.shape[dim];
+    } else {
+        for (size_t col = 0; col < rest; ++col) {
+            reset();
+            process_array_stride(out + col, rest, in + col, rest, size);
         }
-
-        col_input_offsets[col] = col_input_offset;
-        col_result_offsets[col] = col_result_offset;
-    }
-
-    for (size_t col = 0; col < rest_size; ++col) {
-        size_t input_index = col_input_offsets[col];
-        size_t result_index = col_result_offsets[col];
-
         reset();
-
-        process_array_stride(
-            &result_data[result_index], 
-            result_strides[0],
-            &input_data[input_index], 
-            input_strides[0],
-            size
-        );
     }
 
-    reset();
-    return result;
+    return detail::make_owned_array(out, shape);
 }
 
 } // namespace screamer

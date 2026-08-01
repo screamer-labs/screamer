@@ -7,10 +7,10 @@
 #include <type_traits>
 #include <utility>
 #include <vector>
-#include <pybind11/pybind11.h>
+#include <nanobind/nanobind.h>
 #include "screamer/streams/event.h"
 
-namespace py = pybind11;
+namespace nb = nanobind;
 
 namespace screamer { namespace streams {
 
@@ -28,14 +28,14 @@ namespace screamer { namespace streams {
 template <class Index>
 class PySource : public Source<Index> {
 public:
-    PySource(py::object it, bool positional)
+    PySource(nb::object it, bool positional)
         : it_(std::move(it)), positional_(positional), counter_(0) {}
 
     std::optional<Event<Index>> next() override {
-        py::object item;
+        nb::object item;
         try {
             item = it_.attr("__next__")();
-        } catch (py::error_already_set& e) {
+        } catch (nb::python_error& e) {
             // Normal end-of-iterator: swallow StopIteration as flow control.
             if (e.matches(PyExc_StopIteration)) return std::nullopt;
             throw;
@@ -45,51 +45,51 @@ public:
         wide_values_.clear();
         if (positional_) {
             ev.index = static_cast<Index>(counter_++);
-            ev.value = item.cast<double>();
+            ev.value = nb::cast<double>(item);
         } else {
-            py::tuple tup = item.cast<py::tuple>();
-            py::object val_obj = tup[0];
+            nb::tuple tup = nb::cast<nb::tuple>(item);
+            nb::object val_obj = nb::borrow<nb::object>(tup[0]);
 
             // Try scalar extraction first (common fast path).
             // For wide events (tuple, list, or numpy array of floats), fall
             // through to the sequence path.
             bool is_scalar = false;
-            if (py::isinstance<py::float_>(val_obj) ||
-                py::isinstance<py::int_>(val_obj)) {
-                ev.value = val_obj.cast<double>();
+            if (nb::isinstance<nb::float_>(val_obj) ||
+                nb::isinstance<nb::int_>(val_obj)) {
+                ev.value = nb::cast<double>(val_obj);
                 is_scalar = true;
             }
             if (!is_scalar) {
                 // Wide event: extract all values from the sequence.
-                try {
-                    auto seq = val_obj.cast<py::sequence>();
-                    const std::size_t n = seq.size();
+                nb::sequence seq;
+                if (nb::try_cast<nb::sequence>(val_obj, seq)) {
+                    const std::size_t n = static_cast<std::size_t>(nb::len(seq));
                     wide_values_.reserve(n);
                     for (std::size_t j = 0; j < n; ++j)
-                        wide_values_.push_back(seq[j].cast<double>());
+                        wide_values_.push_back(nb::cast<double>(seq[j]));
                     ev.value = wide_values_.empty() ? 0.0 : wide_values_[0];
-                } catch (...) {
+                } else {
                     // Last resort: try direct cast (handles numpy scalars, etc.)
-                    ev.value = val_obj.cast<double>();
+                    ev.value = nb::cast<double>(val_obj);
                 }
             }
 
             if constexpr (std::is_integral_v<Index>) {
-                py::handle idx = tup[1];
-                if (py::isinstance<py::float_>(idx)) {
-                    double d = idx.cast<double>();
+                nb::handle idx = tup[1];
+                if (nb::isinstance<nb::float_>(idx)) {
+                    double d = nb::cast<double>(idx);
                     if (!std::isfinite(d) || std::floor(d) != d) {
-                        throw py::type_error(
+                        throw nb::type_error(
                             "stream index must be a finite integer-valued number; "
                             "got a fractional or non-finite float. The engine is "
                             "int64-indexed.");
                     }
                     ev.index = static_cast<Index>(d);
                 } else {
-                    ev.index = idx.cast<Index>();
+                    ev.index = nb::cast<Index>(idx);
                 }
             } else {
-                ev.index = tup[1].cast<Index>();
+                ev.index = nb::cast<Index>(tup[1]);
             }
         }
         return ev;
@@ -102,7 +102,7 @@ public:
     const std::vector<double>& wide_values() const { return wide_values_; }
 
 private:
-    py::object it_;
+    nb::object it_;
     bool positional_;
     std::int64_t counter_;
     std::vector<double> wide_values_;   // populated when last event was wide

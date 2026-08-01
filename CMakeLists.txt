@@ -30,8 +30,11 @@ endif()
 option(SCREAMER_NATIVE_ARCH "Build with -march=native (not portable)" OFF)
 
 
-# Find Python and Development libraries
-find_package(Python3 COMPONENTS Interpreter Development.Module REQUIRED)
+# Find Python and Development libraries.
+# Development.SABIModule is REQUIRED for nanobind's STABLE_ABI (abi3). Without
+# it, nanobind silently downgrades STABLE_ABI to a version-tagged extension
+# (no warning). abi3 also forces requires-python >= 3.12 (see pyproject.toml).
+find_package(Python 3.12 COMPONENTS Interpreter Development.Module Development.SABIModule REQUIRED)
 
 # Include FetchContent module
 include(FetchContent)
@@ -42,29 +45,23 @@ set(FETCHCONTENT_BASE_DIR ${CMAKE_BINARY_DIR}/_deps)
 # Path to locally cached dependencies (must be populated manually or during an online run)
 set(LOCAL_CACHE_DIR ${CMAKE_SOURCE_DIR}/_local_deps)
 
-# pybind11 v3.0.4 (latest patch in the v3.0 line as of time of writing).
-# Earlier we suspected v3.0.2 regressed our build on Windows (issue #5993,
-# std-container crashes), but the actual root cause turned out to be a
-# static py::dtype initialiser in cast_double.h that ran at DLL load
-# before pybind11 had set up GIL state -- nothing to do with pybind11
-# versions. With that fixed in v0.1.56, we re-tested v3.0.4: works on all
-# OSes and gives us several bug fixes (v3.0.3 hardened
-# PYBIND11_MODULE_PYINIT and fixed a heap-buffer-overflow in pythonbuf;
-# v3.0.2 fixed UB importing from non-main threads, etc.).
-set(SCREAMER_PYBIND11_TAG "v3.0.4")
+# nanobind replaces pybind11 (migration 2026-08). nanobind has STABLE_ABI from
+# Python 3.12+, which collapses the release wheel matrix to one abi3 wheel per
+# platform. v2.9.2 is the tag validated by the migration spike; bump to a newer
+# stable tag when re-validated. See docs/superpowers/plans/2026-08-01-nanobind-migration.md.
+set(SCREAMER_NANOBIND_TAG "v2.9.2")
 
-if(EXISTS "${LOCAL_CACHE_DIR}/pybind11")
-    message(STATUS "Using locally cached pybind11 at ${LOCAL_CACHE_DIR}/pybind11")
-    set(pybind11_SOURCE_DIR "${LOCAL_CACHE_DIR}/pybind11")
-    add_subdirectory("${pybind11_SOURCE_DIR}" "${CMAKE_BINARY_DIR}/pybind11")
+if(EXISTS "${LOCAL_CACHE_DIR}/nanobind")
+    message(STATUS "Using locally cached nanobind at ${LOCAL_CACHE_DIR}/nanobind")
+    add_subdirectory("${LOCAL_CACHE_DIR}/nanobind" "${CMAKE_BINARY_DIR}/nanobind")
 else()
-    message(STATUS "Downloading pybind11 ${SCREAMER_PYBIND11_TAG} from GitHub")
+    message(STATUS "Downloading nanobind ${SCREAMER_NANOBIND_TAG} from GitHub")
     FetchContent_Declare(
-        pybind11
-        GIT_REPOSITORY https://github.com/pybind/pybind11.git
-        GIT_TAG        ${SCREAMER_PYBIND11_TAG}
+        nanobind
+        GIT_REPOSITORY https://github.com/wjakob/nanobind.git
+        GIT_TAG        ${SCREAMER_NANOBIND_TAG}
     )
-    FetchContent_MakeAvailable(pybind11)
+    FetchContent_MakeAvailable(nanobind)
 endif()
 
 
@@ -72,19 +69,25 @@ endif()
 # Create the Python module
 # ---------------------------------------------------------
 
-# Collect all .cpp files in the bindings directory
-file(GLOB_RECURSE BINDING_SOURCES "bindings/*.cpp")
+# PHASE 1 (nanobind migration checkpoint): build a REDUCED module from only the
+# converted binding files. To re-expand to the full module in Phase 3, replace
+# the explicit BINDING_SOURCES list below with the glob (and restore the init
+# calls in bindings/bindings.cpp):
+#     file(GLOB_RECURSE BINDING_SOURCES "bindings/*.cpp")
+set(BINDING_SOURCES
+    "${CMAKE_SOURCE_DIR}/bindings/bindings.cpp"
+    "${CMAKE_SOURCE_DIR}/bindings/bindings_core.cpp"
+    "${CMAKE_SOURCE_DIR}/bindings/bindings_signal.cpp"
+)
 
 # Collect all source files in the src directory
 file(GLOB_RECURSE SCREAMER_SOURCES "src/screamer/*.cpp")
 
 
-pybind11_add_module(screamer_bindings MODULE ${BINDING_SOURCES} ${SCREAMER_SOURCES})
-target_link_libraries(screamer_bindings PRIVATE pybind11::module)
+nanobind_add_module(screamer_bindings STABLE_ABI ${BINDING_SOURCES} ${SCREAMER_SOURCES})
 target_include_directories(
     screamer_bindings PUBLIC
     "${CMAKE_SOURCE_DIR}/include"
-    "${pybind11_INCLUDE_DIRS}"
 )
 
 # Optimization flags. MSVC takes different flags than GCC/Clang.

@@ -1,17 +1,25 @@
 #ifndef FUNCTOR_BASE_H
 #define FUNCTOR_BASE_H
 
+#include <array>
 #include <cstddef>
 #include <optional>
+#include <stdexcept>
+#include <string>
 #include <tuple>
 #include <type_traits>
 #include <utility>
-#include <pybind11/stl.h>
-#include <pybind11/pybind11.h>
-#include <pybind11/numpy.h>
+#include <vector>
+#include <nanobind/nanobind.h>
+#include <nanobind/ndarray.h>
+#include <nanobind/stl/optional.h>
+#include <nanobind/stl/vector.h>
+#include <nanobind/stl/tuple.h>
 #include "screamer/common/base.h"
 #include "screamer/common/eval_op.h"
 #include "screamer/common/lazy_eval_iterator.h"
+
+namespace nb = nanobind;
 
 namespace screamer {
 
@@ -32,27 +40,6 @@ namespace detail {
     template <size_t M>
     using TupleOfDoubles = typename TupleOfDoublesHelper<M>::type;
 
-
-    inline size_t numpy_num_cols(const py::buffer_info& buf_info) {
-        size_t num_cols = 1;
-        for (int i = 1; i < buf_info.ndim; ++i) {
-            num_cols *= buf_info.shape[i];
-        }
-        return num_cols;
-    }
-
-
-    inline size_t numpy_col_start_pos(const size_t column, const py::buffer_info& buf_info) {
-        size_t start_pos = 0;
-        size_t temp = column;
-        for (size_t dim = 1; dim < buf_info.ndim; ++dim) {
-            size_t index = temp % buf_info.shape[dim];
-            start_pos += index * (buf_info.strides[dim] / buf_info.itemsize);
-            temp /= buf_info.shape[dim];
-        }
-        return start_pos;
-    }
-
     // Write each element of a std::tuple<double, double, ...> to consecutive
     // doubles starting at `dest`. Used by the M>1-output dispatcher to
     // serialise a call() result into a contiguous numpy output buffer.
@@ -67,53 +54,64 @@ namespace detail {
         write_tuple_helper(dest, t, std::make_index_sequence<kSize>{});
     }
 
-    // Build a 1-D column array from a raw source pointer and pre-divided strides.
-    // src        – start of the whole 2-D buffer
-    // row_stride – elements between successive rows    (strides[0] / itemsize)
-    // col_stride – elements between successive columns (strides[1] / itemsize)
-    // j          – column index to extract
-    // T          – number of rows
-    inline py::array_t<double> extract_column(const double* src,
-                                              std::ptrdiff_t row_stride,
-                                              std::ptrdiff_t col_stride,
-                                              size_t j, size_t T) {
-        py::array_t<double> col(static_cast<py::ssize_t>(T));
-        double* dst = static_cast<double*>(col.request().ptr);
-        for (size_t i = 0; i < T; ++i) {
-            dst[i] = src[i * row_stride + j * col_stride];
+    // Read N numpy arrays (any dtype/strides) into contiguous double columns,
+    // validating that all N share the same shape. Mirrors the pybind
+    // forcecast-and-check path. Throws the same error vocabulary the tests
+    // assert (TypeError on a mix / shape mismatch).
+    template <size_t N>
+    inline std::array<ContigDouble, N> read_n_arrays(const nb::tuple& inputs) {
+        std::array<ContigDouble, N> out;
+        if (!is_ndarray(inputs[0])) {
+            throw nb::type_error("Incompatible input type, a mix of numpy arrays and other.");
         }
-        return col;
+        out[0] = read_contig_double(nb::cast<nb::ndarray<>>(inputs[0]));
+        if (out[0].ndim() < 1) {
+            throw std::runtime_error("Input array must have at least one dimension");
+        }
+        for (size_t i = 1; i < N; ++i) {
+            if (!is_ndarray(inputs[i])) {
+                throw nb::type_error("Incompatible input type, a mix of numpy arrays and other.");
+            }
+            out[i] = read_contig_double(nb::cast<nb::ndarray<>>(inputs[i]));
+            if (out[i].ndim() != out[0].ndim()) {
+                throw nb::type_error("Incompatible input numpy arrays, dimensions mismatch.");
+            }
+            for (size_t d = 0; d < out[0].ndim(); ++d) {
+                if (out[0].shape[d] != out[i].shape[d]) {
+                    throw nb::type_error("Incompatible input numpy arrays, shape mismatch.");
+                }
+            }
+        }
+        return out;
     }
 
-    // If args is a single 2-D (T, N) numpy array, return a tuple of its N
-    // columns as 1-D arrays; otherwise return an empty optional. Enforces the
+    // If args is a single 2-D (T, N) numpy array, return its N columns as
+    // contiguous 1-D double arrays; otherwise an empty optional. Enforces the
     // exact-width match (shape[1] == N); a mismatched width throws a clear error.
-    // The buffer is requested exactly once; column extraction reuses that info.
     template <size_t N>
-    inline std::optional<py::tuple> maybe_split_TxN(const py::args& args) {
-        if (args.size() != 1 || !py::isinstance<py::array>(args[0])) {
+    inline std::optional<std::array<ContigDouble, N>> maybe_split_TxN(const nb::args& args) {
+        if (args.size() != 1 || !is_ndarray(args[0])) {
             return std::nullopt;
         }
-        py::array_t<double> arr = py::cast<py::array_t<double>>(args[0]);
-        py::buffer_info info = arr.request();
-        if (info.ndim != 2) {
+        nb::ndarray<> arr = nb::cast<nb::ndarray<>>(args[0]);
+        if (arr.ndim() != 2) {
             return std::nullopt;   // 1-D single array falls through to the normal error
         }
-        size_t T = static_cast<size_t>(info.shape[0]);
-        size_t width = static_cast<size_t>(info.shape[1]);
+        size_t T = arr.shape(0);
+        size_t width = arr.shape(1);
         if (width != N) {
-            throw py::value_error(
-                "This functor expects " + std::to_string(N) +
-                " inputs; got a single 2-D array with " + std::to_string(width) +
-                " columns. Pass an (T, " + std::to_string(N) + ") array or " +
-                std::to_string(N) + " separate arrays.");
+            throw nb::value_error(
+                ("This functor expects " + std::to_string(N) +
+                 " inputs; got a single 2-D array with " + std::to_string(width) +
+                 " columns. Pass an (T, " + std::to_string(N) + ") array or " +
+                 std::to_string(N) + " separate arrays.").c_str());
         }
-        const double* src = static_cast<const double*>(info.ptr);
-        std::ptrdiff_t row_stride = info.strides[0] / info.itemsize;
-        std::ptrdiff_t col_stride = info.strides[1] / info.itemsize;
-        py::tuple cols(N);
+        ContigDouble full = read_contig_double(arr);   // C-contiguous (T, N)
+        std::array<ContigDouble, N> cols;
         for (size_t j = 0; j < N; ++j) {
-            cols[j] = extract_column(src, row_stride, col_stride, j, T);
+            cols[j].shape = { T };
+            cols[j].data.resize(T);
+            for (size_t i = 0; i < T; ++i) cols[j].data[i] = full.data[i * N + j];
         }
         return cols;
     }
@@ -167,336 +165,278 @@ public:
     }
 
 
-
+    // ---------------------------------------------------------
+    // ONE INPUT, ONE OUTPUT (numpy)
+    // ---------------------------------------------------------
     template <size_t TN = N, size_t TM = M, typename = std::enable_if_t<(TN == 1) && (TM == 1)>>
-    py::object handle_input_1i_1o_numpy(py::array_t<double>& input) {
-        
-        py::buffer_info input_info = input.request();
-
-        if (input_info.ndim < 1 || input_info.itemsize != sizeof(double)) {
+    nb::object handle_input_1i_1o_numpy(const nb::ndarray<>& input) {
+        detail::ContigDouble in = detail::read_contig_double(input);
+        if (in.ndim() < 1) {
             throw std::runtime_error("Input array must have at least one dimension and contain doubles");
         }
+        std::vector<size_t> shape = in.shape;
+        size_t total = in.total();
+        double* out = new double[total ? total : 1];
+        size_t size = in.time();
+        size_t cols = in.cols();   // product of trailing dims = C-contiguous axis0 stride
 
-        // Allocate output storage
-        py::array_t<double> output(input_info.shape);
-        py::buffer_info output_info = output.request();
-
-        // Get pointers to input and output memory
-        double* input_data = static_cast<double*>(input_info.ptr);
-        double* output_data = static_cast<double*>(output_info.ptr);
-
-        // get number of elements in a column, and the stepsize
-        size_t size = input_info.shape[0];
-        std::ptrdiff_t input_stride = input_info.strides[0] / input_info.itemsize;
-        std::ptrdiff_t output_stride = output_info.strides[0] / input_info.itemsize;
-
-        // get the number of columns in this ndarray
-        auto num_cols = detail::numpy_num_cols(input_info);
-
-        // loop over all columns
-        for (size_t col = 0; col < num_cols; ++col) {
-            
-            // find the start positions in memory of this column
-            size_t input_index = detail::numpy_col_start_pos(col, input_info);
-            size_t output_index = detail::numpy_col_start_pos(col, output_info);
-
-            reset(); // reset before processing this column
-
-            for (size_t i = 0; i < size; i++) {
-                output_data[output_index] = call({input_data[input_index]});
-
-                input_index += input_stride;
-                output_index += output_stride;
+        for (size_t col = 0; col < cols; ++col) {
+            reset();
+            size_t idx = col;
+            for (size_t i = 0; i < size; ++i) {
+                out[idx] = call({ in.data[idx] });
+                idx += cols;
             }
-
         }
-
-        reset(); // after we have processed all columns
-
-        return output;
+        reset();
+        return detail::make_owned_array(out, shape);
     }
 
+    // ---------------------------------------------------------
+    // MULTIPLE INPUTS, ONE OUTPUT (numpy)
+    // ---------------------------------------------------------
     template <size_t TN = N, size_t TM = M, typename = std::enable_if_t<(TN > 1) && (TM == 1)>>
-    py::object handle_input_Ni_1o_numpy(py::tuple& inputs) {
-
-        std::array<py::array_t<double>, TN> inputs_array;
-        std::array<py::buffer_info, TN> inputs_info;
-        // Check that the first input is a numpy array
-        if (!py::isinstance<py::array>(inputs[0])) {
-            throw py::type_error("Incompatible input type, a mix of numpy arrays and other.");
-        }
-        inputs_array[0] = py::cast<py::array_t<double>>(inputs[0]);
-
-
-        // Get shape info of the first numpy array
-        inputs_info[0] = inputs_array[0].request();
-
-        // basic cjeck
-        if (inputs_info[0].ndim < 1) {
+    nb::object handle_input_Ni_1o_numpy(std::array<detail::ContigDouble, N>& ins) {
+        if (ins[0].ndim() < 1) {
             throw std::runtime_error("Input array must have at least one dimension");
         }
+        std::vector<size_t> shape = ins[0].shape;
+        size_t total = ins[0].total();
+        size_t size = ins[0].time();
+        size_t cols = ins[0].cols();
+        double* out = new double[total ? total : 1];
 
-        // Check alignment between the first numpy array, and all others
-        for (size_t i = 1; i < TN; ++i) {
-            // Check that that the type is a numpy array
-            if (!py::isinstance<py::array>(inputs[i])) {
-                throw py::type_error("Incompatible input type, a mix of numpy arrays and other.");
-            }
-            inputs_array[i] = py::cast<py::array_t<double>>(inputs[i]);
+        std::array<double*, N> inptr{};
+        std::array<int64_t, N> instride{};
+        for (size_t i = 0; i < N; ++i) { inptr[i] = ins[i].data.data(); instride[i] = (int64_t) cols; }
 
-            // Check for the same number of dims
-            inputs_info[i] = inputs_array[i].request();
-            if (inputs_info[0].ndim != inputs_info[i].ndim) {
-                throw py::type_error("Incompatible input numpy arrays, dimensions mismatch.");
-            }
-            // Check for the same number of elements per dim
-            for (size_t d=0; d<inputs_info[0].ndim; ++d) {
-                if (inputs_info[0].shape[d] != inputs_info[i].shape[d]) {
-                    throw py::type_error("Incompatible input numpy arrays, shape mismatch.");
-                }
-            }
-        }
-        // we have N numpy arrays of matching shape!
+        for (size_t col = 0; col < cols; ++col) {
+            std::array<size_t, N> inoff{};
+            for (size_t i = 0; i < N; ++i) inoff[i] = col;
 
-        // Allocate output storage
-        py::array_t<double> output(inputs_info[0].shape);
-        py::buffer_info output_info = output.request();
-        double* output_data = static_cast<double*>(output_info.ptr);
-        std::ptrdiff_t output_stride = output_info.strides[0] / output_info.itemsize;
+            reset();
 
-        // Get input info
-        std::array<double*, TN> inputs_data{};
-        std::array<int64_t, TN> inputs_stride{};
-        size_t size = inputs_info[0].shape[0];
-        for (size_t i = 0; i < TN; ++i) {
-            inputs_data[i] = static_cast<double*>(inputs_info[i].ptr);
-            inputs_stride[i] = inputs_info[i].strides[0] / inputs_info[i].itemsize;
-        }
-
-        // get the number of columns in this ndarray
-        auto num_cols = detail::numpy_num_cols(inputs_info[0]);
-
-        // loop over all columns
-        std::array<size_t, TN> inputs_index{};
-        for (size_t col = 0; col < num_cols; ++col) {
-            
-            // find the start positions in memory of this column for all input arguments
-            for (size_t i = 0; i < TN; ++i) {
-                inputs_index[i] = detail::numpy_col_start_pos(col, inputs_info[i]);
-            }
-            size_t output_index = detail::numpy_col_start_pos(col, output_info);
-
-            reset(); // reset before processing this column
-
-            if (!process_columns(output_data, output_stride, inputs_data,
-                                 inputs_stride, inputs_index, output_index, size)) {
+            if (!process_columns(out, (std::ptrdiff_t) cols, inptr, instride, inoff, col, size)) {
+                std::array<size_t, N> idx_in = inoff;
+                size_t idx_out = col;
                 InputArray call_array;
-                for (size_t i = 0; i < size; i++) {
-                    for (size_t i = 0; i < TN; ++i) {
-                        call_array[i] = inputs_data[i][inputs_index[i]];
-                    }
-                    output_data[output_index] = call(call_array);
-
-                    for (size_t i = 0; i < TN; ++i) {
-                        inputs_index[i] += inputs_stride[i];
-                    }
-                    output_index += output_stride;
+                for (size_t t = 0; t < size; ++t) {
+                    for (size_t i = 0; i < N; ++i) call_array[i] = inptr[i][idx_in[i]];
+                    out[idx_out] = call(call_array);
+                    for (size_t i = 0; i < N; ++i) idx_in[i] += cols;
+                    idx_out += cols;
                 }
             }
-
         }
-
-        reset(); // after we have processed all columns
-
-        return output;
-    }    
+        reset();
+        return detail::make_owned_array(out, shape);
+    }
 
     // ---------------------------------------------------------
-    // ONE INPUT, M>1 OUTPUTS HANDLER
+    // ONE INPUT, M>1 OUTPUTS (numpy)
     // ---------------------------------------------------------
     // For a 1-input array of shape (T, ...) the output has shape
     // (T, ..., M): an extra trailing axis of size M is appended for the
     // M outputs per time step. Memory is written contiguously per step.
     template <size_t TN = N, size_t TM = M, typename = std::enable_if_t<(TN == 1) && (TM > 1)>>
-    py::object handle_input_1i_Mo_numpy(py::array_t<double>& input) {
-        py::buffer_info input_info = input.request();
-
-        if (input_info.ndim < 1 || input_info.itemsize != sizeof(double)) {
+    nb::object handle_input_1i_Mo_numpy(const nb::ndarray<>& input) {
+        detail::ContigDouble in = detail::read_contig_double(input);
+        if (in.ndim() < 1) {
             throw std::runtime_error("Input array must have at least one dimension and contain doubles");
         }
+        std::vector<size_t> shape = in.shape;
+        shape.push_back(M);
+        size_t total = in.total();
+        double* out = new double[total * M ? total * M : 1];
+        size_t size = in.time();
+        size_t cols = in.cols();
 
-        // Output shape = input shape + (M,)
-        std::vector<py::ssize_t> output_shape(input_info.shape.begin(), input_info.shape.end());
-        output_shape.push_back(static_cast<py::ssize_t>(M));
-        py::array_t<double> output(output_shape);
-        py::buffer_info output_info = output.request();
-
-        double* input_data = static_cast<double*>(input_info.ptr);
-        double* output_data = static_cast<double*>(output_info.ptr);
-
-        size_t size = input_info.shape[0];
-        std::ptrdiff_t input_stride = input_info.strides[0] / input_info.itemsize;
-        std::ptrdiff_t output_stride = output_info.strides[0] / output_info.itemsize;
-
-        auto num_cols = detail::numpy_num_cols(input_info);
-
-        for (size_t col = 0; col < num_cols; ++col) {
-            size_t input_index = detail::numpy_col_start_pos(col, input_info);
-            // The output's spatial dims are the input's followed by an
-            // appended size-M axis. For col < num_cols (which is the
-            // product of input's spatial dims), numpy_col_start_pos walks
-            // the M axis with index 0 because col / product(input.shape[1..])
-            // is 0, so it lands at output[0, ..., 0]. The M values are
-            // then written at offsets 0..M-1 within that step.
-            size_t output_index = detail::numpy_col_start_pos(col, output_info);
-
+        for (size_t col = 0; col < cols; ++col) {
             reset();
-
-            for (size_t i = 0; i < size; i++) {
-                ResultTuple results = call({input_data[input_index]});
-                detail::write_tuple_to_memory(&output_data[output_index], results);
-
-                input_index += input_stride;
-                output_index += output_stride;
+            for (size_t i = 0; i < size; ++i) {
+                size_t in_idx = i * cols + col;
+                ResultTuple results = call({ in.data[in_idx] });
+                detail::write_tuple_to_memory(&out[in_idx * M], results);
             }
         }
-
         reset();
-        return output;
+        return detail::make_owned_array(out, shape);
     }
 
+    // ---------------------------------------------------------
+    // MULTIPLE INPUTS, MULTIPLE OUTPUTS (numpy)
+    // ---------------------------------------------------------
+    // The natural composition of the N->1 and 1->M rules:
+    //   - inputs are paired column-by-column (from N->1)
+    //   - output shape = paired-input shape + (M,) (from 1->M)
+    template <size_t TN = N, size_t TM = M, typename = std::enable_if_t<(TN > 1) && (TM > 1)>>
+    nb::object handle_input_Ni_Mo_numpy(std::array<detail::ContigDouble, N>& ins) {
+        if (ins[0].ndim() < 1) {
+            throw std::runtime_error("Input array must have at least one dimension");
+        }
+        std::vector<size_t> shape = ins[0].shape;
+        shape.push_back(M);
+        size_t total = ins[0].total();
+        size_t size = ins[0].time();
+        size_t cols = ins[0].cols();
+        double* out = new double[total * M ? total * M : 1];
+
+        std::array<double*, N> inptr{};
+        for (size_t i = 0; i < N; ++i) inptr[i] = ins[i].data.data();
+
+        for (size_t col = 0; col < cols; ++col) {
+            reset();
+            InputArray call_array;
+            for (size_t t = 0; t < size; ++t) {
+                size_t in_idx = t * cols + col;
+                for (size_t j = 0; j < N; ++j) call_array[j] = inptr[j][in_idx];
+                ResultTuple results = call(call_array);
+                detail::write_tuple_to_memory(&out[in_idx * M], results);
+            }
+        }
+        reset();
+        return detail::make_owned_array(out, shape);
+    }
+
+
+    // ---------------------------------------------------------
+    // ONE INPUT, M>1 OUTPUTS
+    // ---------------------------------------------------------
     template <size_t TN = N, size_t TM = M, typename = std::enable_if_t<(TN == 1) && (TM > 1)>>
-    py::object handle_input_1i_Mo(py::object input) {
+    nb::object handle_input_1i_Mo(nb::object input) {
         // Case 1: Numpy array. Checked before the scalar cast so a length-1 array
         // is a time series of one (array in, array out - Rule A), not a scalar.
         if (is_series_array(input)) {
-            py::array_t<double> input_pyarray = py::cast<py::array_t<double>>(input);
-            return handle_input_1i_Mo_numpy(input_pyarray);
+            return handle_input_1i_Mo_numpy(nb::cast<nb::ndarray<>>(input));
         }
 
         // Case 2: Scalar input -> tuple of M floats (one streaming event)
-        try {
-            InputArray input_array = {input.cast<double>()};
-            return py::cast(call(input_array));
-        } catch (const py::cast_error&) {
+        {
+            double d;
+            if (nb::try_cast<double>(input, d)) {
+                InputArray input_array = { d };
+                return nb::cast(call(input_array));
+            }
         }
 
         // Case 3: Iterable.
         // True lazy iterators (generators, iter(...)) stream via LazyEvalIterator.
         // Concrete list/tuple inputs are eager and return a list.
-        if (py::isinstance<py::iterable>(input)) {
+        if (nb::hasattr(input, "__iter__")) {
             if (is_lazy_iterable(input)) {
-                std::vector<py::object> sources{ py::reinterpret_borrow<py::object>(input) };
-                return py::cast(LazyEvalIterator(py::cast(this), std::move(sources)));
+                std::vector<nb::object> sources{ nb::borrow<nb::object>(input) };
+                return nb::cast(LazyEvalIterator(nb::find(*static_cast<Derived*>(this)), std::move(sources)));
             }
             // Eager path for list/tuple input.
             std::vector<ResultTuple> results;
-            for (auto item : input) {
-                try {
-                    InputArray input_array = {item.cast<double>()};
-                    results.push_back(call(input_array));
-                } catch (const py::cast_error&) {
-                    throw py::type_error("Iterable must contain numbers.");
+            for (nb::handle item : input) {
+                double d;
+                if (!nb::try_cast<double>(nb::borrow<nb::object>(item), d)) {
+                    throw nb::type_error("Iterable must contain numbers.");
                 }
+                InputArray input_array = { d };
+                results.push_back(call(input_array));
             }
-            return py::cast(results);
+            return nb::cast(results);
         }
 
-        throw py::type_error("Unsupported input type. Supported types are number, numpy array, or iterable.");
+        throw nb::type_error("Unsupported input type. Supported types are number, numpy array, or iterable.");
     }
 
 
-    // one input, one output
+    // ---------------------------------------------------------
+    // ONE INPUT, ONE OUTPUT
+    // ---------------------------------------------------------
     template <size_t TN = N, size_t TM = M, typename = std::enable_if_t<(TN == 1) && (TM == 1)>>
-    py::object handle_input_1i_1o(py::object input) {
+    nb::object handle_input_1i_1o(nb::object input) {
 
         // Case 1: Numpy array. Checked before the scalar cast so a length-1 array
         // is a time series of one (array in, array out - Rule A), not a scalar;
         // only an actual Python scalar returns a scalar.
         if (is_series_array(input)) {
-            py::array_t<double> input_pyarray = py::cast<py::array_t<double>>(input);
-            return handle_input_1i_1o_numpy(input_pyarray);
+            return handle_input_1i_1o_numpy(nb::cast<nb::ndarray<>>(input));
         }
 
         // Case 2: Scalar input (one streaming event)
-        try {
-            InputArray input_array = {input.cast<double>()};
-            return py::cast(call(input_array));
-        } catch (const py::cast_error&) {
-            // If not a scalar, fall through to further checks
+        {
+            double d;
+            if (nb::try_cast<double>(input, d)) {
+                InputArray input_array = { d };
+                return nb::cast(call(input_array));
+            }
         }
 
         // Case 3: Iterable
-        if (py::isinstance<py::iterable>(input)) {
+        if (nb::hasattr(input, "__iter__")) {
             std::vector<ResultTuple> results;
 
-            for (auto item : input) {
+            for (nb::handle item_h : input) {
+                nb::object item = nb::borrow<nb::object>(item_h);
 
-                try {
+                double d;
+                if (nb::try_cast<double>(item, d)) {
                     // Case 2.1: Scalar input item
-                    InputArray input_array = {item.cast<double>()};
+                    InputArray input_array = { d };
                     results.push_back(call(input_array));
                     continue;
-                } catch (const py::cast_error&) {
-                    // If not a scalar, continue to further checks
                 }
 
-                if (py::isinstance<py::tuple>(item)) {
-                    auto tuple = item.cast<py::tuple>();
+                if (nb::isinstance<nb::tuple>(item)) {
+                    nb::tuple tuple = nb::cast<nb::tuple>(item);
                     if (tuple.size() == N) {
                         InputArray input_array = cast_to_array(tuple);
                         results.push_back(call(input_array));
                     } else {
-                        throw py::type_error("Invalid tuple size in iterable.");
+                        throw nb::type_error("Invalid tuple size in iterable.");
                     }
                 } else {
-                    throw py::type_error("Iterable must contain doubles or tuples of correct size.");
+                    throw nb::type_error("Iterable must contain doubles or tuples of correct size.");
                 }
             }
 
-            return py::cast(results);
+            return nb::cast(results);
         }
 
         // Case no match:
-        throw py::type_error("Unsupported input type. Supported types are double, or iterables.");
+        throw nb::type_error("Unsupported input type. Supported types are double, or iterables.");
     }
 
 
-    py::tuple args_to_tuple_n(const py::args args) const {
+    nb::tuple args_to_tuple_n(const nb::args& args) const {
 
         if (args.size() == 1) { // a container of N
 
-            auto arg = args[0];
-            
+            nb::object arg = nb::borrow<nb::object>(args[0]);
+
             // we only support tuples and lists
-            if (!(py::isinstance<py::list>(arg) || py::isinstance<py::tuple>(arg))) {
-                throw py::type_error("Unsupported single argument input type. Supported types are lists or tuples.");
+            if (!(nb::isinstance<nb::list>(arg) || nb::isinstance<nb::tuple>(arg))) {
+                throw nb::type_error("Unsupported single argument input type. Supported types are lists or tuples.");
             }
 
             // convert to tuple
-             py::tuple inputs = py::cast<py::tuple>(arg);
+            nb::tuple inputs = nb::cast<nb::tuple>(arg);
 
             // validate size
             if (inputs.size() != N) {
-                throw py::type_error("Wrong number of elements in the single argument input list / tuple.");
+                throw nb::type_error("Wrong number of elements in the single argument input list / tuple.");
             }
 
             return inputs;
-        } 
-        
-        if (args.size() == N) {
-            return py::cast<py::tuple>(args);
         }
-        
-        throw py::type_error("Wrong number of arguments.");
+
+        if (args.size() == N) {
+            return nb::cast<nb::tuple>(args);
+        }
+
+        throw nb::type_error("Wrong number of arguments.");
     }
-    
+
 
     // ---------------------------------------------------------
-    // MULTIPLE INPUTS, ONE OUTPUT HANDELER
+    // MULTIPLE INPUTS, ONE OUTPUT
     // ---------------------------------------------------------
     template <size_t TN = N, size_t TM = M, typename = std::enable_if_t<(TN > 1) && (TM == 1)>>
-    py::object handle_input_Ni_1o(const py::args args) {
+    nb::object handle_input_Ni_1o(const nb::args& args) {
 
         if (auto cols = detail::maybe_split_TxN<N>(args)) {
             return handle_input_Ni_1o_numpy(*cols);
@@ -505,211 +445,16 @@ public:
        // Case 1: we need to get his out of the way first.
        // A single argument, list/tuple with N-tuples inside: [ (1,2,3), (4,5,6), ...]
         if (args.size() == 1) {
-            auto input = args[0];
-            if (py::isinstance<py::list>(input) || py::isinstance<py::tuple>(input)) {
+            nb::object input = nb::borrow<nb::object>(args[0]);
+            if (nb::isinstance<nb::list>(input) || nb::isinstance<nb::tuple>(input)) {
                 bool valid = true;
                 std::vector<ResultTuple> results;
-                for (auto item : input) {
-                    if (!py::isinstance<py::tuple>(item)) {
+                for (nb::handle item : input) {
+                    if (!nb::isinstance<nb::tuple>(item)) {
                         valid = false;
                         break;
                     }
-                    auto tuple = item.cast<py::tuple>();
-                    if (tuple.size() != N) {
-                        valid = false;
-                        break;
-                    }
-                    InputArray input_array = cast_to_array(tuple);
-                    results.push_back(call(input_array));
-                }
-                if (valid) {       
-                    return py::cast(results);         
-                }
-            }
-        }
-
-        // after this, now we handle cases where we have N arguments
-        py::tuple inputs = args_to_tuple_n(args);
-
-        // Case 2: a tuple of N numpy arrays, all of the same size (nparray, ...).
-        // Checked before the scalar cast so N length-1 arrays are a series of one
-        // (array in, array out - Rule A), not N scalars collapsing to one scalar.
-        if (is_series_array(inputs[0])) {
-            return handle_input_Ni_1o_numpy(inputs);
-        }
-
-        // Case 3: a tuple of N scalar inputs: (0.3, 1.2, 4.0) -> one scalar event
-        try {
-            InputArray array;
-            for (size_t i = 0; i < N; ++i) {
-                array[i] = inputs[i].cast<double>();
-            }
-            return py::cast(call(array));
-        } catch (const py::cast_error&) {
-            // If not a scalar, fall through to further checks
-        }
-
-        // Case 4: a tuple of N iterables: ( [... != ], [...], [...] )
-        bool all_iterable = true;
-        for (auto input : inputs) {
-            all_iterable = all_iterable && py::isinstance<py::iterable>(input);
-            if (!all_iterable) {
-                break;
-            }
-        }
-
-        if (all_iterable) {
-            // True lazy iterators (generators, iter(...)) stream via LazyEvalIterator.
-            // Concrete list/tuple inputs are eager and return a list.
-            bool all_lazy = true;
-            for (auto input : inputs) {
-                all_lazy = all_lazy && is_lazy_iterable(input);
-                if (!all_lazy) break;
-            }
-            if (all_lazy) {
-                std::vector<py::object> sources;
-                for (auto input : inputs) sources.push_back(py::reinterpret_borrow<py::object>(input));
-                return py::cast(LazyEvalIterator(py::cast(this), std::move(sources)));
-            }
-            // Eager path: iterate over each input in parallel.
-            std::array<py::iterator, N> iterators;
-            for (size_t i = 0; i < N; ++i) {
-                iterators[i] = py::iter(inputs[i]);
-            }
-            std::vector<ResultTuple> results;
-            while (true) {
-                InputArray array;
-                try {
-                    for (size_t i = 0; i < N; ++i) {
-                        if (iterators[i] == py::iterator()) {
-                            throw py::stop_iteration();
-                        }
-                        auto val = *iterators[i];
-                        array[i] = val.template cast<double>();
-                        ++iterators[i];
-                    }
-                } catch (py::stop_iteration&) {
-                    break;
-                }
-                results.push_back(call(array));
-            }
-            return py::cast(results);
-        }
-
-        // Case no match:
-        throw py::type_error("Unsupported input type.");
-    }
-
-    // ---------------------------------------------------------
-    // MULTIPLE INPUTS, MULTIPLE OUTPUTS HANDLER
-    // ---------------------------------------------------------
-    // The natural composition of the N->1 and 1->M rules:
-    //   - inputs are paired column-by-column (from N->1)
-    //   - output shape = paired-input shape + (M,) (from 1->M)
-    template <size_t TN = N, size_t TM = M, typename = std::enable_if_t<(TN > 1) && (TM > 1)>>
-    py::object handle_input_Ni_Mo_numpy(py::tuple& inputs) {
-
-        std::array<py::array_t<double>, TN> inputs_array;
-        std::array<py::buffer_info, TN> inputs_info;
-
-        if (!py::isinstance<py::array>(inputs[0])) {
-            throw py::type_error("Incompatible input type, a mix of numpy arrays and other.");
-        }
-        inputs_array[0] = py::cast<py::array_t<double>>(inputs[0]);
-        inputs_info[0] = inputs_array[0].request();
-
-        if (inputs_info[0].ndim < 1) {
-            throw std::runtime_error("Input array must have at least one dimension");
-        }
-
-        for (size_t i = 1; i < TN; ++i) {
-            if (!py::isinstance<py::array>(inputs[i])) {
-                throw py::type_error("Incompatible input type, a mix of numpy arrays and other.");
-            }
-            inputs_array[i] = py::cast<py::array_t<double>>(inputs[i]);
-            inputs_info[i] = inputs_array[i].request();
-            if (inputs_info[0].ndim != inputs_info[i].ndim) {
-                throw py::type_error("Incompatible input numpy arrays, dimensions mismatch.");
-            }
-            for (size_t d = 0; d < inputs_info[0].ndim; ++d) {
-                if (inputs_info[0].shape[d] != inputs_info[i].shape[d]) {
-                    throw py::type_error("Incompatible input numpy arrays, shape mismatch.");
-                }
-            }
-        }
-
-        // Output shape = paired input shape + (M,)
-        std::vector<py::ssize_t> output_shape(inputs_info[0].shape.begin(),
-                                              inputs_info[0].shape.end());
-        output_shape.push_back(static_cast<py::ssize_t>(M));
-        py::array_t<double> output(output_shape);
-        py::buffer_info output_info = output.request();
-        double* output_data = static_cast<double*>(output_info.ptr);
-        std::ptrdiff_t output_stride = output_info.strides[0] / output_info.itemsize;
-
-        std::array<double*, TN> inputs_data{};
-        std::array<int64_t, TN> inputs_stride{};
-        size_t size = inputs_info[0].shape[0];
-        for (size_t i = 0; i < TN; ++i) {
-            inputs_data[i] = static_cast<double*>(inputs_info[i].ptr);
-            inputs_stride[i] = inputs_info[i].strides[0] / inputs_info[i].itemsize;
-        }
-
-        auto num_cols = detail::numpy_num_cols(inputs_info[0]);
-
-        std::array<size_t, TN> inputs_index{};
-        for (size_t col = 0; col < num_cols; ++col) {
-            for (size_t i = 0; i < TN; ++i) {
-                inputs_index[i] = detail::numpy_col_start_pos(col, inputs_info[i]);
-            }
-            // numpy_col_start_pos walks the trailing M-axis with index 0
-            // because col / product(input.shape[1..]) is 0, landing at
-            // output[0, ..., 0]. The M values are then written at offsets
-            // 0..M-1 within that step (same trick as 1i_Mo).
-            size_t output_index = detail::numpy_col_start_pos(col, output_info);
-
-            reset();
-
-            InputArray call_array;
-            for (size_t i = 0; i < size; i++) {
-                for (size_t j = 0; j < TN; ++j) {
-                    call_array[j] = inputs_data[j][inputs_index[j]];
-                }
-                ResultTuple results = call(call_array);
-                detail::write_tuple_to_memory(&output_data[output_index], results);
-
-                for (size_t j = 0; j < TN; ++j) {
-                    inputs_index[j] += inputs_stride[j];
-                }
-                output_index += output_stride;
-            }
-        }
-
-        reset();
-        return output;
-    }
-
-
-    template <size_t TN = N, size_t TM = M, typename = std::enable_if_t<(TN > 1) && (TM > 1)>>
-    py::object handle_input_Ni_Mo(const py::args args) {
-
-        if (auto cols = detail::maybe_split_TxN<N>(args)) {
-            return handle_input_Ni_Mo_numpy(*cols);
-        }
-
-        // Case 1: single argument, list/tuple of N-tuples
-        // [(x0, y0), (x1, y1), ...] -> list of M-tuples
-        if (args.size() == 1) {
-            auto input = args[0];
-            if (py::isinstance<py::list>(input) || py::isinstance<py::tuple>(input)) {
-                bool valid = true;
-                std::vector<ResultTuple> results;
-                for (auto item : input) {
-                    if (!py::isinstance<py::tuple>(item)) {
-                        valid = false;
-                        break;
-                    }
-                    auto tuple = item.cast<py::tuple>();
+                    nb::tuple tuple = nb::cast<nb::tuple>(item);
                     if (tuple.size() != N) {
                         valid = false;
                         break;
@@ -718,135 +463,219 @@ public:
                     results.push_back(call(input_array));
                 }
                 if (valid) {
-                    return py::cast(results);
+                    return nb::cast(results);
                 }
             }
         }
 
-        py::tuple inputs = args_to_tuple_n(args);
+        // after this, now we handle cases where we have N arguments
+        nb::tuple inputs = args_to_tuple_n(args);
 
-        // Case 2: tuple of N numpy arrays of matching shape. Checked before the
-        // scalar cast so N length-1 arrays are a series of one (array in, array
-        // out - Rule A), not N scalars collapsing to a single M-tuple.
+        // Case 2: a tuple of N numpy arrays, all of the same size (nparray, ...).
+        // Checked before the scalar cast so N length-1 arrays are a series of one
+        // (array in, array out - Rule A), not N scalars collapsing to one scalar.
         if (is_series_array(inputs[0])) {
-            return handle_input_Ni_Mo_numpy(inputs);
+            auto cols = detail::read_n_arrays<N>(inputs);
+            return handle_input_Ni_1o_numpy(cols);
         }
 
-        // Case 3: tuple of N scalars -> single M-tuple (one streaming event)
-        try {
+        // Case 3: a tuple of N scalar inputs: (0.3, 1.2, 4.0) -> one scalar event
+        {
             InputArray array;
+            bool ok = true;
             for (size_t i = 0; i < N; ++i) {
-                array[i] = inputs[i].cast<double>();
+                if (!nb::try_cast<double>(nb::borrow<nb::object>(inputs[i]), array[i])) { ok = false; break; }
             }
-            return py::cast(call(array));
-        } catch (const py::cast_error&) {
+            if (ok) return nb::cast(call(array));
         }
 
-        // Case 4: tuple of N iterables.
-        // True lazy iterators (generators, iter(...)) stream via LazyEvalIterator.
-        // Concrete list/tuple inputs are eager and return a list of M-tuples.
+        // Case 4: a tuple of N iterables: ( [...], [...], [...] )
         bool all_iterable = true;
-        for (auto input : inputs) {
-            all_iterable = all_iterable && py::isinstance<py::iterable>(input);
-            if (!all_iterable) {
-                break;
-            }
+        for (nb::handle input : inputs) {
+            all_iterable = all_iterable && nb::hasattr(input, "__iter__");
+            if (!all_iterable) break;
         }
 
         if (all_iterable) {
+            // True lazy iterators (generators, iter(...)) stream via LazyEvalIterator.
+            // Concrete list/tuple inputs are eager and return a list.
             bool all_lazy = true;
-            for (auto input : inputs) {
+            for (nb::handle input : inputs) {
                 all_lazy = all_lazy && is_lazy_iterable(input);
                 if (!all_lazy) break;
             }
             if (all_lazy) {
-                std::vector<py::object> sources;
-                for (auto input : inputs) sources.push_back(py::reinterpret_borrow<py::object>(input));
-                return py::cast(LazyEvalIterator(py::cast(this), std::move(sources)));
+                std::vector<nb::object> sources;
+                for (nb::handle input : inputs) sources.push_back(nb::borrow<nb::object>(input));
+                return nb::cast(LazyEvalIterator(nb::find(*static_cast<Derived*>(this)), std::move(sources)));
             }
             // Eager path: iterate over each input in parallel.
-            std::array<py::iterator, N> iterators;
-            for (size_t i = 0; i < N; ++i) {
-                iterators[i] = py::iter(inputs[i]);
-            }
-            std::vector<ResultTuple> results;
-            while (true) {
-                InputArray array;
-                try {
-                    for (size_t i = 0; i < N; ++i) {
-                        if (iterators[i] == py::iterator()) {
-                            throw py::stop_iteration();
-                        }
-                        auto val = *iterators[i];
-                        array[i] = val.template cast<double>();
-                        ++iterators[i];
-                    }
-                } catch (py::stop_iteration&) {
-                    break;
-                }
-                results.push_back(call(array));
-            }
-            return py::cast(results);
+            return eager_parallel(inputs);
         }
 
-        throw py::type_error("Unsupported input type.");
+        // Case no match:
+        throw nb::type_error("Unsupported input type.");
+    }
+
+    // ---------------------------------------------------------
+    // MULTIPLE INPUTS, MULTIPLE OUTPUTS
+    // ---------------------------------------------------------
+    template <size_t TN = N, size_t TM = M, typename = std::enable_if_t<(TN > 1) && (TM > 1)>>
+    nb::object handle_input_Ni_Mo(const nb::args& args) {
+
+        if (auto cols = detail::maybe_split_TxN<N>(args)) {
+            return handle_input_Ni_Mo_numpy(*cols);
+        }
+
+        // Case 1: single argument, list/tuple of N-tuples
+        // [(x0, y0), (x1, y1), ...] -> list of M-tuples
+        if (args.size() == 1) {
+            nb::object input = nb::borrow<nb::object>(args[0]);
+            if (nb::isinstance<nb::list>(input) || nb::isinstance<nb::tuple>(input)) {
+                bool valid = true;
+                std::vector<ResultTuple> results;
+                for (nb::handle item : input) {
+                    if (!nb::isinstance<nb::tuple>(item)) {
+                        valid = false;
+                        break;
+                    }
+                    nb::tuple tuple = nb::cast<nb::tuple>(item);
+                    if (tuple.size() != N) {
+                        valid = false;
+                        break;
+                    }
+                    InputArray input_array = cast_to_array(tuple);
+                    results.push_back(call(input_array));
+                }
+                if (valid) {
+                    return nb::cast(results);
+                }
+            }
+        }
+
+        nb::tuple inputs = args_to_tuple_n(args);
+
+        // Case 2: tuple of N numpy arrays of matching shape.
+        if (is_series_array(inputs[0])) {
+            auto cols = detail::read_n_arrays<N>(inputs);
+            return handle_input_Ni_Mo_numpy(cols);
+        }
+
+        // Case 3: tuple of N scalars -> single M-tuple (one streaming event)
+        {
+            InputArray array;
+            bool ok = true;
+            for (size_t i = 0; i < N; ++i) {
+                if (!nb::try_cast<double>(nb::borrow<nb::object>(inputs[i]), array[i])) { ok = false; break; }
+            }
+            if (ok) return nb::cast(call(array));
+        }
+
+        // Case 4: tuple of N iterables.
+        bool all_iterable = true;
+        for (nb::handle input : inputs) {
+            all_iterable = all_iterable && nb::hasattr(input, "__iter__");
+            if (!all_iterable) break;
+        }
+
+        if (all_iterable) {
+            bool all_lazy = true;
+            for (nb::handle input : inputs) {
+                all_lazy = all_lazy && is_lazy_iterable(input);
+                if (!all_lazy) break;
+            }
+            if (all_lazy) {
+                std::vector<nb::object> sources;
+                for (nb::handle input : inputs) sources.push_back(nb::borrow<nb::object>(input));
+                return nb::cast(LazyEvalIterator(nb::find(*static_cast<Derived*>(this)), std::move(sources)));
+            }
+            // Eager path: iterate over each input in parallel.
+            return eager_parallel(inputs);
+        }
+
+        throw nb::type_error("Unsupported input type.");
     }
 
 
     // ---------------------------------------------------------
     // Main dispatcher
     // ---------------------------------------------------------
-    py::object handle_input(py::args args) {
-        for (auto a : args) {
-            if (screamer::is_dag_node(py::reinterpret_borrow<py::object>(a))) {
-                py::object self = py::cast(static_cast<Derived*>(this));
-                return screamer::make_dag_functor_node(self, py::cast<py::tuple>(args));
+    nb::object handle_input(nb::args args) {
+        for (nb::handle a : args) {
+            if (screamer::is_dag_node(nb::borrow<nb::object>(a))) {
+                nb::object self = nb::find(*static_cast<Derived*>(this));
+                return screamer::make_dag_functor_node(self, nb::cast<nb::tuple>(args));
             }
         }
         if constexpr (N == 1) {
             if (args.size() != 1) {
-                throw py::type_error("Wrong number of in puts");
+                throw nb::type_error("Wrong number of in puts");
             }
         }
         if constexpr ((N == 1) && (M == 1)) {
-            return handle_input_1i_1o(args[0]);
+            return handle_input_1i_1o(nb::borrow<nb::object>(args[0]));
         } else if constexpr ((N > 1) && (M == 1)) {
             return handle_input_Ni_1o(args);
         } else if constexpr ((N == 1) && (M > 1)) {
-            return handle_input_1i_Mo(args[0]);
+            return handle_input_1i_Mo(nb::borrow<nb::object>(args[0]));
         } else if constexpr ((N > 1) && (M > 1)) {
             return handle_input_Ni_Mo(args);
         } else {
-            throw py::type_error("Unknown configuration.");
+            throw nb::type_error("Unknown configuration.");
         }
     }
 
-    
+
 
 private:
     // Returns true iff h is a numpy array of rank >= 1 (a time series). A 0-d
     // array is rank 0 (one sample, no time axis) and behaves like a scalar, so it
     // is excluded here and falls through to the scalar cast.
-    static bool is_series_array(py::handle h) {
-        return py::isinstance<py::array>(h) && py::cast<int>(h.attr("ndim")) > 0;
+    static bool is_series_array(nb::handle h) {
+        return detail::is_ndarray(h) && nb::cast<int>(h.attr("ndim")) > 0;
     }
 
     // Returns true iff h is an iterable that is NOT a list, tuple, or array.
     // Generators and iter(...) objects satisfy this; raw list/tuple do not.
-    static bool is_lazy_iterable(py::handle h) {
-        return py::isinstance<py::iterable>(h)
-            && !py::isinstance<py::list>(h)
-            && !py::isinstance<py::tuple>(h)
-            && !py::isinstance<py::array>(h);
+    static bool is_lazy_iterable(nb::handle h) {
+        return nb::hasattr(h, "__iter__")
+            && !nb::isinstance<nb::list>(h)
+            && !nb::isinstance<nb::tuple>(h)
+            && !detail::is_ndarray(h);
     }
 
-    InputArray cast_to_array(const py::tuple& tuple) {
+    // Eager parallel iteration over N iterables: pull one item from each per
+    // step, stop when any is exhausted. Returns a list of ResultTuple.
+    nb::object eager_parallel(const nb::tuple& inputs) {
+        std::array<nb::object, N> iters;
+        for (size_t i = 0; i < N; ++i) iters[i] = nb::borrow<nb::object>(inputs[i]).attr("__iter__")();
+        std::vector<ResultTuple> results;
+        while (true) {
+            InputArray array;
+            bool stop = false;
+            for (size_t i = 0; i < N; ++i) {
+                nb::object item;
+                try {
+                    item = iters[i].attr("__next__")();
+                } catch (nb::python_error& e) {
+                    if (e.matches(PyExc_StopIteration)) { stop = true; break; }
+                    throw;
+                }
+                array[i] = nb::cast<double>(item);
+            }
+            if (stop) break;
+            results.push_back(call(array));
+        }
+        return nb::cast(results);
+    }
+
+    InputArray cast_to_array(const nb::tuple& tuple) {
         if (tuple.size() != N) {
-            throw py::type_error("Tuple size does not match the number of expected inputs.");
+            throw nb::type_error("Tuple size does not match the number of expected inputs.");
         }
         InputArray array;
         for (size_t i = 0; i < N; ++i) {
-            array[i] = tuple[i].cast<double>();
+            array[i] = nb::cast<double>(tuple[i]);
         }
         return array;
     }

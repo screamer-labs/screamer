@@ -1,6 +1,8 @@
 #include <optional>
-#include <pybind11/pybind11.h>
-#include <pybind11/stl.h> // for std::vector
+#include <nanobind/nanobind.h>
+#include <nanobind/stl/optional.h>   // std::optional ctor args
+#include <nanobind/stl/vector.h>     // std::vector<double> taps
+#include <nanobind/stl/string.h>     // std::string ctor arg
 #include "screamer/common/base.h"
 #include "screamer/butter.h"
 #include "screamer/butter_highpass.h"
@@ -24,146 +26,147 @@
 #include "screamer/mama.h"
 #include "screamer/instantaneous_trendline.h"
 
-namespace py = pybind11;
+namespace nb = nanobind;
+using namespace nb::literals;
 
-void init_bindings_signal(py::module& m) {
+void init_bindings_signal(nb::module_& m) {
 
-    py::class_<screamer::Butter, screamer::ScreamerBase>(m, "Butter")
-        .def(py::init<int,double>(),  py::arg("order") = 2, py::arg("cutoff_freq") = 0.1)
-        .def("__call__", &screamer::Butter::operator(), py::arg("value"))
+    nb::class_<screamer::Butter, screamer::ScreamerBase>(m, "Butter")
+        .def(nb::init<int,double>(),  "order"_a = 2, "cutoff_freq"_a = 0.1)
+        .def("__call__", &screamer::Butter::operator(), "value"_a)
         .def("reset", &screamer::Butter::reset, "Reset to the initial state.");
 
     // Butter family extensions: HP / BP / BS. Same scaling convention
     // (cutoff is a fraction of Nyquist in (0, 1)) as the existing
     // low-pass `Butter`.
-    py::class_<screamer::ButterHighpass, screamer::ScreamerBase>(m, "ButterHighpass")
-        .def(py::init<int, double>(), py::arg("order") = 2, py::arg("cutoff_freq") = 0.1)
-        .def("__call__", &screamer::ButterHighpass::operator(), py::arg("value"))
+    nb::class_<screamer::ButterHighpass, screamer::ScreamerBase>(m, "ButterHighpass")
+        .def(nb::init<int, double>(), "order"_a = 2, "cutoff_freq"_a = 0.1)
+        .def("__call__", &screamer::ButterHighpass::operator(), "value"_a)
         .def("reset", &screamer::ButterHighpass::reset, "Reset.");
 
-    py::class_<screamer::ButterBandpass, screamer::ScreamerBase>(m, "ButterBandpass")
-        .def(py::init<int, double, double>(),
-             py::arg("order") = 2, py::arg("low_cutoff") = 0.05, py::arg("high_cutoff") = 0.2)
-        .def("__call__", &screamer::ButterBandpass::operator(), py::arg("value"))
+    nb::class_<screamer::ButterBandpass, screamer::ScreamerBase>(m, "ButterBandpass")
+        .def(nb::init<int, double, double>(),
+             "order"_a = 2, "low_cutoff"_a = 0.05, "high_cutoff"_a = 0.2)
+        .def("__call__", &screamer::ButterBandpass::operator(), "value"_a)
         .def("reset", &screamer::ButterBandpass::reset, "Reset.");
 
-    py::class_<screamer::ButterBandstop, screamer::ScreamerBase>(m, "ButterBandstop")
-        .def(py::init<int, double, double>(),
-             py::arg("order") = 2, py::arg("low_cutoff") = 0.05, py::arg("high_cutoff") = 0.2)
-        .def("__call__", &screamer::ButterBandstop::operator(), py::arg("value"))
+    nb::class_<screamer::ButterBandstop, screamer::ScreamerBase>(m, "ButterBandstop")
+        .def(nb::init<int, double, double>(),
+             "order"_a = 2, "low_cutoff"_a = 0.05, "high_cutoff"_a = 0.2)
+        .def("__call__", &screamer::ButterBandstop::operator(), "value"_a)
         .def("reset", &screamer::ButterBandstop::reset, "Reset.");
 
     // SuperSmoother: Ehlers 2-pole low-lag lowpass. Exactly one of
     // period (samples) or cutoff (fraction of Nyquist).
-    py::class_<screamer::SuperSmoother, screamer::ScreamerBase>(m, "SuperSmoother")
-        .def(py::init<std::optional<double>, std::optional<double>>(),
-             py::arg("period") = py::none(), py::arg("cutoff") = py::none())
-        .def("__call__", &screamer::SuperSmoother::operator(), py::arg("value"))
+    nb::class_<screamer::SuperSmoother, screamer::ScreamerBase>(m, "SuperSmoother")
+        .def(nb::init<std::optional<double>, std::optional<double>>(),
+             "period"_a = nb::none(), "cutoff"_a = nb::none())
+        .def("__call__", &screamer::SuperSmoother::operator(), "value"_a)
         .def("reset", &screamer::SuperSmoother::reset, "Reset to the initial state.");
 
     // Decycler: Ehlers trend estimate (input minus a 1-pole highpass).
-    py::class_<screamer::Decycler, screamer::ScreamerBase>(m, "Decycler")
-        .def(py::init<std::optional<double>, std::optional<double>>(),
-             py::arg("period") = py::none(), py::arg("cutoff") = py::none())
-        .def("__call__", &screamer::Decycler::operator(), py::arg("value"))
+    nb::class_<screamer::Decycler, screamer::ScreamerBase>(m, "Decycler")
+        .def(nb::init<std::optional<double>, std::optional<double>>(),
+             "period"_a = nb::none(), "cutoff"_a = nb::none())
+        .def("__call__", &screamer::Decycler::operator(), "value"_a)
         .def("reset", &screamer::Decycler::reset, "Reset to the initial state.");
 
     // RoofingFilter: Ehlers bandpass (2-pole highpass then SuperSmoother).
-    py::class_<screamer::RoofingFilter, screamer::ScreamerBase>(m, "RoofingFilter")
-        .def(py::init<std::optional<double>, std::optional<double>,
+    nb::class_<screamer::RoofingFilter, screamer::ScreamerBase>(m, "RoofingFilter")
+        .def(nb::init<std::optional<double>, std::optional<double>,
                       std::optional<double>, std::optional<double>>(),
-             py::arg("hp_period") = py::none(), py::arg("lp_period") = py::none(),
-             py::arg("hp_cutoff") = py::none(), py::arg("lp_cutoff") = py::none())
-        .def("__call__", &screamer::RoofingFilter::operator(), py::arg("value"))
+             "hp_period"_a = nb::none(), "lp_period"_a = nb::none(),
+             "hp_cutoff"_a = nb::none(), "lp_cutoff"_a = nb::none())
+        .def("__call__", &screamer::RoofingFilter::operator(), "value"_a)
         .def("reset", &screamer::RoofingFilter::reset, "Reset to the initial state.");
 
     // MovingAverage: FIR filter with user-supplied taps. Pre-compute
     // taps via numpy / scipy (np.hamming, np.kaiser, scipy.signal.firwin,
     // ...) and pass the coefficient vector in.
-    py::class_<screamer::MovingAverage, screamer::ScreamerBase>(m, "MovingAverage")
-        .def(py::init<const std::vector<double>&>(), py::arg("taps") = std::vector<double>{0.25, 0.5, 0.25})
-        .def("__call__", &screamer::MovingAverage::operator(), py::arg("value"))
+    nb::class_<screamer::MovingAverage, screamer::ScreamerBase>(m, "MovingAverage")
+        .def(nb::init<const std::vector<double>&>(), "taps"_a = std::vector<double>{0.25, 0.5, 0.25})
+        .def("__call__", &screamer::MovingAverage::operator(), "value"_a)
         .def("reset", &screamer::MovingAverage::reset, "Reset.");
 
     // FracDiff: fractional differentiation (Lopez de Prado, AFML ch. 5).
     // FIR filter with taps w_k = (-1)^k * binom(d, k), truncated at
     // window_size taps or at the first |w_k| < threshold.
-    py::class_<screamer::FracDiff, screamer::ScreamerBase>(m, "FracDiff")
-        .def(py::init<double, int, double, const std::string&>(),
-             py::arg("d") = 0.4,
-             py::arg("window_size") = 100,
-             py::arg("threshold") = 1e-5,
-             py::arg("start_policy") = "strict")
-        .def("__call__", &screamer::FracDiff::operator(), py::arg("value"))
+    nb::class_<screamer::FracDiff, screamer::ScreamerBase>(m, "FracDiff")
+        .def(nb::init<double, int, double, const std::string&>(),
+             "d"_a = 0.4,
+             "window_size"_a = 100,
+             "threshold"_a = 1e-5,
+             "start_policy"_a = "strict")
+        .def("__call__", &screamer::FracDiff::operator(), "value"_a)
         .def("reset", &screamer::FracDiff::reset, "Reset to the initial state.");
 
     // KalmanFilter: scalar 1-D random-walk-with-noise model.
-    py::class_<screamer::KalmanFilter, screamer::ScreamerBase>(m, "KalmanFilter")
-        .def(py::init<double, double, double, double>(),
-             py::arg("process_var") = 0.01,
-             py::arg("observation_var") = 1.0,
-             py::arg("initial_state") = 0.0,
-             py::arg("initial_variance") = 1.0)
-        .def("__call__", &screamer::KalmanFilter::operator(), py::arg("value"))
+    nb::class_<screamer::KalmanFilter, screamer::ScreamerBase>(m, "KalmanFilter")
+        .def(nb::init<double, double, double, double>(),
+             "process_var"_a = 0.01,
+             "observation_var"_a = 1.0,
+             "initial_state"_a = 0.0,
+             "initial_variance"_a = 1.0)
+        .def("__call__", &screamer::KalmanFilter::operator(), "value"_a)
         .def("reset", &screamer::KalmanFilter::reset, "Reset.");
 
     // SchmittTrigger: hysteresis comparator with latched binary output.
-    py::class_<screamer::SchmittTrigger, screamer::ScreamerBase>(m, "SchmittTrigger")
-        .def(py::init<double, double, double>(),
-             py::arg("lower"), py::arg("upper"), py::arg("initial") = 0.0)
-        .def("__call__", &screamer::SchmittTrigger::operator(), py::arg("value"))
+    nb::class_<screamer::SchmittTrigger, screamer::ScreamerBase>(m, "SchmittTrigger")
+        .def(nb::init<double, double, double>(),
+             "lower"_a, "upper"_a, "initial"_a = 0.0)
+        .def("__call__", &screamer::SchmittTrigger::operator(), "value"_a)
         .def("reset", &screamer::SchmittTrigger::reset,
              "Reset to the initial latched state.");
 
     // Hold: time-latch operator. Latches a nonzero finite input and holds it
     // for n bars total; returns release after the hold expires.
-    py::class_<screamer::Hold, screamer::ScreamerBase>(m, "Hold")
-        .def(py::init<int, double>(),
-             py::arg("n"), py::arg("release") = 0.0)
-        .def("__call__", &screamer::Hold::operator(), py::arg("value"))
+    nb::class_<screamer::Hold, screamer::ScreamerBase>(m, "Hold")
+        .def(nb::init<int, double>(),
+             "n"_a, "release"_a = 0.0)
+        .def("__call__", &screamer::Hold::operator(), "value"_a)
         .def("reset", &screamer::Hold::reset,
              "Reset to the initial state (remaining=0, held=release).");
 
     // DominantCycle: 1->1 dominant cycle period (samples) via Ehlers'
     // homodyne discriminator. See detail/hilbert_cycle.h.
-    py::class_<screamer::DominantCycle, screamer::EvalOp>(m, "DominantCycle")
-        .def(py::init<>())
+    nb::class_<screamer::DominantCycle, screamer::EvalOp>(m, "DominantCycle")
+        .def(nb::init<>())
         .def("__call__", &screamer::DominantCycle::handle_input)
         .def("reset", &screamer::DominantCycle::reset, "Reset to the initial state.");
 
     // HilbertPhasor: 1->2 in-phase / quadrature components of the analytic
     // signal via Ehlers' Hilbert transform. See detail/hilbert_cycle.h.
-    py::class_<screamer::HilbertPhasor, screamer::EvalOp>(m, "HilbertPhasor")
-        .def(py::init<>())
+    nb::class_<screamer::HilbertPhasor, screamer::EvalOp>(m, "HilbertPhasor")
+        .def(nb::init<>())
         .def("__call__", &screamer::HilbertPhasor::handle_input)
         .def("reset", &screamer::HilbertPhasor::reset, "Reset to the initial state.");
 
     // CyclePhase: 1->1 instantaneous phase (degrees, 0..360) of the analytic
     // signal via Ehlers' homodyne discriminator. See detail/hilbert_cycle.h.
-    py::class_<screamer::CyclePhase, screamer::EvalOp>(m, "CyclePhase")
-        .def(py::init<>())
+    nb::class_<screamer::CyclePhase, screamer::EvalOp>(m, "CyclePhase")
+        .def(nb::init<>())
         .def("__call__", &screamer::CyclePhase::handle_input)
         .def("reset", &screamer::CyclePhase::reset, "Reset to the initial state.");
 
     // CycleFrequency: 1->1 instantaneous frequency (cycles per sample), the
     // reciprocal of the dominant cycle period. See detail/hilbert_cycle.h.
-    py::class_<screamer::CycleFrequency, screamer::EvalOp>(m, "CycleFrequency")
-        .def(py::init<>())
+    nb::class_<screamer::CycleFrequency, screamer::EvalOp>(m, "CycleFrequency")
+        .def(nb::init<>())
         .def("__call__", &screamer::CycleFrequency::handle_input)
         .def("reset", &screamer::CycleFrequency::reset, "Reset to the initial state.");
 
     // CycleAmplitude: 1->1 instantaneous amplitude (envelope) of the analytic
     // signal, sqrt(I^2 + Q^2). See detail/hilbert_cycle.h.
-    py::class_<screamer::CycleAmplitude, screamer::EvalOp>(m, "CycleAmplitude")
-        .def(py::init<>())
+    nb::class_<screamer::CycleAmplitude, screamer::EvalOp>(m, "CycleAmplitude")
+        .def(nb::init<>())
         .def("__call__", &screamer::CycleAmplitude::handle_input)
         .def("reset", &screamer::CycleAmplitude::reset, "Reset to the initial state.");
 
     // CycleSine: 1->2 sinewave indicator (sine, leadsine) = sin(phase) and
     // sin(phase + 45 degrees), from the instantaneous phase of the analytic
     // signal. See detail/hilbert_cycle.h.
-    py::class_<screamer::CycleSine, screamer::EvalOp>(m, "CycleSine")
-        .def(py::init<>())
+    nb::class_<screamer::CycleSine, screamer::EvalOp>(m, "CycleSine")
+        .def(nb::init<>())
         .def("__call__", &screamer::CycleSine::handle_input)
         .def("reset", &screamer::CycleSine::reset, "Reset to the initial state.");
 
@@ -172,17 +175,17 @@ void init_bindings_signal(py::module& m) {
     // (phase_rate_frac) of a full cycle's expected advance (trending), 0.0
     // when the phase rotates at the cycle rate (cycling). See
     // detail/hilbert_cycle.h.
-    py::class_<screamer::TrendMode, screamer::EvalOp>(m, "TrendMode")
-        .def(py::init<double>(), py::arg("phase_rate_frac") = 0.5)
+    nb::class_<screamer::TrendMode, screamer::EvalOp>(m, "TrendMode")
+        .def(nb::init<double>(), "phase_rate_frac"_a = 0.5)
         .def("__call__", &screamer::TrendMode::handle_input)
         .def("reset", &screamer::TrendMode::reset, "Reset to the initial state.");
 
     // MAMA: 1->2 MESA Adaptive Moving Average (mama, fama). The smoothing
     // factor adapts to the instantaneous-phase rate of change. See
     // detail/hilbert_cycle.h.
-    py::class_<screamer::MAMA, screamer::EvalOp>(m, "MAMA")
-        .def(py::init<double, double>(),
-             py::arg("fast_limit") = 0.5, py::arg("slow_limit") = 0.05)
+    nb::class_<screamer::MAMA, screamer::EvalOp>(m, "MAMA")
+        .def(nb::init<double, double>(),
+             "fast_limit"_a = 0.5, "slow_limit"_a = 0.05)
         .def("__call__", &screamer::MAMA::handle_input)
         .def("reset", &screamer::MAMA::reset, "Reset to the initial state.");
 
@@ -190,8 +193,8 @@ void init_bindings_signal(py::module& m) {
     // smoothing factor is set from the measured dominant cycle period, so
     // the trendline follows the trend and removes the dominant cycle. See
     // detail/hilbert_cycle.h.
-    py::class_<screamer::InstantaneousTrendline, screamer::EvalOp>(m, "InstantaneousTrendline")
-        .def(py::init<>())
+    nb::class_<screamer::InstantaneousTrendline, screamer::EvalOp>(m, "InstantaneousTrendline")
+        .def(nb::init<>())
         .def("__call__", &screamer::InstantaneousTrendline::handle_input)
         .def("reset", &screamer::InstantaneousTrendline::reset, "Reset to the initial state.");
 }
