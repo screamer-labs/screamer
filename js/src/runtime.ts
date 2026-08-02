@@ -28,7 +28,11 @@ export function wrapOp(M: Screamer, raw: RawOp): ScreamerOp {
 
   const isTyped = (x: any) => x instanceof Float64Array;
   const isNumArr = (x: any) => Array.isArray(x) && (x.length === 0 || typeof x[0] === "number");
-  const isSyncIter = (x: any) => x != null && typeof x[Symbol.iterator] === "function" && !isTyped(x) && !isNumArr(x);
+  // Strings are technically Symbol.iterator-bearing (of chars, not numbers) and
+  // must NOT be accepted as a streaming source; without this guard `op("x")`
+  // would silently return a lazy generator instead of raising.
+  const isSyncIter = (x: any) =>
+    x != null && typeof x !== "string" && typeof x[Symbol.iterator] === "function" && !isTyped(x) && !isNumArr(x);
   const isAsyncIter = (x: any) => x != null && typeof x[Symbol.asyncIterator] === "function";
 
   function batch1(arr: ArrayLike<number>, typed: boolean): any {

@@ -13,4 +13,6 @@ export async function ready(): Promise<void> {
 
 export { init } from "./loader.js";
 export type { ScreamerOp } from "./runtime.js";
+export { toNested } from "./ndarray.js";
+export type { NdArray } from "./ndarray.js";
 export * from "./generated/ops.js";
