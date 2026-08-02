@@ -140,7 +140,17 @@ jobs:
         shell: bash
         run: |
           rm -rf screamer
-          pytest -q
+          # test_wheels validates the INSTALLED abi3 wheel's behavior. Exclude
+          # the source-tree dev-tooling gates (compile op headers with c++,
+          # regenerate the WASM manifest / TS factories / JS code tables from
+          # source): they need a C++ compiler, node/tsx, or files that
+          # `rm -rf screamer` above deletes, none of which the wheel-test env
+          # has, and they already run in the source dev-CI (tests.yml).
+          pytest -q \
+            --ignore=tests/test_pure_headers.py \
+            --ignore=tests/test_wasm_codegen_fresh.py \
+            --ignore=tests/test_ts_api_fresh.py \
+            --ignore=tests/test_dag_codes_sync.py
 
   build_sdist:
     name: Source distribution
