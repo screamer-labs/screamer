@@ -1,0 +1,70 @@
+name: Deploy JS docs
+
+# Builds the TypeDoc reference + guide for @screamer-labs/screamer and
+# publishes it to GitHub Pages at https://screamer-labs.github.io/screamer/.
+#
+# One-time manual step (not done by this workflow): in the repo's
+# Settings -> Pages, set Source to "GitHub Actions". Until that's done,
+# the deploy job has nothing to deploy to.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'js/**'
+      - 'devtools/wasm/**'
+      - 'screamer/data/help.json'
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build docs (typedoc)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install Emscripten
+        uses: mymindstorm/setup-emsdk@v14
+        with:
+          # Pinned to match js-publish.yml / local development; bump
+          # deliberately, not via a floating "latest".
+          version: '4.0.21'
+          actions-cache-folder: 'emsdk-cache'
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 'lts/*'
+
+      - name: Install JS deps and build the docs site
+        # "npm run docs" builds the WASM module first (needed so TypeDoc can
+        # resolve the generated bindings), then runs typedoc into
+        # js/docs-site/.
+        run: |
+          npm ci
+          npm run docs
+        working-directory: js
+
+      - name: Upload docs-site as a Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: js/docs-site
+
+  deploy:
+    name: Deploy to GitHub Pages
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

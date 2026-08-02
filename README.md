@@ -96,8 +96,8 @@ p(data);                                    // bind data at call time; p.live() 
 
 - **Python:** the full reference grouped by topic and runnable notebooks live at
   [screamer.readthedocs.io](https://screamer.readthedocs.io/en/latest/).
-- **JavaScript:** see [`js/README.md`](js/README.md) for install and the API; a
-  dedicated JavaScript documentation site is in progress.
+- **JavaScript:** see [`js/README.md`](js/README.md) for install and the API. JavaScript
+  API reference and guide: [screamer-labs.github.io/screamer](https://screamer-labs.github.io/screamer/).
 
 ## Contributing
 
