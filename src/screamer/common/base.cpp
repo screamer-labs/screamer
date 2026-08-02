@@ -3,6 +3,11 @@
 #include "screamer/common/lazy_eval_iterator.h"
 #include <nanobind/stl/vector.h>
 #include <stdexcept>
+#include <cstddef>
+#include <cstdint>
+#include <sstream>
+#include <utility>
+#include <vector>
 
 namespace screamer {
 

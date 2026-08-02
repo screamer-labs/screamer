@@ -30,6 +30,7 @@
 #include "screamer/dag/resettable.h"
 #include "screamer/streams/merge_source.h"
 #include "screamer/streams/vector_source.h"
+#include <utility>
 
 namespace screamer { namespace dag {
 

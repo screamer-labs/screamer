@@ -23,6 +23,7 @@
 #include <stdexcept>
 #include <vector>
 #include "screamer/common/functor_base.h"
+#include <algorithm>
 
 namespace screamer {
 

@@ -69,6 +69,7 @@
 #include "screamer/rolling_rank.h"
 #include "screamer/rolling_percentile.h"
 #include "screamer/rolling_hurst.h"
+#include <string>
 
 namespace nb = nanobind;
 using namespace nb::literals;

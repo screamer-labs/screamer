@@ -5,6 +5,7 @@
 #include <stdexcept>
 #include <vector>
 #include "screamer/dag/frame.h"
+#include <utility>
 
 namespace screamer { namespace dag {
 

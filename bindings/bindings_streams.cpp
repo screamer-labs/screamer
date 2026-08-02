@@ -15,6 +15,9 @@
 #include "screamer/streams/merge_source.h"
 #include "screamer/streams/combine_latest.h"
 #include "screamer/streams/py_source.h"
+#include <algorithm>
+#include <cstddef>
+#include <stdexcept>
 
 namespace nb = nanobind;
 using namespace nb::literals;

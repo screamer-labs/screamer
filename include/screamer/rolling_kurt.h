@@ -7,6 +7,8 @@
 #include "screamer/common/float_info.h"
 #include "screamer/common/math.h"
 #include "screamer/detail/rolling_sum.h"
+#include <stdexcept>
+#include <string>
 namespace screamer {
 
     class RollingKurt : public ScreamerBase {

@@ -2,6 +2,7 @@
 #define SCREAMER_LINEAR_H
 
 #include "screamer/common/base.h"
+#include <cstddef>
 namespace screamer {
 
     class Linear : public ScreamerBase {

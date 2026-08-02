@@ -7,6 +7,8 @@
 #include "screamer/common/math.h"
 #include "screamer/signal/signal.h"
 #include "screamer/signal/butter.h"
+#include <cstddef>
+#include <vector>
 
 namespace screamer {
 

@@ -6,6 +6,9 @@
 #include "screamer/common/base.h"
 #include "screamer/common/float_info.h"
 #include "screamer/detail/rolling_sum.h"
+#include <cmath>
+#include <stdexcept>
+#include <string>
 
 /*
 ## OLS Fit

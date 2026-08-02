@@ -3,6 +3,7 @@
 
 #include <cstdint>
 #include "screamer/dag/frame.h"
+#include <cstddef>
 
 namespace screamer { namespace dag {
 

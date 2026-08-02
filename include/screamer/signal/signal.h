@@ -23,6 +23,10 @@ classes:
 #include <numeric>
 #include <cmath>
 #include <limits>
+#include <algorithm>
+#include <cstddef>
+#include <stdexcept>
+#include <utility>
 
 
 namespace screamer {

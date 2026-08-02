@@ -7,6 +7,10 @@
 #include "screamer/common/base.h"
 #include "screamer/common/float_info.h"
 #include "screamer/common/math.h"
+#include <cmath>
+#include <cstddef>
+#include <stdexcept>
+#include <string>
 /*
 todo: this implementation might  suffer from numerical instability
       https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Welford's_online_algorithm

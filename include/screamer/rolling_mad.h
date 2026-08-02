@@ -26,6 +26,7 @@
 #include "screamer/common/base.h"
 #include "screamer/common/float_info.h"
 #include "screamer/detail/start_policy.h"
+#include <algorithm>
 
 namespace screamer {
 

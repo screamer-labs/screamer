@@ -12,6 +12,7 @@
 #include "screamer/first.h"
 #include "screamer/last.h"
 #include "screamer/detrend.h"
+#include <string>
 
 namespace nb = nanobind;
 using namespace nb::literals;

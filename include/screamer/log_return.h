@@ -6,6 +6,8 @@
 #include <cmath>
 #include <screamer/common/buffer.h>
 #include "screamer/common/base.h"
+#include <cstddef>
+#include <stdexcept>
 namespace screamer {
 
     class LogReturn : public ScreamerBase {

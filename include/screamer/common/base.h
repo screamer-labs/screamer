@@ -11,6 +11,7 @@
 #include "screamer/common/cast_double.h"
 #include "screamer/common/async_generator.h"
 #include "screamer/common/eval_op.h"
+#include <cstddef>
 
 namespace nb = nanobind;
 

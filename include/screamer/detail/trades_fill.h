@@ -7,6 +7,7 @@
 #include "screamer/common/float_info.h"
 #include "screamer/common/market_price.h"
 #include "screamer/detail/pnl_account.h"
+#include <stdexcept>
 
 namespace screamer { namespace detail {
 

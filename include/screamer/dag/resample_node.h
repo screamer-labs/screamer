@@ -8,6 +8,10 @@
 #include "screamer/common/float_info.h"
 #include "screamer/dag/frame.h"
 #include "screamer/dag/resample_params.h"
+#include <algorithm>
+#include <cstddef>
+#include <string>
+#include <utility>
 
 namespace screamer { namespace dag {
 

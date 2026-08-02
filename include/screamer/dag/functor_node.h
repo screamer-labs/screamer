@@ -5,6 +5,7 @@
 #include <vector>
 #include "screamer/common/eval_op.h"
 #include "screamer/dag/frame.h"
+#include <cstddef>
 
 namespace screamer { namespace dag {
 

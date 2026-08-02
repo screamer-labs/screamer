@@ -9,6 +9,7 @@
 #include <vector>
 #include <nanobind/nanobind.h>
 #include "screamer/streams/event.h"
+#include <cstddef>
 
 namespace nb = nanobind;
 

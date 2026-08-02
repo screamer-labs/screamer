@@ -25,6 +25,8 @@
 #include "screamer/detail/monotonic_deque.h"
 #include "screamer/detail/rolling_mean.h"
 #include "screamer/rolling_rsi.h"
+#include <cmath>
+#include <cstddef>
 
 namespace screamer {
 

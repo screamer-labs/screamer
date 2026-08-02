@@ -3,6 +3,7 @@
 
 #include <cmath>
 #include "screamer/common/base.h"
+#include <cstddef>
 namespace screamer {
 
     class Power : public ScreamerBase {

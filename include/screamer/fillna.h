@@ -6,6 +6,7 @@
 #include <execution>
 #include <cmath>
 #include "screamer/common/float_info.h"
+#include <cstddef>
 namespace screamer {
 
     class FillNa : public ScreamerBase {

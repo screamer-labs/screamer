@@ -6,6 +6,7 @@
 #include <queue>
 #include <vector>
 #include "screamer/streams/event.h"
+#include <utility>
 
 namespace screamer { namespace streams {
 

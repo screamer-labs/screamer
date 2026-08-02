@@ -14,6 +14,7 @@
 #include "screamer/common/base.h"
 #include "screamer/signal/butter.h"
 #include "screamer/signal/signal.h"
+#include <cstddef>
 
 namespace screamer {
 

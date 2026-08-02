@@ -19,6 +19,8 @@
 #include <cassert>
 #include <deque>
 #include <tuple>
+#include <cstddef>
+#include <utility>
 
 namespace nb = nanobind;
 using namespace nb::literals;

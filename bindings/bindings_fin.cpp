@@ -37,6 +37,7 @@
 #include "screamer/rolling_residual_std.h"
 #include "screamer/rolling_linear_regression.h"
 #include "screamer/bayesian_regression.h"
+#include <string>
 
 namespace nb = nanobind;
 using namespace nb::literals;

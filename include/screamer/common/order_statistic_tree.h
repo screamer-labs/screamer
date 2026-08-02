@@ -5,6 +5,8 @@
 #include <vector>
 #include <limits>
 #include <cmath>
+#include <algorithm>
+#include <cstddef>
 
 namespace screamer {
 

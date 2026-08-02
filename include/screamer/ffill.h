@@ -4,6 +4,7 @@
 #include <limits>
 #include "screamer/common/base.h"
 #include "screamer/common/float_info.h"
+#include <cstddef>
 namespace screamer {
 
     class Ffill : public ScreamerBase {

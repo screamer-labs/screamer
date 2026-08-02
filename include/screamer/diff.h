@@ -3,6 +3,9 @@
 
 #include <screamer/detail/delay_buffer.h>
 #include "screamer/common/base.h"
+#include <algorithm>
+#include <cstddef>
+#include <string>
 namespace screamer {
 
     class Diff : public ScreamerBase {

@@ -5,6 +5,11 @@
 #include "screamer/detail/rolling_sum.h"
 #include "screamer/common/float_info.h"
 #include "screamer/common/math.h"
+#include <cmath>
+#include <cstddef>
+#include <limits>
+#include <stdexcept>
+#include <string>
 namespace screamer {
 
     class RollingSigmaClip : public ScreamerBase {

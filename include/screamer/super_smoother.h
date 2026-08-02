@@ -18,6 +18,7 @@
 #include "screamer/common/base.h"
 #include "screamer/signal/ehlers.h"
 #include "screamer/signal/signal.h"
+#include <cstddef>
 
 namespace screamer {
 

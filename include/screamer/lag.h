@@ -3,6 +3,10 @@
 
 #include <screamer/detail/delay_buffer.h>
 #include "screamer/common/base.h"
+#include <algorithm>
+#include <cstddef>
+#include <cstring>
+#include <string>
 namespace screamer {
 
     class Lag : public ScreamerBase {

@@ -5,6 +5,9 @@
 #include <stdexcept>
 #include <algorithm>
 #include "screamer/detail/start_policy.h"
+#include <cstddef>
+#include <limits>
+#include <string>
 
 namespace screamer {
 namespace detail {

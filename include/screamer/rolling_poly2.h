@@ -7,6 +7,8 @@
 #include <stdexcept>
 #include <limits>
 #include "screamer/detail/delay_buffer.h"
+#include <cstddef>
+#include <string>
 
 /*
 # Quadratic Regression Statistical Equations

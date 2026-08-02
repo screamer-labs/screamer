@@ -3,6 +3,9 @@
 
 #include "screamer/detail/rolling_mean.h"
 #include "screamer/common/base.h"
+#include <cstddef>
+#include <limits>
+#include <string>
 namespace screamer {
 
     class RollingMean : public ScreamerBase {

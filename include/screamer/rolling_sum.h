@@ -3,6 +3,7 @@
 
 #include "screamer/detail/rolling_sum.h"
 #include "screamer/common/base.h"
+#include <string>
 namespace screamer {
 
     class RollingSum : public ScreamerBase {

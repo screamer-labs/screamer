@@ -4,6 +4,7 @@
 #include <limits>
 #include "screamer/common/base.h"
 #include <algorithm>
+#include <cstddef>
 namespace screamer {
 
     class Clip : public ScreamerBase {

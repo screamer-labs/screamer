@@ -11,6 +11,7 @@
 #include "screamer/dag/frame.h"
 #include "screamer/dag/resettable.h"
 #include "screamer/streams/combine_latest.h"
+#include <stdexcept>
 
 namespace screamer { namespace dag {
 

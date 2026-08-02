@@ -6,6 +6,10 @@
 #include <screamer/detail/rolling_sum.h>
 #include "screamer/common/base.h"
 #include "screamer/common/float_info.h"
+#include <cmath>
+#include <cstddef>
+#include <stdexcept>
+#include <string>
 
 /*
 todo: this implementation might  suffer from numerical instability

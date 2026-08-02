@@ -24,6 +24,7 @@
 #include <stdexcept>
 #include "screamer/common/base.h"
 #include "screamer/detail/rolling_mean.h"
+#include <cstddef>
 
 namespace screamer {
 

@@ -13,6 +13,7 @@
 #include "screamer/cont_ofi.h"
 #include "screamer/effective_spread.h"
 #include "screamer/realized_spread.h"
+#include <string>
 
 namespace nb = nanobind;
 using namespace nb::literals;

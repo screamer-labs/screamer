@@ -32,6 +32,7 @@
 #include "screamer/common/functor_base.h"
 #include "screamer/detail/rolling_mean.h"
 #include "screamer/rolling_var.h"
+#include <cstddef>
 
 namespace screamer {
 

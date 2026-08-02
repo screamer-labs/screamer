@@ -19,6 +19,7 @@
 #include "screamer/common/float_info.h"
 #include "screamer/detail/rolling_sum.h"
 #include "screamer/detail/start_policy.h"
+#include <cstddef>
 
 namespace screamer {
 

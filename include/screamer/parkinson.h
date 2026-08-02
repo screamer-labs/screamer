@@ -25,6 +25,7 @@
 #include "screamer/common/functor_base.h"
 #include "screamer/detail/rolling_mean.h"
 #include "screamer/ew_mean.h"
+#include <cstddef>
 
 namespace screamer {
 

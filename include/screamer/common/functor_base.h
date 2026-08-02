@@ -18,6 +18,7 @@
 #include "screamer/common/base.h"
 #include "screamer/common/eval_op.h"
 #include "screamer/common/lazy_eval_iterator.h"
+#include <cstdint>
 
 namespace nb = nanobind;
 

@@ -30,6 +30,7 @@
 #include "screamer/common/float_info.h"
 #include "screamer/detail/monotonic_deque.h"
 #include "screamer/detail/rolling_mean.h"
+#include <cstddef>
 
 namespace screamer {
 

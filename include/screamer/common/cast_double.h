@@ -3,6 +3,7 @@
 
 #include <nanobind/nanobind.h>
 #include <string>
+#include <cstddef>
 
 namespace nb = nanobind;
 

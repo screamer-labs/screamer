@@ -7,6 +7,8 @@
 #include <limits>
 #include "screamer/common/float_info.h"
 #include "screamer/detail/start_policy.h"
+#include <cstddef>
+#include <string>
 
 namespace screamer {
 namespace detail {

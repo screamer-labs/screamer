@@ -5,6 +5,9 @@
 #include "screamer/common/float_info.h"
 #include <stdexcept>
 #include "screamer/detail/delay_buffer.h"
+#include <cstddef>
+#include <limits>
+#include <string>
 
 /*
 ## OLS Fit

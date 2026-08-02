@@ -31,6 +31,8 @@
 #include "screamer/common/float_info.h"
 #include "screamer/detail/block_extremum.h"
 #include "screamer/detail/monotonic_deque.h"
+#include <cstddef>
+#include <cstdint>
 
 namespace screamer {
 

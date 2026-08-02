@@ -19,6 +19,7 @@
 #include <stdexcept>
 #include <vector>
 #include "screamer/common/base.h"
+#include <algorithm>
 
 namespace screamer {
 

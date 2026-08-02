@@ -10,6 +10,7 @@
 #include "screamer/common/math.h"
 #include "screamer/detail/rolling_sum.h"
 #include "screamer/detail/start_policy.h"
+#include <cstddef>
 
 namespace screamer {
 

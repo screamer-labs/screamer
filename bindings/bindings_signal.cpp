@@ -25,6 +25,8 @@
 #include "screamer/trend_mode.h"
 #include "screamer/mama.h"
 #include "screamer/instantaneous_trendline.h"
+#include <string>
+#include <vector>
 
 namespace nb = nanobind;
 using namespace nb::literals;

@@ -7,6 +7,7 @@
 #include <execution>
 #include <cmath>
 #include <functional>
+#include <cstddef>
 
 namespace screamer {
 

@@ -4,6 +4,8 @@
 #include <vector>
 #include <nanobind/nanobind.h>
 #include "screamer/common/eval_op.h"
+#include <cstddef>
+#include <utility>
 
 namespace nb = nanobind;
 

@@ -5,6 +5,9 @@
 #include "screamer/common/base.h"
 #include "common/order_statistic_tree.h"
 #include "screamer/common/float_info.h"
+#include <cmath>
+#include <limits>
+#include <stdexcept>
 namespace screamer {
 
     class RollingQuantile : public ScreamerBase {

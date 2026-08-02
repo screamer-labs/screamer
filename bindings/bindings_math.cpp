@@ -9,6 +9,7 @@
 #include "screamer/geometry.h"
 #include "screamer/arithmetic.h"
 #include "screamer/logic.h"
+#include <cmath>
 
 namespace nb = nanobind;
 using namespace nb::literals;

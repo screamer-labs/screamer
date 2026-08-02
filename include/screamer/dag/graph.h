@@ -6,6 +6,8 @@
 #include <vector>
 #include "screamer/common/eval_op.h"
 #include "screamer/dag/resample_params.h"
+#include <cstdint>
+#include <utility>
 
 namespace screamer { namespace dag {
 
