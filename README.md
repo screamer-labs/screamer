@@ -10,6 +10,7 @@ live streams.
 [![tests](https://github.com/screamer-labs/screamer/actions/workflows/tests.yml/badge.svg)](https://github.com/screamer-labs/screamer/actions/workflows/tests.yml)
 [![Docs](https://readthedocs.org/projects/screamer/badge/?version=latest)](https://screamer.readthedocs.io/en/latest/?badge=latest)
 [![PyPI](https://img.shields.io/pypi/v/screamer)](https://pypi.org/project/screamer/)
+[![npm](https://img.shields.io/npm/v/@screamer-labs/screamer)](https://www.npmjs.com/package/@screamer-labs/screamer)
 
 Screamer runs in Python and in JavaScript. Both bind the same C++ engine, so a
 computation in one language matches the other to the last bit.
@@ -58,7 +59,7 @@ trend = sign(slope(data))   # the same calls work on a live stream, one value at
 
 ## JavaScript
 
-Node 18 or newer, or any modern browser. Published to npm from v2.1.
+Node 18 or newer, or any modern browser.
 
 ```bash
 npm install @screamer-labs/screamer
