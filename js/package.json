@@ -1,0 +1,13 @@
+{
+  "name": "@screamer-labs/screamer",
+  "type": "module",
+  "exports": { ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js", "require": "./dist/index.cjs" } },
+  "files": ["dist"],
+  "scripts": {
+    "build:wasm": "bash ../wasm/build-wasm.sh && cp ../wasm/build/screamer.mjs ../wasm/build/screamer.wasm src/generated/",
+    "gen": "python3 ../devtools/wasm/gen_ts_api.py",
+    "build": "tsc -p tsconfig.json",
+    "test": "node --import tsx --test test/*.test.ts"
+  },
+  "devDependencies": { "typescript": "^5.5.0", "tsx": "^4.0.0" }
+}
