@@ -1,0 +1,2291 @@
+[
+  {
+    "name": "AD",
+    "cpp_type": "screamer::AD",
+    "base": "FunctorBase",
+    "ctor": [],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_rolling.cpp"
+  },
+  {
+    "name": "ADOSC",
+    "cpp_type": "screamer::ADOSC",
+    "base": "FunctorBase",
+    "ctor": [
+      "int",
+      "int"
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_rolling.cpp"
+  },
+  {
+    "name": "ADX",
+    "cpp_type": "screamer::ADX",
+    "base": "FunctorBase",
+    "ctor": [
+      "int"
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_rolling.cpp"
+  },
+  {
+    "name": "ADXR",
+    "cpp_type": "screamer::ADXR",
+    "base": "FunctorBase",
+    "ctor": [
+      "int"
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_rolling.cpp"
+  },
+  {
+    "name": "ATR",
+    "cpp_type": "screamer::ATR",
+    "base": "FunctorBase",
+    "ctor": [
+      "int"
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_rolling.cpp"
+  },
+  {
+    "name": "Abs",
+    "cpp_type": "screamer::Transform<(double (*)(double)) std::abs>",
+    "base": "ScreamerBase",
+    "ctor": [],
+    "ctor_kind": "transform",
+    "source": "bindings/bindings_math.cpp"
+  },
+  {
+    "name": "Acos",
+    "cpp_type": "screamer::Transform<(double (*)(double)) std::acos>",
+    "base": "ScreamerBase",
+    "ctor": [],
+    "ctor_kind": "transform",
+    "source": "bindings/bindings_math.cpp"
+  },
+  {
+    "name": "Add",
+    "cpp_type": "screamer::Add",
+    "base": "FunctorBase",
+    "ctor": [],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_math.cpp"
+  },
+  {
+    "name": "AmihudIlliquidity",
+    "cpp_type": "screamer::AmihudIlliquidity",
+    "base": "FunctorBase",
+    "ctor": [
+      "int",
+      "std::string"
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_micro.cpp"
+  },
+  {
+    "name": "And",
+    "cpp_type": "screamer::And",
+    "base": "FunctorBase",
+    "ctor": [],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_math.cpp"
+  },
+  {
+    "name": "Asin",
+    "cpp_type": "screamer::Transform<(double (*)(double)) std::asin>",
+    "base": "ScreamerBase",
+    "ctor": [],
+    "ctor_kind": "transform",
+    "source": "bindings/bindings_math.cpp"
+  },
+  {
+    "name": "Atan",
+    "cpp_type": "screamer::Transform<(double (*)(double)) std::atan>",
+    "base": "ScreamerBase",
+    "ctor": [],
+    "ctor_kind": "transform",
+    "source": "bindings/bindings_math.cpp"
+  },
+  {
+    "name": "Atan2",
+    "cpp_type": "screamer::Atan2",
+    "base": "FunctorBase",
+    "ctor": [],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_math.cpp"
+  },
+  {
+    "name": "BOP",
+    "cpp_type": "screamer::BOP",
+    "base": "FunctorBase",
+    "ctor": [],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_rolling.cpp"
+  },
+  {
+    "name": "BacktestL1Orders",
+    "cpp_type": "screamer::BacktestL1Orders",
+    "base": "FunctorBase",
+    "ctor": [
+      "double",
+      "double",
+      "std::string",
+      "double",
+      "double",
+      "double",
+      "double"
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_fin.cpp"
+  },
+  {
+    "name": "BacktestL1Target",
+    "cpp_type": "screamer::BacktestL1Target",
+    "base": "FunctorBase",
+    "ctor": [
+      "double",
+      "double",
+      "double",
+      "double"
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_fin.cpp"
+  },
+  {
+    "name": "BacktestL1TradesOrders",
+    "cpp_type": "screamer::BacktestL1TradesOrders",
+    "base": "FunctorBase",
+    "ctor": [
+      "double",
+      "double",
+      "std::string",
+      "double",
+      "double",
+      "double",
+      "double"
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_fin.cpp"
+  },
+  {
+    "name": "BacktestOHLCOrders",
+    "cpp_type": "screamer::BacktestOHLCOrders",
+    "base": "FunctorBase",
+    "ctor": [
+      "double",
+      "double",
+      "std::string",
+      "double",
+      "double",
+      "double",
+      "double"
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_fin.cpp"
+  },
+  {
+    "name": "BacktestOHLCTarget",
+    "cpp_type": "screamer::BacktestOHLCTarget",
+    "base": "FunctorBase",
+    "ctor": [
+      "double",
+      "double",
+      "double",
+      "double"
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_fin.cpp"
+  },
+  {
+    "name": "BacktestPriceTarget",
+    "cpp_type": "screamer::BacktestPriceTarget",
+    "base": "FunctorBase",
+    "ctor": [
+      "double",
+      "double",
+      "double",
+      "double"
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_fin.cpp"
+  },
+  {
+    "name": "BacktestReport",
+    "cpp_type": "screamer::BacktestReport",
+    "base": "FunctorBase",
+    "ctor": [],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_fin.cpp"
+  },
+  {
+    "name": "BacktestTradesOrders",
+    "cpp_type": "screamer::BacktestTradesOrders",
+    "base": "FunctorBase",
+    "ctor": [
+      "double",
+      "double",
+      "std::string",
+      "double",
+      "double",
+      "double",
+      "double"
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_fin.cpp"
+  },
+  {
+    "name": "BacktestTradesTarget",
+    "cpp_type": "screamer::BacktestTradesTarget",
+    "base": "FunctorBase",
+    "ctor": [
+      "double",
+      "double",
+      "double",
+      "double"
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_fin.cpp"
+  },
+  {
+    "name": "BayesianRegression",
+    "cpp_type": "screamer::BayesianRegression",
+    "base": "FunctorBase",
+    "ctor": [
+      "std::optional<double>",
+      "std::optional<double>",
+      "std::optional<double>",
+      "std::optional<double>",
+      "double",
+      "double"
+    ],
+    "ctor_kind": "ew_optional",
+    "source": "bindings/bindings_fin.cpp"
+  },
+  {
+    "name": "BollingerBands",
+    "cpp_type": "screamer::BollingerBands",
+    "base": "FunctorBase",
+    "ctor": [
+      "int",
+      "double",
+      "std::string"
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_rolling.cpp"
+  },
+  {
+    "name": "BulkVolumeClassifier",
+    "cpp_type": "screamer::BulkVolumeClassifier",
+    "base": "ScreamerBase",
+    "ctor": [
+      "int",
+      "std::string"
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_micro.cpp"
+  },
+  {
+    "name": "Butter",
+    "cpp_type": "screamer::Butter",
+    "base": "ScreamerBase",
+    "ctor": [
+      "int",
+      "double"
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_signal.cpp"
+  },
+  {
+    "name": "ButterBandpass",
+    "cpp_type": "screamer::ButterBandpass",
+    "base": "ScreamerBase",
+    "ctor": [
+      "int",
+      "double",
+      "double"
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_signal.cpp"
+  },
+  {
+    "name": "ButterBandstop",
+    "cpp_type": "screamer::ButterBandstop",
+    "base": "ScreamerBase",
+    "ctor": [
+      "int",
+      "double",
+      "double"
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_signal.cpp"
+  },
+  {
+    "name": "ButterHighpass",
+    "cpp_type": "screamer::ButterHighpass",
+    "base": "ScreamerBase",
+    "ctor": [
+      "int",
+      "double"
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_signal.cpp"
+  },
+  {
+    "name": "CCI",
+    "cpp_type": "screamer::CCI",
+    "base": "FunctorBase",
+    "ctor": [
+      "int"
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_rolling.cpp"
+  },
+  {
+    "name": "Cart2Polar",
+    "cpp_type": "screamer::Cart2Polar",
+    "base": "FunctorBase",
+    "ctor": [],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_math.cpp"
+  },
+  {
+    "name": "Ceil",
+    "cpp_type": "screamer::Transform<(double (*)(double)) std::ceil>",
+    "base": "ScreamerBase",
+    "ctor": [],
+    "ctor_kind": "transform",
+    "source": "bindings/bindings_math.cpp"
+  },
+  {
+    "name": "Clip",
+    "cpp_type": "screamer::Clip",
+    "base": "ScreamerBase",
+    "ctor": [
+      "std::optional<double>",
+      "std::optional<double>"
+    ],
+    "ctor_kind": "ew_optional",
+    "source": "bindings/bindings_preprocessing.cpp"
+  },
+  {
+    "name": "ContOFI",
+    "cpp_type": "screamer::ContOFI",
+    "base": "FunctorBase",
+    "ctor": [],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_micro.cpp"
+  },
+  {
+    "name": "Cos",
+    "cpp_type": "screamer::Transform<(double (*)(double)) std::cos>",
+    "base": "ScreamerBase",
+    "ctor": [],
+    "ctor_kind": "transform",
+    "source": "bindings/bindings_math.cpp"
+  },
+  {
+    "name": "Cube",
+    "cpp_type": "screamer::Transform<(double (*)(double)) screamer::cube>",
+    "base": "ScreamerBase",
+    "ctor": [],
+    "ctor_kind": "transform",
+    "source": "bindings/bindings_math.cpp"
+  },
+  {
+    "name": "CumMax",
+    "cpp_type": "screamer::CumMax",
+    "base": "ScreamerBase",
+    "ctor": [],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_misc.cpp"
+  },
+  {
+    "name": "CumMin",
+    "cpp_type": "screamer::CumMin",
+    "base": "ScreamerBase",
+    "ctor": [],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_misc.cpp"
+  },
+  {
+    "name": "CumProd",
+    "cpp_type": "screamer::CumProd",
+    "base": "ScreamerBase",
+    "ctor": [],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_misc.cpp"
+  },
+  {
+    "name": "CumSum",
+    "cpp_type": "screamer::CumSum",
+    "base": "ScreamerBase",
+    "ctor": [],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_misc.cpp"
+  },
+  {
+    "name": "CycleAmplitude",
+    "cpp_type": "screamer::CycleAmplitude",
+    "base": "FunctorBase",
+    "ctor": [],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_signal.cpp"
+  },
+  {
+    "name": "CycleFrequency",
+    "cpp_type": "screamer::CycleFrequency",
+    "base": "FunctorBase",
+    "ctor": [],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_signal.cpp"
+  },
+  {
+    "name": "CyclePhase",
+    "cpp_type": "screamer::CyclePhase",
+    "base": "FunctorBase",
+    "ctor": [],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_signal.cpp"
+  },
+  {
+    "name": "CycleSine",
+    "cpp_type": "screamer::CycleSine",
+    "base": "FunctorBase",
+    "ctor": [],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_signal.cpp"
+  },
+  {
+    "name": "DEMA",
+    "cpp_type": "screamer::DEMA",
+    "base": "ScreamerBase",
+    "ctor": [
+      "std::optional<double>",
+      "std::optional<double>",
+      "std::optional<double>",
+      "std::optional<double>"
+    ],
+    "ctor_kind": "ew_optional",
+    "source": "bindings/bindings_rolling.cpp"
+  },
+  {
+    "name": "DX",
+    "cpp_type": "screamer::DX",
+    "base": "FunctorBase",
+    "ctor": [
+      "int"
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_rolling.cpp"
+  },
+  {
+    "name": "Decycler",
+    "cpp_type": "screamer::Decycler",
+    "base": "ScreamerBase",
+    "ctor": [
+      "std::optional<double>",
+      "std::optional<double>"
+    ],
+    "ctor_kind": "ew_optional",
+    "source": "bindings/bindings_signal.cpp"
+  },
+  {
+    "name": "Detrend",
+    "cpp_type": "screamer::Detrend",
+    "base": "ScreamerBase",
+    "ctor": [
+      "int",
+      "std::string"
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_misc.cpp"
+  },
+  {
+    "name": "Diff",
+    "cpp_type": "screamer::Diff",
+    "base": "ScreamerBase",
+    "ctor": [
+      "int",
+      "std::string"
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_misc.cpp"
+  },
+  {
+    "name": "Diff2",
+    "cpp_type": "screamer::Diff2",
+    "base": "ScreamerBase",
+    "ctor": [
+      "std::string"
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_misc.cpp"
+  },
+  {
+    "name": "Div",
+    "cpp_type": "screamer::Div",
+    "base": "FunctorBase",
+    "ctor": [],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_math.cpp"
+  },
+  {
+    "name": "DominantCycle",
+    "cpp_type": "screamer::DominantCycle",
+    "base": "FunctorBase",
+    "ctor": [],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_signal.cpp"
+  },
+  {
+    "name": "DonchianChannels",
+    "cpp_type": "screamer::DonchianChannels",
+    "base": "FunctorBase",
+    "ctor": [
+      "int"
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_rolling.cpp"
+  },
+  {
+    "name": "Drawdown",
+    "cpp_type": "screamer::Drawdown",
+    "base": "ScreamerBase",
+    "ctor": [],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_fin.cpp"
+  },
+  {
+    "name": "EffectiveSpread",
+    "cpp_type": "screamer::EffectiveSpread",
+    "base": "FunctorBase",
+    "ctor": [],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_micro.cpp"
+  },
+  {
+    "name": "Elu",
+    "cpp_type": "screamer::Transform<(double (*)(double)) screamer::elu>",
+    "base": "ScreamerBase",
+    "ctor": [],
+    "ctor_kind": "transform",
+    "source": "bindings/bindings_math.cpp"
+  },
+  {
+    "name": "Equal",
+    "cpp_type": "screamer::Equal",
+    "base": "FunctorBase",
+    "ctor": [],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_math.cpp"
+  },
+  {
+    "name": "Erf",
+    "cpp_type": "screamer::Transform<(double (*)(double)) std::erf>",
+    "base": "ScreamerBase",
+    "ctor": [],
+    "ctor_kind": "transform",
+    "source": "bindings/bindings_math.cpp"
+  },
+  {
+    "name": "Erfc",
+    "cpp_type": "screamer::Transform<(double (*)(double)) std::erfc>",
+    "base": "ScreamerBase",
+    "ctor": [],
+    "ctor_kind": "transform",
+    "source": "bindings/bindings_math.cpp"
+  },
+  {
+    "name": "EwBeta",
+    "cpp_type": "screamer::EwBeta",
+    "base": "FunctorBase",
+    "ctor": [
+      "std::optional<double>",
+      "std::optional<double>",
+      "std::optional<double>",
+      "std::optional<double>"
+    ],
+    "ctor_kind": "ew_optional",
+    "source": "bindings/bindings_ew.cpp"
+  },
+  {
+    "name": "EwCorr",
+    "cpp_type": "screamer::EwCorr",
+    "base": "FunctorBase",
+    "ctor": [
+      "std::optional<double>",
+      "std::optional<double>",
+      "std::optional<double>",
+      "std::optional<double>"
+    ],
+    "ctor_kind": "ew_optional",
+    "source": "bindings/bindings_ew.cpp"
+  },
+  {
+    "name": "EwCov",
+    "cpp_type": "screamer::EwCov",
+    "base": "FunctorBase",
+    "ctor": [
+      "std::optional<double>",
+      "std::optional<double>",
+      "std::optional<double>",
+      "std::optional<double>"
+    ],
+    "ctor_kind": "ew_optional",
+    "source": "bindings/bindings_ew.cpp"
+  },
+  {
+    "name": "EwGarmanKlassVar",
+    "cpp_type": "screamer::EwGarmanKlassVar",
+    "base": "FunctorBase",
+    "ctor": [
+      "std::optional<double>",
+      "std::optional<double>",
+      "std::optional<double>",
+      "std::optional<double>"
+    ],
+    "ctor_kind": "ew_optional",
+    "source": "bindings/bindings_rolling.cpp"
+  },
+  {
+    "name": "EwGarmanKlassVol",
+    "cpp_type": "screamer::EwGarmanKlassVol",
+    "base": "FunctorBase",
+    "ctor": [
+      "std::optional<double>",
+      "std::optional<double>",
+      "std::optional<double>",
+      "std::optional<double>"
+    ],
+    "ctor_kind": "ew_optional",
+    "source": "bindings/bindings_rolling.cpp"
+  },
+  {
+    "name": "EwKurt",
+    "cpp_type": "screamer::EwKurt",
+    "base": "ScreamerBase",
+    "ctor": [
+      "std::optional<double>",
+      "std::optional<double>",
+      "std::optional<double>",
+      "std::optional<double>"
+    ],
+    "ctor_kind": "ew_optional",
+    "source": "bindings/bindings_ew.cpp"
+  },
+  {
+    "name": "EwMean",
+    "cpp_type": "screamer::EwMean",
+    "base": "ScreamerBase",
+    "ctor": [
+      "std::optional<double>",
+      "std::optional<double>",
+      "std::optional<double>",
+      "std::optional<double>"
+    ],
+    "ctor_kind": "ew_optional",
+    "source": "bindings/bindings_ew.cpp"
+  },
+  {
+    "name": "EwParkinsonVar",
+    "cpp_type": "screamer::EwParkinsonVar",
+    "base": "FunctorBase",
+    "ctor": [
+      "std::optional<double>",
+      "std::optional<double>",
+      "std::optional<double>",
+      "std::optional<double>"
+    ],
+    "ctor_kind": "ew_optional",
+    "source": "bindings/bindings_rolling.cpp"
+  },
+  {
+    "name": "EwParkinsonVol",
+    "cpp_type": "screamer::EwParkinsonVol",
+    "base": "FunctorBase",
+    "ctor": [
+      "std::optional<double>",
+      "std::optional<double>",
+      "std::optional<double>",
+      "std::optional<double>"
+    ],
+    "ctor_kind": "ew_optional",
+    "source": "bindings/bindings_rolling.cpp"
+  },
+  {
+    "name": "EwRms",
+    "cpp_type": "screamer::EwRms",
+    "base": "ScreamerBase",
+    "ctor": [
+      "std::optional<double>",
+      "std::optional<double>",
+      "std::optional<double>",
+      "std::optional<double>"
+    ],
+    "ctor_kind": "ew_optional",
+    "source": "bindings/bindings_ew.cpp"
+  },
+  {
+    "name": "EwRogersSatchellVar",
+    "cpp_type": "screamer::EwRogersSatchellVar",
+    "base": "FunctorBase",
+    "ctor": [
+      "std::optional<double>",
+      "std::optional<double>",
+      "std::optional<double>",
+      "std::optional<double>"
+    ],
+    "ctor_kind": "ew_optional",
+    "source": "bindings/bindings_rolling.cpp"
+  },
+  {
+    "name": "EwRogersSatchellVol",
+    "cpp_type": "screamer::EwRogersSatchellVol",
+    "base": "FunctorBase",
+    "ctor": [
+      "std::optional<double>",
+      "std::optional<double>",
+      "std::optional<double>",
+      "std::optional<double>"
+    ],
+    "ctor_kind": "ew_optional",
+    "source": "bindings/bindings_rolling.cpp"
+  },
+  {
+    "name": "EwSkew",
+    "cpp_type": "screamer::EwSkew",
+    "base": "ScreamerBase",
+    "ctor": [
+      "std::optional<double>",
+      "std::optional<double>",
+      "std::optional<double>",
+      "std::optional<double>"
+    ],
+    "ctor_kind": "ew_optional",
+    "source": "bindings/bindings_ew.cpp"
+  },
+  {
+    "name": "EwStd",
+    "cpp_type": "screamer::EwStd",
+    "base": "ScreamerBase",
+    "ctor": [
+      "std::optional<double>",
+      "std::optional<double>",
+      "std::optional<double>",
+      "std::optional<double>"
+    ],
+    "ctor_kind": "ew_optional",
+    "source": "bindings/bindings_ew.cpp"
+  },
+  {
+    "name": "EwVar",
+    "cpp_type": "screamer::EwVar",
+    "base": "ScreamerBase",
+    "ctor": [
+      "std::optional<double>",
+      "std::optional<double>",
+      "std::optional<double>",
+      "std::optional<double>"
+    ],
+    "ctor_kind": "ew_optional",
+    "source": "bindings/bindings_ew.cpp"
+  },
+  {
+    "name": "EwZscore",
+    "cpp_type": "screamer::EwZscore",
+    "base": "ScreamerBase",
+    "ctor": [
+      "std::optional<double>",
+      "std::optional<double>",
+      "std::optional<double>",
+      "std::optional<double>"
+    ],
+    "ctor_kind": "ew_optional",
+    "source": "bindings/bindings_ew.cpp"
+  },
+  {
+    "name": "Exp",
+    "cpp_type": "screamer::Transform<(double (*)(double)) std::exp>",
+    "base": "ScreamerBase",
+    "ctor": [],
+    "ctor_kind": "transform",
+    "source": "bindings/bindings_math.cpp"
+  },
+  {
+    "name": "ExpandingKurt",
+    "cpp_type": "screamer::ExpandingKurt",
+    "base": "ScreamerBase",
+    "ctor": [],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_expanding.cpp"
+  },
+  {
+    "name": "ExpandingMax",
+    "cpp_type": "screamer::ExpandingMax",
+    "base": "ScreamerBase",
+    "ctor": [],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_expanding.cpp"
+  },
+  {
+    "name": "ExpandingMean",
+    "cpp_type": "screamer::ExpandingMean",
+    "base": "ScreamerBase",
+    "ctor": [],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_expanding.cpp"
+  },
+  {
+    "name": "ExpandingMin",
+    "cpp_type": "screamer::ExpandingMin",
+    "base": "ScreamerBase",
+    "ctor": [],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_expanding.cpp"
+  },
+  {
+    "name": "ExpandingProd",
+    "cpp_type": "screamer::ExpandingProd",
+    "base": "ScreamerBase",
+    "ctor": [],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_expanding.cpp"
+  },
+  {
+    "name": "ExpandingSkew",
+    "cpp_type": "screamer::ExpandingSkew",
+    "base": "ScreamerBase",
+    "ctor": [],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_expanding.cpp"
+  },
+  {
+    "name": "ExpandingSlope",
+    "cpp_type": "screamer::ExpandingSlope",
+    "base": "ScreamerBase",
+    "ctor": [],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_expanding.cpp"
+  },
+  {
+    "name": "ExpandingStd",
+    "cpp_type": "screamer::ExpandingStd",
+    "base": "ScreamerBase",
+    "ctor": [],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_expanding.cpp"
+  },
+  {
+    "name": "ExpandingSum",
+    "cpp_type": "screamer::ExpandingSum",
+    "base": "ScreamerBase",
+    "ctor": [],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_expanding.cpp"
+  },
+  {
+    "name": "ExpandingVar",
+    "cpp_type": "screamer::ExpandingVar",
+    "base": "ScreamerBase",
+    "ctor": [],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_expanding.cpp"
+  },
+  {
+    "name": "Ffill",
+    "cpp_type": "screamer::Ffill",
+    "base": "ScreamerBase",
+    "ctor": [],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_preprocessing.cpp"
+  },
+  {
+    "name": "FillNa",
+    "cpp_type": "screamer::FillNa",
+    "base": "ScreamerBase",
+    "ctor": [
+      "double"
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_preprocessing.cpp"
+  },
+  {
+    "name": "First",
+    "cpp_type": "screamer::First",
+    "base": "ScreamerBase",
+    "ctor": [],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_misc.cpp"
+  },
+  {
+    "name": "Floor",
+    "cpp_type": "screamer::Transform<(double (*)(double)) std::floor>",
+    "base": "ScreamerBase",
+    "ctor": [],
+    "ctor_kind": "transform",
+    "source": "bindings/bindings_math.cpp"
+  },
+  {
+    "name": "FracDiff",
+    "cpp_type": "screamer::FracDiff",
+    "base": "ScreamerBase",
+    "ctor": [
+      "double",
+      "int",
+      "double",
+      "std::string"
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_signal.cpp"
+  },
+  {
+    "name": "GreaterEqual",
+    "cpp_type": "screamer::GreaterEqual",
+    "base": "FunctorBase",
+    "ctor": [],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_math.cpp"
+  },
+  {
+    "name": "GreaterThan",
+    "cpp_type": "screamer::GreaterThan",
+    "base": "FunctorBase",
+    "ctor": [],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_math.cpp"
+  },
+  {
+    "name": "Hampel",
+    "cpp_type": "screamer::Hampel",
+    "base": "ScreamerBase",
+    "ctor": [
+      "int",
+      "double",
+      "std::string",
+      "std::string"
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_rolling.cpp"
+  },
+  {
+    "name": "HawkesIntensity",
+    "cpp_type": "screamer::HawkesIntensity",
+    "base": "ScreamerBase",
+    "ctor": [
+      "double",
+      "double",
+      "double"
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_micro.cpp"
+  },
+  {
+    "name": "HilbertPhasor",
+    "cpp_type": "screamer::HilbertPhasor",
+    "base": "FunctorBase",
+    "ctor": [],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_signal.cpp"
+  },
+  {
+    "name": "Hold",
+    "cpp_type": "screamer::Hold",
+    "base": "ScreamerBase",
+    "ctor": [
+      "int",
+      "double"
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_signal.cpp"
+  },
+  {
+    "name": "HullMA",
+    "cpp_type": "screamer::HullMA",
+    "base": "ScreamerBase",
+    "ctor": [
+      "int"
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_rolling.cpp"
+  },
+  {
+    "name": "Hypot",
+    "cpp_type": "screamer::Hypot",
+    "base": "FunctorBase",
+    "ctor": [],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_math.cpp"
+  },
+  {
+    "name": "Identity",
+    "cpp_type": "screamer::Transform<(double (*)(double)) screamer::identity>",
+    "base": "ScreamerBase",
+    "ctor": [],
+    "ctor_kind": "transform",
+    "source": "bindings/bindings_math.cpp"
+  },
+  {
+    "name": "ImpulseClip",
+    "cpp_type": "screamer::ImpulseClip",
+    "base": "ScreamerBase",
+    "ctor": [
+      "int",
+      "double",
+      "std::string",
+      "std::string"
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_rolling.cpp"
+  },
+  {
+    "name": "InstantaneousTrendline",
+    "cpp_type": "screamer::InstantaneousTrendline",
+    "base": "FunctorBase",
+    "ctor": [],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_signal.cpp"
+  },
+  {
+    "name": "IsFinite",
+    "cpp_type": "screamer::IsFinite",
+    "base": "FunctorBase",
+    "ctor": [],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_math.cpp"
+  },
+  {
+    "name": "IsNan",
+    "cpp_type": "screamer::IsNan",
+    "base": "FunctorBase",
+    "ctor": [],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_math.cpp"
+  },
+  {
+    "name": "KAMA",
+    "cpp_type": "screamer::KAMA",
+    "base": "ScreamerBase",
+    "ctor": [
+      "int",
+      "int",
+      "int"
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_rolling.cpp"
+  },
+  {
+    "name": "KalmanFilter",
+    "cpp_type": "screamer::KalmanFilter",
+    "base": "ScreamerBase",
+    "ctor": [
+      "double",
+      "double",
+      "double",
+      "double"
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_signal.cpp"
+  },
+  {
+    "name": "KeltnerChannels",
+    "cpp_type": "screamer::KeltnerChannels",
+    "base": "FunctorBase",
+    "ctor": [
+      "int",
+      "double"
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_rolling.cpp"
+  },
+  {
+    "name": "Lag",
+    "cpp_type": "screamer::Lag",
+    "base": "ScreamerBase",
+    "ctor": [
+      "int",
+      "std::string"
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_misc.cpp"
+  },
+  {
+    "name": "Last",
+    "cpp_type": "screamer::Last",
+    "base": "ScreamerBase",
+    "ctor": [],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_misc.cpp"
+  },
+  {
+    "name": "LeeReadySign",
+    "cpp_type": "screamer::LeeReadySign",
+    "base": "FunctorBase",
+    "ctor": [],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_micro.cpp"
+  },
+  {
+    "name": "LessEqual",
+    "cpp_type": "screamer::LessEqual",
+    "base": "FunctorBase",
+    "ctor": [],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_math.cpp"
+  },
+  {
+    "name": "LessThan",
+    "cpp_type": "screamer::LessThan",
+    "base": "FunctorBase",
+    "ctor": [],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_math.cpp"
+  },
+  {
+    "name": "Linear",
+    "cpp_type": "screamer::Linear",
+    "base": "ScreamerBase",
+    "ctor": [
+      "double",
+      "double"
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_math.cpp"
+  },
+  {
+    "name": "Linear2",
+    "cpp_type": "screamer::Linear2",
+    "base": "FunctorBase",
+    "ctor": [
+      "double",
+      "double",
+      "double"
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_math.cpp"
+  },
+  {
+    "name": "Log",
+    "cpp_type": "screamer::Transform<(double (*)(double)) std::log>",
+    "base": "ScreamerBase",
+    "ctor": [],
+    "ctor_kind": "transform",
+    "source": "bindings/bindings_math.cpp"
+  },
+  {
+    "name": "LogReturn",
+    "cpp_type": "screamer::LogReturn",
+    "base": "ScreamerBase",
+    "ctor": [
+      "int"
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_fin.cpp"
+  },
+  {
+    "name": "MACD",
+    "cpp_type": "screamer::MACD",
+    "base": "FunctorBase",
+    "ctor": [
+      "int",
+      "int",
+      "int"
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_rolling.cpp"
+  },
+  {
+    "name": "MAMA",
+    "cpp_type": "screamer::MAMA",
+    "base": "FunctorBase",
+    "ctor": [
+      "double",
+      "double"
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_signal.cpp"
+  },
+  {
+    "name": "MFI",
+    "cpp_type": "screamer::MFI",
+    "base": "FunctorBase",
+    "ctor": [
+      "int"
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_rolling.cpp"
+  },
+  {
+    "name": "MaxDrawdown",
+    "cpp_type": "screamer::MaxDrawdown",
+    "base": "ScreamerBase",
+    "ctor": [],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_fin.cpp"
+  },
+  {
+    "name": "MicroPrice",
+    "cpp_type": "screamer::MicroPrice",
+    "base": "FunctorBase",
+    "ctor": [],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_micro.cpp"
+  },
+  {
+    "name": "MinusDI",
+    "cpp_type": "screamer::MinusDI",
+    "base": "FunctorBase",
+    "ctor": [
+      "int"
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_rolling.cpp"
+  },
+  {
+    "name": "MinusDM",
+    "cpp_type": "screamer::MinusDM",
+    "base": "FunctorBase",
+    "ctor": [
+      "int"
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_rolling.cpp"
+  },
+  {
+    "name": "Momentum",
+    "cpp_type": "screamer::Momentum",
+    "base": "ScreamerBase",
+    "ctor": [
+      "int",
+      "std::string"
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_misc.cpp"
+  },
+  {
+    "name": "MovingAverage",
+    "cpp_type": "screamer::MovingAverage",
+    "base": "ScreamerBase",
+    "ctor": [
+      "std::vector<double>"
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_signal.cpp"
+  },
+  {
+    "name": "Mul",
+    "cpp_type": "screamer::Mul",
+    "base": "FunctorBase",
+    "ctor": [],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_math.cpp"
+  },
+  {
+    "name": "NATR",
+    "cpp_type": "screamer::NATR",
+    "base": "FunctorBase",
+    "ctor": [
+      "int"
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_rolling.cpp"
+  },
+  {
+    "name": "NegPart",
+    "cpp_type": "screamer::Transform<(double (*)(double)) screamer::neg_part>",
+    "base": "ScreamerBase",
+    "ctor": [],
+    "ctor_kind": "transform",
+    "source": "bindings/bindings_math.cpp"
+  },
+  {
+    "name": "Not",
+    "cpp_type": "screamer::Not",
+    "base": "FunctorBase",
+    "ctor": [],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_math.cpp"
+  },
+  {
+    "name": "NotEqual",
+    "cpp_type": "screamer::NotEqual",
+    "base": "FunctorBase",
+    "ctor": [],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_math.cpp"
+  },
+  {
+    "name": "OBV",
+    "cpp_type": "screamer::OBV",
+    "base": "FunctorBase",
+    "ctor": [],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_rolling.cpp"
+  },
+  {
+    "name": "OFI",
+    "cpp_type": "screamer::OFI",
+    "base": "FunctorBase",
+    "ctor": [],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_micro.cpp"
+  },
+  {
+    "name": "Or",
+    "cpp_type": "screamer::Or",
+    "base": "FunctorBase",
+    "ctor": [],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_math.cpp"
+  },
+  {
+    "name": "PlusDI",
+    "cpp_type": "screamer::PlusDI",
+    "base": "FunctorBase",
+    "ctor": [
+      "int"
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_rolling.cpp"
+  },
+  {
+    "name": "PlusDM",
+    "cpp_type": "screamer::PlusDM",
+    "base": "FunctorBase",
+    "ctor": [
+      "int"
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_rolling.cpp"
+  },
+  {
+    "name": "Polar2Cart",
+    "cpp_type": "screamer::Polar2Cart",
+    "base": "FunctorBase",
+    "ctor": [],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_math.cpp"
+  },
+  {
+    "name": "PosPart",
+    "cpp_type": "screamer::Transform<(double (*)(double)) screamer::pos_part>",
+    "base": "ScreamerBase",
+    "ctor": [],
+    "ctor_kind": "transform",
+    "source": "bindings/bindings_math.cpp"
+  },
+  {
+    "name": "Power",
+    "cpp_type": "screamer::Power",
+    "base": "ScreamerBase",
+    "ctor": [
+      "double"
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_math.cpp"
+  },
+  {
+    "name": "Propagator",
+    "cpp_type": "screamer::Propagator",
+    "base": "ScreamerBase",
+    "ctor": [
+      "int",
+      "double",
+      "double"
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_micro.cpp"
+  },
+  {
+    "name": "ROC",
+    "cpp_type": "screamer::ROC",
+    "base": "ScreamerBase",
+    "ctor": [
+      "int"
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_fin.cpp"
+  },
+  {
+    "name": "ROCP",
+    "cpp_type": "screamer::ROCP",
+    "base": "ScreamerBase",
+    "ctor": [
+      "int"
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_fin.cpp"
+  },
+  {
+    "name": "ROCR",
+    "cpp_type": "screamer::ROCR",
+    "base": "ScreamerBase",
+    "ctor": [
+      "int"
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_fin.cpp"
+  },
+  {
+    "name": "RealizedSpread",
+    "cpp_type": "screamer::RealizedSpread",
+    "base": "FunctorBase",
+    "ctor": [
+      "int"
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_micro.cpp"
+  },
+  {
+    "name": "Relu",
+    "cpp_type": "screamer::Transform<(double (*)(double)) screamer::relu>",
+    "base": "ScreamerBase",
+    "ctor": [],
+    "ctor_kind": "transform",
+    "source": "bindings/bindings_math.cpp"
+  },
+  {
+    "name": "Return",
+    "cpp_type": "screamer::Return",
+    "base": "ScreamerBase",
+    "ctor": [
+      "int"
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_fin.cpp"
+  },
+  {
+    "name": "RollSpread",
+    "cpp_type": "screamer::RollSpread",
+    "base": "ScreamerBase",
+    "ctor": [
+      "int",
+      "std::string"
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_micro.cpp"
+  },
+  {
+    "name": "RollingAlpha",
+    "cpp_type": "screamer::RollingAlpha",
+    "base": "FunctorBase",
+    "ctor": [
+      "int",
+      "std::string"
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_fin.cpp"
+  },
+  {
+    "name": "RollingArgmax",
+    "cpp_type": "screamer::RollingArgmax",
+    "base": "ScreamerBase",
+    "ctor": [
+      "int"
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_rolling.cpp"
+  },
+  {
+    "name": "RollingArgmin",
+    "cpp_type": "screamer::RollingArgmin",
+    "base": "ScreamerBase",
+    "ctor": [
+      "int"
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_rolling.cpp"
+  },
+  {
+    "name": "RollingBeta",
+    "cpp_type": "screamer::RollingBeta",
+    "base": "FunctorBase",
+    "ctor": [
+      "int",
+      "std::string"
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_fin.cpp"
+  },
+  {
+    "name": "RollingCVaR",
+    "cpp_type": "screamer::RollingCVaR",
+    "base": "ScreamerBase",
+    "ctor": [
+      "int",
+      "double"
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_fin.cpp"
+  },
+  {
+    "name": "RollingCalmar",
+    "cpp_type": "screamer::RollingCalmar",
+    "base": "ScreamerBase",
+    "ctor": [
+      "int",
+      "double"
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_fin.cpp"
+  },
+  {
+    "name": "RollingCorr",
+    "cpp_type": "screamer::RollingCorr",
+    "base": "FunctorBase",
+    "ctor": [
+      "int",
+      "std::string"
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_fin.cpp"
+  },
+  {
+    "name": "RollingCov",
+    "cpp_type": "screamer::RollingCov",
+    "base": "FunctorBase",
+    "ctor": [
+      "int",
+      "std::string"
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_fin.cpp"
+  },
+  {
+    "name": "RollingDownsideDeviation",
+    "cpp_type": "screamer::RollingDownsideDeviation",
+    "base": "ScreamerBase",
+    "ctor": [
+      "int",
+      "double",
+      "std::string"
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_fin.cpp"
+  },
+  {
+    "name": "RollingGarmanKlassVar",
+    "cpp_type": "screamer::RollingGarmanKlassVar",
+    "base": "FunctorBase",
+    "ctor": [
+      "int"
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_rolling.cpp"
+  },
+  {
+    "name": "RollingGarmanKlassVol",
+    "cpp_type": "screamer::RollingGarmanKlassVol",
+    "base": "FunctorBase",
+    "ctor": [
+      "int"
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_rolling.cpp"
+  },
+  {
+    "name": "RollingHitRate",
+    "cpp_type": "screamer::RollingHitRate",
+    "base": "ScreamerBase",
+    "ctor": [
+      "int"
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_fin.cpp"
+  },
+  {
+    "name": "RollingHurst",
+    "cpp_type": "screamer::RollingHurst",
+    "base": "ScreamerBase",
+    "ctor": [
+      "int",
+      "int",
+      "std::string"
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_rolling.cpp"
+  },
+  {
+    "name": "RollingInfoRatio",
+    "cpp_type": "screamer::RollingInfoRatio",
+    "base": "FunctorBase",
+    "ctor": [
+      "int",
+      "double"
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_fin.cpp"
+  },
+  {
+    "name": "RollingIqr",
+    "cpp_type": "screamer::RollingIqr",
+    "base": "ScreamerBase",
+    "ctor": [
+      "int"
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_rolling.cpp"
+  },
+  {
+    "name": "RollingKurt",
+    "cpp_type": "screamer::RollingKurt",
+    "base": "ScreamerBase",
+    "ctor": [
+      "int",
+      "std::string"
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_rolling.cpp"
+  },
+  {
+    "name": "RollingLinearRegression",
+    "cpp_type": "screamer::RollingLinearRegression",
+    "base": "FunctorBase",
+    "ctor": [
+      "int",
+      "std::string"
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_fin.cpp"
+  },
+  {
+    "name": "RollingMad",
+    "cpp_type": "screamer::RollingMad",
+    "base": "ScreamerBase",
+    "ctor": [
+      "int",
+      "std::string"
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_rolling.cpp"
+  },
+  {
+    "name": "RollingMax",
+    "cpp_type": "screamer::RollingMax",
+    "base": "ScreamerBase",
+    "ctor": [
+      "int"
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_rolling.cpp"
+  },
+  {
+    "name": "RollingMaxDrawdown",
+    "cpp_type": "screamer::RollingMaxDrawdown",
+    "base": "ScreamerBase",
+    "ctor": [
+      "int"
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_fin.cpp"
+  },
+  {
+    "name": "RollingMean",
+    "cpp_type": "screamer::RollingMean",
+    "base": "ScreamerBase",
+    "ctor": [
+      "int",
+      "std::string"
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_rolling.cpp"
+  },
+  {
+    "name": "RollingMedian",
+    "cpp_type": "screamer::RollingMedian",
+    "base": "ScreamerBase",
+    "ctor": [
+      "int"
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_rolling.cpp"
+  },
+  {
+    "name": "RollingMedianAD",
+    "cpp_type": "screamer::RollingMedianAD",
+    "base": "ScreamerBase",
+    "ctor": [
+      "int",
+      "std::string"
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_rolling.cpp"
+  },
+  {
+    "name": "RollingMin",
+    "cpp_type": "screamer::RollingMin",
+    "base": "ScreamerBase",
+    "ctor": [
+      "int"
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_rolling.cpp"
+  },
+  {
+    "name": "RollingMinMax",
+    "cpp_type": "screamer::RollingMinMax",
+    "base": "FunctorBase",
+    "ctor": [
+      "int"
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_rolling.cpp"
+  },
+  {
+    "name": "RollingOU",
+    "cpp_type": "screamer::RollingOU",
+    "base": "ScreamerBase",
+    "ctor": [
+      "int",
+      "std::string",
+      "std::string"
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_rolling.cpp"
+  },
+  {
+    "name": "RollingOmega",
+    "cpp_type": "screamer::RollingOmega",
+    "base": "ScreamerBase",
+    "ctor": [
+      "int",
+      "double"
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_fin.cpp"
+  },
+  {
+    "name": "RollingParkinsonVar",
+    "cpp_type": "screamer::RollingParkinsonVar",
+    "base": "FunctorBase",
+    "ctor": [
+      "int"
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_rolling.cpp"
+  },
+  {
+    "name": "RollingParkinsonVol",
+    "cpp_type": "screamer::RollingParkinsonVol",
+    "base": "FunctorBase",
+    "ctor": [
+      "int"
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_rolling.cpp"
+  },
+  {
+    "name": "RollingPercentile",
+    "cpp_type": "screamer::RollingPercentile",
+    "base": "ScreamerBase",
+    "ctor": [
+      "int"
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_rolling.cpp"
+  },
+  {
+    "name": "RollingPoly1",
+    "cpp_type": "screamer::RollingPoly1",
+    "base": "ScreamerBase",
+    "ctor": [
+      "int",
+      "int",
+      "std::string"
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_rolling.cpp"
+  },
+  {
+    "name": "RollingPoly2",
+    "cpp_type": "screamer::RollingPoly2",
+    "base": "ScreamerBase",
+    "ctor": [
+      "int",
+      "int",
+      "std::string"
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_rolling.cpp"
+  },
+  {
+    "name": "RollingQuantile",
+    "cpp_type": "screamer::RollingQuantile",
+    "base": "ScreamerBase",
+    "ctor": [
+      "int",
+      "double"
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_rolling.cpp"
+  },
+  {
+    "name": "RollingRSI",
+    "cpp_type": "screamer::RollingRSI",
+    "base": "ScreamerBase",
+    "ctor": [
+      "int",
+      "std::string",
+      "std::string"
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_rolling.cpp"
+  },
+  {
+    "name": "RollingRange",
+    "cpp_type": "screamer::RollingRange",
+    "base": "ScreamerBase",
+    "ctor": [
+      "int"
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_rolling.cpp"
+  },
+  {
+    "name": "RollingRank",
+    "cpp_type": "screamer::RollingRank",
+    "base": "ScreamerBase",
+    "ctor": [
+      "int"
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_rolling.cpp"
+  },
+  {
+    "name": "RollingResidualStd",
+    "cpp_type": "screamer::RollingResidualStd",
+    "base": "FunctorBase",
+    "ctor": [
+      "int",
+      "std::string"
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_fin.cpp"
+  },
+  {
+    "name": "RollingRms",
+    "cpp_type": "screamer::RollingRms",
+    "base": "ScreamerBase",
+    "ctor": [
+      "int",
+      "std::string"
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_rolling.cpp"
+  },
+  {
+    "name": "RollingRogersSatchellVar",
+    "cpp_type": "screamer::RollingRogersSatchellVar",
+    "base": "FunctorBase",
+    "ctor": [
+      "int"
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_rolling.cpp"
+  },
+  {
+    "name": "RollingRogersSatchellVol",
+    "cpp_type": "screamer::RollingRogersSatchellVol",
+    "base": "FunctorBase",
+    "ctor": [
+      "int"
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_rolling.cpp"
+  },
+  {
+    "name": "RollingSharpe",
+    "cpp_type": "screamer::RollingSharpe",
+    "base": "ScreamerBase",
+    "ctor": [
+      "int",
+      "double"
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_fin.cpp"
+  },
+  {
+    "name": "RollingSigmaClip",
+    "cpp_type": "screamer::RollingSigmaClip",
+    "base": "ScreamerBase",
+    "ctor": [
+      "int",
+      "std::optional<double>",
+      "std::optional<double>",
+      "std::string",
+      "std::string"
+    ],
+    "ctor_kind": "ew_optional",
+    "source": "bindings/bindings_rolling.cpp"
+  },
+  {
+    "name": "RollingSkew",
+    "cpp_type": "screamer::RollingSkew",
+    "base": "ScreamerBase",
+    "ctor": [
+      "int",
+      "std::string"
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_rolling.cpp"
+  },
+  {
+    "name": "RollingSortino",
+    "cpp_type": "screamer::RollingSortino",
+    "base": "ScreamerBase",
+    "ctor": [
+      "int",
+      "double",
+      "double"
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_fin.cpp"
+  },
+  {
+    "name": "RollingSpread",
+    "cpp_type": "screamer::RollingSpread",
+    "base": "FunctorBase",
+    "ctor": [
+      "int",
+      "std::string"
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_fin.cpp"
+  },
+  {
+    "name": "RollingStd",
+    "cpp_type": "screamer::RollingStd",
+    "base": "ScreamerBase",
+    "ctor": [
+      "int",
+      "std::string"
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_rolling.cpp"
+  },
+  {
+    "name": "RollingSum",
+    "cpp_type": "screamer::RollingSum",
+    "base": "ScreamerBase",
+    "ctor": [
+      "int",
+      "std::string"
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_rolling.cpp"
+  },
+  {
+    "name": "RollingTSF",
+    "cpp_type": "screamer::RollingTSF",
+    "base": "ScreamerBase",
+    "ctor": [
+      "int"
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_rolling.cpp"
+  },
+  {
+    "name": "RollingVWAP",
+    "cpp_type": "screamer::RollingVWAP",
+    "base": "FunctorBase",
+    "ctor": [
+      "int"
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_rolling.cpp"
+  },
+  {
+    "name": "RollingVar",
+    "cpp_type": "screamer::RollingVar",
+    "base": "ScreamerBase",
+    "ctor": [
+      "int",
+      "std::string"
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_rolling.cpp"
+  },
+  {
+    "name": "RollingYangZhangVar",
+    "cpp_type": "screamer::RollingYangZhangVar",
+    "base": "FunctorBase",
+    "ctor": [
+      "int"
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_rolling.cpp"
+  },
+  {
+    "name": "RollingYangZhangVol",
+    "cpp_type": "screamer::RollingYangZhangVol",
+    "base": "FunctorBase",
+    "ctor": [
+      "int"
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_rolling.cpp"
+  },
+  {
+    "name": "RollingZscore",
+    "cpp_type": "screamer::RollingZscore",
+    "base": "ScreamerBase",
+    "ctor": [
+      "int",
+      "std::string"
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_rolling.cpp"
+  },
+  {
+    "name": "RoofingFilter",
+    "cpp_type": "screamer::RoofingFilter",
+    "base": "ScreamerBase",
+    "ctor": [
+      "std::optional<double>",
+      "std::optional<double>",
+      "std::optional<double>",
+      "std::optional<double>"
+    ],
+    "ctor_kind": "ew_optional",
+    "source": "bindings/bindings_signal.cpp"
+  },
+  {
+    "name": "Round",
+    "cpp_type": "screamer::Transform<(double (*)(double)) std::nearbyint>",
+    "base": "ScreamerBase",
+    "ctor": [],
+    "ctor_kind": "transform",
+    "source": "bindings/bindings_math.cpp"
+  },
+  {
+    "name": "SchmittTrigger",
+    "cpp_type": "screamer::SchmittTrigger",
+    "base": "ScreamerBase",
+    "ctor": [
+      "double",
+      "double",
+      "double"
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_signal.cpp"
+  },
+  {
+    "name": "Selu",
+    "cpp_type": "screamer::Transform<(double (*)(double)) screamer::selu>",
+    "base": "ScreamerBase",
+    "ctor": [],
+    "ctor_kind": "transform",
+    "source": "bindings/bindings_math.cpp"
+  },
+  {
+    "name": "Sigmoid",
+    "cpp_type": "screamer::Transform<(double (*)(double)) screamer::sigmoid>",
+    "base": "ScreamerBase",
+    "ctor": [],
+    "ctor_kind": "transform",
+    "source": "bindings/bindings_math.cpp"
+  },
+  {
+    "name": "Sign",
+    "cpp_type": "screamer::Transform<(double (*)(double))screamer::signum<double> >",
+    "base": "ScreamerBase",
+    "ctor": [],
+    "ctor_kind": "transform",
+    "source": "bindings/bindings_math.cpp"
+  },
+  {
+    "name": "Sin",
+    "cpp_type": "screamer::Transform<(double (*)(double)) std::sin>",
+    "base": "ScreamerBase",
+    "ctor": [],
+    "ctor_kind": "transform",
+    "source": "bindings/bindings_math.cpp"
+  },
+  {
+    "name": "Softsign",
+    "cpp_type": "screamer::Transform<(double (*)(double)) screamer::softsign>",
+    "base": "ScreamerBase",
+    "ctor": [],
+    "ctor_kind": "transform",
+    "source": "bindings/bindings_math.cpp"
+  },
+  {
+    "name": "Sqrt",
+    "cpp_type": "screamer::Transform<(double (*)(double)) std::sqrt>",
+    "base": "ScreamerBase",
+    "ctor": [],
+    "ctor_kind": "transform",
+    "source": "bindings/bindings_math.cpp"
+  },
+  {
+    "name": "Square",
+    "cpp_type": "screamer::Transform<(double (*)(double)) screamer::square>",
+    "base": "ScreamerBase",
+    "ctor": [],
+    "ctor_kind": "transform",
+    "source": "bindings/bindings_math.cpp"
+  },
+  {
+    "name": "Stoch",
+    "cpp_type": "screamer::Stoch",
+    "base": "FunctorBase",
+    "ctor": [
+      "int",
+      "int",
+      "int"
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_rolling.cpp"
+  },
+  {
+    "name": "StochRSI",
+    "cpp_type": "screamer::StochRSI",
+    "base": "FunctorBase",
+    "ctor": [
+      "int",
+      "int",
+      "int",
+      "int"
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_rolling.cpp"
+  },
+  {
+    "name": "Sub",
+    "cpp_type": "screamer::Sub",
+    "base": "FunctorBase",
+    "ctor": [],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_math.cpp"
+  },
+  {
+    "name": "SuperSmoother",
+    "cpp_type": "screamer::SuperSmoother",
+    "base": "ScreamerBase",
+    "ctor": [
+      "std::optional<double>",
+      "std::optional<double>"
+    ],
+    "ctor_kind": "ew_optional",
+    "source": "bindings/bindings_signal.cpp"
+  },
+  {
+    "name": "TEMA",
+    "cpp_type": "screamer::TEMA",
+    "base": "ScreamerBase",
+    "ctor": [
+      "std::optional<double>",
+      "std::optional<double>",
+      "std::optional<double>",
+      "std::optional<double>"
+    ],
+    "ctor_kind": "ew_optional",
+    "source": "bindings/bindings_rolling.cpp"
+  },
+  {
+    "name": "TRIMA",
+    "cpp_type": "screamer::TRIMA",
+    "base": "ScreamerBase",
+    "ctor": [
+      "int"
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_rolling.cpp"
+  },
+  {
+    "name": "TRIX",
+    "cpp_type": "screamer::TRIX",
+    "base": "ScreamerBase",
+    "ctor": [
+      "int"
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_rolling.cpp"
+  },
+  {
+    "name": "Tanh",
+    "cpp_type": "screamer::Transform<(double (*)(double)) std::tanh>",
+    "base": "ScreamerBase",
+    "ctor": [],
+    "ctor_kind": "transform",
+    "source": "bindings/bindings_math.cpp"
+  },
+  {
+    "name": "TickRuleSign",
+    "cpp_type": "screamer::TickRuleSign",
+    "base": "ScreamerBase",
+    "ctor": [],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_micro.cpp"
+  },
+  {
+    "name": "TrendMode",
+    "cpp_type": "screamer::TrendMode",
+    "base": "FunctorBase",
+    "ctor": [
+      "double"
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_signal.cpp"
+  },
+  {
+    "name": "TrueRange",
+    "cpp_type": "screamer::TrueRange",
+    "base": "FunctorBase",
+    "ctor": [],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_rolling.cpp"
+  },
+  {
+    "name": "UltimateOscillator",
+    "cpp_type": "screamer::UltimateOscillator",
+    "base": "FunctorBase",
+    "ctor": [
+      "int",
+      "int",
+      "int"
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_rolling.cpp"
+  },
+  {
+    "name": "VPIN",
+    "cpp_type": "screamer::VPIN",
+    "base": "FunctorBase",
+    "ctor": [
+      "double",
+      "int"
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_micro.cpp"
+  },
+  {
+    "name": "WMA",
+    "cpp_type": "screamer::WMA",
+    "base": "ScreamerBase",
+    "ctor": [
+      "int",
+      "std::string"
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_rolling.cpp"
+  },
+  {
+    "name": "Where",
+    "cpp_type": "screamer::Where",
+    "base": "FunctorBase",
+    "ctor": [],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_math.cpp"
+  },
+  {
+    "name": "WilliamsR",
+    "cpp_type": "screamer::WilliamsR",
+    "base": "FunctorBase",
+    "ctor": [
+      "int"
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_rolling.cpp"
+  }
+]
