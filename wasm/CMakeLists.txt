@@ -40,5 +40,18 @@ target_include_directories(screamer PRIVATE
 
 set(EMCC_LINK "-lembind -sMODULARIZE=1 -sEXPORT_ES6=1 -sENVIRONMENT=node \
 -sFILESYSTEM=0 -sALLOW_MEMORY_GROWTH=1 -sMALLOC=emmalloc -sEXPORTED_RUNTIME_METHODS=['HEAPF64']")
-set_target_properties(screamer PROPERTIES SUFFIX ".mjs" LINK_FLAGS "${EMCC_LINK} -Oz")
+
+# SCREAMER_WASM_SINGLE_FILE=ON (passed by build-wasm.sh --single-file) embeds
+# the .wasm as base64 inside the .mjs, so an npm consumer gets one
+# self-contained module instead of a .mjs + .wasm pair to resolve at
+# runtime. Closure trims the otherwise-larger inlined output back down.
+option(SCREAMER_WASM_SINGLE_FILE "Embed the .wasm as base64 in a single .mjs (npm packaging)" OFF)
+if(SCREAMER_WASM_SINGLE_FILE)
+    set(EMCC_LINK "${EMCC_LINK} -sSINGLE_FILE=1 --closure=1")
+    set(SCREAMER_OUTPUT_NAME "screamer.single")
+else()
+    set(SCREAMER_OUTPUT_NAME "screamer")
+endif()
+
+set_target_properties(screamer PROPERTIES OUTPUT_NAME "${SCREAMER_OUTPUT_NAME}" SUFFIX ".mjs" LINK_FLAGS "${EMCC_LINK} -Oz")
 target_compile_options(screamer PRIVATE -Oz)

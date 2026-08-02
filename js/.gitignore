@@ -2,3 +2,4 @@ node_modules/
 dist/
 src/generated/screamer.mjs
 src/generated/screamer.wasm
+*.tgz

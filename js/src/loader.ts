@@ -1,5 +1,9 @@
-// Loads the Phase 2 Embind module once. The .mjs + .wasm are copied into
-// src/generated/ by `npm run build:wasm`.
+// Loads the Phase 2 Embind module once. `npm run build:wasm` copies the
+// dev (separate-file) screamer.mjs + screamer.wasm into src/generated/;
+// `npm run build:wasm:single` instead copies the self-contained
+// screamer.single.mjs (wasm embedded as base64) to this same path, and
+// `npm run build` copies whichever is currently there into dist/generated/
+// so the packaged tarball needs no separate .wasm asset to resolve.
 import initModule from "./generated/screamer.mjs";
 import { normalizeError } from "./errors.js";
 
