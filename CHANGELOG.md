@@ -17,6 +17,14 @@ Unreleased
   platform rather than one wheel per Python version. The wheel is built on
   CPython 3.12 and installs on 3.12 and every later 3.x.
 
+* **Internal:** `ScreamerBase` and `FunctorBase` are split into a pure
+  compute base and a relocated nanobind dispatch layer (`common/dispatch.h`
+  / `common/dispatch.cpp`). Operator headers now depend only on the pure
+  base, so they compile with no binding library on the include path; a
+  `check-pure-headers` CMake target and `devtools/check_pure_headers.sh`
+  enforce this as a standing gate. This is groundwork for a future JS/WASM
+  binding and does not change any Python-visible behavior.
+
 * `EwMean`'s array path holds its accumulators in locals for the duration of
   the loop, 4.0 to 1.0 ns/sample on 1M samples. It was the one operator where
   an alternative was meaningfully ahead in the batch comparison, and it now
