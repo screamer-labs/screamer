@@ -4,6 +4,7 @@
     "cpp_type": "screamer::AD",
     "base": "FunctorBase",
     "ctor": [],
+    "ctor_args": [],
     "ctor_kind": "plain",
     "source": "bindings/bindings_rolling.cpp"
   },
@@ -15,6 +16,16 @@
       "int",
       "int"
     ],
+    "ctor_args": [
+      {
+        "name": "fast",
+        "default": "3"
+      },
+      {
+        "name": "slow",
+        "default": "10"
+      }
+    ],
     "ctor_kind": "plain",
     "source": "bindings/bindings_rolling.cpp"
   },
@@ -24,6 +35,12 @@
     "base": "FunctorBase",
     "ctor": [
       "int"
+    ],
+    "ctor_args": [
+      {
+        "name": "window_size",
+        "default": "14"
+      }
     ],
     "ctor_kind": "plain",
     "source": "bindings/bindings_rolling.cpp"
@@ -35,6 +52,12 @@
     "ctor": [
       "int"
     ],
+    "ctor_args": [
+      {
+        "name": "window_size",
+        "default": "14"
+      }
+    ],
     "ctor_kind": "plain",
     "source": "bindings/bindings_rolling.cpp"
   },
@@ -45,6 +68,12 @@
     "ctor": [
       "int"
     ],
+    "ctor_args": [
+      {
+        "name": "window_size",
+        "default": "14"
+      }
+    ],
     "ctor_kind": "plain",
     "source": "bindings/bindings_rolling.cpp"
   },
@@ -53,6 +82,7 @@
     "cpp_type": "screamer::Transform<(double (*)(double)) std::abs>",
     "base": "ScreamerBase",
     "ctor": [],
+    "ctor_args": [],
     "ctor_kind": "transform",
     "source": "bindings/bindings_math.cpp"
   },
@@ -61,6 +91,7 @@
     "cpp_type": "screamer::Transform<(double (*)(double)) std::acos>",
     "base": "ScreamerBase",
     "ctor": [],
+    "ctor_args": [],
     "ctor_kind": "transform",
     "source": "bindings/bindings_math.cpp"
   },
@@ -69,6 +100,7 @@
     "cpp_type": "screamer::Add",
     "base": "FunctorBase",
     "ctor": [],
+    "ctor_args": [],
     "ctor_kind": "plain",
     "source": "bindings/bindings_math.cpp"
   },
@@ -80,6 +112,16 @@
       "int",
       "std::string"
     ],
+    "ctor_args": [
+      {
+        "name": "window_size",
+        "default": "20"
+      },
+      {
+        "name": "start_policy",
+        "default": "\"strict\""
+      }
+    ],
     "ctor_kind": "plain",
     "source": "bindings/bindings_micro.cpp"
   },
@@ -88,6 +130,7 @@
     "cpp_type": "screamer::And",
     "base": "FunctorBase",
     "ctor": [],
+    "ctor_args": [],
     "ctor_kind": "plain",
     "source": "bindings/bindings_math.cpp"
   },
@@ -96,6 +139,7 @@
     "cpp_type": "screamer::Transform<(double (*)(double)) std::asin>",
     "base": "ScreamerBase",
     "ctor": [],
+    "ctor_args": [],
     "ctor_kind": "transform",
     "source": "bindings/bindings_math.cpp"
   },
@@ -104,6 +148,7 @@
     "cpp_type": "screamer::Transform<(double (*)(double)) std::atan>",
     "base": "ScreamerBase",
     "ctor": [],
+    "ctor_args": [],
     "ctor_kind": "transform",
     "source": "bindings/bindings_math.cpp"
   },
@@ -112,6 +157,7 @@
     "cpp_type": "screamer::Atan2",
     "base": "FunctorBase",
     "ctor": [],
+    "ctor_args": [],
     "ctor_kind": "plain",
     "source": "bindings/bindings_math.cpp"
   },
@@ -120,6 +166,7 @@
     "cpp_type": "screamer::BOP",
     "base": "FunctorBase",
     "ctor": [],
+    "ctor_args": [],
     "ctor_kind": "plain",
     "source": "bindings/bindings_rolling.cpp"
   },
@@ -136,6 +183,36 @@
       "double",
       "double"
     ],
+    "ctor_args": [
+      {
+        "name": "maker_fee",
+        "default": "0.0"
+      },
+      {
+        "name": "taker_fee",
+        "default": "0.0"
+      },
+      {
+        "name": "fill",
+        "default": "\"breach\""
+      },
+      {
+        "name": "participation_ratio",
+        "default": "1.0"
+      },
+      {
+        "name": "tick_size",
+        "default": "0.0"
+      },
+      {
+        "name": "min_position",
+        "default": "-std::numeric_limits<double>::infinity()"
+      },
+      {
+        "name": "max_position",
+        "default": "std::numeric_limits<double>::infinity()"
+      }
+    ],
     "ctor_kind": "plain",
     "source": "bindings/bindings_fin.cpp"
   },
@@ -148,6 +225,24 @@
       "double",
       "double",
       "double"
+    ],
+    "ctor_args": [
+      {
+        "name": "taker_fee",
+        "default": "0.0"
+      },
+      {
+        "name": "tick_size",
+        "default": "0.0"
+      },
+      {
+        "name": "min_position",
+        "default": "-std::numeric_limits<double>::infinity()"
+      },
+      {
+        "name": "max_position",
+        "default": "std::numeric_limits<double>::infinity()"
+      }
     ],
     "ctor_kind": "plain",
     "source": "bindings/bindings_fin.cpp"
@@ -165,6 +260,36 @@
       "double",
       "double"
     ],
+    "ctor_args": [
+      {
+        "name": "maker_fee",
+        "default": "0.0"
+      },
+      {
+        "name": "taker_fee",
+        "default": "0.0"
+      },
+      {
+        "name": "fill",
+        "default": "\"touch\""
+      },
+      {
+        "name": "participation_ratio",
+        "default": "1.0"
+      },
+      {
+        "name": "tick_size",
+        "default": "0.0"
+      },
+      {
+        "name": "min_position",
+        "default": "-std::numeric_limits<double>::infinity()"
+      },
+      {
+        "name": "max_position",
+        "default": "std::numeric_limits<double>::infinity()"
+      }
+    ],
     "ctor_kind": "plain",
     "source": "bindings/bindings_fin.cpp"
   },
@@ -181,6 +306,36 @@
       "double",
       "double"
     ],
+    "ctor_args": [
+      {
+        "name": "maker_fee",
+        "default": "0.0"
+      },
+      {
+        "name": "taker_fee",
+        "default": "0.0"
+      },
+      {
+        "name": "fill",
+        "default": "\"touch\""
+      },
+      {
+        "name": "participation_ratio",
+        "default": "1.0"
+      },
+      {
+        "name": "tick_size",
+        "default": "0.0"
+      },
+      {
+        "name": "min_position",
+        "default": "-std::numeric_limits<double>::infinity()"
+      },
+      {
+        "name": "max_position",
+        "default": "std::numeric_limits<double>::infinity()"
+      }
+    ],
     "ctor_kind": "plain",
     "source": "bindings/bindings_fin.cpp"
   },
@@ -193,6 +348,24 @@
       "double",
       "double",
       "double"
+    ],
+    "ctor_args": [
+      {
+        "name": "taker_fee",
+        "default": "0.0"
+      },
+      {
+        "name": "tick_size",
+        "default": "0.0"
+      },
+      {
+        "name": "min_position",
+        "default": "-std::numeric_limits<double>::infinity()"
+      },
+      {
+        "name": "max_position",
+        "default": "std::numeric_limits<double>::infinity()"
+      }
     ],
     "ctor_kind": "plain",
     "source": "bindings/bindings_fin.cpp"
@@ -207,6 +380,24 @@
       "double",
       "double"
     ],
+    "ctor_args": [
+      {
+        "name": "spread",
+        "default": "0.0"
+      },
+      {
+        "name": "fee",
+        "default": "0.0"
+      },
+      {
+        "name": "min_position",
+        "default": "-std::numeric_limits<double>::infinity()"
+      },
+      {
+        "name": "max_position",
+        "default": "std::numeric_limits<double>::infinity()"
+      }
+    ],
     "ctor_kind": "plain",
     "source": "bindings/bindings_fin.cpp"
   },
@@ -215,6 +406,7 @@
     "cpp_type": "screamer::BacktestReport",
     "base": "FunctorBase",
     "ctor": [],
+    "ctor_args": [],
     "ctor_kind": "plain",
     "source": "bindings/bindings_fin.cpp"
   },
@@ -231,6 +423,36 @@
       "double",
       "double"
     ],
+    "ctor_args": [
+      {
+        "name": "maker_fee",
+        "default": "0.0"
+      },
+      {
+        "name": "taker_fee",
+        "default": "0.0"
+      },
+      {
+        "name": "fill",
+        "default": "\"touch\""
+      },
+      {
+        "name": "participation_ratio",
+        "default": "1.0"
+      },
+      {
+        "name": "tick_size",
+        "default": "0.0"
+      },
+      {
+        "name": "min_position",
+        "default": "-std::numeric_limits<double>::infinity()"
+      },
+      {
+        "name": "max_position",
+        "default": "std::numeric_limits<double>::infinity()"
+      }
+    ],
     "ctor_kind": "plain",
     "source": "bindings/bindings_fin.cpp"
   },
@@ -243,6 +465,24 @@
       "double",
       "double",
       "double"
+    ],
+    "ctor_args": [
+      {
+        "name": "taker_fee",
+        "default": "0.0"
+      },
+      {
+        "name": "tick_size",
+        "default": "0.0"
+      },
+      {
+        "name": "min_position",
+        "default": "-std::numeric_limits<double>::infinity()"
+      },
+      {
+        "name": "max_position",
+        "default": "std::numeric_limits<double>::infinity()"
+      }
     ],
     "ctor_kind": "plain",
     "source": "bindings/bindings_fin.cpp"
@@ -259,6 +499,32 @@
       "double",
       "double"
     ],
+    "ctor_args": [
+      {
+        "name": "com",
+        "default": null
+      },
+      {
+        "name": "span",
+        "default": null
+      },
+      {
+        "name": "halflife",
+        "default": null
+      },
+      {
+        "name": "alpha",
+        "default": null
+      },
+      {
+        "name": "prior_precision",
+        "default": "1.0"
+      },
+      {
+        "name": "prior_sigma",
+        "default": "1.0"
+      }
+    ],
     "ctor_kind": "ew_optional",
     "source": "bindings/bindings_fin.cpp"
   },
@@ -271,6 +537,20 @@
       "double",
       "std::string"
     ],
+    "ctor_args": [
+      {
+        "name": "window_size",
+        "default": "20"
+      },
+      {
+        "name": "num_std",
+        "default": "2.0"
+      },
+      {
+        "name": "start_policy",
+        "default": "\"strict\""
+      }
+    ],
     "ctor_kind": "plain",
     "source": "bindings/bindings_rolling.cpp"
   },
@@ -282,6 +562,16 @@
       "int",
       "std::string"
     ],
+    "ctor_args": [
+      {
+        "name": "window_size",
+        "default": "20"
+      },
+      {
+        "name": "start_policy",
+        "default": "\"strict\""
+      }
+    ],
     "ctor_kind": "plain",
     "source": "bindings/bindings_micro.cpp"
   },
@@ -292,6 +582,16 @@
     "ctor": [
       "int",
       "double"
+    ],
+    "ctor_args": [
+      {
+        "name": "order",
+        "default": "2"
+      },
+      {
+        "name": "cutoff_freq",
+        "default": "0.1"
+      }
     ],
     "ctor_kind": "plain",
     "source": "bindings/bindings_signal.cpp"
@@ -305,6 +605,20 @@
       "double",
       "double"
     ],
+    "ctor_args": [
+      {
+        "name": "order",
+        "default": "2"
+      },
+      {
+        "name": "low_cutoff",
+        "default": "0.05"
+      },
+      {
+        "name": "high_cutoff",
+        "default": "0.2"
+      }
+    ],
     "ctor_kind": "plain",
     "source": "bindings/bindings_signal.cpp"
   },
@@ -317,6 +631,20 @@
       "double",
       "double"
     ],
+    "ctor_args": [
+      {
+        "name": "order",
+        "default": "2"
+      },
+      {
+        "name": "low_cutoff",
+        "default": "0.05"
+      },
+      {
+        "name": "high_cutoff",
+        "default": "0.2"
+      }
+    ],
     "ctor_kind": "plain",
     "source": "bindings/bindings_signal.cpp"
   },
@@ -328,6 +656,16 @@
       "int",
       "double"
     ],
+    "ctor_args": [
+      {
+        "name": "order",
+        "default": "2"
+      },
+      {
+        "name": "cutoff_freq",
+        "default": "0.1"
+      }
+    ],
     "ctor_kind": "plain",
     "source": "bindings/bindings_signal.cpp"
   },
@@ -338,6 +676,12 @@
     "ctor": [
       "int"
     ],
+    "ctor_args": [
+      {
+        "name": "window_size",
+        "default": "14"
+      }
+    ],
     "ctor_kind": "plain",
     "source": "bindings/bindings_rolling.cpp"
   },
@@ -346,6 +690,7 @@
     "cpp_type": "screamer::Cart2Polar",
     "base": "FunctorBase",
     "ctor": [],
+    "ctor_args": [],
     "ctor_kind": "plain",
     "source": "bindings/bindings_math.cpp"
   },
@@ -354,6 +699,7 @@
     "cpp_type": "screamer::Transform<(double (*)(double)) std::ceil>",
     "base": "ScreamerBase",
     "ctor": [],
+    "ctor_args": [],
     "ctor_kind": "transform",
     "source": "bindings/bindings_math.cpp"
   },
@@ -365,6 +711,16 @@
       "std::optional<double>",
       "std::optional<double>"
     ],
+    "ctor_args": [
+      {
+        "name": "lower",
+        "default": null
+      },
+      {
+        "name": "upper",
+        "default": null
+      }
+    ],
     "ctor_kind": "ew_optional",
     "source": "bindings/bindings_preprocessing.cpp"
   },
@@ -373,6 +729,7 @@
     "cpp_type": "screamer::ContOFI",
     "base": "FunctorBase",
     "ctor": [],
+    "ctor_args": [],
     "ctor_kind": "plain",
     "source": "bindings/bindings_micro.cpp"
   },
@@ -381,6 +738,7 @@
     "cpp_type": "screamer::Transform<(double (*)(double)) std::cos>",
     "base": "ScreamerBase",
     "ctor": [],
+    "ctor_args": [],
     "ctor_kind": "transform",
     "source": "bindings/bindings_math.cpp"
   },
@@ -389,6 +747,7 @@
     "cpp_type": "screamer::Transform<(double (*)(double)) screamer::cube>",
     "base": "ScreamerBase",
     "ctor": [],
+    "ctor_args": [],
     "ctor_kind": "transform",
     "source": "bindings/bindings_math.cpp"
   },
@@ -397,6 +756,7 @@
     "cpp_type": "screamer::CumMax",
     "base": "ScreamerBase",
     "ctor": [],
+    "ctor_args": [],
     "ctor_kind": "plain",
     "source": "bindings/bindings_misc.cpp"
   },
@@ -405,6 +765,7 @@
     "cpp_type": "screamer::CumMin",
     "base": "ScreamerBase",
     "ctor": [],
+    "ctor_args": [],
     "ctor_kind": "plain",
     "source": "bindings/bindings_misc.cpp"
   },
@@ -413,6 +774,7 @@
     "cpp_type": "screamer::CumProd",
     "base": "ScreamerBase",
     "ctor": [],
+    "ctor_args": [],
     "ctor_kind": "plain",
     "source": "bindings/bindings_misc.cpp"
   },
@@ -421,6 +783,7 @@
     "cpp_type": "screamer::CumSum",
     "base": "ScreamerBase",
     "ctor": [],
+    "ctor_args": [],
     "ctor_kind": "plain",
     "source": "bindings/bindings_misc.cpp"
   },
@@ -429,6 +792,7 @@
     "cpp_type": "screamer::CycleAmplitude",
     "base": "FunctorBase",
     "ctor": [],
+    "ctor_args": [],
     "ctor_kind": "plain",
     "source": "bindings/bindings_signal.cpp"
   },
@@ -437,6 +801,7 @@
     "cpp_type": "screamer::CycleFrequency",
     "base": "FunctorBase",
     "ctor": [],
+    "ctor_args": [],
     "ctor_kind": "plain",
     "source": "bindings/bindings_signal.cpp"
   },
@@ -445,6 +810,7 @@
     "cpp_type": "screamer::CyclePhase",
     "base": "FunctorBase",
     "ctor": [],
+    "ctor_args": [],
     "ctor_kind": "plain",
     "source": "bindings/bindings_signal.cpp"
   },
@@ -453,6 +819,7 @@
     "cpp_type": "screamer::CycleSine",
     "base": "FunctorBase",
     "ctor": [],
+    "ctor_args": [],
     "ctor_kind": "plain",
     "source": "bindings/bindings_signal.cpp"
   },
@@ -466,6 +833,24 @@
       "std::optional<double>",
       "std::optional<double>"
     ],
+    "ctor_args": [
+      {
+        "name": "com",
+        "default": null
+      },
+      {
+        "name": "span",
+        "default": null
+      },
+      {
+        "name": "halflife",
+        "default": null
+      },
+      {
+        "name": "alpha",
+        "default": null
+      }
+    ],
     "ctor_kind": "ew_optional",
     "source": "bindings/bindings_rolling.cpp"
   },
@@ -475,6 +860,12 @@
     "base": "FunctorBase",
     "ctor": [
       "int"
+    ],
+    "ctor_args": [
+      {
+        "name": "window_size",
+        "default": "14"
+      }
     ],
     "ctor_kind": "plain",
     "source": "bindings/bindings_rolling.cpp"
@@ -487,6 +878,16 @@
       "std::optional<double>",
       "std::optional<double>"
     ],
+    "ctor_args": [
+      {
+        "name": "period",
+        "default": null
+      },
+      {
+        "name": "cutoff",
+        "default": null
+      }
+    ],
     "ctor_kind": "ew_optional",
     "source": "bindings/bindings_signal.cpp"
   },
@@ -497,6 +898,16 @@
     "ctor": [
       "int",
       "std::string"
+    ],
+    "ctor_args": [
+      {
+        "name": "window_size",
+        "default": "20"
+      },
+      {
+        "name": "start_policy",
+        "default": "\"strict\""
+      }
     ],
     "ctor_kind": "plain",
     "source": "bindings/bindings_misc.cpp"
@@ -509,6 +920,16 @@
       "int",
       "std::string"
     ],
+    "ctor_args": [
+      {
+        "name": "window_size",
+        "default": "1"
+      },
+      {
+        "name": "start_policy",
+        "default": "\"strict\""
+      }
+    ],
     "ctor_kind": "plain",
     "source": "bindings/bindings_misc.cpp"
   },
@@ -519,6 +940,12 @@
     "ctor": [
       "std::string"
     ],
+    "ctor_args": [
+      {
+        "name": "start_policy",
+        "default": "\"strict\""
+      }
+    ],
     "ctor_kind": "plain",
     "source": "bindings/bindings_misc.cpp"
   },
@@ -527,6 +954,7 @@
     "cpp_type": "screamer::Div",
     "base": "FunctorBase",
     "ctor": [],
+    "ctor_args": [],
     "ctor_kind": "plain",
     "source": "bindings/bindings_math.cpp"
   },
@@ -535,6 +963,7 @@
     "cpp_type": "screamer::DominantCycle",
     "base": "FunctorBase",
     "ctor": [],
+    "ctor_args": [],
     "ctor_kind": "plain",
     "source": "bindings/bindings_signal.cpp"
   },
@@ -545,6 +974,12 @@
     "ctor": [
       "int"
     ],
+    "ctor_args": [
+      {
+        "name": "window_size",
+        "default": "20"
+      }
+    ],
     "ctor_kind": "plain",
     "source": "bindings/bindings_rolling.cpp"
   },
@@ -553,6 +988,7 @@
     "cpp_type": "screamer::Drawdown",
     "base": "ScreamerBase",
     "ctor": [],
+    "ctor_args": [],
     "ctor_kind": "plain",
     "source": "bindings/bindings_fin.cpp"
   },
@@ -561,6 +997,7 @@
     "cpp_type": "screamer::EffectiveSpread",
     "base": "FunctorBase",
     "ctor": [],
+    "ctor_args": [],
     "ctor_kind": "plain",
     "source": "bindings/bindings_micro.cpp"
   },
@@ -569,6 +1006,7 @@
     "cpp_type": "screamer::Transform<(double (*)(double)) screamer::elu>",
     "base": "ScreamerBase",
     "ctor": [],
+    "ctor_args": [],
     "ctor_kind": "transform",
     "source": "bindings/bindings_math.cpp"
   },
@@ -577,6 +1015,7 @@
     "cpp_type": "screamer::Equal",
     "base": "FunctorBase",
     "ctor": [],
+    "ctor_args": [],
     "ctor_kind": "plain",
     "source": "bindings/bindings_math.cpp"
   },
@@ -585,6 +1024,7 @@
     "cpp_type": "screamer::Transform<(double (*)(double)) std::erf>",
     "base": "ScreamerBase",
     "ctor": [],
+    "ctor_args": [],
     "ctor_kind": "transform",
     "source": "bindings/bindings_math.cpp"
   },
@@ -593,6 +1033,7 @@
     "cpp_type": "screamer::Transform<(double (*)(double)) std::erfc>",
     "base": "ScreamerBase",
     "ctor": [],
+    "ctor_args": [],
     "ctor_kind": "transform",
     "source": "bindings/bindings_math.cpp"
   },
@@ -605,6 +1046,24 @@
       "std::optional<double>",
       "std::optional<double>",
       "std::optional<double>"
+    ],
+    "ctor_args": [
+      {
+        "name": "com",
+        "default": null
+      },
+      {
+        "name": "span",
+        "default": null
+      },
+      {
+        "name": "halflife",
+        "default": null
+      },
+      {
+        "name": "alpha",
+        "default": null
+      }
     ],
     "ctor_kind": "ew_optional",
     "source": "bindings/bindings_ew.cpp"
@@ -619,6 +1078,24 @@
       "std::optional<double>",
       "std::optional<double>"
     ],
+    "ctor_args": [
+      {
+        "name": "com",
+        "default": null
+      },
+      {
+        "name": "span",
+        "default": null
+      },
+      {
+        "name": "halflife",
+        "default": null
+      },
+      {
+        "name": "alpha",
+        "default": null
+      }
+    ],
     "ctor_kind": "ew_optional",
     "source": "bindings/bindings_ew.cpp"
   },
@@ -631,6 +1108,24 @@
       "std::optional<double>",
       "std::optional<double>",
       "std::optional<double>"
+    ],
+    "ctor_args": [
+      {
+        "name": "com",
+        "default": null
+      },
+      {
+        "name": "span",
+        "default": null
+      },
+      {
+        "name": "halflife",
+        "default": null
+      },
+      {
+        "name": "alpha",
+        "default": null
+      }
     ],
     "ctor_kind": "ew_optional",
     "source": "bindings/bindings_ew.cpp"
@@ -645,6 +1140,24 @@
       "std::optional<double>",
       "std::optional<double>"
     ],
+    "ctor_args": [
+      {
+        "name": "com",
+        "default": null
+      },
+      {
+        "name": "span",
+        "default": null
+      },
+      {
+        "name": "halflife",
+        "default": null
+      },
+      {
+        "name": "alpha",
+        "default": null
+      }
+    ],
     "ctor_kind": "ew_optional",
     "source": "bindings/bindings_rolling.cpp"
   },
@@ -657,6 +1170,24 @@
       "std::optional<double>",
       "std::optional<double>",
       "std::optional<double>"
+    ],
+    "ctor_args": [
+      {
+        "name": "com",
+        "default": null
+      },
+      {
+        "name": "span",
+        "default": null
+      },
+      {
+        "name": "halflife",
+        "default": null
+      },
+      {
+        "name": "alpha",
+        "default": null
+      }
     ],
     "ctor_kind": "ew_optional",
     "source": "bindings/bindings_rolling.cpp"
@@ -671,6 +1202,24 @@
       "std::optional<double>",
       "std::optional<double>"
     ],
+    "ctor_args": [
+      {
+        "name": "com",
+        "default": null
+      },
+      {
+        "name": "span",
+        "default": null
+      },
+      {
+        "name": "halflife",
+        "default": null
+      },
+      {
+        "name": "alpha",
+        "default": null
+      }
+    ],
     "ctor_kind": "ew_optional",
     "source": "bindings/bindings_ew.cpp"
   },
@@ -683,6 +1232,24 @@
       "std::optional<double>",
       "std::optional<double>",
       "std::optional<double>"
+    ],
+    "ctor_args": [
+      {
+        "name": "com",
+        "default": null
+      },
+      {
+        "name": "span",
+        "default": null
+      },
+      {
+        "name": "halflife",
+        "default": null
+      },
+      {
+        "name": "alpha",
+        "default": null
+      }
     ],
     "ctor_kind": "ew_optional",
     "source": "bindings/bindings_ew.cpp"
@@ -697,6 +1264,24 @@
       "std::optional<double>",
       "std::optional<double>"
     ],
+    "ctor_args": [
+      {
+        "name": "com",
+        "default": null
+      },
+      {
+        "name": "span",
+        "default": null
+      },
+      {
+        "name": "halflife",
+        "default": null
+      },
+      {
+        "name": "alpha",
+        "default": null
+      }
+    ],
     "ctor_kind": "ew_optional",
     "source": "bindings/bindings_rolling.cpp"
   },
@@ -709,6 +1294,24 @@
       "std::optional<double>",
       "std::optional<double>",
       "std::optional<double>"
+    ],
+    "ctor_args": [
+      {
+        "name": "com",
+        "default": null
+      },
+      {
+        "name": "span",
+        "default": null
+      },
+      {
+        "name": "halflife",
+        "default": null
+      },
+      {
+        "name": "alpha",
+        "default": null
+      }
     ],
     "ctor_kind": "ew_optional",
     "source": "bindings/bindings_rolling.cpp"
@@ -723,6 +1326,24 @@
       "std::optional<double>",
       "std::optional<double>"
     ],
+    "ctor_args": [
+      {
+        "name": "com",
+        "default": null
+      },
+      {
+        "name": "span",
+        "default": null
+      },
+      {
+        "name": "halflife",
+        "default": null
+      },
+      {
+        "name": "alpha",
+        "default": null
+      }
+    ],
     "ctor_kind": "ew_optional",
     "source": "bindings/bindings_ew.cpp"
   },
@@ -735,6 +1356,24 @@
       "std::optional<double>",
       "std::optional<double>",
       "std::optional<double>"
+    ],
+    "ctor_args": [
+      {
+        "name": "com",
+        "default": null
+      },
+      {
+        "name": "span",
+        "default": null
+      },
+      {
+        "name": "halflife",
+        "default": null
+      },
+      {
+        "name": "alpha",
+        "default": null
+      }
     ],
     "ctor_kind": "ew_optional",
     "source": "bindings/bindings_rolling.cpp"
@@ -749,6 +1388,24 @@
       "std::optional<double>",
       "std::optional<double>"
     ],
+    "ctor_args": [
+      {
+        "name": "com",
+        "default": null
+      },
+      {
+        "name": "span",
+        "default": null
+      },
+      {
+        "name": "halflife",
+        "default": null
+      },
+      {
+        "name": "alpha",
+        "default": null
+      }
+    ],
     "ctor_kind": "ew_optional",
     "source": "bindings/bindings_rolling.cpp"
   },
@@ -761,6 +1418,24 @@
       "std::optional<double>",
       "std::optional<double>",
       "std::optional<double>"
+    ],
+    "ctor_args": [
+      {
+        "name": "com",
+        "default": null
+      },
+      {
+        "name": "span",
+        "default": null
+      },
+      {
+        "name": "halflife",
+        "default": null
+      },
+      {
+        "name": "alpha",
+        "default": null
+      }
     ],
     "ctor_kind": "ew_optional",
     "source": "bindings/bindings_ew.cpp"
@@ -775,6 +1450,24 @@
       "std::optional<double>",
       "std::optional<double>"
     ],
+    "ctor_args": [
+      {
+        "name": "com",
+        "default": null
+      },
+      {
+        "name": "span",
+        "default": null
+      },
+      {
+        "name": "halflife",
+        "default": null
+      },
+      {
+        "name": "alpha",
+        "default": null
+      }
+    ],
     "ctor_kind": "ew_optional",
     "source": "bindings/bindings_ew.cpp"
   },
@@ -787,6 +1480,24 @@
       "std::optional<double>",
       "std::optional<double>",
       "std::optional<double>"
+    ],
+    "ctor_args": [
+      {
+        "name": "com",
+        "default": null
+      },
+      {
+        "name": "span",
+        "default": null
+      },
+      {
+        "name": "halflife",
+        "default": null
+      },
+      {
+        "name": "alpha",
+        "default": null
+      }
     ],
     "ctor_kind": "ew_optional",
     "source": "bindings/bindings_ew.cpp"
@@ -801,6 +1512,24 @@
       "std::optional<double>",
       "std::optional<double>"
     ],
+    "ctor_args": [
+      {
+        "name": "com",
+        "default": null
+      },
+      {
+        "name": "span",
+        "default": null
+      },
+      {
+        "name": "halflife",
+        "default": null
+      },
+      {
+        "name": "alpha",
+        "default": null
+      }
+    ],
     "ctor_kind": "ew_optional",
     "source": "bindings/bindings_ew.cpp"
   },
@@ -809,6 +1538,7 @@
     "cpp_type": "screamer::Transform<(double (*)(double)) std::exp>",
     "base": "ScreamerBase",
     "ctor": [],
+    "ctor_args": [],
     "ctor_kind": "transform",
     "source": "bindings/bindings_math.cpp"
   },
@@ -817,6 +1547,7 @@
     "cpp_type": "screamer::ExpandingKurt",
     "base": "ScreamerBase",
     "ctor": [],
+    "ctor_args": [],
     "ctor_kind": "plain",
     "source": "bindings/bindings_expanding.cpp"
   },
@@ -825,6 +1556,7 @@
     "cpp_type": "screamer::ExpandingMax",
     "base": "ScreamerBase",
     "ctor": [],
+    "ctor_args": [],
     "ctor_kind": "plain",
     "source": "bindings/bindings_expanding.cpp"
   },
@@ -833,6 +1565,7 @@
     "cpp_type": "screamer::ExpandingMean",
     "base": "ScreamerBase",
     "ctor": [],
+    "ctor_args": [],
     "ctor_kind": "plain",
     "source": "bindings/bindings_expanding.cpp"
   },
@@ -841,6 +1574,7 @@
     "cpp_type": "screamer::ExpandingMin",
     "base": "ScreamerBase",
     "ctor": [],
+    "ctor_args": [],
     "ctor_kind": "plain",
     "source": "bindings/bindings_expanding.cpp"
   },
@@ -849,6 +1583,7 @@
     "cpp_type": "screamer::ExpandingProd",
     "base": "ScreamerBase",
     "ctor": [],
+    "ctor_args": [],
     "ctor_kind": "plain",
     "source": "bindings/bindings_expanding.cpp"
   },
@@ -857,6 +1592,7 @@
     "cpp_type": "screamer::ExpandingSkew",
     "base": "ScreamerBase",
     "ctor": [],
+    "ctor_args": [],
     "ctor_kind": "plain",
     "source": "bindings/bindings_expanding.cpp"
   },
@@ -865,6 +1601,7 @@
     "cpp_type": "screamer::ExpandingSlope",
     "base": "ScreamerBase",
     "ctor": [],
+    "ctor_args": [],
     "ctor_kind": "plain",
     "source": "bindings/bindings_expanding.cpp"
   },
@@ -873,6 +1610,7 @@
     "cpp_type": "screamer::ExpandingStd",
     "base": "ScreamerBase",
     "ctor": [],
+    "ctor_args": [],
     "ctor_kind": "plain",
     "source": "bindings/bindings_expanding.cpp"
   },
@@ -881,6 +1619,7 @@
     "cpp_type": "screamer::ExpandingSum",
     "base": "ScreamerBase",
     "ctor": [],
+    "ctor_args": [],
     "ctor_kind": "plain",
     "source": "bindings/bindings_expanding.cpp"
   },
@@ -889,6 +1628,7 @@
     "cpp_type": "screamer::ExpandingVar",
     "base": "ScreamerBase",
     "ctor": [],
+    "ctor_args": [],
     "ctor_kind": "plain",
     "source": "bindings/bindings_expanding.cpp"
   },
@@ -897,6 +1637,7 @@
     "cpp_type": "screamer::Ffill",
     "base": "ScreamerBase",
     "ctor": [],
+    "ctor_args": [],
     "ctor_kind": "plain",
     "source": "bindings/bindings_preprocessing.cpp"
   },
@@ -907,6 +1648,12 @@
     "ctor": [
       "double"
     ],
+    "ctor_args": [
+      {
+        "name": "fill",
+        "default": "0.0"
+      }
+    ],
     "ctor_kind": "plain",
     "source": "bindings/bindings_preprocessing.cpp"
   },
@@ -915,6 +1662,7 @@
     "cpp_type": "screamer::First",
     "base": "ScreamerBase",
     "ctor": [],
+    "ctor_args": [],
     "ctor_kind": "plain",
     "source": "bindings/bindings_misc.cpp"
   },
@@ -923,6 +1671,7 @@
     "cpp_type": "screamer::Transform<(double (*)(double)) std::floor>",
     "base": "ScreamerBase",
     "ctor": [],
+    "ctor_args": [],
     "ctor_kind": "transform",
     "source": "bindings/bindings_math.cpp"
   },
@@ -936,6 +1685,24 @@
       "double",
       "std::string"
     ],
+    "ctor_args": [
+      {
+        "name": "d",
+        "default": "0.4"
+      },
+      {
+        "name": "window_size",
+        "default": "100"
+      },
+      {
+        "name": "threshold",
+        "default": "1e-5"
+      },
+      {
+        "name": "start_policy",
+        "default": "\"strict\""
+      }
+    ],
     "ctor_kind": "plain",
     "source": "bindings/bindings_signal.cpp"
   },
@@ -944,6 +1711,7 @@
     "cpp_type": "screamer::GreaterEqual",
     "base": "FunctorBase",
     "ctor": [],
+    "ctor_args": [],
     "ctor_kind": "plain",
     "source": "bindings/bindings_math.cpp"
   },
@@ -952,6 +1720,7 @@
     "cpp_type": "screamer::GreaterThan",
     "base": "FunctorBase",
     "ctor": [],
+    "ctor_args": [],
     "ctor_kind": "plain",
     "source": "bindings/bindings_math.cpp"
   },
@@ -965,6 +1734,24 @@
       "std::string",
       "std::string"
     ],
+    "ctor_args": [
+      {
+        "name": "window_size",
+        "default": "20"
+      },
+      {
+        "name": "n_sigma",
+        "default": "3.0"
+      },
+      {
+        "name": "output",
+        "default": "\"cleaned\""
+      },
+      {
+        "name": "start_policy",
+        "default": "\"strict\""
+      }
+    ],
     "ctor_kind": "plain",
     "source": "bindings/bindings_rolling.cpp"
   },
@@ -977,6 +1764,20 @@
       "double",
       "double"
     ],
+    "ctor_args": [
+      {
+        "name": "decay",
+        "default": "0.9"
+      },
+      {
+        "name": "alpha",
+        "default": "1.0"
+      },
+      {
+        "name": "mu",
+        "default": "0.0"
+      }
+    ],
     "ctor_kind": "plain",
     "source": "bindings/bindings_micro.cpp"
   },
@@ -985,6 +1786,7 @@
     "cpp_type": "screamer::HilbertPhasor",
     "base": "FunctorBase",
     "ctor": [],
+    "ctor_args": [],
     "ctor_kind": "plain",
     "source": "bindings/bindings_signal.cpp"
   },
@@ -996,6 +1798,16 @@
       "int",
       "double"
     ],
+    "ctor_args": [
+      {
+        "name": "n",
+        "default": null
+      },
+      {
+        "name": "release",
+        "default": "0.0"
+      }
+    ],
     "ctor_kind": "plain",
     "source": "bindings/bindings_signal.cpp"
   },
@@ -1006,6 +1818,12 @@
     "ctor": [
       "int"
     ],
+    "ctor_args": [
+      {
+        "name": "window_size",
+        "default": "20"
+      }
+    ],
     "ctor_kind": "plain",
     "source": "bindings/bindings_rolling.cpp"
   },
@@ -1014,6 +1832,7 @@
     "cpp_type": "screamer::Hypot",
     "base": "FunctorBase",
     "ctor": [],
+    "ctor_args": [],
     "ctor_kind": "plain",
     "source": "bindings/bindings_math.cpp"
   },
@@ -1022,6 +1841,7 @@
     "cpp_type": "screamer::Transform<(double (*)(double)) screamer::identity>",
     "base": "ScreamerBase",
     "ctor": [],
+    "ctor_args": [],
     "ctor_kind": "transform",
     "source": "bindings/bindings_math.cpp"
   },
@@ -1035,6 +1855,24 @@
       "std::string",
       "std::string"
     ],
+    "ctor_args": [
+      {
+        "name": "window_size",
+        "default": "20"
+      },
+      {
+        "name": "n_sigma",
+        "default": "4.0"
+      },
+      {
+        "name": "output",
+        "default": "\"cleaned\""
+      },
+      {
+        "name": "start_policy",
+        "default": "\"strict\""
+      }
+    ],
     "ctor_kind": "plain",
     "source": "bindings/bindings_rolling.cpp"
   },
@@ -1043,6 +1881,7 @@
     "cpp_type": "screamer::InstantaneousTrendline",
     "base": "FunctorBase",
     "ctor": [],
+    "ctor_args": [],
     "ctor_kind": "plain",
     "source": "bindings/bindings_signal.cpp"
   },
@@ -1051,6 +1890,7 @@
     "cpp_type": "screamer::IsFinite",
     "base": "FunctorBase",
     "ctor": [],
+    "ctor_args": [],
     "ctor_kind": "plain",
     "source": "bindings/bindings_math.cpp"
   },
@@ -1059,6 +1899,7 @@
     "cpp_type": "screamer::IsNan",
     "base": "FunctorBase",
     "ctor": [],
+    "ctor_args": [],
     "ctor_kind": "plain",
     "source": "bindings/bindings_math.cpp"
   },
@@ -1070,6 +1911,20 @@
       "int",
       "int",
       "int"
+    ],
+    "ctor_args": [
+      {
+        "name": "window_size",
+        "default": "10"
+      },
+      {
+        "name": "fast",
+        "default": "2"
+      },
+      {
+        "name": "slow",
+        "default": "30"
+      }
     ],
     "ctor_kind": "plain",
     "source": "bindings/bindings_rolling.cpp"
@@ -1084,6 +1939,24 @@
       "double",
       "double"
     ],
+    "ctor_args": [
+      {
+        "name": "process_var",
+        "default": "0.01"
+      },
+      {
+        "name": "observation_var",
+        "default": "1.0"
+      },
+      {
+        "name": "initial_state",
+        "default": "0.0"
+      },
+      {
+        "name": "initial_variance",
+        "default": "1.0"
+      }
+    ],
     "ctor_kind": "plain",
     "source": "bindings/bindings_signal.cpp"
   },
@@ -1094,6 +1967,16 @@
     "ctor": [
       "int",
       "double"
+    ],
+    "ctor_args": [
+      {
+        "name": "window_size",
+        "default": "20"
+      },
+      {
+        "name": "num_atr",
+        "default": "2.0"
+      }
     ],
     "ctor_kind": "plain",
     "source": "bindings/bindings_rolling.cpp"
@@ -1106,6 +1989,16 @@
       "int",
       "std::string"
     ],
+    "ctor_args": [
+      {
+        "name": "window_size",
+        "default": "1"
+      },
+      {
+        "name": "start_policy",
+        "default": "\"strict\""
+      }
+    ],
     "ctor_kind": "plain",
     "source": "bindings/bindings_misc.cpp"
   },
@@ -1114,6 +2007,7 @@
     "cpp_type": "screamer::Last",
     "base": "ScreamerBase",
     "ctor": [],
+    "ctor_args": [],
     "ctor_kind": "plain",
     "source": "bindings/bindings_misc.cpp"
   },
@@ -1122,6 +2016,7 @@
     "cpp_type": "screamer::LeeReadySign",
     "base": "FunctorBase",
     "ctor": [],
+    "ctor_args": [],
     "ctor_kind": "plain",
     "source": "bindings/bindings_micro.cpp"
   },
@@ -1130,6 +2025,7 @@
     "cpp_type": "screamer::LessEqual",
     "base": "FunctorBase",
     "ctor": [],
+    "ctor_args": [],
     "ctor_kind": "plain",
     "source": "bindings/bindings_math.cpp"
   },
@@ -1138,6 +2034,7 @@
     "cpp_type": "screamer::LessThan",
     "base": "FunctorBase",
     "ctor": [],
+    "ctor_args": [],
     "ctor_kind": "plain",
     "source": "bindings/bindings_math.cpp"
   },
@@ -1148,6 +2045,16 @@
     "ctor": [
       "double",
       "double"
+    ],
+    "ctor_args": [
+      {
+        "name": "scale",
+        "default": "1.0"
+      },
+      {
+        "name": "shift",
+        "default": "0.0"
+      }
     ],
     "ctor_kind": "plain",
     "source": "bindings/bindings_math.cpp"
@@ -1161,6 +2068,20 @@
       "double",
       "double"
     ],
+    "ctor_args": [
+      {
+        "name": "a",
+        "default": "1.0"
+      },
+      {
+        "name": "b",
+        "default": "1.0"
+      },
+      {
+        "name": "c",
+        "default": "0.0"
+      }
+    ],
     "ctor_kind": "plain",
     "source": "bindings/bindings_math.cpp"
   },
@@ -1169,6 +2090,7 @@
     "cpp_type": "screamer::Transform<(double (*)(double)) std::log>",
     "base": "ScreamerBase",
     "ctor": [],
+    "ctor_args": [],
     "ctor_kind": "transform",
     "source": "bindings/bindings_math.cpp"
   },
@@ -1178,6 +2100,12 @@
     "base": "ScreamerBase",
     "ctor": [
       "int"
+    ],
+    "ctor_args": [
+      {
+        "name": "window_size",
+        "default": "1"
+      }
     ],
     "ctor_kind": "plain",
     "source": "bindings/bindings_fin.cpp"
@@ -1191,6 +2119,20 @@
       "int",
       "int"
     ],
+    "ctor_args": [
+      {
+        "name": "fast",
+        "default": "12"
+      },
+      {
+        "name": "slow",
+        "default": "26"
+      },
+      {
+        "name": "signal",
+        "default": "9"
+      }
+    ],
     "ctor_kind": "plain",
     "source": "bindings/bindings_rolling.cpp"
   },
@@ -1202,6 +2144,16 @@
       "double",
       "double"
     ],
+    "ctor_args": [
+      {
+        "name": "fast_limit",
+        "default": "0.5"
+      },
+      {
+        "name": "slow_limit",
+        "default": "0.05"
+      }
+    ],
     "ctor_kind": "plain",
     "source": "bindings/bindings_signal.cpp"
   },
@@ -1212,6 +2164,12 @@
     "ctor": [
       "int"
     ],
+    "ctor_args": [
+      {
+        "name": "window_size",
+        "default": "14"
+      }
+    ],
     "ctor_kind": "plain",
     "source": "bindings/bindings_rolling.cpp"
   },
@@ -1220,6 +2178,7 @@
     "cpp_type": "screamer::MaxDrawdown",
     "base": "ScreamerBase",
     "ctor": [],
+    "ctor_args": [],
     "ctor_kind": "plain",
     "source": "bindings/bindings_fin.cpp"
   },
@@ -1228,6 +2187,7 @@
     "cpp_type": "screamer::MicroPrice",
     "base": "FunctorBase",
     "ctor": [],
+    "ctor_args": [],
     "ctor_kind": "plain",
     "source": "bindings/bindings_micro.cpp"
   },
@@ -1238,6 +2198,12 @@
     "ctor": [
       "int"
     ],
+    "ctor_args": [
+      {
+        "name": "window_size",
+        "default": "14"
+      }
+    ],
     "ctor_kind": "plain",
     "source": "bindings/bindings_rolling.cpp"
   },
@@ -1247,6 +2213,12 @@
     "base": "FunctorBase",
     "ctor": [
       "int"
+    ],
+    "ctor_args": [
+      {
+        "name": "window_size",
+        "default": "14"
+      }
     ],
     "ctor_kind": "plain",
     "source": "bindings/bindings_rolling.cpp"
@@ -1259,6 +2231,16 @@
       "int",
       "std::string"
     ],
+    "ctor_args": [
+      {
+        "name": "window_size",
+        "default": "10"
+      },
+      {
+        "name": "start_policy",
+        "default": "\"strict\""
+      }
+    ],
     "ctor_kind": "plain",
     "source": "bindings/bindings_misc.cpp"
   },
@@ -1269,6 +2251,12 @@
     "ctor": [
       "std::vector<double>"
     ],
+    "ctor_args": [
+      {
+        "name": "taps",
+        "default": "std::vector<double>{0.25, 0.5, 0.25}"
+      }
+    ],
     "ctor_kind": "plain",
     "source": "bindings/bindings_signal.cpp"
   },
@@ -1277,6 +2265,7 @@
     "cpp_type": "screamer::Mul",
     "base": "FunctorBase",
     "ctor": [],
+    "ctor_args": [],
     "ctor_kind": "plain",
     "source": "bindings/bindings_math.cpp"
   },
@@ -1287,6 +2276,12 @@
     "ctor": [
       "int"
     ],
+    "ctor_args": [
+      {
+        "name": "window_size",
+        "default": "14"
+      }
+    ],
     "ctor_kind": "plain",
     "source": "bindings/bindings_rolling.cpp"
   },
@@ -1295,6 +2290,7 @@
     "cpp_type": "screamer::Transform<(double (*)(double)) screamer::neg_part>",
     "base": "ScreamerBase",
     "ctor": [],
+    "ctor_args": [],
     "ctor_kind": "transform",
     "source": "bindings/bindings_math.cpp"
   },
@@ -1303,6 +2299,7 @@
     "cpp_type": "screamer::Not",
     "base": "FunctorBase",
     "ctor": [],
+    "ctor_args": [],
     "ctor_kind": "plain",
     "source": "bindings/bindings_math.cpp"
   },
@@ -1311,6 +2308,7 @@
     "cpp_type": "screamer::NotEqual",
     "base": "FunctorBase",
     "ctor": [],
+    "ctor_args": [],
     "ctor_kind": "plain",
     "source": "bindings/bindings_math.cpp"
   },
@@ -1319,6 +2317,7 @@
     "cpp_type": "screamer::OBV",
     "base": "FunctorBase",
     "ctor": [],
+    "ctor_args": [],
     "ctor_kind": "plain",
     "source": "bindings/bindings_rolling.cpp"
   },
@@ -1327,6 +2326,7 @@
     "cpp_type": "screamer::OFI",
     "base": "FunctorBase",
     "ctor": [],
+    "ctor_args": [],
     "ctor_kind": "plain",
     "source": "bindings/bindings_micro.cpp"
   },
@@ -1335,6 +2335,7 @@
     "cpp_type": "screamer::Or",
     "base": "FunctorBase",
     "ctor": [],
+    "ctor_args": [],
     "ctor_kind": "plain",
     "source": "bindings/bindings_math.cpp"
   },
@@ -1344,6 +2345,12 @@
     "base": "FunctorBase",
     "ctor": [
       "int"
+    ],
+    "ctor_args": [
+      {
+        "name": "window_size",
+        "default": "14"
+      }
     ],
     "ctor_kind": "plain",
     "source": "bindings/bindings_rolling.cpp"
@@ -1355,6 +2362,12 @@
     "ctor": [
       "int"
     ],
+    "ctor_args": [
+      {
+        "name": "window_size",
+        "default": "14"
+      }
+    ],
     "ctor_kind": "plain",
     "source": "bindings/bindings_rolling.cpp"
   },
@@ -1363,6 +2376,7 @@
     "cpp_type": "screamer::Polar2Cart",
     "base": "FunctorBase",
     "ctor": [],
+    "ctor_args": [],
     "ctor_kind": "plain",
     "source": "bindings/bindings_math.cpp"
   },
@@ -1371,6 +2385,7 @@
     "cpp_type": "screamer::Transform<(double (*)(double)) screamer::pos_part>",
     "base": "ScreamerBase",
     "ctor": [],
+    "ctor_args": [],
     "ctor_kind": "transform",
     "source": "bindings/bindings_math.cpp"
   },
@@ -1380,6 +2395,12 @@
     "base": "ScreamerBase",
     "ctor": [
       "double"
+    ],
+    "ctor_args": [
+      {
+        "name": "p",
+        "default": "2.0"
+      }
     ],
     "ctor_kind": "plain",
     "source": "bindings/bindings_math.cpp"
@@ -1393,6 +2414,20 @@
       "double",
       "double"
     ],
+    "ctor_args": [
+      {
+        "name": "window_size",
+        "default": "20"
+      },
+      {
+        "name": "g0",
+        "default": "1.0"
+      },
+      {
+        "name": "gamma",
+        "default": "0.5"
+      }
+    ],
     "ctor_kind": "plain",
     "source": "bindings/bindings_micro.cpp"
   },
@@ -1402,6 +2437,12 @@
     "base": "ScreamerBase",
     "ctor": [
       "int"
+    ],
+    "ctor_args": [
+      {
+        "name": "window_size",
+        "default": "10"
+      }
     ],
     "ctor_kind": "plain",
     "source": "bindings/bindings_fin.cpp"
@@ -1413,6 +2454,12 @@
     "ctor": [
       "int"
     ],
+    "ctor_args": [
+      {
+        "name": "window_size",
+        "default": "10"
+      }
+    ],
     "ctor_kind": "plain",
     "source": "bindings/bindings_fin.cpp"
   },
@@ -1422,6 +2469,12 @@
     "base": "ScreamerBase",
     "ctor": [
       "int"
+    ],
+    "ctor_args": [
+      {
+        "name": "window_size",
+        "default": "10"
+      }
     ],
     "ctor_kind": "plain",
     "source": "bindings/bindings_fin.cpp"
@@ -1433,6 +2486,12 @@
     "ctor": [
       "int"
     ],
+    "ctor_args": [
+      {
+        "name": "lag",
+        "default": "1"
+      }
+    ],
     "ctor_kind": "plain",
     "source": "bindings/bindings_micro.cpp"
   },
@@ -1441,6 +2500,7 @@
     "cpp_type": "screamer::Transform<(double (*)(double)) screamer::relu>",
     "base": "ScreamerBase",
     "ctor": [],
+    "ctor_args": [],
     "ctor_kind": "transform",
     "source": "bindings/bindings_math.cpp"
   },
@@ -1450,6 +2510,12 @@
     "base": "ScreamerBase",
     "ctor": [
       "int"
+    ],
+    "ctor_args": [
+      {
+        "name": "window_size",
+        "default": "1"
+      }
     ],
     "ctor_kind": "plain",
     "source": "bindings/bindings_fin.cpp"
@@ -1462,6 +2528,16 @@
       "int",
       "std::string"
     ],
+    "ctor_args": [
+      {
+        "name": "window_size",
+        "default": "20"
+      },
+      {
+        "name": "start_policy",
+        "default": "\"strict\""
+      }
+    ],
     "ctor_kind": "plain",
     "source": "bindings/bindings_micro.cpp"
   },
@@ -1473,6 +2549,16 @@
       "int",
       "std::string"
     ],
+    "ctor_args": [
+      {
+        "name": "window_size",
+        "default": "20"
+      },
+      {
+        "name": "start_policy",
+        "default": "\"strict\""
+      }
+    ],
     "ctor_kind": "plain",
     "source": "bindings/bindings_fin.cpp"
   },
@@ -1483,6 +2569,12 @@
     "ctor": [
       "int"
     ],
+    "ctor_args": [
+      {
+        "name": "window_size",
+        "default": "20"
+      }
+    ],
     "ctor_kind": "plain",
     "source": "bindings/bindings_rolling.cpp"
   },
@@ -1492,6 +2584,12 @@
     "base": "ScreamerBase",
     "ctor": [
       "int"
+    ],
+    "ctor_args": [
+      {
+        "name": "window_size",
+        "default": "20"
+      }
     ],
     "ctor_kind": "plain",
     "source": "bindings/bindings_rolling.cpp"
@@ -1504,6 +2602,16 @@
       "int",
       "std::string"
     ],
+    "ctor_args": [
+      {
+        "name": "window_size",
+        "default": "20"
+      },
+      {
+        "name": "start_policy",
+        "default": "\"strict\""
+      }
+    ],
     "ctor_kind": "plain",
     "source": "bindings/bindings_fin.cpp"
   },
@@ -1514,6 +2622,16 @@
     "ctor": [
       "int",
       "double"
+    ],
+    "ctor_args": [
+      {
+        "name": "window_size",
+        "default": "20"
+      },
+      {
+        "name": "alpha",
+        "default": "0.05"
+      }
     ],
     "ctor_kind": "plain",
     "source": "bindings/bindings_fin.cpp"
@@ -1526,6 +2644,16 @@
       "int",
       "double"
     ],
+    "ctor_args": [
+      {
+        "name": "window_size",
+        "default": "252"
+      },
+      {
+        "name": "periods_per_year",
+        "default": "1.0"
+      }
+    ],
     "ctor_kind": "plain",
     "source": "bindings/bindings_fin.cpp"
   },
@@ -1537,6 +2665,16 @@
       "int",
       "std::string"
     ],
+    "ctor_args": [
+      {
+        "name": "window_size",
+        "default": "20"
+      },
+      {
+        "name": "start_policy",
+        "default": "\"strict\""
+      }
+    ],
     "ctor_kind": "plain",
     "source": "bindings/bindings_fin.cpp"
   },
@@ -1547,6 +2685,16 @@
     "ctor": [
       "int",
       "std::string"
+    ],
+    "ctor_args": [
+      {
+        "name": "window_size",
+        "default": "20"
+      },
+      {
+        "name": "start_policy",
+        "default": "\"strict\""
+      }
     ],
     "ctor_kind": "plain",
     "source": "bindings/bindings_fin.cpp"
@@ -1560,6 +2708,20 @@
       "double",
       "std::string"
     ],
+    "ctor_args": [
+      {
+        "name": "window_size",
+        "default": "20"
+      },
+      {
+        "name": "mar",
+        "default": "0.0"
+      },
+      {
+        "name": "start_policy",
+        "default": "\"strict\""
+      }
+    ],
     "ctor_kind": "plain",
     "source": "bindings/bindings_fin.cpp"
   },
@@ -1569,6 +2731,12 @@
     "base": "FunctorBase",
     "ctor": [
       "int"
+    ],
+    "ctor_args": [
+      {
+        "name": "window_size",
+        "default": "20"
+      }
     ],
     "ctor_kind": "plain",
     "source": "bindings/bindings_rolling.cpp"
@@ -1580,6 +2748,12 @@
     "ctor": [
       "int"
     ],
+    "ctor_args": [
+      {
+        "name": "window_size",
+        "default": "20"
+      }
+    ],
     "ctor_kind": "plain",
     "source": "bindings/bindings_rolling.cpp"
   },
@@ -1589,6 +2763,12 @@
     "base": "ScreamerBase",
     "ctor": [
       "int"
+    ],
+    "ctor_args": [
+      {
+        "name": "window_size",
+        "default": "252"
+      }
     ],
     "ctor_kind": "plain",
     "source": "bindings/bindings_fin.cpp"
@@ -1602,6 +2782,20 @@
       "int",
       "std::string"
     ],
+    "ctor_args": [
+      {
+        "name": "window_size",
+        "default": "256"
+      },
+      {
+        "name": "min_scale",
+        "default": "4"
+      },
+      {
+        "name": "method",
+        "default": "\"rs\""
+      }
+    ],
     "ctor_kind": "plain",
     "source": "bindings/bindings_rolling.cpp"
   },
@@ -1613,6 +2807,16 @@
       "int",
       "double"
     ],
+    "ctor_args": [
+      {
+        "name": "window_size",
+        "default": "252"
+      },
+      {
+        "name": "periods_per_year",
+        "default": "1.0"
+      }
+    ],
     "ctor_kind": "plain",
     "source": "bindings/bindings_fin.cpp"
   },
@@ -1622,6 +2826,12 @@
     "base": "ScreamerBase",
     "ctor": [
       "int"
+    ],
+    "ctor_args": [
+      {
+        "name": "window_size",
+        "default": "20"
+      }
     ],
     "ctor_kind": "plain",
     "source": "bindings/bindings_rolling.cpp"
@@ -1634,6 +2844,16 @@
       "int",
       "std::string"
     ],
+    "ctor_args": [
+      {
+        "name": "window_size",
+        "default": "20"
+      },
+      {
+        "name": "start_policy",
+        "default": "\"strict\""
+      }
+    ],
     "ctor_kind": "plain",
     "source": "bindings/bindings_rolling.cpp"
   },
@@ -1644,6 +2864,16 @@
     "ctor": [
       "int",
       "std::string"
+    ],
+    "ctor_args": [
+      {
+        "name": "window_size",
+        "default": "20"
+      },
+      {
+        "name": "start_policy",
+        "default": "\"strict\""
+      }
     ],
     "ctor_kind": "plain",
     "source": "bindings/bindings_fin.cpp"
@@ -1656,6 +2886,16 @@
       "int",
       "std::string"
     ],
+    "ctor_args": [
+      {
+        "name": "window_size",
+        "default": "20"
+      },
+      {
+        "name": "start_policy",
+        "default": "\"strict\""
+      }
+    ],
     "ctor_kind": "plain",
     "source": "bindings/bindings_rolling.cpp"
   },
@@ -1666,6 +2906,12 @@
     "ctor": [
       "int"
     ],
+    "ctor_args": [
+      {
+        "name": "window_size",
+        "default": "20"
+      }
+    ],
     "ctor_kind": "plain",
     "source": "bindings/bindings_rolling.cpp"
   },
@@ -1675,6 +2921,12 @@
     "base": "ScreamerBase",
     "ctor": [
       "int"
+    ],
+    "ctor_args": [
+      {
+        "name": "window_size",
+        "default": "252"
+      }
     ],
     "ctor_kind": "plain",
     "source": "bindings/bindings_fin.cpp"
@@ -1687,6 +2939,16 @@
       "int",
       "std::string"
     ],
+    "ctor_args": [
+      {
+        "name": "window_size",
+        "default": "20"
+      },
+      {
+        "name": "start_policy",
+        "default": "\"strict\""
+      }
+    ],
     "ctor_kind": "plain",
     "source": "bindings/bindings_rolling.cpp"
   },
@@ -1696,6 +2958,12 @@
     "base": "ScreamerBase",
     "ctor": [
       "int"
+    ],
+    "ctor_args": [
+      {
+        "name": "window_size",
+        "default": "20"
+      }
     ],
     "ctor_kind": "plain",
     "source": "bindings/bindings_rolling.cpp"
@@ -1708,6 +2976,16 @@
       "int",
       "std::string"
     ],
+    "ctor_args": [
+      {
+        "name": "window_size",
+        "default": "20"
+      },
+      {
+        "name": "start_policy",
+        "default": "\"strict\""
+      }
+    ],
     "ctor_kind": "plain",
     "source": "bindings/bindings_rolling.cpp"
   },
@@ -1718,6 +2996,12 @@
     "ctor": [
       "int"
     ],
+    "ctor_args": [
+      {
+        "name": "window_size",
+        "default": "20"
+      }
+    ],
     "ctor_kind": "plain",
     "source": "bindings/bindings_rolling.cpp"
   },
@@ -1727,6 +3011,12 @@
     "base": "FunctorBase",
     "ctor": [
       "int"
+    ],
+    "ctor_args": [
+      {
+        "name": "window_size",
+        "default": "20"
+      }
     ],
     "ctor_kind": "plain",
     "source": "bindings/bindings_rolling.cpp"
@@ -1740,6 +3030,20 @@
       "std::string",
       "std::string"
     ],
+    "ctor_args": [
+      {
+        "name": "window_size",
+        "default": "20"
+      },
+      {
+        "name": "output",
+        "default": "\"mrr\""
+      },
+      {
+        "name": "start_policy",
+        "default": "\"strict\""
+      }
+    ],
     "ctor_kind": "plain",
     "source": "bindings/bindings_rolling.cpp"
   },
@@ -1751,6 +3055,16 @@
       "int",
       "double"
     ],
+    "ctor_args": [
+      {
+        "name": "window_size",
+        "default": "20"
+      },
+      {
+        "name": "threshold",
+        "default": "0.0"
+      }
+    ],
     "ctor_kind": "plain",
     "source": "bindings/bindings_fin.cpp"
   },
@@ -1760,6 +3074,12 @@
     "base": "FunctorBase",
     "ctor": [
       "int"
+    ],
+    "ctor_args": [
+      {
+        "name": "window_size",
+        "default": "20"
+      }
     ],
     "ctor_kind": "plain",
     "source": "bindings/bindings_rolling.cpp"
@@ -1771,6 +3091,12 @@
     "ctor": [
       "int"
     ],
+    "ctor_args": [
+      {
+        "name": "window_size",
+        "default": "20"
+      }
+    ],
     "ctor_kind": "plain",
     "source": "bindings/bindings_rolling.cpp"
   },
@@ -1780,6 +3106,12 @@
     "base": "ScreamerBase",
     "ctor": [
       "int"
+    ],
+    "ctor_args": [
+      {
+        "name": "window_size",
+        "default": "20"
+      }
     ],
     "ctor_kind": "plain",
     "source": "bindings/bindings_rolling.cpp"
@@ -1793,6 +3125,20 @@
       "int",
       "std::string"
     ],
+    "ctor_args": [
+      {
+        "name": "window_size",
+        "default": "20"
+      },
+      {
+        "name": "derivative_order",
+        "default": "0"
+      },
+      {
+        "name": "start_policy",
+        "default": "\"strict\""
+      }
+    ],
     "ctor_kind": "plain",
     "source": "bindings/bindings_rolling.cpp"
   },
@@ -1805,6 +3151,20 @@
       "int",
       "std::string"
     ],
+    "ctor_args": [
+      {
+        "name": "window_size",
+        "default": "20"
+      },
+      {
+        "name": "derivative_order",
+        "default": "0"
+      },
+      {
+        "name": "start_policy",
+        "default": "\"strict\""
+      }
+    ],
     "ctor_kind": "plain",
     "source": "bindings/bindings_rolling.cpp"
   },
@@ -1815,6 +3175,16 @@
     "ctor": [
       "int",
       "double"
+    ],
+    "ctor_args": [
+      {
+        "name": "window_size",
+        "default": "20"
+      },
+      {
+        "name": "quantile",
+        "default": "0.5"
+      }
     ],
     "ctor_kind": "plain",
     "source": "bindings/bindings_rolling.cpp"
@@ -1828,6 +3198,20 @@
       "std::string",
       "std::string"
     ],
+    "ctor_args": [
+      {
+        "name": "window_size",
+        "default": "14"
+      },
+      {
+        "name": "method",
+        "default": "\"wilder\""
+      },
+      {
+        "name": "start_policy",
+        "default": "\"strict\""
+      }
+    ],
     "ctor_kind": "plain",
     "source": "bindings/bindings_rolling.cpp"
   },
@@ -1838,6 +3222,12 @@
     "ctor": [
       "int"
     ],
+    "ctor_args": [
+      {
+        "name": "window_size",
+        "default": "20"
+      }
+    ],
     "ctor_kind": "plain",
     "source": "bindings/bindings_rolling.cpp"
   },
@@ -1847,6 +3237,12 @@
     "base": "ScreamerBase",
     "ctor": [
       "int"
+    ],
+    "ctor_args": [
+      {
+        "name": "window_size",
+        "default": "20"
+      }
     ],
     "ctor_kind": "plain",
     "source": "bindings/bindings_rolling.cpp"
@@ -1859,6 +3255,16 @@
       "int",
       "std::string"
     ],
+    "ctor_args": [
+      {
+        "name": "window_size",
+        "default": "20"
+      },
+      {
+        "name": "start_policy",
+        "default": "\"strict\""
+      }
+    ],
     "ctor_kind": "plain",
     "source": "bindings/bindings_fin.cpp"
   },
@@ -1870,6 +3276,16 @@
       "int",
       "std::string"
     ],
+    "ctor_args": [
+      {
+        "name": "window_size",
+        "default": "20"
+      },
+      {
+        "name": "start_policy",
+        "default": "\"strict\""
+      }
+    ],
     "ctor_kind": "plain",
     "source": "bindings/bindings_rolling.cpp"
   },
@@ -1879,6 +3295,12 @@
     "base": "FunctorBase",
     "ctor": [
       "int"
+    ],
+    "ctor_args": [
+      {
+        "name": "window_size",
+        "default": "20"
+      }
     ],
     "ctor_kind": "plain",
     "source": "bindings/bindings_rolling.cpp"
@@ -1890,6 +3312,12 @@
     "ctor": [
       "int"
     ],
+    "ctor_args": [
+      {
+        "name": "window_size",
+        "default": "20"
+      }
+    ],
     "ctor_kind": "plain",
     "source": "bindings/bindings_rolling.cpp"
   },
@@ -1900,6 +3328,16 @@
     "ctor": [
       "int",
       "double"
+    ],
+    "ctor_args": [
+      {
+        "name": "window_size",
+        "default": "252"
+      },
+      {
+        "name": "periods_per_year",
+        "default": "1.0"
+      }
     ],
     "ctor_kind": "plain",
     "source": "bindings/bindings_fin.cpp"
@@ -1915,6 +3353,28 @@
       "std::string",
       "std::string"
     ],
+    "ctor_args": [
+      {
+        "name": "window_size",
+        "default": "20"
+      },
+      {
+        "name": "lower",
+        "default": null
+      },
+      {
+        "name": "upper",
+        "default": null
+      },
+      {
+        "name": "output",
+        "default": "\"clipped\""
+      },
+      {
+        "name": "start_policy",
+        "default": "\"strict\""
+      }
+    ],
     "ctor_kind": "ew_optional",
     "source": "bindings/bindings_rolling.cpp"
   },
@@ -1925,6 +3385,16 @@
     "ctor": [
       "int",
       "std::string"
+    ],
+    "ctor_args": [
+      {
+        "name": "window_size",
+        "default": "20"
+      },
+      {
+        "name": "start_policy",
+        "default": "\"strict\""
+      }
     ],
     "ctor_kind": "plain",
     "source": "bindings/bindings_rolling.cpp"
@@ -1938,6 +3408,20 @@
       "double",
       "double"
     ],
+    "ctor_args": [
+      {
+        "name": "window_size",
+        "default": "252"
+      },
+      {
+        "name": "periods_per_year",
+        "default": "1.0"
+      },
+      {
+        "name": "target",
+        "default": "0.0"
+      }
+    ],
     "ctor_kind": "plain",
     "source": "bindings/bindings_fin.cpp"
   },
@@ -1948,6 +3432,16 @@
     "ctor": [
       "int",
       "std::string"
+    ],
+    "ctor_args": [
+      {
+        "name": "window_size",
+        "default": "20"
+      },
+      {
+        "name": "start_policy",
+        "default": "\"strict\""
+      }
     ],
     "ctor_kind": "plain",
     "source": "bindings/bindings_fin.cpp"
@@ -1960,6 +3454,16 @@
       "int",
       "std::string"
     ],
+    "ctor_args": [
+      {
+        "name": "window_size",
+        "default": "20"
+      },
+      {
+        "name": "start_policy",
+        "default": "\"strict\""
+      }
+    ],
     "ctor_kind": "plain",
     "source": "bindings/bindings_rolling.cpp"
   },
@@ -1971,6 +3475,16 @@
       "int",
       "std::string"
     ],
+    "ctor_args": [
+      {
+        "name": "window_size",
+        "default": "20"
+      },
+      {
+        "name": "start_policy",
+        "default": "\"strict\""
+      }
+    ],
     "ctor_kind": "plain",
     "source": "bindings/bindings_rolling.cpp"
   },
@@ -1981,6 +3495,12 @@
     "ctor": [
       "int"
     ],
+    "ctor_args": [
+      {
+        "name": "window_size",
+        "default": "20"
+      }
+    ],
     "ctor_kind": "plain",
     "source": "bindings/bindings_rolling.cpp"
   },
@@ -1990,6 +3510,12 @@
     "base": "FunctorBase",
     "ctor": [
       "int"
+    ],
+    "ctor_args": [
+      {
+        "name": "window_size",
+        "default": "20"
+      }
     ],
     "ctor_kind": "plain",
     "source": "bindings/bindings_rolling.cpp"
@@ -2002,6 +3528,16 @@
       "int",
       "std::string"
     ],
+    "ctor_args": [
+      {
+        "name": "window_size",
+        "default": "20"
+      },
+      {
+        "name": "start_policy",
+        "default": "\"strict\""
+      }
+    ],
     "ctor_kind": "plain",
     "source": "bindings/bindings_rolling.cpp"
   },
@@ -2011,6 +3547,12 @@
     "base": "FunctorBase",
     "ctor": [
       "int"
+    ],
+    "ctor_args": [
+      {
+        "name": "window_size",
+        "default": "20"
+      }
     ],
     "ctor_kind": "plain",
     "source": "bindings/bindings_rolling.cpp"
@@ -2022,6 +3564,12 @@
     "ctor": [
       "int"
     ],
+    "ctor_args": [
+      {
+        "name": "window_size",
+        "default": "20"
+      }
+    ],
     "ctor_kind": "plain",
     "source": "bindings/bindings_rolling.cpp"
   },
@@ -2032,6 +3580,16 @@
     "ctor": [
       "int",
       "std::string"
+    ],
+    "ctor_args": [
+      {
+        "name": "window_size",
+        "default": "20"
+      },
+      {
+        "name": "start_policy",
+        "default": "\"strict\""
+      }
     ],
     "ctor_kind": "plain",
     "source": "bindings/bindings_rolling.cpp"
@@ -2046,6 +3604,24 @@
       "std::optional<double>",
       "std::optional<double>"
     ],
+    "ctor_args": [
+      {
+        "name": "hp_period",
+        "default": null
+      },
+      {
+        "name": "lp_period",
+        "default": null
+      },
+      {
+        "name": "hp_cutoff",
+        "default": null
+      },
+      {
+        "name": "lp_cutoff",
+        "default": null
+      }
+    ],
     "ctor_kind": "ew_optional",
     "source": "bindings/bindings_signal.cpp"
   },
@@ -2054,6 +3630,7 @@
     "cpp_type": "screamer::Transform<(double (*)(double)) std::nearbyint>",
     "base": "ScreamerBase",
     "ctor": [],
+    "ctor_args": [],
     "ctor_kind": "transform",
     "source": "bindings/bindings_math.cpp"
   },
@@ -2066,6 +3643,20 @@
       "double",
       "double"
     ],
+    "ctor_args": [
+      {
+        "name": "lower",
+        "default": null
+      },
+      {
+        "name": "upper",
+        "default": null
+      },
+      {
+        "name": "initial",
+        "default": "0.0"
+      }
+    ],
     "ctor_kind": "plain",
     "source": "bindings/bindings_signal.cpp"
   },
@@ -2074,6 +3665,7 @@
     "cpp_type": "screamer::Transform<(double (*)(double)) screamer::selu>",
     "base": "ScreamerBase",
     "ctor": [],
+    "ctor_args": [],
     "ctor_kind": "transform",
     "source": "bindings/bindings_math.cpp"
   },
@@ -2082,6 +3674,7 @@
     "cpp_type": "screamer::Transform<(double (*)(double)) screamer::sigmoid>",
     "base": "ScreamerBase",
     "ctor": [],
+    "ctor_args": [],
     "ctor_kind": "transform",
     "source": "bindings/bindings_math.cpp"
   },
@@ -2090,6 +3683,7 @@
     "cpp_type": "screamer::Transform<(double (*)(double))screamer::signum<double> >",
     "base": "ScreamerBase",
     "ctor": [],
+    "ctor_args": [],
     "ctor_kind": "transform",
     "source": "bindings/bindings_math.cpp"
   },
@@ -2098,6 +3692,7 @@
     "cpp_type": "screamer::Transform<(double (*)(double)) std::sin>",
     "base": "ScreamerBase",
     "ctor": [],
+    "ctor_args": [],
     "ctor_kind": "transform",
     "source": "bindings/bindings_math.cpp"
   },
@@ -2106,6 +3701,7 @@
     "cpp_type": "screamer::Transform<(double (*)(double)) screamer::softsign>",
     "base": "ScreamerBase",
     "ctor": [],
+    "ctor_args": [],
     "ctor_kind": "transform",
     "source": "bindings/bindings_math.cpp"
   },
@@ -2114,6 +3710,7 @@
     "cpp_type": "screamer::Transform<(double (*)(double)) std::sqrt>",
     "base": "ScreamerBase",
     "ctor": [],
+    "ctor_args": [],
     "ctor_kind": "transform",
     "source": "bindings/bindings_math.cpp"
   },
@@ -2122,6 +3719,7 @@
     "cpp_type": "screamer::Transform<(double (*)(double)) screamer::square>",
     "base": "ScreamerBase",
     "ctor": [],
+    "ctor_args": [],
     "ctor_kind": "transform",
     "source": "bindings/bindings_math.cpp"
   },
@@ -2133,6 +3731,20 @@
       "int",
       "int",
       "int"
+    ],
+    "ctor_args": [
+      {
+        "name": "fastk_period",
+        "default": "14"
+      },
+      {
+        "name": "smooth_k",
+        "default": "3"
+      },
+      {
+        "name": "d",
+        "default": "3"
+      }
     ],
     "ctor_kind": "plain",
     "source": "bindings/bindings_rolling.cpp"
@@ -2147,6 +3759,24 @@
       "int",
       "int"
     ],
+    "ctor_args": [
+      {
+        "name": "rsi_period",
+        "default": "14"
+      },
+      {
+        "name": "stoch_period",
+        "default": "14"
+      },
+      {
+        "name": "smooth_k",
+        "default": "1"
+      },
+      {
+        "name": "d",
+        "default": "3"
+      }
+    ],
     "ctor_kind": "plain",
     "source": "bindings/bindings_rolling.cpp"
   },
@@ -2155,6 +3785,7 @@
     "cpp_type": "screamer::Sub",
     "base": "FunctorBase",
     "ctor": [],
+    "ctor_args": [],
     "ctor_kind": "plain",
     "source": "bindings/bindings_math.cpp"
   },
@@ -2165,6 +3796,16 @@
     "ctor": [
       "std::optional<double>",
       "std::optional<double>"
+    ],
+    "ctor_args": [
+      {
+        "name": "period",
+        "default": null
+      },
+      {
+        "name": "cutoff",
+        "default": null
+      }
     ],
     "ctor_kind": "ew_optional",
     "source": "bindings/bindings_signal.cpp"
@@ -2179,6 +3820,24 @@
       "std::optional<double>",
       "std::optional<double>"
     ],
+    "ctor_args": [
+      {
+        "name": "com",
+        "default": null
+      },
+      {
+        "name": "span",
+        "default": null
+      },
+      {
+        "name": "halflife",
+        "default": null
+      },
+      {
+        "name": "alpha",
+        "default": null
+      }
+    ],
     "ctor_kind": "ew_optional",
     "source": "bindings/bindings_rolling.cpp"
   },
@@ -2188,6 +3847,12 @@
     "base": "ScreamerBase",
     "ctor": [
       "int"
+    ],
+    "ctor_args": [
+      {
+        "name": "window_size",
+        "default": "20"
+      }
     ],
     "ctor_kind": "plain",
     "source": "bindings/bindings_rolling.cpp"
@@ -2199,6 +3864,12 @@
     "ctor": [
       "int"
     ],
+    "ctor_args": [
+      {
+        "name": "span",
+        "default": "14"
+      }
+    ],
     "ctor_kind": "plain",
     "source": "bindings/bindings_rolling.cpp"
   },
@@ -2207,6 +3878,7 @@
     "cpp_type": "screamer::Transform<(double (*)(double)) std::tanh>",
     "base": "ScreamerBase",
     "ctor": [],
+    "ctor_args": [],
     "ctor_kind": "transform",
     "source": "bindings/bindings_math.cpp"
   },
@@ -2215,6 +3887,7 @@
     "cpp_type": "screamer::TickRuleSign",
     "base": "ScreamerBase",
     "ctor": [],
+    "ctor_args": [],
     "ctor_kind": "plain",
     "source": "bindings/bindings_micro.cpp"
   },
@@ -2225,6 +3898,12 @@
     "ctor": [
       "double"
     ],
+    "ctor_args": [
+      {
+        "name": "phase_rate_frac",
+        "default": "0.5"
+      }
+    ],
     "ctor_kind": "plain",
     "source": "bindings/bindings_signal.cpp"
   },
@@ -2233,6 +3912,7 @@
     "cpp_type": "screamer::TrueRange",
     "base": "FunctorBase",
     "ctor": [],
+    "ctor_args": [],
     "ctor_kind": "plain",
     "source": "bindings/bindings_rolling.cpp"
   },
@@ -2245,6 +3925,20 @@
       "int",
       "int"
     ],
+    "ctor_args": [
+      {
+        "name": "period1",
+        "default": "7"
+      },
+      {
+        "name": "period2",
+        "default": "14"
+      },
+      {
+        "name": "period3",
+        "default": "28"
+      }
+    ],
     "ctor_kind": "plain",
     "source": "bindings/bindings_rolling.cpp"
   },
@@ -2255,6 +3949,16 @@
     "ctor": [
       "double",
       "int"
+    ],
+    "ctor_args": [
+      {
+        "name": "bucket_volume",
+        "default": "1.0"
+      },
+      {
+        "name": "n_buckets",
+        "default": "50"
+      }
     ],
     "ctor_kind": "plain",
     "source": "bindings/bindings_micro.cpp"
@@ -2267,6 +3971,16 @@
       "int",
       "std::string"
     ],
+    "ctor_args": [
+      {
+        "name": "window_size",
+        "default": "20"
+      },
+      {
+        "name": "start_policy",
+        "default": "\"strict\""
+      }
+    ],
     "ctor_kind": "plain",
     "source": "bindings/bindings_rolling.cpp"
   },
@@ -2275,6 +3989,7 @@
     "cpp_type": "screamer::Where",
     "base": "FunctorBase",
     "ctor": [],
+    "ctor_args": [],
     "ctor_kind": "plain",
     "source": "bindings/bindings_math.cpp"
   },
@@ -2284,6 +3999,12 @@
     "base": "FunctorBase",
     "ctor": [
       "int"
+    ],
+    "ctor_args": [
+      {
+        "name": "window_size",
+        "default": "14"
+      }
     ],
     "ctor_kind": "plain",
     "source": "bindings/bindings_rolling.cpp"

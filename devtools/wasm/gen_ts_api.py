@@ -1,20 +1,22 @@
 #!/usr/bin/env python3
 """Generate the typed TS factory layer for screamer.js (Phase 3, Task 3).
 
-Reads ``devtools/wasm/wasm_manifest.json`` (one entry per registered op, each with
-``name`` and ``ctor`` = the C++ constructor argument types) and emits:
+Reads ``devtools/wasm/wasm_manifest.json`` (one entry per registered op, each
+with ``name``, ``ctor`` = the C++ constructor argument types, and ``ctor_args``
+= the aligned ``{"name", "default"}`` list parsed from the committed
+``"name"_a = default`` binding annotations) and emits:
 
     js/src/generated/ops.ts    one synchronous factory per op
     js/src/generated/ops.d.ts  matching declarations
 
-Constructor argument NAMES and DEFAULTS come from the installed ``screamer``
-Python package. pybind11 hides the real signature behind ``*args, **kwargs`` on
-``__init__``, but records it in ``__init__.__doc__`` (e.g.
-``__init__(self, window_size: int = 20, start_policy: str = 'strict') -> None``).
-We parse that first line. If a signature cannot be recovered, we fall back to
+This generator is pure source -> source: it reads only the manifest and never
+imports the ``screamer`` runtime, so its output is identical in every
+environment. Constructor argument NAMES and DEFAULTS come from ``ctor_args``
+(deterministic, sourced from committed C++). When ``ctor_args`` is empty but the
+op has ctor types (annotation/arity mismatch upstream), we fall back to
 positional ``arg0..argN`` names with no defaults.
 
-The C++ ctor types drive the emitted TS types (not the Python annotations):
+The C++ ctor types drive the emitted TS types (not the annotation defaults):
 
     int / double / std::optional<double> -> number
     std::string                          -> string
@@ -57,125 +59,74 @@ TS_TYPE = {
 }
 
 
-def _split_top_level(s: str) -> list[str]:
-    """Split on commas that are not nested inside brackets/parens."""
-    parts, depth, cur = [], 0, ""
-    for ch in s:
-        if ch in "[({":
-            depth += 1
-        elif ch in "])}":
-            depth -= 1
-        if ch == "," and depth == 0:
-            parts.append(cur)
-            cur = ""
-        else:
-            cur += ch
-    if cur.strip():
-        parts.append(cur)
-    return [p.strip() for p in parts]
-
-
-def _parse_doc_params(doc: str) -> list[dict] | None:
-    """Parse ``__init__(self, name: type = default, ...) -> None`` docstrings.
-
-    Returns a list of ``{"name": str, "default": str | None}`` for the non-self
-    parameters, or None if the first line is not a recognizable signature.
-    """
-    if not doc:
-        return None
-    first = doc.strip().splitlines()[0]
-    if "(" not in first or ")" not in first:
-        return None
-    inner = first[first.index("(") + 1 : first.rindex(")")]
-    raw = _split_top_level(inner)
-    if not raw or raw[0] != "self":
-        return None
-    out = []
-    for p in raw[1:]:
-        # p looks like "window_size: int = 20" or "lower: float | None = None"
-        # or "n: int" (required, no default).
-        default = None
-        if "=" in p:
-            name_type, default = p.split("=", 1)
-            default = default.strip()
-        else:
-            name_type = p
-        name = name_type.split(":", 1)[0].strip()
-        out.append({"name": name, "default": default})
-    return out
-
-
-def _get_signatures() -> dict[str, list[dict] | None]:
-    """Introspect the installed screamer package for each op's ctor params.
-
-    Missing package or op yields None (positional fallback downstream).
-    """
-    try:
-        import screamer  # noqa: F401
-    except Exception:
-        return {}
-    sigs = {}
-    for name in dir(screamer):
-        obj = getattr(screamer, name)
-        init = getattr(obj, "__init__", None)
-        doc = getattr(init, "__doc__", None)
-        sigs[name] = _parse_doc_params(doc)
-    return sigs
-
-
 def _snake_to_camel(s: str) -> str:
     head, *rest = s.split("_")
     return head + "".join(w[:1].upper() + w[1:] for w in rest)
 
 
-def _ts_default(cpp_type: str, py_default: str | None) -> str | None:
-    """Map a Python default token to a TS literal for the given C++ type.
+def _num_literal(cpp_type: str, tok: str) -> str:
+    """Render a single numeric C++ literal token as a TS numeric literal.
 
-    ``std::optional<double>`` always defaults to ``NaN`` (missing sentinel).
+    ``int`` keeps its integer form; ``double`` is normalized through Python's
+    float repr (e.g. ``1e-5`` -> ``1e-05``, ``252`` -> ``252.0``), matching how
+    the runtime signature previously rendered these defaults.
+    """
+    t = tok.strip()
+    low = t.lstrip("-")
+    if "infinity" in low or low in ("HUGE_VAL", "std::numeric_limits<double>::infinity()"):
+        return "-Infinity" if t.startswith("-") else "Infinity"
+    if cpp_type == "int":
+        return str(int(t))
+    return repr(float(t))
+
+
+def _ts_default(cpp_type: str, raw: str | None) -> str | None:
+    """Map a C++ default literal token to a TS literal for the given C++ type.
+
+    ``std::optional<double>`` always defaults to ``NaN`` (the missing sentinel).
+    A ``None`` token (a bare annotation or an ``nb::none()`` / ``std::nullopt``
+    sentinel) means no default.
     """
     if cpp_type == "std::optional<double>":
         return "NaN"
-    if py_default is None:
+    if raw is None:
         return None
-    d = py_default.strip()
+    d = raw.strip()
     if cpp_type == "std::string":
-        # Python repr uses single quotes; TS prefers double quotes.
         inner = d[1:-1] if len(d) >= 2 and d[0] in "'\"" else d
         return '"' + inner.replace('"', '\\"') + '"'
     if cpp_type == "std::vector<double>":
-        # e.g. "[0.25, 0.5, 0.25]" -> valid TS array literal already.
-        return d
+        # e.g. 'std::vector<double>{0.25, 0.5, 0.25}' -> '[0.25, 0.5, 0.25]'.
+        inner = d[d.index("{") + 1 : d.rindex("}")]
+        elems = [e.strip() for e in inner.split(",") if e.strip()]
+        return "[" + ", ".join(_num_literal("double", e) for e in elems) + "]"
     # numeric (int / double)
-    if d == "None":
-        return "NaN"
-    if d in ("inf", "float('inf')"):
-        return "Infinity"
-    if d in ("-inf", "-float('inf')"):
-        return "-Infinity"
-    if d == "nan":
-        return "NaN"
-    return d
+    return _num_literal(cpp_type, d)
 
 
-def _build_params(op: dict, params: list[dict] | None):
+def _build_params(op: dict):
     """Return a list of dicts: name, ts_type, default (TS literal or None), is_vec."""
     ctor = op["ctor"]
+    ctor_args = op.get("ctor_args") or []
+    # ctor_args, when present, is aligned 1:1 with ctor by the manifest
+    # generator; an empty list means positional fallback.
+    use_args = len(ctor_args) == len(ctor)
     out = []
     for i, cpp_type in enumerate(ctor):
         ts_type = TS_TYPE.get(cpp_type)
         if ts_type is None:
             raise SystemExit(f"unmapped ctor type {cpp_type!r} on op {op['name']}")
-        if params is not None and i < len(params) and len(params) == len(ctor):
-            py_name = params[i]["name"]
-            py_default = params[i]["default"]
+        if use_args:
+            arg_name = ctor_args[i]["name"]
+            arg_default = ctor_args[i]["default"]
         else:
-            py_name = f"arg{i}"
-            py_default = None
+            arg_name = f"arg{i}"
+            arg_default = None
         out.append(
             {
-                "name": _snake_to_camel(py_name),
+                "name": _snake_to_camel(arg_name),
                 "ts_type": ts_type,
-                "default": _ts_default(cpp_type, py_default),
+                "default": _ts_default(cpp_type, arg_default),
                 "is_vec": cpp_type == "std::vector<double>",
             }
         )
@@ -229,14 +180,14 @@ HEADER = (
 )
 
 
-def render_ops_ts(ops: list[dict], sigs: dict) -> str:
+def render_ops_ts(ops: list[dict]) -> str:
     out = [HEADER]
     out.append('import { wrapOp, type ScreamerOp } from "../runtime.js";')
     out.append('import { current } from "../index.js";')
     out.append("")
     for op in ops:
         name = op["name"]
-        params = _build_params(op, sigs.get(name))
+        params = _build_params(op)
         out.append(
             f"export function {name}({_sig_ts(params)}): ScreamerOp {{"
         )
@@ -246,13 +197,13 @@ def render_ops_ts(ops: list[dict], sigs: dict) -> str:
     return "\n".join(out)
 
 
-def render_ops_dts(ops: list[dict], sigs: dict) -> str:
+def render_ops_dts(ops: list[dict]) -> str:
     out = [HEADER]
     out.append('import type { ScreamerOp } from "../runtime.js";')
     out.append("")
     for op in ops:
         name = op["name"]
-        params = _build_params(op, sigs.get(name))
+        params = _build_params(op)
         out.append(
             f"export declare function {name}({_sig_decl(params)}): ScreamerOp;"
         )
@@ -301,9 +252,8 @@ def main() -> int:
     if args.check:
         return check(ops)
 
-    sigs = _get_signatures()
-    ops_ts = render_ops_ts(ops, sigs)
-    ops_dts = render_ops_dts(ops, sigs)
+    ops_ts = render_ops_ts(ops)
+    ops_dts = render_ops_dts(ops)
 
     if args.stdout:
         sys.stdout.write(ops_ts)

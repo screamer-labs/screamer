@@ -45,6 +45,10 @@ _CLASS_RE = re.compile(r"nb::class_\s*<")
 _INIT_RE = re.compile(r"nb::init\s*<")
 _NAME_RE = re.compile(r'\s*\(\s*m\s*,\s*"([A-Za-z0-9_]+)"\s*\)')
 
+# Ops whose ``"name"_a`` annotation count did not match their ``nb::init`` arity
+# (so they fell back to positional ``ctor_args: []``). Reported by ``main``.
+_CTOR_ARG_MISMATCHES: list[tuple] = []
+
 _BASE_MAP = {
     "screamer::ScreamerBase": "ScreamerBase",
     # N-in/M-out ops are registered against screamer::EvalOp (the common
@@ -79,15 +83,15 @@ def _matching_angle_close(text: str, open_pos: int) -> int:
 
 
 def _split_top_level(s: str) -> list[str]:
-    """Split s on top-level commas, respecting <...> and (...) nesting."""
+    """Split s on top-level commas, respecting <...>, (...) and {...} nesting."""
     parts = []
     depth = 0
     current: list[str] = []
     for c in s:
-        if c in "<(":
+        if c in "<({":
             depth += 1
             current.append(c)
-        elif c in ">)":
+        elif c in ">)}":
             depth -= 1
             current.append(c)
         elif c == "," and depth == 0:
@@ -99,6 +103,75 @@ def _split_top_level(s: str) -> list[str]:
     if tail or parts:
         parts.append(tail)
     return [p.strip() for p in parts if p.strip() != ""]
+
+
+def _matching_paren_close(text: str, open_pos: int) -> int:
+    """Return the index of the ')' that matches the '(' at open_pos.
+
+    Only parenthesis depth is tracked. Angle brackets and braces inside a
+    ``.def(...)`` call (``nb::init<...>``, ``std::vector<double>{...}``) never
+    contain an unbalanced '(' or ')', so paren depth alone is sufficient.
+    """
+    assert text[open_pos] == "("
+    depth = 1
+    i = open_pos + 1
+    n = len(text)
+    while i < n:
+        c = text[i]
+        if c == "(":
+            depth += 1
+        elif c == ")":
+            depth -= 1
+            if depth == 0:
+                return i
+        i += 1
+    raise ValueError(f"unmatched '(' at position {open_pos}")
+
+
+# A single ``"name"_a = default`` (or bare ``"name"_a``) argument annotation.
+_ARG_ANNOT_RE = re.compile(r'^"([A-Za-z0-9_]+)"_a\s*(?:=\s*(.*\S))?\s*$', re.DOTALL)
+
+# nanobind optional-decay sentinels: an absent std::optional<double> default.
+_NONE_SENTINELS = {"nb::none()", "std::nullopt"}
+
+
+def _parse_ctor_args(text: str, init_open_abs: int, init_close_abs: int,
+                     name: str) -> list[dict] | None:
+    """Parse the ``"name"_a = default`` annotations of the ``.def(nb::init<...>())``.
+
+    ``init_open_abs`` / ``init_close_abs`` bracket the ``nb::init<...>`` template
+    of the op's first constructor. Returns one ``{"name", "default"}`` per
+    annotation (default is the raw C++ literal token, or None for a bare
+    annotation or an ``nb::none()`` / ``std::nullopt`` sentinel), or None if the
+    enclosing ``.def(...)`` cannot be located or an annotation cannot be parsed.
+    """
+    def_idx = text.rfind(".def(", 0, init_open_abs)
+    if def_idx == -1:
+        return None
+    def_paren_open = def_idx + len(".def(") - 1
+    try:
+        def_paren_close = _matching_paren_close(text, def_paren_open)
+    except ValueError:
+        return None
+    if def_paren_close < init_close_abs:
+        return None
+    content = text[def_paren_open + 1 : def_paren_close]
+    parts = _split_top_level(content)
+    # parts[0] is the ``nb::init<...>()`` itself; the rest are annotations.
+    annots = parts[1:]
+    out: list[dict] = []
+    for a in annots:
+        m = _ARG_ANNOT_RE.match(a.strip())
+        if not m:
+            return None
+        arg_name = m.group(1)
+        raw = m.group(2)
+        if raw is not None:
+            raw = _normalize_ws(raw)
+            if raw in _NONE_SENTINELS:
+                raw = None
+        out.append({"name": arg_name, "default": raw})
+    return out
 
 
 def _normalize_ws(s: str) -> str:
@@ -162,6 +235,20 @@ def parse_file(path: Path) -> list[dict]:
         ctor_content = text[init_open_abs + 1 : init_close_abs]
         ctor = [_normalize_ctor_arg(a) for a in _split_top_level(ctor_content)]
 
+        # Constructor argument names + defaults, sourced from the committed
+        # ``"name"_a = default`` annotations (deterministic, unlike a runtime
+        # docstring parse). Must line up 1:1 with ``ctor`` (the init types);
+        # if it does not, fall back to positional downstream and report it.
+        parsed_args = _parse_ctor_args(text, init_open_abs, init_close_abs, name)
+        if parsed_args is not None and len(parsed_args) == len(ctor):
+            ctor_args = parsed_args
+        else:
+            ctor_args = []
+            if ctor:
+                _CTOR_ARG_MISMATCHES.append(
+                    (name, len(ctor), None if parsed_args is None else len(parsed_args))
+                )
+
         if cpp_type.startswith("screamer::Transform<"):
             ctor_kind = "transform"
         elif any(a == "std::optional<double>" for a in ctor):
@@ -175,6 +262,7 @@ def parse_file(path: Path) -> list[dict]:
                 "cpp_type": cpp_type,
                 "base": base,
                 "ctor": ctor,
+                "ctor_args": ctor_args,
                 "ctor_kind": ctor_kind,
                 "source": str(path.relative_to(REPO_ROOT)),
             }
@@ -231,8 +319,21 @@ def validate(ops: list[dict]) -> None:
     )
 
 
+def _report_mismatches() -> None:
+    if _CTOR_ARG_MISMATCHES:
+        print(
+            f"WARNING: {len(_CTOR_ARG_MISMATCHES)} op(s) fell back to positional "
+            "ctor_args (annotation count != nb::init arity):",
+            file=sys.stderr,
+        )
+        for name, n_ctor, n_annot in _CTOR_ARG_MISMATCHES:
+            got = "no .def(nb::init) match" if n_annot is None else f"{n_annot} annotations"
+            print(f"  {name}: {n_ctor} init types, {got}", file=sys.stderr)
+
+
 def main() -> None:
     ops = build_manifest()
+    _report_mismatches()
     if "--check" in sys.argv:
         validate(ops)
         print(f"MANIFEST OK: {len(ops)} ops")
