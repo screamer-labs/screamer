@@ -1,0 +1,4 @@
+# Build artifacts. Regenerate with ./build.sh (needs emcc on PATH).
+build/
+screamer_spike.mjs
+screamer_spike.wasm
