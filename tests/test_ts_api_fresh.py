@@ -21,10 +21,23 @@ import pathlib
 import subprocess
 import sys
 
+import pytest
+
 REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent
 GEN_TS_API = REPO_ROOT / "devtools" / "wasm" / "gen_ts_api.py"
 OPS_TS = REPO_ROOT / "js" / "src" / "generated" / "ops.ts"
 OPS_DTS = REPO_ROOT / "js" / "src" / "generated" / "ops.d.ts"
+HELP_JSON = REPO_ROOT / "screamer" / "data" / "help.json"
+
+# gen_ts_api.py reads screamer/data/help.json (for factory JSDoc) and the
+# manifest, both from the source tree. The release wheel-test CI job runs the
+# suite against the INSTALLED abi3 wheel after `rm -rf screamer`, which deletes
+# help.json. This is a source-tree codegen freshness gate, not a test of the
+# installed wheel, so skip it when the generator's inputs are absent.
+pytestmark = pytest.mark.skipif(
+    not HELP_JSON.exists(),
+    reason="gen_ts_api.py needs screamer/data/help.json (removed in the wheel-test env)",
+)
 
 
 def _run_stdout(flag: str) -> bytes:
