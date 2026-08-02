@@ -4,7 +4,7 @@ name = "screamer"
 
 version = "1.2.1"
 
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 
 authors = [
   {name = "Thijs van den Berg", email = "thijs@sitmo.com"}
@@ -32,7 +32,6 @@ classifiers=[
     "Topic :: Scientific/Engineering :: Information Analysis",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
@@ -129,8 +128,7 @@ packages = [{ include = "screamer" }]
 
 
 [tool.poetry.dependencies]
-python = "^3.11"
-pybind11 = "^2.9"
+python = "^3.12"
 
 [tool.poetry.group.dev.dependencies]
 bump-my-version = "^1.2"
@@ -181,10 +179,27 @@ graphviz = "^0.20"
 
 [tool.pytest.ini_options]
 addopts = "--ignore=_skbuild"
+# The suite lives entirely under tests/. Scoping collection here keeps a bare
+# `pytest -q` (used locally and in CI) from wandering into scratch artifacts
+# elsewhere in the tree, e.g. docs/superpowers/spikes/*/smoke_test.py, which
+# import throwaway spike-only modules. The nbmake notebook run passes an
+# explicit docs/notebooks/ path, so it is unaffected.
+testpaths = ["tests"]
 
 [build-system]
-requires = ["scikit-build-core", "pybind11"]
+# nanobind is fetched via CMake FetchContent (see CMakeLists.txt), not a pip
+# build dependency, so it is intentionally absent here.
+requires = ["scikit-build-core"]
 build-backend = "scikit_build_core.build"
+
+[tool.scikit-build]
+# Tag the wheel for the CPython stable ABI (limited API) from 3.12 on, so it is
+# named `...-cp312-abi3-...` and installs on 3.12 and every later 3.x. nanobind
+# already builds the extension against the stable ABI (STABLE_ABI in
+# CMakeLists.txt, producing screamer_bindings.abi3.so); without this key
+# scikit-build-core would still stamp the wheel with a version-specific
+# cp312-cp312 tag and defeat the single-wheel packaging.
+wheel.py-api = "cp312"
 
 [tool.bumpversion]
 current_version = "1.2.1"
@@ -219,12 +234,13 @@ replace = '__version__ = "{new_version}"'
 # max perf); CI explicitly leaves it OFF so wheels run on any CPU.
 # ---------------------------------------------------------------------------
 [tool.cibuildwheel]
-# Per-Python-version wheels for 3.11-3.14. Each new minor Python release
-# requires adding to this list and re-releasing. See docs/ROADMAP_nanobind.md
-# for the abi3 / stable-ABI path that would collapse this to one wheel
-# covering 3.12+; pybind11 doesn't support stable ABI today, so we ship
-# explicit per-version wheels for now.
-build = "cp311-* cp312-* cp313-* cp314-*"
+# One abi3 wheel per platform. nanobind's STABLE_ABI (see CMakeLists.txt) tags
+# the extension cp312-abi3, so a single wheel built on CPython 3.12 installs and
+# runs on 3.12, 3.13, 3.14, and every later 3.x. We therefore build only on
+# 3.12; the resulting wheel is import- and pytest-tested across 3.12/3.13/3.14
+# by the test-matrix job in .github/workflows/build-wheels.yml. See
+# docs/superpowers/plans/2026-08-01-nanobind-migration.md.
+build = "cp312-*"
 skip = "*-musllinux_* *_i686 pp*"
 build-verbosity = 1
 test-requires = ["numpy"]

@@ -7,6 +7,25 @@ Unreleased
 
 ### Changed
 
+* **Build:** the C++ extension is now bound with
+  [nanobind](https://github.com/wjakob/nanobind) instead of pybind11. nanobind
+  is fetched by CMake at configure time, so it is no longer a pip build
+  dependency. Every operator's observable behavior is unchanged; the full test
+  suite is the oracle for that.
+
+* **Packaging:** releases now ship a single stable-ABI (`cp312-abi3`) wheel per
+  platform rather than one wheel per Python version. The wheel is built on
+  CPython 3.12 and installs on 3.12 and every later 3.x.
+
+### Removed
+
+* **Breaking:** dropped support for Python 3.11. `requires-python` is now
+  `>=3.12`. The stable-ABI wheel needs nanobind's `STABLE_ABI`, which is
+  available from CPython 3.12 onward, so 3.11 users must stay on an earlier
+  screamer release or upgrade their interpreter.
+
+### Changed
+
 * `EwMean`'s array path holds its accumulators in locals for the duration of
   the loop, 4.0 to 1.0 ns/sample on 1M samples. It was the one operator where
   an alternative was meaningfully ahead in the batch comparison, and it now

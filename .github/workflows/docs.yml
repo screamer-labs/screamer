@@ -32,7 +32,7 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y graphviz
 
       - name: Install screamer + docs deps
-        # pip build-isolation compiles the pybind11 extension via scikit-build-core;
+        # pip build-isolation compiles the nanobind extension via scikit-build-core;
         # '.[docs]' pulls sphinx, myst-nb, plotly, matplotlib, graphviz, etc.
         run: |
           python -m pip install --upgrade pip

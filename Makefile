@@ -30,7 +30,7 @@ BUMP   := $(POETRY_RUN) bump-my-version
 # Local dev: build with -march=native for max perf. Override with
 # `make build CMAKE_OPTS=` to produce a portable build.
 # Python3_EXECUTABLE pins cmake's find_package(Python3) to the python on
-# PATH. Without this, pybind11 v3.x's new FindPython mode searches the
+# PATH. Without this, nanobind's FindPython-based search scans the
 # system and picks the highest-version python it finds (often a Homebrew
 # python rather than the one the user wants). We resolve via sys.executable
 # rather than `command -v` because pyenv shims aren't real binaries and

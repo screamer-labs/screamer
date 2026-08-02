@@ -63,7 +63,9 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y clang-tidy
           python -m pip install --upgrade pip
-          pip install pybind11 numpy
+          # nanobind is fetched by CMake FetchContent during configure, not via
+          # pip; only numpy is needed on PATH for the configure step.
+          pip install numpy
 
       - name: Configure (generate compile_commands.json)
         # Don't actually compile — we only need the compile-commands db.
