@@ -53,7 +53,8 @@ to supply an explicit index axis, pass an object keyed by input name:
 ```js
 const a = Input("a");
 const b = Input("b");
-const p = new Pipeline([a, b], [...]);
+const y = combineLatest([a, b]);          // an output node that uses both inputs
+const p = new Pipeline([a, b], [y]);
 
 p({
   a: { values: new Float64Array([1, 2, 3]), index: new Float64Array([0, 2, 4]) },
