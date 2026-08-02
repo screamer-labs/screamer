@@ -51,6 +51,16 @@ nb::object ScreamerBase::operator()(nb::object obj) {
         return process_python_array(arr);
     }
 
+    if (detail::is_unsupported_dtype_array(obj)) {
+        // A numpy array whose dtype nanobind's nb::ndarray<> cannot represent
+        // (e.g. longdouble/float128). Coerce to a contiguous float64 array so
+        // the normal ndarray path handles it, instead of falling through to the
+        // iterable branch below. Checked after is_ndarray so no supported dtype
+        // pays for this.
+        nb::ndarray<> arr = nb::cast<nb::ndarray<>>(detail::coerce_to_f64(obj));
+        return process_python_array(arr);
+    }
+
     if (nb::hasattr(obj, "__iter__")) {
         std::vector<nb::object> sources{ obj };      // a single iterable of scalars (n_in==1)
         return nb::cast(LazyEvalIterator(nb::find(*this), std::move(sources)));

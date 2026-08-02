@@ -63,10 +63,12 @@ inline double load_elem(const void* base, int64_t idx, const nb::dlpack::dtype& 
         if (dt.bits == 64) return ((const double*)  base)[idx];
         if (dt.bits == 32) return (double)((const float*) base)[idx];
         if (dt.bits == 16) return (double) half_bits_to_float(((const uint16_t*) base)[idx]);
-        // long double (80-bit extended or 128-bit quad, platform-dependent).
-        // On a platform where `long double` == `double` (e.g. Apple Silicon)
-        // this is unreachable; bits == 64 is already handled above.
-        if (dt.bits == 80 || dt.bits == 128) return (double)((const long double*) base)[idx];
+        // A wider float (numpy longdouble / float128, 80- or 128-bit) never
+        // reaches load_elem: nanobind's nb::ndarray<> cannot represent that
+        // dtype, so the dispatch layer coerces such an array to float64 via
+        // numpy upstream (detail::coerce_if_unsupported_dtype_array) before any
+        // element is read here. On a platform where long double == double (e.g.
+        // Apple Silicon) it is already a 64-bit float, handled above.
     } else if (dt.code == (uint8_t) C::Int) {
         if (dt.bits == 64) return (double)((const int64_t*) base)[idx];
         if (dt.bits == 32) return (double)((const int32_t*) base)[idx];
@@ -101,6 +103,56 @@ inline nb::object make_owned_array(double* data, const std::vector<size_t>& shap
 inline bool is_ndarray(nb::handle h) {
     nb::ndarray<> tmp;
     return nb::try_cast<nb::ndarray<>>(h, tmp, /*convert=*/false);
+}
+
+// True iff `h` is a rank>=1 numpy array whose dtype nanobind's `nb::ndarray<>`
+// cannot represent (e.g. numpy longdouble / float128, an unsupported DLPack
+// float width). Such an object is array-like (carries dtype/shape/ndim) yet
+// is_ndarray() is false because try_cast<nb::ndarray<>> rejects the dtype, so
+// it would otherwise be mis-routed to the iterable branch. The dispatch layer
+// coerces these to float64 upstream (coerce_to_f64) so the normal ndarray path
+// handles them. A 0-d array (ndim==0) is excluded: it behaves like a scalar.
+inline bool is_unsupported_dtype_array(nb::handle h) {
+    return !is_ndarray(h)
+        && nb::hasattr(h, "dtype")
+        && nb::hasattr(h, "shape")
+        && nb::hasattr(h, "ndim")
+        && nb::cast<int>(h.attr("ndim")) > 0;
+}
+
+// Replica of pybind11's `py::array_t<double, py::array::forcecast>`: a
+// C-contiguous float64 numpy copy of `h`. numpy raises TypeError for a
+// non-numeric dtype (e.g. object arrays), matching the old forcecast error
+// surface. (Complex arrays never reach here: nanobind's nb::ndarray<> accepts
+// them, so they stay on the normal path where load_elem raises.)
+inline nb::object coerce_to_f64(nb::handle h) {
+    nb::module_ np = nb::module_::import_("numpy");
+    return np.attr("ascontiguousarray")(h, nb::arg("dtype") = np.attr("float64"));
+}
+
+// Coerce a single dispatch input: if it is an unsupported-dtype array, return
+// its float64 coercion; otherwise return it unchanged. The fast path (float64
+// and every other nb::ndarray<>-accepted dtype, scalars, iterables) is never
+// coerced.
+inline nb::object coerce_if_unsupported_dtype_array(nb::object obj) {
+    if (is_unsupported_dtype_array(obj)) return coerce_to_f64(obj);
+    return obj;
+}
+
+// Coerce any unsupported-dtype array elements of an N-input argument pack.
+// Preserves the fast path: returns `args` untouched (no rebuild) when nothing
+// needs coercion.
+inline nb::args coerce_args_if_unsupported(const nb::args& args) {
+    bool any = false;
+    for (nb::handle a : args) {
+        if (is_unsupported_dtype_array(a)) { any = true; break; }
+    }
+    if (!any) return args;
+    nb::list lst;
+    for (nb::handle a : args) {
+        lst.append(coerce_if_unsupported_dtype_array(nb::borrow<nb::object>(a)));
+    }
+    return nb::borrow<nb::args>(nb::steal(PyList_AsTuple(lst.ptr())));
 }
 
 // True iff `a` is C-contiguous (row-major, unit last stride).

@@ -311,6 +311,14 @@ public:
             return handle_input_1i_Mo_numpy(nb::cast<nb::ndarray<>>(input));
         }
 
+        // Case 1b: a numpy array whose dtype nanobind's nb::ndarray<> cannot
+        // represent (e.g. longdouble/float128). Coerce to float64 and process as
+        // an array. Checked after is_series_array so no supported dtype pays.
+        if (detail::is_unsupported_dtype_array(input)) {
+            return handle_input_1i_Mo_numpy(
+                nb::cast<nb::ndarray<>>(detail::coerce_to_f64(input)));
+        }
+
         // Case 2: Scalar input -> tuple of M floats (one streaming event)
         {
             double d;
@@ -356,6 +364,14 @@ public:
         // only an actual Python scalar returns a scalar.
         if (is_series_array(input)) {
             return handle_input_1i_1o_numpy(nb::cast<nb::ndarray<>>(input));
+        }
+
+        // Case 1b: a numpy array whose dtype nanobind's nb::ndarray<> cannot
+        // represent (e.g. longdouble/float128). Coerce to float64 and process as
+        // an array. Checked after is_series_array so no supported dtype pays.
+        if (detail::is_unsupported_dtype_array(input)) {
+            return handle_input_1i_1o_numpy(
+                nb::cast<nb::ndarray<>>(detail::coerce_to_f64(input)));
         }
 
         // Case 2: Scalar input (one streaming event)
@@ -437,7 +453,11 @@ public:
     // MULTIPLE INPUTS, ONE OUTPUT
     // ---------------------------------------------------------
     template <size_t TN = N, size_t TM = M, typename = std::enable_if_t<(TN > 1) && (TM == 1)>>
-    nb::object handle_input_Ni_1o(const nb::args& args) {
+    nb::object handle_input_Ni_1o(const nb::args& raw_args) {
+        // Coerce any nanobind-unsupported-dtype array (e.g. longdouble/float128)
+        // to float64 before the array-vs-iterable routing below, so it is
+        // processed as an array. No-op (returns raw_args) for supported dtypes.
+        nb::args args = detail::coerce_args_if_unsupported(raw_args);
 
         if (auto cols = detail::maybe_split_TxN<N>(args)) {
             return handle_input_Ni_1o_numpy(*cols);
@@ -522,7 +542,11 @@ public:
     // MULTIPLE INPUTS, MULTIPLE OUTPUTS
     // ---------------------------------------------------------
     template <size_t TN = N, size_t TM = M, typename = std::enable_if_t<(TN > 1) && (TM > 1)>>
-    nb::object handle_input_Ni_Mo(const nb::args& args) {
+    nb::object handle_input_Ni_Mo(const nb::args& raw_args) {
+        // Coerce any nanobind-unsupported-dtype array (e.g. longdouble/float128)
+        // to float64 before the array-vs-iterable routing below, so it is
+        // processed as an array. No-op (returns raw_args) for supported dtypes.
+        nb::args args = detail::coerce_args_if_unsupported(raw_args);
 
         if (auto cols = detail::maybe_split_TxN<N>(args)) {
             return handle_input_Ni_Mo_numpy(*cols);
