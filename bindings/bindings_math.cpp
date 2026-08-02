@@ -105,7 +105,7 @@ void init_bindings_math(nb::module_& m) {
      nb::class_<screamer::Linear2, screamer::EvalOp>(m, "Linear2")
         .def(nb::init<double, double, double>(),
              "a"_a = 1.0, "b"_a = 1.0, "c"_a = 0.0)
-        .def("__call__", &screamer::Linear2::handle_input)
+        .def("__call__", &screamer::functor_call<screamer::Linear2>)
         .def("reset", &screamer::Linear2::reset, "Reset to the initial state.");
 
      nb::class_<screamer::Power, screamer::ScreamerBase>(m, "Power")
@@ -185,42 +185,42 @@ void init_bindings_math(nb::module_& m) {
      // Atan2(y, x) == Cart2Polar(x, y)[1].
      nb::class_<screamer::Hypot, screamer::EvalOp>(m, "Hypot")
         .def(nb::init<>())
-        .def("__call__", &screamer::Hypot::handle_input)
+        .def("__call__", &screamer::functor_call<screamer::Hypot>)
         .def("reset", &screamer::Hypot::reset, "Reset to the initial state.");
 
      nb::class_<screamer::Atan2, screamer::EvalOp>(m, "Atan2")
         .def(nb::init<>())
-        .def("__call__", &screamer::Atan2::handle_input)
+        .def("__call__", &screamer::functor_call<screamer::Atan2>)
         .def("reset", &screamer::Atan2::reset, "Reset to the initial state.");
 
      nb::class_<screamer::Cart2Polar, screamer::EvalOp>(m, "Cart2Polar")
         .def(nb::init<>())
-        .def("__call__", &screamer::Cart2Polar::handle_input)
+        .def("__call__", &screamer::functor_call<screamer::Cart2Polar>)
         .def("reset", &screamer::Cart2Polar::reset, "Reset to the initial state.");
 
      nb::class_<screamer::Polar2Cart, screamer::EvalOp>(m, "Polar2Cart")
         .def(nb::init<>())
-        .def("__call__", &screamer::Polar2Cart::handle_input)
+        .def("__call__", &screamer::functor_call<screamer::Polar2Cart>)
         .def("reset", &screamer::Polar2Cart::reset, "Reset to the initial state.");
 
      nb::class_<screamer::Add, screamer::EvalOp>(m, "Add")
         .def(nb::init<>())
-        .def("__call__", &screamer::Add::handle_input)
+        .def("__call__", &screamer::functor_call<screamer::Add>)
         .def("reset", &screamer::Add::reset, "Reset to the initial state.");
 
      nb::class_<screamer::Sub, screamer::EvalOp>(m, "Sub")
         .def(nb::init<>())
-        .def("__call__", &screamer::Sub::handle_input)
+        .def("__call__", &screamer::functor_call<screamer::Sub>)
         .def("reset", &screamer::Sub::reset, "Reset to the initial state.");
 
      nb::class_<screamer::Mul, screamer::EvalOp>(m, "Mul")
         .def(nb::init<>())
-        .def("__call__", &screamer::Mul::handle_input)
+        .def("__call__", &screamer::functor_call<screamer::Mul>)
         .def("reset", &screamer::Mul::reset, "Reset to the initial state.");
 
      nb::class_<screamer::Div, screamer::EvalOp>(m, "Div")
         .def(nb::init<>())
-        .def("__call__", &screamer::Div::handle_input)
+        .def("__call__", &screamer::functor_call<screamer::Div>)
         .def("reset", &screamer::Div::reset, "Reset to the initial state.");
 
      // -----------------------------------------------------------------------
@@ -229,32 +229,32 @@ void init_bindings_math(nb::module_& m) {
 
      nb::class_<screamer::GreaterThan, screamer::EvalOp>(m, "GreaterThan")
         .def(nb::init<>())
-        .def("__call__", &screamer::GreaterThan::handle_input)
+        .def("__call__", &screamer::functor_call<screamer::GreaterThan>)
         .def("reset", &screamer::GreaterThan::reset, "Reset to the initial state.");
 
      nb::class_<screamer::LessThan, screamer::EvalOp>(m, "LessThan")
         .def(nb::init<>())
-        .def("__call__", &screamer::LessThan::handle_input)
+        .def("__call__", &screamer::functor_call<screamer::LessThan>)
         .def("reset", &screamer::LessThan::reset, "Reset to the initial state.");
 
      nb::class_<screamer::GreaterEqual, screamer::EvalOp>(m, "GreaterEqual")
         .def(nb::init<>())
-        .def("__call__", &screamer::GreaterEqual::handle_input)
+        .def("__call__", &screamer::functor_call<screamer::GreaterEqual>)
         .def("reset", &screamer::GreaterEqual::reset, "Reset to the initial state.");
 
      nb::class_<screamer::LessEqual, screamer::EvalOp>(m, "LessEqual")
         .def(nb::init<>())
-        .def("__call__", &screamer::LessEqual::handle_input)
+        .def("__call__", &screamer::functor_call<screamer::LessEqual>)
         .def("reset", &screamer::LessEqual::reset, "Reset to the initial state.");
 
      nb::class_<screamer::Equal, screamer::EvalOp>(m, "Equal")
         .def(nb::init<>())
-        .def("__call__", &screamer::Equal::handle_input)
+        .def("__call__", &screamer::functor_call<screamer::Equal>)
         .def("reset", &screamer::Equal::reset, "Reset to the initial state.");
 
      nb::class_<screamer::NotEqual, screamer::EvalOp>(m, "NotEqual")
         .def(nb::init<>())
-        .def("__call__", &screamer::NotEqual::handle_input)
+        .def("__call__", &screamer::functor_call<screamer::NotEqual>)
         .def("reset", &screamer::NotEqual::reset, "Reset to the initial state.");
 
      // -----------------------------------------------------------------------
@@ -263,12 +263,12 @@ void init_bindings_math(nb::module_& m) {
 
      nb::class_<screamer::And, screamer::EvalOp>(m, "And")
         .def(nb::init<>())
-        .def("__call__", &screamer::And::handle_input)
+        .def("__call__", &screamer::functor_call<screamer::And>)
         .def("reset", &screamer::And::reset, "Reset to the initial state.");
 
      nb::class_<screamer::Or, screamer::EvalOp>(m, "Or")
         .def(nb::init<>())
-        .def("__call__", &screamer::Or::handle_input)
+        .def("__call__", &screamer::functor_call<screamer::Or>)
         .def("reset", &screamer::Or::reset, "Reset to the initial state.");
 
      // -----------------------------------------------------------------------
@@ -277,7 +277,7 @@ void init_bindings_math(nb::module_& m) {
 
      nb::class_<screamer::Where, screamer::EvalOp>(m, "Where")
         .def(nb::init<>())
-        .def("__call__", &screamer::Where::handle_input)
+        .def("__call__", &screamer::functor_call<screamer::Where>)
         .def("reset", &screamer::Where::reset, "Reset to the initial state.");
 
      // -----------------------------------------------------------------------
@@ -286,17 +286,17 @@ void init_bindings_math(nb::module_& m) {
 
      nb::class_<screamer::Not, screamer::EvalOp>(m, "Not")
         .def(nb::init<>())
-        .def("__call__", &screamer::Not::handle_input)
+        .def("__call__", &screamer::functor_call<screamer::Not>)
         .def("reset", &screamer::Not::reset, "Reset to the initial state.");
 
      nb::class_<screamer::IsNan, screamer::EvalOp>(m, "IsNan")
         .def(nb::init<>())
-        .def("__call__", &screamer::IsNan::handle_input)
+        .def("__call__", &screamer::functor_call<screamer::IsNan>)
         .def("reset", &screamer::IsNan::reset, "Reset to the initial state.");
 
      nb::class_<screamer::IsFinite, screamer::EvalOp>(m, "IsFinite")
         .def(nb::init<>())
-        .def("__call__", &screamer::IsFinite::handle_input)
+        .def("__call__", &screamer::functor_call<screamer::IsFinite>)
         .def("reset", &screamer::IsFinite::reset, "Reset to the initial state.");
 
 }

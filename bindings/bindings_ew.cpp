@@ -152,7 +152,7 @@ void init_bindings_ew(nb::module_& m) {
           "halflife"_a = nb::none(),
           "alpha"_a = nb::none()
         )
-        .def("__call__", &screamer::EwCov::handle_input)
+        .def("__call__", &screamer::functor_call<screamer::EwCov>)
         .def("reset", &screamer::EwCov::reset, "Reset to the initial state.");
 
      nb::class_<screamer::EwCorr, screamer::EvalOp>(m, "EwCorr")
@@ -168,7 +168,7 @@ void init_bindings_ew(nb::module_& m) {
           "halflife"_a = nb::none(),
           "alpha"_a = nb::none()
         )
-        .def("__call__", &screamer::EwCorr::handle_input)
+        .def("__call__", &screamer::functor_call<screamer::EwCorr>)
         .def("reset", &screamer::EwCorr::reset, "Reset to the initial state.");
 
      nb::class_<screamer::EwBeta, screamer::EvalOp>(m, "EwBeta")
@@ -184,7 +184,7 @@ void init_bindings_ew(nb::module_& m) {
           "halflife"_a = nb::none(),
           "alpha"_a = nb::none()
         )
-        .def("__call__", &screamer::EwBeta::handle_input)
+        .def("__call__", &screamer::functor_call<screamer::EwBeta>)
         .def("reset", &screamer::EwBeta::reset, "Reset to the initial state.");
 
 }

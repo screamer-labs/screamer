@@ -134,35 +134,35 @@ void init_bindings_signal(nb::module_& m) {
     // homodyne discriminator. See detail/hilbert_cycle.h.
     nb::class_<screamer::DominantCycle, screamer::EvalOp>(m, "DominantCycle")
         .def(nb::init<>())
-        .def("__call__", &screamer::DominantCycle::handle_input)
+        .def("__call__", &screamer::functor_call<screamer::DominantCycle>)
         .def("reset", &screamer::DominantCycle::reset, "Reset to the initial state.");
 
     // HilbertPhasor: 1->2 in-phase / quadrature components of the analytic
     // signal via Ehlers' Hilbert transform. See detail/hilbert_cycle.h.
     nb::class_<screamer::HilbertPhasor, screamer::EvalOp>(m, "HilbertPhasor")
         .def(nb::init<>())
-        .def("__call__", &screamer::HilbertPhasor::handle_input)
+        .def("__call__", &screamer::functor_call<screamer::HilbertPhasor>)
         .def("reset", &screamer::HilbertPhasor::reset, "Reset to the initial state.");
 
     // CyclePhase: 1->1 instantaneous phase (degrees, 0..360) of the analytic
     // signal via Ehlers' homodyne discriminator. See detail/hilbert_cycle.h.
     nb::class_<screamer::CyclePhase, screamer::EvalOp>(m, "CyclePhase")
         .def(nb::init<>())
-        .def("__call__", &screamer::CyclePhase::handle_input)
+        .def("__call__", &screamer::functor_call<screamer::CyclePhase>)
         .def("reset", &screamer::CyclePhase::reset, "Reset to the initial state.");
 
     // CycleFrequency: 1->1 instantaneous frequency (cycles per sample), the
     // reciprocal of the dominant cycle period. See detail/hilbert_cycle.h.
     nb::class_<screamer::CycleFrequency, screamer::EvalOp>(m, "CycleFrequency")
         .def(nb::init<>())
-        .def("__call__", &screamer::CycleFrequency::handle_input)
+        .def("__call__", &screamer::functor_call<screamer::CycleFrequency>)
         .def("reset", &screamer::CycleFrequency::reset, "Reset to the initial state.");
 
     // CycleAmplitude: 1->1 instantaneous amplitude (envelope) of the analytic
     // signal, sqrt(I^2 + Q^2). See detail/hilbert_cycle.h.
     nb::class_<screamer::CycleAmplitude, screamer::EvalOp>(m, "CycleAmplitude")
         .def(nb::init<>())
-        .def("__call__", &screamer::CycleAmplitude::handle_input)
+        .def("__call__", &screamer::functor_call<screamer::CycleAmplitude>)
         .def("reset", &screamer::CycleAmplitude::reset, "Reset to the initial state.");
 
     // CycleSine: 1->2 sinewave indicator (sine, leadsine) = sin(phase) and
@@ -170,7 +170,7 @@ void init_bindings_signal(nb::module_& m) {
     // signal. See detail/hilbert_cycle.h.
     nb::class_<screamer::CycleSine, screamer::EvalOp>(m, "CycleSine")
         .def(nb::init<>())
-        .def("__call__", &screamer::CycleSine::handle_input)
+        .def("__call__", &screamer::functor_call<screamer::CycleSine>)
         .def("reset", &screamer::CycleSine::reset, "Reset to the initial state.");
 
     // TrendMode: 1->1 trend-vs-cycle classifier. Outputs 1.0 when the
@@ -180,7 +180,7 @@ void init_bindings_signal(nb::module_& m) {
     // detail/hilbert_cycle.h.
     nb::class_<screamer::TrendMode, screamer::EvalOp>(m, "TrendMode")
         .def(nb::init<double>(), "phase_rate_frac"_a = 0.5)
-        .def("__call__", &screamer::TrendMode::handle_input)
+        .def("__call__", &screamer::functor_call<screamer::TrendMode>)
         .def("reset", &screamer::TrendMode::reset, "Reset to the initial state.");
 
     // MAMA: 1->2 MESA Adaptive Moving Average (mama, fama). The smoothing
@@ -189,7 +189,7 @@ void init_bindings_signal(nb::module_& m) {
     nb::class_<screamer::MAMA, screamer::EvalOp>(m, "MAMA")
         .def(nb::init<double, double>(),
              "fast_limit"_a = 0.5, "slow_limit"_a = 0.05)
-        .def("__call__", &screamer::MAMA::handle_input)
+        .def("__call__", &screamer::functor_call<screamer::MAMA>)
         .def("reset", &screamer::MAMA::reset, "Reset to the initial state.");
 
     // InstantaneousTrendline: 1->1 Ehlers adaptive 2-pole trendline. The
@@ -198,6 +198,6 @@ void init_bindings_signal(nb::module_& m) {
     // detail/hilbert_cycle.h.
     nb::class_<screamer::InstantaneousTrendline, screamer::EvalOp>(m, "InstantaneousTrendline")
         .def(nb::init<>())
-        .def("__call__", &screamer::InstantaneousTrendline::handle_input)
+        .def("__call__", &screamer::functor_call<screamer::InstantaneousTrendline>)
         .def("reset", &screamer::InstantaneousTrendline::reset, "Reset to the initial state.");
 }

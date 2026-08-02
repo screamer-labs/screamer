@@ -89,7 +89,7 @@ void init_bindings_fin(nb::module_& m) {
         .def(nb::init<int, const std::string&>(),
              "window_size"_a = 20,
              "start_policy"_a = "strict")
-        .def("__call__", &screamer::RollingCorr::handle_input)
+        .def("__call__", &screamer::functor_call<screamer::RollingCorr>)
         .def("reset", &screamer::RollingCorr::reset, "Reset to the initial state.");
 
     // Rolling sample covariance of two streams.
@@ -97,7 +97,7 @@ void init_bindings_fin(nb::module_& m) {
         .def(nb::init<int, const std::string&>(),
              "window_size"_a = 20,
              "start_policy"_a = "strict")
-        .def("__call__", &screamer::RollingCov::handle_input)
+        .def("__call__", &screamer::functor_call<screamer::RollingCov>)
         .def("reset", &screamer::RollingCov::reset, "Reset to the initial state.");
 
     // Rolling regression slope of x on y: beta = cov(x, y) / var(y).
@@ -105,7 +105,7 @@ void init_bindings_fin(nb::module_& m) {
         .def(nb::init<int, const std::string&>(),
              "window_size"_a = 20,
              "start_policy"_a = "strict")
-        .def("__call__", &screamer::RollingBeta::handle_input)
+        .def("__call__", &screamer::functor_call<screamer::RollingBeta>)
         .def("reset", &screamer::RollingBeta::reset, "Reset to the initial state.");
 
     // Hedge-adjusted residual of x against y: spread = x - beta * y, with
@@ -114,7 +114,7 @@ void init_bindings_fin(nb::module_& m) {
         .def(nb::init<int, const std::string&>(),
              "window_size"_a = 20,
              "start_policy"_a = "strict")
-        .def("__call__", &screamer::RollingSpread::handle_input)
+        .def("__call__", &screamer::functor_call<screamer::RollingSpread>)
         .def("reset", &screamer::RollingSpread::reset, "Reset to the initial state.");
 
     // ----- Performance / risk metrics -----
@@ -152,7 +152,7 @@ void init_bindings_fin(nb::module_& m) {
         .def(nb::init<int, double>(),
              "window_size"_a = 252,
              "periods_per_year"_a = 1.0)
-        .def("__call__", &screamer::RollingInfoRatio::handle_input)
+        .def("__call__", &screamer::functor_call<screamer::RollingInfoRatio>)
         .def("reset", &screamer::RollingInfoRatio::reset, "Reset.");
 
     nb::class_<screamer::RollingCalmar, screamer::ScreamerBase>(m, "RollingCalmar")
@@ -172,14 +172,14 @@ void init_bindings_fin(nb::module_& m) {
         .def(nb::init<int, const std::string&>(),
              "window_size"_a = 20,
              "start_policy"_a = "strict")
-        .def("__call__", &screamer::RollingAlpha::handle_input)
+        .def("__call__", &screamer::functor_call<screamer::RollingAlpha>)
         .def("reset", &screamer::RollingAlpha::reset, "Reset.");
 
     nb::class_<screamer::RollingResidualStd, screamer::EvalOp>(m, "RollingResidualStd")
         .def(nb::init<int, const std::string&>(),
              "window_size"_a = 20,
              "start_policy"_a = "strict")
-        .def("__call__", &screamer::RollingResidualStd::handle_input)
+        .def("__call__", &screamer::functor_call<screamer::RollingResidualStd>)
         .def("reset", &screamer::RollingResidualStd::reset, "Reset.");
 
     // 2 -> 4 OLS fit returning (slope, intercept, r_squared, stderr).
@@ -188,7 +188,7 @@ void init_bindings_fin(nb::module_& m) {
         .def(nb::init<int, const std::string&>(),
              "window_size"_a = 20,
              "start_policy"_a = "strict")
-        .def("__call__", &screamer::RollingLinearRegression::handle_input)
+        .def("__call__", &screamer::functor_call<screamer::RollingLinearRegression>)
         .def("reset", &screamer::RollingLinearRegression::reset, "Reset.");
 
     // 2 -> 4 online Bayesian regression returning (pred_mean, pred_std, slope, intercept).
@@ -199,7 +199,7 @@ void init_bindings_fin(nb::module_& m) {
              "com"_a = nb::none(), "span"_a = nb::none(),
              "halflife"_a = nb::none(), "alpha"_a = nb::none(),
              "prior_precision"_a = 1.0, "prior_sigma"_a = 1.0)
-        .def("__call__", &screamer::BayesianRegression::handle_input)
+        .def("__call__", &screamer::functor_call<screamer::BayesianRegression>)
         .def("reset", &screamer::BayesianRegression::reset, "Reset to the prior.");
 
     nb::class_<screamer::BacktestPriceTarget, screamer::EvalOp>(m, "BacktestPriceTarget")
@@ -207,7 +207,7 @@ void init_bindings_fin(nb::module_& m) {
              "spread"_a = 0.0, "fee"_a = 0.0,
              "min_position"_a = -std::numeric_limits<double>::infinity(),
              "max_position"_a = std::numeric_limits<double>::infinity())
-        .def("__call__", &screamer::BacktestPriceTarget::handle_input)
+        .def("__call__", &screamer::functor_call<screamer::BacktestPriceTarget>)
         .def("reset", &screamer::BacktestPriceTarget::reset, "Reset.");
 
     nb::class_<screamer::BacktestOHLCOrders, screamer::EvalOp>(m, "BacktestOHLCOrders")
@@ -217,7 +217,7 @@ void init_bindings_fin(nb::module_& m) {
              "tick_size"_a = 0.0,
              "min_position"_a = -std::numeric_limits<double>::infinity(),
              "max_position"_a = std::numeric_limits<double>::infinity())
-        .def("__call__", &screamer::BacktestOHLCOrders::handle_input)
+        .def("__call__", &screamer::functor_call<screamer::BacktestOHLCOrders>)
         .def("reset", &screamer::BacktestOHLCOrders::reset, "Reset.");
 
     nb::class_<screamer::BacktestOHLCTarget, screamer::EvalOp>(m, "BacktestOHLCTarget")
@@ -225,7 +225,7 @@ void init_bindings_fin(nb::module_& m) {
              "taker_fee"_a = 0.0, "tick_size"_a = 0.0,
              "min_position"_a = -std::numeric_limits<double>::infinity(),
              "max_position"_a = std::numeric_limits<double>::infinity())
-        .def("__call__", &screamer::BacktestOHLCTarget::handle_input)
+        .def("__call__", &screamer::functor_call<screamer::BacktestOHLCTarget>)
         .def("reset", &screamer::BacktestOHLCTarget::reset, "Reset.");
 
     nb::class_<screamer::BacktestTradesOrders, screamer::EvalOp>(m, "BacktestTradesOrders")
@@ -235,7 +235,7 @@ void init_bindings_fin(nb::module_& m) {
              "tick_size"_a = 0.0,
              "min_position"_a = -std::numeric_limits<double>::infinity(),
              "max_position"_a = std::numeric_limits<double>::infinity())
-        .def("__call__", &screamer::BacktestTradesOrders::handle_input)
+        .def("__call__", &screamer::functor_call<screamer::BacktestTradesOrders>)
         .def("reset", &screamer::BacktestTradesOrders::reset, "Reset.");
 
     nb::class_<screamer::BacktestL1Orders, screamer::EvalOp>(m, "BacktestL1Orders")
@@ -245,7 +245,7 @@ void init_bindings_fin(nb::module_& m) {
              "tick_size"_a = 0.0,
              "min_position"_a = -std::numeric_limits<double>::infinity(),
              "max_position"_a = std::numeric_limits<double>::infinity())
-        .def("__call__", &screamer::BacktestL1Orders::handle_input)
+        .def("__call__", &screamer::functor_call<screamer::BacktestL1Orders>)
         .def("reset", &screamer::BacktestL1Orders::reset, "Reset.");
 
     nb::class_<screamer::BacktestL1Target, screamer::EvalOp>(m, "BacktestL1Target")
@@ -253,7 +253,7 @@ void init_bindings_fin(nb::module_& m) {
              "taker_fee"_a = 0.0, "tick_size"_a = 0.0,
              "min_position"_a = -std::numeric_limits<double>::infinity(),
              "max_position"_a = std::numeric_limits<double>::infinity())
-        .def("__call__", &screamer::BacktestL1Target::handle_input)
+        .def("__call__", &screamer::functor_call<screamer::BacktestL1Target>)
         .def("reset", &screamer::BacktestL1Target::reset, "Reset.");
 
     nb::class_<screamer::BacktestL1TradesOrders, screamer::EvalOp>(m, "BacktestL1TradesOrders")
@@ -263,7 +263,7 @@ void init_bindings_fin(nb::module_& m) {
              "tick_size"_a = 0.0,
              "min_position"_a = -std::numeric_limits<double>::infinity(),
              "max_position"_a = std::numeric_limits<double>::infinity())
-        .def("__call__", &screamer::BacktestL1TradesOrders::handle_input)
+        .def("__call__", &screamer::functor_call<screamer::BacktestL1TradesOrders>)
         .def("reset", &screamer::BacktestL1TradesOrders::reset, "Reset.");
 
     nb::class_<screamer::BacktestTradesTarget, screamer::EvalOp>(m, "BacktestTradesTarget")
@@ -271,12 +271,12 @@ void init_bindings_fin(nb::module_& m) {
              "taker_fee"_a = 0.0, "tick_size"_a = 0.0,
              "min_position"_a = -std::numeric_limits<double>::infinity(),
              "max_position"_a = std::numeric_limits<double>::infinity())
-        .def("__call__", &screamer::BacktestTradesTarget::handle_input)
+        .def("__call__", &screamer::functor_call<screamer::BacktestTradesTarget>)
         .def("reset", &screamer::BacktestTradesTarget::reset, "Reset.");
 
     nb::class_<screamer::BacktestReport, screamer::EvalOp>(m, "BacktestReport")
         .def(nb::init<>())
-        .def("__call__", &screamer::BacktestReport::handle_input)
+        .def("__call__", &screamer::functor_call<screamer::BacktestReport>)
         .def("reset", &screamer::BacktestReport::reset, "Reset.");
 
     nb::class_<screamer::RollingDownsideDeviation, screamer::ScreamerBase>(m, "RollingDownsideDeviation")
