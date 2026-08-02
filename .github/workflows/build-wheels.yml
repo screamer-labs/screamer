@@ -167,7 +167,7 @@ jobs:
 
   github_release:
     name: Attach to GitHub Release
-    needs: [build_wheels, build_sdist]
+    needs: [build_wheels, build_sdist, test_wheels]
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/v')
     permissions:
@@ -185,7 +185,7 @@ jobs:
 
   publish_pypi:
     name: Publish to PyPI (OIDC)
-    needs: [build_wheels, build_sdist]
+    needs: [build_wheels, build_sdist, test_wheels]
     runs-on: ubuntu-latest
     # Real releases only: a pushed version tag.
     if: startsWith(github.ref, 'refs/tags/v')
@@ -209,7 +209,7 @@ jobs:
 
   publish_testpypi:
     name: Publish to TestPyPI (OIDC dry run)
-    needs: [build_wheels, build_sdist]
+    needs: [build_wheels, build_sdist, test_wheels]
     runs-on: ubuntu-latest
     # Manual dry run only: workflow_dispatch with testpypi=true. Requires a
     # separate trusted publisher configured on test.pypi.org.
