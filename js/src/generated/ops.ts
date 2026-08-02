@@ -4,631 +4,1460 @@
 import { wrapOp, type ScreamerOp } from "../runtime.js";
 import { current } from "../index.js";
 
+/**
+ * Chaikin Accumulation/Distribution Line.
+ *
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function AD(): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.AD());
 }
 
+/**
+ * Difference of fast and slow EMA of the Accumulation/Distribution line.
+ *
+ * @param fast Fast EMA period.
+ * @param slow Slow EMA period.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function ADOSC(fast: number = 3, slow: number = 10): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.ADOSC(fast, slow));
 }
 
+/**
+ * Wilder's ADX with +DI and -DI (3 inputs -> 3 outputs).
+ *
+ * @param windowSize Period (Wilder's default).
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function ADX(windowSize: number = 14): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.ADX(windowSize));
 }
 
+/**
+ * Wilder's ADXR, the mean of ADX now and ADX one window ago.
+ *
+ * @param windowSize Wilder smoothing period.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function ADXR(windowSize: number = 14): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.ADXR(windowSize));
 }
 
+/**
+ * Wilder-smoothed average of TrueRange.
+ *
+ * @param windowSize Wilder smoothing period (Wilder's original choice is 14).
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function ATR(windowSize: number = 14): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.ATR(windowSize));
 }
 
+/**
+ * Absolute value of each element.
+ *
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function Abs(): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.Abs());
 }
 
+/**
+ * Inverse cosine of each element (radians, input in [-1, 1]).
+ *
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function Acos(): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.Acos());
 }
 
+/**
+ * Elementwise sum of two aligned streams (x + y).
+ *
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function Add(): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.Add());
 }
 
+/**
+ * Rolling mean of |return| / notional (Amihud 2002 illiquidity ratio).
+ *
+ * @param windowSize Window length in observations.
+ * @param startPolicy Warmup behaviour.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function AmihudIlliquidity(windowSize: number = 20, startPolicy: string = "strict"): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.AmihudIlliquidity(windowSize, startPolicy));
 }
 
+/**
+ * Returns 1.0 if both inputs are nonzero, else 0.0. NaN in either input yields NaN.
+ *
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function And(): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.And());
 }
 
+/**
+ * Inverse sine of each element (radians, input in [-1, 1]).
+ *
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function Asin(): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.Asin());
 }
 
+/**
+ * Inverse tangent of each element (radians).
+ *
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function Atan(): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.Atan());
 }
 
+/**
+ * Signed angle of (x, y) from the positive x-axis (numpy.arctan2 order).
+ *
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function Atan2(): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.Atan2());
 }
 
+/**
+ * (close - open) / (high - low) per bar. No smoothing.
+ *
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function BOP(): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.BOP());
 }
 
+/**
+ * Backtest a two-sided market maker against a top-of-book (L1) quote stream.
+ *
+ * @param makerFee Fractional fee on a maker fill; negative for a rebate.
+ * @param takerFee Fractional fee on a taker fill (a quote submitted already crossing the spread).
+ * @param fill Fill rule. "breach" (conservative) fills only when the market trades through your quote; "touch" (optimistic) also fills a participation partial once per lock episode.
+ * @param participationRatio Fraction of the locked ask/bid size captured on a touch fill (front-of-queue at 1.0).
+ * @param tickSize Price step a marketable order walks for the size beyond the displayed quote.
+ * @param minPosition Inventory floor; sell fills are capped so the position never falls below it.
+ * @param maxPosition Inventory ceiling; buy fills are capped so the position never exceeds it.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function BacktestL1Orders(makerFee: number = 0.0, takerFee: number = 0.0, fill: string = "breach", participationRatio: number = 1.0, tickSize: number = 0.0, minPosition: number = -Infinity, maxPosition: number = Infinity): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.BacktestL1Orders(makerFee, takerFee, fill, participationRatio, tickSize, minPosition, maxPosition));
 }
 
+/**
+ * Backtest a target-position strategy against the L1 book, taking each quote update as a market fill to reach the target immediately.
+ *
+ * @param takerFee Fractional fee charged on each taker fill.
+ * @param tickSize Price step a marketable order walks for the size beyond the displayed quote.
+ * @param minPosition Inventory floor. The target is clamped to [min_position, max_position] before the fill size is computed.
+ * @param maxPosition Inventory ceiling. The target is clamped to [min_position, max_position] before the fill size is computed.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function BacktestL1Target(takerFee: number = 0.0, tickSize: number = 0.0, minPosition: number = -Infinity, maxPosition: number = Infinity): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.BacktestL1Target(takerFee, tickSize, minPosition, maxPosition));
 }
 
+/**
+ * Backtest a two-sided market maker against top-of-book quotes with a trade tape driving the fills, into a costed equity curve.
+ *
+ * @param makerFee Fractional fee on a maker fill; negative for a rebate.
+ * @param takerFee Fractional fee on a taker fill (a quote submitted already crossing the spread).
+ * @param fill Fill rule for a trade at your price. "touch" fills a participation partial; "breach" fills only on a trade through.
+ * @param participationRatio Fraction of an at-price trade's size captured (front-of-queue at 1.0).
+ * @param tickSize Price step a marketable order walks for the size beyond the displayed quote.
+ * @param minPosition Inventory floor; sell fills are capped so the position never falls below it.
+ * @param maxPosition Inventory ceiling; buy fills are capped so the position never exceeds it.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function BacktestL1TradesOrders(makerFee: number = 0.0, takerFee: number = 0.0, fill: string = "touch", participationRatio: number = 1.0, tickSize: number = 0.0, minPosition: number = -Infinity, maxPosition: number = Infinity): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.BacktestL1TradesOrders(makerFee, takerFee, fill, participationRatio, tickSize, minPosition, maxPosition));
 }
 
+/**
+ * Backtest a two-sided order poster on OHLC bars, posting resting bids and asks that fill when the bar's range reaches them.
+ *
+ * @param makerFee Fractional fee on a passive (resting) fill; negative for a rebate.
+ * @param takerFee Fractional fee on a marketable (taker) fill.
+ * @param fill Fill rule. "touch" fills when the bar's low/high reaches your quote price; "breach" requires the bar to trade through it.
+ * @param participationRatio Fraction of the quoted size captured on each fill (front-of-queue at 1.0).
+ * @param tickSize Price increment added (subtracted) to the open for a market buy (sell) to model taker slippage.
+ * @param minPosition Inventory floor; sell fills are capped so the position never falls below it.
+ * @param maxPosition Inventory ceiling; buy fills are capped so the position never exceeds it.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function BacktestOHLCOrders(makerFee: number = 0.0, takerFee: number = 0.0, fill: string = "touch", participationRatio: number = 1.0, tickSize: number = 0.0, minPosition: number = -Infinity, maxPosition: number = Infinity): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.BacktestOHLCOrders(makerFee, takerFee, fill, participationRatio, tickSize, minPosition, maxPosition));
 }
 
+/**
+ * Backtest a target-position strategy on OHLC bars, executing market orders at the next bar's open (causal, no manual lag).
+ *
+ * @param takerFee Fractional fee charged on a market (taker) fill at the open.
+ * @param tickSize Price increment added (subtracted) to the open for a market buy (sell) to model taker slippage.
+ * @param minPosition Lower bound on the filled position. The deferred target is clamped to [min_position, max_position] before the fill executes.
+ * @param maxPosition Upper bound on the filled position. The deferred target is clamped to [min_position, max_position] before the fill executes.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function BacktestOHLCTarget(takerFee: number = 0.0, tickSize: number = 0.0, minPosition: number = -Infinity, maxPosition: number = Infinity): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.BacktestOHLCTarget(takerFee, tickSize, minPosition, maxPosition));
 }
 
+/**
+ * Backtest a target position against a value series (price/mark) into a costed mark-to-market equity curve.
+ *
+ * @param spread Fractional bid-ask spread crossed on each trade (e.g. 0.0005 = 5 bps). Default 0 is frictionless.
+ * @param fee Fractional taker fee charged on the traded notional.
+ * @param minPosition Lower bound on the target position. Signals below this value are clamped to it.
+ * @param maxPosition Upper bound on the target position. Signals above this value are clamped to it.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function BacktestPriceTarget(spread: number = 0.0, fee: number = 0.0, minPosition: number = -Infinity, maxPosition: number = Infinity): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.BacktestPriceTarget(spread, fee, minPosition, maxPosition));
 }
 
+/**
+ * Turn a backtest engine's [equity, pnl, position, cost] into running drawdown, cost, turnover, trades, and Sharpe.
+ *
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function BacktestReport(): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.BacktestReport());
 }
 
+/**
+ * Backtest a two-sided order poster against the trade tape, filling resting quotes when prints cross them, into a costed equity curve.
+ *
+ * @param makerFee Fractional fee on a maker fill; negative for a rebate.
+ * @param takerFee Fractional fee on a taker fill (a market order that sweeps any print).
+ * @param fill Fill rule for a trade at your price. "touch" fills a participation partial; "breach" fills only on a trade through.
+ * @param participationRatio Fraction of an at-price trade's size captured (front-of-queue at 1.0).
+ * @param tickSize Accepted for interface uniformity; currently unused on the tape (see Limitations).
+ * @param minPosition Inventory floor; sell fills are capped so the position never falls below it.
+ * @param maxPosition Inventory ceiling; buy fills are capped so the position never exceeds it.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function BacktestTradesOrders(makerFee: number = 0.0, takerFee: number = 0.0, fill: string = "touch", participationRatio: number = 1.0, tickSize: number = 0.0, minPosition: number = -Infinity, maxPosition: number = Infinity): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.BacktestTradesOrders(makerFee, takerFee, fill, participationRatio, tickSize, minPosition, maxPosition));
 }
 
+/**
+ * Backtest a target-position strategy against the trade tape, taking each print as a market fill to reach the target immediately.
+ *
+ * @param takerFee Fractional fee charged on each taker fill at the print price.
+ * @param tickSize Accepted for interface uniformity; currently unused on the tape.
+ * @param minPosition Inventory floor. The target is clamped to [min_position, max_position] before the fill size is computed.
+ * @param maxPosition Inventory ceiling. The target is clamped to [min_position, max_position] before the fill size is computed.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function BacktestTradesTarget(takerFee: number = 0.0, tickSize: number = 0.0, minPosition: number = -Infinity, maxPosition: number = Infinity): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.BacktestTradesTarget(takerFee, tickSize, minPosition, maxPosition));
 }
 
+/**
+ * Online exponentially-weighted (forgetting-factor) Bayesian linear regression - current slope and intercept via Normal-Inverse-Gamma posterior plus causal one-step-ahead predictive mean and std.
+ *
+ * @param com Center of mass (alpha = 1 / (1 + com)). Exclusive with span/halflife/alpha.
+ * @param span Span (alpha = 2 / (span + 1)). Default smoothing parameter. Exclusive with com/halflife/alpha.
+ * @param halflife Halflife (alpha = 1 - 0.5^(1/halflife)). Exclusive with com/span/alpha.
+ * @param alpha Smoothing parameter directly (forgetting factor lambda = 1 - alpha). Exclusive with com/span/halflife.
+ * @param priorPrecision Prior precision on the regression coefficients (slope and intercept). Larger values pull coefficients toward zero more strongly.
+ * @param priorSigma Prior scale for the noise variance. Sets b0 = prior_sigma^2 * (a0 - 1) where a0 = 2.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function BayesianRegression(com: number = NaN, span: number = NaN, halflife: number = NaN, alpha: number = NaN, priorPrecision: number = 1.0, priorSigma: number = 1.0): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.BayesianRegression(com, span, halflife, alpha, priorPrecision, priorSigma));
 }
 
+/**
+ * Mean +/- num_std rolling standard deviations.
+ *
+ * @param windowSize Trailing-window length.
+ * @param numStd Number of rolling-std offsets for the upper/lower bands.
+ * @param startPolicy Warmup behaviour.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function BollingerBands(windowSize: number = 20, numStd: number = 2.0, startPolicy: string = "strict"): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.BollingerBands(windowSize, numStd, startPolicy));
 }
 
+/**
+ * Buy-initiated share of a bar's volume estimated as the normal CDF of return / trailing-window volatility.
+ *
+ * @param windowSize Window length in observations for the trailing standard deviation.
+ * @param startPolicy Warmup behaviour.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function BulkVolumeClassifier(windowSize: number = 20, startPolicy: string = "strict"): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.BulkVolumeClassifier(windowSize, startPolicy));
 }
 
+/**
+ * General-order IIR Butterworth low-pass filter.
+ *
+ * @param order Filter order (1 = first-order, higher = sharper rolloff).
+ * @param cutoffFreq Normalised cutoff (0 < f < 0.5, Nyquist-relative).
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function Butter(order: number = 2, cutoffFreq: number = 0.1): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.Butter(order, cutoffFreq));
 }
 
+/**
+ * General-order IIR Butterworth band-pass filter.
+ *
+ * @param order Filter order.
+ * @param lowCutoff Lower cutoff frequency (normalised).
+ * @param highCutoff Upper cutoff frequency (normalised); must exceed low_cutoff.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function ButterBandpass(order: number = 2, lowCutoff: number = 0.05, highCutoff: number = 0.2): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.ButterBandpass(order, lowCutoff, highCutoff));
 }
 
+/**
+ * General-order IIR Butterworth band-stop (notch) filter.
+ *
+ * @param order Filter order.
+ * @param lowCutoff Lower stop-band edge (normalised).
+ * @param highCutoff Upper stop-band edge (normalised); must exceed low_cutoff.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function ButterBandstop(order: number = 2, lowCutoff: number = 0.05, highCutoff: number = 0.2): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.ButterBandstop(order, lowCutoff, highCutoff));
 }
 
+/**
+ * General-order IIR Butterworth high-pass filter (rejects low frequencies).
+ *
+ * @param order Filter order.
+ * @param cutoffFreq Normalised cutoff.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function ButterHighpass(order: number = 2, cutoffFreq: number = 0.1): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.ButterHighpass(order, cutoffFreq));
 }
 
+/**
+ * Commodity Channel Index over typical price.
+ *
+ * @param windowSize Period (Wilder's default).
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function CCI(windowSize: number = 14): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.CCI(windowSize));
 }
 
+/**
+ * Convert (x, y) to (r, theta).
+ *
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function Cart2Polar(): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.Cart2Polar());
 }
 
+/**
+ * Round each element toward positive infinity.
+ *
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function Ceil(): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.Ceil());
 }
 
+/**
+ * Bound each element below and/or above.
+ *
+ * @param lower Lower bound (None = no lower clipping).
+ * @param upper Upper bound (None = no upper clipping).
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function Clip(lower: number = NaN, upper: number = NaN): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.Clip(lower, upper));
 }
 
+/**
+ * Cont-Kukanov-Stoikov (2014) order-flow imbalance from L1 book events.
+ *
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function ContOFI(): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.ContOFI());
 }
 
+/**
+ * Cosine of each element (radians).
+ *
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function Cos(): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.Cos());
 }
 
+/**
+ * x cubed (faster than Power(3)).
+ *
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function Cube(): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.Cube());
 }
 
+/**
+ * Running maximum from t=0.
+ *
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function CumMax(): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.CumMax());
 }
 
+/**
+ * Running minimum from t=0.
+ *
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function CumMin(): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.CumMin());
 }
 
+/**
+ * Running product from t=0.
+ *
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function CumProd(): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.CumProd());
 }
 
+/**
+ * Running sum from t=0.
+ *
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function CumSum(): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.CumSum());
 }
 
+/**
+ * Instantaneous amplitude (envelope) of the analytic signal via Ehlers' homodyne discriminator.
+ *
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function CycleAmplitude(): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.CycleAmplitude());
 }
 
+/**
+ * Instantaneous frequency, in cycles per sample, via Ehlers' homodyne discriminator.
+ *
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function CycleFrequency(): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.CycleFrequency());
 }
 
+/**
+ * Instantaneous phase, in degrees, of the analytic signal via Ehlers' homodyne discriminator.
+ *
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function CyclePhase(): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.CyclePhase());
 }
 
+/**
+ * Sinewave indicator (sine, leadsine) from the instantaneous phase of the analytic signal.
+ *
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function CycleSine(): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.CycleSine());
 }
 
+/**
+ * Mulloy's Double EMA: 2*EMA - EMA(EMA).
+ *
+ * @param com Center of mass. Exclusive with span/halflife/alpha.
+ * @param span Span (default smoothing parameter).
+ * @param halflife Halflife.
+ * @param alpha Smoothing parameter.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function DEMA(com: number = NaN, span: number = NaN, halflife: number = NaN, alpha: number = NaN): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.DEMA(com, span, halflife, alpha));
 }
 
+/**
+ * Wilder directional index, the pre-average input to ADX.
+ *
+ * @param windowSize Wilder smoothing period.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function DX(windowSize: number = 14): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.DX(windowSize));
 }
 
+/**
+ * Ehlers trend estimate with short cycles removed.
+ *
+ * @param period Cycles at or below this length in samples are removed. Give this or cutoff.
+ * @param cutoff Cutoff as a fraction of Nyquist in (0, 1). Give this or period, not both.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function Decycler(period: number = NaN, cutoff: number = NaN): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.Decycler(period, cutoff));
 }
 
+/**
+ * x[t] minus its rolling mean.
+ *
+ * @param windowSize Window for the trailing rolling mean.
+ * @param startPolicy Warmup behaviour: 'strict' (NaN until full window), 'expanding' (use partial windows), or 'zero' (treat missing as zero).
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function Detrend(windowSize: number = 20, startPolicy: string = "strict"): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.Detrend(windowSize, startPolicy));
 }
 
+/**
+ * x[t] - x[t-k] (first difference at lag k).
+ *
+ * @param windowSize Lag k for the difference (1 = consecutive).
+ * @param startPolicy Warmup behaviour: 'strict' (NaN until full window), 'expanding' (use partial windows), or 'zero' (treat missing as zero).
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function Diff(windowSize: number = 1, startPolicy: string = "strict"): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.Diff(windowSize, startPolicy));
 }
 
+/**
+ * Second-order finite difference (discrete second derivative).
+ *
+ * @param startPolicy Warmup behaviour: 'strict' (NaN until full window), 'expanding' (use partial windows), or 'zero' (treat missing as zero).
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function Diff2(startPolicy: string = "strict"): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.Diff2(startPolicy));
 }
 
+/**
+ * Elementwise quotient of two aligned streams (x / y).
+ *
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function Div(): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.Div());
 }
 
+/**
+ * Dominant cycle period via Ehlers' homodyne discriminator.
+ *
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function DominantCycle(): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.DominantCycle());
 }
 
+/**
+ * Trend-following envelope: rolling max(high), rolling min(low), and midline.
+ *
+ * @param windowSize Window for the rolling max/min.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function DonchianChannels(windowSize: number = 20): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.DonchianChannels(windowSize));
 }
 
+/**
+ * Running drawdown from the cumulative peak.
+ *
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function Drawdown(): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.Drawdown());
 }
 
+/**
+ * Effective spread, 2*|price - mid|: the round-trip cost paid relative to the mid.
+ *
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function EffectiveSpread(): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.EffectiveSpread());
 }
 
+/**
+ * Exponential linear unit.
+ *
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function Elu(): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.Elu());
 }
 
+/**
+ * Returns 1.0 if a == b, else 0.0. NaN in either input yields NaN.
+ *
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function Equal(): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.Equal());
 }
 
+/**
+ * Gauss error function.
+ *
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function Erf(): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.Erf());
 }
 
+/**
+ * Complementary error function (1 - erf).
+ *
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function Erfc(): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.Erfc());
 }
 
+/**
+ * EW CAPM beta: cov(target, regressor) / var(regressor).
+ *
+ * @param com Center of mass (alpha = 1 / (1 + com)). Exclusive with span/halflife/alpha.
+ * @param span Span (alpha = 2 / (span + 1)). Default smoothing parameter. Exclusive with com/halflife/alpha.
+ * @param halflife Halflife (alpha = 1 - 0.5^(1/halflife)). Exclusive with com/span/alpha.
+ * @param alpha Smoothing parameter directly. Exclusive with com/span/halflife.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function EwBeta(com: number = NaN, span: number = NaN, halflife: number = NaN, alpha: number = NaN): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.EwBeta(com, span, halflife, alpha));
 }
 
+/**
+ * EW Pearson correlation of two parallel streams.
+ *
+ * @param com Center of mass (alpha = 1 / (1 + com)). Exclusive with span/halflife/alpha.
+ * @param span Span (alpha = 2 / (span + 1)). Default smoothing parameter. Exclusive with com/halflife/alpha.
+ * @param halflife Halflife (alpha = 1 - 0.5^(1/halflife)). Exclusive with com/span/alpha.
+ * @param alpha Smoothing parameter directly. Exclusive with com/span/halflife.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function EwCorr(com: number = NaN, span: number = NaN, halflife: number = NaN, alpha: number = NaN): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.EwCorr(com, span, halflife, alpha));
 }
 
+/**
+ * EW covariance of two parallel streams.
+ *
+ * @param com Center of mass (alpha = 1 / (1 + com)). Exclusive with span/halflife/alpha.
+ * @param span Span (alpha = 2 / (span + 1)). Default smoothing parameter. Exclusive with com/halflife/alpha.
+ * @param halflife Halflife (alpha = 1 - 0.5^(1/halflife)). Exclusive with com/span/alpha.
+ * @param alpha Smoothing parameter directly. Exclusive with com/span/halflife.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function EwCov(com: number = NaN, span: number = NaN, halflife: number = NaN, alpha: number = NaN): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.EwCov(com, span, halflife, alpha));
 }
 
+/**
+ * Var form of the Garman-Klass range-based volatility estimator (OHLC).
+ *
+ * @param com Center of mass.
+ * @param span Span.
+ * @param halflife Halflife.
+ * @param alpha Smoothing parameter directly.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function EwGarmanKlassVar(com: number = NaN, span: number = NaN, halflife: number = NaN, alpha: number = NaN): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.EwGarmanKlassVar(com, span, halflife, alpha));
 }
 
+/**
+ * Vol form of the Garman-Klass range-based volatility estimator (OHLC).
+ *
+ * @param com Center of mass.
+ * @param span Span.
+ * @param halflife Halflife.
+ * @param alpha Smoothing parameter directly.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function EwGarmanKlassVol(com: number = NaN, span: number = NaN, halflife: number = NaN, alpha: number = NaN): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.EwGarmanKlassVol(com, span, halflife, alpha));
 }
 
+/**
+ * EW excess kurtosis.
+ *
+ * @param com Center of mass (alpha = 1 / (1 + com)). Exclusive with span/halflife/alpha.
+ * @param span Span (alpha = 2 / (span + 1)). Default smoothing parameter. Exclusive with com/halflife/alpha.
+ * @param halflife Halflife (alpha = 1 - 0.5^(1/halflife)). Exclusive with com/span/alpha.
+ * @param alpha Smoothing parameter directly. Exclusive with com/span/halflife.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function EwKurt(com: number = NaN, span: number = NaN, halflife: number = NaN, alpha: number = NaN): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.EwKurt(com, span, halflife, alpha));
 }
 
+/**
+ * Exponentially-weighted moving average (pandas adjust=True).
+ *
+ * @param com Center of mass (alpha = 1 / (1 + com)). Exclusive with span/halflife/alpha.
+ * @param span Span (alpha = 2 / (span + 1)). Default smoothing parameter. Exclusive with com/halflife/alpha.
+ * @param halflife Halflife (alpha = 1 - 0.5^(1/halflife)). Exclusive with com/span/alpha.
+ * @param alpha Smoothing parameter directly. Exclusive with com/span/halflife.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function EwMean(com: number = NaN, span: number = NaN, halflife: number = NaN, alpha: number = NaN): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.EwMean(com, span, halflife, alpha));
 }
 
+/**
+ * Var form of the Parkinson range-based volatility estimator (uses high & low).
+ *
+ * @param com Center of mass. Exclusive with span/halflife/alpha.
+ * @param span Span (default smoothing parameter).
+ * @param halflife Halflife. Exclusive with com/span/alpha.
+ * @param alpha Smoothing parameter directly.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function EwParkinsonVar(com: number = NaN, span: number = NaN, halflife: number = NaN, alpha: number = NaN): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.EwParkinsonVar(com, span, halflife, alpha));
 }
 
+/**
+ * Vol form of the Parkinson range-based volatility estimator (uses high & low).
+ *
+ * @param com Center of mass. Exclusive with span/halflife/alpha.
+ * @param span Span (default smoothing parameter).
+ * @param halflife Halflife. Exclusive with com/span/alpha.
+ * @param alpha Smoothing parameter directly.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function EwParkinsonVol(com: number = NaN, span: number = NaN, halflife: number = NaN, alpha: number = NaN): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.EwParkinsonVol(com, span, halflife, alpha));
 }
 
+/**
+ * EW root-mean-square.
+ *
+ * @param com Center of mass (alpha = 1 / (1 + com)). Exclusive with span/halflife/alpha.
+ * @param span Span (alpha = 2 / (span + 1)). Default smoothing parameter. Exclusive with com/halflife/alpha.
+ * @param halflife Halflife (alpha = 1 - 0.5^(1/halflife)). Exclusive with com/span/alpha.
+ * @param alpha Smoothing parameter directly. Exclusive with com/span/halflife.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function EwRms(com: number = NaN, span: number = NaN, halflife: number = NaN, alpha: number = NaN): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.EwRms(com, span, halflife, alpha));
 }
 
+/**
+ * Var form of the Rogers-Satchell drift-robust range-based estimator.
+ *
+ * @param com Center of mass.
+ * @param span Span.
+ * @param halflife Halflife.
+ * @param alpha Smoothing parameter directly.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function EwRogersSatchellVar(com: number = NaN, span: number = NaN, halflife: number = NaN, alpha: number = NaN): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.EwRogersSatchellVar(com, span, halflife, alpha));
 }
 
+/**
+ * Vol form of the Rogers-Satchell drift-robust range-based estimator.
+ *
+ * @param com Center of mass.
+ * @param span Span.
+ * @param halflife Halflife.
+ * @param alpha Smoothing parameter directly.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function EwRogersSatchellVol(com: number = NaN, span: number = NaN, halflife: number = NaN, alpha: number = NaN): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.EwRogersSatchellVol(com, span, halflife, alpha));
 }
 
+/**
+ * EW skewness.
+ *
+ * @param com Center of mass (alpha = 1 / (1 + com)). Exclusive with span/halflife/alpha.
+ * @param span Span (alpha = 2 / (span + 1)). Default smoothing parameter. Exclusive with com/halflife/alpha.
+ * @param halflife Halflife (alpha = 1 - 0.5^(1/halflife)). Exclusive with com/span/alpha.
+ * @param alpha Smoothing parameter directly. Exclusive with com/span/halflife.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function EwSkew(com: number = NaN, span: number = NaN, halflife: number = NaN, alpha: number = NaN): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.EwSkew(com, span, halflife, alpha));
 }
 
+/**
+ * EW standard deviation.
+ *
+ * @param com Center of mass (alpha = 1 / (1 + com)). Exclusive with span/halflife/alpha.
+ * @param span Span (alpha = 2 / (span + 1)). Default smoothing parameter. Exclusive with com/halflife/alpha.
+ * @param halflife Halflife (alpha = 1 - 0.5^(1/halflife)). Exclusive with com/span/alpha.
+ * @param alpha Smoothing parameter directly. Exclusive with com/span/halflife.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function EwStd(com: number = NaN, span: number = NaN, halflife: number = NaN, alpha: number = NaN): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.EwStd(com, span, halflife, alpha));
 }
 
+/**
+ * EW variance (pandas adjust=True bias-corrected).
+ *
+ * @param com Center of mass (alpha = 1 / (1 + com)). Exclusive with span/halflife/alpha.
+ * @param span Span (alpha = 2 / (span + 1)). Default smoothing parameter. Exclusive with com/halflife/alpha.
+ * @param halflife Halflife (alpha = 1 - 0.5^(1/halflife)). Exclusive with com/span/alpha.
+ * @param alpha Smoothing parameter directly. Exclusive with com/span/halflife.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function EwVar(com: number = NaN, span: number = NaN, halflife: number = NaN, alpha: number = NaN): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.EwVar(com, span, halflife, alpha));
 }
 
+/**
+ * Latest sample standardised by EW mean and std.
+ *
+ * @param com Center of mass (alpha = 1 / (1 + com)). Exclusive with span/halflife/alpha.
+ * @param span Span (alpha = 2 / (span + 1)). Default smoothing parameter. Exclusive with com/halflife/alpha.
+ * @param halflife Halflife (alpha = 1 - 0.5^(1/halflife)). Exclusive with com/span/alpha.
+ * @param alpha Smoothing parameter directly. Exclusive with com/span/halflife.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function EwZscore(com: number = NaN, span: number = NaN, halflife: number = NaN, alpha: number = NaN): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.EwZscore(com, span, halflife, alpha));
 }
 
+/**
+ * e to the power of each element.
+ *
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function Exp(): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.Exp());
 }
 
+/**
+ * Running bias-corrected excess kurtosis (Fisher) over the whole history.
+ *
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function ExpandingKurt(): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.ExpandingKurt());
 }
 
+/**
+ * Running maximum from t=0.
+ *
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function ExpandingMax(): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.ExpandingMax());
 }
 
+/**
+ * Running mean over the whole history since the last reset.
+ *
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function ExpandingMean(): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.ExpandingMean());
 }
 
+/**
+ * Running minimum from t=0.
+ *
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function ExpandingMin(): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.ExpandingMin());
 }
 
+/**
+ * Running product from t=0.
+ *
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function ExpandingProd(): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.ExpandingProd());
 }
 
+/**
+ * Running bias-corrected sample skewness (G1) over the whole history.
+ *
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function ExpandingSkew(): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.ExpandingSkew());
 }
 
+/**
+ * Running OLS slope of the series against time over the whole history.
+ *
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function ExpandingSlope(): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.ExpandingSlope());
 }
 
+/**
+ * Running sample standard deviation (ddof=1) over the whole history.
+ *
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function ExpandingStd(): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.ExpandingStd());
 }
 
+/**
+ * Running sum from t=0.
+ *
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function ExpandingSum(): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.ExpandingSum());
 }
 
+/**
+ * Running sample variance (ddof=1) over the whole history.
+ *
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function ExpandingVar(): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.ExpandingVar());
 }
 
+/**
+ * Replace NaN with the most recent finite value.
+ *
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function Ffill(): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.Ffill());
 }
 
+/**
+ * Replace NaN with a user-specified scalar.
+ *
+ * @param fill Value used to replace NaN. Default 0.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function FillNa(fill: number = 0.0): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.FillNa(fill));
 }
 
+/**
+ * Latch the first finite value seen since reset.
+ *
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function First(): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.First());
 }
 
+/**
+ * Round each element toward negative infinity.
+ *
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function Floor(): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.Floor());
 }
 
+/**
+ * Fractional differencing filter. Removes the trend while keeping more of the series' memory than an integer difference.
+ *
+ * @param d Differencing order. 0 is the identity, 1 the first difference, 2 the second.
+ * @param windowSize Maximum number of taps, which bounds memory and per-step cost.
+ * @param threshold Truncate the weight series at the first weight smaller than this in absolute value.
+ * @param startPolicy Warmup behaviour.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function FracDiff(d: number = 0.4, windowSize: number = 100, threshold: number = 1e-05, startPolicy: string = "strict"): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.FracDiff(d, windowSize, threshold, startPolicy));
 }
 
+/**
+ * Returns 1.0 if a >= b, else 0.0. NaN in either input yields NaN.
+ *
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function GreaterEqual(): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.GreaterEqual());
 }
 
+/**
+ * Returns 1.0 if a > b, else 0.0. NaN in either input yields NaN.
+ *
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function GreaterThan(): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.GreaterThan());
 }
 
+/**
+ * Robust Hampel despiker, replace samples far from the window median (in MAD units).
+ *
+ * @param windowSize Trailing-window length.
+ * @param nSigma Threshold in robust standard deviations (1.4826 * MAD).
+ * @param output "cleaned" replaces outliers with the median, "flag" emits 1.0 at outliers (else 0.0), "nan" replaces outliers with NaN.
+ * @param startPolicy Warmup handling before the window is full (strict, expanding, or zero).
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function Hampel(windowSize: number = 20, nSigma: number = 3.0, output: string = "cleaned", startPolicy: string = "strict"): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.Hampel(windowSize, nSigma, output, startPolicy));
 }
 
+/**
+ * Conditional intensity of an exponential-kernel Hawkes process: lambda_t = mu + kappa_t.
+ *
+ * @param decay Exponential decay rate applied to the self-exciting kernel each step. Must be in (0, 1).
+ * @param alpha Excitation amplitude; scales how much each event raises the intensity.
+ * @param mu Baseline intensity (the unconditional floor).
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function HawkesIntensity(decay: number = 0.9, alpha: number = 1.0, mu: number = 0.0): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.HawkesIntensity(decay, alpha, mu));
 }
 
+/**
+ * In-phase and quadrature components of the analytic signal via Ehlers' Hilbert transform.
+ *
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function HilbertPhasor(): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.HilbertPhasor());
 }
 
+/**
+ * Time-latch operator. Latches a nonzero finite input and holds it for n bars; returns the release value once the hold expires.
+ *
+ * @param n Number of bars to hold the latched value, including the trigger bar. Must be >= 1.
+ * @param release Value returned when no hold is active and the input is zero. May be finite or NaN.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function Hold(n: number, release: number = 0.0): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.Hold(n, release));
 }
 
+/**
+ * Hull's responsive MA: WMA(2*WMA(n/2) - WMA(n), sqrt(n)).
+ *
+ * @param windowSize Trailing-window length.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function HullMA(windowSize: number = 20): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.HullMA(windowSize));
 }
 
+/**
+ * Euclidean distance sqrt(x^2 + y^2), numerically stable.
+ *
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function Hypot(): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.Hypot());
 }
 
+/**
+ * Pass-through (y = x).
+ *
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function Identity(): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.Identity());
 }
 
+/**
+ * Causal impulse remover, detects spikes on the trend-free first difference.
+ *
+ * @param windowSize Trailing-window length.
+ * @param nSigma Threshold in robust standard deviations (1.4826 * MAD of the differences).
+ * @param output "cleaned" replaces outliers with the median, "flag" emits 1.0 at outliers (else 0.0), "nan" replaces outliers with NaN.
+ * @param startPolicy Warmup handling before the window is full (strict, expanding, or zero).
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function ImpulseClip(windowSize: number = 20, nSigma: number = 4.0, output: string = "cleaned", startPolicy: string = "strict"): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.ImpulseClip(windowSize, nSigma, output, startPolicy));
 }
 
+/**
+ * Adaptive 2-pole trendline whose smoothing tracks the measured dominant cycle.
+ *
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function InstantaneousTrendline(): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.InstantaneousTrendline());
 }
 
+/**
+ * Returns 1.0 for finite values, 0.0 for NaN or inf. Does not propagate NaN.
+ *
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function IsFinite(): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.IsFinite());
 }
 
+/**
+ * Returns 1.0 if the input is NaN, else 0.0. Does not propagate NaN.
+ *
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function IsNan(): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.IsNan());
 }
 
+/**
+ * Adaptive MA whose smoothing constant responds to the efficiency ratio.
+ *
+ * @param windowSize Efficiency-ratio lookback.
+ * @param fast Fast EMA period.
+ * @param slow Slow EMA period.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function KAMA(windowSize: number = 10, fast: number = 2, slow: number = 30): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.KAMA(windowSize, fast, slow));
 }
 
+/**
+ * Scalar 1-D Kalman filter for a noisy random-walk model.
+ *
+ * @param processVar Variance of the random-walk innovation (larger = more responsive).
+ * @param observationVar Variance of the measurement noise.
+ * @param initialState Initial state estimate.
+ * @param initialVariance Initial state variance. Set to a large value to forget the initial state quickly.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function KalmanFilter(processVar: number = 0.01, observationVar: number = 1.0, initialState: number = 0.0, initialVariance: number = 1.0): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.KalmanFilter(processVar, observationVar, initialState, initialVariance));
 }
 
+/**
+ * Volatility-adapted envelope: EMA midline plus/minus a multiple of ATR.
+ *
+ * @param windowSize Period for both the EMA midline and the ATR offset.
+ * @param numAtr ATR multiplier for upper/lower offset.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function KeltnerChannels(windowSize: number = 20, numAtr: number = 2.0): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.KeltnerChannels(windowSize, numAtr));
 }
 
+/**
+ * Output is the input delayed by k samples.
+ *
+ * @param windowSize Number of samples to delay by.
+ * @param startPolicy Warmup behaviour: 'strict' (NaN until full window), 'expanding' (use partial windows), or 'zero' (treat missing as zero).
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function Lag(windowSize: number = 1, startPolicy: string = "strict"): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.Lag(windowSize, startPolicy));
 }
 
+/**
+ * Return the most recent finite value seen since reset.
+ *
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function Last(): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.Last());
 }
 
+/**
+ * Trade sign by the Lee-Ready (1991) rule: quote test with tick-rule fallback.
+ *
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function LeeReadySign(): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.LeeReadySign());
 }
 
+/**
+ * Returns 1.0 if a <= b, else 0.0. NaN in either input yields NaN.
+ *
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function LessEqual(): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.LessEqual());
 }
 
+/**
+ * Returns 1.0 if a < b, else 0.0. NaN in either input yields NaN.
+ *
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function LessThan(): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.LessThan());
 }
 
+/**
+ * Affine transform: scale * x + shift.
+ *
+ * @param scale Multiplicative coefficient.
+ * @param shift Additive offset.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function Linear(scale: number = 1.0, shift: number = 0.0): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.Linear(scale, shift));
 }
 
+/**
+ * Two-input affine combination: a*x + b*y + c.
+ *
+ * @param a Coefficient on the first input.
+ * @param b Coefficient on the second input.
+ * @param c Additive offset.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function Linear2(a: number = 1.0, b: number = 1.0, c: number = 0.0): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.Linear2(a, b, c));
 }
 
+/**
+ * Natural logarithm of each element.
+ *
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function Log(): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.Log());
 }
 
+/**
+ * log(x[t] / x[t-k]) - log return at lag k.
+ *
+ * @param windowSize Lag for the log return.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function LogReturn(windowSize: number = 1): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.LogReturn(windowSize));
 }
 
+/**
+ * MACD line, signal line, and histogram (3 outputs).
+ *
+ * @param fast Fast EMA span.
+ * @param slow Slow EMA span.
+ * @param signal Signal-line EMA span.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function MACD(fast: number = 12, slow: number = 26, signal: number = 9): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.MACD(fast, slow, signal));
 }
 
+/**
+ * Adaptive moving average pair (MAMA, FAMA) whose smoothing rate tracks the instantaneous-phase rate of change.
+ *
+ * @param fastLimit Upper bound on the smoothing constant, applied when the phase advances quickly.
+ * @param slowLimit Lower bound on the smoothing constant, applied when the phase stalls.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function MAMA(fastLimit: number = 0.5, slowLimit: number = 0.05): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.MAMA(fastLimit, slowLimit));
 }
 
+/**
+ * Volume-weighted analogue of RSI on the typical price.
+ *
+ * @param windowSize Lookback period (Wilder's default is 14).
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function MFI(windowSize: number = 14): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.MFI(windowSize));
 }
 
+/**
+ * Worst drawdown experienced so far (since reset).
+ *
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function MaxDrawdown(): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.MaxDrawdown());
 }
 
+/**
+ * Imbalance-weighted mid (Stoikov 2018, first-order): fair value that leans toward the thinner side of the book.
+ *
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function MicroPrice(): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.MicroPrice());
 }
 
+/**
+ * Wilder negative directional indicator.
+ *
+ * @param windowSize Wilder smoothing period.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function MinusDI(windowSize: number = 14): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.MinusDI(windowSize));
 }
 
+/**
+ * Wilder smoothed negative directional movement.
+ *
+ * @param windowSize Wilder smoothing period.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function MinusDM(windowSize: number = 14): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.MinusDM(windowSize));
 }
 
+/**
+ * x[t] - x[t-k], TA-Lib's MOM. Mathematically identical to Diff(k).
+ *
+ * @param windowSize Lookback k. TA-Lib defaults to 10.
+ * @param startPolicy Warmup behaviour: 'strict' (NaN until full window), 'expanding' (use partial windows), or 'zero' (treat missing as zero).
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function Momentum(windowSize: number = 10, startPolicy: string = "strict"): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.Momentum(windowSize, startPolicy));
 }
 
+/**
+ * Finite-impulse-response filter with user-supplied taps.
+ *
+ * @param taps FIR coefficients. Default is a 3-tap triangular kernel.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function MovingAverage(taps: number[] = [0.25, 0.5, 0.25]): ScreamerOp {
   const M = current();
   const _v0 = new M.VectorDouble();
@@ -638,501 +1467,1140 @@ export function MovingAverage(taps: number[] = [0.25, 0.5, 0.25]): ScreamerOp {
   return wrapOp(M, _op);
 }
 
+/**
+ * Elementwise product of two aligned streams (x * y).
+ *
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function Mul(): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.Mul());
 }
 
+/**
+ * ATR scaled to a percentage of the current close.
+ *
+ * @param windowSize Wilder smoothing period.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function NATR(windowSize: number = 14): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.NATR(windowSize));
 }
 
+/**
+ * Negative part of x: max(-x, 0).
+ *
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function NegPart(): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.NegPart());
 }
 
+/**
+ * Returns 0.0 if input is nonzero, 1.0 if zero. NaN propagates.
+ *
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function Not(): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.Not());
 }
 
+/**
+ * Returns 1.0 if a != b, else 0.0. NaN in either input yields NaN.
+ *
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function NotEqual(): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.NotEqual());
 }
 
+/**
+ * On-Balance Volume: signed cumulative volume by close-direction (Granville, 1963).
+ *
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function OBV(): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.OBV());
 }
 
+/**
+ * Normalized signed order flow, (buy - sell) / (buy + sell).
+ *
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function OFI(): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.OFI());
 }
 
+/**
+ * Returns 1.0 if either input is nonzero, else 0.0. NaN in either input yields NaN.
+ *
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function Or(): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.Or());
 }
 
+/**
+ * Wilder positive directional indicator.
+ *
+ * @param windowSize Wilder smoothing period.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function PlusDI(windowSize: number = 14): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.PlusDI(windowSize));
 }
 
+/**
+ * Wilder smoothed positive directional movement.
+ *
+ * @param windowSize Wilder smoothing period.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function PlusDM(windowSize: number = 14): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.PlusDM(windowSize));
 }
 
+/**
+ * Convert (r, theta) to (x, y).
+ *
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function Polar2Cart(): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.Polar2Cart());
 }
 
+/**
+ * Positive part of x: max(x, 0).
+ *
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function PosPart(): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.PosPart());
 }
 
+/**
+ * x raised to a fixed exponent p.
+ *
+ * @param p Exponent. Defaults to 2 (same effect as Square but slower).
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function Power(p: number = 2.0): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.Power(p));
 }
 
+/**
+ * Bouchaud (2004) propagator model: price impact as a decaying-kernel convolution over past signed order flow.
+ *
+ * @param windowSize Number of past flow samples included in the convolution (the kernel support).
+ * @param g0 Kernel amplitude; scales the overall impact magnitude.
+ * @param gamma Power-law decay exponent. Larger values make the kernel decay faster.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function Propagator(windowSize: number = 20, g0: number = 1.0, gamma: number = 0.5): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.Propagator(windowSize, g0, gamma));
 }
 
+/**
+ * 100 * (x[t] / x[t-k] - 1) - TA-Lib's ROC.
+ *
+ * @param windowSize Lookback k. TA-Lib default is 10.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function ROC(windowSize: number = 10): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.ROC(windowSize));
 }
 
+/**
+ * x[t] / x[t-k] - 1 - TA-Lib's ROCP. Identical to Return.
+ *
+ * @param windowSize Lookback k.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function ROCP(windowSize: number = 10): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.ROCP(windowSize));
 }
 
+/**
+ * x[t] / x[t-k] - TA-Lib's ROCR.
+ *
+ * @param windowSize Lookback k.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function ROCR(windowSize: number = 10): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.ROCR(windowSize));
 }
 
+/**
+ * Realized spread, 2*D*(price - mid a few steps later): the liquidity part of the effective spread.
+ *
+ * @param lag How many steps ahead the mid is measured (the price-impact horizon).
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function RealizedSpread(lag: number = 1): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.RealizedSpread(lag));
 }
 
+/**
+ * Rectified linear unit: max(0, x).
+ *
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function Relu(): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.Relu());
 }
 
+/**
+ * (x[t] - x[t-k]) / x[t-k] - the simple percentage return at lag k.
+ *
+ * @param windowSize Lag for the return (1 = consecutive).
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function Return(windowSize: number = 1): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.Return(windowSize));
 }
 
+/**
+ * Roll (1984) effective spread from trade prices alone: 2*sqrt(-cov(dP_t, dP_{t-1})) over a trailing window.
+ *
+ * @param windowSize Window length in observations.
+ * @param startPolicy Warmup behaviour.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function RollSpread(windowSize: number = 20, startPolicy: string = "strict"): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.RollSpread(windowSize, startPolicy));
 }
 
+/**
+ * Rolling OLS intercept of target on regressor (companion to RollingBeta).
+ *
+ * @param windowSize Trailing-window length.
+ * @param startPolicy Warmup behaviour.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function RollingAlpha(windowSize: number = 20, startPolicy: string = "strict"): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.RollingAlpha(windowSize, startPolicy));
 }
 
+/**
+ * Window-offset of the trailing-window maximum (TA-Lib MAXINDEX).
+ *
+ * @param windowSize Trailing-window length.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function RollingArgmax(windowSize: number = 20): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.RollingArgmax(windowSize));
 }
 
+/**
+ * Window-offset of the trailing-window minimum (TA-Lib MININDEX).
+ *
+ * @param windowSize Trailing-window length.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function RollingArgmin(windowSize: number = 20): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.RollingArgmin(windowSize));
 }
 
+/**
+ * cov(x, y) / var(y) - regression slope of x on y.
+ *
+ * @param windowSize Window length.
+ * @param startPolicy Warmup behaviour.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function RollingBeta(windowSize: number = 20, startPolicy: string = "strict"): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.RollingBeta(windowSize, startPolicy));
 }
 
+/**
+ * Historical Conditional Value-at-Risk (Expected Shortfall): the mean loss in the worst alpha tail over a window.
+ *
+ * @param windowSize Window length in observations.
+ * @param alpha Tail probability level in (0, 1); 0.05 means the 5% CVaR (average loss in the worst 5% of the window).
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function RollingCVaR(windowSize: number = 20, alpha: number = 0.05): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.RollingCVaR(windowSize, alpha));
 }
 
+/**
+ * Annualised return divided by the worst rolling drawdown.
+ *
+ * @param windowSize Trailing-window length.
+ * @param periodsPerYear Annualisation factor (252 daily, 52 weekly, 12 monthly, 1 = no annualisation).
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function RollingCalmar(windowSize: number = 252, periodsPerYear: number = 1.0): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.RollingCalmar(windowSize, periodsPerYear));
 }
 
+/**
+ * Rolling Pearson correlation of two parallel streams.
+ *
+ * @param windowSize Window length.
+ * @param startPolicy Warmup behaviour.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function RollingCorr(windowSize: number = 20, startPolicy: string = "strict"): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.RollingCorr(windowSize, startPolicy));
 }
 
+/**
+ * Rolling sample covariance of two parallel streams.
+ *
+ * @param windowSize Window length.
+ * @param startPolicy Warmup behaviour.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function RollingCov(windowSize: number = 20, startPolicy: string = "strict"): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.RollingCov(windowSize, startPolicy));
 }
 
+/**
+ * Trailing-window downside semideviation: the RMS of returns falling below a minimum acceptable return.
+ *
+ * @param windowSize Window length in observations.
+ * @param mar Minimum acceptable return; only returns below it contribute.
+ * @param startPolicy Warmup behaviour.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function RollingDownsideDeviation(windowSize: number = 20, mar: number = 0.0, startPolicy: string = "strict"): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.RollingDownsideDeviation(windowSize, mar, startPolicy));
 }
 
+/**
+ * Var form of the Garman-Klass range-based volatility estimator (OHLC).
+ *
+ * @param windowSize Smoothing window.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function RollingGarmanKlassVar(windowSize: number = 20): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.RollingGarmanKlassVar(windowSize));
 }
 
+/**
+ * Vol form of the Garman-Klass range-based volatility estimator (OHLC).
+ *
+ * @param windowSize Smoothing window.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function RollingGarmanKlassVol(windowSize: number = 20): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.RollingGarmanKlassVol(windowSize));
 }
 
+/**
+ * Fraction of strictly-positive samples in a trailing window.
+ *
+ * @param windowSize Trailing-window length.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function RollingHitRate(windowSize: number = 252): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.RollingHitRate(windowSize));
 }
 
+/**
+ * Rolling-window Hurst exponent via Anis-Lloyd corrected rescaled-range analysis.
+ *
+ * @param windowSize Trailing-window length. Must be >= 4 * min_scale.
+ * @param minScale Smallest R/S block size. Dyadic scales are min_scale, 2*min_scale, ... up to window_size/2.
+ * @param method Estimator family. Currently only Anis-Lloyd corrected R/S.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function RollingHurst(windowSize: number = 256, minScale: number = 4, method: string = "rs"): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.RollingHurst(windowSize, minScale, method));
 }
 
+/**
+ * Annualised information ratio: Sharpe of active returns against a benchmark.
+ *
+ * @param windowSize Trailing-window length.
+ * @param periodsPerYear Annualisation factor (252 daily, 52 weekly, 12 monthly, 1 = no annualisation).
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function RollingInfoRatio(windowSize: number = 252, periodsPerYear: number = 1.0): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.RollingInfoRatio(windowSize, periodsPerYear));
 }
 
+/**
+ * Q3 minus Q1 over the trailing window.
+ *
+ * @param windowSize Trailing-window length.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function RollingIqr(windowSize: number = 20): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.RollingIqr(windowSize));
 }
 
+/**
+ * Trailing-window excess kurtosis.
+ *
+ * @param windowSize Trailing-window length.
+ * @param startPolicy Warmup behaviour.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function RollingKurt(windowSize: number = 20, startPolicy: string = "strict"): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.RollingKurt(windowSize, startPolicy));
 }
 
+/**
+ * Full OLS fit returning (slope, intercept, r_squared, stderr).
+ *
+ * @param windowSize Trailing-window length.
+ * @param startPolicy Warmup behaviour.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function RollingLinearRegression(windowSize: number = 20, startPolicy: string = "strict"): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.RollingLinearRegression(windowSize, startPolicy));
 }
 
+/**
+ * Trailing-window mean absolute deviation from the rolling mean.
+ *
+ * @param windowSize Trailing-window length.
+ * @param startPolicy Warmup behaviour.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function RollingMad(windowSize: number = 20, startPolicy: string = "strict"): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.RollingMad(windowSize, startPolicy));
 }
 
+/**
+ * Trailing-window maximum (monotonic deque).
+ *
+ * @param windowSize Trailing-window length.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function RollingMax(windowSize: number = 20): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.RollingMax(windowSize));
 }
 
+/**
+ * Worst peak-to-trough drawdown inside a trailing window.
+ *
+ * @param windowSize Trailing-window length (252 = one trading year, default).
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function RollingMaxDrawdown(windowSize: number = 252): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.RollingMaxDrawdown(windowSize));
 }
 
+/**
+ * Trailing-window arithmetic mean (simple moving average).
+ *
+ * @param windowSize Trailing-window length.
+ * @param startPolicy Warmup behaviour.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function RollingMean(windowSize: number = 20, startPolicy: string = "strict"): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.RollingMean(windowSize, startPolicy));
 }
 
+/**
+ * Trailing-window median.
+ *
+ * @param windowSize Trailing-window length.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function RollingMedian(windowSize: number = 20): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.RollingMedian(windowSize));
 }
 
+/**
+ * Rolling median absolute deviation, median(|x - median|), a robust scale estimate.
+ *
+ * @param windowSize Trailing-window length.
+ * @param startPolicy Warmup handling before the window is full (strict, expanding, or zero).
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function RollingMedianAD(windowSize: number = 20, startPolicy: string = "strict"): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.RollingMedianAD(windowSize, startPolicy));
 }
 
+/**
+ * Trailing-window minimum (monotonic deque).
+ *
+ * @param windowSize Trailing-window length.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function RollingMin(windowSize: number = 20): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.RollingMin(windowSize));
 }
 
+/**
+ * Trailing-window (min, max) returned as a 2-tuple per step.
+ *
+ * @param windowSize Trailing-window length.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function RollingMinMax(windowSize: number = 20): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.RollingMinMax(windowSize));
 }
 
+/**
+ * Rolling MLE fit of a mean-reverting Ornstein-Uhlenbeck process.
+ *
+ * @param windowSize Trailing-window length.
+ * @param output Which fitted parameter to return: "mrr" = mean-reversion rate, "mean" = long-run mean, "relmean" = mean relative to current value, "std" = noise standard deviation.
+ * @param startPolicy Warmup behaviour.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function RollingOU(windowSize: number = 20, output: string = "mrr", startPolicy: string = "strict"): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.RollingOU(windowSize, output, startPolicy));
 }
 
+/**
+ * Omega ratio over a window: total gains above a threshold divided by total losses below it.
+ *
+ * @param windowSize Window length in observations.
+ * @param threshold The return level separating gains from losses.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function RollingOmega(windowSize: number = 20, threshold: number = 0.0): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.RollingOmega(windowSize, threshold));
 }
 
+/**
+ * Var form of the Parkinson range-based volatility estimator (uses high & low).
+ *
+ * @param windowSize Smoothing window for the per-bar estimator.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function RollingParkinsonVar(windowSize: number = 20): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.RollingParkinsonVar(windowSize));
 }
 
+/**
+ * Vol form of the Parkinson range-based volatility estimator (uses high & low).
+ *
+ * @param windowSize Smoothing window for the per-bar estimator.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function RollingParkinsonVol(windowSize: number = 20): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.RollingParkinsonVol(windowSize));
 }
 
+/**
+ * Percentile (rank/window) of the current value in the trailing window.
+ *
+ * @param windowSize Trailing-window length.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function RollingPercentile(windowSize: number = 20): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.RollingPercentile(windowSize));
 }
 
+/**
+ * OLS fit y = a + b*t over a trailing window. derivative_order selects value/slope/zero.
+ *
+ * @param windowSize Trailing-window length.
+ * @param derivativeOrder 0 = fitted value at the last sample, 1 = slope.
+ * @param startPolicy Warmup behaviour.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function RollingPoly1(windowSize: number = 20, derivativeOrder: number = 0, startPolicy: string = "strict"): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.RollingPoly1(windowSize, derivativeOrder, startPolicy));
 }
 
+/**
+ * OLS fit y = a + b*t + c*t^2 over a trailing window.
+ *
+ * @param windowSize Trailing-window length.
+ * @param derivativeOrder 0 = value, 1 = first derivative, 2 = second derivative.
+ * @param startPolicy Warmup behaviour.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function RollingPoly2(windowSize: number = 20, derivativeOrder: number = 0, startPolicy: string = "strict"): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.RollingPoly2(windowSize, derivativeOrder, startPolicy));
 }
 
+/**
+ * Trailing-window quantile (e.g. 0.25 = lower quartile).
+ *
+ * @param windowSize Trailing-window length.
+ * @param quantile Quantile to compute (in [0, 1]).
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function RollingQuantile(windowSize: number = 20, quantile: number = 0.5): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.RollingQuantile(windowSize, quantile));
 }
 
+/**
+ * Relative Strength Index. Wilder's smoothing by default; Cutler's via method='cutler'.
+ *
+ * @param windowSize Period. Wilder's original choice is 14.
+ * @param method Smoothing convention. 'wilder' matches TA-Lib and pandas-ta; 'cutler' uses a plain SMA.
+ * @param startPolicy Warmup behaviour.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function RollingRSI(windowSize: number = 14, method: string = "wilder", startPolicy: string = "strict"): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.RollingRSI(windowSize, method, startPolicy));
 }
 
+/**
+ * Trailing-window max minus min.
+ *
+ * @param windowSize Trailing-window length.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function RollingRange(windowSize: number = 20): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.RollingRange(windowSize));
 }
 
+/**
+ * Rank of the current value within the trailing window (1-based, average tie rule).
+ *
+ * @param windowSize Trailing-window length.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function RollingRank(windowSize: number = 20): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.RollingRank(windowSize));
 }
 
+/**
+ * Standard deviation of the rolling-hedge-adjusted residual y - beta*x.
+ *
+ * @param windowSize Trailing-window length.
+ * @param startPolicy Warmup behaviour.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function RollingResidualStd(windowSize: number = 20, startPolicy: string = "strict"): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.RollingResidualStd(windowSize, startPolicy));
 }
 
+/**
+ * Trailing-window root-mean-square.
+ *
+ * @param windowSize Trailing-window length.
+ * @param startPolicy Warmup behaviour.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function RollingRms(windowSize: number = 20, startPolicy: string = "strict"): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.RollingRms(windowSize, startPolicy));
 }
 
+/**
+ * Var form of the Rogers-Satchell drift-robust range-based estimator.
+ *
+ * @param windowSize Smoothing window.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function RollingRogersSatchellVar(windowSize: number = 20): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.RollingRogersSatchellVar(windowSize));
 }
 
+/**
+ * Vol form of the Rogers-Satchell drift-robust range-based estimator.
+ *
+ * @param windowSize Smoothing window.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function RollingRogersSatchellVol(windowSize: number = 20): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.RollingRogersSatchellVol(windowSize));
 }
 
+/**
+ * Annualised Sharpe ratio over a trailing window of returns.
+ *
+ * @param windowSize Trailing-window length.
+ * @param periodsPerYear Annualisation factor (252 daily, 52 weekly, 12 monthly, 1 = no annualisation).
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function RollingSharpe(windowSize: number = 252, periodsPerYear: number = 1.0): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.RollingSharpe(windowSize, periodsPerYear));
 }
 
+/**
+ * Replace samples outside [mean - lower*std, mean + upper*std] with NaN or the clipped bound.
+ *
+ * @param windowSize Trailing-window length.
+ * @param lower Lower sigma threshold (None disables lower clipping).
+ * @param upper Upper sigma threshold (None disables upper clipping).
+ * @param output Which value to return: "clipped" = clipped value, "mean" = rolling mean estimate, "std" = rolling std estimate, "nan" = outliers replaced by NaN.
+ * @param startPolicy Warmup behaviour.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function RollingSigmaClip(windowSize: number = 20, lower: number = NaN, upper: number = NaN, output: string = "clipped", startPolicy: string = "strict"): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.RollingSigmaClip(windowSize, lower, upper, output, startPolicy));
 }
 
+/**
+ * Trailing-window skewness.
+ *
+ * @param windowSize Trailing-window length.
+ * @param startPolicy Warmup behaviour.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function RollingSkew(windowSize: number = 20, startPolicy: string = "strict"): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.RollingSkew(windowSize, startPolicy));
 }
 
+/**
+ * Annualised Sortino ratio: Sharpe with downside-only deviation.
+ *
+ * @param windowSize Trailing-window length.
+ * @param periodsPerYear Annualisation factor (252 daily, 52 weekly, 12 monthly, 1 = no annualisation).
+ * @param target Minimum acceptable return (only deviations below this contribute to the denominator).
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function RollingSortino(windowSize: number = 252, periodsPerYear: number = 1.0, target: number = 0.0): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.RollingSortino(windowSize, periodsPerYear, target));
 }
 
+/**
+ * x - beta(x,y) * y - hedge-adjusted residual.
+ *
+ * @param windowSize Window length.
+ * @param startPolicy Warmup behaviour.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function RollingSpread(windowSize: number = 20, startPolicy: string = "strict"): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.RollingSpread(windowSize, startPolicy));
 }
 
+/**
+ * Trailing-window sample standard deviation (ddof=1).
+ *
+ * @param windowSize Trailing-window length.
+ * @param startPolicy Warmup behaviour.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function RollingStd(windowSize: number = 20, startPolicy: string = "strict"): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.RollingStd(windowSize, startPolicy));
 }
 
+/**
+ * Trailing-window sum.
+ *
+ * @param windowSize Trailing-window length.
+ * @param startPolicy Warmup behaviour.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function RollingSum(windowSize: number = 20, startPolicy: string = "strict"): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.RollingSum(windowSize, startPolicy));
 }
 
+/**
+ * Linear regression of y on time, projected one step ahead. TA-Lib's TSF.
+ *
+ * @param windowSize Trailing-window length.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function RollingTSF(windowSize: number = 20): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.RollingTSF(windowSize));
 }
 
+/**
+ * Rolling volume-weighted average price (typical-price weighted).
+ *
+ * @param windowSize Trailing-window length.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function RollingVWAP(windowSize: number = 20): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.RollingVWAP(windowSize));
 }
 
+/**
+ * Trailing-window sample variance (ddof=1).
+ *
+ * @param windowSize Trailing-window length.
+ * @param startPolicy Warmup behaviour.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function RollingVar(windowSize: number = 20, startPolicy: string = "strict"): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.RollingVar(windowSize, startPolicy));
 }
 
+/**
+ * Var form of the Yang-Zhang estimator (drift + gap robust).
+ *
+ * @param windowSize Smoothing window.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function RollingYangZhangVar(windowSize: number = 20): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.RollingYangZhangVar(windowSize));
 }
 
+/**
+ * Vol form of the Yang-Zhang estimator (drift + gap robust).
+ *
+ * @param windowSize Smoothing window.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function RollingYangZhangVol(windowSize: number = 20): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.RollingYangZhangVol(windowSize));
 }
 
+/**
+ * Latest sample standardised by trailing-window mean and std.
+ *
+ * @param windowSize Trailing-window length.
+ * @param startPolicy Warmup behaviour.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function RollingZscore(windowSize: number = 20, startPolicy: string = "strict"): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.RollingZscore(windowSize, startPolicy));
 }
 
+/**
+ * Ehlers bandpass, a highpass then a SuperSmoother.
+ *
+ * @param hpPeriod Highpass cutoff as a cycle length in samples. Give this or hp_cutoff.
+ * @param lpPeriod Lowpass cutoff as a cycle length in samples. Give this or lp_cutoff.
+ * @param hpCutoff Highpass cutoff as a fraction of Nyquist in (0, 1). Give this or hp_period.
+ * @param lpCutoff Lowpass cutoff as a fraction of Nyquist in (0, 1). Give this or lp_period.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function RoofingFilter(hpPeriod: number = NaN, lpPeriod: number = NaN, hpCutoff: number = NaN, lpCutoff: number = NaN): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.RoofingFilter(hpPeriod, lpPeriod, hpCutoff, lpCutoff));
 }
 
+/**
+ * Round each element to the nearest integer (half-to-even).
+ *
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function Round(): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.Round());
 }
 
+/**
+ * Hysteresis comparator. Latches 1.0 above the upper threshold, 0.0 below the lower threshold, and retains its previous value in between.
+ *
+ * @param lower Lower threshold. The output latches to 0.0 when the input falls strictly below this value.
+ * @param upper Upper threshold. The output latches to 1.0 when the input rises strictly above this value. Must be strictly greater than `lower`.
+ * @param initial Latch value held before the first threshold crossing. Must be 0.0 (low), 1.0 (high), or NaN (undefined until the first crossing). Defaults to 0.0, so a signal that starts inside the dead band reads low rather than NaN.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function SchmittTrigger(lower: number, upper: number, initial: number = 0.0): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.SchmittTrigger(lower, upper, initial));
 }
 
+/**
+ * Scaled exponential linear unit (self-normalizing networks).
+ *
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function Selu(): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.Selu());
 }
 
+/**
+ * Logistic sigmoid: 1 / (1 + exp(-x)).
+ *
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function Sigmoid(): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.Sigmoid());
 }
 
+/**
+ * Sign of each element: -1, 0, or +1.
+ *
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function Sign(): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.Sign());
 }
 
+/**
+ * Sine of each element (radians).
+ *
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function Sin(): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.Sin());
 }
 
+/**
+ * Softsign: x / (1 + |x|).
+ *
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function Softsign(): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.Softsign());
 }
 
+/**
+ * Square root of each element.
+ *
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function Sqrt(): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.Sqrt());
 }
 
+/**
+ * x squared (faster than Power(2)).
+ *
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function Square(): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.Square());
 }
 
+/**
+ * Stochastic oscillator %K and %D (3 inputs -> 2 outputs).
+ *
+ * @param fastkPeriod Lookback for the %K stochastic.
+ * @param smoothK Smoothing period for %K (1 = fast stoch, 3 = TA-Lib slow stoch).
+ * @param d SMA period for %D.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function Stoch(fastkPeriod: number = 14, smoothK: number = 3, d: number = 3): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.Stoch(fastkPeriod, smoothK, d));
 }
 
+/**
+ * Stochastic applied to RSI (1 input -> 2 outputs).
+ *
+ * @param rsiPeriod RSI period.
+ * @param stochPeriod Stochastic lookback over the RSI.
+ * @param smoothK %K smoothing.
+ * @param d %D period.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function StochRSI(rsiPeriod: number = 14, stochPeriod: number = 14, smoothK: number = 1, d: number = 3): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.StochRSI(rsiPeriod, stochPeriod, smoothK, d));
 }
 
+/**
+ * Elementwise difference of two aligned streams (x - y).
+ *
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function Sub(): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.Sub());
 }
 
+/**
+ * Ehlers 2-pole low-lag lowpass filter.
+ *
+ * @param period Cutoff as a cycle length in samples. Give this or cutoff, not both.
+ * @param cutoff Cutoff as a fraction of Nyquist in (0, 1). Give this or period, not both.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function SuperSmoother(period: number = NaN, cutoff: number = NaN): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.SuperSmoother(period, cutoff));
 }
 
+/**
+ * Mulloy's Triple EMA: 3*EMA - 3*EMA(EMA) + EMA(EMA(EMA)).
+ *
+ * @param com Center of mass. Exclusive with span/halflife/alpha.
+ * @param span Span (default smoothing parameter).
+ * @param halflife Halflife.
+ * @param alpha Smoothing parameter.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function TEMA(com: number = NaN, span: number = NaN, halflife: number = NaN, alpha: number = NaN): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.TEMA(com, span, halflife, alpha));
 }
 
+/**
+ * Triangular MA: SMA of an SMA. Heavier center-weighting than WMA.
+ *
+ * @param windowSize Trailing-window length.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function TRIMA(windowSize: number = 20): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.TRIMA(windowSize));
 }
 
+/**
+ * ROC of a triple-smoothed EMA.
+ *
+ * @param span EMA span for each of the three smoothing stages.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function TRIX(span: number = 14): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.TRIX(span));
 }
 
+/**
+ * Hyperbolic tangent.
+ *
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function Tanh(): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.Tanh());
 }
 
+/**
+ * Trade sign by the tick rule (+1 up-tick, -1 down-tick, carry on unchanged).
+ *
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function TickRuleSign(): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.TickRuleSign());
 }
 
+/**
+ * Classifies each sample as trending (1.0) or cycling (0.0) from the dominant-cycle phase advance.
+ *
+ * @param phaseRateFrac Threshold, as a fraction of the expected per-sample phase advance for the current dominant cycle, below which a sample is classified as trending.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function TrendMode(phaseRateFrac: number = 0.5): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.TrendMode(phaseRateFrac));
 }
 
+/**
+ * Per-bar true range accounting for overnight gaps (Wilder, 1978).
+ *
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function TrueRange(): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.TrueRange());
 }
 
+/**
+ * Three-period weighted oscillator (Williams, 1976).
+ *
+ * @param period1 Short averaging period (bars).
+ * @param period2 Medium averaging period (bars).
+ * @param period3 Long averaging period (bars).
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function UltimateOscillator(period1: number = 7, period2: number = 14, period3: number = 28): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.UltimateOscillator(period1, period2, period3));
 }
 
+/**
+ * Volume-synchronized probability of informed trading (Easley-Lopez de Prado-O'Hara 2012): order-flow toxicity.
+ *
+ * @param bucketVolume Volume that fills one bucket (the volume clock). Set it to your instrument's volume scale.
+ * @param nBuckets Number of trailing buckets averaged.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function VPIN(bucketVolume: number = 1.0, nBuckets: number = 50): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.VPIN(bucketVolume, nBuckets));
 }
 
+/**
+ * Linearly-weighted moving average. O(1) per step.
+ *
+ * @param windowSize Trailing-window length.
+ * @param startPolicy Warmup behaviour.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function WMA(windowSize: number = 20, startPolicy: string = "strict"): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.WMA(windowSize, startPolicy));
 }
 
+/**
+ * Returns a if mask is nonzero, b otherwise. NaN mask yields NaN.
+ *
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function Where(): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.Where());
 }
 
+/**
+ * Inverse stochastic oscillator in [-100, 0].
+ *
+ * @param windowSize Period (Wilder's default).
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
 export function WilliamsR(windowSize: number = 14): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.WilliamsR(windowSize));

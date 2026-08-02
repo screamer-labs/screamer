@@ -9,12 +9,18 @@ with ``name``, ``ctor`` = the C++ constructor argument types, and ``ctor_args``
     js/src/generated/ops.ts    one synchronous factory per op
     js/src/generated/ops.d.ts  matching declarations
 
-This generator is pure source -> source: it reads only the manifest and never
-imports the ``screamer`` runtime, so its output is identical in every
-environment. Constructor argument NAMES and DEFAULTS come from ``ctor_args``
-(deterministic, sourced from committed C++). When ``ctor_args`` is empty but the
-op has ctor types (annotation/arity mismatch upstream), we fall back to
-positional ``arg0..argN`` names with no defaults.
+This generator is pure source -> source: it reads only the manifest and the
+committed ``screamer/data/help.json`` (never imports the ``screamer``
+runtime), so its output is identical in every environment. Constructor
+argument NAMES and DEFAULTS come from ``ctor_args`` (deterministic, sourced
+from committed C++). When ``ctor_args`` is empty but the op has ctor types
+(annotation/arity mismatch upstream), we fall back to positional
+``arg0..argN`` names with no defaults.
+
+Each factory is preceded by a JSDoc block sourced from ``help.json``'s
+``short`` (one-line description) and per-parameter ``description`` fields --
+the same op descriptions that back the Python docs -- so editor tooltips and
+the generated API reference share one source of truth.
 
 The C++ ctor types drive the emitted TS types (not the annotation defaults):
 
@@ -45,9 +51,11 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.abspath(os.path.join(HERE, "..", ".."))
 MANIFEST = os.path.join(HERE, "wasm_manifest.json")
+HELP_JSON = os.path.join(REPO, "screamer", "data", "help.json")
 GEN_DIR = os.path.join(REPO, "js", "src", "generated")
 OPS_TS = os.path.join(GEN_DIR, "ops.ts")
 OPS_DTS = os.path.join(GEN_DIR, "ops.d.ts")
+PYTHON_DOCS_URL = "https://screamer.readthedocs.io/en/latest/"
 
 # C++ ctor type -> TS type.
 TS_TYPE = {
@@ -125,6 +133,7 @@ def _build_params(op: dict):
         out.append(
             {
                 "name": _snake_to_camel(arg_name),
+                "orig_name": arg_name,
                 "ts_type": ts_type,
                 "default": _ts_default(cpp_type, arg_default),
                 "is_vec": cpp_type == "std::vector<double>",
@@ -180,7 +189,58 @@ HEADER = (
 )
 
 
-def render_ops_ts(ops: list[dict]) -> str:
+def load_manifest() -> list[dict]:
+    with open(MANIFEST) as f:
+        return json.load(f)
+
+
+def load_help() -> dict:
+    """Load ``screamer/data/help.json`` -> ``{op_name: entry}``.
+
+    ``help.json`` is a committed data file (op descriptions shared with the
+    Python docs), read here as plain JSON -- never via a runtime ``import
+    screamer`` -- so this generator stays deterministic and dependency-free.
+    The committed shape is a dict keyed by op name; a list of entries (each
+    with a ``"name"`` field) is also accepted defensively.
+    """
+    with open(HELP_JSON) as f:
+        data = json.load(f)
+    if isinstance(data, list):
+        return {entry["name"]: entry for entry in data if "name" in entry}
+    return data
+
+
+def _escape_comment(text: str) -> str:
+    """Escape a `*/` sequence so it can't prematurely close a JSDoc block."""
+    return text.replace("*/", "*\\/")
+
+
+def _jsdoc_lines(op_name: str, help_entry: dict | None, params: list[dict]) -> list[str]:
+    """Render the JSDoc block preceding a factory, as a list of source lines."""
+    short = (help_entry or {}).get("short")
+    if not short:
+        return [f"/** {op_name} operator. */"]
+
+    text = short.strip()
+    if not text.endswith("."):
+        text += "."
+    param_help = {p["name"]: p.get("description") for p in (help_entry or {}).get("parameters") or []}
+
+    lines = ["/**"]
+    lines.append(f" * {_escape_comment(text)}")
+    lines.append(" *")
+    for p in params:
+        desc = param_help.get(p["orig_name"])
+        if desc:
+            lines.append(f" * @param {p['name']} {_escape_comment(desc.strip())}")
+        else:
+            lines.append(f" * @param {p['name']}")
+    lines.append(f" * @see {PYTHON_DOCS_URL} for the Python reference and full details.")
+    lines.append(" */")
+    return lines
+
+
+def render_ops_ts(ops: list[dict], help_map: dict) -> str:
     out = [HEADER]
     out.append('import { wrapOp, type ScreamerOp } from "../runtime.js";')
     out.append('import { current } from "../index.js";')
@@ -188,6 +248,7 @@ def render_ops_ts(ops: list[dict]) -> str:
     for op in ops:
         name = op["name"]
         params = _build_params(op)
+        out.extend(_jsdoc_lines(name, help_map.get(name), params))
         out.append(
             f"export function {name}({_sig_ts(params)}): ScreamerOp {{"
         )
@@ -197,23 +258,19 @@ def render_ops_ts(ops: list[dict]) -> str:
     return "\n".join(out)
 
 
-def render_ops_dts(ops: list[dict]) -> str:
+def render_ops_dts(ops: list[dict], help_map: dict) -> str:
     out = [HEADER]
     out.append('import type { ScreamerOp } from "../runtime.js";')
     out.append("")
     for op in ops:
         name = op["name"]
         params = _build_params(op)
+        out.extend(_jsdoc_lines(name, help_map.get(name), params))
         out.append(
             f"export declare function {name}({_sig_decl(params)}): ScreamerOp;"
         )
     out.append("")
     return "\n".join(out)
-
-
-def load_manifest() -> list[dict]:
-    with open(MANIFEST) as f:
-        return json.load(f)
 
 
 def check(ops: list[dict]) -> int:
@@ -252,8 +309,9 @@ def main() -> int:
     if args.check:
         return check(ops)
 
-    ops_ts = render_ops_ts(ops)
-    ops_dts = render_ops_dts(ops)
+    help_map = load_help()
+    ops_ts = render_ops_ts(ops, help_map)
+    ops_dts = render_ops_dts(ops, help_map)
 
     if args.stdout:
         sys.stdout.write(ops_ts)
