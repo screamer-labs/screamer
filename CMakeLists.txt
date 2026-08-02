@@ -108,7 +108,6 @@ install(TARGETS screamer_bindings DESTINATION screamer)
 # WASM-readiness gate: proves operator headers compile with no binding
 # library present (see devtools/check_pure_headers.sh).
 add_custom_target(check-pure-headers
-    COMMAND ${CMAKE_COMMAND} -E env CXX=${CMAKE_CXX_COMPILER}
-            bash ${CMAKE_SOURCE_DIR}/devtools/check_pure_headers.sh
+    COMMAND bash ${CMAKE_SOURCE_DIR}/devtools/check_pure_headers.sh
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
     COMMENT "Compile operator headers with no binding library (WASM-readiness gate)")
