@@ -1,35 +1,36 @@
-#include <pybind11/pybind11.h>
-#include <pybind11/stl.h> // Required for std::optional support
+#include <nanobind/nanobind.h>
+#include <nanobind/stl/optional.h>
 #include "screamer/common/base.h"
 #include "screamer/ffill.h"
 #include "screamer/fillna.h"
 #include "screamer/clip.h"
 
-namespace py = pybind11;
+namespace nb = nanobind;
+using namespace nb::literals;
 
-void init_bindings_preprocessing(py::module& m) {
+void init_bindings_preprocessing(nb::module_& m) {
 
-    py::class_<screamer::Ffill, screamer::ScreamerBase>(m, "Ffill")
-        .def(py::init<>())
-        .def("__call__", &screamer::Ffill::operator(), py::arg("value"))
+    nb::class_<screamer::Ffill, screamer::ScreamerBase>(m, "Ffill")
+        .def(nb::init<>())
+        .def("__call__", &screamer::Ffill::operator(), "value"_a)
         .def("reset", &screamer::Ffill::reset, "Reset to the initial state.");
 
-    py::class_<screamer::FillNa, screamer::ScreamerBase>(m, "FillNa")
-        .def(py::init<double>(), py::arg("fill") = 0.0)
-        .def("__call__", &screamer::FillNa::operator(), py::arg("value"))
+    nb::class_<screamer::FillNa, screamer::ScreamerBase>(m, "FillNa")
+        .def(nb::init<double>(), "fill"_a = 0.0)
+        .def("__call__", &screamer::FillNa::operator(), "value"_a)
         .def("reset", &screamer::FillNa::reset, "Reset to the initial state.");
 
 
-     py::class_<screamer::Clip, screamer::ScreamerBase>(m, "Clip")
+     nb::class_<screamer::Clip, screamer::ScreamerBase>(m, "Clip")
         .def(
-          py::init<
+          nb::init<
                std::optional<double>,
                std::optional<double>
           >(),
-          py::arg("lower") = std::nullopt,
-          py::arg("upper") = std::nullopt
+          "lower"_a = nb::none(),
+          "upper"_a = nb::none()
         )
-        .def("__call__", &screamer::Clip::operator(), py::arg("value"))
+        .def("__call__", &screamer::Clip::operator(), "value"_a)
         .def("reset", &screamer::Clip::reset, "Reset to the initial state.");
 
 }

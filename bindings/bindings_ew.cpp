@@ -1,5 +1,5 @@
-#include <pybind11/pybind11.h>
-#include <pybind11/stl.h> // Required for std::optional support
+#include <nanobind/nanobind.h>
+#include <nanobind/stl/optional.h>
 #include "screamer/common/base.h"
 #include "screamer/common/eval_op.h"
 #include "screamer/ew_mean.h"
@@ -13,174 +13,175 @@
 #include "screamer/ew_corr.h"
 #include "screamer/ew_beta.h"
 
-namespace py = pybind11;
+namespace nb = nanobind;
+using namespace nb::literals;
 
-void init_bindings_ew(py::module& m) {
+void init_bindings_ew(nb::module_& m) {
 
-     py::class_<screamer::EwMean, screamer::ScreamerBase>(m, "EwMean")
+     nb::class_<screamer::EwMean, screamer::ScreamerBase>(m, "EwMean")
         .def(
-          py::init<
+          nb::init<
                std::optional<double>,
                std::optional<double>,
                std::optional<double>,
                std::optional<double>
           >(),
-          py::arg("com") = std::nullopt,
-          py::arg("span") = std::nullopt,
-          py::arg("halflife") = std::nullopt,
-          py::arg("alpha") = std::nullopt
+          "com"_a = nb::none(),
+          "span"_a = nb::none(),
+          "halflife"_a = nb::none(),
+          "alpha"_a = nb::none()
         )
-        .def("__call__", &screamer::EwMean::operator(), py::arg("value"))
+        .def("__call__", &screamer::EwMean::operator(), "value"_a)
         .def("reset", &screamer::EwMean::reset, "Reset to the initial state.");
 
-     py::class_<screamer::EwVar, screamer::ScreamerBase>(m, "EwVar")
+     nb::class_<screamer::EwVar, screamer::ScreamerBase>(m, "EwVar")
         .def(
-          py::init<
+          nb::init<
                std::optional<double>,
                std::optional<double>,
                std::optional<double>,
                std::optional<double>
           >(),
-          py::arg("com") = std::nullopt,
-          py::arg("span") = std::nullopt,
-          py::arg("halflife") = std::nullopt,
-          py::arg("alpha") = std::nullopt
+          "com"_a = nb::none(),
+          "span"_a = nb::none(),
+          "halflife"_a = nb::none(),
+          "alpha"_a = nb::none()
         )
-        .def("__call__", &screamer::EwVar::operator(), py::arg("value"))
+        .def("__call__", &screamer::EwVar::operator(), "value"_a)
         .def("reset", &screamer::EwVar::reset, "Reset to the initial state.");
 
      
-     py::class_<screamer::EwStd, screamer::ScreamerBase>(m, "EwStd")
+     nb::class_<screamer::EwStd, screamer::ScreamerBase>(m, "EwStd")
         .def(
-          py::init<
+          nb::init<
                std::optional<double>,
                std::optional<double>,
                std::optional<double>,
                std::optional<double>
           >(),
-          py::arg("com") = std::nullopt,
-          py::arg("span") = std::nullopt,
-          py::arg("halflife") = std::nullopt,
-          py::arg("alpha") = std::nullopt
+          "com"_a = nb::none(),
+          "span"_a = nb::none(),
+          "halflife"_a = nb::none(),
+          "alpha"_a = nb::none()
         )
-        .def("__call__", &screamer::EwStd::operator(), py::arg("value"))
+        .def("__call__", &screamer::EwStd::operator(), "value"_a)
         .def("reset", &screamer::EwStd::reset, "Reset to the initial state.");
 
      
-     py::class_<screamer::EwZscore, screamer::ScreamerBase>(m, "EwZscore")
+     nb::class_<screamer::EwZscore, screamer::ScreamerBase>(m, "EwZscore")
         .def(
-          py::init<
+          nb::init<
                std::optional<double>,
                std::optional<double>,
                std::optional<double>,
                std::optional<double>
           >(),
-          py::arg("com") = std::nullopt,
-          py::arg("span") = std::nullopt,
-          py::arg("halflife") = std::nullopt,
-          py::arg("alpha") = std::nullopt
+          "com"_a = nb::none(),
+          "span"_a = nb::none(),
+          "halflife"_a = nb::none(),
+          "alpha"_a = nb::none()
         )
-        .def("__call__", &screamer::EwZscore::operator(), py::arg("value"))
+        .def("__call__", &screamer::EwZscore::operator(), "value"_a)
         .def("reset", &screamer::EwZscore::reset, "Reset to the initial state.");
 
 
-     py::class_<screamer::EwSkew, screamer::ScreamerBase>(m, "EwSkew")
+     nb::class_<screamer::EwSkew, screamer::ScreamerBase>(m, "EwSkew")
         .def(
-          py::init<
+          nb::init<
                std::optional<double>,
                std::optional<double>,
                std::optional<double>,
                std::optional<double>
           >(),
-          py::arg("com") = std::nullopt,
-          py::arg("span") = std::nullopt,
-          py::arg("halflife") = std::nullopt,
-          py::arg("alpha") = std::nullopt
+          "com"_a = nb::none(),
+          "span"_a = nb::none(),
+          "halflife"_a = nb::none(),
+          "alpha"_a = nb::none()
         )
-        .def("__call__", &screamer::EwSkew::operator(), py::arg("value"))
+        .def("__call__", &screamer::EwSkew::operator(), "value"_a)
         .def("reset", &screamer::EwSkew::reset, "Reset to the initial state.");
 
 
-     py::class_<screamer::EwKurt, screamer::ScreamerBase>(m, "EwKurt")
+     nb::class_<screamer::EwKurt, screamer::ScreamerBase>(m, "EwKurt")
         .def(
-          py::init<
+          nb::init<
                std::optional<double>,
                std::optional<double>,
                std::optional<double>,
                std::optional<double>
           >(),
-          py::arg("com") = std::nullopt,
-          py::arg("span") = std::nullopt,
-          py::arg("halflife") = std::nullopt,
-          py::arg("alpha") = std::nullopt
+          "com"_a = nb::none(),
+          "span"_a = nb::none(),
+          "halflife"_a = nb::none(),
+          "alpha"_a = nb::none()
         )
-        .def("__call__", &screamer::EwKurt::operator(), py::arg("value"))
+        .def("__call__", &screamer::EwKurt::operator(), "value"_a)
         .def("reset", &screamer::EwKurt::reset, "Reset to the initial state.");
 
 
-     py::class_<screamer::EwRms, screamer::ScreamerBase>(m, "EwRms")
+     nb::class_<screamer::EwRms, screamer::ScreamerBase>(m, "EwRms")
         .def(
-          py::init<
+          nb::init<
                std::optional<double>,
                std::optional<double>,
                std::optional<double>,
                std::optional<double>
           >(),
-          py::arg("com") = std::nullopt,
-          py::arg("span") = std::nullopt,
-          py::arg("halflife") = std::nullopt,
-          py::arg("alpha") = std::nullopt
+          "com"_a = nb::none(),
+          "span"_a = nb::none(),
+          "halflife"_a = nb::none(),
+          "alpha"_a = nb::none()
         )
-        .def("__call__", &screamer::EwRms::operator(), py::arg("value"))
+        .def("__call__", &screamer::EwRms::operator(), "value"_a)
         .def("reset", &screamer::EwRms::reset, "Reset to the initial state.");
 
      // 2-input EW pair statistics. Same com/span/halflife/alpha mutex as
      // the 1-input variants. Bias-corrected like EwVar (matches pandas
      // ewm(adjust=True, bias=False).cov / .corr).
-     py::class_<screamer::EwCov, screamer::EvalOp>(m, "EwCov")
+     nb::class_<screamer::EwCov, screamer::EvalOp>(m, "EwCov")
         .def(
-          py::init<
+          nb::init<
                std::optional<double>,
                std::optional<double>,
                std::optional<double>,
                std::optional<double>
           >(),
-          py::arg("com") = std::nullopt,
-          py::arg("span") = std::nullopt,
-          py::arg("halflife") = std::nullopt,
-          py::arg("alpha") = std::nullopt
+          "com"_a = nb::none(),
+          "span"_a = nb::none(),
+          "halflife"_a = nb::none(),
+          "alpha"_a = nb::none()
         )
         .def("__call__", &screamer::EwCov::handle_input)
         .def("reset", &screamer::EwCov::reset, "Reset to the initial state.");
 
-     py::class_<screamer::EwCorr, screamer::EvalOp>(m, "EwCorr")
+     nb::class_<screamer::EwCorr, screamer::EvalOp>(m, "EwCorr")
         .def(
-          py::init<
+          nb::init<
                std::optional<double>,
                std::optional<double>,
                std::optional<double>,
                std::optional<double>
           >(),
-          py::arg("com") = std::nullopt,
-          py::arg("span") = std::nullopt,
-          py::arg("halflife") = std::nullopt,
-          py::arg("alpha") = std::nullopt
+          "com"_a = nb::none(),
+          "span"_a = nb::none(),
+          "halflife"_a = nb::none(),
+          "alpha"_a = nb::none()
         )
         .def("__call__", &screamer::EwCorr::handle_input)
         .def("reset", &screamer::EwCorr::reset, "Reset to the initial state.");
 
-     py::class_<screamer::EwBeta, screamer::EvalOp>(m, "EwBeta")
+     nb::class_<screamer::EwBeta, screamer::EvalOp>(m, "EwBeta")
         .def(
-          py::init<
+          nb::init<
                std::optional<double>,
                std::optional<double>,
                std::optional<double>,
                std::optional<double>
           >(),
-          py::arg("com") = std::nullopt,
-          py::arg("span") = std::nullopt,
-          py::arg("halflife") = std::nullopt,
-          py::arg("alpha") = std::nullopt
+          "com"_a = nb::none(),
+          "span"_a = nb::none(),
+          "halflife"_a = nb::none(),
+          "alpha"_a = nb::none()
         )
         .def("__call__", &screamer::EwBeta::handle_input)
         .def("reset", &screamer::EwBeta::reset, "Reset to the initial state.");

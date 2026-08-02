@@ -69,16 +69,8 @@ endif()
 # Create the Python module
 # ---------------------------------------------------------
 
-# PHASE 1 (nanobind migration checkpoint): build a REDUCED module from only the
-# converted binding files. To re-expand to the full module in Phase 3, replace
-# the explicit BINDING_SOURCES list below with the glob (and restore the init
-# calls in bindings/bindings.cpp):
-#     file(GLOB_RECURSE BINDING_SOURCES "bindings/*.cpp")
-set(BINDING_SOURCES
-    "${CMAKE_SOURCE_DIR}/bindings/bindings.cpp"
-    "${CMAKE_SOURCE_DIR}/bindings/bindings_core.cpp"
-    "${CMAKE_SOURCE_DIR}/bindings/bindings_signal.cpp"
-)
+# All binding translation units (converted to nanobind, migration 2026-08).
+file(GLOB_RECURSE BINDING_SOURCES "bindings/*.cpp")
 
 # Collect all source files in the src directory
 file(GLOB_RECURSE SCREAMER_SOURCES "src/screamer/*.cpp")

@@ -1,5 +1,7 @@
-#include <pybind11/pybind11.h>
-#include <pybind11/stl.h> // Required for std::optional support
+#include <limits>
+#include <nanobind/nanobind.h>
+#include <nanobind/stl/optional.h>
+#include <nanobind/stl/string.h>
 #include "screamer/common/base.h"
 #include "screamer/common/eval_op.h"
 #include "screamer/return.h"
@@ -36,43 +38,44 @@
 #include "screamer/rolling_linear_regression.h"
 #include "screamer/bayesian_regression.h"
 
-namespace py = pybind11;
+namespace nb = nanobind;
+using namespace nb::literals;
 
-void init_bindings_fin(py::module& m) {
+void init_bindings_fin(nb::module_& m) {
 
-    py::class_<screamer::Return, screamer::ScreamerBase>(m, "Return")
-        .def(py::init<int>(), py::arg("window_size") = 1)
-        .def("__call__", &screamer::Return::operator(), py::arg("value"))
+    nb::class_<screamer::Return, screamer::ScreamerBase>(m, "Return")
+        .def(nb::init<int>(), "window_size"_a = 1)
+        .def("__call__", &screamer::Return::operator(), "value"_a)
         .def("reset", &screamer::Return::reset, "Reset to the initial state.");
 
-    py::class_<screamer::LogReturn, screamer::ScreamerBase>(m, "LogReturn")
-        .def(py::init<int>(), py::arg("window_size") = 1)
-        .def("__call__", &screamer::LogReturn::operator(), py::arg("value"))
+    nb::class_<screamer::LogReturn, screamer::ScreamerBase>(m, "LogReturn")
+        .def(nb::init<int>(), "window_size"_a = 1)
+        .def("__call__", &screamer::LogReturn::operator(), "value"_a)
         .def("reset", &screamer::LogReturn::reset, "Reset to the initial state.");
 
     // ROC family: rate-of-change variants. TA-Lib has all three as
     // separate functions; we provide them under TA-Lib's names so
     // users can port directly. ROCP is mathematically identical to
     // Return.
-    py::class_<screamer::ROC, screamer::ScreamerBase>(m, "ROC")
+    nb::class_<screamer::ROC, screamer::ScreamerBase>(m, "ROC")
         // TA-Lib's timeperiod default is 10, which is what the docs page and
         // the sibling Momentum both declare. This was 1.
-        .def(py::init<int>(), py::arg("window_size") = 10)
-        .def("__call__", &screamer::ROC::operator(), py::arg("value"))
+        .def(nb::init<int>(), "window_size"_a = 10)
+        .def("__call__", &screamer::ROC::operator(), "value"_a)
         .def("reset", &screamer::ROC::reset, "Reset to the initial state.");
 
-    py::class_<screamer::ROCP, screamer::ScreamerBase>(m, "ROCP")
+    nb::class_<screamer::ROCP, screamer::ScreamerBase>(m, "ROCP")
         // TA-Lib's timeperiod default is 10, which is what the docs page and
         // the sibling Momentum both declare. This was 1.
-        .def(py::init<int>(), py::arg("window_size") = 10)
-        .def("__call__", &screamer::ROCP::operator(), py::arg("value"))
+        .def(nb::init<int>(), "window_size"_a = 10)
+        .def("__call__", &screamer::ROCP::operator(), "value"_a)
         .def("reset", &screamer::ROCP::reset, "Reset to the initial state.");
 
-    py::class_<screamer::ROCR, screamer::ScreamerBase>(m, "ROCR")
+    nb::class_<screamer::ROCR, screamer::ScreamerBase>(m, "ROCR")
         // TA-Lib's timeperiod default is 10, which is what the docs page and
         // the sibling Momentum both declare. This was 1.
-        .def(py::init<int>(), py::arg("window_size") = 10)
-        .def("__call__", &screamer::ROCR::operator(), py::arg("value"))
+        .def(nb::init<int>(), "window_size"_a = 10)
+        .def("__call__", &screamer::ROCR::operator(), "value"_a)
         .def("reset", &screamer::ROCR::reset, "Reset to the initial state.");
 
     // RollingCorr: 2 inputs (x, y), 1 output (Pearson correlation).
@@ -80,216 +83,216 @@ void init_bindings_fin(py::module& m) {
     // multi-input class hierarchy is separate. handle_input dispatches
     // on the variadic args (scalars / N parallel arrays / list of N-tuples
     // / N parallel iterables).
-    py::class_<screamer::RollingCorr, screamer::EvalOp>(m, "RollingCorr")
-        .def(py::init<int, const std::string&>(),
-             py::arg("window_size") = 20,
-             py::arg("start_policy") = "strict")
+    nb::class_<screamer::RollingCorr, screamer::EvalOp>(m, "RollingCorr")
+        .def(nb::init<int, const std::string&>(),
+             "window_size"_a = 20,
+             "start_policy"_a = "strict")
         .def("__call__", &screamer::RollingCorr::handle_input)
         .def("reset", &screamer::RollingCorr::reset, "Reset to the initial state.");
 
     // Rolling sample covariance of two streams.
-    py::class_<screamer::RollingCov, screamer::EvalOp>(m, "RollingCov")
-        .def(py::init<int, const std::string&>(),
-             py::arg("window_size") = 20,
-             py::arg("start_policy") = "strict")
+    nb::class_<screamer::RollingCov, screamer::EvalOp>(m, "RollingCov")
+        .def(nb::init<int, const std::string&>(),
+             "window_size"_a = 20,
+             "start_policy"_a = "strict")
         .def("__call__", &screamer::RollingCov::handle_input)
         .def("reset", &screamer::RollingCov::reset, "Reset to the initial state.");
 
     // Rolling regression slope of x on y: beta = cov(x, y) / var(y).
-    py::class_<screamer::RollingBeta, screamer::EvalOp>(m, "RollingBeta")
-        .def(py::init<int, const std::string&>(),
-             py::arg("window_size") = 20,
-             py::arg("start_policy") = "strict")
+    nb::class_<screamer::RollingBeta, screamer::EvalOp>(m, "RollingBeta")
+        .def(nb::init<int, const std::string&>(),
+             "window_size"_a = 20,
+             "start_policy"_a = "strict")
         .def("__call__", &screamer::RollingBeta::handle_input)
         .def("reset", &screamer::RollingBeta::reset, "Reset to the initial state.");
 
     // Hedge-adjusted residual of x against y: spread = x - beta * y, with
     // beta computed exactly as in RollingBeta.
-    py::class_<screamer::RollingSpread, screamer::EvalOp>(m, "RollingSpread")
-        .def(py::init<int, const std::string&>(),
-             py::arg("window_size") = 20,
-             py::arg("start_policy") = "strict")
+    nb::class_<screamer::RollingSpread, screamer::EvalOp>(m, "RollingSpread")
+        .def(nb::init<int, const std::string&>(),
+             "window_size"_a = 20,
+             "start_policy"_a = "strict")
         .def("__call__", &screamer::RollingSpread::handle_input)
         .def("reset", &screamer::RollingSpread::reset, "Reset to the initial state.");
 
     // ----- Performance / risk metrics -----
-    py::class_<screamer::Drawdown, screamer::ScreamerBase>(m, "Drawdown")
-        .def(py::init<>())
-        .def("__call__", &screamer::Drawdown::operator(), py::arg("value"))
+    nb::class_<screamer::Drawdown, screamer::ScreamerBase>(m, "Drawdown")
+        .def(nb::init<>())
+        .def("__call__", &screamer::Drawdown::operator(), "value"_a)
         .def("reset", &screamer::Drawdown::reset, "Reset.");
 
-    py::class_<screamer::MaxDrawdown, screamer::ScreamerBase>(m, "MaxDrawdown")
-        .def(py::init<>())
-        .def("__call__", &screamer::MaxDrawdown::operator(), py::arg("value"))
+    nb::class_<screamer::MaxDrawdown, screamer::ScreamerBase>(m, "MaxDrawdown")
+        .def(nb::init<>())
+        .def("__call__", &screamer::MaxDrawdown::operator(), "value"_a)
         .def("reset", &screamer::MaxDrawdown::reset, "Reset.");
 
-    py::class_<screamer::RollingMaxDrawdown, screamer::ScreamerBase>(m, "RollingMaxDrawdown")
-        .def(py::init<int>(), py::arg("window_size") = 252)
-        .def("__call__", &screamer::RollingMaxDrawdown::operator(), py::arg("value"))
+    nb::class_<screamer::RollingMaxDrawdown, screamer::ScreamerBase>(m, "RollingMaxDrawdown")
+        .def(nb::init<int>(), "window_size"_a = 252)
+        .def("__call__", &screamer::RollingMaxDrawdown::operator(), "value"_a)
         .def("reset", &screamer::RollingMaxDrawdown::reset, "Reset.");
 
-    py::class_<screamer::RollingSharpe, screamer::ScreamerBase>(m, "RollingSharpe")
-        .def(py::init<int, double>(),
-             py::arg("window_size") = 252,
-             py::arg("periods_per_year") = 1.0)
-        .def("__call__", &screamer::RollingSharpe::operator(), py::arg("value"))
+    nb::class_<screamer::RollingSharpe, screamer::ScreamerBase>(m, "RollingSharpe")
+        .def(nb::init<int, double>(),
+             "window_size"_a = 252,
+             "periods_per_year"_a = 1.0)
+        .def("__call__", &screamer::RollingSharpe::operator(), "value"_a)
         .def("reset", &screamer::RollingSharpe::reset, "Reset.");
 
-    py::class_<screamer::RollingSortino, screamer::ScreamerBase>(m, "RollingSortino")
-        .def(py::init<int, double, double>(),
-             py::arg("window_size") = 252,
-             py::arg("periods_per_year") = 1.0,
-             py::arg("target") = 0.0)
-        .def("__call__", &screamer::RollingSortino::operator(), py::arg("value"))
+    nb::class_<screamer::RollingSortino, screamer::ScreamerBase>(m, "RollingSortino")
+        .def(nb::init<int, double, double>(),
+             "window_size"_a = 252,
+             "periods_per_year"_a = 1.0,
+             "target"_a = 0.0)
+        .def("__call__", &screamer::RollingSortino::operator(), "value"_a)
         .def("reset", &screamer::RollingSortino::reset, "Reset.");
 
-    py::class_<screamer::RollingInfoRatio, screamer::EvalOp>(m, "RollingInfoRatio")
-        .def(py::init<int, double>(),
-             py::arg("window_size") = 252,
-             py::arg("periods_per_year") = 1.0)
+    nb::class_<screamer::RollingInfoRatio, screamer::EvalOp>(m, "RollingInfoRatio")
+        .def(nb::init<int, double>(),
+             "window_size"_a = 252,
+             "periods_per_year"_a = 1.0)
         .def("__call__", &screamer::RollingInfoRatio::handle_input)
         .def("reset", &screamer::RollingInfoRatio::reset, "Reset.");
 
-    py::class_<screamer::RollingCalmar, screamer::ScreamerBase>(m, "RollingCalmar")
-        .def(py::init<int, double>(),
-             py::arg("window_size") = 252,
-             py::arg("periods_per_year") = 1.0)
-        .def("__call__", &screamer::RollingCalmar::operator(), py::arg("value"))
+    nb::class_<screamer::RollingCalmar, screamer::ScreamerBase>(m, "RollingCalmar")
+        .def(nb::init<int, double>(),
+             "window_size"_a = 252,
+             "periods_per_year"_a = 1.0)
+        .def("__call__", &screamer::RollingCalmar::operator(), "value"_a)
         .def("reset", &screamer::RollingCalmar::reset, "Reset.");
 
-    py::class_<screamer::RollingHitRate, screamer::ScreamerBase>(m, "RollingHitRate")
-        .def(py::init<int>(), py::arg("window_size") = 252)
-        .def("__call__", &screamer::RollingHitRate::operator(), py::arg("value"))
+    nb::class_<screamer::RollingHitRate, screamer::ScreamerBase>(m, "RollingHitRate")
+        .def(nb::init<int>(), "window_size"_a = 252)
+        .def("__call__", &screamer::RollingHitRate::operator(), "value"_a)
         .def("reset", &screamer::RollingHitRate::reset, "Reset.");
 
     // ----- Regression-family additions -----
-    py::class_<screamer::RollingAlpha, screamer::EvalOp>(m, "RollingAlpha")
-        .def(py::init<int, const std::string&>(),
-             py::arg("window_size") = 20,
-             py::arg("start_policy") = "strict")
+    nb::class_<screamer::RollingAlpha, screamer::EvalOp>(m, "RollingAlpha")
+        .def(nb::init<int, const std::string&>(),
+             "window_size"_a = 20,
+             "start_policy"_a = "strict")
         .def("__call__", &screamer::RollingAlpha::handle_input)
         .def("reset", &screamer::RollingAlpha::reset, "Reset.");
 
-    py::class_<screamer::RollingResidualStd, screamer::EvalOp>(m, "RollingResidualStd")
-        .def(py::init<int, const std::string&>(),
-             py::arg("window_size") = 20,
-             py::arg("start_policy") = "strict")
+    nb::class_<screamer::RollingResidualStd, screamer::EvalOp>(m, "RollingResidualStd")
+        .def(nb::init<int, const std::string&>(),
+             "window_size"_a = 20,
+             "start_policy"_a = "strict")
         .def("__call__", &screamer::RollingResidualStd::handle_input)
         .def("reset", &screamer::RollingResidualStd::reset, "Reset.");
 
     // 2 -> 4 OLS fit returning (slope, intercept, r_squared, stderr).
     // First 2->4 consumer of the N->M dispatcher.
-    py::class_<screamer::RollingLinearRegression, screamer::EvalOp>(m, "RollingLinearRegression")
-        .def(py::init<int, const std::string&>(),
-             py::arg("window_size") = 20,
-             py::arg("start_policy") = "strict")
+    nb::class_<screamer::RollingLinearRegression, screamer::EvalOp>(m, "RollingLinearRegression")
+        .def(nb::init<int, const std::string&>(),
+             "window_size"_a = 20,
+             "start_policy"_a = "strict")
         .def("__call__", &screamer::RollingLinearRegression::handle_input)
         .def("reset", &screamer::RollingLinearRegression::reset, "Reset.");
 
     // 2 -> 4 online Bayesian regression returning (pred_mean, pred_std, slope, intercept).
     // Uses exponential forgetting with a conjugate Normal-Inverse-Gamma prior.
-    py::class_<screamer::BayesianRegression, screamer::EvalOp>(m, "BayesianRegression")
-        .def(py::init<std::optional<double>, std::optional<double>, std::optional<double>,
+    nb::class_<screamer::BayesianRegression, screamer::EvalOp>(m, "BayesianRegression")
+        .def(nb::init<std::optional<double>, std::optional<double>, std::optional<double>,
                       std::optional<double>, double, double>(),
-             py::arg("com") = std::nullopt, py::arg("span") = std::nullopt,
-             py::arg("halflife") = std::nullopt, py::arg("alpha") = std::nullopt,
-             py::arg("prior_precision") = 1.0, py::arg("prior_sigma") = 1.0)
+             "com"_a = nb::none(), "span"_a = nb::none(),
+             "halflife"_a = nb::none(), "alpha"_a = nb::none(),
+             "prior_precision"_a = 1.0, "prior_sigma"_a = 1.0)
         .def("__call__", &screamer::BayesianRegression::handle_input)
         .def("reset", &screamer::BayesianRegression::reset, "Reset to the prior.");
 
-    py::class_<screamer::BacktestPriceTarget, screamer::EvalOp>(m, "BacktestPriceTarget")
-        .def(py::init<double, double, double, double>(),
-             py::arg("spread") = 0.0, py::arg("fee") = 0.0,
-             py::arg("min_position") = -std::numeric_limits<double>::infinity(),
-             py::arg("max_position") = std::numeric_limits<double>::infinity())
+    nb::class_<screamer::BacktestPriceTarget, screamer::EvalOp>(m, "BacktestPriceTarget")
+        .def(nb::init<double, double, double, double>(),
+             "spread"_a = 0.0, "fee"_a = 0.0,
+             "min_position"_a = -std::numeric_limits<double>::infinity(),
+             "max_position"_a = std::numeric_limits<double>::infinity())
         .def("__call__", &screamer::BacktestPriceTarget::handle_input)
         .def("reset", &screamer::BacktestPriceTarget::reset, "Reset.");
 
-    py::class_<screamer::BacktestOHLCOrders, screamer::EvalOp>(m, "BacktestOHLCOrders")
-        .def(py::init<double, double, const std::string&, double, double, double, double>(),
-             py::arg("maker_fee") = 0.0, py::arg("taker_fee") = 0.0,
-             py::arg("fill") = "touch", py::arg("participation_ratio") = 1.0,
-             py::arg("tick_size") = 0.0,
-             py::arg("min_position") = -std::numeric_limits<double>::infinity(),
-             py::arg("max_position") = std::numeric_limits<double>::infinity())
+    nb::class_<screamer::BacktestOHLCOrders, screamer::EvalOp>(m, "BacktestOHLCOrders")
+        .def(nb::init<double, double, const std::string&, double, double, double, double>(),
+             "maker_fee"_a = 0.0, "taker_fee"_a = 0.0,
+             "fill"_a = "touch", "participation_ratio"_a = 1.0,
+             "tick_size"_a = 0.0,
+             "min_position"_a = -std::numeric_limits<double>::infinity(),
+             "max_position"_a = std::numeric_limits<double>::infinity())
         .def("__call__", &screamer::BacktestOHLCOrders::handle_input)
         .def("reset", &screamer::BacktestOHLCOrders::reset, "Reset.");
 
-    py::class_<screamer::BacktestOHLCTarget, screamer::EvalOp>(m, "BacktestOHLCTarget")
-        .def(py::init<double, double, double, double>(),
-             py::arg("taker_fee") = 0.0, py::arg("tick_size") = 0.0,
-             py::arg("min_position") = -std::numeric_limits<double>::infinity(),
-             py::arg("max_position") = std::numeric_limits<double>::infinity())
+    nb::class_<screamer::BacktestOHLCTarget, screamer::EvalOp>(m, "BacktestOHLCTarget")
+        .def(nb::init<double, double, double, double>(),
+             "taker_fee"_a = 0.0, "tick_size"_a = 0.0,
+             "min_position"_a = -std::numeric_limits<double>::infinity(),
+             "max_position"_a = std::numeric_limits<double>::infinity())
         .def("__call__", &screamer::BacktestOHLCTarget::handle_input)
         .def("reset", &screamer::BacktestOHLCTarget::reset, "Reset.");
 
-    py::class_<screamer::BacktestTradesOrders, screamer::EvalOp>(m, "BacktestTradesOrders")
-        .def(py::init<double, double, const std::string&, double, double, double, double>(),
-             py::arg("maker_fee") = 0.0, py::arg("taker_fee") = 0.0,
-             py::arg("fill") = "touch", py::arg("participation_ratio") = 1.0,
-             py::arg("tick_size") = 0.0,
-             py::arg("min_position") = -std::numeric_limits<double>::infinity(),
-             py::arg("max_position") = std::numeric_limits<double>::infinity())
+    nb::class_<screamer::BacktestTradesOrders, screamer::EvalOp>(m, "BacktestTradesOrders")
+        .def(nb::init<double, double, const std::string&, double, double, double, double>(),
+             "maker_fee"_a = 0.0, "taker_fee"_a = 0.0,
+             "fill"_a = "touch", "participation_ratio"_a = 1.0,
+             "tick_size"_a = 0.0,
+             "min_position"_a = -std::numeric_limits<double>::infinity(),
+             "max_position"_a = std::numeric_limits<double>::infinity())
         .def("__call__", &screamer::BacktestTradesOrders::handle_input)
         .def("reset", &screamer::BacktestTradesOrders::reset, "Reset.");
 
-    py::class_<screamer::BacktestL1Orders, screamer::EvalOp>(m, "BacktestL1Orders")
-        .def(py::init<double, double, const std::string&, double, double, double, double>(),
-             py::arg("maker_fee") = 0.0, py::arg("taker_fee") = 0.0,
-             py::arg("fill") = "breach", py::arg("participation_ratio") = 1.0,
-             py::arg("tick_size") = 0.0,
-             py::arg("min_position") = -std::numeric_limits<double>::infinity(),
-             py::arg("max_position") = std::numeric_limits<double>::infinity())
+    nb::class_<screamer::BacktestL1Orders, screamer::EvalOp>(m, "BacktestL1Orders")
+        .def(nb::init<double, double, const std::string&, double, double, double, double>(),
+             "maker_fee"_a = 0.0, "taker_fee"_a = 0.0,
+             "fill"_a = "breach", "participation_ratio"_a = 1.0,
+             "tick_size"_a = 0.0,
+             "min_position"_a = -std::numeric_limits<double>::infinity(),
+             "max_position"_a = std::numeric_limits<double>::infinity())
         .def("__call__", &screamer::BacktestL1Orders::handle_input)
         .def("reset", &screamer::BacktestL1Orders::reset, "Reset.");
 
-    py::class_<screamer::BacktestL1Target, screamer::EvalOp>(m, "BacktestL1Target")
-        .def(py::init<double, double, double, double>(),
-             py::arg("taker_fee") = 0.0, py::arg("tick_size") = 0.0,
-             py::arg("min_position") = -std::numeric_limits<double>::infinity(),
-             py::arg("max_position") = std::numeric_limits<double>::infinity())
+    nb::class_<screamer::BacktestL1Target, screamer::EvalOp>(m, "BacktestL1Target")
+        .def(nb::init<double, double, double, double>(),
+             "taker_fee"_a = 0.0, "tick_size"_a = 0.0,
+             "min_position"_a = -std::numeric_limits<double>::infinity(),
+             "max_position"_a = std::numeric_limits<double>::infinity())
         .def("__call__", &screamer::BacktestL1Target::handle_input)
         .def("reset", &screamer::BacktestL1Target::reset, "Reset.");
 
-    py::class_<screamer::BacktestL1TradesOrders, screamer::EvalOp>(m, "BacktestL1TradesOrders")
-        .def(py::init<double, double, const std::string&, double, double, double, double>(),
-             py::arg("maker_fee") = 0.0, py::arg("taker_fee") = 0.0,
-             py::arg("fill") = "touch", py::arg("participation_ratio") = 1.0,
-             py::arg("tick_size") = 0.0,
-             py::arg("min_position") = -std::numeric_limits<double>::infinity(),
-             py::arg("max_position") = std::numeric_limits<double>::infinity())
+    nb::class_<screamer::BacktestL1TradesOrders, screamer::EvalOp>(m, "BacktestL1TradesOrders")
+        .def(nb::init<double, double, const std::string&, double, double, double, double>(),
+             "maker_fee"_a = 0.0, "taker_fee"_a = 0.0,
+             "fill"_a = "touch", "participation_ratio"_a = 1.0,
+             "tick_size"_a = 0.0,
+             "min_position"_a = -std::numeric_limits<double>::infinity(),
+             "max_position"_a = std::numeric_limits<double>::infinity())
         .def("__call__", &screamer::BacktestL1TradesOrders::handle_input)
         .def("reset", &screamer::BacktestL1TradesOrders::reset, "Reset.");
 
-    py::class_<screamer::BacktestTradesTarget, screamer::EvalOp>(m, "BacktestTradesTarget")
-        .def(py::init<double, double, double, double>(),
-             py::arg("taker_fee") = 0.0, py::arg("tick_size") = 0.0,
-             py::arg("min_position") = -std::numeric_limits<double>::infinity(),
-             py::arg("max_position") = std::numeric_limits<double>::infinity())
+    nb::class_<screamer::BacktestTradesTarget, screamer::EvalOp>(m, "BacktestTradesTarget")
+        .def(nb::init<double, double, double, double>(),
+             "taker_fee"_a = 0.0, "tick_size"_a = 0.0,
+             "min_position"_a = -std::numeric_limits<double>::infinity(),
+             "max_position"_a = std::numeric_limits<double>::infinity())
         .def("__call__", &screamer::BacktestTradesTarget::handle_input)
         .def("reset", &screamer::BacktestTradesTarget::reset, "Reset.");
 
-    py::class_<screamer::BacktestReport, screamer::EvalOp>(m, "BacktestReport")
-        .def(py::init<>())
+    nb::class_<screamer::BacktestReport, screamer::EvalOp>(m, "BacktestReport")
+        .def(nb::init<>())
         .def("__call__", &screamer::BacktestReport::handle_input)
         .def("reset", &screamer::BacktestReport::reset, "Reset.");
 
-    py::class_<screamer::RollingDownsideDeviation, screamer::ScreamerBase>(m, "RollingDownsideDeviation")
-        .def(py::init<int, double, const std::string&>(),
-             py::arg("window_size") = 20, py::arg("mar") = 0.0,
-             py::arg("start_policy") = "strict")
-        .def("__call__", &screamer::RollingDownsideDeviation::operator(), py::arg("value"))
+    nb::class_<screamer::RollingDownsideDeviation, screamer::ScreamerBase>(m, "RollingDownsideDeviation")
+        .def(nb::init<int, double, const std::string&>(),
+             "window_size"_a = 20, "mar"_a = 0.0,
+             "start_policy"_a = "strict")
+        .def("__call__", &screamer::RollingDownsideDeviation::operator(), "value"_a)
         .def("reset", &screamer::RollingDownsideDeviation::reset, "Reset.");
 
-    py::class_<screamer::RollingOmega, screamer::ScreamerBase>(m, "RollingOmega")
-        .def(py::init<int, double>(),
-             py::arg("window_size") = 20, py::arg("threshold") = 0.0)
-        .def("__call__", &screamer::RollingOmega::operator(), py::arg("value"))
+    nb::class_<screamer::RollingOmega, screamer::ScreamerBase>(m, "RollingOmega")
+        .def(nb::init<int, double>(),
+             "window_size"_a = 20, "threshold"_a = 0.0)
+        .def("__call__", &screamer::RollingOmega::operator(), "value"_a)
         .def("reset", &screamer::RollingOmega::reset, "Reset.");
 
-    py::class_<screamer::RollingCVaR, screamer::ScreamerBase>(m, "RollingCVaR")
-        .def(py::init<int, double>(),
-             py::arg("window_size") = 20, py::arg("alpha") = 0.05)
-        .def("__call__", &screamer::RollingCVaR::operator(), py::arg("value"))
+    nb::class_<screamer::RollingCVaR, screamer::ScreamerBase>(m, "RollingCVaR")
+        .def(nb::init<int, double>(),
+             "window_size"_a = 20, "alpha"_a = 0.05)
+        .def("__call__", &screamer::RollingCVaR::operator(), "value"_a)
         .def("reset", &screamer::RollingCVaR::reset, "Reset.");
 }

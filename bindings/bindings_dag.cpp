@@ -3,9 +3,9 @@
 #include <memory>
 #include <stdexcept>
 #include <vector>
-#include <pybind11/pybind11.h>
-#include <pybind11/numpy.h>
-#include <pybind11/stl.h>
+#include <nanobind/nanobind.h>
+#include <nanobind/ndarray.h>
+#include <nanobind/stl/vector.h>
 #include "screamer/common/eval_op.h"
 #include "screamer/dag/functor_node.h"
 #include "screamer/dag/collector.h"
@@ -20,17 +20,39 @@
 #include <deque>
 #include <tuple>
 
-namespace py = pybind11;
+namespace nb = nanobind;
+using namespace nb::literals;
 using namespace screamer;
+
+namespace {
+
+// Allocate a NEW numpy array that OWNS `data` (a `new T[...]` C-contiguous
+// buffer) via an owner capsule with a delete[] deleter. Generic over T.
+template <class T>
+nb::object owned_array(T* data, const std::vector<size_t>& shape) {
+    nb::capsule owner(data, [](void* p) noexcept { delete[] (T*) p; });
+    return nb::cast(nb::ndarray<nb::numpy, T>(
+        data, shape.size(), shape.data(), owner));
+}
+
+// Typed, C-contiguous 1-D input array (nanobind converts dtype/order if needed,
+// mirroring pybind's `py::array_t<T, forcecast|c_style>` behavior).
+template <class T>
+using In1D = nb::ndarray<const T, nb::ndim<1>, nb::c_contig, nb::device::cpu>;
+
+// Typed, C-contiguous input array of any rank (values may be 1-D or 2-D).
+using InValues = nb::ndarray<const double, nb::c_contig, nb::device::cpu>;
+
+}  // namespace
 
 // Build the Python value for row r of an output buffer: a scalar for a width-1
 // output, a tuple for a wider one.
-static py::object make_output_value(const dag::OutputBuffer& b, std::size_t r,
+static nb::object make_output_value(const dag::OutputBuffer& b, std::size_t r,
                                     std::size_t w) {
-    if (w == 1) return py::float_(b.values[r]);
-    py::tuple t(w);
-    for (std::size_t j = 0; j < w; ++j) t[j] = py::float_(b.values[r * w + j]);
-    return std::move(t);
+    if (w == 1) return nb::float_(b.values[r]);
+    nb::list lst;
+    for (std::size_t j = 0; j < w; ++j) lst.append(b.values[r * w + j]);
+    return nb::steal(PySequence_Tuple(lst.ptr()));
 }
 
 // ---------------------------------------------------------------------------
@@ -51,20 +73,20 @@ static py::object make_output_value(const dag::OutputBuffer& b, std::size_t r,
 // ---------------------------------------------------------------------------
 class LazyDriver {
 public:
-    LazyDriver(py::object cg_keepalive, dag::CompiledGraph& cg, py::list iterators,
+    LazyDriver(nb::object cg_keepalive, dag::CompiledGraph& cg, nb::list iterators,
                std::size_t n_out)
         : cg_keepalive_(std::move(cg_keepalive)), cg_(cg), n_out_(n_out),
-          latest_(n_out, py::none()), wm_val_(n_out, 0), wm_set_(n_out, 0) {
-        for (py::handle h : iterators) {
+          latest_(n_out, nb::none()), wm_val_(n_out, 0), wm_set_(n_out, 0) {
+        for (nb::handle h : iterators) {
             sources_.push_back(std::make_unique<streams::PySource<std::int64_t>>(
-                py::reinterpret_borrow<py::object>(h), /*positional=*/false));
+                nb::borrow<nb::object>(h), /*positional=*/false));
             child_ptrs_.push_back(sources_.back().get());
         }
         merge_ = std::make_unique<streams::MergeSource<std::int64_t>>(child_ptrs_);
         cg_.reset();
     }
 
-    py::object next() {
+    nb::object next() {
         while (pending_.empty() && !done_) {
             if (auto e = merge_->next()) {
                 const std::size_t src = static_cast<std::size_t>(e->source);
@@ -83,8 +105,8 @@ public:
                 done_ = true;
             }
         }
-        if (pending_.empty()) throw py::stop_iteration();
-        py::object row = std::move(pending_.front());
+        if (pending_.empty()) throw nb::stop_iteration();
+        nb::object row = std::move(pending_.front());
         pending_.pop_front();
         return row;
     }
@@ -100,8 +122,8 @@ private:
         const std::size_t w = b.width;
         const std::size_t rows = b.indices.size();
         for (std::size_t r = 0; r < rows; ++r) {
-            pending_.push_back(py::make_tuple(make_output_value(b, r, w),
-                                              py::int_(b.indices[r])));
+            pending_.push_back(nb::make_tuple(make_output_value(b, r, w),
+                                              nb::int_(b.indices[r])));
         }
     }
 
@@ -156,27 +178,27 @@ private:
                 ++i;
             }
             bool all_set = true;
-            for (const py::object& o : latest_) if (o.is_none()) { all_set = false; break; }
+            for (const nb::object& o : latest_) if (o.is_none()) { all_set = false; break; }
             if (all_set) {
-                py::tuple row(n_out_ + 1);
-                for (std::size_t j = 0; j < n_out_; ++j) row[j] = latest_[j];
-                row[n_out_] = py::int_(k);
-                pending_.push_back(std::move(row));
+                nb::list row;
+                for (std::size_t j = 0; j < n_out_; ++j) row.append(latest_[j]);
+                row.append(nb::int_(k));
+                pending_.push_back(nb::steal(PySequence_Tuple(row.ptr())));
             }
         }
     }
 
-    using Buffered = std::tuple<std::int64_t, std::size_t, py::object>;  // (index, out, value)
+    using Buffered = std::tuple<std::int64_t, std::size_t, nb::object>;  // (index, out, value)
 
-    py::object cg_keepalive_;                 // keep the _CompiledGraph alive
+    nb::object cg_keepalive_;                 // keep the _CompiledGraph alive
     dag::CompiledGraph& cg_;
     std::size_t n_out_;
     std::vector<std::unique_ptr<streams::PySource<std::int64_t>>> sources_;
     std::vector<streams::Source<std::int64_t>*> child_ptrs_;
     std::unique_ptr<streams::MergeSource<std::int64_t>> merge_;
-    std::deque<py::object> pending_;
+    std::deque<nb::object> pending_;
     // Watermark as-of join state (M>1 outputs only).
-    std::vector<py::object> latest_;          // each output's as-of value (None = unset)
+    std::vector<nb::object> latest_;          // each output's as-of value (None = unset)
     std::vector<std::int64_t> wm_val_;        // highest index drained per output
     std::vector<unsigned char> wm_set_;       // whether each output has drained yet
     std::vector<Buffered> buf_;               // drained-but-unsettled events
@@ -185,89 +207,80 @@ private:
 
 // Hand-wire source -> FunctorNode(op) -> collector and run it in batch.
 // `values` is (T,) [width 1] or (T, W) [width W]; returns (T, op.n_out()).
-static py::array_t<double> run_functor_batch(
+static nb::object run_functor_batch(
         EvalOp& op,
-        py::array_t<std::int64_t, py::array::c_style | py::array::forcecast> index,
-        py::array_t<double, py::array::c_style | py::array::forcecast> values) {
-    auto vinfo = values.request();
-    std::size_t T = static_cast<std::size_t>(vinfo.shape[0]);
-    std::size_t width = (vinfo.ndim == 1)
-        ? 1u : static_cast<std::size_t>(vinfo.shape[1]);
+        In1D<std::int64_t> index,
+        InValues values) {
+    std::size_t T = static_cast<std::size_t>(values.shape(0));
+    std::size_t width = (values.ndim() == 1)
+        ? 1u : static_cast<std::size_t>(values.shape(1));
     if (width != op.n_in()) {
         throw std::runtime_error(
             "run_functor_batch: input width does not match op num_inputs");
     }
     std::size_t out_w = op.n_out();
 
-    py::array_t<double> out({static_cast<py::ssize_t>(T),
-                             static_cast<py::ssize_t>(out_w)});
+    double* obuf = new double[(T * out_w) ? (T * out_w) : 1];
 
-    dag::Collector<std::int64_t> collector(
-        static_cast<double*>(out.request().ptr), out_w);
+    dag::Collector<std::int64_t> collector(obuf, out_w);
     dag::FunctorNode<std::int64_t> node(op, collector);
-    dag::replay_batch<std::int64_t>(
-        static_cast<const std::int64_t*>(index.request().ptr),
-        static_cast<const double*>(vinfo.ptr), T, width, node);
-    return out;
+    dag::replay_batch<std::int64_t>(index.data(), values.data(), T, width, node);
+    return owned_array(obuf, {T, out_w});
 }
 
 // Marshal a gathered index/value buffer into a Python tuple (index_1d, values_2d).
-static py::tuple marshal_gather(const std::vector<std::int64_t>& out_k,
-                                const std::vector<double>& out_v,
-                                std::size_t width) {
+static nb::object marshal_gather(const std::vector<std::int64_t>& out_k,
+                                 const std::vector<double>& out_v,
+                                 std::size_t width) {
     std::size_t m = out_k.size();
-    py::array_t<std::int64_t> rk(static_cast<py::ssize_t>(m));
-    if (m) std::memcpy(rk.request().ptr, out_k.data(), m * sizeof(std::int64_t));
-    py::array_t<double> rv({static_cast<py::ssize_t>(m),
-                            static_cast<py::ssize_t>(width)});
-    if (m) std::memcpy(rv.request().ptr, out_v.data(), m * width * sizeof(double));
-    return py::make_tuple(rk, rv);
+    std::int64_t* rk = new std::int64_t[m ? m : 1];
+    if (m) std::memcpy(rk, out_k.data(), m * sizeof(std::int64_t));
+    double* rv = new double[(m * width) ? (m * width) : 1];
+    if (m) std::memcpy(rv, out_v.data(), m * width * sizeof(double));
+    return nb::make_tuple(owned_array(rk, {m}), owned_array(rv, {m, width}));
 }
 
 // Marshal a vector of OutputBuffers into a Python list of (index_1d, values_2d).
 // Shared by _CompiledGraph.run_batch and _CompiledGraph.drain.
-static py::list marshal_output_buffers(const std::vector<dag::OutputBuffer>& outs) {
-    py::list result;
+static nb::list marshal_output_buffers(const std::vector<dag::OutputBuffer>& outs) {
+    nb::list result;
     for (const auto& o : outs)
         result.append(marshal_gather(o.indices, o.values, o.width));
     return result;
 }
 
 // Helper: marshal a list of (index, values) feed tuples into raw C++ spans.
-// Fills ks/vs (keep-alive arrays), kp/vp (raw pointers), lens (lengths).
+// Fills ks/vs (keep-alive ndarrays), kp/vp (raw pointers), lens (lengths).
 // Also fills widths: 1 for a 1-D values array, W for a 2-D (N, W) values array.
 static void marshal_feeds(
-        py::list feeds,
-        std::vector<py::array_t<std::int64_t>>& ks,
-        std::vector<py::array_t<double>>& vs,
+        nb::list feeds,
+        std::vector<In1D<std::int64_t>>& ks,
+        std::vector<InValues>& vs,
         std::vector<const std::int64_t*>& kp,
         std::vector<const double*>& vp,
         std::vector<std::size_t>& lens,
         std::vector<std::size_t>& widths) {
     for (auto item : feeds) {
-        auto t = py::cast<py::tuple>(item);
-        ks.push_back(py::cast<py::array_t<std::int64_t,
-                     py::array::c_style | py::array::forcecast>>(t[0]));
-        vs.push_back(py::cast<py::array_t<double,
-                     py::array::c_style | py::array::forcecast>>(t[1]));
-        kp.push_back(static_cast<const std::int64_t*>(ks.back().request().ptr));
-        vp.push_back(static_cast<const double*>(vs.back().request().ptr));
-        auto vinfo = vs.back().request();
-        lens.push_back(static_cast<std::size_t>(vinfo.shape[0]));
+        nb::tuple t = nb::cast<nb::tuple>(item);
+        ks.push_back(nb::cast<In1D<std::int64_t>>(t[0]));
+        vs.push_back(nb::cast<InValues>(t[1]));
+        kp.push_back(ks.back().data());
+        vp.push_back(vs.back().data());
+        lens.push_back(static_cast<std::size_t>(vs.back().shape(0)));
         // Detect column width: 1 for 1-D arrays, shape[1] for 2-D arrays.
-        widths.push_back(vinfo.ndim >= 2
-            ? static_cast<std::size_t>(vinfo.shape[1]) : 1u);
+        widths.push_back(vs.back().ndim() >= 2
+            ? static_cast<std::size_t>(vs.back().shape(1)) : 1u);
     }
 }
 
-void init_bindings_dag(py::module& m) {
+void init_bindings_dag(nb::module_& m) {
     m.def("_run_functor_batch", &run_functor_batch,
-          py::arg("op"), py::arg("index"), py::arg("values"));
+          "op"_a, "index"_a, "values"_a);
 
     // Compiled graph wrapper: holds a persistent CompiledGraph plus op_refs so
     // functor Python objects stay alive for the compiled graph's lifetime.
     struct PyCompiledGraph {
-        std::vector<py::object> op_refs;  // destroyed AFTER cg (declared first)
+        std::vector<nb::object> op_refs;  // destroyed AFTER cg (declared first)
         std::unique_ptr<dag::CompiledGraph> cg;  // destroyed FIRST (declared last)
 
         void reset() { cg->reset(); }
@@ -277,10 +290,9 @@ void init_bindings_dag(py::module& m) {
         }
 
         void push_event_wide(std::size_t input_idx, std::int64_t index,
-                             py::array_t<double, py::array::c_style | py::array::forcecast> vals) {
-            auto info = vals.request();
-            const double* ptr = static_cast<const double*>(info.ptr);
-            std::size_t w = static_cast<std::size_t>(info.size);
+                             InValues vals) {
+            const double* ptr = vals.data();
+            std::size_t w = static_cast<std::size_t>(vals.size());
             cg->push_event_wide(input_idx, index, ptr, w);
         }
 
@@ -288,13 +300,13 @@ void init_bindings_dag(py::module& m) {
 
         void advance(std::int64_t now) { cg->advance(now); }
 
-        py::list drain() {
+        nb::list drain() {
             return marshal_output_buffers(cg->drain());
         }
 
-        py::list run_batch(py::list feeds) {
-            std::vector<py::array_t<std::int64_t>> ks;
-            std::vector<py::array_t<double>> vs;
+        nb::list run_batch(nb::list feeds) {
+            std::vector<In1D<std::int64_t>> ks;
+            std::vector<InValues> vs;
             std::vector<const std::int64_t*> kp;
             std::vector<const double*> vp;
             std::vector<std::size_t> lens;
@@ -305,25 +317,26 @@ void init_bindings_dag(py::module& m) {
     };
 
     // Register _CompiledGraph before _GraphBuilder so compile() return type is known.
-    py::class_<PyCompiledGraph>(m, "_CompiledGraph")
+    nb::class_<PyCompiledGraph>(m, "_CompiledGraph")
         .def("reset",            &PyCompiledGraph::reset)
         .def("push_event",       &PyCompiledGraph::push_event,
-             py::arg("input_idx"), py::arg("index"), py::arg("value"))
+             "input_idx"_a, "index"_a, "value"_a)
         .def("push_event_wide",  &PyCompiledGraph::push_event_wide,
-             py::arg("input_idx"), py::arg("index"), py::arg("values"))
+             "input_idx"_a, "index"_a, "values"_a)
         .def("flush",            &PyCompiledGraph::flush)
-        .def("advance",          &PyCompiledGraph::advance, py::arg("now"))
+        .def("advance",          &PyCompiledGraph::advance, "now"_a)
         .def("drain",            &PyCompiledGraph::drain)
-        .def("run_batch",        &PyCompiledGraph::run_batch, py::arg("feeds"));
+        .def("run_batch",        &PyCompiledGraph::run_batch, "feeds"_a);
 
     // Lazy driver over a single-output compiled graph and Python-iterator feeds.
-    py::class_<LazyDriver>(m, "_LazyDriver")
-        .def(py::init([](py::object cg_obj, py::list iterators, std::size_t n_out) {
-                 PyCompiledGraph& pcg = cg_obj.cast<PyCompiledGraph&>();
-                 return std::make_unique<LazyDriver>(cg_obj, *pcg.cg, iterators, n_out);
-             }),
-             py::arg("cg"), py::arg("iterators"), py::arg("n_out"))
-        .def("__iter__", [](py::object self) { return self; })
+    nb::class_<LazyDriver>(m, "_LazyDriver")
+        .def("__init__", [](LazyDriver* self, nb::object cg_obj, nb::list iterators,
+                            std::size_t n_out) {
+                 PyCompiledGraph& pcg = nb::cast<PyCompiledGraph&>(cg_obj);
+                 new (self) LazyDriver(cg_obj, *pcg.cg, iterators, n_out);
+             },
+             "cg"_a, "iterators"_a, "n_out"_a)
+        .def("__iter__", [](nb::object self) { return self; })
         .def("__next__", &LazyDriver::next);
 
     // Python-facing GraphBuilder wrapper that keeps functor Python objects alive
@@ -331,12 +344,12 @@ void init_bindings_dag(py::module& m) {
     // if the caller passes temporaries they'd be GC'd without this ref-holding).
     struct PyGraphBuilder {
         dag::GraphBuilder builder;
-        std::vector<py::object> op_refs;  // keeps Python functor objects alive
+        std::vector<nb::object> op_refs;  // keeps Python functor objects alive
 
         std::size_t add_input() { return builder.add_input(); }
 
-        std::size_t add_functor(py::object op_obj, std::vector<std::size_t> inputs) {
-            EvalOp* op = py::cast<EvalOp*>(op_obj);
+        std::size_t add_functor(nb::object op_obj, std::vector<std::size_t> inputs) {
+            EvalOp* op = nb::cast<EvalOp*>(op_obj);
             op_refs.push_back(op_obj);
             return builder.add_functor(op, std::move(inputs));
         }
@@ -365,8 +378,8 @@ void init_bindings_dag(py::module& m) {
 
         std::size_t add_resample(std::vector<std::size_t> inputs, int mode, int agg,
                                  int label, std::int64_t width, std::int64_t origin,
-                                 std::int64_t count, py::object reducer, int fill,
-                                 py::list plan, double threshold, std::int64_t max_age) {
+                                 std::int64_t count, nb::object reducer, int fill,
+                                 nb::list plan, double threshold, std::int64_t max_age) {
             dag::ResampleParams rp;
             rp.mode      = static_cast<dag::ResampleMode>(mode);    // 0=ByIndex, 1=ByCount, 2=ByCumulative
             rp.agg       = static_cast<dag::ResampleAgg>(agg);      // 0..9 First..SumNeg
@@ -380,17 +393,17 @@ void init_bindings_dag(py::module& m) {
             // Optional per-column reducer plan (multi-column bar aggs).
             // Each plan entry is a (agg_code, input_col) tuple.
             for (auto item : plan) {
-                auto t = py::cast<py::tuple>(item);
+                nb::tuple t = nb::cast<nb::tuple>(item);
                 dag::ResamplePlanEntry e{};
-                e.agg       = static_cast<dag::ResampleAgg>(t[0].cast<int>());
-                e.input_col = t[1].cast<std::size_t>();
+                e.agg       = static_cast<dag::ResampleAgg>(nb::cast<int>(t[0]));
+                e.input_col = nb::cast<std::size_t>(t[1]);
                 rp.plan.push_back(e);
             }
             // Optional functor reducer: extract the base EvalOp* and keep the Python
             // object alive for the compiled graph's lifetime (op_refs is copied into
             // the _CompiledGraph at compile()). Raw pointer would else dangle on GC.
             if (!reducer.is_none()) {
-                EvalOp* op = py::cast<EvalOp*>(reducer);
+                EvalOp* op = nb::cast<EvalOp*>(reducer);
                 rp.reducer = op;
                 op_refs.push_back(reducer);
             }
@@ -416,53 +429,53 @@ void init_bindings_dag(py::module& m) {
     // DAG compiler: _GraphBuilder accumulates a GraphSpec.
     // run_batch compiles and drives it fresh each call (rebuild-per-run).
     // compile() returns a persistent _CompiledGraph for streaming use.
-    py::class_<PyGraphBuilder>(m, "_GraphBuilder")
-        .def(py::init<>())
+    nb::class_<PyGraphBuilder>(m, "_GraphBuilder")
+        .def(nb::init<>())
         .def("add_input", &PyGraphBuilder::add_input)
-        .def("add_functor", [](PyGraphBuilder& b, py::object op,
+        .def("add_functor", [](PyGraphBuilder& b, nb::object op,
                                std::vector<std::size_t> inputs) {
             return b.add_functor(op, std::move(inputs));
-        }, py::arg("op"), py::arg("inputs"))
+        }, "op"_a, "inputs"_a)
         .def("add_combine_latest", [](PyGraphBuilder& b,
                                       std::vector<std::size_t> inputs, bool when_all,
                                       std::size_t max_pending) {
             return b.add_combine_latest(std::move(inputs), when_all, max_pending);
-        }, py::arg("inputs"), py::arg("when_all") = true,
-           py::arg("max_pending") = static_cast<std::size_t>(1'000'000))
+        }, "inputs"_a, "when_all"_a = true,
+           "max_pending"_a = static_cast<std::size_t>(1'000'000))
         .def("add_filter", [](PyGraphBuilder& b, std::vector<std::size_t> inputs) {
             return b.add_filter(std::move(inputs));
-        }, py::arg("inputs"))
+        }, "inputs"_a)
         .def("add_dropna", [](PyGraphBuilder& b,
                               std::vector<std::size_t> inputs, bool how_all) {
             return b.add_dropna(std::move(inputs), how_all);
-        }, py::arg("inputs"), py::arg("how_all") = false)
+        }, "inputs"_a, "how_all"_a = false)
         .def("add_select", [](PyGraphBuilder& b,
                               std::vector<std::size_t> inputs,
                               std::vector<std::size_t> columns) {
             return b.add_select(std::move(inputs), std::move(columns));
-        }, py::arg("inputs"), py::arg("columns"))
+        }, "inputs"_a, "columns"_a)
         .def("add_delay", [](PyGraphBuilder& b, std::vector<std::size_t> inputs,
                              std::int64_t duration) {
             return b.add_delay(std::move(inputs), duration);
-        }, py::arg("inputs"), py::arg("duration"))
+        }, "inputs"_a, "duration"_a)
         .def("add_resample", [](PyGraphBuilder& b, std::vector<std::size_t> inputs,
                                 int mode, int agg, int label,
                                 std::int64_t width, std::int64_t origin, std::int64_t count,
-                                py::object reducer, int fill, py::list plan, double threshold,
+                                nb::object reducer, int fill, nb::list plan, double threshold,
                                 std::int64_t max_age) {
             return b.add_resample(std::move(inputs), mode, agg, label, width, origin,
                                   count, reducer, fill, plan, threshold, max_age);
-        }, py::arg("inputs"), py::arg("mode"), py::arg("agg"), py::arg("label"),
-           py::arg("width"), py::arg("origin"), py::arg("count"),
-           py::arg("reducer") = py::none(), py::arg("fill") = 0,
-           py::arg("plan") = py::list{}, py::arg("threshold") = 0.0,
-           py::arg("max_age") = -1)
-        .def("set_outputs", &PyGraphBuilder::set_outputs, py::arg("output_ids"))
+        }, "inputs"_a, "mode"_a, "agg"_a, "label"_a,
+           "width"_a, "origin"_a, "count"_a,
+           "reducer"_a = nb::none(), "fill"_a = 0,
+           "plan"_a = nb::list(), "threshold"_a = 0.0,
+           "max_age"_a = -1)
+        .def("set_outputs", &PyGraphBuilder::set_outputs, "output_ids"_a)
         .def("compile", [](PyGraphBuilder& b) { return b.compile(); })
-        .def("run_batch", [](PyGraphBuilder& b, py::list feeds) {
+        .def("run_batch", [](PyGraphBuilder& b, nb::list feeds) {
             // Marshal feeds (list of (index, values) tuples) -> raw spans.
-            std::vector<py::array_t<std::int64_t>> ks;
-            std::vector<py::array_t<double>> vs;
+            std::vector<In1D<std::int64_t>> ks;
+            std::vector<InValues> vs;
             std::vector<const std::int64_t*> kp;
             std::vector<const double*> vp;
             std::vector<std::size_t> lens;
@@ -471,5 +484,5 @@ void init_bindings_dag(py::module& m) {
             // Compile (stores spec) then run (builds + drives push-graph).
             dag::CompiledGraph g(b.spec());
             return marshal_output_buffers(g.run_batch(kp, vp, lens, widths));
-        }, py::arg("feeds"));
+        }, "feeds"_a);
 }
