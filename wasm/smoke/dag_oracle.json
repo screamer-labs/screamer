@@ -1,0 +1,717 @@
+[
+  {
+    "name": "functor_chain_diff_rollingmean",
+    "build": {
+      "inputs": [
+        "x"
+      ],
+      "nodes": [
+        {
+          "id": "x",
+          "kind": "input",
+          "name": "x"
+        },
+        {
+          "id": "rm",
+          "kind": "functor",
+          "op": "RollingMean",
+          "args": [
+            3
+          ],
+          "inputs": [
+            "x"
+          ]
+        },
+        {
+          "id": "d",
+          "kind": "functor",
+          "op": "Diff",
+          "args": [
+            1
+          ],
+          "inputs": [
+            "rm"
+          ]
+        }
+      ],
+      "outputs": [
+        "d"
+      ]
+    },
+    "feeds": {
+      "x": {
+        "values": [
+          0.0,
+          1.0,
+          2.0,
+          3.0,
+          4.0,
+          5.0,
+          6.0,
+          7.0
+        ],
+        "index": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7
+        ]
+      }
+    },
+    "expect": [
+      {
+        "values": [
+          null,
+          null,
+          null,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ],
+        "index": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7
+        ],
+        "width": 1
+      }
+    ]
+  },
+  {
+    "name": "combine_latest_sub",
+    "build": {
+      "inputs": [
+        "a",
+        "b"
+      ],
+      "nodes": [
+        {
+          "id": "a",
+          "kind": "input",
+          "name": "a"
+        },
+        {
+          "id": "b",
+          "kind": "input",
+          "name": "b"
+        },
+        {
+          "id": "cl",
+          "kind": "combineLatest",
+          "inputs": [
+            "a",
+            "b"
+          ],
+          "emit": "when_all"
+        },
+        {
+          "id": "y",
+          "kind": "functor",
+          "op": "Sub",
+          "args": [],
+          "inputs": [
+            "cl"
+          ]
+        }
+      ],
+      "outputs": [
+        "y"
+      ]
+    },
+    "feeds": {
+      "a": {
+        "values": [
+          1.0,
+          2.0,
+          3.0,
+          4.0
+        ],
+        "index": [
+          0,
+          2,
+          4,
+          6
+        ]
+      },
+      "b": {
+        "values": [
+          10.0,
+          20.0,
+          30.0
+        ],
+        "index": [
+          1,
+          3,
+          5
+        ]
+      }
+    },
+    "expect": [
+      {
+        "values": [
+          -9.0,
+          -8.0,
+          -18.0,
+          -17.0,
+          -27.0,
+          -26.0
+        ],
+        "index": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6
+        ],
+        "width": 1
+      }
+    ]
+  },
+  {
+    "name": "resample_by_index_mean",
+    "build": {
+      "inputs": [
+        "x"
+      ],
+      "nodes": [
+        {
+          "id": "x",
+          "kind": "input",
+          "name": "x"
+        },
+        {
+          "id": "r",
+          "kind": "resample",
+          "input": "x",
+          "opts": {
+            "every": 5,
+            "agg": "mean"
+          }
+        }
+      ],
+      "outputs": [
+        "r"
+      ]
+    },
+    "feeds": {
+      "x": {
+        "values": [
+          1.0,
+          2.0,
+          3.0,
+          4.0,
+          5.0,
+          6.0,
+          7.0,
+          8.0,
+          9.0,
+          10.0
+        ],
+        "index": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9
+        ]
+      }
+    },
+    "expect": [
+      {
+        "values": [
+          3.0,
+          8.0
+        ],
+        "index": [
+          0,
+          5
+        ],
+        "width": 1
+      }
+    ]
+  },
+  {
+    "name": "resample_by_count_sum",
+    "build": {
+      "inputs": [
+        "x"
+      ],
+      "nodes": [
+        {
+          "id": "x",
+          "kind": "input",
+          "name": "x"
+        },
+        {
+          "id": "r",
+          "kind": "resample",
+          "input": "x",
+          "opts": {
+            "count": 3,
+            "agg": "sum"
+          }
+        }
+      ],
+      "outputs": [
+        "r"
+      ]
+    },
+    "feeds": {
+      "x": {
+        "values": [
+          1.0,
+          2.0,
+          3.0,
+          4.0,
+          5.0,
+          6.0,
+          7.0,
+          8.0,
+          9.0,
+          10.0
+        ],
+        "index": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9
+        ]
+      }
+    },
+    "expect": [
+      {
+        "values": [
+          6.0,
+          15.0,
+          24.0,
+          10.0
+        ],
+        "index": [
+          0,
+          3,
+          6,
+          9
+        ],
+        "width": 1
+      }
+    ]
+  },
+  {
+    "name": "resample_ohlc",
+    "build": {
+      "inputs": [
+        "x"
+      ],
+      "nodes": [
+        {
+          "id": "x",
+          "kind": "input",
+          "name": "x"
+        },
+        {
+          "id": "r",
+          "kind": "resample",
+          "input": "x",
+          "opts": {
+            "every": 5,
+            "agg": "ohlc"
+          }
+        }
+      ],
+      "outputs": [
+        "r"
+      ]
+    },
+    "feeds": {
+      "x": {
+        "values": [
+          1.0,
+          2.0,
+          3.0,
+          4.0,
+          5.0,
+          6.0,
+          7.0,
+          8.0,
+          9.0,
+          10.0
+        ],
+        "index": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9
+        ]
+      }
+    },
+    "expect": [
+      {
+        "values": [
+          1.0,
+          5.0,
+          1.0,
+          5.0,
+          6.0,
+          10.0,
+          6.0,
+          10.0
+        ],
+        "index": [
+          0,
+          5
+        ],
+        "width": 4
+      }
+    ]
+  },
+  {
+    "name": "select_from_ohlc",
+    "build": {
+      "inputs": [
+        "x"
+      ],
+      "nodes": [
+        {
+          "id": "x",
+          "kind": "input",
+          "name": "x"
+        },
+        {
+          "id": "o",
+          "kind": "resample",
+          "input": "x",
+          "opts": {
+            "every": 5,
+            "agg": "ohlc"
+          }
+        },
+        {
+          "id": "s",
+          "kind": "select",
+          "input": "o",
+          "columns": [
+            0,
+            3
+          ]
+        }
+      ],
+      "outputs": [
+        "s"
+      ]
+    },
+    "feeds": {
+      "x": {
+        "values": [
+          1.0,
+          2.0,
+          3.0,
+          4.0,
+          5.0,
+          6.0,
+          7.0,
+          8.0,
+          9.0,
+          10.0
+        ],
+        "index": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9
+        ]
+      }
+    },
+    "expect": [
+      {
+        "values": [
+          1.0,
+          5.0,
+          6.0,
+          10.0
+        ],
+        "index": [
+          0,
+          5
+        ],
+        "width": 2
+      }
+    ]
+  },
+  {
+    "name": "dropna_combine_latest",
+    "build": {
+      "inputs": [
+        "a",
+        "b"
+      ],
+      "nodes": [
+        {
+          "id": "a",
+          "kind": "input",
+          "name": "a"
+        },
+        {
+          "id": "b",
+          "kind": "input",
+          "name": "b"
+        },
+        {
+          "id": "cl",
+          "kind": "combineLatest",
+          "inputs": [
+            "a",
+            "b"
+          ],
+          "emit": "on_any"
+        },
+        {
+          "id": "dn",
+          "kind": "dropna",
+          "inputs": [
+            "cl"
+          ],
+          "how": "any"
+        }
+      ],
+      "outputs": [
+        "dn"
+      ]
+    },
+    "feeds": {
+      "a": {
+        "values": [
+          1.0,
+          null,
+          3.0
+        ],
+        "index": [
+          0,
+          1,
+          2
+        ]
+      },
+      "b": {
+        "values": [
+          10.0,
+          20.0,
+          null
+        ],
+        "index": [
+          0,
+          1,
+          2
+        ]
+      }
+    },
+    "expect": [
+      {
+        "values": [
+          1.0,
+          10.0
+        ],
+        "index": [
+          0
+        ],
+        "width": 2
+      }
+    ]
+  },
+  {
+    "name": "resample_functor_reducer",
+    "build": {
+      "inputs": [
+        "x"
+      ],
+      "nodes": [
+        {
+          "id": "x",
+          "kind": "input",
+          "name": "x"
+        },
+        {
+          "id": "r",
+          "kind": "resample",
+          "input": "x",
+          "opts": {
+            "every": 5
+          },
+          "reducer": {
+            "op": "ExpandingMean",
+            "args": []
+          }
+        }
+      ],
+      "outputs": [
+        "r"
+      ]
+    },
+    "feeds": {
+      "x": {
+        "values": [
+          1.0,
+          2.0,
+          3.0,
+          4.0,
+          5.0,
+          6.0,
+          7.0,
+          8.0,
+          9.0,
+          10.0
+        ],
+        "index": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9
+        ]
+      }
+    },
+    "expect": [
+      {
+        "values": [
+          3.0,
+          8.0
+        ],
+        "index": [
+          0,
+          5
+        ],
+        "width": 1
+      }
+    ]
+  },
+  {
+    "name": "delay_rollingmean",
+    "build": {
+      "inputs": [
+        "x"
+      ],
+      "nodes": [
+        {
+          "id": "x",
+          "kind": "input",
+          "name": "x"
+        },
+        {
+          "id": "rm",
+          "kind": "functor",
+          "op": "RollingMean",
+          "args": [
+            2
+          ],
+          "inputs": [
+            "x"
+          ]
+        },
+        {
+          "id": "d",
+          "kind": "delay",
+          "input": "rm",
+          "k": 2
+        }
+      ],
+      "outputs": [
+        "d"
+      ]
+    },
+    "feeds": {
+      "x": {
+        "values": [
+          1.0,
+          2.0,
+          3.0,
+          4.0,
+          5.0,
+          6.0,
+          7.0,
+          8.0,
+          9.0,
+          10.0
+        ],
+        "index": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9
+        ]
+      }
+    },
+    "expect": [
+      {
+        "values": [
+          null,
+          1.5,
+          2.5,
+          3.5,
+          4.5,
+          5.5,
+          6.5,
+          7.5,
+          8.5,
+          9.5
+        ],
+        "index": [
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11
+        ],
+        "width": 1
+      }
+    ]
+  }
+]

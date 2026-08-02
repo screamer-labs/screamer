@@ -13,6 +13,16 @@ export interface Output {
   index: Float64Array;
 }
 
+// Event-by-event streaming driver returned by `pipeline.live()`. Push feeds one
+// event at a time, flush at end of input, then drain the result.
+export interface LiveDriver {
+  push(name: string, index: number, value: number): void;
+  pushWide(name: string, index: number, values: ArrayLike<number>): void;
+  advance(now: number): void;
+  flush(): void;
+  result(): Output;
+}
+
 function toF64(x: Float64Array | number[]): Float64Array {
   return x instanceof Float64Array ? x : Float64Array.from(x);
 }
@@ -294,17 +304,7 @@ class PipelineImpl {
     try {
       for (let o = 0; o < this.outputs.length; o++) {
         const out = this.cg.runBatchFlat(idxPtrs, valPtrs, lensPtr, widthsPtr, nIn, o);
-        const rows = out.rows as number;
-        const width = out.width as number;
-        const valView = M.viewF64(out.valuePtr, rows * width);
-        const idxView = M.viewF64(out.indexPtr, rows);
-        const valCopy = new Float64Array(valView);
-        const idxCopy = new Float64Array(idxView);
-        M.freeBuf(out.indexPtr);
-        M.freeBuf(out.valuePtr);
-        const values: Float64Array | NdArray =
-          width === 1 ? valCopy : ({ data: valCopy, shape: [rows, width] } as NdArray);
-        results.push({ values, index: idxCopy });
+        results.push(this.marshalOut(out));
       }
     } catch (e) {
       throw normalizeError(e);
@@ -313,6 +313,82 @@ class PipelineImpl {
     }
 
     return this.outputs.length === 1 ? results[0] : results;
+  }
+
+  // ---- live streaming --------------------------------------------------
+  // Resolve an input name to its C++ input index. compile() adds Input nodes
+  // first, in signature order, so the input index equals the name's position.
+  private inputIndex(name: string): number {
+    const i = this.names.indexOf(name);
+    if (i < 0) throw new Error(`unknown input '${name}'`);
+    return i;
+  }
+
+  // Marshal one drained output (drainFlat picks it, then clears every output).
+  private marshalOut(out: any): Output {
+    const M: any = this.M;
+    const rows = out.rows as number;
+    const width = out.width as number;
+    const valView = M.viewF64(out.valuePtr, rows * width);
+    const idxView = M.viewF64(out.indexPtr, rows);
+    const valCopy = new Float64Array(valView);
+    const idxCopy = new Float64Array(idxView);
+    M.freeBuf(out.indexPtr);
+    M.freeBuf(out.valuePtr);
+    const values: Float64Array | NdArray =
+      width === 1 ? valCopy : ({ data: valCopy, shape: [rows, width] } as NdArray);
+    return { values, index: idxCopy };
+  }
+
+  // Event-by-event driver over the compiled graph. Push events (scalar or wide)
+  // per input, optionally advance the watermark, flush at end of input, then
+  // result() drains the accumulated output. Streaming this way is bit-identical
+  // to the batch call() on the same data (the batch==stream invariant).
+  live(): LiveDriver {
+    if (this._disposed) throw new Error("pipeline used after dispose()");
+    const M: any = this.M;
+    const self = this;
+    // Start each live session from a clean slate: run_batch resets on entry but
+    // leaves outputs_ populated on exit, and a prior live session leaves node
+    // state, so reset here so the stream starts independent of any prior call.
+    this.cg.reset();
+    return {
+      push(name: string, index: number, value: number): void {
+        self.cg.pushEvent(self.inputIndex(name), index, value);
+      },
+      pushWide(name: string, index: number, values: ArrayLike<number>): void {
+        const width = values.length;
+        const buf = M.allocF64(width || 1);
+        M.viewF64(buf, width).set(values as ArrayLike<number> & number[]);
+        try {
+          self.cg.pushEventWide(self.inputIndex(name), index, buf, width);
+        } finally {
+          M.freeBuf(buf);
+        }
+      },
+      advance(now: number): void {
+        self.cg.advance(now);
+      },
+      flush(): void {
+        self.cg.flush();
+      },
+      result(): Output {
+        // drainFlat(o) drains ALL outputs then returns output o, so a second
+        // drain sees nothing. That serves a single-output pipeline exactly;
+        // multi-output live drain is not expressible on the current surface.
+        if (self.outputs.length !== 1) {
+          throw new Error(
+            "live().result() supports single-output pipelines only " +
+              "(drain clears every output at once)",
+          );
+        }
+        try {
+          return self.marshalOut(self.cg.drainFlat(0));
+        } catch (e) {
+          throw normalizeError(e);
+        }
+      },
+    };
   }
 
   dispose(): void {
@@ -332,6 +408,7 @@ class PipelineImpl {
 // and its node metadata. `new Pipeline(inputs, outputs)` returns this callable.
 export interface Pipeline {
   (feeds: Feeds): Output | Output[];
+  live(): LiveDriver;
   dispose(): void;
   readonly inputs: Node[];
   readonly outputs: Node[];
@@ -343,6 +420,7 @@ export const Pipeline = function (inputs: Node[], outputs: Node[], opts?: unknow
   const impl = new PipelineImpl(inputs, outputs, opts);
   const fn = ((feeds: Feeds) => impl.call(feeds)) as Pipeline;
   (fn as any).dispose = () => impl.dispose();
+  (fn as any).live = () => impl.live();
   Object.defineProperty(fn, "inputs", { value: impl.inputs, enumerable: true });
   Object.defineProperty(fn, "outputs", { value: impl.outputs, enumerable: true });
   return fn;
