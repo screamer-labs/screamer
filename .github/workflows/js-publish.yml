@@ -97,7 +97,7 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/js-v')
     runs-on: ubuntu-latest
     permissions:
-      id-token: write   # npm provenance attestation (--provenance)
+      id-token: write   # OIDC trusted publishing (tokenless) + provenance attestation
     steps:
       - uses: actions/checkout@v5
 
@@ -117,6 +117,12 @@ jobs:
         with:
           node-version: 'lts/*'
           registry-url: 'https://registry.npmjs.org'
+
+      - name: Upgrade npm for OIDC trusted publishing
+        # npm's Trusted Publishing (OIDC) support requires npm >= 11.5.1. The
+        # runner's bundled npm may be older, so pin to a recent npm before the
+        # publish step reads the OIDC environment.
+        run: npm install -g npm@latest
 
       - name: Build the WASM module (single-file)
         run: |
@@ -145,12 +151,12 @@ jobs:
           npm version "$VER" --no-git-tag-version --allow-same-version
         working-directory: js
 
-      - name: Publish to npm
-        # --provenance requires id-token: write (above) and publishing from a
-        # CI workflow (not a local `npm publish`). NODE_AUTH_TOKEN comes from
-        # the NPM_TOKEN repo secret; setup-node's registry-url wires it into
-        # .npmrc for npm to pick up.
+      - name: Publish to npm (OIDC trusted publishing)
+        # Tokenless publish. npm detects the GitHub Actions OIDC environment
+        # (id-token: write, above) and mints a short-lived credential, so no
+        # NPM_TOKEN secret is needed. This requires a Trusted Publisher to be
+        # configured on npm for @screamer-labs/screamer, pointing at repo
+        # screamer-labs/screamer and workflow js-publish.yml. --provenance is
+        # generated from the same OIDC token.
         run: npm publish --provenance --access public
         working-directory: js
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
