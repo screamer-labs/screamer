@@ -1,5 +1,6 @@
 node_modules/
 dist/
+docs-site/
 src/generated/screamer.mjs
 src/generated/screamer.wasm
 *.tgz

@@ -29,12 +29,22 @@
   },
   "type": "module",
   "sideEffects": false,
-  "engines": { "node": ">=18" },
-  "exports": { ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js", "require": "./dist/cjs/index.cjs" } },
+  "engines": {
+    "node": ">=18"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/cjs/index.cjs"
+    }
+  },
   "main": "./dist/cjs/index.cjs",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build:wasm": "bash ../wasm/build-wasm.sh && cp ../wasm/build/screamer.mjs ../wasm/build/screamer.wasm src/generated/",
     "build:wasm:single": "bash ../wasm/build-wasm.sh --single-file && cp ../wasm/build/screamer.single.mjs src/generated/screamer.mjs",
@@ -44,7 +54,13 @@
     "build": "npm run build:esm && npm run build:cjs",
     "prepack": "npm run build:wasm:single && npm run build",
     "pack-smoke": "bash scripts/pack-smoke.sh",
-    "test": "node --import tsx --test test/*.test.ts"
+    "test": "node --import tsx --test test/*.test.ts",
+    "docs": "npm run build:wasm && typedoc"
   },
-  "devDependencies": { "@types/node": "^20.0.0", "typescript": "^5.5.0", "tsx": "^4.0.0" }
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "tsx": "^4.0.0",
+    "typedoc": "^0.28.20",
+    "typescript": "^5.5.0"
+  }
 }

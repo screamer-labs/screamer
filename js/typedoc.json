@@ -1,0 +1,21 @@
+{
+  "$schema": "https://typedoc.org/schema.json",
+  "entryPoints": ["src/index.ts"],
+  "out": "docs-site",
+  "name": "screamer.js",
+  "readme": "docs-guide/index.md",
+  "projectDocuments": [
+    "docs-guide/getting-started.md",
+    "docs-guide/regimes.md",
+    "docs-guide/lifecycle.md",
+    "docs-guide/pipeline.md",
+    "docs-guide/parity.md"
+  ],
+  "excludeInternal": true,
+  "excludeExternals": true,
+  "categorizeByGroup": true,
+  "navigationLinks": {
+    "Python docs": "https://screamer.readthedocs.io/",
+    "GitHub": "https://github.com/screamer-labs/screamer"
+  }
+}
