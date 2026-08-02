@@ -1,5 +1,6 @@
 #include <nanobind/nanobind.h>
 #include <nanobind/stl/string.h>
+#include "screamer/common/dispatch.h"
 #include "screamer/hawkes_intensity.h"
 #include "screamer/ofi.h"
 #include "screamer/tick_rule_sign.h"
@@ -24,7 +25,7 @@ void init_bindings_micro(nb::module_& m) {
     nb::class_<screamer::HawkesIntensity, screamer::ScreamerBase>(m, "HawkesIntensity")
         .def(nb::init<double, double, double>(),
              "decay"_a = 0.9, "alpha"_a = 1.0, "mu"_a = 0.0)
-        .def("__call__", &screamer::HawkesIntensity::operator(), "value"_a)
+        .def("__call__", &screamer::screamer_call, "value"_a)
         .def("reset", &screamer::HawkesIntensity::reset, "Reset to the initial state.");
 
     nb::class_<screamer::OFI, screamer::EvalOp>(m, "OFI")
@@ -34,7 +35,7 @@ void init_bindings_micro(nb::module_& m) {
 
     nb::class_<screamer::TickRuleSign, screamer::ScreamerBase>(m, "TickRuleSign")
         .def(nb::init<>())
-        .def("__call__", &screamer::TickRuleSign::operator(), "value"_a)
+        .def("__call__", &screamer::screamer_call, "value"_a)
         .def("reset", &screamer::TickRuleSign::reset, "Reset to the initial state.");
 
     nb::class_<screamer::LeeReadySign, screamer::EvalOp>(m, "LeeReadySign")
@@ -51,19 +52,19 @@ void init_bindings_micro(nb::module_& m) {
     nb::class_<screamer::BulkVolumeClassifier, screamer::ScreamerBase>(m, "BulkVolumeClassifier")
         .def(nb::init<int, const std::string&>(),
              "window_size"_a = 20, "start_policy"_a = "strict")
-        .def("__call__", &screamer::BulkVolumeClassifier::operator(), "value"_a)
+        .def("__call__", &screamer::screamer_call, "value"_a)
         .def("reset", &screamer::BulkVolumeClassifier::reset, "Reset to the initial state.");
 
     nb::class_<screamer::RollSpread, screamer::ScreamerBase>(m, "RollSpread")
         .def(nb::init<int, const std::string&>(),
              "window_size"_a = 20, "start_policy"_a = "strict")
-        .def("__call__", &screamer::RollSpread::operator(), "value"_a)
+        .def("__call__", &screamer::screamer_call, "value"_a)
         .def("reset", &screamer::RollSpread::reset, "Reset to the initial state.");
 
     nb::class_<screamer::Propagator, screamer::ScreamerBase>(m, "Propagator")
         .def(nb::init<int, double, double>(),
              "window_size"_a = 20, "g0"_a = 1.0, "gamma"_a = 0.5)
-        .def("__call__", &screamer::Propagator::operator(), "value"_a)
+        .def("__call__", &screamer::screamer_call, "value"_a)
         .def("reset", &screamer::Propagator::reset, "Reset to the initial state.");
 
     nb::class_<screamer::VPIN, screamer::EvalOp>(m, "VPIN")

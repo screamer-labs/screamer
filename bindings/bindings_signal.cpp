@@ -4,6 +4,7 @@
 #include <nanobind/stl/vector.h>     // std::vector<double> taps
 #include <nanobind/stl/string.h>     // std::string ctor arg
 #include "screamer/common/base.h"
+#include "screamer/common/dispatch.h"
 #include "screamer/butter.h"
 #include "screamer/butter_highpass.h"
 #include "screamer/butter_bandpass.h"
@@ -35,7 +36,7 @@ void init_bindings_signal(nb::module_& m) {
 
     nb::class_<screamer::Butter, screamer::ScreamerBase>(m, "Butter")
         .def(nb::init<int,double>(),  "order"_a = 2, "cutoff_freq"_a = 0.1)
-        .def("__call__", &screamer::Butter::operator(), "value"_a)
+        .def("__call__", &screamer::screamer_call, "value"_a)
         .def("reset", &screamer::Butter::reset, "Reset to the initial state.");
 
     // Butter family extensions: HP / BP / BS. Same scaling convention
@@ -43,19 +44,19 @@ void init_bindings_signal(nb::module_& m) {
     // low-pass `Butter`.
     nb::class_<screamer::ButterHighpass, screamer::ScreamerBase>(m, "ButterHighpass")
         .def(nb::init<int, double>(), "order"_a = 2, "cutoff_freq"_a = 0.1)
-        .def("__call__", &screamer::ButterHighpass::operator(), "value"_a)
+        .def("__call__", &screamer::screamer_call, "value"_a)
         .def("reset", &screamer::ButterHighpass::reset, "Reset.");
 
     nb::class_<screamer::ButterBandpass, screamer::ScreamerBase>(m, "ButterBandpass")
         .def(nb::init<int, double, double>(),
              "order"_a = 2, "low_cutoff"_a = 0.05, "high_cutoff"_a = 0.2)
-        .def("__call__", &screamer::ButterBandpass::operator(), "value"_a)
+        .def("__call__", &screamer::screamer_call, "value"_a)
         .def("reset", &screamer::ButterBandpass::reset, "Reset.");
 
     nb::class_<screamer::ButterBandstop, screamer::ScreamerBase>(m, "ButterBandstop")
         .def(nb::init<int, double, double>(),
              "order"_a = 2, "low_cutoff"_a = 0.05, "high_cutoff"_a = 0.2)
-        .def("__call__", &screamer::ButterBandstop::operator(), "value"_a)
+        .def("__call__", &screamer::screamer_call, "value"_a)
         .def("reset", &screamer::ButterBandstop::reset, "Reset.");
 
     // SuperSmoother: Ehlers 2-pole low-lag lowpass. Exactly one of
@@ -63,14 +64,14 @@ void init_bindings_signal(nb::module_& m) {
     nb::class_<screamer::SuperSmoother, screamer::ScreamerBase>(m, "SuperSmoother")
         .def(nb::init<std::optional<double>, std::optional<double>>(),
              "period"_a = nb::none(), "cutoff"_a = nb::none())
-        .def("__call__", &screamer::SuperSmoother::operator(), "value"_a)
+        .def("__call__", &screamer::screamer_call, "value"_a)
         .def("reset", &screamer::SuperSmoother::reset, "Reset to the initial state.");
 
     // Decycler: Ehlers trend estimate (input minus a 1-pole highpass).
     nb::class_<screamer::Decycler, screamer::ScreamerBase>(m, "Decycler")
         .def(nb::init<std::optional<double>, std::optional<double>>(),
              "period"_a = nb::none(), "cutoff"_a = nb::none())
-        .def("__call__", &screamer::Decycler::operator(), "value"_a)
+        .def("__call__", &screamer::screamer_call, "value"_a)
         .def("reset", &screamer::Decycler::reset, "Reset to the initial state.");
 
     // RoofingFilter: Ehlers bandpass (2-pole highpass then SuperSmoother).
@@ -79,7 +80,7 @@ void init_bindings_signal(nb::module_& m) {
                       std::optional<double>, std::optional<double>>(),
              "hp_period"_a = nb::none(), "lp_period"_a = nb::none(),
              "hp_cutoff"_a = nb::none(), "lp_cutoff"_a = nb::none())
-        .def("__call__", &screamer::RoofingFilter::operator(), "value"_a)
+        .def("__call__", &screamer::screamer_call, "value"_a)
         .def("reset", &screamer::RoofingFilter::reset, "Reset to the initial state.");
 
     // MovingAverage: FIR filter with user-supplied taps. Pre-compute
@@ -87,7 +88,7 @@ void init_bindings_signal(nb::module_& m) {
     // ...) and pass the coefficient vector in.
     nb::class_<screamer::MovingAverage, screamer::ScreamerBase>(m, "MovingAverage")
         .def(nb::init<const std::vector<double>&>(), "taps"_a = std::vector<double>{0.25, 0.5, 0.25})
-        .def("__call__", &screamer::MovingAverage::operator(), "value"_a)
+        .def("__call__", &screamer::screamer_call, "value"_a)
         .def("reset", &screamer::MovingAverage::reset, "Reset.");
 
     // FracDiff: fractional differentiation (Lopez de Prado, AFML ch. 5).
@@ -99,7 +100,7 @@ void init_bindings_signal(nb::module_& m) {
              "window_size"_a = 100,
              "threshold"_a = 1e-5,
              "start_policy"_a = "strict")
-        .def("__call__", &screamer::FracDiff::operator(), "value"_a)
+        .def("__call__", &screamer::screamer_call, "value"_a)
         .def("reset", &screamer::FracDiff::reset, "Reset to the initial state.");
 
     // KalmanFilter: scalar 1-D random-walk-with-noise model.
@@ -109,14 +110,14 @@ void init_bindings_signal(nb::module_& m) {
              "observation_var"_a = 1.0,
              "initial_state"_a = 0.0,
              "initial_variance"_a = 1.0)
-        .def("__call__", &screamer::KalmanFilter::operator(), "value"_a)
+        .def("__call__", &screamer::screamer_call, "value"_a)
         .def("reset", &screamer::KalmanFilter::reset, "Reset.");
 
     // SchmittTrigger: hysteresis comparator with latched binary output.
     nb::class_<screamer::SchmittTrigger, screamer::ScreamerBase>(m, "SchmittTrigger")
         .def(nb::init<double, double, double>(),
              "lower"_a, "upper"_a, "initial"_a = 0.0)
-        .def("__call__", &screamer::SchmittTrigger::operator(), "value"_a)
+        .def("__call__", &screamer::screamer_call, "value"_a)
         .def("reset", &screamer::SchmittTrigger::reset,
              "Reset to the initial latched state.");
 
@@ -125,7 +126,7 @@ void init_bindings_signal(nb::module_& m) {
     nb::class_<screamer::Hold, screamer::ScreamerBase>(m, "Hold")
         .def(nb::init<int, double>(),
              "n"_a, "release"_a = 0.0)
-        .def("__call__", &screamer::Hold::operator(), "value"_a)
+        .def("__call__", &screamer::screamer_call, "value"_a)
         .def("reset", &screamer::Hold::reset,
              "Reset to the initial state (remaining=0, held=release).");
 

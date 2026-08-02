@@ -3,6 +3,7 @@
 #include <nanobind/stl/optional.h>
 #include <nanobind/stl/string.h>
 #include "screamer/common/base.h"
+#include "screamer/common/dispatch.h"
 #include "screamer/common/eval_op.h"
 #include "screamer/return.h"
 #include "screamer/log_return.h"
@@ -46,12 +47,12 @@ void init_bindings_fin(nb::module_& m) {
 
     nb::class_<screamer::Return, screamer::ScreamerBase>(m, "Return")
         .def(nb::init<int>(), "window_size"_a = 1)
-        .def("__call__", &screamer::Return::operator(), "value"_a)
+        .def("__call__", &screamer::screamer_call, "value"_a)
         .def("reset", &screamer::Return::reset, "Reset to the initial state.");
 
     nb::class_<screamer::LogReturn, screamer::ScreamerBase>(m, "LogReturn")
         .def(nb::init<int>(), "window_size"_a = 1)
-        .def("__call__", &screamer::LogReturn::operator(), "value"_a)
+        .def("__call__", &screamer::screamer_call, "value"_a)
         .def("reset", &screamer::LogReturn::reset, "Reset to the initial state.");
 
     // ROC family: rate-of-change variants. TA-Lib has all three as
@@ -62,21 +63,21 @@ void init_bindings_fin(nb::module_& m) {
         // TA-Lib's timeperiod default is 10, which is what the docs page and
         // the sibling Momentum both declare. This was 1.
         .def(nb::init<int>(), "window_size"_a = 10)
-        .def("__call__", &screamer::ROC::operator(), "value"_a)
+        .def("__call__", &screamer::screamer_call, "value"_a)
         .def("reset", &screamer::ROC::reset, "Reset to the initial state.");
 
     nb::class_<screamer::ROCP, screamer::ScreamerBase>(m, "ROCP")
         // TA-Lib's timeperiod default is 10, which is what the docs page and
         // the sibling Momentum both declare. This was 1.
         .def(nb::init<int>(), "window_size"_a = 10)
-        .def("__call__", &screamer::ROCP::operator(), "value"_a)
+        .def("__call__", &screamer::screamer_call, "value"_a)
         .def("reset", &screamer::ROCP::reset, "Reset to the initial state.");
 
     nb::class_<screamer::ROCR, screamer::ScreamerBase>(m, "ROCR")
         // TA-Lib's timeperiod default is 10, which is what the docs page and
         // the sibling Momentum both declare. This was 1.
         .def(nb::init<int>(), "window_size"_a = 10)
-        .def("__call__", &screamer::ROCR::operator(), "value"_a)
+        .def("__call__", &screamer::screamer_call, "value"_a)
         .def("reset", &screamer::ROCR::reset, "Reset to the initial state.");
 
     // RollingCorr: 2 inputs (x, y), 1 output (Pearson correlation).
@@ -119,24 +120,24 @@ void init_bindings_fin(nb::module_& m) {
     // ----- Performance / risk metrics -----
     nb::class_<screamer::Drawdown, screamer::ScreamerBase>(m, "Drawdown")
         .def(nb::init<>())
-        .def("__call__", &screamer::Drawdown::operator(), "value"_a)
+        .def("__call__", &screamer::screamer_call, "value"_a)
         .def("reset", &screamer::Drawdown::reset, "Reset.");
 
     nb::class_<screamer::MaxDrawdown, screamer::ScreamerBase>(m, "MaxDrawdown")
         .def(nb::init<>())
-        .def("__call__", &screamer::MaxDrawdown::operator(), "value"_a)
+        .def("__call__", &screamer::screamer_call, "value"_a)
         .def("reset", &screamer::MaxDrawdown::reset, "Reset.");
 
     nb::class_<screamer::RollingMaxDrawdown, screamer::ScreamerBase>(m, "RollingMaxDrawdown")
         .def(nb::init<int>(), "window_size"_a = 252)
-        .def("__call__", &screamer::RollingMaxDrawdown::operator(), "value"_a)
+        .def("__call__", &screamer::screamer_call, "value"_a)
         .def("reset", &screamer::RollingMaxDrawdown::reset, "Reset.");
 
     nb::class_<screamer::RollingSharpe, screamer::ScreamerBase>(m, "RollingSharpe")
         .def(nb::init<int, double>(),
              "window_size"_a = 252,
              "periods_per_year"_a = 1.0)
-        .def("__call__", &screamer::RollingSharpe::operator(), "value"_a)
+        .def("__call__", &screamer::screamer_call, "value"_a)
         .def("reset", &screamer::RollingSharpe::reset, "Reset.");
 
     nb::class_<screamer::RollingSortino, screamer::ScreamerBase>(m, "RollingSortino")
@@ -144,7 +145,7 @@ void init_bindings_fin(nb::module_& m) {
              "window_size"_a = 252,
              "periods_per_year"_a = 1.0,
              "target"_a = 0.0)
-        .def("__call__", &screamer::RollingSortino::operator(), "value"_a)
+        .def("__call__", &screamer::screamer_call, "value"_a)
         .def("reset", &screamer::RollingSortino::reset, "Reset.");
 
     nb::class_<screamer::RollingInfoRatio, screamer::EvalOp>(m, "RollingInfoRatio")
@@ -158,12 +159,12 @@ void init_bindings_fin(nb::module_& m) {
         .def(nb::init<int, double>(),
              "window_size"_a = 252,
              "periods_per_year"_a = 1.0)
-        .def("__call__", &screamer::RollingCalmar::operator(), "value"_a)
+        .def("__call__", &screamer::screamer_call, "value"_a)
         .def("reset", &screamer::RollingCalmar::reset, "Reset.");
 
     nb::class_<screamer::RollingHitRate, screamer::ScreamerBase>(m, "RollingHitRate")
         .def(nb::init<int>(), "window_size"_a = 252)
-        .def("__call__", &screamer::RollingHitRate::operator(), "value"_a)
+        .def("__call__", &screamer::screamer_call, "value"_a)
         .def("reset", &screamer::RollingHitRate::reset, "Reset.");
 
     // ----- Regression-family additions -----
@@ -282,18 +283,18 @@ void init_bindings_fin(nb::module_& m) {
         .def(nb::init<int, double, const std::string&>(),
              "window_size"_a = 20, "mar"_a = 0.0,
              "start_policy"_a = "strict")
-        .def("__call__", &screamer::RollingDownsideDeviation::operator(), "value"_a)
+        .def("__call__", &screamer::screamer_call, "value"_a)
         .def("reset", &screamer::RollingDownsideDeviation::reset, "Reset.");
 
     nb::class_<screamer::RollingOmega, screamer::ScreamerBase>(m, "RollingOmega")
         .def(nb::init<int, double>(),
              "window_size"_a = 20, "threshold"_a = 0.0)
-        .def("__call__", &screamer::RollingOmega::operator(), "value"_a)
+        .def("__call__", &screamer::screamer_call, "value"_a)
         .def("reset", &screamer::RollingOmega::reset, "Reset.");
 
     nb::class_<screamer::RollingCVaR, screamer::ScreamerBase>(m, "RollingCVaR")
         .def(nb::init<int, double>(),
              "window_size"_a = 20, "alpha"_a = 0.05)
-        .def("__call__", &screamer::RollingCVaR::operator(), "value"_a)
+        .def("__call__", &screamer::screamer_call, "value"_a)
         .def("reset", &screamer::RollingCVaR::reset, "Reset.");
 }

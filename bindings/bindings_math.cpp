@@ -1,5 +1,6 @@
 #include <nanobind/nanobind.h>
 #include "screamer/common/base.h"
+#include "screamer/common/dispatch.h"
 #include "screamer/common/transform.h"
 #include "screamer/common/eval_op.h"
 #include "screamer/transform_functions.h"
@@ -18,83 +19,83 @@ void init_bindings_math(nb::module_& m) {
 
      nb::class_<screamer::Transform<(double (*)(double)) std::abs>, screamer::ScreamerBase>(m, "Abs")
         .def(nb::init<>())
-        .def("__call__", &screamer::Transform<(double (*)(double)) std::abs>::operator(), "value"_a)
+        .def("__call__", &screamer::screamer_call, "value"_a)
         .def("reset", &screamer::Transform<(double (*)(double)) std::abs>::reset, "Reset to the initial state.");
 
      nb::class_<screamer::Transform<(double (*)(double)) std::log>, screamer::ScreamerBase>(m, "Log")
         .def(nb::init<>())
-        .def("__call__", &screamer::Transform<(double (*)(double)) std::log>::operator(), "value"_a)
+        .def("__call__", &screamer::screamer_call, "value"_a)
         .def("reset", &screamer::Transform<(double (*)(double)) std::log>::reset, "Reset to the initial state.");
 
      nb::class_<screamer::Transform<(double (*)(double)) std::exp>, screamer::ScreamerBase>(m, "Exp")
         .def(nb::init<>())
-        .def("__call__", &screamer::Transform<(double (*)(double)) std::exp>::operator(), "value"_a)
+        .def("__call__", &screamer::screamer_call, "value"_a)
         .def("reset", &screamer::Transform<(double (*)(double)) std::exp>::reset, "Reset to the initial state.");
 
      nb::class_<screamer::Transform<(double (*)(double)) std::sqrt>, screamer::ScreamerBase>(m, "Sqrt")
         .def(nb::init<>())
-        .def("__call__", &screamer::Transform<(double (*)(double)) std::sqrt>::operator(), "value"_a)
+        .def("__call__", &screamer::screamer_call, "value"_a)
         .def("reset", &screamer::Transform<(double (*)(double)) std::sqrt>::reset, "Reset to the initial state.");
 
      nb::class_<screamer::Transform<(double (*)(double)) std::erf>, screamer::ScreamerBase>(m, "Erf")
         .def(nb::init<>())
-        .def("__call__", &screamer::Transform<(double (*)(double)) std::erf>::operator(), "value"_a)
+        .def("__call__", &screamer::screamer_call, "value"_a)
         .def("reset", &screamer::Transform<(double (*)(double)) std::erf>::reset, "Reset to the initial state.");
 
      nb::class_<screamer::Transform<(double (*)(double)) std::erfc>, screamer::ScreamerBase>(m, "Erfc")
         .def(nb::init<>())
-        .def("__call__", &screamer::Transform<(double (*)(double)) std::erfc>::operator(), "value"_a)
+        .def("__call__", &screamer::screamer_call, "value"_a)
         .def("reset", &screamer::Transform<(double (*)(double)) std::erfc>::reset, "Reset to the initial state.");
 
      nb::class_<screamer::Transform<(double (*)(double))screamer::signum<double> >, screamer::ScreamerBase>(m, "Sign")
         .def(nb::init<>())
-        .def("__call__", &screamer::Transform<(double (*)(double)) screamer::signum<double>>::operator(), "value"_a)
+        .def("__call__", &screamer::screamer_call, "value"_a)
         .def("reset", &screamer::Transform<(double (*)(double)) screamer::signum<double>>::reset, "Reset to the initial state.");
 
      nb::class_<screamer::Transform<(double (*)(double)) std::tanh>, screamer::ScreamerBase>(m, "Tanh")
         .def(nb::init<>())
-        .def("__call__", &screamer::Transform<(double (*)(double)) std::tanh>::operator(), "value"_a)
+        .def("__call__", &screamer::screamer_call, "value"_a)
         .def("reset", &screamer::Transform<(double (*)(double)) std::tanh>::reset, "Reset to the initial state.");
 
      nb::class_<screamer::Transform<(double (*)(double)) screamer::relu>, screamer::ScreamerBase>(m, "Relu")
         .def(nb::init<>())
-        .def("__call__", &screamer::Transform<(double (*)(double)) screamer::relu>::operator(), "value"_a)
+        .def("__call__", &screamer::screamer_call, "value"_a)
         .def("reset", &screamer::Transform<(double (*)(double)) screamer::relu>::reset, "Reset to the initial state.");
 
      nb::class_<screamer::Transform<(double (*)(double)) screamer::pos_part>, screamer::ScreamerBase>(m, "PosPart")
         .def(nb::init<>())
-        .def("__call__", &screamer::Transform<(double (*)(double)) screamer::pos_part>::operator(), "value"_a)
+        .def("__call__", &screamer::screamer_call, "value"_a)
         .def("reset", &screamer::Transform<(double (*)(double)) screamer::pos_part>::reset, "Reset to the initial state.");
 
      nb::class_<screamer::Transform<(double (*)(double)) screamer::neg_part>, screamer::ScreamerBase>(m, "NegPart")
         .def(nb::init<>())
-        .def("__call__", &screamer::Transform<(double (*)(double)) screamer::neg_part>::operator(), "value"_a)
+        .def("__call__", &screamer::screamer_call, "value"_a)
         .def("reset", &screamer::Transform<(double (*)(double)) screamer::neg_part>::reset, "Reset to the initial state.");
 
      nb::class_<screamer::Transform<(double (*)(double)) screamer::selu>, screamer::ScreamerBase>(m, "Selu")
         .def(nb::init<>())
-        .def("__call__", &screamer::Transform<(double (*)(double)) screamer::selu>::operator(), "value"_a)
+        .def("__call__", &screamer::screamer_call, "value"_a)
         .def("reset", &screamer::Transform<(double (*)(double)) screamer::selu>::reset, "Reset to the initial state.");
 
      nb::class_<screamer::Transform<(double (*)(double)) screamer::elu>, screamer::ScreamerBase>(m, "Elu")
         .def(nb::init<>())
-        .def("__call__", &screamer::Transform<(double (*)(double)) screamer::elu>::operator(), "value"_a)
+        .def("__call__", &screamer::screamer_call, "value"_a)
         .def("reset", &screamer::Transform<(double (*)(double)) screamer::elu>::reset, "Reset to the initial state.");
 
      nb::class_<screamer::Transform<(double (*)(double)) screamer::softsign>, screamer::ScreamerBase>(m, "Softsign")
         .def(nb::init<>())
-        .def("__call__", &screamer::Transform<(double (*)(double)) screamer::softsign>::operator(), "value"_a)
+        .def("__call__", &screamer::screamer_call, "value"_a)
         .def("reset", &screamer::Transform<(double (*)(double)) screamer::softsign>::reset, "Reset to the initial state.");
 
      nb::class_<screamer::Transform<(double (*)(double)) screamer::sigmoid>, screamer::ScreamerBase>(m, "Sigmoid")
         .def(nb::init<>())
-        .def("__call__", &screamer::Transform<(double (*)(double)) screamer::sigmoid>::operator(), "value"_a)
+        .def("__call__", &screamer::screamer_call, "value"_a)
         .def("reset", &screamer::Transform<(double (*)(double)) screamer::sigmoid>::reset, "Reset to the initial state.");
 
      nb::class_<screamer::Linear, screamer::ScreamerBase>(m, "Linear")
         .def(nb::init<double, double>(),
              "scale"_a = 1.0, "shift"_a = 0.0)
-        .def("__call__", &screamer::Linear::operator(), "value"_a)
+        .def("__call__", &screamer::screamer_call, "value"_a)
         .def("reset", &screamer::Linear::reset, "Reset to the initial state.");
 
      // Linear2: two-input affine combination f(x, y) = a*x + b*y + c.
@@ -109,59 +110,59 @@ void init_bindings_math(nb::module_& m) {
 
      nb::class_<screamer::Power, screamer::ScreamerBase>(m, "Power")
         .def(nb::init<double>(), "p"_a = 2.0)
-        .def("__call__", &screamer::Power::operator(), "value"_a)
+        .def("__call__", &screamer::screamer_call, "value"_a)
         .def("reset", &screamer::Power::reset, "Reset to the initial state.");
 
      // Element-wise transforms wired through the Transform<...> template.
      // Floor / Ceil round toward negative / positive infinity respectively.
      nb::class_<screamer::Transform<(double (*)(double)) std::floor>, screamer::ScreamerBase>(m, "Floor")
         .def(nb::init<>())
-        .def("__call__", &screamer::Transform<(double (*)(double)) std::floor>::operator(), "value"_a)
+        .def("__call__", &screamer::screamer_call, "value"_a)
         .def("reset", &screamer::Transform<(double (*)(double)) std::floor>::reset, "Reset to the initial state.");
 
      nb::class_<screamer::Transform<(double (*)(double)) std::ceil>, screamer::ScreamerBase>(m, "Ceil")
         .def(nb::init<>())
-        .def("__call__", &screamer::Transform<(double (*)(double)) std::ceil>::operator(), "value"_a)
+        .def("__call__", &screamer::screamer_call, "value"_a)
         .def("reset", &screamer::Transform<(double (*)(double)) std::ceil>::reset, "Reset to the initial state.");
 
      // Square (x*x) and Cube (x*x*x): faster than Power(2) / Power(3) since
      // they skip the std::pow logarithm.
      nb::class_<screamer::Transform<(double (*)(double)) screamer::square>, screamer::ScreamerBase>(m, "Square")
         .def(nb::init<>())
-        .def("__call__", &screamer::Transform<(double (*)(double)) screamer::square>::operator(), "value"_a)
+        .def("__call__", &screamer::screamer_call, "value"_a)
         .def("reset", &screamer::Transform<(double (*)(double)) screamer::square>::reset, "Reset to the initial state.");
 
      nb::class_<screamer::Transform<(double (*)(double)) screamer::cube>, screamer::ScreamerBase>(m, "Cube")
         .def(nb::init<>())
-        .def("__call__", &screamer::Transform<(double (*)(double)) screamer::cube>::operator(), "value"_a)
+        .def("__call__", &screamer::screamer_call, "value"_a)
         .def("reset", &screamer::Transform<(double (*)(double)) screamer::cube>::reset, "Reset to the initial state.");
 
      // Trig: useful for cyclical features (time-of-day encoded as sin/cos
      // of a fraction-of-day angle, etc.).
      nb::class_<screamer::Transform<(double (*)(double)) std::sin>, screamer::ScreamerBase>(m, "Sin")
         .def(nb::init<>())
-        .def("__call__", &screamer::Transform<(double (*)(double)) std::sin>::operator(), "value"_a)
+        .def("__call__", &screamer::screamer_call, "value"_a)
         .def("reset", &screamer::Transform<(double (*)(double)) std::sin>::reset, "Reset to the initial state.");
 
      nb::class_<screamer::Transform<(double (*)(double)) std::cos>, screamer::ScreamerBase>(m, "Cos")
         .def(nb::init<>())
-        .def("__call__", &screamer::Transform<(double (*)(double)) std::cos>::operator(), "value"_a)
+        .def("__call__", &screamer::screamer_call, "value"_a)
         .def("reset", &screamer::Transform<(double (*)(double)) std::cos>::reset, "Reset to the initial state.");
 
      nb::class_<screamer::Transform<(double (*)(double)) std::atan>, screamer::ScreamerBase>(m, "Atan")
         .def(nb::init<>())
-        .def("__call__", &screamer::Transform<(double (*)(double)) std::atan>::operator(), "value"_a)
+        .def("__call__", &screamer::screamer_call, "value"_a)
         .def("reset", &screamer::Transform<(double (*)(double)) std::atan>::reset, "Reset to the initial state.");
 
      // Inverse trig: outputs NaN for inputs outside [-1, 1] (matches numpy).
      nb::class_<screamer::Transform<(double (*)(double)) std::asin>, screamer::ScreamerBase>(m, "Asin")
         .def(nb::init<>())
-        .def("__call__", &screamer::Transform<(double (*)(double)) std::asin>::operator(), "value"_a)
+        .def("__call__", &screamer::screamer_call, "value"_a)
         .def("reset", &screamer::Transform<(double (*)(double)) std::asin>::reset, "Reset to the initial state.");
 
      nb::class_<screamer::Transform<(double (*)(double)) std::acos>, screamer::ScreamerBase>(m, "Acos")
         .def(nb::init<>())
-        .def("__call__", &screamer::Transform<(double (*)(double)) std::acos>::operator(), "value"_a)
+        .def("__call__", &screamer::screamer_call, "value"_a)
         .def("reset", &screamer::Transform<(double (*)(double)) std::acos>::reset, "Reset to the initial state.");
 
      // Round: nearest integer with half-to-even (banker's) rounding,
@@ -169,13 +170,13 @@ void init_bindings_math(nb::module_& m) {
      // would round half-away-from-zero, which numpy does NOT do.
      nb::class_<screamer::Transform<(double (*)(double)) std::nearbyint>, screamer::ScreamerBase>(m, "Round")
         .def(nb::init<>())
-        .def("__call__", &screamer::Transform<(double (*)(double)) std::nearbyint>::operator(), "value"_a)
+        .def("__call__", &screamer::screamer_call, "value"_a)
         .def("reset", &screamer::Transform<(double (*)(double)) std::nearbyint>::reset, "Reset to the initial state.");
 
      // Identity: pass-through, useful as a no-op pipeline node.
      nb::class_<screamer::Transform<(double (*)(double)) screamer::identity>, screamer::ScreamerBase>(m, "Identity")
         .def(nb::init<>())
-        .def("__call__", &screamer::Transform<(double (*)(double)) screamer::identity>::operator(), "value"_a)
+        .def("__call__", &screamer::screamer_call, "value"_a)
         .def("reset", &screamer::Transform<(double (*)(double)) screamer::identity>::reset, "Reset to the initial state.");
 
      // 2D coordinate / vector math. Hypot and Atan2 are 2->1 and exist
