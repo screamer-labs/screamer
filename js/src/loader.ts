@@ -3,9 +3,22 @@
 // `npm run build:wasm:single` instead copies the self-contained
 // screamer.single.mjs (wasm embedded as base64) to this same path, and
 // `npm run build` copies whichever is currently there into dist/generated/
-// so the packaged tarball needs no separate .wasm asset to resolve.
-import initModule from "./generated/screamer.mjs";
+// (and dist/cjs/generated/ for the CJS build) so the packaged tarball needs
+// no separate .wasm asset to resolve.
 import { normalizeError } from "./errors.js";
+
+// screamer.mjs is single-file ESM (`export default Module`), in both the
+// ESM and CJS build. A literal `import(...)` here would be fine for the ESM
+// build, but tsc's CommonJS emit downlevels a literal dynamic `import()`
+// into a `require()` wrapped in a promise, and `require()` of an ESM-only
+// module throws `ERR_REQUIRE_ESM`. Indirecting through `Function` hides the
+// import expression from tsc's static downlevel transform, so both builds
+// execute a real dynamic `import()` at runtime; Node has supported
+// `import()` from CommonJS modules since 12.x. The specifier still resolves
+// relative to this file (loader.js / loader.cjs), not the caller's cwd.
+const dynamicImport = new Function("specifier", "return import(specifier)") as (
+  specifier: string,
+) => Promise<{ default: () => Promise<Screamer> }>;
 
 export interface RawOp {
   nIn(): number; nOut(): number;
@@ -47,6 +60,10 @@ function wrapCtors(M: Screamer): Screamer {
 
 let cached: Promise<Screamer> | null = null;
 export function init(): Promise<Screamer> {
-  if (!cached) cached = (initModule() as Promise<Screamer>).then(wrapCtors);
+  if (!cached) {
+    cached = dynamicImport("./generated/screamer.mjs")
+      .then((m) => m.default())
+      .then(wrapCtors);
+  }
   return cached;
 }

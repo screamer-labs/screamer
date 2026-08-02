@@ -71,3 +71,37 @@ console.log("PACK OK");
 EOF
 
 node "$TMPDIR/check.mjs"
+
+cat > "$TMPDIR/check.cjs" <<'EOF'
+const assert = require("node:assert/strict");
+const { ready, RollingMean, Input, Pipeline, Diff } = require("@screamer-labs/screamer");
+
+ready().then(() => {
+  // Same shape as check.mjs, proven through require() instead of import.
+  const out = RollingMean(3)([1, 2, 3, 4, 5]);
+  const expected = [NaN, NaN, 2, 3, 4];
+  assert.equal(out.length, expected.length, "RollingMean: output length");
+  for (let i = 0; i < expected.length; i++) {
+    if (Number.isNaN(expected[i])) {
+      assert.ok(Number.isNaN(out[i]), `RollingMean[${i}]: expected NaN, got ${out[i]}`);
+    } else {
+      assert.ok(
+        Math.abs(out[i] - expected[i]) < 1e-9,
+        `RollingMean[${i}]: expected ${expected[i]}, got ${out[i]}`,
+      );
+    }
+  }
+
+  const x = Input("x");
+  const p = new Pipeline([x], [Diff(1)(RollingMean(3)(x))]);
+  const result = p([1, 2, 3, 4, 5, 6]);
+  assert.ok(result && result.values && result.values.length === 6, "Pipeline: unexpected output shape");
+
+  console.log("PACK OK (cjs)");
+}).catch((e) => {
+  console.error(e);
+  process.exit(1);
+});
+EOF
+
+node "$TMPDIR/check.cjs"
