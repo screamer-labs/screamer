@@ -135,6 +135,8 @@ class PipelineImpl {
         nid = gb.addFunctor(M.opPtr(op.functor), vec);
         vec.delete();
         this.ops.push(op.wrapper); // retain for the graph's lifetime
+      } else if (op?.combinator !== undefined) {
+        nid = this.buildCombinator(gb, op, node.inputs.map(build));
       } else {
         throw new Error("combinator/operator nodes are not supported yet");
       }
@@ -155,6 +157,74 @@ class PipelineImpl {
       throw normalizeError(e);
     } finally {
       gb.delete();
+    }
+  }
+
+  // Dispatch an operator (combinator) node onto the matching GraphBuilder.add*
+  // call. `inp` are the already-built C++ ids of the node's inputs. Mirrors the
+  // operator branch of dag.py Pipeline._compile_cpp.
+  private buildCombinator(gb: any, op: any, inp: number[]): number {
+    const M: any = this.M;
+    const vec = new M.VectorSizeT();
+    for (const id of inp) vec.push_back(id);
+    try {
+      const kind = op.combinator as string;
+      const p = op.params ?? {};
+      switch (kind) {
+        case "combineLatest":
+          return gb.addCombineLatest(vec, !!p.whenAll, p.maxPending);
+        case "dropna":
+          return gb.addDropna(vec, !!p.howAll);
+        case "filter":
+          return gb.addFilter(vec);
+        case "delay":
+          return gb.addDelay(vec, p.duration);
+        case "select": {
+          const cols = new M.VectorSizeT();
+          for (const c of p.columns) cols.push_back(c);
+          try {
+            return gb.addSelect(vec, cols);
+          } finally {
+            cols.delete();
+          }
+        }
+        case "resample":
+          return this.buildResample(gb, vec, p);
+        default:
+          throw new Error(`unknown combinator '${kind}'`);
+      }
+    } finally {
+      vec.delete();
+    }
+  }
+
+  // Build a resample node: marshal the fixed-plan entries into a flat int32 heap
+  // buffer ([agg0, col0, agg1, col1, ...]) and resolve a functor reducer's
+  // EvalOp*, retaining its wrapper for the graph's lifetime.
+  private buildResample(gb: any, vec: any, p: any): number {
+    const M: any = this.M;
+    let planPtr = 0;
+    let planLen = 0;
+    let reducerPtr = 0;
+    if (p.plan && p.plan.length) {
+      const flat: number[] = [];
+      for (const [agg, col] of p.plan) flat.push(agg, col);
+      planLen = p.plan.length; // entry (pair) count; C++ reads 2*planLen ints
+      planPtr = heapU32(M, flat);
+    }
+    if (p.reducer) {
+      const rop = p.reducer.op;
+      reducerPtr = M.opPtr(rop.functor);
+      this.ops.push(rop.wrapper); // retain reducer op for the graph's lifetime
+    }
+    try {
+      return gb.addResample(
+        vec, p.modeCode, p.aggCode, p.labelCode, p.fillCode,
+        p.width, p.origin, p.count, p.threshold, p.maxAge,
+        planPtr, planLen, reducerPtr,
+      );
+    } finally {
+      if (planPtr) M.freeBuf(planPtr);
     }
   }
 
