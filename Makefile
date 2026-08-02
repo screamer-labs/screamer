@@ -102,6 +102,7 @@ tidy: build
 	@echo ">>> clang-tidy: cppcoreguidelines-pro-type-member-init"
 	$(CLANG_TIDY) -p build --quiet --warnings-as-errors='*' \
 	  --checks='-*,cppcoreguidelines-pro-type-member-init' \
+	  --header-filter='(include|src)/screamer/' \
 	  bindings/*.cpp src/screamer/common/*.cpp src/screamer/detail/*.cpp
 
 # ---------------------------------------------------------------------------
