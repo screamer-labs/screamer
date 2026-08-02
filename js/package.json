@@ -1,7 +1,35 @@
 {
   "name": "@screamer-labs/screamer",
   "version": "0.0.0",
+  "description": "WASM build of screamer, a high-performance causal streaming time-series operator library, compiled from the same C++ core as the Python package.",
+  "keywords": [
+    "streaming",
+    "time-series",
+    "technical-analysis",
+    "indicators",
+    "quant",
+    "wasm",
+    "webassembly",
+    "rolling",
+    "online-algorithms"
+  ],
+  "license": "MIT",
+  "homepage": "https://github.com/screamer-labs/screamer",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/screamer-labs/screamer.git",
+    "directory": "js"
+  },
+  "bugs": {
+    "url": "https://github.com/screamer-labs/screamer/issues"
+  },
+  "author": {
+    "name": "Thijs van den Berg",
+    "email": "thijs@sitmo.com"
+  },
   "type": "module",
+  "sideEffects": false,
+  "engines": { "node": ">=18" },
   "exports": { ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js", "require": "./dist/cjs/index.cjs" } },
   "main": "./dist/cjs/index.cjs",
   "module": "./dist/index.js",
