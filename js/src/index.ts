@@ -15,4 +15,7 @@ export { init } from "./loader.js";
 export type { ScreamerOp } from "./runtime.js";
 export { toNested } from "./ndarray.js";
 export type { NdArray } from "./ndarray.js";
+export { Node, Input, isNode } from "./node.js";
+export { Pipeline } from "./pipeline.js";
+export type { Output } from "./pipeline.js";
 export * from "./generated/ops.js";

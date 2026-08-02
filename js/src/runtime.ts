@@ -1,6 +1,7 @@
 import type { Screamer, RawOp } from "./loader.js";
 import { normalizeError } from "./errors.js";
 import type { NdArray } from "./ndarray.js";
+import { Node, isNode } from "./node.js";
 
 // `Symbol.dispose` (explicit resource management) is provided by the
 // "ESNext.Disposable" lib entry in tsconfig.json.
@@ -67,6 +68,13 @@ export function wrapOp(M: Screamer, raw: RawOp): ScreamerOp {
   const call = (...args: any[]) => {
     try {
       if (disposed) throw new Error("operation used after dispose()");
+      // Define-then-bind: if any argument is a symbolic Node, defer the call and
+      // return a functor Node holding BOTH the raw C++ op (for `opPtr` at graph
+      // compile) and this wrapper (so the Pipeline can pin its lifetime; the
+      // Embind layer keeps only a non-owning EvalOp*).
+      if (args.some(isNode)) {
+        return new Node({ functor: raw, wrapper: op }, args.filter(isNode));
+      }
       if (nIn === 1) {
         const a = args[0];
         if (typeof a === "number") return event([a]);
