@@ -204,9 +204,10 @@ test_definitions = [
 # (it drives one array in, one array out) and are listed as exempt.
 
 def _shapes():
+    import importlib.resources as _resources
     import json as _json
-    from pathlib import Path as _Path
-    help_json = _Path(__file__).resolve().parent.parent / "screamer" / "data" / "help.json"
+    # Load help.json from the installed screamer package so this runs against the wheel.
+    help_json = _resources.files("screamer").joinpath("data/help.json")
     entries = _json.loads(help_json.read_text())
     return {
         name: (int(e.get("inputs", 1)), int(e.get("outputs", 1)))

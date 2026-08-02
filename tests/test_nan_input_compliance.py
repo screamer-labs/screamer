@@ -46,14 +46,15 @@ from __future__ import annotations
 
 import json
 import math
-from pathlib import Path
+import importlib.resources
 
 import numpy as np
 import pytest
 
 import screamer
 
-HELP_JSON = Path(__file__).resolve().parent.parent / "screamer" / "data" / "help.json"
+# Load help.json from the installed screamer package so this runs against the wheel.
+HELP_JSON = importlib.resources.files("screamer").joinpath("data/help.json")
 
 # Functions whose runtime behavior does not yet match their declared
 # ``nan_policy``: leading-NaN inputs poison running state forever. Each

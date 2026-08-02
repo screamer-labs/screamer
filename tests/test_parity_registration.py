@@ -17,7 +17,7 @@ in `PARITY_EXEMPT` with a reason. Adding an operator without either fails here.
 from __future__ import annotations
 
 import json
-from pathlib import Path
+import importlib.resources
 
 from .param_cases import (
     PARITY_EXEMPT,
@@ -27,7 +27,8 @@ from .param_cases import (
     test_definitions,
 )
 
-HELP_JSON = Path(__file__).resolve().parent.parent / "screamer" / "data" / "help.json"
+# Load help.json from the installed screamer package so this runs against the wheel.
+HELP_JSON = importlib.resources.files("screamer").joinpath("data/help.json")
 
 
 def _covered() -> set[str]:

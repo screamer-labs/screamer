@@ -27,15 +27,17 @@ fix fails the suite until the set is updated.
 """
 from __future__ import annotations
 
+import importlib.resources
 import json
-from pathlib import Path
 
 import numpy as np
 import pytest
 
 import screamer
 
-HELP_JSON = Path(__file__).resolve().parent.parent / "screamer" / "data" / "help.json"
+# Load help.json from the installed screamer package (importlib.resources), not
+# a source-relative path, so this suite runs against the built wheel too.
+HELP_JSON = importlib.resources.files("screamer").joinpath("data/help.json")
 HELP: dict[str, dict] = json.loads(HELP_JSON.read_text())
 
 # Only compute functors carry these contracts. Stream operators and DAG nodes

@@ -21,12 +21,13 @@ whose numbers nothing independently verifies.
 """
 from __future__ import annotations
 
+import importlib.resources
 import json
-from pathlib import Path
 
 from devtools import baselines, get_baselines
 
-HELP_JSON = Path(__file__).resolve().parent.parent / "screamer" / "data" / "help.json"
+# Load help.json from the installed screamer package so this runs against the wheel.
+HELP_JSON = importlib.resources.files("screamer").joinpath("data/help.json")
 
 # An execution simulator: the fill model is screamer's own, so there is no
 # external library computing the same thing. These want hand-written

@@ -297,11 +297,11 @@ def test_code_in_examples_without_h3_is_rejected():
         raise AssertionError("expected ValueError")
 
 
+import importlib.resources
 import json
-from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parent.parent
-HELP_JSON = REPO_ROOT / "screamer" / "data" / "help.json"
+# Load help.json from the installed screamer package so this runs against the wheel.
+HELP_JSON = importlib.resources.files("screamer").joinpath("data/help.json")
 
 
 def test_help_json_has_new_schema():
