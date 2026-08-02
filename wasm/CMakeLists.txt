@@ -30,6 +30,7 @@ endforeach()
 
 add_executable(screamer
     "${CMAKE_CURRENT_SOURCE_DIR}/generated/bindings_wasm.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/dag_bindings.cpp"
     ${PURE_SOURCES})
 
 target_compile_features(screamer PRIVATE cxx_std_17)

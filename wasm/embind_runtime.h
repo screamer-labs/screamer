@@ -39,6 +39,13 @@ inline std::optional<double> opt(double v) {
     return std::isnan(v) ? std::nullopt : std::optional<double>(v);
 }
 
+// Raw address of an op instance as an integer. The JS wrapper holds the C++
+// EvalOp, so this hands JS the raw EvalOp* it passes to GraphBuilder.addFunctor
+// (and addResample's reducer). Mirrors the uintptr_t convention of evalInto.
+inline std::uintptr_t opPtr(screamer::EvalOp& op) {
+    return reinterpret_cast<std::uintptr_t>(&op);
+}
+
 }  // namespace screamer_wasm
 
 // Register the shared runtime on the EvalOp base class ONCE. Every op class is
@@ -52,4 +59,6 @@ inline std::optional<double> opt(double v) {
         .function("nOut", &screamer::EvalOp::n_out);                           \
     emscripten::function("allocF64", &screamer_wasm::allocF64);               \
     emscripten::function("freeBuf", &screamer_wasm::freeBuf);                 \
-    emscripten::function("viewF64", &screamer_wasm::viewF64)
+    emscripten::function("viewF64", &screamer_wasm::viewF64);                 \
+    emscripten::function("opPtr", &screamer_wasm::opPtr,                       \
+                         emscripten::allow_raw_pointers())
