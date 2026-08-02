@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { ready, RollingMean, RollingMinMax, toNested } from "../src/index.ts";
+import { ready, RollingMean, RollingMinMax, Add, toNested } from "../src/index.ts";
 
 // Same NaN-aware sequence comparison used by runtime.test.ts, applied here
 // against the *ergonomic* factories (RollingMean/RollingMinMax from the public
@@ -73,5 +73,37 @@ test("regimes: RollingMinMax(3) multi-out batch is {data, shape} and toNested() 
   // window fills at index 2: min/max of [1,2,3] = [1,3]
   eqSeq(nested[2], [1, 3]);
   eqSeq(nested[4], [3, 5]);
+  op.dispose();
+});
+
+test("regimes: Add() 2-input columnar batch computes elementwise sums", async () => {
+  await ready();
+  const op = Add();
+  const out = op(new Float64Array([1, 2, 3]), new Float64Array([10, 20, 30])) as Float64Array;
+  assert.ok(out instanceof Float64Array);
+  eqSeq(out, [11, 22, 33]);
+  op.dispose();
+});
+
+test("regimes: Add() rejects a mismatched-length columnar batch with a TypeError instead of NaN-filling/truncating", async () => {
+  await ready();
+  const op = Add();
+  assert.throws(
+    () => op(new Float64Array([1, 2, 3]), new Float64Array([10, 20])),
+    TypeError,
+  );
+  assert.throws(
+    () => op([1, 2], [1, 2, 3]),
+    TypeError,
+  );
+  op.dispose();
+});
+
+test("regimes: op([]) is still a valid empty batch (not treated as a mixed/invalid array)", async () => {
+  await ready();
+  const op = RollingMean(3);
+  const out = op([]) as number[];
+  assert.ok(Array.isArray(out));
+  assert.equal(out.length, 0);
   op.dispose();
 });

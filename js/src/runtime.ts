@@ -20,6 +20,7 @@ export function wrapOp(M: Screamer, raw: RawOp): ScreamerOp {
   const free = () => { if (!disposed) { disposed = true; M.freeBuf(inBuf); M.freeBuf(outBuf); raw.delete(); } };
 
   const event = (inputs: ArrayLike<number>): number | number[] => {
+    if (disposed) throw new Error("operation used after dispose()");
     M.viewF64(inBuf, nIn).set(inputs as number[]);
     raw.evalInto(inBuf, outBuf);
     const o = M.viewF64(outBuf, nOut);
@@ -27,12 +28,16 @@ export function wrapOp(M: Screamer, raw: RawOp): ScreamerOp {
   };
 
   const isTyped = (x: any) => x instanceof Float64Array;
-  const isNumArr = (x: any) => Array.isArray(x) && (x.length === 0 || typeof x[0] === "number");
+  const isNumArr = (x: any) => Array.isArray(x) && x.every((v) => typeof v === "number");
   // Strings are technically Symbol.iterator-bearing (of chars, not numbers) and
   // must NOT be accepted as a streaming source; without this guard `op("x")`
-  // would silently return a lazy generator instead of raising.
+  // would silently return a lazy generator instead of raising. Plain arrays
+  // are excluded too (not just numeric ones): a non-numeric/mixed array
+  // (e.g. `[1, "x"]`) must raise a synchronous TypeError from the dispatcher
+  // below, not be treated as a lazy streaming source that only fails once
+  // consumed.
   const isSyncIter = (x: any) =>
-    x != null && typeof x !== "string" && typeof x[Symbol.iterator] === "function" && !isTyped(x) && !isNumArr(x);
+    x != null && typeof x !== "string" && typeof x[Symbol.iterator] === "function" && !isTyped(x) && !Array.isArray(x);
   const isAsyncIter = (x: any) => x != null && typeof x[Symbol.asyncIterator] === "function";
 
   function batch1(arr: ArrayLike<number>, typed: boolean): any {
@@ -61,6 +66,7 @@ export function wrapOp(M: Screamer, raw: RawOp): ScreamerOp {
 
   const call = (...args: any[]) => {
     try {
+      if (disposed) throw new Error("operation used after dispose()");
       if (nIn === 1) {
         const a = args[0];
         if (typeof a === "number") return event([a]);
@@ -73,8 +79,11 @@ export function wrapOp(M: Screamer, raw: RawOp): ScreamerOp {
       // nIn > 1: N scalars -> one event; N arrays -> columnar batch.
       if (args.length === nIn && args.every((x) => typeof x === "number")) return event(args);
       if (args.length === nIn && args.every((x) => isTyped(x) || isNumArr(x))) {
-        raw.reset();
         const rows = (args[0] as ArrayLike<number>).length;
+        if (args.some((x) => x.length !== rows)) {
+          throw new TypeError(`all input arrays must have the same length (got ${args.map((a) => a.length).join(", ")})`);
+        }
+        raw.reset();
         const single = nOut === 1;
         const out = single ? new Float64Array(rows) : new Float64Array(rows * nOut);
         for (let i = 0; i < rows; i++) {
@@ -89,7 +98,7 @@ export function wrapOp(M: Screamer, raw: RawOp): ScreamerOp {
   };
 
   const op = call as ScreamerOp;
-  op.reset = () => raw.reset();
+  op.reset = () => { if (disposed) throw new Error("operation used after dispose()"); raw.reset(); };
   op.dispose = free;
   (op as any)[Symbol.dispose] = free;
   REG.register(op, free);
