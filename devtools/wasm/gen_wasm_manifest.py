@@ -23,6 +23,7 @@ Usage::
 
     python3 devtools/wasm/gen_wasm_manifest.py           # writes wasm_manifest.json
     python3 devtools/wasm/gen_wasm_manifest.py --check    # validates + prints a summary, no write
+    python3 devtools/wasm/gen_wasm_manifest.py --stdout   # writes the manifest JSON to stdout, no write
 """
 
 from __future__ import annotations
@@ -235,6 +236,11 @@ def main() -> None:
     if "--check" in sys.argv:
         validate(ops)
         print(f"MANIFEST OK: {len(ops)} ops")
+    elif "--stdout" in sys.argv:
+        # Byte-identical to what a plain run writes to OUTPUT_PATH, just
+        # routed to stdout so callers (e.g. the freshness-gate test) can
+        # diff without touching the committed file.
+        sys.stdout.write(json.dumps(ops, indent=2) + "\n")
     else:
         OUTPUT_PATH.write_text(json.dumps(ops, indent=2) + "\n")
         print(f"Wrote {len(ops)} ops to {OUTPUT_PATH}")

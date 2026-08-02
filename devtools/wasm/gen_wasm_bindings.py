@@ -25,6 +25,7 @@ nanobind/base/dispatch/functor_base common headers, so the header set is exact.
 Usage:
   python3 devtools/wasm/gen_wasm_bindings.py           # write the .cpp
   python3 devtools/wasm/gen_wasm_bindings.py --check    # validate coverage of the .cpp
+  python3 devtools/wasm/gen_wasm_bindings.py --stdout   # write the generated .cpp to stdout, no write/check
 """
 from __future__ import annotations
 
@@ -189,6 +190,12 @@ def main(argv: list[str]) -> int:
     ops = load_manifest()
     if "--check" in argv:
         return check(ops)
+    if "--stdout" in argv:
+        # Byte-identical to what a plain run writes to OUT, just routed to
+        # stdout so callers (e.g. the freshness-gate test) can diff without
+        # touching the committed file.
+        sys.stdout.write(generate(ops))
+        return 0
     OUT.parent.mkdir(parents=True, exist_ok=True)
     OUT.write_text(generate(ops))
     print(f"wrote {OUT} ({len(ops)} ops)")
