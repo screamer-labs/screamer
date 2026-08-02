@@ -713,5 +713,347 @@
         "width": 1
       }
     ]
+  },
+  {
+    "name": "resample_by_cumulative_sum",
+    "build": {
+      "inputs": [
+        "x"
+      ],
+      "nodes": [
+        {
+          "id": "x",
+          "kind": "input",
+          "name": "x"
+        },
+        {
+          "id": "r",
+          "kind": "resample",
+          "input": "x",
+          "opts": {
+            "threshold": 5.0,
+            "agg": "sum"
+          }
+        }
+      ],
+      "outputs": [
+        "r"
+      ]
+    },
+    "feeds": {
+      "x": {
+        "values": [
+          1.0,
+          2.0,
+          2.0,
+          2.0,
+          2.0,
+          2.0,
+          2.0,
+          3.0,
+          3.0,
+          1.0,
+          2.0,
+          2.0,
+          1.0,
+          2.0,
+          10.0,
+          10.0
+        ],
+        "index": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7
+        ]
+      }
+    },
+    "expect": [
+      {
+        "values": [
+          5.0,
+          7.0,
+          11.0
+        ],
+        "index": [
+          0,
+          3,
+          6
+        ],
+        "width": 1
+      }
+    ]
+  },
+  {
+    "name": "resample_carry_right",
+    "build": {
+      "inputs": [
+        "x"
+      ],
+      "nodes": [
+        {
+          "id": "x",
+          "kind": "input",
+          "name": "x"
+        },
+        {
+          "id": "r",
+          "kind": "resample",
+          "input": "x",
+          "opts": {
+            "every": 3,
+            "agg": "last",
+            "fill": "carry",
+            "label": "right"
+          }
+        }
+      ],
+      "outputs": [
+        "r"
+      ]
+    },
+    "feeds": {
+      "x": {
+        "values": [
+          1.0,
+          2.0,
+          3.0,
+          10.0,
+          11.0
+        ],
+        "index": [
+          0,
+          1,
+          2,
+          9,
+          10
+        ]
+      }
+    },
+    "expect": [
+      {
+        "values": [
+          3.0,
+          3.0,
+          3.0,
+          11.0
+        ],
+        "index": [
+          3,
+          6,
+          9,
+          12
+        ],
+        "width": 1
+      }
+    ]
+  },
+  {
+    "name": "filter_mask_gate",
+    "build": {
+      "inputs": [
+        "d",
+        "m"
+      ],
+      "nodes": [
+        {
+          "id": "d",
+          "kind": "input",
+          "name": "d"
+        },
+        {
+          "id": "m",
+          "kind": "input",
+          "name": "m"
+        },
+        {
+          "id": "f",
+          "kind": "filter",
+          "data": "d",
+          "mask": "m"
+        }
+      ],
+      "outputs": [
+        "f"
+      ]
+    },
+    "feeds": {
+      "d": {
+        "values": [
+          10.0,
+          20.0,
+          30.0,
+          40.0,
+          50.0
+        ],
+        "index": [
+          0,
+          1,
+          2,
+          3,
+          4
+        ]
+      },
+      "m": {
+        "values": [
+          1.0,
+          0.0,
+          null,
+          2.0,
+          1.0
+        ],
+        "index": [
+          0,
+          1,
+          2,
+          3,
+          4
+        ]
+      }
+    },
+    "expect": [
+      {
+        "values": [
+          10.0,
+          40.0,
+          50.0
+        ],
+        "index": [
+          0,
+          3,
+          4
+        ],
+        "width": 1
+      }
+    ]
+  },
+  {
+    "name": "multi_output_mean_diff",
+    "build": {
+      "inputs": [
+        "x"
+      ],
+      "nodes": [
+        {
+          "id": "x",
+          "kind": "input",
+          "name": "x"
+        },
+        {
+          "id": "rm",
+          "kind": "functor",
+          "op": "RollingMean",
+          "args": [
+            3
+          ],
+          "inputs": [
+            "x"
+          ]
+        },
+        {
+          "id": "d",
+          "kind": "functor",
+          "op": "Diff",
+          "args": [
+            1
+          ],
+          "inputs": [
+            "x"
+          ]
+        }
+      ],
+      "outputs": [
+        "rm",
+        "d"
+      ]
+    },
+    "feeds": {
+      "x": {
+        "values": [
+          1.0,
+          2.0,
+          3.0,
+          4.0,
+          5.0,
+          6.0,
+          7.0,
+          8.0,
+          9.0,
+          10.0
+        ],
+        "index": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9
+        ]
+      }
+    },
+    "expect": [
+      {
+        "values": [
+          null,
+          null,
+          2.0,
+          3.0,
+          4.0,
+          5.0,
+          6.0,
+          7.0,
+          8.0,
+          9.0
+        ],
+        "index": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9
+        ],
+        "width": 1
+      },
+      {
+        "values": [
+          null,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ],
+        "index": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9
+        ],
+        "width": 1
+      }
+    ]
   }
 ]

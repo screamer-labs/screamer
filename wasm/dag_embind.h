@@ -130,8 +130,49 @@ public:
             cg_->run_batch(in_indices, in_vals, in_lens, in_widths), outIdx);
     }
 
+    // Batch drive ONCE, caching every OutputBuffer so a multi-output pipeline
+    // reads each output without recomputing the graph. JS calls this once, then
+    // outputCount()/output(i) per output. Same pointer conventions as
+    // runBatchFlat above. Overwrites any previously stored buffers.
+    void runBatchStore(std::uintptr_t idxPtrsPtr, std::uintptr_t valPtrsPtr,
+                       std::uintptr_t lensPtr, std::uintptr_t widthsPtr,
+                       std::size_t numInputs) {
+        const auto* idxPtrs = reinterpret_cast<const std::uint32_t*>(idxPtrsPtr);
+        const auto* valPtrs = reinterpret_cast<const std::uint32_t*>(valPtrsPtr);
+        const auto* lens    = reinterpret_cast<const std::uint32_t*>(lensPtr);
+        const auto* widths  = reinterpret_cast<const std::uint32_t*>(widthsPtr);
+
+        std::vector<std::vector<std::int64_t>> idx_i64(numInputs);
+        std::vector<const std::int64_t*> in_indices(numInputs);
+        std::vector<const double*>       in_vals(numInputs);
+        std::vector<std::size_t>         in_lens(numInputs);
+        std::vector<std::size_t>         in_widths(numInputs);
+        for (std::size_t i = 0; i < numInputs; ++i) {
+            const std::size_t len = lens[i];
+            const auto* idx_d = reinterpret_cast<const double*>(idxPtrs[i]);
+            idx_i64[i].resize(len);
+            for (std::size_t j = 0; j < len; ++j)
+                idx_i64[i][j] = static_cast<std::int64_t>(idx_d[j]);
+            in_indices[i] = idx_i64[i].data();
+            in_vals[i]    = reinterpret_cast<const double*>(valPtrs[i]);
+            in_lens[i]    = len;
+            in_widths[i]  = widths[i];
+        }
+        stored_ = cg_->run_batch(in_indices, in_vals, in_lens, in_widths);
+    }
+
+    // Number of cached outputs from the last runBatchStore call.
+    std::size_t outputCount() const { return stored_.size(); }
+
+    // Marshal the i-th cached output into fresh heap buffers (JS frees via
+    // freeBuf, exactly like runBatchFlat's result). Out-of-range -> empty buffer.
+    OutBufFlat output(std::size_t outIdx) const {
+        return marshal_flat_at(stored_, outIdx);
+    }
+
 private:
     std::unique_ptr<screamer::dag::CompiledGraph> cg_;
+    std::vector<screamer::dag::OutputBuffer>      stored_;  // last runBatchStore
 };
 
 // Wraps dag::GraphBuilder. Node ids are size_t; edge lists are VectorSizeT.
@@ -236,7 +277,10 @@ private:
         .function("pushEventWide",                                             \
                   &screamer_wasm::CompiledGraphWrap::pushEventWide)            \
         .function("drainFlat",    &screamer_wasm::CompiledGraphWrap::drainFlat) \
-        .function("runBatchFlat", &screamer_wasm::CompiledGraphWrap::runBatchFlat); \
+        .function("runBatchFlat", &screamer_wasm::CompiledGraphWrap::runBatchFlat) \
+        .function("runBatchStore",&screamer_wasm::CompiledGraphWrap::runBatchStore) \
+        .function("outputCount",  &screamer_wasm::CompiledGraphWrap::outputCount) \
+        .function("output",       &screamer_wasm::CompiledGraphWrap::output); \
     emscripten::class_<screamer_wasm::GraphBuilderWrap>("GraphBuilder")         \
         .constructor<>()                                                       \
         .function("addInput",         &screamer_wasm::GraphBuilderWrap::addInput) \

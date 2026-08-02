@@ -24,7 +24,11 @@ Each entry describes ONE representative screamer Pipeline three ways:
 The graphs cover: (a) a functor chain, (b) combine_latest -> functor,
 (c) resample by_index/mean, (d) resample by_count, (e) an ohlc resample (wide),
 (f) select over a wide stream, (g) dropna, and (h) a resample with a FUNCTOR
-reducer (the reducer path). A delay graph is included as a bonus.
+reducer (the reducer path). A delay graph is included as a bonus. The
+non-default resample surface is exercised by (i) a by_cumulative (threshold)
+resample and (j) a fill="carry" + label="right" resample. The `filter`
+combinator is covered by (k) a mask-gated stream, and (l) a two-output pipeline
+proves the multi-output run-once path returns the right values for each output.
 """
 
 import json
@@ -33,7 +37,7 @@ import os
 
 import numpy as np
 
-from screamer import RollingMean, Diff, Sub, ExpandingMean
+from screamer import RollingMean, Diff, Sub, ExpandingMean, Filter
 from screamer.dag import Input, Pipeline
 from screamer.streams import combine_latest, resample, select, dropna, delay
 
@@ -43,9 +47,18 @@ OUT = os.path.join(REPO, "wasm", "smoke", "dag_oracle.json")
 
 
 def vi(values, index):
-    """A (values, index) feed pair with an explicit int64 index."""
-    return (np.asarray(values, dtype=np.float64),
-            np.asarray(index, dtype=np.int64))
+    """A (values, index) feed pair with an explicit int64 index.
+
+    A flat feed longer than its index carries a wide (width-N) input; reshape it
+    to (rows, width) row-major, exactly as the JS side reconstructs width from
+    values.length / index.length.
+    """
+    v = np.asarray(values, dtype=np.float64)
+    idx = np.asarray(index, dtype=np.int64)
+    rows = idx.shape[0]
+    if rows and v.size > rows and v.size % rows == 0:
+        v = v.reshape(rows, v.size // rows)
+    return (v, idx)
 
 
 def feed_json(values, index):
@@ -289,6 +302,104 @@ def build_entries():
                 {"id": "d", "kind": "delay", "input": "rm", "k": 2},
             ],
             "outputs": ["d"],
+        },
+        "feeds": feeds,
+        "expect": run(p, [feeds["x"]]),
+    })
+
+    # (i) resample by_cumulative (threshold): single width-2 [value, driver] ---
+    # The ResampleNode sees width-2 frames and closes a bar when the cumulative
+    # driver reaches the threshold. Exercises the by_cumulative opts->code path.
+    x = Input("x")
+    y = resample(x, threshold=5.0, agg="sum")
+    p = Pipeline(inputs=[x], outputs=[y])
+    thr_vals = [1.0, 2.0, 2.0, 2.0, 3.0, 2.0, 1.0, 10.0]   # [value, driver] rows
+    thr_drv = [2.0, 2.0, 2.0, 3.0, 1.0, 2.0, 2.0, 10.0]
+    thr_2d = np.column_stack([thr_vals, thr_drv])
+    thr_idx = list(range(8))
+    feeds = {"x": feed_json(thr_2d, thr_idx)}
+    entries.append({
+        "name": "resample_by_cumulative_sum",
+        "build": {
+            "inputs": ["x"],
+            "nodes": [
+                {"id": "x", "kind": "input", "name": "x"},
+                {"id": "r", "kind": "resample", "input": "x",
+                 "opts": {"threshold": 5.0, "agg": "sum"}},
+            ],
+            "outputs": ["r"],
+        },
+        "feeds": feeds,
+        "expect": run(p, [feeds["x"]]),
+    })
+
+    # (j) resample fill="carry" + label="right": empty buckets carry forward ---
+    # Sparse index leaves interior buckets empty; carry repeats the prior bar and
+    # label="right" stamps the bucket's right edge. Exercises the non-default
+    # fill and label opts->code translation together.
+    x = Input("x")
+    y = resample(x, every=3, agg="last", fill="carry", label="right")
+    p = Pipeline(inputs=[x], outputs=[y])
+    carry_vals = [1.0, 2.0, 3.0, 10.0, 11.0]
+    carry_idx = [0, 1, 2, 9, 10]          # buckets [3,6) and [6,9) are empty
+    feeds = {"x": feed_json(carry_vals, carry_idx)}
+    entries.append({
+        "name": "resample_carry_right",
+        "build": {
+            "inputs": ["x"],
+            "nodes": [
+                {"id": "x", "kind": "input", "name": "x"},
+                {"id": "r", "kind": "resample", "input": "x",
+                 "opts": {"every": 3, "agg": "last", "fill": "carry", "label": "right"}},
+            ],
+            "outputs": ["r"],
+        },
+        "feeds": feeds,
+        "expect": run(p, [feeds["x"]]),
+    })
+
+    # (k) filter: gate a data stream by a mask stream --------------------------
+    # Mask nonzero keeps the aligned value; zero or NaN drops it. Wrong arg order
+    # (data/mask swapped) or wrong gate semantics would diverge here.
+    d, m = Input("d"), Input("m")
+    y = Filter()(d, m)
+    p = Pipeline(inputs=[d, m], outputs=[y])
+    fd = feed_json([10.0, 20.0, 30.0, 40.0, 50.0], [0, 1, 2, 3, 4])
+    fm = feed_json([1.0, 0.0, float("nan"), 2.0, 1.0], [0, 1, 2, 3, 4])
+    feeds = {"d": fd, "m": fm}
+    entries.append({
+        "name": "filter_mask_gate",
+        "build": {
+            "inputs": ["d", "m"],
+            "nodes": [
+                {"id": "d", "kind": "input", "name": "d"},
+                {"id": "m", "kind": "input", "name": "m"},
+                {"id": "f", "kind": "filter", "data": "d", "mask": "m"},
+            ],
+            "outputs": ["f"],
+        },
+        "feeds": feeds,
+        "expect": run(p, [fd, fm]),
+    })
+
+    # (l) two-output pipeline: multi-output run-once correctness ---------------
+    # One input feeds two independent branches. The batch path runs the graph
+    # ONCE and reads each cached output; both must match Python exactly.
+    x = Input("x")
+    out_mean = RollingMean(3)(x)
+    out_diff = Diff(1)(x)
+    p = Pipeline(inputs=[x], outputs=[out_mean, out_diff])
+    feeds = {"x": feed_json(RAMP, RAMP_IDX)}
+    entries.append({
+        "name": "multi_output_mean_diff",
+        "build": {
+            "inputs": ["x"],
+            "nodes": [
+                {"id": "x", "kind": "input", "name": "x"},
+                {"id": "rm", "kind": "functor", "op": "RollingMean", "args": [3], "inputs": ["x"]},
+                {"id": "d", "kind": "functor", "op": "Diff", "args": [1], "inputs": ["x"]},
+            ],
+            "outputs": ["rm", "d"],
         },
         "feeds": feeds,
         "expect": run(p, [feeds["x"]]),

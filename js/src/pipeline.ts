@@ -302,9 +302,11 @@ class PipelineImpl {
 
     const results: Output[] = [];
     try {
+      // Run the whole graph ONCE, then read each cached output. Running per
+      // output would recompute the graph M times (O(M x) redundant compute).
+      this.cg.runBatchStore(idxPtrs, valPtrs, lensPtr, widthsPtr, nIn);
       for (let o = 0; o < this.outputs.length; o++) {
-        const out = this.cg.runBatchFlat(idxPtrs, valPtrs, lensPtr, widthsPtr, nIn, o);
-        results.push(this.marshalOut(out));
+        results.push(this.marshalOut(this.cg.output(o)));
       }
     } catch (e) {
       throw normalizeError(e);
