@@ -2,13 +2,8 @@ import type { Screamer, RawOp } from "./loader.js";
 import { normalizeError } from "./errors.js";
 import type { NdArray } from "./ndarray.js";
 
-// The `explicit resource management` symbol ships in every runtime we target
-// (Node 20+, modern browsers) but is absent from the ES2022 lib typings used
-// here. Declare it so `[Symbol.dispose]` typechecks without widening `lib`.
-declare global {
-  interface SymbolConstructor { readonly dispose: unique symbol; }
-}
-
+// `Symbol.dispose` (explicit resource management) is provided by the
+// "ESNext.Disposable" lib entry in tsconfig.json.
 const REG = new FinalizationRegistry<() => void>((free) => free());
 
 export type ScreamerOp = {
