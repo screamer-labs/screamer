@@ -1,0 +1,156 @@
+name: Publish JS package
+
+# Release pipeline for @screamer-labs/screamer (the WASM/JS binding): build ->
+# test -> publish, as dependent jobs so nothing is ever published unless the
+# build and the JS test suite pass first.
+#
+# Tag prefix is deliberately JS-SPECIFIC (js-v*, not v*): the Python package's
+# release pipeline (build-wheels.yml) is gated on plain `v*` tags, so a single
+# shared prefix would fire both release pipelines off one tag push. Pushing a
+# `js-v*` tag (and thus actually publishing to npm) is the user's explicit,
+# out-of-scope release step -- this workflow only defines the pipeline.
+on:
+  push:
+    branches: [main]
+    tags: ['js-v*']
+  workflow_dispatch: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+# Opt every action into Node.js 24 immediately (silences the Node 20
+# deprecation warnings on actions that haven't published a Node 24 major yet).
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
+jobs:
+  build-test:
+    # Runs on every push to main (dev signal) as well as on a pushed js-v*
+    # tag and workflow_dispatch (the pre-publish gate). This job never
+    # publishes anything.
+    name: Build + test (emcc, node)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install Emscripten
+        uses: mymindstorm/setup-emsdk@v14
+        with:
+          # Pinned to match the version used for local development; bump
+          # deliberately, not via a floating "latest".
+          version: '4.0.21'
+          actions-cache-folder: 'emsdk-cache'
+
+      - name: Set up Java (Closure Compiler, for --single-file's closure=1 pass)
+        # wasm/build-wasm.sh --single-file runs emcc with --closure=1 to
+        # minify+inline the glue for the published single-file module; the
+        # Closure Compiler emcc shells out to is a JVM tool, so `java` must be
+        # on PATH. If closure minification is ever dropped from the
+        # single-file build, this step (and the Java dependency) can go too.
+        uses: actions/setup-java@v5
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 'lts/*'
+
+      - name: Build the WASM module (single-file)
+        # Mirrors package.json's "build:wasm:single" script: build-wasm.sh
+        # writes into wasm/build/, then the single-file glue is copied into
+        # js/src/generated/ (gitignored -- see js/.gitignore) where the
+        # build:esm/build:cjs steps below expect to find it.
+        run: |
+          bash wasm/build-wasm.sh --single-file
+          cp wasm/build/screamer.single.mjs js/src/generated/screamer.mjs
+
+      - name: Install JS deps
+        run: npm ci
+        working-directory: js
+
+      - name: Build the npm package (ESM + CJS)
+        run: npm run build
+        working-directory: js
+
+      - name: Run the JS test suite
+        # Parity/oracle tests read committed oracle JSON (wasm/smoke/*oracle.json)
+        # rather than regenerating them from the Python package, so this job
+        # doesn't need a Python/screamer build -- keeps CI lean.
+        run: node --import tsx --test test/*.test.ts
+        working-directory: js
+
+      - name: Pack-and-install smoke test
+        # Proves the PUBLISHED tarball installs and runs standalone (no
+        # consumer-side wasm wiring), via a throwaway `npm pack` + install.
+        run: bash scripts/pack-smoke.sh
+        working-directory: js
+
+  publish:
+    # THE RELEASE GATE: this is the only job that publishes to npm, and it can
+    # only run on a pushed `js-v*` tag (never on a normal branch push or a
+    # workflow_dispatch dry run). Pushing that tag is the user's explicit
+    # release step, out of scope for CI itself.
+    name: Publish to npm
+    needs: build-test
+    if: startsWith(github.ref, 'refs/tags/js-v')
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write   # npm provenance attestation (--provenance)
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install Emscripten
+        uses: mymindstorm/setup-emsdk@v14
+        with:
+          version: '4.0.21'
+          actions-cache-folder: 'emsdk-cache'
+
+      - name: Set up Java (Closure Compiler, for --single-file's closure=1 pass)
+        uses: actions/setup-java@v5
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 'lts/*'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Build the WASM module (single-file)
+        run: |
+          bash wasm/build-wasm.sh --single-file
+          cp wasm/build/screamer.single.mjs js/src/generated/screamer.mjs
+
+      - name: Install JS deps
+        run: npm ci
+        working-directory: js
+
+      - name: Stamp the npm version from the Python version-of-record
+        # Shared versioning: the npm package's package.json ships with a
+        # 0.0.0 placeholder (see js/package.json) rather than a hardcoded
+        # version, and bump-my-version (the single source of truth for the
+        # Python version, see pyproject.toml [tool.bumpversion]) is never
+        # touched here. Read the "version = "x.y.z"" line straight out of
+        # pyproject.toml's [project] table and stamp it onto the npm package
+        # immediately before publish.
+        run: |
+          VER="$(grep -m1 '^version = ' ../pyproject.toml | sed -E 's/^version = "([^"]+)"$/\1/')"
+          if [ -z "$VER" ]; then
+            echo "Could not read version from pyproject.toml" >&2
+            exit 1
+          fi
+          echo "Stamping npm version: $VER"
+          npm version "$VER" --no-git-tag-version --allow-same-version
+        working-directory: js
+
+      - name: Publish to npm
+        # --provenance requires id-token: write (above) and publishing from a
+        # CI workflow (not a local `npm publish`). NODE_AUTH_TOKEN comes from
+        # the NPM_TOKEN repo secret; setup-node's registry-url wires it into
+        # .npmrc for npm to pick up.
+        run: npm publish --provenance --access public
+        working-directory: js
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
