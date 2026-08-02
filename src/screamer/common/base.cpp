@@ -96,6 +96,23 @@ nb::object ScreamerBase::process_python_array(nb::ndarray<> input) {
     size_t total = 1;
     for (size_t i = 0; i < nd; ++i) { shape[i] = input.shape(i); total *= shape[i]; }
 
+    // Materialise a C-contiguous double view of the input BEFORE allocating the
+    // output buffer. read_contig_double / load_elem can throw on an
+    // unsupported dtype; doing this first means no raw `new`-owned output
+    // buffer is ever live across a throwing call, so nothing leaks.
+    nb::dlpack::dtype dt = input.dtype();
+    bool f64 = (dt.code == (uint8_t) nb::dlpack::dtype_code::Float && dt.bits == 64);
+    detail::ContigDouble tmp;
+    const double* in = nullptr;
+    if (total > 0) {
+        if (f64 && detail::is_c_contiguous(input)) {
+            in = (const double*) input.data();
+        } else {
+            tmp = detail::read_contig_double(input);
+            in = tmp.data.data();
+        }
+    }
+
     double* out = new double[total ? total : 1];
     if (total == 0) {
         return detail::make_owned_array(out, shape);
@@ -103,19 +120,6 @@ nb::object ScreamerBase::process_python_array(nb::ndarray<> input) {
 
     size_t size = shape[0];
     size_t rest = total / size;
-
-    // Materialise a C-contiguous double view of the input. The fast path avoids
-    // the copy for an already-C-contiguous float64 array.
-    nb::dlpack::dtype dt = input.dtype();
-    bool f64 = (dt.code == (uint8_t) nb::dlpack::dtype_code::Float && dt.bits == 64);
-    detail::ContigDouble tmp;
-    const double* in;
-    if (f64 && detail::is_c_contiguous(input)) {
-        in = (const double*) input.data();
-    } else {
-        tmp = detail::read_contig_double(input);
-        in = tmp.data.data();
-    }
 
     if (nd == 1) {
         reset();

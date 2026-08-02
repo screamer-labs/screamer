@@ -17,15 +17,6 @@ Unreleased
   platform rather than one wheel per Python version. The wheel is built on
   CPython 3.12 and installs on 3.12 and every later 3.x.
 
-### Removed
-
-* **Breaking:** dropped support for Python 3.11. `requires-python` is now
-  `>=3.12`. The stable-ABI wheel needs nanobind's `STABLE_ABI`, which is
-  available from CPython 3.12 onward, so 3.11 users must stay on an earlier
-  screamer release or upgrade their interpreter.
-
-### Changed
-
 * `EwMean`'s array path holds its accumulators in locals for the duration of
   the loop, 4.0 to 1.0 ns/sample on 1M samples. It was the one operator where
   an alternative was meaningfully ahead in the batch comparison, and it now
@@ -35,9 +26,6 @@ Unreleased
   Same cause as `RollingMean`: the accumulators live behind `this`, and the
   compiler cannot prove the caller's output buffer does not alias the operator,
   so in a batch loop it reloads them every sample.
-
-
-### Changed
 
 * `RollingMean`'s array path hoists the recurrence state into locals for the
   duration of the loop, 3.00 to 0.87 ns/sample on 1M samples. Streaming and
@@ -53,16 +41,6 @@ Unreleased
   The same shape applies to every stateful operator's array path, so this is
   one instance of a general opportunity rather than a one-off.
 
-
-### Added
-
-* References for `RollingCorr`, `RollingCov`, `RollingBeta`, `RollingIqr`,
-  `HullMA` and `RollingVWAP`, taking baseline coverage to 174 of 231. The pair
-  statistics come from `pandas.rolling().corr()` / `.cov()` / `.var()`, which
-  are external implementations rather than transcriptions.
-
-### Changed
-
 * `WilliamsR` computes its array result by block decomposition, 19.9 to 3.4
   ns/sample on 1M samples, which puts it just ahead of TA-Lib's `WILLR` at 3.8.
   Streaming is unchanged, and the array result is asserted identical to the
@@ -75,9 +53,6 @@ Unreleased
   change a result when it cannot apply: here, non-contiguous input or a `NaN`
   in the bars, which under `ignore` skips a bar and breaks the fixed block
   structure.
-
-
-### Changed
 
 * `RollingMax`, `RollingMin`, `RollingRange`, `RollingArgmax` and
   `RollingArgmin` compute their array results by
@@ -119,6 +94,20 @@ Unreleased
   TA-Lib's 16.2. A falling series is a sell-off, not a contrived input, so the
   bounded worst case is the right trade for a streaming library.
   `tests/test_extremum_worst_case.py` pins that property.
+
+### Removed
+
+* **Breaking:** dropped support for Python 3.11. `requires-python` is now
+  `>=3.12`. The stable-ABI wheel needs nanobind's `STABLE_ABI`, which is
+  available from CPython 3.12 onward, so 3.11 users must stay on an earlier
+  screamer release or upgrade their interpreter.
+
+### Added
+
+* References for `RollingCorr`, `RollingCov`, `RollingBeta`, `RollingIqr`,
+  `HullMA` and `RollingVWAP`, taking baseline coverage to 174 of 231. The pair
+  statistics come from `pandas.rolling().corr()` / `.cov()` / `.var()`, which
+  are external implementations rather than transcriptions.
 
 ### Fixed
 

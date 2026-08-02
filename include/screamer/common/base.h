@@ -23,6 +23,36 @@ nb::object make_dag_functor_node(nb::object self, nb::object args_tuple);
 
 namespace detail {
 
+// IEEE-754 binary16 (numpy float16 / "half") -> float, by bit manipulation.
+// nanobind has no half-precision C++ type of its own (no `_Float16` /
+// `nb::half`), so a half array's raw buffer is decoded directly from its
+// 16-bit pattern rather than reinterpreted as some C++ scalar type. This is
+// the standard sign/exponent/mantissa widening algorithm (subnormals included).
+inline float half_bits_to_float(uint16_t h) {
+    uint32_t sign = (uint32_t)(h & 0x8000u) << 16;
+    uint32_t exp  = (h >> 10) & 0x1Fu;
+    uint32_t mant = h & 0x3FFu;
+    uint32_t bits;
+    if (exp == 0) {
+        if (mant == 0) {
+            bits = sign;  // +/- 0
+        } else {
+            // Subnormal half -> normalize into a float exponent/mantissa.
+            uint32_t e = 127 - 15 + 1;
+            while ((mant & 0x400u) == 0) { mant <<= 1; --e; }
+            mant &= 0x3FFu;
+            bits = sign | (e << 23) | (mant << 13);
+        }
+    } else if (exp == 0x1Fu) {
+        bits = sign | 0x7F800000u | (mant << 13);  // inf / nan
+    } else {
+        bits = sign | ((exp - 15u + 127u) << 23) | (mant << 13);
+    }
+    float f;
+    std::memcpy(&f, &bits, sizeof(f));
+    return f;
+}
+
 // Read one element of an arbitrary-dtype buffer at element index `idx`, coerced
 // to double. Mirrors pybind's `py::array_t<double, forcecast>` dtype coercion,
 // which nanobind's generic `nb::ndarray<>` does NOT do for free.
@@ -31,6 +61,11 @@ inline double load_elem(const void* base, int64_t idx, const nb::dlpack::dtype& 
     if (dt.code == (uint8_t) C::Float) {
         if (dt.bits == 64) return ((const double*)  base)[idx];
         if (dt.bits == 32) return (double)((const float*) base)[idx];
+        if (dt.bits == 16) return (double) half_bits_to_float(((const uint16_t*) base)[idx]);
+        // long double (80-bit extended or 128-bit quad, platform-dependent).
+        // On a platform where `long double` == `double` (e.g. Apple Silicon)
+        // this is unreachable; bits == 64 is already handled above.
+        if (dt.bits == 80 || dt.bits == 128) return (double)((const long double*) base)[idx];
     } else if (dt.code == (uint8_t) C::Int) {
         if (dt.bits == 64) return (double)((const int64_t*) base)[idx];
         if (dt.bits == 32) return (double)((const int32_t*) base)[idx];
@@ -41,6 +76,10 @@ inline double load_elem(const void* base, int64_t idx, const nb::dlpack::dtype& 
         if (dt.bits == 32) return (double)((const uint32_t*) base)[idx];
         if (dt.bits == 16) return (double)((const uint16_t*) base)[idx];
         if (dt.bits == 8)  return (double)((const uint8_t*)  base)[idx];
+    } else if (dt.code == (uint8_t) C::Bool) {
+        // numpy bool is a 1-byte array of 0/1. Old pybind11 forcecast coerced
+        // it to double the same way; True/False -> 1.0/0.0.
+        if (dt.bits == 8) return ((const uint8_t*) base)[idx] ? 1.0 : 0.0;
     }
     throw nb::type_error("Unsupported ndarray dtype; expected a numeric array.");
 }
