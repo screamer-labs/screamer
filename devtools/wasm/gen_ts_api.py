@@ -26,9 +26,10 @@ parameters are materialized into an Embind ``VectorDouble`` inside the factory,
 passed to the constructor, then freed (the ctor copies the vector).
 
 Modes:
-    (no args)   regenerate ops.ts and ops.d.ts
-    --check     assert every manifest op has a factory + a declaration
-    --stdout    print ops.ts to stdout (freshness gate, Task 5)
+    (no args)     regenerate ops.ts and ops.d.ts
+    --check       assert every manifest op has a factory + a declaration
+    --stdout      print ops.ts to stdout (freshness gate, Task 5)
+    --stdout-dts  print ops.d.ts to stdout (freshness gate, Task 5)
 """
 
 from __future__ import annotations
@@ -290,6 +291,9 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--check", action="store_true", help="verify coverage")
     ap.add_argument("--stdout", action="store_true", help="print ops.ts to stdout")
+    ap.add_argument(
+        "--stdout-dts", action="store_true", help="print ops.d.ts to stdout"
+    )
     args = ap.parse_args()
 
     ops = load_manifest()
@@ -299,12 +303,16 @@ def main() -> int:
 
     sigs = _get_signatures()
     ops_ts = render_ops_ts(ops, sigs)
+    ops_dts = render_ops_dts(ops, sigs)
 
     if args.stdout:
         sys.stdout.write(ops_ts)
         return 0
 
-    ops_dts = render_ops_dts(ops, sigs)
+    if args.stdout_dts:
+        sys.stdout.write(ops_dts)
+        return 0
+
     os.makedirs(GEN_DIR, exist_ok=True)
     with open(OPS_TS, "w") as f:
         f.write(ops_ts)
