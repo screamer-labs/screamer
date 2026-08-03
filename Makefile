@@ -158,11 +158,17 @@ major: regen-init
 	$(BUMP) bump major
 	$(MAKE) release-push
 
-# Push commit + tag to origin. Tag push triggers build-wheels.yml.
+# Push commit + tags to origin. The v<version> tag (created by bump-my-version)
+# triggers build-wheels.yml -> PyPI; the js-v<version> tag created here triggers
+# js-publish.yml -> npm. So one `make patch/minor/major` releases both Python and
+# JavaScript in lockstep -- npm stamps its version from pyproject.toml at publish,
+# so the two ecosystems stay aligned.
 release-push:
 	@echo ">>> pushing commit to origin/main"
 	git push origin main
-	@echo ">>> pushing tags to origin"
+	@echo ">>> creating the JS release tag js-v<version> for the npm publish"
+	@VER=$$(grep -m1 '^version = ' pyproject.toml | sed -E 's/^version = "([^"]+)"$$/\1/'); if [ -z "$$VER" ]; then echo "ERROR: could not read version from pyproject.toml" >&2; exit 1; fi; git tag "js-v$$VER" && echo "created tag js-v$$VER"
+	@echo ">>> pushing tags to origin (v* -> PyPI, js-v* -> npm)"
 	git push origin --tags
 
 # ---------------------------------------------------------------------------
