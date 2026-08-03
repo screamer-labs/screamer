@@ -182,11 +182,15 @@ def _mark(known: set, key, label: str):
     return ()
 
 
+DYNAMIC_WIDTH_FUNCTORS = {"PortfolioReport"}
+
 def _stream_batch_params():
     """Cartesian product (function, nan_position). nan-aware excluded."""
     for name, entry in sorted(HELP.items()):
         if entry.get("kind", "functor") != "functor":
             continue  # stream operators / DAG names are not compute functors
+        if name in DYNAMIC_WIDTH_FUNCTORS:
+            continue  # bespoke (time, assets, 4) row contract
         if entry["nan_policy"] == "nan-aware":
             continue
         for nan_position in ("none", "leading", "mid"):
@@ -203,6 +207,8 @@ def _start_policy_params(failing_set: set, label: str):
     for name, entry in sorted(HELP.items()):
         if entry.get("kind", "functor") != "functor":
             continue  # stream operators / DAG names are not compute functors
+        if name in DYNAMIC_WIDTH_FUNCTORS:
+            continue  # bespoke (time, assets, 4) row contract
         if entry["nan_policy"] == "nan-aware":
             continue
         if not _has_start_policy(entry):

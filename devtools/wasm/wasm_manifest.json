@@ -181,6 +181,9 @@
       "double",
       "double",
       "double",
+      "double",
+      "double",
+      "double",
       "double"
     ],
     "ctor_args": [
@@ -211,6 +214,18 @@
       {
         "name": "max_position",
         "default": "std::numeric_limits<double>::infinity()"
+      },
+      {
+        "name": "multiplier",
+        "default": "1.0"
+      },
+      {
+        "name": "maker_fee_per_contract",
+        "default": "0.0"
+      },
+      {
+        "name": "taker_fee_per_contract",
+        "default": "0.0"
       }
     ],
     "ctor_kind": "plain",
@@ -221,6 +236,8 @@
     "cpp_type": "screamer::BacktestL1Target",
     "base": "FunctorBase",
     "ctor": [
+      "double",
+      "double",
       "double",
       "double",
       "double",
@@ -242,6 +259,14 @@
       {
         "name": "max_position",
         "default": "std::numeric_limits<double>::infinity()"
+      },
+      {
+        "name": "multiplier",
+        "default": "1.0"
+      },
+      {
+        "name": "fee_per_contract",
+        "default": "0.0"
       }
     ],
     "ctor_kind": "plain",
@@ -258,6 +283,9 @@
       "double",
       "double",
       "double",
+      "double",
+      "double",
+      "double",
       "double"
     ],
     "ctor_args": [
@@ -288,6 +316,18 @@
       {
         "name": "max_position",
         "default": "std::numeric_limits<double>::infinity()"
+      },
+      {
+        "name": "multiplier",
+        "default": "1.0"
+      },
+      {
+        "name": "maker_fee_per_contract",
+        "default": "0.0"
+      },
+      {
+        "name": "taker_fee_per_contract",
+        "default": "0.0"
       }
     ],
     "ctor_kind": "plain",
@@ -304,6 +344,9 @@
       "double",
       "double",
       "double",
+      "double",
+      "double",
+      "double",
       "double"
     ],
     "ctor_args": [
@@ -334,6 +377,18 @@
       {
         "name": "max_position",
         "default": "std::numeric_limits<double>::infinity()"
+      },
+      {
+        "name": "multiplier",
+        "default": "1.0"
+      },
+      {
+        "name": "maker_fee_per_contract",
+        "default": "0.0"
+      },
+      {
+        "name": "taker_fee_per_contract",
+        "default": "0.0"
       }
     ],
     "ctor_kind": "plain",
@@ -344,6 +399,8 @@
     "cpp_type": "screamer::BacktestOHLCTarget",
     "base": "FunctorBase",
     "ctor": [
+      "double",
+      "double",
       "double",
       "double",
       "double",
@@ -365,6 +422,14 @@
       {
         "name": "max_position",
         "default": "std::numeric_limits<double>::infinity()"
+      },
+      {
+        "name": "multiplier",
+        "default": "1.0"
+      },
+      {
+        "name": "fee_per_contract",
+        "default": "0.0"
       }
     ],
     "ctor_kind": "plain",
@@ -375,6 +440,8 @@
     "cpp_type": "screamer::BacktestPriceTarget",
     "base": "FunctorBase",
     "ctor": [
+      "double",
+      "double",
       "double",
       "double",
       "double",
@@ -396,6 +463,14 @@
       {
         "name": "max_position",
         "default": "std::numeric_limits<double>::infinity()"
+      },
+      {
+        "name": "multiplier",
+        "default": "1.0"
+      },
+      {
+        "name": "fee_per_contract",
+        "default": "0.0"
       }
     ],
     "ctor_kind": "plain",
@@ -421,6 +496,9 @@
       "double",
       "double",
       "double",
+      "double",
+      "double",
+      "double",
       "double"
     ],
     "ctor_args": [
@@ -451,6 +529,18 @@
       {
         "name": "max_position",
         "default": "std::numeric_limits<double>::infinity()"
+      },
+      {
+        "name": "multiplier",
+        "default": "1.0"
+      },
+      {
+        "name": "maker_fee_per_contract",
+        "default": "0.0"
+      },
+      {
+        "name": "taker_fee_per_contract",
+        "default": "0.0"
       }
     ],
     "ctor_kind": "plain",
@@ -461,6 +551,8 @@
     "cpp_type": "screamer::BacktestTradesTarget",
     "base": "FunctorBase",
     "ctor": [
+      "double",
+      "double",
       "double",
       "double",
       "double",
@@ -482,6 +574,14 @@
       {
         "name": "max_position",
         "default": "std::numeric_limits<double>::infinity()"
+      },
+      {
+        "name": "multiplier",
+        "default": "1.0"
+      },
+      {
+        "name": "fee_per_contract",
+        "default": "0.0"
       }
     ],
     "ctor_kind": "plain",

@@ -67,6 +67,8 @@ Simulate a strategy against market data into a costed equity curve: signals, bar
      - Backtest a target position against a value series (price/mark) into a costed mark-to-market equity curve.
    * - :doc:`Running report columns for a backtest </functions_fin/BacktestReport>`
      - Turn a backtest engine's [equity, pnl, position, cost] into running drawdown, cost, turnover, trades, and Sharpe.
+   * - :doc:`Running report columns for a multi-asset backtest </functions_fin/PortfolioReport>`
+     - Reduce a multi-asset engine output into causal portfolio-level drawdown, cost, turnover, trades, and Sharpe.
    * - :doc:`Backtest a two-sided order poster against the trade tape </functions_fin/BacktestTradesOrders>`
      - Backtest a two-sided order poster against the trade tape, filling resting quotes when prints cross them, into a costed equity curve.
    * - :doc:`Backtest a target-position strategy against the trade tape </functions_fin/BacktestTradesTarget>`
@@ -85,6 +87,7 @@ Simulate a strategy against market data into a costed equity curve: signals, bar
    /functions_fin/BacktestOHLCTarget
    /functions_fin/BacktestPriceTarget
    /functions_fin/BacktestReport
+   /functions_fin/PortfolioReport
    /functions_fin/BacktestTradesOrders
    /functions_fin/BacktestTradesTarget
    /functions_fin/choosing_a_backtest_engine

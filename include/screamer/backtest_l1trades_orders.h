@@ -26,11 +26,17 @@ namespace screamer {
                          const std::string& fill = "touch",
                          double participation_ratio = 1.0, double tick_size = 0.0,
                          double min_position = -std::numeric_limits<double>::infinity(),
-                         double max_position = std::numeric_limits<double>::infinity())
+                         double max_position = std::numeric_limits<double>::infinity(),
+                         double multiplier = 1.0,
+                         double maker_fee_per_contract = 0.0,
+                         double taker_fee_per_contract = 0.0)
             : maker_fee_(maker_fee), taker_fee_(taker_fee), breach_(parse_fill(fill)),
               participation_(parse_participation(participation_ratio)),
               tick_size_(tick_size), max_position_(max_position),
-              min_position_(min_position)
+              min_position_(min_position),
+              maker_fee_per_contract_(maker_fee_per_contract),
+              taker_fee_per_contract_(taker_fee_per_contract),
+              account_(multiplier)
         {
             if (min_position_ > max_position_)
                 throw std::invalid_argument("min_position must not exceed max_position.");
@@ -69,7 +75,9 @@ namespace screamer {
                          b_dpos, b_price, b_taker);
             if (b_dpos != 0.0) {
                 auto [e, p, pos, c] = account_.step(mid, b_dpos, b_price,
-                                                    b_taker ? taker_fee_ : maker_fee_);
+                                                    b_taker ? taker_fee_ : maker_fee_,
+                                                    b_taker ? taker_fee_per_contract_
+                                                            : maker_fee_per_contract_);
                 eq = e; pnl += p; position = pos; cost += c; did = true;
             }
 
@@ -81,7 +89,9 @@ namespace screamer {
                          s_dpos, s_price, s_taker);
             if (s_dpos != 0.0) {
                 auto [e, p, pos, c] = account_.step(mid, s_dpos, s_price,
-                                                    s_taker ? taker_fee_ : maker_fee_);
+                                                    s_taker ? taker_fee_ : maker_fee_,
+                                                    s_taker ? taker_fee_per_contract_
+                                                            : maker_fee_per_contract_);
                 eq = e; pnl += p; position = pos; cost += c; did = true;
             }
 
@@ -153,6 +163,7 @@ namespace screamer {
         }
 
         double maker_fee_, taker_fee_;
+        double maker_fee_per_contract_, taker_fee_per_contract_;
         bool breach_;
         double participation_, tick_size_, max_position_, min_position_;
         bool bid_passive_ = false, ask_passive_ = false;

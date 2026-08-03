@@ -24,10 +24,14 @@ namespace screamer {
                          const std::string& fill = "breach",
                          double participation_ratio = 1.0, double tick_size = 0.0,
                          double min_position = -std::numeric_limits<double>::infinity(),
-                         double max_position = std::numeric_limits<double>::infinity())
+                         double max_position = std::numeric_limits<double>::infinity(),
+                           double multiplier = 1.0,
+                           double maker_fee_per_contract = 0.0,
+                           double taker_fee_per_contract = 0.0)
             : core_(maker_fee, taker_fee, parse_fill(fill),
                     parse_participation(participation_ratio), tick_size,
-                    min_position, max_position) {}
+                    min_position, max_position,
+                    multiplier, maker_fee_per_contract, taker_fee_per_contract) {}
 
         void reset() override { core_.reset(); }
 

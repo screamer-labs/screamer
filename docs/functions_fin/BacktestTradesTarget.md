@@ -36,6 +36,15 @@ parameters:
   type: float
   default: .inf
   description: Inventory ceiling. The target is clamped to [min_position, max_position] before the fill size is computed.
+- name: multiplier
+  type: float
+  default: 1.0
+  min: 0.0
+  description: Contract multiplier applied to mark-to-market PnL, fill slippage, and proportional fees.
+- name: fee_per_contract
+  type: float
+  default: 0.0
+  description: Fixed fee (or rebate when negative) charged per contract on each fill.
 nan_policy: ignore
 see_also:
 - BacktestTradesOrders
@@ -45,6 +54,10 @@ see_also:
 ---
 
 # `BacktestTradesTarget`
+
+`multiplier` converts a price move into currency per contract. `fee_per_contract`
+is added to the existing proportional taker fee on every fill and may be negative
+for a rebate; defaults preserve the previous behavior.
 
 ## Description
 

@@ -3,6 +3,7 @@
 
 #include <cmath>
 #include <tuple>
+#include <stdexcept>
 
 namespace screamer {
 namespace detail {
@@ -12,15 +13,21 @@ namespace detail {
 // change `dpos`, its `fill_price`, and a signed per-notional `fee_rate`, and gets
 // back (equity, pnl, position, cost).
 //
-// The position held into the bar earns the mark move; the trade this bar costs
-// dpos*(fill_price - close) - the adverse (or, for a passive maker fill,
-// favorable) difference between the fill and the mark, which carries the spread
-// economics with the correct sign for either side and any fill type - plus an
-// explicit fee on the traded notional. `fee_rate` is signed, so a maker rebate is
-// negative. Non-copyable state is trivial; reset() returns it to flat.
+// The position held into the bar earns the mark move. The trade this bar costs
+// the signed fill-versus-mark difference multiplied by `multiplier`, plus
+// `abs(dpos) * (fee_per_contract + fill_price * multiplier * fee_rate)`.
+// Both fee terms are signed, so a maker rebate can be negative. The account is
+// stateful but trivially resettable; reset() returns it to flat.
 class PnLAccount {
 public:
-    PnLAccount() { reset(); }
+    PnLAccount(double multiplier = 1.0, double fee_per_contract = 0.0)
+        : multiplier_(multiplier), fee_per_contract_(fee_per_contract) {
+        if (!(multiplier_ > 0.0) || !std::isfinite(multiplier_))
+            throw std::invalid_argument("multiplier must be finite and positive.");
+        if (!std::isfinite(fee_per_contract_))
+            throw std::invalid_argument("fee_per_contract must be finite.");
+        reset();
+    }
 
     void reset() {
         position_ = 0.0;
@@ -34,9 +41,17 @@ public:
     // Advance the account by one bar; returns (equity, pnl, position, cost).
     std::tuple<double, double, double, double>
     step(double close, double dpos, double fill_price, double fee_rate) {
-        const double mark_pnl = has_prev_ ? position_ * (close - prev_close_) : 0.0;
-        const double trade_cost = dpos * (fill_price - close)
-                                + std::abs(dpos) * fill_price * fee_rate;
+        return step(close, dpos, fill_price, fee_rate, fee_per_contract_);
+    }
+
+    std::tuple<double, double, double, double>
+    step(double close, double dpos, double fill_price, double fee_rate,
+         double fee_per_contract) {
+        const double mark_pnl = has_prev_
+            ? position_ * (close - prev_close_) * multiplier_ : 0.0;
+        const double trade_cost = dpos * (fill_price - close) * multiplier_
+                                + std::abs(dpos) *
+                                  (fee_per_contract + fill_price * multiplier_ * fee_rate);
         position_ += dpos;
         const double pnl = mark_pnl - trade_cost;
         cum_equity_ += pnl;
@@ -46,6 +61,8 @@ public:
     }
 
 private:
+    double multiplier_ = 1.0;
+    double fee_per_contract_ = 0.0;
     double position_ = 0.0;
     double prev_close_ = 0.0;
     double cum_equity_ = 0.0;
