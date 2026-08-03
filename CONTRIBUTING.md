@@ -56,9 +56,12 @@ From these, the hard rules:
   binding (Python and JavaScript/WASM) with the same capabilities and identical results.
   A capability that exists in one binding but not another is a defect, not an accepted
   trade. If an operator cannot yet be exposed in a binding because that binding lacks a
-  needed shape - for example a dynamic-width `(time, assets, ...)` reducer against the
-  fixed-width per-event WASM ABI - that is a tracked temporary gap to close by extending
-  the binding, marked as such in code, never a silent permanent exclusion.
+  needed shape, that is a tracked temporary gap to close by extending the binding,
+  marked as such in code, never a silent permanent exclusion. The WASM binding's
+  variable-width reducer path is what that looks like in practice: `PortfolioReport`
+  folds a `(time, assets, ...)` input that the fixed-width per-event ABI could not
+  express, so the ABI grew a second marshalling path rather than the operator being
+  left out of JavaScript.
 - **No Python orchestration of the data path.** The Pipeline/DAG compiles to and runs
   in C++ so data does not cross the boundary per event. Do not orchestrate windowing,
   joins, aggregation, or event scheduling in Python.

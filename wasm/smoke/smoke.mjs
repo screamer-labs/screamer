@@ -32,10 +32,12 @@ const OVERRIDES = {
   ADOSC: [3, 10],
   MACD: [12, 26, 9],
   // fill string must be "touch" or "breach"
-  BacktestL1Orders: [1.0, 1.0, "touch", 1.0, 1.0, 1.0, 1.0],
-  BacktestL1TradesOrders: [1.0, 1.0, "touch", 1.0, 1.0, 1.0, 1.0],
-  BacktestOHLCOrders: [1.0, 1.0, "touch", 1.0, 1.0, 1.0, 1.0],
-  BacktestTradesOrders: [1.0, 1.0, "touch", 1.0, 1.0, 1.0, 1.0],
+  // (maker_fee, taker_fee, fill, participation_ratio, tick_size, min_position,
+  //  max_position, multiplier, maker_fee_per_contract, taker_fee_per_contract)
+  BacktestL1Orders: [1.0, 1.0, "touch", 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
+  BacktestL1TradesOrders: [1.0, 1.0, "touch", 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
+  BacktestOHLCOrders: [1.0, 1.0, "touch", 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
+  BacktestTradesOrders: [1.0, 1.0, "touch", 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
   // Butterworth cutoffs must satisfy 0 < low < high < 1
   ButterBandpass: [2, 0.1, 0.4],
   ButterBandstop: [2, 0.1, 0.4],
@@ -70,7 +72,19 @@ const OVERRIDES = {
 
 // Build canonical args for one manifest entry.
 function canonicalArgs(entry) {
-  if (OVERRIDES[entry.name]) return OVERRIDES[entry.name];
+  const override = OVERRIDES[entry.name];
+  if (override) {
+    // An override is hand-written, so it goes stale the moment the op gains a
+    // constructor parameter. Say so directly instead of letting Embind report
+    // an arity mismatch that names no fix.
+    if (override.length !== entry.ctor.length) {
+      throw new Error(
+        `OVERRIDES entry has ${override.length} args but the constructor now takes ` +
+          `${entry.ctor.length} (${entry.ctor.join(", ")}); update it in wasm/smoke/smoke.mjs`,
+      );
+    }
+    return override;
+  }
   const ctor = entry.ctor;
   const args = ctor.map((t) => {
     switch (t) {

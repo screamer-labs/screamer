@@ -24,6 +24,10 @@ export interface RawOp {
   nIn(): number; nOut(): number;
   evalInto(inPtr: number, outPtr: number): void;
   reset(): void; delete(): void;
+  // Present only on dynamic-width reducers (see wrapReducerOp): one event
+  // reduces a (groups, nIn) block, so the group count travels per call.
+  reduceInto?(inPtr: number, outPtr: number, groups: number): void;
+  reduceBatchInto?(inPtr: number, outPtr: number, rows: number, groups: number): void;
 }
 export interface Screamer {
   allocF64(n: number): number; freeBuf(p: number): void;

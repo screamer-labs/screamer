@@ -18,6 +18,12 @@ EMSCRIPTEN_BINDINGS(screamer) block that opens with SCREAMER_REGISTER_EVAL_OP_RU
       emscripten::class_<CppType, emscripten::base<screamer::EvalOp>>("Name")
           .constructor(&make_Name, emscripten::allow_raw_pointers());
 
+  * ops flagged "dynamic_reducer" in the manifest additionally get
+      .function("reduceInto", &screamer_wasm::reduceInto<CppType>)
+      .function("reduceBatchInto", &screamer_wasm::reduceBatchInto<CppType>)
+    which expose the op's variable-group call_assets() reduction alongside the
+    fixed-width event path every op inherits from the EvalOp runtime.
+
 The operator-header include set is copied verbatim from the nanobind bindings/*.cpp
 files (the `#include "screamer/..."` lines), minus streams/dag headers and minus the
 nanobind/base/dispatch/functor_base common headers, so the header set is exact.
@@ -105,11 +111,17 @@ def render_factory(op: dict) -> str:
 def render_class(op: dict) -> str:
     cpp = op["cpp_type"]
     name = op["name"]
-    head = f'emscripten::class_<{cpp}, emscripten::base<screamer::EvalOp>>("{name}")'
+    lines = [f'    emscripten::class_<{cpp}, emscripten::base<screamer::EvalOp>>("{name}")']
     if op["ctor_kind"] == "ew_optional":
-        return f"    {head}\n        .constructor(&{factory_name(name)}, emscripten::allow_raw_pointers());"
-    ctor_types = ", ".join(op["ctor"])
-    return f"    {head}\n        .constructor<{ctor_types}>();"
+        lines.append(f"        .constructor(&{factory_name(name)}, emscripten::allow_raw_pointers())")
+    else:
+        lines.append(f"        .constructor<{', '.join(op['ctor'])}>()")
+    # A dynamic-width reducer keeps the inherited fixed-width runtime and adds
+    # the variable-group entry points on top of it.
+    if op.get("dynamic_reducer"):
+        lines.append(f'        .function("reduceInto", &screamer_wasm::reduceInto<{cpp}>)')
+        lines.append(f'        .function("reduceBatchInto", &screamer_wasm::reduceBatchInto<{cpp}>)')
+    return "\n".join(lines) + ";"
 
 
 def has_vector_ctor(ops: list[dict]) -> bool:
@@ -177,12 +189,21 @@ def check(ops: list[dict]) -> int:
         if f"{factory_name(op['name'])}(" not in text:
             errors.append(f"ew_optional op {op['name']!r} has no {factory_name(op['name'])} factory")
 
+    reducers = [op for op in ops if op.get("dynamic_reducer")]
+    for op in reducers:
+        for fn in ("reduceInto", "reduceBatchInto"):
+            if f"&screamer_wasm::{fn}<{op['cpp_type']}>" not in text:
+                errors.append(f"reducer op {op['name']!r} has no {fn} registration")
+
     if errors:
         for e in errors:
             print(f"CHECK FAIL: {e}", file=sys.stderr)
         return 1
 
-    print(f"BINDINGS OK: {len(op_class_names)} classes, {len(ew)} custom ctors")
+    print(
+        f"BINDINGS OK: {len(op_class_names)} classes, {len(ew)} custom ctors, "
+        f"{len(reducers)} dynamic-width reducers"
+    )
     return 0
 
 

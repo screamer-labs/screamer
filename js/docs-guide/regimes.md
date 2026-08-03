@@ -98,3 +98,33 @@ toNested(out); // [[1,1], [1,2], [1,3], [2,4], [3,5]] -- expanding window before
 `toNested()` unpacks an `NdArray` into an array of rows (or a flat array, for a single-column
 result). Reach for the flat `data`/`shape` form when you want to avoid the allocation of
 per-row arrays; reach for `toNested()` when you want ordinary nested arrays to iterate over.
+
+## Multi-group ops: reducing a variable number of series
+
+Most ops read a fixed number of values per event, decided when the op is constructed. A
+reducer instead folds a variable number of groups into one event, and reads that count from
+the data on every call. `PortfolioReport` is the one such op: it reduces the output of a
+backtest engine, run over any number of assets, into portfolio-level report columns.
+
+An event is a `(groups, 4)` block, and a batch is a `(events, groups, 4)` one:
+
+```js
+import { PortfolioReport } from "@screamer-labs/screamer";
+
+const report = PortfolioReport();
+
+// One event: three assets, each contributing [equity, pnl, position, cost].
+report([
+  [100.0, 1.0, 2.0, 0.02],
+  [250.0, -0.5, -1.0, 0.01],
+  [ 80.0, 0.0, 0.0, 0.0 ],
+]); // [drawdown, cumCost, turnover, trades, maxDrawdown, sharpe]
+
+// A whole run at once, as an NdArray of shape [events, assets, 4].
+report({ data: engineOutput, shape: [events, assets, 4] }); // NdArray, shape [events, 6]
+```
+
+The nested form above and a flat `Float64Array` of `groups * 4` values are both accepted for a
+single event, as is an iterable of events for streaming. The group count is fixed by the first
+event after a `reset()`; changing it later throws, rather than silently redefining what the
+portfolio is.

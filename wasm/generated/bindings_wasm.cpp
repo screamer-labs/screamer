@@ -557,6 +557,10 @@ EMSCRIPTEN_BINDINGS(screamer) {
         .constructor<int>();
     emscripten::class_<screamer::Polar2Cart, emscripten::base<screamer::EvalOp>>("Polar2Cart")
         .constructor<>();
+    emscripten::class_<screamer::PortfolioReport, emscripten::base<screamer::EvalOp>>("PortfolioReport")
+        .constructor<>()
+        .function("reduceInto", &screamer_wasm::reduceInto<screamer::PortfolioReport>)
+        .function("reduceBatchInto", &screamer_wasm::reduceBatchInto<screamer::PortfolioReport>);
     emscripten::class_<screamer::Transform<(double (*)(double)) screamer::pos_part>, emscripten::base<screamer::EvalOp>>("PosPart")
         .constructor<>();
     emscripten::class_<screamer::Power, emscripten::base<screamer::EvalOp>>("Power")

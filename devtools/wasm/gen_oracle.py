@@ -14,6 +14,11 @@ event) and records the single-event output at a post-warmup index. The emitted
 `args` use the WASM/JS ctor convention (positional doubles, NaN for a missing
 optional slot, written as JSON null) so smoke.mjs can construct `new M[name](...args)`
 and reproduce the same op.
+
+A second fixture, wasm/smoke/oracle_reducer.json, covers the dynamic-width
+reducer path that the fixed-width event ABI above cannot express: a
+(time, assets, 4) backtest engine output reduced by PortfolioReport, recorded
+both as one batch call and as a row-at-a-time stream.
 """
 
 import json
@@ -25,6 +30,7 @@ import screamer
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(os.path.dirname(HERE))
 OUT = os.path.join(REPO, "wasm", "smoke", "oracle.json")
+OUT_REDUCER = os.path.join(REPO, "wasm", "smoke", "oracle_reducer.json")
 
 # Fixed, deterministic, all-positive input series (positive keeps Log/Sqrt finite).
 SERIES = [
@@ -80,6 +86,57 @@ def jsonify(x):
     return x
 
 
+def engine_output():
+    """A deterministic stand-in for a (time, assets, 4) backtest engine output.
+
+    Columns are [equity, pnl, position, cost]. Positions change on a different
+    cadence per asset, so the fixture contains rows that trade one asset, rows
+    that trade several, and rows that trade none, which is what separates the
+    per-asset turnover the reducer computes from the net-position turnover a
+    naive implementation would produce. Equity rises and falls so drawdown and
+    max_drawdown are both exercised, and one row carries a NaN so the ignore
+    policy (skip the row, hold the position state, emit NaN) is covered too.
+    """
+    time_steps, assets = 12, 3
+    equity = [100.0, 200.0, 50.0]
+    positions = [0.0, 0.0, 0.0]
+    rows = []
+    for t in range(time_steps):
+        row = []
+        for a in range(assets):
+            if t % (a + 2) == 0:
+                positions[a] += 1.0 if (t + a) % 3 else -2.0
+            pnl = ((t + 1) * (a + 1) % 7) - 3.0
+            equity[a] += pnl
+            row.append([equity[a], pnl, positions[a], 0.05 * abs(positions[a])])
+        rows.append(row)
+    rows[5][1][0] = float("nan")
+    return rows
+
+
+def reducer_entry():
+    """Batch and per-row streaming outputs of PortfolioReport over that fixture.
+
+    Both are recorded so the JavaScript side can check its batch path, its
+    per-event path, and that the two agree, against one Python reference.
+    """
+    import numpy as np
+
+    rows = engine_output()
+    batch = screamer.PortfolioReport()(np.asarray(rows, dtype=np.float64))
+
+    op = screamer.PortfolioReport()
+    stream = [as_list(op(np.asarray(r, dtype=np.float64))) for r in rows]
+
+    return {
+        "name": "PortfolioReport",
+        "shape": [len(rows), len(rows[0]), 4],
+        "input": [[[jsonify(v) for v in group] for group in row] for row in rows],
+        "batch": [[jsonify(v) for v in row] for row in batch.tolist()],
+        "stream": [[jsonify(v) for v in row] for row in stream],
+    }
+
+
 def main():
     entries = []
     for name, factory, wasm_args in SAMPLE:
@@ -112,6 +169,15 @@ def main():
         json.dump(entries, f, indent=2, allow_nan=False)
         f.write("\n")
     print(f"\nWrote {len(entries)} oracle entries -> {OUT}")
+
+    reducer = reducer_entry()
+    with open(OUT_REDUCER, "w") as f:
+        json.dump(reducer, f, indent=2, allow_nan=False)
+        f.write("\n")
+    print(
+        f"Wrote the {reducer['name']} reducer fixture "
+        f"(shape {reducer['shape']}) -> {OUT_REDUCER}"
+    )
 
 
 if __name__ == "__main__":

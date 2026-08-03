@@ -2481,6 +2481,16 @@
     "source": "bindings/bindings_math.cpp"
   },
   {
+    "name": "PortfolioReport",
+    "cpp_type": "screamer::PortfolioReport",
+    "base": "FunctorBase",
+    "ctor": [],
+    "ctor_args": [],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_fin.cpp",
+    "dynamic_reducer": true
+  },
+  {
     "name": "PosPart",
     "cpp_type": "screamer::Transform<(double (*)(double)) screamer::pos_part>",
     "base": "ScreamerBase",
