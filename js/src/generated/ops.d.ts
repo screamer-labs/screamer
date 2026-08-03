@@ -1048,6 +1048,12 @@ export declare function PlusDM(windowSize?: number): ScreamerOp;
  */
 export declare function Polar2Cart(): ScreamerOp;
 /**
+ * Reduce a multi-asset backtest engine output into causal portfolio-level report columns.
+ *
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
+export declare function PortfolioReport(): ScreamerOp;
+/**
  * Positive part of x: max(x, 0).
  *
  * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.

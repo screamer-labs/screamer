@@ -36,14 +36,15 @@ NON_POINT_OP_SOURCES = {"bindings_streams.cpp", "bindings_dag.cpp"}
 
 # Infrastructure classes that get an `nb::class_<...>(m, "NAME")`
 # registration but aren't screamer ops, so they never appear in the
-# manifest.
+# manifest. Every one of these is a base class or a lazy-iteration helper
+# returned by an op, never an op a user constructs; anything else belongs in
+# the manifest, and in the JavaScript binding with it.
 NON_OP_CLASS_NAMES = {
     "EvalOp",
     "ScreamerBase",
     "LazyEvalIterator",
     "LazyAsyncIterator",
     "AnextAwaitable",
-    "PortfolioReport",
     "PortfolioReportLazyIterator",
 }
 

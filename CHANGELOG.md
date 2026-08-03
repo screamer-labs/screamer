@@ -112,12 +112,30 @@ Unreleased
 
 ### Added
 
+* **JavaScript:** `PortfolioReport` is now part of the JavaScript/WASM binding,
+  closing the one gap between the Python and JavaScript operator sets. It needed
+  a second marshalling path: every other operator reads a fixed number of values
+  per event, while a reducer folds a variable number of groups (the assets in a
+  portfolio) into one event and reads that count from the data. The WASM layer
+  gained `reduceInto` / `reduceBatchInto` alongside the existing fixed-width
+  `evalInto`, the manifest gained a `dynamic_reducer` category that drives both
+  generators, and the codegen freshness gate no longer excludes the operator, so
+  it now enforces the parity it previously allowed to lapse. A JavaScript event
+  is a `(groups, 4)` block and a batch is `(events, groups, 4)`, matching the
+  Python shapes; results are held to a Python fixture covering both the batch
+  and the per-event path.
+
 * References for `RollingCorr`, `RollingCov`, `RollingBeta`, `RollingIqr`,
   `HullMA` and `RollingVWAP`, taking baseline coverage to 174 of 231. The pair
   statistics come from `pandas.rolling().corr()` / `.cov()` / `.var()`, which
   are external implementations rather than transcriptions.
 
 ### Fixed
+
+* The WASM smoke harness constructed four backtest engines with stale
+  hand-written arguments and failed on all of them once those engines gained
+  contract-sizing parameters. The arguments now match, and a mismatch reports
+  which operator to update instead of an Embind arity error.
 
 * `ROC`, `ROCP` and `ROCR` defaulted to `window_size=1` while their pages
   documented `10`, TA-Lib's `timeperiod` default and the value the sibling

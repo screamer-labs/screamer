@@ -160,7 +160,7 @@ def _sig_decl(params: list[dict]) -> str:
     return ", ".join(bits)
 
 
-def _factory_body(name: str, params: list[dict]) -> str:
+def _factory_body(name: str, params: list[dict], wrapper: str = "wrapOp") -> str:
     vecs = [p for p in params if p["is_vec"]]
     lines = ["  const M = current();"]
     call_args = []
@@ -177,10 +177,19 @@ def _factory_body(name: str, params: list[dict]) -> str:
         for idx, p in enumerate(params):
             if p["is_vec"]:
                 lines.append(f"  _v{idx}.delete();")
-        lines.append("  return wrapOp(M, _op);")
+        lines.append(f"  return {wrapper}(M, _op);")
     else:
-        lines.append(f"  return wrapOp(M, new M.{name}({', '.join(call_args)}));")
+        lines.append(f"  return {wrapper}(M, new M.{name}({', '.join(call_args)}));")
     return "\n".join(lines)
+
+
+def _wrapper_for(op: dict) -> str:
+    """The runtime wrapper a factory hands its raw Embind op to.
+
+    Dynamic-width reducers take the variable-group wrapper; every other op
+    takes the fixed-width one.
+    """
+    return "wrapReducerOp" if op.get("dynamic_reducer") else "wrapOp"
 
 
 HEADER = (
@@ -241,8 +250,13 @@ def _jsdoc_lines(op_name: str, help_entry: dict | None, params: list[dict]) -> l
 
 
 def render_ops_ts(ops: list[dict], help_map: dict) -> str:
+    wrappers = ["wrapOp"]
+    if any(op.get("dynamic_reducer") for op in ops):
+        wrappers.append("wrapReducerOp")
     out = [HEADER]
-    out.append('import { wrapOp, type ScreamerOp } from "../runtime.js";')
+    out.append(
+        f'import {{ {", ".join(wrappers)}, type ScreamerOp }} from "../runtime.js";'
+    )
     out.append('import { current } from "../index.js";')
     out.append("")
     for op in ops:
@@ -252,7 +266,7 @@ def render_ops_ts(ops: list[dict], help_map: dict) -> str:
         out.append(
             f"export function {name}({_sig_ts(params)}): ScreamerOp {{"
         )
-        out.append(_factory_body(name, params))
+        out.append(_factory_body(name, params, _wrapper_for(op)))
         out.append("}")
         out.append("")
     return "\n".join(out)
