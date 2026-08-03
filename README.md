@@ -66,8 +66,8 @@ npm install @screamer-labs/screamer
 ```
 
 The package is self-contained: the WebAssembly module is embedded, so there is no
-separate asset to configure. The WASM loads once via `await ready()`, then the
-operators read exactly like the Python ones:
+separate asset to configure. The WASM loads once via `await ready()`, then you
+call operators directly:
 
 ```javascript
 import { ready, RollingPoly2, Sign } from "@screamer-labs/screamer";
@@ -81,7 +81,7 @@ const sign = Sign();
 const trend = sign(slope(data));     // a number, a Float64Array, an iterable, or an async stream
 ```
 
-The JavaScript build covers every operator plus the full pipeline model:
+Operators compose into pipelines:
 
 ```javascript
 import { ready, Input, Pipeline, RollingMean, Diff } from "@screamer-labs/screamer";

@@ -1,5 +1,3 @@
-# screamer.js
-
 screamer.js is the JavaScript build of [screamer](https://github.com/screamer-labs/screamer), a
 causal streaming time-series operator library. It compiles the same C++ core that backs the
 Python `screamer` package to WebAssembly, so it runs in Node.js and the browser with no native
