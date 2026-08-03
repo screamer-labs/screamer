@@ -1133,6 +1133,17 @@
       }
     ]
   },
+  "backtest_report": {
+    "name": "backtest_report",
+    "title": "backtest_report",
+    "kind": "function",
+    "short": "Running statistics and a summary for a backtest engine's output.",
+    "topics": [
+      "backtesting"
+    ],
+    "details": "Labels the output of the [`BacktestReport`](BacktestReport.md) node. It takes a\nbacktest engine's `[equity, pnl, position, cost]` output (the four positional\ncolumns that [`BacktestPriceTarget`](BacktestPriceTarget.md) and the other backtest engines\nemit) and returns `(running, summary)`.\n\n- `running` is a dict of numpy arrays: the four engine columns plus the\n  `BacktestReport` node's `drawdown` (dollar), `cum_cost`, `turnover` (units\n  traded), `trades` (count), `max_drawdown` (running worst), `sharpe` (running),\n  and `equity_held` (equity carried across skipped bars). Each is a causal series\n  whose last value is the summary.\n- `summary` is a dict of the final statistics: `total_pnl`, `max_drawdown`,\n  `total_cost`, `turnover`, `num_trades`, and `sharpe`.\n\nThe aggregation runs in the C++ `BacktestReport` node, so a pure-C++ user gets the\nsame statistics by calling that node directly. This wrapper only labels its\ncolumns and reads the last row, and needs no pandas. Wrap `running` in a\n`pandas.DataFrame` yourself if you want a frame.",
+    "examples": []
+  },
   "BacktestL1Orders": {
     "name": "BacktestL1Orders",
     "title": "Backtest a two-sided market maker against L1 quotes",
@@ -1201,6 +1212,25 @@
         "type": "float",
         "default": Infinity,
         "description": "Inventory ceiling; buy fills are capped so the position never exceeds it."
+      },
+      {
+        "name": "multiplier",
+        "type": "float",
+        "default": 1.0,
+        "min": 0.0,
+        "description": "Contract multiplier applied to mark-to-market PnL, fill slippage, and proportional fees."
+      },
+      {
+        "name": "maker_fee_per_contract",
+        "type": "float",
+        "default": 0.0,
+        "description": "Fixed fee (or rebate when negative) charged per contract on maker fills."
+      },
+      {
+        "name": "taker_fee_per_contract",
+        "type": "float",
+        "default": 0.0,
+        "description": "Fixed fee (or rebate when negative) charged per contract on taker fills."
       }
     ],
     "nan_policy": "ignore",
@@ -1211,7 +1241,7 @@
       "BacktestOHLCTarget",
       "backtest_report"
     ],
-    "details": "## Description\n\n`BacktestL1Orders` is a two-sided market-making backtest against a top-of-book (L1)\nstream. Each event carries the strategy's own quote\n`(bid_price, bid_size, ask_price, ask_size)` and the market's current book\n`(market_bid, market_ask, market_bid_size, market_ask_size)`. Both sides rest, and\neither or both can be lifted on one event, so the position is whatever the market\nfills.\n\nFills follow where the market moves relative to your quote. When the market\n`ask` trades **through** `bid_price` (`market_ask < bid_price`), the resting buy is\nrun over and fills its **full remaining** at `bid_price`, a maker fill paying\n`maker_fee`. In `\"touch\"` mode a **lock** (`market_ask == bid_price`) also fills\nonce on entry, for `min(remaining, participation_ratio * market_ask_size)` at\n`bid_price`; further size changes at the same locked price are ignored (a static\nquote cannot be told from a cancel, so it does not re-fill). The `\"breach\"` default\nkeeps only the through case. A quote that appears **already crossing** the spread\n(`bid_price >= market_ask` on submission) is a taker: it fills its full size at the\nmarket, walking `tick_size` for the part beyond the displayed quote, and pays\n`taker_fee`. The sell side is symmetric. Fills are capped so the position stays\nwithin `[min_position, max_position]` (unbounded by default). Positions mark to the\nmid.\n\nInputs are `(bid_price, bid_size, ask_price, ask_size, market_bid, market_ask,\nmarket_bid_size, market_ask_size)`. It emits the four positional columns shared by\nthe backtest family: `0 = equity` (cumulative dollar PnL), `1 = pnl` (per event),\n`2 = position`, and `3 = cost` (per event). A `NaN` in any market quote field skips\nthe event (`nan_policy: ignore`); a `NaN` own-quote price means that side is not\nquoted. [`backtest_report`](backtest_report.md) summarizes the resulting equity\ncurve.\n\nFor a target-position variant that takes the book immediately instead of posting\na resting order, see [`BacktestL1Target`](BacktestL1Target.md). When a trade feed\nis available, [`BacktestL1TradesOrders`](BacktestL1TradesOrders.md) uses real prints to drive\nfills rather than quote-level heuristics.\n\n## Limitations\n\nQuotes-only fills are a heuristic: a size change at a static price is fill,\ncancel, and re-quote all at once, and cannot be told apart. The `\"breach\"` default\nfills only when the market trades through your quote, so it can **under-fill**.\n`\"touch\"` adds a participation partial once per lock episode and can **over-fill**\nwhen a lock's size came from cancels rather than trades. Prefer\n[`BacktestL1TradesOrders`](BacktestL1TradesOrders.md) when a trade feed is available: real\ntrades drive the fills and remove this ambiguity. Orders are counterfactual (zero\nvolume, no market impact); a marketable order fills beyond the displayed size only\nunder the `tick_size` slippage assumption.",
+    "details": "The accounting parameters are generic across the backtest family. `multiplier`\nconverts a price move into currency per contract; the fixed per-contract fee is\nthen added to the existing proportional fee. Both fixed fees may be negative for\nrebates, and all defaults preserve the previous behavior.\n\n## Description\n\n`BacktestL1Orders` is a two-sided market-making backtest against a top-of-book (L1)\nstream. Each event carries the strategy's own quote\n`(bid_price, bid_size, ask_price, ask_size)` and the market's current book\n`(market_bid, market_ask, market_bid_size, market_ask_size)`. Both sides rest, and\neither or both can be lifted on one event, so the position is whatever the market\nfills.\n\nFills follow where the market moves relative to your quote. When the market\n`ask` trades **through** `bid_price` (`market_ask < bid_price`), the resting buy is\nrun over and fills its **full remaining** at `bid_price`, a maker fill paying\n`maker_fee`. In `\"touch\"` mode a **lock** (`market_ask == bid_price`) also fills\nonce on entry, for `min(remaining, participation_ratio * market_ask_size)` at\n`bid_price`; further size changes at the same locked price are ignored (a static\nquote cannot be told from a cancel, so it does not re-fill). The `\"breach\"` default\nkeeps only the through case. A quote that appears **already crossing** the spread\n(`bid_price >= market_ask` on submission) is a taker: it fills its full size at the\nmarket, walking `tick_size` for the part beyond the displayed quote, and pays\n`taker_fee`. The sell side is symmetric. Fills are capped so the position stays\nwithin `[min_position, max_position]` (unbounded by default). Positions mark to the\nmid.\n\nInputs are `(bid_price, bid_size, ask_price, ask_size, market_bid, market_ask,\nmarket_bid_size, market_ask_size)`. It emits the four positional columns shared by\nthe backtest family: `0 = equity` (cumulative dollar PnL), `1 = pnl` (per event),\n`2 = position`, and `3 = cost` (per event). A `NaN` in any market quote field skips\nthe event (`nan_policy: ignore`); a `NaN` own-quote price means that side is not\nquoted. [`backtest_report`](backtest_report.md) summarizes the resulting equity\ncurve.\n\nFor a target-position variant that takes the book immediately instead of posting\na resting order, see [`BacktestL1Target`](BacktestL1Target.md). When a trade feed\nis available, [`BacktestL1TradesOrders`](BacktestL1TradesOrders.md) uses real prints to drive\nfills rather than quote-level heuristics.\n\n## Limitations\n\nQuotes-only fills are a heuristic: a size change at a static price is fill,\ncancel, and re-quote all at once, and cannot be told apart. The `\"breach\"` default\nfills only when the market trades through your quote, so it can **under-fill**.\n`\"touch\"` adds a participation partial once per lock episode and can **over-fill**\nwhen a lock's size came from cancels rather than trades. Prefer\n[`BacktestL1TradesOrders`](BacktestL1TradesOrders.md) when a trade feed is available: real\ntrades drive the fills and remove this ambiguity. Orders are counterfactual (zero\nvolume, no market impact); a marketable order fills beyond the displayed size only\nunder the `tick_size` slippage assumption.",
     "examples": [
       {
         "language": "python",
@@ -1267,6 +1297,19 @@
         "type": "float",
         "default": Infinity,
         "description": "Inventory ceiling. The target is clamped to [min_position, max_position] before the fill size is computed."
+      },
+      {
+        "name": "multiplier",
+        "type": "float",
+        "default": 1.0,
+        "min": 0.0,
+        "description": "Contract multiplier applied to mark-to-market PnL, fill slippage, and proportional fees."
+      },
+      {
+        "name": "fee_per_contract",
+        "type": "float",
+        "default": 0.0,
+        "description": "Fixed fee (or rebate when negative) charged per contract on each fill."
       }
     ],
     "nan_policy": "ignore",
@@ -1277,7 +1320,7 @@
       "BacktestOHLCTarget",
       "backtest_report"
     ],
-    "details": "## Description\n\n`BacktestL1Target` is a directional backtest on the L1 quote stream. It is\nimmediate: the `target_position` you pass on event t executes on the same quote\nupdate, unlike `BacktestOHLCTarget` which defers to the next bar's open.\n\nEach event the engine computes the desired trade as\n`clamp(target, min_position, max_position) - current_position` and takes it as a\nmarketable (taker) order against the displayed L1 book. A buy order sweeps the ask\nside; a sell order sweeps the bid side. The fill pays `taker_fee` on the traded\nnotional. If the displayed size is smaller than the desired size, the overflow is\nfilled at `ask + tick_size` (buy) or `bid - tick_size` (sell). Positions mark to\nthe mid. If the target equals the current position, no order is placed and the\nevent is a mark-only step.\n\nInputs are `(target_position, market_bid, market_ask, market_bid_size,\nmarket_ask_size)`. Outputs are the four standard backtest columns: `0 = equity`\n(cumulative dollar PnL), `1 = pnl` (per event), `2 = position`, and `3 = cost`\n(per event). A `NaN` in any market field skips the event and returns all-NaN\n(`nan_policy: ignore`). [`backtest_report`](backtest_report.md) summarizes the\nresulting equity curve.\n\nThe optional `min_position` and `max_position` parameters cap the inventory. The\ntarget is clamped before the order size is computed, so the engine never carries a\nposition outside that range.\n\nFor a two-sided resting-order variant, see\n[`BacktestL1Orders`](BacktestL1Orders.md). When a trade feed is available,\n[`BacktestTradesTarget`](BacktestTradesTarget.md) uses real prints instead of\nquote updates.\n\n## Limitations\n\nThe fill model is optimistic: the order executes immediately at the displayed book\nprice with no queue or market impact beyond the `tick_size` overflow slippage.\nOrders are counterfactual (zero market impact), so the book is unaffected by the\nstrategy's activity.",
+    "details": "`multiplier` converts a price move into currency per contract. `fee_per_contract`\nis added to the existing proportional taker fee on every fill and may be negative\nfor a rebate; defaults preserve the previous behavior.\n\n## Description\n\n`BacktestL1Target` is a directional backtest on the L1 quote stream. It is\nimmediate: the `target_position` you pass on event t executes on the same quote\nupdate, unlike `BacktestOHLCTarget` which defers to the next bar's open.\n\nEach event the engine computes the desired trade as\n`clamp(target, min_position, max_position) - current_position` and takes it as a\nmarketable (taker) order against the displayed L1 book. A buy order sweeps the ask\nside; a sell order sweeps the bid side. The fill pays `taker_fee` on the traded\nnotional. If the displayed size is smaller than the desired size, the overflow is\nfilled at `ask + tick_size` (buy) or `bid - tick_size` (sell). Positions mark to\nthe mid. If the target equals the current position, no order is placed and the\nevent is a mark-only step.\n\nInputs are `(target_position, market_bid, market_ask, market_bid_size,\nmarket_ask_size)`. Outputs are the four standard backtest columns: `0 = equity`\n(cumulative dollar PnL), `1 = pnl` (per event), `2 = position`, and `3 = cost`\n(per event). A `NaN` in any market field skips the event and returns all-NaN\n(`nan_policy: ignore`). [`backtest_report`](backtest_report.md) summarizes the\nresulting equity curve.\n\nThe optional `min_position` and `max_position` parameters cap the inventory. The\ntarget is clamped before the order size is computed, so the engine never carries a\nposition outside that range.\n\nFor a two-sided resting-order variant, see\n[`BacktestL1Orders`](BacktestL1Orders.md). When a trade feed is available,\n[`BacktestTradesTarget`](BacktestTradesTarget.md) uses real prints instead of\nquote updates.\n\n## Limitations\n\nThe fill model is optimistic: the order executes immediately at the displayed book\nprice with no queue or market impact beyond the `tick_size` overflow slippage.\nOrders are counterfactual (zero market impact), so the book is unaffected by the\nstrategy's activity.",
     "examples": [
       {
         "language": "python",
@@ -1355,6 +1398,25 @@
         "type": "float",
         "default": -Infinity,
         "description": "Inventory floor; sell fills are capped so the position never falls below it."
+      },
+      {
+        "name": "multiplier",
+        "type": "float",
+        "default": 1.0,
+        "min": 0.0,
+        "description": "Contract multiplier applied to mark-to-market PnL, fill slippage, and proportional fees."
+      },
+      {
+        "name": "maker_fee_per_contract",
+        "type": "float",
+        "default": 0.0,
+        "description": "Fixed fee (or rebate when negative) charged per contract on maker fills."
+      },
+      {
+        "name": "taker_fee_per_contract",
+        "type": "float",
+        "default": 0.0,
+        "description": "Fixed fee (or rebate when negative) charged per contract on taker fills."
       }
     ],
     "nan_policy": "ignore",
@@ -1364,7 +1426,7 @@
       "BacktestOHLCTarget",
       "backtest_report"
     ],
-    "details": "## Description\n\n`BacktestL1TradesOrders` backtests a two-sided market maker against both the\ntop-of-book quote and the trade tape, so fills come from actual executions rather\nthan inferred from quote-size changes. Each event carries the strategy's own quote\n`(bid_price, bid_size, ask_price, ask_size)`, the market top-of-book\n`(market_bid, market_ask, market_bid_size, market_ask_size)`, and a print\n`(trade_price, trade_size)` (align the three streams with `combine_latest` upstream).\n\nQuotes mark the position (to the mid) and seed context; **trades drive the\nfills**. A sell-print through `bid_price` fills the full remaining, a sell-print at\n`bid_price` fills `min(remaining, participation_ratio * trade_size)`, both maker\nfills at `bid_price` paying `maker_fee`. A market quote that crosses your resting\nprice with no explaining trade is the run-over fallback (a full maker fill), and a\nquote submitted already crossing the spread is a taker (fills at the market, walking\n`tick_size` for the overflow, paying `taker_fee`). The sell side is symmetric.\nFills are capped to `[min_position, max_position]`.\n\nInput contract: quotes are as-of state (forward-fill them upstream); **trades are\nnot forward-filled**. A `NaN` trade is a quote-only update (mark, no fill), which\nis `nan_policy: ignore`, so each real trade appears on exactly one row and fills at\nmost once. There is no double-counting and no fill-versus-cancel ambiguity.\n\nInputs are `(bid_price, bid_size, ask_price, ask_size, market_bid, market_ask,\nmarket_bid_size, market_ask_size, trade_price, trade_size)`, where the first four\nslots carry the strategy's own resting quotes and the next four carry the top-of-book\nmarket quote. It emits the four positional columns shared\nby the backtest family: `0 = equity` (cumulative dollar PnL), `1 = pnl` (per\nevent), `2 = position`, and `3 = cost` (per event). A `NaN` in the market quote\nskips the event; a `NaN` own-quote price means that side is not quoted.\n[`backtest_report`](backtest_report.md) summarizes the resulting equity curve.\n\n## Limitations\n\nQueue position is not tracked from order identity (that needs an L3 / market-by-order\nfeed), so at-price fills use `participation_ratio` as a front-of-queue proxy.\nOrders are counterfactual (zero volume, no market impact); a marketable order fills\nbeyond the displayed size only under the `tick_size` slippage assumption.",
+    "details": "The accounting parameters are generic across the backtest family. `multiplier`\nconverts a price move into currency per contract; the fixed per-contract fee is\nthen added to the existing proportional fee. Both fixed fees may be negative for\nrebates, and all defaults preserve the previous behavior.\n\n## Description\n\n`BacktestL1TradesOrders` backtests a two-sided market maker against both the\ntop-of-book quote and the trade tape, so fills come from actual executions rather\nthan inferred from quote-size changes. Each event carries the strategy's own quote\n`(bid_price, bid_size, ask_price, ask_size)`, the market top-of-book\n`(market_bid, market_ask, market_bid_size, market_ask_size)`, and a print\n`(trade_price, trade_size)` (align the three streams with `combine_latest` upstream).\n\nQuotes mark the position (to the mid) and seed context; **trades drive the\nfills**. A sell-print through `bid_price` fills the full remaining, a sell-print at\n`bid_price` fills `min(remaining, participation_ratio * trade_size)`, both maker\nfills at `bid_price` paying `maker_fee`. A market quote that crosses your resting\nprice with no explaining trade is the run-over fallback (a full maker fill), and a\nquote submitted already crossing the spread is a taker (fills at the market, walking\n`tick_size` for the overflow, paying `taker_fee`). The sell side is symmetric.\nFills are capped to `[min_position, max_position]`.\n\nInput contract: quotes are as-of state (forward-fill them upstream); **trades are\nnot forward-filled**. A `NaN` trade is a quote-only update (mark, no fill), which\nis `nan_policy: ignore`, so each real trade appears on exactly one row and fills at\nmost once. There is no double-counting and no fill-versus-cancel ambiguity.\n\nInputs are `(bid_price, bid_size, ask_price, ask_size, market_bid, market_ask,\nmarket_bid_size, market_ask_size, trade_price, trade_size)`, where the first four\nslots carry the strategy's own resting quotes and the next four carry the top-of-book\nmarket quote. It emits the four positional columns shared\nby the backtest family: `0 = equity` (cumulative dollar PnL), `1 = pnl` (per\nevent), `2 = position`, and `3 = cost` (per event). A `NaN` in the market quote\nskips the event; a `NaN` own-quote price means that side is not quoted.\n[`backtest_report`](backtest_report.md) summarizes the resulting equity curve.\n\n## Limitations\n\nQueue position is not tracked from order identity (that needs an L3 / market-by-order\nfeed), so at-price fills use `participation_ratio` as a front-of-queue proxy.\nOrders are counterfactual (zero volume, no market impact); a marketable order fills\nbeyond the displayed size only under the `tick_size` slippage assumption.",
     "examples": [
       {
         "language": "python",
@@ -1440,6 +1502,25 @@
         "type": "float",
         "default": Infinity,
         "description": "Inventory ceiling; buy fills are capped so the position never exceeds it."
+      },
+      {
+        "name": "multiplier",
+        "type": "float",
+        "default": 1.0,
+        "min": 0.0,
+        "description": "Contract multiplier applied to mark-to-market PnL, fill slippage, and proportional fees."
+      },
+      {
+        "name": "maker_fee_per_contract",
+        "type": "float",
+        "default": 0.0,
+        "description": "Fixed fee (or rebate when negative) charged per contract on maker fills."
+      },
+      {
+        "name": "taker_fee_per_contract",
+        "type": "float",
+        "default": 0.0,
+        "description": "Fixed fee (or rebate when negative) charged per contract on taker fills."
       }
     ],
     "nan_policy": "ignore",
@@ -1449,7 +1530,7 @@
       "BacktestTradesOrders",
       "backtest_report"
     ],
-    "details": "## Description\n\n`BacktestOHLCOrders` runs a two-sided order-posting backtest on OHLC bars. Each\nbar the strategy posts a resting bid `(bid_price, bid_size)` and a resting ask\n`(ask_price, ask_size)`. Both sides execute on the same bar (same-bar fill model,\nno deferral), so the position is whatever the bar's range allows.\n\n**Passive fills.** A resting buy fills when the bar's low reaches the bid price.\nIn `\"touch\"` mode (default) the fill triggers when `low <= bid_price`; in\n`\"breach\"` mode only when `low < bid_price` (the bar must trade strictly through).\nThe fill quantity is `min(bid_size, participation_ratio * bid_size, room)`, where\n`room = max_position - current_position`. The fill price is the bid price and pays\n`maker_fee`. The sell side mirrors on the high.\n\n**Market fills.** A NaN bid or ask price is a market order (via `market_limit`):\nthe buy fills at `open + tick_size` and the sell fills at `open - tick_size`, both\npaying `taker_fee`. An explicit `MARKET` constant (equal to `+inf`) also triggers\nthis path.\n\n**Inventory bounds.** Fills are capped at each step so the position stays in\n`[min_position, max_position]` (unbounded by default). Both sides may fill on the\nsame bar when the bar's range is wide enough.\n\nInputs are `(bid_price, bid_size, ask_price, ask_size, open, high, low, close)`.\nOutputs are the four standard backtest columns: `0 = equity` (cumulative dollar\nPnL), `1 = pnl` (per bar), `2 = position`, `3 = cost` (per bar). A `NaN` in any\nof the bar fields (open/high/low/close) skips the bar and returns all-NaN\n(`nan_policy: ignore`). A NaN `bid_price` or `ask_price` triggers a market order;\na NaN or zero `bid_size` / `ask_size` suppresses that side entirely.\n[`backtest_report`](backtest_report.md) summarizes the resulting equity curve.\n\n## Limitations\n\nOHLC bars carry no intra-bar path, so the engine cannot distinguish whether the\nlow preceded the high or vice versa. When both the bid and ask fill on the same\nbar the engine processes the buy first, then the sell; the ordering can affect the\nposition and PnL when inventory bounds are active. Use [`BacktestL1Orders`](BacktestL1Orders.md)\nor [`BacktestL1TradesOrders`](BacktestL1TradesOrders.md) with a tick-level or quote-level feed\nwhen intra-bar sequencing matters.",
+    "details": "The accounting parameters are generic across the backtest family. `multiplier`\nconverts a price move into currency per contract; the fixed per-contract fee is\nthen added to the existing proportional fee. Both fixed fees may be negative for\nrebates, and all defaults preserve the previous behavior.\n\n## Description\n\n`BacktestOHLCOrders` runs a two-sided order-posting backtest on OHLC bars. Each\nbar the strategy posts a resting bid `(bid_price, bid_size)` and a resting ask\n`(ask_price, ask_size)`. Both sides execute on the same bar (same-bar fill model,\nno deferral), so the position is whatever the bar's range allows.\n\n**Passive fills.** A resting buy fills when the bar's low reaches the bid price.\nIn `\"touch\"` mode (default) the fill triggers when `low <= bid_price`; in\n`\"breach\"` mode only when `low < bid_price` (the bar must trade strictly through).\nThe fill quantity is `min(bid_size, participation_ratio * bid_size, room)`, where\n`room = max_position - current_position`. The fill price is the bid price and pays\n`maker_fee`. The sell side mirrors on the high.\n\n**Market fills.** A NaN bid or ask price is a market order (via `market_limit`):\nthe buy fills at `open + tick_size` and the sell fills at `open - tick_size`, both\npaying `taker_fee`. An explicit `MARKET` constant (equal to `+inf`) also triggers\nthis path.\n\n**Inventory bounds.** Fills are capped at each step so the position stays in\n`[min_position, max_position]` (unbounded by default). Both sides may fill on the\nsame bar when the bar's range is wide enough.\n\nInputs are `(bid_price, bid_size, ask_price, ask_size, open, high, low, close)`.\nOutputs are the four standard backtest columns: `0 = equity` (cumulative dollar\nPnL), `1 = pnl` (per bar), `2 = position`, `3 = cost` (per bar). A `NaN` in any\nof the bar fields (open/high/low/close) skips the bar and returns all-NaN\n(`nan_policy: ignore`). A NaN `bid_price` or `ask_price` triggers a market order;\na NaN or zero `bid_size` / `ask_size` suppresses that side entirely.\n[`backtest_report`](backtest_report.md) summarizes the resulting equity curve.\n\n## Limitations\n\nOHLC bars carry no intra-bar path, so the engine cannot distinguish whether the\nlow preceded the high or vice versa. When both the bid and ask fill on the same\nbar the engine processes the buy first, then the sell; the ordering can affect the\nposition and PnL when inventory bounds are active. Use [`BacktestL1Orders`](BacktestL1Orders.md)\nor [`BacktestL1TradesOrders`](BacktestL1TradesOrders.md) with a tick-level or quote-level feed\nwhen intra-bar sequencing matters.",
     "examples": [
       {
         "language": "python",
@@ -1505,6 +1586,19 @@
         "type": "float",
         "default": Infinity,
         "description": "Upper bound on the filled position. The deferred target is clamped to [min_position, max_position] before the fill executes."
+      },
+      {
+        "name": "multiplier",
+        "type": "float",
+        "default": 1.0,
+        "min": 0.0,
+        "description": "Contract multiplier applied to mark-to-market PnL, fill slippage, and proportional fees."
+      },
+      {
+        "name": "fee_per_contract",
+        "type": "float",
+        "default": 0.0,
+        "description": "Fixed fee (or rebate when negative) charged per contract on each fill."
       }
     ],
     "nan_policy": "ignore",
@@ -1514,7 +1608,7 @@
       "BacktestL1Target",
       "backtest_report"
     ],
-    "details": "## Description\n\n`BacktestOHLCTarget` is a lean directional backtest on OHLC bars. It is causal by\ndesign: the `target_position` you pass on bar t is decided from that bar's close,\nand the engine executes it on bar t+1 as a market order at the open. No manual lag\nis needed; feed the raw signal directly.\n\nThe deferral prevents look-ahead: a target computed from a bar's close cannot\ntrade within that same bar (the open already happened), so the engine holds it and\ntrades the next open. This mirrors `BacktestPriceTarget`, where a signal set at t\nearns from t+1.\n\nThe market order fills at `open + tick_size` (buy) or `open - tick_size` (sell),\npaying `taker_fee` on the traded notional. Positions mark to the close each bar.\n\nThe optional `min_position` / `max_position` parameters cap the inventory. The\ndeferred target is clamped to `[min_position, max_position]` before the order\nsize is computed, so the engine never carries a position outside that range.\n\nInputs are `(target_position, open, high, low, close)`. Outputs are the four\nstandard backtest columns: `0 = equity` (cumulative dollar PnL), `1 = pnl` (per\nbar), `2 = position`, and `3 = cost` (per bar). A `NaN` in any bar field (open,\nhigh, low, close) skips the bar (`nan_policy: ignore`). A `NaN` target holds the\nposition for the next bar without issuing a new order.\n[`backtest_report`](backtest_report.md) summarizes the resulting equity curve.",
+    "details": "`multiplier` converts a price move into currency per contract. `fee_per_contract`\nis added to the existing proportional taker fee on every fill and may be negative\nfor a rebate; defaults preserve the previous behavior.\n\n## Description\n\n`BacktestOHLCTarget` is a lean directional backtest on OHLC bars. It is causal by\ndesign: the `target_position` you pass on bar t is decided from that bar's close,\nand the engine executes it on bar t+1 as a market order at the open. No manual lag\nis needed; feed the raw signal directly.\n\nThe deferral prevents look-ahead: a target computed from a bar's close cannot\ntrade within that same bar (the open already happened), so the engine holds it and\ntrades the next open. This mirrors `BacktestPriceTarget`, where a signal set at t\nearns from t+1.\n\nThe market order fills at `open + tick_size` (buy) or `open - tick_size` (sell),\npaying `taker_fee` on the traded notional. Positions mark to the close each bar.\n\nThe optional `min_position` / `max_position` parameters cap the inventory. The\ndeferred target is clamped to `[min_position, max_position]` before the order\nsize is computed, so the engine never carries a position outside that range.\n\nInputs are `(target_position, open, high, low, close)`. Outputs are the four\nstandard backtest columns: `0 = equity` (cumulative dollar PnL), `1 = pnl` (per\nbar), `2 = position`, and `3 = cost` (per bar). A `NaN` in any bar field (open,\nhigh, low, close) skips the bar (`nan_policy: ignore`). A `NaN` target holds the\nposition for the next bar without issuing a new order.\n[`backtest_report`](backtest_report.md) summarizes the resulting equity curve.",
     "examples": [
       {
         "language": "python",
@@ -1567,6 +1661,19 @@
         "type": "float",
         "default": Infinity,
         "description": "Upper bound on the target position. Signals above this value are clamped to it."
+      },
+      {
+        "name": "multiplier",
+        "type": "float",
+        "default": 1.0,
+        "min": 0.0,
+        "description": "Contract multiplier applied to mark-to-market PnL, fill slippage, and proportional fees."
+      },
+      {
+        "name": "fee_per_contract",
+        "type": "float",
+        "default": 0.0,
+        "description": "Fixed fee (or rebate when negative) charged per contract on each fill."
       }
     ],
     "nan_policy": "ignore",
@@ -1575,7 +1682,7 @@
       "MaxDrawdown",
       "RollingInfoRatio"
     ],
-    "details": "## Description\n\n`BacktestPriceTarget` turns a target position on a value series (a price or mark)\ninto a costed profit-and-loss curve by reaching that target through taker liquidity.\nThe `signal` is the target position in units (its sign is long, short, or flat, any\nmagnitude); `price` is the mark (mid). Each bar the position moves to the signal via\na market order that crosses half of the fractional `spread` (a buy fills at\n`price * (1 + spread/2)`, a sell at `price * (1 - spread/2)`) and pays the\nfractional `fee` on the traded notional. With the default `spread = fee = 0` the\nbacktest is frictionless.\n\nA target outside `[min_position, max_position]` is clamped to the nearest boundary\nbefore the order is computed; the default bounds are unbounded so the behavior is\nunchanged when the cap is not set.\n\nIt emits four positional columns: `0 = equity` (cumulative dollar PnL), `1 = pnl`\n(per bar), `2 = position`, and `3 = cost` (per bar). It is causal: the signal at\n`t` enters PnL only at `t+1`, through the position it sets, so a future signal\nnever changes a past row. A `NaN` signal or price skips the bar (an all-`NaN` row,\nthe position held across the gap; `nan_policy: ignore`).\n\nThe equity curve feeds the existing risk operators directly (dollar drawdown is\n`equity - CumMax(equity)`), and [`backtest_report`](backtest_report.md) bundles\nthe common statistics (drawdown, cost, turnover, trades, Sharpe) in one call.",
+    "details": "`multiplier` converts a price move into currency per contract. `fee_per_contract`\nis added to the existing proportional taker fee on every fill and may be negative\nfor a rebate; defaults preserve the previous behavior.\n\n## Description\n\n`BacktestPriceTarget` turns a target position on a value series (a price or mark)\ninto a costed profit-and-loss curve by reaching that target through taker liquidity.\nThe `signal` is the target position in units (its sign is long, short, or flat, any\nmagnitude); `price` is the mark (mid). Each bar the position moves to the signal via\na market order that crosses half of the fractional `spread` (a buy fills at\n`price * (1 + spread/2)`, a sell at `price * (1 - spread/2)`) and pays the\nfractional `fee` on the traded notional. With the default `spread = fee = 0` the\nbacktest is frictionless.\n\nA target outside `[min_position, max_position]` is clamped to the nearest boundary\nbefore the order is computed; the default bounds are unbounded so the behavior is\nunchanged when the cap is not set.\n\nIt emits four positional columns: `0 = equity` (cumulative dollar PnL), `1 = pnl`\n(per bar), `2 = position`, and `3 = cost` (per bar). It is causal: the signal at\n`t` enters PnL only at `t+1`, through the position it sets, so a future signal\nnever changes a past row. A `NaN` signal or price skips the bar (an all-`NaN` row,\nthe position held across the gap; `nan_policy: ignore`).\n\nThe equity curve feeds the existing risk operators directly (dollar drawdown is\n`equity - CumMax(equity)`), and [`backtest_report`](backtest_report.md) bundles\nthe common statistics (drawdown, cost, turnover, trades, Sharpe) in one call.",
     "examples": [
       {
         "language": "python",
@@ -1687,6 +1794,25 @@
         "type": "float",
         "default": Infinity,
         "description": "Inventory ceiling; buy fills are capped so the position never exceeds it."
+      },
+      {
+        "name": "multiplier",
+        "type": "float",
+        "default": 1.0,
+        "min": 0.0,
+        "description": "Contract multiplier applied to mark-to-market PnL, fill slippage, and proportional fees."
+      },
+      {
+        "name": "maker_fee_per_contract",
+        "type": "float",
+        "default": 0.0,
+        "description": "Fixed fee (or rebate when negative) charged per contract on maker fills."
+      },
+      {
+        "name": "taker_fee_per_contract",
+        "type": "float",
+        "default": 0.0,
+        "description": "Fixed fee (or rebate when negative) charged per contract on taker fills."
       }
     ],
     "nan_policy": "ignore",
@@ -1696,7 +1822,7 @@
       "BacktestOHLCOrders",
       "backtest_report"
     ],
-    "details": "## Description\n\n`BacktestTradesOrders` backtests a two-sided order-posting strategy against the\nraw trade tape. Each event is a print `(trade_price, trade_size)` paired with\nthe strategy's resting quote `(bid_price, bid_size, ask_price, ask_size)`.\n\nFill logic per event:\n\n- **Buy side.** A resting bid at `bid_price` fills when a sell-print crosses it.\n  With `fill=\"touch\"` a print at exactly `bid_price` fills\n  `min(bid_size, participation_ratio * trade_size, room)` at `bid_price`\n  (maker fill, paying `maker_fee`). A print strictly below `bid_price`\n  sweeps the full remaining `min(bid_size, room)` without a participation cap.\n  With `fill=\"breach\"` the at-price case is skipped; only a strict breach fills.\n- **Sell side.** Symmetric for a resting ask against buy-prints.\n- **Market orders.** A `NaN` bid price is treated as a market order (+inf limit),\n  which sweeps on any print; that fill uses `taker_fee`. Pass `MARKET` (which\n  equals `math.inf`) directly to the price argument for the same effect.\n- **Inventory caps.** All fills are capped so the position stays in\n  `[min_position, max_position]`.\n- **Mark.** The position marks to the last trade price.\n\nIf both sides fill on the same print (possible when a spread collapses), each\nside updates the account in sequence, so the final equity and position reflect\nboth fills.\n\nInput contract: a `NaN` `trade_price` or `trade_size` is a no-trade event. The\n`nan_policy` is `ignore`: the row emits all-NaN outputs and state is unchanged.\nOnly real prints drive fills. Inputs are\n`(bid_price, bid_size, ask_price, ask_size, trade_price, trade_size)`.\nOutputs are `(equity, pnl, position, cost)`, the four standard backtest columns\naccepted by [`backtest_report`](backtest_report.md).\n\n## Limitations\n\nQueue priority is not tracked per order; at-price fills use `participation_ratio`\nas a front-of-queue proxy.\n\n`tick_size` is accepted for interface uniformity with `BacktestL1TradesOrders` and\n`BacktestOHLCOrders`, but it is inert on the tape: a marketable resting order\nfills at the print price without walking the book, so there is no displayed-size\noverflow to price. It is kept as a no-op parameter so strategies can share a\nuniform parameter set across engines.",
+    "details": "The accounting parameters are generic across the backtest family. `multiplier`\nconverts a price move into currency per contract; the fixed per-contract fee is\nthen added to the existing proportional fee. Both fixed fees may be negative for\nrebates, and all defaults preserve the previous behavior.\n\n## Description\n\n`BacktestTradesOrders` backtests a two-sided order-posting strategy against the\nraw trade tape. Each event is a print `(trade_price, trade_size)` paired with\nthe strategy's resting quote `(bid_price, bid_size, ask_price, ask_size)`.\n\nFill logic per event:\n\n- **Buy side.** A resting bid at `bid_price` fills when a sell-print crosses it.\n  With `fill=\"touch\"` a print at exactly `bid_price` fills\n  `min(bid_size, participation_ratio * trade_size, room)` at `bid_price`\n  (maker fill, paying `maker_fee`). A print strictly below `bid_price`\n  sweeps the full remaining `min(bid_size, room)` without a participation cap.\n  With `fill=\"breach\"` the at-price case is skipped; only a strict breach fills.\n- **Sell side.** Symmetric for a resting ask against buy-prints.\n- **Market orders.** A `NaN` bid price is treated as a market order (+inf limit),\n  which sweeps on any print; that fill uses `taker_fee`. Pass `MARKET` (which\n  equals `math.inf`) directly to the price argument for the same effect.\n- **Inventory caps.** All fills are capped so the position stays in\n  `[min_position, max_position]`.\n- **Mark.** The position marks to the last trade price.\n\nIf both sides fill on the same print (possible when a spread collapses), each\nside updates the account in sequence, so the final equity and position reflect\nboth fills.\n\nInput contract: a `NaN` `trade_price` or `trade_size` is a no-trade event. The\n`nan_policy` is `ignore`: the row emits all-NaN outputs and state is unchanged.\nOnly real prints drive fills. Inputs are\n`(bid_price, bid_size, ask_price, ask_size, trade_price, trade_size)`.\nOutputs are `(equity, pnl, position, cost)`, the four standard backtest columns\naccepted by [`backtest_report`](backtest_report.md).\n\n## Limitations\n\nQueue priority is not tracked per order; at-price fills use `participation_ratio`\nas a front-of-queue proxy.\n\n`tick_size` is accepted for interface uniformity with `BacktestL1TradesOrders` and\n`BacktestOHLCOrders`, but it is inert on the tape: a marketable resting order\nfills at the print price without walking the book, so there is no displayed-size\noverflow to price. It is kept as a no-op parameter so strategies can share a\nuniform parameter set across engines.",
     "examples": [
       {
         "language": "python",
@@ -1752,6 +1878,19 @@
         "type": "float",
         "default": Infinity,
         "description": "Inventory ceiling. The target is clamped to [min_position, max_position] before the fill size is computed."
+      },
+      {
+        "name": "multiplier",
+        "type": "float",
+        "default": 1.0,
+        "min": 0.0,
+        "description": "Contract multiplier applied to mark-to-market PnL, fill slippage, and proportional fees."
+      },
+      {
+        "name": "fee_per_contract",
+        "type": "float",
+        "default": 0.0,
+        "description": "Fixed fee (or rebate when negative) charged per contract on each fill."
       }
     ],
     "nan_policy": "ignore",
@@ -1761,7 +1900,7 @@
       "BacktestL1TradesOrders",
       "backtest_report"
     ],
-    "details": "## Description\n\n`BacktestTradesTarget` is a directional backtest on the raw trade tape. It is\nimmediate: the `target_position` you pass on event t executes on the same print,\nunlike `BacktestOHLCTarget` which defers to the next bar's open.\n\nEach print the engine computes the desired trade as\n`clamp(target, min_position, max_position) - current_position` and takes it\nagainst the current print as a marketable (taker) order. The fill pays `taker_fee`\non the traded notional and the position marks to the print price. If the target\nequals the current position, no order is placed and the event is a mark-only step.\n\nInputs are `(target_position, trade_price, trade_size)`. Outputs are the four\nstandard backtest columns: `0 = equity` (cumulative dollar PnL), `1 = pnl` (per\nevent), `2 = position`, and `3 = cost` (per event). A `NaN` `trade_price` or\n`trade_size` skips the event and returns all-NaN (`nan_policy: ignore`).\n[`backtest_report`](backtest_report.md) summarizes the resulting equity curve.\n\nThe optional `min_position` and `max_position` parameters cap the inventory. The\ntarget is clamped before the order size is computed, so the engine never carries a\nposition outside that range.\n\n## Limitations\n\nThe fill model is optimistic: the full order size executes at the print price with\nno market impact or slippage beyond `taker_fee`. Orders are counterfactual (zero\nmarket impact), so the tape is unaffected by the strategy's activity.",
+    "details": "`multiplier` converts a price move into currency per contract. `fee_per_contract`\nis added to the existing proportional taker fee on every fill and may be negative\nfor a rebate; defaults preserve the previous behavior.\n\n## Description\n\n`BacktestTradesTarget` is a directional backtest on the raw trade tape. It is\nimmediate: the `target_position` you pass on event t executes on the same print,\nunlike `BacktestOHLCTarget` which defers to the next bar's open.\n\nEach print the engine computes the desired trade as\n`clamp(target, min_position, max_position) - current_position` and takes it\nagainst the current print as a marketable (taker) order. The fill pays `taker_fee`\non the traded notional and the position marks to the print price. If the target\nequals the current position, no order is placed and the event is a mark-only step.\n\nInputs are `(target_position, trade_price, trade_size)`. Outputs are the four\nstandard backtest columns: `0 = equity` (cumulative dollar PnL), `1 = pnl` (per\nevent), `2 = position`, and `3 = cost` (per event). A `NaN` `trade_price` or\n`trade_size` skips the event and returns all-NaN (`nan_policy: ignore`).\n[`backtest_report`](backtest_report.md) summarizes the resulting equity curve.\n\nThe optional `min_position` and `max_position` parameters cap the inventory. The\ntarget is clamped before the order size is computed, so the engine never carries a\nposition outside that range.\n\n## Limitations\n\nThe fill model is optimistic: the full order size executes at the print price with\nno market impact or slippage beyond `taker_fee`. Orders are counterfactual (zero\nmarket impact), so the tape is unaffected by the strategy's activity.",
     "examples": [
       {
         "language": "python",
@@ -1834,6 +1973,17 @@
         "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom screamer import BayesianRegression\n\nrng = np.random.default_rng(42)\nn = 300\n# Drifting synthetic relationship: true slope starts at 0.5, shifts to 1.5 at t=150\nx = rng.standard_normal(n)\ntrue_slope = np.where(np.arange(n) < 150, 0.5, 1.5)\ny = true_slope * x + rng.standard_normal(n) * 0.4\n\nout = BayesianRegression(span=40)(y, x)\npred_mean = out[:, 2]\npred_std  = out[:, 3]\n\nfig = go.Figure()\nfig.add_trace(go.Scatter(y=y, mode=\"lines\", name=\"y (observed)\",\n                         line=dict(color=\"steelblue\", width=1), opacity=0.6))\nfig.add_trace(go.Scatter(y=pred_mean, mode=\"lines\", name=\"pred_mean\",\n                         line=dict(color=\"darkorange\", width=2)))\nfig.add_trace(go.Scatter(\n    y=pred_mean + pred_std,\n    mode=\"lines\", name=\"pred_mean + pred_std\",\n    line=dict(color=\"darkorange\", width=0),\n    showlegend=False,\n))\nfig.add_trace(go.Scatter(\n    y=pred_mean - pred_std,\n    mode=\"lines\", name=\"pred_mean +/- pred_std\",\n    line=dict(color=\"darkorange\", width=0),\n    fill=\"tonexty\",\n    fillcolor=\"rgba(255,140,0,0.15)\",\n))\nfig.update_layout(\n    title=\"BayesianRegression: causal prediction with confidence band (span=40)\",\n    xaxis_title=\"time\",\n    yaxis_title=\"y\",\n    margin=dict(l=20, r=20, t=60, b=20),\n    legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1),\n)\nfig.show()"
       }
     ]
+  },
+  "choosing_a_backtest_engine": {
+    "name": "choosing_a_backtest_engine",
+    "title": "Choosing a backtest engine",
+    "kind": "guide",
+    "short": "The 5x2 engine grid by data model and order definition, with fill rules and encoding.",
+    "topics": [
+      "backtesting"
+    ],
+    "details": "Screamer's backtest engines are arranged in a `Backtest<DataModel><OrderDef>` grid.\nThe data model (rows) is the market feed you have. The order definition (columns)\nis the strategy's output contract. All eight engines share one accounting core,\nthe `[equity, pnl, position, cost]` output schema, a common MARKET/NaN/inf\nencoding, and the static fill-cap rule.\n\n## The grid\n\n| Data model    | Target                        | Orders                          |\n|:--------------|:------------------------------|:--------------------------------|\n| Price         | `BacktestPriceTarget`         | not provided (*)                |\n| OHLC          | `BacktestOHLCTarget`          | `BacktestOHLCOrders`            |\n| Trades        | `BacktestTradesTarget`        | `BacktestTradesOrders`          |\n| L1            | `BacktestL1Target`            | `BacktestL1Orders`              |\n| L1 + Trades   | not provided (**)             | `BacktestL1TradesOrders`        |\n\n(*) `BacktestPriceOrders` is not provided. A raw value series carries no bid/ask\nbook, so there is no credible fill model for a two-sided quote. Use\n`BacktestOHLCOrders` or `BacktestL1Orders` when a richer feed is available.\n\n(**) `BacktestL1TradesTarget` is not provided. A Target engine is a pure taker: it\nhits the book immediately on each event. For L1 + trades data,\n`BacktestL1Target` already does this with only the quote stream, and adding the\ntrade feed does not improve it (trades are taker events, not maker fills).\nUse `BacktestL1Target` when you have an L1 + trades feed and want a Target engine.\n\n## Order definition interfaces\n\n**Target** engines receive `(target_position, <market cols>)`. On each event the\nengine computes `delta = clamp(target, cap) - position` and submits a marketable\norder for that delta, taking liquidity at the current market price. The target is\nthe desired inventory level, not an order size. The engine handles the sizing and\ndirection internally.\n\n**Orders** engines receive `(bid_price, bid_size, ask_price, ask_size, <market cols>)`.\nThe strategy posts a two-sided resting quote each event. Either or both sides can\nfill on the same event. Setting a side's size to zero or its price to NaN disables\nthat side. A quote submitted already crossing the spread (`bid_price >= market_ask`\nor `ask_price <= market_bid`) is treated as a taker and fills immediately.\n\nInput arities by engine:\n\n| Engine                 | Inputs | Order columns                                     | Market columns               |\n|:-----------------------|:-------|:--------------------------------------------------|:-----------------------------|\n| `BacktestPriceTarget`  | 2      | `target`                                          | `price`                      |\n| `BacktestOHLCTarget`   | 5      | `target`                                          | `open, high, low, close`     |\n| `BacktestOHLCOrders`   | 8      | `bid_price, bid_size, ask_price, ask_size`        | `open, high, low, close`     |\n| `BacktestTradesTarget` | 3      | `target`                                          | `trade_price, trade_size`    |\n| `BacktestTradesOrders` | 6      | `bid_price, bid_size, ask_price, ask_size`        | `trade_price, trade_size`    |\n| `BacktestL1Target`     | 5      | `target`                                          | `market_bid, market_ask, market_bid_size, market_ask_size` |\n| `BacktestL1Orders`     | 8      | `bid_price, bid_size, ask_price, ask_size`        | `market_bid, market_ask, market_bid_size, market_ask_size` |\n| `BacktestL1TradesOrders` | 10   | `bid_price, bid_size, ask_price, ask_size`        | `market_bid, market_ask, market_bid_size, market_ask_size, trade_price, trade_size` |\n\nFor `BacktestL1Orders` and `BacktestL1TradesOrders` the own-quote columns come\nfirst, then the market book columns.\n\n## MARKET/NaN/inf encoding\n\nEvery engine uses the same price encoding to distinguish a resting limit order from\na marketable order.\n\n| Price value                | Meaning                                                     |\n|:---------------------------|:------------------------------------------------------------|\n| Finite number              | Resting limit order at that price (maker fill, `maker_fee`) |\n| `+inf` / `screamer.MARKET` | Market buy (taker); never-fill sell                         |\n| `-inf`                     | Never-fill buy; market sell (taker)                         |\n| `NaN`                      | Side-agnostic market order (taker, regardless of direction) |\n\n`screamer.MARKET` equals `+math.inf` and is provided as a readable constant for\nsubmitting a market buy without writing `float('inf')` directly.\n\nFor `BacktestOHLCTarget`, the target decided on bar t always executes as a market\norder at bar t+1's open (causal deferral; no manual lag is needed). For\n`BacktestOHLCOrders`, a NaN bid or ask price is a market order that fills at the\nbar's open; a finite price rests and waits for the bar's range.\n\n## Fill-cap rule\n\nEvery engine accepts `min_position` and `max_position` constructor parameters\n(default unbounded). All fills are capped by a three-way minimum: the order size,\nthe participation limit (where applicable), and the remaining room to the bound.\nFor a buy, the fill cannot exceed `max_position - current_position`; for a sell it\ncannot exceed `current_position - min_position`. A fill that would breach the bound\nis truncated to exactly the remaining room. Passing\n`min_position=-8.0, max_position=8.0` enforces a hard inventory limit of eight\nunits on each side, independent of order size.",
+    "examples": []
   },
   "Drawdown": {
     "name": "Drawdown",
@@ -1917,6 +2067,74 @@
         "language": "python",
         "caption": "Usage example",
         "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import MaxDrawdown\n\nnp.random.seed(0)\nprice = 100 * np.exp(np.cumsum(np.random.normal(0.0005, 0.02, size=300)))\nmdd = MaxDrawdown()(price)              # worst drawdown seen so far, only gets deeper\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True,\n                    row_heights=[0.55, 0.45], vertical_spacing=0.08)\nfig.add_trace(go.Scatter(y=price, mode=\"lines\", name=\"price\"), row=1, col=1)\nfig.add_trace(go.Scatter(y=mdd, mode=\"lines\", name=\"max drawdown\",\n                         line=dict(color=\"red\"), fill=\"tozeroy\"), row=2, col=1)\nfig.update_layout(title=\"Worst drawdown so far (MaxDrawdown)\",\n                  margin=dict(l=20, r=20, t=60, b=20),\n                  legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1))\nfig.update_yaxes(title_text=\"price\", row=1, col=1)\nfig.update_yaxes(title_text=\"max drawdown\", row=2, col=1)\nfig.show()"
+      }
+    ]
+  },
+  "PortfolioReport": {
+    "name": "PortfolioReport",
+    "title": "Running report columns for a multi-asset backtest",
+    "implementation_family": "fin",
+    "topics": [
+      "backtesting"
+    ],
+    "tags": [
+      "backtest",
+      "portfolio",
+      "pnl",
+      "drawdown",
+      "turnover",
+      "sharpe"
+    ],
+    "short": "Reduce a multi-asset backtest engine output into causal portfolio-level report columns.",
+    "inputs": 1,
+    "outputs": 6,
+    "parameters": [],
+    "nan_policy": "ignore",
+    "see_also": [
+      "BacktestReport",
+      "BacktestPriceTarget",
+      "backtest_report"
+    ],
+    "details": "## Description\n\n`PortfolioReport` consumes the C++ backtest engine output with shape `(time,\nassets, 4)`, where the last axis is `[equity, pnl, position, cost]`. It reduces\nassets in C++ and returns a `(time, 6)` array with the same columns as\n[`BacktestReport`](BacktestReport.md): `[drawdown, cum_cost, turnover, trades,\nmax_drawdown, sharpe]`.\n\nEquity, PnL, and cost are summed across assets. Turnover is the sum of absolute\nper-asset position changes, and trades counts assets whose position changed; this\nkeeps offsetting commodity legs visible instead of hiding them in net position.\nThe asset count is fixed after `reset()`. A row containing any `NaN` is skipped\n(`nan_policy: ignore`) and returns an all-`NaN` report row while holding state.\n\nThe same operator accepts a single `(assets, 4)` row or an iterable of such rows\nfor incremental use. The batch and row paths share the same causal state machine.",
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Reduce engine output",
+        "code": "import numpy as np\nfrom screamer import BacktestPriceTarget, PortfolioReport\n\nprice = np.array([100.0, 101.0, 99.0])\nsignal = np.array([1.0, 1.0, 0.0])\nengine = BacktestPriceTarget()(signal, price)\nengine_output = np.stack([engine, engine], axis=1)  # (time, assets, 4)\nreport = PortfolioReport()(engine_output)             # (time, 6)"
+      }
+    ]
+  },
+  "Return": {
+    "name": "Return",
+    "title": "Simple return",
+    "implementation_family": "fin",
+    "topics": [
+      "returns"
+    ],
+    "tags": [
+      "return",
+      "pct-change",
+      "returns"
+    ],
+    "short": "(x[t] - x[t-k]) / x[t-k] - the simple percentage return at lag k.",
+    "inputs": 1,
+    "outputs": 1,
+    "parameters": [
+      {
+        "name": "window_size",
+        "type": "int",
+        "default": 1,
+        "min": 1,
+        "description": "Lag for the return (1 = consecutive)."
+      }
+    ],
+    "nan_policy": "propagate",
+    "details": "## Description\n\nThe `Return` function computes the simple return between an element and the element `window_size` positions before it.\n\n*Equation*:\n\n$$\ny[i] = \\frac{x[i] - x[i - k]}{x[i - k]}\n$$\n\nwhere `k` is `window_size`.\n\n*Parameters*:\n\n- `window_size` (int): The number of steps backward to use for calculating the return. Must be positive.\n\n*NaN handling*: When `window_size` exceeds the available data points at the start of the sequence, or if `x[i - k]` equals zero (to avoid division by zero), the output is set to `NaN`.\n\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `propagate`.** Input `NaN` values are stored in the lookback. Output is `NaN` at any index where the function's positional formula references a `NaN` input; recovery happens once the `NaN` slides out of the lookback.\n<!-- NAN_FOOTNOTE_END -->",
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage example",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import Return\n\ndata = np.exp(0.1*np.cumsum(np.random.normal(size=50)))\nreturn_data = Return(5)(data)\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[1/2, 1/2], vertical_spacing=0.1)\n\nfig.add_trace(go.Scatter(y=data, mode='lines+markers', name='Original Data'), row=1, col=1)\nfig.add_trace(go.Scatter(y=return_data, mode='lines+markers', name='Return (5-step)', line=dict(color='blue')), row=2, col=1)\n\nfig.update_layout(\n    title=\"Simple Return Computation (5-step Delay)\",\n    xaxis_title=\"Index\",\n    yaxis_title=\"Original Data\",\n    yaxis2_title=\"Simple Return\",\n    margin=dict(l=20, r=20, t=60, b=20),\n    legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1)\n)\n\nfig.show()"
       }
     ]
   },
@@ -2023,40 +2241,6 @@
       }
     ]
   },
-  "Return": {
-    "name": "Return",
-    "title": "Simple return",
-    "implementation_family": "fin",
-    "topics": [
-      "returns"
-    ],
-    "tags": [
-      "return",
-      "pct-change",
-      "returns"
-    ],
-    "short": "(x[t] - x[t-k]) / x[t-k] - the simple percentage return at lag k.",
-    "inputs": 1,
-    "outputs": 1,
-    "parameters": [
-      {
-        "name": "window_size",
-        "type": "int",
-        "default": 1,
-        "min": 1,
-        "description": "Lag for the return (1 = consecutive)."
-      }
-    ],
-    "nan_policy": "propagate",
-    "details": "## Description\n\nThe `Return` function computes the simple return between an element and the element `window_size` positions before it.\n\n*Equation*:\n\n$$\ny[i] = \\frac{x[i] - x[i - k]}{x[i - k]}\n$$\n\nwhere `k` is `window_size`.\n\n*Parameters*:\n\n- `window_size` (int): The number of steps backward to use for calculating the return. Must be positive.\n\n*NaN handling*: When `window_size` exceeds the available data points at the start of the sequence, or if `x[i - k]` equals zero (to avoid division by zero), the output is set to `NaN`.\n\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `propagate`.** Input `NaN` values are stored in the lookback. Output is `NaN` at any index where the function's positional formula references a `NaN` input; recovery happens once the `NaN` slides out of the lookback.\n<!-- NAN_FOOTNOTE_END -->",
-    "examples": [
-      {
-        "language": "python",
-        "caption": "Usage example",
-        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import Return\n\ndata = np.exp(0.1*np.cumsum(np.random.normal(size=50)))\nreturn_data = Return(5)(data)\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[1/2, 1/2], vertical_spacing=0.1)\n\nfig.add_trace(go.Scatter(y=data, mode='lines+markers', name='Original Data'), row=1, col=1)\nfig.add_trace(go.Scatter(y=return_data, mode='lines+markers', name='Return (5-step)', line=dict(color='blue')), row=2, col=1)\n\nfig.update_layout(\n    title=\"Simple Return Computation (5-step Delay)\",\n    xaxis_title=\"Index\",\n    yaxis_title=\"Original Data\",\n    yaxis2_title=\"Simple Return\",\n    margin=dict(l=20, r=20, t=60, b=20),\n    legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1)\n)\n\nfig.show()"
-      }
-    ]
-  },
   "RollingAlpha": {
     "name": "RollingAlpha",
     "title": "Rolling alpha (regression intercept)",
@@ -2146,53 +2330,6 @@
         "language": "python",
         "caption": "Usage example",
         "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import RollingBeta\n\nnp.random.seed(0)\nN = 300\nmarket_returns = np.random.normal(size=N)\n# An asset whose beta to the market drifts from 0.5 to 1.5 over time.\ntrue_beta = np.linspace(0.5, 1.5, N)\nasset_returns = true_beta * market_returns + 0.3 * np.random.normal(size=N)\n\nbeta_60 = RollingBeta(window_size=60)(asset_returns, market_returns)\n\nfig = make_subplots(rows=1, cols=1)\nfig.add_trace(go.Scatter(y=true_beta, mode=\"lines\", name=\"true beta\",\n                         line=dict(color=\"grey\", dash=\"dash\")))\nfig.add_trace(go.Scatter(y=beta_60, mode=\"lines\", name=\"RollingBeta(60)\"))\nfig.update_layout(\n    title=\"Rolling beta of asset returns on market returns\",\n    xaxis_title=\"time\",\n    yaxis_title=\"beta\",\n    margin=dict(l=20, r=20, t=60, b=20),\n    legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1),\n)\nfig.show()"
-      }
-    ]
-  },
-  "RollingCVaR": {
-    "name": "RollingCVaR",
-    "title": "Rolling Conditional Value-at-Risk (Expected Shortfall)",
-    "implementation_family": "fin",
-    "topics": [
-      "risk"
-    ],
-    "tags": [
-      "cvar",
-      "conditional value at risk",
-      "expected shortfall",
-      "tail risk",
-      "var",
-      "risk"
-    ],
-    "short": "Historical Conditional Value-at-Risk (Expected Shortfall): the mean loss in the worst alpha tail over a window.",
-    "inputs": 1,
-    "outputs": 1,
-    "parameters": [
-      {
-        "name": "window_size",
-        "type": "int",
-        "default": 20,
-        "min": 1,
-        "description": "Window length in observations."
-      },
-      {
-        "name": "alpha",
-        "type": "float",
-        "default": 0.05,
-        "description": "Tail probability level in (0, 1); 0.05 means the 5% CVaR (average loss in the worst 5% of the window)."
-      }
-    ],
-    "nan_policy": "ignore",
-    "see_also": [
-      "RollingQuantile",
-      "RollingSortino"
-    ],
-    "details": "## Description\n\n`RollingCVaR` is the historical Conditional Value-at-Risk, or Expected Shortfall,\nof a return series over a trailing window. With the worst\n`k = max(1, floor(alpha * window))` returns in the window,\n\n    CVaR = -mean(the k smallest returns),\n\na positive number: the average loss you suffer in the worst `alpha` tail. Value-at-Risk is\nthe tail quantile itself, `-RollingQuantile(window, alpha)`; CVaR averages the\nlosses beyond it.\nThe window is held in an order-statistic tree (`O(log W)` to update, `O(k)` to read\nthe tail). The output is `NaN` until the window is full; a `NaN` return leaves the\nwindow untouched (`nan_policy: ignore`).",
-    "examples": [
-      {
-        "language": "python",
-        "caption": "Usage plot",
-        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import RollingCVaR, RollingQuantile\n\nrng = np.random.default_rng(2)\nn = 500\nr = rng.standard_normal(n) * 0.01\nalpha = 0.05\ncvar = RollingCVaR(100, alpha=alpha)(r)\nvar = -RollingQuantile(100, alpha)(r)               # VaR is just the negated tail quantile\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.5, 0.5],\n                    vertical_spacing=0.08)\nfig.add_trace(go.Scatter(y=r, name='returns', line=dict(color='lightslategray'), opacity=0.6),\n              row=1, col=1)\nfig.add_trace(go.Scatter(y=var, name='VaR (5%)', line=dict(color='darkorange')), row=2, col=1)\nfig.add_trace(go.Scatter(y=cvar, name='CVaR / expected shortfall (5%)',\n                         line=dict(color='crimson')), row=2, col=1)\nfig.update_layout(title='RollingCVaR: the average loss beyond the VaR tail',\n                  yaxis=dict(title='return'), yaxis2=dict(title='loss'),\n                  margin=dict(l=20, r=20, t=60, b=20), legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1))\nfig.show()"
       }
     ]
   },
@@ -2324,6 +2461,53 @@
         "language": "python",
         "caption": "Usage example",
         "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import RollingCov\n\nnp.random.seed(0)\nN = 300\neps_a = np.random.normal(size=N)\neps_b = np.random.normal(size=N)\nrho = np.where((np.arange(N) > N / 3) & (np.arange(N) < 2 * N / 3), 0.85, 0.15)\na = np.cumsum(eps_a)\nb = np.cumsum(rho * eps_a + np.sqrt(1 - rho ** 2) * eps_b)\n\ncov_30 = RollingCov(window_size=30)(np.diff(a), np.diff(b))\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True,\n                    row_heights=[0.5, 0.5], vertical_spacing=0.05)\nfig.add_trace(go.Scatter(y=a, mode=\"lines\", name=\"a\"), row=1, col=1)\nfig.add_trace(go.Scatter(y=b, mode=\"lines\", name=\"b\"), row=1, col=1)\nfig.add_trace(go.Scatter(y=cov_30, mode=\"lines\", name=\"RollingCov(30)\"), row=2, col=1)\nfig.update_layout(\n    title=\"Rolling covariance of two random walks\",\n    margin=dict(l=20, r=20, t=60, b=20),\n    legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1),\n)\nfig.update_yaxes(title_text=\"price\", row=1, col=1)\nfig.update_yaxes(title_text=\"rolling covariance\", row=2, col=1)\nfig.show()"
+      }
+    ]
+  },
+  "RollingCVaR": {
+    "name": "RollingCVaR",
+    "title": "Rolling Conditional Value-at-Risk (Expected Shortfall)",
+    "implementation_family": "fin",
+    "topics": [
+      "risk"
+    ],
+    "tags": [
+      "cvar",
+      "conditional value at risk",
+      "expected shortfall",
+      "tail risk",
+      "var",
+      "risk"
+    ],
+    "short": "Historical Conditional Value-at-Risk (Expected Shortfall): the mean loss in the worst alpha tail over a window.",
+    "inputs": 1,
+    "outputs": 1,
+    "parameters": [
+      {
+        "name": "window_size",
+        "type": "int",
+        "default": 20,
+        "min": 1,
+        "description": "Window length in observations."
+      },
+      {
+        "name": "alpha",
+        "type": "float",
+        "default": 0.05,
+        "description": "Tail probability level in (0, 1); 0.05 means the 5% CVaR (average loss in the worst 5% of the window)."
+      }
+    ],
+    "nan_policy": "ignore",
+    "see_also": [
+      "RollingQuantile",
+      "RollingSortino"
+    ],
+    "details": "## Description\n\n`RollingCVaR` is the historical Conditional Value-at-Risk, or Expected Shortfall,\nof a return series over a trailing window. With the worst\n`k = max(1, floor(alpha * window))` returns in the window,\n\n    CVaR = -mean(the k smallest returns),\n\na positive number: the average loss you suffer in the worst `alpha` tail. Value-at-Risk is\nthe tail quantile itself, `-RollingQuantile(window, alpha)`; CVaR averages the\nlosses beyond it.\nThe window is held in an order-statistic tree (`O(log W)` to update, `O(k)` to read\nthe tail). The output is `NaN` until the window is full; a `NaN` return leaves the\nwindow untouched (`nan_policy: ignore`).",
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage plot",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import RollingCVaR, RollingQuantile\n\nrng = np.random.default_rng(2)\nn = 500\nr = rng.standard_normal(n) * 0.01\nalpha = 0.05\ncvar = RollingCVaR(100, alpha=alpha)(r)\nvar = -RollingQuantile(100, alpha)(r)               # VaR is just the negated tail quantile\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.5, 0.5],\n                    vertical_spacing=0.08)\nfig.add_trace(go.Scatter(y=r, name='returns', line=dict(color='lightslategray'), opacity=0.6),\n              row=1, col=1)\nfig.add_trace(go.Scatter(y=var, name='VaR (5%)', line=dict(color='darkorange')), row=2, col=1)\nfig.add_trace(go.Scatter(y=cvar, name='CVaR / expected shortfall (5%)',\n                         line=dict(color='crimson')), row=2, col=1)\nfig.update_layout(title='RollingCVaR: the average loss beyond the VaR tail',\n                  yaxis=dict(title='return'), yaxis2=dict(title='loss'),\n                  margin=dict(l=20, r=20, t=60, b=20), legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1))\nfig.show()"
       }
     ]
   },
@@ -2871,28 +3055,6 @@
         "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import RollingTSF\n\nnp.random.seed(0)\nprice = 100 * np.exp(np.cumsum(np.random.normal(0.0005, 0.02, size=300)))\ntsf = RollingTSF(window_size=20)(price)   # one-step-ahead value of the 20-bar trend line\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True,\n                    row_heights=[0.55, 0.45], vertical_spacing=0.08)\nfig.add_trace(go.Scatter(y=price, mode=\"lines\", name=\"price\"), row=1, col=1)\nfig.add_trace(go.Scatter(y=tsf, mode=\"lines\", name=\"TSF\",\n                         line=dict(color=\"red\")), row=2, col=1)\nfig.update_layout(title=\"Time-series forecast over 20 bars (RollingTSF)\",\n                  margin=dict(l=20, r=20, t=60, b=20),\n                  legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1))\nfig.update_yaxes(title_text=\"price\", row=1, col=1)\nfig.update_yaxes(title_text=\"forecast\", row=2, col=1)\nfig.show()"
       }
     ]
-  },
-  "backtest_report": {
-    "name": "backtest_report",
-    "title": "backtest_report",
-    "kind": "function",
-    "short": "Running statistics and a summary for a backtest engine's output.",
-    "topics": [
-      "backtesting"
-    ],
-    "details": "Labels the output of the [`BacktestReport`](BacktestReport.md) node. It takes a\nbacktest engine's `[equity, pnl, position, cost]` output (the four positional\ncolumns that [`BacktestPriceTarget`](BacktestPriceTarget.md) and the other backtest engines\nemit) and returns `(running, summary)`.\n\n- `running` is a dict of numpy arrays: the four engine columns plus the\n  `BacktestReport` node's `drawdown` (dollar), `cum_cost`, `turnover` (units\n  traded), `trades` (count), `max_drawdown` (running worst), `sharpe` (running),\n  and `equity_held` (equity carried across skipped bars). Each is a causal series\n  whose last value is the summary.\n- `summary` is a dict of the final statistics: `total_pnl`, `max_drawdown`,\n  `total_cost`, `turnover`, `num_trades`, and `sharpe`.\n\nThe aggregation runs in the C++ `BacktestReport` node, so a pure-C++ user gets the\nsame statistics by calling that node directly. This wrapper only labels its\ncolumns and reads the last row, and needs no pandas. Wrap `running` in a\n`pandas.DataFrame` yourself if you want a frame.",
-    "examples": []
-  },
-  "choosing_a_backtest_engine": {
-    "name": "choosing_a_backtest_engine",
-    "title": "Choosing a backtest engine",
-    "kind": "guide",
-    "short": "The 5x2 engine grid by data model and order definition, with fill rules and encoding.",
-    "topics": [
-      "backtesting"
-    ],
-    "details": "Screamer's backtest engines are arranged in a `Backtest<DataModel><OrderDef>` grid.\nThe data model (rows) is the market feed you have. The order definition (columns)\nis the strategy's output contract. All eight engines share one accounting core,\nthe `[equity, pnl, position, cost]` output schema, a common MARKET/NaN/inf\nencoding, and the static fill-cap rule.\n\n## The grid\n\n| Data model    | Target                        | Orders                          |\n|:--------------|:------------------------------|:--------------------------------|\n| Price         | `BacktestPriceTarget`         | not provided (*)                |\n| OHLC          | `BacktestOHLCTarget`          | `BacktestOHLCOrders`            |\n| Trades        | `BacktestTradesTarget`        | `BacktestTradesOrders`          |\n| L1            | `BacktestL1Target`            | `BacktestL1Orders`              |\n| L1 + Trades   | not provided (**)             | `BacktestL1TradesOrders`        |\n\n(*) `BacktestPriceOrders` is not provided. A raw value series carries no bid/ask\nbook, so there is no credible fill model for a two-sided quote. Use\n`BacktestOHLCOrders` or `BacktestL1Orders` when a richer feed is available.\n\n(**) `BacktestL1TradesTarget` is not provided. A Target engine is a pure taker: it\nhits the book immediately on each event. For L1 + trades data,\n`BacktestL1Target` already does this with only the quote stream, and adding the\ntrade feed does not improve it (trades are taker events, not maker fills).\nUse `BacktestL1Target` when you have an L1 + trades feed and want a Target engine.\n\n## Order definition interfaces\n\n**Target** engines receive `(target_position, <market cols>)`. On each event the\nengine computes `delta = clamp(target, cap) - position` and submits a marketable\norder for that delta, taking liquidity at the current market price. The target is\nthe desired inventory level, not an order size. The engine handles the sizing and\ndirection internally.\n\n**Orders** engines receive `(bid_price, bid_size, ask_price, ask_size, <market cols>)`.\nThe strategy posts a two-sided resting quote each event. Either or both sides can\nfill on the same event. Setting a side's size to zero or its price to NaN disables\nthat side. A quote submitted already crossing the spread (`bid_price >= market_ask`\nor `ask_price <= market_bid`) is treated as a taker and fills immediately.\n\nInput arities by engine:\n\n| Engine                 | Inputs | Order columns                                     | Market columns               |\n|:-----------------------|:-------|:--------------------------------------------------|:-----------------------------|\n| `BacktestPriceTarget`  | 2      | `target`                                          | `price`                      |\n| `BacktestOHLCTarget`   | 5      | `target`                                          | `open, high, low, close`     |\n| `BacktestOHLCOrders`   | 8      | `bid_price, bid_size, ask_price, ask_size`        | `open, high, low, close`     |\n| `BacktestTradesTarget` | 3      | `target`                                          | `trade_price, trade_size`    |\n| `BacktestTradesOrders` | 6      | `bid_price, bid_size, ask_price, ask_size`        | `trade_price, trade_size`    |\n| `BacktestL1Target`     | 5      | `target`                                          | `market_bid, market_ask, market_bid_size, market_ask_size` |\n| `BacktestL1Orders`     | 8      | `bid_price, bid_size, ask_price, ask_size`        | `market_bid, market_ask, market_bid_size, market_ask_size` |\n| `BacktestL1TradesOrders` | 10   | `bid_price, bid_size, ask_price, ask_size`        | `market_bid, market_ask, market_bid_size, market_ask_size, trade_price, trade_size` |\n\nFor `BacktestL1Orders` and `BacktestL1TradesOrders` the own-quote columns come\nfirst, then the market book columns.\n\n## MARKET/NaN/inf encoding\n\nEvery engine uses the same price encoding to distinguish a resting limit order from\na marketable order.\n\n| Price value                | Meaning                                                     |\n|:---------------------------|:------------------------------------------------------------|\n| Finite number              | Resting limit order at that price (maker fill, `maker_fee`) |\n| `+inf` / `screamer.MARKET` | Market buy (taker); never-fill sell                         |\n| `-inf`                     | Never-fill buy; market sell (taker)                         |\n| `NaN`                      | Side-agnostic market order (taker, regardless of direction) |\n\n`screamer.MARKET` equals `+math.inf` and is provided as a readable constant for\nsubmitting a market buy without writing `float('inf')` directly.\n\nFor `BacktestOHLCTarget`, the target decided on bar t always executes as a market\norder at bar t+1's open (causal deferral; no manual lag is needed). For\n`BacktestOHLCOrders`, a NaN bid or ask price is a market order that fills at the\nbar's open; a finite price rests and waits for the bar's range.\n\n## Fill-cap rule\n\nEvery engine accepts `min_position` and `max_position` constructor parameters\n(default unbounded). All fills are capped by a three-way minimum: the order size,\nthe participation limit (where applicable), and the remaining room to the bound.\nFor a buy, the fill cannot exceed `max_position - current_position`; for a sell it\ncannot exceed `current_position - min_position`. A fill that would breach the bound\nis truncated to exactly the remaining room. Passing\n`min_position=-8.0, max_position=8.0` enforces a hard inventory limit of eight\nunits on each side, independent of order size.",
-    "examples": []
   },
   "Abs": {
     "name": "Abs",
@@ -4657,57 +4819,6 @@
       }
     ]
   },
-  "RollSpread": {
-    "name": "RollSpread",
-    "title": "Roll Effective Spread",
-    "implementation_family": "micro",
-    "topics": [
-      "price-impact"
-    ],
-    "tags": [
-      "spread",
-      "roll",
-      "effective spread",
-      "liquidity",
-      "microstructure"
-    ],
-    "short": "Roll (1984) effective spread from trade prices alone: 2*sqrt(-cov(dP_t, dP_{t-1})) over a trailing window.",
-    "inputs": 1,
-    "outputs": 1,
-    "parameters": [
-      {
-        "name": "window_size",
-        "type": "int",
-        "default": 20,
-        "min": 2,
-        "description": "Window length in observations."
-      },
-      {
-        "name": "start_policy",
-        "type": "str",
-        "default": "strict",
-        "enum": [
-          "strict",
-          "expanding",
-          "zero"
-        ],
-        "description": "Warmup behaviour."
-      }
-    ],
-    "nan_policy": "ignore",
-    "see_also": [
-      "RollingCov",
-      "RollingSpread"
-    ],
-    "details": "## Description\n\nRoll (1984) showed that in a market with a fixed bid-ask spread, the serial\ncovariance of consecutive price changes is negative and equal to minus the\nsquare of the half-spread. The effective spread can therefore be estimated\nfrom trade prices alone, without a quote feed:\n\n`2 * sqrt(-cov(dP_t, dP_{t-1}))`\n\nwhere `dP_t = P_t - P_{t-1}` is the price change and the covariance is\ncomputed over a trailing window.\n\n`RollSpread(window_size, start_policy)(price)` computes this estimate at\neach time step. When the serial covariance is non-negative (no bid-ask\nbounce detected, or a trending period), the estimate is undefined and\nthe output is `NaN`.\n\nInternally the operator:\n\n- forms consecutive price changes `dP_t = price_t - price_{t-1}`;\n- pairs each `dP_t` with its one-step lag `dP_{t-1}`;\n- maintains a rolling sample covariance of that pair over the window (three\n  running sums, O(1) per step).\n\nThe operator is causal and honors `nan_policy: ignore`.\n\n*Parameters*:\n\n- **`window_size`** (`int`, >= 2): number of observations in the trailing\n  covariance window.\n- **`start_policy`** (`str`, default `\"strict\"`): controls warmup behavior.\n  `\"strict\"` emits `NaN` until the window is full. `\"expanding\"` uses however\n  many observations are available. `\"zero\"` fills the warmup period with zero.\n\n*Return value*: the Roll effective spread estimate at each time step. `NaN`\nduring warmup (under `strict`) or whenever the trailing serial covariance\nis non-negative.\n\n**Reference**: Roll, R. (1984). \"A Simple Implicit Measure of the Effective\nBid-Ask Spread in an Efficient Market.\" *Journal of Finance*, 39(4), 1127-1139.",
-    "examples": [
-      {
-        "language": "python",
-        "caption": "Basic usage",
-        "code": "import numpy as np\nfrom screamer import RollSpread\n\n# Synthetic bid-ask bounce: price alternates between bid and ask\nprice = 100.0 + 0.05 * np.array([0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1], dtype=float)\nspread = RollSpread(window_size=8)(price)\nprint(spread[-1])   # approximately 0.1 (the full spread)"
-      }
-    ]
-  },
   "RollingKyleLambda": {
     "name": "RollingKyleLambda",
     "title": "Kyle's Lambda (rolling)",
@@ -4799,6 +4910,57 @@
     ],
     "details": "## Description\n\n`RollingOrderImbalance` accumulates signed order flow over a trailing window.\nA positive value means buyers dominated the window; a negative value means\nsellers did. It is the Chordia-Roll-Subrahmanyam (2002) order imbalance\nmeasure: the raw net signed flow over a look-back period.\n\n`RollingOrderImbalance(window_size, start_policy)(signed_flow)` returns the\nrolling sum of `signed_flow` over the most recent `window_size` observations.\nIt is a documented specialization of `RollingSum`: internally it calls\n`RollingSum(window_size, start_policy)(signed_flow)`.\n\nA common pipeline is:\n\n1. Classify each trade with `TickRuleSign` or `LeeReadySign`.\n2. Multiply by trade volume with `SignedVolume` to get signed flow per trade.\n3. Aggregate over a bar and feed to `RollingOrderImbalance` for a rolling\n   order-book pressure signal.\n\n*Parameters*:\n\n- **`window_size`** (`int`, >= 1): size of the trailing window.\n- **`start_policy`** (`str`, default `\"strict\"`): controls warmup behavior.\n  `\"strict\"` emits `NaN` until `window_size` observations have been seen.\n  `\"expanding\"` uses however many observations are available. `\"zero\"` fills\n  the warmup period with zero.\n\n*Return value*: the rolling sum of signed flow at each time step. `NaN`\nduring warmup under `\"strict\"`.\n\n**Reference**: Chordia, T., Roll, R., and Subrahmanyam, A. (2002). \"Order\nImbalance, Liquidity, and Market Returns.\" *Journal of Financial Economics*,\n65(1), 111-130.",
     "examples": []
+  },
+  "RollSpread": {
+    "name": "RollSpread",
+    "title": "Roll Effective Spread",
+    "implementation_family": "micro",
+    "topics": [
+      "price-impact"
+    ],
+    "tags": [
+      "spread",
+      "roll",
+      "effective spread",
+      "liquidity",
+      "microstructure"
+    ],
+    "short": "Roll (1984) effective spread from trade prices alone: 2*sqrt(-cov(dP_t, dP_{t-1})) over a trailing window.",
+    "inputs": 1,
+    "outputs": 1,
+    "parameters": [
+      {
+        "name": "window_size",
+        "type": "int",
+        "default": 20,
+        "min": 2,
+        "description": "Window length in observations."
+      },
+      {
+        "name": "start_policy",
+        "type": "str",
+        "default": "strict",
+        "enum": [
+          "strict",
+          "expanding",
+          "zero"
+        ],
+        "description": "Warmup behaviour."
+      }
+    ],
+    "nan_policy": "ignore",
+    "see_also": [
+      "RollingCov",
+      "RollingSpread"
+    ],
+    "details": "## Description\n\nRoll (1984) showed that in a market with a fixed bid-ask spread, the serial\ncovariance of consecutive price changes is negative and equal to minus the\nsquare of the half-spread. The effective spread can therefore be estimated\nfrom trade prices alone, without a quote feed:\n\n`2 * sqrt(-cov(dP_t, dP_{t-1}))`\n\nwhere `dP_t = P_t - P_{t-1}` is the price change and the covariance is\ncomputed over a trailing window.\n\n`RollSpread(window_size, start_policy)(price)` computes this estimate at\neach time step. When the serial covariance is non-negative (no bid-ask\nbounce detected, or a trending period), the estimate is undefined and\nthe output is `NaN`.\n\nInternally the operator:\n\n- forms consecutive price changes `dP_t = price_t - price_{t-1}`;\n- pairs each `dP_t` with its one-step lag `dP_{t-1}`;\n- maintains a rolling sample covariance of that pair over the window (three\n  running sums, O(1) per step).\n\nThe operator is causal and honors `nan_policy: ignore`.\n\n*Parameters*:\n\n- **`window_size`** (`int`, >= 2): number of observations in the trailing\n  covariance window.\n- **`start_policy`** (`str`, default `\"strict\"`): controls warmup behavior.\n  `\"strict\"` emits `NaN` until the window is full. `\"expanding\"` uses however\n  many observations are available. `\"zero\"` fills the warmup period with zero.\n\n*Return value*: the Roll effective spread estimate at each time step. `NaN`\nduring warmup (under `strict`) or whenever the trailing serial covariance\nis non-negative.\n\n**Reference**: Roll, R. (1984). \"A Simple Implicit Measure of the Effective\nBid-Ask Spread in an Efficient Market.\" *Journal of Finance*, 39(4), 1127-1139.",
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Basic usage",
+        "code": "import numpy as np\nfrom screamer import RollSpread\n\n# Synthetic bid-ask bounce: price alternates between bid and ask\nprice = 100.0 + 0.05 * np.array([0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1], dtype=float)\nspread = RollSpread(window_size=8)(price)\nprint(spread[-1])   # approximately 0.1 (the full spread)"
+      }
+    ]
   },
   "SignedVolume": {
     "name": "SignedVolume",
@@ -5575,33 +5737,6 @@
       }
     ]
   },
-  "BOP": {
-    "name": "BOP",
-    "title": "Balance of Power (BOP)",
-    "implementation_family": "rolling",
-    "topics": [
-      "momentum"
-    ],
-    "tags": [
-      "bop",
-      "oscillator",
-      "talib",
-      "ohlc"
-    ],
-    "short": "(close - open) / (high - low) per bar. No smoothing.",
-    "inputs": 4,
-    "outputs": 1,
-    "parameters": [],
-    "nan_policy": "ignore",
-    "details": "## Description\n\n`BOP` (Balance of Power, Igor Livshin) measures whether a bar closes near its high (buyers in control) or its low (sellers in control):\n\n$$\n\\text{BOP}[t] = \\frac{\\text{close} - \\text{open}}{\\text{high} - \\text{low}}\n$$\n\nOutput range is `[-1, +1]` for any sensibly-formed bar (where `low ≤ open, close ≤ high`).\n\n**4-input, 1-output** (`FunctorBase<_, 4, 1>`). Argument order matches TA-Lib's `BOP`: `(open, high, low, close)`.\n\n*Warmup*: none -- stateless, value defined for every input.\n\n*Range-zero*: returns `0` when `high == low` (flat bar; convention matches TA-Lib).\n\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
-    "examples": [
-      {
-        "language": "python",
-        "caption": "Usage example",
-        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import BOP\n\nnp.random.seed(0)\nclose = 100*np.exp(np.cumsum(np.random.normal(0, 0.01, size=300)))\nopen_ = np.concatenate([[close[0]], close[:-1]])\nwick = np.abs(np.random.normal(0, 0.4, size=300))\nhigh = np.maximum(open_, close) + wick\nlow  = np.minimum(open_, close) - wick\nout = BOP()(open_, high, low, close)\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True,\n                    row_heights=[0.55, 0.45], vertical_spacing=0.08)\nfig.add_trace(go.Scatter(y=close, name=\"close\", line=dict(color=\"royalblue\")), row=1, col=1)\nfig.add_trace(go.Scatter(y=out, name=\"BOP\", line=dict(color=\"red\")), row=2, col=1)\nfig.update_layout(title=\"Balance of power (BOP)\",\n                  margin=dict(l=20, r=20, t=60, b=20),\n                  legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1))\nfig.update_yaxes(title_text=\"close\", row=1, col=1)\nfig.update_yaxes(title_text=\"BOP (-1 to 1)\", row=2, col=1)\nfig.show()"
-      }
-    ]
-  },
   "BollingerBands": {
     "name": "BollingerBands",
     "title": "Bollinger Bands",
@@ -5652,6 +5787,33 @@
         "language": "python",
         "caption": "Usage example",
         "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom screamer import BollingerBands\n\nnp.random.seed(0)\nN = 250\nprices = 100.0 + np.cumsum(np.random.normal(scale=0.6, size=N))\n\nbands = BollingerBands(window_size=20, num_std=2.0)(prices)\nlower, mid, upper = bands[:, 0], bands[:, 1], bands[:, 2]\n\nfig = go.Figure()\nfig.add_trace(go.Scatter(y=upper, mode=\"lines\", name=\"upper\",\n                         line=dict(color=\"green\", dash=\"dot\")))\nfig.add_trace(go.Scatter(y=mid, mode=\"lines\", name=\"mid (mean)\",\n                         line=dict(color=\"black\")))\nfig.add_trace(go.Scatter(y=lower, mode=\"lines\", name=\"lower\",\n                         line=dict(color=\"red\", dash=\"dot\")))\nfig.add_trace(go.Scatter(y=prices, mode=\"lines\", name=\"price\",\n                         line=dict(color=\"steelblue\")))\nfig.update_layout(\n    title=\"BollingerBands(window=20, num_std=2)\",\n    xaxis_title=\"time\",\n    yaxis_title=\"price\",\n    margin=dict(l=20, r=20, t=60, b=20),\n    legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1),\n)\nfig.show()"
+      }
+    ]
+  },
+  "BOP": {
+    "name": "BOP",
+    "title": "Balance of Power (BOP)",
+    "implementation_family": "rolling",
+    "topics": [
+      "momentum"
+    ],
+    "tags": [
+      "bop",
+      "oscillator",
+      "talib",
+      "ohlc"
+    ],
+    "short": "(close - open) / (high - low) per bar. No smoothing.",
+    "inputs": 4,
+    "outputs": 1,
+    "parameters": [],
+    "nan_policy": "ignore",
+    "details": "## Description\n\n`BOP` (Balance of Power, Igor Livshin) measures whether a bar closes near its high (buyers in control) or its low (sellers in control):\n\n$$\n\\text{BOP}[t] = \\frac{\\text{close} - \\text{open}}{\\text{high} - \\text{low}}\n$$\n\nOutput range is `[-1, +1]` for any sensibly-formed bar (where `low ≤ open, close ≤ high`).\n\n**4-input, 1-output** (`FunctorBase<_, 4, 1>`). Argument order matches TA-Lib's `BOP`: `(open, high, low, close)`.\n\n*Warmup*: none -- stateless, value defined for every input.\n\n*Range-zero*: returns `0` when `high == low` (flat bar; convention matches TA-Lib).\n\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage example",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import BOP\n\nnp.random.seed(0)\nclose = 100*np.exp(np.cumsum(np.random.normal(0, 0.01, size=300)))\nopen_ = np.concatenate([[close[0]], close[:-1]])\nwick = np.abs(np.random.normal(0, 0.4, size=300))\nhigh = np.maximum(open_, close) + wick\nlow  = np.minimum(open_, close) - wick\nout = BOP()(open_, high, low, close)\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True,\n                    row_heights=[0.55, 0.45], vertical_spacing=0.08)\nfig.add_trace(go.Scatter(y=close, name=\"close\", line=dict(color=\"royalblue\")), row=1, col=1)\nfig.add_trace(go.Scatter(y=out, name=\"BOP\", line=dict(color=\"red\")), row=2, col=1)\nfig.update_layout(title=\"Balance of power (BOP)\",\n                  margin=dict(l=20, r=20, t=60, b=20),\n                  legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1))\nfig.update_yaxes(title_text=\"close\", row=1, col=1)\nfig.update_yaxes(title_text=\"BOP (-1 to 1)\", row=2, col=1)\nfig.show()"
       }
     ]
   },
@@ -5744,42 +5906,6 @@
       }
     ]
   },
-  "DX": {
-    "name": "DX",
-    "title": "Directional index (DX)",
-    "implementation_family": "rolling",
-    "topics": [
-      "trend"
-    ],
-    "tags": [
-      "wilder",
-      "dmi",
-      "directional-movement",
-      "talib",
-      "hlc"
-    ],
-    "short": "Wilder directional index, the pre-average input to ADX.",
-    "inputs": 3,
-    "outputs": 1,
-    "parameters": [
-      {
-        "name": "window_size",
-        "type": "int",
-        "default": 14,
-        "min": 2,
-        "description": "Wilder smoothing period."
-      }
-    ],
-    "nan_policy": "ignore",
-    "details": "## Description\n\n`DX` is Wilder's directional index (Wilder, 1978), 100 times the absolute\ndifference of `+DI` and `-DI` divided by their sum:\n\n$$\n\\text{DX} = 100 \\cdot \\frac{|+\\text{DI} - -\\text{DI}|}{+\\text{DI} + -\\text{DI}}\n$$\n\n**3-input, 1-output** (`FunctorBase<_, 3, 1>`) on `(high, low, close)`. `DX`\nshares its smoothing engine with `ADX`, `PlusDI`, and `MinusDI`; `ADX` is the\nWilder moving average of `DX` itself. Use `DX` on its own when the raw,\nunsmoothed directional index is needed, for example to build a different\naverage over it than `ADX` applies.\n\n### Parameters\n\n**`window_size`** *(int, default 14)*: The Wilder smoothing period. The first\nvalid output is at sample index `window_size`.\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
-    "examples": [
-      {
-        "language": "python",
-        "caption": "Usage example",
-        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import DX, ADX\n\nrng = np.random.default_rng(0)\nN = 300\nclose = 100 + np.cumsum(rng.standard_normal(N))\nhigh = close + np.abs(rng.standard_normal(N))\nlow = close - np.abs(rng.standard_normal(N))\n\ndx = DX(window_size=14)(high, low, close)\nadx = ADX(window_size=14)(high, low, close)[:, 2]\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.5, 0.5],\n                    vertical_spacing=0.08)\nfig.add_trace(go.Scatter(y=close, name='Close', line=dict(color='steelblue')),\n              row=1, col=1)\nfig.add_trace(go.Scatter(y=dx, name='DX', line=dict(color='crimson')), row=2, col=1)\nfig.add_trace(go.Scatter(y=adx, name='ADX', line=dict(color='crimson', dash='dot')), row=2, col=1)\nfig.update_layout(\n    title='DX: directional index and its Wilder average',\n    yaxis=dict(title='Price'), yaxis2=dict(title='DX / ADX (0-100)'),\n    margin=dict(l=20, r=20, t=60, b=20),\n    legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1),\n)\nfig.show()"
-      }
-    ]
-  },
   "DonchianChannels": {
     "name": "DonchianChannels",
     "title": "Donchian Channels",
@@ -5813,6 +5939,42 @@
         "language": "python",
         "caption": "Usage example",
         "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import DonchianChannels\n\nnp.random.seed(0)\nclose = 100*np.exp(np.cumsum(np.random.normal(0, 0.01, size=300)))\nopen_ = np.concatenate([[close[0]], close[:-1]])\nwick = np.abs(np.random.normal(0, 0.4, size=300))\nhigh = np.maximum(open_, close) + wick\nlow  = np.minimum(open_, close) - wick\nout = np.asarray(DonchianChannels(20)(high, low))\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True,\n                    row_heights=[0.55, 0.45], vertical_spacing=0.08)\nfig.add_trace(go.Scatter(y=high, name=\"high\", line=dict(color=\"#888\")), row=1, col=1)\nfig.add_trace(go.Scatter(y=low, name=\"low\", line=dict(color=\"#bbb\")), row=1, col=1)\nfig.add_trace(go.Scatter(y=out[:, 2], name=\"upper\", line=dict(color=\"red\")), row=2, col=1)\nfig.add_trace(go.Scatter(y=out[:, 1], name=\"mid\", line=dict(color=\"gray\")), row=2, col=1)\nfig.add_trace(go.Scatter(y=out[:, 0], name=\"lower\", line=dict(color=\"green\")), row=2, col=1)\nfig.update_layout(title=\"Donchian channels (DonchianChannels)\",\n                  margin=dict(l=20, r=20, t=60, b=20),\n                  legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1))\nfig.update_yaxes(title_text=\"high / low\", row=1, col=1)\nfig.update_yaxes(title_text=\"channel bands\", row=2, col=1)\nfig.show()"
+      }
+    ]
+  },
+  "DX": {
+    "name": "DX",
+    "title": "Directional index (DX)",
+    "implementation_family": "rolling",
+    "topics": [
+      "trend"
+    ],
+    "tags": [
+      "wilder",
+      "dmi",
+      "directional-movement",
+      "talib",
+      "hlc"
+    ],
+    "short": "Wilder directional index, the pre-average input to ADX.",
+    "inputs": 3,
+    "outputs": 1,
+    "parameters": [
+      {
+        "name": "window_size",
+        "type": "int",
+        "default": 14,
+        "min": 2,
+        "description": "Wilder smoothing period."
+      }
+    ],
+    "nan_policy": "ignore",
+    "details": "## Description\n\n`DX` is Wilder's directional index (Wilder, 1978), 100 times the absolute\ndifference of `+DI` and `-DI` divided by their sum:\n\n$$\n\\text{DX} = 100 \\cdot \\frac{|+\\text{DI} - -\\text{DI}|}{+\\text{DI} + -\\text{DI}}\n$$\n\n**3-input, 1-output** (`FunctorBase<_, 3, 1>`) on `(high, low, close)`. `DX`\nshares its smoothing engine with `ADX`, `PlusDI`, and `MinusDI`; `ADX` is the\nWilder moving average of `DX` itself. Use `DX` on its own when the raw,\nunsmoothed directional index is needed, for example to build a different\naverage over it than `ADX` applies.\n\n### Parameters\n\n**`window_size`** *(int, default 14)*: The Wilder smoothing period. The first\nvalid output is at sample index `window_size`.\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage example",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import DX, ADX\n\nrng = np.random.default_rng(0)\nN = 300\nclose = 100 + np.cumsum(rng.standard_normal(N))\nhigh = close + np.abs(rng.standard_normal(N))\nlow = close - np.abs(rng.standard_normal(N))\n\ndx = DX(window_size=14)(high, low, close)\nadx = ADX(window_size=14)(high, low, close)[:, 2]\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.5, 0.5],\n                    vertical_spacing=0.08)\nfig.add_trace(go.Scatter(y=close, name='Close', line=dict(color='steelblue')),\n              row=1, col=1)\nfig.add_trace(go.Scatter(y=dx, name='DX', line=dict(color='crimson')), row=2, col=1)\nfig.add_trace(go.Scatter(y=adx, name='ADX', line=dict(color='crimson', dash='dot')), row=2, col=1)\nfig.update_layout(\n    title='DX: directional index and its Wilder average',\n    yaxis=dict(title='Price'), yaxis2=dict(title='DX / ADX (0-100)'),\n    margin=dict(l=20, r=20, t=60, b=20),\n    legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1),\n)\nfig.show()"
       }
     ]
   },
@@ -7198,63 +7360,6 @@
       }
     ]
   },
-  "RollingRSI": {
-    "name": "RollingRSI",
-    "title": "Rolling RSI",
-    "implementation_family": "rolling",
-    "topics": [
-      "momentum"
-    ],
-    "tags": [
-      "rsi",
-      "wilder",
-      "cutler",
-      "momentum",
-      "oscillator"
-    ],
-    "short": "Relative Strength Index. Wilder's smoothing by default; Cutler's via method='cutler'.",
-    "inputs": 1,
-    "outputs": 1,
-    "parameters": [
-      {
-        "name": "window_size",
-        "type": "int",
-        "default": 14,
-        "min": 2,
-        "description": "Period. Wilder's original choice is 14."
-      },
-      {
-        "name": "method",
-        "type": "str",
-        "default": "wilder",
-        "enum": [
-          "wilder",
-          "cutler"
-        ],
-        "description": "Smoothing convention. 'wilder' matches TA-Lib and pandas-ta; 'cutler' uses a plain SMA."
-      },
-      {
-        "name": "start_policy",
-        "type": "str",
-        "default": "strict",
-        "enum": [
-          "strict",
-          "expanding",
-          "zero"
-        ],
-        "description": "Warmup behaviour."
-      }
-    ],
-    "nan_policy": "ignore",
-    "details": "## Description\n\nWilder's Relative Strength Index. Up- and down-moves are separately smoothed; the index\nis `100 - 100 / (1 + RS)` where `RS` is the smoothed ratio of average up to average down\nmoves:\n\n$$\n\\begin{aligned}\n\\Delta[t] &= x[t] - x[t-1] \\\\\nU[t] &= \\max(\\Delta, 0),\\quad D[t] = \\max(-\\Delta, 0) \\\\\n\\overline{U}[t] &= \\text{smooth}(U,\\ \\text{window\\_size}),\\quad \\overline{D}[t] = \\text{smooth}(D,\\ \\text{window\\_size}) \\\\\n\\text{RS}[t] &= \\overline{U}[t] / \\overline{D}[t] \\\\\n\\text{RSI}[t] &= 100 - 100 / (1 + \\text{RS})\n\\end{aligned}\n$$\n\nThe smoothing depends on `method`:\n\n- `'wilder'` (default) -- Wilder's smoothing\n  $\\overline{X}[t] = \\overline{X}[t-1] + (X[t] - \\overline{X}[t-1]) / w$, with the\n  SMA-of-the-first-`w` seed. Matches `talib.RSI` and `pandas-ta-classic.rsi` bit-exactly\n  post-warmup.\n- `'cutler'` -- plain rolling-mean smoothing. Cutler's variant. Useful if you specifically\n  want the SMA-form (some legacy systems use it). Does **not** match TA-Lib.\n\n## Notes\n\n- First valid output at sample index `window_size`.\n- Output is bounded in `[0, 100]`.\n- The default was changed from 'cutler' to 'wilder' in a recent release to align with\n  TA-Lib and pandas-ta-classic. Pass `method='cutler'` to recover the old behaviour.\n\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
-    "examples": [
-      {
-        "language": "python",
-        "caption": "Usage example",
-        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import RollingRSI\n\nnp.random.seed(0)\nprice = 100*np.exp(np.cumsum(np.random.normal(0.0005, 0.02, size=300)))\nrsi = RollingRSI(window_size=14)(price)\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True,\n                    row_heights=[0.55, 0.45], vertical_spacing=0.08)\nfig.add_trace(go.Scatter(y=price, name=\"price\"), row=1, col=1)\nfig.add_trace(go.Scatter(y=rsi, name=\"RollingRSI\", line=dict(color=\"red\")), row=2, col=1)\nfig.update_layout(title=\"Price with RSI (RollingRSI)\",\n                  margin=dict(l=20, r=20, t=60, b=20),\n                  legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1))\nfig.update_yaxes(title_text=\"price\", row=1, col=1)\nfig.update_yaxes(title_text=\"RSI (0-100)\", row=2, col=1)\nfig.show()"
-      }
-    ]
-  },
   "RollingRange": {
     "name": "RollingRange",
     "title": "Rolling range",
@@ -7407,6 +7512,63 @@
         "language": "python",
         "caption": "Usage example",
         "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import RollingRogersSatchellVol\n\nnp.random.seed(0)\nclose = 100*np.exp(np.cumsum(np.random.normal(0, 0.01, size=300)))\nopen_ = np.concatenate([[close[0]], close[:-1]])\nwick = np.abs(np.random.normal(0, 0.4, size=300))\nhigh = np.maximum(open_, close) + wick\nlow  = np.minimum(open_, close) - wick\nout = RollingRogersSatchellVol(window_size=20)(open_, high, low, close)\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True,\n                    row_heights=[0.55, 0.45], vertical_spacing=0.08)\nfig.add_trace(go.Scatter(y=close, name=\"close\"), row=1, col=1)\nfig.add_trace(go.Scatter(y=out, name=\"RollingRogersSatchellVol\", line=dict(color=\"red\")), row=2, col=1)\nfig.update_layout(title=\"Rolling Rogers-Satchell volatility (RollingRogersSatchellVol)\",\n                  margin=dict(l=20, r=20, t=60, b=20),\n                  legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1))\nfig.update_yaxes(title_text=\"price\", row=1, col=1)\nfig.update_yaxes(title_text=\"volatility\", row=2, col=1)\nfig.show()"
+      }
+    ]
+  },
+  "RollingRSI": {
+    "name": "RollingRSI",
+    "title": "Rolling RSI",
+    "implementation_family": "rolling",
+    "topics": [
+      "momentum"
+    ],
+    "tags": [
+      "rsi",
+      "wilder",
+      "cutler",
+      "momentum",
+      "oscillator"
+    ],
+    "short": "Relative Strength Index. Wilder's smoothing by default; Cutler's via method='cutler'.",
+    "inputs": 1,
+    "outputs": 1,
+    "parameters": [
+      {
+        "name": "window_size",
+        "type": "int",
+        "default": 14,
+        "min": 2,
+        "description": "Period. Wilder's original choice is 14."
+      },
+      {
+        "name": "method",
+        "type": "str",
+        "default": "wilder",
+        "enum": [
+          "wilder",
+          "cutler"
+        ],
+        "description": "Smoothing convention. 'wilder' matches TA-Lib and pandas-ta; 'cutler' uses a plain SMA."
+      },
+      {
+        "name": "start_policy",
+        "type": "str",
+        "default": "strict",
+        "enum": [
+          "strict",
+          "expanding",
+          "zero"
+        ],
+        "description": "Warmup behaviour."
+      }
+    ],
+    "nan_policy": "ignore",
+    "details": "## Description\n\nWilder's Relative Strength Index. Up- and down-moves are separately smoothed; the index\nis `100 - 100 / (1 + RS)` where `RS` is the smoothed ratio of average up to average down\nmoves:\n\n$$\n\\begin{aligned}\n\\Delta[t] &= x[t] - x[t-1] \\\\\nU[t] &= \\max(\\Delta, 0),\\quad D[t] = \\max(-\\Delta, 0) \\\\\n\\overline{U}[t] &= \\text{smooth}(U,\\ \\text{window\\_size}),\\quad \\overline{D}[t] = \\text{smooth}(D,\\ \\text{window\\_size}) \\\\\n\\text{RS}[t] &= \\overline{U}[t] / \\overline{D}[t] \\\\\n\\text{RSI}[t] &= 100 - 100 / (1 + \\text{RS})\n\\end{aligned}\n$$\n\nThe smoothing depends on `method`:\n\n- `'wilder'` (default) -- Wilder's smoothing\n  $\\overline{X}[t] = \\overline{X}[t-1] + (X[t] - \\overline{X}[t-1]) / w$, with the\n  SMA-of-the-first-`w` seed. Matches `talib.RSI` and `pandas-ta-classic.rsi` bit-exactly\n  post-warmup.\n- `'cutler'` -- plain rolling-mean smoothing. Cutler's variant. Useful if you specifically\n  want the SMA-form (some legacy systems use it). Does **not** match TA-Lib.\n\n## Notes\n\n- First valid output at sample index `window_size`.\n- Output is bounded in `[0, 100]`.\n- The default was changed from 'cutler' to 'wilder' in a recent release to align with\n  TA-Lib and pandas-ta-classic. Pass `method='cutler'` to recover the old behaviour.\n\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage example",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import RollingRSI\n\nnp.random.seed(0)\nprice = 100*np.exp(np.cumsum(np.random.normal(0.0005, 0.02, size=300)))\nrsi = RollingRSI(window_size=14)(price)\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True,\n                    row_heights=[0.55, 0.45], vertical_spacing=0.08)\nfig.add_trace(go.Scatter(y=price, name=\"price\"), row=1, col=1)\nfig.add_trace(go.Scatter(y=rsi, name=\"RollingRSI\", line=dict(color=\"red\")), row=2, col=1)\nfig.update_layout(title=\"Price with RSI (RollingRSI)\",\n                  margin=dict(l=20, r=20, t=60, b=20),\n                  legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1))\nfig.update_yaxes(title_text=\"price\", row=1, col=1)\nfig.update_yaxes(title_text=\"RSI (0-100)\", row=2, col=1)\nfig.show()"
       }
     ]
   },
@@ -7615,41 +7777,6 @@
       }
     ]
   },
-  "RollingVWAP": {
-    "name": "RollingVWAP",
-    "title": "Rolling VWAP",
-    "implementation_family": "rolling",
-    "topics": [
-      "volume"
-    ],
-    "tags": [
-      "vwap",
-      "volume-weighted",
-      "ohlcv",
-      "typical-price"
-    ],
-    "short": "Rolling volume-weighted average price (typical-price weighted).",
-    "inputs": 4,
-    "outputs": 1,
-    "parameters": [
-      {
-        "name": "window_size",
-        "type": "int",
-        "default": 20,
-        "min": 2,
-        "description": "Trailing-window length."
-      }
-    ],
-    "nan_policy": "ignore",
-    "details": "## Description\n\nRolling volume-weighted average price using the typical price as the weighting basis:\n\n$$\n\\text{TP}[t] = (\\text{high} + \\text{low} + \\text{close}) / 3\n\\qquad\n\\text{VWAP}[t] = \\dfrac{\\sum_w \\text{TP} \\cdot \\text{volume}}{\\sum_w \\text{volume}}\n$$\n\n**4-input, 1-output** on `(high, low, close, volume)`. Matches `pandas-ta-classic.vwap`.\nFor a *session-VWAP* (cumulative since some reset point), call `reset()` at the session\nboundary.\n\nFirst valid output at sample index `window_size - 1`. Composes two `detail::RollingSum`\ninstances; O(1) per step.\n\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
-    "examples": [
-      {
-        "language": "python",
-        "caption": "Usage example",
-        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import RollingVWAP\n\nnp.random.seed(0)\nclose = 100*np.exp(np.cumsum(np.random.normal(0, 0.01, size=300)))\nopen_ = np.concatenate([[close[0]], close[:-1]])\nwick = np.abs(np.random.normal(0, 0.4, size=300))\nhigh = np.maximum(open_, close) + wick\nlow  = np.minimum(open_, close) - wick\nvolume = np.random.uniform(1e5, 5e5, size=300)\nvwap = RollingVWAP(window_size=20)(high, low, close, volume)\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True,\n                    row_heights=[0.55, 0.45], vertical_spacing=0.08)\nfig.add_trace(go.Scatter(y=close, name=\"close\"), row=1, col=1)\nfig.add_trace(go.Scatter(y=vwap, name=\"RollingVWAP\", line=dict(color=\"red\")), row=1, col=1)\nfig.add_trace(go.Bar(y=volume, name=\"volume\"), row=2, col=1)\nfig.update_layout(title=\"Price with rolling VWAP (RollingVWAP)\",\n                  margin=dict(l=20, r=20, t=60, b=20),\n                  legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1))\nfig.update_yaxes(title_text=\"price\", row=1, col=1)\nfig.update_yaxes(title_text=\"volume\", row=2, col=1)\nfig.show()"
-      }
-    ]
-  },
   "RollingVar": {
     "name": "RollingVar",
     "title": "Rolling variance",
@@ -7692,6 +7819,41 @@
         "language": "python",
         "caption": "Usage example",
         "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import RollingVar\n\ndata = np.cumsum(np.random.normal(size=300))\n\nfig = make_subplots(\n    rows=2, cols=1,\n    shared_xaxes=True,\n    row_heights=[2/3, 1/3],\n    vertical_spacing=0.1\n)\n\nfig.add_trace(go.Scatter(y=data, mode='lines', name='Input Data'), row=1, col=1)\nfig.add_trace(go.Scatter(y=RollingVar(30)(data), mode='lines', name='Rolling Variance', line=dict(color='orange')), row=2, col=1)\n\nfig.update_layout(\n    title=\"Rolling Variance with Window Size 30\",\n    xaxis_title=\"Index\",\n    yaxis=dict(title=\"Input Data\"),\n    yaxis2=dict(title=\"Rolling Variance\"),\n    margin=dict(l=20, r=20, t=80, b=20),\n    legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1)        \n)\n\nfig.show()"
+      }
+    ]
+  },
+  "RollingVWAP": {
+    "name": "RollingVWAP",
+    "title": "Rolling VWAP",
+    "implementation_family": "rolling",
+    "topics": [
+      "volume"
+    ],
+    "tags": [
+      "vwap",
+      "volume-weighted",
+      "ohlcv",
+      "typical-price"
+    ],
+    "short": "Rolling volume-weighted average price (typical-price weighted).",
+    "inputs": 4,
+    "outputs": 1,
+    "parameters": [
+      {
+        "name": "window_size",
+        "type": "int",
+        "default": 20,
+        "min": 2,
+        "description": "Trailing-window length."
+      }
+    ],
+    "nan_policy": "ignore",
+    "details": "## Description\n\nRolling volume-weighted average price using the typical price as the weighting basis:\n\n$$\n\\text{TP}[t] = (\\text{high} + \\text{low} + \\text{close}) / 3\n\\qquad\n\\text{VWAP}[t] = \\dfrac{\\sum_w \\text{TP} \\cdot \\text{volume}}{\\sum_w \\text{volume}}\n$$\n\n**4-input, 1-output** on `(high, low, close, volume)`. Matches `pandas-ta-classic.vwap`.\nFor a *session-VWAP* (cumulative since some reset point), call `reset()` at the session\nboundary.\n\nFirst valid output at sample index `window_size - 1`. Composes two `detail::RollingSum`\ninstances; O(1) per step.\n\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage example",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import RollingVWAP\n\nnp.random.seed(0)\nclose = 100*np.exp(np.cumsum(np.random.normal(0, 0.01, size=300)))\nopen_ = np.concatenate([[close[0]], close[:-1]])\nwick = np.abs(np.random.normal(0, 0.4, size=300))\nhigh = np.maximum(open_, close) + wick\nlow  = np.minimum(open_, close) - wick\nvolume = np.random.uniform(1e5, 5e5, size=300)\nvwap = RollingVWAP(window_size=20)(high, low, close, volume)\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True,\n                    row_heights=[0.55, 0.45], vertical_spacing=0.08)\nfig.add_trace(go.Scatter(y=close, name=\"close\"), row=1, col=1)\nfig.add_trace(go.Scatter(y=vwap, name=\"RollingVWAP\", line=dict(color=\"red\")), row=1, col=1)\nfig.add_trace(go.Bar(y=volume, name=\"volume\"), row=2, col=1)\nfig.update_layout(title=\"Price with rolling VWAP (RollingVWAP)\",\n                  margin=dict(l=20, r=20, t=60, b=20),\n                  legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1))\nfig.update_yaxes(title_text=\"price\", row=1, col=1)\nfig.update_yaxes(title_text=\"volume\", row=2, col=1)\nfig.show()"
       }
     ]
   },
@@ -8123,6 +8285,46 @@
       }
     ]
   },
+  "WilliamsR": {
+    "name": "WilliamsR",
+    "title": "Williams %R",
+    "implementation_family": "rolling",
+    "topics": [
+      "momentum"
+    ],
+    "tags": [
+      "williams-r",
+      "oscillator",
+      "talib",
+      "hlc"
+    ],
+    "short": "Inverse stochastic oscillator in [-100, 0].",
+    "inputs": 3,
+    "outputs": 1,
+    "parameters": [
+      {
+        "name": "window_size",
+        "type": "int",
+        "default": 14,
+        "min": 2,
+        "description": "Period (Wilder's default)."
+      }
+    ],
+    "nan_policy": "ignore",
+    "details": "## Description\n\n`WilliamsR` (Williams %R, Larry Williams 1973) returns the normalised position of the close within the recent (high, low) range, scaled to `[-100, 0]`:\n\n$$\n\\%R[t] = -100 \\cdot \\frac{H_n[t] - C[t]}{H_n[t] - L_n[t]}\n$$\n\nwhere `H_n` and `L_n` are the rolling max of `high` and rolling min of `low` over the window. `%R = 0` means the close is at the period high (typically a strong reading); `%R = -100` means the close is at the period low.\n\nThis is a **3-input, 1-output** function (`FunctorBase<_, 3, 1>`). Input order is `(high, low, close)`, matching TA-Lib's `WILLR`.\n\n## Parameters\n\n- `window_size` (int, default `14`): the rolling-window length.\n\n*Warmup*: NaN for the first `window_size − 1` samples; first valid output at sample index `window_size − 1` (TA-Lib's convention).\n\n*Range-zero handling*: when `H_n == L_n` over the period (a perfectly flat segment), the formula is mathematically undefined. We return `0` in that case, matching TA-Lib.\n\n## Implementation Details\n\nPure composition of two `detail::MonotonicDeque` instances -- the same primitive used by `RollingMin`/`RollingMax`/`RollingMinMax`/`RollingArgmin`/`RollingArgmax`/`RollingRange`. Amortised O(1) per step.\n\n\n* Time complexity: `O(1)` amortised per step.\n* Space complexity: `O(window_size)`.\n\n## Output shape\n\n| You pass... | You get back... |\n|---|---|\n| three scalars `high, low, close` | `float` |\n| three 1D arrays of shape `(T,)` | array of shape `(T,)` |\n| three 2D arrays of shape `(T, K)` | array of shape `(T, K)`, column-by-column |\n| three parallel iterables | `list[float]` (eager) |\n\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Implementation Details",
+        "code": "high_n = max_deque.append(high)\nlow_n  = min_deque.append(low)\nrange  = high_n - low_n\nreturn -100 * (high_n - close) / range   (or 0 if range == 0)"
+      },
+      {
+        "language": "python",
+        "caption": "Usage example",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import WilliamsR\n\nrng = np.random.default_rng(0)\nn = 300\nclose = 100 + np.cumsum(rng.normal(0, 1, n))\nhigh = close + np.abs(rng.normal(0, 0.5, n))\nlow = close - np.abs(rng.normal(0, 0.5, n))\n\nwr = WilliamsR(14)(high, low, close)\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True,\n                    row_heights=[0.6, 0.4], vertical_spacing=0.08)\nfig.add_trace(go.Scatter(y=high, mode='lines', name='High',\n                         line=dict(color='lightgray')), row=1, col=1)\nfig.add_trace(go.Scatter(y=low, mode='lines', name='Low',\n                         line=dict(color='lightgray')), row=1, col=1)\nfig.add_trace(go.Scatter(y=close, mode='lines', name='Close',\n                         line=dict(color='steelblue')), row=1, col=1)\nfig.add_trace(go.Scatter(y=wr, mode='lines', name='Williams %R(14)',\n                         line=dict(color='red')), row=2, col=1)\nfig.add_hline(y=-20, line=dict(color='gray', dash='dot'), row=2, col=1)\nfig.add_hline(y=-80, line=dict(color='gray', dash='dot'), row=2, col=1)\nfig.update_layout(\n    title=\"Williams %R(14): close position within the rolling H/L range\",\n    xaxis_title=\"Index\",\n    yaxis_title=\"Price\",\n    yaxis2_title=\"%R\",\n    margin=dict(l=20, r=20, t=60, b=20),\n    legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1),\n)\nfig.update_yaxes(range=[-100, 0], row=2, col=1)\nfig.show()"
+      }
+    ]
+  },
   "WMA": {
     "name": "WMA",
     "title": "Weighted Moving Average (WMA)",
@@ -8165,46 +8367,6 @@
         "language": "python",
         "caption": "Usage example",
         "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom screamer import WMA\n\nrng = np.random.default_rng(0)\nN = 300\ndata = np.cumsum(rng.standard_normal(N))\n\nfig = go.Figure()\nfig.add_trace(go.Scatter(y=data, mode='lines', name='Input', line=dict(color='steelblue', width=1)))\nfig.add_trace(go.Scatter(y=WMA(window_size=20)(data), mode='lines', name='WMA(window_size=20)', line=dict(color='crimson', width=2)))\nfig.update_layout(\n    title=\"WMA smoother over a random walk\",\n    xaxis_title=\"Index\", yaxis_title=\"Value\",\n    margin=dict(l=20, r=20, t=80, b=20),\n    legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1),\n)\nfig.show()"
-      }
-    ]
-  },
-  "WilliamsR": {
-    "name": "WilliamsR",
-    "title": "Williams %R",
-    "implementation_family": "rolling",
-    "topics": [
-      "momentum"
-    ],
-    "tags": [
-      "williams-r",
-      "oscillator",
-      "talib",
-      "hlc"
-    ],
-    "short": "Inverse stochastic oscillator in [-100, 0].",
-    "inputs": 3,
-    "outputs": 1,
-    "parameters": [
-      {
-        "name": "window_size",
-        "type": "int",
-        "default": 14,
-        "min": 2,
-        "description": "Period (Wilder's default)."
-      }
-    ],
-    "nan_policy": "ignore",
-    "details": "## Description\n\n`WilliamsR` (Williams %R, Larry Williams 1973) returns the normalised position of the close within the recent (high, low) range, scaled to `[-100, 0]`:\n\n$$\n\\%R[t] = -100 \\cdot \\frac{H_n[t] - C[t]}{H_n[t] - L_n[t]}\n$$\n\nwhere `H_n` and `L_n` are the rolling max of `high` and rolling min of `low` over the window. `%R = 0` means the close is at the period high (typically a strong reading); `%R = -100` means the close is at the period low.\n\nThis is a **3-input, 1-output** function (`FunctorBase<_, 3, 1>`). Input order is `(high, low, close)`, matching TA-Lib's `WILLR`.\n\n## Parameters\n\n- `window_size` (int, default `14`): the rolling-window length.\n\n*Warmup*: NaN for the first `window_size − 1` samples; first valid output at sample index `window_size − 1` (TA-Lib's convention).\n\n*Range-zero handling*: when `H_n == L_n` over the period (a perfectly flat segment), the formula is mathematically undefined. We return `0` in that case, matching TA-Lib.\n\n## Implementation Details\n\nPure composition of two `detail::MonotonicDeque` instances -- the same primitive used by `RollingMin`/`RollingMax`/`RollingMinMax`/`RollingArgmin`/`RollingArgmax`/`RollingRange`. Amortised O(1) per step.\n\n\n* Time complexity: `O(1)` amortised per step.\n* Space complexity: `O(window_size)`.\n\n## Output shape\n\n| You pass... | You get back... |\n|---|---|\n| three scalars `high, low, close` | `float` |\n| three 1D arrays of shape `(T,)` | array of shape `(T,)` |\n| three 2D arrays of shape `(T, K)` | array of shape `(T, K)`, column-by-column |\n| three parallel iterables | `list[float]` (eager) |\n\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
-    "examples": [
-      {
-        "language": "python",
-        "caption": "Implementation Details",
-        "code": "high_n = max_deque.append(high)\nlow_n  = min_deque.append(low)\nrange  = high_n - low_n\nreturn -100 * (high_n - close) / range   (or 0 if range == 0)"
-      },
-      {
-        "language": "python",
-        "caption": "Usage example",
-        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import WilliamsR\n\nrng = np.random.default_rng(0)\nn = 300\nclose = 100 + np.cumsum(rng.normal(0, 1, n))\nhigh = close + np.abs(rng.normal(0, 0.5, n))\nlow = close - np.abs(rng.normal(0, 0.5, n))\n\nwr = WilliamsR(14)(high, low, close)\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True,\n                    row_heights=[0.6, 0.4], vertical_spacing=0.08)\nfig.add_trace(go.Scatter(y=high, mode='lines', name='High',\n                         line=dict(color='lightgray')), row=1, col=1)\nfig.add_trace(go.Scatter(y=low, mode='lines', name='Low',\n                         line=dict(color='lightgray')), row=1, col=1)\nfig.add_trace(go.Scatter(y=close, mode='lines', name='Close',\n                         line=dict(color='steelblue')), row=1, col=1)\nfig.add_trace(go.Scatter(y=wr, mode='lines', name='Williams %R(14)',\n                         line=dict(color='red')), row=2, col=1)\nfig.add_hline(y=-20, line=dict(color='gray', dash='dot'), row=2, col=1)\nfig.add_hline(y=-80, line=dict(color='gray', dash='dot'), row=2, col=1)\nfig.update_layout(\n    title=\"Williams %R(14): close position within the rolling H/L range\",\n    xaxis_title=\"Index\",\n    yaxis_title=\"Price\",\n    yaxis2_title=\"%R\",\n    margin=dict(l=20, r=20, t=60, b=20),\n    legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1),\n)\nfig.update_yaxes(range=[-100, 0], row=2, col=1)\nfig.show()"
       }
     ]
   },
@@ -9014,6 +9176,17 @@
     "details": "A 2-input mask gate: keep each data value whose aligned mask value is nonzero\n(zero or NaN drops, any other value keeps). The mask is an ordinary stream\nbuilt from upstream comparison or logic ops. No Python predicate or callback -\nthe gate logic runs entirely in C++ for batch, lazy, and graph regimes.\n\nGate rule: `mask == 0` or `isnan(mask)` drops the aligned data value; any\nother mask value (positive, negative, non-NaN) keeps it. A NaN data value\npasses through unmodified when its aligned mask is nonzero.",
     "examples": []
   },
+  "from_pandas": {
+    "name": "from_pandas",
+    "title": "from_pandas",
+    "kind": "function",
+    "short": "Convert a pandas Series or DataFrame to a (values, index) tuple.",
+    "topics": [
+      "streams"
+    ],
+    "details": "Free helper: converts a pandas Series or DataFrame to the screamer\n`(values, index)` tuple convention. The pandas data becomes the values array\nand the pandas index becomes the index array.",
+    "examples": []
+  },
   "Merge": {
     "name": "Merge",
     "title": "Merge",
@@ -9056,28 +9229,6 @@
     "details": "Pick one or more columns from a wide `(rows, columns)` value stream by position.\nThe index and the number of rows are unchanged; only the width changes. Usable\neagerly and inside a `Pipeline`.\n\nFeeding a lazy iterator of `(value, index)` pairs returns a lazy iterator of column-selected events; feeding arrays or `(values, index)` tuples returns the batch result.",
     "examples": []
   },
-  "stream-tuple-convention": {
-    "name": "stream-tuple-convention",
-    "title": "Stream tuple convention",
-    "kind": "guide",
-    "short": "The (values, index) tuple at every operator boundary.",
-    "topics": [
-      "streams"
-    ],
-    "details": "Every screamer stream operator accepts and returns plain `(values, index)`\n2-tuples at the batch boundary.\n\n- **`values`** - a 1-D `(T,)` or 2-D `(T, N)` NumPy array.\n- **`index`** - a 1-D array of length `T`, or `None` for positional streams\n  (row number as ordering coordinate).",
-    "examples": []
-  },
-  "from_pandas": {
-    "name": "from_pandas",
-    "title": "from_pandas",
-    "kind": "function",
-    "short": "Convert a pandas Series or DataFrame to a (values, index) tuple.",
-    "topics": [
-      "streams"
-    ],
-    "details": "Free helper: converts a pandas Series or DataFrame to the screamer\n`(values, index)` tuple convention. The pandas data becomes the values array\nand the pandas index becomes the index array.",
-    "examples": []
-  },
   "split": {
     "name": "split",
     "title": "split",
@@ -9087,6 +9238,17 @@
       "streams"
     ],
     "details": "The inverse of `Merge`: partition a source-tagged stream back into one stream per\nsource. `split(*Merge()(a_v, b_v, index=[a_k, b_k]))` reconstructs the original\nstreams.",
+    "examples": []
+  },
+  "stream-tuple-convention": {
+    "name": "stream-tuple-convention",
+    "title": "Stream tuple convention",
+    "kind": "guide",
+    "short": "The (values, index) tuple at every operator boundary.",
+    "topics": [
+      "streams"
+    ],
+    "details": "Every screamer stream operator accepts and returns plain `(values, index)`\n2-tuples at the batch boundary.\n\n- **`values`** - a 1-D `(T,)` or 2-D `(T, N)` NumPy array.\n- **`index`** - a 1-D array of length `T`, or `None` for positional streams\n  (row number as ordering coordinate).",
     "examples": []
   },
   "to_pandas": {

@@ -104,9 +104,12 @@ export declare function BOP(): ScreamerOp;
  * @param tickSize Price step a marketable order walks for the size beyond the displayed quote.
  * @param minPosition Inventory floor; sell fills are capped so the position never falls below it.
  * @param maxPosition Inventory ceiling; buy fills are capped so the position never exceeds it.
+ * @param multiplier Contract multiplier applied to mark-to-market PnL, fill slippage, and proportional fees.
+ * @param makerFeePerContract Fixed fee (or rebate when negative) charged per contract on maker fills.
+ * @param takerFeePerContract Fixed fee (or rebate when negative) charged per contract on taker fills.
  * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
  */
-export declare function BacktestL1Orders(makerFee?: number, takerFee?: number, fill?: string, participationRatio?: number, tickSize?: number, minPosition?: number, maxPosition?: number): ScreamerOp;
+export declare function BacktestL1Orders(makerFee?: number, takerFee?: number, fill?: string, participationRatio?: number, tickSize?: number, minPosition?: number, maxPosition?: number, multiplier?: number, makerFeePerContract?: number, takerFeePerContract?: number): ScreamerOp;
 /**
  * Backtest a target-position strategy against the L1 book, taking each quote update as a market fill to reach the target immediately.
  *
@@ -114,9 +117,11 @@ export declare function BacktestL1Orders(makerFee?: number, takerFee?: number, f
  * @param tickSize Price step a marketable order walks for the size beyond the displayed quote.
  * @param minPosition Inventory floor. The target is clamped to [min_position, max_position] before the fill size is computed.
  * @param maxPosition Inventory ceiling. The target is clamped to [min_position, max_position] before the fill size is computed.
+ * @param multiplier Contract multiplier applied to mark-to-market PnL, fill slippage, and proportional fees.
+ * @param feePerContract Fixed fee (or rebate when negative) charged per contract on each fill.
  * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
  */
-export declare function BacktestL1Target(takerFee?: number, tickSize?: number, minPosition?: number, maxPosition?: number): ScreamerOp;
+export declare function BacktestL1Target(takerFee?: number, tickSize?: number, minPosition?: number, maxPosition?: number, multiplier?: number, feePerContract?: number): ScreamerOp;
 /**
  * Backtest a two-sided market maker against top-of-book quotes with a trade tape driving the fills, into a costed equity curve.
  *
@@ -127,9 +132,12 @@ export declare function BacktestL1Target(takerFee?: number, tickSize?: number, m
  * @param tickSize Price step a marketable order walks for the size beyond the displayed quote.
  * @param minPosition Inventory floor; sell fills are capped so the position never falls below it.
  * @param maxPosition Inventory ceiling; buy fills are capped so the position never exceeds it.
+ * @param multiplier Contract multiplier applied to mark-to-market PnL, fill slippage, and proportional fees.
+ * @param makerFeePerContract Fixed fee (or rebate when negative) charged per contract on maker fills.
+ * @param takerFeePerContract Fixed fee (or rebate when negative) charged per contract on taker fills.
  * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
  */
-export declare function BacktestL1TradesOrders(makerFee?: number, takerFee?: number, fill?: string, participationRatio?: number, tickSize?: number, minPosition?: number, maxPosition?: number): ScreamerOp;
+export declare function BacktestL1TradesOrders(makerFee?: number, takerFee?: number, fill?: string, participationRatio?: number, tickSize?: number, minPosition?: number, maxPosition?: number, multiplier?: number, makerFeePerContract?: number, takerFeePerContract?: number): ScreamerOp;
 /**
  * Backtest a two-sided order poster on OHLC bars, posting resting bids and asks that fill when the bar's range reaches them.
  *
@@ -140,9 +148,12 @@ export declare function BacktestL1TradesOrders(makerFee?: number, takerFee?: num
  * @param tickSize Price increment added (subtracted) to the open for a market buy (sell) to model taker slippage.
  * @param minPosition Inventory floor; sell fills are capped so the position never falls below it.
  * @param maxPosition Inventory ceiling; buy fills are capped so the position never exceeds it.
+ * @param multiplier Contract multiplier applied to mark-to-market PnL, fill slippage, and proportional fees.
+ * @param makerFeePerContract Fixed fee (or rebate when negative) charged per contract on maker fills.
+ * @param takerFeePerContract Fixed fee (or rebate when negative) charged per contract on taker fills.
  * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
  */
-export declare function BacktestOHLCOrders(makerFee?: number, takerFee?: number, fill?: string, participationRatio?: number, tickSize?: number, minPosition?: number, maxPosition?: number): ScreamerOp;
+export declare function BacktestOHLCOrders(makerFee?: number, takerFee?: number, fill?: string, participationRatio?: number, tickSize?: number, minPosition?: number, maxPosition?: number, multiplier?: number, makerFeePerContract?: number, takerFeePerContract?: number): ScreamerOp;
 /**
  * Backtest a target-position strategy on OHLC bars, executing market orders at the next bar's open (causal, no manual lag).
  *
@@ -150,9 +161,11 @@ export declare function BacktestOHLCOrders(makerFee?: number, takerFee?: number,
  * @param tickSize Price increment added (subtracted) to the open for a market buy (sell) to model taker slippage.
  * @param minPosition Lower bound on the filled position. The deferred target is clamped to [min_position, max_position] before the fill executes.
  * @param maxPosition Upper bound on the filled position. The deferred target is clamped to [min_position, max_position] before the fill executes.
+ * @param multiplier Contract multiplier applied to mark-to-market PnL, fill slippage, and proportional fees.
+ * @param feePerContract Fixed fee (or rebate when negative) charged per contract on each fill.
  * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
  */
-export declare function BacktestOHLCTarget(takerFee?: number, tickSize?: number, minPosition?: number, maxPosition?: number): ScreamerOp;
+export declare function BacktestOHLCTarget(takerFee?: number, tickSize?: number, minPosition?: number, maxPosition?: number, multiplier?: number, feePerContract?: number): ScreamerOp;
 /**
  * Backtest a target position against a value series (price/mark) into a costed mark-to-market equity curve.
  *
@@ -160,9 +173,11 @@ export declare function BacktestOHLCTarget(takerFee?: number, tickSize?: number,
  * @param fee Fractional taker fee charged on the traded notional.
  * @param minPosition Lower bound on the target position. Signals below this value are clamped to it.
  * @param maxPosition Upper bound on the target position. Signals above this value are clamped to it.
+ * @param multiplier Contract multiplier applied to mark-to-market PnL, fill slippage, and proportional fees.
+ * @param feePerContract Fixed fee (or rebate when negative) charged per contract on each fill.
  * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
  */
-export declare function BacktestPriceTarget(spread?: number, fee?: number, minPosition?: number, maxPosition?: number): ScreamerOp;
+export declare function BacktestPriceTarget(spread?: number, fee?: number, minPosition?: number, maxPosition?: number, multiplier?: number, feePerContract?: number): ScreamerOp;
 /**
  * Turn a backtest engine's [equity, pnl, position, cost] into running drawdown, cost, turnover, trades, and Sharpe.
  *
@@ -179,9 +194,12 @@ export declare function BacktestReport(): ScreamerOp;
  * @param tickSize Accepted for interface uniformity; currently unused on the tape (see Limitations).
  * @param minPosition Inventory floor; sell fills are capped so the position never falls below it.
  * @param maxPosition Inventory ceiling; buy fills are capped so the position never exceeds it.
+ * @param multiplier Contract multiplier applied to mark-to-market PnL, fill slippage, and proportional fees.
+ * @param makerFeePerContract Fixed fee (or rebate when negative) charged per contract on maker fills.
+ * @param takerFeePerContract Fixed fee (or rebate when negative) charged per contract on taker fills.
  * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
  */
-export declare function BacktestTradesOrders(makerFee?: number, takerFee?: number, fill?: string, participationRatio?: number, tickSize?: number, minPosition?: number, maxPosition?: number): ScreamerOp;
+export declare function BacktestTradesOrders(makerFee?: number, takerFee?: number, fill?: string, participationRatio?: number, tickSize?: number, minPosition?: number, maxPosition?: number, multiplier?: number, makerFeePerContract?: number, takerFeePerContract?: number): ScreamerOp;
 /**
  * Backtest a target-position strategy against the trade tape, taking each print as a market fill to reach the target immediately.
  *
@@ -189,9 +207,11 @@ export declare function BacktestTradesOrders(makerFee?: number, takerFee?: numbe
  * @param tickSize Accepted for interface uniformity; currently unused on the tape.
  * @param minPosition Inventory floor. The target is clamped to [min_position, max_position] before the fill size is computed.
  * @param maxPosition Inventory ceiling. The target is clamped to [min_position, max_position] before the fill size is computed.
+ * @param multiplier Contract multiplier applied to mark-to-market PnL, fill slippage, and proportional fees.
+ * @param feePerContract Fixed fee (or rebate when negative) charged per contract on each fill.
  * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
  */
-export declare function BacktestTradesTarget(takerFee?: number, tickSize?: number, minPosition?: number, maxPosition?: number): ScreamerOp;
+export declare function BacktestTradesTarget(takerFee?: number, tickSize?: number, minPosition?: number, maxPosition?: number, multiplier?: number, feePerContract?: number): ScreamerOp;
 /**
  * Online exponentially-weighted (forgetting-factor) Bayesian linear regression - current slope and intercept via Normal-Inverse-Gamma posterior plus causal one-step-ahead predictive mean and std.
  *

@@ -105,6 +105,8 @@ _NO_ARG_AUTO_EXCLUDE = {
     'ContOFI', 'EffectiveSpread',
     # 4-input, 7-output backtest report node - tested in test_backtest.py
     'BacktestReport',
+    # dynamic-width (time, assets, 4) reducer; exercised in test_backtest.py
+    'PortfolioReport',
     # 8-input two-sided market-making engine - tested in test_backtest.py
     'BacktestOHLCOrders',
     # 5-input deferred target engine - tested in test_backtest.py
@@ -236,6 +238,9 @@ PARITY_EXEMPT.update({
     for name, (n_in, n_out) in SHAPES.items()
     if (n_in, n_out) != (1, 1)
 })
+PARITY_EXEMPT['PortfolioReport'] = (
+    'dynamic-width multi-asset reducer; driven by test_backtest.py'
+)
 
 
 def _auto_adopted_classes():

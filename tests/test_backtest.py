@@ -1,3 +1,4 @@
+import pytest
 import math
 import numpy as np
 from screamer import BacktestPriceTarget, backtest_report
@@ -123,6 +124,66 @@ def test_price_target_reaches_target_and_costs():
         np.array([1., 1., 0.]), np.array([100., 110., 121.]))
     np.testing.assert_allclose(out[:, 2], [1., 1., 0.])          # position track
     assert out[0, 3] > 0.0                                        # taker fee charged on the buy
+
+def test_contract_multiplier_and_fixed_fee_are_generic():
+    from screamer import BacktestPriceTarget
+    out = BacktestPriceTarget(multiplier=50.0, fee_per_contract=2.0)(
+        np.array([1., 1., 0.]), np.array([100., 101., 101.]))
+    # The fixed fee is per unit; the price move is 50 currency units per contract.
+    np.testing.assert_allclose(out[:, 3], [2.0, 0.0, 2.0])
+    np.testing.assert_allclose(out[:, 0], [-2.0, 48.0, 46.0])
+
+
+def test_ohlc_target_uses_contract_multiplier_and_fixed_taker_fee():
+    from screamer import BacktestOHLCTarget
+    out = BacktestOHLCTarget(multiplier=10.0, fee_per_contract=1.5)(
+        np.array([1., 1.]), np.array([100., 101.]),
+        np.array([100., 101.]), np.array([100., 101.]),
+        np.array([100., 101.]))
+    # Target at bar 0 executes at bar 1 open: fixed fee is visible on that fill.
+    np.testing.assert_allclose(out[:, 2], [0.0, 1.0])
+    np.testing.assert_allclose(out[1, 3], 1.5)
+
+
+def test_portfolio_report_reduces_assets_without_hiding_offsetting_turnover():
+    from screamer import PortfolioReport
+    engine = np.array([
+        [[0.0, 0.0, 1.0, 1.0], [0.0, 0.0, -1.0, 2.0]],
+        [[10.0, 10.0, 1.0, 0.0], [5.0, 5.0, 0.0, 1.0]],
+    ])
+    batch = PortfolioReport()(engine)
+    np.testing.assert_allclose(batch[:, :5], [
+        [0.0, 3.0, 2.0, 2.0, 0.0],
+        [0.0, 4.0, 3.0, 3.0, 0.0],
+    ])
+    np.testing.assert_allclose(batch[1, 5], np.mean([0.0, 15.0]) / np.std([0.0, 15.0], ddof=1))
+
+    op = PortfolioReport()
+    streamed = np.array([op(row) for row in engine])
+    np.testing.assert_allclose(np.nan_to_num(streamed), np.nan_to_num(batch))
+
+    lazy = np.array(list(PortfolioReport()(iter(engine))))
+    np.testing.assert_allclose(np.nan_to_num(lazy), np.nan_to_num(batch))
+
+
+def test_portfolio_report_nan_row_holds_state():
+    from screamer import PortfolioReport
+    rows = np.array([
+        [[0.0, 0.0, 1.0, 0.0]],
+        [[np.nan, 1.0, 1.0, 0.0]],
+        [[2.0, 2.0, 1.0, 0.0]],
+    ])
+    out = PortfolioReport()(rows)
+    assert np.all(np.isnan(out[1]))
+    np.testing.assert_allclose(out[2, :4], [0.0, 0.0, 1.0, 1.0])
+
+
+def test_portfolio_report_rejects_asset_count_change():
+    from screamer import PortfolioReport
+    op = PortfolioReport()
+    op(np.zeros((2, 4)))
+    with pytest.raises(ValueError):
+        op(np.zeros((3, 4)))
 
 
 # --- BacktestOHLCTarget (causal market-at-open) --------------------------------

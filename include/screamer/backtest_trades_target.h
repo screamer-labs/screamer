@@ -16,9 +16,12 @@ namespace screamer {
     public:
         BacktestTradesTarget(double taker_fee = 0.0, double tick_size = 0.0,
                              double min_position = -std::numeric_limits<double>::infinity(),
-                             double max_position = std::numeric_limits<double>::infinity())
+                             double max_position = std::numeric_limits<double>::infinity(),
+                           double multiplier = 1.0,
+                           double fee_per_contract = 0.0)
             : core_(0.0, taker_fee, /*breach=*/false, /*participation=*/1.0, tick_size,
-                    min_position, max_position),
+                    min_position, max_position,
+                    multiplier, 0.0, fee_per_contract),
               min_(min_position), max_(max_position) {}
         void reset() override { core_.reset(); }
         ResultTuple call(const InputArray& in) override {

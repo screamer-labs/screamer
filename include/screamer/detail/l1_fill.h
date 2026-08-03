@@ -2,6 +2,7 @@
 #define SCREAMER_DETAIL_L1_FILL_H
 
 #include <algorithm>
+#include <cmath>
 #include <limits>
 #include <stdexcept>
 #include <tuple>
@@ -20,15 +21,24 @@ namespace screamer { namespace detail {
     struct L1Fill {
         L1Fill(double maker_fee, double taker_fee, bool breach,
                double participation, double tick_size,
-               double min_pos, double max_pos)
+               double min_pos, double max_pos,
+                 double multiplier = 1.0,
+                 double maker_fee_per_contract = 0.0,
+                 double taker_fee_per_contract = 0.0)
             : maker_fee_(maker_fee), taker_fee_(taker_fee), breach_(breach),
               participation_(participation), tick_size_(tick_size),
-              min_pos_(min_pos), max_pos_(max_pos)
+              min_pos_(min_pos), max_pos_(max_pos),
+              maker_fee_per_contract_(maker_fee_per_contract),
+              taker_fee_per_contract_(taker_fee_per_contract),
+              account_(multiplier)
         {
             if (min_pos_ > max_pos_)
                 throw std::invalid_argument("min_position must not exceed max_position.");
             if (tick_size_ < 0.0)
                 throw std::invalid_argument("tick_size must be non-negative.");
+            if (!std::isfinite(maker_fee_per_contract_) ||
+                !std::isfinite(taker_fee_per_contract_))
+                throw std::invalid_argument("fee_per_contract values must be finite.");
             reset();
         }
 
@@ -62,7 +72,9 @@ namespace screamer { namespace detail {
                                       room_buy, bid_passive_, bid_locked_);
             if (b.dpos != 0.0) {
                 auto [e, p, pos, c] = account_.step(mid, b.dpos, b.fill_price,
-                                                    b.is_taker ? taker_fee_ : maker_fee_);
+                                                    b.is_taker ? taker_fee_ : maker_fee_,
+                                                    b.is_taker ? taker_fee_per_contract_
+                                                               : maker_fee_per_contract_);
                 eq = e; pnl += p; position = pos; cost += c; did = true;
             }
 
@@ -73,7 +85,9 @@ namespace screamer { namespace detail {
                                       room_sell, ask_passive_, ask_locked_);
             if (s.dpos != 0.0) {
                 auto [e, p, pos, c] = account_.step(mid, s.dpos, s.fill_price,
-                                                    s.is_taker ? taker_fee_ : maker_fee_);
+                                                    s.is_taker ? taker_fee_ : maker_fee_,
+                                                    s.is_taker ? taker_fee_per_contract_
+                                                               : maker_fee_per_contract_);
                 eq = e; pnl += p; position = pos; cost += c; did = true;
             }
 
@@ -83,8 +97,6 @@ namespace screamer { namespace detail {
             }
             return std::make_tuple(eq, pnl, position, cost);
         }
-
-        detail::PnLAccount account_;
 
     private:
         struct SideFill { double dpos; double fill_price; bool is_taker; };
@@ -133,9 +145,11 @@ namespace screamer { namespace detail {
         }
 
         double maker_fee_, taker_fee_;
+        double maker_fee_per_contract_, taker_fee_per_contract_;
         bool breach_;
         double participation_, tick_size_, min_pos_, max_pos_;
         bool bid_passive_ = false, ask_passive_ = false, bid_locked_ = false, ask_locked_ = false;
+        detail::PnLAccount account_;
     };
 
 }} // namespace screamer::detail

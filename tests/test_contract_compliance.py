@@ -42,10 +42,16 @@ HELP: dict[str, dict] = json.loads(HELP_JSON.read_text())
 
 # Only compute functors carry these contracts. Stream operators and DAG nodes
 # (kind != "functor") have their own semantics and their own test files.
+# PortfolioReport consumes a dynamic-width (time, assets, 4) engine tensor;
+# its reset and causal behavior are tested in tests/test_backtest.py rather than
+# the fixed-width scalar/DAG harness below.
+DYNAMIC_WIDTH_FUNCTORS = {"PortfolioReport"}
 FUNCTORS = {
     name: entry
     for name, entry in HELP.items()
-    if entry.get("kind", "functor") == "functor" and hasattr(screamer, name)
+    if entry.get("kind", "functor") == "functor"
+    and hasattr(screamer, name)
+    and name not in DYNAMIC_WIDTH_FUNCTORS
 }
 
 # Operators whose output is not a pure function of the input, so running them
@@ -58,7 +64,9 @@ KNOWN_NOT_CAUSAL: set[str] = set()
 # Multi-output operators return a tuple or a 2-D array from the eager call but
 # one node per output in a Pipeline, so driving them generically needs a
 # per-operator adapter. Their regime equality is asserted in their own files.
-KNOWN_NO_GENERIC_REGIME: set[str] = set()
+KNOWN_NO_GENERIC_REGIME: set[str] = {
+    "PortfolioReport",  # dynamic-width batch/stream reducer; bespoke tests cover it
+}
 
 
 def _instantiate(entry: dict):

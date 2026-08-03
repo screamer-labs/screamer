@@ -32,9 +32,12 @@ namespace screamer {
     public:
         BacktestPriceTarget(double spread = 0.0, double fee = 0.0,
                             double min_position = -std::numeric_limits<double>::infinity(),
-                            double max_position = std::numeric_limits<double>::infinity())
+                            double max_position = std::numeric_limits<double>::infinity(),
+                            double multiplier = 1.0,
+                            double fee_per_contract = 0.0)
             : spread_(spread), fee_(fee),
-              min_position_(min_position), max_position_(max_position)
+              min_position_(min_position), max_position_(max_position),
+              account_(multiplier, fee_per_contract)
         {
             if (spread_ < 0.0) throw std::invalid_argument("spread must be non-negative.");
             if (min_position_ > max_position_)

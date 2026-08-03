@@ -225,9 +225,12 @@ _xfail_propagation = _xfail_if_in(
 # function-specific contracts documented on their own pages, so the universal
 # recovery/propagation properties below do not apply -- they are filtered out at
 # collection (rather than skipped in the body) so the suite reports no skips.
+_DYNAMIC_WIDTH_FUNCTORS = {"PortfolioReport"}
 _FUNCTORS = {
     n: e for n, e in HELP.items()
-    if e.get("kind", "functor") == "functor" and e.get("nan_policy") != "nan-aware"
+    if e.get("kind", "functor") == "functor"
+    and e.get("nan_policy") != "nan-aware"
+    and n not in _DYNAMIC_WIDTH_FUNCTORS
 }
 PARAMS_STICKY = [
     pytest.param(name, entry, id=name, marks=_xfail_sticky(name))

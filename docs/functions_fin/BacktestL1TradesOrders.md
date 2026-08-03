@@ -52,6 +52,19 @@ parameters:
   type: float
   default: -.inf
   description: Inventory floor; sell fills are capped so the position never falls below it.
+- name: multiplier
+  type: float
+  default: 1.0
+  min: 0.0
+  description: Contract multiplier applied to mark-to-market PnL, fill slippage, and proportional fees.
+- name: maker_fee_per_contract
+  type: float
+  default: 0.0
+  description: Fixed fee (or rebate when negative) charged per contract on maker fills.
+- name: taker_fee_per_contract
+  type: float
+  default: 0.0
+  description: Fixed fee (or rebate when negative) charged per contract on taker fills.
 nan_policy: ignore
 see_also:
 - BacktestL1Orders
@@ -61,6 +74,11 @@ see_also:
 ---
 
 # `BacktestL1TradesOrders`
+
+The accounting parameters are generic across the backtest family. `multiplier`
+converts a price move into currency per contract; the fixed per-contract fee is
+then added to the existing proportional fee. Both fixed fees may be negative for
+rebates, and all defaults preserve the previous behavior.
 
 ## Description
 
