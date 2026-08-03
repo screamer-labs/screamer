@@ -16,9 +16,10 @@ rules below fall out of them. Read this before adding or changing an operator.
    over the data, and no needless data crossing the Python/C++ boundary.
 3. **A friendly, uniform API.** Polymorphic argument handling, and batch and streaming
    modes that produce identical results from the same engine.
-4. **C++ is a first-class consumer, and more bindings are coming (JS, R).** A user of
-   the C++ core, or a future binding, must get the whole library. So all logic must
-   live in the C++ core, not in any one binding.
+4. **C++ is a first-class consumer, and the library ships in multiple bindings.** Python
+   and JavaScript/WASM today, with more coming (R). A user of the C++ core, or any
+   binding, must get the whole library. So all logic lives in the C++ core, not in any
+   one binding, and every binding exposes the same operators.
 
 From these, the hard rules:
 
@@ -51,6 +52,13 @@ From these, the hard rules:
   production stream). If a capability is awkward to express in the streaming engine,
   design the C++ node (or a `Pipeline` of C++ nodes) correctly - do not ship an
   eager-only shortcut.
+- **Parity across bindings, no divergence.** Every operator is available in every shipped
+  binding (Python and JavaScript/WASM) with the same capabilities and identical results.
+  A capability that exists in one binding but not another is a defect, not an accepted
+  trade. If an operator cannot yet be exposed in a binding because that binding lacks a
+  needed shape - for example a dynamic-width `(time, assets, ...)` reducer against the
+  fixed-width per-event WASM ABI - that is a tracked temporary gap to close by extending
+  the binding, marked as such in code, never a silent permanent exclusion.
 - **No Python orchestration of the data path.** The Pipeline/DAG compiles to and runs
   in C++ so data does not cross the boundary per event. Do not orchestrate windowing,
   joins, aggregation, or event scheduling in Python.
