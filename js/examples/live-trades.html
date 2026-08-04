@@ -107,18 +107,25 @@
 
 <script type="module">
 // ---------------------------------------------------------------------------
-// Load screamer.js from a CDN. esm.sh first, jsDelivr as a fallback.
+// Load screamer.js. On the docs site a same-origin bundle sits next to this
+// page (built to a broad target, most robust across browsers incl. mobile
+// Safari); the CDN entries are fallbacks when the file is opened standalone.
 // ---------------------------------------------------------------------------
-const CDN = [
-  "https://esm.sh/@screamer-labs/screamer@2.2.0",
-  "https://cdn.jsdelivr.net/npm/@screamer-labs/screamer@2.2.0/+esm",
+const SOURCES = [
+  new URL("./vendor/screamer/index.js", import.meta.url).href,                 // same-origin (docs site)
+  "https://cdn.jsdelivr.net/npm/@screamer-labs/screamer@2.2.0/dist/index.js",  // raw published ESM
+  "https://esm.sh/@screamer-labs/screamer@2.2.0",                             // transformed fallback
 ];
 async function loadScreamer() {
-  let err;
-  for (const url of CDN) {
-    try { return await import(url); } catch (e) { err = e; }
+  const errs = [];
+  for (const url of SOURCES) {
+    try { return await import(url); }
+    catch (e) {
+      const where = url.startsWith("http") ? new URL(url).host : "same-origin";
+      errs.push(where + " — " + String((e && e.message) || e));
+    }
   }
-  throw err;
+  throw new Error(errs.join("\n"));
 }
 
 const overlay = document.getElementById("overlay");
@@ -132,8 +139,11 @@ try {
   S = await loadScreamer();
   await S.ready();
 } catch (e) {
-  fail(`Could not load <code>@screamer-labs/screamer</code> from the CDN.<br><br>` +
-       `This page needs internet access. Error: <code>${String(e && e.message || e)}</code>`);
+  const detail = String((e && e.message) || e)
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/\n/g, "<br>");
+  fail(`Could not load <code>@screamer-labs/screamer</code>.<br><br>` +
+       `This page needs internet access for the module and the trade feed.<br><br>` +
+       `<small style="color:#f0883e">${detail}</small>`);
   throw e;
 }
 
