@@ -38,7 +38,7 @@ target_include_directories(screamer PRIVATE
     "${SCREAMER_ROOT}/include"
     "${CMAKE_CURRENT_SOURCE_DIR}")  # so #include "embind_runtime.h" resolves
 
-set(EMCC_LINK "-lembind -sMODULARIZE=1 -sEXPORT_ES6=1 -sENVIRONMENT=node \
+set(EMCC_LINK "-lembind -sMODULARIZE=1 -sEXPORT_ES6=1 -sENVIRONMENT=web,worker,node \
 -sFILESYSTEM=0 -sALLOW_MEMORY_GROWTH=1 -sMALLOC=emmalloc -sEXPORTED_RUNTIME_METHODS=['HEAPF64']")
 
 # SCREAMER_WASM_SINGLE_FILE=ON (passed by build-wasm.sh --single-file) embeds

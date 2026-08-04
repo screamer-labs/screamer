@@ -63,6 +63,8 @@ export const CODES = {
 };
 
 // `node --import tsx src/codes.ts --dump` prints CODES as JSON for the gate.
-if (process.argv.includes("--dump")) {
+// Guarded so this module also evaluates in the browser, where `process` is
+// undefined (importing it otherwise throws "process is not defined").
+if (typeof process !== "undefined" && process.argv?.includes("--dump")) {
   process.stdout.write(JSON.stringify(CODES));
 }
