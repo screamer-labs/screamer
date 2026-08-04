@@ -18,6 +18,10 @@ key) and turns the raw prints into three things a trader actually wants:
   are lifting offers or sellers are hitting bids right now. It is a leading read on short-term
   direction (drawn as a green/red strip under the price), not a trade signal.
 
+The **view** control switches the x-axis between a trade-count clock and a volume clock. On a
+volume clock each bar is a fixed slice of traded volume, so a burst of micro-trades collapses into
+a couple of bars instead of stretching across the chart.
+
 Each operator is fed one trade at a time as it arrives:
 
 ```js

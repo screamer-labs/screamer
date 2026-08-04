@@ -82,9 +82,10 @@
     </span>
     <span><label>view</label>
       <select id="window">
-        <option value="120">120 trades</option>
-        <option value="240" selected>240 trades</option>
-        <option value="480">480 trades</option>
+        <option value="count:240" selected>240 trades</option>
+        <option value="count:480">480 trades</option>
+        <option value="vol:6">volume clock · fine</option>
+        <option value="vol:20">volume clock · coarse</option>
       </select>
     </span>
     <button id="pause">Pause</button>
@@ -173,30 +174,53 @@ function buildOps() {
 }
 function disposeOps() { if (ops) for (const k in ops) ops[k].dispose(); }
 
-let N = 240;                 // trades shown
+let N = 240;                 // samples shown
 let prices = [], lowlag = [], fair = [], flow = [];
 let paused = false, dirty = true;
 const arrivals = [];
 
+// The clock decides what one plotted sample is: a single trade (count clock), or
+// a fixed slice of volume (volume clock). A volume clock collapses a burst of
+// micro-trades into a few bars instead of a long stretch of near-flat prints.
+let clock = { mode: "count", factor: 0 };
+let bucket = null, avgSize = 0;
+
 function reset() {
   disposeOps(); buildOps();
   prices = []; lowlag = []; fair = []; flow = [];
+  bucket = null; avgSize = 0;
   arrivals.length = 0; dirty = true;
 }
 buildOps();
 
 function onTrade(price, size, sign) {
-  arrivals.push(performance.now());
+  arrivals.push(performance.now());              // trades/sec always counts raw trades
+  document.getElementById("last").textContent = fmt(price);
+  avgSize = avgSize > 0 ? avgSize * 0.99 + size * 0.01 : size;   // slow EWMA, burst-resistant
+
+  if (clock.mode === "count") { addSample(price, size, sign * size); return; }
+
+  // Volume clock: accumulate into a bucket until it holds a target slice of
+  // volume, then emit one bar (its VWAP, its volume, its net signed flow).
+  if (!bucket) bucket = { vol: 0, signed: 0, pv: 0 };
+  bucket.vol += size; bucket.signed += sign * size; bucket.pv += price * size;
+  if (bucket.vol >= avgSize * clock.factor) {
+    addSample(bucket.pv / bucket.vol, bucket.vol, bucket.signed);
+    bucket = null;
+  }
+}
+
+// One plotted sample, fed through the operators. `signedVol` is net signed
+// volume (sign*size for a single trade, the bucket's net for a volume bar).
+function addSample(price, size, signedVol) {
   const ll = ops.poly(price);
   const pv = ops.sumPV(price * size), v = ops.sumV(size);
   const vw = v > 0 ? pv / v : NaN;
-  const sv = ops.ewS(sign * size), av = ops.ewA(size);
+  const sv = ops.ewS(signedVol), av = ops.ewA(size);
   const of = av > 0 ? Math.max(-1, Math.min(1, sv / av)) : 0;
 
   prices.push(price); lowlag.push(ll); fair.push(vw); flow.push(of);
   while (prices.length > N) { prices.shift(); lowlag.shift(); fair.shift(); flow.shift(); }
-
-  document.getElementById("last").textContent = fmt(price);
   dirty = true;
 }
 
@@ -376,9 +400,14 @@ function fillFlow(arr, X, Yf, zeroY, color, cx, cy, cw, ch) {
 // ---------------------------------------------------------------------------
 document.getElementById("source").addEventListener("change", (e) => switchFeed(e.target.value));
 document.getElementById("window").addEventListener("change", (e) => {
-  N = parseInt(e.target.value, 10);
-  while (prices.length > N) { prices.shift(); lowlag.shift(); fair.shift(); flow.shift(); }
-  dirty = true;
+  const [t, n] = e.target.value.split(":");
+  const next = t === "vol" ? { mode: "volume", factor: +n, N: 240 } : { mode: "count", factor: 0, N: +n };
+  const sameMode = next.mode === clock.mode && next.factor === clock.factor;
+  clock = { mode: next.mode, factor: next.factor }; N = next.N;
+  if (sameMode) {
+    while (prices.length > N) { prices.shift(); lowlag.shift(); fair.shift(); flow.shift(); }
+    dirty = true;
+  } else reset();  // clock type changed: the samples mean something different, start clean
 });
 document.getElementById("pause").addEventListener("click", (e) => { paused = !paused; e.target.textContent = paused ? "Resume" : "Pause"; });
 document.getElementById("reset").addEventListener("click", reset);
