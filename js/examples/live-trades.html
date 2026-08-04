@@ -336,8 +336,8 @@ function render() {
   ctx.strokeStyle = "#2c333d"; ctx.beginPath(); ctx.moveTo(PADL, zeroY); ctx.lineTo(PADL + plotW, zeroY); ctx.stroke();
   ctx.fillStyle = "#8b949e"; ctx.textAlign = "left";
   ctx.fillText("order flow", PADL + 2, flowTop + 10);
-  fillFlow(flow, X, Yf, zeroY, "#3fb950", PADL, priceTop, plotW, flowTop, zeroY - flowTop);         // green, above
-  fillFlow(flow, X, Yf, zeroY, "#f85149", PADL, zeroY, plotW, flowTop + flowH - zeroY);             // red, below
+  fillFlow(flow, X, Yf, zeroY, "#3fb950", PADL, flowTop, plotW, zeroY - flowTop);                   // green, above zero
+  fillFlow(flow, X, Yf, zeroY, "#f85149", PADL, zeroY, plotW, flowTop + flowH - zeroY);             // red, below zero
 
   // readouts
   const nowFlow = lastFinite(flow);
