@@ -94,8 +94,16 @@ package: same operators, same causal semantics, same numerics. Its outputs are
 verified against the Python package's outputs, and batch and streaming calls on the
 same data give identical results.
 
+## Live demo
+
+Watch the smoothing operators run on a live exchange trade feed in the browser:
+[screamer-labs.github.io/screamer/live-trades.html](https://screamer-labs.github.io/screamer/live-trades.html).
+The self-contained source is [`examples/live-trades.html`](examples/live-trades.html).
+
 ## Learn more
 
-Full documentation, the function reference, and example notebooks are at
+The JavaScript reference and guide are at
+[screamer-labs.github.io/screamer](https://screamer-labs.github.io/screamer/). Full documentation,
+the function reference, and example notebooks are at
 [screamer.readthedocs.io](https://screamer.readthedocs.io/en/latest/). Source and
 issues live at [github.com/screamer-labs/screamer](https://github.com/screamer-labs/screamer).

@@ -6,6 +6,7 @@
   "readme": "docs-guide/index.md",
   "projectDocuments": [
     "docs-guide/getting-started.md",
+    "docs-guide/live-demo.md",
     "docs-guide/regimes.md",
     "docs-guide/lifecycle.md",
     "docs-guide/pipeline.md",
@@ -15,6 +16,7 @@
   "excludeExternals": true,
   "categorizeByGroup": true,
   "navigationLinks": {
+    "Live demo": "https://screamer-labs.github.io/screamer/live-trades.html",
     "Python docs": "https://screamer.readthedocs.io/",
     "GitHub": "https://github.com/screamer-labs/screamer"
   }

@@ -37,4 +37,5 @@ RollingMean(3)(new Float64Array([1, 2, 3, 4])); // Float64Array [NaN, NaN, 2, 3]
 ```
 
 Start with [Getting started](./getting-started.md) for the async load step and your first
-`Pipeline`.
+`Pipeline`, or watch the operators run on a live trade feed in the
+[Live demo](./live-demo.md).
