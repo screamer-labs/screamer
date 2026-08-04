@@ -25,6 +25,21 @@ await ready();
 const op = RollingMean(3);
 ```
 
+## Node, bundlers, and the browser
+
+The import above works in Node (18+) and through any bundler (Vite, Next.js, webpack,
+esbuild), which inlines the embedded-WASM module. In a plain browser with no build step,
+import from a CDN URL instead (browser use needs 2.2.1 or newer):
+
+```html
+<script type="module">
+  import { ready, RollingMean }
+    from "https://cdn.jsdelivr.net/npm/@screamer-labs/screamer@2.2.1/dist/index.js";
+  await ready();
+  const sma = RollingMean(3);
+</script>
+```
+
 ## Calling an op: four input regimes
 
 An op factory like `RollingMean(3)` returns a callable. That callable dispatches on its

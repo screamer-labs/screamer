@@ -9,6 +9,10 @@ npm i @screamer-labs/screamer
 The package ships one self-contained WASM module. There is no separate `.wasm` asset to fetch
 and no build step on the consumer side.
 
+The examples below use a bare import, which resolves under Node or a bundler. To load screamer in
+the browser (through a bundler or straight from a CDN with no build step), see
+[Node, bundlers, and the browser](./environments.md).
+
 ## Load the module once
 
 screamer.js compiles to WebAssembly, and WebAssembly modules instantiate asynchronously

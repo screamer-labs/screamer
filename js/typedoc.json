@@ -6,6 +6,7 @@
   "readme": "docs-guide/index.md",
   "projectDocuments": [
     "docs-guide/getting-started.md",
+    "docs-guide/environments.md",
     "docs-guide/live-demo.md",
     "docs-guide/regimes.md",
     "docs-guide/lifecycle.md",
