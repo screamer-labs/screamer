@@ -4,48 +4,49 @@ title: Live demo
 
 # Live demo
 
-**[Open the live demo](https://screamer-labs.github.io/screamer/live-trades.html)** to watch
-screamer smoothing operators run on a live crypto trade feed in your browser.
+**[Open the live demo](https://screamer-labs.github.io/screamer/live-trades.html)** to read a live
+crypto tape with screamer, in your browser.
 
-The page connects to a public exchange WebSocket (Coinbase or Binance, no API key), keeps a
-fixed window of the most recent trades, and pushes each incoming trade through four operators as
-it arrives. It plots the raw price with an EWMA (span 12), a slower EWMA (span 40), a 30-trade
-simple moving average, and an Ehlers SuperSmoother, updating on every trade.
+Live trades are noisy. The demo connects to a public exchange feed (Coinbase or Binance, no API
+key) and turns the raw prints into three things a trader actually wants:
 
-## What it shows
+- **A low-lag price.** `RollingPoly1(window, 0)` is the endpoint of a rolling linear fit. It tracks
+  price with far less lag than a moving average, so it de-noises the tape without falling behind.
+- **A volume-weighted fair value.** A VWMA built from `RollingSum(price * size) / RollingSum(size)`
+  shows where the volume actually traded, not just where the last print landed.
+- **Order-flow pressure.** An EW-smoothed, normalized signed-volume imbalance shows whether buyers
+  are lifting offers or sellers are hitting bids right now. It is a leading read on short-term
+  direction (drawn as a green/red strip under the price), not a trade signal.
 
-Each operator is called one trade at a time, scalar in and scalar out:
+Each operator is fed one trade at a time as it arrives:
 
 ```js
-import { ready, EwMean, RollingMean, SuperSmoother } from "@screamer-labs/screamer";
+import { ready, RollingPoly1, RollingSum, EwMean } from "@screamer-labs/screamer";
 
 await ready();
 
-const fast = EwMean(undefined, 12);   // EWMA, span 12
-const slow = EwMean(undefined, 40);   // EWMA, span 40
-const sma  = RollingMean(30);         // simple moving average, 30 trades
-const ss   = SuperSmoother(30);       // Ehlers SuperSmoother, period 30
+const lowLag  = RollingPoly1(30, 0);                    // low-lag price
+const sumPV   = RollingSum(50), sumV = RollingSum(50);  // volume-weighted fair value
+const flowNet = EwMean(undefined, 50), flowAbs = EwMean(undefined, 50); // order-flow pressure
 
-// on each trade from the feed:
-function onTrade(price) {
-  const a = fast(price);
-  const b = slow(price);
-  const c = sma(price);   // NaN until the 30-trade window fills
-  const d = ss(price);
-  // ...plot a, b, c, d against the raw price
+// sign: +1 when a buyer lifted the offer, -1 when a seller hit the bid
+function onTrade(price, size, sign) {
+  const denoised = lowLag(price);
+  const fair     = sumPV(price * size) / sumV(size);
+  const pressure = flowNet(sign * size) / flowAbs(size);   // in [-1, 1], positive = buyers leaning
+  // ...draw denoised and fair over the trades, pressure as a green/red strip
 }
 ```
 
-These are the same operators, with the same numerics, you would call on a stored array. Feeding
-them a live stream one value at a time and feeding them a historical array in one pass produce
-identical results, so a strategy tested on history runs unchanged on the live feed. See
-[Parity with Python](./parity.md) and the four input regimes in
-[Getting started](./getting-started.md).
+The same operators run just as well on a stored array as on this live feed, so a study done on
+history carries over to production unchanged. See [Getting started](./getting-started.md) for the
+input regimes and [Node, bundlers, and the browser](./environments.md) for how to load screamer in
+each environment.
 
 ## Running it yourself
 
 The demo is a single self-contained HTML file at
 [`js/examples/live-trades.html`](https://github.com/screamer-labs/screamer/blob/main/js/examples/live-trades.html).
 It loads screamer from a CDN, so it needs internet access for both the module and the trade feed.
-If the chart stays empty, the default exchange may be restricted in your region; switch the feed
-selector to the other exchange.
+If the chart stays empty, the selected market may be restricted in your region; switch markets in
+the demo.
