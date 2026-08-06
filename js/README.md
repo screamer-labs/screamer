@@ -111,9 +111,9 @@ same data give identical results.
 
 ## Live demo
 
-Watch the smoothing operators run on a live exchange trade feed in the browser:
+Watch the live trade dashboard in the browser:
 [screamer-labs.github.io/screamer/live-trades.html](https://screamer-labs.github.io/screamer/live-trades.html).
-The self-contained source is [`examples/live-trades.html`](examples/live-trades.html).
+It shows low-lag price, volume-weighted fair value, order-flow pressure, and an optional VPIN view. The self-contained source is [`examples/live-trades.html`](examples/live-trades.html).
 
 ## Learn more
 
