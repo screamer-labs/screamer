@@ -22,6 +22,9 @@ The **view** control switches the x-axis between a trade-count clock and a volum
 volume clock each bar is a fixed slice of traded volume, so a burst of micro-trades collapses into
 a couple of bars instead of stretching across the chart.
 
+The **signal** control switches the lower panel between the existing order-flow pressure view and
+VPIN. VPIN uses 0.5 BTC volume buckets and reports how one-sided the recent signed flow has been.
+
 Each operator is fed one trade at a time as it arrives:
 
 ```js

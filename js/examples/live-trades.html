@@ -88,12 +88,18 @@
         <option value="vol:20">volume clock · coarse</option>
       </select>
     </span>
+    <span><label>signal</label>
+      <select id="signal">
+        <option value="flow" selected>order-flow pressure</option>
+        <option value="vpin">VPIN · 0.5 BTC buckets</option>
+      </select>
+    </span>
     <button id="pause">Pause</button>
     <button id="reset">Reset</button>
     <span class="grow"></span>
     <span class="pill"><span id="dot" class="dot"></span><span id="status">starting…</span></span>
     <span class="pill">price <b id="last" class="mono">—</b></span>
-    <span class="pill" id="bias">flow <b id="biastxt">—</b></span>
+    <span class="pill" id="bias"><span id="signalLabel">flow</span> <b id="biastxt">—</b></span>
     <span class="pill"><b id="rate">0</b>&nbsp;trades/s</span>
   </div>
 
@@ -106,7 +112,7 @@
     <span class="lg"><span class="sw" style="background:var(--lowlag)"></span><span class="nm">low-lag price</span> <span class="vl" id="v_lowlag">—</span></span>
     <span class="lg"><span class="sw" style="background:var(--fair)"></span><span class="nm">fair value (volume-weighted)</span> <span class="vl" id="v_fair">—</span></span>
     <span class="lg"><span class="sw" style="background:var(--raw)"></span><span class="nm">trades</span></span>
-    <span class="lg"><span class="sw sq" style="background:var(--buy)"></span><span class="sw sq" style="background:var(--sell)"></span><span class="nm">order-flow pressure (buy / sell)</span></span>
+    <span class="lg"><span class="sw sq" style="background:var(--buy)"></span><span class="sw sq" style="background:var(--sell)"></span><span class="nm" id="signalLegend">order-flow pressure (buy / sell)</span></span>
   </div>
 
   <footer>
@@ -162,6 +168,7 @@ try {
 // Rebuilt on reset / market change so state starts clean.
 // ---------------------------------------------------------------------------
 const POLY_WIN = 30, VWMA_WIN = 50, FLOW_SPAN = 50;
+const VPIN_BUCKET = 0.5, VPIN_BUCKETS = 20;
 let ops;
 function buildOps() {
   ops = {
@@ -170,12 +177,14 @@ function buildOps() {
     sumV:  S.RollingSum(VWMA_WIN),
     ewS:   S.EwMean(undefined, FLOW_SPAN),
     ewA:   S.EwMean(undefined, FLOW_SPAN),
+    vpin:  S.VPIN(VPIN_BUCKET, VPIN_BUCKETS),
   };
 }
 function disposeOps() { if (ops) for (const k in ops) ops[k].dispose(); }
 
 let N = 240;                 // samples shown
-let prices = [], lowlag = [], fair = [], flow = [];
+let prices = [], lowlag = [], fair = [], flow = [], vpin = [];
+let vpinLatest = NaN, signalName = "flow";
 let paused = false, dirty = true;
 const arrivals = [];
 
@@ -187,8 +196,8 @@ let bucket = null, avgSize = 0;
 
 function reset() {
   disposeOps(); buildOps();
-  prices = []; lowlag = []; fair = []; flow = [];
-  bucket = null; avgSize = 0;
+  prices = []; lowlag = []; fair = []; flow = []; vpin = [];
+  vpinLatest = NaN; bucket = null; avgSize = 0;
   arrivals.length = 0; dirty = true;
 }
 buildOps();
@@ -197,6 +206,8 @@ function onTrade(price, size, sign) {
   arrivals.push(performance.now());              // trades/sec always counts raw trades
   document.getElementById("last").textContent = fmt(price);
   avgSize = avgSize > 0 ? avgSize * 0.99 + size * 0.01 : size;   // slow EWMA, burst-resistant
+  const buy = sign > 0 ? size : 0, sell = sign < 0 ? size : 0;
+  vpinLatest = ops.vpin(buy, sell);
 
   if (clock.mode === "count") { addSample(price, size, sign * size); return; }
 
@@ -219,8 +230,8 @@ function addSample(price, size, signedVol) {
   const sv = ops.ewS(signedVol), av = ops.ewA(size);
   const of = av > 0 ? Math.max(-1, Math.min(1, sv / av)) : 0;
 
-  prices.push(price); lowlag.push(ll); fair.push(vw); flow.push(of);
-  while (prices.length > N) { prices.shift(); lowlag.shift(); fair.shift(); flow.shift(); }
+  prices.push(price); lowlag.push(ll); fair.push(vw); flow.push(of); vpin.push(vpinLatest);
+  while (prices.length > N) { prices.shift(); lowlag.shift(); fair.shift(); flow.shift(); vpin.shift(); }
   dirty = true;
 }
 
@@ -356,21 +367,30 @@ function render() {
   line(lowlag, "#f5a623", 1.9, 1, X, Yp);
   ctx.restore();
 
-  // order-flow strip: zero line, green fill above, red fill below
-  ctx.strokeStyle = "#2c333d"; ctx.beginPath(); ctx.moveTo(PADL, zeroY); ctx.lineTo(PADL + plotW, zeroY); ctx.stroke();
-  ctx.fillStyle = "#8b949e"; ctx.textAlign = "left";
-  ctx.fillText("order flow", PADL + 2, flowTop + 10);
-  fillFlow(flow, X, Yf, zeroY, "#3fb950", PADL, flowTop, plotW, zeroY - flowTop);                   // green, above zero
-  fillFlow(flow, X, Yf, zeroY, "#f85149", PADL, zeroY, plotW, flowTop + flowH - zeroY);             // red, below zero
-
-  // readouts
-  const nowFlow = lastFinite(flow);
+  // The lower panel can show either the existing order-flow read or VPIN.
+  const nowFlow = lastFinite(flow), nowVpin = lastFinite(vpin);
   document.getElementById("v_lowlag").textContent = fmt(lastFinite(lowlag));
   document.getElementById("v_fair").textContent = fmt(lastFinite(fair));
   const pill = document.getElementById("bias"), txt = document.getElementById("biastxt");
-  if (Number.isFinite(nowFlow) && nowFlow > 0.05) { pill.className = "pill buy"; txt.textContent = "buyers " + Math.round(nowFlow * 100) + "%"; }
-  else if (Number.isFinite(nowFlow) && nowFlow < -0.05) { pill.className = "pill sell"; txt.textContent = "sellers " + Math.round(-nowFlow * 100) + "%"; }
-  else { pill.className = "pill"; txt.textContent = "balanced"; }
+  document.getElementById("signalLabel").textContent = signalName === "vpin" ? "VPIN" : "flow";
+  document.getElementById("signalLegend").textContent = signalName === "vpin" ? "VPIN (0–1, higher = more one-sided)" : "order-flow pressure (buy / sell)";
+  if (signalName === "vpin") {
+    const Yv = (v) => flowTop + (1 - v) * flowH;
+    ctx.strokeStyle = "#2c333d"; ctx.beginPath(); ctx.moveTo(PADL, Yv(0.5)); ctx.lineTo(PADL + plotW, Yv(0.5)); ctx.stroke();
+    ctx.fillStyle = "#8b949e"; ctx.textAlign = "left"; ctx.fillText("VPIN", PADL + 2, flowTop + 10);
+    ctx.font = "11px ui-monospace, Menlo, monospace"; ctx.fillText("1.00", PADL + plotW + 8, flowTop + 3); ctx.fillText("0.00", PADL + plotW + 8, flowTop + flowH + 3);
+    line(vpin, "#d29922", 1.8, 1, X, Yv);
+    pill.className = "pill"; txt.textContent = Number.isFinite(nowVpin) ? nowVpin.toFixed(2) : "warming up";
+  } else {
+    // order-flow strip: zero line, green fill above, red fill below
+    ctx.strokeStyle = "#2c333d"; ctx.beginPath(); ctx.moveTo(PADL, zeroY); ctx.lineTo(PADL + plotW, zeroY); ctx.stroke();
+    ctx.fillStyle = "#8b949e"; ctx.textAlign = "left"; ctx.fillText("order flow", PADL + 2, flowTop + 10);
+    fillFlow(flow, X, Yf, zeroY, "#3fb950", PADL, flowTop, plotW, zeroY - flowTop);
+    fillFlow(flow, X, Yf, zeroY, "#f85149", PADL, zeroY, plotW, flowTop + flowH - zeroY);
+    if (Number.isFinite(nowFlow) && nowFlow > 0.05) { pill.className = "pill buy"; txt.textContent = "buyers " + Math.round(nowFlow * 100) + "%"; }
+    else if (Number.isFinite(nowFlow) && nowFlow < -0.05) { pill.className = "pill sell"; txt.textContent = "sellers " + Math.round(-nowFlow * 100) + "%"; }
+    else { pill.className = "pill"; txt.textContent = "balanced"; }
+  }
 }
 
 function line(arr, color, w, alpha, X, Yp) {
@@ -399,13 +419,14 @@ function fillFlow(arr, X, Yf, zeroY, color, cx, cy, cw, ch) {
 
 // ---------------------------------------------------------------------------
 document.getElementById("source").addEventListener("change", (e) => switchFeed(e.target.value));
+document.getElementById("signal").addEventListener("change", (e) => { signalName = e.target.value; dirty = true; });
 document.getElementById("window").addEventListener("change", (e) => {
   const [t, n] = e.target.value.split(":");
   const next = t === "vol" ? { mode: "volume", factor: +n, N: 240 } : { mode: "count", factor: 0, N: +n };
   const sameMode = next.mode === clock.mode && next.factor === clock.factor;
   clock = { mode: next.mode, factor: next.factor }; N = next.N;
   if (sameMode) {
-    while (prices.length > N) { prices.shift(); lowlag.shift(); fair.shift(); flow.shift(); }
+    while (prices.length > N) { prices.shift(); lowlag.shift(); fair.shift(); flow.shift(); vpin.shift(); }
     dirty = true;
   } else reset();  // clock type changed: the samples mean something different, start clean
 });
