@@ -117,6 +117,9 @@ It shows low-lag price, volume-weighted fair value, order-flow pressure, and an 
 
 ## Learn more
 
+The live dashboard includes a local/UTC time selector and replays a bounded recent-trade buffer
+when its view or signal changes.
+
 The JavaScript reference and guide are at
 [screamer-labs.github.io/screamer](https://screamer-labs.github.io/screamer/). Full documentation,
 the function reference, and example notebooks are at

@@ -25,6 +25,10 @@ a couple of bars instead of stretching across the chart.
 The **signal** control switches the lower panel between the existing order-flow pressure view and
 VPIN. VPIN uses 0.5 BTC volume buckets and reports how one-sided the recent signed flow has been.
 
+The **time** control formats the x-axis in local time or UTC. The chart uses the exchange timestamp
+when the feed provides one, and the browser receive time otherwise. A bounded browser buffer keeps
+recent raw trades, so changing the view or signal replays the history instead of starting empty.
+
 Each operator is fed one trade at a time as it arrives:
 
 ```js
