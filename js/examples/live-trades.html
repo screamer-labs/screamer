@@ -402,14 +402,26 @@ function updateTimeInfo() {
   document.getElementById("timeInfo").textContent = kind + " · " + zoneLabel();
   document.getElementById("historyInfo").textContent = tradeBuffer.size + " buffered";
 }
+// A round tick step (ms) that puts roughly five gridlines across the visible
+// span, so labels land on whole seconds / minutes / hours.
+function niceTimeStep(span) {
+  const steps = [1e3, 2e3, 5e3, 1e4, 15e3, 3e4, 6e4, 12e4, 3e5, 6e5, 9e5, 18e5, 36e5, 72e5, 216e5, 432e5, 864e5];
+  const target = span / 5;
+  for (const s of steps) if (s >= target) return s;
+  return steps[steps.length - 1];
+}
 function drawTimeAxis(scale, plotW) {
   ctx.strokeStyle = "#232a33"; ctx.fillStyle = "#8b949e";
   ctx.font = "11px ui-monospace, Menlo, monospace"; ctx.textAlign = "center";
   if (scale) {
-    for (let k = 0; k <= 3; k++) {
-      const ratio = k / 3, x = PADL + ratio * plotW;
+    // Gridlines are anchored to whole clock times and placed by the same
+    // time -> x mapping as the price line, so each fixed instant scrolls left as
+    // the window slides and drops off the left while new ticks enter on the right.
+    const step = niceTimeStep(scale.span), last = scale.first + scale.span;
+    for (let t = Math.ceil(scale.first / step) * step; t <= last; t += step) {
+      const x = PADL + (t - scale.first) / scale.span * plotW;
       ctx.beginPath(); ctx.moveTo(x, PADT); ctx.lineTo(x, cssH - PADB + 2); ctx.stroke();
-      ctx.fillText(formatTime(scale.first + ratio * scale.span, scale.span), x, cssH - 4);
+      ctx.fillText(formatTime(t, scale.span), x, cssH - 4);
     }
     ctx.textAlign = "left"; ctx.fillText("trade time · " + zoneLabel(), PADL, cssH - 19);
   } else {
