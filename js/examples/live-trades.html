@@ -10,7 +10,7 @@
     --fg: #e6edf3; --muted: #8b949e;
     --raw: #6e7681;
     --lowlag: #f5a623; --fair: #58a6ff;
-    --buy: #3fb950; --sell: #f85149;
+    --buy: #3fb950; --sell: #f85149; --ind: #d29922;
     --live: #3fb950; --warn: #d29922; --dead: #f85149;
   }
   * { box-sizing: border-box; }
@@ -25,11 +25,11 @@
   h1 .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; color: #58a6ff; }
   .bar { display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: center; padding: 6px 20px 12px; }
   .bar label { color: var(--muted); font-size: 12px; margin-right: 5px; }
-  select, button {
+  select, button.btn {
     background: var(--panel); color: var(--fg); border: 1px solid var(--line);
     border-radius: 6px; padding: 5px 9px; font-size: 12.5px; cursor: pointer;
   }
-  button:hover, select:hover { border-color: #3d4653; }
+  select:hover, button.btn:hover { border-color: #3d4653; }
   .pill {
     display: inline-flex; align-items: center; gap: 7px;
     background: var(--panel); border: 1px solid var(--line);
@@ -44,7 +44,27 @@
   #bias.buy  { color: var(--buy); border-color: rgba(63,185,80,.4); }
   #bias.sell { color: var(--sell); border-color: rgba(248,81,73,.4); }
   .grow { flex: 1; }
-  #wrap { flex: 1; padding: 0 12px 4px; min-height: 320px; position: relative; }
+
+  #app { flex: 1; display: flex; min-height: 0; }
+  #sidebar {
+    width: 216px; flex: none; overflow-y: auto;
+    border-right: 1px solid var(--line); padding: 8px 8px 16px;
+  }
+  #sidebar .grp {
+    color: var(--muted); font-size: 10.5px; text-transform: uppercase; letter-spacing: .5px;
+    margin: 12px 6px 3px;
+  }
+  #sidebar .grp:first-child { margin-top: 2px; }
+  button.ind {
+    display: block; width: 100%; text-align: left; background: transparent;
+    border: 1px solid transparent; border-radius: 6px; padding: 5px 9px;
+    font-size: 12.5px; color: var(--fg); cursor: pointer;
+  }
+  button.ind:hover { background: var(--panel); }
+  button.ind.active { background: var(--panel); border-color: #3d4653; color: #fff; }
+
+  #chartcol { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+  #wrap { flex: 1; padding: 0 12px 4px; min-height: 300px; position: relative; }
   canvas { width: 100%; height: 100%; display: block; }
   #overlay {
     position: absolute; inset: 0; display: none; align-items: center; justify-content: center;
@@ -52,12 +72,19 @@
   }
   #overlay .box { max-width: 460px; }
   #overlay code { color: #f0883e; font-family: ui-monospace, Menlo, monospace; }
-  .legend { display: flex; flex-wrap: wrap; gap: 8px 18px; padding: 8px 20px 4px; }
+  .legend { display: flex; flex-wrap: wrap; gap: 8px 18px; padding: 8px 20px 12px; }
   .lg { display: inline-flex; align-items: center; gap: 7px; font-size: 12.5px; }
   .sw { width: 22px; height: 3px; border-radius: 2px; }
   .sw.sq { width: 11px; height: 11px; border-radius: 2px; }
   .lg .nm { color: var(--muted); }
   .lg .vl { font-family: ui-monospace, Menlo, monospace; }
+
+  /* Desktop shows the left column; mobile hides it and shows the dropdown. */
+  .mobileonly { display: none; }
+  @media (max-width: 760px) {
+    #sidebar { display: none; }
+    .mobileonly { display: inline-flex; align-items: center; }
+  }
 </style>
 </head>
 <body>
@@ -65,51 +92,54 @@
     <h1><span class="mono">screamer.js</span> &nbsp;·&nbsp; reading the live tape</h1>
   </header>
 
-  <div class="bar">
-    <span><label>market</label>
-      <select id="source">
-        <option value="coinbase">Coinbase · BTC-USD</option>
-        <option value="binance">Binance · BTC/USDT</option>
-      </select>
-    </span>
-    <span><label>view</label>
-      <select id="window">
-        <option value="count:240" selected>240 trades</option>
-        <option value="count:480">480 trades</option>
-        <option value="vol:6">volume clock · fine</option>
-        <option value="vol:20">volume clock · coarse</option>
-      </select>
-    </span>
-    <span><label>signal</label>
-      <select id="signal">
-        <option value="flow" selected>order-flow pressure</option>
-        <option value="vpin">VPIN · 0.5 BTC buckets</option>
-      </select>
-    </span>
-    <span><label>time</label>
-      <select id="timezone">
-        <option value="local" selected>local</option>
-        <option value="UTC">UTC</option>
-      </select>
-    </span>
-    <span class="grow"></span>
-    <span class="pill"><span id="dot" class="dot"></span><span id="status">starting…</span></span>
-    <span class="pill">price <b id="last" class="mono">—</b></span>
-    <span class="pill" id="bias"><span id="signalLabel">flow</span> <b id="biastxt">—</b></span>
-    <span class="pill"><b id="rate">0</b>&nbsp;trades/s</span>
-    <span class="pill"><span id="timeInfo">time —</span>&nbsp;·&nbsp;<span id="historyInfo">history 0</span></span>
-  </div>
+  <div id="app">
+    <aside id="sidebar"></aside>
 
-  <div id="wrap">
-    <canvas id="chart"></canvas>
-    <div id="overlay"><div class="box"></div></div>
-  </div>
+    <div id="chartcol">
+      <div class="bar">
+        <span><label>market</label>
+          <select id="source">
+            <option value="coinbase">Coinbase · BTC-USD</option>
+            <option value="binance">Binance · BTC/USDT</option>
+          </select>
+        </span>
+        <span><label>view</label>
+          <select id="window">
+            <option value="count:240" selected>240 trades</option>
+            <option value="count:480">480 trades</option>
+            <option value="vol:6">volume clock · fine</option>
+            <option value="vol:20">volume clock · coarse</option>
+          </select>
+        </span>
+        <span class="mobileonly"><label>indicator</label>
+          <select id="signal"></select>
+        </span>
+        <span><label>time</label>
+          <select id="timezone">
+            <option value="local" selected>local</option>
+            <option value="UTC">UTC</option>
+          </select>
+        </span>
+        <span class="grow"></span>
+        <span class="pill"><span id="dot" class="dot"></span><span id="status">starting…</span></span>
+        <span class="pill">price <b id="last" class="mono">—</b></span>
+        <span class="pill" id="bias"><span id="signalLabel">flow</span> <b id="biastxt">—</b></span>
+        <span class="pill"><b id="rate">0</b>&nbsp;trades/s</span>
+        <span class="pill"><span id="timeInfo">time —</span>&nbsp;·&nbsp;<span id="historyInfo">history 0</span></span>
+      </div>
 
-  <div class="legend">
-    <span class="lg"><span class="sw" style="background:var(--lowlag)"></span><span class="nm">low-lag price</span> <span class="vl" id="v_lowlag">—</span></span>
-    <span class="lg"><span class="sw" style="background:var(--fair)"></span><span class="nm">fair value (volume-weighted)</span> <span class="vl" id="v_fair">—</span></span>
-    <span class="lg"><span class="sw" style="background:var(--raw)"></span><span class="nm">trades</span></span>
-    <span class="lg"><span class="sw sq" style="background:var(--buy)"></span><span class="sw sq" style="background:var(--sell)"></span><span class="nm" id="signalLegend">order-flow pressure (buy / sell)</span></span>
+      <div id="wrap">
+        <canvas id="chart"></canvas>
+        <div id="overlay"><div class="box"></div></div>
+      </div>
+
+      <div class="legend">
+        <span class="lg"><span class="sw" style="background:var(--lowlag)"></span><span class="nm">low-lag price</span> <span class="vl" id="v_lowlag">—</span></span>
+        <span class="lg"><span class="sw" style="background:var(--fair)"></span><span class="nm">fair value (volume-weighted)</span> <span class="vl" id="v_fair">—</span></span>
+        <span class="lg"><span class="sw" style="background:var(--raw)"></span><span class="nm">trades</span></span>
+        <span class="lg" id="indLegend"></span>
+      </div>
+    </div>
   </div>
 
 <script type="module">
@@ -120,8 +150,8 @@
 // ---------------------------------------------------------------------------
 const SOURCES = [
   new URL("./vendor/screamer/index.js", import.meta.url).href,                 // same-origin (docs site)
-  "https://cdn.jsdelivr.net/npm/@screamer-labs/screamer@2.2.1/dist/index.js",  // raw published ESM
-  "https://esm.sh/@screamer-labs/screamer@2.2.1",                             // transformed fallback
+  "https://cdn.jsdelivr.net/npm/@screamer-labs/screamer@2.3.0/dist/index.js",  // raw published ESM
+  "https://esm.sh/@screamer-labs/screamer@2.3.0",                             // transformed fallback
 ];
 async function loadScreamer() {
   const errs = [];
@@ -152,69 +182,96 @@ try {
 }
 
 // ---------------------------------------------------------------------------
-// The signals, all screamer operators fed one trade at a time:
-//   low-lag price   RollingPoly1(win, 0)      endpoint of a rolling linear fit
-//   fair value      RollingSum(pv)/RollingSum(v)   volume-weighted price (VWMA)
-//   order flow      EwMean(signed vol) / EwMean(|vol|)  buy-vs-sell pressure in [-1,1]
-// Rebuilt from the browser buffer when the view changes so the chart keeps its history.
+// The price panel always shows the raw trades, a low-lag price (RollingPoly1
+// endpoint) and a volume-weighted fair value (VWMA). The lower panel shows one
+// selectable indicator, defined in the registry below. Each indicator is a
+// screamer op (or small composition) fed one sample at a time; `feed` receives
+// { price, size, signed, buy, sell } where signed = aggressor sign * size.
 // ---------------------------------------------------------------------------
-const POLY_WIN = 30, VWMA_WIN = 50, FLOW_SPAN = 50;
-const VPIN_BUCKET = 0.5, VPIN_BUCKETS = 20;
-const BUFFER_CAPACITY = 5000;
-let ops;
-function buildOps() {
-  ops = {
-    poly:  S.RollingPoly1(POLY_WIN, 0),
-    sumPV: S.RollingSum(VWMA_WIN),
-    sumV:  S.RollingSum(VWMA_WIN),
-    ewS:   S.EwMean(undefined, FLOW_SPAN),
-    ewA:   S.EwMean(undefined, FLOW_SPAN),
-    vpin:  S.VPIN(VPIN_BUCKET, VPIN_BUCKETS),
-  };
-}
-function disposeOps() { if (ops) for (const k in ops) ops[k].dispose(); }
+const POLY_WIN = 30, VWMA_WIN = 50, FLOW_SPAN = 50, BUFFER_CAPACITY = 5000;
+
+// helpers to keep the registry terse
+const price  = (mk) => ({ make: () => ({ op: mk() }), feed: (o, s) => o.op(s.price) });
+const signed = (mk) => ({ make: () => ({ op: mk() }), feed: (o, s) => o.op(s.signed) });
+
+const INDICATORS = [
+  // --- Order flow & volume ---------------------------------------------------
+  { id: "flow", group: "Order flow & volume", label: "Order-flow pressure", short: "flow", style: "flow",
+    make: () => ({ eS: S.EwMean(undefined, FLOW_SPAN), eA: S.EwMean(undefined, FLOW_SPAN) }),
+    feed: (o, s) => { const sv = o.eS(s.signed), av = o.eA(s.size); return av > 0 ? Math.max(-1, Math.min(1, sv / av)) : 0; } },
+  { id: "vpin", group: "Order flow & volume", label: "VPIN · 0.5 BTC buckets", short: "VPIN", fixed: [0, 1], refs: [0.5],
+    make: () => ({ op: S.VPIN(0.5, 20) }), feed: (o, s) => o.op(s.buy, s.sell) },
+  { id: "cvd", group: "Order flow & volume", label: "Cumulative volume delta", short: "CVD", refs: [0], ...signed(() => S.CumSum()) },
+  { id: "imbalance", group: "Order flow & volume", label: "Trade imbalance", short: "imbal", fixed: [-1, 1], refs: [0],
+    make: () => ({ sumS: S.RollingSum(60), sumA: S.RollingSum(60) }),
+    feed: (o, s) => { const a = o.sumA(s.size); return a > 0 ? Math.max(-1, Math.min(1, o.sumS(s.signed) / a)) : 0; } },
+  { id: "bvc", group: "Order flow & volume", label: "Bulk-volume classifier", short: "BVC", ...price(() => S.BulkVolumeClassifier(30)) },
+
+  // --- Momentum --------------------------------------------------------------
+  { id: "rsi", group: "Momentum", label: "RSI", short: "RSI", fixed: [0, 100], refs: [30, 70], ...price(() => S.RollingRSI(14)) },
+  { id: "roc", group: "Momentum", label: "Rate of change", short: "ROC", refs: [0], ...price(() => S.ROC(20)) },
+  { id: "momentum", group: "Momentum", label: "Momentum", short: "mom", refs: [0], ...price(() => S.Momentum(20)) },
+  { id: "trix", group: "Momentum", label: "TRIX", short: "TRIX", refs: [0], ...price(() => S.TRIX(20)) },
+  { id: "zscore", group: "Momentum", label: "Rolling z-score", short: "z", refs: [0], ...price(() => S.RollingZscore(50)) },
+
+  // --- Trend -----------------------------------------------------------------
+  { id: "slope", group: "Trend", label: "Low-lag slope", short: "slope", refs: [0], ...price(() => S.RollingPoly1(30, 1)) },
+  { id: "detrend", group: "Trend", label: "Detrended price", short: "detr", refs: [0], ...price(() => S.Detrend(40)) },
+  { id: "trendmode", group: "Trend", label: "Ehlers trend-mode", short: "trend?", fixed: [-0.1, 1.1], refs: [0.5], ...price(() => S.TrendMode()) },
+  { id: "fracdiff", group: "Trend", label: "Fractional difference", short: "fracΔ", refs: [0], ...price(() => S.FracDiff(0.4, 100)) },
+  { id: "instrend", group: "Trend", label: "Instantaneous-trend gap", short: "IT gap", refs: [0],
+    make: () => ({ op: S.InstantaneousTrendline() }), feed: (o, s) => s.price - o.op(s.price) },
+
+  // --- Volatility ------------------------------------------------------------
+  { id: "std", group: "Volatility", label: "Rolling volatility", short: "σ", ...price(() => S.RollingStd(30)) },
+  { id: "range", group: "Volatility", label: "Rolling range", short: "range", ...price(() => S.RollingRange(30)) },
+  { id: "absret", group: "Volatility", label: "Abs log-return", short: "|ret|",
+    make: () => ({ op: S.LogReturn(1) }), feed: (o, s) => Math.abs(o.op(s.price)) },
+
+  // --- Cycle (Ehlers) --------------------------------------------------------
+  { id: "domcycle", group: "Cycle (Ehlers)", label: "Dominant cycle period", short: "cycle", ...price(() => S.DominantCycle()) },
+  { id: "cycleamp", group: "Cycle (Ehlers)", label: "Cycle amplitude", short: "amp", ...price(() => S.CycleAmplitude()) },
+  { id: "cyclephase", group: "Cycle (Ehlers)", label: "Cycle phase", short: "phase", refs: [0], ...price(() => S.CyclePhase()) },
+  { id: "cyclefreq", group: "Cycle (Ehlers)", label: "Cycle frequency", short: "freq", ...price(() => S.CycleFrequency()) },
+];
+const INDICATOR_BY_ID = Object.fromEntries(INDICATORS.map((d) => [d.id, d]));
+let indDefId = "flow";
+const indDef = () => INDICATOR_BY_ID[indDefId] || INDICATORS[0];
+
+let priceOps, indState;
+function buildPriceOps() { priceOps = { poly: S.RollingPoly1(POLY_WIN, 0), sumPV: S.RollingSum(VWMA_WIN), sumV: S.RollingSum(VWMA_WIN) }; }
+function disposePriceOps() { if (priceOps) for (const k in priceOps) priceOps[k].dispose(); }
+function buildIndicator() { indState = indDef().make(); }
+function disposeIndicator() { if (indState) for (const k in indState) indState[k].dispose(); indState = null; }
 
 class TradeBuffer {
-  constructor(capacity) {
-    this.capacity = capacity;
-    this.items = new Array(capacity);
-    this.start = 0;
-    this._size = 0;
-  }
+  constructor(capacity) { this.capacity = capacity; this.items = new Array(capacity); this.start = 0; this._size = 0; }
   get size() { return this._size; }
   clear() { this.items.fill(undefined); this.start = 0; this._size = 0; }
   push(value) {
-    if (this._size < this.capacity) {
-      this.items[(this.start + this._size) % this.capacity] = value;
-      this._size += 1;
-    } else {
-      this.items[this.start] = value;
-      this.start = (this.start + 1) % this.capacity;
-    }
+    if (this._size < this.capacity) { this.items[(this.start + this._size) % this.capacity] = value; this._size += 1; }
+    else { this.items[this.start] = value; this.start = (this.start + 1) % this.capacity; }
   }
-  forEach(fn) {
-    for (let i = 0; i < this._size; i++) fn(this.items[(this.start + i) % this.capacity]);
-  }
+  forEach(fn) { for (let i = 0; i < this._size; i++) fn(this.items[(this.start + i) % this.capacity]); }
 }
 
 const tradeBuffer = new TradeBuffer(BUFFER_CAPACITY);
 let N = 240;                 // samples shown
-let prices = [], lowlag = [], fair = [], flow = [], vpin = [], times = [];
-let vpinLatest = NaN, signalName = "flow";
+let prices = [], lowlag = [], fair = [], ind = [], times = [];
 let lastTrade = null, timeZone = "local";
 let dirty = true;
 const arrivals = [];
 
 // The clock decides what one plotted sample is: a single trade (count clock), or
-// a fixed slice of volume (volume clock). A volume clock collapses a burst of
-// micro-trades into a few bars instead of a long stretch of near-flat prints.
+// a fixed slice of volume (volume clock).
 let clock = { mode: "count", factor: 0 };
 let bucket = null, avgSize = 0;
 
 function resetOperators() {
-  disposeOps(); buildOps();
-  prices = []; lowlag = []; fair = []; flow = []; vpin = []; times = [];
-  vpinLatest = NaN; bucket = null; avgSize = 0;
+  disposePriceOps(); buildPriceOps();
+  disposeIndicator(); buildIndicator();
+  prices = []; lowlag = []; fair = []; ind = []; times = [];
+  bucket = null; avgSize = 0;
 }
 function reset() {
   tradeBuffer.clear(); resetOperators();
@@ -227,52 +284,42 @@ function rebuildFromBuffer() {
   tradeBuffer.forEach((trade) => processTrade(trade, false));
   dirty = true; updateTimeInfo();
 }
-
 resetOperators();
 
-function tradeTimestamp(trade) {
-  return Number.isFinite(trade.exchangeTs) ? trade.exchangeTs : trade.receivedTs;
-}
+function tradeTimestamp(trade) { return Number.isFinite(trade.exchangeTs) ? trade.exchangeTs : trade.receivedTs; }
+
 function processTrade(trade, remember) {
-  if (remember) {
-    tradeBuffer.push(trade);
-    arrivals.push(performance.now());            // trades/sec counts raw trades
-  }
+  if (remember) { tradeBuffer.push(trade); arrivals.push(performance.now()); }
   lastTrade = trade;
   document.getElementById("last").textContent = fmt(trade.price);
   const { price, size, sign } = trade;
   avgSize = avgSize > 0 ? avgSize * 0.99 + size * 0.01 : size;   // slow EWMA, burst-resistant
-  const buy = sign > 0 ? size : 0, sell = sign < 0 ? size : 0;
-  vpinLatest = ops.vpin(buy, sell);
   const ts = tradeTimestamp(trade);
 
-  if (clock.mode === "count") { addSample(price, size, sign * size, ts); return; }
-
-  // Volume clock: accumulate into a bucket until it holds a target slice of
-  // volume, then emit one bar (its VWAP, its volume, its net signed flow).
-  if (!bucket) bucket = { vol: 0, signed: 0, pv: 0, ts: NaN };
+  if (clock.mode === "count") {
+    addSample({ price, size, signed: sign * size, buy: sign > 0 ? size : 0, sell: sign < 0 ? size : 0, ts });
+    return;
+  }
+  // Volume clock: accumulate into a bucket until it holds a target slice of volume.
+  if (!bucket) bucket = { vol: 0, signed: 0, pv: 0, buy: 0, sell: 0, ts: NaN };
   bucket.vol += size; bucket.signed += sign * size; bucket.pv += price * size;
+  bucket.buy += sign > 0 ? size : 0; bucket.sell += sign < 0 ? size : 0;
   if (Number.isFinite(ts)) bucket.ts = ts;
   if (bucket.vol >= avgSize * clock.factor) {
-    addSample(bucket.pv / bucket.vol, bucket.vol, bucket.signed, bucket.ts);
+    addSample({ price: bucket.pv / bucket.vol, size: bucket.vol, signed: bucket.signed, buy: bucket.buy, sell: bucket.sell, ts: bucket.ts });
     bucket = null;
   }
 }
 function onTrade(trade) { processTrade(trade, true); }
 
-// One plotted sample, fed through the operators. `signedVol` is net signed
-// volume (sign*size for a single trade, the bucket's net for a volume bar).
-function addSample(price, size, signedVol, ts) {
-  const ll = ops.poly(price);
-  const pv = ops.sumPV(price * size), v = ops.sumV(size);
+function addSample(s) {
+  const ll = priceOps.poly(s.price);
+  const pv = priceOps.sumPV(s.price * s.size), v = priceOps.sumV(s.size);
   const vw = v > 0 ? pv / v : NaN;
-  const sv = ops.ewS(signedVol), av = ops.ewA(size);
-  const of = av > 0 ? Math.max(-1, Math.min(1, sv / av)) : 0;
+  const val = indDef().feed(indState, s);
 
-  prices.push(price); lowlag.push(ll); fair.push(vw); flow.push(of); vpin.push(vpinLatest); times.push(ts);
-  while (prices.length > N) {
-    prices.shift(); lowlag.shift(); fair.shift(); flow.shift(); vpin.shift(); times.shift();
-  }
+  prices.push(s.price); lowlag.push(ll); fair.push(vw); ind.push(val); times.push(s.ts);
+  while (prices.length > N) { prices.shift(); lowlag.shift(); fair.shift(); ind.shift(); times.shift(); }
   dirty = true;
 }
 
@@ -294,14 +341,11 @@ const FEEDS = {
   coinbase: {
     label: "Coinbase BTC-USD",
     url: "wss://ws-feed.exchange.coinbase.com",
-    onopen: (ws) => ws.send(JSON.stringify({
-      type: "subscribe", product_ids: ["BTC-USD"], channels: ["matches"],
-    })),
+    onopen: (ws) => ws.send(JSON.stringify({ type: "subscribe", product_ids: ["BTC-USD"], channels: ["matches"] })),
     parse: (m) => {
       if (m.type !== "match" && m.type !== "last_match") return null;
       const price = parseFloat(m.price), size = parseFloat(m.size);
       if (!Number.isFinite(price) || !Number.isFinite(size)) return null;
-      // Coinbase `side` is the resting (maker) side; the aggressor is the opposite.
       return { price, size, sign: m.side === "sell" ? 1 : -1, exchangeTs: parseTimestamp(m.time) };
     },
   },
@@ -313,7 +357,6 @@ const FEEDS = {
       if (m.e !== "trade") return null;
       const price = parseFloat(m.p), size = parseFloat(m.q);
       if (!Number.isFinite(price) || !Number.isFinite(size)) return null;
-      // m.m = buyer is the maker, so the seller is the aggressor.
       return { price, size, sign: m.m ? -1 : 1, exchangeTs: parseTimestamp(m.T) };
     },
   },
@@ -345,9 +388,36 @@ function scheduleReconnect() { retry = Math.min(retry + 1, 6); reconnectTimer = 
 function switchFeed(next) { source = next; if (ws) { ws.onclose = null; try { ws.close(); } catch {} ws = null; } reset(); connect(); }
 
 // ---------------------------------------------------------------------------
-// Rendering: a price panel (raw trades, low-lag price, fair value) over a slim
-// order-flow strip (buy pressure green above zero, sell pressure red below).
-// The price axis is scaled from the raw trades only.
+// Indicator picker: a left column on desktop, a dropdown on mobile. Both are
+// built from the same registry and drive the same selection.
+// ---------------------------------------------------------------------------
+function buildPicker() {
+  const sidebar = document.getElementById("sidebar"), dd = document.getElementById("signal");
+  let group = "", optgroup = null;
+  for (const def of INDICATORS) {
+    if (def.group !== group) {
+      group = def.group;
+      const h = document.createElement("div"); h.className = "grp"; h.textContent = group; sidebar.appendChild(h);
+      optgroup = document.createElement("optgroup"); optgroup.label = group; dd.appendChild(optgroup);
+    }
+    const b = document.createElement("button");
+    b.className = "ind"; b.dataset.id = def.id; b.textContent = def.label;
+    b.addEventListener("click", () => switchIndicator(def.id));
+    sidebar.appendChild(b);
+    const o = document.createElement("option"); o.value = def.id; o.textContent = def.label; optgroup.appendChild(o);
+  }
+  dd.addEventListener("change", (e) => switchIndicator(e.target.value));
+  syncPicker();
+}
+function syncPicker() {
+  document.querySelectorAll("#sidebar button.ind").forEach((b) => b.classList.toggle("active", b.dataset.id === indDefId));
+  document.getElementById("signal").value = indDefId;
+}
+function switchIndicator(id) { if (!INDICATOR_BY_ID[id]) return; indDefId = id; syncPicker(); rebuildFromBuffer(); }
+
+// ---------------------------------------------------------------------------
+// Rendering: a price panel (raw trades, low-lag price, fair value) over the
+// selected indicator. The price axis is scaled from the trades only.
 // ---------------------------------------------------------------------------
 const canvas = document.getElementById("chart");
 const ctx = canvas.getContext("2d");
@@ -364,16 +434,16 @@ window.addEventListener("resize", resize);
 
 const PADL = 12, PADR = 74, PADT = 12, PADB = 34;
 
-function fmt(v) {
-  return Number.isFinite(v) ? v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "—";
+function fmt(v) { return Number.isFinite(v) ? v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "—"; }
+function fmtTick(v) {
+  if (!Number.isFinite(v)) return "—";
+  const a = Math.abs(v), d = a >= 1000 ? 0 : a >= 1 ? 2 : a >= 0.01 ? 4 : 6;
+  return v.toFixed(d);
 }
 function lastFinite(a) { for (let i = a.length - 1; i >= 0; i--) if (Number.isFinite(a[i])) return a[i]; return NaN; }
 const localTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || "local";
 let cachedTimeFormatter = null, cachedTimeKey = "";
-function zoneLabel() {
-  if (timeZone === "UTC") return "UTC";
-  return localTimeZone;
-}
+function zoneLabel() { return timeZone === "UTC" ? "UTC" : localTimeZone; }
 function formatTime(ts, span) {
   if (!Number.isFinite(ts)) return "—";
   const dateKey = span >= 86400000 ? "date" : "time";
@@ -391,9 +461,7 @@ function formatTime(ts, span) {
 }
 function timeScale(values) {
   if (values.length < 2 || !Number.isFinite(values[0])) return null;
-  for (let i = 1; i < values.length; i++) {
-    if (!Number.isFinite(values[i]) || values[i] < values[i - 1]) return null;
-  }
+  for (let i = 1; i < values.length; i++) if (!Number.isFinite(values[i]) || values[i] < values[i - 1]) return null;
   const span = values[values.length - 1] - values[0];
   return span > 0 ? { first: values[0], span } : null;
 }
@@ -402,8 +470,6 @@ function updateTimeInfo() {
   document.getElementById("timeInfo").textContent = kind + " · " + zoneLabel();
   document.getElementById("historyInfo").textContent = tradeBuffer.size + " buffered";
 }
-// A round tick step (ms) that puts roughly five gridlines across the visible
-// span, so labels land on whole seconds / minutes / hours.
 function niceTimeStep(span) {
   const steps = [1e3, 2e3, 5e3, 1e4, 15e3, 3e4, 6e4, 12e4, 3e5, 6e5, 9e5, 18e5, 36e5, 72e5, 216e5, 432e5, 864e5];
   const target = span / 5;
@@ -414,9 +480,6 @@ function drawTimeAxis(scale, plotW) {
   ctx.strokeStyle = "#232a33"; ctx.fillStyle = "#8b949e";
   ctx.font = "11px ui-monospace, Menlo, monospace"; ctx.textAlign = "center";
   if (scale) {
-    // Gridlines are anchored to whole clock times and placed by the same
-    // time -> x mapping as the price line, so each fixed instant scrolls left as
-    // the window slides and drops off the left while new ticks enter on the right.
     const step = niceTimeStep(scale.span), last = scale.first + scale.span;
     for (let t = Math.ceil(scale.first / step) * step; t <= last; t += step) {
       const x = PADL + (t - scale.first) / scale.span * plotW;
@@ -461,8 +524,6 @@ function render() {
   const indexX = (i) => PADL + plotW - (len - 1 - i) * step;
   const X = scale ? (i) => PADL + (times[i] - scale.first) / scale.span * plotW : indexX;
   const Yp = (p) => priceTop + (1 - (p - lo) / (hi - lo)) * priceH;
-  const Yf = (v) => flowTop + (1 - (v + 1) / 2) * flowH;
-  const zeroY = Yf(0);
 
   // price grid + right labels
   ctx.strokeStyle = "#232a33"; ctx.fillStyle = "#8b949e"; ctx.lineWidth = 1;
@@ -480,31 +541,56 @@ function render() {
   line(lowlag, "#f5a623", 1.9, 1, X, Yp);
   ctx.restore();
 
-  // The lower panel can show either the existing order-flow read or VPIN.
-  const nowFlow = lastFinite(flow), nowVpin = lastFinite(vpin);
+  renderIndicator(indDef(), flowTop, flowH, X, plotW);
   document.getElementById("v_lowlag").textContent = fmt(lastFinite(lowlag));
   document.getElementById("v_fair").textContent = fmt(lastFinite(fair));
-  const pill = document.getElementById("bias"), txt = document.getElementById("biastxt");
-  document.getElementById("signalLabel").textContent = signalName === "vpin" ? "VPIN" : "flow";
-  document.getElementById("signalLegend").textContent = signalName === "vpin" ? "VPIN (0–1, higher = more one-sided)" : "order-flow pressure (buy / sell)";
-  if (signalName === "vpin") {
-    const Yv = (v) => flowTop + (1 - v) * flowH;
-    ctx.strokeStyle = "#2c333d"; ctx.beginPath(); ctx.moveTo(PADL, Yv(0.5)); ctx.lineTo(PADL + plotW, Yv(0.5)); ctx.stroke();
-    ctx.fillStyle = "#8b949e"; ctx.textAlign = "left"; ctx.fillText("VPIN", PADL + 2, flowTop + 10);
-    ctx.font = "11px ui-monospace, Menlo, monospace"; ctx.fillText("1.00", PADL + plotW + 8, flowTop + 3); ctx.fillText("0.00", PADL + plotW + 8, flowTop + flowH + 3);
-    line(vpin, "#d29922", 1.8, 1, X, Yv);
-    pill.className = "pill"; txt.textContent = Number.isFinite(nowVpin) ? nowVpin.toFixed(2) : "warming up";
-  } else {
-    // order-flow strip: zero line, green fill above, red fill below
-    ctx.strokeStyle = "#2c333d"; ctx.beginPath(); ctx.moveTo(PADL, zeroY); ctx.lineTo(PADL + plotW, zeroY); ctx.stroke();
-    ctx.fillStyle = "#8b949e"; ctx.textAlign = "left"; ctx.fillText("order flow", PADL + 2, flowTop + 10);
-    fillFlow(flow, X, Yf, zeroY, "#3fb950", PADL, flowTop, plotW, zeroY - flowTop);
-    fillFlow(flow, X, Yf, zeroY, "#f85149", PADL, zeroY, plotW, flowTop + flowH - zeroY);
-    if (Number.isFinite(nowFlow) && nowFlow > 0.05) { pill.className = "pill buy"; txt.textContent = "buyers " + Math.round(nowFlow * 100) + "%"; }
-    else if (Number.isFinite(nowFlow) && nowFlow < -0.05) { pill.className = "pill sell"; txt.textContent = "sellers " + Math.round(-nowFlow * 100) + "%"; }
-    else { pill.className = "pill"; txt.textContent = "balanced"; }
-  }
   drawTimeAxis(scale, plotW);
+}
+
+function renderIndicator(def, flowTop, flowH, X, plotW) {
+  let lo, hi;
+  if (def.fixed) { [lo, hi] = def.fixed; }
+  else {
+    const fin = ind.filter(Number.isFinite);
+    if (fin.length < 1) { lo = -1; hi = 1; }
+    else { lo = Math.min(...fin); hi = Math.max(...fin); if (hi - lo < 1e-9) { hi += 1; lo -= 1; } const p = (hi - lo) * 0.1; lo -= p; hi += p; }
+  }
+  const Yv = (v) => flowTop + (1 - (v - lo) / (hi - lo)) * flowH;
+
+  ctx.fillStyle = "#8b949e"; ctx.textAlign = "left"; ctx.font = "11px ui-monospace, Menlo, monospace";
+  ctx.fillText(def.label, PADL + 2, flowTop + 10);
+  ctx.fillText(fmtTick(hi), PADL + plotW + 8, flowTop + 3);
+  ctx.fillText(fmtTick(lo), PADL + plotW + 8, flowTop + flowH + 3);
+  if (def.refs) for (const r of def.refs) {
+    if (r < lo || r > hi) continue;
+    const y = Yv(r);
+    ctx.strokeStyle = "#2c333d"; ctx.beginPath(); ctx.moveTo(PADL, y); ctx.lineTo(PADL + plotW, y); ctx.stroke();
+    ctx.fillStyle = "#8b949e"; ctx.fillText(fmtTick(r), PADL + plotW + 8, y + 3);
+  }
+
+  const nowVal = lastFinite(ind);
+  if (def.style === "flow") {
+    const zeroY = Yv(0);
+    fillFlow(ind, X, Yv, zeroY, "#3fb950", PADL, flowTop, plotW, zeroY - flowTop);
+    fillFlow(ind, X, Yv, zeroY, "#f85149", PADL, zeroY, plotW, flowTop + flowH - zeroY);
+  } else {
+    line(ind, def.color || "#d29922", 1.8, 1, X, Yv);
+  }
+
+  // header pill + legend
+  const pill = document.getElementById("bias"), txt = document.getElementById("biastxt");
+  document.getElementById("signalLabel").textContent = def.short || def.label;
+  if (def.style === "flow") {
+    if (Number.isFinite(nowVal) && nowVal > 0.05) { pill.className = "pill buy"; txt.textContent = "buyers " + Math.round(nowVal * 100) + "%"; }
+    else if (Number.isFinite(nowVal) && nowVal < -0.05) { pill.className = "pill sell"; txt.textContent = "sellers " + Math.round(-nowVal * 100) + "%"; }
+    else { pill.className = "pill"; txt.textContent = "balanced"; }
+  } else {
+    pill.className = "pill"; txt.textContent = Number.isFinite(nowVal) ? fmtTick(nowVal) : "warming up";
+  }
+  const leg = document.getElementById("indLegend");
+  leg.innerHTML = def.style === "flow"
+    ? '<span class="sw sq" style="background:var(--buy)"></span><span class="sw sq" style="background:var(--sell)"></span><span class="nm">order-flow pressure (buy / sell)</span>'
+    : '<span class="sw" style="background:' + (def.color || "#d29922") + '"></span><span class="nm">' + def.label + '</span>';
 }
 
 function line(arr, color, w, alpha, X, Yp) {
@@ -519,8 +605,8 @@ function line(arr, color, w, alpha, X, Yp) {
   ctx.stroke(); ctx.globalAlpha = 1;
 }
 
-// Fill the area between the flow line and the zero line, clipped to a rectangle
-// so only the above-zero (green) or below-zero (red) part shows.
+// Fill the area between the line and the zero line, clipped so only the
+// above-zero (green) or below-zero (red) part shows.
 function fillFlow(arr, X, Yf, zeroY, color, cx, cy, cw, ch) {
   const len = arr.length; if (len < 2) return;
   ctx.save(); ctx.beginPath(); ctx.rect(cx, cy, cw, ch); ctx.clip();
@@ -533,7 +619,6 @@ function fillFlow(arr, X, Yf, zeroY, color, cx, cy, cw, ch) {
 
 // ---------------------------------------------------------------------------
 document.getElementById("source").addEventListener("change", (e) => switchFeed(e.target.value));
-document.getElementById("signal").addEventListener("change", (e) => { signalName = e.target.value; rebuildFromBuffer(); });
 document.getElementById("timezone").addEventListener("change", (e) => { timeZone = e.target.value; dirty = true; updateTimeInfo(); });
 document.getElementById("window").addEventListener("change", (e) => {
   const [t, n] = e.target.value.split(":");
@@ -542,6 +627,7 @@ document.getElementById("window").addEventListener("change", (e) => {
   rebuildFromBuffer();
 });
 
+buildPicker();
 resize();
 connect();
 requestAnimationFrame(render);

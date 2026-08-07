@@ -22,8 +22,11 @@ The **view** control switches the x-axis between a trade-count clock and a volum
 volume clock each bar is a fixed slice of traded volume, so a burst of micro-trades collapses into
 a couple of bars instead of stretching across the chart.
 
-The **signal** control switches the lower panel between the existing order-flow pressure view and
-VPIN. VPIN uses 0.5 BTC volume buckets and reports how one-sided the recent signed flow has been.
+The **indicator** picker chooses what the lower panel shows, from about twenty screamer operators
+grouped into order flow and volume (order-flow pressure, VPIN, cumulative volume delta, trade
+imbalance), momentum (RSI, rate of change, TRIX, z-score), trend, volatility, and Ehlers cycle
+reads. Each is fed the same one-sample-at-a-time stream. The picker is a left column on a wide
+screen and a dropdown on a narrow one.
 
 The **time** control formats the x-axis in local time or UTC. The chart uses the exchange timestamp
 when the feed provides one, and the browser receive time otherwise. A bounded browser buffer keeps
