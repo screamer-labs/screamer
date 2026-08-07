@@ -23,7 +23,6 @@
   header { padding: 16px 20px 8px; }
   h1 { margin: 0; font-size: 17px; font-weight: 650; letter-spacing: .2px; }
   h1 .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; color: #58a6ff; }
-  .sub { color: var(--muted); font-size: 12.5px; margin-top: 3px; max-width: 760px; }
   .bar { display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: center; padding: 6px 20px 12px; }
   .bar label { color: var(--muted); font-size: 12px; margin-right: 5px; }
   select, button {
@@ -59,18 +58,11 @@
   .sw.sq { width: 11px; height: 11px; border-radius: 2px; }
   .lg .nm { color: var(--muted); }
   .lg .vl { font-family: ui-monospace, Menlo, monospace; }
-  footer { color: var(--muted); font-size: 11.5px; padding: 4px 20px 14px; }
-  footer a { color: #58a6ff; text-decoration: none; }
 </style>
 </head>
 <body>
   <header>
     <h1><span class="mono">screamer.js</span> &nbsp;·&nbsp; reading the live tape</h1>
-    <div class="sub">
-      Live trades are noisy. This reads the tape for you: a low-lag estimate of where price really
-      is, a volume-weighted fair value, and the order-flow pressure showing whether buyers or
-      sellers are leaning on the market right now.
-    </div>
   </header>
 
   <div class="bar">
@@ -100,8 +92,6 @@
         <option value="UTC">UTC</option>
       </select>
     </span>
-    <button id="pause">Pause</button>
-    <button id="reset">Reset</button>
     <span class="grow"></span>
     <span class="pill"><span id="dot" class="dot"></span><span id="status">starting…</span></span>
     <span class="pill">price <b id="last" class="mono">—</b></span>
@@ -121,13 +111,6 @@
     <span class="lg"><span class="sw" style="background:var(--raw)"></span><span class="nm">trades</span></span>
     <span class="lg"><span class="sw sq" style="background:var(--buy)"></span><span class="sw sq" style="background:var(--sell)"></span><span class="nm" id="signalLegend">order-flow pressure (buy / sell)</span></span>
   </div>
-
-  <footer>
-    Powered by <a href="https://www.npmjs.com/package/@screamer-labs/screamer" target="_blank" rel="noopener">@screamer-labs/screamer</a>.
-    Public trade feeds, no API key. Order flow is a leading read on short-term direction, not a
-    trade signal. The chart uses exchange trade time when available and local arrival time otherwise.
-    If a market shows no data it may be geo-restricted, switch markets above.
-  </footer>
 
 <script type="module">
 // ---------------------------------------------------------------------------
@@ -219,7 +202,7 @@ let N = 240;                 // samples shown
 let prices = [], lowlag = [], fair = [], flow = [], vpin = [], times = [];
 let vpinLatest = NaN, signalName = "flow";
 let lastTrade = null, timeZone = "local";
-let paused = false, dirty = true;
+let dirty = true;
 const arrivals = [];
 
 // The clock decides what one plotted sample is: a single trade (count clock), or
@@ -351,7 +334,6 @@ function connect() {
   ws = sock;
   sock.onopen = () => { retry = 0; if (feed.onopen) feed.onopen(sock); setStatus("live", "live · " + feed.label); };
   sock.onmessage = (ev) => {
-    if (paused) return;
     let m; try { m = JSON.parse(ev.data); } catch { return; }
     const t = feed.parse(m);
     if (t) onTrade({ ...t, receivedTs: Date.now() });
@@ -547,8 +529,6 @@ document.getElementById("window").addEventListener("change", (e) => {
   clock = { mode: next.mode, factor: next.factor }; N = next.N;
   rebuildFromBuffer();
 });
-document.getElementById("pause").addEventListener("click", (e) => { paused = !paused; e.target.textContent = paused ? "Resume" : "Pause"; });
-document.getElementById("reset").addEventListener("click", reset);
 
 resize();
 connect();
