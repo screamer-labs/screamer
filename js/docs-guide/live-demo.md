@@ -16,10 +16,11 @@ key) and displays the raw prints alongside derived price, volume, and indicator 
   shows where the volume traded, not just where the last print landed.
 - **Buy- and sell-initiated volume.** The volume pane keeps the aggressor side visible for each
   plotted sample.
-- **One compact monitor-friendly grid.** The market window is followed by one small card for every
-  registered indicator. Each card keeps its own scale and current value, so RSI, VPIN, CVD, and
-  volatility measures can be scanned together without mixing incompatible units on one axis.
-  The grid packs into columns on a desktop and stacks naturally on a phone.
+- **A two-column analyst workspace.** The left side keeps the market, controls, price, status, and
+  rate metrics together. The right side groups every indicator into horizontally scrollable rows by
+  family, with one small card per indicator. Each card keeps its own scale and current value, so
+  RSI, VPIN, CVD, and volatility measures can be scanned together without mixing units. On a phone,
+  the left workspace comes first and the category rows remain horizontally scrollable.
 
 The **view** control switches between a trade-count clock, timestamped 10-second OHLC bars, and a
 volume clock. On a volume clock each bar is a fixed slice of traded volume, so a burst of

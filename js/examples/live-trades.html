@@ -43,16 +43,23 @@
   .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
   .grow { flex: 1; }
 
-  #app { flex: 1; min-height: 0; padding: 0 20px 20px; }
-  #dashboard {
-    display: grid; grid-template-columns: repeat(6, minmax(0, 1fr));
-    grid-auto-rows: minmax(120px, 1fr); gap: 8px; min-height: 650px;
-  }
+  #app { flex: 1; min-height: 0; padding: 0 20px 20px; display: grid; grid-template-columns: minmax(360px, .9fr) minmax(0, 1.5fr); gap: 12px; }
+  #leftColumn { min-width: 0; min-height: 0; display: flex; flex-direction: column; }
+  #leftColumn .bar { padding: 0 0 10px; }
+  #dashboard { min-width: 0; min-height: 0; flex: 1; display: flex; }
+  #indicatorRail { min-width: 0; min-height: 0; overflow-y: auto; overflow-x: hidden; padding-right: 2px; }
+  .category-row { --accent: #8b949e; border-left: 3px solid var(--accent); background: rgba(22,27,34,.55); border-radius: 6px; margin-bottom: 10px; padding: 7px 0 0 9px; }
+  .category-row-head { display: flex; align-items: baseline; gap: 8px; padding: 0 8px 5px 0; }
+  .category-row-head h2 { color: var(--accent); font-size: 11px; letter-spacing: .5px; margin: 0; text-transform: uppercase; }
+  .category-row-head span { color: var(--muted); font-size: 10px; }
+  .category-track { display: flex; gap: 8px; overflow-x: auto; overflow-y: hidden; padding: 0 8px 8px 0; scroll-snap-type: x proximity; }
+  .category-track::-webkit-scrollbar { height: 7px; }
+  .category-track::-webkit-scrollbar-thumb { background: #3d4653; border-radius: 8px; }
   .window {
     background: var(--panel); border: 1px solid var(--line); border-radius: 7px;
     display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: hidden;
   }
-  .window.market { grid-column: span 2; grid-row: span 2; min-height: 250px; }
+  .window.market { flex: 1; min-height: 320px; }
   .window-head {
     display: flex; align-items: center; gap: 8px; padding: 9px 11px 7px;
     border-bottom: 1px solid var(--line); min-height: 48px;
@@ -76,26 +83,30 @@
   .lg .nm { color: var(--muted); }
   .lg .vl { font-family: ui-monospace, Menlo, monospace; }
 
-  .indicator-card { background: var(--panel); border: 1px solid var(--line); border-radius: 7px; display: flex; flex-direction: column; min-width: 0; min-height: 120px; overflow: hidden; }
+  .indicator-card { --accent: #8b949e; flex: 0 0 220px; height: 158px; scroll-snap-align: start; background: var(--panel); border: 1px solid var(--line); border-top: 2px solid var(--accent); border-radius: 7px; display: flex; flex-direction: column; min-width: 0; overflow: hidden; }
   .indicator-card .card-head { display: flex; align-items: center; gap: 6px; padding: 6px 8px 5px; border-bottom: 1px solid var(--line); }
   .indicator-card .card-title { min-width: 0; flex: 1; }
   .indicator-card h3 { margin: 0; font-size: 11px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .indicator-card .card-sub { color: var(--muted); display: block; font-size: 9px; margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .indicator-card .card-sub { color: var(--accent); display: block; font-size: 9px; margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .indicator-card .card-value { font: 600 11px ui-monospace, Menlo, monospace; color: var(--fg); white-space: nowrap; }
   .indicator-card .card-value.buy { color: var(--buy); }
   .indicator-card .card-value.sell { color: var(--sell); }
   .indicator-surface { flex: 1; min-height: 78px; position: relative; padding: 2px 3px 2px; }
   @media (max-width: 1100px) {
-    #dashboard { grid-template-columns: repeat(4, minmax(0, 1fr)); grid-auto-rows: minmax(125px, 1fr); }
+    #app { grid-template-columns: minmax(300px, .85fr) minmax(0, 1.25fr); }
+    .indicator-card { flex-basis: 200px; }
   }
   @media (max-width: 680px) {
     header { padding-left: 12px; padding-right: 12px; }
-    #app { padding: 0 12px 12px; }
-    .bar { padding-left: 12px; padding-right: 12px; }
-    #dashboard { display: flex; flex-direction: column; min-height: 0; }
+    #app { padding: 0 12px 12px; display: flex; flex-direction: column; gap: 10px; }
+    #leftColumn { flex: none; }
+    #leftColumn .bar { padding: 0 0 8px; }
+    #dashboard { flex: none; }
     .window.market { min-height: 330px; }
-    .indicator-card { min-height: 180px; }
-    .indicator-surface { min-height: 130px; }
+    #indicatorRail { overflow: visible; }
+    .category-row { margin-bottom: 8px; }
+    .indicator-card { flex-basis: 190px; height: 150px; }
+    .indicator-surface { min-height: 78px; }
   }
 </style>
 </head>
@@ -104,7 +115,9 @@
     <h1><span class="mono">screamer.js</span> &nbsp;·&nbsp; live market dashboard</h1>
   </header>
 
-  <div class="bar">
+  <main id="app">
+    <section id="leftColumn">
+      <div class="bar">
     <span><label>market</label>
       <select id="source">
         <option value="coinbase">Coinbase · BTC-USD</option>
@@ -132,10 +145,8 @@
     <span class="pill">indicators <b id="indicatorCount">0</b></span>
     <span class="pill"><b id="rate">0</b>&nbsp;trades/s</span>
     <span class="pill"><span id="timeInfo">time —</span>&nbsp;·&nbsp;<span id="historyInfo">history 0</span></span>
-  </div>
-
-  <main id="app">
-    <div id="dashboard">
+      </div>
+      <div id="dashboard">
       <section class="window market">
         <div class="window-head">
           <div class="title"><span class="kicker">market overview</span><h2 id="marketTitle">BTC-USD · 10-second OHLC</h2><span class="sub">price, low-lag estimate, fair value and aggressor volume</span></div>
@@ -149,7 +160,9 @@
         </div>
       </section>
 
-    </div>
+      </div>
+    </section>
+    <aside id="indicatorRail" aria-label="Screamer indicators by category"></aside>
   </main>
 
 <script type="module">
@@ -648,11 +661,35 @@ function renderIndicatorPanels() {
 }
 
 function buildIndicatorGrid() {
-  const grid = document.getElementById("dashboard");
+  const rail = document.getElementById("indicatorRail");
+  rail.replaceChildren();
   indicatorCanvases.clear();
+  const rows = new Map();
+  const accents = {
+    "Order flow & volume": "#58a6ff",
+    "Momentum": "#d29922",
+    "Trend": "#3fb950",
+    "Volatility": "#f85149",
+    "Cycle (Ehlers)": "#bc8cff",
+  };
   indicatorSlots.forEach((slot) => {
     const def = INDICATOR_BY_ID[slot.id], surfaceName = "indicator:" + slot.id;
+    let row = rows.get(def.group);
+    if (!row) {
+      const section = document.createElement("section"); section.className = "category-row";
+      section.style.setProperty("--accent", accents[def.group] || "#8b949e");
+      const heading = document.createElement("div"); heading.className = "category-row-head";
+      const h2 = document.createElement("h2"); h2.textContent = def.group;
+      const count = document.createElement("span"); count.textContent = "indicators";
+      heading.append(h2, count);
+      const track = document.createElement("div"); track.className = "category-track";
+      section.append(heading, track); rail.appendChild(section);
+      row = { section, track, count: 0 }; rows.set(def.group, row);
+    }
+    row.count += 1; row.countEl = row.countEl || row.section.querySelector(".category-row-head span");
+    row.countEl.textContent = row.count + (row.count === 1 ? " indicator" : " indicators");
     const card = document.createElement("section"); card.className = "indicator-card";
+    card.style.setProperty("--accent", accents[def.group] || "#8b949e");
     const head = document.createElement("div"); head.className = "card-head";
     const title = document.createElement("div"); title.className = "card-title";
     const h3 = document.createElement("h3"); h3.textContent = def.label;
@@ -662,7 +699,7 @@ function buildIndicatorGrid() {
     head.append(title, value);
     const surface = document.createElement("div"); surface.className = "indicator-surface";
     const canvas = document.createElement("canvas"); canvas.id = "indicator-chart-" + def.id;
-    surface.appendChild(canvas); card.append(head, surface); grid.appendChild(card);
+    surface.appendChild(canvas); card.append(head, surface); row.track.appendChild(card);
     indicatorCanvases.set(surfaceName, canvas);
   });
   document.getElementById("indicatorCount").textContent = indicatorSlots.length;
