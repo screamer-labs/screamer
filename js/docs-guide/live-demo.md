@@ -32,7 +32,9 @@ their registry family: order flow & volume, momentum, trend, volatility, and Ehl
 
 The **time** control formats the x-axis in local time or UTC. The chart uses the exchange timestamp
 when the feed provides one, and the browser receive time otherwise. A bounded browser buffer keeps
-recent raw trades, so changing the bar clock replays the history instead of starting empty.
+recent raw trades, so changing the bar clock replays the history instead of starting empty. The
+buffer is maintained separately for each market, so switching away and back restores that market's
+recent view without mixing feeds.
 
 Each operator is fed one trade at a time as it arrives:
 

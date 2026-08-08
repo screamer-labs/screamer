@@ -281,7 +281,18 @@ class TradeBuffer {
   forEach(fn) { for (let i = 0; i < this._size; i++) fn(this.items[(this.start + i) % this.capacity]); }
 }
 
-const tradeBuffer = new TradeBuffer(BUFFER_CAPACITY);
+// Keep a separate bounded replay buffer for each market. Switching feeds can
+// therefore restore the most recent view without mixing trades from markets.
+const marketBuffers = new Map();
+function bufferForMarket(market) {
+  let buffer = marketBuffers.get(market);
+  if (!buffer) {
+    buffer = new TradeBuffer(BUFFER_CAPACITY);
+    marketBuffers.set(market, buffer);
+  }
+  return buffer;
+}
+let tradeBuffer = bufferForMarket("coinbase");
 let N = 240;                 // samples shown
 let opens = [], highs = [], lows = [], prices = [], lowlag = [], fair = [], buyVol = [], sellVol = [], times = [];
 let lastTrade = null, timeZone = "local";
@@ -299,14 +310,20 @@ function resetOperators() {
   opens = []; highs = []; lows = []; prices = []; lowlag = []; fair = []; buyVol = []; sellVol = []; times = [];
   bucket = null; avgSize = 0;
 }
-function reset() {
-  tradeBuffer.clear(); resetOperators();
-  arrivals.length = 0; lastTrade = null;
+function resetActiveSeries() {
+  resetOperators();
+  arrivals.length = 0;
+  lastTrade = null;
   document.getElementById("last").textContent = "—";
-  dirty = true; updateTimeInfo();
+  dirty = true;
+  updateTimeInfo();
+}
+function reset() {
+  tradeBuffer.clear();
+  resetActiveSeries();
 }
 function rebuildFromBuffer() {
-  resetOperators(); lastTrade = null;
+  resetActiveSeries();
   tradeBuffer.forEach((trade) => processTrade(trade, false));
   dirty = true; updateTimeInfo();
 }
@@ -451,7 +468,15 @@ function viewLabel() {
 function updateMarketTitle() {
   document.getElementById("marketTitle").textContent = FEEDS[source].label + " · " + viewLabel();
 }
-function switchFeed(next) { source = next; updateMarketTitle(); if (ws) { ws.onclose = null; try { ws.close(); } catch {} ws = null; } reset(); connect(); }
+function switchFeed(next) {
+  if (!FEEDS[next] || next === source) return;
+  if (ws) { ws.onclose = null; try { ws.close(); } catch {} ws = null; }
+  source = next;
+  tradeBuffer = bufferForMarket(source);
+  updateMarketTitle();
+  rebuildFromBuffer();
+  connect();
+}
 
 // ---------------------------------------------------------------------------
 // Rendering: one market canvas plus one compact canvas for every registered
