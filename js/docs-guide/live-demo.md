@@ -16,30 +16,22 @@ key) and displays the raw prints alongside derived price, volume, and indicator 
   shows where the volume traded, not just where the last print landed.
 - **Buy- and sell-initiated volume.** The volume pane keeps the aggressor side visible for each
   plotted sample.
-- **A small dashboard of independent windows.** The main market window shows OHLC, low-lag price,
-  fair value, and aggressor volume. Two indicator windows use the same Screamer registry but keep
-  separate y-axis scales, and a live-tape window keeps the latest prints visible while you change
-  the chart view.
-- **Category scan.** Switch the layout to `category scan` and choose Order flow & volume, Momentum,
-  Trend, Volatility, or Cycle. Every indicator in that family appears as its own small card with
-  its own scale and current value, making it possible to scan a family without mixing incompatible
-  units on one axis.
+- **One compact monitor-friendly grid.** The market window is followed by one small card for every
+  registered indicator. Each card keeps its own scale and current value, so RSI, VPIN, CVD, and
+  volatility measures can be scanned together without mixing incompatible units on one axis.
+  The grid packs into columns on a desktop and stacks naturally on a phone.
 
 The **view** control switches between a trade-count clock, timestamped 10-second OHLC bars, and a
 volume clock. On a volume clock each bar is a fixed slice of traded volume, so a burst of
 micro-trades collapses into a couple of bars instead of stretching across the chart. Time bars use
 the exchange timestamp when available and the browser receive time otherwise.
 
-The **indicator A** picker chooses pane A from about twenty Screamer operators grouped into order
-flow and volume (order-flow pressure, VPIN, cumulative volume delta, trade imbalance), momentum
-(RSI, rate of change, TRIX, z-score), trend, volatility, and Ehlers cycle reads. The **pane B**
-control chooses a second indicator from the same registry. Each is fed the same one-sample-at-a-time
-stream. The selectors live in the window headers, so the layout remains the same on desktop and
-mobile.
+All indicators are fed the same one-sample-at-a-time stream. The indicator cards are grouped by
+their registry family: order flow & volume, momentum, trend, volatility, and Ehlers cycle reads.
 
 The **time** control formats the x-axis in local time or UTC. The chart uses the exchange timestamp
 when the feed provides one, and the browser receive time otherwise. A bounded browser buffer keeps
-recent raw trades, so changing the view or signal replays the history instead of starting empty.
+recent raw trades, so changing the bar clock replays the history instead of starting empty.
 
 Each operator is fed one trade at a time as it arrives:
 

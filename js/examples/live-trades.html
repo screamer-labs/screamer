@@ -41,24 +41,18 @@
   .dot.connecting { background: var(--warn); }
   .dot.dead { background: var(--dead); }
   .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
-  #bias.buy  { color: var(--buy); border-color: rgba(63,185,80,.4); }
-  #bias.sell { color: var(--sell); border-color: rgba(248,81,73,.4); }
   .grow { flex: 1; }
 
   #app { flex: 1; min-height: 0; padding: 0 20px 20px; }
   #dashboard {
-    display: grid; grid-template-columns: minmax(0, 1.75fr) minmax(240px, .85fr) minmax(240px, .85fr);
-    grid-template-rows: minmax(220px, 1fr) minmax(220px, 1fr) minmax(190px, .8fr);
-    gap: 10px; height: 100%; min-height: 650px;
+    display: grid; grid-template-columns: repeat(6, minmax(0, 1fr));
+    grid-auto-rows: minmax(120px, 1fr); gap: 8px; min-height: 650px;
   }
   .window {
     background: var(--panel); border: 1px solid var(--line); border-radius: 7px;
     display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: hidden;
   }
-  .window.market { grid-column: 1 / span 2; grid-row: 1 / span 2; }
-  .window.flow { grid-column: 3; grid-row: 1; }
-  .window.signal { grid-column: 3; grid-row: 2; }
-  .window.tape { grid-column: 1 / span 3; grid-row: 3; }
+  .window.market { grid-column: span 2; grid-row: span 2; min-height: 250px; }
   .window-head {
     display: flex; align-items: center; gap: 8px; padding: 9px 11px 7px;
     border-bottom: 1px solid var(--line); min-height: 48px;
@@ -67,7 +61,6 @@
   .window-head h2 { margin: 0; font-size: 12.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .window-head .sub { display: block; color: var(--muted); font-size: 10.5px; margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .window-head .kicker { color: var(--muted); font-size: 9.5px; letter-spacing: .6px; text-transform: uppercase; }
-  .window-head select { max-width: 155px; }
   .surface { flex: 1; min-height: 0; position: relative; padding: 3px 5px 2px; }
   canvas { width: 100%; height: 100%; display: block; }
   #overlay {
@@ -83,49 +76,26 @@
   .lg .nm { color: var(--muted); }
   .lg .vl { font-family: ui-monospace, Menlo, monospace; }
 
-  .tape-scroll { flex: 1; min-height: 0; overflow: auto; }
-  table.tape-table { width: 100%; border-collapse: collapse; font-size: 11.5px; }
-  .tape-table th { position: sticky; top: 0; background: var(--panel); color: var(--muted); font-size: 10px; font-weight: 500; text-align: right; padding: 5px 10px; border-bottom: 1px solid var(--line); }
-  .tape-table th:first-child, .tape-table td:first-child { text-align: left; }
-  .tape-table td { padding: 5px 10px; text-align: right; border-bottom: 1px solid rgba(35,42,51,.6); font-family: ui-monospace, Menlo, monospace; }
-  .tape-table tr:last-child td { border-bottom: 0; }
-  .tape-table .buy { color: var(--buy); }
-  .tape-table .sell { color: var(--sell); }
-  .empty { color: var(--muted); text-align: center; padding: 30px 10px; }
-  #categoryDashboard { height: 100%; min-height: 650px; }
-  .category-head { display: flex; align-items: baseline; gap: 10px; padding: 2px 2px 10px; }
-  .category-head h2 { margin: 0; font-size: 14px; font-weight: 600; }
-  .category-head p { margin: 0; color: var(--muted); font-size: 11.5px; }
-  #categoryGrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(235px, 1fr)); gap: 10px; }
-  .indicator-card { background: var(--panel); border: 1px solid var(--line); border-radius: 7px; display: flex; flex-direction: column; min-width: 0; min-height: 220px; overflow: hidden; }
-  .indicator-card .card-head { display: flex; align-items: center; gap: 8px; padding: 9px 11px 7px; border-bottom: 1px solid var(--line); }
+  .indicator-card { background: var(--panel); border: 1px solid var(--line); border-radius: 7px; display: flex; flex-direction: column; min-width: 0; min-height: 120px; overflow: hidden; }
+  .indicator-card .card-head { display: flex; align-items: center; gap: 6px; padding: 6px 8px 5px; border-bottom: 1px solid var(--line); }
   .indicator-card .card-title { min-width: 0; flex: 1; }
-  .indicator-card h3 { margin: 0; font-size: 12px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .indicator-card .card-sub { color: var(--muted); display: block; font-size: 10px; margin-top: 1px; }
-  .indicator-card .card-value { font: 600 12px ui-monospace, Menlo, monospace; color: var(--fg); white-space: nowrap; }
+  .indicator-card h3 { margin: 0; font-size: 11px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .indicator-card .card-sub { color: var(--muted); display: block; font-size: 9px; margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .indicator-card .card-value { font: 600 11px ui-monospace, Menlo, monospace; color: var(--fg); white-space: nowrap; }
   .indicator-card .card-value.buy { color: var(--buy); }
   .indicator-card .card-value.sell { color: var(--sell); }
-  .category-surface { flex: 1; min-height: 165px; position: relative; padding: 3px 5px 2px; }
-  @media (max-width: 980px) {
-    #dashboard { grid-template-columns: minmax(0, 1.5fr) minmax(220px, 1fr); grid-template-rows: minmax(320px, 1.4fr) minmax(210px, 1fr) minmax(190px, .9fr); }
-    .window.market { grid-column: 1; grid-row: 1 / span 2; }
-    .window.flow { grid-column: 2; grid-row: 1; }
-    .window.signal { grid-column: 2; grid-row: 2; }
-    .window.tape { grid-column: 1 / span 2; grid-row: 3; }
+  .indicator-surface { flex: 1; min-height: 78px; position: relative; padding: 2px 3px 2px; }
+  @media (max-width: 1100px) {
+    #dashboard { grid-template-columns: repeat(4, minmax(0, 1fr)); grid-auto-rows: minmax(125px, 1fr); }
   }
   @media (max-width: 680px) {
     header { padding-left: 12px; padding-right: 12px; }
     #app { padding: 0 12px 12px; }
     .bar { padding-left: 12px; padding-right: 12px; }
-    #dashboard { display: flex; flex-direction: column; height: auto; min-height: 0; }
-    .window { min-height: 230px; }
-    .window.market { min-height: 390px; }
-    .window.tape { min-height: 260px; }
-    .window-head select { max-width: 135px; }
-    #categoryDashboard { min-height: 0; }
-    .category-head { display: block; padding-bottom: 8px; }
-    .category-head p { margin-top: 2px; }
-    #categoryGrid { grid-template-columns: 1fr; }
+    #dashboard { display: flex; flex-direction: column; min-height: 0; }
+    .window.market { min-height: 330px; }
+    .indicator-card { min-height: 180px; }
+    .indicator-surface { min-height: 130px; }
   }
 </style>
 </head>
@@ -150,15 +120,6 @@
         <option value="vol:20">volume clock · coarse</option>
       </select>
     </span>
-    <span><label>layout</label>
-      <select id="displayMode">
-        <option value="overview" selected>overview</option>
-        <option value="category">category scan</option>
-      </select>
-    </span>
-    <span id="categoryControl" hidden><label>category</label>
-      <select id="category"></select>
-    </span>
     <span><label>time</label>
       <select id="timezone">
         <option value="local" selected>local</option>
@@ -168,7 +129,7 @@
     <span class="grow"></span>
     <span class="pill"><span id="dot" class="dot"></span><span id="status">starting…</span></span>
     <span class="pill">price <b id="last" class="mono">—</b></span>
-    <span class="pill" id="bias"><span id="signalLabel">flow</span> <b id="biastxt">—</b></span>
+    <span class="pill">indicators <b id="indicatorCount">0</b></span>
     <span class="pill"><b id="rate">0</b>&nbsp;trades/s</span>
     <span class="pill"><span id="timeInfo">time —</span>&nbsp;·&nbsp;<span id="historyInfo">history 0</span></span>
   </div>
@@ -188,24 +149,6 @@
         </div>
       </section>
 
-      <section class="window flow">
-        <div class="window-head"><div class="title"><span class="kicker">indicator A</span><h2 id="paneATitle">Order-flow pressure</h2><span class="sub" id="paneASub">Order flow &amp; volume · live samples</span></div><select id="signal" aria-label="Indicator A"></select></div>
-        <div class="surface"><canvas id="chartA"></canvas></div>
-      </section>
-
-      <section class="window signal">
-        <div class="window-head"><div class="title"><span class="kicker">indicator B</span><h2 id="paneBTitle">VPIN</h2><span class="sub" id="paneBSub">Order flow &amp; volume · live samples</span></div><select id="paneB" aria-label="Indicator B"></select></div>
-        <div class="surface"><canvas id="chartB"></canvas></div>
-      </section>
-
-      <section class="window tape">
-        <div class="window-head"><div class="title"><span class="kicker">live tape</span><h2>Recent trades</h2><span class="sub">latest exchange prints; green = buyer-initiated, red = seller-initiated</span></div><span class="pill"><b id="tapeCount">0</b>&nbsp;prints</span></div>
-        <div class="tape-scroll"><table class="tape-table"><thead><tr><th>time</th><th>side</th><th>price</th><th>size</th><th>notional</th></tr></thead><tbody id="tapeRows"><tr><td class="empty" colspan="5">waiting for trades…</td></tr></tbody></table></div>
-      </section>
-    </div>
-    <div id="categoryDashboard" hidden>
-      <div class="category-head"><h2 id="categoryTitle">Order flow &amp; volume</h2><p id="categoryDescription">All indicators in this family, using the same live sample clock.</p></div>
-      <div id="categoryGrid"></div>
     </div>
   </main>
 
@@ -249,8 +192,8 @@ try {
 }
 
 // ---------------------------------------------------------------------------
-// The dashboard shows OHLC prices, volume, a live tape, and synchronized
-// Screamer indicator windows. Each indicator is fed one sample at a time;
+// The dashboard shows OHLC prices, volume, and synchronized Screamer
+// indicator cards. Each indicator is fed one sample at a time;
 // `feed` receives { price, size, signed, buy, sell } where signed is the
 // aggressor sign times size.
 // ---------------------------------------------------------------------------
@@ -301,39 +244,17 @@ const INDICATORS = [
   { id: "cyclefreq", group: "Cycle (Ehlers)", label: "Cycle frequency", short: "freq", ...price(() => S.CycleFrequency()) },
 ];
 const INDICATOR_BY_ID = Object.fromEntries(INDICATORS.map((d) => [d.id, d]));
-const CATEGORY_GROUPS = [...new Set(INDICATORS.map((d) => d.group))];
-const CATEGORY_DESCRIPTIONS = {
-  "Order flow & volume": "Aggressor direction, signed volume, and volume toxicity.",
-  "Momentum": "Rate-of-change and oscillator signals derived from the live price stream.",
-  "Trend": "Low-lag, detrended, and cycle-aware measures of directional movement.",
-  "Volatility": "Rolling dispersion and realised movement measures.",
-  "Cycle (Ehlers)": "Adaptive cycle period, phase, frequency, and amplitude measures.",
-};
-const panelSlots = [
-  { id: "flow", state: null, values: [] },
-  { id: "vpin", state: null, values: [] },
-];
-let indDefId = panelSlots[0].id;
-let categoryId = CATEGORY_GROUPS[0];
-let categorySlots = [];
+let indicatorSlots = [];
 let priceOps;
 function buildPriceOps() { priceOps = { poly: S.RollingPoly1(POLY_WIN, 0), sumPV: S.RollingSum(VWMA_WIN), sumV: S.RollingSum(VWMA_WIN) }; }
 function disposePriceOps() { if (priceOps) for (const k in priceOps) priceOps[k].dispose(); }
 function disposeState(state) { if (state) for (const k in state) state[k].dispose(); }
 function buildIndicatorSlots() {
-  for (const slot of panelSlots) {
-    slot.state = INDICATOR_BY_ID[slot.id].make();
-    slot.values = [];
-  }
-}
-function buildCategorySlots() {
-  categorySlots = INDICATORS.filter((def) => def.group === categoryId)
-    .map((def) => ({ id: def.id, state: def.make(), values: [] }));
+  indicatorSlots = INDICATORS.map((def) => ({ id: def.id, state: def.make(), values: [] }));
 }
 function disposeIndicatorSlots() {
-  for (const slot of panelSlots) { disposeState(slot.state); slot.state = null; slot.values = []; }
-  for (const slot of categorySlots) { disposeState(slot.state); slot.state = null; slot.values = []; }
-  categorySlots = [];
+  for (const slot of indicatorSlots) { disposeState(slot.state); slot.state = null; slot.values = []; }
+  indicatorSlots = [];
 }
 
 class TradeBuffer {
@@ -361,7 +282,7 @@ let bucket = null, avgSize = 0;
 
 function resetOperators() {
   disposePriceOps(); buildPriceOps();
-  disposeIndicatorSlots(); buildIndicatorSlots(); buildCategorySlots();
+  disposeIndicatorSlots(); buildIndicatorSlots();
   opens = []; highs = []; lows = []; prices = []; lowlag = []; fair = []; buyVol = []; sellVol = []; times = [];
   bucket = null; avgSize = 0;
 }
@@ -433,20 +354,16 @@ function addSample(s) {
   const ll = priceOps.poly(s.price);
   const pv = priceOps.sumPV(s.price * s.size), v = priceOps.sumV(s.size);
   const vw = v > 0 ? pv / v : NaN;
-  const values = panelSlots.map((slot) => INDICATOR_BY_ID[slot.id].feed(slot.state, s));
-
   const open = Number.isFinite(s.open) ? s.open : s.price;
   const high = Number.isFinite(s.high) ? s.high : s.price;
   const low = Number.isFinite(s.low) ? s.low : s.price;
   opens.push(open); highs.push(high); lows.push(low);
   prices.push(s.price); lowlag.push(ll); fair.push(vw);
   buyVol.push(s.buy); sellVol.push(s.sell); times.push(s.ts);
-  panelSlots.forEach((slot, i) => slot.values.push(values[i]));
-  categorySlots.forEach((slot) => slot.values.push(INDICATOR_BY_ID[slot.id].feed(slot.state, s)));
+  indicatorSlots.forEach((slot) => slot.values.push(INDICATOR_BY_ID[slot.id].feed(slot.state, s)));
   while (prices.length > N) {
     opens.shift(); highs.shift(); lows.shift(); prices.shift(); lowlag.shift(); fair.shift(); buyVol.shift(); sellVol.shift(); times.shift();
-    panelSlots.forEach((slot) => slot.values.shift());
-    categorySlots.forEach((slot) => slot.values.shift());
+    indicatorSlots.forEach((slot) => slot.values.shift());
   }
   dirty = true;
 }
@@ -524,74 +441,18 @@ function updateMarketTitle() {
 function switchFeed(next) { source = next; updateMarketTitle(); if (ws) { ws.onclose = null; try { ws.close(); } catch {} ws = null; } reset(); connect(); }
 
 // ---------------------------------------------------------------------------
-// Each indicator window is fed from the same registry. The selectors are kept
-// in the window headers so the dashboard stays useful on desktop and mobile.
-// ---------------------------------------------------------------------------
-function buildPicker() {
-  const dd = document.getElementById("signal");
-  const paneB = document.getElementById("paneB");
-  const category = document.getElementById("category");
-  let group = "", optgroup = null, paneGroup = null;
-  for (const def of INDICATORS) {
-    if (def.group !== group) {
-      group = def.group;
-      optgroup = document.createElement("optgroup"); optgroup.label = group; dd.appendChild(optgroup);
-      paneGroup = document.createElement("optgroup"); paneGroup.label = group; paneB.appendChild(paneGroup);
-    }
-    const o = document.createElement("option"); o.value = def.id; o.textContent = def.label; optgroup.appendChild(o);
-    const p = document.createElement("option"); p.value = def.id; p.textContent = def.label; paneGroup.appendChild(p);
-  }
-  CATEGORY_GROUPS.forEach((name) => {
-    const option = document.createElement("option"); option.value = name; option.textContent = name; category.appendChild(option);
-  });
-  dd.addEventListener("change", (e) => switchIndicator(e.target.value));
-  paneB.addEventListener("change", (e) => switchIndicatorSlot(1, e.target.value));
-  category.addEventListener("change", (e) => switchCategory(e.target.value));
-  syncPicker();
-}
-function syncPicker() {
-  document.getElementById("signal").value = indDefId;
-  document.getElementById("paneB").value = panelSlots[1].id;
-  document.getElementById("category").value = categoryId;
-  document.getElementById("paneATitle").textContent = INDICATOR_BY_ID[panelSlots[0].id].label;
-  document.getElementById("paneBTitle").textContent = INDICATOR_BY_ID[panelSlots[1].id].label;
-  document.getElementById("paneASub").textContent = INDICATOR_BY_ID[panelSlots[0].id].group + " · live samples";
-  document.getElementById("paneBSub").textContent = INDICATOR_BY_ID[panelSlots[1].id].group + " · live samples";
-  updateCategoryHeader();
-}
-function switchIndicator(id) { switchIndicatorSlot(0, id); }
-function switchIndicatorSlot(index, id) {
-  if (!panelSlots[index] || !INDICATOR_BY_ID[id]) return;
-  panelSlots[index].id = id;
-  if (index === 0) indDefId = id;
-  syncPicker();
-  rebuildFromBuffer();
-}
-function switchCategory(next) {
-  if (!CATEGORY_GROUPS.includes(next)) return;
-  categoryId = next;
-  syncPicker();
-  rebuildFromBuffer();
-  buildCategoryGrid();
-}
-
-// ---------------------------------------------------------------------------
-// Rendering: each dashboard window has its own canvas and scale. The data is
-// still one synchronized sample stream, so switching a window only rebuilds
-// the selected Screamer operator from the bounded trade buffer.
+// Rendering: one market canvas plus one compact canvas for every registered
+// indicator. All cards share the same sample clock and bounded replay buffer.
 // ---------------------------------------------------------------------------
 const canvases = {
   price: document.getElementById("chartPrice"),
-  A: document.getElementById("chartA"),
-  B: document.getElementById("chartB"),
 };
-const categoryCanvases = new Map();
-let displayMode = "overview";
+const indicatorCanvases = new Map();
 let ctx = null;
 let cssW = 0, cssH = 0, dpr = 1;
 function resize() {
   dpr = window.devicePixelRatio || 1;
-  for (const canvas of [...Object.values(canvases), ...categoryCanvases.values()]) {
+  for (const canvas of [...Object.values(canvases), ...indicatorCanvases.values()]) {
     const r = canvas.getBoundingClientRect();
     canvas.width = Math.max(1, Math.round(r.width * dpr));
     canvas.height = Math.max(1, Math.round(r.height * dpr));
@@ -599,7 +460,7 @@ function resize() {
   dirty = true;
 }
 function useSurface(name) {
-  const canvas = canvases[name] || categoryCanvases.get(name);
+  const canvas = canvases[name] || indicatorCanvases.get(name);
   if (!canvas) throw new Error("Unknown chart surface: " + name);
   const r = canvas.getBoundingClientRect();
   cssW = Math.max(180, r.width); cssH = Math.max(120, r.height);
@@ -679,14 +540,8 @@ function render() {
   if (clock.mode === "time" && bucket && Number.isFinite(bucket.start) && Date.now() >= bucket.start + clock.factor * 1000) flushTimeBucket();
   if (!dirty) return;
   dirty = false;
-  if (displayMode === "overview") {
-    renderPricePanel();
-    renderIndicatorPanel(panelSlots[0], "A");
-    renderIndicatorPanel(panelSlots[1], "B");
-    updateTape();
-  } else {
-    renderCategoryPanels();
-  }
+  renderPricePanel();
+  renderIndicatorPanels();
 }
 
 function sampleX(plotW) {
@@ -744,7 +599,7 @@ function indicatorBounds(def, values) {
   return { lo, hi };
 }
 
-function renderIndicatorChart(slot, surfaceName, updateBias) {
+function renderIndicatorChart(slot, surfaceName) {
   useSurface(surfaceName);
   const plotW = cssW - PADL - PADR, plotH = cssH - PADT - PADB;
   const { X } = sampleX(plotW), def = INDICATOR_BY_ID[slot.id], values = slot.values;
@@ -771,44 +626,10 @@ function renderIndicatorChart(slot, surfaceName, updateBias) {
   } else line(values, def.color || "#d29922", 1.8, 1, X, Yv);
   ctx.restore();
   const nowVal = lastFinite(values);
-  if (updateBias) {
-    const pill = document.getElementById("bias"), txt = document.getElementById("biastxt");
-    document.getElementById("signalLabel").textContent = def.short || def.label;
-    if (def.style === "flow") {
-      if (Number.isFinite(nowVal) && nowVal > 0.05) { pill.className = "pill buy"; txt.textContent = "buyers " + Math.round(nowVal * 100) + "%"; }
-      else if (Number.isFinite(nowVal) && nowVal < -0.05) { pill.className = "pill sell"; txt.textContent = "sellers " + Math.round(-nowVal * 100) + "%"; }
-      else { pill.className = "pill"; txt.textContent = "balanced"; }
-    } else { pill.className = "pill"; txt.textContent = Number.isFinite(nowVal) ? fmtTick(nowVal) : "warming up"; }
-  }
   return nowVal;
 }
 
-function renderIndicatorPanel(slot, label) {
-  renderIndicatorChart(slot, label, label === "A");
-}
-
-function buildCategoryGrid() {
-  const grid = document.getElementById("categoryGrid");
-  grid.replaceChildren();
-  categoryCanvases.clear();
-  categorySlots.forEach((slot) => {
-    const def = INDICATOR_BY_ID[slot.id], surfaceName = "category:" + slot.id;
-    const card = document.createElement("section"); card.className = "indicator-card";
-    const head = document.createElement("div"); head.className = "card-head";
-    const title = document.createElement("div"); title.className = "card-title";
-    const h3 = document.createElement("h3"); h3.textContent = def.label;
-    const sub = document.createElement("span"); sub.className = "card-sub"; sub.textContent = def.group + " · live samples";
-    title.append(h3, sub);
-    const value = document.createElement("span"); value.className = "card-value"; value.id = "category-value-" + def.id; value.textContent = "warming…";
-    head.append(title, value);
-    const surface = document.createElement("div"); surface.className = "category-surface";
-    const canvas = document.createElement("canvas"); canvas.id = "category-chart-" + def.id;
-    surface.appendChild(canvas); card.append(head, surface); grid.appendChild(card);
-    categoryCanvases.set(surfaceName, canvas);
-  });
-}
-
-function categoryValue(def, value) {
+function indicatorValue(def, value) {
   if (!Number.isFinite(value)) return { text: "warming…", className: "" };
   if (def.style === "flow") {
     if (value > 0.05) return { text: "buyers " + Math.round(value * 100) + "%", className: "buy" };
@@ -818,54 +639,33 @@ function categoryValue(def, value) {
   return { text: fmtTick(value), className: "" };
 }
 
-function renderCategoryPanels() {
-  categorySlots.forEach((slot) => {
-    const def = INDICATOR_BY_ID[slot.id], value = renderIndicatorChart(slot, "category:" + slot.id, false);
-    const meta = categoryValue(def, value), valueEl = document.getElementById("category-value-" + slot.id);
+function renderIndicatorPanels() {
+  indicatorSlots.forEach((slot) => {
+    const def = INDICATOR_BY_ID[slot.id], value = renderIndicatorChart(slot, "indicator:" + slot.id);
+    const meta = indicatorValue(def, value), valueEl = document.getElementById("indicator-value-" + slot.id);
     if (valueEl) { valueEl.textContent = meta.text; valueEl.className = "card-value" + (meta.className ? " " + meta.className : ""); }
   });
 }
 
-function updateCategoryHeader() {
-  const description = CATEGORY_DESCRIPTIONS[categoryId] || "All indicators in this family, using the same live sample clock.";
-  document.getElementById("categoryTitle").textContent = categoryId;
-  document.getElementById("categoryDescription").textContent = description;
-}
-
-function setDisplayMode(next) {
-  if (next !== "overview" && next !== "category") return;
-  displayMode = next;
-  document.getElementById("dashboard").hidden = next !== "overview";
-  document.getElementById("categoryDashboard").hidden = next !== "category";
-  document.getElementById("categoryControl").hidden = next !== "category";
-  if (next === "category") {
-    buildCategoryGrid(); resize();
-    document.getElementById("signalLabel").textContent = "category";
-    document.getElementById("biastxt").textContent = categorySlots.length + " indicators";
-    document.getElementById("bias").className = "pill";
-  }
-  dirty = true;
-}
-
-function updateTape() {
-  const rows = document.getElementById("tapeRows");
-  const trades = [];
-  tradeBuffer.forEach((trade) => trades.push(trade));
-  const recent = trades.slice(-14).reverse();
-  document.getElementById("tapeCount").textContent = recent.length;
-  rows.replaceChildren();
-  if (!recent.length) {
-    const tr = document.createElement("tr"), td = document.createElement("td");
-    td.className = "empty"; td.colSpan = 5; td.textContent = "waiting for trades…"; tr.appendChild(td); rows.appendChild(tr); return;
-  }
-  for (const trade of recent) {
-    const side = trade.sign > 0 ? "buy" : "sell", cells = [
-      formatTime(tradeTimestamp(trade), 0), side, fmt(trade.price), fmtTick(trade.size), fmt(trade.price * trade.size),
-    ];
-    const tr = document.createElement("tr");
-    cells.forEach((value, i) => { const td = document.createElement("td"); td.textContent = value; if (i === 1) td.className = side; tr.appendChild(td); });
-    rows.appendChild(tr);
-  }
+function buildIndicatorGrid() {
+  const grid = document.getElementById("dashboard");
+  indicatorCanvases.clear();
+  indicatorSlots.forEach((slot) => {
+    const def = INDICATOR_BY_ID[slot.id], surfaceName = "indicator:" + slot.id;
+    const card = document.createElement("section"); card.className = "indicator-card";
+    const head = document.createElement("div"); head.className = "card-head";
+    const title = document.createElement("div"); title.className = "card-title";
+    const h3 = document.createElement("h3"); h3.textContent = def.label;
+    const sub = document.createElement("span"); sub.className = "card-sub"; sub.textContent = def.group;
+    title.append(h3, sub);
+    const value = document.createElement("span"); value.className = "card-value"; value.id = "indicator-value-" + def.id; value.textContent = "warming…";
+    head.append(title, value);
+    const surface = document.createElement("div"); surface.className = "indicator-surface";
+    const canvas = document.createElement("canvas"); canvas.id = "indicator-chart-" + def.id;
+    surface.appendChild(canvas); card.append(head, surface); grid.appendChild(card);
+    indicatorCanvases.set(surfaceName, canvas);
+  });
+  document.getElementById("indicatorCount").textContent = indicatorSlots.length;
 }
 
 function renderOHLC(X, Yp, plotW) {
@@ -926,7 +726,6 @@ function fillFlow(arr, X, Yf, zeroY, color, cx, cy, cw, ch) {
 // ---------------------------------------------------------------------------
 document.getElementById("source").addEventListener("change", (e) => switchFeed(e.target.value));
 document.getElementById("timezone").addEventListener("change", (e) => { timeZone = e.target.value; dirty = true; updateTimeInfo(); });
-document.getElementById("displayMode").addEventListener("change", (e) => setDisplayMode(e.target.value));
 document.getElementById("window").addEventListener("change", (e) => {
   const [t, n] = e.target.value.split(":");
   const next = t === "vol" ? { mode: "volume", factor: +n, N: 240 }
@@ -937,8 +736,7 @@ document.getElementById("window").addEventListener("change", (e) => {
   rebuildFromBuffer();
 });
 
-buildPicker();
-buildCategoryGrid();
+buildIndicatorGrid();
 updateMarketTitle();
 resize();
 connect();
