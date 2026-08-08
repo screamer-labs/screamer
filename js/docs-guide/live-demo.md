@@ -20,6 +20,10 @@ key) and displays the raw prints alongside derived price, volume, and indicator 
   fair value, and aggressor volume. Two indicator windows use the same Screamer registry but keep
   separate y-axis scales, and a live-tape window keeps the latest prints visible while you change
   the chart view.
+- **Category scan.** Switch the layout to `category scan` and choose Order flow & volume, Momentum,
+  Trend, Volatility, or Cycle. Every indicator in that family appears as its own small card with
+  its own scale and current value, making it possible to scan a family without mixing incompatible
+  units on one axis.
 
 The **view** control switches between a trade-count clock, timestamped 10-second OHLC bars, and a
 volume clock. On a volume clock each bar is a fixed slice of traded volume, so a burst of
