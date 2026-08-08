@@ -64,7 +64,7 @@
   button.ind.active { background: var(--panel); border-color: #3d4653; color: #fff; }
 
   #chartcol { flex: 1; display: flex; flex-direction: column; min-width: 0; }
-  #wrap { flex: 1; padding: 0 12px 4px; min-height: 300px; position: relative; }
+  #wrap { flex: 1; padding: 0 12px 4px; min-height: 480px; position: relative; }
   canvas { width: 100%; height: 100%; display: block; }
   #overlay {
     position: absolute; inset: 0; display: none; align-items: center; justify-content: center;
@@ -105,11 +105,15 @@
         </span>
         <span><label>view</label>
           <select id="window">
-            <option value="count:240" selected>240 trades</option>
+            <option value="count:240">240 trades</option>
             <option value="count:480">480 trades</option>
+            <option value="time:10" selected>10-second bars</option>
             <option value="vol:6">volume clock · fine</option>
             <option value="vol:20">volume clock · coarse</option>
           </select>
+        </span>
+        <span><label>pane B</label>
+          <select id="paneB" aria-label="Second indicator pane"></select>
         </span>
         <span class="mobileonly"><label>indicator</label>
           <select id="signal"></select>
@@ -136,8 +140,10 @@
       <div class="legend">
         <span class="lg"><span class="sw" style="background:var(--lowlag)"></span><span class="nm">low-lag price</span> <span class="vl" id="v_lowlag">—</span></span>
         <span class="lg"><span class="sw" style="background:var(--fair)"></span><span class="nm">fair value (volume-weighted)</span> <span class="vl" id="v_fair">—</span></span>
-        <span class="lg"><span class="sw" style="background:var(--raw)"></span><span class="nm">trades</span></span>
-        <span class="lg" id="indLegend"></span>
+        <span class="lg"><span class="sw" style="background:var(--raw)"></span><span class="nm">close / trades</span></span>
+        <span class="lg"><span class="sw sq" style="background:var(--buy)"></span><span class="sw sq" style="background:var(--sell)"></span><span class="nm">volume (buy / sell)</span></span>
+        <span class="lg" id="indLegendA"></span>
+        <span class="lg" id="indLegendB"></span>
       </div>
     </div>
   </div>
@@ -182,11 +188,10 @@ try {
 }
 
 // ---------------------------------------------------------------------------
-// The price panel always shows the raw trades, a low-lag price (RollingPoly1
-// endpoint) and a volume-weighted fair value (VWMA). The lower panel shows one
-// selectable indicator, defined in the registry below. Each indicator is a
-// screamer op (or small composition) fed one sample at a time; `feed` receives
-// { price, size, signed, buy, sell } where signed = aggressor sign * size.
+// The dashboard shows OHLC prices, volume, and two synchronized indicator panes.
+// Each indicator is a screamer op (or small composition) fed one sample at a
+// time; `feed` receives { price, size, signed, buy, sell } where signed is the
+// aggressor sign times size.
 // ---------------------------------------------------------------------------
 const POLY_WIN = 30, VWMA_WIN = 50, FLOW_SPAN = 50, BUFFER_CAPACITY = 5000;
 
@@ -235,14 +240,24 @@ const INDICATORS = [
   { id: "cyclefreq", group: "Cycle (Ehlers)", label: "Cycle frequency", short: "freq", ...price(() => S.CycleFrequency()) },
 ];
 const INDICATOR_BY_ID = Object.fromEntries(INDICATORS.map((d) => [d.id, d]));
-let indDefId = "flow";
-const indDef = () => INDICATOR_BY_ID[indDefId] || INDICATORS[0];
-
-let priceOps, indState;
+const panelSlots = [
+  { id: "flow", state: null, values: [] },
+  { id: "vpin", state: null, values: [] },
+];
+let indDefId = panelSlots[0].id;
+let priceOps;
 function buildPriceOps() { priceOps = { poly: S.RollingPoly1(POLY_WIN, 0), sumPV: S.RollingSum(VWMA_WIN), sumV: S.RollingSum(VWMA_WIN) }; }
 function disposePriceOps() { if (priceOps) for (const k in priceOps) priceOps[k].dispose(); }
-function buildIndicator() { indState = indDef().make(); }
-function disposeIndicator() { if (indState) for (const k in indState) indState[k].dispose(); indState = null; }
+function disposeState(state) { if (state) for (const k in state) state[k].dispose(); }
+function buildIndicatorSlots() {
+  for (const slot of panelSlots) {
+    slot.state = INDICATOR_BY_ID[slot.id].make();
+    slot.values = [];
+  }
+}
+function disposeIndicatorSlots() {
+  for (const slot of panelSlots) { disposeState(slot.state); slot.state = null; slot.values = []; }
+}
 
 class TradeBuffer {
   constructor(capacity) { this.capacity = capacity; this.items = new Array(capacity); this.start = 0; this._size = 0; }
@@ -257,20 +272,20 @@ class TradeBuffer {
 
 const tradeBuffer = new TradeBuffer(BUFFER_CAPACITY);
 let N = 240;                 // samples shown
-let prices = [], lowlag = [], fair = [], ind = [], times = [];
+let opens = [], highs = [], lows = [], prices = [], lowlag = [], fair = [], buyVol = [], sellVol = [], times = [];
 let lastTrade = null, timeZone = "local";
 let dirty = true;
 const arrivals = [];
 
-// The clock decides what one plotted sample is: a single trade (count clock), or
-// a fixed slice of volume (volume clock).
-let clock = { mode: "count", factor: 0 };
+// The clock decides what one plotted sample is: a trade, a timestamped bar, or
+// a fixed slice of volume.
+let clock = { mode: "time", factor: 10 };
 let bucket = null, avgSize = 0;
 
 function resetOperators() {
   disposePriceOps(); buildPriceOps();
-  disposeIndicator(); buildIndicator();
-  prices = []; lowlag = []; fair = []; ind = []; times = [];
+  disposeIndicatorSlots(); buildIndicatorSlots();
+  opens = []; highs = []; lows = []; prices = []; lowlag = []; fair = []; buyVol = []; sellVol = []; times = [];
   bucket = null; avgSize = 0;
 }
 function reset() {
@@ -288,6 +303,15 @@ resetOperators();
 
 function tradeTimestamp(trade) { return Number.isFinite(trade.exchangeTs) ? trade.exchangeTs : trade.receivedTs; }
 
+function flushTimeBucket() {
+  if (!bucket || bucket.vol <= 0) return;
+  addSample({
+    price: bucket.close, open: bucket.open, high: bucket.high, low: bucket.low,
+    size: bucket.vol, signed: bucket.signed, buy: bucket.buy, sell: bucket.sell, ts: bucket.ts,
+  });
+  bucket = null;
+}
+
 function processTrade(trade, remember) {
   if (remember) { tradeBuffer.push(trade); arrivals.push(performance.now()); }
   lastTrade = trade;
@@ -297,16 +321,32 @@ function processTrade(trade, remember) {
   const ts = tradeTimestamp(trade);
 
   if (clock.mode === "count") {
-    addSample({ price, size, signed: sign * size, buy: sign > 0 ? size : 0, sell: sign < 0 ? size : 0, ts });
+    addSample({ price, open: price, high: price, low: price, size, signed: sign * size, buy: sign > 0 ? size : 0, sell: sign < 0 ? size : 0, ts });
     return;
   }
+
+  if (clock.mode === "time") {
+    const span = clock.factor * 1000;
+    const start = Number.isFinite(ts) ? Math.floor(ts / span) * span : NaN;
+    if (!bucket || bucket.start !== start) {
+      flushTimeBucket();
+      bucket = { start, open: price, high: price, low: price, close: price, vol: 0, signed: 0, buy: 0, sell: 0, ts };
+    }
+    bucket.high = Math.max(bucket.high, price); bucket.low = Math.min(bucket.low, price); bucket.close = price;
+    bucket.vol += size; bucket.signed += sign * size;
+    bucket.buy += sign > 0 ? size : 0; bucket.sell += sign < 0 ? size : 0;
+    bucket.ts = ts;
+    return;
+  }
+
   // Volume clock: accumulate into a bucket until it holds a target slice of volume.
-  if (!bucket) bucket = { vol: 0, signed: 0, pv: 0, buy: 0, sell: 0, ts: NaN };
+  if (!bucket) bucket = { open: price, high: price, low: price, close: price, vol: 0, signed: 0, pv: 0, buy: 0, sell: 0, ts: NaN };
+  bucket.high = Math.max(bucket.high, price); bucket.low = Math.min(bucket.low, price); bucket.close = price;
   bucket.vol += size; bucket.signed += sign * size; bucket.pv += price * size;
   bucket.buy += sign > 0 ? size : 0; bucket.sell += sign < 0 ? size : 0;
   if (Number.isFinite(ts)) bucket.ts = ts;
   if (bucket.vol >= avgSize * clock.factor) {
-    addSample({ price: bucket.pv / bucket.vol, size: bucket.vol, signed: bucket.signed, buy: bucket.buy, sell: bucket.sell, ts: bucket.ts });
+    addSample({ price: bucket.pv / bucket.vol, open: bucket.open, high: bucket.high, low: bucket.low, size: bucket.vol, signed: bucket.signed, buy: bucket.buy, sell: bucket.sell, ts: bucket.ts });
     bucket = null;
   }
 }
@@ -316,10 +356,19 @@ function addSample(s) {
   const ll = priceOps.poly(s.price);
   const pv = priceOps.sumPV(s.price * s.size), v = priceOps.sumV(s.size);
   const vw = v > 0 ? pv / v : NaN;
-  const val = indDef().feed(indState, s);
+  const values = panelSlots.map((slot) => INDICATOR_BY_ID[slot.id].feed(slot.state, s));
 
-  prices.push(s.price); lowlag.push(ll); fair.push(vw); ind.push(val); times.push(s.ts);
-  while (prices.length > N) { prices.shift(); lowlag.shift(); fair.shift(); ind.shift(); times.shift(); }
+  const open = Number.isFinite(s.open) ? s.open : s.price;
+  const high = Number.isFinite(s.high) ? s.high : s.price;
+  const low = Number.isFinite(s.low) ? s.low : s.price;
+  opens.push(open); highs.push(high); lows.push(low);
+  prices.push(s.price); lowlag.push(ll); fair.push(vw);
+  buyVol.push(s.buy); sellVol.push(s.sell); times.push(s.ts);
+  panelSlots.forEach((slot, i) => slot.values.push(values[i]));
+  while (prices.length > N) {
+    opens.shift(); highs.shift(); lows.shift(); prices.shift(); lowlag.shift(); fair.shift(); buyVol.shift(); sellVol.shift(); times.shift();
+    panelSlots.forEach((slot) => slot.values.shift());
+  }
   dirty = true;
 }
 
@@ -392,39 +441,53 @@ function switchFeed(next) { source = next; if (ws) { ws.onclose = null; try { ws
 // built from the same registry and drive the same selection.
 // ---------------------------------------------------------------------------
 function buildPicker() {
-  const sidebar = document.getElementById("sidebar"), dd = document.getElementById("signal");
-  let group = "", optgroup = null;
+  const sidebar = document.getElementById("sidebar");
+  const dd = document.getElementById("signal");
+  const paneB = document.getElementById("paneB");
+  let group = "", optgroup = null, paneGroup = null;
   for (const def of INDICATORS) {
     if (def.group !== group) {
       group = def.group;
       const h = document.createElement("div"); h.className = "grp"; h.textContent = group; sidebar.appendChild(h);
       optgroup = document.createElement("optgroup"); optgroup.label = group; dd.appendChild(optgroup);
+      paneGroup = document.createElement("optgroup"); paneGroup.label = group; paneB.appendChild(paneGroup);
     }
     const b = document.createElement("button");
     b.className = "ind"; b.dataset.id = def.id; b.textContent = def.label;
     b.addEventListener("click", () => switchIndicator(def.id));
     sidebar.appendChild(b);
     const o = document.createElement("option"); o.value = def.id; o.textContent = def.label; optgroup.appendChild(o);
+    const p = document.createElement("option"); p.value = def.id; p.textContent = def.label; paneGroup.appendChild(p);
   }
   dd.addEventListener("change", (e) => switchIndicator(e.target.value));
+  paneB.addEventListener("change", (e) => switchIndicatorSlot(1, e.target.value));
   syncPicker();
 }
 function syncPicker() {
   document.querySelectorAll("#sidebar button.ind").forEach((b) => b.classList.toggle("active", b.dataset.id === indDefId));
   document.getElementById("signal").value = indDefId;
+  document.getElementById("paneB").value = panelSlots[1].id;
 }
-function switchIndicator(id) { if (!INDICATOR_BY_ID[id]) return; indDefId = id; syncPicker(); rebuildFromBuffer(); }
+function switchIndicator(id) { switchIndicatorSlot(0, id); }
+function switchIndicatorSlot(index, id) {
+  if (!panelSlots[index] || !INDICATOR_BY_ID[id]) return;
+  panelSlots[index].id = id;
+  if (index === 0) indDefId = id;
+  syncPicker();
+  rebuildFromBuffer();
+}
 
 // ---------------------------------------------------------------------------
-// Rendering: a price panel (raw trades, low-lag price, fair value) over the
-// selected indicator. The price axis is scaled from the trades only.
+// Rendering: a readable price panel over volume and two synchronized indicator
+// panes. Each pane owns its scale; the shared x-axis uses event timestamps when
+// they are available and falls back to sample order otherwise.
 // ---------------------------------------------------------------------------
 const canvas = document.getElementById("chart");
 const ctx = canvas.getContext("2d");
 let cssW = 0, cssH = 0, dpr = 1;
 function resize() {
   const r = canvas.getBoundingClientRect();
-  cssW = Math.max(320, r.width); cssH = Math.max(300, r.height);
+  cssW = Math.max(320, r.width); cssH = Math.max(480, r.height);
   dpr = window.devicePixelRatio || 1;
   canvas.width = Math.round(cssW * dpr); canvas.height = Math.round(cssH * dpr);
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -499,15 +562,21 @@ function render() {
   document.getElementById("rate").textContent = arrivals.length;
   updateTimeInfo();
 
+  if (clock.mode === "time" && bucket && Number.isFinite(bucket.start) && Date.now() >= bucket.start + clock.factor * 1000) flushTimeBucket();
   if (!dirty) return;
   dirty = false;
 
   ctx.clearRect(0, 0, cssW, cssH);
   const plotW = cssW - PADL - PADR, plotH = cssH - PADT - PADB;
-  const priceH = plotH * 0.70, gap = plotH * 0.07, flowH = plotH - priceH - gap;
-  const priceTop = PADT, flowTop = PADT + priceH + gap;
+  const gap = Math.max(8, plotH * 0.025);
+  const priceH = plotH * 0.54, volumeH = plotH * 0.14;
+  const indicatorH = Math.max(36, (plotH - priceH - volumeH - gap * 3) / 2);
+  const priceTop = PADT;
+  const volumeTop = priceTop + priceH + gap;
+  const paneATop = volumeTop + volumeH + gap;
+  const paneBTop = paneATop + indicatorH + gap;
 
-  const finite = prices.filter(Number.isFinite);
+  const finite = [...highs, ...lows, ...prices, ...fair, ...lowlag].filter(Number.isFinite);
   if (finite.length < 2) {
     ctx.fillStyle = "#8b949e"; ctx.font = "13px -apple-system, sans-serif"; ctx.textAlign = "center";
     ctx.fillText("waiting for trades…", PADL + plotW / 2, priceTop + priceH / 2);
@@ -515,17 +584,15 @@ function render() {
   }
 
   let lo = Math.min(...finite), hi = Math.max(...finite);
-  for (const v of fair) if (Number.isFinite(v)) { lo = Math.min(lo, v); hi = Math.max(hi, v); }
   if (hi - lo < 1e-9) { hi += 1; lo -= 1; }
   const pad = (hi - lo) * 0.08; lo -= pad; hi += pad;
 
-  const len = prices.length, step = plotW / (N - 1);
+  const len = prices.length, step = plotW / Math.max(N - 1, 1);
   const scale = timeScale(times);
   const indexX = (i) => PADL + plotW - (len - 1 - i) * step;
   const X = scale ? (i) => PADL + (times[i] - scale.first) / scale.span * plotW : indexX;
   const Yp = (p) => priceTop + (1 - (p - lo) / (hi - lo)) * priceH;
 
-  // price grid + right labels
   ctx.strokeStyle = "#232a33"; ctx.fillStyle = "#8b949e"; ctx.lineWidth = 1;
   ctx.font = "11px ui-monospace, Menlo, monospace"; ctx.textAlign = "left";
   for (let k = 0; k <= 4; k++) {
@@ -534,33 +601,69 @@ function render() {
     ctx.fillText(fmt(hi - (k / 4) * (hi - lo)), PADL + plotW + 8, y + 3);
   }
 
-  // price lines, clipped to the price panel
   ctx.save(); ctx.beginPath(); ctx.rect(PADL, priceTop, plotW, priceH); ctx.clip();
-  line(prices, "#6e7681", 1, 0.5, X, Yp);
-  line(fair,   "#58a6ff", 1.4, 0.9, X, Yp);
+  renderOHLC(X, Yp, plotW);
+  line(prices, "#6e7681", 1, 0.45, X, Yp);
+  line(fair, "#58a6ff", 1.4, 0.9, X, Yp);
   line(lowlag, "#f5a623", 1.9, 1, X, Yp);
   ctx.restore();
 
-  renderIndicator(indDef(), flowTop, flowH, X, plotW);
+  renderVolume(volumeTop, volumeH, X, plotW);
+  renderIndicator(panelSlots[0], "A", paneATop, indicatorH, X, plotW);
+  renderIndicator(panelSlots[1], "B", paneBTop, indicatorH, X, plotW);
   document.getElementById("v_lowlag").textContent = fmt(lastFinite(lowlag));
   document.getElementById("v_fair").textContent = fmt(lastFinite(fair));
   drawTimeAxis(scale, plotW);
 }
 
-function renderIndicator(def, flowTop, flowH, X, plotW) {
+function renderOHLC(X, Yp, plotW) {
+  const barW = Math.max(1, Math.min(10, plotW / Math.max(N, 1) * 0.65));
+  for (let i = 0; i < prices.length; i++) {
+    if (![opens[i], highs[i], lows[i], prices[i]].every(Number.isFinite)) continue;
+    const x = X(i), yOpen = Yp(opens[i]), yClose = Yp(prices[i]);
+    const rising = prices[i] >= opens[i];
+    ctx.strokeStyle = rising ? "#3fb950" : "#f85149";
+    ctx.fillStyle = rising ? "rgba(63,185,80,.55)" : "rgba(248,81,73,.55)";
+    ctx.beginPath(); ctx.moveTo(x, Yp(highs[i])); ctx.lineTo(x, Yp(lows[i])); ctx.stroke();
+    ctx.fillRect(x - barW / 2, Math.min(yOpen, yClose), barW, Math.max(1, Math.abs(yClose - yOpen)));
+  }
+}
+
+function renderVolume(top, height, X, plotW) {
+  const totals = buyVol.map((v, i) => (Number.isFinite(v) ? Math.max(0, v) : 0) + (Number.isFinite(sellVol[i]) ? Math.max(0, sellVol[i]) : 0));
+  const maxVol = Math.max(...totals, 0);
+  ctx.fillStyle = "#8b949e"; ctx.textAlign = "left"; ctx.font = "11px ui-monospace, Menlo, monospace";
+  ctx.fillText("volume", PADL + 2, top + 10);
+  if (!(maxVol > 0)) return;
+  ctx.fillText(fmtTick(maxVol), PADL + plotW + 8, top + 3);
+  ctx.strokeStyle = "#2c333d"; ctx.beginPath(); ctx.moveTo(PADL, top + height); ctx.lineTo(PADL + plotW, top + height); ctx.stroke();
+  const barW = Math.max(1, Math.min(10, plotW / Math.max(N, 1) * 0.7));
+  for (let i = 0; i < totals.length; i++) {
+    const x = X(i), totalH = totals[i] / maxVol * (height - 14);
+    const buyH = (Math.max(0, buyVol[i]) / maxVol) * (height - 14);
+    const sellH = totalH - buyH;
+    ctx.fillStyle = "rgba(63,185,80,.75)"; ctx.fillRect(x - barW / 2, top + height - buyH, barW, buyH);
+    ctx.fillStyle = "rgba(248,81,73,.75)"; ctx.fillRect(x - barW / 2, top + height - buyH - sellH, barW, sellH);
+  }
+}
+
+function renderIndicator(slot, label, top, height, X, plotW) {
+  const def = INDICATOR_BY_ID[slot.id], values = slot.values;
   let lo, hi;
   if (def.fixed) { [lo, hi] = def.fixed; }
   else {
-    const fin = ind.filter(Number.isFinite);
+    const fin = values.filter(Number.isFinite);
     if (fin.length < 1) { lo = -1; hi = 1; }
     else { lo = Math.min(...fin); hi = Math.max(...fin); if (hi - lo < 1e-9) { hi += 1; lo -= 1; } const p = (hi - lo) * 0.1; lo -= p; hi += p; }
   }
-  const Yv = (v) => flowTop + (1 - (v - lo) / (hi - lo)) * flowH;
+  if (def.style === "flow") { lo = Math.min(lo, 0); hi = Math.max(hi, 0); }
+  if (hi - lo < 1e-9) hi = lo + 1;
+  const Yv = (v) => top + (1 - (v - lo) / (hi - lo)) * height;
 
   ctx.fillStyle = "#8b949e"; ctx.textAlign = "left"; ctx.font = "11px ui-monospace, Menlo, monospace";
-  ctx.fillText(def.label, PADL + 2, flowTop + 10);
-  ctx.fillText(fmtTick(hi), PADL + plotW + 8, flowTop + 3);
-  ctx.fillText(fmtTick(lo), PADL + plotW + 8, flowTop + flowH + 3);
+  ctx.fillText("pane " + label + " · " + def.label, PADL + 2, top + 10);
+  ctx.fillText(fmtTick(hi), PADL + plotW + 8, top + 3);
+  ctx.fillText(fmtTick(lo), PADL + plotW + 8, top + height + 3);
   if (def.refs) for (const r of def.refs) {
     if (r < lo || r > hi) continue;
     const y = Yv(r);
@@ -568,29 +671,29 @@ function renderIndicator(def, flowTop, flowH, X, plotW) {
     ctx.fillStyle = "#8b949e"; ctx.fillText(fmtTick(r), PADL + plotW + 8, y + 3);
   }
 
-  const nowVal = lastFinite(ind);
+  const nowVal = lastFinite(values);
+  ctx.save(); ctx.beginPath(); ctx.rect(PADL, top, plotW, height); ctx.clip();
   if (def.style === "flow") {
     const zeroY = Yv(0);
-    fillFlow(ind, X, Yv, zeroY, "#3fb950", PADL, flowTop, plotW, zeroY - flowTop);
-    fillFlow(ind, X, Yv, zeroY, "#f85149", PADL, zeroY, plotW, flowTop + flowH - zeroY);
-  } else {
-    line(ind, def.color || "#d29922", 1.8, 1, X, Yv);
-  }
+    fillFlow(values, X, Yv, zeroY, "#3fb950", PADL, top, plotW, zeroY - top);
+    fillFlow(values, X, Yv, zeroY, "#f85149", PADL, zeroY, plotW, top + height - zeroY);
+  } else line(values, def.color || "#d29922", 1.8, 1, X, Yv);
+  ctx.restore();
 
-  // header pill + legend
-  const pill = document.getElementById("bias"), txt = document.getElementById("biastxt");
-  document.getElementById("signalLabel").textContent = def.short || def.label;
-  if (def.style === "flow") {
-    if (Number.isFinite(nowVal) && nowVal > 0.05) { pill.className = "pill buy"; txt.textContent = "buyers " + Math.round(nowVal * 100) + "%"; }
-    else if (Number.isFinite(nowVal) && nowVal < -0.05) { pill.className = "pill sell"; txt.textContent = "sellers " + Math.round(-nowVal * 100) + "%"; }
-    else { pill.className = "pill"; txt.textContent = "balanced"; }
-  } else {
-    pill.className = "pill"; txt.textContent = Number.isFinite(nowVal) ? fmtTick(nowVal) : "warming up";
+  const legend = document.getElementById(label === "A" ? "indLegendA" : "indLegendB");
+  legend.innerHTML = def.style === "flow"
+    ? '<span class="sw sq" style="background:var(--buy)"></span><span class="sw sq" style="background:var(--sell)"></span><span class="nm">pane ' + label + ' · order-flow pressure</span>'
+    : '<span class="sw" style="background:' + (def.color || "#d29922") + '"></span><span class="nm">pane ' + label + ' · ' + def.label + '</span>';
+
+  if (label === "A") {
+    const pill = document.getElementById("bias"), txt = document.getElementById("biastxt");
+    document.getElementById("signalLabel").textContent = def.short || def.label;
+    if (def.style === "flow") {
+      if (Number.isFinite(nowVal) && nowVal > 0.05) { pill.className = "pill buy"; txt.textContent = "buyers " + Math.round(nowVal * 100) + "%"; }
+      else if (Number.isFinite(nowVal) && nowVal < -0.05) { pill.className = "pill sell"; txt.textContent = "sellers " + Math.round(-nowVal * 100) + "%"; }
+      else { pill.className = "pill"; txt.textContent = "balanced"; }
+    } else { pill.className = "pill"; txt.textContent = Number.isFinite(nowVal) ? fmtTick(nowVal) : "warming up"; }
   }
-  const leg = document.getElementById("indLegend");
-  leg.innerHTML = def.style === "flow"
-    ? '<span class="sw sq" style="background:var(--buy)"></span><span class="sw sq" style="background:var(--sell)"></span><span class="nm">order-flow pressure (buy / sell)</span>'
-    : '<span class="sw" style="background:' + (def.color || "#d29922") + '"></span><span class="nm">' + def.label + '</span>';
 }
 
 function line(arr, color, w, alpha, X, Yp) {
@@ -622,7 +725,9 @@ document.getElementById("source").addEventListener("change", (e) => switchFeed(e
 document.getElementById("timezone").addEventListener("change", (e) => { timeZone = e.target.value; dirty = true; updateTimeInfo(); });
 document.getElementById("window").addEventListener("change", (e) => {
   const [t, n] = e.target.value.split(":");
-  const next = t === "vol" ? { mode: "volume", factor: +n, N: 240 } : { mode: "count", factor: 0, N: +n };
+  const next = t === "vol" ? { mode: "volume", factor: +n, N: 240 }
+    : t === "time" ? { mode: "time", factor: +n, N: 240 }
+    : { mode: "count", factor: 0, N: +n };
   clock = { mode: next.mode, factor: next.factor }; N = next.N;
   rebuildFromBuffer();
 });

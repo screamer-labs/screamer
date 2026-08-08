@@ -8,25 +8,27 @@ title: Live demo
 crypto tape with screamer, in your browser.
 
 Live trades are noisy. The demo connects to a public exchange feed (Coinbase or Binance, no API
-key) and turns the raw prints into three things a trader actually wants:
+key) and displays the raw prints alongside derived price, volume, and indicator panes:
 
-- **A low-lag price.** `RollingPoly1(window, 0)` is the endpoint of a rolling linear fit. It tracks
-  price with far less lag than a moving average, so it de-noises the tape without falling behind.
+- **OHLC bars and a low-lag price.** `RollingPoly1(window, 0)` is the endpoint of a rolling linear
+  fit. It tracks price with less lag than a moving average.
 - **A volume-weighted fair value.** A VWMA built from `RollingSum(price * size) / RollingSum(size)`
-  shows where the volume actually traded, not just where the last print landed.
-- **Order-flow pressure.** An EW-smoothed, normalized signed-volume imbalance shows whether buyers
-  are lifting offers or sellers are hitting bids right now. It is a leading read on short-term
-  direction (drawn as a green/red strip under the price), not a trade signal.
+  shows where the volume traded, not just where the last print landed.
+- **Buy- and sell-initiated volume.** The volume pane keeps the aggressor side visible for each
+  plotted sample.
+- **Two selectable indicator panes.** The panes use the same Screamer registry and keep separate
+  y-axis scales, so indicators with different units can be compared without rescaling them together.
 
-The **view** control switches the x-axis between a trade-count clock and a volume clock. On a
-volume clock each bar is a fixed slice of traded volume, so a burst of micro-trades collapses into
-a couple of bars instead of stretching across the chart.
+The **view** control switches between a trade-count clock, timestamped 10-second OHLC bars, and a
+volume clock. On a volume clock each bar is a fixed slice of traded volume, so a burst of
+micro-trades collapses into a couple of bars instead of stretching across the chart. Time bars use
+the exchange timestamp when available and the browser receive time otherwise.
 
-The **indicator** picker chooses what the lower panel shows, from about twenty screamer operators
-grouped into order flow and volume (order-flow pressure, VPIN, cumulative volume delta, trade
-imbalance), momentum (RSI, rate of change, TRIX, z-score), trend, volatility, and Ehlers cycle
-reads. Each is fed the same one-sample-at-a-time stream. The picker is a left column on a wide
-screen and a dropdown on a narrow one.
+The **indicator** picker chooses pane A from about twenty Screamer operators grouped into order
+flow and volume (order-flow pressure, VPIN, cumulative volume delta, trade imbalance), momentum
+(RSI, rate of change, TRIX, z-score), trend, volatility, and Ehlers cycle reads. The **pane B**
+control chooses a second indicator from the same registry. Each is fed the same one-sample-at-a-time
+stream. The picker is a left column on a wide screen and dropdowns on a narrow one.
 
 The **time** control formats the x-axis in local time or UTC. The chart uses the exchange timestamp
 when the feed provides one, and the browser receive time otherwise. A bounded browser buffer keeps
