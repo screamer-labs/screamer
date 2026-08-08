@@ -16,19 +16,22 @@ key) and displays the raw prints alongside derived price, volume, and indicator 
   shows where the volume traded, not just where the last print landed.
 - **Buy- and sell-initiated volume.** The volume pane keeps the aggressor side visible for each
   plotted sample.
-- **Two selectable indicator panes.** The panes use the same Screamer registry and keep separate
-  y-axis scales, so indicators with different units can be compared without rescaling them together.
+- **A small dashboard of independent windows.** The main market window shows OHLC, low-lag price,
+  fair value, and aggressor volume. Two indicator windows use the same Screamer registry but keep
+  separate y-axis scales, and a live-tape window keeps the latest prints visible while you change
+  the chart view.
 
 The **view** control switches between a trade-count clock, timestamped 10-second OHLC bars, and a
 volume clock. On a volume clock each bar is a fixed slice of traded volume, so a burst of
 micro-trades collapses into a couple of bars instead of stretching across the chart. Time bars use
 the exchange timestamp when available and the browser receive time otherwise.
 
-The **indicator** picker chooses pane A from about twenty Screamer operators grouped into order
+The **indicator A** picker chooses pane A from about twenty Screamer operators grouped into order
 flow and volume (order-flow pressure, VPIN, cumulative volume delta, trade imbalance), momentum
 (RSI, rate of change, TRIX, z-score), trend, volatility, and Ehlers cycle reads. The **pane B**
 control chooses a second indicator from the same registry. Each is fed the same one-sample-at-a-time
-stream. The picker is a left column on a wide screen and dropdowns on a narrow one.
+stream. The selectors live in the window headers, so the layout remains the same on desktop and
+mobile.
 
 The **time** control formats the x-axis in local time or UTC. The chart uses the exchange timestamp
 when the feed provides one, and the browser receive time otherwise. A bounded browser buffer keeps
@@ -66,3 +69,12 @@ The demo is a single self-contained HTML file at
 It loads screamer from a CDN, so it needs internet access for both the module and the trade feed.
 If the chart stays empty, the selected market may be restricted in your region; switch markets in
 the demo.
+
+For a local copy, serve the examples directory rather than opening the file with `file://`:
+
+```powershell
+cd js/examples
+py -m http.server 8000
+```
+
+Then open <http://localhost:8000/live-trades.html>.
