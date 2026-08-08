@@ -34,7 +34,8 @@ The **time** control formats the x-axis in local time or UTC. The chart uses the
 when the feed provides one, and the browser receive time otherwise. A bounded browser buffer keeps
 recent raw trades, so changing the bar clock replays the history instead of starting empty. The
 buffer is maintained separately for each market, so switching away and back restores that market's
-recent view without mixing feeds.
+recent view without mixing feeds. The browser also retains that market's active operator state, so
+the indicator cards return with their values instead of warming up from an empty series.
 
 Each operator is fed one trade at a time as it arrives:
 

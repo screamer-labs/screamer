@@ -303,14 +303,41 @@ const arrivals = [];
 // a fixed slice of volume.
 let clock = { mode: "time", factor: 10 };
 let bucket = null, avgSize = 0;
+const marketStates = new Map();
 
-function resetOperators() {
-  disposePriceOps(); buildPriceOps();
-  disposeIndicatorSlots(); buildIndicatorSlots();
+function seriesClockKey() { return clock.mode + ":" + clock.factor + ":" + N; }
+function captureActiveSeries() {
+  marketStates.set(source, {
+    priceOps, indicatorSlots,
+    opens, highs, lows, prices, lowlag, fair, buyVol, sellVol, times,
+    lastTrade, bucket, avgSize,
+    clockKey: seriesClockKey(),
+  });
+}
+function restoreSeries(state) {
+  priceOps = state.priceOps; indicatorSlots = state.indicatorSlots;
+  opens = state.opens; highs = state.highs; lows = state.lows; prices = state.prices;
+  lowlag = state.lowlag; fair = state.fair; buyVol = state.buyVol; sellVol = state.sellVol; times = state.times;
+  lastTrade = state.lastTrade; bucket = state.bucket; avgSize = state.avgSize;
+  document.getElementById("last").textContent = lastTrade ? fmt(lastTrade.price) : "—";
+}
+function disposeSeries(state) {
+  if (!state) return;
+  if (state.priceOps) for (const op of Object.values(state.priceOps)) op.dispose();
+  if (state.indicatorSlots) for (const slot of state.indicatorSlots) disposeState(slot.state);
+}
+
+function resetOperators(dispose = true) {
+  if (dispose) { disposePriceOps(); disposeIndicatorSlots(); }
+  buildPriceOps(); buildIndicatorSlots();
   opens = []; highs = []; lows = []; prices = []; lowlag = []; fair = []; buyVol = []; sellVol = []; times = [];
   bucket = null; avgSize = 0;
 }
 function resetActiveSeries() {
+  // A cached state may hold the same operator instances. It is invalid once
+  // this series is rebuilt, so remove it before disposing those instances.
+  const cached = marketStates.get(source);
+  if (cached && cached.priceOps === priceOps) marketStates.delete(source);
   resetOperators();
   arrivals.length = 0;
   lastTrade = null;
@@ -471,10 +498,24 @@ function updateMarketTitle() {
 function switchFeed(next) {
   if (!FEEDS[next] || next === source) return;
   if (ws) { ws.onclose = null; try { ws.close(); } catch {} ws = null; }
+  captureActiveSeries();
   source = next;
   tradeBuffer = bufferForMarket(source);
+  const cached = marketStates.get(source);
+  const canRestore = cached && cached.clockKey === seriesClockKey();
+  if (canRestore) {
+    restoreSeries(cached);
+  } else {
+    if (cached) { marketStates.delete(source); disposeSeries(cached); }
+    resetOperators(false);
+    lastTrade = null;
+    document.getElementById("last").textContent = "—";
+    rebuildFromBuffer();
+  }
+  arrivals.length = 0;
   updateMarketTitle();
-  rebuildFromBuffer();
+  dirty = true;
+  updateTimeInfo();
   connect();
 }
 
