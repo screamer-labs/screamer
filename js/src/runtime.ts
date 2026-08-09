@@ -41,19 +41,31 @@ export function wrapOp(M: Screamer, raw: RawOp): ScreamerOp {
     return nOut === 1 ? o[0] : Array.from(o);
   };
 
-  function batch1(arr: ArrayLike<number>, typed: boolean): any {
-    raw.reset();
-    const rows = arr.length;
-    if (nOut === 1) {
-      const out = typed ? new Float64Array(rows) : new Array(rows);
-      for (let i = 0; i < rows; i++) (out as any)[i] = event([arr[i]]);
+  // Run a whole (rows x nIn) row-major block through evalBatchInto in one C++
+  // pass and return the (rows x nOut) output as a fresh Float64Array copied off
+  // the WASM heap. `fill` writes the interleaved input into the heap view.
+  function batchInto(rows: number, fill: (view: Float64Array) => void): Float64Array {
+    if (rows === 0) return new Float64Array(0);
+    const inPtr = M.allocF64(rows * nIn), outPtr = M.allocF64(rows * nOut);
+    try {
+      fill(M.viewF64(inPtr, rows * nIn));
       raw.reset();
-      return out;
+      raw.evalBatchInto(inPtr, outPtr, rows);
+      raw.reset();
+      return new Float64Array(M.viewF64(outPtr, rows * nOut));
+    } finally {
+      M.freeBuf(inPtr); M.freeBuf(outPtr);
     }
-    const data = new Float64Array(rows * nOut);
-    for (let i = 0; i < rows; i++) { const o = event([arr[i]]) as number[]; data.set(o, i * nOut); }
-    raw.reset();
-    return { data, shape: [rows, nOut] } as NdArray;
+  }
+
+  function batch1(arr: ArrayLike<number>, typed: boolean): any {
+    const rows = arr.length;
+    const data = batchInto(rows, (view) => view.set(arr as unknown as ArrayLike<number> as number[]));
+    if (nOut !== 1) return { data, shape: [rows, nOut] } as NdArray;
+    if (typed) return data;
+    const out = new Array(rows);
+    for (let i = 0; i < rows; i++) out[i] = data[i];
+    return out;
   }
 
   function* gen(src: Iterable<number>) {
@@ -91,15 +103,14 @@ export function wrapOp(M: Screamer, raw: RawOp): ScreamerOp {
         if (args.some((x) => x.length !== rows)) {
           throw new TypeError(`all input arrays must have the same length (got ${args.map((a) => a.length).join(", ")})`);
         }
-        raw.reset();
-        const single = nOut === 1;
-        const out = single ? new Float64Array(rows) : new Float64Array(rows * nOut);
-        for (let i = 0; i < rows; i++) {
-          const o = event(args.map((c) => c[i]));
-          if (single) (out as Float64Array)[i] = o as number; else (out as Float64Array).set(o as number[], i * nOut);
-        }
-        raw.reset();
-        return single ? out : ({ data: out, shape: [rows, nOut] } as NdArray);
+        // Interleave the N input columns into row-major (rows x nIn) order, then
+        // one C++ pass. The interleave is JS-side memory writes, no per-event
+        // boundary crossing.
+        const cols = args as ArrayLike<number>[];
+        const data = batchInto(rows, (view) => {
+          for (let i = 0; i < rows; i++) for (let k = 0; k < nIn; k++) view[i * nIn + k] = cols[k][i];
+        });
+        return nOut === 1 ? data : ({ data, shape: [rows, nOut] } as NdArray);
       }
       throw new TypeError(`expected ${nIn} numeric inputs`);
     } catch (e) { throw normalizeError(e); }

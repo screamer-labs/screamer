@@ -23,6 +23,10 @@ const dynamicImport = new Function("specifier", "return import(specifier)") as (
 export interface RawOp {
   nIn(): number; nOut(): number;
   evalInto(inPtr: number, outPtr: number): void;
+  // One C++ pass over `rows` row-major events (each row is nIn doubles at
+  // inPtr, writing nOut at outPtr): the whole array is processed without
+  // recrossing the JS/WASM boundary per element.
+  evalBatchInto(inPtr: number, outPtr: number, rows: number): void;
   reset(): void; delete(): void;
   // Present only on dynamic-width reducers (see wrapReducerOp): one event
   // reduces a (groups, nIn) block, so the group count travels per call.
