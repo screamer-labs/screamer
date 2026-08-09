@@ -20,7 +20,7 @@ key) and displays the raw prints alongside derived price, volume, and indicator 
   rate metrics together. The right side groups every indicator into horizontally scrollable rows by
   family, with one small card per indicator. Each card keeps its own scale and current value, so
   RSI, VPIN, CVD, and volatility measures can be scanned together without mixing units. On a phone,
-  the left workspace comes first and the category rows remain horizontally scrollable.
+  the market plot comes first and the indicator cards become a single full-width vertical column.
 
 The **view** control switches between a trade-count clock, timestamped 10-second OHLC bars, and a
 volume clock. On a volume clock each bar is a fixed slice of traded volume, so a burst of
