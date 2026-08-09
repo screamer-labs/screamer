@@ -8,29 +8,34 @@ title: Live demo
 crypto tape with screamer, in your browser.
 
 Live trades are noisy. The demo connects to a public exchange feed (Coinbase or Binance, no API
-key) and turns the raw prints into three things a trader actually wants:
+key) and displays the raw prints alongside derived price, volume, and indicator panes:
 
-- **A low-lag price.** `RollingPoly1(window, 0)` is the endpoint of a rolling linear fit. It tracks
-  price with far less lag than a moving average, so it de-noises the tape without falling behind.
+- **OHLC bars and a low-lag price.** `RollingPoly1(window, 0)` is the endpoint of a rolling linear
+  fit. It tracks price with less lag than a moving average.
 - **A volume-weighted fair value.** A VWMA built from `RollingSum(price * size) / RollingSum(size)`
-  shows where the volume actually traded, not just where the last print landed.
-- **Order-flow pressure.** An EW-smoothed, normalized signed-volume imbalance shows whether buyers
-  are lifting offers or sellers are hitting bids right now. It is a leading read on short-term
-  direction (drawn as a green/red strip under the price), not a trade signal.
+  shows where the volume traded, not just where the last print landed.
+- **Buy- and sell-initiated volume.** The volume pane keeps the aggressor side visible for each
+  plotted sample.
+- **A two-column analyst workspace.** The left side keeps the market, controls, price, status, and
+  rate metrics together. The right side groups every indicator into horizontally scrollable rows by
+  family, with one small card per indicator. Each card keeps its own scale and current value, so
+  RSI, VPIN, CVD, and volatility measures can be scanned together without mixing units. On a phone,
+  the market plot comes first and the indicator cards become a single full-width vertical column.
 
-The **view** control switches the x-axis between a trade-count clock and a volume clock. On a
-volume clock each bar is a fixed slice of traded volume, so a burst of micro-trades collapses into
-a couple of bars instead of stretching across the chart.
+The **view** control switches between a trade-count clock, timestamped 10-second OHLC bars, and a
+volume clock. On a volume clock each bar is a fixed slice of traded volume, so a burst of
+micro-trades collapses into a couple of bars instead of stretching across the chart. Time bars use
+the exchange timestamp when available and the browser receive time otherwise.
 
-The **indicator** picker chooses what the lower panel shows, from about twenty screamer operators
-grouped into order flow and volume (order-flow pressure, VPIN, cumulative volume delta, trade
-imbalance), momentum (RSI, rate of change, TRIX, z-score), trend, volatility, and Ehlers cycle
-reads. Each is fed the same one-sample-at-a-time stream. The picker is a left column on a wide
-screen and a dropdown on a narrow one.
+All indicators are fed the same one-sample-at-a-time stream. The indicator cards are grouped by
+their registry family: order flow & volume, momentum, trend, volatility, and Ehlers cycle reads.
 
 The **time** control formats the x-axis in local time or UTC. The chart uses the exchange timestamp
 when the feed provides one, and the browser receive time otherwise. A bounded browser buffer keeps
-recent raw trades, so changing the view or signal replays the history instead of starting empty.
+recent raw trades, so changing the bar clock replays the history instead of starting empty. The
+buffer is maintained separately for each market, so switching away and back restores that market's
+recent view without mixing feeds. The browser also retains that market's active operator state, so
+the indicator cards return with their values instead of warming up from an empty series.
 
 Each operator is fed one trade at a time as it arrives:
 
@@ -64,3 +69,12 @@ The demo is a single self-contained HTML file at
 It loads screamer from a CDN, so it needs internet access for both the module and the trade feed.
 If the chart stays empty, the selected market may be restricted in your region; switch markets in
 the demo.
+
+For a local copy, serve the examples directory rather than opening the file with `file://`:
+
+```powershell
+cd js/examples
+py -m http.server 8000
+```
+
+Then open <http://localhost:8000/live-trades.html>.

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>screamer.js — reading the live tape</title>
+<title>screamer.js — live market dashboard</title>
 <style>
   :root {
     --bg: #0d1117; --panel: #161b22; --line: #232a33;
@@ -41,30 +41,34 @@
   .dot.connecting { background: var(--warn); }
   .dot.dead { background: var(--dead); }
   .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
-  #bias.buy  { color: var(--buy); border-color: rgba(63,185,80,.4); }
-  #bias.sell { color: var(--sell); border-color: rgba(248,81,73,.4); }
   .grow { flex: 1; }
 
-  #app { flex: 1; display: flex; min-height: 0; }
-  #sidebar {
-    width: 216px; flex: none; overflow-y: auto;
-    border-right: 1px solid var(--line); padding: 8px 8px 16px;
+  #app { flex: 1; min-height: 0; padding: 0 20px 20px; display: grid; grid-template-columns: minmax(360px, .9fr) minmax(0, 1.5fr); gap: 12px; }
+  #leftColumn { min-width: 0; min-height: 0; display: flex; flex-direction: column; }
+  #leftColumn .bar { padding: 0 0 10px; }
+  #dashboard { min-width: 0; min-height: 0; flex: 1; display: flex; }
+  #indicatorRail { min-width: 0; min-height: 0; overflow-y: auto; overflow-x: hidden; padding-right: 2px; }
+  .category-row { --accent: #8b949e; border-left: 3px solid var(--accent); background: rgba(22,27,34,.55); border-radius: 6px; margin-bottom: 10px; padding: 7px 0 0 9px; }
+  .category-row-head { display: flex; align-items: baseline; gap: 8px; padding: 0 8px 5px 0; }
+  .category-row-head h2 { color: var(--accent); font-size: 11px; letter-spacing: .5px; margin: 0; text-transform: uppercase; }
+  .category-row-head span { color: var(--muted); font-size: 10px; }
+  .category-track { display: flex; gap: 8px; overflow-x: auto; overflow-y: hidden; padding: 0 8px 8px 0; scroll-snap-type: x proximity; }
+  .category-track::-webkit-scrollbar { height: 7px; }
+  .category-track::-webkit-scrollbar-thumb { background: #3d4653; border-radius: 8px; }
+  .window {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 7px;
+    display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: hidden;
   }
-  #sidebar .grp {
-    color: var(--muted); font-size: 10.5px; text-transform: uppercase; letter-spacing: .5px;
-    margin: 12px 6px 3px;
+  .window.market { flex: 1; min-height: 320px; }
+  .window-head {
+    display: flex; align-items: center; gap: 8px; padding: 9px 11px 7px;
+    border-bottom: 1px solid var(--line); min-height: 48px;
   }
-  #sidebar .grp:first-child { margin-top: 2px; }
-  button.ind {
-    display: block; width: 100%; text-align: left; background: transparent;
-    border: 1px solid transparent; border-radius: 6px; padding: 5px 9px;
-    font-size: 12.5px; color: var(--fg); cursor: pointer;
-  }
-  button.ind:hover { background: var(--panel); }
-  button.ind.active { background: var(--panel); border-color: #3d4653; color: #fff; }
-
-  #chartcol { flex: 1; display: flex; flex-direction: column; min-width: 0; }
-  #wrap { flex: 1; padding: 0 12px 4px; min-height: 300px; position: relative; }
+  .window-head .title { min-width: 0; flex: 1; }
+  .window-head h2 { margin: 0; font-size: 12.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .window-head .sub { display: block; color: var(--muted); font-size: 10.5px; margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .window-head .kicker { color: var(--muted); font-size: 9.5px; letter-spacing: .6px; text-transform: uppercase; }
+  .surface { flex: 1; min-height: 0; position: relative; padding: 3px 5px 2px; }
   canvas { width: 100%; height: 100%; display: block; }
   #overlay {
     position: absolute; inset: 0; display: none; align-items: center; justify-content: center;
@@ -79,68 +83,89 @@
   .lg .nm { color: var(--muted); }
   .lg .vl { font-family: ui-monospace, Menlo, monospace; }
 
-  /* Desktop shows the left column; mobile hides it and shows the dropdown. */
-  .mobileonly { display: none; }
-  @media (max-width: 760px) {
-    #sidebar { display: none; }
-    .mobileonly { display: inline-flex; align-items: center; }
+  .indicator-card { --accent: #8b949e; flex: 0 0 220px; height: 158px; scroll-snap-align: start; background: var(--panel); border: 1px solid var(--line); border-top: 2px solid var(--accent); border-radius: 7px; display: flex; flex-direction: column; min-width: 0; overflow: hidden; }
+  .indicator-card .card-head { display: flex; align-items: center; gap: 6px; padding: 6px 8px 5px; border-bottom: 1px solid var(--line); }
+  .indicator-card .card-title { min-width: 0; flex: 1; }
+  .indicator-card h3 { margin: 0; font-size: 11px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .indicator-card .card-sub { color: var(--accent); display: block; font-size: 9px; margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .indicator-card .card-value { font: 600 11px ui-monospace, Menlo, monospace; color: var(--fg); white-space: nowrap; }
+  .indicator-card .card-value.buy { color: var(--buy); }
+  .indicator-card .card-value.sell { color: var(--sell); }
+  .indicator-surface { flex: 1; min-height: 78px; position: relative; padding: 2px 3px 2px; }
+  @media (max-width: 1100px) {
+    #app { grid-template-columns: minmax(300px, .85fr) minmax(0, 1.25fr); }
+    .indicator-card { flex-basis: 200px; }
+  }
+  @media (max-width: 680px) {
+    header { padding-left: 12px; padding-right: 12px; }
+    #app { padding: 0 12px 12px; display: flex; flex-direction: column; gap: 10px; }
+    #leftColumn, #dashboard, #indicatorRail { width: 100%; }
+    #leftColumn { flex: none; }
+    #leftColumn .bar { padding: 0 0 8px; }
+    #dashboard { flex: none; }
+    .window.market { min-height: 330px; }
+    #indicatorRail { display: flex; flex-direction: column; overflow: visible; }
+    .category-row { margin-bottom: 8px; }
+    .category-track { display: grid; grid-template-columns: minmax(0, 1fr); overflow: visible; }
+    .indicator-card { width: 100%; flex: none; height: 150px; }
+    .indicator-surface { min-height: 78px; }
   }
 </style>
 </head>
 <body>
   <header>
-    <h1><span class="mono">screamer.js</span> &nbsp;·&nbsp; reading the live tape</h1>
+    <h1><span class="mono">screamer.js</span> &nbsp;·&nbsp; live market dashboard</h1>
   </header>
 
-  <div id="app">
-    <aside id="sidebar"></aside>
-
-    <div id="chartcol">
+  <main id="app">
+    <section id="leftColumn">
       <div class="bar">
-        <span><label>market</label>
-          <select id="source">
-            <option value="coinbase">Coinbase · BTC-USD</option>
-            <option value="binance">Binance · BTC/USDT</option>
-          </select>
-        </span>
-        <span><label>view</label>
-          <select id="window">
-            <option value="count:240" selected>240 trades</option>
-            <option value="count:480">480 trades</option>
-            <option value="vol:6">volume clock · fine</option>
-            <option value="vol:20">volume clock · coarse</option>
-          </select>
-        </span>
-        <span class="mobileonly"><label>indicator</label>
-          <select id="signal"></select>
-        </span>
-        <span><label>time</label>
-          <select id="timezone">
-            <option value="local" selected>local</option>
-            <option value="UTC">UTC</option>
-          </select>
-        </span>
-        <span class="grow"></span>
-        <span class="pill"><span id="dot" class="dot"></span><span id="status">starting…</span></span>
-        <span class="pill">price <b id="last" class="mono">—</b></span>
-        <span class="pill" id="bias"><span id="signalLabel">flow</span> <b id="biastxt">—</b></span>
-        <span class="pill"><b id="rate">0</b>&nbsp;trades/s</span>
-        <span class="pill"><span id="timeInfo">time —</span>&nbsp;·&nbsp;<span id="historyInfo">history 0</span></span>
+    <span><label>market</label>
+      <select id="source">
+        <option value="coinbase">Coinbase · BTC-USD</option>
+        <option value="binance">Binance · BTC/USDT</option>
+      </select>
+    </span>
+    <span><label>bars</label>
+      <select id="window">
+        <option value="count:240">240 trades</option>
+        <option value="count:480">480 trades</option>
+        <option value="time:10" selected>10-second bars</option>
+        <option value="vol:6">volume clock · fine</option>
+        <option value="vol:20">volume clock · coarse</option>
+      </select>
+    </span>
+    <span><label>time</label>
+      <select id="timezone">
+        <option value="local" selected>local</option>
+        <option value="UTC">UTC</option>
+      </select>
+    </span>
+    <span class="grow"></span>
+    <span class="pill"><span id="dot" class="dot"></span><span id="status">starting…</span></span>
+    <span class="pill">price <b id="last" class="mono">—</b></span>
+    <span class="pill">indicators <b id="indicatorCount">0</b></span>
+    <span class="pill"><b id="rate">0</b>&nbsp;trades/s</span>
+    <span class="pill"><span id="timeInfo">time —</span>&nbsp;·&nbsp;<span id="historyInfo">history 0</span></span>
       </div>
+      <div id="dashboard">
+      <section class="window market">
+        <div class="window-head">
+          <div class="title"><span class="kicker">market overview</span><h2 id="marketTitle">BTC-USD · 10-second OHLC</h2><span class="sub">price, low-lag estimate, fair value and aggressor volume</span></div>
+        </div>
+        <div class="surface"><canvas id="chartPrice"></canvas><div id="overlay"><div class="box"></div></div></div>
+        <div class="legend">
+          <span class="lg"><span class="sw" style="background:var(--lowlag)"></span><span class="nm">low-lag price</span> <span class="vl" id="v_lowlag">—</span></span>
+          <span class="lg"><span class="sw" style="background:var(--fair)"></span><span class="nm">fair value</span> <span class="vl" id="v_fair">—</span></span>
+          <span class="lg"><span class="sw" style="background:var(--raw)"></span><span class="nm">close</span></span>
+          <span class="lg"><span class="sw sq" style="background:var(--buy)"></span><span class="sw sq" style="background:var(--sell)"></span><span class="nm">buy / sell volume</span></span>
+        </div>
+      </section>
 
-      <div id="wrap">
-        <canvas id="chart"></canvas>
-        <div id="overlay"><div class="box"></div></div>
       </div>
-
-      <div class="legend">
-        <span class="lg"><span class="sw" style="background:var(--lowlag)"></span><span class="nm">low-lag price</span> <span class="vl" id="v_lowlag">—</span></span>
-        <span class="lg"><span class="sw" style="background:var(--fair)"></span><span class="nm">fair value (volume-weighted)</span> <span class="vl" id="v_fair">—</span></span>
-        <span class="lg"><span class="sw" style="background:var(--raw)"></span><span class="nm">trades</span></span>
-        <span class="lg" id="indLegend"></span>
-      </div>
-    </div>
-  </div>
+    </section>
+    <aside id="indicatorRail" aria-label="Screamer indicators by category"></aside>
+  </main>
 
 <script type="module">
 // ---------------------------------------------------------------------------
@@ -182,11 +207,10 @@ try {
 }
 
 // ---------------------------------------------------------------------------
-// The price panel always shows the raw trades, a low-lag price (RollingPoly1
-// endpoint) and a volume-weighted fair value (VWMA). The lower panel shows one
-// selectable indicator, defined in the registry below. Each indicator is a
-// screamer op (or small composition) fed one sample at a time; `feed` receives
-// { price, size, signed, buy, sell } where signed = aggressor sign * size.
+// The dashboard shows OHLC prices, volume, and synchronized Screamer
+// indicator cards. Each indicator is fed one sample at a time;
+// `feed` receives { price, size, signed, buy, sell } where signed is the
+// aggressor sign times size.
 // ---------------------------------------------------------------------------
 const POLY_WIN = 30, VWMA_WIN = 50, FLOW_SPAN = 50, BUFFER_CAPACITY = 5000;
 
@@ -235,14 +259,18 @@ const INDICATORS = [
   { id: "cyclefreq", group: "Cycle (Ehlers)", label: "Cycle frequency", short: "freq", ...price(() => S.CycleFrequency()) },
 ];
 const INDICATOR_BY_ID = Object.fromEntries(INDICATORS.map((d) => [d.id, d]));
-let indDefId = "flow";
-const indDef = () => INDICATOR_BY_ID[indDefId] || INDICATORS[0];
-
-let priceOps, indState;
+let indicatorSlots = [];
+let priceOps;
 function buildPriceOps() { priceOps = { poly: S.RollingPoly1(POLY_WIN, 0), sumPV: S.RollingSum(VWMA_WIN), sumV: S.RollingSum(VWMA_WIN) }; }
 function disposePriceOps() { if (priceOps) for (const k in priceOps) priceOps[k].dispose(); }
-function buildIndicator() { indState = indDef().make(); }
-function disposeIndicator() { if (indState) for (const k in indState) indState[k].dispose(); indState = null; }
+function disposeState(state) { if (state) for (const k in state) state[k].dispose(); }
+function buildIndicatorSlots() {
+  indicatorSlots = INDICATORS.map((def) => ({ id: def.id, state: def.make(), values: [] }));
+}
+function disposeIndicatorSlots() {
+  for (const slot of indicatorSlots) { disposeState(slot.state); slot.state = null; slot.values = []; }
+  indicatorSlots = [];
+}
 
 class TradeBuffer {
   constructor(capacity) { this.capacity = capacity; this.items = new Array(capacity); this.start = 0; this._size = 0; }
@@ -255,32 +283,76 @@ class TradeBuffer {
   forEach(fn) { for (let i = 0; i < this._size; i++) fn(this.items[(this.start + i) % this.capacity]); }
 }
 
-const tradeBuffer = new TradeBuffer(BUFFER_CAPACITY);
+// Keep a separate bounded replay buffer for each market. Switching feeds can
+// therefore restore the most recent view without mixing trades from markets.
+const marketBuffers = new Map();
+function bufferForMarket(market) {
+  let buffer = marketBuffers.get(market);
+  if (!buffer) {
+    buffer = new TradeBuffer(BUFFER_CAPACITY);
+    marketBuffers.set(market, buffer);
+  }
+  return buffer;
+}
+let tradeBuffer = bufferForMarket("coinbase");
 let N = 240;                 // samples shown
-let prices = [], lowlag = [], fair = [], ind = [], times = [];
+let opens = [], highs = [], lows = [], prices = [], lowlag = [], fair = [], buyVol = [], sellVol = [], times = [];
 let lastTrade = null, timeZone = "local";
 let dirty = true;
 const arrivals = [];
 
-// The clock decides what one plotted sample is: a single trade (count clock), or
-// a fixed slice of volume (volume clock).
-let clock = { mode: "count", factor: 0 };
+// The clock decides what one plotted sample is: a trade, a timestamped bar, or
+// a fixed slice of volume.
+let clock = { mode: "time", factor: 10 };
 let bucket = null, avgSize = 0;
+const marketStates = new Map();
 
-function resetOperators() {
-  disposePriceOps(); buildPriceOps();
-  disposeIndicator(); buildIndicator();
-  prices = []; lowlag = []; fair = []; ind = []; times = [];
+function seriesClockKey() { return clock.mode + ":" + clock.factor + ":" + N; }
+function captureActiveSeries() {
+  marketStates.set(source, {
+    priceOps, indicatorSlots,
+    opens, highs, lows, prices, lowlag, fair, buyVol, sellVol, times,
+    lastTrade, bucket, avgSize,
+    clockKey: seriesClockKey(),
+  });
+}
+function restoreSeries(state) {
+  priceOps = state.priceOps; indicatorSlots = state.indicatorSlots;
+  opens = state.opens; highs = state.highs; lows = state.lows; prices = state.prices;
+  lowlag = state.lowlag; fair = state.fair; buyVol = state.buyVol; sellVol = state.sellVol; times = state.times;
+  lastTrade = state.lastTrade; bucket = state.bucket; avgSize = state.avgSize;
+  document.getElementById("last").textContent = lastTrade ? fmt(lastTrade.price) : "—";
+}
+function disposeSeries(state) {
+  if (!state) return;
+  if (state.priceOps) for (const op of Object.values(state.priceOps)) op.dispose();
+  if (state.indicatorSlots) for (const slot of state.indicatorSlots) disposeState(slot.state);
+}
+
+function resetOperators(dispose = true) {
+  if (dispose) { disposePriceOps(); disposeIndicatorSlots(); }
+  buildPriceOps(); buildIndicatorSlots();
+  opens = []; highs = []; lows = []; prices = []; lowlag = []; fair = []; buyVol = []; sellVol = []; times = [];
   bucket = null; avgSize = 0;
 }
-function reset() {
-  tradeBuffer.clear(); resetOperators();
-  arrivals.length = 0; lastTrade = null;
+function resetActiveSeries() {
+  // A cached state may hold the same operator instances. It is invalid once
+  // this series is rebuilt, so remove it before disposing those instances.
+  const cached = marketStates.get(source);
+  if (cached && cached.priceOps === priceOps) marketStates.delete(source);
+  resetOperators();
+  arrivals.length = 0;
+  lastTrade = null;
   document.getElementById("last").textContent = "—";
-  dirty = true; updateTimeInfo();
+  dirty = true;
+  updateTimeInfo();
+}
+function reset() {
+  tradeBuffer.clear();
+  resetActiveSeries();
 }
 function rebuildFromBuffer() {
-  resetOperators(); lastTrade = null;
+  resetActiveSeries();
   tradeBuffer.forEach((trade) => processTrade(trade, false));
   dirty = true; updateTimeInfo();
 }
@@ -288,8 +360,17 @@ resetOperators();
 
 function tradeTimestamp(trade) { return Number.isFinite(trade.exchangeTs) ? trade.exchangeTs : trade.receivedTs; }
 
+function flushTimeBucket() {
+  if (!bucket || bucket.vol <= 0) return;
+  addSample({
+    price: bucket.close, open: bucket.open, high: bucket.high, low: bucket.low,
+    size: bucket.vol, signed: bucket.signed, buy: bucket.buy, sell: bucket.sell, ts: bucket.ts,
+  });
+  bucket = null;
+}
+
 function processTrade(trade, remember) {
-  if (remember) { tradeBuffer.push(trade); arrivals.push(performance.now()); }
+  if (remember) { tradeBuffer.push(trade); arrivals.push(performance.now()); dirty = true; }
   lastTrade = trade;
   document.getElementById("last").textContent = fmt(trade.price);
   const { price, size, sign } = trade;
@@ -297,16 +378,32 @@ function processTrade(trade, remember) {
   const ts = tradeTimestamp(trade);
 
   if (clock.mode === "count") {
-    addSample({ price, size, signed: sign * size, buy: sign > 0 ? size : 0, sell: sign < 0 ? size : 0, ts });
+    addSample({ price, open: price, high: price, low: price, size, signed: sign * size, buy: sign > 0 ? size : 0, sell: sign < 0 ? size : 0, ts });
     return;
   }
+
+  if (clock.mode === "time") {
+    const span = clock.factor * 1000;
+    const start = Number.isFinite(ts) ? Math.floor(ts / span) * span : NaN;
+    if (!bucket || bucket.start !== start) {
+      flushTimeBucket();
+      bucket = { start, open: price, high: price, low: price, close: price, vol: 0, signed: 0, buy: 0, sell: 0, ts };
+    }
+    bucket.high = Math.max(bucket.high, price); bucket.low = Math.min(bucket.low, price); bucket.close = price;
+    bucket.vol += size; bucket.signed += sign * size;
+    bucket.buy += sign > 0 ? size : 0; bucket.sell += sign < 0 ? size : 0;
+    bucket.ts = ts;
+    return;
+  }
+
   // Volume clock: accumulate into a bucket until it holds a target slice of volume.
-  if (!bucket) bucket = { vol: 0, signed: 0, pv: 0, buy: 0, sell: 0, ts: NaN };
+  if (!bucket) bucket = { open: price, high: price, low: price, close: price, vol: 0, signed: 0, pv: 0, buy: 0, sell: 0, ts: NaN };
+  bucket.high = Math.max(bucket.high, price); bucket.low = Math.min(bucket.low, price); bucket.close = price;
   bucket.vol += size; bucket.signed += sign * size; bucket.pv += price * size;
   bucket.buy += sign > 0 ? size : 0; bucket.sell += sign < 0 ? size : 0;
   if (Number.isFinite(ts)) bucket.ts = ts;
   if (bucket.vol >= avgSize * clock.factor) {
-    addSample({ price: bucket.pv / bucket.vol, size: bucket.vol, signed: bucket.signed, buy: bucket.buy, sell: bucket.sell, ts: bucket.ts });
+    addSample({ price: bucket.pv / bucket.vol, open: bucket.open, high: bucket.high, low: bucket.low, size: bucket.vol, signed: bucket.signed, buy: bucket.buy, sell: bucket.sell, ts: bucket.ts });
     bucket = null;
   }
 }
@@ -316,10 +413,17 @@ function addSample(s) {
   const ll = priceOps.poly(s.price);
   const pv = priceOps.sumPV(s.price * s.size), v = priceOps.sumV(s.size);
   const vw = v > 0 ? pv / v : NaN;
-  const val = indDef().feed(indState, s);
-
-  prices.push(s.price); lowlag.push(ll); fair.push(vw); ind.push(val); times.push(s.ts);
-  while (prices.length > N) { prices.shift(); lowlag.shift(); fair.shift(); ind.shift(); times.shift(); }
+  const open = Number.isFinite(s.open) ? s.open : s.price;
+  const high = Number.isFinite(s.high) ? s.high : s.price;
+  const low = Number.isFinite(s.low) ? s.low : s.price;
+  opens.push(open); highs.push(high); lows.push(low);
+  prices.push(s.price); lowlag.push(ll); fair.push(vw);
+  buyVol.push(s.buy); sellVol.push(s.sell); times.push(s.ts);
+  indicatorSlots.forEach((slot) => slot.values.push(INDICATOR_BY_ID[slot.id].feed(slot.state, s)));
+  while (prices.length > N) {
+    opens.shift(); highs.shift(); lows.shift(); prices.shift(); lowlag.shift(); fair.shift(); buyVol.shift(); sellVol.shift(); times.shift();
+    indicatorSlots.forEach((slot) => slot.values.shift());
+  }
   dirty = true;
 }
 
@@ -385,54 +489,69 @@ function connect() {
   sock.onclose = () => { if (sock !== ws) return; setStatus("dead", "disconnected · retrying…"); scheduleReconnect(); };
 }
 function scheduleReconnect() { retry = Math.min(retry + 1, 6); reconnectTimer = setTimeout(connect, 400 * retry); }
-function switchFeed(next) { source = next; if (ws) { ws.onclose = null; try { ws.close(); } catch {} ws = null; } reset(); connect(); }
-
-// ---------------------------------------------------------------------------
-// Indicator picker: a left column on desktop, a dropdown on mobile. Both are
-// built from the same registry and drive the same selection.
-// ---------------------------------------------------------------------------
-function buildPicker() {
-  const sidebar = document.getElementById("sidebar"), dd = document.getElementById("signal");
-  let group = "", optgroup = null;
-  for (const def of INDICATORS) {
-    if (def.group !== group) {
-      group = def.group;
-      const h = document.createElement("div"); h.className = "grp"; h.textContent = group; sidebar.appendChild(h);
-      optgroup = document.createElement("optgroup"); optgroup.label = group; dd.appendChild(optgroup);
-    }
-    const b = document.createElement("button");
-    b.className = "ind"; b.dataset.id = def.id; b.textContent = def.label;
-    b.addEventListener("click", () => switchIndicator(def.id));
-    sidebar.appendChild(b);
-    const o = document.createElement("option"); o.value = def.id; o.textContent = def.label; optgroup.appendChild(o);
+function viewLabel() {
+  if (clock.mode === "time") return clock.factor + "-second OHLC";
+  if (clock.mode === "volume") return "volume-clock bars";
+  return "trade view";
+}
+function updateMarketTitle() {
+  document.getElementById("marketTitle").textContent = FEEDS[source].label + " · " + viewLabel();
+}
+function switchFeed(next) {
+  if (!FEEDS[next] || next === source) return;
+  if (ws) { ws.onclose = null; try { ws.close(); } catch {} ws = null; }
+  captureActiveSeries();
+  source = next;
+  tradeBuffer = bufferForMarket(source);
+  const cached = marketStates.get(source);
+  const canRestore = cached && cached.clockKey === seriesClockKey();
+  if (canRestore) {
+    restoreSeries(cached);
+  } else {
+    if (cached) { marketStates.delete(source); disposeSeries(cached); }
+    resetOperators(false);
+    lastTrade = null;
+    document.getElementById("last").textContent = "—";
+    rebuildFromBuffer();
   }
-  dd.addEventListener("change", (e) => switchIndicator(e.target.value));
-  syncPicker();
+  arrivals.length = 0;
+  updateMarketTitle();
+  dirty = true;
+  updateTimeInfo();
+  connect();
 }
-function syncPicker() {
-  document.querySelectorAll("#sidebar button.ind").forEach((b) => b.classList.toggle("active", b.dataset.id === indDefId));
-  document.getElementById("signal").value = indDefId;
-}
-function switchIndicator(id) { if (!INDICATOR_BY_ID[id]) return; indDefId = id; syncPicker(); rebuildFromBuffer(); }
 
 // ---------------------------------------------------------------------------
-// Rendering: a price panel (raw trades, low-lag price, fair value) over the
-// selected indicator. The price axis is scaled from the trades only.
+// Rendering: one market canvas plus one compact canvas for every registered
+// indicator. All cards share the same sample clock and bounded replay buffer.
 // ---------------------------------------------------------------------------
-const canvas = document.getElementById("chart");
-const ctx = canvas.getContext("2d");
+const canvases = {
+  price: document.getElementById("chartPrice"),
+};
+const indicatorCanvases = new Map();
+let ctx = null;
 let cssW = 0, cssH = 0, dpr = 1;
 function resize() {
-  const r = canvas.getBoundingClientRect();
-  cssW = Math.max(320, r.width); cssH = Math.max(300, r.height);
   dpr = window.devicePixelRatio || 1;
-  canvas.width = Math.round(cssW * dpr); canvas.height = Math.round(cssH * dpr);
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  for (const canvas of [...Object.values(canvases), ...indicatorCanvases.values()]) {
+    const r = canvas.getBoundingClientRect();
+    canvas.width = Math.max(1, Math.round(r.width * dpr));
+    canvas.height = Math.max(1, Math.round(r.height * dpr));
+  }
   dirty = true;
+}
+function useSurface(name) {
+  const canvas = canvases[name] || indicatorCanvases.get(name);
+  if (!canvas) throw new Error("Unknown chart surface: " + name);
+  const r = canvas.getBoundingClientRect();
+  cssW = Math.max(180, r.width); cssH = Math.max(120, r.height);
+  ctx = canvas.getContext("2d");
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, cssW, cssH);
 }
 window.addEventListener("resize", resize);
 
-const PADL = 12, PADR = 74, PADT = 12, PADB = 34;
+const PADL = 10, PADR = 58, PADT = 10, PADB = 25;
 
 function fmt(v) { return Number.isFinite(v) ? v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "—"; }
 function fmtTick(v) {
@@ -499,98 +618,190 @@ function render() {
   document.getElementById("rate").textContent = arrivals.length;
   updateTimeInfo();
 
+  if (clock.mode === "time" && bucket && Number.isFinite(bucket.start) && Date.now() >= bucket.start + clock.factor * 1000) flushTimeBucket();
   if (!dirty) return;
   dirty = false;
+  renderPricePanel();
+  renderIndicatorPanels();
+}
 
-  ctx.clearRect(0, 0, cssW, cssH);
+function sampleX(plotW) {
+  const len = prices.length, scale = timeScale(times);
+  const step = plotW / Math.max(len - 1, 1);
+  const indexX = (i) => PADL + plotW - (len - 1 - i) * step;
+  return { scale, X: scale ? (i) => PADL + (times[i] - scale.first) / scale.span * plotW : indexX };
+}
+
+function renderPricePanel() {
+  useSurface("price");
   const plotW = cssW - PADL - PADR, plotH = cssH - PADT - PADB;
-  const priceH = plotH * 0.70, gap = plotH * 0.07, flowH = plotH - priceH - gap;
-  const priceTop = PADT, flowTop = PADT + priceH + gap;
-
-  const finite = prices.filter(Number.isFinite);
+  const gap = Math.max(7, plotH * 0.035), priceH = plotH * 0.68, volumeH = plotH - priceH - gap;
+  const volumeTop = PADT + priceH + gap;
+  const finite = [...highs, ...lows, ...prices, ...fair, ...lowlag].filter(Number.isFinite);
   if (finite.length < 2) {
     ctx.fillStyle = "#8b949e"; ctx.font = "13px -apple-system, sans-serif"; ctx.textAlign = "center";
-    ctx.fillText("waiting for trades…", PADL + plotW / 2, priceTop + priceH / 2);
+    ctx.fillText("waiting for trades…", PADL + plotW / 2, PADT + priceH / 2);
     return;
   }
-
   let lo = Math.min(...finite), hi = Math.max(...finite);
-  for (const v of fair) if (Number.isFinite(v)) { lo = Math.min(lo, v); hi = Math.max(hi, v); }
   if (hi - lo < 1e-9) { hi += 1; lo -= 1; }
   const pad = (hi - lo) * 0.08; lo -= pad; hi += pad;
-
-  const len = prices.length, step = plotW / (N - 1);
-  const scale = timeScale(times);
-  const indexX = (i) => PADL + plotW - (len - 1 - i) * step;
-  const X = scale ? (i) => PADL + (times[i] - scale.first) / scale.span * plotW : indexX;
-  const Yp = (p) => priceTop + (1 - (p - lo) / (hi - lo)) * priceH;
-
-  // price grid + right labels
+  const { scale, X } = sampleX(plotW);
+  const Yp = (p) => PADT + (1 - (p - lo) / (hi - lo)) * priceH;
   ctx.strokeStyle = "#232a33"; ctx.fillStyle = "#8b949e"; ctx.lineWidth = 1;
-  ctx.font = "11px ui-monospace, Menlo, monospace"; ctx.textAlign = "left";
+  ctx.font = "10px ui-monospace, Menlo, monospace"; ctx.textAlign = "left";
   for (let k = 0; k <= 4; k++) {
-    const y = priceTop + (k / 4) * priceH;
+    const y = PADT + (k / 4) * priceH;
     ctx.beginPath(); ctx.moveTo(PADL, y); ctx.lineTo(PADL + plotW, y); ctx.stroke();
-    ctx.fillText(fmt(hi - (k / 4) * (hi - lo)), PADL + plotW + 8, y + 3);
+    ctx.fillText(fmt(hi - (k / 4) * (hi - lo)), PADL + plotW + 6, y + 3);
   }
-
-  // price lines, clipped to the price panel
-  ctx.save(); ctx.beginPath(); ctx.rect(PADL, priceTop, plotW, priceH); ctx.clip();
-  line(prices, "#6e7681", 1, 0.5, X, Yp);
-  line(fair,   "#58a6ff", 1.4, 0.9, X, Yp);
+  ctx.save(); ctx.beginPath(); ctx.rect(PADL, PADT, plotW, priceH); ctx.clip();
+  renderOHLC(X, Yp, plotW);
+  line(prices, "#6e7681", 1, 0.45, X, Yp);
+  line(fair, "#58a6ff", 1.4, 0.9, X, Yp);
   line(lowlag, "#f5a623", 1.9, 1, X, Yp);
   ctx.restore();
-
-  renderIndicator(indDef(), flowTop, flowH, X, plotW);
+  renderVolume(volumeTop, volumeH, X, plotW);
   document.getElementById("v_lowlag").textContent = fmt(lastFinite(lowlag));
   document.getElementById("v_fair").textContent = fmt(lastFinite(fair));
   drawTimeAxis(scale, plotW);
 }
 
-function renderIndicator(def, flowTop, flowH, X, plotW) {
+function indicatorBounds(def, values) {
   let lo, hi;
-  if (def.fixed) { [lo, hi] = def.fixed; }
+  if (def.fixed) [lo, hi] = def.fixed;
   else {
-    const fin = ind.filter(Number.isFinite);
-    if (fin.length < 1) { lo = -1; hi = 1; }
+    const fin = values.filter(Number.isFinite);
+    if (!fin.length) { lo = -1; hi = 1; }
     else { lo = Math.min(...fin); hi = Math.max(...fin); if (hi - lo < 1e-9) { hi += 1; lo -= 1; } const p = (hi - lo) * 0.1; lo -= p; hi += p; }
   }
-  const Yv = (v) => flowTop + (1 - (v - lo) / (hi - lo)) * flowH;
+  if (def.style === "flow") { lo = Math.min(lo, 0); hi = Math.max(hi, 0); }
+  if (hi - lo < 1e-9) hi = lo + 1;
+  return { lo, hi };
+}
 
-  ctx.fillStyle = "#8b949e"; ctx.textAlign = "left"; ctx.font = "11px ui-monospace, Menlo, monospace";
-  ctx.fillText(def.label, PADL + 2, flowTop + 10);
-  ctx.fillText(fmtTick(hi), PADL + plotW + 8, flowTop + 3);
-  ctx.fillText(fmtTick(lo), PADL + plotW + 8, flowTop + flowH + 3);
+function renderIndicatorChart(slot, surfaceName) {
+  useSurface(surfaceName);
+  const plotW = cssW - PADL - PADR, plotH = cssH - PADT - PADB;
+  const { X } = sampleX(plotW), def = INDICATOR_BY_ID[slot.id], values = slot.values;
+  const { lo, hi } = indicatorBounds(def, values);
+  const Yv = (v) => PADT + (1 - (v - lo) / (hi - lo)) * plotH;
+  ctx.strokeStyle = "#232a33"; ctx.fillStyle = "#8b949e"; ctx.lineWidth = 1;
+  ctx.font = "10px ui-monospace, Menlo, monospace"; ctx.textAlign = "left";
+  for (let k = 0; k <= 2; k++) {
+    const y = PADT + k / 2 * plotH;
+    ctx.beginPath(); ctx.moveTo(PADL, y); ctx.lineTo(PADL + plotW, y); ctx.stroke();
+  }
+  ctx.fillText(fmtTick(hi), PADL + plotW + 6, PADT + 3);
+  ctx.fillText(fmtTick(lo), PADL + plotW + 6, PADT + plotH + 3);
   if (def.refs) for (const r of def.refs) {
     if (r < lo || r > hi) continue;
-    const y = Yv(r);
-    ctx.strokeStyle = "#2c333d"; ctx.beginPath(); ctx.moveTo(PADL, y); ctx.lineTo(PADL + plotW, y); ctx.stroke();
-    ctx.fillStyle = "#8b949e"; ctx.fillText(fmtTick(r), PADL + plotW + 8, y + 3);
+    const y = Yv(r); ctx.strokeStyle = "#2c333d"; ctx.beginPath(); ctx.moveTo(PADL, y); ctx.lineTo(PADL + plotW, y); ctx.stroke();
+    ctx.fillStyle = "#8b949e"; ctx.fillText(fmtTick(r), PADL + plotW + 6, y + 3);
   }
-
-  const nowVal = lastFinite(ind);
+  ctx.save(); ctx.beginPath(); ctx.rect(PADL, PADT, plotW, plotH); ctx.clip();
   if (def.style === "flow") {
     const zeroY = Yv(0);
-    fillFlow(ind, X, Yv, zeroY, "#3fb950", PADL, flowTop, plotW, zeroY - flowTop);
-    fillFlow(ind, X, Yv, zeroY, "#f85149", PADL, zeroY, plotW, flowTop + flowH - zeroY);
-  } else {
-    line(ind, def.color || "#d29922", 1.8, 1, X, Yv);
-  }
+    fillFlow(values, X, Yv, zeroY, "#3fb950", PADL, PADT, plotW, zeroY - PADT);
+    fillFlow(values, X, Yv, zeroY, "#f85149", PADL, zeroY, plotW, PADT + plotH - zeroY);
+  } else line(values, def.color || "#d29922", 1.8, 1, X, Yv);
+  ctx.restore();
+  const nowVal = lastFinite(values);
+  return nowVal;
+}
 
-  // header pill + legend
-  const pill = document.getElementById("bias"), txt = document.getElementById("biastxt");
-  document.getElementById("signalLabel").textContent = def.short || def.label;
+function indicatorValue(def, value) {
+  if (!Number.isFinite(value)) return { text: "warming…", className: "" };
   if (def.style === "flow") {
-    if (Number.isFinite(nowVal) && nowVal > 0.05) { pill.className = "pill buy"; txt.textContent = "buyers " + Math.round(nowVal * 100) + "%"; }
-    else if (Number.isFinite(nowVal) && nowVal < -0.05) { pill.className = "pill sell"; txt.textContent = "sellers " + Math.round(-nowVal * 100) + "%"; }
-    else { pill.className = "pill"; txt.textContent = "balanced"; }
-  } else {
-    pill.className = "pill"; txt.textContent = Number.isFinite(nowVal) ? fmtTick(nowVal) : "warming up";
+    if (value > 0.05) return { text: "buyers " + Math.round(value * 100) + "%", className: "buy" };
+    if (value < -0.05) return { text: "sellers " + Math.round(-value * 100) + "%", className: "sell" };
+    return { text: "balanced", className: "" };
   }
-  const leg = document.getElementById("indLegend");
-  leg.innerHTML = def.style === "flow"
-    ? '<span class="sw sq" style="background:var(--buy)"></span><span class="sw sq" style="background:var(--sell)"></span><span class="nm">order-flow pressure (buy / sell)</span>'
-    : '<span class="sw" style="background:' + (def.color || "#d29922") + '"></span><span class="nm">' + def.label + '</span>';
+  return { text: fmtTick(value), className: "" };
+}
+
+function renderIndicatorPanels() {
+  indicatorSlots.forEach((slot) => {
+    const def = INDICATOR_BY_ID[slot.id], value = renderIndicatorChart(slot, "indicator:" + slot.id);
+    const meta = indicatorValue(def, value), valueEl = document.getElementById("indicator-value-" + slot.id);
+    if (valueEl) { valueEl.textContent = meta.text; valueEl.className = "card-value" + (meta.className ? " " + meta.className : ""); }
+  });
+}
+
+function buildIndicatorGrid() {
+  const rail = document.getElementById("indicatorRail");
+  rail.replaceChildren();
+  indicatorCanvases.clear();
+  const rows = new Map();
+  const accents = {
+    "Order flow & volume": "#58a6ff",
+    "Momentum": "#d29922",
+    "Trend": "#3fb950",
+    "Volatility": "#f85149",
+    "Cycle (Ehlers)": "#bc8cff",
+  };
+  indicatorSlots.forEach((slot) => {
+    const def = INDICATOR_BY_ID[slot.id], surfaceName = "indicator:" + slot.id;
+    let row = rows.get(def.group);
+    if (!row) {
+      const section = document.createElement("section"); section.className = "category-row";
+      section.style.setProperty("--accent", accents[def.group] || "#8b949e");
+      const heading = document.createElement("div"); heading.className = "category-row-head";
+      const h2 = document.createElement("h2"); h2.textContent = def.group;
+      const count = document.createElement("span"); count.textContent = "indicators";
+      heading.append(h2, count);
+      const track = document.createElement("div"); track.className = "category-track";
+      section.append(heading, track); rail.appendChild(section);
+      row = { section, track, count: 0 }; rows.set(def.group, row);
+    }
+    row.count += 1; row.countEl = row.countEl || row.section.querySelector(".category-row-head span");
+    row.countEl.textContent = row.count + (row.count === 1 ? " indicator" : " indicators");
+    const card = document.createElement("section"); card.className = "indicator-card";
+    card.style.setProperty("--accent", accents[def.group] || "#8b949e");
+    const head = document.createElement("div"); head.className = "card-head";
+    const title = document.createElement("div"); title.className = "card-title";
+    const h3 = document.createElement("h3"); h3.textContent = def.label;
+    const sub = document.createElement("span"); sub.className = "card-sub"; sub.textContent = def.group;
+    title.append(h3, sub);
+    const value = document.createElement("span"); value.className = "card-value"; value.id = "indicator-value-" + def.id; value.textContent = "warming…";
+    head.append(title, value);
+    const surface = document.createElement("div"); surface.className = "indicator-surface";
+    const canvas = document.createElement("canvas"); canvas.id = "indicator-chart-" + def.id;
+    surface.appendChild(canvas); card.append(head, surface); row.track.appendChild(card);
+    indicatorCanvases.set(surfaceName, canvas);
+  });
+  document.getElementById("indicatorCount").textContent = indicatorSlots.length;
+}
+
+function renderOHLC(X, Yp, plotW) {
+  const barW = Math.max(1, Math.min(10, plotW / Math.max(N, 1) * 0.65));
+  for (let i = 0; i < prices.length; i++) {
+    if (![opens[i], highs[i], lows[i], prices[i]].every(Number.isFinite)) continue;
+    const x = X(i), yOpen = Yp(opens[i]), yClose = Yp(prices[i]);
+    const rising = prices[i] >= opens[i];
+    ctx.strokeStyle = rising ? "#3fb950" : "#f85149";
+    ctx.fillStyle = rising ? "rgba(63,185,80,.55)" : "rgba(248,81,73,.55)";
+    ctx.beginPath(); ctx.moveTo(x, Yp(highs[i])); ctx.lineTo(x, Yp(lows[i])); ctx.stroke();
+    ctx.fillRect(x - barW / 2, Math.min(yOpen, yClose), barW, Math.max(1, Math.abs(yClose - yOpen)));
+  }
+}
+
+function renderVolume(top, height, X, plotW) {
+  const totals = buyVol.map((v, i) => (Number.isFinite(v) ? Math.max(0, v) : 0) + (Number.isFinite(sellVol[i]) ? Math.max(0, sellVol[i]) : 0));
+  const maxVol = Math.max(...totals, 0);
+  ctx.fillStyle = "#8b949e"; ctx.textAlign = "left"; ctx.font = "11px ui-monospace, Menlo, monospace";
+  ctx.fillText("volume", PADL + 2, top + 10);
+  if (!(maxVol > 0)) return;
+  ctx.fillText(fmtTick(maxVol), PADL + plotW + 8, top + 3);
+  ctx.strokeStyle = "#2c333d"; ctx.beginPath(); ctx.moveTo(PADL, top + height); ctx.lineTo(PADL + plotW, top + height); ctx.stroke();
+  const barW = Math.max(1, Math.min(10, plotW / Math.max(N, 1) * 0.7));
+  for (let i = 0; i < totals.length; i++) {
+    const x = X(i), totalH = totals[i] / maxVol * (height - 14);
+    const buyH = (Math.max(0, buyVol[i]) / maxVol) * (height - 14);
+    const sellH = totalH - buyH;
+    ctx.fillStyle = "rgba(63,185,80,.75)"; ctx.fillRect(x - barW / 2, top + height - buyH, barW, buyH);
+    ctx.fillStyle = "rgba(248,81,73,.75)"; ctx.fillRect(x - barW / 2, top + height - buyH - sellH, barW, sellH);
+  }
 }
 
 function line(arr, color, w, alpha, X, Yp) {
@@ -622,12 +833,16 @@ document.getElementById("source").addEventListener("change", (e) => switchFeed(e
 document.getElementById("timezone").addEventListener("change", (e) => { timeZone = e.target.value; dirty = true; updateTimeInfo(); });
 document.getElementById("window").addEventListener("change", (e) => {
   const [t, n] = e.target.value.split(":");
-  const next = t === "vol" ? { mode: "volume", factor: +n, N: 240 } : { mode: "count", factor: 0, N: +n };
+  const next = t === "vol" ? { mode: "volume", factor: +n, N: 240 }
+    : t === "time" ? { mode: "time", factor: +n, N: 240 }
+    : { mode: "count", factor: 0, N: +n };
   clock = { mode: next.mode, factor: next.factor }; N = next.N;
+  updateMarketTitle();
   rebuildFromBuffer();
 });
 
-buildPicker();
+buildIndicatorGrid();
+updateMarketTitle();
 resize();
 connect();
 requestAnimationFrame(render);
