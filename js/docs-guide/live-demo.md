@@ -30,6 +30,11 @@ the exchange timestamp when available and the browser receive time otherwise.
 All indicators are fed the same one-sample-at-a-time stream. The indicator cards are grouped by
 their registry family: order flow & volume, momentum, trend, volatility, and Ehlers cycle reads.
 
+On first load each market also warm-starts by fetching its recent public trade tape over REST and
+replaying it through the same pipeline before the live socket, so the chart and every indicator are
+populated immediately instead of accreting over a minute. Overlapping trades are de-duplicated by
+trade id at the boundary.
+
 The **time** control formats the x-axis in local time or UTC. The chart uses the exchange timestamp
 when the feed provides one, and the browser receive time otherwise. A bounded browser buffer keeps
 recent raw trades, so changing the bar clock replays the history instead of starting empty. The

@@ -369,8 +369,15 @@ function flushTimeBucket() {
   bucket = null;
 }
 
-function processTrade(trade, remember) {
-  if (remember) { tradeBuffer.push(trade); arrivals.push(performance.now()); dirty = true; }
+function processTrade(trade, remember, countRate = true) {
+  if (remember) {
+    if (Number.isFinite(trade.id)) {
+      const last = marketLastId.get(source);
+      if (last !== undefined && trade.id <= last) return;   // dedupe the backfill/live overlap
+      marketLastId.set(source, trade.id);
+    }
+    tradeBuffer.push(trade); if (countRate) arrivals.push(performance.now()); dirty = true;
+  }
   lastTrade = trade;
   document.getElementById("last").textContent = fmt(trade.price);
   const { price, size, sign } = trade;
@@ -450,7 +457,15 @@ const FEEDS = {
       if (m.type !== "match" && m.type !== "last_match") return null;
       const price = parseFloat(m.price), size = parseFloat(m.size);
       if (!Number.isFinite(price) || !Number.isFinite(size)) return null;
-      return { price, size, sign: m.side === "sell" ? 1 : -1, exchangeTs: parseTimestamp(m.time) };
+      return { id: Number(m.trade_id), price, size, sign: m.side === "sell" ? 1 : -1, exchangeTs: parseTimestamp(m.time) };
+    },
+    rest: {
+      // Recent tape for the warm-start (public, CORS-open, newest-first, up to 1000).
+      url: "https://api.exchange.coinbase.com/products/BTC-USD/trades?limit=1000",
+      parse: (arr) => arr
+        .map((t) => ({ id: Number(t.trade_id), price: parseFloat(t.price), size: parseFloat(t.size), sign: t.side === "sell" ? 1 : -1, exchangeTs: parseTimestamp(t.time) }))
+        .filter((t) => Number.isFinite(t.id) && Number.isFinite(t.price) && Number.isFinite(t.size))
+        .sort((a, b) => a.id - b.id),   // Coinbase returns newest-first
     },
   },
   binance: {
@@ -461,12 +476,22 @@ const FEEDS = {
       if (m.e !== "trade") return null;
       const price = parseFloat(m.p), size = parseFloat(m.q);
       if (!Number.isFinite(price) || !Number.isFinite(size)) return null;
-      return { price, size, sign: m.m ? -1 : 1, exchangeTs: parseTimestamp(m.T) };
+      return { id: m.t, price, size, sign: m.m ? -1 : 1, exchangeTs: parseTimestamp(m.T) };
+    },
+    rest: {
+      // Recent tape for the warm-start (public, CORS-open, oldest-first, up to 1000).
+      url: "https://api.binance.com/api/v3/trades?symbol=BTCUSDT&limit=1000",
+      parse: (arr) => arr
+        .map((t) => ({ id: t.id, price: parseFloat(t.price), size: parseFloat(t.qty), sign: t.isBuyerMaker ? -1 : 1, exchangeTs: t.time }))
+        .filter((t) => Number.isFinite(t.id) && Number.isFinite(t.price) && Number.isFinite(t.size))
+        .sort((a, b) => a.id - b.id),   // ensure chronological before replay
     },
   },
 };
 
 let ws = null, source = "coinbase", retry = 0, reconnectTimer = null;
+const marketLastId = new Map();
+let backfillInFlight = false;
 
 function setStatus(state, text) {
   document.getElementById("dot").className = "dot " + (state || "");
@@ -489,6 +514,33 @@ function connect() {
   sock.onclose = () => { if (sock !== ws) return; setStatus("dead", "disconnected · retrying…"); scheduleReconnect(); };
 }
 function scheduleReconnect() { retry = Math.min(retry + 1, 6); reconnectTimer = setTimeout(connect, 400 * retry); }
+
+// Warm-start: replay the recent public trade tape through the same pipeline
+// before the live socket, so the chart fills across the window immediately
+// instead of accreting over a minute. Runs once per market (empty buffer); any
+// failure silently falls back to the live-only start.
+async function backfill(market) {
+  const feed = FEEDS[market];
+  if (!feed.rest) return;
+  setStatus("connecting", "loading history · " + feed.label + "…");
+  let trades;
+  try {
+    const res = await fetch(feed.rest.url, { cache: "no-store" });
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    trades = feed.rest.parse(await res.json());
+  } catch { return; }
+  if (market !== source || !Array.isArray(trades)) return;   // switched away, or bad payload
+  marketLastId.delete(market);                                // fresh dedupe baseline
+  for (const t of trades) processTrade({ ...t, receivedTs: t.exchangeTs }, true, false);
+  dirty = true; updateTimeInfo();
+}
+async function startFeed() {
+  if (!backfillInFlight && tradeBuffer.size === 0) {
+    backfillInFlight = true;
+    try { await backfill(source); } finally { backfillInFlight = false; }
+  }
+  connect();
+}
 function viewLabel() {
   if (clock.mode === "time") return clock.factor + "-second OHLC";
   if (clock.mode === "volume") return "volume-clock bars";
@@ -518,7 +570,7 @@ function switchFeed(next) {
   updateMarketTitle();
   dirty = true;
   updateTimeInfo();
-  connect();
+  startFeed();
 }
 
 // ---------------------------------------------------------------------------
@@ -844,7 +896,7 @@ document.getElementById("window").addEventListener("change", (e) => {
 buildIndicatorGrid();
 updateMarketTitle();
 resize();
-connect();
+startFeed();
 requestAnimationFrame(render);
 </script>
 </body>
