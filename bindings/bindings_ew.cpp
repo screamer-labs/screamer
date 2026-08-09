@@ -13,6 +13,9 @@
 #include "screamer/ew_cov.h"
 #include "screamer/ew_corr.h"
 #include "screamer/ew_beta.h"
+#include "screamer/ew_spread.h"
+#include "screamer/ew_alpha.h"
+#include "screamer/ew_residual_std.h"
 
 namespace nb = nanobind;
 using namespace nb::literals;
@@ -186,5 +189,55 @@ void init_bindings_ew(nb::module_& m) {
         )
         .def("__call__", &screamer::functor_call<screamer::EwBeta>)
         .def("reset", &screamer::EwBeta::reset, "Reset to the initial state.");
+
+     // Regression-family EW additions: the EW analogs of RollingSpread /
+     // RollingAlpha / RollingResidualStd (target first, regressor second).
+     nb::class_<screamer::EwSpread, screamer::EvalOp>(m, "EwSpread")
+        .def(
+          nb::init<
+               std::optional<double>,
+               std::optional<double>,
+               std::optional<double>,
+               std::optional<double>
+          >(),
+          "com"_a = nb::none(),
+          "span"_a = nb::none(),
+          "halflife"_a = nb::none(),
+          "alpha"_a = nb::none()
+        )
+        .def("__call__", &screamer::functor_call<screamer::EwSpread>)
+        .def("reset", &screamer::EwSpread::reset, "Reset to the initial state.");
+
+     nb::class_<screamer::EwAlpha, screamer::EvalOp>(m, "EwAlpha")
+        .def(
+          nb::init<
+               std::optional<double>,
+               std::optional<double>,
+               std::optional<double>,
+               std::optional<double>
+          >(),
+          "com"_a = nb::none(),
+          "span"_a = nb::none(),
+          "halflife"_a = nb::none(),
+          "alpha"_a = nb::none()
+        )
+        .def("__call__", &screamer::functor_call<screamer::EwAlpha>)
+        .def("reset", &screamer::EwAlpha::reset, "Reset to the initial state.");
+
+     nb::class_<screamer::EwResidualStd, screamer::EvalOp>(m, "EwResidualStd")
+        .def(
+          nb::init<
+               std::optional<double>,
+               std::optional<double>,
+               std::optional<double>,
+               std::optional<double>
+          >(),
+          "com"_a = nb::none(),
+          "span"_a = nb::none(),
+          "halflife"_a = nb::none(),
+          "alpha"_a = nb::none()
+        )
+        .def("__call__", &screamer::functor_call<screamer::EwResidualStd>)
+        .def("reset", &screamer::EwResidualStd::reset, "Reset to the initial state.");
 
 }

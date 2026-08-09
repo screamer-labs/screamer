@@ -13,7 +13,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from screamer import EwCov, EwCorr, EwBeta, EwVar, EwMean
+from screamer import (EwCov, EwCorr, EwBeta, EwVar, EwMean,
+                      EwSpread, EwAlpha, EwResidualStd)
 
 
 def _correlated_pair(rng, n, rho=0.7):
@@ -228,3 +229,29 @@ class TestEdgeCases:
         for out in (out_cov, out_corr, out_beta):
             assert np.isnan(out[0])
             assert np.isfinite(out[1])
+
+
+class TestEwRegressionFamily:
+    """EwSpread / EwAlpha / EwResidualStd compose EwBeta + EwMean + EwStd, the
+    EW analogs of RollingSpread / RollingAlpha / RollingResidualStd."""
+
+    def test_ewspread_is_target_minus_beta_times_regressor(self):
+        rng = np.random.default_rng(3)
+        x, y = _correlated_pair(rng, 500)
+        beta = EwBeta(span=40)(x, y)
+        assert np.allclose(EwSpread(span=40)(x, y), x - beta * y, equal_nan=True, rtol=1e-12)
+
+    def test_ewalpha_is_meanx_minus_beta_meany(self):
+        rng = np.random.default_rng(4)
+        x, y = _correlated_pair(rng, 500)
+        beta = EwBeta(span=40)(x, y)
+        mx, my = EwMean(span=40)(x), EwMean(span=40)(y)
+        assert np.allclose(EwAlpha(span=40)(x, y), mx - beta * my, equal_nan=True, rtol=1e-12)
+
+    def test_ewresidualstd_finite_and_nonnegative_after_warmup(self):
+        rng = np.random.default_rng(5)
+        x, y = _correlated_pair(rng, 500)
+        out = EwResidualStd(span=40)(x, y)
+        warm = out[10:]
+        assert np.all(np.isfinite(warm))
+        assert np.all(warm >= 0.0)

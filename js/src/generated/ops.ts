@@ -713,6 +713,20 @@ export function Erfc(): ScreamerOp {
 }
 
 /**
+ * EW regression intercept, ewmean(x) - EwBeta(x,y) * ewmean(y).
+ *
+ * @param com Center of mass (alpha = 1 / (1 + com)). Exclusive with span/halflife/alpha.
+ * @param span Span (alpha = 2 / (span + 1)). Default smoothing parameter. Exclusive with com/halflife/alpha.
+ * @param halflife Halflife (alpha = 1 - 0.5^(1/halflife)). Exclusive with com/span/alpha.
+ * @param alpha Smoothing parameter directly. Exclusive with com/span/halflife.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
+export function EwAlpha(com: number = NaN, span: number = NaN, halflife: number = NaN, alpha: number = NaN): ScreamerOp {
+  const M = current();
+  return wrapOp(M, new M.EwAlpha(com, span, halflife, alpha));
+}
+
+/**
  * EW CAPM beta: cov(target, regressor) / var(regressor).
  *
  * @param com Center of mass (alpha = 1 / (1 + com)). Exclusive with span/halflife/alpha.
@@ -839,6 +853,20 @@ export function EwParkinsonVol(com: number = NaN, span: number = NaN, halflife: 
 }
 
 /**
+ * EW std of the spread x - EwBeta(x,y) * y.
+ *
+ * @param com Center of mass (alpha = 1 / (1 + com)). Exclusive with span/halflife/alpha.
+ * @param span Span (alpha = 2 / (span + 1)). Default smoothing parameter. Exclusive with com/halflife/alpha.
+ * @param halflife Halflife (alpha = 1 - 0.5^(1/halflife)). Exclusive with com/span/alpha.
+ * @param alpha Smoothing parameter directly. Exclusive with com/span/halflife.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
+export function EwResidualStd(com: number = NaN, span: number = NaN, halflife: number = NaN, alpha: number = NaN): ScreamerOp {
+  const M = current();
+  return wrapOp(M, new M.EwResidualStd(com, span, halflife, alpha));
+}
+
+/**
  * EW root-mean-square.
  *
  * @param com Center of mass (alpha = 1 / (1 + com)). Exclusive with span/halflife/alpha.
@@ -892,6 +920,20 @@ export function EwRogersSatchellVol(com: number = NaN, span: number = NaN, halfl
 export function EwSkew(com: number = NaN, span: number = NaN, halflife: number = NaN, alpha: number = NaN): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.EwSkew(com, span, halflife, alpha));
+}
+
+/**
+ * x - EwBeta(x,y) * y - EW hedge-adjusted residual.
+ *
+ * @param com Center of mass (alpha = 1 / (1 + com)). Exclusive with span/halflife/alpha.
+ * @param span Span (alpha = 2 / (span + 1)). Default smoothing parameter. Exclusive with com/halflife/alpha.
+ * @param halflife Halflife (alpha = 1 - 0.5^(1/halflife)). Exclusive with com/span/alpha.
+ * @param alpha Smoothing parameter directly. Exclusive with com/span/halflife.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
+export function EwSpread(com: number = NaN, span: number = NaN, halflife: number = NaN, alpha: number = NaN): ScreamerOp {
+  const M = current();
+  return wrapOp(M, new M.EwSpread(com, span, halflife, alpha));
 }
 
 /**

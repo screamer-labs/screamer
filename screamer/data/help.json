@@ -38,6 +38,58 @@
     "details": "",
     "examples": []
   },
+  "EwAlpha": {
+    "name": "EwAlpha",
+    "title": "Exponentially-weighted alpha",
+    "implementation_family": "ew",
+    "topics": [
+      "regression"
+    ],
+    "tags": [
+      "ew",
+      "alpha",
+      "intercept",
+      "pair"
+    ],
+    "short": "EW regression intercept, ewmean(x) - EwBeta(x,y) * ewmean(y).",
+    "inputs": 2,
+    "outputs": 1,
+    "parameters": [
+      {
+        "name": "com",
+        "type": "float",
+        "default": null,
+        "description": "Center of mass (alpha = 1 / (1 + com)). Exclusive with span/halflife/alpha."
+      },
+      {
+        "name": "span",
+        "type": "float",
+        "default": 20.0,
+        "description": "Span (alpha = 2 / (span + 1)). Default smoothing parameter. Exclusive with com/halflife/alpha."
+      },
+      {
+        "name": "halflife",
+        "type": "float",
+        "default": null,
+        "description": "Halflife (alpha = 1 - 0.5^(1/halflife)). Exclusive with com/span/alpha."
+      },
+      {
+        "name": "alpha",
+        "type": "float",
+        "default": null,
+        "description": "Smoothing parameter directly. Exclusive with com/span/halflife."
+      }
+    ],
+    "nan_policy": "ignore",
+    "details": "## Description\n\n`EwAlpha` is the exponentially weighted regression intercept, the EW analog of [`RollingAlpha`](../functions_fin/RollingAlpha.md) and the companion to [`EwBeta`](EwBeta.md):\n\n$$\n\\text{EwAlpha}(x, y) = \\overline{x}_{ew} - \\beta_{ew}\\, \\overline{y}_{ew}\n$$\n\nwhere `beta_ew = EwBeta(x, y)` and the means are exponentially weighted. This is a **2-input, 1-output** function (`FunctorBase<_, 2, 1>`).\n\n## Argument-order convention\n\nThe **first argument is the target**, the **second is the regressor**, matching `EwBeta`. Together, `EwAlpha` and `EwBeta` give the fitted line `x ≈ alpha + beta * y` under exponential weighting.\n\n## Parameters\n\nSpecify exactly one of the following to set the smoothing factor `alpha`:\n\n- **`com`**: Center of mass. `alpha = 1 / (1 + com)`\n- **`span`**: Span. `alpha = 2 / (span + 1)`\n- **`halflife`**: Half-life. `alpha = 1 - exp(-log(2) / halflife)`\n- **`alpha`**: Directly sets the smoothing factor, `0 < alpha < 1`\n\nThe output is `NaN` while `EwBeta` is undefined (regressor with zero variance over the effective window).\n\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage example",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import EwAlpha\n\nrng = np.random.default_rng(0)\nN = 300\nmarket = np.cumsum(rng.standard_normal(N))\nasset = 3.0 + 1.5 * market + np.cumsum(0.3 * rng.standard_normal(N))  # true alpha=3\newalpha = EwAlpha(span=60)(asset, market)\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.5, 0.5],\n                    vertical_spacing=0.08)\nfig.add_trace(go.Scatter(y=asset, name='asset'), row=1, col=1)\nfig.add_trace(go.Scatter(y=market, name='market'), row=1, col=1)\nfig.add_trace(go.Scatter(y=ewalpha, name='EwAlpha(span=60)',\n                         line=dict(color='crimson')), row=2, col=1)\nfig.update_layout(\n    title='EwAlpha: EW regression intercept (true alpha = 3)',\n    margin=dict(l=20, r=20, t=60, b=20),\n    legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1),\n)\nfig.update_yaxes(title_text='level', row=1, col=1)\nfig.update_yaxes(title_text='alpha', row=2, col=1)\nfig.show()"
+      }
+    ]
+  },
   "EwBeta": {
     "name": "EwBeta",
     "title": "Exponentially-weighted beta",
@@ -511,6 +563,58 @@
       }
     ]
   },
+  "EwResidualStd": {
+    "name": "EwResidualStd",
+    "title": "Exponentially-weighted residual std",
+    "implementation_family": "ew",
+    "topics": [
+      "regression"
+    ],
+    "tags": [
+      "ew",
+      "spread",
+      "residual",
+      "pair"
+    ],
+    "short": "EW std of the spread x - EwBeta(x,y) * y.",
+    "inputs": 2,
+    "outputs": 1,
+    "parameters": [
+      {
+        "name": "com",
+        "type": "float",
+        "default": null,
+        "description": "Center of mass (alpha = 1 / (1 + com)). Exclusive with span/halflife/alpha."
+      },
+      {
+        "name": "span",
+        "type": "float",
+        "default": 20.0,
+        "description": "Span (alpha = 2 / (span + 1)). Default smoothing parameter. Exclusive with com/halflife/alpha."
+      },
+      {
+        "name": "halflife",
+        "type": "float",
+        "default": null,
+        "description": "Halflife (alpha = 1 - 0.5^(1/halflife)). Exclusive with com/span/alpha."
+      },
+      {
+        "name": "alpha",
+        "type": "float",
+        "default": null,
+        "description": "Smoothing parameter directly. Exclusive with com/span/halflife."
+      }
+    ],
+    "nan_policy": "ignore",
+    "details": "## Description\n\n`EwResidualStd` is the exponentially weighted standard deviation of the spread `x - EwBeta(x, y) * y`, the EW analog of [`RollingResidualStd`](../functions_fin/RollingResidualStd.md). It is the natural scale for normalising an [`EwSpread`](EwSpread.md): the mean-reversion z-score of a spread is `(spread - ewmean(spread)) / EwResidualStd`.\n\n$$\n\\text{EwResidualStd}(x, y) = \\operatorname{Std}_{ew}\\!\\big(x - \\beta_{ew}\\, y\\big)\n$$\n\nThis is a **2-input, 1-output** function (`FunctorBase<_, 2, 1>`).\n\n## Argument-order convention\n\nThe **first argument is the target**, the **second is the regressor**, matching [`EwBeta`](EwBeta.md) and [`EwSpread`](EwSpread.md).\n\n## Parameters\n\nSpecify exactly one of the following to set the smoothing factor `alpha`:\n\n- **`com`**: Center of mass. `alpha = 1 / (1 + com)`\n- **`span`**: Span. `alpha = 2 / (span + 1)`\n- **`halflife`**: Half-life. `alpha = 1 - exp(-log(2) / halflife)`\n- **`alpha`**: Directly sets the smoothing factor, `0 < alpha < 1`\n\nThe output is `NaN` while the spread is still warming up.\n\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage example",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import EwSpread, EwResidualStd\n\nrng = np.random.default_rng(0)\nN = 400\ncommon = np.cumsum(rng.standard_normal(N))\na = common + 0.3 * np.cumsum(rng.standard_normal(N))\nb = 1.2 * common + 0.3 * np.cumsum(rng.standard_normal(N))\n\nspread = EwSpread(span=60)(a, b)\nresid_std = EwResidualStd(span=60)(a, b)\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.5, 0.5],\n                    vertical_spacing=0.06)\nfig.add_trace(go.Scatter(y=spread, name='EwSpread(60)'), row=1, col=1)\nfig.add_trace(go.Scatter(y=resid_std, name='EwResidualStd(60)',\n                         line=dict(color='crimson')), row=2, col=1)\nfig.update_layout(\n    title='EW spread and its residual scale (span=60)',\n    margin=dict(l=20, r=20, t=60, b=20),\n    legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1),\n)\nfig.update_yaxes(title_text='spread', row=1, col=1)\nfig.update_yaxes(title_text='std', row=2, col=1)\nfig.show()"
+      }
+    ]
+  },
   "EwRms": {
     "name": "EwRms",
     "title": "Exponentially-weighted RMS",
@@ -717,6 +821,58 @@
         "language": "python",
         "caption": "Description",
         "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import EwSkew\n\ndata = np.cumsum(np.random.normal(size=300))\newskew_data = EwSkew(span=20)(data)\n\nfig = make_subplots(\n    rows=2, cols=1,\n    shared_xaxes=True,\n    row_heights=[1/2, 1/2],\n    vertical_spacing=0.1\n)\n\nfig.add_trace(go.Scatter(y=data, mode='lines', name='Original Data'), row=1, col=1)\nfig.add_trace(go.Scatter(y=ewskew_data, mode='lines', name='EwSkew', line=dict(color='red')), row=2, col=1)\n\nfig.update_layout(\n    title=\"Exponentially Weighted Moving Skewness\",\n    xaxis_title=\"Index\",\n    yaxis=dict(title=\"Original Data\"),\n    yaxis2=dict(title=\"EwSkew\", range=[-.5, .5]),\n    margin=dict(l=20, r=20, t=80, b=20),\n    legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1)        \n)\n\nfig.show()"
+      }
+    ]
+  },
+  "EwSpread": {
+    "name": "EwSpread",
+    "title": "Exponentially-weighted spread",
+    "implementation_family": "ew",
+    "topics": [
+      "regression"
+    ],
+    "tags": [
+      "ew",
+      "spread",
+      "hedge",
+      "pair"
+    ],
+    "short": "x - EwBeta(x,y) * y - EW hedge-adjusted residual.",
+    "inputs": 2,
+    "outputs": 1,
+    "parameters": [
+      {
+        "name": "com",
+        "type": "float",
+        "default": null,
+        "description": "Center of mass (alpha = 1 / (1 + com)). Exclusive with span/halflife/alpha."
+      },
+      {
+        "name": "span",
+        "type": "float",
+        "default": 20.0,
+        "description": "Span (alpha = 2 / (span + 1)). Default smoothing parameter. Exclusive with com/halflife/alpha."
+      },
+      {
+        "name": "halflife",
+        "type": "float",
+        "default": null,
+        "description": "Halflife (alpha = 1 - 0.5^(1/halflife)). Exclusive with com/span/alpha."
+      },
+      {
+        "name": "alpha",
+        "type": "float",
+        "default": null,
+        "description": "Smoothing parameter directly. Exclusive with com/span/halflife."
+      }
+    ],
+    "nan_policy": "ignore",
+    "details": "## Description\n\n`EwSpread` is the exponentially weighted hedge-adjusted residual of `x` against `y`, the EW analog of [`RollingSpread`](../functions_fin/RollingSpread.md). At each step it takes the EW regression slope `beta_ew = EwBeta(x, y)` and returns `x[t] - beta_ew[t] * y[t]`.\n\n$$\n\\beta_{ew}[t] = \\frac{\\operatorname{Cov}_{ew}(x, y)}{\\operatorname{Var}_{ew}(y)},\n\\qquad\n\\text{spread}[t] = x[t] - \\beta_{ew}[t]\\, y[t]\n$$\n\nThis is a **2-input, 1-output** function (`FunctorBase<_, 2, 1>`).\n\n## Argument-order convention\n\nThe **first argument is the target**, the **second is the hedge/regressor**, matching [`EwBeta`](EwBeta.md) and `RollingSpread`. `EwSpread(price_a, price_b)` measures the deviation of `a` from its exponentially weighted hedge against `b`, the building block for pairs-trading mean reversion.\n\n## Parameters\n\nSpecify exactly one of the following to set the smoothing factor `alpha`:\n\n- **`com`**: Center of mass. `alpha = 1 / (1 + com)`\n- **`span`**: Span. `alpha = 2 / (span + 1)`\n- **`halflife`**: Half-life. `alpha = 1 - exp(-log(2) / halflife)`\n- **`alpha`**: Directly sets the smoothing factor, `0 < alpha < 1`\n\nThe output is `NaN` while `EwBeta` is undefined, that is when the regressor has zero variance over the effective window.\n\n## Identity check\n\nBy definition `EwSpread(x, y) == x - EwBeta(x, y) * y`, verified to ~1e-12 in the test suite.\n\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage example",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import EwSpread\n\nrng = np.random.default_rng(0)\nN = 400\ncommon = np.cumsum(rng.standard_normal(N))\na = common + 0.3 * np.cumsum(rng.standard_normal(N))\nb = 1.2 * common + 0.3 * np.cumsum(rng.standard_normal(N))\na[200:240] += 5.0   # a transient mispricing in a\n\nspread = EwSpread(span=60)(a, b)\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True,\n                    row_heights=[0.5, 0.5], vertical_spacing=0.05)\nfig.add_trace(go.Scatter(y=a, name='a'), row=1, col=1)\nfig.add_trace(go.Scatter(y=b, name='b'), row=1, col=1)\nfig.add_trace(go.Scatter(y=spread, name='EwSpread(span=60)',\n                         line=dict(color='crimson')), row=2, col=1)\nfig.update_layout(\n    title='EW hedge-adjusted spread of a against b (span=60)',\n    margin=dict(l=20, r=20, t=60, b=20),\n    legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1),\n)\nfig.update_yaxes(title_text='price', row=1, col=1)\nfig.update_yaxes(title_text='spread', row=2, col=1)\nfig.show()"
       }
     ]
   },
@@ -1132,17 +1288,6 @@
         "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import ExpandingVar\n\nrng = np.random.default_rng(0)\nN = 300\ndata = np.cumsum(rng.standard_normal(N))\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.5, 0.5],\n                    vertical_spacing=0.08)\nfig.add_trace(go.Scatter(y=data, mode='lines', name='Input', line=dict(color='steelblue', width=1)),\n              row=1, col=1)\nfig.add_trace(go.Scatter(y=ExpandingVar()(data), mode='lines', name='ExpandingVar',\n                         line=dict(color='darkorange', width=2)), row=2, col=1)\nfig.update_layout(\n    title=\"Expanding variance over a random walk\",\n    yaxis=dict(title='Input'), yaxis2=dict(title='Variance'),\n    margin=dict(l=20, r=20, t=60, b=20),\n    legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1),\n)\nfig.show()"
       }
     ]
-  },
-  "backtest_report": {
-    "name": "backtest_report",
-    "title": "backtest_report",
-    "kind": "function",
-    "short": "Running statistics and a summary for a backtest engine's output.",
-    "topics": [
-      "backtesting"
-    ],
-    "details": "Labels the output of the [`BacktestReport`](BacktestReport.md) node. It takes a\nbacktest engine's `[equity, pnl, position, cost]` output (the four positional\ncolumns that [`BacktestPriceTarget`](BacktestPriceTarget.md) and the other backtest engines\nemit) and returns `(running, summary)`.\n\n- `running` is a dict of numpy arrays: the four engine columns plus the\n  `BacktestReport` node's `drawdown` (dollar), `cum_cost`, `turnover` (units\n  traded), `trades` (count), `max_drawdown` (running worst), `sharpe` (running),\n  and `equity_held` (equity carried across skipped bars). Each is a causal series\n  whose last value is the summary.\n- `summary` is a dict of the final statistics: `total_pnl`, `max_drawdown`,\n  `total_cost`, `turnover`, `num_trades`, and `sharpe`.\n\nThe aggregation runs in the C++ `BacktestReport` node, so a pure-C++ user gets the\nsame statistics by calling that node directly. This wrapper only labels its\ncolumns and reads the last row, and needs no pandas. Wrap `running` in a\n`pandas.DataFrame` yourself if you want a frame.",
-    "examples": []
   },
   "BacktestL1Orders": {
     "name": "BacktestL1Orders",
@@ -1974,17 +2119,6 @@
       }
     ]
   },
-  "choosing_a_backtest_engine": {
-    "name": "choosing_a_backtest_engine",
-    "title": "Choosing a backtest engine",
-    "kind": "guide",
-    "short": "The 5x2 engine grid by data model and order definition, with fill rules and encoding.",
-    "topics": [
-      "backtesting"
-    ],
-    "details": "Screamer's backtest engines are arranged in a `Backtest<DataModel><OrderDef>` grid.\nThe data model (rows) is the market feed you have. The order definition (columns)\nis the strategy's output contract. All eight engines share one accounting core,\nthe `[equity, pnl, position, cost]` output schema, a common MARKET/NaN/inf\nencoding, and the static fill-cap rule.\n\n## The grid\n\n| Data model    | Target                        | Orders                          |\n|:--------------|:------------------------------|:--------------------------------|\n| Price         | `BacktestPriceTarget`         | not provided (*)                |\n| OHLC          | `BacktestOHLCTarget`          | `BacktestOHLCOrders`            |\n| Trades        | `BacktestTradesTarget`        | `BacktestTradesOrders`          |\n| L1            | `BacktestL1Target`            | `BacktestL1Orders`              |\n| L1 + Trades   | not provided (**)             | `BacktestL1TradesOrders`        |\n\n(*) `BacktestPriceOrders` is not provided. A raw value series carries no bid/ask\nbook, so there is no credible fill model for a two-sided quote. Use\n`BacktestOHLCOrders` or `BacktestL1Orders` when a richer feed is available.\n\n(**) `BacktestL1TradesTarget` is not provided. A Target engine is a pure taker: it\nhits the book immediately on each event. For L1 + trades data,\n`BacktestL1Target` already does this with only the quote stream, and adding the\ntrade feed does not improve it (trades are taker events, not maker fills).\nUse `BacktestL1Target` when you have an L1 + trades feed and want a Target engine.\n\n## Order definition interfaces\n\n**Target** engines receive `(target_position, <market cols>)`. On each event the\nengine computes `delta = clamp(target, cap) - position` and submits a marketable\norder for that delta, taking liquidity at the current market price. The target is\nthe desired inventory level, not an order size. The engine handles the sizing and\ndirection internally.\n\n**Orders** engines receive `(bid_price, bid_size, ask_price, ask_size, <market cols>)`.\nThe strategy posts a two-sided resting quote each event. Either or both sides can\nfill on the same event. Setting a side's size to zero or its price to NaN disables\nthat side. A quote submitted already crossing the spread (`bid_price >= market_ask`\nor `ask_price <= market_bid`) is treated as a taker and fills immediately.\n\nInput arities by engine:\n\n| Engine                 | Inputs | Order columns                                     | Market columns               |\n|:-----------------------|:-------|:--------------------------------------------------|:-----------------------------|\n| `BacktestPriceTarget`  | 2      | `target`                                          | `price`                      |\n| `BacktestOHLCTarget`   | 5      | `target`                                          | `open, high, low, close`     |\n| `BacktestOHLCOrders`   | 8      | `bid_price, bid_size, ask_price, ask_size`        | `open, high, low, close`     |\n| `BacktestTradesTarget` | 3      | `target`                                          | `trade_price, trade_size`    |\n| `BacktestTradesOrders` | 6      | `bid_price, bid_size, ask_price, ask_size`        | `trade_price, trade_size`    |\n| `BacktestL1Target`     | 5      | `target`                                          | `market_bid, market_ask, market_bid_size, market_ask_size` |\n| `BacktestL1Orders`     | 8      | `bid_price, bid_size, ask_price, ask_size`        | `market_bid, market_ask, market_bid_size, market_ask_size` |\n| `BacktestL1TradesOrders` | 10   | `bid_price, bid_size, ask_price, ask_size`        | `market_bid, market_ask, market_bid_size, market_ask_size, trade_price, trade_size` |\n\nFor `BacktestL1Orders` and `BacktestL1TradesOrders` the own-quote columns come\nfirst, then the market book columns.\n\n## MARKET/NaN/inf encoding\n\nEvery engine uses the same price encoding to distinguish a resting limit order from\na marketable order.\n\n| Price value                | Meaning                                                     |\n|:---------------------------|:------------------------------------------------------------|\n| Finite number              | Resting limit order at that price (maker fill, `maker_fee`) |\n| `+inf` / `screamer.MARKET` | Market buy (taker); never-fill sell                         |\n| `-inf`                     | Never-fill buy; market sell (taker)                         |\n| `NaN`                      | Side-agnostic market order (taker, regardless of direction) |\n\n`screamer.MARKET` equals `+math.inf` and is provided as a readable constant for\nsubmitting a market buy without writing `float('inf')` directly.\n\nFor `BacktestOHLCTarget`, the target decided on bar t always executes as a market\norder at bar t+1's open (causal deferral; no manual lag is needed). For\n`BacktestOHLCOrders`, a NaN bid or ask price is a market order that fills at the\nbar's open; a finite price rests and waits for the bar's range.\n\n## Fill-cap rule\n\nEvery engine accepts `min_position` and `max_position` constructor parameters\n(default unbounded). All fills are capped by a three-way minimum: the order size,\nthe participation limit (where applicable), and the remaining room to the bound.\nFor a buy, the fill cannot exceed `max_position - current_position`; for a sell it\ncannot exceed `current_position - min_position`. A fill that would breach the bound\nis truncated to exactly the remaining room. Passing\n`min_position=-8.0, max_position=8.0` enforces a hard inventory limit of eight\nunits on each side, independent of order size.",
-    "examples": []
-  },
   "Drawdown": {
     "name": "Drawdown",
     "title": "Drawdown",
@@ -2104,40 +2238,6 @@
       }
     ]
   },
-  "Return": {
-    "name": "Return",
-    "title": "Simple return",
-    "implementation_family": "fin",
-    "topics": [
-      "returns"
-    ],
-    "tags": [
-      "return",
-      "pct-change",
-      "returns"
-    ],
-    "short": "(x[t] - x[t-k]) / x[t-k] - the simple percentage return at lag k.",
-    "inputs": 1,
-    "outputs": 1,
-    "parameters": [
-      {
-        "name": "window_size",
-        "type": "int",
-        "default": 1,
-        "min": 1,
-        "description": "Lag for the return (1 = consecutive)."
-      }
-    ],
-    "nan_policy": "propagate",
-    "details": "## Description\n\nThe `Return` function computes the simple return between an element and the element `window_size` positions before it.\n\n*Equation*:\n\n$$\ny[i] = \\frac{x[i] - x[i - k]}{x[i - k]}\n$$\n\nwhere `k` is `window_size`.\n\n*Parameters*:\n\n- `window_size` (int): The number of steps backward to use for calculating the return. Must be positive.\n\n*NaN handling*: When `window_size` exceeds the available data points at the start of the sequence, or if `x[i - k]` equals zero (to avoid division by zero), the output is set to `NaN`.\n\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `propagate`.** Input `NaN` values are stored in the lookback. Output is `NaN` at any index where the function's positional formula references a `NaN` input; recovery happens once the `NaN` slides out of the lookback.\n<!-- NAN_FOOTNOTE_END -->",
-    "examples": [
-      {
-        "language": "python",
-        "caption": "Usage example",
-        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import Return\n\ndata = np.exp(0.1*np.cumsum(np.random.normal(size=50)))\nreturn_data = Return(5)(data)\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[1/2, 1/2], vertical_spacing=0.1)\n\nfig.add_trace(go.Scatter(y=data, mode='lines+markers', name='Original Data'), row=1, col=1)\nfig.add_trace(go.Scatter(y=return_data, mode='lines+markers', name='Return (5-step)', line=dict(color='blue')), row=2, col=1)\n\nfig.update_layout(\n    title=\"Simple Return Computation (5-step Delay)\",\n    xaxis_title=\"Index\",\n    yaxis_title=\"Original Data\",\n    yaxis2_title=\"Simple Return\",\n    margin=dict(l=20, r=20, t=60, b=20),\n    legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1)\n)\n\nfig.show()"
-      }
-    ]
-  },
   "ROC": {
     "name": "ROC",
     "title": "Rate of change (ROC)",
@@ -2241,6 +2341,40 @@
       }
     ]
   },
+  "Return": {
+    "name": "Return",
+    "title": "Simple return",
+    "implementation_family": "fin",
+    "topics": [
+      "returns"
+    ],
+    "tags": [
+      "return",
+      "pct-change",
+      "returns"
+    ],
+    "short": "(x[t] - x[t-k]) / x[t-k] - the simple percentage return at lag k.",
+    "inputs": 1,
+    "outputs": 1,
+    "parameters": [
+      {
+        "name": "window_size",
+        "type": "int",
+        "default": 1,
+        "min": 1,
+        "description": "Lag for the return (1 = consecutive)."
+      }
+    ],
+    "nan_policy": "propagate",
+    "details": "## Description\n\nThe `Return` function computes the simple return between an element and the element `window_size` positions before it.\n\n*Equation*:\n\n$$\ny[i] = \\frac{x[i] - x[i - k]}{x[i - k]}\n$$\n\nwhere `k` is `window_size`.\n\n*Parameters*:\n\n- `window_size` (int): The number of steps backward to use for calculating the return. Must be positive.\n\n*NaN handling*: When `window_size` exceeds the available data points at the start of the sequence, or if `x[i - k]` equals zero (to avoid division by zero), the output is set to `NaN`.\n\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `propagate`.** Input `NaN` values are stored in the lookback. Output is `NaN` at any index where the function's positional formula references a `NaN` input; recovery happens once the `NaN` slides out of the lookback.\n<!-- NAN_FOOTNOTE_END -->",
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage example",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import Return\n\ndata = np.exp(0.1*np.cumsum(np.random.normal(size=50)))\nreturn_data = Return(5)(data)\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[1/2, 1/2], vertical_spacing=0.1)\n\nfig.add_trace(go.Scatter(y=data, mode='lines+markers', name='Original Data'), row=1, col=1)\nfig.add_trace(go.Scatter(y=return_data, mode='lines+markers', name='Return (5-step)', line=dict(color='blue')), row=2, col=1)\n\nfig.update_layout(\n    title=\"Simple Return Computation (5-step Delay)\",\n    xaxis_title=\"Index\",\n    yaxis_title=\"Original Data\",\n    yaxis2_title=\"Simple Return\",\n    margin=dict(l=20, r=20, t=60, b=20),\n    legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1)\n)\n\nfig.show()"
+      }
+    ]
+  },
   "RollingAlpha": {
     "name": "RollingAlpha",
     "title": "Rolling alpha (regression intercept)",
@@ -2330,6 +2464,53 @@
         "language": "python",
         "caption": "Usage example",
         "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import RollingBeta\n\nnp.random.seed(0)\nN = 300\nmarket_returns = np.random.normal(size=N)\n# An asset whose beta to the market drifts from 0.5 to 1.5 over time.\ntrue_beta = np.linspace(0.5, 1.5, N)\nasset_returns = true_beta * market_returns + 0.3 * np.random.normal(size=N)\n\nbeta_60 = RollingBeta(window_size=60)(asset_returns, market_returns)\n\nfig = make_subplots(rows=1, cols=1)\nfig.add_trace(go.Scatter(y=true_beta, mode=\"lines\", name=\"true beta\",\n                         line=dict(color=\"grey\", dash=\"dash\")))\nfig.add_trace(go.Scatter(y=beta_60, mode=\"lines\", name=\"RollingBeta(60)\"))\nfig.update_layout(\n    title=\"Rolling beta of asset returns on market returns\",\n    xaxis_title=\"time\",\n    yaxis_title=\"beta\",\n    margin=dict(l=20, r=20, t=60, b=20),\n    legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1),\n)\nfig.show()"
+      }
+    ]
+  },
+  "RollingCVaR": {
+    "name": "RollingCVaR",
+    "title": "Rolling Conditional Value-at-Risk (Expected Shortfall)",
+    "implementation_family": "fin",
+    "topics": [
+      "risk"
+    ],
+    "tags": [
+      "cvar",
+      "conditional value at risk",
+      "expected shortfall",
+      "tail risk",
+      "var",
+      "risk"
+    ],
+    "short": "Historical Conditional Value-at-Risk (Expected Shortfall): the mean loss in the worst alpha tail over a window.",
+    "inputs": 1,
+    "outputs": 1,
+    "parameters": [
+      {
+        "name": "window_size",
+        "type": "int",
+        "default": 20,
+        "min": 1,
+        "description": "Window length in observations."
+      },
+      {
+        "name": "alpha",
+        "type": "float",
+        "default": 0.05,
+        "description": "Tail probability level in (0, 1); 0.05 means the 5% CVaR (average loss in the worst 5% of the window)."
+      }
+    ],
+    "nan_policy": "ignore",
+    "see_also": [
+      "RollingQuantile",
+      "RollingSortino"
+    ],
+    "details": "## Description\n\n`RollingCVaR` is the historical Conditional Value-at-Risk, or Expected Shortfall,\nof a return series over a trailing window. With the worst\n`k = max(1, floor(alpha * window))` returns in the window,\n\n    CVaR = -mean(the k smallest returns),\n\na positive number: the average loss you suffer in the worst `alpha` tail. Value-at-Risk is\nthe tail quantile itself, `-RollingQuantile(window, alpha)`; CVaR averages the\nlosses beyond it.\nThe window is held in an order-statistic tree (`O(log W)` to update, `O(k)` to read\nthe tail). The output is `NaN` until the window is full; a `NaN` return leaves the\nwindow untouched (`nan_policy: ignore`).",
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage plot",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import RollingCVaR, RollingQuantile\n\nrng = np.random.default_rng(2)\nn = 500\nr = rng.standard_normal(n) * 0.01\nalpha = 0.05\ncvar = RollingCVaR(100, alpha=alpha)(r)\nvar = -RollingQuantile(100, alpha)(r)               # VaR is just the negated tail quantile\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.5, 0.5],\n                    vertical_spacing=0.08)\nfig.add_trace(go.Scatter(y=r, name='returns', line=dict(color='lightslategray'), opacity=0.6),\n              row=1, col=1)\nfig.add_trace(go.Scatter(y=var, name='VaR (5%)', line=dict(color='darkorange')), row=2, col=1)\nfig.add_trace(go.Scatter(y=cvar, name='CVaR / expected shortfall (5%)',\n                         line=dict(color='crimson')), row=2, col=1)\nfig.update_layout(title='RollingCVaR: the average loss beyond the VaR tail',\n                  yaxis=dict(title='return'), yaxis2=dict(title='loss'),\n                  margin=dict(l=20, r=20, t=60, b=20), legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1))\nfig.show()"
       }
     ]
   },
@@ -2461,53 +2642,6 @@
         "language": "python",
         "caption": "Usage example",
         "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import RollingCov\n\nnp.random.seed(0)\nN = 300\neps_a = np.random.normal(size=N)\neps_b = np.random.normal(size=N)\nrho = np.where((np.arange(N) > N / 3) & (np.arange(N) < 2 * N / 3), 0.85, 0.15)\na = np.cumsum(eps_a)\nb = np.cumsum(rho * eps_a + np.sqrt(1 - rho ** 2) * eps_b)\n\ncov_30 = RollingCov(window_size=30)(np.diff(a), np.diff(b))\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True,\n                    row_heights=[0.5, 0.5], vertical_spacing=0.05)\nfig.add_trace(go.Scatter(y=a, mode=\"lines\", name=\"a\"), row=1, col=1)\nfig.add_trace(go.Scatter(y=b, mode=\"lines\", name=\"b\"), row=1, col=1)\nfig.add_trace(go.Scatter(y=cov_30, mode=\"lines\", name=\"RollingCov(30)\"), row=2, col=1)\nfig.update_layout(\n    title=\"Rolling covariance of two random walks\",\n    margin=dict(l=20, r=20, t=60, b=20),\n    legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1),\n)\nfig.update_yaxes(title_text=\"price\", row=1, col=1)\nfig.update_yaxes(title_text=\"rolling covariance\", row=2, col=1)\nfig.show()"
-      }
-    ]
-  },
-  "RollingCVaR": {
-    "name": "RollingCVaR",
-    "title": "Rolling Conditional Value-at-Risk (Expected Shortfall)",
-    "implementation_family": "fin",
-    "topics": [
-      "risk"
-    ],
-    "tags": [
-      "cvar",
-      "conditional value at risk",
-      "expected shortfall",
-      "tail risk",
-      "var",
-      "risk"
-    ],
-    "short": "Historical Conditional Value-at-Risk (Expected Shortfall): the mean loss in the worst alpha tail over a window.",
-    "inputs": 1,
-    "outputs": 1,
-    "parameters": [
-      {
-        "name": "window_size",
-        "type": "int",
-        "default": 20,
-        "min": 1,
-        "description": "Window length in observations."
-      },
-      {
-        "name": "alpha",
-        "type": "float",
-        "default": 0.05,
-        "description": "Tail probability level in (0, 1); 0.05 means the 5% CVaR (average loss in the worst 5% of the window)."
-      }
-    ],
-    "nan_policy": "ignore",
-    "see_also": [
-      "RollingQuantile",
-      "RollingSortino"
-    ],
-    "details": "## Description\n\n`RollingCVaR` is the historical Conditional Value-at-Risk, or Expected Shortfall,\nof a return series over a trailing window. With the worst\n`k = max(1, floor(alpha * window))` returns in the window,\n\n    CVaR = -mean(the k smallest returns),\n\na positive number: the average loss you suffer in the worst `alpha` tail. Value-at-Risk is\nthe tail quantile itself, `-RollingQuantile(window, alpha)`; CVaR averages the\nlosses beyond it.\nThe window is held in an order-statistic tree (`O(log W)` to update, `O(k)` to read\nthe tail). The output is `NaN` until the window is full; a `NaN` return leaves the\nwindow untouched (`nan_policy: ignore`).",
-    "examples": [
-      {
-        "language": "python",
-        "caption": "Usage plot",
-        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import RollingCVaR, RollingQuantile\n\nrng = np.random.default_rng(2)\nn = 500\nr = rng.standard_normal(n) * 0.01\nalpha = 0.05\ncvar = RollingCVaR(100, alpha=alpha)(r)\nvar = -RollingQuantile(100, alpha)(r)               # VaR is just the negated tail quantile\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.5, 0.5],\n                    vertical_spacing=0.08)\nfig.add_trace(go.Scatter(y=r, name='returns', line=dict(color='lightslategray'), opacity=0.6),\n              row=1, col=1)\nfig.add_trace(go.Scatter(y=var, name='VaR (5%)', line=dict(color='darkorange')), row=2, col=1)\nfig.add_trace(go.Scatter(y=cvar, name='CVaR / expected shortfall (5%)',\n                         line=dict(color='crimson')), row=2, col=1)\nfig.update_layout(title='RollingCVaR: the average loss beyond the VaR tail',\n                  yaxis=dict(title='return'), yaxis2=dict(title='loss'),\n                  margin=dict(l=20, r=20, t=60, b=20), legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1))\nfig.show()"
       }
     ]
   },
@@ -3055,6 +3189,28 @@
         "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import RollingTSF\n\nnp.random.seed(0)\nprice = 100 * np.exp(np.cumsum(np.random.normal(0.0005, 0.02, size=300)))\ntsf = RollingTSF(window_size=20)(price)   # one-step-ahead value of the 20-bar trend line\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True,\n                    row_heights=[0.55, 0.45], vertical_spacing=0.08)\nfig.add_trace(go.Scatter(y=price, mode=\"lines\", name=\"price\"), row=1, col=1)\nfig.add_trace(go.Scatter(y=tsf, mode=\"lines\", name=\"TSF\",\n                         line=dict(color=\"red\")), row=2, col=1)\nfig.update_layout(title=\"Time-series forecast over 20 bars (RollingTSF)\",\n                  margin=dict(l=20, r=20, t=60, b=20),\n                  legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1))\nfig.update_yaxes(title_text=\"price\", row=1, col=1)\nfig.update_yaxes(title_text=\"forecast\", row=2, col=1)\nfig.show()"
       }
     ]
+  },
+  "backtest_report": {
+    "name": "backtest_report",
+    "title": "backtest_report",
+    "kind": "function",
+    "short": "Running statistics and a summary for a backtest engine's output.",
+    "topics": [
+      "backtesting"
+    ],
+    "details": "Labels the output of the [`BacktestReport`](BacktestReport.md) node. It takes a\nbacktest engine's `[equity, pnl, position, cost]` output (the four positional\ncolumns that [`BacktestPriceTarget`](BacktestPriceTarget.md) and the other backtest engines\nemit) and returns `(running, summary)`.\n\n- `running` is a dict of numpy arrays: the four engine columns plus the\n  `BacktestReport` node's `drawdown` (dollar), `cum_cost`, `turnover` (units\n  traded), `trades` (count), `max_drawdown` (running worst), `sharpe` (running),\n  and `equity_held` (equity carried across skipped bars). Each is a causal series\n  whose last value is the summary.\n- `summary` is a dict of the final statistics: `total_pnl`, `max_drawdown`,\n  `total_cost`, `turnover`, `num_trades`, and `sharpe`.\n\nThe aggregation runs in the C++ `BacktestReport` node, so a pure-C++ user gets the\nsame statistics by calling that node directly. This wrapper only labels its\ncolumns and reads the last row, and needs no pandas. Wrap `running` in a\n`pandas.DataFrame` yourself if you want a frame.",
+    "examples": []
+  },
+  "choosing_a_backtest_engine": {
+    "name": "choosing_a_backtest_engine",
+    "title": "Choosing a backtest engine",
+    "kind": "guide",
+    "short": "The 5x2 engine grid by data model and order definition, with fill rules and encoding.",
+    "topics": [
+      "backtesting"
+    ],
+    "details": "Screamer's backtest engines are arranged in a `Backtest<DataModel><OrderDef>` grid.\nThe data model (rows) is the market feed you have. The order definition (columns)\nis the strategy's output contract. All eight engines share one accounting core,\nthe `[equity, pnl, position, cost]` output schema, a common MARKET/NaN/inf\nencoding, and the static fill-cap rule.\n\n## The grid\n\n| Data model    | Target                        | Orders                          |\n|:--------------|:------------------------------|:--------------------------------|\n| Price         | `BacktestPriceTarget`         | not provided (*)                |\n| OHLC          | `BacktestOHLCTarget`          | `BacktestOHLCOrders`            |\n| Trades        | `BacktestTradesTarget`        | `BacktestTradesOrders`          |\n| L1            | `BacktestL1Target`            | `BacktestL1Orders`              |\n| L1 + Trades   | not provided (**)             | `BacktestL1TradesOrders`        |\n\n(*) `BacktestPriceOrders` is not provided. A raw value series carries no bid/ask\nbook, so there is no credible fill model for a two-sided quote. Use\n`BacktestOHLCOrders` or `BacktestL1Orders` when a richer feed is available.\n\n(**) `BacktestL1TradesTarget` is not provided. A Target engine is a pure taker: it\nhits the book immediately on each event. For L1 + trades data,\n`BacktestL1Target` already does this with only the quote stream, and adding the\ntrade feed does not improve it (trades are taker events, not maker fills).\nUse `BacktestL1Target` when you have an L1 + trades feed and want a Target engine.\n\n## Order definition interfaces\n\n**Target** engines receive `(target_position, <market cols>)`. On each event the\nengine computes `delta = clamp(target, cap) - position` and submits a marketable\norder for that delta, taking liquidity at the current market price. The target is\nthe desired inventory level, not an order size. The engine handles the sizing and\ndirection internally.\n\n**Orders** engines receive `(bid_price, bid_size, ask_price, ask_size, <market cols>)`.\nThe strategy posts a two-sided resting quote each event. Either or both sides can\nfill on the same event. Setting a side's size to zero or its price to NaN disables\nthat side. A quote submitted already crossing the spread (`bid_price >= market_ask`\nor `ask_price <= market_bid`) is treated as a taker and fills immediately.\n\nInput arities by engine:\n\n| Engine                 | Inputs | Order columns                                     | Market columns               |\n|:-----------------------|:-------|:--------------------------------------------------|:-----------------------------|\n| `BacktestPriceTarget`  | 2      | `target`                                          | `price`                      |\n| `BacktestOHLCTarget`   | 5      | `target`                                          | `open, high, low, close`     |\n| `BacktestOHLCOrders`   | 8      | `bid_price, bid_size, ask_price, ask_size`        | `open, high, low, close`     |\n| `BacktestTradesTarget` | 3      | `target`                                          | `trade_price, trade_size`    |\n| `BacktestTradesOrders` | 6      | `bid_price, bid_size, ask_price, ask_size`        | `trade_price, trade_size`    |\n| `BacktestL1Target`     | 5      | `target`                                          | `market_bid, market_ask, market_bid_size, market_ask_size` |\n| `BacktestL1Orders`     | 8      | `bid_price, bid_size, ask_price, ask_size`        | `market_bid, market_ask, market_bid_size, market_ask_size` |\n| `BacktestL1TradesOrders` | 10   | `bid_price, bid_size, ask_price, ask_size`        | `market_bid, market_ask, market_bid_size, market_ask_size, trade_price, trade_size` |\n\nFor `BacktestL1Orders` and `BacktestL1TradesOrders` the own-quote columns come\nfirst, then the market book columns.\n\n## MARKET/NaN/inf encoding\n\nEvery engine uses the same price encoding to distinguish a resting limit order from\na marketable order.\n\n| Price value                | Meaning                                                     |\n|:---------------------------|:------------------------------------------------------------|\n| Finite number              | Resting limit order at that price (maker fill, `maker_fee`) |\n| `+inf` / `screamer.MARKET` | Market buy (taker); never-fill sell                         |\n| `-inf`                     | Never-fill buy; market sell (taker)                         |\n| `NaN`                      | Side-agnostic market order (taker, regardless of direction) |\n\n`screamer.MARKET` equals `+math.inf` and is provided as a readable constant for\nsubmitting a market buy without writing `float('inf')` directly.\n\nFor `BacktestOHLCTarget`, the target decided on bar t always executes as a market\norder at bar t+1's open (causal deferral; no manual lag is needed). For\n`BacktestOHLCOrders`, a NaN bid or ask price is a market order that fills at the\nbar's open; a finite price rests and waits for the bar's range.\n\n## Fill-cap rule\n\nEvery engine accepts `min_position` and `max_position` constructor parameters\n(default unbounded). All fills are capped by a three-way minimum: the order size,\nthe participation limit (where applicable), and the remaining room to the bound.\nFor a buy, the fill cannot exceed `max_position - current_position`; for a sell it\ncannot exceed `current_position - min_position`. A fill that would breach the bound\nis truncated to exactly the remaining room. Passing\n`min_position=-8.0, max_position=8.0` enforces a hard inventory limit of eight\nunits on each side, independent of order size.",
+    "examples": []
   },
   "Abs": {
     "name": "Abs",
@@ -4819,6 +4975,57 @@
       }
     ]
   },
+  "RollSpread": {
+    "name": "RollSpread",
+    "title": "Roll Effective Spread",
+    "implementation_family": "micro",
+    "topics": [
+      "price-impact"
+    ],
+    "tags": [
+      "spread",
+      "roll",
+      "effective spread",
+      "liquidity",
+      "microstructure"
+    ],
+    "short": "Roll (1984) effective spread from trade prices alone: 2*sqrt(-cov(dP_t, dP_{t-1})) over a trailing window.",
+    "inputs": 1,
+    "outputs": 1,
+    "parameters": [
+      {
+        "name": "window_size",
+        "type": "int",
+        "default": 20,
+        "min": 2,
+        "description": "Window length in observations."
+      },
+      {
+        "name": "start_policy",
+        "type": "str",
+        "default": "strict",
+        "enum": [
+          "strict",
+          "expanding",
+          "zero"
+        ],
+        "description": "Warmup behaviour."
+      }
+    ],
+    "nan_policy": "ignore",
+    "see_also": [
+      "RollingCov",
+      "RollingSpread"
+    ],
+    "details": "## Description\n\nRoll (1984) showed that in a market with a fixed bid-ask spread, the serial\ncovariance of consecutive price changes is negative and equal to minus the\nsquare of the half-spread. The effective spread can therefore be estimated\nfrom trade prices alone, without a quote feed:\n\n`2 * sqrt(-cov(dP_t, dP_{t-1}))`\n\nwhere `dP_t = P_t - P_{t-1}` is the price change and the covariance is\ncomputed over a trailing window.\n\n`RollSpread(window_size, start_policy)(price)` computes this estimate at\neach time step. When the serial covariance is non-negative (no bid-ask\nbounce detected, or a trending period), the estimate is undefined and\nthe output is `NaN`.\n\nInternally the operator:\n\n- forms consecutive price changes `dP_t = price_t - price_{t-1}`;\n- pairs each `dP_t` with its one-step lag `dP_{t-1}`;\n- maintains a rolling sample covariance of that pair over the window (three\n  running sums, O(1) per step).\n\nThe operator is causal and honors `nan_policy: ignore`.\n\n*Parameters*:\n\n- **`window_size`** (`int`, >= 2): number of observations in the trailing\n  covariance window.\n- **`start_policy`** (`str`, default `\"strict\"`): controls warmup behavior.\n  `\"strict\"` emits `NaN` until the window is full. `\"expanding\"` uses however\n  many observations are available. `\"zero\"` fills the warmup period with zero.\n\n*Return value*: the Roll effective spread estimate at each time step. `NaN`\nduring warmup (under `strict`) or whenever the trailing serial covariance\nis non-negative.\n\n**Reference**: Roll, R. (1984). \"A Simple Implicit Measure of the Effective\nBid-Ask Spread in an Efficient Market.\" *Journal of Finance*, 39(4), 1127-1139.",
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Basic usage",
+        "code": "import numpy as np\nfrom screamer import RollSpread\n\n# Synthetic bid-ask bounce: price alternates between bid and ask\nprice = 100.0 + 0.05 * np.array([0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1], dtype=float)\nspread = RollSpread(window_size=8)(price)\nprint(spread[-1])   # approximately 0.1 (the full spread)"
+      }
+    ]
+  },
   "RollingKyleLambda": {
     "name": "RollingKyleLambda",
     "title": "Kyle's Lambda (rolling)",
@@ -4910,57 +5117,6 @@
     ],
     "details": "## Description\n\n`RollingOrderImbalance` accumulates signed order flow over a trailing window.\nA positive value means buyers dominated the window; a negative value means\nsellers did. It is the Chordia-Roll-Subrahmanyam (2002) order imbalance\nmeasure: the raw net signed flow over a look-back period.\n\n`RollingOrderImbalance(window_size, start_policy)(signed_flow)` returns the\nrolling sum of `signed_flow` over the most recent `window_size` observations.\nIt is a documented specialization of `RollingSum`: internally it calls\n`RollingSum(window_size, start_policy)(signed_flow)`.\n\nA common pipeline is:\n\n1. Classify each trade with `TickRuleSign` or `LeeReadySign`.\n2. Multiply by trade volume with `SignedVolume` to get signed flow per trade.\n3. Aggregate over a bar and feed to `RollingOrderImbalance` for a rolling\n   order-book pressure signal.\n\n*Parameters*:\n\n- **`window_size`** (`int`, >= 1): size of the trailing window.\n- **`start_policy`** (`str`, default `\"strict\"`): controls warmup behavior.\n  `\"strict\"` emits `NaN` until `window_size` observations have been seen.\n  `\"expanding\"` uses however many observations are available. `\"zero\"` fills\n  the warmup period with zero.\n\n*Return value*: the rolling sum of signed flow at each time step. `NaN`\nduring warmup under `\"strict\"`.\n\n**Reference**: Chordia, T., Roll, R., and Subrahmanyam, A. (2002). \"Order\nImbalance, Liquidity, and Market Returns.\" *Journal of Financial Economics*,\n65(1), 111-130.",
     "examples": []
-  },
-  "RollSpread": {
-    "name": "RollSpread",
-    "title": "Roll Effective Spread",
-    "implementation_family": "micro",
-    "topics": [
-      "price-impact"
-    ],
-    "tags": [
-      "spread",
-      "roll",
-      "effective spread",
-      "liquidity",
-      "microstructure"
-    ],
-    "short": "Roll (1984) effective spread from trade prices alone: 2*sqrt(-cov(dP_t, dP_{t-1})) over a trailing window.",
-    "inputs": 1,
-    "outputs": 1,
-    "parameters": [
-      {
-        "name": "window_size",
-        "type": "int",
-        "default": 20,
-        "min": 2,
-        "description": "Window length in observations."
-      },
-      {
-        "name": "start_policy",
-        "type": "str",
-        "default": "strict",
-        "enum": [
-          "strict",
-          "expanding",
-          "zero"
-        ],
-        "description": "Warmup behaviour."
-      }
-    ],
-    "nan_policy": "ignore",
-    "see_also": [
-      "RollingCov",
-      "RollingSpread"
-    ],
-    "details": "## Description\n\nRoll (1984) showed that in a market with a fixed bid-ask spread, the serial\ncovariance of consecutive price changes is negative and equal to minus the\nsquare of the half-spread. The effective spread can therefore be estimated\nfrom trade prices alone, without a quote feed:\n\n`2 * sqrt(-cov(dP_t, dP_{t-1}))`\n\nwhere `dP_t = P_t - P_{t-1}` is the price change and the covariance is\ncomputed over a trailing window.\n\n`RollSpread(window_size, start_policy)(price)` computes this estimate at\neach time step. When the serial covariance is non-negative (no bid-ask\nbounce detected, or a trending period), the estimate is undefined and\nthe output is `NaN`.\n\nInternally the operator:\n\n- forms consecutive price changes `dP_t = price_t - price_{t-1}`;\n- pairs each `dP_t` with its one-step lag `dP_{t-1}`;\n- maintains a rolling sample covariance of that pair over the window (three\n  running sums, O(1) per step).\n\nThe operator is causal and honors `nan_policy: ignore`.\n\n*Parameters*:\n\n- **`window_size`** (`int`, >= 2): number of observations in the trailing\n  covariance window.\n- **`start_policy`** (`str`, default `\"strict\"`): controls warmup behavior.\n  `\"strict\"` emits `NaN` until the window is full. `\"expanding\"` uses however\n  many observations are available. `\"zero\"` fills the warmup period with zero.\n\n*Return value*: the Roll effective spread estimate at each time step. `NaN`\nduring warmup (under `strict`) or whenever the trailing serial covariance\nis non-negative.\n\n**Reference**: Roll, R. (1984). \"A Simple Implicit Measure of the Effective\nBid-Ask Spread in an Efficient Market.\" *Journal of Finance*, 39(4), 1127-1139.",
-    "examples": [
-      {
-        "language": "python",
-        "caption": "Basic usage",
-        "code": "import numpy as np\nfrom screamer import RollSpread\n\n# Synthetic bid-ask bounce: price alternates between bid and ask\nprice = 100.0 + 0.05 * np.array([0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1], dtype=float)\nspread = RollSpread(window_size=8)(price)\nprint(spread[-1])   # approximately 0.1 (the full spread)"
-      }
-    ]
   },
   "SignedVolume": {
     "name": "SignedVolume",
@@ -5737,6 +5893,33 @@
       }
     ]
   },
+  "BOP": {
+    "name": "BOP",
+    "title": "Balance of Power (BOP)",
+    "implementation_family": "rolling",
+    "topics": [
+      "momentum"
+    ],
+    "tags": [
+      "bop",
+      "oscillator",
+      "talib",
+      "ohlc"
+    ],
+    "short": "(close - open) / (high - low) per bar. No smoothing.",
+    "inputs": 4,
+    "outputs": 1,
+    "parameters": [],
+    "nan_policy": "ignore",
+    "details": "## Description\n\n`BOP` (Balance of Power, Igor Livshin) measures whether a bar closes near its high (buyers in control) or its low (sellers in control):\n\n$$\n\\text{BOP}[t] = \\frac{\\text{close} - \\text{open}}{\\text{high} - \\text{low}}\n$$\n\nOutput range is `[-1, +1]` for any sensibly-formed bar (where `low ≤ open, close ≤ high`).\n\n**4-input, 1-output** (`FunctorBase<_, 4, 1>`). Argument order matches TA-Lib's `BOP`: `(open, high, low, close)`.\n\n*Warmup*: none -- stateless, value defined for every input.\n\n*Range-zero*: returns `0` when `high == low` (flat bar; convention matches TA-Lib).\n\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage example",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import BOP\n\nnp.random.seed(0)\nclose = 100*np.exp(np.cumsum(np.random.normal(0, 0.01, size=300)))\nopen_ = np.concatenate([[close[0]], close[:-1]])\nwick = np.abs(np.random.normal(0, 0.4, size=300))\nhigh = np.maximum(open_, close) + wick\nlow  = np.minimum(open_, close) - wick\nout = BOP()(open_, high, low, close)\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True,\n                    row_heights=[0.55, 0.45], vertical_spacing=0.08)\nfig.add_trace(go.Scatter(y=close, name=\"close\", line=dict(color=\"royalblue\")), row=1, col=1)\nfig.add_trace(go.Scatter(y=out, name=\"BOP\", line=dict(color=\"red\")), row=2, col=1)\nfig.update_layout(title=\"Balance of power (BOP)\",\n                  margin=dict(l=20, r=20, t=60, b=20),\n                  legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1))\nfig.update_yaxes(title_text=\"close\", row=1, col=1)\nfig.update_yaxes(title_text=\"BOP (-1 to 1)\", row=2, col=1)\nfig.show()"
+      }
+    ]
+  },
   "BollingerBands": {
     "name": "BollingerBands",
     "title": "Bollinger Bands",
@@ -5787,33 +5970,6 @@
         "language": "python",
         "caption": "Usage example",
         "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom screamer import BollingerBands\n\nnp.random.seed(0)\nN = 250\nprices = 100.0 + np.cumsum(np.random.normal(scale=0.6, size=N))\n\nbands = BollingerBands(window_size=20, num_std=2.0)(prices)\nlower, mid, upper = bands[:, 0], bands[:, 1], bands[:, 2]\n\nfig = go.Figure()\nfig.add_trace(go.Scatter(y=upper, mode=\"lines\", name=\"upper\",\n                         line=dict(color=\"green\", dash=\"dot\")))\nfig.add_trace(go.Scatter(y=mid, mode=\"lines\", name=\"mid (mean)\",\n                         line=dict(color=\"black\")))\nfig.add_trace(go.Scatter(y=lower, mode=\"lines\", name=\"lower\",\n                         line=dict(color=\"red\", dash=\"dot\")))\nfig.add_trace(go.Scatter(y=prices, mode=\"lines\", name=\"price\",\n                         line=dict(color=\"steelblue\")))\nfig.update_layout(\n    title=\"BollingerBands(window=20, num_std=2)\",\n    xaxis_title=\"time\",\n    yaxis_title=\"price\",\n    margin=dict(l=20, r=20, t=60, b=20),\n    legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1),\n)\nfig.show()"
-      }
-    ]
-  },
-  "BOP": {
-    "name": "BOP",
-    "title": "Balance of Power (BOP)",
-    "implementation_family": "rolling",
-    "topics": [
-      "momentum"
-    ],
-    "tags": [
-      "bop",
-      "oscillator",
-      "talib",
-      "ohlc"
-    ],
-    "short": "(close - open) / (high - low) per bar. No smoothing.",
-    "inputs": 4,
-    "outputs": 1,
-    "parameters": [],
-    "nan_policy": "ignore",
-    "details": "## Description\n\n`BOP` (Balance of Power, Igor Livshin) measures whether a bar closes near its high (buyers in control) or its low (sellers in control):\n\n$$\n\\text{BOP}[t] = \\frac{\\text{close} - \\text{open}}{\\text{high} - \\text{low}}\n$$\n\nOutput range is `[-1, +1]` for any sensibly-formed bar (where `low ≤ open, close ≤ high`).\n\n**4-input, 1-output** (`FunctorBase<_, 4, 1>`). Argument order matches TA-Lib's `BOP`: `(open, high, low, close)`.\n\n*Warmup*: none -- stateless, value defined for every input.\n\n*Range-zero*: returns `0` when `high == low` (flat bar; convention matches TA-Lib).\n\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
-    "examples": [
-      {
-        "language": "python",
-        "caption": "Usage example",
-        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import BOP\n\nnp.random.seed(0)\nclose = 100*np.exp(np.cumsum(np.random.normal(0, 0.01, size=300)))\nopen_ = np.concatenate([[close[0]], close[:-1]])\nwick = np.abs(np.random.normal(0, 0.4, size=300))\nhigh = np.maximum(open_, close) + wick\nlow  = np.minimum(open_, close) - wick\nout = BOP()(open_, high, low, close)\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True,\n                    row_heights=[0.55, 0.45], vertical_spacing=0.08)\nfig.add_trace(go.Scatter(y=close, name=\"close\", line=dict(color=\"royalblue\")), row=1, col=1)\nfig.add_trace(go.Scatter(y=out, name=\"BOP\", line=dict(color=\"red\")), row=2, col=1)\nfig.update_layout(title=\"Balance of power (BOP)\",\n                  margin=dict(l=20, r=20, t=60, b=20),\n                  legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1))\nfig.update_yaxes(title_text=\"close\", row=1, col=1)\nfig.update_yaxes(title_text=\"BOP (-1 to 1)\", row=2, col=1)\nfig.show()"
       }
     ]
   },
@@ -5906,42 +6062,6 @@
       }
     ]
   },
-  "DonchianChannels": {
-    "name": "DonchianChannels",
-    "title": "Donchian Channels",
-    "implementation_family": "rolling",
-    "topics": [
-      "trend",
-      "bands"
-    ],
-    "tags": [
-      "donchian",
-      "channels",
-      "breakout",
-      "envelope"
-    ],
-    "short": "Trend-following envelope: rolling max(high), rolling min(low), and midline.",
-    "inputs": 2,
-    "outputs": 3,
-    "parameters": [
-      {
-        "name": "window_size",
-        "type": "int",
-        "default": 20,
-        "min": 2,
-        "description": "Window for the rolling max/min."
-      }
-    ],
-    "nan_policy": "ignore",
-    "details": "## Description\n\nTrend-following envelope. The upper line is the rolling max of `high`, the lower line is\nthe rolling min of `low`, and the midline is their average:\n\n$$\n\\begin{aligned}\n\\text{upper}[t] &= \\max(\\text{high},\\ w\\ \\text{bars}) \\\\\n\\text{lower}[t] &= \\min(\\text{low},\\ w\\ \\text{bars}) \\\\\n\\text{mid}[t]   &= (\\text{upper} + \\text{lower}) / 2\n\\end{aligned}\n$$\n\n**2-input, 3-output** (`FunctorBase<_, 2, 3>`). Inputs `(high, low)`; outputs\n`(lower, mid, upper)`. First valid at sample index `window_size - 1`.\n\nComposes two `detail::MonotonicDeque` instances. Amortised O(1) per step. Bit-exact to\n`pandas-ta-classic.donchian`.\n\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
-    "examples": [
-      {
-        "language": "python",
-        "caption": "Usage example",
-        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import DonchianChannels\n\nnp.random.seed(0)\nclose = 100*np.exp(np.cumsum(np.random.normal(0, 0.01, size=300)))\nopen_ = np.concatenate([[close[0]], close[:-1]])\nwick = np.abs(np.random.normal(0, 0.4, size=300))\nhigh = np.maximum(open_, close) + wick\nlow  = np.minimum(open_, close) - wick\nout = np.asarray(DonchianChannels(20)(high, low))\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True,\n                    row_heights=[0.55, 0.45], vertical_spacing=0.08)\nfig.add_trace(go.Scatter(y=high, name=\"high\", line=dict(color=\"#888\")), row=1, col=1)\nfig.add_trace(go.Scatter(y=low, name=\"low\", line=dict(color=\"#bbb\")), row=1, col=1)\nfig.add_trace(go.Scatter(y=out[:, 2], name=\"upper\", line=dict(color=\"red\")), row=2, col=1)\nfig.add_trace(go.Scatter(y=out[:, 1], name=\"mid\", line=dict(color=\"gray\")), row=2, col=1)\nfig.add_trace(go.Scatter(y=out[:, 0], name=\"lower\", line=dict(color=\"green\")), row=2, col=1)\nfig.update_layout(title=\"Donchian channels (DonchianChannels)\",\n                  margin=dict(l=20, r=20, t=60, b=20),\n                  legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1))\nfig.update_yaxes(title_text=\"high / low\", row=1, col=1)\nfig.update_yaxes(title_text=\"channel bands\", row=2, col=1)\nfig.show()"
-      }
-    ]
-  },
   "DX": {
     "name": "DX",
     "title": "Directional index (DX)",
@@ -5975,6 +6095,42 @@
         "language": "python",
         "caption": "Usage example",
         "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import DX, ADX\n\nrng = np.random.default_rng(0)\nN = 300\nclose = 100 + np.cumsum(rng.standard_normal(N))\nhigh = close + np.abs(rng.standard_normal(N))\nlow = close - np.abs(rng.standard_normal(N))\n\ndx = DX(window_size=14)(high, low, close)\nadx = ADX(window_size=14)(high, low, close)[:, 2]\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.5, 0.5],\n                    vertical_spacing=0.08)\nfig.add_trace(go.Scatter(y=close, name='Close', line=dict(color='steelblue')),\n              row=1, col=1)\nfig.add_trace(go.Scatter(y=dx, name='DX', line=dict(color='crimson')), row=2, col=1)\nfig.add_trace(go.Scatter(y=adx, name='ADX', line=dict(color='crimson', dash='dot')), row=2, col=1)\nfig.update_layout(\n    title='DX: directional index and its Wilder average',\n    yaxis=dict(title='Price'), yaxis2=dict(title='DX / ADX (0-100)'),\n    margin=dict(l=20, r=20, t=60, b=20),\n    legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1),\n)\nfig.show()"
+      }
+    ]
+  },
+  "DonchianChannels": {
+    "name": "DonchianChannels",
+    "title": "Donchian Channels",
+    "implementation_family": "rolling",
+    "topics": [
+      "trend",
+      "bands"
+    ],
+    "tags": [
+      "donchian",
+      "channels",
+      "breakout",
+      "envelope"
+    ],
+    "short": "Trend-following envelope: rolling max(high), rolling min(low), and midline.",
+    "inputs": 2,
+    "outputs": 3,
+    "parameters": [
+      {
+        "name": "window_size",
+        "type": "int",
+        "default": 20,
+        "min": 2,
+        "description": "Window for the rolling max/min."
+      }
+    ],
+    "nan_policy": "ignore",
+    "details": "## Description\n\nTrend-following envelope. The upper line is the rolling max of `high`, the lower line is\nthe rolling min of `low`, and the midline is their average:\n\n$$\n\\begin{aligned}\n\\text{upper}[t] &= \\max(\\text{high},\\ w\\ \\text{bars}) \\\\\n\\text{lower}[t] &= \\min(\\text{low},\\ w\\ \\text{bars}) \\\\\n\\text{mid}[t]   &= (\\text{upper} + \\text{lower}) / 2\n\\end{aligned}\n$$\n\n**2-input, 3-output** (`FunctorBase<_, 2, 3>`). Inputs `(high, low)`; outputs\n`(lower, mid, upper)`. First valid at sample index `window_size - 1`.\n\nComposes two `detail::MonotonicDeque` instances. Amortised O(1) per step. Bit-exact to\n`pandas-ta-classic.donchian`.\n\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage example",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import DonchianChannels\n\nnp.random.seed(0)\nclose = 100*np.exp(np.cumsum(np.random.normal(0, 0.01, size=300)))\nopen_ = np.concatenate([[close[0]], close[:-1]])\nwick = np.abs(np.random.normal(0, 0.4, size=300))\nhigh = np.maximum(open_, close) + wick\nlow  = np.minimum(open_, close) - wick\nout = np.asarray(DonchianChannels(20)(high, low))\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True,\n                    row_heights=[0.55, 0.45], vertical_spacing=0.08)\nfig.add_trace(go.Scatter(y=high, name=\"high\", line=dict(color=\"#888\")), row=1, col=1)\nfig.add_trace(go.Scatter(y=low, name=\"low\", line=dict(color=\"#bbb\")), row=1, col=1)\nfig.add_trace(go.Scatter(y=out[:, 2], name=\"upper\", line=dict(color=\"red\")), row=2, col=1)\nfig.add_trace(go.Scatter(y=out[:, 1], name=\"mid\", line=dict(color=\"gray\")), row=2, col=1)\nfig.add_trace(go.Scatter(y=out[:, 0], name=\"lower\", line=dict(color=\"green\")), row=2, col=1)\nfig.update_layout(title=\"Donchian channels (DonchianChannels)\",\n                  margin=dict(l=20, r=20, t=60, b=20),\n                  legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1))\nfig.update_yaxes(title_text=\"high / low\", row=1, col=1)\nfig.update_yaxes(title_text=\"channel bands\", row=2, col=1)\nfig.show()"
       }
     ]
   },
@@ -7360,6 +7516,63 @@
       }
     ]
   },
+  "RollingRSI": {
+    "name": "RollingRSI",
+    "title": "Rolling RSI",
+    "implementation_family": "rolling",
+    "topics": [
+      "momentum"
+    ],
+    "tags": [
+      "rsi",
+      "wilder",
+      "cutler",
+      "momentum",
+      "oscillator"
+    ],
+    "short": "Relative Strength Index. Wilder's smoothing by default; Cutler's via method='cutler'.",
+    "inputs": 1,
+    "outputs": 1,
+    "parameters": [
+      {
+        "name": "window_size",
+        "type": "int",
+        "default": 14,
+        "min": 2,
+        "description": "Period. Wilder's original choice is 14."
+      },
+      {
+        "name": "method",
+        "type": "str",
+        "default": "wilder",
+        "enum": [
+          "wilder",
+          "cutler"
+        ],
+        "description": "Smoothing convention. 'wilder' matches TA-Lib and pandas-ta; 'cutler' uses a plain SMA."
+      },
+      {
+        "name": "start_policy",
+        "type": "str",
+        "default": "strict",
+        "enum": [
+          "strict",
+          "expanding",
+          "zero"
+        ],
+        "description": "Warmup behaviour."
+      }
+    ],
+    "nan_policy": "ignore",
+    "details": "## Description\n\nWilder's Relative Strength Index. Up- and down-moves are separately smoothed; the index\nis `100 - 100 / (1 + RS)` where `RS` is the smoothed ratio of average up to average down\nmoves:\n\n$$\n\\begin{aligned}\n\\Delta[t] &= x[t] - x[t-1] \\\\\nU[t] &= \\max(\\Delta, 0),\\quad D[t] = \\max(-\\Delta, 0) \\\\\n\\overline{U}[t] &= \\text{smooth}(U,\\ \\text{window\\_size}),\\quad \\overline{D}[t] = \\text{smooth}(D,\\ \\text{window\\_size}) \\\\\n\\text{RS}[t] &= \\overline{U}[t] / \\overline{D}[t] \\\\\n\\text{RSI}[t] &= 100 - 100 / (1 + \\text{RS})\n\\end{aligned}\n$$\n\nThe smoothing depends on `method`:\n\n- `'wilder'` (default) -- Wilder's smoothing\n  $\\overline{X}[t] = \\overline{X}[t-1] + (X[t] - \\overline{X}[t-1]) / w$, with the\n  SMA-of-the-first-`w` seed. Matches `talib.RSI` and `pandas-ta-classic.rsi` bit-exactly\n  post-warmup.\n- `'cutler'` -- plain rolling-mean smoothing. Cutler's variant. Useful if you specifically\n  want the SMA-form (some legacy systems use it). Does **not** match TA-Lib.\n\n## Notes\n\n- First valid output at sample index `window_size`.\n- Output is bounded in `[0, 100]`.\n- The default was changed from 'cutler' to 'wilder' in a recent release to align with\n  TA-Lib and pandas-ta-classic. Pass `method='cutler'` to recover the old behaviour.\n\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage example",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import RollingRSI\n\nnp.random.seed(0)\nprice = 100*np.exp(np.cumsum(np.random.normal(0.0005, 0.02, size=300)))\nrsi = RollingRSI(window_size=14)(price)\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True,\n                    row_heights=[0.55, 0.45], vertical_spacing=0.08)\nfig.add_trace(go.Scatter(y=price, name=\"price\"), row=1, col=1)\nfig.add_trace(go.Scatter(y=rsi, name=\"RollingRSI\", line=dict(color=\"red\")), row=2, col=1)\nfig.update_layout(title=\"Price with RSI (RollingRSI)\",\n                  margin=dict(l=20, r=20, t=60, b=20),\n                  legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1))\nfig.update_yaxes(title_text=\"price\", row=1, col=1)\nfig.update_yaxes(title_text=\"RSI (0-100)\", row=2, col=1)\nfig.show()"
+      }
+    ]
+  },
   "RollingRange": {
     "name": "RollingRange",
     "title": "Rolling range",
@@ -7512,63 +7725,6 @@
         "language": "python",
         "caption": "Usage example",
         "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import RollingRogersSatchellVol\n\nnp.random.seed(0)\nclose = 100*np.exp(np.cumsum(np.random.normal(0, 0.01, size=300)))\nopen_ = np.concatenate([[close[0]], close[:-1]])\nwick = np.abs(np.random.normal(0, 0.4, size=300))\nhigh = np.maximum(open_, close) + wick\nlow  = np.minimum(open_, close) - wick\nout = RollingRogersSatchellVol(window_size=20)(open_, high, low, close)\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True,\n                    row_heights=[0.55, 0.45], vertical_spacing=0.08)\nfig.add_trace(go.Scatter(y=close, name=\"close\"), row=1, col=1)\nfig.add_trace(go.Scatter(y=out, name=\"RollingRogersSatchellVol\", line=dict(color=\"red\")), row=2, col=1)\nfig.update_layout(title=\"Rolling Rogers-Satchell volatility (RollingRogersSatchellVol)\",\n                  margin=dict(l=20, r=20, t=60, b=20),\n                  legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1))\nfig.update_yaxes(title_text=\"price\", row=1, col=1)\nfig.update_yaxes(title_text=\"volatility\", row=2, col=1)\nfig.show()"
-      }
-    ]
-  },
-  "RollingRSI": {
-    "name": "RollingRSI",
-    "title": "Rolling RSI",
-    "implementation_family": "rolling",
-    "topics": [
-      "momentum"
-    ],
-    "tags": [
-      "rsi",
-      "wilder",
-      "cutler",
-      "momentum",
-      "oscillator"
-    ],
-    "short": "Relative Strength Index. Wilder's smoothing by default; Cutler's via method='cutler'.",
-    "inputs": 1,
-    "outputs": 1,
-    "parameters": [
-      {
-        "name": "window_size",
-        "type": "int",
-        "default": 14,
-        "min": 2,
-        "description": "Period. Wilder's original choice is 14."
-      },
-      {
-        "name": "method",
-        "type": "str",
-        "default": "wilder",
-        "enum": [
-          "wilder",
-          "cutler"
-        ],
-        "description": "Smoothing convention. 'wilder' matches TA-Lib and pandas-ta; 'cutler' uses a plain SMA."
-      },
-      {
-        "name": "start_policy",
-        "type": "str",
-        "default": "strict",
-        "enum": [
-          "strict",
-          "expanding",
-          "zero"
-        ],
-        "description": "Warmup behaviour."
-      }
-    ],
-    "nan_policy": "ignore",
-    "details": "## Description\n\nWilder's Relative Strength Index. Up- and down-moves are separately smoothed; the index\nis `100 - 100 / (1 + RS)` where `RS` is the smoothed ratio of average up to average down\nmoves:\n\n$$\n\\begin{aligned}\n\\Delta[t] &= x[t] - x[t-1] \\\\\nU[t] &= \\max(\\Delta, 0),\\quad D[t] = \\max(-\\Delta, 0) \\\\\n\\overline{U}[t] &= \\text{smooth}(U,\\ \\text{window\\_size}),\\quad \\overline{D}[t] = \\text{smooth}(D,\\ \\text{window\\_size}) \\\\\n\\text{RS}[t] &= \\overline{U}[t] / \\overline{D}[t] \\\\\n\\text{RSI}[t] &= 100 - 100 / (1 + \\text{RS})\n\\end{aligned}\n$$\n\nThe smoothing depends on `method`:\n\n- `'wilder'` (default) -- Wilder's smoothing\n  $\\overline{X}[t] = \\overline{X}[t-1] + (X[t] - \\overline{X}[t-1]) / w$, with the\n  SMA-of-the-first-`w` seed. Matches `talib.RSI` and `pandas-ta-classic.rsi` bit-exactly\n  post-warmup.\n- `'cutler'` -- plain rolling-mean smoothing. Cutler's variant. Useful if you specifically\n  want the SMA-form (some legacy systems use it). Does **not** match TA-Lib.\n\n## Notes\n\n- First valid output at sample index `window_size`.\n- Output is bounded in `[0, 100]`.\n- The default was changed from 'cutler' to 'wilder' in a recent release to align with\n  TA-Lib and pandas-ta-classic. Pass `method='cutler'` to recover the old behaviour.\n\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
-    "examples": [
-      {
-        "language": "python",
-        "caption": "Usage example",
-        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import RollingRSI\n\nnp.random.seed(0)\nprice = 100*np.exp(np.cumsum(np.random.normal(0.0005, 0.02, size=300)))\nrsi = RollingRSI(window_size=14)(price)\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True,\n                    row_heights=[0.55, 0.45], vertical_spacing=0.08)\nfig.add_trace(go.Scatter(y=price, name=\"price\"), row=1, col=1)\nfig.add_trace(go.Scatter(y=rsi, name=\"RollingRSI\", line=dict(color=\"red\")), row=2, col=1)\nfig.update_layout(title=\"Price with RSI (RollingRSI)\",\n                  margin=dict(l=20, r=20, t=60, b=20),\n                  legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1))\nfig.update_yaxes(title_text=\"price\", row=1, col=1)\nfig.update_yaxes(title_text=\"RSI (0-100)\", row=2, col=1)\nfig.show()"
       }
     ]
   },
@@ -7777,6 +7933,41 @@
       }
     ]
   },
+  "RollingVWAP": {
+    "name": "RollingVWAP",
+    "title": "Rolling VWAP",
+    "implementation_family": "rolling",
+    "topics": [
+      "volume"
+    ],
+    "tags": [
+      "vwap",
+      "volume-weighted",
+      "ohlcv",
+      "typical-price"
+    ],
+    "short": "Rolling volume-weighted average price (typical-price weighted).",
+    "inputs": 4,
+    "outputs": 1,
+    "parameters": [
+      {
+        "name": "window_size",
+        "type": "int",
+        "default": 20,
+        "min": 2,
+        "description": "Trailing-window length."
+      }
+    ],
+    "nan_policy": "ignore",
+    "details": "## Description\n\nRolling volume-weighted average price using the typical price as the weighting basis:\n\n$$\n\\text{TP}[t] = (\\text{high} + \\text{low} + \\text{close}) / 3\n\\qquad\n\\text{VWAP}[t] = \\dfrac{\\sum_w \\text{TP} \\cdot \\text{volume}}{\\sum_w \\text{volume}}\n$$\n\n**4-input, 1-output** on `(high, low, close, volume)`. Matches `pandas-ta-classic.vwap`.\nFor a *session-VWAP* (cumulative since some reset point), call `reset()` at the session\nboundary.\n\nFirst valid output at sample index `window_size - 1`. Composes two `detail::RollingSum`\ninstances; O(1) per step.\n\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage example",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import RollingVWAP\n\nnp.random.seed(0)\nclose = 100*np.exp(np.cumsum(np.random.normal(0, 0.01, size=300)))\nopen_ = np.concatenate([[close[0]], close[:-1]])\nwick = np.abs(np.random.normal(0, 0.4, size=300))\nhigh = np.maximum(open_, close) + wick\nlow  = np.minimum(open_, close) - wick\nvolume = np.random.uniform(1e5, 5e5, size=300)\nvwap = RollingVWAP(window_size=20)(high, low, close, volume)\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True,\n                    row_heights=[0.55, 0.45], vertical_spacing=0.08)\nfig.add_trace(go.Scatter(y=close, name=\"close\"), row=1, col=1)\nfig.add_trace(go.Scatter(y=vwap, name=\"RollingVWAP\", line=dict(color=\"red\")), row=1, col=1)\nfig.add_trace(go.Bar(y=volume, name=\"volume\"), row=2, col=1)\nfig.update_layout(title=\"Price with rolling VWAP (RollingVWAP)\",\n                  margin=dict(l=20, r=20, t=60, b=20),\n                  legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1))\nfig.update_yaxes(title_text=\"price\", row=1, col=1)\nfig.update_yaxes(title_text=\"volume\", row=2, col=1)\nfig.show()"
+      }
+    ]
+  },
   "RollingVar": {
     "name": "RollingVar",
     "title": "Rolling variance",
@@ -7819,41 +8010,6 @@
         "language": "python",
         "caption": "Usage example",
         "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import RollingVar\n\ndata = np.cumsum(np.random.normal(size=300))\n\nfig = make_subplots(\n    rows=2, cols=1,\n    shared_xaxes=True,\n    row_heights=[2/3, 1/3],\n    vertical_spacing=0.1\n)\n\nfig.add_trace(go.Scatter(y=data, mode='lines', name='Input Data'), row=1, col=1)\nfig.add_trace(go.Scatter(y=RollingVar(30)(data), mode='lines', name='Rolling Variance', line=dict(color='orange')), row=2, col=1)\n\nfig.update_layout(\n    title=\"Rolling Variance with Window Size 30\",\n    xaxis_title=\"Index\",\n    yaxis=dict(title=\"Input Data\"),\n    yaxis2=dict(title=\"Rolling Variance\"),\n    margin=dict(l=20, r=20, t=80, b=20),\n    legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1)        \n)\n\nfig.show()"
-      }
-    ]
-  },
-  "RollingVWAP": {
-    "name": "RollingVWAP",
-    "title": "Rolling VWAP",
-    "implementation_family": "rolling",
-    "topics": [
-      "volume"
-    ],
-    "tags": [
-      "vwap",
-      "volume-weighted",
-      "ohlcv",
-      "typical-price"
-    ],
-    "short": "Rolling volume-weighted average price (typical-price weighted).",
-    "inputs": 4,
-    "outputs": 1,
-    "parameters": [
-      {
-        "name": "window_size",
-        "type": "int",
-        "default": 20,
-        "min": 2,
-        "description": "Trailing-window length."
-      }
-    ],
-    "nan_policy": "ignore",
-    "details": "## Description\n\nRolling volume-weighted average price using the typical price as the weighting basis:\n\n$$\n\\text{TP}[t] = (\\text{high} + \\text{low} + \\text{close}) / 3\n\\qquad\n\\text{VWAP}[t] = \\dfrac{\\sum_w \\text{TP} \\cdot \\text{volume}}{\\sum_w \\text{volume}}\n$$\n\n**4-input, 1-output** on `(high, low, close, volume)`. Matches `pandas-ta-classic.vwap`.\nFor a *session-VWAP* (cumulative since some reset point), call `reset()` at the session\nboundary.\n\nFirst valid output at sample index `window_size - 1`. Composes two `detail::RollingSum`\ninstances; O(1) per step.\n\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
-    "examples": [
-      {
-        "language": "python",
-        "caption": "Usage example",
-        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import RollingVWAP\n\nnp.random.seed(0)\nclose = 100*np.exp(np.cumsum(np.random.normal(0, 0.01, size=300)))\nopen_ = np.concatenate([[close[0]], close[:-1]])\nwick = np.abs(np.random.normal(0, 0.4, size=300))\nhigh = np.maximum(open_, close) + wick\nlow  = np.minimum(open_, close) - wick\nvolume = np.random.uniform(1e5, 5e5, size=300)\nvwap = RollingVWAP(window_size=20)(high, low, close, volume)\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True,\n                    row_heights=[0.55, 0.45], vertical_spacing=0.08)\nfig.add_trace(go.Scatter(y=close, name=\"close\"), row=1, col=1)\nfig.add_trace(go.Scatter(y=vwap, name=\"RollingVWAP\", line=dict(color=\"red\")), row=1, col=1)\nfig.add_trace(go.Bar(y=volume, name=\"volume\"), row=2, col=1)\nfig.update_layout(title=\"Price with rolling VWAP (RollingVWAP)\",\n                  margin=dict(l=20, r=20, t=60, b=20),\n                  legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1))\nfig.update_yaxes(title_text=\"price\", row=1, col=1)\nfig.update_yaxes(title_text=\"volume\", row=2, col=1)\nfig.show()"
       }
     ]
   },
@@ -8285,46 +8441,6 @@
       }
     ]
   },
-  "WilliamsR": {
-    "name": "WilliamsR",
-    "title": "Williams %R",
-    "implementation_family": "rolling",
-    "topics": [
-      "momentum"
-    ],
-    "tags": [
-      "williams-r",
-      "oscillator",
-      "talib",
-      "hlc"
-    ],
-    "short": "Inverse stochastic oscillator in [-100, 0].",
-    "inputs": 3,
-    "outputs": 1,
-    "parameters": [
-      {
-        "name": "window_size",
-        "type": "int",
-        "default": 14,
-        "min": 2,
-        "description": "Period (Wilder's default)."
-      }
-    ],
-    "nan_policy": "ignore",
-    "details": "## Description\n\n`WilliamsR` (Williams %R, Larry Williams 1973) returns the normalised position of the close within the recent (high, low) range, scaled to `[-100, 0]`:\n\n$$\n\\%R[t] = -100 \\cdot \\frac{H_n[t] - C[t]}{H_n[t] - L_n[t]}\n$$\n\nwhere `H_n` and `L_n` are the rolling max of `high` and rolling min of `low` over the window. `%R = 0` means the close is at the period high (typically a strong reading); `%R = -100` means the close is at the period low.\n\nThis is a **3-input, 1-output** function (`FunctorBase<_, 3, 1>`). Input order is `(high, low, close)`, matching TA-Lib's `WILLR`.\n\n## Parameters\n\n- `window_size` (int, default `14`): the rolling-window length.\n\n*Warmup*: NaN for the first `window_size − 1` samples; first valid output at sample index `window_size − 1` (TA-Lib's convention).\n\n*Range-zero handling*: when `H_n == L_n` over the period (a perfectly flat segment), the formula is mathematically undefined. We return `0` in that case, matching TA-Lib.\n\n## Implementation Details\n\nPure composition of two `detail::MonotonicDeque` instances -- the same primitive used by `RollingMin`/`RollingMax`/`RollingMinMax`/`RollingArgmin`/`RollingArgmax`/`RollingRange`. Amortised O(1) per step.\n\n\n* Time complexity: `O(1)` amortised per step.\n* Space complexity: `O(window_size)`.\n\n## Output shape\n\n| You pass... | You get back... |\n|---|---|\n| three scalars `high, low, close` | `float` |\n| three 1D arrays of shape `(T,)` | array of shape `(T,)` |\n| three 2D arrays of shape `(T, K)` | array of shape `(T, K)`, column-by-column |\n| three parallel iterables | `list[float]` (eager) |\n\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
-    "examples": [
-      {
-        "language": "python",
-        "caption": "Implementation Details",
-        "code": "high_n = max_deque.append(high)\nlow_n  = min_deque.append(low)\nrange  = high_n - low_n\nreturn -100 * (high_n - close) / range   (or 0 if range == 0)"
-      },
-      {
-        "language": "python",
-        "caption": "Usage example",
-        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import WilliamsR\n\nrng = np.random.default_rng(0)\nn = 300\nclose = 100 + np.cumsum(rng.normal(0, 1, n))\nhigh = close + np.abs(rng.normal(0, 0.5, n))\nlow = close - np.abs(rng.normal(0, 0.5, n))\n\nwr = WilliamsR(14)(high, low, close)\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True,\n                    row_heights=[0.6, 0.4], vertical_spacing=0.08)\nfig.add_trace(go.Scatter(y=high, mode='lines', name='High',\n                         line=dict(color='lightgray')), row=1, col=1)\nfig.add_trace(go.Scatter(y=low, mode='lines', name='Low',\n                         line=dict(color='lightgray')), row=1, col=1)\nfig.add_trace(go.Scatter(y=close, mode='lines', name='Close',\n                         line=dict(color='steelblue')), row=1, col=1)\nfig.add_trace(go.Scatter(y=wr, mode='lines', name='Williams %R(14)',\n                         line=dict(color='red')), row=2, col=1)\nfig.add_hline(y=-20, line=dict(color='gray', dash='dot'), row=2, col=1)\nfig.add_hline(y=-80, line=dict(color='gray', dash='dot'), row=2, col=1)\nfig.update_layout(\n    title=\"Williams %R(14): close position within the rolling H/L range\",\n    xaxis_title=\"Index\",\n    yaxis_title=\"Price\",\n    yaxis2_title=\"%R\",\n    margin=dict(l=20, r=20, t=60, b=20),\n    legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1),\n)\nfig.update_yaxes(range=[-100, 0], row=2, col=1)\nfig.show()"
-      }
-    ]
-  },
   "WMA": {
     "name": "WMA",
     "title": "Weighted Moving Average (WMA)",
@@ -8367,6 +8483,46 @@
         "language": "python",
         "caption": "Usage example",
         "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom screamer import WMA\n\nrng = np.random.default_rng(0)\nN = 300\ndata = np.cumsum(rng.standard_normal(N))\n\nfig = go.Figure()\nfig.add_trace(go.Scatter(y=data, mode='lines', name='Input', line=dict(color='steelblue', width=1)))\nfig.add_trace(go.Scatter(y=WMA(window_size=20)(data), mode='lines', name='WMA(window_size=20)', line=dict(color='crimson', width=2)))\nfig.update_layout(\n    title=\"WMA smoother over a random walk\",\n    xaxis_title=\"Index\", yaxis_title=\"Value\",\n    margin=dict(l=20, r=20, t=80, b=20),\n    legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1),\n)\nfig.show()"
+      }
+    ]
+  },
+  "WilliamsR": {
+    "name": "WilliamsR",
+    "title": "Williams %R",
+    "implementation_family": "rolling",
+    "topics": [
+      "momentum"
+    ],
+    "tags": [
+      "williams-r",
+      "oscillator",
+      "talib",
+      "hlc"
+    ],
+    "short": "Inverse stochastic oscillator in [-100, 0].",
+    "inputs": 3,
+    "outputs": 1,
+    "parameters": [
+      {
+        "name": "window_size",
+        "type": "int",
+        "default": 14,
+        "min": 2,
+        "description": "Period (Wilder's default)."
+      }
+    ],
+    "nan_policy": "ignore",
+    "details": "## Description\n\n`WilliamsR` (Williams %R, Larry Williams 1973) returns the normalised position of the close within the recent (high, low) range, scaled to `[-100, 0]`:\n\n$$\n\\%R[t] = -100 \\cdot \\frac{H_n[t] - C[t]}{H_n[t] - L_n[t]}\n$$\n\nwhere `H_n` and `L_n` are the rolling max of `high` and rolling min of `low` over the window. `%R = 0` means the close is at the period high (typically a strong reading); `%R = -100` means the close is at the period low.\n\nThis is a **3-input, 1-output** function (`FunctorBase<_, 3, 1>`). Input order is `(high, low, close)`, matching TA-Lib's `WILLR`.\n\n## Parameters\n\n- `window_size` (int, default `14`): the rolling-window length.\n\n*Warmup*: NaN for the first `window_size − 1` samples; first valid output at sample index `window_size − 1` (TA-Lib's convention).\n\n*Range-zero handling*: when `H_n == L_n` over the period (a perfectly flat segment), the formula is mathematically undefined. We return `0` in that case, matching TA-Lib.\n\n## Implementation Details\n\nPure composition of two `detail::MonotonicDeque` instances -- the same primitive used by `RollingMin`/`RollingMax`/`RollingMinMax`/`RollingArgmin`/`RollingArgmax`/`RollingRange`. Amortised O(1) per step.\n\n\n* Time complexity: `O(1)` amortised per step.\n* Space complexity: `O(window_size)`.\n\n## Output shape\n\n| You pass... | You get back... |\n|---|---|\n| three scalars `high, low, close` | `float` |\n| three 1D arrays of shape `(T,)` | array of shape `(T,)` |\n| three 2D arrays of shape `(T, K)` | array of shape `(T, K)`, column-by-column |\n| three parallel iterables | `list[float]` (eager) |\n\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Implementation Details",
+        "code": "high_n = max_deque.append(high)\nlow_n  = min_deque.append(low)\nrange  = high_n - low_n\nreturn -100 * (high_n - close) / range   (or 0 if range == 0)"
+      },
+      {
+        "language": "python",
+        "caption": "Usage example",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import WilliamsR\n\nrng = np.random.default_rng(0)\nn = 300\nclose = 100 + np.cumsum(rng.normal(0, 1, n))\nhigh = close + np.abs(rng.normal(0, 0.5, n))\nlow = close - np.abs(rng.normal(0, 0.5, n))\n\nwr = WilliamsR(14)(high, low, close)\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True,\n                    row_heights=[0.6, 0.4], vertical_spacing=0.08)\nfig.add_trace(go.Scatter(y=high, mode='lines', name='High',\n                         line=dict(color='lightgray')), row=1, col=1)\nfig.add_trace(go.Scatter(y=low, mode='lines', name='Low',\n                         line=dict(color='lightgray')), row=1, col=1)\nfig.add_trace(go.Scatter(y=close, mode='lines', name='Close',\n                         line=dict(color='steelblue')), row=1, col=1)\nfig.add_trace(go.Scatter(y=wr, mode='lines', name='Williams %R(14)',\n                         line=dict(color='red')), row=2, col=1)\nfig.add_hline(y=-20, line=dict(color='gray', dash='dot'), row=2, col=1)\nfig.add_hline(y=-80, line=dict(color='gray', dash='dot'), row=2, col=1)\nfig.update_layout(\n    title=\"Williams %R(14): close position within the rolling H/L range\",\n    xaxis_title=\"Index\",\n    yaxis_title=\"Price\",\n    yaxis2_title=\"%R\",\n    margin=dict(l=20, r=20, t=60, b=20),\n    legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1),\n)\nfig.update_yaxes(range=[-100, 0], row=2, col=1)\nfig.show()"
       }
     ]
   },
@@ -9176,17 +9332,6 @@
     "details": "A 2-input mask gate: keep each data value whose aligned mask value is nonzero\n(zero or NaN drops, any other value keeps). The mask is an ordinary stream\nbuilt from upstream comparison or logic ops. No Python predicate or callback -\nthe gate logic runs entirely in C++ for batch, lazy, and graph regimes.\n\nGate rule: `mask == 0` or `isnan(mask)` drops the aligned data value; any\nother mask value (positive, negative, non-NaN) keeps it. A NaN data value\npasses through unmodified when its aligned mask is nonzero.",
     "examples": []
   },
-  "from_pandas": {
-    "name": "from_pandas",
-    "title": "from_pandas",
-    "kind": "function",
-    "short": "Convert a pandas Series or DataFrame to a (values, index) tuple.",
-    "topics": [
-      "streams"
-    ],
-    "details": "Free helper: converts a pandas Series or DataFrame to the screamer\n`(values, index)` tuple convention. The pandas data becomes the values array\nand the pandas index becomes the index array.",
-    "examples": []
-  },
   "Merge": {
     "name": "Merge",
     "title": "Merge",
@@ -9229,17 +9374,6 @@
     "details": "Pick one or more columns from a wide `(rows, columns)` value stream by position.\nThe index and the number of rows are unchanged; only the width changes. Usable\neagerly and inside a `Pipeline`.\n\nFeeding a lazy iterator of `(value, index)` pairs returns a lazy iterator of column-selected events; feeding arrays or `(values, index)` tuples returns the batch result.",
     "examples": []
   },
-  "split": {
-    "name": "split",
-    "title": "split",
-    "kind": "function",
-    "short": "Partition a merged tagged stream back into per-source streams.",
-    "topics": [
-      "streams"
-    ],
-    "details": "The inverse of `Merge`: partition a source-tagged stream back into one stream per\nsource. `split(*Merge()(a_v, b_v, index=[a_k, b_k]))` reconstructs the original\nstreams.",
-    "examples": []
-  },
   "stream-tuple-convention": {
     "name": "stream-tuple-convention",
     "title": "Stream tuple convention",
@@ -9249,6 +9383,28 @@
       "streams"
     ],
     "details": "Every screamer stream operator accepts and returns plain `(values, index)`\n2-tuples at the batch boundary.\n\n- **`values`** - a 1-D `(T,)` or 2-D `(T, N)` NumPy array.\n- **`index`** - a 1-D array of length `T`, or `None` for positional streams\n  (row number as ordering coordinate).",
+    "examples": []
+  },
+  "from_pandas": {
+    "name": "from_pandas",
+    "title": "from_pandas",
+    "kind": "function",
+    "short": "Convert a pandas Series or DataFrame to a (values, index) tuple.",
+    "topics": [
+      "streams"
+    ],
+    "details": "Free helper: converts a pandas Series or DataFrame to the screamer\n`(values, index)` tuple convention. The pandas data becomes the values array\nand the pandas index becomes the index array.",
+    "examples": []
+  },
+  "split": {
+    "name": "split",
+    "title": "split",
+    "kind": "function",
+    "short": "Partition a merged tagged stream back into per-source streams.",
+    "topics": [
+      "streams"
+    ],
+    "details": "The inverse of `Merge`: partition a source-tagged stream back into one stream per\nsource. `split(*Merge()(a_v, b_v, index=[a_k, b_k]))` reconstructs the original\nstreams.",
     "examples": []
   },
   "to_pandas": {

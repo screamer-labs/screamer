@@ -67,6 +67,8 @@ rolling_classes = [cls for cls in screamer_classes
 _EW_AUTO_EXCLUDE = {
     # 2-input pair stats; tested in test_ew_pair.py
     'EwCov', 'EwCorr', 'EwBeta',
+    # 2-input regression family (FunctorBase<_, 2, 1>)
+    'EwSpread', 'EwAlpha', 'EwResidualStd',
     # 2-input range-based volatility (H, L)
     'EwParkinsonVar', 'EwParkinsonVol',
     # 4-input OHLC range-based volatility
@@ -303,6 +305,8 @@ multi_input_definitions = [
                                     , {"span": [10], "array_type": ["ohlc"]}),
     # EW pair statistics on two independent streams.
     ( ('EwCov','EwCorr','EwBeta')   , {"span": [10]}),
+    # EW regression family (spread / intercept / residual scale) on two streams.
+    ( ('EwSpread','EwAlpha','EwResidualStd'), {"span": [10]}),
     # Range-based volatility: needs coherent bars, see generate_ohlc_arrays.
     ( ('RollingParkinsonVar','RollingParkinsonVol',
        'RollingGarmanKlassVar','RollingGarmanKlassVol',

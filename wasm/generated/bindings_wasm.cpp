@@ -48,13 +48,16 @@
 #include "screamer/drawdown.h"
 #include "screamer/dx.h"
 #include "screamer/effective_spread.h"
+#include "screamer/ew_alpha.h"
 #include "screamer/ew_beta.h"
 #include "screamer/ew_corr.h"
 #include "screamer/ew_cov.h"
 #include "screamer/ew_kurt.h"
 #include "screamer/ew_mean.h"
+#include "screamer/ew_residual_std.h"
 #include "screamer/ew_rms.h"
 #include "screamer/ew_skew.h"
+#include "screamer/ew_spread.h"
 #include "screamer/ew_std.h"
 #include "screamer/ew_var.h"
 #include "screamer/ew_zscore.h"
@@ -197,6 +200,10 @@ inline screamer::Decycler* make_Decycler(double a0, double a1) {
     return new screamer::Decycler(screamer_wasm::opt(a0), screamer_wasm::opt(a1));
 }
 
+inline screamer::EwAlpha* make_EwAlpha(double a0, double a1, double a2, double a3) {
+    return new screamer::EwAlpha(screamer_wasm::opt(a0), screamer_wasm::opt(a1), screamer_wasm::opt(a2), screamer_wasm::opt(a3));
+}
+
 inline screamer::EwBeta* make_EwBeta(double a0, double a1, double a2, double a3) {
     return new screamer::EwBeta(screamer_wasm::opt(a0), screamer_wasm::opt(a1), screamer_wasm::opt(a2), screamer_wasm::opt(a3));
 }
@@ -233,6 +240,10 @@ inline screamer::EwParkinsonVol* make_EwParkinsonVol(double a0, double a1, doubl
     return new screamer::EwParkinsonVol(screamer_wasm::opt(a0), screamer_wasm::opt(a1), screamer_wasm::opt(a2), screamer_wasm::opt(a3));
 }
 
+inline screamer::EwResidualStd* make_EwResidualStd(double a0, double a1, double a2, double a3) {
+    return new screamer::EwResidualStd(screamer_wasm::opt(a0), screamer_wasm::opt(a1), screamer_wasm::opt(a2), screamer_wasm::opt(a3));
+}
+
 inline screamer::EwRms* make_EwRms(double a0, double a1, double a2, double a3) {
     return new screamer::EwRms(screamer_wasm::opt(a0), screamer_wasm::opt(a1), screamer_wasm::opt(a2), screamer_wasm::opt(a3));
 }
@@ -247,6 +258,10 @@ inline screamer::EwRogersSatchellVol* make_EwRogersSatchellVol(double a0, double
 
 inline screamer::EwSkew* make_EwSkew(double a0, double a1, double a2, double a3) {
     return new screamer::EwSkew(screamer_wasm::opt(a0), screamer_wasm::opt(a1), screamer_wasm::opt(a2), screamer_wasm::opt(a3));
+}
+
+inline screamer::EwSpread* make_EwSpread(double a0, double a1, double a2, double a3) {
+    return new screamer::EwSpread(screamer_wasm::opt(a0), screamer_wasm::opt(a1), screamer_wasm::opt(a2), screamer_wasm::opt(a3));
 }
 
 inline screamer::EwStd* make_EwStd(double a0, double a1, double a2, double a3) {
@@ -403,6 +418,8 @@ EMSCRIPTEN_BINDINGS(screamer) {
         .constructor<>();
     emscripten::class_<screamer::Transform<(double (*)(double)) std::erfc>, emscripten::base<screamer::EvalOp>>("Erfc")
         .constructor<>();
+    emscripten::class_<screamer::EwAlpha, emscripten::base<screamer::EvalOp>>("EwAlpha")
+        .constructor(&make_EwAlpha, emscripten::allow_raw_pointers());
     emscripten::class_<screamer::EwBeta, emscripten::base<screamer::EvalOp>>("EwBeta")
         .constructor(&make_EwBeta, emscripten::allow_raw_pointers());
     emscripten::class_<screamer::EwCorr, emscripten::base<screamer::EvalOp>>("EwCorr")
@@ -421,6 +438,8 @@ EMSCRIPTEN_BINDINGS(screamer) {
         .constructor(&make_EwParkinsonVar, emscripten::allow_raw_pointers());
     emscripten::class_<screamer::EwParkinsonVol, emscripten::base<screamer::EvalOp>>("EwParkinsonVol")
         .constructor(&make_EwParkinsonVol, emscripten::allow_raw_pointers());
+    emscripten::class_<screamer::EwResidualStd, emscripten::base<screamer::EvalOp>>("EwResidualStd")
+        .constructor(&make_EwResidualStd, emscripten::allow_raw_pointers());
     emscripten::class_<screamer::EwRms, emscripten::base<screamer::EvalOp>>("EwRms")
         .constructor(&make_EwRms, emscripten::allow_raw_pointers());
     emscripten::class_<screamer::EwRogersSatchellVar, emscripten::base<screamer::EvalOp>>("EwRogersSatchellVar")
@@ -429,6 +448,8 @@ EMSCRIPTEN_BINDINGS(screamer) {
         .constructor(&make_EwRogersSatchellVol, emscripten::allow_raw_pointers());
     emscripten::class_<screamer::EwSkew, emscripten::base<screamer::EvalOp>>("EwSkew")
         .constructor(&make_EwSkew, emscripten::allow_raw_pointers());
+    emscripten::class_<screamer::EwSpread, emscripten::base<screamer::EvalOp>>("EwSpread")
+        .constructor(&make_EwSpread, emscripten::allow_raw_pointers());
     emscripten::class_<screamer::EwStd, emscripten::base<screamer::EvalOp>>("EwStd")
         .constructor(&make_EwStd, emscripten::allow_raw_pointers());
     emscripten::class_<screamer::EwVar, emscripten::base<screamer::EvalOp>>("EwVar")

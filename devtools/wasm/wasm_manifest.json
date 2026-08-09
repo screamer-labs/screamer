@@ -1138,6 +1138,37 @@
     "source": "bindings/bindings_math.cpp"
   },
   {
+    "name": "EwAlpha",
+    "cpp_type": "screamer::EwAlpha",
+    "base": "FunctorBase",
+    "ctor": [
+      "std::optional<double>",
+      "std::optional<double>",
+      "std::optional<double>",
+      "std::optional<double>"
+    ],
+    "ctor_args": [
+      {
+        "name": "com",
+        "default": null
+      },
+      {
+        "name": "span",
+        "default": null
+      },
+      {
+        "name": "halflife",
+        "default": null
+      },
+      {
+        "name": "alpha",
+        "default": null
+      }
+    ],
+    "ctor_kind": "ew_optional",
+    "source": "bindings/bindings_ew.cpp"
+  },
+  {
     "name": "EwBeta",
     "cpp_type": "screamer::EwBeta",
     "base": "FunctorBase",
@@ -1417,6 +1448,37 @@
     "source": "bindings/bindings_rolling.cpp"
   },
   {
+    "name": "EwResidualStd",
+    "cpp_type": "screamer::EwResidualStd",
+    "base": "FunctorBase",
+    "ctor": [
+      "std::optional<double>",
+      "std::optional<double>",
+      "std::optional<double>",
+      "std::optional<double>"
+    ],
+    "ctor_args": [
+      {
+        "name": "com",
+        "default": null
+      },
+      {
+        "name": "span",
+        "default": null
+      },
+      {
+        "name": "halflife",
+        "default": null
+      },
+      {
+        "name": "alpha",
+        "default": null
+      }
+    ],
+    "ctor_kind": "ew_optional",
+    "source": "bindings/bindings_ew.cpp"
+  },
+  {
     "name": "EwRms",
     "cpp_type": "screamer::EwRms",
     "base": "ScreamerBase",
@@ -1513,6 +1575,37 @@
     "name": "EwSkew",
     "cpp_type": "screamer::EwSkew",
     "base": "ScreamerBase",
+    "ctor": [
+      "std::optional<double>",
+      "std::optional<double>",
+      "std::optional<double>",
+      "std::optional<double>"
+    ],
+    "ctor_args": [
+      {
+        "name": "com",
+        "default": null
+      },
+      {
+        "name": "span",
+        "default": null
+      },
+      {
+        "name": "halflife",
+        "default": null
+      },
+      {
+        "name": "alpha",
+        "default": null
+      }
+    ],
+    "ctor_kind": "ew_optional",
+    "source": "bindings/bindings_ew.cpp"
+  },
+  {
+    "name": "EwSpread",
+    "cpp_type": "screamer::EwSpread",
+    "base": "FunctorBase",
     "ctor": [
       "std::optional<double>",
       "std::optional<double>",
