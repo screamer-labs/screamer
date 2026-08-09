@@ -5,6 +5,9 @@ All notable changes to this project are documented in this file.
 Unreleased
 ----------
 
+2.4.0 - 2026-08-10
+------------------
+
 ### Changed
 
 * **Build:** the C++ extension is now bound with
@@ -111,6 +114,19 @@ Unreleased
   screamer release or upgrade their interpreter.
 
 ### Added
+
+* **Regression family (EW):** `EwSpread`, `EwAlpha`, and `EwResidualStd`, the
+  exponentially-weighted analogs of `RollingSpread` / `RollingAlpha` /
+  `RollingResidualStd`, completing the rolling/EW symmetry of the pairs-trading
+  and regression operators. Each composes existing EW building blocks (`EwBeta`,
+  `EwMean`, `EwStd`) and is available in both Python and JavaScript/WASM, with
+  results verified against independent pandas baselines.
+
+* **JavaScript:** the WASM build now runs in the browser (earlier 2.x builds
+  were Node-only), array calls process the whole input in one C++ pass
+  (`evalBatchInto`, ~65x faster than the previous per-element path), and a
+  live-market dashboard demo ships at
+  [screamer-labs.github.io/screamer](https://screamer-labs.github.io/screamer/live-trades.html).
 
 * **JavaScript:** `PortfolioReport` is now part of the JavaScript/WASM binding,
   closing the one gap between the Python and JavaScript operator sets. It needed
