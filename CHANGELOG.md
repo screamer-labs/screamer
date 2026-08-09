@@ -8,6 +8,123 @@ Unreleased
 2.4.0 - 2026-08-10
 ------------------
 
+### Added
+
+* **Regression family (EW):** `EwSpread`, `EwAlpha`, and `EwResidualStd`, the
+  exponentially-weighted analogs of `RollingSpread` / `RollingAlpha` /
+  `RollingResidualStd`. They complete the rolling/EW symmetry of the
+  pairs-trading and regression operators. Each one composes the existing EW
+  building blocks (`EwBeta`, `EwMean`, `EwStd`). Both Python and JavaScript/WASM
+  include them, verified against independent pandas baselines.
+
+2.3.1 - 2026-08-09
+------------------
+
+### Changed
+
+* **JavaScript:** an `op(array)` call now processes the whole array in one C++
+  pass (`evalBatchInto`) instead of one JS/WASM boundary crossing per element.
+  This is about 65x faster (EWMA goes from ~2.4 to ~180 million updates/s in
+  Node). The streaming (`op(x)`) path and every result are unchanged.
+
+### Added
+
+* **JavaScript demo:** the dashboard warm-starts from the recent public trade
+  tape over REST, so the chart and every indicator fill immediately instead of
+  building up over a minute.
+
+* `js/benchmarks/throughput.mjs` (`npm run bench`): a reproducible batch and
+  streaming throughput benchmark that self-checks batch results against the
+  streaming path before it reports speed.
+
+2.3.0 - 2026-08-06
+------------------
+
+### Added
+
+* **JavaScript demo:** the live-trades page becomes a multi-window market
+  dashboard. It adds a VPIN signal view, a volume-clock view, a responsive
+  indicator picker with about twenty indicators, and time-aware buffered replay.
+  Contributions by Édouard Tallent (@tagomatech).
+
+2.2.1 - 2026-08-04
+------------------
+
+### Fixed
+
+* **JavaScript:** the WASM module now runs in the browser. The 2.1.0 and 2.2.0
+  builds compiled the emscripten module for Node only, so the glue called
+  `require`/`process` and threw in any browser. The module now builds for
+  `web`, `worker`, and `node`. Verified in a real browser.
+
+### Added
+
+* **JavaScript:** a "Node, bundlers, and the browser" guide, and a live-trades
+  demo page on the documentation site.
+
+2.2.0 - 2026-08-03
+------------------
+
+### Added
+
+* **JavaScript:** `PortfolioReport` is now part of the JavaScript/WASM binding,
+  closing the one gap between the Python and JavaScript operator sets. It needed
+  a second marshalling path: every other operator reads a fixed number of values
+  per event, while a reducer folds a variable number of groups (the assets in a
+  portfolio) into one event and reads that count from the data. The WASM layer
+  gained `reduceInto` / `reduceBatchInto` alongside the existing fixed-width
+  `evalInto`, the manifest gained a `dynamic_reducer` category that drives both
+  generators, and the codegen freshness gate no longer excludes the operator, so
+  it now enforces the parity it previously allowed to lapse. A JavaScript event
+  is a `(groups, 4)` block and a batch is `(events, groups, 4)`, matching the
+  Python shapes; results are held to a Python fixture covering both the batch
+  and the per-event path.
+
+* Generic backtest contract sizing and fees, plus the `PortfolioReport`
+  operator. Contributed by Édouard Tallent (@tagomatech).
+
+* Python and JavaScript are now required to expose the same operator set. A
+  capability in one binding but not the other is a defect, not a trade. The
+  rule is written into `CONTRIBUTING.md`.
+
+* `make patch` / `minor` / `major` now also create a `js-v<version>` tag, so one
+  command releases the Python and the JavaScript package together.
+
+### Fixed
+
+* The WASM smoke harness constructed four backtest engines with stale
+  hand-written arguments and failed on all of them once those engines gained
+  contract-sizing parameters. The arguments now match, and a mismatch reports
+  which operator to update instead of an Embind arity error.
+
+2.1.0 - 2026-08-03
+------------------
+
+### Added
+
+* **JavaScript / WebAssembly build.** screamer now compiles the same C++ core
+  to WebAssembly and runs in Node and the browser, published to npm as
+  `@screamer-labs/screamer`. Highlights:
+
+  * A uniform Embind runtime over `EvalOp` (`evalInto` / `evalBatchInto` /
+    `reset` / heap helpers), and generators that read the nanobind bindings to
+    emit both the Embind layer and typed TypeScript factories for all 226
+    operators. Freshness gates keep the generated files in sync with the
+    bindings.
+  * One polymorphic op wrapper with four call regimes (scalar, typed array,
+    sync iterable, async iterable), explicit lifetime management, and an
+    ndarray-lite shape.
+  * A symbolic `Input` / `Pipeline` graph (define-then-bind) with combinators
+    (`combineLatest`, `resample`, `select`, and friends), backed by an Embind
+    DAG layer. Pipeline results are checked against a Python oracle, and batch
+    equals streaming on the same data.
+  * A self-contained single-file package (embedded WASM, ESM + CJS), a
+    pack-and-install smoke test, tag-gated npm publishing over OIDC, and a
+    TypeDoc reference plus a hand-written guide on GitHub Pages.
+
+2.0.0 - 2026-08-02
+------------------
+
 ### Changed
 
 * **Build:** the C++ extension is now bound with
@@ -115,43 +232,12 @@ Unreleased
 
 ### Added
 
-* **Regression family (EW):** `EwSpread`, `EwAlpha`, and `EwResidualStd`, the
-  exponentially-weighted analogs of `RollingSpread` / `RollingAlpha` /
-  `RollingResidualStd`, completing the rolling/EW symmetry of the pairs-trading
-  and regression operators. Each composes existing EW building blocks (`EwBeta`,
-  `EwMean`, `EwStd`) and is available in both Python and JavaScript/WASM, with
-  results verified against independent pandas baselines.
-
-* **JavaScript:** the WASM build now runs in the browser (earlier 2.x builds
-  were Node-only), array calls process the whole input in one C++ pass
-  (`evalBatchInto`, ~65x faster than the previous per-element path), and a
-  live-market dashboard demo ships at
-  [screamer-labs.github.io/screamer](https://screamer-labs.github.io/screamer/live-trades.html).
-
-* **JavaScript:** `PortfolioReport` is now part of the JavaScript/WASM binding,
-  closing the one gap between the Python and JavaScript operator sets. It needed
-  a second marshalling path: every other operator reads a fixed number of values
-  per event, while a reducer folds a variable number of groups (the assets in a
-  portfolio) into one event and reads that count from the data. The WASM layer
-  gained `reduceInto` / `reduceBatchInto` alongside the existing fixed-width
-  `evalInto`, the manifest gained a `dynamic_reducer` category that drives both
-  generators, and the codegen freshness gate no longer excludes the operator, so
-  it now enforces the parity it previously allowed to lapse. A JavaScript event
-  is a `(groups, 4)` block and a batch is `(events, groups, 4)`, matching the
-  Python shapes; results are held to a Python fixture covering both the batch
-  and the per-event path.
-
 * References for `RollingCorr`, `RollingCov`, `RollingBeta`, `RollingIqr`,
   `HullMA` and `RollingVWAP`, taking baseline coverage to 174 of 231. The pair
   statistics come from `pandas.rolling().corr()` / `.cov()` / `.var()`, which
   are external implementations rather than transcriptions.
 
 ### Fixed
-
-* The WASM smoke harness constructed four backtest engines with stale
-  hand-written arguments and failed on all of them once those engines gained
-  contract-sizing parameters. The arguments now match, and a mismatch reports
-  which operator to update instead of an Embind arity error.
 
 * `ROC`, `ROCP` and `ROCR` defaulted to `window_size=1` while their pages
   documented `10`, TA-Lib's `timeperiod` default and the value the sibling
