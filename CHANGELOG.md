@@ -5,6 +5,20 @@ All notable changes to this project are documented in this file.
 Unreleased
 ----------
 
+2.5.0 - 2026-08-11
+------------------
+
+### Added
+
+* **Volatility (EW):** `EwYangZhangVar` and `EwYangZhangVol`, the
+  exponentially-weighted Yang-Zhang range-based volatility estimator. They
+  complete the EW range-based family: Parkinson, Garman-Klass, and
+  Rogers-Satchell already had EW forms, but Yang-Zhang did not. The estimator
+  composes two `EwVar` (overnight and open-to-close) and one `EwMean`
+  (Rogers-Satchell per bar), and it uses the effective sample size for the k
+  weight. Both Python and JavaScript/WASM include them, verified against a
+  pandas transcription and the OHLC simulation test that recovers a known sigma.
+
 2.4.0 - 2026-08-10
 ------------------
 

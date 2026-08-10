@@ -979,6 +979,116 @@
       }
     ]
   },
+  "EwYangZhangVar": {
+    "name": "EwYangZhangVar",
+    "title": "EW Yang-Zhang variance",
+    "implementation_family": "ew",
+    "topics": [
+      "volatility"
+    ],
+    "tags": [
+      "yang-zhang",
+      "range-based",
+      "ohlc",
+      "drift-robust",
+      "gap-robust",
+      "var",
+      "ew"
+    ],
+    "short": "Var form of the Yang-Zhang range-based estimator, exponentially weighted.",
+    "inputs": 4,
+    "outputs": 1,
+    "parameters": [
+      {
+        "name": "com",
+        "type": "float",
+        "default": null,
+        "description": "Center of mass."
+      },
+      {
+        "name": "span",
+        "type": "float",
+        "default": 20.0,
+        "description": "Span."
+      },
+      {
+        "name": "halflife",
+        "type": "float",
+        "default": null,
+        "description": "Halflife."
+      },
+      {
+        "name": "alpha",
+        "type": "float",
+        "default": null,
+        "description": "Smoothing parameter directly."
+      }
+    ],
+    "nan_policy": "ignore",
+    "details": "## Description\n\nThe exponentially-weighted Yang-Zhang (2000) volatility estimator. It is the EW\nanalog of [`RollingYangZhangVar`](../functions_fin/RollingYangZhangVar.md) and\ncompletes the EW range-based volatility family\n([`EwParkinsonVar`](EwParkinsonVar.md), [`EwGarmanKlassVar`](EwGarmanKlassVar.md),\n[`EwRogersSatchellVar`](EwRogersSatchellVar.md)).\n\nYang-Zhang is the most efficient classical range-based estimator. It is\ndrift-robust (through the Rogers-Satchell term) and it handles overnight gaps\n(through the overnight term). It combines three parts:\n\n$$\n\\sigma^2_{YZ} = \\sigma^2_o + k\\,\\sigma^2_c + (1-k)\\,\\sigma^2_{RS}\n$$\n\n- $\\sigma^2_o$ is the EW variance of the overnight log returns $\\ln(O_t / C_{t-1})$.\n- $\\sigma^2_c$ is the EW variance of the open-to-close log returns $\\ln(C_t / O_t)$.\n- $\\sigma^2_{RS}$ is the EW mean of the per-bar Rogers-Satchell term.\n- $k = 0.34 / (1.34 + (n_\\text{eff}+1)/(n_\\text{eff}-1))$.\n\nThe rolling estimator fixes $k$ from the window size. This estimator uses the\neffective sample size $n_\\text{eff}$ of the overnight leg, so $k$ adapts as the\nweighting fills. This is a **4-input, 1-output** function over `(open, high,\nlow, close)`.\n\n## Parameters\n\nSpecify exactly one of the following to set the smoothing factor `alpha`:\n\n- **`com`**: Center of mass. `alpha = 1 / (1 + com)`\n- **`span`**: Span. `alpha = 2 / (span + 1)`\n- **`halflife`**: Half-life. `alpha = 1 - exp(-log(2) / halflife)`\n- **`alpha`**: Directly sets the smoothing factor, `0 < alpha < 1`\n\nThe first overnight return needs a prior close, so the output is `NaN` until at\nleast two overnight returns exist.\n\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage example",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom screamer import EwYangZhangVol\n\nrng = np.random.default_rng(0)\nN = 500\nc = 100 * np.exp(np.cumsum(rng.normal(0, 0.01, N)))\no = c * np.exp(rng.normal(0, 0.004, N))\nhi = np.maximum(o, c) * np.exp(np.abs(rng.normal(0, 0.006, N)))\nlo = np.minimum(o, c) * np.exp(-np.abs(rng.normal(0, 0.006, N)))\nvol = EwYangZhangVol(span=60)(o, hi, lo, c)\n\nfig = go.Figure()\nfig.add_trace(go.Scatter(y=vol, name='EwYangZhangVol(span=60)',\n                         line=dict(color='crimson')))\nfig.update_layout(\n    title='EW Yang-Zhang volatility from OHLC bars',\n    yaxis=dict(title='per-bar volatility'),\n    margin=dict(l=20, r=20, t=60, b=20),\n)\nfig.show()"
+      }
+    ]
+  },
+  "EwYangZhangVol": {
+    "name": "EwYangZhangVol",
+    "title": "EW Yang-Zhang volatility",
+    "implementation_family": "ew",
+    "topics": [
+      "volatility"
+    ],
+    "tags": [
+      "yang-zhang",
+      "range-based",
+      "ohlc",
+      "drift-robust",
+      "gap-robust",
+      "vol",
+      "ew"
+    ],
+    "short": "Vol form (sqrt) of the EW Yang-Zhang range-based estimator.",
+    "inputs": 4,
+    "outputs": 1,
+    "parameters": [
+      {
+        "name": "com",
+        "type": "float",
+        "default": null,
+        "description": "Center of mass."
+      },
+      {
+        "name": "span",
+        "type": "float",
+        "default": 20.0,
+        "description": "Span."
+      },
+      {
+        "name": "halflife",
+        "type": "float",
+        "default": null,
+        "description": "Halflife."
+      },
+      {
+        "name": "alpha",
+        "type": "float",
+        "default": null,
+        "description": "Smoothing parameter directly."
+      }
+    ],
+    "nan_policy": "ignore",
+    "details": "## Description\n\nThe standard-deviation form of [`EwYangZhangVar`](EwYangZhangVar.md): the square\nroot of the exponentially-weighted Yang-Zhang variance.\n\n$$\n\\sigma_{YZ} = \\sqrt{\\sigma^2_{YZ}}\n$$\n\nYang-Zhang is the most efficient classical range-based estimator. It is\ndrift-robust and it handles overnight gaps. This is a **4-input, 1-output**\nfunction over `(open, high, low, close)`. See\n[`EwYangZhangVar`](EwYangZhangVar.md) for the full definition and the components.\n\n## Parameters\n\nSpecify exactly one of the following to set the smoothing factor `alpha`:\n\n- **`com`**: Center of mass. `alpha = 1 / (1 + com)`\n- **`span`**: Span. `alpha = 2 / (span + 1)`\n- **`halflife`**: Half-life. `alpha = 1 - exp(-log(2) / halflife)`\n- **`alpha`**: Directly sets the smoothing factor, `0 < alpha < 1`\n\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage example",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom screamer import EwYangZhangVol\n\nrng = np.random.default_rng(1)\nN = 500\nc = 100 * np.exp(np.cumsum(rng.normal(0, 0.01, N)))\no = c * np.exp(rng.normal(0, 0.004, N))\nhi = np.maximum(o, c) * np.exp(np.abs(rng.normal(0, 0.006, N)))\nlo = np.minimum(o, c) * np.exp(-np.abs(rng.normal(0, 0.006, N)))\nvol = EwYangZhangVol(span=60)(o, hi, lo, c)\n\nfig = go.Figure()\nfig.add_trace(go.Scatter(y=vol, name='EwYangZhangVol(span=60)',\n                         line=dict(color='crimson')))\nfig.update_layout(\n    title='EW Yang-Zhang volatility from OHLC bars',\n    yaxis=dict(title='per-bar volatility'),\n    margin=dict(l=20, r=20, t=60, b=20),\n)\nfig.show()"
+      }
+    ]
+  },
   "EwZscore": {
     "name": "EwZscore",
     "title": "Exponentially-weighted z-score",

@@ -160,17 +160,18 @@ SPAN = 50
 
 def ew_estimates(o, h, l, c):
     from screamer import (
-        EwGarmanKlassVar, EwParkinsonVar, EwRogersSatchellVar,
+        EwGarmanKlassVar, EwParkinsonVar, EwRogersSatchellVar, EwYangZhangVar,
     )
     return {
         "ew_parkinson": _sigma_of(EwParkinsonVar(span=SPAN)(h, l)),
         "ew_garman_klass": _sigma_of(EwGarmanKlassVar(span=SPAN)(o, h, l, c)),
         "ew_rogers_satchell": _sigma_of(EwRogersSatchellVar(span=SPAN)(o, h, l, c)),
+        "ew_yang_zhang": _sigma_of(EwYangZhangVar(span=SPAN)(o, h, l, c)),
     }
 
 
 @pytest.mark.parametrize(
-    "name", ["ew_parkinson", "ew_garman_klass", "ew_rogers_satchell"]
+    "name", ["ew_parkinson", "ew_garman_klass", "ew_rogers_satchell", "ew_yang_zhang"]
 )
 def test_ew_forms_recover_sigma(name):
     got = ew_estimates(*simulate_bars())[name]
@@ -196,13 +197,14 @@ def test_ew_rogers_satchell_is_drift_robust():
 def test_ew_vol_is_the_square_root_of_ew_var():
     from screamer import (
         EwGarmanKlassVar, EwGarmanKlassVol, EwParkinsonVar, EwParkinsonVol,
-        EwRogersSatchellVar, EwRogersSatchellVol,
+        EwRogersSatchellVar, EwRogersSatchellVol, EwYangZhangVar, EwYangZhangVol,
     )
     o, h, l, c = simulate_bars()
     pairs = [
         (EwParkinsonVar(span=SPAN)(h, l), EwParkinsonVol(span=SPAN)(h, l)),
         (EwGarmanKlassVar(span=SPAN)(o, h, l, c), EwGarmanKlassVol(span=SPAN)(o, h, l, c)),
         (EwRogersSatchellVar(span=SPAN)(o, h, l, c), EwRogersSatchellVol(span=SPAN)(o, h, l, c)),
+        (EwYangZhangVar(span=SPAN)(o, h, l, c), EwYangZhangVol(span=SPAN)(o, h, l, c)),
     ]
     for var, vol in pairs:
         np.testing.assert_allclose(np.sqrt(var), vol, equal_nan=True, rtol=1e-12)

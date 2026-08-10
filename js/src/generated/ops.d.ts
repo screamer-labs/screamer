@@ -652,6 +652,26 @@ export declare function EwStd(com?: number, span?: number, halflife?: number, al
  */
 export declare function EwVar(com?: number, span?: number, halflife?: number, alpha?: number): ScreamerOp;
 /**
+ * Var form of the Yang-Zhang range-based estimator, exponentially weighted.
+ *
+ * @param com Center of mass.
+ * @param span Span.
+ * @param halflife Halflife.
+ * @param alpha Smoothing parameter directly.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
+export declare function EwYangZhangVar(com?: number, span?: number, halflife?: number, alpha?: number): ScreamerOp;
+/**
+ * Vol form (sqrt) of the EW Yang-Zhang range-based estimator.
+ *
+ * @param com Center of mass.
+ * @param span Span.
+ * @param halflife Halflife.
+ * @param alpha Smoothing parameter directly.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
+export declare function EwYangZhangVol(com?: number, span?: number, halflife?: number, alpha?: number): ScreamerOp;
+/**
  * Latest sample standardised by EW mean and std.
  *
  * @param com Center of mass (alpha = 1 / (1 + com)). Exclusive with span/halflife/alpha.

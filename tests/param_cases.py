@@ -74,6 +74,7 @@ _EW_AUTO_EXCLUDE = {
     # 4-input OHLC range-based volatility
     'EwGarmanKlassVar', 'EwGarmanKlassVol',
     'EwRogersSatchellVar', 'EwRogersSatchellVol',
+    'EwYangZhangVar', 'EwYangZhangVol',
 }
 ew_classes = [cls for cls in screamer_classes
               if cls.startswith('Ew') and cls not in _EW_AUTO_EXCLUDE]
@@ -301,7 +302,8 @@ multi_input_definitions = [
     # EW range-based volatility: same coherent bars, EW weighting.
     ( ('EwParkinsonVar','EwParkinsonVol',
        'EwGarmanKlassVar','EwGarmanKlassVol',
-       'EwRogersSatchellVar','EwRogersSatchellVol')
+       'EwRogersSatchellVar','EwRogersSatchellVol',
+       'EwYangZhangVar','EwYangZhangVol')
                                     , {"span": [10], "array_type": ["ohlc"]}),
     # EW pair statistics on two independent streams.
     ( ('EwCov','EwCorr','EwBeta')   , {"span": [10]}),

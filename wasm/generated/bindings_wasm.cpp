@@ -60,6 +60,7 @@
 #include "screamer/ew_spread.h"
 #include "screamer/ew_std.h"
 #include "screamer/ew_var.h"
+#include "screamer/ew_yang_zhang.h"
 #include "screamer/ew_zscore.h"
 #include "screamer/expanding_kurt.h"
 #include "screamer/expanding_max.h"
@@ -272,6 +273,14 @@ inline screamer::EwVar* make_EwVar(double a0, double a1, double a2, double a3) {
     return new screamer::EwVar(screamer_wasm::opt(a0), screamer_wasm::opt(a1), screamer_wasm::opt(a2), screamer_wasm::opt(a3));
 }
 
+inline screamer::EwYangZhangVar* make_EwYangZhangVar(double a0, double a1, double a2, double a3) {
+    return new screamer::EwYangZhangVar(screamer_wasm::opt(a0), screamer_wasm::opt(a1), screamer_wasm::opt(a2), screamer_wasm::opt(a3));
+}
+
+inline screamer::EwYangZhangVol* make_EwYangZhangVol(double a0, double a1, double a2, double a3) {
+    return new screamer::EwYangZhangVol(screamer_wasm::opt(a0), screamer_wasm::opt(a1), screamer_wasm::opt(a2), screamer_wasm::opt(a3));
+}
+
 inline screamer::EwZscore* make_EwZscore(double a0, double a1, double a2, double a3) {
     return new screamer::EwZscore(screamer_wasm::opt(a0), screamer_wasm::opt(a1), screamer_wasm::opt(a2), screamer_wasm::opt(a3));
 }
@@ -454,6 +463,10 @@ EMSCRIPTEN_BINDINGS(screamer) {
         .constructor(&make_EwStd, emscripten::allow_raw_pointers());
     emscripten::class_<screamer::EwVar, emscripten::base<screamer::EvalOp>>("EwVar")
         .constructor(&make_EwVar, emscripten::allow_raw_pointers());
+    emscripten::class_<screamer::EwYangZhangVar, emscripten::base<screamer::EvalOp>>("EwYangZhangVar")
+        .constructor(&make_EwYangZhangVar, emscripten::allow_raw_pointers());
+    emscripten::class_<screamer::EwYangZhangVol, emscripten::base<screamer::EvalOp>>("EwYangZhangVol")
+        .constructor(&make_EwYangZhangVol, emscripten::allow_raw_pointers());
     emscripten::class_<screamer::EwZscore, emscripten::base<screamer::EvalOp>>("EwZscore")
         .constructor(&make_EwZscore, emscripten::allow_raw_pointers());
     emscripten::class_<screamer::Transform<(double (*)(double)) std::exp>, emscripten::base<screamer::EvalOp>>("Exp")

@@ -54,6 +54,7 @@
 #include "screamer/donchian_channels.h"
 #include "screamer/keltner_channels.h"
 #include "screamer/yang_zhang.h"
+#include "screamer/ew_yang_zhang.h"
 #include "screamer/adx.h"
 #include "screamer/plus_di.h"
 #include "screamer/minus_di.h"
@@ -449,6 +450,23 @@ void init_bindings_rolling(nb::module_& m) {
         .def(nb::init<int>(), "window_size"_a = 20)
         .def("__call__", &screamer::functor_call<screamer::RollingYangZhangVol>)
         .def("reset", &screamer::RollingYangZhangVol::reset, "Reset.");
+
+    // EW analog, completing the EW range-based volatility family.
+    nb::class_<screamer::EwYangZhangVar, screamer::EvalOp>(m, "EwYangZhangVar")
+        .def(nb::init<std::optional<double>, std::optional<double>,
+                       std::optional<double>, std::optional<double>>(),
+             "com"_a = nb::none(), "span"_a = nb::none(),
+             "halflife"_a = nb::none(), "alpha"_a = nb::none())
+        .def("__call__", &screamer::functor_call<screamer::EwYangZhangVar>)
+        .def("reset", &screamer::EwYangZhangVar::reset, "Reset.");
+
+    nb::class_<screamer::EwYangZhangVol, screamer::EvalOp>(m, "EwYangZhangVol")
+        .def(nb::init<std::optional<double>, std::optional<double>,
+                       std::optional<double>, std::optional<double>>(),
+             "com"_a = nb::none(), "span"_a = nb::none(),
+             "halflife"_a = nb::none(), "alpha"_a = nb::none())
+        .def("__call__", &screamer::functor_call<screamer::EwYangZhangVol>)
+        .def("reset", &screamer::EwYangZhangVol::reset, "Reset.");
 
     // ADX (Wilder, 1978). 3 -> 3 on (high, low, close) returning
     // (plus_di, minus_di, adx). Match talib.PLUS_DI / MINUS_DI / ADX.

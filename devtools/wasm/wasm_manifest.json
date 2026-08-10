@@ -1696,6 +1696,68 @@
     "source": "bindings/bindings_ew.cpp"
   },
   {
+    "name": "EwYangZhangVar",
+    "cpp_type": "screamer::EwYangZhangVar",
+    "base": "FunctorBase",
+    "ctor": [
+      "std::optional<double>",
+      "std::optional<double>",
+      "std::optional<double>",
+      "std::optional<double>"
+    ],
+    "ctor_args": [
+      {
+        "name": "com",
+        "default": null
+      },
+      {
+        "name": "span",
+        "default": null
+      },
+      {
+        "name": "halflife",
+        "default": null
+      },
+      {
+        "name": "alpha",
+        "default": null
+      }
+    ],
+    "ctor_kind": "ew_optional",
+    "source": "bindings/bindings_rolling.cpp"
+  },
+  {
+    "name": "EwYangZhangVol",
+    "cpp_type": "screamer::EwYangZhangVol",
+    "base": "FunctorBase",
+    "ctor": [
+      "std::optional<double>",
+      "std::optional<double>",
+      "std::optional<double>",
+      "std::optional<double>"
+    ],
+    "ctor_args": [
+      {
+        "name": "com",
+        "default": null
+      },
+      {
+        "name": "span",
+        "default": null
+      },
+      {
+        "name": "halflife",
+        "default": null
+      },
+      {
+        "name": "alpha",
+        "default": null
+      }
+    ],
+    "ctor_kind": "ew_optional",
+    "source": "bindings/bindings_rolling.cpp"
+  },
+  {
     "name": "EwZscore",
     "cpp_type": "screamer::EwZscore",
     "base": "ScreamerBase",
