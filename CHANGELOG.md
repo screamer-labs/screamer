@@ -5,6 +5,9 @@ All notable changes to this project are documented in this file.
 Unreleased
 ----------
 
+2.8.0 - 2026-10-10
+------------------
+
 ### Added
 
 * **Cross-sectional operators:** `CrossRank`, `CrossZscore`, `CrossDemean`,
