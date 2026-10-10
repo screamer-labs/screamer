@@ -33,6 +33,7 @@
  "functions_expanding/ExpandingStd": "8295f862663b5adc",
  "functions_expanding/ExpandingSum": "ba43997f98311da3",
  "functions_expanding/ExpandingVar": "52bc6600de83b039",
+ "functions_fin/BacktestCarry": "c337263ba68f75c9",
  "functions_fin/BacktestL1Orders": "046bbc1ec128bc14",
  "functions_fin/BacktestL1Target": "34d393a34827e937",
  "functions_fin/BacktestL1TradesOrders": "caa23fd30df33785",

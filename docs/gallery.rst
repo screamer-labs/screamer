@@ -1362,6 +1362,13 @@ Turn signals into costed equity curves, and measure drawdown and performance.
    :gutter: 2
    :class-container: gallery-grid
 
+   .. grid-item-card:: BacktestCarry
+      :link: functions_fin/BacktestCarry
+      :link-type: doc
+      :img-top: _static/gallery/functions_fin__BacktestCarry.webp
+      :img-alt: BacktestCarry example plot
+      :class-card: gallery-card
+
    .. grid-item-card:: BacktestL1Orders
       :link: functions_fin/BacktestL1Orders
       :link-type: doc
