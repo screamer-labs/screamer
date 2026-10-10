@@ -22,6 +22,7 @@ import numpy as np
 
 from .screamer_bindings import (
     BacktestReport,
+    BacktestStats,
     _circular_shift,
     _default_min_shift,
     _deflated_sharpe,
@@ -34,13 +35,30 @@ from .screamer_bindings import (
 __all__ = ["position_test", "strategy_test", "circular_shift", "segment_shuffle",
            "permute_bars", "permute_returns", "probabilistic_sharpe", "deflated_sharpe"]
 
+# The statistics computed for every run, with the same names as the summary of
+# backtest_report, and their direction as a test metric (None: no natural
+# direction, so larger_is_better must be given).
 # Engine output columns: [equity, pnl, position, cost].
 # BacktestReport columns: [drawdown, cum_cost, turnover, trades, max_drawdown, sharpe].
+# BacktestStats columns: [exposure, round_trips, win_rate, profit_factor, avg_win,
+#                         avg_loss, avg_holding, sortino, calmar].
 _METRICS = {
     # name: (source, column, larger_is_better)
     "total_pnl": ("engine", 0, True),
-    "sharpe": ("report", 5, True),
     "max_drawdown": ("report", 4, True),   # <= 0, so closer to 0 is better
+    "total_cost": ("report", 1, False),
+    "turnover": ("report", 2, None),
+    "num_trades": ("report", 3, None),
+    "sharpe": ("report", 5, True),
+    "exposure": ("stats", 0, None),
+    "round_trips": ("stats", 1, None),
+    "win_rate": ("stats", 2, True),
+    "profit_factor": ("stats", 3, True),
+    "avg_win": ("stats", 4, True),
+    "avg_loss": ("stats", 5, True),        # <= 0, so closer to 0 is better
+    "avg_holding": ("stats", 6, None),
+    "sortino": ("stats", 7, True),
+    "calmar": ("stats", 8, True),
 }
 
 # Doubles per chunk, about 256 MB, for the (T, chunk) working arrays.
@@ -107,6 +125,14 @@ class PositionTestResult(NamedTuple):
     run's metric is NaN), and ``family_p_value`` compares each strategy with
     the best of all ``K`` in every randomized round. That corrects for having
     picked the best of several variants. For a single strategy it is None.
+
+    ``observed_stats`` and ``null_stats`` hold every backtest statistic, not
+    only the tested metric, under the names of the ``backtest_report``
+    summary: ``observed_stats[name]`` is the real run's value and
+    ``null_stats[name]`` an array with one entry per randomized run, in run
+    order and with NaN kept, so two statistics of the same run line up for a
+    scatter plot. For ``K`` strategies they have shapes ``(K,)`` and
+    ``(n, K)``.
     """
     observed: Union[float, np.ndarray]
     null: np.ndarray
@@ -115,6 +141,8 @@ class PositionTestResult(NamedTuple):
     method: str
     min_shift: Optional[int]
     family_p_value: Optional[np.ndarray] = None
+    observed_stats: Optional[dict] = None
+    null_stats: Optional[dict] = None
 
 
 def _last_finite(a):
@@ -127,16 +155,37 @@ def _last_finite(a):
     return out
 
 
-def _score(engine_out, metric):
+def _run_stats(engine_out, periods_per_year):
+    """Every statistic per column of an engine's (T, k, 4) output."""
+    cols = [np.ascontiguousarray(engine_out[:, :, i]) for i in range(4)]
+    src = {"engine": engine_out,
+           "report": np.asarray(BacktestReport(periods_per_year)(*cols), dtype=float),
+           "stats": np.asarray(BacktestStats(periods_per_year)(*cols), dtype=float)}
+    return {name: _last_finite(src[s][:, :, c]) for name, (s, c, _) in _METRICS.items()}
+
+
+def _score(engine_out, metric, stats):
     """Metric per column of an engine's (T, k, 4) output."""
     if callable(metric):
         return np.asarray(metric(engine_out), dtype=float).reshape(-1)
-    source, col, _ = _METRICS[metric]
-    if source == "engine":
-        return _last_finite(engine_out[:, :, col])
-    cols = [np.ascontiguousarray(engine_out[:, :, i]) for i in range(4)]
-    report = np.asarray(BacktestReport()(*cols), dtype=float)
-    return _last_finite(report[:, :, col])
+    return stats[metric]
+
+
+def _metric_name(metric, larger_is_better):
+    """The metric's name and its direction, checked."""
+    if isinstance(metric, str):
+        if metric not in _METRICS:
+            raise ValueError(f"metric must be one of {sorted(_METRICS)} or a callable")
+        if larger_is_better is None:
+            larger_is_better = _METRICS[metric][2]
+        if larger_is_better is None:
+            raise ValueError(f'metric "{metric}" has no natural direction; '
+                             "pass larger_is_better")
+        return metric, larger_is_better
+    if callable(metric):
+        name = getattr(metric, "__name__", "custom")
+        return name, True if larger_is_better is None else larger_is_better
+    raise TypeError("metric must be a string or a callable")
 
 
 def position_test(
@@ -149,6 +198,7 @@ def position_test(
     larger_is_better: Optional[bool] = None,
     min_shift: Optional[int] = None,
     seed: int = 0,
+    periods_per_year: float = 1.0,
 ) -> PositionTestResult:
     """Test whether a strategy's timing beats randomly timed copies of itself.
 
@@ -171,9 +221,13 @@ def position_test(
     market therefore gets a long-biased null, so the test measures timing
     beyond exposure.
 
-    ``metric`` is ``"sharpe"`` (per step), ``"total_pnl"``, ``"max_drawdown"``,
-    or a callable that maps an engine output of shape ``(T, k, 4)`` to ``k``
-    values. For a callable, ``larger_is_better`` defaults to True.
+    ``metric`` is the name of a ``backtest_report`` summary statistic
+    (``"sharpe"``, ``"total_pnl"``, ``"max_drawdown"``, ``"sortino"``,
+    ``"win_rate"``, ...) or a callable that maps an engine output of shape
+    ``(T, k, 4)`` to ``k`` values. For a callable, ``larger_is_better``
+    defaults to True; statistics with no natural direction, such as
+    ``"turnover"``, need it. ``periods_per_year`` annualizes the ratios, as in
+    ``backtest_report``.
 
     Several strategies: pass a ``(T, K)`` target, one column per variant (with
     ``method="shift"``). Every randomized round shifts all ``K`` columns by the
@@ -187,22 +241,13 @@ def position_test(
     meaningful.
 
     Returns a ``PositionTestResult`` with ``observed``, ``null``, ``p_value``,
-    ``metric``, ``method``, and ``min_shift``.
+    ``metric``, ``method``, ``min_shift``, ``family_p_value``, and every
+    statistic of the real and the randomized runs in ``observed_stats`` and
+    ``null_stats``.
     """
     if method not in ("shift", "segments"):
         raise ValueError('method must be "shift" or "segments"')
-    if isinstance(metric, str):
-        if metric not in _METRICS:
-            raise ValueError(f"metric must be one of {sorted(_METRICS)} or a callable")
-        name = metric
-        if larger_is_better is None:
-            larger_is_better = _METRICS[metric][2]
-    elif callable(metric):
-        name = getattr(metric, "__name__", "custom")
-        if larger_is_better is None:
-            larger_is_better = True
-    else:
-        raise TypeError("metric must be a string or a callable")
+    name, larger_is_better = _metric_name(metric, larger_is_better)
     if n < 1:
         raise ValueError("n must be at least 1")
     seed = _seed(seed)
@@ -210,7 +255,7 @@ def position_test(
     target = np.asarray(target, dtype=float)
     if target.ndim == 2:
         return _position_test_family(engine, target, market, n, method, metric, name,
-                                     larger_is_better, min_shift, seed)
+                                     larger_is_better, min_shift, seed, periods_per_year)
     target = _as_series(target, "target")
     market = [_as_series(m, "market input") for m in market]
     T = target.shape[0]
@@ -219,7 +264,9 @@ def position_test(
 
     engine.reset()
     observed_out = np.asarray(engine(target, *market), dtype=float)[:, None, :]
-    observed = float(_score(observed_out, metric)[0])
+    stats = _run_stats(observed_out, periods_per_year)
+    observed = float(_score(observed_out, metric, stats)[0])
+    observed_stats = {k: float(v[0]) for k, v in stats.items()}
 
     shift = None
     if method == "shift":
@@ -227,9 +274,10 @@ def position_test(
         if shift < 1:
             raise ValueError("min_shift must be at least 1")
 
-    width = len(market) + 1 + 4 + 6          # inputs, engine output, report
+    width = len(market) + 1 + 4 + 6 + 9      # inputs, engine output, report, stats
     chunk = max(1, min(n, _CHUNK_DOUBLES // max(1, T * width)))
     null = np.empty(n)
+    null_stats = {key: np.empty(n) for key in _METRICS}
     for col0 in range(0, n, chunk):
         k = min(chunk, n - col0)
         if method == "shift":
@@ -239,7 +287,10 @@ def position_test(
         cols = [np.broadcast_to(m[:, None], (T, k)) for m in market]
         engine.reset()
         out = np.asarray(engine(surr, *cols), dtype=float)
-        null[col0:col0 + k] = _score(out, metric)
+        stats = _run_stats(out, periods_per_year)
+        for key, v in stats.items():
+            null_stats[key][col0:col0 + k] = v
+        null[col0:col0 + k] = _score(out, metric, stats)
     engine.reset()
 
     null = null[np.isfinite(null)]
@@ -248,11 +299,12 @@ def position_test(
     else:
         hits = np.count_nonzero(null <= observed)
     p_value = (1.0 + hits) / (1.0 + null.size) if np.isfinite(observed) else float("nan")
-    return PositionTestResult(observed, null, float(p_value), name, method, shift)
+    return PositionTestResult(observed, null, float(p_value), name, method, shift, None,
+                              observed_stats, null_stats)
 
 
 def _position_test_family(engine, target, market, n, method, metric, name,
-                          larger_is_better, min_shift, seed):
+                          larger_is_better, min_shift, seed, periods_per_year):
     """position_test for a (T, K) target: a joint shift and a max statistic."""
     if method != "shift":
         raise ValueError('several strategies need method="shift", which shifts them jointly')
@@ -275,11 +327,14 @@ def _position_test_family(engine, target, market, n, method, metric, name,
         raise ValueError("min_shift must be at least 1")
 
     engine.reset()
-    observed = _score(np.asarray(engine(target, *[np.broadcast_to(m[:, None], (T, K))
-                                                  for m in market]), dtype=float), metric)
-    width = (len(market) + 1 + 4 + 6) * K
+    observed_out = np.asarray(engine(target, *[np.broadcast_to(m[:, None], (T, K))
+                                               for m in market]), dtype=float)
+    observed_stats = _run_stats(observed_out, periods_per_year)
+    observed = _score(observed_out, metric, observed_stats)
+    width = (len(market) + 1 + 4 + 6 + 9) * K
     chunk = max(1, min(n, _CHUNK_DOUBLES // max(1, T * width)))
     null = np.empty((n, K))
+    null_stats = {key: np.empty((n, K)) for key in _METRICS}
     for col0 in range(0, n, chunk):
         m = min(chunk, n - col0)
         # (T, m * K): replica-major blocks, all K strategies share each offset.
@@ -287,7 +342,10 @@ def _position_test_family(engine, target, market, n, method, metric, name,
         engine.reset()
         out = np.asarray(engine(surr, *[np.broadcast_to(v[:, None], (T, m * K))
                                          for v in market]), dtype=float)
-        null[col0:col0 + m] = _score(out, metric).reshape(K, m).T
+        stats = _run_stats(out, periods_per_year)
+        for key, v in stats.items():
+            null_stats[key][col0:col0 + m] = v.reshape(K, m).T
+        null[col0:col0 + m] = _score(out, metric, stats).reshape(K, m).T
     engine.reset()
 
     sign = 1.0 if larger_is_better else -1.0
@@ -300,7 +358,8 @@ def _position_test_family(engine, target, market, n, method, metric, name,
     best = best[np.isfinite(best)]
     family = np.array([(1.0 + np.count_nonzero(best >= sign * o)) / (1.0 + best.size)
                        if np.isfinite(o) else np.nan for o in observed])
-    return PositionTestResult(observed, null, p_value, name, method, shift, family)
+    return PositionTestResult(observed, null, p_value, name, method, shift, family,
+                              observed_stats, null_stats)
 
 
 _EMPTY = np.empty(0)
@@ -379,6 +438,8 @@ class StrategyTestResult(NamedTuple):
     p_value: float
     metric: str
     method: str
+    observed_stats: Optional[dict] = None
+    null_stats: Optional[dict] = None
 
 
 def _engine_output(out):
@@ -409,6 +470,7 @@ def strategy_test(
     larger_is_better: Optional[bool] = None,
     min_shift: Optional[int] = None,
     seed: int = 0,
+    periods_per_year: float = 1.0,
 ) -> StrategyTestResult:
     """Test a whole strategy against the same strategy run on randomized data.
 
@@ -444,24 +506,15 @@ def strategy_test(
     so per-bar data such as volume keeps its relation to the bar it belongs
     to. List inputs that must not move, such as timestamps, in ``fixed``.
 
-    ``metric`` is ``"sharpe"`` (per step), ``"total_pnl"``, ``"max_drawdown"``,
-    or a callable that maps an output of shape ``(T, k, 4)`` to ``k`` values.
-    The p-value counts the observed result itself, so it is never zero.
+    ``metric`` is the name of a ``backtest_report`` summary statistic or a
+    callable that maps an output of shape ``(T, k, 4)`` to ``k`` values, as in
+    ``position_test``. The p-value counts the observed result itself, so it is
+    never zero. ``observed_stats`` and ``null_stats`` in the result hold every
+    statistic of the real and the randomized runs.
     """
     if method not in ("bars", "returns", "shift"):
         raise ValueError('method must be "bars", "returns", or "shift"')
-    if isinstance(metric, str):
-        if metric not in _METRICS:
-            raise ValueError(f"metric must be one of {sorted(_METRICS)} or a callable")
-        name = metric
-        if larger_is_better is None:
-            larger_is_better = _METRICS[metric][2]
-    elif callable(metric):
-        name = getattr(metric, "__name__", "custom")
-        if larger_is_better is None:
-            larger_is_better = True
-    else:
-        raise TypeError("metric must be a string or a callable")
+    name, larger_is_better = _metric_name(metric, larger_is_better)
     if n < 1:
         raise ValueError("n must be at least 1")
     seed = _seed(seed)
@@ -500,9 +553,16 @@ def strategy_test(
             raise ValueError("min_shift must be in [1, T / 2]")
         positions = np.arange(T, dtype=float)
 
-    observed = float(_score(_engine_output(strategy(*data))[:, None, :], metric)[0])
+    def run_stats(out):
+        out = _engine_output(out)[:, None, :]
+        stats = _run_stats(out, periods_per_year)
+        return (float(_score(out, metric, stats)[0]),
+                {k: float(v[0]) for k, v in stats.items()})
+
+    observed, observed_stats = run_stats(strategy(*data))
 
     null = np.empty(n)
+    null_stats = {key: np.empty(n) for key in _METRICS}
     chunk = max(1, min(n, 64))
     for col0 in range(0, n, chunk):
         m = min(chunk, n - col0)
@@ -534,8 +594,9 @@ def strategy_test(
                     run.append(x)
                 else:
                     run.append(x[src[:, j]])
-            out = _engine_output(strategy(*run))
-            null[col0 + j] = _score(out[:, None, :], metric)[0]
+            null[col0 + j], stats = run_stats(strategy(*run))
+            for key, v in stats.items():
+                null_stats[key][col0 + j] = v
 
     null = null[np.isfinite(null)]
     if larger_is_better:
@@ -543,7 +604,8 @@ def strategy_test(
     else:
         hits = np.count_nonzero(null <= observed)
     p_value = (1.0 + hits) / (1.0 + null.size) if np.isfinite(observed) else float("nan")
-    return StrategyTestResult(observed, null, float(p_value), name, method)
+    return StrategyTestResult(observed, null, float(p_value), name, method,
+                              observed_stats, null_stats)
 
 
 def _pnl_of(values):

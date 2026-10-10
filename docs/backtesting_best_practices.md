@@ -190,6 +190,12 @@ of those runs that do at least as well as the real one, the p-value.
 With 999 randomized runs the smallest possible p-value is 0.001, which both
 tests reach here.
 
+A p-value covers one statistic. Both tests also return every
+`backtest_report` statistic of the real run and of each randomized run, in
+`observed_stats` and `null_stats`. Plot them to see whether the real result
+stands out on drawdown, win rate, or turnover as well, or only on the tested
+metric (see the scatter plots in [`position_test`](functions_fin/position_test.md#distributions-of-every-statistic)).
+
 ## Selection
 
 If you try many variants (parameters, signals, filters) and report the best,

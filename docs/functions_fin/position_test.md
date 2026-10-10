@@ -29,9 +29,10 @@ Two ways to randomize the timing:
 - `method="segments"` shuffles the order of the runs: each trade, and each flat
   stretch, moves as one block (see [`segment_shuffle`](segment_shuffle.md)).
 
-`metric` is `"sharpe"` (per step, the default), `"total_pnl"`,
-`"max_drawdown"`, or a function that maps an engine output of shape
-`(T, k, 4)` to `k` values. The p-value is the share of randomized copies that
+`metric` is the name of any statistic in the
+[`backtest_report`](backtest_report.md) summary (`"sharpe"`, per step, is the
+default; `"sortino"`, `"max_drawdown"`, `"win_rate"`, and so on), or a function
+that maps an engine output of shape `(T, k, 4)` to `k` values. The p-value is the share of randomized copies that
 do at least as well as the real result, counting the real result itself, so it
 is never zero: with `n=999` the smallest possible p-value is 0.001.
 
@@ -44,7 +45,7 @@ backtests run in C++, and all randomized copies go through the engine as one
 ## Signature
 
 `position_test(engine, target, *market, n=1000, method="shift", metric="sharpe",
-larger_is_better=None, min_shift=None, seed=0)`
+larger_is_better=None, min_shift=None, seed=0, periods_per_year=1.0)`
 
 - `engine`: a target-position engine, such as
   [`BacktestOHLCTarget`](BacktestOHLCTarget.md),
@@ -57,15 +58,38 @@ larger_is_better=None, min_shift=None, seed=0)`
   `engine(target, *market)`.
 - `n`: the number of randomized copies.
 - `larger_is_better`: the direction of the test. The default follows the
-  metric (True for all three named metrics) and is True for a function.
+  metric: True for return and risk-adjusted statistics and for
+  `max_drawdown` and `avg_loss` (both `<= 0`), False for `total_cost`, and
+  True for a function. Statistics with no natural direction (`turnover`,
+  `num_trades`, `exposure`, `round_trips`, `avg_holding`) need it.
 - `min_shift`: the smallest rotation for `method="shift"`. The default is
   twice the mean run length, so no copy stays nearly aligned with the original.
 - `seed`: the same seed gives the same copies on every platform, Python and
   JavaScript alike.
+- `periods_per_year`: annualizes the ratios, as in `backtest_report`. The
+  default 1 gives per-step values.
 
-It returns a named tuple with `observed`, `null` (the metric of each copy,
-NaN values left out), `p_value`, `metric`, `method`, `min_shift`, and
-`family_p_value` (None for a single strategy; see below).
+It returns a named tuple with these fields:
+
+- `observed`: the metric of the real backtest.
+- `null`: the metric of each randomized copy, NaN values left out.
+- `p_value`, `metric`, `method`, `min_shift`.
+- `family_p_value`: None for a single strategy (see below).
+- `observed_stats`: every `backtest_report` summary statistic of the real
+  backtest, as a dict of floats.
+- `null_stats`: the same statistics for each randomized copy, as a dict of
+  arrays of length `n`. They are in run order with NaN kept, so entry `j` of
+  every array belongs to the same copy, and two statistics can be plotted
+  against each other.
+
+## Distributions of every statistic
+
+The p-value covers one metric, but `null_stats` holds the full set, so you can
+see where the real backtest falls on any statistic, or on two at once. Wrap
+the dict in `pandas.DataFrame(res.null_stats)` for a table with one row per
+randomized copy. The second plot in the [example](#example) shows two such
+scatter plots.
+
 
 ## Several strategies
 
@@ -75,6 +99,8 @@ randomized round shifts all `K` columns by the same offset. The result then has
 one `observed` and `p_value` per variant, a `null` of shape `(n, K)`, and
 `family_p_value`, which compares each variant with the best of the `K`
 randomized results in every round (the max statistic of White's Reality Check).
+In `observed_stats` and `null_stats`, each statistic then has shape `(K,)` and
+`(n, K)`.
 The best variant's ordinary p-value is too optimistic, because picking the best
 of many is itself a source of luck; its `family_p_value` is not.
 
@@ -120,6 +146,47 @@ mild momentum, and a random walk. The test separates them.
                       annotation_text=f'actual, p = {res.p_value:.3f}')
     fig.update_layout(title='position_test: Sharpe of the actual timing against 999 random timings',
                       xaxis_title='Sharpe per bar', xaxis2_title='Sharpe per bar',
+                      margin=dict(l=20, r=20, t=80, b=20),
+                      legend=dict(orientation='h', yanchor='bottom', y=1.08, xanchor='right', x=1))
+    fig.show()
+
+The same backtest, with two statistics of each randomized copy plotted against
+each other and the actual backtest marked.
+
+.. plotly::
+    :include-source: True
+
+    import numpy as np
+    import plotly.graph_objects as go
+    from plotly.subplots import make_subplots
+    from screamer import BacktestOHLCTarget, EwMean, position_test
+
+    rng = np.random.default_rng(1)
+    e = rng.standard_normal(2000) * 0.01
+    r = np.zeros(2000)
+    for t in range(1, 2000):
+        r[t] = 0.15 * r[t - 1] + e[t]                       # returns with momentum
+    close = 100 * np.exp(np.cumsum(r))
+    open_ = np.r_[close[0], close[:-1]]
+    high, low = np.maximum(open_, close) * 1.001, np.minimum(open_, close) * 0.999
+    signal = np.sign(np.nan_to_num(EwMean(span=10)(r)))
+
+    res = position_test(BacktestOHLCTarget(taker_fee=1e-4), signal, open_, high, low, close,
+                        n=999, periods_per_year=252)
+    null, real = res.null_stats, res.observed_stats
+
+    pairs = [('sharpe', 'max_drawdown'), ('win_rate', 'profit_factor')]
+    fig = make_subplots(rows=1, cols=2, subplot_titles=[f'{x} vs {y}' for x, y in pairs])
+    for col, (x, y) in enumerate(pairs, start=1):
+        fig.add_trace(go.Scatter(x=null[x], y=null[y], mode='markers', name='randomized timing',
+                                 marker=dict(size=4, color='lightsteelblue'),
+                                 showlegend=col == 1), row=1, col=col)
+        fig.add_trace(go.Scatter(x=[real[x]], y=[real[y]], mode='markers', name='actual',
+                                 marker=dict(size=14, color='crimson', symbol='star'),
+                                 showlegend=col == 1), row=1, col=col)
+        fig.update_xaxes(title_text=x, row=1, col=col)
+        fig.update_yaxes(title_text=y, row=1, col=col)
+    fig.update_layout(title='Every statistic of 999 random timings, with the actual backtest',
                       margin=dict(l=20, r=20, t=80, b=20),
                       legend=dict(orientation='h', yanchor='bottom', y=1.08, xanchor='right', x=1))
     fig.show()

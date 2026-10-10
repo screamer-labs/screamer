@@ -5,6 +5,17 @@ All notable changes to this project are documented in this file.
 Unreleased
 ----------
 
+### Added
+
+* **Every statistic of every randomized run:** `position_test` and
+  `strategy_test` (and `positionTest`/`strategyTest` in JavaScript) return
+  `observed_stats` and `null_stats`: all `backtest_report` summary statistics
+  of the real run and of each randomized run, in run order with NaN kept, for
+  plotting distributions and scatter plots of pairs of statistics. `metric`
+  accepts any of those statistics (for example `"sortino"` or `"win_rate"`),
+  and `periods_per_year` annualizes the ratios. Statistics with no natural
+  direction, such as `"turnover"`, need `larger_is_better`.
+
 2.7.0 - 2026-10-10
 ------------------
 

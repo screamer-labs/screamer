@@ -50,6 +50,7 @@ export {
 } from "./validation.js";
 export type {
   PositionTestMetric,
+  StatName,
   PositionTestOptions,
   PositionTestResult,
   PositionFamilyResult,

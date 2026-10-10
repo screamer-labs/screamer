@@ -191,7 +191,9 @@ def test_argument_checks():
     with pytest.raises(ValueError):
         s.position_test(eng, tgt, o, h, l, c, method="bootstrap")
     with pytest.raises(ValueError):
-        s.position_test(eng, tgt, o, h, l, c, metric="sortino")
+        s.position_test(eng, tgt, o, h, l, c, metric="nope")
+    with pytest.raises(ValueError, match="larger_is_better"):
+        s.position_test(eng, tgt, o, h, l, c, metric="turnover")
     with pytest.raises(ValueError):
         s.position_test(eng, tgt, o, h, l, c[:-1])
     with pytest.raises(ValueError):
@@ -555,3 +557,64 @@ def test_mode_golden_values():
     nv = s.permute_bars(O6, H6, L6, C6, 2, seed=7, volume=V6, volume_mode="notional")
     np.testing.assert_allclose(nv[4][:, 1], [5.0, 3.0, 8.0, 2.029800999901968,
                                              3.9609756097560966, 5.97058823529412], rtol=1e-12)
+
+
+# --- per-run statistics ----------------------------------------------------
+
+def test_stats_match_backtest_report_and_align_with_null():
+    ret, o, h, l, c = _market(600, 3)
+    tgt = np.sign(np.nan_to_num(s.EwMean(span=8)(ret)))
+    eng = s.BacktestOHLCTarget(taker_fee=1e-4)
+    res = s.position_test(eng, tgt, o, h, l, c, n=40, seed=5, periods_per_year=252)
+    _, summary = s.backtest_report(eng(tgt, o, h, l, c), periods_per_year=252)
+    assert set(res.observed_stats) == set(summary) == set(res.null_stats)
+    for k, v in summary.items():
+        np.testing.assert_allclose(res.observed_stats[k], v, equal_nan=True)
+    assert res.observed == res.observed_stats["sharpe"]
+    for v in res.null_stats.values():
+        assert v.shape == (40,)
+    sh = res.null_stats["sharpe"]
+    np.testing.assert_array_equal(res.null, sh[np.isfinite(sh)])
+    # Each null run's statistics are those of backtest_report on that run.
+    surr = s.circular_shift(tgt, 40, min_shift=res.min_shift, seed=5)
+    for j in (0, 17, 39):
+        eng.reset()
+        _, sj = s.backtest_report(eng(surr[:, j], o, h, l, c), periods_per_year=252)
+        for k, v in sj.items():
+            np.testing.assert_allclose(res.null_stats[k][j], v, equal_nan=True)
+
+
+def test_any_summary_statistic_is_a_metric():
+    ret, o, h, l, c = _market(600, 3)
+    tgt = np.sign(np.nan_to_num(s.EwMean(span=8)(ret)))
+    eng = s.BacktestOHLCTarget(taker_fee=1e-4)
+    res = s.position_test(eng, tgt, o, h, l, c, n=30, metric="win_rate")
+    assert res.metric == "win_rate" and res.observed == res.observed_stats["win_rate"]
+    wr = res.null_stats["win_rate"]
+    np.testing.assert_array_equal(res.null, wr[np.isfinite(wr)])
+    low = s.position_test(eng, tgt, o, h, l, c, n=30, metric="turnover",
+                          larger_is_better=False)
+    hits = np.count_nonzero(low.null <= low.observed)
+    assert low.p_value == (1 + hits) / (1 + low.null.size)
+
+
+def test_family_and_strategy_stats_shapes():
+    ret, o, h, l, c = _market(500, 4)
+    tgts = np.column_stack([np.sign(np.nan_to_num(s.EwMean(span=k)(ret))) for k in (4, 16)])
+    eng = s.BacktestOHLCTarget()
+    fam = s.position_test(eng, tgts, o, h, l, c, n=20)
+    assert fam.observed_stats["sortino"].shape == (2,)
+    assert fam.null_stats["sortino"].shape == (20, 2)
+    np.testing.assert_array_equal(fam.null, fam.null_stats["sharpe"])
+
+    def strategy(o, h, l, c):
+        sig = np.sign(np.nan_to_num(s.EwMean(span=8)(s.LogReturn()(c))))
+        return s.BacktestOHLCTarget()(sig, o, h, l, c)
+
+    st = s.strategy_test(strategy, o, h, l, c, n=15, metric="calmar", seed=2)
+    _, summary = s.backtest_report(strategy(o, h, l, c))
+    for k, v in summary.items():
+        np.testing.assert_allclose(st.observed_stats[k], v, equal_nan=True)
+    assert st.null_stats["calmar"].shape == (15,)
+    cm = st.null_stats["calmar"]
+    np.testing.assert_array_equal(st.null, cm[np.isfinite(cm)])

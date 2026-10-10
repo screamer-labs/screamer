@@ -130,6 +130,39 @@ test("validation: positionTest family matches the single-strategy null for K = 1
   for (let k = 0; k < 2; k++) assert.ok(two.familyPValue[k] >= two.pValue[k]);
 });
 
+// Same values as Python: position_test(..., n=50, seed=3, periods_per_year=252).
+test("validation: per-run statistics match Python and line up with null", async () => {
+  const { strategyTest } = await import("../src/index.ts");
+  const { o, h, l, c } = market(300);
+  const tgt = Array.from({ length: 300 }, (_, t) => (Math.floor(t / 5) % 3) - 1);
+  const eng = BacktestOHLCTarget(2e-4);
+  const res = positionTest(eng, tgt, [o, h, l, c], { n: 50, seed: 3, periodsPerYear: 252 });
+  const near = (a: number, b: number) => Math.abs(a - b) <= 1e-12 * Math.max(1, Math.abs(b));
+  assert.ok(near(res.observedStats.win_rate, 0.4358974358974359));
+  assert.ok(near(res.observedStats.sortino, -0.10425691757084403));
+  assert.ok(near(res.nullStats.calmar[0], -0.21490573138656252));
+  assert.ok(near(res.nullStats.win_rate[1], 0.5384615384615384));
+  assert.deepEqual(Array.from(res.nullStats.round_trips.slice(0, 3)), [40, 39, 39]);
+  assert.equal(res.observed, res.observedStats.sharpe);
+  assert.deepEqual(Array.from(res.nullStats.sharpe).filter(Number.isFinite), Array.from(res.null));
+  assert.equal(Object.keys(res.nullStats).length, 15);
+
+  const wr = positionTest(eng, tgt, [o, h, l, c], { n: 20, metric: "win_rate" });
+  assert.equal(wr.observed, wr.observedStats.win_rate);
+  assert.throws(() => positionTest(eng, tgt, [o, h, l, c], { n: 5, metric: "turnover" }), RangeError);
+  positionTest(eng, tgt, [o, h, l, c], { n: 5, metric: "turnover", largerIsBetter: false });
+
+  const fam = positionTest(eng, [tgt, tgt.map((v) => -v)], [o, h, l, c], { n: 10 });
+  assert.deepEqual(fam.nullStats.sortino.shape, [10, 2]);
+  assert.equal(fam.observedStats.sortino.length, 2);
+  assert.deepEqual(Array.from(fam.nullStats.sharpe.data), Array.from(fam.null.data));
+
+  const st = strategyTest((...x: Float64Array[]) => BacktestOHLCTarget()(tgt, ...x), [o, h, l, c],
+    { n: 8, metric: "calmar" });
+  assert.equal(st.nullStats.calmar.length, 8);
+  assert.equal(st.observed, st.observedStats.calmar);
+});
+
 // Same values as Python (screamer.probabilistic_sharpe / deflated_sharpe).
 test("validation: probabilistic and deflated Sharpe match Python", async () => {
   const { probabilisticSharpe, deflatedSharpe } = await import("../src/index.ts");

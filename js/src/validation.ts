@@ -11,7 +11,7 @@
 import { current } from "./index.js";
 import type { NdArray } from "./ndarray.js";
 import type { ScreamerOp } from "./runtime.js";
-import { BacktestReport } from "./generated/ops.js";
+import { BacktestReport, BacktestStats } from "./generated/ops.js";
 
 // Leading NaN warmup length and the length of the series after it.
 function validLength(x: ArrayLike<number>): number {
@@ -109,9 +109,13 @@ export function segmentShuffle(
   return shuffleBlock(x, seed, 0, n);
 }
 
-export type PositionTestMetric =
-  | "sharpe" | "total_pnl" | "max_drawdown"
-  | ((engineOutput: NdArray) => number);
+/** The statistics computed for every run, named as in `backtestReport`'s summary. */
+export type StatName =
+  | "total_pnl" | "max_drawdown" | "total_cost" | "turnover" | "num_trades" | "sharpe"
+  | "exposure" | "round_trips" | "win_rate" | "profit_factor" | "avg_win" | "avg_loss"
+  | "avg_holding" | "sortino" | "calmar";
+
+export type PositionTestMetric = StatName | ((engineOutput: NdArray) => number);
 
 export interface PositionTestOptions {
   n?: number;
@@ -120,6 +124,8 @@ export interface PositionTestOptions {
   largerIsBetter?: boolean;
   minShift?: number;
   seed?: number;
+  /** Annualizes the ratios, as in `backtestReport` (default 1: per step). */
+  periodsPerYear?: number;
 }
 
 export interface PositionTestResult {
@@ -129,6 +135,10 @@ export interface PositionTestResult {
   metric: string;
   method: "shift" | "segments";
   minShift: number | null;
+  /** Every statistic of the real run. */
+  observedStats: Record<StatName, number>;
+  /** Every statistic per randomized run, in run order with NaN kept. */
+  nullStats: Record<StatName, Float64Array>;
 }
 
 /** The result of `positionTest` for several strategies (one entry per column). */
@@ -142,15 +152,74 @@ export interface PositionFamilyResult {
   metric: string;
   method: "shift";
   minShift: number;
+  /** Every statistic of each real strategy (length K). */
+  observedStats: Record<StatName, Float64Array>;
+  /** Every statistic per randomized round and strategy, (n, K) row-major. */
+  nullStats: Record<StatName, NdArray>;
 }
 
 // Engine output columns: [equity, pnl, position, cost].
 // BacktestReport columns: [drawdown, cum_cost, turnover, trades, max_drawdown, sharpe].
-const METRICS: Record<string, { report: boolean; col: number; larger: boolean }> = {
-  total_pnl: { report: false, col: 0, larger: true },
-  sharpe: { report: true, col: 5, larger: true },
-  max_drawdown: { report: true, col: 4, larger: true },
+// BacktestStats columns: [exposure, round_trips, win_rate, profit_factor, avg_win,
+//                         avg_loss, avg_holding, sortino, calmar].
+// `larger` is the direction as a test metric; null: none, largerIsBetter is needed.
+type Source = "engine" | "report" | "stats";
+const METRICS: Record<StatName, { src: Source; col: number; larger: boolean | null }> = {
+  total_pnl: { src: "engine", col: 0, larger: true },
+  max_drawdown: { src: "report", col: 4, larger: true },
+  total_cost: { src: "report", col: 1, larger: false },
+  turnover: { src: "report", col: 2, larger: null },
+  num_trades: { src: "report", col: 3, larger: null },
+  sharpe: { src: "report", col: 5, larger: true },
+  exposure: { src: "stats", col: 0, larger: null },
+  round_trips: { src: "stats", col: 1, larger: null },
+  win_rate: { src: "stats", col: 2, larger: true },
+  profit_factor: { src: "stats", col: 3, larger: true },
+  avg_win: { src: "stats", col: 4, larger: true },
+  avg_loss: { src: "stats", col: 5, larger: true },
+  avg_holding: { src: "stats", col: 6, larger: null },
+  sortino: { src: "stats", col: 7, larger: true },
+  calmar: { src: "stats", col: 8, larger: true },
 };
+const STAT_NAMES = Object.keys(METRICS) as StatName[];
+
+function metricSpec(metric: PositionTestMetric, largerIsBetter?: boolean)
+  : { name: string; larger: boolean } {
+  if (typeof metric === "function")
+    return { name: metric.name || "custom", larger: largerIsBetter ?? true };
+  if (!(metric in METRICS))
+    throw new RangeError(`metric must be one of ${[...STAT_NAMES].sort().join(", ")} or a function`);
+  const larger = largerIsBetter ?? METRICS[metric].larger;
+  if (larger === null)
+    throw new RangeError(`metric "${metric}" has no natural direction; pass largerIsBetter`);
+  return { name: metric, larger };
+}
+
+// Scores runs: every statistic of one run's (T, 4) output, and the metric.
+function makeScorer(metric: PositionTestMetric, periodsPerYear: number) {
+  const report = BacktestReport(periodsPerYear);
+  const stats = BacktestStats(periodsPerYear);
+  const score = (out: NdArray): { value: number; stats: Float64Array } => {
+    const cols = [0, 1, 2, 3].map((i) => column(out, i));
+    const rep = report(...cols) as NdArray;
+    const st = stats(...cols) as NdArray;
+    report.reset();
+    stats.reset();
+    const src = { engine: out, report: rep, stats: st };
+    const all = Float64Array.from(STAT_NAMES, (k) => lastFinite(src[METRICS[k].src], METRICS[k].col));
+    const value = typeof metric === "function"
+      ? metric(out) : all[STAT_NAMES.indexOf(metric)];
+    return { value, stats: all };
+  };
+  const dispose = () => { report.dispose(); stats.dispose(); };
+  return { score, dispose };
+}
+
+function statsRecord<V>(make: (i: number) => V): Record<StatName, V> {
+  const out = {} as Record<StatName, V>;
+  STAT_NAMES.forEach((k, i) => { out[k] = make(i); });
+  return out;
+}
 
 function lastFinite(a: NdArray, col: number): number {
   const [rows, cols] = a.shape;
@@ -178,9 +247,12 @@ function column(a: NdArray, col: number): Float64Array {
  * the runs. The null hypothesis is that the timing carries no information
  * about future returns, given this trading profile.
  *
- * `metric` is `"sharpe"` (per step, default), `"total_pnl"`, `"max_drawdown"`,
- * or a function of one run's (T, 4) engine output. The p-value counts the
- * observed result itself, so it is never zero. Mirrors Python's
+ * `metric` is the name of a `backtestReport` summary statistic (`"sharpe"`,
+ * per step, by default) or a function of one run's (T, 4) engine output.
+ * Statistics with no natural direction, such as `"turnover"`, need
+ * `largerIsBetter`. The p-value counts the observed result itself, so it is
+ * never zero. `observedStats` and `nullStats` hold every statistic of the real
+ * and the randomized runs, for plotting distributions and scatter plots. Mirrors Python's
  * `screamer.position_test`; the same seed gives the same null distribution.
  *
  * Pass an array of target columns to test several strategies jointly (method
@@ -224,33 +296,17 @@ function positionSingle(
     throw new RangeError('method must be "shift" or "segments"');
   if (!Number.isInteger(n) || n < 1) throw new RangeError("n must be at least 1");
   checkSeed(seed);
-  let name: string, larger: boolean;
-  if (typeof metric === "function") {
-    name = metric.name || "custom";
-    larger = opts.largerIsBetter ?? true;
-  } else {
-    if (!(metric in METRICS))
-      throw new RangeError(`metric must be one of ${Object.keys(METRICS).sort().join(", ")} or a function`);
-    name = metric;
-    larger = opts.largerIsBetter ?? METRICS[metric].larger;
-  }
+  const { name, larger } = metricSpec(metric, opts.largerIsBetter);
   const T = target.length;
   if (market.some((m) => m.length !== T))
     throw new RangeError("target and market inputs must have the same length");
 
-  const report = BacktestReport();
-  const score = (out: NdArray): number => {
-    if (typeof metric === "function") return metric(out);
-    const spec = METRICS[metric];
-    if (!spec.report) return lastFinite(out, spec.col);
-    const rep = report(column(out, 0), column(out, 1), column(out, 2), column(out, 3)) as NdArray;
-    report.reset();
-    return lastFinite(rep, spec.col);
-  };
-
+  const scorer = makeScorer(metric, opts.periodsPerYear ?? 1);
   try {
     engine.reset();
-    const observed = score(engine(target, ...market) as NdArray);
+    const obs = scorer.score(engine(target, ...market) as NdArray);
+    const observed = obs.value;
+    const nullStats = statsRecord(() => new Float64Array(n));
 
     let shift: number | null = null;
     if (method === "shift") {
@@ -272,8 +328,9 @@ function positionSingle(
       for (let j = 0; j < k; j++) {
         for (let t = 0; t < T; t++) col[t] = block.data[t * k + j];
         engine.reset();
-        const v = score(engine(col, ...market) as NdArray);
-        if (Number.isFinite(v)) nul.push(v);
+        const r = scorer.score(engine(col, ...market) as NdArray);
+        STAT_NAMES.forEach((k, i) => { nullStats[k][c0 + j] = r.stats[i]; });
+        if (Number.isFinite(r.value)) nul.push(r.value);
       }
     }
     engine.reset();
@@ -281,9 +338,10 @@ function positionSingle(
     let hits = 0;
     for (const v of nul) if (larger ? v >= observed : v <= observed) hits++;
     const pValue = Number.isFinite(observed) ? (1 + hits) / (1 + nul.length) : NaN;
-    return { observed, null: Float64Array.from(nul), pValue, metric: name, method, minShift: shift };
+    return { observed, null: Float64Array.from(nul), pValue, metric: name, method, minShift: shift,
+             observedStats: statsRecord((i) => obs.stats[i]), nullStats };
   } finally {
-    report.dispose();
+    scorer.dispose();
   }
 }
 
@@ -458,6 +516,8 @@ export interface StrategyTestOptions {
   largerIsBetter?: boolean;
   minShift?: number;
   seed?: number;
+  /** Annualizes the ratios, as in `backtestReport` (default 1: per step). */
+  periodsPerYear?: number;
 }
 
 export interface StrategyTestResult {
@@ -466,6 +526,10 @@ export interface StrategyTestResult {
   pValue: number;
   metric: string;
   method: "bars" | "returns" | "shift";
+  /** Every statistic of the real run. */
+  observedStats: Record<StatName, number>;
+  /** Every statistic per randomized run, in run order with NaN kept. */
+  nullStats: Record<StatName, Float64Array>;
 }
 
 function engineOutput(out: any): NdArray {
@@ -502,16 +566,7 @@ export function strategyTest(
     throw new RangeError('method must be "bars", "returns", or "shift"');
   if (!Number.isInteger(n) || n < 1) throw new RangeError("n must be at least 1");
   checkSeed(seed);
-  let name: string, larger: boolean;
-  if (typeof metric === "function") {
-    name = metric.name || "custom";
-    larger = opts.largerIsBetter ?? true;
-  } else {
-    if (!(metric in METRICS))
-      throw new RangeError(`metric must be one of ${Object.keys(METRICS).sort().join(", ")} or a function`);
-    name = metric;
-    larger = opts.largerIsBetter ?? METRICS[metric].larger;
-  }
+  const { name, larger } = metricSpec(metric, opts.largerIsBetter);
   const data = inputs.map((x) => Float64Array.from(x as ArrayLike<number>));
   if (data.length === 0) throw new RangeError("strategyTest needs at least one input");
   const T = data[0].length, k = data.length;
@@ -543,18 +598,11 @@ export function strategyTest(
       throw new RangeError("min_shift must be in [1, T / 2]");
   }
 
-  const report = BacktestReport();
-  const score = (out: NdArray): number => {
-    if (typeof metric === "function") return metric(out);
-    const spec = METRICS[metric];
-    if (!spec.report) return lastFinite(out, spec.col);
-    const rep = report(column(out, 0), column(out, 1), column(out, 2), column(out, 3)) as NdArray;
-    report.reset();
-    return lastFinite(rep, spec.col);
-  };
-
+  const scorer = makeScorer(metric, opts.periodsPerYear ?? 1);
   try {
-    const observed = score(engineOutput(strategy(...data)));
+    const obs = scorer.score(engineOutput(strategy(...data)));
+    const observed = obs.value;
+    const nullStats = statsRecord(() => new Float64Array(n));
     const positions = Float64Array.from({ length: T }, (_, i) => i);
     const nul: number[] = [];
     const chunk = Math.max(1, Math.min(n, 64));
@@ -590,16 +638,18 @@ export function strategyTest(
           }
           return col;
         });
-        const v = score(engineOutput(strategy(...run)));
-        if (Number.isFinite(v)) nul.push(v);
+        const r = scorer.score(engineOutput(strategy(...run)));
+        STAT_NAMES.forEach((q, i) => { nullStats[q][c0 + j] = r.stats[i]; });
+        if (Number.isFinite(r.value)) nul.push(r.value);
       }
     }
     let hits = 0;
     for (const v of nul) if (larger ? v >= observed : v <= observed) hits++;
     const pValue = Number.isFinite(observed) ? (1 + hits) / (1 + nul.length) : NaN;
-    return { observed, null: Float64Array.from(nul), pValue, metric: name, method };
+    return { observed, null: Float64Array.from(nul), pValue, metric: name, method,
+             observedStats: statsRecord((i) => obs.stats[i]), nullStats };
   } finally {
-    report.dispose();
+    scorer.dispose();
   }
 }
 
@@ -617,16 +667,7 @@ function positionFamily(
     throw new RangeError('several strategies need method "shift", which shifts them jointly');
   if (!Number.isInteger(n) || n < 1) throw new RangeError("n must be at least 1");
   checkSeed(seed);
-  let name: string, larger: boolean;
-  if (typeof metric === "function") {
-    name = metric.name || "custom";
-    larger = opts.largerIsBetter ?? true;
-  } else {
-    if (!(metric in METRICS))
-      throw new RangeError(`metric must be one of ${Object.keys(METRICS).sort().join(", ")} or a function`);
-    name = metric;
-    larger = opts.largerIsBetter ?? METRICS[metric].larger;
-  }
+  const { name, larger } = metricSpec(metric, opts.largerIsBetter);
   const K = targets.length, T = targets[0].length;
   if (targets.some((x) => x.length !== T) || market.some((m) => m.length !== T))
     throw new RangeError("target and market inputs must have the same length");
@@ -635,21 +676,16 @@ function positionFamily(
     Math.max(...targets.map(defaultMinShift)), Math.floor((T - start) / 4)));
   if (!Number.isInteger(shift) || shift < 1) throw new RangeError("min_shift must be at least 1");
 
-  const report = BacktestReport();
-  const score = (out: NdArray): number => {
-    if (typeof metric === "function") return metric(out);
-    const spec = METRICS[metric];
-    if (!spec.report) return lastFinite(out, spec.col);
-    const rep = report(column(out, 0), column(out, 1), column(out, 2), column(out, 3)) as NdArray;
-    report.reset();
-    return lastFinite(rep, spec.col);
-  };
-  const run = (x: ArrayLike<number>): number => {
+  const scorer = makeScorer(metric, opts.periodsPerYear ?? 1);
+  const run = (x: ArrayLike<number>) => {
     engine.reset();
-    return score(engine(x, ...market) as NdArray);
+    return scorer.score(engine(x, ...market) as NdArray);
   };
   try {
-    const observed = Float64Array.from(targets, run);
+    const obs = targets.map(run);
+    const observed = Float64Array.from(obs, (r) => r.value);
+    const observedStats = statsRecord((i) => Float64Array.from(obs, (r) => r.stats[i]));
+    const nullStats = statsRecord((): NdArray => ({ data: new Float64Array(n * K), shape: [n, K] }));
     const nul = new Float64Array(n * K);
     const chunk = Math.max(1, Math.min(n, Math.floor(4_000_000 / Math.max(1, T))));
     const col = new Float64Array(T);
@@ -659,7 +695,9 @@ function positionFamily(
         const block = shiftBlock(x, shift, seed, c0, m, start);
         for (let j = 0; j < m; j++) {
           for (let t = 0; t < T; t++) col[t] = block.data[t * m + j];
-          nul[(c0 + j) * K + k] = run(col);
+          const r = run(col);
+          nul[(c0 + j) * K + k] = r.value;
+          STAT_NAMES.forEach((q, i) => { nullStats[q].data[(c0 + j) * K + k] = r.stats[i]; });
         }
       });
     }
@@ -686,9 +724,9 @@ function positionFamily(
         ? (1 + best.filter((b) => b >= sign * o).length) / (1 + best.length) : NaN;
     }
     return { observed, null: { data: nul, shape: [n, K] }, pValue, familyPValue,
-             metric: name, method: "shift", minShift: shift };
+             metric: name, method: "shift", minShift: shift, observedStats, nullStats };
   } finally {
-    report.dispose();
+    scorer.dispose();
   }
 }
 

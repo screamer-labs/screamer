@@ -46,9 +46,11 @@ stays with the bar it belongs to. Give the position of a volume input in
 `"notional"` rescales it so the traded amount stays that of its source bar.
 Inputs that must not move, such as timestamps, go in `fixed`.
 
-`metric` is `"sharpe"` (per step, the default), `"total_pnl"`,
-`"max_drawdown"`, or a function that maps an output of shape `(T, k, 4)` to `k`
-values. The p-value counts the observed result itself, so it is never zero.
+`metric` is the name of any statistic in the
+[`backtest_report`](backtest_report.md) summary (`"sharpe"`, per step, is the
+default) or a function that maps an output of shape `(T, k, 4)` to `k` values,
+as in [`position_test`](position_test.md). The p-value counts the observed
+result itself, so it is never zero.
 
 The test is batch-only. The permutations run in C++, and the cost is `n` runs of
 the strategy; a strategy built from screamer operators typically runs in well
@@ -60,12 +62,17 @@ under a millisecond per thousand bars.
 
 `strategy_test(strategy, *inputs, n=500, method="bars", ohlc=(0, 1, 2, 3),
 price=0, mode="log", volume=None, volume_mode="keep", columns=None, fixed=(),
-metric="sharpe",
-larger_is_better=None, min_shift=None, seed=0)`
+metric="sharpe", larger_is_better=None, min_shift=None, seed=0,
+periods_per_year=1.0)`
 
 It returns a named tuple with `observed`, `null` (NaN values left out),
-`p_value`, `metric`, and `method`. The same `seed` gives the same randomized
-inputs in Python and JavaScript.
+`p_value`, `metric`, `method`, `observed_stats`, and `null_stats`. The last
+two hold every `backtest_report` summary statistic of the real run and of each
+randomized run (arrays of length `n` in run order, NaN kept), for plotting
+distributions and scatter plots as shown in
+[`position_test`](position_test.md#distributions-of-every-statistic).
+`periods_per_year` annualizes the ratios. The same `seed` gives the same
+randomized inputs in Python and JavaScript.
 
 ## Example
 
