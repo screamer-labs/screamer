@@ -10,6 +10,8 @@ tags:
 - channels
 - breakout
 - envelope
+- donchian channel
+- price channel
 short: 'Trend-following envelope: rolling max(high), rolling min(low), and midline.'
 inputs: 2
 outputs: 3
@@ -18,7 +20,17 @@ parameters:
   type: int
   default: 20
   min: 2
-  description: Window for the rolling max/min.
+  description: Number of most recent samples over which the maximum of high and the minimum
+    of low are taken.
+output_names:
+- lower
+- middle
+- upper
+see_also:
+- RollingMax
+- RollingMin
+- KeltnerChannels
+- BollingerBands
 nan_policy: ignore
 ---
 
@@ -26,28 +38,26 @@ nan_policy: ignore
 
 ## Description
 
-Trend-following envelope. The upper line is the rolling max of `high`, the lower line is
-the rolling min of `low`, and the midline is their average:
+`DonchianChannels` is a trend-following envelope. The upper line is the rolling
+maximum of `high`, the lower line is the rolling minimum of `low`, and the middle line
+is their average:
 
 $$
 \begin{aligned}
-\text{upper}[t] &= \max(\text{high},\ w\ \text{bars}) \\
-\text{lower}[t] &= \min(\text{low},\ w\ \text{bars}) \\
+\text{upper}[t] &= \max(\text{high},\ w\ \text{samples}) \\
+\text{lower}[t] &= \min(\text{low},\ w\ \text{samples}) \\
 \text{mid}[t]   &= (\text{upper} + \text{lower}) / 2
 \end{aligned}
 $$
 
-**2-input, 3-output** (`FunctorBase<_, 2, 3>`). Inputs `(high, low)`; outputs
-`(lower, mid, upper)`. First valid at sample index `window_size - 1`.
-
-Composes two `detail::MonotonicDeque` instances. Amortised O(1) per step. Bit-exact to
-`pandas-ta-classic.donchian`.
-
+Inputs are `(high, low)`. The first valid output is at sample index
+`window_size - 1`. Each step costs amortized `O(1)` time (monotonic deques for the
+maximum and minimum). The output matches `pandas-ta-classic.donchian` exactly.
 
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples

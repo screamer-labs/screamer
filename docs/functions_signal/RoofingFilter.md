@@ -8,6 +8,8 @@ tags:
 - ehlers
 - iir
 - bandpass
+- band-pass filter
+- roofing
 short: Ehlers bandpass, a highpass then a SuperSmoother.
 inputs: 1
 outputs: 1
@@ -15,20 +17,36 @@ parameters:
 - name: hp_period
   type: float
   default: 48.0
-  description: Highpass cutoff as a cycle length in samples. Pass exactly one of hp_period or hp_cutoff; the constructor has no default, and 48 is a suggested starting value.
+  description: Highpass cutoff as a cycle length in samples; longer cycles (the trend) are
+    removed. Give exactly one of hp_period and hp_cutoff. The default shown is a suggested
+    starting value; the constructor has no default.
 - name: lp_period
   type: float
   default: 10.0
-  description: Lowpass cutoff as a cycle length in samples. Pass exactly one of lp_period or lp_cutoff; the constructor has no default, and 10 is a suggested starting value.
+  description: Lowpass cutoff as a cycle length in samples; shorter cycles (noise) are removed.
+    Give exactly one of lp_period and lp_cutoff. The default shown is a suggested starting
+    value; the constructor has no default.
 - name: hp_cutoff
   type: float
   default: null
-  description: Highpass cutoff as a fraction of Nyquist in (0, 1). Give this or hp_period.
+  description: Highpass cutoff as a fraction of the Nyquist frequency, in (0, 1), equal to
+    2 / hp_period. Give exactly one of hp_period and hp_cutoff.
 - name: lp_cutoff
   type: float
   default: null
-  description: Lowpass cutoff as a fraction of Nyquist in (0, 1). Give this or lp_period.
+  description: Lowpass cutoff as a fraction of the Nyquist frequency, in (0, 1), equal to
+    2 / lp_period. Give exactly one of lp_period and lp_cutoff.
 nan_policy: ignore
+see_also:
+- SuperSmoother
+- Decycler
+- ButterBandpass
+- DominantCycle
+references:
+- 'Ehlers, J. F. (2013). *Cycle Analytics for Traders: Advanced Technical Trading Concepts*.
+  Wiley.'
+- Ehlers, J. F. (2014). Predictive and successful indicators. *Technical Analysis of Stocks
+  & Commodities*, January 2014.
 ---
 
 # `RoofingFilter`
@@ -45,16 +63,10 @@ measurement.
 Each cutoff is a cycle length in samples (`hp_period`, `lp_period`) or a fraction
 of the Nyquist frequency (`hp_cutoff`, `lp_cutoff`), related by `cutoff = 2 / period`.
 
-### Parameters
-
-**`hp_period`** / **`hp_cutoff`** *(float)*: The highpass cutoff. Provide exactly one.
-
-**`lp_period`** / **`lp_cutoff`** *(float)*: The lowpass cutoff. Provide exactly one.
-
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `ignore`.** A `NaN` in the input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples

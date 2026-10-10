@@ -9,6 +9,8 @@ tags:
 - butterworth
 - iir
 - lowpass
+- low-pass filter
+- smoothing
 short: General-order IIR Butterworth low-pass filter.
 inputs: 1
 outputs: 1
@@ -17,35 +19,40 @@ parameters:
   type: int
   default: 2
   min: 1
-  description: Filter order (1 = first-order, higher = sharper rolloff).
+  description: Filter order. A higher order gives a steeper rolloff and a longer
+    delay.
 - name: cutoff_freq
   type: float
   default: 0.1
   min: 0.0
-  max: 0.5
-  description: Normalised cutoff (0 < f < 0.5, Nyquist-relative).
+  max: 1.0
+  description: Cutoff frequency as a fraction of the Nyquist frequency (half the sampling
+    rate), strictly between 0 and 1. 1 is the Nyquist frequency, the scipy.signal.butter Wn
+    convention.
 nan_policy: ignore
+see_also:
+- ButterHighpass
+- ButterBandpass
+- SuperSmoother
+- MovingAverage
+references:
+- Butterworth, S. (1930). On the theory of filter amplifiers. *Experimental Wireless and the
+  Wireless Engineer*, 7, 536-541.
 ---
 
 # `Butter`
 
 ## Description
 
-`Butter` is a causal IIR Butterworth low-pass filter of configurable order. The Butterworth design produces a maximally flat frequency response in the passband, attenuating high-frequency components beyond a specified cutoff. Higher filter orders give a steeper rolloff.
+`Butter` is a causal IIR Butterworth low-pass filter of configurable order. The Butterworth design has a maximally flat frequency response in the passband and attenuates components above the cutoff. Higher filter orders give a steeper rolloff.
 
-The filter is implemented in the digital domain using a bilinear transform of the analog Butterworth poles.
-
-### Parameters
-
-**`order`** *(int)*: The filter order. A higher order results in a sharper frequency cutoff.
-
-**`cutoff_freq`** *(float)*: The normalised cutoff frequency, expressed as a fraction of the Nyquist frequency (half the sampling rate). Must be in the range (0, 0.5).
+The digital filter is the bilinear transform of the analog Butterworth prototype, and matches `scipy.signal.butter(order, cutoff_freq)` followed by `scipy.signal.lfilter`.
 
 
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples

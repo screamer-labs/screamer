@@ -9,7 +9,11 @@ tags:
 - hilbert
 - cycle
 - analytic-signal
-short: Classifies each sample as trending (1.0) or cycling (0.0) from the dominant-cycle phase advance.
+- regime
+- trend detection
+- trend vs cycle
+short: Classifies each sample as trending (1.0) or cycling (0.0) from the dominant-cycle phase
+  advance.
 inputs: 1
 outputs: 1
 parameters:
@@ -17,8 +21,16 @@ parameters:
   type: float
   default: 0.5
   min: 0.0
-  description: Threshold, as a fraction of the expected per-sample phase advance for the current dominant cycle, below which a sample is classified as trending.
+  description: Threshold, as a fraction of the expected per-sample phase advance for the current
+    dominant cycle, below which a sample is classified as trending.
 nan_policy: ignore
+see_also:
+- DominantCycle
+- CyclePhase
+- InstantaneousTrendline
+references:
+- 'Ehlers, J. F. (2001). *Rocket Science for Traders: Digital Signal Processing Applications*.
+  Wiley.'
 ---
 
 # `TrendMode`
@@ -38,24 +50,15 @@ The rule: at each sample, compute the phase change from the previous sample
 by `phase_rate_frac`. If the phase change is smaller, the output is `1.0`
 (trending); otherwise it is `0.0` (cycling).
 
-This is a threshold classifier, not a transcription of any single reference
-formula: it is one simple, causal way to turn the phase and period estimates
-into a binary trend/cycle flag. Lowering `phase_rate_frac` makes the
-classifier stricter about calling a trend, raising it makes trend mode more
-frequent.
-
-*Parameters*: `TrendMode` takes one parameter.
-
-### Parameters
-
-**`phase_rate_frac`** *(float, default `0.5`)*: The threshold, as a fraction
-of the expected per-sample phase advance for the current dominant cycle,
-below which a sample is classified as trending.
+This threshold rule is screamer's own way to turn the phase and period
+estimates into a binary trend/cycle flag; it does not reproduce a specific
+published formula. Lowering `phase_rate_frac` makes the classifier stricter
+about calling a trend, and raising it makes trend mode more frequent.
 
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `ignore`.** A `NaN` in the input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples

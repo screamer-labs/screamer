@@ -5,27 +5,46 @@ implementation_family: micro
 topics:
 - order-flow-imbalance
 tags:
-- order flow
-- imbalance
+- order flow imbalance
+- order imbalance
+- trade imbalance
 - ofi
-- flow
+- buy sell imbalance
+- order flow
 - microstructure
 short: Normalized signed order flow, (buy - sell) / (buy + sell).
 inputs: 2
 outputs: 1
 parameters: []
 nan_policy: ignore
+see_also:
+- ContOFI
+- QueueImbalance
+- RollingOrderImbalance
+- VPIN
+- SignedVolume
 ---
 
 # `OFI`
 
 ## Description
 
-`OFI` is the order-flow imbalance: the net of buy-aggressor and sell-aggressor
-volume, normalized by their total. It lives in `[-1, 1]`, is positive when buyers
-lift the offer more than sellers hit the bid, and is `0` on an empty bucket.
+`OFI` is the trade-flow order imbalance: the net of buy-aggressor and
+sell-aggressor volume, normalized by their total. The inputs are `buy` and
+`sell` volume, in that order:
 
-References: Cont, Kukanov, Stoikov (2014), "The price impact of order book events".
+    OFI = (buy - sell) / (buy + sell).
+
+It lies in `[-1, 1]`, is positive when buyers lift the offer more than sellers
+hit the bid, and is `0` on an empty bucket (both volumes zero). For the
+order-book version, computed from changes in resting depth, use
+[`ContOFI`](ContOFI.md).
+
+<!-- NAN_FOOTNOTE_START -->
+## NaN handling
+
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).
+<!-- NAN_FOOTNOTE_END -->
 
 ## Examples
 

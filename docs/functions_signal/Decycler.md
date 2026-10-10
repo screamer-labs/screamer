@@ -9,6 +9,8 @@ tags:
 - ehlers
 - iir
 - trend
+- trend filter
+- high-pass
 short: Ehlers trend estimate with short cycles removed.
 inputs: 1
 outputs: 1
@@ -16,12 +18,20 @@ parameters:
 - name: period
   type: float
   default: 60.0
-  description: Cycles at or below this length in samples are removed. Pass exactly one of period or cutoff; the constructor has no default, and 60 is a suggested starting value.
+  description: Cutoff as a cycle length in samples; cycles at or below this length are removed.
+    Give exactly one of period and cutoff. The default shown is a suggested starting value;
+    the constructor has no default.
 - name: cutoff
   type: float
   default: null
-  description: Cutoff as a fraction of Nyquist in (0, 1). Give this or period, not both.
+  description: Cutoff as a fraction of the Nyquist frequency, in (0, 1), equal to 2 / period.
+    Give exactly one of period and cutoff.
 nan_policy: ignore
+see_also:
+- SuperSmoother
+- RoofingFilter
+- ButterHighpass
+- Detrend
 ---
 
 # `Decycler`
@@ -36,16 +46,10 @@ suppressed.
 The cutoff is set by a cycle length in samples (`period`) or a fraction of the
 Nyquist frequency (`cutoff`), related by `cutoff = 2 / period`.
 
-### Parameters
-
-**`period`** *(float)*: The shortest cycle length in samples that is removed.
-
-**`cutoff`** *(float)*: The cutoff as a fraction of the Nyquist frequency, in (0, 1). Provide exactly one of `period` or `cutoff`.
-
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `ignore`.** A `NaN` in the input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples

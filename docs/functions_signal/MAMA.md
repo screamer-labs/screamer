@@ -7,7 +7,11 @@ topics:
 tags:
 - ehlers
 - adaptive
-short: Adaptive moving average pair (MAMA, FAMA) whose smoothing rate tracks the instantaneous-phase rate of change.
+- mesa
+- adaptive moving average
+- fama
+short: Adaptive moving average pair (MAMA, FAMA) whose smoothing rate tracks the instantaneous-phase
+  rate of change.
 inputs: 1
 outputs: 2
 parameters:
@@ -20,6 +24,17 @@ parameters:
   default: 0.05
   description: Lower bound on the smoothing constant, applied when the phase stalls.
 nan_policy: ignore
+see_also:
+- KAMA
+- InstantaneousTrendline
+- CyclePhase
+- EwMean
+references:
+- 'Ehlers, J. F. (2001). *Rocket Science for Traders: Digital Signal Processing Applications*.
+  Wiley.'
+output_names:
+- mama
+- fama
 ---
 
 # `MAMA`
@@ -44,30 +59,22 @@ $$
 \end{aligned}
 $$
 
-`phi` is the instantaneous phase in degrees; `DeltaPhase` is floored at 1
+$\phi$ is the instantaneous phase in degrees. The phase change $\Delta\phi$ is floored at 1
 degree so `alpha` never exceeds `fast_limit`. `MAMA` and `FAMA` are both
 seeded with the first finite input.
 
-This is a **1-input, 2-output** function (`FunctorBase<_, 1, 2>`). Outputs
-are stacked along a trailing axis of size 2: `out[..., 0]` is `MAMA`,
-`out[..., 1]` is `FAMA`.
+The two outputs are stacked along a trailing axis of size 2: `out[..., 0]`
+is `MAMA` and `out[..., 1]` is `FAMA`.
 
-## Parameters
-
-- `fast_limit` (float, default `0.5`): upper bound on the smoothing constant.
-- `slow_limit` (float, default `0.05`): lower bound on the smoothing constant.
+TA-Lib's `MAMA` uses the same adaptation rule over a different analytic-signal
+front end, so the two agree in shape and turning points but not to numerical
+precision.
 
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `ignore`.** A `NaN` in the input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
-
-## Reference
-
-Ehlers, *Rocket Science for Traders* (2001). TA-Lib's `MAMA` uses the same
-adaptation rule over a different analytic-signal front end, so the two agree
-in shape and turning points but not to numerical precision.
 
 ## Examples
 

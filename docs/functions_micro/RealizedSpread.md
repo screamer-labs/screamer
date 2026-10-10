@@ -9,8 +9,10 @@ tags:
 - price impact
 - adverse selection
 - transaction cost
+- liquidity provision
 - microstructure
-short: "Realized spread, 2*D*(price - mid a few steps later): the liquidity part of the effective spread."
+short: 'Realized spread, 2*D*(trade price - mid lag steps later): the part of the effective
+  spread the liquidity provider keeps.'
 inputs: 2
 outputs: 1
 parameters:
@@ -18,11 +20,13 @@ parameters:
   type: int
   default: 1
   min: 1
-  description: How many steps ahead the mid is measured (the price-impact horizon).
+  description: Number of steps between a trade and the mid it is compared with (the price-impact
+    horizon).
 nan_policy: ignore
 see_also:
 - EffectiveSpread
 - RollSpread
+- MicroPrice
 ---
 
 # `RealizedSpread`
@@ -30,16 +34,22 @@ see_also:
 ## Description
 
 `RealizedSpread` is the part of the effective spread that the liquidity provider
-keeps once the price has moved. With the quote-based trade direction (a print
-above the mid is a buy, below is a sell), `D = sign(price - mid)`,
+keeps once the price has moved. The inputs are the trade `price` and the `mid`
+quote, in that order. With the quote-based trade direction
+`D_t = sign(price_t - mid_t)` (a print above the mid is a buy, below a sell),
 
-    realized = 2 * D * (price - mid measured `lag` steps later).
+    realized_t = 2 * D_{t-lag} * (price_{t-lag} - mid_t).
 
-It compares a past trade's price to the mid `lag` steps afterward. What the
-effective spread does not keep, `effective - realized`, is the price-impact or
+It compares the trade from `lag` steps ago with the current mid, so it never uses
+a future value. The difference `effective - realized` is the price-impact or
 adverse-selection component: how far the mid moved in the trade's direction after
-it printed. The value at each step references a trade `lag` steps in the past, so
-it is causal (never a future trade). The first `lag` samples are `NaN` (warmup).
+it printed. The first `lag` outputs are `NaN` (warmup).
+
+<!-- NAN_FOOTNOTE_START -->
+## NaN handling
+
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).
+<!-- NAN_FOOTNOTE_END -->
 
 ## Examples
 

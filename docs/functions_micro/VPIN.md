@@ -7,46 +7,62 @@ topics:
 tags:
 - vpin
 - toxicity
+- flow toxicity
+- order flow toxicity
 - informed trading
+- probability of informed trading
 - order flow
 - volume clock
+- volume bars
 - microstructure
-short: "Volume-synchronized probability of informed trading (Easley-Lopez de Prado-O'Hara 2012): order-flow toxicity."
+short: 'Volume-synchronized probability of informed trading (Easley-López de Prado-O''Hara
+  2012): order-flow toxicity.'
 inputs: 2
 outputs: 1
 parameters:
 - name: bucket_volume
   type: float
   default: 1.0
-  description: Volume that fills one bucket (the volume clock). Set it to your instrument's volume scale.
+  description: Volume that fills one bucket (the volume clock). Set it to your instrument's
+    volume scale.
 - name: n_buckets
   type: int
   default: 50
-  description: Number of trailing buckets averaged.
+  description: Number of most recent closed buckets averaged.
 nan_policy: ignore
 see_also:
-- OFI
 - BulkVolumeClassifier
+- OFI
+- TickRuleSign
+- RollingOrderImbalance
+references:
+- Easley, D., López de Prado, M. M. and O'Hara, M. (2012). Flow toxicity and liquidity in
+  a high-frequency world. *Review of Financial Studies*, 25(5), 1457-1493. doi:10.1093/rfs/hhs053
 ---
 
 # `VPIN`
 
 ## Description
 
-`VPIN` (Volume-Synchronized Probability of Informed Trading; Easley, Lopez de
-Prado, O'Hara 2012) measures order-flow **toxicity**: how one-sided trading is,
-measured on a volume clock rather than a wall clock. Trades are packed into
-equal-volume buckets of `bucket_volume`; each closed bucket contributes its
-absolute order imbalance `|buy - sell|`, and `VPIN` is the mean of that imbalance
-over the last `n_buckets` buckets, normalized by the bucket volume, giving a
-value in `[0, 1]`. A high value means flow is dominated by one side, a sign of
-informed or toxic trading that often precedes adverse price moves.
+`VPIN` (volume-synchronized probability of informed trading; Easley, López de
+Prado, and O'Hara 2012) measures order-flow toxicity: how one-sided trading is,
+measured on a volume clock instead of a wall clock. The inputs are per-trade
+`buy` and `sell` volume, in that order, from a signing rule such as
+`TickRuleSign` or `BulkVolumeClassifier`.
 
-Feed per-trade buy and sell volume (from a signing rule such as `TickRuleSign` or
-`BulkVolumeClassifier`). A trade that straddles a bucket boundary is split
-proportionally across buckets, so the volume clock is exact. The output is `NaN`
-until `n_buckets` buckets have closed. References: Easley, Lopez de Prado, O'Hara
-(2012), "Flow Toxicity and Liquidity in a High-Frequency World".
+Trades are packed into buckets that each hold `bucket_volume` of volume; a trade
+that straddles a bucket boundary is split proportionally across the two buckets.
+Each closed bucket contributes its absolute imbalance `|buy - sell|`, and `VPIN`
+is the mean of that imbalance over the last `n_buckets` buckets divided by
+`bucket_volume`, a value in `[0, 1]`. A high value means flow is dominated by one
+side, a sign of informed trading that often precedes adverse price moves. The
+output is `NaN` until `n_buckets` buckets have closed.
+
+<!-- NAN_FOOTNOTE_START -->
+## NaN handling
+
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).
+<!-- NAN_FOOTNOTE_END -->
 
 ## Examples
 

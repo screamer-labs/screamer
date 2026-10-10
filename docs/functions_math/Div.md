@@ -7,21 +7,24 @@ topics:
 tags:
 - arithmetic
 - binary
+- divide
+- ratio
+- quotient
 short: Elementwise quotient of two aligned streams (x / y).
 inputs: 2
 outputs: 1
 parameters: []
 nan_policy: ignore
+see_also:
+- Mul
+- Sub
 ---
 
 # `Div`
 
 ## Description
 
-`Div` computes the elementwise quotient of two aligned input streams, `x / y`. It takes two inputs and returns one output; a `NaN` in
-either input yields `NaN` at that step.
-
-*Parameters*: `Div` takes no parameters.
+`Div` computes the elementwise quotient of two aligned input streams, `x / y`. It takes two inputs and returns one output.
 
 ## Examples
 
@@ -55,9 +58,8 @@ either input yields `NaN` at that step.
     fig.show()
 ```
 
-
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->

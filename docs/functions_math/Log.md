@@ -7,28 +7,28 @@ topics:
 tags:
 - log
 - ln
+- natural logarithm
+- logarithm
 short: Natural logarithm of each element.
 inputs: 1
 outputs: 1
 parameters: []
 nan_policy: ignore
+see_also:
+- Exp
+- LogReturn
 ---
 
 # `Log`
 
 ## Description
 
-The `Log` class computes the natural logarithm (ln) of each element in a data sequence.
-
-*Parameters*: `Log` takes no parameters.
-
-*NaN handling*: A `NaN` input yields `NaN`. A negative or zero input also yields `NaN`, because the natural logarithm is undefined for non-positive values.
-
+`Log` computes the natural logarithm of each element. A zero input gives `-inf` and a negative input gives `NaN`.
 
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples

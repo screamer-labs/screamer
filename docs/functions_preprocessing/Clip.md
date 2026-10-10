@@ -7,7 +7,11 @@ topics:
 - outliers
 tags:
 - clip
+- clamp
 - bound
+- limit
+- winsorize
+- cap
 - outlier
 short: Bound each element below and/or above.
 inputs: 1
@@ -16,28 +20,34 @@ parameters:
 - name: lower
   type: float|null
   default: null
-  description: Lower bound (None = no lower clipping).
+  description: Smallest allowed value; smaller values are replaced by it. None means no lower
+    bound.
 - name: upper
   type: float|null
   default: null
-  description: Upper bound (None = no upper clipping).
+  description: Largest allowed value; larger values are replaced by it. None means no upper
+    bound.
 nan_policy: ignore
+see_also:
+- RollingSigmaClip
+- CrossWinsorize
+- Hampel
+- ImpulseClip
 ---
 
 # `Clip`
 
 ## Description
 
-The `Clip` class restricts each value in a data sequence to fall within a specified range. Values outside the defined lower and upper bounds are clipped to the nearest boundary, ensuring that the processed data stays within the desired range. This function is useful in scenarios where extreme values or outliers need to be managed or excluded from further analysis.
-
-*Parameters*: 
-- **`lower`** (optional): The minimum allowable value. If a data point is below this threshold, it will be set to `lower`. If unspecified, there is no lower bound.
-- **`upper`** (optional): The maximum allowable value. If a data point exceeds this threshold, it will be set to `upper`. If unspecified, there is no upper bound.
+`Clip` limits each value to the range `[lower, upper]`: a value below `lower` is
+replaced by `lower`, and a value above `upper` by `upper`. Either bound can be
+left as `None` to clip on one side only. Use it to cap extreme values before
+they reach a statistic that is sensitive to outliers.
 
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples

@@ -10,6 +10,7 @@ tags:
 - directional-movement
 - talib
 - hlc
+- minus directional indicator
 short: Wilder negative directional indicator.
 inputs: 3
 outputs: 1
@@ -18,7 +19,15 @@ parameters:
   type: int
   default: 14
   min: 2
-  description: Wilder smoothing period.
+  description: 'Wilder smoothing period: the smoother seeds on the first window_size values,
+    then each step keeps (window_size - 1) / window_size of the previous value.'
+see_also:
+- PlusDI
+- MinusDM
+- ADX
+- DX
+references:
+- Wilder, J. W. (1978). *New Concepts in Technical Trading Systems*. Trend Research.
 nan_policy: ignore
 ---
 
@@ -26,10 +35,9 @@ nan_policy: ignore
 
 ## Description
 
-`MinusDI` is Wilder's negative directional indicator, `-DI` (Wilder, 1978). It
-is 100 times the Wilder-smoothed negative directional movement divided by the
-smoothed true range, so it measures the share of recent range attributable to
-downward movement:
+`MinusDI` is Wilder's negative directional indicator, `-DI` (Wilder, 1978). It is 100
+times the Wilder-smoothed negative directional movement divided by the smoothed true
+range, so it measures the share of recent range due to downward movement:
 
 $$
 \begin{aligned}
@@ -39,20 +47,14 @@ $$
 \end{aligned}
 $$
 
-**3-input, 1-output** (`FunctorBase<_, 3, 1>`) on `(high, low, close)`.
-`MinusDI` shares its smoothing engine with `ADX`, which returns `+DI`, `-DI`,
-and `ADX` together; use `MinusDI` on its own when only the negative
-directional indicator is needed.
-
-### Parameters
-
-**`window_size`** *(int, default 14)*: The Wilder smoothing period. The first
-valid output is at sample index `window_size`.
+Inputs are `(high, low, close)`. [`ADX`](ADX.md) returns `+DI`, `-DI` and `ADX`
+together; use `MinusDI` when only the negative indicator is needed. The first valid output
+is at sample index `window_size`.
 
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples
@@ -94,6 +96,6 @@ valid output is at sample index `window_size`.
 
 <!-- HELP_END -->
 
-## Reference
+## Validation
 
 Matches `talib.MINUS_DI`; verified in `tests/test_dmi.py::TestPlusMinusDI`.

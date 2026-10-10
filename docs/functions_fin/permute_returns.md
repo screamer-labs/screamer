@@ -3,8 +3,18 @@ name: permute_returns
 title: permute_returns
 kind: function
 short: Copies of a price series with its returns in random order.
+tags:
+- permutation
+- shuffle
+- monte carlo
+- synthetic data
+- returns
+see_also:
+- permute_bars
+- strategy_test
+- circular_shift
 topics:
-- backtesting
+- significance
 ---
 
 # `permute_returns`
@@ -38,7 +48,7 @@ copies on every platform. [`strategy_test`](strategy_test.md) uses it with
 
 `permute_returns(x, n, mode="log", seed=0, volume=None, volume_mode="keep")`
 
-## Example
+## Examples
 
 ```{eval-rst}
 .. exec_code::

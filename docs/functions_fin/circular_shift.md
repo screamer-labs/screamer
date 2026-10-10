@@ -3,8 +3,17 @@ name: circular_shift
 title: circular_shift
 kind: function
 short: Randomly rotated copies of a series, for randomization tests.
+tags:
+- circular shift
+- rotation
+- randomization test
+- monte carlo
+see_also:
+- position_test
+- segment_shuffle
+- permute_returns
 topics:
-- backtesting
+- significance
 ---
 
 # `circular_shift`
@@ -32,7 +41,7 @@ columns on every platform. [`position_test`](position_test.md) uses it with
 
 `circular_shift(x, n, min_shift=None, seed=0)`
 
-## Example
+## Examples
 
 ```{eval-rst}
 .. exec_code::

@@ -9,10 +9,11 @@ tags:
 - ofi
 - order book
 - book events
+- l1
 - cont
 - cont-kukanov-stoikov
 - microstructure
-short: "Cont-Kukanov-Stoikov (2014) order-flow imbalance from L1 book events."
+short: Cont-Kukanov-Stoikov (2014) order-flow imbalance from L1 book events.
 inputs: 4
 outputs: 1
 parameters: []
@@ -20,6 +21,11 @@ nan_policy: ignore
 see_also:
 - OFI
 - QueueImbalance
+- MicroPrice
+- RollingOrderImbalance
+references:
+- Cont, R., Kukanov, A. and Stoikov, S. (2014). The price impact of order book events. *Journal
+  of Financial Econometrics*, 12(1), 47-88. doi:10.1093/jjfinec/nbt003
 ---
 
 # `ContOFI`
@@ -27,8 +33,9 @@ see_also:
 ## Description
 
 `ContOFI` is the order-flow imbalance of Cont, Kukanov, and Stoikov (2014),
-computed from top-of-book (L1) events rather than from trades. On each update of
-`(bid, ask, bid_size, ask_size)` it measures the signed change in resting depth:
+computed from top-of-book (L1) events rather than from trades. The inputs are
+`bid`, `ask`, `bid_size` and `ask_size`, in that order. On each update it
+measures the signed change in resting depth:
 
     e_bid = bid_size * 1(bid >= prev_bid) - prev_bid_size * 1(bid <= prev_bid)
     e_ask = ask_size * 1(ask <= prev_ask) - prev_ask_size * 1(ask >= prev_ask)
@@ -36,10 +43,15 @@ computed from top-of-book (L1) events rather than from trades. On each update of
 
 A bid that ticks up contributes its full size (buyers stepping in front), a bid
 that ticks down removes the vanished size, and an unchanged bid contributes the
-size change; the ask side is symmetric. This is the canonical *order-book* OFI,
-distinct from the trade-flow [`OFI`](OFI.md). The
-first event has no baseline and returns `NaN`. References: Cont, Kukanov, Stoikov
-(2014), "The price impact of order book events".
+size change; the ask side is symmetric. This is the order-book OFI, distinct
+from the trade-flow [`OFI`](OFI.md). The first event has no previous quote to
+compare against and returns `NaN`.
+
+<!-- NAN_FOOTNOTE_START -->
+## NaN handling
+
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).
+<!-- NAN_FOOTNOTE_END -->
 
 ## Examples
 

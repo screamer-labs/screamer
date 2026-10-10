@@ -5,12 +5,16 @@ implementation_family: signal
 topics:
 - filtering
 - logic
+- signals
 tags:
 - hold
 - latch
 - regime
 - signal
-short: Time-latch operator. Latches a nonzero finite input and holds it for n bars; returns the release value once the hold expires.
+- sample and hold
+- time latch
+short: Time-latch operator. Latches a nonzero finite input and holds it for n steps; returns
+  the release value once the hold expires.
 inputs: 1
 outputs: 1
 parameters:
@@ -18,21 +22,26 @@ parameters:
   type: int
   default: 3
   min: 1
-  description: Number of bars to hold the latched value, including the trigger bar.
-    Must be >= 1.
+  description: 'Number of steps the latched value is held, counting the trigger step: a nonzero
+    input at t is output at t, t+1, ..., t+n-1.'
 - name: release
   type: float
   default: 0.0
-  description: Value returned when no hold is active and the input is zero. May be
-    finite or NaN.
+  description: Value returned when no hold is active and the input is zero. May be finite
+    or NaN; inf is rejected.
 nan_policy: ignore
+see_also:
+- SchmittTrigger
+- BandSignal
+- Last
+- Lag
 ---
 
 # `Hold`
 
 ## Description
 
-`Hold` latches a nonzero finite input and outputs it for `n` bars total (the trigger bar plus `n-1` continuation bars). When the hold expires and the next input is zero, the output returns to `release`. A new nonzero input during an active hold replaces the latched value and resets the counter to `n-1` remaining bars. Zero is the trigger-absent sentinel. A NaN input emits NaN at that index and leaves both the held value and the remaining counter unchanged.
+`Hold` latches a nonzero finite input and outputs it for `n` steps in total: the trigger step plus `n-1` continuation steps. When the hold expires and the next input is zero, the output returns to `release`. A new nonzero input during an active hold replaces the latched value and resets the counter to `n-1` remaining steps. A zero input means no trigger.
 
 $$
 \text{output}[t] = \begin{cases}
@@ -45,14 +54,16 @@ $$
 
 `reset()` sets `remaining` to 0 and `held` to `release`.
 
-## Parameters
-
-- `n`: number of bars to hold the latched value. The trigger bar counts as bar 1, so a new nonzero input at bar `t` produces the latched value at bars `t`, `t+1`, ..., `t+n-1`. Must be >= 1; the constructor raises `ValueError` otherwise.
-- `release`: value emitted when no hold is active (zero input, `remaining == 0`). Defaults to `0.0`. May be finite or NaN; `inf` is rejected.
-
 ## Implementation Details
 
-O(1) per step. Two scalars of state: `held` (the most recently latched nonzero value, initialised to `release`) and `remaining` (bars left in the current hold, initialised to 0).
+O(1) per step. Two scalars of state: `held` (the most recently latched nonzero value, initialized to `release`) and `remaining` (steps left in the current hold, initialized to 0).
+
+
+<!-- NAN_FOOTNOTE_START -->
+## NaN handling
+
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).
+<!-- NAN_FOOTNOTE_END -->
 
 ## Examples
 

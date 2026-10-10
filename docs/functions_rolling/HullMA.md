@@ -9,6 +9,8 @@ tags:
 - hull
 - hullma
 - moving-average
+- hull moving average
+- hma
 short: 'Hull''s responsive MA: WMA(2*WMA(n/2) - WMA(n), sqrt(n)).'
 inputs: 1
 outputs: 1
@@ -16,8 +18,14 @@ parameters:
 - name: window_size
   type: int
   default: 20
-  min: 2
-  description: Trailing-window length.
+  min: 4
+  description: Main window n in samples; the inner windows are n // 2 and floor(sqrt(n)).
+    Must be at least 4 so that both inner windows are at least 2.
+see_also:
+- WMA
+- DEMA
+- TEMA
+- KAMA
 nan_policy: ignore
 ---
 
@@ -25,42 +33,26 @@ nan_policy: ignore
 
 ## Description
 
-`HullMA` (Alan Hull, 2005) is a low-lag responsive moving average defined entirely in terms of `WMA`:
+`HullMA` (Alan Hull, 2005) is a low-lag moving average built from three
+[`WMA`](WMA.md)s:
 
 $$
 \text{HullMA}(x, n)[t] = \text{WMA}\Big( 2 \cdot \text{WMA}(x, n/2) - \text{WMA}(x, n),\ \sqrt{n} \Big)[t]
 $$
 
-with integer floor on the inner window arguments: `n_half = n // 2` and `n_sqrt = floor(sqrt(n))`.
+with the inner window lengths rounded down: `n_half = n // 2` and
+`n_sqrt = floor(sqrt(n))`. Subtracting a slow `WMA` from twice a fast `WMA`
+extrapolates the trend, much like `DEMA`, and the short outer `WMA` smooths the
+result. The output follows the input with less lag than an SMA, EMA or WMA of the same
+window.
 
-The construction subtracts a slow `WMA` from twice a fast `WMA` (anticipating the trend, similar to `DEMA`'s linear extrapolation), then smooths the result with a much shorter `WMA`. The output tracks the price closely with markedly less lag than a plain SMA / EMA / WMA of comparable window.
-
-## Parameters
-
-- `window_size` (int, **at least 4**). The construction degenerates below `n=4` because `n_half` must be `>= 2` and `floor(sqrt(n))` must be `>= 2`.
-
-## Implementation Details
-
-### Algorithm
-
-Pure composition of three `WMA` instances:
-
-1. `wma_half_` -- `WMA(n // 2, "expanding")` on the input `x`.
-2. `wma_full_` -- `WMA(n, "expanding")` on the input `x`.
-3. `wma_outer_` -- `WMA(floor(sqrt(n)), "expanding")` on `2*wma_half - wma_full`.
-
-The inner WMAs run with `start_policy="expanding"` so they never emit `NaN` (which would poison the outer's state). `HullMA` enforces strict warmup itself by counting samples and emitting `NaN` until `n + floor(sqrt(n)) - 1` samples have been processed.
-
-### Complexity
-
-* Time complexity: `O(1)` per step (three `WMA` updates).
-* Space complexity: `O(window_size)` (dominated by the longest internal `WMA`).
-
+The first valid output is at sample index `n + floor(sqrt(n)) - 2`; earlier outputs
+are NaN. Each step costs `O(1)` time and `O(window_size)` memory.
 
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples
@@ -93,6 +85,7 @@ The inner WMAs run with `start_policy="expanding"` so they never emit `NaN` (whi
 
 <!-- HELP_END -->
 
-## Reference
+## Validation
 
-Standard Hull MA definition. Validated in `tests/test_moving_averages.py` against the explicit three-`WMA` composition for several window sizes.
+Matches the explicit three-`WMA` composition for several window sizes in
+`tests/test_moving_averages.py`.

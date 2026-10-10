@@ -8,28 +8,44 @@ tags:
 - parkinson
 - range-based
 - hl
+- high low
 - vol
+- volatility
+- realized volatility
 - ew
-short: Vol form of the Parkinson range-based volatility estimator (uses high & low).
+short: Exponentially weighted Parkinson range-based volatility estimator (high, low).
 inputs: 2
 outputs: 1
 parameters:
 - name: com
   type: float
   default: null
-  description: Center of mass. Exclusive with span/halflife/alpha.
+  description: Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly
+    one of com, span, halflife and alpha.
 - name: span
   type: float
   default: 20.0
-  description: Span (default smoothing parameter).
+  description: Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give
+    exactly one of com, span, halflife and alpha. The default shown is an example value; the
+    constructor has no default.
 - name: halflife
   type: float
   default: null
-  description: Halflife. Exclusive with com/span/alpha.
+  description: Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive.
+    Give exactly one of com, span, halflife and alpha.
 - name: alpha
   type: float
   default: null
-  description: Smoothing parameter directly.
+  description: Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more
+    weight. Give exactly one of com, span, halflife and alpha.
+see_also:
+- EwParkinsonVar
+- RollingParkinsonVol
+- EwGarmanKlassVol
+- EwYangZhangVol
+references:
+- Parkinson, M. (1980). The extreme value method for estimating the variance of the rate of
+  return. *Journal of Business*, 53(1), 61-65. doi:10.1086/296071
 nan_policy: ignore
 ---
 
@@ -37,24 +53,20 @@ nan_policy: ignore
 
 ## Description
 
-`EwParkinsonVol` returns the square root of the Parkinson (1980) range-based variance
-estimate: `sqrt(EwParkinsonVar)`. The per-bar variance contribution is:
+`EwParkinsonVol` is the square root of [`EwParkinsonVar`](EwParkinsonVar.md), the exponentially weighted Parkinson (1980) range-based variance estimate. It takes two inputs, `(high, low)`. The per-bar variance contribution is
 
 $$
 \sigma^2_\text{Parkinson}[t] = \frac{1}{4 \ln 2}\ \big(\ln H/L\big)^2
 $$
 
-This expression is averaged with an exponentially-weighted mean to form the estimator, and the
-square root is taken to produce a volatility in the same units as the log-price process.
+and the output is the square root of its exponentially weighted mean, a volatility in units of log price per bar. The smoothing factor `alpha` is set by exactly one of `com`, `span`, `halflife` or `alpha`.
 
-**2-input, 1-output** on `(high, low)`. ~5x more statistically efficient than
-close-to-close `RollingVar` *under the model's assumptions* (zero drift, no overnight gaps).
-
+Under zero drift and no overnight gaps, the variance estimator is about five times as efficient as the close-to-close estimator (Parkinson 1980). It ignores the open and close, so it is biased when prices trend or gap between bars.
 
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples

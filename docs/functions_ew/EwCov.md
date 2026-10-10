@@ -7,7 +7,9 @@ topics:
 tags:
 - ew
 - covariance
-- pair
+- cov
+- exponential
+- ewm cov
 short: EW covariance of two parallel streams.
 inputs: 2
 outputs: 1
@@ -15,20 +17,29 @@ parameters:
 - name: com
   type: float
   default: null
-  description: Center of mass (alpha = 1 / (1 + com)). Exclusive with span/halflife/alpha.
+  description: Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly
+    one of com, span, halflife and alpha.
 - name: span
   type: float
   default: 20.0
-  description: Span (alpha = 2 / (span + 1)). Default smoothing parameter. Exclusive
-    with com/halflife/alpha.
+  description: Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give
+    exactly one of com, span, halflife and alpha. The default shown is an example value; the
+    constructor has no default.
 - name: halflife
   type: float
   default: null
-  description: Halflife (alpha = 1 - 0.5^(1/halflife)). Exclusive with com/span/alpha.
+  description: Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive.
+    Give exactly one of com, span, halflife and alpha.
 - name: alpha
   type: float
   default: null
-  description: Smoothing parameter directly. Exclusive with com/span/halflife.
+  description: Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more
+    weight. Give exactly one of com, span, halflife and alpha.
+see_also:
+- EwCorr
+- EwVar
+- EwBeta
+- RollingCov
 nan_policy: ignore
 ---
 
@@ -36,34 +47,21 @@ nan_policy: ignore
 
 ## Description
 
-`EwCov` computes the exponentially weighted moving covariance of two streams. Same bias-correction convention as `EwVar`: the formula matches `pandas.Series.ewm(adjust=True, bias=False).cov(other)`. This is a **2-input, 1-output** function (`FunctorBase<_, 2, 1>`).
+`EwCov` computes the exponentially weighted covariance of two series, with the same bias correction as [`EwVar`](EwVar.md). The smoothing factor `alpha` is set by exactly one of `com`, `span`, `halflife` or `alpha`. The result matches pandas `ewm(adjust=True, bias=False).cov(other)`.
 
-## Parameters
-
-Specify exactly one of the following to set the smoothing factor `alpha`:
-
-- **`com`**: Center of mass. `alpha = 1 / (1 + com)`
-- **`span`**: Span. `alpha = 2 / (span + 1)`
-- **`halflife`**: Half-life. `alpha = 1 - exp(-log(2) / halflife)`
-- **`alpha`**: Directly sets the smoothing factor, `0 < alpha < 1`
-
-The first sample is `NaN` (need `n_eff > 1` for the bias correction).
-
-## Formula
-
-Tracks five running sums per step. With $\bar{x} = S_x / S_w$ and $\bar{y} = S_y / S_w$:
+With $\bar{x} = S_x / S_w$ and $\bar{y} = S_y / S_w$, where every running sum decays by $(1-\alpha)$ per step:
 
 $$
-\text{EwCov} = \left( \frac{S_{xy}}{S_w} - \bar{x}\,\bar{y} \right) \cdot \frac{N_{\text{eff}}}{N_{\text{eff}} - 1}
+\text{EwCov}[t] = \left( \frac{S_{xy}}{S_w} - \bar{x}\,\bar{y} \right) \frac{N_\text{eff}}{N_\text{eff} - 1},
+\qquad N_\text{eff} = \frac{S_w^2}{S_{ww}}
 $$
 
-where $N_{\text{eff}} = S_w^2 / S_{ww}$ is the effective sample size, computed exactly as in `EwVar`. The bias correction makes the estimator unbiased under independent sampling.
-
+The first output is `NaN`, because the bias correction needs $N_\text{eff} > 1$.
 
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples
@@ -105,10 +103,6 @@ where $N_{\text{eff}} = S_w^2 / S_{ww}$ is the effective sample size, computed e
 
 <!-- HELP_END -->
 
-## Numerical caveat
+## Numerical accuracy
 
-The recurrence uses uncentered sums ($S_{xy}$, $\bar{x}$, $\bar{y}$ separately). For inputs with very small variance, the cancellation `S_{xy}/S_w - mean_x·mean_y` is ill-conditioned. In typical use the residual error is `O(1e-12)`; for *exactly* constant inputs the error can climb to `O(1e-9)` and the value won't be exactly zero. Pandas uses centered updates internally and avoids this. The behaviour difference only matters for degenerate inputs.
-
-## Reference
-
-Equivalent to `pandas.Series.ewm(adjust=True, bias=False).cov(other)`.
+The recurrence uses uncentered sums, so the difference $S_{xy}/S_w - \bar{x}\bar{y}$ loses precision when the variance is small relative to the mean. In typical use the error is about `1e-12`. For exactly constant inputs it can reach about `1e-9`, so the result is not exactly zero. pandas uses centered updates and does not have this error; the difference matters only for such degenerate inputs.

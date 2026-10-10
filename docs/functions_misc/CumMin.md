@@ -7,11 +7,17 @@ topics:
 tags:
 - cumulative
 - min
+- cummin
+- running minimum
 short: Running minimum from t=0.
 inputs: 1
 outputs: 1
 parameters: []
 nan_policy: ignore
+see_also:
+- CumMax
+- ExpandingMin
+- RollingMin
 ---
 
 # `CumMin`
@@ -28,15 +34,13 @@ $$
 y[t] = \min_{0 \le i \le t} x[i]
 $$
 
-*Parameters*: none.
-
-*NaN handling*: A NaN input is skipped; the running minimum is left unchanged, the output at that index is NaN, and the next finite sample resumes from the prior minimum. This matches `pandas.Series.cummin(skipna=True)`, not `numpy.minimum.accumulate`.
+Skipping `NaN` inputs matches `pandas.Series.cummin(skipna=True)`; `numpy.minimum.accumulate` would propagate the `NaN` instead.
 
 
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples
@@ -86,4 +90,4 @@ $$
 
 ## Implementation Details
 
-`CumMin` keeps a single `double` initialised to `+infinity`. Each finite input is compared and the smaller value retained. There is no warmup.
+`CumMin` keeps a single `double` initialized to `+infinity`. Each finite input is compared and the smaller value retained. There is no warmup.

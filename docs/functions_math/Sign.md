@@ -7,28 +7,29 @@ topics:
 tags:
 - sign
 - signum
+- direction
+- np.sign
 short: 'Sign of each element: -1, 0, or +1.'
 inputs: 1
 outputs: 1
 parameters: []
 nan_policy: ignore
+see_also:
+- Abs
+- PosPart
+- NegPart
 ---
 
 # `Sign`
 
 ## Description
 
-The `Sign` class computes the sign of each element in a data sequence, mapping each value to -1, 0, or +1. This function is useful for extracting the direction (positive or negative) of each value while discarding magnitude.
-
-*Parameters*: `Sign` takes no parameters.
-
-*NaN handling*: `NaN` values are not modified.
-
+`Sign` maps each element to -1, 0 or +1 according to its sign. Use it to keep the direction of a value and discard its magnitude.
 
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples

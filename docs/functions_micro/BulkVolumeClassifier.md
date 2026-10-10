@@ -6,12 +6,15 @@ topics:
 - trade-signing
 tags:
 - trade sign
+- trade classification
 - bulk volume
 - bvc
+- buy volume
 - order flow
 - toxicity
 - microstructure
-short: Buy-initiated share of a bar's volume estimated as the normal CDF of return / trailing-window volatility.
+short: Buy-initiated share of a bar's volume estimated as the normal CDF of return / trailing-window
+  volatility.
 inputs: 1
 outputs: 1
 parameters:
@@ -19,7 +22,8 @@ parameters:
   type: int
   default: 20
   min: 2
-  description: Window length in observations for the trailing standard deviation.
+  description: Number of observations in the trailing standard deviation window, including
+    the current one.
 - name: start_policy
   type: str
   default: strict
@@ -27,11 +31,19 @@ parameters:
   - strict
   - expanding
   - zero
-  description: Warmup behaviour.
+  description: 'Output before the window is full: "strict" gives NaN, "expanding" computes
+    from the samples seen so far, and "zero" treats the window as pre-filled with zeros.'
 nan_policy: ignore
 see_also:
 - TickRuleSign
 - LeeReadySign
+- VPIN
+- SignedVolume
+references:
+- Easley, D., López de Prado, M. M. and O'Hara, M. (2012). Bulk classification of trading
+  activity. Johnson School Research Paper Series No. 8-2012, Cornell University.
+- Easley, D., López de Prado, M. M. and O'Hara, M. (2016). Discerning information from trade
+  data. *Journal of Financial Economics*, 120(2), 269-285.
 ---
 
 # `BulkVolumeClassifier`
@@ -39,43 +51,30 @@ see_also:
 ## Description
 
 `BulkVolumeClassifier` implements the Bulk Volume Classification (BVC) model of
-Easley, Lopez de Prado, and O'Hara (2012). It estimates the buy-initiated
-fraction of a bar's volume without tick-level data, using only the bar's return
-and its trailing volatility.
+Easley, López de Prado, and O'Hara. It estimates the buy-initiated fraction of a
+bar's volume without tick-level data, using only the bar's return and its
+trailing volatility.
 
 At each step the operator computes the standardized return
-`z = return_ / sigma_t`, where `sigma_t` is the rolling standard deviation of
-`return_` over the most recent `window_size` observations, and evaluates the
-standard normal CDF `Phi(z) = 0.5 * (1 + erf(z / sqrt(2)))`. The result is a
-fraction in `[0, 1]`: values near 1 indicate a predominantly buy-driven bar,
-values near 0 indicate a sell-driven bar, and 0.5 indicates a neutral bar.
-
-The rolling standard deviation is tracked with two running sums, so each step
-costs O(1). The operator is causal and honors `nan_policy: ignore`; a
-zero-variance window leaves the classification undefined and returns `NaN`.
+`z = return_ / sigma_t`, where `sigma_t` is the sample standard deviation of
+`return_` over the most recent `window_size` observations, including the current
+one. It returns the standard normal CDF `Phi(z) = 0.5 * (1 + erf(z / sqrt(2)))`.
+The result is a fraction in `[0, 1]`: values near 1 indicate a mostly
+buy-driven bar, values near 0 a sell-driven bar, and 0.5 a neutral bar. A
+window with zero variance leaves the classification undefined and gives `NaN`.
 
 A common pipeline is:
 
 1. Compute bar log-returns with `LogReturn`.
 2. Feed the return series to `BulkVolumeClassifier` to obtain a per-bar
    buy-fraction estimate.
-3. Multiply by the bar's total volume to recover an estimated buy volume.
+3. Multiply by the bar's total volume to estimate the buy volume.
 
-*Parameters*:
+<!-- NAN_FOOTNOTE_START -->
+## NaN handling
 
-- **`window_size`** (`int`, >= 2): number of observations in the trailing
-  standard deviation window.
-- **`start_policy`** (`str`, default `"strict"`): controls the warmup period
-  before `window_size` observations have been seen. `"strict"` emits `NaN`.
-  `"expanding"` uses all available observations. `"zero"` fills with zero.
-
-*Return value*: the buy fraction at each time step, in `[0, 1]`. `NaN` during
-warmup (under `strict`) or when the input return is `NaN`.
-
-**Reference**: Easley, D., Lopez de Prado, M. M., & O'Hara, M. (2012).
-"Bulk classification of trading activity." *Working Paper*, Cornell University.
-
-<!-- HELP_END -->
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).
+<!-- NAN_FOOTNOTE_END -->
 
 ## Examples
 

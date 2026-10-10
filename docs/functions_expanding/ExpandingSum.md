@@ -8,10 +8,18 @@ tags:
 - sum
 - expanding
 - cumulative
-short: Running sum from t=0.
+- running sum
+- cumsum
+- cumulative sum
+short: Running sum since the start of the stream.
 inputs: 1
 outputs: 1
 parameters: []
+see_also:
+- CumSum
+- ExpandingMean
+- RollingSum
+- ExpandingProd
 nan_policy: ignore
 ---
 
@@ -19,20 +27,16 @@ nan_policy: ignore
 
 ## Description
 
-The `ExpandingSum` function returns the running sum of every sample seen since the last `reset`. It is an alias of `CumSum` exposed under the expanding family and matches `pandas.Series.expanding().sum()`.
-
-*Equation*:
+`ExpandingSum` returns the running sum of every sample seen since the start of the stream, or since the last `reset`. It computes the same result as [`CumSum`](../functions_misc/CumSum.md), under the name of the expanding family, and matches `pandas.Series.expanding().sum()`.
 
 $$
 y[t] = \sum_{i=0}^{t} x[i]
 $$
 
-*Parameters*: none.
-
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `ignore`.** A `NaN` in the input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples

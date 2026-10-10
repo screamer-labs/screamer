@@ -10,6 +10,8 @@ tags:
 - directional-movement
 - talib
 - hlc
+- directional index
+- trend strength
 short: Wilder directional index, the pre-average input to ADX.
 inputs: 3
 outputs: 1
@@ -18,7 +20,15 @@ parameters:
   type: int
   default: 14
   min: 2
-  description: Wilder smoothing period.
+  description: 'Wilder smoothing period: the smoother seeds on the first window_size values,
+    then each step keeps (window_size - 1) / window_size of the previous value.'
+see_also:
+- ADX
+- PlusDI
+- MinusDI
+- ADXR
+references:
+- Wilder, J. W. (1978). *New Concepts in Technical Trading Systems*. Trend Research.
 nan_policy: ignore
 ---
 
@@ -26,28 +36,22 @@ nan_policy: ignore
 
 ## Description
 
-`DX` is Wilder's directional index (Wilder, 1978), 100 times the absolute
-difference of `+DI` and `-DI` divided by their sum:
+`DX` is Wilder's directional index (Wilder, 1978): 100 times the absolute difference
+of `+DI` and `-DI` divided by their sum.
 
 $$
 \text{DX} = 100 \cdot \frac{|+\text{DI} - -\text{DI}|}{+\text{DI} + -\text{DI}}
 $$
 
-**3-input, 1-output** (`FunctorBase<_, 3, 1>`) on `(high, low, close)`. `DX`
-shares its smoothing engine with `ADX`, `PlusDI`, and `MinusDI`; `ADX` is the
-Wilder moving average of `DX` itself. Use `DX` on its own when the raw,
-unsmoothed directional index is needed, for example to build a different
-average over it than `ADX` applies.
-
-### Parameters
-
-**`window_size`** *(int, default 14)*: The Wilder smoothing period. The first
-valid output is at sample index `window_size`.
+Inputs are `(high, low, close)`. [`ADX`](ADX.md) is the Wilder average of `DX`. Use
+`DX` on its own when you need the unsmoothed directional index, for example to apply a
+different average than `ADX` does. The first valid output is at sample index
+`window_size`.
 
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples
@@ -89,6 +93,6 @@ valid output is at sample index `window_size`.
 
 <!-- HELP_END -->
 
-## Reference
+## Validation
 
 Matches `talib.DX` on the finite overlap; see `tests/test_dmi.py`.

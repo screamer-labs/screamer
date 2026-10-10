@@ -8,9 +8,10 @@ tags:
 - residual
 - spread
 - std
+- spread volatility
 - pair
 - pairs-trading
-short: Standard deviation of the rolling-hedge-adjusted residual y - beta*x.
+short: Standard deviation of the rolling hedge-adjusted residual y - beta * x.
 inputs: 2
 outputs: 1
 parameters:
@@ -18,7 +19,8 @@ parameters:
   type: int
   default: 20
   min: 2
-  description: Trailing-window length.
+  description: Number of most recent (y, x) pairs used for both the hedge ratio and the standard
+    deviation.
 - name: start_policy
   type: str
   default: strict
@@ -26,29 +28,33 @@ parameters:
   - strict
   - expanding
   - zero
-  description: Warmup behaviour.
+  description: 'Output before the window is full: "strict" gives NaN, "expanding" computes
+    from the samples seen so far, and "zero" treats the window as pre-filled with zeros.'
 nan_policy: ignore
+see_also:
+- RollingSpread
+- RollingBeta
+- RollingZscore
+- EwResidualStd
 ---
 
 # `RollingResidualStd`
 
 ## Description
 
-Standard deviation of the per-bar hedge-adjusted spread `y − β·x` over the trailing window
-(sample std, ddof=1):
+`RollingResidualStd` is the sample standard deviation (ddof=1) of the hedge-adjusted spread `y − β·x` over the trailing window. It takes two inputs, `(y, x)`, in the same order as [`RollingSpread`](RollingSpread.md):
 
 $$
 \sigma_\text{spread}[t] = \text{RollingStd}\big(\text{RollingSpread}(y, x)\big)[t]
 $$
 
-Composes `RollingSpread` + `RollingStd`. O(1) per step. NaN-poisoning during
-`RollingSpread`'s own warmup is gated explicitly so the std accumulator stays clean.
+Each step costs O(1). The spread is `NaN` during its own warmup, so the standard deviation starts accumulating once the spread is defined. Divide the spread by this value to get a pairs z-score.
 
 
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples

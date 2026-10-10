@@ -11,7 +11,11 @@ tags:
 - financing
 - borrow
 - perpetual
-short: "Charge perpetual funding, borrow, or financing on the position of any backtest engine's output."
+- simulation
+- pnl
+- equity curve
+short: Charge perpetual funding, borrow, or financing on the position of any backtest engine's
+  output.
 inputs: 6
 outputs: 4
 parameters:
@@ -25,6 +29,11 @@ see_also:
 - BacktestPriceTarget
 - BacktestOHLCTarget
 - backtest_report
+output_names:
+- equity
+- pnl
+- position
+- cost
 ---
 
 # `BacktestCarry`
@@ -49,8 +58,15 @@ carry moved from pnl into cost: `equity` minus the cumulative carry,
 The rate is per step. For funding paid every eight hours on hourly bars, pass
 the funding rate on the funding hours and 0 elsewhere; for an annual borrow fee,
 divide it by the number of steps per year. A `NaN` in any input, the rate
-included, skips the row (`nan_policy: ignore`), so pass 0 on steps without
+included, skips the row, so pass 0 on steps without
 carry.
+
+
+<!-- NAN_FOOTNOTE_START -->
+## NaN handling
+
+**Policy: `ignore`.** A `NaN` input never corrupts the engine's state. What a `NaN` target, price or quote does on this engine is stated in the Description. See [NaN and warmup](../nan_and_warmup.md).
+<!-- NAN_FOOTNOTE_END -->
 
 ## Examples
 

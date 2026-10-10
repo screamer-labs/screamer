@@ -10,6 +10,8 @@ tags:
 - min
 - max
 - rolling
+- high-low range
+- rolling range
 short: Trailing-window max minus min.
 inputs: 1
 outputs: 1
@@ -18,22 +20,25 @@ parameters:
   type: int
   default: 20
   min: 2
-  description: Trailing-window length.
+  description: Number of most recent samples in the window.
 nan_policy: ignore
+see_also:
+- RollingMinMax
+- DonchianChannels
+- TrueRange
+- RollingStd
 ---
 
 # `RollingRange`
 
 ## Description
 
-`RollingRange` returns the rolling range, i.e. `max − min` over the trailing window. Common in volatility heuristics, breakout detection, and as the bandwidth of channel-style indicators (Donchian, etc.).
-
-*Parameters*: `window_size` (int, positive).
+`RollingRange` returns the rolling range, `max - min` over the trailing window. It is used in volatility heuristics, breakout detection, and as the width of channel indicators such as Donchian channels.
 
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples
@@ -74,15 +79,13 @@ nan_policy: ignore
 
 ### Algorithm
 
-`RollingRange` holds a `detail::MinDeque` and a `detail::MaxDeque` -- the same primitive used by `RollingMin`, `RollingMax`, and `RollingMinMax`. On each step both deques are updated and the difference between their fronts is returned.
-
-This is *deliberately the same algorithm* as `RollingMinMax` followed by a subtract; the only thing the dedicated class saves is the tuple-allocation of the 1->2 dispatcher per step, which is a constant-factor win at best. Memory and compute order are identical to `RollingMinMax`.
+`RollingRange` keeps one monotonic deque for the minimum and one for the maximum, as `RollingMin`, `RollingMax` and `RollingMinMax` do. On each step both deques are updated and the difference between their fronts is returned. This is the same algorithm as `RollingMinMax` followed by a subtraction, with one output column instead of two.
 
 ### Complexity
 
-* Time complexity: `O(1)` amortised per step.
+* Time complexity: `O(1)` amortized per step.
 * Space complexity: `O(window_size)` (two deques, each bounded by the window).
 
-## Reference
+## Validation
 
 `RollingMax(w)(x) - RollingMin(w)(x)` and `pandas.Series.rolling(w).max() - pandas.Series.rolling(w).min()` are both algorithmically equivalent (post-warmup, to floating-point precision).

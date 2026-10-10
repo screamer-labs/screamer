@@ -10,6 +10,8 @@ tags:
 - ema
 - mulloy
 - moving-average
+- triple exponential moving average
+- moving average
 short: 'Mulloy''s Triple EMA: 3*EMA - 3*EMA(EMA) + EMA(EMA(EMA)).'
 inputs: 1
 outputs: 1
@@ -17,43 +19,53 @@ parameters:
 - name: com
   type: float
   default: null
-  description: Center of mass. Exclusive with span/halflife/alpha.
+  description: Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly
+    one of com, span, halflife and alpha.
 - name: span
   type: float
   default: 20.0
-  description: Span (default smoothing parameter).
+  description: Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give
+    exactly one of com, span, halflife and alpha. The default shown is an example value; the
+    constructor has no default.
 - name: halflife
   type: float
   default: null
-  description: Halflife.
+  description: Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive.
+    Give exactly one of com, span, halflife and alpha.
 - name: alpha
   type: float
   default: null
-  description: Smoothing parameter.
+  description: Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more
+    weight. Give exactly one of com, span, halflife and alpha.
 nan_policy: ignore
+see_also:
+- DEMA
+- EwMean
+- TRIX
+- HullMA
+- KAMA
+references:
+- Mulloy, P. G. (1994). Smoothing data with less lag. *Technical Analysis of Stocks & Commodities*,
+  12(2).
 ---
 
 # `TEMA`
 
 ## Description
 
-`TEMA` (Triple Exponential Moving Average, Patrick Mulloy 1994) extends the `DEMA` construction by one more level:
+`TEMA` (triple exponential moving average, Patrick Mulloy, 1994) extends the `DEMA` construction by one more level:
 
 $$
 \text{TEMA}[t] = 3 \cdot \text{EMA}(x)[t] - 3 \cdot \text{EMA}(\text{EMA}(x))[t] + \text{EMA}(\text{EMA}(\text{EMA}(x)))[t]
 $$
 
-The three-term combination further reduces lag: `TEMA` typically tracks faster than `DEMA` and much faster than a plain EMA of the same span, in exchange for slightly less smoothing.
-
-## Parameters
-
-Same `com / span / halflife / alpha` mutex as `EwMean` -- specify exactly one. The same value is used for all three internal EMAs.
+The three-term combination reduces lag further: `TEMA` typically tracks the input faster than `DEMA`, and much faster than a plain EMA of the same span, at the cost of less smoothing. The decay parameter (exactly one of `com`, `span`, `halflife` or `alpha`, as in `EwMean`) is shared by all three EMAs.
 
 ## Implementation Details
 
 ### Algorithm
 
-Pure composition of three chained `EwMean` instances. No explicit warmup: each `EwMean` returns a valid value from t=0, so `TEMA[0] = 3*x[0] - 3*x[0] + x[0] = x[0]`.
+`TEMA` chains three `EwMean` stages. It has no warmup: each `EwMean` returns a valid value from t=0, so `TEMA[0] = 3*x[0] - 3*x[0] + x[0] = x[0]`.
 
 ### Complexity
 
@@ -64,7 +76,7 @@ Pure composition of three chained `EwMean` instances. No explicit warmup: each `
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples
@@ -97,6 +109,6 @@ Pure composition of three chained `EwMean` instances. No explicit warmup: each `
 
 <!-- HELP_END -->
 
-## Reference
+## Compatibility
 
 Equivalent to TA-Lib's `TEMA`. Validated in `tests/test_moving_averages.py` against the explicit composition for four span values.

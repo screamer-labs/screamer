@@ -1,6 +1,6 @@
 ---
 name: RollingLinearRegression
-title: Rolling linear regression (2->4 OLS fit)
+title: Rolling linear regression
 implementation_family: fin
 topics:
 - trend
@@ -9,16 +9,20 @@ tags:
 - regression
 - ols
 - linear-regression
+- least squares
+- r-squared
 - pair
-short: Full OLS fit returning (slope, intercept, r_squared, stderr).
+short: Rolling OLS fit of y on x, returning slope, intercept, R-squared and the standard error
+  of the fit.
 inputs: 2
 outputs: 4
 parameters:
 - name: window_size
   type: int
   default: 20
-  min: 2
-  description: Trailing-window length.
+  min: 3
+  description: Number of most recent (y, x) pairs in the regression window. Must be at least
+    3, because the standard error divides by n - 2.
 - name: start_policy
   type: str
   default: strict
@@ -26,36 +30,42 @@ parameters:
   - strict
   - expanding
   - zero
-  description: Warmup behaviour.
+  description: 'Output before the window is full: "strict" gives NaN, "expanding" computes
+    from the samples seen so far, and "zero" treats the window as pre-filled with zeros.'
 nan_policy: ignore
+output_names:
+- slope
+- intercept
+- r_squared
+- stderr
+see_also:
+- RollingBeta
+- RollingAlpha
+- RollingPoly1
+- RollingTSF
+- KalmanRegression
 ---
 
 # `RollingLinearRegression`
 
 ## Description
 
-Rolling OLS fit of `y ≈ slope · x + intercept + ε`, returning four outputs per step:
+`RollingLinearRegression` fits `y ≈ slope · x + intercept + ε` by ordinary least squares over a trailing window. It takes two inputs, `(y, x)`, and returns four columns per step:
 
 | Output | Formula |
 |---|---|
 | `slope` | $(n S_{xy} - S_x S_y) / (n S_{xx} - S_x^2)$ |
 | `intercept` | $(S_y - \text{slope} \cdot S_x) / n$ |
 | `r_squared` | $(n S_{xy} - S_x S_y)^2 / [(n S_{xx} - S_x^2)(n S_{yy} - S_y^2)]$ |
-| `stderr` | $\sqrt{\text{SSE} / (n-2)}$ - RMSE of residuals |
+| `stderr` | $\sqrt{\text{SSE} / (n-2)}$, the residual standard error |
 
-**Note on `stderr`**: this is the standard error of the *estimate* (RMSE of the fit), not
-the standard error of the *slope coefficient*. Multiply by `1/sqrt(Σ(x - mean_x)²)` to get
-slope confidence.
-
-**2-input, 4-output** (`FunctorBase<_, 2, 4>`). Inputs `(y, x)`; outputs
-`(slope, intercept, r_squared, stderr)`. First valid output at sample index
-`window_size - 1`. First 2→4 consumer of the Plan E `N→M` dispatcher.
+Here `n` is the number of samples in the window and `S` denotes window sums. `stderr` is the standard error of the *estimate*, not the standard error of the *slope coefficient*; multiply it by `1/sqrt(Σ(x - mean_x)²)` to get the latter. With the default `start_policy="strict"` the first valid output is at index `window_size - 1`. All four outputs are `NaN` when `x` is constant in the window, and `r_squared` is `NaN` when `y` is constant.
 
 
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples

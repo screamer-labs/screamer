@@ -6,6 +6,7 @@ topics:
 - regression
 tags:
 - correlation
+- rolling correlation
 - pearson
 - pair
 short: Rolling Pearson correlation of two parallel streams.
@@ -16,7 +17,7 @@ parameters:
   type: int
   default: 20
   min: 2
-  description: Window length.
+  description: Number of most recent (x, y) pairs in the window.
 - name: start_policy
   type: str
   default: strict
@@ -24,8 +25,14 @@ parameters:
   - strict
   - expanding
   - zero
-  description: Warmup behaviour.
+  description: 'Output before the window is full: "strict" gives NaN, "expanding" computes
+    from the samples seen so far, and "zero" treats the window as pre-filled with zeros.'
 nan_policy: ignore
+see_also:
+- RollingCov
+- RollingBeta
+- EwCorr
+- RollingSpread
 ---
 
 # `RollingCorr`
@@ -43,20 +50,15 @@ $$
 
 with the sums taken over the most recent `window_size` samples and `n = window_size`.
 
-*Parameters*:
+`RollingCorr` takes two parallel streams. Each call accepts two scalars, two 1-D arrays, two 2-D arrays paired column by column, two N-D arrays, two iterators, or one list of `(x, y)` pairs; the [polymorphic API](../polymorphic_api.md) page has the full table.
 
-- **`window_size`** (`int`, ≥ 2): size of the rolling window.
-- **`start_policy`** (`str`, default `"strict"`): controls warmup behavior. See `RollingMean` for the full definition; `"strict"` returns `NaN` until the window is full, `"expanding"` computes with available samples (≥ 2 needed for correlation), `"zero"` pre-fills the window with zeros.
-
-*Input shape*: takes **two** parallel streams. Each call accepts two scalars, two 1-D arrays, two 2-D arrays paired column-by-column, two N-D arrays, two iterators, or one list of `(x, y)` pairs. See the [polymorphic API spec](../polymorphic_api.md) for the full table.
-
-*Return value*: a number in `[-1, 1]`. Returns `NaN` during warmup or when either stream is constant within the window (zero variance).
+The output is a number in `[-1, 1]`. It is `NaN` during warmup and when either stream is constant within the window (zero variance). With `start_policy="expanding"` the first output is `NaN`, because a correlation needs at least two samples.
 
 
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples
@@ -106,19 +108,13 @@ with the sums taken over the most recent `window_size` samples and `n = window_s
 
 ### Algorithm
 
-Five `detail::RollingSum` buffers maintain `Σx`, `Σy`, `Σxx`, `Σyy` and `Σxy` over the window. Each new sample updates all five sums in `O(1)`, then the correlation is computed from the closed-form expression above.
+Five running window sums maintain `Σx`, `Σy`, `Σxx`, `Σyy` and `Σxy` over the window. Each new sample updates all five sums in `O(1)`, then the correlation is computed from the closed-form expression above.
 
 ### Complexity
 
 * **Time**: `O(1)` per new element.
-* **Space**: `O(window_size)` (five circular buffers of length `window_size`).
+* **Space**: `O(window_size)`.
 
-### Edge cases
-
-* Returns `NaN` until at least 2 samples have arrived.
-* Under `"strict"` policy, returns `NaN` until the window is full.
-* If either stream is constant within the window, the denominator is zero and the result is `NaN`.
-
-### Reference
+### pandas compatibility
 
 Matches `pd.Series(x).rolling(w).corr(pd.Series(y))` to floating-point tolerance. Verified in `tests/test_rolling_corr.py`.

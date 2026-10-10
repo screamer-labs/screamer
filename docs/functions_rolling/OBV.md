@@ -10,11 +10,18 @@ tags:
 - granville
 - talib
 - pair
-short: 'On-Balance Volume: signed cumulative volume by close-direction (Granville,
-  1963).'
+- on balance volume
+short: 'On-Balance Volume: signed cumulative volume by close-direction (Granville, 1963).'
 inputs: 2
 outputs: 1
 parameters: []
+see_also:
+- AD
+- ADOSC
+- SignedVolume
+- MFI
+references:
+- Granville, J. E. (1963). *Granville's New Key to Stock Market Profits*. Prentice-Hall.
 nan_policy: ignore
 ---
 
@@ -22,22 +29,21 @@ nan_policy: ignore
 
 ## Description
 
-On-Balance Volume (Granville, 1963):
+`OBV` is On-Balance Volume (Granville, 1963), a running sum of volume signed by the
+direction of the close:
 
 $$
 \text{OBV}[t] = \text{OBV}[t-1] + \text{sign}(C - C_{t-1})\ \cdot\ V[t]
 $$
 
-with seed `OBV[0] = volume[0]` (TA-Lib's convention). **2-input, 1-output** on
-`(close, volume)`. Cumulative; no window.
-
-Bit-exact to `talib.OBV` (0.0 difference).
-
+The seed is `OBV[0] = volume[0]`, following TA-Lib. Inputs are `(close, volume)`. The
+line is cumulative from the first sample, with no window, and matches `talib.OBV`
+exactly.
 
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples

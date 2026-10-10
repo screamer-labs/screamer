@@ -1,9 +1,9 @@
 # Screamer
 
-Screamingly fast rolling statistics, technical indicators, and signal filters for
-time series. One C++ core, two languages: a simple Python API and a
-JavaScript/WebAssembly build, producing identical results on batch arrays and
-live streams.
+A fast C++ library for researching and trading time series: rolling statistics,
+technical indicators, filters, order-flow measures, costed backtests of single
+assets, portfolios, and pairs, and significance tests. One C++ core, two
+languages: a Python API and a JavaScript/WebAssembly build.
 
 [![License](https://img.shields.io/pypi/l/screamer?color=#28A745)](https://github.com/screamer-labs/screamer/blob/main/LICENSE)
 ![Python Versions](https://img.shields.io/pypi/pyversions/screamer)
@@ -12,21 +12,28 @@ live streams.
 [![PyPI](https://img.shields.io/pypi/v/screamer)](https://pypi.org/project/screamer/)
 [![npm](https://img.shields.io/npm/v/@screamer-labs/screamer)](https://www.npmjs.com/package/@screamer-labs/screamer)
 
-Screamer runs in Python and in JavaScript. Both bind the same C++ engine, so a
-computation in one language matches the other to the last bit.
+Screamer runs in Python and in JavaScript. Both bind the same C++ engine, so
+results agree to within floating-point rounding, and seeded randomization gives
+identical draws in both.
 
 ## Why screamer
 
 - **Fast.** Every operator is implemented in C++ and routinely outruns equivalent
   NumPy and pandas code, often by a factor of two or more.
 - **One API, batch or streaming.** The same operator runs on a stored array or a
-  live, event-driven stream and produces identical results, so code tested on
-  historical data deploys to production unchanged.
+  live, event-driven stream, so code tested on historical data deploys to
+  production unchanged.
 - **Causal by construction.** Output depends only on current and past inputs, never
   future ones, which eliminates look-ahead bias.
-- **Batteries included.** 200+ rolling and exponentially-weighted statistics,
-  technical indicators (MACD, RSI, Bollinger Bands, ATR, and more), OHLC volatility
-  estimators, signal filters, plus stream operators and composable pipelines.
+- **Broad coverage.** 250+ operators: rolling and exponentially weighted
+  statistics, technical indicators (MACD, RSI, Bollinger Bands, ATR, and more),
+  OHLC volatility estimators, signal filters, market microstructure, stream
+  operators, and composable pipelines.
+- **Backtesting and validation.** Costed backtests on prices, bars, trades, or
+  quotes, with slippage, fill timing, stops, and funding; portfolios of many
+  assets from one account; pairs and cross-sectional tools; and randomization
+  tests, the deflated Sharpe ratio, and walk-forward evaluation to tell skill
+  from luck.
 - **Python and JavaScript.** The same operators and the same pipeline model in both
   ecosystems, from one C++ source.
 
@@ -42,8 +49,8 @@ The wheel is self-contained (a single abi3 wheel per platform, no build step and
 runtime dependencies). For development setup and the example notebooks see the
 [Installation](https://screamer.readthedocs.io/en/latest/installation.html) page.
 
-Fit a line to each sliding window of 50 values, take the slope, then its sign to get
-the trend direction:
+Fit a quadratic to each sliding window of 50 values, take its slope at the latest
+value, then the sign of the slope to get the trend direction:
 
 ```python
 import numpy as np
@@ -95,8 +102,10 @@ p(data);                                    // bind data at call time; p.live() 
 
 ## Documentation
 
-- **Python:** the full reference grouped by topic and runnable notebooks live at
-  [screamer.readthedocs.io](https://screamer.readthedocs.io/en/latest/).
+- **Start here:** [Your first strategy](https://screamer.readthedocs.io/en/latest/recipes/first-strategy.html)
+  goes from price data to a costed backtest and a p-value in one page.
+- **Python:** guides, recipes, runnable notebooks, and the full reference grouped
+  by topic live at [screamer.readthedocs.io](https://screamer.readthedocs.io/en/latest/).
 - **JavaScript:** see [`js/README.md`](js/README.md) for install and the API. JavaScript
   API reference and guide: [screamer-labs.github.io/screamer](https://screamer-labs.github.io/screamer/).
 

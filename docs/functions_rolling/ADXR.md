@@ -11,6 +11,8 @@ tags:
 - directional-movement
 - talib
 - hlc
+- average directional index rating
+- trend strength
 short: Wilder's ADXR, the mean of ADX now and ADX one window ago.
 inputs: 3
 outputs: 1
@@ -19,7 +21,16 @@ parameters:
   type: int
   default: 14
   min: 2
-  description: Wilder smoothing period.
+  description: 'Wilder smoothing period: the smoother seeds on the first window_size values,
+    then each step keeps (window_size - 1) / window_size of the previous value. It is also
+    the lag between the two ADX values that are averaged (window_size - 1 samples).'
+see_also:
+- ADX
+- DX
+- PlusDI
+- MinusDI
+references:
+- Wilder, J. W. (1978). *New Concepts in Technical Trading Systems*. Trend Research.
 nan_policy: ignore
 ---
 
@@ -27,29 +38,24 @@ nan_policy: ignore
 
 ## Description
 
-`ADXR` is Wilder's average directional index rating (Wilder, 1978), the mean
-of the current `ADX` and the `ADX` value `window_size - 1` bars earlier:
+`ADXR` is Wilder's average directional index rating (Wilder, 1978), the mean of the
+current `ADX` and the `ADX` value `window_size - 1` samples earlier:
 
 $$
 \text{ADXR}[t] = \frac{\text{ADX}[t] + \text{ADX}[t - (\text{window\_size} - 1)]}{2}
 $$
 
-**3-input, 1-output** (`FunctorBase<_, 3, 1>`) on `(high, low, close)`. `ADXR`
-shares its smoothing engine with `ADX`, `PlusDI`, `MinusDI`, and `DX`. Averaging
-`ADX` against its own value one window back damps the swings of `ADX` itself,
-giving a slower read on whether trend strength is rising or falling.
+Inputs are `(high, low, close)`. `ADXR` uses the same smoothing as [`ADX`](ADX.md).
+Averaging `ADX` with its own value one window back damps the swings of `ADX`, giving a
+slower read on whether trend strength is rising or falling.
 
-### Parameters
-
-**`window_size`** *(int, default 14)*: The Wilder smoothing period, also the
-lag used for the second `ADX` term. Because `ADX` itself is only valid from
-sample `2 * window_size - 1` onward, the first valid `ADXR` output is at
-sample `3 * window_size - 2`.
+`ADX` is valid from sample `2 * window_size - 1`, so the first valid `ADXR` output is
+at sample `3 * window_size - 2`.
 
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples
@@ -91,6 +97,6 @@ sample `3 * window_size - 2`.
 
 <!-- HELP_END -->
 
-## Reference
+## Validation
 
 Matches `talib.ADXR` on the finite overlap; see `tests/test_dmi.py`.

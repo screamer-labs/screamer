@@ -11,6 +11,9 @@ tags:
 - hampel
 - robust
 - rolling
+- outlier filter
+- hampel identifier
+- spike removal
 short: Robust Hampel despiker, replace samples far from the window median (in MAD units).
 inputs: 1
 outputs: 1
@@ -19,12 +22,13 @@ parameters:
   type: int
   default: 20
   min: 1
-  description: Trailing-window length.
+  description: Number of most recent samples used for the median and the MAD.
 - name: n_sigma
   type: float
   default: 3.0
   min: 0
-  description: Threshold in robust standard deviations (1.4826 * MAD).
+  description: Detection threshold in robust standard deviations (1.4826 * MAD). Larger values
+    flag fewer samples; 3.0 is typical.
 - name: output
   type: str
   default: cleaned
@@ -32,11 +36,26 @@ parameters:
   - cleaned
   - flag
   - nan
-  description: '"cleaned" replaces outliers with the median, "flag" emits 1.0 at outliers (else 0.0), "nan" replaces outliers with NaN.'
+  description: 'What to return: "cleaned" gives the signal with outliers replaced by the median,
+    "flag" gives 1.0 at outliers and 0.0 elsewhere, and "nan" gives the input with outliers
+    replaced by NaN.'
 - name: start_policy
   type: str
   default: strict
-  description: Warmup handling before the window is full (strict, expanding, or zero).
+  description: 'Output before the window is full: "strict" gives NaN, "expanding" computes
+    from the samples seen so far, and "zero" treats the window as pre-filled with zeros.'
+  enum:
+  - strict
+  - expanding
+  - zero
+see_also:
+- ImpulseClip
+- RollingMedian
+- RollingMedianAD
+- RollingSigmaClip
+references:
+- Hampel, F. R. (1974). The influence curve and its role in robust estimation. *Journal of
+  the American Statistical Association*, 69(346), 383-393. doi:10.1080/01621459.1974.10482962
 nan_policy: ignore
 ---
 
@@ -44,42 +63,27 @@ nan_policy: ignore
 
 ## Description
 
-`Hampel` is the canonical robust despiker (the **Hampel filter** or Hampel
-identifier), in its causal trailing-window form. Over the trailing window it computes
-the median `m` and the median absolute deviation `MAD`, and flags a sample as an
-outlier when
+`Hampel` is the Hampel filter (also called the Hampel identifier), a robust despiker,
+in its causal trailing-window form. Over the trailing window it computes the median
+`m` and the median absolute deviation `MAD`, and flags a sample as an outlier when
 
 $$ \bigl| x_t - m_t \bigr| > \texttt{n\_sigma} \times 1.4826 \times \text{MAD}_t $$
 
-(the factor `1.4826` makes the MAD a Gaussian-consistent standard-deviation estimate).
-Because it uses the median and MAD rather than the mean and standard deviation, a few
-spikes cannot drag the centre or inflate the scale. A flagged sample is replaced by
-the window median, and the replacement, not the raw outlier, is fed back into the
-window so a burst of spikes cannot pollute later scale estimates.
+The factor `1.4826` makes the MAD a consistent estimate of the standard deviation for
+Gaussian data. Because the filter uses the median and MAD rather than the mean and
+standard deviation, a few spikes cannot drag the center or inflate the scale. A
+flagged sample is replaced by the window median, and the replacement, not the raw
+outlier, is fed back into the window, so a burst of spikes does not pollute later
+scale estimates.
 
-It is strictly causal (trailing window only). For strongly non-stationary signals see [`ImpulseClip`](ImpulseClip.md),
-which detects on the trend-free first difference.
-
-*Parameters*:
-- **`window_size`**: *(int)* Trailing-window length. Must be positive.
-- **`n_sigma`**: *(float)* Detection threshold in robust standard deviations. Larger
-  values flag fewer samples. Typical value `3.0`.
-- **`output`**: *(str)* What to return:
-  - `"cleaned"` (default): the cleaned signal, outliers replaced by the median.
-  - `"flag"`: an outlier flag, `1.0` where a sample is flagged, else `0.0`.
-  - `"nan"`: the input with flagged samples replaced by `NaN`.
-- **`start_policy`**: Warmup handling before `window_size` samples are available
-  (`"strict"`, `"expanding"`, or `"zero"`).
-
-A degenerate note: when the window is exactly constant the MAD is zero, so no sample is
-flagged (there is no scale to measure against).
+When the window is constant the MAD is zero, so no sample is flagged (there is no
+scale to measure against). For strongly non-stationary signals see
+[`ImpulseClip`](ImpulseClip.md), which detects on the trend-free first difference.
 
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip
-that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite
-samples are processed as if step `t` had not occurred.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples
@@ -117,7 +121,7 @@ samples are processed as if step `t` had not occurred.
 
 ## Implementation Details
 
-O(W) per step: each step copies the trailing window, computes the median and the
+`O(W)` per step: each step copies the trailing window, computes the median and the
 median absolute deviation with `std::nth_element`, and applies the threshold. Detected
 outliers are written back into the window as the median so they do not bias later
-medians. Strictly causal.
+medians.

@@ -9,27 +9,43 @@ tags:
 - range-based
 - ohlc
 - vol
+- volatility
+- realized volatility
 - ew
-short: Vol form of the Garman-Klass range-based volatility estimator (OHLC).
+short: Exponentially weighted Garman-Klass range-based volatility estimator (OHLC).
 inputs: 4
 outputs: 1
 parameters:
 - name: com
   type: float
   default: null
-  description: Center of mass.
+  description: Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly
+    one of com, span, halflife and alpha.
 - name: span
   type: float
   default: 20.0
-  description: Span.
+  description: Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give
+    exactly one of com, span, halflife and alpha. The default shown is an example value; the
+    constructor has no default.
 - name: halflife
   type: float
   default: null
-  description: Halflife.
+  description: Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive.
+    Give exactly one of com, span, halflife and alpha.
 - name: alpha
   type: float
   default: null
-  description: Smoothing parameter directly.
+  description: Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more
+    weight. Give exactly one of com, span, halflife and alpha.
+see_also:
+- EwGarmanKlassVar
+- RollingGarmanKlassVol
+- EwParkinsonVol
+- EwRogersSatchellVol
+- EwYangZhangVol
+references:
+- Garman, M. B. and Klass, M. J. (1980). On the estimation of security price volatilities
+  from historical data. *Journal of Business*, 53(1), 67-78. doi:10.1086/296072
 nan_policy: ignore
 ---
 
@@ -37,25 +53,20 @@ nan_policy: ignore
 
 ## Description
 
-`EwGarmanKlassVol` returns the square root of the Garman-Klass (1980) range-based variance
-estimate: `sqrt(EwGarmanKlassVar)`. The per-bar variance contribution is:
+`EwGarmanKlassVol` is the square root of [`EwGarmanKlassVar`](EwGarmanKlassVar.md), the exponentially weighted Garman-Klass (1980) range-based variance estimate. It takes four inputs, `(open, high, low, close)`. The per-bar variance contribution is
 
 $$
 \sigma^2_\text{GK}[t] = \tfrac{1}{2}\big(\ln H/L\big)^2 - (2\ln 2 - 1)\big(\ln C/O\big)^2
 $$
 
-This expression is averaged with an exponentially-weighted mean to form the estimator, and the
-square root is taken to produce a volatility in the same units as the log-price process.
+and the output is the square root of its exponentially weighted mean, a volatility in units of log price per bar. The smoothing factor `alpha` is set by exactly one of `com`, `span`, `halflife` or `alpha`.
 
-**4-input, 1-output** on `(open, high, low, close)`. ~7.4x more statistically efficient
-than close-to-close `RollingVar` *under the model's assumptions* (zero drift, no overnight
-gaps).
-
+Under zero drift and no overnight gaps, the variance estimator is about 7.4 times as efficient as the close-to-close estimator (Garman and Klass 1980). For data with overnight gaps or drift, use [`EwYangZhangVol`](EwYangZhangVol.md) instead.
 
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples

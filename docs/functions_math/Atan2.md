@@ -9,11 +9,17 @@ tags:
 - atan2
 - polar
 - pair
+- arctan2
+- angle
 short: Signed angle of (x, y) from the positive x-axis (numpy.arctan2 order).
 inputs: 2
 outputs: 1
 parameters: []
 nan_policy: ignore
+see_also:
+- Atan
+- Hypot
+- Cart2Polar
 ---
 
 # `Atan2`
@@ -22,9 +28,9 @@ nan_policy: ignore
 
 Two-argument inverse tangent: the signed angle of the point `(x, y)` from the positive x-axis, in the range $(-\pi, \pi]$. The argument order matches `numpy.arctan2`: **`y` first, `x` second**.
 
-This is a **2-input, 1-output** function (`FunctorBase<_, 2, 1>`). Inputs are paired column-by-column for arrays.
+It takes two inputs and returns one output. For 2D arrays the inputs are paired column by column.
 
-Unlike `Atan`, `Atan2` returns the *correct quadrant* because it sees both `x` and `y` separately. `Atan(y / x)` collapses two cases that `Atan2(y, x)` keeps distinct.
+`Atan2` resolves the quadrant because it sees the signs of `x` and `y` separately. `Atan(y / x)` gives the same value for `(x, y)` and `(-x, -y)`, which `Atan2(y, x)` keeps distinct.
 
 *Equation*:
 
@@ -32,15 +38,10 @@ $$
 \theta[t] = \operatorname{atan2}(y[t], x[t])
 $$
 
-*Parameters*: `Atan2` takes no parameters.
-
-*NaN handling*: A NaN in either input produces a NaN output.
-
-
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples

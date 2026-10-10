@@ -9,8 +9,11 @@ tags:
 - sigma-clip
 - anomaly
 - rolling
-short: Replace samples outside [mean - lower*std, mean + upper*std] with NaN or the
-  clipped bound.
+- clipping
+- winsorize
+- outlier removal
+short: Clip samples that lie beyond lower or upper standard deviations from the rolling mean,
+  or replace them with NaN.
 inputs: 1
 outputs: 1
 parameters:
@@ -18,15 +21,17 @@ parameters:
   type: int
   default: 20
   min: 2
-  description: Trailing-window length.
+  description: Number of most recent samples in the window.
 - name: lower
   type: float|null
   default: null
-  description: Lower sigma threshold (None disables lower clipping).
+  description: Lower clipping threshold in standard deviations from the rolling mean (for
+    example -3). None disables lower clipping.
 - name: upper
   type: float|null
   default: null
-  description: Upper sigma threshold (None disables upper clipping).
+  description: Upper clipping threshold in standard deviations from the rolling mean (for
+    example 3). None disables upper clipping.
 - name: output
   type: str
   default: clipped
@@ -35,7 +40,9 @@ parameters:
   - mean
   - std
   - nan
-  description: 'Which value to return: "clipped" = clipped value, "mean" = rolling mean estimate, "std" = rolling std estimate, "nan" = outliers replaced by NaN.'
+  description: 'Which value to return: "clipped" gives the input with outliers clipped to
+    the bound, "mean" the rolling mean estimate, "std" the rolling standard deviation estimate,
+    and "nan" the input with outliers replaced by NaN.'
 - name: start_policy
   type: str
   default: strict
@@ -43,39 +50,27 @@ parameters:
   - strict
   - expanding
   - zero
-  description: Warmup behaviour.
+  description: 'Output before the window is full: "strict" gives NaN, "expanding" computes
+    from the samples seen so far, and "zero" treats the window as pre-filled with zeros.'
 nan_policy: ignore
+see_also:
+- Clip
+- Hampel
+- ImpulseClip
+- RollingZscore
 ---
 
 # `RollingSigmaClip`
 
 ## Description
 
-The `RollingSigmaClip` class performs rolling statistical clipping on a data sequence. It computes the rolling mean and standard deviation within a specified window and clips data points that fall outside dynamically calculated bounds based on z-scores. Specifically, it replaces values that exceed the bounds with the boundary values and excludes these clipped values from subsequent mean and standard deviation calculations. This method is useful for smoothing data, removing outliers, and preparing data for further analysis, especially when dealing with censored data from a truncated normal distribution.
-
-*Parameters*:
-- **`window_size`**: *(int)*  
-  The size of the moving window over which the rolling statistics are computed. Must be a positive integer.
-- **`lower`**: *(optional, float)*  
-  The lower z-score threshold for clipping. Data points with z-scores below this threshold are set to the lower bound. If unspecified, there is no lower clipping based on z-score.
-- **`upper`**: *(optional, float)*  
-  The upper z-score threshold for clipping. Data points with z-scores above this threshold are set to the upper bound. If unspecified, there is no upper clipping based on z-score.
-- **`output`**: *(str, default `"clipped"`)*  
-  Determines the type of output returned by the function:
-  - `"clipped"`: Returns the clipped data sequence.
-  - `"mean"`: Returns the rolling mean estimate.
-  - `"std"`: Returns the rolling standard deviation estimate.
-  - `"nan"`: Returns the original data with outliers replaced by `NaN`.
-- **`start_policy`**: Defines how the function handles the initial phase when fewer than `window_size` data points are available. This parameter accepts one of the following three values:
-  - `"strict"`: Returns `NaN` for all calculations until `window_size` elements have been processed.
-  - `"expanding"`: Adapts the computation by dynamically reducing the window size to include all available data, starting from a single point and growing until `window_size` is reached.
-  - `"zero"`: Simulates a full initial window of zeros, effectively pre-filling the data stream with `window_size` zeros before processing the actual input.
+`RollingSigmaClip` clips outliers against a rolling mean and standard deviation. Each new value is compared with the bounds `mean + lower * std` and `mean + upper * std`; a value outside them is replaced by the bound it crossed (or by `NaN` with `output="nan"`). Clipped values are left out of the window, so they do not inflate later estimates. Because the window then holds only values inside the bounds, its mean and standard deviation are corrected for truncation, assuming the data is normally distributed (see Implementation Details).
 
 
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples

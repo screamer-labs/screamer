@@ -2,7 +2,19 @@
 name: choosing_a_backtest_engine
 title: Choosing a backtest engine
 kind: guide
-short: The engine grid by data model and order definition, with fill rules, sizing, volume limits, and encoding.
+short: The engine grid by data model and order definition, with fill rules, sizing, volume
+  limits, and encoding.
+tags:
+- backtest
+- engine
+- fills
+- slippage
+- order types
+see_also:
+- BacktestPriceTarget
+- BacktestOHLCTarget
+- BacktestL1Target
+- BacktestPortfolioTarget
 topics:
 - backtesting
 ---

@@ -7,6 +7,9 @@ topics:
 tags:
 - diff
 - second-derivative
+- second difference
+- second derivative
+- acceleration
 short: Second-order finite difference (discrete second derivative).
 inputs: 1
 outputs: 1
@@ -18,16 +21,20 @@ parameters:
   - strict
   - expanding
   - zero
-  description: 'Warmup behaviour: ''strict'' (NaN until full window), ''expanding''
-    (use partial windows), or ''zero'' (treat missing as zero).'
+  description: 'Output before the window is full: "strict" gives NaN, "expanding" computes
+    from the samples seen so far, and "zero" treats the window as pre-filled with zeros.'
 nan_policy: propagate
+see_also:
+- Diff
+- Momentum
+- FracDiff
 ---
 
 # `Diff2`
 
 ## Description
 
-The `Diff2` function computes the *second-order* finite difference of the input - the discrete analogue of a second derivative. It is the result of applying a one-step difference twice.
+The `Diff2` function computes the *second-order* finite difference of the input, the discrete analogue of a second derivative. It is the result of applying a one-step difference twice.
 
 *Equation*:
 
@@ -35,13 +42,7 @@ $$
 y[t] = x[t] - 2 \, x[t-1] + x[t-2]
 $$
 
-equivalent to $\Delta(\Delta x)$.
-
-*Parameters*:
-
-- `start_policy` (str, optional): warmup behaviour, `"strict"` (default), `"expanding"`, or `"zero"`. Two warmup samples are needed before a valid output is produced.
-
-*NaN handling*: Under `start_policy="strict"` the first two outputs are `NaN`. NaN inputs propagate.
+equivalent to $\Delta(\Delta x)$. The formula needs two earlier samples, so under `start_policy="strict"` the first two outputs are `NaN`.
 
 *Note*: `Diff2` is **not** the same as `Diff(2)`. `Diff(2)` is the *lag-2 first* difference $x[t] - x[t-2]$. `Diff2` is the *second-order* difference, i.e. the difference of differences. On a quadratic input $x[t] = a t^2 + b t + c$ the result is the constant $2a$.
 
@@ -49,7 +50,7 @@ equivalent to $\Delta(\Delta x)$.
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `propagate`.** Input `NaN` values are stored in the lookback. Output is `NaN` at any index where the function's positional formula references a `NaN` input; recovery happens once the `NaN` slides out of the lookback.
+**Policy: `propagate`.** A `NaN` input is stored in the lookback like any other value. The output is `NaN` wherever the formula references it and recovers once it leaves the lookback. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples
@@ -91,6 +92,6 @@ equivalent to $\Delta(\Delta x)$.
 
 <!-- HELP_END -->
 
-## Reference
+## Comparison with NumPy
 
 Equivalent to applying `numpy.diff` twice (with a warmup of two `NaN` samples preserved).

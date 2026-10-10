@@ -3,6 +3,15 @@ name: Select
 title: Select
 kind: class
 short: Pick column(s) from a wide (M, N) value stream.
+tags:
+- select
+- column
+- columns
+- pick
+see_also:
+- split
+- CombineLatest
+- Merge
 topics:
 - streams
 covers:
@@ -19,7 +28,7 @@ Feeding a lazy iterator of `(value, index)` pairs returns a lazy iterator of col
 
 <!-- HELP_END -->
 
-## Example
+## Examples
 
 Keep column 1 of a two-column stream.
 

@@ -6,6 +6,7 @@ topics:
 - regression
 tags:
 - covariance
+- rolling covariance
 - pair
 short: Rolling sample covariance of two parallel streams.
 inputs: 2
@@ -15,7 +16,7 @@ parameters:
   type: int
   default: 20
   min: 2
-  description: Window length.
+  description: Number of most recent (x, y) pairs in the window.
 - name: start_policy
   type: str
   default: strict
@@ -23,8 +24,14 @@ parameters:
   - strict
   - expanding
   - zero
-  description: Warmup behaviour.
+  description: 'Output before the window is full: "strict" gives NaN, "expanding" computes
+    from the samples seen so far, and "zero" treats the window as pre-filled with zeros.'
 nan_policy: ignore
+see_also:
+- RollingCorr
+- RollingBeta
+- RollingVar
+- EwCov
 ---
 
 # `RollingCov`
@@ -41,20 +48,13 @@ $$
 
 with the sums taken over the most recent `window_size` samples. The `n - 1` denominator gives the unbiased sample estimate.
 
-*Parameters*:
-
-- **`window_size`** (`int`, ≥ 2): size of the rolling window.
-- **`start_policy`** (`str`, default `"strict"`): controls warmup behavior. See `RollingMean` for the full definition.
-
-*Input shape*: takes **two** parallel streams. See [`RollingCorr`](RollingCorr.md) for the full input/output table; the call signature is identical.
-
-*Return value*: a real number. Returns `NaN` during warmup. Returns `0` when one of the streams is constant within the window (covariance with a constant series is zero, well-defined).
+`RollingCov` takes two parallel streams and accepts the same call forms as [`RollingCorr`](RollingCorr.md). The output is `NaN` during warmup and `0` when one of the streams is constant within the window.
 
 
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples
@@ -99,8 +99,8 @@ with the sums taken over the most recent `window_size` samples. The `n - 1` deno
 
 ## Implementation Details
 
-Three `detail::RollingSum` buffers maintain `Σx`, `Σy`, `Σxy`. Each new sample updates all three sums in `O(1)`, then the covariance is computed from the closed-form expression above.
+Three running window sums maintain `Σx`, `Σy`, `Σxy`. Each new sample updates all three sums in `O(1)`, then the covariance is computed from the closed-form expression above.
 
 * **Time**: `O(1)` per new element.
-* **Space**: `O(window_size)` (three circular buffers).
+* **Space**: `O(window_size)`.
 * **Reference**: matches `pd.Series(x).rolling(w).cov(pd.Series(y))` to floating-point tolerance, verified in `tests/test_rolling_two_input.py`.

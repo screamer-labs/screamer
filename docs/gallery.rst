@@ -698,13 +698,6 @@ Track and denoise the level of a series: moving averages and designed filters.
    :gutter: 2
    :class-container: gallery-grid
 
-   .. grid-item-card:: BandSignal
-      :link: functions_signal/BandSignal
-      :link-type: doc
-      :img-top: _static/gallery/functions_signal__BandSignal.webp
-      :img-alt: BandSignal example plot
-      :class-card: gallery-card
-
    .. grid-item-card:: Butter
       :link: functions_signal/Butter
       :link-type: doc
@@ -910,6 +903,13 @@ Market indicators: trend, momentum, bands, volume, and returns.
       :img-alt: ADXR example plot
       :class-card: gallery-card
 
+   .. grid-item-card:: ATR
+      :link: functions_rolling/ATR
+      :link-type: doc
+      :img-top: _static/gallery/functions_rolling__ATR.webp
+      :img-alt: ATR example plot
+      :class-card: gallery-card
+
    .. grid-item-card:: BayesianRegression
       :link: functions_fin/BayesianRegression
       :link-type: doc
@@ -1099,6 +1099,13 @@ Market indicators: trend, momentum, bands, volume, and returns.
       :img-alt: Momentum example plot
       :class-card: gallery-card
 
+   .. grid-item-card:: NATR
+      :link: functions_rolling/NATR
+      :link-type: doc
+      :img-top: _static/gallery/functions_rolling__NATR.webp
+      :img-alt: NATR example plot
+      :class-card: gallery-card
+
    .. grid-item-card:: OBV
       :link: functions_rolling/OBV
       :link-type: doc
@@ -1230,6 +1237,13 @@ Market indicators: trend, momentum, bands, volume, and returns.
       :link-type: doc
       :img-top: _static/gallery/functions_rolling__TRIX.webp
       :img-alt: TRIX example plot
+      :class-card: gallery-card
+
+   .. grid-item-card:: TrueRange
+      :link: functions_rolling/TrueRange
+      :link-type: doc
+      :img-top: _static/gallery/functions_rolling__TrueRange.webp
+      :img-alt: TrueRange example plot
       :class-card: gallery-card
 
    .. grid-item-card:: UltimateOscillator
@@ -1384,7 +1398,7 @@ Order flow and liquidity from trades and quotes: trade signing, imbalance, price
 Backtesting & risk
 ------------------
 
-Turn signals into costed equity curves, and measure drawdown and performance.
+Turn signals into positions and costed equity curves, measure drawdown and performance, and test whether a result is more than luck.
 
 .. grid:: 2 3 4 4
    :gutter: 2
@@ -1488,11 +1502,25 @@ Turn signals into costed equity curves, and measure drawdown and performance.
       :img-alt: BacktestTradesTarget example plot
       :class-card: gallery-card
 
+   .. grid-item-card:: BandSignal
+      :link: functions_signal/BandSignal
+      :link-type: doc
+      :img-top: _static/gallery/functions_signal__BandSignal.webp
+      :img-alt: BandSignal example plot
+      :class-card: gallery-card
+
    .. grid-item-card:: Drawdown
       :link: functions_fin/Drawdown
       :link-type: doc
       :img-top: _static/gallery/functions_fin__Drawdown.webp
       :img-alt: Drawdown example plot
+      :class-card: gallery-card
+
+   .. grid-item-card:: Hold
+      :link: functions_signal/Hold
+      :link-type: doc
+      :img-top: _static/gallery/functions_signal__Hold.webp
+      :img-alt: Hold example plot
       :class-card: gallery-card
 
    .. grid-item-card:: MaxDrawdown
@@ -1572,11 +1600,125 @@ Turn signals into costed equity curves, and measure drawdown and performance.
       :img-alt: RollingSortino example plot
       :class-card: gallery-card
 
+   .. grid-item-card:: SchmittTrigger
+      :link: functions_signal/SchmittTrigger
+      :link-type: doc
+      :img-top: _static/gallery/functions_signal__SchmittTrigger.webp
+      :img-alt: SchmittTrigger example plot
+      :class-card: gallery-card
+
    .. grid-item-card:: strategy_test
       :link: functions_fin/strategy_test
       :link-type: doc
       :img-top: _static/gallery/functions_fin__strategy_test.webp
       :img-alt: strategy_test example plot
+      :class-card: gallery-card
+
+Portfolio & pairs
+-----------------
+
+Rank assets against each other, turn scores into weights, backtest a book of many assets from one account, and trade pairs.
+
+.. grid:: 2 3 4 4
+   :gutter: 2
+   :class-container: gallery-grid
+
+   .. grid-item-card:: BacktestPortfolioOHLCTarget
+      :link: functions_fin/BacktestPortfolioOHLCTarget
+      :link-type: doc
+      :img-top: _static/gallery/functions_fin__BacktestPortfolioOHLCTarget.webp
+      :img-alt: BacktestPortfolioOHLCTarget example plot
+      :class-card: gallery-card
+
+   .. grid-item-card:: BacktestPortfolioTarget
+      :link: functions_fin/BacktestPortfolioTarget
+      :link-type: doc
+      :img-top: _static/gallery/functions_fin__BacktestPortfolioTarget.webp
+      :img-alt: BacktestPortfolioTarget example plot
+      :class-card: gallery-card
+
+   .. grid-item-card:: BandSignal
+      :link: functions_signal/BandSignal
+      :link-type: doc
+      :img-top: _static/gallery/functions_signal__BandSignal.webp
+      :img-alt: BandSignal example plot
+      :class-card: gallery-card
+
+   .. grid-item-card:: CrossDemean
+      :link: functions_cross/CrossDemean
+      :link-type: doc
+      :img-top: _static/gallery/functions_cross__CrossDemean.webp
+      :img-alt: CrossDemean example plot
+      :class-card: gallery-card
+
+   .. grid-item-card:: CrossNormalize
+      :link: functions_cross/CrossNormalize
+      :link-type: doc
+      :img-top: _static/gallery/functions_cross__CrossNormalize.webp
+      :img-alt: CrossNormalize example plot
+      :class-card: gallery-card
+
+   .. grid-item-card:: CrossRank
+      :link: functions_cross/CrossRank
+      :link-type: doc
+      :img-top: _static/gallery/functions_cross__CrossRank.webp
+      :img-alt: CrossRank example plot
+      :class-card: gallery-card
+
+   .. grid-item-card:: CrossTopBottom
+      :link: functions_cross/CrossTopBottom
+      :link-type: doc
+      :img-top: _static/gallery/functions_cross__CrossTopBottom.webp
+      :img-alt: CrossTopBottom example plot
+      :class-card: gallery-card
+
+   .. grid-item-card:: CrossWinsorize
+      :link: functions_cross/CrossWinsorize
+      :link-type: doc
+      :img-top: _static/gallery/functions_cross__CrossWinsorize.webp
+      :img-alt: CrossWinsorize example plot
+      :class-card: gallery-card
+
+   .. grid-item-card:: CrossZscore
+      :link: functions_cross/CrossZscore
+      :link-type: doc
+      :img-top: _static/gallery/functions_cross__CrossZscore.webp
+      :img-alt: CrossZscore example plot
+      :class-card: gallery-card
+
+   .. grid-item-card:: KalmanRegression
+      :link: functions_fin/KalmanRegression
+      :link-type: doc
+      :img-top: _static/gallery/functions_fin__KalmanRegression.webp
+      :img-alt: KalmanRegression example plot
+      :class-card: gallery-card
+
+   .. grid-item-card:: RollingADF
+      :link: functions_fin/RollingADF
+      :link-type: doc
+      :img-top: _static/gallery/functions_fin__RollingADF.webp
+      :img-alt: RollingADF example plot
+      :class-card: gallery-card
+
+   .. grid-item-card:: RollingOU
+      :link: functions_rolling/RollingOU
+      :link-type: doc
+      :img-top: _static/gallery/functions_rolling__RollingOU.webp
+      :img-alt: RollingOU example plot
+      :class-card: gallery-card
+
+   .. grid-item-card:: RollingSpread
+      :link: functions_fin/RollingSpread
+      :link-type: doc
+      :img-top: _static/gallery/functions_fin__RollingSpread.webp
+      :img-alt: RollingSpread example plot
+      :class-card: gallery-card
+
+   .. grid-item-card:: RollingTLSBeta
+      :link: functions_fin/RollingTLSBeta
+      :link-type: doc
+      :img-top: _static/gallery/functions_fin__RollingTLSBeta.webp
+      :img-alt: RollingTLSBeta example plot
       :class-card: gallery-card
 
 Math & logic
@@ -1906,7 +2048,7 @@ Elementwise numeric, trigonometric, activation, and boolean operations.
 Data preparation
 ----------------
 
-Clean a series before analysis: fill or drop missing values, and despike outliers.
+Prepare a series before analysis: bars from ticks, fill or drop missing values, and despike outliers.
 
 .. grid:: 2 3 4 4
    :gutter: 2
@@ -1991,53 +2133,25 @@ Align and reshape event streams, and wire operators into a runnable pipeline.
       :img-alt: Delay example plot
       :class-card: gallery-card
 
-Portfolio & cross-section
--------------------------
+Forecasting & ML
+----------------
 
-Compare assets with each other at each step and turn scores into portfolio weights.
+Training sets from time-series data, and online regression and filtering that forecast as they update.
 
 .. grid:: 2 3 4 4
    :gutter: 2
    :class-container: gallery-grid
 
-   .. grid-item-card:: CrossDemean
-      :link: functions_cross/CrossDemean
+   .. grid-item-card:: BayesianRegression
+      :link: functions_fin/BayesianRegression
       :link-type: doc
-      :img-top: _static/gallery/functions_cross__CrossDemean.webp
-      :img-alt: CrossDemean example plot
+      :img-top: _static/gallery/functions_fin__BayesianRegression.webp
+      :img-alt: BayesianRegression example plot
       :class-card: gallery-card
 
-   .. grid-item-card:: CrossNormalize
-      :link: functions_cross/CrossNormalize
+   .. grid-item-card:: KalmanFilter
+      :link: functions_signal/KalmanFilter
       :link-type: doc
-      :img-top: _static/gallery/functions_cross__CrossNormalize.webp
-      :img-alt: CrossNormalize example plot
-      :class-card: gallery-card
-
-   .. grid-item-card:: CrossRank
-      :link: functions_cross/CrossRank
-      :link-type: doc
-      :img-top: _static/gallery/functions_cross__CrossRank.webp
-      :img-alt: CrossRank example plot
-      :class-card: gallery-card
-
-   .. grid-item-card:: CrossTopBottom
-      :link: functions_cross/CrossTopBottom
-      :link-type: doc
-      :img-top: _static/gallery/functions_cross__CrossTopBottom.webp
-      :img-alt: CrossTopBottom example plot
-      :class-card: gallery-card
-
-   .. grid-item-card:: CrossWinsorize
-      :link: functions_cross/CrossWinsorize
-      :link-type: doc
-      :img-top: _static/gallery/functions_cross__CrossWinsorize.webp
-      :img-alt: CrossWinsorize example plot
-      :class-card: gallery-card
-
-   .. grid-item-card:: CrossZscore
-      :link: functions_cross/CrossZscore
-      :link-type: doc
-      :img-top: _static/gallery/functions_cross__CrossZscore.webp
-      :img-alt: CrossZscore example plot
+      :img-top: _static/gallery/functions_signal__KalmanFilter.webp
+      :img-alt: KalmanFilter example plot
       :class-card: gallery-card

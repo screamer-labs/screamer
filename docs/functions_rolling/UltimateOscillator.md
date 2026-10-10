@@ -10,6 +10,8 @@ tags:
 - oscillator
 - talib
 - hlc
+- ultimate oscillator
+- ULTOSC
 short: Three-period weighted oscillator (Williams, 1976).
 inputs: 3
 outputs: 1
@@ -18,25 +20,34 @@ parameters:
   type: int
   default: 7
   min: 2
-  description: Short averaging period (bars).
+  description: Shortest of the three averaging periods, in bars; weighted 4.
 - name: period2
   type: int
   default: 14
   min: 2
-  description: Medium averaging period (bars).
+  description: Middle averaging period, in bars; weighted 2.
 - name: period3
   type: int
   default: 28
   min: 2
-  description: Long averaging period (bars).
+  description: Longest averaging period, in bars; weighted 1. Output starts once this window
+    is full.
 nan_policy: ignore
+see_also:
+- Stoch
+- WilliamsR
+- RollingRSI
+- TrueRange
+references:
+- Williams, L. (1985). The ultimate oscillator. *Technical Analysis of Stocks & Commodities*,
+  3(4).
 ---
 
 # `UltimateOscillator`
 
 ## Description
 
-`UltimateOscillator` (Larry Williams, 1976) combines three timeframes of "buying pressure to true range" ratios into a single weighted oscillator. The three timeframes are intended to capture short, medium, and long momentum simultaneously.
+`UltimateOscillator` (Larry Williams, 1976) combines the ratio of buying pressure to true range over three periods into one weighted oscillator, so that short, medium and long momentum enter a single value.
 
 $$
 \begin{aligned}
@@ -49,23 +60,13 @@ $$
 
 The 4 / 2 / 1 weighting puts the heaviest emphasis on the shortest period.
 
-**3-input, 1-output** (`FunctorBase<_, 3, 1>`) on `(high, low, close)`.
-
-*Parameters*:
-
-- `period1` (default `7`): shortest timeframe.
-- `period2` (default `14`): medium timeframe.
-- `period3` (default `28`): longest timeframe.
-
-*Warmup*: NaN until sample index `max(period1, period2, period3)` (TA-Lib's convention; gates on the longest window).
-
-*Output range*: `[0, 100]`.
+The inputs are `(high, low, close)`. The output lies in `[0, 100]` and is NaN until sample index `max(period1, period2, period3)`, following TA-Lib.
 
 
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples
@@ -107,8 +108,8 @@ The 4 / 2 / 1 weighting puts the heaviest emphasis on the shortest period.
 
 ## Implementation Details
 
-Composition: tracks `prev_close` as a single scalar plus six `detail::RollingSum` buffers -- one for BP and one for TR at each of the three periods. Each `RollingSum` is O(1) per step, so the total per-step cost is O(1).
+`UltimateOscillator` keeps the previous close and six rolling sums, one for BP and one for TR at each of the three periods. Each rolling sum is O(1) per step, so the total cost per step is O(1).
 
-## Reference
+## Compatibility
 
 Bit-exact match to `talib.ULTOSC(high, low, close, timeperiod1, timeperiod2, timeperiod3)` post-warmup (verified to ~1e-14 in `tests/test_third_party_alignment.py`).

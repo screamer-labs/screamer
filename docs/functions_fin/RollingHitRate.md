@@ -6,9 +6,11 @@ topics:
 - risk
 tags:
 - hit-rate
+- hit rate
 - win-rate
+- win rate
 - rolling
-short: Fraction of strictly-positive samples in a trailing window.
+short: Fraction of strictly positive values in a trailing window.
 inputs: 1
 outputs: 1
 parameters:
@@ -16,27 +18,32 @@ parameters:
   type: int
   default: 252
   min: 2
-  description: Trailing-window length.
+  description: Number of most recent values counted.
 nan_policy: ignore
+see_also:
+- RollingMean
+- RollingSharpe
+- RollingOmega
+- GreaterThan
 ---
 
 # `RollingHitRate`
 
 ## Description
 
-Fraction of strictly-positive samples in the trailing window:
+`RollingHitRate` is the fraction of strictly positive values in the trailing window:
 
 $$
 \text{HitRate}[t] = \frac{1}{w}\ \text{count}(r_i > 0,\ i \in \text{window})
 $$
 
-Output in `[0, 1]`. Composes `detail::RollingSum` over the indicator `(r > 0)`.
+The output lies in `[0, 1]`. Zero counts as a miss.
 
 
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples

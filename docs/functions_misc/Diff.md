@@ -7,6 +7,9 @@ topics:
 tags:
 - diff
 - difference
+- first difference
+- delta
+- change
 short: x[t] - x[t-k] (first difference at lag k).
 inputs: 1
 outputs: 1
@@ -15,7 +18,8 @@ parameters:
   type: int
   default: 1
   min: 1
-  description: Lag k for the difference (1 = consecutive).
+  description: Lag k of the difference, in samples; 1 gives the difference between consecutive
+    samples.
 - name: start_policy
   type: str
   default: strict
@@ -23,9 +27,15 @@ parameters:
   - strict
   - expanding
   - zero
-  description: 'Warmup behaviour: ''strict'' (NaN until full window), ''expanding''
-    (use partial windows), or ''zero'' (treat missing as zero).'
+  description: 'Output before the window is full: "strict" gives NaN, "expanding" computes
+    from the samples seen so far, and "zero" treats the window as pre-filled with zeros.'
 nan_policy: propagate
+see_also:
+- Diff2
+- Momentum
+- Lag
+- Return
+- LogReturn
 ---
 
 # `Diff`
@@ -40,19 +50,13 @@ $$
 y[i] = x[i] - x[i - k]
 $$
 
-where `k` is `window_size`.
-
-*Parameters*:
-
-- `window_size` (int): The number of steps backward to use for the difference calculation. Must be positive.
-
-*NaN handling*: When `window_size` exceeds the available data points at the start of the sequence, the resulting elements are set to `NaN`.
+where `k` is `window_size`. The first `k` outputs have no `x[t - k]`; `start_policy` decides what they are. Under `"expanding"` the missing values are taken to equal the first sample, so those outputs are `x[t] - x[0]`, and under `"zero"` they are taken to be 0, so the outputs equal `x[t]`.
 
 
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `propagate`.** Input `NaN` values are stored in the lookback. Output is `NaN` at any index where the function's positional formula references a `NaN` input; recovery happens once the `NaN` slides out of the lookback.
+**Policy: `propagate`.** A `NaN` input is stored in the lookback like any other value. The output is `NaN` wherever the formula references it and recovers once it leaves the lookback. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples
@@ -94,4 +98,4 @@ where `k` is `window_size`.
 
 ## Implementation Details
 
-`Diff` uses a simple array subtraction operation with efficient memory handling to produce the difference between elements separated by `window_size` steps. For edge cases where data points are not available due to the `window_size`, the function outputs `NaN` to maintain alignment.
+`Diff` keeps the last `window_size` samples in a circular buffer and returns the newest minus the oldest, at O(1) cost per step.

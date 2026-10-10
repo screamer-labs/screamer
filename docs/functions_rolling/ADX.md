@@ -11,6 +11,9 @@ tags:
 - directional
 - talib
 - hlc
+- average directional index
+- trend strength
+- dmi
 short: Wilder's ADX with +DI and -DI (3 inputs -> 3 outputs).
 inputs: 3
 outputs: 3
@@ -19,7 +22,21 @@ parameters:
   type: int
   default: 14
   min: 2
-  description: Period (Wilder's default).
+  description: 'Wilder smoothing period: the smoother seeds on the first window_size values,
+    then each step keeps (window_size - 1) / window_size of the previous value. 14 is Wilder''s
+    choice.'
+output_names:
+- plus_di
+- minus_di
+- adx
+see_also:
+- PlusDI
+- MinusDI
+- DX
+- ADXR
+- ATR
+references:
+- Wilder, J. W. (1978). *New Concepts in Technical Trading Systems*. Trend Research.
 nan_policy: ignore
 ---
 
@@ -27,7 +44,8 @@ nan_policy: ignore
 
 ## Description
 
-`ADX` (Average Directional Index, J. Welles Wilder Jr. 1978) measures **trend strength**, not direction. Returns the triple `(+DI, -DI, ADX)` per step:
+`ADX` (Average Directional Index, Wilder 1978) measures the strength of a trend, not
+its direction. It returns three columns per step, `+DI`, `-DI` and `ADX`:
 
 $$
 \begin{aligned}
@@ -42,28 +60,32 @@ $$
 \end{aligned}
 $$
 
-**3-input, 3-output** (`FunctorBase<_, 3, 3>`) on `(high, low, close)`. Outputs are `(out[..., 0]=+DI, out[..., 1]=-DI, out[..., 2]=ADX)`.
+Inputs are `(high, low, close)`. Use [`PlusDI`](PlusDI.md), [`MinusDI`](MinusDI.md) or
+[`DX`](DX.md) when only one of the intermediate series is needed.
 
-## Parameters and warmup
-
-- `window_size` (int, default `14`, the Wilder convention).
+## Warmup
 
 | Output | First valid sample |
 |---|---|
 | `+DI` | `window_size` |
 | `-DI` | `window_size` |
-| `ADX` | `2 * window_size - 1` (double-Wilder warmup) |
+| `ADX` | `2 * window_size - 1` (two Wilder smoothers in sequence) |
 
-For the default `window_size=14`, `+DI`/`-DI` start at sample 14 and `ADX` at sample 27. Matches TA-Lib's `PLUS_DI` / `MINUS_DI` / `ADX` bit-exactly.
+For the default `window_size=14`, `+DI` and `-DI` start at sample 14 and `ADX` at
+sample 27. The outputs match TA-Lib's `PLUS_DI`, `MINUS_DI` and `ADX` exactly.
 
 ## Convention note
 
-TA-Lib's Wilder smoother for the DI/DM/TR triplet uses a slightly different seed than its ATR smoother: accumulate `w-1` values during warmup, then apply the recurrence at the `w`-th value (sum form). The ADX smoother itself uses the standard SMA-of-`w`-values seed (average form). `screamer.ADX` implements both conventions inline to match TA-Lib exactly; it does **not** share state with the existing `ATR` class.
+TA-Lib seeds the Wilder smoother for the DI, DM and TR series differently from its
+ATR smoother: it accumulates `w-1` values during warmup, then applies the recurrence
+at the `w`-th value (sum form). The ADX smoother itself uses the mean of the first `w`
+values as its seed (average form). `ADX` implements both seeds to match TA-Lib, so its
+internal true-range average is seeded differently from [`ATR`](ATR.md).
 
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples
@@ -108,6 +130,7 @@ TA-Lib's Wilder smoother for the DI/DM/TR triplet uses a slightly different seed
 
 <!-- HELP_END -->
 
-## Reference
+## Validation
 
-Matches `talib.PLUS_DI`, `talib.MINUS_DI`, `talib.ADX` bit-exactly (verified to ~1e-14 in `tests/test_third_party_alignment.py`).
+Matches `talib.PLUS_DI`, `talib.MINUS_DI` and `talib.ADX` to about 1e-14 in
+`tests/test_third_party_alignment.py`.

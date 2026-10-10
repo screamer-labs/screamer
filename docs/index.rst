@@ -2,8 +2,14 @@ Screamer
 ========
 
 
-Screamer computes rolling statistics, technical indicators, and signal filters on
-time series. The same functions run on NumPy arrays and on live streams.
+Screamer is a C++ library for researching and trading time series. It computes
+rolling statistics, technical indicators, filters, and order-flow measures, runs
+costed backtests of single assets, portfolios, and pairs, and tests whether a
+result is more than luck. The same functions run on NumPy arrays, on live
+streams, and in JavaScript.
+
+New here? :doc:`Your first strategy <recipes/first-strategy>` goes from price
+data to a costed backtest and a p-value in one page.
 
 
 .. code-block:: console
@@ -132,7 +138,7 @@ Each tile opens a worked example. :doc:`What you can build <capabilities>` lists
 the functions behind each area, and the :doc:`gallery <gallery>` shows a plot for
 every function.
 
-.. grid:: 1 2 2 4
+.. grid:: 1 2 3 3
    :gutter: 3
 
    .. grid-item-card:: Indicators
@@ -174,6 +180,14 @@ every function.
       :link-type: doc
 
       Costed backtests with slippage and fill timing, and a significance test.
+
+   .. grid-item-card:: Portfolios and pairs
+      :img-top: _static/gallery/recipes__pairs-trade.webp
+      :img-alt: A pairs trade on BTC and ETH with its hedge ratio and spread
+      :link: portfolio_backtesting
+      :link-type: doc
+
+      Many assets from one account: weights, rebalancing, cross-sectional ranks, and pairs.
 
    .. grid-item-card:: Forecasting and ML
       :img-top: _static/gallery/recipes__ml-features.webp
@@ -225,68 +239,16 @@ an array.
 
 
 
-For a step-by-step walkthrough see the :doc:`User Guide <usage>`.
+For how functions are built and called, see :doc:`Using screamer <usage>`.
 
 
 Functions by group
 ------------------
 
+.. include:: by_group_cards.inc
+
 .. grid:: 1 2 2 3
    :gutter: 3
-
-   .. grid-item-card:: Statistics
-      :link: by_group/statistics
-      :link-type: doc
-
-      Central tendency, dispersion, quantiles, moments, and correlation.
-
-   .. grid-item-card:: Smoothing & filters
-      :link: by_group/smoothing-filters
-      :link-type: doc
-
-      Moving averages and designed filters.
-
-   .. grid-item-card:: Technical indicators
-      :link: by_group/indicators
-      :link-type: doc
-
-      Trend, momentum, bands, volume, and returns.
-
-   .. grid-item-card:: Market microstructure
-      :link: by_group/microstructure
-      :link-type: doc
-
-      Trade signing, imbalance, price impact, and arrivals.
-
-   .. grid-item-card:: Backtesting & risk
-      :link: by_group/backtesting-risk
-      :link-type: doc
-
-      Costed equity curves, drawdown, and performance.
-
-   .. grid-item-card:: Math & logic
-      :link: by_group/math-logic
-      :link-type: doc
-
-      Elementwise numeric, trigonometric, activation, and boolean operations.
-
-   .. grid-item-card:: Data preparation
-      :link: by_group/data-prep
-      :link-type: doc
-
-      Fill or drop missing values, and despike outliers.
-
-   .. grid-item-card:: Streaming & pipelines
-      :link: by_group/streaming
-      :link-type: doc
-
-      Align and reshape event streams, and build a runnable pipeline.
-
-   .. grid-item-card:: Machine learning
-      :link: by_group/machine-learning
-      :link-type: doc
-
-      Supervised training sets from time-series data.
 
    .. grid-item-card:: Gallery
       :link: gallery
@@ -309,11 +271,19 @@ Functions by group
 
 .. toctree::
    :maxdepth: 1
-   :caption: User Guide
+   :caption: Get started
    :hidden:
 
    installation
+   recipes/first-strategy
    usage
+
+
+.. toctree::
+   :maxdepth: 1
+   :caption: User Guide
+   :hidden:
+
    capabilities
    choosing_an_operator
    backtesting_best_practices
@@ -323,28 +293,28 @@ Functions by group
 
 .. toctree::
    :maxdepth: 1
-   :caption: Functions
+   :caption: Examples
+   :hidden:
+
+   recipes/index
+   notebooks/index
+
+
+.. toctree::
+   :maxdepth: 1
+   :caption: Concepts
+   :hidden:
+
+   references_index
+
+
+.. toctree::
+   :maxdepth: 1
+   :caption: API reference
    :hidden:
 
    by_group_index
    gallery
-
-
-.. toctree::
-   :maxdepth: 1
-   :caption: Examples
-   :hidden:
-
-   notebooks/index
-   recipes/index
-
-
-.. toctree::
-   :maxdepth: 1
-   :caption: References
-   :hidden:
-
-   references_index
 
 
 .. toctree::

@@ -8,11 +8,21 @@ tags:
 - polar
 - conversion
 - pair
+- cartesian
+- radius
+- angle
 short: Convert (x, y) to (r, theta).
 inputs: 2
 outputs: 2
+output_names:
+- r
+- theta
 parameters: []
 nan_policy: ignore
+see_also:
+- Polar2Cart
+- Atan2
+- Hypot
 ---
 
 # `Cart2Polar`
@@ -21,7 +31,7 @@ nan_policy: ignore
 
 Convert 2D Cartesian coordinates `(x, y)` to polar coordinates `(r, θ)`. The radial component is the Euclidean distance from the origin and the angular component is the signed angle from the positive x-axis, in the range $(-\pi, \pi]$.
 
-This is a **2-input, 2-output** function (`FunctorBase<_, 2, 2>`). Inputs are paired column-by-column; outputs are stacked along a trailing axis of size 2.
+It takes two inputs, `x` then `y`, and returns two outputs, `r` then `theta`. For arrays the inputs are paired column by column and the outputs are stacked along a trailing axis of size 2.
 
 *Equation*:
 
@@ -29,9 +39,7 @@ $$
 r[t] = \sqrt{x[t]^2 + y[t]^2}, \qquad \theta[t] = \operatorname{atan2}(y[t], x[t])
 $$
 
-*Parameters*: `Cart2Polar` takes no parameters.
-
-*NaN handling*: A NaN in either input produces NaN in both outputs.
+A `NaN` in either input gives `NaN` in both outputs.
 
 ## Output shapes
 
@@ -46,11 +54,10 @@ $$
 
 The shape rule combines the multi-input pairing (column-by-column) with the multi-output stacking (extra trailing axis of size 2). `out[..., 0]` is the radius, `out[..., 1]` is the angle.
 
-
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples

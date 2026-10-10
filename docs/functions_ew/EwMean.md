@@ -7,8 +7,12 @@ topics:
 - statistics
 tags:
 - ema
+- exponential moving average
+- ewma
 - exponential
 - mean
+- moving-average
+- ew
 short: Exponentially-weighted moving average (pandas adjust=True).
 inputs: 1
 outputs: 1
@@ -16,20 +20,30 @@ parameters:
 - name: com
   type: float
   default: null
-  description: Center of mass (alpha = 1 / (1 + com)). Exclusive with span/halflife/alpha.
+  description: Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly
+    one of com, span, halflife and alpha.
 - name: span
   type: float
   default: 20.0
-  description: Span (alpha = 2 / (span + 1)). Default smoothing parameter. Exclusive
-    with com/halflife/alpha.
+  description: Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give
+    exactly one of com, span, halflife and alpha. The default shown is an example value; the
+    constructor has no default.
 - name: halflife
   type: float
   default: null
-  description: Halflife (alpha = 1 - 0.5^(1/halflife)). Exclusive with com/span/alpha.
+  description: Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive.
+    Give exactly one of com, span, halflife and alpha.
 - name: alpha
   type: float
   default: null
-  description: Smoothing parameter directly. Exclusive with com/span/halflife.
+  description: Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more
+    weight. Give exactly one of com, span, halflife and alpha.
+see_also:
+- EwStd
+- EwZscore
+- RollingMean
+- DEMA
+- KAMA
 nan_policy: ignore
 ---
 
@@ -37,57 +51,26 @@ nan_policy: ignore
 
 ## Description
 
-`EwMean` computes the exponentially weighted mean of the input, using an exponential forgetting factor specified by the com/span/halflife/alpha family. The decay parameter is converted to `alpha` and the result matches the pandas `ewm(adjust=True).mean()` convention.
+`EwMean` computes the exponentially weighted mean of the input (the exponential moving average, EMA). The smoothing factor `alpha` is set by exactly one of `com`, `span`, `halflife` or `alpha`; a larger `alpha` gives recent samples more weight. The result matches pandas `ewm(adjust=True).mean()`.
 
-### Parameters
-
-One of the following decay parameters is required to calculate `alpha`, where a higher `alpha` value gives recent points more influence:
-
-- **`com`**: Center of mass. `alpha = 1 / (1 + com)`
-- **`span`**: Span. `alpha = 2 / (span + 1)`
-- **`halflife`**: Half-life. `alpha = 1 - exp(-log(2) / halflife)`
-- **`alpha`**: Directly specifies the smoothing factor, where `0 < alpha < 1`
-
-*NaN handling*: NaN values are ignored in the mean calculation.
-
-### Formula Details
-
-`EwMean` computes the exponentially weighted moving mean recursively. This calculation approach provides a fast, iterative update for each new value without recalculating the entire window, giving more weight to recent observations. The weighted mean formula aligns with the Pandas `ewm` interface by adjusting for the weighted contribution of each new element.
-
-
-Let:
-- **`alpha`** be the smoothing factor calculated from `com`, `span`, `halflife`, or specified directly, where `0 < alpha < 1`.
-
-For each new data point $x_t$, `EwMean` updates two cumulative sums, $S_x$ and $S_w$, as follows:
-
-1. Adjust $S_x$ by retaining a fraction $(1 - \alpha)$ of the previous weighted sum and then adding the new value $x_t$:
-   
-$$
-S_x = S_x \times (1 - \alpha) + x_t
-$$
-
-1. Adjust $S_w$, the cumulative weight, by similarly retaining a fraction $(1 - \alpha)$ of the previous weight sum, then adding a weight of $1$:
+Each step decays two running sums by $(1 - \alpha)$ and adds the new sample:
 
 $$
-S_w = S_w \times (1 - \alpha) + 1
+S_x \leftarrow (1-\alpha) S_x + x_t, \qquad S_w \leftarrow (1-\alpha) S_w + 1, \qquad
+\text{EwMean}[t] = \frac{S_x}{S_w}
 $$
 
-3. Compute the exponentially weighted moving mean as:
-
-$$
-\text{EwMean} = \frac{S_x}{S_w}
-$$
-
+Dividing by the weight sum $S_w$ is the pandas `adjust=True` normalization: the first output equals the first sample, and early outputs are not pulled toward zero.
 
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples
 
-### Description
+### Usage example
 
 ```{eval-rst}
 .. plotly::

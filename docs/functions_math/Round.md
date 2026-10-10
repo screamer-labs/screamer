@@ -8,18 +8,23 @@ tags:
 - round
 - rounding
 - banker
+- rint
+- round half to even
 short: Round each element to the nearest integer (half-to-even).
 inputs: 1
 outputs: 1
 parameters: []
 nan_policy: ignore
+see_also:
+- Floor
+- Ceil
 ---
 
 # `Round`
 
 ## Description
 
-Round each element to the nearest integer using *round-half-to-even* (banker's rounding). Halves go to the nearest even integer rather than always away from zero, which matches `numpy.round` and Python's built-in `round`.
+Round each element to the nearest integer using *round-half-to-even* (banker's rounding). Halves go to the nearest even integer, which matches `numpy.round` and Python's built-in `round`.
 
 *Equation*:
 
@@ -29,17 +34,12 @@ $$
 
 with halves resolved to even.
 
-*Parameters*: `Round` takes no parameters.
-
-*NaN handling*: `NaN` values pass through unchanged.
-
-*Note*: This is **not** the same as the C++ `std::round` (half-away-from-zero). For example `Round(0.5) == 0`, `Round(1.5) == 2`, `Round(2.5) == 2`.
-
+For example `Round(0.5) == 0`, `Round(1.5) == 2` and `Round(2.5) == 2`.
 
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples

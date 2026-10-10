@@ -7,8 +7,12 @@ topics:
 tags:
 - rocp
 - rate-of-change
+- rate of change
+- pct_change
+- percent change
+- percentage change
 - talib
-short: x[t] / x[t-k] - 1 - TA-Lib's ROCP. Identical to Return.
+short: Rate of change x[t] / x[t-k] - 1, as a fraction (TA-Lib ROCP). Identical to Return.
 inputs: 1
 outputs: 1
 parameters:
@@ -16,8 +20,14 @@ parameters:
   type: int
   default: 10
   min: 1
-  description: Lookback k.
+  description: 'Lookback k: the output compares each value with the value k steps earlier.
+    TA-Lib uses 10.'
 nan_policy: propagate
+see_also:
+- Return
+- ROC
+- ROCR
+- LogReturn
 ---
 
 # `ROCP`
@@ -30,30 +40,22 @@ $$
 \text{ROCP}[t] = \frac{x[t] - x[t-k]}{x[t-k]}
 $$
 
-**This is exactly `Return(k)`.** It exists as a separately-named class because TA-Lib calls this indicator `ROCP`. Internally `ROCP` is a thin subclass of `Return` -- the implementation (delay buffer + subtract + divide) is shared, not duplicated.
+`ROCP(k)` gives the same output as `Return(k)`. It has its own name because TA-Lib calls this indicator `ROCP`.
 
 | You want... | Use |
 |---|---|
 | TA-Lib parity (writing `ROCP` in ported code) | `ROCP(k)` |
 | Any other context (returns workflows, log-returns family) | `Return(k)` |
 
-*Parameters*:
+The first `k` outputs are `NaN` because `x[t-k]` does not exist yet. The division follows IEEE arithmetic, so `x[t-k] == 0` gives `inf` (or `NaN` when `x[t]` is also zero).
 
-- `window_size` (int, positive): the lookback `k`.
-
-*NaN handling*: NaN for the first `k` samples; NaN when `x[t-k] == 0`.
-
-## See also
-
-- [`Return`](Return.md) -- same class, the documentation lives there.
-- [`ROC`](ROC.md) -- `100 * ROCP` (percentage form).
-- [`ROCR`](ROCR.md) -- `x[t] / x[t-k]` (ratio form).
+[`ROC`](ROC.md) is `100 * ROCP` (percentage form) and [`ROCR`](ROCR.md) is `x[t] / x[t-k]` (ratio form).
 
 
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `propagate`.** Input `NaN` values are stored in the lookback. Output is `NaN` at any index where the function's positional formula references a `NaN` input; recovery happens once the `NaN` slides out of the lookback.
+**Policy: `propagate`.** A `NaN` input is stored in the lookback like any other value. The output is `NaN` wherever the formula references it and recovers once it leaves the lookback. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples
@@ -88,6 +90,6 @@ $$
 
 <!-- HELP_END -->
 
-## Reference
+## TA-Lib compatibility
 
-Equivalent to `talib.ROCP(x, timeperiod=k)`. Bit-exact match (cross-validated in `tests/test_third_party_alignment.py`).
+Equivalent to `talib.ROCP(x, timeperiod=k)`. The results agree exactly (checked in `tests/test_third_party_alignment.py`).

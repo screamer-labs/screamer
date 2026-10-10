@@ -6,9 +6,11 @@ topics:
 - cross-sectional
 tags:
 - demean
+- cross-sectional demean
+- subtract mean
 - market neutral
 - cross-sectional
-short: "Subtract the mean across assets at each step, removing the common component."
+short: Subtract the mean across assets at each step, removing the common component.
 inputs: 1
 outputs: 1
 parameters: []
@@ -37,9 +39,7 @@ after `reset()`.
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-A `NaN` entry is an asset that is not available on that row, for example one
-that is not listed yet or is halted. It is left out of the cross-section, and
-its output is `NaN`. A row that is all `NaN` returns all `NaN`.
+**Policy: `ignore`.** A `NaN` for an asset gives a `NaN` output for that asset at that step, and the statistic is computed across the remaining assets. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples

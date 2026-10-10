@@ -46,9 +46,9 @@ Track the level of a series and suppress short-term noise.
    * - :doc:`Triple Exponential MA (TEMA) </functions_rolling/TEMA>`
      - Mulloy's Triple EMA: 3*EMA - 3*EMA(EMA) + EMA(EMA(EMA)).
    * - :doc:`Triangular MA (TRIMA) </functions_rolling/TRIMA>`
-     - Triangular MA: SMA of an SMA. Heavier center-weighting than WMA.
+     - Triangular moving average: a simple moving average of a simple moving average.
    * - :doc:`Weighted Moving Average (WMA) </functions_rolling/WMA>`
-     - Linearly-weighted moving average. O(1) per step.
+     - Linearly weighted moving average.
 
 Filtering
 ---------
@@ -61,8 +61,6 @@ Designed frequency-domain and state-space filters.
 
    * - Function
      - Description
-   * - :doc:`Entry and exit bands on a z-score </functions_signal/BandSignal>`
-     - Three-state mean-reversion position from a z-score: short above +entry, long below -entry, flat again inside the exit level, with an optional stop and lockout.
    * - :doc:`Butterworth low-pass filter </functions_signal/Butter>`
      - General-order IIR Butterworth low-pass filter.
    * - :doc:`Butterworth band-pass filter </functions_signal/ButterBandpass>`
@@ -78,7 +76,7 @@ Designed frequency-domain and state-space filters.
    * - :doc:`Hampel filter </functions_rolling/Hampel>`
      - Robust Hampel despiker, replace samples far from the window median (in MAD units).
    * - :doc:`Hold (time-latch operator) </functions_signal/Hold>`
-     - Time-latch operator. Latches a nonzero finite input and holds it for n bars; returns the release value once the hold expires.
+     - Time-latch operator. Latches a nonzero finite input and holds it for n steps; returns the release value once the hold expires.
    * - :doc:`Scalar Kalman filter </functions_signal/KalmanFilter>`
      - Scalar 1-D Kalman filter for a noisy random-walk model.
    * - :doc:`FIR moving average (arbitrary taps) </functions_signal/MovingAverage>`
@@ -93,7 +91,6 @@ Designed frequency-domain and state-space filters.
 .. toctree::
    :hidden:
 
-   /functions_signal/BandSignal
    /functions_signal/Butter
    /functions_signal/ButterBandpass
    /functions_signal/ButterBandstop

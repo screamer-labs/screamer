@@ -7,6 +7,10 @@ topics:
 tags:
 - ew
 - kurtosis
+- excess kurtosis
+- fat tails
+- exponential
+- fourth moment
 short: EW excess kurtosis.
 inputs: 1
 outputs: 1
@@ -14,20 +18,29 @@ parameters:
 - name: com
   type: float
   default: null
-  description: Center of mass (alpha = 1 / (1 + com)). Exclusive with span/halflife/alpha.
+  description: Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly
+    one of com, span, halflife and alpha.
 - name: span
   type: float
   default: 20.0
-  description: Span (alpha = 2 / (span + 1)). Default smoothing parameter. Exclusive
-    with com/halflife/alpha.
+  description: Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give
+    exactly one of com, span, halflife and alpha. The default shown is an example value; the
+    constructor has no default.
 - name: halflife
   type: float
   default: null
-  description: Halflife (alpha = 1 - 0.5^(1/halflife)). Exclusive with com/span/alpha.
+  description: Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive.
+    Give exactly one of com, span, halflife and alpha.
 - name: alpha
   type: float
   default: null
-  description: Smoothing parameter directly. Exclusive with com/span/halflife.
+  description: Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more
+    weight. Give exactly one of com, span, halflife and alpha.
+see_also:
+- EwSkew
+- EwStd
+- RollingKurt
+- ExpandingKurt
 nan_policy: ignore
 ---
 
@@ -35,115 +48,37 @@ nan_policy: ignore
 
 ## Description
 
-`EwKurt` computes the exponentially weighted excess kurtosis of the input, using an exponential forgetting factor specified by the com/span/halflife/alpha family. The result is bias-corrected to match the pandas `ewm(adjust=True).kurt()` convention.
+`EwKurt` computes the exponentially weighted excess kurtosis of the input. The smoothing factor `alpha` is set by exactly one of `com`, `span`, `halflife` or `alpha`. It applies the adjusted excess-kurtosis estimator (the one scipy returns with `bias=False` and pandas returns from `rolling().kurt()`) to exponentially weighted moments, with the effective sample size $N_\text{eff}$ in place of the sample count.
 
-
-### Parameters
-
-One of the following decay parameters is required to calculate `alpha`, where a higher `alpha` value gives recent points more influence:
-
-- **`com`**: Center of mass. `alpha = 1 / (1 + com)`
-- **`span`**: Span. `alpha = 2 / (span + 1)`
-- **`halflife`**: Half-life. `alpha = 1 - exp(-log(2) / halflife)`
-- **`alpha`**: Directly specifies the smoothing factor, where `0 < alpha < 1`
-
-*NaN handling*: NaN values are ignored in the mean calculation.
-
-
-### Formula Details
-
-`EwKurt` computes the exponentially weighted excess kurtosis recursively, with a bias correction that uses an effective sample size, $N_{eff}$, derived from the sum of weights. This approach ensures an unbiased estimate even as older observations' influence diminishes over time, aligning with Pandas’ convention for excess kurtosis.
-
-Let:
-- **`alpha`** be the smoothing factor, calculated from `com`, `span`, `halflife`, or specified directly, where `0 < alpha < 1`.
-
-For each new data point $x_t$, `EwKurt` updates five cumulative sums, $S_x$, $S_{xx}$, $S_{xxx}$, $S_{xxxx}$, $S_w$, and $S_{ww}$, as follows:
-
-1. Adjust **$S_x$**, the weighted sum of values, by retaining a fraction $(1 - \alpha)$ of the previous weighted sum and adding the new value:
+Each step decays the running sums by $(1 - \alpha)$ and adds the new sample. $S_{x^k}$ stands for each power sum the statistic uses: $S_x$ for $k = 1$, $S_{xx}$ for $k = 2$, and so on.
 
 $$
-S_x = S_x \times (1 - \alpha) + x_t
+S_w \leftarrow (1-\alpha) S_w + 1, \qquad
+S_{ww} \leftarrow (1-\alpha)^2 S_{ww} + 1, \qquad
+S_{x^k} \leftarrow (1-\alpha) S_{x^k} + x_t^k
 $$
 
-2. Adjust **$S_{xx}$**, the weighted sum of squared values, by retaining a fraction of the previous sum and adding the square of the new value:
+From these sums, with $\bar{x} = S_x / S_w$ and the weighted central moments
 
 $$
-S_{xx} = S_{xx} \times (1 - \alpha) + x_t^2
+m_2 = \frac{S_{xx}}{S_w} - \bar{x}^2, \qquad
+m_4 = \frac{S_{xxxx}}{S_w} - 4\bar{x}\frac{S_{xxx}}{S_w} + 6\bar{x}^2\frac{S_{xx}}{S_w} - 3\bar{x}^4, \qquad
+N_\text{eff} = \frac{S_w^2}{S_{ww}},
 $$
 
-3. Adjust **$S_{xxx}$**, the weighted sum of cubed values, by retaining a fraction of the previous sum and adding the cube of the new value:
+the output is
 
 $$
-S_{xxx} = S_{xxx} \times (1 - \alpha) + x_t^3
+\text{EwKurt}[t] = \frac{N_\text{eff} - 1}{(N_\text{eff} - 2)(N_\text{eff} - 3)}
+\left( (N_\text{eff} + 1)\frac{m_4}{m_2^2} - 3(N_\text{eff} - 1) \right)
 $$
 
-4. Adjust **$S_{xxxx}$**, the weighted sum of fourth powers, by retaining a fraction of the previous sum and adding the fourth power of the new value:
-
-$$
-S_{xxxx} = S_{xxxx} \times (1 - \alpha) + x_t^4
-$$
-
-5. Adjust **$S_w$**, the cumulative weight, by retaining a fraction of the previous weight and adding a weight of $1$:
-
-$$
-S_w = S_w \times (1 - \alpha) + 1
-$$
-
-6. Adjust **$S_{ww}$**, the cumulative squared weight, by retaining a fraction $(1 - \alpha)^2$ of the previous squared weight and adding $1$:
-
-$$
-S_{ww} = S_{ww} \times (1 - \alpha)^2 + 1
-$$
-
-7. Calculate the effective sample size, $N_{eff}$, as:
-
-$$
-N_{eff} = \frac{S_w^2}{S_{ww}}
-$$
-
-8. Compute the exponentially weighted mean, $\text{EwMean}$, as:
-
-$$
-\text{EwMean} = \frac{S_x}{S_w}
-$$
-
-9. Compute the exponentially weighted variance, $\text{EwVar}$, with bias correction:
-
-$$
-\text{EwVar} = \left( \frac{S_{xx}}{S_w} - \left( \frac{S_x}{S_w} \right)^2 \right) \times \frac{N_{eff}}{N_{eff} - 1}
-$$
-
-10. Calculate the standard deviation, $\text{EwStd}$, as:
-
-$$
-\text{EwStd} = \sqrt{\text{EwVar}}
-$$
-
-11. Compute the fourth central moment, $m_4$, as:
-
-$$
-m_4 = \frac{S_{xxxx}}{S_w} - 4 \cdot \frac{S_x}{S_w} \cdot \frac{S_{xxx}}{S_w} + 6 \cdot \left( \frac{S_x}{S_w} \right)^2 \cdot \frac{S_{xx}}{S_w} - 3 \cdot \left( \frac{S_x}{S_w} \right)^4
-$$
-
-12. Calculate the raw kurtosis, $g_2$, as:
-
-$$
-g_2 = \frac{m_4}{\text{EwVar}^2}
-$$
-
-13. Finally, compute the exponentially weighted excess kurtosis with bias correction:
-
-$$
-\text{EwKurt} = \frac{N_{eff} \cdot (N_{eff} + 1) \cdot g_2 - 3 \cdot (N_{eff} - 1)^2}{(N_{eff} - 1) \cdot (N_{eff} - 2) \cdot (N_{eff} - 3)}
-$$
-
-This calculation uses $N_{eff}$ to correct for the effective sample size, ensuring that the excess kurtosis measure remains unbiased by scaling based on the decreasing influence of older values.
-
+The output is `NaN` while $N_\text{eff} \le 3$.
 
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples

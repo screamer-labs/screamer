@@ -2,9 +2,24 @@
 name: deflated_sharpe
 title: deflated_sharpe
 kind: function
-short: Probabilistic Sharpe ratio against the Sharpe ratio the best of your tried variants would reach by luck.
+short: Probabilistic Sharpe ratio against the Sharpe ratio the best of your tried variants
+  would reach by luck.
+tags:
+- overfitting
+- multiple testing
+- selection bias
+- sharpe ratio
+- dsr
+see_also:
+- probabilistic_sharpe
+- RollingSharpe
+- strategy_test
+references:
+- 'Bailey, D. H. and López de Prado, M. (2014). The deflated Sharpe ratio: correcting for
+  selection bias, backtest overfitting, and non-normality. *Journal of Portfolio Management*,
+  40(5), 94-107.'
 topics:
-- backtesting
+- significance
 ---
 
 # `deflated_sharpe`
@@ -35,7 +50,7 @@ resampling.
 
 `deflated_sharpe(pnl, trial_sharpes)`
 
-## Example
+## Examples
 
 ```{eval-rst}
 .. exec_code::
@@ -55,9 +70,3 @@ resampling.
     p, bench = deflated_sharpe(best, sharpes)
     print(f"best Sharpe {max(sharpes):.4f}, luck benchmark {bench:.4f}, probability {p:.3f}")
 ```
-
-## References
-
-- Bailey, D. H. and López de Prado, M. (2014). The deflated Sharpe ratio:
-  correcting for selection bias, backtest overfitting, and non-normality.
-  *Journal of Portfolio Management*, 40(5), 94-107.

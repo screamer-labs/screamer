@@ -16,7 +16,10 @@ tags:
 - inventory
 - transaction cost
 - risk
-short: "Backtest a two-sided market maker against a top-of-book (L1) quote stream."
+- simulation
+- transaction costs
+- fees
+short: Backtest a two-sided market maker against a top-of-book (L1) quote stream.
 inputs: 8
 outputs: 4
 parameters:
@@ -31,18 +34,21 @@ parameters:
 - name: fill
   type: str
   default: breach
-  description: Fill rule. "breach" (conservative) fills only when the market trades through your quote; "touch" (optimistic) also fills a participation partial once per lock episode.
+  description: Fill rule. "breach" (conservative) fills only when the market trades through
+    your quote; "touch" (optimistic) also fills a participation partial once per lock episode.
 - name: participation_ratio
   type: float
   default: 1.0
   min: 0.0
   max: 1.0
-  description: Fraction of the locked ask/bid size captured on a touch fill (front-of-queue at 1.0).
+  description: Fraction of the locked ask/bid size captured on a touch fill (front-of-queue
+    at 1.0).
 - name: tick_size
   type: float
   default: 0.0
   min: 0.0
-  description: Instrument price grid (0 = continuous). A marketable order walks one tick past the displayed quote for the size beyond it; slippage offsets round up to whole ticks.
+  description: Instrument price grid (0 = continuous). A marketable order walks one tick past
+    the displayed quote for the size beyond it; slippage offsets round up to whole ticks.
 - name: min_position
   type: float
   default: -.inf
@@ -55,7 +61,8 @@ parameters:
   type: float
   default: 1.0
   min: 0.0
-  description: Contract multiplier applied to mark-to-market PnL, fill slippage, and proportional fees.
+  description: Contract multiplier applied to mark-to-market PnL, fill slippage, and proportional
+    fees.
 - name: maker_fee_per_contract
   type: float
   default: 0.0
@@ -68,11 +75,13 @@ parameters:
   type: float
   default: 0.0
   min: 0.0
-  description: Adverse price offset on every taker (market) fill, read in `slippage_unit`. A buy fills higher and a sell lower; resting limit fills never slip.
+  description: Adverse price offset on every taker (market) fill, read in `slippage_unit`.
+    A buy fills higher and a sell lower; resting limit fills never slip.
 - name: slippage_unit
   type: str
   default: fraction
-  description: 'Unit of `slippage`: "fraction" of the reference price (5 bps = 5e-4), "ticks" of `tick_size`, or "price" (an absolute amount).'
+  description: 'Unit of `slippage`: "fraction" of the reference price (5 bps = 5e-4), "ticks"
+    of `tick_size`, or "price" (an absolute amount).'
 nan_policy: ignore
 see_also:
 - BacktestL1Target
@@ -80,14 +89,14 @@ see_also:
 - BacktestTradesOrders
 - BacktestOHLCTarget
 - backtest_report
+output_names:
+- equity
+- pnl
+- position
+- cost
 ---
 
 # `BacktestL1Orders`
-
-The accounting parameters are generic across the backtest family. `multiplier`
-converts a price move into currency per contract; the fixed per-contract fee is
-then added to the existing proportional fee. Both fixed fees may be negative for
-rebates, and all defaults preserve the previous behavior.
 
 ## Description
 
@@ -99,13 +108,13 @@ either or both can be lifted on one event, so the position is whatever the marke
 fills.
 
 Fills follow where the market moves relative to your quote. When the market
-`ask` trades **through** `bid_price` (`market_ask < bid_price`), the resting buy is
-run over and fills its **full remaining** at `bid_price`, a maker fill paying
-`maker_fee`. In `"touch"` mode a **lock** (`market_ask == bid_price`) also fills
+`ask` trades through `bid_price` (`market_ask < bid_price`), the resting buy is
+run over and fills its full remaining size at `bid_price`, a maker fill paying
+`maker_fee`. In `"touch"` mode a lock (`market_ask == bid_price`) also fills
 once on entry, for `min(remaining, participation_ratio * market_ask_size)` at
 `bid_price`; further size changes at the same locked price are ignored (a static
 quote cannot be told from a cancel, so it does not re-fill). The `"breach"` default
-keeps only the through case. A quote that appears **already crossing** the spread
+keeps only the through case. A quote that appears already crossing the spread
 (`bid_price >= market_ask` on submission) is a taker: it fills its full size at the
 market, walking `tick_size` for the part beyond the displayed quote, and pays
 `taker_fee`. The sell side is symmetric. Fills are capped so the position stays
@@ -116,7 +125,7 @@ Inputs are `(bid_price, bid_size, ask_price, ask_size, market_bid, market_ask,
 market_bid_size, market_ask_size)`. It emits the four positional columns shared by
 the backtest family: `0 = equity` (cumulative dollar PnL), `1 = pnl` (per event),
 `2 = position`, and `3 = cost` (per event). A `NaN` in any market quote field skips
-the event (`nan_policy: ignore`); a `NaN` own-quote price means that side is not
+the event; a `NaN` own-quote price means that side is not
 quoted. [`backtest_report`](backtest_report.md) summarizes the resulting equity
 curve.
 
@@ -129,13 +138,20 @@ fills rather than quote-level heuristics.
 
 Quotes-only fills are a heuristic: a size change at a static price is fill,
 cancel, and re-quote all at once, and cannot be told apart. The `"breach"` default
-fills only when the market trades through your quote, so it can **under-fill**.
-`"touch"` adds a participation partial once per lock episode and can **over-fill**
+fills only when the market trades through your quote, so it can under-fill.
+`"touch"` adds a participation partial once per lock episode and can over-fill
 when a lock's size came from cancels rather than trades. Prefer
 [`BacktestL1TradesOrders`](BacktestL1TradesOrders.md) when a trade feed is available: real
 trades drive the fills and remove this ambiguity. Orders are counterfactual (zero
 volume, no market impact); a marketable order fills beyond the displayed size only
 under the `tick_size` slippage assumption.
+
+
+<!-- NAN_FOOTNOTE_START -->
+## NaN handling
+
+**Policy: `ignore`.** A `NaN` input never corrupts the engine's state. What a `NaN` target, price or quote does on this engine is stated in the Description. See [NaN and warmup](../nan_and_warmup.md).
+<!-- NAN_FOOTNOTE_END -->
 
 ## Examples
 

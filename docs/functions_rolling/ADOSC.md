@@ -11,6 +11,8 @@ tags:
 - oscillator
 - talib
 - ohlcv
+- chaikin oscillator
+- accumulation distribution
 short: Difference of fast and slow EMA of the Accumulation/Distribution line.
 inputs: 4
 outputs: 1
@@ -19,12 +21,17 @@ parameters:
   type: int
   default: 3
   min: 2
-  description: Fast EMA period.
+  description: Span of the fast EMA of the AD line, in samples. Must be less than slow.
 - name: slow
   type: int
   default: 10
   min: 2
-  description: Slow EMA period.
+  description: Span of the slow EMA of the AD line, in samples. Must be greater than fast.
+see_also:
+- AD
+- EwMean
+- OBV
+- MFI
 nan_policy: ignore
 ---
 
@@ -32,25 +39,25 @@ nan_policy: ignore
 
 ## Description
 
-Chaikin A/D Oscillator: difference of two EMAs of the `AD` line.
+`ADOSC` is the Chaikin A/D Oscillator, the difference of a fast and a slow EMA of the
+[`AD`](AD.md) line:
 
 $$
 \text{ADOSC}[t] = \text{EMA}(\text{AD},\ \text{fast})[t] - \text{EMA}(\text{AD},\ \text{slow})[t]
 $$
 
-**4-input, 1-output** on `(high, low, close, volume)`. Default `(fast=3, slow=10)` matches
-TA-Lib.
+Inputs are `(high, low, close, volume)`. The defaults `fast=3, slow=10` are TA-Lib's.
+Output is defined from the first sample.
 
-The underlying EMA is `screamer.EwMean` (pandas `adjust=True`), so `ADOSC` inherits the
-same documented divergence from TA-Lib's `ADOSC` as `DEMA`/`TEMA`/`MACD`/`TRIX`. The class
-matches the explicit pandas-composition reference bit-exactly. See `docs/conventions.md`
-for the divergence detail.
-
+The EMA is [`EwMean`](../functions_ew/EwMean.md) (pandas `adjust=True`), so `ADOSC`
+differs from TA-Lib's `ADOSC` during the early samples in the same way as `DEMA`,
+`TEMA`, `MACD` and `TRIX`; see [conventions](../conventions.md). It matches the
+explicit pandas composition exactly.
 
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples

@@ -10,6 +10,7 @@ tags:
 - illiquidity
 - market impact
 - kyle
+- kyle lambda
 - lambda
 - microstructure
 - ew
@@ -20,23 +21,33 @@ parameters:
 - name: com
   type: float
   default: null
-  description: Center of mass (alpha = 1 / (1 + com)). Exclusive with span/halflife/alpha.
+  description: Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly
+    one of com, span, halflife and alpha.
 - name: span
   type: float
   default: 20.0
-  description: Span (alpha = 2 / (span + 1)). Default smoothing parameter. Exclusive with com/halflife/alpha.
+  description: Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give
+    exactly one of com, span, halflife and alpha. The default shown is an example value; the
+    constructor has no default.
 - name: halflife
   type: float
   default: null
-  description: Half-life in periods (alpha = 1 - 0.5^(1/halflife)). Exclusive with com/span/alpha.
+  description: Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive.
+    Give exactly one of com, span, halflife and alpha.
 - name: alpha
   type: float
   default: null
-  description: Direct smoothing factor in (0, 1]. Exclusive with com/span/halflife.
+  description: Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more
+    weight. Give exactly one of com, span, halflife and alpha.
 nan_policy: ignore
 see_also:
-- EwBeta
 - RollingKyleLambda
+- EwBeta
+- AmihudIlliquidity
+- SignedVolume
+references:
+- Kyle, A. S. (1985). Continuous auctions and insider trading. *Econometrica*, 53(6), 1315-1335.
+  doi:10.2307/1913210
 ---
 
 # `EwKyleLambda`
@@ -44,36 +55,26 @@ see_also:
 ## Description
 
 Kyle's lambda (Kyle 1985) is the slope of price change on signed order flow,
-the price-impact or illiquidity coefficient: a high value signals an illiquid
-market with large price impact per unit of net flow, a low value signals a
-liquid one. `EwKyleLambda` estimates it using exponential weighting rather than
-a fixed rolling window, so recent observations receive higher weight and the
-estimate adapts faster to changing liquidity conditions than `RollingKyleLambda`.
+also called the price-impact or illiquidity coefficient. A high value signals an
+illiquid market with large price impact per unit of net flow, a low value a
+liquid one. `EwKyleLambda` estimates it with exponential weighting instead of a
+fixed window, so recent observations receive more weight and the estimate adapts
+to changing liquidity faster than [`RollingKyleLambda`](RollingKyleLambda.md).
 
-`EwKyleLambda(span=...)(signed_flow, return_)` returns the EW regression slope
-of `return_` on `signed_flow`. It is a documented specialization of `EwBeta`:
-internally it calls `EwBeta(com=com, span=span, halflife=halflife, alpha=alpha)(return_, signed_flow)`.
+`EwKyleLambda(span=...)(signed_flow, return_)` returns the exponentially
+weighted regression slope of `return_` on `signed_flow`. It equals
+`EwBeta(span=...)(return_, signed_flow)`, with the inputs in the opposite order.
+Exactly one of `com`, `span`, `halflife` and `alpha` sets the decay; passing none
+or more than one raises an error.
 
-The decay rate is specified by exactly one of the following mutex parameters:
+The first output is `NaN`, since a slope needs at least two observations. Later
+outputs are `NaN` when `signed_flow` has zero weighted variance.
 
-- **`com`** (`float`): Center of mass; `alpha = 1 / (1 + com)`.
-- **`span`** (`float`): EW span; `alpha = 2 / (span + 1)`.
-- **`halflife`** (`float`): Half-life in periods; `alpha = 1 - exp(-log(2) / halflife)`.
-- **`alpha`** (`float`): Direct smoothing factor in `(0, 1]`; weight of the current observation.
+<!-- NAN_FOOTNOTE_START -->
+## NaN handling
 
-Passing none of these or more than one raises an error from the underlying `EwBeta` constructor.
-
-*Return value*: the price-impact coefficient lambda at each time step. The
-first output is `NaN` (EwBeta warmup). Subsequent `NaN` values occur when
-`signed_flow` has zero variance over the effective EW window.
-
-Because the implementation delegates entirely to `EwBeta`, causality and the
-`nan_policy: ignore` contract are inherited from the C++ engine.
-
-**Reference**: Kyle, A. S. (1985). "Continuous Auctions and Insider Trading."
-*Econometrica*, 53(6), 1315-1335.
-
-<!-- HELP_END -->
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).
+<!-- NAN_FOOTNOTE_END -->
 
 ## Examples
 

@@ -8,18 +8,25 @@ tags:
 - activation
 - relu
 - neural
+- rectifier
+- rectified linear unit
+- max(0, x)
 short: 'Rectified linear unit: max(0, x).'
 inputs: 1
 outputs: 1
 parameters: []
 nan_policy: ignore
+see_also:
+- PosPart
+- Elu
+- Selu
 ---
 
 # `Relu`
 
 ## Description
 
-`Relu` (Rectified Linear Unit) computes the elementwise map f(x) = max(0, x), returning the input unchanged for positive values and zero for negative values. It is a piecewise-linear activation function.
+`Relu` (rectified linear unit) computes `max(0, x)` for each element: positive values pass unchanged and negative values become zero. It gives the same result as `PosPart`.
 
 *Equation*:
 
@@ -27,15 +34,10 @@ $$
 f(x) = \max(0, x)
 $$
 
-*Parameters*: `Relu` takes no parameters.
-
-*NaN handling*: `NaN` values are not modified by this function.
-
-
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples

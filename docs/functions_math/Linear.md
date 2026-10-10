@@ -9,6 +9,8 @@ tags:
 - affine
 - linear
 - scale
+- rescale
+- offset
 short: 'Affine transform: scale * x + shift.'
 inputs: 1
 outputs: 1
@@ -16,19 +18,23 @@ parameters:
 - name: scale
   type: float
   default: 1.0
-  description: Multiplicative coefficient.
+  description: Factor that multiplies each input value.
 - name: shift
   type: float
   default: 0.0
-  description: Additive offset.
+  description: Constant added after scaling.
 nan_policy: ignore
+see_also:
+- Linear2
+- Add
+- Mul
 ---
 
 # `Linear`
 
 ## Description
 
-The `Linear` class computes an affine transformation of each input value, defined by the equation $y = \text{scale} \times x + \text{shift}$.
+`Linear` applies an affine transformation to each input value.
 
 *Equation*:
 
@@ -36,18 +42,11 @@ $$
 f(x) = \text{scale} \cdot x + \text{shift}
 $$
 
-*Parameters*:
-
-- `scale` (double): The scaling factor applied to the input.
-- `shift` (double): The value added to the scaled input to shift the output.
-
-*NaN handling*: `NaN` values are not modified by this function.
-
 
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples

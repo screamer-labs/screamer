@@ -7,7 +7,10 @@ topics:
 tags:
 - argmin
 - rolling
-short: Window-offset of the trailing-window minimum (TA-Lib MININDEX).
+- minindex
+- position of minimum
+- index of minimum
+short: Position of the minimum within the trailing window (0 is the oldest sample).
 inputs: 1
 outputs: 1
 parameters:
@@ -15,7 +18,12 @@ parameters:
   type: int
   default: 20
   min: 2
-  description: Trailing-window length.
+  description: Number of most recent samples searched for the minimum.
+see_also:
+- RollingMin
+- RollingArgmax
+- RollingMinMax
+- RollingRange
 nan_policy: ignore
 ---
 
@@ -23,14 +31,19 @@ nan_policy: ignore
 
 ## Description
 
-`RollingArgmin` returns the *position* (within the current window) of the rolling minimum value, rather than the minimum itself. Convention: **0 = oldest sample in the window**, **window_size−1 = newest**. Matches `numpy.argmin` applied to the trailing window slice and `pandas.Series.rolling(w).apply(np.argmin)`.
+`RollingArgmin` returns the position of the rolling minimum within the current window,
+rather than the minimum itself. Position 0 is the oldest sample in the window and
+`window_size - 1` the newest. When the minimum occurs more than once in the window,
+the newest position is returned. Otherwise the result matches `numpy.argmin` applied to
+the trailing window slice; `numpy.argmin` returns the oldest position on ties.
 
-*Parameters*: `window_size` (int, positive).
+Before the window is full, the output is the position within the samples seen so far,
+so there is no NaN warmup.
 
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples
@@ -72,13 +85,18 @@ nan_policy: ignore
 
 ### Algorithm
 
-`RollingArgmin` reuses the same monotonic-deque primitive used by `RollingMin`, `RollingMax`, `RollingMinMax`, and `RollingRange` (`detail::MinDeque`). Each deque entry stores `(value, absolute_sample_index)`; the front entry is always the current rolling minimum, and we expose its window offset.
+A monotonic deque, the same structure that [`RollingMin`](RollingMin.md) uses. Each deque
+entry stores the value and its absolute sample index; the front entry is the current
+rolling minimum, and its index is converted to a window offset.
 
 ### Complexity
 
-* Time complexity: `O(1)` amortised per step.
+* Time complexity: `O(1)` amortized per step.
 * Space complexity: `O(window_size)`.
 
-## Reference
+## Validation
 
-Equivalent to `pandas.Series.rolling(w).apply(np.argmin, raw=True)` for samples after warmup. Pandas returns NaN during warmup; `RollingArgmin` returns the partial-window argmin from the very first sample.
+Equivalent to `pandas.Series.rolling(w).apply(np.argmin, raw=True)` after warmup when the
+minimum is unique in the window. Pandas returns NaN during warmup, where `RollingArgmin` returns
+the position within the partial window. TA-Lib's `MININDEX` locates the same minimum but
+returns its absolute index in the series rather than its offset in the window.

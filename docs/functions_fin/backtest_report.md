@@ -3,6 +3,17 @@ name: backtest_report
 title: backtest_report
 kind: function
 short: Running statistics and a summary for a backtest engine's output.
+tags:
+- backtest
+- performance report
+- sharpe ratio
+- drawdown
+- turnover
+- statistics
+see_also:
+- BacktestReport
+- BacktestStats
+- PortfolioReport
 topics:
 - backtesting
 ---
@@ -40,7 +51,7 @@ columns and reads the last row, and needs no pandas. Wrap `running` in a
 `sharpe`, `sortino`, and `calmar` (for example 252 for daily bars); the default 1
 gives per-step ratios.
 
-## Example
+## Examples
 
 ```{eval-rst}
 .. exec_code::

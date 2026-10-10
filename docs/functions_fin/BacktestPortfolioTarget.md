@@ -4,6 +4,7 @@ title: Backtest a portfolio of target weights on prices
 implementation_family: fin
 topics:
 - backtesting
+- portfolio
 tags:
 - backtest
 - portfolio
@@ -11,23 +12,33 @@ tags:
 - weights
 - multi-asset
 - exposure
-short: "Backtest K assets traded toward per-asset target weights, notionals, or positions from one shared capital account, filled at each step's price."
+- simulation
+- pnl
+- equity curve
+- rebalance
+- portfolio weights
+- transaction costs
+short: Backtest K assets traded toward per-asset target weights, notionals, or positions from
+  one shared capital account, filled at each step's price.
 inputs: 2
 outputs: 4
 parameters:
 - name: fee
   type: float|list[float]
   default: 0.0
-  description: Fractional fee on the traded notional, one value for all assets or one per asset.
+  description: Fractional fee on the traded notional, one value for all assets or one per
+    asset.
 - name: slippage
   type: float|list[float]
   default: 0.0
   min: 0.0
-  description: Adverse price offset on every fill, read in `slippage_unit`, one value for all assets or one per asset.
+  description: Adverse price offset on every fill, read in `slippage_unit`, one value for
+    all assets or one per asset.
 - name: slippage_unit
   type: str
   default: fraction
-  description: 'Unit of `slippage`: "fraction" of the reference price (5 bps = 5e-4), "ticks" of `tick_size`, or "price".'
+  description: 'Unit of `slippage`: "fraction" of the reference price (5 bps = 5e-4), "ticks"
+    of `tick_size`, or "price".'
 - name: tick_size
   type: float|list[float]
   default: 0.0
@@ -45,36 +56,47 @@ parameters:
 - name: size
   type: str
   default: weight
-  description: 'What a target means: "weight" (a fraction of portfolio equity), "notional" (a currency amount), or "units" (a position).'
+  description: 'What a target means: "weight" (a fraction of portfolio equity), "notional"
+    (a currency amount), or "units" (a position).'
 - name: initial_capital
   type: float
   default: 1.0
   min: 0.0
-  description: Starting capital. Portfolio equity is this plus the summed pnl of all assets; weights are fractions of it.
+  description: Starting capital. Portfolio equity is this plus the summed pnl of all assets;
+    weights are fractions of it.
 - name: rebalance_band
   type: float
   default: 0.0
   min: 0.0
-  description: Trade a held asset back to its target when its holding drifts from it by more than this fraction of equity (0 = never). Needs size "weight" or "notional".
+  description: Trade a held asset back to its target when its holding drifts from it by more
+    than this fraction of equity (0 = never). Needs size "weight" or "notional".
 - name: rebalance
   type: str
   default: drifted
-  description: 'When the band trips: "drifted" trades only the assets beyond it, "all" rebalances every asset that has a target.'
+  description: 'When the band trips: "drifted" trades only the assets beyond it, "all" rebalances
+    every asset that has a target.'
 - name: max_gross
   type: float
   default: .inf
-  description: Largest gross exposure, sum of absolute position values over equity. Orders that exceed it are scaled down.
+  description: Largest gross exposure, sum of absolute position values over equity. Orders
+    that exceed it are scaled down.
 - name: max_net
   type: float
   default: .inf
   min: 0.0
-  description: Largest absolute net exposure, sum of position values over equity. Orders that exceed it are scaled down.
+  description: Largest absolute net exposure, sum of position values over equity. Orders that
+    exceed it are scaled down.
 nan_policy: nan-aware
 see_also:
 - BacktestPortfolioOHLCTarget
 - PortfolioReport
 - CrossNormalize
 - BacktestPriceTarget
+output_names:
+- equity
+- pnl
+- position
+- cost
 ---
 
 # `BacktestPortfolioTarget`
@@ -136,7 +158,9 @@ column reports the slippage and fees.
 
 An asset whose price is `NaN` on a step (not yet listed, halted, or not quoted)
 does not trade or mark on that step. Its output row repeats its equity with
-zero pnl and cost, so the portfolio sum stays defined.
+zero pnl and cost, so the portfolio sum stays defined. An order that falls due on such a step
+is kept and executes at the asset's next quoted step, unless a newer target for
+that asset arrives first.
 
 ### Output
 
@@ -150,6 +174,13 @@ A `(T, K)` input is `T` steps. One row of `K` values per input is one step,
 which is how the engine runs live: call it once per step with that step's
 targets and prices. The number of assets is fixed by the first step after
 `reset()`.
+
+
+<!-- NAN_FOOTNOTE_START -->
+## NaN handling
+
+**Policy: `nan-aware`.** This function is built to process `NaN` inputs, as the Description explains. See [NaN and warmup](../nan_and_warmup.md).
+<!-- NAN_FOOTNOTE_END -->
 
 ## Examples
 

@@ -64,10 +64,14 @@ ax2.set_ylabel("RollingCorr(30)")
 plt.tight_layout()
 ```
 
-The same rule extends to any number of columns, and to the backtest engines:
-a `(T, K)` target and a `(T, K)` price run `K` independent backtests and return
-`(T, K, 4)`. The [polymorphic API](../polymorphic_api.md) page defines the
-shape rules for every input type.
+The same rule extends to any number of columns, and to the single-asset
+backtest engines: a `(T, K)` target and a `(T, K)` price run `K` independent
+backtests and return `(T, K, 4)`. The [polymorphic API](../polymorphic_api.md)
+page defines the shape rules for every input type. To trade the `K` assets as
+one book from a shared account, use the portfolio engines in
+[Portfolios and pairs](../portfolio_backtesting.md); the
+[cross-sectional momentum recipe](cross-sectional-momentum.md) builds such a
+book.
 
 Related pages: [`CombineLatest`](../functions_streams/CombineLatest.md),
 [`RollingStd`](../functions_rolling/RollingStd.md),

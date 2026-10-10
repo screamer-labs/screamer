@@ -8,7 +8,9 @@ tags:
 - ew
 - alpha
 - intercept
-- pair
+- regression
+- capm
+- exponential
 short: EW regression intercept, ewmean(x) - EwBeta(x,y) * ewmean(y).
 inputs: 2
 outputs: 1
@@ -16,20 +18,29 @@ parameters:
 - name: com
   type: float
   default: null
-  description: Center of mass (alpha = 1 / (1 + com)). Exclusive with span/halflife/alpha.
+  description: Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly
+    one of com, span, halflife and alpha.
 - name: span
   type: float
   default: 20.0
-  description: Span (alpha = 2 / (span + 1)). Default smoothing parameter. Exclusive
-    with com/halflife/alpha.
+  description: Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give
+    exactly one of com, span, halflife and alpha. The default shown is an example value; the
+    constructor has no default.
 - name: halflife
   type: float
   default: null
-  description: Halflife (alpha = 1 - 0.5^(1/halflife)). Exclusive with com/span/alpha.
+  description: Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive.
+    Give exactly one of com, span, halflife and alpha.
 - name: alpha
   type: float
   default: null
-  description: Smoothing parameter directly. Exclusive with com/span/halflife.
+  description: Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more
+    weight. Give exactly one of com, span, halflife and alpha.
+see_also:
+- EwBeta
+- EwSpread
+- RollingAlpha
+- EwMean
 nan_policy: ignore
 ---
 
@@ -37,34 +48,20 @@ nan_policy: ignore
 
 ## Description
 
-`EwAlpha` is the exponentially weighted regression intercept, the EW analog of [`RollingAlpha`](../functions_fin/RollingAlpha.md) and the companion to [`EwBeta`](EwBeta.md):
+`EwAlpha` computes the exponentially weighted regression intercept of the first input `x` on the second input `y`. It is the exponentially weighted counterpart of [`RollingAlpha`](../functions_fin/RollingAlpha.md) and the companion of [`EwBeta`](EwBeta.md):
 
 $$
 \text{EwAlpha}(x, y) = \overline{x}_{ew} - \beta_{ew}\, \overline{y}_{ew}
 $$
 
-where `beta_ew = EwBeta(x, y)` and the means are exponentially weighted. This is a **2-input, 1-output** function (`FunctorBase<_, 2, 1>`).
+where $\beta_{ew}$ = `EwBeta(x, y)` and the means are exponentially weighted with the same smoothing factor. The first argument is the target and the second is the regressor, as in `EwBeta`; together they give the fitted line `x ≈ alpha + beta * y`. The smoothing factor `alpha` is set by exactly one of the `com`, `span`, `halflife` or `alpha` parameters (the `alpha` parameter is the smoothing factor, unrelated to the intercept this function returns).
 
-## Argument-order convention
-
-The **first argument is the target**, the **second is the regressor**, matching `EwBeta`. Together, `EwAlpha` and `EwBeta` give the fitted line `x ≈ alpha + beta * y` under exponential weighting.
-
-## Parameters
-
-Specify exactly one of the following to set the smoothing factor `alpha`:
-
-- **`com`**: Center of mass. `alpha = 1 / (1 + com)`
-- **`span`**: Span. `alpha = 2 / (span + 1)`
-- **`halflife`**: Half-life. `alpha = 1 - exp(-log(2) / halflife)`
-- **`alpha`**: Directly sets the smoothing factor, `0 < alpha < 1`
-
-The output is `NaN` while `EwBeta` is undefined (regressor with zero variance over the effective window).
-
+The output is `NaN` while `EwBeta` is undefined, that is when `y` is constant over the effective window, which includes the first sample.
 
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples
@@ -103,8 +100,3 @@ The output is `NaN` while `EwBeta` is undefined (regressor with zero variance ov
 ```
 
 <!-- HELP_END -->
-
-## Reference
-
-Composes [`EwBeta`](EwBeta.md) and two [`EwMean`](EwMean.md); `O(1)` per step. The EW
-counterpart of `RollingAlpha`.

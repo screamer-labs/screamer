@@ -3,6 +3,17 @@ name: forecast_pairs
 title: forecast_pairs
 kind: function
 short: Build a forecasting training set by aligning lagged features with a future causal target.
+tags:
+- supervised learning
+- training set
+- features
+- labels
+- target
+- forecasting
+see_also:
+- walk_forward
+- Lag
+- Return
 topics:
 - supervised
 covers: []
@@ -85,7 +96,7 @@ Internally, duration mode uses `Resample(Delay(duration)(X), clock=y, agg='last'
 fill='carry')` paired with `CombineLatest`, running entirely in the C++ graph engine
 across all three regimes.
 
-## Example
+## Examples
 
 ```{eval-rst}
 .. exec_code::

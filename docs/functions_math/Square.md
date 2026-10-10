@@ -7,18 +7,24 @@ topics:
 tags:
 - square
 - pow2
-short: x squared (faster than Power(2)).
+- power
+- squared
+short: Square of each element, computed as x * x.
 inputs: 1
 outputs: 1
 parameters: []
 nan_policy: ignore
+see_also:
+- Cube
+- Power
+- Sqrt
 ---
 
 # `Square`
 
 ## Description
 
-Square each element. Equivalent to `Power(2)` but skips the `std::pow` logarithm and is therefore faster.
+Square each element. Gives the same result as `Power(2)` but computes `x * x` directly.
 
 *Equation*:
 
@@ -26,15 +32,10 @@ $$
 y[i] = x[i]^2
 $$
 
-*Parameters*: `Square` takes no parameters.
-
-*NaN handling*: `NaN` values pass through unchanged.
-
-
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples

@@ -1,15 +1,19 @@
 ---
 name: NATR
-title: Normalised ATR (NATR)
+title: Normalized ATR (NATR)
 implementation_family: rolling
 topics:
 - volatility
+- volatility-indicators
 tags:
 - wilder
 - natr
 - atr-normalized
 - talib
 - hlc
+- normalized average true range
+- atr percent
+- volatility
 short: ATR scaled to a percentage of the current close.
 inputs: 3
 outputs: 1
@@ -18,7 +22,14 @@ parameters:
   type: int
   default: 14
   min: 2
-  description: Wilder smoothing period.
+  description: 'Wilder smoothing period: the smoother seeds on the first window_size values,
+    then each step keeps (window_size - 1) / window_size of the previous value.'
+see_also:
+- ATR
+- TrueRange
+- KeltnerChannels
+references:
+- Wilder, J. W. (1978). *New Concepts in Technical Trading Systems*. Trend Research.
 nan_policy: ignore
 ---
 
@@ -26,22 +37,21 @@ nan_policy: ignore
 
 ## Description
 
-ATR scaled to a percentage of the current close:
+`NATR` is [`ATR`](ATR.md) as a percentage of the current close:
 
 $$
 \text{NATR}[t] = 100\ \cdot\ \frac{\text{ATR}[t]}{C[t]}
 $$
 
-Useful for cross-instrument comparison (an ATR of \$1 on a \$10 stock is much larger than
-the same ATR on a \$1000 stock).
+Expressing the range relative to price makes it comparable across instruments: an ATR
+of 1 on a price of 10 is a much larger move than the same ATR on a price of 1000.
 
-**3-input, 1-output** on `(high, low, close)`. Bit-exact to `talib.NATR`.
-
+Inputs are `(high, low, close)`. The output matches `talib.NATR` exactly.
 
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples

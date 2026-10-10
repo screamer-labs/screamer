@@ -6,10 +6,11 @@ topics:
 - regression
 tags:
 - alpha
+- jensen alpha
 - regression
 - intercept
 - pair
-short: Rolling OLS intercept of target on regressor (companion to RollingBeta).
+short: Rolling OLS intercept of a target regressed on a regressor (companion to RollingBeta).
 inputs: 2
 outputs: 1
 parameters:
@@ -17,7 +18,7 @@ parameters:
   type: int
   default: 20
   min: 2
-  description: Trailing-window length.
+  description: Number of most recent (target, regressor) pairs in the regression window.
 - name: start_policy
   type: str
   default: strict
@@ -25,28 +26,33 @@ parameters:
   - strict
   - expanding
   - zero
-  description: Warmup behaviour.
+  description: 'Output before the window is full: "strict" gives NaN, "expanding" computes
+    from the samples seen so far, and "zero" treats the window as pre-filled with zeros.'
 nan_policy: ignore
+see_also:
+- RollingBeta
+- RollingLinearRegression
+- RollingSpread
+- EwAlpha
 ---
 
 # `RollingAlpha`
 
 ## Description
 
-Companion to `RollingBeta`. The regression intercept of `y` on `x`:
+`RollingAlpha` computes the intercept of the rolling least-squares regression of a target on a regressor. With target `y`, regressor `x` and the slope `beta[t]` from `RollingBeta`:
 
 $$
 \alpha[t] = \overline{y}_w - \beta[t]\ \cdot\ \overline{x}_w
 $$
 
-**2-input, 1-output** on `(target, regressor)` -- same convention as `RollingBeta`.
-Composes `RollingBeta` + two `RollingMean` instances. O(1) per step.
+where the means are taken over the last `window_size` samples. It takes two inputs, `(target, regressor)`, in the same order as [`RollingBeta`](RollingBeta.md), and costs O(1) per step.
 
 
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples

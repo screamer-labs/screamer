@@ -2,7 +2,19 @@
 name: CombineLatest
 title: CombineLatest
 kind: class
-short: "As-of latest-value join of N streams: one row per distinct index (same-index events coalesce)."
+short: 'As-of latest-value join of N streams: one row per distinct index (same-index events
+  coalesce).'
+tags:
+- as-of join
+- align
+- join
+- combine latest
+- synchronize
+see_also:
+- Merge
+- Resample
+- Select
+- split
 topics:
 - streams
 covers:
@@ -23,7 +35,7 @@ Feeding `CombineLatest` lazy iterators of `(value, index)` events returns a
 lazy iterator (a no-index source is numbered by a per-source arrival counter);
 feeding arrays or `(values, index)` tuples returns the eager `(aligned, index)` pair.
 
-## Example
+## Examples
 
 Two streams, `a` and `b`, tick at different indices. `CombineLatest` produces
 one aligned row per distinct index, coalescing the two events that share

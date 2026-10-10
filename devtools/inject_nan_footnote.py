@@ -6,7 +6,7 @@ Idempotent. For each ``docs/functions_*/<Name>.md``:
 1. Read the YAML frontmatter. If it already declares ``nan_policy``, use that
    value. Otherwise, look the function up in :data:`POLICY_TABLE` and write
    ``nan_policy: <value>`` into the frontmatter. If the function is missing
-   from both the frontmatter and the table, abort -- that means a new function
+   from both the frontmatter and the table, abort: that means a new function
    was added without a policy declaration and the contract in
    ``docs/nan_policy.md`` is silently violated.
 2. Replace any existing ``<!-- NAN_FOOTNOTE_START --> ... <!-- NAN_FOOTNOTE_END -->``
@@ -34,7 +34,7 @@ ALLOWED_POLICIES = ("ignore", "propagate", "nan-aware")
 
 # Bootstrap classification. Once every function file carries a nan_policy
 # field in its frontmatter, this table is only consulted when a new function
-# is added without one -- and we deliberately fail in that case rather than
+# is added without one, and we deliberately fail in that case rather than
 # guess. The frontmatter, not this table, is the source of truth.
 POLICY_TABLE: dict[str, str] = {
     # functions_ew/ (all ignore)
@@ -54,7 +54,7 @@ POLICY_TABLE: dict[str, str] = {
     "EwStd": "ignore",
     "EwVar": "ignore",
     "EwZscore": "ignore",
-    # functions_fin/ -- positional return-types are propagate, rest ignore
+    # functions_fin/: positional return-types are propagate, rest ignore
     "Drawdown": "ignore",
     "LogReturn": "propagate",
     "MaxDrawdown": "ignore",
@@ -78,7 +78,7 @@ POLICY_TABLE: dict[str, str] = {
     "RollingSortino": "ignore",
     "RollingSpread": "ignore",
     "RollingTSF": "ignore",
-    # functions_math/ (all ignore -- stateless, IEEE arithmetic does the work)
+    # functions_math/ (all ignore; stateless, IEEE arithmetic does the work)
     "Abs": "ignore",
     "Acos": "ignore",
     "Asin": "ignore",
@@ -109,7 +109,7 @@ POLICY_TABLE: dict[str, str] = {
     "Sqrt": "ignore",
     "Square": "ignore",
     "Tanh": "ignore",
-    # functions_misc/ -- positional offsets are propagate
+    # functions_misc/: positional offsets are propagate
     "CumMax": "ignore",
     "CumMin": "ignore",
     "CumProd": "ignore",
@@ -120,7 +120,7 @@ POLICY_TABLE: dict[str, str] = {
     "Identity": "ignore",
     "Lag": "propagate",
     "Momentum": "propagate",
-    # functions_preprocessing/ -- FillNa and Ffill are NaN-aware by design
+    # functions_preprocessing/: FillNa and Ffill are NaN-aware by design
     "Clip": "ignore",
     "Ffill": "nan-aware",
     "FillNa": "nan-aware",
@@ -183,7 +183,7 @@ POLICY_TABLE: dict[str, str] = {
     "UltimateOscillator": "ignore",
     "WMA": "ignore",
     "WilliamsR": "ignore",
-    # functions_signal/ (all ignore -- IIR/FIR filters, observation skipping)
+    # functions_signal/ (all ignore; IIR/FIR filters, observation skipping)
     "Butter": "ignore",
     "ButterBandpass": "ignore",
     "ButterBandstop": "ignore",
@@ -192,24 +192,51 @@ POLICY_TABLE: dict[str, str] = {
     "MovingAverage": "ignore",
 }
 
+NAN_PAGE_LINK = "See [NaN and warmup](../nan_and_warmup.md)."
+
 FOOTNOTE_BODY = {
     "ignore": (
-        "**Policy: `ignore`.** A `NaN` in any input at index `t` causes the "
-        "function to skip that step: output at `t` is `NaN` and internal state "
-        "is unchanged. Subsequent finite samples are processed as if step `t` "
-        "had not occurred."
+        "**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that "
+        "step. The step is skipped: it does not enter the window or update the "
+        "internal state. " + NAN_PAGE_LINK
+    ),
+    # Stateless element-wise functions (implementation_family: math) have no
+    # window or state to skip, so their footnote says only what reaches the
+    # output.
+    "ignore-stateless": (
+        "**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that "
+        "step. " + NAN_PAGE_LINK
+    ),
+    # Cross-sectional functions (implementation_family: cross) work row by row
+    # across assets, so a NaN removes one asset from that row, not the step.
+    "ignore-cross": (
+        "**Policy: `ignore`.** A `NaN` for an asset gives a `NaN` output for that "
+        "asset at that step, and the statistic is computed across the remaining "
+        "assets. " + NAN_PAGE_LINK
+    ),
+    # Backtest engines give a NaN field its own meaning (hold the position,
+    # skip the bar, leave a quote side empty), so the footnote defers to the
+    # Description rather than promising a NaN output row.
+    "ignore-engine": (
+        "**Policy: `ignore`.** A `NaN` input never corrupts the engine's state. "
+        "What a `NaN` target, price or quote does on this engine is stated in the "
+        "Description. " + NAN_PAGE_LINK
     ),
     "propagate": (
-        "**Policy: `propagate`.** Input `NaN` values are stored in the lookback. "
-        "Output is `NaN` at any index where the function's positional formula "
-        "references a `NaN` input; recovery happens once the `NaN` slides out "
-        "of the lookback."
+        "**Policy: `propagate`.** A `NaN` input is stored in the lookback like any "
+        "other value. The output is `NaN` wherever the formula references it and "
+        "recovers once it leaves the lookback. " + NAN_PAGE_LINK
     ),
     "nan-aware": (
-        "**Policy: `nan-aware`.** This function is designed to consume `NaN` "
-        "inputs; see the description above for its specific behavior."
+        "**Policy: `nan-aware`.** This function is built to process `NaN` inputs, "
+        "as the Description explains. " + NAN_PAGE_LINK
     ),
 }
+
+STATELESS_FAMILIES = ("math",)
+CROSS_FAMILIES = ("cross",)
+KIND_RE = re.compile(r"^kind:\s*(.+?)\s*$", re.M)
+FAMILY_RE = re.compile(r"^implementation_family:\s*(.+?)\s*$", re.M)
 
 START_MARKER = "<!-- NAN_FOOTNOTE_START -->"
 END_MARKER = "<!-- NAN_FOOTNOTE_END -->"
@@ -224,9 +251,21 @@ SENTINEL_BLOCK_RE = re.compile(
 EXAMPLES_H2_RE = re.compile(r"^## Examples\s*$", re.M)
 
 
-def render_footnote(policy: str) -> str:
+def is_backtest_engine(name: str) -> bool:
+    """Backtest engines (not the report/statistics functors that read them)."""
+    return name.startswith("Backtest") and name not in ("BacktestReport", "BacktestStats")
+
+
+def render_footnote(policy: str, family: str | None = None, name: str = "") -> str:
     """Return the full sentinel-wrapped footnote block for a policy."""
-    body = FOOTNOTE_BODY[policy]
+    key = policy
+    if policy == "ignore" and is_backtest_engine(name):
+        key = "ignore-engine"
+    elif policy == "ignore" and family in STATELESS_FAMILIES:
+        key = "ignore-stateless"
+    elif policy == "ignore" and family in CROSS_FAMILIES:
+        key = "ignore-cross"
+    body = FOOTNOTE_BODY[key]
     return (
         f"{START_MARKER}\n"
         f"## NaN handling\n\n"
@@ -287,13 +326,18 @@ def process_file(path: Path) -> bool:
         return False
 
     fm_open, fm_text, fm_close = m.group(1), m.group(2), m.group(3)
+    kind = KIND_RE.search(fm_text)
+    if kind and kind.group(1).strip() != "functor":
+        return False  # stream classes, plain functions and guides have no policy
     body = original[m.end():]
     name = path.stem
 
     policy, new_fm = resolve_policy(name, fm_text)
     final_fm = new_fm if new_fm is not None else fm_text
 
-    new_body = inject_footnote(body, render_footnote(policy))
+    fam = FAMILY_RE.search(final_fm)
+    family = fam.group(1).strip() if fam else None
+    new_body = inject_footnote(body, render_footnote(policy, family, name))
     text = fm_open + final_fm + fm_close + new_body
 
     if text == original:

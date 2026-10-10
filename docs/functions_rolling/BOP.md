@@ -9,10 +9,16 @@ tags:
 - oscillator
 - talib
 - ohlc
+- balance of power
 short: (close - open) / (high - low) per bar. No smoothing.
 inputs: 4
 outputs: 1
 parameters: []
+see_also:
+- WilliamsR
+- Stoch
+- AD
+- UltimateOscillator
 nan_policy: ignore
 ---
 
@@ -20,25 +26,23 @@ nan_policy: ignore
 
 ## Description
 
-`BOP` (Balance of Power, Igor Livshin) measures whether a bar closes near its high (buyers in control) or its low (sellers in control):
+`BOP` (Balance of Power, Igor Livshin) measures whether a bar closes near its high
+(buyers in control) or its low (sellers in control):
 
 $$
 \text{BOP}[t] = \frac{\text{close} - \text{open}}{\text{high} - \text{low}}
 $$
 
-Output range is `[-1, +1]` for any sensibly-formed bar (where `low ≤ open, close ≤ high`).
+The output lies in `[-1, +1]` for any well-formed bar (`low ≤ open, close ≤ high`).
 
-**4-input, 1-output** (`FunctorBase<_, 4, 1>`). Argument order matches TA-Lib's `BOP`: `(open, high, low, close)`.
-
-*Warmup*: none -- stateless, value defined for every input.
-
-*Range-zero*: returns `0` when `high == low` (flat bar; convention matches TA-Lib).
-
+Inputs are `(open, high, low, close)`, in TA-Lib's order. `BOP` is stateless, so
+there is no warmup and every bar has a value. When `high == low` (a flat bar) the
+output is `0`, following TA-Lib.
 
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples
@@ -78,8 +82,8 @@ Output range is `[-1, +1]` for any sensibly-formed bar (where `low ≤ open, clo
 
 ## Implementation Details
 
-Single per-step arithmetic operation; O(1) per step, zero state.
+One arithmetic expression per step: `O(1)` time and no state.
 
-## Reference
+## Validation
 
-Bit-exact match to `talib.BOP(open, high, low, close)` (verified to 0.0 -- exact integer-rounded arithmetic).
+Matches `talib.BOP(open, high, low, close)` exactly (difference 0.0).

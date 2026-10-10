@@ -10,6 +10,9 @@ tags:
 - kaufman
 - adaptive
 - moving-average
+- kaufman adaptive moving average
+- adaptive moving average
+- efficiency ratio
 short: Adaptive MA whose smoothing constant responds to the efficiency ratio.
 inputs: 1
 outputs: 1
@@ -18,17 +21,27 @@ parameters:
   type: int
   default: 10
   min: 2
-  description: Efficiency-ratio lookback.
+  description: 'Efficiency-ratio lookback n in samples: the net move and the path length are
+    measured over the last n steps.'
 - name: fast
   type: int
   default: 2
   min: 2
-  description: Fast EMA period.
+  description: Period of the fastest smoothing constant, alpha_fast = 2 / (fast + 1), used
+    when the efficiency ratio is 1. TA-Lib fixes it at 2.
 - name: slow
   type: int
   default: 30
   min: 2
-  description: Slow EMA period.
+  description: Period of the slowest smoothing constant, alpha_slow = 2 / (slow + 1), used
+    when the efficiency ratio is 0. TA-Lib fixes it at 30.
+see_also:
+- EwMean
+- DEMA
+- HullMA
+- MAMA
+references:
+- 'Kaufman, P. J. (1995). *Smarter Trading: Improving Performance in Changing Markets*. McGraw-Hill.'
 nan_policy: ignore
 ---
 
@@ -36,7 +49,12 @@ nan_policy: ignore
 
 ## Description
 
-`KAMA` (Kaufman's Adaptive Moving Average, Perry Kaufman 1998) smooths the input with a per-step smoothing constant that adapts to the **efficiency** of the recent price action. When the input moves monotonically (most of its travel is net displacement), the smoothing constant approaches the fast EMA's α. When the input is noisy and round-trips a lot (much travel, little net displacement), it approaches the slow EMA's α. The result tracks trending markets responsively while ignoring chop.
+`KAMA` (Kaufman's Adaptive Moving Average) smooths the input with a smoothing constant
+that changes every step with the efficiency of the recent price path. When the input
+moves in one direction (most of its travel is net displacement), the constant
+approaches the fast EMA's alpha. When the input is noisy and reverses often (much
+travel, little net displacement), it approaches the slow EMA's alpha. The average
+therefore follows trends quickly and moves little in sideways, noisy stretches.
 
 $$
 \begin{aligned}
@@ -50,39 +68,17 @@ $$
 \end{aligned}
 $$
 
-By the triangle inequality `direction ≤ volatility`, so `ER ∈ [0, 1]` always; no clamping is needed.
+By the triangle inequality `direction ≤ volatility`, so `ER ∈ [0, 1]` without
+clamping.
 
-## Parameters
-
-- `window_size` (int, ≥ 2): the efficiency-ratio lookback `n`.
-- `fast` (int, optional): "fast" smoothing period. Default `2` (TA-Lib's hard-coded value); `α_fast = 2/3`.
-- `slow` (int, optional): "slow" smoothing period. Default `30` (TA-Lib's hard-coded value); `α_slow ≈ 0.0645`.
-
-*Warmup*: first valid output at sample index `window_size`. The recurrence is seeded with `KAMA[n-1] = x[n-1]`, matching TA-Lib exactly. Earlier samples return `NaN`.
-
-*NaN handling*: NaN inputs poison subsequent outputs (the rolling sum of absolute deltas absorbs the NaN). Preprocess if necessary.
-
-## Implementation Details
-
-### Composition
-
-Built from existing screamer primitives:
-
-- `detail::DelayBuffer(n)` for `x[t-n]`.
-- `detail::RollingSum(n)` for `Σ |Δx|` over the period (the volatility denominator).
-- One `prev_x_` scalar for the one-step difference.
-- One running KAMA scalar.
-
-### Complexity
-
-* Time complexity: `O(1)` per step.
-* Space complexity: `O(window_size)`.
-
+The first valid output is at sample index `window_size`. The recurrence is seeded with
+`KAMA[n-1] = x[n-1]`, as in TA-Lib, and earlier samples return NaN. Each step costs
+`O(1)` time and `O(window_size)` memory.
 
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples
@@ -127,6 +123,7 @@ Built from existing screamer primitives:
 
 <!-- HELP_END -->
 
-## Reference
+## Validation
 
-Equivalent to TA-Lib's `KAMA` and pandas-ta-classic's `kama` to ~1e-15 (post-warmup). Cross-validated in `tests/test_third_party_alignment.py`.
+Matches TA-Lib's `KAMA` and pandas-ta-classic's `kama` to about 1e-15 after warmup, in
+`tests/test_third_party_alignment.py`.

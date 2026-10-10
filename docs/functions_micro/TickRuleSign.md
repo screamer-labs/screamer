@@ -6,16 +6,24 @@ topics:
 - trade-signing
 tags:
 - trade sign
+- trade classification
 - tick rule
-- lee ready
-- classification
-- flow
+- tick test
+- aggressor side
+- buy sell classification
 - microstructure
 short: Trade sign by the tick rule (+1 up-tick, -1 down-tick, carry on unchanged).
 inputs: 1
 outputs: 1
 parameters: []
 nan_policy: ignore
+see_also:
+- LeeReadySign
+- BulkVolumeClassifier
+- SignedVolume
+references:
+- Lee, C. M. C. and Ready, M. J. (1991). Inferring trade direction from intraday data. *Journal
+  of Finance*, 46(2), 733-746.
 ---
 
 # `TickRuleSign`
@@ -24,13 +32,18 @@ nan_policy: ignore
 
 `TickRuleSign` classifies each trade as buyer-initiated (`+1`) or
 seller-initiated (`-1`) by the tick rule: a trade above the previous price is a
-buy, below is a sell, and an unchanged price carries the previous sign. It is the
-simplest trade-sign classifier and needs only the price series. References: the
-tick rule, and Lee, Ready (1991), "Inferring Trade Direction from Intraday Data".
+buy, a trade below it a sell, and an unchanged price keeps the previous sign. It
+needs only the price series.
 
-The output stays `NaN` until the first price change: the initial bar is always
-`NaN` (no prior price), and if subsequent prices are all unchanged there is no
-directional tick yet and no sign to carry forward.
+The output stays `NaN` until the first price change: the first sample has no
+previous price, and while the price is unchanged there is no sign to carry
+forward.
+
+<!-- NAN_FOOTNOTE_START -->
+## NaN handling
+
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).
+<!-- NAN_FOOTNOTE_END -->
 
 ## Examples
 

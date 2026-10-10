@@ -10,28 +10,44 @@ tags:
 - ohlc
 - drift-robust
 - gap-robust
+- overnight gap
 - vol
+- volatility
+- realized volatility
 - ew
-short: Vol form (sqrt) of the EW Yang-Zhang range-based estimator.
+short: Exponentially weighted Yang-Zhang range-based volatility estimator (OHLC).
 inputs: 4
 outputs: 1
 parameters:
 - name: com
   type: float
   default: null
-  description: Center of mass.
+  description: Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly
+    one of com, span, halflife and alpha.
 - name: span
   type: float
   default: 20.0
-  description: Span.
+  description: Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give
+    exactly one of com, span, halflife and alpha. The default shown is an example value; the
+    constructor has no default.
 - name: halflife
   type: float
   default: null
-  description: Halflife.
+  description: Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive.
+    Give exactly one of com, span, halflife and alpha.
 - name: alpha
   type: float
   default: null
-  description: Smoothing parameter directly.
+  description: Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more
+    weight. Give exactly one of com, span, halflife and alpha.
+see_also:
+- EwYangZhangVar
+- RollingYangZhangVol
+- EwRogersSatchellVol
+- EwGarmanKlassVol
+references:
+- Yang, D. and Zhang, Q. (2000). Drift-independent volatility estimation based on high, low,
+  open, and close prices. *Journal of Business*, 73(3), 477-491. doi:10.1086/209650
 nan_policy: ignore
 ---
 
@@ -39,32 +55,18 @@ nan_policy: ignore
 
 ## Description
 
-The standard-deviation form of [`EwYangZhangVar`](EwYangZhangVar.md): the square
-root of the exponentially-weighted Yang-Zhang variance.
+`EwYangZhangVol` is the square root of [`EwYangZhangVar`](EwYangZhangVar.md), the exponentially weighted Yang-Zhang (2000) range-based variance estimate. It takes four inputs, `(open, high, low, close)`, and returns a volatility in units of log price per bar:
 
 $$
 \sigma_{YZ} = \sqrt{\sigma^2_{YZ}}
 $$
 
-Yang-Zhang is the most efficient classical range-based estimator. It is
-drift-robust and it handles overnight gaps. This is a **4-input, 1-output**
-function over `(open, high, low, close)`. See
-[`EwYangZhangVar`](EwYangZhangVar.md) for the full definition and the components.
-
-## Parameters
-
-Specify exactly one of the following to set the smoothing factor `alpha`:
-
-- **`com`**: Center of mass. `alpha = 1 / (1 + com)`
-- **`span`**: Span. `alpha = 2 / (span + 1)`
-- **`halflife`**: Half-life. `alpha = 1 - exp(-log(2) / halflife)`
-- **`alpha`**: Directly sets the smoothing factor, `0 < alpha < 1`
-
+The estimator accounts for both drift and overnight gaps. [`EwYangZhangVar`](EwYangZhangVar.md) gives the full definition and its components. The smoothing factor `alpha` is set by exactly one of `com`, `span`, `halflife` or `alpha`.
 
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples
@@ -99,7 +101,3 @@ Specify exactly one of the following to set the smoothing factor `alpha`:
 ```
 
 <!-- HELP_END -->
-
-## Reference
-
-Yang & Zhang (2000). The square root of [`EwYangZhangVar`](EwYangZhangVar.md).

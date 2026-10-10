@@ -10,6 +10,9 @@ tags:
 - channels
 - envelope
 - atr-based
+- keltner channel
+- atr bands
+- volatility bands
 short: 'Volatility-adapted envelope: EMA midline plus/minus a multiple of ATR.'
 inputs: 3
 outputs: 3
@@ -23,7 +26,18 @@ parameters:
   type: float
   default: 2.0
   min: 0.0
-  description: ATR multiplier for upper/lower offset.
+  description: Distance from the middle line to each outer line, in multiples of the ATR.
+output_names:
+- lower
+- middle
+- upper
+see_also:
+- ATR
+- EwMean
+- BollingerBands
+- DonchianChannels
+references:
+- Keltner, C. W. (1960). *How to Make Money in Commodities*. The Keltner Statistical Service.
 nan_policy: ignore
 ---
 
@@ -31,8 +45,8 @@ nan_policy: ignore
 
 ## Description
 
-Volatility-adapted envelope. The midline is an EMA of close; the upper/lower lines are
-offset by a multiple of ATR:
+`KeltnerChannels` is a volatility-adapted envelope. The middle line is an EMA of the
+close, and the upper and lower lines are offset from it by a multiple of the ATR:
 
 $$
 \begin{aligned}
@@ -43,17 +57,14 @@ $$
 \end{aligned}
 $$
 
-**3-input, 3-output** (`FunctorBase<_, 3, 3>`). Inputs `(high, low, close)`; outputs
-`(lower, mid, upper)`. First valid at sample index `window_size`.
-
-Composes one `EwMean(span=window_size)` for the midline + one `ATR(window_size)`. O(1)
-per step.
-
+Inputs are `(high, low, close)`. The EMA is `EwMean(span=window_size)` and the range
+is `ATR(window_size)`. The first valid output is at sample index `window_size`. Each
+step costs `O(1)`.
 
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples

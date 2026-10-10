@@ -9,6 +9,8 @@ tags:
 - bollinger
 - bands
 - envelope
+- bollinger bands
+- volatility bands
 short: Mean +/- num_std rolling standard deviations.
 inputs: 1
 outputs: 3
@@ -17,12 +19,13 @@ parameters:
   type: int
   default: 20
   min: 2
-  description: Trailing-window length.
+  description: Number of most recent samples used for the mean and the standard deviation.
 - name: num_std
   type: float
   default: 2.0
   min: 0.0
-  description: Number of rolling-std offsets for the upper/lower bands.
+  description: 'Width of the bands: the distance from the middle band to each outer band,
+    in rolling standard deviations.'
 - name: start_policy
   type: str
   default: strict
@@ -30,7 +33,20 @@ parameters:
   - strict
   - expanding
   - zero
-  description: Warmup behaviour.
+  description: 'Output before the window is full: "strict" gives NaN, "expanding" computes
+    from the samples seen so far, and "zero" treats the window as pre-filled with zeros.'
+output_names:
+- lower
+- middle
+- upper
+see_also:
+- RollingMean
+- RollingStd
+- KeltnerChannels
+- DonchianChannels
+- RollingZscore
+references:
+- Bollinger, J. (2001). *Bollinger on Bollinger Bands*. McGraw-Hill.
 nan_policy: ignore
 ---
 
@@ -38,9 +54,9 @@ nan_policy: ignore
 
 ## Description
 
-`BollingerBands` computes the Bollinger bands of a single stream over a sliding window: the middle band is the rolling mean, and the lower and upper bands sit `num_std` standard deviations away on either side. All three are returned per step.
-
-*Equation*:
+`BollingerBands` computes the Bollinger bands of a single stream over a trailing
+window: the middle band is the rolling mean, and the lower and upper bands sit
+`num_std` standard deviations below and above it. All three are returned per step.
 
 $$
 \begin{aligned}
@@ -51,23 +67,16 @@ $$
 \end{aligned}
 $$
 
-where `n = window_size` and `k = num_std`. The standard deviation uses the unbiased sample estimator (`ddof=1`), matching `pandas.Series.rolling(w).std()`.
+where `n = window_size` and `k = num_std`. The standard deviation uses the unbiased
+sample estimator (`ddof=1`), matching `pandas.Series.rolling(w).std()`.
 
-*Parameters*:
-
-- **`window_size`** (`int`, ≥ 2): size of the rolling window.
-- **`num_std`** (`float`, ≥ 0, default `2.0`): width of the bands in standard deviations.
-- **`start_policy`** (`str`, default `"strict"`): controls warmup behavior. See `RollingMean` for the full definition.
-
-*Input shape*: a single stream (scalar, 1-D array, 2-D array, iterator, …). Same matrix as `RollingMean`.
-
-*Output shape*: an extra trailing axis of size **3** is appended to the input shape. A 1-D input of shape `(T,)` returns shape `(T, 3)`; index `0` is the lower band, index `1` is the middle band, index `2` is the upper band. A scalar call returns a Python `tuple` of three floats.
-
+A 1-D input of shape `(T,)` returns shape `(T, 3)` with columns lower, middle and
+upper; a scalar call returns a tuple of three floats.
 
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples
@@ -112,20 +121,20 @@ where `n = window_size` and `k = num_std`. The standard deviation uses the unbia
 
 ## Implementation Details
 
-Two `detail::RollingSum` buffers maintain `Σx` and `Σx²` over the window. Each step updates both sums in `O(1)`, then the mean and (unbiased sample) variance are computed in closed form, the standard deviation is `sqrt(max(var, 0))` to guard against tiny negative values from floating-point cancellation, and the three band values are returned as a tuple.
+Two rolling sums maintain `Σx` and `Σx²` over the window. Each step updates both sums
+in `O(1)`, then computes the mean and the unbiased sample variance in closed form. The
+standard deviation is `sqrt(max(var, 0))`, which guards against tiny negative values
+from floating-point cancellation.
 
 * **Time**: `O(1)` per new element.
 * **Space**: `O(window_size)` (two circular buffers of length `window_size`).
-* **Reference**: parity with the pandas expression
+* **Validation**: matches the pandas expression
     `mean = s.rolling(w).mean(); std = s.rolling(w).std(); (mean - k·std, mean, mean + k·std)`
-  to floating-point tolerance, parametrised over windows `5, 10, 20, 30` and `num_std ∈ {0.5, 1.0, 2.0, 2.5}` in `tests/test_one_input_multi_output.py`.
+  to floating-point tolerance, for windows `5, 10, 20, 30` and `num_std ∈ {0.5, 1.0, 2.0, 2.5}`
+  in `tests/test_one_input_multi_output.py`.
 
 ### Edge cases
 
 * Returns `(NaN, NaN, NaN)` until at least 2 samples have arrived (variance is undefined for a single sample under `ddof=1`).
-* Under `"strict"` policy, returns `(NaN, NaN, NaN)` until the window is full.
+* Under the `"strict"` policy, returns `(NaN, NaN, NaN)` until the window is full.
 * `num_std = 0` is permitted; the upper, middle, and lower bands all equal the mean.
-
-### Related
-
-- [`RollingMean`](RollingMean.md), [`RollingStd`](RollingStd.md): the building blocks. Use them directly if you only need one of the two.

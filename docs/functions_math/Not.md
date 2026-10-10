@@ -7,11 +7,18 @@ topics:
 tags:
 - logic
 - unary
+- logical not
+- negation
+- boolean
 short: Returns 0.0 if input is nonzero, 1.0 if zero. NaN propagates.
 inputs: 1
 outputs: 1
 parameters: []
 nan_policy: ignore
+see_also:
+- And
+- Or
+- IsNan
 ---
 
 # `Not`
@@ -20,9 +27,11 @@ nan_policy: ignore
 
 `Not` applies a logical NOT to a single input stream: outputs `0.0` when the input is nonzero, and `1.0` when the input is zero. Any nonzero floating-point value (not just `1.0`) counts as true.
 
-*NaN handling*: NaN input yields NaN output.
+<!-- NAN_FOOTNOTE_START -->
+## NaN handling
 
-*Parameters*: `Not` takes no parameters.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. See [NaN and warmup](../nan_and_warmup.md).
+<!-- NAN_FOOTNOTE_END -->
 
 ## Examples
 

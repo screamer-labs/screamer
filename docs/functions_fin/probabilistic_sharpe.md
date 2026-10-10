@@ -2,9 +2,23 @@
 name: probabilistic_sharpe
 title: probabilistic_sharpe
 kind: function
-short: Probability that a strategy's true Sharpe ratio is above a benchmark, given its sample length and fat tails.
+short: Probability that a strategy's true Sharpe ratio is above a benchmark, given its sample
+  length and fat tails.
+tags:
+- psr
+- sharpe ratio
+- significance test
+- skewness
+- kurtosis
+see_also:
+- deflated_sharpe
+- RollingSharpe
+- BacktestStats
+references:
+- Bailey, D. H. and López de Prado, M. (2012). The Sharpe ratio efficient frontier. *Journal
+  of Risk*, 15(2).
 topics:
-- backtesting
+- significance
 ---
 
 # `probabilistic_sharpe`
@@ -31,7 +45,7 @@ having tried several variants, use [`deflated_sharpe`](deflated_sharpe.md).
 
 `probabilistic_sharpe(pnl, benchmark=0.0)`
 
-## Example
+## Examples
 
 ```{eval-rst}
 .. exec_code::
@@ -44,8 +58,3 @@ having tried several variants, use [`deflated_sharpe`](deflated_sharpe.md).
     print(f"P(true Sharpe > 0)    = {probabilistic_sharpe(pnl):.3f}")
     print(f"P(true Sharpe > 0.05) = {probabilistic_sharpe(pnl, 0.05):.3f}")
 ```
-
-## References
-
-- Bailey, D. H. and López de Prado, M. (2012). The Sharpe ratio efficient
-  frontier. *Journal of Risk*, 15(2).

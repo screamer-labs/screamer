@@ -22,12 +22,15 @@ BacktestL1TradesOrders, Backtest a two-sided market maker against top-of-book qu
 BacktestOHLCOrders, Backtest a two-sided order poster on OHLC bars, posting resting bids and asks that fill when the bar's range reaches them.
 BacktestOHLCTarget, Backtest a target-position strategy on OHLC bars, executing market orders at the next bar's open or another bar price, with slippage (causal, no manual lag).
 BacktestOHLCVTarget, Backtest a target-position strategy on OHLCV bars, filling each bar at most a set share of its volume.
+BacktestPortfolioOHLCTarget, Backtest K assets traded toward per-asset targets from one shared capital account on OHLC bars, executed delay bars later at a chosen bar price.
+BacktestPortfolioTarget, Backtest K assets traded toward per-asset target weights, notionals, or positions from one shared capital account, filled at each step's price.
 BacktestPriceTarget, Backtest a target position against a value series (price/mark) into a costed mark-to-market equity curve.
 BacktestReport, Turn a backtest engine's [equity, pnl, position, cost] into running drawdown, cost, turnover, trades, and Sharpe.
 BacktestStats, Turn a backtest engine's [equity, pnl, position, cost] into running exposure, round-trip trade statistics, Sortino, and Calmar.
 BacktestTradesOrders, Backtest a two-sided order poster against the trade tape, filling resting quotes when prints cross them, into a costed equity curve.
 BacktestTradesTarget, Backtest a target-position strategy against the trade tape, taking each print as a market fill to reach the target immediately.
-BayesianRegression, Online exponentially-weighted (forgetting-factor) Bayesian linear regression - current slope and intercept via Normal-Inverse-Gamma posterior plus causal one-step-ahead predictive mean and std.
+BandSignal, Three-state mean-reversion position from a z-score: short above +entry, long below -entry, flat again inside the exit level, with an optional stop and lockout.
+BayesianRegression, Online Bayesian linear regression with a forgetting factor: the current slope and intercept, and a one-step-ahead predictive mean and standard deviation.
 BollingerBands, Mean +/- num_std rolling standard deviations.
 BulkVolumeClassifier, Buy-initiated share of a bar's volume estimated as the normal CDF of return / trailing-window volatility.
 Butter, General-order IIR Butterworth low-pass filter.
@@ -41,7 +44,13 @@ Clip, Bound each element below and/or above.
 CombineLatest, As-of latest-value join of N streams: one row per distinct index (same-index events coalesce).
 ContOFI, Cont-Kukanov-Stoikov (2014) order-flow imbalance from L1 book events.
 Cos, Cosine of each element (radians).
-Cube, x cubed (faster than Power(3)).
+CrossDemean, Subtract the mean across assets at each step, removing the common component.
+CrossNormalize, Scale each row of scores to portfolio weights with a chosen gross exposure, and optionally a net exposure.
+CrossRank, Rank each asset against the others at the same step, scaled to [-1, 1] or [0, 1].
+CrossTopBottom, +1 for the highest values of each row, -1 for the lowest, 0 for the rest.
+CrossWinsorize, Clip each asset's value to the lower and upper quantiles of its row.
+CrossZscore, Standardize each asset against the others at the same step: (x - mean) / std across the row.
+Cube, Cube of each element, computed as x * x * x.
 CumMax, Running maximum from t=0.
 CumMin, Running minimum from t=0.
 CumProd, Running product from t=0.
@@ -71,38 +80,38 @@ EwAlpha, EW regression intercept, ewmean(x) - EwBeta(x,y) * ewmean(y).
 EwBeta, EW CAPM beta: cov(target, regressor) / var(regressor).
 EwCorr, EW Pearson correlation of two parallel streams.
 EwCov, EW covariance of two parallel streams.
-EwGarmanKlassVar, Var form of the Garman-Klass range-based volatility estimator (OHLC).
-EwGarmanKlassVol, Vol form of the Garman-Klass range-based volatility estimator (OHLC).
+EwGarmanKlassVar, Exponentially weighted Garman-Klass range-based variance estimator (OHLC).
+EwGarmanKlassVol, Exponentially weighted Garman-Klass range-based volatility estimator (OHLC).
 EwKurt, EW excess kurtosis.
 EwKyleLambda, Exponentially-weighted price-impact slope of return on signed order flow.
 EwMean, Exponentially-weighted moving average (pandas adjust=True).
-EwParkinsonVar, Var form of the Parkinson range-based volatility estimator (uses high & low).
-EwParkinsonVol, Vol form of the Parkinson range-based volatility estimator (uses high & low).
-EwResidualStd, EW std of the spread x - EwBeta(x,y) * y.
+EwParkinsonVar, Exponentially weighted Parkinson range-based variance estimator (high, low).
+EwParkinsonVol, Exponentially weighted Parkinson range-based volatility estimator (high, low).
+EwResidualStd, EW std of the spread x - EwBeta(x, y) * y.
 EwRms, EW root-mean-square.
-EwRogersSatchellVar, Var form of the Rogers-Satchell drift-robust range-based estimator.
-EwRogersSatchellVol, Vol form of the Rogers-Satchell drift-robust range-based estimator.
+EwRogersSatchellVar, Exponentially weighted Rogers-Satchell drift-robust range-based variance estimator (OHLC).
+EwRogersSatchellVol, Exponentially weighted Rogers-Satchell drift-robust range-based volatility estimator (OHLC).
 EwSkew, EW skewness.
-EwSpread, x - EwBeta(x,y) * y - EW hedge-adjusted residual.
+EwSpread, EW hedge-adjusted residual x - EwBeta(x, y) * y.
 EwStd, EW standard deviation.
 EwVar, EW variance (pandas adjust=True bias-corrected).
-EwYangZhangVar, Var form of the Yang-Zhang range-based estimator, exponentially weighted.
-EwYangZhangVol, Vol form (sqrt) of the EW Yang-Zhang range-based estimator.
-EwZscore, Latest sample standardised by EW mean and std.
+EwYangZhangVar, Exponentially weighted Yang-Zhang range-based variance estimator (OHLC).
+EwYangZhangVol, Exponentially weighted Yang-Zhang range-based volatility estimator (OHLC).
+EwZscore, Latest sample standardized by the EW mean and std.
 Exp, e to the power of each element.
 ExpandingKurt, Running bias-corrected excess kurtosis (Fisher) over the whole history.
-ExpandingMax, Running maximum from t=0.
+ExpandingMax, Running maximum since the start of the stream.
 ExpandingMean, Running mean over the whole history since the last reset.
-ExpandingMin, Running minimum from t=0.
-ExpandingProd, Running product from t=0.
+ExpandingMin, Running minimum since the start of the stream.
+ExpandingProd, Running product since the start of the stream.
 ExpandingSkew, Running bias-corrected sample skewness (G1) over the whole history.
 ExpandingSlope, Running OLS slope of the series against time over the whole history.
 ExpandingStd, Running sample standard deviation (ddof=1) over the whole history.
-ExpandingSum, Running sum from t=0.
+ExpandingSum, Running sum since the start of the stream.
 ExpandingVar, Running sample variance (ddof=1) over the whole history.
-Ffill, Replace NaN with the most recent finite value.
+Ffill, Replace NaN with the most recent non-NaN value.
 FillNa, Replace NaN with a user-specified scalar.
-Filter, 2-input mask gate - keep each data value whose aligned mask is nonzero.
+Filter, Two-input mask gate that keeps each data value whose aligned mask is nonzero.
 First, Latch the first finite value seen since reset.
 Floor, Round each element toward negative infinity.
 FracDiff, Fractional differencing filter. Removes the trend while keeping more of the series' memory than an integer difference.
@@ -111,7 +120,7 @@ GreaterThan, Returns 1.0 if a > b, else 0.0. NaN in either input yields NaN.
 Hampel, Robust Hampel despiker, replace samples far from the window median (in MAD units).
 HawkesIntensity, Conditional intensity of an exponential-kernel Hawkes process: lambda_t = mu + kappa_t.
 HilbertPhasor, In-phase and quadrature components of the analytic signal via Ehlers' Hilbert transform.
-Hold, Time-latch operator. Latches a nonzero finite input and holds it for n bars; returns the release value once the hold expires.
+Hold, Time-latch operator. Latches a nonzero finite input and holds it for n steps; returns the release value once the hold expires.
 HullMA, Hull's responsive MA: WMA(2*WMA(n/2) - WMA(n), sqrt(n)).
 Hypot, Euclidean distance sqrt(x^2 + y^2), numerically stable.
 Identity, Pass-through (y = x).
@@ -122,6 +131,7 @@ IsFinite, Returns 1.0 for finite values, 0.0 for NaN or inf. Does not propagate 
 IsNan, Returns 1.0 if the input is NaN, else 0.0. Does not propagate NaN.
 KAMA, Adaptive MA whose smoothing constant responds to the efficiency ratio.
 KalmanFilter, Scalar 1-D Kalman filter for a noisy random-walk model.
+KalmanRegression, Regression with a random-walk intercept and slope, estimated by a Kalman filter: the dynamic hedge ratio of a pairs trade, its spread, and the spread's predicted deviation.
 KeltnerChannels, Volatility-adapted envelope: EMA midline plus/minus a multiple of ATR.
 Lag, Output is the input delayed by k samples.
 Last, Return the most recent finite value seen since reset.
@@ -131,7 +141,7 @@ LessThan, Returns 1.0 if a < b, else 0.0. NaN in either input yields NaN.
 Linear, Affine transform: scale * x + shift.
 Linear2, Two-input affine combination: a*x + b*y + c.
 Log, Natural logarithm of each element.
-LogReturn, log(x[t] / x[t-k]) - log return at lag k.
+LogReturn, Log return log(x[t] / x[t-k]) at lag k.
 MACD, MACD line, signal line, and histogram (3 outputs).
 MAMA, Adaptive moving average pair (MAMA, FAMA) whose smoothing rate tracks the instantaneous-phase rate of change.
 MFI, Volume-weighted analogue of RSI on the typical price.
@@ -160,32 +170,33 @@ PosPart, Positive part of x: max(x, 0).
 Power, x raised to a fixed exponent p.
 Propagator, Bouchaud (2004) propagator model: price impact as a decaying-kernel convolution over past signed order flow.
 QueueImbalance, Normalized L1 book imbalance, (bid_size - ask_size) / (bid_size + ask_size).
-ROC, 100 * (x[t] / x[t-k] - 1) - TA-Lib's ROC.
-ROCP, x[t] / x[t-k] - 1 - TA-Lib's ROCP. Identical to Return.
-ROCR, x[t] / x[t-k] - TA-Lib's ROCR.
-RealizedSpread, Realized spread, 2*D*(price - mid a few steps later): the liquidity part of the effective spread.
+ROC, Rate of change 100 * (x[t] / x[t-k] - 1), in percent (TA-Lib ROC).
+ROCP, Rate of change x[t] / x[t-k] - 1, as a fraction (TA-Lib ROCP). Identical to Return.
+ROCR, Rate of change ratio x[t] / x[t-k] (TA-Lib ROCR).
+RealizedSpread, Realized spread, 2*D*(trade price - mid lag steps later): the part of the effective spread the liquidity provider keeps.
 Relu, Rectified linear unit: max(0, x).
 Resample, Causal windowed downsample of a 1-D or multi-column value stream.
-Return, (x[t] - x[t-k]) / x[t-k] - the simple percentage return at lag k.
+Return, Simple return (x[t] - x[t-k]) / x[t-k] at lag k.
 RollSpread, Roll (1984) effective spread from trade prices alone: 2*sqrt(-cov(dP_t, dP_{t-1})) over a trailing window.
-RollingAlpha, Rolling OLS intercept of target on regressor (companion to RollingBeta).
-RollingArgmax, Window-offset of the trailing-window maximum (TA-Lib MAXINDEX).
-RollingArgmin, Window-offset of the trailing-window minimum (TA-Lib MININDEX).
-RollingBeta, cov(x, y) / var(y) - regression slope of x on y.
+RollingADF, Rolling augmented Dickey-Fuller t-statistic: how strongly a series, such as a pairs spread, reverts to a mean over the last window.
+RollingAlpha, Rolling OLS intercept of a target regressed on a regressor (companion to RollingBeta).
+RollingArgmax, Position of the maximum within the trailing window (0 is the oldest sample).
+RollingArgmin, Position of the minimum within the trailing window (0 is the oldest sample).
+RollingBeta, Rolling regression slope cov(x, y) / var(y) of the first input x (dependent) on the second input y (regressor).
 RollingCVaR, Historical Conditional Value-at-Risk (Expected Shortfall): the mean loss in the worst alpha tail over a window.
-RollingCalmar, Annualised return divided by the worst rolling drawdown.
+RollingCalmar, Annualized mean return divided by the worst drawdown in a trailing window.
 RollingCorr, Rolling Pearson correlation of two parallel streams.
 RollingCov, Rolling sample covariance of two parallel streams.
 RollingDownsideDeviation, Trailing-window downside semideviation: the RMS of returns falling below a minimum acceptable return.
 RollingGarmanKlassVar, Var form of the Garman-Klass range-based volatility estimator (OHLC).
 RollingGarmanKlassVol, Vol form of the Garman-Klass range-based volatility estimator (OHLC).
-RollingHitRate, Fraction of strictly-positive samples in a trailing window.
+RollingHitRate, Fraction of strictly positive values in a trailing window.
 RollingHurst, Rolling-window Hurst exponent via Anis-Lloyd corrected rescaled-range analysis.
-RollingInfoRatio, Annualised information ratio: Sharpe of active returns against a benchmark.
+RollingInfoRatio, Annualized information ratio: the Sharpe ratio of active returns against a benchmark.
 RollingIqr, Q3 minus Q1 over the trailing window.
 RollingKurt, Trailing-window excess kurtosis.
 RollingKyleLambda, Rolling-window price-impact slope of return on signed order flow (Kyle 1985).
-RollingLinearRegression, Full OLS fit returning (slope, intercept, r_squared, stderr).
+RollingLinearRegression, Rolling OLS fit of y on x, returning slope, intercept, R-squared and the standard error of the fit.
 RollingMad, Trailing-window mean absolute deviation from the rolling mean.
 RollingMax, Trailing-window maximum (monotonic deque).
 RollingMaxDrawdown, Worst peak-to-trough drawdown inside a trailing window.
@@ -193,36 +204,37 @@ RollingMean, Trailing-window arithmetic mean (simple moving average).
 RollingMedian, Trailing-window median.
 RollingMedianAD, Rolling median absolute deviation, median(|x - median|), a robust scale estimate.
 RollingMin, Trailing-window minimum (monotonic deque).
-RollingMinMax, Trailing-window (min, max) returned as a 2-tuple per step.
+RollingMinMax, Trailing-window minimum and maximum, computed in one pass.
 RollingOU, Rolling MLE fit of a mean-reverting Ornstein-Uhlenbeck process.
 RollingOmega, Omega ratio over a window: total gains above a threshold divided by total losses below it.
 RollingOrderImbalance, Trailing-window sum of signed order flow (Chordia-Roll-Subrahmanyam imbalance).
 RollingParkinsonVar, Var form of the Parkinson range-based volatility estimator (uses high & low).
 RollingParkinsonVol, Vol form of the Parkinson range-based volatility estimator (uses high & low).
-RollingPercentile, Percentile (rank/window) of the current value in the trailing window.
+RollingPercentile, Percentile rank (rank / window) of the current value within the trailing window.
 RollingPoly1, OLS fit y = a + b*t over a trailing window. derivative_order selects value/slope/zero.
 RollingPoly2, OLS fit y = a + b*t + c*t^2 over a trailing window.
 RollingQuantile, Trailing-window quantile (e.g. 0.25 = lower quartile).
 RollingRSI, Relative Strength Index. Wilder's smoothing by default; Cutler's via method='cutler'.
 RollingRange, Trailing-window max minus min.
 RollingRank, Rank of the current value within the trailing window (1-based, average tie rule).
-RollingResidualStd, Standard deviation of the rolling-hedge-adjusted residual y - beta*x.
+RollingResidualStd, Standard deviation of the rolling hedge-adjusted residual y - beta * x.
 RollingRms, Trailing-window root-mean-square.
 RollingRogersSatchellVar, Var form of the Rogers-Satchell drift-robust range-based estimator.
 RollingRogersSatchellVol, Vol form of the Rogers-Satchell drift-robust range-based estimator.
-RollingSharpe, Annualised Sharpe ratio over a trailing window of returns.
-RollingSigmaClip, Replace samples outside [mean - lower*std, mean + upper*std] with NaN or the clipped bound.
+RollingSharpe, Annualized Sharpe ratio over a trailing window of returns.
+RollingSigmaClip, Clip samples that lie beyond lower or upper standard deviations from the rolling mean, or replace them with NaN.
 RollingSkew, Trailing-window skewness.
-RollingSortino, Annualised Sortino ratio: Sharpe with downside-only deviation.
-RollingSpread, x - beta(x,y) * y - hedge-adjusted residual.
+RollingSortino, Annualized Sortino ratio: the Sharpe ratio with downside deviation in the denominator.
+RollingSpread, Rolling hedge-adjusted residual x - beta * y, with beta the rolling regression slope.
 RollingStd, Trailing-window sample standard deviation (ddof=1).
 RollingSum, Trailing-window sum.
-RollingTSF, Linear regression of y on time, projected one step ahead. TA-Lib's TSF.
+RollingTLSBeta, Rolling total least squares (orthogonal regression) slope of the first input on the second: a hedge ratio that does not depend on which leg is called dependent.
+RollingTSF, Linear regression of the input on time, projected one step ahead (TA-Lib TSF).
 RollingVWAP, Rolling volume-weighted average price (typical-price weighted).
 RollingVar, Trailing-window sample variance (ddof=1).
 RollingYangZhangVar, Var form of the Yang-Zhang estimator (drift + gap robust).
 RollingYangZhangVol, Vol form of the Yang-Zhang estimator (drift + gap robust).
-RollingZscore, Latest sample standardised by trailing-window mean and std.
+RollingZscore, Latest sample standardized by the trailing-window mean and standard deviation.
 RoofingFilter, Ehlers bandpass, a highpass then a SuperSmoother.
 Round, Round each element to the nearest integer (half-to-even).
 SchmittTrigger, Hysteresis comparator. Latches 1.0 above the upper threshold, 0.0 below the lower threshold, and retains its previous value in between.
@@ -234,25 +246,25 @@ SignedVolume, Aggressor-signed volume, sign * volume.
 Sin, Sine of each element (radians).
 Softsign, Softsign: x / (1 + |x|).
 Sqrt, Square root of each element.
-Square, x squared (faster than Power(2)).
-Stoch, Stochastic oscillator %K and %D (3 inputs -> 2 outputs).
-StochRSI, Stochastic applied to RSI (1 input -> 2 outputs).
+Square, Square of each element, computed as x * x.
+Stoch, Stochastic oscillator %K and %D from high, low and close.
+StochRSI, Stochastic oscillator applied to the RSI, giving %K and %D.
 Sub, Elementwise difference of two aligned streams (x - y).
 SuperSmoother, Ehlers 2-pole low-lag lowpass filter.
 TEMA, Mulloy's Triple EMA: 3*EMA - 3*EMA(EMA) + EMA(EMA(EMA)).
-TRIMA, Triangular MA: SMA of an SMA. Heavier center-weighting than WMA.
+TRIMA, Triangular moving average: a simple moving average of a simple moving average.
 TRIX, ROC of a triple-smoothed EMA.
 Tanh, Hyperbolic tangent.
 TickRuleSign, Trade sign by the tick rule (+1 up-tick, -1 down-tick, carry on unchanged).
 TrendMode, Classifies each sample as trending (1.0) or cycling (0.0) from the dominant-cycle phase advance.
 TrueRange, Per-bar true range accounting for overnight gaps (Wilder, 1978).
 UltimateOscillator, Three-period weighted oscillator (Williams, 1976).
-VPIN, Volume-synchronized probability of informed trading (Easley-Lopez de Prado-O'Hara 2012): order-flow toxicity.
-WMA, Linearly-weighted moving average. O(1) per step.
+VPIN, Volume-synchronized probability of informed trading (Easley-López de Prado-O'Hara 2012): order-flow toxicity.
+WMA, Linearly weighted moving average.
 Where, Returns a if mask is nonzero, b otherwise. NaN mask yields NaN.
 WilliamsR, Inverse stochastic oscillator in [-100, 0].
 backtest_report, Running statistics and a summary for a backtest engine's output.
-choosing_a_backtest_engine, The 5x2 engine grid by data model and order definition, with fill rules and encoding.
+choosing_a_backtest_engine, The engine grid by data model and order definition, with fill rules, sizing, volume limits, and encoding.
 circular_shift, Randomly rotated copies of a series, for randomization tests.
 deflated_sharpe, Probabilistic Sharpe ratio against the Sharpe ratio the best of your tried variants would reach by luck.
 forecast_pairs, Build a forecasting training set by aligning lagged features with a future causal target.
@@ -266,6 +278,7 @@ split, Partition a merged tagged stream back into per-source streams.
 strategy_test, Test a whole strategy, model included, against the same strategy run on permuted market data or shifted features.
 stream-tuple-convention, The (values, index) tuple at every operator boundary.
 to_pandas, Convert a (values, index) tuple to a pandas Series or DataFrame.
+walk_forward, Pick the best of several strategy variants on each training window and trade it on the next test window, out of sample.
 
 # Stream operators
 Merge, Index-sorted N-way merge.

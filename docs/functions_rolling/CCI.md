@@ -10,6 +10,7 @@ tags:
 - oscillator
 - talib
 - hlc
+- commodity channel index
 short: Commodity Channel Index over typical price.
 inputs: 3
 outputs: 1
@@ -18,7 +19,16 @@ parameters:
   type: int
   default: 14
   min: 2
-  description: Period (Wilder's default).
+  description: Number of most recent typical prices in the mean and mean-absolute-deviation
+    window. Lambert used 20; TA-Lib defaults to 14.
+see_also:
+- RollingMad
+- RollingZscore
+- WilliamsR
+- Stoch
+references:
+- 'Lambert, D. R. (1980). Commodity Channel Index: tool for trading cyclic trends. *Commodities*,
+  October 1980.'
 nan_policy: ignore
 ---
 
@@ -26,7 +36,9 @@ nan_policy: ignore
 
 ## Description
 
-`CCI` (Commodity Channel Index, Donald Lambert) measures how far the current bar's typical price has moved from its rolling mean, normalised by the mean absolute deviation of the same window:
+`CCI` (Commodity Channel Index, Lambert 1980) measures how far the current typical
+price is from its rolling mean, normalized by the mean absolute deviation of the same
+window:
 
 $$
 \begin{aligned}
@@ -37,25 +49,16 @@ $$
 \end{aligned}
 $$
 
-The 0.015 constant is a Lambert convention: roughly 70-80% of CCI readings fall in `[-100, +100]` for a normal-distributed input.
+The constant 0.015 is Lambert's convention: it places roughly 70 to 80 percent of CCI
+readings in `[-100, +100]` for normally distributed input.
 
-**3-input, 1-output** (`FunctorBase<_, 3, 1>`) on `(high, low, close)`.
-
-*Parameters*:
-
-- `window_size` (int, default `14`).
-
-*Warmup*: NaN for the first `window_size - 1` samples.
-
-*Range-zero*: returns `0` when the MAD is 0 (a perfectly flat window).
-
-*NaN handling*: NaN inputs poison the rolling sum.
-
+Inputs are `(high, low, close)`. The output is NaN for the first `window_size - 1`
+samples. When the MAD is 0 (a perfectly flat window) the output is `0`.
 
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples
@@ -97,8 +100,12 @@ The 0.015 constant is a Lambert convention: roughly 70-80% of CCI readings fall 
 
 ## Implementation Details
 
-Holds one circular buffer of TP values with a rolling sum (the SMA part is incremental O(1)); the per-step MAD sweep over the window is `O(window_size)`. Same trade-off as `RollingMad`, and the same reason: there is no closed-form O(1) MAD when the mean shifts each step.
+One circular buffer of typical prices with a rolling sum gives the mean in `O(1)`; the
+MAD is a sweep over the window, `O(window_size)` per step. [`RollingMad`](RollingMad.md)
+has the same cost for the same reason: there is no closed-form `O(1)` update for the
+MAD when the mean shifts every step.
 
-## Reference
+## Validation
 
-Bit-exact match to `talib.CCI(high, low, close, timeperiod)` post-warmup (verified to ~1e-11 in `tests/test_third_party_alignment.py`).
+Matches `talib.CCI(high, low, close, timeperiod)` after warmup, to about 1e-11 in
+`tests/test_third_party_alignment.py`.

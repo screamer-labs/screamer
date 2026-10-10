@@ -8,11 +8,20 @@ tags:
 - logic
 - ternary
 - conditional
+- if else
+- select
+- np.where
+- mask
 short: Returns a if mask is nonzero, b otherwise. NaN mask yields NaN.
 inputs: 3
 outputs: 1
 parameters: []
 nan_policy: nan-aware
+see_also:
+- GreaterThan
+- IsNan
+- And
+- FillNa
 ---
 
 # `Where`
@@ -26,7 +35,11 @@ nan_policy: nan-aware
 
 If `mask` is NaN, the output is NaN. If the selected branch (`a` when mask is nonzero, `b` when zero) is NaN, that NaN passes through as the output.
 
-*Parameters*: `Where` takes no parameters.
+<!-- NAN_FOOTNOTE_START -->
+## NaN handling
+
+**Policy: `nan-aware`.** This function is built to process `NaN` inputs, as the Description explains. See [NaN and warmup](../nan_and_warmup.md).
+<!-- NAN_FOOTNOTE_END -->
 
 ## Examples
 

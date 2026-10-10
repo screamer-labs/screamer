@@ -15,7 +15,11 @@ tags:
 - inventory
 - transaction cost
 - risk
-short: "Backtest a two-sided order poster against the trade tape, filling resting quotes when prints cross them, into a costed equity curve."
+- simulation
+- transaction costs
+- fees
+short: Backtest a two-sided order poster against the trade tape, filling resting quotes when
+  prints cross them, into a costed equity curve.
 inputs: 6
 outputs: 4
 parameters:
@@ -30,7 +34,8 @@ parameters:
 - name: fill
   type: str
   default: touch
-  description: Fill rule for a trade at your price. "touch" fills a participation partial; "breach" fills only on a trade through.
+  description: Fill rule for a trade at your price. "touch" fills a participation partial;
+    "breach" fills only on a trade through.
 - name: participation_ratio
   type: float
   default: 1.0
@@ -41,7 +46,8 @@ parameters:
   type: float
   default: 0.0
   min: 0.0
-  description: Instrument price grid (0 = continuous). Slippage offsets round up to whole ticks; the "ticks" slippage unit counts in this step.
+  description: Instrument price grid (0 = continuous). Slippage offsets round up to whole
+    ticks; the "ticks" slippage unit counts in this step.
 - name: min_position
   type: float
   default: -.inf
@@ -54,7 +60,8 @@ parameters:
   type: float
   default: 1.0
   min: 0.0
-  description: Contract multiplier applied to mark-to-market PnL, fill slippage, and proportional fees.
+  description: Contract multiplier applied to mark-to-market PnL, fill slippage, and proportional
+    fees.
 - name: maker_fee_per_contract
   type: float
   default: 0.0
@@ -67,25 +74,27 @@ parameters:
   type: float
   default: 0.0
   min: 0.0
-  description: Adverse price offset on every taker (market) fill, read in `slippage_unit`. A buy fills higher and a sell lower; resting limit fills never slip.
+  description: Adverse price offset on every taker (market) fill, read in `slippage_unit`.
+    A buy fills higher and a sell lower; resting limit fills never slip.
 - name: slippage_unit
   type: str
   default: fraction
-  description: 'Unit of `slippage`: "fraction" of the reference price (5 bps = 5e-4), "ticks" of `tick_size`, or "price" (an absolute amount).'
+  description: 'Unit of `slippage`: "fraction" of the reference price (5 bps = 5e-4), "ticks"
+    of `tick_size`, or "price" (an absolute amount).'
 nan_policy: ignore
 see_also:
 - BacktestTradesTarget
 - BacktestL1TradesOrders
 - BacktestOHLCOrders
 - backtest_report
+output_names:
+- equity
+- pnl
+- position
+- cost
 ---
 
 # `BacktestTradesOrders`
-
-The accounting parameters are generic across the backtest family. `multiplier`
-converts a price move into currency per contract; the fixed per-contract fee is
-then added to the existing proportional fee. Both fixed fees may be negative for
-rebates, and all defaults preserve the previous behavior.
 
 ## Description
 
@@ -113,9 +122,8 @@ If both sides fill on the same print (possible when a spread collapses), each
 side updates the account in sequence, so the final equity and position reflect
 both fills.
 
-Input contract: a `NaN` `trade_price` or `trade_size` is a no-trade event. The
-`nan_policy` is `ignore`: the row emits all-NaN outputs and state is unchanged.
-Only real prints drive fills. Inputs are
+Input contract: a `NaN` `trade_price` or `trade_size` is a no-trade event:
+the row is all-NaN and the state is unchanged, so only real prints drive fills. Inputs are
 `(bid_price, bid_size, ask_price, ask_size, trade_price, trade_size)`.
 Outputs are `(equity, pnl, position, cost)`, the four standard backtest columns
 accepted by [`backtest_report`](backtest_report.md).
@@ -128,6 +136,13 @@ as a front-of-queue proxy.
 A marketable order fills at the print price moved by `slippage`, without walking
 a book. On the tape `tick_size` only sets the grid that slippage offsets round
 to.
+
+
+<!-- NAN_FOOTNOTE_START -->
+## NaN handling
+
+**Policy: `ignore`.** A `NaN` input never corrupts the engine's state. What a `NaN` target, price or quote does on this engine is stated in the Description. See [NaN and warmup](../nan_and_warmup.md).
+<!-- NAN_FOOTNOTE_END -->
 
 ## Examples
 

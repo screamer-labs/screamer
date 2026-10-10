@@ -6,10 +6,13 @@ topics:
 - risk
 tags:
 - info-ratio
+- information ratio
 - active-return
+- active return
+- tracking error
 - rolling
 - pair
-short: 'Annualised information ratio: Sharpe of active returns against a benchmark.'
+short: 'Annualized information ratio: the Sharpe ratio of active returns against a benchmark.'
 inputs: 2
 outputs: 1
 parameters:
@@ -17,33 +20,38 @@ parameters:
   type: int
   default: 252
   min: 2
-  description: Trailing-window length.
+  description: Number of most recent (returns, benchmark) pairs in the window.
 - name: periods_per_year
   type: float
   default: 1.0
   min: 1.0
-  description: Annualisation factor (252 daily, 52 weekly, 12 monthly, 1 = no annualisation).
+  description: 'Annualization factor: the ratio is multiplied by sqrt(periods_per_year). Use
+    252 for daily, 52 for weekly, 12 for monthly data, and 1 for no annualization.'
 nan_policy: ignore
+see_also:
+- RollingSharpe
+- RollingAlpha
+- RollingBeta
+- RollingStd
 ---
 
 # `RollingInfoRatio`
 
 ## Description
 
-Information ratio against a benchmark:
+`RollingInfoRatio` computes the information ratio of a return series against a benchmark over a trailing window:
 
 $$
 \text{IR}[t] = \sqrt{\text{ppy}}\ \cdot\ \frac{\text{mean}(r - b)}{\text{std}(r - b)}
 $$
 
-**2-input, 1-output** on `(returns, benchmark)`. Effectively `RollingSharpe` applied to the
-active-return series `r - b`.
+It takes two inputs, `(returns, benchmark)`, and returns one value per step. The result equals [`RollingSharpe`](RollingSharpe.md) applied to the active returns `r - b`.
 
 
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples

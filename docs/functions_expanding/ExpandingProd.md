@@ -8,10 +8,17 @@ tags:
 - product
 - expanding
 - cumulative
-short: Running product from t=0.
+- running product
+- cumprod
+- compounding
+short: Running product since the start of the stream.
 inputs: 1
 outputs: 1
 parameters: []
+see_also:
+- CumProd
+- ExpandingSum
+- CumSum
 nan_policy: ignore
 ---
 
@@ -19,20 +26,16 @@ nan_policy: ignore
 
 ## Description
 
-The `ExpandingProd` function returns the running product of every sample seen since the last `reset`. It is an alias of `CumProd` exposed under the expanding family and matches `numpy.cumprod` (skipping NaN).
-
-*Equation*:
+`ExpandingProd` returns the running product of every sample seen since the start of the stream, or since the last `reset`. It computes the same result as [`CumProd`](../functions_misc/CumProd.md), under the name of the expanding family, and matches `numpy.cumprod` on input without `NaN`.
 
 $$
 y[t] = \prod_{i=0}^{t} x[i]
 $$
 
-*Parameters*: none.
-
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `ignore`.** A `NaN` in the input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples

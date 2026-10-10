@@ -9,6 +9,8 @@ tags:
 - volume-weighted
 - ohlcv
 - typical-price
+- volume weighted average price
+- rolling vwap
 short: Rolling volume-weighted average price (typical-price weighted).
 inputs: 4
 outputs: 1
@@ -17,8 +19,12 @@ parameters:
   type: int
   default: 20
   min: 2
-  description: Trailing-window length.
+  description: Number of most recent bars in the window.
 nan_policy: ignore
+see_also:
+- RollingMean
+- OBV
+- AD
 ---
 
 # `RollingVWAP`
@@ -33,18 +39,15 @@ $$
 \text{VWAP}[t] = \dfrac{\sum_w \text{TP} \cdot \text{volume}}{\sum_w \text{volume}}
 $$
 
-**4-input, 1-output** on `(high, low, close, volume)`. Matches `pandas-ta-classic.vwap`.
-For a *session-VWAP* (cumulative since some reset point), call `reset()` at the session
-boundary.
+The inputs are `(high, low, close, volume)`. Matches `pandas-ta-classic.vwap`. For a session VWAP (cumulative since a reset point), call `reset()` at the session boundary.
 
-First valid output at sample index `window_size - 1`. Composes two `detail::RollingSum`
-instances; O(1) per step.
+The first valid output is at sample index `window_size - 1`. The two sums are kept as running window sums, so each step is O(1).
 
 
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples

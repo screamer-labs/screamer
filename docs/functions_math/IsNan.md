@@ -9,11 +9,19 @@ tags:
 - logic
 - unary
 - nan-aware
+- isnan
+- missing
+- nan mask
 short: Returns 1.0 if the input is NaN, else 0.0. Does not propagate NaN.
 inputs: 1
 outputs: 1
 parameters: []
 nan_policy: nan-aware
+see_also:
+- IsFinite
+- FillNa
+- Ffill
+- Where
 ---
 
 # `IsNan`
@@ -22,9 +30,13 @@ nan_policy: nan-aware
 
 `IsNan` classifies each input element: outputs `1.0` when the input is NaN, and `0.0` for any finite or infinite value.
 
-Unlike most screamer functions, `IsNan` does **not** propagate NaN; instead, it converts NaN into a definite `1.0` flag. This makes it useful for building masks that mark missing data positions before passing them to `Where` or other logic operators.
+A `NaN` input gives `1.0`, so the output is never `NaN`. Use it to build a mask of missing positions for `Where` or the other logic operators.
 
-*Parameters*: `IsNan` takes no parameters.
+<!-- NAN_FOOTNOTE_START -->
+## NaN handling
+
+**Policy: `nan-aware`.** This function is built to process `NaN` inputs, as the Description explains. See [NaN and warmup](../nan_and_warmup.md).
+<!-- NAN_FOOTNOTE_END -->
 
 ## Examples
 

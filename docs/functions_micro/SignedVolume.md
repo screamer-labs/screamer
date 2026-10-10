@@ -6,6 +6,8 @@ topics:
 - trade-signing
 tags:
 - signed volume
+- signed order flow
+- aggressor volume
 - order flow
 - flow
 - microstructure
@@ -14,15 +16,29 @@ inputs: 2
 outputs: 1
 parameters: []
 nan_policy: ignore
+see_also:
+- TickRuleSign
+- LeeReadySign
+- RollingOrderImbalance
+- RollingKyleLambda
 ---
 
 # `SignedVolume`
 
 ## Description
 
-`SignedVolume` multiplies a trade sign by volume to give aggressor-signed order
-flow. Pair a sign source (`TickRuleSign`, or an aggressor flag) with volume, then
-feed the result to `RollingKyleLambda` for price impact.
+`SignedVolume` multiplies a trade sign by the trade volume to give
+aggressor-signed order flow. The inputs are `sign` and `volume`, in that order,
+and the result equals `Mul()(sign, volume)`. Pair a sign source
+(`TickRuleSign`, `LeeReadySign`, or an aggressor flag) with volume, then feed the
+result to `RollingKyleLambda` for price impact or to `RollingOrderImbalance` for
+net flow.
+
+<!-- NAN_FOOTNOTE_START -->
+## NaN handling
+
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).
+<!-- NAN_FOOTNOTE_END -->
 
 ## Examples
 

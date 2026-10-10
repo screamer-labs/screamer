@@ -6,10 +6,14 @@ topics:
 - cross-sectional
 tags:
 - z-score
+- zscore
 - standardize
-- cross-sectional
+- standard score
+- cross-sectional z-score
 - factor
-short: "Standardize each asset against the others at the same step: (x - mean) / std across the row."
+- cross-sectional
+short: 'Standardize each asset against the others at the same step: (x - mean) / std across
+  the row.'
 inputs: 1
 outputs: 1
 parameters: []
@@ -44,9 +48,7 @@ after `reset()`.
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-A `NaN` entry is an asset that is not available on that row, for example one
-that is not listed yet or is halted. It is left out of the cross-section, and
-its output is `NaN`. A row that is all `NaN` returns all `NaN`.
+**Policy: `ignore`.** A `NaN` for an asset gives a `NaN` output for that asset at that step, and the statistic is computed across the remaining assets. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples

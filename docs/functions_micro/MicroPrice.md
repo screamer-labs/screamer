@@ -9,17 +9,23 @@ tags:
 - microprice
 - fair value
 - weighted mid
+- imbalance-weighted mid
 - stoikov
 - order book
 - microstructure
-short: "Imbalance-weighted mid (Stoikov 2018, first-order): fair value that leans toward the thinner side of the book."
+short: 'Imbalance-weighted mid (Stoikov 2018, first-order): fair value that leans toward the
+  thinner side of the book.'
 inputs: 4
 outputs: 1
 parameters: []
 nan_policy: ignore
 see_also:
-- OFI
 - QueueImbalance
+- ContOFI
+- EffectiveSpread
+references:
+- 'Stoikov, S. (2018). The micro-price: a high-frequency estimator of future prices. *Quantitative
+  Finance*, 18(12), 1959-1966.'
 ---
 
 # `MicroPrice`
@@ -27,17 +33,23 @@ see_also:
 ## Description
 
 `MicroPrice` is the imbalance-weighted mid, a fair value that leans toward the
-thinner side of the order book (Stoikov 2018, first-order form). With
+thinner side of the order book (Stoikov 2018, first-order form). The inputs are
+`bid`, `ask`, `bid_size` and `ask_size`, in that order. With
 `I = bid_size / (bid_size + ask_size)` the fraction of resting size on the bid,
 
     micro = I * ask + (1 - I) * bid.
 
 When the bid queue is heavier (`I` near 1) the price is pulled toward the ask
 (upward pressure); when the ask queue is heavier it is pulled toward the bid. A
-balanced or empty book gives the plain mid. This is the widely-used weighted-mid form; the full Stoikov
-micro-price with a calibrated adjustment function is not modelled here.
-References: Stoikov (2018), "The micro-price: a high-frequency estimator of future
-prices".
+balanced or empty book gives the plain mid. This is the weighted-mid form; the
+full Stoikov micro-price, with a calibrated adjustment function, is not
+implemented.
+
+<!-- NAN_FOOTNOTE_START -->
+## NaN handling
+
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).
+<!-- NAN_FOOTNOTE_END -->
 
 ## Examples
 

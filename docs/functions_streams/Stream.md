@@ -3,6 +3,11 @@ name: stream-tuple-convention
 title: Stream tuple convention
 kind: guide
 short: The (values, index) tuple at every operator boundary.
+tags:
+- stream
+- values index tuple
+- event stream
+- timestamps
 topics:
 - streams
 ---
@@ -47,7 +52,7 @@ are positional in documented order.
 between the tuple convention and pandas objects. Both are importable from the top level:
 `from screamer import to_pandas, from_pandas`.
 
-## Example
+## Examples
 
 ```{eval-rst}
 .. exec_code::
@@ -69,6 +74,6 @@ between the tuple convention and pandas objects. Both are importable from the to
 
 ## See also
 
-- [to_pandas](to_pandas.md) - convert tuple to Series/DataFrame.
-- [from_pandas](from_pandas.md) - convert Series/DataFrame to tuple.
-- [Streams, values, and alignment](../multistream.md) - the conceptual model.
+- [to_pandas](to_pandas.md): convert tuple to Series/DataFrame.
+- [from_pandas](from_pandas.md): convert Series/DataFrame to tuple.
+- [Streams, values, and alignment](../multistream.md): the conceptual model.

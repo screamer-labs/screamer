@@ -10,6 +10,7 @@ tags:
 - ema
 - appel
 - talib
+- moving average convergence divergence
 short: MACD line, signal line, and histogram (3 outputs).
 inputs: 1
 outputs: 3
@@ -18,17 +19,28 @@ parameters:
   type: int
   default: 12
   min: 2
-  description: Fast EMA span.
+  description: Span of the fast EMA, in samples. Must be less than slow.
 - name: slow
   type: int
   default: 26
   min: 2
-  description: Slow EMA span.
+  description: Span of the slow EMA, in samples. Must be greater than fast.
 - name: signal
   type: int
   default: 9
   min: 2
-  description: Signal-line EMA span.
+  description: Span of the EMA applied to the MACD line to form the signal line, in samples.
+output_names:
+- macd
+- signal
+- histogram
+see_also:
+- EwMean
+- TRIX
+- DEMA
+- Momentum
+references:
+- 'Appel, G. (2005). *Technical Analysis: Power Tools for Active Investors*. FT Prentice Hall.'
 nan_policy: ignore
 ---
 
@@ -36,7 +48,9 @@ nan_policy: ignore
 
 ## Description
 
-`MACD` (Moving Average Convergence Divergence, Gerald Appel) is a momentum indicator that subtracts a slow EMA from a fast EMA and then smooths the result. It returns three quantities at every step:
+`MACD` (Moving Average Convergence Divergence, Gerald Appel) is a momentum indicator
+that subtracts a slow EMA from a fast EMA and then smooths the difference. It returns
+three columns per step, `macd`, `signal` and `histogram`:
 
 $$
 \begin{aligned}
@@ -46,21 +60,12 @@ $$
 \end{aligned}
 $$
 
-`MACD` is a **1 → 3** functor: pass one input stream, get back the triple `(macd, signal, histogram)` per step.
+The defaults `12, 26, 9` are Appel's choice and the usual charting default. All three
+EMAs are [`EwMean`](../functions_ew/EwMean.md).
 
-## Parameters
-
-- `fast` (int, default `12`): span of the fast EMA.
-- `slow` (int, default `26`): span of the slow EMA. Must be strictly greater than `fast`.
-- `signal` (int, default `9`): span of the signal-line EMA.
-
-Defaults match Appel's original choice and every charting platform's default.
-
-*Warmup*: none. Each underlying EMA is `screamer.EwMean`, which is well-defined from sample t=0 (`EMA[0] = x[0]`). At t=0 both EMAs equal `x[0]`, so `macd[0] = 0`, `signal[0] = 0`, `histogram[0] = 0`. From t=1 onward all three outputs are non-trivial.
-
-*NaN handling*: NaN inputs propagate through the EMA arithmetic and poison subsequent outputs.
-
-## Output shape
+There is no warmup. `EwMean` is defined from the first sample (`EMA[0] = x[0]`), so at
+t=0 both EMAs equal `x[0]` and all three outputs are 0. Each step costs `O(1)` time
+and memory.
 
 | You pass... | You get back... |
 |---|---|
@@ -68,21 +73,10 @@ Defaults match Appel's original choice and every charting platform's default.
 | 1D array shape `(T,)` | array shape `(T, 3)` |
 | 2D array shape `(T, K)` | array shape `(T, K, 3)`, column-by-column |
 
-`out[..., 0]` is `macd`, `out[..., 1]` is `signal`, `out[..., 2]` is `histogram`.
-
-## Implementation Details
-
-Pure composition of three `EwMean` instances. Per step:
-
-
-- Time complexity: `O(1)` per step.
-- Space complexity: `O(1)` (each `EwMean` holds two scalars).
-
-
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples
@@ -142,6 +136,10 @@ histogram = macd - signal
 
 <!-- HELP_END -->
 
-## Reference
+## Validation
 
-Matches `pandas.Series.ewm(span=..., adjust=True).mean()` composition exactly (verified in `tests/test_macd.py`). The underlying EMA is the bias-corrected weighted mean -- the statistically clean form used throughout screamer. TA-Lib's `MACD` uses a different EMA convention (`adjust=False` with an SMA-seeded warmup) and therefore differs from our output by a few percent during early samples; see [conventions](../conventions.md) for the comparison matrix.
+Matches the `pandas.Series.ewm(span=..., adjust=True).mean()` composition exactly, in
+`tests/test_macd.py`. The EMA is the bias-corrected weighted mean used throughout
+screamer. TA-Lib's `MACD` uses a different EMA (`adjust=False` with a warmup seeded by
+a simple average), so it differs by a few percent during the early samples; see
+[conventions](../conventions.md) for the comparison.

@@ -7,18 +7,23 @@ topics:
 tags:
 - negative
 - part
+- max(-x, 0)
+- negative part
 short: 'Negative part of x: max(-x, 0).'
 inputs: 1
 outputs: 1
 parameters: []
 nan_policy: ignore
+see_also:
+- PosPart
+- Abs
 ---
 
 # `NegPart`
 
 ## Description
 
-The `NegPart` class computes the negative part of a value, returning `max(-x, 0)`. Together with `PosPart`, it decomposes any real number: `x = PosPart(x) - NegPart(x)`. This is useful for separating signed quantities into their positive and negative components, for example splitting signed trade volume into buy volume and sell volume.
+`NegPart` computes the negative part of each element, `max(-x, 0)`. Together with `PosPart`, it decomposes any real number: `x = PosPart(x) - NegPart(x)`. Use the pair to split a signed quantity into its positive and negative components, for example signed trade volume into buy and sell volume.
 
 *Equation*:
 
@@ -26,15 +31,10 @@ $$
 f(x) = \max(-x, 0)
 $$
 
-*Parameters*: `NegPart` takes no parameters.
-
-*NaN handling*: `NaN` values pass through unchanged.
-
-
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples

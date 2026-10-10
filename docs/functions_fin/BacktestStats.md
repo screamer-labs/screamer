@@ -12,7 +12,15 @@ tags:
 - sortino
 - calmar
 - trades
-short: "Turn a backtest engine's [equity, pnl, position, cost] into running exposure, round-trip trade statistics, Sortino, and Calmar."
+- turnover
+- sharpe ratio
+- drawdown
+- sortino ratio
+- calmar ratio
+- performance
+- backtest statistics
+short: Turn a backtest engine's [equity, pnl, position, cost] into running exposure, round-trip
+  trade statistics, Sortino, and Calmar.
 inputs: 4
 outputs: 9
 parameters:
@@ -20,12 +28,23 @@ parameters:
   type: float
   default: 1.0
   min: 0.0
-  description: Steps per year, used to annualize Sortino and Calmar (for example 252 for daily bars). The default 1 gives per-step ratios.
+  description: Steps per year, used to annualize Sortino and Calmar (for example 252 for daily
+    bars). The default 1 gives per-step ratios.
 nan_policy: ignore
 see_also:
 - BacktestReport
 - backtest_report
 - position_test
+output_names:
+- exposure
+- round_trips
+- win_rate
+- profit_factor
+- avg_win
+- avg_loss
+- avg_holding
+- sortino
+- calmar
 ---
 
 # `BacktestStats`
@@ -59,8 +78,13 @@ that is still open does not count yet.
 Every column is a causal running value, so the full-sample statistic is the last
 finite value; [`backtest_report`](backtest_report.md) puts them in its summary. A
 ratio whose denominator is empty (no losing trade, no drawdown) is `NaN`.
-`nan_policy: ignore`: a row with any `NaN` field is skipped, the state holds, and
-the output row is `NaN`.
+
+
+<!-- NAN_FOOTNOTE_START -->
+## NaN handling
+
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).
+<!-- NAN_FOOTNOTE_END -->
 
 ## Examples
 

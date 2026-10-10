@@ -1,8 +1,9 @@
-References
-==========
+Concepts
+========
 
-Concept guides and conventions. Each page explains one part of how screamer
-behaves, in more depth than the User Guide.
+How screamer behaves. Each page explains one part in depth: input and output
+shapes, warmup and missing values, streams, pipelines, the microstructure
+model, performance, and where definitions differ from other libraries.
 
 .. grid:: 1 2 2 2
    :gutter: 3

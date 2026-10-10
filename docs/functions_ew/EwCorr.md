@@ -7,7 +7,10 @@ topics:
 tags:
 - ew
 - correlation
-- pair
+- corr
+- pearson
+- exponential
+- ewm corr
 short: EW Pearson correlation of two parallel streams.
 inputs: 2
 outputs: 1
@@ -15,20 +18,28 @@ parameters:
 - name: com
   type: float
   default: null
-  description: Center of mass (alpha = 1 / (1 + com)). Exclusive with span/halflife/alpha.
+  description: Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly
+    one of com, span, halflife and alpha.
 - name: span
   type: float
   default: 20.0
-  description: Span (alpha = 2 / (span + 1)). Default smoothing parameter. Exclusive
-    with com/halflife/alpha.
+  description: Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give
+    exactly one of com, span, halflife and alpha. The default shown is an example value; the
+    constructor has no default.
 - name: halflife
   type: float
   default: null
-  description: Halflife (alpha = 1 - 0.5^(1/halflife)). Exclusive with com/span/alpha.
+  description: Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive.
+    Give exactly one of com, span, halflife and alpha.
 - name: alpha
   type: float
   default: null
-  description: Smoothing parameter directly. Exclusive with com/span/halflife.
+  description: Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more
+    weight. Give exactly one of com, span, halflife and alpha.
+see_also:
+- EwCov
+- EwBeta
+- RollingCorr
 nan_policy: ignore
 ---
 
@@ -36,40 +47,22 @@ nan_policy: ignore
 
 ## Description
 
-`EwCorr` computes the exponentially weighted moving Pearson correlation of two streams. Bounded to $[-1, 1]$. Matches `pandas.Series.ewm(adjust=True).corr(other)`. This is a **2-input, 1-output** function (`FunctorBase<_, 2, 1>`).
+`EwCorr` computes the exponentially weighted Pearson correlation of two series, bounded to $[-1, 1]$. The smoothing factor `alpha` is set by exactly one of `com`, `span`, `halflife` or `alpha`. The result matches pandas `ewm(adjust=True).corr(other)`.
 
-## Parameters
-
-Specify exactly one of the following to set the smoothing factor `alpha`:
-
-- **`com`**: Center of mass. `alpha = 1 / (1 + com)`
-- **`span`**: Span. `alpha = 2 / (span + 1)`
-- **`halflife`**: Half-life. `alpha = 1 - exp(-log(2) / halflife)`
-- **`alpha`**: Directly sets the smoothing factor, `0 < alpha < 1`
-
-The first sample is `NaN`. Subsequent NaNs occur when either input has zero variance over the effective window.
-
-## Formula
-
-The bias-correction factor that `EwVar` and `EwCov` apply cancels in the numerator-vs-denominator ratio, so `EwCorr` uses the simpler unbiased form. With $\bar{x} = S_x / S_w$ and $\bar{y} = S_y / S_w$:
+With $\bar{x} = S_x / S_w$ and $\bar{y} = S_y / S_w$, where every running sum decays by $(1-\alpha)$ per step:
 
 $$
-\text{EwCorr} =
+\text{EwCorr}[t] =
 \frac{\dfrac{S_{xy}}{S_w} - \bar{x}\,\bar{y}}
      {\sqrt{\left(\dfrac{S_{xx}}{S_w} - \bar{x}^2\right)\left(\dfrac{S_{yy}}{S_w} - \bar{y}^2\right)}}
 $$
 
-If either denominator factor is zero (a constant input over the effective window), the output is `NaN`.
-
-## Identity check
-
-`EwCorr` equals `EwCov / sqrt(EwVar(x) · EwVar(y))`; the bias-correction factors in numerator and denominator cancel, so the simpler unbiased weights used above give the same result. The identity is verified in Examples.
-
+This equals `EwCov(x, y) / sqrt(EwVar(x) * EwVar(y))`: the bias-correction factors of the covariance and the variances cancel, so they are left out. The output is `NaN` when either input is constant over the effective window, which includes the first sample.
 
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples
@@ -121,7 +114,3 @@ np.testing.assert_allclose(
 ```
 
 <!-- HELP_END -->
-
-## Reference
-
-Equivalent to `pandas.Series.ewm(adjust=True).corr(other)`.

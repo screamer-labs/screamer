@@ -7,8 +7,11 @@ topics:
 tags:
 - ew
 - beta
-- pair
+- hedge ratio
+- regression
+- slope
 - capm
+- exponential
 short: 'EW CAPM beta: cov(target, regressor) / var(regressor).'
 inputs: 2
 outputs: 1
@@ -16,20 +19,30 @@ parameters:
 - name: com
   type: float
   default: null
-  description: Center of mass (alpha = 1 / (1 + com)). Exclusive with span/halflife/alpha.
+  description: Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly
+    one of com, span, halflife and alpha.
 - name: span
   type: float
   default: 20.0
-  description: Span (alpha = 2 / (span + 1)). Default smoothing parameter. Exclusive
-    with com/halflife/alpha.
+  description: Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give
+    exactly one of com, span, halflife and alpha. The default shown is an example value; the
+    constructor has no default.
 - name: halflife
   type: float
   default: null
-  description: Halflife (alpha = 1 - 0.5^(1/halflife)). Exclusive with com/span/alpha.
+  description: Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive.
+    Give exactly one of com, span, halflife and alpha.
 - name: alpha
   type: float
   default: null
-  description: Smoothing parameter directly. Exclusive with com/span/halflife.
+  description: Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more
+    weight. Give exactly one of com, span, halflife and alpha.
+see_also:
+- EwAlpha
+- EwSpread
+- EwCov
+- RollingBeta
+- KalmanRegression
 nan_policy: ignore
 ---
 
@@ -37,51 +50,27 @@ nan_policy: ignore
 
 ## Description
 
-`EwBeta` computes the exponentially weighted regression slope of `x` on `y`:
+`EwBeta` computes the exponentially weighted regression slope (beta, or hedge ratio) of the first input `x` on the second input `y`:
 
 $$
-\text{EwBeta}(x, y) = \frac{\operatorname{Cov}(x, y)}{\operatorname{Var}(y)}
+\text{EwBeta}(x, y) = \frac{\operatorname{Cov}_{ew}(x, y)}{\operatorname{Var}_{ew}(y)}
 $$
 
-This is a **2-input, 1-output** function (`FunctorBase<_, 2, 1>`).
+The first argument is the target and the second is the regressor, as in [`RollingBeta`](../functions_fin/RollingBeta.md): `EwBeta(asset_returns, market_returns)` returns the asset's beta to the market. The smoothing factor `alpha` is set by exactly one of `com`, `span`, `halflife` or `alpha`.
 
-## Argument-order convention
-
-The **first argument is the dependent (target)**, the **second is the regressor**. Calling `EwBeta(asset_returns, market_returns)` returns the asset's beta with respect to the market, matching the CAPM definition and the existing `RollingBeta` convention.
-
-This is the *opposite* of pandas (`pandas.ols`-style and most pandas docs use slope of `y` on `x`).
-
-## Parameters
-
-Specify exactly one of the following to set the smoothing factor `alpha`:
-
-- **`com`**: Center of mass. `alpha = 1 / (1 + com)`
-- **`span`**: Span. `alpha = 2 / (span + 1)`
-- **`halflife`**: Half-life. `alpha = 1 - exp(-log(2) / halflife)`
-- **`alpha`**: Directly sets the smoothing factor, `0 < alpha < 1`
-
-The first sample is `NaN`. Subsequent NaNs occur when the regressor has zero variance over the effective window.
-
-## Formula
-
-The bias-correction factor that `EwVar` and `EwCov` apply cancels between numerator and denominator, so `EwBeta` uses the simpler unbiased form. With $\bar{x} = S_x / S_w$ and $\bar{y} = S_y / S_w$:
+With $\bar{x} = S_x / S_w$ and $\bar{y} = S_y / S_w$, where every running sum decays by $(1-\alpha)$ per step:
 
 $$
-\text{EwBeta} = \frac{\dfrac{S_{xy}}{S_w} - \bar{x}\,\bar{y}}
+\text{EwBeta}[t] = \frac{\dfrac{S_{xy}}{S_w} - \bar{x}\,\bar{y}}
                      {\dfrac{S_{yy}}{S_w} - \bar{y}^2}
 $$
 
-If the denominator is zero or non-positive, the output is `NaN`.
-
-## Identity check
-
-By definition `EwBeta(x, y) == EwCov(x, y) / EwVar(y)`. Verified to ~1e-12 in the test suite.
-
+This equals `EwCov(x, y) / EwVar(y)`, and pandas `x.ewm(adjust=True).cov(y) / y.ewm(adjust=True).var()`: the bias-correction factors cancel, so they are left out. The output is `NaN` when the denominator is not positive, that is when `y` is constant over the effective window, which includes the first sample.
 
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples
@@ -122,7 +111,3 @@ By definition `EwBeta(x, y) == EwCov(x, y) / EwVar(y)`. Verified to ~1e-12 in th
 ```
 
 <!-- HELP_END -->
-
-## Reference
-
-Equivalent to `pandas.Series.ewm(adjust=True).cov(market) / market.ewm(adjust=True).var()`. Pandas does not expose an `ewm.beta()` method directly.

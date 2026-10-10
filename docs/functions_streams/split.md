@@ -3,6 +3,14 @@ name: split
 title: split
 kind: function
 short: Partition a merged tagged stream back into per-source streams.
+tags:
+- split
+- demultiplex
+- partition
+see_also:
+- Merge
+- Select
+- CombineLatest
 topics:
 - streams
 ---
@@ -19,7 +27,7 @@ streams.
 .. autofunction:: screamer.split
 ```
 
-## Example
+## Examples
 
 Merge two streams, then split them apart again and read back the first source.
 

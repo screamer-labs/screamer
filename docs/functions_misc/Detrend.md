@@ -8,6 +8,9 @@ topics:
 tags:
 - detrend
 - centered
+- demean
+- remove trend
+- rolling mean
 short: x[t] minus its rolling mean.
 inputs: 1
 outputs: 1
@@ -16,7 +19,7 @@ parameters:
   type: int
   default: 20
   min: 2
-  description: Window for the trailing rolling mean.
+  description: Number of most recent samples in the trailing rolling mean that is subtracted.
 - name: start_policy
   type: str
   default: strict
@@ -24,16 +27,21 @@ parameters:
   - strict
   - expanding
   - zero
-  description: 'Warmup behaviour: ''strict'' (NaN until full window), ''expanding''
-    (use partial windows), or ''zero'' (treat missing as zero).'
+  description: 'Output before the window is full: "strict" gives NaN, "expanding" computes
+    from the samples seen so far, and "zero" treats the window as pre-filled with zeros.'
 nan_policy: ignore
+see_also:
+- RollingMean
+- RollingZscore
+- Diff
+- Decycler
 ---
 
 # `Detrend`
 
 ## Description
 
-The `Detrend` function removes a slow-moving trend from a series by subtracting a rolling mean from the input. The result emphasises the deviation of each sample from its recent average and is useful for centring an input before another transform, or for visualising short-term fluctuations on top of a drifting baseline.
+The `Detrend` function removes a slow-moving trend from a series by subtracting a rolling mean from the input. The result is the deviation of each sample from its recent average. Use it to center an input before another transform, or to show short-term fluctuations around a drifting baseline.
 
 *Equation*:
 
@@ -43,18 +51,11 @@ $$
 
 where $w$ is the `window_size`.
 
-*Parameters*:
-
-- `window_size` (int): width of the rolling-mean window in samples.
-- `start_policy` (str, optional): warmup behaviour, `"strict"` (default), `"expanding"`, or `"zero"`. Same semantics as the rolling functions.
-
-*NaN handling*: Under `start_policy="strict"` the rolling mean is NaN until `window_size` samples have been observed, and `Detrend` therefore emits NaN during that warmup. NaN inputs propagate through the rolling buffer.
-
 
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples
@@ -102,4 +103,4 @@ where $w$ is the `window_size`.
 
 ## Implementation Details
 
-`Detrend` wraps a single internal `RollingMean` buffer. On each call it appends the new sample to the buffer and returns `x[t] - mean[t]`. There is no extra storage beyond the rolling-mean window.
+`Detrend` keeps one rolling-mean window. Each step adds the new sample to the window and returns `x[t] - mean[t]`, at O(1) cost. Memory is `O(window_size)`.

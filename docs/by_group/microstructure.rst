@@ -46,7 +46,7 @@ Net buying pressure and its toxicity: trade-flow imbalance, book imbalance, and 
    * - :doc:`Rolling Order Imbalance </functions_micro/RollingOrderImbalance>`
      - Trailing-window sum of signed order flow (Chordia-Roll-Subrahmanyam imbalance).
    * - :doc:`VPIN Order-Flow Toxicity </functions_micro/VPIN>`
-     - Volume-synchronized probability of informed trading (Easley-Lopez de Prado-O'Hara 2012): order-flow toxicity.
+     - Volume-synchronized probability of informed trading (Easley-López de Prado-O'Hara 2012): order-flow toxicity.
 
 Price impact & liquidity
 ------------------------
@@ -70,7 +70,7 @@ How far order flow moves price and what trading costs: Kyle's lambda, Amihud, Ro
    * - :doc:`Bouchaud Propagator Price Impact </functions_micro/Propagator>`
      - Bouchaud (2004) propagator model: price impact as a decaying-kernel convolution over past signed order flow.
    * - :doc:`Realized Spread </functions_micro/RealizedSpread>`
-     - Realized spread, 2*D*(price - mid a few steps later): the liquidity part of the effective spread.
+     - Realized spread, 2*D*(trade price - mid lag steps later): the part of the effective spread the liquidity provider keeps.
    * - :doc:`Kyle's Lambda (rolling) </functions_micro/RollingKyleLambda>`
      - Rolling-window price-impact slope of return on signed order flow (Kyle 1985).
    * - :doc:`Roll Effective Spread </functions_micro/RollSpread>`

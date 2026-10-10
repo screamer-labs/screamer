@@ -8,6 +8,9 @@ tags:
 - kurtosis
 - moment
 - rolling
+- excess kurtosis
+- fat tails
+- tail risk
 short: Trailing-window excess kurtosis.
 inputs: 1
 outputs: 1
@@ -16,7 +19,8 @@ parameters:
   type: int
   default: 20
   min: 2
-  description: Trailing-window length.
+  description: Number of most recent samples in the window. The estimator needs at least 4
+    samples, so smaller windows give NaN.
 - name: start_policy
   type: str
   default: strict
@@ -24,7 +28,13 @@ parameters:
   - strict
   - expanding
   - zero
-  description: Warmup behaviour.
+  description: 'Output before the window is full: "strict" gives NaN, "expanding" computes
+    from the samples seen so far, and "zero" treats the window as pre-filled with zeros.'
+see_also:
+- RollingSkew
+- RollingVar
+- EwKurt
+- ExpandingKurt
 nan_policy: ignore
 ---
 
@@ -32,13 +42,16 @@ nan_policy: ignore
 
 ## Description
 
-`RollingKurt` computes the rolling excess kurtosis over the `window_size` most recent values, using the Fisher-Pearson bias-corrected estimator (the same formula as `pandas.Series.rolling(w).kurt()`). A normal distribution has excess kurtosis zero.
-
+`RollingKurt` computes the excess kurtosis of the `window_size` most recent values,
+using the bias-corrected Fisher-Pearson estimator (the same formula as
+`pandas.Series.rolling(w).kurt()`). A normal distribution has excess kurtosis zero;
+positive values indicate heavier tails. The estimator needs at least 4 samples, so the
+output is NaN until 4 samples are in the window.
 
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples
@@ -90,15 +103,12 @@ nan_policy: ignore
 
 ### Algorithm
 
-`RollingKurt` implements cyclic buffers to accumulate windowed statistics.
+`RollingKurt` keeps four rolling sums, of `x`, `x²`, `x³` and `x⁴`, each in a circular
+buffer, and computes the kurtosis from them in closed form.
 
 ### Complexity
 
-* **Time Complexity**: `O(log(1))` per new element due to the insertion and deletion operations in the heaps.
-* **Space Complexity**: `O(window_size)`, as only elements within the current window are stored.
+* **Time complexity**: `O(1)` per new element.
+* **Space complexity**: `O(window_size)`.
 
-
-### Performance
-
-* Short streams (n=1.000): 120% faster than `Pandas Rolling kurt`
-* Longer streams (n=1.000.000): 400% faster than `Pandas Rolling kurt`
+See [Performance](../performance.md) for benchmarks.

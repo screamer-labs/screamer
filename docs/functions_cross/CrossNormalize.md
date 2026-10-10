@@ -7,21 +7,27 @@ topics:
 tags:
 - weights
 - normalize
+- portfolio weights
 - gross exposure
+- net exposure
+- leverage
 - dollar neutral
 - portfolio
-short: "Scale each row of scores to portfolio weights with a chosen gross exposure, and optionally a net exposure."
+- cross-sectional
+short: Scale each row of scores to portfolio weights with a chosen gross exposure, and optionally
+  a net exposure.
 inputs: 1
 outputs: 1
 parameters:
 - name: gross
   type: float
   default: 1.0
-  description: "Sum of the absolute weights of each row."
+  description: Sum of the absolute weights of each row.
 - name: net
   type: float|null
   default: null
-  description: "Sum of the weights of each row, in [-gross, gross]. None (the default) keeps the signs of the scores and sets no net target."
+  description: Sum of the weights of each row, in [-gross, gross]. None (the default) keeps
+    the signs of the scores and sets no net target.
 nan_policy: ignore
 see_also:
 - CrossRank
@@ -55,9 +61,7 @@ after `reset()`.
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-A `NaN` entry is an asset that is not available on that row, for example one
-that is not listed yet or is halted. It is left out of the cross-section, and
-its output is `NaN`. A row that is all `NaN` returns all `NaN`.
+**Policy: `ignore`.** A `NaN` for an asset gives a `NaN` output for that asset at that step, and the statistic is computed across the remaining assets. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples

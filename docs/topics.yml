@@ -28,7 +28,7 @@ groups:
   indicators:
     name: "Technical indicators"
     desc: "Market indicators: trend, momentum, bands, volume, and returns."
-    topics: [trend, momentum, bands, volume, returns, cycles]
+    topics: [trend, momentum, bands, volatility-indicators, volume, returns, cycles]
 
   microstructure:
     name: "Market microstructure"
@@ -37,8 +37,13 @@ groups:
 
   backtesting-risk:
     name: "Backtesting & risk"
-    desc: "Turn signals into costed equity curves, and measure drawdown and performance."
-    topics: [risk, backtesting]
+    desc: "Turn signals into positions and costed equity curves, measure drawdown and performance, and test whether a result is more than luck."
+    topics: [signals, backtesting, risk, significance]
+
+  portfolio:
+    name: "Portfolio & pairs"
+    desc: "Rank assets against each other, turn scores into weights, backtest a book of many assets from one account, and trade pairs."
+    topics: [cross-sectional, portfolio, pairs]
 
   math-logic:
     name: "Math & logic"
@@ -47,22 +52,17 @@ groups:
 
   data-prep:
     name: "Data preparation"
-    desc: "Clean a series before analysis: fill or drop missing values, and despike outliers."
-    topics: [missing-data, outliers]
+    desc: "Prepare a series before analysis: bars from ticks, fill or drop missing values, and despike outliers."
+    topics: [bars, missing-data, outliers]
 
   streaming:
     name: "Streaming & pipelines"
     desc: "Align and reshape event streams, and wire operators into a runnable pipeline."
     topics: [streams, graphs]
 
-  portfolio:
-    name: "Portfolio & cross-section"
-    desc: "Compare assets with each other at each step and turn scores into portfolio weights."
-    topics: [cross-sectional]
-
   machine-learning:
-    name: "Machine learning"
-    desc: "Utilities for building supervised learning datasets from time-series data."
+    name: "Forecasting & ML"
+    desc: "Training sets from time-series data, and online regression and filtering that forecast as they update."
     topics: [supervised]
 
 topics:
@@ -138,6 +138,30 @@ topics:
     name: "Backtesting"
     desc: "Simulate a strategy against market data into a costed equity curve: signals, bars, the trade tape, and top-of-book quotes."
 
+  signals:
+    name: "Signals & position rules"
+    desc: "Turn an indicator into a position: entry and exit bands, hysteresis, and holding a value."
+
+  significance:
+    name: "Significance & overfitting"
+    desc: "Is a backtest more than luck? Randomization tests with p-values, permutations, the probabilistic and deflated Sharpe ratio, and walk-forward evaluation."
+
+  bars:
+    name: "Bars & resampling"
+    desc: "Time, tick, volume, and dollar bars from a trade tape, and OHLC downsampling."
+
+  volatility-indicators:
+    name: "Volatility indicators"
+    desc: "True range, ATR, and normalized ATR for stops, sizing, and channels."
+
+  portfolio:
+    name: "Portfolio backtesting"
+    desc: "Backtest many assets from one shared account: weights, rebalancing, exposure limits, and book statistics."
+
+  pairs:
+    name: "Pairs & mean reversion"
+    desc: "Hedge ratios, spreads, stationarity tests, and entry and exit rules for a pairs trade."
+
   cross-sectional:
     name: "Cross-sectional"
     desc: "Transforms across the assets of one time step: ranks, z-scores, demeaning, winsorizing, and weight normalization."
@@ -179,5 +203,5 @@ topics:
     desc: "Building and running a pipeline."
 
   supervised:
-    name: "Supervised learning"
-    desc: "Building forecasting training sets from causal time-series features and targets."
+    name: "Supervised learning & online forecasting"
+    desc: "Forecasting training sets from causal features and targets, and regressions and filters that update and forecast at every step."

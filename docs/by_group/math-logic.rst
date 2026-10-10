@@ -26,7 +26,7 @@ Elementwise numeric operations: rounding, powers, logs, exponentials, affine tra
    * - :doc:`Clip to bounds </functions_preprocessing/Clip>`
      - Bound each element below and/or above.
    * - :doc:`Cube </functions_math/Cube>`
-     - x cubed (faster than Power(3)).
+     - Cube of each element, computed as x * x * x.
    * - :doc:`Div </functions_math/Div>`
      - Elementwise quotient of two aligned streams (x / y).
    * - :doc:`Error function </functions_math/Erf>`
@@ -60,7 +60,7 @@ Elementwise numeric operations: rounding, powers, logs, exponentials, affine tra
    * - :doc:`Square root </functions_math/Sqrt>`
      - Square root of each element.
    * - :doc:`Square </functions_math/Square>`
-     - x squared (faster than Power(2)).
+     - Square of each element, computed as x * x.
    * - :doc:`Sub </functions_math/Sub>`
      - Elementwise difference of two aligned streams (x - y).
 
@@ -140,7 +140,7 @@ Boolean masks, comparisons, and conditional selection. Outputs are 1.0 (true) or
    * - :doc:`GreaterThan </functions_math/GreaterThan>`
      - Returns 1.0 if a > b, else 0.0. NaN in either input yields NaN.
    * - :doc:`Hold (time-latch operator) </functions_signal/Hold>`
-     - Time-latch operator. Latches a nonzero finite input and holds it for n bars; returns the release value once the hold expires.
+     - Time-latch operator. Latches a nonzero finite input and holds it for n steps; returns the release value once the hold expires.
    * - :doc:`IsFinite </functions_math/IsFinite>`
      - Returns 1.0 for finite values, 0.0 for NaN or inf. Does not propagate NaN.
    * - :doc:`IsNan </functions_math/IsNan>`

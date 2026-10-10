@@ -24,7 +24,7 @@ Aligning, combining, and reshaping event streams.
    * - :doc:`Dropna </functions_streams/Dropna>`
      - Drop events whose value is NaN.
    * - :doc:`Filter </functions_streams/Filter>`
-     - 2-input mask gate - keep each data value whose aligned mask is nonzero.
+     - Two-input mask gate that keeps each data value whose aligned mask is nonzero.
    * - :doc:`from_pandas </functions_streams/from_pandas>`
      - Convert a pandas Series or DataFrame to a (values, index) tuple.
    * - :doc:`Merge </functions_streams/Merge>`
@@ -63,7 +63,6 @@ Building and running a pipeline.
    /functions_streams/from_pandas
    /functions_streams/Merge
    /functions_dag/Pipeline
-   /functions_streams/Resample
    /functions_streams/Select
    /functions_streams/split
    /functions_streams/Stream

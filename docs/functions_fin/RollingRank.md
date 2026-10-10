@@ -6,10 +6,10 @@ topics:
 - statistics
 tags:
 - rank
+- rolling rank
 - position
 - pandas
-short: Rank of the current value within the trailing window (1-based, average tie
-  rule).
+short: Rank of the current value within the trailing window (1-based, average tie rule).
 inputs: 1
 outputs: 1
 parameters:
@@ -17,29 +17,32 @@ parameters:
   type: int
   default: 20
   min: 2
-  description: Trailing-window length.
+  description: Number of most recent values the current value is ranked against.
 nan_policy: ignore
+see_also:
+- RollingPercentile
+- RollingQuantile
+- RollingMedian
+- CrossRank
 ---
 
 # `RollingRank`
 
 ## Description
 
+`RollingRank` is the rank of the current value among the last `window_size` values:
+
 $$
 \text{rank}[t] = (\text{\#values} < y_t) + 1 + \tfrac{1}{2}(\text{\#ties} - 1)
 $$
 
-Pandas's "average" tie-breaking rule (mean rank among tied values). Returns a 1-based rank
-in `[1, w]`.
-
-1→1. Circular window buffer + per-step counting sweep; O(W) per step. Bit-exact
-to `pandas.Series.rolling(w).rank()`.
+Ties get the mean of their ranks, as in the pandas "average" rule. The output is a 1-based rank in `[1, w]` and matches `pandas.Series.rolling(w).rank()`. Each step costs O(window_size).
 
 
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples

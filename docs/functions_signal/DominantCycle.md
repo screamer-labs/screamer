@@ -8,11 +8,22 @@ tags:
 - ehlers
 - hilbert
 - cycle
+- cycle period
+- hilbert transform
+- mesa
 short: Dominant cycle period via Ehlers' homodyne discriminator.
 inputs: 1
 outputs: 1
 parameters: []
 nan_policy: ignore
+see_also:
+- CycleFrequency
+- CyclePhase
+- HilbertPhasor
+- InstantaneousTrendline
+references:
+- 'Ehlers, J. F. (2001). *Rocket Science for Traders: Digital Signal Processing Applications*.
+  Wiley.'
 ---
 
 # `DominantCycle`
@@ -28,7 +39,7 @@ the same measurement applies to any sampled signal, not only price.
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `ignore`.** A `NaN` in the input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples

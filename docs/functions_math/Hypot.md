@@ -9,20 +9,27 @@ tags:
 - norm
 - polar
 - pair
+- euclidean norm
+- distance
+- magnitude
 short: Euclidean distance sqrt(x^2 + y^2), numerically stable.
 inputs: 2
 outputs: 1
 parameters: []
 nan_policy: ignore
+see_also:
+- Cart2Polar
+- Atan2
+- Sqrt
 ---
 
 # `Hypot`
 
 ## Description
 
-Two-argument Euclidean distance: `Hypot(x, y) = sqrt(x*x + y*y)`. Computes `sqrt(x² + y²)` in a numerically stable way that avoids overflow for very large `|x|` or `|y|` and underflow for very small ones.
+`Hypot` computes the Euclidean distance `sqrt(x² + y²)` of two inputs. The computation avoids the overflow that squaring a very large `|x|` or `|y|` would cause, and the underflow for very small ones.
 
-This is a **2-input, 1-output** function (`FunctorBase<_, 2, 1>`). Inputs are paired column-by-column for arrays.
+It takes two inputs and returns one output. For 2D arrays the inputs are paired column by column.
 
 *Equation*:
 
@@ -30,15 +37,10 @@ $$
 y[t] = \sqrt{x_1[t]^2 + x_2[t]^2}
 $$
 
-*Parameters*: `Hypot` takes no parameters.
-
-*NaN handling*: A NaN in either input produces a NaN output.
-
-
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples

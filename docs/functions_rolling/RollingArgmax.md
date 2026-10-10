@@ -7,7 +7,10 @@ topics:
 tags:
 - argmax
 - rolling
-short: Window-offset of the trailing-window maximum (TA-Lib MAXINDEX).
+- maxindex
+- position of maximum
+- index of maximum
+short: Position of the maximum within the trailing window (0 is the oldest sample).
 inputs: 1
 outputs: 1
 parameters:
@@ -15,7 +18,12 @@ parameters:
   type: int
   default: 20
   min: 2
-  description: Trailing-window length.
+  description: Number of most recent samples searched for the maximum.
+see_also:
+- RollingMax
+- RollingArgmin
+- RollingMinMax
+- RollingRange
 nan_policy: ignore
 ---
 
@@ -23,14 +31,19 @@ nan_policy: ignore
 
 ## Description
 
-`RollingArgmax` returns the *position* (within the current window) of the rolling maximum value, rather than the maximum itself. Convention: **0 = oldest sample in the window**, **window_size−1 = newest**. Matches `numpy.argmax` applied to the trailing window slice and `pandas.Series.rolling(w).apply(np.argmax)`.
+`RollingArgmax` returns the position of the rolling maximum within the current window,
+rather than the maximum itself. Position 0 is the oldest sample in the window and
+`window_size - 1` the newest. When the maximum occurs more than once in the window,
+the newest position is returned. Otherwise the result matches `numpy.argmax` applied to
+the trailing window slice; `numpy.argmax` returns the oldest position on ties.
 
-*Parameters*: `window_size` (int, positive).
+Before the window is full, the output is the position within the samples seen so far,
+so there is no NaN warmup.
 
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples
@@ -72,13 +85,18 @@ nan_policy: ignore
 
 ### Algorithm
 
-Same monotonic-deque primitive (`detail::MaxDeque`) used by `RollingMax`, `RollingMinMax`, and `RollingRange`. Each deque entry stores `(value, absolute_sample_index)`; the front entry is always the current rolling maximum, and we expose its window offset.
+A monotonic deque, the same structure that [`RollingMax`](RollingMax.md) uses. Each deque
+entry stores the value and its absolute sample index; the front entry is the current
+rolling maximum, and its index is converted to a window offset.
 
 ### Complexity
 
-* Time complexity: `O(1)` amortised per step.
+* Time complexity: `O(1)` amortized per step.
 * Space complexity: `O(window_size)`.
 
-## Reference
+## Validation
 
-Equivalent to `pandas.Series.rolling(w).apply(np.argmax, raw=True)` for samples after warmup. Also equivalent to TA-Lib's `MAXINDEX`.
+Equivalent to `pandas.Series.rolling(w).apply(np.argmax, raw=True)` after warmup when the
+maximum is unique in the window. Pandas returns NaN during warmup, where `RollingArgmax` returns
+the position within the partial window. TA-Lib's `MAXINDEX` locates the same maximum but
+returns its absolute index in the series rather than its offset in the window.

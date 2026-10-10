@@ -8,11 +8,17 @@ tags:
 - first
 - cumulative
 - latch
+- open
+- opening value
 short: Latch the first finite value seen since reset.
 inputs: 1
 outputs: 1
 parameters: []
 nan_policy: ignore
+see_also:
+- Last
+- Resample
+- Hold
 ---
 
 # `First`
@@ -21,15 +27,11 @@ nan_policy: ignore
 
 `First` latches the first finite value it sees and returns it from then on. NaN inputs are ignored: they return NaN and leave the latched value unchanged. `reset()` clears the latch. As a per-bar reducer it yields the opening value of each bar.
 
-*Parameters*: none.
-
-*NaN handling*: NaN inputs do not update the latch. The output at a NaN index is NaN and subsequent finite samples continue normally.
-
 
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples
@@ -70,4 +72,4 @@ nan_policy: ignore
 
 ## Implementation Details
 
-`First` keeps a single `double` and a boolean flag. On the first finite input the value is latched; subsequent finite inputs return the same latch. NaN inputs return NaN and leave the latch unchanged. Memory is `O(1)`.
+`First` keeps a single `double` and a boolean flag. On the first finite input the value is latched; subsequent finite inputs return the same latch. Memory is `O(1)`.

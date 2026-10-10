@@ -21,8 +21,8 @@ Direction and trend-following: trend-tracking averages, slope fits, ADX, and cha
      - Wilder's ADX with +DI and -DI (3 inputs -> 3 outputs).
    * - :doc:`Average Directional Index Rating (ADXR) </functions_rolling/ADXR>`
      - Wilder's ADXR, the mean of ADX now and ADX one window ago.
-   * - :doc:`Online Bayesian univariate regression (2->4 posterior fit) </functions_fin/BayesianRegression>`
-     - Online exponentially-weighted (forgetting-factor) Bayesian linear regression - current slope and intercept via Normal-Inverse-Gamma posterior plus causal one-step-ahead predictive mean and std.
+   * - :doc:`Online Bayesian regression </functions_fin/BayesianRegression>`
+     - Online Bayesian linear regression with a forgetting factor: the current slope and intercept, and a one-step-ahead predictive mean and standard deviation.
    * - :doc:`Double Exponential MA (DEMA) </functions_rolling/DEMA>`
      - Mulloy's Double EMA: 2*EMA - EMA(EMA).
    * - :doc:`Detrend </functions_misc/Detrend>`
@@ -49,14 +49,14 @@ Direction and trend-following: trend-tracking averages, slope fits, ADX, and cha
      - Wilder smoothed positive directional movement.
    * - :doc:`Rolling Hurst Exponent </functions_rolling/RollingHurst>`
      - Rolling-window Hurst exponent via Anis-Lloyd corrected rescaled-range analysis.
-   * - :doc:`Rolling linear regression (2->4 OLS fit) </functions_fin/RollingLinearRegression>`
-     - Full OLS fit returning (slope, intercept, r_squared, stderr).
+   * - :doc:`Rolling linear regression </functions_fin/RollingLinearRegression>`
+     - Rolling OLS fit of y on x, returning slope, intercept, R-squared and the standard error of the fit.
    * - :doc:`Rolling 1st-order polynomial fit </functions_rolling/RollingPoly1>`
      - OLS fit y = a + b*t over a trailing window. derivative_order selects value/slope/zero.
    * - :doc:`Rolling 2nd-order polynomial fit </functions_rolling/RollingPoly2>`
      - OLS fit y = a + b*t + c*t^2 over a trailing window.
    * - :doc:`Rolling Time-Series Forecast (TSF) </functions_fin/RollingTSF>`
-     - Linear regression of y on time, projected one step ahead. TA-Lib's TSF.
+     - Linear regression of the input on time, projected one step ahead (TA-Lib TSF).
    * - :doc:`Triple Exponential MA (TEMA) </functions_rolling/TEMA>`
      - Mulloy's Triple EMA: 3*EMA - 3*EMA(EMA) + EMA(EMA(EMA)).
    * - :doc:`TRIX (rate of change of triple EMA) </functions_rolling/TRIX>`
@@ -88,13 +88,13 @@ Rate-of-change and overbought/oversold indicators.
    * - :doc:`Momentum </functions_misc/Momentum>`
      - x[t] - x[t-k], TA-Lib's MOM. Mathematically identical to Diff(k).
    * - :doc:`Rate of change (ROC) </functions_fin/ROC>`
-     - 100 * (x[t] / x[t-k] - 1) - TA-Lib's ROC.
+     - Rate of change 100 * (x[t] / x[t-k] - 1), in percent (TA-Lib ROC).
    * - :doc:`Rolling RSI </functions_rolling/RollingRSI>`
      - Relative Strength Index. Wilder's smoothing by default; Cutler's via method='cutler'.
    * - :doc:`Stochastic Oscillator </functions_rolling/Stoch>`
-     - Stochastic oscillator %K and %D (3 inputs -> 2 outputs).
+     - Stochastic oscillator %K and %D from high, low and close.
    * - :doc:`Stochastic RSI </functions_rolling/StochRSI>`
-     - Stochastic applied to RSI (1 input -> 2 outputs).
+     - Stochastic oscillator applied to the RSI, giving %K and %D.
    * - :doc:`TRIX (rate of change of triple EMA) </functions_rolling/TRIX>`
      - ROC of a triple-smoothed EMA.
    * - :doc:`Ultimate Oscillator </functions_rolling/UltimateOscillator>`
@@ -119,6 +119,24 @@ Envelopes around price.
      - Trend-following envelope: rolling max(high), rolling min(low), and midline.
    * - :doc:`Keltner Channels </functions_rolling/KeltnerChannels>`
      - Volatility-adapted envelope: EMA midline plus/minus a multiple of ATR.
+
+Volatility indicators
+---------------------
+
+True range, ATR, and normalized ATR for stops, sizing, and channels.
+
+.. list-table::
+   :header-rows: 1
+   :widths: 30 70
+
+   * - Function
+     - Description
+   * - :doc:`Average True Range (ATR) </functions_rolling/ATR>`
+     - Wilder-smoothed average of TrueRange.
+   * - :doc:`Normalized ATR (NATR) </functions_rolling/NATR>`
+     - ATR scaled to a percentage of the current close.
+   * - :doc:`True Range (Wilder) </functions_rolling/TrueRange>`
+     - Per-bar true range accounting for overnight gaps (Wilder, 1978).
 
 Volume
 ------
@@ -160,17 +178,17 @@ Differences, returns, rates of change, and lags.
    * - :doc:`Lag (delay) </functions_misc/Lag>`
      - Output is the input delayed by k samples.
    * - :doc:`Log return </functions_fin/LogReturn>`
-     - log(x[t] / x[t-k]) - log return at lag k.
+     - Log return log(x[t] / x[t-k]) at lag k.
    * - :doc:`Momentum </functions_misc/Momentum>`
      - x[t] - x[t-k], TA-Lib's MOM. Mathematically identical to Diff(k).
    * - :doc:`Simple return </functions_fin/Return>`
-     - (x[t] - x[t-k]) / x[t-k] - the simple percentage return at lag k.
+     - Simple return (x[t] - x[t-k]) / x[t-k] at lag k.
    * - :doc:`Rate of change (ROC) </functions_fin/ROC>`
-     - 100 * (x[t] / x[t-k] - 1) - TA-Lib's ROC.
+     - Rate of change 100 * (x[t] / x[t-k] - 1), in percent (TA-Lib ROC).
    * - :doc:`Rate of change percent (ROCP) </functions_fin/ROCP>`
-     - x[t] / x[t-k] - 1 - TA-Lib's ROCP. Identical to Return.
+     - Rate of change x[t] / x[t-k] - 1, as a fraction (TA-Lib ROCP). Identical to Return.
    * - :doc:`Rate of change ratio (ROCR) </functions_fin/ROCR>`
-     - x[t] / x[t-k] - TA-Lib's ROCR.
+     - Rate of change ratio x[t] / x[t-k] (TA-Lib ROCR).
 
 Cycles & spectra
 ----------------

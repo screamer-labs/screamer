@@ -8,18 +8,26 @@ tags:
 - activation
 - elu
 - neural
+- exponential linear unit
 short: Exponential linear unit.
 inputs: 1
 outputs: 1
 parameters: []
 nan_policy: ignore
+see_also:
+- Selu
+- Relu
+- Softsign
+references:
+- Clevert, D.-A., Unterthiner, T. and Hochreiter, S. (2016). Fast and accurate deep network
+  learning by exponential linear units (ELUs). *International Conference on Learning Representations*.
 ---
 
 # `Elu`
 
 ## Description
 
-`Elu` (Exponential Linear Unit) computes the elementwise map f(x) = x for x >= 0, and alpha * (exp(x) - 1) for x < 0. It is an activation function that keeps negative outputs bounded below zero while passing positive inputs unchanged.
+`Elu` (exponential linear unit) is an activation function that passes positive inputs unchanged and maps negative inputs to `exp(x) - 1`, so negative outputs are bounded below by -1.
 
 *Equation*:
 
@@ -32,13 +40,10 @@ $$
 
 where $\alpha$ is a constant set to 1.0.
 
-*NaN handling*: `NaN` values are not modified by this function.
-
-
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples

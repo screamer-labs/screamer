@@ -6,18 +6,26 @@ topics:
 - trade-signing
 tags:
 - trade sign
+- trade classification
 - lee ready
-- classification
-- flow
+- lee-ready
+- quote rule
+- aggressor side
+- buy sell classification
 - microstructure
-short: "Trade sign by the Lee-Ready (1991) rule: quote test with tick-rule fallback."
+short: 'Trade sign by the Lee-Ready (1991) rule: quote test with tick-rule fallback.'
 inputs: 2
 outputs: 1
 parameters: []
 nan_policy: ignore
 see_also:
 - TickRuleSign
+- BulkVolumeClassifier
 - SignedVolume
+- EffectiveSpread
+references:
+- Lee, C. M. C. and Ready, M. J. (1991). Inferring trade direction from intraday data. *Journal
+  of Finance*, 46(2), 733-746.
 ---
 
 # `LeeReadySign`
@@ -25,30 +33,26 @@ see_also:
 ## Description
 
 `LeeReadySign` classifies each trade as buyer-initiated (`+1`) or
-seller-initiated (`-1`) using the Lee-Ready (1991) algorithm. The rule has
-two steps.
+seller-initiated (`-1`) with the Lee-Ready (1991) algorithm. The inputs are the
+trade `price` and the prevailing `mid` quote, in that order. The rule has two
+steps.
 
-1. **Quote test**: if the trade price is above the mid-quote, it is a buy
-   (`+1`); if it is below, it is a sell (`-1`).
-2. **Tick-rule fallback**: if the trade price equals the mid-quote exactly,
-   the sign of the most recent price change is used instead (the tick rule).
-   An up-tick is a buy; a down-tick is a sell; an unchanged tick carries the
-   previous sign.
+1. **Quote test**: a trade above the mid is a buy (`+1`) and a trade below the
+   mid is a sell (`-1`).
+2. **Tick-rule fallback**: a trade exactly at the mid takes the sign of the most
+   recent nonzero price change (the tick rule). An up-tick is a buy and a
+   down-tick a sell; an unchanged price keeps the previous sign.
 
-`LeeReadySign()(price, mid)` returns the signed series. The tick-rule fallback
-state advances on every price (not only at-mid samples), so the classification
-is consistent between whole-array and one-sample-at-a-time driving.
-A missing price or mid (`NaN`) yields `NaN`
-(nan_policy: ignore).
+The tick-rule state advances on every price, including trades decided by the
+quote test, so batch and one-sample-at-a-time calls give the same signs. An
+at-mid trade with no earlier price change to fall back on, such as the first
+sample, gives `NaN`.
 
-*Return value*: an array of `+1.0` and `-1.0` trade signs (or `NaN` where
-input is missing). The first sample is `NaN` when the tick-rule fallback is
-needed at index 0 (no prior price to compute a tick direction).
+<!-- NAN_FOOTNOTE_START -->
+## NaN handling
 
-**Reference**: Lee, C. M. C., and Ready, M. J. (1991). "Inferring Trade
-Direction from Intraday Data." *Journal of Finance*, 46(2), 733-746.
-
-<!-- HELP_END -->
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).
+<!-- NAN_FOOTNOTE_END -->
 
 ## Examples
 

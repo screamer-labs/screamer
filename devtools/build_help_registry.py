@@ -330,6 +330,7 @@ def main(argv=None):
         if entry is None:
             continue
         validate(entry, screamer, valid_topics)
+        entry["doc_path"] = md.relative_to(DOCS).with_suffix("").as_posix()
         registry[entry["name"]] = entry
         n_ex = len(entry["examples"])
         print(f"  + {entry['name']:24s}  ({md.relative_to(ROOT)}, {n_ex} examples)")
@@ -352,6 +353,7 @@ def main(argv=None):
                 "kind": entry.get("kind", "function"),
                 "topics": entry["topics"],
                 "index": False,
+                "doc_path": entry["doc_path"],
                 "details": "",
                 "examples": [],
             }

@@ -10,6 +10,7 @@ tags:
 - directional-movement
 - talib
 - hl
+- minus directional movement
 short: Wilder smoothed negative directional movement.
 inputs: 2
 outputs: 1
@@ -18,7 +19,15 @@ parameters:
   type: int
   default: 14
   min: 2
-  description: Wilder smoothing period.
+  description: 'Wilder smoothing period: the smoother seeds on the first window_size values,
+    then each step keeps (window_size - 1) / window_size of the previous value.'
+see_also:
+- MinusDI
+- PlusDM
+- ADX
+- DX
+references:
+- Wilder, J. W. (1978). *New Concepts in Technical Trading Systems*. Trend Research.
 nan_policy: ignore
 ---
 
@@ -27,7 +36,7 @@ nan_policy: ignore
 ## Description
 
 `MinusDM` is Wilder's negative directional movement, `-DM` (Wilder, 1978),
-Wilder-smoothed over `window_size` bars:
+Wilder-smoothed over `window_size` samples:
 
 $$
 -\text{DM}[t] = \max(L_{t-1} - L,\ 0)\quad\text{if}\quad L_{t-1} - L > H - H_{t-1},\ \text{else}\ 0
@@ -37,24 +46,19 @@ $$
 -\text{DM}_{\text{smoothed}} = \text{Wilder}(-\text{DM},\ w)
 $$
 
-**2-input, 1-output** (`FunctorBase<_, 2, 1>`) on `(high, low)`. The value
-depends on high and low only; it does not use close. `MinusDM` shares its
-smoothing engine with `ADX` and `MinusDI`, which divide the same quantity by
-the smoothed true range to form `-DI`. Use `MinusDM` on its own when the raw
-smoothed directional movement is needed rather than the normalized indicator.
+Inputs are `(high, low)`; the close is not used. [`ADX`](ADX.md) and
+[`MinusDI`](MinusDI.md) divide the same quantity by the smoothed true range to form
+`-DI`. Use `MinusDM` when you need the smoothed directional movement itself rather
+than the normalized indicator.
 
-### Parameters
-
-**`window_size`** *(int, default 14)*: The Wilder smoothing period. Because
-`MinusDM` shares its warmup timeline with the rest of the DMI family (which
-also smooths the true range), the first valid output is at sample index
-`window_size`, one bar later than a plain Wilder sum of `-DM` alone would
-give.
+`MinusDM` follows the warmup of the rest of the directional-movement family, which also
+smooths the true range, so the first valid output is at sample index `window_size`.
+This is one sample later than a Wilder sum of `-DM` alone would give.
 
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples
@@ -96,8 +100,8 @@ give.
 
 <!-- HELP_END -->
 
-## Reference
+## Validation
 
 Matches `talib.MINUS_DM` from the first index where both are finite; see
-`tests/test_dmi.py`. `talib.MINUS_DM` emits its first value one bar earlier
-than `MinusDM`, which follows the shared DMI warmup timeline.
+`tests/test_dmi.py`. `talib.MINUS_DM` emits its first value one sample earlier than
+`MinusDM`.

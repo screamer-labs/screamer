@@ -8,9 +8,11 @@ tags:
 - queue imbalance
 - book imbalance
 - order book imbalance
+- depth imbalance
+- l1
 - order flow
 - microstructure
-short: "Normalized L1 book imbalance, (bid_size - ask_size) / (bid_size + ask_size)."
+short: Normalized L1 book imbalance, (bid_size - ask_size) / (bid_size + ask_size).
 inputs: 2
 outputs: 1
 parameters: []
@@ -18,6 +20,7 @@ nan_policy: ignore
 see_also:
 - OFI
 - MicroPrice
+- ContOFI
 ---
 
 # `QueueImbalance`
@@ -28,14 +31,20 @@ see_also:
 
     (bid_size - ask_size) / (bid_size + ask_size),
 
-in `[-1, 1]`. It is positive when more size rests on the bid than the ask
-(buy pressure) and negative when the ask is heavier. It is one of the most
-widely used short-horizon predictors: a heavy bid queue tends to precede an
-up-move. Feed the resting sizes at the top of book: `QueueImbalance(bid_size,
-ask_size)`. An empty book (both sizes 0) has no imbalance and returns 0.
+in `[-1, 1]`. It is positive when more size rests on the bid than on the ask
+(buy pressure) and negative when the ask is heavier. A heavy bid queue tends to
+precede an up-move, which makes it a common short-horizon predictor. Pass the
+resting sizes at the top of the book: `QueueImbalance()(bid_size, ask_size)`.
+An empty book (both sizes 0) has no imbalance and returns 0.
 
-`QueueImbalance` is a documented synonym of `OFI`: the same normalized-imbalance
-operator, applied to resting queue sizes rather than to trade flow.
+`QueueImbalance` is a synonym of [`OFI`](OFI.md): the same normalized imbalance,
+applied to resting queue sizes instead of trade volume.
+
+<!-- NAN_FOOTNOTE_START -->
+## NaN handling
+
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).
+<!-- NAN_FOOTNOTE_END -->
 
 ## Examples
 

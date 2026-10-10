@@ -6,10 +6,12 @@ topics:
 - risk
 tags:
 - sortino
+- sortino ratio
 - ratio
 - rolling
 - downside
-short: 'Annualised Sortino ratio: Sharpe with downside-only deviation.'
+- downside risk
+short: 'Annualized Sortino ratio: the Sharpe ratio with downside deviation in the denominator.'
 inputs: 1
 outputs: 1
 parameters:
@@ -17,43 +19,46 @@ parameters:
   type: int
   default: 252
   min: 2
-  description: Trailing-window length.
+  description: Number of most recent returns in the window.
 - name: periods_per_year
   type: float
   default: 1.0
   min: 1.0
-  description: Annualisation factor (252 daily, 52 weekly, 12 monthly, 1 = no annualisation).
+  description: 'Annualization factor: the ratio is multiplied by sqrt(periods_per_year). Use
+    252 for daily, 52 for weekly, 12 for monthly data, and 1 for no annualization.'
 - name: target
   type: float
   default: 0.0
-  description: Minimum acceptable return (only deviations below this contribute to
-    the denominator).
+  description: Minimum acceptable return. It is subtracted from the mean, and only returns
+    below it contribute to the denominator.
 nan_policy: ignore
+see_also:
+- RollingSharpe
+- RollingDownsideDeviation
+- RollingCalmar
+- RollingOmega
+references:
+- Sortino, F. A. and Price, L. N. (1994). Performance measurement in a downside risk framework.
+  *Journal of Investing*, 3(3), 59-64.
 ---
 
 # `RollingSortino`
 
 ## Description
 
-Annualised Sortino ratio:
+`RollingSortino` computes the annualized Sortino ratio over a trailing window of returns:
 
 $$
 \text{Sortino}[t] = \sqrt{\text{ppy}}\ \cdot\ \frac{\text{mean}(r) - \text{target}}{\sqrt{\text{mean}(\min(r - \text{target},\ 0)^2)}}
 $$
 
-Same as Sharpe but the denominator is the *downside* deviation -- only bars below `target`
-contribute.
-
-## Implementation
-
-`O(window_size)` per step. The downside-RMS denominator does not have a closed-form
-O(1) update.
+It differs from the Sharpe ratio in the denominator, which is the *downside* deviation: only returns below `target` contribute. Each step costs O(window_size), because the downside deviation has no O(1) update.
 
 
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples

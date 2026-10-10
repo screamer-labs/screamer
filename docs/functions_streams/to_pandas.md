@@ -3,6 +3,15 @@ name: to_pandas
 title: to_pandas
 kind: function
 short: Convert a (values, index) tuple to a pandas Series or DataFrame.
+tags:
+- pandas
+- dataframe
+- series
+- convert
+see_also:
+- from_pandas
+- Resample
+- CombineLatest
 topics:
 - streams
 ---

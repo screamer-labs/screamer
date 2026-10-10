@@ -6,9 +6,13 @@ topics:
 - returns
 tags:
 - return
-- pct-change
 - returns
-short: (x[t] - x[t-k]) / x[t-k] - the simple percentage return at lag k.
+- simple return
+- pct_change
+- pct-change
+- percent change
+- percentage change
+short: Simple return (x[t] - x[t-k]) / x[t-k] at lag k.
 inputs: 1
 outputs: 1
 parameters:
@@ -16,8 +20,15 @@ parameters:
   type: int
   default: 1
   min: 1
-  description: Lag for the return (1 = consecutive).
+  description: 'Lag k: the output compares each value with the value k steps earlier (1 compares
+    consecutive values).'
 nan_policy: propagate
+see_also:
+- LogReturn
+- ROCP
+- ROC
+- ROCR
+- Diff
 ---
 
 # `Return`
@@ -34,17 +45,13 @@ $$
 
 where `k` is `window_size`.
 
-*Parameters*:
-
-- `window_size` (int): The number of steps backward to use for calculating the return. Must be positive.
-
-*NaN handling*: When `window_size` exceeds the available data points at the start of the sequence, or if `x[i - k]` equals zero (to avoid division by zero), the output is set to `NaN`.
+The first `k` outputs are `NaN` because `x[i - k]` does not exist yet. The division follows IEEE arithmetic, so `x[i - k] == 0` gives `inf` (or `NaN` when `x[i]` is also zero). The result matches `pandas.Series.pct_change(k)`.
 
 
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `propagate`.** Input `NaN` values are stored in the lookback. Output is `NaN` at any index where the function's positional formula references a `NaN` input; recovery happens once the `NaN` slides out of the lookback.
+**Policy: `propagate`.** A `NaN` input is stored in the lookback like any other value. The output is `NaN` wherever the formula references it and recovers once it leaves the lookback. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples
@@ -83,7 +90,3 @@ where `k` is `window_size`.
 ```
 
 <!-- HELP_END -->
-
-## Implementation Details
-
-The `Return` function uses array operations to efficiently compute the relative change between data points. To handle cases where the denominator could be zero, conditional checks ensure that the output is set to `NaN` when such divisions are encountered.

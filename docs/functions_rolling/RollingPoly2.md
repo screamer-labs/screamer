@@ -10,6 +10,9 @@ tags:
 - quadratic
 - polynomial
 - rolling
+- curvature
+- savitzky-golay
+- quadratic regression
 short: OLS fit y = a + b*t + c*t^2 over a trailing window.
 inputs: 1
 outputs: 1
@@ -17,8 +20,8 @@ parameters:
 - name: window_size
   type: int
   default: 20
-  min: 2
-  description: Trailing-window length.
+  min: 3
+  description: Number of most recent samples in the window.
 - name: derivative_order
   type: int
   default: 0
@@ -26,7 +29,8 @@ parameters:
   - 0
   - 1
   - 2
-  description: 0 = value, 1 = first derivative, 2 = second derivative.
+  description: 'What to return from the fitted parabola at the newest sample: 0 gives the
+    fitted value, 1 the first derivative (slope), 2 the second derivative (curvature).'
 - name: start_policy
   type: str
   default: strict
@@ -34,8 +38,16 @@ parameters:
   - strict
   - expanding
   - zero
-  description: Warmup behaviour.
+  description: 'Output before the window is full: "strict" gives NaN, "expanding" computes
+    from the samples seen so far, and "zero" treats the window as pre-filled with zeros.'
 nan_policy: ignore
+see_also:
+- RollingPoly1
+- RollingLinearRegression
+- RollingTSF
+references:
+- Savitzky, A. and Golay, M. J. E. (1964). Smoothing and differentiation of data by simplified
+  least squares procedures. *Analytical Chemistry*, 36(8), 1627-1639. doi:10.1021/ac60214a047
 ---
 
 # `RollingPoly2`
@@ -48,7 +60,7 @@ nan_policy: ignore
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples
@@ -112,13 +124,11 @@ nan_policy: ignore
 
 ### Algorithm
 
-`RollingPoly2` uses least-squares regression to fit a quadratic function within each window. The class allows returning either the endpoint value, the slope, or the curvature at the endpoint, based on `derivative_order`. This fitting method effectively captures both linear and non-linear trends, making it suitable for applications needing insights into the rate of change and concavity within the data.
+`RollingPoly2` keeps running sums over the window, with a circular buffer holding the values that will leave it, and solves the least-squares parabola from them at each step, so the cost does not depend on `window_size`.
 
 ### Complexity
 
 * **Time Complexity**: O(1) per element.
 * **Space Complexity**: O(window_size), since only elements within the current window are stored.
 
-### Performance
-
-* `RollingPoly2` is hundreds times faster than `Pandas rolling apply`, and the speed is constant, indepenent of the windows size.
+For timings see [Performance](../performance.md).

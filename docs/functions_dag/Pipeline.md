@@ -3,6 +3,12 @@ name: Pipeline
 title: Pipeline
 kind: graph
 short: A reusable N-in / M-out function you define once and call on stored or live data.
+tags:
+- dag
+- graph
+- pipeline
+- computational graph
+- live streaming
 topics:
 - graphs
 covers:
@@ -127,7 +133,7 @@ the empty leading and trailing bars in
    print(values)
 ```
 
-## Example
+## Examples
 
 Align two streams and take their difference. The same pipeline runs in batch and
 live.
@@ -141,7 +147,7 @@ live.
    a, b = Input("a"), Input("b")
    pipe = Pipeline(inputs=[a, b], outputs=[Sub()(CombineLatest()(a, b))])
 
-   # feeds are (values, index) - values-first
+   # feeds are (values, index), values first
    fa = (np.array([10.0, 20.0, 30.0]), np.array([1, 2, 3]))
    fb = (np.array([1.0, 2.0, 3.0]),   np.array([1, 2, 3]))
 

@@ -247,7 +247,9 @@ def _jsdoc_lines(op_name: str, help_entry: dict | None, params: list[dict]) -> l
             lines.append(f" * @param {p['name']} {_escape_comment(desc.strip())}")
         else:
             lines.append(f" * @param {p['name']}")
-    lines.append(f" * @see {PYTHON_DOCS_URL} for the Python reference and full details.")
+    page = (help_entry or {}).get("doc_path")
+    url = f"{PYTHON_DOCS_URL}{page}.html" if page else PYTHON_DOCS_URL
+    lines.append(f" * @see {url} for the full reference.")
     lines.append(" */")
     return lines
 

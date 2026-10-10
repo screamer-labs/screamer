@@ -7,6 +7,8 @@ topics:
 tags:
 - power
 - pow
+- exponent
+- x**p
 short: x raised to a fixed exponent p.
 inputs: 1
 outputs: 1
@@ -14,15 +16,21 @@ parameters:
 - name: p
   type: float
   default: 2.0
-  description: Exponent. Defaults to 2 (same effect as Square but slower).
+  description: Exponent applied to each element. The default 2 gives the same result as Square,
+    which computes x * x directly.
 nan_policy: ignore
+see_also:
+- Square
+- Cube
+- Sqrt
+- Exp
 ---
 
 # `Power`
 
 ## Description
 
-The `Power` class computes the power of each element in a data sequence. 
+`Power` raises each element to the fixed exponent `p`. A negative input with a non-integer `p` gives `NaN`.
 
 
 *Equation*:
@@ -31,17 +39,11 @@ $$
 f(x) = x^p 
 $$
 
-*Parameters*:
-
-- `p` (double): Exponent of the power function.
-
-*NaN handling*: `NaN` values are not modified by this function.
-
 
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples

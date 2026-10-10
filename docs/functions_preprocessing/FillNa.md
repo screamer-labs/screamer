@@ -6,7 +6,12 @@ topics:
 - missing-data
 tags:
 - nan
+- missing data
 - fill
+- fillna
+- impute
+- replace nan
+- constant fill
 short: Replace NaN with a user-specified scalar.
 inputs: 1
 outputs: 1
@@ -14,26 +19,26 @@ parameters:
 - name: fill
   type: float
   default: 0.0
-  description: Value used to replace NaN. Default 0.
+  description: Constant that replaces each NaN.
 nan_policy: nan-aware
+see_also:
+- Ffill
+- IsNan
+- Where
 ---
 
 # `FillNa`
 
 ## Description
 
-The `FillNa` class replaces any `NaN` values in a data sequence with a specified fill value. This function is useful for handling missing values by substituting them with a constant, such as 0 or a mean value, which can improve the continuity of data for certain analyses.
-
-*Parameters*:
-- **`fill`**: The value to replace `NaN` entries with. This can be any numeric value, allowing customization to fit the context of the data.
-
-*NaN handling*: All `NaN` values are replaced with the specified `fill` value, ensuring no `NaN` values remain in the output data.
-
+`FillNa` replaces every `NaN` with the constant `fill`, like pandas
+`fillna(value)`, so the output contains no `NaN`. Other values pass through
+unchanged.
 
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `nan-aware`.** This function is designed to consume `NaN` inputs; see the description above for its specific behavior.
+**Policy: `nan-aware`.** This function is built to process `NaN` inputs, as the Description explains. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples

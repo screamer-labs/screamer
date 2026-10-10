@@ -11,6 +11,9 @@ tags:
 - glitch
 - robust
 - rolling
+- spike removal
+- glitch filter
+- outlier filter
 short: Causal impulse remover, detects spikes on the trend-free first difference.
 inputs: 1
 outputs: 1
@@ -19,12 +22,14 @@ parameters:
   type: int
   default: 20
   min: 1
-  description: Trailing-window length.
+  description: Number of most recent first differences (and values) used for the robust scale
+    and the replacement median.
 - name: n_sigma
   type: float
   default: 4.0
   min: 0
-  description: Threshold in robust standard deviations (1.4826 * MAD of the differences).
+  description: Detection threshold in robust standard deviations of the differences (1.4826
+    * MAD). Larger values flag fewer samples; 4.0 is typical.
 - name: output
   type: str
   default: cleaned
@@ -32,11 +37,23 @@ parameters:
   - cleaned
   - flag
   - nan
-  description: '"cleaned" replaces outliers with the median, "flag" emits 1.0 at outliers (else 0.0), "nan" replaces outliers with NaN.'
+  description: 'What to return: "cleaned" gives the signal with outliers replaced by the median,
+    "flag" gives 1.0 at outliers and 0.0 elsewhere, and "nan" gives the input with outliers
+    replaced by NaN.'
 - name: start_policy
   type: str
   default: strict
-  description: Warmup handling before the window is full (strict, expanding, or zero).
+  description: 'Output before the window is full: "strict" gives NaN, "expanding" computes
+    from the samples seen so far, and "zero" treats the window as pre-filled with zeros.'
+  enum:
+  - strict
+  - expanding
+  - zero
+see_also:
+- Hampel
+- RollingMedianAD
+- Diff
+- RollingSigmaClip
 nan_policy: ignore
 ---
 
@@ -46,40 +63,27 @@ nan_policy: ignore
 
 `ImpulseClip` removes impulse spikes (glitches) from a signal that may be strongly
 non-stationary. A spike is a large, isolated jump: hard to separate from the signal's
-own swing in the raw level, but obvious in the sample-to-sample change. So detection
-runs on the first difference, whose scale is trend-free:
+own swing in the raw level, but obvious in the sample-to-sample change. Detection
+therefore runs on the first difference, whose scale is free of trend:
 
 $$ d_t = x_t - x_{t-1}, \qquad
    \text{outlier if } |d_t| > \texttt{n\_sigma} \times 1.4826 \times \text{MAD}(d)_t, $$
 
 where `MAD(d)` is the rolling median absolute deviation of the differences. A flagged
-sample is replaced by the trailing median of the values.
+sample is replaced by the trailing median of the values. The filter is causal and has
+zero latency.
 
-It is strictly causal with zero latency.
-Two consequences of detecting without looking ahead: an impulse is a `+/-` doublet in
+Detecting without looking ahead has two consequences. An impulse is a `+/-` doublet in
 the difference (a jump onto the spike and a jump back), so both the spike and its
-return sample are flagged, replacing two consecutive samples (the second nudged to the
-median); and a genuine level shift keeps its body, but its onset sample is clipped.
-Preserving these would require a one-sample lookahead, which is deliberately not done.
-For stationary data or multi-sample outliers, prefer [`Hampel`](Hampel.md).
-
-*Parameters*:
-- **`window_size`**: *(int)* Trailing-window length. Must be positive.
-- **`n_sigma`**: *(float)* Detection threshold in robust standard deviations of the
-  differences. Larger values flag fewer samples. Typical value `4.0`.
-- **`output`**: *(str)* What to return:
-  - `"cleaned"` (default): the cleaned signal, outliers replaced by the median.
-  - `"flag"`: an outlier flag, `1.0` where a sample is flagged, else `0.0`.
-  - `"nan"`: the input with flagged samples replaced by `NaN`.
-- **`start_policy`**: Warmup handling before `window_size` samples are available
-  (`"strict"`, `"expanding"`, or `"zero"`).
+return sample are flagged, and two consecutive samples are replaced (the second nudged
+to the median). A genuine level shift keeps its body, but its onset sample is clipped.
+Avoiding both would need a one-sample lookahead, which `ImpulseClip` does not use.
+For stationary data or outliers that span several samples, use [`Hampel`](Hampel.md).
 
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip
-that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite
-samples are processed as if step `t` had not occurred.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples
@@ -117,8 +121,8 @@ samples are processed as if step `t` had not occurred.
 
 ## Implementation Details
 
-O(W) per step. Two trailing windows are maintained: one of the values (for the
-replacement median) and one of the first differences (for the robust scale). Each step
-takes the median of the differences' absolute deviations with `std::nth_element` to set
-the threshold, tests the current jump, and on a flag replaces the sample with the value
-median (written back into the window to keep it clean). Strictly causal, zero latency.
+`O(W)` per step. Two trailing windows are kept: one of the values (for the replacement
+median) and one of the first differences (for the robust scale). Each step takes the
+median absolute deviation of the differences with `std::nth_element` to set the
+threshold, tests the current jump, and on a flag replaces the sample with the median of
+the values, which is also written back into the window.

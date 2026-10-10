@@ -8,18 +8,24 @@ tags:
 - activation
 - sigmoid
 - logistic
+- logistic function
+- squash
 short: 'Logistic sigmoid: 1 / (1 + exp(-x)).'
 inputs: 1
 outputs: 1
 parameters: []
 nan_policy: ignore
+see_also:
+- Tanh
+- Softsign
+- Erf
 ---
 
 # `Sigmoid`
 
 ## Description
 
-The `Sigmoid` class applies the logistic sigmoid function element-wise:
+`Sigmoid` applies the logistic function to each element:
 
 $$
 f(x) = \frac{1}{1 + e^{-x}}
@@ -27,15 +33,10 @@ $$
 
 The output lies in the open interval `(0, 1)` for all finite inputs.
 
-*Parameters*: `Sigmoid` takes no parameters.
-
-*NaN handling*: `NaN` values are not modified by this function.
-
-
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples

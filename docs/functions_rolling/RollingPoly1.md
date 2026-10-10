@@ -10,6 +10,10 @@ tags:
 - linear
 - polynomial
 - rolling
+- linear regression
+- slope
+- trend
+- savitzky-golay
 short: OLS fit y = a + b*t over a trailing window. derivative_order selects value/slope/zero.
 inputs: 1
 outputs: 1
@@ -18,14 +22,15 @@ parameters:
   type: int
   default: 20
   min: 2
-  description: Trailing-window length.
+  description: Number of most recent samples in the window.
 - name: derivative_order
   type: int
   default: 0
   enum:
   - 0
   - 1
-  description: 0 = fitted value at the last sample, 1 = slope.
+  description: 'What to return from the fitted line: 0 gives the fitted value at the newest
+    sample, 1 the slope per sample.'
 - name: start_policy
   type: str
   default: strict
@@ -33,31 +38,30 @@ parameters:
   - strict
   - expanding
   - zero
-  description: Warmup behaviour.
+  description: 'Output before the window is full: "strict" gives NaN, "expanding" computes
+    from the samples seen so far, and "zero" treats the window as pre-filled with zeros.'
 nan_policy: ignore
+see_also:
+- RollingPoly2
+- RollingLinearRegression
+- RollingTSF
+- ExpandingSlope
+references:
+- Savitzky, A. and Golay, M. J. E. (1964). Smoothing and differentiation of data by simplified
+  least squares procedures. *Analytical Chemistry*, 36(8), 1627-1639. doi:10.1021/ac60214a047
 ---
 
 # `RollingPoly1`
 
 ## Description
 
-The `RollingPoly1` class fits a straight line (first-degree polynomial) through data within a specified moving window. It returns either the endpoint of this line or the slope, depending on the `derivative_order` argument. This approach, also known as a **causal Savitzky-Golay filter**, provides a way to smooth data or obtain the rate of change across each window. With `derivative_order=0`, the function returns the y-value at the end of the fitted line, which smooths the data over the window. When `derivative_order=1`, it outputs the slope, capturing the rate of change within each window.
-
-*Parameters*: 
-- **`window_size`**: Specifies the size of the rolling window.
-- **`derivative_order`**: 
-  - `0`: The y-value at the endpoint of the fitted quadratic curve, offering a smooth continuation of the data.
-  - `1`: The slope, representing the rate of change.
-- **`start_policy`**: Defines how the function handles the initial phase when fewer than `window_size` data points are available. This parameter accepts one of the following three values:
-  - `"strict"`: Returns `NaN` for all calculations until `window_size` elements have been processed.
-  - `"expanding"`: Adapts the computation by dynamically reducing the window size to include all available data, starting from a single point and growing until `window_size` is reached.
-  - `"zero"`: Simulates a full initial window of zeros, effectively pre-filling the data stream with `window_size` zeros before processing the actual input.
+`RollingPoly1` fits a straight line by least squares to the `window_size` most recent values and returns either the line's value at the newest sample (`derivative_order=0`) or its slope (`derivative_order=1`). This is a causal Savitzky-Golay filter: the value output smooths the series, and the slope output measures its rate of change per sample.
 
 
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples
@@ -116,13 +120,11 @@ The `RollingPoly1` class fits a straight line (first-degree polynomial) through 
 
 ### Algorithm
 
-`RollingPoly1` uses a cyclic buffers to implement an online variant of least-squares regression to fit a straight line through data in the specified window. Depending on `derivative_order`, it either outputs the endpoint of this line (0th derivative, for smoothing) or the slope (1st derivative, for change rate). This is efficient and suitable for streaming data applications where real-time smoothing or trend analysis is required.
+`RollingPoly1` keeps running sums over the window, with a circular buffer holding the values that will leave it, and solves the least-squares line from them at each step, so the cost does not depend on `window_size`.
 
 ### Complexity
 
 * **Time Complexity**: O(1) per element.
 * **Space Complexity**: O(window_size), since only elements within the current window are stored.
 
-### Performance
-
-* `RollingPoly1` is hundreds times faster than `Pandas rolling apply`, and the speed is constant, indepenent of the windows size.
+For timings see [Performance](../performance.md).

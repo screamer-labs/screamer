@@ -8,18 +8,23 @@ topics:
 tags:
 - activation
 - tanh
+- hyperbolic tangent
+- squash
 short: Hyperbolic tangent.
 inputs: 1
 outputs: 1
 parameters: []
 nan_policy: ignore
+see_also:
+- Sigmoid
+- Softsign
 ---
 
 # `Tanh`
 
 ## Description
 
-The `Tanh` class applies the hyperbolic tangent function, which maps any real number into the range \(-1\) to \(1\). It is often used in neural networks as an activation function due to its zero-centered nature.
+`Tanh` applies the hyperbolic tangent to each element, mapping the real line to the range $(-1, 1)$. Its output is centered on zero.
 
 *Equation*:
 
@@ -27,15 +32,10 @@ $$
 f(x) = \tanh(x) = \frac{e^x - e^{-x}}{e^x + e^{-x}}
 $$
 
-*Parameters*: `Tanh` takes no parameters.
-
-*NaN handling*: `NaN` values are not modified by this function.
-
-
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples

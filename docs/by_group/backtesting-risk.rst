@@ -4,12 +4,12 @@
 Backtesting & risk
 ==================
 
-Turn signals into costed equity curves, and measure drawdown and performance.
+Turn signals into positions and costed equity curves, measure drawdown and performance, and test whether a result is more than luck.
 
-Risk & performance
-------------------
+Signals & position rules
+------------------------
 
-Drawdowns and performance ratios.
+Turn an indicator into a position: entry and exit bands, hysteresis, and holding a value.
 
 .. list-table::
    :header-rows: 1
@@ -17,28 +17,12 @@ Drawdowns and performance ratios.
 
    * - Function
      - Description
-   * - :doc:`Drawdown </functions_fin/Drawdown>`
-     - Running drawdown from the cumulative peak.
-   * - :doc:`Maximum drawdown </functions_fin/MaxDrawdown>`
-     - Worst drawdown experienced so far (since reset).
-   * - :doc:`Rolling Calmar ratio </functions_fin/RollingCalmar>`
-     - Annualised return divided by the worst rolling drawdown.
-   * - :doc:`Rolling Conditional Value-at-Risk (Expected Shortfall) </functions_fin/RollingCVaR>`
-     - Historical Conditional Value-at-Risk (Expected Shortfall): the mean loss in the worst alpha tail over a window.
-   * - :doc:`Rolling Downside Deviation </functions_fin/RollingDownsideDeviation>`
-     - Trailing-window downside semideviation: the RMS of returns falling below a minimum acceptable return.
-   * - :doc:`Rolling hit rate </functions_fin/RollingHitRate>`
-     - Fraction of strictly-positive samples in a trailing window.
-   * - :doc:`Rolling information ratio </functions_fin/RollingInfoRatio>`
-     - Annualised information ratio: Sharpe of active returns against a benchmark.
-   * - :doc:`Rolling maximum drawdown </functions_fin/RollingMaxDrawdown>`
-     - Worst peak-to-trough drawdown inside a trailing window.
-   * - :doc:`Rolling Omega Ratio </functions_fin/RollingOmega>`
-     - Omega ratio over a window: total gains above a threshold divided by total losses below it.
-   * - :doc:`Rolling Sharpe ratio </functions_fin/RollingSharpe>`
-     - Annualised Sharpe ratio over a trailing window of returns.
-   * - :doc:`Rolling Sortino ratio </functions_fin/RollingSortino>`
-     - Annualised Sortino ratio: Sharpe with downside-only deviation.
+   * - :doc:`Entry and exit bands on a z-score </functions_signal/BandSignal>`
+     - Three-state mean-reversion position from a z-score: short above +entry, long below -entry, flat again inside the exit level, with an optional stop and lockout.
+   * - :doc:`Hold (time-latch operator) </functions_signal/Hold>`
+     - Time-latch operator. Latches a nonzero finite input and holds it for n steps; returns the release value once the hold expires.
+   * - :doc:`Schmitt trigger (hysteresis comparator) </functions_signal/SchmittTrigger>`
+     - Hysteresis comparator. Latches 1.0 above the upper threshold, 0.0 below the lower threshold, and retains its previous value in between.
 
 Backtesting
 -----------
@@ -83,6 +67,54 @@ Simulate a strategy against market data into a costed equity curve: signals, bar
      - Backtest a target-position strategy against the trade tape, taking each print as a market fill to reach the target immediately.
    * - :doc:`Choosing a backtest engine </functions_fin/choosing_a_backtest_engine>`
      - The engine grid by data model and order definition, with fill rules, sizing, volume limits, and encoding.
+   * - :doc:`Running report columns for a multi-asset backtest </functions_fin/PortfolioReport>`
+     - Reduce a multi-asset backtest engine output into causal portfolio-level report columns.
+
+Risk & performance
+------------------
+
+Drawdowns and performance ratios.
+
+.. list-table::
+   :header-rows: 1
+   :widths: 30 70
+
+   * - Function
+     - Description
+   * - :doc:`Drawdown </functions_fin/Drawdown>`
+     - Running drawdown from the cumulative peak.
+   * - :doc:`Maximum drawdown </functions_fin/MaxDrawdown>`
+     - Worst drawdown experienced so far (since reset).
+   * - :doc:`Rolling Calmar ratio </functions_fin/RollingCalmar>`
+     - Annualized mean return divided by the worst drawdown in a trailing window.
+   * - :doc:`Rolling Conditional Value-at-Risk (Expected Shortfall) </functions_fin/RollingCVaR>`
+     - Historical Conditional Value-at-Risk (Expected Shortfall): the mean loss in the worst alpha tail over a window.
+   * - :doc:`Rolling Downside Deviation </functions_fin/RollingDownsideDeviation>`
+     - Trailing-window downside semideviation: the RMS of returns falling below a minimum acceptable return.
+   * - :doc:`Rolling hit rate </functions_fin/RollingHitRate>`
+     - Fraction of strictly positive values in a trailing window.
+   * - :doc:`Rolling information ratio </functions_fin/RollingInfoRatio>`
+     - Annualized information ratio: the Sharpe ratio of active returns against a benchmark.
+   * - :doc:`Rolling maximum drawdown </functions_fin/RollingMaxDrawdown>`
+     - Worst peak-to-trough drawdown inside a trailing window.
+   * - :doc:`Rolling Omega Ratio </functions_fin/RollingOmega>`
+     - Omega ratio over a window: total gains above a threshold divided by total losses below it.
+   * - :doc:`Rolling Sharpe ratio </functions_fin/RollingSharpe>`
+     - Annualized Sharpe ratio over a trailing window of returns.
+   * - :doc:`Rolling Sortino ratio </functions_fin/RollingSortino>`
+     - Annualized Sortino ratio: the Sharpe ratio with downside deviation in the denominator.
+
+Significance & overfitting
+--------------------------
+
+Is a backtest more than luck? Randomization tests with p-values, permutations, the probabilistic and deflated Sharpe ratio, and walk-forward evaluation.
+
+.. list-table::
+   :header-rows: 1
+   :widths: 30 70
+
+   * - Function
+     - Description
    * - :doc:`circular_shift </functions_fin/circular_shift>`
      - Randomly rotated copies of a series, for randomization tests.
    * - :doc:`deflated_sharpe </functions_fin/deflated_sharpe>`
@@ -91,8 +123,6 @@ Simulate a strategy against market data into a costed equity curve: signals, bar
      - Bar-permuted copies of an OHLC series that keep its return distribution but no serial structure.
    * - :doc:`permute_returns </functions_fin/permute_returns>`
      - Copies of a price series with its returns in random order.
-   * - :doc:`Running report columns for a multi-asset backtest </functions_fin/PortfolioReport>`
-     - Reduce a multi-asset backtest engine output into causal portfolio-level report columns.
    * - :doc:`position_test </functions_fin/position_test>`
      - Test whether a backtest's timing beats randomly timed copies of the same strategy, with a p-value.
    * - :doc:`probabilistic_sharpe </functions_fin/probabilistic_sharpe>`
@@ -101,6 +131,8 @@ Simulate a strategy against market data into a costed equity curve: signals, bar
      - Copies of a series with its runs of equal value in random order, for randomization tests.
    * - :doc:`strategy_test </functions_fin/strategy_test>`
      - Test a whole strategy, model included, against the same strategy run on permuted market data or shifted features.
+   * - :doc:`walk_forward </functions_fin/walk_forward>`
+     - Pick the best of several strategy variants on each training window and trade it on the next test window, out of sample.
 
 .. toctree::
    :hidden:
@@ -120,6 +152,7 @@ Simulate a strategy against market data into a costed equity curve: signals, bar
    /functions_fin/BacktestStats
    /functions_fin/BacktestTradesOrders
    /functions_fin/BacktestTradesTarget
+   /functions_signal/BandSignal
    /functions_fin/choosing_a_backtest_engine
    /functions_fin/circular_shift
    /functions_fin/deflated_sharpe
@@ -138,3 +171,4 @@ Simulate a strategy against market data into a costed equity curve: signals, bar
    /functions_fin/RollingSortino
    /functions_fin/segment_shuffle
    /functions_fin/strategy_test
+   /functions_fin/walk_forward

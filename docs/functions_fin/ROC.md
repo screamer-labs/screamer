@@ -8,8 +8,12 @@ topics:
 tags:
 - roc
 - rate-of-change
+- rate of change
+- pct_change
+- percent change
+- percentage change
 - talib
-short: 100 * (x[t] / x[t-k] - 1) - TA-Lib's ROC.
+short: Rate of change 100 * (x[t] / x[t-k] - 1), in percent (TA-Lib ROC).
 inputs: 1
 outputs: 1
 parameters:
@@ -17,8 +21,14 @@ parameters:
   type: int
   default: 10
   min: 1
-  description: Lookback k. TA-Lib default is 10.
+  description: 'Lookback k: the output compares each value with the value k steps earlier.
+    TA-Lib uses 10.'
 nan_policy: propagate
+see_also:
+- ROCP
+- ROCR
+- Return
+- Momentum
 ---
 
 # `ROC`
@@ -39,17 +49,13 @@ The three rate-of-change variants in this library, all matching their TA-Lib nam
 | `ROCP` | $(x[t] - x[t-k]) / x[t-k]$ | fraction (e.g. `0.05` = +5%); same as [`Return`](Return.md) |
 | `ROCR` | $x[t] / x[t-k]$ | ratio (e.g. `1.05`) |
 
-*Parameters*:
-
-- `window_size` (int, positive): the lookback `k`.
-
-*NaN handling*: NaN for the first `k` samples (no `x[t-k]` yet). Also NaN if `x[t-k] == 0` (division by zero).
+The first `k` outputs are `NaN` because `x[t-k]` does not exist yet. The division follows IEEE arithmetic, so `x[t-k] == 0` gives `inf` (or `NaN` when `x[t]` is also zero).
 
 
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `propagate`.** Input `NaN` values are stored in the lookback. Output is `NaN` at any index where the function's positional formula references a `NaN` input; recovery happens once the `NaN` slides out of the lookback.
+**Policy: `propagate`.** A `NaN` input is stored in the lookback like any other value. The output is `NaN` wherever the formula references it and recovers once it leaves the lookback. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples
@@ -84,6 +90,6 @@ The three rate-of-change variants in this library, all matching their TA-Lib nam
 
 <!-- HELP_END -->
 
-## Reference
+## TA-Lib compatibility
 
-Equivalent to `talib.ROC(x, timeperiod=k)`. Bit-exact match to ~1e-14 (cross-validated in `tests/test_third_party_alignment.py`).
+Equivalent to `talib.ROC(x, timeperiod=k)`. The results agree to about 1e-14 (checked in `tests/test_third_party_alignment.py`).

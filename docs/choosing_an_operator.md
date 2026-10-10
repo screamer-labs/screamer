@@ -50,6 +50,7 @@ Each section below maps a common signal-processing task to the operators that co
 | OHLC Parkinson volatility (rolling or EW) | `RollingParkinsonVol`, `EwParkinsonVol` | High/low range estimator; assumes no overnight gap. |
 | OHLC Rogers-Satchell volatility (rolling or EW) | `RollingRogersSatchellVol`, `EwRogersSatchellVol` | Corrects for drift; generally preferred over Parkinson. |
 | Yang-Zhang volatility (rolling) | `RollingYangZhangVol` | Combines overnight gap and intraday range; lowest variance among OHLC estimators. |
+| Average true range, for stops and position sizing | `TrueRange`, `ATR`, `NATR` | The true range of each bar, its Wilder average, and that average as a percentage of the close. |
 
 ## Fit a local trend or slope
 
@@ -71,8 +72,46 @@ Each section below maps a common signal-processing task to the operators that co
 | Rolling regression spread (residual) | `RollingSpread` | The residual after hedging y by x at the rolling beta. |
 | Rolling regression intercept (alpha) | `RollingAlpha` | The drift component of a rolling linear regression. |
 | Exponentially weighted beta, correlation, or covariance | `EwBeta`, `EwCorr`, `EwCov` | Continuous weighting; more responsive to recent co-movement changes. |
+| Hedge ratio that drifts over time, without a window | `KalmanRegression` | Kalman filter on a random-walk intercept and slope; also returns the spread and its predicted deviation. |
+| Hedge ratio that treats both series alike | `RollingTLSBeta` | Total least squares: the ratio does not depend on which series is the dependent one. |
 
-For a worked pairs-trading example using `RollingBeta`, `RollingSpread`, `RollingAlpha`, and `RollingOU`, see [notebook 18](notebooks/18-pairs-and-mean-reversion).
+## Trade a pair
+
+| Intent | Operator(s) | Note |
+|:-------|:------------|:-----|
+| Estimate the hedge ratio | `KalmanRegression`, `RollingTLSBeta`, `RollingBeta` | Kalman adapts without a window; TLS is symmetric; OLS is the plain baseline. |
+| Test that the spread still reverts | `RollingADF` | Augmented Dickey-Fuller statistic over a window; below about -2.86 rejects a unit root at 5%. |
+| Measure how fast it reverts | `RollingOU` | Ornstein-Uhlenbeck fit: mean-reversion rate, mean, and deviation. |
+| Standardize the spread | `RollingZscore`, `EwZscore` | The input of a band rule. |
+| Enter and exit on bands | `BandSignal` | Short above `+entry`, long below `-entry`, flat inside `exit`, with an optional stop. |
+| Backtest both legs from one account | `BacktestPortfolioOHLCTarget`, `BacktestPortfolioTarget` | Weights of equity per leg, with per-asset costs. |
+
+The [pairs trade recipe](recipes/pairs-trade.md) puts these together on BTC and
+ETH, and [notebook 18](notebooks/18-pairs-and-mean-reversion) compares the hedge
+ratio estimators.
+
+## Rank and weight assets
+
+| Intent | Operator(s) | Note |
+|:-------|:------------|:-----|
+| Rank each asset against the others at each step | `CrossRank` | Scaled to [-1, 1] or [0, 1]. |
+| Standardize or center scores across assets | `CrossZscore`, `CrossDemean` | Z-score or mean removal over the assets of one step. |
+| Limit outliers across assets | `CrossWinsorize` | Clips each row to its lower and upper quantiles. |
+| Long the top, short the bottom | `CrossTopBottom` | +1 for the `count` highest scores, -1 for the lowest. |
+| Scale scores into portfolio weights | `CrossNormalize` | Gross exposure 1 by default, with an optional net exposure. |
+| Backtest the book | `BacktestPortfolioOHLCTarget`, `PortfolioReport` | One shared account, rebalancing rules, exposure limits, and book statistics. |
+
+The [cross-sectional momentum recipe](recipes/cross-sectional-momentum.md) and
+the [portfolios and pairs guide](portfolio_backtesting.md) show the whole path.
+
+## Turn a signal into a position
+
+| Intent | Operator(s) | Note |
+|:-------|:------------|:-----|
+| Long or short on the sign of a score | `Sign` | +1, 0, or -1 per step. |
+| Enter and exit at different levels | `BandSignal`, `SchmittTrigger` | Hysteresis stops a score near a threshold from switching the position on and off. |
+| Hold a signal for a fixed number of bars | `Hold` | Latches a nonzero input and keeps it for `n` bars. |
+| Size by volatility | `RollingStd`, `EwStd`, `ATR` | Divide a risk budget by the volatility; see the [volatility sizing recipe](recipes/volatility-sizing.md). |
 
 ## Mean reversion and forecasting
 
@@ -164,8 +203,24 @@ For full documentation of multi-stream operators, including the timestamp model 
 
 To evaluate a trading strategy on historical data, use one of screamer's backtest engines. The choice depends on the data feed you have (price, OHLC, trades, or L1) and the order type your strategy produces (target position or two-sided quotes). For the full decision grid see the [Choosing a backtest engine](functions_fin/choosing_a_backtest_engine) guide.
 
-To check whether a backtest result is better than luck, `position_test` compares
-the strategy's timing with randomly timed copies of the same trades and returns
-a p-value. See [`position_test`](functions_fin/position_test).
+| Intent | Operator(s) | Note |
+|:-------|:------------|:-----|
+| One asset, target position, bar data | `BacktestOHLCTarget`, `BacktestPriceTarget` | Fills at the next open, or at the price you pass. |
+| Many assets from one account | `BacktestPortfolioOHLCTarget`, `BacktestPortfolioTarget` | Weights, units, or notional per asset, with rebalancing rules. |
+| Funding, borrow, or financing | `BacktestCarry` | Charges carry on the position of any engine's output; see the [funding recipe](recipes/funding-carry.md). |
+| Summary statistics | `backtest_report`, `BacktestStats`, `PortfolioReport` | `backtest_report` gives a running table and a summary in one call; `BacktestStats` adds round-trip trade statistics as a node; `PortfolioReport` reports a portfolio book. |
+
+## Is it more than luck?
+
+| Intent | Operator(s) | Note |
+|:-------|:------------|:-----|
+| Compare a strategy with randomly timed copies of its trades | `position_test` | Shifts the positions in time and returns a p-value; works on portfolios too. |
+| Compare it with the same rule on randomized markets | `strategy_test` | Reruns the strategy on permuted or shuffled prices. |
+| Correct for the number of variants tried | `deflated_sharpe`, `probabilistic_sharpe` | The Sharpe ratio a best-of-many search would reach by luck. |
+| Choose parameters out of sample | `walk_forward` | Picks the best variant on each training window and trades it on the next test window. |
+
+See the [significance recipe](recipes/significance-test.md), the
+[walk-forward recipe](recipes/walk-forward.md), and
+[backtesting best practices](backtesting_best_practices.md).
 
 <!-- HELP_END -->

@@ -4,33 +4,45 @@ title: Schmitt trigger (hysteresis comparator)
 implementation_family: signal
 topics:
 - filtering
+- signals
 tags:
 - schmitt
 - trigger
 - hysteresis
 - comparator
 - binary
-short: Hysteresis comparator. Latches 1.0 above the upper threshold, 0.0 below the lower threshold, and retains its previous value in between.
+- dead band
+- debounce
+- latch
+short: Hysteresis comparator. Latches 1.0 above the upper threshold, 0.0 below the lower threshold,
+  and retains its previous value in between.
 inputs: 1
 outputs: 1
 parameters:
 - name: lower
   type: float
   default: -1.0
-  description: Lower threshold. The output latches to 0.0 when the input falls strictly
+  description: Lower threshold, finite. The output latches to 0.0 when the input falls strictly
     below this value.
 - name: upper
   type: float
   default: 1.0
-  description: Upper threshold. The output latches to 1.0 when the input rises strictly
-    above this value. Must be strictly greater than `lower`.
+  description: Upper threshold, finite and strictly greater than lower. The output latches
+    to 1.0 when the input rises strictly above this value.
 - name: initial
   type: float
   default: 0.0
-  description: Latch value held before the first threshold crossing. Must be 0.0 (low),
-    1.0 (high), or NaN (undefined until the first crossing). Defaults to 0.0, so a signal
-    that starts inside the dead band reads low rather than NaN.
+  description: Latch value held before the first threshold crossing. Must be 0.0 (low), 1.0
+    (high), or NaN (undefined until the first crossing). Defaults to 0.0, so a signal that
+    starts inside the dead band reads low rather than NaN.
 nan_policy: ignore
+see_also:
+- BandSignal
+- Hold
+- GreaterThan
+references:
+- Schmitt, O. H. (1938). A thermionic trigger. *Journal of Scientific Instruments*, 15(1),
+  24-26.
 ---
 
 # `SchmittTrigger`
@@ -51,15 +63,16 @@ The window `[lower, upper]` is the *dead band*. Inside it the output is latched:
 
 Until the first input crosses either threshold the output holds the `initial` latch seed. The default is `0.0` (the low state), so a signal that starts inside the dead band reads low rather than `NaN`. Pass `initial=1.0` to start high, or `initial=nan` to leave the output undefined until the first crossing.
 
-## Parameters
-
-- `lower`: lower threshold. Must be strictly less than `upper`. The output latches to `0.0` when the input falls below this value.
-- `upper`: upper threshold. The output latches to `1.0` when the input rises above this value.
-- `initial`: the latch value held before the first threshold crossing. Must be `0.0` (low), `1.0` (high), or `nan` (undefined until the first crossing). Defaults to `0.0`.
-
 ## Implementation Details
 
 O(1) per step. One scalar of state (the latched output). The constructor rejects `lower >= upper`, non-finite thresholds, and an `initial` that is not `0.0`, `1.0`, or `nan`; `reset()` restores the latched state to `initial`.
+
+
+<!-- NAN_FOOTNOTE_START -->
+## NaN handling
+
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).
+<!-- NAN_FOOTNOTE_END -->
 
 ## Examples
 
@@ -103,7 +116,3 @@ O(1) per step. One scalar of state (the latched output). The constructor rejects
 ```
 
 <!-- HELP_END -->
-
-## Reference
-
-A simple debouncer pattern from analog electronics. The exact same logic appears in microcontroller GPIO input filtering, regime-classification rules in algorithmic trading (e.g. "go long above `+x`, flat between `-x` and `+x`, short below `-x`"), and any signal-flow stage that needs to convert a continuous signal into a sticky binary state.

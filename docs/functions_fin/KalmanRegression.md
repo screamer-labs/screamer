@@ -4,36 +4,52 @@ title: Kalman filter regression (dynamic hedge ratio)
 implementation_family: fin
 topics:
 - regression
+- pairs
 tags:
 - kalman
 - hedge ratio
-- pairs
-- regression
+- dynamic beta
 - time-varying beta
-short: "Regression with a random-walk intercept and slope, estimated by a Kalman filter: the dynamic hedge ratio of a pairs trade, its spread, and the spread's predicted deviation."
+- pairs trading
+- regression
+- spread
+- state space
+short: 'Regression with a random-walk intercept and slope, estimated by a Kalman filter: the
+  dynamic hedge ratio of a pairs trade, its spread, and the spread''s predicted deviation.'
 inputs: 2
 outputs: 4
 parameters:
 - name: delta
   type: float
   default: 1.0e-06
-  description: How fast the intercept and slope may move. The state noise variance is delta / (1 - delta) per step; smaller values give steadier estimates and a spread that keeps its mean reversion.
+  description: How fast the intercept and slope may move. The state noise variance is delta
+    / (1 - delta) per step; smaller values give steadier estimates and a spread that keeps
+    its mean reversion. The right value scales with the bar frequency, from about 1e-10 on
+    one-minute log prices to 1e-8 to 1e-6 on daily ones. Must be in (0, 1).
 - name: obs_var
   type: float
   default: 0.001
-  description: Variance of the spread (the regression error), in squared units of the first input.
+  description: Variance of the spread (the regression error), in squared units of the first
+    input. Must be positive.
 - name: prior_var
   type: float
   default: 1.0
   min: 0.0
-  description: Starting variance of the intercept and slope, which start at zero.
+  description: Starting variance of the intercept and slope, which both start at zero.
 nan_policy: ignore
 see_also:
 - RollingBeta
 - RollingTLSBeta
 - BayesianRegression
-- KalmanFilter
+- RollingADF
 - BandSignal
+output_names:
+- beta
+- alpha
+- spread
+- spread_std
+references:
+- 'Chan, E. P. (2013). *Algorithmic Trading: Winning Strategies and Their Rationale*. Wiley.'
 ---
 
 # `KalmanRegression`
@@ -61,9 +77,11 @@ It returns four columns:
    [`BandSignal`](../functions_signal/BandSignal.md).
 
 `delta` is the main choice. A large value lets the intercept follow the spread
-itself, so the spread loses the mean reversion the trade relies on; on log
-prices values from `1e-8` to `1e-5` keep the hedge ratio steady while it still
-adapts. Set `obs_var` near the variance of the spread.
+itself, so the spread loses the mean reversion the trade relies on. The right
+value scales with the bar frequency: on log prices, use around `1e-10` to `1e-9`
+on one-minute bars and `1e-8` to `1e-6` on daily bars. To check a value, run
+[`RollingADF`](RollingADF.md) on the spread of two unrelated random walks: it
+should not reject a unit root. Set `obs_var` near the variance of the spread.
 
 The intercept and slope start at zero with variance `prior_var`. The default
 of 1 is weak enough that the data sets the line within a few steps, and keeps
@@ -74,7 +92,7 @@ the dependent series, as in [`RollingBeta`](RollingBeta.md).
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-A `NaN` in either input skips the step: the four outputs are `NaN` and the estimate is unchanged.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples

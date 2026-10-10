@@ -109,7 +109,8 @@ trend-following signal.
 .. exec_code::
 
     import numpy as np
-    from screamer import BacktestOHLCTarget, EwMean, LogReturn, backtest_report
+    from screamer import (BacktestOHLCTarget, EwMean, LogReturn, Sign, FillNa,
+                          backtest_report)
 
     rng = np.random.default_rng(7)
     n = 4000
@@ -120,7 +121,7 @@ trend-following signal.
     close = 100 * np.exp(np.cumsum(r))
     open_ = np.r_[close[0], close[:-1]] * np.exp(rng.standard_normal(n) * 0.0005)
     high, low = np.maximum(open_, close) * 1.001, np.minimum(open_, close) * 0.999
-    signal = np.sign(np.nan_to_num(EwMean(span=12)(LogReturn()(close))))
+    signal = Sign()(FillNa(0.0)(EwMean(span=12)(LogReturn()(close))))
 
     print("delay  slippage  annual Sharpe")
     for delay in (1, 2, 3):
@@ -163,42 +164,15 @@ of those runs that do at least as well as the real one, the p-value.
   is above a benchmark, given the length of the record and the skewness and
   kurtosis of the pnl.
 
-```{eval-rst}
-.. exec_code::
-
-    import numpy as np
-    from screamer import BacktestOHLCTarget, EwMean, LogReturn, position_test, strategy_test
-
-    rng = np.random.default_rng(7)
-    n = 4000
-    r = np.zeros(n)
-    e = rng.standard_normal(n) * 0.004
-    for t in range(1, n):
-        r[t] = 0.12 * r[t - 1] + e[t]
-    close = 100 * np.exp(np.cumsum(r))
-    open_ = np.r_[close[0], close[:-1]] * np.exp(rng.standard_normal(n) * 0.0005)
-    high, low = np.maximum(open_, close) * 1.001, np.minimum(open_, close) * 0.999
-
-    def strategy(o, h, l, c):
-        signal = np.sign(np.nan_to_num(EwMean(span=12)(LogReturn()(c))))
-        return BacktestOHLCTarget(taker_fee=2e-4, slippage=2e-4)(signal, o, h, l, c)
-
-    signal = np.sign(np.nan_to_num(EwMean(span=12)(LogReturn()(close))))
-    timing = position_test(BacktestOHLCTarget(taker_fee=2e-4, slippage=2e-4),
-                           signal, open_, high, low, close, n=999)
-    market = strategy_test(strategy, open_, high, low, close, n=999)
-    print(f"position_test p = {timing.p_value:.3f}")
-    print(f"strategy_test p = {market.p_value:.3f}")
-```
-
-With 999 randomized runs the smallest possible p-value is 0.001, which both
-tests reach here.
-
-A p-value covers one statistic. Both tests also return every
+A p-value covers one statistic. Both randomization tests also return every
 `backtest_report` statistic of the real run and of each randomized run, in
-`observed_stats` and `null_stats`. Plot them to see whether the real result
-stands out on drawdown, win rate, or turnover as well, or only on the tested
-metric (see the scatter plots in [`position_test`](functions_fin/position_test.md#distributions-of-every-statistic)).
+`observed_stats` and `null_stats`, so you can see whether the real result
+stands out on drawdown, win rate, or turnover as well (see the scatter plots in
+[`position_test`](functions_fin/position_test.md#distributions-of-every-statistic)).
+
+The recipe [Is my backtest significant?](recipes/significance-test.md) runs
+`position_test` on a real tape and on a market with built-in momentum, and
+computes `probabilistic_sharpe` for the result.
 
 ## Selection
 
@@ -216,43 +190,9 @@ and correct for it:
   variants would reach by luck, given how many there were and how much their
   results varied.
 
-```{eval-rst}
-.. exec_code::
-
-    import numpy as np
-    from screamer import (BacktestOHLCTarget, EwMean, LogReturn, deflated_sharpe,
-                          position_test)
-
-    rng = np.random.default_rng(7)
-    n = 4000
-    r = np.zeros(n)
-    e = rng.standard_normal(n) * 0.004
-    for t in range(1, n):
-        r[t] = 0.12 * r[t - 1] + e[t]
-    close = 100 * np.exp(np.cumsum(r))
-    open_ = np.r_[close[0], close[:-1]] * np.exp(rng.standard_normal(n) * 0.0005)
-    high, low = np.maximum(open_, close) * 1.001, np.minimum(open_, close) * 0.999
-
-    spans = [4, 6, 8, 12, 16, 24, 32, 48]
-    returns = LogReturn()(close)
-    targets = np.column_stack([np.sign(np.nan_to_num(EwMean(span=k)(returns)))
-                               for k in spans])
-    engine = BacktestOHLCTarget(taker_fee=2e-4, slippage=2e-4)
-    res = position_test(engine, targets, open_, high, low, close, n=999)
-    best = int(np.argmin(res.p_value))
-    print(f"best span {spans[best]}: p = {res.p_value[best]:.3f}, "
-          f"family p = {res.family_p_value[best]:.3f}")
-
-    runs = [engine(targets[:, k], open_, high, low, close) for k in range(len(spans))]
-    sharpes = [x[:, 1].mean() / x[:, 1].std(ddof=1) for x in runs]
-    p, benchmark = deflated_sharpe(runs[int(np.argmax(sharpes))], sharpes)
-    print(f"deflated Sharpe: probability {p:.3f} against a luck benchmark of "
-          f"{benchmark:.4f} per bar")
-```
-
-The best span keeps a small p-value after the correction, so its edge is
-unlikely to be an artifact of choosing it from eight. Reserve a final stretch
-of data that no variant was tuned on, and confirm the chosen variant on it once.
+Both appear in the [significance recipe](recipes/significance-test.md#several-variants).
+Reserve a final stretch of data that no variant was tuned on, and confirm the
+chosen variant on it once.
 
 ## Measuring results
 

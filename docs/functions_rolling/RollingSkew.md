@@ -8,6 +8,7 @@ tags:
 - skewness
 - moment
 - rolling
+- rolling skew
 short: Trailing-window skewness.
 inputs: 1
 outputs: 1
@@ -15,8 +16,8 @@ parameters:
 - name: window_size
   type: int
   default: 20
-  min: 2
-  description: Trailing-window length.
+  min: 3
+  description: Number of most recent samples in the window.
 - name: start_policy
   type: str
   default: strict
@@ -24,8 +25,14 @@ parameters:
   - strict
   - expanding
   - zero
-  description: Warmup behaviour.
+  description: 'Output before the window is full: "strict" gives NaN, "expanding" computes
+    from the samples seen so far, and "zero" treats the window as pre-filled with zeros.'
 nan_policy: ignore
+see_also:
+- RollingKurt
+- EwSkew
+- ExpandingSkew
+- RollingStd
 ---
 
 # `RollingSkew`
@@ -38,7 +45,7 @@ nan_policy: ignore
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples
@@ -85,10 +92,10 @@ nan_policy: ignore
 
 ### Algorithm
 
-`RollingSkew` implements cyclic buffers to accumulate windowed statistics.
+`RollingSkew` keeps running sums of the window in circular buffers and updates them as each sample enters and the oldest one leaves.
 
 ### Complexity
 
-* **Time Complexity**: `O(log(1))` per new element due to the insertion and deletion operations in the heaps.
-* **Space Complexity**: `O(window_size)`, as only elements within the current window are stored.
+* **Time Complexity**: `O(1)` per new element.
+* **Space Complexity**: `O(window_size)`.
 

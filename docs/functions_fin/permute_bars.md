@@ -2,9 +2,24 @@
 name: permute_bars
 title: permute_bars
 kind: function
-short: Bar-permuted copies of an OHLC series that keep its return distribution but no serial structure.
+short: Bar-permuted copies of an OHLC series that keep its return distribution but no serial
+  structure.
+tags:
+- permutation
+- shuffle
+- monte carlo
+- synthetic data
+- ohlc
+see_also:
+- permute_returns
+- strategy_test
+- circular_shift
+- segment_shuffle
+references:
+- Masters, T. (2020). *Permutation and Randomization Tests for Trading System Development*.
+  Independently published.
 topics:
-- backtesting
+- significance
 ---
 
 # `permute_bars`
@@ -44,7 +59,7 @@ copies on every platform.
 `permute_bars(open, high, low, close, n, mode="log", seed=0, volume=None,
 volume_mode="keep")`
 
-## Example
+## Examples
 
 ```{eval-rst}
 .. exec_code::

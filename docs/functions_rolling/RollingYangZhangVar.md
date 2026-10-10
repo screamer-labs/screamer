@@ -12,6 +12,9 @@ tags:
 - gap-aware
 - var
 - rolling
+- realized volatility
+- variance
+- overnight gap
 short: Var form of the Yang-Zhang estimator (drift + gap robust).
 inputs: 4
 outputs: 1
@@ -20,8 +23,18 @@ parameters:
   type: int
   default: 20
   min: 2
-  description: Smoothing window.
+  description: Number of bars n in each variance component; the first estimate needs n + 1
+    bars.
 nan_policy: ignore
+see_also:
+- RollingYangZhangVol
+- EwYangZhangVar
+- RollingRogersSatchellVar
+- RollingGarmanKlassVar
+- RollingParkinsonVar
+references:
+- Yang, D. and Zhang, Q. (2000). Drift-independent volatility estimation based on high, low,
+  open, and close prices. *Journal of Business*, 73(3), 477-491. doi:10.1086/209650
 ---
 
 # `RollingYangZhangVar`
@@ -40,22 +53,15 @@ k             &= \dfrac{0.34}{1.34 + (n+1)/(n-1)} \\
 \end{aligned}
 $$
 
-The only classical estimator that handles **both** drift *and* overnight gaps. ~14x
-efficient vs close-to-close.
+where `n = window_size`. The estimator is unbiased under both a non-zero drift and overnight gaps, and Yang and Zhang report an efficiency of up to about 14 times close-to-close.
 
-**4-input, 1-output** on `(open, high, low, close)`. First valid output at sample index
-`window_size` (we need n+1 price bars to form n overnight returns). The `Vol` variant
-returns `sqrt(Var)` (bit-exact via the same internal state).
-
-No EW form is exposed because the `k` factor depends on a discrete window size; any
-"EW analogue" would require an arbitrary mapping from `span` to `n` that varies by
-convention.
+The inputs are `(open, high, low, close)`. The first valid output is at sample index `window_size`, because `n` overnight returns need `n + 1` bars. `RollingYangZhangVol` returns the square root of `RollingYangZhangVar`. The exponentially weighted form, `EwYangZhangVar`, replaces the window size in `k` with an effective sample count derived from the decay.
 
 
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples

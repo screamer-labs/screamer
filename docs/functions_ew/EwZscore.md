@@ -7,29 +7,42 @@ topics:
 tags:
 - ew
 - zscore
+- z-score
+- standardize
+- standard score
+- normalize
 - standardization
 - anomaly
-short: Latest sample standardised by EW mean and std.
+short: Latest sample standardized by the EW mean and std.
 inputs: 1
 outputs: 1
 parameters:
 - name: com
   type: float
   default: null
-  description: Center of mass (alpha = 1 / (1 + com)). Exclusive with span/halflife/alpha.
+  description: Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly
+    one of com, span, halflife and alpha.
 - name: span
   type: float
   default: 20.0
-  description: Span (alpha = 2 / (span + 1)). Default smoothing parameter. Exclusive
-    with com/halflife/alpha.
+  description: Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give
+    exactly one of com, span, halflife and alpha. The default shown is an example value; the
+    constructor has no default.
 - name: halflife
   type: float
   default: null
-  description: Halflife (alpha = 1 - 0.5^(1/halflife)). Exclusive with com/span/alpha.
+  description: Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive.
+    Give exactly one of com, span, halflife and alpha.
 - name: alpha
   type: float
   default: null
-  description: Smoothing parameter directly. Exclusive with com/span/halflife.
+  description: Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more
+    weight. Give exactly one of com, span, halflife and alpha.
+see_also:
+- EwMean
+- EwStd
+- RollingZscore
+- CrossZscore
 nan_policy: ignore
 ---
 
@@ -37,31 +50,18 @@ nan_policy: ignore
 
 ## Description
 
-`EwZscore` computes the exponentially weighted z-score of the input, standardizing each sample by the running EW mean and EW standard deviation computed with the same forgetting factor.
-
-*Equation*:
+`EwZscore` standardizes each sample by the exponentially weighted mean and standard deviation of the series, both computed with the same smoothing factor. The smoothing factor `alpha` is set by exactly one of `com`, `span`, `halflife` or `alpha`.
 
 $$
 \text{EwZscore}[t] = \frac{x_t - \text{EwMean}[t]}{\text{EwStd}[t]}
 $$
 
-where $\text{EwMean}[t] = S_x / S_w$ and $\text{EwStd}[t] = \sqrt{\text{EwVar}[t]}$ uses the bias-corrected EW variance (see `EwStd`). The decay parameter is specified by the com/span/halflife/alpha family.
-
-### Parameters
-
-One of the following decay parameters is required to calculate `alpha`, where a higher `alpha` value gives recent points more influence:
-
-- **`com`**: Center of mass. `alpha = 1 / (1 + com)`
-- **`span`**: Span. `alpha = 2 / (span + 1)`
-- **`halflife`**: Half-life. `alpha = 1 - exp(-log(2) / halflife)`
-- **`alpha`**: Directly specifies the smoothing factor, where `0 < alpha < 1`
-
-*NaN handling*: NaN values are ignored in the mean calculation.
+The mean and standard deviation at step $t$ include $x_t$ itself. $\text{EwStd}$ is the bias-corrected estimate described on [`EwStd`](EwStd.md), so the first output is `NaN`.
 
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples

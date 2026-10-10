@@ -10,6 +10,9 @@ tags:
 - scale
 - dispersion
 - rolling
+- mad
+- median absolute deviation
+- outlier
 short: Rolling median absolute deviation, median(|x - median|), a robust scale estimate.
 inputs: 1
 outputs: 1
@@ -18,12 +21,23 @@ parameters:
   type: int
   default: 20
   min: 1
-  description: Trailing-window length.
+  description: Number of most recent samples in the window.
 - name: start_policy
   type: str
   default: strict
-  description: Warmup handling before the window is full (strict, expanding, or zero).
+  description: 'Output before the window is full: "strict" gives NaN, "expanding" computes
+    from the samples seen so far, and "zero" treats the window as pre-filled with zeros.'
+  enum:
+  - strict
+  - expanding
+  - zero
 nan_policy: ignore
+see_also:
+- RollingMad
+- RollingMedian
+- Hampel
+- ImpulseClip
+- RollingIqr
 ---
 
 # `RollingMedianAD`
@@ -42,20 +56,10 @@ primitive behind the [`Hampel`](Hampel.md) and [`ImpulseClip`](ImpulseClip.md)
 despikers. The raw MAD is returned; multiply by `1.4826` for a Gaussian-consistent
 standard-deviation estimate.
 
-*Parameters*:
-- **`window_size`**: *(int)* Trailing-window length. Must be positive.
-- **`start_policy`**: How the initial phase is handled before `window_size` samples
-  are available:
-  - `"strict"`: `NaN` until the window is full.
-  - `"expanding"`: compute over the samples seen so far, from the first sample.
-  - `"zero"`: treat missing samples as zeros (a full window of zeros to start).
-
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip
-that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite
-samples are processed as if step `t` had not occurred.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples

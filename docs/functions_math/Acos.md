@@ -8,18 +8,24 @@ tags:
 - trigonometry
 - acos
 - inverse
+- arccos
+- arccosine
 short: Inverse cosine of each element (radians, input in [-1, 1]).
 inputs: 1
 outputs: 1
 parameters: []
 nan_policy: ignore
+see_also:
+- Cos
+- Asin
+- Atan
 ---
 
 # `Acos`
 
 ## Description
 
-Inverse cosine of each element. Output is in the range $[0, \pi]$ when the input is in $[-1, 1]$.
+Inverse cosine of each element. Output is in the range $[0, \pi]$. Inputs outside $[-1, 1]$ give `NaN`.
 
 *Equation*:
 
@@ -27,15 +33,10 @@ $$
 y[i] = \arccos(x[i])
 $$
 
-*Parameters*: `Acos` takes no parameters.
-
-*NaN handling*: Inputs outside $[-1, 1]$ produce `NaN`. Existing `NaN` values pass through.
-
-
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples

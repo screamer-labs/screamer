@@ -11,7 +11,10 @@ tags:
 - tail risk
 - var
 - risk
-short: "Historical Conditional Value-at-Risk (Expected Shortfall): the mean loss in the worst alpha tail over a window."
+- es
+- value at risk
+short: 'Historical Conditional Value-at-Risk (Expected Shortfall): the mean loss in the worst
+  alpha tail over a window.'
 inputs: 1
 outputs: 1
 parameters:
@@ -19,15 +22,18 @@ parameters:
   type: int
   default: 20
   min: 1
-  description: Window length in observations.
+  description: Number of most recent returns in the window.
 - name: alpha
   type: float
   default: 0.05
-  description: Tail probability level in (0, 1); 0.05 means the 5% CVaR (average loss in the worst 5% of the window).
+  description: Tail probability level in (0, 1); 0.05 means the 5% CVaR (average loss in the
+    worst 5% of the window).
 nan_policy: ignore
 see_also:
 - RollingQuantile
 - RollingSortino
+- RollingDownsideDeviation
+- RollingOmega
 ---
 
 # `RollingCVaR`
@@ -43,9 +49,15 @@ of a return series over a trailing window. With the worst
 a positive number: the average loss you suffer in the worst `alpha` tail. Value-at-Risk is
 the tail quantile itself, `-RollingQuantile(window, alpha)`; CVaR averages the
 losses beyond it.
-The window is held in an order-statistic tree (`O(log W)` to update, `O(k)` to read
-the tail). The output is `NaN` until the window is full; a `NaN` return leaves the
-window untouched (`nan_policy: ignore`).
+An update costs `O(log W)` and reading the tail costs `O(k)`. The output is `NaN`
+until the window is full.
+
+
+<!-- NAN_FOOTNOTE_START -->
+## NaN handling
+
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).
+<!-- NAN_FOOTNOTE_END -->
 
 ## Examples
 

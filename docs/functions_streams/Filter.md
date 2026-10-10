@@ -2,7 +2,16 @@
 name: Filter
 title: Filter
 kind: class
-short: 2-input mask gate - keep each data value whose aligned mask is nonzero.
+short: Two-input mask gate that keeps each data value whose aligned mask is nonzero.
+tags:
+- filter
+- mask
+- boolean mask
+- gate
+see_also:
+- Dropna
+- Select
+- Where
 topics:
 - streams
 ---
@@ -20,7 +29,7 @@ passes through unmodified when its aligned mask is nonzero.
 
 <!-- HELP_END -->
 
-## Example
+## Examples
 
 Keep the positive values by building a mask with `GreaterThan`.
 

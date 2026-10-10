@@ -3,7 +3,8 @@ name: BandSignal
 title: Entry and exit bands on a z-score
 implementation_family: signal
 topics:
-- filtering
+- signals
+- pairs
 tags:
 - pairs
 - mean reversion
@@ -13,22 +14,30 @@ tags:
 - stop
 - z-score
 - signal
-short: "Three-state mean-reversion position from a z-score: short above +entry, long below -entry, flat again inside the exit level, with an optional stop and lockout."
+- stop loss
+- threshold
+- z-score bands
+short: 'Three-state mean-reversion position from a z-score: short above +entry, long below
+  -entry, flat again inside the exit level, with an optional stop and lockout.'
 inputs: 1
 outputs: 1
 parameters:
 - name: entry
   type: float
   default: 2.0
-  description: Entry level. A flat position goes short when the z-score reaches +entry and long when it reaches -entry.
+  description: Entry level. A flat position goes short when the z-score reaches +entry and
+    long when it reaches -entry.
 - name: exit
   type: float
   default: 0.0
-  description: Exit level, in (-entry, entry). A short exits when the z-score falls to exit, a long when it rises to -exit.
+  description: Exit level, in (-entry, entry). A short exits when the z-score falls to exit,
+    a long when it rises to -exit.
 - name: stop
   type: float
   default: .inf
-  description: Stop level, above entry (inf = no stop). A short exits when the z-score reaches +stop, a long at -stop, and that side cannot re-enter until the z-score returns inside the exit level.
+  description: Stop level, above entry (inf = no stop). A short exits when the z-score reaches
+    +stop, a long at -stop, and that side cannot re-enter until the z-score returns inside
+    the exit level.
 nan_policy: ignore
 see_also:
 - SchmittTrigger
@@ -64,7 +73,7 @@ the [portfolio backtest](../functions_fin/BacktestPortfolioTarget.md).
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-A `NaN` input is skipped: the output is `NaN` and the position is unchanged.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples

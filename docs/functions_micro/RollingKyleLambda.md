@@ -10,6 +10,7 @@ tags:
 - illiquidity
 - market impact
 - kyle
+- kyle lambda
 - lambda
 - microstructure
 short: Rolling-window price-impact slope of return on signed order flow (Kyle 1985).
@@ -20,7 +21,7 @@ parameters:
   type: int
   default: 20
   min: 2
-  description: Window length in observations.
+  description: Number of most recent observations in the regression window.
 - name: start_policy
   type: str
   default: strict
@@ -28,54 +29,48 @@ parameters:
   - strict
   - expanding
   - zero
-  description: Warmup behaviour.
+  description: 'Output before the window is full: "strict" gives NaN, "expanding" computes
+    from the samples seen so far, and "zero" treats the window as pre-filled with zeros.'
 nan_policy: ignore
 see_also:
+- EwKyleLambda
 - RollingBeta
-- RollingLinearRegression
 - AmihudIlliquidity
+- SignedVolume
+references:
+- Kyle, A. S. (1985). Continuous auctions and insider trading. *Econometrica*, 53(6), 1315-1335.
+  doi:10.2307/1913210
 ---
 
 # `RollingKyleLambda`
 
 ## Description
 
-Kyle's lambda (Kyle 1985) is the slope of price change on signed order flow.
-It quantifies how much a unit of net buying or selling pressure moves the
-price: a high lambda means the market is illiquid (large price impact per
-unit of flow), a low lambda means it is liquid.
+Kyle's lambda (Kyle 1985) is the slope of price change on signed order flow. It
+measures how much a unit of net buying or selling pressure moves the price: a
+high lambda means the market is illiquid (large price impact per unit of flow),
+a low lambda means it is liquid.
 
-`RollingKyleLambda(window_size, start_policy)(signed_flow, return_)` returns
-the trailing-window OLS slope of `return_` on `signed_flow` over the most
-recent `window_size` observations. It is a documented specialization of
-`RollingBeta`: internally it calls `RollingBeta(window_size, start_policy)(return_, signed_flow)`.
+`RollingKyleLambda(window_size, start_policy)(signed_flow, return_)` returns the
+least-squares slope of `return_` on `signed_flow` over the most recent
+`window_size` observations. It equals
+`RollingBeta(window_size, start_policy)(return_, signed_flow)`, with the inputs
+in the opposite order. The output is `NaN` during warmup and when `signed_flow`
+has zero variance within the window.
 
-The two inputs should be co-sampled and aligned in time. A common pipeline is:
+The two inputs must be sampled at the same steps. A common pipeline is:
 
-1. Compute `signed_flow` with `SignedVolume` (or `OFI`) on tick data.
+1. Compute `signed_flow` with `SignedVolume` (or `OFI`) on trade data.
 2. Compute `return_` as a log-return over the same bar.
 3. Feed both to `RollingKyleLambda` to obtain a rolling price-impact estimate.
 
-Because the implementation delegates entirely to `RollingBeta`, causality,
-warmup behavior (`start_policy`), and the `nan_policy: ignore` contract are
-all inherited from the C++ engine.
+[`EwKyleLambda`](EwKyleLambda.md) is the exponentially weighted version.
 
-*Parameters*:
+<!-- NAN_FOOTNOTE_START -->
+## NaN handling
 
-- **`window_size`** (`int`, >= 2): size of the trailing window.
-- **`start_policy`** (`str`, default `"strict"`): controls warmup behavior.
-  `"strict"` emits `NaN` until `window_size` observations have been seen.
-  `"expanding"` uses however many observations are available. `"zero"` fills
-  the warmup period with zero.
-
-*Return value*: the price-impact coefficient lambda at each time step. `NaN`
-during warmup (under `strict`) or when `signed_flow` has zero variance within
-the window.
-
-**Reference**: Kyle, A. S. (1985). "Continuous Auctions and Insider Trading."
-*Econometrica*, 53(6), 1315-1335.
-
-<!-- HELP_END -->
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).
+<!-- NAN_FOOTNOTE_END -->
 
 ## Examples
 

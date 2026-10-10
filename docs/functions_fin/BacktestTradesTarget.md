@@ -15,7 +15,11 @@ tags:
 - transaction cost
 - strategy
 - risk
-short: "Backtest a target-position strategy against the trade tape, taking each print as a market fill to reach the target immediately."
+- simulation
+- transaction costs
+- fees
+short: Backtest a target-position strategy against the trade tape, taking each print as a
+  market fill to reach the target immediately.
 inputs: 3
 outputs: 4
 parameters:
@@ -27,20 +31,24 @@ parameters:
   type: float
   default: 0.0
   min: 0.0
-  description: Instrument price grid (0 = continuous). Slippage offsets round up to whole ticks; the "ticks" slippage unit counts in this step.
+  description: Instrument price grid (0 = continuous). Slippage offsets round up to whole
+    ticks; the "ticks" slippage unit counts in this step.
 - name: min_position
   type: float
   default: -.inf
-  description: Inventory floor. The target is clamped to [min_position, max_position] before the fill size is computed.
+  description: Lower bound on the position, in units. It applies after `size` has converted
+    the target to units, so a weight target of -2 with min_position=-0.5 holds -0.5 units.
 - name: max_position
   type: float
   default: .inf
-  description: Inventory ceiling. The target is clamped to [min_position, max_position] before the fill size is computed.
+  description: Upper bound on the position, in units. It applies after `size` has converted
+    the target to units, so a weight target of 2 with max_position=0.5 holds 0.5 units.
 - name: multiplier
   type: float
   default: 1.0
   min: 0.0
-  description: Contract multiplier applied to mark-to-market PnL, fill slippage, and proportional fees.
+  description: Contract multiplier applied to mark-to-market PnL, fill slippage, and proportional
+    fees.
 - name: fee_per_contract
   type: float
   default: 0.0
@@ -49,58 +57,70 @@ parameters:
   type: float
   default: 0.0
   min: 0.0
-  description: Adverse price offset on every taker (market) fill, read in `slippage_unit`. A buy fills higher and a sell lower; resting limit fills never slip.
+  description: Adverse price offset on every taker (market) fill, read in `slippage_unit`.
+    A buy fills higher and a sell lower; resting limit fills never slip.
 - name: slippage_unit
   type: str
   default: fraction
-  description: 'Unit of `slippage`: "fraction" of the reference price (5 bps = 5e-4), "ticks" of `tick_size`, or "price" (an absolute amount).'
+  description: 'Unit of `slippage`: "fraction" of the reference price (5 bps = 5e-4), "ticks"
+    of `tick_size`, or "price" (an absolute amount).'
 - name: stop_loss
   type: float
   default: 0.0
   min: 0.0
-  description: Exit when the price moves this fraction against the average entry fill (0.05 = 5%). 0 turns it off.
+  description: Exit when the price moves this fraction against the average entry fill (0.05
+    = 5%). 0 turns it off.
 - name: take_profit
   type: float
   default: 0.0
   min: 0.0
-  description: Exit when the price moves this fraction in favour of the average entry fill. 0 turns it off.
+  description: Exit when the price moves this fraction in favor of the average entry fill.
+    0 turns it off.
 - name: trailing_stop
   type: float
   default: 0.0
   min: 0.0
-  description: Exit when the price falls this fraction from the best price since entry (the highest for a long, the lowest for a short). 0 turns it off.
+  description: Exit when the price falls this fraction from the best price since entry (the
+    highest for a long, the lowest for a short). 0 turns it off.
 - name: size
   type: str
   default: units
-  description: 'How to read the target: "units" (a position), "notional" (a currency amount), or "weight" (a fraction of initial_capital + equity). It is converted to units at the execution price.'
+  description: 'How to read the target: "units" (a position), "notional" (a currency amount),
+    or "weight" (a fraction of initial_capital + equity). It is converted to units at the
+    execution price.'
 - name: initial_capital
   type: float
   default: 0.0
   min: 0.0
-  description: Starting capital for size="weight" and for rebalance_band; equity is initial_capital plus the backtest's cumulative pnl.
+  description: Starting capital for size="weight" and for rebalance_band; equity is initial_capital
+    plus the backtest's cumulative pnl.
 - name: rebalance_band
   type: float
   default: 0.0
   min: 0.0
-  description: With size="notional" or "weight", recompute the units when the holding drifts from the target by more than this fraction of equity (0.05 = 5 points of weight). 0 keeps the units until the target value changes.
+  description: With size="notional" or "weight", recompute the units when the holding drifts
+    from the target by more than this fraction of equity (0.05 = 5 points of weight). 0 keeps
+    the units until the target value changes.
 - name: max_participation
   type: float
   default: .inf
   min: 0.0
-  description: Cap each print's fill at this share of the print's size; the rest fills on later prints. The default fills the whole order on any print.
+  description: Cap each print's fill at this share of the print's size; the rest fills on
+    later prints. The default fills the whole order on any print.
 nan_policy: ignore
 see_also:
 - BacktestTradesOrders
 - BacktestOHLCTarget
 - BacktestL1TradesOrders
 - backtest_report
+output_names:
+- equity
+- pnl
+- position
+- cost
 ---
 
 # `BacktestTradesTarget`
-
-`multiplier` converts a price move into currency per contract. `fee_per_contract`
-is added to the existing proportional taker fee on every fill and may be negative
-for a rebate; defaults preserve the previous behavior.
 
 ## Description
 
@@ -108,21 +128,21 @@ for a rebate; defaults preserve the previous behavior.
 immediate: the `target_position` you pass on event t executes on the same print,
 unlike `BacktestOHLCTarget` which defers to the next bar's open.
 
-Each print the engine computes the desired trade as
-`clamp(target, min_position, max_position) - current_position` and takes it
-against the current print as a marketable (taker) order. The fill pays `taker_fee`
+Each print the engine converts the target to units (see Sizing below), clamps it
+to `[min_position, max_position]`, and takes the difference from the current
+position against the print as a marketable (taker) order. The fill pays `taker_fee`
 on the traded notional and the position marks to the print price. If the target
 equals the current position, no order is placed and the event is a mark-only step.
 
 Inputs are `(target_position, trade_price, trade_size)`. Outputs are the four
 standard backtest columns: `0 = equity` (cumulative dollar PnL), `1 = pnl` (per
 event), `2 = position`, and `3 = cost` (per event). A `NaN` `trade_price` or
-`trade_size` skips the event and returns all-NaN (`nan_policy: ignore`).
+`trade_size` skips the event and returns an all-NaN row.
 [`backtest_report`](backtest_report.md) summarizes the resulting equity curve.
 
-The optional `min_position` and `max_position` parameters cap the inventory. The
-target is clamped before the order size is computed, so the engine never carries a
-position outside that range.
+`min_position` and `max_position` bound the position in units. They apply after
+the sizing conversion, so a weight target of 2 with `max_position=0.5` holds 0.5
+units, and the engine never carries a position outside that range.
 
 **Sizing.** With `size="notional"` the target is a currency amount and with
 `size="weight"` a fraction of equity (`initial_capital` plus the backtest's
@@ -145,8 +165,14 @@ target turns flat or reverses.
 ## Limitations
 
 The fill model is optimistic: the full order size executes at the print price,
-moved only by the `slippage` you set, with no market impact. Orders are counterfactual (zero
-market impact), so the tape is unaffected by the strategy's activity.
+moved only by the `slippage` you set, with no market impact. Orders are counterfactual, so the tape is unaffected by the strategy's activity.
+
+
+<!-- NAN_FOOTNOTE_START -->
+## NaN handling
+
+**Policy: `ignore`.** A `NaN` input never corrupts the engine's state. What a `NaN` target, price or quote does on this engine is stated in the Description. See [NaN and warmup](../nan_and_warmup.md).
+<!-- NAN_FOOTNOTE_END -->
 
 ## Examples
 

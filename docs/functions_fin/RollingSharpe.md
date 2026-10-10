@@ -6,9 +6,11 @@ topics:
 - risk
 tags:
 - sharpe
+- sharpe ratio
 - ratio
+- risk-adjusted return
 - rolling
-short: Annualised Sharpe ratio over a trailing window of returns.
+short: Annualized Sharpe ratio over a trailing window of returns.
 inputs: 1
 outputs: 1
 parameters:
@@ -16,33 +18,42 @@ parameters:
   type: int
   default: 252
   min: 2
-  description: Trailing-window length.
+  description: Number of most recent returns in the window.
 - name: periods_per_year
   type: float
   default: 1.0
   min: 1.0
-  description: Annualisation factor (252 daily, 52 weekly, 12 monthly, 1 = no annualisation).
+  description: 'Annualization factor: the ratio is multiplied by sqrt(periods_per_year). Use
+    252 for daily, 52 for weekly, 12 for monthly data, and 1 for no annualization.'
 nan_policy: ignore
+see_also:
+- RollingSortino
+- RollingInfoRatio
+- RollingCalmar
+- RollingMean
+- RollingStd
+references:
+- Sharpe, W. F. (1966). Mutual fund performance. *Journal of Business*, 39(1), 119-138.
+- Sharpe, W. F. (1994). The Sharpe ratio. *Journal of Portfolio Management*, 21(1), 49-58.
 ---
 
 # `RollingSharpe`
 
 ## Description
 
-Annualised Sharpe ratio over a trailing window of returns:
+`RollingSharpe` computes the annualized Sharpe ratio over a trailing window of returns:
 
 $$
 \text{Sharpe}[t] = \sqrt{\text{ppy}}\ \cdot\ \frac{\text{RollingMean}(r)}{\text{RollingStd}(r)}
 $$
 
-Composes `RollingMean` + `RollingStd` (sample std, ddof=1 to match pandas). Returns `NaN`
-where the std is zero.
+The standard deviation is the sample estimate (ddof=1, as in pandas). The returns are used as given, so subtract a risk-free rate first if you want excess returns. The output is `NaN` where the standard deviation is zero.
 
 
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples
@@ -60,7 +71,7 @@ where the std is zero.
 
     np.random.seed(0)
     ret = np.random.normal(0.0005, 0.01, size=300)
-    sharpe = RollingSharpe(window_size=63, periods_per_year=252)(ret)   # annualised Sharpe over 63 bars
+    sharpe = RollingSharpe(window_size=63, periods_per_year=252)(ret)   # annualized Sharpe over 63 bars
 
     fig = make_subplots(rows=2, cols=1, shared_xaxes=True,
                         row_heights=[0.55, 0.45], vertical_spacing=0.08)

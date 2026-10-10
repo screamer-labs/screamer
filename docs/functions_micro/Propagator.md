@@ -7,11 +7,14 @@ topics:
 tags:
 - propagator
 - price impact
+- market impact
+- transient impact
 - order flow
 - long memory
 - bouchaud
 - microstructure
-short: "Bouchaud (2004) propagator model: price impact as a decaying-kernel convolution over past signed order flow."
+short: 'Bouchaud (2004) propagator model: price impact as a decaying-kernel convolution over
+  past signed order flow.'
 inputs: 1
 outputs: 1
 parameters:
@@ -30,51 +33,48 @@ parameters:
   description: Power-law decay exponent. Larger values make the kernel decay faster.
 nan_policy: propagate
 see_also:
-- RollingKyleLambda
 - HawkesIntensity
+- RollingKyleLambda
+- SignedVolume
+- MovingAverage
+references:
+- 'Bouchaud, J.-P., Gefen, Y., Potters, M. and Wyart, M. (2004). Fluctuations and response
+  in financial markets: the subtle nature of "random" price changes. *Quantitative Finance*,
+  4(2), 176-190.'
 ---
 
 # `Propagator`
 
 ## Description
 
-`Propagator` computes the predicted price impact at each time step by convolving
-past signed order flow with a power-law decaying kernel. The model was introduced
-by Bouchaud, Gefen, Potters, and Wyart (2004) to capture the empirical observation
-that the price impact of a trade does not disappear instantly but decays slowly
-over many subsequent periods.
+`Propagator` computes the predicted price impact at each step by convolving past
+signed order flow with a power-law decaying kernel. The model was introduced by
+Bouchaud, Gefen, Potters, and Wyart (2004) to describe the observation that the
+price impact of a trade does not vanish at once but decays slowly over many
+later periods.
 
-The predicted impact at time `t` is:
+The predicted impact at step `t` is
 
     impact_t = sum_{k=0}^{window_size-1} G(k) * flow_{t-k}
 
-where the propagator kernel is:
+with the kernel
 
-    G(k) = g0 * (k + 1)^(-gamma)
+    G(k) = g0 * (k + 1)^(-gamma).
 
-Here `flow_{t-k}` is the signed order flow `k` periods in the past. The kernel
-`G` assigns full weight `g0` to the current period (`k = 0`) and gradually
-decreasing weight to older flow, following a power law with exponent `gamma`.
-When `gamma = 0.5` (the default), the memory decays slowly enough to be called
-long-memory: past flow continues to affect the predicted price even after many
-periods.
+Here `flow_{t-k}` is the signed order flow `k` steps in the past. The kernel
+gives weight `g0` to the current step (`k = 0`) and power-law decreasing weight
+to older flow. With `gamma = 0.5` (the default) the kernel decays slowly, so past
+flow keeps affecting the predicted price for many steps.
 
-The operator requires `window_size` samples before producing its first output. The
-first `window_size - 1` outputs are `NaN` (warmup period).
+The first `window_size - 1` outputs are `NaN` (warmup). The kernel weights are
+tied to fixed lags, so a `NaN` flow value stays in the window (the `propagate`
+policy below); skipping it would shift older flow onto the wrong weights.
 
-Because this is a positional (FIR) filter, it follows the `propagate` NaN policy,
-like `Lag` and `Diff`: a NaN flow value is kept in the window and flows through
-the convolution, so the output is NaN while the NaN is inside the window and
-recovers once it drops out. Dropping the NaN instead (as an `ignore`-policy
-statistic would) would misalign the kernel with the wrong lags.
+<!-- NAN_FOOTNOTE_START -->
+## NaN handling
 
-The operator processes one sample per step.
-
-**References:**
-
-- Bouchaud, J.-P., Gefen, Y., Potters, M., and Wyart, M. (2004). "Fluctuations
-  and response in financial markets: the subtle nature of 'random' price changes."
-  *Quantitative Finance*, 4(2), 176-190.
+**Policy: `propagate`.** A `NaN` input is stored in the lookback like any other value. The output is `NaN` wherever the formula references it and recovers once it leaves the lookback. See [NaN and warmup](../nan_and_warmup.md).
+<!-- NAN_FOOTNOTE_END -->
 
 ## Examples
 

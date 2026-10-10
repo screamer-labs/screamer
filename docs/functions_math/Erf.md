@@ -7,28 +7,29 @@ topics:
 tags:
 - erf
 - gauss
+- error function
+- normal cdf
 short: Gauss error function.
 inputs: 1
 outputs: 1
 parameters: []
 nan_policy: ignore
+see_also:
+- Erfc
+- Tanh
+- Sigmoid
 ---
 
 # `Erf`
 
 ## Description
 
-The `Erf` class applies the standard mathematical error function element-wise. It maps each input value from `(-inf, +inf)` to the range `(-1, 1)`.
-
-*Parameters*: `Erf` takes no parameters.
-
-*NaN handling*: `NaN` values are not modified.
-
+`Erf` applies the Gauss error function to each element, mapping the real line to the range `(-1, 1)`.
 
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples

@@ -9,6 +9,8 @@ tags:
 - iir
 - bandstop
 - notch
+- band-stop filter
+- notch filter
 short: General-order IIR Butterworth band-stop (notch) filter.
 inputs: 1
 outputs: 1
@@ -17,42 +19,48 @@ parameters:
   type: int
   default: 2
   min: 1
-  description: Filter order.
+  description: Order N of the analog prototype. The digital filter has order 2N.
 - name: low_cutoff
   type: float
   default: 0.05
   min: 0.0
-  max: 0.5
-  description: Lower stop-band edge (normalised).
+  max: 1.0
+  description: Lower edge of the stop band, as a fraction of the Nyquist frequency. Must satisfy
+    0 < low_cutoff < high_cutoff < 1.
 - name: high_cutoff
   type: float
   default: 0.2
   min: 0.0
-  max: 0.5
-  description: Upper stop-band edge (normalised); must exceed low_cutoff.
+  max: 1.0
+  description: Upper edge of the stop band, as a fraction of the Nyquist frequency. Must satisfy
+    0 < low_cutoff < high_cutoff < 1.
 nan_policy: ignore
+see_also:
+- ButterBandpass
+- Butter
+- ButterHighpass
+references:
+- Butterworth, S. (1930). On the theory of filter amplifiers. *Experimental Wireless and the
+  Wireless Engineer*, 7, 536-541.
 ---
 
 # `ButterBandstop`
 
 ## Description
 
-Digital band-stop (notch) Butterworth IIR filter -- suppresses frequencies in `[low_cutoff, high_cutoff]`. Produces a 2N-order filter from the order-N analog prototype.
+Digital band-stop (notch) Butterworth IIR filter. It suppresses frequencies in `[low_cutoff, high_cutoff]` and produces a 2N-order filter from the order-N analog prototype.
 
 $$
 \text{ButterBandstop}(N, W_{\text{low}}, W_{\text{high}})
 $$
 
-- `order` (int, $\ge 1$): order of the analog prototype.
-- `low_cutoff`, `high_cutoff` (floats in $(0, 1)$, with `low < high`): stop band as fractions of the Nyquist frequency.
-
-Bit-exact match to `scipy.signal.butter(order, [low, high], btype='bandstop')` + `scipy.signal.lfilter`. Verified to ~1e-9 in `tests/test_signal.py`.
+The cutoffs are fractions of the Nyquist frequency. The output matches `scipy.signal.butter(order, [low, high], btype='bandstop')` followed by `scipy.signal.lfilter` to within about 1e-9.
 
 
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples

@@ -8,8 +8,9 @@ topics:
 tags:
 - illiquidity
 - amihud
+- illiquidity ratio
 - liquidity
-- impact
+- price impact
 - microstructure
 short: Rolling mean of |return| / notional (Amihud 2002 illiquidity ratio).
 inputs: 2
@@ -19,7 +20,7 @@ parameters:
   type: int
   default: 20
   min: 2
-  description: Window length in observations.
+  description: Number of most recent valid observations averaged.
 - name: start_policy
   type: str
   default: strict
@@ -27,11 +28,17 @@ parameters:
   - strict
   - expanding
   - zero
-  description: Warmup behaviour.
+  description: 'Output before the window is full: "strict" gives NaN, "expanding" computes
+    from the samples seen so far, and "zero" treats the window as pre-filled with zeros.'
 nan_policy: ignore
 see_also:
 - RollingKyleLambda
+- EwKyleLambda
+- RollSpread
 - RollingMean
+references:
+- 'Amihud, Y. (2002). Illiquidity and stock returns: cross-section and time-series effects.
+  *Journal of Financial Markets*, 5(1), 31-56. doi:10.1016/S1386-4181(01)00024-6'
 ---
 
 # `AmihudIlliquidity`
@@ -39,18 +46,16 @@ see_also:
 ## Description
 
 The Amihud (2002) illiquidity ratio measures how much the price moves per unit
-of trading volume (notional). At each bar it computes `|return| / notional`,
-then takes a trailing-window mean over `window_size` observations. A large
-value indicates an illiquid, high-impact regime: a small trade moves the price
-substantially. A small value indicates a liquid market where large volume is
-absorbed with little price effect.
+of traded notional. At each step it computes `|return_| / notional` and returns
+the trailing mean of that ratio over the last `window_size` observations. A
+large value indicates an illiquid, high-impact market, where a small trade moves
+the price substantially. A small value indicates a liquid market that absorbs
+large volume with little price effect.
 
-`AmihudIlliquidity(window_size, start_policy)(return_, notional)` returns
-`RollingMean(window_size, start_policy)(|return_| / notional)`.
-
-The ratio is elementwise: if either `return_` or `notional` is `NaN` at a
-given bar, the ratio for that bar is `NaN` and `RollingMean` skips it
-(inheriting `nan_policy: ignore` from the C++ engine).
+`AmihudIlliquidity(window_size, start_policy)(return_, notional)` equals
+`RollingMean(window_size, start_policy)(abs(return_) / notional)`, except that a
+step with zero `notional` gives `NaN` and is left out of the window, the same as
+a `NaN` on either input.
 
 A common pipeline is:
 
@@ -58,25 +63,15 @@ A common pipeline is:
 2. Compute `notional` as price times volume for the same bar.
 3. Feed both to `AmihudIlliquidity` to obtain a rolling illiquidity estimate.
 
-*Parameters*:
+`RollingKyleLambda` needs signed order flow, while `AmihudIlliquidity` needs
+only a return and a traded volume, so it can be computed from standard OHLCV
+bars without trade-level data.
 
-- **`window_size`** (`int`, >= 2): size of the trailing window.
-- **`start_policy`** (`str`, default `"strict"`): controls warmup behavior.
-  `"strict"` emits `NaN` until `window_size` observations have been seen.
-  `"expanding"` uses however many observations are available. `"zero"` fills
-  the warmup period with zero.
+<!-- NAN_FOOTNOTE_START -->
+## NaN handling
 
-*Return value*: the Amihud illiquidity estimate at each time step. `NaN`
-during warmup under `"strict"`, and whenever `notional` is zero or missing.
-
-Compared to `RollingKyleLambda` (which requires signed order-flow data),
-`AmihudIlliquidity` needs only a price return and a traded volume, making it
-cheap to compute from standard OHLCV bars without trade-level data.
-
-**Reference**: Amihud, Y. (2002). "Illiquidity and stock returns: cross-section
-and time-series effects." *Journal of Financial Markets*, 5(1), 31-56.
-
-<!-- HELP_END -->
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).
+<!-- NAN_FOOTNOTE_END -->
 
 ## Examples
 

@@ -1,9 +1,17 @@
+---
+file_format: mystnb
+kernelspec:
+  name: python3
+  display_name: Python 3
+---
+
 # Portfolios and pairs
 
 A portfolio strategy trades several assets from one account: it scores the
 assets, turns the scores into weights, rebalances, and pays costs on every
 asset it trades. A pairs trade is the smallest case, two assets held against
-each other. screamer covers each step:
+each other. This page shows how screamer covers each step, on daily bars of 20
+crypto assets.
 
 | Step | Functions |
 |:-----|:----------|
@@ -16,8 +24,33 @@ each other. screamer covers each step:
 | Is the result luck? | [`position_test`](functions_fin/position_test.md#a-portfolio), [`strategy_test`](functions_fin/strategy_test.md) |
 
 All of them take `(T, K)` arrays with time down the rows and one asset per
-column, and all of them run one step at a time on a live feed with the same
-results.
+column.
+
+## The data
+
+The examples use daily bars of 20 Binance spot pairs quoted in USDT, from
+2022-01-01 to 2026-09-30 (`notebooks/data/binance_daily_20.csv`). The assets
+were chosen in 2026 from coins that are still large, so coins that failed
+during the period are missing and the results carry survivorship bias. The
+file is in long format, one row per day and asset; pivoting on `symbol` gives
+one `(T, K)` array per field.
+
+```{code-cell} ipython3
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+from screamer import (LogReturn, RollingStd, CrossRank, CrossZscore, CrossWinsorize,
+                      CrossNormalize, CrossTopBottom, BacktestPortfolioTarget,
+                      BacktestPortfolioOHLCTarget, PortfolioReport, position_test)
+
+df = pd.read_csv("notebooks/data/binance_daily_20.csv", parse_dates=["date"])
+symbols = list(df["symbol"].unique())
+wide = df.pivot(index="date", columns="symbol")
+o, h, l, c = (wide[f][symbols].to_numpy() for f in ["open", "high", "low", "close"])
+dates = wide.index
+T, K = c.shape
+T, K
+```
 
 ## From scores to weights
 
@@ -25,24 +58,41 @@ The cross-sectional operators work across the assets of one row. Each row is
 processed on its own, so they are causal, and an asset that is `NaN` on a row
 (not listed yet, halted) is left out of that row and gets `NaN` back.
 
-A common chain ranks a score, so outliers and scale do not matter, and scales
-the ranks to a dollar-neutral book with a gross exposure of 1:
+The score here is each asset's 30-day log return. Three ways to turn it into
+weights:
 
-```python
-weights = CrossNormalize(gross=1.0, net=0.0)(CrossRank()(score))
+- `CrossRank` then `CrossNormalize(gross=1.0, net=0.0)`: the ranks, scaled to
+  a dollar-neutral book whose absolute weights sum to 1. Outliers and the scale
+  of the scores do not matter.
+- `CrossWinsorize`, `CrossZscore`, then `CrossNormalize`: the z-scores keep the
+  distances between assets that ranks discard. Winsorizing first clips extreme
+  scores to the row's quantiles (here the 10% and 90% quantiles) so one asset
+  cannot take most of the book.
+- `CrossTopBottom(count=4)` then `CrossNormalize`: long the 4 highest scores and
+  short the 4 lowest, with equal weights per side.
+
+```{code-cell} ipython3
+score = LogReturn(30)(c)
+book = CrossNormalize(gross=1.0, net=0.0)
+weights = {
+    "rank": book(CrossRank()(score)),
+    "z-score": book(CrossZscore()(CrossWinsorize(lower=0.1, upper=0.9)(score))),
+    "top/bottom 4": book(CrossTopBottom(count=4)(score)),
+}
+pd.DataFrame({k: w[-1] for k, w in weights.items()}, index=symbols).round(3).T
 ```
 
-`CrossZscore` keeps the distances between assets where ranks discard them;
-`CrossWinsorize` first clips extreme scores to the row's quantiles. For a
-long/short book with equal weights per side, use
-`CrossNormalize()(CrossTopBottom(count=3)(score))`.
+The [cross-sectional momentum recipe](recipes/cross-sectional-momentum.md)
+backtests and tests the rank-weighted book.
 
 ## The portfolio engines
 
-[`BacktestPortfolioTarget`](functions_fin/BacktestPortfolioTarget.md) fills each
-step's orders at that step's price; [`BacktestPortfolioOHLCTarget`](functions_fin/BacktestPortfolioOHLCTarget.md)
-fills a target decided at a bar's close on a later bar, at the price `fill_at`
-chooses. Both keep one account for all assets:
+[`BacktestPortfolioTarget`](functions_fin/BacktestPortfolioTarget.md) fills
+each step's orders at that step's price, so a target must be decided before
+that price is known.
+[`BacktestPortfolioOHLCTarget`](functions_fin/BacktestPortfolioOHLCTarget.md)
+fills a target decided at a bar's close on a later bar. Both keep one account
+for all assets:
 
 - **Targets** are weights of portfolio equity by default (`size="weight"`), or
   currency amounts (`"notional"`) or positions (`"units"`). Portfolio equity is
@@ -50,225 +100,172 @@ chooses. Both keep one account for all assets:
 - **A finite target is an order and `NaN` holds.** A rebalancing schedule is a
   target array with weights on the rebalance steps and `NaN` elsewhere.
 - **Drift.** Between rebalances, positions drift from their weights as prices
-  move. `rebalance_band` trades an asset back when it drifts by more than that
-  share of equity; `rebalance="all"` then rebalances the whole book.
+  move. `rebalance_band` trades an asset back to its last target when its
+  holding drifts by more than that share of equity; with `rebalance="all"`,
+  one asset beyond the band rebalances the whole book.
 - **Limits.** `max_gross` and `max_net` scale down the orders of a step that
-  would push the book past a gross or net exposure limit.
+  would push the book past a gross or net exposure limit, as multiples of
+  equity.
 - **Costs** are per asset when you pass lists: `fee`, `slippage`,
   `tick_size`, `multiplier`, and `fee_per_contract`.
 - **Missing prices.** An asset with a `NaN` price on a step does not trade or
   mark on that step and keeps its position, so the book's sum stays defined.
 
-The output has shape `(T, K, 4)`, `[equity, pnl, position, cost]` per asset.
-The book's equity is `initial_capital + out[:, :, 0].sum(axis=1)`.
+The output has shape `(T, K, 4)`, `[equity, pnl, position, cost]` per asset,
+where `equity` is the asset's cumulative pnl. The book's equity is
+`initial_capital + out[:, :, 0].sum(axis=1)`.
 
-The example compares three ways of holding the same equal-weight portfolio of
-four assets with different volatilities: rebalancing every month, rebalancing
-only when a weight drifts by more than 5 percentage points, and never
-rebalancing.
+### Rebalancing rules
 
-```{eval-rst}
-.. plotly::
-    :include-source: True
+The example holds the 20 assets in equal weights from the first day, with a
+10 bps fee, under four rules: rebalance on the first day of every month, trade
+an asset back when its weight drifts more than 2 percentage points from 5%, the
+same band with `rebalance="all"`, and never rebalance. The equal weights use
+no market data, so filling them at the same day's close is causal.
 
-    import numpy as np
-    import plotly.graph_objects as go
-    from screamer import BacktestPortfolioTarget
+```{code-cell} ipython3
+monthly = np.full((T, K), np.nan)
+monthly[dates.is_month_start] = 1 / K
+once = np.full((T, K), np.nan)
+once[0] = 1 / K
 
-    rng = np.random.default_rng(5)
-    T, K = 756, 4                                       # three years of daily prices
-    vol = np.array([0.006, 0.01, 0.015, 0.02])
-    prices = 100 * np.exp(np.cumsum(rng.standard_normal((T, K)) * vol + 2e-4, axis=0))
-
-    monthly = np.full((T, K), np.nan)
-    monthly[::21] = 0.25
-    once = np.full((T, K), np.nan)
-    once[0] = 0.25
-
-    fig = go.Figure()
-    for name, target, kw in [('monthly', monthly, {}),
-                             ('drift band 5%', once, dict(rebalance_band=0.05)),
-                             ('never', once, {})]:
-        out = BacktestPortfolioTarget(fee=1e-3, **kw)(target, prices)
-        equity = 1.0 + out[:, :, 0].sum(axis=1)
-        weight = out[:, 3, 2] * prices[:, 3] / equity    # the most volatile asset's weight
-        trades = int((np.diff(out[:, :, 2], axis=0) != 0).sum())
-        fig.add_trace(go.Scatter(y=weight, mode='lines', name=f'{name} ({trades} trades)'))
-    fig.add_hline(y=0.25, line_dash='dash', line_color='gray')
-    fig.update_layout(title='Weight of the most volatile asset under three rebalancing rules',
-                      xaxis_title='Day', yaxis_title='Weight',
-                      margin=dict(l=20, r=20, t=80, b=20),
-                      legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1))
-    fig.show()
+rules = {
+    "monthly": (monthly, {}),
+    "band 2%": (once, dict(rebalance_band=0.02)),
+    "band 2%, all": (once, dict(rebalance_band=0.02, rebalance="all")),
+    "never": (once, {}),
+}
+runs, rows = {}, {}
+for name, (target, kw) in rules.items():
+    out = BacktestPortfolioTarget(fee=1e-3, **kw)(target, c)
+    report = PortfolioReport()(out)
+    runs[name] = out
+    rows[name] = {"final equity": 1.0 + out[-1, :, 0].sum(),
+                  "asset trades": report[-1, 3],
+                  "total cost": report[-1, 1]}
+pd.DataFrame(rows).T.round(3)
 ```
 
-The band keeps the weight within 5 points of its target with far fewer trades
-than a monthly schedule; without rebalancing the weight wanders with the
-asset's price.
+The band trades far less often than the monthly schedule. With
+`rebalance="all"` every trip of the band rebalances all 20 assets, which costs
+more trades than the monthly schedule. Without rebalancing, TRX grows from 5%
+to over a third of the book:
 
-## A cross-sectional book
-
-The next example ranks eight assets by their 20-day return each week, holds a
-dollar-neutral book of the ranks, and executes at the next day's open with
-fees and slippage. The returns are simulated with a little persistence, so
-momentum has an edge here; with real data, the significance test below is
-what tells you whether it does.
-
-```{eval-rst}
-.. plotly::
-    :include-source: True
-
-    import numpy as np
-    import plotly.graph_objects as go
-    from screamer import (BacktestPortfolioOHLCTarget, CrossNormalize, CrossRank,
-                          PortfolioReport)
-
-    rng = np.random.default_rng(8)
-    T, K = 1000, 8
-    r = np.zeros((T, K))
-    for t in range(1, T):
-        r[t] = 0.08 * r[t - 1] + rng.standard_normal(K) * 0.012
-    close = 100 * np.exp(np.cumsum(r, axis=0))
-    open_ = np.vstack([close[:1], close[:-1]]) * np.exp(rng.standard_normal((T, K)) * 0.002)
-    high, low = np.maximum(open_, close) * 1.004, np.minimum(open_, close) * 0.996
-
-    momentum = np.full((T, K), np.nan)
-    momentum[20:] = np.log(close[20:] / close[:-20])
-    weights = CrossNormalize(gross=1.0, net=0.0)(CrossRank()(momentum))
-    weights[np.arange(T) % 5 != 4] = np.nan             # decide on Fridays, trade Monday
-
-    engine = BacktestPortfolioOHLCTarget(fee=5e-4, slippage=3e-4)
-    out = engine(weights, open_, high, low, close)
+```{code-cell} ipython3
+trx = symbols.index("TRX")
+fig, ax = plt.subplots(figsize=(9, 3.5))
+for name in ["monthly", "band 2%", "never"]:
+    out = runs[name]
     equity = 1.0 + out[:, :, 0].sum(axis=1)
-    report = PortfolioReport()(out)                     # drawdown, cost, turnover, trades, ...
-
-    fig = go.Figure()
-    fig.add_trace(go.Scatter(y=equity, mode='lines', name='equity'))
-    fig.add_trace(go.Scatter(y=1.0 - report[:, 1], mode='lines', name='1 - cumulative cost',
-                             line=dict(dash='dot')))
-    fig.update_layout(title='Weekly dollar-neutral momentum on eight assets',
-                      xaxis_title='Day', yaxis_title='Equity (initial capital 1)',
-                      margin=dict(l=20, r=20, t=80, b=20),
-                      legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1))
-    fig.show()
+    ax.plot(dates, out[:, trx, 2] * c[:, trx] / equity, lw=1, label=name)
+ax.axhline(1 / K, color="k", lw=0.5, ls="--")
+ax.set_ylabel("TRX weight")
+ax.legend(loc="upper left", fontsize=8)
+plt.tight_layout()
 ```
 
-## Pairs
+### Bars, delay, and per-asset costs
 
-A pairs trade holds one asset against another in the ratio that cancels their
-common movement, the hedge ratio, and bets that the remaining spread returns to
-its mean. Three choices make up the strategy:
+`BacktestPortfolioOHLCTarget` takes `(T, K)` arrays of target, open, high, low,
+and close. A target decided at the close of bar `t` executes `delay` bars later
+(default 1) at that bar's `fill_at` price: `"open"` (the default), `"close"`,
+`"typical"`, or `"ohlc4"`. On a market that trades around the clock, the next
+day's open is the decision close up to a tick, so filling there assumes the
+book trades the moment the decision is made. The example fills at the next
+day's `(open + high + low + close) / 4` instead, as a proxy for trading through
+the day.
 
-1. **The hedge ratio.** [`RollingBeta`](functions_fin/RollingBeta.md) is the
-   ordinary least squares slope over a window.
-   [`RollingTLSBeta`](functions_fin/RollingTLSBeta.md) is the total least
-   squares slope, which gives the same ratio whichever leg you call dependent.
-   [`KalmanRegression`](functions_fin/KalmanRegression.md) lets the intercept
-   and slope drift and updates them every step, and returns the spread and its
-   predicted deviation directly.
-2. **Whether to trade the pair at all.**
-   [`RollingADF`](functions_fin/RollingADF.md) tests whether the spread still
-   mean-reverts; [`RollingOU`](functions_rolling/RollingOU.md) measures how
-   fast. A pair whose spread stopped reverting is a trend bet, not an
-   arbitrage.
-3. **Entry and exit.** [`BandSignal`](functions_signal/BandSignal.md) enters
-   when the spread's z-score passes an entry level, exits inside an exit
-   level, and can stop out a spread that keeps diverging.
+The book weights each asset by the inverse of its 30-day volatility,
+long-only with gross exposure 1 (`CrossNormalize` with the default `net=None`
+keeps the signs), rebalanced on Sundays. Slippage is 1 bp for BTC and ETH and
+5 bps for the others, passed as a list with one value per asset.
 
-The example below estimates the hedge ratio with a slow Kalman filter, so it
-stays steady: with log prices near 4, a small error in the hedge ratio
-moves the spread by four times as much. It standardizes the spread with
-[`RollingZscore`](functions_rolling/RollingZscore.md) and trades only while
-the rolling ADF statistic is below its 5% critical value.
+```{code-cell} ipython3
+vol = RollingStd(30)(LogReturn()(c))
+inverse_vol = CrossNormalize(gross=1.0)(1.0 / vol)
+inverse_vol[dates.dayofweek != 6] = np.nan       # decide on Sundays
 
-The legs then go to a portfolio engine. With the spread on log prices, one
-unit of spread is long one unit of value in the first leg and short the hedge
-ratio times that value in the second; as weights of equity with a gross
-exposure of 1, that is `1 / (1 + beta)` and `-beta / (1 + beta)`.
+slippage = [1e-4 if s in ("BTC", "ETH") else 5e-4 for s in symbols]
+engine = BacktestPortfolioOHLCTarget(fee=1e-3, slippage=slippage, fill_at="ohlc4")
+out = engine(inverse_vol, o, h, l, c)
 
-```{eval-rst}
-.. plotly::
-    :include-source: True
-
-    import numpy as np
-    import plotly.graph_objects as go
-    from plotly.subplots import make_subplots
-    from screamer import (BacktestPortfolioOHLCTarget, BandSignal, KalmanRegression,
-                          RollingADF, RollingZscore)
-
-    rng = np.random.default_rng(11)
-    T = 1500
-    common = np.cumsum(rng.standard_normal(T)) * 0.012
-    spread = np.zeros(T)
-    for t in range(1, T):
-        spread[t] = 0.9 * spread[t - 1] + rng.standard_normal() * 0.004
-    log_b = 4.0 + common
-    log_a = 0.3 + 1.1 * log_b + spread
-    close = np.exp(np.column_stack([log_a, log_b]))
-    open_ = np.vstack([close[:1], close[:-1]])
-    high, low = np.maximum(open_, close) * 1.002, np.minimum(open_, close) * 0.998
-
-    kf = KalmanRegression(delta=1e-8, obs_var=1e-4)(log_a, log_b)
-    beta, alpha = kf[:, 0], kf[:, 1]
-    spread_hat = log_a - alpha - beta * log_b            # the estimated spread
-    z = RollingZscore(60)(spread_hat)
-    adf = RollingADF(window_size=250, lags=1)(spread_hat)
-    position = BandSignal(entry=2.0, exit=0.0, stop=4.0)(z)
-    position[np.nan_to_num(adf, nan=0.0) > -2.86] = 0.0  # trade only while the spread reverts
-    position[:250] = 0.0                                 # warm-up
-
-    legs = np.column_stack([position / (1 + beta), -position * beta / (1 + beta)])
-    changed = np.r_[True, position[1:] != position[:-1]]
-    legs[~changed] = np.nan                              # trade only when the position changes
-    out = BacktestPortfolioOHLCTarget(fee=5e-4)(legs, open_, high, low, close)
-    equity = 1.0 + out[:, :, 0].sum(axis=1)
-
-    fig = make_subplots(rows=2, cols=1, shared_xaxes=True,
-                        subplot_titles=('spread z-score and position', 'equity'))
-    fig.add_trace(go.Scatter(y=z, name='z-score', line=dict(color='gray')), row=1, col=1)
-    fig.add_trace(go.Scatter(y=position, name='position', line=dict(shape='hv', color='crimson')),
-                  row=1, col=1)
-    fig.add_trace(go.Scatter(y=equity, name='equity'), row=2, col=1)
-    fig.update_layout(title='A Kalman-filter pairs trade with a cointegration gate',
-                      margin=dict(l=20, r=20, t=80, b=20), showlegend=False)
-    fig.show()
+equal = np.where(np.isnan(inverse_vol), np.nan, 1 / K)   # same schedule, equal weights
+out_equal = engine(equal, o, h, l, c)                    # each call starts from a reset
 ```
 
-The [pairs trade recipe](recipes/pairs-trade.md) runs the same steps on real
-BTC and ETH prices.
+[`PortfolioReport`](functions_fin/PortfolioReport.md) reduces the output to
+running columns `[drawdown, cum_cost, turnover, trades, max_drawdown, sharpe]`
+for the whole book, with drawdown and cost in units of the initial capital.
+Its turnover adds up position changes in units of each asset, which is only
+meaningful when the units are comparable.
+
+```{code-cell} ipython3
+summary = {}
+for name, run in [("inverse volatility", out), ("equal weight", out_equal)]:
+    report = PortfolioReport()(run)
+    summary[name] = {"final equity": 1.0 + run[-1, :, 0].sum(),
+                     "max drawdown": report[-1, 4],
+                     "total cost": report[-1, 1]}
+pd.DataFrame(summary).T.round(3)
+```
 
 ## Testing a book
 
 A good-looking book can still be luck, and a portfolio has more ways to be
-lucky than one strategy. Both randomization tests work on a whole book:
+lucky than one strategy.
+[`position_test`](functions_fin/position_test.md#a-portfolio) with a portfolio
+engine shifts all assets of the target together by one random offset per
+copy, keeping the book's composition, and scores the summed book. Here it asks
+whether the inverse-volatility weights did better at the times they were held
+than at other times:
 
-- [`position_test`](functions_fin/position_test.md#a-portfolio) with a
-  portfolio engine shifts all assets of the target together, keeping the
-  book's composition, and scores the summed book.
-- [`strategy_test`](functions_fin/strategy_test.md) accepts a strategy that
-  returns a `(T, K, 4)` portfolio output, and re-runs the whole strategy,
-  weights included, on randomized data.
-
-```python
-res = position_test(BacktestPortfolioOHLCTarget(fee=5e-4, slippage=3e-4),
-                    weights, open_, high, low, close, n=999, periods_per_year=252)
-res.p_value, res.observed_stats["sharpe"]
+```{code-cell} ipython3
+res = position_test(engine, inverse_vol, o, h, l, c, n=999, periods_per_year=365)
+print(f"annualized Sharpe {res.observed:+.2f}, p = {res.p_value:.3f}")
 ```
 
+The p-value of 0.55 says the timing of the weights adds nothing here.
 `res.null_stats` holds every statistic of every randomized book, for plots of
-the null distribution next to the real result. See
+the null distribution next to the real result.
+
+[`strategy_test`](functions_fin/strategy_test.md) re-runs a whole strategy on
+randomized data and accepts a strategy that returns a `(T, K, 4)` book. Its
+inputs must be 1-D series, so it applies to books built from a few series,
+such as a pair, and not to a `(T, K)` panel. See
 [Backtesting best practices](backtesting_best_practices.md) for the other
 checks a result needs before it is trusted.
 
+## Pairs
+
+A pairs trade holds one asset against another in the ratio that cancels their
+common movement, the hedge ratio, and trades the spread that remains: a
+hedge-ratio estimator (`KalmanRegression`, `RollingTLSBeta`, `RollingBeta`), a
+check that the spread still mean-reverts (`RollingADF`, `RollingOU`), and
+entry and exit bands (`BandSignal`). The two legs then go to a portfolio engine
+as weights. The [pairs trade recipe](recipes/pairs-trade.md) builds one on
+real BTC and ETH prices.
+
 ## Live
 
-The engines and operators keep their state between calls, so a live loop calls
-them once per step with that step's row of `K` values:
+The engines and the cross-sectional operators keep their state between calls,
+and called with one row of `K` values they process one step, so a live loop
+calls them once per bar and gets the batch results. A per-asset time-series
+operator such as `RollingStd` treats a `(T, K)` array as `K` separate batches
+and a 1-D row as one series, so a live loop keeps one instance per asset. The
+loop below replays the inverse-volatility book one day at a time:
 
-```python
-rank, weigh = CrossRank(), CrossNormalize(gross=1.0, net=0.0)
-engine = BacktestPortfolioOHLCTarget(fee=5e-4)
-for bar in feed:                                   # one row of K assets per bar
-    target = weigh(rank(bar.score))
-    row = engine(target, bar.open, bar.high, bar.low, bar.close)   # (K, 4)
+```{code-cell} ipython3
+returns = [LogReturn() for _ in symbols]         # one instance per asset
+vols = [RollingStd(30) for _ in symbols]
+weigh = CrossNormalize(gross=1.0)
+live = BacktestPortfolioOHLCTarget(fee=1e-3, slippage=slippage, fill_at="ohlc4")
+
+for t in range(T):                               # one row of K assets per day
+    vol_t = np.array([v(r(x)) for v, r, x in zip(vols, returns, c[t])])
+    target = weigh(1.0 / vol_t) if dates[t].dayofweek == 6 else np.full(K, np.nan)
+    row = live(target, o[t], h[t], l[t], c[t])   # (K, 4)
+print(f"equity on {dates[-1].date()}: {1.0 + row[:, 0].sum():.3f}")
 ```
+
+The [strategy-to-live recipe](recipes/strategy-to-live.md) connects a loop
+like this to a data feed.

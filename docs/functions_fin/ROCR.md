@@ -7,8 +7,11 @@ topics:
 tags:
 - rocr
 - rate-of-change
+- rate of change
+- price relative
+- gross return
 - talib
-short: x[t] / x[t-k] - TA-Lib's ROCR.
+short: Rate of change ratio x[t] / x[t-k] (TA-Lib ROCR).
 inputs: 1
 outputs: 1
 parameters:
@@ -16,8 +19,14 @@ parameters:
   type: int
   default: 10
   min: 1
-  description: Lookback k.
+  description: 'Lookback k: the output compares each value with the value k steps earlier.
+    TA-Lib uses 10.'
 nan_policy: propagate
+see_also:
+- ROCP
+- ROC
+- Return
+- LogReturn
 ---
 
 # `ROCR`
@@ -30,21 +39,15 @@ $$
 \text{ROCR}[t] = \frac{x[t]}{x[t-k]}
 $$
 
-*Parameters*:
+The first `k` outputs are `NaN` because `x[t-k]` does not exist yet. The division follows IEEE arithmetic, so `x[t-k] == 0` gives `inf` (or `NaN` when `x[t]` is also zero).
 
-- `window_size` (int, positive): the lookback `k`.
-
-*NaN handling*: NaN for the first `k` samples; NaN when `x[t-k] == 0`.
-
-## Identity to ROCP
-
-`ROCR(k) - 1 == ROCP(k)` exactly. Pick whichever form keeps the calling code cleaner.
+`ROCR(k) - 1` equals [`ROCP(k)`](ROCP.md).
 
 
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `propagate`.** Input `NaN` values are stored in the lookback. Output is `NaN` at any index where the function's positional formula references a `NaN` input; recovery happens once the `NaN` slides out of the lookback.
+**Policy: `propagate`.** A `NaN` input is stored in the lookback like any other value. The output is `NaN` wherever the formula references it and recovers once it leaves the lookback. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples
@@ -79,6 +82,6 @@ $$
 
 <!-- HELP_END -->
 
-## Reference
+## TA-Lib compatibility
 
-Equivalent to `talib.ROCR(x, timeperiod=k)`. Bit-exact match (cross-validated in `tests/test_third_party_alignment.py`).
+Equivalent to `talib.ROCR(x, timeperiod=k)`. The results agree exactly (checked in `tests/test_third_party_alignment.py`).

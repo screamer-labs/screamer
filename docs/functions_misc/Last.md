@@ -7,11 +7,19 @@ topics:
 tags:
 - last
 - cumulative
+- close
+- closing value
+- latest
 short: Return the most recent finite value seen since reset.
 inputs: 1
 outputs: 1
 parameters: []
 nan_policy: ignore
+see_also:
+- First
+- Ffill
+- Resample
+- Hold
 ---
 
 # `Last`
@@ -20,15 +28,11 @@ nan_policy: ignore
 
 `Last` returns the most recent finite value it has seen. NaN inputs are ignored: they return NaN and leave the retained value unchanged. `reset()` clears it. As a per-bar reducer it yields the closing value of each bar.
 
-*Parameters*: none.
-
-*NaN handling*: NaN inputs do not update the retained value. The output at a NaN index is NaN and subsequent finite samples continue normally.
-
 
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples
@@ -69,4 +73,4 @@ nan_policy: ignore
 
 ## Implementation Details
 
-`Last` keeps a single `double` initialised to NaN. Each finite input updates the retained value and returns it. NaN inputs return NaN and leave the retained value unchanged. Memory is `O(1)`.
+`Last` keeps a single `double` initialized to NaN. Each finite input updates the retained value and returns it. Memory is `O(1)`.

@@ -6,30 +6,41 @@ topics:
 - order-flow-arrivals
 tags:
 - hawkes
+- hawkes process
 - self-exciting
+- point process
 - intensity
+- arrival rate
 - order flow
 - clustering
 - microstructure
-short: "Conditional intensity of an exponential-kernel Hawkes process: lambda_t = mu + kappa_t."
+short: 'Conditional intensity of an exponential-kernel Hawkes process: lambda_t = mu + kappa_t.'
 inputs: 1
 outputs: 1
 parameters:
 - name: decay
   type: float
   default: 0.9
-  description: Exponential decay rate applied to the self-exciting kernel each step. Must be in (0, 1).
+  description: Fraction of the excitation kept from one step to the next, in (0, 1). Larger
+    values make the excitation fade more slowly.
 - name: alpha
   type: float
   default: 1.0
-  description: Excitation amplitude; scales how much each event raises the intensity.
+  description: 'Excitation amplitude: each event adds alpha times its mark to the excitation.'
 - name: mu
   type: float
   default: 0.0
-  description: Baseline intensity (the unconditional floor).
+  description: Baseline intensity, the output when there has been no recent event.
 nan_policy: ignore
 see_also:
+- Propagator
 - EwMean
+- SignedVolume
+references:
+- Hawkes, A. G. (1971). Spectra of some self-exciting and mutually exciting point processes.
+  *Biometrika*, 58(1), 83-90. doi:10.1093/biomet/58.1.83
+- Bacry, E., Mastromatteo, I. and Muzy, J.-F. (2015). Hawkes processes in finance. *Market
+  Microstructure and Liquidity*, 1(1), 1550005.
 ---
 
 # `HawkesIntensity`
@@ -39,10 +50,9 @@ see_also:
 `HawkesIntensity` computes the conditional intensity of an exponential-kernel
 Hawkes process driven by an event-mark series. A Hawkes process is
 self-exciting: each event raises the near-term rate of further events by an
-amount proportional to the mark, and that excitation then decays exponentially
-over time. In order-flow terms, a burst of aggressive buying momentarily
-increases the probability of more buying, capturing the clustering and momentum
-structure of trades.
+amount proportional to its mark, and that excitation then decays exponentially.
+In order-flow terms, a burst of aggressive buying raises the probability of more
+buying for a while, which models the clustering of trades.
 
 The recursion is:
 
@@ -50,26 +60,19 @@ The recursion is:
     kappa_{t+1} = decay * (kappa_t + alpha * x_t)
     kappa_0 = 0
 
-where `x_t` is the event mark at time `t` (trade count, signed flow magnitude,
-or a 0/1 event indicator), `mu` is the baseline intensity, `alpha` scales the
-excitation from each event, and `decay` controls how fast the excitation fades.
+where `x_t` is the event mark at step `t` (a trade count, a signed flow
+magnitude, or a 0/1 event indicator), `mu` is the baseline intensity, `alpha`
+scales the excitation from each event, and `decay` is the fraction of the
+excitation kept from one step to the next.
 
-The operator is causal: `lambda_t` depends only on `x_{t-1}` and earlier. At
-`t = 0`, when no history exists, the output is `mu`.
+`lambda_t` is computed before `x_t` is added to the state, so it depends only on
+`x_{t-1}` and earlier. The first output is `mu`.
 
-A NaN event mark is treated as missing (nan_policy: ignore): the output at
-that step is `NaN`, but `kappa` is not updated, so intensity recovers on the
-next finite sample. This prevents a single bad tick from permanently corrupting
-the state.
+<!-- NAN_FOOTNOTE_START -->
+## NaN handling
 
-The operator processes one sample per step.
-
-**References:**
-
-- Hawkes, A. G. (1971). "Spectra of some self-exciting and mutually exciting
-  point processes." *Biometrika*, 58(1), 83-90.
-- Bacry, E., Mastromatteo, I., and Muzy, J.-F. (2015). "Hawkes processes in
-  finance." *Market Microstructure and Liquidity*, 1(1), 1550005.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).
+<!-- NAN_FOOTNOTE_END -->
 
 ## Examples
 

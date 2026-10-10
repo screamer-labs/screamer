@@ -1,8 +1,10 @@
 # Using screamer
 
-screamer builds a calculation once and runs it on stored data or a live stream
-without changes. Each section below links to a runnable notebook and a reference
-page for deeper treatment.
+This page explains how a screamer function is built and called: construction
+and state, inputs of different types, several series at once, warmup, chaining,
+several inputs and outputs, missing data, and pipelines. Each section links to
+a runnable notebook and a reference page for deeper treatment. To see a whole
+strategy first, start with [your first strategy](recipes/first-strategy.md).
 
 ## Constructing and calling a function
 
@@ -30,7 +32,7 @@ The first two outputs are `NaN` because the window of size 3 is not full yet;
 see [Warmup](#warmup) below. Because the object carries state between calls,
 feeding it values one at a time accumulates history.
 
-## Stored data and live streams, one calculation
+## Arrays, lists, and streams
 
 When you pass an array or a list, screamer has the whole dataset in hand and processes it in one go. When you pass an iterator, it works as a live stream, taking one value at a time as you pull from it, which is what an event loop needs. A single scalar is just a stream of length one. The output type always mirrors the input.
 
@@ -252,12 +254,17 @@ The precise reset rules are in the [Polymorphic API reference](polymorphic_api.m
 
 ## Where to go next
 
-- **Worked examples**: the [example notebooks](notebooks/01-quickstart-polymorphic-api)
-  cover statistics, financial indicators, signal processing, async streams, and
-  pipelines, each self-contained and runnable.
-- **Concepts and contracts**: [Polymorphic API](polymorphic_api.md),
+- **A first strategy**: [your first strategy](recipes/first-strategy.md) goes
+  from prices to a costed backtest and a p-value.
+- **Recipes**: [short solutions](recipes/index.md) to common tasks, on real
+  market data.
+- **Guides**: [backtesting best practices](backtesting_best_practices.md) and
+  [portfolios and pairs](portfolio_backtesting.md).
+- **Concepts**: [Polymorphic API](polymorphic_api.md),
   [NaN and warmup](nan_and_warmup.md),
   [Streams, values, and alignment](multistream.md), and
   [Pipelines](pipelines.md) give the precise behaviour.
-- **The function catalog**: browse every function by family or by use case in
-  the reference sections.
+- **Examples**: the [example notebooks](notebooks/index.md) each tour one area
+  in depth.
+- **API reference**: [every function by group](by_group_index.rst), and the
+  [gallery](gallery.rst) with a plot for each.

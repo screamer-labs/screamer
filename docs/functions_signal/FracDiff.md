@@ -10,14 +10,19 @@ tags:
 - fractional-differentiation
 - stationarity
 - fir
-short: Fractional differencing filter. Removes the trend while keeping more of the series' memory than an integer difference.
+- fractional differencing
+- fractional difference
+- memory
+short: Fractional differencing filter. Removes the trend while keeping more of the series'
+  memory than an integer difference.
 inputs: 1
 outputs: 1
 parameters:
 - name: d
   type: float
   default: 0.4
-  description: Differencing order. 0 is the identity, 1 the first difference, 2 the second.
+  description: Differencing order. 0 is the identity, 1 the first difference, 2 the second;
+    negative values give fractional integration.
 - name: window_size
   type: int
   default: 100
@@ -25,9 +30,10 @@ parameters:
   description: Maximum number of taps, which bounds memory and per-step cost.
 - name: threshold
   type: float
-  default: 1.0e-5
+  default: 1.0e-05
   min: 0
-  description: Truncate the weight series at the first weight smaller than this in absolute value.
+  description: Truncate the weight series at the first weight smaller than this in absolute
+    value. 0.0 keeps all window_size taps.
 - name: start_policy
   type: str
   default: strict
@@ -35,8 +41,16 @@ parameters:
   - strict
   - expanding
   - zero
-  description: Warmup behaviour.
+  description: 'Output before the window is full: "strict" gives NaN, "expanding" computes
+    from the samples seen so far, and "zero" treats the window as pre-filled with zeros.'
 nan_policy: ignore
+see_also:
+- Diff
+- Diff2
+- RollingADF
+references:
+- López de Prado, M. (2018). *Advances in Financial Machine Learning*, chapter 5. Wiley.
+- Hosking, J. R. M. (1981). Fractional differencing. *Biometrika*, 68(1), 165-176. doi:10.1093/biomet/68.1.165
 ---
 
 # `FracDiff`
@@ -55,13 +69,6 @@ Integer orders give the ordinary differences: `d=0` produces taps `[1]` and retu
 
 The order controls the trade: raise `d` toward 1 to remove more of the trend, lower it toward 0 to keep more memory.
 
-*Parameters*:
-
-- `d` (float): the differencing order. Negative values are fractional integration, where the weights share one sign and decay more slowly.
-- `window_size` (int, positive): the largest number of taps the filter will hold.
-- `threshold` (float, non-negative): drop the tail of the weight series at the first $|w_k|$ below this. Pass `0.0` to keep all `window_size` taps.
-- `start_policy` (str, optional): `"strict"` (default), `"expanding"`, or `"zero"`. See **Warmup behaviour** below.
-
 ## Implementation Details
 
 ### Truncation
@@ -72,7 +79,7 @@ $$
 L = \min\big(\text{window\_size},\ \text{first } k \text{ with } |w_k| < \text{threshold}\big)
 $$
 
-`window_size` bounds the cost, `threshold` removes taps too small to change the output. Both matter: at `d = 0.4` the weights fall below `1e-5` after a few hundred terms, while at `d = 0.05` they fall off far more slowly and `window_size` is what stops the filter.
+This is the fixed-width variant of Lopez de Prado (2018): the weights are truncated once, and the filter is applied at full width from then on. `window_size` bounds the cost, `threshold` removes taps too small to change the output. Both matter: at `d = 0.4` the weights fall below `1e-5` after a few hundred terms, while at `d = 0.05` they fall off far more slowly and `window_size` is what stops the filter.
 
 `L` grows as `d` approaches 0 and shrinks as `d` approaches an integer, so the same `threshold` gives different filter lengths at different orders. Count the leading `NaN` values under `start_policy="strict"` to see the `L` a given configuration resolved to.
 
@@ -80,7 +87,7 @@ $$
 
 A circular buffer of the last `L` samples and one convolution sweep. **O(L) per step**, `O(L)` memory. The weights are computed once when the operator is constructed.
 
-### Warmup behaviour
+### Warmup behavior
 
 `"strict"` (the default) returns `NaN` until `L` finite samples have arrived, which is the first index at which every tap has a sample to multiply.
 
@@ -91,7 +98,7 @@ See [NaN and warmup](../nan_and_warmup.md) for the full definition.
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples
@@ -135,8 +142,6 @@ At `d = 0.4` the output still tracks the slow swings of the walk. At `d = 1.0` i
 
 <!-- HELP_END -->
 
-## Reference
-
-Lopez de Prado, M. (2018). *Advances in Financial Machine Learning*, chapter 5. The fixed-width variant is the one implemented here: the weight series is truncated by `threshold` and `window_size`, and the filter is applied at full width from then on.
+## Accuracy at integer orders
 
 The integer orders reproduce the corresponding operators on finite input. `FracDiff(d=0)` returns its input unchanged and `FracDiff(d=1, window_size>=2)` is bit-exact to `Diff(1)`, both being a single subtraction. `FracDiff(d=2, window_size>=3)` matches `Diff2()` to about 5e-15 relative rather than bit-for-bit: this filter sums `1*x[t] - 2*x[t-1] + 1*x[t-2]` in tap order while `Diff2` chains two subtractions, so the same terms are associated differently.

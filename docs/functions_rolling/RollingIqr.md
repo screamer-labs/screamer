@@ -8,6 +8,8 @@ tags:
 - iqr
 - quartile
 - rolling
+- interquartile range
+- robust spread
 short: Q3 minus Q1 over the trailing window.
 inputs: 1
 outputs: 1
@@ -16,7 +18,12 @@ parameters:
   type: int
   default: 20
   min: 2
-  description: Trailing-window length.
+  description: Number of most recent samples whose quartiles are taken.
+see_also:
+- RollingQuantile
+- RollingMedian
+- RollingMedianAD
+- RollingMad
 nan_policy: ignore
 ---
 
@@ -24,20 +31,20 @@ nan_policy: ignore
 
 ## Description
 
-`RollingIqr` computes the rolling **inter-quartile range**:
+`RollingIqr` computes the rolling interquartile range:
 
 $$
 \text{IQR}[t] = Q_{0.75}[t] - Q_{0.25}[t]
 $$
 
-A robust spread measure: discards the top and bottom 25% of the window, so it is unaffected by single-point outliers. Useful as the denominator of a robust z-score, or for outlier-resistant volatility heuristics.
-
-*Parameters*: `window_size` (int, positive).
+It is a robust spread measure: it ignores the top and bottom quarter of the window, so
+a single outlier does not change it. Use it as the denominator of a robust z-score or
+as an outlier-resistant volatility measure.
 
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples
@@ -78,11 +85,15 @@ A robust spread measure: discards the top and bottom 25% of the window, so it is
 
 ### Algorithm
 
-A single `OrderStatisticTree` (the same primitive `RollingQuantile` uses) is queried twice per step -- once at the `0.25 * (n - 1)` position and once at `0.75 * (n - 1)` -- with linear interpolation between adjacent order statistics, identical to `RollingQuantile`'s formula.
+A single order-statistic tree (the structure [`RollingQuantile`](RollingQuantile.md)
+uses) is queried twice per step, at positions `0.25 * (n - 1)` and `0.75 * (n - 1)`,
+with linear interpolation between adjacent order statistics, the same formula as
+`RollingQuantile`.
 
-### Why not just two `RollingQuantile` instances?
+### Comparison with two `RollingQuantile` instances
 
-Composing as `RollingQuantile(w, 0.75)(x) - RollingQuantile(w, 0.25)(x)` would work but use two independent OSTs. The dedicated implementation has:
+`RollingQuantile(w, 0.75)(x) - RollingQuantile(w, 0.25)(x)` gives the same result
+with two independent trees:
 
 | | Two `RollingQuantile` | `RollingIqr` |
 |---|---|---|
@@ -90,13 +101,15 @@ Composing as `RollingQuantile(w, 0.75)(x) - RollingQuantile(w, 0.25)(x)` would w
 | Inserts/erases per step | 2 + 2 | 1 + 1 |
 | Asymptotic complexity | `O(log W)` | `O(log W)` |
 
-Same asymptotic complexity, **half the memory and half the work** per step. Validated in tests against the composition reference (post-warmup) to floating-point precision.
+The asymptotic complexity is the same, with half the memory and half the tree updates
+per step. Tests check `RollingIqr` against the composition after warmup to
+floating-point precision.
 
 ### Complexity
 
 * Time complexity: `O(log W)` per step.
 * Space complexity: `O(window_size)`.
 
-## Reference
+## Validation
 
 Equivalent to `pandas.Series.rolling(w).quantile(0.75) - pandas.Series.rolling(w).quantile(0.25)`.

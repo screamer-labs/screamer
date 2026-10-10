@@ -7,11 +7,17 @@ topics:
 tags:
 - identity
 - noop
+- passthrough
+- pass-through
+- no-op
 short: Pass-through (y = x).
 inputs: 1
 outputs: 1
 parameters: []
 nan_policy: ignore
+see_also:
+- Lag
+- Linear
 ---
 
 # `Identity`
@@ -26,15 +32,13 @@ $$
 y[t] = x[t]
 $$
 
-*Parameters*: `Identity` takes no parameters.
-
-*NaN handling*: Inputs pass through bit-for-bit, including `NaN` and infinities.
+Inputs pass through bit-for-bit, including `NaN` and infinities.
 
 
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples
@@ -53,6 +57,6 @@ $$
 
 <!-- HELP_END -->
 
-## Reference
+## Notes
 
-Conceptually equivalent to the identity function `lambda x: x`. It exists as a class so it can be slotted in anywhere a `ScreamerBase` is expected.
+`Identity` computes the same values as `lambda x: x`. As a screamer functor it can be used wherever screamer expects one.

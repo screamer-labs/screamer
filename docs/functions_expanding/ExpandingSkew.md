@@ -6,11 +6,18 @@ topics:
 - statistics
 tags:
 - skew
+- skewness
 - expanding
+- third moment
 short: Running bias-corrected sample skewness (G1) over the whole history.
 inputs: 1
 outputs: 1
 parameters: []
+see_also:
+- ExpandingKurt
+- RollingSkew
+- EwSkew
+- ExpandingStd
 nan_policy: ignore
 ---
 
@@ -18,20 +25,18 @@ nan_policy: ignore
 
 ## Description
 
-The `ExpandingSkew` function returns the adjusted Fisher-Pearson standardized moment coefficient (G1) of every sample seen since the last `reset`. It uses the same bias-corrected estimator as `RollingSkew` and `pandas.Series.expanding().skew()`. Undefined (`NaN`) until at least three samples have been seen. Memory is `O(1)`.
-
-*Equation*:
+`ExpandingSkew` returns the adjusted Fisher-Pearson skewness (G1) of every sample seen since the start of the stream, or since the last `reset`. It uses the same bias-corrected estimator as [`RollingSkew`](../functions_rolling/RollingSkew.md) and `pandas.Series.expanding().skew()`. The output is `NaN` until three samples have been seen. Memory is `O(1)`.
 
 $$
 y[t] = \frac{n}{(n-1)(n-2)}\sum_{i=0}^{t}\left(\frac{x[i]-\bar{x}}{s}\right)^3, \quad n=t+1
 $$
 
-*Parameters*: none.
+where $s$ is the sample standard deviation (`ddof=1`).
 
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `ignore`.** A `NaN` in the input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples

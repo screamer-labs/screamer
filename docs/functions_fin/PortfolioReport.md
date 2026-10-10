@@ -4,6 +4,7 @@ title: Running report columns for a multi-asset backtest
 implementation_family: fin
 topics:
 - backtesting
+- portfolio
 tags:
 - backtest
 - portfolio
@@ -11,7 +12,10 @@ tags:
 - drawdown
 - turnover
 - sharpe
-short: "Reduce a multi-asset backtest engine output into causal portfolio-level report columns."
+- sharpe ratio
+- performance
+- backtest statistics
+short: Reduce a multi-asset backtest engine output into causal portfolio-level report columns.
 inputs: 1
 outputs: 6
 parameters: []
@@ -20,26 +24,40 @@ see_also:
 - BacktestReport
 - BacktestPriceTarget
 - backtest_report
+output_names:
+- drawdown
+- cum_cost
+- turnover
+- trades
+- max_drawdown
+- sharpe
 ---
 
 # `PortfolioReport`
 
 ## Description
 
-`PortfolioReport` consumes the C++ backtest engine output with shape `(time,
-assets, 4)`, where the last axis is `[equity, pnl, position, cost]`. It reduces
-assets in C++ and returns a `(time, 6)` array with the same columns as
+`PortfolioReport` reads the output of a portfolio backtest engine, with shape `(time,
+assets, 4)`, where the last axis is `[equity, pnl, position, cost]`. It combines the
+assets and returns a `(time, 6)` array with the same columns as
 [`BacktestReport`](BacktestReport.md): `[drawdown, cum_cost, turnover, trades,
 max_drawdown, sharpe]`.
 
 Equity, PnL, and cost are summed across assets. Turnover is the sum of absolute
 per-asset position changes, and trades counts assets whose position changed; this
 keeps offsetting commodity legs visible instead of hiding them in net position.
-The asset count is fixed after `reset()`. A row containing any `NaN` is skipped
-(`nan_policy: ignore`) and returns an all-`NaN` report row while holding state.
+The asset count is fixed after `reset()`. A row containing any `NaN` is skipped: the report row is all-`NaN` and the state
+holds.
 
 The same operator accepts a single `(assets, 4)` row or an iterable of such rows
-for incremental use. The batch and row paths share the same causal state machine.
+for incremental use.
+
+
+<!-- NAN_FOOTNOTE_START -->
+## NaN handling
+
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).
+<!-- NAN_FOOTNOTE_END -->
 
 ## Examples
 

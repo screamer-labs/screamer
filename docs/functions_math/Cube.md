@@ -7,18 +7,23 @@ topics:
 tags:
 - cube
 - pow3
-short: x cubed (faster than Power(3)).
+- power
+- cubed
+short: Cube of each element, computed as x * x * x.
 inputs: 1
 outputs: 1
 parameters: []
 nan_policy: ignore
+see_also:
+- Square
+- Power
 ---
 
 # `Cube`
 
 ## Description
 
-Cube each element. Equivalent to `Power(3)` but skips the `std::pow` logarithm.
+Cube each element. Gives the same result as `Power(3)` but computes `x * x * x` directly.
 
 *Equation*:
 
@@ -26,15 +31,10 @@ $$
 y[i] = x[i]^3
 $$
 
-*Parameters*: `Cube` takes no parameters.
-
-*NaN handling*: `NaN` values pass through unchanged.
-
-
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples

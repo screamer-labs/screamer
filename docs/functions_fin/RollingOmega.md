@@ -9,7 +9,9 @@ tags:
 - keating shadwick
 - performance ratio
 - risk
-short: "Omega ratio over a window: total gains above a threshold divided by total losses below it."
+- omega
+short: 'Omega ratio over a window: total gains above a threshold divided by total losses below
+  it.'
 inputs: 1
 outputs: 1
 parameters:
@@ -17,15 +19,20 @@ parameters:
   type: int
   default: 20
   min: 2
-  description: Window length in observations.
+  description: Number of most recent returns in the window.
 - name: threshold
   type: float
   default: 0.0
-  description: The return level separating gains from losses.
+  description: Return level that separates gains from losses.
 nan_policy: ignore
 see_also:
 - RollingSharpe
 - RollingSortino
+- RollingDownsideDeviation
+- RollingHitRate
+references:
+- Keating, C. and Shadwick, W. F. (2002). A universal performance measure. *Journal of Performance
+  Measurement*, 6(3), 59-84.
 ---
 
 # `RollingOmega`
@@ -39,8 +46,14 @@ window of returns about a `threshold`,
 
 the total gain above the threshold divided by the total shortfall below it. A value above 1 means gains
 outweigh losses at that threshold. A window with no downside (a zero denominator)
-has an undefined ratio and returns `NaN`, as does a `NaN` return
-(`nan_policy: ignore`).
+has an undefined ratio and returns `NaN`.
+
+
+<!-- NAN_FOOTNOTE_START -->
+## NaN handling
+
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).
+<!-- NAN_FOOTNOTE_END -->
 
 ## Examples
 

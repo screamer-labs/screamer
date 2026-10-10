@@ -3,8 +3,24 @@ name: Resample
 title: Resample
 kind: class
 short: Causal windowed downsample of a 1-D or multi-column value stream.
+tags:
+- bars
+- ohlc
+- downsample
+- resampling
+- volume bars
+- dollar bars
+- information bars
+- time bars
+- as-of join
+see_also:
+- CombineLatest
+- Delay
+- Dropna
+- Pipeline
 topics:
 - streams
+- bars
 covers:
 - resample
 ---
@@ -156,7 +172,7 @@ Output shape is `(bars, N)`. The number of trailing volume columns may vary free
 the plan is resolved from the actual input width at runtime. Supported in eager,
 graph, and lazy regimes.
 
-## `threshold=` -- cumulative-driver (information bars)
+## `threshold=`: cumulative-driver (information bars)
 
 `threshold=T` is the fourth mutually exclusive mode selector. A bar closes when
 the cumulative sum of a **driver** stream since the last close reaches `T`. The
@@ -196,14 +212,14 @@ is a signed trade-flow measure. Call as
   `CombineLatest`.
 - Works in eager, `Pipeline` graph, and lazy iterator regimes with identical results.
 
-**Graph regime** -- wire two `Input` nodes, one for the value stream and one for
+**Graph regime.** Wire two `Input` nodes, one for the value stream and one for
 the driver, then call `Resample(value_node, driver_node, threshold=T, agg=...)`.
 For example: `x = Input('price'); d = Input('driver');
 node = Resample(x, d, threshold=500, agg='ohlc');
 dag = Pipeline([x, d], [node]);
 ohlc, bar_idx = dag((price_arr, idx), (volume_arr, idx))`.
 
-## `clock=True` -- target-clock (as-of join)
+## `clock=True`: target-clock (as-of join)
 
 `clock=True` is the fifth mode selector. A bar closes at each event of a separate
 **clock** stream rather than at a fixed index interval, event count, or driver
@@ -240,7 +256,7 @@ value resumes the join. `max_age=None` (the default) preserves unbounded carry.
 - There is no trailing partial bucket: only explicit clock ticks trigger emission.
 - Works in eager, `Pipeline` graph, and lazy iterator regimes with identical results.
 
-**Graph regime** -- wire two `Input` nodes and pass `clock=True`:
+**Graph regime.** Wire two `Input` nodes and pass `clock=True`:
 `x = Input('price'); clk = Input('obs'); node = Resample(x, clk, clock=True, agg='last', fill='carry');
 dag = Pipeline([x, clk], [node])`.
 
@@ -401,5 +417,5 @@ clock tick.
    out, out_idx = Resample((vals, val_idx), (clk_vals, clk_idx),
                            clock=True, agg='last', fill='carry', max_age=8)
    print(out_idx)   # [10 20 30 40]
-   print(out)       # [ 1.  2.  3. nan] -- the value at 25 is stale by tick 40
+   print(out)       # [ 1.  2.  3. nan]: the value at 25 is stale by tick 40
 ```

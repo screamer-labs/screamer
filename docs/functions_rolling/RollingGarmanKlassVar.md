@@ -10,6 +10,9 @@ tags:
 - ohlc
 - var
 - rolling
+- garman klass volatility
+- realized volatility
+- ohlc volatility
 short: Var form of the Garman-Klass range-based volatility estimator (OHLC).
 inputs: 4
 outputs: 1
@@ -18,7 +21,16 @@ parameters:
   type: int
   default: 20
   min: 2
-  description: Smoothing window.
+  description: Number of most recent bars whose per-bar Garman-Klass variances are averaged.
+see_also:
+- RollingGarmanKlassVol
+- RollingParkinsonVar
+- RollingRogersSatchellVar
+- RollingYangZhangVar
+- EwGarmanKlassVar
+references:
+- Garman, M. B. and Klass, M. J. (1980). On the estimation of security price volatilities
+  from historical data. *Journal of Business*, 53(1), 67-78. doi:10.1086/296072
 nan_policy: ignore
 ---
 
@@ -26,33 +38,31 @@ nan_policy: ignore
 
 ## Description
 
-The Garman-Klass (1980) range-based volatility estimator. Per-bar variance contribution:
+`RollingGarmanKlassVar` is the Garman-Klass (1980) range-based variance estimator over a trailing window.
+Each bar contributes
 
 $$
 \sigma^2_\text{GK}[t] = \tfrac{1}{2}\big(\ln H/L\big)^2 - (2\ln 2 - 1)\big(\ln C/O\big)^2
 $$
 
-This expression is averaged with a rolling mean over `window_size` bars to form the estimator. This is the paper's simplified estimator, the one written $\sigma_5$ in Garman
-and Klass's sequence and the form usually meant by "Garman-Klass". The paper
-also gives a higher-order approximation of the same quantity ($\sigma_4$), and
-variants carrying an overnight term driven by the fraction of the day the market
-is closed ($\sigma_1$, $\sigma_3$, $\sigma_6$). screamer ships only this one:
-$\sigma_4$ differs in the fourth significant figure, and the gap-aware variants
-are superseded by [`RollingYangZhang`](RollingYangZhangVar.md), which handles
-overnight gaps *and* drift.
+and the estimator is the rolling mean of this quantity over `window_size` bars.
 
-The `Vol`
-variant returns `sqrt(Var)` (bit-exact via the same internal state).
+This is the paper's simplified estimator, written $\sigma_5$ in Garman and Klass's
+sequence and the form usually meant by "Garman-Klass". The paper also gives a
+higher-order approximation of the same quantity ($\sigma_4$), and variants with an
+overnight term driven by the fraction of the day the market is closed ($\sigma_1$,
+$\sigma_3$, $\sigma_6$). screamer ships only $\sigma_5$: $\sigma_4$ differs in the
+fourth significant figure, and for overnight gaps
+[`RollingYangZhangVar`](RollingYangZhangVar.md) handles both the gaps and drift.
 
-**4-input, 1-output** on `(open, high, low, close)`. ~7.4x more statistically efficient
-than close-to-close `RollingStd` *under the model's assumptions* (zero drift, no overnight
-gaps).
-
+Inputs are `(open, high, low, close)`. Under the model's assumptions (zero drift, no
+overnight gaps) the estimator is about 7.4 times as efficient as the close-to-close
+variance from [`RollingStd`](RollingStd.md).
 
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples

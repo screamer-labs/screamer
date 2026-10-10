@@ -12,7 +12,12 @@ tags:
 - sharpe
 - equity curve
 - risk
-short: "Turn a backtest engine's [equity, pnl, position, cost] into running drawdown, cost, turnover, trades, and Sharpe."
+- sharpe ratio
+- max drawdown
+- performance
+- backtest statistics
+short: Turn a backtest engine's [equity, pnl, position, cost] into running drawdown, cost,
+  turnover, trades, and Sharpe.
 inputs: 4
 outputs: 6
 parameters:
@@ -20,7 +25,8 @@ parameters:
   type: float
   default: 1.0
   min: 0.0
-  description: Steps per year, used to annualize the Sharpe ratio (for example 252 for daily bars). The default 1 gives the per-step ratio.
+  description: Steps per year, used to annualize the Sharpe ratio (for example 252 for daily
+    bars). The default 1 gives the per-step ratio.
 nan_policy: ignore
 see_also:
 - backtest_report
@@ -28,6 +34,13 @@ see_also:
 - BacktestPriceTarget
 - Drawdown
 - MaxDrawdown
+output_names:
+- drawdown
+- cum_cost
+- turnover
+- trades
+- max_drawdown
+- sharpe
 ---
 
 # `BacktestReport`
@@ -36,8 +49,7 @@ see_also:
 
 `BacktestReport` turns a backtest engine's per-step `[equity, pnl, position, cost]`
 into the running report columns. The Python [`backtest_report`](backtest_report.md)
-helper is a thin wrapper that labels these columns and reads the last row for the
-summary.
+helper labels these columns and reads the last row for the summary.
 
 The six outputs, in order, are:
 
@@ -59,9 +71,14 @@ factor, holding period), exposure, Sortino, and Calmar.
 
 Every column is a causal accumulator, so a full-sample statistic is the last
 finite value: `total_pnl` is the last equity, `max_drawdown` the last
-`max_drawdown`, and so on. `nan_policy: ignore`: a row with any `NaN` field is a
-skipped bar, so the state holds and the output row is `NaN`, recovering at the
-next finite bar, exactly as `CumSum` and the other accumulators do.
+`max_drawdown`, and so on.
+
+
+<!-- NAN_FOOTNOTE_START -->
+## NaN handling
+
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).
+<!-- NAN_FOOTNOTE_END -->
 
 ## Examples
 

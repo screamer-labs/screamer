@@ -8,10 +8,18 @@ tags:
 - slope
 - regression
 - expanding
+- linear trend
+- ols
+- trend
 short: Running OLS slope of the series against time over the whole history.
 inputs: 1
 outputs: 1
 parameters: []
+see_also:
+- RollingPoly1
+- ExpandingMean
+- RollingLinearRegression
+- Detrend
 nan_policy: ignore
 ---
 
@@ -19,20 +27,16 @@ nan_policy: ignore
 
 ## Description
 
-The `ExpandingSlope` function returns the ordinary-least-squares slope of the samples seen so far against an implicit integer time axis `x = 0, 1, ..., n-1`. It is the whole-history analogue of `RollingPoly1` with `derivative_order=1`. Undefined (`NaN`) until at least two samples have been seen. Memory is `O(1)`.
-
-*Equation*:
+`ExpandingSlope` returns the ordinary-least-squares slope of the samples seen so far against the integer time axis `i = 0, 1, ..., n-1`. It is the whole-history counterpart of [`RollingPoly1`](../functions_rolling/RollingPoly1.md) with `derivative_order=1`. The output is `NaN` until two samples have been seen. Memory is `O(1)`.
 
 $$
 y[t] = \frac{n\sum i\,x[i] - (\sum i)(\sum x[i])}{n\sum i^2 - (\sum i)^2}, \quad i=0..t,\; n=t+1
 $$
 
-*Parameters*: none.
-
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `ignore`.** A `NaN` in the input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples

@@ -11,6 +11,7 @@ tags:
 - volume-rsi
 - talib
 - ohlcv
+- money flow index
 short: Volume-weighted analogue of RSI on the typical price.
 inputs: 4
 outputs: 1
@@ -19,7 +20,13 @@ parameters:
   type: int
   default: 14
   min: 2
-  description: Lookback period (Wilder's default is 14).
+  description: Number of most recent typical-price changes whose money flow is summed into
+    the positive and negative totals.
+see_also:
+- RollingRSI
+- OBV
+- AD
+- RollingVWAP
 nan_policy: ignore
 ---
 
@@ -27,7 +34,7 @@ nan_policy: ignore
 
 ## Description
 
-Money Flow Index - a volume-weighted analogue of RSI on the typical price:
+`MFI` (Money Flow Index) is a volume-weighted analogue of RSI on the typical price:
 
 $$
 \begin{aligned}
@@ -39,14 +46,13 @@ $$
 \end{aligned}
 $$
 
-**4-input, 1-output** on `(high, low, close, volume)`. First valid output at sample index
-`window_size`. Bit-exact to `talib.MFI` (~1e-14).
-
+Inputs are `(high, low, close, volume)`. The first valid output is at sample index
+`window_size`. The output matches `talib.MFI` to about 1e-14.
 
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples

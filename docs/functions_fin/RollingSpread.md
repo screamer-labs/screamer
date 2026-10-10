@@ -4,11 +4,15 @@ title: Rolling spread
 implementation_family: fin
 topics:
 - regression
+- pairs
 tags:
 - spread
 - hedge
+- hedge ratio
+- residual
 - pair
-short: x - beta(x,y) * y - hedge-adjusted residual.
+- pairs trading
+short: Rolling hedge-adjusted residual x - beta * y, with beta the rolling regression slope.
 inputs: 2
 outputs: 1
 parameters:
@@ -16,7 +20,7 @@ parameters:
   type: int
   default: 20
   min: 2
-  description: Window length.
+  description: Number of most recent (x, y) pairs used to estimate the hedge ratio.
 - name: start_policy
   type: str
   default: strict
@@ -24,8 +28,15 @@ parameters:
   - strict
   - expanding
   - zero
-  description: Warmup behaviour.
+  description: 'Output before the window is full: "strict" gives NaN, "expanding" computes
+    from the samples seen so far, and "zero" treats the window as pre-filled with zeros.'
 nan_policy: ignore
+see_also:
+- RollingBeta
+- RollingResidualStd
+- RollingZscore
+- EwSpread
+- RollingTLSBeta
 ---
 
 # `RollingSpread`
@@ -33,8 +44,6 @@ nan_policy: ignore
 ## Description
 
 `RollingSpread` computes the rolling hedge-adjusted residual of `x` against `y`. At each time step it computes the rolling regression slope `β_w[t] = cov(x, y) / var(y)` over the window and returns `x[t] - β_w[t] · y[t]`.
-
-*Equation*:
 
 $$
 \beta_w[t] = \frac{\mathrm{cov}(x, y)}{\mathrm{var}(y)},
@@ -44,20 +53,13 @@ $$
 
 with the sums in `cov` and `var` taken over the most recent `window_size` samples ending at `t`.
 
-*Parameters*:
-
-- **`window_size`** (`int`, ≥ 2): size of the rolling window.
-- **`start_policy`** (`str`, default `"strict"`): controls warmup behavior.
-
-*Input shape*: two parallel streams, identical to [`RollingCorr`](RollingCorr.md).
-
-*Return value*: a real number, the residual. Returns `NaN` during warmup or when `y` has zero variance within the window.
+It takes two parallel streams, like [`RollingCorr`](RollingCorr.md). The output is `NaN` during warmup and when `y` has zero variance within the window.
 
 
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples
@@ -103,13 +105,10 @@ with the sums in `cov` and `var` taken over the most recent `window_size` sample
 
 ## Implementation Details
 
-Same four `detail::RollingSum` buffers as [`RollingBeta`](RollingBeta.md), `O(1)` per step. The spread at each step combines the rolling β with the current `(x, y)` pair.
+It keeps the same four running window sums as [`RollingBeta`](RollingBeta.md). The spread at each step combines the rolling β with the current `(x, y)` pair.
 
 * **Time**: `O(1)` per new element.
 * **Space**: `O(window_size)`.
 * **Reference**: parity with `x - RollingBeta(x, y, w) · y` verified in `tests/test_rolling_two_input.py`.
 
-### Related
-
-- [`RollingBeta`](RollingBeta.md) returns the β alone (no residual).
-- [`RollingZscore`](../functions_rolling/RollingZscore.md) applied to the spread output gives the standard pairs-trading mean-reversion signal.
+[`RollingZscore`](../functions_rolling/RollingZscore.md) applied to the spread gives the usual pairs-trading mean-reversion signal.

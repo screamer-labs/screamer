@@ -8,18 +8,24 @@ tags:
 - positive
 - part
 - relu
+- max(x, 0)
+- positive part
 short: 'Positive part of x: max(x, 0).'
 inputs: 1
 outputs: 1
 parameters: []
 nan_policy: ignore
+see_also:
+- NegPart
+- Relu
+- Abs
 ---
 
 # `PosPart`
 
 ## Description
 
-The `PosPart` class computes the positive part of a value, returning `max(x, 0)`. Together with `NegPart`, it decomposes any real number: `x = PosPart(x) - NegPart(x)`. This is identical to the ReLU activation function and is useful as a building block for signed-quantity aggregations such as buy/sell volume.
+`PosPart` computes the positive part of each element, `max(x, 0)`. Together with `NegPart`, it decomposes any real number: `x = PosPart(x) - NegPart(x)`. It gives the same result as `Relu`. Use the pair to split a signed quantity, such as trade volume, into buy and sell components.
 
 *Equation*:
 
@@ -27,15 +33,10 @@ $$
 f(x) = \max(x, 0)
 $$
 
-*Parameters*: `PosPart` takes no parameters.
-
-*NaN handling*: `NaN` values pass through unchanged.
-
-
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples

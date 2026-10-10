@@ -9,11 +9,19 @@ tags:
 - logic
 - unary
 - nan-aware
+- isfinite
+- missing
+- inf
+- valid mask
 short: Returns 1.0 for finite values, 0.0 for NaN or inf. Does not propagate NaN.
 inputs: 1
 outputs: 1
 parameters: []
 nan_policy: nan-aware
+see_also:
+- IsNan
+- FillNa
+- Where
 ---
 
 # `IsFinite`
@@ -22,9 +30,13 @@ nan_policy: nan-aware
 
 `IsFinite` classifies each input element: outputs `1.0` when the input is a finite number (not NaN and not infinite), and `0.0` for NaN, positive infinity, or negative infinity.
 
-Unlike most screamer functions, `IsFinite` does **not** propagate NaN; it converts NaN into a definite `0.0` flag. Use it to build validity masks that distinguish well-defined observations from missing or overflow values.
+A `NaN` input gives `0.0`, so the output is never `NaN`. Use it to build validity masks that distinguish well-defined observations from missing or overflow values.
 
-*Parameters*: `IsFinite` takes no parameters.
+<!-- NAN_FOOTNOTE_START -->
+## NaN handling
+
+**Policy: `nan-aware`.** This function is built to process `NaN` inputs, as the Description explains. See [NaN and warmup](../nan_and_warmup.md).
+<!-- NAN_FOOTNOTE_END -->
 
 ## Examples
 

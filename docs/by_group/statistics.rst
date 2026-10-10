@@ -42,9 +42,9 @@ Windowed summary statistics: central tendency, dispersion, quantiles, moments, a
    * - :doc:`Expanding variance </functions_expanding/ExpandingVar>`
      - Running sample variance (ddof=1) over the whole history.
    * - :doc:`Rolling argmax </functions_rolling/RollingArgmax>`
-     - Window-offset of the trailing-window maximum (TA-Lib MAXINDEX).
+     - Position of the maximum within the trailing window (0 is the oldest sample).
    * - :doc:`Rolling argmin </functions_rolling/RollingArgmin>`
-     - Window-offset of the trailing-window minimum (TA-Lib MININDEX).
+     - Position of the minimum within the trailing window (0 is the oldest sample).
    * - :doc:`Rolling interquartile range </functions_rolling/RollingIqr>`
      - Q3 minus Q1 over the trailing window.
    * - :doc:`Rolling kurtosis </functions_rolling/RollingKurt>`
@@ -62,9 +62,9 @@ Windowed summary statistics: central tendency, dispersion, quantiles, moments, a
    * - :doc:`Rolling minimum </functions_rolling/RollingMin>`
      - Trailing-window minimum (monotonic deque).
    * - :doc:`Rolling min and max </functions_rolling/RollingMinMax>`
-     - Trailing-window (min, max) returned as a 2-tuple per step.
+     - Trailing-window minimum and maximum, computed in one pass.
    * - :doc:`Rolling percentile </functions_fin/RollingPercentile>`
-     - Percentile (rank/window) of the current value in the trailing window.
+     - Percentile rank (rank / window) of the current value within the trailing window.
    * - :doc:`Rolling quantile </functions_rolling/RollingQuantile>`
      - Trailing-window quantile (e.g. 0.25 = lower quartile).
    * - :doc:`Rolling range </functions_rolling/RollingRange>`
@@ -98,34 +98,34 @@ The size of fluctuations and risk: standard deviation and variance, RMS, range-b
    * - :doc:`Bollinger Bands </functions_rolling/BollingerBands>`
      - Mean +/- num_std rolling standard deviations.
    * - :doc:`EW Garman-Klass variance </functions_ew/EwGarmanKlassVar>`
-     - Var form of the Garman-Klass range-based volatility estimator (OHLC).
+     - Exponentially weighted Garman-Klass range-based variance estimator (OHLC).
    * - :doc:`EW Garman-Klass volatility </functions_ew/EwGarmanKlassVol>`
-     - Vol form of the Garman-Klass range-based volatility estimator (OHLC).
+     - Exponentially weighted Garman-Klass range-based volatility estimator (OHLC).
    * - :doc:`Exponentially-weighted Parkinson variance </functions_ew/EwParkinsonVar>`
-     - Var form of the Parkinson range-based volatility estimator (uses high & low).
+     - Exponentially weighted Parkinson range-based variance estimator (high, low).
    * - :doc:`Exponentially-weighted Parkinson volatility </functions_ew/EwParkinsonVol>`
-     - Vol form of the Parkinson range-based volatility estimator (uses high & low).
+     - Exponentially weighted Parkinson range-based volatility estimator (high, low).
    * - :doc:`Exponentially-weighted RMS </functions_ew/EwRms>`
      - EW root-mean-square.
    * - :doc:`EW Rogers-Satchell variance </functions_ew/EwRogersSatchellVar>`
-     - Var form of the Rogers-Satchell drift-robust range-based estimator.
+     - Exponentially weighted Rogers-Satchell drift-robust range-based variance estimator (OHLC).
    * - :doc:`EW Rogers-Satchell volatility </functions_ew/EwRogersSatchellVol>`
-     - Vol form of the Rogers-Satchell drift-robust range-based estimator.
+     - Exponentially weighted Rogers-Satchell drift-robust range-based volatility estimator (OHLC).
    * - :doc:`Exponentially-weighted standard deviation </functions_ew/EwStd>`
      - EW standard deviation.
    * - :doc:`Exponentially-weighted variance </functions_ew/EwVar>`
      - EW variance (pandas adjust=True bias-corrected).
    * - :doc:`EW Yang-Zhang variance </functions_ew/EwYangZhangVar>`
-     - Var form of the Yang-Zhang range-based estimator, exponentially weighted.
+     - Exponentially weighted Yang-Zhang range-based variance estimator (OHLC).
    * - :doc:`EW Yang-Zhang volatility </functions_ew/EwYangZhangVol>`
-     - Vol form (sqrt) of the EW Yang-Zhang range-based estimator.
+     - Exponentially weighted Yang-Zhang range-based volatility estimator (OHLC).
    * - :doc:`Expanding standard deviation </functions_expanding/ExpandingStd>`
      - Running sample standard deviation (ddof=1) over the whole history.
    * - :doc:`Expanding variance </functions_expanding/ExpandingVar>`
      - Running sample variance (ddof=1) over the whole history.
    * - :doc:`Keltner Channels </functions_rolling/KeltnerChannels>`
      - Volatility-adapted envelope: EMA midline plus/minus a multiple of ATR.
-   * - :doc:`Normalised ATR (NATR) </functions_rolling/NATR>`
+   * - :doc:`Normalized ATR (NATR) </functions_rolling/NATR>`
      - ATR scaled to a percentage of the current close.
    * - :doc:`Rolling Downside Deviation </functions_fin/RollingDownsideDeviation>`
      - Trailing-window downside semideviation: the RMS of returns falling below a minimum acceptable return.
@@ -170,13 +170,13 @@ Put values on a comparable scale: z-scores, affine rescaling, and detrending.
    * - :doc:`Detrend </functions_misc/Detrend>`
      - x[t] minus its rolling mean.
    * - :doc:`Exponentially-weighted z-score </functions_ew/EwZscore>`
-     - Latest sample standardised by EW mean and std.
+     - Latest sample standardized by the EW mean and std.
    * - :doc:`Fractional differentiation (FracDiff) </functions_signal/FracDiff>`
      - Fractional differencing filter. Removes the trend while keeping more of the series' memory than an integer difference.
    * - :doc:`Linear (affine) </functions_math/Linear>`
      - Affine transform: scale * x + shift.
    * - :doc:`Rolling z-score </functions_rolling/RollingZscore>`
-     - Latest sample standardised by trailing-window mean and std.
+     - Latest sample standardized by the trailing-window mean and standard deviation.
 
 Cumulative
 ----------
@@ -202,13 +202,13 @@ Running aggregates from the start of the series.
    * - :doc:`Drawdown </functions_fin/Drawdown>`
      - Running drawdown from the cumulative peak.
    * - :doc:`Expanding maximum </functions_expanding/ExpandingMax>`
-     - Running maximum from t=0.
+     - Running maximum since the start of the stream.
    * - :doc:`Expanding minimum </functions_expanding/ExpandingMin>`
-     - Running minimum from t=0.
+     - Running minimum since the start of the stream.
    * - :doc:`Expanding product </functions_expanding/ExpandingProd>`
-     - Running product from t=0.
+     - Running product since the start of the stream.
    * - :doc:`Expanding sum </functions_expanding/ExpandingSum>`
-     - Running sum from t=0.
+     - Running sum since the start of the stream.
    * - :doc:`First finite value </functions_misc/First>`
      - Latch the first finite value seen since reset.
    * - :doc:`Last finite value </functions_misc/Last>`
@@ -229,8 +229,8 @@ Relationships between series: correlation, covariance, regression, hedging, pair
 
    * - Function
      - Description
-   * - :doc:`Online Bayesian univariate regression (2->4 posterior fit) </functions_fin/BayesianRegression>`
-     - Online exponentially-weighted (forgetting-factor) Bayesian linear regression - current slope and intercept via Normal-Inverse-Gamma posterior plus causal one-step-ahead predictive mean and std.
+   * - :doc:`Online Bayesian regression </functions_fin/BayesianRegression>`
+     - Online Bayesian linear regression with a forgetting factor: the current slope and intercept, and a one-step-ahead predictive mean and standard deviation.
    * - :doc:`Exponentially-weighted alpha </functions_ew/EwAlpha>`
      - EW regression intercept, ewmean(x) - EwBeta(x,y) * ewmean(y).
    * - :doc:`Exponentially-weighted beta </functions_ew/EwBeta>`
@@ -242,17 +242,17 @@ Relationships between series: correlation, covariance, regression, hedging, pair
    * - :doc:`Kyle's Lambda (exponentially weighted) </functions_micro/EwKyleLambda>`
      - Exponentially-weighted price-impact slope of return on signed order flow.
    * - :doc:`Exponentially-weighted residual std </functions_ew/EwResidualStd>`
-     - EW std of the spread x - EwBeta(x,y) * y.
+     - EW std of the spread x - EwBeta(x, y) * y.
    * - :doc:`Exponentially-weighted spread </functions_ew/EwSpread>`
-     - x - EwBeta(x,y) * y - EW hedge-adjusted residual.
+     - EW hedge-adjusted residual x - EwBeta(x, y) * y.
    * - :doc:`Kalman filter regression (dynamic hedge ratio) </functions_fin/KalmanRegression>`
      - Regression with a random-walk intercept and slope, estimated by a Kalman filter: the dynamic hedge ratio of a pairs trade, its spread, and the spread's predicted deviation.
    * - :doc:`Rolling augmented Dickey-Fuller statistic </functions_fin/RollingADF>`
      - Rolling augmented Dickey-Fuller t-statistic: how strongly a series, such as a pairs spread, reverts to a mean over the last window.
    * - :doc:`Rolling alpha (regression intercept) </functions_fin/RollingAlpha>`
-     - Rolling OLS intercept of target on regressor (companion to RollingBeta).
+     - Rolling OLS intercept of a target regressed on a regressor (companion to RollingBeta).
    * - :doc:`Rolling beta </functions_fin/RollingBeta>`
-     - cov(x, y) / var(y) - regression slope of x on y.
+     - Rolling regression slope cov(x, y) / var(y) of the first input x (dependent) on the second input y (regressor).
    * - :doc:`Rolling correlation </functions_fin/RollingCorr>`
      - Rolling Pearson correlation of two parallel streams.
    * - :doc:`Rolling covariance </functions_fin/RollingCov>`
@@ -261,20 +261,20 @@ Relationships between series: correlation, covariance, regression, hedging, pair
      - Rolling-window Hurst exponent via Anis-Lloyd corrected rescaled-range analysis.
    * - :doc:`Kyle's Lambda (rolling) </functions_micro/RollingKyleLambda>`
      - Rolling-window price-impact slope of return on signed order flow (Kyle 1985).
-   * - :doc:`Rolling linear regression (2->4 OLS fit) </functions_fin/RollingLinearRegression>`
-     - Full OLS fit returning (slope, intercept, r_squared, stderr).
+   * - :doc:`Rolling linear regression </functions_fin/RollingLinearRegression>`
+     - Rolling OLS fit of y on x, returning slope, intercept, R-squared and the standard error of the fit.
    * - :doc:`Rolling Ornstein-Uhlenbeck fit </functions_rolling/RollingOU>`
      - Rolling MLE fit of a mean-reverting Ornstein-Uhlenbeck process.
    * - :doc:`Rolling 1st-order polynomial fit </functions_rolling/RollingPoly1>`
      - OLS fit y = a + b*t over a trailing window. derivative_order selects value/slope/zero.
    * - :doc:`Rolling residual std </functions_fin/RollingResidualStd>`
-     - Standard deviation of the rolling-hedge-adjusted residual y - beta*x.
+     - Standard deviation of the rolling hedge-adjusted residual y - beta * x.
    * - :doc:`Rolling spread </functions_fin/RollingSpread>`
-     - x - beta(x,y) * y - hedge-adjusted residual.
+     - Rolling hedge-adjusted residual x - beta * y, with beta the rolling regression slope.
    * - :doc:`Rolling total least squares hedge ratio </functions_fin/RollingTLSBeta>`
      - Rolling total least squares (orthogonal regression) slope of the first input on the second: a hedge ratio that does not depend on which leg is called dependent.
    * - :doc:`Rolling Time-Series Forecast (TSF) </functions_fin/RollingTSF>`
-     - Linear regression of y on time, projected one step ahead. TA-Lib's TSF.
+     - Linear regression of the input on time, projected one step ahead (TA-Lib TSF).
 
 .. toctree::
    :hidden:

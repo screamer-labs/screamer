@@ -10,6 +10,7 @@ tags:
 - cutler
 - momentum
 - oscillator
+- relative strength index
 short: Relative Strength Index. Wilder's smoothing by default; Cutler's via method='cutler'.
 inputs: 1
 outputs: 1
@@ -18,15 +19,16 @@ parameters:
   type: int
   default: 14
   min: 2
-  description: Period. Wilder's original choice is 14.
+  description: Smoothing period of the average up and down moves. Wilder's original choice
+    is 14.
 - name: method
   type: str
   default: wilder
   enum:
   - wilder
   - cutler
-  description: Smoothing convention. 'wilder' matches TA-Lib and pandas-ta; 'cutler'
-    uses a plain SMA.
+  description: 'Smoothing of the up and down moves: "wilder" uses Wilder''s recursive average
+    (matches TA-Lib and pandas-ta), "cutler" uses a simple moving average.'
 - name: start_policy
   type: str
   default: strict
@@ -34,8 +36,16 @@ parameters:
   - strict
   - expanding
   - zero
-  description: Warmup behaviour.
+  description: 'Output before the window is full: "strict" gives NaN, "expanding" computes
+    from the samples seen so far, and "zero" treats the window as pre-filled with zeros.'
 nan_policy: ignore
+see_also:
+- StochRSI
+- MFI
+- Stoch
+- WilliamsR
+references:
+- Wilder, J. W. (1978). *New Concepts in Technical Trading Systems*. Trend Research.
 ---
 
 # `RollingRSI`
@@ -58,25 +68,20 @@ $$
 
 The smoothing depends on `method`:
 
-- `'wilder'` (default) -- Wilder's smoothing
-  $\overline{X}[t] = \overline{X}[t-1] + (X[t] - \overline{X}[t-1]) / w$, with the
-  SMA-of-the-first-`w` seed. Matches `talib.RSI` and `pandas-ta-classic.rsi` bit-exactly
-  post-warmup.
-- `'cutler'` -- plain rolling-mean smoothing. Cutler's variant. Useful if you specifically
-  want the SMA-form (some legacy systems use it). Does **not** match TA-Lib.
+- `'wilder'` (default): Wilder's smoothing
+  $\overline{X}[t] = \overline{X}[t-1] + (X[t] - \overline{X}[t-1]) / w$, seeded with
+  the simple mean of the first `w` values. Matches `talib.RSI` and `pandas-ta-classic.rsi`
+  bit-exactly after warmup.
+- `'cutler'`: Cutler's variant, a plain rolling mean of the last `w` values. It does
+  not match TA-Lib.
 
-## Notes
-
-- First valid output at sample index `window_size`.
-- Output is bounded in `[0, 100]`.
-- The default was changed from 'cutler' to 'wilder' in a recent release to align with
-  TA-Lib and pandas-ta-classic. Pass `method='cutler'` to recover the old behaviour.
+The first valid output is at sample index `window_size`, and the output lies in `[0, 100]`.
 
 
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples

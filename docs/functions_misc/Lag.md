@@ -7,6 +7,8 @@ topics:
 tags:
 - lag
 - delay
+- shift
+- lagged
 short: Output is the input delayed by k samples.
 inputs: 1
 outputs: 1
@@ -15,7 +17,7 @@ parameters:
   type: int
   default: 1
   min: 1
-  description: Number of samples to delay by.
+  description: Number of samples k to delay the input by.
 - name: start_policy
   type: str
   default: strict
@@ -23,9 +25,14 @@ parameters:
   - strict
   - expanding
   - zero
-  description: 'Warmup behaviour: ''strict'' (NaN until full window), ''expanding''
-    (use partial windows), or ''zero'' (treat missing as zero).'
+  description: 'Output before the window is full: "strict" gives NaN, "expanding" computes
+    from the samples seen so far, and "zero" treats the window as pre-filled with zeros.'
 nan_policy: propagate
+see_also:
+- Diff
+- Momentum
+- Hold
+- Delay
 ---
 
 # `Lag`
@@ -40,19 +47,13 @@ $$
 y[i] = x[i - k]
 $$
 
-where `k` is `window_size`.
-
-*Parameters*:
-
-- `window_size` (int): The number of steps by which to shift the input. Must be positive.
-
-*NaN handling*: When `window_size` is larger than the available data at the beginning of the sequence, resulting elements are set to `NaN`.
+where `k` is `window_size`. The first `k` outputs have no `x[t - k]`; `start_policy` decides what they are. Under `"strict"` they are `NaN`, under `"expanding"` they repeat the first sample, and under `"zero"` they are 0.
 
 
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `propagate`.** Input `NaN` values are stored in the lookback. Output is `NaN` at any index where the function's positional formula references a `NaN` input; recovery happens once the `NaN` slides out of the lookback.
+**Policy: `propagate`.** A `NaN` input is stored in the lookback like any other value. The output is `NaN` wherever the formula references it and recovers once it leaves the lookback. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples
@@ -94,4 +95,4 @@ where `k` is `window_size`.
 
 ## Implementation Details
 
-The `Lag` function shifts the input array by `window_size` steps. Internally, it uses an efficient buffer to access elements and insert NaNs as placeholders when necessary.
+`Lag` keeps the last `window_size` samples in a circular buffer and returns the oldest, at O(1) cost per step.

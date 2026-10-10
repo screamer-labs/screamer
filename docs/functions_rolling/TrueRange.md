@@ -4,37 +4,45 @@ title: True Range (Wilder)
 implementation_family: rolling
 topics:
 - volatility
+- volatility-indicators
 tags:
 - wilder
 - true-range
 - tr
 - talib
 - hlc
+- true range
+- TRANGE
 short: Per-bar true range accounting for overnight gaps (Wilder, 1978).
 inputs: 3
 outputs: 1
 parameters: []
 nan_policy: ignore
+see_also:
+- ATR
+- NATR
+- RollingRange
+references:
+- Wilder, J. W. (1978). *New Concepts in Technical Trading Systems*. Trend Research.
 ---
 
 # `TrueRange`
 
 ## Description
 
-The per-bar true-range quantity that accounts for overnight gaps:
+`TrueRange` returns Wilder's per-bar true range, the bar's high-low range extended to include a gap from the previous close:
 
 $$
 \text{TR}[t] = \max\big(\ H - L,\ \ |H - C_{t-1}|,\ \ |L - C_{t-1}|\ \big)
 $$
 
-**3-input, 1-output** on `(high, low, close)`. The first sample returns `NaN` (no previous
-close). Otherwise stateless. Bit-exact to `talib.TRANGE`.
+The inputs are `(high, low, close)`. The first output is `NaN` because there is no previous close; after that, each output depends only on the current bar and the previous close. Bit-exact to `talib.TRANGE`.
 
 
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples

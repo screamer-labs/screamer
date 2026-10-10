@@ -3,6 +3,15 @@ name: Merge
 title: Merge
 kind: class
 short: Merge N value streams into one index-sorted (values, sources, index).
+tags:
+- merge
+- interleave
+- union
+- multiplex
+see_also:
+- split
+- CombineLatest
+- Select
 topics:
 - streams
 covers:
@@ -21,7 +30,7 @@ Feeding `Merge` lazy iterators of `(value, index, source)` events returns a lazy
 iterator (each source is numbered by a per-source arrival counter); feeding
 arrays or `(values, index)` tuples returns the eager `(values, sources, index)` 3-tuple.
 
-## Example
+## Examples
 
 Two streams are merged into one stream ordered by index. `sources` records which
 stream each event came from.

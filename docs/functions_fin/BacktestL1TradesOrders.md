@@ -17,7 +17,11 @@ tags:
 - inventory
 - transaction cost
 - risk
-short: "Backtest a two-sided market maker against top-of-book quotes with a trade tape driving the fills, into a costed equity curve."
+- simulation
+- transaction costs
+- fees
+short: Backtest a two-sided market maker against top-of-book quotes with a trade tape driving
+  the fills, into a costed equity curve.
 inputs: 10
 outputs: 4
 parameters:
@@ -32,7 +36,8 @@ parameters:
 - name: fill
   type: str
   default: touch
-  description: Fill rule for a trade at your price. "touch" fills a participation partial; "breach" fills only on a trade through.
+  description: Fill rule for a trade at your price. "touch" fills a participation partial;
+    "breach" fills only on a trade through.
 - name: participation_ratio
   type: float
   default: 1.0
@@ -43,7 +48,8 @@ parameters:
   type: float
   default: 0.0
   min: 0.0
-  description: Instrument price grid (0 = continuous). A marketable order walks one tick past the displayed quote for the size beyond it; slippage offsets round up to whole ticks.
+  description: Instrument price grid (0 = continuous). A marketable order walks one tick past
+    the displayed quote for the size beyond it; slippage offsets round up to whole ticks.
 - name: max_position
   type: float
   default: .inf
@@ -56,7 +62,8 @@ parameters:
   type: float
   default: 1.0
   min: 0.0
-  description: Contract multiplier applied to mark-to-market PnL, fill slippage, and proportional fees.
+  description: Contract multiplier applied to mark-to-market PnL, fill slippage, and proportional
+    fees.
 - name: maker_fee_per_contract
   type: float
   default: 0.0
@@ -69,25 +76,27 @@ parameters:
   type: float
   default: 0.0
   min: 0.0
-  description: Adverse price offset on every taker (market) fill, read in `slippage_unit`. A buy fills higher and a sell lower; resting limit fills never slip.
+  description: Adverse price offset on every taker (market) fill, read in `slippage_unit`.
+    A buy fills higher and a sell lower; resting limit fills never slip.
 - name: slippage_unit
   type: str
   default: fraction
-  description: 'Unit of `slippage`: "fraction" of the reference price (5 bps = 5e-4), "ticks" of `tick_size`, or "price" (an absolute amount).'
+  description: 'Unit of `slippage`: "fraction" of the reference price (5 bps = 5e-4), "ticks"
+    of `tick_size`, or "price" (an absolute amount).'
 nan_policy: ignore
 see_also:
 - BacktestL1Orders
 - BacktestTradesOrders
 - BacktestOHLCTarget
 - backtest_report
+output_names:
+- equity
+- pnl
+- position
+- cost
 ---
 
 # `BacktestL1TradesOrders`
-
-The accounting parameters are generic across the backtest family. `multiplier`
-converts a price move into currency per contract; the fixed per-contract fee is
-then added to the existing proportional fee. Both fixed fees may be negative for
-rebates, and all defaults preserve the previous behavior.
 
 ## Description
 
@@ -98,8 +107,8 @@ than inferred from quote-size changes. Each event carries the strategy's own quo
 `(market_bid, market_ask, market_bid_size, market_ask_size)`, and a print
 `(trade_price, trade_size)` (align the three streams with `combine_latest` upstream).
 
-Quotes mark the position (to the mid) and seed context; **trades drive the
-fills**. A sell-print through `bid_price` fills the full remaining, a sell-print at
+Quotes mark the position (to the mid) and seed context; trades drive the
+fills. A sell-print through `bid_price` fills the full remaining, a sell-print at
 `bid_price` fills `min(remaining, participation_ratio * trade_size)`, both maker
 fills at `bid_price` paying `maker_fee`. A market quote that crosses your resting
 price with no explaining trade is the run-over fallback (a full maker fill), and a
@@ -107,9 +116,9 @@ quote submitted already crossing the spread is a taker (fills at the market, wal
 `tick_size` for the overflow, paying `taker_fee`). The sell side is symmetric.
 Fills are capped to `[min_position, max_position]`.
 
-Input contract: quotes are as-of state (forward-fill them upstream); **trades are
-not forward-filled**. A `NaN` trade is a quote-only update (mark, no fill), which
-is `nan_policy: ignore`, so each real trade appears on exactly one row and fills at
+Input contract: quotes are as-of state (forward-fill them upstream); trades are
+not forward-filled. A `NaN` trade is a quote-only update (mark, no fill), so each
+real trade appears on exactly one row and fills at
 most once. There is no double-counting and no fill-versus-cancel ambiguity.
 
 Inputs are `(bid_price, bid_size, ask_price, ask_size, market_bid, market_ask,
@@ -127,6 +136,13 @@ Queue position is not tracked from order identity (that needs an L3 / market-by-
 feed), so at-price fills use `participation_ratio` as a front-of-queue proxy.
 Orders are counterfactual (zero volume, no market impact); a marketable order fills
 beyond the displayed size only under the `tick_size` slippage assumption.
+
+
+<!-- NAN_FOOTNOTE_START -->
+## NaN handling
+
+**Policy: `ignore`.** A `NaN` input never corrupts the engine's state. What a `NaN` target, price or quote does on this engine is stated in the Description. See [NaN and warmup](../nan_and_warmup.md).
+<!-- NAN_FOOTNOTE_END -->
 
 ## Examples
 

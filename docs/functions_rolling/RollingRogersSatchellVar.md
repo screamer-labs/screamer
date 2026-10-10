@@ -11,6 +11,8 @@ tags:
 - drift-robust
 - var
 - rolling
+- realized volatility
+- variance
 short: Var form of the Rogers-Satchell drift-robust range-based estimator.
 inputs: 4
 outputs: 1
@@ -19,8 +21,17 @@ parameters:
   type: int
   default: 20
   min: 2
-  description: Smoothing window.
+  description: Number of most recent bars over which the per-bar estimate is averaged.
 nan_policy: ignore
+see_also:
+- RollingRogersSatchellVol
+- EwRogersSatchellVar
+- RollingGarmanKlassVar
+- RollingYangZhangVar
+- RollingParkinsonVar
+references:
+- Rogers, L. C. G. and Satchell, S. E. (1991). Estimating variance from high, low and closing
+  prices. *Annals of Applied Probability*, 1(4), 504-512. doi:10.1214/aoap/1177005835
 ---
 
 # `RollingRogersSatchellVar`
@@ -33,18 +44,15 @@ $$
 \sigma^2_\text{RS}[t] = \ln\tfrac{H}{C}\ \ln\tfrac{H}{O} + \ln\tfrac{L}{C}\ \ln\tfrac{L}{O}
 $$
 
-This expression is averaged with a rolling mean over `window_size` bars to form the estimator. The `Vol`
-variant returns `sqrt(Var)` (bit-exact via the same internal state).
+This expression is averaged with a rolling mean over `window_size` bars to form the estimator. `RollingRogersSatchellVol` returns the square root of `RollingRogersSatchellVar`.
 
-**4-input, 1-output** on `(open, high, low, close)`. Slightly less efficient (~6x vs
-close-to-close) than Garman-Klass but **drift-robust** - works correctly when the underlying
-drift is non-zero, a much more realistic assumption for trending markets.
+The inputs are `(open, high, low, close)`. The estimator is about 6 times as efficient as close-to-close, slightly less than Garman-Klass, and unlike Garman-Klass it stays unbiased when the price has a non-zero drift, as in trending markets.
 
 
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples

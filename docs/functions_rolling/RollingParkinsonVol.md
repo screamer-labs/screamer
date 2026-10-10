@@ -10,6 +10,9 @@ tags:
 - hl
 - vol
 - rolling
+- realized volatility
+- high-low volatility
+- volatility
 short: Vol form of the Parkinson range-based volatility estimator (uses high & low).
 inputs: 2
 outputs: 1
@@ -18,8 +21,17 @@ parameters:
   type: int
   default: 20
   min: 2
-  description: Smoothing window for the per-bar estimator.
+  description: Number of most recent bars over which the per-bar estimate is averaged.
 nan_policy: ignore
+see_also:
+- RollingParkinsonVar
+- EwParkinsonVol
+- RollingGarmanKlassVol
+- RollingRogersSatchellVol
+- RollingYangZhangVol
+references:
+- Parkinson, M. (1980). The extreme value method for estimating the variance of the rate of
+  return. *Journal of Business*, 53(1), 61-65. doi:10.1086/296071
 ---
 
 # `RollingParkinsonVol`
@@ -32,17 +44,15 @@ $$
 \sigma^2_\text{Parkinson}[t] = \frac{1}{4 \ln 2}\ \big(\ln H/L\big)^2
 $$
 
-This expression is then averaged with a rolling mean over `window_size` bars to form the estimator. The
-`Vol` variant returns `sqrt(Var)`; the two are bit-exact via the same internal state.
+This expression is averaged with a rolling mean over `window_size` bars to form the estimator. `RollingParkinsonVol` returns the square root of `RollingParkinsonVar`.
 
-**2-input, 1-output** on `(high, low)`. ~5x more statistically efficient than
-close-to-close `RollingStd` *under the model's assumptions* (zero drift, no overnight gaps).
+The inputs are `(high, low)`. Under the model's assumptions (zero drift, no overnight gaps) the estimator is about 5 times as efficient as the close-to-close `RollingStd`.
 
 
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples

@@ -6,30 +6,36 @@ topics:
 - missing-data
 tags:
 - nan
+- missing data
 - fill
 - ffill
-short: Replace NaN with the most recent finite value.
+- forward fill
+- pad
+- last observation carried forward
+- locf
+short: Replace NaN with the most recent non-NaN value.
 inputs: 1
 outputs: 1
 parameters: []
 nan_policy: nan-aware
+see_also:
+- FillNa
+- Hold
+- Lag
 ---
 
 # `Ffill`
 
 ## Description
 
-The `Ffill` class performs forward filling on a sequence of data, replacing any `NaN` values with the most recent non-`NaN` value.
-
-*Parameters*: `Ffill` takes no parameters; it simply operates over a data sequence and forward fills any `NaN` values encountered.
-
-*NaN handling*: If a `NaN` appears at the start of the data sequence, it will remain as `NaN` because no preceding value exists to carry forward.
-
+`Ffill` replaces each `NaN` with the most recent non-`NaN` value (forward fill),
+like pandas `ffill()`. Values before the first non-`NaN` sample stay `NaN`,
+because there is nothing to carry forward yet.
 
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `nan-aware`.** This function is designed to consume `NaN` inputs; see the description above for its specific behavior.
+**Policy: `nan-aware`.** This function is built to process `NaN` inputs, as the Description explains. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples

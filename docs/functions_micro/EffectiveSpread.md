@@ -6,11 +6,13 @@ topics:
 - price-impact
 tags:
 - effective spread
+- bid-ask spread
 - transaction cost
+- trading cost
 - spread
 - liquidity
 - microstructure
-short: "Effective spread, 2*|price - mid|: the round-trip cost paid relative to the mid."
+short: 'Effective spread, 2*|price - mid|: the round-trip cost paid relative to the mid.'
 inputs: 2
 outputs: 1
 parameters: []
@@ -18,6 +20,7 @@ nan_policy: ignore
 see_also:
 - RealizedSpread
 - RollSpread
+- MicroPrice
 ---
 
 # `EffectiveSpread`
@@ -25,16 +28,22 @@ see_also:
 ## Description
 
 `EffectiveSpread` is twice the absolute distance of the trade price from the
-mid-quote at trade time,
+mid-quote at trade time. The inputs are `price` and `mid`, in that order:
 
     effective = 2 * |price - mid|.
 
-It is the round-trip cost actually paid relative to the mid: a buy lifts the
-offer and a sell hits the bid, so the print sits away from the mid by about half
-the spread. Unlike the quoted spread it reflects where trades really occur,
-including price improvement and trading through the quote. Pair it with
+It is the round-trip cost paid relative to the mid: a buy lifts the offer and a
+sell hits the bid, so the print sits away from the mid by about half the spread.
+Unlike the quoted spread, it reflects where trades execute, including price
+improvement and trading through the quote. Pair it with
 [`RealizedSpread`](RealizedSpread.md) to split that cost into a realized
 (liquidity) part and a price-impact (adverse-selection) part.
+
+<!-- NAN_FOOTNOTE_START -->
+## NaN handling
+
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).
+<!-- NAN_FOOTNOTE_END -->
 
 ## Examples
 

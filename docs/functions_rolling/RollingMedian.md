@@ -8,6 +8,8 @@ topics:
 tags:
 - median
 - rolling
+- rolling median
+- robust
 short: Trailing-window median.
 inputs: 1
 outputs: 1
@@ -16,21 +18,26 @@ parameters:
   type: int
   default: 20
   min: 2
-  description: Trailing-window length.
+  description: Number of most recent samples in the window.
 nan_policy: ignore
+see_also:
+- RollingQuantile
+- RollingMedianAD
+- RollingMean
+- Hampel
 ---
 
 # `RollingMedian`
 
 ## Description
 
-`RollingMedian` computes the median of the `window_size` most recent values. The window is maintained in two balanced `std::multiset` halves (lower and upper), allowing O(log window_size) insert and delete per step.
+`RollingMedian` computes the median of the `window_size` most recent values. The window is kept as two balanced sorted halves, so each step costs O(log window_size).
 
 
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples
@@ -75,7 +82,7 @@ nan_policy: ignore
 
 ### Algorithm
 
-`RollingMedian` implements a two-heap algorithm using a max-heap (`low`) for the lower half of values and a min-heap (`high`) for the upper half, allowing for efficient median calculation over a sliding window. When a new value is added, it is inserted into the appropriate heap based on its value relative to the current median. After insertion, the algorithm rebalances the heaps to ensure that the difference in their sizes is at most one. This setup enables quick median retrieval: if the heaps are equal in size, the median is the average of the largest value in `low` and the smallest in `high`; if they differ, the median is the top of `low`.
+`RollingMedian` keeps the lower half of the window in one sorted container (`low`) and the upper half in another (`high`). When a new value is added, it is inserted into the appropriate heap based on its value relative to the current median. After insertion, the algorithm rebalances the heaps to ensure that the difference in their sizes is at most one. This setup enables quick median retrieval: if the heaps are equal in size, the median is the average of the largest value in `low` and the smallest in `high`; if they differ, the median is the top of `low`.
 
 ### Complexity
 
@@ -83,7 +90,4 @@ nan_policy: ignore
 * **Space Complexity**: `O(window_size)`, as only elements within the current window are stored.
 
 
-### Performance
-
-* Short streams (n=1.000): 150% faster than `Pandas Rolling median`
-* Longer streams (n=1.000.000): 50% faster than `Pandas Rolling median`
+For timings see [Performance](../performance.md).

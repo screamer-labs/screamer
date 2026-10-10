@@ -5,12 +5,15 @@ implementation_family: micro
 topics:
 - price-impact
 tags:
-- spread
-- roll
+- roll spread
+- roll measure
+- bid-ask spread
 - effective spread
+- bid-ask bounce
 - liquidity
 - microstructure
-short: "Roll (1984) effective spread from trade prices alone: 2*sqrt(-cov(dP_t, dP_{t-1})) over a trailing window."
+short: 'Roll (1984) effective spread from trade prices alone: 2*sqrt(-cov(dP_t, dP_{t-1}))
+  over a trailing window.'
 inputs: 1
 outputs: 1
 parameters:
@@ -18,7 +21,7 @@ parameters:
   type: int
   default: 20
   min: 2
-  description: Window length in observations.
+  description: Number of consecutive price-change pairs in the trailing covariance window.
 - name: start_policy
   type: str
   default: strict
@@ -26,11 +29,17 @@ parameters:
   - strict
   - expanding
   - zero
-  description: Warmup behaviour.
+  description: 'Output before the window is full: "strict" gives NaN, "expanding" computes
+    from the samples seen so far, and "zero" treats the window as pre-filled with zeros.'
 nan_policy: ignore
 see_also:
+- EffectiveSpread
+- RealizedSpread
+- AmihudIlliquidity
 - RollingCov
-- RollingSpread
+references:
+- Roll, R. (1984). A simple implicit measure of the effective bid-ask spread in an efficient
+  market. *Journal of Finance*, 39(4), 1127-1139.
 ---
 
 # `RollSpread`
@@ -39,42 +48,25 @@ see_also:
 
 Roll (1984) showed that in a market with a fixed bid-ask spread, the serial
 covariance of consecutive price changes is negative and equal to minus the
-square of the half-spread. The effective spread can therefore be estimated
-from trade prices alone, without a quote feed:
+square of the half-spread. The effective spread can therefore be estimated from
+trade prices alone, without a quote feed:
 
-`2 * sqrt(-cov(dP_t, dP_{t-1}))`
+    spread = 2 * sqrt(-cov(dP_t, dP_{t-1}))
 
-where `dP_t = P_t - P_{t-1}` is the price change and the covariance is
-computed over a trailing window.
+where `dP_t = P_t - P_{t-1}` is the price change and the covariance of each
+price change with the previous one is the sample covariance over a trailing
+window of `window_size` pairs.
 
-`RollSpread(window_size, start_policy)(price)` computes this estimate at
-each time step. When the serial covariance is non-negative (no bid-ask
-bounce detected, or a trending period), the estimate is undefined and
-the output is `NaN`.
+`RollSpread(window_size, start_policy)(price)` returns this estimate at each
+step. When the serial covariance is zero or positive (no bid-ask bounce, for
+example in a trending period), the estimate is undefined and the output is
+`NaN`.
 
-Internally the operator:
+<!-- NAN_FOOTNOTE_START -->
+## NaN handling
 
-- forms consecutive price changes `dP_t = price_t - price_{t-1}`;
-- pairs each `dP_t` with its one-step lag `dP_{t-1}`;
-- maintains a rolling sample covariance of that pair over the window (three
-  running sums, O(1) per step).
-
-The operator is causal and honors `nan_policy: ignore`.
-
-*Parameters*:
-
-- **`window_size`** (`int`, >= 2): number of observations in the trailing
-  covariance window.
-- **`start_policy`** (`str`, default `"strict"`): controls warmup behavior.
-  `"strict"` emits `NaN` until the window is full. `"expanding"` uses however
-  many observations are available. `"zero"` fills the warmup period with zero.
-
-*Return value*: the Roll effective spread estimate at each time step. `NaN`
-during warmup (under `strict`) or whenever the trailing serial covariance
-is non-negative.
-
-**Reference**: Roll, R. (1984). "A Simple Implicit Measure of the Effective
-Bid-Ask Spread in an Efficient Market." *Journal of Finance*, 39(4), 1127-1139.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).
+<!-- NAN_FOOTNOTE_END -->
 
 ## Examples
 

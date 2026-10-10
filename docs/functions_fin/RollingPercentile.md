@@ -6,9 +6,11 @@ topics:
 - statistics
 tags:
 - percentile
+- percentile rank
 - position
 - pandas
-short: Percentile (rank/window) of the current value in the trailing window.
+- rank pct
+short: Percentile rank (rank / window) of the current value within the trailing window.
 inputs: 1
 outputs: 1
 parameters:
@@ -16,30 +18,32 @@ parameters:
   type: int
   default: 20
   min: 2
-  description: Trailing-window length.
+  description: Number of most recent values the current value is ranked against.
 nan_policy: ignore
+see_also:
+- RollingRank
+- RollingQuantile
+- RollingZscore
+- CrossRank
 ---
 
 # `RollingPercentile`
 
 ## Description
 
-Percentile position of the current value within the trailing window:
+`RollingPercentile` is the percentile position of the current value within the trailing window:
 
 $$
 \text{percentile}[t] = \text{rank}[t] / w
 $$
 
-with the same "average" tie rule as `RollingRank`. Returns values in `[1/w, 1]`. Bit-exact
-to `pandas.Series.rolling(w).rank(pct=True)`.
-
-1→1. O(W) per step.
+with the same "average" tie rule as [`RollingRank`](RollingRank.md). The output lies in `[1/w, 1]` and matches `pandas.Series.rolling(w).rank(pct=True)`. Each step costs O(window_size).
 
 
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples

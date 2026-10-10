@@ -11,7 +11,10 @@ tags:
 - semideviation
 - sortino
 - risk
-short: "Trailing-window downside semideviation: the RMS of returns falling below a minimum acceptable return."
+- semivariance
+- downside volatility
+short: 'Trailing-window downside semideviation: the RMS of returns falling below a minimum
+  acceptable return.'
 inputs: 1
 outputs: 1
 parameters:
@@ -19,11 +22,11 @@ parameters:
   type: int
   default: 20
   min: 2
-  description: Window length in observations.
+  description: Number of most recent returns in the window.
 - name: mar
   type: float
   default: 0.0
-  description: Minimum acceptable return; only returns below it contribute.
+  description: Minimum acceptable return. Only returns below it contribute to the deviation.
 - name: start_policy
   type: str
   default: strict
@@ -31,11 +34,14 @@ parameters:
   - strict
   - expanding
   - zero
-  description: Warmup behaviour.
+  description: 'Output before the window is full: "strict" gives NaN, "expanding" computes
+    from the samples seen so far, and "zero" treats the window as pre-filled with zeros.'
 nan_policy: ignore
 see_also:
 - RollingSortino
 - RollingStd
+- RollingCVaR
+- RollingOmega
 ---
 
 # `RollingDownsideDeviation`
@@ -47,9 +53,15 @@ the root-mean-square of the shortfalls below a minimum acceptable return `mar`,
 
     sqrt( mean( min(return - mar, 0)^2 ) ).
 
-Only returns below `mar` contribute; anything at or above it counts as zero. It is
-the standard deviation of returns below `mar`, and equals the denominator of the Sortino ratio. A `NaN`
-return leaves the window untouched and yields `NaN` (`nan_policy: ignore`).
+Only returns below `mar` contribute; anything at or above it counts as zero. This is
+the denominator of the Sortino ratio.
+
+
+<!-- NAN_FOOTNOTE_START -->
+## NaN handling
+
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).
+<!-- NAN_FOOTNOTE_END -->
 
 ## Examples
 

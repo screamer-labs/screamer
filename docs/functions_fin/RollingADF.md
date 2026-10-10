@@ -4,6 +4,7 @@ title: Rolling augmented Dickey-Fuller statistic
 implementation_family: fin
 topics:
 - regression
+- pairs
 tags:
 - adf
 - dickey-fuller
@@ -12,7 +13,11 @@ tags:
 - stationarity
 - pairs
 - mean reversion
-short: "Rolling augmented Dickey-Fuller t-statistic: how strongly a series, such as a pairs spread, reverts to a mean over the last window."
+- adf test
+- engle-granger
+- unit root test
+short: 'Rolling augmented Dickey-Fuller t-statistic: how strongly a series, such as a pairs
+  spread, reverts to a mean over the last window.'
 inputs: 1
 outputs: 1
 parameters:
@@ -20,18 +25,29 @@ parameters:
   type: int
   default: 100
   min: 4
-  description: Number of regression rows in the window. At least lags + 4.
+  description: Number of regression rows in the window. Must be at least lags + 4.
 - name: lags
   type: int
   default: 1
   min: 0
-  description: Number of lagged differences in the regression (the augmentation). 0 is the plain Dickey-Fuller test.
+  description: Number of lagged differences in the regression (the augmentation). 0 is the
+    plain Dickey-Fuller test.
 nan_policy: ignore
 see_also:
 - RollingOU
 - RollingHurst
 - KalmanRegression
 - RollingSpread
+references:
+- Dickey, D. A. and Fuller, W. A. (1979). Distribution of the estimators for autoregressive
+  time series with a unit root. *Journal of the American Statistical Association*, 74(366),
+  427-431. doi:10.1080/01621459.1979.10482531
+- Said, S. E. and Dickey, D. A. (1984). Testing for unit roots in autoregressive-moving average
+  models of unknown order. *Biometrika*, 71(3), 599-607. doi:10.1093/biomet/71.3.599
+- 'Engle, R. F. and Granger, C. W. J. (1987). Co-integration and error correction: representation,
+  estimation, and testing. *Econometrica*, 55(2), 251-276. doi:10.2307/1913236'
+- MacKinnon, J. G. (2010). Critical values for cointegration tests. *Queen's Economics Department
+  Working Paper* No. 1227, Queen's University.
 ---
 
 # `RollingADF`
@@ -68,7 +84,7 @@ data. Short windows have more negative critical values. The first row needs
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-A `NaN` input skips the step: the output is `NaN` and the window is unchanged.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples

@@ -2,9 +2,19 @@
 name: segment_shuffle
 title: segment_shuffle
 kind: function
-short: Copies of a series with its runs of equal value in random order, for randomization tests.
+short: Copies of a series with its runs of equal value in random order, for randomization
+  tests.
+tags:
+- shuffle
+- runs
+- randomization test
+- monte carlo
+see_also:
+- position_test
+- circular_shift
+- permute_returns
 topics:
-- backtesting
+- significance
 ---
 
 # `segment_shuffle`
@@ -30,7 +40,7 @@ columns on every platform. [`position_test`](position_test.md) uses it with
 
 `segment_shuffle(x, n, seed=0)`
 
-## Example
+## Examples
 
 ```{eval-rst}
 .. exec_code::

@@ -8,28 +8,42 @@ tags:
 - ew
 - spread
 - hedge
+- hedge ratio
 - pair
-short: x - EwBeta(x,y) * y - EW hedge-adjusted residual.
+- pairs trading
+- residual
+- mean reversion
+short: EW hedge-adjusted residual x - EwBeta(x, y) * y.
 inputs: 2
 outputs: 1
 parameters:
 - name: com
   type: float
   default: null
-  description: Center of mass (alpha = 1 / (1 + com)). Exclusive with span/halflife/alpha.
+  description: Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly
+    one of com, span, halflife and alpha.
 - name: span
   type: float
   default: 20.0
-  description: Span (alpha = 2 / (span + 1)). Default smoothing parameter. Exclusive
-    with com/halflife/alpha.
+  description: Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give
+    exactly one of com, span, halflife and alpha. The default shown is an example value; the
+    constructor has no default.
 - name: halflife
   type: float
   default: null
-  description: Halflife (alpha = 1 - 0.5^(1/halflife)). Exclusive with com/span/alpha.
+  description: Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive.
+    Give exactly one of com, span, halflife and alpha.
 - name: alpha
   type: float
   default: null
-  description: Smoothing parameter directly. Exclusive with com/span/halflife.
+  description: Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more
+    weight. Give exactly one of com, span, halflife and alpha.
+see_also:
+- EwBeta
+- EwResidualStd
+- EwZscore
+- RollingSpread
+- KalmanRegression
 nan_policy: ignore
 ---
 
@@ -37,40 +51,22 @@ nan_policy: ignore
 
 ## Description
 
-`EwSpread` is the exponentially weighted hedge-adjusted residual of `x` against `y`, the EW analog of [`RollingSpread`](../functions_fin/RollingSpread.md). At each step it takes the EW regression slope `beta_ew = EwBeta(x, y)` and returns `x[t] - beta_ew[t] * y[t]`.
+`EwSpread` computes the hedge-adjusted residual of the first input `x` against the second input `y`, using the exponentially weighted hedge ratio. It is the exponentially weighted counterpart of [`RollingSpread`](../functions_fin/RollingSpread.md). At each step it takes the slope $\beta_{ew}[t]$ = `EwBeta(x, y)` and returns:
 
 $$
-\beta_{ew}[t] = \frac{\operatorname{Cov}_{ew}(x, y)}{\operatorname{Var}_{ew}(y)},
+\text{spread}[t] = x[t] - \beta_{ew}[t]\, y[t],
 \qquad
-\text{spread}[t] = x[t] - \beta_{ew}[t]\, y[t]
+\beta_{ew}[t] = \frac{\operatorname{Cov}_{ew}(x, y)}{\operatorname{Var}_{ew}(y)}
 $$
 
-This is a **2-input, 1-output** function (`FunctorBase<_, 2, 1>`).
+The first argument is the target and the second is the hedge instrument, as in [`EwBeta`](EwBeta.md). `EwSpread(price_a, price_b)` measures how far `a` is from its hedge against `b`, the input to a pairs-trading mean-reversion signal. To turn it into such a signal, apply [`EwZscore`](EwZscore.md) to the spread, or divide by [`EwResidualStd`](EwResidualStd.md). The smoothing factor `alpha` is set by exactly one of `com`, `span`, `halflife` or `alpha`.
 
-## Argument-order convention
-
-The **first argument is the target**, the **second is the hedge/regressor**, matching [`EwBeta`](EwBeta.md) and `RollingSpread`. `EwSpread(price_a, price_b)` measures the deviation of `a` from its exponentially weighted hedge against `b`, the building block for pairs-trading mean reversion.
-
-## Parameters
-
-Specify exactly one of the following to set the smoothing factor `alpha`:
-
-- **`com`**: Center of mass. `alpha = 1 / (1 + com)`
-- **`span`**: Span. `alpha = 2 / (span + 1)`
-- **`halflife`**: Half-life. `alpha = 1 - exp(-log(2) / halflife)`
-- **`alpha`**: Directly sets the smoothing factor, `0 < alpha < 1`
-
-The output is `NaN` while `EwBeta` is undefined, that is when the regressor has zero variance over the effective window.
-
-## Identity check
-
-By definition `EwSpread(x, y) == x - EwBeta(x, y) * y`, verified to ~1e-12 in the test suite.
-
+The output is `NaN` while `EwBeta` is undefined, that is when `y` is constant over the effective window, which includes the first sample.
 
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples
@@ -112,9 +108,3 @@ By definition `EwSpread(x, y) == x - EwBeta(x, y) * y`, verified to ~1e-12 in th
 ```
 
 <!-- HELP_END -->
-
-## Reference
-
-Composes [`EwBeta`](EwBeta.md); `O(1)` per step. The EW counterpart of the rolling
-`x - RollingBeta(x, y) * y`. Apply [`EwZscore`](EwZscore.md) to the spread for a
-standard mean-reversion signal, or normalise with [`EwResidualStd`](EwResidualStd.md).

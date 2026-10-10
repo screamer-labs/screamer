@@ -4,13 +4,16 @@ title: Rolling total least squares hedge ratio
 implementation_family: fin
 topics:
 - regression
+- pairs
 tags:
 - total least squares
 - orthogonal regression
 - hedge ratio
 - pairs
 - beta
-short: "Rolling total least squares (orthogonal regression) slope of the first input on the second: a hedge ratio that does not depend on which leg is called dependent."
+- deming regression
+short: 'Rolling total least squares (orthogonal regression) slope of the first input on the
+  second: a hedge ratio that does not depend on which leg is called dependent.'
 inputs: 2
 outputs: 1
 parameters:
@@ -18,7 +21,7 @@ parameters:
   type: int
   default: 20
   min: 2
-  description: Window length.
+  description: Number of most recent (a, b) pairs in the regression window.
 - name: start_policy
   type: str
   default: strict
@@ -26,12 +29,14 @@ parameters:
   - strict
   - expanding
   - zero
-  description: Warmup behavior. "strict" returns NaN until the window is full, "expanding" uses the samples seen so far, "zero" treats the window as pre-filled with zeros.
+  description: 'Output before the window is full: "strict" gives NaN, "expanding" computes
+    from the samples seen so far, and "zero" treats the window as pre-filled with zeros.'
 nan_policy: ignore
 see_also:
 - RollingBeta
 - KalmanRegression
 - RollingSpread
+- RollingCorr
 ---
 
 # `RollingTLSBeta`
@@ -57,7 +62,7 @@ such as log prices. The result is `NaN` when the window has no linear relation
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-A `NaN` in either input skips the step: the output is `NaN` and the window is unchanged.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples

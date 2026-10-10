@@ -7,6 +7,8 @@ topics:
 tags:
 - drawdown
 - max-drawdown
+- max drawdown
+- mdd
 - rolling
 short: Worst peak-to-trough drawdown inside a trailing window.
 inputs: 1
@@ -16,32 +18,29 @@ parameters:
   type: int
   default: 252
   min: 2
-  description: Trailing-window length (252 = one trading year, default).
+  description: Number of most recent prices searched for the worst peak-to-trough loss (252
+    is one trading year of daily data).
 nan_policy: ignore
+see_also:
+- MaxDrawdown
+- Drawdown
+- RollingCalmar
+- RollingMax
 ---
 
 # `RollingMaxDrawdown`
 
 ## Description
 
-The worst peak-to-trough loss observed inside the last `window_size` bars. Different from
-`MaxDrawdown` (which is the worst loss EVER since reset).
+`RollingMaxDrawdown` is the worst peak-to-trough loss, as a negative fraction, among the last `window_size` prices. Both the peak and the trough must lie inside the window. [`MaxDrawdown`](MaxDrawdown.md) is the worst loss since the start of the stream.
 
-## Implementation
-
-Maintains a circular buffer of the last `w` prices and, on each step, sweeps the buffer
-tracking a within-window running peak and the worst drawdown from that peak. **O(window_size)
-per step** -- there is no cheap amortised algorithm for the standard definition because the
-in-window peak can sit anywhere in the window.
-
-If you want the cheaper "current drawdown vs. rolling-window peak" approximation, compose it
-directly:
+Each step scans the window, so the cost is O(window_size) per step. The in-window peak can sit anywhere in the window, which rules out a cheaper update.
 
 
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples

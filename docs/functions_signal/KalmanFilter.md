@@ -5,10 +5,14 @@ implementation_family: signal
 topics:
 - smoothing
 - filtering
+- supervised
 tags:
 - kalman
 - state-space
 - adaptive
+- state space
+- kalman filter
+- adaptive smoother
 short: Scalar 1-D Kalman filter for a noisy random-walk model.
 inputs: 1
 outputs: 1
@@ -17,30 +21,38 @@ parameters:
   type: float
   default: 0.01
   min: 0.0
-  description: Variance of the random-walk innovation (larger = more responsive).
+  description: Variance of the random-walk innovation. Larger values make the
+    filter follow new measurements more closely, with a noisier output.
 - name: observation_var
   type: float
   default: 1.0
   min: 0.0
-  description: Variance of the measurement noise.
+  description: Variance of the measurement noise. Must be positive.
 - name: initial_state
   type: float
   default: 0.0
-  description: Initial state estimate.
+  description: Starting state estimate x_0, used before the first observation.
 - name: initial_variance
   type: float
   default: 1.0
   min: 0.0
-  description: Initial state variance. Set to a large value to forget the initial
-    state quickly.
+  description: Variance P_0 of the starting state. A large value such as 1e9 makes
+    the filter forget the initial state quickly.
 nan_policy: ignore
+see_also:
+- KalmanRegression
+- EwMean
+- SuperSmoother
+references:
+- Kalman, R. E. (1960). A new approach to linear filtering and prediction problems. *Journal
+  of Basic Engineering*, 82(1), 35-45. doi:10.1115/1.3662552
 ---
 
 # `KalmanFilter`
 
 ## Description
 
-Scalar 1-D Kalman filter for the classic "noisy random walk" model: state and observation are scalars with unit transition/observation matrices. Useful as an adaptive smoother whose responsiveness is governed by the ratio of process to observation noise.
+Scalar 1-D Kalman filter for the "noisy random walk" model: state and observation are scalars with unit transition and observation matrices. It works as an adaptive smoother whose responsiveness is set by the ratio of process to observation noise.
 
 $$
 \begin{aligned}
@@ -53,13 +65,6 @@ $$
 
 In the steady state $K$ converges to a constant determined by $\sigma^2_p / \sigma^2_o$, at which point the filter behaves like an exponential smoother with that effective $\alpha$.
 
-## Parameters
-
-- `process_var` ($\ge 0$): variance of the random-walk innovations. Larger values make the filter trust new measurements more (responsive but noisier).
-- `observation_var` ($> 0$): variance of the measurement noise.
-- `initial_state` (default `0.0`): seed for $x_0$.
-- `initial_variance` (default `1.0`): seed for $P_0$. Pass a large value (e.g. `1e9`) to make the filter forget the initial state quickly.
-
 ## Implementation Details
 
 Constant-time O(1) per step; no buffer, two scalar state variables (`x`, `P`).
@@ -68,7 +73,7 @@ Constant-time O(1) per step; no buffer, two scalar state variables (`x`, `P`).
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples
@@ -114,7 +119,3 @@ Constant-time O(1) per step; no buffer, two scalar state variables (`x`, `P`).
 ```
 
 <!-- HELP_END -->
-
-## Reference
-
-Validated in `tests/test_signal.py` against the limiting cases (extreme noise ratios) plus a steady-state convergence test (zero process variance + constant input). No canonical third-party reference for a scalar Kalman filter with this exact API.

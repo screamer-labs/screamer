@@ -7,11 +7,17 @@ topics:
 tags:
 - logic
 - binary
+- logical and
+- boolean
 short: Returns 1.0 if both inputs are nonzero, else 0.0. NaN in either input yields NaN.
 inputs: 2
 outputs: 1
 parameters: []
 nan_policy: ignore
+see_also:
+- Or
+- Not
+- Where
 ---
 
 # `And`
@@ -20,9 +26,11 @@ nan_policy: ignore
 
 `And` applies a logical AND to two aligned input streams: outputs `1.0` when both inputs are nonzero, and `0.0` otherwise. Any nonzero floating-point value (not just `1.0`) counts as true.
 
-*NaN handling*: if either input is NaN at step `t`, the output is NaN.
+<!-- NAN_FOOTNOTE_START -->
+## NaN handling
 
-*Parameters*: `And` takes no parameters.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. See [NaN and warmup](../nan_and_warmup.md).
+<!-- NAN_FOOTNOTE_END -->
 
 ## Examples
 

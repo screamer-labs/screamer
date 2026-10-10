@@ -9,6 +9,8 @@ tags:
 - ehlers
 - iir
 - lowpass
+- low-pass filter
+- smoothing
 short: Ehlers 2-pole low-lag lowpass filter.
 inputs: 1
 outputs: 1
@@ -16,12 +18,23 @@ parameters:
 - name: period
   type: float
   default: 20.0
-  description: Cutoff as a cycle length in samples. Pass exactly one of period or cutoff; the constructor has no default, and 20 is a suggested starting value.
+  description: Cutoff as a cycle length in samples; cycles shorter than this are attenuated.
+    Give exactly one of period and cutoff. The default shown is a suggested starting value;
+    the constructor has no default.
 - name: cutoff
   type: float
   default: null
-  description: Cutoff as a fraction of Nyquist in (0, 1). Give this or period, not both.
+  description: Cutoff as a fraction of the Nyquist frequency, in (0, 1), equal to 2 / period.
+    Give exactly one of period and cutoff.
 nan_policy: ignore
+see_also:
+- Butter
+- Decycler
+- RoofingFilter
+- EwMean
+references:
+- 'Ehlers, J. F. (2013). *Cycle Analytics for Traders: Advanced Technical Trading Concepts*.
+  Wiley.'
 ---
 
 # `SuperSmoother`
@@ -36,16 +49,10 @@ The cutoff is set by a cycle length in samples (`period`) or, equivalently, a
 fraction of the Nyquist frequency (`cutoff`), related by `cutoff = 2 / period`.
 The filter coefficients follow Ehlers' critically damped design.
 
-### Parameters
-
-**`period`** *(float)*: The cutoff expressed as a cycle length in samples.
-
-**`cutoff`** *(float)*: The cutoff expressed as a fraction of the Nyquist frequency, in (0, 1). Provide exactly one of `period` or `cutoff`.
-
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `ignore`.** A `NaN` in the input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples

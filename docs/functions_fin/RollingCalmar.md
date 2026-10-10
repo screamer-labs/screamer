@@ -6,10 +6,12 @@ topics:
 - risk
 tags:
 - calmar
+- calmar ratio
 - ratio
 - rolling
 - drawdown
-short: Annualised return divided by the worst rolling drawdown.
+- risk-adjusted return
+short: Annualized mean return divided by the worst drawdown in a trailing window.
 inputs: 1
 outputs: 1
 parameters:
@@ -17,36 +19,38 @@ parameters:
   type: int
   default: 252
   min: 2
-  description: Trailing-window length.
+  description: Number of most recent returns used for the mean return and the drawdown.
 - name: periods_per_year
   type: float
   default: 1.0
   min: 1.0
-  description: Annualisation factor (252 daily, 52 weekly, 12 monthly, 1 = no annualisation).
+  description: 'Annualization factor that multiplies the mean return: 252 for daily, 52 for
+    weekly, 12 for monthly data, 1 for no annualization.'
 nan_policy: ignore
+see_also:
+- RollingMaxDrawdown
+- RollingSharpe
+- RollingSortino
+- MaxDrawdown
 ---
 
 # `RollingCalmar`
 
 ## Description
 
-Calmar ratio: annualised return divided by the worst rolling drawdown:
+`RollingCalmar` computes the Calmar ratio over a trailing window: the annualized mean return divided by the worst drawdown in the window.
 
 $$
 \text{Calmar}[t] = \frac{\text{ppy}\ \cdot\ \text{mean}(r)}{\big|\,\text{RollingMaxDrawdown}(\text{implied price})\,\big|}
 $$
 
-Takes a *returns* series; internally reconstructs the implied price path as a cumulative
-product `price *= (1 + r)` starting from 1.0, so the drawdown calculation is well-defined.
-Returns `NaN` when the path is monotonic up (no drawdown in window).
-
-If you already have a price series, compose by hand:
+The input is a series of simple returns. The drawdown is measured on the implied price path, the cumulative product of `1 + r` starting from 1.0. The output is `NaN` until the window is full and when the window contains no drawdown. For a price series, convert it to returns with [`Return`](Return.md) first.
 
 
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples
@@ -64,7 +68,7 @@ If you already have a price series, compose by hand:
 
     np.random.seed(0)
     ret = np.random.normal(0.0005, 0.01, size=300)
-    calmar = RollingCalmar(window_size=63, periods_per_year=252)(ret)   # annualised return over worst rolling drawdown
+    calmar = RollingCalmar(window_size=63, periods_per_year=252)(ret)   # annualized return over worst rolling drawdown
 
     fig = make_subplots(rows=2, cols=1, shared_xaxes=True,
                         row_heights=[0.55, 0.45], vertical_spacing=0.08)

@@ -8,11 +8,18 @@ tags:
 - logic
 - binary
 - comparison
+- ==
+- eq
 short: Returns 1.0 if a == b, else 0.0. NaN in either input yields NaN.
 inputs: 2
 outputs: 1
 parameters: []
 nan_policy: ignore
+see_also:
+- NotEqual
+- GreaterEqual
+- LessEqual
+- Where
 ---
 
 # `Equal`
@@ -21,9 +28,13 @@ nan_policy: ignore
 
 `Equal` compares two aligned input streams element-wise and outputs `1.0` where `a == b` and `0.0` otherwise.
 
-*NaN handling*: if either input is NaN at step `t`, the output is NaN (NaN is not equal to anything, including itself, by IEEE 754).
+A `NaN` in either input gives `NaN`, including when both inputs are `NaN`.
 
-*Parameters*: `Equal` takes no parameters.
+<!-- NAN_FOOTNOTE_START -->
+## NaN handling
+
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. See [NaN and warmup](../nan_and_warmup.md).
+<!-- NAN_FOOTNOTE_END -->
 
 ## Examples
 

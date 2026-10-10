@@ -8,11 +8,20 @@ tags:
 - ehlers
 - hilbert
 - cycle
+- hilbert transform
+- instantaneous frequency
 short: Instantaneous frequency, in cycles per sample, via Ehlers' homodyne discriminator.
 inputs: 1
 outputs: 1
 parameters: []
 nan_policy: ignore
+see_also:
+- DominantCycle
+- CyclePhase
+- HilbertPhasor
+references:
+- 'Ehlers, J. F. (2001). *Rocket Science for Traders: Digital Signal Processing Applications*.
+  Wiley.'
 ---
 
 # `CycleFrequency`
@@ -26,12 +35,10 @@ samples corresponds to a frequency of 0.05 cycles per sample. The estimate is
 a general spectral quantity: the same measurement applies to any sampled
 signal, not only price.
 
-*Parameters*: `CycleFrequency` takes no parameters.
-
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `ignore`.** A `NaN` in the input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples

@@ -7,34 +7,33 @@ topics:
 tags:
 - activation
 - softsign
+- squash
 short: 'Softsign: x / (1 + |x|).'
 inputs: 1
 outputs: 1
 parameters: []
 nan_policy: ignore
+see_also:
+- Tanh
+- Sigmoid
 ---
 
 # `Softsign`
 
 ## Description
 
-The `Softsign` class applies the mapping `x / (1 + |x|)` element-wise:
+`Softsign` applies the mapping `x / (1 + |x|)` to each element:
 
 $$
 f(x) = \frac{x}{1 + |x|}
 $$
 
-The output approaches -1 and +1 asymptotically as x approaches negative and positive infinity.
-
-*Parameters*: `Softsign` takes no parameters.
-
-*NaN handling*: `NaN` values are not modified by this function.
-
+The output approaches -1 and +1 as x goes to negative and positive infinity.
 
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples

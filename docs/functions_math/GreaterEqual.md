@@ -8,11 +8,17 @@ tags:
 - logic
 - binary
 - comparison
+- '>='
+- ge
 short: Returns 1.0 if a >= b, else 0.0. NaN in either input yields NaN.
 inputs: 2
 outputs: 1
 parameters: []
 nan_policy: ignore
+see_also:
+- GreaterThan
+- LessEqual
+- Where
 ---
 
 # `GreaterEqual`
@@ -21,9 +27,11 @@ nan_policy: ignore
 
 `GreaterEqual` compares two aligned input streams element-wise and outputs `1.0` where `a >= b` and `0.0` otherwise.
 
-*NaN handling*: if either input is NaN at step `t`, the output is NaN.
+<!-- NAN_FOOTNOTE_START -->
+## NaN handling
 
-*Parameters*: `GreaterEqual` takes no parameters.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. See [NaN and warmup](../nan_and_warmup.md).
+<!-- NAN_FOOTNOTE_END -->
 
 ## Examples
 

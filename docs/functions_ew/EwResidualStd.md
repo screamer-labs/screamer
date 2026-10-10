@@ -8,28 +8,40 @@ tags:
 - ew
 - spread
 - residual
+- residual volatility
 - pair
-short: EW std of the spread x - EwBeta(x,y) * y.
+- pairs trading
+- hedge ratio
+short: EW std of the spread x - EwBeta(x, y) * y.
 inputs: 2
 outputs: 1
 parameters:
 - name: com
   type: float
   default: null
-  description: Center of mass (alpha = 1 / (1 + com)). Exclusive with span/halflife/alpha.
+  description: Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly
+    one of com, span, halflife and alpha.
 - name: span
   type: float
   default: 20.0
-  description: Span (alpha = 2 / (span + 1)). Default smoothing parameter. Exclusive
-    with com/halflife/alpha.
+  description: Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give
+    exactly one of com, span, halflife and alpha. The default shown is an example value; the
+    constructor has no default.
 - name: halflife
   type: float
   default: null
-  description: Halflife (alpha = 1 - 0.5^(1/halflife)). Exclusive with com/span/alpha.
+  description: Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive.
+    Give exactly one of com, span, halflife and alpha.
 - name: alpha
   type: float
   default: null
-  description: Smoothing parameter directly. Exclusive with com/span/halflife.
+  description: Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more
+    weight. Give exactly one of com, span, halflife and alpha.
+see_also:
+- EwSpread
+- EwBeta
+- EwStd
+- RollingResidualStd
 nan_policy: ignore
 ---
 
@@ -37,34 +49,20 @@ nan_policy: ignore
 
 ## Description
 
-`EwResidualStd` is the exponentially weighted standard deviation of the spread `x - EwBeta(x, y) * y`, the EW analog of [`RollingResidualStd`](../functions_fin/RollingResidualStd.md). It is the natural scale for normalising an [`EwSpread`](EwSpread.md): the mean-reversion z-score of a spread is `(spread - ewmean(spread)) / EwResidualStd`.
+`EwResidualStd` computes the exponentially weighted standard deviation of the spread `x - EwBeta(x, y) * y`, the output of [`EwSpread`](EwSpread.md). It is the exponentially weighted counterpart of [`RollingResidualStd`](../functions_fin/RollingResidualStd.md), and the scale for normalizing a spread: the mean-reversion z-score of a spread is `(spread - EwMean(spread)) / EwResidualStd`.
 
 $$
 \text{EwResidualStd}(x, y) = \operatorname{Std}_{ew}\!\big(x - \beta_{ew}\, y\big)
 $$
 
-This is a **2-input, 1-output** function (`FunctorBase<_, 2, 1>`).
+The first argument is the target and the second is the regressor, as in [`EwBeta`](EwBeta.md) and `EwSpread`. The smoothing factor `alpha` is set by exactly one of `com`, `span`, `halflife` or `alpha`, and the same value is used for the hedge ratio and for the standard deviation.
 
-## Argument-order convention
-
-The **first argument is the target**, the **second is the regressor**, matching [`EwBeta`](EwBeta.md) and [`EwSpread`](EwSpread.md).
-
-## Parameters
-
-Specify exactly one of the following to set the smoothing factor `alpha`:
-
-- **`com`**: Center of mass. `alpha = 1 / (1 + com)`
-- **`span`**: Span. `alpha = 2 / (span + 1)`
-- **`halflife`**: Half-life. `alpha = 1 - exp(-log(2) / halflife)`
-- **`alpha`**: Directly sets the smoothing factor, `0 < alpha < 1`
-
-The output is `NaN` while the spread is still warming up.
-
+The output is `NaN` until the spread has two defined values.
 
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples
@@ -105,8 +103,3 @@ The output is `NaN` while the spread is still warming up.
 ```
 
 <!-- HELP_END -->
-
-## Reference
-
-Composes [`EwSpread`](EwSpread.md) and [`EwStd`](EwStd.md); `O(1)` per step. The EW
-counterpart of `RollingResidualStd`.

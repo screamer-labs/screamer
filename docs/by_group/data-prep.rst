@@ -4,7 +4,21 @@
 Data preparation
 ================
 
-Clean a series before analysis: fill or drop missing values, and despike outliers.
+Prepare a series before analysis: bars from ticks, fill or drop missing values, and despike outliers.
+
+Bars & resampling
+-----------------
+
+Time, tick, volume, and dollar bars from a trade tape, and OHLC downsampling.
+
+.. list-table::
+   :header-rows: 1
+   :widths: 30 70
+
+   * - Function
+     - Description
+   * - :doc:`Resample </functions_streams/Resample>`
+     - Causal windowed downsample of a 1-D or multi-column value stream.
 
 Missing data
 ------------
@@ -20,7 +34,7 @@ Filling and removing NaN values.
    * - :doc:`Dropna </functions_streams/Dropna>`
      - Drop events whose value is NaN.
    * - :doc:`Forward-fill NaNs </functions_preprocessing/Ffill>`
-     - Replace NaN with the most recent finite value.
+     - Replace NaN with the most recent non-NaN value.
    * - :doc:`Replace NaNs with a constant </functions_preprocessing/FillNa>`
      - Replace NaN with a user-specified scalar.
    * - :doc:`IsFinite </functions_math/IsFinite>`
@@ -52,7 +66,7 @@ Despiking and robust estimators.
    * - :doc:`Rolling median absolute deviation </functions_rolling/RollingMedianAD>`
      - Rolling median absolute deviation, median(\|x - median\|), a robust scale estimate.
    * - :doc:`Rolling sigma-clip </functions_rolling/RollingSigmaClip>`
-     - Replace samples outside [mean - lower*std, mean + upper*std] with NaN or the clipped bound.
+     - Clip samples that lie beyond lower or upper standard deviations from the rolling mean, or replace them with NaN.
 
 .. toctree::
    :hidden:
@@ -61,4 +75,5 @@ Despiking and robust estimators.
    /functions_preprocessing/Ffill
    /functions_preprocessing/FillNa
    /functions_rolling/ImpulseClip
+   /functions_streams/Resample
    /functions_rolling/RollingSigmaClip

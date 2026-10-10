@@ -6,12 +6,21 @@ topics:
 - cumulative
 tags:
 - max
+- maximum
 - expanding
 - cumulative
-short: Running maximum from t=0.
+- running max
+- cummax
+- high water mark
+short: Running maximum since the start of the stream.
 inputs: 1
 outputs: 1
 parameters: []
+see_also:
+- CumMax
+- ExpandingMin
+- RollingMax
+- Drawdown
 nan_policy: ignore
 ---
 
@@ -19,20 +28,16 @@ nan_policy: ignore
 
 ## Description
 
-The `ExpandingMax` function returns the running maximum of every sample seen since the last `reset`. It is an alias of `CumMax` exposed under the expanding family and matches `pandas.Series.expanding().max()`.
-
-*Equation*:
+`ExpandingMax` returns the running maximum of every sample seen since the start of the stream, or since the last `reset`. It computes the same result as [`CumMax`](../functions_misc/CumMax.md), under the name of the expanding family, and matches `pandas.Series.expanding().max()`.
 
 $$
 y[t] = \max_{0 \le i \le t} x[i]
 $$
 
-*Parameters*: none.
-
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `ignore`.** A `NaN` in the input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples

@@ -4,11 +4,15 @@ title: Rolling Ornstein-Uhlenbeck fit
 implementation_family: rolling
 topics:
 - regression
+- pairs
 tags:
 - ou
 - ornstein-uhlenbeck
 - mean-reversion
 - rolling
+- half-life
+- mean reversion
+- ornstein uhlenbeck
 short: Rolling MLE fit of a mean-reverting Ornstein-Uhlenbeck process.
 inputs: 1
 outputs: 1
@@ -17,7 +21,7 @@ parameters:
   type: int
   default: 20
   min: 2
-  description: Trailing-window length.
+  description: Number of most recent samples in the window.
 - name: output
   type: str
   default: mrr
@@ -26,7 +30,9 @@ parameters:
   - mean
   - relmean
   - std
-  description: 'Which fitted parameter to return: "mrr" = mean-reversion rate, "mean" = long-run mean, "relmean" = mean relative to current value, "std" = noise standard deviation.'
+  description: 'Which fitted parameter to return: "mrr" gives the mean-reversion rate per
+    step, "mean" the long-run mean, "relmean" the long-run mean minus the current value, and
+    "std" the noise standard deviation.'
 - name: start_policy
   type: str
   default: strict
@@ -34,15 +40,24 @@ parameters:
   - strict
   - expanding
   - zero
-  description: Warmup behaviour.
+  description: 'Output before the window is full: "strict" gives NaN, "expanding" computes
+    from the samples seen so far, and "zero" treats the window as pre-filled with zeros.'
 nan_policy: ignore
+see_also:
+- RollingADF
+- RollingHurst
+- RollingZscore
+- RollingLinearRegression
+references:
+- Uhlenbeck, G. E. and Ornstein, L. S. (1930). On the theory of the Brownian motion. *Physical
+  Review*, 36(5), 823-841. doi:10.1103/PhysRev.36.823
 ---
 
 # `RollingOU`
 
 ## Description
 
-`RollingOU` applies a rolling discrete-time Ornstein-Uhlenbeck (OU) model to a data series within a specified window. The OU model, commonly used to model mean-reverting processes, estimates the rate of reversion to the mean and the variance of the noise in each window. As a rolling estimator, `RollingOU` recalculates model parameters at each step based on a sliding window, making it suitable for non-stationary time series where parameters may evolve over time.
+`RollingOU` fits a discrete-time Ornstein-Uhlenbeck (OU) model, a mean-reverting process, to the `window_size` most recent values and returns one of the fitted parameters. The fit is refreshed at every step, so the parameters can drift over time.
 
 The discretized form of the OU model is:
 
@@ -56,26 +71,13 @@ where $ x[i] $ is the current value, $ x[i-1] $ is the previous value, $ \mu $ i
 - **mrr < 0**: Values display mean repulsion, where deviations from the mean amplify rather than attenuate.
 - **mrr > 1**: Oscillatory behavior or instability arises, as the model overshoots the mean.
 
-### Parameters
-
-**`window_size`** *(int)*: The size of the rolling window used to fit the OU model. A larger window provides a smoother estimate but may be less responsive to rapid changes.
-
-**`output`** *(str, default `"mrr"`)*: Specifies which fitted parameter to return:
-- **`"mrr"`**: Returns the mean-reversion rate.
-- **`"mean"`**: Returns the estimated long-run mean ($\mu$).
-- **`"relmean"`**: Returns the relative mean ($\mu - x[i]$), the mean relative to the current value.
-- **`"std"`**: Returns the estimated standard deviation of the noise ($\sigma$).
-
-- **`start_policy`**: Defines how the function handles the initial phase when fewer than `window_size` data points are available. This parameter accepts one of the following three values:
-  - `"strict"`: Returns `NaN` for all calculations until `window_size` elements have been processed.
-  - `"expanding"`: Adapts the computation by dynamically reducing the window size to include all available data, starting from a single point and growing until `window_size` is reached.
-  - `"zero"`: Simulates a full initial window of zeros, effectively pre-filling the data stream with `window_size` zeros before processing the actual input.
+The `output` parameter selects $\text{mrr}$, $\mu$ (`"mean"`), $\mu - x[i]$ (`"relmean"`, the distance from the current value to the mean) or $\sigma$ (`"std"`). A larger `window_size` gives smoother estimates that respond more slowly to changes. The half-life of a deviation from the mean, in steps, is $\ln 2 / -\ln(1 - \text{mrr})$ for $0 < \text{mrr} < 1$.
 
 
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples

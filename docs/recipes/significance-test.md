@@ -21,16 +21,17 @@ momentum where the rule has an edge.
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-from screamer import Resample, EwMean, LogReturn, BacktestOHLCTarget, position_test
+from screamer import (Resample, EwMean, LogReturn, Sign, FillNa, BacktestOHLCTarget,
+                      position_test, probabilistic_sharpe, deflated_sharpe)
 
 trades = pd.read_csv("../notebooks/data/deribit_btc_perp_6h.csv")
 bars, _ = Resample(freq=60_000, agg="ohlc")(
     trades["price"].to_numpy(), trades["timestamp"].to_numpy())
 o, h, l, c = bars.T
 
-def trend(close):
-    # long after recent gains, short after recent losses
-    return np.sign(np.nan_to_num(EwMean(span=10)(LogReturn()(close))))
+def trend(close, span=10):
+    # long after recent gains, short after recent losses, flat during warm-up
+    return Sign()(FillNa(0.0)(EwMean(span=span)(LogReturn()(close))))
 
 signal = trend(c)
 engine = BacktestOHLCTarget(taker_fee=5e-4)
@@ -78,11 +79,59 @@ for ax, res, title in [(axes[0], real, "BTC tape"), (axes[1], momentum, "momentu
 plt.tight_layout()
 ```
 
-A p-value is only valid for a strategy chosen before looking at the data. If you
-tried several variants and kept the best, see the note on selection in the
-[`position_test`](../functions_fin/position_test.md) page.
+## Is the Sharpe ratio above zero?
+
+`position_test` asks whether the timing beats random timing. Whether the
+strategy makes money after costs is a separate question.
+`probabilistic_sharpe` answers it analytically: it returns the probability that
+the true Sharpe ratio is above a benchmark (0 by default), given the observed
+Sharpe ratio, the number of steps, and the skewness and kurtosis of the pnl.
+
+```{code-cell} ipython3
+out = engine(msignal, mo, mh, ml, mc)
+print(f"P(true Sharpe > 0) = {probabilistic_sharpe(out):.3f}")
+```
+
+On the momentum market the timing beats random timing (p = 0.001), but after
+5 bps per trade the Sharpe ratio per bar is small, and the probability that it
+is above zero is 0.89.
+
+## Several variants
+
+A p-value is valid only for a strategy chosen before looking at the data. If
+several variants were tried and the best one is reported, the choice is itself
+a source of luck. Passing a `(T, K)` target, one column per variant, to
+`position_test` shifts all variants by the same offset in every round and
+returns `family_p_value`, which compares each variant with the best of the `K`
+shifted results (the max statistic of White's Reality Check).
+`deflated_sharpe` is the analytic counterpart: it raises the benchmark of
+`probabilistic_sharpe` to the Sharpe ratio the best of the tried variants would
+reach by luck.
+
+```{code-cell} ipython3
+spans = [4, 6, 8, 12, 16, 24, 32, 48]
+targets = np.column_stack([trend(mc, span) for span in spans])
+family = position_test(engine, targets, mo, mh, ml, mc, n=999, metric="sharpe", seed=0)
+best = int(np.argmax(family.observed))
+print(f"best span {spans[best]}: p = {family.p_value[best]:.3f}, "
+      f"family p = {family.family_p_value[best]:.3f}")
+
+runs = [engine(targets[:, k], mo, mh, ml, mc) for k in range(len(spans))]
+sharpes = [run[:, 1].mean() / run[:, 1].std(ddof=1) for run in runs]
+p, benchmark = deflated_sharpe(runs[best], sharpes)
+print(f"deflated Sharpe: P(true Sharpe > {benchmark:.4f}) = {p:.3f}")
+```
+
+The best span keeps a family p-value of 0.022, so its timing still beats random
+timing after the choice among eight. The deflated Sharpe ratio asks the
+stricter question of whether the net Sharpe ratio beats luck: the best
+variant's 0.026 per bar is only a little above the 0.020 that the best of these
+eight would reach by chance, which gives a probability of 0.6.
 
 Related pages: [`position_test`](../functions_fin/position_test.md),
+[`strategy_test`](../functions_fin/strategy_test.md),
+[`probabilistic_sharpe`](../functions_fin/probabilistic_sharpe.md),
+[`deflated_sharpe`](../functions_fin/deflated_sharpe.md),
 [`circular_shift`](../functions_fin/circular_shift.md),
 [`segment_shuffle`](../functions_fin/segment_shuffle.md), and
 [`BacktestOHLCTarget`](../functions_fin/BacktestOHLCTarget.md).

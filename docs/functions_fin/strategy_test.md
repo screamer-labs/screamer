@@ -2,9 +2,26 @@
 name: strategy_test
 title: strategy_test
 kind: function
-short: Test a whole strategy, model included, against the same strategy run on permuted market data or shifted features.
+short: Test a whole strategy, model included, against the same strategy run on permuted market
+  data or shifted features.
+tags:
+- p-value
+- permutation test
+- randomization test
+- monte carlo
+- significance test
+see_also:
+- position_test
+- permute_bars
+- permute_returns
+- walk_forward
+references:
+- Masters, T. (2020). *Permutation and Randomization Tests for Trading System Development*.
+  Independently published.
+- Phipson, B. and Smyth, G. K. (2010). Permutation p-values should never be zero. *Statistical
+  Applications in Genetics and Molecular Biology*, 9(1).
 topics:
-- backtesting
+- significance
 ---
 
 # `strategy_test`
@@ -78,7 +95,7 @@ distributions and scatter plots as shown in
 `periods_per_year` annualizes the ratios. The same `seed` gives the same
 randomized inputs in Python and JavaScript.
 
-## Example
+## Examples
 
 A trend-following strategy on two markets: one whose returns have momentum, and
 a random walk. Bar permutation removes the momentum, so only the first market
@@ -120,10 +137,3 @@ beats its permuted copies.
                       legend=dict(orientation='h', yanchor='bottom', y=1.08, xanchor='right', x=1))
     fig.show()
 ```
-
-## References
-
-- Masters, T. (2020). *Permutation and Randomization Tests for Trading System
-  Development*. Independently published.
-- Phipson, B. and Smyth, G. K. (2010). Permutation p-values should never be
-  zero. *Statistical Applications in Genetics and Molecular Biology*, 9(1).

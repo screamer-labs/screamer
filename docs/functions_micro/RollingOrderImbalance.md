@@ -6,8 +6,11 @@ topics:
 - order-flow-imbalance
 tags:
 - order imbalance
+- net order flow
+- signed flow
 - order flow
 - imbalance
+- buying pressure
 - microstructure
 short: Trailing-window sum of signed order flow (Chordia-Roll-Subrahmanyam imbalance).
 inputs: 1
@@ -17,7 +20,7 @@ parameters:
   type: int
   default: 20
   min: 1
-  description: Window length in observations.
+  description: Number of most recent observations summed.
 - name: start_policy
   type: str
   default: strict
@@ -25,50 +28,43 @@ parameters:
   - strict
   - expanding
   - zero
-  description: Warmup behaviour.
+  description: 'Output before the window is full: "strict" gives NaN, "expanding" computes
+    from the samples seen so far, and "zero" treats the window as pre-filled with zeros.'
 nan_policy: ignore
 see_also:
 - RollingSum
 - OFI
+- SignedVolume
+- TickRuleSign
+references:
+- Chordia, T., Roll, R. and Subrahmanyam, A. (2002). Order imbalance, liquidity, and market
+  returns. *Journal of Financial Economics*, 65(1), 111-130.
 ---
 
 # `RollingOrderImbalance`
 
 ## Description
 
-`RollingOrderImbalance` accumulates signed order flow over a trailing window.
-A positive value means buyers dominated the window; a negative value means
-sellers did. It is the Chordia-Roll-Subrahmanyam (2002) order imbalance
-measure: the raw net signed flow over a look-back period.
+`RollingOrderImbalance` sums signed order flow over a trailing window, the order
+imbalance measure of Chordia, Roll, and Subrahmanyam (2002). A positive value
+means buyers dominated the window, a negative value that sellers did.
 
-`RollingOrderImbalance(window_size, start_policy)(signed_flow)` returns the
-rolling sum of `signed_flow` over the most recent `window_size` observations.
-It is a documented specialization of `RollingSum`: internally it calls
+`RollingOrderImbalance(window_size, start_policy)(signed_flow)` returns the sum
+of `signed_flow` over the most recent `window_size` observations. It equals
 `RollingSum(window_size, start_policy)(signed_flow)`.
 
 A common pipeline is:
 
 1. Classify each trade with `TickRuleSign` or `LeeReadySign`.
 2. Multiply by trade volume with `SignedVolume` to get signed flow per trade.
-3. Aggregate over a bar and feed to `RollingOrderImbalance` for a rolling
-   order-book pressure signal.
+3. Aggregate over a bar and feed the result to `RollingOrderImbalance` for a
+   rolling buy-sell pressure signal.
 
-*Parameters*:
+<!-- NAN_FOOTNOTE_START -->
+## NaN handling
 
-- **`window_size`** (`int`, >= 1): size of the trailing window.
-- **`start_policy`** (`str`, default `"strict"`): controls warmup behavior.
-  `"strict"` emits `NaN` until `window_size` observations have been seen.
-  `"expanding"` uses however many observations are available. `"zero"` fills
-  the warmup period with zero.
-
-*Return value*: the rolling sum of signed flow at each time step. `NaN`
-during warmup under `"strict"`.
-
-**Reference**: Chordia, T., Roll, R., and Subrahmanyam, A. (2002). "Order
-Imbalance, Liquidity, and Market Returns." *Journal of Financial Economics*,
-65(1), 111-130.
-
-<!-- HELP_END -->
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).
+<!-- NAN_FOOTNOTE_END -->
 
 ## Examples
 

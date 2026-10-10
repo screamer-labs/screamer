@@ -37,7 +37,13 @@ Every function, grouped by what it does. Pick a group to browse; the search box 
       :link: by_group/backtesting-risk
       :link-type: doc
 
-      Turn signals into costed equity curves, and measure drawdown and performance.
+      Turn signals into positions and costed equity curves, measure drawdown and performance, and test whether a result is more than luck.
+
+   .. grid-item-card:: Portfolio & pairs
+      :link: by_group/portfolio
+      :link-type: doc
+
+      Rank assets against each other, turn scores into weights, backtest a book of many assets from one account, and trade pairs.
 
    .. grid-item-card:: Math & logic
       :link: by_group/math-logic
@@ -49,7 +55,7 @@ Every function, grouped by what it does. Pick a group to browse; the search box 
       :link: by_group/data-prep
       :link-type: doc
 
-      Clean a series before analysis: fill or drop missing values, and despike outliers.
+      Prepare a series before analysis: bars from ticks, fill or drop missing values, and despike outliers.
 
    .. grid-item-card:: Streaming & pipelines
       :link: by_group/streaming
@@ -57,17 +63,11 @@ Every function, grouped by what it does. Pick a group to browse; the search box 
 
       Align and reshape event streams, and wire operators into a runnable pipeline.
 
-   .. grid-item-card:: Portfolio & cross-section
-      :link: by_group/portfolio
-      :link-type: doc
-
-      Compare assets with each other at each step and turn scores into portfolio weights.
-
-   .. grid-item-card:: Machine learning
+   .. grid-item-card:: Forecasting & ML
       :link: by_group/machine-learning
       :link-type: doc
 
-      Utilities for building supervised learning datasets from time-series data.
+      Training sets from time-series data, and online regression and filtering that forecast as they update.
 
 .. toctree::
    :hidden:
@@ -77,8 +77,8 @@ Every function, grouped by what it does. Pick a group to browse; the search box 
    by_group/indicators
    by_group/microstructure
    by_group/backtesting-risk
+   by_group/portfolio
    by_group/math-logic
    by_group/data-prep
    by_group/streaming
-   by_group/portfolio
    by_group/machine-learning

@@ -10,6 +10,7 @@ tags:
 - ema
 - mulloy
 - moving-average
+- double exponential moving average
 short: 'Mulloy''s Double EMA: 2*EMA - EMA(EMA).'
 inputs: 1
 outputs: 1
@@ -17,19 +18,33 @@ parameters:
 - name: com
   type: float
   default: null
-  description: Center of mass. Exclusive with span/halflife/alpha.
+  description: Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly
+    one of com, span, halflife and alpha.
 - name: span
   type: float
   default: 20.0
-  description: Span (default smoothing parameter).
+  description: Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give
+    exactly one of com, span, halflife and alpha. The default shown is an example value; the
+    constructor has no default.
 - name: halflife
   type: float
   default: null
-  description: Halflife.
+  description: Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive.
+    Give exactly one of com, span, halflife and alpha.
 - name: alpha
   type: float
   default: null
-  description: Smoothing parameter.
+  description: Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more
+    weight. Give exactly one of com, span, halflife and alpha.
+see_also:
+- EwMean
+- TEMA
+- HullMA
+- KAMA
+- TRIX
+references:
+- Mulloy, P. G. (1994). Smoothing data with faster moving averages. *Technical Analysis of
+  Stocks & Commodities*, 12(1).
 nan_policy: ignore
 ---
 
@@ -37,34 +52,24 @@ nan_policy: ignore
 
 ## Description
 
-`DEMA` (Double Exponential Moving Average, Patrick Mulloy 1994) is a low-lag smoother defined as:
+`DEMA` (Double Exponential Moving Average, Mulloy 1994) is a low-lag smoother:
 
 $$
 \text{DEMA}[t] = 2 \cdot \text{EMA}(x)[t] - \text{EMA}(\text{EMA}(x))[t]
 $$
 
-The construction subtracts the *lag* of a single EMA from twice that EMA. The result tracks the input more closely than a plain EMA of the same span, while still smoothing high-frequency noise.
+Subtracting the EMA of the EMA from twice the EMA removes most of the lag of a single
+EMA. The result follows the input more closely than a plain EMA of the same span while
+still smoothing high-frequency noise. Both EMAs are [`EwMean`](../functions_ew/EwMean.md)
+with the same decay, set by one of `com`, `span`, `halflife` or `alpha`.
 
-## Parameters
-
-Same `com / span / halflife / alpha` mutex as `EwMean` -- specify exactly one. The same value is used for both internal EMAs.
-
-## Implementation Details
-
-### Algorithm
-
-`DEMA` is a pure composition of two chained `EwMean` instances. The class holds them as members and combines their outputs as `2*e1 - e2`. There is no warmup: each `EwMean` returns a valid value from t=0 (`sum_x / sum_w` is `x[0]/1 = x[0]` after one append), so `DEMA[0] = 2*x[0] - x[0] = x[0]`.
-
-### Complexity
-
-* Time complexity: `O(1)` per step.
-* Space complexity: `O(1)`.
-
+There is no warmup. `EwMean` returns `x[0]` at the first sample, so `DEMA[0] = x[0]`.
+Each step costs `O(1)` time and memory.
 
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples
@@ -97,6 +102,8 @@ Same `com / span / halflife / alpha` mutex as `EwMean` -- specify exactly one. T
 
 <!-- HELP_END -->
 
-## Reference
+## Validation
 
-Equivalent to TA-Lib's `DEMA`. Validated in `tests/test_moving_averages.py` against the explicit `2*EwMean - EwMean(EwMean)` composition for four span values.
+Matches the explicit `2*EwMean - EwMean(EwMean)` composition for four span values in
+`tests/test_moving_averages.py`. TA-Lib's `DEMA` seeds its EMA differently and differs
+during the early samples; see [conventions](../conventions.md).

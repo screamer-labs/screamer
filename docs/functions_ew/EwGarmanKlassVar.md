@@ -9,27 +9,43 @@ tags:
 - range-based
 - ohlc
 - var
+- variance
+- realized volatility
 - ew
-short: Var form of the Garman-Klass range-based volatility estimator (OHLC).
+short: Exponentially weighted Garman-Klass range-based variance estimator (OHLC).
 inputs: 4
 outputs: 1
 parameters:
 - name: com
   type: float
   default: null
-  description: Center of mass.
+  description: Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly
+    one of com, span, halflife and alpha.
 - name: span
   type: float
   default: 20.0
-  description: Span.
+  description: Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give
+    exactly one of com, span, halflife and alpha. The default shown is an example value; the
+    constructor has no default.
 - name: halflife
   type: float
   default: null
-  description: Halflife.
+  description: Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive.
+    Give exactly one of com, span, halflife and alpha.
 - name: alpha
   type: float
   default: null
-  description: Smoothing parameter directly.
+  description: Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more
+    weight. Give exactly one of com, span, halflife and alpha.
+see_also:
+- EwGarmanKlassVol
+- RollingGarmanKlassVar
+- EwParkinsonVar
+- EwRogersSatchellVar
+- EwYangZhangVar
+references:
+- Garman, M. B. and Klass, M. J. (1980). On the estimation of security price volatilities
+  from historical data. *Journal of Business*, 53(1), 67-78. doi:10.1086/296072
 nan_policy: ignore
 ---
 
@@ -37,33 +53,22 @@ nan_policy: ignore
 
 ## Description
 
-The Garman-Klass (1980) range-based volatility estimator. Per-bar variance contribution:
+`EwGarmanKlassVar` is the exponentially weighted Garman-Klass (1980) range-based variance estimator. It takes four inputs, `(open, high, low, close)`, and averages the per-bar variance contribution
 
 $$
 \sigma^2_\text{GK}[t] = \tfrac{1}{2}\big(\ln H/L\big)^2 - (2\ln 2 - 1)\big(\ln C/O\big)^2
 $$
 
-This expression is averaged with a exponentially-weighted mean to form the estimator. This is the paper's simplified estimator, the one written $\sigma_5$ in Garman
-and Klass's sequence and the form usually meant by "Garman-Klass". The paper
-also gives a higher-order approximation of the same quantity ($\sigma_4$), and
-variants carrying an overnight term driven by the fraction of the day the market
-is closed ($\sigma_1$, $\sigma_3$, $\sigma_6$). screamer ships only this one:
-$\sigma_4$ differs in the fourth significant figure, and the gap-aware variants
-are superseded by [`RollingYangZhang`](../functions_rolling/RollingYangZhangVar.md), which handles
-overnight gaps *and* drift.
+with an exponentially weighted mean. The smoothing factor `alpha` is set by exactly one of `com`, `span`, `halflife` or `alpha`. [`EwGarmanKlassVol`](EwGarmanKlassVol.md) returns the square root.
 
-The `Vol`
-variant returns `sqrt(Var)` (bit-exact via the same internal state).
+This is the paper's simplified estimator, written $\sigma_5$ in Garman and Klass, and the form usually meant by "Garman-Klass". The paper also gives a higher-order approximation of the same quantity ($\sigma_4$), which differs in the fourth significant figure, and variants with an overnight term ($\sigma_1$, $\sigma_3$, $\sigma_6$). For data with overnight gaps or drift, use [`EwYangZhangVar`](EwYangZhangVar.md) instead.
 
-**4-input, 1-output** on `(open, high, low, close)`. ~7.4x more statistically efficient
-than close-to-close `RollingVar` *under the model's assumptions* (zero drift, no overnight
-gaps).
-
+Under zero drift and no overnight gaps, the estimator is about 7.4 times as efficient as the close-to-close variance estimator (Garman and Klass 1980).
 
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples

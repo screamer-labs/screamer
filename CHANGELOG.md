@@ -5,6 +5,51 @@ All notable changes to this project are documented in this file.
 Unreleased
 ----------
 
+### Added
+
+* **Walk-forward evaluation:** `walk_forward` (Python) and `walkForward`
+  (JavaScript) take a `(T, K)` array of strategy variants, pick the best
+  variant on each training window by any `backtest_report` statistic, trade it
+  on the following test window, and return the stitched out-of-sample backtest
+  with its statistics, the choice per fold, and every training score. Rolling
+  and anchored training windows.
+* **`help()` for every operator:** the Python classes now carry a numpydoc
+  docstring built from their documentation page: signature, summary,
+  parameters with types and defaults, description, and See also.
+* **Real multi-asset data for the docs:** daily Binance bars of 20 coins from
+  2022 to 2026 and the BTC perpetual's funding rates.
+
+### Fixed
+
+* `BacktestPortfolioTarget` and `BacktestPortfolioOHLCTarget` dropped an order
+  that fell due on a step where its asset had no bar, so one leg of a pair
+  could trade while the other never did. The order now waits for the asset's
+  next quoted bar, unless a newer order for that asset is due first.
+* `CombineLatest` given a multi-column stream kept only its first column inside
+  a `Pipeline` and raised an opaque `std::bad_cast` when called directly. Both
+  now raise a clear error; split the stream into columns with `Select` first.
+
+### Documentation
+
+* Function pages show a generated header from their frontmatter: Python and
+  JavaScript signatures, a parameter table, output columns, See also, and
+  references. Titles and tags are indexed, so a search for "ema", "z-score",
+  or "p-value" finds the function.
+* New function groups and topics: "Portfolio & pairs", "Signals & position
+  rules", "Significance & overfitting", "Bars & resampling", and "Volatility
+  indicators". The homepage group grid is generated from the same source.
+* New recipes: your first strategy, stops and exits, volatility-targeted
+  sizing, funding costs on a perpetual, a parameter grid and its robustness,
+  walk-forward evaluation, a cross-sectional momentum book, and from research
+  to a live loop. JavaScript backtesting and significance tests in the
+  JavaScript guide.
+* The portfolios and pairs guide runs on real daily data. The pairs recipe is
+  the single pairs example and fills at the next open. Notebook 14 no longer
+  fills at the close its signal was computed from, and notebook 18 compares
+  hedge ratio estimators.
+* The sidebar is organized as Get started, User Guide, Examples, Concepts, API
+  reference, and Release notes.
+
 2.8.0 - 2026-10-10
 ------------------
 

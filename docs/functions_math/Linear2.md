@@ -8,6 +8,9 @@ tags:
 - affine
 - linear
 - pair
+- weighted sum
+- blend
+- difference
 short: 'Two-input affine combination: a*x + b*y + c.'
 inputs: 2
 outputs: 1
@@ -15,16 +18,20 @@ parameters:
 - name: a
   type: float
   default: 1.0
-  description: Coefficient on the first input.
+  description: Coefficient that multiplies the first input.
 - name: b
   type: float
   default: 1.0
-  description: Coefficient on the second input.
+  description: Coefficient that multiplies the second input.
 - name: c
   type: float
   default: 0.0
-  description: Additive offset.
+  description: Constant added to the weighted sum.
 nan_policy: ignore
+see_also:
+- Linear
+- Add
+- Sub
 ---
 
 # `Linear2`
@@ -37,9 +44,9 @@ $$
 f(x, y) = a \cdot x + b \cdot y + c
 $$
 
-Stateless 2→1 function (`FunctorBase<_, 2, 1>`). Inputs are paired column-by-column for arrays.
+It takes two inputs and returns one output. For 2D arrays the inputs are paired column by column.
 
-The class is small but composes nicely with the existing element-wise transforms (`Sign`, `Relu`, `Sigmoid`, ...) to build common idioms in a single chain:
+Composed with element-wise transforms such as `Sign`, `Relu` and `Sigmoid`, it expresses common idioms in one chain:
 
 | Expression | Compact form | Meaning |
 |---|---|---|
@@ -49,19 +56,11 @@ The class is small but composes nicely with the existing element-wise transforms
 | `Linear2(0.7, 0.3, 0)` | $0.7x + 0.3y$ | weighted blend |
 | `Sigmoid() o Linear2(a, b, c)` | $\sigma(ax + by + c)$ | logistic mix |
 
-*Parameters*:
-
-- `a` (float): coefficient on the first input.
-- `b` (float): coefficient on the second input.
-- `c` (float, optional): additive constant. Defaults to `0.0`.
-
-*NaN handling*: a NaN in either input produces a NaN output (arithmetic propagation).
-
 
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples
@@ -89,7 +88,7 @@ Linear2(0.5, 0.5)(X, Y).shape       # (100, 4)
 
 ## Visual example: positive excess of a price over its trend
 
-`Relu(Linear2(1, -1)(price, trend))` returns `max(price - trend, 0)`: zero when the price is at or below the trend, otherwise the gap. A natural way to highlight regimes where the price is *above* its smoothed trendline.
+`Relu(Linear2(1, -1)(price, trend))` returns `max(price - trend, 0)`: zero when the price is at or below the trend, otherwise the gap.
 
 ```{eval-rst}
 .. plotly::
@@ -137,4 +136,4 @@ Linear2(0.5, 0.5)(X, Y).shape       # (100, 4)
 
 ## Reference
 
-There is no direct numpy / pandas / TA-Lib counterpart -- it is a primitive intended for composition. The single-input sibling is `Linear(scale, shift)`.
+It has no direct numpy, pandas or TA-Lib counterpart and is meant as a building block for composition. The single-input sibling is `Linear(scale, shift)`.

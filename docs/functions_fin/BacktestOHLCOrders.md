@@ -15,7 +15,11 @@ tags:
 - inventory
 - transaction cost
 - risk
-short: "Backtest a two-sided order poster on OHLC bars, posting resting bids and asks that fill when the bar's range reaches them."
+- simulation
+- transaction costs
+- fees
+short: Backtest a two-sided order poster on OHLC bars, posting resting bids and asks that
+  fill when the bar's range reaches them.
 inputs: 8
 outputs: 4
 parameters:
@@ -30,7 +34,8 @@ parameters:
 - name: fill
   type: str
   default: touch
-  description: Fill rule. "touch" fills when the bar's low/high reaches your quote price; "breach" requires the bar to trade through it.
+  description: Fill rule. "touch" fills when the bar's low/high reaches your quote price;
+    "breach" requires the bar to trade through it.
 - name: participation_ratio
   type: float
   default: 1.0
@@ -41,7 +46,8 @@ parameters:
   type: float
   default: 0.0
   min: 0.0
-  description: Instrument price grid (0 = continuous). Slippage offsets round up to whole ticks; the "ticks" slippage unit counts in this step.
+  description: Instrument price grid (0 = continuous). Slippage offsets round up to whole
+    ticks; the "ticks" slippage unit counts in this step.
 - name: min_position
   type: float
   default: -.inf
@@ -54,7 +60,8 @@ parameters:
   type: float
   default: 1.0
   min: 0.0
-  description: Contract multiplier applied to mark-to-market PnL, fill slippage, and proportional fees.
+  description: Contract multiplier applied to mark-to-market PnL, fill slippage, and proportional
+    fees.
 - name: maker_fee_per_contract
   type: float
   default: 0.0
@@ -67,25 +74,27 @@ parameters:
   type: float
   default: 0.0
   min: 0.0
-  description: Adverse price offset on every taker (market) fill, read in `slippage_unit`. A buy fills higher and a sell lower; resting limit fills never slip.
+  description: Adverse price offset on every taker (market) fill, read in `slippage_unit`.
+    A buy fills higher and a sell lower; resting limit fills never slip.
 - name: slippage_unit
   type: str
   default: fraction
-  description: 'Unit of `slippage`: "fraction" of the reference price (5 bps = 5e-4), "ticks" of `tick_size`, or "price" (an absolute amount).'
+  description: 'Unit of `slippage`: "fraction" of the reference price (5 bps = 5e-4), "ticks"
+    of `tick_size`, or "price" (an absolute amount).'
 nan_policy: ignore
 see_also:
 - BacktestOHLCTarget
 - BacktestL1Orders
 - BacktestTradesOrders
 - backtest_report
+output_names:
+- equity
+- pnl
+- position
+- cost
 ---
 
 # `BacktestOHLCOrders`
-
-The accounting parameters are generic across the backtest family. `multiplier`
-converts a price move into currency per contract; the fixed per-contract fee is
-then added to the existing proportional fee. Both fixed fees may be negative for
-rebates, and all defaults preserve the previous behavior.
 
 ## Description
 
@@ -113,8 +122,7 @@ same bar when the bar's range is wide enough.
 Inputs are `(bid_price, bid_size, ask_price, ask_size, open, high, low, close)`.
 Outputs are the four standard backtest columns: `0 = equity` (cumulative dollar
 PnL), `1 = pnl` (per bar), `2 = position`, `3 = cost` (per bar). A `NaN` in any
-of the bar fields (open/high/low/close) skips the bar and returns all-NaN
-(`nan_policy: ignore`). A NaN `bid_price` or `ask_price` triggers a market order;
+of the bar fields (open/high/low/close) skips the bar and returns an all-NaN row. A NaN `bid_price` or `ask_price` triggers a market order;
 a NaN or zero `bid_size` / `ask_size` suppresses that side entirely.
 [`backtest_report`](backtest_report.md) summarizes the resulting equity curve.
 
@@ -126,6 +134,13 @@ bar the engine processes the buy first, then the sell; the ordering can affect t
 position and PnL when inventory bounds are active. Use [`BacktestL1Orders`](BacktestL1Orders.md)
 or [`BacktestL1TradesOrders`](BacktestL1TradesOrders.md) with a tick-level or quote-level feed
 when intra-bar sequencing matters.
+
+
+<!-- NAN_FOOTNOTE_START -->
+## NaN handling
+
+**Policy: `ignore`.** A `NaN` input never corrupts the engine's state. What a `NaN` target, price or quote does on this engine is stated in the Description. See [NaN and warmup](../nan_and_warmup.md).
+<!-- NAN_FOOTNOTE_END -->
 
 ## Examples
 

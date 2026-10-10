@@ -6,10 +6,13 @@ topics:
 - regression
 tags:
 - beta
+- hedge ratio
+- regression slope
 - regression
 - capm
 - pair
-short: cov(x, y) / var(y) - regression slope of x on y.
+short: Rolling regression slope cov(x, y) / var(y) of the first input x (dependent) on the
+  second input y (regressor).
 inputs: 2
 outputs: 1
 parameters:
@@ -17,7 +20,7 @@ parameters:
   type: int
   default: 20
   min: 2
-  description: Window length.
+  description: Number of most recent (target, regressor) pairs in the regression window.
 - name: start_policy
   type: str
   default: strict
@@ -25,15 +28,22 @@ parameters:
   - strict
   - expanding
   - zero
-  description: Warmup behaviour.
+  description: 'Output before the window is full: "strict" gives NaN, "expanding" computes
+    from the samples seen so far, and "zero" treats the window as pre-filled with zeros.'
 nan_policy: ignore
+see_also:
+- RollingAlpha
+- RollingCov
+- RollingCorr
+- RollingSpread
+- RollingTLSBeta
 ---
 
 # `RollingBeta`
 
 ## Description
 
-`RollingBeta` computes the rolling regression slope of `x` on `y` over a sliding window of fixed size. The first argument is the dependent variable (target), the second is the independent variable (regressor).
+`RollingBeta(window_size)(x, y)` computes the least-squares slope of `x` regressed on `y` over the last `window_size` samples. The first input `x` is the dependent series (target) and the second input `y` is the regressor, so `RollingBeta(w)(stock, market)` gives the market beta of the stock.
 
 *Equation*:
 
@@ -43,22 +53,15 @@ $$
 
 with the sums taken over the most recent `window_size` samples.
 
-*Parameters*:
+It takes two parallel streams, like [`RollingCorr`](RollingCorr.md), and returns the slope coefficient. The output is `NaN` during warmup and when `y` has zero variance within the window, where the regression is undefined.
 
-- **`window_size`** (`int`, ≥ 2): size of the rolling window.
-- **`start_policy`** (`str`, default `"strict"`): controls warmup behavior. See `RollingMean` for the full definition.
-
-*Input shape*: two parallel streams, identical to [`RollingCorr`](RollingCorr.md).
-
-*Return value*: the slope coefficient. Returns `NaN` during warmup or when `y` has zero variance within the window (regression is undefined).
-
-> **Convention note**: pandas does not ship a `rolling().beta()` method directly. The pandas-equivalent expression is `pd.Series(x).rolling(w).cov(pd.Series(y)) / pd.Series(y).rolling(w).var()`. Some libraries call this slope "alpha" or use the inverse argument order; double-check the convention when comparing.
+pandas has no rolling beta method. The equivalent pandas expression is `pd.Series(x).rolling(w).cov(pd.Series(y)) / pd.Series(y).rolling(w).var()`. Other libraries may put the regressor first, so check the argument order when comparing.
 
 
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples
@@ -101,13 +104,10 @@ with the sums taken over the most recent `window_size` samples.
 
 ## Implementation Details
 
-Four `detail::RollingSum` buffers maintain `Σx`, `Σy`, `Σyy`, `Σxy` over the window. Each new sample updates all four sums in `O(1)`, then β is computed in closed form.
+Four running window sums maintain `Σx`, `Σy`, `Σyy`, `Σxy` over the window. Each new sample updates all four sums in `O(1)`, then β is computed in closed form.
 
 * **Time**: `O(1)` per new element.
-* **Space**: `O(window_size)` (four circular buffers).
+* **Space**: `O(window_size)`.
 * **Reference**: parity with `pd.Series(x).rolling(w).cov(pd.Series(y)) / pd.Series(y).rolling(w).var()` verified in `tests/test_rolling_two_input.py`.
 
-### Related
-
-- [`RollingCov`](RollingCov.md) is the numerator alone.
-- [`RollingSpread`](RollingSpread.md) returns `x - β·y` using exactly the same β.
+[`RollingCov`](RollingCov.md) is the numerator alone, and [`RollingSpread`](RollingSpread.md) returns `x - β·y` with the same β.

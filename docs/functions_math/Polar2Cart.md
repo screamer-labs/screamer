@@ -8,11 +8,21 @@ tags:
 - polar
 - conversion
 - pair
+- cartesian
+- sine
+- cosine
 short: Convert (r, theta) to (x, y).
 inputs: 2
 outputs: 2
+output_names:
+- x
+- y
 parameters: []
 nan_policy: ignore
+see_also:
+- Cart2Polar
+- Cos
+- Sin
 ---
 
 # `Polar2Cart`
@@ -21,7 +31,7 @@ nan_policy: ignore
 
 Convert 2D polar coordinates `(r, θ)` to Cartesian coordinates `(x, y)`. The inverse of `Cart2Polar`.
 
-This is a **2-input, 2-output** function (`FunctorBase<_, 2, 2>`). Inputs are paired column-by-column; outputs are stacked along a trailing axis of size 2.
+It takes two inputs, `r` then `theta`, and returns two outputs, `x` then `y`. For arrays the inputs are paired column by column and the outputs are stacked along a trailing axis of size 2.
 
 *Equation*:
 
@@ -29,9 +39,7 @@ $$
 x[t] = r[t] \cos\theta[t], \qquad y[t] = r[t] \sin\theta[t]
 $$
 
-*Parameters*: `Polar2Cart` takes no parameters.
-
-*NaN handling*: A NaN in either input produces NaN in both outputs.
+A `NaN` in either input gives `NaN` in both outputs.
 
 ## Output shapes
 
@@ -45,11 +53,10 @@ Same shape rule as `Cart2Polar`:
 
 `out[..., 0]` is `x`, `out[..., 1]` is `y`.
 
-
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples

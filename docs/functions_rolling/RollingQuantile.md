@@ -8,6 +8,8 @@ tags:
 - quantile
 - percentile
 - rolling
+- quartile
+- rolling quantile
 short: Trailing-window quantile (e.g. 0.25 = lower quartile).
 inputs: 1
 outputs: 1
@@ -16,33 +18,33 @@ parameters:
   type: int
   default: 20
   min: 2
-  description: Trailing-window length.
+  description: Number of most recent samples in the window.
 - name: quantile
   type: float
   default: 0.5
   min: 0.0
   max: 1.0
-  description: Quantile to compute (in [0, 1]).
+  description: Quantile to return; 0.5 gives the median. Values between two order statistics
+    are interpolated linearly.
 nan_policy: ignore
+see_also:
+- RollingMedian
+- RollingPercentile
+- RollingIqr
+- RollingRank
 ---
 
 # `RollingQuantile`
 
 ## Description
 
-The `RollingQuantile` class computes a specified quantile within a moving window over a sequence of data. Given a `window_size` and `quantile`, the function returns an interpolated value that represents the `quantile` position within each window. This approach is useful for tracking data distribution changes over time or identifying outliers based on quantile thresholds. For example, a `quantile` of 0.5 would return the median, while 0.25 and 0.75 would yield the 25th and 75th percentiles, respectively. 
-
-*Parameters*: 
-- **`window_size`**: Specifies the size of the rolling window. The first `window_size` values are returned as `NaN` since a full window is required for calculation.
-- **`quantile`**: Specifies the desired quantile, a value between 0 and 1, with 0.5 representing the median.
-
-*NaN handling*: The first `window_size` values are returned as `NaN`, as they do not form a complete window. If `NaN` values are present within the data sequence, they will be ignored in the quantile calculation.
+`RollingQuantile` returns the `quantile` of the `window_size` most recent values. A `quantile` of 0.5 gives the median, and 0.25 and 0.75 give the lower and upper quartiles. When the quantile falls between two order statistics, the result is interpolated linearly between them (the `linear` method of `numpy.quantile` and pandas). The output is `NaN` until the window is full, so the first `window_size - 1` values are `NaN`.
 
 
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples
@@ -99,7 +101,7 @@ The `RollingQuantile` class computes a specified quantile within a moving window
 
 ### Algorithm
 
-`RollingQuantile` is implemented using an **Order Statistic Tree**, which allows efficient insertion, deletion, and quantile selection operations within each rolling window. As new values enter the window, they are inserted into the tree while the oldest value is removed. This maintains the sorted structure required to compute quantiles on-the-fly, ensuring accurate quantile calculation even with dynamically changing data within each window.
+`RollingQuantile` keeps the window in an order statistic tree, a sorted tree that can return its k-th smallest element. Each new value is inserted and the value leaving the window is removed, then the two order statistics around the quantile position are read from the tree.
 
 ### Complexity
 
@@ -112,7 +114,3 @@ The Order Statistic Tree provides the following complexities:
 
 * **Space Complexity**: 
   - `O(window_size)`, as only elements within the current window are stored in the tree at any given time.
-
-### Performance
-
-`RollingQuantile` is highly efficient for quantile calculations over large datasets or real-time data streams. The use of an Order Statistic Tree reduces the computational burden typically associated with dynamic quantile computation, making it well-suited for applications requiring fast and reliable quantile tracking across moving windows.

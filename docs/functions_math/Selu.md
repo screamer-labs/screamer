@@ -8,18 +8,25 @@ tags:
 - activation
 - selu
 - neural
+- scaled exponential linear unit
 short: Scaled exponential linear unit (self-normalizing networks).
 inputs: 1
 outputs: 1
 parameters: []
 nan_policy: ignore
+see_also:
+- Elu
+- Relu
+references:
+- Klambauer, G., Unterthiner, T., Mayr, A. and Hochreiter, S. (2017). Self-normalizing neural
+  networks. *Advances in Neural Information Processing Systems*, 30.
 ---
 
 # `Selu`
 
 ## Description
 
-The `Selu` (Scaled Exponential Linear Unit) class scales the ELU function with fixed coefficients to induce self-normalizing properties.
+`Selu` (scaled exponential linear unit) is the ELU function scaled by fixed coefficients. These constants make the activations of a network self-normalizing (Klambauer et al., 2017).
 
 *Equation*:
 
@@ -32,15 +39,10 @@ $$
 
 where $\lambda \approx 1.0507$ and $\alpha \approx 1.67326$.
 
-*Parameters*: No parameters.
-
-*NaN handling*: `NaN` values are not modified by this function.
-
-
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples

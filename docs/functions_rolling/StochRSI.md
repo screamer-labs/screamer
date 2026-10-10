@@ -9,7 +9,10 @@ tags:
 - rsi
 - oscillator
 - talib
-short: Stochastic applied to RSI (1 input -> 2 outputs).
+- stochastic rsi
+- '%K'
+- '%D'
+short: Stochastic oscillator applied to the RSI, giving %K and %D.
 inputs: 1
 outputs: 2
 parameters:
@@ -17,30 +20,39 @@ parameters:
   type: int
   default: 14
   min: 2
-  description: RSI period.
+  description: Smoothing period of the Wilder RSI computed from the input.
 - name: stoch_period
   type: int
   default: 14
   min: 2
-  description: Stochastic lookback over the RSI.
+  description: Number of most recent RSI values over which the minimum and maximum are taken.
 - name: smooth_k
   type: int
   default: 1
   min: 1
-  description: '%K smoothing.'
+  description: Period of the simple moving average applied to raw %K; 1 gives the fast StochRSI.
 - name: d
   type: int
   default: 3
   min: 1
-  description: '%D period.'
+  description: Period of the simple moving average applied to %K to produce %D.
 nan_policy: ignore
+output_names:
+- '%K'
+- '%D'
+see_also:
+- RollingRSI
+- Stoch
+- WilliamsR
+references:
+- Chande, T. S. and Kroll, S. (1994). *The New Technical Trader*. John Wiley & Sons.
 ---
 
 # `StochRSI`
 
 ## Description
 
-`StochRSI` (Chande & Kroll, 1994) applies the Stochastic oscillator formula to an RSI series rather than to price: it expresses the current RSI value as a position within its own rolling min-max range.
+`StochRSI` (Chande and Kroll, 1994) applies the stochastic oscillator formula to an RSI series rather than to price: it expresses the current RSI value as a position within its own rolling min-max range.
 
 $$
 \begin{aligned}
@@ -51,33 +63,28 @@ $$
 \end{aligned}
 $$
 
-**1-input, 2-output** (`FunctorBase<_, 1, 2>`).
+It takes one input and returns two outputs, `%K` and `%D`.
 
-## Setting it up
+## Common configurations
 
 | Configuration | Constructor | TA-Lib equivalent |
 |---|---|---|
-| **Fast StochRSI** (TA-Lib's `STOCHRSI`) -- default | `StochRSI(14, 14, 1, 3)` | `STOCHRSI(close, timeperiod=14, fastk_period=14, fastd_period=3)` |
-| **Slow StochRSI** -- add smoothing on K | `StochRSI(14, 14, 3, 3)` | not in TA-Lib; common in pandas-ta `stochrsi(..., k=3, ...)` |
+| **Fast StochRSI** (TA-Lib's `STOCHRSI`, the default) | `StochRSI(14, 14, 1, 3)` | `STOCHRSI(close, timeperiod=14, fastk_period=14, fastd_period=3)` |
+| **Slow StochRSI** (smoothing on %K) | `StochRSI(14, 14, 3, 3)` | not in TA-Lib; common in pandas-ta `stochrsi(..., k=3, ...)` |
 
-`smooth_k=1` is the identity SMA, collapsing `%K = raw_K` (the "fast" form). `smooth_k >= 2` gives the slow form.
+With `smooth_k=1` the moving average is the identity, so `%K = raw_K` (the fast form). `smooth_k >= 2` gives the slow form.
 
-## Parameters
+## Warmup and edge cases
 
-- `rsi_period` (int, default `14`): RSI lookback. Uses Wilder smoothing internally.
-- `stoch_period` (int, default `14`): rolling min/max window applied to the RSI series.
-- `smooth_k` (int, default `1`): SMA period applied to `raw_K`.
-- `d` (int, default `3`): SMA period applied to `%K` to produce `%D`.
+Both outputs are NaN until `%D` is valid, at sample index `rsi_period + stoch_period + smooth_k + d - 3`. This follows TA-Lib, which starts both lines together. For the defaults that is index 29.
 
-*Warmup*: both outputs are NaN until `%D` is valid, at sample index `rsi_period + stoch_period + smooth_k + d - 3` (TA-Lib's convention -- gate both K and D together). For defaults that is index 29.
-
-*Range-zero*: when the RSI window is flat (`max == min`), `raw_K` is undefined; we return `0`.
+When the RSI window is flat (`max == min`), `raw_K` is undefined and `StochRSI` returns 0.
 
 
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples
@@ -116,8 +123,8 @@ $$
 
 ## Implementation Details
 
-Composition: an internal `RollingRSI(rsi_period, method="wilder")`, two `detail::MonotonicDeque` (for rolling RSI min / max), and two `detail::RollingMean` (for the smooth_k and d SMAs). Amortised O(1) per step.
+`StochRSI` runs a Wilder RSI, keeps the rolling minimum and maximum of the RSI in two monotonic deques, and smooths with two rolling means. Each step is amortized O(1).
 
-## Reference
+## Compatibility
 
 Matches `talib.STOCHRSI(close, timeperiod=N, fastk_period=K, fastd_period=D)` bit-exactly (to ~1e-13 in `tests/test_third_party_alignment.py`).

@@ -6,17 +6,21 @@ topics:
 - cross-sectional
 tags:
 - rank
-- cross-sectional
+- cross-sectional rank
+- percentile rank
+- rank weights
 - portfolio
 - factor
-short: "Rank each asset against the others at the same step, scaled to [-1, 1] or [0, 1]."
+- cross-sectional
+short: Rank each asset against the others at the same step, scaled to [-1, 1] or [0, 1].
 inputs: 1
 outputs: 1
 parameters:
 - name: scale
   type: str
-  default: "signed"
-  description: "Output range: \"signed\" maps the lowest value to -1 and the highest to 1; \"unit\" maps them to 0 and 1."
+  default: signed
+  description: 'Output range: "signed" maps the lowest value to -1 and the highest to 1; "unit"
+    maps them to 0 and 1.'
 nan_policy: ignore
 see_also:
 - CrossZscore
@@ -47,9 +51,7 @@ after `reset()`.
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-A `NaN` entry is an asset that is not available on that row, for example one
-that is not listed yet or is halted. It is left out of the cross-section, and
-its output is `NaN`. A row that is all `NaN` returns all `NaN`.
+**Policy: `ignore`.** A `NaN` for an asset gives a `NaN` output for that asset at that step, and the statistic is computed across the remaining assets. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples

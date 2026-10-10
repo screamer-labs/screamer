@@ -8,10 +8,17 @@ tags:
 - mean
 - expanding
 - cumulative
+- running mean
+- cumulative average
 short: Running mean over the whole history since the last reset.
 inputs: 1
 outputs: 1
 parameters: []
+see_also:
+- RollingMean
+- EwMean
+- ExpandingSum
+- ExpandingStd
 nan_policy: ignore
 ---
 
@@ -19,20 +26,16 @@ nan_policy: ignore
 
 ## Description
 
-The `ExpandingMean` function returns the arithmetic mean of every sample seen since the start of the stream (or since the last `reset`). It is the whole-history analogue of `RollingMean` and matches `pandas.Series.expanding().mean()`. Memory is `O(1)`.
-
-*Equation*:
+`ExpandingMean` returns the arithmetic mean of every sample seen since the start of the stream, or since the last `reset`. It is the whole-history counterpart of [`RollingMean`](../functions_rolling/RollingMean.md) and matches `pandas.Series.expanding().mean()`. Memory is `O(1)`.
 
 $$
-y[t] = \frac{1}{t+1} \sum_{i=0}^{t} x[i]
+y[t] = \frac{1}{n} \sum_{i=0}^{t} x[i], \quad n = t + 1
 $$
-
-*Parameters*: none.
 
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `ignore`.** A `NaN` in the input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples

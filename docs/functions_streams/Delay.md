@@ -3,6 +3,15 @@ name: Delay
 title: Delay
 kind: class
 short: Re-stamp each event's index by a fixed time offset (a latency line).
+tags:
+- latency
+- delay
+- shift index
+- time offset
+see_also:
+- Lag
+- Resample
+- CombineLatest
 topics:
 - streams
 covers:

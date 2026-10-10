@@ -15,7 +15,11 @@ tags:
 - transaction cost
 - strategy
 - risk
-short: "Backtest a target-position strategy on OHLC bars, executing market orders at the next bar's open or another bar price, with slippage (causal, no manual lag)."
+- simulation
+- transaction costs
+- fees
+short: Backtest a target-position strategy on OHLC bars, executing market orders at the next
+  bar's open or another bar price, with slippage (causal, no manual lag).
 inputs: 5
 outputs: 4
 parameters:
@@ -27,20 +31,24 @@ parameters:
   type: float
   default: 0.0
   min: 0.0
-  description: Instrument price grid (0 = continuous). Slippage offsets round up to whole ticks; the "ticks" slippage unit counts in this step.
+  description: Instrument price grid (0 = continuous). Slippage offsets round up to whole
+    ticks; the "ticks" slippage unit counts in this step.
 - name: min_position
   type: float
   default: -.inf
-  description: Lower bound on the filled position. The deferred target is clamped to [min_position, max_position] before the fill executes.
+  description: Lower bound on the position, in units. It applies after `size` has converted
+    the target to units, so a weight target of -2 with min_position=-0.5 holds -0.5 units.
 - name: max_position
   type: float
   default: .inf
-  description: Upper bound on the filled position. The deferred target is clamped to [min_position, max_position] before the fill executes.
+  description: Upper bound on the position, in units. It applies after `size` has converted
+    the target to units, so a weight target of 2 with max_position=0.5 holds 0.5 units.
 - name: multiplier
   type: float
   default: 1.0
   min: 0.0
-  description: Contract multiplier applied to mark-to-market PnL, fill slippage, and proportional fees.
+  description: Contract multiplier applied to mark-to-market PnL, fill slippage, and proportional
+    fees.
 - name: fee_per_contract
   type: float
   default: 0.0
@@ -49,49 +57,61 @@ parameters:
   type: float
   default: 0.0
   min: 0.0
-  description: Adverse price offset on every taker (market) fill, read in `slippage_unit`. A buy fills higher and a sell lower; resting limit fills never slip.
+  description: Adverse price offset on every taker (market) fill, read in `slippage_unit`.
+    A buy fills higher and a sell lower; resting limit fills never slip.
 - name: slippage_unit
   type: str
   default: fraction
-  description: 'Unit of `slippage`: "fraction" of the reference price (5 bps = 5e-4), "ticks" of `tick_size`, or "price" (an absolute amount).'
+  description: 'Unit of `slippage`: "fraction" of the reference price (5 bps = 5e-4), "ticks"
+    of `tick_size`, or "price" (an absolute amount).'
 - name: fill_at
   type: str
   default: open
-  description: 'Reference price of the execution bar: "open", "close", "typical" (high + low + close) / 3, or "ohlc4" (open + high + low + close) / 4.'
+  description: 'Reference price of the execution bar: "open", "close", "typical" (high + low
+    + close) / 3, or "ohlc4" (open + high + low + close) / 4.'
 - name: delay
   type: int
   default: 1
   min: 0
-  description: Bars between the decision and the execution. A target from bar t trades on bar t + delay. 0 is allowed only with fill_at="close" (market-on-close of the signal bar).
+  description: Bars between the decision and the execution. A target from bar t trades on
+    bar t + delay. 0 is allowed only with fill_at="close" (market-on-close of the signal bar).
 - name: stop_loss
   type: float
   default: 0.0
   min: 0.0
-  description: Exit when the price moves this fraction against the average entry fill (0.05 = 5%). 0 turns it off.
+  description: Exit when the price moves this fraction against the average entry fill (0.05
+    = 5%). 0 turns it off.
 - name: take_profit
   type: float
   default: 0.0
   min: 0.0
-  description: Exit when the price moves this fraction in favour of the average entry fill. 0 turns it off.
+  description: Exit when the price moves this fraction in favor of the average entry fill.
+    0 turns it off.
 - name: trailing_stop
   type: float
   default: 0.0
   min: 0.0
-  description: Exit when the price falls this fraction from the best price since entry (the highest for a long, the lowest for a short). 0 turns it off.
+  description: Exit when the price falls this fraction from the best price since entry (the
+    highest for a long, the lowest for a short). 0 turns it off.
 - name: size
   type: str
   default: units
-  description: 'How to read the target: "units" (a position), "notional" (a currency amount), or "weight" (a fraction of initial_capital + equity). It is converted to units at the execution price.'
+  description: 'How to read the target: "units" (a position), "notional" (a currency amount),
+    or "weight" (a fraction of initial_capital + equity). It is converted to units at the
+    execution price.'
 - name: initial_capital
   type: float
   default: 0.0
   min: 0.0
-  description: Starting capital for size="weight" and for rebalance_band; equity is initial_capital plus the backtest's cumulative pnl.
+  description: Starting capital for size="weight" and for rebalance_band; equity is initial_capital
+    plus the backtest's cumulative pnl.
 - name: rebalance_band
   type: float
   default: 0.0
   min: 0.0
-  description: With size="notional" or "weight", recompute the units when the holding drifts from the target by more than this fraction of equity (0.05 = 5 points of weight). 0 keeps the units until the target value changes.
+  description: With size="notional" or "weight", recompute the units when the holding drifts
+    from the target by more than this fraction of equity (0.05 = 5 points of weight). 0 keeps
+    the units until the target value changes.
 nan_policy: ignore
 see_also:
 - BacktestOHLCVTarget
@@ -99,18 +119,18 @@ see_also:
 - BacktestTradesTarget
 - BacktestL1Target
 - backtest_report
+output_names:
+- equity
+- pnl
+- position
+- cost
 ---
 
 # `BacktestOHLCTarget`
 
-`multiplier` converts a price move into currency per contract. `fee_per_contract`
-is added to the existing proportional taker fee on every fill and may be negative
-for a rebate; defaults preserve the previous behavior.
-
 ## Description
 
-`BacktestOHLCTarget` is a lean directional backtest on OHLC bars. It is causal by
-design: the `target_position` you pass on bar t is decided from that bar's close,
+`BacktestOHLCTarget` is a directional backtest on OHLC bars. It is causal: the `target_position` you pass on bar t is decided from that bar's close,
 and the engine executes it on bar t+1 as a market order at the open. No manual lag
 is needed; feed the raw signal directly.
 
@@ -132,14 +152,14 @@ bar the target was decided on (market-on-close).
 the close is pnl. See [Choosing a backtest engine](choosing_a_backtest_engine.md)
 for the shared slippage and cost rules.
 
-The optional `min_position` / `max_position` parameters cap the inventory. The
-deferred target is clamped to `[min_position, max_position]` before the order
-size is computed, so the engine never carries a position outside that range.
+`min_position` and `max_position` bound the position in units. They apply after
+the sizing conversion, so a weight target of 2 with `max_position=0.5` holds 0.5
+units, and the engine never carries a position outside that range.
 
 Inputs are `(target_position, open, high, low, close)`. Outputs are the four
 standard backtest columns: `0 = equity` (cumulative dollar PnL), `1 = pnl` (per
 bar), `2 = position`, and `3 = cost` (per bar). A `NaN` in any bar field (open,
-high, low, close) skips the bar (`nan_policy: ignore`). A `NaN` target keeps
+high, low, close) skips the bar. A `NaN` target keeps
 the last target: the position holds once it has reached it.
 [`backtest_report`](backtest_report.md) summarizes the resulting equity curve.
 
@@ -157,11 +177,18 @@ trailing stop, from the best price since entry). A bar that opens past a level
 exits at the open; otherwise the exit is at the level the low or high reaches.
 When the stop and the take-profit both fall inside one bar, the stop is taken,
 because the bar does not say which came first. For the same reason, a bar's own
-high (or low, for a short) raises the trailing level only from the next bar on. With `fill_at="open"` a position
-opened at the open can exit later in the same bar. Exits are market orders: they
+high (or low, for a short) raises the trailing level only from the next bar on.
+With `fill_at="open"` a position opened at the open can exit later in the same bar. Exits are market orders: they
 pay `taker_fee` and the `slippage` model applies. After an exit, targets on the
 same side are ignored until the target turns flat or reverses, so the engine does
 not re-enter on the next bar.
+
+
+<!-- NAN_FOOTNOTE_START -->
+## NaN handling
+
+**Policy: `ignore`.** A `NaN` input never corrupts the engine's state. What a `NaN` target, price or quote does on this engine is stated in the Description. See [NaN and warmup](../nan_and_warmup.md).
+<!-- NAN_FOOTNOTE_END -->
 
 ## Examples
 

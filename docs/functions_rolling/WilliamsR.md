@@ -9,6 +9,9 @@ tags:
 - oscillator
 - talib
 - hlc
+- williams %r
+- '%R'
+- WILLR
 short: Inverse stochastic oscillator in [-100, 0].
 inputs: 3
 outputs: 1
@@ -17,38 +20,43 @@ parameters:
   type: int
   default: 14
   min: 2
-  description: Period (Wilder's default).
+  description: Number of most recent bars over which the highest high and lowest low are taken.
 nan_policy: ignore
+see_also:
+- Stoch
+- UltimateOscillator
+- RollingRSI
+- DonchianChannels
+references:
+- Williams, L. (1979). *How I Made One Million Dollars Last Year Trading Commodities*. Windsor
+  Books.
 ---
 
 # `WilliamsR`
 
 ## Description
 
-`WilliamsR` (Williams %R, Larry Williams 1973) returns the normalised position of the close within the recent (high, low) range, scaled to `[-100, 0]`:
+`WilliamsR` (Williams %R, by Larry Williams) returns the normalized position of the close within the recent (high, low) range, scaled to `[-100, 0]`:
 
 $$
 \%R[t] = -100 \cdot \frac{H_n[t] - C[t]}{H_n[t] - L_n[t]}
 $$
 
-where `H_n` and `L_n` are the rolling max of `high` and rolling min of `low` over the window. `%R = 0` means the close is at the period high (typically a strong reading); `%R = -100` means the close is at the period low.
+where `H_n` and `L_n` are the rolling max of `high` and rolling min of `low` over the window. `%R = 0` means the close is at the period high, and `%R = -100` means the close is at the period low.
 
-This is a **3-input, 1-output** function (`FunctorBase<_, 3, 1>`). Input order is `(high, low, close)`, matching TA-Lib's `WILLR`.
+The inputs are `(high, low, close)`, in the order of TA-Lib's `WILLR`.
 
-## Parameters
+## Warmup and edge cases
 
-- `window_size` (int, default `14`): the rolling-window length.
+The first `window_size - 1` outputs are NaN, so the first valid output is at sample index `window_size - 1`, following TA-Lib.
 
-*Warmup*: NaN for the first `window_size − 1` samples; first valid output at sample index `window_size − 1` (TA-Lib's convention).
-
-*Range-zero handling*: when `H_n == L_n` over the period (a perfectly flat segment), the formula is mathematically undefined. We return `0` in that case, matching TA-Lib.
+When `H_n == L_n` over the period (a flat segment), the formula is undefined and `WilliamsR` returns 0, matching TA-Lib.
 
 ## Implementation Details
 
-Pure composition of two `detail::MonotonicDeque` instances -- the same primitive used by `RollingMin`/`RollingMax`/`RollingMinMax`/`RollingArgmin`/`RollingArgmax`/`RollingRange`. Amortised O(1) per step.
+The rolling high and low are kept in two monotonic deques, as in `RollingMin` and `RollingMax`.
 
-
-* Time complexity: `O(1)` amortised per step.
+* Time complexity: `O(1)` amortized per step.
 * Space complexity: `O(window_size)`.
 
 ## Output shape
@@ -64,19 +72,10 @@ Pure composition of two `detail::MonotonicDeque` instances -- the same primitive
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples
-
-### Implementation Details
-
-```
-high_n = max_deque.append(high)
-low_n  = min_deque.append(low)
-range  = high_n - low_n
-return -100 * (high_n - close) / range   (or 0 if range == 0)
-```
 
 ### Usage example
 
@@ -123,6 +122,6 @@ return -100 * (high_n - close) / range   (or 0 if range == 0)
 
 <!-- HELP_END -->
 
-## Reference
+## Compatibility
 
 Bit-exact match to TA-Lib's `WILLR(high, low, close, timeperiod)` post-warmup (verified in `tests/test_third_party_alignment.py` to ~1e-14).

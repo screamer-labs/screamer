@@ -6,28 +6,28 @@ topics:
 - arithmetic
 tags:
 - sqrt
+- square root
 short: Square root of each element.
 inputs: 1
 outputs: 1
 parameters: []
 nan_policy: ignore
+see_also:
+- Square
+- Power
+- Hypot
 ---
 
 # `Sqrt`
 
 ## Description
 
-The `Sqrt` class computes the square root of each element in a data sequence.
-
-*Parameters*: `Sqrt` takes no parameters.
-
-*NaN handling*: A `NaN` input yields `NaN`. A negative input also yields `NaN`, because the square root is undefined for negative values.
-
+`Sqrt` computes the square root of each element. A negative input gives `NaN`.
 
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples

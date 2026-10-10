@@ -3,6 +3,14 @@ name: Dropna
 title: Dropna
 kind: class
 short: Drop events whose value is NaN.
+tags:
+- dropna
+- drop missing
+- nan
+see_also:
+- Filter
+- FillNa
+- Ffill
 topics:
 - missing-data
 - streams
@@ -20,7 +28,7 @@ Feeding a lazy iterator of `(value, index)` pairs returns a lazy iterator of the
 
 <!-- HELP_END -->
 
-## Example
+## Examples
 
 The event at index 2 is `NaN`, so it is removed; the surviving values are
 returned values-first.

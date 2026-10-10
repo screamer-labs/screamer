@@ -8,11 +8,21 @@ tags:
 - ehlers
 - adaptive
 - trend
+- adaptive moving average
+- trendline
 short: Adaptive 2-pole trendline whose smoothing tracks the measured dominant cycle.
 inputs: 1
 outputs: 1
 parameters: []
 nan_policy: ignore
+see_also:
+- DominantCycle
+- MAMA
+- SuperSmoother
+- KAMA
+references:
+- 'Ehlers, J. F. (2004). *Cybernetic Analysis for Stocks and Futures: Cutting-Edge DSP Technology
+  to Improve Your Trading*. Wiley.'
 ---
 
 # `InstantaneousTrendline`
@@ -37,7 +47,7 @@ $$
 $$
 
 `period` is the dominant cycle period in samples, the same quantity
-`DominantCycle` reports; `HilbertCycle` clamps it to `[6, 50]`, which bounds
+`DominantCycle` reports, clamped to `[6, 50]`, which bounds
 `alpha` to at most `2/7`. The recursion needs two samples of input and output
 history; until that history is available (right after the dominant cycle
 first becomes measurable), `InstantaneousTrendline` seeds its output with the
@@ -49,15 +59,8 @@ measured cycle, with no smoothing constant to tune.
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `ignore`.** A `NaN` in the input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
-
-## Reference
-
-Ehlers, *Cybernetic Analysis for Stocks and Futures* (2004). There is no
-bit-exact reference implementation for this recursion; correctness is gated
-by causality (batch and streaming agree) and by tracking behavior on a clean
-trend.
 
 ## Examples
 

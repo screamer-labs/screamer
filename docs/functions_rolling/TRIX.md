@@ -10,6 +10,9 @@ tags:
 - ema
 - rate-of-change
 - talib
+- triple exponential
+- momentum
+- oscillator
 short: ROC of a triple-smoothed EMA.
 inputs: 1
 outputs: 1
@@ -18,15 +21,23 @@ parameters:
   type: int
   default: 14
   min: 2
-  description: EMA span for each of the three smoothing stages.
+  description: Span of each of the three exponential moving averages, giving alpha = 2 / (span
+    + 1).
 nan_policy: ignore
+see_also:
+- TEMA
+- EwMean
+- ROCP
+- MACD
+references:
+- Hutson, J. K. (1983). Good TRIX. *Technical Analysis of Stocks & Commodities*, 1(5).
 ---
 
 # `TRIX`
 
 ## Description
 
-`TRIX(span)` is the one-step rate of change of a **triple-smoothed** EMA -- a momentum oscillator that filters short-term noise via two extra layers of exponential smoothing before measuring change.
+`TRIX(span)` (Jack Hutson, 1983) is the one-step percentage rate of change of a triple-smoothed EMA. It is a momentum oscillator: the two extra layers of exponential smoothing filter out short-term noise before the change is measured.
 
 $$
 \begin{aligned}
@@ -37,25 +48,19 @@ $$
 \end{aligned}
 $$
 
-*Parameters*:
-
-- `span` (int, positive): the span for every EMA stage (all three use the same value).
-
-*Warmup*: only the first sample is NaN (no `prev_ema3` yet). Each `EwMean` is well-defined from `t=0`, so from `t=1` onward TRIX is finite.
-
-*NaN handling*: NaN inputs propagate through the EMA arithmetic.
+All three stages use the same `span`. Only the first output is NaN, because there is no previous `ema3` yet; each `EwMean` is defined from `t=0`, so TRIX is finite from `t=1` onward.
 
 ## Implementation Details
 
-Pure composition of three chained `EwMean` instances plus a single scalar holding `prev_ema3`. O(1) per step.
+`TRIX` chains three `EwMean` stages and keeps the previous `ema3` value. Each step is O(1).
 
-The underlying EMA is pandas's `adjust=True` (bias-corrected weighted mean -- the form we use throughout the library). TA-Lib's TRIX uses `adjust=False` with an SMA-seeded warmup, so ours differs from TA-Lib by a few percent during early samples; see [conventions](../conventions.md).
+The underlying EMA follows pandas `adjust=True` (the bias-corrected weighted mean used throughout the library). TA-Lib's TRIX uses `adjust=False` with an SMA-seeded warmup, so ours differs from TA-Lib by a few percent during early samples; see [conventions](../conventions.md).
 
 
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples
@@ -92,6 +97,6 @@ The underlying EMA is pandas's `adjust=True` (bias-corrected weighted mean -- th
 
 <!-- HELP_END -->
 
-## Reference
+## Compatibility
 
 Equivalent to `pandas.Series.ewm(span=..., adjust=True).mean()` triple composition followed by `100 * pct_change`. Cross-validated in `tests/test_third_party_alignment.py`: bit-exact vs pandas composition; documented divergence vs TA-Lib's `TRIX`.

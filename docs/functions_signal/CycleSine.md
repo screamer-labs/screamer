@@ -9,11 +9,24 @@ tags:
 - hilbert
 - cycle
 - analytic-signal
+- sinewave indicator
+- hilbert transform
+- analytic signal
 short: Sinewave indicator (sine, leadsine) from the instantaneous phase of the analytic signal.
 inputs: 1
 outputs: 2
 parameters: []
 nan_policy: ignore
+see_also:
+- CyclePhase
+- HilbertPhasor
+- TrendMode
+references:
+- 'Ehlers, J. F. (2001). *Rocket Science for Traders: Digital Signal Processing Applications*.
+  Wiley.'
+output_names:
+- sine
+- leadsine
 ---
 
 # `CycleSine`
@@ -30,16 +43,13 @@ the cycle's period, and the two outputs cross near the phase's turning
 points. The estimate is a general spectral quantity: the same measurement
 applies to any sampled signal, not only price.
 
-This is a **1-input, 2-output** function (`FunctorBase<_, 1, 2>`). Outputs
-are stacked along a trailing axis of size 2: `out[..., 0]` is `sine`,
-`out[..., 1]` is `leadsine`.
-
-*Parameters*: `CycleSine` takes no parameters.
+The two outputs are stacked along a trailing axis of size 2: `out[..., 0]`
+is `sine` and `out[..., 1]` is `leadsine`.
 
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `ignore`.** A `NaN` in the input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples

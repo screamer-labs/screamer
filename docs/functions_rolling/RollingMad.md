@@ -9,6 +9,8 @@ tags:
 - mad
 - deviation
 - rolling
+- mean absolute deviation
+- average absolute deviation
 short: Trailing-window mean absolute deviation from the rolling mean.
 inputs: 1
 outputs: 1
@@ -17,7 +19,7 @@ parameters:
   type: int
   default: 20
   min: 2
-  description: Trailing-window length.
+  description: Number of most recent samples whose mean and absolute deviations are taken.
 - name: start_policy
   type: str
   default: strict
@@ -25,7 +27,13 @@ parameters:
   - strict
   - expanding
   - zero
-  description: Warmup behaviour.
+  description: 'Output before the window is full: "strict" gives NaN, "expanding" computes
+    from the samples seen so far, and "zero" treats the window as pre-filled with zeros.'
+see_also:
+- RollingMedianAD
+- RollingStd
+- RollingIqr
+- CCI
 nan_policy: ignore
 ---
 
@@ -33,23 +41,22 @@ nan_policy: ignore
 
 ## Description
 
-`RollingMad` computes the rolling **mean absolute deviation**:
+`RollingMad` computes the rolling mean absolute deviation from the rolling mean:
 
 $$
 \text{MAD}[t] = \frac{1}{n} \sum_{i \in \text{window}} \left| x_i - \bar{x}_t \right|
 $$
 
-A robust scale measure: less sensitive to outliers than `RollingStd` because it uses the absolute deviation rather than the squared deviation. Common in statistical screening and as a denominator in robust z-scores.
-
-*Parameters*:
-
-- `window_size` (int, positive).
-- `start_policy` (str, optional): `"strict"` (default), `"expanding"`, or `"zero"`. Same semantics as `RollingMean`.
+It is less sensitive to outliers than [`RollingStd`](RollingStd.md) because it uses
+the absolute deviation rather than the squared deviation. It is used in statistical
+screening, as the denominator of a robust z-score, and as the scale in [`CCI`](CCI.md). For
+the median absolute deviation from the median, use
+[`RollingMedianAD`](RollingMedianAD.md).
 
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples
@@ -94,22 +101,30 @@ A robust scale measure: less sensitive to outliers than `RollingStd` because it 
 
 ## Implementation Details
 
-### Why O(W) and not O(1)?
+### Cost per step
 
-Unlike variance (`Var = E[x²] − μ²`), MAD has **no closed-form recurrence**. The mean shifts every step, and `|x_i − μ|` is piecewise-linear in μ with kinks at every `x_i` -- so a small change in μ flips signs on some terms but not others. Every shift in μ propagates into all `W` absolute deviations, not just the entering / leaving one.
+Variance has a closed-form update (`Var = E[x²] − μ²`); the mean absolute deviation
+does not. The mean shifts every step, and `|x_i − μ|` is piecewise linear in μ with a
+kink at every `x_i`, so a small change in μ flips the sign of some terms but not
+others. Every shift in μ therefore changes all `W` absolute deviations, not only the
+entering and leaving ones.
 
-A geometric route gives `O(log W)` *amortised* (using an order-statistic tree partitioned at μ), but it is `O(W log W)` worst-case and only beats the naive O(W) on smooth inputs with large `W`. Pandas uses the naive O(W) version too.
+An order-statistic tree partitioned at μ gives `O(log W)` amortized time, but it is
+`O(W log W)` in the worst case and only beats the direct `O(W)` sweep on smooth inputs
+with a large `W`. Pandas also uses the `O(W)` sweep.
 
 ### Algorithm
 
-1. Maintain a circular buffer of the last `W` values plus a running sum (the same rolling-sum recurrence `RollingMean` uses internally) -- gives the mean μ in `O(1)`.
-2. On each step, loop over the window once to accumulate `Σ |x_i − μ|` -- `O(W)`.
+1. A circular buffer of the last `W` values with a running sum gives the mean μ in
+   `O(1)`.
+2. Each step sweeps the window once to accumulate `Σ |x_i − μ|`, in `O(W)`.
 
 ### Complexity
 
 * Time complexity: `O(W)` per step.
 * Space complexity: `O(window_size)`.
 
-## Reference
+## Validation
 
-Equivalent to `pandas.Series.rolling(w).apply(lambda v: np.mean(np.abs(v - v.mean())), raw=True)` to floating-point precision. Validated in tests against both pandas and a manual numpy reference.
+Equivalent to `pandas.Series.rolling(w).apply(lambda v: np.mean(np.abs(v - v.mean())), raw=True)`
+to floating-point precision. Tests check it against both pandas and a numpy reference.

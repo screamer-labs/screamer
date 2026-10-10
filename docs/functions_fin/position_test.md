@@ -2,9 +2,29 @@
 name: position_test
 title: position_test
 kind: function
-short: Test whether a backtest's timing beats randomly timed copies of the same strategy, with a p-value.
+short: Test whether a backtest's timing beats randomly timed copies of the same strategy,
+  with a p-value.
+tags:
+- p-value
+- randomization test
+- permutation test
+- monte carlo
+- significance test
+- data snooping
+see_also:
+- strategy_test
+- circular_shift
+- segment_shuffle
+- deflated_sharpe
+references:
+- Aronson, D. (2006). *Evidence-Based Technical Analysis*. Wiley.
+- Masters, T. (2020). *Permutation and Randomization Tests for Trading System Development*.
+  Independently published.
+- White, H. (2000). A reality check for data snooping. *Econometrica*, 68(5), 1097-1126.
+- Phipson, B. and Smyth, G. K. (2010). Permutation p-values should never be zero. *Statistical
+  Applications in Genetics and Molecular Biology*, 9(1).
 topics:
-- backtesting
+- significance
 ---
 
 # `position_test`
@@ -88,7 +108,7 @@ It returns a named tuple with these fields:
 The p-value covers one metric, but `null_stats` holds the full set, so you can
 see where the real backtest falls on any statistic, or on two at once. Wrap
 the dict in `pandas.DataFrame(res.null_stats)` for a table with one row per
-randomized copy. The second plot in the [example](#example) shows two such
+randomized copy. The second plot in the [examples](#examples) shows two such
 scatter plots.
 
 
@@ -129,7 +149,7 @@ selected on the same data, that choice also inflates the result, and this test
 does not see it. [`strategy_test`](strategy_test.md) re-runs the whole strategy
 on permuted market data and covers it.
 
-## Example
+## Examples
 
 The same trend-following signal runs on two markets: one whose returns have
 mild momentum, and a random walk. The test separates them.
@@ -209,13 +229,3 @@ each other and the actual backtest marked.
                       legend=dict(orientation='h', yanchor='bottom', y=1.08, xanchor='right', x=1))
     fig.show()
 ```
-
-## References
-
-- Aronson, D. (2006). *Evidence-Based Technical Analysis*. Wiley.
-- Masters, T. (2020). *Permutation and Randomization Tests for Trading System
-  Development*. Independently published.
-- White, H. (2000). A reality check for data snooping. *Econometrica*, 68(5),
-  1097-1126.
-- Phipson, B. and Smyth, G. K. (2010). Permutation p-values should never be
-  zero. *Statistical Applications in Genetics and Molecular Biology*, 9(1).

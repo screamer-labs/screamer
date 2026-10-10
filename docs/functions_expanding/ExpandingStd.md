@@ -7,11 +7,19 @@ topics:
 - volatility
 tags:
 - std
+- standard deviation
 - expanding
+- running std
+- volatility
 short: Running sample standard deviation (ddof=1) over the whole history.
 inputs: 1
 outputs: 1
 parameters: []
+see_also:
+- ExpandingVar
+- ExpandingMean
+- RollingStd
+- EwStd
 nan_policy: ignore
 ---
 
@@ -19,20 +27,16 @@ nan_policy: ignore
 
 ## Description
 
-The `ExpandingStd` function returns the sample standard deviation (`ddof=1`) of every sample seen since the last `reset`; it is the square root of `ExpandingVar` and matches `pandas.Series.expanding().std()`. Undefined (`NaN`) until at least two samples have been seen. Memory is `O(1)`.
-
-*Equation*:
+`ExpandingStd` returns the sample standard deviation (`ddof=1`) of every sample seen since the start of the stream, or since the last `reset`. It is the square root of [`ExpandingVar`](ExpandingVar.md) and matches `pandas.Series.expanding().std()`. The output is `NaN` until two samples have been seen. Memory is `O(1)`.
 
 $$
 y[t] = \sqrt{\frac{1}{n-1}\sum_{i=0}^{t}(x[i]-\bar{x})^2}, \quad n=t+1
 $$
 
-*Parameters*: none.
-
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `ignore`.** A `NaN` in the input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples

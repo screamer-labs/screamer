@@ -7,6 +7,9 @@ topics:
 tags:
 - max
 - rolling
+- maximum
+- rolling max
+- highest high
 short: Trailing-window maximum (monotonic deque).
 inputs: 1
 outputs: 1
@@ -15,21 +18,27 @@ parameters:
   type: int
   default: 20
   min: 2
-  description: Trailing-window length.
+  description: Number of most recent samples in the window.
 nan_policy: ignore
+see_also:
+- RollingMin
+- RollingMinMax
+- RollingArgmax
+- ExpandingMax
+- CumMax
 ---
 
 # `RollingMax`
 
 ## Description
 
-`RollingMax` computes the maximum of the `window_size` most recent values. It is maintained with a monotonic deque (`detail::MaxDeque`), giving O(1) amortised time per step.
+`RollingMax` computes the maximum of the `window_size` most recent values. It is maintained with a monotonic deque, giving O(1) amortized time per step.
 
 
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples
@@ -73,16 +82,13 @@ nan_policy: ignore
 
 ## Implementation Details
 
-### ALgorithm
+### Algorithm
 
-`RollingMax` used the `ascending minima algorithm` using a deque-based that ensures that each new maximum is calculated in `O(1)` constant time while using `O(window_size)` memory. 
+`RollingMax` keeps a monotonic deque (the ascending minima algorithm, mirrored for the maximum): candidates are stored in decreasing order, a new sample removes every smaller candidate from the back, and the front is dropped once it leaves the window. The front is the window maximum.
 
-### Complexity:
+### Complexity
 
-* Time complexity: `O(1)`
-* Space complexity: `O(window_size)`
+* Time complexity: `O(1)` amortized per step.
+* Space complexity: `O(window_size)`.
 
-### Performance
-
-* Short streams (n=1.000): 300% faster than `Pandas Rolling max`
-* Longer streams (n=1.000.000): 90% faster than `Pandas Rolling max`
+For timings see [Performance](../performance.md).

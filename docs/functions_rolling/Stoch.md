@@ -9,7 +9,11 @@ tags:
 - oscillator
 - talib
 - hlc
-short: Stochastic oscillator %K and %D (3 inputs -> 2 outputs).
+- stochastic oscillator
+- stochastics
+- '%K'
+- '%D'
+short: Stochastic oscillator %K and %D from high, low and close.
 inputs: 3
 outputs: 2
 parameters:
@@ -17,25 +21,38 @@ parameters:
   type: int
   default: 14
   min: 2
-  description: Lookback for the %K stochastic.
+  description: Number of most recent bars over which the highest high and lowest low are taken
+    for raw %K.
 - name: smooth_k
   type: int
   default: 3
   min: 1
-  description: Smoothing period for %K (1 = fast stoch, 3 = TA-Lib slow stoch).
+  description: Period of the simple moving average applied to raw %K; 1 gives the fast stochastic,
+    3 the slow stochastic of TA-Lib.
 - name: d
   type: int
   default: 3
   min: 1
-  description: SMA period for %D.
+  description: Period of the simple moving average applied to %K to produce %D.
 nan_policy: ignore
+output_names:
+- '%K'
+- '%D'
+see_also:
+- StochRSI
+- WilliamsR
+- RollingRSI
+- RollingMinMax
+references:
+- Lane, G. C. (1984). Lane's stochastics. *Technical Analysis of Stocks & Commodities*, 2(3),
+  87-90.
 ---
 
 # `Stoch`
 
 ## Description
 
-`Stoch` (Stochastic oscillator, George Lane, 1950s) returns the pair `(%K, %D)` per step. The raw stochastic measures where the close sits within the recent (high, low) range, scaled to `[0, 100]`. Two layers of optional SMA smoothing then give the canonical "fast" and "slow" variants.
+`Stoch` (the stochastic oscillator of George Lane) returns the pair `(%K, %D)` per step. The raw stochastic measures where the close sits within the recent high-low range, scaled to `[0, 100]`. Two layers of simple moving average smoothing then give the "fast" and "slow" variants.
 
 $$
 \begin{aligned}
@@ -45,40 +62,36 @@ $$
 \end{aligned}
 $$
 
-This is a **3-input, 2-output** function (`FunctorBase<_, 3, 2>`). Input order is `(high, low, close)`.
+The inputs are `(high, low, close)`, and the outputs are `%K` and `%D`.
 
-## Setting it up for the popular cases
+## Common configurations
 
-The one class covers every common parameterisation by choosing `smooth_k`:
+The common variants differ only in `smooth_k`:
 
 | Configuration | Constructor | TA-Lib equivalent |
 |---|---|---|
 | **Slow Stochastic** (charting default; what `talib.STOCH` returns) | `Stoch(14, 3, 3)` | `STOCH(high, low, close, fastk_period=14, slowk_period=3, slowd_period=3)` |
-| **Fast Stochastic** (Lane's original) -- skip the smooth-K SMA | `Stoch(14, 1, 3)` | `STOCHF(high, low, close, fastk_period=14, fastd_period=3)` |
+| **Fast Stochastic** (Lane's original, no smoothing of %K) | `Stoch(14, 1, 3)` | `STOCHF(high, low, close, fastk_period=14, fastd_period=3)` |
 | TA-Lib's *function* defaults (rarely used by traders) | `Stoch(5, 3, 3)` | `STOCH(..., fastk_period=5, slowk_period=3, slowd_period=3)` |
 
-`smooth_k=1` is the trick: SMA of period 1 is the identity, so `%K = raw_K` and you get the fast variant out of the same class.
+With `smooth_k=1` the moving average of period 1 is the identity, so `%K = raw_K` and the class returns the fast variant.
 
-## Parameters
+## Warmup and edge cases
 
-- `fastk_period` (int, default `14`): rolling-window length for the H / L deques.
-- `smooth_k` (int, default `3`): SMA period applied to `raw_K`. Set to `1` for the fast Stochastic.
-- `d` (int, default `3`): SMA period applied to `%K` to produce `%D`.
+Both outputs are NaN until the `%D` line is valid, at sample index `fastk_period + smooth_k + d - 3`. This follows TA-Lib, which starts both lines together. For the default `(14, 3, 3)` that is index 17.
 
-*Warmup*: both outputs are NaN until the `%D` line is valid, at sample index `fastk_period + smooth_k + d - 3` (TA-Lib's convention -- gate both K and D together). For the default `(14, 3, 3)` that is index 17.
-
-*Range-zero handling*: when `H_n == L_n` over the period (a perfectly flat segment) the raw stochastic is undefined; we return 0, matching TA-Lib.
+When `H_n == L_n` over the period (a flat segment) the raw stochastic is undefined, and `Stoch` returns 0, matching TA-Lib.
 
 ## Implementation Details
 
-Pure composition of two `detail::MonotonicDeque` (one each for high / low) plus two `detail::RollingMean` instances (`smooth_k` and `d`). Amortised O(1) per step.
+The rolling high and low are kept in two monotonic deques, and the two smoothing stages are rolling means.
 
-* Time complexity: `O(1)` amortised per step.
+* Time complexity: `O(1)` amortized per step.
 * Space complexity: `O(fastk_period + smooth_k + d)`.
 
 ## Output shape
 
-`%K` is `out[..., 0]`, `%D` is `out[..., 1]`. Otherwise standard `1 → 2` shape rules (after the 3-input pairing):
+`%K` is `out[..., 0]` and `%D` is `out[..., 1]`:
 
 | You pass... | You get back... |
 |---|---|
@@ -90,7 +103,7 @@ Pure composition of two `detail::MonotonicDeque` (one each for high / low) plus 
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples
@@ -140,6 +153,6 @@ Pure composition of two `detail::MonotonicDeque` (one each for high / low) plus 
 
 <!-- HELP_END -->
 
-## Reference
+## Compatibility
 
 `Stoch(14, 3, 3)` matches `talib.STOCH(high, low, close, 14, 3, 0, 3, 0)` bit-exactly post-warmup. `Stoch(14, 1, 3)` matches `talib.STOCHF(high, low, close, 14, 3, 0)`. Both verified to ~1e-13 in `tests/test_third_party_alignment.py`.

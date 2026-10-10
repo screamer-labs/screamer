@@ -8,6 +8,7 @@ tags:
 - butterworth
 - iir
 - highpass
+- high-pass filter
 short: General-order IIR Butterworth high-pass filter (rejects low frequencies).
 inputs: 1
 outputs: 1
@@ -16,14 +17,24 @@ parameters:
   type: int
   default: 2
   min: 1
-  description: Filter order.
+  description: Filter order. A higher order gives a steeper rolloff and a larger
+    group delay.
 - name: cutoff_freq
   type: float
   default: 0.1
   min: 0.0
-  max: 0.5
-  description: Normalised cutoff.
+  max: 1.0
+  description: Cutoff frequency as a fraction of the Nyquist frequency, strictly between 0
+    and 1. 1 is the Nyquist frequency, the scipy.signal.butter Wn convention.
 nan_policy: ignore
+see_also:
+- Butter
+- ButterBandpass
+- Decycler
+- Detrend
+references:
+- Butterworth, S. (1930). On the theory of filter amplifiers. *Experimental Wireless and the
+  Wireless Engineer*, 7, 536-541.
 ---
 
 # `ButterHighpass`
@@ -36,14 +47,13 @@ $$
 \text{ButterHighpass}(N, W_c)
 $$
 
-- `order` (int, $\ge 1$): filter order. Higher order = steeper roll-off, larger group delay.
-- `cutoff_freq` (float in $(0, 1)$): normalised cutoff. `1` is the Nyquist frequency (matches `scipy.signal.butter`'s `Wn` convention).
+The output matches `scipy.signal.butter(order, cutoff_freq, btype='highpass')` followed by `scipy.signal.lfilter` to within about 1e-12.
 
 
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples
@@ -91,6 +101,4 @@ $$
 
 ## Implementation Details
 
-Bit-exact match to `scipy.signal.butter(order, cutoff, btype='highpass')` + `scipy.signal.lfilter`. Verified to ~1e-12 in `tests/test_signal.py`.
-
-Uses the same `IIRFilter` engine as the existing `Butter` low-pass class, O(order) per step.
+Each step costs O(order).

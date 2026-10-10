@@ -11,10 +11,17 @@ tags:
 - chaikin
 - talib
 - ohlcv
+- accumulation distribution line
+- a/d line
 short: Chaikin Accumulation/Distribution Line.
 inputs: 4
 outputs: 1
 parameters: []
+see_also:
+- ADOSC
+- OBV
+- MFI
+- SignedVolume
 nan_policy: ignore
 ---
 
@@ -22,7 +29,8 @@ nan_policy: ignore
 
 ## Description
 
-Chaikin Accumulation/Distribution Line:
+`AD` is Chaikin's Accumulation/Distribution line: a running sum of volume, each bar's
+volume weighted by where the close sits within the bar's range.
 
 $$
 \text{CLV}[t] = \dfrac{(C - L) - (H - C)}{H - L}
@@ -30,18 +38,17 @@ $$
 \text{AD}[t]  = \text{AD}[t-1] + \text{CLV}\ \cdot\ V[t]
 $$
 
-The "close location value" is in `[-1, +1]`: +1 means close at the high (full
-accumulation), -1 at the low (full distribution). When `high == low` the CLV is undefined
-and the AD line is unchanged (TA-Lib's convention).
+The close location value (CLV) lies in `[-1, +1]`: +1 means the bar closed at its high
+(full accumulation), -1 at its low (full distribution). When `high == low` the CLV is
+undefined and the AD line is unchanged, following TA-Lib.
 
-**4-input, 1-output** on `(high, low, close, volume)`. Cumulative; no window. Bit-exact
-to `talib.AD`.
-
+Inputs are `(high, low, close, volume)`. The line is cumulative from the first sample,
+with no window and no warmup, and matches `talib.AD` exactly.
 
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `ignore`.** A `NaN` in any input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
+**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples

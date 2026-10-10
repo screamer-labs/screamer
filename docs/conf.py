@@ -1,4 +1,8 @@
 import re
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).parent / "_ext"))
 
 # The docs import screamer from the environment they are built in, never from
 # the source tree. The `screamer/` package is only importable once a compiled
@@ -43,6 +47,7 @@ extensions = [
     "sphinx_plotly_directive",  # include plotly plots
     "sphinx_exec_code",  # execute python snippets in docs and show output
     "sphinx_design",     # grid layouts, cards, tabs, badges
+    "function_page",     # function-page header from the frontmatter (docs/_ext)
     # myst-nb replaces the plain 'myst_parser' extension (it loads myst-parser
     # itself, so listing both would conflict) and renders the
     # docs/notebooks/*.ipynb demo notebooks. It supersedes the abandoned
