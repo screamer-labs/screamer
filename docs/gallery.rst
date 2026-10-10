@@ -1411,6 +1411,13 @@ Turn signals into costed equity curves, and measure drawdown and performance.
       :img-alt: BacktestReport example plot
       :class-card: gallery-card
 
+   .. grid-item-card:: BacktestStats
+      :link: functions_fin/BacktestStats
+      :link-type: doc
+      :img-top: _static/gallery/functions_fin__BacktestStats.webp
+      :img-alt: BacktestStats example plot
+      :class-card: gallery-card
+
    .. grid-item-card:: BacktestTradesOrders
       :link: functions_fin/BacktestTradesOrders
       :link-type: doc
@@ -1507,6 +1514,13 @@ Turn signals into costed equity curves, and measure drawdown and performance.
       :link-type: doc
       :img-top: _static/gallery/functions_fin__RollingSortino.webp
       :img-alt: RollingSortino example plot
+      :class-card: gallery-card
+
+   .. grid-item-card:: strategy_test
+      :link: functions_fin/strategy_test
+      :link-type: doc
+      :img-top: _static/gallery/functions_fin__strategy_test.webp
+      :img-alt: strategy_test example plot
       :class-card: gallery-card
 
 Math & logic
