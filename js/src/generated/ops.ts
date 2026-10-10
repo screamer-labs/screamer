@@ -478,6 +478,19 @@ export function BacktestTradesTarget(takerFee: number = 0.0, tickSize: number = 
 }
 
 /**
+ * Three-state mean-reversion position from a z-score: short above +entry, long below -entry, flat again inside the exit level, with an optional stop and lockout.
+ *
+ * @param entry Entry level. A flat position goes short when the z-score reaches +entry and long when it reaches -entry.
+ * @param exit Exit level, in (-entry, entry). A short exits when the z-score falls to exit, a long when it rises to -exit.
+ * @param stop Stop level, above entry (inf = no stop). A short exits when the z-score reaches +stop, a long at -stop, and that side cannot re-enter until the z-score returns inside the exit level.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
+export function BandSignal(entry: number = 2.0, exit: number = 0.0, stop: number = Infinity): ScreamerOp {
+  const M = current();
+  return wrapOp(M, new M.BandSignal(entry, exit, stop));
+}
+
+/**
  * Online exponentially-weighted (forgetting-factor) Bayesian linear regression - current slope and intercept via Normal-Inverse-Gamma posterior plus causal one-step-ahead predictive mean and std.
  *
  * @param com Center of mass (alpha = 1 / (1 + com)). Exclusive with span/halflife/alpha.
@@ -1581,6 +1594,19 @@ export function KalmanFilter(processVar: number = 0.01, observationVar: number =
 }
 
 /**
+ * Regression with a random-walk intercept and slope, estimated by a Kalman filter: the dynamic hedge ratio of a pairs trade, its spread, and the spread's predicted deviation.
+ *
+ * @param delta How fast the intercept and slope may move. The state noise variance is delta / (1 - delta) per step; smaller values give steadier estimates and a spread that keeps its mean reversion.
+ * @param obsVar Variance of the spread (the regression error), in squared units of the first input.
+ * @param priorVar Starting variance of the intercept and slope, which start at zero.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
+export function KalmanRegression(delta: number = 1e-06, obsVar: number = 0.001, priorVar: number = 1.0): ScreamerOp {
+  const M = current();
+  return wrapOp(M, new M.KalmanRegression(delta, obsVar, priorVar));
+}
+
+/**
  * Volatility-adapted envelope: EMA midline plus/minus a multiple of ATR.
  *
  * @param windowSize Period for both the EMA midline and the ATR offset.
@@ -2027,6 +2053,18 @@ export function Return(windowSize: number = 1): ScreamerOp {
 export function RollSpread(windowSize: number = 20, startPolicy: string = "strict"): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.RollSpread(windowSize, startPolicy));
+}
+
+/**
+ * Rolling augmented Dickey-Fuller t-statistic: how strongly a series, such as a pairs spread, reverts to a mean over the last window.
+ *
+ * @param windowSize Number of regression rows in the window. At least lags + 4.
+ * @param lags Number of lagged differences in the regression (the augmentation). 0 is the plain Dickey-Fuller test.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
+export function RollingADF(windowSize: number = 100, lags: number = 1): ScreamerOp {
+  const M = current();
+  return wrapOp(M, new M.RollingADF(windowSize, lags));
 }
 
 /**
@@ -2583,6 +2621,18 @@ export function RollingStd(windowSize: number = 20, startPolicy: string = "stric
 export function RollingSum(windowSize: number = 20, startPolicy: string = "strict"): ScreamerOp {
   const M = current();
   return wrapOp(M, new M.RollingSum(windowSize, startPolicy));
+}
+
+/**
+ * Rolling total least squares (orthogonal regression) slope of the first input on the second: a hedge ratio that does not depend on which leg is called dependent.
+ *
+ * @param windowSize Window length.
+ * @param startPolicy Warmup behavior. "strict" returns NaN until the window is full, "expanding" uses the samples seen so far, "zero" treats the window as pre-filled with zeros.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
+export function RollingTLSBeta(windowSize: number = 20, startPolicy: string = "strict"): ScreamerOp {
+  const M = current();
+  return wrapOp(M, new M.RollingTLSBeta(windowSize, startPolicy));
 }
 
 /**

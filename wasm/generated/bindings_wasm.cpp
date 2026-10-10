@@ -22,6 +22,7 @@
 #include "screamer/backtest_stats.h"
 #include "screamer/backtest_trades_orders.h"
 #include "screamer/backtest_trades_target.h"
+#include "screamer/band_signal.h"
 #include "screamer/bayesian_regression.h"
 #include "screamer/bollinger_bands.h"
 #include "screamer/bop.h"
@@ -93,6 +94,7 @@
 #include "screamer/impulse_clip.h"
 #include "screamer/instantaneous_trendline.h"
 #include "screamer/kalman_filter.h"
+#include "screamer/kalman_regression.h"
 #include "screamer/kama.h"
 #include "screamer/keltner_channels.h"
 #include "screamer/lag.h"
@@ -127,6 +129,7 @@
 #include "screamer/rocr.h"
 #include "screamer/rogers_satchell.h"
 #include "screamer/roll_spread.h"
+#include "screamer/rolling_adf.h"
 #include "screamer/rolling_alpha.h"
 #include "screamer/rolling_argmax.h"
 #include "screamer/rolling_argmin.h"
@@ -168,6 +171,7 @@
 #include "screamer/rolling_spread.h"
 #include "screamer/rolling_std.h"
 #include "screamer/rolling_sum.h"
+#include "screamer/rolling_tls_beta.h"
 #include "screamer/rolling_tsf.h"
 #include "screamer/rolling_var.h"
 #include "screamer/rolling_zscore.h"
@@ -384,6 +388,8 @@ EMSCRIPTEN_BINDINGS(screamer) {
         .constructor<double, double, std::string, double, double, double, double, double, double, double, double, std::string>();
     emscripten::class_<screamer::BacktestTradesTarget, emscripten::base<screamer::EvalOp>>("BacktestTradesTarget")
         .constructor<double, double, double, double, double, double, double, std::string, double, double, double, std::string, double, double, double>();
+    emscripten::class_<screamer::BandSignal, emscripten::base<screamer::EvalOp>>("BandSignal")
+        .constructor<double, double, double>();
     emscripten::class_<screamer::BayesianRegression, emscripten::base<screamer::EvalOp>>("BayesianRegression")
         .constructor(&make_BayesianRegression, emscripten::allow_raw_pointers());
     emscripten::class_<screamer::BollingerBands, emscripten::base<screamer::EvalOp>>("BollingerBands")
@@ -598,6 +604,8 @@ EMSCRIPTEN_BINDINGS(screamer) {
         .constructor<int, int, int>();
     emscripten::class_<screamer::KalmanFilter, emscripten::base<screamer::EvalOp>>("KalmanFilter")
         .constructor<double, double, double, double>();
+    emscripten::class_<screamer::KalmanRegression, emscripten::base<screamer::EvalOp>>("KalmanRegression")
+        .constructor<double, double, double>();
     emscripten::class_<screamer::KeltnerChannels, emscripten::base<screamer::EvalOp>>("KeltnerChannels")
         .constructor<int, double>();
     emscripten::class_<screamer::Lag, emscripten::base<screamer::EvalOp>>("Lag")
@@ -682,6 +690,8 @@ EMSCRIPTEN_BINDINGS(screamer) {
         .constructor<int>();
     emscripten::class_<screamer::RollSpread, emscripten::base<screamer::EvalOp>>("RollSpread")
         .constructor<int, std::string>();
+    emscripten::class_<screamer::RollingADF, emscripten::base<screamer::EvalOp>>("RollingADF")
+        .constructor<int, int>();
     emscripten::class_<screamer::RollingAlpha, emscripten::base<screamer::EvalOp>>("RollingAlpha")
         .constructor<int, std::string>();
     emscripten::class_<screamer::RollingArgmax, emscripten::base<screamer::EvalOp>>("RollingArgmax")
@@ -775,6 +785,8 @@ EMSCRIPTEN_BINDINGS(screamer) {
     emscripten::class_<screamer::RollingStd, emscripten::base<screamer::EvalOp>>("RollingStd")
         .constructor<int, std::string>();
     emscripten::class_<screamer::RollingSum, emscripten::base<screamer::EvalOp>>("RollingSum")
+        .constructor<int, std::string>();
+    emscripten::class_<screamer::RollingTLSBeta, emscripten::base<screamer::EvalOp>>("RollingTLSBeta")
         .constructor<int, std::string>();
     emscripten::class_<screamer::RollingTSF, emscripten::base<screamer::EvalOp>>("RollingTSF")
         .constructor<int>();

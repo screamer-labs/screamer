@@ -24,6 +24,14 @@ Unreleased
   and fees, slippage, tick sizes, and contract multipliers can differ per
   asset. Assets that are not quoted on a step hold their position. The output
   is `(T, K, 4)` per asset, ready for `PortfolioReport`.
+* **Pairs trading:** `KalmanRegression` estimates a time-varying intercept
+  and hedge ratio with a Kalman filter and returns the spread and its
+  predicted deviation (a ready z-score); `RollingTLSBeta` is a total least
+  squares hedge ratio that does not depend on which leg is dependent;
+  `RollingADF` is a rolling augmented Dickey-Fuller statistic for testing
+  whether a spread still mean-reverts; `BandSignal` turns a z-score into a
+  short/flat/long position with entry, exit, and stop levels and a lockout
+  after a stop.
 
 * **Every statistic of every randomized run:** `position_test` and
   `strategy_test` (and `positionTest`/`strategyTest` in JavaScript) return

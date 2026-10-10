@@ -333,6 +333,15 @@ export declare function BacktestTradesOrders(makerFee?: number, takerFee?: numbe
  */
 export declare function BacktestTradesTarget(takerFee?: number, tickSize?: number, minPosition?: number, maxPosition?: number, multiplier?: number, feePerContract?: number, slippage?: number, slippageUnit?: string, stopLoss?: number, takeProfit?: number, trailingStop?: number, size?: string, initialCapital?: number, rebalanceBand?: number, maxParticipation?: number): ScreamerOp;
 /**
+ * Three-state mean-reversion position from a z-score: short above +entry, long below -entry, flat again inside the exit level, with an optional stop and lockout.
+ *
+ * @param entry Entry level. A flat position goes short when the z-score reaches +entry and long when it reaches -entry.
+ * @param exit Exit level, in (-entry, entry). A short exits when the z-score falls to exit, a long when it rises to -exit.
+ * @param stop Stop level, above entry (inf = no stop). A short exits when the z-score reaches +stop, a long at -stop, and that side cannot re-enter until the z-score returns inside the exit level.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
+export declare function BandSignal(entry?: number, exit?: number, stop?: number): ScreamerOp;
+/**
  * Online exponentially-weighted (forgetting-factor) Bayesian linear regression - current slope and intercept via Normal-Inverse-Gamma posterior plus causal one-step-ahead predictive mean and std.
  *
  * @param com Center of mass (alpha = 1 / (1 + com)). Exclusive with span/halflife/alpha.
@@ -1056,6 +1065,15 @@ export declare function KAMA(windowSize?: number, fast?: number, slow?: number):
  */
 export declare function KalmanFilter(processVar?: number, observationVar?: number, initialState?: number, initialVariance?: number): ScreamerOp;
 /**
+ * Regression with a random-walk intercept and slope, estimated by a Kalman filter: the dynamic hedge ratio of a pairs trade, its spread, and the spread's predicted deviation.
+ *
+ * @param delta How fast the intercept and slope may move. The state noise variance is delta / (1 - delta) per step; smaller values give steadier estimates and a spread that keeps its mean reversion.
+ * @param obsVar Variance of the spread (the regression error), in squared units of the first input.
+ * @param priorVar Starting variance of the intercept and slope, which start at zero.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
+export declare function KalmanRegression(delta?: number, obsVar?: number, priorVar?: number): ScreamerOp;
+/**
  * Volatility-adapted envelope: EMA midline plus/minus a multiple of ATR.
  *
  * @param windowSize Period for both the EMA midline and the ATR offset.
@@ -1336,6 +1354,14 @@ export declare function Return(windowSize?: number): ScreamerOp;
  * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
  */
 export declare function RollSpread(windowSize?: number, startPolicy?: string): ScreamerOp;
+/**
+ * Rolling augmented Dickey-Fuller t-statistic: how strongly a series, such as a pairs spread, reverts to a mean over the last window.
+ *
+ * @param windowSize Number of regression rows in the window. At least lags + 4.
+ * @param lags Number of lagged differences in the regression (the augmentation). 0 is the plain Dickey-Fuller test.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
+export declare function RollingADF(windowSize?: number, lags?: number): ScreamerOp;
 /**
  * Rolling OLS intercept of target on regressor (companion to RollingBeta).
  *
@@ -1704,6 +1730,14 @@ export declare function RollingStd(windowSize?: number, startPolicy?: string): S
  * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
  */
 export declare function RollingSum(windowSize?: number, startPolicy?: string): ScreamerOp;
+/**
+ * Rolling total least squares (orthogonal regression) slope of the first input on the second: a hedge ratio that does not depend on which leg is called dependent.
+ *
+ * @param windowSize Window length.
+ * @param startPolicy Warmup behavior. "strict" returns NaN until the window is full, "expanding" uses the samples seen so far, "zero" treats the window as pre-filled with zeros.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
+export declare function RollingTLSBeta(windowSize?: number, startPolicy?: string): ScreamerOp;
 /**
  * Linear regression of y on time, projected one step ahead. TA-Lib's TSF.
  *

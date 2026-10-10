@@ -61,6 +61,8 @@ Designed frequency-domain and state-space filters.
 
    * - Function
      - Description
+   * - :doc:`Entry and exit bands on a z-score </functions_signal/BandSignal>`
+     - Three-state mean-reversion position from a z-score: short above +entry, long below -entry, flat again inside the exit level, with an optional stop and lockout.
    * - :doc:`Butterworth low-pass filter </functions_signal/Butter>`
      - General-order IIR Butterworth low-pass filter.
    * - :doc:`Butterworth band-pass filter </functions_signal/ButterBandpass>`
@@ -91,6 +93,7 @@ Designed frequency-domain and state-space filters.
 .. toctree::
    :hidden:
 
+   /functions_signal/BandSignal
    /functions_signal/Butter
    /functions_signal/ButterBandpass
    /functions_signal/ButterBandstop

@@ -35,7 +35,7 @@ _ROLLING_AUTO_EXCLUDE = {
     # extra non-window arg (mar / threshold / alpha) - tested in test_risk_stats.py
     'RollingDownsideDeviation', 'RollingOmega', 'RollingCVaR',
     # 2-input (FunctorBase<_, 2, 1>) - need parallel arrays
-    'RollingCorr', 'RollingCov', 'RollingBeta', 'RollingSpread',
+    'RollingCorr', 'RollingCov', 'RollingBeta', 'RollingSpread', 'RollingTLSBeta',
     # 1-input M>1-output (FunctorBase<_, 1, M>) - output shape is
     # (..., M), incompatible with the 1-in/1-out auto harness.
     'RollingMinMax',
@@ -315,7 +315,7 @@ multi_input_definitions = [
     # Only the multi-output ones stay here. The 1-in/1-out members of this
     # family live in `test_definitions`, so they get the tensor / view / matrix
     # parity coverage as well as the baseline comparison.
-    ( ('RollingCorr','RollingCov','RollingBeta') , {"window_size": [20]}),
+    ( ('RollingCorr','RollingCov','RollingBeta','RollingTLSBeta') , {"window_size": [20]}),
     ( ('RollingVWAP',)              , {"window_size": [20], "array_type": ["ohlcv"]}),
     ( ('StochRSI',)                 , {"array_type": ["positive"]}),
     ( ('MACD',)                     , {"array_type": ["positive"],

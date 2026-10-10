@@ -60,6 +60,7 @@ BASELINE_GAP: dict[str, str] = {
     "BacktestTradesOrders": _NO_EXTERNAL,
     "BacktestTradesTarget": _NO_EXTERNAL,
     "BayesianRegression": _TODO,
+    "KalmanRegression": "four-output filter; compared with a numpy Kalman filter in tests/test_pairs.py",
     "CrossDemean": _ROW_REFERENCE,
     "CrossNormalize": _ROW_REFERENCE,
     "CrossRank": _ROW_REFERENCE,

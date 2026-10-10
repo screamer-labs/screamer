@@ -1097,6 +1097,32 @@
     "source": "bindings/bindings_fin.cpp"
   },
   {
+    "name": "BandSignal",
+    "cpp_type": "screamer::BandSignal",
+    "base": "ScreamerBase",
+    "ctor": [
+      "double",
+      "double",
+      "double"
+    ],
+    "ctor_args": [
+      {
+        "name": "entry",
+        "default": "2.0"
+      },
+      {
+        "name": "exit",
+        "default": "0.0"
+      },
+      {
+        "name": "stop",
+        "default": "std::numeric_limits<double>::infinity()"
+      }
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_fin.cpp"
+  },
+  {
     "name": "BayesianRegression",
     "cpp_type": "screamer::BayesianRegression",
     "base": "FunctorBase",
@@ -2823,6 +2849,32 @@
     "source": "bindings/bindings_signal.cpp"
   },
   {
+    "name": "KalmanRegression",
+    "cpp_type": "screamer::KalmanRegression",
+    "base": "FunctorBase",
+    "ctor": [
+      "double",
+      "double",
+      "double"
+    ],
+    "ctor_args": [
+      {
+        "name": "delta",
+        "default": "1e-6"
+      },
+      {
+        "name": "obs_var",
+        "default": "1e-3"
+      },
+      {
+        "name": "prior_var",
+        "default": "1.0"
+      }
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_fin.cpp"
+  },
+  {
     "name": "KeltnerChannels",
     "cpp_type": "screamer::KeltnerChannels",
     "base": "FunctorBase",
@@ -3412,6 +3464,27 @@
     ],
     "ctor_kind": "plain",
     "source": "bindings/bindings_micro.cpp"
+  },
+  {
+    "name": "RollingADF",
+    "cpp_type": "screamer::RollingADF",
+    "base": "ScreamerBase",
+    "ctor": [
+      "int",
+      "int"
+    ],
+    "ctor_args": [
+      {
+        "name": "window_size",
+        "default": "100"
+      },
+      {
+        "name": "lags",
+        "default": "1"
+      }
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_fin.cpp"
   },
   {
     "name": "RollingAlpha",
@@ -4359,6 +4432,27 @@
     ],
     "ctor_kind": "plain",
     "source": "bindings/bindings_rolling.cpp"
+  },
+  {
+    "name": "RollingTLSBeta",
+    "cpp_type": "screamer::RollingTLSBeta",
+    "base": "FunctorBase",
+    "ctor": [
+      "int",
+      "std::string"
+    ],
+    "ctor_args": [
+      {
+        "name": "window_size",
+        "default": "20"
+      },
+      {
+        "name": "start_policy",
+        "default": "\"strict\""
+      }
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_fin.cpp"
   },
   {
     "name": "RollingTSF",

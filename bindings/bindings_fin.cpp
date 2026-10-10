@@ -18,6 +18,10 @@
 #include "screamer/rolling_corr.h"
 #include "screamer/rolling_cov.h"
 #include "screamer/rolling_beta.h"
+#include "screamer/rolling_tls_beta.h"
+#include "screamer/kalman_regression.h"
+#include "screamer/rolling_adf.h"
+#include "screamer/band_signal.h"
 #include "screamer/rolling_spread.h"
 #include "screamer/drawdown.h"
 #include "screamer/max_drawdown.h"
@@ -462,6 +466,31 @@ void init_bindings_fin(nb::module_& m) {
         .def("reset", &screamer::RollingCov::reset, "Reset to the initial state.");
 
     // Rolling regression slope of x on y: beta = cov(x, y) / var(y).
+    nb::class_<screamer::RollingTLSBeta, screamer::EvalOp>(m, "RollingTLSBeta")
+        .def(nb::init<int, const std::string&>(),
+             "window_size"_a = 20,
+             "start_policy"_a = "strict")
+        .def("__call__", &screamer::functor_call<screamer::RollingTLSBeta>)
+        .def("reset", &screamer::RollingTLSBeta::reset, "Reset to the initial state.");
+
+    nb::class_<screamer::KalmanRegression, screamer::EvalOp>(m, "KalmanRegression")
+        .def(nb::init<double, double, double>(),
+             "delta"_a = 1e-6, "obs_var"_a = 1e-3, "prior_var"_a = 1.0)
+        .def("__call__", &screamer::functor_call<screamer::KalmanRegression>)
+        .def("reset", &screamer::KalmanRegression::reset, "Reset to the diffuse prior.");
+
+    nb::class_<screamer::RollingADF, screamer::ScreamerBase>(m, "RollingADF")
+        .def(nb::init<int, int>(), "window_size"_a = 100, "lags"_a = 1)
+        .def("__call__", &screamer::screamer_call, "value"_a)
+        .def("reset", &screamer::RollingADF::reset, "Reset to the initial state.");
+
+    nb::class_<screamer::BandSignal, screamer::ScreamerBase>(m, "BandSignal")
+        .def(nb::init<double, double, double>(),
+             "entry"_a = 2.0, "exit"_a = 0.0,
+             "stop"_a = std::numeric_limits<double>::infinity())
+        .def("__call__", &screamer::screamer_call, "value"_a)
+        .def("reset", &screamer::BandSignal::reset, "Reset to flat.");
+
     nb::class_<screamer::RollingBeta, screamer::EvalOp>(m, "RollingBeta")
         .def(nb::init<int, const std::string&>(),
              "window_size"_a = 20,

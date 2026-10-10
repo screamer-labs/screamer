@@ -325,6 +325,13 @@ Measures of a window: central tendency, dispersion, quantiles, moments, z-scores
       :img-alt: FracDiff example plot
       :class-card: gallery-card
 
+   .. grid-item-card:: KalmanRegression
+      :link: functions_fin/KalmanRegression
+      :link-type: doc
+      :img-top: _static/gallery/functions_fin__KalmanRegression.webp
+      :img-alt: KalmanRegression example plot
+      :class-card: gallery-card
+
    .. grid-item-card:: KeltnerChannels
       :link: functions_rolling/KeltnerChannels
       :link-type: doc
@@ -365,6 +372,13 @@ Measures of a window: central tendency, dispersion, quantiles, moments, z-scores
       :link-type: doc
       :img-top: _static/gallery/functions_rolling__OBV.webp
       :img-alt: OBV example plot
+      :class-card: gallery-card
+
+   .. grid-item-card:: RollingADF
+      :link: functions_fin/RollingADF
+      :link-type: doc
+      :img-top: _static/gallery/functions_fin__RollingADF.webp
+      :img-alt: RollingADF example plot
       :class-card: gallery-card
 
    .. grid-item-card:: RollingAlpha
@@ -626,6 +640,13 @@ Measures of a window: central tendency, dispersion, quantiles, moments, z-scores
       :img-alt: RollingSum example plot
       :class-card: gallery-card
 
+   .. grid-item-card:: RollingTLSBeta
+      :link: functions_fin/RollingTLSBeta
+      :link-type: doc
+      :img-top: _static/gallery/functions_fin__RollingTLSBeta.webp
+      :img-alt: RollingTLSBeta example plot
+      :class-card: gallery-card
+
    .. grid-item-card:: RollingTSF
       :link: functions_fin/RollingTSF
       :link-type: doc
@@ -676,6 +697,13 @@ Track and denoise the level of a series: moving averages and designed filters.
 .. grid:: 2 3 4 4
    :gutter: 2
    :class-container: gallery-grid
+
+   .. grid-item-card:: BandSignal
+      :link: functions_signal/BandSignal
+      :link-type: doc
+      :img-top: _static/gallery/functions_signal__BandSignal.webp
+      :img-alt: BandSignal example plot
+      :class-card: gallery-card
 
    .. grid-item-card:: Butter
       :link: functions_signal/Butter

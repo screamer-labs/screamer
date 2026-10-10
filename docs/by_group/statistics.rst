@@ -245,6 +245,10 @@ Relationships between series: correlation, covariance, regression, hedging, pair
      - EW std of the spread x - EwBeta(x,y) * y.
    * - :doc:`Exponentially-weighted spread </functions_ew/EwSpread>`
      - x - EwBeta(x,y) * y - EW hedge-adjusted residual.
+   * - :doc:`Kalman filter regression (dynamic hedge ratio) </functions_fin/KalmanRegression>`
+     - Regression with a random-walk intercept and slope, estimated by a Kalman filter: the dynamic hedge ratio of a pairs trade, its spread, and the spread's predicted deviation.
+   * - :doc:`Rolling augmented Dickey-Fuller statistic </functions_fin/RollingADF>`
+     - Rolling augmented Dickey-Fuller t-statistic: how strongly a series, such as a pairs spread, reverts to a mean over the last window.
    * - :doc:`Rolling alpha (regression intercept) </functions_fin/RollingAlpha>`
      - Rolling OLS intercept of target on regressor (companion to RollingBeta).
    * - :doc:`Rolling beta </functions_fin/RollingBeta>`
@@ -267,6 +271,8 @@ Relationships between series: correlation, covariance, regression, hedging, pair
      - Standard deviation of the rolling-hedge-adjusted residual y - beta*x.
    * - :doc:`Rolling spread </functions_fin/RollingSpread>`
      - x - beta(x,y) * y - hedge-adjusted residual.
+   * - :doc:`Rolling total least squares hedge ratio </functions_fin/RollingTLSBeta>`
+     - Rolling total least squares (orthogonal regression) slope of the first input on the second: a hedge ratio that does not depend on which leg is called dependent.
    * - :doc:`Rolling Time-Series Forecast (TSF) </functions_fin/RollingTSF>`
      - Linear regression of y on time, projected one step ahead. TA-Lib's TSF.
 
@@ -317,12 +323,14 @@ Relationships between series: correlation, covariance, regression, hedging, pair
    /functions_expanding/ExpandingVar
    /functions_misc/First
    /functions_signal/FracDiff
+   /functions_fin/KalmanRegression
    /functions_rolling/KeltnerChannels
    /functions_misc/Last
    /functions_math/Linear
    /functions_fin/MaxDrawdown
    /functions_rolling/NATR
    /functions_rolling/OBV
+   /functions_fin/RollingADF
    /functions_fin/RollingAlpha
    /functions_rolling/RollingArgmax
    /functions_rolling/RollingArgmin
@@ -360,6 +368,7 @@ Relationships between series: correlation, covariance, regression, hedging, pair
    /functions_fin/RollingSpread
    /functions_rolling/RollingStd
    /functions_rolling/RollingSum
+   /functions_fin/RollingTLSBeta
    /functions_fin/RollingTSF
    /functions_rolling/RollingVar
    /functions_rolling/RollingYangZhangVar
