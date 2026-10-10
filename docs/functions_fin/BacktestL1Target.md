@@ -54,6 +54,21 @@ parameters:
   type: str
   default: fraction
   description: 'Unit of `slippage`: "fraction" of the reference price (5 bps = 5e-4), "ticks" of `tick_size`, or "price" (an absolute amount).'
+- name: stop_loss
+  type: float
+  default: 0.0
+  min: 0.0
+  description: Exit when the price moves this fraction against the average entry fill (0.05 = 5%). 0 turns it off.
+- name: take_profit
+  type: float
+  default: 0.0
+  min: 0.0
+  description: Exit when the price moves this fraction in favour of the average entry fill. 0 turns it off.
+- name: trailing_stop
+  type: float
+  default: 0.0
+  min: 0.0
+  description: Exit when the price falls this fraction from the best price since entry (the highest for a long, the lowest for a short). 0 turns it off.
 nan_policy: ignore
 see_also:
 - BacktestL1Orders
@@ -99,6 +114,12 @@ For a two-sided resting-order variant, see
 [`BacktestL1Orders`](BacktestL1Orders.md). When a trade feed is available,
 [`BacktestTradesTarget`](BacktestTradesTarget.md) uses real prints instead of
 quote updates.
+
+**Risk exits.** `stop_loss`, `take_profit`, and `trailing_stop` close the position
+on the quote update whose mid crosses a level measured from the average entry
+fill (or, for the trailing stop, from the best mid since entry). The exit takes
+the book, as a market order. After an exit, targets on the same side are ignored
+until the target turns flat or reverses.
 
 ## Limitations
 

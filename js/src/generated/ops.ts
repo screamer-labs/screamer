@@ -184,11 +184,14 @@ export function BacktestL1Orders(makerFee: number = 0.0, takerFee: number = 0.0,
  * @param feePerContract Fixed fee (or rebate when negative) charged per contract on each fill.
  * @param slippage Adverse price offset on every taker (market) fill, read in `slippage_unit`. A buy fills higher and a sell lower; resting limit fills never slip.
  * @param slippageUnit Unit of `slippage`: "fraction" of the reference price (5 bps = 5e-4), "ticks" of `tick_size`, or "price" (an absolute amount).
+ * @param stopLoss Exit when the price moves this fraction against the average entry fill (0.05 = 5%). 0 turns it off.
+ * @param takeProfit Exit when the price moves this fraction in favour of the average entry fill. 0 turns it off.
+ * @param trailingStop Exit when the price falls this fraction from the best price since entry (the highest for a long, the lowest for a short). 0 turns it off.
  * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
  */
-export function BacktestL1Target(takerFee: number = 0.0, tickSize: number = 0.0, minPosition: number = -Infinity, maxPosition: number = Infinity, multiplier: number = 1.0, feePerContract: number = 0.0, slippage: number = 0.0, slippageUnit: string = "fraction"): ScreamerOp {
+export function BacktestL1Target(takerFee: number = 0.0, tickSize: number = 0.0, minPosition: number = -Infinity, maxPosition: number = Infinity, multiplier: number = 1.0, feePerContract: number = 0.0, slippage: number = 0.0, slippageUnit: string = "fraction", stopLoss: number = 0.0, takeProfit: number = 0.0, trailingStop: number = 0.0): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.BacktestL1Target(takerFee, tickSize, minPosition, maxPosition, multiplier, feePerContract, slippage, slippageUnit));
+  return wrapOp(M, new M.BacktestL1Target(takerFee, tickSize, minPosition, maxPosition, multiplier, feePerContract, slippage, slippageUnit, stopLoss, takeProfit, trailingStop));
 }
 
 /**
@@ -248,11 +251,14 @@ export function BacktestOHLCOrders(makerFee: number = 0.0, takerFee: number = 0.
  * @param slippageUnit Unit of `slippage`: "fraction" of the reference price (5 bps = 5e-4), "ticks" of `tick_size`, or "price" (an absolute amount).
  * @param fillAt Reference price of the execution bar: "open", "close", "typical" (high + low + close) / 3, or "ohlc4" (open + high + low + close) / 4.
  * @param delay Bars between the decision and the execution. A target from bar t trades on bar t + delay. 0 is allowed only with fill_at="close" (market-on-close of the signal bar).
+ * @param stopLoss Exit when the price moves this fraction against the average entry fill (0.05 = 5%). 0 turns it off.
+ * @param takeProfit Exit when the price moves this fraction in favour of the average entry fill. 0 turns it off.
+ * @param trailingStop Exit when the price falls this fraction from the best price since entry (the highest for a long, the lowest for a short). 0 turns it off.
  * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
  */
-export function BacktestOHLCTarget(takerFee: number = 0.0, tickSize: number = 0.0, minPosition: number = -Infinity, maxPosition: number = Infinity, multiplier: number = 1.0, feePerContract: number = 0.0, slippage: number = 0.0, slippageUnit: string = "fraction", fillAt: string = "open", delay: number = 1): ScreamerOp {
+export function BacktestOHLCTarget(takerFee: number = 0.0, tickSize: number = 0.0, minPosition: number = -Infinity, maxPosition: number = Infinity, multiplier: number = 1.0, feePerContract: number = 0.0, slippage: number = 0.0, slippageUnit: string = "fraction", fillAt: string = "open", delay: number = 1, stopLoss: number = 0.0, takeProfit: number = 0.0, trailingStop: number = 0.0): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.BacktestOHLCTarget(takerFee, tickSize, minPosition, maxPosition, multiplier, feePerContract, slippage, slippageUnit, fillAt, delay));
+  return wrapOp(M, new M.BacktestOHLCTarget(takerFee, tickSize, minPosition, maxPosition, multiplier, feePerContract, slippage, slippageUnit, fillAt, delay, stopLoss, takeProfit, trailingStop));
 }
 
 /**
@@ -267,21 +273,36 @@ export function BacktestOHLCTarget(takerFee: number = 0.0, tickSize: number = 0.
  * @param slippage Adverse price offset on every taker (market) fill, read in `slippage_unit`. A buy fills higher and a sell lower; resting limit fills never slip.
  * @param slippageUnit Unit of `slippage`: "fraction" of the reference price (5 bps = 5e-4), "ticks" of `tick_size`, or "price" (an absolute amount).
  * @param tickSize Instrument price grid (0 = continuous). Slippage offsets round up to whole ticks; the `"ticks"` slippage unit counts in this step.
+ * @param stopLoss Exit when the price moves this fraction against the average entry fill (0.05 = 5%). 0 turns it off.
+ * @param takeProfit Exit when the price moves this fraction in favour of the average entry fill. 0 turns it off.
+ * @param trailingStop Exit when the price falls this fraction from the best price since entry (the highest for a long, the lowest for a short). 0 turns it off.
  * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
  */
-export function BacktestPriceTarget(spread: number = 0.0, fee: number = 0.0, minPosition: number = -Infinity, maxPosition: number = Infinity, multiplier: number = 1.0, feePerContract: number = 0.0, slippage: number = 0.0, slippageUnit: string = "fraction", tickSize: number = 0.0): ScreamerOp {
+export function BacktestPriceTarget(spread: number = 0.0, fee: number = 0.0, minPosition: number = -Infinity, maxPosition: number = Infinity, multiplier: number = 1.0, feePerContract: number = 0.0, slippage: number = 0.0, slippageUnit: string = "fraction", tickSize: number = 0.0, stopLoss: number = 0.0, takeProfit: number = 0.0, trailingStop: number = 0.0): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.BacktestPriceTarget(spread, fee, minPosition, maxPosition, multiplier, feePerContract, slippage, slippageUnit, tickSize));
+  return wrapOp(M, new M.BacktestPriceTarget(spread, fee, minPosition, maxPosition, multiplier, feePerContract, slippage, slippageUnit, tickSize, stopLoss, takeProfit, trailingStop));
 }
 
 /**
  * Turn a backtest engine's [equity, pnl, position, cost] into running drawdown, cost, turnover, trades, and Sharpe.
  *
+ * @param periodsPerYear Steps per year, used to annualize the Sharpe ratio (for example 252 for daily bars). The default 1 gives the per-step ratio.
  * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
  */
-export function BacktestReport(): ScreamerOp {
+export function BacktestReport(periodsPerYear: number = 1.0): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.BacktestReport());
+  return wrapOp(M, new M.BacktestReport(periodsPerYear));
+}
+
+/**
+ * Turn a backtest engine's [equity, pnl, position, cost] into running exposure, round-trip trade statistics, Sortino, and Calmar.
+ *
+ * @param periodsPerYear Steps per year, used to annualize Sortino and Calmar (for example 252 for daily bars). The default 1 gives per-step ratios.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
+export function BacktestStats(periodsPerYear: number = 1.0): ScreamerOp {
+  const M = current();
+  return wrapOp(M, new M.BacktestStats(periodsPerYear));
 }
 
 /**
@@ -317,11 +338,14 @@ export function BacktestTradesOrders(makerFee: number = 0.0, takerFee: number = 
  * @param feePerContract Fixed fee (or rebate when negative) charged per contract on each fill.
  * @param slippage Adverse price offset on every taker (market) fill, read in `slippage_unit`. A buy fills higher and a sell lower; resting limit fills never slip.
  * @param slippageUnit Unit of `slippage`: "fraction" of the reference price (5 bps = 5e-4), "ticks" of `tick_size`, or "price" (an absolute amount).
+ * @param stopLoss Exit when the price moves this fraction against the average entry fill (0.05 = 5%). 0 turns it off.
+ * @param takeProfit Exit when the price moves this fraction in favour of the average entry fill. 0 turns it off.
+ * @param trailingStop Exit when the price falls this fraction from the best price since entry (the highest for a long, the lowest for a short). 0 turns it off.
  * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
  */
-export function BacktestTradesTarget(takerFee: number = 0.0, tickSize: number = 0.0, minPosition: number = -Infinity, maxPosition: number = Infinity, multiplier: number = 1.0, feePerContract: number = 0.0, slippage: number = 0.0, slippageUnit: string = "fraction"): ScreamerOp {
+export function BacktestTradesTarget(takerFee: number = 0.0, tickSize: number = 0.0, minPosition: number = -Infinity, maxPosition: number = Infinity, multiplier: number = 1.0, feePerContract: number = 0.0, slippage: number = 0.0, slippageUnit: string = "fraction", stopLoss: number = 0.0, takeProfit: number = 0.0, trailingStop: number = 0.0): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.BacktestTradesTarget(takerFee, tickSize, minPosition, maxPosition, multiplier, feePerContract, slippage, slippageUnit));
+  return wrapOp(M, new M.BacktestTradesTarget(takerFee, tickSize, minPosition, maxPosition, multiplier, feePerContract, slippage, slippageUnit, stopLoss, takeProfit, trailingStop));
 }
 
 /**

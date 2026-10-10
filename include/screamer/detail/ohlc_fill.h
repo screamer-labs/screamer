@@ -48,6 +48,8 @@ namespace screamer { namespace detail {
 
         void reset() { account_.reset(); }
         double position() const { return account_.position(); }
+        // Fill price of the last fill in the most recent quote(), NaN if none.
+        double last_fill_price() const { return last_fill_; }
 
         std::tuple<double, double, double, double>
         quote(double bid_price, double bid_size,
@@ -70,6 +72,7 @@ namespace screamer { namespace detail {
             }
 
             double eq = 0, pnl = 0, position = account_.position(), cost = 0; bool did = false;
+            last_fill_ = std::numeric_limits<double>::quiet_NaN();
 
             // Buy side: resting bid at bid_price, hit when the bar trades down to it.
             if (!isnan2(bid_size) && bid_size > 0.0) {
@@ -90,6 +93,7 @@ namespace screamer { namespace detail {
                     }
                 }
                 if (dpos > 0.0) {
+                    last_fill_ = fill_price;
                     auto [e, p, pos, c] = account_.step(
                         close, dpos, fill_price, fee,
                         taker ? taker_fee_per_contract_
@@ -117,6 +121,7 @@ namespace screamer { namespace detail {
                     }
                 }
                 if (dpos != 0.0) {
+                    last_fill_ = fill_price;
                     auto [e, p, pos, c] = account_.step(
                         close, dpos, fill_price, fee,
                         taker ? taker_fee_per_contract_
@@ -140,6 +145,7 @@ namespace screamer { namespace detail {
         Slippage slippage_;
         double min_pos_, max_pos_;
         detail::PnLAccount account_;
+        double last_fill_ = std::numeric_limits<double>::quiet_NaN();
     };
 
 }} // namespace screamer::detail

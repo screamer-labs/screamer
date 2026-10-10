@@ -63,6 +63,21 @@ parameters:
   default: 1
   min: 0
   description: Bars between the decision and the execution. A target from bar t trades on bar t + delay. 0 is allowed only with fill_at="close" (market-on-close of the signal bar).
+- name: stop_loss
+  type: float
+  default: 0.0
+  min: 0.0
+  description: Exit when the price moves this fraction against the average entry fill (0.05 = 5%). 0 turns it off.
+- name: take_profit
+  type: float
+  default: 0.0
+  min: 0.0
+  description: Exit when the price moves this fraction in favour of the average entry fill. 0 turns it off.
+- name: trailing_stop
+  type: float
+  default: 0.0
+  min: 0.0
+  description: Exit when the price falls this fraction from the best price since entry (the highest for a long, the lowest for a short). 0 turns it off.
 nan_policy: ignore
 see_also:
 - BacktestOHLCOrders
@@ -112,6 +127,17 @@ bar), `2 = position`, and `3 = cost` (per bar). A `NaN` in any bar field (open,
 high, low, close) skips the bar (`nan_policy: ignore`). A `NaN` target holds the
 position for the next bar without issuing a new order.
 [`backtest_report`](backtest_report.md) summarizes the resulting equity curve.
+
+**Risk exits.** `stop_loss`, `take_profit`, and `trailing_stop` close the position
+when the price moves a given fraction from the average entry fill (or, for the
+trailing stop, from the best price since entry). A bar that opens past a level
+exits at the open; otherwise the exit is at the level the low or high reaches.
+When the stop and the take-profit both fall inside one bar, the stop is taken,
+because the bar does not say which came first. With `fill_at="open"` a position
+opened at the open can exit later in the same bar. Exits are market orders: they
+pay `taker_fee` and the `slippage` model applies. After an exit, targets on the
+same side are ignored until the target turns flat or reverses, so the engine does
+not re-enter on the next bar.
 
 ## Examples
 

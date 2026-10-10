@@ -9,6 +9,7 @@
 #include "screamer/common/functor_base.h"
 #include "screamer/common/float_info.h"
 #include "screamer/detail/ohlc_fill.h"
+#include "screamer/detail/risk_exits.h"
 #include "screamer/detail/slippage.h"
 #include "screamer/detail/target_front.h"
 
@@ -24,6 +25,18 @@ namespace screamer {
     // fill_at = "close" (market-on-close of the signal bar); any other price of
     // the signal bar was already in the past when the signal was known.
     // Inventory is capped to [min_position, max_position].
+    //
+    // Optional risk exits (fractions; 0 = off): stop_loss, take_profit, and
+    // trailing_stop, measured from the average entry fill (see RiskExits). In a
+    // bar, the events run in this order:
+    //   fill_at = "open": a gap exit at the open for the position carried into
+    //     the bar, then the due order at the open, then an exit at a level the
+    //     bar's low or high reaches for the position now held.
+    //   other fill_at: an exit for the carried position (at the open on a gap,
+    //     else at the level), then the due order at its reference price.
+    // An exit is a market order at that price, moved by the slippage model and
+    // paying taker_fee. After an exit, same-side targets are ignored until the
+    // target turns flat or reverses.
     // Outputs [equity, pnl, position, cost].
     class BacktestOHLCTarget : public FunctorBase<BacktestOHLCTarget, 5, 4> {
     public:
@@ -35,13 +48,16 @@ namespace screamer {
                            double slippage = 0.0,
                            const std::string& slippage_unit = "fraction",
                            const std::string& fill_at = "open",
-                           int delay = 1)
+                           int delay = 1,
+                           double stop_loss = 0.0, double take_profit = 0.0,
+                           double trailing_stop = 0.0)
             : core_(0.0, taker_fee, /*breach=*/false, /*participation=*/1.0,
                     detail::Slippage(slippage, slippage_unit, tick_size),
                     min_position, max_position,
                     multiplier, 0.0, fee_per_contract),
               min_(min_position), max_(max_position),
-              fill_at_(parse_fill_at(fill_at)), delay_(delay)
+              fill_at_(parse_fill_at(fill_at)), delay_(delay),
+              exits_(stop_loss, take_profit, trailing_stop)
         {
             if (delay_ < 0)
                 throw std::invalid_argument("delay must be non-negative.");
@@ -55,6 +71,7 @@ namespace screamer {
 
         void reset() override {
             core_.reset();
+            exits_.reset();
             // A NaN slot is "no order": the first `delay` bars only mark.
             std::fill(queue_.begin(), queue_.end(),
                       std::numeric_limits<double>::quiet_NaN());
@@ -70,19 +87,70 @@ namespace screamer {
                 queue_[head_] = target;
                 head_ = (head_ + 1) % queue_.size();
             }
-            const double inf = std::numeric_limits<double>::infinity();
-            double bp = inf, bs = 0.0, ap = -inf, as = 0.0;
-            if (!isnan2(due)) {                      // NaN target: hold, no order
-                auto [b_p, b_s, a_p, a_s] =
-                    detail::target_to_quote(due, core_.position(), min_, max_);
-                bp = b_p; bs = b_s; ap = a_p; as = a_s;
+            const double ref = reference(open, high, low, close);
+            if (!exits_.active())
+                return order(due, open, high, low, close, ref);
+            if (isnan2(open) || isnan2(high) || isnan2(low) || isnan2(close))
+                return core_.quote(0, 0, 0, 0, open, high, low, close);   // all-NaN row
+
+            // Several fills can happen in one bar. Each core call marks to the
+            // close, so the pnl and cost of the calls add up; equity and
+            // position are those of the last call.
+            double pnl = 0.0, cost = 0.0, eq = 0.0, pos = 0.0;
+            auto add = [&](const ResultTuple& r) {
+                eq = std::get<0>(r); pnl += std::get<1>(r);
+                pos = std::get<2>(r); cost += std::get<3>(r);
+            };
+            const bool at_open = fill_at_ == FillAt::Open;
+            const double carried = core_.position();
+            // 1. Exit for the position carried into the bar.
+            double px = exits_.bar_exit(carried, open, high, low, /*include_open=*/true);
+            if (at_open && !isnan2(px) && px != open) px = std::numeric_limits<double>::quiet_NaN();
+            if (!isnan2(px)) add(exit_at(px, open, high, low, close));
+            // 2. The due order, after the latch.
+            add(order(exits_.filter(due), open, high, low, close, ref));
+            // 3. With fill_at = "open", the position held after the open can still
+            //    reach a level during the bar.
+            if (at_open) {
+                exits_.update_best(core_.position(), open, open);
+                const double held = core_.position();
+                const double lv = exits_.bar_exit(held, open, high, low, /*include_open=*/false);
+                if (!isnan2(lv)) add(exit_at(lv, open, high, low, close));
+                exits_.update_best(core_.position(), high, low);
+            } else if (core_.position() == carried) {
+                exits_.update_best(carried, high, low);
             }
-            return core_.quote(bp, bs, ap, as, open, high, low, close,
-                               reference(open, high, low, close));
+            return std::make_tuple(eq, pnl, pos, cost);
         }
 
     private:
         enum class FillAt { Open, Close, Typical, OHLC4 };
+
+        // Execute a target as a market order at `ref`, and record the fill.
+        ResultTuple order(double target, double open, double high, double low,
+                          double close, double ref) {
+            const double inf = std::numeric_limits<double>::infinity();
+            double bp = inf, bs = 0.0, ap = -inf, as = 0.0;
+            if (!isnan2(target)) {                   // NaN target: hold, no order
+                auto [b_p, b_s, a_p, a_s] =
+                    detail::target_to_quote(target, core_.position(), min_, max_);
+                bp = b_p; bs = b_s; ap = a_p; as = a_s;
+            }
+            const double before = core_.position();
+            auto r = core_.quote(bp, bs, ap, as, open, high, low, close, ref);
+            if (core_.position() != before)
+                exits_.on_fill(before, core_.position(), core_.last_fill_price());
+            return r;
+        }
+
+        // Close the whole position at `price` and latch.
+        ResultTuple exit_at(double price, double open, double high, double low,
+                            double close) {
+            const double held = core_.position();
+            exits_.exited(held);
+            auto r = order(0.0, open, high, low, close, price);
+            return r;
+        }
 
         static FillAt parse_fill_at(const std::string& f) {
             if (f == "open") return FillAt::Open;
@@ -107,6 +175,7 @@ namespace screamer {
         double min_, max_;
         FillAt fill_at_;
         int delay_;
+        detail::RiskExits exits_;
         std::vector<double> queue_;
         std::size_t head_ = 0;
     };

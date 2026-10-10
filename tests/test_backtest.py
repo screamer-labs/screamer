@@ -84,7 +84,9 @@ def test_backtest_report_shape_and_invariants():
     out = BacktestPriceTarget(spread=0.01)(np.array([1., 1, 0]), np.array([100., 90, 95]))
     running, summary = backtest_report(out)
     assert list(summary) == [
-        "total_pnl", "max_drawdown", "total_cost", "turnover", "num_trades", "sharpe"]
+        "total_pnl", "max_drawdown", "total_cost", "turnover", "num_trades", "sharpe",
+        "exposure", "round_trips", "win_rate", "profit_factor", "avg_win", "avg_loss",
+        "avg_holding", "sortino", "calmar"]
     assert summary["num_trades"] == 2.0                    # enter long, exit
     assert summary["turnover"] == 2.0                      # 1 unit in, 1 out
     assert summary["max_drawdown"] <= 0.0
@@ -817,3 +819,202 @@ def test_trades_and_l1_target_slippage():
     l1 = BacktestL1Target(slippage=0.02, slippage_unit="price")(
         np.array([1.]), np.array([99.9]), np.array([100.1]), np.array([5.]), np.array([5.]))
     np.testing.assert_allclose(l1[0, 3], 0.1 + 0.02)     # half spread vs mid + slippage
+
+
+# --- BacktestStats and annualization -----------------------------------------
+
+def _stats_case():
+    # flat, long 2 steps, flat, short 1 step, flip long 2 steps, flat
+    pos = np.array([0, 1, 1, 0, -1, 1, 1, 0.])
+    pnl = np.array([0, 1, 2, -1, 3, -2, 1, 1.])
+    return np.cumsum(pnl), pnl, pos, np.zeros(8)
+
+
+def test_backtest_stats_hand_computed():
+    from screamer import BacktestStats
+    out = np.asarray(BacktestStats()(*_stats_case()))
+    exposure, rt, win, pf, avg_win, avg_loss, hold, sortino, calmar = out[-1]
+    assert exposure == pytest.approx(5 / 8)
+    assert rt == 3                                   # trades of +2, +1, +2
+    assert win == 1.0 and np.isnan(pf) and np.isnan(avg_loss)
+    assert avg_win == pytest.approx(5 / 3)
+    assert hold == pytest.approx(5 / 3)              # held 2, 1, 2 steps
+    assert sortino == pytest.approx(0.625 / np.sqrt(5 / 8))
+    assert calmar == pytest.approx(0.625 / 2)
+
+
+def test_backtest_stats_losing_trades_and_profit_factor():
+    from screamer import BacktestStats
+    pos = np.array([1, 1, 0, -1, 0, 1, 0.])
+    pnl = np.array([1, 2, 0, -4, 0, -1, 0.5])          # trades: +3, -4, -0.5
+    out = np.asarray(BacktestStats()(np.cumsum(pnl), pnl, pos, np.zeros(7)))[-1]
+    assert out[1] == 3 and out[2] == pytest.approx(1 / 3)
+    assert out[3] == pytest.approx(3 / 4.5)
+    assert out[4] == pytest.approx(3) and out[5] == pytest.approx(-2.25)
+
+
+def test_backtest_stats_open_trade_not_counted_and_nan_skip():
+    from screamer import BacktestStats
+    pos = np.array([0, 1, 1, 1.]); pnl = np.array([0, 1, np.nan, 1.])
+    out = np.asarray(BacktestStats()(np.cumsum(np.nan_to_num(pnl)), pnl, pos, np.zeros(4)))
+    assert np.isnan(out[2]).all()                     # skipped bar
+    assert out[-1, 1] == 0                            # still open, no round trip
+    assert np.isnan(out[-1, 2])
+
+
+def test_backtest_stats_stream_equals_batch():
+    from screamer import BacktestStats
+    rng = np.random.default_rng(3)
+    pos = np.round(rng.standard_normal(200)); pnl = rng.standard_normal(200)
+    args = (np.cumsum(pnl), pnl, pos, np.abs(rng.standard_normal(200)) * 0.01)
+    op = BacktestStats(252)
+    stream = np.array([op(*(a[i] for a in args)) for i in range(200)])
+    np.testing.assert_allclose(stream, np.asarray(BacktestStats(252)(*args)), equal_nan=True)
+
+
+def test_periods_per_year_scales_ratios():
+    from screamer import BacktestReport, BacktestStats
+    args = _stats_case()
+    r1 = np.asarray(BacktestReport()(*args))[-1, 5]
+    r252 = np.asarray(BacktestReport(periods_per_year=252)(*args))[-1, 5]
+    assert r252 == pytest.approx(r1 * np.sqrt(252))
+    s1 = np.asarray(BacktestStats()(*args))[-1]
+    s252 = np.asarray(BacktestStats(252)(*args))[-1]
+    assert s252[7] == pytest.approx(s1[7] * np.sqrt(252))
+    assert s252[8] == pytest.approx(s1[8] * 252)
+    with pytest.raises(ValueError):
+        BacktestReport(periods_per_year=0)
+    with pytest.raises(ValueError):
+        BacktestStats(-1)
+
+
+def test_backtest_report_includes_stats():
+    from screamer import backtest_report
+    run, summ = backtest_report(np.column_stack(_stats_case()), periods_per_year=252)
+    for k in ("exposure", "round_trips", "win_rate", "profit_factor", "avg_win",
+              "avg_loss", "avg_holding", "sortino", "calmar"):
+        assert k in summ and k in run
+    assert summ["round_trips"] == 3
+
+
+# --- Risk exits: stop_loss, take_profit, trailing_stop -------------------------
+
+def _ohlc(rows):
+    a = np.array(rows, dtype=float)
+    return a[:, 0], a[:, 1], a[:, 2], a[:, 3]
+
+
+def test_stop_loss_exits_at_level_inside_the_bar():
+    from screamer import BacktestOHLCTarget
+    o, h, l, c = _ohlc([[100, 100, 100, 100], [100, 101, 99, 100], [99, 100, 94, 96]])
+    out = BacktestOHLCTarget(stop_loss=0.05)(np.ones(3), o, h, l, c)
+    np.testing.assert_allclose(out[:, 2], [0, 1, 0])
+    np.testing.assert_allclose(out[-1, 0], 95 - 100)      # entered 100, stopped at 95
+
+
+def test_stop_loss_gap_exits_at_the_open():
+    from screamer import BacktestOHLCTarget
+    o, h, l, c = _ohlc([[100, 100, 100, 100], [100, 101, 99, 100], [90, 92, 88, 91]])
+    out = BacktestOHLCTarget(stop_loss=0.05)(np.ones(3), o, h, l, c)
+    np.testing.assert_allclose(out[-1, 0], 90 - 100)
+
+
+def test_take_profit_and_stop_wins_a_tie():
+    from screamer import BacktestOHLCTarget
+    o, h, l, c = _ohlc([[100, 100, 100, 100], [100, 101, 99, 100], [101, 106, 100, 104]])
+    tp = BacktestOHLCTarget(take_profit=0.05)(np.ones(3), o, h, l, c)
+    np.testing.assert_allclose(tp[-1, 0], 105 - 100)
+    o, h, l, c = _ohlc([[100, 100, 100, 100], [100, 101, 99, 100], [100, 106, 94, 100]])
+    both = BacktestOHLCTarget(stop_loss=0.05, take_profit=0.05)(np.ones(3), o, h, l, c)
+    np.testing.assert_allclose(both[-1, 0], 95 - 100)       # order unknown: stop first
+
+
+def test_exit_latch_blocks_same_side_reentry():
+    from screamer import BacktestOHLCTarget
+    rows = [[100, 100, 100, 100], [100, 101, 99, 100], [99, 100, 94, 96],
+            [96, 97, 95, 96], [96, 97, 95, 96], [96, 97, 95, 96], [96, 97, 95, 96]]
+    o, h, l, c = _ohlc(rows)
+    tgt = np.array([1, 1, 1, 1, 0, 1, 1.])
+    out = BacktestOHLCTarget(stop_loss=0.05)(tgt, o, h, l, c)
+    # stopped on bar 2; targets of +1 stay blocked until the 0 on bar 4 releases
+    np.testing.assert_allclose(out[:, 2], [0, 1, 0, 0, 0, 0, 1])
+    rev = BacktestOHLCTarget(stop_loss=0.05)(np.array([1, 1, 1, -1, -1, -1, -1.]), o, h, l, c)
+    np.testing.assert_allclose(rev[:, 2], [0, 1, 0, 0, -1, -1, -1])
+
+
+def test_trailing_stop_follows_the_best_price():
+    from screamer import BacktestOHLCTarget
+    o, h, l, c = _ohlc([[100, 100, 100, 100], [100, 101, 99, 100],
+                        [101, 110, 101, 109], [108, 109, 104, 105]])
+    out = BacktestOHLCTarget(trailing_stop=0.05)(np.ones(4), o, h, l, c)
+    np.testing.assert_allclose(out[:, 2], [0, 1, 1, 0])
+    np.testing.assert_allclose(out[-1, 0], 110 * 0.95 - 100)
+
+
+def test_short_stop_and_same_bar_exit_after_open_entry():
+    from screamer import BacktestOHLCTarget
+    o, h, l, c = _ohlc([[100, 100, 100, 100], [100, 106, 99, 104]])
+    out = BacktestOHLCTarget(stop_loss=0.05)(np.array([-1, -1.]), o, h, l, c)
+    np.testing.assert_allclose(out[:, 2], [0, 0])            # entered at the open, stopped
+    np.testing.assert_allclose(out[-1, 0], 100 - 105)
+    # fill_at="close" enters at the close, so the same bar's high cannot stop it
+    out = BacktestOHLCTarget(stop_loss=0.05, fill_at="close")(np.array([-1, -1.]), o, h, l, c)
+    np.testing.assert_allclose(out[:, 2], [0, -1])
+
+
+def test_exit_pays_slippage_and_fee():
+    from screamer import BacktestOHLCTarget
+    o, h, l, c = _ohlc([[100, 100, 100, 100], [100, 101, 99, 100], [99, 100, 94, 96]])
+    out = BacktestOHLCTarget(stop_loss=0.05, taker_fee=1e-3, slippage=0.1,
+                             slippage_unit="price")(np.ones(3), o, h, l, c)
+    # entry fill 100.1 (slipped), so the stop is at 100.1 * 0.95; sold 0.1 below it
+    exit_fill = 100.1 * 0.95 - 0.1
+    np.testing.assert_allclose(out[-1, 3], 0.1 + exit_fill * 1e-3)
+
+
+@pytest.mark.parametrize("engine", ["price", "trades", "l1"])
+def test_event_engines_exit_on_the_crossing_event(engine):
+    from screamer import BacktestPriceTarget, BacktestTradesTarget, BacktestL1Target
+    p = np.array([100, 98, 94, 93, 99.])
+    tgt = np.ones(5)
+    if engine == "price":
+        out = BacktestPriceTarget(stop_loss=0.05)(tgt, p)
+    elif engine == "trades":
+        out = BacktestTradesTarget(stop_loss=0.05)(tgt, p, np.ones(5))
+    else:
+        out = BacktestL1Target(stop_loss=0.05)(tgt, p - 0.0, p + 0.0, np.ones(5), np.ones(5))
+    np.testing.assert_allclose(out[:, 2], [1, 1, 0, 0, 0])
+    np.testing.assert_allclose(out[-1, 0], 94 - 100)
+
+
+@pytest.mark.parametrize("kw", [
+    {"stop_loss": 0.01}, {"take_profit": 0.01}, {"trailing_stop": 0.01},
+    {"stop_loss": 0.01, "take_profit": 0.02, "fill_at": "close"},
+    {"trailing_stop": 0.01, "delay": 2, "slippage": 1e-4}])
+def test_exits_stream_equals_batch_and_causal(kw):
+    from screamer import BacktestOHLCTarget
+    rng = np.random.default_rng(4); n = 300
+    c = 100 * np.exp(np.cumsum(rng.standard_normal(n) * 0.005))
+    o = np.r_[c[0], c[:-1]]
+    h = np.maximum(o, c) * (1 + np.abs(rng.standard_normal(n)) * 0.003)
+    l = np.minimum(o, c) * (1 - np.abs(rng.standard_normal(n)) * 0.003)
+    tgt = np.sign(np.round(rng.standard_normal(n) * 0.6))
+    op = BacktestOHLCTarget(**kw)
+    stream = np.array([op(tgt[i], o[i], h[i], l[i], c[i]) for i in range(n)])
+    batch = BacktestOHLCTarget(**kw)(tgt, o, h, l, c)
+    np.testing.assert_allclose(stream, batch)
+    assert np.any(np.diff(batch[:, 2]) != 0)
+    k = 150
+    c2 = c.copy(); c2[k:] *= 1.1; h2 = np.maximum(h, c2); tgt2 = tgt.copy(); tgt2[k:] *= -1
+    batch2 = BacktestOHLCTarget(**kw)(tgt2, o, h2, l, c2)
+    np.testing.assert_allclose(batch2[:k], batch[:k])
+
+
+def test_exit_argument_checks():
+    from screamer import BacktestOHLCTarget, BacktestPriceTarget
+    for kw in ({"stop_loss": -0.1}, {"stop_loss": 1.0}, {"trailing_stop": 1.5},
+               {"take_profit": -1}, {"take_profit": float("inf")}):
+        with pytest.raises(ValueError):
+            BacktestOHLCTarget(**kw)
+        with pytest.raises(ValueError):
+            BacktestPriceTarget(**kw)

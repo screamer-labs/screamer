@@ -17,10 +17,12 @@ emit) and returns `(running, summary)`.
 - `running` is a dict of numpy arrays: the four engine columns plus the
   `BacktestReport` node's `drawdown` (dollar), `cum_cost`, `turnover` (units
   traded), `trades` (count), `max_drawdown` (running worst), `sharpe` (running),
-  and `equity_held` (equity carried across skipped bars). Each is a causal series
-  whose last value is the summary.
+  and the [`BacktestStats`](BacktestStats.md) columns `exposure`, `round_trips`,
+  `win_rate`, `profit_factor`, `avg_win`, `avg_loss`, `avg_holding`, `sortino`,
+  and `calmar`. Each is a causal series whose last finite value is the summary.
 - `summary` is a dict of the final statistics: `total_pnl`, `max_drawdown`,
-  `total_cost`, `turnover`, `num_trades`, and `sharpe`.
+  `total_cost`, `turnover`, `num_trades`, `sharpe`, and the nine `BacktestStats`
+  values.
 
 The aggregation runs in the C++ `BacktestReport` node, so a pure-C++ user gets the
 same statistics by calling that node directly. This wrapper only labels its
@@ -31,10 +33,12 @@ columns and reads the last row, and needs no pandas. Wrap `running` in a
 
 ## Signature
 
-`backtest_report(values, index=None)`
+`backtest_report(values, index=None, periods_per_year=1.0)`
 
 `values` is the `(T, 4)` array a backtest engine emits. `index` optionally adds an
-`"index"` array to `running` for labeling the rows.
+`"index"` array to `running` for labeling the rows. `periods_per_year` annualizes
+`sharpe`, `sortino`, and `calmar` (for example 252 for daily bars); the default 1
+gives per-step ratios.
 
 ## Example
 

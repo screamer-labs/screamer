@@ -48,6 +48,8 @@ namespace screamer { namespace detail {
 
         void reset() { account_.reset(); }
         double position() const { return account_.position(); }
+        // Fill price of the last fill in the most recent quote(), NaN if none.
+        double last_fill_price() const { return last_fill_; }
 
         std::tuple<double, double, double, double>
         quote(double bid_price, double bid_size,
@@ -60,6 +62,7 @@ namespace screamer { namespace detail {
             }
 
             double eq = 0, pnl = 0, position = account_.position(), cost = 0; bool did = false;
+            last_fill_ = std::numeric_limits<double>::quiet_NaN();
 
             // Buy side: resting bid filled by a sell-print crossing it.
             if (!isnan2(bid_size) && bid_size > 0.0) {
@@ -76,6 +79,7 @@ namespace screamer { namespace detail {
                     const double fee = taker ? taker_fee_ : maker_fee_;
                     const double fixed_fee = taker ? taker_fee_per_contract_
                                                    : maker_fee_per_contract_;
+                    last_fill_ = fp;
                     auto [e, p, pos, c] = account_.step(
                         trade_price, dpos, fp, fee, fixed_fee);
                     eq = e; pnl += p; position = pos; cost += c; did = true;
@@ -97,6 +101,7 @@ namespace screamer { namespace detail {
                     const double fee = taker ? taker_fee_ : maker_fee_;
                     const double fixed_fee = taker ? taker_fee_per_contract_
                                                    : maker_fee_per_contract_;
+                    last_fill_ = fp;
                     auto [e, p, pos, c] = account_.step(
                         trade_price, dpos, fp, fee, fixed_fee);
                     eq = e; pnl += p; position = pos; cost += c; did = true;
@@ -118,6 +123,7 @@ namespace screamer { namespace detail {
         Slippage slippage_;
         double min_pos_, max_pos_;
         detail::PnLAccount account_;
+        double last_fill_ = std::numeric_limits<double>::quiet_NaN();
     };
 
 }} // namespace screamer::detail

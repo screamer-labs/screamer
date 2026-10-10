@@ -16,6 +16,7 @@
 #include "screamer/backtest_ohlc_target.h"
 #include "screamer/backtest_price_target.h"
 #include "screamer/backtest_report.h"
+#include "screamer/backtest_stats.h"
 #include "screamer/backtest_trades_orders.h"
 #include "screamer/backtest_trades_target.h"
 #include "screamer/bayesian_regression.h"
@@ -339,21 +340,23 @@ EMSCRIPTEN_BINDINGS(screamer) {
     emscripten::class_<screamer::BacktestL1Orders, emscripten::base<screamer::EvalOp>>("BacktestL1Orders")
         .constructor<double, double, std::string, double, double, double, double, double, double, double, double, std::string>();
     emscripten::class_<screamer::BacktestL1Target, emscripten::base<screamer::EvalOp>>("BacktestL1Target")
-        .constructor<double, double, double, double, double, double, double, std::string>();
+        .constructor<double, double, double, double, double, double, double, std::string, double, double, double>();
     emscripten::class_<screamer::BacktestL1TradesOrders, emscripten::base<screamer::EvalOp>>("BacktestL1TradesOrders")
         .constructor<double, double, std::string, double, double, double, double, double, double, double, double, std::string>();
     emscripten::class_<screamer::BacktestOHLCOrders, emscripten::base<screamer::EvalOp>>("BacktestOHLCOrders")
         .constructor<double, double, std::string, double, double, double, double, double, double, double, double, std::string>();
     emscripten::class_<screamer::BacktestOHLCTarget, emscripten::base<screamer::EvalOp>>("BacktestOHLCTarget")
-        .constructor<double, double, double, double, double, double, double, std::string, std::string, int>();
+        .constructor<double, double, double, double, double, double, double, std::string, std::string, int, double, double, double>();
     emscripten::class_<screamer::BacktestPriceTarget, emscripten::base<screamer::EvalOp>>("BacktestPriceTarget")
-        .constructor<double, double, double, double, double, double, double, std::string, double>();
+        .constructor<double, double, double, double, double, double, double, std::string, double, double, double, double>();
     emscripten::class_<screamer::BacktestReport, emscripten::base<screamer::EvalOp>>("BacktestReport")
-        .constructor<>();
+        .constructor<double>();
+    emscripten::class_<screamer::BacktestStats, emscripten::base<screamer::EvalOp>>("BacktestStats")
+        .constructor<double>();
     emscripten::class_<screamer::BacktestTradesOrders, emscripten::base<screamer::EvalOp>>("BacktestTradesOrders")
         .constructor<double, double, std::string, double, double, double, double, double, double, double, double, std::string>();
     emscripten::class_<screamer::BacktestTradesTarget, emscripten::base<screamer::EvalOp>>("BacktestTradesTarget")
-        .constructor<double, double, double, double, double, double, double, std::string>();
+        .constructor<double, double, double, double, double, double, double, std::string, double, double, double>();
     emscripten::class_<screamer::BayesianRegression, emscripten::base<screamer::EvalOp>>("BayesianRegression")
         .constructor(&make_BayesianRegression, emscripten::allow_raw_pointers());
     emscripten::class_<screamer::BollingerBands, emscripten::base<screamer::EvalOp>>("BollingerBands")

@@ -56,6 +56,21 @@ parameters:
   default: 0.0
   min: 0.0
   description: Instrument price grid (0 = continuous). Slippage offsets round up to whole ticks; the `"ticks"` slippage unit counts in this step.
+- name: stop_loss
+  type: float
+  default: 0.0
+  min: 0.0
+  description: Exit when the price moves this fraction against the average entry fill (0.05 = 5%). 0 turns it off.
+- name: take_profit
+  type: float
+  default: 0.0
+  min: 0.0
+  description: Exit when the price moves this fraction in favour of the average entry fill. 0 turns it off.
+- name: trailing_stop
+  type: float
+  default: 0.0
+  min: 0.0
+  description: Exit when the price falls this fraction from the best price since entry (the highest for a long, the lowest for a short). 0 turns it off.
 nan_policy: ignore
 see_also:
 - Drawdown
@@ -100,6 +115,12 @@ the position held across the gap; `nan_policy: ignore`).
 The equity curve feeds the existing risk operators directly (dollar drawdown is
 `equity - CumMax(equity)`), and [`backtest_report`](backtest_report.md) bundles
 the common statistics (drawdown, cost, turnover, trades, Sharpe) in one call.
+
+**Risk exits.** `stop_loss`, `take_profit`, and `trailing_stop` close the position
+on the step whose price crosses a level measured from the average entry fill (or,
+for the trailing stop, from the best price since entry). The exit fills at that
+step's price, as a market order. After an exit, targets on the same side are
+ignored until the target turns flat or reverses.
 
 ## Examples
 

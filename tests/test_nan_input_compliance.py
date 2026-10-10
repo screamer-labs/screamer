@@ -153,7 +153,10 @@ def _build_input(n_inputs: int, n_samples: int) -> list[np.ndarray]:
 #   * RollingOmega with all-positive returns -> no downside -> ratio undefined.
 # For these, the test must use a centered input (and independent streams
 # for InfoRatio) so the function has something meaningful to compute.
+# BacktestStats needs a position that changes sign, or no trade ever closes
+# and the trade-level columns stay NaN (correctly).
 _NEEDS_CENTERED_INPUT: set[str] = {
+    "BacktestStats",
     "RollingCalmar",
     "RollingInfoRatio",
     "RollingOmega",

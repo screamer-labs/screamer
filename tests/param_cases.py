@@ -108,6 +108,8 @@ _NO_ARG_AUTO_EXCLUDE = {
     'ContOFI', 'EffectiveSpread',
     # 4-input, 7-output backtest report node - tested in test_backtest.py
     'BacktestReport',
+    # 4-input, 9-output trade statistics node - tested in test_backtest.py
+    'BacktestStats',
     # dynamic-width (time, assets, 4) reducer; exercised in test_backtest.py
     'PortfolioReport',
     # 8-input two-sided market-making engine - tested in test_backtest.py

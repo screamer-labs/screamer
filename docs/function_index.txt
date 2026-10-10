@@ -22,6 +22,7 @@ BacktestOHLCOrders, Backtest a two-sided order poster on OHLC bars, posting rest
 BacktestOHLCTarget, Backtest a target-position strategy on OHLC bars, executing market orders at the next bar's open or another bar price, with slippage (causal, no manual lag).
 BacktestPriceTarget, Backtest a target position against a value series (price/mark) into a costed mark-to-market equity curve.
 BacktestReport, Turn a backtest engine's [equity, pnl, position, cost] into running drawdown, cost, turnover, trades, and Sharpe.
+BacktestStats, Turn a backtest engine's [equity, pnl, position, cost] into running exposure, round-trip trade statistics, Sortino, and Calmar.
 BacktestTradesOrders, Backtest a two-sided order poster against the trade tape, filling resting quotes when prints cross them, into a costed equity curve.
 BacktestTradesTarget, Backtest a target-position strategy against the trade tape, taking each print as a market fill to reach the target immediately.
 BayesianRegression, Online exponentially-weighted (forgetting-factor) Bayesian linear regression - current slope and intercept via Normal-Inverse-Gamma posterior plus causal one-step-ahead predictive mean and std.

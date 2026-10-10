@@ -253,7 +253,10 @@
       "double",
       "double",
       "double",
-      "std::string"
+      "std::string",
+      "double",
+      "double",
+      "double"
     ],
     "ctor_args": [
       {
@@ -287,6 +290,18 @@
       {
         "name": "slippage_unit",
         "default": "\"fraction\""
+      },
+      {
+        "name": "stop_loss",
+        "default": "0.0"
+      },
+      {
+        "name": "take_profit",
+        "default": "0.0"
+      },
+      {
+        "name": "trailing_stop",
+        "default": "0.0"
       }
     ],
     "ctor_kind": "plain",
@@ -448,7 +463,10 @@
       "double",
       "std::string",
       "std::string",
-      "int"
+      "int",
+      "double",
+      "double",
+      "double"
     ],
     "ctor_args": [
       {
@@ -490,6 +508,18 @@
       {
         "name": "delay",
         "default": "1"
+      },
+      {
+        "name": "stop_loss",
+        "default": "0.0"
+      },
+      {
+        "name": "take_profit",
+        "default": "0.0"
+      },
+      {
+        "name": "trailing_stop",
+        "default": "0.0"
       }
     ],
     "ctor_kind": "plain",
@@ -508,6 +538,9 @@
       "double",
       "double",
       "std::string",
+      "double",
+      "double",
+      "double",
       "double"
     ],
     "ctor_args": [
@@ -546,6 +579,18 @@
       {
         "name": "tick_size",
         "default": "0.0"
+      },
+      {
+        "name": "stop_loss",
+        "default": "0.0"
+      },
+      {
+        "name": "take_profit",
+        "default": "0.0"
+      },
+      {
+        "name": "trailing_stop",
+        "default": "0.0"
       }
     ],
     "ctor_kind": "plain",
@@ -555,8 +600,31 @@
     "name": "BacktestReport",
     "cpp_type": "screamer::BacktestReport",
     "base": "FunctorBase",
-    "ctor": [],
-    "ctor_args": [],
+    "ctor": [
+      "double"
+    ],
+    "ctor_args": [
+      {
+        "name": "periods_per_year",
+        "default": "1.0"
+      }
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_fin.cpp"
+  },
+  {
+    "name": "BacktestStats",
+    "cpp_type": "screamer::BacktestStats",
+    "base": "FunctorBase",
+    "ctor": [
+      "double"
+    ],
+    "ctor_args": [
+      {
+        "name": "periods_per_year",
+        "default": "1.0"
+      }
+    ],
     "ctor_kind": "plain",
     "source": "bindings/bindings_fin.cpp"
   },
@@ -643,7 +711,10 @@
       "double",
       "double",
       "double",
-      "std::string"
+      "std::string",
+      "double",
+      "double",
+      "double"
     ],
     "ctor_args": [
       {
@@ -677,6 +748,18 @@
       {
         "name": "slippage_unit",
         "default": "\"fraction\""
+      },
+      {
+        "name": "stop_loss",
+        "default": "0.0"
+      },
+      {
+        "name": "take_profit",
+        "default": "0.0"
+      },
+      {
+        "name": "trailing_stop",
+        "default": "0.0"
       }
     ],
     "ctor_kind": "plain",

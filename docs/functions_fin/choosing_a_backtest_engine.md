@@ -118,6 +118,16 @@ mark is profit or loss, not cost. A resting limit fill has the limit price as it
 reference, so its cost is its fee alone. The split between `pnl` and `cost` does
 not change `equity`.
 
+## Risk exits
+
+The four Target engines take `stop_loss`, `take_profit`, and `trailing_stop`:
+fractions of the average entry fill price (0 turns an exit off). On OHLC bars a
+bar that opens past a level exits at the open, and otherwise at the level; when
+the stop and the take-profit both fall inside one bar, the stop is taken. The
+event engines (price, trades, L1) exit on the event that crosses a level, at that
+event's price. Exits are market orders that pay the taker fee and slippage. After
+an exit, same-side targets are ignored until the target turns flat or reverses.
+
 ## Fill-cap rule
 
 Every engine accepts `min_position` and `max_position` constructor parameters

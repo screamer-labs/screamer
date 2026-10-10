@@ -54,6 +54,21 @@ parameters:
   type: str
   default: fraction
   description: 'Unit of `slippage`: "fraction" of the reference price (5 bps = 5e-4), "ticks" of `tick_size`, or "price" (an absolute amount).'
+- name: stop_loss
+  type: float
+  default: 0.0
+  min: 0.0
+  description: Exit when the price moves this fraction against the average entry fill (0.05 = 5%). 0 turns it off.
+- name: take_profit
+  type: float
+  default: 0.0
+  min: 0.0
+  description: Exit when the price moves this fraction in favour of the average entry fill. 0 turns it off.
+- name: trailing_stop
+  type: float
+  default: 0.0
+  min: 0.0
+  description: Exit when the price falls this fraction from the best price since entry (the highest for a long, the lowest for a short). 0 turns it off.
 nan_policy: ignore
 see_also:
 - BacktestTradesOrders
@@ -89,6 +104,12 @@ event), `2 = position`, and `3 = cost` (per event). A `NaN` `trade_price` or
 The optional `min_position` and `max_position` parameters cap the inventory. The
 target is clamped before the order size is computed, so the engine never carries a
 position outside that range.
+
+**Risk exits.** `stop_loss`, `take_profit`, and `trailing_stop` close the position
+on the print that crosses a level measured from the average entry fill (or, for
+the trailing stop, from the best price since entry). The exit takes that print,
+as a market order. After an exit, targets on the same side are ignored until the
+target turns flat or reverses.
 
 ## Limitations
 

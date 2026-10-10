@@ -3,6 +3,7 @@
 
 #include <cmath>
 #include <limits>
+#include <stdexcept>
 #include <tuple>
 #include "screamer/common/functor_base.h"
 #include "screamer/common/float_info.h"
@@ -24,14 +25,21 @@ namespace screamer {
     //   trades       = running count of steps that changed the position
     //   max_drawdown = running minimum of drawdown (the worst so far, <= 0)
     //   sharpe       = running mean(pnl) / sample std(pnl) (Welford; NaN until two
-    //                  finite pnl values with positive dispersion)
+    //                  finite pnl values with positive dispersion), times
+    //                  sqrt(periods_per_year); the default 1 is the per-step ratio
     //
     // nan_policy: ignore. A row with any NaN field is a skipped bar: the state
     // holds (no accumulator advances) and the output row is all NaN, recovering at
     // the next finite bar, as CumSum and the other accumulators do.
     class BacktestReport : public FunctorBase<BacktestReport, 4, 6> {
     public:
-        BacktestReport() { reset(); }
+        explicit BacktestReport(double periods_per_year = 1.0)
+            : sqrt_ppy_(std::sqrt(periods_per_year))
+        {
+            if (!(periods_per_year > 0.0) || !std::isfinite(periods_per_year))
+                throw std::invalid_argument("periods_per_year must be finite and positive.");
+            reset();
+        }
 
         void reset() override {
             peak_equity_ = -std::numeric_limits<double>::infinity();
@@ -77,7 +85,7 @@ namespace screamer {
             double sharpe = std::numeric_limits<double>::quiet_NaN();
             if (pnl_n_ > 1) {
                 const double sd = std::sqrt(pnl_m2_ / static_cast<double>(pnl_n_ - 1));
-                if (sd > 0.0) sharpe = pnl_mean_ / sd;
+                if (sd > 0.0) sharpe = pnl_mean_ / sd * sqrt_ppy_;
             }
 
             return std::make_tuple(drawdown, cum_cost_, cum_turnover_,
@@ -90,6 +98,7 @@ namespace screamer {
         double cum_cost_ = 0.0, cum_turnover_ = 0.0, trade_count_ = 0.0;
         bool has_prev_pos_ = false;
         double prev_pos_ = 0.0;
+        double sqrt_ppy_ = 1.0;
         long long pnl_n_ = 0;
         double pnl_mean_ = 0.0, pnl_m2_ = 0.0;
     };

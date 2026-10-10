@@ -50,6 +50,8 @@ namespace screamer { namespace detail {
         }
 
         double position() const { return account_.position(); }
+        // Fill price of the last fill in the most recent quote(), NaN if none.
+        double last_fill_price() const { return last_fill_; }
 
         std::tuple<double, double, double, double>
         quote(double bid_price, double bid_size,
@@ -65,6 +67,7 @@ namespace screamer { namespace detail {
             const double mid = 0.5 * (market_bid + market_ask);
             double eq = 0, pnl = 0, position = account_.position(), cost = 0;
             bool did = false;
+            last_fill_ = std::numeric_limits<double>::quiet_NaN();
 
             // Buy side: resting bid at bid_price filled by the market ask.
             const double room_buy = std::max(max_pos_ - account_.position(), 0.0);
@@ -72,6 +75,7 @@ namespace screamer { namespace detail {
                                       market_ask, market_ask_size,
                                       room_buy, bid_passive_, bid_locked_);
             if (b.dpos != 0.0) {
+                last_fill_ = b.fill_price;
                 auto [e, p, pos, c] = account_.step(mid, b.dpos, b.fill_price,
                                                     b.is_taker ? taker_fee_ : maker_fee_,
                                                     b.is_taker ? taker_fee_per_contract_
@@ -85,6 +89,7 @@ namespace screamer { namespace detail {
                                       market_bid, market_bid_size,
                                       room_sell, ask_passive_, ask_locked_);
             if (s.dpos != 0.0) {
+                last_fill_ = s.fill_price;
                 auto [e, p, pos, c] = account_.step(mid, s.dpos, s.fill_price,
                                                     s.is_taker ? taker_fee_ : maker_fee_,
                                                     s.is_taker ? taker_fee_per_contract_
@@ -154,6 +159,7 @@ namespace screamer { namespace detail {
         double min_pos_, max_pos_;
         bool bid_passive_ = false, ask_passive_ = false, bid_locked_ = false, ask_locked_ = false;
         detail::PnLAccount account_;
+        double last_fill_ = std::numeric_limits<double>::quiet_NaN();
     };
 
 }} // namespace screamer::detail

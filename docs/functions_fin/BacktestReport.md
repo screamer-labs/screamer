@@ -15,10 +15,16 @@ tags:
 short: "Turn a backtest engine's [equity, pnl, position, cost] into running drawdown, cost, turnover, trades, and Sharpe."
 inputs: 4
 outputs: 6
-parameters: []
+parameters:
+- name: periods_per_year
+  type: float
+  default: 1.0
+  min: 0.0
+  description: Steps per year, used to annualize the Sharpe ratio (for example 252 for daily bars). The default 1 gives the per-step ratio.
 nan_policy: ignore
 see_also:
 - backtest_report
+- BacktestStats
 - BacktestPriceTarget
 - Drawdown
 - MaxDrawdown
@@ -44,8 +50,12 @@ The six outputs, in order, are:
    move from flat.
 3. `trades`: the running count of steps that changed the position.
 4. `max_drawdown`: the running minimum of `drawdown`, the worst so far (`<= 0`).
-5. `sharpe`: the running `mean(pnl) / sample std(pnl)`, `NaN` until two finite `pnl`
-   values with positive dispersion.
+5. `sharpe`: the running `mean(pnl) / sample std(pnl)`, multiplied by
+   `sqrt(periods_per_year)`, `NaN` until two finite `pnl` values with positive
+   dispersion. With the default `periods_per_year=1` it is the per-step ratio.
+
+[`BacktestStats`](BacktestStats.md) adds trade-level statistics (win rate, profit
+factor, holding period), exposure, Sortino, and Calmar.
 
 Every column is a causal accumulator, so a full-sample statistic is the last
 finite value: `total_pnl` is the last equity, `max_drawdown` the last
@@ -72,7 +82,7 @@ next finite bar, exactly as `CumSum` and the other accumulators do.
     signal = np.sign(rng.standard_normal(n))
     equity, pnl, position, cost = (BacktestPriceTarget(spread=0.0005)(signal, price).T)
 
-    rep = BacktestReport()(equity, pnl, position, cost)   # (n, 7)
+    rep = BacktestReport()(equity, pnl, position, cost)   # (n, 6)
     drawdown, trades = rep[:, 0], rep[:, 3]
 
     fig = make_subplots(rows=3, cols=1, shared_xaxes=True, row_heights=[0.4, 0.3, 0.3],

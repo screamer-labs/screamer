@@ -5,6 +5,21 @@ All notable changes to this project are documented in this file.
 Unreleased
 ----------
 
+### Added
+
+* **Backtest risk exits:** the target engines (`BacktestOHLCTarget`,
+  `BacktestPriceTarget`, `BacktestTradesTarget`, `BacktestL1Target`) take
+  `stop_loss`, `take_profit`, and `trailing_stop`, as fractions of the average
+  entry fill. On OHLC bars a gap exits at the open and an intrabar touch at the
+  level; when both levels fall inside one bar the stop is taken. Exits are
+  market orders (taker fee and slippage), and same-side targets are ignored
+  after an exit until the target turns flat or reverses.
+* **Backtest statistics:** `BacktestStats` adds running exposure, round-trip
+  count, win rate, profit factor, average win and loss, average holding period,
+  Sortino, and Calmar. `BacktestReport`, `BacktestStats`, and `backtest_report`
+  take `periods_per_year` to annualize the ratios (the default 1 keeps the
+  per-step values), and `backtest_report`'s summary includes the new statistics.
+
 2.6.0 - 2026-10-10
 ------------------
 
