@@ -5,6 +5,9 @@ All notable changes to this project are documented in this file.
 Unreleased
 ----------
 
+2.7.0 - 2026-10-10
+------------------
+
 ### Added
 
 * **Strategy significance tests:** `strategy_test` runs a whole strategy (a
