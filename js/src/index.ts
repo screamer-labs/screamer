@@ -43,9 +43,14 @@ export {
   CODES,
 } from "./codes.js";
 export * from "./generated/ops.js";
-export { circularShift, segmentShuffle, positionTest } from "./validation.js";
+export {
+  circularShift, segmentShuffle, positionTest,
+  permuteBars, permuteReturns, strategyTest,
+} from "./validation.js";
 export type {
   PositionTestMetric,
   PositionTestOptions,
   PositionTestResult,
+  StrategyTestOptions,
+  StrategyTestResult,
 } from "./validation.js";

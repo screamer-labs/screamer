@@ -1,10 +1,14 @@
 """Randomization tests for backtest significance.
 
-A backtest result can come from skill or from luck. ``position_test`` measures
-how often luck alone does as well. It keeps the market data and the strategy's
-trading profile, randomizes when the strategy holds its positions, replays
-each randomized copy through the same backtest engine, and compares the real
-metric with that null distribution.
+A backtest result can come from skill or from luck. Two tests measure how
+often luck alone does as well:
+
+- ``position_test`` keeps the market data and the strategy's trading profile,
+  randomizes when the strategy holds its positions, and replays each copy
+  through the same backtest engine.
+- ``strategy_test`` keeps the strategy and randomizes its data: it permutes
+  the market (``"bars"`` or ``"returns"``) or shifts chosen feature inputs
+  (``"shift"``), and re-runs the whole strategy, model included, on each copy.
 
 These functions are batch-only. They read whole series to build surrogates, so
 they are validation tools, not streaming operators. The surrogates are built
@@ -20,10 +24,13 @@ from .screamer_bindings import (
     BacktestReport,
     _circular_shift,
     _default_min_shift,
+    _permute_bars,
+    _permute_returns,
     _segment_shuffle,
 )
 
-__all__ = ["position_test", "circular_shift", "segment_shuffle"]
+__all__ = ["position_test", "strategy_test", "circular_shift", "segment_shuffle",
+           "permute_bars", "permute_returns"]
 
 # Engine output columns: [equity, pnl, position, cost].
 # BacktestReport columns: [drawdown, cum_cost, turnover, trades, max_drawdown, sharpe].
@@ -222,3 +229,189 @@ def position_test(
         hits = np.count_nonzero(null <= observed)
     p_value = (1.0 + hits) / (1.0 + null.size) if np.isfinite(observed) else float("nan")
     return PositionTestResult(observed, null, float(p_value), name, method, shift)
+
+
+def permute_bars(open, high, low, close, n, seed=0):
+    """``n`` bar-permuted copies of an OHLC series, as four ``(T, n)`` arrays.
+
+    In log prices each bar after the first splits into a gap (its open over the
+    previous close) and an intrabar shape (high, low, and close relative to its
+    open). The gaps and the shapes are shuffled independently and the path is
+    rebuilt from the first bar (Masters 2020). Each copy keeps the first bar,
+    the last close, the distribution of gaps and intrabar shapes, and valid
+    bars, but none of the serial structure. Prices must be finite and positive.
+    The same ``seed`` gives the same copies on every platform.
+    """
+    o, h, l, c = (_as_series(a, name) for a, name in
+                  ((open, "open"), (high, "high"), (low, "low"), (close, "close")))
+    return _permute_bars(o, h, l, c, _seed(seed), 0, int(n))[:4]
+
+
+def permute_returns(x, n, log=True, seed=0):
+    """``n`` copies of a price series with its returns in random order, ``(T, n)``.
+
+    The steps of the series (log returns with ``log=True``, else differences)
+    are shuffled and the path is rebuilt from the first valid value. Each copy
+    keeps the first and last values and the distribution of returns, but none
+    of their order. The NaN warmup prefix stays in place. The same ``seed``
+    gives the same copies on every platform.
+    """
+    return _permute_returns(_as_series(x, "x"), bool(log), _seed(seed), 0, int(n))[0]
+
+
+class StrategyTestResult(NamedTuple):
+    """The outcome of ``strategy_test``; the fields mean the same as in
+    ``PositionTestResult``."""
+    observed: float
+    null: np.ndarray
+    p_value: float
+    metric: str
+    method: str
+
+
+def _engine_output(out):
+    """The (T, 4) engine output from a strategy's return value."""
+    if isinstance(out, tuple):            # a Pipeline returns (values, index)
+        out = out[0]
+    out = np.asarray(out, dtype=float)
+    if out.ndim != 2 or out.shape[1] != 4:
+        raise ValueError(
+            "strategy must return a backtest engine output of shape (T, 4) "
+            "[equity, pnl, position, cost], or a (values, index) pair holding one")
+    return out
+
+
+def strategy_test(
+    strategy: Callable,
+    *inputs,
+    n: int = 500,
+    method: str = "bars",
+    ohlc=(0, 1, 2, 3),
+    price: int = 0,
+    log: Optional[bool] = None,
+    columns=None,
+    fixed=(),
+    metric: Union[str, Callable] = "sharpe",
+    larger_is_better: Optional[bool] = None,
+    min_shift: Optional[int] = None,
+    seed: int = 0,
+) -> StrategyTestResult:
+    """Test a whole strategy against the same strategy run on randomized data.
+
+    ``strategy`` is any callable that takes ``inputs`` positionally and returns
+    a backtest engine's ``(T, 4)`` output: a function built from screamer ops,
+    a compiled ``Pipeline`` (its ``(values, index)`` result is accepted), or
+    your own code. The test runs it once on the real inputs and ``n`` times on
+    randomized copies, and reports where the real metric falls.
+
+    ``method`` chooses what is randomized:
+
+    - ``"bars"``: the OHLC inputs at positions ``ohlc`` are replaced by
+      bar-permuted copies (see ``permute_bars``). The null hypothesis is that
+      the market has no serial structure the strategy can use. Because the
+      whole strategy runs again, anything it fits or tunes on the data is
+      re-fitted on every copy, so the test also accounts for that fitting.
+    - ``"returns"``: the single price input at position ``price`` is replaced
+      by return-permuted copies (see ``permute_returns``). ``log`` chooses log
+      returns or differences; the default uses log returns when every price is
+      positive.
+    - ``"shift"``: the inputs at positions ``columns`` (features) are rotated
+      in time by one random offset, the same for all of them, while prices
+      stay as they are. This asks whether those features carry information,
+      with their own autocorrelation and their relations to each other kept.
+      ``min_shift`` defaults to a tenth of the series.
+
+    With ``"bars"`` and ``"returns"``, every other input moves with its bar,
+    so per-bar data such as volume keeps its relation to the bar it belongs
+    to. List inputs that must not move, such as timestamps, in ``fixed``.
+
+    ``metric`` is ``"sharpe"`` (per step), ``"total_pnl"``, ``"max_drawdown"``,
+    or a callable that maps an output of shape ``(T, k, 4)`` to ``k`` values.
+    The p-value counts the observed result itself, so it is never zero.
+    """
+    if method not in ("bars", "returns", "shift"):
+        raise ValueError('method must be "bars", "returns", or "shift"')
+    if isinstance(metric, str):
+        if metric not in _METRICS:
+            raise ValueError(f"metric must be one of {sorted(_METRICS)} or a callable")
+        name = metric
+        if larger_is_better is None:
+            larger_is_better = _METRICS[metric][2]
+    elif callable(metric):
+        name = getattr(metric, "__name__", "custom")
+        if larger_is_better is None:
+            larger_is_better = True
+    else:
+        raise TypeError("metric must be a string or a callable")
+    if n < 1:
+        raise ValueError("n must be at least 1")
+    seed = _seed(seed)
+    data = [_as_series(x, "input") for x in inputs]
+    if not data:
+        raise ValueError("strategy_test needs at least one input")
+    T = data[0].shape[0]
+    if any(x.shape[0] != T for x in data):
+        raise ValueError("all inputs must have the same length")
+    k = len(data)
+
+    def check_positions(pos, what):
+        pos = [int(i) for i in pos]
+        if any(i < 0 or i >= k for i in pos):
+            raise ValueError(f"{what} refers to an input that does not exist")
+        return pos
+
+    fixed = set(check_positions(fixed, "fixed"))
+    if method == "bars":
+        price_cols = check_positions(ohlc, "ohlc")
+        if len(price_cols) != 4:
+            raise ValueError("ohlc must list the positions of open, high, low, close")
+    elif method == "returns":
+        price_cols = check_positions([price], "price")
+        if log is None:
+            px = data[price_cols[0]]
+            log = bool(np.all(px[np.isfinite(px)] > 0))
+    else:
+        if not columns:
+            raise ValueError('method="shift" needs the feature positions in columns')
+        price_cols = []
+        shifted = check_positions(columns, "columns")
+        shift = max(1, T // 10) if min_shift is None else int(min_shift)
+        if shift < 1 or 2 * shift > T:
+            raise ValueError("min_shift must be in [1, T / 2]")
+        positions = np.arange(T, dtype=float)
+
+    observed = float(_score(_engine_output(strategy(*data))[:, None, :], metric)[0])
+
+    null = np.empty(n)
+    chunk = max(1, min(n, 64))
+    for col0 in range(0, n, chunk):
+        m = min(chunk, n - col0)
+        if method == "bars":
+            o, h, l, c, src = _permute_bars(*(data[i] for i in price_cols), seed, col0, m)
+            replaced = dict(zip(price_cols, (o, h, l, c)))
+        elif method == "returns":
+            p, src = _permute_returns(data[price_cols[0]], bool(log), seed, col0, m)
+            replaced = {price_cols[0]: p}
+        else:
+            src = _circular_shift(positions, shift, seed, col0, m)
+            replaced = {}
+        src = src.astype(np.intp)
+        for j in range(m):
+            run = []
+            for i, x in enumerate(data):
+                if i in replaced:
+                    run.append(np.ascontiguousarray(replaced[i][:, j]))
+                elif i in fixed or (method == "shift" and i not in shifted):
+                    run.append(x)
+                else:
+                    run.append(x[src[:, j]])
+            out = _engine_output(strategy(*run))
+            null[col0 + j] = _score(out[:, None, :], metric)[0]
+
+    null = null[np.isfinite(null)]
+    if larger_is_better:
+        hits = np.count_nonzero(null >= observed)
+    else:
+        hits = np.count_nonzero(null <= observed)
+    p_value = (1.0 + hits) / (1.0 + null.size) if np.isfinite(observed) else float("nan")
+    return StrategyTestResult(observed, null, float(p_value), name, method)

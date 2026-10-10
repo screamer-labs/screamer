@@ -1,6 +1,7 @@
 #ifndef SCREAMER_VALIDATION_SURROGATES_H
 #define SCREAMER_VALIDATION_SURROGATES_H
 
+#include <algorithm>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -184,6 +185,116 @@ namespace screamer { namespace validation {
                 if (left[j] == 0) left[j] = r[order[j * R + (++pos[j])]].second;
                 row[j] = x[r[order[j * R + pos[j]]].first];
                 --left[j];
+            }
+        }
+    }
+
+
+    namespace detail {
+
+        // Fisher-Yates shuffle of 1 .. m-1 into perm (perm[0] stays 0).
+        inline void shuffle_tail(std::vector<std::size_t>& perm, Rng& rng) {
+            for (std::size_t i = 0; i < perm.size(); ++i) perm[i] = i;
+            for (std::size_t i = perm.size(); i > 2; --i) {
+                const std::size_t k = 1 + static_cast<std::size_t>(rng.below(i - 1));
+                std::swap(perm[i - 1], perm[k]);
+            }
+        }
+
+    } // namespace detail
+
+    // Bar permutation (Masters 2020) for OHLC data. In log prices each bar
+    // t >= 1 splits into a gap, open[t] / close[t-1], and an intrabar shape,
+    // (high, low, close) relative to open[t]. The gaps and the shapes are
+    // shuffled with two independent permutations and the path is rebuilt from
+    // the first bar, which stays as it is. Every surrogate keeps the first bar,
+    // the last close, the distribution of gaps and of intrabar shapes, and
+    // low <= open, close <= high; it has no serial structure left.
+    //
+    // Outputs are row-major (T x ncols): the four price arrays, and `source`,
+    // the bar whose intrabar shape row t received (0 for t = 0), so that other
+    // per-bar columns (volume, features) can be moved with their bar. Prices
+    // must be finite and positive.
+    inline void permute_bars(const double* o, const double* h, const double* l,
+                             const double* c, std::size_t T, std::uint64_t seed,
+                             std::size_t col0, std::size_t ncols,
+                             double* oo, double* oh, double* ol, double* oc,
+                             double* source) {
+        if (T < 2) throw std::invalid_argument("permute_bars needs at least two bars.");
+        for (std::size_t t = 0; t < T; ++t) {
+            if (!(o[t] > 0.0 && h[t] > 0.0 && l[t] > 0.0 && c[t] > 0.0) ||
+                !std::isfinite(o[t] + h[t] + l[t] + c[t]))
+                throw std::invalid_argument(
+                    "permute_bars needs finite, positive open, high, low, and close prices.");
+        }
+        std::vector<double> gap(T), dh(T), dl(T), dc(T);
+        for (std::size_t t = 1; t < T; ++t) {
+            gap[t] = std::log(o[t]) - std::log(c[t - 1]);
+            const double lo = std::log(o[t]);
+            dh[t] = std::log(h[t]) - lo;
+            dl[t] = std::log(l[t]) - lo;
+            dc[t] = std::log(c[t]) - lo;
+        }
+        std::vector<std::size_t> shape(T), gaps(T);
+        for (std::size_t j = 0; j < ncols; ++j) {
+            Rng rng(seed, col0 + j);
+            detail::shuffle_tail(shape, rng);
+            detail::shuffle_tail(gaps, rng);
+            oo[j] = o[0]; oh[j] = h[0]; ol[j] = l[0]; oc[j] = c[0]; source[j] = 0.0;
+            double prev_close = std::log(c[0]);
+            for (std::size_t t = 1; t < T; ++t) {
+                const std::size_t s = shape[t], g = gaps[t];
+                const double lo = prev_close + gap[g];
+                const std::size_t r = t * ncols + j;
+                oo[r] = std::exp(lo);
+                oh[r] = std::exp(lo + dh[s]);
+                ol[r] = std::exp(lo + dl[s]);
+                prev_close = lo + dc[s];
+                oc[r] = std::exp(prev_close);
+                source[r] = static_cast<double>(s);
+            }
+        }
+    }
+
+    // Return permutation for a single price series: the steps after the NaN
+    // warmup prefix (log steps when `log`, else differences) are shuffled and
+    // the path is rebuilt from the first valid value. The warmup prefix and the
+    // first valid value stay in place; the last value is kept. `source` (as in
+    // permute_bars) is the index whose step row t received. With `log` the
+    // values must be positive.
+    inline void permute_returns(const double* x, std::size_t T, bool log,
+                                std::uint64_t seed, std::size_t col0, std::size_t ncols,
+                                double* out, double* source) {
+        const std::size_t p = detail::valid_start(x, T);
+        if (T - p < 2) throw std::invalid_argument(
+            "permute_returns needs at least two values after the NaN warmup.");
+        for (std::size_t t = p; t < T; ++t) {
+            if (!std::isfinite(x[t]) || (log && !(x[t] > 0.0)))
+                throw std::invalid_argument(log
+                    ? "permute_returns with log=True needs finite, positive values."
+                    : "permute_returns needs finite values after the NaN warmup.");
+        }
+        const std::size_t L = T - p;
+        std::vector<double> step(L);
+        for (std::size_t i = 1; i < L; ++i)
+            step[i] = log ? std::log(x[p + i]) - std::log(x[p + i - 1])
+                          : x[p + i] - x[p + i - 1];
+        std::vector<std::size_t> perm(L);
+        for (std::size_t j = 0; j < ncols; ++j) {
+            Rng rng(seed, col0 + j);
+            detail::shuffle_tail(perm, rng);
+            for (std::size_t t = 0; t < p; ++t) {
+                out[t * ncols + j] = x[t];
+                source[t * ncols + j] = static_cast<double>(t);
+            }
+            double level = log ? std::log(x[p]) : x[p];
+            out[p * ncols + j] = x[p];
+            source[p * ncols + j] = static_cast<double>(p);
+            for (std::size_t i = 1; i < L; ++i) {
+                level += step[perm[i]];
+                const std::size_t r = (p + i) * ncols + j;
+                out[r] = log ? std::exp(level) : level;
+                source[r] = static_cast<double>(p + perm[i]);
             }
         }
     }

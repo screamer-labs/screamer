@@ -1,9 +1,10 @@
 // Randomization tests for backtest significance. Mirrors screamer/validation.py.
 //
 // `positionTest` keeps the market data and the strategy's trading profile,
-// randomizes when the strategy holds its positions, replays each randomized
-// copy through the same backtest engine, and compares the real metric with
-// that null distribution. These are batch-only validation tools, not streaming
+// randomizes when the strategy holds its positions, and replays each copy
+// through the same backtest engine. `strategyTest` keeps the strategy and
+// randomizes its data (permuted bars or returns, or shifted features), re-running
+// the whole strategy on each copy. These are batch-only validation tools, not streaming
 // operators. The surrogates are built in C++ (validation_bindings.cpp), and the
 // backtests and the report are the ordinary C++ engines; this module only
 // chains them and counts. The same seed gives the same surrogates as Python.
@@ -240,6 +241,255 @@ export function positionTest(
     for (const v of nul) if (larger ? v >= observed : v <= observed) hits++;
     const pValue = Number.isFinite(observed) ? (1 + hits) / (1 + nul.length) : NaN;
     return { observed, null: Float64Array.from(nul), pValue, metric: name, method, minShift: shift };
+  } finally {
+    report.dispose();
+  }
+}
+
+// ---- data permutations and strategyTest (Python: permute_bars,
+// permute_returns, strategy_test) ------------------------------------------
+
+function heapBlocks(T: number, ncols: number, count: number) {
+  const M = current();
+  const ptrs = Array.from({ length: count }, () => M.allocF64(T * ncols));
+  const read = (i: number) => new Float64Array(M.viewF64(ptrs[i], T * ncols));
+  const free = () => ptrs.forEach((p) => M.freeBuf(p));
+  return { ptrs, read, free };
+}
+
+function heapCopy(x: ArrayLike<number>): number {
+  const M = current();
+  const p = M.allocF64(x.length);
+  M.viewF64(p, x.length).set(x as number[]);
+  return p;
+}
+
+function checkBars(o: ArrayLike<number>, h: ArrayLike<number>, l: ArrayLike<number>,
+                   c: ArrayLike<number>): void {
+  const T = o.length;
+  if (h.length !== T || l.length !== T || c.length !== T)
+    throw new RangeError("open, high, low, and close must have the same length.");
+  if (T < 2) throw new RangeError("permute_bars needs at least two bars.");
+  for (let t = 0; t < T; t++) {
+    if (!(o[t] > 0 && h[t] > 0 && l[t] > 0 && c[t] > 0) ||
+        !Number.isFinite(o[t] + h[t] + l[t] + c[t]))
+      throw new RangeError("permute_bars needs finite, positive open, high, low, and close prices.");
+  }
+}
+
+function barsBlock(o: ArrayLike<number>, h: ArrayLike<number>, l: ArrayLike<number>,
+                   c: ArrayLike<number>, seed: number, col0: number, ncols: number) {
+  const M = current();
+  const T = o.length;
+  checkBars(o, h, l, c);
+  const ins = [o, h, l, c].map(heapCopy);
+  const outs = heapBlocks(T, ncols, 5);
+  try {
+    M.permuteBarsInto(ins[0], ins[1], ins[2], ins[3], T, seed, col0, ncols, ...outs.ptrs);
+    return [0, 1, 2, 3, 4].map(outs.read);
+  } finally {
+    ins.forEach((p) => M.freeBuf(p)); outs.free();
+  }
+}
+
+function checkReturns(x: ArrayLike<number>, log: boolean): void {
+  let p = 0;
+  while (p < x.length && Number.isNaN(x[p])) p++;
+  if (x.length - p < 2)
+    throw new RangeError("permute_returns needs at least two values after the NaN warmup.");
+  for (let t = p; t < x.length; t++) {
+    if (!Number.isFinite(x[t]) || (log && !(x[t] > 0)))
+      throw new RangeError(log
+        ? "permute_returns with log=True needs finite, positive values."
+        : "permute_returns needs finite values after the NaN warmup.");
+  }
+}
+
+function returnsBlock(x: ArrayLike<number>, log: boolean, seed: number,
+                      col0: number, ncols: number) {
+  const M = current();
+  checkReturns(x, log);
+  const xp = heapCopy(x);
+  const outs = heapBlocks(x.length, ncols, 2);
+  try {
+    M.permuteReturnsInto(xp, x.length, log, seed, col0, ncols, ...outs.ptrs);
+    return [outs.read(0), outs.read(1)];
+  } finally {
+    M.freeBuf(xp); outs.free();
+  }
+}
+
+/**
+ * `n` bar-permuted copies of an OHLC series: `[open, high, low, close]`, each a
+ * (T, n) array. Gaps (open over previous close) and intrabar shapes are
+ * shuffled independently in log space and the path is rebuilt from the first
+ * bar (Masters 2020). Mirrors Python's `permute_bars`.
+ */
+export function permuteBars(
+  open: ArrayLike<number>, high: ArrayLike<number>, low: ArrayLike<number>,
+  close: ArrayLike<number>, n: number, opts: { seed?: number } = {},
+): NdArray[] {
+  const seed = opts.seed ?? 0;
+  checkSeed(seed);
+  return barsBlock(open, high, low, close, seed, 0, n).slice(0, 4)
+    .map((data) => ({ data, shape: [open.length, n] }));
+}
+
+/**
+ * `n` copies of a price series with its returns in random order, as a (T, n)
+ * array. Mirrors Python's `permute_returns`.
+ */
+export function permuteReturns(
+  x: ArrayLike<number>, n: number, opts: { log?: boolean; seed?: number } = {},
+): NdArray {
+  const seed = opts.seed ?? 0;
+  checkSeed(seed);
+  const [data] = returnsBlock(x, opts.log ?? true, seed, 0, n);
+  return { data, shape: [x.length, n] };
+}
+
+export interface StrategyTestOptions {
+  n?: number;
+  method?: "bars" | "returns" | "shift";
+  ohlc?: [number, number, number, number];
+  price?: number;
+  log?: boolean;
+  columns?: number[];
+  fixed?: number[];
+  metric?: PositionTestMetric;
+  largerIsBetter?: boolean;
+  minShift?: number;
+  seed?: number;
+}
+
+export interface StrategyTestResult {
+  observed: number;
+  null: Float64Array;
+  pValue: number;
+  metric: string;
+  method: "bars" | "returns" | "shift";
+}
+
+function engineOutput(out: any): NdArray {
+  const v = out && out.values !== undefined ? out.values : out;   // Pipeline Output
+  if (!v || !v.shape || v.shape.length !== 2 || v.shape[1] !== 4)
+    throw new RangeError(
+      "strategy must return a backtest engine output of shape (T, 4) " +
+      "[equity, pnl, position, cost], or a pipeline output holding one");
+  return v as NdArray;
+}
+
+/**
+ * Test a whole strategy against the same strategy run on randomized data.
+ * `strategy(...inputs)` must return a backtest engine output of shape (T, 4)
+ * (or a pipeline `{values, index}` holding one). `method` is `"bars"` (permute
+ * the OHLC inputs at `ohlc`), `"returns"` (permute the price input at
+ * `price`), or `"shift"` (rotate the feature inputs at `columns` by one random
+ * offset). With bars and returns, other inputs move with their bar unless listed
+ * in `fixed`. Mirrors Python's `strategy_test`; the same seed gives the same
+ * randomized inputs.
+ */
+export function strategyTest(
+  strategy: (...inputs: Float64Array[]) => any,
+  inputs: ArrayLike<number>[],
+  opts: StrategyTestOptions = {},
+): StrategyTestResult {
+  const n = opts.n ?? 500;
+  const method = opts.method ?? "bars";
+  const metric = opts.metric ?? "sharpe";
+  const seed = opts.seed ?? 0;
+  if (method !== "bars" && method !== "returns" && method !== "shift")
+    throw new RangeError('method must be "bars", "returns", or "shift"');
+  if (!Number.isInteger(n) || n < 1) throw new RangeError("n must be at least 1");
+  checkSeed(seed);
+  let name: string, larger: boolean;
+  if (typeof metric === "function") {
+    name = metric.name || "custom";
+    larger = opts.largerIsBetter ?? true;
+  } else {
+    if (!(metric in METRICS))
+      throw new RangeError(`metric must be one of ${Object.keys(METRICS).sort().join(", ")} or a function`);
+    name = metric;
+    larger = opts.largerIsBetter ?? METRICS[metric].larger;
+  }
+  const data = inputs.map((x) => Float64Array.from(x as ArrayLike<number>));
+  if (data.length === 0) throw new RangeError("strategyTest needs at least one input");
+  const T = data[0].length, k = data.length;
+  if (data.some((x) => x.length !== T)) throw new RangeError("all inputs must have the same length");
+  const check = (pos: number[], what: string) => {
+    if (pos.some((i) => !Number.isInteger(i) || i < 0 || i >= k))
+      throw new RangeError(`${what} refers to an input that does not exist`);
+    return pos;
+  };
+  const fixed = new Set(check(opts.fixed ?? [], "fixed"));
+  let priceCols: number[] = [], shifted = new Set<number>(), shift = 0, log = true;
+  if (method === "bars") {
+    priceCols = check([...(opts.ohlc ?? [0, 1, 2, 3])], "ohlc");
+    if (priceCols.length !== 4) throw new RangeError("ohlc must list the positions of open, high, low, close");
+  } else if (method === "returns") {
+    priceCols = check([opts.price ?? 0], "price");
+    const px = data[priceCols[0]];
+    log = opts.log ?? Array.from(px).filter(Number.isFinite).every((v) => v > 0);
+  } else {
+    if (!opts.columns || opts.columns.length === 0)
+      throw new RangeError('method "shift" needs the feature positions in columns');
+    shifted = new Set(check(opts.columns, "columns"));
+    shift = opts.minShift ?? Math.max(1, Math.floor(T / 10));
+    if (!Number.isInteger(shift) || shift < 1 || 2 * shift > T)
+      throw new RangeError("min_shift must be in [1, T / 2]");
+  }
+
+  const report = BacktestReport();
+  const score = (out: NdArray): number => {
+    if (typeof metric === "function") return metric(out);
+    const spec = METRICS[metric];
+    if (!spec.report) return lastFinite(out, spec.col);
+    const rep = report(column(out, 0), column(out, 1), column(out, 2), column(out, 3)) as NdArray;
+    report.reset();
+    return lastFinite(rep, spec.col);
+  };
+
+  try {
+    const observed = score(engineOutput(strategy(...data)));
+    const positions = Float64Array.from({ length: T }, (_, i) => i);
+    const nul: number[] = [];
+    const chunk = Math.max(1, Math.min(n, 64));
+    for (let c0 = 0; c0 < n; c0 += chunk) {
+      const m = Math.min(chunk, n - c0);
+      let replaced = new Map<number, Float64Array>(), src: Float64Array;
+      if (method === "bars") {
+        const b = barsBlock(data[priceCols[0]], data[priceCols[1]], data[priceCols[2]],
+                            data[priceCols[3]], seed, c0, m);
+        priceCols.forEach((i, q) => replaced.set(i, b[q]));
+        src = b[4];
+      } else if (method === "returns") {
+        const r = returnsBlock(data[priceCols[0]], log, seed, c0, m);
+        replaced.set(priceCols[0], r[0]);
+        src = r[1];
+      } else {
+        src = shiftBlock(positions, shift, seed, c0, m).data;
+      }
+      for (let j = 0; j < m; j++) {
+        const run = data.map((x, i) => {
+          const col = new Float64Array(T);
+          if (replaced.has(i)) {
+            const blk = replaced.get(i) as Float64Array;
+            for (let t = 0; t < T; t++) col[t] = blk[t * m + j];
+          } else if (fixed.has(i) || (method === "shift" && !shifted.has(i))) {
+            return x;
+          } else {
+            for (let t = 0; t < T; t++) col[t] = x[src[t * m + j]];
+          }
+          return col;
+        });
+        const v = score(engineOutput(strategy(...run)));
+        if (Number.isFinite(v)) nul.push(v);
+      }
+    }
+    let hits = 0;
+    for (const v of nul) if (larger ? v >= observed : v <= observed) hits++;
+    const pValue = Number.isFinite(observed) ? (1 + hits) / (1 + nul.length) : NaN;
+    return { observed, null: Float64Array.from(nul), pValue, metric: name, method };
   } finally {
     report.dispose();
   }

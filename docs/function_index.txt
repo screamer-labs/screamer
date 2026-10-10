@@ -254,9 +254,12 @@ choosing_a_backtest_engine, The 5x2 engine grid by data model and order definiti
 circular_shift, Randomly rotated copies of a series, for randomization tests.
 forecast_pairs, Build a forecasting training set by aligning lagged features with a future causal target.
 from_pandas, Convert a pandas Series or DataFrame to a (values, index) tuple.
+permute_bars, Bar-permuted copies of an OHLC series that keep its return distribution but no serial structure.
+permute_returns, Copies of a price series with its returns in random order.
 position_test, Test whether a backtest's timing beats randomly timed copies of the same strategy, with a p-value.
 segment_shuffle, Copies of a series with its runs of equal value in random order, for randomization tests.
 split, Partition a merged tagged stream back into per-source streams.
+strategy_test, Test a whole strategy, model included, against the same strategy run on permuted market data or shifted features.
 stream-tuple-convention, The (values, index) tuple at every operator boundary.
 to_pandas, Convert a (values, index) tuple to a pandas Series or DataFrame.
 

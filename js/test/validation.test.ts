@@ -70,3 +70,48 @@ test("validation: positionTest detects a planted edge", () => {
     { n: 200, metric: "total_pnl", method: "segments" });
   assert.ok(res.pValue < 0.01, `p = ${res.pValue}`);
 });
+
+// Same golden values as tests/test_validation.py::test_permutation_golden_values.
+test("validation: golden permutations match Python", async () => {
+  const { permuteBars, permuteReturns } = await import("../src/index.ts");
+  const o = [100, 101, 99, 102, 103, 101];
+  const h = o.map((v) => v * 1.01), l = o.map((v) => v * 0.98);
+  const c = [100.5, 99.5, 101, 102.5, 101.5, 102];
+  const close = (a: number[], b: number[]) =>
+    a.every((v, i) => (Number.isNaN(v) && Number.isNaN(b[i])) || Math.abs(v - b[i]) <= 1e-12 * Math.abs(b[i]));
+  const bars = permuteBars(o, h, l, c, 2, { seed: 7 });
+  assert.ok(close(col(bars[0], 1), [100.0, 101.00000000000003, 98.99999999999999,
+    100.50246305418726, 101.99507389162568, 103.50738916256157]));
+  assert.ok(close(col(bars[3], 1), [100.5, 99.49999999999997, 101.00000000000003,
+    100.99512218680589, 103.00492610837439, 101.99999999999996]));
+  const r = permuteReturns([NaN_, 10, 11, 10.5, 12, 11.5, 13], 2, { seed: 7 });
+  assert.ok(close(col(r, 0), [NaN_, 10.0, 11.30434782608696, 10.833333333333336,
+    12.380952380952385, 11.81818181818182, 13.0]));
+});
+
+test("validation: strategyTest separates an informative feature from noise", async () => {
+  const { strategyTest, BacktestPriceTarget } = await import("../src/index.ts");
+  // AR(1) returns with a deterministic pseudo-random driver.
+  let seed = 12345;
+  const rnd = () => { seed = (seed * 1103515245 + 12345) % 2147483648; return seed / 2147483648 - 0.5; };
+  const T = 1200, price: number[] = [], feat: number[] = [], noise: number[] = [];
+  let r = 0, p = 100, ew = 0;
+  for (let t = 0; t < T; t++) {
+    r = 0.3 * r + 0.02 * rnd();
+    p *= Math.exp(r);
+    price.push(p);
+    ew = ew + (2 / 11) * (r - ew);
+    feat.push(ew);
+    noise.push(rnd());
+  }
+  const strat = (f: Float64Array, px: Float64Array) =>
+    BacktestPriceTarget()(Array.from(f, Math.sign), px);
+  const good = strategyTest(strat, [feat, price], { n: 200, method: "shift", columns: [0] });
+  const bad = strategyTest(strat, [noise, price], { n: 200, method: "shift", columns: [0] });
+  assert.ok(good.pValue < 0.05, `informative p = ${good.pValue}`);
+  assert.ok(bad.pValue > 0.05, `noise p = ${bad.pValue}`);
+  const bars = strategyTest((px: Float64Array) =>
+      BacktestPriceTarget()(Array.from(px, () => 1), px), [price],
+    { n: 20, method: "returns" });
+  assert.equal(bars.null.length, 20);
+});

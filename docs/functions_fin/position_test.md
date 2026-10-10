@@ -68,10 +68,10 @@ NaN values left out), `p_value`, `metric`, `method`, and `min_shift`.
 
 ## What it does not cover
 
-The test checks one fixed target series. If you tried many strategy variants
-and kept the best one, test all of them and compare the best result with the
-best result of each randomized round; otherwise the selection itself inflates
-the significance.
+The test checks one fixed target series. If the strategy was fitted, tuned, or
+selected on the same data, that choice also inflates the result, and this test
+does not see it. [`strategy_test`](strategy_test.md) re-runs the whole strategy
+on permuted market data and covers it.
 
 ## Example
 
