@@ -37,7 +37,7 @@ Unreleased
   book, and `strategy_test` accepts strategies that return a `(T, K, 4)`
   portfolio output. Book statistics sum the assets, with turnover counted per
   asset. Python and JavaScript give the same results.
-* **Docs:** a [Portfolios and pairs](docs/portfolio_backtesting.md) guide
+* **Docs:** a "Portfolios and pairs" guide
   (weights from scores, rebalancing rules, a cross-sectional book, a
   Kalman-filter pairs trade with a cointegration gate, and significance tests
   on a book), and the pairs-trade recipe rewritten on real BTC/ETH data with
