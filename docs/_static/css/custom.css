@@ -6,3 +6,17 @@
     word-break: normal;
     overflow-wrap: normal;
 }
+
+/* Gallery and capability tiles: thumbnails are 320 x 200 sketches of a page's
+   plot. Keep the card title compact so a row of four fits on a laptop screen. */
+.gallery-card .sd-card-body {
+    padding: 0.4rem 0.6rem;
+}
+.gallery-card .sd-card-title {
+    font-size: 0.85rem;
+    margin-bottom: 0;
+}
+.sd-card-img-top {
+    aspect-ratio: 16 / 10;
+    object-fit: cover;
+}

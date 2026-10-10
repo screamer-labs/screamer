@@ -38,8 +38,6 @@ The `Ffill` class performs forward filling on a sequence of data, replacing any 
 
 ```{eval-rst}
 .. plotly::
-
-.. plotly::
     :include-source: True
 
     import numpy as np
@@ -48,7 +46,7 @@ The `Ffill` class performs forward filling on a sequence of data, replacing any 
     from screamer import Ffill
 
     # Generate example data with NaN values
-    data = np.random.normal(size=30)
+    data = np.random.default_rng(0).normal(size=30)
     data[[3, 6, 10, 15, 21]] = np.nan  # Introduce NaN values
 
     # Apply forward fill
