@@ -62,19 +62,25 @@ Simulate a strategy against market data into a costed equity curve: signals, bar
    * - :doc:`Backtest a two-sided order poster on OHLC bars </functions_fin/BacktestOHLCOrders>`
      - Backtest a two-sided order poster on OHLC bars, posting resting bids and asks that fill when the bar's range reaches them.
    * - :doc:`Backtest a target-position strategy on OHLC bars </functions_fin/BacktestOHLCTarget>`
-     - Backtest a target-position strategy on OHLC bars, executing market orders at the next bar's open (causal, no manual lag).
+     - Backtest a target-position strategy on OHLC bars, executing market orders at the next bar's open or another bar price, with slippage (causal, no manual lag).
    * - :doc:`Backtest a target position on a value series </functions_fin/BacktestPriceTarget>`
      - Backtest a target position against a value series (price/mark) into a costed mark-to-market equity curve.
    * - :doc:`Running report columns for a backtest </functions_fin/BacktestReport>`
      - Turn a backtest engine's [equity, pnl, position, cost] into running drawdown, cost, turnover, trades, and Sharpe.
-   * - :doc:`Running report columns for a multi-asset backtest </functions_fin/PortfolioReport>`
-     - Reduce a multi-asset engine output into causal portfolio-level drawdown, cost, turnover, trades, and Sharpe.
    * - :doc:`Backtest a two-sided order poster against the trade tape </functions_fin/BacktestTradesOrders>`
      - Backtest a two-sided order poster against the trade tape, filling resting quotes when prints cross them, into a costed equity curve.
    * - :doc:`Backtest a target-position strategy against the trade tape </functions_fin/BacktestTradesTarget>`
      - Backtest a target-position strategy against the trade tape, taking each print as a market fill to reach the target immediately.
    * - :doc:`Choosing a backtest engine </functions_fin/choosing_a_backtest_engine>`
      - The 5x2 engine grid by data model and order definition, with fill rules and encoding.
+   * - :doc:`circular_shift </functions_fin/circular_shift>`
+     - Randomly rotated copies of a series, for randomization tests.
+   * - :doc:`Running report columns for a multi-asset backtest </functions_fin/PortfolioReport>`
+     - Reduce a multi-asset backtest engine output into causal portfolio-level report columns.
+   * - :doc:`position_test </functions_fin/position_test>`
+     - Test whether a backtest's timing beats randomly timed copies of the same strategy, with a p-value.
+   * - :doc:`segment_shuffle </functions_fin/segment_shuffle>`
+     - Copies of a series with its runs of equal value in random order, for randomization tests.
 
 .. toctree::
    :hidden:
@@ -87,10 +93,12 @@ Simulate a strategy against market data into a costed equity curve: signals, bar
    /functions_fin/BacktestOHLCTarget
    /functions_fin/BacktestPriceTarget
    /functions_fin/BacktestReport
-   /functions_fin/PortfolioReport
    /functions_fin/BacktestTradesOrders
    /functions_fin/BacktestTradesTarget
    /functions_fin/choosing_a_backtest_engine
+   /functions_fin/circular_shift
+   /functions_fin/PortfolioReport
+   /functions_fin/position_test
    /functions_fin/RollingCalmar
    /functions_fin/RollingCVaR
    /functions_fin/RollingHitRate
@@ -99,3 +107,4 @@ Simulate a strategy against market data into a costed equity curve: signals, bar
    /functions_fin/RollingOmega
    /functions_fin/RollingSharpe
    /functions_fin/RollingSortino
+   /functions_fin/segment_shuffle

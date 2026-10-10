@@ -115,6 +115,10 @@ The size of fluctuations and risk: standard deviation and variance, RMS, range-b
      - EW standard deviation.
    * - :doc:`Exponentially-weighted variance </functions_ew/EwVar>`
      - EW variance (pandas adjust=True bias-corrected).
+   * - :doc:`EW Yang-Zhang variance </functions_ew/EwYangZhangVar>`
+     - Var form of the Yang-Zhang range-based estimator, exponentially weighted.
+   * - :doc:`EW Yang-Zhang volatility </functions_ew/EwYangZhangVol>`
+     - Vol form (sqrt) of the EW Yang-Zhang range-based estimator.
    * - :doc:`Expanding standard deviation </functions_expanding/ExpandingStd>`
      - Running sample standard deviation (ddof=1) over the whole history.
    * - :doc:`Expanding variance </functions_expanding/ExpandingVar>`
@@ -227,6 +231,8 @@ Relationships between series: correlation, covariance, regression, hedging, pair
      - Description
    * - :doc:`Online Bayesian univariate regression (2->4 posterior fit) </functions_fin/BayesianRegression>`
      - Online exponentially-weighted (forgetting-factor) Bayesian linear regression - current slope and intercept via Normal-Inverse-Gamma posterior plus causal one-step-ahead predictive mean and std.
+   * - :doc:`Exponentially-weighted alpha </functions_ew/EwAlpha>`
+     - EW regression intercept, ewmean(x) - EwBeta(x,y) * ewmean(y).
    * - :doc:`Exponentially-weighted beta </functions_ew/EwBeta>`
      - EW CAPM beta: cov(target, regressor) / var(regressor).
    * - :doc:`Exponentially-weighted correlation </functions_ew/EwCorr>`
@@ -235,6 +241,10 @@ Relationships between series: correlation, covariance, regression, hedging, pair
      - EW covariance of two parallel streams.
    * - :doc:`Kyle's Lambda (exponentially weighted) </functions_micro/EwKyleLambda>`
      - Exponentially-weighted price-impact slope of return on signed order flow.
+   * - :doc:`Exponentially-weighted residual std </functions_ew/EwResidualStd>`
+     - EW std of the spread x - EwBeta(x,y) * y.
+   * - :doc:`Exponentially-weighted spread </functions_ew/EwSpread>`
+     - x - EwBeta(x,y) * y - EW hedge-adjusted residual.
    * - :doc:`Rolling alpha (regression intercept) </functions_fin/RollingAlpha>`
      - Rolling OLS intercept of target on regressor (companion to RollingBeta).
    * - :doc:`Rolling beta </functions_fin/RollingBeta>`
@@ -274,6 +284,7 @@ Relationships between series: correlation, covariance, regression, hedging, pair
    /functions_misc/CumSum
    /functions_misc/Detrend
    /functions_fin/Drawdown
+   /functions_ew/EwAlpha
    /functions_ew/EwBeta
    /functions_ew/EwCorr
    /functions_ew/EwCov
@@ -284,12 +295,16 @@ Relationships between series: correlation, covariance, regression, hedging, pair
    /functions_ew/EwMean
    /functions_ew/EwParkinsonVar
    /functions_ew/EwParkinsonVol
+   /functions_ew/EwResidualStd
    /functions_ew/EwRms
    /functions_ew/EwRogersSatchellVar
    /functions_ew/EwRogersSatchellVol
    /functions_ew/EwSkew
+   /functions_ew/EwSpread
    /functions_ew/EwStd
    /functions_ew/EwVar
+   /functions_ew/EwYangZhangVar
+   /functions_ew/EwYangZhangVol
    /functions_ew/EwZscore
    /functions_expanding/ExpandingKurt
    /functions_expanding/ExpandingMax

@@ -4,6 +4,7 @@
 #include <nanobind/nanobind.h>
 #include <nanobind/stl/optional.h>
 #include <nanobind/stl/string.h>
+#include <nanobind/ndarray.h>
 #include "screamer/common/base.h"
 #include "screamer/common/dispatch.h"
 #include "screamer/common/eval_op.h"
@@ -27,6 +28,7 @@
 #include "screamer/backtest_l1_target.h"
 #include "screamer/backtest_l1trades_orders.h"
 #include "screamer/backtest_report.h"
+#include "screamer/validation/surrogates.h"
 #include "screamer/portfolio_report.h"
 #include "screamer/rolling_downside_deviation.h"
 #include "screamer/rolling_omega.h"
@@ -151,7 +153,45 @@ nb::object portfolio_report_call(screamer::PortfolioReport& self, nb::args args)
 
 } // namespace
 
+namespace {
+
+// Batch-only surrogate generators for randomization tests (see
+// screamer/validation.py). Each returns a new (T, ncols) float64 array holding
+// columns col0 .. col0 + ncols - 1 of the surrogate set.
+using SurrogateIn = nb::ndarray<const double, nb::ndim<1>, nb::c_contig, nb::device::cpu>;
+
+nb::object circular_shift_batch(SurrogateIn x, long long min_shift,
+                                std::uint64_t seed, size_t col0, size_t ncols) {
+    const size_t T = x.shape(0);
+    const size_t m = min_shift < 0
+        ? screamer::validation::default_min_shift(x.data(), T)
+        : static_cast<size_t>(min_shift);
+    double* out = new double[T * ncols];
+    try {
+        screamer::validation::circular_shift(x.data(), T, m, seed, col0, ncols, out);
+    } catch (...) { delete[] out; throw; }
+    return screamer::detail::make_owned_array(out, {T, ncols});
+}
+
+nb::object segment_shuffle_batch(SurrogateIn x, std::uint64_t seed,
+                                 size_t col0, size_t ncols) {
+    const size_t T = x.shape(0);
+    double* out = new double[T * ncols];
+    screamer::validation::segment_shuffle(x.data(), T, seed, col0, ncols, out);
+    return screamer::detail::make_owned_array(out, {T, ncols});
+}
+
+}  // namespace
+
 void init_bindings_fin(nb::module_& m) {
+    m.def("_circular_shift", &circular_shift_batch,
+          "x"_a, "min_shift"_a, "seed"_a, "col0"_a, "ncols"_a);
+    m.def("_segment_shuffle", &segment_shuffle_batch,
+          "x"_a, "seed"_a, "col0"_a, "ncols"_a);
+    m.def("_default_min_shift", [](SurrogateIn x) {
+        return screamer::validation::default_min_shift(x.data(), x.shape(0));
+    }, "x"_a);
+
 
     nb::class_<screamer::Return, screamer::ScreamerBase>(m, "Return")
         .def(nb::init<int>(), "window_size"_a = 1)

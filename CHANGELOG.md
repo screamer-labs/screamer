@@ -7,6 +7,16 @@ Unreleased
 
 ### Added
 
+* **Backtest significance tests:** `position_test` asks whether a backtest's
+  timing beats randomly timed copies of the same strategy and returns the null
+  distribution and a p-value. The copies come from `circular_shift` (rotate the
+  target series) or `segment_shuffle` (shuffle its trades and flat stretches),
+  which keep the trading profile and break only the link to the market. The
+  generators run in C++ with a portable seeded generator, so a seed gives the
+  same result in Python and JavaScript/WASM (`positionTest`, `circularShift`,
+  `segmentShuffle`). These are batch-only validation tools, not streaming
+  operators.
+
 * **Backtest slippage:** every backtest engine takes `slippage` and
   `slippage_unit`. One number is read in one unit: `"fraction"` of the
   reference price (5 bps = `5e-4`), `"ticks"` of `tick_size`, or `"price"`.

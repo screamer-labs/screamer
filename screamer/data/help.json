@@ -3452,6 +3452,39 @@
       }
     ]
   },
+  "circular_shift": {
+    "name": "circular_shift",
+    "title": "circular_shift",
+    "kind": "function",
+    "short": "Randomly rotated copies of a series, for randomization tests.",
+    "topics": [
+      "backtesting"
+    ],
+    "details": "Returns `n` copies of a series as a `(T, n)` array. Each copy is the series\nrotated by a random offset, so values that fall off the end wrap around to the\nstart. A rotation keeps every property of the series (its values, run lengths,\nand autocorrelation) and changes only where it sits in time. This makes it the\nstandard way to build a null distribution for a trading signal: it destroys the\nalignment between the signal and the market and nothing else.\n\nThe leading NaN warmup stays in place, and only the part after it is rotated.\nThe offset is uniform in `[min_shift, L - min_shift]`, where `L` is the length\nafter the warmup, so no copy is nearly aligned with the original. The default\n`min_shift` is twice the mean run length, capped at a quarter of `L`.\n\nThe function is batch-only and runs in C++. Each column has its own generator,\nseeded from `seed` and the column number, so the same seed gives the same\ncolumns on every platform. [`position_test`](position_test.md) uses it with\n`method=\"shift\"`.",
+    "examples": []
+  },
+  "position_test": {
+    "name": "position_test",
+    "title": "position_test",
+    "kind": "function",
+    "short": "Test whether a backtest's timing beats randomly timed copies of the same strategy, with a p-value.",
+    "topics": [
+      "backtesting"
+    ],
+    "details": "Tests whether a backtest result could have come from luck. It keeps the market\ndata and the strategy's trading profile, randomizes **when** the strategy holds\nits positions, replays every randomized copy through the same backtest engine,\nand reports where the real result falls in that null distribution.\n\nThe null hypothesis is that the timing carries no information about future\nreturns, given this trading profile. The randomized copies keep the trades\nthemselves (their number, sides, sizes, and holding periods), so a long-biased\nstrategy in a rising market is compared with equally long-biased copies. The\ntest therefore measures timing skill beyond exposure. This is the Monte Carlo\npermutation test for a fixed system (Aronson 2006; Masters 2020).\n\nTwo ways to randomize the timing:\n\n- `method=\"shift\"` (default) rotates the whole target series by a random\n  offset (see [`circular_shift`](circular_shift.md)). Every property of the\n  series is kept, including its autocorrelation.\n- `method=\"segments\"` shuffles the order of the runs: each trade, and each flat\n  stretch, moves as one block (see [`segment_shuffle`](segment_shuffle.md)).\n\n`metric` is `\"sharpe\"` (per step, the default), `\"total_pnl\"`,\n`\"max_drawdown\"`, or a function that maps an engine output of shape\n`(T, k, 4)` to `k` values. The p-value is the share of randomized copies that\ndo at least as well as the real result, counting the real result itself, so it\nis never zero: with `n=999` the smallest possible p-value is 0.001.\n\nThe test is batch-only: it needs the whole series. The surrogates and the\nbacktests run in C++, and all randomized copies go through the engine as one\n`(T, n)` call, processed in column chunks to bound memory.",
+    "examples": []
+  },
+  "segment_shuffle": {
+    "name": "segment_shuffle",
+    "title": "segment_shuffle",
+    "kind": "function",
+    "short": "Copies of a series with its runs of equal value in random order, for randomization tests.",
+    "topics": [
+      "backtesting"
+    ],
+    "details": "Returns `n` copies of a series as a `(T, n)` array. The series is split into\nruns of equal value, and each copy writes the runs back in a random order. For a\ntarget-position series, each trade and each flat stretch is one run, so every\ncopy holds exactly the same trades, with the same sides, sizes, and holding\nperiods, at random times.\n\nThe leading NaN warmup stays in place. A NaN inside the series is a run of its\nown, like any other value. Two runs with the same value can end up next to each\nother and then read as one longer run.\n\nThe function is batch-only and runs in C++. Each column has its own generator,\nseeded from `seed` and the column number, so the same seed gives the same\ncolumns on every platform. [`position_test`](position_test.md) uses it with\n`method=\"segments\"`.",
+    "examples": []
+  },
   "Abs": {
     "name": "Abs",
     "title": "Absolute value",

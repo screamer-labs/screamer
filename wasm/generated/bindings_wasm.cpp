@@ -177,6 +177,7 @@
 #include "screamer/trix.h"
 #include "screamer/true_range.h"
 #include "screamer/ultimate_oscillator.h"
+#include "screamer/validation/surrogates.h"
 #include "screamer/vpin.h"
 #include "screamer/vwap.h"
 #include "screamer/williams_r.h"

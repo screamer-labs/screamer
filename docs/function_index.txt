@@ -4,16 +4,29 @@
 AD, Chaikin Accumulation/Distribution Line.
 ADOSC, Difference of fast and slow EMA of the Accumulation/Distribution line.
 ADX, Wilder's ADX with +DI and -DI (3 inputs -> 3 outputs).
+ADXR, Wilder's ADXR, the mean of ADX now and ADX one window ago.
 ATR, Wilder-smoothed average of TrueRange.
 Abs, Absolute value of each element.
 Acos, Inverse cosine of each element (radians, input in [-1, 1]).
 Add, Elementwise sum of two aligned streams (x + y).
+AmihudIlliquidity, Rolling mean of |return| / notional (Amihud 2002 illiquidity ratio).
 And, Returns 1.0 if both inputs are nonzero, else 0.0. NaN in either input yields NaN.
 Asin, Inverse sine of each element (radians, input in [-1, 1]).
 Atan, Inverse tangent of each element (radians).
 Atan2, Signed angle of (x, y) from the positive x-axis (numpy.arctan2 order).
 BOP, (close - open) / (high - low) per bar. No smoothing.
+BacktestL1Orders, Backtest a two-sided market maker against a top-of-book (L1) quote stream.
+BacktestL1Target, Backtest a target-position strategy against the L1 book, taking each quote update as a market fill to reach the target immediately.
+BacktestL1TradesOrders, Backtest a two-sided market maker against top-of-book quotes with a trade tape driving the fills, into a costed equity curve.
+BacktestOHLCOrders, Backtest a two-sided order poster on OHLC bars, posting resting bids and asks that fill when the bar's range reaches them.
+BacktestOHLCTarget, Backtest a target-position strategy on OHLC bars, executing market orders at the next bar's open or another bar price, with slippage (causal, no manual lag).
+BacktestPriceTarget, Backtest a target position against a value series (price/mark) into a costed mark-to-market equity curve.
+BacktestReport, Turn a backtest engine's [equity, pnl, position, cost] into running drawdown, cost, turnover, trades, and Sharpe.
+BacktestTradesOrders, Backtest a two-sided order poster against the trade tape, filling resting quotes when prints cross them, into a costed equity curve.
+BacktestTradesTarget, Backtest a target-position strategy against the trade tape, taking each print as a market fill to reach the target immediately.
+BayesianRegression, Online exponentially-weighted (forgetting-factor) Bayesian linear regression - current slope and intercept via Normal-Inverse-Gamma posterior plus causal one-step-ahead predictive mean and std.
 BollingerBands, Mean +/- num_std rolling standard deviations.
+BulkVolumeClassifier, Buy-initiated share of a bar's volume estimated as the normal CDF of return / trailing-window volatility.
 Butter, General-order IIR Butterworth low-pass filter.
 ButterBandpass, General-order IIR Butterworth band-pass filter.
 ButterBandstop, General-order IIR Butterworth band-stop (notch) filter.
@@ -23,39 +36,55 @@ Cart2Polar, Convert (x, y) to (r, theta).
 Ceil, Round each element toward positive infinity.
 Clip, Bound each element below and/or above.
 CombineLatest, As-of latest-value join of N streams: one row per distinct index (same-index events coalesce).
+ContOFI, Cont-Kukanov-Stoikov (2014) order-flow imbalance from L1 book events.
 Cos, Cosine of each element (radians).
 Cube, x cubed (faster than Power(3)).
 CumMax, Running maximum from t=0.
 CumMin, Running minimum from t=0.
 CumProd, Running product from t=0.
 CumSum, Running sum from t=0.
+CycleAmplitude, Instantaneous amplitude (envelope) of the analytic signal via Ehlers' homodyne discriminator.
+CycleFrequency, Instantaneous frequency, in cycles per sample, via Ehlers' homodyne discriminator.
+CyclePhase, Instantaneous phase, in degrees, of the analytic signal via Ehlers' homodyne discriminator.
+CycleSine, Sinewave indicator (sine, leadsine) from the instantaneous phase of the analytic signal.
 DEMA, Mulloy's Double EMA: 2*EMA - EMA(EMA).
+DX, Wilder directional index, the pre-average input to ADX.
+Decycler, Ehlers trend estimate with short cycles removed.
+Delay, Re-stamp each event's index by a fixed time offset (a latency line).
 Detrend, x[t] minus its rolling mean.
 Diff, x[t] - x[t-k] (first difference at lag k).
 Diff2, Second-order finite difference (discrete second derivative).
 Div, Elementwise quotient of two aligned streams (x / y).
+DominantCycle, Dominant cycle period via Ehlers' homodyne discriminator.
 DonchianChannels, Trend-following envelope: rolling max(high), rolling min(low), and midline.
 Drawdown, Running drawdown from the cumulative peak.
 Dropna, Drop events whose value is NaN.
+EffectiveSpread, Effective spread, 2*|price - mid|: the round-trip cost paid relative to the mid.
 Elu, Exponential linear unit.
 Equal, Returns 1.0 if a == b, else 0.0. NaN in either input yields NaN.
 Erf, Gauss error function.
 Erfc, Complementary error function (1 - erf).
+EwAlpha, EW regression intercept, ewmean(x) - EwBeta(x,y) * ewmean(y).
 EwBeta, EW CAPM beta: cov(target, regressor) / var(regressor).
 EwCorr, EW Pearson correlation of two parallel streams.
 EwCov, EW covariance of two parallel streams.
 EwGarmanKlassVar, Var form of the Garman-Klass range-based volatility estimator (OHLC).
 EwGarmanKlassVol, Vol form of the Garman-Klass range-based volatility estimator (OHLC).
 EwKurt, EW excess kurtosis.
+EwKyleLambda, Exponentially-weighted price-impact slope of return on signed order flow.
 EwMean, Exponentially-weighted moving average (pandas adjust=True).
 EwParkinsonVar, Var form of the Parkinson range-based volatility estimator (uses high & low).
 EwParkinsonVol, Vol form of the Parkinson range-based volatility estimator (uses high & low).
+EwResidualStd, EW std of the spread x - EwBeta(x,y) * y.
 EwRms, EW root-mean-square.
 EwRogersSatchellVar, Var form of the Rogers-Satchell drift-robust range-based estimator.
 EwRogersSatchellVol, Vol form of the Rogers-Satchell drift-robust range-based estimator.
 EwSkew, EW skewness.
+EwSpread, x - EwBeta(x,y) * y - EW hedge-adjusted residual.
 EwStd, EW standard deviation.
 EwVar, EW variance (pandas adjust=True bias-corrected).
+EwYangZhangVar, Var form of the Yang-Zhang range-based estimator, exponentially weighted.
+EwYangZhangVol, Vol form (sqrt) of the EW Yang-Zhang range-based estimator.
 EwZscore, Latest sample standardised by EW mean and std.
 Exp, e to the power of each element.
 ExpandingKurt, Running bias-corrected excess kurtosis (Fisher) over the whole history.
@@ -73,14 +102,19 @@ FillNa, Replace NaN with a user-specified scalar.
 Filter, 2-input mask gate - keep each data value whose aligned mask is nonzero.
 First, Latch the first finite value seen since reset.
 Floor, Round each element toward negative infinity.
+FracDiff, Fractional differencing filter. Removes the trend while keeping more of the series' memory than an integer difference.
 GreaterEqual, Returns 1.0 if a >= b, else 0.0. NaN in either input yields NaN.
 GreaterThan, Returns 1.0 if a > b, else 0.0. NaN in either input yields NaN.
 Hampel, Robust Hampel despiker, replace samples far from the window median (in MAD units).
+HawkesIntensity, Conditional intensity of an exponential-kernel Hawkes process: lambda_t = mu + kappa_t.
+HilbertPhasor, In-phase and quadrature components of the analytic signal via Ehlers' Hilbert transform.
+Hold, Time-latch operator. Latches a nonzero finite input and holds it for n bars; returns the release value once the hold expires.
 HullMA, Hull's responsive MA: WMA(2*WMA(n/2) - WMA(n), sqrt(n)).
 Hypot, Euclidean distance sqrt(x^2 + y^2), numerically stable.
 Identity, Pass-through (y = x).
 ImpulseClip, Causal impulse remover, detects spikes on the trend-free first difference.
 Input, Create a source Node - a named placeholder for a timed stream.
+InstantaneousTrendline, Adaptive 2-pole trendline whose smoothing tracks the measured dominant cycle.
 IsFinite, Returns 1.0 for finite values, 0.0 for NaN or inf. Does not propagate NaN.
 IsNan, Returns 1.0 if the input is NaN, else 0.0. Does not propagate NaN.
 KAMA, Adaptive MA whose smoothing constant responds to the efficiency ratio.
@@ -88,6 +122,7 @@ KalmanFilter, Scalar 1-D Kalman filter for a noisy random-walk model.
 KeltnerChannels, Volatility-adapted envelope: EMA midline plus/minus a multiple of ATR.
 Lag, Output is the input delayed by k samples.
 Last, Return the most recent finite value seen since reset.
+LeeReadySign, Trade sign by the Lee-Ready (1991) rule: quote test with tick-rule fallback.
 LessEqual, Returns 1.0 if a <= b, else 0.0. NaN in either input yields NaN.
 LessThan, Returns 1.0 if a < b, else 0.0. NaN in either input yields NaN.
 Linear, Affine transform: scale * x + shift.
@@ -95,9 +130,13 @@ Linear2, Two-input affine combination: a*x + b*y + c.
 Log, Natural logarithm of each element.
 LogReturn, log(x[t] / x[t-k]) - log return at lag k.
 MACD, MACD line, signal line, and histogram (3 outputs).
+MAMA, Adaptive moving average pair (MAMA, FAMA) whose smoothing rate tracks the instantaneous-phase rate of change.
 MFI, Volume-weighted analogue of RSI on the typical price.
 MaxDrawdown, Worst drawdown experienced so far (since reset).
 Merge, Merge N value streams into one index-sorted (values, sources, index).
+MicroPrice, Imbalance-weighted mid (Stoikov 2018, first-order): fair value that leans toward the thinner side of the book.
+MinusDI, Wilder negative directional indicator.
+MinusDM, Wilder smoothed negative directional movement.
 Momentum, x[t] - x[t-k], TA-Lib's MOM. Mathematically identical to Diff(k).
 MovingAverage, Finite-impulse-response filter with user-supplied taps.
 Mul, Elementwise product of two aligned streams (x * y).
@@ -107,24 +146,34 @@ Node, An immutable handle for a stream inside a pipeline.
 Not, Returns 0.0 if input is nonzero, 1.0 if zero. NaN propagates.
 NotEqual, Returns 1.0 if a != b, else 0.0. NaN in either input yields NaN.
 OBV, On-Balance Volume: signed cumulative volume by close-direction (Granville, 1963).
+OFI, Normalized signed order flow, (buy - sell) / (buy + sell).
 Or, Returns 1.0 if either input is nonzero, else 0.0. NaN in either input yields NaN.
 Pipeline, A reusable N-in / M-out function you define once and call on stored or live data.
+PlusDI, Wilder positive directional indicator.
+PlusDM, Wilder smoothed positive directional movement.
 Polar2Cart, Convert (r, theta) to (x, y).
+PortfolioReport, Reduce a multi-asset backtest engine output into causal portfolio-level report columns.
 PosPart, Positive part of x: max(x, 0).
 Power, x raised to a fixed exponent p.
+Propagator, Bouchaud (2004) propagator model: price impact as a decaying-kernel convolution over past signed order flow.
+QueueImbalance, Normalized L1 book imbalance, (bid_size - ask_size) / (bid_size + ask_size).
 ROC, 100 * (x[t] / x[t-k] - 1) - TA-Lib's ROC.
 ROCP, x[t] / x[t-k] - 1 - TA-Lib's ROCP. Identical to Return.
 ROCR, x[t] / x[t-k] - TA-Lib's ROCR.
+RealizedSpread, Realized spread, 2*D*(price - mid a few steps later): the liquidity part of the effective spread.
 Relu, Rectified linear unit: max(0, x).
 Resample, Causal windowed downsample of a 1-D or multi-column value stream.
 Return, (x[t] - x[t-k]) / x[t-k] - the simple percentage return at lag k.
+RollSpread, Roll (1984) effective spread from trade prices alone: 2*sqrt(-cov(dP_t, dP_{t-1})) over a trailing window.
 RollingAlpha, Rolling OLS intercept of target on regressor (companion to RollingBeta).
 RollingArgmax, Window-offset of the trailing-window maximum (TA-Lib MAXINDEX).
 RollingArgmin, Window-offset of the trailing-window minimum (TA-Lib MININDEX).
 RollingBeta, cov(x, y) / var(y) - regression slope of x on y.
+RollingCVaR, Historical Conditional Value-at-Risk (Expected Shortfall): the mean loss in the worst alpha tail over a window.
 RollingCalmar, Annualised return divided by the worst rolling drawdown.
 RollingCorr, Rolling Pearson correlation of two parallel streams.
 RollingCov, Rolling sample covariance of two parallel streams.
+RollingDownsideDeviation, Trailing-window downside semideviation: the RMS of returns falling below a minimum acceptable return.
 RollingGarmanKlassVar, Var form of the Garman-Klass range-based volatility estimator (OHLC).
 RollingGarmanKlassVol, Vol form of the Garman-Klass range-based volatility estimator (OHLC).
 RollingHitRate, Fraction of strictly-positive samples in a trailing window.
@@ -132,6 +181,7 @@ RollingHurst, Rolling-window Hurst exponent via Anis-Lloyd corrected rescaled-ra
 RollingInfoRatio, Annualised information ratio: Sharpe of active returns against a benchmark.
 RollingIqr, Q3 minus Q1 over the trailing window.
 RollingKurt, Trailing-window excess kurtosis.
+RollingKyleLambda, Rolling-window price-impact slope of return on signed order flow (Kyle 1985).
 RollingLinearRegression, Full OLS fit returning (slope, intercept, r_squared, stderr).
 RollingMad, Trailing-window mean absolute deviation from the rolling mean.
 RollingMax, Trailing-window maximum (monotonic deque).
@@ -142,6 +192,8 @@ RollingMedianAD, Rolling median absolute deviation, median(|x - median|), a robu
 RollingMin, Trailing-window minimum (monotonic deque).
 RollingMinMax, Trailing-window (min, max) returned as a 2-tuple per step.
 RollingOU, Rolling MLE fit of a mean-reverting Ornstein-Uhlenbeck process.
+RollingOmega, Omega ratio over a window: total gains above a threshold divided by total losses below it.
+RollingOrderImbalance, Trailing-window sum of signed order flow (Chordia-Roll-Subrahmanyam imbalance).
 RollingParkinsonVar, Var form of the Parkinson range-based volatility estimator (uses high & low).
 RollingParkinsonVol, Vol form of the Parkinson range-based volatility estimator (uses high & low).
 RollingPercentile, Percentile (rank/window) of the current value in the trailing window.
@@ -168,12 +220,14 @@ RollingVar, Trailing-window sample variance (ddof=1).
 RollingYangZhangVar, Var form of the Yang-Zhang estimator (drift + gap robust).
 RollingYangZhangVol, Vol form of the Yang-Zhang estimator (drift + gap robust).
 RollingZscore, Latest sample standardised by trailing-window mean and std.
+RoofingFilter, Ehlers bandpass, a highpass then a SuperSmoother.
 Round, Round each element to the nearest integer (half-to-even).
 SchmittTrigger, Hysteresis comparator. Latches 1.0 above the upper threshold, 0.0 below the lower threshold, and retains its previous value in between.
 Select, Pick column(s) from a wide (M, N) value stream.
 Selu, Scaled exponential linear unit (self-normalizing networks).
 Sigmoid, Logistic sigmoid: 1 / (1 + exp(-x)).
 Sign, Sign of each element: -1, 0, or +1.
+SignedVolume, Aggressor-signed volume, sign * volume.
 Sin, Sine of each element (radians).
 Softsign, Softsign: x / (1 + |x|).
 Sqrt, Square root of each element.
@@ -181,16 +235,26 @@ Square, x squared (faster than Power(2)).
 Stoch, Stochastic oscillator %K and %D (3 inputs -> 2 outputs).
 StochRSI, Stochastic applied to RSI (1 input -> 2 outputs).
 Sub, Elementwise difference of two aligned streams (x - y).
+SuperSmoother, Ehlers 2-pole low-lag lowpass filter.
 TEMA, Mulloy's Triple EMA: 3*EMA - 3*EMA(EMA) + EMA(EMA(EMA)).
 TRIMA, Triangular MA: SMA of an SMA. Heavier center-weighting than WMA.
 TRIX, ROC of a triple-smoothed EMA.
 Tanh, Hyperbolic tangent.
+TickRuleSign, Trade sign by the tick rule (+1 up-tick, -1 down-tick, carry on unchanged).
+TrendMode, Classifies each sample as trending (1.0) or cycling (0.0) from the dominant-cycle phase advance.
 TrueRange, Per-bar true range accounting for overnight gaps (Wilder, 1978).
 UltimateOscillator, Three-period weighted oscillator (Williams, 1976).
+VPIN, Volume-synchronized probability of informed trading (Easley-Lopez de Prado-O'Hara 2012): order-flow toxicity.
 WMA, Linearly-weighted moving average. O(1) per step.
 Where, Returns a if mask is nonzero, b otherwise. NaN mask yields NaN.
 WilliamsR, Inverse stochastic oscillator in [-100, 0].
+backtest_report, Running statistics and a summary for a backtest engine's output.
+choosing_a_backtest_engine, The 5x2 engine grid by data model and order definition, with fill rules and encoding.
+circular_shift, Randomly rotated copies of a series, for randomization tests.
+forecast_pairs, Build a forecasting training set by aligning lagged features with a future causal target.
 from_pandas, Convert a pandas Series or DataFrame to a (values, index) tuple.
+position_test, Test whether a backtest's timing beats randomly timed copies of the same strategy, with a p-value.
+segment_shuffle, Copies of a series with its runs of equal value in random order, for randomization tests.
 split, Partition a merged tagged stream back into per-source streams.
 stream-tuple-convention, The (values, index) tuple at every operator boundary.
 to_pandas, Convert a (values, index) tuple to a pandas Series or DataFrame.
