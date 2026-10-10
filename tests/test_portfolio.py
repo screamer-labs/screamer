@@ -187,3 +187,69 @@ def test_argument_checks():
         s.BacktestPortfolioTarget()(np.ones((5, 2)))
     with pytest.raises(ValueError):
         s.BacktestPortfolioTarget()(np.ones((5, 2)), np.ones((5, 3)))
+
+
+# --- significance tests on a portfolio ----------------------------------------
+
+def _momentum_market(phi, T=800, K=5, seed=3):
+    g = np.random.default_rng(seed)
+    r = np.zeros((T, K))
+    for t in range(1, T):
+        r[t] = phi * r[t - 1] + g.standard_normal(K) * 0.01
+    close = 100 * np.exp(np.cumsum(r, axis=0))
+    open_ = np.vstack([close[:1], close[:-1]])
+    high, low = np.maximum(open_, close) * 1.001, np.minimum(open_, close) * 0.999
+    weights = s.CrossNormalize(gross=1.0, net=0.0)(s.CrossRank()(r))   # today's return, traded next open
+    return weights, open_, high, low, close
+
+
+def test_position_test_on_a_portfolio_finds_a_planted_edge():
+    eng = s.BacktestPortfolioOHLCTarget(fee=1e-4)
+    edge = s.position_test(eng, *_momentum_market(0.3), n=199)
+    none = s.position_test(eng, *_momentum_market(0.0), n=199)
+    assert edge.p_value < 0.02
+    assert none.p_value > 0.05
+    assert edge.null_stats["sortino"].shape == (199,)
+    assert isinstance(edge.observed, float) and edge.family_p_value is None
+
+
+def test_portfolio_position_test_book_stats():
+    w, o, h, l, c = _momentum_market(0.3)
+    eng = s.BacktestPortfolioOHLCTarget(fee=1e-4)
+    res = s.position_test(eng, w, o, h, l, c, n=20, periods_per_year=252)
+    out = eng(w, o, h, l, c)
+    np.testing.assert_allclose(res.observed_stats["total_pnl"], out[-1, :, 0].sum())
+    np.testing.assert_allclose(res.observed_stats["total_cost"], out[:, :, 3].sum())
+    np.testing.assert_allclose(res.observed_stats["turnover"],
+                               np.abs(np.diff(out[:, :, 2], axis=0, prepend=0)).sum())
+    pnl = out[:, :, 1].sum(axis=1)
+    np.testing.assert_allclose(res.observed_stats["sharpe"],
+                               pnl.mean() / pnl.std(ddof=1) * np.sqrt(252), rtol=1e-9)
+    with pytest.raises(ValueError):
+        s.position_test(eng, w, o, h, l, c, n=5, method="segments")
+
+
+def test_one_asset_portfolio_matches_single_asset_position_test():
+    tgt = np.round(np.sin(np.arange(T) / 9.0) * 2)
+    p = PRICE[:, 0]
+    one = s.position_test(s.BacktestPriceTarget(fee=1e-3), tgt, p, n=60, seed=4)
+    book = s.position_test(s.BacktestPortfolioTarget(fee=1e-3, size="units", initial_capital=0.0),
+                           tgt[:, None], p[:, None], n=60, seed=4)
+    assert one.min_shift == book.min_shift
+    np.testing.assert_allclose(book.null, one.null, rtol=1e-12)
+    assert book.p_value == one.p_value
+
+
+def test_strategy_test_accepts_a_portfolio_strategy():
+    w, o, h, l, c = _momentum_market(0.3, T=500, K=4)
+
+    def strategy(*bars):
+        o_, h_, l_, c_ = (np.column_stack(bars[i::4]) for i in range(4))
+        r = np.vstack([np.zeros((1, 4)), np.diff(np.log(c_), axis=0)])
+        weights = s.CrossNormalize(gross=1.0, net=0.0)(s.CrossRank()(r))
+        return s.BacktestPortfolioOHLCTarget(fee=1e-4)(weights, o_, h_, l_, c_)
+
+    inputs = [x[:, k] for k in range(4) for x in (o, h, l, c)]
+    res = s.strategy_test(strategy, *inputs, n=30, method="shift", columns=[0])
+    assert res.null_stats["sharpe"].shape == (30,)
+    assert np.isfinite(res.observed)

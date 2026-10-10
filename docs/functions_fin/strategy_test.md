@@ -46,6 +46,10 @@ stays with the bar it belongs to. Give the position of a volume input in
 `"notional"` rescales it so the traded amount stays that of its source bar.
 Inputs that must not move, such as timestamps, go in `fixed`.
 
+The strategy may also return a portfolio engine's `(T, K, 4)` output. The test
+then scores the whole book, as
+[`position_test`](position_test.md#a-portfolio) does for a portfolio engine.
+
 `metric` is the name of any statistic in the
 [`backtest_report`](backtest_report.md) summary (`"sharpe"`, per step, is the
 default) or a function that maps an output of shape `(T, k, 4)` to `k` values,

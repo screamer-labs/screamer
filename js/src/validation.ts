@@ -11,7 +11,7 @@
 import { current } from "./index.js";
 import type { NdArray } from "./ndarray.js";
 import type { ScreamerOp } from "./runtime.js";
-import { BacktestReport, BacktestStats } from "./generated/ops.js";
+import { BacktestReport, BacktestStats, PortfolioReport } from "./generated/ops.js";
 
 // Leading NaN warmup length and the length of the series after it.
 function validLength(x: ArrayLike<number>): number {
@@ -195,23 +195,50 @@ function metricSpec(metric: PositionTestMetric, largerIsBetter?: boolean)
   return { name: metric, larger };
 }
 
-// Scores runs: every statistic of one run's (T, 4) output, and the metric.
+// Scores runs: every statistic of one run's output, and the metric. A (T, 4)
+// output is one strategy; a (T, K, 4) output is a portfolio, scored as one
+// book: equity, pnl, and cost summed over assets, the gross position as its
+// position, and turnover and trades from PortfolioReport (per-asset changes).
 function makeScorer(metric: PositionTestMetric, periodsPerYear: number) {
   const report = BacktestReport(periodsPerYear);
   const stats = BacktestStats(periodsPerYear);
+  const portfolio = PortfolioReport();
   const score = (out: NdArray): { value: number; stats: Float64Array } => {
-    const cols = [0, 1, 2, 3].map((i) => column(out, i));
+    let cols: Float64Array[], engine: NdArray, turnover: NdArray | null = null;
+    if (out.shape.length === 3) {
+      const [T, K] = out.shape;
+      cols = [0, 1, 2, 3].map(() => new Float64Array(T));
+      for (let t = 0; t < T; t++)
+        for (let k = 0; k < K; k++) {
+          const b = (t * K + k) * 4;
+          cols[0][t] += out.data[b]; cols[1][t] += out.data[b + 1];
+          cols[2][t] += Math.abs(out.data[b + 2]); cols[3][t] += out.data[b + 3];
+        }
+      const flat = new Float64Array(T * 4);
+      for (let t = 0; t < T; t++) for (let c = 0; c < 4; c++) flat[t * 4 + c] = cols[c][t];
+      engine = { data: flat, shape: [T, 4] };
+      turnover = portfolio(out) as NdArray;
+      portfolio.reset();
+    } else {
+      cols = [0, 1, 2, 3].map((i) => column(out, i));
+      engine = out;
+    }
     const rep = report(...cols) as NdArray;
     const st = stats(...cols) as NdArray;
     report.reset();
     stats.reset();
-    const src = { engine: out, report: rep, stats: st };
+    if (turnover) {                         // per-asset turnover and trade count
+      const [T] = rep.shape;
+      for (let t = 0; t < T; t++)
+        for (const c of [2, 3]) rep.data[t * 6 + c] = turnover.data[t * 6 + c];
+    }
+    const src = { engine, report: rep, stats: st };
     const all = Float64Array.from(STAT_NAMES, (k) => lastFinite(src[METRICS[k].src], METRICS[k].col));
     const value = typeof metric === "function"
       ? metric(out) : all[STAT_NAMES.indexOf(metric)];
     return { value, stats: all };
   };
-  const dispose = () => { report.dispose(); stats.dispose(); };
+  const dispose = () => { report.dispose(); stats.dispose(); portfolio.dispose(); };
   return { score, dispose };
 }
 
@@ -220,6 +247,9 @@ function statsRecord<V>(make: (i: number) => V): Record<StatName, V> {
   STAT_NAMES.forEach((k, i) => { out[k] = make(i); });
   return out;
 }
+
+const isNdArray = (x: any): x is NdArray =>
+  x != null && x.data instanceof Float64Array && Array.isArray(x.shape);
 
 function lastFinite(a: NdArray, col: number): number {
   const [rows, cols] = a.shape;
@@ -258,7 +288,18 @@ function column(a: NdArray, col: number): Float64Array {
  * Pass an array of target columns to test several strategies jointly (method
  * "shift"): every round shifts all of them by the same offset, and
  * `familyPValue` compares each strategy with the best of the K per round.
+ *
+ * With a portfolio engine (`BacktestPortfolioTarget`,
+ * `BacktestPortfolioOHLCTarget`), `target` is the (T, K) target of one book and
+ * `market` its (T, K) inputs. Every round shifts all K assets by one offset and
+ * scores the whole book, so the result is a single test.
  */
+export function positionTest(
+  engine: ScreamerOp,
+  target: NdArray,
+  market: (NdArray | ArrayLike<number>[])[],
+  opts?: PositionTestOptions,
+): PositionTestResult;
 export function positionTest(
   engine: ScreamerOp,
   target: ArrayLike<number>[],
@@ -273,10 +314,11 @@ export function positionTest(
 ): PositionTestResult;
 export function positionTest(
   engine: ScreamerOp,
-  target: ArrayLike<number> | ArrayLike<number>[],
-  market: ArrayLike<number>[],
+  target: ArrayLike<number> | ArrayLike<number>[] | NdArray,
+  market: any[],
   opts: PositionTestOptions = {},
 ): PositionTestResult | PositionFamilyResult {
+  if ((engine as any).rowOp) return positionPortfolio(engine, target, market, opts);
   if (Array.isArray(target) && target.length > 0 && typeof target[0] !== "number")
     return positionFamily(engine, target as ArrayLike<number>[], market, opts);
   return positionSingle(engine, target as ArrayLike<number>, market, opts);
@@ -340,6 +382,70 @@ function positionSingle(
     const pValue = Number.isFinite(observed) ? (1 + hits) / (1 + nul.length) : NaN;
     return { observed, null: Float64Array.from(nul), pValue, metric: name, method, minShift: shift,
              observedStats: statsRecord((i) => obs.stats[i]), nullStats };
+  } finally {
+    scorer.dispose();
+  }
+}
+
+// One book of K assets traded by a portfolio engine: all columns shifted
+// together, scored on the summed book. Mirrors Python's position_test with a
+// portfolio engine.
+function positionPortfolio(
+  engine: ScreamerOp, target: any, market: any[], opts: PositionTestOptions,
+): PositionTestResult {
+  const n = opts.n ?? 1000;
+  const method = opts.method ?? "shift";
+  const metric = opts.metric ?? "sharpe";
+  const seed = opts.seed ?? 0;
+  if (method !== "shift")
+    throw new RangeError('a portfolio is tested with method "shift", which moves all assets together');
+  if (!Number.isInteger(n) || n < 1) throw new RangeError("n must be at least 1");
+  checkSeed(seed);
+  const { name, larger } = metricSpec(metric, opts.largerIsBetter);
+  let T: number, K: number, flat: ArrayLike<number>;
+  if (isNdArray(target) && target.shape.length === 2) {
+    [T, K] = target.shape; flat = target.data;
+  } else if (Array.isArray(target) && target.length > 0 && typeof target[0] !== "number") {
+    T = target.length; K = (target[0] as ArrayLike<number>).length;
+    const f = new Float64Array(T * K);
+    (target as ArrayLike<number>[]).forEach((r, t) => f.set(r as number[], t * K));
+    flat = f;
+  } else {
+    throw new RangeError("a portfolio engine needs a (T, K) target");
+  }
+  const cols = Array.from({ length: K }, (_, k) => Float64Array.from({ length: T }, (_, t) => flat[t * K + k]));
+  const start = Math.max(...cols.map((x) => x.length - validLength(x)));
+  const shift = opts.minShift ?? Math.max(1, Math.min(
+    Math.max(...cols.map(defaultMinShift)), Math.floor((T - start) / 4)));
+  if (!Number.isInteger(shift) || shift < 1) throw new RangeError("min_shift must be at least 1");
+
+  const scorer = makeScorer(metric, opts.periodsPerYear ?? 1);
+  const run = (tgt: NdArray) => {
+    engine.reset();
+    return scorer.score(engine(tgt, ...market) as NdArray);
+  };
+  try {
+    const obs = run({ data: Float64Array.from(flat), shape: [T, K] });
+    const nullStats = statsRecord(() => new Float64Array(n));
+    const nul: number[] = [];
+    const chunk = Math.max(1, Math.min(n, 256));
+    for (let c0 = 0; c0 < n; c0 += chunk) {
+      const m = Math.min(chunk, n - c0);
+      const blocks = cols.map((x) => shiftBlock(x, shift, seed, c0, m, start));
+      for (let j = 0; j < m; j++) {
+        const data = new Float64Array(T * K);
+        for (let t = 0; t < T; t++) for (let k = 0; k < K; k++) data[t * K + k] = blocks[k].data[t * m + j];
+        const r = run({ data, shape: [T, K] });
+        STAT_NAMES.forEach((q, i) => { nullStats[q][c0 + j] = r.stats[i]; });
+        if (Number.isFinite(r.value)) nul.push(r.value);
+      }
+    }
+    engine.reset();
+    let hits = 0;
+    for (const v of nul) if (larger ? v >= obs.value : v <= obs.value) hits++;
+    const pValue = Number.isFinite(obs.value) ? (1 + hits) / (1 + nul.length) : NaN;
+    return { observed: obs.value, null: Float64Array.from(nul), pValue, metric: name, method: "shift",
+             minShift: shift, observedStats: statsRecord((i) => obs.stats[i]), nullStats };
   } finally {
     scorer.dispose();
   }
@@ -534,10 +640,13 @@ export interface StrategyTestResult {
 
 function engineOutput(out: any): NdArray {
   const v = out && out.values !== undefined ? out.values : out;   // Pipeline Output
-  if (!v || !v.shape || v.shape.length !== 2 || v.shape[1] !== 4)
+  const ok = v && v.shape && ((v.shape.length === 2 && v.shape[1] === 4) ||
+                              (v.shape.length === 3 && v.shape[2] === 4));
+  if (!ok)
     throw new RangeError(
       "strategy must return a backtest engine output of shape (T, 4) " +
-      "[equity, pnl, position, cost], or a pipeline output holding one");
+      "[equity, pnl, position, cost], a portfolio output of shape (T, K, 4), " +
+      "or a pipeline output holding one");
   return v as NdArray;
 }
 

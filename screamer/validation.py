@@ -23,6 +23,8 @@ import numpy as np
 from .screamer_bindings import (
     BacktestReport,
     BacktestStats,
+    PortfolioReport,
+    RowOp,
     _circular_shift,
     _default_min_shift,
     _deflated_sharpe,
@@ -164,6 +166,26 @@ def _run_stats(engine_out, periods_per_year):
     return {name: _last_finite(src[s][:, :, c]) for name, (s, c, _) in _METRICS.items()}
 
 
+def _book_stats(out, periods_per_year):
+    """Every statistic of one portfolio run, from its (T, K, 4) output.
+
+    The book is the sum over assets: equity, pnl, and cost add up, and its
+    position is the gross position, so the trade statistics count a round trip
+    from a flat book to a flat book. Turnover and the trade count come from
+    PortfolioReport, which counts each asset's position changes.
+    """
+    out = np.ascontiguousarray(out, dtype=float)
+    book = [out[:, :, 0].sum(axis=1), out[:, :, 1].sum(axis=1),
+            np.abs(out[:, :, 2]).sum(axis=1), out[:, :, 3].sum(axis=1)]
+    report = np.asarray(BacktestReport(periods_per_year)(*book), dtype=float)
+    per_asset = np.asarray(PortfolioReport()(out), dtype=float)
+    report[:, 2:4] = per_asset[:, 2:4]                 # turnover, trades
+    src = {"engine": np.column_stack(book)[:, None, :],
+           "report": report[:, None, :],
+           "stats": np.asarray(BacktestStats(periods_per_year)(*book), dtype=float)[:, None, :]}
+    return {name: _last_finite(src[s][:, :, c]) for name, (s, c, _) in _METRICS.items()}
+
+
 def _score(engine_out, metric, stats):
     """Metric per column of an engine's (T, k, 4) output."""
     if callable(metric):
@@ -253,6 +275,9 @@ def position_test(
     seed = _seed(seed)
 
     target = np.asarray(target, dtype=float)
+    if isinstance(engine, RowOp):
+        return _position_test_portfolio(engine, target, market, n, method, metric, name,
+                                        larger_is_better, min_shift, seed, periods_per_year)
     if target.ndim == 2:
         return _position_test_family(engine, target, market, n, method, metric, name,
                                      larger_is_better, min_shift, seed, periods_per_year)
@@ -313,18 +338,7 @@ def _position_test_family(engine, target, market, n, method, metric, name,
     if any(m.shape[0] != T for m in market):
         raise ValueError("target and market inputs must have the same length")
     cols = [np.ascontiguousarray(target[:, k]) for k in range(K)]
-
-    def warmup(x):
-        finite = np.flatnonzero(~np.isnan(x))
-        return int(finite[0]) if finite.size else T
-    start = max(warmup(x) for x in cols)          # a common warmup keeps one offset
-    if min_shift is None:
-        shift = max(int(_default_min_shift(x)) for x in cols)
-        shift = max(1, min(shift, (T - start) // 4))
-    else:
-        shift = int(min_shift)
-    if shift < 1:
-        raise ValueError("min_shift must be at least 1")
+    start, shift = _joint_shift_setup(cols, T, min_shift)    # one offset for all K
 
     engine.reset()
     observed_out = np.asarray(engine(target, *[np.broadcast_to(m[:, None], (T, K))
@@ -359,6 +373,64 @@ def _position_test_family(engine, target, market, n, method, metric, name,
     family = np.array([(1.0 + np.count_nonzero(best >= sign * o)) / (1.0 + best.size)
                        if np.isfinite(o) else np.nan for o in observed])
     return PositionTestResult(observed, null, p_value, name, method, shift, family,
+                              observed_stats, null_stats)
+
+
+def _joint_shift_setup(cols, T, min_shift):
+    """Common warmup start and minimum shift for columns shifted together."""
+    def warmup(x):
+        finite = np.flatnonzero(~np.isnan(x))
+        return int(finite[0]) if finite.size else T
+    start = max(warmup(x) for x in cols)
+    if min_shift is None:
+        shift = max(int(_default_min_shift(x)) for x in cols)
+        shift = max(1, min(shift, (T - start) // 4))
+    else:
+        shift = int(min_shift)
+    if shift < 1:
+        raise ValueError("min_shift must be at least 1")
+    return start, shift
+
+
+def _position_test_portfolio(engine, target, market, n, method, metric, name,
+                             larger_is_better, min_shift, seed, periods_per_year):
+    """position_test for a portfolio engine: one book of K assets, shifted together."""
+    if method != "shift":
+        raise ValueError('a portfolio is tested with method="shift", which moves all assets together')
+    if target.ndim != 2:
+        raise ValueError("a portfolio engine needs a (T, K) target")
+    T, K = target.shape
+    market = [np.ascontiguousarray(m, dtype=float) for m in market]
+    if any(m.shape != target.shape for m in market):
+        raise ValueError("target and market inputs must all have shape (T, K)")
+    cols = [np.ascontiguousarray(target[:, k]) for k in range(K)]
+    start, shift = _joint_shift_setup(cols, T, min_shift)
+
+    def run(tgt):
+        engine.reset()
+        out = np.asarray(engine(tgt, *market), dtype=float)
+        stats = _book_stats(out, periods_per_year)
+        value = (float(np.asarray(metric(out), dtype=float).reshape(-1)[0]) if callable(metric)
+                 else float(stats[metric][0]))
+        return value, {k: float(v[0]) for k, v in stats.items()}
+
+    observed, observed_stats = run(target)
+    null = np.empty(n)
+    null_stats = {key: np.empty(n) for key in _METRICS}
+    chunk = max(1, min(n, 256))
+    for col0 in range(0, n, chunk):
+        m = min(chunk, n - col0)
+        blocks = [_circular_shift(x, shift, seed, col0, m, start) for x in cols]   # K x (T, m)
+        for j in range(m):
+            tgt = np.column_stack([b[:, j] for b in blocks])
+            null[col0 + j], stats = run(tgt)
+            for key, v in stats.items():
+                null_stats[key][col0 + j] = v
+    engine.reset()
+    finite = null[np.isfinite(null)]
+    hits = np.count_nonzero(finite >= observed if larger_is_better else finite <= observed)
+    p_value = (1.0 + hits) / (1.0 + finite.size) if np.isfinite(observed) else float("nan")
+    return PositionTestResult(observed, finite, float(p_value), name, method, shift, None,
                               observed_stats, null_stats)
 
 
@@ -443,14 +515,16 @@ class StrategyTestResult(NamedTuple):
 
 
 def _engine_output(out):
-    """The (T, 4) engine output from a strategy's return value."""
+    """The engine output from a strategy's return value: (T, 4), or (T, K, 4)
+    for a portfolio."""
     if isinstance(out, tuple):            # a Pipeline returns (values, index)
         out = out[0]
     out = np.asarray(out, dtype=float)
-    if out.ndim != 2 or out.shape[1] != 4:
+    if not ((out.ndim == 2 and out.shape[1] == 4) or (out.ndim == 3 and out.shape[2] == 4)):
         raise ValueError(
             "strategy must return a backtest engine output of shape (T, 4) "
-            "[equity, pnl, position, cost], or a (values, index) pair holding one")
+            "[equity, pnl, position, cost], a portfolio output of shape (T, K, 4), "
+            "or a (values, index) pair holding one")
     return out
 
 
@@ -554,8 +628,12 @@ def strategy_test(
         positions = np.arange(T, dtype=float)
 
     def run_stats(out):
-        out = _engine_output(out)[:, None, :]
-        stats = _run_stats(out, periods_per_year)
+        out = _engine_output(out)
+        if out.ndim == 3:                  # a portfolio: score the whole book
+            stats = _book_stats(out, periods_per_year)
+        else:
+            out = out[:, None, :]
+            stats = _run_stats(out, periods_per_year)
         return (float(_score(out, metric, stats)[0]),
                 {k: float(v[0]) for k, v in stats.items()})
 

@@ -57,3 +57,29 @@ test("portfolio: argument checks", () => {
   assert.throws(() => BacktestPortfolioTarget(0, 0, "fraction", 0, 1, 0, "shares"));
   assert.throws(() => BacktestPortfolioTarget()(w));
 });
+
+// Same values as Python: position_test(BacktestPortfolioOHLCTarget(fee=1e-4), w, o, h, l, c, n=20, seed=1).
+test("portfolio: positionTest on a portfolio engine matches Python", async () => {
+  const { positionTest, CrossRank, CrossNormalize, strategyTest } = await import("../src/index.ts");
+  const T2 = 200, K2 = 3;
+  const c2 = Array.from({ length: T2 }, (_, t) =>
+    Array.from({ length: K2 }, (_, k) => 100 * Math.exp(0.02 * Math.sin(0.21 * t * (k + 1)) + 0.001 * t * (k - 1))));
+  const o2 = c2.map((_, t) => c2[Math.max(0, t - 1)]);
+  const h2 = c2.map((r, t) => r.map((v, k) => Math.max(o2[t][k], v) * 1.001));
+  const l2 = c2.map((r, t) => r.map((v, k) => Math.min(o2[t][k], v) * 0.999));
+  const r2 = c2.map((r, t) => r.map((v, k) => (t === 0 ? 0 : Math.log(v / c2[t - 1][k]))));
+  const w2 = CrossNormalize(1.0, 0.0)(CrossRank()(r2));
+  const res = positionTest(BacktestPortfolioOHLCTarget(1e-4), w2, [o2, h2, l2, c2], { n: 20, seed: 1 });
+  assert.ok(near([res.observed], [1.452972122723607], 1e-7), `${res.observed}`);
+  assert.equal(res.pValue, 0.047619047619047616);
+  assert.equal(res.minShift, 7);
+  assert.ok(near(res.null.slice(0, 3), [-0.5139950836552667, 0.04105857280105748, 0.5015761441403116], 1e-7));
+  assert.ok(near(res.nullStats.turnover.slice(0, 3), [0.8993364407916147, 1.0821060107674296, 1.3473586309642132], 1e-7));
+  // strategyTest accepts a strategy that returns a (T, K, 4) portfolio output.
+  const st = strategyTest((...bars: Float64Array[]) => {
+    const rows = (f: number) => Array.from({ length: T2 }, (_, t) => [0, 1, 2].map((k) => bars[k * 4 + f][t]));
+    return BacktestPortfolioOHLCTarget(1e-4)(w2, rows(0), rows(1), rows(2), rows(3));
+  }, [0, 1, 2].flatMap((k) => [o2, h2, l2, c2].map((x) => x.map((r) => r[k]))),
+  { n: 5, method: "shift", columns: [0] });
+  assert.equal(st.nullStats.sharpe.length, 5);
+});

@@ -404,6 +404,9 @@ export function wrapRowOp(M: Screamer, raw: RawOp): ScreamerOp {
   op.reset = () => { if (disposed) throw new Error("operation used after dispose()"); raw.reset(); };
   op.dispose = free;
   (op as any)[Symbol.dispose] = free;
+  // Marks a row op (rows of K assets), so callers such as positionTest can
+  // tell a portfolio engine from a per-column one.
+  (op as any).rowOp = { fieldsIn: fi, fieldsOut: fo };
   REG.register(op, free);
   return op;
 }

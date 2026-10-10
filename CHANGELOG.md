@@ -32,6 +32,11 @@ Unreleased
   whether a spread still mean-reverts; `BandSignal` turns a z-score into a
   short/flat/long position with entry, exit, and stop levels and a lockout
   after a stop.
+* **Significance tests on portfolios:** `position_test` with a portfolio
+  engine shifts all `K` assets of the book together and scores the whole
+  book, and `strategy_test` accepts strategies that return a `(T, K, 4)`
+  portfolio output. Book statistics sum the assets, with turnover counted per
+  asset. Python and JavaScript give the same results.
 
 * **Every statistic of every randomized run:** `position_test` and
   `strategy_test` (and `positionTest`/`strategyTest` in JavaScript) return

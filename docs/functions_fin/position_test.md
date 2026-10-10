@@ -51,7 +51,8 @@ larger_is_better=None, min_shift=None, seed=0, periods_per_year=1.0)`
   [`BacktestOHLCTarget`](BacktestOHLCTarget.md),
   [`BacktestPriceTarget`](BacktestPriceTarget.md),
   [`BacktestTradesTarget`](BacktestTradesTarget.md), or
-  [`BacktestL1Target`](BacktestL1Target.md). Order-posting engines are not
+  [`BacktestL1Target`](BacktestL1Target.md), or a portfolio engine (see
+  [A portfolio](#a-portfolio)). Order-posting engines are not
   supported: their limit prices are tied to the market at each moment, so
   moving them in time is not meaningful.
 - `target`, `market`: the engine's inputs, exactly as in
@@ -103,6 +104,23 @@ In `observed_stats` and `null_stats`, each statistic then has shape `(K,)` and
 `(n, K)`.
 The best variant's ordinary p-value is too optimistic, because picking the best
 of many is itself a source of luck; its `family_p_value` is not.
+
+## A portfolio
+
+With a portfolio engine,
+[`BacktestPortfolioTarget`](BacktestPortfolioTarget.md) or
+[`BacktestPortfolioOHLCTarget`](BacktestPortfolioOHLCTarget.md), the test
+treats the `(T, K)` target as one book of `K` assets, not as `K` separate
+strategies. Every randomized round shifts all `K` assets by the same offset,
+which keeps the book's composition and the relations between its assets, and
+scores the whole book. The result is a single test: `observed`, `null`, and
+`p_value` are those of the book, and `family_p_value` is None.
+
+The book's statistics sum the assets: equity, pnl, and cost add up, turnover
+and the trade count add each asset's position changes, and the trade
+statistics (`round_trips`, `win_rate`, ...) count a round trip from a flat book
+to a flat book. For a callable `metric`, the function receives one run's
+`(T, K, 4)` output and returns one value.
 
 ## What it does not cover
 
