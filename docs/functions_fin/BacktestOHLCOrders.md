@@ -41,7 +41,7 @@ parameters:
   type: float
   default: 0.0
   min: 0.0
-  description: Price increment added (subtracted) to the open for a market buy (sell) to model taker slippage.
+  description: Instrument price grid (0 = continuous). Slippage offsets round up to whole ticks; the "ticks" slippage unit counts in this step.
 - name: min_position
   type: float
   default: -.inf
@@ -63,6 +63,15 @@ parameters:
   type: float
   default: 0.0
   description: Fixed fee (or rebate when negative) charged per contract on taker fills.
+- name: slippage
+  type: float
+  default: 0.0
+  min: 0.0
+  description: Adverse price offset on every taker (market) fill, read in `slippage_unit`. A buy fills higher and a sell lower; resting limit fills never slip.
+- name: slippage_unit
+  type: str
+  default: fraction
+  description: 'Unit of `slippage`: "fraction" of the reference price (5 bps = 5e-4), "ticks" of `tick_size`, or "price" (an absolute amount).'
 nan_policy: ignore
 see_also:
 - BacktestOHLCTarget
@@ -93,8 +102,8 @@ The fill quantity is `min(bid_size, participation_ratio * bid_size, room)`, wher
 `maker_fee`. The sell side mirrors on the high.
 
 **Market fills.** A NaN bid or ask price is a market order (via `market_limit`):
-the buy fills at `open + tick_size` and the sell fills at `open - tick_size`, both
-paying `taker_fee`. An explicit `MARKET` constant (equal to `+inf`) also triggers
+the buy fills at the open plus the `slippage` offset and the sell at the open
+minus it, both paying `taker_fee`. An explicit `MARKET` constant (equal to `+inf`) also triggers
 this path.
 
 **Inventory bounds.** Fills are capped at each step so the position stays in

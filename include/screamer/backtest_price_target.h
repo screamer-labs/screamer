@@ -4,10 +4,12 @@
 #include <algorithm>
 #include <limits>
 #include <stdexcept>
+#include <string>
 #include <tuple>
 #include "screamer/common/functor_base.h"
 #include "screamer/common/float_info.h"
 #include "screamer/detail/pnl_account.h"
+#include "screamer/detail/slippage.h"
 
 namespace screamer {
 
@@ -18,7 +20,8 @@ namespace screamer {
     // to the signal via a market order that crosses half of the fractional
     // `spread` (a buy fills at price*(1 + spread/2), a sell at
     // price*(1 - spread/2)) and pays the fractional `fee` on the traded
-    // notional. It emits four positional columns:
+    // notional. The slippage model then moves that fill further against the
+    // trader and rounds it to the `tick_size` grid. It emits four positional columns:
     //     0 = equity (cumulative dollar PnL), 1 = pnl (per-step),
     //     2 = position, 3 = cost (per-step).
     // Causal: `signal_t` enters PnL only at t+1 (through the held position),
@@ -34,9 +37,13 @@ namespace screamer {
                             double min_position = -std::numeric_limits<double>::infinity(),
                             double max_position = std::numeric_limits<double>::infinity(),
                             double multiplier = 1.0,
-                            double fee_per_contract = 0.0)
+                            double fee_per_contract = 0.0,
+                            double slippage = 0.0,
+                            const std::string& slippage_unit = "fraction",
+                            double tick_size = 0.0)
             : spread_(spread), fee_(fee),
               min_position_(min_position), max_position_(max_position),
+              slippage_(slippage, slippage_unit, tick_size),
               account_(multiplier, fee_per_contract)
         {
             if (spread_ < 0.0) throw std::invalid_argument("spread must be non-negative.");
@@ -56,7 +63,9 @@ namespace screamer {
             const double target = std::clamp(signal, min_position_, max_position_);
             const double dpos = target - account_.position();
             const double side = (dpos > 0.0) ? 1.0 : (dpos < 0.0 ? -1.0 : 0.0);
-            const double fill_price = price * (1.0 + side * spread_ / 2.0);
+            const double half_spread = price * (1.0 + side * spread_ / 2.0);
+            const double fill_price = side == 0.0 ? price
+                                    : slippage_.fill(half_spread, side > 0.0);
             auto [equity, pnl, position, cost] =
                 account_.step(price, dpos, fill_price, fee_);
             return std::make_tuple(equity, pnl, position, cost);
@@ -67,6 +76,7 @@ namespace screamer {
         double fee_;
         double min_position_;
         double max_position_;
+        detail::Slippage slippage_;
         detail::PnLAccount account_;
     };
 

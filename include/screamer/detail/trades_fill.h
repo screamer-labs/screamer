@@ -8,6 +8,7 @@
 #include "screamer/common/float_info.h"
 #include "screamer/common/market_price.h"
 #include "screamer/detail/pnl_account.h"
+#include "screamer/detail/slippage.h"
 #include <stdexcept>
 
 namespace screamer { namespace detail {
@@ -17,20 +18,21 @@ namespace screamer { namespace detail {
     // it (touch: trade_price <= bid, breach: <) for min(bid_size,
     // participation * trade_size, room) at the bid, paying maker_fee; a
     // through-print sweeps the full resting size. A NaN/inf bid price is a
-    // market order (+inf limit) that sweeps on any print, paying taker_fee. The
+    // market order (+inf limit) that sweeps on any print at the print price
+    // moved by the slippage model, paying taker_fee. The
     // sell side is symmetric. Fills are capped so the position stays in
     // [min_pos, max_pos]. Marks to the last trade. A NaN trade_price or
     // trade_size emits all-NaN (ignore policy). The caller builds the quote;
     // this struct executes and accounts for it.
     struct TradesFill {
         TradesFill(double maker_fee, double taker_fee, bool breach,
-                   double participation, double tick_size,
+                   double participation, const Slippage& slippage,
                    double min_pos, double max_pos,
                  double multiplier = 1.0,
                  double maker_fee_per_contract = 0.0,
                  double taker_fee_per_contract = 0.0)
             : maker_fee_(maker_fee), taker_fee_(taker_fee), breach_(breach),
-              participation_(participation), tick_size_(tick_size),
+              participation_(participation), slippage_(slippage),
               min_pos_(min_pos), max_pos_(max_pos),
               maker_fee_per_contract_(maker_fee_per_contract),
               taker_fee_per_contract_(taker_fee_per_contract),
@@ -38,8 +40,6 @@ namespace screamer { namespace detail {
         {
             if (min_pos_ > max_pos_)
                 throw std::invalid_argument("min_position must not exceed max_position.");
-            if (tick_size_ < 0.0)
-                throw std::invalid_argument("tick_size must be non-negative.");
             if (!std::isfinite(maker_fee_per_contract_) ||
                 !std::isfinite(taker_fee_per_contract_))
                 throw std::invalid_argument("fee_per_contract values must be finite.");
@@ -71,8 +71,8 @@ namespace screamer { namespace detail {
                 if (through) dpos = std::min(bid_size, room);
                 else if (at) dpos = std::min(std::min(bid_size, participation_ * trade_size), room);
                 if (dpos > 0.0) {
-                    const double fp = std::isinf(limit) ? trade_price : limit;
                     const bool taker = std::isinf(limit);
+                    const double fp = taker ? slippage_.buy(trade_price) : limit;
                     const double fee = taker ? taker_fee_ : maker_fee_;
                     const double fixed_fee = taker ? taker_fee_per_contract_
                                                    : maker_fee_per_contract_;
@@ -92,8 +92,8 @@ namespace screamer { namespace detail {
                 if (through) dpos = -std::min(ask_size, room);
                 else if (at) dpos = -std::min(std::min(ask_size, participation_ * trade_size), room);
                 if (dpos != 0.0) {
-                    const double fp = std::isinf(limit) ? trade_price : limit;
                     const bool taker = std::isinf(limit);
+                    const double fp = taker ? slippage_.sell(trade_price) : limit;
                     const double fee = taker ? taker_fee_ : maker_fee_;
                     const double fixed_fee = taker ? taker_fee_per_contract_
                                                    : maker_fee_per_contract_;
@@ -114,7 +114,9 @@ namespace screamer { namespace detail {
         double maker_fee_, taker_fee_;
         double maker_fee_per_contract_, taker_fee_per_contract_;
         bool breach_;
-        double participation_, tick_size_, min_pos_, max_pos_;
+        double participation_;
+        Slippage slippage_;
+        double min_pos_, max_pos_;
         detail::PnLAccount account_;
     };
 

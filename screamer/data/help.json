@@ -1454,7 +1454,7 @@
         "type": "float",
         "default": 0.0,
         "min": 0.0,
-        "description": "Price step a marketable order walks for the size beyond the displayed quote."
+        "description": "Instrument price grid (0 = continuous). A marketable order walks one tick past the displayed quote for the size beyond it; slippage offsets round up to whole ticks."
       },
       {
         "name": "min_position",
@@ -1486,6 +1486,19 @@
         "type": "float",
         "default": 0.0,
         "description": "Fixed fee (or rebate when negative) charged per contract on taker fills."
+      },
+      {
+        "name": "slippage",
+        "type": "float",
+        "default": 0.0,
+        "min": 0.0,
+        "description": "Adverse price offset on every taker (market) fill, read in `slippage_unit`. A buy fills higher and a sell lower; resting limit fills never slip."
+      },
+      {
+        "name": "slippage_unit",
+        "type": "str",
+        "default": "fraction",
+        "description": "Unit of `slippage`: \"fraction\" of the reference price (5 bps = 5e-4), \"ticks\" of `tick_size`, or \"price\" (an absolute amount)."
       }
     ],
     "nan_policy": "ignore",
@@ -1539,7 +1552,7 @@
         "type": "float",
         "default": 0.0,
         "min": 0.0,
-        "description": "Price step a marketable order walks for the size beyond the displayed quote."
+        "description": "Instrument price grid (0 = continuous). A marketable order walks one tick past the displayed quote for the size beyond it; slippage offsets round up to whole ticks."
       },
       {
         "name": "min_position",
@@ -1565,6 +1578,19 @@
         "type": "float",
         "default": 0.0,
         "description": "Fixed fee (or rebate when negative) charged per contract on each fill."
+      },
+      {
+        "name": "slippage",
+        "type": "float",
+        "default": 0.0,
+        "min": 0.0,
+        "description": "Adverse price offset on every taker (market) fill, read in `slippage_unit`. A buy fills higher and a sell lower; resting limit fills never slip."
+      },
+      {
+        "name": "slippage_unit",
+        "type": "str",
+        "default": "fraction",
+        "description": "Unit of `slippage`: \"fraction\" of the reference price (5 bps = 5e-4), \"ticks\" of `tick_size`, or \"price\" (an absolute amount)."
       }
     ],
     "nan_policy": "ignore",
@@ -1640,7 +1666,7 @@
         "type": "float",
         "default": 0.0,
         "min": 0.0,
-        "description": "Price step a marketable order walks for the size beyond the displayed quote."
+        "description": "Instrument price grid (0 = continuous). A marketable order walks one tick past the displayed quote for the size beyond it; slippage offsets round up to whole ticks."
       },
       {
         "name": "max_position",
@@ -1672,6 +1698,19 @@
         "type": "float",
         "default": 0.0,
         "description": "Fixed fee (or rebate when negative) charged per contract on taker fills."
+      },
+      {
+        "name": "slippage",
+        "type": "float",
+        "default": 0.0,
+        "min": 0.0,
+        "description": "Adverse price offset on every taker (market) fill, read in `slippage_unit`. A buy fills higher and a sell lower; resting limit fills never slip."
+      },
+      {
+        "name": "slippage_unit",
+        "type": "str",
+        "default": "fraction",
+        "description": "Unit of `slippage`: \"fraction\" of the reference price (5 bps = 5e-4), \"ticks\" of `tick_size`, or \"price\" (an absolute amount)."
       }
     ],
     "nan_policy": "ignore",
@@ -1744,7 +1783,7 @@
         "type": "float",
         "default": 0.0,
         "min": 0.0,
-        "description": "Price increment added (subtracted) to the open for a market buy (sell) to model taker slippage."
+        "description": "Instrument price grid (0 = continuous). Slippage offsets round up to whole ticks; the \"ticks\" slippage unit counts in this step."
       },
       {
         "name": "min_position",
@@ -1776,6 +1815,19 @@
         "type": "float",
         "default": 0.0,
         "description": "Fixed fee (or rebate when negative) charged per contract on taker fills."
+      },
+      {
+        "name": "slippage",
+        "type": "float",
+        "default": 0.0,
+        "min": 0.0,
+        "description": "Adverse price offset on every taker (market) fill, read in `slippage_unit`. A buy fills higher and a sell lower; resting limit fills never slip."
+      },
+      {
+        "name": "slippage_unit",
+        "type": "str",
+        "default": "fraction",
+        "description": "Unit of `slippage`: \"fraction\" of the reference price (5 bps = 5e-4), \"ticks\" of `tick_size`, or \"price\" (an absolute amount)."
       }
     ],
     "nan_policy": "ignore",
@@ -1785,7 +1837,7 @@
       "BacktestTradesOrders",
       "backtest_report"
     ],
-    "details": "The accounting parameters are generic across the backtest family. `multiplier`\nconverts a price move into currency per contract; the fixed per-contract fee is\nthen added to the existing proportional fee. Both fixed fees may be negative for\nrebates, and all defaults preserve the previous behavior.\n\n## Description\n\n`BacktestOHLCOrders` runs a two-sided order-posting backtest on OHLC bars. Each\nbar the strategy posts a resting bid `(bid_price, bid_size)` and a resting ask\n`(ask_price, ask_size)`. Both sides execute on the same bar (same-bar fill model,\nno deferral), so the position is whatever the bar's range allows.\n\n**Passive fills.** A resting buy fills when the bar's low reaches the bid price.\nIn `\"touch\"` mode (default) the fill triggers when `low <= bid_price`; in\n`\"breach\"` mode only when `low < bid_price` (the bar must trade strictly through).\nThe fill quantity is `min(bid_size, participation_ratio * bid_size, room)`, where\n`room = max_position - current_position`. The fill price is the bid price and pays\n`maker_fee`. The sell side mirrors on the high.\n\n**Market fills.** A NaN bid or ask price is a market order (via `market_limit`):\nthe buy fills at `open + tick_size` and the sell fills at `open - tick_size`, both\npaying `taker_fee`. An explicit `MARKET` constant (equal to `+inf`) also triggers\nthis path.\n\n**Inventory bounds.** Fills are capped at each step so the position stays in\n`[min_position, max_position]` (unbounded by default). Both sides may fill on the\nsame bar when the bar's range is wide enough.\n\nInputs are `(bid_price, bid_size, ask_price, ask_size, open, high, low, close)`.\nOutputs are the four standard backtest columns: `0 = equity` (cumulative dollar\nPnL), `1 = pnl` (per bar), `2 = position`, `3 = cost` (per bar). A `NaN` in any\nof the bar fields (open/high/low/close) skips the bar and returns all-NaN\n(`nan_policy: ignore`). A NaN `bid_price` or `ask_price` triggers a market order;\na NaN or zero `bid_size` / `ask_size` suppresses that side entirely.\n[`backtest_report`](backtest_report.md) summarizes the resulting equity curve.\n\n## Limitations\n\nOHLC bars carry no intra-bar path, so the engine cannot distinguish whether the\nlow preceded the high or vice versa. When both the bid and ask fill on the same\nbar the engine processes the buy first, then the sell; the ordering can affect the\nposition and PnL when inventory bounds are active. Use [`BacktestL1Orders`](BacktestL1Orders.md)\nor [`BacktestL1TradesOrders`](BacktestL1TradesOrders.md) with a tick-level or quote-level feed\nwhen intra-bar sequencing matters.",
+    "details": "The accounting parameters are generic across the backtest family. `multiplier`\nconverts a price move into currency per contract; the fixed per-contract fee is\nthen added to the existing proportional fee. Both fixed fees may be negative for\nrebates, and all defaults preserve the previous behavior.\n\n## Description\n\n`BacktestOHLCOrders` runs a two-sided order-posting backtest on OHLC bars. Each\nbar the strategy posts a resting bid `(bid_price, bid_size)` and a resting ask\n`(ask_price, ask_size)`. Both sides execute on the same bar (same-bar fill model,\nno deferral), so the position is whatever the bar's range allows.\n\n**Passive fills.** A resting buy fills when the bar's low reaches the bid price.\nIn `\"touch\"` mode (default) the fill triggers when `low <= bid_price`; in\n`\"breach\"` mode only when `low < bid_price` (the bar must trade strictly through).\nThe fill quantity is `min(bid_size, participation_ratio * bid_size, room)`, where\n`room = max_position - current_position`. The fill price is the bid price and pays\n`maker_fee`. The sell side mirrors on the high.\n\n**Market fills.** A NaN bid or ask price is a market order (via `market_limit`):\nthe buy fills at the open plus the `slippage` offset and the sell at the open\nminus it, both paying `taker_fee`. An explicit `MARKET` constant (equal to `+inf`) also triggers\nthis path.\n\n**Inventory bounds.** Fills are capped at each step so the position stays in\n`[min_position, max_position]` (unbounded by default). Both sides may fill on the\nsame bar when the bar's range is wide enough.\n\nInputs are `(bid_price, bid_size, ask_price, ask_size, open, high, low, close)`.\nOutputs are the four standard backtest columns: `0 = equity` (cumulative dollar\nPnL), `1 = pnl` (per bar), `2 = position`, `3 = cost` (per bar). A `NaN` in any\nof the bar fields (open/high/low/close) skips the bar and returns all-NaN\n(`nan_policy: ignore`). A NaN `bid_price` or `ask_price` triggers a market order;\na NaN or zero `bid_size` / `ask_size` suppresses that side entirely.\n[`backtest_report`](backtest_report.md) summarizes the resulting equity curve.\n\n## Limitations\n\nOHLC bars carry no intra-bar path, so the engine cannot distinguish whether the\nlow preceded the high or vice versa. When both the bid and ask fill on the same\nbar the engine processes the buy first, then the sell; the ordering can affect the\nposition and PnL when inventory bounds are active. Use [`BacktestL1Orders`](BacktestL1Orders.md)\nor [`BacktestL1TradesOrders`](BacktestL1TradesOrders.md) with a tick-level or quote-level feed\nwhen intra-bar sequencing matters.",
     "examples": [
       {
         "language": "python",
@@ -1813,7 +1865,7 @@
       "strategy",
       "risk"
     ],
-    "short": "Backtest a target-position strategy on OHLC bars, executing market orders at the next bar's open (causal, no manual lag).",
+    "short": "Backtest a target-position strategy on OHLC bars, executing market orders at the next bar's open or another bar price, with slippage (causal, no manual lag).",
     "inputs": 5,
     "outputs": 4,
     "parameters": [
@@ -1828,7 +1880,7 @@
         "type": "float",
         "default": 0.0,
         "min": 0.0,
-        "description": "Price increment added (subtracted) to the open for a market buy (sell) to model taker slippage."
+        "description": "Instrument price grid (0 = continuous). Slippage offsets round up to whole ticks; the \"ticks\" slippage unit counts in this step."
       },
       {
         "name": "min_position",
@@ -1854,6 +1906,32 @@
         "type": "float",
         "default": 0.0,
         "description": "Fixed fee (or rebate when negative) charged per contract on each fill."
+      },
+      {
+        "name": "slippage",
+        "type": "float",
+        "default": 0.0,
+        "min": 0.0,
+        "description": "Adverse price offset on every taker (market) fill, read in `slippage_unit`. A buy fills higher and a sell lower; resting limit fills never slip."
+      },
+      {
+        "name": "slippage_unit",
+        "type": "str",
+        "default": "fraction",
+        "description": "Unit of `slippage`: \"fraction\" of the reference price (5 bps = 5e-4), \"ticks\" of `tick_size`, or \"price\" (an absolute amount)."
+      },
+      {
+        "name": "fill_at",
+        "type": "str",
+        "default": "open",
+        "description": "Reference price of the execution bar: \"open\", \"close\", \"typical\" (high + low + close) / 3, or \"ohlc4\" (open + high + low + close) / 4."
+      },
+      {
+        "name": "delay",
+        "type": "int",
+        "default": 1,
+        "min": 0,
+        "description": "Bars between the decision and the execution. A target from bar t trades on bar t + delay. 0 is allowed only with fill_at=\"close\" (market-on-close of the signal bar)."
       }
     ],
     "nan_policy": "ignore",
@@ -1863,7 +1941,7 @@
       "BacktestL1Target",
       "backtest_report"
     ],
-    "details": "`multiplier` converts a price move into currency per contract. `fee_per_contract`\nis added to the existing proportional taker fee on every fill and may be negative\nfor a rebate; defaults preserve the previous behavior.\n\n## Description\n\n`BacktestOHLCTarget` is a lean directional backtest on OHLC bars. It is causal by\ndesign: the `target_position` you pass on bar t is decided from that bar's close,\nand the engine executes it on bar t+1 as a market order at the open. No manual lag\nis needed; feed the raw signal directly.\n\nThe deferral prevents look-ahead: a target computed from a bar's close cannot\ntrade within that same bar (the open already happened), so the engine holds it and\ntrades the next open. This mirrors `BacktestPriceTarget`, where a signal set at t\nearns from t+1.\n\nThe market order fills at `open + tick_size` (buy) or `open - tick_size` (sell),\npaying `taker_fee` on the traded notional. Positions mark to the close each bar.\n\nThe optional `min_position` / `max_position` parameters cap the inventory. The\ndeferred target is clamped to `[min_position, max_position]` before the order\nsize is computed, so the engine never carries a position outside that range.\n\nInputs are `(target_position, open, high, low, close)`. Outputs are the four\nstandard backtest columns: `0 = equity` (cumulative dollar PnL), `1 = pnl` (per\nbar), `2 = position`, and `3 = cost` (per bar). A `NaN` in any bar field (open,\nhigh, low, close) skips the bar (`nan_policy: ignore`). A `NaN` target holds the\nposition for the next bar without issuing a new order.\n[`backtest_report`](backtest_report.md) summarizes the resulting equity curve.",
+    "details": "`multiplier` converts a price move into currency per contract. `fee_per_contract`\nis added to the existing proportional taker fee on every fill and may be negative\nfor a rebate; defaults preserve the previous behavior.\n\n## Description\n\n`BacktestOHLCTarget` is a lean directional backtest on OHLC bars. It is causal by\ndesign: the `target_position` you pass on bar t is decided from that bar's close,\nand the engine executes it on bar t+1 as a market order at the open. No manual lag\nis needed; feed the raw signal directly.\n\nThe deferral prevents look-ahead: a target computed from a bar's close cannot\ntrade within that same bar (the open already happened), so the engine holds it and\ntrades the next open. This mirrors `BacktestPriceTarget`, where a signal set at t\nearns from t+1.\n\n`fill_at` picks the execution price within the bar: `\"open\"` (default),\n`\"close\"`, `\"typical\"` (high + low + close) / 3, or `\"ohlc4\"` (open + high + low +\nclose) / 4. `delay` sets how many bars later the target executes (default 1).\n`delay=0` is allowed only with `fill_at=\"close\"`: it fills at the close of the\nbar the target was decided on (market-on-close).\n\n`slippage` moves the fill against the trader, in the unit set by\n`slippage_unit` (`\"fraction\"`, `\"ticks\"`, or `\"price\"`), and the trade pays\n`taker_fee` on the traded notional. Positions mark to the close each bar. The\n`cost` column holds the slippage and fees only; the move from the fill price to\nthe close is pnl. See [Choosing a backtest engine](choosing_a_backtest_engine.md)\nfor the shared slippage and cost rules.\n\nThe optional `min_position` / `max_position` parameters cap the inventory. The\ndeferred target is clamped to `[min_position, max_position]` before the order\nsize is computed, so the engine never carries a position outside that range.\n\nInputs are `(target_position, open, high, low, close)`. Outputs are the four\nstandard backtest columns: `0 = equity` (cumulative dollar PnL), `1 = pnl` (per\nbar), `2 = position`, and `3 = cost` (per bar). A `NaN` in any bar field (open,\nhigh, low, close) skips the bar (`nan_policy: ignore`). A `NaN` target holds the\nposition for the next bar without issuing a new order.\n[`backtest_report`](backtest_report.md) summarizes the resulting equity curve.",
     "examples": [
       {
         "language": "python",
@@ -1929,6 +2007,26 @@
         "type": "float",
         "default": 0.0,
         "description": "Fixed fee (or rebate when negative) charged per contract on each fill."
+      },
+      {
+        "name": "slippage",
+        "type": "float",
+        "default": 0.0,
+        "min": 0.0,
+        "description": "Adverse price offset on every taker (market) fill, read in `slippage_unit`. A buy fills higher and a sell lower; resting limit fills never slip."
+      },
+      {
+        "name": "slippage_unit",
+        "type": "str",
+        "default": "fraction",
+        "description": "Unit of `slippage`: \"fraction\" of the reference price (5 bps = 5e-4), \"ticks\" of `tick_size`, or \"price\" (an absolute amount)."
+      },
+      {
+        "name": "tick_size",
+        "type": "float",
+        "default": 0.0,
+        "min": 0.0,
+        "description": "Instrument price grid (0 = continuous). Slippage offsets round up to whole ticks; the `\"ticks\"` slippage unit counts in this step."
       }
     ],
     "nan_policy": "ignore",
@@ -1937,7 +2035,7 @@
       "MaxDrawdown",
       "RollingInfoRatio"
     ],
-    "details": "`multiplier` converts a price move into currency per contract. `fee_per_contract`\nis added to the existing proportional taker fee on every fill and may be negative\nfor a rebate; defaults preserve the previous behavior.\n\n## Description\n\n`BacktestPriceTarget` turns a target position on a value series (a price or mark)\ninto a costed profit-and-loss curve by reaching that target through taker liquidity.\nThe `signal` is the target position in units (its sign is long, short, or flat, any\nmagnitude); `price` is the mark (mid). Each bar the position moves to the signal via\na market order that crosses half of the fractional `spread` (a buy fills at\n`price * (1 + spread/2)`, a sell at `price * (1 - spread/2)`) and pays the\nfractional `fee` on the traded notional. With the default `spread = fee = 0` the\nbacktest is frictionless.\n\nA target outside `[min_position, max_position]` is clamped to the nearest boundary\nbefore the order is computed; the default bounds are unbounded so the behavior is\nunchanged when the cap is not set.\n\nIt emits four positional columns: `0 = equity` (cumulative dollar PnL), `1 = pnl`\n(per bar), `2 = position`, and `3 = cost` (per bar). It is causal: the signal at\n`t` enters PnL only at `t+1`, through the position it sets, so a future signal\nnever changes a past row. A `NaN` signal or price skips the bar (an all-`NaN` row,\nthe position held across the gap; `nan_policy: ignore`).\n\nThe equity curve feeds the existing risk operators directly (dollar drawdown is\n`equity - CumMax(equity)`), and [`backtest_report`](backtest_report.md) bundles\nthe common statistics (drawdown, cost, turnover, trades, Sharpe) in one call.",
+    "details": "`multiplier` converts a price move into currency per contract. `fee_per_contract`\nis added to the existing proportional taker fee on every fill and may be negative\nfor a rebate; defaults preserve the previous behavior.\n\n## Description\n\n`BacktestPriceTarget` turns a target position on a value series (a price or mark)\ninto a costed profit-and-loss curve by reaching that target through taker liquidity.\nThe `signal` is the target position in units (its sign is long, short, or flat, any\nmagnitude); `price` is the mark (mid). Each bar the position moves to the signal via\na market order that crosses half of the fractional `spread` (a buy fills at\n`price * (1 + spread/2)`, a sell at `price * (1 - spread/2)`) and pays the\nfractional `fee` on the traded notional. `slippage` moves the fill further against\nthe trader, in the unit set by `slippage_unit` (`\"fraction\"`, `\"ticks\"` of\n`tick_size`, or `\"price\"`). With the defaults `spread = fee = slippage = 0` the\nbacktest is frictionless.\n\nThe fill happens at the same step's `price`. If the signal is computed from that\nsame price (for example from a close), this assumes you can trade at the price\nyou just observed. To trade one step later, lag the signal, or use\n`BacktestOHLCTarget`, which defers execution to the next bar.\n\nA target outside `[min_position, max_position]` is clamped to the nearest boundary\nbefore the order is computed; the default bounds are unbounded so the behavior is\nunchanged when the cap is not set.\n\nIt emits four positional columns: `0 = equity` (cumulative dollar PnL), `1 = pnl`\n(per bar), `2 = position`, and `3 = cost` (per bar). It is causal: the signal at\n`t` enters PnL only at `t+1`, through the position it sets, so a future signal\nnever changes a past row. A `NaN` signal or price skips the bar (an all-`NaN` row,\nthe position held across the gap; `nan_policy: ignore`).\n\nThe equity curve feeds the existing risk operators directly (dollar drawdown is\n`equity - CumMax(equity)`), and [`backtest_report`](backtest_report.md) bundles\nthe common statistics (drawdown, cost, turnover, trades, Sharpe) in one call.",
     "examples": [
       {
         "language": "python",
@@ -2036,7 +2134,7 @@
         "type": "float",
         "default": 0.0,
         "min": 0.0,
-        "description": "Accepted for interface uniformity; currently unused on the tape (see Limitations)."
+        "description": "Instrument price grid (0 = continuous). Slippage offsets round up to whole ticks; the \"ticks\" slippage unit counts in this step."
       },
       {
         "name": "min_position",
@@ -2068,6 +2166,19 @@
         "type": "float",
         "default": 0.0,
         "description": "Fixed fee (or rebate when negative) charged per contract on taker fills."
+      },
+      {
+        "name": "slippage",
+        "type": "float",
+        "default": 0.0,
+        "min": 0.0,
+        "description": "Adverse price offset on every taker (market) fill, read in `slippage_unit`. A buy fills higher and a sell lower; resting limit fills never slip."
+      },
+      {
+        "name": "slippage_unit",
+        "type": "str",
+        "default": "fraction",
+        "description": "Unit of `slippage`: \"fraction\" of the reference price (5 bps = 5e-4), \"ticks\" of `tick_size`, or \"price\" (an absolute amount)."
       }
     ],
     "nan_policy": "ignore",
@@ -2077,7 +2188,7 @@
       "BacktestOHLCOrders",
       "backtest_report"
     ],
-    "details": "The accounting parameters are generic across the backtest family. `multiplier`\nconverts a price move into currency per contract; the fixed per-contract fee is\nthen added to the existing proportional fee. Both fixed fees may be negative for\nrebates, and all defaults preserve the previous behavior.\n\n## Description\n\n`BacktestTradesOrders` backtests a two-sided order-posting strategy against the\nraw trade tape. Each event is a print `(trade_price, trade_size)` paired with\nthe strategy's resting quote `(bid_price, bid_size, ask_price, ask_size)`.\n\nFill logic per event:\n\n- **Buy side.** A resting bid at `bid_price` fills when a sell-print crosses it.\n  With `fill=\"touch\"` a print at exactly `bid_price` fills\n  `min(bid_size, participation_ratio * trade_size, room)` at `bid_price`\n  (maker fill, paying `maker_fee`). A print strictly below `bid_price`\n  sweeps the full remaining `min(bid_size, room)` without a participation cap.\n  With `fill=\"breach\"` the at-price case is skipped; only a strict breach fills.\n- **Sell side.** Symmetric for a resting ask against buy-prints.\n- **Market orders.** A `NaN` bid price is treated as a market order (+inf limit),\n  which sweeps on any print; that fill uses `taker_fee`. Pass `MARKET` (which\n  equals `math.inf`) directly to the price argument for the same effect.\n- **Inventory caps.** All fills are capped so the position stays in\n  `[min_position, max_position]`.\n- **Mark.** The position marks to the last trade price.\n\nIf both sides fill on the same print (possible when a spread collapses), each\nside updates the account in sequence, so the final equity and position reflect\nboth fills.\n\nInput contract: a `NaN` `trade_price` or `trade_size` is a no-trade event. The\n`nan_policy` is `ignore`: the row emits all-NaN outputs and state is unchanged.\nOnly real prints drive fills. Inputs are\n`(bid_price, bid_size, ask_price, ask_size, trade_price, trade_size)`.\nOutputs are `(equity, pnl, position, cost)`, the four standard backtest columns\naccepted by [`backtest_report`](backtest_report.md).\n\n## Limitations\n\nQueue priority is not tracked per order; at-price fills use `participation_ratio`\nas a front-of-queue proxy.\n\n`tick_size` is accepted for interface uniformity with `BacktestL1TradesOrders` and\n`BacktestOHLCOrders`, but it is inert on the tape: a marketable resting order\nfills at the print price without walking the book, so there is no displayed-size\noverflow to price. It is kept as a no-op parameter so strategies can share a\nuniform parameter set across engines.",
+    "details": "The accounting parameters are generic across the backtest family. `multiplier`\nconverts a price move into currency per contract; the fixed per-contract fee is\nthen added to the existing proportional fee. Both fixed fees may be negative for\nrebates, and all defaults preserve the previous behavior.\n\n## Description\n\n`BacktestTradesOrders` backtests a two-sided order-posting strategy against the\nraw trade tape. Each event is a print `(trade_price, trade_size)` paired with\nthe strategy's resting quote `(bid_price, bid_size, ask_price, ask_size)`.\n\nFill logic per event:\n\n- **Buy side.** A resting bid at `bid_price` fills when a sell-print crosses it.\n  With `fill=\"touch\"` a print at exactly `bid_price` fills\n  `min(bid_size, participation_ratio * trade_size, room)` at `bid_price`\n  (maker fill, paying `maker_fee`). A print strictly below `bid_price`\n  sweeps the full remaining `min(bid_size, room)` without a participation cap.\n  With `fill=\"breach\"` the at-price case is skipped; only a strict breach fills.\n- **Sell side.** Symmetric for a resting ask against buy-prints.\n- **Market orders.** A `NaN` bid price is treated as a market order (+inf limit),\n  which sweeps on any print; that fill uses `taker_fee`. Pass `MARKET` (which\n  equals `math.inf`) directly to the price argument for the same effect.\n- **Inventory caps.** All fills are capped so the position stays in\n  `[min_position, max_position]`.\n- **Mark.** The position marks to the last trade price.\n\nIf both sides fill on the same print (possible when a spread collapses), each\nside updates the account in sequence, so the final equity and position reflect\nboth fills.\n\nInput contract: a `NaN` `trade_price` or `trade_size` is a no-trade event. The\n`nan_policy` is `ignore`: the row emits all-NaN outputs and state is unchanged.\nOnly real prints drive fills. Inputs are\n`(bid_price, bid_size, ask_price, ask_size, trade_price, trade_size)`.\nOutputs are `(equity, pnl, position, cost)`, the four standard backtest columns\naccepted by [`backtest_report`](backtest_report.md).\n\n## Limitations\n\nQueue priority is not tracked per order; at-price fills use `participation_ratio`\nas a front-of-queue proxy.\n\nA marketable order fills at the print price moved by `slippage`, without walking\na book. On the tape `tick_size` only sets the grid that slippage offsets round\nto.",
     "examples": [
       {
         "language": "python",
@@ -2120,7 +2231,7 @@
         "type": "float",
         "default": 0.0,
         "min": 0.0,
-        "description": "Accepted for interface uniformity; currently unused on the tape."
+        "description": "Instrument price grid (0 = continuous). Slippage offsets round up to whole ticks; the \"ticks\" slippage unit counts in this step."
       },
       {
         "name": "min_position",
@@ -2146,6 +2257,19 @@
         "type": "float",
         "default": 0.0,
         "description": "Fixed fee (or rebate when negative) charged per contract on each fill."
+      },
+      {
+        "name": "slippage",
+        "type": "float",
+        "default": 0.0,
+        "min": 0.0,
+        "description": "Adverse price offset on every taker (market) fill, read in `slippage_unit`. A buy fills higher and a sell lower; resting limit fills never slip."
+      },
+      {
+        "name": "slippage_unit",
+        "type": "str",
+        "default": "fraction",
+        "description": "Unit of `slippage`: \"fraction\" of the reference price (5 bps = 5e-4), \"ticks\" of `tick_size`, or \"price\" (an absolute amount)."
       }
     ],
     "nan_policy": "ignore",
@@ -2155,7 +2279,7 @@
       "BacktestL1TradesOrders",
       "backtest_report"
     ],
-    "details": "`multiplier` converts a price move into currency per contract. `fee_per_contract`\nis added to the existing proportional taker fee on every fill and may be negative\nfor a rebate; defaults preserve the previous behavior.\n\n## Description\n\n`BacktestTradesTarget` is a directional backtest on the raw trade tape. It is\nimmediate: the `target_position` you pass on event t executes on the same print,\nunlike `BacktestOHLCTarget` which defers to the next bar's open.\n\nEach print the engine computes the desired trade as\n`clamp(target, min_position, max_position) - current_position` and takes it\nagainst the current print as a marketable (taker) order. The fill pays `taker_fee`\non the traded notional and the position marks to the print price. If the target\nequals the current position, no order is placed and the event is a mark-only step.\n\nInputs are `(target_position, trade_price, trade_size)`. Outputs are the four\nstandard backtest columns: `0 = equity` (cumulative dollar PnL), `1 = pnl` (per\nevent), `2 = position`, and `3 = cost` (per event). A `NaN` `trade_price` or\n`trade_size` skips the event and returns all-NaN (`nan_policy: ignore`).\n[`backtest_report`](backtest_report.md) summarizes the resulting equity curve.\n\nThe optional `min_position` and `max_position` parameters cap the inventory. The\ntarget is clamped before the order size is computed, so the engine never carries a\nposition outside that range.\n\n## Limitations\n\nThe fill model is optimistic: the full order size executes at the print price with\nno market impact or slippage beyond `taker_fee`. Orders are counterfactual (zero\nmarket impact), so the tape is unaffected by the strategy's activity.",
+    "details": "`multiplier` converts a price move into currency per contract. `fee_per_contract`\nis added to the existing proportional taker fee on every fill and may be negative\nfor a rebate; defaults preserve the previous behavior.\n\n## Description\n\n`BacktestTradesTarget` is a directional backtest on the raw trade tape. It is\nimmediate: the `target_position` you pass on event t executes on the same print,\nunlike `BacktestOHLCTarget` which defers to the next bar's open.\n\nEach print the engine computes the desired trade as\n`clamp(target, min_position, max_position) - current_position` and takes it\nagainst the current print as a marketable (taker) order. The fill pays `taker_fee`\non the traded notional and the position marks to the print price. If the target\nequals the current position, no order is placed and the event is a mark-only step.\n\nInputs are `(target_position, trade_price, trade_size)`. Outputs are the four\nstandard backtest columns: `0 = equity` (cumulative dollar PnL), `1 = pnl` (per\nevent), `2 = position`, and `3 = cost` (per event). A `NaN` `trade_price` or\n`trade_size` skips the event and returns all-NaN (`nan_policy: ignore`).\n[`backtest_report`](backtest_report.md) summarizes the resulting equity curve.\n\nThe optional `min_position` and `max_position` parameters cap the inventory. The\ntarget is clamped before the order size is computed, so the engine never carries a\nposition outside that range.\n\n## Limitations\n\nThe fill model is optimistic: the full order size executes at the print price,\nmoved only by the `slippage` you set, with no market impact. Orders are counterfactual (zero\nmarket impact), so the tape is unaffected by the strategy's activity.",
     "examples": [
       {
         "language": "python",
@@ -3319,8 +3443,14 @@
     "topics": [
       "backtesting"
     ],
-    "details": "Screamer's backtest engines are arranged in a `Backtest<DataModel><OrderDef>` grid.\nThe data model (rows) is the market feed you have. The order definition (columns)\nis the strategy's output contract. All eight engines share one accounting core,\nthe `[equity, pnl, position, cost]` output schema, a common MARKET/NaN/inf\nencoding, and the static fill-cap rule.\n\n## The grid\n\n| Data model    | Target                        | Orders                          |\n|:--------------|:------------------------------|:--------------------------------|\n| Price         | `BacktestPriceTarget`         | not provided (*)                |\n| OHLC          | `BacktestOHLCTarget`          | `BacktestOHLCOrders`            |\n| Trades        | `BacktestTradesTarget`        | `BacktestTradesOrders`          |\n| L1            | `BacktestL1Target`            | `BacktestL1Orders`              |\n| L1 + Trades   | not provided (**)             | `BacktestL1TradesOrders`        |\n\n(*) `BacktestPriceOrders` is not provided. A raw value series carries no bid/ask\nbook, so there is no credible fill model for a two-sided quote. Use\n`BacktestOHLCOrders` or `BacktestL1Orders` when a richer feed is available.\n\n(**) `BacktestL1TradesTarget` is not provided. A Target engine is a pure taker: it\nhits the book immediately on each event. For L1 + trades data,\n`BacktestL1Target` already does this with only the quote stream, and adding the\ntrade feed does not improve it (trades are taker events, not maker fills).\nUse `BacktestL1Target` when you have an L1 + trades feed and want a Target engine.\n\n## Order definition interfaces\n\n**Target** engines receive `(target_position, <market cols>)`. On each event the\nengine computes `delta = clamp(target, cap) - position` and submits a marketable\norder for that delta, taking liquidity at the current market price. The target is\nthe desired inventory level, not an order size. The engine handles the sizing and\ndirection internally.\n\n**Orders** engines receive `(bid_price, bid_size, ask_price, ask_size, <market cols>)`.\nThe strategy posts a two-sided resting quote each event. Either or both sides can\nfill on the same event. Setting a side's size to zero or its price to NaN disables\nthat side. A quote submitted already crossing the spread (`bid_price >= market_ask`\nor `ask_price <= market_bid`) is treated as a taker and fills immediately.\n\nInput arities by engine:\n\n| Engine                 | Inputs | Order columns                                     | Market columns               |\n|:-----------------------|:-------|:--------------------------------------------------|:-----------------------------|\n| `BacktestPriceTarget`  | 2      | `target`                                          | `price`                      |\n| `BacktestOHLCTarget`   | 5      | `target`                                          | `open, high, low, close`     |\n| `BacktestOHLCOrders`   | 8      | `bid_price, bid_size, ask_price, ask_size`        | `open, high, low, close`     |\n| `BacktestTradesTarget` | 3      | `target`                                          | `trade_price, trade_size`    |\n| `BacktestTradesOrders` | 6      | `bid_price, bid_size, ask_price, ask_size`        | `trade_price, trade_size`    |\n| `BacktestL1Target`     | 5      | `target`                                          | `market_bid, market_ask, market_bid_size, market_ask_size` |\n| `BacktestL1Orders`     | 8      | `bid_price, bid_size, ask_price, ask_size`        | `market_bid, market_ask, market_bid_size, market_ask_size` |\n| `BacktestL1TradesOrders` | 10   | `bid_price, bid_size, ask_price, ask_size`        | `market_bid, market_ask, market_bid_size, market_ask_size, trade_price, trade_size` |\n\nFor `BacktestL1Orders` and `BacktestL1TradesOrders` the own-quote columns come\nfirst, then the market book columns.\n\n## MARKET/NaN/inf encoding\n\nEvery engine uses the same price encoding to distinguish a resting limit order from\na marketable order.\n\n| Price value                | Meaning                                                     |\n|:---------------------------|:------------------------------------------------------------|\n| Finite number              | Resting limit order at that price (maker fill, `maker_fee`) |\n| `+inf` / `screamer.MARKET` | Market buy (taker); never-fill sell                         |\n| `-inf`                     | Never-fill buy; market sell (taker)                         |\n| `NaN`                      | Side-agnostic market order (taker, regardless of direction) |\n\n`screamer.MARKET` equals `+math.inf` and is provided as a readable constant for\nsubmitting a market buy without writing `float('inf')` directly.\n\nFor `BacktestOHLCTarget`, the target decided on bar t always executes as a market\norder at bar t+1's open (causal deferral; no manual lag is needed). For\n`BacktestOHLCOrders`, a NaN bid or ask price is a market order that fills at the\nbar's open; a finite price rests and waits for the bar's range.\n\n## Fill-cap rule\n\nEvery engine accepts `min_position` and `max_position` constructor parameters\n(default unbounded). All fills are capped by a three-way minimum: the order size,\nthe participation limit (where applicable), and the remaining room to the bound.\nFor a buy, the fill cannot exceed `max_position - current_position`; for a sell it\ncannot exceed `current_position - min_position`. A fill that would breach the bound\nis truncated to exactly the remaining room. Passing\n`min_position=-8.0, max_position=8.0` enforces a hard inventory limit of eight\nunits on each side, independent of order size.",
-    "examples": []
+    "details": "Screamer's backtest engines are arranged in a `Backtest<DataModel><OrderDef>` grid.\nThe data model (rows) is the market feed you have. The order definition (columns)\nis the strategy's output contract. All eight engines share one accounting core,\nthe `[equity, pnl, position, cost]` output schema, a common MARKET/NaN/inf\nencoding, and the static fill-cap rule.\n\n## The grid\n\n| Data model    | Target                        | Orders                          |\n|:--------------|:------------------------------|:--------------------------------|\n| Price         | `BacktestPriceTarget`         | not provided (*)                |\n| OHLC          | `BacktestOHLCTarget`          | `BacktestOHLCOrders`            |\n| Trades        | `BacktestTradesTarget`        | `BacktestTradesOrders`          |\n| L1            | `BacktestL1Target`            | `BacktestL1Orders`              |\n| L1 + Trades   | not provided (**)             | `BacktestL1TradesOrders`        |\n\n(*) `BacktestPriceOrders` is not provided. A raw value series carries no bid/ask\nbook, so there is no credible fill model for a two-sided quote. Use\n`BacktestOHLCOrders` or `BacktestL1Orders` when a richer feed is available.\n\n(**) `BacktestL1TradesTarget` is not provided. A Target engine is a pure taker: it\nhits the book immediately on each event. For L1 + trades data,\n`BacktestL1Target` already does this with only the quote stream, and adding the\ntrade feed does not improve it (trades are taker events, not maker fills).\nUse `BacktestL1Target` when you have an L1 + trades feed and want a Target engine.\n\n## Order definition interfaces\n\n**Target** engines receive `(target_position, <market cols>)`. On each event the\nengine computes `delta = clamp(target, cap) - position` and submits a marketable\norder for that delta, taking liquidity at the current market price. The target is\nthe desired inventory level, not an order size. The engine handles the sizing and\ndirection internally.\n\n**Orders** engines receive `(bid_price, bid_size, ask_price, ask_size, <market cols>)`.\nThe strategy posts a two-sided resting quote each event. Either or both sides can\nfill on the same event. Setting a side's size to zero or its price to NaN disables\nthat side. A quote submitted already crossing the spread (`bid_price >= market_ask`\nor `ask_price <= market_bid`) is treated as a taker and fills immediately.\n\nInput arities by engine:\n\n| Engine                 | Inputs | Order columns                                     | Market columns               |\n|:-----------------------|:-------|:--------------------------------------------------|:-----------------------------|\n| `BacktestPriceTarget`  | 2      | `target`                                          | `price`                      |\n| `BacktestOHLCTarget`   | 5      | `target`                                          | `open, high, low, close`     |\n| `BacktestOHLCOrders`   | 8      | `bid_price, bid_size, ask_price, ask_size`        | `open, high, low, close`     |\n| `BacktestTradesTarget` | 3      | `target`                                          | `trade_price, trade_size`    |\n| `BacktestTradesOrders` | 6      | `bid_price, bid_size, ask_price, ask_size`        | `trade_price, trade_size`    |\n| `BacktestL1Target`     | 5      | `target`                                          | `market_bid, market_ask, market_bid_size, market_ask_size` |\n| `BacktestL1Orders`     | 8      | `bid_price, bid_size, ask_price, ask_size`        | `market_bid, market_ask, market_bid_size, market_ask_size` |\n| `BacktestL1TradesOrders` | 10   | `bid_price, bid_size, ask_price, ask_size`        | `market_bid, market_ask, market_bid_size, market_ask_size, trade_price, trade_size` |\n\nFor `BacktestL1Orders` and `BacktestL1TradesOrders` the own-quote columns come\nfirst, then the market book columns.\n\n## MARKET/NaN/inf encoding\n\nEvery engine uses the same price encoding to distinguish a resting limit order from\na marketable order.\n\n| Price value                | Meaning                                                     |\n|:---------------------------|:------------------------------------------------------------|\n| Finite number              | Resting limit order at that price (maker fill, `maker_fee`) |\n| `+inf` / `screamer.MARKET` | Market buy (taker); never-fill sell                         |\n| `-inf`                     | Never-fill buy; market sell (taker)                         |\n| `NaN`                      | Side-agnostic market order (taker, regardless of direction) |\n\n`screamer.MARKET` equals `+math.inf` and is provided as a readable constant for\nsubmitting a market buy without writing `float('inf')` directly.\n\nFor `BacktestOHLCTarget`, the target decided on bar t executes as a market order\non bar t+1 at the open by default (causal deferral; no manual lag is needed).\n`fill_at` and `delay` change the price and the bar, as described below. For\n`BacktestOHLCOrders`, a NaN bid or ask price is a market order that fills at the\nbar's open; a finite price rests and waits for the bar's range.\n\n## Execution price, slippage, and cost\n\nA taker (market) fill starts from a **reference price**: the fair price at\nexecution, before any friction.\n\n| Engine family | Reference price of a taker fill |\n|:--------------|:--------------------------------|\n| Price         | `price`, then half of `spread` |\n| OHLC          | The execution bar's `fill_at` price: `\"open\"` (default), `\"close\"`, `\"typical\"`, or `\"ohlc4\"` |\n| Trades        | The print price |\n| L1            | The opposite touch, walking one `tick_size` beyond the displayed size |\n\n`slippage` then moves the fill against the trader: a buy fills higher and a sell\nlower. One number is read in one unit, chosen with `slippage_unit`:\n\n| `slippage_unit` | Offset | Example |\n|:----------------|:-------|:--------|\n| `\"fraction\"` (default) | `reference * slippage` | `slippage=5e-4` is 5 bps |\n| `\"ticks\"` | `slippage * tick_size` | `slippage=2, tick_size=0.01` is 0.02 |\n| `\"price\"` | `slippage` | `slippage=0.05` is 0.05 |\n\n`tick_size` is the instrument's price grid (0 means continuous prices). When it is\nset, the offset rounds up to whole ticks. A resting limit order never slips: it\nfills at its own limit price. The examples at the end of this page show both\nstyles of call.\n\nThe `cost` column is the friction of each trade: the fill-versus-reference\ndifference (spread and slippage) plus fees. The move from the fill price to the\nmark is profit or loss, not cost. A resting limit fill has the limit price as its\nreference, so its cost is its fee alone. The split between `pnl` and `cost` does\nnot change `equity`.\n\n## Fill-cap rule\n\nEvery engine accepts `min_position` and `max_position` constructor parameters\n(default unbounded). All fills are capped by a three-way minimum: the order size,\nthe participation limit (where applicable), and the remaining room to the bound.\nFor a buy, the fill cannot exceed `max_position - current_position`; for a sell it\ncannot exceed `current_position - min_position`. A fill that would breach the bound\nis truncated to exactly the remaining room. Passing\n`min_position=-8.0, max_position=8.0` enforces a hard inventory limit of eight\nunits on each side, independent of order size.",
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Slippage and execution price",
+        "code": "# Next bar's open, 5 bps of slippage, 2 bps taker fee\nBacktestOHLCTarget(taker_fee=2e-4, slippage=5e-4)(target, o, h, l, c)\n\n# Market-on-close of the signal bar, one tick of slippage on a 0.25 grid\nBacktestOHLCTarget(fill_at=\"close\", delay=0,\n                   slippage=1, slippage_unit=\"ticks\", tick_size=0.25)(target, o, h, l, c)"
+      }
+    ]
   },
   "Abs": {
     "name": "Abs",

@@ -27,7 +27,7 @@ parameters:
   type: float
   default: 0.0
   min: 0.0
-  description: Accepted for interface uniformity; currently unused on the tape.
+  description: Instrument price grid (0 = continuous). Slippage offsets round up to whole ticks; the "ticks" slippage unit counts in this step.
 - name: min_position
   type: float
   default: -.inf
@@ -45,6 +45,15 @@ parameters:
   type: float
   default: 0.0
   description: Fixed fee (or rebate when negative) charged per contract on each fill.
+- name: slippage
+  type: float
+  default: 0.0
+  min: 0.0
+  description: Adverse price offset on every taker (market) fill, read in `slippage_unit`. A buy fills higher and a sell lower; resting limit fills never slip.
+- name: slippage_unit
+  type: str
+  default: fraction
+  description: 'Unit of `slippage`: "fraction" of the reference price (5 bps = 5e-4), "ticks" of `tick_size`, or "price" (an absolute amount).'
 nan_policy: ignore
 see_also:
 - BacktestTradesOrders
@@ -83,8 +92,8 @@ position outside that range.
 
 ## Limitations
 
-The fill model is optimistic: the full order size executes at the print price with
-no market impact or slippage beyond `taker_fee`. Orders are counterfactual (zero
+The fill model is optimistic: the full order size executes at the print price,
+moved only by the `slippage` you set, with no market impact. Orders are counterfactual (zero
 market impact), so the tape is unaffected by the strategy's activity.
 
 ## Examples

@@ -184,7 +184,9 @@
       "double",
       "double",
       "double",
-      "double"
+      "double",
+      "double",
+      "std::string"
     ],
     "ctor_args": [
       {
@@ -226,6 +228,14 @@
       {
         "name": "taker_fee_per_contract",
         "default": "0.0"
+      },
+      {
+        "name": "slippage",
+        "default": "0.0"
+      },
+      {
+        "name": "slippage_unit",
+        "default": "\"fraction\""
       }
     ],
     "ctor_kind": "plain",
@@ -241,7 +251,9 @@
       "double",
       "double",
       "double",
-      "double"
+      "double",
+      "double",
+      "std::string"
     ],
     "ctor_args": [
       {
@@ -267,6 +279,14 @@
       {
         "name": "fee_per_contract",
         "default": "0.0"
+      },
+      {
+        "name": "slippage",
+        "default": "0.0"
+      },
+      {
+        "name": "slippage_unit",
+        "default": "\"fraction\""
       }
     ],
     "ctor_kind": "plain",
@@ -286,7 +306,9 @@
       "double",
       "double",
       "double",
-      "double"
+      "double",
+      "double",
+      "std::string"
     ],
     "ctor_args": [
       {
@@ -328,6 +350,14 @@
       {
         "name": "taker_fee_per_contract",
         "default": "0.0"
+      },
+      {
+        "name": "slippage",
+        "default": "0.0"
+      },
+      {
+        "name": "slippage_unit",
+        "default": "\"fraction\""
       }
     ],
     "ctor_kind": "plain",
@@ -347,7 +377,9 @@
       "double",
       "double",
       "double",
-      "double"
+      "double",
+      "double",
+      "std::string"
     ],
     "ctor_args": [
       {
@@ -389,6 +421,14 @@
       {
         "name": "taker_fee_per_contract",
         "default": "0.0"
+      },
+      {
+        "name": "slippage",
+        "default": "0.0"
+      },
+      {
+        "name": "slippage_unit",
+        "default": "\"fraction\""
       }
     ],
     "ctor_kind": "plain",
@@ -404,7 +444,11 @@
       "double",
       "double",
       "double",
-      "double"
+      "double",
+      "double",
+      "std::string",
+      "std::string",
+      "int"
     ],
     "ctor_args": [
       {
@@ -430,6 +474,22 @@
       {
         "name": "fee_per_contract",
         "default": "0.0"
+      },
+      {
+        "name": "slippage",
+        "default": "0.0"
+      },
+      {
+        "name": "slippage_unit",
+        "default": "\"fraction\""
+      },
+      {
+        "name": "fill_at",
+        "default": "\"open\""
+      },
+      {
+        "name": "delay",
+        "default": "1"
       }
     ],
     "ctor_kind": "plain",
@@ -445,6 +505,9 @@
       "double",
       "double",
       "double",
+      "double",
+      "double",
+      "std::string",
       "double"
     ],
     "ctor_args": [
@@ -470,6 +533,18 @@
       },
       {
         "name": "fee_per_contract",
+        "default": "0.0"
+      },
+      {
+        "name": "slippage",
+        "default": "0.0"
+      },
+      {
+        "name": "slippage_unit",
+        "default": "\"fraction\""
+      },
+      {
+        "name": "tick_size",
         "default": "0.0"
       }
     ],
@@ -499,7 +574,9 @@
       "double",
       "double",
       "double",
-      "double"
+      "double",
+      "double",
+      "std::string"
     ],
     "ctor_args": [
       {
@@ -541,6 +618,14 @@
       {
         "name": "taker_fee_per_contract",
         "default": "0.0"
+      },
+      {
+        "name": "slippage",
+        "default": "0.0"
+      },
+      {
+        "name": "slippage_unit",
+        "default": "\"fraction\""
       }
     ],
     "ctor_kind": "plain",
@@ -556,7 +641,9 @@
       "double",
       "double",
       "double",
-      "double"
+      "double",
+      "double",
+      "std::string"
     ],
     "ctor_args": [
       {
@@ -582,6 +669,14 @@
       {
         "name": "fee_per_contract",
         "default": "0.0"
+      },
+      {
+        "name": "slippage",
+        "default": "0.0"
+      },
+      {
+        "name": "slippage_unit",
+        "default": "\"fraction\""
       }
     ],
     "ctor_kind": "plain",

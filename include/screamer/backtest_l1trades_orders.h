@@ -9,6 +9,7 @@
 #include "screamer/common/functor_base.h"
 #include "screamer/common/float_info.h"
 #include "screamer/detail/pnl_account.h"
+#include "screamer/detail/slippage.h"
 
 namespace screamer {
 
@@ -29,10 +30,12 @@ namespace screamer {
                          double max_position = std::numeric_limits<double>::infinity(),
                          double multiplier = 1.0,
                          double maker_fee_per_contract = 0.0,
-                         double taker_fee_per_contract = 0.0)
+                         double taker_fee_per_contract = 0.0,
+                         double slippage = 0.0,
+                         const std::string& slippage_unit = "fraction")
             : maker_fee_(maker_fee), taker_fee_(taker_fee), breach_(parse_fill(fill)),
               participation_(parse_participation(participation_ratio)),
-              tick_size_(tick_size), max_position_(max_position),
+              slippage_(slippage, slippage_unit, tick_size), max_position_(max_position),
               min_position_(min_position),
               maker_fee_per_contract_(maker_fee_per_contract),
               taker_fee_per_contract_(taker_fee_per_contract),
@@ -40,8 +43,6 @@ namespace screamer {
         {
             if (min_position_ > max_position_)
                 throw std::invalid_argument("min_position must not exceed max_position.");
-            if (tick_size_ < 0.0)
-                throw std::invalid_argument("tick_size must be non-negative.");
             reset();
         }
 
@@ -117,13 +118,16 @@ namespace screamer {
             const bool quote_through = buy ? (opp_price < my_price) : (opp_price > my_price);
 
             // Submitted already crossing (marketable on first appearance): taker,
-            // fills at market + tick_size slippage, regardless of any print.
+            // takes the displayed size at the touch, walks one tick_size for the
+            // rest, then the slippage model moves the average, regardless of any print.
             if (quote_through && !passive_prev) {
                 const double disp = std::min(remaining, opp_size);
                 const double over = remaining - disp;
-                const double slip = buy ? tick_size_ : -tick_size_;
-                const double vwap = (disp * opp_price + over * (opp_price + slip)) / remaining;
-                dpos = buy ? remaining : -remaining; fill_price = vwap; is_taker = true;
+                const double tick = slippage_.tick_size();
+                const double step = buy ? tick : -tick;
+                const double vwap = (disp * opp_price + over * (opp_price + step)) / remaining;
+                dpos = buy ? remaining : -remaining;
+                fill_price = slippage_.fill(vwap, buy); is_taker = true;
                 passive_prev = false;
                 return;
             }
@@ -165,7 +169,9 @@ namespace screamer {
         double maker_fee_, taker_fee_;
         double maker_fee_per_contract_, taker_fee_per_contract_;
         bool breach_;
-        double participation_, tick_size_, max_position_, min_position_;
+        double participation_;
+        detail::Slippage slippage_;
+        double max_position_, min_position_;
         bool bid_passive_ = false, ask_passive_ = false;
         detail::PnLAccount account_;
     };

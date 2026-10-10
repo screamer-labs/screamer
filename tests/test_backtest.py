@@ -647,3 +647,173 @@ def test_l1_target_capped():
         np.array([9.]), np.array([100.]), np.array([100.1]),
         np.array([50.]), np.array([50.]))
     assert out[0, 2] == 1.0
+
+
+# --- Cost reference, slippage units, fill_at and delay ------------------------
+
+def _bars():
+    # bar 0: decision bar; bar 1: execution bar (open 101, close 101.5)
+    o = np.array([100., 101.]); h = np.array([100.5, 102.])
+    l = np.array([99.5, 100.6]); c = np.array([100., 101.5])
+    return o, h, l, c
+
+
+def test_ohlc_target_cost_is_friction_not_intrabar_move():
+    from screamer import BacktestOHLCTarget
+    o, h, l, c = _bars()
+    out = BacktestOHLCTarget()(np.array([1., 1.]), o, h, l, c)
+    # frictionless fill at the 101 open: the open -> close move is pnl, not cost
+    np.testing.assert_allclose(out[1], [0.5, 0.5, 1.0, 0.0])
+
+
+def test_ohlc_target_cost_equals_slippage_plus_fee():
+    from screamer import BacktestOHLCTarget
+    o, h, l, c = _bars()
+    out = BacktestOHLCTarget(taker_fee=1e-3, slippage=0.05, slippage_unit="price")(
+        np.array([1., 1.]), o, h, l, c)
+    fill = 101.05
+    np.testing.assert_allclose(out[1, 3], 0.05 + fill * 1e-3)        # slippage + fee
+    np.testing.assert_allclose(out[1, 0], 101.5 - fill - fill * 1e-3)  # equity
+
+
+def test_cost_reference_never_changes_equity():
+    # The engine's equity must equal a hand-built fill-to-mark account.
+    from screamer import BacktestOHLCTarget
+    rng = np.random.default_rng(1); n = 300
+    c = 100 + np.cumsum(rng.standard_normal(n) * 0.3)
+    o = np.r_[c[0], c[:-1]] + rng.standard_normal(n) * 0.1
+    h = np.maximum(o, c) + 0.2; l = np.minimum(o, c) - 0.2
+    tgt = np.sign(rng.standard_normal(n))
+    out = BacktestOHLCTarget(taker_fee=5e-4, slippage=2e-4)(tgt, o, h, l, c)
+    pos = np.r_[0.0, tgt[:-1]]
+    dpos = np.diff(np.r_[0.0, pos])
+    fill = o * (1 + np.sign(dpos) * 2e-4)
+    pnl = np.r_[0.0, pos[:-1] * np.diff(c)] + dpos * (c - fill) - np.abs(dpos) * fill * 5e-4
+    np.testing.assert_allclose(out[:, 0], np.cumsum(pnl), atol=1e-9)
+    np.testing.assert_allclose(out[:, 3], np.abs(dpos) * (o * 2e-4 + fill * 5e-4),
+                               atol=1e-12)
+
+
+def test_slippage_units():
+    from screamer import BacktestOHLCTarget
+    o, h, l, c = _bars()
+    t = np.array([1., 1.])
+    frac = BacktestOHLCTarget(slippage=1e-3)(t, o, h, l, c)
+    np.testing.assert_allclose(frac[1, 3], 101 * 1e-3)
+    ticks = BacktestOHLCTarget(slippage=2, slippage_unit="ticks", tick_size=0.01)(t, o, h, l, c)
+    np.testing.assert_allclose(ticks[1, 3], 0.02)
+    price = BacktestOHLCTarget(slippage=0.03, slippage_unit="price")(t, o, h, l, c)
+    np.testing.assert_allclose(price[1, 3], 0.03)
+    # a fractional offset rounds up to whole ticks: 101 * 1e-4 = 0.0101 -> 0.02
+    grid = BacktestOHLCTarget(slippage=1e-4, tick_size=0.01)(t, o, h, l, c)
+    np.testing.assert_allclose(grid[1, 3], 0.02)
+
+
+def test_sell_slippage_is_adverse():
+    from screamer import BacktestOHLCTarget
+    o, h, l, c = _bars()
+    out = BacktestOHLCTarget(slippage=0.05, slippage_unit="price")(
+        np.array([-1., -1.]), o, h, l, c)
+    np.testing.assert_allclose(out[1, 3], 0.05)          # sold at 100.95, cost 0.05
+    np.testing.assert_allclose(out[1, 0], 100.95 - 101.5)
+
+
+def test_tick_size_alone_does_not_slip():
+    from screamer import BacktestOHLCTarget
+    o, h, l, c = _bars()
+    out = BacktestOHLCTarget(tick_size=0.01)(np.array([1., 1.]), o, h, l, c)
+    np.testing.assert_allclose(out[1, 3], 0.0)
+
+
+def test_slippage_validation():
+    from screamer import BacktestOHLCTarget
+    with pytest.raises(ValueError):
+        BacktestOHLCTarget(slippage=-1e-4)
+    with pytest.raises(ValueError):
+        BacktestOHLCTarget(slippage=1, slippage_unit="bps")
+    with pytest.raises(ValueError):
+        BacktestOHLCTarget(slippage=1, slippage_unit="ticks")        # no tick_size
+    with pytest.raises(ValueError):
+        BacktestOHLCTarget(fill_at="vwap")
+    with pytest.raises(ValueError):
+        BacktestOHLCTarget(delay=-1)
+    with pytest.raises(ValueError):
+        BacktestOHLCTarget(delay=0)                                   # needs fill_at="close"
+
+
+@pytest.mark.parametrize("fill_at,ref", [
+    ("open", 101.0), ("close", 101.5),
+    ("typical", (102 + 100.6 + 101.5) / 3), ("ohlc4", (101 + 102 + 100.6 + 101.5) / 4)])
+def test_fill_at_reference(fill_at, ref):
+    from screamer import BacktestOHLCTarget
+    o, h, l, c = _bars()
+    out = BacktestOHLCTarget(fill_at=fill_at)(np.array([1., 1.]), o, h, l, c)
+    np.testing.assert_allclose(out[1, 0], 101.5 - ref)    # bought at ref, marked at close
+    np.testing.assert_allclose(out[1, 3], 0.0)
+
+
+def test_delay_zero_is_market_on_close_of_signal_bar():
+    from screamer import BacktestOHLCTarget
+    o, h, l, c = _bars()
+    out = BacktestOHLCTarget(fill_at="close", delay=0)(np.array([1., 1.]), o, h, l, c)
+    np.testing.assert_allclose(out[:, 2], [1.0, 1.0])     # in on bar 0
+    np.testing.assert_allclose(out[:, 0], [0.0, 1.5])     # bought 100 close, marked 101.5
+
+
+def test_delay_shifts_execution():
+    from screamer import BacktestOHLCTarget
+    n = 6
+    p = np.arange(100., 100. + n)
+    tgt = np.array([1., 0., -1., np.nan, 2., 2.])
+    out = BacktestOHLCTarget(delay=3)(tgt, p, p + 1, p - 1, p)
+    np.testing.assert_allclose(out[:, 2], [0, 0, 0, 1, 0, -1])
+    # a NaN target is "no order": the position holds
+    out2 = BacktestOHLCTarget(delay=1)(tgt, p, p + 1, p - 1, p)
+    np.testing.assert_allclose(out2[:, 2], [0, 1, 0, -1, -1, 2])
+
+
+@pytest.mark.parametrize("kw", [
+    {}, {"delay": 3}, {"fill_at": "close", "delay": 0},
+    {"fill_at": "typical", "slippage": 1e-3, "tick_size": 0.01}])
+def test_ohlc_target_stream_equals_batch_and_causal(kw):
+    from screamer import BacktestOHLCTarget
+    rng = np.random.default_rng(2); n = 120
+    c = 100 + np.cumsum(rng.standard_normal(n) * 0.3)
+    o = c + rng.standard_normal(n) * 0.1
+    h = np.maximum(o, c) + 0.2; l = np.minimum(o, c) - 0.2
+    tgt = np.round(rng.standard_normal(n))
+    op = BacktestOHLCTarget(**kw)
+    stream = np.array([op(tgt[i], o[i], h[i], l[i], c[i]) for i in range(n)])
+    batch = BacktestOHLCTarget(**kw)(tgt, o, h, l, c)
+    np.testing.assert_allclose(stream, batch)
+    k = 60                                          # change the future: past rows hold
+    tgt2 = tgt.copy(); tgt2[k:] = -tgt2[k:]
+    c2 = c.copy(); c2[k:] += 5
+    batch2 = BacktestOHLCTarget(**kw)(tgt2, o, h, l, c2)
+    np.testing.assert_allclose(batch2[:k], batch[:k])
+
+
+def test_ohlc_orders_maker_cost_is_fee_only():
+    from screamer import BacktestOHLCOrders
+    out = BacktestOHLCOrders(maker_fee=1e-4)(
+        np.array([99.]), np.array([1.]), np.array([np.nan]), np.array([0.]),
+        np.array([100.]), np.array([101.]), np.array([98.]), np.array([100.]))
+    np.testing.assert_allclose(out[0, 3], 99 * 1e-4)
+    np.testing.assert_allclose(out[0, 0], 1.0 - 99 * 1e-4)
+
+
+def test_price_target_slippage_on_top_of_spread():
+    from screamer import BacktestPriceTarget
+    out = BacktestPriceTarget(spread=0.002, slippage=1, slippage_unit="ticks",
+                              tick_size=0.01)(np.array([1.]), np.array([100.]))
+    np.testing.assert_allclose(out[0, 3], 0.1 + 0.01)    # half-spread 0.1 + one tick
+
+
+def test_trades_and_l1_target_slippage():
+    from screamer import BacktestTradesTarget, BacktestL1Target
+    tr = BacktestTradesTarget(slippage=0.02, slippage_unit="price")(
+        np.array([1.]), np.array([100.]), np.array([5.]))
+    np.testing.assert_allclose(tr[0, 3], 0.02)
+    l1 = BacktestL1Target(slippage=0.02, slippage_unit="price")(
+        np.array([1.]), np.array([99.9]), np.array([100.1]), np.array([5.]), np.array([5.]))
+    np.testing.assert_allclose(l1[0, 3], 0.1 + 0.02)     # half spread vs mid + slippage

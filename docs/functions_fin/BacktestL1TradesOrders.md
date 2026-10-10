@@ -43,7 +43,7 @@ parameters:
   type: float
   default: 0.0
   min: 0.0
-  description: Price step a marketable order walks for the size beyond the displayed quote.
+  description: Instrument price grid (0 = continuous). A marketable order walks one tick past the displayed quote for the size beyond it; slippage offsets round up to whole ticks.
 - name: max_position
   type: float
   default: .inf
@@ -65,6 +65,15 @@ parameters:
   type: float
   default: 0.0
   description: Fixed fee (or rebate when negative) charged per contract on taker fills.
+- name: slippage
+  type: float
+  default: 0.0
+  min: 0.0
+  description: Adverse price offset on every taker (market) fill, read in `slippage_unit`. A buy fills higher and a sell lower; resting limit fills never slip.
+- name: slippage_unit
+  type: str
+  default: fraction
+  description: 'Unit of `slippage`: "fraction" of the reference price (5 bps = 5e-4), "ticks" of `tick_size`, or "price" (an absolute amount).'
 nan_policy: ignore
 see_also:
 - BacktestL1Orders

@@ -11,7 +11,7 @@ namespace screamer {
 
     // BacktestOHLCOrders: 8 -> 4. Post a two-sided quote on bars; each side
     // fills when the bar's low/high reaches it (touch/breach), a marketable order
-    // fills at the open. Inventory is capped to [min_position, max_position].
+    // fills at the open moved by the slippage model. Inventory is capped to [min_position, max_position].
     // Outputs [equity, pnl, position, cost].
     class BacktestOHLCOrders : public FunctorBase<BacktestOHLCOrders, 8, 4> {
     public:
@@ -22,9 +22,12 @@ namespace screamer {
                            double max_position = std::numeric_limits<double>::infinity(),
                            double multiplier = 1.0,
                            double maker_fee_per_contract = 0.0,
-                           double taker_fee_per_contract = 0.0)
+                           double taker_fee_per_contract = 0.0,
+                           double slippage = 0.0,
+                           const std::string& slippage_unit = "fraction")
             : core_(maker_fee, taker_fee, parse_fill(fill),
-                    parse_participation(participation_ratio), tick_size,
+                    parse_participation(participation_ratio),
+                    detail::Slippage(slippage, slippage_unit, tick_size),
                     min_position, max_position,
                     multiplier, maker_fee_per_contract, taker_fee_per_contract) {}
         void reset() override { core_.reset(); }

@@ -8,25 +8,28 @@
 #include <tuple>
 #include "screamer/common/float_info.h"
 #include "screamer/detail/pnl_account.h"
+#include "screamer/detail/slippage.h"
 
 namespace screamer { namespace detail {
 
     // L1Fill: shared fill core for L1 quote-based backtest engines. Posts a
     // two-sided resting quote each event: the strategy's bid fills when the
     // market ask trades through it (breach) or locks it in touch mode; a
-    // quote that appears already crossing the spread is a marketable taker.
+    // quote that appears already crossing the spread is a marketable taker: it
+    // takes the displayed size at the touch and walks one tick_size for the rest,
+    // and the slippage model then moves that average price against the trader.
     // The sell side is symmetric. Fills are capped so the position stays in
     // [min_pos, max_pos]. Positions mark to the (market_bid + market_ask) / 2
     // mid. A NaN in any market field emits all-NaN (ignore policy).
     struct L1Fill {
         L1Fill(double maker_fee, double taker_fee, bool breach,
-               double participation, double tick_size,
+               double participation, const Slippage& slippage,
                double min_pos, double max_pos,
                  double multiplier = 1.0,
                  double maker_fee_per_contract = 0.0,
                  double taker_fee_per_contract = 0.0)
             : maker_fee_(maker_fee), taker_fee_(taker_fee), breach_(breach),
-              participation_(participation), tick_size_(tick_size),
+              participation_(participation), slippage_(slippage),
               min_pos_(min_pos), max_pos_(max_pos),
               maker_fee_per_contract_(maker_fee_per_contract),
               taker_fee_per_contract_(taker_fee_per_contract),
@@ -34,8 +37,6 @@ namespace screamer { namespace detail {
         {
             if (min_pos_ > max_pos_)
                 throw std::invalid_argument("min_position must not exceed max_position.");
-            if (tick_size_ < 0.0)
-                throw std::invalid_argument("tick_size must be non-negative.");
             if (!std::isfinite(maker_fee_per_contract_) ||
                 !std::isfinite(taker_fee_per_contract_))
                 throw std::invalid_argument("fee_per_contract values must be finite.");
@@ -122,11 +123,12 @@ namespace screamer { namespace detail {
                 } else {                                  // submitted already crossing: taker + slippage
                     const double disp = std::min(remaining, opp_size);
                     const double over = remaining - disp;
-                    const double slip = buy ? tick_size_ : -tick_size_;
-                    const double vwap = (disp * opp_price + over * (opp_price + slip))
+                    const double tick = slippage_.tick_size();
+                    const double step = buy ? tick : -tick;
+                    const double vwap = (disp * opp_price + over * (opp_price + step))
                                         / remaining;
                     r.dpos = buy ? remaining : -remaining;
-                    r.fill_price = vwap; r.is_taker = true;
+                    r.fill_price = slippage_.fill(vwap, buy); r.is_taker = true;
                 }
                 passive_prev = false; locked = false;     // order consumed
             } else if (lock) {
@@ -147,7 +149,9 @@ namespace screamer { namespace detail {
         double maker_fee_, taker_fee_;
         double maker_fee_per_contract_, taker_fee_per_contract_;
         bool breach_;
-        double participation_, tick_size_, min_pos_, max_pos_;
+        double participation_;
+        Slippage slippage_;
+        double min_pos_, max_pos_;
         bool bid_passive_ = false, ask_passive_ = false, bid_locked_ = false, ask_locked_ = false;
         detail::PnLAccount account_;
     };

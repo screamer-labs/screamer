@@ -42,6 +42,20 @@ parameters:
   type: float
   default: 0.0
   description: Fixed fee (or rebate when negative) charged per contract on each fill.
+- name: slippage
+  type: float
+  default: 0.0
+  min: 0.0
+  description: Adverse price offset on every taker (market) fill, read in `slippage_unit`. A buy fills higher and a sell lower; resting limit fills never slip.
+- name: slippage_unit
+  type: str
+  default: fraction
+  description: 'Unit of `slippage`: "fraction" of the reference price (5 bps = 5e-4), "ticks" of `tick_size`, or "price" (an absolute amount).'
+- name: tick_size
+  type: float
+  default: 0.0
+  min: 0.0
+  description: Instrument price grid (0 = continuous). Slippage offsets round up to whole ticks; the `"ticks"` slippage unit counts in this step.
 nan_policy: ignore
 see_also:
 - Drawdown
@@ -63,8 +77,15 @@ The `signal` is the target position in units (its sign is long, short, or flat, 
 magnitude); `price` is the mark (mid). Each bar the position moves to the signal via
 a market order that crosses half of the fractional `spread` (a buy fills at
 `price * (1 + spread/2)`, a sell at `price * (1 - spread/2)`) and pays the
-fractional `fee` on the traded notional. With the default `spread = fee = 0` the
+fractional `fee` on the traded notional. `slippage` moves the fill further against
+the trader, in the unit set by `slippage_unit` (`"fraction"`, `"ticks"` of
+`tick_size`, or `"price"`). With the defaults `spread = fee = slippage = 0` the
 backtest is frictionless.
+
+The fill happens at the same step's `price`. If the signal is computed from that
+same price (for example from a close), this assumes you can trade at the price
+you just observed. To trade one step later, lag the signal, or use
+`BacktestOHLCTarget`, which defers execution to the next bar.
 
 A target outside `[min_position, max_position]` is clamped to the nearest boundary
 before the order is computed; the default bounds are unbounded so the behavior is

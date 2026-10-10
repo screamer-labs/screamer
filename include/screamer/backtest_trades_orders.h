@@ -23,9 +23,12 @@ namespace screamer {
                              double max_position = std::numeric_limits<double>::infinity(),
                            double multiplier = 1.0,
                            double maker_fee_per_contract = 0.0,
-                           double taker_fee_per_contract = 0.0)
+                           double taker_fee_per_contract = 0.0,
+                           double slippage = 0.0,
+                           const std::string& slippage_unit = "fraction")
             : core_(maker_fee, taker_fee, parse_fill(fill),
-                    parse_participation(participation_ratio), tick_size,
+                    parse_participation(participation_ratio),
+                    detail::Slippage(slippage, slippage_unit, tick_size),
                     min_position, max_position,
                     multiplier, maker_fee_per_contract, taker_fee_per_contract) {}
         void reset() override { core_.reset(); }

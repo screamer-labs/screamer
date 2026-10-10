@@ -15,7 +15,7 @@ tags:
 - transaction cost
 - strategy
 - risk
-short: "Backtest a target-position strategy on OHLC bars, executing market orders at the next bar's open (causal, no manual lag)."
+short: "Backtest a target-position strategy on OHLC bars, executing market orders at the next bar's open or another bar price, with slippage (causal, no manual lag)."
 inputs: 5
 outputs: 4
 parameters:
@@ -27,7 +27,7 @@ parameters:
   type: float
   default: 0.0
   min: 0.0
-  description: Price increment added (subtracted) to the open for a market buy (sell) to model taker slippage.
+  description: Instrument price grid (0 = continuous). Slippage offsets round up to whole ticks; the "ticks" slippage unit counts in this step.
 - name: min_position
   type: float
   default: -.inf
@@ -45,6 +45,24 @@ parameters:
   type: float
   default: 0.0
   description: Fixed fee (or rebate when negative) charged per contract on each fill.
+- name: slippage
+  type: float
+  default: 0.0
+  min: 0.0
+  description: Adverse price offset on every taker (market) fill, read in `slippage_unit`. A buy fills higher and a sell lower; resting limit fills never slip.
+- name: slippage_unit
+  type: str
+  default: fraction
+  description: 'Unit of `slippage`: "fraction" of the reference price (5 bps = 5e-4), "ticks" of `tick_size`, or "price" (an absolute amount).'
+- name: fill_at
+  type: str
+  default: open
+  description: 'Reference price of the execution bar: "open", "close", "typical" (high + low + close) / 3, or "ohlc4" (open + high + low + close) / 4.'
+- name: delay
+  type: int
+  default: 1
+  min: 0
+  description: Bars between the decision and the execution. A target from bar t trades on bar t + delay. 0 is allowed only with fill_at="close" (market-on-close of the signal bar).
 nan_policy: ignore
 see_also:
 - BacktestOHLCOrders
@@ -71,8 +89,18 @@ trade within that same bar (the open already happened), so the engine holds it a
 trades the next open. This mirrors `BacktestPriceTarget`, where a signal set at t
 earns from t+1.
 
-The market order fills at `open + tick_size` (buy) or `open - tick_size` (sell),
-paying `taker_fee` on the traded notional. Positions mark to the close each bar.
+`fill_at` picks the execution price within the bar: `"open"` (default),
+`"close"`, `"typical"` (high + low + close) / 3, or `"ohlc4"` (open + high + low +
+close) / 4. `delay` sets how many bars later the target executes (default 1).
+`delay=0` is allowed only with `fill_at="close"`: it fills at the close of the
+bar the target was decided on (market-on-close).
+
+`slippage` moves the fill against the trader, in the unit set by
+`slippage_unit` (`"fraction"`, `"ticks"`, or `"price"`), and the trade pays
+`taker_fee` on the traded notional. Positions mark to the close each bar. The
+`cost` column holds the slippage and fees only; the move from the fill price to
+the close is pnl. See [Choosing a backtest engine](choosing_a_backtest_engine.md)
+for the shared slippage and cost rules.
 
 The optional `min_position` / `max_position` parameters cap the inventory. The
 deferred target is clamped to `[min_position, max_position]` before the order

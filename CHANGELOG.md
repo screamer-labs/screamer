@@ -5,12 +5,39 @@ All notable changes to this project are documented in this file.
 Unreleased
 ----------
 
+### Added
+
+* **Backtest slippage:** every backtest engine takes `slippage` and
+  `slippage_unit`. One number is read in one unit: `"fraction"` of the
+  reference price (5 bps = `5e-4`), `"ticks"` of `tick_size`, or `"price"`.
+  Slippage moves taker fills against the trader; resting limit fills never
+  slip. `BacktestPriceTarget` also gains `tick_size`.
+* **Backtest execution timing:** `BacktestOHLCTarget` takes `fill_at`
+  (`"open"`, `"close"`, `"typical"`, `"ohlc4"`) to choose the execution price
+  within the bar, and `delay` to choose how many bars after the decision it
+  executes. `delay=0` with `fill_at="close"` is market-on-close of the signal
+  bar.
+
 ### Fixed
 
 * **Read-only arrays:** every op raised `std::bad_cast` on a read-only numpy
   array. pandas returns read-only arrays from `Series.to_numpy()` under
   copy-on-write, so `RollingMean(3)(df["price"].to_numpy())` failed. Inputs
   are now accepted as read-only views, with no copy.
+* **Backtest cost on OHLC engines:** the `cost` column of `BacktestOHLCTarget`
+  and `BacktestOHLCOrders` counted the move from the fill price to the bar's
+  close as cost. It now holds only the trade's friction: slippage plus fees,
+  measured against the fill's reference price (the bar's `fill_at` price for a
+  market fill, the limit price for a resting fill). Equity and pnl are
+  unchanged; `cum_cost` and `total_cost` in `backtest_report` change.
+
+### Changed
+
+* **Backtest `tick_size`:** `tick_size` now means only the instrument's price
+  grid. On `BacktestOHLCTarget` and `BacktestOHLCOrders` it no longer adds a
+  one-tick slippage to market fills. To keep the old fills, pass
+  `slippage=1, slippage_unit="ticks"` with the same `tick_size`. On the L1
+  engines, a marketable order still walks one tick past the displayed size.
 
 2.5.0 - 2026-08-11
 ------------------

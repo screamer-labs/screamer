@@ -41,7 +41,7 @@ parameters:
   type: float
   default: 0.0
   min: 0.0
-  description: Accepted for interface uniformity; currently unused on the tape (see Limitations).
+  description: Instrument price grid (0 = continuous). Slippage offsets round up to whole ticks; the "ticks" slippage unit counts in this step.
 - name: min_position
   type: float
   default: -.inf
@@ -63,6 +63,15 @@ parameters:
   type: float
   default: 0.0
   description: Fixed fee (or rebate when negative) charged per contract on taker fills.
+- name: slippage
+  type: float
+  default: 0.0
+  min: 0.0
+  description: Adverse price offset on every taker (market) fill, read in `slippage_unit`. A buy fills higher and a sell lower; resting limit fills never slip.
+- name: slippage_unit
+  type: str
+  default: fraction
+  description: 'Unit of `slippage`: "fraction" of the reference price (5 bps = 5e-4), "ticks" of `tick_size`, or "price" (an absolute amount).'
 nan_policy: ignore
 see_also:
 - BacktestTradesTarget
@@ -116,11 +125,9 @@ accepted by [`backtest_report`](backtest_report.md).
 Queue priority is not tracked per order; at-price fills use `participation_ratio`
 as a front-of-queue proxy.
 
-`tick_size` is accepted for interface uniformity with `BacktestL1TradesOrders` and
-`BacktestOHLCOrders`, but it is inert on the tape: a marketable resting order
-fills at the print price without walking the book, so there is no displayed-size
-overflow to price. It is kept as a no-op parameter so strategies can share a
-uniform parameter set across engines.
+A marketable order fills at the print price moved by `slippage`, without walking
+a book. On the tape `tick_size` only sets the grid that slippage offsets round
+to.
 
 ## Examples
 

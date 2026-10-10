@@ -311,16 +311,17 @@ void init_bindings_fin(nb::module_& m) {
         .def("reset", &screamer::BayesianRegression::reset, "Reset to the prior.");
 
     nb::class_<screamer::BacktestPriceTarget, screamer::EvalOp>(m, "BacktestPriceTarget")
-        .def(nb::init<double, double, double, double, double, double>(),
+        .def(nb::init<double, double, double, double, double, double, double, const std::string&, double>(),
              "spread"_a = 0.0, "fee"_a = 0.0,
              "min_position"_a = -std::numeric_limits<double>::infinity(),
              "max_position"_a = std::numeric_limits<double>::infinity(),
-             "multiplier"_a = 1.0, "fee_per_contract"_a = 0.0)
+             "multiplier"_a = 1.0, "fee_per_contract"_a = 0.0,
+             "slippage"_a = 0.0, "slippage_unit"_a = "fraction", "tick_size"_a = 0.0)
         .def("__call__", &screamer::functor_call<screamer::BacktestPriceTarget>)
         .def("reset", &screamer::BacktestPriceTarget::reset, "Reset.");
 
     nb::class_<screamer::BacktestOHLCOrders, screamer::EvalOp>(m, "BacktestOHLCOrders")
-        .def(nb::init<double, double, const std::string&, double, double, double, double, double, double, double>(),
+        .def(nb::init<double, double, const std::string&, double, double, double, double, double, double, double, double, const std::string&>(),
              "maker_fee"_a = 0.0, "taker_fee"_a = 0.0,
              "fill"_a = "touch", "participation_ratio"_a = 1.0,
              "tick_size"_a = 0.0,
@@ -328,21 +329,24 @@ void init_bindings_fin(nb::module_& m) {
              "max_position"_a = std::numeric_limits<double>::infinity(),
              "multiplier"_a = 1.0,
              "maker_fee_per_contract"_a = 0.0,
-             "taker_fee_per_contract"_a = 0.0)
+             "taker_fee_per_contract"_a = 0.0,
+             "slippage"_a = 0.0, "slippage_unit"_a = "fraction")
         .def("__call__", &screamer::functor_call<screamer::BacktestOHLCOrders>)
         .def("reset", &screamer::BacktestOHLCOrders::reset, "Reset.");
 
     nb::class_<screamer::BacktestOHLCTarget, screamer::EvalOp>(m, "BacktestOHLCTarget")
-        .def(nb::init<double, double, double, double, double, double>(),
+        .def(nb::init<double, double, double, double, double, double, double, const std::string&, const std::string&, int>(),
              "taker_fee"_a = 0.0, "tick_size"_a = 0.0,
              "min_position"_a = -std::numeric_limits<double>::infinity(),
              "max_position"_a = std::numeric_limits<double>::infinity(),
-             "multiplier"_a = 1.0, "fee_per_contract"_a = 0.0)
+             "multiplier"_a = 1.0, "fee_per_contract"_a = 0.0,
+             "slippage"_a = 0.0, "slippage_unit"_a = "fraction",
+             "fill_at"_a = "open", "delay"_a = 1)
         .def("__call__", &screamer::functor_call<screamer::BacktestOHLCTarget>)
         .def("reset", &screamer::BacktestOHLCTarget::reset, "Reset.");
 
     nb::class_<screamer::BacktestTradesOrders, screamer::EvalOp>(m, "BacktestTradesOrders")
-        .def(nb::init<double, double, const std::string&, double, double, double, double, double, double, double>(),
+        .def(nb::init<double, double, const std::string&, double, double, double, double, double, double, double, double, const std::string&>(),
              "maker_fee"_a = 0.0, "taker_fee"_a = 0.0,
              "fill"_a = "touch", "participation_ratio"_a = 1.0,
              "tick_size"_a = 0.0,
@@ -350,12 +354,13 @@ void init_bindings_fin(nb::module_& m) {
              "max_position"_a = std::numeric_limits<double>::infinity(),
              "multiplier"_a = 1.0,
              "maker_fee_per_contract"_a = 0.0,
-             "taker_fee_per_contract"_a = 0.0)
+             "taker_fee_per_contract"_a = 0.0,
+             "slippage"_a = 0.0, "slippage_unit"_a = "fraction")
         .def("__call__", &screamer::functor_call<screamer::BacktestTradesOrders>)
         .def("reset", &screamer::BacktestTradesOrders::reset, "Reset.");
 
     nb::class_<screamer::BacktestL1Orders, screamer::EvalOp>(m, "BacktestL1Orders")
-        .def(nb::init<double, double, const std::string&, double, double, double, double, double, double, double>(),
+        .def(nb::init<double, double, const std::string&, double, double, double, double, double, double, double, double, const std::string&>(),
              "maker_fee"_a = 0.0, "taker_fee"_a = 0.0,
              "fill"_a = "breach", "participation_ratio"_a = 1.0,
              "tick_size"_a = 0.0,
@@ -363,21 +368,23 @@ void init_bindings_fin(nb::module_& m) {
              "max_position"_a = std::numeric_limits<double>::infinity(),
              "multiplier"_a = 1.0,
              "maker_fee_per_contract"_a = 0.0,
-             "taker_fee_per_contract"_a = 0.0)
+             "taker_fee_per_contract"_a = 0.0,
+             "slippage"_a = 0.0, "slippage_unit"_a = "fraction")
         .def("__call__", &screamer::functor_call<screamer::BacktestL1Orders>)
         .def("reset", &screamer::BacktestL1Orders::reset, "Reset.");
 
     nb::class_<screamer::BacktestL1Target, screamer::EvalOp>(m, "BacktestL1Target")
-        .def(nb::init<double, double, double, double, double, double>(),
+        .def(nb::init<double, double, double, double, double, double, double, const std::string&>(),
              "taker_fee"_a = 0.0, "tick_size"_a = 0.0,
              "min_position"_a = -std::numeric_limits<double>::infinity(),
              "max_position"_a = std::numeric_limits<double>::infinity(),
-             "multiplier"_a = 1.0, "fee_per_contract"_a = 0.0)
+             "multiplier"_a = 1.0, "fee_per_contract"_a = 0.0,
+             "slippage"_a = 0.0, "slippage_unit"_a = "fraction")
         .def("__call__", &screamer::functor_call<screamer::BacktestL1Target>)
         .def("reset", &screamer::BacktestL1Target::reset, "Reset.");
 
     nb::class_<screamer::BacktestL1TradesOrders, screamer::EvalOp>(m, "BacktestL1TradesOrders")
-        .def(nb::init<double, double, const std::string&, double, double, double, double, double, double, double>(),
+        .def(nb::init<double, double, const std::string&, double, double, double, double, double, double, double, double, const std::string&>(),
              "maker_fee"_a = 0.0, "taker_fee"_a = 0.0,
              "fill"_a = "touch", "participation_ratio"_a = 1.0,
              "tick_size"_a = 0.0,
@@ -385,16 +392,18 @@ void init_bindings_fin(nb::module_& m) {
              "max_position"_a = std::numeric_limits<double>::infinity(),
              "multiplier"_a = 1.0,
              "maker_fee_per_contract"_a = 0.0,
-             "taker_fee_per_contract"_a = 0.0)
+             "taker_fee_per_contract"_a = 0.0,
+             "slippage"_a = 0.0, "slippage_unit"_a = "fraction")
         .def("__call__", &screamer::functor_call<screamer::BacktestL1TradesOrders>)
         .def("reset", &screamer::BacktestL1TradesOrders::reset, "Reset.");
 
     nb::class_<screamer::BacktestTradesTarget, screamer::EvalOp>(m, "BacktestTradesTarget")
-        .def(nb::init<double, double, double, double, double, double>(),
+        .def(nb::init<double, double, double, double, double, double, double, const std::string&>(),
              "taker_fee"_a = 0.0, "tick_size"_a = 0.0,
              "min_position"_a = -std::numeric_limits<double>::infinity(),
              "max_position"_a = std::numeric_limits<double>::infinity(),
-             "multiplier"_a = 1.0, "fee_per_contract"_a = 0.0)
+             "multiplier"_a = 1.0, "fee_per_contract"_a = 0.0,
+             "slippage"_a = 0.0, "slippage_unit"_a = "fraction")
         .def("__call__", &screamer::functor_call<screamer::BacktestTradesTarget>)
         .def("reset", &screamer::BacktestTradesTarget::reset, "Reset.");
 

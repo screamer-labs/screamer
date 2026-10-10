@@ -2,6 +2,7 @@
 #define SCREAMER_BACKTEST_L1_TARGET_H
 
 #include <limits>
+#include <string>
 #include "screamer/common/functor_base.h"
 #include "screamer/detail/l1_fill.h"
 #include "screamer/detail/target_front.h"
@@ -21,9 +22,12 @@ namespace screamer {
                          double min_position = -std::numeric_limits<double>::infinity(),
                          double max_position = std::numeric_limits<double>::infinity(),
                            double multiplier = 1.0,
-                           double fee_per_contract = 0.0)
+                           double fee_per_contract = 0.0,
+                           double slippage = 0.0,
+                           const std::string& slippage_unit = "fraction")
             : core_(0.0, taker_fee, /*breach=*/false, /*participation=*/1.0,
-                    tick_size, min_position, max_position,
+                    detail::Slippage(slippage, slippage_unit, tick_size),
+                    min_position, max_position,
                     multiplier, 0.0, fee_per_contract),
               min_(min_position), max_(max_position) {}
 

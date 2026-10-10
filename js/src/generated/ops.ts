@@ -158,33 +158,37 @@ export function BOP(): ScreamerOp {
  * @param takerFee Fractional fee on a taker fill (a quote submitted already crossing the spread).
  * @param fill Fill rule. "breach" (conservative) fills only when the market trades through your quote; "touch" (optimistic) also fills a participation partial once per lock episode.
  * @param participationRatio Fraction of the locked ask/bid size captured on a touch fill (front-of-queue at 1.0).
- * @param tickSize Price step a marketable order walks for the size beyond the displayed quote.
+ * @param tickSize Instrument price grid (0 = continuous). A marketable order walks one tick past the displayed quote for the size beyond it; slippage offsets round up to whole ticks.
  * @param minPosition Inventory floor; sell fills are capped so the position never falls below it.
  * @param maxPosition Inventory ceiling; buy fills are capped so the position never exceeds it.
  * @param multiplier Contract multiplier applied to mark-to-market PnL, fill slippage, and proportional fees.
  * @param makerFeePerContract Fixed fee (or rebate when negative) charged per contract on maker fills.
  * @param takerFeePerContract Fixed fee (or rebate when negative) charged per contract on taker fills.
+ * @param slippage Adverse price offset on every taker (market) fill, read in `slippage_unit`. A buy fills higher and a sell lower; resting limit fills never slip.
+ * @param slippageUnit Unit of `slippage`: "fraction" of the reference price (5 bps = 5e-4), "ticks" of `tick_size`, or "price" (an absolute amount).
  * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
  */
-export function BacktestL1Orders(makerFee: number = 0.0, takerFee: number = 0.0, fill: string = "breach", participationRatio: number = 1.0, tickSize: number = 0.0, minPosition: number = -Infinity, maxPosition: number = Infinity, multiplier: number = 1.0, makerFeePerContract: number = 0.0, takerFeePerContract: number = 0.0): ScreamerOp {
+export function BacktestL1Orders(makerFee: number = 0.0, takerFee: number = 0.0, fill: string = "breach", participationRatio: number = 1.0, tickSize: number = 0.0, minPosition: number = -Infinity, maxPosition: number = Infinity, multiplier: number = 1.0, makerFeePerContract: number = 0.0, takerFeePerContract: number = 0.0, slippage: number = 0.0, slippageUnit: string = "fraction"): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.BacktestL1Orders(makerFee, takerFee, fill, participationRatio, tickSize, minPosition, maxPosition, multiplier, makerFeePerContract, takerFeePerContract));
+  return wrapOp(M, new M.BacktestL1Orders(makerFee, takerFee, fill, participationRatio, tickSize, minPosition, maxPosition, multiplier, makerFeePerContract, takerFeePerContract, slippage, slippageUnit));
 }
 
 /**
  * Backtest a target-position strategy against the L1 book, taking each quote update as a market fill to reach the target immediately.
  *
  * @param takerFee Fractional fee charged on each taker fill.
- * @param tickSize Price step a marketable order walks for the size beyond the displayed quote.
+ * @param tickSize Instrument price grid (0 = continuous). A marketable order walks one tick past the displayed quote for the size beyond it; slippage offsets round up to whole ticks.
  * @param minPosition Inventory floor. The target is clamped to [min_position, max_position] before the fill size is computed.
  * @param maxPosition Inventory ceiling. The target is clamped to [min_position, max_position] before the fill size is computed.
  * @param multiplier Contract multiplier applied to mark-to-market PnL, fill slippage, and proportional fees.
  * @param feePerContract Fixed fee (or rebate when negative) charged per contract on each fill.
+ * @param slippage Adverse price offset on every taker (market) fill, read in `slippage_unit`. A buy fills higher and a sell lower; resting limit fills never slip.
+ * @param slippageUnit Unit of `slippage`: "fraction" of the reference price (5 bps = 5e-4), "ticks" of `tick_size`, or "price" (an absolute amount).
  * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
  */
-export function BacktestL1Target(takerFee: number = 0.0, tickSize: number = 0.0, minPosition: number = -Infinity, maxPosition: number = Infinity, multiplier: number = 1.0, feePerContract: number = 0.0): ScreamerOp {
+export function BacktestL1Target(takerFee: number = 0.0, tickSize: number = 0.0, minPosition: number = -Infinity, maxPosition: number = Infinity, multiplier: number = 1.0, feePerContract: number = 0.0, slippage: number = 0.0, slippageUnit: string = "fraction"): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.BacktestL1Target(takerFee, tickSize, minPosition, maxPosition, multiplier, feePerContract));
+  return wrapOp(M, new M.BacktestL1Target(takerFee, tickSize, minPosition, maxPosition, multiplier, feePerContract, slippage, slippageUnit));
 }
 
 /**
@@ -194,17 +198,19 @@ export function BacktestL1Target(takerFee: number = 0.0, tickSize: number = 0.0,
  * @param takerFee Fractional fee on a taker fill (a quote submitted already crossing the spread).
  * @param fill Fill rule for a trade at your price. "touch" fills a participation partial; "breach" fills only on a trade through.
  * @param participationRatio Fraction of an at-price trade's size captured (front-of-queue at 1.0).
- * @param tickSize Price step a marketable order walks for the size beyond the displayed quote.
+ * @param tickSize Instrument price grid (0 = continuous). A marketable order walks one tick past the displayed quote for the size beyond it; slippage offsets round up to whole ticks.
  * @param minPosition Inventory floor; sell fills are capped so the position never falls below it.
  * @param maxPosition Inventory ceiling; buy fills are capped so the position never exceeds it.
  * @param multiplier Contract multiplier applied to mark-to-market PnL, fill slippage, and proportional fees.
  * @param makerFeePerContract Fixed fee (or rebate when negative) charged per contract on maker fills.
  * @param takerFeePerContract Fixed fee (or rebate when negative) charged per contract on taker fills.
+ * @param slippage Adverse price offset on every taker (market) fill, read in `slippage_unit`. A buy fills higher and a sell lower; resting limit fills never slip.
+ * @param slippageUnit Unit of `slippage`: "fraction" of the reference price (5 bps = 5e-4), "ticks" of `tick_size`, or "price" (an absolute amount).
  * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
  */
-export function BacktestL1TradesOrders(makerFee: number = 0.0, takerFee: number = 0.0, fill: string = "touch", participationRatio: number = 1.0, tickSize: number = 0.0, minPosition: number = -Infinity, maxPosition: number = Infinity, multiplier: number = 1.0, makerFeePerContract: number = 0.0, takerFeePerContract: number = 0.0): ScreamerOp {
+export function BacktestL1TradesOrders(makerFee: number = 0.0, takerFee: number = 0.0, fill: string = "touch", participationRatio: number = 1.0, tickSize: number = 0.0, minPosition: number = -Infinity, maxPosition: number = Infinity, multiplier: number = 1.0, makerFeePerContract: number = 0.0, takerFeePerContract: number = 0.0, slippage: number = 0.0, slippageUnit: string = "fraction"): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.BacktestL1TradesOrders(makerFee, takerFee, fill, participationRatio, tickSize, minPosition, maxPosition, multiplier, makerFeePerContract, takerFeePerContract));
+  return wrapOp(M, new M.BacktestL1TradesOrders(makerFee, takerFee, fill, participationRatio, tickSize, minPosition, maxPosition, multiplier, makerFeePerContract, takerFeePerContract, slippage, slippageUnit));
 }
 
 /**
@@ -214,33 +220,39 @@ export function BacktestL1TradesOrders(makerFee: number = 0.0, takerFee: number 
  * @param takerFee Fractional fee on a marketable (taker) fill.
  * @param fill Fill rule. "touch" fills when the bar's low/high reaches your quote price; "breach" requires the bar to trade through it.
  * @param participationRatio Fraction of the quoted size captured on each fill (front-of-queue at 1.0).
- * @param tickSize Price increment added (subtracted) to the open for a market buy (sell) to model taker slippage.
+ * @param tickSize Instrument price grid (0 = continuous). Slippage offsets round up to whole ticks; the "ticks" slippage unit counts in this step.
  * @param minPosition Inventory floor; sell fills are capped so the position never falls below it.
  * @param maxPosition Inventory ceiling; buy fills are capped so the position never exceeds it.
  * @param multiplier Contract multiplier applied to mark-to-market PnL, fill slippage, and proportional fees.
  * @param makerFeePerContract Fixed fee (or rebate when negative) charged per contract on maker fills.
  * @param takerFeePerContract Fixed fee (or rebate when negative) charged per contract on taker fills.
+ * @param slippage Adverse price offset on every taker (market) fill, read in `slippage_unit`. A buy fills higher and a sell lower; resting limit fills never slip.
+ * @param slippageUnit Unit of `slippage`: "fraction" of the reference price (5 bps = 5e-4), "ticks" of `tick_size`, or "price" (an absolute amount).
  * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
  */
-export function BacktestOHLCOrders(makerFee: number = 0.0, takerFee: number = 0.0, fill: string = "touch", participationRatio: number = 1.0, tickSize: number = 0.0, minPosition: number = -Infinity, maxPosition: number = Infinity, multiplier: number = 1.0, makerFeePerContract: number = 0.0, takerFeePerContract: number = 0.0): ScreamerOp {
+export function BacktestOHLCOrders(makerFee: number = 0.0, takerFee: number = 0.0, fill: string = "touch", participationRatio: number = 1.0, tickSize: number = 0.0, minPosition: number = -Infinity, maxPosition: number = Infinity, multiplier: number = 1.0, makerFeePerContract: number = 0.0, takerFeePerContract: number = 0.0, slippage: number = 0.0, slippageUnit: string = "fraction"): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.BacktestOHLCOrders(makerFee, takerFee, fill, participationRatio, tickSize, minPosition, maxPosition, multiplier, makerFeePerContract, takerFeePerContract));
+  return wrapOp(M, new M.BacktestOHLCOrders(makerFee, takerFee, fill, participationRatio, tickSize, minPosition, maxPosition, multiplier, makerFeePerContract, takerFeePerContract, slippage, slippageUnit));
 }
 
 /**
- * Backtest a target-position strategy on OHLC bars, executing market orders at the next bar's open (causal, no manual lag).
+ * Backtest a target-position strategy on OHLC bars, executing market orders at the next bar's open or another bar price, with slippage (causal, no manual lag).
  *
  * @param takerFee Fractional fee charged on a market (taker) fill at the open.
- * @param tickSize Price increment added (subtracted) to the open for a market buy (sell) to model taker slippage.
+ * @param tickSize Instrument price grid (0 = continuous). Slippage offsets round up to whole ticks; the "ticks" slippage unit counts in this step.
  * @param minPosition Lower bound on the filled position. The deferred target is clamped to [min_position, max_position] before the fill executes.
  * @param maxPosition Upper bound on the filled position. The deferred target is clamped to [min_position, max_position] before the fill executes.
  * @param multiplier Contract multiplier applied to mark-to-market PnL, fill slippage, and proportional fees.
  * @param feePerContract Fixed fee (or rebate when negative) charged per contract on each fill.
+ * @param slippage Adverse price offset on every taker (market) fill, read in `slippage_unit`. A buy fills higher and a sell lower; resting limit fills never slip.
+ * @param slippageUnit Unit of `slippage`: "fraction" of the reference price (5 bps = 5e-4), "ticks" of `tick_size`, or "price" (an absolute amount).
+ * @param fillAt Reference price of the execution bar: "open", "close", "typical" (high + low + close) / 3, or "ohlc4" (open + high + low + close) / 4.
+ * @param delay Bars between the decision and the execution. A target from bar t trades on bar t + delay. 0 is allowed only with fill_at="close" (market-on-close of the signal bar).
  * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
  */
-export function BacktestOHLCTarget(takerFee: number = 0.0, tickSize: number = 0.0, minPosition: number = -Infinity, maxPosition: number = Infinity, multiplier: number = 1.0, feePerContract: number = 0.0): ScreamerOp {
+export function BacktestOHLCTarget(takerFee: number = 0.0, tickSize: number = 0.0, minPosition: number = -Infinity, maxPosition: number = Infinity, multiplier: number = 1.0, feePerContract: number = 0.0, slippage: number = 0.0, slippageUnit: string = "fraction", fillAt: string = "open", delay: number = 1): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.BacktestOHLCTarget(takerFee, tickSize, minPosition, maxPosition, multiplier, feePerContract));
+  return wrapOp(M, new M.BacktestOHLCTarget(takerFee, tickSize, minPosition, maxPosition, multiplier, feePerContract, slippage, slippageUnit, fillAt, delay));
 }
 
 /**
@@ -252,11 +264,14 @@ export function BacktestOHLCTarget(takerFee: number = 0.0, tickSize: number = 0.
  * @param maxPosition Upper bound on the target position. Signals above this value are clamped to it.
  * @param multiplier Contract multiplier applied to mark-to-market PnL, fill slippage, and proportional fees.
  * @param feePerContract Fixed fee (or rebate when negative) charged per contract on each fill.
+ * @param slippage Adverse price offset on every taker (market) fill, read in `slippage_unit`. A buy fills higher and a sell lower; resting limit fills never slip.
+ * @param slippageUnit Unit of `slippage`: "fraction" of the reference price (5 bps = 5e-4), "ticks" of `tick_size`, or "price" (an absolute amount).
+ * @param tickSize Instrument price grid (0 = continuous). Slippage offsets round up to whole ticks; the `"ticks"` slippage unit counts in this step.
  * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
  */
-export function BacktestPriceTarget(spread: number = 0.0, fee: number = 0.0, minPosition: number = -Infinity, maxPosition: number = Infinity, multiplier: number = 1.0, feePerContract: number = 0.0): ScreamerOp {
+export function BacktestPriceTarget(spread: number = 0.0, fee: number = 0.0, minPosition: number = -Infinity, maxPosition: number = Infinity, multiplier: number = 1.0, feePerContract: number = 0.0, slippage: number = 0.0, slippageUnit: string = "fraction", tickSize: number = 0.0): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.BacktestPriceTarget(spread, fee, minPosition, maxPosition, multiplier, feePerContract));
+  return wrapOp(M, new M.BacktestPriceTarget(spread, fee, minPosition, maxPosition, multiplier, feePerContract, slippage, slippageUnit, tickSize));
 }
 
 /**
@@ -276,33 +291,37 @@ export function BacktestReport(): ScreamerOp {
  * @param takerFee Fractional fee on a taker fill (a market order that sweeps any print).
  * @param fill Fill rule for a trade at your price. "touch" fills a participation partial; "breach" fills only on a trade through.
  * @param participationRatio Fraction of an at-price trade's size captured (front-of-queue at 1.0).
- * @param tickSize Accepted for interface uniformity; currently unused on the tape (see Limitations).
+ * @param tickSize Instrument price grid (0 = continuous). Slippage offsets round up to whole ticks; the "ticks" slippage unit counts in this step.
  * @param minPosition Inventory floor; sell fills are capped so the position never falls below it.
  * @param maxPosition Inventory ceiling; buy fills are capped so the position never exceeds it.
  * @param multiplier Contract multiplier applied to mark-to-market PnL, fill slippage, and proportional fees.
  * @param makerFeePerContract Fixed fee (or rebate when negative) charged per contract on maker fills.
  * @param takerFeePerContract Fixed fee (or rebate when negative) charged per contract on taker fills.
+ * @param slippage Adverse price offset on every taker (market) fill, read in `slippage_unit`. A buy fills higher and a sell lower; resting limit fills never slip.
+ * @param slippageUnit Unit of `slippage`: "fraction" of the reference price (5 bps = 5e-4), "ticks" of `tick_size`, or "price" (an absolute amount).
  * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
  */
-export function BacktestTradesOrders(makerFee: number = 0.0, takerFee: number = 0.0, fill: string = "touch", participationRatio: number = 1.0, tickSize: number = 0.0, minPosition: number = -Infinity, maxPosition: number = Infinity, multiplier: number = 1.0, makerFeePerContract: number = 0.0, takerFeePerContract: number = 0.0): ScreamerOp {
+export function BacktestTradesOrders(makerFee: number = 0.0, takerFee: number = 0.0, fill: string = "touch", participationRatio: number = 1.0, tickSize: number = 0.0, minPosition: number = -Infinity, maxPosition: number = Infinity, multiplier: number = 1.0, makerFeePerContract: number = 0.0, takerFeePerContract: number = 0.0, slippage: number = 0.0, slippageUnit: string = "fraction"): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.BacktestTradesOrders(makerFee, takerFee, fill, participationRatio, tickSize, minPosition, maxPosition, multiplier, makerFeePerContract, takerFeePerContract));
+  return wrapOp(M, new M.BacktestTradesOrders(makerFee, takerFee, fill, participationRatio, tickSize, minPosition, maxPosition, multiplier, makerFeePerContract, takerFeePerContract, slippage, slippageUnit));
 }
 
 /**
  * Backtest a target-position strategy against the trade tape, taking each print as a market fill to reach the target immediately.
  *
  * @param takerFee Fractional fee charged on each taker fill at the print price.
- * @param tickSize Accepted for interface uniformity; currently unused on the tape.
+ * @param tickSize Instrument price grid (0 = continuous). Slippage offsets round up to whole ticks; the "ticks" slippage unit counts in this step.
  * @param minPosition Inventory floor. The target is clamped to [min_position, max_position] before the fill size is computed.
  * @param maxPosition Inventory ceiling. The target is clamped to [min_position, max_position] before the fill size is computed.
  * @param multiplier Contract multiplier applied to mark-to-market PnL, fill slippage, and proportional fees.
  * @param feePerContract Fixed fee (or rebate when negative) charged per contract on each fill.
+ * @param slippage Adverse price offset on every taker (market) fill, read in `slippage_unit`. A buy fills higher and a sell lower; resting limit fills never slip.
+ * @param slippageUnit Unit of `slippage`: "fraction" of the reference price (5 bps = 5e-4), "ticks" of `tick_size`, or "price" (an absolute amount).
  * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
  */
-export function BacktestTradesTarget(takerFee: number = 0.0, tickSize: number = 0.0, minPosition: number = -Infinity, maxPosition: number = Infinity, multiplier: number = 1.0, feePerContract: number = 0.0): ScreamerOp {
+export function BacktestTradesTarget(takerFee: number = 0.0, tickSize: number = 0.0, minPosition: number = -Infinity, maxPosition: number = Infinity, multiplier: number = 1.0, feePerContract: number = 0.0, slippage: number = 0.0, slippageUnit: string = "fraction"): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.BacktestTradesTarget(takerFee, tickSize, minPosition, maxPosition, multiplier, feePerContract));
+  return wrapOp(M, new M.BacktestTradesTarget(takerFee, tickSize, minPosition, maxPosition, multiplier, feePerContract, slippage, slippageUnit));
 }
 
 /**

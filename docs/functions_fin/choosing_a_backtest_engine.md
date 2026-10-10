@@ -80,10 +80,43 @@ a marketable order.
 `screamer.MARKET` equals `+math.inf` and is provided as a readable constant for
 submitting a market buy without writing `float('inf')` directly.
 
-For `BacktestOHLCTarget`, the target decided on bar t always executes as a market
-order at bar t+1's open (causal deferral; no manual lag is needed). For
+For `BacktestOHLCTarget`, the target decided on bar t executes as a market order
+on bar t+1 at the open by default (causal deferral; no manual lag is needed).
+`fill_at` and `delay` change the price and the bar, as described below. For
 `BacktestOHLCOrders`, a NaN bid or ask price is a market order that fills at the
 bar's open; a finite price rests and waits for the bar's range.
+
+## Execution price, slippage, and cost
+
+A taker (market) fill starts from a **reference price**: the fair price at
+execution, before any friction.
+
+| Engine family | Reference price of a taker fill |
+|:--------------|:--------------------------------|
+| Price         | `price`, then half of `spread` |
+| OHLC          | The execution bar's `fill_at` price: `"open"` (default), `"close"`, `"typical"`, or `"ohlc4"` |
+| Trades        | The print price |
+| L1            | The opposite touch, walking one `tick_size` beyond the displayed size |
+
+`slippage` then moves the fill against the trader: a buy fills higher and a sell
+lower. One number is read in one unit, chosen with `slippage_unit`:
+
+| `slippage_unit` | Offset | Example |
+|:----------------|:-------|:--------|
+| `"fraction"` (default) | `reference * slippage` | `slippage=5e-4` is 5 bps |
+| `"ticks"` | `slippage * tick_size` | `slippage=2, tick_size=0.01` is 0.02 |
+| `"price"` | `slippage` | `slippage=0.05` is 0.05 |
+
+`tick_size` is the instrument's price grid (0 means continuous prices). When it is
+set, the offset rounds up to whole ticks. A resting limit order never slips: it
+fills at its own limit price. The examples at the end of this page show both
+styles of call.
+
+The `cost` column is the friction of each trade: the fill-versus-reference
+difference (spread and slippage) plus fees. The move from the fill price to the
+mark is profit or loss, not cost. A resting limit fill has the limit price as its
+reference, so its cost is its fee alone. The split between `pnl` and `cost` does
+not change `equity`.
 
 ## Fill-cap rule
 
@@ -95,5 +128,18 @@ cannot exceed `current_position - min_position`. A fill that would breach the bo
 is truncated to exactly the remaining room. Passing
 `min_position=-8.0, max_position=8.0` enforces a hard inventory limit of eight
 units on each side, independent of order size.
+
+## Examples
+
+### Slippage and execution price
+
+```python
+# Next bar's open, 5 bps of slippage, 2 bps taker fee
+BacktestOHLCTarget(taker_fee=2e-4, slippage=5e-4)(target, o, h, l, c)
+
+# Market-on-close of the signal bar, one tick of slippage on a 0.25 grid
+BacktestOHLCTarget(fill_at="close", delay=0,
+                   slippage=1, slippage_unit="ticks", tick_size=0.25)(target, o, h, l, c)
+```
 
 <!-- HELP_END -->
