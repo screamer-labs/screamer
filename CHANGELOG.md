@@ -5,6 +5,13 @@ All notable changes to this project are documented in this file.
 Unreleased
 ----------
 
+### Fixed
+
+* **Read-only arrays:** every op raised `std::bad_cast` on a read-only numpy
+  array. pandas returns read-only arrays from `Series.to_numpy()` under
+  copy-on-write, so `RollingMean(3)(df["price"].to_numpy())` failed. Inputs
+  are now accepted as read-only views, with no copy.
+
 2.5.0 - 2026-08-11
 ------------------
 

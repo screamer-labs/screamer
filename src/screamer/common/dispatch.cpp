@@ -37,7 +37,7 @@ nb::object screamer_call(ScreamerBase& self, nb::object obj) {
         // ndarray of the same shape, whatever its length. A length-1 array is a
         // time series of one, not a scalar; only an actual scalar returns a
         // scalar.
-        nb::ndarray<> arr = nb::cast<nb::ndarray<>>(obj);
+        nb::ndarray<nb::ro> arr = nb::cast<nb::ndarray<nb::ro>>(obj);
         if (arr.ndim() == 0) {
             // Rank 0: a 0-d array carries a single sample with no time axis, so
             // it behaves like a scalar - one event in, one scalar out.
@@ -48,12 +48,12 @@ nb::object screamer_call(ScreamerBase& self, nb::object obj) {
     }
 
     if (detail::is_unsupported_dtype_array(obj)) {
-        // A numpy array whose dtype nanobind's nb::ndarray<> cannot represent
+        // A numpy array whose dtype nanobind's nb::ndarray<nb::ro> cannot represent
         // (e.g. longdouble/float128). Coerce to a contiguous float64 array so
         // the normal ndarray path handles it, instead of falling through to the
         // iterable branch below. Checked after is_ndarray so no supported dtype
         // pays for this.
-        nb::ndarray<> arr = nb::cast<nb::ndarray<>>(detail::coerce_to_f64(obj));
+        nb::ndarray<nb::ro> arr = nb::cast<nb::ndarray<nb::ro>>(detail::coerce_to_f64(obj));
         return process_python_array(self, arr);
     }
 
@@ -77,7 +77,7 @@ nb::object screamer_call(ScreamerBase& self, nb::object obj) {
     throw std::invalid_argument(oss.str());
 }
 
-nb::object process_python_array(ScreamerBase& self, nb::ndarray<> input) {
+nb::object process_python_array(ScreamerBase& self, nb::ndarray<nb::ro> input) {
     size_t nd = input.ndim();
 
     std::vector<size_t> shape(nd);

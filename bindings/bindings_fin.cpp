@@ -59,7 +59,7 @@ nb::object portfolio_report_row(screamer::PortfolioReport& self, nb::object row)
         nb::module_ np = nb::module_::import_("numpy");
         row = np.attr("asarray")(row, nb::arg("dtype") = np.attr("float64"));
     }
-    auto values = screamer::detail::read_contig_double(nb::cast<nb::ndarray<>>(row));
+    auto values = screamer::detail::read_contig_double(nb::cast<nb::ndarray<nb::ro>>(row));
     if (values.ndim() == 1) {
         if (values.shape[0] == 0 || values.shape[0] % 4 != 0)
             throw nb::value_error("PortfolioReport rows must have a multiple of 4 values.");
@@ -128,7 +128,7 @@ nb::object portfolio_report_call(screamer::PortfolioReport& self, nb::args args)
     if (screamer::detail::is_unsupported_dtype_array(input))
         input = screamer::detail::coerce_to_f64(input);
     if (screamer::detail::is_ndarray(input)) {
-        auto values = screamer::detail::read_contig_double(nb::cast<nb::ndarray<>>(input));
+        auto values = screamer::detail::read_contig_double(nb::cast<nb::ndarray<nb::ro>>(input));
         if (values.ndim() == 3) return portfolio_report_batch(self, values);
         if (values.ndim() == 2 || values.ndim() == 1)
             return portfolio_report_row(self, input);
@@ -142,7 +142,7 @@ nb::object portfolio_report_call(screamer::PortfolioReport& self, nb::args args)
         // (assets, 4) or a complete (time, assets, 4) batch.
         nb::module_ np = nb::module_::import_("numpy");
         nb::object arr = np.attr("asarray")(input, nb::arg("dtype") = np.attr("float64"));
-        auto values = screamer::detail::read_contig_double(nb::cast<nb::ndarray<>>(arr));
+        auto values = screamer::detail::read_contig_double(nb::cast<nb::ndarray<nb::ro>>(arr));
         if (values.ndim() == 3) return portfolio_report_batch(self, values);
         return portfolio_report_row(self, arr);
     }

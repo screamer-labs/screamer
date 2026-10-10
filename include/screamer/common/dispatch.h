@@ -64,7 +64,7 @@ inline float half_bits_to_float(uint16_t h) {
 
 // Read one element of an arbitrary-dtype buffer at element index `idx`, coerced
 // to double. Mirrors pybind's `py::array_t<double, forcecast>` dtype coercion,
-// which nanobind's generic `nb::ndarray<>` does NOT do for free.
+// which nanobind's generic `nb::ndarray<nb::ro>` does NOT do for free.
 inline double load_elem(const void* base, int64_t idx, const nb::dlpack::dtype& dt) {
     using C = nb::dlpack::dtype_code;
     if (dt.code == (uint8_t) C::Float) {
@@ -72,7 +72,7 @@ inline double load_elem(const void* base, int64_t idx, const nb::dlpack::dtype& 
         if (dt.bits == 32) return (double)((const float*) base)[idx];
         if (dt.bits == 16) return (double) half_bits_to_float(((const uint16_t*) base)[idx]);
         // A wider float (numpy longdouble / float128, 80- or 128-bit) never
-        // reaches load_elem: nanobind's nb::ndarray<> cannot represent that
+        // reaches load_elem: nanobind's nb::ndarray<nb::ro> cannot represent that
         // dtype, so the dispatch layer coerces such an array to float64 via
         // numpy upstream (detail::coerce_if_unsupported_dtype_array) before any
         // element is read here. On a platform where long double == double (e.g.
@@ -109,14 +109,14 @@ inline nb::object make_owned_array(double* data, const std::vector<size_t>& shap
 // rank / strides. Replaces pybind's `py::isinstance<py::array>`. convert=false
 // so it accepts existing arrays only (not sequences that could be converted).
 inline bool is_ndarray(nb::handle h) {
-    nb::ndarray<> tmp;
-    return nb::try_cast<nb::ndarray<>>(h, tmp, /*convert=*/false);
+    nb::ndarray<nb::ro> tmp;
+    return nb::try_cast<nb::ndarray<nb::ro>>(h, tmp, /*convert=*/false);
 }
 
-// True iff `h` is a rank>=1 numpy array whose dtype nanobind's `nb::ndarray<>`
+// True iff `h` is a rank>=1 numpy array whose dtype nanobind's `nb::ndarray<nb::ro>`
 // cannot represent (e.g. numpy longdouble / float128, an unsupported DLPack
 // float width). Such an object is array-like (carries dtype/shape/ndim) yet
-// is_ndarray() is false because try_cast<nb::ndarray<>> rejects the dtype, so
+// is_ndarray() is false because try_cast<nb::ndarray<nb::ro>> rejects the dtype, so
 // it would otherwise be mis-routed to the iterable branch. The dispatch layer
 // coerces these to float64 upstream (coerce_to_f64) so the normal ndarray path
 // handles them. A 0-d array (ndim==0) is excluded: it behaves like a scalar.
@@ -131,7 +131,7 @@ inline bool is_unsupported_dtype_array(nb::handle h) {
 // Replica of pybind11's `py::array_t<double, py::array::forcecast>`: a
 // C-contiguous float64 numpy copy of `h`. numpy raises TypeError for a
 // non-numeric dtype (e.g. object arrays), matching the old forcecast error
-// surface. (Complex arrays never reach here: nanobind's nb::ndarray<> accepts
+// surface. (Complex arrays never reach here: nanobind's nb::ndarray<nb::ro> accepts
 // them, so they stay on the normal path where load_elem raises.)
 inline nb::object coerce_to_f64(nb::handle h) {
     nb::module_ np = nb::module_::import_("numpy");
@@ -140,7 +140,7 @@ inline nb::object coerce_to_f64(nb::handle h) {
 
 // Coerce a single dispatch input: if it is an unsupported-dtype array, return
 // its float64 coercion; otherwise return it unchanged. The fast path (float64
-// and every other nb::ndarray<>-accepted dtype, scalars, iterables) is never
+// and every other nb::ndarray<nb::ro>-accepted dtype, scalars, iterables) is never
 // coerced.
 inline nb::object coerce_if_unsupported_dtype_array(nb::object obj) {
     if (is_unsupported_dtype_array(obj)) return coerce_to_f64(obj);
@@ -164,7 +164,7 @@ inline nb::args coerce_args_if_unsupported(const nb::args& args) {
 }
 
 // True iff `a` is C-contiguous (row-major, unit last stride).
-inline bool is_c_contiguous(const nb::ndarray<>& a) {
+inline bool is_c_contiguous(const nb::ndarray<nb::ro>& a) {
     size_t nd = a.ndim();
     if (nd == 0) return true;
     int64_t expected = 1;
@@ -186,7 +186,7 @@ struct ContigDouble {
     size_t cols()  const { size_t t = time(); return t ? total() / t : 0; }
 };
 
-inline ContigDouble read_contig_double(const nb::ndarray<>& a) {
+inline ContigDouble read_contig_double(const nb::ndarray<nb::ro>& a) {
     ContigDouble r;
     size_t nd = a.ndim();
     r.shape.resize(nd);
@@ -231,7 +231,7 @@ inline std::array<ContigDouble, N> read_n_arrays(const nb::tuple& inputs) {
     if (!is_ndarray(inputs[0])) {
         throw nb::type_error("Incompatible input type, a mix of numpy arrays and other.");
     }
-    out[0] = read_contig_double(nb::cast<nb::ndarray<>>(inputs[0]));
+    out[0] = read_contig_double(nb::cast<nb::ndarray<nb::ro>>(inputs[0]));
     if (out[0].ndim() < 1) {
         throw std::runtime_error("Input array must have at least one dimension");
     }
@@ -239,7 +239,7 @@ inline std::array<ContigDouble, N> read_n_arrays(const nb::tuple& inputs) {
         if (!is_ndarray(inputs[i])) {
             throw nb::type_error("Incompatible input type, a mix of numpy arrays and other.");
         }
-        out[i] = read_contig_double(nb::cast<nb::ndarray<>>(inputs[i]));
+        out[i] = read_contig_double(nb::cast<nb::ndarray<nb::ro>>(inputs[i]));
         if (out[i].ndim() != out[0].ndim()) {
             throw nb::type_error("Incompatible input numpy arrays, dimensions mismatch.");
         }
@@ -260,7 +260,7 @@ inline std::optional<std::array<ContigDouble, N>> maybe_split_TxN(const nb::args
     if (args.size() != 1 || !is_ndarray(args[0])) {
         return std::nullopt;
     }
-    nb::ndarray<> arr = nb::cast<nb::ndarray<>>(args[0]);
+    nb::ndarray<nb::ro> arr = nb::cast<nb::ndarray<nb::ro>>(args[0]);
     if (arr.ndim() != 2) {
         return std::nullopt;   // 1-D single array falls through to the normal error
     }
@@ -289,7 +289,7 @@ inline std::optional<std::array<ContigDouble, N>> maybe_split_TxN(const nb::args
 // ScreamerBase::process_python_array). Free functions taking the base by
 // reference so one function pointer binds every ScreamerBase op as __call__.
 nb::object screamer_call(ScreamerBase& self, nb::object obj);
-nb::object process_python_array(ScreamerBase& self, nb::ndarray<> input);
+nb::object process_python_array(ScreamerBase& self, nb::ndarray<nb::ro> input);
 
 // ---------------------------------------------------------------------------
 // Relocated FunctorBase dispatch. Was FunctorBase::handle_input* member
@@ -389,7 +389,7 @@ nb::object eager_parallel(Op& self, const nb::tuple& inputs) {
 // ONE INPUT, ONE OUTPUT (numpy)
 // ---------------------------------------------------------
 template <class Op>
-nb::object handle_input_1i_1o_numpy(Op& self, const nb::ndarray<>& input) {
+nb::object handle_input_1i_1o_numpy(Op& self, const nb::ndarray<nb::ro>& input) {
     detail::ContigDouble in = detail::read_contig_double(input);
     if (in.ndim() < 1) {
         throw std::runtime_error("Input array must have at least one dimension and contain doubles");
@@ -460,7 +460,7 @@ nb::object handle_input_Ni_1o_numpy(Op& self, std::array<detail::ContigDouble, O
 // (T, ..., M): an extra trailing axis of size M is appended for the
 // M outputs per time step. Memory is written contiguously per step.
 template <class Op>
-nb::object handle_input_1i_Mo_numpy(Op& self, const nb::ndarray<>& input) {
+nb::object handle_input_1i_Mo_numpy(Op& self, const nb::ndarray<nb::ro>& input) {
     constexpr size_t M = Op::kM;
     detail::ContigDouble in = detail::read_contig_double(input);
     if (in.ndim() < 1) {
@@ -530,15 +530,15 @@ nb::object functor_1i_Mo(Op& self, nb::object input) {
     // Case 1: Numpy array. Checked before the scalar cast so a length-1 array
     // is a time series of one (array in, array out - Rule A), not a scalar.
     if (is_series_array(input)) {
-        return handle_input_1i_Mo_numpy(self, nb::cast<nb::ndarray<>>(input));
+        return handle_input_1i_Mo_numpy(self, nb::cast<nb::ndarray<nb::ro>>(input));
     }
 
-    // Case 1b: a numpy array whose dtype nanobind's nb::ndarray<> cannot
+    // Case 1b: a numpy array whose dtype nanobind's nb::ndarray<nb::ro> cannot
     // represent (e.g. longdouble/float128). Coerce to float64 and process as
     // an array. Checked after is_series_array so no supported dtype pays.
     if (detail::is_unsupported_dtype_array(input)) {
         return handle_input_1i_Mo_numpy(self,
-            nb::cast<nb::ndarray<>>(detail::coerce_to_f64(input)));
+            nb::cast<nb::ndarray<nb::ro>>(detail::coerce_to_f64(input)));
     }
 
     // Case 2: Scalar input -> tuple of M floats (one streaming event)
@@ -585,15 +585,15 @@ nb::object functor_1i_1o(Op& self, nb::object input) {
     // is a time series of one (array in, array out - Rule A), not a scalar;
     // only an actual Python scalar returns a scalar.
     if (is_series_array(input)) {
-        return handle_input_1i_1o_numpy(self, nb::cast<nb::ndarray<>>(input));
+        return handle_input_1i_1o_numpy(self, nb::cast<nb::ndarray<nb::ro>>(input));
     }
 
-    // Case 1b: a numpy array whose dtype nanobind's nb::ndarray<> cannot
+    // Case 1b: a numpy array whose dtype nanobind's nb::ndarray<nb::ro> cannot
     // represent (e.g. longdouble/float128). Coerce to float64 and process as
     // an array. Checked after is_series_array so no supported dtype pays.
     if (detail::is_unsupported_dtype_array(input)) {
         return handle_input_1i_1o_numpy(self,
-            nb::cast<nb::ndarray<>>(detail::coerce_to_f64(input)));
+            nb::cast<nb::ndarray<nb::ro>>(detail::coerce_to_f64(input)));
     }
 
     // Case 2: Scalar input (one streaming event)
