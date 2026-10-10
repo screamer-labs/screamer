@@ -1,6 +1,10 @@
 # Randomization tests for backtest significance
 
-Status: design proposal, 2026-10-10.
+Status: implemented. `position_test` (shift, segments, family-wise for several
+strategies), `strategy_test` (bars, returns, shift), the generators
+`circular_shift`, `segment_shuffle`, `permute_bars`, `permute_returns`, and the
+analytic `probabilistic_sharpe` and `deflated_sharpe`, in Python and JS. The
+stationary bootstrap is not implemented.
 
 ## Goal
 

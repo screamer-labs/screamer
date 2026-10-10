@@ -1,6 +1,10 @@
 # Backtest engines: current state and missing execution modes
 
-Status: assessment and proposal, 2026-10-10.
+Status: F1-F5 implemented (2.6.0 and later): the cost fix, `slippage` /
+`slippage_unit`, `fill_at` / `delay`, risk exits, `BacktestStats` and
+`periods_per_year`, and `BacktestCarry` (carry as an overlay node rather than an
+engine input). F6 and F7 wait for the decisions in
+`2026-10-10-backtest-open-decisions.md`.
 
 ## Current state
 
