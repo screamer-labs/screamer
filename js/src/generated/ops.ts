@@ -596,7 +596,7 @@ export function DX(windowSize: number = 14): ScreamerOp {
 /**
  * Ehlers trend estimate with short cycles removed.
  *
- * @param period Cycles at or below this length in samples are removed. Give this or cutoff.
+ * @param period Cycles at or below this length in samples are removed. Pass exactly one of period or cutoff; the constructor has no default, and 60 is a suggested starting value.
  * @param cutoff Cutoff as a fraction of Nyquist in (0, 1). Give this or period, not both.
  * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
  */
@@ -2437,8 +2437,8 @@ export function RollingZscore(windowSize: number = 20, startPolicy: string = "st
 /**
  * Ehlers bandpass, a highpass then a SuperSmoother.
  *
- * @param hpPeriod Highpass cutoff as a cycle length in samples. Give this or hp_cutoff.
- * @param lpPeriod Lowpass cutoff as a cycle length in samples. Give this or lp_cutoff.
+ * @param hpPeriod Highpass cutoff as a cycle length in samples. Pass exactly one of hp_period or hp_cutoff; the constructor has no default, and 48 is a suggested starting value.
+ * @param lpPeriod Lowpass cutoff as a cycle length in samples. Pass exactly one of lp_period or lp_cutoff; the constructor has no default, and 10 is a suggested starting value.
  * @param hpCutoff Highpass cutoff as a fraction of Nyquist in (0, 1). Give this or hp_period.
  * @param lpCutoff Lowpass cutoff as a fraction of Nyquist in (0, 1). Give this or lp_period.
  * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
@@ -2581,7 +2581,7 @@ export function Sub(): ScreamerOp {
 /**
  * Ehlers 2-pole low-lag lowpass filter.
  *
- * @param period Cutoff as a cycle length in samples. Give this or cutoff, not both.
+ * @param period Cutoff as a cycle length in samples. Pass exactly one of period or cutoff; the constructor has no default, and 20 is a suggested starting value.
  * @param cutoff Cutoff as a fraction of Nyquist in (0, 1). Give this or period, not both.
  * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
  */

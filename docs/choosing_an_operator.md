@@ -82,6 +82,67 @@ For a worked pairs-trading example using `RollingBeta`, `RollingSpread`, `Rollin
 | Online Bayesian regression with calibrated prediction intervals | `BayesianRegression` | Returns slope, intercept, predictive mean, and predictive std per sample; interval widens early and tightens as evidence accumulates. See [notebook 17](notebooks/17-filtering-and-forecasting-with-uncertainty). |
 | Kalman filter as a recursive forecaster | `KalmanFilter` | Tracks a latent level and returns the filtered estimate; tune `process_var` and `observation_var` to set the lag-vs-noise trade-off. |
 
+## Detect cycles and regimes
+
+| Intent | Operator(s) | Note |
+|:-------|:------------|:-----|
+| Measure the dominant cycle period | `DominantCycle` | Ehlers' homodyne discriminator; the period in samples. |
+| Instantaneous phase, frequency, or amplitude of a cycle | `CyclePhase`, `CycleFrequency`, `CycleAmplitude` | From the analytic signal; `HilbertPhasor` gives its in-phase and quadrature parts. |
+| Sinewave turning-point indicator | `CycleSine` | Sine and lead-sine lines; a crossing marks a cycle turn. |
+| Classify trending versus cycling | `TrendMode` | 1.0 while trending, 0.0 while cycling. |
+| Isolate a band of cycle periods | `RoofingFilter` | A highpass then a `SuperSmoother`; feed its output to the cycle operators. |
+| Low-lag smoothing or trend | `SuperSmoother`, `Decycler`, `InstantaneousTrendline` | A 2-pole lowpass, a trend with short cycles removed, and a trendline that adapts to the measured cycle. |
+| Adaptive moving average pair | `MAMA` | MAMA and FAMA lines whose speed follows the phase rate. |
+| Turn a noisy indicator into a stable on/off state | `SchmittTrigger` | Hysteresis between two thresholds avoids flip-flopping. |
+
+For a worked example see [notebook 19](notebooks/19-cycle-and-spectral-analysis).
+
+## Analyse order flow and liquidity
+
+| Intent | Operator(s) | Note |
+|:-------|:------------|:-----|
+| Sign trades as buyer- or seller-initiated | `TickRuleSign`, `LeeReadySign`, `BulkVolumeClassifier` | Tick rule from prices only; Lee-Ready with quotes; bulk classification from bar returns. |
+| Signed volume and order-flow imbalance | `SignedVolume`, `OFI`, `RollingOrderImbalance` | Net aggressive flow per trade, normalized, or summed over a window. |
+| Book imbalance and fair value | `QueueImbalance`, `MicroPrice`, `ContOFI` | From L1 quotes: size imbalance, an imbalance-weighted mid, and order-flow imbalance from book events. |
+| Trading cost | `EffectiveSpread`, `RealizedSpread`, `RollSpread` | Cost against the mid, its liquidity part, and a spread estimate from trade prices alone. |
+| Price impact | `RollingKyleLambda`, `EwKyleLambda`, `Propagator`, `AmihudIlliquidity` | Impact slope of return on signed flow, a decaying-kernel impact model, and illiquidity per unit of notional. |
+| Flow toxicity and clustering | `VPIN`, `HawkesIntensity` | Probability of informed trading, and the intensity of self-exciting arrivals. |
+
+See the [Market microstructure](microstructure) guide and notebooks
+[11](notebooks/11-microstructure-order-flow),
+[12](notebooks/12-microstructure-price-impact), and
+[13](notebooks/13-microstructure-toxicity-and-book).
+
+## Measure risk and performance
+
+| Intent | Operator(s) | Note |
+|:-------|:------------|:-----|
+| Drawdown from the running peak | `Drawdown`, `MaxDrawdown`, `RollingMaxDrawdown` | The current drawdown, the worst so far, or the worst inside a window. |
+| Risk-adjusted return over a window | `RollingSharpe`, `RollingSortino`, `RollingCalmar`, `RollingInfoRatio`, `RollingOmega` | Annualised Sharpe, Sortino, Calmar, and information ratios, and the Omega ratio. |
+| Tail and downside risk | `RollingCVaR`, `RollingDownsideDeviation` | Expected shortfall in the worst tail, and the deviation of returns below a threshold. |
+| Share of winning periods | `RollingHitRate` | Fraction of positive samples in the window. |
+| Persistence or mean reversion of a series | `RollingHurst` | Hurst exponent: above 0.5 trends, below 0.5 reverts. |
+
+## Clean and prepare data
+
+| Intent | Operator(s) | Note |
+|:-------|:------------|:-----|
+| Fill missing values | `Ffill`, `FillNa` | Carry the last finite value forward, or replace NaN with a constant. |
+| Drop missing events from a stream | `Dropna` | Removes events instead of filling them. |
+| Mark missing or infinite values | `IsNan`, `IsFinite` | 1.0 or 0.0 masks, for `Filter` or `Where`. |
+| Make a series stationary but keep its memory | `FracDiff` | Fractional differencing removes the trend with less information loss than a first difference. |
+| Standardise or rank | `RollingZscore`, `EwZscore`, `RollingRank` | Scale-free features for models and thresholds. |
+| Shift a series in time | `Lag`, `Delay` | `Lag` shifts by samples; `Delay` shifts an indexed stream by a time offset. |
+| Build a supervised training set | `forecast_pairs` | Aligns lagged features with a future target without lookahead; see [notebook 16](notebooks/16-supervised-forecasting). |
+
+## Build bars from ticks
+
+`Resample` turns a tick stream into bars. Use `freq=` for time bars or `count=`
+for bars of a fixed number of events, and `agg=` to choose the reducer:
+`"first"`, `"max"`, `"min"`, and `"last"` give open, high, low, and close. See
+notebooks [9](notebooks/09-bars-from-ticks) and
+[10](notebooks/10-custom-and-multi-column-bars).
+
 ## Expanding (whole-history) vs rolling (trailing-window)
 
 Many operators come in both flavors. A rolling operator sees only the most recent `window_size` samples, so its estimates adapt quickly but can be noisy when the window is short. An expanding operator (prefix "Expanding") uses all data from the start of the stream, which gives a more stable estimate but never forgets early, possibly unrepresentative, observations. For stationary series where the distribution is unlikely to shift, expanding operators are often preferable because they use more information. For non-stationary series such as prices, regime-shifting volatility, or any signal expected to drift, a rolling window keeps estimates current.
@@ -102,5 +163,9 @@ For full documentation of multi-stream operators, including the timestamp model 
 ## Backtest a strategy
 
 To evaluate a trading strategy on historical data, use one of screamer's backtest engines. The choice depends on the data feed you have (price, OHLC, trades, or L1) and the order type your strategy produces (target position or two-sided quotes). For the full decision grid see the [Choosing a backtest engine](functions_fin/choosing_a_backtest_engine) guide.
+
+To check whether a backtest result is better than luck, `position_test` compares
+the strategy's timing with randomly timed copies of the same trades and returns
+a p-value. See [`position_test`](functions_fin/position_test).
 
 <!-- HELP_END -->

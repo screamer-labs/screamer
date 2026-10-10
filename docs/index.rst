@@ -10,7 +10,7 @@ time series. The same functions run on NumPy arrays and on live streams.
 
   pip install screamer
 
-Requires Python 3.11 or newer. See :doc:`Installation <installation>` for
+Requires Python 3.12 or newer. See :doc:`Installation <installation>` for
 prerequisites and development setup.
 
 

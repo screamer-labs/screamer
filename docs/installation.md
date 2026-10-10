@@ -4,8 +4,8 @@ This page covers the prerequisites and installation options for screamer.
 
 ## Prerequisites
 
-Python 3.11 or newer is required (`requires-python = ">=3.11"`; Python 3.11
-through 3.14 are supported).
+Python 3.12 or newer is required (`requires-python = ">=3.12"`). One wheel per
+platform installs on 3.12 and every later 3.x.
 
 ## Installing screamer
 
@@ -14,7 +14,7 @@ pip install screamer
 ```
 
 The wheel includes the compiled C++ extension and has no runtime dependencies.
-`pybind11` is used only to build the extension, not at import time.
+`nanobind` is used only to build the extension, not at import time.
 
 ## Running the example notebooks
 

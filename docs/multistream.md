@@ -101,20 +101,6 @@ events and it returns a lazy iterator; pass arrays or `(values, index)` tuples
 and it returns the batch result. No separate `*_iter` function is needed.
 (`split` has no streaming form.)
 
-## Migration from the retired `*_iter` names
-
-The per-operator streaming variants were removed in v0.5. The unified operators
-handle both batch and lazy inputs:
-
-| Old (removed) | New |
-|---|---|
-| `resample_iter(events, ...)` | `Resample(...)(events)` |
-| `dropna_iter(events)` | `Dropna()(events)` |
-| `filter_iter(events, pred)` | `Filter()(data, mask)` (mask replaces predicate) |
-| `select_iter(events, cols)` | `Select(cols)(events)` |
-| `combine_latest_iter(a, b)` | `CombineLatest()(a, b)` |
-| `merge_iter(a, b)` | `Merge()(a, b)` |
-
 ## 5. Causality
 
 - **Causal**: an output at index `t` depends only on events at indices `<= t`. There

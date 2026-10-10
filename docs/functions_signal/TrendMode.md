@@ -57,3 +57,36 @@ below which a sample is classified as trending.
 
 **Policy: `ignore`.** A `NaN` in the input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
 <!-- NAN_FOOTNOTE_END -->
+
+## Examples
+
+### Usage plot
+
+```{eval-rst}
+.. plotly::
+    :include-source: True
+
+    import numpy as np
+    import plotly.graph_objects as go
+    from plotly.subplots import make_subplots
+    from screamer import TrendMode
+
+    rng = np.random.default_rng(20)
+    c = 300
+    cycle_part = np.sin(2 * np.pi * np.arange(c) / 20)          # 300 samples of a 20-sample cycle
+    ramp_part = cycle_part[-1] + 0.1 * np.arange(1, c + 1)        # then 300 samples of a straight ramp
+    x = np.concatenate([cycle_part, ramp_part]) + 0.01 * rng.standard_normal(2 * c)
+
+    mode = TrendMode(phase_rate_frac=0.5)(x)
+
+    fig = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.7, 0.3], vertical_spacing=0.06)
+    fig.add_trace(go.Scatter(y=x, name='cycle, then ramp', line=dict(color='gray')), row=1, col=1)
+    fig.add_trace(go.Scatter(y=mode, name='TrendMode(phase_rate_frac=0.5)',
+                             line=dict(color='darkorange', shape='hv')), row=2, col=1)
+    fig.update_layout(title='TrendMode: no trend flags in the cycle, frequent flags in the ramp',
+                      yaxis=dict(title='input'), yaxis2=dict(title='mode', tickvals=[0, 1]),
+                      xaxis2=dict(title='sample'),
+                      margin=dict(l=20, r=20, t=60, b=20),
+                      legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1))
+    fig.show()
+```

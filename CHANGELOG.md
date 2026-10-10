@@ -783,6 +783,17 @@ The v2 API: one consistent call shape, streams as plain tuples, and pipelines.
   and `agg=` a functor or string. The `every=`, `func=`, and `agg={dict}` forms
   are gone; compose several reducers with `CombineLatest` instead.
 * `replay` and `multi_resample` are removed; compose the existing operators.
+* The per-operator streaming variants (`*_iter`) were removed in 0.5; the
+  unified operators handle both batch and lazy inputs:
+
+  | Old (removed) | New |
+  |---|---|
+  | `resample_iter(events, ...)` | `Resample(...)(events)` |
+  | `dropna_iter(events)` | `Dropna()(events)` |
+  | `filter_iter(events, pred)` | `Filter()(data, mask)` (mask replaces predicate) |
+  | `select_iter(events, cols)` | `Select(cols)(events)` |
+  | `combine_latest_iter(a, b)` | `CombineLatest()(a, b)` |
+  | `merge_iter(a, b)` | `Merge()(a, b)` |
 
 ### Added
 

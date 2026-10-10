@@ -16,7 +16,7 @@ parameters:
 - name: period
   type: float
   default: 20.0
-  description: Cutoff as a cycle length in samples. Give this or cutoff, not both.
+  description: Cutoff as a cycle length in samples. Pass exactly one of period or cutoff; the constructor has no default, and 20 is a suggested starting value.
 - name: cutoff
   type: float
   default: null
@@ -47,3 +47,36 @@ The filter coefficients follow Ehlers' critically damped design.
 
 **Policy: `ignore`.** A `NaN` in the input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
 <!-- NAN_FOOTNOTE_END -->
+
+## Examples
+
+### Usage plot
+
+```{eval-rst}
+.. plotly::
+    :include-source: True
+
+    import numpy as np
+    import plotly.graph_objects as go
+    from screamer import SuperSmoother
+
+    rng = np.random.default_rng(7)
+    n = 400
+    t = np.arange(n)
+    trend = 2.0 * np.sin(2 * np.pi * t / 250) + 0.005 * t     # slow movement to keep
+    x = trend + 0.4 * rng.standard_normal(n)                    # plus fast noise to remove
+
+    smooth10 = SuperSmoother(period=10)(x)
+    smooth30 = SuperSmoother(period=30)(x)
+
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(y=x, name='noisy input', line=dict(color='lightgray')))
+    fig.add_trace(go.Scatter(y=trend, name='underlying trend', line=dict(color='black', dash='dash')))
+    fig.add_trace(go.Scatter(y=smooth10, name='SuperSmoother(period=10)', line=dict(color='steelblue')))
+    fig.add_trace(go.Scatter(y=smooth30, name='SuperSmoother(period=30)', line=dict(color='crimson')))
+    fig.update_layout(title='SuperSmoother: lowpass of a noisy trend at two cutoffs',
+                      xaxis_title='sample', yaxis_title='value',
+                      margin=dict(l=20, r=20, t=60, b=20),
+                      legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1))
+    fig.show()
+```

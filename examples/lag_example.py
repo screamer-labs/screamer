@@ -1,27 +1,22 @@
+"""Lag a series: the same operator on a whole array and on a live stream."""
 import numpy as np
+
 import screamer
-from screamer import Lag, lag_generator
-import screamer.screamer_bindings
+from screamer import Lag
+
 
 def main():
+    print("screamer", screamer.__version__)
 
-    print('screamer library version:', screamer.__version__)
+    values = np.array([10.0, 20.0, 30.0, 40.0])
 
-    values = [10, 20, 30, 40]
-    delay = 2
+    # Batch: call the operator on the whole array.
+    print("batch: ", Lag(2)(values))
 
-    print('The genererator version of lag')
-    gen = lag_generator(values, delay)
-    for lagged in gen:
-        print(lagged)
-
-    # Use the transform method on a NumPy array
+    # Streaming: call a fresh operator on one value at a time.
     lag = Lag(2)
+    print("stream:", [lag(v) for v in values])
 
-    arr = np.array([10, 20, 30, 40])
-    result = lag.transform(arr)
-    print("Original array:", arr)
-    print("Lagged array:", result)  # Output will show delayed values
 
 if __name__ == "__main__":
     main()

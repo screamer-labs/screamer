@@ -68,3 +68,35 @@ are stacked along a trailing axis of size 2: `out[..., 0]` is `MAMA`,
 Ehlers, *Rocket Science for Traders* (2001). TA-Lib's `MAMA` uses the same
 adaptation rule over a different analytic-signal front end, so the two agree
 in shape and turning points but not to numerical precision.
+
+## Examples
+
+### Usage plot
+
+```{eval-rst}
+.. plotly::
+    :include-source: True
+
+    import numpy as np
+    import plotly.graph_objects as go
+    from screamer import MAMA
+
+    rng = np.random.default_rng(8)
+    n = 500
+    t = np.arange(n)
+    drift = np.concatenate([np.zeros(200), np.full(150, 0.08), np.full(150, -0.05)])   # flat, up, down
+    x = 100 + np.cumsum(drift) + 1.5 * np.sin(2 * np.pi * t / 25) + 0.3 * rng.standard_normal(n)
+
+    out = MAMA(fast_limit=0.5, slow_limit=0.05)(x)
+    mama, fama = out[:, 0], out[:, 1]
+
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(y=x, name='cycle + piecewise trend + noise', line=dict(color='lightgray')))
+    fig.add_trace(go.Scatter(y=mama, name='MAMA', line=dict(color='steelblue')))
+    fig.add_trace(go.Scatter(y=fama, name='FAMA', line=dict(color='crimson')))
+    fig.update_layout(title='MAMA and FAMA on a cycling series with changing trend',
+                      xaxis_title='sample', yaxis_title='value',
+                      margin=dict(l=20, r=20, t=60, b=20),
+                      legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1))
+    fig.show()
+```

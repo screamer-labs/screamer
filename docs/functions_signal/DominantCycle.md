@@ -30,3 +30,35 @@ the same measurement applies to any sampled signal, not only price.
 
 **Policy: `ignore`.** A `NaN` in the input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
 <!-- NAN_FOOTNOTE_END -->
+
+## Examples
+
+### Usage plot
+
+```{eval-rst}
+.. plotly::
+    :include-source: True
+
+    import numpy as np
+    import plotly.graph_objects as go
+    from plotly.subplots import make_subplots
+    from screamer import DominantCycle
+
+    rng = np.random.default_rng(20)
+    n = 600
+    true_period = np.where(np.arange(n) < n // 2, 16.0, 30.0)  # period steps from 16 to 30
+    x = np.sin(np.cumsum(2 * np.pi / true_period)) + 0.08 * rng.standard_normal(n)
+
+    period = DominantCycle()(x)
+
+    fig = make_subplots(rows=2, cols=1, shared_xaxes=True, vertical_spacing=0.06)
+    fig.add_trace(go.Scatter(y=x, name='input', line=dict(color='gray')), row=1, col=1)
+    fig.add_trace(go.Scatter(y=true_period, name='true period', line=dict(color='black', dash='dash')), row=2, col=1)
+    fig.add_trace(go.Scatter(y=period, name='DominantCycle()', line=dict(color='steelblue')), row=2, col=1)
+    fig.update_layout(title='DominantCycle: measured period follows a step from 16 to 30 samples',
+                      yaxis=dict(title='input'), yaxis2=dict(title='period (samples)', range=[0, 40]),
+                      xaxis2=dict(title='sample'),
+                      margin=dict(l=20, r=20, t=60, b=20),
+                      legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1))
+    fig.show()
+```

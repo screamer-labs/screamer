@@ -9004,7 +9004,13 @@
     "parameters": [],
     "nan_policy": "ignore",
     "details": "## Description\n\n`CycleAmplitude` reads the instantaneous amplitude, or envelope, of the\nanalytic signal formed from a series by John Ehlers' Hilbert transform. It\nshares the same in-phase and quadrature components as `HilbertPhasor` and\n`CyclePhase`: the amplitude is the magnitude of the point `(I, Q)` in the\ncomplex plane, `sqrt(I^2 + Q^2)`. It is a general envelope detector, tracking\nthe local size of any oscillation in the series regardless of its period, and\napplies to any sampled signal, not only price.\n\n*Parameters*: `CycleAmplitude` takes no parameters.\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in the input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
-    "examples": []
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage plot",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom screamer import CycleAmplitude\n\nrng = np.random.default_rng(20)\nn = 400\nt = np.arange(n)\nenvelope = 1.0 + 0.6 * np.sin(2 * np.pi * t / 220)         # slowly varying amplitude\nx = envelope * np.sin(2 * np.pi * t / 20) + 0.05 * rng.standard_normal(n)\n\namp = CycleAmplitude()(x)\n\nfig = go.Figure()\nfig.add_trace(go.Scatter(y=x, name='amplitude-modulated cycle', line=dict(color='lightgray')))\nfig.add_trace(go.Scatter(y=envelope, name='true envelope', line=dict(color='black', dash='dash')))\nfig.add_trace(go.Scatter(y=amp, name='CycleAmplitude()', line=dict(color='steelblue')))\nfig.update_layout(title='CycleAmplitude: envelope of an amplitude-modulated cycle',\n                  xaxis_title='sample', yaxis_title='value',\n                  margin=dict(l=20, r=20, t=60, b=20),\n                  legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1))\nfig.show()"
+      }
+    ]
   },
   "CycleFrequency": {
     "name": "CycleFrequency",
@@ -9024,7 +9030,13 @@
     "parameters": [],
     "nan_policy": "ignore",
     "details": "## Description\n\n`CycleFrequency` measures the instantaneous frequency of a series, in cycles\nper sample, using John Ehlers' homodyne discriminator. It is the reciprocal\nof the dominant cycle period reported by `DominantCycle`: a period of 20\nsamples corresponds to a frequency of 0.05 cycles per sample. The estimate is\na general spectral quantity: the same measurement applies to any sampled\nsignal, not only price.\n\n*Parameters*: `CycleFrequency` takes no parameters.\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in the input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
-    "examples": []
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage plot",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import CycleFrequency\n\nrng = np.random.default_rng(3)\nn = 600\ntrue_freq = np.linspace(1 / 40, 1 / 12, n)                  # chirp: period shortens from 40 to 12\nx = np.sin(np.cumsum(2 * np.pi * true_freq)) + 0.08 * rng.standard_normal(n)\n\nfreq = CycleFrequency()(x)\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True, vertical_spacing=0.06)\nfig.add_trace(go.Scatter(y=x, name='chirp + noise', line=dict(color='gray')), row=1, col=1)\nfig.add_trace(go.Scatter(y=true_freq, name='true frequency', line=dict(color='black', dash='dash')), row=2, col=1)\nfig.add_trace(go.Scatter(y=freq, name='CycleFrequency()', line=dict(color='steelblue')), row=2, col=1)\nfig.update_layout(title='CycleFrequency: instantaneous frequency of a chirp',\n                  yaxis=dict(title='input'), yaxis2=dict(title='cycles per sample', range=[0, 0.12]),\n                  xaxis2=dict(title='sample'),\n                  margin=dict(l=20, r=20, t=60, b=20),\n                  legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1))\nfig.show()"
+      }
+    ]
   },
   "CyclePhase": {
     "name": "CyclePhase",
@@ -9045,7 +9057,13 @@
     "parameters": [],
     "nan_policy": "ignore",
     "details": "## Description\n\n`CyclePhase` reads the instantaneous phase of the analytic signal formed from\na series by John Ehlers' Hilbert transform, in degrees, wrapped to `[0, 360)`.\nIt shares the same in-phase and quadrature components as `HilbertPhasor` and\nthe same period estimate as `DominantCycle`: the phase is the angle of the\npoint `(I, Q)` in the complex plane, and it advances by roughly `360 /\nperiod` degrees per sample while the dominant cycle stays stable. The\nestimate is a general spectral quantity: the same measurement applies to any\nsampled signal, not only price.\n\n*Parameters*: `CyclePhase` takes no parameters.\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in the input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
-    "examples": []
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage plot",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import CyclePhase\n\nrng = np.random.default_rng(4)\nn = 300\ntrue_period = np.where(np.arange(n) < n // 2, 15.0, 30.0)  # period doubles halfway\nx = np.sin(np.cumsum(2 * np.pi / true_period)) + 0.05 * rng.standard_normal(n)\n\nphase = CyclePhase()(x)\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True, vertical_spacing=0.06)\nfig.add_trace(go.Scatter(y=x, name='input', line=dict(color='gray')), row=1, col=1)\nfig.add_trace(go.Scatter(y=phase, name='CyclePhase()', line=dict(color='steelblue')), row=2, col=1)\nfig.update_layout(title='CyclePhase: phase wraps every cycle, more slowly once the period doubles',\n                  yaxis=dict(title='input'),\n                  yaxis2=dict(title='phase (degrees)', range=[0, 360], tickvals=[0, 90, 180, 270, 360]),\n                  xaxis2=dict(title='sample'),\n                  margin=dict(l=20, r=20, t=60, b=20),\n                  legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1))\nfig.show()"
+      }
+    ]
   },
   "CycleSine": {
     "name": "CycleSine",
@@ -9066,7 +9084,13 @@
     "parameters": [],
     "nan_policy": "ignore",
     "details": "## Description\n\n`CycleSine` computes John Ehlers' sinewave indicator from the instantaneous\nphase of the analytic signal formed from a series by the Hilbert transform.\nIt shares the same phase estimate as `CyclePhase`: given the phase in\ndegrees, `sine` is `sin(phase)` and `leadsine` is `sin(phase + 45deg)`, a\nversion of `sine` advanced by one eighth of a cycle. Because `sine` tracks\nthe phase directly, it turns at the same point in the cycle regardless of\nthe cycle's period, and the two outputs cross near the phase's turning\npoints. The estimate is a general spectral quantity: the same measurement\napplies to any sampled signal, not only price.\n\nThis is a **1-input, 2-output** function (`FunctorBase<_, 1, 2>`). Outputs\nare stacked along a trailing axis of size 2: `out[..., 0]` is `sine`,\n`out[..., 1]` is `leadsine`.\n\n*Parameters*: `CycleSine` takes no parameters.\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in the input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
-    "examples": []
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage plot",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import CycleSine\n\nrng = np.random.default_rng(5)\nn = 300\ntrue_period = np.where(np.arange(n) < n // 2, 20.0, 30.0)  # period changes halfway\nx = np.sin(np.cumsum(2 * np.pi / true_period)) + 0.05 * rng.standard_normal(n)\n\nout = CycleSine()(x)\nsine, leadsine = out[:, 0], out[:, 1]\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True, vertical_spacing=0.06)\nfig.add_trace(go.Scatter(y=x, name='input', line=dict(color='gray')), row=1, col=1)\nfig.add_trace(go.Scatter(y=sine, name='sine', line=dict(color='steelblue')), row=2, col=1)\nfig.add_trace(go.Scatter(y=leadsine, name='leadsine', line=dict(color='crimson')), row=2, col=1)\nfig.update_layout(title='CycleSine: sine and leadsine cross near the turning points of the cycle',\n                  yaxis=dict(title='input'), yaxis2=dict(title='indicator'),\n                  xaxis2=dict(title='sample'),\n                  margin=dict(l=20, r=20, t=60, b=20),\n                  legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1))\nfig.show()"
+      }
+    ]
   },
   "Decycler": {
     "name": "Decycler",
@@ -9089,7 +9113,7 @@
         "name": "period",
         "type": "float",
         "default": 60.0,
-        "description": "Cycles at or below this length in samples are removed. Give this or cutoff."
+        "description": "Cycles at or below this length in samples are removed. Pass exactly one of period or cutoff; the constructor has no default, and 60 is a suggested starting value."
       },
       {
         "name": "cutoff",
@@ -9100,7 +9124,13 @@
     ],
     "nan_policy": "ignore",
     "details": "## Description\n\n`Decycler` is a causal filter from John Ehlers that estimates the trend of a\nseries by removing cycles at or below the cutoff. It is the input minus its\n1-pole highpass component, so slow movements pass through and fast cycles are\nsuppressed.\n\nThe cutoff is set by a cycle length in samples (`period`) or a fraction of the\nNyquist frequency (`cutoff`), related by `cutoff = 2 / period`.\n\n### Parameters\n\n**`period`** *(float)*: The shortest cycle length in samples that is removed.\n\n**`cutoff`** *(float)*: The cutoff as a fraction of the Nyquist frequency, in (0, 1). Provide exactly one of `period` or `cutoff`.\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in the input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
-    "examples": []
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage plot",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom screamer import Decycler\n\nrng = np.random.default_rng(11)\nn = 500\nt = np.arange(n)\ntrend = 3.0 * np.sin(2 * np.pi * t / 400) + 0.004 * t      # slow trend\ncycle = 0.8 * np.sin(2 * np.pi * t / 20)                    # 20-sample cycle\nx = trend + cycle + 0.2 * rng.standard_normal(n)\n\ndecycled = Decycler(period=60)(x)                           # remove cycles of 60 samples and shorter\n\nfig = go.Figure()\nfig.add_trace(go.Scatter(y=x, name='trend + 20-sample cycle + noise', line=dict(color='lightgray')))\nfig.add_trace(go.Scatter(y=trend, name='underlying trend', line=dict(color='black', dash='dash')))\nfig.add_trace(go.Scatter(y=decycled, name='Decycler(period=60)', line=dict(color='steelblue')))\nfig.update_layout(title='Decycler: trend estimate with the 20-sample cycle removed',\n                  xaxis_title='sample', yaxis_title='value',\n                  margin=dict(l=20, r=20, t=60, b=20),\n                  legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1))\nfig.show()"
+      }
+    ]
   },
   "DominantCycle": {
     "name": "DominantCycle",
@@ -9120,7 +9150,13 @@
     "parameters": [],
     "nan_policy": "ignore",
     "details": "## Description\n\n`DominantCycle` measures the dominant cycle period of a series, in samples,\nusing John Ehlers' homodyne discriminator. It forms the analytic signal by a\nHilbert transform, then reads the cycle period from the rate of change of the\nphase between successive samples. The estimate is a general spectral quantity:\nthe same measurement applies to any sampled signal, not only price.\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in the input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
-    "examples": []
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage plot",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import DominantCycle\n\nrng = np.random.default_rng(20)\nn = 600\ntrue_period = np.where(np.arange(n) < n // 2, 16.0, 30.0)  # period steps from 16 to 30\nx = np.sin(np.cumsum(2 * np.pi / true_period)) + 0.08 * rng.standard_normal(n)\n\nperiod = DominantCycle()(x)\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True, vertical_spacing=0.06)\nfig.add_trace(go.Scatter(y=x, name='input', line=dict(color='gray')), row=1, col=1)\nfig.add_trace(go.Scatter(y=true_period, name='true period', line=dict(color='black', dash='dash')), row=2, col=1)\nfig.add_trace(go.Scatter(y=period, name='DominantCycle()', line=dict(color='steelblue')), row=2, col=1)\nfig.update_layout(title='DominantCycle: measured period follows a step from 16 to 30 samples',\n                  yaxis=dict(title='input'), yaxis2=dict(title='period (samples)', range=[0, 40]),\n                  xaxis2=dict(title='sample'),\n                  margin=dict(l=20, r=20, t=60, b=20),\n                  legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1))\nfig.show()"
+      }
+    ]
   },
   "FracDiff": {
     "name": "FracDiff",
@@ -9201,7 +9237,13 @@
     "parameters": [],
     "nan_policy": "ignore",
     "details": "## Description\n\n`HilbertPhasor` computes the in-phase and quadrature components of the\nanalytic signal formed from a series by John Ehlers' Hilbert transform. The\nin-phase component is the real part of the analytic signal and the\nquadrature component is its imaginary part, a version of the input phase-\nshifted by 90 degrees. Together they describe the instantaneous phase and\namplitude of the dominant cycle in the input, the same construction used by\n`DominantCycle`. The estimate is a general spectral quantity: the same\nmeasurement applies to any sampled signal, not only price.\n\nThis is a **1-input, 2-output** function (`FunctorBase<_, 1, 2>`). Outputs\nare stacked along a trailing axis of size 2: `out[..., 0]` is the in-phase\ncomponent, `out[..., 1]` is the quadrature component.\n\n*Parameters*: `HilbertPhasor` takes no parameters.\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in the input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
-    "examples": []
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage plot",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import HilbertPhasor\n\nrng = np.random.default_rng(20)\nn = 300\nt = np.arange(n)\nx = np.sin(2 * np.pi * t / 20) + 0.005 * t + 0.1 * rng.standard_normal(n)   # 20-sample cycle\n\nout = HilbertPhasor()(x)\ninphase, quadrature = out[:, 0], out[:, 1]\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True, vertical_spacing=0.06)\nfig.add_trace(go.Scatter(y=x, name='input', line=dict(color='gray')), row=1, col=1)\nfig.add_trace(go.Scatter(y=inphase, name='in-phase', line=dict(color='steelblue')), row=2, col=1)\nfig.add_trace(go.Scatter(y=quadrature, name='quadrature', line=dict(color='crimson')), row=2, col=1)\nfig.update_layout(title='HilbertPhasor: in-phase and quadrature components a quarter cycle apart',\n                  yaxis=dict(title='input'), yaxis2=dict(title='component'),\n                  xaxis2=dict(title='sample'),\n                  margin=dict(l=20, r=20, t=60, b=20),\n                  legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1))\nfig.show()"
+      }
+    ]
   },
   "Hold": {
     "name": "Hold",
@@ -9263,7 +9305,13 @@
     "parameters": [],
     "nan_policy": "ignore",
     "details": "## Description\n\n`InstantaneousTrendline` (John Ehlers) is an adaptive trendline: a 2-pole\nrecursive filter whose smoothing factor is set, at every sample, from the\ndominant cycle period measured by the same Hilbert-transform engine as\n`DominantCycle`. Because the filter's time constant tracks the current cycle\nlength, the trendline removes the dominant cycle from the output and follows\nthe underlying trend rather than a fixed-period moving average.\n\n$$\n\\begin{aligned}\n\\alpha[t] &= \\frac{2}{\\text{period}[t] + 1} \\\\\n\\text{it}[t] &= \\left(\\alpha[t] - \\frac{\\alpha[t]^2}{4}\\right) x[t]\n  + \\frac{\\alpha[t]^2}{2} x[t-1]\n  - \\left(\\alpha[t] - \\frac{3\\alpha[t]^2}{4}\\right) x[t-2] \\\\\n  &\\quad + 2(1 - \\alpha[t]) \\, \\text{it}[t-1] - (1 - \\alpha[t])^2 \\, \\text{it}[t-2]\n\\end{aligned}\n$$\n\n`period` is the dominant cycle period in samples, the same quantity\n`DominantCycle` reports; `HilbertCycle` clamps it to `[6, 50]`, which bounds\n`alpha` to at most `2/7`. The recursion needs two samples of input and output\nhistory; until that history is available (right after the dominant cycle\nfirst becomes measurable), `InstantaneousTrendline` seeds its output with the\ncurrent price.\n\nThis is a parameterless function: the adaptation comes entirely from the\nmeasured cycle, with no smoothing constant to tune.\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in the input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->\n\n## Reference\n\nEhlers, *Cybernetic Analysis for Stocks and Futures* (2004). There is no\nbit-exact reference implementation for this recursion; correctness is gated\nby causality (batch and streaming agree) and by tracking behavior on a clean\ntrend.",
-    "examples": []
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage plot",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom screamer import InstantaneousTrendline\n\nrng = np.random.default_rng(9)\nn = 500\nt = np.arange(n)\ntrend = 100 + 4.0 * np.sin(2 * np.pi * t / 450)             # slow trend\nperiod = np.linspace(15, 35, n)                             # cycle period drifts from 15 to 35\nx = trend + 1.0 * np.sin(np.cumsum(2 * np.pi / period)) + 0.2 * rng.standard_normal(n)\n\nitrend = InstantaneousTrendline()(x)\n\nfig = go.Figure()\nfig.add_trace(go.Scatter(y=x, name='trend + drifting cycle + noise', line=dict(color='lightgray')))\nfig.add_trace(go.Scatter(y=trend, name='underlying trend', line=dict(color='black', dash='dash')))\nfig.add_trace(go.Scatter(y=itrend, name='InstantaneousTrendline()', line=dict(color='steelblue')))\nfig.update_layout(title='InstantaneousTrendline: trend of a series whose cycle period drifts',\n                  xaxis_title='sample', yaxis_title='value',\n                  margin=dict(l=20, r=20, t=60, b=20),\n                  legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1))\nfig.show()"
+      }
+    ]
   },
   "KalmanFilter": {
     "name": "KalmanFilter",
@@ -9350,7 +9398,13 @@
     ],
     "nan_policy": "ignore",
     "details": "## Description\n\n`MAMA` (MESA Adaptive Moving Average, John Ehlers) smooths the input with a\nper-step smoothing constant that adapts to the rate of change of the\ninstantaneous phase of the analytic signal formed from the series by the\nHilbert transform, the same phase estimate as `CyclePhase`. When the phase\nadvances quickly, a new cycle is underway and the smoothing constant rises\ntoward `fast_limit`; when the phase advance stalls, the smoothing constant\nfalls toward `slow_limit`. `FAMA` (following adaptive moving average) is a\nsecond pass over `MAMA` at half the smoothing constant, and lags it.\n\n$$\n\\begin{aligned}\n\\Delta\\phi[t]   &= \\max\\big(\\phi[t-1] - \\phi[t],\\ 1\\big) \\\\\n\\alpha[t]       &= \\operatorname{clip}\\!\\left(\\frac{\\text{fast\\_limit}}{\\Delta\\phi[t]},\\ \\text{slow\\_limit},\\ \\text{fast\\_limit}\\right) \\\\\n\\text{MAMA}[t]  &= \\alpha[t] \\cdot x[t] + (1 - \\alpha[t]) \\cdot \\text{MAMA}[t-1] \\\\\n\\text{FAMA}[t]  &= 0.5\\,\\alpha[t] \\cdot \\text{MAMA}[t] + (1 - 0.5\\,\\alpha[t]) \\cdot \\text{FAMA}[t-1]\n\\end{aligned}\n$$\n\n`phi` is the instantaneous phase in degrees; `DeltaPhase` is floored at 1\ndegree so `alpha` never exceeds `fast_limit`. `MAMA` and `FAMA` are both\nseeded with the first finite input.\n\nThis is a **1-input, 2-output** function (`FunctorBase<_, 1, 2>`). Outputs\nare stacked along a trailing axis of size 2: `out[..., 0]` is `MAMA`,\n`out[..., 1]` is `FAMA`.\n\n## Parameters\n\n- `fast_limit` (float, default `0.5`): upper bound on the smoothing constant.\n- `slow_limit` (float, default `0.05`): lower bound on the smoothing constant.\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in the input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->\n\n## Reference\n\nEhlers, *Rocket Science for Traders* (2001). TA-Lib's `MAMA` uses the same\nadaptation rule over a different analytic-signal front end, so the two agree\nin shape and turning points but not to numerical precision.",
-    "examples": []
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage plot",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom screamer import MAMA\n\nrng = np.random.default_rng(8)\nn = 500\nt = np.arange(n)\ndrift = np.concatenate([np.zeros(200), np.full(150, 0.08), np.full(150, -0.05)])   # flat, up, down\nx = 100 + np.cumsum(drift) + 1.5 * np.sin(2 * np.pi * t / 25) + 0.3 * rng.standard_normal(n)\n\nout = MAMA(fast_limit=0.5, slow_limit=0.05)(x)\nmama, fama = out[:, 0], out[:, 1]\n\nfig = go.Figure()\nfig.add_trace(go.Scatter(y=x, name='cycle + piecewise trend + noise', line=dict(color='lightgray')))\nfig.add_trace(go.Scatter(y=mama, name='MAMA', line=dict(color='steelblue')))\nfig.add_trace(go.Scatter(y=fama, name='FAMA', line=dict(color='crimson')))\nfig.update_layout(title='MAMA and FAMA on a cycling series with changing trend',\n                  xaxis_title='sample', yaxis_title='value',\n                  margin=dict(l=20, r=20, t=60, b=20),\n                  legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1))\nfig.show()"
+      }
+    ]
   },
   "MovingAverage": {
     "name": "MovingAverage",
@@ -9410,13 +9464,13 @@
         "name": "hp_period",
         "type": "float",
         "default": 48.0,
-        "description": "Highpass cutoff as a cycle length in samples. Give this or hp_cutoff."
+        "description": "Highpass cutoff as a cycle length in samples. Pass exactly one of hp_period or hp_cutoff; the constructor has no default, and 48 is a suggested starting value."
       },
       {
         "name": "lp_period",
         "type": "float",
         "default": 10.0,
-        "description": "Lowpass cutoff as a cycle length in samples. Give this or lp_cutoff."
+        "description": "Lowpass cutoff as a cycle length in samples. Pass exactly one of lp_period or lp_cutoff; the constructor has no default, and 10 is a suggested starting value."
       },
       {
         "name": "hp_cutoff",
@@ -9433,7 +9487,13 @@
     ],
     "nan_policy": "ignore",
     "details": "## Description\n\n`RoofingFilter` is a causal bandpass from John Ehlers. It applies a 2-pole\nhighpass at `hp_period` to remove the trend, then a `SuperSmoother` at\n`lp_period` to remove fast noise, leaving the band of cycles between the two\ncutoffs. It is the preprocessing step Ehlers applies before measuring a cycle,\nbecause a raw series carries a trend and high-frequency noise that distort the\nmeasurement.\n\nEach cutoff is a cycle length in samples (`hp_period`, `lp_period`) or a fraction\nof the Nyquist frequency (`hp_cutoff`, `lp_cutoff`), related by `cutoff = 2 / period`.\n\n### Parameters\n\n**`hp_period`** / **`hp_cutoff`** *(float)*: The highpass cutoff. Provide exactly one.\n\n**`lp_period`** / **`lp_cutoff`** *(float)*: The lowpass cutoff. Provide exactly one.\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in the input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
-    "examples": []
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage plot",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import RoofingFilter\n\nrng = np.random.default_rng(20)\nn = 400\nt = np.arange(n)\ntone = np.sin(2 * np.pi * t / 20)                           # cycle inside the 10-48 band\nx = tone + 0.01 * t + 0.3 * rng.standard_normal(n)         # plus a trend and fast noise\n\nband = RoofingFilter(hp_period=48, lp_period=10)(x)\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True, vertical_spacing=0.06)\nfig.add_trace(go.Scatter(y=x, name='tone + trend + noise', line=dict(color='gray')), row=1, col=1)\nfig.add_trace(go.Scatter(y=tone, name='20-sample tone', line=dict(color='black', dash='dash')), row=2, col=1)\nfig.add_trace(go.Scatter(y=band, name='RoofingFilter(hp_period=48, lp_period=10)',\n                         line=dict(color='steelblue')), row=2, col=1)\nfig.update_layout(title='RoofingFilter: trend and noise removed, the cycle band kept',\n                  yaxis=dict(title='input'), yaxis2=dict(title='bandpass'),\n                  xaxis2=dict(title='sample'),\n                  margin=dict(l=20, r=20, t=60, b=20),\n                  legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1))\nfig.show()"
+      }
+    ]
   },
   "SchmittTrigger": {
     "name": "SchmittTrigger",
@@ -9503,7 +9563,7 @@
         "name": "period",
         "type": "float",
         "default": 20.0,
-        "description": "Cutoff as a cycle length in samples. Give this or cutoff, not both."
+        "description": "Cutoff as a cycle length in samples. Pass exactly one of period or cutoff; the constructor has no default, and 20 is a suggested starting value."
       },
       {
         "name": "cutoff",
@@ -9514,7 +9574,13 @@
     ],
     "nan_policy": "ignore",
     "details": "## Description\n\n`SuperSmoother` is a causal 2-pole IIR lowpass filter from John Ehlers. It passes\ncomponents of the input series slower than the cutoff and attenuates faster ones,\nwith less lag and less ringing than a Butterworth filter of comparable rolloff.\n\nThe cutoff is set by a cycle length in samples (`period`) or, equivalently, a\nfraction of the Nyquist frequency (`cutoff`), related by `cutoff = 2 / period`.\nThe filter coefficients follow Ehlers' critically damped design.\n\n### Parameters\n\n**`period`** *(float)*: The cutoff expressed as a cycle length in samples.\n\n**`cutoff`** *(float)*: The cutoff expressed as a fraction of the Nyquist frequency, in (0, 1). Provide exactly one of `period` or `cutoff`.\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in the input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
-    "examples": []
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage plot",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom screamer import SuperSmoother\n\nrng = np.random.default_rng(7)\nn = 400\nt = np.arange(n)\ntrend = 2.0 * np.sin(2 * np.pi * t / 250) + 0.005 * t     # slow movement to keep\nx = trend + 0.4 * rng.standard_normal(n)                    # plus fast noise to remove\n\nsmooth10 = SuperSmoother(period=10)(x)\nsmooth30 = SuperSmoother(period=30)(x)\n\nfig = go.Figure()\nfig.add_trace(go.Scatter(y=x, name='noisy input', line=dict(color='lightgray')))\nfig.add_trace(go.Scatter(y=trend, name='underlying trend', line=dict(color='black', dash='dash')))\nfig.add_trace(go.Scatter(y=smooth10, name='SuperSmoother(period=10)', line=dict(color='steelblue')))\nfig.add_trace(go.Scatter(y=smooth30, name='SuperSmoother(period=30)', line=dict(color='crimson')))\nfig.update_layout(title='SuperSmoother: lowpass of a noisy trend at two cutoffs',\n                  xaxis_title='sample', yaxis_title='value',\n                  margin=dict(l=20, r=20, t=60, b=20),\n                  legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1))\nfig.show()"
+      }
+    ]
   },
   "TrendMode": {
     "name": "TrendMode",
@@ -9543,7 +9609,13 @@
     ],
     "nan_policy": "ignore",
     "details": "## Description\n\n`TrendMode` classifies each sample of a series as trending or cycling, using\nthe same instantaneous phase and dominant-cycle period as `CyclePhase` and\n`DominantCycle`. While a series oscillates at a stable dominant cycle, the\nphase advances by close to `360 / period` degrees per sample. When the phase\nadvance stalls well below that rate, the dominant cycle has effectively\nstopped rotating, which this function reads as a trending market.\n\nThe rule: at each sample, compute the phase change from the previous sample\n(unwrapped to `[-180, 180]` degrees) and compare its magnitude to\n`phase_rate_frac * (360 / period)`, the expected per-sample advance scaled\nby `phase_rate_frac`. If the phase change is smaller, the output is `1.0`\n(trending); otherwise it is `0.0` (cycling).\n\nThis is a threshold classifier, not a transcription of any single reference\nformula: it is one simple, causal way to turn the phase and period estimates\ninto a binary trend/cycle flag. Lowering `phase_rate_frac` makes the\nclassifier stricter about calling a trend, raising it makes trend mode more\nfrequent.\n\n*Parameters*: `TrendMode` takes one parameter.\n\n### Parameters\n\n**`phase_rate_frac`** *(float, default `0.5`)*: The threshold, as a fraction\nof the expected per-sample phase advance for the current dominant cycle,\nbelow which a sample is classified as trending.\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in the input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.\n<!-- NAN_FOOTNOTE_END -->",
-    "examples": []
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage plot",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import TrendMode\n\nrng = np.random.default_rng(20)\nc = 300\ncycle_part = np.sin(2 * np.pi * np.arange(c) / 20)          # 300 samples of a 20-sample cycle\nramp_part = cycle_part[-1] + 0.1 * np.arange(1, c + 1)        # then 300 samples of a straight ramp\nx = np.concatenate([cycle_part, ramp_part]) + 0.01 * rng.standard_normal(2 * c)\n\nmode = TrendMode(phase_rate_frac=0.5)(x)\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.7, 0.3], vertical_spacing=0.06)\nfig.add_trace(go.Scatter(y=x, name='cycle, then ramp', line=dict(color='gray')), row=1, col=1)\nfig.add_trace(go.Scatter(y=mode, name='TrendMode(phase_rate_frac=0.5)',\n                         line=dict(color='darkorange', shape='hv')), row=2, col=1)\nfig.update_layout(title='TrendMode: no trend flags in the cycle, frequent flags in the ramp',\n                  yaxis=dict(title='input'), yaxis2=dict(title='mode', tickvals=[0, 1]),\n                  xaxis2=dict(title='sample'),\n                  margin=dict(l=20, r=20, t=60, b=20),\n                  legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1))\nfig.show()"
+      }
+    ]
   },
   "CombineLatest": {
     "name": "CombineLatest",

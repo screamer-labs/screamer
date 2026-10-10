@@ -41,3 +41,36 @@ are stacked along a trailing axis of size 2: `out[..., 0]` is `sine`,
 
 **Policy: `ignore`.** A `NaN` in the input at index `t` causes the function to skip that step: output at `t` is `NaN` and internal state is unchanged. Subsequent finite samples are processed as if step `t` had not occurred.
 <!-- NAN_FOOTNOTE_END -->
+
+## Examples
+
+### Usage plot
+
+```{eval-rst}
+.. plotly::
+    :include-source: True
+
+    import numpy as np
+    import plotly.graph_objects as go
+    from plotly.subplots import make_subplots
+    from screamer import CycleSine
+
+    rng = np.random.default_rng(5)
+    n = 300
+    true_period = np.where(np.arange(n) < n // 2, 20.0, 30.0)  # period changes halfway
+    x = np.sin(np.cumsum(2 * np.pi / true_period)) + 0.05 * rng.standard_normal(n)
+
+    out = CycleSine()(x)
+    sine, leadsine = out[:, 0], out[:, 1]
+
+    fig = make_subplots(rows=2, cols=1, shared_xaxes=True, vertical_spacing=0.06)
+    fig.add_trace(go.Scatter(y=x, name='input', line=dict(color='gray')), row=1, col=1)
+    fig.add_trace(go.Scatter(y=sine, name='sine', line=dict(color='steelblue')), row=2, col=1)
+    fig.add_trace(go.Scatter(y=leadsine, name='leadsine', line=dict(color='crimson')), row=2, col=1)
+    fig.update_layout(title='CycleSine: sine and leadsine cross near the turning points of the cycle',
+                      yaxis=dict(title='input'), yaxis2=dict(title='indicator'),
+                      xaxis2=dict(title='sample'),
+                      margin=dict(l=20, r=20, t=60, b=20),
+                      legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1))
+    fig.show()
+```
