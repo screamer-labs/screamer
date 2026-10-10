@@ -6,99 +6,99 @@ import type { ScreamerOp } from "../runtime.js";
 /**
  * Chaikin Accumulation/Distribution Line.
  *
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/AD.html for the full reference.
  */
 export declare function AD(): ScreamerOp;
 /**
  * Difference of fast and slow EMA of the Accumulation/Distribution line.
  *
- * @param fast Fast EMA period.
- * @param slow Slow EMA period.
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param fast Span of the fast EMA of the AD line, in samples. Must be less than slow.
+ * @param slow Span of the slow EMA of the AD line, in samples. Must be greater than fast.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/ADOSC.html for the full reference.
  */
 export declare function ADOSC(fast?: number, slow?: number): ScreamerOp;
 /**
  * Wilder's ADX with +DI and -DI (3 inputs -> 3 outputs).
  *
- * @param windowSize Period (Wilder's default).
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param windowSize Wilder smoothing period: the smoother seeds on the first window_size values, then each step keeps (window_size - 1) / window_size of the previous value. 14 is Wilder's choice.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/ADX.html for the full reference.
  */
 export declare function ADX(windowSize?: number): ScreamerOp;
 /**
  * Wilder's ADXR, the mean of ADX now and ADX one window ago.
  *
- * @param windowSize Wilder smoothing period.
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param windowSize Wilder smoothing period: the smoother seeds on the first window_size values, then each step keeps (window_size - 1) / window_size of the previous value. It is also the lag between the two ADX values that are averaged (window_size - 1 samples).
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/ADXR.html for the full reference.
  */
 export declare function ADXR(windowSize?: number): ScreamerOp;
 /**
  * Wilder-smoothed average of TrueRange.
  *
- * @param windowSize Wilder smoothing period (Wilder's original choice is 14).
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param windowSize Wilder smoothing period: the smoother seeds on the first window_size values, then each step keeps (window_size - 1) / window_size of the previous value. 14 is Wilder's choice.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/ATR.html for the full reference.
  */
 export declare function ATR(windowSize?: number): ScreamerOp;
 /**
  * Absolute value of each element.
  *
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @see https://screamer.readthedocs.io/en/latest/functions_math/Abs.html for the full reference.
  */
 export declare function Abs(): ScreamerOp;
 /**
  * Inverse cosine of each element (radians, input in [-1, 1]).
  *
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @see https://screamer.readthedocs.io/en/latest/functions_math/Acos.html for the full reference.
  */
 export declare function Acos(): ScreamerOp;
 /**
  * Elementwise sum of two aligned streams (x + y).
  *
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @see https://screamer.readthedocs.io/en/latest/functions_math/Add.html for the full reference.
  */
 export declare function Add(): ScreamerOp;
 /**
  * Rolling mean of |return| / notional (Amihud 2002 illiquidity ratio).
  *
- * @param windowSize Window length in observations.
- * @param startPolicy Warmup behaviour.
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param windowSize Number of most recent valid observations averaged.
+ * @param startPolicy Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros.
+ * @see https://screamer.readthedocs.io/en/latest/functions_micro/AmihudIlliquidity.html for the full reference.
  */
 export declare function AmihudIlliquidity(windowSize?: number, startPolicy?: string): ScreamerOp;
 /**
  * Returns 1.0 if both inputs are nonzero, else 0.0. NaN in either input yields NaN.
  *
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @see https://screamer.readthedocs.io/en/latest/functions_math/And.html for the full reference.
  */
 export declare function And(): ScreamerOp;
 /**
  * Inverse sine of each element (radians, input in [-1, 1]).
  *
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @see https://screamer.readthedocs.io/en/latest/functions_math/Asin.html for the full reference.
  */
 export declare function Asin(): ScreamerOp;
 /**
  * Inverse tangent of each element (radians).
  *
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @see https://screamer.readthedocs.io/en/latest/functions_math/Atan.html for the full reference.
  */
 export declare function Atan(): ScreamerOp;
 /**
  * Signed angle of (x, y) from the positive x-axis (numpy.arctan2 order).
  *
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @see https://screamer.readthedocs.io/en/latest/functions_math/Atan2.html for the full reference.
  */
 export declare function Atan2(): ScreamerOp;
 /**
  * (close - open) / (high - low) per bar. No smoothing.
  *
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/BOP.html for the full reference.
  */
 export declare function BOP(): ScreamerOp;
 /**
  * Charge perpetual funding, borrow, or financing on the position of any backtest engine's output.
  *
  * @param multiplier Contract multiplier, as on the engine that produced the output.
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @see https://screamer.readthedocs.io/en/latest/functions_fin/BacktestCarry.html for the full reference.
  */
 export declare function BacktestCarry(multiplier?: number): ScreamerOp;
 /**
@@ -116,7 +116,7 @@ export declare function BacktestCarry(multiplier?: number): ScreamerOp;
  * @param takerFeePerContract Fixed fee (or rebate when negative) charged per contract on taker fills.
  * @param slippage Adverse price offset on every taker (market) fill, read in `slippage_unit`. A buy fills higher and a sell lower; resting limit fills never slip.
  * @param slippageUnit Unit of `slippage`: "fraction" of the reference price (5 bps = 5e-4), "ticks" of `tick_size`, or "price" (an absolute amount).
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @see https://screamer.readthedocs.io/en/latest/functions_fin/BacktestL1Orders.html for the full reference.
  */
 export declare function BacktestL1Orders(makerFee?: number, takerFee?: number, fill?: string, participationRatio?: number, tickSize?: number, minPosition?: number, maxPosition?: number, multiplier?: number, makerFeePerContract?: number, takerFeePerContract?: number, slippage?: number, slippageUnit?: string): ScreamerOp;
 /**
@@ -124,19 +124,19 @@ export declare function BacktestL1Orders(makerFee?: number, takerFee?: number, f
  *
  * @param takerFee Fractional fee charged on each taker fill.
  * @param tickSize Instrument price grid (0 = continuous). A marketable order walks one tick past the displayed quote for the size beyond it; slippage offsets round up to whole ticks.
- * @param minPosition Inventory floor. The target is clamped to [min_position, max_position] before the fill size is computed.
- * @param maxPosition Inventory ceiling. The target is clamped to [min_position, max_position] before the fill size is computed.
+ * @param minPosition Lower bound on the position, in units. It applies after `size` has converted the target to units, so a weight target of -2 with min_position=-0.5 holds -0.5 units.
+ * @param maxPosition Upper bound on the position, in units. It applies after `size` has converted the target to units, so a weight target of 2 with max_position=0.5 holds 0.5 units.
  * @param multiplier Contract multiplier applied to mark-to-market PnL, fill slippage, and proportional fees.
  * @param feePerContract Fixed fee (or rebate when negative) charged per contract on each fill.
  * @param slippage Adverse price offset on every taker (market) fill, read in `slippage_unit`. A buy fills higher and a sell lower; resting limit fills never slip.
  * @param slippageUnit Unit of `slippage`: "fraction" of the reference price (5 bps = 5e-4), "ticks" of `tick_size`, or "price" (an absolute amount).
  * @param stopLoss Exit when the price moves this fraction against the average entry fill (0.05 = 5%). 0 turns it off.
- * @param takeProfit Exit when the price moves this fraction in favour of the average entry fill. 0 turns it off.
+ * @param takeProfit Exit when the price moves this fraction in favor of the average entry fill. 0 turns it off.
  * @param trailingStop Exit when the price falls this fraction from the best price since entry (the highest for a long, the lowest for a short). 0 turns it off.
  * @param size How to read the target: "units" (a position), "notional" (a currency amount), or "weight" (a fraction of initial_capital + equity). It is converted to units at the execution price.
  * @param initialCapital Starting capital for size="weight" and for rebalance_band; equity is initial_capital plus the backtest's cumulative pnl.
  * @param rebalanceBand With size="notional" or "weight", recompute the units when the holding drifts from the target by more than this fraction of equity (0.05 = 5 points of weight). 0 keeps the units until the target value changes.
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @see https://screamer.readthedocs.io/en/latest/functions_fin/BacktestL1Target.html for the full reference.
  */
 export declare function BacktestL1Target(takerFee?: number, tickSize?: number, minPosition?: number, maxPosition?: number, multiplier?: number, feePerContract?: number, slippage?: number, slippageUnit?: string, stopLoss?: number, takeProfit?: number, trailingStop?: number, size?: string, initialCapital?: number, rebalanceBand?: number): ScreamerOp;
 /**
@@ -154,7 +154,7 @@ export declare function BacktestL1Target(takerFee?: number, tickSize?: number, m
  * @param takerFeePerContract Fixed fee (or rebate when negative) charged per contract on taker fills.
  * @param slippage Adverse price offset on every taker (market) fill, read in `slippage_unit`. A buy fills higher and a sell lower; resting limit fills never slip.
  * @param slippageUnit Unit of `slippage`: "fraction" of the reference price (5 bps = 5e-4), "ticks" of `tick_size`, or "price" (an absolute amount).
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @see https://screamer.readthedocs.io/en/latest/functions_fin/BacktestL1TradesOrders.html for the full reference.
  */
 export declare function BacktestL1TradesOrders(makerFee?: number, takerFee?: number, fill?: string, participationRatio?: number, tickSize?: number, minPosition?: number, maxPosition?: number, multiplier?: number, makerFeePerContract?: number, takerFeePerContract?: number, slippage?: number, slippageUnit?: string): ScreamerOp;
 /**
@@ -172,7 +172,7 @@ export declare function BacktestL1TradesOrders(makerFee?: number, takerFee?: num
  * @param takerFeePerContract Fixed fee (or rebate when negative) charged per contract on taker fills.
  * @param slippage Adverse price offset on every taker (market) fill, read in `slippage_unit`. A buy fills higher and a sell lower; resting limit fills never slip.
  * @param slippageUnit Unit of `slippage`: "fraction" of the reference price (5 bps = 5e-4), "ticks" of `tick_size`, or "price" (an absolute amount).
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @see https://screamer.readthedocs.io/en/latest/functions_fin/BacktestOHLCOrders.html for the full reference.
  */
 export declare function BacktestOHLCOrders(makerFee?: number, takerFee?: number, fill?: string, participationRatio?: number, tickSize?: number, minPosition?: number, maxPosition?: number, multiplier?: number, makerFeePerContract?: number, takerFeePerContract?: number, slippage?: number, slippageUnit?: string): ScreamerOp;
 /**
@@ -180,8 +180,8 @@ export declare function BacktestOHLCOrders(makerFee?: number, takerFee?: number,
  *
  * @param takerFee Fractional fee charged on a market (taker) fill at the open.
  * @param tickSize Instrument price grid (0 = continuous). Slippage offsets round up to whole ticks; the "ticks" slippage unit counts in this step.
- * @param minPosition Lower bound on the filled position. The deferred target is clamped to [min_position, max_position] before the fill executes.
- * @param maxPosition Upper bound on the filled position. The deferred target is clamped to [min_position, max_position] before the fill executes.
+ * @param minPosition Lower bound on the position, in units. It applies after `size` has converted the target to units, so a weight target of -2 with min_position=-0.5 holds -0.5 units.
+ * @param maxPosition Upper bound on the position, in units. It applies after `size` has converted the target to units, so a weight target of 2 with max_position=0.5 holds 0.5 units.
  * @param multiplier Contract multiplier applied to mark-to-market PnL, fill slippage, and proportional fees.
  * @param feePerContract Fixed fee (or rebate when negative) charged per contract on each fill.
  * @param slippage Adverse price offset on every taker (market) fill, read in `slippage_unit`. A buy fills higher and a sell lower; resting limit fills never slip.
@@ -189,12 +189,12 @@ export declare function BacktestOHLCOrders(makerFee?: number, takerFee?: number,
  * @param fillAt Reference price of the execution bar: "open", "close", "typical" (high + low + close) / 3, or "ohlc4" (open + high + low + close) / 4.
  * @param delay Bars between the decision and the execution. A target from bar t trades on bar t + delay. 0 is allowed only with fill_at="close" (market-on-close of the signal bar).
  * @param stopLoss Exit when the price moves this fraction against the average entry fill (0.05 = 5%). 0 turns it off.
- * @param takeProfit Exit when the price moves this fraction in favour of the average entry fill. 0 turns it off.
+ * @param takeProfit Exit when the price moves this fraction in favor of the average entry fill. 0 turns it off.
  * @param trailingStop Exit when the price falls this fraction from the best price since entry (the highest for a long, the lowest for a short). 0 turns it off.
  * @param size How to read the target: "units" (a position), "notional" (a currency amount), or "weight" (a fraction of initial_capital + equity). It is converted to units at the execution price.
  * @param initialCapital Starting capital for size="weight" and for rebalance_band; equity is initial_capital plus the backtest's cumulative pnl.
  * @param rebalanceBand With size="notional" or "weight", recompute the units when the holding drifts from the target by more than this fraction of equity (0.05 = 5 points of weight). 0 keeps the units until the target value changes.
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @see https://screamer.readthedocs.io/en/latest/functions_fin/BacktestOHLCTarget.html for the full reference.
  */
 export declare function BacktestOHLCTarget(takerFee?: number, tickSize?: number, minPosition?: number, maxPosition?: number, multiplier?: number, feePerContract?: number, slippage?: number, slippageUnit?: string, fillAt?: string, delay?: number, stopLoss?: number, takeProfit?: number, trailingStop?: number, size?: string, initialCapital?: number, rebalanceBand?: number): ScreamerOp;
 /**
@@ -203,8 +203,8 @@ export declare function BacktestOHLCTarget(takerFee?: number, tickSize?: number,
  * @param maxParticipation The most an order may trade on one bar, as a share of the bar's volume (0.1 = 10%). The rest carries to the next bars.
  * @param takerFee Fractional fee charged on a market (taker) fill at the open.
  * @param tickSize Instrument price grid (0 = continuous). Slippage offsets round up to whole ticks; the "ticks" slippage unit counts in this step.
- * @param minPosition Lower bound on the filled position. The deferred target is clamped to [min_position, max_position] before the fill executes.
- * @param maxPosition Upper bound on the filled position. The deferred target is clamped to [min_position, max_position] before the fill executes.
+ * @param minPosition Lower bound on the position, in units. It applies after `size` has converted the target to units, so a weight target of -2 with min_position=-0.5 holds -0.5 units.
+ * @param maxPosition Upper bound on the position, in units. It applies after `size` has converted the target to units, so a weight target of 2 with max_position=0.5 holds 0.5 units.
  * @param multiplier Contract multiplier applied to mark-to-market PnL, fill slippage, and proportional fees.
  * @param feePerContract Fixed fee (or rebate when negative) charged per contract on each fill.
  * @param slippage Adverse price offset on every taker (market) fill, read in `slippage_unit`. A buy fills higher and a sell lower; resting limit fills never slip.
@@ -212,12 +212,12 @@ export declare function BacktestOHLCTarget(takerFee?: number, tickSize?: number,
  * @param fillAt Reference price of the execution bar: "open", "close", "typical" (high + low + close) / 3, or "ohlc4" (open + high + low + close) / 4.
  * @param delay Bars between the decision and the execution. A target from bar t trades on bar t + delay. 0 is allowed only with fill_at="close" (market-on-close of the signal bar).
  * @param stopLoss Exit when the price moves this fraction against the average entry fill (0.05 = 5%). 0 turns it off.
- * @param takeProfit Exit when the price moves this fraction in favour of the average entry fill. 0 turns it off.
+ * @param takeProfit Exit when the price moves this fraction in favor of the average entry fill. 0 turns it off.
  * @param trailingStop Exit when the price falls this fraction from the best price since entry (the highest for a long, the lowest for a short). 0 turns it off.
  * @param size How to read the target: "units" (a position), "notional" (a currency amount), or "weight" (a fraction of initial_capital + equity). It is converted to units at the execution price.
  * @param initialCapital Starting capital for size="weight" and for rebalance_band; equity is initial_capital plus the backtest's cumulative pnl.
  * @param rebalanceBand With size="notional" or "weight", recompute the units when the holding drifts from the target by more than this fraction of equity (0.05 = 5 points of weight). 0 keeps the units until the target value changes.
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @see https://screamer.readthedocs.io/en/latest/functions_fin/BacktestOHLCVTarget.html for the full reference.
  */
 export declare function BacktestOHLCVTarget(maxParticipation?: number, takerFee?: number, tickSize?: number, minPosition?: number, maxPosition?: number, multiplier?: number, feePerContract?: number, slippage?: number, slippageUnit?: string, fillAt?: string, delay?: number, stopLoss?: number, takeProfit?: number, trailingStop?: number, size?: string, initialCapital?: number, rebalanceBand?: number): ScreamerOp;
 /**
@@ -237,7 +237,7 @@ export declare function BacktestOHLCVTarget(maxParticipation?: number, takerFee?
  * @param maxNet Largest absolute net exposure, sum of position values over equity. Orders that exceed it are scaled down.
  * @param fillAt Execution price on the execution bar: "open", "close", "typical" ((high + low + close) / 3), or "ohlc4".
  * @param delay Bars between the bar a target is decided on (at its close) and the bar it executes on. 0 needs fill_at "close".
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @see https://screamer.readthedocs.io/en/latest/functions_fin/BacktestPortfolioOHLCTarget.html for the full reference.
  */
 export declare function BacktestPortfolioOHLCTarget(fee?: number | number[], slippage?: number | number[], slippageUnit?: string, tickSize?: number | number[], multiplier?: number | number[], feePerContract?: number | number[], size?: string, initialCapital?: number, rebalanceBand?: number, rebalance?: string, maxGross?: number, maxNet?: number, fillAt?: string, delay?: number): ScreamerOp;
 /**
@@ -255,7 +255,7 @@ export declare function BacktestPortfolioOHLCTarget(fee?: number | number[], sli
  * @param rebalance When the band trips: "drifted" trades only the assets beyond it, "all" rebalances every asset that has a target.
  * @param maxGross Largest gross exposure, sum of absolute position values over equity. Orders that exceed it are scaled down.
  * @param maxNet Largest absolute net exposure, sum of position values over equity. Orders that exceed it are scaled down.
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @see https://screamer.readthedocs.io/en/latest/functions_fin/BacktestPortfolioTarget.html for the full reference.
  */
 export declare function BacktestPortfolioTarget(fee?: number | number[], slippage?: number | number[], slippageUnit?: string, tickSize?: number | number[], multiplier?: number | number[], feePerContract?: number | number[], size?: string, initialCapital?: number, rebalanceBand?: number, rebalance?: string, maxGross?: number, maxNet?: number): ScreamerOp;
 /**
@@ -263,34 +263,34 @@ export declare function BacktestPortfolioTarget(fee?: number | number[], slippag
  *
  * @param spread Fractional bid-ask spread crossed on each trade (e.g. 0.0005 = 5 bps). Default 0 is frictionless.
  * @param fee Fractional taker fee charged on the traded notional.
- * @param minPosition Lower bound on the target position. Signals below this value are clamped to it.
- * @param maxPosition Upper bound on the target position. Signals above this value are clamped to it.
+ * @param minPosition Lower bound on the position, in units. It applies after `size` has converted the target to units, so a weight target of -2 with min_position=-0.5 holds -0.5 units.
+ * @param maxPosition Upper bound on the position, in units. It applies after `size` has converted the target to units, so a weight target of 2 with max_position=0.5 holds 0.5 units.
  * @param multiplier Contract multiplier applied to mark-to-market PnL, fill slippage, and proportional fees.
  * @param feePerContract Fixed fee (or rebate when negative) charged per contract on each fill.
  * @param slippage Adverse price offset on every taker (market) fill, read in `slippage_unit`. A buy fills higher and a sell lower; resting limit fills never slip.
  * @param slippageUnit Unit of `slippage`: "fraction" of the reference price (5 bps = 5e-4), "ticks" of `tick_size`, or "price" (an absolute amount).
  * @param tickSize Instrument price grid (0 = continuous). Slippage offsets round up to whole ticks; the `"ticks"` slippage unit counts in this step.
  * @param stopLoss Exit when the price moves this fraction against the average entry fill (0.05 = 5%). 0 turns it off.
- * @param takeProfit Exit when the price moves this fraction in favour of the average entry fill. 0 turns it off.
+ * @param takeProfit Exit when the price moves this fraction in favor of the average entry fill. 0 turns it off.
  * @param trailingStop Exit when the price falls this fraction from the best price since entry (the highest for a long, the lowest for a short). 0 turns it off.
  * @param size How to read the target: "units" (a position), "notional" (a currency amount), or "weight" (a fraction of initial_capital + equity). It is converted to units at the execution price.
  * @param initialCapital Starting capital for size="weight" and for rebalance_band; equity is initial_capital plus the backtest's cumulative pnl.
  * @param rebalanceBand With size="notional" or "weight", recompute the units when the holding drifts from the target by more than this fraction of equity (0.05 = 5 points of weight). 0 keeps the units until the target value changes.
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @see https://screamer.readthedocs.io/en/latest/functions_fin/BacktestPriceTarget.html for the full reference.
  */
 export declare function BacktestPriceTarget(spread?: number, fee?: number, minPosition?: number, maxPosition?: number, multiplier?: number, feePerContract?: number, slippage?: number, slippageUnit?: string, tickSize?: number, stopLoss?: number, takeProfit?: number, trailingStop?: number, size?: string, initialCapital?: number, rebalanceBand?: number): ScreamerOp;
 /**
  * Turn a backtest engine's [equity, pnl, position, cost] into running drawdown, cost, turnover, trades, and Sharpe.
  *
  * @param periodsPerYear Steps per year, used to annualize the Sharpe ratio (for example 252 for daily bars). The default 1 gives the per-step ratio.
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @see https://screamer.readthedocs.io/en/latest/functions_fin/BacktestReport.html for the full reference.
  */
 export declare function BacktestReport(periodsPerYear?: number): ScreamerOp;
 /**
  * Turn a backtest engine's [equity, pnl, position, cost] into running exposure, round-trip trade statistics, Sortino, and Calmar.
  *
  * @param periodsPerYear Steps per year, used to annualize Sortino and Calmar (for example 252 for daily bars). The default 1 gives per-step ratios.
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @see https://screamer.readthedocs.io/en/latest/functions_fin/BacktestStats.html for the full reference.
  */
 export declare function BacktestStats(periodsPerYear?: number): ScreamerOp;
 /**
@@ -308,7 +308,7 @@ export declare function BacktestStats(periodsPerYear?: number): ScreamerOp;
  * @param takerFeePerContract Fixed fee (or rebate when negative) charged per contract on taker fills.
  * @param slippage Adverse price offset on every taker (market) fill, read in `slippage_unit`. A buy fills higher and a sell lower; resting limit fills never slip.
  * @param slippageUnit Unit of `slippage`: "fraction" of the reference price (5 bps = 5e-4), "ticks" of `tick_size`, or "price" (an absolute amount).
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @see https://screamer.readthedocs.io/en/latest/functions_fin/BacktestTradesOrders.html for the full reference.
  */
 export declare function BacktestTradesOrders(makerFee?: number, takerFee?: number, fill?: string, participationRatio?: number, tickSize?: number, minPosition?: number, maxPosition?: number, multiplier?: number, makerFeePerContract?: number, takerFeePerContract?: number, slippage?: number, slippageUnit?: string): ScreamerOp;
 /**
@@ -316,20 +316,20 @@ export declare function BacktestTradesOrders(makerFee?: number, takerFee?: numbe
  *
  * @param takerFee Fractional fee charged on each taker fill at the print price.
  * @param tickSize Instrument price grid (0 = continuous). Slippage offsets round up to whole ticks; the "ticks" slippage unit counts in this step.
- * @param minPosition Inventory floor. The target is clamped to [min_position, max_position] before the fill size is computed.
- * @param maxPosition Inventory ceiling. The target is clamped to [min_position, max_position] before the fill size is computed.
+ * @param minPosition Lower bound on the position, in units. It applies after `size` has converted the target to units, so a weight target of -2 with min_position=-0.5 holds -0.5 units.
+ * @param maxPosition Upper bound on the position, in units. It applies after `size` has converted the target to units, so a weight target of 2 with max_position=0.5 holds 0.5 units.
  * @param multiplier Contract multiplier applied to mark-to-market PnL, fill slippage, and proportional fees.
  * @param feePerContract Fixed fee (or rebate when negative) charged per contract on each fill.
  * @param slippage Adverse price offset on every taker (market) fill, read in `slippage_unit`. A buy fills higher and a sell lower; resting limit fills never slip.
  * @param slippageUnit Unit of `slippage`: "fraction" of the reference price (5 bps = 5e-4), "ticks" of `tick_size`, or "price" (an absolute amount).
  * @param stopLoss Exit when the price moves this fraction against the average entry fill (0.05 = 5%). 0 turns it off.
- * @param takeProfit Exit when the price moves this fraction in favour of the average entry fill. 0 turns it off.
+ * @param takeProfit Exit when the price moves this fraction in favor of the average entry fill. 0 turns it off.
  * @param trailingStop Exit when the price falls this fraction from the best price since entry (the highest for a long, the lowest for a short). 0 turns it off.
  * @param size How to read the target: "units" (a position), "notional" (a currency amount), or "weight" (a fraction of initial_capital + equity). It is converted to units at the execution price.
  * @param initialCapital Starting capital for size="weight" and for rebalance_band; equity is initial_capital plus the backtest's cumulative pnl.
  * @param rebalanceBand With size="notional" or "weight", recompute the units when the holding drifts from the target by more than this fraction of equity (0.05 = 5 points of weight). 0 keeps the units until the target value changes.
  * @param maxParticipation Cap each print's fill at this share of the print's size; the rest fills on later prints. The default fills the whole order on any print.
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @see https://screamer.readthedocs.io/en/latest/functions_fin/BacktestTradesTarget.html for the full reference.
  */
 export declare function BacktestTradesTarget(takerFee?: number, tickSize?: number, minPosition?: number, maxPosition?: number, multiplier?: number, feePerContract?: number, slippage?: number, slippageUnit?: string, stopLoss?: number, takeProfit?: number, trailingStop?: number, size?: string, initialCapital?: number, rebalanceBand?: number, maxParticipation?: number): ScreamerOp;
 /**
@@ -338,115 +338,115 @@ export declare function BacktestTradesTarget(takerFee?: number, tickSize?: numbe
  * @param entry Entry level. A flat position goes short when the z-score reaches +entry and long when it reaches -entry.
  * @param exit Exit level, in (-entry, entry). A short exits when the z-score falls to exit, a long when it rises to -exit.
  * @param stop Stop level, above entry (inf = no stop). A short exits when the z-score reaches +stop, a long at -stop, and that side cannot re-enter until the z-score returns inside the exit level.
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @see https://screamer.readthedocs.io/en/latest/functions_signal/BandSignal.html for the full reference.
  */
 export declare function BandSignal(entry?: number, exit?: number, stop?: number): ScreamerOp;
 /**
- * Online exponentially-weighted (forgetting-factor) Bayesian linear regression - current slope and intercept via Normal-Inverse-Gamma posterior plus causal one-step-ahead predictive mean and std.
+ * Online Bayesian linear regression with a forgetting factor: the current slope and intercept, and a one-step-ahead predictive mean and standard deviation.
  *
- * @param com Center of mass (alpha = 1 / (1 + com)). Exclusive with span/halflife/alpha.
- * @param span Span (alpha = 2 / (span + 1)). Default smoothing parameter. Exclusive with com/halflife/alpha.
- * @param halflife Halflife (alpha = 1 - 0.5^(1/halflife)). Exclusive with com/span/alpha.
- * @param alpha Smoothing parameter directly (forgetting factor lambda = 1 - alpha). Exclusive with com/span/halflife.
- * @param priorPrecision Prior precision on the regression coefficients (slope and intercept). Larger values pull coefficients toward zero more strongly.
- * @param priorSigma Prior scale for the noise variance. Sets b0 = prior_sigma^2 * (a0 - 1) where a0 = 2.
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param com Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha.
+ * @param span Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default.
+ * @param halflife Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive. Give exactly one of com, span, halflife and alpha.
+ * @param alpha Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha.
+ * @param priorPrecision Prior precision of the intercept and slope, which have prior mean 0. Larger values pull the coefficients toward zero more strongly. Must be positive.
+ * @param priorSigma Prior guess of the noise standard deviation: the prior mean of the noise variance is prior_sigma^2. Must be positive.
+ * @see https://screamer.readthedocs.io/en/latest/functions_fin/BayesianRegression.html for the full reference.
  */
 export declare function BayesianRegression(com?: number, span?: number, halflife?: number, alpha?: number, priorPrecision?: number, priorSigma?: number): ScreamerOp;
 /**
  * Mean +/- num_std rolling standard deviations.
  *
- * @param windowSize Trailing-window length.
- * @param numStd Number of rolling-std offsets for the upper/lower bands.
- * @param startPolicy Warmup behaviour.
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param windowSize Number of most recent samples used for the mean and the standard deviation.
+ * @param numStd Width of the bands: the distance from the middle band to each outer band, in rolling standard deviations.
+ * @param startPolicy Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/BollingerBands.html for the full reference.
  */
 export declare function BollingerBands(windowSize?: number, numStd?: number, startPolicy?: string): ScreamerOp;
 /**
  * Buy-initiated share of a bar's volume estimated as the normal CDF of return / trailing-window volatility.
  *
- * @param windowSize Window length in observations for the trailing standard deviation.
- * @param startPolicy Warmup behaviour.
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param windowSize Number of observations in the trailing standard deviation window, including the current one.
+ * @param startPolicy Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros.
+ * @see https://screamer.readthedocs.io/en/latest/functions_micro/BulkVolumeClassifier.html for the full reference.
  */
 export declare function BulkVolumeClassifier(windowSize?: number, startPolicy?: string): ScreamerOp;
 /**
  * General-order IIR Butterworth low-pass filter.
  *
- * @param order Filter order (1 = first-order, higher = sharper rolloff).
- * @param cutoffFreq Normalised cutoff (0 < f < 0.5, Nyquist-relative).
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param order Filter order. A higher order gives a steeper rolloff and a longer delay.
+ * @param cutoffFreq Cutoff frequency as a fraction of the Nyquist frequency (half the sampling rate), strictly between 0 and 1. 1 is the Nyquist frequency, the scipy.signal.butter Wn convention.
+ * @see https://screamer.readthedocs.io/en/latest/functions_signal/Butter.html for the full reference.
  */
 export declare function Butter(order?: number, cutoffFreq?: number): ScreamerOp;
 /**
  * General-order IIR Butterworth band-pass filter.
  *
- * @param order Filter order.
- * @param lowCutoff Lower cutoff frequency (normalised).
- * @param highCutoff Upper cutoff frequency (normalised); must exceed low_cutoff.
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param order Order N of the analog prototype. The digital filter has order 2N.
+ * @param lowCutoff Lower edge of the pass band, as a fraction of the Nyquist frequency. Must satisfy 0 < low_cutoff < high_cutoff < 1.
+ * @param highCutoff Upper edge of the pass band, as a fraction of the Nyquist frequency. Must satisfy 0 < low_cutoff < high_cutoff < 1.
+ * @see https://screamer.readthedocs.io/en/latest/functions_signal/ButterBandpass.html for the full reference.
  */
 export declare function ButterBandpass(order?: number, lowCutoff?: number, highCutoff?: number): ScreamerOp;
 /**
  * General-order IIR Butterworth band-stop (notch) filter.
  *
- * @param order Filter order.
- * @param lowCutoff Lower stop-band edge (normalised).
- * @param highCutoff Upper stop-band edge (normalised); must exceed low_cutoff.
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param order Order N of the analog prototype. The digital filter has order 2N.
+ * @param lowCutoff Lower edge of the stop band, as a fraction of the Nyquist frequency. Must satisfy 0 < low_cutoff < high_cutoff < 1.
+ * @param highCutoff Upper edge of the stop band, as a fraction of the Nyquist frequency. Must satisfy 0 < low_cutoff < high_cutoff < 1.
+ * @see https://screamer.readthedocs.io/en/latest/functions_signal/ButterBandstop.html for the full reference.
  */
 export declare function ButterBandstop(order?: number, lowCutoff?: number, highCutoff?: number): ScreamerOp;
 /**
  * General-order IIR Butterworth high-pass filter (rejects low frequencies).
  *
- * @param order Filter order.
- * @param cutoffFreq Normalised cutoff.
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param order Filter order. A higher order gives a steeper rolloff and a larger group delay.
+ * @param cutoffFreq Cutoff frequency as a fraction of the Nyquist frequency, strictly between 0 and 1. 1 is the Nyquist frequency, the scipy.signal.butter Wn convention.
+ * @see https://screamer.readthedocs.io/en/latest/functions_signal/ButterHighpass.html for the full reference.
  */
 export declare function ButterHighpass(order?: number, cutoffFreq?: number): ScreamerOp;
 /**
  * Commodity Channel Index over typical price.
  *
- * @param windowSize Period (Wilder's default).
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param windowSize Number of most recent typical prices in the mean and mean-absolute-deviation window. Lambert used 20; TA-Lib defaults to 14.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/CCI.html for the full reference.
  */
 export declare function CCI(windowSize?: number): ScreamerOp;
 /**
  * Convert (x, y) to (r, theta).
  *
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @see https://screamer.readthedocs.io/en/latest/functions_math/Cart2Polar.html for the full reference.
  */
 export declare function Cart2Polar(): ScreamerOp;
 /**
  * Round each element toward positive infinity.
  *
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @see https://screamer.readthedocs.io/en/latest/functions_math/Ceil.html for the full reference.
  */
 export declare function Ceil(): ScreamerOp;
 /**
  * Bound each element below and/or above.
  *
- * @param lower Lower bound (None = no lower clipping).
- * @param upper Upper bound (None = no upper clipping).
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param lower Smallest allowed value; smaller values are replaced by it. None means no lower bound.
+ * @param upper Largest allowed value; larger values are replaced by it. None means no upper bound.
+ * @see https://screamer.readthedocs.io/en/latest/functions_preprocessing/Clip.html for the full reference.
  */
 export declare function Clip(lower?: number, upper?: number): ScreamerOp;
 /**
  * Cont-Kukanov-Stoikov (2014) order-flow imbalance from L1 book events.
  *
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @see https://screamer.readthedocs.io/en/latest/functions_micro/ContOFI.html for the full reference.
  */
 export declare function ContOFI(): ScreamerOp;
 /**
  * Cosine of each element (radians).
  *
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @see https://screamer.readthedocs.io/en/latest/functions_math/Cos.html for the full reference.
  */
 export declare function Cos(): ScreamerOp;
 /**
  * Subtract the mean across assets at each step, removing the common component.
  *
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @see https://screamer.readthedocs.io/en/latest/functions_cross/CrossDemean.html for the full reference.
  */
 export declare function CrossDemean(): ScreamerOp;
 /**
@@ -454,21 +454,21 @@ export declare function CrossDemean(): ScreamerOp;
  *
  * @param gross Sum of the absolute weights of each row.
  * @param net Sum of the weights of each row, in [-gross, gross]. None (the default) keeps the signs of the scores and sets no net target.
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @see https://screamer.readthedocs.io/en/latest/functions_cross/CrossNormalize.html for the full reference.
  */
 export declare function CrossNormalize(gross?: number, net?: number): ScreamerOp;
 /**
  * Rank each asset against the others at the same step, scaled to [-1, 1] or [0, 1].
  *
  * @param scale Output range: "signed" maps the lowest value to -1 and the highest to 1; "unit" maps them to 0 and 1.
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @see https://screamer.readthedocs.io/en/latest/functions_cross/CrossRank.html for the full reference.
  */
 export declare function CrossRank(scale?: string): ScreamerOp;
 /**
  * +1 for the highest values of each row, -1 for the lowest, 0 for the rest.
  *
  * @param count Number of assets on each side.
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @see https://screamer.readthedocs.io/en/latest/functions_cross/CrossTopBottom.html for the full reference.
  */
 export declare function CrossTopBottom(count?: number): ScreamerOp;
 /**
@@ -476,680 +476,680 @@ export declare function CrossTopBottom(count?: number): ScreamerOp;
  *
  * @param lower Lower quantile in [0, 1].
  * @param upper Upper quantile in [lower, 1].
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @see https://screamer.readthedocs.io/en/latest/functions_cross/CrossWinsorize.html for the full reference.
  */
 export declare function CrossWinsorize(lower?: number, upper?: number): ScreamerOp;
 /**
  * Standardize each asset against the others at the same step: (x - mean) / std across the row.
  *
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @see https://screamer.readthedocs.io/en/latest/functions_cross/CrossZscore.html for the full reference.
  */
 export declare function CrossZscore(): ScreamerOp;
 /**
- * x cubed (faster than Power(3)).
+ * Cube of each element, computed as x * x * x.
  *
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @see https://screamer.readthedocs.io/en/latest/functions_math/Cube.html for the full reference.
  */
 export declare function Cube(): ScreamerOp;
 /**
  * Running maximum from t=0.
  *
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @see https://screamer.readthedocs.io/en/latest/functions_misc/CumMax.html for the full reference.
  */
 export declare function CumMax(): ScreamerOp;
 /**
  * Running minimum from t=0.
  *
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @see https://screamer.readthedocs.io/en/latest/functions_misc/CumMin.html for the full reference.
  */
 export declare function CumMin(): ScreamerOp;
 /**
  * Running product from t=0.
  *
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @see https://screamer.readthedocs.io/en/latest/functions_misc/CumProd.html for the full reference.
  */
 export declare function CumProd(): ScreamerOp;
 /**
  * Running sum from t=0.
  *
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @see https://screamer.readthedocs.io/en/latest/functions_misc/CumSum.html for the full reference.
  */
 export declare function CumSum(): ScreamerOp;
 /**
  * Instantaneous amplitude (envelope) of the analytic signal via Ehlers' homodyne discriminator.
  *
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @see https://screamer.readthedocs.io/en/latest/functions_signal/CycleAmplitude.html for the full reference.
  */
 export declare function CycleAmplitude(): ScreamerOp;
 /**
  * Instantaneous frequency, in cycles per sample, via Ehlers' homodyne discriminator.
  *
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @see https://screamer.readthedocs.io/en/latest/functions_signal/CycleFrequency.html for the full reference.
  */
 export declare function CycleFrequency(): ScreamerOp;
 /**
  * Instantaneous phase, in degrees, of the analytic signal via Ehlers' homodyne discriminator.
  *
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @see https://screamer.readthedocs.io/en/latest/functions_signal/CyclePhase.html for the full reference.
  */
 export declare function CyclePhase(): ScreamerOp;
 /**
  * Sinewave indicator (sine, leadsine) from the instantaneous phase of the analytic signal.
  *
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @see https://screamer.readthedocs.io/en/latest/functions_signal/CycleSine.html for the full reference.
  */
 export declare function CycleSine(): ScreamerOp;
 /**
  * Mulloy's Double EMA: 2*EMA - EMA(EMA).
  *
- * @param com Center of mass. Exclusive with span/halflife/alpha.
- * @param span Span (default smoothing parameter).
- * @param halflife Halflife.
- * @param alpha Smoothing parameter.
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param com Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha.
+ * @param span Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default.
+ * @param halflife Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive. Give exactly one of com, span, halflife and alpha.
+ * @param alpha Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/DEMA.html for the full reference.
  */
 export declare function DEMA(com?: number, span?: number, halflife?: number, alpha?: number): ScreamerOp;
 /**
  * Wilder directional index, the pre-average input to ADX.
  *
- * @param windowSize Wilder smoothing period.
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param windowSize Wilder smoothing period: the smoother seeds on the first window_size values, then each step keeps (window_size - 1) / window_size of the previous value.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/DX.html for the full reference.
  */
 export declare function DX(windowSize?: number): ScreamerOp;
 /**
  * Ehlers trend estimate with short cycles removed.
  *
- * @param period Cycles at or below this length in samples are removed. Pass exactly one of period or cutoff; the constructor has no default, and 60 is a suggested starting value.
- * @param cutoff Cutoff as a fraction of Nyquist in (0, 1). Give this or period, not both.
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param period Cutoff as a cycle length in samples; cycles at or below this length are removed. Give exactly one of period and cutoff. The default shown is a suggested starting value; the constructor has no default.
+ * @param cutoff Cutoff as a fraction of the Nyquist frequency, in (0, 1), equal to 2 / period. Give exactly one of period and cutoff.
+ * @see https://screamer.readthedocs.io/en/latest/functions_signal/Decycler.html for the full reference.
  */
 export declare function Decycler(period?: number, cutoff?: number): ScreamerOp;
 /**
  * x[t] minus its rolling mean.
  *
- * @param windowSize Window for the trailing rolling mean.
- * @param startPolicy Warmup behaviour: 'strict' (NaN until full window), 'expanding' (use partial windows), or 'zero' (treat missing as zero).
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param windowSize Number of most recent samples in the trailing rolling mean that is subtracted.
+ * @param startPolicy Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros.
+ * @see https://screamer.readthedocs.io/en/latest/functions_misc/Detrend.html for the full reference.
  */
 export declare function Detrend(windowSize?: number, startPolicy?: string): ScreamerOp;
 /**
  * x[t] - x[t-k] (first difference at lag k).
  *
- * @param windowSize Lag k for the difference (1 = consecutive).
- * @param startPolicy Warmup behaviour: 'strict' (NaN until full window), 'expanding' (use partial windows), or 'zero' (treat missing as zero).
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param windowSize Lag k of the difference, in samples; 1 gives the difference between consecutive samples.
+ * @param startPolicy Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros.
+ * @see https://screamer.readthedocs.io/en/latest/functions_misc/Diff.html for the full reference.
  */
 export declare function Diff(windowSize?: number, startPolicy?: string): ScreamerOp;
 /**
  * Second-order finite difference (discrete second derivative).
  *
- * @param startPolicy Warmup behaviour: 'strict' (NaN until full window), 'expanding' (use partial windows), or 'zero' (treat missing as zero).
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param startPolicy Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros.
+ * @see https://screamer.readthedocs.io/en/latest/functions_misc/Diff2.html for the full reference.
  */
 export declare function Diff2(startPolicy?: string): ScreamerOp;
 /**
  * Elementwise quotient of two aligned streams (x / y).
  *
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @see https://screamer.readthedocs.io/en/latest/functions_math/Div.html for the full reference.
  */
 export declare function Div(): ScreamerOp;
 /**
  * Dominant cycle period via Ehlers' homodyne discriminator.
  *
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @see https://screamer.readthedocs.io/en/latest/functions_signal/DominantCycle.html for the full reference.
  */
 export declare function DominantCycle(): ScreamerOp;
 /**
  * Trend-following envelope: rolling max(high), rolling min(low), and midline.
  *
- * @param windowSize Window for the rolling max/min.
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param windowSize Number of most recent samples over which the maximum of high and the minimum of low are taken.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/DonchianChannels.html for the full reference.
  */
 export declare function DonchianChannels(windowSize?: number): ScreamerOp;
 /**
  * Running drawdown from the cumulative peak.
  *
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @see https://screamer.readthedocs.io/en/latest/functions_fin/Drawdown.html for the full reference.
  */
 export declare function Drawdown(): ScreamerOp;
 /**
  * Effective spread, 2*|price - mid|: the round-trip cost paid relative to the mid.
  *
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @see https://screamer.readthedocs.io/en/latest/functions_micro/EffectiveSpread.html for the full reference.
  */
 export declare function EffectiveSpread(): ScreamerOp;
 /**
  * Exponential linear unit.
  *
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @see https://screamer.readthedocs.io/en/latest/functions_math/Elu.html for the full reference.
  */
 export declare function Elu(): ScreamerOp;
 /**
  * Returns 1.0 if a == b, else 0.0. NaN in either input yields NaN.
  *
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @see https://screamer.readthedocs.io/en/latest/functions_math/Equal.html for the full reference.
  */
 export declare function Equal(): ScreamerOp;
 /**
  * Gauss error function.
  *
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @see https://screamer.readthedocs.io/en/latest/functions_math/Erf.html for the full reference.
  */
 export declare function Erf(): ScreamerOp;
 /**
  * Complementary error function (1 - erf).
  *
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @see https://screamer.readthedocs.io/en/latest/functions_math/Erfc.html for the full reference.
  */
 export declare function Erfc(): ScreamerOp;
 /**
  * EW regression intercept, ewmean(x) - EwBeta(x,y) * ewmean(y).
  *
- * @param com Center of mass (alpha = 1 / (1 + com)). Exclusive with span/halflife/alpha.
- * @param span Span (alpha = 2 / (span + 1)). Default smoothing parameter. Exclusive with com/halflife/alpha.
- * @param halflife Halflife (alpha = 1 - 0.5^(1/halflife)). Exclusive with com/span/alpha.
- * @param alpha Smoothing parameter directly. Exclusive with com/span/halflife.
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param com Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha.
+ * @param span Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default.
+ * @param halflife Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive. Give exactly one of com, span, halflife and alpha.
+ * @param alpha Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha.
+ * @see https://screamer.readthedocs.io/en/latest/functions_ew/EwAlpha.html for the full reference.
  */
 export declare function EwAlpha(com?: number, span?: number, halflife?: number, alpha?: number): ScreamerOp;
 /**
  * EW CAPM beta: cov(target, regressor) / var(regressor).
  *
- * @param com Center of mass (alpha = 1 / (1 + com)). Exclusive with span/halflife/alpha.
- * @param span Span (alpha = 2 / (span + 1)). Default smoothing parameter. Exclusive with com/halflife/alpha.
- * @param halflife Halflife (alpha = 1 - 0.5^(1/halflife)). Exclusive with com/span/alpha.
- * @param alpha Smoothing parameter directly. Exclusive with com/span/halflife.
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param com Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha.
+ * @param span Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default.
+ * @param halflife Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive. Give exactly one of com, span, halflife and alpha.
+ * @param alpha Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha.
+ * @see https://screamer.readthedocs.io/en/latest/functions_ew/EwBeta.html for the full reference.
  */
 export declare function EwBeta(com?: number, span?: number, halflife?: number, alpha?: number): ScreamerOp;
 /**
  * EW Pearson correlation of two parallel streams.
  *
- * @param com Center of mass (alpha = 1 / (1 + com)). Exclusive with span/halflife/alpha.
- * @param span Span (alpha = 2 / (span + 1)). Default smoothing parameter. Exclusive with com/halflife/alpha.
- * @param halflife Halflife (alpha = 1 - 0.5^(1/halflife)). Exclusive with com/span/alpha.
- * @param alpha Smoothing parameter directly. Exclusive with com/span/halflife.
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param com Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha.
+ * @param span Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default.
+ * @param halflife Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive. Give exactly one of com, span, halflife and alpha.
+ * @param alpha Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha.
+ * @see https://screamer.readthedocs.io/en/latest/functions_ew/EwCorr.html for the full reference.
  */
 export declare function EwCorr(com?: number, span?: number, halflife?: number, alpha?: number): ScreamerOp;
 /**
  * EW covariance of two parallel streams.
  *
- * @param com Center of mass (alpha = 1 / (1 + com)). Exclusive with span/halflife/alpha.
- * @param span Span (alpha = 2 / (span + 1)). Default smoothing parameter. Exclusive with com/halflife/alpha.
- * @param halflife Halflife (alpha = 1 - 0.5^(1/halflife)). Exclusive with com/span/alpha.
- * @param alpha Smoothing parameter directly. Exclusive with com/span/halflife.
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param com Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha.
+ * @param span Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default.
+ * @param halflife Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive. Give exactly one of com, span, halflife and alpha.
+ * @param alpha Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha.
+ * @see https://screamer.readthedocs.io/en/latest/functions_ew/EwCov.html for the full reference.
  */
 export declare function EwCov(com?: number, span?: number, halflife?: number, alpha?: number): ScreamerOp;
 /**
- * Var form of the Garman-Klass range-based volatility estimator (OHLC).
+ * Exponentially weighted Garman-Klass range-based variance estimator (OHLC).
  *
- * @param com Center of mass.
- * @param span Span.
- * @param halflife Halflife.
- * @param alpha Smoothing parameter directly.
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param com Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha.
+ * @param span Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default.
+ * @param halflife Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive. Give exactly one of com, span, halflife and alpha.
+ * @param alpha Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha.
+ * @see https://screamer.readthedocs.io/en/latest/functions_ew/EwGarmanKlassVar.html for the full reference.
  */
 export declare function EwGarmanKlassVar(com?: number, span?: number, halflife?: number, alpha?: number): ScreamerOp;
 /**
- * Vol form of the Garman-Klass range-based volatility estimator (OHLC).
+ * Exponentially weighted Garman-Klass range-based volatility estimator (OHLC).
  *
- * @param com Center of mass.
- * @param span Span.
- * @param halflife Halflife.
- * @param alpha Smoothing parameter directly.
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param com Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha.
+ * @param span Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default.
+ * @param halflife Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive. Give exactly one of com, span, halflife and alpha.
+ * @param alpha Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha.
+ * @see https://screamer.readthedocs.io/en/latest/functions_ew/EwGarmanKlassVol.html for the full reference.
  */
 export declare function EwGarmanKlassVol(com?: number, span?: number, halflife?: number, alpha?: number): ScreamerOp;
 /**
  * EW excess kurtosis.
  *
- * @param com Center of mass (alpha = 1 / (1 + com)). Exclusive with span/halflife/alpha.
- * @param span Span (alpha = 2 / (span + 1)). Default smoothing parameter. Exclusive with com/halflife/alpha.
- * @param halflife Halflife (alpha = 1 - 0.5^(1/halflife)). Exclusive with com/span/alpha.
- * @param alpha Smoothing parameter directly. Exclusive with com/span/halflife.
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param com Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha.
+ * @param span Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default.
+ * @param halflife Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive. Give exactly one of com, span, halflife and alpha.
+ * @param alpha Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha.
+ * @see https://screamer.readthedocs.io/en/latest/functions_ew/EwKurt.html for the full reference.
  */
 export declare function EwKurt(com?: number, span?: number, halflife?: number, alpha?: number): ScreamerOp;
 /**
  * Exponentially-weighted moving average (pandas adjust=True).
  *
- * @param com Center of mass (alpha = 1 / (1 + com)). Exclusive with span/halflife/alpha.
- * @param span Span (alpha = 2 / (span + 1)). Default smoothing parameter. Exclusive with com/halflife/alpha.
- * @param halflife Halflife (alpha = 1 - 0.5^(1/halflife)). Exclusive with com/span/alpha.
- * @param alpha Smoothing parameter directly. Exclusive with com/span/halflife.
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param com Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha.
+ * @param span Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default.
+ * @param halflife Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive. Give exactly one of com, span, halflife and alpha.
+ * @param alpha Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha.
+ * @see https://screamer.readthedocs.io/en/latest/functions_ew/EwMean.html for the full reference.
  */
 export declare function EwMean(com?: number, span?: number, halflife?: number, alpha?: number): ScreamerOp;
 /**
- * Var form of the Parkinson range-based volatility estimator (uses high & low).
+ * Exponentially weighted Parkinson range-based variance estimator (high, low).
  *
- * @param com Center of mass. Exclusive with span/halflife/alpha.
- * @param span Span (default smoothing parameter).
- * @param halflife Halflife. Exclusive with com/span/alpha.
- * @param alpha Smoothing parameter directly.
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param com Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha.
+ * @param span Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default.
+ * @param halflife Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive. Give exactly one of com, span, halflife and alpha.
+ * @param alpha Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha.
+ * @see https://screamer.readthedocs.io/en/latest/functions_ew/EwParkinsonVar.html for the full reference.
  */
 export declare function EwParkinsonVar(com?: number, span?: number, halflife?: number, alpha?: number): ScreamerOp;
 /**
- * Vol form of the Parkinson range-based volatility estimator (uses high & low).
+ * Exponentially weighted Parkinson range-based volatility estimator (high, low).
  *
- * @param com Center of mass. Exclusive with span/halflife/alpha.
- * @param span Span (default smoothing parameter).
- * @param halflife Halflife. Exclusive with com/span/alpha.
- * @param alpha Smoothing parameter directly.
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param com Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha.
+ * @param span Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default.
+ * @param halflife Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive. Give exactly one of com, span, halflife and alpha.
+ * @param alpha Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha.
+ * @see https://screamer.readthedocs.io/en/latest/functions_ew/EwParkinsonVol.html for the full reference.
  */
 export declare function EwParkinsonVol(com?: number, span?: number, halflife?: number, alpha?: number): ScreamerOp;
 /**
- * EW std of the spread x - EwBeta(x,y) * y.
+ * EW std of the spread x - EwBeta(x, y) * y.
  *
- * @param com Center of mass (alpha = 1 / (1 + com)). Exclusive with span/halflife/alpha.
- * @param span Span (alpha = 2 / (span + 1)). Default smoothing parameter. Exclusive with com/halflife/alpha.
- * @param halflife Halflife (alpha = 1 - 0.5^(1/halflife)). Exclusive with com/span/alpha.
- * @param alpha Smoothing parameter directly. Exclusive with com/span/halflife.
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param com Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha.
+ * @param span Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default.
+ * @param halflife Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive. Give exactly one of com, span, halflife and alpha.
+ * @param alpha Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha.
+ * @see https://screamer.readthedocs.io/en/latest/functions_ew/EwResidualStd.html for the full reference.
  */
 export declare function EwResidualStd(com?: number, span?: number, halflife?: number, alpha?: number): ScreamerOp;
 /**
  * EW root-mean-square.
  *
- * @param com Center of mass (alpha = 1 / (1 + com)). Exclusive with span/halflife/alpha.
- * @param span Span (alpha = 2 / (span + 1)). Default smoothing parameter. Exclusive with com/halflife/alpha.
- * @param halflife Halflife (alpha = 1 - 0.5^(1/halflife)). Exclusive with com/span/alpha.
- * @param alpha Smoothing parameter directly. Exclusive with com/span/halflife.
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param com Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha.
+ * @param span Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default.
+ * @param halflife Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive. Give exactly one of com, span, halflife and alpha.
+ * @param alpha Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha.
+ * @see https://screamer.readthedocs.io/en/latest/functions_ew/EwRms.html for the full reference.
  */
 export declare function EwRms(com?: number, span?: number, halflife?: number, alpha?: number): ScreamerOp;
 /**
- * Var form of the Rogers-Satchell drift-robust range-based estimator.
+ * Exponentially weighted Rogers-Satchell drift-robust range-based variance estimator (OHLC).
  *
- * @param com Center of mass.
- * @param span Span.
- * @param halflife Halflife.
- * @param alpha Smoothing parameter directly.
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param com Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha.
+ * @param span Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default.
+ * @param halflife Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive. Give exactly one of com, span, halflife and alpha.
+ * @param alpha Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha.
+ * @see https://screamer.readthedocs.io/en/latest/functions_ew/EwRogersSatchellVar.html for the full reference.
  */
 export declare function EwRogersSatchellVar(com?: number, span?: number, halflife?: number, alpha?: number): ScreamerOp;
 /**
- * Vol form of the Rogers-Satchell drift-robust range-based estimator.
+ * Exponentially weighted Rogers-Satchell drift-robust range-based volatility estimator (OHLC).
  *
- * @param com Center of mass.
- * @param span Span.
- * @param halflife Halflife.
- * @param alpha Smoothing parameter directly.
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param com Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha.
+ * @param span Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default.
+ * @param halflife Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive. Give exactly one of com, span, halflife and alpha.
+ * @param alpha Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha.
+ * @see https://screamer.readthedocs.io/en/latest/functions_ew/EwRogersSatchellVol.html for the full reference.
  */
 export declare function EwRogersSatchellVol(com?: number, span?: number, halflife?: number, alpha?: number): ScreamerOp;
 /**
  * EW skewness.
  *
- * @param com Center of mass (alpha = 1 / (1 + com)). Exclusive with span/halflife/alpha.
- * @param span Span (alpha = 2 / (span + 1)). Default smoothing parameter. Exclusive with com/halflife/alpha.
- * @param halflife Halflife (alpha = 1 - 0.5^(1/halflife)). Exclusive with com/span/alpha.
- * @param alpha Smoothing parameter directly. Exclusive with com/span/halflife.
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param com Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha.
+ * @param span Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default.
+ * @param halflife Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive. Give exactly one of com, span, halflife and alpha.
+ * @param alpha Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha.
+ * @see https://screamer.readthedocs.io/en/latest/functions_ew/EwSkew.html for the full reference.
  */
 export declare function EwSkew(com?: number, span?: number, halflife?: number, alpha?: number): ScreamerOp;
 /**
- * x - EwBeta(x,y) * y - EW hedge-adjusted residual.
+ * EW hedge-adjusted residual x - EwBeta(x, y) * y.
  *
- * @param com Center of mass (alpha = 1 / (1 + com)). Exclusive with span/halflife/alpha.
- * @param span Span (alpha = 2 / (span + 1)). Default smoothing parameter. Exclusive with com/halflife/alpha.
- * @param halflife Halflife (alpha = 1 - 0.5^(1/halflife)). Exclusive with com/span/alpha.
- * @param alpha Smoothing parameter directly. Exclusive with com/span/halflife.
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param com Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha.
+ * @param span Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default.
+ * @param halflife Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive. Give exactly one of com, span, halflife and alpha.
+ * @param alpha Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha.
+ * @see https://screamer.readthedocs.io/en/latest/functions_ew/EwSpread.html for the full reference.
  */
 export declare function EwSpread(com?: number, span?: number, halflife?: number, alpha?: number): ScreamerOp;
 /**
  * EW standard deviation.
  *
- * @param com Center of mass (alpha = 1 / (1 + com)). Exclusive with span/halflife/alpha.
- * @param span Span (alpha = 2 / (span + 1)). Default smoothing parameter. Exclusive with com/halflife/alpha.
- * @param halflife Halflife (alpha = 1 - 0.5^(1/halflife)). Exclusive with com/span/alpha.
- * @param alpha Smoothing parameter directly. Exclusive with com/span/halflife.
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param com Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha.
+ * @param span Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default.
+ * @param halflife Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive. Give exactly one of com, span, halflife and alpha.
+ * @param alpha Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha.
+ * @see https://screamer.readthedocs.io/en/latest/functions_ew/EwStd.html for the full reference.
  */
 export declare function EwStd(com?: number, span?: number, halflife?: number, alpha?: number): ScreamerOp;
 /**
  * EW variance (pandas adjust=True bias-corrected).
  *
- * @param com Center of mass (alpha = 1 / (1 + com)). Exclusive with span/halflife/alpha.
- * @param span Span (alpha = 2 / (span + 1)). Default smoothing parameter. Exclusive with com/halflife/alpha.
- * @param halflife Halflife (alpha = 1 - 0.5^(1/halflife)). Exclusive with com/span/alpha.
- * @param alpha Smoothing parameter directly. Exclusive with com/span/halflife.
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param com Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha.
+ * @param span Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default.
+ * @param halflife Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive. Give exactly one of com, span, halflife and alpha.
+ * @param alpha Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha.
+ * @see https://screamer.readthedocs.io/en/latest/functions_ew/EwVar.html for the full reference.
  */
 export declare function EwVar(com?: number, span?: number, halflife?: number, alpha?: number): ScreamerOp;
 /**
- * Var form of the Yang-Zhang range-based estimator, exponentially weighted.
+ * Exponentially weighted Yang-Zhang range-based variance estimator (OHLC).
  *
- * @param com Center of mass.
- * @param span Span.
- * @param halflife Halflife.
- * @param alpha Smoothing parameter directly.
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param com Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha.
+ * @param span Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default.
+ * @param halflife Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive. Give exactly one of com, span, halflife and alpha.
+ * @param alpha Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha.
+ * @see https://screamer.readthedocs.io/en/latest/functions_ew/EwYangZhangVar.html for the full reference.
  */
 export declare function EwYangZhangVar(com?: number, span?: number, halflife?: number, alpha?: number): ScreamerOp;
 /**
- * Vol form (sqrt) of the EW Yang-Zhang range-based estimator.
+ * Exponentially weighted Yang-Zhang range-based volatility estimator (OHLC).
  *
- * @param com Center of mass.
- * @param span Span.
- * @param halflife Halflife.
- * @param alpha Smoothing parameter directly.
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param com Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha.
+ * @param span Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default.
+ * @param halflife Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive. Give exactly one of com, span, halflife and alpha.
+ * @param alpha Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha.
+ * @see https://screamer.readthedocs.io/en/latest/functions_ew/EwYangZhangVol.html for the full reference.
  */
 export declare function EwYangZhangVol(com?: number, span?: number, halflife?: number, alpha?: number): ScreamerOp;
 /**
- * Latest sample standardised by EW mean and std.
+ * Latest sample standardized by the EW mean and std.
  *
- * @param com Center of mass (alpha = 1 / (1 + com)). Exclusive with span/halflife/alpha.
- * @param span Span (alpha = 2 / (span + 1)). Default smoothing parameter. Exclusive with com/halflife/alpha.
- * @param halflife Halflife (alpha = 1 - 0.5^(1/halflife)). Exclusive with com/span/alpha.
- * @param alpha Smoothing parameter directly. Exclusive with com/span/halflife.
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param com Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha.
+ * @param span Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default.
+ * @param halflife Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive. Give exactly one of com, span, halflife and alpha.
+ * @param alpha Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha.
+ * @see https://screamer.readthedocs.io/en/latest/functions_ew/EwZscore.html for the full reference.
  */
 export declare function EwZscore(com?: number, span?: number, halflife?: number, alpha?: number): ScreamerOp;
 /**
  * e to the power of each element.
  *
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @see https://screamer.readthedocs.io/en/latest/functions_math/Exp.html for the full reference.
  */
 export declare function Exp(): ScreamerOp;
 /**
  * Running bias-corrected excess kurtosis (Fisher) over the whole history.
  *
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @see https://screamer.readthedocs.io/en/latest/functions_expanding/ExpandingKurt.html for the full reference.
  */
 export declare function ExpandingKurt(): ScreamerOp;
 /**
- * Running maximum from t=0.
+ * Running maximum since the start of the stream.
  *
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @see https://screamer.readthedocs.io/en/latest/functions_expanding/ExpandingMax.html for the full reference.
  */
 export declare function ExpandingMax(): ScreamerOp;
 /**
  * Running mean over the whole history since the last reset.
  *
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @see https://screamer.readthedocs.io/en/latest/functions_expanding/ExpandingMean.html for the full reference.
  */
 export declare function ExpandingMean(): ScreamerOp;
 /**
- * Running minimum from t=0.
+ * Running minimum since the start of the stream.
  *
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @see https://screamer.readthedocs.io/en/latest/functions_expanding/ExpandingMin.html for the full reference.
  */
 export declare function ExpandingMin(): ScreamerOp;
 /**
- * Running product from t=0.
+ * Running product since the start of the stream.
  *
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @see https://screamer.readthedocs.io/en/latest/functions_expanding/ExpandingProd.html for the full reference.
  */
 export declare function ExpandingProd(): ScreamerOp;
 /**
  * Running bias-corrected sample skewness (G1) over the whole history.
  *
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @see https://screamer.readthedocs.io/en/latest/functions_expanding/ExpandingSkew.html for the full reference.
  */
 export declare function ExpandingSkew(): ScreamerOp;
 /**
  * Running OLS slope of the series against time over the whole history.
  *
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @see https://screamer.readthedocs.io/en/latest/functions_expanding/ExpandingSlope.html for the full reference.
  */
 export declare function ExpandingSlope(): ScreamerOp;
 /**
  * Running sample standard deviation (ddof=1) over the whole history.
  *
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @see https://screamer.readthedocs.io/en/latest/functions_expanding/ExpandingStd.html for the full reference.
  */
 export declare function ExpandingStd(): ScreamerOp;
 /**
- * Running sum from t=0.
+ * Running sum since the start of the stream.
  *
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @see https://screamer.readthedocs.io/en/latest/functions_expanding/ExpandingSum.html for the full reference.
  */
 export declare function ExpandingSum(): ScreamerOp;
 /**
  * Running sample variance (ddof=1) over the whole history.
  *
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @see https://screamer.readthedocs.io/en/latest/functions_expanding/ExpandingVar.html for the full reference.
  */
 export declare function ExpandingVar(): ScreamerOp;
 /**
- * Replace NaN with the most recent finite value.
+ * Replace NaN with the most recent non-NaN value.
  *
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @see https://screamer.readthedocs.io/en/latest/functions_preprocessing/Ffill.html for the full reference.
  */
 export declare function Ffill(): ScreamerOp;
 /**
  * Replace NaN with a user-specified scalar.
  *
- * @param fill Value used to replace NaN. Default 0.
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param fill Constant that replaces each NaN.
+ * @see https://screamer.readthedocs.io/en/latest/functions_preprocessing/FillNa.html for the full reference.
  */
 export declare function FillNa(fill?: number): ScreamerOp;
 /**
  * Latch the first finite value seen since reset.
  *
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @see https://screamer.readthedocs.io/en/latest/functions_misc/First.html for the full reference.
  */
 export declare function First(): ScreamerOp;
 /**
  * Round each element toward negative infinity.
  *
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @see https://screamer.readthedocs.io/en/latest/functions_math/Floor.html for the full reference.
  */
 export declare function Floor(): ScreamerOp;
 /**
  * Fractional differencing filter. Removes the trend while keeping more of the series' memory than an integer difference.
  *
- * @param d Differencing order. 0 is the identity, 1 the first difference, 2 the second.
+ * @param d Differencing order. 0 is the identity, 1 the first difference, 2 the second; negative values give fractional integration.
  * @param windowSize Maximum number of taps, which bounds memory and per-step cost.
- * @param threshold Truncate the weight series at the first weight smaller than this in absolute value.
- * @param startPolicy Warmup behaviour.
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param threshold Truncate the weight series at the first weight smaller than this in absolute value. 0.0 keeps all window_size taps.
+ * @param startPolicy Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros.
+ * @see https://screamer.readthedocs.io/en/latest/functions_signal/FracDiff.html for the full reference.
  */
 export declare function FracDiff(d?: number, windowSize?: number, threshold?: number, startPolicy?: string): ScreamerOp;
 /**
  * Returns 1.0 if a >= b, else 0.0. NaN in either input yields NaN.
  *
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @see https://screamer.readthedocs.io/en/latest/functions_math/GreaterEqual.html for the full reference.
  */
 export declare function GreaterEqual(): ScreamerOp;
 /**
  * Returns 1.0 if a > b, else 0.0. NaN in either input yields NaN.
  *
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @see https://screamer.readthedocs.io/en/latest/functions_math/GreaterThan.html for the full reference.
  */
 export declare function GreaterThan(): ScreamerOp;
 /**
  * Robust Hampel despiker, replace samples far from the window median (in MAD units).
  *
- * @param windowSize Trailing-window length.
- * @param nSigma Threshold in robust standard deviations (1.4826 * MAD).
- * @param output "cleaned" replaces outliers with the median, "flag" emits 1.0 at outliers (else 0.0), "nan" replaces outliers with NaN.
- * @param startPolicy Warmup handling before the window is full (strict, expanding, or zero).
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param windowSize Number of most recent samples used for the median and the MAD.
+ * @param nSigma Detection threshold in robust standard deviations (1.4826 * MAD). Larger values flag fewer samples; 3.0 is typical.
+ * @param output What to return: "cleaned" gives the signal with outliers replaced by the median, "flag" gives 1.0 at outliers and 0.0 elsewhere, and "nan" gives the input with outliers replaced by NaN.
+ * @param startPolicy Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/Hampel.html for the full reference.
  */
 export declare function Hampel(windowSize?: number, nSigma?: number, output?: string, startPolicy?: string): ScreamerOp;
 /**
  * Conditional intensity of an exponential-kernel Hawkes process: lambda_t = mu + kappa_t.
  *
- * @param decay Exponential decay rate applied to the self-exciting kernel each step. Must be in (0, 1).
- * @param alpha Excitation amplitude; scales how much each event raises the intensity.
- * @param mu Baseline intensity (the unconditional floor).
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param decay Fraction of the excitation kept from one step to the next, in (0, 1). Larger values make the excitation fade more slowly.
+ * @param alpha Excitation amplitude: each event adds alpha times its mark to the excitation.
+ * @param mu Baseline intensity, the output when there has been no recent event.
+ * @see https://screamer.readthedocs.io/en/latest/functions_micro/HawkesIntensity.html for the full reference.
  */
 export declare function HawkesIntensity(decay?: number, alpha?: number, mu?: number): ScreamerOp;
 /**
  * In-phase and quadrature components of the analytic signal via Ehlers' Hilbert transform.
  *
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @see https://screamer.readthedocs.io/en/latest/functions_signal/HilbertPhasor.html for the full reference.
  */
 export declare function HilbertPhasor(): ScreamerOp;
 /**
- * Time-latch operator. Latches a nonzero finite input and holds it for n bars; returns the release value once the hold expires.
+ * Time-latch operator. Latches a nonzero finite input and holds it for n steps; returns the release value once the hold expires.
  *
- * @param n Number of bars to hold the latched value, including the trigger bar. Must be >= 1.
- * @param release Value returned when no hold is active and the input is zero. May be finite or NaN.
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param n Number of steps the latched value is held, counting the trigger step: a nonzero input at t is output at t, t+1, ..., t+n-1.
+ * @param release Value returned when no hold is active and the input is zero. May be finite or NaN; inf is rejected.
+ * @see https://screamer.readthedocs.io/en/latest/functions_signal/Hold.html for the full reference.
  */
 export declare function Hold(n: number, release?: number): ScreamerOp;
 /**
  * Hull's responsive MA: WMA(2*WMA(n/2) - WMA(n), sqrt(n)).
  *
- * @param windowSize Trailing-window length.
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param windowSize Main window n in samples; the inner windows are n // 2 and floor(sqrt(n)). Must be at least 4 so that both inner windows are at least 2.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/HullMA.html for the full reference.
  */
 export declare function HullMA(windowSize?: number): ScreamerOp;
 /**
  * Euclidean distance sqrt(x^2 + y^2), numerically stable.
  *
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @see https://screamer.readthedocs.io/en/latest/functions_math/Hypot.html for the full reference.
  */
 export declare function Hypot(): ScreamerOp;
 /**
  * Pass-through (y = x).
  *
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @see https://screamer.readthedocs.io/en/latest/functions_misc/Identity.html for the full reference.
  */
 export declare function Identity(): ScreamerOp;
 /**
  * Causal impulse remover, detects spikes on the trend-free first difference.
  *
- * @param windowSize Trailing-window length.
- * @param nSigma Threshold in robust standard deviations (1.4826 * MAD of the differences).
- * @param output "cleaned" replaces outliers with the median, "flag" emits 1.0 at outliers (else 0.0), "nan" replaces outliers with NaN.
- * @param startPolicy Warmup handling before the window is full (strict, expanding, or zero).
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param windowSize Number of most recent first differences (and values) used for the robust scale and the replacement median.
+ * @param nSigma Detection threshold in robust standard deviations of the differences (1.4826 * MAD). Larger values flag fewer samples; 4.0 is typical.
+ * @param output What to return: "cleaned" gives the signal with outliers replaced by the median, "flag" gives 1.0 at outliers and 0.0 elsewhere, and "nan" gives the input with outliers replaced by NaN.
+ * @param startPolicy Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/ImpulseClip.html for the full reference.
  */
 export declare function ImpulseClip(windowSize?: number, nSigma?: number, output?: string, startPolicy?: string): ScreamerOp;
 /**
  * Adaptive 2-pole trendline whose smoothing tracks the measured dominant cycle.
  *
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @see https://screamer.readthedocs.io/en/latest/functions_signal/InstantaneousTrendline.html for the full reference.
  */
 export declare function InstantaneousTrendline(): ScreamerOp;
 /**
  * Returns 1.0 for finite values, 0.0 for NaN or inf. Does not propagate NaN.
  *
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @see https://screamer.readthedocs.io/en/latest/functions_math/IsFinite.html for the full reference.
  */
 export declare function IsFinite(): ScreamerOp;
 /**
  * Returns 1.0 if the input is NaN, else 0.0. Does not propagate NaN.
  *
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @see https://screamer.readthedocs.io/en/latest/functions_math/IsNan.html for the full reference.
  */
 export declare function IsNan(): ScreamerOp;
 /**
  * Adaptive MA whose smoothing constant responds to the efficiency ratio.
  *
- * @param windowSize Efficiency-ratio lookback.
- * @param fast Fast EMA period.
- * @param slow Slow EMA period.
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param windowSize Efficiency-ratio lookback n in samples: the net move and the path length are measured over the last n steps.
+ * @param fast Period of the fastest smoothing constant, alpha_fast = 2 / (fast + 1), used when the efficiency ratio is 1. TA-Lib fixes it at 2.
+ * @param slow Period of the slowest smoothing constant, alpha_slow = 2 / (slow + 1), used when the efficiency ratio is 0. TA-Lib fixes it at 30.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/KAMA.html for the full reference.
  */
 export declare function KAMA(windowSize?: number, fast?: number, slow?: number): ScreamerOp;
 /**
  * Scalar 1-D Kalman filter for a noisy random-walk model.
  *
- * @param processVar Variance of the random-walk innovation (larger = more responsive).
- * @param observationVar Variance of the measurement noise.
- * @param initialState Initial state estimate.
- * @param initialVariance Initial state variance. Set to a large value to forget the initial state quickly.
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param processVar Variance of the random-walk innovation. Larger values make the filter follow new measurements more closely, with a noisier output.
+ * @param observationVar Variance of the measurement noise. Must be positive.
+ * @param initialState Starting state estimate x_0, used before the first observation.
+ * @param initialVariance Variance P_0 of the starting state. A large value such as 1e9 makes the filter forget the initial state quickly.
+ * @see https://screamer.readthedocs.io/en/latest/functions_signal/KalmanFilter.html for the full reference.
  */
 export declare function KalmanFilter(processVar?: number, observationVar?: number, initialState?: number, initialVariance?: number): ScreamerOp;
 /**
  * Regression with a random-walk intercept and slope, estimated by a Kalman filter: the dynamic hedge ratio of a pairs trade, its spread, and the spread's predicted deviation.
  *
- * @param delta How fast the intercept and slope may move. The state noise variance is delta / (1 - delta) per step; smaller values give steadier estimates and a spread that keeps its mean reversion.
- * @param obsVar Variance of the spread (the regression error), in squared units of the first input.
- * @param priorVar Starting variance of the intercept and slope, which start at zero.
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param delta How fast the intercept and slope may move. The state noise variance is delta / (1 - delta) per step; smaller values give steadier estimates and a spread that keeps its mean reversion. The right value scales with the bar frequency, from about 1e-10 on one-minute log prices to 1e-8 to 1e-6 on daily ones. Must be in (0, 1).
+ * @param obsVar Variance of the spread (the regression error), in squared units of the first input. Must be positive.
+ * @param priorVar Starting variance of the intercept and slope, which both start at zero.
+ * @see https://screamer.readthedocs.io/en/latest/functions_fin/KalmanRegression.html for the full reference.
  */
 export declare function KalmanRegression(delta?: number, obsVar?: number, priorVar?: number): ScreamerOp;
 /**
  * Volatility-adapted envelope: EMA midline plus/minus a multiple of ATR.
  *
  * @param windowSize Period for both the EMA midline and the ATR offset.
- * @param numAtr ATR multiplier for upper/lower offset.
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param numAtr Distance from the middle line to each outer line, in multiples of the ATR.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/KeltnerChannels.html for the full reference.
  */
 export declare function KeltnerChannels(windowSize?: number, numAtr?: number): ScreamerOp;
 /**
  * Output is the input delayed by k samples.
  *
- * @param windowSize Number of samples to delay by.
- * @param startPolicy Warmup behaviour: 'strict' (NaN until full window), 'expanding' (use partial windows), or 'zero' (treat missing as zero).
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param windowSize Number of samples k to delay the input by.
+ * @param startPolicy Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros.
+ * @see https://screamer.readthedocs.io/en/latest/functions_misc/Lag.html for the full reference.
  */
 export declare function Lag(windowSize?: number, startPolicy?: string): ScreamerOp;
 /**
  * Return the most recent finite value seen since reset.
  *
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @see https://screamer.readthedocs.io/en/latest/functions_misc/Last.html for the full reference.
  */
 export declare function Last(): ScreamerOp;
 /**
  * Trade sign by the Lee-Ready (1991) rule: quote test with tick-rule fallback.
  *
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @see https://screamer.readthedocs.io/en/latest/functions_micro/LeeReadySign.html for the full reference.
  */
 export declare function LeeReadySign(): ScreamerOp;
 /**
  * Returns 1.0 if a <= b, else 0.0. NaN in either input yields NaN.
  *
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @see https://screamer.readthedocs.io/en/latest/functions_math/LessEqual.html for the full reference.
  */
 export declare function LessEqual(): ScreamerOp;
 /**
  * Returns 1.0 if a < b, else 0.0. NaN in either input yields NaN.
  *
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @see https://screamer.readthedocs.io/en/latest/functions_math/LessThan.html for the full reference.
  */
 export declare function LessThan(): ScreamerOp;
 /**
  * Affine transform: scale * x + shift.
  *
- * @param scale Multiplicative coefficient.
- * @param shift Additive offset.
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param scale Factor that multiplies each input value.
+ * @param shift Constant added after scaling.
+ * @see https://screamer.readthedocs.io/en/latest/functions_math/Linear.html for the full reference.
  */
 export declare function Linear(scale?: number, shift?: number): ScreamerOp;
 /**
  * Two-input affine combination: a*x + b*y + c.
  *
- * @param a Coefficient on the first input.
- * @param b Coefficient on the second input.
- * @param c Additive offset.
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param a Coefficient that multiplies the first input.
+ * @param b Coefficient that multiplies the second input.
+ * @param c Constant added to the weighted sum.
+ * @see https://screamer.readthedocs.io/en/latest/functions_math/Linear2.html for the full reference.
  */
 export declare function Linear2(a?: number, b?: number, c?: number): ScreamerOp;
 /**
  * Natural logarithm of each element.
  *
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @see https://screamer.readthedocs.io/en/latest/functions_math/Log.html for the full reference.
  */
 export declare function Log(): ScreamerOp;
 /**
- * log(x[t] / x[t-k]) - log return at lag k.
+ * Log return log(x[t] / x[t-k]) at lag k.
  *
- * @param windowSize Lag for the log return.
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param windowSize Lag k: the output compares each value with the value k steps earlier.
+ * @see https://screamer.readthedocs.io/en/latest/functions_fin/LogReturn.html for the full reference.
  */
 export declare function LogReturn(windowSize?: number): ScreamerOp;
 /**
  * MACD line, signal line, and histogram (3 outputs).
  *
- * @param fast Fast EMA span.
- * @param slow Slow EMA span.
- * @param signal Signal-line EMA span.
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param fast Span of the fast EMA, in samples. Must be less than slow.
+ * @param slow Span of the slow EMA, in samples. Must be greater than fast.
+ * @param signal Span of the EMA applied to the MACD line to form the signal line, in samples.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/MACD.html for the full reference.
  */
 export declare function MACD(fast?: number, slow?: number, signal?: number): ScreamerOp;
 /**
@@ -1157,143 +1157,143 @@ export declare function MACD(fast?: number, slow?: number, signal?: number): Scr
  *
  * @param fastLimit Upper bound on the smoothing constant, applied when the phase advances quickly.
  * @param slowLimit Lower bound on the smoothing constant, applied when the phase stalls.
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @see https://screamer.readthedocs.io/en/latest/functions_signal/MAMA.html for the full reference.
  */
 export declare function MAMA(fastLimit?: number, slowLimit?: number): ScreamerOp;
 /**
  * Volume-weighted analogue of RSI on the typical price.
  *
- * @param windowSize Lookback period (Wilder's default is 14).
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param windowSize Number of most recent typical-price changes whose money flow is summed into the positive and negative totals.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/MFI.html for the full reference.
  */
 export declare function MFI(windowSize?: number): ScreamerOp;
 /**
  * Worst drawdown experienced so far (since reset).
  *
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @see https://screamer.readthedocs.io/en/latest/functions_fin/MaxDrawdown.html for the full reference.
  */
 export declare function MaxDrawdown(): ScreamerOp;
 /**
  * Imbalance-weighted mid (Stoikov 2018, first-order): fair value that leans toward the thinner side of the book.
  *
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @see https://screamer.readthedocs.io/en/latest/functions_micro/MicroPrice.html for the full reference.
  */
 export declare function MicroPrice(): ScreamerOp;
 /**
  * Wilder negative directional indicator.
  *
- * @param windowSize Wilder smoothing period.
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param windowSize Wilder smoothing period: the smoother seeds on the first window_size values, then each step keeps (window_size - 1) / window_size of the previous value.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/MinusDI.html for the full reference.
  */
 export declare function MinusDI(windowSize?: number): ScreamerOp;
 /**
  * Wilder smoothed negative directional movement.
  *
- * @param windowSize Wilder smoothing period.
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param windowSize Wilder smoothing period: the smoother seeds on the first window_size values, then each step keeps (window_size - 1) / window_size of the previous value.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/MinusDM.html for the full reference.
  */
 export declare function MinusDM(windowSize?: number): ScreamerOp;
 /**
  * x[t] - x[t-k], TA-Lib's MOM. Mathematically identical to Diff(k).
  *
- * @param windowSize Lookback k. TA-Lib defaults to 10.
- * @param startPolicy Warmup behaviour: 'strict' (NaN until full window), 'expanding' (use partial windows), or 'zero' (treat missing as zero).
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param windowSize Lookback k, in samples. TA-Lib also defaults to 10.
+ * @param startPolicy Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros.
+ * @see https://screamer.readthedocs.io/en/latest/functions_misc/Momentum.html for the full reference.
  */
 export declare function Momentum(windowSize?: number, startPolicy?: string): ScreamerOp;
 /**
  * Finite-impulse-response filter with user-supplied taps.
  *
- * @param taps FIR coefficients. Default is a 3-tap triangular kernel.
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param taps FIR coefficients; taps[0] multiplies the current sample and taps[-1] the oldest. Must be non-empty. The default is a 3-tap triangular kernel.
+ * @see https://screamer.readthedocs.io/en/latest/functions_signal/MovingAverage.html for the full reference.
  */
 export declare function MovingAverage(taps?: number | number[]): ScreamerOp;
 /**
  * Elementwise product of two aligned streams (x * y).
  *
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @see https://screamer.readthedocs.io/en/latest/functions_math/Mul.html for the full reference.
  */
 export declare function Mul(): ScreamerOp;
 /**
  * ATR scaled to a percentage of the current close.
  *
- * @param windowSize Wilder smoothing period.
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param windowSize Wilder smoothing period: the smoother seeds on the first window_size values, then each step keeps (window_size - 1) / window_size of the previous value.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/NATR.html for the full reference.
  */
 export declare function NATR(windowSize?: number): ScreamerOp;
 /**
  * Negative part of x: max(-x, 0).
  *
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @see https://screamer.readthedocs.io/en/latest/functions_math/NegPart.html for the full reference.
  */
 export declare function NegPart(): ScreamerOp;
 /**
  * Returns 0.0 if input is nonzero, 1.0 if zero. NaN propagates.
  *
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @see https://screamer.readthedocs.io/en/latest/functions_math/Not.html for the full reference.
  */
 export declare function Not(): ScreamerOp;
 /**
  * Returns 1.0 if a != b, else 0.0. NaN in either input yields NaN.
  *
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @see https://screamer.readthedocs.io/en/latest/functions_math/NotEqual.html for the full reference.
  */
 export declare function NotEqual(): ScreamerOp;
 /**
  * On-Balance Volume: signed cumulative volume by close-direction (Granville, 1963).
  *
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/OBV.html for the full reference.
  */
 export declare function OBV(): ScreamerOp;
 /**
  * Normalized signed order flow, (buy - sell) / (buy + sell).
  *
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @see https://screamer.readthedocs.io/en/latest/functions_micro/OFI.html for the full reference.
  */
 export declare function OFI(): ScreamerOp;
 /**
  * Returns 1.0 if either input is nonzero, else 0.0. NaN in either input yields NaN.
  *
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @see https://screamer.readthedocs.io/en/latest/functions_math/Or.html for the full reference.
  */
 export declare function Or(): ScreamerOp;
 /**
  * Wilder positive directional indicator.
  *
- * @param windowSize Wilder smoothing period.
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param windowSize Wilder smoothing period: the smoother seeds on the first window_size values, then each step keeps (window_size - 1) / window_size of the previous value.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/PlusDI.html for the full reference.
  */
 export declare function PlusDI(windowSize?: number): ScreamerOp;
 /**
  * Wilder smoothed positive directional movement.
  *
- * @param windowSize Wilder smoothing period.
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param windowSize Wilder smoothing period: the smoother seeds on the first window_size values, then each step keeps (window_size - 1) / window_size of the previous value.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/PlusDM.html for the full reference.
  */
 export declare function PlusDM(windowSize?: number): ScreamerOp;
 /**
  * Convert (r, theta) to (x, y).
  *
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @see https://screamer.readthedocs.io/en/latest/functions_math/Polar2Cart.html for the full reference.
  */
 export declare function Polar2Cart(): ScreamerOp;
 /**
  * Reduce a multi-asset backtest engine output into causal portfolio-level report columns.
  *
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @see https://screamer.readthedocs.io/en/latest/functions_fin/PortfolioReport.html for the full reference.
  */
 export declare function PortfolioReport(): ScreamerOp;
 /**
  * Positive part of x: max(x, 0).
  *
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @see https://screamer.readthedocs.io/en/latest/functions_math/PosPart.html for the full reference.
  */
 export declare function PosPart(): ScreamerOp;
 /**
  * x raised to a fixed exponent p.
  *
- * @param p Exponent. Defaults to 2 (same effect as Square but slower).
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param p Exponent applied to each element. The default 2 gives the same result as Square, which computes x * x directly.
+ * @see https://screamer.readthedocs.io/en/latest/functions_math/Power.html for the full reference.
  */
 export declare function Power(p?: number): ScreamerOp;
 /**
@@ -1302,670 +1302,670 @@ export declare function Power(p?: number): ScreamerOp;
  * @param windowSize Number of past flow samples included in the convolution (the kernel support).
  * @param g0 Kernel amplitude; scales the overall impact magnitude.
  * @param gamma Power-law decay exponent. Larger values make the kernel decay faster.
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @see https://screamer.readthedocs.io/en/latest/functions_micro/Propagator.html for the full reference.
  */
 export declare function Propagator(windowSize?: number, g0?: number, gamma?: number): ScreamerOp;
 /**
- * 100 * (x[t] / x[t-k] - 1) - TA-Lib's ROC.
+ * Rate of change 100 * (x[t] / x[t-k] - 1), in percent (TA-Lib ROC).
  *
- * @param windowSize Lookback k. TA-Lib default is 10.
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param windowSize Lookback k: the output compares each value with the value k steps earlier. TA-Lib uses 10.
+ * @see https://screamer.readthedocs.io/en/latest/functions_fin/ROC.html for the full reference.
  */
 export declare function ROC(windowSize?: number): ScreamerOp;
 /**
- * x[t] / x[t-k] - 1 - TA-Lib's ROCP. Identical to Return.
+ * Rate of change x[t] / x[t-k] - 1, as a fraction (TA-Lib ROCP). Identical to Return.
  *
- * @param windowSize Lookback k.
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param windowSize Lookback k: the output compares each value with the value k steps earlier. TA-Lib uses 10.
+ * @see https://screamer.readthedocs.io/en/latest/functions_fin/ROCP.html for the full reference.
  */
 export declare function ROCP(windowSize?: number): ScreamerOp;
 /**
- * x[t] / x[t-k] - TA-Lib's ROCR.
+ * Rate of change ratio x[t] / x[t-k] (TA-Lib ROCR).
  *
- * @param windowSize Lookback k.
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param windowSize Lookback k: the output compares each value with the value k steps earlier. TA-Lib uses 10.
+ * @see https://screamer.readthedocs.io/en/latest/functions_fin/ROCR.html for the full reference.
  */
 export declare function ROCR(windowSize?: number): ScreamerOp;
 /**
- * Realized spread, 2*D*(price - mid a few steps later): the liquidity part of the effective spread.
+ * Realized spread, 2*D*(trade price - mid lag steps later): the part of the effective spread the liquidity provider keeps.
  *
- * @param lag How many steps ahead the mid is measured (the price-impact horizon).
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param lag Number of steps between a trade and the mid it is compared with (the price-impact horizon).
+ * @see https://screamer.readthedocs.io/en/latest/functions_micro/RealizedSpread.html for the full reference.
  */
 export declare function RealizedSpread(lag?: number): ScreamerOp;
 /**
  * Rectified linear unit: max(0, x).
  *
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @see https://screamer.readthedocs.io/en/latest/functions_math/Relu.html for the full reference.
  */
 export declare function Relu(): ScreamerOp;
 /**
- * (x[t] - x[t-k]) / x[t-k] - the simple percentage return at lag k.
+ * Simple return (x[t] - x[t-k]) / x[t-k] at lag k.
  *
- * @param windowSize Lag for the return (1 = consecutive).
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param windowSize Lag k: the output compares each value with the value k steps earlier (1 compares consecutive values).
+ * @see https://screamer.readthedocs.io/en/latest/functions_fin/Return.html for the full reference.
  */
 export declare function Return(windowSize?: number): ScreamerOp;
 /**
  * Roll (1984) effective spread from trade prices alone: 2*sqrt(-cov(dP_t, dP_{t-1})) over a trailing window.
  *
- * @param windowSize Window length in observations.
- * @param startPolicy Warmup behaviour.
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param windowSize Number of consecutive price-change pairs in the trailing covariance window.
+ * @param startPolicy Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros.
+ * @see https://screamer.readthedocs.io/en/latest/functions_micro/RollSpread.html for the full reference.
  */
 export declare function RollSpread(windowSize?: number, startPolicy?: string): ScreamerOp;
 /**
  * Rolling augmented Dickey-Fuller t-statistic: how strongly a series, such as a pairs spread, reverts to a mean over the last window.
  *
- * @param windowSize Number of regression rows in the window. At least lags + 4.
+ * @param windowSize Number of regression rows in the window. Must be at least lags + 4.
  * @param lags Number of lagged differences in the regression (the augmentation). 0 is the plain Dickey-Fuller test.
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @see https://screamer.readthedocs.io/en/latest/functions_fin/RollingADF.html for the full reference.
  */
 export declare function RollingADF(windowSize?: number, lags?: number): ScreamerOp;
 /**
- * Rolling OLS intercept of target on regressor (companion to RollingBeta).
+ * Rolling OLS intercept of a target regressed on a regressor (companion to RollingBeta).
  *
- * @param windowSize Trailing-window length.
- * @param startPolicy Warmup behaviour.
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param windowSize Number of most recent (target, regressor) pairs in the regression window.
+ * @param startPolicy Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros.
+ * @see https://screamer.readthedocs.io/en/latest/functions_fin/RollingAlpha.html for the full reference.
  */
 export declare function RollingAlpha(windowSize?: number, startPolicy?: string): ScreamerOp;
 /**
- * Window-offset of the trailing-window maximum (TA-Lib MAXINDEX).
+ * Position of the maximum within the trailing window (0 is the oldest sample).
  *
- * @param windowSize Trailing-window length.
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param windowSize Number of most recent samples searched for the maximum.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingArgmax.html for the full reference.
  */
 export declare function RollingArgmax(windowSize?: number): ScreamerOp;
 /**
- * Window-offset of the trailing-window minimum (TA-Lib MININDEX).
+ * Position of the minimum within the trailing window (0 is the oldest sample).
  *
- * @param windowSize Trailing-window length.
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param windowSize Number of most recent samples searched for the minimum.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingArgmin.html for the full reference.
  */
 export declare function RollingArgmin(windowSize?: number): ScreamerOp;
 /**
- * cov(x, y) / var(y) - regression slope of x on y.
+ * Rolling regression slope cov(x, y) / var(y) of the first input x (dependent) on the second input y (regressor).
  *
- * @param windowSize Window length.
- * @param startPolicy Warmup behaviour.
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param windowSize Number of most recent (target, regressor) pairs in the regression window.
+ * @param startPolicy Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros.
+ * @see https://screamer.readthedocs.io/en/latest/functions_fin/RollingBeta.html for the full reference.
  */
 export declare function RollingBeta(windowSize?: number, startPolicy?: string): ScreamerOp;
 /**
  * Historical Conditional Value-at-Risk (Expected Shortfall): the mean loss in the worst alpha tail over a window.
  *
- * @param windowSize Window length in observations.
+ * @param windowSize Number of most recent returns in the window.
  * @param alpha Tail probability level in (0, 1); 0.05 means the 5% CVaR (average loss in the worst 5% of the window).
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @see https://screamer.readthedocs.io/en/latest/functions_fin/RollingCVaR.html for the full reference.
  */
 export declare function RollingCVaR(windowSize?: number, alpha?: number): ScreamerOp;
 /**
- * Annualised return divided by the worst rolling drawdown.
+ * Annualized mean return divided by the worst drawdown in a trailing window.
  *
- * @param windowSize Trailing-window length.
- * @param periodsPerYear Annualisation factor (252 daily, 52 weekly, 12 monthly, 1 = no annualisation).
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param windowSize Number of most recent returns used for the mean return and the drawdown.
+ * @param periodsPerYear Annualization factor that multiplies the mean return: 252 for daily, 52 for weekly, 12 for monthly data, 1 for no annualization.
+ * @see https://screamer.readthedocs.io/en/latest/functions_fin/RollingCalmar.html for the full reference.
  */
 export declare function RollingCalmar(windowSize?: number, periodsPerYear?: number): ScreamerOp;
 /**
  * Rolling Pearson correlation of two parallel streams.
  *
- * @param windowSize Window length.
- * @param startPolicy Warmup behaviour.
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param windowSize Number of most recent (x, y) pairs in the window.
+ * @param startPolicy Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros.
+ * @see https://screamer.readthedocs.io/en/latest/functions_fin/RollingCorr.html for the full reference.
  */
 export declare function RollingCorr(windowSize?: number, startPolicy?: string): ScreamerOp;
 /**
  * Rolling sample covariance of two parallel streams.
  *
- * @param windowSize Window length.
- * @param startPolicy Warmup behaviour.
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param windowSize Number of most recent (x, y) pairs in the window.
+ * @param startPolicy Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros.
+ * @see https://screamer.readthedocs.io/en/latest/functions_fin/RollingCov.html for the full reference.
  */
 export declare function RollingCov(windowSize?: number, startPolicy?: string): ScreamerOp;
 /**
  * Trailing-window downside semideviation: the RMS of returns falling below a minimum acceptable return.
  *
- * @param windowSize Window length in observations.
- * @param mar Minimum acceptable return; only returns below it contribute.
- * @param startPolicy Warmup behaviour.
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param windowSize Number of most recent returns in the window.
+ * @param mar Minimum acceptable return. Only returns below it contribute to the deviation.
+ * @param startPolicy Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros.
+ * @see https://screamer.readthedocs.io/en/latest/functions_fin/RollingDownsideDeviation.html for the full reference.
  */
 export declare function RollingDownsideDeviation(windowSize?: number, mar?: number, startPolicy?: string): ScreamerOp;
 /**
  * Var form of the Garman-Klass range-based volatility estimator (OHLC).
  *
- * @param windowSize Smoothing window.
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param windowSize Number of most recent bars whose per-bar Garman-Klass variances are averaged.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingGarmanKlassVar.html for the full reference.
  */
 export declare function RollingGarmanKlassVar(windowSize?: number): ScreamerOp;
 /**
  * Vol form of the Garman-Klass range-based volatility estimator (OHLC).
  *
- * @param windowSize Smoothing window.
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param windowSize Number of most recent bars whose per-bar Garman-Klass variances are averaged.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingGarmanKlassVol.html for the full reference.
  */
 export declare function RollingGarmanKlassVol(windowSize?: number): ScreamerOp;
 /**
- * Fraction of strictly-positive samples in a trailing window.
+ * Fraction of strictly positive values in a trailing window.
  *
- * @param windowSize Trailing-window length.
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param windowSize Number of most recent values counted.
+ * @see https://screamer.readthedocs.io/en/latest/functions_fin/RollingHitRate.html for the full reference.
  */
 export declare function RollingHitRate(windowSize?: number): ScreamerOp;
 /**
  * Rolling-window Hurst exponent via Anis-Lloyd corrected rescaled-range analysis.
  *
- * @param windowSize Trailing-window length. Must be >= 4 * min_scale.
- * @param minScale Smallest R/S block size. Dyadic scales are min_scale, 2*min_scale, ... up to window_size/2.
- * @param method Estimator family. Currently only Anis-Lloyd corrected R/S.
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param windowSize Trailing-window length W in samples. Must be at least 4 * min_scale so the regression has at least three scales.
+ * @param minScale Smallest R/S block size; the scales are min_scale, 2*min_scale, ... up to window_size/2. Larger values reduce small-sample bias but leave fewer scales for the regression.
+ * @param method Estimator family. Only "rs" (Anis-Lloyd corrected rescaled range) is available.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingHurst.html for the full reference.
  */
 export declare function RollingHurst(windowSize?: number, minScale?: number, method?: string): ScreamerOp;
 /**
- * Annualised information ratio: Sharpe of active returns against a benchmark.
+ * Annualized information ratio: the Sharpe ratio of active returns against a benchmark.
  *
- * @param windowSize Trailing-window length.
- * @param periodsPerYear Annualisation factor (252 daily, 52 weekly, 12 monthly, 1 = no annualisation).
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param windowSize Number of most recent (returns, benchmark) pairs in the window.
+ * @param periodsPerYear Annualization factor: the ratio is multiplied by sqrt(periods_per_year). Use 252 for daily, 52 for weekly, 12 for monthly data, and 1 for no annualization.
+ * @see https://screamer.readthedocs.io/en/latest/functions_fin/RollingInfoRatio.html for the full reference.
  */
 export declare function RollingInfoRatio(windowSize?: number, periodsPerYear?: number): ScreamerOp;
 /**
  * Q3 minus Q1 over the trailing window.
  *
- * @param windowSize Trailing-window length.
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param windowSize Number of most recent samples whose quartiles are taken.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingIqr.html for the full reference.
  */
 export declare function RollingIqr(windowSize?: number): ScreamerOp;
 /**
  * Trailing-window excess kurtosis.
  *
- * @param windowSize Trailing-window length.
- * @param startPolicy Warmup behaviour.
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param windowSize Number of most recent samples in the window. The estimator needs at least 4 samples, so smaller windows give NaN.
+ * @param startPolicy Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingKurt.html for the full reference.
  */
 export declare function RollingKurt(windowSize?: number, startPolicy?: string): ScreamerOp;
 /**
- * Full OLS fit returning (slope, intercept, r_squared, stderr).
+ * Rolling OLS fit of y on x, returning slope, intercept, R-squared and the standard error of the fit.
  *
- * @param windowSize Trailing-window length.
- * @param startPolicy Warmup behaviour.
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param windowSize Number of most recent (y, x) pairs in the regression window. Must be at least 3, because the standard error divides by n - 2.
+ * @param startPolicy Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros.
+ * @see https://screamer.readthedocs.io/en/latest/functions_fin/RollingLinearRegression.html for the full reference.
  */
 export declare function RollingLinearRegression(windowSize?: number, startPolicy?: string): ScreamerOp;
 /**
  * Trailing-window mean absolute deviation from the rolling mean.
  *
- * @param windowSize Trailing-window length.
- * @param startPolicy Warmup behaviour.
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param windowSize Number of most recent samples whose mean and absolute deviations are taken.
+ * @param startPolicy Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingMad.html for the full reference.
  */
 export declare function RollingMad(windowSize?: number, startPolicy?: string): ScreamerOp;
 /**
  * Trailing-window maximum (monotonic deque).
  *
- * @param windowSize Trailing-window length.
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param windowSize Number of most recent samples in the window.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingMax.html for the full reference.
  */
 export declare function RollingMax(windowSize?: number): ScreamerOp;
 /**
  * Worst peak-to-trough drawdown inside a trailing window.
  *
- * @param windowSize Trailing-window length (252 = one trading year, default).
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param windowSize Number of most recent prices searched for the worst peak-to-trough loss (252 is one trading year of daily data).
+ * @see https://screamer.readthedocs.io/en/latest/functions_fin/RollingMaxDrawdown.html for the full reference.
  */
 export declare function RollingMaxDrawdown(windowSize?: number): ScreamerOp;
 /**
  * Trailing-window arithmetic mean (simple moving average).
  *
- * @param windowSize Trailing-window length.
- * @param startPolicy Warmup behaviour.
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param windowSize Number of most recent samples in the window.
+ * @param startPolicy Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingMean.html for the full reference.
  */
 export declare function RollingMean(windowSize?: number, startPolicy?: string): ScreamerOp;
 /**
  * Trailing-window median.
  *
- * @param windowSize Trailing-window length.
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param windowSize Number of most recent samples in the window.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingMedian.html for the full reference.
  */
 export declare function RollingMedian(windowSize?: number): ScreamerOp;
 /**
  * Rolling median absolute deviation, median(|x - median|), a robust scale estimate.
  *
- * @param windowSize Trailing-window length.
- * @param startPolicy Warmup handling before the window is full (strict, expanding, or zero).
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param windowSize Number of most recent samples in the window.
+ * @param startPolicy Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingMedianAD.html for the full reference.
  */
 export declare function RollingMedianAD(windowSize?: number, startPolicy?: string): ScreamerOp;
 /**
  * Trailing-window minimum (monotonic deque).
  *
- * @param windowSize Trailing-window length.
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param windowSize Number of most recent samples in the window.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingMin.html for the full reference.
  */
 export declare function RollingMin(windowSize?: number): ScreamerOp;
 /**
- * Trailing-window (min, max) returned as a 2-tuple per step.
+ * Trailing-window minimum and maximum, computed in one pass.
  *
- * @param windowSize Trailing-window length.
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param windowSize Number of most recent samples in the window.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingMinMax.html for the full reference.
  */
 export declare function RollingMinMax(windowSize?: number): ScreamerOp;
 /**
  * Rolling MLE fit of a mean-reverting Ornstein-Uhlenbeck process.
  *
- * @param windowSize Trailing-window length.
- * @param output Which fitted parameter to return: "mrr" = mean-reversion rate, "mean" = long-run mean, "relmean" = mean relative to current value, "std" = noise standard deviation.
- * @param startPolicy Warmup behaviour.
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param windowSize Number of most recent samples in the window.
+ * @param output Which fitted parameter to return: "mrr" gives the mean-reversion rate per step, "mean" the long-run mean, "relmean" the long-run mean minus the current value, and "std" the noise standard deviation.
+ * @param startPolicy Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingOU.html for the full reference.
  */
 export declare function RollingOU(windowSize?: number, output?: string, startPolicy?: string): ScreamerOp;
 /**
  * Omega ratio over a window: total gains above a threshold divided by total losses below it.
  *
- * @param windowSize Window length in observations.
- * @param threshold The return level separating gains from losses.
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param windowSize Number of most recent returns in the window.
+ * @param threshold Return level that separates gains from losses.
+ * @see https://screamer.readthedocs.io/en/latest/functions_fin/RollingOmega.html for the full reference.
  */
 export declare function RollingOmega(windowSize?: number, threshold?: number): ScreamerOp;
 /**
  * Var form of the Parkinson range-based volatility estimator (uses high & low).
  *
- * @param windowSize Smoothing window for the per-bar estimator.
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param windowSize Number of most recent bars over which the per-bar estimate is averaged.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingParkinsonVar.html for the full reference.
  */
 export declare function RollingParkinsonVar(windowSize?: number): ScreamerOp;
 /**
  * Vol form of the Parkinson range-based volatility estimator (uses high & low).
  *
- * @param windowSize Smoothing window for the per-bar estimator.
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param windowSize Number of most recent bars over which the per-bar estimate is averaged.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingParkinsonVol.html for the full reference.
  */
 export declare function RollingParkinsonVol(windowSize?: number): ScreamerOp;
 /**
- * Percentile (rank/window) of the current value in the trailing window.
+ * Percentile rank (rank / window) of the current value within the trailing window.
  *
- * @param windowSize Trailing-window length.
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param windowSize Number of most recent values the current value is ranked against.
+ * @see https://screamer.readthedocs.io/en/latest/functions_fin/RollingPercentile.html for the full reference.
  */
 export declare function RollingPercentile(windowSize?: number): ScreamerOp;
 /**
  * OLS fit y = a + b*t over a trailing window. derivative_order selects value/slope/zero.
  *
- * @param windowSize Trailing-window length.
- * @param derivativeOrder 0 = fitted value at the last sample, 1 = slope.
- * @param startPolicy Warmup behaviour.
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param windowSize Number of most recent samples in the window.
+ * @param derivativeOrder What to return from the fitted line: 0 gives the fitted value at the newest sample, 1 the slope per sample.
+ * @param startPolicy Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingPoly1.html for the full reference.
  */
 export declare function RollingPoly1(windowSize?: number, derivativeOrder?: number, startPolicy?: string): ScreamerOp;
 /**
  * OLS fit y = a + b*t + c*t^2 over a trailing window.
  *
- * @param windowSize Trailing-window length.
- * @param derivativeOrder 0 = value, 1 = first derivative, 2 = second derivative.
- * @param startPolicy Warmup behaviour.
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param windowSize Number of most recent samples in the window.
+ * @param derivativeOrder What to return from the fitted parabola at the newest sample: 0 gives the fitted value, 1 the first derivative (slope), 2 the second derivative (curvature).
+ * @param startPolicy Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingPoly2.html for the full reference.
  */
 export declare function RollingPoly2(windowSize?: number, derivativeOrder?: number, startPolicy?: string): ScreamerOp;
 /**
  * Trailing-window quantile (e.g. 0.25 = lower quartile).
  *
- * @param windowSize Trailing-window length.
- * @param quantile Quantile to compute (in [0, 1]).
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param windowSize Number of most recent samples in the window.
+ * @param quantile Quantile to return; 0.5 gives the median. Values between two order statistics are interpolated linearly.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingQuantile.html for the full reference.
  */
 export declare function RollingQuantile(windowSize?: number, quantile?: number): ScreamerOp;
 /**
  * Relative Strength Index. Wilder's smoothing by default; Cutler's via method='cutler'.
  *
- * @param windowSize Period. Wilder's original choice is 14.
- * @param method Smoothing convention. 'wilder' matches TA-Lib and pandas-ta; 'cutler' uses a plain SMA.
- * @param startPolicy Warmup behaviour.
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param windowSize Smoothing period of the average up and down moves. Wilder's original choice is 14.
+ * @param method Smoothing of the up and down moves: "wilder" uses Wilder's recursive average (matches TA-Lib and pandas-ta), "cutler" uses a simple moving average.
+ * @param startPolicy Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingRSI.html for the full reference.
  */
 export declare function RollingRSI(windowSize?: number, method?: string, startPolicy?: string): ScreamerOp;
 /**
  * Trailing-window max minus min.
  *
- * @param windowSize Trailing-window length.
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param windowSize Number of most recent samples in the window.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingRange.html for the full reference.
  */
 export declare function RollingRange(windowSize?: number): ScreamerOp;
 /**
  * Rank of the current value within the trailing window (1-based, average tie rule).
  *
- * @param windowSize Trailing-window length.
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param windowSize Number of most recent values the current value is ranked against.
+ * @see https://screamer.readthedocs.io/en/latest/functions_fin/RollingRank.html for the full reference.
  */
 export declare function RollingRank(windowSize?: number): ScreamerOp;
 /**
- * Standard deviation of the rolling-hedge-adjusted residual y - beta*x.
+ * Standard deviation of the rolling hedge-adjusted residual y - beta * x.
  *
- * @param windowSize Trailing-window length.
- * @param startPolicy Warmup behaviour.
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param windowSize Number of most recent (y, x) pairs used for both the hedge ratio and the standard deviation.
+ * @param startPolicy Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros.
+ * @see https://screamer.readthedocs.io/en/latest/functions_fin/RollingResidualStd.html for the full reference.
  */
 export declare function RollingResidualStd(windowSize?: number, startPolicy?: string): ScreamerOp;
 /**
  * Trailing-window root-mean-square.
  *
- * @param windowSize Trailing-window length.
- * @param startPolicy Warmup behaviour.
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param windowSize Number of most recent samples in the window.
+ * @param startPolicy Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingRms.html for the full reference.
  */
 export declare function RollingRms(windowSize?: number, startPolicy?: string): ScreamerOp;
 /**
  * Var form of the Rogers-Satchell drift-robust range-based estimator.
  *
- * @param windowSize Smoothing window.
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param windowSize Number of most recent bars over which the per-bar estimate is averaged.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingRogersSatchellVar.html for the full reference.
  */
 export declare function RollingRogersSatchellVar(windowSize?: number): ScreamerOp;
 /**
  * Vol form of the Rogers-Satchell drift-robust range-based estimator.
  *
- * @param windowSize Smoothing window.
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param windowSize Number of most recent bars over which the per-bar estimate is averaged.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingRogersSatchellVol.html for the full reference.
  */
 export declare function RollingRogersSatchellVol(windowSize?: number): ScreamerOp;
 /**
- * Annualised Sharpe ratio over a trailing window of returns.
+ * Annualized Sharpe ratio over a trailing window of returns.
  *
- * @param windowSize Trailing-window length.
- * @param periodsPerYear Annualisation factor (252 daily, 52 weekly, 12 monthly, 1 = no annualisation).
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param windowSize Number of most recent returns in the window.
+ * @param periodsPerYear Annualization factor: the ratio is multiplied by sqrt(periods_per_year). Use 252 for daily, 52 for weekly, 12 for monthly data, and 1 for no annualization.
+ * @see https://screamer.readthedocs.io/en/latest/functions_fin/RollingSharpe.html for the full reference.
  */
 export declare function RollingSharpe(windowSize?: number, periodsPerYear?: number): ScreamerOp;
 /**
- * Replace samples outside [mean - lower*std, mean + upper*std] with NaN or the clipped bound.
+ * Clip samples that lie beyond lower or upper standard deviations from the rolling mean, or replace them with NaN.
  *
- * @param windowSize Trailing-window length.
- * @param lower Lower sigma threshold (None disables lower clipping).
- * @param upper Upper sigma threshold (None disables upper clipping).
- * @param output Which value to return: "clipped" = clipped value, "mean" = rolling mean estimate, "std" = rolling std estimate, "nan" = outliers replaced by NaN.
- * @param startPolicy Warmup behaviour.
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param windowSize Number of most recent samples in the window.
+ * @param lower Lower clipping threshold in standard deviations from the rolling mean (for example -3). None disables lower clipping.
+ * @param upper Upper clipping threshold in standard deviations from the rolling mean (for example 3). None disables upper clipping.
+ * @param output Which value to return: "clipped" gives the input with outliers clipped to the bound, "mean" the rolling mean estimate, "std" the rolling standard deviation estimate, and "nan" the input with outliers replaced by NaN.
+ * @param startPolicy Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingSigmaClip.html for the full reference.
  */
 export declare function RollingSigmaClip(windowSize?: number, lower?: number, upper?: number, output?: string, startPolicy?: string): ScreamerOp;
 /**
  * Trailing-window skewness.
  *
- * @param windowSize Trailing-window length.
- * @param startPolicy Warmup behaviour.
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param windowSize Number of most recent samples in the window.
+ * @param startPolicy Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingSkew.html for the full reference.
  */
 export declare function RollingSkew(windowSize?: number, startPolicy?: string): ScreamerOp;
 /**
- * Annualised Sortino ratio: Sharpe with downside-only deviation.
+ * Annualized Sortino ratio: the Sharpe ratio with downside deviation in the denominator.
  *
- * @param windowSize Trailing-window length.
- * @param periodsPerYear Annualisation factor (252 daily, 52 weekly, 12 monthly, 1 = no annualisation).
- * @param target Minimum acceptable return (only deviations below this contribute to the denominator).
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param windowSize Number of most recent returns in the window.
+ * @param periodsPerYear Annualization factor: the ratio is multiplied by sqrt(periods_per_year). Use 252 for daily, 52 for weekly, 12 for monthly data, and 1 for no annualization.
+ * @param target Minimum acceptable return. It is subtracted from the mean, and only returns below it contribute to the denominator.
+ * @see https://screamer.readthedocs.io/en/latest/functions_fin/RollingSortino.html for the full reference.
  */
 export declare function RollingSortino(windowSize?: number, periodsPerYear?: number, target?: number): ScreamerOp;
 /**
- * x - beta(x,y) * y - hedge-adjusted residual.
+ * Rolling hedge-adjusted residual x - beta * y, with beta the rolling regression slope.
  *
- * @param windowSize Window length.
- * @param startPolicy Warmup behaviour.
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param windowSize Number of most recent (x, y) pairs used to estimate the hedge ratio.
+ * @param startPolicy Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros.
+ * @see https://screamer.readthedocs.io/en/latest/functions_fin/RollingSpread.html for the full reference.
  */
 export declare function RollingSpread(windowSize?: number, startPolicy?: string): ScreamerOp;
 /**
  * Trailing-window sample standard deviation (ddof=1).
  *
- * @param windowSize Trailing-window length.
- * @param startPolicy Warmup behaviour.
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param windowSize Number of most recent samples in the window.
+ * @param startPolicy Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingStd.html for the full reference.
  */
 export declare function RollingStd(windowSize?: number, startPolicy?: string): ScreamerOp;
 /**
  * Trailing-window sum.
  *
- * @param windowSize Trailing-window length.
- * @param startPolicy Warmup behaviour.
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param windowSize Number of most recent samples in the window.
+ * @param startPolicy Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingSum.html for the full reference.
  */
 export declare function RollingSum(windowSize?: number, startPolicy?: string): ScreamerOp;
 /**
  * Rolling total least squares (orthogonal regression) slope of the first input on the second: a hedge ratio that does not depend on which leg is called dependent.
  *
- * @param windowSize Window length.
- * @param startPolicy Warmup behavior. "strict" returns NaN until the window is full, "expanding" uses the samples seen so far, "zero" treats the window as pre-filled with zeros.
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param windowSize Number of most recent (a, b) pairs in the regression window.
+ * @param startPolicy Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros.
+ * @see https://screamer.readthedocs.io/en/latest/functions_fin/RollingTLSBeta.html for the full reference.
  */
 export declare function RollingTLSBeta(windowSize?: number, startPolicy?: string): ScreamerOp;
 /**
- * Linear regression of y on time, projected one step ahead. TA-Lib's TSF.
+ * Linear regression of the input on time, projected one step ahead (TA-Lib TSF).
  *
- * @param windowSize Trailing-window length.
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param windowSize Number of most recent values in the regression on time.
+ * @see https://screamer.readthedocs.io/en/latest/functions_fin/RollingTSF.html for the full reference.
  */
 export declare function RollingTSF(windowSize?: number): ScreamerOp;
 /**
  * Rolling volume-weighted average price (typical-price weighted).
  *
- * @param windowSize Trailing-window length.
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param windowSize Number of most recent bars in the window.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingVWAP.html for the full reference.
  */
 export declare function RollingVWAP(windowSize?: number): ScreamerOp;
 /**
  * Trailing-window sample variance (ddof=1).
  *
- * @param windowSize Trailing-window length.
- * @param startPolicy Warmup behaviour.
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param windowSize Number of most recent samples in the window.
+ * @param startPolicy Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingVar.html for the full reference.
  */
 export declare function RollingVar(windowSize?: number, startPolicy?: string): ScreamerOp;
 /**
  * Var form of the Yang-Zhang estimator (drift + gap robust).
  *
- * @param windowSize Smoothing window.
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param windowSize Number of bars n in each variance component; the first estimate needs n + 1 bars.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingYangZhangVar.html for the full reference.
  */
 export declare function RollingYangZhangVar(windowSize?: number): ScreamerOp;
 /**
  * Vol form of the Yang-Zhang estimator (drift + gap robust).
  *
- * @param windowSize Smoothing window.
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param windowSize Number of bars n in each variance component; the first estimate needs n + 1 bars.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingYangZhangVol.html for the full reference.
  */
 export declare function RollingYangZhangVol(windowSize?: number): ScreamerOp;
 /**
- * Latest sample standardised by trailing-window mean and std.
+ * Latest sample standardized by the trailing-window mean and standard deviation.
  *
- * @param windowSize Trailing-window length.
- * @param startPolicy Warmup behaviour.
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param windowSize Number of most recent samples in the window.
+ * @param startPolicy Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingZscore.html for the full reference.
  */
 export declare function RollingZscore(windowSize?: number, startPolicy?: string): ScreamerOp;
 /**
  * Ehlers bandpass, a highpass then a SuperSmoother.
  *
- * @param hpPeriod Highpass cutoff as a cycle length in samples. Pass exactly one of hp_period or hp_cutoff; the constructor has no default, and 48 is a suggested starting value.
- * @param lpPeriod Lowpass cutoff as a cycle length in samples. Pass exactly one of lp_period or lp_cutoff; the constructor has no default, and 10 is a suggested starting value.
- * @param hpCutoff Highpass cutoff as a fraction of Nyquist in (0, 1). Give this or hp_period.
- * @param lpCutoff Lowpass cutoff as a fraction of Nyquist in (0, 1). Give this or lp_period.
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param hpPeriod Highpass cutoff as a cycle length in samples; longer cycles (the trend) are removed. Give exactly one of hp_period and hp_cutoff. The default shown is a suggested starting value; the constructor has no default.
+ * @param lpPeriod Lowpass cutoff as a cycle length in samples; shorter cycles (noise) are removed. Give exactly one of lp_period and lp_cutoff. The default shown is a suggested starting value; the constructor has no default.
+ * @param hpCutoff Highpass cutoff as a fraction of the Nyquist frequency, in (0, 1), equal to 2 / hp_period. Give exactly one of hp_period and hp_cutoff.
+ * @param lpCutoff Lowpass cutoff as a fraction of the Nyquist frequency, in (0, 1), equal to 2 / lp_period. Give exactly one of lp_period and lp_cutoff.
+ * @see https://screamer.readthedocs.io/en/latest/functions_signal/RoofingFilter.html for the full reference.
  */
 export declare function RoofingFilter(hpPeriod?: number, lpPeriod?: number, hpCutoff?: number, lpCutoff?: number): ScreamerOp;
 /**
  * Round each element to the nearest integer (half-to-even).
  *
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @see https://screamer.readthedocs.io/en/latest/functions_math/Round.html for the full reference.
  */
 export declare function Round(): ScreamerOp;
 /**
  * Hysteresis comparator. Latches 1.0 above the upper threshold, 0.0 below the lower threshold, and retains its previous value in between.
  *
- * @param lower Lower threshold. The output latches to 0.0 when the input falls strictly below this value.
- * @param upper Upper threshold. The output latches to 1.0 when the input rises strictly above this value. Must be strictly greater than `lower`.
+ * @param lower Lower threshold, finite. The output latches to 0.0 when the input falls strictly below this value.
+ * @param upper Upper threshold, finite and strictly greater than lower. The output latches to 1.0 when the input rises strictly above this value.
  * @param initial Latch value held before the first threshold crossing. Must be 0.0 (low), 1.0 (high), or NaN (undefined until the first crossing). Defaults to 0.0, so a signal that starts inside the dead band reads low rather than NaN.
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @see https://screamer.readthedocs.io/en/latest/functions_signal/SchmittTrigger.html for the full reference.
  */
 export declare function SchmittTrigger(lower: number, upper: number, initial?: number): ScreamerOp;
 /**
  * Scaled exponential linear unit (self-normalizing networks).
  *
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @see https://screamer.readthedocs.io/en/latest/functions_math/Selu.html for the full reference.
  */
 export declare function Selu(): ScreamerOp;
 /**
  * Logistic sigmoid: 1 / (1 + exp(-x)).
  *
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @see https://screamer.readthedocs.io/en/latest/functions_math/Sigmoid.html for the full reference.
  */
 export declare function Sigmoid(): ScreamerOp;
 /**
  * Sign of each element: -1, 0, or +1.
  *
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @see https://screamer.readthedocs.io/en/latest/functions_math/Sign.html for the full reference.
  */
 export declare function Sign(): ScreamerOp;
 /**
  * Sine of each element (radians).
  *
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @see https://screamer.readthedocs.io/en/latest/functions_math/Sin.html for the full reference.
  */
 export declare function Sin(): ScreamerOp;
 /**
  * Softsign: x / (1 + |x|).
  *
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @see https://screamer.readthedocs.io/en/latest/functions_math/Softsign.html for the full reference.
  */
 export declare function Softsign(): ScreamerOp;
 /**
  * Square root of each element.
  *
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @see https://screamer.readthedocs.io/en/latest/functions_math/Sqrt.html for the full reference.
  */
 export declare function Sqrt(): ScreamerOp;
 /**
- * x squared (faster than Power(2)).
+ * Square of each element, computed as x * x.
  *
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @see https://screamer.readthedocs.io/en/latest/functions_math/Square.html for the full reference.
  */
 export declare function Square(): ScreamerOp;
 /**
- * Stochastic oscillator %K and %D (3 inputs -> 2 outputs).
+ * Stochastic oscillator %K and %D from high, low and close.
  *
- * @param fastkPeriod Lookback for the %K stochastic.
- * @param smoothK Smoothing period for %K (1 = fast stoch, 3 = TA-Lib slow stoch).
- * @param d SMA period for %D.
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param fastkPeriod Number of most recent bars over which the highest high and lowest low are taken for raw %K.
+ * @param smoothK Period of the simple moving average applied to raw %K; 1 gives the fast stochastic, 3 the slow stochastic of TA-Lib.
+ * @param d Period of the simple moving average applied to %K to produce %D.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/Stoch.html for the full reference.
  */
 export declare function Stoch(fastkPeriod?: number, smoothK?: number, d?: number): ScreamerOp;
 /**
- * Stochastic applied to RSI (1 input -> 2 outputs).
+ * Stochastic oscillator applied to the RSI, giving %K and %D.
  *
- * @param rsiPeriod RSI period.
- * @param stochPeriod Stochastic lookback over the RSI.
- * @param smoothK %K smoothing.
- * @param d %D period.
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param rsiPeriod Smoothing period of the Wilder RSI computed from the input.
+ * @param stochPeriod Number of most recent RSI values over which the minimum and maximum are taken.
+ * @param smoothK Period of the simple moving average applied to raw %K; 1 gives the fast StochRSI.
+ * @param d Period of the simple moving average applied to %K to produce %D.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/StochRSI.html for the full reference.
  */
 export declare function StochRSI(rsiPeriod?: number, stochPeriod?: number, smoothK?: number, d?: number): ScreamerOp;
 /**
  * Elementwise difference of two aligned streams (x - y).
  *
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @see https://screamer.readthedocs.io/en/latest/functions_math/Sub.html for the full reference.
  */
 export declare function Sub(): ScreamerOp;
 /**
  * Ehlers 2-pole low-lag lowpass filter.
  *
- * @param period Cutoff as a cycle length in samples. Pass exactly one of period or cutoff; the constructor has no default, and 20 is a suggested starting value.
- * @param cutoff Cutoff as a fraction of Nyquist in (0, 1). Give this or period, not both.
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param period Cutoff as a cycle length in samples; cycles shorter than this are attenuated. Give exactly one of period and cutoff. The default shown is a suggested starting value; the constructor has no default.
+ * @param cutoff Cutoff as a fraction of the Nyquist frequency, in (0, 1), equal to 2 / period. Give exactly one of period and cutoff.
+ * @see https://screamer.readthedocs.io/en/latest/functions_signal/SuperSmoother.html for the full reference.
  */
 export declare function SuperSmoother(period?: number, cutoff?: number): ScreamerOp;
 /**
  * Mulloy's Triple EMA: 3*EMA - 3*EMA(EMA) + EMA(EMA(EMA)).
  *
- * @param com Center of mass. Exclusive with span/halflife/alpha.
- * @param span Span (default smoothing parameter).
- * @param halflife Halflife.
- * @param alpha Smoothing parameter.
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param com Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha.
+ * @param span Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default.
+ * @param halflife Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive. Give exactly one of com, span, halflife and alpha.
+ * @param alpha Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/TEMA.html for the full reference.
  */
 export declare function TEMA(com?: number, span?: number, halflife?: number, alpha?: number): ScreamerOp;
 /**
- * Triangular MA: SMA of an SMA. Heavier center-weighting than WMA.
+ * Triangular moving average: a simple moving average of a simple moving average.
  *
- * @param windowSize Trailing-window length.
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param windowSize Total width of the triangular weighting, in samples.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/TRIMA.html for the full reference.
  */
 export declare function TRIMA(windowSize?: number): ScreamerOp;
 /**
  * ROC of a triple-smoothed EMA.
  *
- * @param span EMA span for each of the three smoothing stages.
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param span Span of each of the three exponential moving averages, giving alpha = 2 / (span + 1).
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/TRIX.html for the full reference.
  */
 export declare function TRIX(span?: number): ScreamerOp;
 /**
  * Hyperbolic tangent.
  *
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @see https://screamer.readthedocs.io/en/latest/functions_math/Tanh.html for the full reference.
  */
 export declare function Tanh(): ScreamerOp;
 /**
  * Trade sign by the tick rule (+1 up-tick, -1 down-tick, carry on unchanged).
  *
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @see https://screamer.readthedocs.io/en/latest/functions_micro/TickRuleSign.html for the full reference.
  */
 export declare function TickRuleSign(): ScreamerOp;
 /**
  * Classifies each sample as trending (1.0) or cycling (0.0) from the dominant-cycle phase advance.
  *
  * @param phaseRateFrac Threshold, as a fraction of the expected per-sample phase advance for the current dominant cycle, below which a sample is classified as trending.
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @see https://screamer.readthedocs.io/en/latest/functions_signal/TrendMode.html for the full reference.
  */
 export declare function TrendMode(phaseRateFrac?: number): ScreamerOp;
 /**
  * Per-bar true range accounting for overnight gaps (Wilder, 1978).
  *
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/TrueRange.html for the full reference.
  */
 export declare function TrueRange(): ScreamerOp;
 /**
  * Three-period weighted oscillator (Williams, 1976).
  *
- * @param period1 Short averaging period (bars).
- * @param period2 Medium averaging period (bars).
- * @param period3 Long averaging period (bars).
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param period1 Shortest of the three averaging periods, in bars; weighted 4.
+ * @param period2 Middle averaging period, in bars; weighted 2.
+ * @param period3 Longest averaging period, in bars; weighted 1. Output starts once this window is full.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/UltimateOscillator.html for the full reference.
  */
 export declare function UltimateOscillator(period1?: number, period2?: number, period3?: number): ScreamerOp;
 /**
- * Volume-synchronized probability of informed trading (Easley-Lopez de Prado-O'Hara 2012): order-flow toxicity.
+ * Volume-synchronized probability of informed trading (Easley-López de Prado-O'Hara 2012): order-flow toxicity.
  *
  * @param bucketVolume Volume that fills one bucket (the volume clock). Set it to your instrument's volume scale.
- * @param nBuckets Number of trailing buckets averaged.
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param nBuckets Number of most recent closed buckets averaged.
+ * @see https://screamer.readthedocs.io/en/latest/functions_micro/VPIN.html for the full reference.
  */
 export declare function VPIN(bucketVolume?: number, nBuckets?: number): ScreamerOp;
 /**
- * Linearly-weighted moving average. O(1) per step.
+ * Linearly weighted moving average.
  *
- * @param windowSize Trailing-window length.
- * @param startPolicy Warmup behaviour.
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param windowSize Number of most recent samples in the window; the newest sample gets weight window_size and the oldest weight 1.
+ * @param startPolicy Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/WMA.html for the full reference.
  */
 export declare function WMA(windowSize?: number, startPolicy?: string): ScreamerOp;
 /**
  * Returns a if mask is nonzero, b otherwise. NaN mask yields NaN.
  *
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @see https://screamer.readthedocs.io/en/latest/functions_math/Where.html for the full reference.
  */
 export declare function Where(): ScreamerOp;
 /**
  * Inverse stochastic oscillator in [-100, 0].
  *
- * @param windowSize Period (Wilder's default).
- * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ * @param windowSize Number of most recent bars over which the highest high and lowest low are taken.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/WilliamsR.html for the full reference.
  */
 export declare function WilliamsR(windowSize?: number): ScreamerOp;

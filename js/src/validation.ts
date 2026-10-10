@@ -893,3 +893,143 @@ export function deflatedSharpe(
     M.freeBuf(p); M.freeBuf(t); M.freeBuf(out);
   }
 }
+
+// ---- walk-forward selection (Python: walk_forward) ----------------------
+
+export interface WalkForwardOptions {
+  /** Length of each training window (at least 2, shorter than the series). */
+  train: number;
+  /** Length of each test window (at least 1). */
+  test: number;
+  metric?: PositionTestMetric;
+  /** Train on everything before the test window instead of the last `train` steps. */
+  anchored?: boolean;
+  /** Annualizes the ratios, as in `backtestReport` (default 1: per step). */
+  periodsPerYear?: number;
+  largerIsBetter?: boolean;
+}
+
+export interface WalkForwardResult {
+  /** The stitched out-of-sample target: 0 before the first test window. */
+  target: Float64Array;
+  /** The chosen candidate per fold; -1 when every score was NaN (flat). */
+  choice: Int32Array;
+  /** The first step of each test window. */
+  foldStart: Int32Array;
+  /** Every candidate's metric on every training window, (nFolds, K) row-major. */
+  trainScores: NdArray;
+  /** The engine output on `target`, (T, 4). */
+  output: NdArray;
+  /** Every statistic of `output` from the first test window to the end. */
+  stats: Record<StatName, number>;
+  metric: string;
+}
+
+// Rows [a, b) of a (T, 4) engine output, scored as a backtest of its own: the
+// equity is shifted so the window starts from the equity the run started from.
+// Mirrors `_window` in validation.py.
+function engineWindow(out: NdArray, a: number, b: number): NdArray {
+  const data = out.data.slice(a * 4, b * 4);
+  if (a > 0) {
+    let prior = NaN;
+    for (let t = a - 1; t >= 0; t--)
+      if (Number.isFinite(out.data[t * 4])) { prior = out.data[t * 4]; break; }
+    if (!Number.isNaN(prior)) {
+      let first = 0;
+      while (first < out.shape[0] && Number.isNaN(out.data[first * 4])) first++;
+      const shift = prior - (out.data[first * 4] - out.data[first * 4 + 1]);
+      for (let r = 0; r < b - a; r++) data[r * 4] -= shift;
+    }
+  }
+  return { data, shape: [b - a, 4] };
+}
+
+// The best of one fold's scores: NaN loses, ties go to the lowest index, -1
+// when every score is NaN.
+function pickBest(scores: ArrayLike<number>, larger: boolean): number {
+  let best = -1, bestV = -Infinity;
+  for (let k = 0; k < scores.length; k++) {
+    if (Number.isNaN(scores[k])) continue;
+    const v = larger ? scores[k] : -scores[k];
+    if (best < 0 || v > bestV) { best = k; bestV = v; }
+  }
+  return best;
+}
+
+function targetColumns(targets: ArrayLike<number> | ArrayLike<number>[] | NdArray): Float64Array[] {
+  if (isNdArray(targets)) {
+    if (targets.shape.length === 1) return [Float64Array.from(targets.data)];
+    if (targets.shape.length !== 2) throw new RangeError("targets must be a (T,) or (T, K) array");
+    const [T, K] = targets.shape;
+    return Array.from({ length: K }, (_, k) =>
+      Float64Array.from({ length: T }, (_, t) => targets.data[t * K + k]));
+  }
+  if (Array.isArray(targets) && targets.length > 0 && typeof targets[0] !== "number")
+    return (targets as ArrayLike<number>[]).map((x) => Float64Array.from(x));
+  return [Float64Array.from(targets as ArrayLike<number>)];
+}
+
+/**
+ * Walk-forward selection: pick the best candidate on each training window and
+ * trade it on the next test window.
+ *
+ * `targets` holds one target series per candidate (an array of K columns, a
+ * (T, K) `NdArray`, or one series), and `market` the engine's inputs, as in
+ * `engine(target, ...market)`. Folds start at `t0 = train, train + test, ...`
+ * while `t0 < T`; fold i tests on `[t0, min(t0 + test, T))` and trains on
+ * `[t0 - train, t0)`, or on `[0, t0)` with `anchored`. A window is scored as a
+ * backtest of its own. NaN scores lose, ties go to the lowest column, and a
+ * fold where every score is NaN stays flat with choice -1. The stitched target
+ * (0 before the first test window) runs through the engine once, and `stats`
+ * covers it from the first test window on. Mirrors Python's
+ * `screamer.walk_forward`.
+ */
+export function walkForward(
+  engine: ScreamerOp,
+  targets: ArrayLike<number> | ArrayLike<number>[] | NdArray,
+  market: ArrayLike<number>[],
+  opts: WalkForwardOptions,
+): WalkForwardResult {
+  if ((engine as any).rowOp)
+    throw new RangeError("walkForward needs a single-asset engine; portfolio engines are not supported");
+  const metric = opts.metric ?? "sharpe";
+  const { name, larger } = metricSpec(metric, opts.largerIsBetter);
+  const cols = targetColumns(targets);
+  const K = cols.length, T = cols[0].length;
+  if (cols.some((x) => x.length !== T) || market.some((m) => m.length !== T))
+    throw new RangeError("targets and price inputs must have the same length");
+  const { train, test } = opts;
+  if (!Number.isInteger(train) || train < 2) throw new RangeError("train must be an integer of at least 2");
+  if (!Number.isInteger(test) || test < 1) throw new RangeError("test must be an integer of at least 1");
+  if (train >= T) throw new RangeError("train must be shorter than the series");
+
+  const starts: number[] = [];
+  for (let t0 = train; t0 < T; t0 += test) starts.push(t0);
+  const F = starts.length;
+  const scorer = makeScorer(metric, opts.periodsPerYear ?? 1);
+  try {
+    const full = cols.map((x) => {
+      engine.reset();
+      return engine(x, ...market) as NdArray;
+    });
+    const scores = new Float64Array(F * K);
+    const choice = new Int32Array(F);
+    const target = new Float64Array(T);
+    starts.forEach((t0, i) => {
+      const a = opts.anchored ? 0 : t0 - train;
+      for (let k = 0; k < K; k++) scores[i * K + k] = scorer.score(engineWindow(full[k], a, t0)).value;
+      const c = pickBest(scores.subarray(i * K, (i + 1) * K), larger);
+      choice[i] = c;
+      if (c >= 0) for (let t = t0; t < Math.min(t0 + test, T); t++) target[t] = cols[c][t];
+    });
+    engine.reset();
+    const output = engine(target, ...market) as NdArray;
+    engine.reset();
+    const oos = scorer.score(engineWindow(output, starts[0], T));
+    return { target, choice, foldStart: Int32Array.from(starts),
+             trainScores: { data: scores, shape: [F, K] }, output,
+             stats: statsRecord((i) => oos.stats[i]), metric: name };
+  } finally {
+    scorer.dispose();
+  }
+}

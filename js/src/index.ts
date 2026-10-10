@@ -46,7 +46,7 @@ export * from "./generated/ops.js";
 export {
   circularShift, segmentShuffle, positionTest,
   permuteBars, permuteReturns, strategyTest,
-  probabilisticSharpe, deflatedSharpe,
+  probabilisticSharpe, deflatedSharpe, walkForward,
 } from "./validation.js";
 export type {
   PositionTestMetric,
@@ -59,4 +59,6 @@ export type {
   VolumeMode,
   StrategyTestOptions,
   StrategyTestResult,
+  WalkForwardOptions,
+  WalkForwardResult,
 } from "./validation.js";

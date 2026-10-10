@@ -15,6 +15,10 @@ they are validation tools, not streaming operators. The surrogates are built
 in C++ (``circular_shift``, ``segment_shuffle``), and the backtests and the
 report are the ordinary C++ engines run on ``(T, n)`` columns. This module
 only chains them and counts.
+
+``walk_forward`` is the out-of-sample counterpart: it picks the best of
+several strategy variants on each training window and trades the pick on the
+window that follows.
 """
 from typing import Callable, NamedTuple, Optional, Union
 
@@ -35,7 +39,8 @@ from .screamer_bindings import (
 )
 
 __all__ = ["position_test", "strategy_test", "circular_shift", "segment_shuffle",
-           "permute_bars", "permute_returns", "probabilistic_sharpe", "deflated_sharpe"]
+           "permute_bars", "permute_returns", "probabilistic_sharpe", "deflated_sharpe",
+           "walk_forward"]
 
 # The statistics computed for every run, with the same names as the summary of
 # backtest_report, and their direction as a test metric (None: no natural
@@ -719,3 +724,138 @@ def deflated_sharpe(pnl, trial_sharpes):
     trials = np.ascontiguousarray(trial_sharpes, dtype=float).reshape(-1)
     p, bench = _deflated_sharpe(_pnl_of(pnl), trials)
     return float(p), float(bench)
+
+
+class WalkForwardResult(NamedTuple):
+    """The outcome of ``walk_forward``.
+
+    ``target`` is the stitched out-of-sample target, ``choice`` the column
+    chosen for each fold (-1 when no candidate had a score), ``fold_start``
+    the first step of each test window, and ``train_scores`` the metric of
+    every candidate on every training window, shape ``(n_folds, K)``.
+    ``output`` is the engine output on ``target`` and ``stats`` every
+    statistic of that output over the out-of-sample span, from the first
+    test window to the end.
+    """
+    target: np.ndarray
+    choice: np.ndarray
+    fold_start: np.ndarray
+    train_scores: np.ndarray
+    output: np.ndarray
+    stats: dict
+    metric: str
+
+
+def _window(out, a, b):
+    """Rows [a, b) of a (T, k, 4) engine output, scored as a backtest of its own.
+
+    The equity column is shifted so the window starts from the equity the run
+    started from: its total_pnl, drawdowns, and calmar ratio then cover the
+    window only. A position held at the window start counts as entered there.
+    """
+    w = np.array(out[a:b], dtype=float)
+    if a > 0:
+        eq, pnl = out[:, :, 0], out[:, :, 1]
+        prior = _last_finite(eq[:a])                  # equity before the window
+        finite = ~np.isnan(eq)
+        first = np.argmax(finite, axis=0)
+        cols = np.arange(eq.shape[1])
+        start = eq[first, cols] - pnl[first, cols]    # equity the run started from
+        shift = np.where(np.isnan(prior), 0.0, prior - start)
+        w[:, :, 0] -= shift
+    return w
+
+
+def _pick(scores, larger_is_better):
+    """The best column of one fold's scores; NaN loses, ties go to the lowest
+    index, and -1 means every score is NaN."""
+    valid = ~np.isnan(scores)
+    if not valid.any():
+        return -1
+    signed = np.where(valid, scores if larger_is_better else -scores, -np.inf)
+    best = signed[valid].max()
+    return int(np.flatnonzero(valid & (signed == best))[0])
+
+
+def walk_forward(
+    engine,
+    targets,
+    *prices,
+    train: int,
+    test: int,
+    metric: Union[str, Callable] = "sharpe",
+    anchored: bool = False,
+    periods_per_year: float = 1.0,
+    larger_is_better: Optional[bool] = None,
+) -> WalkForwardResult:
+    """Walk-forward selection: pick the best candidate on each training window
+    and trade it on the next test window.
+
+    ``targets`` is a ``(T, K)`` array with one target series per candidate
+    (parameter variant) of one strategy, and ``prices`` the engine's market
+    inputs, as in ``engine(target, *prices)``. A ``(T,)`` target is one
+    candidate.
+
+    The folds start at ``t0 = train, train + test, train + 2 * test, ...``
+    while ``t0 < T``. Fold ``i`` tests on ``[t0, min(t0 + test, T))`` and
+    trains on ``[t0 - train, t0)``, or on ``[0, t0)`` with ``anchored=True``.
+    Every candidate is backtested once over the whole history, and on each
+    training window the candidate with the best ``metric`` is chosen. A
+    window is scored as a backtest of its own: its equity starts where the run
+    started and a position held at its start counts as entered there. NaN
+    scores lose, ties go to the lowest column, and a fold where every score is
+    NaN stays flat with choice -1.
+
+    The out-of-sample target holds the chosen candidate's target in each test
+    window and 0 (flat) before the first one. It runs through the engine once,
+    so positions and costs carry across fold boundaries, and ``stats`` holds
+    every ``backtest_report`` statistic of that run from the first test window
+    on.
+
+    ``metric``, ``larger_is_better``, and ``periods_per_year`` mean the same as
+    in ``position_test``. Portfolio engines are not supported.
+    """
+    if isinstance(engine, RowOp):
+        raise ValueError("walk_forward needs a single-asset engine; portfolio engines "
+                         "are not supported")
+    name, larger_is_better = _metric_name(metric, larger_is_better)
+    targets = np.asarray(targets, dtype=float)
+    if targets.ndim == 1:
+        targets = targets[:, None]
+    if targets.ndim != 2:
+        raise ValueError("targets must be a (T,) or (T, K) array")
+    targets = np.ascontiguousarray(targets)
+    T, K = targets.shape
+    prices = [_as_series(p, "price input") for p in prices]
+    if any(p.shape[0] != T for p in prices):
+        raise ValueError("targets and price inputs must have the same length")
+    if int(train) != train or train < 2:
+        raise ValueError("train must be an integer of at least 2")
+    if int(test) != test or test < 1:
+        raise ValueError("test must be an integer of at least 1")
+    train, test = int(train), int(test)
+    if train >= T:
+        raise ValueError("train must be shorter than the series")
+
+    fold_start = np.arange(train, T, test)
+    engine.reset()
+    full = np.asarray(engine(targets, *[np.broadcast_to(p[:, None], (T, K)) for p in prices]),
+                      dtype=float).reshape(T, K, 4)
+
+    scores = np.empty((fold_start.size, K))
+    choice = np.empty(fold_start.size, dtype=int)
+    target = np.zeros(T)
+    for i, t0 in enumerate(fold_start):
+        w = _window(full, 0 if anchored else t0 - train, t0)
+        stats = None if callable(metric) else _run_stats(w, periods_per_year)
+        scores[i] = _score(w, metric, stats)
+        choice[i] = _pick(scores[i], larger_is_better)
+        if choice[i] >= 0:
+            target[t0:t0 + test] = targets[t0:t0 + test, choice[i]]
+
+    engine.reset()
+    output = np.asarray(engine(target, *prices), dtype=float)
+    engine.reset()
+    oos = _run_stats(_window(output[:, None, :], int(fold_start[0]), T), periods_per_year)
+    return WalkForwardResult(target, choice, fold_start, scores, output,
+                             {k: float(v[0]) for k, v in oos.items()}, name)

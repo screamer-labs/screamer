@@ -1,0 +1,217 @@
+"""Tests for walk_forward: fold layout, selection, stitching, and statistics."""
+import numpy as np
+import pytest
+
+from screamer import BacktestOHLCTarget, BacktestPriceTarget, BacktestPortfolioTarget, walk_forward
+
+
+def _market(T):
+    """The deterministic OHLC market of js/test/validation.test.ts."""
+    o, h, l, c = [], [], [], []
+    p = 100.0
+    for t in range(T):
+        prev = p
+        p *= np.exp(0.01 * np.sin(1.7 * t) * np.cos(0.31 * t * t))
+        o.append(prev); c.append(p)
+        h.append(max(prev, p) * 1.001); l.append(min(prev, p) * 0.999)
+    return tuple(np.array(x) for x in (o, h, l, c))
+
+
+def _targets(T):
+    """Three deterministic candidates with different holding periods."""
+    t = np.arange(T)
+    return np.column_stack([np.sign(np.sin(t / 6.0)), np.sign(np.cos(t / 17.0)),
+                            ((t // 5) % 3) - 1.0]).astype(float)
+
+
+def _brute(engine, targets, prices, a, b, ppy=1.0):
+    """Sharpe, total pnl, and max drawdown of rows [a, b) of each candidate's own run."""
+    out = []
+    for k in range(targets.shape[1]):
+        engine.reset()
+        o = np.asarray(engine(np.ascontiguousarray(targets[:, k]), *prices))
+        pnl = o[a:b, 1]
+        pnl = pnl[~np.isnan(pnl)]
+        eq = np.cumsum(pnl)
+        sharpe = pnl.mean() / pnl.std(ddof=1) * np.sqrt(ppy) if pnl.std(ddof=1) > 0 else np.nan
+        out.append((sharpe, eq[-1], np.min(eq - np.maximum.accumulate(eq))))
+    engine.reset()
+    return np.array(out)
+
+
+def test_fold_layout():
+    o, h, l, c = _market(310)
+    res = walk_forward(BacktestOHLCTarget(), _targets(310), o, h, l, c, train=100, test=50)
+    assert res.fold_start.tolist() == [100, 150, 200, 250, 300]
+    assert res.train_scores.shape == (5, 3)
+    assert res.choice.shape == (5,)
+    assert res.target.shape == (310,)
+    assert res.output.shape == (310, 4)
+    assert res.metric == "sharpe"
+
+
+@pytest.mark.parametrize("metric,col,larger", [("sharpe", 0, True), ("total_pnl", 1, True),
+                                               ("max_drawdown", 2, True)])
+@pytest.mark.parametrize("anchored", [False, True])
+def test_scores_and_choice_match_brute_force(metric, col, larger, anchored):
+    T = 400
+    o, h, l, c = _market(T)
+    X = _targets(T)
+    eng = BacktestOHLCTarget(taker_fee=2e-4)
+    res = walk_forward(eng, X, o, h, l, c, train=120, test=40, metric=metric,
+                       anchored=anchored, periods_per_year=252)
+    for i, t0 in enumerate(res.fold_start):
+        ref = _brute(eng, X, (o, h, l, c), 0 if anchored else t0 - 120, t0, ppy=252)[:, col]
+        np.testing.assert_allclose(res.train_scores[i], ref, rtol=1e-9, atol=1e-12)
+        assert res.choice[i] == int(np.argmax(ref if larger else -ref))
+
+
+def test_anchored_and_rolling_differ_after_first_fold():
+    T = 400
+    o, h, l, c = _market(T)
+    X = _targets(T)
+    roll = walk_forward(BacktestOHLCTarget(), X, o, h, l, c, train=120, test=40)
+    anch = walk_forward(BacktestOHLCTarget(), X, o, h, l, c, train=120, test=40, anchored=True)
+    np.testing.assert_array_equal(roll.train_scores[0], anch.train_scores[0])
+    assert not np.allclose(roll.train_scores[1:], anch.train_scores[1:])
+
+
+def test_smaller_is_better_metric():
+    T = 300
+    o, h, l, c = _market(T)
+    X = _targets(T)
+    res = walk_forward(BacktestOHLCTarget(taker_fee=1e-3), X, o, h, l, c, train=100, test=50,
+                       metric="total_cost")
+    for i in range(res.choice.size):
+        assert res.choice[i] == int(np.argmin(res.train_scores[i]))
+    flipped = walk_forward(BacktestOHLCTarget(taker_fee=1e-3), X, o, h, l, c, train=100,
+                           test=50, metric="total_cost", larger_is_better=True)
+    for i in range(flipped.choice.size):
+        assert flipped.choice[i] == int(np.argmax(flipped.train_scores[i]))
+
+
+def test_ties_go_to_the_lowest_column():
+    T = 300
+    o, h, l, c = _market(T)
+    X = _targets(T)
+    dup = np.column_stack([X[:, 2], X[:, 0], X[:, 0], X[:, 2]])
+    res = walk_forward(BacktestOHLCTarget(), dup, o, h, l, c, train=100, test=50)
+    for i in range(res.choice.size):
+        s = res.train_scores[i]
+        assert s[1] == s[2] and s[0] == s[3]
+        assert res.choice[i] == (1 if s[1] > s[0] else 0)
+
+
+def test_nan_scores_lose_and_all_nan_stays_flat():
+    T = 300
+    o, h, l, c = _market(T)
+    X = _targets(T)
+    nan_col = np.full(T, np.nan)
+    res = walk_forward(BacktestOHLCTarget(), np.column_stack([nan_col, X[:, 0]]),
+                       o, h, l, c, train=100, test=50)
+    assert np.isnan(res.train_scores[:, 0]).all()
+    assert (res.choice == 1).all()
+
+    # Every candidate is in its NaN warmup through the first two training windows.
+    late = X.copy()
+    late[:150] = np.nan
+    res = walk_forward(BacktestOHLCTarget(), late, o, h, l, c, train=100, test=50)
+    assert res.choice.tolist()[:2] == [-1, -1]
+    assert (res.target[100:200] == 0).all()
+    assert (res.choice[2:] >= 0).all()
+
+
+def test_stitched_target_output_and_stats():
+    T = 330
+    o, h, l, c = _market(T)
+    X = _targets(T)
+    eng = BacktestOHLCTarget(taker_fee=5e-4)
+    res = walk_forward(eng, X, o, h, l, c, train=100, test=60, periods_per_year=252)
+    expect = np.zeros(T)
+    for t0, k in zip(res.fold_start, res.choice):
+        expect[t0:t0 + 60] = X[t0:t0 + 60, k]
+    np.testing.assert_array_equal(res.target, expect)
+
+    eng.reset()
+    np.testing.assert_array_equal(res.output, np.asarray(eng(expect, o, h, l, c)))
+    pnl = res.output[100:, 1]
+    pnl = pnl[~np.isnan(pnl)]
+    assert res.stats["total_pnl"] == pytest.approx(pnl.sum(), rel=1e-12, abs=1e-12)
+    assert res.stats["sharpe"] == pytest.approx(pnl.mean() / pnl.std(ddof=1) * np.sqrt(252),
+                                                rel=1e-9)
+    assert res.stats["total_cost"] == pytest.approx(np.nansum(res.output[100:, 3]), rel=1e-12)
+    assert set(res.stats) == {
+        "total_pnl", "max_drawdown", "total_cost", "turnover", "num_trades", "sharpe",
+        "exposure", "round_trips", "win_rate", "profit_factor", "avg_win", "avg_loss",
+        "avg_holding", "sortino", "calmar"}
+
+
+def test_one_candidate_and_price_engine():
+    T = 200
+    _, _, _, c = _market(T)
+    x = _targets(T)[:, 0]
+    res = walk_forward(BacktestPriceTarget(fee=1e-4), x, c, train=80, test=30)
+    assert (res.choice == 0).all()
+    np.testing.assert_array_equal(res.target[80:], x[80:])
+    assert (res.target[:80] == 0).all()
+
+
+def test_callable_metric():
+    T = 300
+    o, h, l, c = _market(T)
+    X = _targets(T)
+
+    def last_pnl_sum(out):                   # (L, k, 4) -> k values
+        return np.nansum(out[:, :, 1], axis=0)
+
+    res = walk_forward(BacktestOHLCTarget(), X, o, h, l, c, train=100, test=50,
+                       metric=last_pnl_sum)
+    ref = walk_forward(BacktestOHLCTarget(), X, o, h, l, c, train=100, test=50,
+                       metric="total_pnl")
+    np.testing.assert_allclose(res.train_scores, ref.train_scores, rtol=1e-9, atol=1e-12)
+    assert res.metric == "last_pnl_sum"
+
+
+def test_input_errors():
+    T = 100
+    o, h, l, c = _market(T)
+    X = _targets(T)
+    eng = BacktestOHLCTarget()
+    with pytest.raises(ValueError, match="train"):
+        walk_forward(eng, X, o, h, l, c, train=1, test=10)
+    with pytest.raises(ValueError, match="test"):
+        walk_forward(eng, X, o, h, l, c, train=10, test=0)
+    with pytest.raises(ValueError, match="shorter"):
+        walk_forward(eng, X, o, h, l, c, train=100, test=10)
+    with pytest.raises(ValueError, match="metric"):
+        walk_forward(eng, X, o, h, l, c, train=10, test=10, metric="bogus")
+    with pytest.raises(ValueError, match="direction"):
+        walk_forward(eng, X, o, h, l, c, train=10, test=10, metric="turnover")
+    with pytest.raises(ValueError, match="same length"):
+        walk_forward(eng, X, o[:-1], h, l, c, train=10, test=10)
+    with pytest.raises(ValueError, match="portfolio"):
+        walk_forward(BacktestPortfolioTarget(), X, np.ones((T, 3)), train=10, test=10)
+
+
+def test_golden_values():
+    # Same inputs and values as js/test/walk_forward.test.ts.
+    T = 260
+    o, h, l, c = _market(T)
+    res = walk_forward(BacktestOHLCTarget(taker_fee=2e-4), _targets(T), o, h, l, c,
+                       train=90, test=40, periods_per_year=252)
+    assert res.fold_start.tolist() == [90, 130, 170, 210, 250]
+    assert res.choice.tolist() == GOLDEN_CHOICE
+    np.testing.assert_allclose(res.train_scores[:, 0], GOLDEN_SCORES_COL0, rtol=1e-12)
+    assert res.stats["sharpe"] == pytest.approx(GOLDEN_SHARPE, rel=1e-12)
+    assert res.stats["total_pnl"] == pytest.approx(GOLDEN_PNL, rel=1e-12)
+    anch = walk_forward(BacktestOHLCTarget(taker_fee=2e-4), _targets(T), o, h, l, c,
+                        train=90, test=40, anchored=True, metric="total_pnl")
+    assert anch.choice.tolist() == GOLDEN_ANCHORED_CHOICE
+
+
+GOLDEN_CHOICE = [1, 1, 0, 2, 2]
+GOLDEN_SCORES_COL0 = [1.2084732360973462, 0.9425475505694672, 1.620956872474087,
+                      -1.0708210557093047, -2.150979534091671]
+GOLDEN_SHARPE = -0.8521351650503325
+GOLDEN_PNL = -4.302590266628476
+GOLDEN_ANCHORED_CHOICE = [1, 1, 1, 0, 0]

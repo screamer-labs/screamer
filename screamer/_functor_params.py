@@ -12,6 +12,9 @@ The captured params power three things: a readable ``repr``
 (``RollingMean(window_size=20)``), Pipeline node labels, and Pipeline serialization.
 """
 import json
+import math
+import re
+import textwrap
 import warnings
 from importlib import resources
 
@@ -47,6 +50,60 @@ def _param_names(cls_name):
     if not entry:
         return None
     return [p["name"] for p in entry.get("parameters", [])]
+
+
+_DOCS_URL = "https://screamer.readthedocs.io/en/latest/"
+_MD_HEADING_RE = re.compile(r"^(#{2,4}) (.+)$", re.M)
+_MD_MARKER_RE = re.compile(r"^<!-- [A-Z_]+ -->\n?", re.M)
+
+
+def _format_default(value):
+    if isinstance(value, float) and math.isinf(value):
+        return "inf" if value > 0 else "-inf"
+    return repr(value)
+
+
+def build_docstring(cls_name):
+    """A numpydoc-style docstring for ``cls_name`` from its help.json entry.
+
+    The function pages under ``docs/functions_*`` are the single source: their
+    frontmatter gives the summary and parameters, their body the details. None
+    when the registry has no entry for ``cls_name``.
+    """
+    entry = _load_help().get(cls_name)
+    if not entry:
+        return None
+    params = entry.get("parameters") or []
+    signature = ", ".join(
+        f"{p['name']}={_format_default(p['default'])}" if "default" in p else p["name"]
+        for p in params)
+    parts = [f"{cls_name}({signature})", "", entry.get("short", "").strip()]
+    if params:
+        parts += ["", "Parameters", "----------"]
+        for p in params:
+            head = p["name"]
+            if p.get("type"):
+                head += f" : {p['type']}"
+            if "default" in p:
+                head += f", default {_format_default(p['default'])}"
+            parts.append(head)
+            desc = (p.get("description") or "").strip()
+            if p.get("enum"):
+                desc += f" One of {', '.join(repr(v) for v in p['enum'])}."
+            if desc:
+                parts.append(textwrap.indent(textwrap.fill(desc.strip(), 76), "    "))
+    details = _MD_MARKER_RE.sub("", entry.get("details") or "").strip()
+    details = re.sub(r"\A## Description\s*\n", "", details)
+    details = re.sub(r"\n{3,}", "\n\n", details)
+    details = _MD_HEADING_RE.sub(lambda m: f"{m.group(2)}\n{'-' * len(m.group(2))}", details)
+    if details:
+        parts += ["", details]
+    see_also = entry.get("see_also") or []
+    if see_also:
+        parts += ["", "See Also", "--------", ", ".join(see_also)]
+    if entry.get("doc_path"):
+        parts += ["", f"Full reference: {_DOCS_URL}{entry['doc_path']}.html"]
+    return "\n".join(parts) + "\n"
 
 
 def bind_params(cls_name, args, kwargs):
@@ -85,7 +142,7 @@ def format_call(cls_name, params):
 
 def _make_wrapper(name, base):
     """Build a same-named subclass of ``base`` that captures its init args."""
-    cls = type(name, (base,), {})
+    cls = type(name, (base,), {"__doc__": build_docstring(name), "__module__": "screamer"})
 
     def __init__(self, *args, **kwargs):
         super(cls, self).__init__(*args, **kwargs)
