@@ -51,6 +51,7 @@ export type {
   PositionTestMetric,
   PositionTestOptions,
   PositionTestResult,
+  PositionFamilyResult,
   StrategyTestOptions,
   StrategyTestResult,
 } from "./validation.js";

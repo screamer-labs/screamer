@@ -19,12 +19,15 @@ using screamer::validation::segment_shuffle;
 const double* in_ptr(std::uintptr_t p) { return reinterpret_cast<const double*>(p); }
 double* out_ptr(std::uintptr_t p) { return reinterpret_cast<double*>(p); }
 
+// start < 0: use the series' own NaN warmup; otherwise a common warmup length.
 void circularShiftInto(std::uintptr_t x, std::size_t T, double min_shift, double seed,
-                       std::size_t col0, std::size_t ncols, std::uintptr_t out) {
+                       std::size_t col0, std::size_t ncols, std::uintptr_t out,
+                       double start) {
     const std::size_t m = min_shift < 0 ? default_min_shift(in_ptr(x), T)
                                         : static_cast<std::size_t>(min_shift);
     circular_shift(in_ptr(x), T, m, static_cast<std::uint64_t>(seed), col0, ncols,
-                   out_ptr(out));
+                   out_ptr(out),
+                   start < 0 ? static_cast<std::size_t>(-1) : static_cast<std::size_t>(start));
 }
 
 void segmentShuffleInto(std::uintptr_t x, std::size_t T, double seed,

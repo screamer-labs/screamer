@@ -120,10 +120,18 @@ namespace screamer { namespace validation {
     // autocorrelation) and changes only its alignment with the market. Columns
     // col0 .. col0 + ncols - 1 of the full set are produced, so a caller can
     // generate the surrogates in chunks.
+    //
+    // `start` overrides the warmup length (the default, SIZE_MAX, uses the
+    // series' own NaN prefix). Several series shifted with the same seed, start,
+    // and min_shift get the same offset in every column, which is what a joint
+    // test across several strategies needs.
     inline void circular_shift(const double* x, std::size_t T,
                                std::size_t min_shift, std::uint64_t seed,
-                               std::size_t col0, std::size_t ncols, double* out) {
-        const std::size_t p = detail::valid_start(x, T);
+                               std::size_t col0, std::size_t ncols, double* out,
+                               std::size_t start = static_cast<std::size_t>(-1)) {
+        const std::size_t p = start == static_cast<std::size_t>(-1)
+            ? detail::valid_start(x, T) : start;
+        if (p > T) throw std::invalid_argument("start is past the end of the series.");
         const std::size_t L = T - p;
         if (L < 2) throw std::invalid_argument(
             "circular_shift needs at least two values after the NaN warmup.");

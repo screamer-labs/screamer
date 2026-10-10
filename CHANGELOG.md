@@ -17,6 +17,11 @@ Unreleased
   again on each copy, fitting and tuning on the data are part of the test.
   Python and JavaScript/WASM (`strategyTest`, `permuteBars`,
   `permuteReturns`) give the same randomized inputs for the same seed.
+* **Testing several strategies:** `position_test` accepts a `(T, K)` target,
+  shifts all `K` variants jointly, and adds `family_p_value`, which compares
+  each variant with the best of the `K` randomized results per round (White's
+  Reality Check max statistic). It corrects for reporting the best of several
+  tried variants.
 
 * **Backtest risk exits:** the target engines (`BacktestOHLCTarget`,
   `BacktestPriceTarget`, `BacktestTradesTarget`, `BacktestL1Target`) take

@@ -162,14 +162,17 @@ namespace {
 using SurrogateIn = nb::ndarray<const double, nb::ndim<1>, nb::c_contig, nb::device::cpu>;
 
 nb::object circular_shift_batch(SurrogateIn x, long long min_shift,
-                                std::uint64_t seed, size_t col0, size_t ncols) {
+                                std::uint64_t seed, size_t col0, size_t ncols,
+                                long long start) {
     const size_t T = x.shape(0);
     const size_t m = min_shift < 0
         ? screamer::validation::default_min_shift(x.data(), T)
         : static_cast<size_t>(min_shift);
     double* out = new double[T * ncols];
     try {
-        screamer::validation::circular_shift(x.data(), T, m, seed, col0, ncols, out);
+        screamer::validation::circular_shift(
+            x.data(), T, m, seed, col0, ncols, out,
+            start < 0 ? static_cast<size_t>(-1) : static_cast<size_t>(start));
     } catch (...) { delete[] out; throw; }
     return screamer::detail::make_owned_array(out, {T, ncols});
 }
@@ -222,7 +225,7 @@ void init_bindings_fin(nb::module_& m) {
     m.def("_permute_returns", &permute_returns_batch,
           "x"_a, "log"_a, "seed"_a, "col0"_a, "ncols"_a);
     m.def("_circular_shift", &circular_shift_batch,
-          "x"_a, "min_shift"_a, "seed"_a, "col0"_a, "ncols"_a);
+          "x"_a, "min_shift"_a, "seed"_a, "col0"_a, "ncols"_a, "start"_a = -1);
     m.def("_segment_shuffle", &segment_shuffle_batch,
           "x"_a, "seed"_a, "col0"_a, "ncols"_a);
     m.def("_default_min_shift", [](SurrogateIn x) {

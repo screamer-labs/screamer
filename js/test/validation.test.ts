@@ -115,3 +115,16 @@ test("validation: strategyTest separates an informative feature from noise", asy
     { n: 20, method: "returns" });
   assert.equal(bars.null.length, 20);
 });
+
+test("validation: positionTest family matches the single-strategy null for K = 1", () => {
+  const { o, h, l, c } = market(300);
+  const tgt = Array.from({ length: 300 }, (_, t) => (Math.floor(t / 5) % 3) - 1);
+  const eng = BacktestOHLCTarget();
+  const one = positionTest(eng, tgt, [o, h, l, c], { n: 40, seed: 2 });
+  const fam = positionTest(eng, [tgt], [o, h, l, c], { n: 40, seed: 2 });
+  assert.deepEqual(Array.from(fam.null.data), Array.from(one.null));
+  assert.equal(fam.familyPValue[0], one.pValue);
+  const tgt2 = tgt.map((v) => -v);
+  const two = positionTest(eng, [tgt, tgt2], [o, h, l, c], { n: 40, seed: 2 });
+  for (let k = 0; k < 2; k++) assert.ok(two.familyPValue[k] >= two.pValue[k]);
+});

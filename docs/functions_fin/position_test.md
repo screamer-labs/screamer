@@ -64,7 +64,19 @@ larger_is_better=None, min_shift=None, seed=0)`
   JavaScript alike.
 
 It returns a named tuple with `observed`, `null` (the metric of each copy,
-NaN values left out), `p_value`, `metric`, `method`, and `min_shift`.
+NaN values left out), `p_value`, `metric`, `method`, `min_shift`, and
+`family_p_value` (None for a single strategy; see below).
+
+## Several strategies
+
+If you tried several variants and report the best one, test them together: pass
+a `(T, K)` target with one column per variant (and `method="shift"`). Each
+randomized round shifts all `K` columns by the same offset. The result then has
+one `observed` and `p_value` per variant, a `null` of shape `(n, K)`, and
+`family_p_value`, which compares each variant with the best of the `K`
+randomized results in every round (the max statistic of White's Reality Check).
+The best variant's ordinary p-value is too optimistic, because picking the best
+of many is itself a source of luck; its `family_p_value` is not.
 
 ## What it does not cover
 
@@ -118,5 +130,7 @@ mild momentum, and a random walk. The test separates them.
 - Aronson, D. (2006). *Evidence-Based Technical Analysis*. Wiley.
 - Masters, T. (2020). *Permutation and Randomization Tests for Trading System
   Development*. Independently published.
+- White, H. (2000). A reality check for data snooping. *Econometrica*, 68(5),
+  1097-1126.
 - Phipson, B. and Smyth, G. K. (2010). Permutation p-values should never be
   zero. *Statistical Applications in Genetics and Molecular Biology*, 9(1).

@@ -99,13 +99,20 @@ class PositionTestResult(NamedTuple):
     at least as well as ``observed``, counting the observed result itself, so
     it is never zero. Randomized runs whose metric is NaN are left out of
     ``null``.
+
+    For ``K`` strategies (a ``(T, K)`` target), ``observed`` and ``p_value``
+    have one entry per strategy, ``null`` has shape ``(n, K)`` (NaN where a
+    run's metric is NaN), and ``family_p_value`` compares each strategy with
+    the best of all ``K`` in every randomized round. That corrects for having
+    picked the best of several variants. For a single strategy it is None.
     """
-    observed: float
+    observed: Union[float, np.ndarray]
     null: np.ndarray
-    p_value: float
+    p_value: Union[float, np.ndarray]
     metric: str
     method: str
     min_shift: Optional[int]
+    family_p_value: Optional[np.ndarray] = None
 
 
 def _last_finite(a):
@@ -166,6 +173,13 @@ def position_test(
     or a callable that maps an engine output of shape ``(T, k, 4)`` to ``k``
     values. For a callable, ``larger_is_better`` defaults to True.
 
+    Several strategies: pass a ``(T, K)`` target, one column per variant (with
+    ``method="shift"``). Every randomized round shifts all ``K`` columns by the
+    same offset, and the result adds ``family_p_value``: each strategy's metric
+    against the best of the ``K`` randomized metrics in each round (the max
+    statistic of White's Reality Check). Use it when the strategy you report
+    is the best of several you tried.
+
     Order-posting engines (``*Orders``) are not supported: their limit prices
     are tied to the market at each moment, so moving them in time is not
     meaningful.
@@ -191,6 +205,10 @@ def position_test(
         raise ValueError("n must be at least 1")
     seed = _seed(seed)
 
+    target = np.asarray(target, dtype=float)
+    if target.ndim == 2:
+        return _position_test_family(engine, target, market, n, method, metric, name,
+                                     larger_is_better, min_shift, seed)
     target = _as_series(target, "target")
     market = [_as_series(m, "market input") for m in market]
     T = target.shape[0]
@@ -229,6 +247,58 @@ def position_test(
         hits = np.count_nonzero(null <= observed)
     p_value = (1.0 + hits) / (1.0 + null.size) if np.isfinite(observed) else float("nan")
     return PositionTestResult(observed, null, float(p_value), name, method, shift)
+
+
+def _position_test_family(engine, target, market, n, method, metric, name,
+                          larger_is_better, min_shift, seed):
+    """position_test for a (T, K) target: a joint shift and a max statistic."""
+    if method != "shift":
+        raise ValueError('several strategies need method="shift", which shifts them jointly')
+    T, K = target.shape
+    market = [_as_series(m, "market input") for m in market]
+    if any(m.shape[0] != T for m in market):
+        raise ValueError("target and market inputs must have the same length")
+    cols = [np.ascontiguousarray(target[:, k]) for k in range(K)]
+
+    def warmup(x):
+        finite = np.flatnonzero(~np.isnan(x))
+        return int(finite[0]) if finite.size else T
+    start = max(warmup(x) for x in cols)          # a common warmup keeps one offset
+    if min_shift is None:
+        shift = max(int(_default_min_shift(x)) for x in cols)
+        shift = max(1, min(shift, (T - start) // 4))
+    else:
+        shift = int(min_shift)
+    if shift < 1:
+        raise ValueError("min_shift must be at least 1")
+
+    engine.reset()
+    observed = _score(np.asarray(engine(target, *[np.broadcast_to(m[:, None], (T, K))
+                                                  for m in market]), dtype=float), metric)
+    width = (len(market) + 1 + 4 + 6) * K
+    chunk = max(1, min(n, _CHUNK_DOUBLES // max(1, T * width)))
+    null = np.empty((n, K))
+    for col0 in range(0, n, chunk):
+        m = min(chunk, n - col0)
+        # (T, m * K): replica-major blocks, all K strategies share each offset.
+        surr = np.hstack([_circular_shift(x, shift, seed, col0, m, start) for x in cols])
+        engine.reset()
+        out = np.asarray(engine(surr, *[np.broadcast_to(v[:, None], (T, m * K))
+                                         for v in market]), dtype=float)
+        null[col0:col0 + m] = _score(out, metric).reshape(K, m).T
+    engine.reset()
+
+    sign = 1.0 if larger_is_better else -1.0
+    p_value = np.empty(K)
+    for k in range(K):
+        col = null[:, k][np.isfinite(null[:, k])]
+        hits = np.count_nonzero(sign * col >= sign * observed[k])
+        p_value[k] = (1.0 + hits) / (1.0 + col.size) if np.isfinite(observed[k]) else np.nan
+    best = np.nanmax(sign * null, axis=1)          # the best strategy in each round
+    best = best[np.isfinite(best)]
+    family = np.array([(1.0 + np.count_nonzero(best >= sign * o)) / (1.0 + best.size)
+                       if np.isfinite(o) else np.nan for o in observed])
+    return PositionTestResult(observed, null, p_value, name, method, shift, family)
 
 
 def permute_bars(open, high, low, close, n, seed=0):

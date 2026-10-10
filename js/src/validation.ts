@@ -56,15 +56,15 @@ function defaultMinShift(x: ArrayLike<number>): number {
 }
 
 function shiftBlock(x: ArrayLike<number>, minShift: number, seed: number,
-                    col0: number, ncols: number): NdArray {
-  const L = validLength(x);
+                    col0: number, ncols: number, start = -1): NdArray {
+  const L = start < 0 ? validLength(x) : x.length - start;
   if (L < 2)
     throw new RangeError("circular_shift needs at least two values after the NaN warmup.");
   if (2 * minShift > L)
     throw new RangeError("min_shift is too large: it must be at most half the series " +
                          "length after the NaN warmup.");
   return surrogates(x, ncols, (xp, op) =>
-    current().circularShiftInto(xp, x.length, minShift, seed, col0, ncols, op));
+    current().circularShiftInto(xp, x.length, minShift, seed, col0, ncols, op, start));
 }
 
 function shuffleBlock(x: ArrayLike<number>, seed: number, col0: number,
@@ -130,6 +130,19 @@ export interface PositionTestResult {
   minShift: number | null;
 }
 
+/** The result of `positionTest` for several strategies (one entry per column). */
+export interface PositionFamilyResult {
+  observed: Float64Array;
+  /** (n, K) row-major; NaN where a run's metric is NaN. */
+  null: NdArray;
+  pValue: Float64Array;
+  /** Each strategy against the best of the K randomized metrics per round. */
+  familyPValue: Float64Array;
+  metric: string;
+  method: "shift";
+  minShift: number;
+}
+
 // Engine output columns: [equity, pnl, position, cost].
 // BacktestReport columns: [drawdown, cum_cost, turnover, trades, max_drawdown, sharpe].
 const METRICS: Record<string, { report: boolean; col: number; larger: boolean }> = {
@@ -168,12 +181,39 @@ function column(a: NdArray, col: number): Float64Array {
  * or a function of one run's (T, 4) engine output. The p-value counts the
  * observed result itself, so it is never zero. Mirrors Python's
  * `screamer.position_test`; the same seed gives the same null distribution.
+ *
+ * Pass an array of target columns to test several strategies jointly (method
+ * "shift"): every round shifts all of them by the same offset, and
+ * `familyPValue` compares each strategy with the best of the K per round.
  */
+export function positionTest(
+  engine: ScreamerOp,
+  target: ArrayLike<number>[],
+  market: ArrayLike<number>[],
+  opts?: PositionTestOptions,
+): PositionFamilyResult;
 export function positionTest(
   engine: ScreamerOp,
   target: ArrayLike<number>,
   market: ArrayLike<number>[],
+  opts?: PositionTestOptions,
+): PositionTestResult;
+export function positionTest(
+  engine: ScreamerOp,
+  target: ArrayLike<number> | ArrayLike<number>[],
+  market: ArrayLike<number>[],
   opts: PositionTestOptions = {},
+): PositionTestResult | PositionFamilyResult {
+  if (Array.isArray(target) && target.length > 0 && typeof target[0] !== "number")
+    return positionFamily(engine, target as ArrayLike<number>[], market, opts);
+  return positionSingle(engine, target as ArrayLike<number>, market, opts);
+}
+
+function positionSingle(
+  engine: ScreamerOp,
+  target: ArrayLike<number>,
+  market: ArrayLike<number>[],
+  opts: PositionTestOptions,
 ): PositionTestResult {
   const n = opts.n ?? 1000;
   const method = opts.method ?? "shift";
@@ -490,6 +530,95 @@ export function strategyTest(
     for (const v of nul) if (larger ? v >= observed : v <= observed) hits++;
     const pValue = Number.isFinite(observed) ? (1 + hits) / (1 + nul.length) : NaN;
     return { observed, null: Float64Array.from(nul), pValue, metric: name, method };
+  } finally {
+    report.dispose();
+  }
+}
+
+function positionFamily(
+  engine: ScreamerOp,
+  targets: ArrayLike<number>[],
+  market: ArrayLike<number>[],
+  opts: PositionTestOptions,
+): PositionFamilyResult {
+  const n = opts.n ?? 1000;
+  const method = opts.method ?? "shift";
+  const metric = opts.metric ?? "sharpe";
+  const seed = opts.seed ?? 0;
+  if (method !== "shift")
+    throw new RangeError('several strategies need method "shift", which shifts them jointly');
+  if (!Number.isInteger(n) || n < 1) throw new RangeError("n must be at least 1");
+  checkSeed(seed);
+  let name: string, larger: boolean;
+  if (typeof metric === "function") {
+    name = metric.name || "custom";
+    larger = opts.largerIsBetter ?? true;
+  } else {
+    if (!(metric in METRICS))
+      throw new RangeError(`metric must be one of ${Object.keys(METRICS).sort().join(", ")} or a function`);
+    name = metric;
+    larger = opts.largerIsBetter ?? METRICS[metric].larger;
+  }
+  const K = targets.length, T = targets[0].length;
+  if (targets.some((x) => x.length !== T) || market.some((m) => m.length !== T))
+    throw new RangeError("target and market inputs must have the same length");
+  const start = Math.max(...targets.map((x) => x.length - validLength(x)));
+  let shift = opts.minShift ?? Math.max(1, Math.min(
+    Math.max(...targets.map(defaultMinShift)), Math.floor((T - start) / 4)));
+  if (!Number.isInteger(shift) || shift < 1) throw new RangeError("min_shift must be at least 1");
+
+  const report = BacktestReport();
+  const score = (out: NdArray): number => {
+    if (typeof metric === "function") return metric(out);
+    const spec = METRICS[metric];
+    if (!spec.report) return lastFinite(out, spec.col);
+    const rep = report(column(out, 0), column(out, 1), column(out, 2), column(out, 3)) as NdArray;
+    report.reset();
+    return lastFinite(rep, spec.col);
+  };
+  const run = (x: ArrayLike<number>): number => {
+    engine.reset();
+    return score(engine(x, ...market) as NdArray);
+  };
+  try {
+    const observed = Float64Array.from(targets, run);
+    const nul = new Float64Array(n * K);
+    const chunk = Math.max(1, Math.min(n, Math.floor(4_000_000 / Math.max(1, T))));
+    const col = new Float64Array(T);
+    for (let c0 = 0; c0 < n; c0 += chunk) {
+      const m = Math.min(chunk, n - c0);
+      targets.forEach((x, k) => {
+        const block = shiftBlock(x, shift, seed, c0, m, start);
+        for (let j = 0; j < m; j++) {
+          for (let t = 0; t < T; t++) col[t] = block.data[t * m + j];
+          nul[(c0 + j) * K + k] = run(col);
+        }
+      });
+    }
+    engine.reset();
+    const sign = larger ? 1 : -1;
+    const pValue = new Float64Array(K), familyPValue = new Float64Array(K);
+    const best: number[] = [];
+    for (let r = 0; r < n; r++) {
+      let b = -Infinity;
+      for (let k = 0; k < K; k++) { const v = sign * nul[r * K + k]; if (v > b) b = v; }
+      if (Number.isFinite(b)) best.push(b);
+    }
+    for (let k = 0; k < K; k++) {
+      let hits = 0, count = 0;
+      for (let r = 0; r < n; r++) {
+        const v = nul[r * K + k];
+        if (!Number.isFinite(v)) continue;
+        count++;
+        if (sign * v >= sign * observed[k]) hits++;
+      }
+      const o = observed[k];
+      pValue[k] = Number.isFinite(o) ? (1 + hits) / (1 + count) : NaN;
+      familyPValue[k] = Number.isFinite(o)
+        ? (1 + best.filter((b) => b >= sign * o).length) / (1 + best.length) : NaN;
+    }
+    return { observed, null: { data: nul, shape: [n, K] }, pValue, familyPValue,
+             metric: name, method: "shift", minShift: shift };
   } finally {
     report.dispose();
   }

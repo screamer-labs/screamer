@@ -365,3 +365,47 @@ def test_strategy_test_argument_checks():
         s.strategy_test(lambda *a: np.zeros((100, 3)), *bars, n=2)  # not an engine output
     with pytest.raises(ValueError):
         s.strategy_test(_trend, *bars, fixed=[7])
+
+
+# --- position_test with several strategies (family-wise) ---------------------------
+
+def test_family_single_column_matches_one_dimensional():
+    ret, o, h, l, c = _market(400, 20)
+    tgt = _held(np.sign(np.random.default_rng(21).standard_normal(400)), 5)
+    one = s.position_test(s.BacktestOHLCTarget(), tgt, o, h, l, c, n=60, seed=2)
+    fam = s.position_test(s.BacktestOHLCTarget(), tgt[:, None], o, h, l, c, n=60, seed=2)
+    np.testing.assert_allclose(fam.null[:, 0], one.null)
+    assert fam.p_value[0] == pytest.approx(one.p_value)
+    assert fam.family_p_value[0] == pytest.approx(one.p_value)    # K = 1: no correction
+    assert one.family_p_value is None
+
+
+def test_family_p_value_corrects_for_picking_the_best():
+    ret, o, h, l, c = _market(600, 22)
+    rng = np.random.default_rng(23)
+    tg = np.column_stack([_held(np.sign(rng.standard_normal(600)), 5) for _ in range(15)])
+    res = s.position_test(s.BacktestOHLCTarget(), tg, o, h, l, c, n=199)
+    assert res.null.shape == (199, 15) and res.observed.shape == (15,)
+    assert np.all(res.family_p_value >= res.p_value - 1e-12)
+    assert res.family_p_value[np.argmin(res.p_value)] > res.p_value.min()
+
+
+def test_family_calibrated_under_the_null():
+    # The best of K random strategies should look significant at the 10% level
+    # in about 10% of trials once the family-wise p-value is used.
+    hits = 0
+    trials = 120
+    for k in range(trials):
+        ret, o, h, l, c = _market(300, 3000 + k)
+        rng = np.random.default_rng(4000 + k)
+        tg = np.column_stack([_held(np.sign(rng.standard_normal(300)), 5) for _ in range(8)])
+        res = s.position_test(s.BacktestOHLCTarget(), tg, o, h, l, c, n=49, seed=k)
+        hits += np.nanmin(res.family_p_value) <= 0.10
+    assert hits / trials < 0.20
+
+
+def test_family_requires_shift():
+    ret, o, h, l, c = _market(100, 24)
+    tg = np.sign(np.random.default_rng(25).standard_normal((100, 3)))
+    with pytest.raises(ValueError):
+        s.position_test(s.BacktestOHLCTarget(), tg, o, h, l, c, method="segments")
