@@ -44,6 +44,8 @@ The `Erfc` class computes `erfc(x) = 1 - erf(x)` for each element in the data se
     from plotly.subplots import make_subplots
     from screamer import Erfc
 
+    np.random.seed(0)  # reproducible example data
+
     data = np.random.normal(size=30)
     erfc_data = Erfc()(data)
 

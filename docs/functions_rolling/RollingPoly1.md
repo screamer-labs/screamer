@@ -73,6 +73,8 @@ The `RollingPoly1` class fits a straight line (first-degree polynomial) through 
     from plotly.subplots import make_subplots
     from screamer import RollingPoly1
 
+    np.random.seed(0)  # reproducible example data
+
     # Generate example data
     data = np.cumsum(np.random.normal(size=300))
 

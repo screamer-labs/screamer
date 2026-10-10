@@ -44,6 +44,8 @@ The `Abs` class computes the absolute value of each element in a data sequence, 
     from plotly.subplots import make_subplots
     from screamer import Abs
 
+    np.random.seed(0)  # reproducible example data
+
     # Generate example data with negative values
     data = np.random.normal(size=100) 
     abs_data = Abs()(data)

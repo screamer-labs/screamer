@@ -60,6 +60,8 @@ where `k` is `window_size`.
     from plotly.subplots import make_subplots
     from screamer import Return
 
+    np.random.seed(0)  # reproducible example data
+
     data = np.exp(0.1*np.cumsum(np.random.normal(size=50)))
     return_data = Return(5)(data)
 

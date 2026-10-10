@@ -54,6 +54,8 @@ nan_policy: ignore
     import plotly.graph_objects as go
     from screamer import RollingMean
 
+    np.random.seed(0)  # reproducible example data
+
     # Generate example data
     N = 300
     window_size = 30

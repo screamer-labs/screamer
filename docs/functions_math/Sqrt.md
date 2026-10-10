@@ -43,6 +43,8 @@ The `Sqrt` class computes the square root of each element in a data sequence.
     from plotly.subplots import make_subplots
     from screamer import Sqrt
 
+    np.random.seed(0)  # reproducible example data
+
     data = np.abs(np.random.normal(size=30))
     sqrt_data = Sqrt()(data)
 

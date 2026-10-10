@@ -57,6 +57,8 @@ $$
     from plotly.subplots import make_subplots
     from screamer import Power
 
+    np.random.seed(0)  # reproducible example data
+
     data = np.random.normal(size=30)
     result = Power(2)(data)
 

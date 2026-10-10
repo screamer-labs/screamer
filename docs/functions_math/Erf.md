@@ -44,6 +44,8 @@ The `Erf` class applies the standard mathematical error function element-wise. I
     from plotly.subplots import make_subplots
     from screamer import Erf
 
+    np.random.seed(0)  # reproducible example data
+
     data = np.random.normal(size=30)
     erf_data = Erf()(data)
 

@@ -52,6 +52,8 @@ nan_policy: ignore
     from plotly.subplots import make_subplots
     from screamer import RollingSum
 
+    np.random.seed(0)  # reproducible example data
+
     data = np.cumsum(np.random.normal(size=300))
 
     fig = make_subplots(

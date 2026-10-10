@@ -58,6 +58,8 @@ The `RollingQuantile` class computes a specified quantile within a moving window
     from plotly.subplots import make_subplots
     from screamer import RollingQuantile
 
+    np.random.seed(0)  # reproducible example data
+
     # Generate example data
     data = np.cumsum(np.random.normal(size=300))
 

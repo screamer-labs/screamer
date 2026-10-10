@@ -44,6 +44,8 @@ The `Log` class computes the natural logarithm (ln) of each element in a data se
     from plotly.subplots import make_subplots
     from screamer import Log
 
+    np.random.seed(0)  # reproducible example data
+
     data = np.abs(np.random.normal(size=30)) + 1
     log_data = Log()(data)
 

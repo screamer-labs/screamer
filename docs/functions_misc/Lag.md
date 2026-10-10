@@ -68,6 +68,8 @@ where `k` is `window_size`.
     from plotly.subplots import make_subplots
     from screamer import Lag
 
+    np.random.seed(0)  # reproducible example data
+
     data = np.random.normal(size=50)
     lagged_data = Lag(5)(data)
 

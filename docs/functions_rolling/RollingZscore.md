@@ -60,6 +60,8 @@ where `std` is the sample standard deviation (ddof=1) over the `window_size` mos
     from plotly.subplots import make_subplots
     from screamer import RollingZscore
 
+    np.random.seed(0)  # reproducible example data
+
     data = np.cumsum(np.random.normal(size=300))
 
     fig = make_subplots(

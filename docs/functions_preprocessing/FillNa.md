@@ -44,10 +44,12 @@ The `FillNa` class replaces any `NaN` values in a data sequence with a specified
 .. plotly::
     :include-source: True
 
-     import numpy as np
+    import numpy as np
     import plotly.graph_objects as go
     from plotly.subplots import make_subplots
     from screamer import FillNa
+
+    np.random.seed(0)  # reproducible example data
 
     # Generate example data with NaN values
     data = np.random.normal(size=30)

@@ -52,6 +52,8 @@ The `Clip` class restricts each value in a data sequence to fall within a specif
     import plotly.graph_objects as go
     from screamer import Clip
 
+    np.random.seed(0)  # reproducible example data
+
     # Generate example data
     data = np.random.normal(size=50)
 

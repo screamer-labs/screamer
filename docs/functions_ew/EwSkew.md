@@ -153,6 +153,8 @@ The term $N_{eff}$ adjusts for the effective sample size, ensuring that the skew
     from plotly.subplots import make_subplots
     from screamer import EwSkew
 
+    np.random.seed(0)  # reproducible example data
+
     data = np.cumsum(np.random.normal(size=300))
     ewskew_data = EwSkew(span=20)(data)
 

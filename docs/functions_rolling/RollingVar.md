@@ -59,6 +59,8 @@ where `n = window_size`. Matches `pandas.Series.rolling(w).var()`.
     from plotly.subplots import make_subplots
     from screamer import RollingVar
 
+    np.random.seed(0)  # reproducible example data
+
     data = np.cumsum(np.random.normal(size=300))
 
     fig = make_subplots(

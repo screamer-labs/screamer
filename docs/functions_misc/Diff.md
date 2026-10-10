@@ -68,6 +68,8 @@ where `k` is `window_size`.
     from plotly.subplots import make_subplots
     from screamer import Diff
 
+    np.random.seed(0)  # reproducible example data
+
     data = np.cumsum(np.random.normal(size=50) + 0.5)
     diff_data = Diff(3)(data)
 

@@ -76,6 +76,8 @@ One of the following decay parameters is required to calculate `alpha`, where a 
     from plotly.subplots import make_subplots
     from screamer import EwRms
 
+    np.random.seed(0)  # reproducible example data
+
     data = np.cumsum(np.random.normal(size=300))
     ewrms_data = EwRms(span=20)(data)
 

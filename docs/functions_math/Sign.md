@@ -44,6 +44,8 @@ The `Sign` class computes the sign of each element in a data sequence, mapping e
     from plotly.subplots import make_subplots
     from screamer import Sign
 
+    np.random.seed(0)  # reproducible example data
+
     data = np.random.normal(size=30)
     sign_data = Sign()(data)
 

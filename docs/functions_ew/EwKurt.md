@@ -158,6 +158,8 @@ This calculation uses $N_{eff}$ to correct for the effective sample size, ensuri
     import plotly.graph_objects as go
     from plotly.subplots import make_subplots
 
+    np.random.seed(0)  # reproducible example data
+
     from screamer import EwKurt
 
     data = np.cumsum(np.random.normal(size=300))

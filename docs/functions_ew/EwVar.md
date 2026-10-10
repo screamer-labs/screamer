@@ -122,6 +122,8 @@ The term $N_{eff}$ compensates for the decreasing influence of older values, ens
     from plotly.subplots import make_subplots
     from screamer import EwVar
 
+    np.random.seed(0)  # reproducible example data
+
     # Generate example data
     data = np.cumsum(np.random.normal(size=300))
 

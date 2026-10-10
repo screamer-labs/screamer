@@ -77,6 +77,8 @@ One of the following decay parameters is required to calculate `alpha`, where a 
     from plotly.subplots import make_subplots
     from screamer import EwZscore
 
+    np.random.seed(0)  # reproducible example data
+
     data = np.cumsum(np.random.normal(size=300))
     ewzscore_data = EwZscore(span=20)(data)
 

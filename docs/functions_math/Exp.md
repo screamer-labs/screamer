@@ -43,6 +43,8 @@ The `Exp` class computes the exponential (e^x) of each element in a data sequenc
     from plotly.subplots import make_subplots
     from screamer import Exp
 
+    np.random.seed(0)  # reproducible example data
+
     data = np.random.normal(size=30) / 5
     exp_data = Exp()(data)
 

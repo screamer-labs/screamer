@@ -124,6 +124,8 @@ The term $N_{eff}$ adjusts for the effective sample size, ensuring that the stan
     from plotly.subplots import make_subplots
     from screamer import EwStd
 
+    np.random.seed(0)  # reproducible example data
+
     # Generate example data
     data = np.cumsum(np.random.normal(size=300))
 
