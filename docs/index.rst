@@ -37,8 +37,9 @@ prerequisites and development setup.
 A short example
 ---------------
 
-The example below fits a line to each sliding window of 50 values and returns its
-slope, then takes the sign of the slope to give the trend direction (up or down).
+The example below fits a quadratic to each sliding window of 50 values and returns
+its slope at the latest value, then takes the sign of the slope to give the trend
+direction (up or down).
 
 
 .. code-block:: python
@@ -52,8 +53,9 @@ slope, then takes the sign of the slope to give the trend direction (up or down)
     result = sign(slope(data))
 
 
-The plot shows the input data (top, blue), the slope over the previous 50 samples
-(middle, orange), and the sign of the slope (bottom, red).
+The plot applies it to one-minute closing prices of the BTC perpetual, built from
+six hours of Deribit trades (top), and shows the slope over the previous 50
+minutes (middle) and its sign (bottom).
 
 
 .. plotly::
@@ -64,9 +66,14 @@ The plot shows the input data (top, blue), the slope over the previous 50 sample
     from plotly.subplots import make_subplots
     from screamer import RollingPoly2, Sign
 
-    # Generate example data
-    np.random.seed(0)
-    data = np.cumsum(np.random.normal(size=300))
+    import pandas as pd
+    from screamer import Resample
+
+    # One-minute closes from the committed Deribit BTC-perpetual trade slice
+    trades = pd.read_csv("notebooks/data/deribit_btc_perp_6h.csv")
+    data, ts = Resample(freq=60_000, agg="last")(
+        trades["price"].to_numpy(), trades["timestamp"].to_numpy())
+    t = pd.to_datetime(ts, unit="ms")
 
     # Create subplots with specified row heights and shared x-axis
     fig = make_subplots(
@@ -83,21 +90,96 @@ The plot shows the input data (top, blue), the slope over the previous 50 sample
     sign = Sign()
 
     # Add traces for input data and results with different derivative orders
-    fig.add_trace(go.Scatter(y=data, mode='lines', name='data'), row=1, col=1)
-    fig.add_trace(go.Scatter(y=slope(data), mode='lines', name='slope(data)', line=dict(color='orange')), row=2, col=1)
-    fig.add_trace(go.Scatter(y=sign(slope(data)), mode='lines', name='sign(slope(data))', line=dict(color='red')), row=3, col=1)
+    fig.add_trace(go.Scatter(x=t, y=data, mode='lines', name='BTC close'), row=1, col=1)
+    fig.add_trace(go.Scatter(x=t, y=slope(data), mode='lines', name='slope(data)', line=dict(color='orange')), row=2, col=1)
+    fig.add_trace(go.Scatter(x=t, y=sign(slope(data)), mode='lines', name='sign(slope(data))', line=dict(color='red')), row=3, col=1)
 
     # Update layout with titles and axis labels
     fig.update_layout(
         title=None,
-        xaxis3_title="Sample index",
-        yaxis=dict(title="Data"),
+        xaxis3_title=None,
+        yaxis=dict(title="Price (USD)"),
         yaxis2=dict(title="Slope"),
         yaxis3=dict(title="Sign"),
          margin=dict(l=20, r=20, t=20, b=20)  # Adjust left, right, top, and bottom margins        
     )
 
     fig.show()
+
+
+What you can build
+------------------
+
+Each tile opens a worked example. :doc:`What you can build <capabilities>` lists
+the functions behind each area, and the :doc:`gallery <gallery>` shows a plot for
+every function.
+
+.. grid:: 1 2 2 4
+   :gutter: 3
+
+   .. grid-item-card:: Indicators
+      :img-top: _static/gallery/recipes__pandas-ohlcv-indicators.webp
+      :img-alt: Bollinger Bands, RSI, and ATR on one-minute BTC bars
+      :link: recipes/pandas-ohlcv-indicators
+      :link-type: doc
+
+      Moving averages, RSI, MACD, bands, and ATR on arrays or DataFrames.
+
+   .. grid-item-card:: Filtering and cycles
+      :img-top: _static/gallery/functions_signal__MAMA.webp
+      :img-alt: MAMA adaptive moving average on a cycling series
+      :link: notebooks/19-cycle-and-spectral-analysis
+      :link-type: doc
+
+      Low-lag smoothers, Kalman and Butterworth filters, and cycle measurement.
+
+   .. grid-item-card:: Bars from ticks
+      :img-top: _static/gallery/capability__bars.webp
+      :img-alt: BTC trades with ten-minute OHLC bars
+      :link: notebooks/09-bars-from-ticks
+      :link-type: doc
+
+      Time, tick, volume, and dollar bars from a trade tape.
+
+   .. grid-item-card:: Microstructure
+      :img-top: _static/gallery/capability__microstructure.webp
+      :img-alt: BTC price and order flow, true and inferred
+      :link: notebooks/11-microstructure-order-flow
+      :link-type: doc
+
+      Trade signing, order-flow imbalance, price impact, and VPIN.
+
+   .. grid-item-card:: Backtesting
+      :img-top: _static/gallery/recipes__ticks-to-backtest.webp
+      :img-alt: Equity curves with and without trading costs
+      :link: recipes/ticks-to-backtest
+      :link-type: doc
+
+      Costed backtests with slippage and fill timing, and a significance test.
+
+   .. grid-item-card:: Forecasting and ML
+      :img-top: _static/gallery/recipes__ml-features.webp
+      :img-alt: Predicted against realized returns, and feature weights
+      :link: recipes/ml-features
+      :link-type: doc
+
+      Training sets from causal features, and online regression and filtering.
+
+   .. grid-item-card:: Live streaming and pipelines
+      :img-top: _static/gallery/recipes__live-loop.webp
+      :img-alt: Trades processed one at a time, with alerts and order flow
+      :link: recipes/live-loop
+      :link-type: doc
+
+      One value at a time on a live feed, stream alignment, and pipelines.
+
+   .. grid-item-card:: JavaScript in the browser
+      :img-top: _static/gallery/capability__javascript.webp
+      :img-alt: A screamer.js code snippet above a price trace
+      :link: javascript
+      :link-type: doc
+
+      The same operators as WebAssembly, in Node.js and the browser.
 
 
 Speed
@@ -127,6 +209,9 @@ an array.
 
 For a step-by-step walkthrough see the :doc:`User Guide <usage>`.
 
+
+Functions by group
+------------------
 
 .. grid:: 1 2 2 3
    :gutter: 3
@@ -179,6 +264,24 @@ For a step-by-step walkthrough see the :doc:`User Guide <usage>`.
 
       Align and reshape event streams, and build a runnable pipeline.
 
+   .. grid-item-card:: Machine learning
+      :link: by_group/machine-learning
+      :link-type: doc
+
+      Supervised training sets from time-series data.
+
+   .. grid-item-card:: Gallery
+      :link: gallery
+      :link-type: doc
+
+      A plot for every function, grouped like this list.
+
+   .. grid-item-card:: Recipes
+      :link: recipes/index
+      :link-type: doc
+
+      Short, complete solutions to common tasks.
+
    .. grid-item-card:: Examples
       :link: notebooks/index
       :link-type: doc
@@ -193,7 +296,9 @@ For a step-by-step walkthrough see the :doc:`User Guide <usage>`.
 
    installation
    usage
+   capabilities
    choosing_an_operator
+   javascript
 
 
 .. toctree::
@@ -202,6 +307,7 @@ For a step-by-step walkthrough see the :doc:`User Guide <usage>`.
    :hidden:
 
    by_group_index
+   gallery
 
 
 .. toctree::
@@ -210,6 +316,7 @@ For a step-by-step walkthrough see the :doc:`User Guide <usage>`.
    :hidden:
 
    notebooks/index
+   recipes/index
 
 
 .. toctree::
