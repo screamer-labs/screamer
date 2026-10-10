@@ -78,8 +78,23 @@ parameters:
   default: 0.0
   min: 0.0
   description: Exit when the price falls this fraction from the best price since entry (the highest for a long, the lowest for a short). 0 turns it off.
+- name: size
+  type: str
+  default: units
+  description: 'How to read the target: "units" (a position), "notional" (a currency amount), or "weight" (a fraction of initial_capital + equity). It is converted to units at the execution price.'
+- name: initial_capital
+  type: float
+  default: 0.0
+  min: 0.0
+  description: Starting capital for size="weight" and for rebalance_band; equity is initial_capital plus the backtest's cumulative pnl.
+- name: rebalance_band
+  type: float
+  default: 0.0
+  min: 0.0
+  description: With size="notional" or "weight", recompute the units when the holding drifts from the target by more than this fraction of equity (0.05 = 5 points of weight). 0 keeps the units until the target value changes.
 nan_policy: ignore
 see_also:
+- BacktestOHLCVTarget
 - BacktestOHLCOrders
 - BacktestTradesTarget
 - BacktestL1Target
@@ -124,9 +139,17 @@ size is computed, so the engine never carries a position outside that range.
 Inputs are `(target_position, open, high, low, close)`. Outputs are the four
 standard backtest columns: `0 = equity` (cumulative dollar PnL), `1 = pnl` (per
 bar), `2 = position`, and `3 = cost` (per bar). A `NaN` in any bar field (open,
-high, low, close) skips the bar (`nan_policy: ignore`). A `NaN` target holds the
-position for the next bar without issuing a new order.
+high, low, close) skips the bar (`nan_policy: ignore`). A `NaN` target keeps
+the last target: the position holds once it has reached it.
 [`backtest_report`](backtest_report.md) summarizes the resulting equity curve.
+
+**Sizing.** With `size="notional"` the target is a currency amount and with
+`size="weight"` a fraction of equity (`initial_capital` plus the backtest's
+cumulative pnl, marked at the execution price), so returns compound. The engine
+converts the target to units at the execution reference price when the target
+value changes, and keeps those units while it stays the same, so a constant
+weight does not trade on every price move. Set `rebalance_band` to trade back to
+the target when the holding drifts by more than that fraction of equity.
 
 **Risk exits.** `stop_loss`, `take_profit`, and `trailing_stop` close the position
 when the price moves a given fraction from the average entry fill (or, for the

@@ -11,6 +11,7 @@
 #include "screamer/detail/pnl_account.h"
 #include "screamer/detail/slippage.h"
 #include "screamer/detail/risk_exits.h"
+#include "screamer/detail/sizer.h"
 
 namespace screamer {
 
@@ -37,6 +38,11 @@ namespace screamer {
     // event whose price crosses a level, the target is forced flat, so the
     // position closes as a market order on that event; same-side targets are
     // then ignored until the target turns flat or reverses.
+    // `size` reads the target as units (default), a notional amount, or a
+    // weight of initial_capital + equity, converted at the event's price; the
+    // units are kept until the target value changes or, with rebalance_band,
+    // until the holding drifts (see detail::Sizer). A NaN signal skips the
+    // step (nan_policy: ignore).
     class BacktestPriceTarget : public FunctorBase<BacktestPriceTarget, 2, 4> {
     public:
         BacktestPriceTarget(double spread = 0.0, double fee = 0.0,
@@ -48,11 +54,15 @@ namespace screamer {
                             const std::string& slippage_unit = "fraction",
                             double tick_size = 0.0,
                             double stop_loss = 0.0, double take_profit = 0.0,
-                            double trailing_stop = 0.0)
+                            double trailing_stop = 0.0,
+                            const std::string& size = "units",
+                            double initial_capital = 0.0,
+                            double rebalance_band = 0.0)
             : spread_(spread), fee_(fee),
               min_position_(min_position), max_position_(max_position),
               slippage_(slippage, slippage_unit, tick_size),
               exits_(stop_loss, take_profit, trailing_stop),
+              sizer_(size, initial_capital, rebalance_band, multiplier),
               account_(multiplier, fee_per_contract)
         {
             if (spread_ < 0.0) throw std::invalid_argument("spread must be non-negative.");
@@ -60,7 +70,7 @@ namespace screamer {
                 throw std::invalid_argument("min_position must not exceed max_position.");
         }
 
-        void reset() override { account_.reset(); exits_.reset(); }
+        void reset() override { account_.reset(); exits_.reset(); sizer_.reset(); }
 
         ResultTuple call(const InputArray& inputs) override {
             const double signal = inputs[0];
@@ -75,6 +85,8 @@ namespace screamer {
                 if (!isnan2(exits_.event_exit(before, price))) exits_.exited(before);
                 sig = exits_.filter(sig);
             }
+            sig = sizer_.units(sig, price, before, account_.equity_at(price));
+            if (isnan2(sig)) sig = before;                  // cannot size: hold
             const double target = std::clamp(sig, min_position_, max_position_);
             const double dpos = target - account_.position();
             const double side = (dpos > 0.0) ? 1.0 : (dpos < 0.0 ? -1.0 : 0.0);
@@ -97,6 +109,7 @@ namespace screamer {
         double max_position_;
         detail::Slippage slippage_;
         detail::RiskExits exits_;
+        detail::Sizer sizer_;
         detail::PnLAccount account_;
     };
 

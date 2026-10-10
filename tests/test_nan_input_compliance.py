@@ -325,8 +325,8 @@ KNOWN_NOT_TRANSPARENT: set[str] = set()
 # Not bugs: the backtest family declares `ignore` for its market-data inputs
 # but gives its order and target inputs a documented meaning for NaN, so a NaN
 # there legitimately changes state. Each page states its own contract: a NaN
-# target is "no target this bar, hold the position" (BacktestOHLCTarget,
-# BacktestL1Target, BacktestTradesTarget); a NaN bid or ask price is a market
+# target keeps working toward the last target (BacktestOHLCTarget,
+# BacktestOHLCVTarget, BacktestL1Target, BacktestTradesTarget); a NaN bid or ask price is a market
 # order (BacktestOHLCOrders, BacktestTradesOrders, BacktestL1TradesOrders); a
 # NaN trade price or size is a no-trade event.
 #
@@ -342,6 +342,7 @@ MIXED_NAN_SEMANTICS: set[str] = {
     "BacktestL1TradesOrders",
     "BacktestOHLCOrders",
     "BacktestOHLCTarget",
+    "BacktestOHLCVTarget",
     "BacktestTradesOrders",
     "BacktestTradesTarget",
 }

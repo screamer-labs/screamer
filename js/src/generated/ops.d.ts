@@ -133,9 +133,12 @@ export declare function BacktestL1Orders(makerFee?: number, takerFee?: number, f
  * @param stopLoss Exit when the price moves this fraction against the average entry fill (0.05 = 5%). 0 turns it off.
  * @param takeProfit Exit when the price moves this fraction in favour of the average entry fill. 0 turns it off.
  * @param trailingStop Exit when the price falls this fraction from the best price since entry (the highest for a long, the lowest for a short). 0 turns it off.
+ * @param size How to read the target: "units" (a position), "notional" (a currency amount), or "weight" (a fraction of initial_capital + equity). It is converted to units at the execution price.
+ * @param initialCapital Starting capital for size="weight" and for rebalance_band; equity is initial_capital plus the backtest's cumulative pnl.
+ * @param rebalanceBand With size="notional" or "weight", recompute the units when the holding drifts from the target by more than this fraction of equity (0.05 = 5 points of weight). 0 keeps the units until the target value changes.
  * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
  */
-export declare function BacktestL1Target(takerFee?: number, tickSize?: number, minPosition?: number, maxPosition?: number, multiplier?: number, feePerContract?: number, slippage?: number, slippageUnit?: string, stopLoss?: number, takeProfit?: number, trailingStop?: number): ScreamerOp;
+export declare function BacktestL1Target(takerFee?: number, tickSize?: number, minPosition?: number, maxPosition?: number, multiplier?: number, feePerContract?: number, slippage?: number, slippageUnit?: string, stopLoss?: number, takeProfit?: number, trailingStop?: number, size?: string, initialCapital?: number, rebalanceBand?: number): ScreamerOp;
 /**
  * Backtest a two-sided market maker against top-of-book quotes with a trade tape driving the fills, into a costed equity curve.
  *
@@ -188,9 +191,35 @@ export declare function BacktestOHLCOrders(makerFee?: number, takerFee?: number,
  * @param stopLoss Exit when the price moves this fraction against the average entry fill (0.05 = 5%). 0 turns it off.
  * @param takeProfit Exit when the price moves this fraction in favour of the average entry fill. 0 turns it off.
  * @param trailingStop Exit when the price falls this fraction from the best price since entry (the highest for a long, the lowest for a short). 0 turns it off.
+ * @param size How to read the target: "units" (a position), "notional" (a currency amount), or "weight" (a fraction of initial_capital + equity). It is converted to units at the execution price.
+ * @param initialCapital Starting capital for size="weight" and for rebalance_band; equity is initial_capital plus the backtest's cumulative pnl.
+ * @param rebalanceBand With size="notional" or "weight", recompute the units when the holding drifts from the target by more than this fraction of equity (0.05 = 5 points of weight). 0 keeps the units until the target value changes.
  * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
  */
-export declare function BacktestOHLCTarget(takerFee?: number, tickSize?: number, minPosition?: number, maxPosition?: number, multiplier?: number, feePerContract?: number, slippage?: number, slippageUnit?: string, fillAt?: string, delay?: number, stopLoss?: number, takeProfit?: number, trailingStop?: number): ScreamerOp;
+export declare function BacktestOHLCTarget(takerFee?: number, tickSize?: number, minPosition?: number, maxPosition?: number, multiplier?: number, feePerContract?: number, slippage?: number, slippageUnit?: string, fillAt?: string, delay?: number, stopLoss?: number, takeProfit?: number, trailingStop?: number, size?: string, initialCapital?: number, rebalanceBand?: number): ScreamerOp;
+/**
+ * Backtest a target-position strategy on OHLCV bars, filling each bar at most a set share of its volume.
+ *
+ * @param maxParticipation The most an order may trade on one bar, as a share of the bar's volume (0.1 = 10%). The rest carries to the next bars.
+ * @param takerFee Fractional fee charged on a market (taker) fill at the open.
+ * @param tickSize Instrument price grid (0 = continuous). Slippage offsets round up to whole ticks; the "ticks" slippage unit counts in this step.
+ * @param minPosition Lower bound on the filled position. The deferred target is clamped to [min_position, max_position] before the fill executes.
+ * @param maxPosition Upper bound on the filled position. The deferred target is clamped to [min_position, max_position] before the fill executes.
+ * @param multiplier Contract multiplier applied to mark-to-market PnL, fill slippage, and proportional fees.
+ * @param feePerContract Fixed fee (or rebate when negative) charged per contract on each fill.
+ * @param slippage Adverse price offset on every taker (market) fill, read in `slippage_unit`. A buy fills higher and a sell lower; resting limit fills never slip.
+ * @param slippageUnit Unit of `slippage`: "fraction" of the reference price (5 bps = 5e-4), "ticks" of `tick_size`, or "price" (an absolute amount).
+ * @param fillAt Reference price of the execution bar: "open", "close", "typical" (high + low + close) / 3, or "ohlc4" (open + high + low + close) / 4.
+ * @param delay Bars between the decision and the execution. A target from bar t trades on bar t + delay. 0 is allowed only with fill_at="close" (market-on-close of the signal bar).
+ * @param stopLoss Exit when the price moves this fraction against the average entry fill (0.05 = 5%). 0 turns it off.
+ * @param takeProfit Exit when the price moves this fraction in favour of the average entry fill. 0 turns it off.
+ * @param trailingStop Exit when the price falls this fraction from the best price since entry (the highest for a long, the lowest for a short). 0 turns it off.
+ * @param size How to read the target: "units" (a position), "notional" (a currency amount), or "weight" (a fraction of initial_capital + equity). It is converted to units at the execution price.
+ * @param initialCapital Starting capital for size="weight" and for rebalance_band; equity is initial_capital plus the backtest's cumulative pnl.
+ * @param rebalanceBand With size="notional" or "weight", recompute the units when the holding drifts from the target by more than this fraction of equity (0.05 = 5 points of weight). 0 keeps the units until the target value changes.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
+export declare function BacktestOHLCVTarget(maxParticipation?: number, takerFee?: number, tickSize?: number, minPosition?: number, maxPosition?: number, multiplier?: number, feePerContract?: number, slippage?: number, slippageUnit?: string, fillAt?: string, delay?: number, stopLoss?: number, takeProfit?: number, trailingStop?: number, size?: string, initialCapital?: number, rebalanceBand?: number): ScreamerOp;
 /**
  * Backtest a target position against a value series (price/mark) into a costed mark-to-market equity curve.
  *
@@ -206,9 +235,12 @@ export declare function BacktestOHLCTarget(takerFee?: number, tickSize?: number,
  * @param stopLoss Exit when the price moves this fraction against the average entry fill (0.05 = 5%). 0 turns it off.
  * @param takeProfit Exit when the price moves this fraction in favour of the average entry fill. 0 turns it off.
  * @param trailingStop Exit when the price falls this fraction from the best price since entry (the highest for a long, the lowest for a short). 0 turns it off.
+ * @param size How to read the target: "units" (a position), "notional" (a currency amount), or "weight" (a fraction of initial_capital + equity). It is converted to units at the execution price.
+ * @param initialCapital Starting capital for size="weight" and for rebalance_band; equity is initial_capital plus the backtest's cumulative pnl.
+ * @param rebalanceBand With size="notional" or "weight", recompute the units when the holding drifts from the target by more than this fraction of equity (0.05 = 5 points of weight). 0 keeps the units until the target value changes.
  * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
  */
-export declare function BacktestPriceTarget(spread?: number, fee?: number, minPosition?: number, maxPosition?: number, multiplier?: number, feePerContract?: number, slippage?: number, slippageUnit?: string, tickSize?: number, stopLoss?: number, takeProfit?: number, trailingStop?: number): ScreamerOp;
+export declare function BacktestPriceTarget(spread?: number, fee?: number, minPosition?: number, maxPosition?: number, multiplier?: number, feePerContract?: number, slippage?: number, slippageUnit?: string, tickSize?: number, stopLoss?: number, takeProfit?: number, trailingStop?: number, size?: string, initialCapital?: number, rebalanceBand?: number): ScreamerOp;
 /**
  * Turn a backtest engine's [equity, pnl, position, cost] into running drawdown, cost, turnover, trades, and Sharpe.
  *
@@ -255,9 +287,13 @@ export declare function BacktestTradesOrders(makerFee?: number, takerFee?: numbe
  * @param stopLoss Exit when the price moves this fraction against the average entry fill (0.05 = 5%). 0 turns it off.
  * @param takeProfit Exit when the price moves this fraction in favour of the average entry fill. 0 turns it off.
  * @param trailingStop Exit when the price falls this fraction from the best price since entry (the highest for a long, the lowest for a short). 0 turns it off.
+ * @param size How to read the target: "units" (a position), "notional" (a currency amount), or "weight" (a fraction of initial_capital + equity). It is converted to units at the execution price.
+ * @param initialCapital Starting capital for size="weight" and for rebalance_band; equity is initial_capital plus the backtest's cumulative pnl.
+ * @param rebalanceBand With size="notional" or "weight", recompute the units when the holding drifts from the target by more than this fraction of equity (0.05 = 5 points of weight). 0 keeps the units until the target value changes.
+ * @param maxParticipation Cap each print's fill at this share of the print's size; the rest fills on later prints. The default fills the whole order on any print.
  * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
  */
-export declare function BacktestTradesTarget(takerFee?: number, tickSize?: number, minPosition?: number, maxPosition?: number, multiplier?: number, feePerContract?: number, slippage?: number, slippageUnit?: string, stopLoss?: number, takeProfit?: number, trailingStop?: number): ScreamerOp;
+export declare function BacktestTradesTarget(takerFee?: number, tickSize?: number, minPosition?: number, maxPosition?: number, multiplier?: number, feePerContract?: number, slippage?: number, slippageUnit?: string, stopLoss?: number, takeProfit?: number, trailingStop?: number, size?: string, initialCapital?: number, rebalanceBand?: number, maxParticipation?: number): ScreamerOp;
 /**
  * Online exponentially-weighted (forgetting-factor) Bayesian linear regression - current slope and intercept via Normal-Inverse-Gamma posterior plus causal one-step-ahead predictive mean and std.
  *

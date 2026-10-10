@@ -61,6 +61,13 @@ For orders that take liquidity, every engine accepts:
   (`"ticks"`), or in price units (`"price"`).
 - `taker_fee` (or `fee`) and `fee_per_contract`: proportional and fixed fees.
 
+Large orders need one more check: the market may not have traded enough to
+fill them at one price. [`BacktestOHLCVTarget`](functions_fin/BacktestOHLCVTarget.md)
+fills at most `max_participation` of each bar's volume and carries the rest to
+later bars, and `BacktestTradesTarget` does the same per print. To trade a
+fraction of equity rather than a fixed number of units, set `size="weight"` and
+`initial_capital` on any target engine.
+
 For resting limit orders, the `*Orders` engines fill only when the market
 reaches the order price. `fill="breach"` requires the market to trade through
 it, which is conservative. `participation_ratio` scales the filled size down to

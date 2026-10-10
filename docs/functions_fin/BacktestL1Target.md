@@ -69,6 +69,20 @@ parameters:
   default: 0.0
   min: 0.0
   description: Exit when the price falls this fraction from the best price since entry (the highest for a long, the lowest for a short). 0 turns it off.
+- name: size
+  type: str
+  default: units
+  description: 'How to read the target: "units" (a position), "notional" (a currency amount), or "weight" (a fraction of initial_capital + equity). It is converted to units at the execution price.'
+- name: initial_capital
+  type: float
+  default: 0.0
+  min: 0.0
+  description: Starting capital for size="weight" and for rebalance_band; equity is initial_capital plus the backtest's cumulative pnl.
+- name: rebalance_band
+  type: float
+  default: 0.0
+  min: 0.0
+  description: With size="notional" or "weight", recompute the units when the holding drifts from the target by more than this fraction of equity (0.05 = 5 points of weight). 0 keeps the units until the target value changes.
 nan_policy: ignore
 see_also:
 - BacktestL1Orders
@@ -114,6 +128,14 @@ For a two-sided resting-order variant, see
 [`BacktestL1Orders`](BacktestL1Orders.md). When a trade feed is available,
 [`BacktestTradesTarget`](BacktestTradesTarget.md) uses real prints instead of
 quote updates.
+
+**Sizing.** With `size="notional"` the target is a currency amount and with
+`size="weight"` a fraction of equity (`initial_capital` plus the backtest's
+cumulative pnl, marked at the execution price), so returns compound. The engine
+converts the target to units at the execution reference price when the target
+value changes, and keeps those units while it stays the same, so a constant
+weight does not trade on every price move. Set `rebalance_band` to trade back to
+the target when the holding drifts by more than that fraction of equity.
 
 **Risk exits.** `stop_loss`, `take_profit`, and `trailing_stop` close the position
 on the quote update whose mid crosses a level measured from the average entry

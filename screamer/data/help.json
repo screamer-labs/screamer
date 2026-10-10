@@ -1654,6 +1654,26 @@
         "default": 0.0,
         "min": 0.0,
         "description": "Exit when the price falls this fraction from the best price since entry (the highest for a long, the lowest for a short). 0 turns it off."
+      },
+      {
+        "name": "size",
+        "type": "str",
+        "default": "units",
+        "description": "How to read the target: \"units\" (a position), \"notional\" (a currency amount), or \"weight\" (a fraction of initial_capital + equity). It is converted to units at the execution price."
+      },
+      {
+        "name": "initial_capital",
+        "type": "float",
+        "default": 0.0,
+        "min": 0.0,
+        "description": "Starting capital for size=\"weight\" and for rebalance_band; equity is initial_capital plus the backtest's cumulative pnl."
+      },
+      {
+        "name": "rebalance_band",
+        "type": "float",
+        "default": 0.0,
+        "min": 0.0,
+        "description": "With size=\"notional\" or \"weight\", recompute the units when the holding drifts from the target by more than this fraction of equity (0.05 = 5 points of weight). 0 keeps the units until the target value changes."
       }
     ],
     "nan_policy": "ignore",
@@ -1664,7 +1684,7 @@
       "BacktestOHLCTarget",
       "backtest_report"
     ],
-    "details": "`multiplier` converts a price move into currency per contract. `fee_per_contract`\nis added to the existing proportional taker fee on every fill and may be negative\nfor a rebate; defaults preserve the previous behavior.\n\n## Description\n\n`BacktestL1Target` is a directional backtest on the L1 quote stream. It is\nimmediate: the `target_position` you pass on event t executes on the same quote\nupdate, unlike `BacktestOHLCTarget` which defers to the next bar's open.\n\nEach event the engine computes the desired trade as\n`clamp(target, min_position, max_position) - current_position` and takes it as a\nmarketable (taker) order against the displayed L1 book. A buy order sweeps the ask\nside; a sell order sweeps the bid side. The fill pays `taker_fee` on the traded\nnotional. If the displayed size is smaller than the desired size, the overflow is\nfilled at `ask + tick_size` (buy) or `bid - tick_size` (sell). Positions mark to\nthe mid. If the target equals the current position, no order is placed and the\nevent is a mark-only step.\n\nInputs are `(target_position, market_bid, market_ask, market_bid_size,\nmarket_ask_size)`. Outputs are the four standard backtest columns: `0 = equity`\n(cumulative dollar PnL), `1 = pnl` (per event), `2 = position`, and `3 = cost`\n(per event). A `NaN` in any market field skips the event and returns all-NaN\n(`nan_policy: ignore`). [`backtest_report`](backtest_report.md) summarizes the\nresulting equity curve.\n\nThe optional `min_position` and `max_position` parameters cap the inventory. The\ntarget is clamped before the order size is computed, so the engine never carries a\nposition outside that range.\n\nFor a two-sided resting-order variant, see\n[`BacktestL1Orders`](BacktestL1Orders.md). When a trade feed is available,\n[`BacktestTradesTarget`](BacktestTradesTarget.md) uses real prints instead of\nquote updates.\n\n**Risk exits.** `stop_loss`, `take_profit`, and `trailing_stop` close the position\non the quote update whose mid crosses a level measured from the average entry\nfill (or, for the trailing stop, from the best mid since entry). The exit takes\nthe book, as a market order. After an exit, targets on the same side are ignored\nuntil the target turns flat or reverses.\n\n## Limitations\n\nThe fill model is optimistic: the order executes immediately at the displayed book\nprice with no queue or market impact beyond the `tick_size` overflow slippage.\nOrders are counterfactual (zero market impact), so the book is unaffected by the\nstrategy's activity.",
+    "details": "`multiplier` converts a price move into currency per contract. `fee_per_contract`\nis added to the existing proportional taker fee on every fill and may be negative\nfor a rebate; defaults preserve the previous behavior.\n\n## Description\n\n`BacktestL1Target` is a directional backtest on the L1 quote stream. It is\nimmediate: the `target_position` you pass on event t executes on the same quote\nupdate, unlike `BacktestOHLCTarget` which defers to the next bar's open.\n\nEach event the engine computes the desired trade as\n`clamp(target, min_position, max_position) - current_position` and takes it as a\nmarketable (taker) order against the displayed L1 book. A buy order sweeps the ask\nside; a sell order sweeps the bid side. The fill pays `taker_fee` on the traded\nnotional. If the displayed size is smaller than the desired size, the overflow is\nfilled at `ask + tick_size` (buy) or `bid - tick_size` (sell). Positions mark to\nthe mid. If the target equals the current position, no order is placed and the\nevent is a mark-only step.\n\nInputs are `(target_position, market_bid, market_ask, market_bid_size,\nmarket_ask_size)`. Outputs are the four standard backtest columns: `0 = equity`\n(cumulative dollar PnL), `1 = pnl` (per event), `2 = position`, and `3 = cost`\n(per event). A `NaN` in any market field skips the event and returns all-NaN\n(`nan_policy: ignore`). [`backtest_report`](backtest_report.md) summarizes the\nresulting equity curve.\n\nThe optional `min_position` and `max_position` parameters cap the inventory. The\ntarget is clamped before the order size is computed, so the engine never carries a\nposition outside that range.\n\nFor a two-sided resting-order variant, see\n[`BacktestL1Orders`](BacktestL1Orders.md). When a trade feed is available,\n[`BacktestTradesTarget`](BacktestTradesTarget.md) uses real prints instead of\nquote updates.\n\n**Sizing.** With `size=\"notional\"` the target is a currency amount and with\n`size=\"weight\"` a fraction of equity (`initial_capital` plus the backtest's\ncumulative pnl, marked at the execution price), so returns compound. The engine\nconverts the target to units at the execution reference price when the target\nvalue changes, and keeps those units while it stays the same, so a constant\nweight does not trade on every price move. Set `rebalance_band` to trade back to\nthe target when the holding drifts by more than that fraction of equity.\n\n**Risk exits.** `stop_loss`, `take_profit`, and `trailing_stop` close the position\non the quote update whose mid crosses a level measured from the average entry\nfill (or, for the trailing stop, from the best mid since entry). The exit takes\nthe book, as a market order. After an exit, targets on the same side are ignored\nuntil the target turns flat or reverses.\n\n## Limitations\n\nThe fill model is optimistic: the order executes immediately at the displayed book\nprice with no queue or market impact beyond the `tick_size` overflow slippage.\nOrders are counterfactual (zero market impact), so the book is unaffected by the\nstrategy's activity.",
     "examples": [
       {
         "language": "python",
@@ -2016,21 +2036,197 @@
         "default": 0.0,
         "min": 0.0,
         "description": "Exit when the price falls this fraction from the best price since entry (the highest for a long, the lowest for a short). 0 turns it off."
+      },
+      {
+        "name": "size",
+        "type": "str",
+        "default": "units",
+        "description": "How to read the target: \"units\" (a position), \"notional\" (a currency amount), or \"weight\" (a fraction of initial_capital + equity). It is converted to units at the execution price."
+      },
+      {
+        "name": "initial_capital",
+        "type": "float",
+        "default": 0.0,
+        "min": 0.0,
+        "description": "Starting capital for size=\"weight\" and for rebalance_band; equity is initial_capital plus the backtest's cumulative pnl."
+      },
+      {
+        "name": "rebalance_band",
+        "type": "float",
+        "default": 0.0,
+        "min": 0.0,
+        "description": "With size=\"notional\" or \"weight\", recompute the units when the holding drifts from the target by more than this fraction of equity (0.05 = 5 points of weight). 0 keeps the units until the target value changes."
       }
     ],
     "nan_policy": "ignore",
     "see_also": [
+      "BacktestOHLCVTarget",
       "BacktestOHLCOrders",
       "BacktestTradesTarget",
       "BacktestL1Target",
       "backtest_report"
     ],
-    "details": "`multiplier` converts a price move into currency per contract. `fee_per_contract`\nis added to the existing proportional taker fee on every fill and may be negative\nfor a rebate; defaults preserve the previous behavior.\n\n## Description\n\n`BacktestOHLCTarget` is a lean directional backtest on OHLC bars. It is causal by\ndesign: the `target_position` you pass on bar t is decided from that bar's close,\nand the engine executes it on bar t+1 as a market order at the open. No manual lag\nis needed; feed the raw signal directly.\n\nThe deferral prevents look-ahead: a target computed from a bar's close cannot\ntrade within that same bar (the open already happened), so the engine holds it and\ntrades the next open. This mirrors `BacktestPriceTarget`, where a signal set at t\nearns from t+1.\n\n`fill_at` picks the execution price within the bar: `\"open\"` (default),\n`\"close\"`, `\"typical\"` (high + low + close) / 3, or `\"ohlc4\"` (open + high + low +\nclose) / 4. `delay` sets how many bars later the target executes (default 1).\n`delay=0` is allowed only with `fill_at=\"close\"`: it fills at the close of the\nbar the target was decided on (market-on-close).\n\n`slippage` moves the fill against the trader, in the unit set by\n`slippage_unit` (`\"fraction\"`, `\"ticks\"`, or `\"price\"`), and the trade pays\n`taker_fee` on the traded notional. Positions mark to the close each bar. The\n`cost` column holds the slippage and fees only; the move from the fill price to\nthe close is pnl. See [Choosing a backtest engine](choosing_a_backtest_engine.md)\nfor the shared slippage and cost rules.\n\nThe optional `min_position` / `max_position` parameters cap the inventory. The\ndeferred target is clamped to `[min_position, max_position]` before the order\nsize is computed, so the engine never carries a position outside that range.\n\nInputs are `(target_position, open, high, low, close)`. Outputs are the four\nstandard backtest columns: `0 = equity` (cumulative dollar PnL), `1 = pnl` (per\nbar), `2 = position`, and `3 = cost` (per bar). A `NaN` in any bar field (open,\nhigh, low, close) skips the bar (`nan_policy: ignore`). A `NaN` target holds the\nposition for the next bar without issuing a new order.\n[`backtest_report`](backtest_report.md) summarizes the resulting equity curve.\n\n**Risk exits.** `stop_loss`, `take_profit`, and `trailing_stop` close the position\nwhen the price moves a given fraction from the average entry fill (or, for the\ntrailing stop, from the best price since entry). A bar that opens past a level\nexits at the open; otherwise the exit is at the level the low or high reaches.\nWhen the stop and the take-profit both fall inside one bar, the stop is taken,\nbecause the bar does not say which came first. For the same reason, a bar's own\nhigh (or low, for a short) raises the trailing level only from the next bar on. With `fill_at=\"open\"` a position\nopened at the open can exit later in the same bar. Exits are market orders: they\npay `taker_fee` and the `slippage` model applies. After an exit, targets on the\nsame side are ignored until the target turns flat or reverses, so the engine does\nnot re-enter on the next bar.",
+    "details": "`multiplier` converts a price move into currency per contract. `fee_per_contract`\nis added to the existing proportional taker fee on every fill and may be negative\nfor a rebate; defaults preserve the previous behavior.\n\n## Description\n\n`BacktestOHLCTarget` is a lean directional backtest on OHLC bars. It is causal by\ndesign: the `target_position` you pass on bar t is decided from that bar's close,\nand the engine executes it on bar t+1 as a market order at the open. No manual lag\nis needed; feed the raw signal directly.\n\nThe deferral prevents look-ahead: a target computed from a bar's close cannot\ntrade within that same bar (the open already happened), so the engine holds it and\ntrades the next open. This mirrors `BacktestPriceTarget`, where a signal set at t\nearns from t+1.\n\n`fill_at` picks the execution price within the bar: `\"open\"` (default),\n`\"close\"`, `\"typical\"` (high + low + close) / 3, or `\"ohlc4\"` (open + high + low +\nclose) / 4. `delay` sets how many bars later the target executes (default 1).\n`delay=0` is allowed only with `fill_at=\"close\"`: it fills at the close of the\nbar the target was decided on (market-on-close).\n\n`slippage` moves the fill against the trader, in the unit set by\n`slippage_unit` (`\"fraction\"`, `\"ticks\"`, or `\"price\"`), and the trade pays\n`taker_fee` on the traded notional. Positions mark to the close each bar. The\n`cost` column holds the slippage and fees only; the move from the fill price to\nthe close is pnl. See [Choosing a backtest engine](choosing_a_backtest_engine.md)\nfor the shared slippage and cost rules.\n\nThe optional `min_position` / `max_position` parameters cap the inventory. The\ndeferred target is clamped to `[min_position, max_position]` before the order\nsize is computed, so the engine never carries a position outside that range.\n\nInputs are `(target_position, open, high, low, close)`. Outputs are the four\nstandard backtest columns: `0 = equity` (cumulative dollar PnL), `1 = pnl` (per\nbar), `2 = position`, and `3 = cost` (per bar). A `NaN` in any bar field (open,\nhigh, low, close) skips the bar (`nan_policy: ignore`). A `NaN` target keeps\nthe last target: the position holds once it has reached it.\n[`backtest_report`](backtest_report.md) summarizes the resulting equity curve.\n\n**Sizing.** With `size=\"notional\"` the target is a currency amount and with\n`size=\"weight\"` a fraction of equity (`initial_capital` plus the backtest's\ncumulative pnl, marked at the execution price), so returns compound. The engine\nconverts the target to units at the execution reference price when the target\nvalue changes, and keeps those units while it stays the same, so a constant\nweight does not trade on every price move. Set `rebalance_band` to trade back to\nthe target when the holding drifts by more than that fraction of equity.\n\n**Risk exits.** `stop_loss`, `take_profit`, and `trailing_stop` close the position\nwhen the price moves a given fraction from the average entry fill (or, for the\ntrailing stop, from the best price since entry). A bar that opens past a level\nexits at the open; otherwise the exit is at the level the low or high reaches.\nWhen the stop and the take-profit both fall inside one bar, the stop is taken,\nbecause the bar does not say which came first. For the same reason, a bar's own\nhigh (or low, for a short) raises the trailing level only from the next bar on. With `fill_at=\"open\"` a position\nopened at the open can exit later in the same bar. Exits are market orders: they\npay `taker_fee` and the `slippage` model applies. After an exit, targets on the\nsame side are ignored until the target turns flat or reverses, so the engine does\nnot re-enter on the next bar.",
     "examples": [
       {
         "language": "python",
         "caption": "Usage plot",
         "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import BacktestOHLCTarget, RollingMean\n\nrng = np.random.default_rng(5)\nn = 160\nclose = 100 + np.cumsum(rng.standard_normal(n) * 0.4)\nopen_ = close - rng.standard_normal(n) * 0.15\nhigh = np.maximum(open_, close) + np.abs(rng.standard_normal(n)) * 0.25\nlow = np.minimum(open_, close) - np.abs(rng.standard_normal(n)) * 0.25\n\n# trend target decided from each close; the engine defers it one bar (no manual lag)\nfast, slow = RollingMean(5)(close), RollingMean(20)(close)\nsignal = np.sign(np.nan_to_num(fast - slow))      # +1 long / -1 short, on each close\n\nout = BacktestOHLCTarget(taker_fee=0.0002)(signal, open_, high, low, close)\neq, pos = out[:, 0], out[:, 2]\n\nfig = make_subplots(rows=3, cols=1, shared_xaxes=True, row_heights=[0.5, 0.2, 0.3],\n                    vertical_spacing=0.05)\nfig.add_trace(go.Candlestick(open=open_, high=high, low=low, close=close,\n                             name='bars', showlegend=False), row=1, col=1)\nfig.add_trace(go.Scatter(y=signal, name='signal', line=dict(color='indigo', shape='hv')), row=2, col=1)\nfig.add_trace(go.Scatter(y=eq, name='equity', line=dict(color='steelblue')), row=3, col=1)\nfig.update_layout(title='BacktestOHLCTarget: trend signal deferred one bar and traded at the open',\n                  yaxis=dict(title='price'), yaxis2=dict(title='signal'),\n                  yaxis3=dict(title='equity ($)'),\n                  xaxis_rangeslider_visible=False,\n                  margin=dict(l=20, r=20, t=60, b=20),\n                  legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1))\nfig.show()"
+      }
+    ]
+  },
+  "BacktestOHLCVTarget": {
+    "name": "BacktestOHLCVTarget",
+    "title": "Backtest a target-position strategy on OHLCV bars with a volume limit",
+    "implementation_family": "fin",
+    "topics": [
+      "backtesting"
+    ],
+    "tags": [
+      "volume",
+      "participation",
+      "backtest",
+      "pnl",
+      "mark to market",
+      "equity curve",
+      "ohlc",
+      "bars",
+      "market order",
+      "transaction cost",
+      "strategy",
+      "risk"
+    ],
+    "short": "Backtest a target-position strategy on OHLCV bars, filling each bar at most a set share of its volume.",
+    "inputs": 6,
+    "outputs": 4,
+    "parameters": [
+      {
+        "name": "max_participation",
+        "type": "float",
+        "default": 1.0,
+        "min": 0.0,
+        "description": "The most an order may trade on one bar, as a share of the bar's volume (0.1 = 10%). The rest carries to the next bars."
+      },
+      {
+        "name": "taker_fee",
+        "type": "float",
+        "default": 0.0,
+        "description": "Fractional fee charged on a market (taker) fill at the open."
+      },
+      {
+        "name": "tick_size",
+        "type": "float",
+        "default": 0.0,
+        "min": 0.0,
+        "description": "Instrument price grid (0 = continuous). Slippage offsets round up to whole ticks; the \"ticks\" slippage unit counts in this step."
+      },
+      {
+        "name": "min_position",
+        "type": "float",
+        "default": -Infinity,
+        "description": "Lower bound on the filled position. The deferred target is clamped to [min_position, max_position] before the fill executes."
+      },
+      {
+        "name": "max_position",
+        "type": "float",
+        "default": Infinity,
+        "description": "Upper bound on the filled position. The deferred target is clamped to [min_position, max_position] before the fill executes."
+      },
+      {
+        "name": "multiplier",
+        "type": "float",
+        "default": 1.0,
+        "min": 0.0,
+        "description": "Contract multiplier applied to mark-to-market PnL, fill slippage, and proportional fees."
+      },
+      {
+        "name": "fee_per_contract",
+        "type": "float",
+        "default": 0.0,
+        "description": "Fixed fee (or rebate when negative) charged per contract on each fill."
+      },
+      {
+        "name": "slippage",
+        "type": "float",
+        "default": 0.0,
+        "min": 0.0,
+        "description": "Adverse price offset on every taker (market) fill, read in `slippage_unit`. A buy fills higher and a sell lower; resting limit fills never slip."
+      },
+      {
+        "name": "slippage_unit",
+        "type": "str",
+        "default": "fraction",
+        "description": "Unit of `slippage`: \"fraction\" of the reference price (5 bps = 5e-4), \"ticks\" of `tick_size`, or \"price\" (an absolute amount)."
+      },
+      {
+        "name": "fill_at",
+        "type": "str",
+        "default": "open",
+        "description": "Reference price of the execution bar: \"open\", \"close\", \"typical\" (high + low + close) / 3, or \"ohlc4\" (open + high + low + close) / 4."
+      },
+      {
+        "name": "delay",
+        "type": "int",
+        "default": 1,
+        "min": 0,
+        "description": "Bars between the decision and the execution. A target from bar t trades on bar t + delay. 0 is allowed only with fill_at=\"close\" (market-on-close of the signal bar)."
+      },
+      {
+        "name": "stop_loss",
+        "type": "float",
+        "default": 0.0,
+        "min": 0.0,
+        "description": "Exit when the price moves this fraction against the average entry fill (0.05 = 5%). 0 turns it off."
+      },
+      {
+        "name": "take_profit",
+        "type": "float",
+        "default": 0.0,
+        "min": 0.0,
+        "description": "Exit when the price moves this fraction in favour of the average entry fill. 0 turns it off."
+      },
+      {
+        "name": "trailing_stop",
+        "type": "float",
+        "default": 0.0,
+        "min": 0.0,
+        "description": "Exit when the price falls this fraction from the best price since entry (the highest for a long, the lowest for a short). 0 turns it off."
+      },
+      {
+        "name": "size",
+        "type": "str",
+        "default": "units",
+        "description": "How to read the target: \"units\" (a position), \"notional\" (a currency amount), or \"weight\" (a fraction of initial_capital + equity). It is converted to units at the execution price."
+      },
+      {
+        "name": "initial_capital",
+        "type": "float",
+        "default": 0.0,
+        "min": 0.0,
+        "description": "Starting capital for size=\"weight\" and for rebalance_band; equity is initial_capital plus the backtest's cumulative pnl."
+      },
+      {
+        "name": "rebalance_band",
+        "type": "float",
+        "default": 0.0,
+        "min": 0.0,
+        "description": "With size=\"notional\" or \"weight\", recompute the units when the holding drifts from the target by more than this fraction of equity (0.05 = 5 points of weight). 0 keeps the units until the target value changes."
+      }
+    ],
+    "nan_policy": "ignore",
+    "see_also": [
+      "BacktestOHLCTarget",
+      "BacktestOHLCOrders",
+      "BacktestTradesTarget",
+      "BacktestL1Target",
+      "backtest_report"
+    ],
+    "details": "## Description\n\n`BacktestOHLCVTarget` is [`BacktestOHLCTarget`](BacktestOHLCTarget.md) with the\nbar's volume as a sixth input and a limit on how much an order can trade per bar.\nAn order trades at most `max_participation * volume` units on a bar. The engine\nkeeps working toward the last target, so the rest of the order fills on the\nfollowing bars; a `NaN` target continues it, and a new target replaces it.\n\nA backtest that fills any order in full at one price assumes the market would\nhave absorbed it. For orders that are large relative to the traded volume, the\nparticipation limit spreads the fill over time instead, which is how such orders\nare executed in practice. A common limit is 5% to 20% of volume.\n\nEverything else is as in `BacktestOHLCTarget`: the target decided on bar t\nexecutes `delay` bars later at the `fill_at` price, `slippage` and `taker_fee`\napply to every fill, `size` reads the target as units, a notional amount, or a\nweight of equity, and `stop_loss`, `take_profit`, and `trailing_stop` add risk\nexits. Risk exits are not limited by volume: an exit closes the whole position.\n\nInputs are `(target, open, high, low, close, volume)`. Outputs are\n`[equity, pnl, position, cost]`. A `NaN` in a bar field or a `NaN` or negative\nvolume skips the bar (`nan_policy: ignore`).",
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage plot",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom screamer import BacktestOHLCVTarget\n\nrng = np.random.default_rng(3)\nn = 60\nclose = 100 * np.exp(np.cumsum(rng.standard_normal(n) * 0.01))\nopen_ = np.r_[close[0], close[:-1]]\nhigh, low = np.maximum(open_, close) * 1.002, np.minimum(open_, close) * 0.998\nvolume = rng.uniform(200, 600, n)\n\ntarget = np.full(n, np.nan)\ntarget[5], target[35] = 1000.0, 0.0       # buy 1000 units, later sell them all\n\nfig = go.Figure()\nfor share in (1.0, 0.25, 0.1):\n    out = BacktestOHLCVTarget(max_participation=share)(target, open_, high, low, close, volume)\n    fig.add_trace(go.Scatter(y=out[:, 2], name=f'{share:.0%} of volume', line=dict(shape='hv')))\nfig.update_layout(title='BacktestOHLCVTarget: a 1000-unit order filled at a share of bar volume',\n                  xaxis_title='bar', yaxis_title='position (units)',\n                  margin=dict(l=20, r=20, t=60, b=20),\n                  legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1))\nfig.show()"
       }
     ]
   },
@@ -2132,6 +2328,26 @@
         "default": 0.0,
         "min": 0.0,
         "description": "Exit when the price falls this fraction from the best price since entry (the highest for a long, the lowest for a short). 0 turns it off."
+      },
+      {
+        "name": "size",
+        "type": "str",
+        "default": "units",
+        "description": "How to read the target: \"units\" (a position), \"notional\" (a currency amount), or \"weight\" (a fraction of initial_capital + equity). It is converted to units at the execution price."
+      },
+      {
+        "name": "initial_capital",
+        "type": "float",
+        "default": 0.0,
+        "min": 0.0,
+        "description": "Starting capital for size=\"weight\" and for rebalance_band; equity is initial_capital plus the backtest's cumulative pnl."
+      },
+      {
+        "name": "rebalance_band",
+        "type": "float",
+        "default": 0.0,
+        "min": 0.0,
+        "description": "With size=\"notional\" or \"weight\", recompute the units when the holding drifts from the target by more than this fraction of equity (0.05 = 5 points of weight). 0 keeps the units until the target value changes."
       }
     ],
     "nan_policy": "ignore",
@@ -2140,7 +2356,7 @@
       "MaxDrawdown",
       "RollingInfoRatio"
     ],
-    "details": "`multiplier` converts a price move into currency per contract. `fee_per_contract`\nis added to the existing proportional taker fee on every fill and may be negative\nfor a rebate; defaults preserve the previous behavior.\n\n## Description\n\n`BacktestPriceTarget` turns a target position on a value series (a price or mark)\ninto a costed profit-and-loss curve by reaching that target through taker liquidity.\nThe `signal` is the target position in units (its sign is long, short, or flat, any\nmagnitude); `price` is the mark (mid). Each bar the position moves to the signal via\na market order that crosses half of the fractional `spread` (a buy fills at\n`price * (1 + spread/2)`, a sell at `price * (1 - spread/2)`) and pays the\nfractional `fee` on the traded notional. `slippage` moves the fill further against\nthe trader, in the unit set by `slippage_unit` (`\"fraction\"`, `\"ticks\"` of\n`tick_size`, or `\"price\"`). With the defaults `spread = fee = slippage = 0` the\nbacktest is frictionless.\n\nThe fill happens at the same step's `price`. If the signal is computed from that\nsame price (for example from a close), this assumes you can trade at the price\nyou just observed. To trade one step later, lag the signal, or use\n`BacktestOHLCTarget`, which defers execution to the next bar.\n\nA target outside `[min_position, max_position]` is clamped to the nearest boundary\nbefore the order is computed; the default bounds are unbounded so the behavior is\nunchanged when the cap is not set.\n\nIt emits four positional columns: `0 = equity` (cumulative dollar PnL), `1 = pnl`\n(per bar), `2 = position`, and `3 = cost` (per bar). It is causal: the signal at\n`t` enters PnL only at `t+1`, through the position it sets, so a future signal\nnever changes a past row. A `NaN` signal or price skips the bar (an all-`NaN` row,\nthe position held across the gap; `nan_policy: ignore`).\n\nThe equity curve feeds the existing risk operators directly (dollar drawdown is\n`equity - CumMax(equity)`), and [`backtest_report`](backtest_report.md) bundles\nthe common statistics (drawdown, cost, turnover, trades, Sharpe) in one call.\n\n**Risk exits.** `stop_loss`, `take_profit`, and `trailing_stop` close the position\non the step whose price crosses a level measured from the average entry fill (or,\nfor the trailing stop, from the best price since entry). The exit fills at that\nstep's price, as a market order. After an exit, targets on the same side are\nignored until the target turns flat or reverses.",
+    "details": "`multiplier` converts a price move into currency per contract. `fee_per_contract`\nis added to the existing proportional taker fee on every fill and may be negative\nfor a rebate; defaults preserve the previous behavior.\n\n## Description\n\n`BacktestPriceTarget` turns a target position on a value series (a price or mark)\ninto a costed profit-and-loss curve by reaching that target through taker liquidity.\nThe `signal` is the target position in units (its sign is long, short, or flat, any\nmagnitude); `price` is the mark (mid). Each bar the position moves to the signal via\na market order that crosses half of the fractional `spread` (a buy fills at\n`price * (1 + spread/2)`, a sell at `price * (1 - spread/2)`) and pays the\nfractional `fee` on the traded notional. `slippage` moves the fill further against\nthe trader, in the unit set by `slippage_unit` (`\"fraction\"`, `\"ticks\"` of\n`tick_size`, or `\"price\"`). With the defaults `spread = fee = slippage = 0` the\nbacktest is frictionless.\n\nThe fill happens at the same step's `price`. If the signal is computed from that\nsame price (for example from a close), this assumes you can trade at the price\nyou just observed. To trade one step later, lag the signal, or use\n`BacktestOHLCTarget`, which defers execution to the next bar.\n\nA target outside `[min_position, max_position]` is clamped to the nearest boundary\nbefore the order is computed; the default bounds are unbounded so the behavior is\nunchanged when the cap is not set.\n\nIt emits four positional columns: `0 = equity` (cumulative dollar PnL), `1 = pnl`\n(per bar), `2 = position`, and `3 = cost` (per bar). It is causal: the signal at\n`t` enters PnL only at `t+1`, through the position it sets, so a future signal\nnever changes a past row. A `NaN` signal or price skips the bar (an all-`NaN` row,\nthe position held across the gap; `nan_policy: ignore`).\n\nThe equity curve feeds the existing risk operators directly (dollar drawdown is\n`equity - CumMax(equity)`), and [`backtest_report`](backtest_report.md) bundles\nthe common statistics (drawdown, cost, turnover, trades, Sharpe) in one call.\n\n**Sizing.** With `size=\"notional\"` the target is a currency amount and with\n`size=\"weight\"` a fraction of equity (`initial_capital` plus the backtest's\ncumulative pnl, marked at the execution price), so returns compound. The engine\nconverts the target to units at the execution reference price when the target\nvalue changes, and keeps those units while it stays the same, so a constant\nweight does not trade on every price move. Set `rebalance_band` to trade back to\nthe target when the holding drifts by more than that fraction of equity.\n\n**Risk exits.** `stop_loss`, `take_profit`, and `trailing_stop` close the position\non the step whose price crosses a level measured from the average entry fill (or,\nfor the trailing stop, from the best price since entry). The exit fills at that\nstep's price, as a market order. After an exit, targets on the same side are\nignored until the target turns flat or reverses.",
     "examples": [
       {
         "language": "python",
@@ -2448,6 +2664,33 @@
         "default": 0.0,
         "min": 0.0,
         "description": "Exit when the price falls this fraction from the best price since entry (the highest for a long, the lowest for a short). 0 turns it off."
+      },
+      {
+        "name": "size",
+        "type": "str",
+        "default": "units",
+        "description": "How to read the target: \"units\" (a position), \"notional\" (a currency amount), or \"weight\" (a fraction of initial_capital + equity). It is converted to units at the execution price."
+      },
+      {
+        "name": "initial_capital",
+        "type": "float",
+        "default": 0.0,
+        "min": 0.0,
+        "description": "Starting capital for size=\"weight\" and for rebalance_band; equity is initial_capital plus the backtest's cumulative pnl."
+      },
+      {
+        "name": "rebalance_band",
+        "type": "float",
+        "default": 0.0,
+        "min": 0.0,
+        "description": "With size=\"notional\" or \"weight\", recompute the units when the holding drifts from the target by more than this fraction of equity (0.05 = 5 points of weight). 0 keeps the units until the target value changes."
+      },
+      {
+        "name": "max_participation",
+        "type": "float",
+        "default": Infinity,
+        "min": 0.0,
+        "description": "Cap each print's fill at this share of the print's size; the rest fills on later prints. The default fills the whole order on any print."
       }
     ],
     "nan_policy": "ignore",
@@ -2457,7 +2700,7 @@
       "BacktestL1TradesOrders",
       "backtest_report"
     ],
-    "details": "`multiplier` converts a price move into currency per contract. `fee_per_contract`\nis added to the existing proportional taker fee on every fill and may be negative\nfor a rebate; defaults preserve the previous behavior.\n\n## Description\n\n`BacktestTradesTarget` is a directional backtest on the raw trade tape. It is\nimmediate: the `target_position` you pass on event t executes on the same print,\nunlike `BacktestOHLCTarget` which defers to the next bar's open.\n\nEach print the engine computes the desired trade as\n`clamp(target, min_position, max_position) - current_position` and takes it\nagainst the current print as a marketable (taker) order. The fill pays `taker_fee`\non the traded notional and the position marks to the print price. If the target\nequals the current position, no order is placed and the event is a mark-only step.\n\nInputs are `(target_position, trade_price, trade_size)`. Outputs are the four\nstandard backtest columns: `0 = equity` (cumulative dollar PnL), `1 = pnl` (per\nevent), `2 = position`, and `3 = cost` (per event). A `NaN` `trade_price` or\n`trade_size` skips the event and returns all-NaN (`nan_policy: ignore`).\n[`backtest_report`](backtest_report.md) summarizes the resulting equity curve.\n\nThe optional `min_position` and `max_position` parameters cap the inventory. The\ntarget is clamped before the order size is computed, so the engine never carries a\nposition outside that range.\n\n**Risk exits.** `stop_loss`, `take_profit`, and `trailing_stop` close the position\non the print that crosses a level measured from the average entry fill (or, for\nthe trailing stop, from the best price since entry). The exit takes that print,\nas a market order. After an exit, targets on the same side are ignored until the\ntarget turns flat or reverses.\n\n## Limitations\n\nThe fill model is optimistic: the full order size executes at the print price,\nmoved only by the `slippage` you set, with no market impact. Orders are counterfactual (zero\nmarket impact), so the tape is unaffected by the strategy's activity.",
+    "details": "`multiplier` converts a price move into currency per contract. `fee_per_contract`\nis added to the existing proportional taker fee on every fill and may be negative\nfor a rebate; defaults preserve the previous behavior.\n\n## Description\n\n`BacktestTradesTarget` is a directional backtest on the raw trade tape. It is\nimmediate: the `target_position` you pass on event t executes on the same print,\nunlike `BacktestOHLCTarget` which defers to the next bar's open.\n\nEach print the engine computes the desired trade as\n`clamp(target, min_position, max_position) - current_position` and takes it\nagainst the current print as a marketable (taker) order. The fill pays `taker_fee`\non the traded notional and the position marks to the print price. If the target\nequals the current position, no order is placed and the event is a mark-only step.\n\nInputs are `(target_position, trade_price, trade_size)`. Outputs are the four\nstandard backtest columns: `0 = equity` (cumulative dollar PnL), `1 = pnl` (per\nevent), `2 = position`, and `3 = cost` (per event). A `NaN` `trade_price` or\n`trade_size` skips the event and returns all-NaN (`nan_policy: ignore`).\n[`backtest_report`](backtest_report.md) summarizes the resulting equity curve.\n\nThe optional `min_position` and `max_position` parameters cap the inventory. The\ntarget is clamped before the order size is computed, so the engine never carries a\nposition outside that range.\n\n**Sizing.** With `size=\"notional\"` the target is a currency amount and with\n`size=\"weight\"` a fraction of equity (`initial_capital` plus the backtest's\ncumulative pnl, marked at the execution price), so returns compound. The engine\nconverts the target to units at the execution reference price when the target\nvalue changes, and keeps those units while it stays the same, so a constant\nweight does not trade on every price move. Set `rebalance_band` to trade back to\nthe target when the holding drifts by more than that fraction of equity.\n\n**Participation.** `max_participation` limits each print's fill to that share of\nthe print's size, so a large order fills across several prints. The engine keeps\nworking toward the last target, and a `NaN` target continues the order.\n\n**Risk exits.** `stop_loss`, `take_profit`, and `trailing_stop` close the position\non the print that crosses a level measured from the average entry fill (or, for\nthe trailing stop, from the best price since entry). The exit takes that print,\nas a market order. After an exit, targets on the same side are ignored until the\ntarget turns flat or reverses.\n\n## Limitations\n\nThe fill model is optimistic: the full order size executes at the print price,\nmoved only by the `slippage` you set, with no market impact. Orders are counterfactual (zero\nmarket impact), so the tape is unaffected by the strategy's activity.",
     "examples": [
       {
         "language": "python",
@@ -3617,11 +3860,11 @@
     "name": "choosing_a_backtest_engine",
     "title": "Choosing a backtest engine",
     "kind": "guide",
-    "short": "The 5x2 engine grid by data model and order definition, with fill rules and encoding.",
+    "short": "The engine grid by data model and order definition, with fill rules, sizing, volume limits, and encoding.",
     "topics": [
       "backtesting"
     ],
-    "details": "Screamer's backtest engines are arranged in a `Backtest<DataModel><OrderDef>` grid.\nThe data model (rows) is the market feed you have. The order definition (columns)\nis the strategy's output contract. All eight engines share one accounting core,\nthe `[equity, pnl, position, cost]` output schema, a common MARKET/NaN/inf\nencoding, and the static fill-cap rule.\n\n## The grid\n\n| Data model    | Target                        | Orders                          |\n|:--------------|:------------------------------|:--------------------------------|\n| Price         | `BacktestPriceTarget`         | not provided (*)                |\n| OHLC          | `BacktestOHLCTarget`          | `BacktestOHLCOrders`            |\n| Trades        | `BacktestTradesTarget`        | `BacktestTradesOrders`          |\n| L1            | `BacktestL1Target`            | `BacktestL1Orders`              |\n| L1 + Trades   | not provided (**)             | `BacktestL1TradesOrders`        |\n\n(*) `BacktestPriceOrders` is not provided. A raw value series carries no bid/ask\nbook, so there is no credible fill model for a two-sided quote. Use\n`BacktestOHLCOrders` or `BacktestL1Orders` when a richer feed is available.\n\n(**) `BacktestL1TradesTarget` is not provided. A Target engine is a pure taker: it\nhits the book immediately on each event. For L1 + trades data,\n`BacktestL1Target` already does this with only the quote stream, and adding the\ntrade feed does not improve it (trades are taker events, not maker fills).\nUse `BacktestL1Target` when you have an L1 + trades feed and want a Target engine.\n\n## Order definition interfaces\n\n**Target** engines receive `(target_position, <market cols>)`. On each event the\nengine computes `delta = clamp(target, cap) - position` and submits a marketable\norder for that delta, taking liquidity at the current market price. The target is\nthe desired inventory level, not an order size. The engine handles the sizing and\ndirection internally.\n\n**Orders** engines receive `(bid_price, bid_size, ask_price, ask_size, <market cols>)`.\nThe strategy posts a two-sided resting quote each event. Either or both sides can\nfill on the same event. Setting a side's size to zero or its price to NaN disables\nthat side. A quote submitted already crossing the spread (`bid_price >= market_ask`\nor `ask_price <= market_bid`) is treated as a taker and fills immediately.\n\nInput arities by engine:\n\n| Engine                 | Inputs | Order columns                                     | Market columns               |\n|:-----------------------|:-------|:--------------------------------------------------|:-----------------------------|\n| `BacktestPriceTarget`  | 2      | `target`                                          | `price`                      |\n| `BacktestOHLCTarget`   | 5      | `target`                                          | `open, high, low, close`     |\n| `BacktestOHLCOrders`   | 8      | `bid_price, bid_size, ask_price, ask_size`        | `open, high, low, close`     |\n| `BacktestTradesTarget` | 3      | `target`                                          | `trade_price, trade_size`    |\n| `BacktestTradesOrders` | 6      | `bid_price, bid_size, ask_price, ask_size`        | `trade_price, trade_size`    |\n| `BacktestL1Target`     | 5      | `target`                                          | `market_bid, market_ask, market_bid_size, market_ask_size` |\n| `BacktestL1Orders`     | 8      | `bid_price, bid_size, ask_price, ask_size`        | `market_bid, market_ask, market_bid_size, market_ask_size` |\n| `BacktestL1TradesOrders` | 10   | `bid_price, bid_size, ask_price, ask_size`        | `market_bid, market_ask, market_bid_size, market_ask_size, trade_price, trade_size` |\n\nFor `BacktestL1Orders` and `BacktestL1TradesOrders` the own-quote columns come\nfirst, then the market book columns.\n\n## MARKET/NaN/inf encoding\n\nEvery engine uses the same price encoding to distinguish a resting limit order from\na marketable order.\n\n| Price value                | Meaning                                                     |\n|:---------------------------|:------------------------------------------------------------|\n| Finite number              | Resting limit order at that price (maker fill, `maker_fee`) |\n| `+inf` / `screamer.MARKET` | Market buy (taker); never-fill sell                         |\n| `-inf`                     | Never-fill buy; market sell (taker)                         |\n| `NaN`                      | Side-agnostic market order (taker, regardless of direction) |\n\n`screamer.MARKET` equals `+math.inf` and is provided as a readable constant for\nsubmitting a market buy without writing `float('inf')` directly.\n\nFor `BacktestOHLCTarget`, the target decided on bar t executes as a market order\non bar t+1 at the open by default (causal deferral; no manual lag is needed).\n`fill_at` and `delay` change the price and the bar, as described below. For\n`BacktestOHLCOrders`, a NaN bid or ask price is a market order that fills at the\nbar's open; a finite price rests and waits for the bar's range.\n\n## Execution price, slippage, and cost\n\nA taker (market) fill starts from a **reference price**: the fair price at\nexecution, before any friction.\n\n| Engine family | Reference price of a taker fill |\n|:--------------|:--------------------------------|\n| Price         | `price`, then half of `spread` |\n| OHLC          | The execution bar's `fill_at` price: `\"open\"` (default), `\"close\"`, `\"typical\"`, or `\"ohlc4\"` |\n| Trades        | The print price |\n| L1            | The opposite touch, walking one `tick_size` beyond the displayed size |\n\n`slippage` then moves the fill against the trader: a buy fills higher and a sell\nlower. One number is read in one unit, chosen with `slippage_unit`:\n\n| `slippage_unit` | Offset | Example |\n|:----------------|:-------|:--------|\n| `\"fraction\"` (default) | `reference * slippage` | `slippage=5e-4` is 5 bps |\n| `\"ticks\"` | `slippage * tick_size` | `slippage=2, tick_size=0.01` is 0.02 |\n| `\"price\"` | `slippage` | `slippage=0.05` is 0.05 |\n\n`tick_size` is the instrument's price grid (0 means continuous prices). When it is\nset, the offset rounds up to whole ticks. A resting limit order never slips: it\nfills at its own limit price. The examples at the end of this page show both\nstyles of call.\n\nThe `cost` column is the friction of each trade: the fill-versus-reference\ndifference (spread and slippage) plus fees. The move from the fill price to the\nmark is profit or loss, not cost. A resting limit fill has the limit price as its\nreference, so its cost is its fee alone. The split between `pnl` and `cost` does\nnot change `equity`.\n\n## Risk exits\n\nThe four Target engines take `stop_loss`, `take_profit`, and `trailing_stop`:\nfractions of the average entry fill price (0 turns an exit off). On OHLC bars a\nbar that opens past a level exits at the open, and otherwise at the level; when\nthe stop and the take-profit both fall inside one bar, the stop is taken. The\nevent engines (price, trades, L1) exit on the event that crosses a level, at that\nevent's price. Exits are market orders that pay the taker fee and slippage. After\nan exit, same-side targets are ignored until the target turns flat or reverses.\n\n## Fill-cap rule\n\nEvery engine accepts `min_position` and `max_position` constructor parameters\n(default unbounded). All fills are capped by a three-way minimum: the order size,\nthe participation limit (where applicable), and the remaining room to the bound.\nFor a buy, the fill cannot exceed `max_position - current_position`; for a sell it\ncannot exceed `current_position - min_position`. A fill that would breach the bound\nis truncated to exactly the remaining room. Passing\n`min_position=-8.0, max_position=8.0` enforces a hard inventory limit of eight\nunits on each side, independent of order size.",
+    "details": "Screamer's backtest engines are arranged in a `Backtest<DataModel><OrderDef>` grid.\nFor the practices that make a backtest trustworthy, and the tools for each, see\n[Backtesting best practices](../backtesting_best_practices.md).\nThe data model (rows) is the market feed you have. The order definition (columns)\nis the strategy's output contract. All nine engines share one accounting core,\nthe `[equity, pnl, position, cost]` output schema, a common MARKET/NaN/inf\nencoding, and the static fill-cap rule.\n\n## The grid\n\n| Data model    | Target                        | Orders                          |\n|:--------------|:------------------------------|:--------------------------------|\n| Price         | `BacktestPriceTarget`         | not provided (*)                |\n| OHLC          | `BacktestOHLCTarget`          | `BacktestOHLCOrders`            |\n| OHLC + volume | `BacktestOHLCVTarget`         | not provided                    |\n| Trades        | `BacktestTradesTarget`        | `BacktestTradesOrders`          |\n| L1            | `BacktestL1Target`            | `BacktestL1Orders`              |\n| L1 + Trades   | not provided (**)             | `BacktestL1TradesOrders`        |\n\n(*) `BacktestPriceOrders` is not provided. A raw value series carries no bid/ask\nbook, so there is no credible fill model for a two-sided quote. Use\n`BacktestOHLCOrders` or `BacktestL1Orders` when a richer feed is available.\n\n(**) `BacktestL1TradesTarget` is not provided. A Target engine is a pure taker: it\nhits the book immediately on each event. For L1 + trades data,\n`BacktestL1Target` already does this with only the quote stream, and adding the\ntrade feed does not improve it (trades are taker events, not maker fills).\nUse `BacktestL1Target` when you have an L1 + trades feed and want a Target engine.\n\n## Order definition interfaces\n\n**Target** engines receive `(target_position, <market cols>)`. On each event the\nengine computes `delta = clamp(target, cap) - position` and submits a marketable\norder for that delta, taking liquidity at the current market price. The target is\nthe desired inventory level, not an order size. The engine handles the sizing and\ndirection internally.\n\n**Orders** engines receive `(bid_price, bid_size, ask_price, ask_size, <market cols>)`.\nThe strategy posts a two-sided resting quote each event. Either or both sides can\nfill on the same event. Setting a side's size to zero or its price to NaN disables\nthat side. A quote submitted already crossing the spread (`bid_price >= market_ask`\nor `ask_price <= market_bid`) is treated as a taker and fills immediately.\n\nInput arities by engine:\n\n| Engine                 | Inputs | Order columns                                     | Market columns               |\n|:-----------------------|:-------|:--------------------------------------------------|:-----------------------------|\n| `BacktestPriceTarget`  | 2      | `target`                                          | `price`                      |\n| `BacktestOHLCTarget`   | 5      | `target`                                          | `open, high, low, close`     |\n| `BacktestOHLCVTarget`  | 6      | `target`                                          | `open, high, low, close, volume` |\n| `BacktestOHLCOrders`   | 8      | `bid_price, bid_size, ask_price, ask_size`        | `open, high, low, close`     |\n| `BacktestTradesTarget` | 3      | `target`                                          | `trade_price, trade_size`    |\n| `BacktestTradesOrders` | 6      | `bid_price, bid_size, ask_price, ask_size`        | `trade_price, trade_size`    |\n| `BacktestL1Target`     | 5      | `target`                                          | `market_bid, market_ask, market_bid_size, market_ask_size` |\n| `BacktestL1Orders`     | 8      | `bid_price, bid_size, ask_price, ask_size`        | `market_bid, market_ask, market_bid_size, market_ask_size` |\n| `BacktestL1TradesOrders` | 10   | `bid_price, bid_size, ask_price, ask_size`        | `market_bid, market_ask, market_bid_size, market_ask_size, trade_price, trade_size` |\n\nFor `BacktestL1Orders` and `BacktestL1TradesOrders` the own-quote columns come\nfirst, then the market book columns.\n\n## MARKET/NaN/inf encoding\n\nEvery engine uses the same price encoding to distinguish a resting limit order from\na marketable order.\n\n| Price value                | Meaning                                                     |\n|:---------------------------|:------------------------------------------------------------|\n| Finite number              | Resting limit order at that price (maker fill, `maker_fee`) |\n| `+inf` / `screamer.MARKET` | Market buy (taker); never-fill sell                         |\n| `-inf`                     | Never-fill buy; market sell (taker)                         |\n| `NaN`                      | Side-agnostic market order (taker, regardless of direction) |\n\n`screamer.MARKET` equals `+math.inf` and is provided as a readable constant for\nsubmitting a market buy without writing `float('inf')` directly.\n\nFor `BacktestOHLCTarget`, the target decided on bar t executes as a market order\non bar t+1 at the open by default (causal deferral; no manual lag is needed).\n`fill_at` and `delay` change the price and the bar, as described below. For\n`BacktestOHLCOrders`, a NaN bid or ask price is a market order that fills at the\nbar's open; a finite price rests and waits for the bar's range.\n\n## Execution price, slippage, and cost\n\nA taker (market) fill starts from a **reference price**: the fair price at\nexecution, before any friction.\n\n| Engine family | Reference price of a taker fill |\n|:--------------|:--------------------------------|\n| Price         | `price`, then half of `spread` |\n| OHLC          | The execution bar's `fill_at` price: `\"open\"` (default), `\"close\"`, `\"typical\"`, or `\"ohlc4\"` |\n| Trades        | The print price |\n| L1            | The opposite touch, walking one `tick_size` beyond the displayed size |\n\n`slippage` then moves the fill against the trader: a buy fills higher and a sell\nlower. One number is read in one unit, chosen with `slippage_unit`:\n\n| `slippage_unit` | Offset | Example |\n|:----------------|:-------|:--------|\n| `\"fraction\"` (default) | `reference * slippage` | `slippage=5e-4` is 5 bps |\n| `\"ticks\"` | `slippage * tick_size` | `slippage=2, tick_size=0.01` is 0.02 |\n| `\"price\"` | `slippage` | `slippage=0.05` is 0.05 |\n\n`tick_size` is the instrument's price grid (0 means continuous prices). When it is\nset, the offset rounds up to whole ticks. A resting limit order never slips: it\nfills at its own limit price. The examples at the end of this page show both\nstyles of call.\n\nThe `cost` column is the friction of each trade: the fill-versus-reference\ndifference (spread and slippage) plus fees. The move from the fill price to the\nmark is profit or loss, not cost. A resting limit fill has the limit price as its\nreference, so its cost is its fee alone. The split between `pnl` and `cost` does\nnot change `equity`.\n\n## Risk exits\n\nThe four Target engines take `stop_loss`, `take_profit`, and `trailing_stop`:\nfractions of the average entry fill price (0 turns an exit off). On OHLC bars a\nbar that opens past a level exits at the open, and otherwise at the level; when\nthe stop and the take-profit both fall inside one bar, the stop is taken. The\nevent engines (price, trades, L1) exit on the event that crosses a level, at that\nevent's price. Exits are market orders that pay the taker fee and slippage. After\nan exit, same-side targets are ignored until the target turns flat or reverses.\n\n## Sizing and volume\n\nThe Target engines read the target as units by default. With `size=\"notional\"`\nit is a currency amount and with `size=\"weight\"` a fraction of equity\n(`initial_capital` plus the backtest's pnl), converted to units at the execution\nprice when the target value changes; `rebalance_band` trades back to the target\nwhen the holding drifts. Two engines limit fills by volume, carrying the rest of\nthe order to later events: `BacktestOHLCVTarget` (`max_participation` of each\nbar's volume) and `BacktestTradesTarget` (`max_participation` of each print's\nsize). A `NaN` target keeps working toward the last target.\n\n## Fill-cap rule\n\nEvery engine accepts `min_position` and `max_position` constructor parameters\n(default unbounded). All fills are capped by a three-way minimum: the order size,\nthe participation limit (where applicable), and the remaining room to the bound.\nFor a buy, the fill cannot exceed `max_position - current_position`; for a sell it\ncannot exceed `current_position - min_position`. A fill that would breach the bound\nis truncated to exactly the remaining room. Passing\n`min_position=-8.0, max_position=8.0` enforces a hard inventory limit of eight\nunits on each side, independent of order size.",
     "examples": [
       {
         "language": "python",

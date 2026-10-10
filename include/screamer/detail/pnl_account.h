@@ -43,6 +43,13 @@ public:
     }
 
     double position() const { return position_; }
+    double equity() const { return cum_equity_; }
+    // Equity marked at `price`: the last equity plus the open position's move
+    // from the last mark to `price`. Used to size against current equity.
+    double equity_at(double price) const {
+        return has_prev_ ? cum_equity_ + position_ * (price - prev_close_) * multiplier_
+                         : cum_equity_;
+    }
 
     // Advance the account by one bar; returns (equity, pnl, position, cost).
     std::tuple<double, double, double, double>

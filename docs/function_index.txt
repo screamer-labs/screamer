@@ -21,6 +21,7 @@ BacktestL1Target, Backtest a target-position strategy against the L1 book, takin
 BacktestL1TradesOrders, Backtest a two-sided market maker against top-of-book quotes with a trade tape driving the fills, into a costed equity curve.
 BacktestOHLCOrders, Backtest a two-sided order poster on OHLC bars, posting resting bids and asks that fill when the bar's range reaches them.
 BacktestOHLCTarget, Backtest a target-position strategy on OHLC bars, executing market orders at the next bar's open or another bar price, with slippage (causal, no manual lag).
+BacktestOHLCVTarget, Backtest a target-position strategy on OHLCV bars, filling each bar at most a set share of its volume.
 BacktestPriceTarget, Backtest a target position against a value series (price/mark) into a costed mark-to-market equity curve.
 BacktestReport, Turn a backtest engine's [equity, pnl, position, cost] into running drawdown, cost, turnover, trades, and Sharpe.
 BacktestStats, Turn a backtest engine's [equity, pnl, position, cost] into running exposure, round-trip trade statistics, Sortino, and Calmar.

@@ -272,6 +272,9 @@
       "std::string",
       "double",
       "double",
+      "double",
+      "std::string",
+      "double",
       "double"
     ],
     "ctor_args": [
@@ -317,6 +320,18 @@
       },
       {
         "name": "trailing_stop",
+        "default": "0.0"
+      },
+      {
+        "name": "size",
+        "default": "\"units\""
+      },
+      {
+        "name": "initial_capital",
+        "default": "0.0"
+      },
+      {
+        "name": "rebalance_band",
         "default": "0.0"
       }
     ],
@@ -482,6 +497,9 @@
       "int",
       "double",
       "double",
+      "double",
+      "std::string",
+      "double",
       "double"
     ],
     "ctor_args": [
@@ -536,6 +554,114 @@
       {
         "name": "trailing_stop",
         "default": "0.0"
+      },
+      {
+        "name": "size",
+        "default": "\"units\""
+      },
+      {
+        "name": "initial_capital",
+        "default": "0.0"
+      },
+      {
+        "name": "rebalance_band",
+        "default": "0.0"
+      }
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_fin.cpp"
+  },
+  {
+    "name": "BacktestOHLCVTarget",
+    "cpp_type": "screamer::BacktestOHLCVTarget",
+    "base": "FunctorBase",
+    "ctor": [
+      "double",
+      "double",
+      "double",
+      "double",
+      "double",
+      "double",
+      "double",
+      "double",
+      "std::string",
+      "std::string",
+      "int",
+      "double",
+      "double",
+      "double",
+      "std::string",
+      "double",
+      "double"
+    ],
+    "ctor_args": [
+      {
+        "name": "max_participation",
+        "default": "1.0"
+      },
+      {
+        "name": "taker_fee",
+        "default": "0.0"
+      },
+      {
+        "name": "tick_size",
+        "default": "0.0"
+      },
+      {
+        "name": "min_position",
+        "default": "-std::numeric_limits<double>::infinity()"
+      },
+      {
+        "name": "max_position",
+        "default": "std::numeric_limits<double>::infinity()"
+      },
+      {
+        "name": "multiplier",
+        "default": "1.0"
+      },
+      {
+        "name": "fee_per_contract",
+        "default": "0.0"
+      },
+      {
+        "name": "slippage",
+        "default": "0.0"
+      },
+      {
+        "name": "slippage_unit",
+        "default": "\"fraction\""
+      },
+      {
+        "name": "fill_at",
+        "default": "\"open\""
+      },
+      {
+        "name": "delay",
+        "default": "1"
+      },
+      {
+        "name": "stop_loss",
+        "default": "0.0"
+      },
+      {
+        "name": "take_profit",
+        "default": "0.0"
+      },
+      {
+        "name": "trailing_stop",
+        "default": "0.0"
+      },
+      {
+        "name": "size",
+        "default": "\"units\""
+      },
+      {
+        "name": "initial_capital",
+        "default": "0.0"
+      },
+      {
+        "name": "rebalance_band",
+        "default": "0.0"
       }
     ],
     "ctor_kind": "plain",
@@ -556,6 +682,9 @@
       "std::string",
       "double",
       "double",
+      "double",
+      "double",
+      "std::string",
       "double",
       "double"
     ],
@@ -606,6 +735,18 @@
       },
       {
         "name": "trailing_stop",
+        "default": "0.0"
+      },
+      {
+        "name": "size",
+        "default": "\"units\""
+      },
+      {
+        "name": "initial_capital",
+        "default": "0.0"
+      },
+      {
+        "name": "rebalance_band",
         "default": "0.0"
       }
     ],
@@ -730,6 +871,10 @@
       "std::string",
       "double",
       "double",
+      "double",
+      "std::string",
+      "double",
+      "double",
       "double"
     ],
     "ctor_args": [
@@ -776,6 +921,22 @@
       {
         "name": "trailing_stop",
         "default": "0.0"
+      },
+      {
+        "name": "size",
+        "default": "\"units\""
+      },
+      {
+        "name": "initial_capital",
+        "default": "0.0"
+      },
+      {
+        "name": "rebalance_band",
+        "default": "0.0"
+      },
+      {
+        "name": "max_participation",
+        "default": "std::numeric_limits<double>::infinity()"
       }
     ],
     "ctor_kind": "plain",

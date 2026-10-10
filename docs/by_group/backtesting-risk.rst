@@ -65,6 +65,8 @@ Simulate a strategy against market data into a costed equity curve: signals, bar
      - Backtest a two-sided order poster on OHLC bars, posting resting bids and asks that fill when the bar's range reaches them.
    * - :doc:`Backtest a target-position strategy on OHLC bars </functions_fin/BacktestOHLCTarget>`
      - Backtest a target-position strategy on OHLC bars, executing market orders at the next bar's open or another bar price, with slippage (causal, no manual lag).
+   * - :doc:`Backtest a target-position strategy on OHLCV bars with a volume limit </functions_fin/BacktestOHLCVTarget>`
+     - Backtest a target-position strategy on OHLCV bars, filling each bar at most a set share of its volume.
    * - :doc:`Backtest a target position on a value series </functions_fin/BacktestPriceTarget>`
      - Backtest a target position against a value series (price/mark) into a costed mark-to-market equity curve.
    * - :doc:`Running report columns for a backtest </functions_fin/BacktestReport>`
@@ -106,6 +108,7 @@ Simulate a strategy against market data into a costed equity curve: signals, bar
    /functions_fin/BacktestL1TradesOrders
    /functions_fin/BacktestOHLCOrders
    /functions_fin/BacktestOHLCTarget
+   /functions_fin/BacktestOHLCVTarget
    /functions_fin/BacktestPriceTarget
    /functions_fin/BacktestReport
    /functions_fin/BacktestStats

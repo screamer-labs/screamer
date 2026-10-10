@@ -50,6 +50,8 @@ namespace screamer { namespace detail {
         }
 
         double position() const { return account_.position(); }
+        double equity() const { return account_.equity(); }
+        double equity_at(double price) const { return account_.equity_at(price); }
         // Fill price of the last fill in the most recent quote(), NaN if none.
         double last_fill_price() const { return last_fill_; }
 

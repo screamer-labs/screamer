@@ -69,6 +69,25 @@ parameters:
   default: 0.0
   min: 0.0
   description: Exit when the price falls this fraction from the best price since entry (the highest for a long, the lowest for a short). 0 turns it off.
+- name: size
+  type: str
+  default: units
+  description: 'How to read the target: "units" (a position), "notional" (a currency amount), or "weight" (a fraction of initial_capital + equity). It is converted to units at the execution price.'
+- name: initial_capital
+  type: float
+  default: 0.0
+  min: 0.0
+  description: Starting capital for size="weight" and for rebalance_band; equity is initial_capital plus the backtest's cumulative pnl.
+- name: rebalance_band
+  type: float
+  default: 0.0
+  min: 0.0
+  description: With size="notional" or "weight", recompute the units when the holding drifts from the target by more than this fraction of equity (0.05 = 5 points of weight). 0 keeps the units until the target value changes.
+- name: max_participation
+  type: float
+  default: .inf
+  min: 0.0
+  description: Cap each print's fill at this share of the print's size; the rest fills on later prints. The default fills the whole order on any print.
 nan_policy: ignore
 see_also:
 - BacktestTradesOrders
@@ -104,6 +123,18 @@ event), `2 = position`, and `3 = cost` (per event). A `NaN` `trade_price` or
 The optional `min_position` and `max_position` parameters cap the inventory. The
 target is clamped before the order size is computed, so the engine never carries a
 position outside that range.
+
+**Sizing.** With `size="notional"` the target is a currency amount and with
+`size="weight"` a fraction of equity (`initial_capital` plus the backtest's
+cumulative pnl, marked at the execution price), so returns compound. The engine
+converts the target to units at the execution reference price when the target
+value changes, and keeps those units while it stays the same, so a constant
+weight does not trade on every price move. Set `rebalance_band` to trade back to
+the target when the holding drifts by more than that fraction of equity.
+
+**Participation.** `max_participation` limits each print's fill to that share of
+the print's size, so a large order fills across several prints. The engine keeps
+working toward the last target, and a `NaN` target continues the order.
 
 **Risk exits.** `stop_loss`, `take_profit`, and `trailing_stop` close the position
 on the print that crosses a level measured from the average entry fill (or, for

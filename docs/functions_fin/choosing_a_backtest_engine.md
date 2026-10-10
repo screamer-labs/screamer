@@ -2,7 +2,7 @@
 name: choosing_a_backtest_engine
 title: Choosing a backtest engine
 kind: guide
-short: The 5x2 engine grid by data model and order definition, with fill rules and encoding.
+short: The engine grid by data model and order definition, with fill rules, sizing, volume limits, and encoding.
 topics:
 - backtesting
 ---
@@ -13,7 +13,7 @@ Screamer's backtest engines are arranged in a `Backtest<DataModel><OrderDef>` gr
 For the practices that make a backtest trustworthy, and the tools for each, see
 [Backtesting best practices](../backtesting_best_practices.md).
 The data model (rows) is the market feed you have. The order definition (columns)
-is the strategy's output contract. All eight engines share one accounting core,
+is the strategy's output contract. All nine engines share one accounting core,
 the `[equity, pnl, position, cost]` output schema, a common MARKET/NaN/inf
 encoding, and the static fill-cap rule.
 
@@ -23,6 +23,7 @@ encoding, and the static fill-cap rule.
 |:--------------|:------------------------------|:--------------------------------|
 | Price         | `BacktestPriceTarget`         | not provided (*)                |
 | OHLC          | `BacktestOHLCTarget`          | `BacktestOHLCOrders`            |
+| OHLC + volume | `BacktestOHLCVTarget`         | not provided                    |
 | Trades        | `BacktestTradesTarget`        | `BacktestTradesOrders`          |
 | L1            | `BacktestL1Target`            | `BacktestL1Orders`              |
 | L1 + Trades   | not provided (**)             | `BacktestL1TradesOrders`        |
@@ -57,6 +58,7 @@ Input arities by engine:
 |:-----------------------|:-------|:--------------------------------------------------|:-----------------------------|
 | `BacktestPriceTarget`  | 2      | `target`                                          | `price`                      |
 | `BacktestOHLCTarget`   | 5      | `target`                                          | `open, high, low, close`     |
+| `BacktestOHLCVTarget`  | 6      | `target`                                          | `open, high, low, close, volume` |
 | `BacktestOHLCOrders`   | 8      | `bid_price, bid_size, ask_price, ask_size`        | `open, high, low, close`     |
 | `BacktestTradesTarget` | 3      | `target`                                          | `trade_price, trade_size`    |
 | `BacktestTradesOrders` | 6      | `bid_price, bid_size, ask_price, ask_size`        | `trade_price, trade_size`    |
@@ -129,6 +131,17 @@ the stop and the take-profit both fall inside one bar, the stop is taken. The
 event engines (price, trades, L1) exit on the event that crosses a level, at that
 event's price. Exits are market orders that pay the taker fee and slippage. After
 an exit, same-side targets are ignored until the target turns flat or reverses.
+
+## Sizing and volume
+
+The Target engines read the target as units by default. With `size="notional"`
+it is a currency amount and with `size="weight"` a fraction of equity
+(`initial_capital` plus the backtest's pnl), converted to units at the execution
+price when the target value changes; `rebalance_band` trades back to the target
+when the holding drifts. Two engines limit fills by volume, carrying the rest of
+the order to later events: `BacktestOHLCVTarget` (`max_participation` of each
+bar's volume) and `BacktestTradesTarget` (`max_participation` of each print's
+size). A `NaN` target keeps working toward the last target.
 
 ## Fill-cap rule
 

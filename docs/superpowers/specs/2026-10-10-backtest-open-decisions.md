@@ -1,6 +1,10 @@
 # Backtest: open decisions (sizing and volume limits)
 
-Status: waiting for a decision, 2026-10-10. Everything else in
+Status: decided and implemented, 2026-10-10. D1: option B plus the optional
+band (`size`, `initial_capital`, `rebalance_band` on all target engines). D2:
+option A (`BacktestOHLCVTarget` with `max_participation`), plus
+`max_participation` per print on `BacktestTradesTarget`; square-root impact
+deferred. Everything else in
 `2026-10-10-backtest-execution-gaps.md` is done (F1-F5).
 
 ## D1. Sizing by notional or by fraction of equity (F6)

@@ -28,3 +28,23 @@ test("backtest stats: hand-computed round trips and annualized ratios", () => {
   const n = r1.data.length;
   assert.ok(Math.abs(r252.data[n - 1] - r1.data[n - 1] * Math.sqrt(252)) < 1e-9);
 });
+
+// Same cases as tests/test_backtest.py (volume cap and weight sizing).
+test("backtest: OHLCV participation cap carries the rest of the order", async () => {
+  const { BacktestOHLCVTarget } = await import("../src/index.ts");
+  const p = [100, 100, 100, 100, 100, 100, 100];
+  const tgt = [10, NaN, NaN, NaN, NaN, NaN, NaN];
+  const out = BacktestOHLCVTarget(0.5)(tgt, p, p.map((v) => v + 1), p.map((v) => v - 1), p,
+                                       p.map(() => 4)) as { data: Float64Array };
+  const pos = [0, 1, 2, 3, 4, 5, 6].map((r) => out.data[r * 4 + 2]);
+  assert.deepEqual(pos, [0, 2, 4, 6, 8, 10, 10]);
+});
+
+test("backtest: weight sizing rebalances on drift", async () => {
+  const { BacktestPriceTarget } = await import("../src/index.ts");
+  const eng = BacktestPriceTarget(0, 0, -Infinity, Infinity, 1, 0, 0, "fraction", 0, 0, 0, 0,
+                                  "weight", 1000, 0.05);
+  const out = eng([0.5, 0.5, 0.5], [100, 120, 140]) as { data: Float64Array };
+  const pos = [0, 1, 2].map((r) => out.data[r * 4 + 2]);
+  assert.ok(pos[0] === 5 && pos[1] === 5 && Math.abs(pos[2] - (0.5 * 1200) / 140) < 1e-12);
+});

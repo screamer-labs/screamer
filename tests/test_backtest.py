@@ -1092,3 +1092,131 @@ def test_exit_price_stays_inside_the_bar():
         np.array([1, 1.]), o, h, l, c)
     assert out[1, 2] == 0
     np.testing.assert_allclose(out[1, 0], (100.2 - 1.0) - 101.0)   # exit at the high, slipped
+
+
+# --- volume limits: BacktestOHLCVTarget and BacktestTradesTarget ---------------
+
+def _flat_bars(n, price=100.0):
+    p = np.full(n, price)
+    return p, p + 1, p - 1, p
+
+
+def test_ohlcv_caps_fills_and_carries_the_rest():
+    from screamer import BacktestOHLCVTarget
+    o, h, l, c = _flat_bars(7)
+    vol = np.full(7, 4.0)
+    tgt = np.array([10, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan])
+    out = BacktestOHLCVTarget(max_participation=0.5)(tgt, o, h, l, c, vol)
+    # 0.5 * 4 = 2 units per bar, working toward 10 after the target is gone
+    np.testing.assert_allclose(out[:, 2], [0, 2, 4, 6, 8, 10, 10])
+
+
+def test_ohlcv_new_target_replaces_the_working_one():
+    from screamer import BacktestOHLCVTarget
+    o, h, l, c = _flat_bars(6)
+    tgt = np.array([10, np.nan, -1, np.nan, np.nan, np.nan])
+    out = BacktestOHLCVTarget(max_participation=1.0)(tgt, o, h, l, c, np.full(6, 3.0))
+    np.testing.assert_allclose(out[:, 2], [0, 3, 6, 3, 0, -1])
+
+
+def test_ohlcv_without_a_binding_cap_matches_ohlc_target():
+    from screamer import BacktestOHLCTarget, BacktestOHLCVTarget
+    rng = np.random.default_rng(8); n = 200
+    c = 100 * np.exp(np.cumsum(rng.standard_normal(n) * 0.01))
+    o = np.r_[c[0], c[:-1]]; h = np.maximum(o, c) * 1.002; l = np.minimum(o, c) * 0.998
+    tgt = np.round(rng.standard_normal(n) * 2)
+    kw = dict(taker_fee=1e-4, slippage=1e-4, stop_loss=0.02)
+    a = BacktestOHLCTarget(**kw)(tgt, o, h, l, c)
+    b = BacktestOHLCVTarget(max_participation=1.0, **kw)(tgt, o, h, l, c, np.full(n, 1e9))
+    np.testing.assert_allclose(a, b)
+
+
+def test_ohlcv_nan_or_negative_volume_skips_the_bar_and_streams():
+    from screamer import BacktestOHLCVTarget
+    o, h, l, c = _flat_bars(4)
+    out = BacktestOHLCVTarget()(np.array([1., 1, 1, 1]), o, h, l, c,
+                                np.array([5, np.nan, -1, 5.]))
+    assert np.isnan(out[1]).all() and np.isnan(out[2]).all()
+    rng = np.random.default_rng(9); n = 150
+    c = 100 * np.exp(np.cumsum(rng.standard_normal(n) * 0.01))
+    o = np.r_[c[0], c[:-1]]; h = np.maximum(o, c) * 1.002; l = np.minimum(o, c) * 0.998
+    vol = rng.uniform(0.5, 3, n); tgt = np.round(rng.standard_normal(n) * 3)
+    op = BacktestOHLCVTarget(max_participation=0.3, size="units")
+    stream = np.array([op(tgt[i], o[i], h[i], l[i], c[i], vol[i]) for i in range(n)])
+    np.testing.assert_allclose(stream, BacktestOHLCVTarget(max_participation=0.3)(
+        tgt, o, h, l, c, vol))
+    with pytest.raises(ValueError):
+        BacktestOHLCVTarget(max_participation=0)
+
+
+def test_trades_target_participation_cap():
+    from screamer import BacktestTradesTarget
+    p = np.full(5, 100.0); size = np.full(5, 2.0)
+    tgt = np.array([3, np.nan, np.nan, np.nan, np.nan])
+    out = BacktestTradesTarget(max_participation=0.5)(tgt, p, size)
+    np.testing.assert_allclose(out[:, 2], [1, 2, 3, 3, 3])
+    full = BacktestTradesTarget()(tgt, p, size)                 # default: no cap
+    np.testing.assert_allclose(full[:, 2], [3, 3, 3, 3, 3])
+
+
+# --- sizing: notional and weight targets -------------------------------------
+
+def test_notional_target_fixes_units_until_it_changes():
+    from screamer import BacktestOHLCTarget
+    o = np.array([100., 100, 125, 125, 80]); h = o + 1; l = o - 1; c = o
+    tgt = np.array([1000, 1000, 1000, 2000, 2000.])
+    out = BacktestOHLCTarget(size="notional")(tgt, o, h, l, c)
+    # 1000 / 100 = 10 units; held at 125; 2000 / 80 = 25 when the target changes
+    np.testing.assert_allclose(out[:, 2], [0, 10, 10, 10, 25])
+
+
+def test_weight_target_compounds_and_rebalances_on_drift():
+    from screamer import BacktestPriceTarget
+    price = np.array([100., 120, 140, 140])
+    w = np.full(4, 0.5)
+    plain = BacktestPriceTarget(size="weight", initial_capital=1000)(w, price)
+    np.testing.assert_allclose(plain[:, 2], [5, 5, 5, 5])         # no band: keep units
+    band = BacktestPriceTarget(size="weight", initial_capital=1000, rebalance_band=0.05)(w, price)
+    # at 120 the weight is 600 / 1100 = 0.545 (inside the band); at 140 it is
+    # 700 / 1200 = 0.583, so it rebalances to 0.5 * 1200 / 140 units
+    np.testing.assert_allclose(band[:3, 2], [5, 5, 0.5 * 1200 / 140])
+
+
+@pytest.mark.parametrize("engine", ["ohlc", "price", "trades", "l1"])
+def test_weight_sizing_on_every_target_engine(engine):
+    import screamer as s
+    p = np.array([50., 50, 50])
+    w = np.array([0.4, 0.4, 0.4])
+    kw = dict(size="weight", initial_capital=10000)
+    if engine == "ohlc":
+        out = s.BacktestOHLCTarget(**kw)(w, p, p, p, p)
+        expect = [0, 80, 80]                                        # executes next bar
+    elif engine == "price":
+        out = s.BacktestPriceTarget(**kw)(w, p); expect = [80, 80, 80]
+    elif engine == "trades":
+        out = s.BacktestTradesTarget(**kw)(w, p, np.full(3, 1e6)); expect = [80, 80, 80]
+    else:
+        out = s.BacktestL1Target(**kw)(w, p, p, np.full(3, 1e6), np.full(3, 1e6))
+        expect = [80, 80, 80]
+    np.testing.assert_allclose(out[:, 2], expect)
+
+
+def test_sizing_with_exits_and_multiplier():
+    from screamer import BacktestOHLCTarget
+    o, h, l, c = _ohlc([[100, 100, 100, 100], [100, 101, 99, 100], [99, 100, 94, 96]])
+    out = BacktestOHLCTarget(size="notional", multiplier=10, stop_loss=0.05)(
+        np.full(3, 5000.), o, h, l, c)
+    np.testing.assert_allclose(out[:, 2], [0, 5, 0])               # 5000 / (100 * 10)
+    np.testing.assert_allclose(out[-1, 0], 5 * 10 * (95 - 100))
+
+
+def test_sizing_argument_checks():
+    from screamer import BacktestOHLCTarget, BacktestPriceTarget
+    with pytest.raises(ValueError):
+        BacktestOHLCTarget(size="percent")
+    with pytest.raises(ValueError):
+        BacktestOHLCTarget(size="weight")                           # needs capital
+    with pytest.raises(ValueError):
+        BacktestPriceTarget(rebalance_band=0.1)                     # units has no band
+    with pytest.raises(ValueError):
+        BacktestPriceTarget(size="notional", rebalance_band=0.1)    # band needs capital

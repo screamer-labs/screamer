@@ -118,6 +118,8 @@ _NO_ARG_AUTO_EXCLUDE = {
     'BacktestOHLCOrders',
     # 5-input deferred target engine - tested in test_backtest.py
     'BacktestOHLCTarget',
+    # 6-input volume-capped deferred target engine - tested in test_backtest.py
+    'BacktestOHLCVTarget',
     # 6-input two-sided tape market-making engine - tested in test_backtest.py
     'BacktestTradesOrders',
     # 3-input immediate market-to-target engine - tested in test_backtest.py

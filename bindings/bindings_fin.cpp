@@ -23,6 +23,7 @@
 #include "screamer/backtest_price_target.h"
 #include "screamer/backtest_ohlc_orders.h"
 #include "screamer/backtest_ohlc_target.h"
+#include "screamer/backtest_ohlcv_target.h"
 #include "screamer/backtest_trades_orders.h"
 #include "screamer/backtest_trades_target.h"
 #include "screamer/backtest_l1_orders.h"
@@ -425,13 +426,14 @@ void init_bindings_fin(nb::module_& m) {
         .def("reset", &screamer::BayesianRegression::reset, "Reset to the prior.");
 
     nb::class_<screamer::BacktestPriceTarget, screamer::EvalOp>(m, "BacktestPriceTarget")
-        .def(nb::init<double, double, double, double, double, double, double, const std::string&, double, double, double, double>(),
+        .def(nb::init<double, double, double, double, double, double, double, const std::string&, double, double, double, double, const std::string&, double, double>(),
              "spread"_a = 0.0, "fee"_a = 0.0,
              "min_position"_a = -std::numeric_limits<double>::infinity(),
              "max_position"_a = std::numeric_limits<double>::infinity(),
              "multiplier"_a = 1.0, "fee_per_contract"_a = 0.0,
              "slippage"_a = 0.0, "slippage_unit"_a = "fraction", "tick_size"_a = 0.0,
-             "stop_loss"_a = 0.0, "take_profit"_a = 0.0, "trailing_stop"_a = 0.0)
+             "stop_loss"_a = 0.0, "take_profit"_a = 0.0, "trailing_stop"_a = 0.0,
+             "size"_a = "units", "initial_capital"_a = 0.0, "rebalance_band"_a = 0.0)
         .def("__call__", &screamer::functor_call<screamer::BacktestPriceTarget>)
         .def("reset", &screamer::BacktestPriceTarget::reset, "Reset.");
 
@@ -450,16 +452,30 @@ void init_bindings_fin(nb::module_& m) {
         .def("reset", &screamer::BacktestOHLCOrders::reset, "Reset.");
 
     nb::class_<screamer::BacktestOHLCTarget, screamer::EvalOp>(m, "BacktestOHLCTarget")
-        .def(nb::init<double, double, double, double, double, double, double, const std::string&, const std::string&, int, double, double, double>(),
+        .def(nb::init<double, double, double, double, double, double, double, const std::string&, const std::string&, int, double, double, double, const std::string&, double, double>(),
              "taker_fee"_a = 0.0, "tick_size"_a = 0.0,
              "min_position"_a = -std::numeric_limits<double>::infinity(),
              "max_position"_a = std::numeric_limits<double>::infinity(),
              "multiplier"_a = 1.0, "fee_per_contract"_a = 0.0,
              "slippage"_a = 0.0, "slippage_unit"_a = "fraction",
              "fill_at"_a = "open", "delay"_a = 1,
-             "stop_loss"_a = 0.0, "take_profit"_a = 0.0, "trailing_stop"_a = 0.0)
+             "stop_loss"_a = 0.0, "take_profit"_a = 0.0, "trailing_stop"_a = 0.0,
+             "size"_a = "units", "initial_capital"_a = 0.0, "rebalance_band"_a = 0.0)
         .def("__call__", &screamer::functor_call<screamer::BacktestOHLCTarget>)
         .def("reset", &screamer::BacktestOHLCTarget::reset, "Reset.");
+
+    nb::class_<screamer::BacktestOHLCVTarget, screamer::EvalOp>(m, "BacktestOHLCVTarget")
+        .def(nb::init<double, double, double, double, double, double, double, double, const std::string&, const std::string&, int, double, double, double, const std::string&, double, double>(),
+             "max_participation"_a = 1.0, "taker_fee"_a = 0.0, "tick_size"_a = 0.0,
+             "min_position"_a = -std::numeric_limits<double>::infinity(),
+             "max_position"_a = std::numeric_limits<double>::infinity(),
+             "multiplier"_a = 1.0, "fee_per_contract"_a = 0.0,
+             "slippage"_a = 0.0, "slippage_unit"_a = "fraction",
+             "fill_at"_a = "open", "delay"_a = 1,
+             "stop_loss"_a = 0.0, "take_profit"_a = 0.0, "trailing_stop"_a = 0.0,
+             "size"_a = "units", "initial_capital"_a = 0.0, "rebalance_band"_a = 0.0)
+        .def("__call__", &screamer::functor_call<screamer::BacktestOHLCVTarget>)
+        .def("reset", &screamer::BacktestOHLCVTarget::reset, "Reset.");
 
     nb::class_<screamer::BacktestTradesOrders, screamer::EvalOp>(m, "BacktestTradesOrders")
         .def(nb::init<double, double, const std::string&, double, double, double, double, double, double, double, double, const std::string&>(),
@@ -490,13 +506,14 @@ void init_bindings_fin(nb::module_& m) {
         .def("reset", &screamer::BacktestL1Orders::reset, "Reset.");
 
     nb::class_<screamer::BacktestL1Target, screamer::EvalOp>(m, "BacktestL1Target")
-        .def(nb::init<double, double, double, double, double, double, double, const std::string&, double, double, double>(),
+        .def(nb::init<double, double, double, double, double, double, double, const std::string&, double, double, double, const std::string&, double, double>(),
              "taker_fee"_a = 0.0, "tick_size"_a = 0.0,
              "min_position"_a = -std::numeric_limits<double>::infinity(),
              "max_position"_a = std::numeric_limits<double>::infinity(),
              "multiplier"_a = 1.0, "fee_per_contract"_a = 0.0,
              "slippage"_a = 0.0, "slippage_unit"_a = "fraction",
-             "stop_loss"_a = 0.0, "take_profit"_a = 0.0, "trailing_stop"_a = 0.0)
+             "stop_loss"_a = 0.0, "take_profit"_a = 0.0, "trailing_stop"_a = 0.0,
+             "size"_a = "units", "initial_capital"_a = 0.0, "rebalance_band"_a = 0.0)
         .def("__call__", &screamer::functor_call<screamer::BacktestL1Target>)
         .def("reset", &screamer::BacktestL1Target::reset, "Reset.");
 
@@ -515,13 +532,15 @@ void init_bindings_fin(nb::module_& m) {
         .def("reset", &screamer::BacktestL1TradesOrders::reset, "Reset.");
 
     nb::class_<screamer::BacktestTradesTarget, screamer::EvalOp>(m, "BacktestTradesTarget")
-        .def(nb::init<double, double, double, double, double, double, double, const std::string&, double, double, double>(),
+        .def(nb::init<double, double, double, double, double, double, double, const std::string&, double, double, double, const std::string&, double, double, double>(),
              "taker_fee"_a = 0.0, "tick_size"_a = 0.0,
              "min_position"_a = -std::numeric_limits<double>::infinity(),
              "max_position"_a = std::numeric_limits<double>::infinity(),
              "multiplier"_a = 1.0, "fee_per_contract"_a = 0.0,
              "slippage"_a = 0.0, "slippage_unit"_a = "fraction",
-             "stop_loss"_a = 0.0, "take_profit"_a = 0.0, "trailing_stop"_a = 0.0)
+             "stop_loss"_a = 0.0, "take_profit"_a = 0.0, "trailing_stop"_a = 0.0,
+             "size"_a = "units", "initial_capital"_a = 0.0, "rebalance_band"_a = 0.0,
+             "max_participation"_a = std::numeric_limits<double>::infinity())
         .def("__call__", &screamer::functor_call<screamer::BacktestTradesTarget>)
         .def("reset", &screamer::BacktestTradesTarget::reset, "Reset.");
 

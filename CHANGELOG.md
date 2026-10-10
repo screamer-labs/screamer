@@ -44,6 +44,17 @@ Unreleased
   Sortino, and Calmar. `BacktestReport`, `BacktestStats`, and `backtest_report`
   take `periods_per_year` to annualize the ratios (the default 1 keeps the
   per-step values), and `backtest_report`'s summary includes the new statistics.
+* **Backtest sizing:** the target engines take `size="units" | "notional" |
+  "weight"` with `initial_capital`: a notional amount or a fraction of equity
+  (which compounds) is converted to units at the execution price when the
+  target value changes, and `rebalance_band` trades back to the target when the
+  holding drifts by more than that fraction of equity.
+* **Volume limits:** `BacktestOHLCVTarget` takes the bar's volume and fills an
+  order at most `max_participation` of it per bar, carrying the rest to later
+  bars; `BacktestTradesTarget` gains `max_participation` of each print's size.
+  The target engines now keep working toward the last finite target, so a
+  `NaN` target continues a partly filled order (with complete fills this is the
+  same as holding).
 * **Backtest carry:** `BacktestCarry` adds perpetual funding, borrow, or
   financing to any engine's output from a per-step rate series: the position
   held into each step pays `position * price * rate`, moved from pnl into cost.
