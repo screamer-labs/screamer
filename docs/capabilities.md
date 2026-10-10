@@ -1,8 +1,7 @@
 # What you can build
 
-screamer covers the path from raw market data to a tested, live-running signal.
-Each tile below names one area, links to a worked example, and lists the
-functions to start with. The [gallery](gallery.rst) shows a plot for every
+This page groups screamer by task. Each tile names one area, links to a worked
+example, and lists the functions to start with. The [gallery](gallery.rst) shows a plot for every
 function.
 
 ```{grid} 1 2 2 2
