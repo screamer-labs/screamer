@@ -35,6 +35,8 @@
 #include "screamer/validation/surrogates.h"
 #include "screamer/validation/sharpe.h"
 #include "screamer/portfolio_report.h"
+#include "screamer/common/row_op.h"
+#include "screamer/cross_section.h"
 #include "screamer/rolling_downside_deviation.h"
 #include "screamer/rolling_omega.h"
 #include "screamer/rolling_cvar.h"
@@ -154,6 +156,96 @@ nb::object portfolio_report_call(screamer::PortfolioReport& self, nb::args args)
         return portfolio_report_row(self, arr);
     }
     throw nb::type_error("PortfolioReport input must be a numpy array or iterable of rows.");
+}
+
+// ---- Cross-sectional (row) operators -------------------------------------
+//
+// A RowOp event is one row of K values (one per asset). A (T, K) array is T
+// events and returns (T, K); a 1-D array or list is one row and returns one
+// row; an iterator of rows returns a lazy iterator of rows.
+
+nb::object row_op_row(screamer::RowOp& self, const screamer::detail::ContigDouble& v) {
+    const std::size_t k = v.shape[0];
+    double* out = new double[k ? k : 1];
+    try {
+        self.call_row(v.data.data(), out, k);
+    } catch (...) {
+        delete[] out;
+        throw;
+    }
+    return screamer::detail::make_owned_array(out, {k});
+}
+
+nb::object row_op_batch(screamer::RowOp& self, const screamer::detail::ContigDouble& v) {
+    const std::size_t time = v.shape[0], k = v.shape[1];
+    if (k == 0) throw nb::value_error("a cross-sectional input needs at least one column.");
+    double* out = new double[time * k ? time * k : 1];
+    self.reset();
+    try {
+        for (std::size_t t = 0; t < time; ++t)
+            self.call_row(v.data.data() + t * k, out + t * k, k);
+    } catch (...) {
+        delete[] out;
+        self.reset();
+        throw;
+    }
+    self.reset();
+    return screamer::detail::make_owned_array(out, {time, k});
+}
+
+nb::object row_op_dispatch(screamer::RowOp& self, nb::object input) {
+    if (screamer::detail::is_unsupported_dtype_array(input))
+        input = screamer::detail::coerce_to_f64(input);
+    if (!screamer::detail::is_ndarray(input)) {
+        nb::module_ np = nb::module_::import_("numpy");
+        input = np.attr("asarray")(input, nb::arg("dtype") = np.attr("float64"));
+    }
+    auto v = screamer::detail::read_contig_double(nb::cast<nb::ndarray<nb::ro>>(input));
+    if (v.ndim() == 2) return row_op_batch(self, v);
+    if (v.ndim() == 1) return row_op_row(self, v);
+    throw nb::value_error(
+        "a cross-sectional operator takes a (T, K) array, one row of K values, "
+        "or an iterator of rows.");
+}
+
+class RowOpLazyIterator {
+public:
+    RowOpLazyIterator(nb::object keepalive, screamer::RowOp& op, nb::object source)
+        : keepalive_(std::move(keepalive)), op_(&op),
+          iterator_(source.attr("__iter__")()) {}
+
+    RowOpLazyIterator& iter() { return *this; }
+
+    nb::object next() {
+        nb::object row = iterator_.attr("__next__")();
+        if (screamer::detail::is_unsupported_dtype_array(row))
+            row = screamer::detail::coerce_to_f64(row);
+        if (!screamer::detail::is_ndarray(row)) {
+            nb::module_ np = nb::module_::import_("numpy");
+            row = np.attr("asarray")(row, nb::arg("dtype") = np.attr("float64"));
+        }
+        auto v = screamer::detail::read_contig_double(nb::cast<nb::ndarray<nb::ro>>(row));
+        if (v.ndim() != 1)
+            throw nb::value_error("each event of a cross-sectional stream is one row of K values.");
+        return row_op_row(*op_, v);
+    }
+
+private:
+    nb::object keepalive_;
+    screamer::RowOp* op_;
+    nb::object iterator_;
+};
+
+nb::object row_op_call(screamer::RowOp& self, nb::args args) {
+    if (args.size() != 1)
+        throw nb::type_error("a cross-sectional operator takes one input: (T, K) values or a row.");
+    nb::object input = nb::borrow<nb::object>(args[0]);
+    if (screamer::is_dag_node(input))
+        throw nb::type_error("cross-sectional operators run on arrays and row streams, "
+                             "not inside a Pipeline.");
+    if (screamer::is_lazy_iterable(input))
+        return nb::cast(RowOpLazyIterator(nb::find(self), self, input));
+    return row_op_dispatch(self, input);
 }
 
 } // namespace
@@ -567,6 +659,33 @@ void init_bindings_fin(nb::module_& m) {
     nb::class_<PortfolioReportLazyIterator>(m, "PortfolioReportLazyIterator")
         .def("__iter__", &PortfolioReportLazyIterator::iter, nb::rv_policy::reference_internal)
         .def("__next__", &PortfolioReportLazyIterator::next);
+
+    nb::class_<screamer::RowOp, screamer::EvalOp>(m, "RowOp")
+        .def("__call__", &row_op_call)
+        .def("reset", &screamer::RowOp::reset, "Reset.");
+
+    nb::class_<RowOpLazyIterator>(m, "RowOpLazyIterator")
+        .def("__iter__", &RowOpLazyIterator::iter, nb::rv_policy::reference_internal)
+        .def("__next__", &RowOpLazyIterator::next);
+
+    nb::class_<screamer::CrossRank, screamer::RowOp>(m, "CrossRank")
+        .def(nb::init<const std::string&>(), "scale"_a = "signed");
+
+    nb::class_<screamer::CrossZscore, screamer::RowOp>(m, "CrossZscore")
+        .def(nb::init<>());
+
+    nb::class_<screamer::CrossDemean, screamer::RowOp>(m, "CrossDemean")
+        .def(nb::init<>());
+
+    nb::class_<screamer::CrossWinsorize, screamer::RowOp>(m, "CrossWinsorize")
+        .def(nb::init<double, double>(), "lower"_a = 0.05, "upper"_a = 0.95);
+
+    nb::class_<screamer::CrossNormalize, screamer::RowOp>(m, "CrossNormalize")
+        .def(nb::init<double, std::optional<double>>(), "gross"_a = 1.0,
+             "net"_a = nb::none());
+
+    nb::class_<screamer::CrossTopBottom, screamer::RowOp>(m, "CrossTopBottom")
+        .def(nb::init<int>(), "count"_a = 1);
 
     nb::class_<screamer::RollingDownsideDeviation, screamer::ScreamerBase>(m, "RollingDownsideDeviation")
         .def(nb::init<int, double, const std::string&>(),

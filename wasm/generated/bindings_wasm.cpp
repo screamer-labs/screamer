@@ -31,8 +31,10 @@
 #include "screamer/butter_highpass.h"
 #include "screamer/cci.h"
 #include "screamer/clip.h"
+#include "screamer/common/row_op.h"
 #include "screamer/common/transform.h"
 #include "screamer/cont_ofi.h"
+#include "screamer/cross_section.h"
 #include "screamer/cum_max.h"
 #include "screamer/cum_min.h"
 #include "screamer/cum_prod.h"
@@ -196,6 +198,10 @@ inline screamer::BayesianRegression* make_BayesianRegression(double a0, double a
 
 inline screamer::Clip* make_Clip(double a0, double a1) {
     return new screamer::Clip(screamer_wasm::opt(a0), screamer_wasm::opt(a1));
+}
+
+inline screamer::CrossNormalize* make_CrossNormalize(double a0, double a1) {
+    return new screamer::CrossNormalize(a0, screamer_wasm::opt(a1));
 }
 
 inline screamer::DEMA* make_DEMA(double a0, double a1, double a2, double a3) {
@@ -390,6 +396,30 @@ EMSCRIPTEN_BINDINGS(screamer) {
         .constructor<>();
     emscripten::class_<screamer::Transform<(double (*)(double)) std::cos>, emscripten::base<screamer::EvalOp>>("Cos")
         .constructor<>();
+    emscripten::class_<screamer::CrossDemean, emscripten::base<screamer::EvalOp>>("CrossDemean")
+        .constructor<>()
+        .function("mapRowInto", &screamer_wasm::mapRowInto<screamer::CrossDemean>)
+        .function("mapRowsInto", &screamer_wasm::mapRowsInto<screamer::CrossDemean>);
+    emscripten::class_<screamer::CrossNormalize, emscripten::base<screamer::EvalOp>>("CrossNormalize")
+        .constructor(&make_CrossNormalize, emscripten::allow_raw_pointers())
+        .function("mapRowInto", &screamer_wasm::mapRowInto<screamer::CrossNormalize>)
+        .function("mapRowsInto", &screamer_wasm::mapRowsInto<screamer::CrossNormalize>);
+    emscripten::class_<screamer::CrossRank, emscripten::base<screamer::EvalOp>>("CrossRank")
+        .constructor<std::string>()
+        .function("mapRowInto", &screamer_wasm::mapRowInto<screamer::CrossRank>)
+        .function("mapRowsInto", &screamer_wasm::mapRowsInto<screamer::CrossRank>);
+    emscripten::class_<screamer::CrossTopBottom, emscripten::base<screamer::EvalOp>>("CrossTopBottom")
+        .constructor<int>()
+        .function("mapRowInto", &screamer_wasm::mapRowInto<screamer::CrossTopBottom>)
+        .function("mapRowsInto", &screamer_wasm::mapRowsInto<screamer::CrossTopBottom>);
+    emscripten::class_<screamer::CrossWinsorize, emscripten::base<screamer::EvalOp>>("CrossWinsorize")
+        .constructor<double, double>()
+        .function("mapRowInto", &screamer_wasm::mapRowInto<screamer::CrossWinsorize>)
+        .function("mapRowsInto", &screamer_wasm::mapRowsInto<screamer::CrossWinsorize>);
+    emscripten::class_<screamer::CrossZscore, emscripten::base<screamer::EvalOp>>("CrossZscore")
+        .constructor<>()
+        .function("mapRowInto", &screamer_wasm::mapRowInto<screamer::CrossZscore>)
+        .function("mapRowsInto", &screamer_wasm::mapRowsInto<screamer::CrossZscore>);
     emscripten::class_<screamer::Transform<(double (*)(double)) screamer::cube>, emscripten::base<screamer::EvalOp>>("Cube")
         .constructor<>();
     emscripten::class_<screamer::CumMax, emscripten::base<screamer::EvalOp>>("CumMax")

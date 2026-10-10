@@ -397,6 +397,48 @@ export declare function ContOFI(): ScreamerOp;
  */
 export declare function Cos(): ScreamerOp;
 /**
+ * Subtract the mean across assets at each step, removing the common component.
+ *
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
+export declare function CrossDemean(): ScreamerOp;
+/**
+ * Scale each row of scores to portfolio weights with a chosen gross exposure, and optionally a net exposure.
+ *
+ * @param gross Sum of the absolute weights of each row.
+ * @param net Sum of the weights of each row, in [-gross, gross]. None (the default) keeps the signs of the scores and sets no net target.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
+export declare function CrossNormalize(gross?: number, net?: number): ScreamerOp;
+/**
+ * Rank each asset against the others at the same step, scaled to [-1, 1] or [0, 1].
+ *
+ * @param scale Output range: "signed" maps the lowest value to -1 and the highest to 1; "unit" maps them to 0 and 1.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
+export declare function CrossRank(scale?: string): ScreamerOp;
+/**
+ * +1 for the highest values of each row, -1 for the lowest, 0 for the rest.
+ *
+ * @param count Number of assets on each side.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
+export declare function CrossTopBottom(count?: number): ScreamerOp;
+/**
+ * Clip each asset's value to the lower and upper quantiles of its row.
+ *
+ * @param lower Lower quantile in [0, 1].
+ * @param upper Upper quantile in [lower, 1].
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
+export declare function CrossWinsorize(lower?: number, upper?: number): ScreamerOp;
+/**
+ * Standardize each asset against the others at the same step: (x - mean) / std across the row.
+ *
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
+export declare function CrossZscore(): ScreamerOp;
+/**
  * x cubed (faster than Power(3)).
  *
  * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.

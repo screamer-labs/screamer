@@ -73,6 +73,6 @@ def test_every_topic_belongs_to_exactly_one_group():
     from devtools.topics import load_groups, load_topics, validate_groups
     validate_groups()                       # raises if any topic is unmapped/double-mapped
     groups = load_groups()
-    assert len(groups) == 9
+    assert len(groups) == 10
     mapped = [t for g in groups.values() for t in g["topics"]]
     assert sorted(mapped) == sorted(load_topics())     # exact cover, no dupes

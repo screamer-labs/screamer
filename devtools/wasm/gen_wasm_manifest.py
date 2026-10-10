@@ -66,6 +66,9 @@ _BASE_MAP = {
     # nanobind-visible base for FunctorBase-derived ops); the manifest
     # schema calls this family "FunctorBase".
     "screamer::EvalOp": "FunctorBase",
+    # Cross-sectional ops: one row of K values in, K values out, with K a data
+    # dimension fixed by the first row (see screamer/common/row_op.h).
+    "screamer::RowOp": "RowOp",
 }
 
 
@@ -280,6 +283,8 @@ def parse_file(path: Path) -> list[dict]:
         # every ordinary op's manifest entry byte-identical.
         if name in DYNAMIC_REDUCER_CLASS_NAMES:
             entry["dynamic_reducer"] = True
+        if base == "RowOp":
+            entry["row_op"] = True
         ops.append(entry)
 
     return ops

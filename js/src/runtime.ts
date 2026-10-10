@@ -290,3 +290,98 @@ export function wrapReducerOp(M: Screamer, raw: RawOp): ScreamerOp {
   REG.register(op, free);
   return op;
 }
+
+// Wraps a cross-sectional (row) op: each event is one row of K values, one
+// per asset, and returns K values. K is a dimension of the data, fixed by the
+// first row after reset(), so it travels with every call.
+//
+//   (T, K) NdArray or an array of rows  -> (T, K) NdArray (a batch)
+//   one row (Float64Array or number[])  -> one row of the same kind
+//   an iterable of rows                 -> a generator of rows
+//
+// Mirrors the Python binding of screamer.RowOp.
+export function wrapRowOp(M: Screamer, raw: RawOp): ScreamerOp {
+  let rowIn = 0, rowOut = 0, cap = 0;
+  let disposed = false;
+  const free = () => {
+    if (disposed) return;
+    disposed = true;
+    if (rowIn) { M.freeBuf(rowIn); M.freeBuf(rowOut); }
+    raw.delete();
+  };
+
+  const event = (row: ArrayLike<number>): Float64Array => {
+    const k = row.length;
+    if (k > cap) {
+      if (rowIn) { M.freeBuf(rowIn); M.freeBuf(rowOut); }
+      rowIn = M.allocF64(k); rowOut = M.allocF64(k); cap = k;
+    }
+    M.viewF64(rowIn, k).set(row as number[]);
+    raw.mapRowInto!(rowIn, rowOut, k);
+    return new Float64Array(M.viewF64(rowOut, k));
+  };
+
+  const batch = (flat: ArrayLike<number>, rows: number, k: number): NdArray => {
+    if (k === 0) throw new TypeError("a cross-sectional input needs at least one column");
+    if (rows === 0) return { data: new Float64Array(0), shape: [0, k] };
+    const n = rows * k;
+    const inP = M.allocF64(n), outP = M.allocF64(n);
+    try {
+      M.viewF64(inP, n).set(flat as number[]);
+      raw.mapRowsInto!(inP, outP, rows, k);
+      return { data: new Float64Array(M.viewF64(outP, n)), shape: [rows, k] };
+    } finally {
+      M.freeBuf(inP); M.freeBuf(outP);
+    }
+  };
+
+  const rowsBatch = (x: ArrayLike<number>[]): NdArray => {
+    const rows = x.length, k = x[0].length;
+    const flat = new Float64Array(rows * k);
+    x.forEach((r, i) => {
+      if (r.length !== k) throw new TypeError(`every row must hold ${k} values, got ${r.length} at row ${i}`);
+      flat.set(r as number[], i * k);
+    });
+    return batch(flat, rows, k);
+  };
+
+  const asRowOut = (row: ArrayLike<number>): any => {
+    const out = event(row);
+    return isTyped(row) ? out : Array.from(out);
+  };
+
+  function* gen(src: Iterable<ArrayLike<number>>) {
+    raw.reset();
+    for (const row of src) yield asRowOut(row);
+  }
+  async function* agen(src: AsyncIterable<ArrayLike<number>>) {
+    raw.reset();
+    for await (const row of src) yield asRowOut(row);
+  }
+
+  const call = (...args: any[]) => {
+    try {
+      if (disposed) throw new Error("operation used after dispose()");
+      if (args.length !== 1) throw new TypeError("a cross-sectional op takes one input: (T, K) values or a row");
+      const x = args[0];
+      if (isNode(x)) throw new TypeError("cross-sectional ops run on arrays and row streams, not inside a Pipeline");
+      if (isNd(x)) {
+        if (x.shape.length === 2) return batch(x.data, x.shape[0], x.shape[1]);
+        if (x.shape.length === 1) return event(x.data);
+        throw new TypeError(`expected a (T, K) array or one row, got shape [${x.shape}]`);
+      }
+      if (isTyped(x) || isNumArr(x)) return asRowOut(x);
+      if (Array.isArray(x) && x.length > 0 && x.every((r) => isTyped(r) || isNumArr(r))) return rowsBatch(x);
+      if (isAsyncIter(x)) return agen(x);
+      if (isSyncIter(x)) return gen(x);
+      throw new TypeError("expected a (T, K) array, an array of rows, one row, or an iterable of rows");
+    } catch (e) { throw normalizeError(e); }
+  };
+
+  const op = call as ScreamerOp;
+  op.reset = () => { if (disposed) throw new Error("operation used after dispose()"); raw.reset(); };
+  op.dispose = free;
+  (op as any)[Symbol.dispose] = free;
+  REG.register(op, free);
+  return op;
+}

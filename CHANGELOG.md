@@ -7,6 +7,14 @@ Unreleased
 
 ### Added
 
+* **Cross-sectional operators:** `CrossRank`, `CrossZscore`, `CrossDemean`,
+  `CrossWinsorize`, `CrossNormalize`, and `CrossTopBottom` transform each row
+  of a `(T, K)` array across its `K` assets, ignoring assets that are NaN on
+  that row. `CrossNormalize` scales scores to portfolio weights with a gross
+  exposure and an optional net exposure (`net=0` is dollar-neutral). They run
+  on a `(T, K)` array, one row, or a stream of rows, in Python and
+  JavaScript/WASM.
+
 * **Every statistic of every randomized run:** `position_test` and
   `strategy_test` (and `positionTest`/`strategyTest` in JavaScript) return
   `observed_stats` and `null_stats`: all `backtest_report` summary statistics

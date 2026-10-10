@@ -46,6 +46,8 @@ NON_OP_CLASS_NAMES = {
     "LazyAsyncIterator",
     "AnextAwaitable",
     "PortfolioReportLazyIterator",
+    "RowOp",
+    "RowOpLazyIterator",
 }
 
 # Matches `nb::class_<...anything, possibly with nested <>...>(m, "NAME")`.

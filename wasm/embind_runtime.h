@@ -69,6 +69,27 @@ inline void reduceBatchInto(Op& op, std::uintptr_t inPtr, std::uintptr_t outPtr,
     op.reset();
 }
 
+// ---- Cross-sectional (row) ops --------------------------------------------
+//
+// A RowOp maps one row of k values to k values; k is a data dimension, so it
+// travels per call. mapRowsInto runs `rows` events of k values (row-major) and
+// brackets the run with reset(), like a batch call in Python.
+
+template <class Op>
+inline void mapRowInto(Op& op, std::uintptr_t inPtr, std::uintptr_t outPtr, std::size_t k) {
+    op.call_row(reinterpret_cast<const double*>(inPtr), reinterpret_cast<double*>(outPtr), k);
+}
+
+template <class Op>
+inline void mapRowsInto(Op& op, std::uintptr_t inPtr, std::uintptr_t outPtr,
+                        std::size_t rows, std::size_t k) {
+    const double* in = reinterpret_cast<const double*>(inPtr);
+    double* out = reinterpret_cast<double*>(outPtr);
+    op.reset();
+    for (std::size_t r = 0; r < rows; ++r) op.call_row(in + r * k, out + r * k, k);
+    op.reset();
+}
+
 inline std::uintptr_t allocF64(std::size_t n) {
     return reinterpret_cast<std::uintptr_t>(std::malloc(n * sizeof(double)));
 }

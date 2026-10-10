@@ -79,10 +79,21 @@ _EW_AUTO_EXCLUDE = {
 ew_classes = [cls for cls in screamer_classes
               if cls.startswith('Ew') and cls not in _EW_AUTO_EXCLUDE]
 
+# Cross-sectional (row) operators: each event is a row of K assets, so the
+# column-wise harnesses here cannot drive them. tests/test_cross_section.py does.
+def _row_ops():
+    import importlib.resources as _resources
+    import json as _json
+    entries = _json.loads(_resources.files("screamer").joinpath("data/help.json").read_text())
+    return frozenset(n for n, e in entries.items() if e.get("implementation_family") == "cross")
+
+
+ROW_OPS = _row_ops()
+
 # Classes that have no arguments. Some no-arg classes are multi-input
 # (FunctorBase<_, N, _>) or multi-output (FunctorBase<_, _, M>), which the
 # 1-in/1-out auto harness can't drive. Tested in their own files instead.
-_NO_ARG_AUTO_EXCLUDE = {
+_NO_ARG_AUTO_EXCLUDE = set(ROW_OPS) | {
     # 2-input (FunctorBase<_, 2, _>) - need two parallel arrays
     'Hypot', 'Atan2', 'Cart2Polar', 'Polar2Cart',
     # binary arithmetic (FunctorBase<_, 2, 1>) - tested in test_arithmetic.py
@@ -250,6 +261,10 @@ PARITY_EXEMPT.update({
 PARITY_EXEMPT['PortfolioReport'] = (
     'dynamic-width multi-asset reducer; driven by test_backtest.py'
 )
+PARITY_EXEMPT.update({
+    name: "cross-sectional row operator; driven by test_cross_section.py"
+    for name in ROW_OPS
+})
 
 
 def _auto_adopted_classes():

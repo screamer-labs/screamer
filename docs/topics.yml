@@ -55,6 +55,11 @@ groups:
     desc: "Align and reshape event streams, and wire operators into a runnable pipeline."
     topics: [streams, graphs]
 
+  portfolio:
+    name: "Portfolio & cross-section"
+    desc: "Compare assets with each other at each step and turn scores into portfolio weights."
+    topics: [cross-sectional]
+
   machine-learning:
     name: "Machine learning"
     desc: "Utilities for building supervised learning datasets from time-series data."
@@ -132,6 +137,10 @@ topics:
   backtesting:
     name: "Backtesting"
     desc: "Simulate a strategy against market data into a costed equity curve: signals, bars, the trade tape, and top-of-book quotes."
+
+  cross-sectional:
+    name: "Cross-sectional"
+    desc: "Transforms across the assets of one time step: ranks, z-scores, demeaning, winsorizing, and weight normalization."
 
   missing-data:
     name: "Missing data"

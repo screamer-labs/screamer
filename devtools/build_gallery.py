@@ -79,7 +79,14 @@ def extract_plot_code(text: str) -> str | None:
     m = PLOTLY_RE.search(text)
     if not m:
         return None
-    return textwrap.dedent(m.group(2)).strip() + "\n"
+    # The directive body is the indented block; an unindented line (prose or a
+    # second directive in the same eval-rst fence) ends it.
+    body = []
+    for line in m.group(2).splitlines():
+        if line.strip() and not line[0].isspace():
+            break
+        body.append(line)
+    return textwrap.dedent("\n".join(body)).strip() + "\n"
 
 
 def function_pages() -> list[dict]:

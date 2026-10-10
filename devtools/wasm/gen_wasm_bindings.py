@@ -121,6 +121,11 @@ def render_class(op: dict) -> str:
     if op.get("dynamic_reducer"):
         lines.append(f'        .function("reduceInto", &screamer_wasm::reduceInto<{cpp}>)')
         lines.append(f'        .function("reduceBatchInto", &screamer_wasm::reduceBatchInto<{cpp}>)')
+    # A cross-sectional op maps one row of K values to K values; K travels per
+    # call because it is a property of the data.
+    if op.get("row_op"):
+        lines.append(f'        .function("mapRowInto", &screamer_wasm::mapRowInto<{cpp}>)')
+        lines.append(f'        .function("mapRowsInto", &screamer_wasm::mapRowsInto<{cpp}>)')
     return "\n".join(lines) + ";"
 
 
@@ -194,6 +199,12 @@ def check(ops: list[dict]) -> int:
         for fn in ("reduceInto", "reduceBatchInto"):
             if f"&screamer_wasm::{fn}<{op['cpp_type']}>" not in text:
                 errors.append(f"reducer op {op['name']!r} has no {fn} registration")
+
+    row_ops = [op for op in ops if op.get("row_op")]
+    for op in row_ops:
+        for fn in ("mapRowInto", "mapRowsInto"):
+            if f"&screamer_wasm::{fn}<{op['cpp_type']}>" not in text:
+                errors.append(f"row op {op['name']!r} has no {fn} registration")
 
     if errors:
         for e in errors:

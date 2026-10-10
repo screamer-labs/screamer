@@ -1198,6 +1198,104 @@
     "source": "bindings/bindings_math.cpp"
   },
   {
+    "name": "CrossDemean",
+    "cpp_type": "screamer::CrossDemean",
+    "base": "RowOp",
+    "ctor": [],
+    "ctor_args": [],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_fin.cpp",
+    "row_op": true
+  },
+  {
+    "name": "CrossNormalize",
+    "cpp_type": "screamer::CrossNormalize",
+    "base": "RowOp",
+    "ctor": [
+      "double",
+      "std::optional<double>"
+    ],
+    "ctor_args": [
+      {
+        "name": "gross",
+        "default": "1.0"
+      },
+      {
+        "name": "net",
+        "default": null
+      }
+    ],
+    "ctor_kind": "ew_optional",
+    "source": "bindings/bindings_fin.cpp",
+    "row_op": true
+  },
+  {
+    "name": "CrossRank",
+    "cpp_type": "screamer::CrossRank",
+    "base": "RowOp",
+    "ctor": [
+      "std::string"
+    ],
+    "ctor_args": [
+      {
+        "name": "scale",
+        "default": "\"signed\""
+      }
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_fin.cpp",
+    "row_op": true
+  },
+  {
+    "name": "CrossTopBottom",
+    "cpp_type": "screamer::CrossTopBottom",
+    "base": "RowOp",
+    "ctor": [
+      "int"
+    ],
+    "ctor_args": [
+      {
+        "name": "count",
+        "default": "1"
+      }
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_fin.cpp",
+    "row_op": true
+  },
+  {
+    "name": "CrossWinsorize",
+    "cpp_type": "screamer::CrossWinsorize",
+    "base": "RowOp",
+    "ctor": [
+      "double",
+      "double"
+    ],
+    "ctor_args": [
+      {
+        "name": "lower",
+        "default": "0.05"
+      },
+      {
+        "name": "upper",
+        "default": "0.95"
+      }
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_fin.cpp",
+    "row_op": true
+  },
+  {
+    "name": "CrossZscore",
+    "cpp_type": "screamer::CrossZscore",
+    "base": "RowOp",
+    "ctor": [],
+    "ctor_args": [],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_fin.cpp",
+    "row_op": true
+  },
+  {
     "name": "Cube",
     "cpp_type": "screamer::Transform<(double (*)(double)) screamer::cube>",
     "base": "ScreamerBase",

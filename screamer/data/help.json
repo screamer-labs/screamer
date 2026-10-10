@@ -1,4 +1,236 @@
 {
+  "CrossDemean": {
+    "name": "CrossDemean",
+    "title": "Subtract the row mean",
+    "implementation_family": "cross",
+    "topics": [
+      "cross-sectional"
+    ],
+    "tags": [
+      "demean",
+      "market neutral",
+      "cross-sectional"
+    ],
+    "short": "Subtract the mean across assets at each step, removing the common component.",
+    "inputs": 1,
+    "outputs": 1,
+    "parameters": [],
+    "nan_policy": "ignore",
+    "see_also": [
+      "CrossZscore",
+      "CrossNormalize"
+    ],
+    "details": "## Description\n\n`CrossDemean` subtracts the mean of the row, taken over the assets that are not\n`NaN`, from every asset. What is left is each asset's value relative to the\nothers. Applied to returns it removes the move the assets share, and applied\nto scores it gives weights that sum to zero, a starting point for a\nmarket-neutral book.\n\nIt is a cross-sectional operator: each event is one row of `K` values, one per\nasset, and the output is a row of `K` values computed from that row alone. Call\nit on a `(T, K)` array to process `T` rows, on one row of `K` values, or on an\niterator of rows to stream them. The number of assets is fixed by the first row\nafter `reset()`.\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\nA `NaN` entry is an asset that is not available on that row, for example one\nthat is not listed yet or is halted. It is left out of the cross-section, and\nits output is `NaN`. A row that is all `NaN` returns all `NaN`.\n<!-- NAN_FOOTNOTE_END -->",
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage example",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom screamer import CrossDemean\n\nrng = np.random.default_rng(3)\nnames = ['A', 'B', 'C', 'D', 'E', 'F']\nreturns = rng.standard_normal((250, 6)) * 0.01 + np.linspace(-4e-4, 4e-4, 6)\nprices = 100 * np.exp(np.cumsum(returns, axis=0))\nmomentum = np.log(prices[60:] / prices[:-60])         # 60-day return per asset\nrelative = CrossDemean()(returns)                   # each asset's return minus the average\nrelative_prices = 100 * np.exp(np.cumsum(relative, axis=0))\n\nfig = go.Figure()\nfor k, name in enumerate(names):\n    fig.add_trace(go.Scatter(y=relative_prices[:, k], mode='lines', name=name))\nfig.update_layout(title='Performance relative to the average of the six assets',\n                  xaxis_title='Step', yaxis_title='Relative price',\n                  margin=dict(l=20, r=20, t=80, b=20))\nfig.show()"
+      }
+    ]
+  },
+  "CrossNormalize": {
+    "name": "CrossNormalize",
+    "title": "Scale a row of scores into portfolio weights",
+    "implementation_family": "cross",
+    "topics": [
+      "cross-sectional"
+    ],
+    "tags": [
+      "weights",
+      "normalize",
+      "gross exposure",
+      "dollar neutral",
+      "portfolio"
+    ],
+    "short": "Scale each row of scores to portfolio weights with a chosen gross exposure, and optionally a net exposure.",
+    "inputs": 1,
+    "outputs": 1,
+    "parameters": [
+      {
+        "name": "gross",
+        "type": "float",
+        "default": 1.0,
+        "description": "Sum of the absolute weights of each row."
+      },
+      {
+        "name": "net",
+        "type": "float|null",
+        "default": null,
+        "description": "Sum of the weights of each row, in [-gross, gross]. None (the default) keeps the signs of the scores and sets no net target."
+      }
+    ],
+    "nan_policy": "ignore",
+    "see_also": [
+      "CrossRank",
+      "CrossDemean",
+      "CrossTopBottom"
+    ],
+    "details": "## Description\n\n`CrossNormalize` turns a row of scores into weights.\n\n- With the default `net=None`, it scales the row so the absolute weights sum to\n  `gross`, keeping each score's sign: `w = x * gross / sum(|x|)`.\n- With `net` set, it first subtracts the row mean, then scales the positive\n  side to sum to `(gross + net) / 2` and the negative side to\n  `(gross - net) / 2`. The weights then have gross exposure `gross` and net\n  exposure `net`; `net=0` is dollar-neutral.\n\nA row with nothing to scale (all zeros, or all equal with a net target) gives\nzero weights. Combine it with [`CrossRank`](CrossRank.md) for a rank-weighted\nlong/short portfolio.\n\nIt is a cross-sectional operator: each event is one row of `K` values, one per\nasset, and the output is a row of `K` values computed from that row alone. Call\nit on a `(T, K)` array to process `T` rows, on one row of `K` values, or on an\niterator of rows to stream them. The number of assets is fixed by the first row\nafter `reset()`.\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\nA `NaN` entry is an asset that is not available on that row, for example one\nthat is not listed yet or is halted. It is left out of the cross-section, and\nits output is `NaN`. A row that is all `NaN` returns all `NaN`.\n<!-- NAN_FOOTNOTE_END -->",
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage example",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom screamer import CrossNormalize, CrossRank\n\nrng = np.random.default_rng(3)\nnames = ['A', 'B', 'C', 'D', 'E', 'F']\nreturns = rng.standard_normal((250, 6)) * 0.01 + np.linspace(-4e-4, 4e-4, 6)\nprices = 100 * np.exp(np.cumsum(returns, axis=0))\nmomentum = np.log(prices[60:] / prices[:-60])         # 60-day return per asset\nweights = CrossNormalize(gross=1.0, net=0.0)(CrossRank()(momentum))\n\nfig = go.Figure()\nfor k, name in enumerate(names):\n    fig.add_trace(go.Scatter(y=weights[:, k], mode='lines', name=name))\nfig.add_trace(go.Scatter(y=np.nansum(np.abs(weights), axis=1), mode='lines', name='gross',\n                         line=dict(color='black', dash='dash')))\nfig.update_layout(title='Dollar-neutral rank weights with gross exposure 1',\n                  xaxis_title='Step', yaxis_title='Weight',\n                  margin=dict(l=20, r=20, t=80, b=20))\nfig.show()"
+      }
+    ]
+  },
+  "CrossRank": {
+    "name": "CrossRank",
+    "title": "Rank of each asset within the row",
+    "implementation_family": "cross",
+    "topics": [
+      "cross-sectional"
+    ],
+    "tags": [
+      "rank",
+      "cross-sectional",
+      "portfolio",
+      "factor"
+    ],
+    "short": "Rank each asset against the others at the same step, scaled to [-1, 1] or [0, 1].",
+    "inputs": 1,
+    "outputs": 1,
+    "parameters": [
+      {
+        "name": "scale",
+        "type": "str",
+        "default": "signed",
+        "description": "Output range: \"signed\" maps the lowest value to -1 and the highest to 1; \"unit\" maps them to 0 and 1."
+      }
+    ],
+    "nan_policy": "ignore",
+    "see_also": [
+      "CrossZscore",
+      "CrossTopBottom",
+      "CrossNormalize",
+      "RollingRank"
+    ],
+    "details": "## Description\n\n`CrossRank` ranks the assets of each row by value. Equal values share their\naverage rank. The ranks are scaled so the lowest value maps to `-1` and the\nhighest to `1` (`scale=\"signed\"`, the default), or to `0` and `1`\n(`scale=\"unit\"`). A row with one valid asset gives the midpoint, `0` or `0.5`.\n\nRanks are robust to outliers and to the scale of the scores, so they are a\ncommon first step in turning a factor score into portfolio weights:\n`CrossNormalize` then scales the ranks to a gross exposure.\n\nIt is a cross-sectional operator: each event is one row of `K` values, one per\nasset, and the output is a row of `K` values computed from that row alone. Call\nit on a `(T, K)` array to process `T` rows, on one row of `K` values, or on an\niterator of rows to stream them. The number of assets is fixed by the first row\nafter `reset()`.\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\nA `NaN` entry is an asset that is not available on that row, for example one\nthat is not listed yet or is halted. It is left out of the cross-section, and\nits output is `NaN`. A row that is all `NaN` returns all `NaN`.\n<!-- NAN_FOOTNOTE_END -->",
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage example",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom screamer import CrossRank\n\nrng = np.random.default_rng(3)\nnames = ['A', 'B', 'C', 'D', 'E', 'F']\nreturns = rng.standard_normal((250, 6)) * 0.01 + np.linspace(-4e-4, 4e-4, 6)\nprices = 100 * np.exp(np.cumsum(returns, axis=0))\nmomentum = np.log(prices[60:] / prices[:-60])         # 60-day return per asset\nranks = CrossRank()(momentum)                       # (T, 6), in [-1, 1]\n\nfig = go.Figure()\nfor k, name in enumerate(names):\n    fig.add_trace(go.Scatter(y=ranks[:, k], mode='lines', name=name))\nfig.update_layout(title='CrossRank of 60-day momentum across six assets',\n                  xaxis_title='Step', yaxis_title='Signed rank',\n                  margin=dict(l=20, r=20, t=80, b=20))\nfig.show()"
+      }
+    ]
+  },
+  "CrossTopBottom": {
+    "name": "CrossTopBottom",
+    "title": "Long the top, short the bottom of each row",
+    "implementation_family": "cross",
+    "topics": [
+      "cross-sectional"
+    ],
+    "tags": [
+      "long short",
+      "quantile portfolio",
+      "selection",
+      "cross-sectional"
+    ],
+    "short": "+1 for the highest values of each row, -1 for the lowest, 0 for the rest.",
+    "inputs": 1,
+    "outputs": 1,
+    "parameters": [
+      {
+        "name": "count",
+        "type": "int",
+        "default": 1,
+        "description": "Number of assets on each side."
+      }
+    ],
+    "nan_policy": "ignore",
+    "see_also": [
+      "CrossRank",
+      "CrossNormalize"
+    ],
+    "details": "## Description\n\n`CrossTopBottom` selects the `count` assets with the highest values of each row\n(`+1`) and the `count` with the lowest (`-1`), and gives `0` to the rest. Ties\nare broken by column order: of two equal values, the earlier column ranks\nlower. With fewer than `2 * count` valid assets, `count` is reduced to half of\nthem so no asset is on both sides, and a row whose valid values are all equal\ngives `0` for every asset.\n\nPass the result to [`CrossNormalize`](CrossNormalize.md) for equal weights per\nside.\n\nIt is a cross-sectional operator: each event is one row of `K` values, one per\nasset, and the output is a row of `K` values computed from that row alone. Call\nit on a `(T, K)` array to process `T` rows, on one row of `K` values, or on an\niterator of rows to stream them. The number of assets is fixed by the first row\nafter `reset()`.\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\nA `NaN` entry is an asset that is not available on that row, for example one\nthat is not listed yet or is halted. It is left out of the cross-section, and\nits output is `NaN`. A row that is all `NaN` returns all `NaN`.\n<!-- NAN_FOOTNOTE_END -->",
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage example",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom screamer import CrossTopBottom\n\nrng = np.random.default_rng(3)\nnames = ['A', 'B', 'C', 'D', 'E', 'F']\nreturns = rng.standard_normal((250, 6)) * 0.01 + np.linspace(-4e-4, 4e-4, 6)\nprices = 100 * np.exp(np.cumsum(returns, axis=0))\nmomentum = np.log(prices[60:] / prices[:-60])         # 60-day return per asset\nsides = CrossTopBottom(count=2)(momentum)\n\nfig = go.Figure(go.Heatmap(z=sides.T, y=names, colorscale=[[0, 'crimson'], [0.5, 'white'], [1, 'seagreen']],\n                           zmin=-1, zmax=1, showscale=False))\nfig.update_layout(title='CrossTopBottom(count=2): long the two strongest, short the two weakest',\n                  xaxis_title='Step', margin=dict(l=20, r=20, t=80, b=20))\nfig.show()"
+      }
+    ]
+  },
+  "CrossWinsorize": {
+    "name": "CrossWinsorize",
+    "title": "Clip each row to its quantiles",
+    "implementation_family": "cross",
+    "topics": [
+      "cross-sectional"
+    ],
+    "tags": [
+      "winsorize",
+      "outliers",
+      "clip",
+      "cross-sectional"
+    ],
+    "short": "Clip each asset's value to the lower and upper quantiles of its row.",
+    "inputs": 1,
+    "outputs": 1,
+    "parameters": [
+      {
+        "name": "lower",
+        "type": "float",
+        "default": 0.05,
+        "description": "Lower quantile in [0, 1]."
+      },
+      {
+        "name": "upper",
+        "type": "float",
+        "default": 0.95,
+        "description": "Upper quantile in [lower, 1]."
+      }
+    ],
+    "nan_policy": "ignore",
+    "see_also": [
+      "CrossZscore",
+      "Clip",
+      "Hampel"
+    ],
+    "details": "## Description\n\n`CrossWinsorize` computes the `lower` and `upper` quantiles of each row, over the\nassets that are not `NaN`, and clips every value to that range. The quantiles\nuse linear interpolation between order statistics, the same as numpy's default\n`quantile`. Use it before [`CrossZscore`](CrossZscore.md) or\n[`CrossNormalize`](CrossNormalize.md) so one extreme score does not dominate\nthe weights.\n\nIt is a cross-sectional operator: each event is one row of `K` values, one per\nasset, and the output is a row of `K` values computed from that row alone. Call\nit on a `(T, K)` array to process `T` rows, on one row of `K` values, or on an\niterator of rows to stream them. The number of assets is fixed by the first row\nafter `reset()`.\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\nA `NaN` entry is an asset that is not available on that row, for example one\nthat is not listed yet or is halted. It is left out of the cross-section, and\nits output is `NaN`. A row that is all `NaN` returns all `NaN`.\n<!-- NAN_FOOTNOTE_END -->",
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage example",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom screamer import CrossWinsorize\n\nrng = np.random.default_rng(3)\nnames = ['A', 'B', 'C', 'D', 'E', 'F']\nreturns = rng.standard_normal((250, 6)) * 0.01 + np.linspace(-4e-4, 4e-4, 6)\nprices = 100 * np.exp(np.cumsum(returns, axis=0))\nmomentum = np.log(prices[60:] / prices[:-60])         # 60-day return per asset\nscores = momentum.copy()\nscores[100, 2] = 1.5                                # one bad data point\nclipped = CrossWinsorize(0.1, 0.9)(scores)\n\nfig = go.Figure()\nfig.add_trace(go.Scatter(y=scores[:, 2], mode='lines', name='C, raw'))\nfig.add_trace(go.Scatter(y=clipped[:, 2], mode='lines', name='C, winsorized'))\nfig.update_layout(title='CrossWinsorize limits a bad value to the range of the other assets',\n                  xaxis_title='Step', yaxis_title='Score',\n                  margin=dict(l=20, r=20, t=80, b=20))\nfig.show()"
+      }
+    ]
+  },
+  "CrossZscore": {
+    "name": "CrossZscore",
+    "title": "Z-score of each asset within the row",
+    "implementation_family": "cross",
+    "topics": [
+      "cross-sectional"
+    ],
+    "tags": [
+      "z-score",
+      "standardize",
+      "cross-sectional",
+      "factor"
+    ],
+    "short": "Standardize each asset against the others at the same step: (x - mean) / std across the row.",
+    "inputs": 1,
+    "outputs": 1,
+    "parameters": [],
+    "nan_policy": "ignore",
+    "see_also": [
+      "CrossRank",
+      "CrossDemean",
+      "CrossWinsorize",
+      "RollingZscore"
+    ],
+    "details": "## Description\n\n`CrossZscore` subtracts the row mean and divides by the row's sample standard\ndeviation (`ddof=1`), both taken over the assets that are not `NaN`. The result\nsays how many standard deviations each asset is above or below the others at\nthat step. A row whose valid values are all equal gives `0`, and a row with\none valid asset gives `NaN`.\n\nUnlike ranks, z-scores keep the distances between assets, so one extreme value\ncan dominate. Apply [`CrossWinsorize`](CrossWinsorize.md) first when the\nscores have outliers.\n\nIt is a cross-sectional operator: each event is one row of `K` values, one per\nasset, and the output is a row of `K` values computed from that row alone. Call\nit on a `(T, K)` array to process `T` rows, on one row of `K` values, or on an\niterator of rows to stream them. The number of assets is fixed by the first row\nafter `reset()`.\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\nA `NaN` entry is an asset that is not available on that row, for example one\nthat is not listed yet or is halted. It is left out of the cross-section, and\nits output is `NaN`. A row that is all `NaN` returns all `NaN`.\n<!-- NAN_FOOTNOTE_END -->",
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage example",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom screamer import CrossZscore\n\nrng = np.random.default_rng(3)\nnames = ['A', 'B', 'C', 'D', 'E', 'F']\nreturns = rng.standard_normal((250, 6)) * 0.01 + np.linspace(-4e-4, 4e-4, 6)\nprices = 100 * np.exp(np.cumsum(returns, axis=0))\nmomentum = np.log(prices[60:] / prices[:-60])         # 60-day return per asset\nz = CrossZscore()(momentum)\n\nfig = go.Figure()\nfor k, name in enumerate(names):\n    fig.add_trace(go.Scatter(y=z[:, k], mode='lines', name=name))\nfig.update_layout(title='CrossZscore of 60-day momentum across six assets',\n                  xaxis_title='Step', yaxis_title='Z-score within the row',\n                  margin=dict(l=20, r=20, t=80, b=20))\nfig.show()"
+      }
+    ]
+  },
   "Pipeline": {
     "name": "Pipeline",
     "title": "Pipeline",

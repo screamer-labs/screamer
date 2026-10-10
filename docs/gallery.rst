@@ -1948,3 +1948,54 @@ Align and reshape event streams, and wire operators into a runnable pipeline.
       :img-top: _static/gallery/functions_streams__Delay.webp
       :img-alt: Delay example plot
       :class-card: gallery-card
+
+Portfolio & cross-section
+-------------------------
+
+Compare assets with each other at each step and turn scores into portfolio weights.
+
+.. grid:: 2 3 4 4
+   :gutter: 2
+   :class-container: gallery-grid
+
+   .. grid-item-card:: CrossDemean
+      :link: functions_cross/CrossDemean
+      :link-type: doc
+      :img-top: _static/gallery/functions_cross__CrossDemean.webp
+      :img-alt: CrossDemean example plot
+      :class-card: gallery-card
+
+   .. grid-item-card:: CrossNormalize
+      :link: functions_cross/CrossNormalize
+      :link-type: doc
+      :img-top: _static/gallery/functions_cross__CrossNormalize.webp
+      :img-alt: CrossNormalize example plot
+      :class-card: gallery-card
+
+   .. grid-item-card:: CrossRank
+      :link: functions_cross/CrossRank
+      :link-type: doc
+      :img-top: _static/gallery/functions_cross__CrossRank.webp
+      :img-alt: CrossRank example plot
+      :class-card: gallery-card
+
+   .. grid-item-card:: CrossTopBottom
+      :link: functions_cross/CrossTopBottom
+      :link-type: doc
+      :img-top: _static/gallery/functions_cross__CrossTopBottom.webp
+      :img-alt: CrossTopBottom example plot
+      :class-card: gallery-card
+
+   .. grid-item-card:: CrossWinsorize
+      :link: functions_cross/CrossWinsorize
+      :link-type: doc
+      :img-top: _static/gallery/functions_cross__CrossWinsorize.webp
+      :img-alt: CrossWinsorize example plot
+      :class-card: gallery-card
+
+   .. grid-item-card:: CrossZscore
+      :link: functions_cross/CrossZscore
+      :link-type: doc
+      :img-top: _static/gallery/functions_cross__CrossZscore.webp
+      :img-alt: CrossZscore example plot
+      :class-card: gallery-card

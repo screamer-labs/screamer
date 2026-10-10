@@ -45,7 +45,10 @@ HELP: dict[str, dict] = json.loads(HELP_JSON.read_text())
 # PortfolioReport consumes a dynamic-width (time, assets, 4) engine tensor;
 # its reset and causal behavior are tested in tests/test_backtest.py rather than
 # the fixed-width scalar/DAG harness below.
-DYNAMIC_WIDTH_FUNCTORS = {"PortfolioReport"}
+DYNAMIC_WIDTH_FUNCTORS = {"PortfolioReport"} | {
+    # Cross-sectional row operators: tests/test_cross_section.py covers them.
+    n for n, e in HELP.items() if e.get("implementation_family") == "cross"
+}
 FUNCTORS = {
     name: entry
     for name, entry in HELP.items()
@@ -66,7 +69,7 @@ KNOWN_NOT_CAUSAL: set[str] = set()
 # per-operator adapter. Their regime equality is asserted in their own files.
 KNOWN_NO_GENERIC_REGIME: set[str] = {
     "PortfolioReport",  # dynamic-width batch/stream reducer; bespoke tests cover it
-}
+} | DYNAMIC_WIDTH_FUNCTORS
 
 
 def _instantiate(entry: dict):

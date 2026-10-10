@@ -34,6 +34,11 @@ HELP_JSON = importlib.resources.files("screamer").joinpath("data/help.json")
 # known-answer tests instead, which they have in tests/test_backtest.py.
 _NO_EXTERNAL = "execution simulator; no external library implements this fill model"
 
+# Cross-sectional row operators: the baseline harness drives one series, not a
+# row of assets, so tests/test_cross_section.py compares them with pandas and
+# numpy row by row instead.
+_ROW_REFERENCE = "cross-sectional; compared with pandas/numpy in tests/test_cross_section.py"
+
 # No reference written yet. This is the worklist.
 _TODO = "no reference implementation written yet"
 
@@ -53,6 +58,12 @@ BASELINE_GAP: dict[str, str] = {
     "BacktestTradesOrders": _NO_EXTERNAL,
     "BacktestTradesTarget": _NO_EXTERNAL,
     "BayesianRegression": _TODO,
+    "CrossDemean": _ROW_REFERENCE,
+    "CrossNormalize": _ROW_REFERENCE,
+    "CrossRank": _ROW_REFERENCE,
+    "CrossTopBottom": _ROW_REFERENCE,
+    "CrossWinsorize": _ROW_REFERENCE,
+    "CrossZscore": _ROW_REFERENCE,
     "BollingerBands": _TODO,
     "BulkVolumeClassifier": _TODO,
     "ContOFI": _TODO,

@@ -45,6 +45,7 @@ def generate_init_py(module, output_path='screamer/__init__.py'):
         "AnextAwaitable", "Awaiter",         # async iteration helpers
         "LazyAsyncIterator", "LazyEvalIterator", "LazyIterator",
         "PortfolioReportLazyIterator",
+        "RowOp", "RowOpLazyIterator",        # cross-sectional base + stream
     }
 
     # Get all classes and functions not starting with an underscore

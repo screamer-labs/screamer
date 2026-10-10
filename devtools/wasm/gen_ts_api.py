@@ -189,6 +189,8 @@ def _wrapper_for(op: dict) -> str:
     Dynamic-width reducers take the variable-group wrapper; every other op
     takes the fixed-width one.
     """
+    if op.get("row_op"):
+        return "wrapRowOp"
     return "wrapReducerOp" if op.get("dynamic_reducer") else "wrapOp"
 
 
@@ -253,6 +255,8 @@ def render_ops_ts(ops: list[dict], help_map: dict) -> str:
     wrappers = ["wrapOp"]
     if any(op.get("dynamic_reducer") for op in ops):
         wrappers.append("wrapReducerOp")
+    if any(op.get("row_op") for op in ops):
+        wrappers.append("wrapRowOp")
     out = [HEADER]
     out.append(
         f'import {{ {", ".join(wrappers)}, type ScreamerOp }} from "../runtime.js";'

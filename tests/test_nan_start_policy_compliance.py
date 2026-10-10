@@ -182,7 +182,10 @@ def _mark(known: set, key, label: str):
     return ()
 
 
-DYNAMIC_WIDTH_FUNCTORS = {"PortfolioReport"}
+DYNAMIC_WIDTH_FUNCTORS = {"PortfolioReport"} | {
+    # Cross-sectional row operators: tests/test_cross_section.py covers them.
+    n for n, e in HELP.items() if e.get("implementation_family") == "cross"
+}
 
 def _stream_batch_params():
     """Cartesian product (function, nan_position). nan-aware excluded."""

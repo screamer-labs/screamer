@@ -78,7 +78,7 @@ Simulate a strategy against market data into a costed equity curve: signals, bar
    * - :doc:`Backtest a target-position strategy against the trade tape </functions_fin/BacktestTradesTarget>`
      - Backtest a target-position strategy against the trade tape, taking each print as a market fill to reach the target immediately.
    * - :doc:`Choosing a backtest engine </functions_fin/choosing_a_backtest_engine>`
-     - The 5x2 engine grid by data model and order definition, with fill rules and encoding.
+     - The engine grid by data model and order definition, with fill rules, sizing, volume limits, and encoding.
    * - :doc:`circular_shift </functions_fin/circular_shift>`
      - Randomly rotated copies of a series, for randomization tests.
    * - :doc:`deflated_sharpe </functions_fin/deflated_sharpe>`
