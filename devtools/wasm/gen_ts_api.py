@@ -26,7 +26,7 @@ The C++ ctor types drive the emitted TS types (not the annotation defaults):
 
     int / double / std::optional<double> -> number
     std::string                          -> string
-    std::vector<double>                  -> number[]
+    std::vector<double>                  -> number | number[] (a bare number is one entry)
 
 ``std::optional<double>`` parameters default to ``NaN`` (the missing-optional
 sentinel that the C++ side reads back as an absent value). ``std::vector<double>``
@@ -63,7 +63,7 @@ TS_TYPE = {
     "double": "number",
     "std::optional<double>": "number",
     "std::string": "string",
-    "std::vector<double>": "number[]",
+    "std::vector<double>": "number | number[]",
 }
 
 
@@ -168,7 +168,8 @@ def _factory_body(name: str, params: list[dict], wrapper: str = "wrapOp") -> str
         if p["is_vec"]:
             v = f"_v{idx}"
             lines.append(f"  const {v} = new M.VectorDouble();")
-            lines.append(f"  for (const _x of {p['name']}) {v}.push_back(_x);")
+            # A bare number is the one-entry vector (one value for all assets).
+            lines.append(f"  for (const _x of (typeof {p['name']} === \"number\" ? [{p['name']}] : {p['name']})) {v}.push_back(_x);")
             call_args.append(v)
         else:
             call_args.append(p["name"])

@@ -5,6 +5,7 @@
 #include <nanobind/nanobind.h>
 #include <nanobind/stl/optional.h>
 #include <nanobind/stl/string.h>
+#include <nanobind/stl/vector.h>
 #include <nanobind/ndarray.h>
 #include "screamer/common/base.h"
 #include "screamer/common/dispatch.h"
@@ -37,6 +38,8 @@
 #include "screamer/portfolio_report.h"
 #include "screamer/common/row_op.h"
 #include "screamer/cross_section.h"
+#include "screamer/backtest_portfolio_target.h"
+#include "screamer/common/per_asset.h"
 #include "screamer/rolling_downside_deviation.h"
 #include "screamer/rolling_omega.h"
 #include "screamer/rolling_cvar.h"
@@ -54,6 +57,37 @@
 
 namespace nb = nanobind;
 using namespace nb::literals;
+
+// A per-asset parameter accepts a single number (one value for all assets) or
+// a sequence of numbers (one per asset).
+namespace nanobind { namespace detail {
+template <> struct type_caster<screamer::PerAsset> {
+    NB_TYPE_CASTER(screamer::PerAsset, const_name("float | Sequence[float]"))
+
+    bool from_python(handle src, uint8_t flags, cleanup_list* cleanup) noexcept {
+        if (!PySequence_Check(src.ptr())) {
+            const double d = PyFloat_AsDouble(src.ptr());
+            if (d == -1.0 && PyErr_Occurred()) {
+                PyErr_Clear();
+                return false;
+            }
+            value.values = {d};
+            return true;
+        }
+        make_caster<std::vector<double>> seq;
+        if (!seq.from_python(src, flags, cleanup)) return false;
+        value.values = seq.value;
+        return true;
+    }
+
+    // One value reads back as a number, the form a user passes it in.
+    static handle from_cpp(const screamer::PerAsset& v, rv_policy policy,
+                           cleanup_list* cleanup) noexcept {
+        if (v.values.size() == 1) return PyFloat_FromDouble(v.values[0]);
+        return make_caster<std::vector<double>>::from_cpp(v.values, policy, cleanup);
+    }
+};
+}} // namespace nanobind::detail
 
 namespace {
 
@@ -158,54 +192,68 @@ nb::object portfolio_report_call(screamer::PortfolioReport& self, nb::args args)
     throw nb::type_error("PortfolioReport input must be a numpy array or iterable of rows.");
 }
 
-// ---- Cross-sectional (row) operators -------------------------------------
+// ---- Row operators (cross-sectional operators, portfolio engines) ---------
 //
-// A RowOp event is one row of K values (one per asset). A (T, K) array is T
-// events and returns (T, K); a 1-D array or list is one row and returns one
-// row; an iterator of rows returns a lazy iterator of rows.
+// A RowOp event is one row of K assets with fields_in values per asset. With
+// (T, K) arrays, one per input field, the call is T events and returns (T, K)
+// (one output field) or (T, K, fields_out); with 1-D rows of K values it is one
+// event and returns (K,) or (K, fields_out). A single-field operator also
+// takes an iterator of rows and returns a lazy iterator of rows.
 
-nb::object row_op_row(screamer::RowOp& self, const screamer::detail::ContigDouble& v) {
-    const std::size_t k = v.shape[0];
-    double* out = new double[k ? k : 1];
-    try {
-        self.call_row(v.data.data(), out, k);
-    } catch (...) {
-        delete[] out;
-        throw;
-    }
-    return screamer::detail::make_owned_array(out, {k});
-}
-
-nb::object row_op_batch(screamer::RowOp& self, const screamer::detail::ContigDouble& v) {
-    const std::size_t time = v.shape[0], k = v.shape[1];
-    if (k == 0) throw nb::value_error("a cross-sectional input needs at least one column.");
-    double* out = new double[time * k ? time * k : 1];
-    self.reset();
-    try {
-        for (std::size_t t = 0; t < time; ++t)
-            self.call_row(v.data.data() + t * k, out + t * k, k);
-    } catch (...) {
-        delete[] out;
-        self.reset();
-        throw;
-    }
-    self.reset();
-    return screamer::detail::make_owned_array(out, {time, k});
-}
-
-nb::object row_op_dispatch(screamer::RowOp& self, nb::object input) {
-    if (screamer::detail::is_unsupported_dtype_array(input))
-        input = screamer::detail::coerce_to_f64(input);
-    if (!screamer::detail::is_ndarray(input)) {
+screamer::detail::ContigDouble row_op_input(nb::object x) {
+    if (screamer::detail::is_unsupported_dtype_array(x))
+        x = screamer::detail::coerce_to_f64(x);
+    if (!screamer::detail::is_ndarray(x)) {
         nb::module_ np = nb::module_::import_("numpy");
-        input = np.attr("asarray")(input, nb::arg("dtype") = np.attr("float64"));
+        x = np.attr("asarray")(x, nb::arg("dtype") = np.attr("float64"));
     }
-    auto v = screamer::detail::read_contig_double(nb::cast<nb::ndarray<nb::ro>>(input));
-    if (v.ndim() == 2) return row_op_batch(self, v);
-    if (v.ndim() == 1) return row_op_row(self, v);
-    throw nb::value_error(
-        "a cross-sectional operator takes a (T, K) array, one row of K values, "
-        "or an iterator of rows.");
+    return screamer::detail::read_contig_double(nb::cast<nb::ndarray<nb::ro>>(x));
+}
+
+std::vector<std::size_t> row_op_shape(std::size_t time, std::size_t k, std::size_t fo,
+                                      bool batch) {
+    std::vector<std::size_t> shape;
+    if (batch) shape.push_back(time);
+    shape.push_back(k);
+    if (fo > 1) shape.push_back(fo);
+    return shape;
+}
+
+nb::object row_op_run(screamer::RowOp& self,
+                      const std::vector<screamer::detail::ContigDouble>& fields) {
+    const std::size_t fi = self.fields_in(), fo = self.fields_out();
+    const std::size_t nd = fields[0].ndim();
+    if (nd != 1 && nd != 2)
+        throw nb::value_error(
+            "a row operator takes (T, K) arrays, rows of K values, or an iterator of rows.");
+    for (const auto& f : fields)
+        if (f.shape != fields[0].shape)
+            throw nb::value_error("all inputs of a row operator must have the same shape.");
+    const bool batch = nd == 2;
+    const std::size_t time = batch ? fields[0].shape[0] : 1;
+    const std::size_t k = fields[0].shape[nd - 1];
+    if (k == 0) throw nb::value_error("a row operator needs at least one asset.");
+    const std::size_t n_out = time * k * fo;
+    double* out = new double[n_out ? n_out : 1];
+    std::vector<double> event(fi * k);
+    if (batch) self.reset();
+    try {
+        for (std::size_t t = 0; t < time; ++t) {
+            const double* in = fields[0].data.data() + t * k;
+            if (fi > 1) {
+                for (std::size_t f = 0; f < fi; ++f)
+                    std::copy_n(fields[f].data.data() + t * k, k, event.data() + f * k);
+                in = event.data();
+            }
+            self.call_row(in, out + t * k * fo, k);
+        }
+    } catch (...) {
+        delete[] out;
+        if (batch) self.reset();
+        throw;
+    }
+    if (batch) self.reset();
+    return screamer::detail::make_owned_array(out, row_op_shape(time, k, fo, batch));
 }
 
 class RowOpLazyIterator {
@@ -218,16 +266,10 @@ public:
 
     nb::object next() {
         nb::object row = iterator_.attr("__next__")();
-        if (screamer::detail::is_unsupported_dtype_array(row))
-            row = screamer::detail::coerce_to_f64(row);
-        if (!screamer::detail::is_ndarray(row)) {
-            nb::module_ np = nb::module_::import_("numpy");
-            row = np.attr("asarray")(row, nb::arg("dtype") = np.attr("float64"));
-        }
-        auto v = screamer::detail::read_contig_double(nb::cast<nb::ndarray<nb::ro>>(row));
-        if (v.ndim() != 1)
-            throw nb::value_error("each event of a cross-sectional stream is one row of K values.");
-        return row_op_row(*op_, v);
+        std::vector<screamer::detail::ContigDouble> fields{row_op_input(row)};
+        if (fields[0].ndim() != 1)
+            throw nb::value_error("each event of a row stream is one row of K values.");
+        return row_op_run(*op_, fields);
     }
 
 private:
@@ -237,15 +279,19 @@ private:
 };
 
 nb::object row_op_call(screamer::RowOp& self, nb::args args) {
-    if (args.size() != 1)
-        throw nb::type_error("a cross-sectional operator takes one input: (T, K) values or a row.");
-    nb::object input = nb::borrow<nb::object>(args[0]);
-    if (screamer::is_dag_node(input))
-        throw nb::type_error("cross-sectional operators run on arrays and row streams, "
-                             "not inside a Pipeline.");
-    if (screamer::is_lazy_iterable(input))
-        return nb::cast(RowOpLazyIterator(nb::find(self), self, input));
-    return row_op_dispatch(self, input);
+    for (nb::handle a : args)
+        if (screamer::is_dag_node(nb::borrow<nb::object>(a)))
+            throw nb::type_error("row operators run on arrays and row streams, "
+                                 "not inside a Pipeline.");
+    if (args.size() != self.fields_in())
+        throw nb::type_error(("this operator takes " + std::to_string(self.fields_in()) +
+                              " inputs, got " + std::to_string(args.size()) + ".").c_str());
+    nb::object first = nb::borrow<nb::object>(args[0]);
+    if (self.fields_in() == 1 && screamer::is_lazy_iterable(first))
+        return nb::cast(RowOpLazyIterator(nb::find(self), self, first));
+    std::vector<screamer::detail::ContigDouble> fields;
+    for (nb::handle a : args) fields.push_back(row_op_input(nb::borrow<nb::object>(a)));
+    return row_op_run(self, fields);
 }
 
 } // namespace
@@ -686,6 +732,35 @@ void init_bindings_fin(nb::module_& m) {
 
     nb::class_<screamer::CrossTopBottom, screamer::RowOp>(m, "CrossTopBottom")
         .def(nb::init<int>(), "count"_a = 1);
+
+    nb::class_<screamer::BacktestPortfolioTarget, screamer::RowOp>(m, "BacktestPortfolioTarget")
+        .def(nb::init<screamer::PerAsset, screamer::PerAsset, const std::string&,
+                      screamer::PerAsset, screamer::PerAsset, screamer::PerAsset,
+                      const std::string&, double, double, const std::string&,
+                      double, double>(),
+             "fee"_a = screamer::PerAsset{0.0}, "slippage"_a = screamer::PerAsset{0.0},
+             "slippage_unit"_a = "fraction", "tick_size"_a = screamer::PerAsset{0.0},
+             "multiplier"_a = screamer::PerAsset{1.0},
+             "fee_per_contract"_a = screamer::PerAsset{0.0},
+             "size"_a = "weight", "initial_capital"_a = 1.0, "rebalance_band"_a = 0.0,
+             "rebalance"_a = "drifted",
+             "max_gross"_a = std::numeric_limits<double>::infinity(),
+             "max_net"_a = std::numeric_limits<double>::infinity());
+
+    nb::class_<screamer::BacktestPortfolioOHLCTarget, screamer::RowOp>(m, "BacktestPortfolioOHLCTarget")
+        .def(nb::init<screamer::PerAsset, screamer::PerAsset, const std::string&,
+                      screamer::PerAsset, screamer::PerAsset, screamer::PerAsset,
+                      const std::string&, double, double, const std::string&,
+                      double, double, const std::string&, int>(),
+             "fee"_a = screamer::PerAsset{0.0}, "slippage"_a = screamer::PerAsset{0.0},
+             "slippage_unit"_a = "fraction", "tick_size"_a = screamer::PerAsset{0.0},
+             "multiplier"_a = screamer::PerAsset{1.0},
+             "fee_per_contract"_a = screamer::PerAsset{0.0},
+             "size"_a = "weight", "initial_capital"_a = 1.0, "rebalance_band"_a = 0.0,
+             "rebalance"_a = "drifted",
+             "max_gross"_a = std::numeric_limits<double>::infinity(),
+             "max_net"_a = std::numeric_limits<double>::infinity(),
+             "fill_at"_a = "open", "delay"_a = 1);
 
     nb::class_<screamer::RollingDownsideDeviation, screamer::ScreamerBase>(m, "RollingDownsideDeviation")
         .def(nb::init<int, double, const std::string&>(),

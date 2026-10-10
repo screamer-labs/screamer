@@ -1411,6 +1411,20 @@ Turn signals into costed equity curves, and measure drawdown and performance.
       :img-alt: BacktestOHLCVTarget example plot
       :class-card: gallery-card
 
+   .. grid-item-card:: BacktestPortfolioOHLCTarget
+      :link: functions_fin/BacktestPortfolioOHLCTarget
+      :link-type: doc
+      :img-top: _static/gallery/functions_fin__BacktestPortfolioOHLCTarget.webp
+      :img-alt: BacktestPortfolioOHLCTarget example plot
+      :class-card: gallery-card
+
+   .. grid-item-card:: BacktestPortfolioTarget
+      :link: functions_fin/BacktestPortfolioTarget
+      :link-type: doc
+      :img-top: _static/gallery/functions_fin__BacktestPortfolioTarget.webp
+      :img-alt: BacktestPortfolioTarget example plot
+      :class-card: gallery-card
+
    .. grid-item-card:: BacktestPriceTarget
       :link: functions_fin/BacktestPriceTarget
       :link-type: doc

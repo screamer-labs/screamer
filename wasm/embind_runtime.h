@@ -8,6 +8,7 @@
 #include <tuple>
 #include "screamer/common/eval_op.h"
 #include "screamer/common/functor_base.h"
+#include "screamer/common/row_op.h"
 
 namespace screamer_wasm {
 
@@ -69,24 +70,31 @@ inline void reduceBatchInto(Op& op, std::uintptr_t inPtr, std::uintptr_t outPtr,
     op.reset();
 }
 
-// ---- Cross-sectional (row) ops --------------------------------------------
+// ---- Row ops (cross-sectional operators, portfolio engines) ---------------
 //
-// A RowOp maps one row of k values to k values; k is a data dimension, so it
-// travels per call. mapRowsInto runs `rows` events of k values (row-major) and
-// brackets the run with reset(), like a batch call in Python.
+// A RowOp event is one row of k assets: fieldsIn() * k values in (field-major),
+// k * fieldsOut() values out (asset-major); k is a data dimension, so it travels
+// per call. mapRowsInto runs `rows` such events laid end to end and brackets
+// the run with reset(), like a batch call in Python.
 
 template <class Op>
 inline void mapRowInto(Op& op, std::uintptr_t inPtr, std::uintptr_t outPtr, std::size_t k) {
     op.call_row(reinterpret_cast<const double*>(inPtr), reinterpret_cast<double*>(outPtr), k);
 }
 
+// The field counts as methods of the concrete class: embind does not attach a
+// base-class member pointer to a derived registration.
+template <class Op> inline std::size_t fieldsIn(Op& op) { return op.fields_in(); }
+template <class Op> inline std::size_t fieldsOut(Op& op) { return op.fields_out(); }
+
 template <class Op>
 inline void mapRowsInto(Op& op, std::uintptr_t inPtr, std::uintptr_t outPtr,
                         std::size_t rows, std::size_t k) {
     const double* in = reinterpret_cast<const double*>(inPtr);
     double* out = reinterpret_cast<double*>(outPtr);
+    const std::size_t ni = op.fields_in() * k, no = op.fields_out() * k;
     op.reset();
-    for (std::size_t r = 0; r < rows; ++r) op.call_row(in + r * k, out + r * k, k);
+    for (std::size_t r = 0; r < rows; ++r) op.call_row(in + r * ni, out + r * no, k);
     op.reset();
 }
 

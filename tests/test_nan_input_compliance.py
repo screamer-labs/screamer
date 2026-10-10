@@ -93,6 +93,13 @@ def _load_help() -> dict[str, dict]:
 HELP = _load_help()
 
 
+def _is_row_op(name):
+    """Row operators (cross-sectional ops, portfolio engines) take rows of K assets."""
+    cls = getattr(screamer, name, None)
+    from screamer.screamer_bindings import RowOp
+    return isinstance(cls, type) and issubclass(cls, RowOp)
+
+
 def _instantiate(entry: dict):
     cls = getattr(screamer, entry["name"])
     kwargs = {p["name"]: p["default"] for p in (entry.get("parameters") or [])}
@@ -229,8 +236,8 @@ _xfail_propagation = _xfail_if_in(
 # recovery/propagation properties below do not apply -- they are filtered out at
 # collection (rather than skipped in the body) so the suite reports no skips.
 _DYNAMIC_WIDTH_FUNCTORS = {"PortfolioReport"} | {
-    # Cross-sectional row operators: tests/test_cross_section.py covers them.
-    n for n, e in HELP.items() if e.get("implementation_family") == "cross"
+    # Row operators: tests/test_cross_section.py and test_portfolio.py cover them.
+    n for n in HELP if _is_row_op(n)
 }
 _FUNCTORS = {
     n: e for n, e in HELP.items()

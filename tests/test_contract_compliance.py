@@ -40,14 +40,21 @@ import screamer
 HELP_JSON = importlib.resources.files("screamer").joinpath("data/help.json")
 HELP: dict[str, dict] = json.loads(HELP_JSON.read_text())
 
+
+def _is_row_op(name):
+    """Row operators (cross-sectional ops, portfolio engines) take rows of K assets."""
+    cls = getattr(screamer, name, None)
+    from screamer.screamer_bindings import RowOp
+    return isinstance(cls, type) and issubclass(cls, RowOp)
+
 # Only compute functors carry these contracts. Stream operators and DAG nodes
 # (kind != "functor") have their own semantics and their own test files.
 # PortfolioReport consumes a dynamic-width (time, assets, 4) engine tensor;
 # its reset and causal behavior are tested in tests/test_backtest.py rather than
 # the fixed-width scalar/DAG harness below.
 DYNAMIC_WIDTH_FUNCTORS = {"PortfolioReport"} | {
-    # Cross-sectional row operators: tests/test_cross_section.py covers them.
-    n for n, e in HELP.items() if e.get("implementation_family") == "cross"
+    # Row operators: tests/test_cross_section.py and test_portfolio.py cover them.
+    n for n in HELP if _is_row_op(n)
 }
 FUNCTORS = {
     name: entry

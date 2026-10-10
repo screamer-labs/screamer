@@ -221,6 +221,44 @@ export declare function BacktestOHLCTarget(takerFee?: number, tickSize?: number,
  */
 export declare function BacktestOHLCVTarget(maxParticipation?: number, takerFee?: number, tickSize?: number, minPosition?: number, maxPosition?: number, multiplier?: number, feePerContract?: number, slippage?: number, slippageUnit?: string, fillAt?: string, delay?: number, stopLoss?: number, takeProfit?: number, trailingStop?: number, size?: string, initialCapital?: number, rebalanceBand?: number): ScreamerOp;
 /**
+ * Backtest K assets traded toward per-asset targets from one shared capital account on OHLC bars, executed delay bars later at a chosen bar price.
+ *
+ * @param fee Fractional fee on the traded notional, one value for all assets or one per asset.
+ * @param slippage Adverse price offset on every fill, read in `slippage_unit`, one value for all assets or one per asset.
+ * @param slippageUnit Unit of `slippage`: "fraction" of the reference price (5 bps = 5e-4), "ticks" of `tick_size`, or "price".
+ * @param tickSize Price grid per asset (0 = continuous). Slippage offsets round up to whole ticks.
+ * @param multiplier Contract multiplier per asset, applied to pnl, notional, and proportional fees.
+ * @param feePerContract Fixed fee per contract traded, one value for all assets or one per asset.
+ * @param size What a target means: "weight" (a fraction of portfolio equity), "notional" (a currency amount), or "units" (a position).
+ * @param initialCapital Starting capital. Portfolio equity is this plus the summed pnl of all assets; weights are fractions of it.
+ * @param rebalanceBand Trade a held asset back to its target when its holding drifts from it by more than this fraction of equity (0 = never). Needs size "weight" or "notional".
+ * @param rebalance When the band trips: "drifted" trades only the assets beyond it, "all" rebalances every asset that has a target.
+ * @param maxGross Largest gross exposure, sum of absolute position values over equity. Orders that exceed it are scaled down.
+ * @param maxNet Largest absolute net exposure, sum of position values over equity. Orders that exceed it are scaled down.
+ * @param fillAt Execution price on the execution bar: "open", "close", "typical" ((high + low + close) / 3), or "ohlc4".
+ * @param delay Bars between the bar a target is decided on (at its close) and the bar it executes on. 0 needs fill_at "close".
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
+export declare function BacktestPortfolioOHLCTarget(fee?: number | number[], slippage?: number | number[], slippageUnit?: string, tickSize?: number | number[], multiplier?: number | number[], feePerContract?: number | number[], size?: string, initialCapital?: number, rebalanceBand?: number, rebalance?: string, maxGross?: number, maxNet?: number, fillAt?: string, delay?: number): ScreamerOp;
+/**
+ * Backtest K assets traded toward per-asset target weights, notionals, or positions from one shared capital account, filled at each step's price.
+ *
+ * @param fee Fractional fee on the traded notional, one value for all assets or one per asset.
+ * @param slippage Adverse price offset on every fill, read in `slippage_unit`, one value for all assets or one per asset.
+ * @param slippageUnit Unit of `slippage`: "fraction" of the reference price (5 bps = 5e-4), "ticks" of `tick_size`, or "price".
+ * @param tickSize Price grid per asset (0 = continuous). Slippage offsets round up to whole ticks.
+ * @param multiplier Contract multiplier per asset, applied to pnl, notional, and proportional fees.
+ * @param feePerContract Fixed fee per contract traded, one value for all assets or one per asset.
+ * @param size What a target means: "weight" (a fraction of portfolio equity), "notional" (a currency amount), or "units" (a position).
+ * @param initialCapital Starting capital. Portfolio equity is this plus the summed pnl of all assets; weights are fractions of it.
+ * @param rebalanceBand Trade a held asset back to its target when its holding drifts from it by more than this fraction of equity (0 = never). Needs size "weight" or "notional".
+ * @param rebalance When the band trips: "drifted" trades only the assets beyond it, "all" rebalances every asset that has a target.
+ * @param maxGross Largest gross exposure, sum of absolute position values over equity. Orders that exceed it are scaled down.
+ * @param maxNet Largest absolute net exposure, sum of position values over equity. Orders that exceed it are scaled down.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
+export declare function BacktestPortfolioTarget(fee?: number | number[], slippage?: number | number[], slippageUnit?: string, tickSize?: number | number[], multiplier?: number | number[], feePerContract?: number | number[], size?: string, initialCapital?: number, rebalanceBand?: number, rebalance?: string, maxGross?: number, maxNet?: number): ScreamerOp;
+/**
  * Backtest a target position against a value series (price/mark) into a costed mark-to-market equity curve.
  *
  * @param spread Fractional bid-ask spread crossed on each trade (e.g. 0.0005 = 5 bps). Default 0 is frictionless.
@@ -1151,7 +1189,7 @@ export declare function Momentum(windowSize?: number, startPolicy?: string): Scr
  * @param taps FIR coefficients. Default is a 3-tap triangular kernel.
  * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
  */
-export declare function MovingAverage(taps?: number[]): ScreamerOp;
+export declare function MovingAverage(taps?: number | number[]): ScreamerOp;
 /**
  * Elementwise product of two aligned streams (x * y).
  *

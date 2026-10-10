@@ -291,90 +291,112 @@ export function wrapReducerOp(M: Screamer, raw: RawOp): ScreamerOp {
   return op;
 }
 
-// Wraps a cross-sectional (row) op: each event is one row of K values, one
-// per asset, and returns K values. K is a dimension of the data, fixed by the
-// first row after reset(), so it travels with every call.
+// Wraps a row op: each event is one row of K assets with fieldsIn() values
+// per asset (one value for a cross-sectional op; target and prices for a
+// portfolio engine), and returns fieldsOut() values per asset. K is a
+// dimension of the data, fixed by the first row after reset(), so it travels
+// with every call. With one input per field:
 //
-//   (T, K) NdArray or an array of rows  -> (T, K) NdArray (a batch)
-//   one row (Float64Array or number[])  -> one row of the same kind
-//   an iterable of rows                 -> a generator of rows
+//   (T, K) NdArrays or arrays of rows  -> (T, K) or (T, K, fieldsOut) NdArray
+//   one row each (Float64Array/number[]) -> one row, or a (K, fieldsOut) NdArray
+//   an iterable of rows (one field)     -> a generator of rows
 //
 // Mirrors the Python binding of screamer.RowOp.
 export function wrapRowOp(M: Screamer, raw: RawOp): ScreamerOp {
-  let rowIn = 0, rowOut = 0, cap = 0;
+  const fi = raw.fieldsIn!(), fo = raw.fieldsOut!();
+  let evIn = 0, evOut = 0, cap = 0;
   let disposed = false;
   const free = () => {
     if (disposed) return;
     disposed = true;
-    if (rowIn) { M.freeBuf(rowIn); M.freeBuf(rowOut); }
+    if (evIn) { M.freeBuf(evIn); M.freeBuf(evOut); }
     raw.delete();
   };
 
-  const event = (row: ArrayLike<number>): Float64Array => {
-    const k = row.length;
+  // One event from fi rows of k values each.
+  const event = (rows: ArrayLike<number>[]): Float64Array => {
+    const k = rows[0].length;
+    if (rows.some((r) => r.length !== k)) throw new TypeError("all inputs must hold the same number of assets");
     if (k > cap) {
-      if (rowIn) { M.freeBuf(rowIn); M.freeBuf(rowOut); }
-      rowIn = M.allocF64(k); rowOut = M.allocF64(k); cap = k;
+      if (evIn) { M.freeBuf(evIn); M.freeBuf(evOut); }
+      evIn = M.allocF64(fi * k); evOut = M.allocF64(fo * k); cap = k;
     }
-    M.viewF64(rowIn, k).set(row as number[]);
-    raw.mapRowInto!(rowIn, rowOut, k);
-    return new Float64Array(M.viewF64(rowOut, k));
+    const view = M.viewF64(evIn, fi * k);
+    rows.forEach((r, f) => view.set(r as number[], f * k));
+    raw.mapRowInto!(evIn, evOut, k);
+    return new Float64Array(M.viewF64(evOut, fo * k));
   };
 
-  const batch = (flat: ArrayLike<number>, rows: number, k: number): NdArray => {
-    if (k === 0) throw new TypeError("a cross-sectional input needs at least one column");
-    if (rows === 0) return { data: new Float64Array(0), shape: [0, k] };
-    const n = rows * k;
-    const inP = M.allocF64(n), outP = M.allocF64(n);
+  // T events from fi (T, K) blocks, each flat and row-major.
+  const batch = (blocks: ArrayLike<number>[], T: number, k: number): NdArray => {
+    if (k === 0) throw new TypeError("a row op needs at least one asset");
+    const shape = fo === 1 ? [T, k] : [T, k, fo];
+    if (T === 0) return { data: new Float64Array(0), shape };
+    const nIn = T * fi * k, nOut = T * fo * k;
+    const inP = M.allocF64(nIn), outP = M.allocF64(nOut);
     try {
-      M.viewF64(inP, n).set(flat as number[]);
-      raw.mapRowsInto!(inP, outP, rows, k);
-      return { data: new Float64Array(M.viewF64(outP, n)), shape: [rows, k] };
+      const view = M.viewF64(inP, nIn);
+      if (fi === 1) view.set(blocks[0] as number[]);
+      else for (let t = 0; t < T; t++)
+        for (let f = 0; f < fi; f++)
+          for (let j = 0; j < k; j++) view[(t * fi + f) * k + j] = blocks[f][t * k + j];
+      raw.mapRowsInto!(inP, outP, T, k);
+      return { data: new Float64Array(M.viewF64(outP, nOut)), shape };
     } finally {
       M.freeBuf(inP); M.freeBuf(outP);
     }
   };
 
-  const rowsBatch = (x: ArrayLike<number>[]): NdArray => {
-    const rows = x.length, k = x[0].length;
-    const flat = new Float64Array(rows * k);
-    x.forEach((r, i) => {
-      if (r.length !== k) throw new TypeError(`every row must hold ${k} values, got ${r.length} at row ${i}`);
-      flat.set(r as number[], i * k);
-    });
-    return batch(flat, rows, k);
+  // A (T, K) input as a flat block: an NdArray or an array of rows.
+  const asBlock = (x: any): { flat: ArrayLike<number>; T: number; k: number } | null => {
+    if (isNd(x)) {
+      if (x.shape.length !== 2) throw new TypeError(`expected a (T, K) array, got shape [${x.shape}]`);
+      return { flat: x.data, T: x.shape[0], k: x.shape[1] };
+    }
+    if (Array.isArray(x) && x.length > 0 && x.every((r) => isTyped(r) || isNumArr(r))) {
+      const T = x.length, k = x[0].length;
+      const flat = new Float64Array(T * k);
+      x.forEach((r: ArrayLike<number>, i: number) => {
+        if (r.length !== k) throw new TypeError(`every row must hold ${k} values, got ${r.length} at row ${i}`);
+        flat.set(r as number[], i * k);
+      });
+      return { flat, T, k };
+    }
+    return null;
   };
 
-  const asRowOut = (row: ArrayLike<number>): any => {
-    const out = event(row);
-    return isTyped(row) ? out : Array.from(out);
+  const eventOut = (rows: ArrayLike<number>[]): any => {
+    const out = event(rows);
+    if (fo !== 1) return { data: out, shape: [rows[0].length, fo] } as NdArray;
+    return isTyped(rows[0]) ? out : Array.from(out);
   };
 
   function* gen(src: Iterable<ArrayLike<number>>) {
     raw.reset();
-    for (const row of src) yield asRowOut(row);
+    for (const row of src) yield eventOut([row]);
   }
   async function* agen(src: AsyncIterable<ArrayLike<number>>) {
     raw.reset();
-    for await (const row of src) yield asRowOut(row);
+    for await (const row of src) yield eventOut([row]);
   }
 
   const call = (...args: any[]) => {
     try {
       if (disposed) throw new Error("operation used after dispose()");
-      if (args.length !== 1) throw new TypeError("a cross-sectional op takes one input: (T, K) values or a row");
+      if (args.some(isNode)) throw new TypeError("row ops run on arrays and row streams, not inside a Pipeline");
+      if (args.length !== fi) throw new TypeError(`this op takes ${fi} inputs, got ${args.length}`);
       const x = args[0];
-      if (isNode(x)) throw new TypeError("cross-sectional ops run on arrays and row streams, not inside a Pipeline");
-      if (isNd(x)) {
-        if (x.shape.length === 2) return batch(x.data, x.shape[0], x.shape[1]);
-        if (x.shape.length === 1) return event(x.data);
-        throw new TypeError(`expected a (T, K) array or one row, got shape [${x.shape}]`);
-      }
-      if (isTyped(x) || isNumArr(x)) return asRowOut(x);
-      if (Array.isArray(x) && x.length > 0 && x.every((r) => isTyped(r) || isNumArr(r))) return rowsBatch(x);
-      if (isAsyncIter(x)) return agen(x);
-      if (isSyncIter(x)) return gen(x);
-      throw new TypeError("expected a (T, K) array, an array of rows, one row, or an iterable of rows");
+      if (fi === 1 && isAsyncIter(x)) return agen(x);
+      if (fi === 1 && isSyncIter(x)) return gen(x);
+      if (args.every((a) => isTyped(a) || isNumArr(a) || (isNd(a) && a.shape.length === 1)))
+        return eventOut(args.map((a) => (isNd(a) ? a.data : a)));
+      const blocks = args.map(asBlock);
+      if (blocks.some((b) => b === null))
+        throw new TypeError("expected (T, K) arrays, arrays of rows, or one row per input");
+      const b0 = blocks[0]!;
+      if (blocks.some((b) => b!.T !== b0.T || b!.k !== b0.k))
+        throw new TypeError("all inputs must have the same shape");
+      return batch(blocks.map((b) => b!.flat), b0.T, b0.k);
     } catch (e) { throw normalizeError(e); }
   };
 

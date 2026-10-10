@@ -14,6 +14,16 @@ Unreleased
   exposure and an optional net exposure (`net=0` is dollar-neutral). They run
   on a `(T, K)` array, one row, or a stream of rows, in Python and
   JavaScript/WASM.
+* **Portfolio backtests:** `BacktestPortfolioTarget` (prices) and
+  `BacktestPortfolioOHLCTarget` (OHLC bars, with `fill_at` and `delay`)
+  backtest `K` assets from one shared capital account. Targets are weights of
+  portfolio equity, notionals, or units; a finite target is an order and NaN
+  holds, so a rebalancing schedule is a target array with weights on the
+  rebalance steps. `rebalance_band` trades drifted assets back (`rebalance=
+  "drifted"` or `"all"`), `max_gross` and `max_net` cap the book's exposure,
+  and fees, slippage, tick sizes, and contract multipliers can differ per
+  asset. Assets that are not quoted on a step hold their position. The output
+  is `(T, K, 4)` per asset, ready for `PortfolioReport`.
 
 * **Every statistic of every randomized run:** `position_test` and
   `strategy_test` (and `positionTest`/`strategyTest` in JavaScript) return

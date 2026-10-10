@@ -306,6 +306,84 @@ export function BacktestOHLCVTarget(maxParticipation: number = 1.0, takerFee: nu
 }
 
 /**
+ * Backtest K assets traded toward per-asset targets from one shared capital account on OHLC bars, executed delay bars later at a chosen bar price.
+ *
+ * @param fee Fractional fee on the traded notional, one value for all assets or one per asset.
+ * @param slippage Adverse price offset on every fill, read in `slippage_unit`, one value for all assets or one per asset.
+ * @param slippageUnit Unit of `slippage`: "fraction" of the reference price (5 bps = 5e-4), "ticks" of `tick_size`, or "price".
+ * @param tickSize Price grid per asset (0 = continuous). Slippage offsets round up to whole ticks.
+ * @param multiplier Contract multiplier per asset, applied to pnl, notional, and proportional fees.
+ * @param feePerContract Fixed fee per contract traded, one value for all assets or one per asset.
+ * @param size What a target means: "weight" (a fraction of portfolio equity), "notional" (a currency amount), or "units" (a position).
+ * @param initialCapital Starting capital. Portfolio equity is this plus the summed pnl of all assets; weights are fractions of it.
+ * @param rebalanceBand Trade a held asset back to its target when its holding drifts from it by more than this fraction of equity (0 = never). Needs size "weight" or "notional".
+ * @param rebalance When the band trips: "drifted" trades only the assets beyond it, "all" rebalances every asset that has a target.
+ * @param maxGross Largest gross exposure, sum of absolute position values over equity. Orders that exceed it are scaled down.
+ * @param maxNet Largest absolute net exposure, sum of position values over equity. Orders that exceed it are scaled down.
+ * @param fillAt Execution price on the execution bar: "open", "close", "typical" ((high + low + close) / 3), or "ohlc4".
+ * @param delay Bars between the bar a target is decided on (at its close) and the bar it executes on. 0 needs fill_at "close".
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
+export function BacktestPortfolioOHLCTarget(fee: number | number[] = [0.0], slippage: number | number[] = [0.0], slippageUnit: string = "fraction", tickSize: number | number[] = [0.0], multiplier: number | number[] = [1.0], feePerContract: number | number[] = [0.0], size: string = "weight", initialCapital: number = 1.0, rebalanceBand: number = 0.0, rebalance: string = "drifted", maxGross: number = Infinity, maxNet: number = Infinity, fillAt: string = "open", delay: number = 1): ScreamerOp {
+  const M = current();
+  const _v0 = new M.VectorDouble();
+  for (const _x of (typeof fee === "number" ? [fee] : fee)) _v0.push_back(_x);
+  const _v1 = new M.VectorDouble();
+  for (const _x of (typeof slippage === "number" ? [slippage] : slippage)) _v1.push_back(_x);
+  const _v3 = new M.VectorDouble();
+  for (const _x of (typeof tickSize === "number" ? [tickSize] : tickSize)) _v3.push_back(_x);
+  const _v4 = new M.VectorDouble();
+  for (const _x of (typeof multiplier === "number" ? [multiplier] : multiplier)) _v4.push_back(_x);
+  const _v5 = new M.VectorDouble();
+  for (const _x of (typeof feePerContract === "number" ? [feePerContract] : feePerContract)) _v5.push_back(_x);
+  const _op = new M.BacktestPortfolioOHLCTarget(_v0, _v1, slippageUnit, _v3, _v4, _v5, size, initialCapital, rebalanceBand, rebalance, maxGross, maxNet, fillAt, delay);
+  _v0.delete();
+  _v1.delete();
+  _v3.delete();
+  _v4.delete();
+  _v5.delete();
+  return wrapRowOp(M, _op);
+}
+
+/**
+ * Backtest K assets traded toward per-asset target weights, notionals, or positions from one shared capital account, filled at each step's price.
+ *
+ * @param fee Fractional fee on the traded notional, one value for all assets or one per asset.
+ * @param slippage Adverse price offset on every fill, read in `slippage_unit`, one value for all assets or one per asset.
+ * @param slippageUnit Unit of `slippage`: "fraction" of the reference price (5 bps = 5e-4), "ticks" of `tick_size`, or "price".
+ * @param tickSize Price grid per asset (0 = continuous). Slippage offsets round up to whole ticks.
+ * @param multiplier Contract multiplier per asset, applied to pnl, notional, and proportional fees.
+ * @param feePerContract Fixed fee per contract traded, one value for all assets or one per asset.
+ * @param size What a target means: "weight" (a fraction of portfolio equity), "notional" (a currency amount), or "units" (a position).
+ * @param initialCapital Starting capital. Portfolio equity is this plus the summed pnl of all assets; weights are fractions of it.
+ * @param rebalanceBand Trade a held asset back to its target when its holding drifts from it by more than this fraction of equity (0 = never). Needs size "weight" or "notional".
+ * @param rebalance When the band trips: "drifted" trades only the assets beyond it, "all" rebalances every asset that has a target.
+ * @param maxGross Largest gross exposure, sum of absolute position values over equity. Orders that exceed it are scaled down.
+ * @param maxNet Largest absolute net exposure, sum of position values over equity. Orders that exceed it are scaled down.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
+export function BacktestPortfolioTarget(fee: number | number[] = [0.0], slippage: number | number[] = [0.0], slippageUnit: string = "fraction", tickSize: number | number[] = [0.0], multiplier: number | number[] = [1.0], feePerContract: number | number[] = [0.0], size: string = "weight", initialCapital: number = 1.0, rebalanceBand: number = 0.0, rebalance: string = "drifted", maxGross: number = Infinity, maxNet: number = Infinity): ScreamerOp {
+  const M = current();
+  const _v0 = new M.VectorDouble();
+  for (const _x of (typeof fee === "number" ? [fee] : fee)) _v0.push_back(_x);
+  const _v1 = new M.VectorDouble();
+  for (const _x of (typeof slippage === "number" ? [slippage] : slippage)) _v1.push_back(_x);
+  const _v3 = new M.VectorDouble();
+  for (const _x of (typeof tickSize === "number" ? [tickSize] : tickSize)) _v3.push_back(_x);
+  const _v4 = new M.VectorDouble();
+  for (const _x of (typeof multiplier === "number" ? [multiplier] : multiplier)) _v4.push_back(_x);
+  const _v5 = new M.VectorDouble();
+  for (const _x of (typeof feePerContract === "number" ? [feePerContract] : feePerContract)) _v5.push_back(_x);
+  const _op = new M.BacktestPortfolioTarget(_v0, _v1, slippageUnit, _v3, _v4, _v5, size, initialCapital, rebalanceBand, rebalance, maxGross, maxNet);
+  _v0.delete();
+  _v1.delete();
+  _v3.delete();
+  _v4.delete();
+  _v5.delete();
+  return wrapRowOp(M, _op);
+}
+
+/**
  * Backtest a target position against a value series (price/mark) into a costed mark-to-market equity curve.
  *
  * @param spread Fractional bid-ask spread crossed on each trade (e.g. 0.0005 = 5 bps). Default 0 is frictionless.
@@ -1708,10 +1786,10 @@ export function Momentum(windowSize: number = 10, startPolicy: string = "strict"
  * @param taps FIR coefficients. Default is a 3-tap triangular kernel.
  * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
  */
-export function MovingAverage(taps: number[] = [0.25, 0.5, 0.25]): ScreamerOp {
+export function MovingAverage(taps: number | number[] = [0.25, 0.5, 0.25]): ScreamerOp {
   const M = current();
   const _v0 = new M.VectorDouble();
-  for (const _x of taps) _v0.push_back(_x);
+  for (const _x of (typeof taps === "number" ? [taps] : taps)) _v0.push_back(_x);
   const _op = new M.MovingAverage(_v0);
   _v0.delete();
   return wrapOp(M, _op);

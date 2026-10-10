@@ -1,0 +1,59 @@
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import {
+  ready, BacktestPortfolioTarget, BacktestPortfolioOHLCTarget, BacktestPriceTarget,
+} from "../src/index.ts";
+
+await ready();
+
+// The same deterministic market as the Python reference run.
+const T = 12, K = 3;
+const grid = (f: (t: number, k: number) => number) =>
+  Array.from({ length: T }, (_, t) => Array.from({ length: K }, (_, k) => f(t, k)));
+const close = grid((t, k) => 100 + 5 * Math.sin(0.7 * t + k) + t * (k - 1) * 0.3);
+const open = grid((t, k) => close[t][k] - 0.4 * Math.cos(1.3 * t + k));
+const high = grid((t, k) => Math.max(open[t][k], close[t][k]) + 0.5);
+const low = grid((t, k) => Math.min(open[t][k], close[t][k]) - 0.5);
+const N = Number.NaN;
+const w = grid(() => N);
+w[0] = [0.5, 0.3, -0.2];
+w[6] = [0.2, -0.4, 0.4];
+
+const near = (a: ArrayLike<number>, b: number[]) =>
+  a.length === b.length && Array.from(a).every((v, i) => Math.abs(v - b[i]) <= 1e-8 * Math.max(1, Math.abs(b[i])));
+const lastRow = (out: { data: Float64Array; shape: number[] }) =>
+  out.data.slice((T - 1) * K * 4, T * K * 4);
+
+test("portfolio: price engine matches Python", () => {
+  const out = BacktestPortfolioTarget([1e-3, 2e-3, 0], 1e-3, "fraction", 0, 1, 0, "weight", 1000, 0, "drifted", 0.9)(w, close);
+  assert.deepEqual(out.shape, [T, K, 4]);
+  assert.ok(near(lastRow(out), [-14.848773927210585, 2.479841617924665, 1.8289156022515223, 0.0,
+    -52.696147942260524, 5.8606744881548165, -3.5912204094741877, 0.0,
+    6.630791765020081, -10.56136701579796, 3.38570944868474, 0.0]), `${Array.from(lastRow(out))}`);
+});
+
+test("portfolio: OHLC engine matches Python, row by row too", () => {
+  const make = () => BacktestPortfolioOHLCTarget(5e-4, 0, "fraction", 0, 1, 0, "weight", 1000, 0.02, "all");
+  const out = make()(w, open, high, low, close);
+  assert.ok(near(lastRow(out), [-30.25379519300619, 2.579317680865061, 1.9022804987220079, 0.0,
+    -38.35574725809002, 5.806450377889529, -3.5579937336258953, 0.0,
+    -14.707953559570182, -10.768468619923866, 3.45210103008495, 0.0]));
+  const op = make();
+  const rows = w.map((_, t) => op(w[t], open[t], high[t], low[t], close[t]));
+  assert.deepEqual(rows[0].shape, [K, 4]);
+  assert.ok(near(rows[T - 1].data, Array.from(lastRow(out))));
+});
+
+test("portfolio: one asset in units matches BacktestPriceTarget", () => {
+  const tgt = close.map((_, t) => (t % 4) - 1.5);
+  const px = close.map((r) => r[0]);
+  const a = BacktestPortfolioTarget(1e-3, 5e-4, "fraction", 0, 1, 0, "units", 0)(
+    tgt.map((v) => [v]), px.map((v) => [v]));
+  const b = BacktestPriceTarget(0, 1e-3, -Infinity, Infinity, 1, 0, 5e-4)(tgt, px) as { data: Float64Array };
+  assert.ok(near(a.data, Array.from(b.data)));
+});
+
+test("portfolio: argument checks", () => {
+  assert.throws(() => BacktestPortfolioTarget(0, 0, "fraction", 0, 1, 0, "shares"));
+  assert.throws(() => BacktestPortfolioTarget()(w));
+});

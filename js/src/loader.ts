@@ -32,10 +32,12 @@ export interface RawOp {
   // reduces a (groups, nIn) block, so the group count travels per call.
   reduceInto?(inPtr: number, outPtr: number, groups: number): void;
   reduceBatchInto?(inPtr: number, outPtr: number, rows: number, groups: number): void;
-  // Present only on cross-sectional ops (see wrapRowOp): one row of k values
-  // maps to k values, so k travels per call.
+  // Present only on row ops (see wrapRowOp): one event is a row of k assets
+  // with fieldsIn() values each, so k travels per call.
   mapRowInto?(inPtr: number, outPtr: number, k: number): void;
   mapRowsInto?(inPtr: number, outPtr: number, rows: number, k: number): void;
+  fieldsIn?(): number;
+  fieldsOut?(): number;
 }
 export interface Screamer {
   allocF64(n: number): number; freeBuf(p: number): void;

@@ -126,6 +126,8 @@ def render_class(op: dict) -> str:
     if op.get("row_op"):
         lines.append(f'        .function("mapRowInto", &screamer_wasm::mapRowInto<{cpp}>)')
         lines.append(f'        .function("mapRowsInto", &screamer_wasm::mapRowsInto<{cpp}>)')
+        lines.append(f'        .function("fieldsIn", &screamer_wasm::fieldsIn<{cpp}>)')
+        lines.append(f'        .function("fieldsOut", &screamer_wasm::fieldsOut<{cpp}>)')
     return "\n".join(lines) + ";"
 
 

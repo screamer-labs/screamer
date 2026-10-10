@@ -16,6 +16,7 @@
 #include "screamer/backtest_ohlc_orders.h"
 #include "screamer/backtest_ohlc_target.h"
 #include "screamer/backtest_ohlcv_target.h"
+#include "screamer/backtest_portfolio_target.h"
 #include "screamer/backtest_price_target.h"
 #include "screamer/backtest_report.h"
 #include "screamer/backtest_stats.h"
@@ -31,6 +32,7 @@
 #include "screamer/butter_highpass.h"
 #include "screamer/cci.h"
 #include "screamer/clip.h"
+#include "screamer/common/per_asset.h"
 #include "screamer/common/row_op.h"
 #include "screamer/common/transform.h"
 #include "screamer/cont_ofi.h"
@@ -360,6 +362,18 @@ EMSCRIPTEN_BINDINGS(screamer) {
         .constructor<double, double, double, double, double, double, double, std::string, std::string, int, double, double, double, std::string, double, double>();
     emscripten::class_<screamer::BacktestOHLCVTarget, emscripten::base<screamer::EvalOp>>("BacktestOHLCVTarget")
         .constructor<double, double, double, double, double, double, double, double, std::string, std::string, int, double, double, double, std::string, double, double>();
+    emscripten::class_<screamer::BacktestPortfolioOHLCTarget, emscripten::base<screamer::EvalOp>>("BacktestPortfolioOHLCTarget")
+        .constructor<std::vector<double>, std::vector<double>, std::string, std::vector<double>, std::vector<double>, std::vector<double>, std::string, double, double, std::string, double, double, std::string, int>()
+        .function("mapRowInto", &screamer_wasm::mapRowInto<screamer::BacktestPortfolioOHLCTarget>)
+        .function("mapRowsInto", &screamer_wasm::mapRowsInto<screamer::BacktestPortfolioOHLCTarget>)
+        .function("fieldsIn", &screamer_wasm::fieldsIn<screamer::BacktestPortfolioOHLCTarget>)
+        .function("fieldsOut", &screamer_wasm::fieldsOut<screamer::BacktestPortfolioOHLCTarget>);
+    emscripten::class_<screamer::BacktestPortfolioTarget, emscripten::base<screamer::EvalOp>>("BacktestPortfolioTarget")
+        .constructor<std::vector<double>, std::vector<double>, std::string, std::vector<double>, std::vector<double>, std::vector<double>, std::string, double, double, std::string, double, double>()
+        .function("mapRowInto", &screamer_wasm::mapRowInto<screamer::BacktestPortfolioTarget>)
+        .function("mapRowsInto", &screamer_wasm::mapRowsInto<screamer::BacktestPortfolioTarget>)
+        .function("fieldsIn", &screamer_wasm::fieldsIn<screamer::BacktestPortfolioTarget>)
+        .function("fieldsOut", &screamer_wasm::fieldsOut<screamer::BacktestPortfolioTarget>);
     emscripten::class_<screamer::BacktestPriceTarget, emscripten::base<screamer::EvalOp>>("BacktestPriceTarget")
         .constructor<double, double, double, double, double, double, double, std::string, double, double, double, double, std::string, double, double>();
     emscripten::class_<screamer::BacktestReport, emscripten::base<screamer::EvalOp>>("BacktestReport")
@@ -399,27 +413,39 @@ EMSCRIPTEN_BINDINGS(screamer) {
     emscripten::class_<screamer::CrossDemean, emscripten::base<screamer::EvalOp>>("CrossDemean")
         .constructor<>()
         .function("mapRowInto", &screamer_wasm::mapRowInto<screamer::CrossDemean>)
-        .function("mapRowsInto", &screamer_wasm::mapRowsInto<screamer::CrossDemean>);
+        .function("mapRowsInto", &screamer_wasm::mapRowsInto<screamer::CrossDemean>)
+        .function("fieldsIn", &screamer_wasm::fieldsIn<screamer::CrossDemean>)
+        .function("fieldsOut", &screamer_wasm::fieldsOut<screamer::CrossDemean>);
     emscripten::class_<screamer::CrossNormalize, emscripten::base<screamer::EvalOp>>("CrossNormalize")
         .constructor(&make_CrossNormalize, emscripten::allow_raw_pointers())
         .function("mapRowInto", &screamer_wasm::mapRowInto<screamer::CrossNormalize>)
-        .function("mapRowsInto", &screamer_wasm::mapRowsInto<screamer::CrossNormalize>);
+        .function("mapRowsInto", &screamer_wasm::mapRowsInto<screamer::CrossNormalize>)
+        .function("fieldsIn", &screamer_wasm::fieldsIn<screamer::CrossNormalize>)
+        .function("fieldsOut", &screamer_wasm::fieldsOut<screamer::CrossNormalize>);
     emscripten::class_<screamer::CrossRank, emscripten::base<screamer::EvalOp>>("CrossRank")
         .constructor<std::string>()
         .function("mapRowInto", &screamer_wasm::mapRowInto<screamer::CrossRank>)
-        .function("mapRowsInto", &screamer_wasm::mapRowsInto<screamer::CrossRank>);
+        .function("mapRowsInto", &screamer_wasm::mapRowsInto<screamer::CrossRank>)
+        .function("fieldsIn", &screamer_wasm::fieldsIn<screamer::CrossRank>)
+        .function("fieldsOut", &screamer_wasm::fieldsOut<screamer::CrossRank>);
     emscripten::class_<screamer::CrossTopBottom, emscripten::base<screamer::EvalOp>>("CrossTopBottom")
         .constructor<int>()
         .function("mapRowInto", &screamer_wasm::mapRowInto<screamer::CrossTopBottom>)
-        .function("mapRowsInto", &screamer_wasm::mapRowsInto<screamer::CrossTopBottom>);
+        .function("mapRowsInto", &screamer_wasm::mapRowsInto<screamer::CrossTopBottom>)
+        .function("fieldsIn", &screamer_wasm::fieldsIn<screamer::CrossTopBottom>)
+        .function("fieldsOut", &screamer_wasm::fieldsOut<screamer::CrossTopBottom>);
     emscripten::class_<screamer::CrossWinsorize, emscripten::base<screamer::EvalOp>>("CrossWinsorize")
         .constructor<double, double>()
         .function("mapRowInto", &screamer_wasm::mapRowInto<screamer::CrossWinsorize>)
-        .function("mapRowsInto", &screamer_wasm::mapRowsInto<screamer::CrossWinsorize>);
+        .function("mapRowsInto", &screamer_wasm::mapRowsInto<screamer::CrossWinsorize>)
+        .function("fieldsIn", &screamer_wasm::fieldsIn<screamer::CrossWinsorize>)
+        .function("fieldsOut", &screamer_wasm::fieldsOut<screamer::CrossWinsorize>);
     emscripten::class_<screamer::CrossZscore, emscripten::base<screamer::EvalOp>>("CrossZscore")
         .constructor<>()
         .function("mapRowInto", &screamer_wasm::mapRowInto<screamer::CrossZscore>)
-        .function("mapRowsInto", &screamer_wasm::mapRowsInto<screamer::CrossZscore>);
+        .function("mapRowsInto", &screamer_wasm::mapRowsInto<screamer::CrossZscore>)
+        .function("fieldsIn", &screamer_wasm::fieldsIn<screamer::CrossZscore>)
+        .function("fieldsOut", &screamer_wasm::fieldsOut<screamer::CrossZscore>);
     emscripten::class_<screamer::Transform<(double (*)(double)) screamer::cube>, emscripten::base<screamer::EvalOp>>("Cube")
         .constructor<>();
     emscripten::class_<screamer::CumMax, emscripten::base<screamer::EvalOp>>("CumMax")

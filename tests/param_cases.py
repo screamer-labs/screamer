@@ -82,10 +82,10 @@ ew_classes = [cls for cls in screamer_classes
 # Cross-sectional (row) operators: each event is a row of K assets, so the
 # column-wise harnesses here cannot drive them. tests/test_cross_section.py does.
 def _row_ops():
-    import importlib.resources as _resources
-    import json as _json
-    entries = _json.loads(_resources.files("screamer").joinpath("data/help.json").read_text())
-    return frozenset(n for n, e in entries.items() if e.get("implementation_family") == "cross")
+    from screamer.screamer_bindings import RowOp
+    return frozenset(n for n in dir(screamer_module)
+                     if isinstance(getattr(screamer_module, n), type)
+                     and issubclass(getattr(screamer_module, n), RowOp))
 
 
 ROW_OPS = _row_ops()
@@ -262,7 +262,7 @@ PARITY_EXEMPT['PortfolioReport'] = (
     'dynamic-width multi-asset reducer; driven by test_backtest.py'
 )
 PARITY_EXEMPT.update({
-    name: "cross-sectional row operator; driven by test_cross_section.py"
+    name: "row operator (rows of K assets); driven by test_cross_section.py / test_portfolio.py"
     for name in ROW_OPS
 })
 

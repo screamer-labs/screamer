@@ -199,6 +199,10 @@ def _normalize_ctor_arg(arg: str) -> str:
         a = a[len("const "):].strip()
     if a.endswith("&"):
         a = a[:-1].strip()
+    # A per-asset parameter is a std::vector<double> in C++; the PerAsset
+    # wrapper only lets Python pass a single number. JS gets number | number[].
+    if a == "screamer::PerAsset":
+        a = "std::vector<double>"
     return a
 
 

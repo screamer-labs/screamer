@@ -46,6 +46,8 @@
  "functions_fin/BacktestOHLCOrders": "ae53c6e2cdf0df7b",
  "functions_fin/BacktestOHLCTarget": "676bd41af7173384",
  "functions_fin/BacktestOHLCVTarget": "0ac885ab0c2479ed",
+ "functions_fin/BacktestPortfolioOHLCTarget": "0f9bc2577d38a2bd",
+ "functions_fin/BacktestPortfolioTarget": "449d84b005424952",
  "functions_fin/BacktestPriceTarget": "2c206819e8be8e2f",
  "functions_fin/BacktestReport": "353020516fb9b64b",
  "functions_fin/BacktestStats": "09b55b54b1c10572",
