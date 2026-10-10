@@ -66,7 +66,10 @@ stacked along `T`.
 4. **Time operations work per column and append fields.** `Resample`, `Delay`,
    `Dropna` and `Filter` treat every column alike. A multi-field aggregation
    appends a field axis: `Resample(agg="ohlc")` turns `(T, X)` into
-   `(T', X, 4)`. `agg="ohlc_bars"` remains the separate aggregation for
+   `(T', X, 4)`, and `(T, K, 1)` into `(T', K, 4)` (rule 3). An array has at
+   most one field axis, so the input's columns become independent series in
+   the result, which gives the same numbers whether they were assets or
+   features. `agg="ohlc_bars"` remains the separate aggregation for
    re-aggregating existing bars.
 5. **Combining streams joins fields.** `CombineLatest` concatenates its inputs
    along `F`: a `(T, 4)` bar stream and a `(T,)` signal give `(T, 5)`. Inputs
