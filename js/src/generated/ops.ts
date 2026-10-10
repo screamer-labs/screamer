@@ -152,6 +152,17 @@ export function BOP(): ScreamerOp {
 }
 
 /**
+ * Charge perpetual funding, borrow, or financing on the position of any backtest engine's output.
+ *
+ * @param multiplier Contract multiplier, as on the engine that produced the output.
+ * @see https://screamer.readthedocs.io/en/latest/ for the Python reference and full details.
+ */
+export function BacktestCarry(multiplier: number = 1.0): ScreamerOp {
+  const M = current();
+  return wrapOp(M, new M.BacktestCarry(multiplier));
+}
+
+/**
  * Backtest a two-sided market maker against a top-of-book (L1) quote stream.
  *
  * @param makerFee Fractional fee on a maker fill; negative for a rebate.

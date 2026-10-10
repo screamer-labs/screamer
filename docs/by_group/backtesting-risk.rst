@@ -53,6 +53,8 @@ Simulate a strategy against market data into a costed equity curve: signals, bar
      - Description
    * - :doc:`backtest_report </functions_fin/backtest_report>`
      - Running statistics and a summary for a backtest engine's output.
+   * - :doc:`Add funding or carry to a backtest </functions_fin/BacktestCarry>`
+     - Charge perpetual funding, borrow, or financing on the position of any backtest engine's output.
    * - :doc:`Backtest a two-sided market maker against L1 quotes </functions_fin/BacktestL1Orders>`
      - Backtest a two-sided market maker against a top-of-book (L1) quote stream.
    * - :doc:`Backtest a target-position strategy against the L1 book </functions_fin/BacktestL1Target>`
@@ -98,6 +100,7 @@ Simulate a strategy against market data into a costed equity curve: signals, bar
    :hidden:
 
    /functions_fin/backtest_report
+   /functions_fin/BacktestCarry
    /functions_fin/BacktestL1Orders
    /functions_fin/BacktestL1Target
    /functions_fin/BacktestL1TradesOrders

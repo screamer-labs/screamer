@@ -1018,3 +1018,43 @@ def test_exit_argument_checks():
             BacktestOHLCTarget(**kw)
         with pytest.raises(ValueError):
             BacktestPriceTarget(**kw)
+
+
+# --- BacktestCarry ---------------------------------------------------------------
+
+def test_carry_charges_the_position_held_into_each_step():
+    from screamer import BacktestPriceTarget, BacktestCarry
+    price = np.array([100., 101, 102, 103])
+    out = BacktestPriceTarget()(np.array([1., 1, -2, -2]), price)
+    rate = np.array([0.001, 0.001, 0.001, 0.001])
+    adj = np.asarray(BacktestCarry()(*out.T, price, rate))
+    # held into steps 1..3: +1, +1, -2 -> carry = pos_prev * price * rate
+    carry = np.array([0, 1 * 101, 1 * 102, -2 * 103]) * 0.001
+    np.testing.assert_allclose(adj[:, 1], out[:, 1] - carry)
+    np.testing.assert_allclose(adj[:, 3], out[:, 3] + carry)
+    np.testing.assert_allclose(adj[:, 0], out[:, 0] - np.cumsum(carry))
+    np.testing.assert_allclose(adj[:, 2], out[:, 2])
+
+
+def test_carry_zero_rate_and_nan_row_is_skipped():
+    from screamer import BacktestCarry
+    eq = np.array([0., 1, np.nan, 2]); pnl = np.array([0., 1, np.nan, 1])
+    pos = np.array([1., 1, np.nan, 1]); cost = np.zeros(4)
+    price = np.full(4, 10.); rate = np.array([0.1, 0.0, 0.1, 0.1])
+    adj = np.asarray(BacktestCarry(multiplier=2.0)(eq, pnl, pos, cost, price, rate))
+    np.testing.assert_allclose(adj[1], [1, 1, 1, 0])          # zero rate: no carry
+    assert np.isnan(adj[2]).all()                             # skipped row
+    np.testing.assert_allclose(adj[3], [2 - 2.0, 1 - 2.0, 1, 2.0])   # 1 * 10 * 0.1 * 2
+
+
+def test_carry_stream_equals_batch():
+    from screamer import BacktestCarry
+    rng = np.random.default_rng(5); n = 100
+    cols = [np.cumsum(rng.standard_normal(n)), rng.standard_normal(n),
+            np.round(rng.standard_normal(n)), np.abs(rng.standard_normal(n)),
+            100 + rng.standard_normal(n), rng.standard_normal(n) * 1e-4]
+    op = BacktestCarry()
+    stream = np.array([op(*(c[i] for c in cols)) for i in range(n)])
+    np.testing.assert_allclose(stream, np.asarray(BacktestCarry()(*cols)))
+    with pytest.raises(ValueError):
+        BacktestCarry(multiplier=0)

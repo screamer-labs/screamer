@@ -40,6 +40,9 @@ Unreleased
   Sortino, and Calmar. `BacktestReport`, `BacktestStats`, and `backtest_report`
   take `periods_per_year` to annualize the ratios (the default 1 keeps the
   per-step values), and `backtest_report`'s summary includes the new statistics.
+* **Backtest carry:** `BacktestCarry` adds perpetual funding, borrow, or
+  financing to any engine's output from a per-step rate series: the position
+  held into each step pays `position * price * rate`, moved from pnl into cost.
 
 2.6.0 - 2026-10-10
 ------------------

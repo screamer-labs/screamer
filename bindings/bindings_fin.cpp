@@ -29,6 +29,7 @@
 #include "screamer/backtest_l1trades_orders.h"
 #include "screamer/backtest_report.h"
 #include "screamer/backtest_stats.h"
+#include "screamer/backtest_carry.h"
 #include "screamer/validation/surrogates.h"
 #include "screamer/validation/sharpe.h"
 #include "screamer/portfolio_report.h"
@@ -505,6 +506,11 @@ void init_bindings_fin(nb::module_& m) {
         .def(nb::init<double>(), "periods_per_year"_a = 1.0)
         .def("__call__", &screamer::functor_call<screamer::BacktestReport>)
         .def("reset", &screamer::BacktestReport::reset, "Reset.");
+
+    nb::class_<screamer::BacktestCarry, screamer::EvalOp>(m, "BacktestCarry")
+        .def(nb::init<double>(), "multiplier"_a = 1.0)
+        .def("__call__", &screamer::functor_call<screamer::BacktestCarry>)
+        .def("reset", &screamer::BacktestCarry::reset, "Reset.");
 
     nb::class_<screamer::BacktestStats, screamer::EvalOp>(m, "BacktestStats")
         .def(nb::init<double>(), "periods_per_year"_a = 1.0)

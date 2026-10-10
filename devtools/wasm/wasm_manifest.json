@@ -171,6 +171,22 @@
     "source": "bindings/bindings_rolling.cpp"
   },
   {
+    "name": "BacktestCarry",
+    "cpp_type": "screamer::BacktestCarry",
+    "base": "FunctorBase",
+    "ctor": [
+      "double"
+    ],
+    "ctor_args": [
+      {
+        "name": "multiplier",
+        "default": "1.0"
+      }
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_fin.cpp"
+  },
+  {
     "name": "BacktestL1Orders",
     "cpp_type": "screamer::BacktestL1Orders",
     "base": "FunctorBase",

@@ -47,6 +47,7 @@ BASELINE_GAP: dict[str, str] = {
     "BacktestPriceTarget": _NO_EXTERNAL,
     "BacktestReport": _NO_EXTERNAL,
     "BacktestStats": _NO_EXTERNAL,
+    "BacktestCarry": _NO_EXTERNAL,
     "PortfolioReport": _NO_EXTERNAL,
     "BacktestTradesOrders": _NO_EXTERNAL,
     "BacktestTradesTarget": _NO_EXTERNAL,

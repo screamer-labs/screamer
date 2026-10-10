@@ -110,6 +110,8 @@ _NO_ARG_AUTO_EXCLUDE = {
     'BacktestReport',
     # 4-input, 9-output trade statistics node - tested in test_backtest.py
     'BacktestStats',
+    # 6-input carry overlay on an engine output - tested in test_backtest.py
+    'BacktestCarry',
     # dynamic-width (time, assets, 4) reducer; exercised in test_backtest.py
     'PortfolioReport',
     # 8-input two-sided market-making engine - tested in test_backtest.py

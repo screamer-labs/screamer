@@ -9,6 +9,7 @@
 #include "screamer/amihud_illiquidity.h"
 #include "screamer/arithmetic.h"
 #include "screamer/atr.h"
+#include "screamer/backtest_carry.h"
 #include "screamer/backtest_l1_orders.h"
 #include "screamer/backtest_l1_target.h"
 #include "screamer/backtest_l1trades_orders.h"
@@ -338,6 +339,8 @@ EMSCRIPTEN_BINDINGS(screamer) {
         .constructor<>();
     emscripten::class_<screamer::BOP, emscripten::base<screamer::EvalOp>>("BOP")
         .constructor<>();
+    emscripten::class_<screamer::BacktestCarry, emscripten::base<screamer::EvalOp>>("BacktestCarry")
+        .constructor<double>();
     emscripten::class_<screamer::BacktestL1Orders, emscripten::base<screamer::EvalOp>>("BacktestL1Orders")
         .constructor<double, double, std::string, double, double, double, double, double, double, double, double, std::string>();
     emscripten::class_<screamer::BacktestL1Target, emscripten::base<screamer::EvalOp>>("BacktestL1Target")

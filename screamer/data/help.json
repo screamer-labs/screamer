@@ -1399,6 +1399,48 @@
       }
     ]
   },
+  "BacktestCarry": {
+    "name": "BacktestCarry",
+    "title": "Add funding or carry to a backtest",
+    "implementation_family": "fin",
+    "topics": [
+      "backtesting"
+    ],
+    "tags": [
+      "backtest",
+      "funding",
+      "carry",
+      "financing",
+      "borrow",
+      "perpetual"
+    ],
+    "short": "Charge perpetual funding, borrow, or financing on the position of any backtest engine's output.",
+    "inputs": 6,
+    "outputs": 4,
+    "parameters": [
+      {
+        "name": "multiplier",
+        "type": "float",
+        "default": 1.0,
+        "min": 0.0,
+        "description": "Contract multiplier, as on the engine that produced the output."
+      }
+    ],
+    "nan_policy": "ignore",
+    "see_also": [
+      "BacktestPriceTarget",
+      "BacktestOHLCTarget",
+      "backtest_report"
+    ],
+    "details": "## Description\n\n`BacktestCarry` adds a carry charge to the output of any backtest engine: the\nfunding of a perpetual future, the borrow fee of a short, or the financing of a\nleveraged position. Its inputs are the engine's `[equity, pnl, position, cost]`,\nthe mark `price`, and the per-step carry `rate`, all on the same steps.\n\nThe position held into step `t` pays\n\n`carry_t = position_{t-1} * price_t * rate_t * multiplier`\n\nso a positive rate charges longs and pays shorts, as perpetual funding does, and\na negative rate reverses that. The output has the engine's four columns with the\ncarry moved from pnl into cost: `equity` minus the cumulative carry,\n`pnl - carry_t`, `position` unchanged, and `cost + carry_t`. The result feeds\n[`backtest_report`](backtest_report.md) like any engine output.\n\nThe rate is per step. For funding paid every eight hours on hourly bars, pass\nthe funding rate on the funding hours and 0 elsewhere; for an annual borrow fee,\ndivide it by the number of steps per year. A `NaN` in any input, the rate\nincluded, skips the row (`nan_policy: ignore`), so pass 0 on steps without\ncarry.",
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage plot",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom screamer import BacktestCarry, BacktestPriceTarget\n\nrng = np.random.default_rng(2)\nn = 24 * 60                                      # 60 days of hourly bars\nprice = 30000 * np.exp(np.cumsum(rng.standard_normal(n) * 0.003))\nposition = np.where(np.arange(n) < n // 2, 1.0, -1.0)   # long, then short\n\n# 8-hourly funding of about 0.01%, higher while the market is crowded long\nrate = np.zeros(n)\nrate[::8] = 1e-4 + 2e-4 * (np.arange(n)[::8] < n // 2)\n\nout = BacktestPriceTarget()(position, price)\nfunded = BacktestCarry()(*out.T, price, rate)\n\nfig = go.Figure()\nfig.add_trace(go.Scatter(y=out[:, 0], name='without funding', line=dict(color='lightsteelblue')))\nfig.add_trace(go.Scatter(y=funded[:, 0], name='with funding', line=dict(color='steelblue')))\nfig.update_layout(title='BacktestCarry: perpetual funding charged on the held position',\n                  xaxis_title='hour', yaxis_title='equity ($)',\n                  margin=dict(l=20, r=20, t=60, b=20),\n                  legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1))\nfig.show()"
+      }
+    ]
+  },
   "BacktestL1Orders": {
     "name": "BacktestL1Orders",
     "title": "Backtest a two-sided market maker against L1 quotes",
