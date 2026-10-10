@@ -5,6 +5,9 @@ All notable changes to this project are documented in this file.
 Unreleased
 ----------
 
+2.6.0 - 2026-10-10
+------------------
+
 ### Added
 
 * **Backtest significance tests:** `position_test` asks whether a backtest's
@@ -48,6 +51,20 @@ Unreleased
   one-tick slippage to market fills. To keep the old fills, pass
   `slippage=1, slippage_unit="ticks"` with the same `tick_size`. On the L1
   engines, a marketable order still walks one tick past the displayed size.
+
+### Documentation
+
+* Seeded plot examples for the twelve Ehlers cycle and filter pages that had
+  none, a References page that shows the concept guides as cards, and new
+  sections in "Choosing an operator" for cycles and regimes, order flow and
+  liquidity, risk and performance, data cleaning, bars from ticks, and backtest
+  significance. The engine guide gains a section on execution price, slippage,
+  and cost.
+* `SuperSmoother`, `Decycler`, and `RoofingFilter` docs now state that the
+  period (or cutoff) is required; the value they list is a suggested starting
+  point, not a constructor default.
+* Fixed: the install docs named Python 3.11 and pybind11 (now 3.12 and
+  nanobind), and `examples/lag_example.py` used a removed API.
 
 2.5.0 - 2026-08-11
 ------------------
