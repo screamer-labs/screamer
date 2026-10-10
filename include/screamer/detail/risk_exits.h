@@ -73,7 +73,9 @@ namespace screamer { namespace detail {
         // `include_open`, a bar that opens past a level exits at the open (a
         // gap). Otherwise the exit is at the level the low or high reaches. When
         // both the stop and the take-profit are inside the bar, the stop wins,
-        // because the order of the high and the low is unknown. NaN: no exit.
+        // because the order of the high and the low is unknown. The exit price is
+        // kept inside the bar's range: a level that the slipped entry fill left
+        // outside it exits at the nearest price the bar traded. NaN: no exit.
         double bar_exit(double position, double open, double high, double low,
                         bool include_open) const {
             const double nan = std::numeric_limits<double>::quiet_NaN();
@@ -86,8 +88,8 @@ namespace screamer { namespace detail {
                 const double take = take_ > 0.0 ? entry_ * (1.0 + take_) : inf;
                 if (include_open && open <= stop) return open;
                 if (include_open && open >= take) return open;
-                if (low <= stop) return stop;
-                if (high >= take) return take;
+                if (low <= stop) return std::clamp(stop, low, high);
+                if (high >= take) return std::clamp(take, low, high);
             } else {
                 double stop = inf;
                 if (stop_ > 0.0) stop = entry_ * (1.0 + stop_);
@@ -95,8 +97,8 @@ namespace screamer { namespace detail {
                 const double take = take_ > 0.0 ? entry_ * (1.0 - take_) : -inf;
                 if (include_open && open >= stop) return open;
                 if (include_open && open <= take) return open;
-                if (high >= stop) return stop;
-                if (low <= take) return take;
+                if (high >= stop) return std::clamp(stop, low, high);
+                if (low <= take) return std::clamp(take, low, high);
             }
             return nan;
         }

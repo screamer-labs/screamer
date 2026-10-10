@@ -35,7 +35,9 @@ namespace screamer {
     //   other fill_at: an exit for the carried position (at the open on a gap,
     //     else at the level), then the due order at its reference price.
     // An exit is a market order at that price, moved by the slippage model and
-    // paying taker_fee. After an exit, same-side targets are ignored until the
+    // paying taker_fee. A bar's own high (low) moves the trailing level only
+    // after the bar, because the bar does not say whether the extreme came
+    // before or after its low (high). After an exit, same-side targets are ignored until the
     // target turns flat or reverses.
     // Outputs [equity, pnl, position, cost].
     class BacktestOHLCTarget : public FunctorBase<BacktestOHLCTarget, 5, 4> {
@@ -117,8 +119,12 @@ namespace screamer {
                 const double lv = exits_.bar_exit(held, open, high, low, /*include_open=*/false);
                 if (!isnan2(lv)) add(exit_at(lv, open, high, low, close));
                 exits_.update_best(core_.position(), high, low);
-            } else if (core_.position() == carried) {
-                exits_.update_best(carried, high, low);
+            } else {
+                // A position carried through the bar on the same side (resized or
+                // not) saw the whole bar; one opened at the reference price did not.
+                const double now = core_.position();
+                if (carried != 0.0 && now != 0.0 && (carried > 0.0) == (now > 0.0))
+                    exits_.update_best(now, high, low);
             }
             return std::make_tuple(eq, pnl, pos, cost);
         }

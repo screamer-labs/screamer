@@ -53,8 +53,10 @@ namespace screamer {
                                !isnan2(market_bid_sz) && !isnan2(market_ask_sz);
             const double mid = 0.5 * (market_bid + market_ask);
             if (exits_.active() && valid) {
-                if (!isnan2(exits_.event_exit(before, mid))) exits_.exited(before);
+                const bool hit = !isnan2(exits_.event_exit(before, mid));
+                if (hit) exits_.exited(before);
                 target = exits_.filter(target);
+                if (hit && isnan2(target)) target = 0.0;   // a hold still exits
             }
             auto [bp, bs, ap, as] =
                 detail::target_to_quote(target, before, min_, max_);

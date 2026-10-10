@@ -1058,3 +1058,37 @@ def test_carry_stream_equals_batch():
     np.testing.assert_allclose(stream, np.asarray(BacktestCarry()(*cols)))
     with pytest.raises(ValueError):
         BacktestCarry(multiplier=0)
+
+
+# --- regressions from the exit review ------------------------------------------
+
+@pytest.mark.parametrize("engine", ["trades", "l1"])
+def test_exit_fires_while_the_target_holds(engine):
+    from screamer import BacktestTradesTarget, BacktestL1Target
+    p = np.array([100, 98, 94, 99.])
+    tgt = np.array([1, np.nan, np.nan, np.nan])            # NaN: hold the position
+    if engine == "trades":
+        out = BacktestTradesTarget(stop_loss=0.05)(tgt, p, np.ones(4))
+    else:
+        out = BacktestL1Target(stop_loss=0.05)(tgt, p, p, np.ones(4), np.ones(4))
+    np.testing.assert_allclose(out[:, 2], [1, 1, 0, 0])
+    np.testing.assert_allclose(out[-1, 0], 94 - 100)
+
+
+def test_trailing_best_updates_when_the_position_is_resized():
+    from screamer import BacktestOHLCTarget
+    o, h, l, c = _ohlc([[100, 100, 100, 100], [105, 120, 104, 118], [117, 118, 107, 110]])
+    out = BacktestOHLCTarget(trailing_stop=0.10, fill_at="close", delay=0)(
+        np.array([2, 1, 1.]), o, h, l, c)
+    # bar 1 reduces 2 -> 1 at the close; its high of 120 still sets the trail at 108
+    np.testing.assert_allclose(out[:, 2], [2, 1, 0])
+
+
+def test_exit_price_stays_inside_the_bar():
+    from screamer import BacktestOHLCTarget
+    # the entry fill slips to 101, so a 0.5% stop (100.495) sits above this bar's high
+    o, h, l, c = _ohlc([[100, 100, 100, 100], [100, 100.2, 99.9, 100]])
+    out = BacktestOHLCTarget(stop_loss=0.005, slippage=1.0, slippage_unit="price")(
+        np.array([1, 1.]), o, h, l, c)
+    assert out[1, 2] == 0
+    np.testing.assert_allclose(out[1, 0], (100.2 - 1.0) - 101.0)   # exit at the high, slipped

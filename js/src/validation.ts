@@ -34,8 +34,9 @@ function surrogates(
 ): NdArray {
   const M = current();
   const T = x.length;
-  const xPtr = M.allocF64(T), outPtr = M.allocF64(T * ncols);
+  let xPtr = 0, outPtr = 0;          // freeBuf(0) is a no-op, so a failed alloc is safe
   try {
+    xPtr = M.allocF64(T); outPtr = M.allocF64(T * ncols);
     M.viewF64(xPtr, T).set(x as number[]);
     run(xPtr, outPtr);
     return { data: new Float64Array(M.viewF64(outPtr, T * ncols)), shape: [T, ncols] };
@@ -291,9 +292,15 @@ function positionSingle(
 
 function heapBlocks(T: number, ncols: number, count: number) {
   const M = current();
-  const ptrs = Array.from({ length: count }, () => M.allocF64(T * ncols));
-  const read = (i: number) => new Float64Array(M.viewF64(ptrs[i], T * ncols));
+  const ptrs: number[] = [];
   const free = () => ptrs.forEach((p) => M.freeBuf(p));
+  try {
+    for (let i = 0; i < count; i++) ptrs.push(M.allocF64(T * ncols));
+  } catch (e) {
+    free();
+    throw e;
+  }
+  const read = (i: number) => new Float64Array(M.viewF64(ptrs[i], T * ncols));
   return { ptrs, read, free };
 }
 
@@ -322,13 +329,15 @@ function barsBlock(o: ArrayLike<number>, h: ArrayLike<number>, l: ArrayLike<numb
   const M = current();
   const T = o.length;
   checkBars(o, h, l, c);
-  const ins = [o, h, l, c].map(heapCopy);
-  const outs = heapBlocks(T, ncols, 5);
+  const ins: number[] = [];
+  let outs: ReturnType<typeof heapBlocks> | null = null;
   try {
+    for (const a of [o, h, l, c]) ins.push(heapCopy(a));
+    outs = heapBlocks(T, ncols, 5);
     M.permuteBarsInto(ins[0], ins[1], ins[2], ins[3], T, seed, col0, ncols, ...outs.ptrs);
     return [0, 1, 2, 3, 4].map(outs.read);
   } finally {
-    ins.forEach((p) => M.freeBuf(p)); outs.free();
+    ins.forEach((p) => M.freeBuf(p)); outs?.free();
   }
 }
 
@@ -349,13 +358,15 @@ function returnsBlock(x: ArrayLike<number>, log: boolean, seed: number,
                       col0: number, ncols: number) {
   const M = current();
   checkReturns(x, log);
-  const xp = heapCopy(x);
-  const outs = heapBlocks(x.length, ncols, 2);
+  let xp = 0;
+  let outs: ReturnType<typeof heapBlocks> | null = null;
   try {
+    xp = heapCopy(x);
+    outs = heapBlocks(x.length, ncols, 2);
     M.permuteReturnsInto(xp, x.length, log, seed, col0, ncols, ...outs.ptrs);
     return [outs.read(0), outs.read(1)];
   } finally {
-    M.freeBuf(xp); outs.free();
+    M.freeBuf(xp); outs?.free();
   }
 }
 
@@ -668,8 +679,9 @@ export function deflatedSharpe(
   checkPnl(x);
   if (Array.from(trialSharpes).filter(Number.isFinite).length < 2)
     throw new RangeError("deflated_sharpe needs the Sharpe ratios of at least two trials.");
-  const p = heapCopy(x), t = heapCopy(trialSharpes), out = M.allocF64(2);
+  let p = 0, t = 0, out = 0;
   try {
+    p = heapCopy(x); t = heapCopy(trialSharpes); out = M.allocF64(2);
     M.deflatedSharpeInto(p, x.length, t, trialSharpes.length, out);
     const v = M.viewF64(out, 2);
     return { probability: v[0], benchmark: v[1] };

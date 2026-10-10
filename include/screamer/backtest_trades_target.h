@@ -42,8 +42,10 @@ namespace screamer {
             const double trade_price = in[1], trade_size = in[2];
             const double before = core_.position();
             if (exits_.active() && !isnan2(trade_price) && !isnan2(trade_size)) {
-                if (!isnan2(exits_.event_exit(before, trade_price))) exits_.exited(before);
+                const bool hit = !isnan2(exits_.event_exit(before, trade_price));
+                if (hit) exits_.exited(before);
                 target = exits_.filter(target);
+                if (hit && isnan2(target)) target = 0.0;   // a hold still exits
             }
             auto [bp, bs, ap, as] =
                 detail::target_to_quote(target, before, min_, max_);

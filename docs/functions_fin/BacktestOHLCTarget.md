@@ -133,7 +133,8 @@ when the price moves a given fraction from the average entry fill (or, for the
 trailing stop, from the best price since entry). A bar that opens past a level
 exits at the open; otherwise the exit is at the level the low or high reaches.
 When the stop and the take-profit both fall inside one bar, the stop is taken,
-because the bar does not say which came first. With `fill_at="open"` a position
+because the bar does not say which came first. For the same reason, a bar's own
+high (or low, for a short) raises the trailing level only from the next bar on. With `fill_at="open"` a position
 opened at the open can exit later in the same bar. Exits are market orders: they
 pay `taker_fee` and the `slippage` model applies. After an exit, targets on the
 same side are ignored until the target turns flat or reverses, so the engine does
