@@ -1,6 +1,7 @@
 # Documentation improvement plan
 
-Status: proposal, 2026-10-10.
+Status: phases 1-3 done (2026-10-10), except the follow-ups under "Remaining
+work" at the end.
 
 ## Problem
 
@@ -152,3 +153,36 @@ The plan has three phases. Each item lists its files and its scope and risk.
 Do phase 1, then items 5 and 7, which unlock 6 and 8, then 9 and 10. After
 each item, run a clean `make docs` build. Check that it has no new warnings,
 that the gallery thumbnails resolve, and that all notebooks execute.
+
+## What was delivered (phases 2 and 3)
+
+- Item 5: `docs/capabilities.md` (eight tiles) and the same tiles on
+  `index.rst` above the function-group cards. The landing example runs on
+  one-minute BTC closes from the committed Deribit slice and shows the Python
+  and JavaScript code in tabs.
+- Item 6: `devtools/build_gallery.py` and `docs/gallery.rst`. kaleido could not
+  start a browser in the build environment, so the script redraws each
+  captured plotly figure with matplotlib instead (no new dependency). It covers
+  the trace types the docs use; the thumbnails are sketches, not pixel copies.
+  Thumbnails are WebP, 320 x 200, about 7 KB each, cached by a hash of the plot
+  code in `docs/_static/gallery/manifest.json`. Re-run the script after adding
+  or changing a function-page plot and commit the output.
+- Item 7 (partial): the recipes, capability thumbnails, and landing example use
+  the committed Deribit slice. The 36 function pages that drew unseeded random
+  data are now seeded.
+- Item 8: eight recipes under `docs/recipes/`, MyST notebooks executed at build
+  time on the Deribit slice.
+- Item 9: plots added to notebooks 01, 05, 06, 07, 08, and 14.
+- Item 10: `docs/javascript.md` and the JavaScript capability tile.
+
+## Remaining work
+
+- Item 6: the thumbnails in the `by_group/*.rst` tables and on the notebook
+  cards are not done. Notebook cards would need thumbnails from executed
+  notebook outputs, which the committed notebooks do not store.
+- Item 7: switching the function-page examples from `cumsum(normal)` noise to
+  real data is not done. It needs a daily OHLCV slice (the committed tape
+  covers six hours, too short for daily-scale indicators) and a docs-only
+  loader so each page stays short. Real data helps most on the indicator,
+  volatility, and backtest pages; the math and logic pages are fine on
+  synthetic input.

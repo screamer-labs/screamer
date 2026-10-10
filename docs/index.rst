@@ -42,15 +42,33 @@ its slope at the latest value, then takes the sign of the slope to give the tren
 direction (up or down).
 
 
-.. code-block:: python
-   :emphasize-lines: 6
+.. tab-set::
 
-    from screamer import RollingPoly2, Sign
+   .. tab-item:: Python
 
-    slope = RollingPoly2(window_size=50, derivative_order=1)
-    sign = Sign()
+      .. code-block:: python
+         :emphasize-lines: 6
 
-    result = sign(slope(data))
+         from screamer import RollingPoly2, Sign
+
+         slope = RollingPoly2(window_size=50, derivative_order=1)
+         sign = Sign()
+
+         result = sign(slope(data))
+
+   .. tab-item:: JavaScript
+
+      .. code-block:: javascript
+         :emphasize-lines: 8
+
+         import { ready, RollingPoly2, Sign } from "@screamer-labs/screamer";
+
+         await ready();
+
+         const slope = RollingPoly2(50, 1);   // windowSize, derivativeOrder
+         const sign = Sign();
+
+         const result = sign(slope(data));    // data: Float64Array
 
 
 The plot applies it to one-minute closing prices of the BTC perpetual, built from
