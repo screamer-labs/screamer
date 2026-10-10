@@ -139,6 +139,20 @@ def test_unquoted_assets_hold_and_keep_the_sum_defined():
     assert np.all(halted[:, 1] == 0.0) and np.all(halted[:, 2] == out[199, 1, 2])
 
 
+def test_order_on_an_unquoted_bar_waits_for_the_next_quote():
+    w = np.full((T, K), np.nan)
+    w[10] = 0.25                           # due at step 11 with delay 1
+    o, h, l, c = (x.copy() for x in (OPEN, HIGH, LOW, CLOSE))
+    for x in (o, h, l, c):
+        x[11:14, 2] = np.nan               # asset 2 has no bars on steps 11-13
+    out = s.BacktestPortfolioOHLCTarget(size="weight")(w, o, h, l, c)
+    assert np.all(out[11, [0, 1, 3], 2] != 0.0)
+    assert np.all(out[:14, 2, 2] == 0.0) and out[14, 2, 2] != 0.0
+    w[12, 2] = 0.0                         # a newer order replaces the waiting one
+    out = s.BacktestPortfolioOHLCTarget(size="weight")(w, o, h, l, c)
+    assert np.all(out[:, 2, 2] == 0.0)
+
+
 def test_delay_and_fill_at():
     w = np.full((T, K), np.nan)
     w[10] = 0.25

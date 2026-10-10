@@ -44,7 +44,9 @@ namespace screamer { namespace detail {
     // the bar's `fill_at` price (the reference), moved by its slippage, and pays
     // its fee. An asset whose bar is NaN on a step does not trade or mark that
     // step: its output row repeats its equity with zero pnl and cost, so the
-    // portfolio sum stays defined while it is not quoted.
+    // portfolio sum stays defined while it is not quoted. An order due on such
+    // a step waits for the asset's next quoted bar, unless a newer order for
+    // that asset is due first.
     //
     // Per-asset values (fee, slippage, tick_size, multiplier,
     // fee_per_contract) are given once for all assets or once per asset.
@@ -100,6 +102,7 @@ namespace screamer { namespace detail {
             slips_.clear();
             working_.clear();
             queue_.clear();
+            pending_.clear();
         }
 
         // Fix the number of assets and build the per-asset state.
@@ -119,6 +122,7 @@ namespace screamer { namespace detail {
             queue_.assign(static_cast<std::size_t>(delay_) * k, nan());
             head_ = 0;
             due_.assign(k, nan());
+            pending_.assign(k, nan());
             ref_.assign(k, nan());
             goal_.assign(k, 0.0);
             trade_.assign(k, 0);
@@ -138,6 +142,11 @@ namespace screamer { namespace detail {
                 std::copy_n(target, k, slot);
                 head_ = (head_ + 1) % static_cast<std::size_t>(delay_);
             }
+            // An order that could not execute on an unquoted bar is still due.
+            for (std::size_t i = 0; i < k; ++i) {
+                if (isnan2(due_[i])) due_[i] = pending_[i];
+                pending_[i] = nan();
+            }
             // 2. Reference prices; equity marked at them.
             double equity = capital_;
             for (std::size_t i = 0; i < k; ++i) {
@@ -151,7 +160,10 @@ namespace screamer { namespace detail {
             for (std::size_t i = 0; i < k; ++i) {
                 goal_[i] = accts_[i].position();
                 trade_[i] = 0;
-                if (isnan2(ref_[i])) continue;
+                if (isnan2(ref_[i])) {
+                    pending_[i] = due_[i];
+                    continue;
+                }
                 if (!isnan2(due_[i])) {
                     working_[i] = due_[i];
                     trade_[i] = 1;
@@ -291,7 +303,7 @@ namespace screamer { namespace detail {
         std::size_t k_ = 0;
         std::vector<PnLAccount> accts_;
         std::vector<Slippage> slips_;
-        std::vector<double> working_, queue_, due_, ref_, goal_;
+        std::vector<double> working_, queue_, due_, pending_, ref_, goal_;
         std::vector<char> trade_;
         std::size_t head_ = 0;
     };

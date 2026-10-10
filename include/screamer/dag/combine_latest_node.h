@@ -79,7 +79,10 @@ private:
     }
 
     void on_port(std::size_t i, const Frame<Index>& f) {
-        assert(f.width == 1);
+        if (f.width != 1)
+            throw std::invalid_argument(
+                "CombineLatest takes one-column streams; split a multi-column stream "
+                "into columns with Select first.");
         if (wm_[i] < f.index) wm_[i] = f.index;   // a data frame advances the port watermark
         pending_.push(Pending{f.index, static_cast<std::uint32_t>(i), next_seq_++, f.values[0]});
         if (pending_.size() > max_pending_)

@@ -359,6 +359,10 @@ def combine_latest(*values, index=None, emit="when_all"):
             "all generators or all arrays")
     streams = _to_streams(values, index)
     kind, idx, vals, positional = _streams_to_indexed(streams, "combine_latest")
+    if any(np.ndim(v) != 1 for v in vals):
+        raise ValueError(
+            "combine_latest takes one-column streams; split a multi-column stream "
+            "into columns first, e.g. CombineLatest()(*ohlc.T, other)")
     fn = _b._combine_latest_f64 if kind == "f64" else _b._combine_latest_i64
     out_index, aligned = fn(idx, vals, emit == "when_all")   # coalesced in C++
     return aligned, (None if positional else out_index)
