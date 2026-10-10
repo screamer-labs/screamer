@@ -74,7 +74,8 @@ chance.
 +++
 Example: [From ticks to a costed backtest](recipes/ticks-to-backtest.md),
 [Is my backtest significant?](recipes/significance-test.md),
-[Choosing a backtest engine](functions_fin/choosing_a_backtest_engine.md).
+[Choosing a backtest engine](functions_fin/choosing_a_backtest_engine.md),
+[Backtesting best practices](backtesting_best_practices.md).
 Functions: [`BacktestOHLCTarget`](functions_fin/BacktestOHLCTarget.md),
 [`backtest_report`](functions_fin/backtest_report.md),
 [`position_test`](functions_fin/position_test.md).

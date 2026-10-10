@@ -316,6 +316,7 @@ Functions by group
    usage
    capabilities
    choosing_an_operator
+   backtesting_best_practices
    javascript
 
 

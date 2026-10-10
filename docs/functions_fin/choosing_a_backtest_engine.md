@@ -10,6 +10,8 @@ topics:
 # Choosing a backtest engine
 
 Screamer's backtest engines are arranged in a `Backtest<DataModel><OrderDef>` grid.
+For the practices that make a backtest trustworthy, and the tools for each, see
+[Backtesting best practices](../backtesting_best_practices.md).
 The data model (rows) is the market feed you have. The order definition (columns)
 is the strategy's output contract. All eight engines share one accounting core,
 the `[equity, pnl, position, cost]` output schema, a common MARKET/NaN/inf

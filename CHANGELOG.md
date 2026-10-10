@@ -48,6 +48,14 @@ Unreleased
   financing to any engine's output from a per-step rate series: the position
   held into each step pays `position * price * rate`, moved from pnl into cost.
 
+### Documentation
+
+* A "Backtesting best practices" guide: look-ahead, realistic fills, costs and
+  carry, timing robustness, luck, and selection, each with the screamer tool
+  that addresses it and runnable examples.
+* A capability overview, a gallery of function plots, eight recipes on real
+  data, plots in the foundation notebooks, and a JavaScript page.
+
 2.6.0 - 2026-10-10
 ------------------
 
