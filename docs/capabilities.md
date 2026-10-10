@@ -81,6 +81,24 @@ Functions: [`BacktestOHLCTarget`](functions_fin/BacktestOHLCTarget.md),
 [`position_test`](functions_fin/position_test.md).
 :::
 
+:::{grid-item-card} Portfolios and pairs
+:img-top: _static/gallery/functions_fin__BacktestPortfolioOHLCTarget.webp
+:img-alt: Equity and gross exposure of a dollar-neutral momentum book
+
+Rank assets against each other, turn scores into weights, and backtest the
+book from one account with rebalancing, exposure limits, and per-asset costs.
+Pairs trading with a Kalman hedge ratio, a cointegration test, and entry and
+exit bands.
++++
+Example: [Portfolios and pairs](portfolio_backtesting.md),
+[A pairs trade](recipes/pairs-trade.md).
+Functions: [`CrossRank`](functions_cross/CrossRank.md),
+[`CrossNormalize`](functions_cross/CrossNormalize.md),
+[`BacktestPortfolioOHLCTarget`](functions_fin/BacktestPortfolioOHLCTarget.md),
+[`KalmanRegression`](functions_fin/KalmanRegression.md),
+[`BandSignal`](functions_signal/BandSignal.md).
+:::
+
 :::{grid-item-card} Forecasting and ML
 :img-top: _static/gallery/recipes__ml-features.webp
 :img-alt: Predicted against realized returns, and feature weights

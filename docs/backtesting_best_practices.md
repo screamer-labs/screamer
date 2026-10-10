@@ -68,6 +68,10 @@ later bars, and `BacktestTradesTarget` does the same per print. To trade a
 fraction of equity rather than a fixed number of units, set `size="weight"` and
 `initial_capital` on any target engine.
 
+A strategy that trades several assets from one account belongs on the
+portfolio engines, which size every asset from the same equity and can cap the
+book's gross and net exposure; see [Portfolios and pairs](portfolio_backtesting.md).
+
 For resting limit orders, the `*Orders` engines fill only when the market
 reaches the order price. `fill="breach"` requires the market to trade through
 it, which is conservative. `participation_ratio` scales the filled size down to

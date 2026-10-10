@@ -46,7 +46,7 @@ Volatility and correlation of several assets with `(T, K)` arrays.
 :link: pairs-trade
 :link-type: doc
 :img-top: ../_static/gallery/recipes__pairs-trade.webp
-Hedge ratio, spread z-score, and a two-leg backtest.
+Kalman hedge ratio, cointegration gate, entry and exit bands, and a two-leg portfolio backtest with a significance test.
 :::
 
 :::{grid-item-card} A feature matrix for machine learning

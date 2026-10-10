@@ -37,6 +37,16 @@ Unreleased
   book, and `strategy_test` accepts strategies that return a `(T, K, 4)`
   portfolio output. Book statistics sum the assets, with turnover counted per
   asset. Python and JavaScript give the same results.
+* **Docs:** a [Portfolios and pairs](docs/portfolio_backtesting.md) guide
+  (weights from scores, rebalancing rules, a cross-sectional book, a
+  Kalman-filter pairs trade with a cointegration gate, and significance tests
+  on a book), and the pairs-trade recipe rewritten on real BTC/ETH data with
+  the new operators, fees, and a significance test.
+
+### Fixed
+
+* Docs: pages with several plotly examples in separate blocks wrote every
+  plot to the same file, so each example showed the first plot.
 
 * **Every statistic of every randomized run:** `position_test` and
   `strategy_test` (and `positionTest`/`strategyTest` in JavaScript) return

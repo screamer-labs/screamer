@@ -138,6 +138,28 @@ html_sidebars = {
 plotly_html_show_source_link = False
 plotly_html_show_formats = False
 
+# sphinx-plotly-directive numbers a page's plots with a counter it keeps on the
+# document, but MyST parses each ```{eval-rst} fence as a separate document, so
+# every fence restarts at 1 and a page with several fences writes all its plots
+# to the same file. Keep the counter per page in the build environment instead.
+import sphinx_plotly_directive as _plotly_directive
+
+_plotly_run = _plotly_directive.run
+
+
+def _plotly_run_numbered(arguments, content, options, state_machine, state, lineno):
+    document = state_machine.document
+    counters = document.settings.env.temp_data.setdefault("plotly_counters", {})
+    page = document.settings.env.docname
+    document.attributes["_plot_counter"] = counters.get(page, 0)
+    try:
+        return _plotly_run(arguments, content, options, state_machine, state, lineno)
+    finally:
+        counters[page] = document.attributes.get("_plot_counter", 0)
+
+
+_plotly_directive.run = _plotly_run_numbered
+
 # -----------------------------------------------------------------------------
 # Code fragment execution (sphinx-exec-code)
 # -----------------------------------------------------------------------------

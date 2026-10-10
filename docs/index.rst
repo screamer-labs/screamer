@@ -317,6 +317,7 @@ Functions by group
    capabilities
    choosing_an_operator
    backtesting_best_practices
+   portfolio_backtesting
    javascript
 
 

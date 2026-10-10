@@ -38,6 +38,17 @@ hits the book immediately on each event. For L1 + trades data,
 trade feed does not improve it (trades are taker events, not maker fills).
 Use `BacktestL1Target` when you have an L1 + trades feed and want a Target engine.
 
+### Many assets in one account
+
+Every engine above runs the columns of a `(T, K)` input as `K` independent
+backtests, each with its own capital. To trade `K` assets from one shared
+account, with targets as weights of the whole portfolio, a rebalancing
+schedule, and exposure limits, use the portfolio engines:
+[`BacktestPortfolioTarget`](BacktestPortfolioTarget.md) on prices and
+[`BacktestPortfolioOHLCTarget`](BacktestPortfolioOHLCTarget.md) on OHLC bars.
+They take one `(T, K)` array per input and return `(T, K, 4)`. See
+[Portfolios and pairs](../portfolio_backtesting.md).
+
 ## Order definition interfaces
 
 **Target** engines receive `(target_position, <market cols>)`. On each event the

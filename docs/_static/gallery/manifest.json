@@ -254,7 +254,7 @@
  "recipes/migrating": "8780c9d9064bbbfe",
  "recipes/ml-features": "dbdee25cc09d6a4a",
  "recipes/multi-asset": "ce52070a3e85736b",
- "recipes/pairs-trade": "16f976f0c49faafc",
+ "recipes/pairs-trade": "700d8921875f723a",
  "recipes/pandas-ohlcv-indicators": "941dd245b97d0076",
  "recipes/significance-test": "b3d478d37f04567d",
  "recipes/ticks-to-backtest": "a3b1d27aeb49deb4"
