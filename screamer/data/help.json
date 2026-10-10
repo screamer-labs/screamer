@@ -3599,6 +3599,17 @@
     "details": "Returns `n` copies of a series as a `(T, n)` array. Each copy is the series\nrotated by a random offset, so values that fall off the end wrap around to the\nstart. A rotation keeps every property of the series (its values, run lengths,\nand autocorrelation) and changes only where it sits in time. This makes it the\nstandard way to build a null distribution for a trading signal: it destroys the\nalignment between the signal and the market and nothing else.\n\nThe leading NaN warmup stays in place, and only the part after it is rotated.\nThe offset is uniform in `[min_shift, L - min_shift]`, where `L` is the length\nafter the warmup, so no copy is nearly aligned with the original. The default\n`min_shift` is twice the mean run length, capped at a quarter of `L`.\n\nThe function is batch-only and runs in C++. Each column has its own generator,\nseeded from `seed` and the column number, so the same seed gives the same\ncolumns on every platform. [`position_test`](position_test.md) uses it with\n`method=\"shift\"`.",
     "examples": []
   },
+  "deflated_sharpe": {
+    "name": "deflated_sharpe",
+    "title": "deflated_sharpe",
+    "kind": "function",
+    "short": "Probabilistic Sharpe ratio against the Sharpe ratio the best of your tried variants would reach by luck.",
+    "topics": [
+      "backtesting"
+    ],
+    "details": "Corrects a Sharpe ratio for selection. If you try many strategy variants and\nkeep the best, its Sharpe ratio is inflated even when none of them has skill.\nThe deflated Sharpe ratio (Bailey and López de Prado 2014) estimates the Sharpe\nratio that the best of your `N` trials would reach by luck alone, from their\nnumber and their spread, and uses it as the benchmark in\n[`probabilistic_sharpe`](probabilistic_sharpe.md).\n\nWith `V` the variance of the trial Sharpe ratios and `gamma` Euler's constant,\nthe benchmark is\n\n`SR0 = sqrt(V) * ((1 - gamma) * Phi^-1(1 - 1/N) + gamma * Phi^-1(1 - 1/(N e)))`\n\n`trial_sharpes` holds the per-step Sharpe ratio of every variant you tried, this\none included. The function returns `(probability, benchmark)`: the probability\nthat this strategy's true Sharpe ratio is above `SR0`, and `SR0` itself.\n\nThis is the analytic counterpart of the family-wise p-value of\n[`position_test`](position_test.md), which reaches the same correction by\nresampling.",
+    "examples": []
+  },
   "permute_bars": {
     "name": "permute_bars",
     "title": "permute_bars",
@@ -3630,6 +3641,17 @@
       "backtesting"
     ],
     "details": "Tests whether a backtest result could have come from luck. It keeps the market\ndata and the strategy's trading profile, randomizes **when** the strategy holds\nits positions, replays every randomized copy through the same backtest engine,\nand reports where the real result falls in that null distribution.\n\nThe null hypothesis is that the timing carries no information about future\nreturns, given this trading profile. The randomized copies keep the trades\nthemselves (their number, sides, sizes, and holding periods), so a long-biased\nstrategy in a rising market is compared with equally long-biased copies. The\ntest therefore measures timing skill beyond exposure. This is the Monte Carlo\npermutation test for a fixed system (Aronson 2006; Masters 2020).\n\nTwo ways to randomize the timing:\n\n- `method=\"shift\"` (default) rotates the whole target series by a random\n  offset (see [`circular_shift`](circular_shift.md)). Every property of the\n  series is kept, including its autocorrelation.\n- `method=\"segments\"` shuffles the order of the runs: each trade, and each flat\n  stretch, moves as one block (see [`segment_shuffle`](segment_shuffle.md)).\n\n`metric` is `\"sharpe\"` (per step, the default), `\"total_pnl\"`,\n`\"max_drawdown\"`, or a function that maps an engine output of shape\n`(T, k, 4)` to `k` values. The p-value is the share of randomized copies that\ndo at least as well as the real result, counting the real result itself, so it\nis never zero: with `n=999` the smallest possible p-value is 0.001.\n\nThe test is batch-only: it needs the whole series. The surrogates and the\nbacktests run in C++, and all randomized copies go through the engine as one\n`(T, n)` call, processed in column chunks to bound memory.",
+    "examples": []
+  },
+  "probabilistic_sharpe": {
+    "name": "probabilistic_sharpe",
+    "title": "probabilistic_sharpe",
+    "kind": "function",
+    "short": "Probability that a strategy's true Sharpe ratio is above a benchmark, given its sample length and fat tails.",
+    "topics": [
+      "backtesting"
+    ],
+    "details": "Returns the probability that a strategy's true Sharpe ratio is above a\nbenchmark, given its observed per-step Sharpe ratio (Bailey and López de Prado\n2012). The estimate accounts for the length of the record and for the skewness\nand kurtosis of the per-step pnl: a short record, negative skew, or fat tails all\nmake a given Sharpe ratio less convincing.\n\nWith Sharpe ratio `SR`, `T` finite pnl values, skewness `g3`, and kurtosis `g4`\n(3 for a normal distribution):\n\n`PSR = Phi((SR - benchmark) * sqrt(T - 1) / sqrt(1 - g3 * SR + (g4 - 1) / 4 * SR^2))`\n\n`pnl` is a per-step pnl series, or a backtest engine's `(T, 4)` output, whose pnl\ncolumn is used. `benchmark` is a per-step Sharpe ratio (default 0). NaN values\nare skipped. The computation runs in C++ and needs no resampling. To account for\nhaving tried several variants, use [`deflated_sharpe`](deflated_sharpe.md).",
     "examples": []
   },
   "segment_shuffle": {

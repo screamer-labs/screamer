@@ -252,11 +252,13 @@ WilliamsR, Inverse stochastic oscillator in [-100, 0].
 backtest_report, Running statistics and a summary for a backtest engine's output.
 choosing_a_backtest_engine, The 5x2 engine grid by data model and order definition, with fill rules and encoding.
 circular_shift, Randomly rotated copies of a series, for randomization tests.
+deflated_sharpe, Probabilistic Sharpe ratio against the Sharpe ratio the best of your tried variants would reach by luck.
 forecast_pairs, Build a forecasting training set by aligning lagged features with a future causal target.
 from_pandas, Convert a pandas Series or DataFrame to a (values, index) tuple.
 permute_bars, Bar-permuted copies of an OHLC series that keep its return distribution but no serial structure.
 permute_returns, Copies of a price series with its returns in random order.
 position_test, Test whether a backtest's timing beats randomly timed copies of the same strategy, with a p-value.
+probabilistic_sharpe, Probability that a strategy's true Sharpe ratio is above a benchmark, given its sample length and fat tails.
 segment_shuffle, Copies of a series with its runs of equal value in random order, for randomization tests.
 split, Partition a merged tagged stream back into per-source streams.
 strategy_test, Test a whole strategy, model included, against the same strategy run on permuted market data or shifted features.

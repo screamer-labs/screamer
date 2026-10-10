@@ -30,6 +30,7 @@
 #include "screamer/backtest_report.h"
 #include "screamer/backtest_stats.h"
 #include "screamer/validation/surrogates.h"
+#include "screamer/validation/sharpe.h"
 #include "screamer/portfolio_report.h"
 #include "screamer/rolling_downside_deviation.h"
 #include "screamer/rolling_omega.h"
@@ -220,6 +221,15 @@ nb::object permute_returns_batch(SurrogateIn x, bool log, std::uint64_t seed,
 }  // namespace
 
 void init_bindings_fin(nb::module_& m) {
+    m.def("_probabilistic_sharpe", [](SurrogateIn pnl, double benchmark) {
+        return screamer::validation::probabilistic_sharpe(pnl.data(), pnl.shape(0), benchmark);
+    }, "pnl"_a, "benchmark"_a);
+    m.def("_deflated_sharpe", [](SurrogateIn pnl, SurrogateIn trials) {
+        double benchmark = 0.0;
+        const double p = screamer::validation::deflated_sharpe(
+            pnl.data(), pnl.shape(0), trials.data(), trials.shape(0), benchmark);
+        return nb::make_tuple(p, benchmark);
+    }, "pnl"_a, "trials"_a);
     m.def("_permute_bars", &permute_bars_batch,
           "open"_a, "high"_a, "low"_a, "close"_a, "seed"_a, "col0"_a, "ncols"_a);
     m.def("_permute_returns", &permute_returns_batch,

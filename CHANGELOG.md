@@ -22,6 +22,11 @@ Unreleased
   each variant with the best of the `K` randomized results per round (White's
   Reality Check max statistic). It corrects for reporting the best of several
   tried variants.
+* **Probabilistic and deflated Sharpe ratios:** `probabilistic_sharpe` gives
+  the probability that a strategy's true Sharpe ratio is above a benchmark,
+  adjusted for sample length, skewness, and kurtosis; `deflated_sharpe` raises
+  the benchmark to the Sharpe ratio the best of the tried variants would reach
+  by luck (Bailey and Lopez de Prado). Analytic, in C++, Python and JavaScript.
 
 * **Backtest risk exits:** the target engines (`BacktestOHLCTarget`,
   `BacktestPriceTarget`, `BacktestTradesTarget`, `BacktestL1Target`) take

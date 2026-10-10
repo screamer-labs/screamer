@@ -128,3 +128,16 @@ test("validation: positionTest family matches the single-strategy null for K = 1
   const two = positionTest(eng, [tgt, tgt2], [o, h, l, c], { n: 40, seed: 2 });
   for (let k = 0; k < 2; k++) assert.ok(two.familyPValue[k] >= two.pValue[k]);
 });
+
+// Same values as Python (screamer.probabilistic_sharpe / deflated_sharpe).
+test("validation: probabilistic and deflated Sharpe match Python", async () => {
+  const { probabilisticSharpe, deflatedSharpe } = await import("../src/index.ts");
+  const x = [0.01, -0.02, 0.015, 0.003, -0.004, 0.02, 0.011, -0.006, 0.004, 0.009];
+  const near = (a: number, b: number) => Math.abs(a - b) <= 1e-12 * Math.abs(b);
+  assert.ok(near(probabilisticSharpe(x), 0.8256797972532145));
+  assert.ok(near(probabilisticSharpe(x, 0.1), 0.7506739171464867));
+  const d = deflatedSharpe(x, [0.1, 0.3, -0.2, 0.05]);
+  assert.ok(near(d.probability, 0.6455505503887139) && near(d.benchmark, 0.21636840436103524));
+  assert.throws(() => probabilisticSharpe([0.1, 0.2]), RangeError);
+  assert.throws(() => deflatedSharpe(x, [0.1]), RangeError);
+});

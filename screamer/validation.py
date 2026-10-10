@@ -24,13 +24,15 @@ from .screamer_bindings import (
     BacktestReport,
     _circular_shift,
     _default_min_shift,
+    _deflated_sharpe,
+    _probabilistic_sharpe,
     _permute_bars,
     _permute_returns,
     _segment_shuffle,
 )
 
 __all__ = ["position_test", "strategy_test", "circular_shift", "segment_shuffle",
-           "permute_bars", "permute_returns"]
+           "permute_bars", "permute_returns", "probabilistic_sharpe", "deflated_sharpe"]
 
 # Engine output columns: [equity, pnl, position, cost].
 # BacktestReport columns: [drawdown, cum_cost, turnover, trades, max_drawdown, sharpe].
@@ -485,3 +487,38 @@ def strategy_test(
         hits = np.count_nonzero(null <= observed)
     p_value = (1.0 + hits) / (1.0 + null.size) if np.isfinite(observed) else float("nan")
     return StrategyTestResult(observed, null, float(p_value), name, method)
+
+
+def _pnl_of(values):
+    """Per-step pnl from a pnl series or a backtest engine's (T, 4) output."""
+    values = np.asarray(values, dtype=float)
+    if values.ndim == 2 and values.shape[1] == 4:
+        values = values[:, 1]
+    return _as_series(values, "pnl")
+
+
+def probabilistic_sharpe(pnl, benchmark=0.0):
+    """Probability that the true Sharpe ratio is above ``benchmark``.
+
+    ``pnl`` is a per-step pnl series, or a backtest engine's ``(T, 4)`` output
+    whose pnl column is used. The observed per-step Sharpe ratio is adjusted
+    for the sample length and for the skewness and kurtosis of the pnl
+    (Bailey and Lopez de Prado 2012), so a short or fat-tailed record counts
+    for less. ``benchmark`` is a per-step Sharpe ratio. NaN values are skipped.
+    """
+    return float(_probabilistic_sharpe(_pnl_of(pnl), float(benchmark)))
+
+
+def deflated_sharpe(pnl, trial_sharpes):
+    """Probabilistic Sharpe ratio against the best of the strategies you tried.
+
+    ``trial_sharpes`` holds the per-step Sharpe ratio of every strategy variant
+    you tried, this one included. Their spread and number set the Sharpe ratio
+    that the best of them would reach by luck alone, and that becomes the
+    benchmark (Bailey and Lopez de Prado 2014). Returns
+    ``(probability, benchmark)``: the probability that this strategy's true
+    Sharpe ratio is above that benchmark, and the benchmark itself.
+    """
+    trials = np.ascontiguousarray(trial_sharpes, dtype=float).reshape(-1)
+    p, bench = _deflated_sharpe(_pnl_of(pnl), trials)
+    return float(p), float(bench)

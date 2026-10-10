@@ -623,3 +623,57 @@ function positionFamily(
     report.dispose();
   }
 }
+
+// ---- probabilistic and deflated Sharpe ratios (Python: probabilistic_sharpe,
+// deflated_sharpe) ---------------------------------------------------------
+
+function pnlOf(pnl: ArrayLike<number> | NdArray): Float64Array {
+  const nd = pnl as NdArray;
+  if (nd && nd.shape && nd.shape.length === 2 && nd.shape[1] === 4) return column(nd, 1);
+  return Float64Array.from(pnl as ArrayLike<number>);
+}
+
+function checkPnl(x: Float64Array): void {
+  const f = Array.from(x).filter(Number.isFinite);
+  if (f.length < 3) throw new RangeError("need at least three finite pnl values.");
+  if (f.every((v) => v === f[0])) throw new RangeError("pnl has no dispersion.");
+}
+
+/**
+ * Probability that the true Sharpe ratio is above `benchmark` (per step),
+ * adjusting the observed per-step Sharpe ratio for sample length, skewness,
+ * and kurtosis (Bailey and Lopez de Prado 2012). `pnl` is a per-step pnl
+ * series or a backtest engine's (T, 4) output. Mirrors Python's
+ * `probabilistic_sharpe`.
+ */
+export function probabilisticSharpe(pnl: ArrayLike<number> | NdArray, benchmark = 0): number {
+  const M = current();
+  const x = pnlOf(pnl);
+  checkPnl(x);
+  const p = heapCopy(x);
+  try { return M.probabilisticSharpe(p, x.length, benchmark); } finally { M.freeBuf(p); }
+}
+
+/**
+ * Probabilistic Sharpe ratio against the Sharpe ratio expected from the best of
+ * the tried strategies (Bailey and Lopez de Prado 2014). `trialSharpes` holds
+ * the per-step Sharpe ratio of every variant tried, this one included.
+ * Mirrors Python's `deflated_sharpe`.
+ */
+export function deflatedSharpe(
+  pnl: ArrayLike<number> | NdArray, trialSharpes: ArrayLike<number>,
+): { probability: number; benchmark: number } {
+  const M = current();
+  const x = pnlOf(pnl);
+  checkPnl(x);
+  if (Array.from(trialSharpes).filter(Number.isFinite).length < 2)
+    throw new RangeError("deflated_sharpe needs the Sharpe ratios of at least two trials.");
+  const p = heapCopy(x), t = heapCopy(trialSharpes), out = M.allocF64(2);
+  try {
+    M.deflatedSharpeInto(p, x.length, t, trialSharpes.length, out);
+    const v = M.viewF64(out, 2);
+    return { probability: v[0], benchmark: v[1] };
+  } finally {
+    M.freeBuf(p); M.freeBuf(t); M.freeBuf(out);
+  }
+}

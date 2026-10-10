@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <emscripten/bind.h>
 #include "screamer/validation/surrogates.h"
+#include "screamer/validation/sharpe.h"
 
 namespace {
 
@@ -57,6 +58,20 @@ void permuteReturnsInto(std::uintptr_t x, std::size_t T, bool log, double seed,
                     out_ptr(out), out_ptr(src));
 }
 
+double probabilisticSharpe(std::uintptr_t pnl, std::size_t n, double benchmark) {
+    return screamer::validation::probabilistic_sharpe(in_ptr(pnl), n, benchmark);
+}
+
+// Writes [probability, benchmark] to out.
+void deflatedSharpeInto(std::uintptr_t pnl, std::size_t n, std::uintptr_t trials,
+                        std::size_t n_trials, std::uintptr_t out) {
+    double benchmark = 0.0;
+    const double p = screamer::validation::deflated_sharpe(
+        in_ptr(pnl), n, in_ptr(trials), n_trials, benchmark);
+    out_ptr(out)[0] = p;
+    out_ptr(out)[1] = benchmark;
+}
+
 }  // namespace
 
 EMSCRIPTEN_BINDINGS(screamer_validation) {
@@ -65,4 +80,6 @@ EMSCRIPTEN_BINDINGS(screamer_validation) {
     emscripten::function("defaultMinShift", &defaultMinShift);
     emscripten::function("permuteBarsInto", &permuteBarsInto);
     emscripten::function("permuteReturnsInto", &permuteReturnsInto);
+    emscripten::function("probabilisticSharpe", &probabilisticSharpe);
+    emscripten::function("deflatedSharpeInto", &deflatedSharpeInto);
 }

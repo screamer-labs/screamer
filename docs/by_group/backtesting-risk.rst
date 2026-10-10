@@ -77,6 +77,8 @@ Simulate a strategy against market data into a costed equity curve: signals, bar
      - The 5x2 engine grid by data model and order definition, with fill rules and encoding.
    * - :doc:`circular_shift </functions_fin/circular_shift>`
      - Randomly rotated copies of a series, for randomization tests.
+   * - :doc:`deflated_sharpe </functions_fin/deflated_sharpe>`
+     - Probabilistic Sharpe ratio against the Sharpe ratio the best of your tried variants would reach by luck.
    * - :doc:`permute_bars </functions_fin/permute_bars>`
      - Bar-permuted copies of an OHLC series that keep its return distribution but no serial structure.
    * - :doc:`permute_returns </functions_fin/permute_returns>`
@@ -85,6 +87,8 @@ Simulate a strategy against market data into a costed equity curve: signals, bar
      - Reduce a multi-asset backtest engine output into causal portfolio-level report columns.
    * - :doc:`position_test </functions_fin/position_test>`
      - Test whether a backtest's timing beats randomly timed copies of the same strategy, with a p-value.
+   * - :doc:`probabilistic_sharpe </functions_fin/probabilistic_sharpe>`
+     - Probability that a strategy's true Sharpe ratio is above a benchmark, given its sample length and fat tails.
    * - :doc:`segment_shuffle </functions_fin/segment_shuffle>`
      - Copies of a series with its runs of equal value in random order, for randomization tests.
    * - :doc:`strategy_test </functions_fin/strategy_test>`
@@ -106,10 +110,12 @@ Simulate a strategy against market data into a costed equity curve: signals, bar
    /functions_fin/BacktestTradesTarget
    /functions_fin/choosing_a_backtest_engine
    /functions_fin/circular_shift
+   /functions_fin/deflated_sharpe
    /functions_fin/permute_bars
    /functions_fin/permute_returns
    /functions_fin/PortfolioReport
    /functions_fin/position_test
+   /functions_fin/probabilistic_sharpe
    /functions_fin/RollingCalmar
    /functions_fin/RollingCVaR
    /functions_fin/RollingHitRate

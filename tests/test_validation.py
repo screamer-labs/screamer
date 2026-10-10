@@ -409,3 +409,62 @@ def test_family_requires_shift():
     tg = np.sign(np.random.default_rng(25).standard_normal((100, 3)))
     with pytest.raises(ValueError):
         s.position_test(s.BacktestOHLCTarget(), tg, o, h, l, c, method="segments")
+
+
+# --- probabilistic and deflated Sharpe ratios ---------------------------------------
+
+def _psr_reference(x, bench):
+    from scipy import stats
+    sr = x.mean() / x.std(ddof=1)
+    sk, ku = stats.skew(x), stats.kurtosis(x, fisher=False)
+    return stats.norm.cdf((sr - bench) * np.sqrt(len(x) - 1)
+                          / np.sqrt(1 - sk * sr + (ku - 1) / 4 * sr ** 2))
+
+
+def test_probabilistic_sharpe_matches_formula():
+    rng = np.random.default_rng(30)
+    for k in range(5):
+        x = rng.standard_t(4 + k, size=500 + 200 * k) * 0.01 + 0.0005 * k
+        for bench in (0.0, 0.02):
+            assert s.probabilistic_sharpe(x, bench) == pytest.approx(_psr_reference(x, bench),
+                                                                     rel=1e-12, abs=1e-14)
+
+
+def test_deflated_sharpe_matches_formula():
+    from scipy import stats
+    rng = np.random.default_rng(31)
+    x = rng.standard_normal(800) * 0.01 + 0.001
+    for N in (2, 10, 100, 1000):
+        trials = rng.standard_normal(N) * 0.03
+        g = 0.5772156649015329
+        sr0 = trials.std(ddof=1) * ((1 - g) * stats.norm.ppf(1 - 1 / N)
+                                    + g * stats.norm.ppf(1 - 1 / (N * np.e)))
+        p, bench = s.deflated_sharpe(x, trials)
+        assert bench == pytest.approx(sr0, rel=1e-12)
+        assert p == pytest.approx(_psr_reference(x, sr0), rel=1e-12, abs=1e-14)
+
+
+def test_sharpe_tests_accept_engine_output_and_skip_nan():
+    rng = np.random.default_rng(32)
+    pnl = rng.standard_normal(300) * 0.01
+    out = np.column_stack([np.cumsum(pnl), pnl, np.ones(300), np.zeros(300)])
+    assert s.probabilistic_sharpe(out) == pytest.approx(s.probabilistic_sharpe(pnl))
+    holed = np.r_[np.nan, pnl, np.nan]
+    assert s.probabilistic_sharpe(holed) == pytest.approx(s.probabilistic_sharpe(pnl))
+
+
+def test_more_trials_deflate_more():
+    rng = np.random.default_rng(33)
+    x = rng.standard_normal(1000) * 0.01 + 0.0008
+    few = s.deflated_sharpe(x, rng.standard_normal(3) * 0.03)[0]
+    many = s.deflated_sharpe(x, rng.standard_normal(3000) * 0.03)[0]
+    assert many < few < s.probabilistic_sharpe(x)
+
+
+def test_sharpe_argument_checks():
+    with pytest.raises(ValueError):
+        s.probabilistic_sharpe([0.1, 0.2])                       # too short
+    with pytest.raises(ValueError):
+        s.probabilistic_sharpe(np.zeros(10))                     # no dispersion
+    with pytest.raises(ValueError):
+        s.deflated_sharpe(np.random.default_rng(0).standard_normal(50), [0.1])

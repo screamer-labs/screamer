@@ -46,6 +46,7 @@ export * from "./generated/ops.js";
 export {
   circularShift, segmentShuffle, positionTest,
   permuteBars, permuteReturns, strategyTest,
+  probabilisticSharpe, deflatedSharpe,
 } from "./validation.js";
 export type {
   PositionTestMetric,
