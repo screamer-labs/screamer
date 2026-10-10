@@ -12,8 +12,12 @@ Unreleased
   backtest engine output) on the real data and on randomized copies, and
   returns the null distribution and a p-value. `method="bars"` permutes OHLC
   bars (Masters' method, `permute_bars`), `"returns"` permutes a price
-  series' returns (`permute_returns`), and `"shift"` rotates chosen feature
-  inputs to test whether they carry information. Because the strategy runs
+  series (`permute_returns`), and `"shift"` rotates chosen feature inputs to
+  test whether they carry information. `mode` shuffles log returns (`"log"`),
+  differences (`"diff"`, for prices that can be zero or negative), or the
+  values themselves (`"level"`), and `volume_mode` moves a volume input with
+  its bar unchanged (`"keep"`) or rescaled to keep the traded amount
+  (`"notional"`). Because the strategy runs
   again on each copy, fitting and tuning on the data are part of the test.
   Python and JavaScript/WASM (`strategyTest`, `permuteBars`,
   `permuteReturns`) give the same randomized inputs for the same seed.

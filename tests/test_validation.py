@@ -255,7 +255,7 @@ def test_permute_returns_invariants_and_differences():
         np.testing.assert_allclose(np.sort(np.diff(np.log(p[2:, j]))),
                                    np.sort(np.diff(np.log(x[2:]))), atol=1e-12)
     spread = np.random.default_rng(3).standard_normal(80).cumsum()   # crosses zero
-    d = s.permute_returns(spread, 5, log=False, seed=2)
+    d = s.permute_returns(spread, 5, mode="diff", seed=2)
     np.testing.assert_allclose(np.sort(np.diff(d[:, 0])), np.sort(np.diff(spread)), atol=1e-12)
     with pytest.raises(ValueError):
         s.permute_returns(spread, 5)                                 # log needs positive values
@@ -264,12 +264,13 @@ def test_permute_returns_invariants_and_differences():
 def test_permutations_seeded_and_chunk_invariant():
     from screamer.screamer_bindings import _permute_bars, _permute_returns
     o, h, l, c = _ohlc_walk(60, 4)
-    full = _permute_bars(o, h, l, c, 9, 0, 12)
-    parts = [_permute_bars(o, h, l, c, 9, a, b) for a, b in ((0, 5), (5, 7))]
+    E = np.empty(0)
+    full = _permute_bars(o, h, l, c, "log", 9, 0, 12, E, False)
+    parts = [_permute_bars(o, h, l, c, "log", 9, a, b, E, False) for a, b in ((0, 5), (5, 7))]
     for k in range(5):
         np.testing.assert_array_equal(full[k], np.hstack([parts[0][k], parts[1][k]]))
-    r = _permute_returns(c, True, 9, 0, 8)
-    r2 = [_permute_returns(c, True, 9, a, b) for a, b in ((0, 3), (3, 5))]
+    r = _permute_returns(c, "log", 9, 0, 8, E, False)
+    r2 = [_permute_returns(c, "log", 9, a, b, E, False) for a, b in ((0, 3), (3, 5))]
     np.testing.assert_array_equal(r[0], np.hstack([r2[0][0], r2[1][0]]))
 
 
@@ -468,3 +469,89 @@ def test_sharpe_argument_checks():
         s.probabilistic_sharpe(np.zeros(10))                     # no dispersion
     with pytest.raises(ValueError):
         s.deflated_sharpe(np.random.default_rng(0).standard_normal(50), [0.1])
+
+
+# --- permutation modes and volume handling ----------------------------------------
+
+def test_diff_mode_bars_allow_negative_prices():
+    o, h, l, c = (x - 100.0 for x in _ohlc_walk(150, 40))       # crosses zero
+    po, ph, pl, pc = s.permute_bars(o, h, l, c, 20, mode="diff", seed=1)
+    np.testing.assert_allclose(pc[-1], c[-1], atol=1e-9)
+    assert (pl <= np.minimum(po, pc) + 1e-9).all() and (ph >= np.maximum(po, pc) - 1e-9).all()
+    for j in range(20):
+        np.testing.assert_allclose(np.sort(po[1:, j] - pc[:-1, j]), np.sort(o[1:] - c[:-1]),
+                                   atol=1e-9)
+    with pytest.raises(ValueError):
+        s.permute_bars(o, h, l, c, 2)                              # log needs positive prices
+
+
+def test_level_mode_shuffles_whole_rows():
+    o, h, l, c = _ohlc_walk(80, 41)
+    po, ph, pl, pc = s.permute_bars(o, h, l, c, 10, mode="level", seed=2)
+    rows = {tuple(r) for r in np.column_stack([o, h, l, c])}
+    for j in range(10):
+        got = np.column_stack([po[:, j], ph[:, j], pl[:, j], pc[:, j]])
+        assert {tuple(r) for r in got} == rows
+    x = np.r_[np.nan, np.random.default_rng(3).standard_normal(50)]
+    px = s.permute_returns(x, 5, mode="level", seed=3)
+    assert np.isnan(px[0]).all()
+    for j in range(5):
+        np.testing.assert_array_equal(np.sort(px[1:, j]), np.sort(x[1:]))
+
+
+def test_volume_keep_and_notional():
+    from screamer.screamer_bindings import _permute_bars, _permute_returns
+    o, h, l, c = _ohlc_walk(100, 42)
+    vol = np.random.default_rng(4).uniform(1, 9, 100)
+    *_, kv = s.permute_bars(o, h, l, c, 6, volume=vol, seed=5)
+    *px, nv = s.permute_bars(o, h, l, c, 6, volume=vol, volume_mode="notional", seed=5)
+    src = _permute_bars(o, h, l, c, "log", 5, 0, 6, vol, True)[4].astype(int)
+    np.testing.assert_allclose(kv, vol[src])                      # keep: the source volume
+    typ, ptyp = (h + l + c) / 3, (px[1] + px[2] + px[3]) / 3
+    np.testing.assert_allclose(nv * ptyp, (vol * typ)[src])       # notional: same amount
+    p, pv = s.permute_returns(c, 6, volume=vol, volume_mode="notional", seed=5)
+    src = _permute_returns(c, "log", 5, 0, 6, vol, True)[1].astype(int)
+    np.testing.assert_allclose(pv * p, (vol * c)[src])
+    lv = s.permute_bars(o, h, l, c, 3, mode="level", volume=vol, volume_mode="notional")
+    src = _permute_bars(o, h, l, c, "level", 0, 0, 3, vol, True)[4].astype(int)
+    np.testing.assert_allclose(lv[4], vol[src])                   # whole bars: unchanged
+
+
+def test_mode_argument_checks():
+    o, h, l, c = _ohlc_walk(20, 43)
+    with pytest.raises(ValueError):
+        s.permute_bars(o, h, l, c, 2, mode="pct")
+    with pytest.raises(ValueError):
+        s.permute_bars(o, h, l, c, 2, volume=np.ones(20), volume_mode="dollars")
+    with pytest.raises(ValueError):
+        s.permute_bars(o, h, l, c, 2, volume=np.ones(19))
+    with pytest.raises(ValueError):                               # notional needs prices > 0
+        s.permute_returns(c - 200, 2, mode="diff", volume=np.ones(20), volume_mode="notional")
+
+
+def test_strategy_test_moves_volume_with_its_mode():
+    o, h, l, c = _ohlc_walk(200, 44)
+    vol = np.random.default_rng(6).uniform(1, 9, 200)
+    amount = vol * (h + l + c) / 3
+
+    def check(o_, h_, l_, c_, v_):
+        np.testing.assert_allclose(np.sort(v_ * (h_ + l_ + c_) / 3), np.sort(amount))
+        return s.BacktestOHLCTarget()(np.ones(len(c_)), o_, h_, l_, c_)
+
+    s.strategy_test(check, o, h, l, c, vol, n=4, volume=4, volume_mode="notional")
+    lv = s.strategy_test(check, o, h, l, c, vol, n=4, mode="level", volume=4)
+    assert lv.null.size == 4
+    with pytest.raises(ValueError):
+        s.strategy_test(check, o, h, l, c, vol, method="shift", columns=[4], volume=4)
+
+
+def test_mode_golden_values():
+    # Checked by the JS/WASM tests too.
+    V6 = np.array([5, 3, 8, 2, 6, 4.])
+    d = s.permute_bars(O6 - 100, H6 - 100, L6 - 100, C6 - 100, 2, mode="diff", seed=7)
+    np.testing.assert_allclose(d[3][:, 1], [0.5, -0.5, 1.0, 1.0, 3.0, 2.0], atol=1e-12)
+    lv = s.permute_bars(O6, H6, L6, C6, 2, mode="level", seed=7)
+    np.testing.assert_array_equal(lv[3][:, 0], [101.5, 102.5, 101.0, 99.5, 100.5, 102.0])
+    nv = s.permute_bars(O6, H6, L6, C6, 2, seed=7, volume=V6, volume_mode="notional")
+    np.testing.assert_allclose(nv[4][:, 1], [5.0, 3.0, 8.0, 2.029800999901968,
+                                             3.9609756097560966, 5.97058823529412], rtol=1e-12)

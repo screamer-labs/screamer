@@ -53,6 +53,9 @@ export type {
   PositionTestOptions,
   PositionTestResult,
   PositionFamilyResult,
+  PermuteMode,
+  PermuteOptions,
+  VolumeMode,
   StrategyTestOptions,
   StrategyTestResult,
 } from "./validation.js";

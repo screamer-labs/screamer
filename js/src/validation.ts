@@ -311,92 +311,137 @@ function heapCopy(x: ArrayLike<number>): number {
   return p;
 }
 
+export type PermuteMode = "log" | "diff" | "level";
+export type VolumeMode = "keep" | "notional";
+
+function checkModes(mode: string, volumeMode: string): void {
+  if (mode !== "log" && mode !== "diff" && mode !== "level")
+    throw new RangeError('mode must be "log", "diff", or "level"');
+  if (volumeMode !== "keep" && volumeMode !== "notional")
+    throw new RangeError('volume_mode must be "keep" or "notional"');
+}
+
 function checkBars(o: ArrayLike<number>, h: ArrayLike<number>, l: ArrayLike<number>,
-                   c: ArrayLike<number>): void {
+                   c: ArrayLike<number>, mode: PermuteMode, notionalVolume: boolean): void {
   const T = o.length;
   if (h.length !== T || l.length !== T || c.length !== T)
     throw new RangeError("open, high, low, and close must have the same length.");
   if (T < 2) throw new RangeError("permute_bars needs at least two bars.");
   for (let t = 0; t < T; t++) {
-    if (!(o[t] > 0 && h[t] > 0 && l[t] > 0 && c[t] > 0) ||
-        !Number.isFinite(o[t] + h[t] + l[t] + c[t]))
-      throw new RangeError("permute_bars needs finite, positive open, high, low, and close prices.");
+    if (!Number.isFinite(o[t] + h[t] + l[t] + c[t]))
+      throw new RangeError("permute_bars needs finite open, high, low, and close prices.");
+    if ((mode === "log" || notionalVolume) && !(o[t] > 0 && h[t] > 0 && l[t] > 0 && c[t] > 0))
+      throw new RangeError(mode === "log"
+        ? 'permute_bars with mode="log" needs positive prices; use mode="diff".'
+        : 'volume_mode="notional" needs positive prices.');
   }
 }
 
 function barsBlock(o: ArrayLike<number>, h: ArrayLike<number>, l: ArrayLike<number>,
-                   c: ArrayLike<number>, seed: number, col0: number, ncols: number) {
+                   c: ArrayLike<number>, mode: PermuteMode, seed: number, col0: number,
+                   ncols: number, vol: ArrayLike<number> | null, notional: boolean) {
   const M = current();
   const T = o.length;
-  checkBars(o, h, l, c);
+  checkBars(o, h, l, c, mode, notional && vol !== null);
+  if (vol !== null && vol.length !== T)
+    throw new RangeError("volume must have the same length as the prices.");
   const ins: number[] = [];
   let outs: ReturnType<typeof heapBlocks> | null = null;
   try {
     for (const a of [o, h, l, c]) ins.push(heapCopy(a));
-    outs = heapBlocks(T, ncols, 5);
-    M.permuteBarsInto(ins[0], ins[1], ins[2], ins[3], T, seed, col0, ncols, ...outs.ptrs);
-    return [0, 1, 2, 3, 4].map(outs.read);
+    const vp = vol === null ? 0 : heapCopy(vol);
+    ins.push(vp);
+    outs = heapBlocks(T, ncols, vol === null ? 5 : 6);
+    const p = outs.ptrs;
+    M.permuteBarsInto(ins[0], ins[1], ins[2], ins[3], T, mode, seed, col0, ncols,
+                      p[0], p[1], p[2], p[3], p[4], vp, notional, vol === null ? 0 : p[5]);
+    return p.map((_, k) => (outs as ReturnType<typeof heapBlocks>).read(k));
   } finally {
     ins.forEach((p) => M.freeBuf(p)); outs?.free();
   }
 }
 
-function checkReturns(x: ArrayLike<number>, log: boolean): void {
+function checkReturns(x: ArrayLike<number>, mode: PermuteMode, notionalVolume: boolean): void {
   let p = 0;
   while (p < x.length && Number.isNaN(x[p])) p++;
   if (x.length - p < 2)
     throw new RangeError("permute_returns needs at least two values after the NaN warmup.");
   for (let t = p; t < x.length; t++) {
-    if (!Number.isFinite(x[t]) || (log && !(x[t] > 0)))
-      throw new RangeError(log
-        ? "permute_returns with log=True needs finite, positive values."
-        : "permute_returns needs finite values after the NaN warmup.");
+    if (!Number.isFinite(x[t]))
+      throw new RangeError("permute_returns needs finite values after the NaN warmup.");
+    if ((mode === "log" || notionalVolume) && !(x[t] > 0))
+      throw new RangeError(mode === "log"
+        ? 'permute_returns with mode="log" needs positive values; use mode="diff".'
+        : 'volume_mode="notional" needs positive prices.');
   }
 }
 
-function returnsBlock(x: ArrayLike<number>, log: boolean, seed: number,
-                      col0: number, ncols: number) {
+function returnsBlock(x: ArrayLike<number>, mode: PermuteMode, seed: number, col0: number,
+                      ncols: number, vol: ArrayLike<number> | null, notional: boolean) {
   const M = current();
-  checkReturns(x, log);
-  let xp = 0;
+  checkReturns(x, mode, notional && vol !== null);
+  if (vol !== null && vol.length !== x.length)
+    throw new RangeError("volume must have the same length as the prices.");
+  let xp = 0, vp = 0;
   let outs: ReturnType<typeof heapBlocks> | null = null;
   try {
     xp = heapCopy(x);
-    outs = heapBlocks(x.length, ncols, 2);
-    M.permuteReturnsInto(xp, x.length, log, seed, col0, ncols, ...outs.ptrs);
-    return [outs.read(0), outs.read(1)];
+    if (vol !== null) vp = heapCopy(vol);
+    outs = heapBlocks(x.length, ncols, vol === null ? 2 : 3);
+    const p = outs.ptrs;
+    M.permuteReturnsInto(xp, x.length, mode, seed, col0, ncols, p[0], p[1],
+                         vp, notional, vol === null ? 0 : p[2]);
+    return p.map((_, k) => (outs as ReturnType<typeof heapBlocks>).read(k));
   } finally {
-    M.freeBuf(xp); outs?.free();
+    M.freeBuf(xp); M.freeBuf(vp); outs?.free();
   }
 }
 
-/**
- * `n` bar-permuted copies of an OHLC series: `[open, high, low, close]`, each a
- * (T, n) array. Gaps (open over previous close) and intrabar shapes are
- * shuffled independently in log space and the path is rebuilt from the first
- * bar (Masters 2020). Mirrors Python's `permute_bars`.
- */
-export function permuteBars(
-  open: ArrayLike<number>, high: ArrayLike<number>, low: ArrayLike<number>,
-  close: ArrayLike<number>, n: number, opts: { seed?: number } = {},
-): NdArray[] {
-  const seed = opts.seed ?? 0;
-  checkSeed(seed);
-  return barsBlock(open, high, low, close, seed, 0, n).slice(0, 4)
-    .map((data) => ({ data, shape: [open.length, n] }));
+export interface PermuteOptions {
+  mode?: PermuteMode;
+  seed?: number;
+  volume?: ArrayLike<number>;
+  volumeMode?: VolumeMode;
 }
 
 /**
- * `n` copies of a price series with its returns in random order, as a (T, n)
- * array. Mirrors Python's `permute_returns`.
+ * `n` permuted copies of an OHLC series: `[open, high, low, close]` (and the
+ * moved volume when `volume` is given), each a (T, n) array. `mode` is "log"
+ * (shuffle log gaps and intrabar shapes, Masters 2020; the default), "diff"
+ * (the same with differences, for prices that can be zero or negative), or
+ * "level" (shuffle whole bars). `volumeMode` "keep" moves volume with its bar;
+ * "notional" also rescales it so volume times the typical price stays that of
+ * its source bar. Mirrors Python's `permute_bars`.
+ */
+export function permuteBars(
+  open: ArrayLike<number>, high: ArrayLike<number>, low: ArrayLike<number>,
+  close: ArrayLike<number>, n: number, opts: PermuteOptions = {},
+): NdArray[] {
+  const seed = opts.seed ?? 0, mode = opts.mode ?? "log", vm = opts.volumeMode ?? "keep";
+  checkSeed(seed);
+  checkModes(mode, vm);
+  const vol = opts.volume ?? null;
+  const out = barsBlock(open, high, low, close, mode, seed, 0, n, vol, vm === "notional");
+  const keep = vol === null ? [0, 1, 2, 3] : [0, 1, 2, 3, 5];
+  return keep.map((k) => ({ data: out[k], shape: [open.length, n] }));
+}
+
+/**
+ * `n` permuted copies of a price series, as a (T, n) array; with `volume`,
+ * `[prices, volume]`. `mode` is "log" (shuffle log returns; the default),
+ * "diff" (shuffle differences), or "level" (shuffle the values). Mirrors
+ * Python's `permute_returns`.
  */
 export function permuteReturns(
-  x: ArrayLike<number>, n: number, opts: { log?: boolean; seed?: number } = {},
-): NdArray {
-  const seed = opts.seed ?? 0;
+  x: ArrayLike<number>, n: number, opts: PermuteOptions = {},
+): NdArray | NdArray[] {
+  const seed = opts.seed ?? 0, mode = opts.mode ?? "log", vm = opts.volumeMode ?? "keep";
   checkSeed(seed);
-  const [data] = returnsBlock(x, opts.log ?? true, seed, 0, n);
-  return { data, shape: [x.length, n] };
+  checkModes(mode, vm);
+  const vol = opts.volume ?? null;
+  const out = returnsBlock(x, mode, seed, 0, n, vol, vm === "notional");
+  const nd = (d: Float64Array): NdArray => ({ data: d, shape: [x.length, n] });
+  return vol === null ? nd(out[0]) : [nd(out[0]), nd(out[2])];
 }
 
 export interface StrategyTestOptions {
@@ -404,7 +449,9 @@ export interface StrategyTestOptions {
   method?: "bars" | "returns" | "shift";
   ohlc?: [number, number, number, number];
   price?: number;
-  log?: boolean;
+  mode?: PermuteMode;
+  volume?: number;
+  volumeMode?: VolumeMode;
   columns?: number[];
   fixed?: number[];
   metric?: PositionTestMetric;
@@ -436,8 +483,10 @@ function engineOutput(out: any): NdArray {
  * (or a pipeline `{values, index}` holding one). `method` is `"bars"` (permute
  * the OHLC inputs at `ohlc`), `"returns"` (permute the price input at
  * `price`), or `"shift"` (rotate the feature inputs at `columns` by one random
- * offset). With bars and returns, other inputs move with their bar unless listed
- * in `fixed`. Mirrors Python's `strategy_test`; the same seed gives the same
+ * offset). With bars and returns, `mode` is "log", "diff", or "level", and
+ * other inputs move with their bar unless listed in `fixed`; the input at
+ * `volume` is moved and, with `volumeMode: "notional"`, rescaled to keep the
+ * traded amount. Mirrors Python's `strategy_test`; the same seed gives the same
  * randomized inputs.
  */
 export function strategyTest(
@@ -473,14 +522,18 @@ export function strategyTest(
     return pos;
   };
   const fixed = new Set(check(opts.fixed ?? [], "fixed"));
-  let priceCols: number[] = [], shifted = new Set<number>(), shift = 0, log = true;
+  const mode = opts.mode ?? "log", volumeMode = opts.volumeMode ?? "keep";
+  checkModes(mode, volumeMode);
+  const volCol = opts.volume === undefined ? null : check([opts.volume], "volume")[0];
+  if (volCol !== null && method === "shift")
+    throw new RangeError('volume applies to method "bars" or "returns"');
+  const notional = volumeMode === "notional";
+  let priceCols: number[] = [], shifted = new Set<number>(), shift = 0;
   if (method === "bars") {
     priceCols = check([...(opts.ohlc ?? [0, 1, 2, 3])], "ohlc");
     if (priceCols.length !== 4) throw new RangeError("ohlc must list the positions of open, high, low, close");
   } else if (method === "returns") {
     priceCols = check([opts.price ?? 0], "price");
-    const px = data[priceCols[0]];
-    log = opts.log ?? Array.from(px).filter(Number.isFinite).every((v) => v > 0);
   } else {
     if (!opts.columns || opts.columns.length === 0)
       throw new RangeError('method "shift" needs the feature positions in columns');
@@ -509,13 +562,17 @@ export function strategyTest(
       const m = Math.min(chunk, n - c0);
       let replaced = new Map<number, Float64Array>(), src: Float64Array;
       if (method === "bars") {
+        const vol = volCol === null ? null : data[volCol];
         const b = barsBlock(data[priceCols[0]], data[priceCols[1]], data[priceCols[2]],
-                            data[priceCols[3]], seed, c0, m);
+                            data[priceCols[3]], mode, seed, c0, m, vol, notional);
         priceCols.forEach((i, q) => replaced.set(i, b[q]));
+        if (volCol !== null) replaced.set(volCol, b[5]);
         src = b[4];
       } else if (method === "returns") {
-        const r = returnsBlock(data[priceCols[0]], log, seed, c0, m);
+        const vol = volCol === null ? null : data[volCol];
+        const r = returnsBlock(data[priceCols[0]], mode, seed, c0, m, vol, notional);
         replaced.set(priceCols[0], r[0]);
+        if (volCol !== null) replaced.set(volCol, r[2]);
         src = r[1];
       } else {
         src = shiftBlock(positions, shift, seed, c0, m).data;

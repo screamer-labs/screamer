@@ -10,26 +10,39 @@ topics:
 # `permute_bars`
 
 Returns `n` randomized copies of an OHLC series as four `(T, n)` arrays: open,
-high, low, and close. In log prices, each bar after the first splits into a gap
-(its open relative to the previous close) and an intrabar shape (its high, low,
-and close relative to its open). The gaps and the shapes are shuffled with two
-independent permutations, and the path is rebuilt from the first bar (Masters
-2020).
+high, low, and close. `mode` sets what is shuffled:
 
-Every copy keeps the first bar, the last close, the distribution of gaps, the
-distribution of intrabar shapes, and valid bars (the low is at most the open and
-the close, the high at least both). Any serial structure, such as momentum, mean
-reversion, or volatility clustering, is gone. That makes the copies a null
-market for [`strategy_test`](strategy_test.md).
+- `"log"` (default): each bar after the first splits into a gap (its open
+  relative to the previous close) and an intrabar shape (its high, low, and close
+  relative to its open), as log ratios. The gaps and the shapes are shuffled with
+  two independent permutations, and the path is rebuilt from the first bar
+  (Masters 2020). Prices must be positive.
+- `"diff"`: the same with differences instead of log ratios, for prices that can
+  be zero or negative (spread bars, rates).
+- `"level"`: whole bars are shuffled, each keeping its own open, high, low, and
+  close. Use it for series that are stationary in level.
 
-Prices must be finite and positive. The function is batch-only and runs in C++;
-the same `seed` gives the same copies on every platform.
+In `"log"` and `"diff"` mode every copy keeps the first bar, the last close, the
+distribution of gaps, the distribution of intrabar shapes, and valid bars (the
+low is at most the open and the close, the high at least both). Any serial
+structure, such as momentum, mean reversion, or volatility clustering, is gone.
+That makes the copies a null market for [`strategy_test`](strategy_test.md).
+
+With `volume`, a fifth array holds the volume of the bar each row's shape came
+from. `volume_mode="keep"` (default) moves it unchanged. `"notional"` rescales it
+so the traded amount, volume times the typical price (high + low + close) / 3,
+stays that of its source bar: where a copy trades at twice the price, the volume
+halves. In `"level"` mode the bars move whole, so both give the same volume.
+
+The function is batch-only and runs in C++; the same `seed` gives the same
+copies on every platform.
 
 <!-- HELP_END -->
 
 ## Signature
 
-`permute_bars(open, high, low, close, n, seed=0)`
+`permute_bars(open, high, low, close, n, mode="log", seed=0, volume=None,
+volume_mode="keep")`
 
 ## Example
 

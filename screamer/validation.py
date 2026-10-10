@@ -303,32 +303,72 @@ def _position_test_family(engine, target, market, n, method, metric, name,
     return PositionTestResult(observed, null, p_value, name, method, shift, family)
 
 
-def permute_bars(open, high, low, close, n, seed=0):
-    """``n`` bar-permuted copies of an OHLC series, as four ``(T, n)`` arrays.
+_EMPTY = np.empty(0)
+_MODES = ("log", "diff", "level")
+_VOLUME_MODES = ("keep", "notional")
 
-    In log prices each bar after the first splits into a gap (its open over the
-    previous close) and an intrabar shape (high, low, and close relative to its
-    open). The gaps and the shapes are shuffled independently and the path is
-    rebuilt from the first bar (Masters 2020). Each copy keeps the first bar,
-    the last close, the distribution of gaps and intrabar shapes, and valid
-    bars, but none of the serial structure. Prices must be finite and positive.
-    The same ``seed`` gives the same copies on every platform.
+
+def _check_modes(mode, volume_mode):
+    if mode not in _MODES:
+        raise ValueError('mode must be "log", "diff", or "level"')
+    if volume_mode not in _VOLUME_MODES:
+        raise ValueError('volume_mode must be "keep" or "notional"')
+
+
+def permute_bars(open, high, low, close, n, mode="log", seed=0, volume=None,
+                 volume_mode="keep"):
+    """``n`` permuted copies of an OHLC series, as four ``(T, n)`` arrays.
+
+    ``mode`` sets what is shuffled:
+
+    - ``"log"`` (default): each bar after the first splits into a gap (its open
+      over the previous close) and an intrabar shape (high, low, and close over
+      its open), as log ratios. The gaps and the shapes are shuffled
+      independently and the path is rebuilt from the first bar (Masters 2020).
+      Each copy keeps the first bar, the last close, the distributions of gaps
+      and shapes, and valid bars, but none of the serial structure. Prices must
+      be positive.
+    - ``"diff"``: the same with differences instead of log ratios, for prices
+      that can be zero or negative (spreads, rates).
+    - ``"level"``: whole bars are shuffled. Use it for series that are
+      stationary in level, where a rebuilt path would be meaningless.
+
+    With ``volume``, a fifth ``(T, n)`` array holds the volume of the bar each
+    row's shape came from. ``volume_mode="keep"`` keeps it as it is;
+    ``"notional"`` rescales it so the traded amount, volume times the typical
+    price (high + low + close) / 3, stays that of its source bar: where a copy
+    trades at twice the price, the volume halves. The same ``seed`` gives the
+    same copies on every platform.
     """
+    _check_modes(mode, volume_mode)
     o, h, l, c = (_as_series(a, name) for a, name in
                   ((open, "open"), (high, "high"), (low, "low"), (close, "close")))
-    return _permute_bars(o, h, l, c, _seed(seed), 0, int(n))[:4]
+    v = _EMPTY if volume is None else _as_series(volume, "volume")
+    out = _permute_bars(o, h, l, c, mode, _seed(seed), 0, int(n), v,
+                        volume_mode == "notional")
+    return out[:4] if volume is None else (*out[:4], out[5])
 
 
-def permute_returns(x, n, log=True, seed=0):
-    """``n`` copies of a price series with its returns in random order, ``(T, n)``.
+def permute_returns(x, n, mode="log", seed=0, volume=None, volume_mode="keep"):
+    """``n`` permuted copies of a price series, as a ``(T, n)`` array.
 
-    The steps of the series (log returns with ``log=True``, else differences)
-    are shuffled and the path is rebuilt from the first valid value. Each copy
-    keeps the first and last values and the distribution of returns, but none
-    of their order. The NaN warmup prefix stays in place. The same ``seed``
-    gives the same copies on every platform.
+    ``mode`` sets what is shuffled: ``"log"`` (default) shuffles the log
+    returns and ``"diff"`` the differences, and both rebuild the path from the
+    first valid value, so each copy keeps the first and last values and the
+    distribution of changes but not their order. ``"level"`` shuffles the
+    values themselves, for series that are stationary in level. The NaN warmup
+    prefix stays in place. With ``"log"`` the values must be positive.
+
+    With ``volume``, returns ``(prices, volume)``: the volume of the row each
+    step came from, kept as it is (``volume_mode="keep"``) or rescaled so that
+    volume times price stays that of its source row (``"notional"``). The same
+    ``seed`` gives the same copies on every platform.
     """
-    return _permute_returns(_as_series(x, "x"), bool(log), _seed(seed), 0, int(n))[0]
+    _check_modes(mode, volume_mode)
+    v = _EMPTY if volume is None else _as_series(volume, "volume")
+    out = _permute_returns(_as_series(x, "x"), mode, _seed(seed), 0, int(n), v,
+                           volume_mode == "notional")
+    return out[0] if volume is None else (out[0], out[2])
 
 
 class StrategyTestResult(NamedTuple):
@@ -360,7 +400,9 @@ def strategy_test(
     method: str = "bars",
     ohlc=(0, 1, 2, 3),
     price: int = 0,
-    log: Optional[bool] = None,
+    mode: str = "log",
+    volume: Optional[int] = None,
+    volume_mode: str = "keep",
     columns=None,
     fixed=(),
     metric: Union[str, Callable] = "sharpe",
@@ -379,14 +421,19 @@ def strategy_test(
     ``method`` chooses what is randomized:
 
     - ``"bars"``: the OHLC inputs at positions ``ohlc`` are replaced by
-      bar-permuted copies (see ``permute_bars``). The null hypothesis is that
-      the market has no serial structure the strategy can use. Because the
-      whole strategy runs again, anything it fits or tunes on the data is
-      re-fitted on every copy, so the test also accounts for that fitting.
+      permuted copies (see ``permute_bars``). The null hypothesis is that the
+      market has no serial structure the strategy can use. Because the whole
+      strategy runs again, anything it fits or tunes on the data is re-fitted
+      on every copy, so the test also accounts for that fitting.
     - ``"returns"``: the single price input at position ``price`` is replaced
-      by return-permuted copies (see ``permute_returns``). ``log`` chooses log
-      returns or differences; the default uses log returns when every price is
-      positive.
+      by permuted copies (see ``permute_returns``).
+
+    For both, ``mode`` is ``"log"`` (shuffle log returns, the default),
+    ``"diff"`` (shuffle differences, for prices that can be zero or negative),
+    or ``"level"`` (shuffle the values or whole bars, for series that are
+    stationary in level). ``volume`` is the position of a volume input:
+    ``volume_mode="keep"`` moves it with its bar unchanged, and ``"notional"``
+    also rescales it so the traded amount stays that of its source bar.
     - ``"shift"``: the inputs at positions ``columns`` (features) are rotated
       in time by one random offset, the same for all of them, while prices
       stay as they are. This asks whether those features carry information,
@@ -433,15 +480,16 @@ def strategy_test(
         return pos
 
     fixed = set(check_positions(fixed, "fixed"))
+    _check_modes(mode, volume_mode)
+    vol_col = None if volume is None else check_positions([volume], "volume")[0]
+    if vol_col is not None and method == "shift":
+        raise ValueError('volume applies to method="bars" or "returns"')
     if method == "bars":
         price_cols = check_positions(ohlc, "ohlc")
         if len(price_cols) != 4:
             raise ValueError("ohlc must list the positions of open, high, low, close")
     elif method == "returns":
         price_cols = check_positions([price], "price")
-        if log is None:
-            px = data[price_cols[0]]
-            log = bool(np.all(px[np.isfinite(px)] > 0))
     else:
         if not columns:
             raise ValueError('method="shift" needs the feature positions in columns')
@@ -458,12 +506,21 @@ def strategy_test(
     chunk = max(1, min(n, 64))
     for col0 in range(0, n, chunk):
         m = min(chunk, n - col0)
+        v = _EMPTY if vol_col is None else data[vol_col]
+        notional = volume_mode == "notional"
         if method == "bars":
-            o, h, l, c, src = _permute_bars(*(data[i] for i in price_cols), seed, col0, m)
-            replaced = dict(zip(price_cols, (o, h, l, c)))
+            out = _permute_bars(*(data[i] for i in price_cols), mode, seed, col0, m,
+                                v, notional)
+            src = out[4]
+            replaced = dict(zip(price_cols, out[:4]))
+            if vol_col is not None:
+                replaced[vol_col] = out[5]
         elif method == "returns":
-            p, src = _permute_returns(data[price_cols[0]], bool(log), seed, col0, m)
-            replaced = {price_cols[0]: p}
+            out = _permute_returns(data[price_cols[0]], mode, seed, col0, m, v, notional)
+            src = out[1]
+            replaced = {price_cols[0]: out[0]}
+            if vol_col is not None:
+                replaced[vol_col] = out[2]
         else:
             src = _circular_shift(positions, shift, seed, col0, m)
             replaced = {}

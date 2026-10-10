@@ -84,7 +84,8 @@ test("validation: golden permutations match Python", async () => {
     100.50246305418726, 101.99507389162568, 103.50738916256157]));
   assert.ok(close(col(bars[3], 1), [100.5, 99.49999999999997, 101.00000000000003,
     100.99512218680589, 103.00492610837439, 101.99999999999996]));
-  const r = permuteReturns([NaN_, 10, 11, 10.5, 12, 11.5, 13], 2, { seed: 7 });
+  const r = permuteReturns([NaN_, 10, 11, 10.5, 12, 11.5, 13], 2, { seed: 7 }) as
+    { data: Float64Array; shape: number[] };
   assert.ok(close(col(r, 0), [NaN_, 10.0, 11.30434782608696, 10.833333333333336,
     12.380952380952385, 11.81818181818182, 13.0]));
 });
@@ -140,4 +141,23 @@ test("validation: probabilistic and deflated Sharpe match Python", async () => {
   assert.ok(near(d.probability, 0.6455505503887139) && near(d.benchmark, 0.21636840436103524));
   assert.throws(() => probabilisticSharpe([0.1, 0.2]), RangeError);
   assert.throws(() => deflatedSharpe(x, [0.1]), RangeError);
+});
+
+
+// Same golden values as tests/test_validation.py::test_mode_golden_values.
+test("validation: permutation modes and notional volume match Python", async () => {
+  const { permuteBars } = await import("../src/index.ts");
+  const o = [100, 101, 99, 102, 103, 101];
+  const h = o.map((v) => v * 1.01), l = o.map((v) => v * 0.98);
+  const c = [100.5, 99.5, 101, 102.5, 101.5, 102], v = [5, 3, 8, 2, 6, 4];
+  const near = (a: number[], b: number[]) => a.every((x, i) => Math.abs(x - b[i]) <= 1e-12 * Math.max(1, Math.abs(b[i])));
+  const m100 = (a: number[]) => a.map((x) => x - 100);
+  const d = permuteBars(m100(o), m100(h), m100(l), m100(c), 2, { mode: "diff", seed: 7 });
+  assert.ok(near(col(d[3], 1), [0.5, -0.5, 1.0, 1.0, 3.0, 2.0]));
+  const lv = permuteBars(o, h, l, c, 2, { mode: "level", seed: 7 });
+  assert.deepEqual(col(lv[3], 0), [101.5, 102.5, 101.0, 99.5, 100.5, 102.0]);
+  const nv = permuteBars(o, h, l, c, 2, { seed: 7, volume: v, volumeMode: "notional" });
+  assert.equal(nv.length, 5);
+  assert.ok(near(col(nv[4], 1), [5.0, 3.0, 8.0, 2.029800999901968, 3.9609756097560966, 5.97058823529412]));
+  assert.throws(() => permuteBars(m100(o), m100(h), m100(l), m100(c), 2), RangeError);
 });

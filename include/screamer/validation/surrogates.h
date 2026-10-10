@@ -6,6 +6,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <stdexcept>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -209,39 +210,94 @@ namespace screamer { namespace validation {
             }
         }
 
+        // Fisher-Yates shuffle of 0 .. m-1 into perm.
+        inline void shuffle_all(std::vector<std::size_t>& perm, Rng& rng) {
+            for (std::size_t i = 0; i < perm.size(); ++i) perm[i] = i;
+            for (std::size_t i = perm.size(); i > 1; --i) {
+                const std::size_t k = static_cast<std::size_t>(rng.below(i));
+                std::swap(perm[i - 1], perm[k]);
+            }
+        }
+
     } // namespace detail
 
-    // Bar permutation (Masters 2020) for OHLC data. In log prices each bar
-    // t >= 1 splits into a gap, open[t] / close[t-1], and an intrabar shape,
-    // (high, low, close) relative to open[t]. The gaps and the shapes are
+    // How a price series is taken apart before it is shuffled.
+    //   Log:   log returns (relative changes); prices must be positive.
+    //   Diff:  differences (absolute changes); prices may be zero or negative.
+    //   Level: the values themselves; whole rows are shuffled, so there is no
+    //          path to rebuild. The null for series that are stationary in
+    //          level (funding rates, spreads around a fixed mean, features).
+    enum class PermuteMode { Log, Diff, Level };
+
+    inline PermuteMode parse_permute_mode(const std::string& m) {
+        if (m == "log") return PermuteMode::Log;
+        if (m == "diff") return PermuteMode::Diff;
+        if (m == "level") return PermuteMode::Level;
+        throw std::invalid_argument("mode must be \"log\", \"diff\", or \"level\".");
+    }
+
+    // Bar permutation for OHLC data (Masters 2020), with an optional volume
+    // column. In Log and Diff mode each bar t >= 1 splits into a gap (open[t]
+    // against close[t-1]) and an intrabar shape (high, low, and close against
+    // open[t]), as log ratios or as differences. The gaps and the shapes are
     // shuffled with two independent permutations and the path is rebuilt from
     // the first bar, which stays as it is. Every surrogate keeps the first bar,
-    // the last close, the distribution of gaps and of intrabar shapes, and
-    // low <= open, close <= high; it has no serial structure left.
+    // the last close, the distributions of gaps and shapes, and valid bars
+    // (low <= open, close <= high); it has no serial structure left. In Level
+    // mode whole bars are shuffled, the first one included.
     //
-    // Outputs are row-major (T x ncols): the four price arrays, and `source`,
-    // the bar whose intrabar shape row t received (0 for t = 0), so that other
-    // per-bar columns (volume, features) can be moved with their bar. Prices
-    // must be finite and positive.
+    // Outputs are row-major (T x ncols): the four price arrays and `source`,
+    // the bar whose shape row t received (the bar itself in Level mode), so
+    // that other per-bar columns can move with their bar. With a volume column
+    // (`vol` not null) `ov` receives the moved volume: with `notional` false it
+    // is the source bar's volume; with `notional` true it is rescaled so the
+    // traded amount, volume times the typical price (high + low + close) / 3,
+    // stays that of the source bar: if the price doubles, the volume halves.
     inline void permute_bars(const double* o, const double* h, const double* l,
-                             const double* c, std::size_t T, std::uint64_t seed,
-                             std::size_t col0, std::size_t ncols,
+                             const double* c, std::size_t T, PermuteMode mode,
+                             std::uint64_t seed, std::size_t col0, std::size_t ncols,
                              double* oo, double* oh, double* ol, double* oc,
-                             double* source) {
+                             double* source,
+                             const double* vol = nullptr, bool notional = false,
+                             double* ov = nullptr) {
         if (T < 2) throw std::invalid_argument("permute_bars needs at least two bars.");
+        const bool log = mode == PermuteMode::Log;
         for (std::size_t t = 0; t < T; ++t) {
-            if (!(o[t] > 0.0 && h[t] > 0.0 && l[t] > 0.0 && c[t] > 0.0) ||
-                !std::isfinite(o[t] + h[t] + l[t] + c[t]))
+            if (!std::isfinite(o[t] + h[t] + l[t] + c[t]))
                 throw std::invalid_argument(
-                    "permute_bars needs finite, positive open, high, low, and close prices.");
+                    "permute_bars needs finite open, high, low, and close prices.");
+            if ((log || (notional && vol)) &&
+                !(o[t] > 0.0 && h[t] > 0.0 && l[t] > 0.0 && c[t] > 0.0))
+                throw std::invalid_argument(log
+                    ? "permute_bars with mode=\"log\" needs positive prices; use mode=\"diff\"."
+                    : "volume_mode=\"notional\" needs positive prices.");
         }
+        auto typical = [](double hh, double ll, double cc) { return (hh + ll + cc) / 3.0; };
+
+        if (mode == PermuteMode::Level) {
+            std::vector<std::size_t> rows(T);
+            for (std::size_t j = 0; j < ncols; ++j) {
+                Rng rng(seed, col0 + j);
+                detail::shuffle_all(rows, rng);
+                for (std::size_t t = 0; t < T; ++t) {
+                    const std::size_t s = rows[t], r = t * ncols + j;
+                    oo[r] = o[s]; oh[r] = h[s]; ol[r] = l[s]; oc[r] = c[s];
+                    source[r] = static_cast<double>(s);
+                    if (vol) ov[r] = vol[s];          // the bar moves whole: same amount
+                }
+            }
+            return;
+        }
+
+        auto fwd = [log](double x) { return log ? std::log(x) : x; };
+        auto inv = [log](double x) { return log ? std::exp(x) : x; };
         std::vector<double> gap(T), dh(T), dl(T), dc(T);
         for (std::size_t t = 1; t < T; ++t) {
-            gap[t] = std::log(o[t]) - std::log(c[t - 1]);
-            const double lo = std::log(o[t]);
-            dh[t] = std::log(h[t]) - lo;
-            dl[t] = std::log(l[t]) - lo;
-            dc[t] = std::log(c[t]) - lo;
+            gap[t] = fwd(o[t]) - fwd(c[t - 1]);
+            const double lo = fwd(o[t]);
+            dh[t] = fwd(h[t]) - lo;
+            dl[t] = fwd(l[t]) - lo;
+            dc[t] = fwd(c[t]) - lo;
         }
         std::vector<std::size_t> shape(T), gaps(T);
         for (std::size_t j = 0; j < ncols; ++j) {
@@ -249,60 +305,87 @@ namespace screamer { namespace validation {
             detail::shuffle_tail(shape, rng);
             detail::shuffle_tail(gaps, rng);
             oo[j] = o[0]; oh[j] = h[0]; ol[j] = l[0]; oc[j] = c[0]; source[j] = 0.0;
-            double prev_close = std::log(c[0]);
+            if (vol) ov[j] = vol[0];
+            double prev_close = fwd(c[0]);
             for (std::size_t t = 1; t < T; ++t) {
                 const std::size_t s = shape[t], g = gaps[t];
                 const double lo = prev_close + gap[g];
                 const std::size_t r = t * ncols + j;
-                oo[r] = std::exp(lo);
-                oh[r] = std::exp(lo + dh[s]);
-                ol[r] = std::exp(lo + dl[s]);
+                oo[r] = inv(lo);
+                oh[r] = inv(lo + dh[s]);
+                ol[r] = inv(lo + dl[s]);
                 prev_close = lo + dc[s];
-                oc[r] = std::exp(prev_close);
+                oc[r] = inv(prev_close);
                 source[r] = static_cast<double>(s);
+                if (vol) {
+                    ov[r] = notional
+                        ? vol[s] * typical(h[s], l[s], c[s]) / typical(oh[r], ol[r], oc[r])
+                        : vol[s];
+                }
             }
         }
     }
 
-    // Return permutation for a single price series: the steps after the NaN
-    // warmup prefix (log steps when `log`, else differences) are shuffled and
-    // the path is rebuilt from the first valid value. The warmup prefix and the
-    // first valid value stay in place; the last value is kept. `source` (as in
-    // permute_bars) is the index whose step row t received. With `log` the
-    // values must be positive.
-    inline void permute_returns(const double* x, std::size_t T, bool log,
+    // Permutation of a single price series, with an optional volume column.
+    // In Log and Diff mode the steps after the NaN warmup prefix (log returns
+    // or differences) are shuffled and the path is rebuilt from the first
+    // valid value, so the first and last values are kept. In Level mode the
+    // valid values themselves are shuffled. The warmup prefix stays in place.
+    // `source` (as in permute_bars) is the index whose step or value row t
+    // received. With a volume column, `ov` receives the moved volume, rescaled
+    // with `notional` so that volume times price stays that of the source row.
+    inline void permute_returns(const double* x, std::size_t T, PermuteMode mode,
                                 std::uint64_t seed, std::size_t col0, std::size_t ncols,
-                                double* out, double* source) {
+                                double* out, double* source,
+                                const double* vol = nullptr, bool notional = false,
+                                double* ov = nullptr) {
         const std::size_t p = detail::valid_start(x, T);
         if (T - p < 2) throw std::invalid_argument(
             "permute_returns needs at least two values after the NaN warmup.");
+        const bool log = mode == PermuteMode::Log;
         for (std::size_t t = p; t < T; ++t) {
-            if (!std::isfinite(x[t]) || (log && !(x[t] > 0.0)))
+            if (!std::isfinite(x[t]))
+                throw std::invalid_argument("permute_returns needs finite values after the NaN warmup.");
+            if ((log || (notional && vol)) && !(x[t] > 0.0))
                 throw std::invalid_argument(log
-                    ? "permute_returns with log=True needs finite, positive values."
-                    : "permute_returns needs finite values after the NaN warmup.");
+                    ? "permute_returns with mode=\"log\" needs positive values; use mode=\"diff\"."
+                    : "volume_mode=\"notional\" needs positive prices.");
         }
         const std::size_t L = T - p;
         std::vector<double> step(L);
-        for (std::size_t i = 1; i < L; ++i)
-            step[i] = log ? std::log(x[p + i]) - std::log(x[p + i - 1])
-                          : x[p + i] - x[p + i - 1];
+        if (mode != PermuteMode::Level)
+            for (std::size_t i = 1; i < L; ++i)
+                step[i] = log ? std::log(x[p + i]) - std::log(x[p + i - 1])
+                              : x[p + i] - x[p + i - 1];
         std::vector<std::size_t> perm(L);
         for (std::size_t j = 0; j < ncols; ++j) {
             Rng rng(seed, col0 + j);
-            detail::shuffle_tail(perm, rng);
             for (std::size_t t = 0; t < p; ++t) {
                 out[t * ncols + j] = x[t];
                 source[t * ncols + j] = static_cast<double>(t);
+                if (vol) ov[t * ncols + j] = vol[t];
             }
+            if (mode == PermuteMode::Level) {
+                detail::shuffle_all(perm, rng);
+                for (std::size_t i = 0; i < L; ++i) {
+                    const std::size_t r = (p + i) * ncols + j, s = p + perm[i];
+                    out[r] = x[s];
+                    source[r] = static_cast<double>(s);
+                    if (vol) ov[r] = vol[s];          // the row moves whole
+                }
+                continue;
+            }
+            detail::shuffle_tail(perm, rng);
             double level = log ? std::log(x[p]) : x[p];
             out[p * ncols + j] = x[p];
             source[p * ncols + j] = static_cast<double>(p);
+            if (vol) ov[p * ncols + j] = vol[p];
             for (std::size_t i = 1; i < L; ++i) {
                 level += step[perm[i]];
-                const std::size_t r = (p + i) * ncols + j;
+                const std::size_t r = (p + i) * ncols + j, s = p + perm[i];
                 out[r] = log ? std::exp(level) : level;
-                source[r] = static_cast<double>(p + perm[i]);
+                source[r] = static_cast<double>(s);
+                if (vol) ov[r] = notional ? vol[s] * x[s] / out[r] : vol[s];
             }
         }
     }

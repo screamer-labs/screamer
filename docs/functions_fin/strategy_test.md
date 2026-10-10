@@ -25,11 +25,11 @@ position series.
 `method` chooses what is randomized:
 
 - `"bars"` (default): the OHLC inputs at positions `ohlc` are replaced by
-  bar-permuted copies (see [`permute_bars`](permute_bars.md)). The null
-  hypothesis is that the market has no serial structure the strategy can use.
-  This is the Monte Carlo permutation test of Masters (2020).
+  permuted copies (see [`permute_bars`](permute_bars.md)). The null hypothesis
+  is that the market has no serial structure the strategy can use. This is the
+  Monte Carlo permutation test of Masters (2020).
 - `"returns"`: the single price input at position `price` is replaced by
-  return-permuted copies (see [`permute_returns`](permute_returns.md)).
+  permuted copies (see [`permute_returns`](permute_returns.md)).
 - `"shift"`: the feature inputs at positions `columns` are rotated in time by
   one random offset, the same for all of them, while the prices stay as they
   are. This asks whether those features carry information about the market.
@@ -37,9 +37,14 @@ position series.
   model sees inputs from the same distribution. `min_shift` defaults to a tenth
   of the series.
 
-With `"bars"` and `"returns"`, every other input moves with its bar, so per-bar
-data such as volume stays with the bar it belongs to. Inputs that must not move,
-such as timestamps, go in `fixed`.
+With `"bars"` and `"returns"`, `mode` chooses how prices are shuffled: `"log"`
+(log returns, the default), `"diff"` (differences, for prices that can be zero
+or negative), or `"level"` (the values or whole bars, for series that are
+stationary in level). Every other input moves with its bar, so per-bar data
+stays with the bar it belongs to. Give the position of a volume input in
+`volume` to choose how it moves: `volume_mode="keep"` moves it unchanged, and
+`"notional"` rescales it so the traded amount stays that of its source bar.
+Inputs that must not move, such as timestamps, go in `fixed`.
 
 `metric` is `"sharpe"` (per step, the default), `"total_pnl"`,
 `"max_drawdown"`, or a function that maps an output of shape `(T, k, 4)` to `k`
@@ -54,13 +59,13 @@ under a millisecond per thousand bars.
 ## Signature
 
 `strategy_test(strategy, *inputs, n=500, method="bars", ohlc=(0, 1, 2, 3),
-price=0, log=None, columns=None, fixed=(), metric="sharpe",
+price=0, mode="log", volume=None, volume_mode="keep", columns=None, fixed=(),
+metric="sharpe",
 larger_is_better=None, min_shift=None, seed=0)`
 
 It returns a named tuple with `observed`, `null` (NaN values left out),
-`p_value`, `metric`, and `method`. `log` applies to `method="returns"`: log
-returns or differences, by default log returns when every price is positive.
-The same `seed` gives the same randomized inputs in Python and JavaScript.
+`p_value`, `metric`, and `method`. The same `seed` gives the same randomized
+inputs in Python and JavaScript.
 
 ## Example
 

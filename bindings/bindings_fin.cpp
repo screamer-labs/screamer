@@ -1,6 +1,7 @@
 #include <algorithm>
 #include <limits>
 #include <utility>
+#include <vector>
 #include <nanobind/nanobind.h>
 #include <nanobind/stl/optional.h>
 #include <nanobind/stl/string.h>
@@ -188,35 +189,56 @@ nb::object segment_shuffle_batch(SurrogateIn x, std::uint64_t seed,
 }
 
 nb::object permute_bars_batch(SurrogateIn o, SurrogateIn h, SurrogateIn l, SurrogateIn c,
-                              std::uint64_t seed, size_t col0, size_t ncols) {
+                              const std::string& mode, std::uint64_t seed,
+                              size_t col0, size_t ncols,
+                              SurrogateIn volume, bool notional) {
     const size_t T = o.shape(0);
     if (h.shape(0) != T || l.shape(0) != T || c.shape(0) != T)
         throw std::invalid_argument("open, high, low, and close must have the same length.");
+    const bool has_vol = volume.shape(0) > 0;
+    if (has_vol && volume.shape(0) != T)
+        throw std::invalid_argument("volume must have the same length as the prices.");
+    const auto m = screamer::validation::parse_permute_mode(mode);
     const size_t N = T * ncols;
-    double* oo = new double[N]; double* oh = new double[N];
-    double* ol = new double[N]; double* oc = new double[N]; double* src = new double[N];
+    std::vector<double*> bufs;
+    for (int k = 0; k < (has_vol ? 6 : 5); ++k) bufs.push_back(new double[N]);
     try {
-        screamer::validation::permute_bars(o.data(), h.data(), l.data(), c.data(), T,
-                                           seed, col0, ncols, oo, oh, ol, oc, src);
+        screamer::validation::permute_bars(
+            o.data(), h.data(), l.data(), c.data(), T, m, seed, col0, ncols,
+            bufs[0], bufs[1], bufs[2], bufs[3], bufs[4],
+            has_vol ? volume.data() : nullptr, notional, has_vol ? bufs[5] : nullptr);
     } catch (...) {
-        delete[] oo; delete[] oh; delete[] ol; delete[] oc; delete[] src; throw;
+        for (double* b : bufs) delete[] b;
+        throw;
     }
     using screamer::detail::make_owned_array;
-    return nb::make_tuple(make_owned_array(oo, {T, ncols}), make_owned_array(oh, {T, ncols}),
-                          make_owned_array(ol, {T, ncols}), make_owned_array(oc, {T, ncols}),
-                          make_owned_array(src, {T, ncols}));
+    nb::list out;
+    for (double* b : bufs) out.append(make_owned_array(b, {T, ncols}));
+    return nb::tuple(out);
 }
 
-nb::object permute_returns_batch(SurrogateIn x, bool log, std::uint64_t seed,
-                                 size_t col0, size_t ncols) {
+nb::object permute_returns_batch(SurrogateIn x, const std::string& mode, std::uint64_t seed,
+                                 size_t col0, size_t ncols,
+                                 SurrogateIn volume, bool notional) {
     const size_t T = x.shape(0);
-    double* out = new double[T * ncols];
-    double* src = new double[T * ncols];
+    const bool has_vol = volume.shape(0) > 0;
+    if (has_vol && volume.shape(0) != T)
+        throw std::invalid_argument("volume must have the same length as the prices.");
+    const auto m = screamer::validation::parse_permute_mode(mode);
+    std::vector<double*> bufs;
+    for (int k = 0; k < (has_vol ? 3 : 2); ++k) bufs.push_back(new double[T * ncols]);
     try {
-        screamer::validation::permute_returns(x.data(), T, log, seed, col0, ncols, out, src);
-    } catch (...) { delete[] out; delete[] src; throw; }
+        screamer::validation::permute_returns(
+            x.data(), T, m, seed, col0, ncols, bufs[0], bufs[1],
+            has_vol ? volume.data() : nullptr, notional, has_vol ? bufs[2] : nullptr);
+    } catch (...) {
+        for (double* b : bufs) delete[] b;
+        throw;
+    }
     using screamer::detail::make_owned_array;
-    return nb::make_tuple(make_owned_array(out, {T, ncols}), make_owned_array(src, {T, ncols}));
+    nb::list out;
+    for (double* b : bufs) out.append(make_owned_array(b, {T, ncols}));
+    return nb::tuple(out);
 }
 
 }  // namespace
@@ -232,9 +254,10 @@ void init_bindings_fin(nb::module_& m) {
         return nb::make_tuple(p, benchmark);
     }, "pnl"_a, "trials"_a);
     m.def("_permute_bars", &permute_bars_batch,
-          "open"_a, "high"_a, "low"_a, "close"_a, "seed"_a, "col0"_a, "ncols"_a);
+          "open"_a, "high"_a, "low"_a, "close"_a, "mode"_a, "seed"_a, "col0"_a, "ncols"_a,
+          "volume"_a, "notional"_a);
     m.def("_permute_returns", &permute_returns_batch,
-          "x"_a, "log"_a, "seed"_a, "col0"_a, "ncols"_a);
+          "x"_a, "mode"_a, "seed"_a, "col0"_a, "ncols"_a, "volume"_a, "notional"_a);
     m.def("_circular_shift", &circular_shift_batch,
           "x"_a, "min_shift"_a, "seed"_a, "col0"_a, "ncols"_a, "start"_a = -1);
     m.def("_segment_shuffle", &segment_shuffle_batch,
