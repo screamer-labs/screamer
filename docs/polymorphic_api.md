@@ -166,21 +166,22 @@ The exact decision tree implemented in `ScreamerBase::operator()`
    `include/screamer/common/cast_double.h`. If yes, call
    `process_scalar(value)` and return a Python `float`.
 
-2. **Is it a list or tuple?** Process each element eagerly in one pass and
+2. **Is it an async iterable?** (Its type defines `__aiter__`.) Wrap in
+   `LazyAsyncIterator`. Each `__anext__` awaits one event and produces one
+   output.
+
+3. **Is it a list or tuple?** Process each element eagerly in one pass and
    return a Python `list` of the same length. The container type is
    preserved; a list or tuple is not converted to a NumPy array.
 
-3. **Is it a NumPy array?** A 0‑D array is treated as a scalar and returns a
+4. **Is it a NumPy array?** A 0‑D array is treated as a scalar and returns a
    `float`. Any array of rank ≥ 1 routes to `process_python_array`, the
    multi‑dimensional handler described in *Convention 1*, and the output
    shape equals the input shape. A length‑1 1‑D array returns a 1‑D array of
    shape `(1,)`, not a scalar.
 
-4. **Is it an iterable?** Wrap in `LazyEvalIterator`. Iteration is lazy; each
+5. **Is it an iterable?** Wrap in `LazyEvalIterator`. Iteration is lazy; each
    `next()` advances the source and produces one output.
-
-5. **Is it an async iterable?** (Its type defines `__aiter__`.) Wrap in
-   `LazyAsyncIterator`.
 
 6. **Anything else** → `ValueError("Unsupported input type for call: ...")`.
    (Multi-input functors instead raise `TypeError` for a wrong argument
@@ -191,7 +192,7 @@ The exact decision tree implemented in `ScreamerBase::operator()`
 ### Some concrete consequences of this order
 
 - `obj([1, 2, 3])` returns a Python `list` of length 3, not a NumPy array and
-  not a lazy iterator, because lists are matched in step 2 before the generic
+  not a lazy iterator, because lists are matched in step 3 before the generic
   iterable branch.
 - `obj([1])` returns a `list` of length 1, not a `float`; a length‑1 list does
   not collapse to a scalar.
@@ -242,7 +243,10 @@ stacked along `T`. Six rules follow from this contract:
 5. **Combining streams joins fields.** `CombineLatest()(bars, signal)` with
    `bars (T, 4)` and `signal (T,)` gives `(T, 5)`.
 6. **Only row operators read across assets.** `CrossRank()(X)` ranks the `K`
-   assets of each row; every other operator keeps assets apart.
+   assets of each row; every other operator keeps assets apart. A row
+   operator streams one `(K,)` row per input from iterators or async
+   iterators (or one source of tuples of rows), and `PortfolioReport` streams
+   `(K, 4)` engine rows; each step equals the batch row.
 
 ```python
 X = np.random.randn(100, 4)                     # 4 assets

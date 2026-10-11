@@ -12,7 +12,12 @@ async def anext_event(sources, iterator):
     """Await one item from each async source, then run the event.
 
     The first exhausted source raises ``StopAsyncIteration``, which ends the
-    iteration.
+    iteration. A second ``__anext__`` awaited while this one runs raises
+    ``RuntimeError``, as for an async generator.
     """
-    items = [await source.__anext__() for source in sources]
-    return iterator._step(items)
+    iterator._begin()
+    try:
+        items = [await source.__anext__() for source in sources]
+        return iterator._step(items)
+    finally:
+        iterator._end()

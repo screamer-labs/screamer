@@ -320,3 +320,133 @@ def test_failed_copy_leaves_the_async_iterator_retryable():
         return [await it.__anext__(), await it.__anext__()]
 
     np.testing.assert_array_equal(np.array(asyncio.run(run())), s.RollingMean(2)(x[1:]))
+
+
+# ---- Streaming contract for row operators and PortfolioReport -------------
+
+def _row_case(name):
+    xs = _row_inputs(int(HELP[name].get("inputs", 1)))
+    return xs, np.asarray(_instantiate(HELP[name])(*xs))
+
+
+def _engine():
+    import screamer as s
+    w, p = _row_inputs(2)
+    return s.BacktestPortfolioTarget()(w, p)                # (T, K, 4)
+
+
+@pytest.mark.parametrize("name", ROW_NAMES)
+def test_row_op_iterator_is_lazy(name):
+    xs, _ = _row_case(name)
+    pulls = [0] * len(xs)
+
+    def counted(i):
+        for row in xs[i]:
+            pulls[i] += 1
+            yield row
+
+    it = _instantiate(HELP[name])(*[counted(i) for i in range(len(xs))])
+    assert pulls == [0] * len(xs)
+    for step in (1, 2, 3):
+        next(it)
+        assert pulls == [step] * len(xs)
+
+
+@pytest.mark.parametrize("name", ROW_NAMES)
+def test_row_op_iterators_equal_batch(name):
+    xs, want = _row_case(name)
+    op = lambda: _instantiate(HELP[name])               # noqa: E731
+    np.testing.assert_array_equal(np.array(list(op()(*[iter(x) for x in xs]))), want)
+    np.testing.assert_array_equal(
+        np.array(list(op()(*[iter(x[:, :, None]) for x in xs]))), want)    # (K, 1) rows
+    if len(xs) > 1:
+        np.testing.assert_array_equal(np.array(list(op()(iter(list(zip(*xs)))))), want)
+
+
+@pytest.mark.parametrize("name", ROW_NAMES)
+def test_row_op_async_equals_batch(name):
+    xs, want = _row_case(name)
+    op = lambda: _instantiate(HELP[name])               # noqa: E731
+    np.testing.assert_array_equal(np.array(_collect(op()(*[_agen(x) for x in xs]))), want)
+    np.testing.assert_array_equal(
+        np.array(_collect(op()(*[_agen(x[:, :, None]) for x in xs]))), want)
+    if len(xs) > 1:
+        np.testing.assert_array_equal(np.array(_collect(op()(_agen(list(zip(*xs)))))), want)
+
+
+@pytest.mark.parametrize("name", [n for n in ROW_NAMES if int(HELP[n].get("inputs", 1)) > 1])
+def test_row_op_mixed_sources_raise(name):
+    xs, _ = _row_case(name)
+    with pytest.raises(TypeError, match="async"):
+        _instantiate(HELP[name])(_agen(xs[0]), *[iter(x) for x in xs[1:]])
+    with pytest.raises(TypeError, match="cannot be mixed"):
+        _instantiate(HELP[name])(iter(xs[0]), *xs[1:])
+
+
+def test_portfolio_report_streams_equal_batch():
+    import screamer as s
+    engine = _engine()
+    want = np.asarray(s.PortfolioReport()(engine))
+    pulls = [0]
+
+    def counted():
+        for row in engine:
+            pulls[0] += 1
+            yield row
+
+    it = s.PortfolioReport()(counted())
+    assert pulls == [0]
+    first = next(it)
+    assert pulls == [1]
+    got = np.array([first] + list(it))
+    np.testing.assert_array_equal(got, want)
+    np.testing.assert_array_equal(np.array(_collect(s.PortfolioReport()(_agen(engine)))), want)
+
+
+# ---- Async iterator edge cases ---------------------------------------------
+
+def test_wrong_number_of_async_inputs_raises():
+    import screamer as s
+    sources = [_agen([1.0]) for _ in range(3)]
+    with pytest.raises(TypeError, match="async inputs"):
+        s.Add()(*sources)
+    with pytest.raises(TypeError, match="takes 2 inputs"):
+        s.BacktestPortfolioTarget()(*sources)
+
+
+def test_async_source_exception_propagates():
+    import screamer as s
+
+    async def failing():
+        yield 1.0
+        raise KeyError("feed down")
+
+    with pytest.raises(KeyError, match="feed down"):
+        _collect(s.RollingMean(2)(failing()))
+
+
+def test_async_sources_stop_at_the_shortest():
+    import screamer as s
+    got = _collect(s.Add()(_agen([1.0, 2.0, 3.0]), _agen([10.0, 20.0])))
+    assert got == [11.0, 22.0]
+
+
+def test_overlapping_anext_raises():
+    import screamer as s
+
+    async def slow(xs):
+        for x in xs:
+            await asyncio.sleep(0)
+            yield x
+
+    async def run(it):
+        first = asyncio.ensure_future(it.__anext__())
+        await asyncio.sleep(0)                              # first is now awaiting
+        with pytest.raises(RuntimeError, match="already running"):
+            await it.__anext__()
+        return [await first] + [v async for v in it]
+
+    assert asyncio.run(run(s.Identity()(slow([1.0, 2.0])))) == [1.0, 2.0]
+    rows = np.arange(6.0).reshape(2, 3)
+    got = asyncio.run(run(s.CrossDemean()(slow(rows))))
+    np.testing.assert_array_equal(np.array(got), s.CrossDemean()(rows))

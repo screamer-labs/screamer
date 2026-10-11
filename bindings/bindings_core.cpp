@@ -41,7 +41,9 @@ void init_bindings_core(nb::module_& m) {
         .def("__aiter__", &screamer::LazyAsyncIterator::__aiter__,
              nb::rv_policy::reference_internal)
         .def("__anext__", &screamer::LazyAsyncIterator::__anext__)
-        .def("_step", &screamer::LazyAsyncIterator::step);
+        .def("_step", &screamer::LazyAsyncIterator::step)
+        .def("_begin", &screamer::LazyAsyncIterator::begin)
+        .def("_end", &screamer::LazyAsyncIterator::end);
 
     // Shape-contract helpers (include/screamer/common/shape.h), used by
     // screamer.shape.reshape, combine_latest and the tests.

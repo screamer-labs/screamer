@@ -1,4 +1,5 @@
 #include "screamer/common/async_generator.h"
+#include <stdexcept>
 #include <string>
 #include <utility>
 
@@ -10,32 +11,42 @@ bool is_async_iterable(nb::handle obj) {
     return PyType_GetSlot(Py_TYPE(obj.ptr()), Py_am_aiter) != nullptr;
 }
 
-nb::object route_async(nb::object op_owner, nb::handle args, std::size_t n_in) {
+bool all_async(nb::handle args) {
     std::size_t n = 0, n_async = 0;
     for (nb::handle a : args) {
         ++n;
         if (is_async_iterable(a)) ++n_async;
     }
-    if (n_async == 0) return nb::object();
-    if (n_async != n)
+    if (n_async != 0 && n_async != n)
         throw nb::type_error("async and synchronous inputs cannot be mixed: pass every input "
                              "as an async iterator, or none");
+    return n_async != 0;
+}
+
+nb::object route_async(nb::object op_owner, nb::handle args, std::size_t n_in) {
+    if (!all_async(args)) return nb::object();
+    const std::size_t n = nb::len(args);
     if (n != 1 && n != n_in)
         throw nb::type_error(("this operator takes " + std::to_string(n_in) +
                               " async inputs or one async input of events holding every "
                               "field, got " + std::to_string(n)).c_str());
     std::vector<nb::object> sources;
     for (nb::handle a : args) sources.push_back(nb::borrow<nb::object>(a));
-    return nb::cast(LazyAsyncIterator(std::move(op_owner), std::move(sources)));
+    return nb::cast(LazyAsyncIterator(std::move(op_owner), sources));
 }
 
-LazyAsyncIterator::LazyAsyncIterator(nb::object op_owner, std::vector<nb::object> sources)
-    : stepper_(std::move(op_owner), sources.size()) {
+LazyAsyncIterator::LazyAsyncIterator(std::unique_ptr<EventStep> stepper,
+                                     const std::vector<nb::object>& sources)
+    : stepper_(std::move(stepper)) {
     // nanobind has no py::exec, so the coroutine ships as a real importable
     // module instead of a code string.
     anext_event_ = nb::module_::import_("screamer._async").attr("anext_event");
     for (auto& s : sources) sources_.append(s.attr("__aiter__")());
 }
+
+LazyAsyncIterator::LazyAsyncIterator(nb::object op_owner, const std::vector<nb::object>& sources)
+    : LazyAsyncIterator(std::make_unique<EventStepper>(std::move(op_owner), sources.size()),
+                        sources) {}
 
 nb::object LazyAsyncIterator::__anext__() {
     // The coroutine holds this iterator, which holds the operator, so a
@@ -43,10 +54,15 @@ nb::object LazyAsyncIterator::__anext__() {
     return anext_event_(sources_, nb::find(this));
 }
 
+void LazyAsyncIterator::begin() {
+    if (running_) throw std::runtime_error("anext(): asynchronous iterator is already running");
+    running_ = true;
+}
+
 nb::object LazyAsyncIterator::step(nb::handle items) {
     items_.clear();
     for (nb::handle h : items) items_.push_back(nb::borrow<nb::object>(h));
-    return stepper_.step(items_);
+    return stepper_->step(items_);
 }
 
 } // namespace screamer

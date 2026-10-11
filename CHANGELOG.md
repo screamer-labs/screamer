@@ -29,8 +29,14 @@ Unreleased
   asset events gives a list of the same results.
 * Every Python operator takes async iterables: `N` async sources, or one async
   source of `N`-field events, of numbers or asset arrays, giving the batch
-  result. Before, only one-input one-output operators of numbers did. Mixing
-  async and synchronous inputs raises `TypeError`.
+  result. This includes the row operators (cross-sectional operators and
+  portfolio engines, one `(K,)` row per input) and `PortfolioReport` (`(K, 4)`
+  engine rows). Before, only one-input one-output operators of numbers did.
+  Mixing async and synchronous inputs raises `TypeError`, and a second
+  `__anext__` awaited while one runs raises `RuntimeError`.
+* Row operators with several inputs (`BacktestPortfolioTarget`,
+  `BacktestPortfolioOHLCTarget`) take iterators of rows, one per input or one
+  iterator of tuples of rows.
 * `reshape(x, layout)` for arrays, `(values, index)` tuples, DataFrames, lists
   and iterators of events; `reshape` in JavaScript; `from_pandas(layout=)`,
   where `layout="TAF"` reads complete two-level `(asset, field)` columns as

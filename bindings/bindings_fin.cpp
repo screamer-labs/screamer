@@ -1,5 +1,6 @@
 #include <algorithm>
 #include <limits>
+#include <memory>
 #include <utility>
 #include <vector>
 #include <nanobind/nanobind.h>
@@ -135,27 +136,20 @@ nb::object portfolio_report_batch(screamer::PortfolioReport& self,
     return screamer::detail::make_owned_array(out, {time, 6});
 }
 
-// A lazy row iterator keeps the same C++ operator state as the Python object,
-// matching Screamer's generator semantics while accepting (assets, 4) rows.
-class PortfolioReportLazyIterator {
+// One PortfolioReport event per step: an (assets, 4) row, for the sync and
+// async iterators alike. Steps share the C++ operator state of the Python object.
+class PortfolioReportStepper final : public screamer::EventStep {
 public:
-    PortfolioReportLazyIterator(nb::object keepalive,
-                                screamer::PortfolioReport& op,
-                                nb::object source)
-        : keepalive_(std::move(keepalive)), op_(&op),
-          iterator_(source.attr("__iter__")()) {}
+    explicit PortfolioReportStepper(nb::object owner)
+        : owner_(std::move(owner)), op_(nb::cast<screamer::PortfolioReport&>(owner_)) {}
 
-    PortfolioReportLazyIterator& iter() { return *this; }
-
-    nb::object next() {
-        nb::object row = iterator_.attr("__next__")();
-        return portfolio_report_row(*op_, std::move(row));
+    nb::object step(const std::vector<nb::object>& items) override {
+        return portfolio_report_row(op_, items[0]);
     }
 
 private:
-    nb::object keepalive_;
-    screamer::PortfolioReport* op_;
-    nb::object iterator_;
+    nb::object owner_;                    // keeps the operator alive
+    screamer::PortfolioReport& op_;
 };
 
 nb::object portfolio_report_call(screamer::PortfolioReport& self, nb::args args) {
@@ -172,6 +166,9 @@ nb::object portfolio_report_call(screamer::PortfolioReport& self, nb::args args)
     if (args.size() != 1)
         throw nb::type_error("PortfolioReport expects one engine-output array or row stream.");
     nb::object input = nb::borrow<nb::object>(args[0]);
+    if (screamer::is_async_iterable(input))
+        return nb::cast(screamer::LazyAsyncIterator(
+            std::make_unique<PortfolioReportStepper>(nb::find(self)), {input}));
     if (screamer::detail::is_unsupported_dtype_array(input))
         input = screamer::detail::coerce_to_f64(input);
     if (screamer::detail::is_ndarray(input)) {
@@ -182,7 +179,8 @@ nb::object portfolio_report_call(screamer::PortfolioReport& self, nb::args args)
         throw nb::value_error("PortfolioReport input must have rank 1, 2, or 3.");
     }
     if (screamer::is_lazy_iterable(input)) {
-        return nb::cast(PortfolioReportLazyIterator(nb::find(self), self, input));
+        return nb::cast(screamer::LazyEvalIterator(
+            std::make_unique<PortfolioReportStepper>(nb::find(self)), {input}));
     }
     if (nb::isinstance<nb::list>(input) || nb::isinstance<nb::tuple>(input)) {
         // NumPy normalizes nested sequences, so a list can be either one row
@@ -260,28 +258,44 @@ nb::object row_op_run(screamer::RowOp& self,
     return screamer::detail::make_owned_array(out, row_op_shape(time, k, fo, batch));
 }
 
-class RowOpLazyIterator {
+// One RowOp event per step, for the sync and async iterators alike. The items
+// are fields_in rows of K values, one per source, or with one source and
+// fields_in > 1 a tuple or list of fields_in rows. A (K, 1) row reads as (K,)
+// (rule 3 on an event). Each step equals the same row of the batch call.
+class RowStepper final : public screamer::EventStep {
 public:
-    RowOpLazyIterator(nb::object keepalive, screamer::RowOp& op, nb::object source)
-        : keepalive_(std::move(keepalive)), op_(&op),
-          iterator_(source.attr("__iter__")()) {}
+    RowStepper(nb::object owner, std::size_t n_sources)
+        : owner_(std::move(owner)), op_(nb::cast<screamer::RowOp&>(owner_)),
+          unpack_(n_sources == 1 && op_.fields_in() > 1) {}
 
-    RowOpLazyIterator& iter() { return *this; }
-
-    nb::object next() {
-        nb::object row = iterator_.attr("__next__")();
-        std::vector<screamer::detail::ContigDouble> fields{row_op_input(row)};
-        // Rule 3 on an event: a (K, 1) row is (1, K, 1) in time, read as (K,).
-        if (fields[0].ndim() == 2 && fields[0].shape[1] == 1) fields[0].shape.pop_back();
-        if (fields[0].ndim() != 1)
-            throw nb::value_error("each event of a row stream is one row of K values.");
-        return row_op_run(*op_, fields);
+    nb::object step(const std::vector<nb::object>& items) override {
+        fields_.clear();
+        if (unpack_) {
+            nb::handle event = items[0];
+            if (!(nb::isinstance<nb::tuple>(event) || nb::isinstance<nb::list>(event)) ||
+                nb::len(event) != op_.fields_in())
+                throw nb::value_error(("each event of one row stream is a tuple of " +
+                    std::to_string(op_.fields_in()) + " rows of K values.").c_str());
+            for (nb::handle row : event) add(nb::borrow<nb::object>(row));
+        } else {
+            for (const auto& row : items) add(row);
+        }
+        return row_op_run(op_, fields_);
     }
 
 private:
-    nb::object keepalive_;
-    screamer::RowOp* op_;
-    nb::object iterator_;
+    void add(nb::object row) {
+        fields_.push_back(row_op_input(std::move(row)));
+        auto& f = fields_.back();
+        if (f.ndim() == 2 && f.shape[1] == 1) f.shape.pop_back();
+        if (f.ndim() != 1)
+            throw nb::value_error("each event of a row stream is one row of K values.");
+    }
+
+    nb::object owner_;                    // keeps the operator alive
+    screamer::RowOp& op_;
+    bool unpack_;
+    std::vector<screamer::detail::ContigDouble> fields_;
 };
 
 nb::object row_op_call(screamer::RowOp& self, nb::args args) {
@@ -289,12 +303,25 @@ nb::object row_op_call(screamer::RowOp& self, nb::args args) {
         if (screamer::is_dag_node(nb::borrow<nb::object>(a)))
             throw nb::type_error("row operators run on arrays and row streams, "
                                  "not inside a Pipeline.");
-    if (args.size() != self.fields_in())
-        throw nb::type_error(("this operator takes " + std::to_string(self.fields_in()) +
-                              " inputs, got " + std::to_string(args.size()) + ".").c_str());
-    nb::object first = nb::borrow<nb::object>(args[0]);
-    if (self.fields_in() == 1 && screamer::is_lazy_iterable(first))
-        return nb::cast(RowOpLazyIterator(nb::find(self), self, first));
+    const std::size_t fi = self.fields_in(), n = args.size();
+    // Streams: fields_in sources of rows, or one source of fields_in-tuples.
+    const bool async = screamer::all_async(args);
+    std::size_t n_lazy = 0;
+    for (nb::handle a : args) n_lazy += screamer::is_lazy_iterable(a) ? 1 : 0;
+    if (n_lazy != 0 && n_lazy != n)
+        throw nb::type_error("iterator and array inputs cannot be mixed: pass every input "
+                             "as an iterator of rows, or none");
+    const bool lazy = !async && n_lazy == n;
+    if ((async || lazy) && (n == fi || n == 1)) {
+        std::vector<nb::object> sources;
+        for (nb::handle a : args) sources.push_back(nb::borrow<nb::object>(a));
+        auto stepper = std::make_unique<RowStepper>(nb::find(self), n);
+        if (async) return nb::cast(screamer::LazyAsyncIterator(std::move(stepper), sources));
+        return nb::cast(screamer::LazyEvalIterator(std::move(stepper), sources));
+    }
+    if (n != fi)
+        throw nb::type_error(("this operator takes " + std::to_string(fi) +
+                              " inputs, got " + std::to_string(n) + ".").c_str());
     std::vector<screamer::detail::ContigDouble> fields;
     for (nb::handle a : args) {
         fields.push_back(row_op_input(nb::borrow<nb::object>(a)));
@@ -737,17 +764,11 @@ void init_bindings_fin(nb::module_& m) {
         .def("__call__", &portfolio_report_call)
         .def("reset", &screamer::PortfolioReport::reset, "Reset.");
 
-    nb::class_<PortfolioReportLazyIterator>(m, "PortfolioReportLazyIterator")
-        .def("__iter__", &PortfolioReportLazyIterator::iter, nb::rv_policy::reference_internal)
-        .def("__next__", &PortfolioReportLazyIterator::next);
 
     nb::class_<screamer::RowOp, screamer::EvalOp>(m, "RowOp")
         .def("__call__", &row_op_call)
         .def("reset", &screamer::RowOp::reset, "Reset.");
 
-    nb::class_<RowOpLazyIterator>(m, "RowOpLazyIterator")
-        .def("__iter__", &RowOpLazyIterator::iter, nb::rv_policy::reference_internal)
-        .def("__next__", &RowOpLazyIterator::next);
 
     nb::class_<screamer::CrossRank, screamer::RowOp>(m, "CrossRank")
         .def(nb::init<const std::string&>(), "scale"_a = "signed");

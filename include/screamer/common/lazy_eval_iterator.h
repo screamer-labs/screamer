@@ -2,6 +2,7 @@
 #define SCREAMER_LAZY_EVAL_ITERATOR_H
 
 #include <cstddef>
+#include <memory>
 #include <string>
 #include <utility>
 #include <vector>
@@ -19,6 +20,14 @@ namespace screamer {
 // which runs the operator on them and returns the output. LazyEvalIterator pulls
 // the items from Python iterators; LazyAsyncIterator awaits them from async
 // iterators. Both call the same step(), so both give the batch result.
+class EventStep {
+public:
+    virtual ~EventStep() = default;
+    // Runs one event. `items` holds one item per source.
+    virtual nb::object step(const std::vector<nb::object>& items) = 0;
+};
+
+// The EventStep of every EvalOp with a fixed number of fields.
 //
 // Two input forms, matching the batch dispatch:
 //   - n_sources == n_in(): one item per field;
@@ -30,7 +39,7 @@ namespace screamer {
 // one fixed shape: each holds one value per asset (shape.h rules 2 and 3), the
 // first event fixes the shape, and every asset runs its own copy of the op, as
 // the batch path gives every column its own state.
-class EventStepper {
+class EventStepper final : public EventStep {
 public:
     EventStepper(nb::object op_owner, std::size_t n_sources)
         : op_owner_(std::move(op_owner)),
@@ -39,8 +48,7 @@ public:
           in_(op_.n_in()), out_(op_.n_out()),
           unpack_(n_sources == 1 && n_in_ > 1) {}
 
-    // Runs one event. `items` holds one item per source.
-    nb::object step(const std::vector<nb::object>& items) {
+    nb::object step(const std::vector<nb::object>& items) override {
         if (mode_ == Mode::Unknown) {
             if (scalar_values(items)) {
                 mode_ = Mode::Scalar;
@@ -192,23 +200,26 @@ private:
     std::vector<EvalOp*> copies_;         // one op per asset; copies_[0] is op_
 };
 
-// One lazy iterator for any EvalOp. `sources` holds n_in() separate iterators,
-// or one iterator whose events hold all n_in() fields (see EventStepper). Per
-// __next__ it reads one event from each source; nothing is read before the
-// first __next__.
+// The lazy iterator of every operator. Per __next__ it reads one item from
+// each source and passes them to an EventStep; nothing is read before the first
+// __next__. The EvalOp form takes n_in() separate iterators, or one iterator
+// whose events hold all n_in() fields (see EventStepper).
 class LazyEvalIterator {
 public:
-    LazyEvalIterator(nb::object op_owner, std::vector<nb::object> iterables)
-        : stepper_(std::move(op_owner), iterables.size()) {
+    LazyEvalIterator(std::unique_ptr<EventStep> stepper, const std::vector<nb::object>& iterables)
+        : stepper_(std::move(stepper)) {
         for (auto& it : iterables) iters_.push_back(it.attr("__iter__")());
     }
+    LazyEvalIterator(nb::object op_owner, const std::vector<nb::object>& iterables)
+        : LazyEvalIterator(std::make_unique<EventStepper>(std::move(op_owner), iterables.size()),
+                           iterables) {}
 
     LazyEvalIterator& __iter__() { return *this; }
 
     nb::object __next__() {
         items_.clear();
         for (auto& it : iters_) items_.push_back(next_or_stop(it));
-        return stepper_.step(items_);
+        return stepper_->step(items_);
     }
 
 private:
@@ -221,7 +232,7 @@ private:
         }
     }
 
-    EventStepper stepper_;
+    std::unique_ptr<EventStep> stepper_;
     std::vector<nb::object> iters_;
     std::vector<nb::object> items_;       // per-event buffer, kept to reuse its storage
 };
