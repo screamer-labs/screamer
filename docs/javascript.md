@@ -117,13 +117,6 @@ is tracked to be closed.
   as return, then signed flow), `RollingSum`, and `OFI` directly.
 * In Python, a live session's `push` takes numbers only; JavaScript also has
   `pushWide` for events of several values.
-* Awaiting a second `next()` on an async stream while the first is still
-  running raises `RuntimeError` in Python. JavaScript queues the calls and
-  answers them in order, as an async generator does.
-* An event that fails during a stream: Python raises from that `next()`, keeps
-  the stream open, and reads the next event on the following call, closing the
-  sources only when the stream is garbage collected. JavaScript throws, closes
-  every source, and ends the stream.
 * Error classes differ: Python raises `ValueError` for inputs or events whose
   shapes do not match, where JavaScript throws `RangeError` (lengths, event
   shapes, asset shapes that do not broadcast). A wrong kind of input throws
@@ -133,6 +126,19 @@ is tracked to be closed.
   iterable, such as `rows.values()`. A nested-array event for an `N`-input op
   lists the `N` fields first; use an `NdArray` of shape `[K, N]` to list the
   assets first, as a `(K, N)` NumPy event does.
+
+### Intentional differences
+
+These differences follow each language's own convention. They are not gaps and
+are not tracked to be closed.
+
+* Awaiting a second `next()` on an async stream while the first is still
+  running raises `RuntimeError` in Python. JavaScript queues the calls and
+  answers them in order, as an async generator does.
+* An error during a stream: Python raises from that `next()`, keeps
+  the stream open, and reads the next event on the following call, closing the
+  sources only when the stream is garbage collected. JavaScript throws, closes
+  every source, and ends the stream.
 
 ## Backtesting and significance tests
 

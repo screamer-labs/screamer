@@ -175,6 +175,19 @@ source and ends the stream, as a generator does; the next `next()` returns
 when it is garbage collected; `return()` or the operator's `dispose()` frees
 them at once.
 
+Both conventions are intentional. Each follows the native behavior of its
+language: a Python stream behaves like `map`, a JavaScript stream like a
+generator. To release the sources of a Python stream at a known point, close
+them yourself, for example with `contextlib.closing`:
+
+```python
+from contextlib import closing
+
+with closing(source_generator()) as src:
+    for y in RollingMean(3)(src):
+        ...
+```
+
 ## Events: numbers, asset arrays, and packed fields
 
 An event is one time step of shape `(*A, F?)` (see

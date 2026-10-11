@@ -72,3 +72,41 @@ def test_scalar_then_array_raises():
     next(it)
     with pytest.raises(ValueError, match=r"RollingMean: event 1 has shape \(3,\), expected a number"):
         next(it)
+
+
+def test_stream_error_propagates_and_stream_stays_open():
+    # A2/A3 convention: Python is map-like. The failing event raises from its
+    # own next() and the following next() reads the next event.
+    it = s.RollingMean(2)(iter([np.zeros(3), np.zeros(2), np.ones(3)]))
+    assert np.isnan(next(it)).all()        # window 2 is not full yet
+    with pytest.raises(ValueError):
+        next(it)
+    np.testing.assert_array_equal(next(it), np.full(3, 0.5))
+    with pytest.raises(StopIteration):
+        next(it)
+
+
+def test_stream_error_does_not_close_sources():
+    closed = []
+
+    def src():
+        try:
+            yield np.zeros(3)
+            yield np.zeros(2)
+            yield np.ones(3)
+        finally:
+            closed.append(True)
+
+    gen = src()
+    it = s.RollingMean(2)(gen)
+    next(it)
+    with pytest.raises(ValueError):
+        next(it)
+    assert not closed                      # still open after the error
+    next(it)
+    from contextlib import closing
+    gen2 = src()
+    with closing(gen2) as g:               # deterministic cleanup
+        it2 = s.RollingMean(2)(g)
+        next(it2)
+    assert closed == [True]
