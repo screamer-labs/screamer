@@ -66,7 +66,8 @@ plt.tight_layout()
 
 The same rule extends to any number of columns, and to the single-asset
 backtest engines: a `(T, K)` target and a `(T, K)` price run `K` independent
-backtests and return `(T, K, 4)`. The [polymorphic API](../polymorphic_api.md)
+backtests and return `(T, K, 4)`, and a `(T, K)` target with one `(T,)` price
+runs `K` variants of a strategy on the same market. The [polymorphic API](../polymorphic_api.md)
 page defines the shape rules for every input type. To trade the `K` assets as
 one book from a shared account, use the portfolio engines in
 [Portfolios and pairs](../portfolio_backtesting.md); the

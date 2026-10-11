@@ -39,13 +39,20 @@ The `agg` parameter accepts two forms:
 
 **String shorthand**: one of `first`, `last`, `min`, `max`, `sum`, `count`,
 `mean`, `ohlc`, `ohlcv`, `ohlcv2`, `ohlc_bars`, `ohlcv_bars`. `ohlc` returns
-four columns (`open`, `high`, `low`, `close`). The multi-column bar aggs
-require a 2-D input; see below. All multi-column aggs work identically in
-eager, `Pipeline` graph, and lazy iterator regimes.
+four columns (`open`, `high`, `low`, `close`). With `freq=` or `count=`, the
+aggs `first` to `ohlc` aggregate every column of a multi-column input
+separately: `mean` turns `(T, X)` into `(T', X)`, and `ohlc` appends the four
+bar columns as a last axis, `(T', X, 4)`. The bar aggs `ohlcv`, `ohlcv2`,
+`ohlc_bars`, and `ohlcv_bars` read the columns of a 2-D input as the fields of
+one bar; see below. All multi-column aggs give the same numbers in eager,
+`Pipeline` graph, and lazy iterator regimes. A `Pipeline` stream holds flat
+rows, so there `ohlc` on `X` columns gives `(T', 4 * X)`: the `(T', X, 4)`
+result with its last two axes flattened.
 
 **Any `EvalOp` functor**, e.g. `ExpandingSkew()`. The functor is `reset()` at
 each bar boundary and fed every in-bar sample; its last output before the close
-is emitted as the bar value. All screamer functors are valid reducers.
+is emitted as the bar value. All screamer functors are valid reducers. A
+functor aggregates one column, and a multi-column input raises `ValueError`.
 
 **Several reducers at once**: run one `Resample` per statistic over the same
 bucketing and align the results with `CombineLatest`. Because every `Resample`

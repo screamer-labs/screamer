@@ -60,3 +60,30 @@ index 4 into a single row.
 Index 4 has one event from each stream; they coalesce into a single row
 `[40.0, 4.0]` instead of two. The aligned columns feed any single-stream
 functor, e.g. `RollingCorr(20)(aligned[:, 0], aligned[:, 1])`.
+
+### Multi-column streams and `layout`
+
+The columns of each input are fields, and `CombineLatest` concatenates them: a
+`(T, 4)` bar stream and a `(T,)` signal give `(T, 5)` rows. When the columns
+are assets instead, `layout=` names the axes of each input with `T` (time), `A`
+(asset), and `F` (field). The asset axes broadcast, so one market series is
+paired with every asset of a panel. An asset layout runs on arrays, `(values,
+index)` tuples, and iterators of events, and raises `ValueError` inside a
+`Pipeline`.
+
+```{eval-rst}
+.. exec_code::
+
+   import numpy as np
+   from screamer import CombineLatest
+
+   bars = np.arange(12.0).reshape(3, 4)        # 3 bars of [open, high, low, close]
+   signal = np.array([1.0, -1.0, 1.0])
+   rows, _ = CombineLatest()(bars, signal)
+   print(rows.shape)
+
+   panel = np.arange(6.0).reshape(3, 2)        # 2 assets
+   market = np.array([10.0, 20.0, 30.0])
+   pairs, _ = CombineLatest(layout=("TA", "T"))(panel, market)
+   print(pairs.shape)
+   print(pairs[:, 1])                          # asset 1 next to the market

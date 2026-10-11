@@ -18,6 +18,37 @@ Unreleased
   parameters with types and defaults, description, and See also.
 * **Real multi-asset data for the docs:** daily Binance bars of 20 coins from
   2022 to 2026 and the BTC perpetual's funding rates.
+* Shape contract: every array reads as `(T, *A, F?)`, with time, assets and
+  fields (see Polymorphic API).
+* Multi-input operators broadcast over assets: `RollingCorr()(X, y)` with
+  `X (T, K)` and `y (T,)`, and backtest engines with `(T, K)` targets and one
+  `(T,)` price, in Python and JavaScript.
+* A packed `(T, K, N)` array feeds an N-input operator.
+* Iterators of asset events give the batch result, one operator state per
+  asset (Python and JavaScript).
+* `reshape(x, layout)` for arrays, `(values, index)` tuples, DataFrames, lists
+  and iterators of events; `reshape` in JavaScript; `from_pandas(layout=)`.
+* `CombineLatest` concatenates multi-column streams and broadcasts assets with
+  `layout=`; inside a `Pipeline` it joins an OHLC node and a signal directly.
+* `Resample` aggregates every column of `(T, X)` data; `agg="ohlc"` gives
+  `(T', X, 4)`.
+* JavaScript one-input operators accept `(T, K)` `NdArray` input.
+
+### Changed
+
+* An explicit trailing size-1 axis is consumed: `(T, K, 1)` input gives
+  `(T, K)` output (was `(T, K, 1)`), and `(T, K, M)` for M-output operators
+  (was `(T, K, 1, M)`).
+* A shape mismatch between inputs now raises `ValueError` ("do not broadcast",
+  "same length along time") instead of `TypeError`.
+* `from_pandas` reads a DataFrame with two-level `(asset, field)` columns as
+  `(T, A, F)` values.
+* `position_test`, `strategy_test` and `walk_forward` no longer copy prices to
+  K columns; JavaScript `positionTest` and `walkForward` run the engine once
+  per chunk.
+* `WilliamsR` runs its batch fast path on packed `(T, 3)` and `(T, K)` input,
+  about 3.5x faster on a packed call.
+* JavaScript reducer error messages say "assets" instead of "groups".
 
 ### Fixed
 
@@ -27,10 +58,22 @@ Unreleased
   next quoted bar, unless a newer order for that asset is due first.
 * `CombineLatest` given a multi-column stream kept only its first column inside
   a `Pipeline` and raised an opaque `std::bad_cast` when called directly. Both
-  now raise a clear error; split the stream into columns with `Select` first.
+  paths now concatenate its columns.
+* `EwMean` on a 1-D array now matches the streaming result bit for bit, and
+  `Return` and `ROCP` on a 1-D array use the same formula as their other paths,
+  so a column of a 2-D array equals the same 1-D series exactly.
+* `SignedVolume`, `RollingKyleLambda`, `EwKyleLambda`, `QueueImbalance`, and
+  `RollingOrderImbalance` accept every input form (a packed array, iterators,
+  asset axes), and their calls take positional inputs.
+* A generator passed to a one-input, one-output operator such as `IsNan` now
+  returns a lazy iterator.
+* JavaScript errors raised in C++ carry their message text.
 
 ### Documentation
 
+* The Polymorphic API page states the shape contract (time, assets, fields)
+  and its six rules, a new `reshape` page documents layouts, and the streams
+  guide covers multi-column `CombineLatest` and `Resample`.
 * Function pages show a generated header from their frontmatter: Python and
   JavaScript signatures, a parameter table, output columns, See also, and
   references. Titles and tags are indexed, so a search for "ema", "z-score",

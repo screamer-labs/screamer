@@ -128,8 +128,9 @@ match the [first strategy recipe](recipes/first-strategy.md), which runs the
 same backtest in Python.
 
 A portfolio engine takes `(T, K)` inputs, given as an array of rows or as an
-`NdArray`. This example ranks five coins on 30-day momentum, turns the ranks
-into dollar-neutral weights with `CrossNormalize`, and rebalances weekly: a
+`NdArray`, and a one-input operator such as `LogReturn` runs on each column of
+a `(T, K)` `NdArray`. This example ranks five coins on 30-day momentum, turns
+the ranks into dollar-neutral weights with `CrossNormalize`, and rebalances weekly: a
 `NaN` weight keeps the asset's position. `PortfolioReport` reduces the
 `(T, K, 4)` output to the book's report, and `positionTest` on a portfolio
 engine tests the book as a whole.
@@ -151,9 +152,10 @@ const columns = (field) => coins.map((s) =>
 const toRows = (cols) => Array.from(cols[0], (_, t) => cols.map((c) => c[t]));
 const [open, high, low, close] = [2, 3, 4, 5].map((i) => toRows(columns(i)));
 
-const momentum = toRows(columns(5).map((c) => LogReturn(30)(c)));
-const weights = CrossNormalize(1, 0)(CrossRank()(momentum));    // NdArray [T, K]
 const K = coins.length;
+const closes = { data: Float64Array.from(close.flat()), shape: [close.length, K] };
+const momentum = LogReturn(30)(closes);                         // NdArray [T, K]
+const weights = CrossNormalize(1, 0)(CrossRank()(momentum));    // NdArray [T, K]
 weights.data.forEach((_, i) => { if (Math.floor(i / K) % 7 !== 0) weights.data[i] = NaN; });
 
 // BacktestPortfolioOHLCTarget(fee, slippage, ...): weights of equity, next-open fills

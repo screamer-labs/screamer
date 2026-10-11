@@ -116,9 +116,10 @@ best = int(np.argmax(family.observed))
 print(f"best span {spans[best]}: p = {family.p_value[best]:.3f}, "
       f"family p = {family.family_p_value[best]:.3f}")
 
-runs = [engine(targets[:, k], mo, mh, ml, mc) for k in range(len(spans))]
-sharpes = [run[:, 1].mean() / run[:, 1].std(ddof=1) for run in runs]
-p, benchmark = deflated_sharpe(runs[best], sharpes)
+runs = engine(targets, mo, mh, ml, mc)            # (T, K, 4), one backtest per span
+pnl = runs[:, :, 1]
+sharpes = pnl.mean(axis=0) / pnl.std(axis=0, ddof=1)
+p, benchmark = deflated_sharpe(runs[:, best], sharpes)
 print(f"deflated Sharpe: P(true Sharpe > {benchmark:.4f}) = {p:.3f}")
 ```
 

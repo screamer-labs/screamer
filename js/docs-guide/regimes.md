@@ -74,6 +74,22 @@ Add()(new Float64Array([1, 2, 3]), new Float64Array([10, 20, 30])); // Float64Ar
 Mismatched array lengths across inputs throw a `TypeError` rather than truncating or
 NaN-filling.
 
+## Assets: `[T, K]` `NdArray` input
+
+An `NdArray` of shape `[T, K]` holds `K` series (assets) side by side, with time on the first
+axis. A one-input op runs on each column with its own state, and a multi-input op broadcasts its
+inputs over assets, so a `[T]` series pairs with every column of a `[T, K]` one:
+
+```js
+const X = { data: new Float64Array([1, 10, 2, 20, 3, 30]), shape: [3, 2] };
+RollingMean(2)(X);                                  // NdArray [3, 2]: [NaN, NaN, 1.5, 15, 2.5, 25]
+Add()(X, new Float64Array([100, 200, 300]));        // NdArray [3, 2]: [101, 110, 202, 220, 303, 330]
+```
+
+An iterable of `[K]` rows gives the same rows one event at a time, one op state per asset.
+Shapes that do not broadcast throw a `RangeError`. `reshape(x, layout)` names the axes of an
+`NdArray` with the letters `T` (time), `A` (asset), and `F` (field), as in Python.
+
 ## Multi-output ops: `NdArray` and `toNested()`
 
 An op that produces more than one value per event (`RollingMinMax`, for example) returns a
@@ -99,14 +115,14 @@ toNested(out); // [[1,1], [1,2], [1,3], [2,4], [3,5]] -- expanding window before
 result). Reach for the flat `data`/`shape` form when you want to avoid the allocation of
 per-row arrays; reach for `toNested()` when you want ordinary nested arrays to iterate over.
 
-## Multi-group ops: reducing a variable number of series
+## Multi-asset reducers: reducing a variable number of series
 
 Most ops read a fixed number of values per event, decided when the op is constructed. A
-reducer instead folds a variable number of groups into one event, and reads that count from
+reducer instead folds a variable number of assets into one event, and reads that count from
 the data on every call. `PortfolioReport` is the one such op: it reduces the output of a
 backtest engine, run over any number of assets, into portfolio-level report columns.
 
-An event is a `(groups, 4)` block, and a batch is a `(events, groups, 4)` one:
+An event is an `(assets, 4)` block, and a batch is an `(events, assets, 4)` one:
 
 ```js
 import { PortfolioReport } from "@screamer-labs/screamer";
@@ -124,7 +140,7 @@ report([
 report({ data: engineOutput, shape: [events, assets, 4] }); // NdArray, shape [events, 6]
 ```
 
-The nested form above and a flat `Float64Array` of `groups * 4` values are both accepted for a
-single event, as is an iterable of events for streaming. The group count is fixed by the first
+The nested form above and a flat `Float64Array` of `assets * 4` values are both accepted for a
+single event, as is an iterable of events for streaming. The asset count is fixed by the first
 event after a `reset()`; changing it later throws, rather than silently redefining what the
 portfolio is.

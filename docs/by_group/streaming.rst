@@ -31,6 +31,8 @@ Aligning, combining, and reshaping event streams.
      - Merge N value streams into one index-sorted (values, sources, index).
    * - :doc:`Resample </functions_streams/Resample>`
      - Causal windowed downsample of a 1-D or multi-column value stream.
+   * - :doc:`reshape </functions_streams/reshape>`
+     - Name the axes of data with a layout string (T, A, F) and reshape it to match.
    * - :doc:`Select </functions_streams/Select>`
      - Pick column(s) from a wide (M, N) value stream.
    * - :doc:`split </functions_streams/split>`
@@ -63,6 +65,7 @@ Building and running a pipeline.
    /functions_streams/from_pandas
    /functions_streams/Merge
    /functions_dag/Pipeline
+   /functions_streams/reshape
    /functions_streams/Select
    /functions_streams/split
    /functions_streams/Stream

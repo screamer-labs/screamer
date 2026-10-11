@@ -89,6 +89,51 @@ different streams coalesce into a single settled row). `emit="when_all"`
 event with `NaN` for inputs not yet seen. Feed the aligned columns to any
 existing functor.
 
+### Multi-column streams
+
+`CombineLatest` concatenates the columns of its inputs, which are the fields of
+each event. A `(T, 4)` bar stream and a `(T,)` signal give `(T, 5)` rows of
+`[open, high, low, close, signal]`, and inside a `Pipeline` an OHLC node joins
+a signal node the same way:
+
+```python
+rows, idx = CombineLatest()(bars, signal)     # (T, 5)
+```
+
+By default the columns of a 2-D stream are fields. When they are assets
+instead, for example a `(T, K)` panel of prices next to one `(T,)` market
+series, say so with `layout`, one layout string per input. The asset axes
+broadcast, so the market series is paired with every asset, and the fields
+concatenate:
+
+```python
+rows, idx = CombineLatest(layout=("TA", "T"))(panel, market)   # (T, K, 2)
+```
+
+An asset layout runs on arrays, `(values, index)` tuples, and iterators of
+events. Inside a `Pipeline`, streams carry fields only and an asset layout
+raises `ValueError`.
+
+Inside a `Pipeline`, `emit="on_any"` can emit a row before a multi-column input
+has delivered its first event, for example when a `Dropna` upstream drops that
+input's first rows. The row's width for that input is then unknown, and the
+`Pipeline` raises `ValueError` once the input arrives. Use the default
+`emit="when_all"` for such inputs.
+
+### Resampling each column
+
+`Resample` with a built-in aggregation (`first`, `last`, `min`, `max`, `sum`,
+`count`, `mean`, `ohlc`) aggregates every column of a multi-column stream
+separately. An aggregation with several outputs appends them as a last axis:
+`agg="ohlc"` turns `(T, X)` values into `(T', X, 4)` bars, one set of bars per
+column. Inside a `Pipeline` the result is flattened to `(T', 4 * X)`. A
+functor `agg` aggregates one column, and multi-column input raises
+`ValueError`.
+
+```python
+bars, idx = Resample(freq=60_000, agg="ohlc")(panel, t)   # (T', K, 4)
+```
+
 Other stream operators:
 
 - `Merge()(*values, index=None)` -> `(values, sources, index)`: one index-sorted,

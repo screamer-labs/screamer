@@ -84,14 +84,16 @@ the time axis.
 If you want the rolling operation to run along a different axis, transpose
 the array yourself (`x.T`) before passing it.
 
-The input shape is preserved exactly. `(T,)` and `(T, 1)` are different
-inputs and produce different outputs: a 1-D array stays 1-D, a 2-D
-column-vector stays 2-D. screamer never silently squeezes or expands
-axes.
+The input shape is preserved, with one exception. `(T,)` and `(T, 1)` are
+different inputs and produce different outputs: a 1-D array stays 1-D, and a
+2-D column-vector stays 2-D. The exception is a trailing axis of size 1 on an
+array of rank 3 or more, which is read as a single field and consumed (rule 3
+in [Time, assets and fields](#time-assets-and-fields)).
 
 ```python
 RollingMean(5)(np.random.randn(100)).shape       # (100,)
 RollingMean(5)(np.random.randn(100, 1)).shape    # (100, 1)
+RollingMean(5)(np.random.randn(100, 4, 1)).shape # (100, 4)
 ```
 
 State is cleanly isolated between streams: `reset()` is called both at
@@ -172,8 +174,8 @@ The exact decision tree implemented in `ScreamerBase::operator()`
 
 6. **Anything else** → `ValueError("Unsupported input type for call: ...")`.
    (Multi-input functors instead raise `TypeError` for a wrong argument
-   count, mixed input kinds, or mismatched shapes; see the multi-input
-   section.)
+   count or mixed input kinds, and `ValueError` for shapes that do not
+   broadcast; see the multi-input section.)
 
 
 ### Some concrete consequences of this order
@@ -196,6 +198,73 @@ The exact decision tree implemented in `ScreamerBase::operator()`
   one‑line change in `cast_double.h`.
 
 
+## Time, assets and fields
+
+Every array screamer reads has the shape `(T, *A, F?)`:
+
+- `T`, **time**, is always axis 0.
+- `A`, **assets**, are zero or more axes of independent series. Each asset has
+  its own operator state.
+- `F`, **fields**, is an optional last axis holding the parts of one record:
+  the inputs of a multi-input operator packed into one array, the outputs of a
+  multi-output operator, or a record such as an OHLC bar.
+
+One time step, of shape `(*A, F?)`, is an **event**. A batch array is events
+stacked along `T`. Six rules follow from this contract:
+
+1. **The container does not change the result.** An iterator of `(K,)` events
+   gives the same rows as the `(T, K)` array, with one operator state per
+   asset: `RollingMean(5)(iter(X))` yields the rows of `RollingMean(5)(X)`.
+   An async generator still takes one number per event.
+2. **Multi-input operators broadcast over assets.** Each input is one field of
+   shape `(T, *A_i)`. The asset shapes broadcast with NumPy rules, and `T` must
+   match: `RollingCorr(20)(X, y)` with `X (T, K)` and `y (T,)` gives `(T, K)`,
+   and column `k` equals `RollingCorr(20)(X[:, k], y)`. A single packed array
+   is split along its last axis into the inputs, so a `(T, K, 2)` array feeds
+   `RollingCorr` as `K` pairs.
+3. **A trailing size-1 axis is consumed.** On an array of rank 3 or more, a
+   last axis of size 1 is the single input field: `(T, K, 1)` reads as
+   `(T, K)`, so `RollingMean(5)` returns `(T, K)` and `BollingerBands(20)`
+   returns `(T, K, 3)`. A `(T, 1)` array stays one asset and gives `(T, 1)`.
+4. **Time operations work per column and append fields.**
+   `Resample(freq=60, agg="ohlc")` turns `(T, X)` into `(T', X, 4)`, one bar
+   per column.
+5. **Combining streams joins fields.** `CombineLatest()(bars, signal)` with
+   `bars (T, 4)` and `signal (T,)` gives `(T, 5)`.
+6. **Only row operators read across assets.** `CrossRank()(X)` ranks the `K`
+   assets of each row; every other operator keeps assets apart.
+
+```python
+X = np.random.randn(100, 4)                     # 4 assets
+y = np.random.randn(100)                        # one market series
+RollingCorr(20)(X, y).shape                     # (100, 4)
+RollingCorr(20)(np.stack([X, 2 * X], axis=-1)).shape  # (100, 4)
+RollingMean(5)(X[:, :, None]).shape             # (100, 4)
+RollingMean(5)(X[:, :1]).shape                  # (100, 1)
+```
+
+A bare `(T, X)` array does not say whether its `X` columns are assets or
+fields. The reading matters in two places only:
+
+| Where | Fields reading | Assets reading |
+|---|---|---|
+| `CombineLatest` of a 2-D and a 1-D stream | concatenate: `(T, X + 1)` | broadcast: `(T, X, 2)` |
+| `Pipeline` inputs | one event of `X` fields | `X` assets, `X` operator states (not supported yet) |
+
+Everywhere else both readings give the same numbers: one-input operators treat
+columns independently, broadcasting sees only separate arguments, packed
+arrays are fields by necessity, multi-output results append fields, row
+operators read assets by definition, and `Resample` aggregates per column. The
+defaults are that compute operators treat `(T, X)` as independent columns and
+stream operators treat `(T, X)` as fields.
+
+A **layout** string states another reading. It names the axes of the data in
+order with the letters `T`, `A`, and `F`: `"TA"` says that the columns of a
+`(T, K)` array are assets. [`reshape`](functions_streams/reshape.md) applies a
+layout to any container, and `CombineLatest(layout=...)` and
+`from_pandas(layout=...)` take the same argument.
+
+
 ## The multi-input contract (`FunctorBase<_, N, 1>`)
 
 Multi-input classes accept the same conceptual shapes, scalars, arrays,
@@ -212,9 +281,11 @@ reference example with `N = 2`.
 | `obj(X, Y)` - `N` parallel N-D arrays `(T, J, K, ...)` | same shape; `J*K*...` independent paired streams |
 | `obj(X_view, Y_view)` - strided views | works; result is contiguous |
 | `obj(x_iter, y_iter)` - `N` parallel iterables | a lazy iterator (`LazyEvalIterator`), advancing every input in lock-step and yielding one `float` per step until the first input stops |
-| `obj(A)` - a single 2-D array of shape `(T, N)` | `numpy.ndarray` of shape `(T,)` - the `N` columns are the `N` inputs; column `j` → input `j`. Accepted iff `A.shape[1] == N`; any other single-array shape is a `TypeError`/`ValueError`. |
-| Mismatched shapes or ndim across the `N` inputs | `TypeError` with a clear message |
-| Mixed kinds (one scalar + one array, etc.) | `TypeError` |
+| `obj(X, y)` - arrays whose asset shapes broadcast, e.g. `(T, K)` and `(T,)` | `numpy.ndarray` of shape `(T, K)`, where column `k` is `obj(X[:, k], y)`; the `(T,)` input is read once per column, not copied |
+| `obj(A)` - a single 2-D array of shape `(T, N)` | `numpy.ndarray` of shape `(T,)` - the `N` columns are the `N` inputs; column `j` → input `j`. Accepted iff `A.shape[1] == N`; any other single-array shape is a `ValueError`. |
+| `obj(A)` - a single packed array of shape `(T, K, N)` | `numpy.ndarray` of shape `(T, K)`: `K` assets, each with `N` input fields |
+| Asset shapes that do not broadcast, or a different length along time | `ValueError` ("do not broadcast", "same length along time") |
+| Mixed kinds (one scalar + one array, etc.) or a wrong number of inputs | `TypeError` |
 
 This is the array form of `obj(A[:, 0], A[:, 1], ...)`, and is what makes
 `RollingCorr(w)(CombineLatest()(a, b)[0])` work directly.
@@ -281,7 +352,9 @@ a single batch call, just like for the single-input array path.
   ```
 
 - All `N` inputs must be the same kind (all scalars, all numpy arrays,
-  all iterables) and the same shape. Mixing them raises `TypeError`.
+  all iterables). Mixing kinds raises `TypeError`. Their shapes may differ
+  where they broadcast: a `(T,)` market series pairs with every column of a
+  `(T, K)` panel.
 
 
 ## The multi-output contract (`FunctorBase<_, 1, M>`)
@@ -299,10 +372,10 @@ one rule added: the output gets an extra trailing axis of size `M`.
 | N-D array of shape `(T, ..., K)` | NumPy array of shape `(T, ..., K, M)` |
 | iterable | a lazy iterator (`LazyEvalIterator`) yielding one `tuple` of `M` floats per step |
 
-The shape rule is exactly: `output.shape == input.shape + (M,)`. The same
-input-axis-preservation guarantee from the single-output path holds here
-too. `(T,)` and `(T, 1)` produce different outputs: `(T, M)` and `(T, 1, M)`
-respectively.
+The shape rule is `output.shape == input.shape + (M,)`, after a trailing
+size-1 axis on an input of rank 3 or more has been consumed. `(T,)` and
+`(T, 1)` produce different outputs, `(T, M)` and `(T, 1, M)`, while
+`(T, K, 1)` gives `(T, K, M)`.
 
 ```python
 from screamer import RollingMinMax, BollingerBands
@@ -334,9 +407,9 @@ Functions that map `N` parallel input streams to `M` parallel output streams com
 | `N` parallel 1D arrays of shape `(T,)` | NumPy array of shape `(T, M)` |
 | `N` parallel 2D arrays of shape `(T, K)` | NumPy array of shape `(T, K, M)`; column `k` is `obj(X[:, k], Y[:, k])` (bit-exact) |
 | `N` parallel iterables | a lazy iterator (`LazyEvalIterator`) yielding one `tuple` of `M` floats per step |
-| `obj(A)` - a single 2-D array of shape `(T, N)` | NumPy array of shape `(T, M)` - the `N` columns are the `N` inputs; column `j` → input `j`. Accepted iff `A.shape[1] == N`; any other single-array shape is a `TypeError`/`ValueError`. |
+| `obj(A)` - a single 2-D array of shape `(T, N)` | NumPy array of shape `(T, M)` - the `N` columns are the `N` inputs; column `j` → input `j`. Accepted iff `A.shape[1] == N`; any other single-array shape is a `ValueError`. |
 
-The shape rule is exactly: `output.shape == single_input.shape + (M,)`. Mismatched shapes across the `N` inputs raise `TypeError`, same as `N → 1`. The dispatcher calls `reset()` between independent paired streams in a 2D/N-D batch, so stateful `N → M` functors don't leak state across columns.
+The shape rule is `output.shape == broadcast_input.shape + (M,)`, where the input asset shapes broadcast as in the `N → 1` case and shapes that do not broadcast raise `ValueError`. The dispatcher calls `reset()` between independent paired streams in a 2D/N-D batch, so stateful `N → M` functors don't leak state across columns.
 
 ```python
 from screamer import Cart2Polar, Polar2Cart

@@ -273,6 +273,7 @@ permute_bars, Bar-permuted copies of an OHLC series that keep its return distrib
 permute_returns, Copies of a price series with its returns in random order.
 position_test, Test whether a backtest's timing beats randomly timed copies of the same strategy, with a p-value.
 probabilistic_sharpe, Probability that a strategy's true Sharpe ratio is above a benchmark, given its sample length and fat tails.
+reshape, Name the axes of data with a layout string (T, A, F) and reshape it to match.
 segment_shuffle, Copies of a series with its runs of equal value in random order, for randomization tests.
 split, Partition a merged tagged stream back into per-source streams.
 strategy_test, Test a whole strategy, model included, against the same strategy run on permuted market data or shifted features.

@@ -15,10 +15,10 @@ completed bar goes to a backtest engine that tracks the position and pnl.
 
 ## The pipeline
 
-`Resample` buckets the trade prices into one-minute bars, `Select` splits the
-bar into its four columns, and the trend rule compares a fast and a slow
-exponential average of the close. `CombineLatest` puts the signal and the bar
-on one row, `[signal, open, high, low, close]`, which is the input order of
+`Resample` buckets the trade prices into one-minute bars, `Select` picks the
+close, and the trend rule compares a fast and a slow exponential average of the
+close. `CombineLatest` puts the signal and the four bar columns on one row,
+`[signal, open, high, low, close]`, which is the input order of
 `BacktestOHLCTarget`.
 
 ```{code-cell} ipython3
@@ -30,10 +30,10 @@ from screamer import (Input, Pipeline, Resample, Select, CombineLatest, EwMean,
 
 price = Input("price")
 bar = Resample(freq=60_000, agg="ohlc")(price)
-o, h, l, c = (Select(k)(bar) for k in range(4))
-spread = Sub()(CombineLatest()(EwMean(span=5)(c), EwMean(span=30)(c)))
+close = Select(3)(bar)
+spread = Sub()(CombineLatest()(EwMean(span=5)(close), EwMean(span=30)(close)))
 signal = Sign()(FillNa(0.0)(spread))
-strategy = Pipeline(inputs=[price], outputs=[CombineLatest()(signal, o, h, l, c)])
+strategy = Pipeline(inputs=[price], outputs=[CombineLatest()(signal, bar)])
 print(strategy)
 ```
 
