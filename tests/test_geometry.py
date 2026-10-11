@@ -151,13 +151,17 @@ class TestRoundtrip:
 class TestDispatcherErrors:
 
     def test_shape_mismatch_raises(self):
-        with pytest.raises(TypeError):
+        with pytest.raises(ValueError, match="same length along time"):
             Cart2Polar()(np.array([1.0, 2.0]), np.array([1.0, 2.0, 3.0]))
 
-    def test_dim_mismatch_raises(self):
-        with pytest.raises(TypeError):
-            Cart2Polar()(np.array([1.0, 2.0]),
-                          np.array([[1.0, 2.0], [3.0, 4.0]]))
+    def test_one_d_broadcasts_against_assets(self):
+        out = Cart2Polar()(np.array([1.0, 2.0]),
+                           np.array([[1.0, 2.0], [3.0, 4.0]]))
+        assert out.shape == (2, 2, 2)
+
+    def test_asset_mismatch_raises(self):
+        with pytest.raises(ValueError, match="do not broadcast"):
+            Cart2Polar()(np.zeros((2, 2)), np.zeros((2, 3)))
 
     def test_mixed_kinds_raises(self):
         with pytest.raises(TypeError):

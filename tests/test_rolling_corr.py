@@ -199,13 +199,17 @@ def test_2d_strided_view_matches_contig_copy():
 
 
 def test_shape_mismatch_raises():
-    with pytest.raises(TypeError):
+    with pytest.raises(ValueError, match="same length along time"):
         RollingCorr(5)(np.zeros(10), np.zeros(20))
 
 
-def test_ndim_mismatch_raises():
-    with pytest.raises(TypeError):
-        RollingCorr(5)(np.zeros(10), np.zeros((10, 3)))
+def test_one_d_broadcasts_against_assets():
+    assert RollingCorr(5)(np.zeros(10), np.zeros((10, 3))).shape == (10, 3)
+
+
+def test_asset_mismatch_raises():
+    with pytest.raises(ValueError, match="do not broadcast"):
+        RollingCorr(5)(np.zeros((10, 2)), np.zeros((10, 3)))
 
 
 # ---------------------------------------------------------------------------

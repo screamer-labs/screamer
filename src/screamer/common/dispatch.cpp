@@ -103,7 +103,7 @@ nb::object process_python_array(ScreamerBase& self, nb::ndarray<nb::ro> input) {
 
     double* out = new double[total ? total : 1];
     if (total == 0) {
-        return detail::make_owned_array(out, shape);
+        return detail::make_owned_array(out, shape::consume_unit_field(shape));
     }
 
     size_t size = shape[0];
@@ -121,7 +121,7 @@ nb::object process_python_array(ScreamerBase& self, nb::ndarray<nb::ro> input) {
         self.reset();
     }
 
-    return detail::make_owned_array(out, shape);
+    return detail::make_owned_array(out, shape::consume_unit_field(shape));
 }
 
 }  // namespace screamer

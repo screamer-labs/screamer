@@ -107,7 +107,7 @@ class TestDispatcher:
             )
 
     def test_shape_mismatch_raises(self):
-        with pytest.raises(TypeError):
+        with pytest.raises(ValueError, match="same length along time"):
             Linear2(1, 1, 0)(np.array([1.0, 2.0]), np.array([1.0, 2.0, 3.0]))
 
 

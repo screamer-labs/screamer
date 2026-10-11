@@ -18,6 +18,7 @@
 #include "screamer/common/base.h"          // pure ScreamerBase
 #include "screamer/common/functor_base.h"  // pure FunctorBase
 #include "screamer/common/cast_double.h"
+#include "screamer/common/shape.h"
 #include "screamer/common/async_generator.h"
 #include "screamer/common/lazy_eval_iterator.h"
 
@@ -221,66 +222,51 @@ inline ContigDouble read_contig_double(const nb::ndarray<nb::ro>& a) {
     return r;
 }
 
-// Read N numpy arrays (any dtype/strides) into contiguous double columns,
-// validating that all N share the same shape. Mirrors the pybind
-// forcecast-and-check path. Throws the same error vocabulary the tests
-// assert (TypeError on a mix / shape mismatch).
+// The N input fields of a call: one contiguous double buffer per argument (one
+// buffer when a packed (T, *A, N) array holds all fields), each field's base
+// pointer, and the broadcast plan that says where every column starts.
 template <size_t N>
-inline std::array<ContigDouble, N> read_n_arrays(const nb::tuple& inputs) {
-    std::array<ContigDouble, N> out;
-    if (!is_ndarray(inputs[0])) {
-        throw nb::type_error("Incompatible input type, a mix of numpy arrays and other.");
-    }
-    out[0] = read_contig_double(nb::cast<nb::ndarray<nb::ro>>(inputs[0]));
-    if (out[0].ndim() < 1) {
-        throw std::runtime_error("Input array must have at least one dimension");
-    }
-    for (size_t i = 1; i < N; ++i) {
-        if (!is_ndarray(inputs[i])) {
+struct NInputs {
+    std::vector<ContigDouble> buffers;
+    std::array<double*, N> data{};
+    shape::Plan plan;
+};
+
+// Read the argument arrays (any dtype and strides) and plan their broadcast
+// (shape.h rules 2 and 3). Throws TypeError on a non-array argument and
+// ValueError on shapes that do not broadcast.
+template <size_t N>
+inline NInputs<N> read_inputs(const std::vector<nb::handle>& arrays) {
+    NInputs<N> r;
+    r.buffers.reserve(arrays.size());
+    std::vector<shape::Shape> shapes;
+    for (nb::handle h : arrays) {
+        if (!is_ndarray(h))
             throw nb::type_error("Incompatible input type, a mix of numpy arrays and other.");
-        }
-        out[i] = read_contig_double(nb::cast<nb::ndarray<nb::ro>>(inputs[i]));
-        if (out[i].ndim() != out[0].ndim()) {
-            throw nb::type_error("Incompatible input numpy arrays, dimensions mismatch.");
-        }
-        for (size_t d = 0; d < out[0].ndim(); ++d) {
-            if (out[0].shape[d] != out[i].shape[d]) {
-                throw nb::type_error("Incompatible input numpy arrays, shape mismatch.");
-            }
-        }
+        r.buffers.push_back(read_contig_double(nb::cast<nb::ndarray<nb::ro>>(h)));
+        if (r.buffers.back().ndim() < 1)
+            throw std::runtime_error("Input array must have at least one dimension");
+        shapes.push_back(r.buffers.back().shape);
     }
-    return out;
+    r.plan = shape::broadcast(shape::input_views(shapes, N));
+    for (size_t i = 0; i < N; ++i)
+        r.data[i] = r.buffers[arrays.size() == 1 ? 0 : i].data.data();
+    return r;
 }
 
-// If args is a single 2-D (T, N) numpy array, return its N columns as
-// contiguous 1-D double arrays; otherwise an empty optional. Enforces the
-// exact-width match (shape[1] == N); a mismatched width throws a clear error.
+// One packed array (rank 2 or more) as the single argument of an N-input call.
 template <size_t N>
-inline std::optional<std::array<ContigDouble, N>> maybe_split_TxN(const nb::args& args) {
-    if (args.size() != 1 || !is_ndarray(args[0])) {
-        return std::nullopt;
-    }
-    nb::ndarray<nb::ro> arr = nb::cast<nb::ndarray<nb::ro>>(args[0]);
-    if (arr.ndim() != 2) {
-        return std::nullopt;   // 1-D single array falls through to the normal error
-    }
-    size_t T = arr.shape(0);
-    size_t width = arr.shape(1);
-    if (width != N) {
-        throw nb::value_error(
-            ("This functor expects " + std::to_string(N) +
-             " inputs; got a single 2-D array with " + std::to_string(width) +
-             " columns. Pass an (T, " + std::to_string(N) + ") array or " +
-             std::to_string(N) + " separate arrays.").c_str());
-    }
-    ContigDouble full = read_contig_double(arr);   // C-contiguous (T, N)
-    std::array<ContigDouble, N> cols;
-    for (size_t j = 0; j < N; ++j) {
-        cols[j].shape = { T };
-        cols[j].data.resize(T);
-        for (size_t i = 0; i < T; ++i) cols[j].data[i] = full.data[i * N + j];
-    }
-    return cols;
+inline std::optional<NInputs<N>> maybe_read_packed(const nb::args& args) {
+    if (args.size() != 1 || !is_ndarray(args[0])) return std::nullopt;
+    if (nb::cast<nb::ndarray<nb::ro>>(args[0]).ndim() < 2) return std::nullopt;
+    return read_inputs<N>({ args[0] });
+}
+
+template <size_t N>
+inline NInputs<N> read_tuple_inputs(const nb::tuple& inputs) {
+    std::vector<nb::handle> arrays;
+    for (nb::handle h : inputs) arrays.push_back(h);
+    return read_inputs<N>(arrays);
 }
 
 }  // namespace detail
@@ -394,7 +380,7 @@ nb::object handle_input_1i_1o_numpy(Op& self, const nb::ndarray<nb::ro>& input) 
     if (in.ndim() < 1) {
         throw std::runtime_error("Input array must have at least one dimension and contain doubles");
     }
-    std::vector<size_t> shape = in.shape;
+    std::vector<size_t> shape = shape::consume_unit_field(in.shape);
     size_t total = in.total();
     double* out = new double[total ? total : 1];
     size_t size = in.time();
@@ -416,41 +402,30 @@ nb::object handle_input_1i_1o_numpy(Op& self, const nb::ndarray<nb::ro>& input) 
 // MULTIPLE INPUTS, ONE OUTPUT (numpy)
 // ---------------------------------------------------------
 template <class Op>
-nb::object handle_input_Ni_1o_numpy(Op& self, std::array<detail::ContigDouble, Op::kN>& ins) {
+nb::object handle_input_Ni_1o_numpy(Op& self, detail::NInputs<Op::kN>& in) {
     constexpr size_t N = Op::kN;
-    if (ins[0].ndim() < 1) {
-        throw std::runtime_error("Input array must have at least one dimension");
-    }
-    std::vector<size_t> shape = ins[0].shape;
-    size_t total = ins[0].total();
-    size_t size = ins[0].time();
-    size_t cols = ins[0].cols();
-    double* out = new double[total ? total : 1];
-
-    std::array<double*, N> inptr{};
+    const shape::Plan& p = in.plan;
+    const size_t T = p.T, cols = p.columns;
+    double* out = new double[T * cols ? T * cols : 1];
     std::array<int64_t, N> instride{};
-    for (size_t i = 0; i < N; ++i) { inptr[i] = ins[i].data.data(); instride[i] = (int64_t) cols; }
-
+    for (size_t i = 0; i < N; ++i) instride[i] = (int64_t) p.time_stride[i];
     for (size_t col = 0; col < cols; ++col) {
         std::array<size_t, N> inoff{};
-        for (size_t i = 0; i < N; ++i) inoff[i] = col;
-
+        for (size_t i = 0; i < N; ++i) inoff[i] = p.offset[i * cols + col];
         self.reset();
-
-        if (!self.process_columns(out, (std::ptrdiff_t) cols, inptr, instride, inoff, col, size)) {
-            std::array<size_t, N> idx_in = inoff;
+        if (!self.process_columns(out, (std::ptrdiff_t) cols, in.data, instride, inoff, col, T)) {
+            std::array<size_t, N> idx = inoff;
             size_t idx_out = col;
             typename Op::InputArray call_array;
-            for (size_t t = 0; t < size; ++t) {
-                for (size_t i = 0; i < N; ++i) call_array[i] = inptr[i][idx_in[i]];
+            for (size_t t = 0; t < T; ++t) {
+                for (size_t i = 0; i < N; ++i) { call_array[i] = in.data[i][idx[i]]; idx[i] += p.time_stride[i]; }
                 out[idx_out] = self.call(call_array);
-                for (size_t i = 0; i < N; ++i) idx_in[i] += cols;
                 idx_out += cols;
             }
         }
     }
     self.reset();
-    return detail::make_owned_array(out, shape);
+    return detail::make_owned_array(out, p.shape);
 }
 
 // ---------------------------------------------------------
@@ -466,7 +441,7 @@ nb::object handle_input_1i_Mo_numpy(Op& self, const nb::ndarray<nb::ro>& input) 
     if (in.ndim() < 1) {
         throw std::runtime_error("Input array must have at least one dimension and contain doubles");
     }
-    std::vector<size_t> shape = in.shape;
+    std::vector<size_t> shape = shape::consume_unit_field(in.shape);
     shape.push_back(M);
     size_t total = in.total();
     double* out = new double[total * M ? total * M : 1];
@@ -489,33 +464,25 @@ nb::object handle_input_1i_Mo_numpy(Op& self, const nb::ndarray<nb::ro>& input) 
 // MULTIPLE INPUTS, MULTIPLE OUTPUTS (numpy)
 // ---------------------------------------------------------
 // The natural composition of the N->1 and 1->M rules:
-//   - inputs are paired column-by-column (from N->1)
-//   - output shape = paired-input shape + (M,) (from 1->M)
+//   - inputs broadcast over assets and pair column by column (from N->1)
+//   - output shape = broadcast (T, *A) + (M,) (from 1->M)
 template <class Op>
-nb::object handle_input_Ni_Mo_numpy(Op& self, std::array<detail::ContigDouble, Op::kN>& ins) {
+nb::object handle_input_Ni_Mo_numpy(Op& self, detail::NInputs<Op::kN>& in) {
     constexpr size_t N = Op::kN;
     constexpr size_t M = Op::kM;
-    if (ins[0].ndim() < 1) {
-        throw std::runtime_error("Input array must have at least one dimension");
-    }
-    std::vector<size_t> shape = ins[0].shape;
+    const shape::Plan& p = in.plan;
+    const size_t T = p.T, cols = p.columns;
+    std::vector<size_t> shape = p.shape;
     shape.push_back(M);
-    size_t total = ins[0].total();
-    size_t size = ins[0].time();
-    size_t cols = ins[0].cols();
-    double* out = new double[total * M ? total * M : 1];
-
-    std::array<double*, N> inptr{};
-    for (size_t i = 0; i < N; ++i) inptr[i] = ins[i].data.data();
-
+    double* out = new double[T * cols * M ? T * cols * M : 1];
     for (size_t col = 0; col < cols; ++col) {
         self.reset();
+        std::array<size_t, N> idx{};
+        for (size_t i = 0; i < N; ++i) idx[i] = p.offset[i * cols + col];
         typename Op::InputArray call_array;
-        for (size_t t = 0; t < size; ++t) {
-            size_t in_idx = t * cols + col;
-            for (size_t j = 0; j < N; ++j) call_array[j] = inptr[j][in_idx];
-            typename Op::ResultTuple results = self.call(call_array);
-            detail::write_tuple_to_memory(&out[in_idx * M], results);
+        for (size_t t = 0; t < T; ++t) {
+            for (size_t j = 0; j < N; ++j) { call_array[j] = in.data[j][idx[j]]; idx[j] += p.time_stride[j]; }
+            detail::write_tuple_to_memory(&out[(t * cols + col) * M], self.call(call_array));
         }
     }
     self.reset();
@@ -605,6 +572,13 @@ nb::object functor_1i_1o(Op& self, nb::object input) {
         }
     }
 
+    // Case 2b: a lazy iterator streams through LazyEvalIterator, as for every
+    // other operator (lazy in, lazy out).
+    if (is_lazy_iterable(input)) {
+        std::vector<nb::object> sources{ input };
+        return nb::cast(LazyEvalIterator(nb::find(self), std::move(sources)));
+    }
+
     // Case 3: Iterable
     if (nb::hasattr(input, "__iter__")) {
         std::vector<typename Op::ResultTuple> results;
@@ -651,8 +625,8 @@ nb::object functor_Ni_1o(Op& self, const nb::args& raw_args) {
     // processed as an array. No-op (returns raw_args) for supported dtypes.
     nb::args args = detail::coerce_args_if_unsupported(raw_args);
 
-    if (auto cols = detail::maybe_split_TxN<N>(args)) {
-        return handle_input_Ni_1o_numpy(self, *cols);
+    if (auto ins = detail::maybe_read_packed<N>(args)) {
+        return handle_input_Ni_1o_numpy(self, *ins);
     }
 
    // Case 1: we need to get his out of the way first.
@@ -684,12 +658,12 @@ nb::object functor_Ni_1o(Op& self, const nb::args& raw_args) {
     // after this, now we handle cases where we have N arguments
     nb::tuple inputs = args_to_tuple_n<Op>(args);
 
-    // Case 2: a tuple of N numpy arrays, all of the same size (nparray, ...).
+    // Case 2: a tuple of N numpy arrays whose asset axes broadcast (nparray, ...).
     // Checked before the scalar cast so N length-1 arrays are a series of one
     // (array in, array out - Rule A), not N scalars collapsing to one scalar.
     if (is_series_array(inputs[0])) {
-        auto cols = detail::read_n_arrays<N>(inputs);
-        return handle_input_Ni_1o_numpy(self, cols);
+        auto ins = detail::read_tuple_inputs<N>(inputs);
+        return handle_input_Ni_1o_numpy(self, ins);
     }
 
     // Case 3: a tuple of N scalar inputs: (0.3, 1.2, 4.0) -> one scalar event
@@ -741,8 +715,8 @@ nb::object functor_Ni_Mo(Op& self, const nb::args& raw_args) {
     // processed as an array. No-op (returns raw_args) for supported dtypes.
     nb::args args = detail::coerce_args_if_unsupported(raw_args);
 
-    if (auto cols = detail::maybe_split_TxN<N>(args)) {
-        return handle_input_Ni_Mo_numpy(self, *cols);
+    if (auto ins = detail::maybe_read_packed<N>(args)) {
+        return handle_input_Ni_Mo_numpy(self, *ins);
     }
 
     // Case 1: single argument, list/tuple of N-tuples
@@ -773,10 +747,10 @@ nb::object functor_Ni_Mo(Op& self, const nb::args& raw_args) {
 
     nb::tuple inputs = args_to_tuple_n<Op>(args);
 
-    // Case 2: tuple of N numpy arrays of matching shape.
+    // Case 2: tuple of N numpy arrays whose asset axes broadcast.
     if (is_series_array(inputs[0])) {
-        auto cols = detail::read_n_arrays<N>(inputs);
-        return handle_input_Ni_Mo_numpy(self, cols);
+        auto ins = detail::read_tuple_inputs<N>(inputs);
+        return handle_input_Ni_Mo_numpy(self, ins);
     }
 
     // Case 3: tuple of N scalars -> single M-tuple (one streaming event)

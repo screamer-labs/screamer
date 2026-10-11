@@ -165,7 +165,7 @@ def test_constant_y(cls):
 
 @pytest.mark.parametrize("cls", [RollingCov, RollingBeta, RollingSpread])
 def test_shape_mismatch_raises(cls):
-    with pytest.raises(TypeError):
+    with pytest.raises(ValueError, match="same length along time"):
         cls(5)(np.zeros(10), np.zeros(20))
 
 
