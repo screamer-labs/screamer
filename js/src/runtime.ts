@@ -9,6 +9,10 @@ const REG = new FinalizationRegistry<() => void>((free) => free());
 
 export type ScreamerOp = {
   (...args: any[]): any;
+  /** Number of input fields per event (Python's `num_inputs`). */
+  readonly numInputs: number;
+  /** Number of output fields per event (Python's `num_outputs`). */
+  readonly numOutputs: number;
   reset(): void;
   dispose(): void;
   [Symbol.dispose](): void;
@@ -33,17 +37,117 @@ const isNd = (x: any): x is NdArray =>
 type OpSource = RawOp | (() => RawOp);
 const resolve = (src: OpSource): RawOp => (typeof src === "function" ? (src as () => RawOp)() : src);
 
+// Whether a call is a stream: "sync" when every argument is an iterator,
+// "async" when every argument is an async iterable, null when none is. A
+// stream takes n sources, or one source whose events hold all n fields.
+function streamKind(args: any[], n: number): "sync" | "async" | null {
+  let nAsync = 0, nSync = 0;
+  for (const a of args) {
+    if (isAsyncIter(a)) nAsync++;
+    else if (isSyncIter(a)) nSync++;
+  }
+  if (nAsync + nSync === 0) return null;
+  if (nAsync && nSync)
+    throw new TypeError("async and synchronous inputs cannot be mixed: pass every input as an async iterable, or none");
+  if (nAsync + nSync !== args.length)
+    throw new TypeError("iterator and array inputs cannot be mixed: pass every input as an iterator of events, or none");
+  if (args.length !== n && args.length !== 1)
+    throw new TypeError(`this op takes ${n} inputs, got ${args.length} ${nAsync ? "async iterables" : "iterators"}`);
+  return nAsync ? "async" : "sync";
+}
+
+// The iterator a stream call returns. Each next() reads the next item of every
+// source, in order, and passes them to `step` (the items array is reused).
+// Nothing is read before the first next(), which calls `start`. The stream ends
+// with the first exhausted source and closes the other sources then, or when
+// the consumer calls return(). An error from one event propagates without
+// ending the stream, so the next call reads the next event, as in Python.
+// `owner` is the op wrapper: holding it keeps the finalizer from freeing the
+// op while a stream of a temporary op, such as `RollingMean(3)(src)`, runs.
+class EventStream implements IterableIterator<any> {
+  private its: Iterator<any>[] | null = null;
+  private items: any[] = [];
+  private done = false;
+  constructor(private srcs: Iterable<any>[], private start: (n: number) => void,
+              private step: (items: any[]) => any, private owner: unknown) {}
+  [Symbol.iterator]() { return this; }
+  next(): IteratorResult<any> {
+    if (this.done) return { done: true, value: undefined };
+    if (!this.its) {
+      this.start(this.srcs.length);
+      this.its = this.srcs.map((s) => s[Symbol.iterator]());
+    }
+    for (let i = 0; i < this.its.length; i++) {
+      const r = this.its[i].next();
+      if (r.done) { this.close(i); return { done: true, value: undefined }; }
+      this.items[i] = r.value;
+    }
+    return { done: false, value: this.step(this.items) };
+  }
+  return(value?: any): IteratorResult<any> {
+    this.close(-1);
+    return { done: true, value };
+  }
+  private close(ended: number) {
+    if (this.done) return;
+    this.done = true;
+    this.its?.forEach((it, i) => { if (i !== ended) it.return?.(); });
+  }
+}
+
+// The async form: next() awaits the next item of every source. A next() while
+// another is still running rejects, as Python's overlapping __anext__ raises.
+class AsyncEventStream implements AsyncIterableIterator<any> {
+  private its: AsyncIterator<any>[] | null = null;
+  private items: any[] = [];
+  private done = false;
+  private busy = false;
+  constructor(private srcs: AsyncIterable<any>[], private start: (n: number) => void,
+              private step: (items: any[]) => any, private owner: unknown) {}
+  [Symbol.asyncIterator]() { return this; }
+  async next(): Promise<IteratorResult<any>> {
+    if (this.busy) throw new Error("another next() of this stream is still running; await it first");
+    if (this.done) return { done: true, value: undefined };
+    this.busy = true;
+    try {
+      if (!this.its) {
+        this.start(this.srcs.length);
+        this.its = this.srcs.map((s) => s[Symbol.asyncIterator]());
+      }
+      for (let i = 0; i < this.its.length; i++) {
+        const r = await this.its[i].next();
+        if (r.done) { await this.close(i); return { done: true, value: undefined }; }
+        this.items[i] = r.value;
+      }
+      return { done: false, value: this.step(this.items) };
+    } finally {
+      this.busy = false;
+    }
+  }
+  async return(value?: any): Promise<IteratorResult<any>> {
+    await this.close(-1);
+    return { done: true, value };
+  }
+  private async close(ended: number) {
+    if (this.done) return;
+    this.done = true;
+    const its = this.its ?? [];
+    for (let i = 0; i < its.length; i++) if (i !== ended) await its[i].return?.();
+  }
+}
+
 export function wrapOp(M: Screamer, src: OpSource): ScreamerOp {
   const make = typeof src === "function" ? (src as () => RawOp) : null;
   const raw = resolve(src);
   const nIn = raw.nIn(), nOut = raw.nOut();
   const inBuf = M.allocF64(nIn), outBuf = M.allocF64(nOut);
-  let copies: RawOp[] = [];          // ops for assets 1..K-1 of an asset-event stream
+  let copies: RawOp[] = [];          // ops for asset columns 1..K-1 of a stream, reused across streams
   let disposed = false;
   const free = () => {
     if (disposed) return;
     disposed = true;
     M.freeBuf(inBuf); M.freeBuf(outBuf);
+    if (colCap) { M.freeBuf(colIn); M.freeBuf(colOut); }
     copies.forEach((c) => c.delete());
     raw.delete();
   };
@@ -112,60 +216,130 @@ export function wrapOp(M: Screamer, src: OpSource): ScreamerOp {
     }
   }
 
-  // One event of an asset stream: K values, one per asset, each run by its own
-  // op (raw for asset 0). The first event fixes K, as a (T, K) batch does.
-  let assets = -1;                    // -1: not started, 0: scalar events, K: asset events
-  const eventRow = (v: any): ArrayLike<number> => {
-    if (!isNd(v)) {
-      if (!isTyped(v) && !isNumArr(v)) throw new TypeError(`unsupported event for a 1-input op: ${typeof v}`);
-      return v as ArrayLike<number>;
+  // ---- Streams -------------------------------------------------------------
+  //
+  // A stream reads one item per source per event: nIn sources of one field
+  // each, or, with nIn > 1, one source whose events hold every field (an array
+  // of nIn numbers, an array of nIn fields, or a (..., nIn) NdArray). The first
+  // event fixes the event shape. Numbers give a number (or nOut numbers) per
+  // event. Arrays hold one value per asset: the inputs broadcast like a batch
+  // call (the C++ shape module plans the columns), and every asset column runs
+  // its own op, raw for column 0 and copies from the factory for the rest.
+  const UNKNOWN = 0, SCALAR = 1, ASSETS = 2;
+  let mode = UNKNOWN;
+  let unpack = false;                 // one source holds all nIn fields
+  let plan: { cols: number; offset: number[]; shapes: number[][]; out: number[] | null } | null = null;
+  let colIn = 0, colOut = 0, colCap = 0;   // heap blocks of (cols x nIn) and (cols x nOut)
+  // Per-event views of the current event's parts, reused across events.
+  const partData: ArrayLike<number>[] = [], partShape: number[][] = [];
+  const numBuf: Float64Array[] = [], lenShape: number[][] = [];
+  const EMPTY: number[] = [];
+
+  const scalarValues = (items: any[]): ArrayLike<number> | null => {
+    if (unpack) {
+      const v = items[0];
+      if ((isTyped(v) || isNumArr(v)) && v.length === nIn) return v;
+      if (isNd(v) && v.shape.length === 1 && v.shape[0] === nIn && v.data.length === nIn) return v.data;
+      return null;
     }
-    const s = v.shape;
-    if (s.length === 1 || (s.length === 2 && s[1] === 1)) return v.data;
-    throw new TypeError(`an event must hold one value per asset; got shape [${s}]`);
-  };
-  const assetEvent = (row: ArrayLike<number>): Float64Array | NdArray => {
-    const k = row.length;
-    const out = new Float64Array(k * nOut);
-    for (let j = 0; j < k; j++) {
-      M.viewF64(inBuf, 1)[0] = row[j];
-      (j === 0 ? raw : copies[j - 1]).evalInto(inBuf, outBuf);
-      out.set(M.viewF64(outBuf, nOut), j * nOut);
-    }
-    return nOut === 1 ? out : { data: out, shape: [k, nOut] };
-  };
-  const step = (v: any) => {
-    if (disposed) throw new Error("operation used after dispose()");
-    if (typeof v === "number") {
-      if (assets > 0) throw new TypeError(`every event must have the same shape: the first held ${assets} values, this one is a number`);
-      assets = 0;
-      return event([v]);
-    }
-    const row = eventRow(v);
-    if (assets === -1) {
-      if (row.length > 1 && !make) throw new TypeError("events with several assets need an op built by its factory");
-      assets = row.length;
-      raw.reset();
-      while (copies.length < assets - 1) copies.push(make!());
-      copies.forEach((c) => c.reset());
-    } else if (row.length !== assets) {
-      throw new TypeError(`every event must have the same shape: the first held ${assets === 0 ? "a number" : `${assets} values`}, this one holds ${row.length}`);
-    }
-    return assetEvent(row);
+    for (let i = 0; i < items.length; i++) if (typeof items[i] !== "number") return null;
+    return items;
   };
 
-  function* gen(src: Iterable<any>) {
+  // Reads the event's parts (one per field, or one packed part) into
+  // partData / partShape and returns their count.
+  const readParts = (items: any[]): number => {
+    const src = unpack && Array.isArray(items[0]) ? items[0] : items;
+    for (let k = 0; k < src.length; k++) {
+      const v = src[k];
+      if (typeof v === "number") {
+        const b = (numBuf[k] ??= new Float64Array(1));
+        b[0] = v;
+        partData[k] = b; partShape[k] = EMPTY;
+      } else if (isNd(v)) {
+        checkNd(v);
+        partData[k] = v.data; partShape[k] = v.shape;
+      } else if (isTyped(v) || isNumArr(v)) {
+        const s = (lenShape[k] ??= [0]);
+        s[0] = v.length;
+        partData[k] = v; partShape[k] = s;
+      } else {
+        throw new TypeError(`unsupported event: ${Array.isArray(v) ? "an array of non-numbers" : typeof v}`);
+      }
+    }
+    return src.length;
+  };
+
+  const fmtShapes = (shapes: number[][]) => shapes.map((s) => `[${s}]`).join(" and ");
+
+  // The first asset event fixes the shape and builds one op per asset column.
+  // The plan is committed only after every copy exists, so a failed factory
+  // call leaves the stream as it was and the next event starts again.
+  const startAssets = (n: number) => {
+    const shapes = partShape.slice(0, n).map((s) => s.slice());
+    const p = M.eventPlan(shapes.map((s) => [1, ...s]), nIn) as { shape: number[]; columns: number; offset: number[] };
+    const cols = p.columns;
+    if (cols > 1 && !make) throw new TypeError("events with several assets need an op built by its factory");
+    while (copies.length < cols - 1) copies.push(make!());
+    raw.reset();
+    for (let c = 0; c < cols - 1; c++) copies[c].reset();
+    if (cols > colCap) {
+      if (colCap) { M.freeBuf(colIn); M.freeBuf(colOut); colCap = 0; }
+      colIn = M.allocF64(cols * nIn); colOut = M.allocF64(cols * nOut); colCap = cols;
+    }
+    const out = p.shape.length === 1 && nOut === 1 ? null : (nOut === 1 ? p.shape : [...p.shape, nOut]);
+    plan = { cols, offset: p.offset, shapes, out };
+    mode = ASSETS;
+  };
+
+  const sameShapes = (n: number): boolean => {
+    const want = plan!.shapes;
+    if (n !== want.length) return false;
+    for (let k = 0; k < n; k++) {
+      const a = partShape[k], b = want[k];
+      if (a.length !== b.length) return false;
+      for (let d = 0; d < a.length; d++) if (a[d] !== b[d]) return false;
+    }
+    return true;
+  };
+
+  // One asset event: gather every column's fields into one heap block, run
+  // each column's op on its slice, and copy the outputs off the heap once.
+  const assetEvent = (items: any[]): Float64Array | NdArray => {
+    const n = readParts(items);
+    if (!plan) startAssets(n);
+    else if (!sameShapes(n))
+      throw new TypeError(`every event must have the same shape: the first was ${fmtShapes(plan.shapes)}, this one is ${fmtShapes(partShape.slice(0, n))}`);
+    const { cols, offset, out } = plan!;
+    const packed = n === 1 && nIn > 1;
+    const view = M.viewF64(colIn, cols * nIn);
+    for (let i = 0; i < nIn; i++) {
+      const d = partData[packed ? 0 : i], o = i * cols;
+      for (let c = 0; c < cols; c++) view[c * nIn + i] = d[offset[o + c]];
+    }
+    for (let c = 0; c < cols; c++)
+      (c === 0 ? raw : copies[c - 1]).evalInto(colIn + 8 * c * nIn, colOut + 8 * c * nOut);
+    const data = new Float64Array(M.viewF64(colOut, cols * nOut));
+    return out ? { data, shape: out } : data;
+  };
+
+  const step = (items: any[]) => {
+    try {
+      if (disposed) throw new Error("operation used after dispose()");
+      if (mode !== ASSETS) {
+        const v = scalarValues(items);
+        if (v) { mode = SCALAR; return event(v); }
+        if (mode === SCALAR) throw new TypeError("every event must have the same shape: the first events were numbers, this one is not");
+      }
+      return assetEvent(items);
+    } catch (e) { throw normalizeError(e); }
+  };
+
+  const start = (n: number) => {
     if (disposed) throw new Error("operation used after dispose()");
     raw.reset();
-    assets = -1;
-    for (const v of src) yield step(v);
-  }
-  async function* agen(src: AsyncIterable<any>) {
-    if (disposed) throw new Error("operation used after dispose()");
-    raw.reset();
-    assets = -1;
-    for await (const v of src) yield step(v);
-  }
+    mode = UNKNOWN; plan = null; unpack = n === 1 && nIn > 1;
+  };
 
   const call = (...args: any[]) => {
     try {
@@ -177,14 +351,14 @@ export function wrapOp(M: Screamer, src: OpSource): ScreamerOp {
       if (args.some(isNode)) {
         return new Node({ functor: raw, wrapper: op }, args.filter(isNode));
       }
+      const kind = streamKind(args, nIn);
+      if (kind) return kind === "async" ? new AsyncEventStream(args, start, step, op) : new EventStream(args, start, step, op);
       if (nIn === 1) {
         const a = args[0];
         if (typeof a === "number") return event([a]);
         if (isNd(a)) return shaped([a]);
         if (isTyped(a)) return batch1(a, true);
         if (isNumArr(a)) return batch1(a, false);
-        if (isAsyncIter(a)) return agen(a);
-        if (isSyncIter(a)) return gen(a);
         throw new TypeError(`unsupported input for a 1-input op: ${typeof a}`);
       }
       // nIn > 1: N scalars -> one event; N arrays -> columnar batch.
@@ -213,6 +387,8 @@ export function wrapOp(M: Screamer, src: OpSource): ScreamerOp {
   op.reset = () => { if (disposed) throw new Error("operation used after dispose()"); raw.reset(); copies.forEach((c) => c.reset()); };
   op.dispose = free;
   (op as any)[Symbol.dispose] = free;
+  (op as any).numInputs = nIn;
+  (op as any).numOutputs = nOut;
   REG.register(op, free);
   return op;
 }
@@ -338,14 +514,18 @@ export function wrapReducerOp(M: Screamer, src: OpSource): ScreamerOp {
     return batch(flat, rows, assets);
   };
 
-  function* gen(src: Iterable<any>) {
+  // A stream of (assets, width) events, through the same iterators as wrapOp.
+  const start = () => {
+    if (disposed) throw new Error("operation used after dispose()");
     raw.reset();
-    for (const row of src) { const { flat, assets } = asRow(row); yield event(flat, assets); }
-  }
-  async function* agen(src: AsyncIterable<any>) {
-    raw.reset();
-    for await (const row of src) { const { flat, assets } = asRow(row); yield event(flat, assets); }
-  }
+  };
+  const step = (items: any[]) => {
+    try {
+      if (disposed) throw new Error("operation used after dispose()");
+      const { flat, assets } = asRow(items[0]);
+      return event(flat, assets);
+    } catch (e) { throw normalizeError(e); }
+  };
 
   const call = (...args: any[]) => {
     try {
@@ -367,8 +547,8 @@ export function wrapReducerOp(M: Screamer, src: OpSource): ScreamerOp {
         return event(flat, assets);
       }
       if (isNestedBatch(x)) return nestedBatch(x);
-      if (isAsyncIter(x)) return agen(x);
-      if (isSyncIter(x)) return gen(x);
+      if (isAsyncIter(x)) return new AsyncEventStream([x], start, step, op);
+      if (isSyncIter(x)) return new EventStream([x], start, step, op);
       const { flat, assets } = asRow(x);
       return event(flat, assets);
     } catch (e) { throw normalizeError(e); }
@@ -378,6 +558,8 @@ export function wrapReducerOp(M: Screamer, src: OpSource): ScreamerOp {
   op.reset = () => { if (disposed) throw new Error("operation used after dispose()"); raw.reset(); };
   op.dispose = free;
   (op as any)[Symbol.dispose] = free;
+  (op as any).numInputs = width;
+  (op as any).numOutputs = nOut;
   REG.register(op, free);
   return op;
 }
@@ -390,7 +572,8 @@ export function wrapReducerOp(M: Screamer, src: OpSource): ScreamerOp {
 //
 //   (T, K) NdArrays or arrays of rows  -> (T, K) or (T, K, fieldsOut) NdArray
 //   one row each (Float64Array/number[]) -> one row, or a (K, fieldsOut) NdArray
-//   an iterable of rows (one field)     -> a generator of rows
+//   fi iterables of rows, or one iterable of fi-row arrays -> a generator of rows
+//   (async iterables give an async generator)
 //
 // Mirrors the Python binding of screamer.RowOp.
 export function wrapRowOp(M: Screamer, src: OpSource): ScreamerOp {
@@ -465,29 +648,39 @@ export function wrapRowOp(M: Screamer, src: OpSource): ScreamerOp {
     return isTyped(rows[0]) ? out : Array.from(out);
   };
 
-  // An event is a row of K values, or an NdArray of shape [K] or [K, 1] (rule 3).
+  // A stream event is fi rows of K values, one per source, or with one source
+  // and fi > 1 an array of fi rows. A row is a Float64Array, a number[], or an
+  // NdArray of shape [K] or [K, 1] (rule 3).
   const asRow = (row: any): ArrayLike<number> => {
-    if (!isNd(row)) return row;
-    if (row.shape.length === 1 || (row.shape.length === 2 && row.shape[1] === 1)) return row.data;
-    throw new TypeError(`each event of a row stream is one row of K values, got shape [${row.shape}]`);
+    if (isTyped(row) || isNumArr(row)) return row;
+    if (isNd(row) && (row.shape.length === 1 || (row.shape.length === 2 && row.shape[1] === 1))) return row.data;
+    throw new TypeError(`each event of a row stream is one row of K values, got ${isNd(row) ? `shape [${row.shape}]` : typeof row}`);
   };
-  function* gen(src: Iterable<any>) {
+  let unpack = false;
+  const rows: ArrayLike<number>[] = new Array(fi);
+  const step = (items: any[]) => {
+    try {
+      if (disposed) throw new Error("operation used after dispose()");
+      const ev = unpack ? items[0] : items;
+      if (unpack && (!Array.isArray(ev) || ev.length !== fi))
+        throw new TypeError(`each event of one row stream is an array of ${fi} rows of K values`);
+      for (let f = 0; f < fi; f++) rows[f] = asRow(ev[f]);
+      return eventOut(rows);
+    } catch (e) { throw normalizeError(e); }
+  };
+  const start = (n: number) => {
+    if (disposed) throw new Error("operation used after dispose()");
     raw.reset();
-    for (const row of src) yield eventOut([asRow(row)]);
-  }
-  async function* agen(src: AsyncIterable<any>) {
-    raw.reset();
-    for await (const row of src) yield eventOut([asRow(row)]);
-  }
+    unpack = n === 1 && fi > 1;
+  };
 
   const call = (...args: any[]) => {
     try {
       if (disposed) throw new Error("operation used after dispose()");
       if (args.some(isNode)) throw new TypeError("row ops run on arrays and row streams, not inside a Pipeline");
+      const kind = streamKind(args, fi);
+      if (kind) return kind === "async" ? new AsyncEventStream(args, start, step, op) : new EventStream(args, start, step, op);
       if (args.length !== fi) throw new TypeError(`this op takes ${fi} inputs, got ${args.length}`);
-      const x = args[0];
-      if (fi === 1 && isAsyncIter(x)) return agen(x);
-      if (fi === 1 && isSyncIter(x)) return gen(x);
       if (args.every((a) => isTyped(a) || isNumArr(a) || (isNd(a) && a.shape.length === 1)))
         return eventOut(args.map((a) => (isNd(a) ? a.data : a)));
       const blocks = args.map(asBlock);
@@ -507,6 +700,8 @@ export function wrapRowOp(M: Screamer, src: OpSource): ScreamerOp {
   // Marks a row op (rows of K assets), so callers such as positionTest can
   // tell a portfolio engine from a per-column one.
   (op as any).rowOp = { fieldsIn: fi, fieldsOut: fo };
+  (op as any).numInputs = raw.nIn();
+  (op as any).numOutputs = raw.nOut();
   REG.register(op, free);
   return op;
 }

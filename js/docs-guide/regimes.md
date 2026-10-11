@@ -31,10 +31,11 @@ RollingMean(3)([1, 2, 3, 4]);                   // [NaN, NaN, 2, 3]
 A batch call resets the op's internal state first, so it always starts from a clean warmup
 regardless of what was called on the op before.
 
-## Sync iterable: `op(iterable)` -> generator
+## Sync iterable: `op(iterable)` -> iterator
 
 Pass any iterable of numbers (not a `Float64Array` or `Array`, which are handled by the batch
-regime above), get a generator back that yields one output per input value, lazily:
+regime above), get an iterator back that yields one output per input value. It reads nothing
+from the source before the first `next()`:
 
 ```js
 function* ticks() {
@@ -46,9 +47,9 @@ for (const y of RollingMean(3)(ticks())) {
 }
 ```
 
-## Async iterable: `op(asyncIterable)` -> async generator
+## Async iterable: `op(asyncIterable)` -> async iterator
 
-Pass an async iterable, get an async generator back, useful for streaming data off a
+Pass an async iterable, get an async iterator back, useful for streaming data off a
 `ReadableStream`, a websocket, or any other async source:
 
 ```js
@@ -74,6 +75,19 @@ Add()(new Float64Array([1, 2, 3]), new Float64Array([10, 20, 30])); // Float64Ar
 Mismatched array lengths across inputs throw a `TypeError` rather than truncating or
 NaN-filling.
 
+A stream takes one iterable per input, or one iterable whose events hold every input, such as
+`[high, low, close]` arrays. Each event reads one item from every source, and the stream ends
+with the shortest source. All inputs are sync iterables or all are async iterables; mixing the
+two, or mixing an iterable with an array, throws a `TypeError`.
+
+```js
+function* prices() { yield 1; yield 2; yield 3; }
+function* volumes() { yield 10; yield 20; yield 30; }
+
+[...Mul()(prices(), volumes())];          // [10, 40, 90]
+[...Mul()([[1, 10], [2, 20]].values())]; // [10, 40]
+```
+
 ## Assets: `[T, K]` `NdArray` input
 
 An `NdArray` of shape `[T, K]` holds `K` series (assets) side by side, with time on the first
@@ -86,7 +100,9 @@ RollingMean(2)(X);                                  // NdArray [3, 2]: [NaN, NaN
 Add()(X, new Float64Array([100, 200, 300]));        // NdArray [3, 2]: [101, 110, 202, 220, 303, 330]
 ```
 
-An iterable of `[K]` rows gives the same rows one event at a time, one op state per asset.
+An iterable of `[K]` rows gives the same rows one event at a time, one op state per asset. A
+multi-input stream broadcasts its events like a batch call, so a source of numbers pairs with a
+source of `[K]` rows, and one source of `[K, N]` events holds the N inputs of an N-input op.
 Shapes that do not broadcast throw a `RangeError`. `reshape(x, layout)` names the axes of an
 `NdArray` with the letters `T` (time), `A` (asset), and `F` (field), as in Python.
 

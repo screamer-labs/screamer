@@ -80,10 +80,6 @@ guide.
 These parts of the shape contract work in one package but not yet the other.
 Each is tracked to be closed.
 
-* Multi-input operators in JavaScript do not take iterators of events; pass
-  arrays.
-* One-input operators in JavaScript take iterators of `(K,)` asset events but
-  reject `(K, F)` events.
 * `combineLatest` in JavaScript has no `layout` argument.
 * The microstructure synonyms `SignedVolume`, `RollingKyleLambda`,
   `EwKyleLambda`, `RollingOrderImbalance`, and `QueueImbalance` are Python
