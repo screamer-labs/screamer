@@ -55,10 +55,9 @@ def _run(header, call):
 @pytest.mark.parametrize("case", sorted(HEADERS))
 def test_hostile_module_raises_type_error(case, call):
     out = _run(HEADERS[case], call)
-    assert out[0] in ("TypeError", "ValueError"), out
-    if out[0] == "TypeError" and "Rank" not in call and "Portfolio" not in call:
-        # Operator dispatch names the offending type.
-        assert "M" in out[1], out
+    # A wrong kind is a TypeError that names the offending type.
+    assert out[0] == "TypeError", out
+    assert "'M'" in out[1] or " a M" in out[1], out
 
 
 @pytest.mark.parametrize("case", sorted(HEADERS))
@@ -77,14 +76,17 @@ def test_mixed_inputs_name_their_types():
                    "pass all numbers, all arrays, or all sequences"]
 
 
-# nanobind v2.9.2 formats __module__ unchecked when it builds its own messages
-# and when a Python class subclasses a bound type. Fixed upstream in v2.13.0
+# nanobind v2.9.2 formats __module__ unchecked when it builds an
+# overload-resolution error (any such failure, including every operator
+# constructor) and when a Python class subclasses a bound type. Fixed upstream in v2.13.0
 # (commits 7f6ad04, 0a58515); these pass once the pinned tag is bumped.
 @pytest.mark.xfail(strict=True, reason="nanobind < 2.13 crashes on a non-str __module__")
 @pytest.mark.parametrize("call", [
     "s.RollingMean(2)(M(), M())",                                   # overload error message
     "type('X', (s.RollingMean,), {'__module__': None})(2)",          # subclass a bound type
+    "s.RollingMean(M())",                                           # constructor overload error
+    "s.RollingMean(window_size=M())",                               # constructor overload error
 ])
 def test_nanobind_internal_hostile_module(call):
     out = _run(HEADERS["module_none"], call)
-    assert out[0] in ("TypeError", "ValueError", "no error"), out
+    assert out[0] in ("TypeError", "no error"), out

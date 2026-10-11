@@ -343,19 +343,19 @@ inline nb::object normalize_input(nb::handle x, const S& op) {
     const bool bad = PyUnicode_Check(o) || PyBytes_Check(o) || PyByteArray_Check(o) ||
                      PyMemoryView_Check(o) || PyDict_Check(o) || PyAnySet_Check(o);
     if (bad) throw_unsupported_input(nb::find(op), x);
-    if (detail::is_ndarray(x)) return nb::borrow(x);
-    {
-        nb::object holder;
-        if (const char* m = type_module_utf8(x.type(), holder)) {
-            if ((std::strcmp(m, "pandas") == 0 || std::strncmp(m, "pandas.", 7) == 0) &&
-                nb::hasattr(x, "to_numpy")) {
-                if (is_time_dtype(x))
-                    throw nb::type_error((op_display_name(nb::find(op)) + ": a pandas object with a "
-                        "datetime or timedelta dtype is not a valid input; pass numeric values "
-                        "(convert timestamps yourself)").c_str());
-                return x.attr("to_numpy")(nb::arg("dtype") = nb::borrow(reinterpret_cast<PyObject*>(&PyFloat_Type)));
-            }
-        }
+    // pandas classes are heap types; a built-in (static) type, numpy.ndarray
+    // among them, is never pandas and leaves without a module lookup. A heap
+    // type's __module__ is read once, safely (it may be any object).
+    if (!(PyType_GetFlags(Py_TYPE(o)) & Py_TPFLAGS_HEAPTYPE)) return nb::borrow(x);
+    nb::object holder;
+    const char* m = type_module_utf8(x.type(), holder);
+    if (m && (std::strcmp(m, "pandas") == 0 || std::strncmp(m, "pandas.", 7) == 0) &&
+        nb::hasattr(x, "to_numpy")) {
+        if (is_time_dtype(x))
+            throw nb::type_error((op_display_name(nb::find(op)) + ": a pandas object with a "
+                "datetime or timedelta dtype is not a valid input; pass numeric values "
+                "(convert timestamps yourself)").c_str());
+        return x.attr("to_numpy")(nb::arg("dtype") = nb::borrow(reinterpret_cast<PyObject*>(&PyFloat_Type)));
     }
     return nb::borrow(x);
 }

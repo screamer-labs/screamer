@@ -66,6 +66,9 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
 * JavaScript: the WebAssembly module uses native WebAssembly exceptions; it needs Chrome 95, Firefox 100, Safari 15.2 or Node 17 or later. Errors thrown by your own iterators now reach you unchanged.
 * JavaScript: a string parameter given a non-string (for example `RollingMean(3, 5)`) throws `TypeError`.
 * JavaScript: streaming one value at a time (`op(x)`) is about 2.3 times faster; heap views are made in JavaScript instead of through Embind.
+* One-input operators such as `RollingMean` raise `TypeError` for an input
+  they cannot read (was `ValueError` with "Unsupported input type for call").
+  Code that caught `ValueError` for this case should catch `TypeError`.
 * A trailing axis of size 1 on an array of rank 3 or more is the single input
   field: `(T, K, 1)` input gives `(T, K)` (was `(T, K, 1)`), and `(T, K, M)`
   for M-output operators (was `(T, K, 1, M)`). Old result: `out[..., None]`,
@@ -138,9 +141,8 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
 * Passing an object whose class has a non-string `__module__` to an operator
   raised a segmentation fault; it now raises `TypeError`.
 * An input that an operator cannot read raises `TypeError` that names the
-  operator and the input's type (`RollingMean: a M is not a valid input; ...`).
-  One-input operators such as `RollingMean` raised `ValueError` with "Unsupported
-  input type for call", and the others raised `TypeError` without naming the type.
+  operator and the input's type (`RollingMean: a M is not a valid input; ...`)
+  on every dispatch path; most paths said only "Unsupported input type."
 * JavaScript errors raised in C++ carry their message text, and reducer error
   messages say "assets" instead of "groups".
 
