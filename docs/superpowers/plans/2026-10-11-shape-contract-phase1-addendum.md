@@ -30,6 +30,8 @@
   5. Ambiguity raises.
   6. A change to the result of code that worked before needs an explicit decision and a "Changed" entry.
 
+- **D8. Stream state (user decision, 2026-10-11).** A call with one number, `op(x)`, is one step of the operator's own running series and continues its state. Every other call (array, list, iterator, async iterator, in Python and JavaScript) is an independent run. It starts clean and keeps its own state for every asset, including the first. Two streams from one operator never share state, whether interleaved or one after the other. Each stream runs on its own operator copies, so it never reads or advances the running series. Like a batch call, opening a stream resets the running series. The one 2.8.0 result this changes: a Python stream opened on an operator that already holds state now starts clean. It goes in the changelog under "Changed".
+
 ## Global Constraints
 
 Same as the base plan: `.superpowers/sdd/2026-10-11-shape-contract-phase1/constraints.md`. All operator logic stays in C++. Never edit version files. Run `make install-dev` after C++ changes. Python tests run with `.venv/bin/python -m pytest`. JavaScript tests run with `cd js && npm run build:wasm && npm test`. No em-dashes. Commit on `feat/shape-contract`.
@@ -104,6 +106,20 @@ Same as the base plan: `.superpowers/sdd/2026-10-11-shape-contract-phase1/constr
   - async equals batch, for scalar events and `(K,)` asset events, in single-input and multi-input forms.
 - [ ] **Docs.** Remove the closed gaps from the parity list in `docs/javascript.md`.
 
+### Task 15: Independent streams (D8), Python and JavaScript
+
+**Files:** `include/screamer/common/lazy_eval_iterator.h` (`EventStepper`), `src/screamer/common/async_generator.cpp`, `bindings/bindings_fin.cpp` (row and PortfolioReport steppers), `js/src/runtime.ts`, and tests in `tests/test_shape_contract.py` and `js/test/streaming_contract.test.ts`.
+
+- [ ] **Python.** Every stream, in scalar, asset and row mode, sync or async, runs on operator copies of its own made with `_fresh()`, including column 0 and scalar mode. Opening a stream resets the operator's running series (`op.reset()`), the same as a batch call. A stream never touches the operator afterwards. Keep the commit-after-success safety. An operator without `_fresh` (built outside the screamer namespace) raises the existing clear `TypeError` for streams.
+- [ ] **JavaScript.** Each stream builds its own raw op(s) from the factory for every column, including column 0, and resets `raw` when it opens. It must not reset or advance `raw` later, and opening a second stream must not disturb a running one. A raw op without a factory raises a clear error when streamed.
+- [ ] **Tests, both languages.**
+  - Two interleaved streams of a stateful operator (`RollingMean(3)` on 1..6 and on 100, 200, ..., 600) each equal their own batch result.
+  - The same holds when one runs after the other.
+  - A stream opened after `op(1.0); op(2.0)` equals batch.
+  - After `op(1.0); op(2.0)`, opening a stream resets the running series: a following `op(3.0)` behaves like a first event.
+  - The same for an asset stream, a multi-input stream, a row operator (`BacktestPortfolioTarget`, two interleaved books each equal to batch), and async.
+- [ ] Run the compatibility gate. Extend the probe matrix with "stream on a used operator" and "interleaved streams" rows, and regenerate nothing on the 2.8.0 side: the old baseline stays the reference. The new rows may differ from 2.8.0 only as D8 decides.
+
 ### Task 14: The six rules and the changelog
 
 **Files:** `docs/polymorphic_api.md`, `docs/javascript.md`, `CHANGELOG.md`.
@@ -114,4 +130,15 @@ Same as the base plan: `.superpowers/sdd/2026-10-11-shape-contract-phase1/constr
   - Add a note at the top of Unreleased that it is a major release (3.0.0) because of these changes.
   - "Added" lists async for every operator and JS multi-input iterators.
   - Remove the entries made obsolete by D1 to D3: the `from_pandas` default and the microstructure keyword break.
+- [ ] **Streaming in depth.** A documentation section for the interested user (on `docs/polymorphic_api.md`, or a page linked from it and from `docs/javascript.md`) explains every detail of the rules with short runnable examples:
+  - `op(number)` continues the running series, and every other call is an independent run (D8). Show the one-after-the-other and interleaved examples and their numbers. Explain that a batch call or a new stream resets the running series.
+  - Laziness: nothing is read before the first `next()`.
+  - Async iterables, and how several sources pair up step by step and stop at the shortest.
+  - Sync and async sources cannot be mixed.
+  - An overlapping `__anext__` raises in Python, while JavaScript queues the calls like any async generator. List this as a parity difference.
+  - An error during a stream closes its sources and ends it in JavaScript; describe the Python behavior as it is.
+  - A tuple of arrays raises (D1). Unpack `(values, index)` for compute operators; a `Pipeline` carries the index.
+  - Asset events and packed events, and that the first event fixes the shape.
+  - Row operators and portfolio engines on streams.
+  - When to use one stream of `(K,)` rows instead of K operators.
 - [ ] Run `make docs` (clean) and both full test suites.
