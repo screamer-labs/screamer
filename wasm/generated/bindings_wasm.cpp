@@ -35,6 +35,7 @@
 #include "screamer/clip.h"
 #include "screamer/common/per_asset.h"
 #include "screamer/common/row_op.h"
+#include "screamer/common/shape.h"
 #include "screamer/common/transform.h"
 #include "screamer/cont_ofi.h"
 #include "screamer/cross_section.h"

@@ -1,12 +1,14 @@
 #include <nanobind/nanobind.h>
 #include <nanobind/stl/vector.h>   // std::vector <-> list
 #include <nanobind/stl/string.h>
+#include <nanobind/stl/tuple.h>
 #include <vector>
 #include <string>
 #include "screamer/common/eval_op.h"
 #include "screamer/common/base.h"
 #include "screamer/common/async_generator.h"
 #include "screamer/common/lazy_eval_iterator.h"
+#include "screamer/common/shape.h"
 
 namespace nb = nanobind;
 using namespace nb::literals;
@@ -41,4 +43,19 @@ void init_bindings_core(nb::module_& m) {
     nb::class_<screamer::LazyAsyncIterator>(m, "LazyAsyncIterator")
         .def("__aiter__", &screamer::LazyAsyncIterator::__aiter__)
         .def("__anext__", &screamer::LazyAsyncIterator::__anext__);
+
+    // Shape-contract helpers (include/screamer/common/shape.h), used by
+    // screamer.shape.reshape, combine_latest and the tests.
+    m.def("_layout_plan", [](const std::string& layout, std::vector<std::size_t> shape) {
+        auto p = screamer::shape::plan_layout(layout, shape);
+        return nb::make_tuple(p.out, p.source, p.dropped, p.shape);
+    }, "layout"_a, "shape"_a);
+    m.def("_broadcast_shape", [](const std::vector<std::vector<std::size_t>>& shapes) {
+        std::vector<screamer::shape::View> views;
+        for (const auto& s : shapes) views.push_back(screamer::shape::contiguous_view(s));
+        return screamer::shape::broadcast(views).shape;
+    }, "shapes"_a);
+    m.def("_input_shape", [](const std::vector<std::vector<std::size_t>>& shapes, std::size_t n_in) {
+        return screamer::shape::broadcast(screamer::shape::input_views(shapes, n_in)).shape;
+    }, "shapes"_a, "n_in"_a);
 }
