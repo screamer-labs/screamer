@@ -6,7 +6,7 @@ Goal: zero open issues before `make major`. Each item is closed by a fix with a 
 
 | # | Issue | Status |
 |---|---|---|
-| A1 | A list of rows into a row operator (`CrossRank()([r1, r2])`) returns an ndarray; rule 3 says list in, list out (`RollingMean(2)([r1, r2])` returns a list). 2.8.0 behavior. | decided: a list into a row operator returns a list of rows (rule 3); "Changed" entry; done (SHA) |
+| A1 | A list of rows into a row operator (`CrossRank()([r1, r2])`) returns an ndarray; rule 3 says list in, list out (`RollingMean(2)([r1, r2])` returns a list). 2.8.0 behavior. | decided: a list into a row operator returns a list of rows (rule 3); "Changed" entry; done (5f0c7a4) |
 | A2 | Overlapping async `next()` on one stream: Python raises `RuntimeError`, JS queues the calls (2.8.0 JS behavior). | decided: keep native convention per language (Python raises, JS queues); document as intentional; docs to update |
 | A3 | An error during a stream: JS closes the sources and ends the stream; Python raises and keeps the stream open (sources freed on garbage collection). | decided: keep native convention per language (Python map-like, JS generator-like); document, advise closing sources (contextlib.closing); docs to update |
 | A4 | Shape errors: Python raises `ValueError`; JS raises `TypeError` for a length mismatch and `RangeError` for an asset mismatch. | decided: JS raises RangeError for every shape mismatch (counterpart of Python ValueError), TypeError for wrong kinds; done (a02d55f) |
