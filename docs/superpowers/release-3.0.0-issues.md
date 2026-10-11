@@ -71,7 +71,7 @@ Goal: zero open issues before `make major`. Each item is closed by a fix with a 
 | G5 | Python segfaults (rc 139) when an operator gets an object whose class has a non-str `__module__` (`class M: __module__ = None; RollingMean(2)(M())`). Same in 2.8.0. Found while reviewing A6. | decided (crash fix, no behavior choice): an unsupported object raises TypeError naming its type; audit every place the dispatch formats a type or module name; test; done (3f6014d) |
 | G6 | Bump nanobind 2.9.2 to 2.13.0 (fixes the remaining non-str `__module__` crashes in constructors, wrong-arity calls, subclassing, typed ndarray bindings); remove the G5 xfails. Found in the G5 review. | decided (user): upgrade to 2.13.0; done (f6a5b2b) |
 | G7 | A wrong-kind element raises `RuntimeError: std::bad_cast` instead of TypeError: list element (`RollingMean(2)([1.0, M()])`, `[object()]`), tuple stream `(M(), M())`, list of events, lazy Pipeline `p(iter([M()]))`. Found in the G5 review. | decided: TypeError naming the type (rule A4); done (94f068e) |
-| G8 | Python segfaults on a class whose `__module__` is a non-UTF-8-encodable str (e.g. '\udc80'), inside nanobind's nb_type_name (constructor overload errors, wrong-arity calls, subclassing); also on nanobind master | decided: local patch cmake/nanobind-surrogate-module.patch until upstream fixes it; done (<sha>) |
+| G8 | Python segfaults on a class whose `__module__` is a non-UTF-8-encodable str (e.g. '\udc80'), inside nanobind's nb_type_name (constructor overload errors, wrong-arity calls, subclassing); also on nanobind master | decided: local patch cmake/nanobind-surrogate-module.patch until upstream fixes it; done (e360252) |
 
 ## Future features (not in 3.0.0)
 
