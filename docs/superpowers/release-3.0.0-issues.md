@@ -36,7 +36,7 @@ Goal: zero open issues before `make major`. Each item is closed by a fix with a 
 
 | # | Issue | Status |
 |---|---|---|
-| D1 | A scalar call to a multi-input operator (`RollingCorr()(x, y)`) costs about 1.5 µs, against 0.07 µs for a one-input operator. It matters for live loops. | open |
+| D1 | A scalar call to a multi-input operator (`RollingCorr()(x, y)`) costs about 1.5 µs, against 0.07 µs for a one-input operator. It matters for live loops. Same in 2.8.0 (measured); the scalar case is reached last in `functor_Ni_1o`. | decided: fast path first in functor_Ni_1o and functor_Ni_Mo: exactly N Python float/int or NumPy scalar args call the kernel directly; target < 0.15 µs; benchmark test pins it against the 1-input cost; no result change; to implement |
 | D2 | JS `evalShaped` makes one virtual `eval` per element and plans the broadcast twice; the Python batch path uses the faster column kernels. | open |
 | D3 | The Python async path copies each event's items twice. | open |
 | D4 | No build flag pins floating-point contraction; GCC defaults to `-ffp-contract=fast`, which could reintroduce last-bit batch/stream differences on a future platform (the contract tests would catch it). | open |
