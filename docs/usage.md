@@ -232,9 +232,10 @@ or list call, and between the columns of a multi-column array. So passing an
 array gives the same result as constructing a fresh object for it, and columns
 never influence each other.
 
-On the streaming paths (feeding scalars or an iterator), state is deliberately
-**not** reset, because preserving it across calls is the whole point of
-streaming. To start over mid-stream, call `reset()` or build a new object.
+Feeding one number per call is the live path: each call continues the object's
+running series, and `reset()` starts it over. An iterator or async iterator is
+an independent run that starts clean and keeps its own state, as described in
+[Streams in depth](streaming.md).
 
 ```{eval-rst}
 .. exec_code::

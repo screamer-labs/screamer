@@ -5,6 +5,9 @@ All notable changes to this project are documented in this file.
 Unreleased
 ----------
 
+This is a major release, 3.0.0: the results listed under "Changed" differ from
+2.8.0. Each entry gives the way to get the old result.
+
 ### Added
 
 * **Walk-forward evaluation:** `walk_forward` (Python) and `walkForward`
@@ -19,24 +22,32 @@ Unreleased
 * **Real multi-asset data for the docs:** daily Binance bars of 20 coins from
   2022 to 2026 and the BTC perpetual's funding rates.
 * Shape contract: every array reads as `(T, *A, F?)`, with time, assets and
-  fields (see Polymorphic API).
+  fields, and six rules hold for every operator in Python and JavaScript (see
+  Polymorphic API).
 * Multi-input operators broadcast over assets: `RollingCorr()(X, y)` with
   `X (T, K)` and `y (T,)`, and backtest engines with `(T, K)` targets and one
   `(T,)` price, in Python and JavaScript.
 * A packed `(T, K, N)` array feeds an N-input operator.
 * Iterators of asset events give the batch result, one operator state per
-  asset (Python; in JavaScript for one-input operators). A Python list of
-  asset events gives a list of the same results.
+  asset, in Python and JavaScript. A Python list of asset events gives a list
+  of the same results.
 * Every Python operator takes async iterables: `N` async sources, or one async
   source of `N`-field events, of numbers or asset arrays, giving the batch
   result. This includes the row operators (cross-sectional operators and
   portfolio engines, one `(K,)` row per input) and `PortfolioReport` (`(K, 4)`
   engine rows). Before, only one-input one-output operators of numbers did.
-  Mixing async and synchronous inputs raises `TypeError`, and a second
-  `__anext__` awaited while one runs raises `RuntimeError`.
+  Mixing async and synchronous inputs raises `TypeError`.
+* Every JavaScript operator streams from sync and async iterables, including
+  multi-input operators, row operators and `PortfolioReport`: one source per
+  input, or one source of packed events, of numbers or asset arrays, giving
+  the batch result. Operators expose `numInputs` and `numOutputs`.
 * Row operators with several inputs (`BacktestPortfolioTarget`,
   `BacktestPortfolioOHLCTarget`) take iterators of rows, one per input or one
   iterator of tuples of rows.
+* `SignedVolume`, `RollingKyleLambda`, `EwKyleLambda`, `QueueImbalance`, and
+  `RollingOrderImbalance` accept every input form: a packed array, iterators,
+  lists of events, and asset axes, as well as their keyword inputs such as
+  `signed_flow=` and `return_=`.
 * `reshape(x, layout)` for arrays, `(values, index)` tuples, DataFrames, lists
   and iterators of events; `reshape` in JavaScript; `from_pandas(layout=)`,
   where `layout="TAF"` reads complete two-level `(asset, field)` columns as
@@ -50,17 +61,23 @@ Unreleased
 
 ### Changed
 
-* An explicit trailing size-1 axis is consumed: `(T, K, 1)` input gives
-  `(T, K)` output (was `(T, K, 1)`), and `(T, K, M)` for M-output operators
-  (was `(T, K, 1, M)`).
-* A shape mismatch between inputs now raises `ValueError` ("do not broadcast",
-  "same length along time") instead of `TypeError`.
-* A tuple of arrays passed to a one-input operator raises `TypeError` (was
-  `RuntimeError: std::bad_cast` or a `TypeError` about numbers). A
-  `(values, index)` stream goes to a stream operator or a `Pipeline`; a list
-  of arrays is a sequence of asset events.
-* A generator passed to a one-input, one-output operator such as `IsNan`
-  returns a lazy iterator (was a list).
+* A trailing axis of size 1 on an array of rank 3 or more is the single input
+  field: `(T, K, 1)` input gives `(T, K)` (was `(T, K, 1)`), and `(T, K, M)`
+  for M-output operators (was `(T, K, 1, M)`). Old result: `out[..., None]`,
+  or `np.expand_dims(out, -2)` for M outputs.
+* A generator passed to `IsNan`, `Not`, `IsFinite`, `TrendMode`, `CyclePhase`,
+  `CycleAmplitude`, `CycleFrequency`, `DominantCycle`, or
+  `InstantaneousTrendline` returns a lazy iterator, as for every other
+  operator (was a list). Old result: `list(IsNan()(gen))`.
+* `EwMean` on numbers, streams and multi-column arrays uses the decay step of
+  its 1-D array path, so every path gives the same bits. Those results differ
+  from 2.8.0 in the last bits (at most 5.7e-14 on a random walk near 100);
+  there is no switch back, so compare with stored 2.8.0 output using a tolerance such
+  as `np.allclose`.
+* `Return` and `ROCP` on a 1-D array compute `(x[t] - x[t-k]) / x[t-k]`, as
+  their other paths do (was `x[t] / x[t-k] - 1`), so a 1-D result equals the
+  same column of a 2-D one. The values differ by at most one unit in the last
+  place. Old result: `x / Lag(k)(x) - 1`.
 * Every call other than `op(number)` is an independent run, in Python and
   JavaScript. A stream (iterator or async iterator) starts clean even on an
   operator that already holds state, runs on copies of its own, and resets the
@@ -68,15 +85,13 @@ Unreleased
   one operator never share state, and live calls `op(x)` never touch a running
   stream. A Python list starts clean and leaves the operator reset, like an
   array; before, a list into a multi-input or multi-output operator continued
-  its state, and a list into a one-input operator left its state behind.
-  Streaming an operator built outside the `screamer` namespace (Python) or
-  without its factory (JavaScript) raises `TypeError`.
-* `position_test`, `strategy_test` and `walk_forward` no longer copy prices to
-  K columns; JavaScript `positionTest` and `walkForward` run the engine once
-  per chunk.
-* `WilliamsR` runs its batch fast path on packed `(T, 3)` and `(T, K)` input,
-  about 3.5x faster on a packed call.
-* JavaScript reducer error messages say "assets" instead of "groups".
+  its state, and a list into a one-input operator left its state behind. In
+  JavaScript a stream already started clean, but ran on the operator itself,
+  so interleaved streams shared one state. Streaming an operator built outside
+  the `screamer` namespace (Python) or without its factory (JavaScript) raises
+  `TypeError`. Old result: `(op(x) for x in source)` continues the running
+  series as a 2.8.0 Python stream did, and `[op(x) for x in values]` (or
+  `op(*event)` for events of several inputs) does the same for a list.
 
 ### Fixed
 
@@ -87,20 +102,33 @@ Unreleased
 * `CombineLatest` given a multi-column stream kept only its first column inside
   a `Pipeline` and raised an opaque `std::bad_cast` when called directly. Both
   paths now concatenate its columns.
-* `EwMean` on a 1-D array now matches the streaming result bit for bit, and
-  `Return` and `ROCP` on a 1-D array use the same formula as their other paths,
-  so a column of a 2-D array equals the same 1-D series exactly.
-* `SignedVolume`, `RollingKyleLambda`, `EwKyleLambda`, `QueueImbalance`, and
-  `RollingOrderImbalance` accept every input form: a packed array, iterators,
-  lists of events, and asset axes. Their keyword inputs, such as
-  `signed_flow=` and `return_=`, work as before.
-* JavaScript errors raised in C++ carry their message text.
+* A tuple of arrays passed to a one-input operator raises a `TypeError` that
+  says what to do (was `RuntimeError: std::bad_cast`): a `(values, index)`
+  stream goes to a stream operator or a `Pipeline`, and a list of arrays is a
+  sequence of asset events.
+* Inputs whose shapes do not match raise `ValueError` that names the problem
+  ("do not broadcast", "same length along time"); they raised `TypeError`.
+* JavaScript errors raised in C++ carry their message text, and reducer error
+  messages say "assets" instead of "groups".
+
+### Performance
+
+* `position_test`, `strategy_test` and `walk_forward` no longer copy prices to
+  K columns; JavaScript `positionTest` and `walkForward` run the engine once
+  per chunk.
+* `WilliamsR` runs its batch fast path on packed `(T, 3)` and `(T, K)` input,
+  about 3.5x faster on a packed call.
 
 ### Documentation
 
-* The Polymorphic API page states the shape contract (time, assets, fields)
-  and its six rules, a new `reshape` page documents layouts, and the streams
-  guide covers multi-column `CombineLatest` and `Resample`.
+* The Polymorphic API page states the six rules every operator follows and
+  the shape contract (time, assets, fields), a new `reshape` page documents
+  layouts, and the streams guide covers multi-column `CombineLatest` and
+  `Resample`. The JavaScript page gives the same rules in JavaScript and lists
+  the remaining differences between the packages.
+* A new Streams in depth page describes live calls, stream state, laziness,
+  several and async sources, asset and packed events, errors, and row
+  operators on streams.
 * Function pages show a generated header from their frontmatter: Python and
   JavaScript signatures, a parameter table, output columns, See also, and
   references. Titles and tags are indexed, so a search for "ema", "z-score",

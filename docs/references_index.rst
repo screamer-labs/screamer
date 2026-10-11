@@ -15,6 +15,13 @@ model, performance, and where definitions differ from other libraries.
       How the container, rank, and time axis of your input decide the shape and
       type of the output.
 
+   .. grid-item-card:: Streams in depth
+      :link: streaming
+      :link-type: doc
+
+      How live calls, iterators, and async iterators handle operator state,
+      several sources, asset events, and errors.
+
    .. grid-item-card:: NaN and warmup
       :link: nan_and_warmup
       :link-type: doc
@@ -60,6 +67,7 @@ model, performance, and where definitions differ from other libraries.
    :hidden:
 
    polymorphic_api
+   streaming
    nan_and_warmup
    multistream
    pipelines

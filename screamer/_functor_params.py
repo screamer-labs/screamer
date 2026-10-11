@@ -155,7 +155,10 @@ def _make_wrapper(name, base):
         """A new instance with the same parameters, in its initial state.
 
         Batch calls give each asset its own state by resetting one operator per
-        column; an iterator of asset events runs one copy per asset instead.
+        column. A stream (iterator or async iterator) runs on copies made with
+        this method: one per asset for asset events, and one for a stream of
+        numbers, so a stream never shares state with the operator or with
+        another stream.
         """
         params = dict(getattr(self, "_screamer_params", {}))
         args = params.pop("args", [])

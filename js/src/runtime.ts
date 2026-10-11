@@ -257,7 +257,7 @@ export function wrapOp(M: Screamer, src: OpSource, copy?: () => RawOp): Screamer
   // event fixes the event shape. Numbers give a number (or nOut numbers) per
   // event. Arrays hold one value per asset: the inputs broadcast like a batch
   // call (the C++ shape module plans the columns), and every asset column runs
-  // its own op, raw for column 0 and copies from the factory for the rest.
+  // its own copy from the pool, column 0 included.
   //
   // Every stream is an independent run (decision D8): it runs on copies of its
   // own, one per asset column, so two streams of one op never share state and

@@ -1,8 +1,10 @@
 # Calling conventions
 
 An op factory such as `RollingMean(3)` or `RollingPoly2(50, 1)` returns a callable. That
-callable dispatches on the type of its argument, and every regime below shares the same op
-state and the same causal, no-lookahead computation. Only the calling convention changes.
+callable dispatches on the type of its argument, and every regime below runs the same causal,
+no-lookahead computation. A call with one number continues the op's running series; every other
+call is an independent run that starts clean, and a stream runs on copies of the op that it
+owns.
 
 ## Streaming: `op(number)` -> `number`
 
@@ -28,8 +30,8 @@ RollingMean(3)(new Float64Array([1, 2, 3, 4])); // Float64Array [NaN, NaN, 2, 3]
 RollingMean(3)([1, 2, 3, 4]);                   // [NaN, NaN, 2, 3]
 ```
 
-A batch call resets the op's internal state first, so it always starts from a clean warmup
-regardless of what was called on the op before.
+A batch call starts from a clean warmup regardless of what was called on the op before, and
+it leaves the op's running series reset, so the next `op(number)` starts a new warmup.
 
 ## Sync iterable: `op(iterable)` -> iterator
 
@@ -61,6 +63,25 @@ for await (const y of RollingMean(3)(ticks())) {
   console.log(y); // NaN, NaN, 2, 3
 }
 ```
+
+## Streams are independent runs
+
+A stream, sync or async, starts clean and runs on copies of the op that it owns. Two streams
+of one op never share state, whether they run one after the other or interleaved, and each
+gives the result of its own batch call. Opening a stream resets the op's running series, like
+a batch call, and later `op(number)` calls do not touch a stream that is already open:
+
+```js
+const mean = RollingMean(3);
+const a = mean([1, 2, 3, 4, 5, 6].values());
+const b = mean([100, 200, 300, 400, 500, 600].values());
+for (let i = 0; i < 6; i++) console.log(a.next().value, b.next().value);
+// NaN NaN, NaN NaN, 2 200, 3 300, 4 400, 5 500
+```
+
+The [streaming guide](https://screamer.readthedocs.io/en/latest/streaming.html) of the Python
+documentation describes the rest in detail: laziness, several sources, asset events, and
+errors.
 
 ## Multi-input ops
 

@@ -75,17 +75,57 @@ conversions. The JavaScript-specific parts, such as module loading, async
 iterables, pipelines, and memory management, are covered in the JavaScript
 guide.
 
+### The six rules in JavaScript
+
+The [six rules](polymorphic_api.md#the-six-rules) hold in JavaScript, with an
+`NdArray` (`{ data, shape }`) in the place of a NumPy array:
+
+1. **Shape `[T, ...A, F?]`.** `RollingMean(3)` on an `NdArray` of shape
+   `[T, K, 1]` returns shape `[T, K]`.
+2. **The container never changes the numbers.** `[...RollingMean(3)(rows.values())]`,
+   with `rows` an array of `[K]` rows, gives the rows of the batch result.
+3. **One meaning per container.** A number is one step of the op's running
+   series, a `Float64Array`, a `number[]` or an `NdArray` is a batch, and an
+   iterable or async iterable is a stream of events. Each stream is an
+   independent run with its own state.
+4. **Separate arguments, or one packed array, with assets broadcast.**
+   `RollingCorr(20)(X, y)` with `X` of shape `[T, K]` and `y` a `Float64Array`
+   of length `T` gives `[T, K]`, and so does one packed `[T, K, 2]` `NdArray`.
+5. **Ambiguity throws.** Inputs of different lengths throw `TypeError`, and
+   asset shapes that do not broadcast throw `RangeError`.
+6. **A change to the result of working code needs an explicit decision** and
+   an entry under "Changed" in the release notes.
+
+[Streams in depth](streaming.md) describes stream state, laziness, several
+sources, asset events, and errors.
+
 ### Parity gaps
 
-These parts of the shape contract work in one package but not yet the other.
-Each is tracked to be closed.
+These parts work differently in the two packages, or in one package only. Each
+is tracked to be closed.
 
 * `combineLatest` in JavaScript has no `layout` argument.
 * The microstructure synonyms `SignedVolume`, `RollingKyleLambda`,
   `EwKyleLambda`, `RollingOrderImbalance`, and `QueueImbalance` are Python
   only; in JavaScript use `Mul`, `RollingBeta` and `EwBeta` (with the inputs
   as return, then signed flow), `RollingSum`, and `OFI` directly.
-* In Python, a live session's `push` takes numbers only, not asset events.
+* In Python, a live session's `push` takes numbers only; JavaScript also has
+  `pushWide` for events of several values.
+* Awaiting a second `next()` on an async stream while the first is still
+  running raises `RuntimeError` in Python. JavaScript queues the calls and
+  answers them in order, as an async generator does.
+* An event that fails during a stream: Python raises from that `next()`, keeps
+  the stream open, and reads the next event on the following call, closing the
+  sources only when the stream is garbage collected. JavaScript throws, closes
+  every source, and ends the stream.
+* Error classes differ: Python raises `ValueError` for inputs or events whose
+  shapes do not match, where JavaScript throws `TypeError` (lengths, event
+  shapes) or `RangeError` (asset shapes that do not broadcast).
+* A Python list of asset events or of `N`-tuples is a sequence of events. A
+  JavaScript array is a batch of numbers only; pass rows or tuples as an
+  iterable, such as `rows.values()`. A nested-array event for an `N`-input op
+  lists the `N` fields first; use an `NdArray` of shape `[K, N]` to list the
+  assets first, as a `(K, N)` NumPy event does.
 
 ## Backtesting and significance tests
 

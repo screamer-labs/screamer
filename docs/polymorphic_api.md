@@ -15,6 +15,39 @@ stream.
 > [Streams, values, and alignment](multistream.md). The lockstep contract on this
 > page is the degenerate "no index → row number" case of that model.
 
+
+## The six rules
+
+Every operator, in Python and JavaScript, follows six rules. The sections below
+give the details of each.
+
+1. **Shape `(T, *A, F?)`.** Time is axis 0, then zero or more asset axes, then
+   an optional field axis, and a trailing field axis of size 1 is the single
+   input field: `RollingMean(5)` on a `(T, K, 1)` array returns `(T, K)`.
+   Details: [Time, assets and fields](#time-assets-and-fields).
+2. **The container never changes the numbers.** An iterator, an async iterator
+   or a list of events gives the rows of the batch result:
+   `list(RollingMean(5)(iter(X)))` holds the rows of `RollingMean(5)(X)`.
+   Details: [Streams in depth](streaming.md).
+3. **One meaning per container.** A number is one step of the operator's
+   running series, an array is a batch along time, and a list or an iterator is
+   a sequence of events: `RollingMean(3)(2.0)` returns a `float`, and
+   `RollingMean(3)([1.0, 2.0])` returns a `list` of two results. Details:
+   [the single-input contract](#the-single-input-contract-screamerbase) and
+   [Streams in depth](streaming.md).
+4. **Inputs are separate arguments, or one packed array, with assets
+   broadcast.** `RollingCorr(20)(X, y)` with `X (T, K)` and `y (T,)` gives
+   `(T, K)`, and so does one packed `(T, K, 2)` array. Details:
+   [the multi-input contract](#the-multi-input-contract-functorbase_-n-1).
+5. **Ambiguity raises.** A `(values, index)` tuple passed to
+   `RollingMean(5)` raises `TypeError`, and inputs of different lengths along
+   time raise `ValueError`. Details:
+   [the dispatch order](#the-dispatch-order).
+6. **A change to the result of code that worked before needs an explicit
+   decision** and an entry under "Changed" in the
+   [release notes](changelog.rst), with the way to get the old result.
+
+
 The contract has two layers:
 
 - **1‑input / 1‑output classes** (`RollingMean`, `EwVar`, `Diff`, `Lag`,
@@ -89,8 +122,8 @@ the array yourself (`x.T`) before passing it.
 The input shape is preserved, with one exception. `(T,)` and `(T, 1)` are
 different inputs and produce different outputs: a 1-D array stays 1-D, and a
 2-D column-vector stays 2-D. The exception is a trailing axis of size 1 on an
-array of rank 3 or more, which is read as a single field and consumed (rule 3
-in [Time, assets and fields](#time-assets-and-fields)).
+array of rank 3 or more, which is read as a single field and consumed (rule 1,
+detailed in [Time, assets and fields](#time-assets-and-fields)).
 
 ```python
 RollingMean(5)(np.random.randn(100)).shape       # (100,)
@@ -147,6 +180,9 @@ result.
 async for y in mean(live_feed()):               # screamer.LazyAsyncIterator
     publish(y)
 ```
+
+[Streams in depth](streaming.md) covers stream state, several sources, asset
+events, and errors.
 
 > **Why no lazy NumPy?** A NumPy array is already in memory, so eager
 > processing is strictly faster; lazy iteration over an array would buy
@@ -221,32 +257,29 @@ Every array screamer reads has the shape `(T, *A, F?)`:
   multi-output operator, or a record such as an OHLC bar.
 
 One time step, of shape `(*A, F?)`, is an **event**. A batch array is events
-stacked along `T`. Six rules follow from this contract:
+stacked along `T`, and a stream yields the same events one at a time (see
+[Streams in depth](streaming.md)). The axes are read as follows:
 
-1. **The container does not change the result.** An iterator of `(K,)` events
-   gives the same rows as the `(T, K)` array, with one operator state per
-   asset: `RollingMean(5)(iter(X))` yields the rows of `RollingMean(5)(X)`.
-   An async generator of the same events gives the same rows.
-2. **Multi-input operators broadcast over assets.** Each input is one field of
-   shape `(T, *A_i)`. The asset shapes broadcast with NumPy rules, and `T` must
-   match: `RollingCorr(20)(X, y)` with `X (T, K)` and `y (T,)` gives `(T, K)`,
-   and column `k` equals `RollingCorr(20)(X[:, k], y)`. A single packed array
-   is split along its last axis into the inputs, so a `(T, K, 2)` array feeds
-   `RollingCorr` as `K` pairs.
-3. **A trailing size-1 axis is consumed.** On an array of rank 3 or more, a
-   last axis of size 1 is the single input field: `(T, K, 1)` reads as
-   `(T, K)`, so `RollingMean(5)` returns `(T, K)` and `BollingerBands(20)`
-   returns `(T, K, 3)`. A `(T, 1)` array stays one asset and gives `(T, 1)`.
-4. **Time operations work per column and append fields.**
-   `Resample(freq=60, agg="ohlc")` turns `(T, X)` into `(T', X, 4)`, one bar
-   per column.
-5. **Combining streams joins fields.** `CombineLatest()(bars, signal)` with
-   `bars (T, 4)` and `signal (T,)` gives `(T, 5)`.
-6. **Only row operators read across assets.** `CrossRank()(X)` ranks the `K`
-   assets of each row; every other operator keeps assets apart. A row
-   operator streams one `(K,)` row per input from iterators or async
-   iterators (or one source of tuples of rows), and `PortfolioReport` streams
-   `(K, 4)` engine rows; each step equals the batch row.
+- **Each asset has its own state.** A one-input operator runs every asset
+  column separately, so column `k` of `RollingMean(5)(X)` equals
+  `RollingMean(5)(X[:, k])`.
+- **Multi-input operators broadcast over assets.** Each input is one field of
+  shape `(T, *A_i)`. The asset shapes broadcast with NumPy rules, and `T` must
+  match: column `k` of `RollingCorr(20)(X, y)` equals
+  `RollingCorr(20)(X[:, k], y)`. A single packed array is split along its last
+  axis into the inputs, so a `(T, K, 2)` array feeds `RollingCorr` as `K`
+  pairs.
+- **A trailing size-1 axis is consumed.** On an array of rank 3 or more, a
+  last axis of size 1 is the single input field: `(T, K, 1)` reads as
+  `(T, K)`, so `RollingMean(5)` returns `(T, K)` and `BollingerBands(20)`
+  returns `(T, K, 3)`. A `(T, 1)` array stays one asset and gives `(T, 1)`.
+- **Time operations work per column and append fields.**
+  `Resample(freq=60, agg="ohlc")` turns `(T, X)` into `(T', X, 4)`, one bar
+  per column.
+- **Combining streams joins fields.** `CombineLatest()(bars, signal)` with
+  `bars (T, 4)` and `signal (T,)` gives `(T, 5)`.
+- **Only row operators read across assets.** `CrossRank()(X)` ranks the `K`
+  assets of each row; every other operator keeps assets apart.
 
 ```python
 X = np.random.randn(100, 4)                     # 4 assets
@@ -472,10 +505,13 @@ The same algorithm produces the same numbers across every input shape
   constructing a fresh instance for that batch.
 - Between independent series in a 2D/3D array, `reset()` is called
   automatically, column `k` does not see column `k‑1`'s state.
-- The lazy iterator path does **not** call `reset()` for you. The whole
-  point of streaming is preserving state across `__next__` calls. If you
-  want to start over, construct a new instance or call `instance.reset()`
-  yourself.
+- A call with one number, `op(x)`, is one step of the operator's running
+  series and keeps its state from call to call. `reset()` starts the running
+  series over.
+- A stream (iterator or async iterator) is an independent run: it resets the
+  running series when it opens, then runs on copies of the operator that it
+  owns, so it never shares state with live calls or with another stream.
+  [Streams in depth](streaming.md) has the details.
 - **Causal.** Output at index `t` depends only on inputs at indices `<= t`;
   no function looks ahead.
 
