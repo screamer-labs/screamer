@@ -196,7 +196,8 @@ nb::object portfolio_report_call(screamer::PortfolioReport& self, nb::args raw) 
         if (values.ndim() == 3) return portfolio_report_batch(self, values);
         return portfolio_report_row(self, arr);
     }
-    throw nb::type_error("PortfolioReport input must be a numpy array or iterable of rows.");
+    throw nb::type_error(("PortfolioReport input must be a numpy array or iterable of rows, not a " +
+                          screamer::type_short_name(input.type())).c_str());
 }
 
 // ---- Row operators (cross-sectional operators, portfolio engines) ---------

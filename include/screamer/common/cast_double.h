@@ -9,6 +9,31 @@ namespace nb = nanobind;
 
 namespace screamer {
 
+// Type metadata from arbitrary user classes. A class may set __module__ to any
+// object (None, an int, bytes), to a str that does not encode as UTF-8, or to a
+// property that raises, so nb::type_name and an unchecked c_str() can crash on
+// it. These helpers read type names safely and never leave an error set.
+
+// The type's __name__ (e.g. "RollingMean", "str"), read from the type slot.
+// Never formats __module__.
+inline std::string type_short_name(nb::handle tp) {
+    nb::object n = nb::steal(PyType_GetName(reinterpret_cast<PyTypeObject*>(tp.ptr())));
+    const char* s = n.is_valid() ? PyUnicode_AsUTF8AndSize(n.ptr(), nullptr) : nullptr;
+    if (!s) { PyErr_Clear(); return "object"; }
+    return s;
+}
+
+// The type's __module__ as UTF-8, or nullptr when it is missing, raises, is
+// not a str, or does not encode. `holder` keeps the returned string alive.
+inline const char* type_module_utf8(nb::handle tp, nb::object& holder) {
+    holder = nb::steal(PyObject_GetAttrString(tp.ptr(), "__module__"));
+    if (!holder.is_valid()) { PyErr_Clear(); return nullptr; }
+    if (!PyUnicode_Check(holder.ptr())) return nullptr;
+    const char* s = PyUnicode_AsUTF8AndSize(holder.ptr(), nullptr);
+    if (!s) PyErr_Clear();
+    return s;
+}
+
 // Decide whether a Python object can be cast to double.
 //
 // IMPORTANT: do NOT introduce static-storage-duration variables here that
@@ -31,7 +56,9 @@ inline bool is_numpy_numerical_scalar(const nb::object& obj) {
 
     // str(type(obj)) -> e.g. "<class 'numpy.float64'>".
     nb::str type_repr(nb::handle((PyObject*) Py_TYPE(obj.ptr())));
-    std::string type_str = type_repr.c_str();
+    const char* c = type_repr.c_str();  // nullptr if a hostile __module__ does not encode
+    if (!c) { PyErr_Clear(); return false; }
+    std::string type_str = c;
 
     if (type_str.compare(0, kPrefixLen, kNumpyPrefix) != 0) {
         return false;

@@ -135,6 +135,12 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
   multi-output operator raised `TypeError: Iterable must contain numbers.`
 * Inputs whose shapes do not match raise `ValueError` that names the problem
   ("do not broadcast", "same length along time"); they raised `TypeError`.
+* Passing an object whose class has a non-string `__module__` to an operator
+  raised a segmentation fault; it now raises `TypeError`.
+* An input that an operator cannot read raises `TypeError` that names the
+  operator and the input's type (`RollingMean: a M is not a valid input; ...`).
+  One-input operators such as `RollingMean` raised `ValueError` with "Unsupported
+  input type for call", and the others raised `TypeError` without naming the type.
 * JavaScript errors raised in C++ carry their message text, and reducer error
   messages say "assets" instead of "groups".
 

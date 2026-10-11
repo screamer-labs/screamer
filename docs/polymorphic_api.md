@@ -93,7 +93,7 @@ Every 1‑in/1‑out class supports the following input/output shapes:
 | Python `tuple` of arrays | `TypeError` | a `(values, index)` stream goes to a stream operator or a `Pipeline`; a compute operator takes the values. A row operator instead reads it as rows over time |
 | Python iterator (`iter(...)`, generator, anything iterable that is not list/tuple/array) | a screamer `LazyEvalIterator` | results yielded **one at a time on demand** |
 | Async iterable (an `async def` generator with `yield`, or anything with `__aiter__`) | a screamer `LazyAsyncIterator` | results awaited one at a time; events are numbers or asset arrays, as for an iterator |
-| Anything else | `ValueError` | "Unsupported input type for call: ..." |
+| Anything else | `TypeError` | "RollingMean: a M is not a valid input; ..." names the operator and the type |
 
 There are two important conventions hidden in this table.
 
@@ -240,8 +240,8 @@ The exact decision tree implemented in `ScreamerBase::operator()`
 7. **Is it an iterable?** Wrap in `LazyEvalIterator`. Iteration is lazy; each
    `next()` advances the source and produces one output.
 
-8. **Anything else** → `ValueError("Unsupported input type for call: ...")`.
-   (Multi-input functors instead raise `TypeError` for a wrong argument
+8. **Anything else** → `TypeError`, naming the operator and the input type.
+   (Multi-input functors also raise `TypeError` for a wrong argument
    count or mixed input kinds, and `ValueError` for shapes that do not
    broadcast; see the multi-input section.)
 

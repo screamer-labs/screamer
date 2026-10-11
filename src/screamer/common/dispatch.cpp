@@ -1,8 +1,6 @@
 #include "screamer/common/dispatch.h"
 #include "screamer/common/lazy_eval_iterator.h"
 #include <nanobind/stl/vector.h>
-#include <stdexcept>
-#include <sstream>
 #include <vector>
 
 namespace screamer {
@@ -75,10 +73,7 @@ nb::object screamer_call(ScreamerBase& self, nb::object raw) {
         return make_dag_functor_node(self_obj, nb::make_tuple(obj));
     }
 
-    nb::str type_repr(nb::handle((PyObject*) Py_TYPE(obj.ptr())));
-    std::ostringstream oss;
-    oss << "Unsupported input type for call: [" << type_repr.c_str() << "]";
-    throw std::invalid_argument(oss.str());
+    throw_unsupported_input(nb::find(self), obj);
 }
 
 nb::object process_python_array(ScreamerBase& self, nb::ndarray<nb::ro> input) {

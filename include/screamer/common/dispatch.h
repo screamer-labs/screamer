@@ -109,7 +109,19 @@ inline nb::object make_owned_array(double* data, const std::vector<size_t>& shap
 // True iff `h` is an ndarray-like object (numpy array), regardless of dtype /
 // rank / strides. Replaces pybind's `py::isinstance<py::array>`. convert=false
 // so it accepts existing arrays only (not sequences that could be converted).
+//
+// nanobind v2.9.2 to v2.12 read the type's __module__ inside the ndarray import
+// with an unchecked c_str() and dereference NULL when it is not a str (fixed
+// upstream in v2.13). A class with a non-str or non-encodable __module__ is
+// never an array, so it returns false before reaching nanobind. Built-in
+// (static) types, numpy.ndarray among them, always have a str __module__ and
+// skip the lookup.
 inline bool is_ndarray(nb::handle h) {
+    PyTypeObject* tp = Py_TYPE(h.ptr());
+    if (PyType_GetFlags(tp) & Py_TPFLAGS_HEAPTYPE) {
+        nb::object holder;
+        if (!type_module_utf8(nb::handle(reinterpret_cast<PyObject*>(tp)), holder)) return false;
+    }
     nb::ndarray<nb::ro> tmp;
     return nb::try_cast<nb::ndarray<nb::ro>>(h, tmp, /*convert=*/false);
 }
@@ -271,16 +283,32 @@ inline NInputs<N> read_tuple_inputs(const nb::tuple& inputs) {
 
 }  // namespace detail
 
-// Normalizes one call argument before any routing. A pandas Series or
-// DataFrame (detected by its type's module and a to_numpy method, without
-// importing pandas) is read as its values and becomes a float64 NumPy array.
-// A str, bytes, dict, set or frozenset is not data and raises TypeError at the
-// call. Everything else is returned unchanged. The common inputs (float, int,
-// list, tuple, array) leave through the first checks without a module lookup.
+// The operator's class name for error messages, e.g. "RollingMean".
 inline std::string op_display_name(nb::handle self) {
-    std::string name = nb::type_name(self.type()).c_str();
+    std::string name = type_short_name(self.type());
     if (auto dot = name.rfind('.'); dot != std::string::npos) name.erase(0, dot + 1);
     return name;
+}
+
+// An argument that is not data: names the operator and the argument's type.
+[[noreturn]] inline void throw_unsupported_input(nb::handle self, nb::handle x) {
+    throw nb::type_error((op_display_name(self) + ": a " + type_short_name(x.type()) +
+        " is not a valid input; pass numbers, arrays, lists or iterators").c_str());
+}
+
+// No routing matched the arguments of an N-input call. Names the first
+// argument that is neither a number nor iterable; when every argument is one
+// of those, the call mixed numbers with sequences.
+[[noreturn]] inline void throw_unsupported_inputs(nb::handle self, nb::handle inputs) {
+    std::string kinds;
+    for (nb::handle x : inputs) {
+        double d;
+        if (!nb::try_cast<double>(x, d) && !nb::hasattr(x, "__iter__"))
+            throw_unsupported_input(self, x);
+        kinds += (kinds.empty() ? "" : ", ") + type_short_name(x.type());
+    }
+    throw nb::type_error((op_display_name(self) + ": cannot combine inputs of types (" + kinds +
+        "); pass all numbers, all arrays, or all sequences").c_str());
 }
 
 // True when a pandas Series/DataFrame holds datetime64 or timedelta64 values.
@@ -288,6 +316,7 @@ inline bool is_time_dtype(nb::handle x) {
     auto kind_is_time = [](nb::handle dt) {
         nb::str k(dt.attr("kind"));
         const char* c = k.c_str();
+        if (!c) { PyErr_Clear(); return false; }
         return c[0] == 'M' || c[0] == 'm';
     };
     if (nb::hasattr(x, "dtypes")) {
@@ -299,6 +328,12 @@ inline bool is_time_dtype(nb::handle x) {
     return nb::hasattr(x, "dtype") && nb::hasattr(x.attr("dtype"), "kind") && kind_is_time(x.attr("dtype"));
 }
 
+// Normalizes one call argument before any routing. A pandas Series or
+// DataFrame (detected by its type's module and a to_numpy method, without
+// importing pandas) is read as its values and becomes a float64 NumPy array.
+// A str, bytes, dict, set or frozenset is not data and raises TypeError at the
+// call. Everything else is returned unchanged. The common inputs (float, int,
+// list, tuple, array) leave through the first checks without a module lookup.
 template <class S>
 inline nb::object normalize_input(nb::handle x, const S& op) {
     PyObject* o = x.ptr();
@@ -307,17 +342,11 @@ inline nb::object normalize_input(nb::handle x, const S& op) {
         return nb::borrow(x);
     const bool bad = PyUnicode_Check(o) || PyBytes_Check(o) || PyByteArray_Check(o) ||
                      PyMemoryView_Check(o) || PyDict_Check(o) || PyAnySet_Check(o);
-    if (bad) {
-        std::string tn = nb::type_name(x.type()).c_str();
-        throw nb::type_error((op_display_name(nb::find(op)) + ": a " + tn +
-            " is not a valid input; pass numbers, arrays, lists or iterators").c_str());
-    }
+    if (bad) throw_unsupported_input(nb::find(op), x);
     if (detail::is_ndarray(x)) return nb::borrow(x);
     {
-        nb::object mod = x.type().attr("__module__");
-        if (PyUnicode_Check(mod.ptr())) {
-            nb::str ms(mod);
-            const char* m = ms.c_str();
+        nb::object holder;
+        if (const char* m = type_module_utf8(x.type(), holder)) {
             if ((std::strcmp(m, "pandas") == 0 || std::strncmp(m, "pandas.", 7) == 0) &&
                 nb::hasattr(x, "to_numpy")) {
                 if (is_time_dtype(x))
@@ -405,8 +434,7 @@ inline bool is_event_list(nb::handle h, bool fields) {
 // must hold all n inputs. Names the reading and the fix.
 [[noreturn]] inline void throw_event_arity(nb::handle self, std::size_t i, std::size_t m,
                                            std::size_t n) {
-    std::string name = nb::type_name(self.type()).c_str();
-    if (auto dot = name.rfind('.'); dot != std::string::npos) name.erase(0, dot + 1);
+    const std::string name = op_display_name(self);
     const std::string ns = std::to_string(n);
     throw nb::value_error((name + " expects " + ns +
         " inputs; a list is read as a sequence of events, and event " + std::to_string(i) +
@@ -724,7 +752,7 @@ nb::object functor_1i_Mo(Op& self, nb::object input) {
         return nb::cast(results);
     }
 
-    throw nb::type_error("Unsupported input type. Supported types are number, numpy array, or iterable.");
+    throw_unsupported_input(nb::find(self), input);
 }
 
 // ---------------------------------------------------------
@@ -801,7 +829,7 @@ nb::object functor_1i_1o(Op& self, nb::object input) {
     }
 
     // Case no match:
-    throw nb::type_error("Unsupported input type. Supported types are double, or iterables.");
+    throw_unsupported_input(nb::find(self), input);
 }
 
 // ---------------------------------------------------------
@@ -911,7 +939,7 @@ nb::object functor_Ni_1o(Op& self, const nb::args& raw_args) {
     }
 
     // Case no match:
-    throw nb::type_error("Unsupported input type.");
+    throw_unsupported_inputs(nb::find(self), inputs);
 }
 
 // ---------------------------------------------------------
@@ -1015,7 +1043,7 @@ nb::object functor_Ni_Mo(Op& self, const nb::args& raw_args) {
         return eager_parallel(self, inputs);
     }
 
-    throw nb::type_error("Unsupported input type.");
+    throw_unsupported_inputs(nb::find(self), inputs);
 }
 
 // ---------------------------------------------------------
