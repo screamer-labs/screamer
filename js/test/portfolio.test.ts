@@ -86,3 +86,11 @@ test("portfolio: positionTest on a portfolio engine matches Python", async () =>
   { n: 5, method: "shift", columns: [0] });
   assert.equal(st.nullStats.sharpe.length, 5);
 });
+
+test("A1: an NdArray target with an array-of-rows market returns an NdArray", () => {
+  const all = BacktestPortfolioTarget()(mat(w), mat(close)) as any;
+  const mixed = BacktestPortfolioTarget()(mat(w), close) as any;
+  assert.ok(!Array.isArray(mixed));
+  assert.deepEqual(mixed.shape, all.shape);
+  assert.deepEqual(Array.from(mixed.data), Array.from(all.data));
+});

@@ -191,3 +191,12 @@ def test_list_of_rows_into_two_input_row_op():
     assert isinstance(out, list) and len(out) == 3
     np.testing.assert_array_equal(np.array(out), ref)
     assert isinstance(s.BacktestPortfolioTarget()(tuple(t), tuple(p)), np.ndarray)
+
+
+def test_mixed_list_and_array_inputs_return_an_array():
+    t = [[.5, .5], [.2, .8], [.4, .6]]
+    p = [[1., 2.], [1.1, 2.1], [1.2, 2.0]]
+    ref = s.BacktestPortfolioTarget()(np.array(t), np.array(p))
+    mixed = s.BacktestPortfolioTarget()(np.array(t), p)
+    assert isinstance(mixed, np.ndarray)
+    np.testing.assert_array_equal(mixed, ref)

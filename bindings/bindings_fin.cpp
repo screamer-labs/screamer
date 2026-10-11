@@ -390,7 +390,8 @@ nb::object row_op_call(screamer::RowOp& self, nb::args raw) {
     nb::object result = row_op_run(self, fields);
     // Rule 3: a list of rows gives a list of result rows. A tuple keeps the
     // 2.8.0 meaning (rows over time, an ndarray, decision D9), and one row
-    // (a rank-1 input) stays one array.
+    // (a rank-1 input) stays one array. A mix of lists and arrays also stays an
+    // array; position_test and walk_forward rely on that.
     bool listed = true;  // every input a list; a mix with arrays stays an array
     for (nb::handle a : args) listed = listed && nb::isinstance<nb::list>(a);
     if (listed && fields[0].ndim() == 2) return nb::list(result);

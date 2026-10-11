@@ -187,7 +187,8 @@ match the [first strategy recipe](recipes/first-strategy.md), which runs the
 same backtest in Python.
 
 A portfolio engine takes `(T, K)` inputs, given as an array of rows or as an
-`NdArray`, and a one-input operator such as `LogReturn` runs on each column of
+`NdArray`. Give it an `NdArray` and it returns an `NdArray`; give it only arrays
+of rows and it returns an array of result rows. A one-input operator such as `LogReturn` runs on each column of
 a `(T, K)` `NdArray`. This example ranks five coins on 30-day momentum, turns
 the ranks into dollar-neutral weights with `CrossNormalize`, and rebalances weekly: a
 `NaN` weight keeps the asset's position. `PortfolioReport` reduces the

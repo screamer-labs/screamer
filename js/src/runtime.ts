@@ -871,7 +871,9 @@ export function wrapRowOp(M: Screamer, src: OpSource): ScreamerOp {
       throw new RangeError("all inputs must have the same shape");
     const out = batch(blocks.map((b) => b!.flat), b0.T, b0.k);
     // Rule 3: an array of rows gives an array of result rows. An NdArray
-    // keeps returning an NdArray, and so does a mix of the two.
+    // keeps returning an NdArray, and so does a mix of the two. positionPortfolio
+    // and walkForward in validation.ts rely on the mix giving an NdArray (an
+    // NdArray target with an array-of-rows market).
     if (!args.every((a) => Array.isArray(a))) return out;
     const w = b0.k * fo;
     return Array.from({ length: b0.T }, (_, t) => {
