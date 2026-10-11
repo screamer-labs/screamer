@@ -164,6 +164,11 @@ def _factory_body(name: str, params: list[dict], wrapper: str = "wrapOp") -> str
     vecs = [p for p in params if p["is_vec"]]
     call_args = [f"_v{idx}" if p["is_vec"] else p["name"] for idx, p in enumerate(params)]
     lines = ["  const M = current();"]
+    # Copy array parameters once, now: the closure below runs again for every
+    # copy of the op, and must not see later edits to the caller's array.
+    for p in vecs:
+        n = p["name"]
+        lines.append(f"  const {n}_ = Array.isArray({n}) ? Array.from({n}) : {n};")
     if not vecs:
         lines.append(f"  return {wrapper}(M, () => new M.{name}({', '.join(call_args)}));")
         return "\n".join(lines)
@@ -173,7 +178,7 @@ def _factory_body(name: str, params: list[dict], wrapper: str = "wrapOp") -> str
             v = f"_v{idx}"
             lines.append(f"    const {v} = new M.VectorDouble();")
             # A bare number is the one-entry vector (one value for all assets).
-            lines.append(f"    for (const _x of (typeof {p['name']} === \"number\" ? [{p['name']}] : {p['name']})) {v}.push_back(_x);")
+            lines.append(f"    for (const _x of (typeof {p['name']}_ === \"number\" ? [{p['name']}_] : {p['name']}_)) {v}.push_back(_x);")
     lines.append(f"    const _op = new M.{name}({', '.join(call_args)});")
     for idx, p in enumerate(params):
         if p["is_vec"]:

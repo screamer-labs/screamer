@@ -326,17 +326,22 @@ export function BacktestOHLCVTarget(maxParticipation: number = 1.0, takerFee: nu
  */
 export function BacktestPortfolioOHLCTarget(fee: number | number[] = [0.0], slippage: number | number[] = [0.0], slippageUnit: string = "fraction", tickSize: number | number[] = [0.0], multiplier: number | number[] = [1.0], feePerContract: number | number[] = [0.0], size: string = "weight", initialCapital: number = 1.0, rebalanceBand: number = 0.0, rebalance: string = "drifted", maxGross: number = Infinity, maxNet: number = Infinity, fillAt: string = "open", delay: number = 1): ScreamerOp {
   const M = current();
+  const fee_ = Array.isArray(fee) ? Array.from(fee) : fee;
+  const slippage_ = Array.isArray(slippage) ? Array.from(slippage) : slippage;
+  const tickSize_ = Array.isArray(tickSize) ? Array.from(tickSize) : tickSize;
+  const multiplier_ = Array.isArray(multiplier) ? Array.from(multiplier) : multiplier;
+  const feePerContract_ = Array.isArray(feePerContract) ? Array.from(feePerContract) : feePerContract;
   return wrapRowOp(M, () => {
     const _v0 = new M.VectorDouble();
-    for (const _x of (typeof fee === "number" ? [fee] : fee)) _v0.push_back(_x);
+    for (const _x of (typeof fee_ === "number" ? [fee_] : fee_)) _v0.push_back(_x);
     const _v1 = new M.VectorDouble();
-    for (const _x of (typeof slippage === "number" ? [slippage] : slippage)) _v1.push_back(_x);
+    for (const _x of (typeof slippage_ === "number" ? [slippage_] : slippage_)) _v1.push_back(_x);
     const _v3 = new M.VectorDouble();
-    for (const _x of (typeof tickSize === "number" ? [tickSize] : tickSize)) _v3.push_back(_x);
+    for (const _x of (typeof tickSize_ === "number" ? [tickSize_] : tickSize_)) _v3.push_back(_x);
     const _v4 = new M.VectorDouble();
-    for (const _x of (typeof multiplier === "number" ? [multiplier] : multiplier)) _v4.push_back(_x);
+    for (const _x of (typeof multiplier_ === "number" ? [multiplier_] : multiplier_)) _v4.push_back(_x);
     const _v5 = new M.VectorDouble();
-    for (const _x of (typeof feePerContract === "number" ? [feePerContract] : feePerContract)) _v5.push_back(_x);
+    for (const _x of (typeof feePerContract_ === "number" ? [feePerContract_] : feePerContract_)) _v5.push_back(_x);
     const _op = new M.BacktestPortfolioOHLCTarget(_v0, _v1, slippageUnit, _v3, _v4, _v5, size, initialCapital, rebalanceBand, rebalance, maxGross, maxNet, fillAt, delay);
     _v0.delete();
     _v1.delete();
@@ -366,17 +371,22 @@ export function BacktestPortfolioOHLCTarget(fee: number | number[] = [0.0], slip
  */
 export function BacktestPortfolioTarget(fee: number | number[] = [0.0], slippage: number | number[] = [0.0], slippageUnit: string = "fraction", tickSize: number | number[] = [0.0], multiplier: number | number[] = [1.0], feePerContract: number | number[] = [0.0], size: string = "weight", initialCapital: number = 1.0, rebalanceBand: number = 0.0, rebalance: string = "drifted", maxGross: number = Infinity, maxNet: number = Infinity): ScreamerOp {
   const M = current();
+  const fee_ = Array.isArray(fee) ? Array.from(fee) : fee;
+  const slippage_ = Array.isArray(slippage) ? Array.from(slippage) : slippage;
+  const tickSize_ = Array.isArray(tickSize) ? Array.from(tickSize) : tickSize;
+  const multiplier_ = Array.isArray(multiplier) ? Array.from(multiplier) : multiplier;
+  const feePerContract_ = Array.isArray(feePerContract) ? Array.from(feePerContract) : feePerContract;
   return wrapRowOp(M, () => {
     const _v0 = new M.VectorDouble();
-    for (const _x of (typeof fee === "number" ? [fee] : fee)) _v0.push_back(_x);
+    for (const _x of (typeof fee_ === "number" ? [fee_] : fee_)) _v0.push_back(_x);
     const _v1 = new M.VectorDouble();
-    for (const _x of (typeof slippage === "number" ? [slippage] : slippage)) _v1.push_back(_x);
+    for (const _x of (typeof slippage_ === "number" ? [slippage_] : slippage_)) _v1.push_back(_x);
     const _v3 = new M.VectorDouble();
-    for (const _x of (typeof tickSize === "number" ? [tickSize] : tickSize)) _v3.push_back(_x);
+    for (const _x of (typeof tickSize_ === "number" ? [tickSize_] : tickSize_)) _v3.push_back(_x);
     const _v4 = new M.VectorDouble();
-    for (const _x of (typeof multiplier === "number" ? [multiplier] : multiplier)) _v4.push_back(_x);
+    for (const _x of (typeof multiplier_ === "number" ? [multiplier_] : multiplier_)) _v4.push_back(_x);
     const _v5 = new M.VectorDouble();
-    for (const _x of (typeof feePerContract === "number" ? [feePerContract] : feePerContract)) _v5.push_back(_x);
+    for (const _x of (typeof feePerContract_ === "number" ? [feePerContract_] : feePerContract_)) _v5.push_back(_x);
     const _op = new M.BacktestPortfolioTarget(_v0, _v1, slippageUnit, _v3, _v4, _v5, size, initialCapital, rebalanceBand, rebalance, maxGross, maxNet);
     _v0.delete();
     _v1.delete();
@@ -1818,9 +1828,10 @@ export function Momentum(windowSize: number = 10, startPolicy: string = "strict"
  */
 export function MovingAverage(taps: number | number[] = [0.25, 0.5, 0.25]): ScreamerOp {
   const M = current();
+  const taps_ = Array.isArray(taps) ? Array.from(taps) : taps;
   return wrapOp(M, () => {
     const _v0 = new M.VectorDouble();
-    for (const _x of (typeof taps === "number" ? [taps] : taps)) _v0.push_back(_x);
+    for (const _x of (typeof taps_ === "number" ? [taps_] : taps_)) _v0.push_back(_x);
     const _op = new M.MovingAverage(_v0);
     _v0.delete();
     return _op;
