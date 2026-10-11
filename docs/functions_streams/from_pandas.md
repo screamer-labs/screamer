@@ -26,9 +26,13 @@ and the pandas index becomes the index array.
 
 ## Signature
 
-`from_pandas(obj)`
+`from_pandas(obj, layout=None)`
 
-- **`obj`** - a `pandas.Series` or `pandas.DataFrame`.
+- **`obj`** - a `pandas.Series` or `pandas.DataFrame`. A DataFrame with
+  two-level `(asset, field)` columns gives `(T, A, F)` values.
+- **`layout`** - optional layout string naming the axes of the values as read,
+  for example `"TA"` for one column per asset. The values are reshaped like
+  `reshape`. The default `None` leaves them as pandas stores them.
 
 Returns `(values, index)` where both are NumPy arrays.
 

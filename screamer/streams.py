@@ -112,15 +112,21 @@ def to_pandas(values, index=None, columns=None):
                         columns=list(columns) if columns else None)
 
 
-def from_pandas(obj):
+def from_pandas(obj, layout=None):
     """Build a (values, index) tuple from a pandas Series or DataFrame.
 
-    data -> values (numpy array), pandas index -> index array. Note: pandas
-    always materializes an index (a RangeIndex for a default one), so a
-    positional stream does not round-trip to index=None through
-    to_pandas/from_pandas - it comes back with an explicit 0,1,2,... index.
+    data -> values (numpy array), pandas index -> index array. A DataFrame with
+    two-level ``(asset, field)`` columns gives ``(T, A, F)`` values. ``layout``
+    names the axes as read (``"TA"`` for one column per asset, for example) and
+    reshapes the values like :func:`reshape`. pandas always materializes an
+    index (a RangeIndex for a default one), so a positional stream does not
+    round-trip to index=None through to_pandas/from_pandas.
     """
-    return np.asarray(obj.to_numpy()), np.asarray(obj.index)
+    from .shape import frame_axes, reshape_array
+    values, _ = frame_axes(obj)
+    if layout is not None:
+        values = reshape_array(values, layout)
+    return values, np.asarray(obj.index)
 
 
 def _run_chain(functors, values, index=None, return_index=False):
