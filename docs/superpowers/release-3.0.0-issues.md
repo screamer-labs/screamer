@@ -11,7 +11,7 @@ Goal: zero open issues before `make major`. Each item is closed by a fix with a 
 | A3 | An error during a stream: JS closes the sources and ends the stream; Python raises and keeps the stream open (sources freed on garbage collection). | decided: keep native convention per language (Python map-like, JS generator-like); document, advise closing sources (contextlib.closing); docs to update |
 | A4 | Shape errors: Python raises `ValueError`; JS raises `TypeError` for a length mismatch and `RangeError` for an asset mismatch. | decided: JS raises RangeError for every shape mismatch (counterpart of Python ValueError), TypeError for wrong kinds; done (a02d55f) |
 | A5 | Reported: `Return` and `Diff` "lose state across chunked batch calls". Needs verification of what is meant and whether it violates a rule. | done: verified, not a bug; every batch call is an independent run (D8) for all operators; chunked continuation moved to Future features |
-| A6 | A `str`, `dict` or pandas `DataFrame` passed to a multi-input operator is treated as a lazy iterator and fails only at the first `next()`, with an unclear error. | decided: pandas Series/DataFrame read as their values (result is a NumPy array); str, bytes, dict, set raise TypeError at the call; done (SHA) |
+| A6 | A `str`, `dict` or pandas `DataFrame` passed to a multi-input operator is treated as a lazy iterator and fails only at the first `next()`, with an unclear error. | decided: pandas Series/DataFrame read as their values (result is a NumPy array); str, bytes, dict, set raise TypeError at the call; done (4a27d80) |
 
 ## B. Python and JavaScript parity
 
