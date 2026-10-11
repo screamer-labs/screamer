@@ -307,17 +307,30 @@ inline bool has_axis(nb::handle h) {
 }  // namespace detail
 
 // True for a list of asset events: its first item is an array with an axis.
-// `tuples` also accepts a tuple of events (a one-input operator, where a tuple
-// is not a container of inputs); `fields` also accepts a first item that is a
-// tuple or list of fields whose first field is such an array.
-inline bool is_event_list(nb::handle h, bool tuples, bool fields) {
-    if (!nb::isinstance<nb::list>(h) && !(tuples && nb::isinstance<nb::tuple>(h))) return false;
+// Only a list is a sequence of events; a tuple never is. `fields` also accepts
+// a first item that is a tuple or list of fields whose first field is such an
+// array.
+inline bool is_event_list(nb::handle h, bool fields) {
+    if (!nb::isinstance<nb::list>(h)) return false;
     if (nb::len(h) == 0) return false;
     nb::object first = nb::steal(PySequence_GetItem(h.ptr(), 0));
     if (detail::has_axis(first)) return true;
     return fields && (nb::isinstance<nb::tuple>(first) || nb::isinstance<nb::list>(first)) &&
            nb::len(first) > 0 &&
            detail::has_axis(nb::steal(PySequence_GetItem(first.ptr(), 0)));
+}
+
+// A one-input operator takes one array, and a list of arrays is a sequence of
+// events. A tuple whose first item is an array is most likely a
+// (values, index) stream, so it raises instead of guessing.
+inline void reject_array_tuple(nb::handle h) {
+    if (!nb::isinstance<nb::tuple>(h) || nb::len(h) == 0) return;
+    if (!detail::has_axis(nb::steal(PySequence_GetItem(h.ptr(), 0)))) return;
+    throw nb::type_error(
+        "a tuple of arrays is not an input of a one-input operator. A (values, index) "
+        "stream goes to a stream operator (Resample, CombineLatest) or a Pipeline; a "
+        "compute operator takes the values, op(values), and the index stays as it was. "
+        "Pass a list of arrays for a sequence of events.");
 }
 
 // Runs a list of events through LazyEvalIterator and returns the results as a
@@ -380,7 +393,7 @@ template <class Op>
 nb::object eager_parallel(Op& self, const nb::tuple& inputs) {
     constexpr size_t N = Op::kN;
     for (nb::handle h : inputs) {
-        if (!is_event_list(h, true, false)) continue;
+        if (!is_event_list(h, false)) continue;
         std::vector<nb::object> sources;
         for (nb::handle s : inputs) sources.push_back(nb::borrow<nb::object>(s));
         return collect_events(nb::find(self), std::move(sources));
@@ -561,7 +574,8 @@ nb::object functor_1i_Mo(Op& self, nb::object input) {
             std::vector<nb::object> sources{ nb::borrow<nb::object>(input) };
             return nb::cast(LazyEvalIterator(nb::find(self), std::move(sources)));
         }
-        if (is_event_list(input, true, false))
+        reject_array_tuple(input);
+        if (is_event_list(input, false))
             return collect_events(nb::find(self), { nb::borrow<nb::object>(input) });
         // Eager path for list/tuple input.
         std::vector<typename Op::ResultTuple> results;
@@ -618,7 +632,8 @@ nb::object functor_1i_1o(Op& self, nb::object input) {
     }
 
     // Case 3: Iterable. A list of asset events runs like an iterator of them.
-    if (is_event_list(input, true, false))
+    reject_array_tuple(input);
+    if (is_event_list(input, false))
         return collect_events(nb::find(self), { input });
     if (nb::hasattr(input, "__iter__")) {
         std::vector<typename Op::ResultTuple> results;
@@ -670,7 +685,7 @@ nb::object functor_Ni_1o(Op& self, const nb::args& raw_args) {
     }
 
     // A list of packed asset events, or of tuples of per-field events.
-    if (args.size() == 1 && is_event_list(args[0], false, true))
+    if (args.size() == 1 && is_event_list(args[0], true))
         return collect_events(nb::find(self), { nb::borrow<nb::object>(args[0]) });
 
    // Case 1: we need to get his out of the way first.
@@ -771,7 +786,7 @@ nb::object functor_Ni_Mo(Op& self, const nb::args& raw_args) {
     }
 
     // A list of packed asset events, or of tuples of per-field events.
-    if (args.size() == 1 && is_event_list(args[0], false, true))
+    if (args.size() == 1 && is_event_list(args[0], true))
         return collect_events(nb::find(self), { nb::borrow<nb::object>(args[0]) });
 
     // Case 1: single argument, list/tuple of N-tuples

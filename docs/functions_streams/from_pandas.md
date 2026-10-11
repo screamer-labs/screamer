@@ -28,11 +28,13 @@ and the pandas index becomes the index array.
 
 `from_pandas(obj, layout=None)`
 
-- **`obj`** - a `pandas.Series` or `pandas.DataFrame`. A DataFrame with
-  two-level `(asset, field)` columns gives `(T, A, F)` values.
-- **`layout`** - optional layout string naming the axes of the values as read,
-  for example `"TA"` for one column per asset. The values are reshaped like
-  `reshape`. The default `None` leaves them as pandas stores them.
+- **`obj`** - a `pandas.Series` or `pandas.DataFrame`.
+- **`layout`** - optional layout string naming the axes of the values as read.
+  The default `None` returns `obj.to_numpy()` with the frame's own dtype and
+  columns, so two-level columns stay flat. A layout reads the values as
+  float64 and reshapes them like `reshape`: `"TA"` for one column per asset,
+  or `"TAF"` for a DataFrame whose two-level columns hold every
+  `(asset, field)` pair, which gives `(T, A, F)` values.
 
 Returns `(values, index)` where both are NumPy arrays.
 

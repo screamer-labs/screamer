@@ -28,7 +28,9 @@ Unreleased
   asset (Python; in JavaScript for one-input operators). A Python list of
   asset events gives a list of the same results.
 * `reshape(x, layout)` for arrays, `(values, index)` tuples, DataFrames, lists
-  and iterators of events; `reshape` in JavaScript; `from_pandas(layout=)`.
+  and iterators of events; `reshape` in JavaScript; `from_pandas(layout=)`,
+  where `layout="TAF"` reads complete two-level `(asset, field)` columns as
+  `(T, A, F)`. Without a layout `from_pandas` returns what it did before.
 * `CombineLatest` concatenates multi-column streams and broadcasts assets with
   `layout=`; inside a `Pipeline` it joins an OHLC node and a signal directly.
 * `Resample` aggregates every column of `(T, X)` data; `agg="ohlc"` gives
@@ -43,12 +45,10 @@ Unreleased
   (was `(T, K, 1, M)`).
 * A shape mismatch between inputs now raises `ValueError` ("do not broadcast",
   "same length along time") instead of `TypeError`.
-* `from_pandas` reads a DataFrame whose two-level columns hold every
-  `(asset, field)` pair as `(T, A, F)` float64 values. Other frames read as
-  before; with `layout=` the values read as float64.
-* `SignedVolume`, `RollingKyleLambda`, `EwKyleLambda`, and `QueueImbalance`
-  take their inputs positionally; keyword inputs such as `signed_flow=` are
-  no longer accepted.
+* A tuple of arrays passed to a one-input operator raises `TypeError` (was
+  `RuntimeError: std::bad_cast` or a `TypeError` about numbers). A
+  `(values, index)` stream goes to a stream operator or a `Pipeline`; a list
+  of arrays is a sequence of asset events.
 * A generator passed to a one-input, one-output operator such as `IsNan`
   returns a lazy iterator (was a list).
 * `position_test`, `strategy_test` and `walk_forward` no longer copy prices to
@@ -72,7 +72,8 @@ Unreleased
   so a column of a 2-D array equals the same 1-D series exactly.
 * `SignedVolume`, `RollingKyleLambda`, `EwKyleLambda`, `QueueImbalance`, and
   `RollingOrderImbalance` accept every input form: a packed array, iterators,
-  lists of events, and asset axes.
+  lists of events, and asset axes. Their keyword inputs, such as
+  `signed_flow=` and `return_=`, work as before.
 * JavaScript errors raised in C++ carry their message text.
 
 ### Documentation

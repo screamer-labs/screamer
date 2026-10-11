@@ -47,6 +47,8 @@ Every 1‑in/1‑out class supports the following input/output shapes:
 | N‑D NumPy array `(T, J, K, ...)` | same shape | `J·K·...` independent streams along axis 0 |
 | Python `list` of numbers | Python `list` of same length | container type preserved; processed eagerly in one pass |
 | Python `tuple` of numbers | Python `list` of same length | processed eagerly in one pass; the output is a `list` |
+| Python `list` of arrays | Python `list` of arrays | a sequence of asset events, one operator state per asset |
+| Python `tuple` of arrays | `TypeError` | a `(values, index)` stream goes to a stream operator or a `Pipeline`; a compute operator takes the values |
 | Python iterator (`iter(...)`, generator, anything iterable that is not list/tuple/array) | a screamer `LazyEvalIterator` | results yielded **one at a time on demand** |
 | Async generator (`async def` with `yield`) | a screamer `LazyAsyncIterator` | results awaited one at a time |
 | Anything else | `ValueError` | "Unsupported input type for call: ..." |
@@ -262,7 +264,9 @@ A **layout** string states another reading. It names the axes of the data in
 order with the letters `T`, `A`, and `F`: `"TA"` says that the columns of a
 `(T, K)` array are assets. [`reshape`](functions_streams/reshape.md) applies a
 layout to any container, and `CombineLatest(layout=...)` and
-`from_pandas(layout=...)` take the same argument.
+`from_pandas(layout=...)` take the same argument. `from_pandas` reads a
+DataFrame with complete two-level columns as `(T, A, F)` only with
+`layout="TAF"`; without a layout it returns the flat `(T, A*F)` values.
 
 
 ## The multi-input contract (`FunctorBase<_, N, 1>`)

@@ -19,6 +19,29 @@ __all__ = ["SignedVolume", "RollingKyleLambda", "EwKyleLambda",
            "RollingOrderImbalance", "QueueImbalance"]
 
 
+def _bind(who, names, inputs, kwargs):
+    """Merge 2.8.0 keyword inputs into the positional inputs.
+
+    Positional inputs fill ``names`` from the left and keywords fill the rest,
+    as for a Python signature. Without keywords the inputs pass through, so
+    the packed and iterator forms are unchanged.
+    """
+    if not kwargs:
+        return inputs
+    for key in kwargs:
+        if key not in names:
+            raise TypeError(f"{who}() got an unexpected keyword argument {key!r}")
+    if len(inputs) > len(names):
+        raise TypeError(f"{who}() takes {len(names)} inputs, got {len(inputs)} positional")
+    for name in names[:len(inputs)]:
+        if name in kwargs:
+            raise TypeError(f"{who}() got multiple values for argument {name!r}")
+    missing = [n for n in names[len(inputs):] if n not in kwargs]
+    if missing:
+        raise TypeError(f"{who}() missing input {missing[0]!r}")
+    return tuple(inputs) + tuple(kwargs[n] for n in names[len(inputs):])
+
+
 def _swap_event(event):
     if isinstance(event, np.ndarray):
         return event[..., ::-1]
@@ -52,11 +75,12 @@ class SignedVolume:
         """__init__(self: SignedVolume) -> None"""
         self._mul = _s.Mul()
 
-    def __call__(self, *inputs):
+    def __call__(self, *inputs, **kwargs):
         """Inputs: sign, then volume. Pass them as two separate arrays or
         iterators, one packed (T, ..., 2) array, or one iterator of
-        (sign, volume) events."""
-        return self._mul(*inputs)
+        (sign, volume) events. The keywords ``sign=`` and ``volume=`` also
+        work."""
+        return self._mul(*_bind("SignedVolume", ("sign", "volume"), inputs, kwargs))
 
     def reset(self):
         self._mul.reset()
@@ -71,10 +95,12 @@ class RollingKyleLambda:
         """__init__(self: RollingKyleLambda, window_size: int = 20, start_policy: str = 'strict') -> None"""
         self._beta = _s.RollingBeta(window_size, start_policy)
 
-    def __call__(self, *inputs):
+    def __call__(self, *inputs, **kwargs):
         """Inputs: signed flow, then return. Pass them as two separate arrays
         or iterators, one packed (T, ..., 2) array, or one iterator of
-        (signed_flow, return_) events."""
+        (signed_flow, return_) events. The keywords ``signed_flow=`` and
+        ``return_=`` also work."""
+        inputs = _bind("RollingKyleLambda", ("signed_flow", "return_"), inputs, kwargs)
         return self._beta(*_swap_fields(inputs))   # slope of return on flow
 
     def reset(self):
@@ -88,10 +114,12 @@ class EwKyleLambda:
         """__init__(self: EwKyleLambda, com: float = None, span: float = None, halflife: float = None, alpha: float = None) -> None"""
         self._beta = _s.EwBeta(com=com, span=span, halflife=halflife, alpha=alpha)
 
-    def __call__(self, *inputs):
+    def __call__(self, *inputs, **kwargs):
         """Inputs: signed flow, then return. Pass them as two separate arrays
         or iterators, one packed (T, ..., 2) array, or one iterator of
-        (signed_flow, return_) events."""
+        (signed_flow, return_) events. The keywords ``signed_flow=`` and
+        ``return_=`` also work."""
+        inputs = _bind("EwKyleLambda", ("signed_flow", "return_"), inputs, kwargs)
         return self._beta(*_swap_fields(inputs))
 
     def reset(self):
@@ -124,11 +152,12 @@ class QueueImbalance:
         """__init__(self: QueueImbalance) -> None"""
         self._ofi = _s.OFI()
 
-    def __call__(self, *inputs):
+    def __call__(self, *inputs, **kwargs):
         """Inputs: bid size, then ask size. Pass them as two separate arrays
         or iterators, one packed (T, ..., 2) array, or one iterator of
-        (bid_size, ask_size) events."""
-        return self._ofi(*inputs)
+        (bid_size, ask_size) events. The keywords ``bid_size=`` and
+        ``ask_size=`` also work."""
+        return self._ofi(*_bind("QueueImbalance", ("bid_size", "ask_size"), inputs, kwargs))
 
     def reset(self):
         self._ofi.reset()

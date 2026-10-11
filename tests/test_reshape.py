@@ -74,9 +74,11 @@ def test_from_pandas_layout():
     assert flat.shape == (2, 2)
 
 
-def test_from_pandas_reads_two_level_columns_as_assets_and_fields():
+def test_from_pandas_reads_two_level_columns_as_assets_and_fields_with_taf():
     cols = pd.MultiIndex.from_product([["BTC", "ETH"], ["open", "close"]])
-    values, _ = s.from_pandas(pd.DataFrame(np.arange(8.0).reshape(2, 4), columns=cols))
+    df = pd.DataFrame(np.arange(8.0).reshape(2, 4), columns=cols)
+    assert s.from_pandas(df)[0].shape == (2, 4)
+    values, _ = s.from_pandas(df, layout="TAF")
     assert values.shape == (2, 2, 2)
     assert values[1, 1, 0] == 6.0    # ETH open at t=1
 

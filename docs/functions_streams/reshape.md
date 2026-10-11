@@ -73,8 +73,9 @@ input raises `ValueError` naming the layout and the input shape.
 | pandas Series or DataFrame | a DataFrame; flat columns with `"TA"` become two-level columns `(column, "value")` |
 | list of events, iterator of events | the same kind, each event reshaped; `T` refers to the sequence |
 
-`from_pandas` reads a DataFrame with two-level `(asset, field)` columns as
-`(T, A, F)` values, so the DataFrame form round-trips:
+`from_pandas(df, layout="TAF")` reads a DataFrame with two-level
+`(asset, field)` columns as `(T, A, F)` values, so the DataFrame form
+round-trips:
 
 ```{eval-rst}
 .. exec_code::
@@ -86,7 +87,7 @@ input raises `ValueError` naming the layout and the input shape.
     df = pd.DataFrame(np.arange(6.0).reshape(3, 2), columns=["BTC", "ETH"])
     wide = reshape(df, "TA")
     print(wide.columns.tolist())
-    values, index = from_pandas(wide)
+    values, index = from_pandas(wide, layout="TAF")
     print(values.shape)
 ```
 
