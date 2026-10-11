@@ -66,8 +66,8 @@ first test day to the end, for both.
 
 ```{code-cell} ipython3
 T, K = X.shape
-engine.reset()
-full = np.asarray(engine(X, *[np.broadcast_to(v[:, None], (T, K)) for v in (o, h, l, c)]))
+engine.reset()  # the (T,) prices broadcast against the (T, K) candidates
+full = np.asarray(engine(X, o, h, l, c))
 t0 = wf.fold_start[0]
 
 def sharpe(pnl):

@@ -18,7 +18,7 @@ variants reach anyway. The data is daily Binance BTC/USDT bars from January
 
 Each column of `target` is one variant: long one BTC when the fast exponential
 average of the close is above the slow one, short when it is below. A backtest
-engine given a `(T, K)` target and `(T, K)` market inputs runs `K` independent
+engine given a `(T, K)` target and `(T,)` or `(T, K)` market inputs runs `K` independent
 backtests and returns a `(T, K, 4)` array.
 
 ```{code-cell} ipython3
@@ -40,9 +40,11 @@ target = np.column_stack([Sign()(FillNa(0.0)(EwMean(span=f)(c) - EwMean(span=s)(
 
 T, K = target.shape
 engine = BacktestOHLCTarget(taker_fee=1e-3, slippage=5e-4)
-out = engine(target, *(np.broadcast_to(x[:, None], (T, K)) for x in (o, h, l, c)))
+out = engine(target, o, h, l, c)
 out.shape
 ```
+
+The `(T,)` prices broadcast against the `(T, K)` targets, so they are passed as they are.
 
 ## Sharpe ratios and the family-wise test
 

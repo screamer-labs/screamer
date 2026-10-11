@@ -260,6 +260,14 @@ function lastFinite(a: NdArray, col: number): number {
   return NaN;
 }
 
+// Column k of a (T, K, 4) engine output, as one run's (T, 4) output.
+function run(out: NdArray, k: number): NdArray {
+  const [T, K, F] = out.shape;
+  const data = new Float64Array(T * F);
+  for (let t = 0; t < T; t++) data.set(out.data.subarray((t * K + k) * F, (t * K + k + 1) * F), t * F);
+  return { data, shape: [T, F] };
+}
+
 function column(a: NdArray, col: number): Float64Array {
   const [rows, cols] = a.shape;
   const out = new Float64Array(rows);
@@ -361,17 +369,16 @@ function positionSingle(
     // change the result.
     const chunk = Math.max(1, Math.min(n, Math.floor(4_000_000 / Math.max(1, T))));
     const nul: number[] = [];
-    const col = new Float64Array(T);
     for (let c0 = 0; c0 < n; c0 += chunk) {
       const k = Math.min(chunk, n - c0);
       const block = method === "shift"
         ? shiftBlock(target, shift as number, seed, c0, k)
         : shuffleBlock(target, seed, c0, k);
+      engine.reset();
+      const out = engine({ data: block.data, shape: [T, k] }, ...market) as NdArray;
       for (let j = 0; j < k; j++) {
-        for (let t = 0; t < T; t++) col[t] = block.data[t * k + j];
-        engine.reset();
-        const r = scorer.score(engine(col, ...market) as NdArray);
-        STAT_NAMES.forEach((k, i) => { nullStats[k][c0 + j] = r.stats[i]; });
+        const r = scorer.score(run(out, j));
+        STAT_NAMES.forEach((name, i) => { nullStats[name][c0 + j] = r.stats[i]; });
         if (Number.isFinite(r.value)) nul.push(r.value);
       }
     }
@@ -786,25 +793,25 @@ function positionFamily(
   if (!Number.isInteger(shift) || shift < 1) throw new RangeError("min_shift must be at least 1");
 
   const scorer = makeScorer(metric, opts.periodsPerYear ?? 1);
-  const run = (x: ArrayLike<number>) => {
+  const observe = (x: ArrayLike<number>) => {
     engine.reset();
     return scorer.score(engine(x, ...market) as NdArray);
   };
   try {
-    const obs = targets.map(run);
+    const obs = targets.map(observe);
     const observed = Float64Array.from(obs, (r) => r.value);
     const observedStats = statsRecord((i) => Float64Array.from(obs, (r) => r.stats[i]));
     const nullStats = statsRecord((): NdArray => ({ data: new Float64Array(n * K), shape: [n, K] }));
     const nul = new Float64Array(n * K);
     const chunk = Math.max(1, Math.min(n, Math.floor(4_000_000 / Math.max(1, T))));
-    const col = new Float64Array(T);
     for (let c0 = 0; c0 < n; c0 += chunk) {
       const m = Math.min(chunk, n - c0);
       targets.forEach((x, k) => {
         const block = shiftBlock(x, shift, seed, c0, m, start);
+        engine.reset();
+        const out = engine({ data: block.data, shape: [T, m] }, ...market) as NdArray;
         for (let j = 0; j < m; j++) {
-          for (let t = 0; t < T; t++) col[t] = block.data[t * m + j];
-          const r = run(col);
+          const r = scorer.score(run(out, j));
           nul[(c0 + j) * K + k] = r.value;
           STAT_NAMES.forEach((q, i) => { nullStats[q].data[(c0 + j) * K + k] = r.stats[i]; });
         }
@@ -1008,10 +1015,11 @@ export function walkForward(
   const F = starts.length;
   const scorer = makeScorer(metric, opts.periodsPerYear ?? 1);
   try {
-    const full = cols.map((x) => {
-      engine.reset();
-      return engine(x, ...market) as NdArray;
-    });
+    const block = new Float64Array(T * K);
+    cols.forEach((x, k) => { for (let t = 0; t < T; t++) block[t * K + k] = x[t]; });
+    engine.reset();
+    const all = engine({ data: block, shape: [T, K] }, ...market) as NdArray;
+    const full = cols.map((_, k) => run(all, k));
     const scores = new Float64Array(F * K);
     const choice = new Int32Array(F);
     const target = new Float64Array(T);

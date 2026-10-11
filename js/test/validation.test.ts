@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   ready, circularShift, segmentShuffle, positionTest,
-  BacktestOHLCTarget, BacktestReport,
+  BacktestOHLCTarget, BacktestPriceTarget, BacktestReport,
 } from "../src/index.ts";
 
 await ready();
@@ -193,4 +193,17 @@ test("validation: permutation modes and notional volume match Python", async () 
   assert.equal(nv.length, 5);
   assert.ok(near(col(nv[4], 1), [5.0, 3.0, 8.0, 2.029800999901968, 3.9609756097560966, 5.97058823529412]));
   assert.throws(() => permuteBars(m100(o), m100(h), m100(l), m100(c), 2), RangeError);
+});
+
+test("validation: positionTest calls the engine once per chunk with a (T, k) block", () => {
+  const engine = BacktestPriceTarget();
+  let calls = 0;
+  const counted: any = (...a: any[]) => { calls++; return (engine as any)(...a); };
+  counted.reset = () => engine.reset();
+  const T = 300;
+  const price = Float64Array.from({ length: T }, (_, t) => 100 + Math.sin(t / 9) * 5 + t / 50);
+  const target = Float64Array.from({ length: T }, (_, t) => (Math.sin(t / 13) > 0 ? 1 : -1));
+  const r = positionTest(counted, target, [price], { n: 50, seed: 1 });
+  assert.equal(r.null.length > 0, true);
+  assert.equal(calls, 2);        // the observed run and one chunk of 50
 });

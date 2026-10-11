@@ -314,9 +314,8 @@ def position_test(
             surr = _circular_shift(target, shift, seed, col0, k)
         else:
             surr = _segment_shuffle(target, seed, col0, k)
-        cols = [np.broadcast_to(m[:, None], (T, k)) for m in market]
         engine.reset()
-        out = np.asarray(engine(surr, *cols), dtype=float)
+        out = np.asarray(engine(surr, *market), dtype=float)
         stats = _run_stats(out, periods_per_year)
         for key, v in stats.items():
             null_stats[key][col0:col0 + k] = v
@@ -346,8 +345,7 @@ def _position_test_family(engine, target, market, n, method, metric, name,
     start, shift = _joint_shift_setup(cols, T, min_shift)    # one offset for all K
 
     engine.reset()
-    observed_out = np.asarray(engine(target, *[np.broadcast_to(m[:, None], (T, K))
-                                               for m in market]), dtype=float)
+    observed_out = np.asarray(engine(target, *market), dtype=float)
     observed_stats = _run_stats(observed_out, periods_per_year)
     observed = _score(observed_out, metric, observed_stats)
     width = (len(market) + 1 + 4 + 6 + 9) * K
@@ -359,8 +357,7 @@ def _position_test_family(engine, target, market, n, method, metric, name,
         # (T, m * K): replica-major blocks, all K strategies share each offset.
         surr = np.hstack([_circular_shift(x, shift, seed, col0, m, start) for x in cols])
         engine.reset()
-        out = np.asarray(engine(surr, *[np.broadcast_to(v[:, None], (T, m * K))
-                                         for v in market]), dtype=float)
+        out = np.asarray(engine(surr, *market), dtype=float)
         stats = _run_stats(out, periods_per_year)
         for key, v in stats.items():
             null_stats[key][col0:col0 + m] = v.reshape(K, m).T
@@ -839,8 +836,7 @@ def walk_forward(
 
     fold_start = np.arange(train, T, test)
     engine.reset()
-    full = np.asarray(engine(targets, *[np.broadcast_to(p[:, None], (T, K)) for p in prices]),
-                      dtype=float).reshape(T, K, 4)
+    full = np.asarray(engine(targets, *prices), dtype=float).reshape(T, K, 4)
 
     scores = np.empty((fold_start.size, K))
     choice = np.empty(fold_start.size, dtype=int)
