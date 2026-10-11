@@ -6,12 +6,12 @@ Goal: zero open issues before `make major`. Each item is closed by a fix with a 
 
 | # | Issue | Status |
 |---|---|---|
-| A1 | A list of rows into a row operator (`CrossRank()([r1, r2])`) returns an ndarray; rule 3 says list in, list out (`RollingMean(2)([r1, r2])` returns a list). 2.8.0 behavior. | open |
-| A2 | Overlapping async `next()` on one stream: Python raises `RuntimeError`, JS queues the calls (2.8.0 JS behavior). | open |
-| A3 | An error during a stream: JS closes the sources and ends the stream; Python raises and keeps the stream open (sources freed on garbage collection). | open |
-| A4 | Shape errors: Python raises `ValueError`; JS raises `TypeError` for a length mismatch and `RangeError` for an asset mismatch. | open |
-| A5 | Reported: `Return` and `Diff` "lose state across chunked batch calls". Needs verification of what is meant and whether it violates a rule. | open |
-| A6 | A `str`, `dict` or pandas `DataFrame` passed to a multi-input operator is treated as a lazy iterator and fails only at the first `next()`, with an unclear error. | open |
+| A1 | A list of rows into a row operator (`CrossRank()([r1, r2])`) returns an ndarray; rule 3 says list in, list out (`RollingMean(2)([r1, r2])` returns a list). 2.8.0 behavior. | decided: a list into a row operator returns a list of rows (rule 3); "Changed" entry; to implement |
+| A2 | Overlapping async `next()` on one stream: Python raises `RuntimeError`, JS queues the calls (2.8.0 JS behavior). | decided: keep native convention per language (Python raises, JS queues); document as intentional; docs to update |
+| A3 | An error during a stream: JS closes the sources and ends the stream; Python raises and keeps the stream open (sources freed on garbage collection). | decided: keep native convention per language (Python map-like, JS generator-like); document, advise closing sources (contextlib.closing); docs to update |
+| A4 | Shape errors: Python raises `ValueError`; JS raises `TypeError` for a length mismatch and `RangeError` for an asset mismatch. | decided: JS raises RangeError for every shape mismatch (counterpart of Python ValueError), TypeError for wrong kinds; to implement |
+| A5 | Reported: `Return` and `Diff` "lose state across chunked batch calls". Needs verification of what is meant and whether it violates a rule. | done: verified, not a bug; every batch call is an independent run (D8) for all operators; chunked continuation moved to Future features |
+| A6 | A `str`, `dict` or pandas `DataFrame` passed to a multi-input operator is treated as a lazy iterator and fails only at the first `next()`, with an unclear error. | decided: pandas Series/DataFrame read as their values (result is a NumPy array); str, bytes, dict, set raise TypeError at the call; to implement |
 
 ## B. Python and JavaScript parity
 
@@ -67,3 +67,8 @@ Goal: zero open issues before `make major`. Each item is closed by a fix with a 
 | G2 | JS row-operator and reducer paths take an `NdArray`'s `shape` without checking it against `data.length`. | open |
 | G3 | JS factories capture vector arguments by reference, so mutating the array later changes copies made afterwards. | open |
 | G4 | JS `zipSources` calls `return()` on a source whose own `next()` threw (a `for...of` loop does not). | open |
+
+## Future features (not in 3.0.0)
+
+- Chunked batch processing that carries operator state from one batch call to the next (e.g. `op(chunk, continue_=True)`), for data larger than memory. Today: one stream, or `op(x)` per value. (From A5.)
+- pandas in, pandas out: operators return a Series or DataFrame with the input's index and column names. Today pandas reads as its values and the result is a NumPy array; use `to_pandas`. (From A6.)
