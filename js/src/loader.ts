@@ -75,6 +75,12 @@ export function init(): Promise<Screamer> {
       .then((m) => m.default())
       .then((M: Screamer) => {
         setExceptionHelpers(M as any);
+        // A view of the WASM heap, made in JavaScript: the Embind viewF64 makes
+        // a memory view through emval on every call, which costs a handle per
+        // event on the streaming path. HEAPF64 is replaced when memory grows,
+        // so it is read on every call; like any heap view, the result is valid
+        // until the next call that may allocate.
+        M.viewF64 = (p: number, n: number) => new Float64Array((M as any).HEAPF64.buffer, p, n);
         return wrapCtors(M);
       });
   }

@@ -36,6 +36,8 @@ jobs:
         with:
           # Pinned to match js-publish.yml / local development; bump
           # deliberately, not via a floating "latest".
+          # Re-verify on emsdk bump: wasm/exception_message.cpp overrides two libc++abi
+          # symbols, and the build pins WASM_LEGACY_EXCEPTIONS (see wasm/CMakeLists.txt).
           version: '4.0.21'
           actions-cache-folder: 'emsdk-cache'
 

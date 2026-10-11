@@ -98,6 +98,7 @@ export function Add(): ScreamerOp {
  */
 export function AmihudIlliquidity(windowSize: number = 20, startPolicy: string = "strict"): ScreamerOp {
   const M = current();
+  if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
   return wrapOp(M, () => new M.AmihudIlliquidity(windowSize, startPolicy));
 }
 
@@ -181,6 +182,8 @@ export function BacktestCarry(multiplier: number = 1.0): ScreamerOp {
  */
 export function BacktestL1Orders(makerFee: number = 0.0, takerFee: number = 0.0, fill: string = "breach", participationRatio: number = 1.0, tickSize: number = 0.0, minPosition: number = -Infinity, maxPosition: number = Infinity, multiplier: number = 1.0, makerFeePerContract: number = 0.0, takerFeePerContract: number = 0.0, slippage: number = 0.0, slippageUnit: string = "fraction"): ScreamerOp {
   const M = current();
+  if (typeof fill !== "string") throw new TypeError(`fill must be a string, got ${typeof fill}`);
+  if (typeof slippageUnit !== "string") throw new TypeError(`slippageUnit must be a string, got ${typeof slippageUnit}`);
   return wrapOp(M, () => new M.BacktestL1Orders(makerFee, takerFee, fill, participationRatio, tickSize, minPosition, maxPosition, multiplier, makerFeePerContract, takerFeePerContract, slippage, slippageUnit));
 }
 
@@ -205,6 +208,8 @@ export function BacktestL1Orders(makerFee: number = 0.0, takerFee: number = 0.0,
  */
 export function BacktestL1Target(takerFee: number = 0.0, tickSize: number = 0.0, minPosition: number = -Infinity, maxPosition: number = Infinity, multiplier: number = 1.0, feePerContract: number = 0.0, slippage: number = 0.0, slippageUnit: string = "fraction", stopLoss: number = 0.0, takeProfit: number = 0.0, trailingStop: number = 0.0, size: string = "units", initialCapital: number = 0.0, rebalanceBand: number = 0.0): ScreamerOp {
   const M = current();
+  if (typeof slippageUnit !== "string") throw new TypeError(`slippageUnit must be a string, got ${typeof slippageUnit}`);
+  if (typeof size !== "string") throw new TypeError(`size must be a string, got ${typeof size}`);
   return wrapOp(M, () => new M.BacktestL1Target(takerFee, tickSize, minPosition, maxPosition, multiplier, feePerContract, slippage, slippageUnit, stopLoss, takeProfit, trailingStop, size, initialCapital, rebalanceBand));
 }
 
@@ -227,6 +232,8 @@ export function BacktestL1Target(takerFee: number = 0.0, tickSize: number = 0.0,
  */
 export function BacktestL1TradesOrders(makerFee: number = 0.0, takerFee: number = 0.0, fill: string = "touch", participationRatio: number = 1.0, tickSize: number = 0.0, minPosition: number = -Infinity, maxPosition: number = Infinity, multiplier: number = 1.0, makerFeePerContract: number = 0.0, takerFeePerContract: number = 0.0, slippage: number = 0.0, slippageUnit: string = "fraction"): ScreamerOp {
   const M = current();
+  if (typeof fill !== "string") throw new TypeError(`fill must be a string, got ${typeof fill}`);
+  if (typeof slippageUnit !== "string") throw new TypeError(`slippageUnit must be a string, got ${typeof slippageUnit}`);
   return wrapOp(M, () => new M.BacktestL1TradesOrders(makerFee, takerFee, fill, participationRatio, tickSize, minPosition, maxPosition, multiplier, makerFeePerContract, takerFeePerContract, slippage, slippageUnit));
 }
 
@@ -249,6 +256,8 @@ export function BacktestL1TradesOrders(makerFee: number = 0.0, takerFee: number 
  */
 export function BacktestOHLCOrders(makerFee: number = 0.0, takerFee: number = 0.0, fill: string = "touch", participationRatio: number = 1.0, tickSize: number = 0.0, minPosition: number = -Infinity, maxPosition: number = Infinity, multiplier: number = 1.0, makerFeePerContract: number = 0.0, takerFeePerContract: number = 0.0, slippage: number = 0.0, slippageUnit: string = "fraction"): ScreamerOp {
   const M = current();
+  if (typeof fill !== "string") throw new TypeError(`fill must be a string, got ${typeof fill}`);
+  if (typeof slippageUnit !== "string") throw new TypeError(`slippageUnit must be a string, got ${typeof slippageUnit}`);
   return wrapOp(M, () => new M.BacktestOHLCOrders(makerFee, takerFee, fill, participationRatio, tickSize, minPosition, maxPosition, multiplier, makerFeePerContract, takerFeePerContract, slippage, slippageUnit));
 }
 
@@ -275,6 +284,9 @@ export function BacktestOHLCOrders(makerFee: number = 0.0, takerFee: number = 0.
  */
 export function BacktestOHLCTarget(takerFee: number = 0.0, tickSize: number = 0.0, minPosition: number = -Infinity, maxPosition: number = Infinity, multiplier: number = 1.0, feePerContract: number = 0.0, slippage: number = 0.0, slippageUnit: string = "fraction", fillAt: string = "open", delay: number = 1, stopLoss: number = 0.0, takeProfit: number = 0.0, trailingStop: number = 0.0, size: string = "units", initialCapital: number = 0.0, rebalanceBand: number = 0.0): ScreamerOp {
   const M = current();
+  if (typeof slippageUnit !== "string") throw new TypeError(`slippageUnit must be a string, got ${typeof slippageUnit}`);
+  if (typeof fillAt !== "string") throw new TypeError(`fillAt must be a string, got ${typeof fillAt}`);
+  if (typeof size !== "string") throw new TypeError(`size must be a string, got ${typeof size}`);
   return wrapOp(M, () => new M.BacktestOHLCTarget(takerFee, tickSize, minPosition, maxPosition, multiplier, feePerContract, slippage, slippageUnit, fillAt, delay, stopLoss, takeProfit, trailingStop, size, initialCapital, rebalanceBand));
 }
 
@@ -302,6 +314,9 @@ export function BacktestOHLCTarget(takerFee: number = 0.0, tickSize: number = 0.
  */
 export function BacktestOHLCVTarget(maxParticipation: number = 1.0, takerFee: number = 0.0, tickSize: number = 0.0, minPosition: number = -Infinity, maxPosition: number = Infinity, multiplier: number = 1.0, feePerContract: number = 0.0, slippage: number = 0.0, slippageUnit: string = "fraction", fillAt: string = "open", delay: number = 1, stopLoss: number = 0.0, takeProfit: number = 0.0, trailingStop: number = 0.0, size: string = "units", initialCapital: number = 0.0, rebalanceBand: number = 0.0): ScreamerOp {
   const M = current();
+  if (typeof slippageUnit !== "string") throw new TypeError(`slippageUnit must be a string, got ${typeof slippageUnit}`);
+  if (typeof fillAt !== "string") throw new TypeError(`fillAt must be a string, got ${typeof fillAt}`);
+  if (typeof size !== "string") throw new TypeError(`size must be a string, got ${typeof size}`);
   return wrapOp(M, () => new M.BacktestOHLCVTarget(maxParticipation, takerFee, tickSize, minPosition, maxPosition, multiplier, feePerContract, slippage, slippageUnit, fillAt, delay, stopLoss, takeProfit, trailingStop, size, initialCapital, rebalanceBand));
 }
 
@@ -326,29 +341,31 @@ export function BacktestOHLCVTarget(maxParticipation: number = 1.0, takerFee: nu
  */
 export function BacktestPortfolioOHLCTarget(fee: number | number[] = [0.0], slippage: number | number[] = [0.0], slippageUnit: string = "fraction", tickSize: number | number[] = [0.0], multiplier: number | number[] = [1.0], feePerContract: number | number[] = [0.0], size: string = "weight", initialCapital: number = 1.0, rebalanceBand: number = 0.0, rebalance: string = "drifted", maxGross: number = Infinity, maxNet: number = Infinity, fillAt: string = "open", delay: number = 1): ScreamerOp {
   const M = current();
+  if (typeof slippageUnit !== "string") throw new TypeError(`slippageUnit must be a string, got ${typeof slippageUnit}`);
+  if (typeof size !== "string") throw new TypeError(`size must be a string, got ${typeof size}`);
+  if (typeof rebalance !== "string") throw new TypeError(`rebalance must be a string, got ${typeof rebalance}`);
+  if (typeof fillAt !== "string") throw new TypeError(`fillAt must be a string, got ${typeof fillAt}`);
   const fee_ = Array.isArray(fee) ? Array.from(fee) : fee;
   const slippage_ = Array.isArray(slippage) ? Array.from(slippage) : slippage;
   const tickSize_ = Array.isArray(tickSize) ? Array.from(tickSize) : tickSize;
   const multiplier_ = Array.isArray(multiplier) ? Array.from(multiplier) : multiplier;
   const feePerContract_ = Array.isArray(feePerContract) ? Array.from(feePerContract) : feePerContract;
   return wrapRowOp(M, () => {
-    const _v0 = new M.VectorDouble();
-    for (const _x of (typeof fee_ === "number" ? [fee_] : fee_)) _v0.push_back(_x);
-    const _v1 = new M.VectorDouble();
-    for (const _x of (typeof slippage_ === "number" ? [slippage_] : slippage_)) _v1.push_back(_x);
-    const _v3 = new M.VectorDouble();
-    for (const _x of (typeof tickSize_ === "number" ? [tickSize_] : tickSize_)) _v3.push_back(_x);
-    const _v4 = new M.VectorDouble();
-    for (const _x of (typeof multiplier_ === "number" ? [multiplier_] : multiplier_)) _v4.push_back(_x);
-    const _v5 = new M.VectorDouble();
-    for (const _x of (typeof feePerContract_ === "number" ? [feePerContract_] : feePerContract_)) _v5.push_back(_x);
-    const _op = new M.BacktestPortfolioOHLCTarget(_v0, _v1, slippageUnit, _v3, _v4, _v5, size, initialCapital, rebalanceBand, rebalance, maxGross, maxNet, fillAt, delay);
-    _v0.delete();
-    _v1.delete();
-    _v3.delete();
-    _v4.delete();
-    _v5.delete();
-    return _op;
+    const _v0 = new M.VectorDouble(), _v1 = new M.VectorDouble(), _v3 = new M.VectorDouble(), _v4 = new M.VectorDouble(), _v5 = new M.VectorDouble();
+    try {
+      for (const _x of (typeof fee_ === "number" ? [fee_] : fee_)) _v0.push_back(_x);
+      for (const _x of (typeof slippage_ === "number" ? [slippage_] : slippage_)) _v1.push_back(_x);
+      for (const _x of (typeof tickSize_ === "number" ? [tickSize_] : tickSize_)) _v3.push_back(_x);
+      for (const _x of (typeof multiplier_ === "number" ? [multiplier_] : multiplier_)) _v4.push_back(_x);
+      for (const _x of (typeof feePerContract_ === "number" ? [feePerContract_] : feePerContract_)) _v5.push_back(_x);
+      return new M.BacktestPortfolioOHLCTarget(_v0, _v1, slippageUnit, _v3, _v4, _v5, size, initialCapital, rebalanceBand, rebalance, maxGross, maxNet, fillAt, delay);
+    } finally {
+      _v0.delete();
+      _v1.delete();
+      _v3.delete();
+      _v4.delete();
+      _v5.delete();
+    }
   });
 }
 
@@ -371,29 +388,30 @@ export function BacktestPortfolioOHLCTarget(fee: number | number[] = [0.0], slip
  */
 export function BacktestPortfolioTarget(fee: number | number[] = [0.0], slippage: number | number[] = [0.0], slippageUnit: string = "fraction", tickSize: number | number[] = [0.0], multiplier: number | number[] = [1.0], feePerContract: number | number[] = [0.0], size: string = "weight", initialCapital: number = 1.0, rebalanceBand: number = 0.0, rebalance: string = "drifted", maxGross: number = Infinity, maxNet: number = Infinity): ScreamerOp {
   const M = current();
+  if (typeof slippageUnit !== "string") throw new TypeError(`slippageUnit must be a string, got ${typeof slippageUnit}`);
+  if (typeof size !== "string") throw new TypeError(`size must be a string, got ${typeof size}`);
+  if (typeof rebalance !== "string") throw new TypeError(`rebalance must be a string, got ${typeof rebalance}`);
   const fee_ = Array.isArray(fee) ? Array.from(fee) : fee;
   const slippage_ = Array.isArray(slippage) ? Array.from(slippage) : slippage;
   const tickSize_ = Array.isArray(tickSize) ? Array.from(tickSize) : tickSize;
   const multiplier_ = Array.isArray(multiplier) ? Array.from(multiplier) : multiplier;
   const feePerContract_ = Array.isArray(feePerContract) ? Array.from(feePerContract) : feePerContract;
   return wrapRowOp(M, () => {
-    const _v0 = new M.VectorDouble();
-    for (const _x of (typeof fee_ === "number" ? [fee_] : fee_)) _v0.push_back(_x);
-    const _v1 = new M.VectorDouble();
-    for (const _x of (typeof slippage_ === "number" ? [slippage_] : slippage_)) _v1.push_back(_x);
-    const _v3 = new M.VectorDouble();
-    for (const _x of (typeof tickSize_ === "number" ? [tickSize_] : tickSize_)) _v3.push_back(_x);
-    const _v4 = new M.VectorDouble();
-    for (const _x of (typeof multiplier_ === "number" ? [multiplier_] : multiplier_)) _v4.push_back(_x);
-    const _v5 = new M.VectorDouble();
-    for (const _x of (typeof feePerContract_ === "number" ? [feePerContract_] : feePerContract_)) _v5.push_back(_x);
-    const _op = new M.BacktestPortfolioTarget(_v0, _v1, slippageUnit, _v3, _v4, _v5, size, initialCapital, rebalanceBand, rebalance, maxGross, maxNet);
-    _v0.delete();
-    _v1.delete();
-    _v3.delete();
-    _v4.delete();
-    _v5.delete();
-    return _op;
+    const _v0 = new M.VectorDouble(), _v1 = new M.VectorDouble(), _v3 = new M.VectorDouble(), _v4 = new M.VectorDouble(), _v5 = new M.VectorDouble();
+    try {
+      for (const _x of (typeof fee_ === "number" ? [fee_] : fee_)) _v0.push_back(_x);
+      for (const _x of (typeof slippage_ === "number" ? [slippage_] : slippage_)) _v1.push_back(_x);
+      for (const _x of (typeof tickSize_ === "number" ? [tickSize_] : tickSize_)) _v3.push_back(_x);
+      for (const _x of (typeof multiplier_ === "number" ? [multiplier_] : multiplier_)) _v4.push_back(_x);
+      for (const _x of (typeof feePerContract_ === "number" ? [feePerContract_] : feePerContract_)) _v5.push_back(_x);
+      return new M.BacktestPortfolioTarget(_v0, _v1, slippageUnit, _v3, _v4, _v5, size, initialCapital, rebalanceBand, rebalance, maxGross, maxNet);
+    } finally {
+      _v0.delete();
+      _v1.delete();
+      _v3.delete();
+      _v4.delete();
+      _v5.delete();
+    }
   });
 }
 
@@ -419,6 +437,8 @@ export function BacktestPortfolioTarget(fee: number | number[] = [0.0], slippage
  */
 export function BacktestPriceTarget(spread: number = 0.0, fee: number = 0.0, minPosition: number = -Infinity, maxPosition: number = Infinity, multiplier: number = 1.0, feePerContract: number = 0.0, slippage: number = 0.0, slippageUnit: string = "fraction", tickSize: number = 0.0, stopLoss: number = 0.0, takeProfit: number = 0.0, trailingStop: number = 0.0, size: string = "units", initialCapital: number = 0.0, rebalanceBand: number = 0.0): ScreamerOp {
   const M = current();
+  if (typeof slippageUnit !== "string") throw new TypeError(`slippageUnit must be a string, got ${typeof slippageUnit}`);
+  if (typeof size !== "string") throw new TypeError(`size must be a string, got ${typeof size}`);
   return wrapOp(M, () => new M.BacktestPriceTarget(spread, fee, minPosition, maxPosition, multiplier, feePerContract, slippage, slippageUnit, tickSize, stopLoss, takeProfit, trailingStop, size, initialCapital, rebalanceBand));
 }
 
@@ -463,6 +483,8 @@ export function BacktestStats(periodsPerYear: number = 1.0): ScreamerOp {
  */
 export function BacktestTradesOrders(makerFee: number = 0.0, takerFee: number = 0.0, fill: string = "touch", participationRatio: number = 1.0, tickSize: number = 0.0, minPosition: number = -Infinity, maxPosition: number = Infinity, multiplier: number = 1.0, makerFeePerContract: number = 0.0, takerFeePerContract: number = 0.0, slippage: number = 0.0, slippageUnit: string = "fraction"): ScreamerOp {
   const M = current();
+  if (typeof fill !== "string") throw new TypeError(`fill must be a string, got ${typeof fill}`);
+  if (typeof slippageUnit !== "string") throw new TypeError(`slippageUnit must be a string, got ${typeof slippageUnit}`);
   return wrapOp(M, () => new M.BacktestTradesOrders(makerFee, takerFee, fill, participationRatio, tickSize, minPosition, maxPosition, multiplier, makerFeePerContract, takerFeePerContract, slippage, slippageUnit));
 }
 
@@ -488,6 +510,8 @@ export function BacktestTradesOrders(makerFee: number = 0.0, takerFee: number = 
  */
 export function BacktestTradesTarget(takerFee: number = 0.0, tickSize: number = 0.0, minPosition: number = -Infinity, maxPosition: number = Infinity, multiplier: number = 1.0, feePerContract: number = 0.0, slippage: number = 0.0, slippageUnit: string = "fraction", stopLoss: number = 0.0, takeProfit: number = 0.0, trailingStop: number = 0.0, size: string = "units", initialCapital: number = 0.0, rebalanceBand: number = 0.0, maxParticipation: number = Infinity): ScreamerOp {
   const M = current();
+  if (typeof slippageUnit !== "string") throw new TypeError(`slippageUnit must be a string, got ${typeof slippageUnit}`);
+  if (typeof size !== "string") throw new TypeError(`size must be a string, got ${typeof size}`);
   return wrapOp(M, () => new M.BacktestTradesTarget(takerFee, tickSize, minPosition, maxPosition, multiplier, feePerContract, slippage, slippageUnit, stopLoss, takeProfit, trailingStop, size, initialCapital, rebalanceBand, maxParticipation));
 }
 
@@ -530,6 +554,7 @@ export function BayesianRegression(com: number = NaN, span: number = NaN, halfli
  */
 export function BollingerBands(windowSize: number = 20, numStd: number = 2.0, startPolicy: string = "strict"): ScreamerOp {
   const M = current();
+  if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
   return wrapOp(M, () => new M.BollingerBands(windowSize, numStd, startPolicy));
 }
 
@@ -542,6 +567,7 @@ export function BollingerBands(windowSize: number = 20, numStd: number = 2.0, st
  */
 export function BulkVolumeClassifier(windowSize: number = 20, startPolicy: string = "strict"): ScreamerOp {
   const M = current();
+  if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
   return wrapOp(M, () => new M.BulkVolumeClassifier(windowSize, startPolicy));
 }
 
@@ -688,6 +714,7 @@ export function CrossNormalize(gross: number = 1.0, net: number = NaN): Screamer
  */
 export function CrossRank(scale: string = "signed"): ScreamerOp {
   const M = current();
+  if (typeof scale !== "string") throw new TypeError(`scale must be a string, got ${typeof scale}`);
   return wrapRowOp(M, () => new M.CrossRank(scale));
 }
 
@@ -860,6 +887,7 @@ export function Decycler(period: number = NaN, cutoff: number = NaN): ScreamerOp
  */
 export function Detrend(windowSize: number = 20, startPolicy: string = "strict"): ScreamerOp {
   const M = current();
+  if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
   return wrapOp(M, () => new M.Detrend(windowSize, startPolicy));
 }
 
@@ -872,6 +900,7 @@ export function Detrend(windowSize: number = 20, startPolicy: string = "strict")
  */
 export function Diff(windowSize: number = 1, startPolicy: string = "strict"): ScreamerOp {
   const M = current();
+  if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
   return wrapOp(M, () => new M.Diff(windowSize, startPolicy));
 }
 
@@ -883,6 +912,7 @@ export function Diff(windowSize: number = 1, startPolicy: string = "strict"): Sc
  */
 export function Diff2(startPolicy: string = "strict"): ScreamerOp {
   const M = current();
+  if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
   return wrapOp(M, () => new M.Diff2(startPolicy));
 }
 
@@ -1433,6 +1463,7 @@ export function Floor(): ScreamerOp {
  */
 export function FracDiff(d: number = 0.4, windowSize: number = 100, threshold: number = 1e-05, startPolicy: string = "strict"): ScreamerOp {
   const M = current();
+  if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
   return wrapOp(M, () => new M.FracDiff(d, windowSize, threshold, startPolicy));
 }
 
@@ -1467,6 +1498,8 @@ export function GreaterThan(): ScreamerOp {
  */
 export function Hampel(windowSize: number = 20, nSigma: number = 3.0, output: string = "cleaned", startPolicy: string = "strict"): ScreamerOp {
   const M = current();
+  if (typeof output !== "string") throw new TypeError(`output must be a string, got ${typeof output}`);
+  if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
   return wrapOp(M, () => new M.Hampel(windowSize, nSigma, output, startPolicy));
 }
 
@@ -1547,6 +1580,8 @@ export function Identity(): ScreamerOp {
  */
 export function ImpulseClip(windowSize: number = 20, nSigma: number = 4.0, output: string = "cleaned", startPolicy: string = "strict"): ScreamerOp {
   const M = current();
+  if (typeof output !== "string") throw new TypeError(`output must be a string, got ${typeof output}`);
+  if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
   return wrapOp(M, () => new M.ImpulseClip(windowSize, nSigma, output, startPolicy));
 }
 
@@ -1641,6 +1676,7 @@ export function KeltnerChannels(windowSize: number = 20, numAtr: number = 2.0): 
  */
 export function Lag(windowSize: number = 1, startPolicy: string = "strict"): ScreamerOp {
   const M = current();
+  if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
   return wrapOp(M, () => new M.Lag(windowSize, startPolicy));
 }
 
@@ -1817,6 +1853,7 @@ export function MinusDM(windowSize: number = 14): ScreamerOp {
  */
 export function Momentum(windowSize: number = 10, startPolicy: string = "strict"): ScreamerOp {
   const M = current();
+  if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
   return wrapOp(M, () => new M.Momentum(windowSize, startPolicy));
 }
 
@@ -1831,10 +1868,12 @@ export function MovingAverage(taps: number | number[] = [0.25, 0.5, 0.25]): Scre
   const taps_ = Array.isArray(taps) ? Array.from(taps) : taps;
   return wrapOp(M, () => {
     const _v0 = new M.VectorDouble();
-    for (const _x of (typeof taps_ === "number" ? [taps_] : taps_)) _v0.push_back(_x);
-    const _op = new M.MovingAverage(_v0);
-    _v0.delete();
-    return _op;
+    try {
+      for (const _x of (typeof taps_ === "number" ? [taps_] : taps_)) _v0.push_back(_x);
+      return new M.MovingAverage(_v0);
+    } finally {
+      _v0.delete();
+    }
   });
 }
 
@@ -2069,6 +2108,7 @@ export function Return(windowSize: number = 1): ScreamerOp {
  */
 export function RollSpread(windowSize: number = 20, startPolicy: string = "strict"): ScreamerOp {
   const M = current();
+  if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
   return wrapOp(M, () => new M.RollSpread(windowSize, startPolicy));
 }
 
@@ -2093,6 +2133,7 @@ export function RollingADF(windowSize: number = 100, lags: number = 1): Screamer
  */
 export function RollingAlpha(windowSize: number = 20, startPolicy: string = "strict"): ScreamerOp {
   const M = current();
+  if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
   return wrapOp(M, () => new M.RollingAlpha(windowSize, startPolicy));
 }
 
@@ -2127,6 +2168,7 @@ export function RollingArgmin(windowSize: number = 20): ScreamerOp {
  */
 export function RollingBeta(windowSize: number = 20, startPolicy: string = "strict"): ScreamerOp {
   const M = current();
+  if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
   return wrapOp(M, () => new M.RollingBeta(windowSize, startPolicy));
 }
 
@@ -2163,6 +2205,7 @@ export function RollingCalmar(windowSize: number = 252, periodsPerYear: number =
  */
 export function RollingCorr(windowSize: number = 20, startPolicy: string = "strict"): ScreamerOp {
   const M = current();
+  if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
   return wrapOp(M, () => new M.RollingCorr(windowSize, startPolicy));
 }
 
@@ -2175,6 +2218,7 @@ export function RollingCorr(windowSize: number = 20, startPolicy: string = "stri
  */
 export function RollingCov(windowSize: number = 20, startPolicy: string = "strict"): ScreamerOp {
   const M = current();
+  if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
   return wrapOp(M, () => new M.RollingCov(windowSize, startPolicy));
 }
 
@@ -2188,6 +2232,7 @@ export function RollingCov(windowSize: number = 20, startPolicy: string = "stric
  */
 export function RollingDownsideDeviation(windowSize: number = 20, mar: number = 0.0, startPolicy: string = "strict"): ScreamerOp {
   const M = current();
+  if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
   return wrapOp(M, () => new M.RollingDownsideDeviation(windowSize, mar, startPolicy));
 }
 
@@ -2234,6 +2279,7 @@ export function RollingHitRate(windowSize: number = 252): ScreamerOp {
  */
 export function RollingHurst(windowSize: number = 256, minScale: number = 4, method: string = "rs"): ScreamerOp {
   const M = current();
+  if (typeof method !== "string") throw new TypeError(`method must be a string, got ${typeof method}`);
   return wrapOp(M, () => new M.RollingHurst(windowSize, minScale, method));
 }
 
@@ -2269,6 +2315,7 @@ export function RollingIqr(windowSize: number = 20): ScreamerOp {
  */
 export function RollingKurt(windowSize: number = 20, startPolicy: string = "strict"): ScreamerOp {
   const M = current();
+  if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
   return wrapOp(M, () => new M.RollingKurt(windowSize, startPolicy));
 }
 
@@ -2281,6 +2328,7 @@ export function RollingKurt(windowSize: number = 20, startPolicy: string = "stri
  */
 export function RollingLinearRegression(windowSize: number = 20, startPolicy: string = "strict"): ScreamerOp {
   const M = current();
+  if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
   return wrapOp(M, () => new M.RollingLinearRegression(windowSize, startPolicy));
 }
 
@@ -2293,6 +2341,7 @@ export function RollingLinearRegression(windowSize: number = 20, startPolicy: st
  */
 export function RollingMad(windowSize: number = 20, startPolicy: string = "strict"): ScreamerOp {
   const M = current();
+  if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
   return wrapOp(M, () => new M.RollingMad(windowSize, startPolicy));
 }
 
@@ -2327,6 +2376,7 @@ export function RollingMaxDrawdown(windowSize: number = 252): ScreamerOp {
  */
 export function RollingMean(windowSize: number = 20, startPolicy: string = "strict"): ScreamerOp {
   const M = current();
+  if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
   return wrapOp(M, () => new M.RollingMean(windowSize, startPolicy));
 }
 
@@ -2350,6 +2400,7 @@ export function RollingMedian(windowSize: number = 20): ScreamerOp {
  */
 export function RollingMedianAD(windowSize: number = 20, startPolicy: string = "strict"): ScreamerOp {
   const M = current();
+  if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
   return wrapOp(M, () => new M.RollingMedianAD(windowSize, startPolicy));
 }
 
@@ -2385,6 +2436,8 @@ export function RollingMinMax(windowSize: number = 20): ScreamerOp {
  */
 export function RollingOU(windowSize: number = 20, output: string = "mrr", startPolicy: string = "strict"): ScreamerOp {
   const M = current();
+  if (typeof output !== "string") throw new TypeError(`output must be a string, got ${typeof output}`);
+  if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
   return wrapOp(M, () => new M.RollingOU(windowSize, output, startPolicy));
 }
 
@@ -2443,6 +2496,7 @@ export function RollingPercentile(windowSize: number = 20): ScreamerOp {
  */
 export function RollingPoly1(windowSize: number = 20, derivativeOrder: number = 0, startPolicy: string = "strict"): ScreamerOp {
   const M = current();
+  if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
   return wrapOp(M, () => new M.RollingPoly1(windowSize, derivativeOrder, startPolicy));
 }
 
@@ -2456,6 +2510,7 @@ export function RollingPoly1(windowSize: number = 20, derivativeOrder: number = 
  */
 export function RollingPoly2(windowSize: number = 20, derivativeOrder: number = 0, startPolicy: string = "strict"): ScreamerOp {
   const M = current();
+  if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
   return wrapOp(M, () => new M.RollingPoly2(windowSize, derivativeOrder, startPolicy));
 }
 
@@ -2481,6 +2536,8 @@ export function RollingQuantile(windowSize: number = 20, quantile: number = 0.5)
  */
 export function RollingRSI(windowSize: number = 14, method: string = "wilder", startPolicy: string = "strict"): ScreamerOp {
   const M = current();
+  if (typeof method !== "string") throw new TypeError(`method must be a string, got ${typeof method}`);
+  if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
   return wrapOp(M, () => new M.RollingRSI(windowSize, method, startPolicy));
 }
 
@@ -2515,6 +2572,7 @@ export function RollingRank(windowSize: number = 20): ScreamerOp {
  */
 export function RollingResidualStd(windowSize: number = 20, startPolicy: string = "strict"): ScreamerOp {
   const M = current();
+  if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
   return wrapOp(M, () => new M.RollingResidualStd(windowSize, startPolicy));
 }
 
@@ -2527,6 +2585,7 @@ export function RollingResidualStd(windowSize: number = 20, startPolicy: string 
  */
 export function RollingRms(windowSize: number = 20, startPolicy: string = "strict"): ScreamerOp {
   const M = current();
+  if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
   return wrapOp(M, () => new M.RollingRms(windowSize, startPolicy));
 }
 
@@ -2576,6 +2635,8 @@ export function RollingSharpe(windowSize: number = 252, periodsPerYear: number =
  */
 export function RollingSigmaClip(windowSize: number = 20, lower: number = NaN, upper: number = NaN, output: string = "clipped", startPolicy: string = "strict"): ScreamerOp {
   const M = current();
+  if (typeof output !== "string") throw new TypeError(`output must be a string, got ${typeof output}`);
+  if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
   return wrapOp(M, () => new M.RollingSigmaClip(windowSize, lower, upper, output, startPolicy));
 }
 
@@ -2588,6 +2649,7 @@ export function RollingSigmaClip(windowSize: number = 20, lower: number = NaN, u
  */
 export function RollingSkew(windowSize: number = 20, startPolicy: string = "strict"): ScreamerOp {
   const M = current();
+  if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
   return wrapOp(M, () => new M.RollingSkew(windowSize, startPolicy));
 }
 
@@ -2613,6 +2675,7 @@ export function RollingSortino(windowSize: number = 252, periodsPerYear: number 
  */
 export function RollingSpread(windowSize: number = 20, startPolicy: string = "strict"): ScreamerOp {
   const M = current();
+  if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
   return wrapOp(M, () => new M.RollingSpread(windowSize, startPolicy));
 }
 
@@ -2625,6 +2688,7 @@ export function RollingSpread(windowSize: number = 20, startPolicy: string = "st
  */
 export function RollingStd(windowSize: number = 20, startPolicy: string = "strict"): ScreamerOp {
   const M = current();
+  if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
   return wrapOp(M, () => new M.RollingStd(windowSize, startPolicy));
 }
 
@@ -2637,6 +2701,7 @@ export function RollingStd(windowSize: number = 20, startPolicy: string = "stric
  */
 export function RollingSum(windowSize: number = 20, startPolicy: string = "strict"): ScreamerOp {
   const M = current();
+  if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
   return wrapOp(M, () => new M.RollingSum(windowSize, startPolicy));
 }
 
@@ -2649,6 +2714,7 @@ export function RollingSum(windowSize: number = 20, startPolicy: string = "stric
  */
 export function RollingTLSBeta(windowSize: number = 20, startPolicy: string = "strict"): ScreamerOp {
   const M = current();
+  if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
   return wrapOp(M, () => new M.RollingTLSBeta(windowSize, startPolicy));
 }
 
@@ -2683,6 +2749,7 @@ export function RollingVWAP(windowSize: number = 20): ScreamerOp {
  */
 export function RollingVar(windowSize: number = 20, startPolicy: string = "strict"): ScreamerOp {
   const M = current();
+  if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
   return wrapOp(M, () => new M.RollingVar(windowSize, startPolicy));
 }
 
@@ -2717,6 +2784,7 @@ export function RollingYangZhangVol(windowSize: number = 20): ScreamerOp {
  */
 export function RollingZscore(windowSize: number = 20, startPolicy: string = "strict"): ScreamerOp {
   const M = current();
+  if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
   return wrapOp(M, () => new M.RollingZscore(windowSize, startPolicy));
 }
 
@@ -2987,6 +3055,7 @@ export function VPIN(bucketVolume: number = 1.0, nBuckets: number = 50): Screame
  */
 export function WMA(windowSize: number = 20, startPolicy: string = "strict"): ScreamerOp {
   const M = current();
+  if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
   return wrapOp(M, () => new M.WMA(windowSize, startPolicy));
 }
 

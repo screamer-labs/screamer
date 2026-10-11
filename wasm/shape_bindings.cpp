@@ -92,7 +92,10 @@ emscripten::val eventPlan(emscripten::val shapes, std::size_t n_in) {
     return r;
 }
 
-emscripten::val layoutPlan(std::string layout, emscripten::val shape) {
+// `layout` is a val, not a std::string: Embind frees a std::string argument's
+// wire buffer only on a normal return, so a rejected layout would leak it.
+emscripten::val layoutPlan(emscripten::val layout_js, emscripten::val shape) {
+    const std::string layout = layout_js.as<std::string>();
     Shape in;
     const unsigned n = shape["length"].as<unsigned>();
     for (unsigned i = 0; i < n; ++i) in.push_back(static_cast<std::size_t>(shape[i].as<double>()));

@@ -45,9 +45,14 @@ target_include_directories(screamer PRIVATE
 # exception reaches JavaScript as a WebAssembly.Exception, and the exported
 # getExceptionMessage helper reads its type and what() text (js/src/errors.ts).
 # An exception that leaves WASM does not unwind the WASM stack pointer, so
-# errors.ts also needs stackSave and stackRestore. Needs Chrome 95, Firefox 100,
-# Safari 15.2 or Node 17.
-set(EMCC_LINK "-lembind -fwasm-exceptions -sEXPORT_EXCEPTION_HANDLING_HELPERS=1 -sMODULARIZE=1 -sEXPORT_ES6=1 -sENVIRONMENT=web,worker,node \
+# errors.ts also needs stackSave and stackRestore.
+#
+# -sWASM_LEGACY_EXCEPTIONS=1 is pinned on compile and link: the legacy
+# exception-handling proposal is what Chrome 95, Firefox 100, Safari 15.2 and
+# Node 17 support, the minimums in README.md and docs/javascript.md. The newer
+# exnref proposal needs much newer engines, and a change of the emsdk default
+# must not raise that floor silently. Re-verify on emsdk bump (CI pins 4.0.21).
+set(EMCC_LINK "-lembind -fwasm-exceptions -sWASM_LEGACY_EXCEPTIONS=1 -sEXPORT_EXCEPTION_HANDLING_HELPERS=1 -sMODULARIZE=1 -sEXPORT_ES6=1 -sENVIRONMENT=web,worker,node \
 -sFILESYSTEM=0 -sALLOW_MEMORY_GROWTH=1 -sMALLOC=emmalloc -sEXPORTED_RUNTIME_METHODS=['HEAPF64','stackSave','stackRestore']")
 
 # SCREAMER_WASM_SINGLE_FILE=ON (passed by build-wasm.sh --single-file) embeds
@@ -63,4 +68,4 @@ else()
 endif()
 
 set_target_properties(screamer PROPERTIES OUTPUT_NAME "${SCREAMER_OUTPUT_NAME}" SUFFIX ".mjs" LINK_FLAGS "${EMCC_LINK} -Oz")
-target_compile_options(screamer PRIVATE -Oz -fwasm-exceptions)
+target_compile_options(screamer PRIVATE -Oz -fwasm-exceptions -sWASM_LEGACY_EXCEPTIONS=1)

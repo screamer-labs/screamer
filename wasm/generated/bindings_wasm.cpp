@@ -197,10 +197,96 @@
 #include "screamer/wma.h"
 #include "screamer/yang_zhang.h"
 
-// ---- ew_optional factories: JS passes NaN for a missing optional slot ----
+// ---- factories: JS passes NaN for a missing optional slot; strings arrive as vals ----
 namespace {
+inline screamer::AmihudIlliquidity* make_AmihudIlliquidity(int a0, emscripten::val a1) {
+    const std::string a1s = a1.as<std::string>();
+    return new screamer::AmihudIlliquidity(a0, a1s);
+}
+
+inline screamer::BacktestL1Orders* make_BacktestL1Orders(double a0, double a1, emscripten::val a2, double a3, double a4, double a5, double a6, double a7, double a8, double a9, double a10, emscripten::val a11) {
+    const std::string a2s = a2.as<std::string>();
+    const std::string a11s = a11.as<std::string>();
+    return new screamer::BacktestL1Orders(a0, a1, a2s, a3, a4, a5, a6, a7, a8, a9, a10, a11s);
+}
+
+inline screamer::BacktestL1Target* make_BacktestL1Target(double a0, double a1, double a2, double a3, double a4, double a5, double a6, emscripten::val a7, double a8, double a9, double a10, emscripten::val a11, double a12, double a13) {
+    const std::string a7s = a7.as<std::string>();
+    const std::string a11s = a11.as<std::string>();
+    return new screamer::BacktestL1Target(a0, a1, a2, a3, a4, a5, a6, a7s, a8, a9, a10, a11s, a12, a13);
+}
+
+inline screamer::BacktestL1TradesOrders* make_BacktestL1TradesOrders(double a0, double a1, emscripten::val a2, double a3, double a4, double a5, double a6, double a7, double a8, double a9, double a10, emscripten::val a11) {
+    const std::string a2s = a2.as<std::string>();
+    const std::string a11s = a11.as<std::string>();
+    return new screamer::BacktestL1TradesOrders(a0, a1, a2s, a3, a4, a5, a6, a7, a8, a9, a10, a11s);
+}
+
+inline screamer::BacktestOHLCOrders* make_BacktestOHLCOrders(double a0, double a1, emscripten::val a2, double a3, double a4, double a5, double a6, double a7, double a8, double a9, double a10, emscripten::val a11) {
+    const std::string a2s = a2.as<std::string>();
+    const std::string a11s = a11.as<std::string>();
+    return new screamer::BacktestOHLCOrders(a0, a1, a2s, a3, a4, a5, a6, a7, a8, a9, a10, a11s);
+}
+
+inline screamer::BacktestOHLCTarget* make_BacktestOHLCTarget(double a0, double a1, double a2, double a3, double a4, double a5, double a6, emscripten::val a7, emscripten::val a8, int a9, double a10, double a11, double a12, emscripten::val a13, double a14, double a15) {
+    const std::string a7s = a7.as<std::string>();
+    const std::string a8s = a8.as<std::string>();
+    const std::string a13s = a13.as<std::string>();
+    return new screamer::BacktestOHLCTarget(a0, a1, a2, a3, a4, a5, a6, a7s, a8s, a9, a10, a11, a12, a13s, a14, a15);
+}
+
+inline screamer::BacktestOHLCVTarget* make_BacktestOHLCVTarget(double a0, double a1, double a2, double a3, double a4, double a5, double a6, double a7, emscripten::val a8, emscripten::val a9, int a10, double a11, double a12, double a13, emscripten::val a14, double a15, double a16) {
+    const std::string a8s = a8.as<std::string>();
+    const std::string a9s = a9.as<std::string>();
+    const std::string a14s = a14.as<std::string>();
+    return new screamer::BacktestOHLCVTarget(a0, a1, a2, a3, a4, a5, a6, a7, a8s, a9s, a10, a11, a12, a13, a14s, a15, a16);
+}
+
+inline screamer::BacktestPortfolioOHLCTarget* make_BacktestPortfolioOHLCTarget(std::vector<double> a0, std::vector<double> a1, emscripten::val a2, std::vector<double> a3, std::vector<double> a4, std::vector<double> a5, emscripten::val a6, double a7, double a8, emscripten::val a9, double a10, double a11, emscripten::val a12, int a13) {
+    const std::string a2s = a2.as<std::string>();
+    const std::string a6s = a6.as<std::string>();
+    const std::string a9s = a9.as<std::string>();
+    const std::string a12s = a12.as<std::string>();
+    return new screamer::BacktestPortfolioOHLCTarget(a0, a1, a2s, a3, a4, a5, a6s, a7, a8, a9s, a10, a11, a12s, a13);
+}
+
+inline screamer::BacktestPortfolioTarget* make_BacktestPortfolioTarget(std::vector<double> a0, std::vector<double> a1, emscripten::val a2, std::vector<double> a3, std::vector<double> a4, std::vector<double> a5, emscripten::val a6, double a7, double a8, emscripten::val a9, double a10, double a11) {
+    const std::string a2s = a2.as<std::string>();
+    const std::string a6s = a6.as<std::string>();
+    const std::string a9s = a9.as<std::string>();
+    return new screamer::BacktestPortfolioTarget(a0, a1, a2s, a3, a4, a5, a6s, a7, a8, a9s, a10, a11);
+}
+
+inline screamer::BacktestPriceTarget* make_BacktestPriceTarget(double a0, double a1, double a2, double a3, double a4, double a5, double a6, emscripten::val a7, double a8, double a9, double a10, double a11, emscripten::val a12, double a13, double a14) {
+    const std::string a7s = a7.as<std::string>();
+    const std::string a12s = a12.as<std::string>();
+    return new screamer::BacktestPriceTarget(a0, a1, a2, a3, a4, a5, a6, a7s, a8, a9, a10, a11, a12s, a13, a14);
+}
+
+inline screamer::BacktestTradesOrders* make_BacktestTradesOrders(double a0, double a1, emscripten::val a2, double a3, double a4, double a5, double a6, double a7, double a8, double a9, double a10, emscripten::val a11) {
+    const std::string a2s = a2.as<std::string>();
+    const std::string a11s = a11.as<std::string>();
+    return new screamer::BacktestTradesOrders(a0, a1, a2s, a3, a4, a5, a6, a7, a8, a9, a10, a11s);
+}
+
+inline screamer::BacktestTradesTarget* make_BacktestTradesTarget(double a0, double a1, double a2, double a3, double a4, double a5, double a6, emscripten::val a7, double a8, double a9, double a10, emscripten::val a11, double a12, double a13, double a14) {
+    const std::string a7s = a7.as<std::string>();
+    const std::string a11s = a11.as<std::string>();
+    return new screamer::BacktestTradesTarget(a0, a1, a2, a3, a4, a5, a6, a7s, a8, a9, a10, a11s, a12, a13, a14);
+}
+
 inline screamer::BayesianRegression* make_BayesianRegression(double a0, double a1, double a2, double a3, double a4, double a5) {
     return new screamer::BayesianRegression(screamer_wasm::opt(a0), screamer_wasm::opt(a1), screamer_wasm::opt(a2), screamer_wasm::opt(a3), a4, a5);
+}
+
+inline screamer::BollingerBands* make_BollingerBands(int a0, double a1, emscripten::val a2) {
+    const std::string a2s = a2.as<std::string>();
+    return new screamer::BollingerBands(a0, a1, a2s);
+}
+
+inline screamer::BulkVolumeClassifier* make_BulkVolumeClassifier(int a0, emscripten::val a1) {
+    const std::string a1s = a1.as<std::string>();
+    return new screamer::BulkVolumeClassifier(a0, a1s);
 }
 
 inline screamer::Clip* make_Clip(double a0, double a1) {
@@ -211,12 +297,32 @@ inline screamer::CrossNormalize* make_CrossNormalize(double a0, double a1) {
     return new screamer::CrossNormalize(a0, screamer_wasm::opt(a1));
 }
 
+inline screamer::CrossRank* make_CrossRank(emscripten::val a0) {
+    const std::string a0s = a0.as<std::string>();
+    return new screamer::CrossRank(a0s);
+}
+
 inline screamer::DEMA* make_DEMA(double a0, double a1, double a2, double a3) {
     return new screamer::DEMA(screamer_wasm::opt(a0), screamer_wasm::opt(a1), screamer_wasm::opt(a2), screamer_wasm::opt(a3));
 }
 
 inline screamer::Decycler* make_Decycler(double a0, double a1) {
     return new screamer::Decycler(screamer_wasm::opt(a0), screamer_wasm::opt(a1));
+}
+
+inline screamer::Detrend* make_Detrend(int a0, emscripten::val a1) {
+    const std::string a1s = a1.as<std::string>();
+    return new screamer::Detrend(a0, a1s);
+}
+
+inline screamer::Diff* make_Diff(int a0, emscripten::val a1) {
+    const std::string a1s = a1.as<std::string>();
+    return new screamer::Diff(a0, a1s);
+}
+
+inline screamer::Diff2* make_Diff2(emscripten::val a0) {
+    const std::string a0s = a0.as<std::string>();
+    return new screamer::Diff2(a0s);
 }
 
 inline screamer::EwAlpha* make_EwAlpha(double a0, double a1, double a2, double a3) {
@@ -303,8 +409,164 @@ inline screamer::EwZscore* make_EwZscore(double a0, double a1, double a2, double
     return new screamer::EwZscore(screamer_wasm::opt(a0), screamer_wasm::opt(a1), screamer_wasm::opt(a2), screamer_wasm::opt(a3));
 }
 
-inline screamer::RollingSigmaClip* make_RollingSigmaClip(int a0, double a1, double a2, std::string a3, std::string a4) {
-    return new screamer::RollingSigmaClip(a0, screamer_wasm::opt(a1), screamer_wasm::opt(a2), a3, a4);
+inline screamer::FracDiff* make_FracDiff(double a0, int a1, double a2, emscripten::val a3) {
+    const std::string a3s = a3.as<std::string>();
+    return new screamer::FracDiff(a0, a1, a2, a3s);
+}
+
+inline screamer::Hampel* make_Hampel(int a0, double a1, emscripten::val a2, emscripten::val a3) {
+    const std::string a2s = a2.as<std::string>();
+    const std::string a3s = a3.as<std::string>();
+    return new screamer::Hampel(a0, a1, a2s, a3s);
+}
+
+inline screamer::ImpulseClip* make_ImpulseClip(int a0, double a1, emscripten::val a2, emscripten::val a3) {
+    const std::string a2s = a2.as<std::string>();
+    const std::string a3s = a3.as<std::string>();
+    return new screamer::ImpulseClip(a0, a1, a2s, a3s);
+}
+
+inline screamer::Lag* make_Lag(int a0, emscripten::val a1) {
+    const std::string a1s = a1.as<std::string>();
+    return new screamer::Lag(a0, a1s);
+}
+
+inline screamer::Momentum* make_Momentum(int a0, emscripten::val a1) {
+    const std::string a1s = a1.as<std::string>();
+    return new screamer::Momentum(a0, a1s);
+}
+
+inline screamer::RollSpread* make_RollSpread(int a0, emscripten::val a1) {
+    const std::string a1s = a1.as<std::string>();
+    return new screamer::RollSpread(a0, a1s);
+}
+
+inline screamer::RollingAlpha* make_RollingAlpha(int a0, emscripten::val a1) {
+    const std::string a1s = a1.as<std::string>();
+    return new screamer::RollingAlpha(a0, a1s);
+}
+
+inline screamer::RollingBeta* make_RollingBeta(int a0, emscripten::val a1) {
+    const std::string a1s = a1.as<std::string>();
+    return new screamer::RollingBeta(a0, a1s);
+}
+
+inline screamer::RollingCorr* make_RollingCorr(int a0, emscripten::val a1) {
+    const std::string a1s = a1.as<std::string>();
+    return new screamer::RollingCorr(a0, a1s);
+}
+
+inline screamer::RollingCov* make_RollingCov(int a0, emscripten::val a1) {
+    const std::string a1s = a1.as<std::string>();
+    return new screamer::RollingCov(a0, a1s);
+}
+
+inline screamer::RollingDownsideDeviation* make_RollingDownsideDeviation(int a0, double a1, emscripten::val a2) {
+    const std::string a2s = a2.as<std::string>();
+    return new screamer::RollingDownsideDeviation(a0, a1, a2s);
+}
+
+inline screamer::RollingHurst* make_RollingHurst(int a0, int a1, emscripten::val a2) {
+    const std::string a2s = a2.as<std::string>();
+    return new screamer::RollingHurst(a0, a1, a2s);
+}
+
+inline screamer::RollingKurt* make_RollingKurt(int a0, emscripten::val a1) {
+    const std::string a1s = a1.as<std::string>();
+    return new screamer::RollingKurt(a0, a1s);
+}
+
+inline screamer::RollingLinearRegression* make_RollingLinearRegression(int a0, emscripten::val a1) {
+    const std::string a1s = a1.as<std::string>();
+    return new screamer::RollingLinearRegression(a0, a1s);
+}
+
+inline screamer::RollingMad* make_RollingMad(int a0, emscripten::val a1) {
+    const std::string a1s = a1.as<std::string>();
+    return new screamer::RollingMad(a0, a1s);
+}
+
+inline screamer::RollingMean* make_RollingMean(int a0, emscripten::val a1) {
+    const std::string a1s = a1.as<std::string>();
+    return new screamer::RollingMean(a0, a1s);
+}
+
+inline screamer::RollingMedianAD* make_RollingMedianAD(int a0, emscripten::val a1) {
+    const std::string a1s = a1.as<std::string>();
+    return new screamer::RollingMedianAD(a0, a1s);
+}
+
+inline screamer::RollingOU* make_RollingOU(int a0, emscripten::val a1, emscripten::val a2) {
+    const std::string a1s = a1.as<std::string>();
+    const std::string a2s = a2.as<std::string>();
+    return new screamer::RollingOU(a0, a1s, a2s);
+}
+
+inline screamer::RollingPoly1* make_RollingPoly1(int a0, int a1, emscripten::val a2) {
+    const std::string a2s = a2.as<std::string>();
+    return new screamer::RollingPoly1(a0, a1, a2s);
+}
+
+inline screamer::RollingPoly2* make_RollingPoly2(int a0, int a1, emscripten::val a2) {
+    const std::string a2s = a2.as<std::string>();
+    return new screamer::RollingPoly2(a0, a1, a2s);
+}
+
+inline screamer::RollingRSI* make_RollingRSI(int a0, emscripten::val a1, emscripten::val a2) {
+    const std::string a1s = a1.as<std::string>();
+    const std::string a2s = a2.as<std::string>();
+    return new screamer::RollingRSI(a0, a1s, a2s);
+}
+
+inline screamer::RollingResidualStd* make_RollingResidualStd(int a0, emscripten::val a1) {
+    const std::string a1s = a1.as<std::string>();
+    return new screamer::RollingResidualStd(a0, a1s);
+}
+
+inline screamer::RollingRms* make_RollingRms(int a0, emscripten::val a1) {
+    const std::string a1s = a1.as<std::string>();
+    return new screamer::RollingRms(a0, a1s);
+}
+
+inline screamer::RollingSigmaClip* make_RollingSigmaClip(int a0, double a1, double a2, emscripten::val a3, emscripten::val a4) {
+    const std::string a3s = a3.as<std::string>();
+    const std::string a4s = a4.as<std::string>();
+    return new screamer::RollingSigmaClip(a0, screamer_wasm::opt(a1), screamer_wasm::opt(a2), a3s, a4s);
+}
+
+inline screamer::RollingSkew* make_RollingSkew(int a0, emscripten::val a1) {
+    const std::string a1s = a1.as<std::string>();
+    return new screamer::RollingSkew(a0, a1s);
+}
+
+inline screamer::RollingSpread* make_RollingSpread(int a0, emscripten::val a1) {
+    const std::string a1s = a1.as<std::string>();
+    return new screamer::RollingSpread(a0, a1s);
+}
+
+inline screamer::RollingStd* make_RollingStd(int a0, emscripten::val a1) {
+    const std::string a1s = a1.as<std::string>();
+    return new screamer::RollingStd(a0, a1s);
+}
+
+inline screamer::RollingSum* make_RollingSum(int a0, emscripten::val a1) {
+    const std::string a1s = a1.as<std::string>();
+    return new screamer::RollingSum(a0, a1s);
+}
+
+inline screamer::RollingTLSBeta* make_RollingTLSBeta(int a0, emscripten::val a1) {
+    const std::string a1s = a1.as<std::string>();
+    return new screamer::RollingTLSBeta(a0, a1s);
+}
+
+inline screamer::RollingVar* make_RollingVar(int a0, emscripten::val a1) {
+    const std::string a1s = a1.as<std::string>();
+    return new screamer::RollingVar(a0, a1s);
+}
+
+inline screamer::RollingZscore* make_RollingZscore(int a0, emscripten::val a1) {
+    const std::string a1s = a1.as<std::string>();
+    return new screamer::RollingZscore(a0, a1s);
 }
 
 inline screamer::RoofingFilter* make_RoofingFilter(double a0, double a1, double a2, double a3) {
@@ -317,6 +579,11 @@ inline screamer::SuperSmoother* make_SuperSmoother(double a0, double a1) {
 
 inline screamer::TEMA* make_TEMA(double a0, double a1, double a2, double a3) {
     return new screamer::TEMA(screamer_wasm::opt(a0), screamer_wasm::opt(a1), screamer_wasm::opt(a2), screamer_wasm::opt(a3));
+}
+
+inline screamer::WMA* make_WMA(int a0, emscripten::val a1) {
+    const std::string a1s = a1.as<std::string>();
+    return new screamer::WMA(a0, a1s);
 }
 
 }  // namespace
@@ -342,7 +609,7 @@ EMSCRIPTEN_BINDINGS(screamer) {
     emscripten::class_<screamer::Add, emscripten::base<screamer::EvalOp>>("Add")
         .constructor<>();
     emscripten::class_<screamer::AmihudIlliquidity, emscripten::base<screamer::EvalOp>>("AmihudIlliquidity")
-        .constructor<int, std::string>();
+        .constructor(&make_AmihudIlliquidity, emscripten::allow_raw_pointers());
     emscripten::class_<screamer::And, emscripten::base<screamer::EvalOp>>("And")
         .constructor<>();
     emscripten::class_<screamer::Transform<(double (*)(double)) std::asin>, emscripten::base<screamer::EvalOp>>("Asin")
@@ -356,47 +623,47 @@ EMSCRIPTEN_BINDINGS(screamer) {
     emscripten::class_<screamer::BacktestCarry, emscripten::base<screamer::EvalOp>>("BacktestCarry")
         .constructor<double>();
     emscripten::class_<screamer::BacktestL1Orders, emscripten::base<screamer::EvalOp>>("BacktestL1Orders")
-        .constructor<double, double, std::string, double, double, double, double, double, double, double, double, std::string>();
+        .constructor(&make_BacktestL1Orders, emscripten::allow_raw_pointers());
     emscripten::class_<screamer::BacktestL1Target, emscripten::base<screamer::EvalOp>>("BacktestL1Target")
-        .constructor<double, double, double, double, double, double, double, std::string, double, double, double, std::string, double, double>();
+        .constructor(&make_BacktestL1Target, emscripten::allow_raw_pointers());
     emscripten::class_<screamer::BacktestL1TradesOrders, emscripten::base<screamer::EvalOp>>("BacktestL1TradesOrders")
-        .constructor<double, double, std::string, double, double, double, double, double, double, double, double, std::string>();
+        .constructor(&make_BacktestL1TradesOrders, emscripten::allow_raw_pointers());
     emscripten::class_<screamer::BacktestOHLCOrders, emscripten::base<screamer::EvalOp>>("BacktestOHLCOrders")
-        .constructor<double, double, std::string, double, double, double, double, double, double, double, double, std::string>();
+        .constructor(&make_BacktestOHLCOrders, emscripten::allow_raw_pointers());
     emscripten::class_<screamer::BacktestOHLCTarget, emscripten::base<screamer::EvalOp>>("BacktestOHLCTarget")
-        .constructor<double, double, double, double, double, double, double, std::string, std::string, int, double, double, double, std::string, double, double>();
+        .constructor(&make_BacktestOHLCTarget, emscripten::allow_raw_pointers());
     emscripten::class_<screamer::BacktestOHLCVTarget, emscripten::base<screamer::EvalOp>>("BacktestOHLCVTarget")
-        .constructor<double, double, double, double, double, double, double, double, std::string, std::string, int, double, double, double, std::string, double, double>();
+        .constructor(&make_BacktestOHLCVTarget, emscripten::allow_raw_pointers());
     emscripten::class_<screamer::BacktestPortfolioOHLCTarget, emscripten::base<screamer::EvalOp>>("BacktestPortfolioOHLCTarget")
-        .constructor<std::vector<double>, std::vector<double>, std::string, std::vector<double>, std::vector<double>, std::vector<double>, std::string, double, double, std::string, double, double, std::string, int>()
+        .constructor(&make_BacktestPortfolioOHLCTarget, emscripten::allow_raw_pointers())
         .function("mapRowInto", &screamer_wasm::mapRowInto<screamer::BacktestPortfolioOHLCTarget>)
         .function("mapRowsInto", &screamer_wasm::mapRowsInto<screamer::BacktestPortfolioOHLCTarget>)
         .function("fieldsIn", &screamer_wasm::fieldsIn<screamer::BacktestPortfolioOHLCTarget>)
         .function("fieldsOut", &screamer_wasm::fieldsOut<screamer::BacktestPortfolioOHLCTarget>);
     emscripten::class_<screamer::BacktestPortfolioTarget, emscripten::base<screamer::EvalOp>>("BacktestPortfolioTarget")
-        .constructor<std::vector<double>, std::vector<double>, std::string, std::vector<double>, std::vector<double>, std::vector<double>, std::string, double, double, std::string, double, double>()
+        .constructor(&make_BacktestPortfolioTarget, emscripten::allow_raw_pointers())
         .function("mapRowInto", &screamer_wasm::mapRowInto<screamer::BacktestPortfolioTarget>)
         .function("mapRowsInto", &screamer_wasm::mapRowsInto<screamer::BacktestPortfolioTarget>)
         .function("fieldsIn", &screamer_wasm::fieldsIn<screamer::BacktestPortfolioTarget>)
         .function("fieldsOut", &screamer_wasm::fieldsOut<screamer::BacktestPortfolioTarget>);
     emscripten::class_<screamer::BacktestPriceTarget, emscripten::base<screamer::EvalOp>>("BacktestPriceTarget")
-        .constructor<double, double, double, double, double, double, double, std::string, double, double, double, double, std::string, double, double>();
+        .constructor(&make_BacktestPriceTarget, emscripten::allow_raw_pointers());
     emscripten::class_<screamer::BacktestReport, emscripten::base<screamer::EvalOp>>("BacktestReport")
         .constructor<double>();
     emscripten::class_<screamer::BacktestStats, emscripten::base<screamer::EvalOp>>("BacktestStats")
         .constructor<double>();
     emscripten::class_<screamer::BacktestTradesOrders, emscripten::base<screamer::EvalOp>>("BacktestTradesOrders")
-        .constructor<double, double, std::string, double, double, double, double, double, double, double, double, std::string>();
+        .constructor(&make_BacktestTradesOrders, emscripten::allow_raw_pointers());
     emscripten::class_<screamer::BacktestTradesTarget, emscripten::base<screamer::EvalOp>>("BacktestTradesTarget")
-        .constructor<double, double, double, double, double, double, double, std::string, double, double, double, std::string, double, double, double>();
+        .constructor(&make_BacktestTradesTarget, emscripten::allow_raw_pointers());
     emscripten::class_<screamer::BandSignal, emscripten::base<screamer::EvalOp>>("BandSignal")
         .constructor<double, double, double>();
     emscripten::class_<screamer::BayesianRegression, emscripten::base<screamer::EvalOp>>("BayesianRegression")
         .constructor(&make_BayesianRegression, emscripten::allow_raw_pointers());
     emscripten::class_<screamer::BollingerBands, emscripten::base<screamer::EvalOp>>("BollingerBands")
-        .constructor<int, double, std::string>();
+        .constructor(&make_BollingerBands, emscripten::allow_raw_pointers());
     emscripten::class_<screamer::BulkVolumeClassifier, emscripten::base<screamer::EvalOp>>("BulkVolumeClassifier")
-        .constructor<int, std::string>();
+        .constructor(&make_BulkVolumeClassifier, emscripten::allow_raw_pointers());
     emscripten::class_<screamer::Butter, emscripten::base<screamer::EvalOp>>("Butter")
         .constructor<int, double>();
     emscripten::class_<screamer::ButterBandpass, emscripten::base<screamer::EvalOp>>("ButterBandpass")
@@ -430,7 +697,7 @@ EMSCRIPTEN_BINDINGS(screamer) {
         .function("fieldsIn", &screamer_wasm::fieldsIn<screamer::CrossNormalize>)
         .function("fieldsOut", &screamer_wasm::fieldsOut<screamer::CrossNormalize>);
     emscripten::class_<screamer::CrossRank, emscripten::base<screamer::EvalOp>>("CrossRank")
-        .constructor<std::string>()
+        .constructor(&make_CrossRank, emscripten::allow_raw_pointers())
         .function("mapRowInto", &screamer_wasm::mapRowInto<screamer::CrossRank>)
         .function("mapRowsInto", &screamer_wasm::mapRowsInto<screamer::CrossRank>)
         .function("fieldsIn", &screamer_wasm::fieldsIn<screamer::CrossRank>)
@@ -478,11 +745,11 @@ EMSCRIPTEN_BINDINGS(screamer) {
     emscripten::class_<screamer::Decycler, emscripten::base<screamer::EvalOp>>("Decycler")
         .constructor(&make_Decycler, emscripten::allow_raw_pointers());
     emscripten::class_<screamer::Detrend, emscripten::base<screamer::EvalOp>>("Detrend")
-        .constructor<int, std::string>();
+        .constructor(&make_Detrend, emscripten::allow_raw_pointers());
     emscripten::class_<screamer::Diff, emscripten::base<screamer::EvalOp>>("Diff")
-        .constructor<int, std::string>();
+        .constructor(&make_Diff, emscripten::allow_raw_pointers());
     emscripten::class_<screamer::Diff2, emscripten::base<screamer::EvalOp>>("Diff2")
-        .constructor<std::string>();
+        .constructor(&make_Diff2, emscripten::allow_raw_pointers());
     emscripten::class_<screamer::Div, emscripten::base<screamer::EvalOp>>("Div")
         .constructor<>();
     emscripten::class_<screamer::DominantCycle, emscripten::base<screamer::EvalOp>>("DominantCycle")
@@ -574,13 +841,13 @@ EMSCRIPTEN_BINDINGS(screamer) {
     emscripten::class_<screamer::Transform<(double (*)(double)) std::floor>, emscripten::base<screamer::EvalOp>>("Floor")
         .constructor<>();
     emscripten::class_<screamer::FracDiff, emscripten::base<screamer::EvalOp>>("FracDiff")
-        .constructor<double, int, double, std::string>();
+        .constructor(&make_FracDiff, emscripten::allow_raw_pointers());
     emscripten::class_<screamer::GreaterEqual, emscripten::base<screamer::EvalOp>>("GreaterEqual")
         .constructor<>();
     emscripten::class_<screamer::GreaterThan, emscripten::base<screamer::EvalOp>>("GreaterThan")
         .constructor<>();
     emscripten::class_<screamer::Hampel, emscripten::base<screamer::EvalOp>>("Hampel")
-        .constructor<int, double, std::string, std::string>();
+        .constructor(&make_Hampel, emscripten::allow_raw_pointers());
     emscripten::class_<screamer::HawkesIntensity, emscripten::base<screamer::EvalOp>>("HawkesIntensity")
         .constructor<double, double, double>();
     emscripten::class_<screamer::HilbertPhasor, emscripten::base<screamer::EvalOp>>("HilbertPhasor")
@@ -594,7 +861,7 @@ EMSCRIPTEN_BINDINGS(screamer) {
     emscripten::class_<screamer::Transform<(double (*)(double)) screamer::identity>, emscripten::base<screamer::EvalOp>>("Identity")
         .constructor<>();
     emscripten::class_<screamer::ImpulseClip, emscripten::base<screamer::EvalOp>>("ImpulseClip")
-        .constructor<int, double, std::string, std::string>();
+        .constructor(&make_ImpulseClip, emscripten::allow_raw_pointers());
     emscripten::class_<screamer::InstantaneousTrendline, emscripten::base<screamer::EvalOp>>("InstantaneousTrendline")
         .constructor<>();
     emscripten::class_<screamer::IsFinite, emscripten::base<screamer::EvalOp>>("IsFinite")
@@ -610,7 +877,7 @@ EMSCRIPTEN_BINDINGS(screamer) {
     emscripten::class_<screamer::KeltnerChannels, emscripten::base<screamer::EvalOp>>("KeltnerChannels")
         .constructor<int, double>();
     emscripten::class_<screamer::Lag, emscripten::base<screamer::EvalOp>>("Lag")
-        .constructor<int, std::string>();
+        .constructor(&make_Lag, emscripten::allow_raw_pointers());
     emscripten::class_<screamer::Last, emscripten::base<screamer::EvalOp>>("Last")
         .constructor<>();
     emscripten::class_<screamer::LeeReadySign, emscripten::base<screamer::EvalOp>>("LeeReadySign")
@@ -642,7 +909,7 @@ EMSCRIPTEN_BINDINGS(screamer) {
     emscripten::class_<screamer::MinusDM, emscripten::base<screamer::EvalOp>>("MinusDM")
         .constructor<int>();
     emscripten::class_<screamer::Momentum, emscripten::base<screamer::EvalOp>>("Momentum")
-        .constructor<int, std::string>();
+        .constructor(&make_Momentum, emscripten::allow_raw_pointers());
     emscripten::class_<screamer::MovingAverage, emscripten::base<screamer::EvalOp>>("MovingAverage")
         .constructor<std::vector<double>>();
     emscripten::class_<screamer::Mul, emscripten::base<screamer::EvalOp>>("Mul")
@@ -690,27 +957,27 @@ EMSCRIPTEN_BINDINGS(screamer) {
     emscripten::class_<screamer::Return, emscripten::base<screamer::EvalOp>>("Return")
         .constructor<int>();
     emscripten::class_<screamer::RollSpread, emscripten::base<screamer::EvalOp>>("RollSpread")
-        .constructor<int, std::string>();
+        .constructor(&make_RollSpread, emscripten::allow_raw_pointers());
     emscripten::class_<screamer::RollingADF, emscripten::base<screamer::EvalOp>>("RollingADF")
         .constructor<int, int>();
     emscripten::class_<screamer::RollingAlpha, emscripten::base<screamer::EvalOp>>("RollingAlpha")
-        .constructor<int, std::string>();
+        .constructor(&make_RollingAlpha, emscripten::allow_raw_pointers());
     emscripten::class_<screamer::RollingArgmax, emscripten::base<screamer::EvalOp>>("RollingArgmax")
         .constructor<int>();
     emscripten::class_<screamer::RollingArgmin, emscripten::base<screamer::EvalOp>>("RollingArgmin")
         .constructor<int>();
     emscripten::class_<screamer::RollingBeta, emscripten::base<screamer::EvalOp>>("RollingBeta")
-        .constructor<int, std::string>();
+        .constructor(&make_RollingBeta, emscripten::allow_raw_pointers());
     emscripten::class_<screamer::RollingCVaR, emscripten::base<screamer::EvalOp>>("RollingCVaR")
         .constructor<int, double>();
     emscripten::class_<screamer::RollingCalmar, emscripten::base<screamer::EvalOp>>("RollingCalmar")
         .constructor<int, double>();
     emscripten::class_<screamer::RollingCorr, emscripten::base<screamer::EvalOp>>("RollingCorr")
-        .constructor<int, std::string>();
+        .constructor(&make_RollingCorr, emscripten::allow_raw_pointers());
     emscripten::class_<screamer::RollingCov, emscripten::base<screamer::EvalOp>>("RollingCov")
-        .constructor<int, std::string>();
+        .constructor(&make_RollingCov, emscripten::allow_raw_pointers());
     emscripten::class_<screamer::RollingDownsideDeviation, emscripten::base<screamer::EvalOp>>("RollingDownsideDeviation")
-        .constructor<int, double, std::string>();
+        .constructor(&make_RollingDownsideDeviation, emscripten::allow_raw_pointers());
     emscripten::class_<screamer::RollingGarmanKlassVar, emscripten::base<screamer::EvalOp>>("RollingGarmanKlassVar")
         .constructor<int>();
     emscripten::class_<screamer::RollingGarmanKlassVol, emscripten::base<screamer::EvalOp>>("RollingGarmanKlassVol")
@@ -718,33 +985,33 @@ EMSCRIPTEN_BINDINGS(screamer) {
     emscripten::class_<screamer::RollingHitRate, emscripten::base<screamer::EvalOp>>("RollingHitRate")
         .constructor<int>();
     emscripten::class_<screamer::RollingHurst, emscripten::base<screamer::EvalOp>>("RollingHurst")
-        .constructor<int, int, std::string>();
+        .constructor(&make_RollingHurst, emscripten::allow_raw_pointers());
     emscripten::class_<screamer::RollingInfoRatio, emscripten::base<screamer::EvalOp>>("RollingInfoRatio")
         .constructor<int, double>();
     emscripten::class_<screamer::RollingIqr, emscripten::base<screamer::EvalOp>>("RollingIqr")
         .constructor<int>();
     emscripten::class_<screamer::RollingKurt, emscripten::base<screamer::EvalOp>>("RollingKurt")
-        .constructor<int, std::string>();
+        .constructor(&make_RollingKurt, emscripten::allow_raw_pointers());
     emscripten::class_<screamer::RollingLinearRegression, emscripten::base<screamer::EvalOp>>("RollingLinearRegression")
-        .constructor<int, std::string>();
+        .constructor(&make_RollingLinearRegression, emscripten::allow_raw_pointers());
     emscripten::class_<screamer::RollingMad, emscripten::base<screamer::EvalOp>>("RollingMad")
-        .constructor<int, std::string>();
+        .constructor(&make_RollingMad, emscripten::allow_raw_pointers());
     emscripten::class_<screamer::RollingMax, emscripten::base<screamer::EvalOp>>("RollingMax")
         .constructor<int>();
     emscripten::class_<screamer::RollingMaxDrawdown, emscripten::base<screamer::EvalOp>>("RollingMaxDrawdown")
         .constructor<int>();
     emscripten::class_<screamer::RollingMean, emscripten::base<screamer::EvalOp>>("RollingMean")
-        .constructor<int, std::string>();
+        .constructor(&make_RollingMean, emscripten::allow_raw_pointers());
     emscripten::class_<screamer::RollingMedian, emscripten::base<screamer::EvalOp>>("RollingMedian")
         .constructor<int>();
     emscripten::class_<screamer::RollingMedianAD, emscripten::base<screamer::EvalOp>>("RollingMedianAD")
-        .constructor<int, std::string>();
+        .constructor(&make_RollingMedianAD, emscripten::allow_raw_pointers());
     emscripten::class_<screamer::RollingMin, emscripten::base<screamer::EvalOp>>("RollingMin")
         .constructor<int>();
     emscripten::class_<screamer::RollingMinMax, emscripten::base<screamer::EvalOp>>("RollingMinMax")
         .constructor<int>();
     emscripten::class_<screamer::RollingOU, emscripten::base<screamer::EvalOp>>("RollingOU")
-        .constructor<int, std::string, std::string>();
+        .constructor(&make_RollingOU, emscripten::allow_raw_pointers());
     emscripten::class_<screamer::RollingOmega, emscripten::base<screamer::EvalOp>>("RollingOmega")
         .constructor<int, double>();
     emscripten::class_<screamer::RollingParkinsonVar, emscripten::base<screamer::EvalOp>>("RollingParkinsonVar")
@@ -754,21 +1021,21 @@ EMSCRIPTEN_BINDINGS(screamer) {
     emscripten::class_<screamer::RollingPercentile, emscripten::base<screamer::EvalOp>>("RollingPercentile")
         .constructor<int>();
     emscripten::class_<screamer::RollingPoly1, emscripten::base<screamer::EvalOp>>("RollingPoly1")
-        .constructor<int, int, std::string>();
+        .constructor(&make_RollingPoly1, emscripten::allow_raw_pointers());
     emscripten::class_<screamer::RollingPoly2, emscripten::base<screamer::EvalOp>>("RollingPoly2")
-        .constructor<int, int, std::string>();
+        .constructor(&make_RollingPoly2, emscripten::allow_raw_pointers());
     emscripten::class_<screamer::RollingQuantile, emscripten::base<screamer::EvalOp>>("RollingQuantile")
         .constructor<int, double>();
     emscripten::class_<screamer::RollingRSI, emscripten::base<screamer::EvalOp>>("RollingRSI")
-        .constructor<int, std::string, std::string>();
+        .constructor(&make_RollingRSI, emscripten::allow_raw_pointers());
     emscripten::class_<screamer::RollingRange, emscripten::base<screamer::EvalOp>>("RollingRange")
         .constructor<int>();
     emscripten::class_<screamer::RollingRank, emscripten::base<screamer::EvalOp>>("RollingRank")
         .constructor<int>();
     emscripten::class_<screamer::RollingResidualStd, emscripten::base<screamer::EvalOp>>("RollingResidualStd")
-        .constructor<int, std::string>();
+        .constructor(&make_RollingResidualStd, emscripten::allow_raw_pointers());
     emscripten::class_<screamer::RollingRms, emscripten::base<screamer::EvalOp>>("RollingRms")
-        .constructor<int, std::string>();
+        .constructor(&make_RollingRms, emscripten::allow_raw_pointers());
     emscripten::class_<screamer::RollingRogersSatchellVar, emscripten::base<screamer::EvalOp>>("RollingRogersSatchellVar")
         .constructor<int>();
     emscripten::class_<screamer::RollingRogersSatchellVol, emscripten::base<screamer::EvalOp>>("RollingRogersSatchellVol")
@@ -778,29 +1045,29 @@ EMSCRIPTEN_BINDINGS(screamer) {
     emscripten::class_<screamer::RollingSigmaClip, emscripten::base<screamer::EvalOp>>("RollingSigmaClip")
         .constructor(&make_RollingSigmaClip, emscripten::allow_raw_pointers());
     emscripten::class_<screamer::RollingSkew, emscripten::base<screamer::EvalOp>>("RollingSkew")
-        .constructor<int, std::string>();
+        .constructor(&make_RollingSkew, emscripten::allow_raw_pointers());
     emscripten::class_<screamer::RollingSortino, emscripten::base<screamer::EvalOp>>("RollingSortino")
         .constructor<int, double, double>();
     emscripten::class_<screamer::RollingSpread, emscripten::base<screamer::EvalOp>>("RollingSpread")
-        .constructor<int, std::string>();
+        .constructor(&make_RollingSpread, emscripten::allow_raw_pointers());
     emscripten::class_<screamer::RollingStd, emscripten::base<screamer::EvalOp>>("RollingStd")
-        .constructor<int, std::string>();
+        .constructor(&make_RollingStd, emscripten::allow_raw_pointers());
     emscripten::class_<screamer::RollingSum, emscripten::base<screamer::EvalOp>>("RollingSum")
-        .constructor<int, std::string>();
+        .constructor(&make_RollingSum, emscripten::allow_raw_pointers());
     emscripten::class_<screamer::RollingTLSBeta, emscripten::base<screamer::EvalOp>>("RollingTLSBeta")
-        .constructor<int, std::string>();
+        .constructor(&make_RollingTLSBeta, emscripten::allow_raw_pointers());
     emscripten::class_<screamer::RollingTSF, emscripten::base<screamer::EvalOp>>("RollingTSF")
         .constructor<int>();
     emscripten::class_<screamer::RollingVWAP, emscripten::base<screamer::EvalOp>>("RollingVWAP")
         .constructor<int>();
     emscripten::class_<screamer::RollingVar, emscripten::base<screamer::EvalOp>>("RollingVar")
-        .constructor<int, std::string>();
+        .constructor(&make_RollingVar, emscripten::allow_raw_pointers());
     emscripten::class_<screamer::RollingYangZhangVar, emscripten::base<screamer::EvalOp>>("RollingYangZhangVar")
         .constructor<int>();
     emscripten::class_<screamer::RollingYangZhangVol, emscripten::base<screamer::EvalOp>>("RollingYangZhangVol")
         .constructor<int>();
     emscripten::class_<screamer::RollingZscore, emscripten::base<screamer::EvalOp>>("RollingZscore")
-        .constructor<int, std::string>();
+        .constructor(&make_RollingZscore, emscripten::allow_raw_pointers());
     emscripten::class_<screamer::RoofingFilter, emscripten::base<screamer::EvalOp>>("RoofingFilter")
         .constructor(&make_RoofingFilter, emscripten::allow_raw_pointers());
     emscripten::class_<screamer::Transform<(double (*)(double)) std::nearbyint>, emscripten::base<screamer::EvalOp>>("Round")
@@ -848,7 +1115,7 @@ EMSCRIPTEN_BINDINGS(screamer) {
     emscripten::class_<screamer::VPIN, emscripten::base<screamer::EvalOp>>("VPIN")
         .constructor<double, int>();
     emscripten::class_<screamer::WMA, emscripten::base<screamer::EvalOp>>("WMA")
-        .constructor<int, std::string>();
+        .constructor(&make_WMA, emscripten::allow_raw_pointers());
     emscripten::class_<screamer::Where, emscripten::base<screamer::EvalOp>>("Where")
         .constructor<>();
     emscripten::class_<screamer::WilliamsR, emscripten::base<screamer::EvalOp>>("WilliamsR")

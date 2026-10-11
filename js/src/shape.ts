@@ -12,8 +12,12 @@ export function reshape(x: NdArray | Float64Array | number[], layout: string): N
   const nd: NdArray = (x as NdArray).shape
     ? (x as NdArray) : { data: Float64Array.from(x as ArrayLike<number>), shape: [(x as ArrayLike<number>).length] };
   checkNd(nd);
+  if (typeof layout !== "string") throw new TypeError(`layout must be a string, got ${typeof layout}`);
+  // A plain copy: C++ reads the shape through a val, and must not run user
+  // getters while a WASM frame is live (see errors.ts).
+  const shape = Array.from(nd.shape);
   let plan: { source: number[]; shape: number[] };
-  try { plan = M.layoutPlan(layout, nd.shape); } catch (e) { throw normalizeError(e); }
+  try { plan = M.layoutPlan(layout, shape); } catch (e) { throw normalizeError(e); }
   const kept = plan.source.filter((s) => s >= 0);
   if (kept.every((s, i) => i === 0 || s > kept[i - 1])) return { data: nd.data, shape: plan.shape };
   const inStride = nd.shape.map((_, d) => nd.shape.slice(d + 1).reduce((a, b) => a * b, 1));

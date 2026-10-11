@@ -7,7 +7,10 @@
 // (about 59 KB of the module). These two definitions replace the ones in
 // libc++abi's cxa_exception_js_utils.cpp: they keep its contract but return
 // the type's mangled name. Both are defined so the linker never pulls that
-// archive member, which would define them a second time.
+// archive member, which would define them a second time. Re-verify on emsdk
+// bump (pinned at 4.0.21 in .github/workflows): the type string must stay
+// mangled (js/test/runtime.test.ts checks "St16invalid_argument"), which shows
+// this override, not libc++abi's, is linked.
 #include <cxxabi.h>
 #include <cstdlib>
 #include <cstring>
@@ -16,10 +19,12 @@
 #include <unwind.h>
 
 namespace {
+// A malloc'd copy of `s`, or nullptr when malloc fails (the JS reader then
+// sees an empty type or no message).
 char* copy(const char* s) {
     const std::size_t n = std::strlen(s) + 1;
     char* r = static_cast<char*>(std::malloc(n));
-    std::memcpy(r, s, n);
+    if (r) std::memcpy(r, s, n);
     return r;
 }
 }  // namespace

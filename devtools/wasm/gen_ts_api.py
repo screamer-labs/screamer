@@ -137,6 +137,7 @@ def _build_params(op: dict):
                 "ts_type": ts_type,
                 "default": _ts_default(cpp_type, arg_default),
                 "is_vec": cpp_type == "std::vector<double>",
+                "is_str": cpp_type == "std::string",
             }
         )
     return out
@@ -164,6 +165,12 @@ def _factory_body(name: str, params: list[dict], wrapper: str = "wrapOp") -> str
     vecs = [p for p in params if p["is_vec"]]
     call_args = [f"_v{idx}" if p["is_vec"] else p["name"] for idx, p in enumerate(params)]
     lines = ["  const M = current();"]
+    # A string parameter reaches C++ as a val and is read there; checking it here
+    # keeps C++ from reading a non-string object (and running its getters).
+    for p in params:
+        if p.get("is_str"):
+            n = p["name"]
+            lines.append(f'  if (typeof {n} !== "string") throw new TypeError(`{n} must be a string, got ${{typeof {n}}}`);')
     # Copy array parameters once, now: the closure below runs again for every
     # copy of the op, and must not see later edits to the caller's array.
     for p in vecs:
@@ -173,17 +180,20 @@ def _factory_body(name: str, params: list[dict], wrapper: str = "wrapOp") -> str
         lines.append(f"  return {wrapper}(M, () => new M.{name}({', '.join(call_args)}));")
         return "\n".join(lines)
     lines.append(f"  return {wrapper}(M, () => {{")
+    # The vectors are deleted however the constructor ends, so a rejected
+    # argument does not leak them.
+    vs = [f"_v{idx}" for idx, p in enumerate(params) if p["is_vec"]]
+    lines.append(f"    const {', '.join(f'{v} = new M.VectorDouble()' for v in vs)};")
+    lines.append("    try {")
     for idx, p in enumerate(params):
         if p["is_vec"]:
-            v = f"_v{idx}"
-            lines.append(f"    const {v} = new M.VectorDouble();")
             # A bare number is the one-entry vector (one value for all assets).
-            lines.append(f"    for (const _x of (typeof {p['name']}_ === \"number\" ? [{p['name']}_] : {p['name']}_)) {v}.push_back(_x);")
-    lines.append(f"    const _op = new M.{name}({', '.join(call_args)});")
-    for idx, p in enumerate(params):
-        if p["is_vec"]:
-            lines.append(f"    _v{idx}.delete();")
-    lines.append("    return _op;")
+            lines.append(f"      for (const _x of (typeof {p['name']}_ === \"number\" ? [{p['name']}_] : {p['name']}_)) _v{idx}.push_back(_x);")
+    lines.append(f"      return new M.{name}({', '.join(call_args)});")
+    lines.append("    } finally {")
+    for v in vs:
+        lines.append(f"      {v}.delete();")
+    lines.append("    }")
     lines.append("  });")
     return "\n".join(lines)
 

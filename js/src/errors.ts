@@ -12,12 +12,17 @@
 // Error objects (a wrong argument type, for example) keep their class unless
 // the message reads like a validation error.
 //
-// A C++ exception that leaves WASM does not unwind the WASM stack pointer, so
-// every caught one would leak the frames it unwound, and after a few thousand
-// the stack would overrun the heap. A call into WASM is always made from
-// JavaScript with no WASM frame below it (no C++ code calls back into user
-// JavaScript), so on a caught exception the stack pointer goes back to the
-// value it had when the module loaded.
+// An error that leaves WASM does not unwind the WASM stack pointer, so every
+// caught one would leak the frames it unwound, and after a few thousand the
+// stack would overrun the heap. On a caught error the stack pointer goes back
+// to the value it had when the module loaded.
+//
+// INVARIANT: no C++ code may call back into user JavaScript. Then every call
+// into WASM is made from JavaScript with no WASM frame below it, and the reset
+// is exact. Arguments read in C++ through a val (layout plans, string
+// parameters) are plain copies or primitive strings, checked before the call.
+// A future binding that calls a user function from C++ needs a per-call
+// stackSave instead of this one base.
 interface ExceptionHelpers {
   getExceptionMessage(e: unknown): [string, string | undefined];
   decrementExceptionRefcount(e: unknown): void;
@@ -36,8 +41,10 @@ export function setExceptionHelpers(h: ExceptionHelpers): void {
 const WasmException: (new (...a: any[]) => unknown) | undefined = (globalThis as any).WebAssembly?.Exception;
 
 export function normalizeError(e: unknown): unknown {
+  // Any error from a call into WASM may have left WASM frames (an Embind Error
+  // thrown while C++ converts a value, for example), so the reset is for all.
+  helpers?.stackRestore(stackBase);
   if (WasmException && e instanceof WasmException && helpers) {
-    helpers.stackRestore(stackBase);
     let type = "", msg: string | undefined;
     // The caught exception holds the last reference to the C++ object; drop
     // it once the message is read, or the object leaks.

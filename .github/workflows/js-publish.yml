@@ -39,6 +39,8 @@ jobs:
         with:
           # Pinned to match the version used for local development; bump
           # deliberately, not via a floating "latest".
+          # Re-verify on emsdk bump: wasm/exception_message.cpp overrides two libc++abi
+          # symbols, and the build pins WASM_LEGACY_EXCEPTIONS (see wasm/CMakeLists.txt).
           version: '4.0.21'
           actions-cache-folder: 'emsdk-cache'
 
@@ -104,6 +106,8 @@ jobs:
       - name: Install Emscripten
         uses: mymindstorm/setup-emsdk@v14
         with:
+          # Re-verify on emsdk bump: wasm/exception_message.cpp overrides two libc++abi
+          # symbols, and the build pins WASM_LEGACY_EXCEPTIONS (see wasm/CMakeLists.txt).
           version: '4.0.21'
           actions-cache-folder: 'emsdk-cache'
 

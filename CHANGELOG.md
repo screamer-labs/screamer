@@ -63,6 +63,8 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
 
 * **JavaScript error classes:** every shape, length or input-count mismatch throws `RangeError` (the counterpart of Python's `ValueError`); wrong kinds still throw `TypeError`.
 * JavaScript: the WebAssembly module uses native WebAssembly exceptions; it needs Chrome 95, Firefox 100, Safari 15.2 or Node 17 or later. Errors thrown by your own iterators now reach you unchanged.
+* JavaScript: a string parameter given a non-string (for example `RollingMean(3, 5)`) throws `TypeError`.
+* JavaScript: streaming one value at a time (`op(x)`) is about 2.3 times faster; heap views are made in JavaScript instead of through Embind.
 * A trailing axis of size 1 on an array of rank 3 or more is the single input
   field: `(T, K, 1)` input gives `(T, K)` (was `(T, K, 1)`), and `(T, K, M)`
   for M-output operators (was `(T, K, 1, M)`). Old result: `out[..., None]`,
@@ -101,6 +103,9 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
   `RollingMean(0)` in a loop) the WebAssembly stack overran the heap and later
   calls failed with "memory access out of bounds". Each caught error now
   resets the stack.
+* JavaScript: a rejected constructor with a string parameter (for example
+  `RollingMean(0, "strict")`), a rejected `reshape` layout, and a rejected
+  constructor with an array parameter no longer leak WebAssembly memory.
 * **JavaScript:** row operators, reducers and row streams check an `NdArray`'s shape against its data before reading it.
 * JavaScript: when one of several stream sources throws, the stream no longer
   calls `return()` on that source; the other sources are still closed, as

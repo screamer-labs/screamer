@@ -180,3 +180,43 @@ test("G1: many caught C++ errors leave the module usable", () => {
   for (let i = 0; i < 20000; i++) assert.throws(() => ops.RollingMean(0), RangeError);
   eqSeq(ops.RollingMean(2)([1, 2, 3]) as number[], [NaN, 1.5, 2.5]);
 });
+
+// Every throwing entry frees what it took: a string argument reaches C++ as a
+// val, so a rejected constructor or layout leaks nothing (Embind frees a
+// std::string argument only on a normal return).
+test("G1: failing string-argument calls do not grow the WASM heap", async () => {
+  const M: any = await init();
+  const { reshape } = await import("../src/index.ts");
+  const nd = { data: new Float64Array(8), shape: [2, 4] };
+  const fail = () => {
+    assert.throws(() => ops.RollingMean(0, "strict"), RangeError);
+    assert.throws(() => reshape(nd, "TF->T"), RangeError);
+  };
+  // The address of a large block moves up when small blocks leak below it.
+  const probe = () => { const p = M.allocF64(1 << 16); M.freeBuf(p); return p; };
+  for (let i = 0; i < 1000; i++) fail();
+  const heap0 = M.HEAPF64.buffer.byteLength, p0 = probe();
+  for (let i = 0; i < 50000; i++) fail();
+  assert.equal(M.HEAPF64.buffer.byteLength, heap0);
+  assert.equal(probe(), p0);
+});
+
+// The type string is the mangled name only when wasm/exception_message.cpp
+// replaces libc++abi's demangling __get_exception_message; a silently
+// un-linked override would give "std::invalid_argument".
+test("G1: the exception type comes from the demangler-free override", async () => {
+  const M: any = await init();
+  let type = "";
+  try { M.layoutPlan("TF->T", [2, 4]); assert.fail("no throw"); }
+  catch (e) {
+    assert.ok(e instanceof (WebAssembly as any).Exception);
+    [type] = M.getExceptionMessage(e);
+    const { normalizeError } = await import("../src/errors.ts");
+    normalizeError(e);   // frees the exception and resets the stack
+  }
+  assert.equal(type, "St16invalid_argument");
+});
+
+test("G1: a non-string string argument is a TypeError", () => {
+  assert.throws(() => ops.RollingMean(3, 5 as any), TypeError);
+});
