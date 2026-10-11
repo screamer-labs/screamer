@@ -231,3 +231,105 @@ def test_wrong_kind_leaves_shape_errors_alone():
         list(s.RollingMean(2)(iter([1.0, [1.0, 2.0]])))
     with pytest.raises(ValueError):
         s.CrossRank()([[1.0, 2.0], [1.0]])
+
+
+# ---- G7 review round 1 ------------------------------------------------------
+
+_CYCLES = """
+import screamer as s
+l = []; l.append(l); l.append(l)
+x = [1.0]
+for _ in range(40):
+    x = [x, x]
+for call in [lambda: s.RollingMean(2)([1.0, l]), lambda: s.RollingMean(2)([1.0, x]),
+             lambda: list(s.RollingMean(2)(iter([1.0, l]))), lambda: s.Add()([(1.0, l)]),
+             lambda: s.Add()([1.0, l], [1.0, 2.0])]:
+    try:
+        call()
+    except (TypeError, ValueError) as e:
+        print(type(e).__name__)
+    else:
+        print("no error")
+"""
+
+
+def test_self_containing_lists_return_promptly():
+    # A list that holds itself twice, or one shared list nested 40 deep, has
+    # exponentially many paths; the search enters each list once.
+    p = subprocess.run([sys.executable, "-c", _CYCLES], capture_output=True, text=True, timeout=60)
+    assert p.returncode == 0, p.stderr
+    assert p.stdout.split() == ["ValueError"] * 5, p.stdout
+
+
+async def _ag(items):
+    for x in items:
+        yield x
+
+
+def _arun(op, items):
+    async def run():
+        return [x async for x in op(_ag(items))]
+    return asyncio.run(run())
+
+
+# (call, message): an element that holds only numbers but is not a number is a
+# shape mismatch, a ValueError on every path.
+WRONG_SHAPE = {
+    "list": (lambda: s.RollingMean(2)([1.0, [1.0, 2.0]]), "RollingMean: event 1 has shape (2,), expected a number"),
+    "iterator": (lambda: list(s.RollingMean(2)(iter([1.0, [1.0, 2.0]]))), "RollingMean: event 1 has shape (2,)"),
+    "async": (lambda: _arun(s.RollingMean(2), [1.0, [1.0, 2.0]]), "RollingMean: event 1 has shape (2,)"),
+    "1i_Mo_list": (lambda: s.RollingMinMax(2)([1.0, [1.0, 2.0]]), "RollingMinMax: event 1 has shape (2,)"),
+    "events_list": (lambda: s.Add()([(1.0, [1.0, 2.0])]), "Add: item [1] of event 0 has shape (2,)"),
+    "events_iter": (lambda: list(s.Add()(iter([(1.0, 2.0), (1.0, [1.0, 2.0])]))),
+                    "Add: item [1] of event 1 has shape (2,)"),
+    "events_async": (lambda: _arun(s.Add(), [(1.0, 2.0), (1.0, [1.0, 2.0])]),
+                     "Add: item [1] of event 1 has shape (2,)"),
+    "two_lists": (lambda: s.Add()([1.0, [1.0, 2.0]], [1.0, 2.0]), "Add: event 1 of input 0 has shape (2,)"),
+    "two_iters": (lambda: list(s.Add()(iter([1.0, [1.0, 2.0]]), iter([1.0, 2.0]))),
+                  "Add: event 1 of input 0 has shape (2,)"),
+    "event_length": (lambda: list(s.Add()(iter([(1.0, 2.0), (1.0, 2.0, 3.0)]))),
+                     "Add: event 1 has shape (3,), expected 2 numbers"),
+    "pipeline_wide_item": (lambda: _pipeline_wide_shape(), "Pipeline: item [1] of the value of event 0"),
+}
+
+
+def _pipeline_wide_shape():
+    a = s.Input("a")
+    p = s.Pipeline([a], [s.RollingMean(2)(a)])
+    return list(p(iter([((1.0, [2.0, 3.0]), 0)])))
+
+
+@pytest.mark.parametrize("case", sorted(WRONG_SHAPE))
+def test_wrong_shape_element_raises_value_error(case):
+    call, text = WRONG_SHAPE[case]
+    with pytest.raises(ValueError) as info:
+        call()
+    assert text in str(info.value), str(info.value)
+
+
+class _Boom:
+    def __float__(self):
+        raise MemoryError("boom")
+
+
+@pytest.mark.parametrize("call", [
+    lambda: s.CrossRank()([[1.0, _Boom()]]),
+    lambda: list(s.CrossRank()(iter([[1.0, _Boom()]]))),
+    lambda: list(s.PortfolioReport()(iter([[1.0, 2.0, 3.0, _Boom()]]))),
+    lambda: s.PortfolioReport()([[1.0, 2.0, 3.0, _Boom()]]),
+])
+def test_other_errors_are_not_relabelled(call):
+    # Only a conversion's TypeError or ValueError is relabelled.
+    with pytest.raises(MemoryError):
+        call()
+
+
+def test_lazy_pipeline_keeps_accepted_values():
+    # Everything a lazy Pipeline accepted before still runs: ints, bools, numpy
+    # scalars, and (value, index) tuples with extra items.
+    import numpy as np
+    a = s.Input("a")
+    p = s.Pipeline([a], [s.RollingMean(1)(a)])
+    rows = list(p(iter([(1, 0), (True, 1), (np.float32(2.5), 2), (np.int64(4), np.int64(3))])))
+    assert [r[0] for r in rows] == [1.0, 1.0, 2.5, 4.0]
+    assert [r[1] for r in rows] == [0, 1, 2, 3]

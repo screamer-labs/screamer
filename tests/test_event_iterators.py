@@ -70,5 +70,5 @@ def test_event_shape_change_raises():
 def test_scalar_then_array_raises():
     it = s.RollingMean(3)(iter([1.0, np.zeros(3)]))
     next(it)
-    with pytest.raises(ValueError, match="same shape"):
+    with pytest.raises(ValueError, match=r"RollingMean: event 1 has shape \(3,\), expected a number"):
         next(it)

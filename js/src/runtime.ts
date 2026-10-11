@@ -2,7 +2,7 @@ import type { Screamer, RawOp } from "./loader.js";
 import { normalizeError } from "./errors.js";
 import { asNd, type NdArray } from "./ndarray.js";
 import { Node, isNode } from "./node.js";
-import { throwIfWrongKind, throwIfWrongKindEvent, whereText } from "./kinds.js";
+import { kindName, throwBadShape, throwIfWrongKind, throwIfWrongKindEvent, throwNotANumber, whereText } from "./kinds.js";
 
 // The op's class name for error messages, e.g. "RollingMean".
 const opName = (raw: RawOp): string => (raw as any).constructor?.name ?? "this op";
@@ -412,6 +412,24 @@ export function wrapOp(M: Screamer, src: OpSource, copy?: () => RawOp): Screamer
       return out ? { data, shape: out.slice() } : data;
     };
 
+    // A later event of a number stream is not numbers: TypeError for a wrong
+    // kind, else RangeError giving the shape of the first field that is not a
+    // number (the Python binding raises the same).
+    const scalarMismatch = (items: any[]): never => {
+      const who = opName(raw), ev = nEv - 1;
+      throwIfWrongKindEvent(who, items, ev);
+      if (unpack) {
+        const v = items[0], where = whereText("event", ev);
+        if (!(Array.isArray(v) || isTyped(v)) || v.length !== nIn) throwBadShape(who, where, v, `${nIn} numbers`);
+        for (let j = 0; j < nIn; j++)
+          if (typeof v[j] !== "number") throwBadShape(who, `item [${j}] of ${where}`, v[j]);
+      }
+      for (let i = 0; i < items.length; i++)
+        if (typeof items[i] !== "number")
+          throwBadShape(who, whereText("event", ev, items.length > 1 ? i : -1), items[i]);
+      throw new RangeError("every event must have the same shape: the first events were numbers, this one is not");
+    };
+
     const step = (items: any[]) => {
       if (disposed) throw new Error("operation used after dispose()");
       nEv++;
@@ -421,10 +439,7 @@ export function wrapOp(M: Screamer, src: OpSource, copy?: () => RawOp): Screamer
           if (mode === UNKNOWN) { ops.push(pool.acquire()); mode = SCALAR; }
           return evalOn(ops[0], v);
         }
-        if (mode === SCALAR) {
-          throwIfWrongKindEvent(opName(raw), items, nEv - 1);
-          throw new RangeError("every event must have the same shape: the first events were numbers, this one is not");
-        }
+        if (mode === SCALAR) scalarMismatch(items);
       }
       return assetEvent(items);
     };
@@ -452,8 +467,11 @@ export function wrapOp(M: Screamer, src: OpSource, copy?: () => RawOp): Screamer
       if (isNd(a)) return shaped([a]);
       if (isTyped(a)) return batch1(a, true);
       if (isNumArr(a)) return batch1(a, false);
-      if (Array.isArray(a)) for (let i = 0; i < a.length; i++) throwIfWrongKind(opName(raw), a[i], whereText("event", i));
-      throw new TypeError(`unsupported input for a 1-input op: ${typeof a}`);
+      if (Array.isArray(a)) {
+        for (let i = 0; i < a.length; i++)
+          if (typeof a[i] !== "number") throwNotANumber(opName(raw), a[i], whereText("event", i));
+      }
+      throw new TypeError(`${opName(raw)}: a ${kindName(a)} is not a valid input; pass numbers, arrays, lists or iterators`);
     }
     // nIn > 1: N scalars -> one event; N arrays -> columnar batch.
     if (args.length === nIn && args.every((x) => typeof x === "number")) return event(args);
@@ -495,13 +513,26 @@ export function wrapOp(M: Screamer, src: OpSource, copy?: () => RawOp): Screamer
         evs.forEach((e, t) => data.set(e.data, t * per));
         return call({ shape: [evs.length, ...evs[0].shape], data } as NdArray);
       }
-      for (let i = 0; i < evs.length; i++) throwIfWrongKind(opName(raw), evs[i], whereText("event", i));
+      // The first event that is not nIn numbers: a wrong kind is a TypeError,
+      // a field of the wrong shape a RangeError.
+      for (let i = 0; i < evs.length; i++) {
+        const e = evs[i], where = whereText("event", i);
+        if (!(Array.isArray(e) || isTyped(e))) { if (!isNd(e)) throwNotANumber(opName(raw), e, where); continue; }
+        for (let j = 0; j < e.length; j++)
+          if (typeof e[j] !== "number") {
+            throwIfWrongKind(opName(raw), e, where);
+            throwBadShape(opName(raw), `item [${j}] of ${where}`, e[j]);
+          }
+      }
     }
     if (args.length !== nIn) throw new RangeError(`expected ${nIn} inputs, got ${args.length}`);
-    for (let k = 0; k < nIn; k++) {
-      const col = args[k];
-      if (Array.isArray(col))
-        for (let i = 0; i < col.length; i++) throwIfWrongKind(opName(raw), col[i], whereText("event", i, k));
+    // N lists: the first element that is not a number, event by event as the
+    // Python binding reads them.
+    if (args.every((x) => Array.isArray(x) || isTyped(x))) {
+      const rows = Math.min(...args.map((x) => x.length));
+      for (let i = 0; i < rows; i++)
+        for (let k = 0; k < nIn; k++)
+          if (typeof args[k][i] !== "number") throwNotANumber(opName(raw), args[k][i], whereText("event", i, k));
     }
     throw new TypeError(`expected ${nIn} numeric inputs`);
   };

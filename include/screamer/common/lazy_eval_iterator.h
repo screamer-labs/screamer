@@ -84,11 +84,7 @@ public:
             mode_ = Mode::Assets;
         }
         if (mode_ == Mode::Scalar) {
-            if (!scalar_values(items)) {
-                throw_if_wrong_kind_event(items);
-                throw nb::value_error("every event must have the same shape; the first events "
-                                      "were numbers, this one is not");
-            }
+            if (!scalar_values(items)) throw_scalar_mismatch(items);
             return eval_scalar();
         }
         return step_assets(items);
@@ -152,8 +148,8 @@ private:
             Arr arr;
             try {
                 parts_[k] = ascontiguous_(parts_[k], float64_);   // no copy if already contiguous float64
-            } catch (nb::python_error&) {
-                throw_if_wrong_kind_event(items);
+            } catch (nb::python_error& e) {
+                if (is_conversion_error(e)) throw_if_wrong_kind_event(items);
                 throw;
             }
             if (!nb::try_cast<Arr>(parts_[k], arr)) {
@@ -215,6 +211,34 @@ private:
     // tuple or array, if any (error path only).
     void throw_if_wrong_kind_event(const std::vector<nb::object>& items) const {
         screamer::throw_if_wrong_kind_event(op_display_name(op_owner_), items, event_ - 1);
+    }
+
+    // A later event of a number stream is not numbers: TypeError for a wrong
+    // kind, else ValueError giving the shape of the first field that is not a
+    // number.
+    [[noreturn]] void throw_scalar_mismatch(const std::vector<nb::object>& items) const {
+        throw_if_wrong_kind_event(items);
+        const std::string who = op_display_name(op_owner_);
+        const auto event = static_cast<std::ptrdiff_t>(event_ - 1);
+        double v;
+        if (unpack_) {
+            const std::string where = where_text("event", event);
+            nb::sequence seq;
+            if (!nb::try_cast<nb::sequence>(items[0], seq) ||
+                nb::len(seq) != static_cast<Py_ssize_t>(n_in_)) {
+                const std::string expected = std::to_string(n_in_) + " numbers";
+                throw_bad_shape(who, where, items[0], expected.c_str());
+            }
+            for (std::size_t j = 0; j < n_in_; ++j)
+                if (!as_number(seq[j], v))
+                    throw_bad_shape(who, "item [" + std::to_string(j) + "] of " + where, seq[j]);
+        }
+        for (std::size_t i = 0; i < items.size(); ++i)
+            if (!as_number(items[i], v))
+                throw_bad_shape(who, where_text("event", event,
+                    items.size() > 1 ? static_cast<std::ptrdiff_t>(i) : -1), items[i]);
+        throw nb::value_error("every event must have the same shape; the first events "
+                              "were numbers, this one is not");
     }
 
     static std::string event_shapes(const std::vector<shape::Shape>& shapes) {

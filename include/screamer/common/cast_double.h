@@ -4,6 +4,7 @@
 #include <nanobind/nanobind.h>
 #include <string>
 #include <cstddef>
+#include <unordered_set>
 #include <vector>
 
 namespace nb = nanobind;
@@ -64,23 +65,37 @@ inline std::string where_text(const char* prefix, std::ptrdiff_t index = -1,
                           ", expected " + expected).c_str());
 }
 
+// The search below is bounded: each list or tuple is entered once (a list
+// that holds itself, or one shared list repeated, is searched once), nesting
+// stops at the depth of any array, and the whole search stops after
+// kWrongKindBudget elements. Every input that reaches it was already walked
+// once by the failed conversion, so this costs no more than that walk.
+inline constexpr long kWrongKindBudget = 1000000;
+
+struct WrongKindSearch {
+    std::vector<std::size_t> path;      // list indices to the element found
+    std::unordered_set<PyObject*> entered;   // containers already searched
+    long budget = kWrongKindBudget;
+    bool exhausted = false;
+};
+
 // The first element of `x`, depth first through lists and tuples, that is not
-// a number, list, tuple or array-like (an object with ndim); `path` receives
-// the list indices to it. Returns an invalid object when there is none. Runs
-// only on error paths. Deeper nesting than any array (and a list that
-// contains itself) stops the search.
-inline nb::object find_wrong_kind(nb::handle x, std::vector<std::size_t>& path, int depth = 0) {
+// a number, list, tuple or array-like (an object with ndim). Returns an
+// invalid object when there is none (or the budget ran out, see `exhausted`).
+inline nb::object find_wrong_kind(nb::handle x, WrongKindSearch& s, int depth = 0) {
+    if (--s.budget < 0) { s.exhausted = true; return {}; }
     PyObject* o = x.ptr();
     if (PyList_Check(o) || PyTuple_Check(o)) {
         if (depth >= 64) return {};
+        if (!s.entered.insert(o).second) return {};
         const Py_ssize_t n = PySequence_Size(o);
         for (Py_ssize_t i = 0; i < n; ++i) {
             nb::object item = nb::steal(PySequence_GetItem(o, i));
             if (!item.is_valid()) { PyErr_Clear(); return {}; }
-            path.push_back(static_cast<std::size_t>(i));
-            nb::object bad = find_wrong_kind(item, path, depth + 1);
-            if (bad.is_valid()) return bad;
-            path.pop_back();
+            s.path.push_back(static_cast<std::size_t>(i));
+            nb::object bad = find_wrong_kind(item, s, depth + 1);
+            if (bad.is_valid() || s.exhausted) return bad;
+            s.path.pop_back();
         }
         return {};
     }
@@ -90,16 +105,19 @@ inline nb::object find_wrong_kind(nb::handle x, std::vector<std::size_t>& path, 
 }
 
 // Throws the wrong-kind TypeError for the first such element of `x` (see
-// find_wrong_kind) and returns when there is none, so the caller rethrows its
+// find_wrong_kind) and returns when there is none, so the caller raises its
 // own error. `where` names x itself, e.g. "event 3"; a nested element reads
-// "item [1][0] of event 3".
+// "item [1][0] of event 3". When the search runs out of budget, x itself is
+// named.
 inline void throw_if_wrong_kind(const std::string& who, nb::handle x, const std::string& where) {
-    std::vector<std::size_t> path;
-    nb::object bad = find_wrong_kind(x, path);
+    WrongKindSearch s;
+    nb::object bad = find_wrong_kind(x, s);
+    const std::string self = where.empty() ? "the input" : where;
+    if (s.exhausted) throw_wrong_kind(who, self, x);
     if (!bad.is_valid()) return;
-    if (path.empty()) throw_wrong_kind(who, where, bad);
+    if (s.path.empty()) throw_wrong_kind(who, self, bad);
     std::string item = "item ";
-    for (std::size_t i : path) item += "[" + std::to_string(i) + "]";
+    for (std::size_t i : s.path) item += "[" + std::to_string(i) + "]";
     throw_wrong_kind(who, where.empty() ? item : item + " of " + where, bad);
 }
 
@@ -113,12 +131,67 @@ inline void throw_if_wrong_kind_event(const std::string& who, const std::vector<
             items.size() > 1 ? static_cast<std::ptrdiff_t>(i) : -1));
 }
 
-// An element that should be a number is not one: names the first wrong-kind
-// element inside it when it is a container, else the element itself.
+// The shape of a nested list/tuple or array-like as "(2, 3)", read along the
+// first items, or "" when it is not regular enough to tell (an empty or
+// self-containing list, an unreadable shape). Error paths only.
+inline std::string shape_text(nb::handle x) {
+    std::vector<std::size_t> dims;
+    nb::object cur = nb::borrow(x);
+    for (int depth = 0; depth < 32; ++depth) {
+        PyObject* o = cur.ptr();
+        if (PyList_Check(o) || PyTuple_Check(o)) {
+            const Py_ssize_t n = PySequence_Size(o);
+            dims.push_back(static_cast<std::size_t>(n));
+            if (n <= 0) break;
+            cur = nb::steal(PySequence_GetItem(o, 0));
+            if (!cur.is_valid()) { PyErr_Clear(); return ""; }
+            continue;
+        }
+        double d;
+        if (nb::try_cast<double>(cur, d)) break;
+        nb::tuple shp;
+        if (!nb::hasattr(cur, "shape") || !nb::try_cast<nb::tuple>(cur.attr("shape"), shp)) return "";
+        for (nb::handle h : shp) {
+            std::size_t k;
+            if (!nb::try_cast<std::size_t>(h, k)) return "";
+            dims.push_back(k);
+        }
+        break;
+    }
+    if (dims.size() >= 32) return "";
+    std::string s = "(";
+    for (std::size_t i = 0; i < dims.size(); ++i) s += (i ? ", " : "") + std::to_string(dims[i]);
+    return s + (dims.size() == 1 ? ",)" : ")");
+}
+
+// An element holds only numbers but has the wrong shape (rule A4: a shape
+// mismatch is a ValueError): "who: where has shape (2,), expected a number".
+[[noreturn]] inline void throw_bad_shape(const std::string& who, const std::string& where,
+                                         nb::handle x, const char* expected = "a number") {
+    const std::string shape = shape_text(x);
+    throw nb::value_error((who + ": " + where +
+        (shape.empty() ? std::string(" has an irregular shape") : " has shape " + shape) +
+        ", expected " + expected).c_str());
+}
+
+// An element that should be a number is not one: a TypeError naming the first
+// wrong-kind element inside it, or, when it holds only numbers, a ValueError
+// giving its shape.
 [[noreturn]] inline void throw_not_a_number(const std::string& who, nb::handle item,
                                             const std::string& where) {
     throw_if_wrong_kind(who, item, where);
-    throw_wrong_kind(who, where, item);
+    throw_bad_shape(who, where, item);
+}
+
+// True for the Python errors a failed conversion raises (TypeError,
+// ValueError); others, such as MemoryError or KeyboardInterrupt, pass through
+// unlabelled.
+inline bool is_conversion_error(nb::python_error& e) {
+    return e.matches(PyExc_TypeError) || e.matches(PyExc_ValueError);
+}
+inline bool is_conversion_error(const nb::builtin_exception& e) {
+    return e.type() == nb::exception_type::type_error ||
+           e.type() == nb::exception_type::value_error;
 }
 
 // Decide whether a Python object can be cast to double.

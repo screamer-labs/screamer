@@ -513,8 +513,12 @@ typename Op::InputArray cast_to_array(Op& self, const nb::tuple& tuple, std::siz
     }
     typename Op::InputArray array;
     for (size_t i = 0; i < N; ++i) {
-        if (!nb::try_cast<double>(tuple[i], array[i]))
-            throw_not_a_number(op_display_name(nb::find(self)), tuple, where_text("event", event));
+        if (!nb::try_cast<double>(tuple[i], array[i])) {
+            const std::string who = op_display_name(nb::find(self));
+            const std::string where = where_text("event", static_cast<std::ptrdiff_t>(event));
+            throw_if_wrong_kind(who, tuple, where);
+            throw_bad_shape(who, "item [" + std::to_string(i) + "] of " + where, tuple[i]);
+        }
     }
     return array;
 }

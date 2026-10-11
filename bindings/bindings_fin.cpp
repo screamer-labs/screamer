@@ -151,13 +151,20 @@ public:
         const std::size_t event = event_++;
         try {
             return portfolio_report_row(op_, items[0]);
-        } catch (...) {
-            screamer::throw_if_wrong_kind_event(screamer::op_display_name(owner_), items, event);
+        } catch (nb::python_error& e) {
+            if (screamer::is_conversion_error(e)) wrong_kind(items, event);
+            throw;
+        } catch (nb::builtin_exception& e) {
+            if (screamer::is_conversion_error(e)) wrong_kind(items, event);
             throw;
         }
     }
 
 private:
+    void wrong_kind(const std::vector<nb::object>& items, std::size_t event) const {
+        screamer::throw_if_wrong_kind_event(screamer::op_display_name(owner_), items, event);
+    }
+
     nb::object owner_;                    // the stream's own copy
     screamer::PortfolioReport& op_;
     std::size_t event_ = 0;               // events seen, for error messages
@@ -201,8 +208,9 @@ nb::object portfolio_report_call(screamer::PortfolioReport& self, nb::args raw) 
         nb::object arr;
         try {
             arr = np.attr("asarray")(input, nb::arg("dtype") = np.attr("float64"));
-        } catch (nb::python_error&) {
-            screamer::throw_if_wrong_kind(screamer::op_display_name(nb::find(self)), input, "");
+        } catch (nb::python_error& e) {
+            if (screamer::is_conversion_error(e))
+                screamer::throw_if_wrong_kind(screamer::op_display_name(nb::find(self)), input, "");
             throw;
         }
         auto values = screamer::detail::read_contig_double(nb::cast<nb::ndarray<nb::ro>>(arr));
@@ -296,13 +304,20 @@ public:
         const std::size_t event = event_++;
         try {
             return step_event(items);
-        } catch (...) {
-            screamer::throw_if_wrong_kind_event(screamer::op_display_name(owner_), items, event);
+        } catch (nb::python_error& e) {
+            if (screamer::is_conversion_error(e)) wrong_kind(items, event);
+            throw;
+        } catch (nb::builtin_exception& e) {
+            if (screamer::is_conversion_error(e)) wrong_kind(items, event);
             throw;
         }
     }
 
 private:
+    void wrong_kind(const std::vector<nb::object>& items, std::size_t event) const {
+        screamer::throw_if_wrong_kind_event(screamer::op_display_name(owner_), items, event);
+    }
+
     nb::object step_event(const std::vector<nb::object>& items) {
         fields_.clear();
         if (unpack_) {
@@ -363,9 +378,10 @@ nb::object row_op_call(screamer::RowOp& self, nb::args raw) {
         nb::handle a = args[i];
         try {
             fields.push_back(row_op_input(nb::borrow<nb::object>(a)));
-        } catch (nb::python_error&) {
-            screamer::throw_if_wrong_kind(screamer::op_display_name(nb::find(self)), a,
-                                          n > 1 ? screamer::where_text("input", i) : "");
+        } catch (nb::python_error& e) {
+            if (screamer::is_conversion_error(e))
+                screamer::throw_if_wrong_kind(screamer::op_display_name(nb::find(self)), a,
+                                              n > 1 ? screamer::where_text("input", i) : "");
             throw;
         }
         // Rule 1: (T, K, 1) reads as (T, K); the data is already in that order.

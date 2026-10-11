@@ -141,3 +141,73 @@ test("C4: a list of N-element lists and of (K, N) NdArray events reads as events
     assert.throws(() => [...a.RollingMean(2)(it([1, [1, 2]]))], RangeError);
   });
 }
+
+// ---- G7 review round 1 ----
+{
+  const a = api as any;
+  const it = (xs: unknown[]) => xs[Symbol.iterator]();
+  async function* agen(xs: unknown[]) { for (const x of xs) yield x; }
+  const drain = async (g: AsyncIterable<unknown>) => { for await (const _ of g) void _; };
+
+  test("G7: self-containing and shared nested arrays return promptly", async () => {
+    await ready();
+    const l: any[] = [];
+    l.push(l, l);
+    let x: any = [1];
+    for (let i = 0; i < 40; i++) x = [x, x];
+    for (const call of [() => a.RollingMean(2)([1, l]), () => a.RollingMean(2)([1, x]),
+      () => [...a.RollingMean(2)(it([1, l]))], () => a.Add()([[1, l]]), () => a.Add()([1, l], [1, 2])]) {
+      const t = Date.now();
+      assert.throws(call, (e: unknown) => e instanceof RangeError || e instanceof TypeError);
+      assert.ok(Date.now() - t < 2000);
+    }
+  });
+
+  const shape: [string, () => unknown, string][] = [
+    ["list", () => a.RollingMean(2)([1, [1, 2]]), "RollingMean: event 1 has shape (2,), expected a number"],
+    ["iterator", () => [...a.RollingMean(2)(it([1, [1, 2]]))], "RollingMean: event 1 has shape (2,)"],
+    ["1-in M-out list", () => a.RollingMinMax(2)([1, [1, 2]]), "RollingMinMax: event 1 has shape (2,)"],
+    ["list of events", () => a.Add()([[1, [1, 2]]]), "Add: item [1] of event 0 has shape (2,)"],
+    ["iterator of events", () => [...a.Add()(it([[1, 2], [1, [1, 2]]]))], "Add: item [1] of event 1 has shape (2,)"],
+    ["two lists", () => a.Add()([1, [1, 2]], [1, 2]), "Add: event 1 of input 0 has shape (2,)"],
+    ["two iterators", () => [...a.Add()(it([1, [1, 2]]), it([1, 2]))], "Add: event 1 of input 0 has shape (2,)"],
+    ["event length", () => [...a.Add()(it([[1, 2], [1, 2, 3]]))], "Add: event 1 has shape (3,), expected 2 numbers"],
+  ];
+  for (const [name, call, text] of shape)
+    test(`G7: an element of the wrong shape is a RangeError (${name})`, async () => {
+      await ready();
+      assert.throws(call, (e: unknown) => e instanceof RangeError && (e as Error).message.includes(text));
+    });
+
+  test("G7: an async element of the wrong shape is a RangeError", async () => {
+    await ready();
+    await assert.rejects(drain(a.RollingMean(2)(agen([1, [1, 2]]))),
+      (e: unknown) => e instanceof RangeError && (e as Error).message.includes("RollingMean: event 1 has shape (2,)"));
+  });
+
+  test("G7: a non-data input names the op and its type", async () => {
+    await ready();
+    assert.throws(() => a.RollingMean(2)({}), (e: unknown) => e instanceof TypeError &&
+      (e as Error).message === "RollingMean: a Object is not a valid input; pass numbers, arrays, lists or iterators");
+  });
+
+  test("G7: Pipeline feeds and live pushes keep the primitive coercions", async () => {
+    await ready();
+    const pipe = () => { const i = a.Input("a"); return a.Pipeline([i], [a.RollingMean(1)(i)]); };
+    const out = pipe()([1, "3", true, undefined, null, new Date(5)] as any);
+    assert.deepEqual(Array.from(out.values as Float64Array), [1, 3, 1, NaN, 0, 5]);
+    const idx = pipe()({ values: [1, 2, 3], index: [0, "1", true] } as any);
+    assert.deepEqual(Array.from(idx.index), [0, 1, 1]);
+    for (const [v, want] of [["3", 3], [true, 1], [null, 0], [undefined, NaN], [new Date(5), 5]] as [unknown, number][]) {
+      const lv = pipe().live();
+      lv.push("a", 0, v as any);
+      lv.flush();
+      assert.deepEqual(Array.from(lv.result().values as Float64Array), [want]);
+    }
+    const w = (() => { const i = a.Input("a"); return a.Pipeline([i], [i]); })().live();
+    assert.throws(() => w.pushWide("a", 0, [1, {}] as any), (e: unknown) => e instanceof TypeError &&
+      (e as Error).message.includes("Pipeline: item [1] of the values pushed to input 0 is a Object"));
+    assert.throws(() => pipe()([1, [2]] as any), TypeError);
+    assert.throws(() => pipe()([1n] as any), TypeError);
+  });
+}

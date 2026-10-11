@@ -255,7 +255,7 @@ test("an event shape change in a multi-input stream raises", () => {
   assert.throws(() => it.next(), /same shape/);
   const it2 = ops.Add()(iter([1, new Float64Array(2)]), iter([1, 2])) as Iterator<any>;
   assert.equal(it2.next().value, 2);
-  assert.throws(() => it2.next(), /same shape/);
+  assert.throws(() => it2.next(), /^RangeError: Add: event 1 of input 0 has shape \(2,\), expected a number$/);
 });
 
 test("assets that do not broadcast raise from the stream", () => {

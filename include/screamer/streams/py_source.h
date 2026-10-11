@@ -80,7 +80,11 @@ public:
                     wide_values_.reserve(n);
                     for (std::size_t j = 0; j < n; ++j) {
                         double d;
-                        if (!nb::try_cast<double>(seq[j], d)) bad(event, "the value of event", val_obj);
+                        if (!nb::try_cast<double>(seq[j], d)) {
+                            const std::string w = where(event, "the value of event");
+                            throw_if_wrong_kind(owner_, val_obj, w);
+                            throw_bad_shape(owner_, "item [" + std::to_string(j) + "] of " + w, seq[j]);
+                        }
                         wide_values_.push_back(d);
                     }
                     ev.value = wide_values_.empty() ? 0.0 : wide_values_[0];

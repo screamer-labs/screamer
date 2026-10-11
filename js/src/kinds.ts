@@ -1,8 +1,9 @@
-// Wrong-kind elements (rule A4: a wrong kind is a TypeError). The dispatch
-// tests its inputs with cheap checks; these helpers run only after one failed,
-// so the happy path does no extra work and every message is built on the error
-// path. The messages match the Python binding's, e.g.
-// "RollingMean: event 1 is a M, expected a number".
+// Wrong-kind and wrong-shape elements (rule A4: a wrong kind is a TypeError, a
+// shape mismatch a RangeError). The dispatch tests its inputs with cheap
+// checks; these helpers run only after one failed, so the happy path does no
+// extra work and every message is built on the error path. The messages match
+// the Python binding's, e.g. "RollingMean: event 1 is a M, expected a number"
+// and "RollingMean: event 1 has shape (2,), expected a number".
 
 // The name of x's type: its class name, or typeof for a primitive.
 export function kindName(x: unknown): string {
@@ -27,16 +28,24 @@ export function throwWrongKind(who: string, where: string, x: unknown, expected 
 const isArrayLike = (x: any) =>
   x instanceof Float64Array || (x != null && x.data instanceof Float64Array && Array.isArray(x.shape));
 
+// The search is bounded: each array is entered once (an array that holds
+// itself, or one shared array repeated, is searched once), nesting stops at
+// depth 64, and the whole search stops after BUDGET elements.
+const BUDGET = 1_000_000;
+type Search = { path: number[]; entered: Set<unknown>; budget: number; exhausted: boolean };
+
 // The first element of x, depth first through arrays, that is not a number, an
-// array or a Float64Array/NdArray; `path` receives the indices to it.
-function findWrongKind(x: unknown, path: number[], depth = 0): { bad: unknown } | null {
+// array or a Float64Array/NdArray.
+function findWrongKind(x: unknown, s: Search, depth = 0): { bad: unknown } | null {
+  if (--s.budget < 0) { s.exhausted = true; return null; }
   if (Array.isArray(x)) {
-    if (depth >= 64) return null;
+    if (depth >= 64 || s.entered.has(x)) return null;
+    s.entered.add(x);
     for (let i = 0; i < x.length; i++) {
-      path.push(i);
-      const r = findWrongKind(x[i], path, depth + 1);
-      if (r) return r;
-      path.pop();
+      s.path.push(i);
+      const r = findWrongKind(x[i], s, depth + 1);
+      if (r || s.exhausted) return r;
+      s.path.pop();
     }
     return null;
   }
@@ -46,13 +55,16 @@ function findWrongKind(x: unknown, path: number[], depth = 0): { bad: unknown } 
 
 // Throws the wrong-kind TypeError for the first such element of x and returns
 // when there is none, so the caller throws its own error. `where` names x
-// itself; a nested element reads "item [1][0] of event 3".
+// itself; a nested element reads "item [1][0] of event 3". When the search
+// runs out of budget, x itself is named.
 export function throwIfWrongKind(who: string, x: unknown, where: string): void {
-  const path: number[] = [];
-  const r = findWrongKind(x, path);
+  const s: Search = { path: [], entered: new Set(), budget: BUDGET, exhausted: false };
+  const r = findWrongKind(x, s);
+  const self = where || "the input";
+  if (s.exhausted) throwWrongKind(who, self, x);
   if (!r) return;
-  if (path.length === 0) throwWrongKind(who, where, r.bad);
-  const item = "item " + path.map((i) => `[${i}]`).join("");
+  if (s.path.length === 0) throwWrongKind(who, self, r.bad);
+  const item = "item " + s.path.map((i) => `[${i}]`).join("");
   throwWrongKind(who, where ? `${item} of ${where}` : item, r.bad);
 }
 
@@ -62,15 +74,62 @@ export function throwIfWrongKindEvent(who: string, items: unknown[], event: numb
     throwIfWrongKind(who, items[i], whereText("event", event, items.length > 1 ? i : -1));
 }
 
-// A number[] or Float64Array of numbers as a Float64Array; any other element
-// raises the wrong-kind TypeError naming its position.
+// The shape of a nested array, Float64Array or NdArray as "(2, 3)", read along
+// the first items, or "" when it is not regular enough to tell.
+export function shapeText(x: unknown): string {
+  const dims: number[] = [];
+  let cur: any = x;
+  for (let depth = 0; depth < 32; depth++) {
+    if (Array.isArray(cur)) {
+      dims.push(cur.length);
+      if (cur.length === 0) break;
+      cur = cur[0];
+      continue;
+    }
+    if (cur instanceof Float64Array) { dims.push(cur.length); break; }
+    if (isArrayLike(cur)) { dims.push(...cur.shape); break; }
+    break;
+  }
+  if (dims.length === 0 || dims.length >= 32) return "";
+  return `(${dims.join(", ")}${dims.length === 1 ? "," : ""})`;
+}
+
+// An element holds only numbers but has the wrong shape:
+// "who: where has shape (2,), expected a number".
+export function throwBadShape(who: string, where: string, x: unknown, expected = "a number"): never {
+  const s = shapeText(x);
+  throw new RangeError(`${who}: ${where} ${s ? `has shape ${s}` : "has an irregular shape"}, expected ${expected}`);
+}
+
+// An element that should be a number is not one: TypeError for a wrong kind
+// inside it, else RangeError giving its shape.
+export function throwNotANumber(who: string, x: unknown, where: string): never {
+  throwIfWrongKind(who, x, where);
+  throwBadShape(who, where, x);
+}
+
+// One element of a numeric feed, coerced as Float64Array.from did (a string,
+// boolean, null or undefined goes through ToNumber; a symbol or bigint throws
+// TypeError there). An object is a wrong kind, except one that converts to a
+// number (a Date, an object with valueOf); an array is always a wrong kind.
+export function feedNumber(v: unknown, who: string, where: () => string): number {
+  if (typeof v === "object" && v !== null) {
+    if (Array.isArray(v)) throwWrongKind(who, where(), v);
+    const n = Number(v);
+    if (Number.isNaN(n)) throwWrongKind(who, where(), v);
+    return n;
+  }
+  if (typeof v === "function") throwWrongKind(who, where(), v);
+  return v as number;   // the Float64Array store applies ToNumber, as before
+}
+
+// A numeric feed as a Float64Array, coerced element by element as feedNumber.
 export function toF64Checked(x: Float64Array | ArrayLike<unknown>, who: string, where: (i: number) => string): Float64Array {
   if (x instanceof Float64Array) return x;
   const n = x.length, out = new Float64Array(n);
   for (let i = 0; i < n; i++) {
     const v = x[i];
-    if (typeof v !== "number") throwWrongKind(who, where(i), v);
-    out[i] = v as number;
+    out[i] = typeof v === "number" ? v : feedNumber(v, who, () => where(i));
   }
   return out;
 }

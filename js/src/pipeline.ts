@@ -3,7 +3,7 @@ import type { NdArray } from "./ndarray.js";
 import { Node, isNode } from "./node.js";
 import { current } from "./index.js";
 import { normalizeError, wasmCall } from "./errors.js";
-import { throwWrongKind, toF64Checked, whereText } from "./kinds.js";
+import { feedNumber, toF64Checked, whereText } from "./kinds.js";
 
 // One bound feed for an Input: a values stream and its integer index axis.
 type Feed = Float64Array | number[] | { values: Float64Array | number[]; index?: Float64Array | number[] };
@@ -354,22 +354,26 @@ class PipelineImpl {
     return {
       push(name: string, index: number, value: number): void {
         const i = self.inputIndex(name);
-        if (typeof value !== "number") throwWrongKind("Pipeline", `the value pushed to input ${i}`, value);
-        if (typeof index !== "number") throwWrongKind("Pipeline", `the index pushed to input ${i}`, index);
-        try { self.cg.pushEvent(i, index, value); } catch (e) { throw normalizeError(e); }
+        // A primitive passes as before (ToNumber at the WASM call); an object
+        // that is not a number is a wrong kind.
+        const v = typeof value === "number" ? value : feedNumber(value, "Pipeline", () => `the value pushed to input ${i}`);
+        const t = typeof index === "number" ? index : feedNumber(index, "Pipeline", () => `the index pushed to input ${i}`);
+        try { self.cg.pushEvent(i, t, v); } catch (e) { throw normalizeError(e); }
       },
       pushWide(name: string, index: number, values: ArrayLike<number>): void {
         const i = self.inputIndex(name);
-        if (typeof index !== "number") throwWrongKind("Pipeline", `the index pushed to input ${i}`, index);
-        if (!(values instanceof Float64Array))
-          for (let j = 0; j < values.length; j++)
-            if (typeof values[j] !== "number")
-              throwWrongKind("Pipeline", `item [${j}] of the values pushed to input ${i}`, values[j]);
+        const t = typeof index === "number" ? index : feedNumber(index, "Pipeline", () => `the index pushed to input ${i}`);
         const width = values.length;
         const buf = M.allocF64(width || 1);
         try {
-          M.viewF64(buf, width).set(values as ArrayLike<number> & number[]);
-          try { self.cg.pushEventWide(i, index, buf, width); } catch (e) { throw normalizeError(e); }
+          const view = M.viewF64(buf, width);
+          if (values instanceof Float64Array) view.set(values);
+          else for (let j = 0; j < width; j++) {
+            const x: unknown = values[j];
+            view[j] = typeof x === "number" ? x
+              : feedNumber(x, "Pipeline", () => `item [${j}] of the values pushed to input ${i}`);
+          }
+          try { self.cg.pushEventWide(i, t, buf, width); } catch (e) { throw normalizeError(e); }
         } finally {
           M.freeBuf(buf);
         }
