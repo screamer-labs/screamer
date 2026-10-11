@@ -24,7 +24,13 @@ export function setExceptionReader(read: (thrown: number) => string): void {
 
 export function normalizeError(e: unknown): Error {
   if (!(e instanceof Error)) {
-    if (typeof e === "number" && readMessage) return new RangeError(readMessage(e));
+    if (typeof e === "number" && readMessage) {
+      // A number thrown by user code is not an exception address; the reader
+      // returns "" for implausible addresses, and a failed read falls back.
+      let msg = "";
+      try { msg = readMessage(e); } catch { msg = ""; }
+      if (msg) return new RangeError(msg);
+    }
     return new RangeError(
       `invalid argument (opaque WASM exception, no message text available: ${String(e)})`,
     );

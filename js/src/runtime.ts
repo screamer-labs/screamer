@@ -1,6 +1,6 @@
 import type { Screamer, RawOp } from "./loader.js";
 import { normalizeError } from "./errors.js";
-import type { NdArray } from "./ndarray.js";
+import { checkNd, type NdArray } from "./ndarray.js";
 import { Node, isNode } from "./node.js";
 
 // `Symbol.dispose` (explicit resource management) is provided by the
@@ -88,6 +88,7 @@ export function wrapOp(M: Screamer, src: OpSource): ScreamerOp {
   function shaped(args: any[]): NdArray {
     const parts: NdArray[] = args.map((a) =>
       isNd(a) ? a : { data: Float64Array.from(a as ArrayLike<number>), shape: [(a as ArrayLike<number>).length] });
+    parts.forEach(checkNd);
     const ptrs: number[] = [];
     try {
       const spec: number[] = [parts.length];
@@ -134,6 +135,7 @@ export function wrapOp(M: Screamer, src: OpSource): ScreamerOp {
     return nOut === 1 ? out : { data: out, shape: [k, nOut] };
   };
   const step = (v: any) => {
+    if (disposed) throw new Error("operation used after dispose()");
     if (typeof v === "number") {
       if (assets > 0) throw new TypeError(`every event must have the same shape: the first held ${assets} values, this one is a number`);
       assets = 0;
@@ -153,11 +155,13 @@ export function wrapOp(M: Screamer, src: OpSource): ScreamerOp {
   };
 
   function* gen(src: Iterable<any>) {
+    if (disposed) throw new Error("operation used after dispose()");
     raw.reset();
     assets = -1;
     for (const v of src) yield step(v);
   }
   async function* agen(src: AsyncIterable<any>) {
+    if (disposed) throw new Error("operation used after dispose()");
     raw.reset();
     assets = -1;
     for await (const v of src) yield step(v);

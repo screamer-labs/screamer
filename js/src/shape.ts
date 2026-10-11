@@ -1,6 +1,6 @@
 import { current } from "./index.js";
 import { normalizeError } from "./errors.js";
-import type { NdArray } from "./ndarray.js";
+import { checkNd, type NdArray } from "./ndarray.js";
 
 /**
  * Reshape data by a layout string: `T` (time), `A` (asset), `F` (field), with
@@ -11,6 +11,7 @@ export function reshape(x: NdArray | Float64Array | number[], layout: string): N
   const M = current();
   const nd: NdArray = (x as NdArray).shape
     ? (x as NdArray) : { data: Float64Array.from(x as ArrayLike<number>), shape: [(x as ArrayLike<number>).length] };
+  checkNd(nd);
   let plan: { source: number[]; shape: number[] };
   try { plan = M.layoutPlan(layout, nd.shape); } catch (e) { throw normalizeError(e); }
   const kept = plan.source.filter((s) => s >= 0);

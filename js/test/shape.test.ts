@@ -73,3 +73,37 @@ test("reshape", async () => {
   assert.deepEqual(Array.from(t.data), [1, 4, 2, 5, 3, 6]);
   assert.throws(() => reshape({ data: new Float64Array(8), shape: [2, 4] }, "TF->T"), /only a size-1 axis/);
 });
+
+test("using an asset-event stream after dispose raises, and the heap stays intact", async () => {
+  await ready();
+  const op = RollingMean(3);
+  const it = op([new Float64Array([1, 2, 3]), new Float64Array([4, 5, 6])][Symbol.iterator]()) as Iterator<any>;
+  it.next();
+  op.dispose();
+  assert.throws(() => it.next(), /operation used after dispose\(\)/);
+  assert.equal(Add()(1, 2), 3);
+  assert.deepEqual(Array.from(RollingMean(2)(Float64Array.from([1, 3, 5]))).slice(1), [2, 4]);
+});
+
+test("a plain number thrown by user code is not read as a C++ exception", async () => {
+  await ready();
+  const bad = new Proxy(new Float64Array(3), {
+    get(t, p) { if (p === "length") throw 8; return Reflect.get(t, p); },
+  });
+  let caught: unknown;
+  try { Add()(new Float64Array(3), bad as any); } catch (e) { caught = e; }
+  assert.ok(caught instanceof Error);
+  assert.ok(!(caught instanceof WebAssembly.RuntimeError), String(caught));
+  assert.throws(() => reshape({ data: new Float64Array(8), shape: [2, 4] }, "TF->T"), /only a size-1 axis/);
+});
+
+test("an NdArray whose shape does not match its data raises", async () => {
+  await ready();
+  const y4 = { data: new Float64Array(8), shape: [4, 2] };
+  assert.throws(() => Add()({ data: new Float64Array(2), shape: [4, 2] }, y4), TypeError);
+  assert.throws(() => Add()({ data: new Float64Array(8), shape: [-4, -2] }, y4), TypeError);
+  assert.throws(() => Add()({ data: new Float64Array(8), shape: [4, 2.5] }, y4), TypeError);
+  assert.throws(() => RollingMean(2)({ data: new Float64Array(3), shape: [4] }), TypeError);
+  assert.throws(() => reshape({ data: new Float64Array(2), shape: [4, 2] }, "TA"), TypeError);
+  assert.throws(() => reshape({ data: new Float64Array(4), shape: [2, 2.0001] }, "TA"), TypeError);
+});

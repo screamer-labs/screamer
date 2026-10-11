@@ -83,12 +83,25 @@ emscripten::val layoutPlan(std::string layout, emscripten::val shape) {
     return r;
 }
 
-// The what() text of a C++ exception. This build does not catch C++ exceptions,
-// so one reaches JavaScript as the address of the thrown object; errors.ts
-// calls this to turn that address back into a message. Every exception the
-// screamer core throws derives from std::exception.
-std::string exceptionMessage(std::uintptr_t thrown) {
-    return reinterpret_cast<const std::exception*>(thrown)->what();
+// Start of the malloc heap, where every thrown exception object lives.
+extern "C" unsigned char __heap_base;
+
+// The what() text of a C++ exception, or "" when `thrown` cannot be one. This
+// build does not catch C++ exceptions, so one reaches JavaScript as the address
+// of the thrown object; errors.ts calls this to turn it back into a message.
+// A number thrown by user code also reaches errors.ts, so the address must lie
+// in the malloc heap and be 8-aligned (the exception header is malloc'd and
+// 8-aligned) before it is read. The cast is valid because every exception the
+// screamer core throws derives from std::exception by single inheritance, so
+// the std::exception base sits at offset 0 of the thrown object.
+std::string exceptionMessage(double thrown) {
+    const double lo = static_cast<double>(reinterpret_cast<std::uintptr_t>(&__heap_base));
+    const double hi = static_cast<double>(__builtin_wasm_memory_size(0)) * 65536.0;
+    if (!(thrown >= lo && thrown < hi) || thrown != static_cast<double>(static_cast<std::uintptr_t>(thrown)))
+        return "";
+    const std::uintptr_t p = static_cast<std::uintptr_t>(thrown);
+    if (p % 8 != 0) return "";
+    return reinterpret_cast<const std::exception*>(p)->what();
 }
 
 }  // namespace
