@@ -32,7 +32,12 @@ give the details of each.
    Details: [Streams in depth](streaming.md). A pandas `Series` or `DataFrame`
    is read as its values and gives a NumPy array, not a pandas object; use
    `to_pandas` to attach an index again. A `str`, `bytes`, `dict` or `set`
-   is not data and raises `TypeError` at the call.
+   is not data and raises `TypeError` at the call. A `bytearray` and a
+   `memoryview` do the same, and so does a pandas object with a datetime or
+   timedelta dtype: pass numeric values and convert timestamps yourself. This
+   applies to a pandas object passed as an argument. A `Series` inside a list
+   or an iterator is one event like any array-like: `RollingMean(2)([s1, s2])`
+   returns a list with one array per event.
 3. **One meaning per container.** A number is one step of the operator's
    running series, an array is a batch along time, and a list or an iterator is
    a sequence of events: `RollingMean(3)(2.0)` returns a `float`, and

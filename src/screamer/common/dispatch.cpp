@@ -18,7 +18,7 @@ nb::object make_dag_functor_node(nb::object self, nb::object args_tuple) {
 }
 
 nb::object screamer_call(ScreamerBase& self, nb::object raw) {
-    nb::object obj = normalize_input(raw, op_display_name(nb::find(self)).c_str());
+    nb::object obj = normalize_input(raw, nb::find(self));
     if (can_cast_to_double(obj)) {
         double value = nb::cast<double>(obj);
         return nb::float_(self.process_scalar(value));

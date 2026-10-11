@@ -52,3 +52,30 @@ def test_unsupported_container_raises_type_error_at_call(op, bad):
     o = op()
     with pytest.raises(TypeError, match="is not a valid input"):
         o(bad, bad) if isinstance(o, s.Add) else o(bad)
+
+
+@pytest.mark.parametrize("bad", [bytearray(b"ab"), memoryview(b"ab")])
+def test_bytearray_and_memoryview_raise(bad):
+    with pytest.raises(TypeError, match="is not a valid input"):
+        s.RollingMean(3)(bad)
+
+
+def test_datetime_and_timedelta_pandas_raise():
+    dt = pd.Series(pd.date_range("2024-01-01", periods=5))
+    with pytest.raises(TypeError, match="datetime or timedelta"):
+        s.RollingMean(3)(dt)
+    with pytest.raises(TypeError, match="datetime or timedelta"):
+        s.RollingMean(3)(pd.DataFrame({"t": dt, "x": 1.0}))
+    with pytest.raises(TypeError, match="datetime or timedelta"):
+        s.RollingMean(3)(dt.diff())
+
+
+def test_pandas_module_name_is_exact():
+    class Fake:
+        __module__ = "pandas_foo"
+
+        def to_numpy(self, dtype=None):
+            return np.arange(3.)
+
+    with pytest.raises(Exception):
+        s.RollingMean(3)(Fake())

@@ -277,46 +277,69 @@ inline NInputs<N> read_tuple_inputs(const nb::tuple& inputs) {
 // A str, bytes, dict, set or frozenset is not data and raises TypeError at the
 // call. Everything else is returned unchanged. The common inputs (float, int,
 // list, tuple, array) leave through the first checks without a module lookup.
-inline nb::object normalize_input(nb::handle x, const char* op_name) {
+inline std::string op_display_name(nb::handle self) {
+    std::string name = nb::type_name(self.type()).c_str();
+    if (auto dot = name.rfind('.'); dot != std::string::npos) name.erase(0, dot + 1);
+    return name;
+}
+
+// True when a pandas Series/DataFrame holds datetime64 or timedelta64 values.
+inline bool is_time_dtype(nb::handle x) {
+    auto kind_is_time = [](nb::handle dt) {
+        nb::str k(dt.attr("kind"));
+        const char* c = k.c_str();
+        return c[0] == 'M' || c[0] == 'm';
+    };
+    if (nb::hasattr(x, "dtypes")) {
+        nb::object d = x.attr("dtypes");
+        if (nb::hasattr(d, "kind")) return kind_is_time(d);
+        for (nb::handle e : d) if (nb::hasattr(e, "kind") && kind_is_time(e)) return true;
+        return false;
+    }
+    return nb::hasattr(x, "dtype") && nb::hasattr(x.attr("dtype"), "kind") && kind_is_time(x.attr("dtype"));
+}
+
+inline nb::object normalize_input(nb::handle x, nb::handle self) {
     PyObject* o = x.ptr();
     if (PyFloat_CheckExact(o) || PyLong_CheckExact(o) || PyList_CheckExact(o) ||
         PyTuple_CheckExact(o))
         return nb::borrow(x);
-    const bool bad = PyUnicode_Check(o) || PyBytes_Check(o) || PyDict_Check(o) ||
-                     PyAnySet_Check(o);
+    const bool bad = PyUnicode_Check(o) || PyBytes_Check(o) || PyByteArray_Check(o) ||
+                     PyMemoryView_Check(o) || PyDict_Check(o) || PyAnySet_Check(o);
     if (bad) {
         std::string tn = nb::type_name(x.type()).c_str();
-        throw nb::type_error((std::string(op_name) + ": a " + tn +
+        throw nb::type_error((op_display_name(self) + ": a " + tn +
             " is not a valid input; pass numbers, arrays, lists or iterators").c_str());
     }
     if (detail::is_ndarray(x)) return nb::borrow(x);
     if (nb::hasattr(x, "to_numpy")) {
         nb::object mod = x.type().attr("__module__");
         if (PyUnicode_Check(mod.ptr())) {
-            if (std::strncmp(nb::str(mod).c_str(), "pandas", 6) == 0)
+            nb::str ms(mod);
+            const char* m = ms.c_str();
+            if (std::strcmp(m, "pandas") == 0 || std::strncmp(m, "pandas.", 7) == 0) {
+                if (is_time_dtype(x))
+                    throw nb::type_error((op_display_name(self) + ": a pandas object with a "
+                        "datetime or timedelta dtype is not a valid input; pass numeric values "
+                        "(convert timestamps yourself)").c_str());
                 return x.attr("to_numpy")(nb::arg("dtype") = nb::borrow(reinterpret_cast<PyObject*>(&PyFloat_Type)));
+            }
         }
     }
     return nb::borrow(x);
 }
 
 // Normalizes every argument of a call; returns args itself when none changed.
-inline nb::args normalize_args(const nb::args& args, const char* op_name) {
+inline nb::args normalize_args(const nb::args& args, nb::handle self) {
     nb::list out;
     bool changed = false;
     for (nb::handle a : args) {
-        nb::object n = normalize_input(a, op_name);
+        nb::object n = normalize_input(a, self);
         changed = changed || n.ptr() != a.ptr();
         out.append(n);
     }
     if (!changed) return args;
     return nb::borrow<nb::args>(nb::tuple(out));
-}
-
-inline std::string op_display_name(nb::handle self) {
-    std::string name = nb::type_name(self.type()).c_str();
-    if (auto dot = name.rfind('.'); dot != std::string::npos) name.erase(0, dot + 1);
-    return name;
 }
 
 // Relocated ScreamerBase dispatch (was ScreamerBase::operator() and
@@ -991,7 +1014,7 @@ nb::object functor_Ni_Mo(Op& self, const nb::args& raw_args) {
 template <class Op>
 nb::object functor_call(Op& self, nb::args raw) {
     constexpr size_t N = Op::kN, M = Op::kM;
-    nb::args args = normalize_args(raw, op_display_name(nb::find(self)).c_str());
+    nb::args args = normalize_args(raw, nb::find(self));
     for (nb::handle a : args) {
         if (screamer::is_dag_node(nb::borrow<nb::object>(a)))
             return screamer::make_dag_functor_node(nb::find(self), nb::cast<nb::tuple>(args));
