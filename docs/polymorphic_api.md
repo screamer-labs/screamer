@@ -29,7 +29,10 @@ give the details of each.
 2. **The container never changes the numbers.** An iterator, an async iterator
    or a list of events gives the rows of the batch result:
    `list(RollingMean(5)(iter(X)))` holds the rows of `RollingMean(5)(X)`.
-   Details: [Streams in depth](streaming.md).
+   Details: [Streams in depth](streaming.md). A pandas `Series` or `DataFrame`
+   is read as its values and gives a NumPy array, not a pandas object; use
+   `to_pandas` to attach an index again. A `str`, `bytes`, `dict` or `set`
+   is not data and raises `TypeError` at the call.
 3. **One meaning per container.** A number is one step of the operator's
    running series, an array is a batch along time, and a list or an iterator is
    a sequence of events: `RollingMean(3)(2.0)` returns a `float`, and

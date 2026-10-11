@@ -61,6 +61,7 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
 
 ### Changed
 
+* pandas `Series` and `DataFrame` inputs are read as their values and give a NumPy array (2.8.0 treated them as iterators). `str`, `bytes`, `dict` and `set` inputs raise `TypeError` at the call.
 * **JavaScript error classes:** every shape, length or input-count mismatch throws `RangeError` (the counterpart of Python's `ValueError`); wrong kinds still throw `TypeError`.
 * JavaScript: the WebAssembly module uses native WebAssembly exceptions; it needs Chrome 95, Firefox 100, Safari 15.2 or Node 17 or later. Errors thrown by your own iterators now reach you unchanged.
 * JavaScript: a string parameter given a non-string (for example `RollingMean(3, 5)`) throws `TypeError`.

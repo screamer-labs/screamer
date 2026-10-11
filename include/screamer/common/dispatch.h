@@ -271,6 +271,54 @@ inline NInputs<N> read_tuple_inputs(const nb::tuple& inputs) {
 
 }  // namespace detail
 
+// Normalizes one call argument before any routing. A pandas Series or
+// DataFrame (detected by its type's module and a to_numpy method, without
+// importing pandas) is read as its values and becomes a float64 NumPy array.
+// A str, bytes, dict, set or frozenset is not data and raises TypeError at the
+// call. Everything else is returned unchanged. The common inputs (float, int,
+// list, tuple, array) leave through the first checks without a module lookup.
+inline nb::object normalize_input(nb::handle x, const char* op_name) {
+    PyObject* o = x.ptr();
+    if (PyFloat_CheckExact(o) || PyLong_CheckExact(o) || PyList_CheckExact(o) ||
+        PyTuple_CheckExact(o))
+        return nb::borrow(x);
+    const bool bad = PyUnicode_Check(o) || PyBytes_Check(o) || PyDict_Check(o) ||
+                     PyAnySet_Check(o);
+    if (bad) {
+        std::string tn = nb::type_name(x.type()).c_str();
+        throw nb::type_error((std::string(op_name) + ": a " + tn +
+            " is not a valid input; pass numbers, arrays, lists or iterators").c_str());
+    }
+    if (detail::is_ndarray(x)) return nb::borrow(x);
+    if (nb::hasattr(x, "to_numpy")) {
+        nb::object mod = x.type().attr("__module__");
+        if (PyUnicode_Check(mod.ptr())) {
+            if (std::strncmp(nb::str(mod).c_str(), "pandas", 6) == 0)
+                return x.attr("to_numpy")(nb::arg("dtype") = nb::borrow(reinterpret_cast<PyObject*>(&PyFloat_Type)));
+        }
+    }
+    return nb::borrow(x);
+}
+
+// Normalizes every argument of a call; returns args itself when none changed.
+inline nb::args normalize_args(const nb::args& args, const char* op_name) {
+    nb::list out;
+    bool changed = false;
+    for (nb::handle a : args) {
+        nb::object n = normalize_input(a, op_name);
+        changed = changed || n.ptr() != a.ptr();
+        out.append(n);
+    }
+    if (!changed) return args;
+    return nb::borrow<nb::args>(nb::tuple(out));
+}
+
+inline std::string op_display_name(nb::handle self) {
+    std::string name = nb::type_name(self.type()).c_str();
+    if (auto dot = name.rfind('.'); dot != std::string::npos) name.erase(0, dot + 1);
+    return name;
+}
+
 // Relocated ScreamerBase dispatch (was ScreamerBase::operator() and
 // ScreamerBase::process_python_array). Free functions taking the base by
 // reference so one function pointer binds every ScreamerBase op as __call__.
@@ -941,8 +989,9 @@ nb::object functor_Ni_Mo(Op& self, const nb::args& raw_args) {
 // Main dispatcher (entry point bound as __call__ for every FunctorBase op)
 // ---------------------------------------------------------
 template <class Op>
-nb::object functor_call(Op& self, nb::args args) {
+nb::object functor_call(Op& self, nb::args raw) {
     constexpr size_t N = Op::kN, M = Op::kM;
+    nb::args args = normalize_args(raw, op_display_name(nb::find(self)).c_str());
     for (nb::handle a : args) {
         if (screamer::is_dag_node(nb::borrow<nb::object>(a)))
             return screamer::make_dag_functor_node(nb::find(self), nb::cast<nb::tuple>(args));

@@ -156,7 +156,8 @@ private:
     screamer::PortfolioReport& op_;
 };
 
-nb::object portfolio_report_call(screamer::PortfolioReport& self, nb::args args) {
+nb::object portfolio_report_call(screamer::PortfolioReport& self, nb::args raw) {
+    nb::args args = screamer::normalize_args(raw, "PortfolioReport");
     bool has_node = false;
     for (nb::handle arg : args)
         has_node = has_node || screamer::is_dag_node(nb::borrow<nb::object>(arg));
@@ -307,7 +308,8 @@ private:
     std::vector<screamer::detail::ContigDouble> fields_;
 };
 
-nb::object row_op_call(screamer::RowOp& self, nb::args args) {
+nb::object row_op_call(screamer::RowOp& self, nb::args raw) {
+    nb::args args = screamer::normalize_args(raw, screamer::op_display_name(nb::find(self)).c_str());
     for (nb::handle a : args)
         if (screamer::is_dag_node(nb::borrow<nb::object>(a)))
             throw nb::type_error("row operators run on arrays and row streams, "
