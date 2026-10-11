@@ -68,3 +68,15 @@ test("combinators: resample(x, {mode:'by_index', agg:'mean', every:5}) buckets t
 
   p.dispose();
 });
+
+test("combinators: combineLatest joins a 4-column bar node and a signal", async () => {
+  await ready();
+  const x = Input("x");
+  const y = Input("y");
+  const p = new Pipeline([x, y], [combineLatest([resample(x, { count: 2, agg: "ohlc" }), y])]);
+  const xs = Float64Array.from({ length: 20 }, (_, i) => i);
+  const { values } = p({ x: xs, y: xs }) as { values: { data: Float64Array; shape: number[] } };
+  assert.deepEqual(values.shape, [20, 5]);
+  assertNanEq(values.data.subarray(2 * 5, 2 * 5 + 4), [2, 3, 2, 3]);
+  p.dispose();
+});

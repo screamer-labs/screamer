@@ -123,7 +123,12 @@ public:
             switch (nd.kind) {
             case NodeKind::Input:         node_width[id] = 1; break;
             case NodeKind::Functor:       node_width[id] = nd.op->n_out(); break;
-            case NodeKind::CombineLatest: node_width[id] = nd.inputs.size(); break;
+            case NodeKind::CombineLatest: {
+                std::size_t w = 0;
+                for (auto in : nd.inputs) w += node_width[in];
+                node_width[id] = w;
+                break;
+            }
             case NodeKind::DropNa:        node_width[id] = node_width[nd.inputs[0]]; break;
             case NodeKind::Select:        node_width[id] = nd.columns.size(); break;
             case NodeKind::Resample: {
@@ -231,8 +236,10 @@ public:
                 break;
             }
             case NodeKind::CombineLatest: {
+                std::vector<std::size_t> widths;
+                for (auto in : ns.inputs) widths.push_back(node_width[in]);
                 auto cn = std::make_shared<CombineLatestNode<std::int64_t>>(
-                    ns.inputs.size(), ns.when_all, *downstream, ns.max_pending);
+                    widths, ns.when_all, *downstream, ns.max_pending);
                 reset_nodes_.push_back(cn.get());
                 node_input_sink[id] = [ptr = cn.get()](std::size_t slot) -> Sink<std::int64_t>* {
                     return &ptr->port(slot);

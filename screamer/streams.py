@@ -287,14 +287,15 @@ def merge(*values, index=None):
 # the C++ CombineLatest node - the alignment lives there. What stays here is the
 # iterator ergonomics plus the "stay in step" check, which is specific to Python
 # iterators. See docs/superpowers/specs/2026-07-16-lazy-path-cpp-design.md.
-def _combine_latest_zip_lazy(sources):
+def _combine_latest_zip_lazy(sources, wide=False):
     """Positional (no-index) combine_latest over lazy sources.
 
     The sources are paired by position: each step takes one value from every
     source. They must therefore stay in step and end together. If one source runs
     out while the others are still producing values, they were never aligned, and
     this raises. Matches the eager positional path, which rejects the same case.
-    Yields ``(row_tuple, None)``.
+    Yields ``(row_tuple, None)``, or ``(row_array, None)`` with each source's
+    fields concatenated when ``wide``.
     """
     import itertools
     for tup in itertools.zip_longest(*sources, fillvalue=_EMPTY):
@@ -302,7 +303,10 @@ def _combine_latest_zip_lazy(sources):
             raise ValueError(
                 "combine_latest: positional (no-index) sources must stay in step "
                 "and end together; one source ran out before the others")
-        yield tuple(float(x) for x in tup), None
+        if wide:
+            yield np.concatenate([np.ravel(np.asarray(x, dtype=np.float64)) for x in tup]), None
+        else:
+            yield tuple(float(x) for x in tup), None
 
 
 def _combine_latest_asof_lazy(sources, emit):
@@ -322,22 +326,84 @@ def _combine_latest_asof_lazy(sources, emit):
     yield from dag(*sources)
 
 
-def _combine_latest_lazy(values, emit):
+def _as_fields(v, layout):
+    """Read one input as (T, *A, F): rule 5 reads a 1-D or 2-D array as fields,
+    a 3-D or wider array as (T, *A, F); a layout states another reading."""
+    v = np.asarray(v, dtype=np.float64)
+    if layout is not None:
+        from .shape import reshape_array
+        return reshape_array(v, layout)
+    return v[:, None] if v.ndim == 1 else v
+
+
+def _layouts(layout, n):
+    if layout is None or isinstance(layout, str):
+        return [layout] * n
+    layout = list(layout)
+    if len(layout) != n:
+        raise ValueError(f"combine_latest: pass one layout per input ({n}), or one string for all")
+    return layout
+
+
+def _assemble(rows, fields, assets):
+    """Split joined rows into each input's (*A_i, F_i) block, broadcast the
+    assets and concatenate the fields (rule 5)."""
+    T = rows.shape[0]
+    parts, start = [], 0
+    for f in fields:
+        w = int(np.prod(f.shape[1:]))
+        # Missing asset axes go in as size 1 right after time, then broadcast.
+        lead = (1,) * (len(assets) - (f.ndim - 2))
+        block = rows[:, start:start + w].reshape((T,) + lead + f.shape[1:])
+        parts.append(np.broadcast_to(block, (T,) + assets + f.shape[-1:]))
+        start += w
+    return np.concatenate(parts, axis=-1)
+
+
+def _join_spec(heads, layouts):
+    """(fields, assets, wide) from one sample per input of shape (T, ...)."""
+    fields = [_as_fields(h, lay) for h, lay in zip(heads, layouts)]
+    assets = tuple(_b._broadcast_shape([[1, *f.shape[1:-1]] for f in fields])[1:])
+    wide = bool(assets) or any(f.shape[-1] != 1 for f in fields)
+    return fields, assets, wide
+
+
+def _combine_latest_lazy(values, emit, layout=None):
     """Dispatch gate for lazy combine_latest: classify sources on first next().
 
     Classification (and peeking one head per source) is deferred to the first
     call to ``__next__``, so construction consumes nothing. Positional sources
-    (bare scalars) route to strict-lockstep zip; indexed ((value, index))
-    sources route to the as-of Pipeline path.
+    route to strict-lockstep zip; indexed ((value, index)) sources route to the
+    as-of Pipeline path. The first event of each source fixes its fields and
+    asset axes, as in the eager path.
     """
+    import itertools
     positional, sources, _ = _classify_lazy_sources(values, "combine_latest")
+    heads = []
+    for k, src in enumerate(sources):
+        h = next(src, _EMPTY)
+        heads.append(h)
+        if h is not _EMPTY:
+            sources[k] = itertools.chain([h], src)
+    if any(h is _EMPTY for h in heads):
+        return
+    samples = [np.asarray(h if positional else h[0], dtype=np.float64)[None] for h in heads]
+    fields, assets, wide = _join_spec(samples, _layouts(layout, len(samples)))
     if positional:
-        yield from _combine_latest_zip_lazy(sources)
+        rows = _combine_latest_zip_lazy(sources, wide)
     else:
-        yield from _combine_latest_asof_lazy(sources, emit)
+        # Wide events enter the Pipeline as flat rows; the node concatenates them.
+        rows = _combine_latest_asof_lazy(
+            [(((np.ravel(np.asarray(v, dtype=np.float64)) if wide else v), i) for v, i in src)
+             for src in sources], emit)
+    for row, i in rows:
+        if wide:
+            row = np.asarray(row, dtype=np.float64)
+            row = _assemble(row[None], fields, assets)[0] if assets else row
+        yield row, i
 
 
-def combine_latest(*values, index=None, emit="when_all"):
+def combine_latest(*values, index=None, emit="when_all", layout=None):
     """As-of latest-value join of N streams: one row per distinct index (same-index
     events coalesce). Values-first + polymorphic: raw arrays, (values, index)
     tuples, or graph Nodes.
@@ -352,25 +418,33 @@ def combine_latest(*values, index=None, emit="when_all"):
     each aligned row, apply a functor to the output, e.g. Sub()(combine_latest(a, b)).
     When a (values, index) tuple is passed it carries its own index; index=
     applies only to raw arrays.
+
+    ``layout`` names each input's axes (one string per input, or one for all),
+    as in :func:`reshape`; inputs with asset axes broadcast them and concatenate
+    their fields. By default a 1-D or 2-D input is fields and a 3-D input is
+    ``(T, A, F)``.
     """
     if emit not in ("when_all", "on_any"):
         raise ValueError('combine_latest: emit must be "when_all" or "on_any"')
     if any(is_node(v) for v in values):
+        if any(lay and "A" in lay.split("->")[-1] for lay in _layouts(layout, len(values))):
+            raise ValueError(
+                "CombineLatest(layout=...) with an asset axis runs on arrays and iterators; "
+                "streams inside a Pipeline carry fields only")
         return make_operator_node(CombineLatest, values, {"emit": emit})
     if values and all(_is_lazy_stream(v) for v in values):
-        return _combine_latest_lazy(values, emit)
+        return _combine_latest_lazy(values, emit, layout)
     if any(_is_lazy_stream(v) for v in values):
         raise TypeError(
             "combine_latest: cannot mix lazy iterator and concrete inputs; pass "
             "all generators or all arrays")
     streams = _to_streams(values, index)
     kind, idx, vals, positional = _streams_to_indexed(streams, "combine_latest")
-    if any(np.ndim(v) != 1 for v in vals):
-        raise ValueError(
-            "combine_latest takes one-column streams; split a multi-column stream "
-            "into columns first, e.g. CombineLatest()(*ohlc.T, other)")
+    fields, assets, wide = _join_spec(vals, _layouts(layout, len(vals)))
+    flat = [np.ascontiguousarray(f.reshape(f.shape[0], -1)) for f in fields]
     fn = _b._combine_latest_f64 if kind == "f64" else _b._combine_latest_i64
-    out_index, aligned = fn(idx, vals, emit == "when_all")   # coalesced in C++
+    out_index, rows = fn(idx, flat, emit == "when_all")   # coalesced in C++
+    aligned = _assemble(rows, fields, assets) if assets else rows
     return aligned, (None if positional else out_index)
 
 
@@ -1320,19 +1394,20 @@ class Merge:
 class CombineLatest:
     """As-of latest-value join.  Config-first form of :func:`combine_latest`.
 
-    ``CombineLatest(emit="when_all")(*values, index=None)`` is equivalent to
-    ``combine_latest(*values, index=None, emit="when_all")``.
+    ``CombineLatest(emit="when_all", layout=None)(*values, index=None)`` is
+    equivalent to ``combine_latest(*values, index=None, emit=..., layout=...)``.
 
     ``func=`` is not available on the class surface; apply a functor to the
     aligned output instead, e.g.
     ``Sub()(CombineLatest()(a, b))``.
     """
 
-    def __init__(self, emit="when_all"):
+    def __init__(self, emit="when_all", layout=None):
         self._emit = emit
+        self._layout = layout
 
     def __call__(self, *values, index=None):
-        return combine_latest(*values, index=index, emit=self._emit)
+        return combine_latest(*values, index=index, emit=self._emit, layout=self._layout)
 
 
 class Dropna:

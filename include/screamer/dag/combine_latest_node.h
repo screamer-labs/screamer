@@ -12,10 +12,13 @@
 #include "screamer/dag/resettable.h"
 #include "screamer/streams/combine_latest.h"
 #include <stdexcept>
+#include <string>
 
 namespace screamer { namespace dag {
 
-// Aligning fan-in node. Exposes N single-value input ports; on any port event it
+// Aligning fan-in node. Exposes N input ports, each carrying its own number of
+// columns (learned from its first frame); the aligned row concatenates them in
+// port order. On any port event it
 // updates the reused CombineLatest operator and, when it fires (per when_all),
 // buffers the latest aligned row. Coalescing: one frame is emitted per DISTINCT
 // index (same-index events update the buffer; the frame is pushed when the index
@@ -30,16 +33,25 @@ class CombineLatestNode : public Resettable {
 public:
     static constexpr std::size_t DEFAULT_MAX_PENDING = 1'000'000;
 
+    // widths[i] is the compile-time estimate of port i's columns. A port's real
+    // width is fixed by its first frame (see on_port).
+    CombineLatestNode(std::vector<std::size_t> widths, bool when_all, Sink<Index>& downstream,
+                      std::size_t max_pending = DEFAULT_MAX_PENDING)
+        : cl_(widths, when_all), declared_(widths), when_all_(when_all),
+          downstream_(downstream), n_(widths.size()),
+          max_pending_(max_pending),
+          buffered_row_(cl_.total_width(), 0.0),
+          learned_(widths.size(), false),
+          pool_(widths.size()), free_slots_(widths.size()),
+          wm_(widths.size(), std::numeric_limits<Index>::min()),
+          flushed_(widths.size(), false) {
+        ports_.reserve(n_);
+        for (std::size_t i = 0; i < n_; ++i) ports_.emplace_back(*this, i);
+    }
+
     CombineLatestNode(std::size_t n, bool when_all, Sink<Index>& downstream,
                       std::size_t max_pending = DEFAULT_MAX_PENDING)
-        : cl_(n, when_all), downstream_(downstream), n_(n),
-          max_pending_(max_pending),
-          buffered_row_(n, 0.0),
-          wm_(n, std::numeric_limits<Index>::min()),
-          flushed_(n, false) {
-        ports_.reserve(n);
-        for (std::size_t i = 0; i < n; ++i) ports_.emplace_back(*this, i);
-    }
+        : CombineLatestNode(std::vector<std::size_t>(n, 1), when_all, downstream, max_pending) {}
 
     // Non-movable/copyable: the ports hold a reference back to this node.
     CombineLatestNode(const CombineLatestNode&) = delete;
@@ -50,7 +62,11 @@ public:
     Sink<Index>& port(std::size_t i) { return ports_[i]; }
 
     void reset() override {
-        cl_.reset();
+        cl_ = screamer::streams::CombineLatest(declared_, when_all_);
+        std::fill(learned_.begin(), learned_.end(), false);
+        emitted_any_ = false;
+        buffered_row_.assign(cl_.total_width(), 0.0);
+        for (std::size_t p = 0; p < n_; ++p) { pool_[p].clear(); free_slots_[p].clear(); }
         has_buffered_ = false;
         std::fill(flushed_.begin(), flushed_.end(), false);
         flushed_count_ = 0;
@@ -62,14 +78,15 @@ public:
 
 private:
     // Unchanged as-of + coalescing logic, now fed in guaranteed global index order
-    // by release(). Takes an explicit index and value instead of a Frame.
-    void apply_ordered(std::size_t i, Index ev_index, double value) {
-        if (cl_.on_event(static_cast<std::uint32_t>(i), value)) {
+    // by release(). Takes an explicit index and the port's values instead of a Frame.
+    void apply_ordered(std::size_t i, Index ev_index, const double* values) {
+        if (cl_.on_event(static_cast<std::uint32_t>(i), values)) {
+            emitted_any_ = true;
             const std::vector<double>& row = cl_.latest();
             if (has_buffered_ && ev_index != buffered_index_) {
                 // Index advanced: emit the buffered (settled) frame.
                 downstream_.push(Frame<Index>{buffered_index_,
-                                              buffered_row_.data(), n_});
+                                              buffered_row_.data(), buffered_row_.size()});
             }
             // Buffer the latest row at this index (overwrites if same index).
             buffered_index_ = ev_index;
@@ -79,17 +96,43 @@ private:
     }
 
     void on_port(std::size_t i, const Frame<Index>& f) {
-        if (f.width != 1)
+        if (!learned_[i]) {
+            // A port's width is fixed by its first event. Before that, a row
+            // emitted under emit="on_any" used the compile-time estimate.
+            learned_[i] = true;
+            if (f.width != cl_.width(i)) {
+                if (emitted_any_)
+                    throw std::invalid_argument(
+                        "CombineLatest: input " + std::to_string(i) + " has " +
+                        std::to_string(f.width) + "-column events, but rows were already "
+                        "emitted with " + std::to_string(cl_.width(i)) + " column(s) for it. "
+                        "With emit=\"on_any\" inside a Pipeline, a row can be due before every "
+                        "input has arrived; use emit=\"when_all\".");
+                cl_.set_width(i, f.width);
+                buffered_row_.assign(cl_.total_width(), 0.0);
+            }
+        } else if (f.width != cl_.width(i)) {
             throw std::invalid_argument(
-                "CombineLatest takes one-column streams; split a multi-column stream "
-                "into columns with Select first.");
+                "CombineLatest: input " + std::to_string(i) + " changed from " +
+                std::to_string(cl_.width(i)) + " to " + std::to_string(f.width) + " columns");
+        }
         if (wm_[i] < f.index) wm_[i] = f.index;   // a data frame advances the port watermark
-        pending_.push(Pending{f.index, static_cast<std::uint32_t>(i), next_seq_++, f.values[0]});
+        pending_.push(Pending{f.index, static_cast<std::uint32_t>(i), next_seq_++,
+                              store(i, f.values, f.width)});
         if (pending_.size() > max_pending_)
             throw std::runtime_error(
                 "CombineLatest reorder buffer overflow: an input has not advanced; "
                 "a stream is stalled. Call advance(now) or check the feed.");
         release();
+    }
+
+    // Copy a pending frame's values into a free slot of its port's pool.
+    std::size_t store(std::size_t port, const double* values, std::size_t w) {
+        std::size_t slot;
+        if (!free_slots_[port].empty()) { slot = free_slots_[port].back(); free_slots_[port].pop_back(); }
+        else { slot = pool_[port].size() / w; pool_[port].resize(pool_[port].size() + w); }
+        std::copy(values, values + w, pool_[port].begin() + slot * w);
+        return slot;
     }
 
     void on_port_watermark(std::size_t i, Index w) {
@@ -107,14 +150,15 @@ private:
         for (std::size_t j = 1; j < n_; ++j) low = std::min(low, wm_[j]);
         while (!pending_.empty() && pending_.top().index <= low) {
             Pending p = pending_.top(); pending_.pop();
-            apply_ordered(p.port, p.index, p.value);
+            apply_ordered(p.port, p.index, &pool_[p.port][p.slot * cl_.width(p.port)]);
+            free_slots_[p.port].push_back(p.slot);
         }
         // The coalescing buffer holds the settled row for the latest index that
         // has been applied. If the watermark is now strictly above that index,
         // no future event can share the same index, so it is safe to emit.
         if (has_buffered_ && buffered_index_ < low) {
             downstream_.push(Frame<Index>{buffered_index_,
-                                          buffered_row_.data(), n_});
+                                          buffered_row_.data(), buffered_row_.size()});
             has_buffered_ = false;
         }
         if (low != std::numeric_limits<Index>::min() && low > last_forwarded_wm_) {
@@ -140,7 +184,7 @@ private:
         // Every port has now delivered its final event: emit the settled row once.
         if (has_buffered_) {
             downstream_.push(Frame<Index>{buffered_index_,
-                                          buffered_row_.data(), n_});
+                                          buffered_row_.data(), buffered_row_.size()});
             has_buffered_ = false;
         }
         downstream_.flush();
@@ -159,13 +203,15 @@ private:
         void push(const Frame<Index>& f) override { node.on_port(idx, f); }
         void flush() override { node.flush_downstream(idx); }
         void on_watermark(Index w) override { node.on_port_watermark(idx, w); }
-        // Each port accepts one value per event; output is owned by the parent node.
+        // n_in() is nominal: a port takes any width, fixed by its first frame.
         std::size_t n_in()  const override { return 1; }
         std::size_t n_out() const override { return 0; }
     };
     friend struct Port;
 
     screamer::streams::CombineLatest cl_;   // reused operator (no re-derivation)
+    std::vector<std::size_t> declared_;     // compile-time width estimates, restored by reset()
+    bool when_all_;
     Sink<Index>& downstream_;
     std::size_t n_;
     std::size_t max_pending_;
@@ -176,13 +222,24 @@ private:
     Index buffered_index_{};
     std::vector<double> buffered_row_;
 
+    // Width learning: learned_[i] once port i's first frame fixed its width;
+    // emitted_any_ once a row has gone out (after which widths cannot change).
+    std::vector<bool> learned_;
+    bool emitted_any_ = false;
+
+    // Per-port value pool for pending frames: a frame's values live in slot
+    // `slot` of its port's pool (width cl_.width(port)); applied slots are
+    // recycled through free_slots_, so steady state allocates nothing.
+    std::vector<std::vector<double>> pool_;
+    std::vector<std::vector<std::size_t>> free_slots_;
+
     // Per-port watermark (INT64_MIN = port not yet seen) and a min-heap of frames
     // waiting until the merge is safe to apply them in global index order. The seq
     // field is a monotonic arrival counter: it preserves FIFO order among frames
     // that share the same (index, port) - a single port can carry two events at the
     // same index (duplicate indices), and last-write-wins requires arrival order.
     std::vector<Index> wm_;
-    struct Pending { Index index; std::uint32_t port; std::uint64_t seq; double value; };
+    struct Pending { Index index; std::uint32_t port; std::uint64_t seq; std::size_t slot; };
     struct PendGreater {
         bool operator()(const Pending& a, const Pending& b) const {
             if (a.index != b.index) return a.index > b.index;  // min-heap on index

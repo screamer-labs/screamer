@@ -274,42 +274,56 @@ template <class Index>
 static nb::object combine_latest_batch(nb::list index_arrays,
                                        nb::list value_arrays,
                                        bool when_all) {
-    std::size_t n = index_arrays.size();
-    if (n == 0) {
-        throw std::runtime_error("combine_latest: needs at least one stream");
-    }
+    using In2D = nb::ndarray<const double, nb::ndim<2>, nb::c_contig, nb::device::cpu>;
+    const std::size_t n = index_arrays.size();
+    if (n == 0) throw std::runtime_error("combine_latest: needs at least one stream");
+    if (value_arrays.size() != n) throw std::runtime_error("streams: index/values list length mismatch");
 
+    // Merge on the index alone: each source's event value is its row position,
+    // and the row's fields are read from that source's (rows, width) array.
     std::vector<In1D<Index>> indices;
-    std::vector<In1D<double>> vals;
+    std::vector<In2D> vals;
+    std::vector<std::vector<double>> positions(n);
     std::vector<std::unique_ptr<VectorSource<Index>>> sources;
     std::vector<Source<Index>*> child_ptrs;
-    std::size_t total = build_vector_sources<Index>(index_arrays, value_arrays,
-                                                    indices, vals, sources, child_ptrs);
+    std::vector<std::size_t> widths;
+    std::size_t total = 0, W = 0;
+    for (std::size_t i = 0; i < n; ++i) {
+        indices.push_back(nb::cast<In1D<Index>>(index_arrays[i]));
+        vals.push_back(nb::cast<In2D>(value_arrays[i]));
+        const std::size_t len = indices[i].shape(0);
+        if (vals[i].shape(0) != len) throw std::runtime_error("streams: a child's index/values length differ");
+        widths.push_back(vals[i].shape(1));
+        W += widths.back();
+        positions[i].resize(len);
+        for (std::size_t r = 0; r < len; ++r) positions[i][r] = static_cast<double>(r);
+        sources.push_back(std::make_unique<VectorSource<Index>>(indices[i].data(), positions[i].data(), len));
+        child_ptrs.push_back(sources.back().get());
+        total += len;
+    }
 
     std::vector<Index> out_k;
     std::vector<double> out_v;
     out_k.reserve(total);
-    out_v.reserve(total * n);
+    out_v.reserve(total * W);
 
     // Coalesce to one row per distinct index, exactly as the graph
-    // CombineLatestNode does: same-index events update a buffered row; the row is
-    // emitted when the index advances, and the final buffered row is emitted at
-    // the end. MergeSource yields index-sorted events, so equal indices are
-    // consecutive and this keeps the last row per index.
-    CombineLatest cl(n, when_all);
+    // CombineLatestNode does.
+    CombineLatest cl(widths, when_all);
     MergeSource<Index> merge(child_ptrs);
     bool has_buffered = false;
     Index buffered_index{};
-    std::vector<double> buffered_row(n, 0.0);
+    std::vector<double> buffered_row(W, 0.0);
     while (auto e = merge.next()) {
-        if (cl.on_event(e->source, e->value)) {
-            const std::vector<double>& row = cl.latest();
+        const std::size_t row = static_cast<std::size_t>(e->value);
+        if (cl.on_event(e->source, vals[e->source].data() + row * widths[e->source])) {
+            const std::vector<double>& latest = cl.latest();
             if (has_buffered && e->index != buffered_index) {
                 out_k.push_back(buffered_index);
                 out_v.insert(out_v.end(), buffered_row.begin(), buffered_row.end());
             }
             buffered_index = e->index;
-            std::copy(row.begin(), row.end(), buffered_row.begin());
+            std::copy(latest.begin(), latest.end(), buffered_row.begin());
             has_buffered = true;
         }
     }
@@ -318,12 +332,12 @@ static nb::object combine_latest_batch(nb::list index_arrays,
         out_v.insert(out_v.end(), buffered_row.begin(), buffered_row.end());
     }
 
-    std::size_t m = out_k.size();
+    const std::size_t m = out_k.size();
     Index* rk = new Index[m ? m : 1];
     if (m) std::memcpy(rk, out_k.data(), m * sizeof(Index));
-    double* rv = new double[(m * n) ? (m * n) : 1];
-    if (m) std::memcpy(rv, out_v.data(), m * n * sizeof(double));
-    return nb::make_tuple(owned_array(rk, {m}), owned_array(rv, {m, n}));
+    double* rv = new double[(m * W) ? (m * W) : 1];
+    if (m) std::memcpy(rv, out_v.data(), m * W * sizeof(double));
+    return nb::make_tuple(owned_array(rk, {m}), owned_array(rv, {m, W}));
 }
 
 template <class Index>
