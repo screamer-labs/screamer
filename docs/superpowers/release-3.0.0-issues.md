@@ -27,7 +27,7 @@ Goal: zero open issues before `make major`. Each item is closed by a fix with a 
 | # | Issue | Status |
 |---|---|---|
 | C1 | `PortfolioReport` turnover sums units across assets, which is meaningless for weighted books. | decided: optional price input `PortfolioReport()(out, prices)` with prices (T, K) gives turnover as traded notional sum(abs(dpos) * price), in initial-capital units like drawdown/cum_cost; without prices the 2.8.0 result is unchanged; docs say to pass prices for mixed-unit books; to implement |
-| C2 | `strategy_test` rejects `(T, K)` input. | open |
+| C2 | `strategy_test` rejects `(T, K)` input. | decided: accept (T, K) inputs; "bars" and "returns" (every mode: log, diff, level) apply one time permutation per copy to all assets, so cross-asset correlation is preserved and only serial structure is destroyed; "shift" uses one offset for all columns; the C++ permutation kernels take (T, K); mixed (T, K) and (T,) inputs allowed; 1-D results unchanged (compat gate); to implement |
 | C3 | Backtest engines declare `nan_policy` "ignore" but hold the position on a NaN target. | open |
 | C4 | `Add()([v, w])` raises an error that reports shape `(1, 30)`, which is misleading. | open |
 | C5 | A module-level async iterator whose source references it forms a reference cycle the garbage collector cannot see (no `tp_traverse` on the lazy iterators); nanobind reports "leaked instances" at exit. | open |
