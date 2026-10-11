@@ -642,3 +642,22 @@ def test_list_into_two_input_op_names_the_event_reading(arg, m):
 def test_list_of_pairs_still_works():
     assert s.Add()([(1.0, 2.0), (3.0, 4.0)]) == [3.0, 7.0]
     assert s.Add()((np.ones(3), np.ones(3))).tolist() == [2.0, 2.0, 2.0]
+
+
+def test_list_of_lists_reads_like_list_of_tuples():
+    assert s.Add()([[1.0, 2.0], [3.0, 4.0]]) == [3.0, 7.0]
+    assert s.Add()([(1.0, 2.0), [3.0, 4.0]]) == [3.0, 7.0]
+
+
+def test_later_event_reports_its_own_index():
+    with pytest.raises(ValueError, match="event 2 has 3 values"):
+        s.Add()([(1.0, 2.0), (3.0, 4.0), (5.0, 6.0, 7.0)])
+    with pytest.raises(ValueError, match="event 1 has 1 value "):
+        s.Add()([[1.0, 2.0], 3.0])
+
+
+def test_list_of_asset_events_equals_batch():
+    ev = np.arange(6.0).reshape(3, 2)
+    got = s.Add()([ev, ev])
+    ref = s.Add()(np.stack([ev, ev]))
+    assert np.array_equal(np.asarray(got), ref)

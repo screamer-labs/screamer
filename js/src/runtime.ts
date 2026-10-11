@@ -465,12 +465,24 @@ export function wrapOp(M: Screamer, src: OpSource, copy?: () => RawOp): Screamer
     if (args.length === 1 && Array.isArray(args[0])) {
       // A list is a sequence of events, and each event must hold every input.
       const evs = args[0] as any[];
+      const last = (e: any) => (isNd(e) ? e.shape[e.shape.length - 1] : -1);
       for (let i = 0; i < evs.length; i++) {
         const e = evs[i];
+        if (isNd(e) && last(e) === nIn) continue;
         const m = typeof e === "number" ? 1 : isNd(e) ? e.data.length : isTyped(e) || Array.isArray(e) ? e.length : -1;
         if (m < 0 || m === nIn) continue;
         const name = (raw as any).constructor?.name ?? "this op";
         throw new RangeError(`${name} expects ${nIn} inputs; a list is read as a sequence of events, and event ${i} has ${m} value${m === 1 ? "" : "s"} (expected ${nIn}). To pass ${nIn} separate inputs, call ${name}()(${nIn > 2 ? "a, b, ..." : "a, b"}).`);
+      }
+      // Events of nIn values each read like the columns of a batch.
+      if (evs.length > 0 && evs.every((e) => (isTyped(e) || Array.isArray(e)) && e.length === nIn && Array.from(e as ArrayLike<any>).every((x) => typeof x === "number"))) {
+        return call(...Array.from({ length: nIn }, (_, k) => Float64Array.from(evs, (e) => e[k])));
+      }
+      // Events of shape (..., nIn) stack into one packed (T, ..., nIn) array.
+      if (evs.length > 0 && evs.every((e) => isNd(e) && e.shape.join() === evs[0].shape.join())) {
+        const per = evs[0].data.length, data = new Float64Array(per * evs.length);
+        evs.forEach((e, t) => data.set(e.data, t * per));
+        return call({ shape: [evs.length, ...evs[0].shape], data } as NdArray);
       }
     }
     if (args.length !== nIn) throw new RangeError(`expected ${nIn} inputs, got ${args.length}`);

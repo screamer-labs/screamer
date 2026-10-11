@@ -81,3 +81,15 @@ test("C4: a list of arrays into Add names the event reading", async () => {
   assert.throws(() => add([1, 2]),
     (e: unknown) => e instanceof RangeError && /event 0 has 1 value \(expected 2\)/.test((e as Error).message));
 });
+
+test("C4: a list of N-element lists and of (K, N) NdArray events reads as events", async () => {
+  await ready();
+  const add = (api as any).Add();
+  assert.deepEqual(Array.from(add([[1, 2], [3, 4]]) as Float64Array), [3, 7]);
+  const ev = () => ({ shape: [3, 2], data: Float64Array.from([1, 2, 3, 4, 5, 6]) });
+  const viaList = add([ev(), ev()]) as NdArray;
+  const viaBatch = add({ shape: [2, 3, 2], data: Float64Array.from([1, 2, 3, 4, 5, 6, 1, 2, 3, 4, 5, 6]) }) as NdArray;
+  assert.deepEqual(viaList.shape, viaBatch.shape);
+  assert.deepEqual(Array.from(viaList.data), Array.from(viaBatch.data));
+  assert.throws(() => add([[1, 2], [3, 4, 5]]), (e: unknown) => e instanceof RangeError && /event 1 has 3 values/.test((e as Error).message));
+});

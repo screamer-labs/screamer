@@ -321,34 +321,37 @@ inline bool is_event_list(nb::handle h, bool fields) {
 }
 
 // A list given to a multi-input operator is a sequence of events, so each event
-// must hold all n inputs. Names the reading and the fix when one does not.
+// must hold all n inputs. Names the reading and the fix.
+[[noreturn]] inline void throw_event_arity(nb::handle self, std::size_t i, std::size_t m,
+                                           std::size_t n) {
+    std::string name = nb::type_name(self.type()).c_str();
+    if (auto dot = name.rfind('.'); dot != std::string::npos) name.erase(0, dot + 1);
+    const std::string ns = std::to_string(n);
+    throw nb::value_error((name + " expects " + ns +
+        " inputs; a list is read as a sequence of events, and event " + std::to_string(i) +
+        " has " + std::to_string(m) + " value" + (m == 1 ? "" : "s") + " (expected " + ns +
+        "). To pass " + ns + " separate inputs, call " + name + "()" +
+        (n > 2 ? "(a, b, ...)" : "(a, b)") + ".").c_str());
+}
+
+// Checks event 0 of a list up front (an array event is read before the per-event
+// loops run). Later events are checked by those loops as they convert.
 inline void check_event_arity(nb::handle self, nb::handle list, std::size_t n) {
-    if (!nb::isinstance<nb::list>(list)) return;
-    const Py_ssize_t count = PyList_Size(list.ptr());
-    for (Py_ssize_t i = 0; i < count; ++i) {
-        nb::handle ev = PyList_GetItem(list.ptr(), i);
-        std::size_t m;
-        if (nb::isinstance<nb::tuple>(ev) || nb::isinstance<nb::list>(ev)) {
-            m = nb::len(ev);
-        } else if (detail::has_axis(ev)) {
-            nb::tuple shape = nb::cast<nb::tuple>(ev.attr("shape"));
-            if (nb::cast<std::size_t>(shape[shape.size() - 1]) == n) continue;
-            m = nb::cast<std::size_t>(ev.attr("size"));
-        } else if (PyNumber_Check(ev.ptr())) {
-            m = 1;
-        } else {
-            return;
-        }
-        if (m == n) continue;
-        std::string name = nb::type_name(self.type()).c_str();
-        if (auto dot = name.rfind('.'); dot != std::string::npos) name.erase(0, dot + 1);
-        const std::string ns = std::to_string(n);
-        throw nb::value_error((name + " expects " + ns +
-            " inputs; a list is read as a sequence of events, and event " + std::to_string(i) +
-            " has " + std::to_string(m) + " value" + (m == 1 ? "" : "s") + " (expected " + ns +
-            "). To pass " + ns + " separate inputs, call " + name + "()" +
-            (n > 2 ? "(a, b, ...)" : "(a, b)") + ".").c_str());
+    if (!nb::isinstance<nb::list>(list) || nb::len(list) == 0) return;
+    nb::handle ev = PyList_GetItem(list.ptr(), 0);
+    std::size_t m;
+    if (nb::isinstance<nb::tuple>(ev) || nb::isinstance<nb::list>(ev)) {
+        m = nb::len(ev);
+    } else if (detail::has_axis(ev)) {
+        nb::tuple shape = nb::cast<nb::tuple>(ev.attr("shape"));
+        if (nb::cast<std::size_t>(shape[shape.size() - 1]) == n) return;
+        m = nb::cast<std::size_t>(ev.attr("size"));
+    } else if (PyNumber_Check(ev.ptr())) {
+        m = 1;
+    } else {
+        return;
     }
+    if (m != n) throw_event_arity(self, 0, m, n);
 }
 
 // A one-input operator takes one array, and a list of arrays is a sequence of
@@ -749,16 +752,22 @@ nb::object functor_Ni_1o(Op& self, const nb::args& raw_args) {
             EagerRun<Op> run(self);
             bool valid = true;
             std::vector<typename Op::ResultTuple> results;
+            const bool is_list = nb::isinstance<nb::list>(input);
+            std::size_t event_index = 0;
             for (nb::handle item : input) {
-                if (!nb::isinstance<nb::tuple>(item)) {
+                // A list of events reads a list event like a tuple event.
+                if (!(nb::isinstance<nb::tuple>(item) || (is_list && nb::isinstance<nb::list>(item)))) {
+                    if (is_list && PyNumber_Check(item.ptr())) throw_event_arity(nb::find(self), event_index, 1, N);
                     valid = false;
                     break;
                 }
-                nb::tuple tuple = nb::cast<nb::tuple>(item);
+                nb::tuple tuple = nb::tuple(nb::borrow(item));
                 if (tuple.size() != N) {
+                    if (is_list) throw_event_arity(nb::find(self), event_index, tuple.size(), N);
                     valid = false;
                     break;
                 }
+                ++event_index;
                 typename Op::InputArray input_array = cast_to_array<Op>(tuple);
                 results.push_back(self.call(input_array));
             }
@@ -853,16 +862,22 @@ nb::object functor_Ni_Mo(Op& self, const nb::args& raw_args) {
             EagerRun<Op> run(self);
             bool valid = true;
             std::vector<typename Op::ResultTuple> results;
+            const bool is_list = nb::isinstance<nb::list>(input);
+            std::size_t event_index = 0;
             for (nb::handle item : input) {
-                if (!nb::isinstance<nb::tuple>(item)) {
+                // A list of events reads a list event like a tuple event.
+                if (!(nb::isinstance<nb::tuple>(item) || (is_list && nb::isinstance<nb::list>(item)))) {
+                    if (is_list && PyNumber_Check(item.ptr())) throw_event_arity(nb::find(self), event_index, 1, N);
                     valid = false;
                     break;
                 }
-                nb::tuple tuple = nb::cast<nb::tuple>(item);
+                nb::tuple tuple = nb::tuple(nb::borrow(item));
                 if (tuple.size() != N) {
+                    if (is_list) throw_event_arity(nb::find(self), event_index, tuple.size(), N);
                     valid = false;
                     break;
                 }
+                ++event_index;
                 typename Op::InputArray input_array = cast_to_array<Op>(tuple);
                 results.push_back(self.call(input_array));
             }

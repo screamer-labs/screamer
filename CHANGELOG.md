@@ -103,6 +103,9 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
   (for example `Add()([v, w])` or `Add()([1.0, 2.0])`) raises a `ValueError`
   (JavaScript: `RangeError`) that explains the list reading and the fix,
   `Add()(v, w)`, in place of `std::bad_cast` or a misleading shape `(1, 30)`.
+* A list of N-element lists into an N-input operator (`Add()([[1.0, 2.0], [3.0, 4.0]])`)
+  now reads as events, like a list of tuples, in place of `std::bad_cast`.
+  JavaScript reads a list of N-value arrays or of `(..., N)` NdArray events the same way.
 
 * JavaScript: after a few thousand caught operator errors (for example
   `RollingMean(0)` in a loop) the WebAssembly stack overran the heap and later
