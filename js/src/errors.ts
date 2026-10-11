@@ -6,7 +6,8 @@
 // message translation, so a C++ exception thrown *during construction* (e.g.
 // `new M.RollingMean(0, ...)` rejecting an invalid window size) is not caught
 // and converted into a proper Error by Embind at all: it surfaces in JS as a
-// bare number (the raw exception pointer), with no recoverable `what()` text.
+// bare number: the address of the thrown object. The loader registers a reader
+// (the `exceptionMessage` binding) that recovers its `what()` text.
 // `loader.ts`'s `wrapCtors` routes every such throw through this function.
 // Across the C++ op sources, constructor-time argument validation is
 // overwhelmingly `throw std::invalid_argument(...)` (170/178 non-DAG throws);
@@ -15,8 +16,15 @@
 // value here is treated as that same invalid_argument case and mapped to
 // RangeError, matching the message-based classification below for the errors
 // that do carry text.
+let readMessage: ((thrown: number) => string) | null = null;
+
+export function setExceptionReader(read: (thrown: number) => string): void {
+  readMessage = read;
+}
+
 export function normalizeError(e: unknown): Error {
   if (!(e instanceof Error)) {
+    if (typeof e === "number" && readMessage) return new RangeError(readMessage(e));
     return new RangeError(
       `invalid argument (opaque WASM exception, no message text available: ${String(e)})`,
     );

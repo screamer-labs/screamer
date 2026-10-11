@@ -27,11 +27,26 @@ const isSyncIter = (x: any) =>
   x != null && typeof x !== "string" && typeof x[Symbol.iterator] === "function" && !isTyped(x) && !Array.isArray(x);
 const isAsyncIter = (x: any) => x != null && typeof x[Symbol.asyncIterator] === "function";
 
-export function wrapOp(M: Screamer, raw: RawOp): ScreamerOp {
+const isNd = (x: any): x is NdArray =>
+  x != null && x.data instanceof Float64Array && Array.isArray(x.shape);
+
+type OpSource = RawOp | (() => RawOp);
+const resolve = (src: OpSource): RawOp => (typeof src === "function" ? (src as () => RawOp)() : src);
+
+export function wrapOp(M: Screamer, src: OpSource): ScreamerOp {
+  const make = typeof src === "function" ? (src as () => RawOp) : null;
+  const raw = resolve(src);
   const nIn = raw.nIn(), nOut = raw.nOut();
   const inBuf = M.allocF64(nIn), outBuf = M.allocF64(nOut);
+  let copies: RawOp[] = [];          // ops for assets 1..K-1 of an asset-event stream
   let disposed = false;
-  const free = () => { if (!disposed) { disposed = true; M.freeBuf(inBuf); M.freeBuf(outBuf); raw.delete(); } };
+  const free = () => {
+    if (disposed) return;
+    disposed = true;
+    M.freeBuf(inBuf); M.freeBuf(outBuf);
+    copies.forEach((c) => c.delete());
+    raw.delete();
+  };
 
   const event = (inputs: ArrayLike<number>): number | number[] => {
     if (disposed) throw new Error("operation used after dispose()");
@@ -68,13 +83,84 @@ export function wrapOp(M: Screamer, raw: RawOp): ScreamerOp {
     return out;
   }
 
-  function* gen(src: Iterable<number>) {
-    raw.reset();
-    for (const v of src) yield event([v]);
+  // An N-D or broadcast call: the C++ shape module splits a packed argument,
+  // consumes a size-1 field axis, broadcasts the assets, and runs each column.
+  function shaped(args: any[]): NdArray {
+    const parts: NdArray[] = args.map((a) =>
+      isNd(a) ? a : { data: Float64Array.from(a as ArrayLike<number>), shape: [(a as ArrayLike<number>).length] });
+    const ptrs: number[] = [];
+    try {
+      const spec: number[] = [parts.length];
+      for (const p of parts) {
+        const ptr = M.allocF64(Math.max(1, p.data.length));
+        ptrs.push(ptr);
+        M.viewF64(ptr, p.data.length).set(p.data);
+        spec.push(ptr, p.shape.length, ...p.shape);
+      }
+      const specPtr = M.allocF64(spec.length);
+      ptrs.push(specPtr);
+      M.viewF64(specPtr, spec.length).set(spec);
+      const shape: number[] = M.shapedResult(specPtr, nIn);
+      const n = shape.reduce((a, b) => a * b, 1) * nOut;
+      const outPtr = M.allocF64(Math.max(1, n));
+      ptrs.push(outPtr);
+      M.evalShaped(raw, specPtr, outPtr);
+      return { data: new Float64Array(M.viewF64(outPtr, n)), shape: nOut === 1 ? shape : [...shape, nOut] };
+    } finally {
+      ptrs.forEach((p) => M.freeBuf(p));
+    }
   }
-  async function* agen(src: AsyncIterable<number>) {
+
+  // One event of an asset stream: K values, one per asset, each run by its own
+  // op (raw for asset 0). The first event fixes K, as a (T, K) batch does.
+  let assets = -1;                    // -1: not started, 0: scalar events, K: asset events
+  const eventRow = (v: any): ArrayLike<number> => {
+    if (!isNd(v)) {
+      if (!isTyped(v) && !isNumArr(v)) throw new TypeError(`unsupported event for a 1-input op: ${typeof v}`);
+      return v as ArrayLike<number>;
+    }
+    const s = v.shape;
+    if (s.length === 1 || (s.length === 2 && s[1] === 1)) return v.data;
+    throw new TypeError(`an event must hold one value per asset; got shape [${s}]`);
+  };
+  const assetEvent = (row: ArrayLike<number>): Float64Array | NdArray => {
+    const k = row.length;
+    const out = new Float64Array(k * nOut);
+    for (let j = 0; j < k; j++) {
+      M.viewF64(inBuf, 1)[0] = row[j];
+      (j === 0 ? raw : copies[j - 1]).evalInto(inBuf, outBuf);
+      out.set(M.viewF64(outBuf, nOut), j * nOut);
+    }
+    return nOut === 1 ? out : { data: out, shape: [k, nOut] };
+  };
+  const step = (v: any) => {
+    if (typeof v === "number") {
+      if (assets > 0) throw new TypeError(`every event must have the same shape: the first held ${assets} values, this one is a number`);
+      assets = 0;
+      return event([v]);
+    }
+    const row = eventRow(v);
+    if (assets === -1) {
+      if (row.length > 1 && !make) throw new TypeError("events with several assets need an op built by its factory");
+      assets = row.length;
+      raw.reset();
+      while (copies.length < assets - 1) copies.push(make!());
+      copies.forEach((c) => c.reset());
+    } else if (row.length !== assets) {
+      throw new TypeError(`every event must have the same shape: the first held ${assets === 0 ? "a number" : `${assets} values`}, this one holds ${row.length}`);
+    }
+    return assetEvent(row);
+  };
+
+  function* gen(src: Iterable<any>) {
     raw.reset();
-    for await (const v of src) yield event([v]);
+    assets = -1;
+    for (const v of src) yield step(v);
+  }
+  async function* agen(src: AsyncIterable<any>) {
+    raw.reset();
+    assets = -1;
+    for await (const v of src) yield step(v);
   }
 
   const call = (...args: any[]) => {
@@ -90,6 +176,7 @@ export function wrapOp(M: Screamer, raw: RawOp): ScreamerOp {
       if (nIn === 1) {
         const a = args[0];
         if (typeof a === "number") return event([a]);
+        if (isNd(a)) return shaped([a]);
         if (isTyped(a)) return batch1(a, true);
         if (isNumArr(a)) return batch1(a, false);
         if (isAsyncIter(a)) return agen(a);
@@ -98,15 +185,17 @@ export function wrapOp(M: Screamer, raw: RawOp): ScreamerOp {
       }
       // nIn > 1: N scalars -> one event; N arrays -> columnar batch.
       if (args.length === nIn && args.every((x) => typeof x === "number")) return event(args);
-      if (args.length === nIn && args.every((x) => isTyped(x) || isNumArr(x))) {
-        const rows = (args[0] as ArrayLike<number>).length;
-        if (args.some((x) => x.length !== rows)) {
-          throw new TypeError(`all input arrays must have the same length (got ${args.map((a) => a.length).join(", ")})`);
+      if (args.length === 1 && isNd(args[0])) return shaped(args);      // one packed (T, ..., nIn) array
+      if (args.length === nIn && args.every((x) => isTyped(x) || isNumArr(x) || isNd(x))) {
+        if (args.some(isNd)) return shaped(args);
+        const cols = args as ArrayLike<number>[];
+        const rows = cols[0].length;
+        if (cols.some((x) => x.length !== rows)) {
+          throw new TypeError(`all input arrays must have the same length (got ${cols.map((a) => a.length).join(", ")})`);
         }
         // Interleave the N input columns into row-major (rows x nIn) order, then
         // one C++ pass. The interleave is JS-side memory writes, no per-event
         // boundary crossing.
-        const cols = args as ArrayLike<number>[];
         const data = batchInto(rows, (view) => {
           for (let i = 0; i < rows; i++) for (let k = 0; k < nIn; k++) view[i * nIn + k] = cols[k][i];
         });
@@ -117,23 +206,20 @@ export function wrapOp(M: Screamer, raw: RawOp): ScreamerOp {
   };
 
   const op = call as ScreamerOp;
-  op.reset = () => { if (disposed) throw new Error("operation used after dispose()"); raw.reset(); };
+  op.reset = () => { if (disposed) throw new Error("operation used after dispose()"); raw.reset(); copies.forEach((c) => c.reset()); };
   op.dispose = free;
   (op as any)[Symbol.dispose] = free;
   REG.register(op, free);
   return op;
 }
 
-const isNd = (x: any): x is NdArray =>
-  x != null && x.data instanceof Float64Array && Array.isArray(x.shape);
-
-// A nested batch is an array of rows, each row itself an array of groups.
+// A nested batch is an array of rows, each row itself an array of assets.
 const isNestedBatch = (x: any) =>
   Array.isArray(x) && x.length > 0 && Array.isArray(x[0]) && (Array.isArray(x[0][0]) || isTyped(x[0][0]));
 
-// Wraps a dynamic-width reducer: an op that folds a variable number of groups
-// into one event, reading a `(groups, nIn)` block and writing nOut outputs.
-// The group count is a dimension of the data (the assets in a portfolio), not
+// Wraps a dynamic-width reducer: an op that folds a variable number of assets
+// into one event, reading a `(assets, nIn)` block and writing nOut outputs.
+// The asset count is a dimension of the data (the assets in a portfolio), not
 // a property of the op, so it is read from the input on every call rather than
 // fixed at construction the way nIn and nOut are.
 //
@@ -141,7 +227,8 @@ const isNestedBatch = (x: any) =>
 // scalar path, define-then-bind Node composition, reset, dispose -- is the
 // ordinary op behaviour, so this delegates to a wrapOp instance instead of
 // reimplementing it.
-export function wrapReducerOp(M: Screamer, raw: RawOp): ScreamerOp {
+export function wrapReducerOp(M: Screamer, src: OpSource): ScreamerOp {
+  const raw = resolve(src);
   const width = raw.nIn(), nOut = raw.nOut();
   const base = wrapOp(M, raw);
 
@@ -159,16 +246,16 @@ export function wrapReducerOp(M: Screamer, raw: RawOp): ScreamerOp {
     base.dispose();
   };
 
-  // Normalize one event into a flat (groups, width) block: an NdArray, a flat
+  // Normalize one event into a flat (assets, width) block: an NdArray, a flat
   // numeric array whose length is a multiple of width, or an array of rows.
-  function asRow(x: any): { flat: ArrayLike<number>; groups: number } {
+  function asRow(x: any): { flat: ArrayLike<number>; assets: number } {
     if (isNd(x)) {
       const s = x.shape;
       if (s.length === 2) {
         if (s[1] !== width) {
-          throw new TypeError(`expected an event of shape (groups, ${width}), got [${s}]`);
+          throw new TypeError(`expected an event of shape (assets, ${width}), got [${s}]`);
         }
-        return { flat: x.data, groups: s[0] };
+        return { flat: x.data, assets: s[0] };
       }
       if (s.length === 1) return asRow(x.data);
       throw new TypeError(`expected a rank-1 or rank-2 event, got shape [${s}]`);
@@ -178,22 +265,22 @@ export function wrapReducerOp(M: Screamer, raw: RawOp): ScreamerOp {
       if (n === 0 || n % width !== 0) {
         throw new TypeError(`a flat event must hold a positive multiple of ${width} values, got ${n}`);
       }
-      return { flat: x, groups: n / width };
+      return { flat: x, assets: n / width };
     }
     if (Array.isArray(x) && x.length > 0) {
-      const groups = x.length;
-      const flat = new Float64Array(groups * width);
-      for (let g = 0; g < groups; g++) {
+      const assets = x.length;
+      const flat = new Float64Array(assets * width);
+      for (let g = 0; g < assets; g++) {
         const row = x[g];
         if (!isTyped(row) && !isNumArr(row)) {
-          throw new TypeError(`group ${g} is not a numeric array`);
+          throw new TypeError(`asset ${g} is not a numeric array`);
         }
         if (row.length !== width) {
-          throw new TypeError(`each group must hold ${width} values, got ${row.length} at group ${g}`);
+          throw new TypeError(`each asset must hold ${width} values, got ${row.length} at asset ${g}`);
         }
         flat.set(row as ArrayLike<number>, g * width);
       }
-      return { flat, groups };
+      return { flat, assets };
     }
     throw new TypeError(`unsupported event for a reducer op: ${typeof x}`);
   }
@@ -201,28 +288,28 @@ export function wrapReducerOp(M: Screamer, raw: RawOp): ScreamerOp {
   // Single-output ops yield a bare number per event and a flat array per batch,
   // the same convention wrapOp follows, so a future 1-output reducer does not
   // silently return a width-1 container where every other op returns a scalar.
-  const event = (flat: ArrayLike<number>, groups: number): number | number[] => {
-    const need = groups * width;
+  const event = (flat: ArrayLike<number>, assets: number): number | number[] => {
+    const need = assets * width;
     if (need > rowCap) {
       if (rowBuf) M.freeBuf(rowBuf);
       rowBuf = M.allocF64(need);
       rowCap = need;
     }
     M.viewF64(rowBuf, need).set(flat as number[]);
-    raw.reduceInto!(rowBuf, outBuf, groups);
+    raw.reduceInto!(rowBuf, outBuf, assets);
     const o = M.viewF64(outBuf, nOut);
     return nOut === 1 ? o[0] : Array.from(o);
   };
 
-  const batch = (flat: ArrayLike<number>, rows: number, groups: number): NdArray | Float64Array => {
+  const batch = (flat: ArrayLike<number>, rows: number, assets: number): NdArray | Float64Array => {
     if (rows === 0) {
       return nOut === 1 ? new Float64Array(0) : { data: new Float64Array(0), shape: [0, nOut] };
     }
-    const inN = rows * groups * width;
+    const inN = rows * assets * width;
     const inP = M.allocF64(inN), outP = M.allocF64(rows * nOut);
     try {
       M.viewF64(inP, inN).set(flat as number[]);
-      raw.reduceBatchInto!(inP, outP, rows, groups);
+      raw.reduceBatchInto!(inP, outP, rows, assets);
       const data = new Float64Array(M.viewF64(outP, rows * nOut));
       return nOut === 1 ? data : { data, shape: [rows, nOut] };
     } finally {
@@ -234,26 +321,26 @@ export function wrapReducerOp(M: Screamer, raw: RawOp): ScreamerOp {
   const nestedBatch = (x: any[]): NdArray | Float64Array => {
     const rows = x.length;
     const first = asRow(x[0]);
-    const groups = first.groups;
-    const flat = new Float64Array(rows * groups * width);
+    const assets = first.assets;
+    const flat = new Float64Array(rows * assets * width);
     flat.set(first.flat as number[], 0);
     for (let r = 1; r < rows; r++) {
-      const { flat: f, groups: g } = asRow(x[r]);
-      if (g !== groups) {
-        throw new TypeError(`every event must hold ${groups} groups, got ${g} at event ${r}`);
+      const { flat: f, assets: g } = asRow(x[r]);
+      if (g !== assets) {
+        throw new TypeError(`every event must hold ${assets} assets, got ${g} at event ${r}`);
       }
-      flat.set(f as number[], r * groups * width);
+      flat.set(f as number[], r * assets * width);
     }
-    return batch(flat, rows, groups);
+    return batch(flat, rows, assets);
   };
 
   function* gen(src: Iterable<any>) {
     raw.reset();
-    for (const row of src) { const { flat, groups } = asRow(row); yield event(flat, groups); }
+    for (const row of src) { const { flat, assets } = asRow(row); yield event(flat, assets); }
   }
   async function* agen(src: AsyncIterable<any>) {
     raw.reset();
-    for await (const row of src) { const { flat, groups } = asRow(row); yield event(flat, groups); }
+    for await (const row of src) { const { flat, assets } = asRow(row); yield event(flat, assets); }
   }
 
   const call = (...args: any[]) => {
@@ -268,18 +355,18 @@ export function wrapReducerOp(M: Screamer, raw: RawOp): ScreamerOp {
         const s = x.shape;
         if (s.length === 3) {
           if (s[2] !== width) {
-            throw new TypeError(`expected a batch of shape (events, groups, ${width}), got [${s}]`);
+            throw new TypeError(`expected a batch of shape (events, assets, ${width}), got [${s}]`);
           }
           return batch(x.data, s[0], s[1]);
         }
-        const { flat, groups } = asRow(x);
-        return event(flat, groups);
+        const { flat, assets } = asRow(x);
+        return event(flat, assets);
       }
       if (isNestedBatch(x)) return nestedBatch(x);
       if (isAsyncIter(x)) return agen(x);
       if (isSyncIter(x)) return gen(x);
-      const { flat, groups } = asRow(x);
-      return event(flat, groups);
+      const { flat, assets } = asRow(x);
+      return event(flat, assets);
     } catch (e) { throw normalizeError(e); }
   };
 
@@ -302,7 +389,8 @@ export function wrapReducerOp(M: Screamer, raw: RawOp): ScreamerOp {
 //   an iterable of rows (one field)     -> a generator of rows
 //
 // Mirrors the Python binding of screamer.RowOp.
-export function wrapRowOp(M: Screamer, raw: RawOp): ScreamerOp {
+export function wrapRowOp(M: Screamer, src: OpSource): ScreamerOp {
+  const raw = resolve(src);
   const fi = raw.fieldsIn!(), fo = raw.fieldsOut!();
   let evIn = 0, evOut = 0, cap = 0;
   let disposed = false;

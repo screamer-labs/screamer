@@ -5,7 +5,7 @@
 // `npm run build` copies whichever is currently there into dist/generated/
 // (and dist/cjs/generated/ for the CJS build) so the packaged tarball needs
 // no separate .wasm asset to resolve.
-import { normalizeError } from "./errors.js";
+import { normalizeError, setExceptionReader } from "./errors.js";
 
 // screamer.mjs is single-file ESM (`export default Module`), in both the
 // ESM and CJS build. A literal `import(...)` here would be fine for the ESM
@@ -29,7 +29,7 @@ export interface RawOp {
   evalBatchInto(inPtr: number, outPtr: number, rows: number): void;
   reset(): void; delete(): void;
   // Present only on dynamic-width reducers (see wrapReducerOp): one event
-  // reduces a (groups, nIn) block, so the group count travels per call.
+  // reduces an (assets, nIn) block, so the asset count travels per call.
   reduceInto?(inPtr: number, outPtr: number, groups: number): void;
   reduceBatchInto?(inPtr: number, outPtr: number, rows: number, groups: number): void;
   // Present only on row ops (see wrapRowOp): one event is a row of k assets
@@ -77,7 +77,10 @@ export function init(): Promise<Screamer> {
   if (!cached) {
     cached = dynamicImport("./generated/screamer.mjs")
       .then((m) => m.default())
-      .then(wrapCtors);
+      .then((M: Screamer) => {
+        setExceptionReader((thrown) => M.exceptionMessage(thrown));
+        return wrapCtors(M);
+      });
   }
   return cached;
 }

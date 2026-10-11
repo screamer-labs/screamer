@@ -11,7 +11,7 @@ import { current } from "../index.js";
  */
 export function AD(): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.AD());
+  return wrapOp(M, () => new M.AD());
 }
 
 /**
@@ -23,7 +23,7 @@ export function AD(): ScreamerOp {
  */
 export function ADOSC(fast: number = 3, slow: number = 10): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.ADOSC(fast, slow));
+  return wrapOp(M, () => new M.ADOSC(fast, slow));
 }
 
 /**
@@ -34,7 +34,7 @@ export function ADOSC(fast: number = 3, slow: number = 10): ScreamerOp {
  */
 export function ADX(windowSize: number = 14): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.ADX(windowSize));
+  return wrapOp(M, () => new M.ADX(windowSize));
 }
 
 /**
@@ -45,7 +45,7 @@ export function ADX(windowSize: number = 14): ScreamerOp {
  */
 export function ADXR(windowSize: number = 14): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.ADXR(windowSize));
+  return wrapOp(M, () => new M.ADXR(windowSize));
 }
 
 /**
@@ -56,7 +56,7 @@ export function ADXR(windowSize: number = 14): ScreamerOp {
  */
 export function ATR(windowSize: number = 14): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.ATR(windowSize));
+  return wrapOp(M, () => new M.ATR(windowSize));
 }
 
 /**
@@ -66,7 +66,7 @@ export function ATR(windowSize: number = 14): ScreamerOp {
  */
 export function Abs(): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.Abs());
+  return wrapOp(M, () => new M.Abs());
 }
 
 /**
@@ -76,7 +76,7 @@ export function Abs(): ScreamerOp {
  */
 export function Acos(): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.Acos());
+  return wrapOp(M, () => new M.Acos());
 }
 
 /**
@@ -86,7 +86,7 @@ export function Acos(): ScreamerOp {
  */
 export function Add(): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.Add());
+  return wrapOp(M, () => new M.Add());
 }
 
 /**
@@ -98,7 +98,7 @@ export function Add(): ScreamerOp {
  */
 export function AmihudIlliquidity(windowSize: number = 20, startPolicy: string = "strict"): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.AmihudIlliquidity(windowSize, startPolicy));
+  return wrapOp(M, () => new M.AmihudIlliquidity(windowSize, startPolicy));
 }
 
 /**
@@ -108,7 +108,7 @@ export function AmihudIlliquidity(windowSize: number = 20, startPolicy: string =
  */
 export function And(): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.And());
+  return wrapOp(M, () => new M.And());
 }
 
 /**
@@ -118,7 +118,7 @@ export function And(): ScreamerOp {
  */
 export function Asin(): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.Asin());
+  return wrapOp(M, () => new M.Asin());
 }
 
 /**
@@ -128,7 +128,7 @@ export function Asin(): ScreamerOp {
  */
 export function Atan(): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.Atan());
+  return wrapOp(M, () => new M.Atan());
 }
 
 /**
@@ -138,7 +138,7 @@ export function Atan(): ScreamerOp {
  */
 export function Atan2(): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.Atan2());
+  return wrapOp(M, () => new M.Atan2());
 }
 
 /**
@@ -148,7 +148,7 @@ export function Atan2(): ScreamerOp {
  */
 export function BOP(): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.BOP());
+  return wrapOp(M, () => new M.BOP());
 }
 
 /**
@@ -159,7 +159,7 @@ export function BOP(): ScreamerOp {
  */
 export function BacktestCarry(multiplier: number = 1.0): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.BacktestCarry(multiplier));
+  return wrapOp(M, () => new M.BacktestCarry(multiplier));
 }
 
 /**
@@ -181,7 +181,7 @@ export function BacktestCarry(multiplier: number = 1.0): ScreamerOp {
  */
 export function BacktestL1Orders(makerFee: number = 0.0, takerFee: number = 0.0, fill: string = "breach", participationRatio: number = 1.0, tickSize: number = 0.0, minPosition: number = -Infinity, maxPosition: number = Infinity, multiplier: number = 1.0, makerFeePerContract: number = 0.0, takerFeePerContract: number = 0.0, slippage: number = 0.0, slippageUnit: string = "fraction"): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.BacktestL1Orders(makerFee, takerFee, fill, participationRatio, tickSize, minPosition, maxPosition, multiplier, makerFeePerContract, takerFeePerContract, slippage, slippageUnit));
+  return wrapOp(M, () => new M.BacktestL1Orders(makerFee, takerFee, fill, participationRatio, tickSize, minPosition, maxPosition, multiplier, makerFeePerContract, takerFeePerContract, slippage, slippageUnit));
 }
 
 /**
@@ -205,7 +205,7 @@ export function BacktestL1Orders(makerFee: number = 0.0, takerFee: number = 0.0,
  */
 export function BacktestL1Target(takerFee: number = 0.0, tickSize: number = 0.0, minPosition: number = -Infinity, maxPosition: number = Infinity, multiplier: number = 1.0, feePerContract: number = 0.0, slippage: number = 0.0, slippageUnit: string = "fraction", stopLoss: number = 0.0, takeProfit: number = 0.0, trailingStop: number = 0.0, size: string = "units", initialCapital: number = 0.0, rebalanceBand: number = 0.0): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.BacktestL1Target(takerFee, tickSize, minPosition, maxPosition, multiplier, feePerContract, slippage, slippageUnit, stopLoss, takeProfit, trailingStop, size, initialCapital, rebalanceBand));
+  return wrapOp(M, () => new M.BacktestL1Target(takerFee, tickSize, minPosition, maxPosition, multiplier, feePerContract, slippage, slippageUnit, stopLoss, takeProfit, trailingStop, size, initialCapital, rebalanceBand));
 }
 
 /**
@@ -227,7 +227,7 @@ export function BacktestL1Target(takerFee: number = 0.0, tickSize: number = 0.0,
  */
 export function BacktestL1TradesOrders(makerFee: number = 0.0, takerFee: number = 0.0, fill: string = "touch", participationRatio: number = 1.0, tickSize: number = 0.0, minPosition: number = -Infinity, maxPosition: number = Infinity, multiplier: number = 1.0, makerFeePerContract: number = 0.0, takerFeePerContract: number = 0.0, slippage: number = 0.0, slippageUnit: string = "fraction"): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.BacktestL1TradesOrders(makerFee, takerFee, fill, participationRatio, tickSize, minPosition, maxPosition, multiplier, makerFeePerContract, takerFeePerContract, slippage, slippageUnit));
+  return wrapOp(M, () => new M.BacktestL1TradesOrders(makerFee, takerFee, fill, participationRatio, tickSize, minPosition, maxPosition, multiplier, makerFeePerContract, takerFeePerContract, slippage, slippageUnit));
 }
 
 /**
@@ -249,7 +249,7 @@ export function BacktestL1TradesOrders(makerFee: number = 0.0, takerFee: number 
  */
 export function BacktestOHLCOrders(makerFee: number = 0.0, takerFee: number = 0.0, fill: string = "touch", participationRatio: number = 1.0, tickSize: number = 0.0, minPosition: number = -Infinity, maxPosition: number = Infinity, multiplier: number = 1.0, makerFeePerContract: number = 0.0, takerFeePerContract: number = 0.0, slippage: number = 0.0, slippageUnit: string = "fraction"): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.BacktestOHLCOrders(makerFee, takerFee, fill, participationRatio, tickSize, minPosition, maxPosition, multiplier, makerFeePerContract, takerFeePerContract, slippage, slippageUnit));
+  return wrapOp(M, () => new M.BacktestOHLCOrders(makerFee, takerFee, fill, participationRatio, tickSize, minPosition, maxPosition, multiplier, makerFeePerContract, takerFeePerContract, slippage, slippageUnit));
 }
 
 /**
@@ -275,7 +275,7 @@ export function BacktestOHLCOrders(makerFee: number = 0.0, takerFee: number = 0.
  */
 export function BacktestOHLCTarget(takerFee: number = 0.0, tickSize: number = 0.0, minPosition: number = -Infinity, maxPosition: number = Infinity, multiplier: number = 1.0, feePerContract: number = 0.0, slippage: number = 0.0, slippageUnit: string = "fraction", fillAt: string = "open", delay: number = 1, stopLoss: number = 0.0, takeProfit: number = 0.0, trailingStop: number = 0.0, size: string = "units", initialCapital: number = 0.0, rebalanceBand: number = 0.0): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.BacktestOHLCTarget(takerFee, tickSize, minPosition, maxPosition, multiplier, feePerContract, slippage, slippageUnit, fillAt, delay, stopLoss, takeProfit, trailingStop, size, initialCapital, rebalanceBand));
+  return wrapOp(M, () => new M.BacktestOHLCTarget(takerFee, tickSize, minPosition, maxPosition, multiplier, feePerContract, slippage, slippageUnit, fillAt, delay, stopLoss, takeProfit, trailingStop, size, initialCapital, rebalanceBand));
 }
 
 /**
@@ -302,7 +302,7 @@ export function BacktestOHLCTarget(takerFee: number = 0.0, tickSize: number = 0.
  */
 export function BacktestOHLCVTarget(maxParticipation: number = 1.0, takerFee: number = 0.0, tickSize: number = 0.0, minPosition: number = -Infinity, maxPosition: number = Infinity, multiplier: number = 1.0, feePerContract: number = 0.0, slippage: number = 0.0, slippageUnit: string = "fraction", fillAt: string = "open", delay: number = 1, stopLoss: number = 0.0, takeProfit: number = 0.0, trailingStop: number = 0.0, size: string = "units", initialCapital: number = 0.0, rebalanceBand: number = 0.0): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.BacktestOHLCVTarget(maxParticipation, takerFee, tickSize, minPosition, maxPosition, multiplier, feePerContract, slippage, slippageUnit, fillAt, delay, stopLoss, takeProfit, trailingStop, size, initialCapital, rebalanceBand));
+  return wrapOp(M, () => new M.BacktestOHLCVTarget(maxParticipation, takerFee, tickSize, minPosition, maxPosition, multiplier, feePerContract, slippage, slippageUnit, fillAt, delay, stopLoss, takeProfit, trailingStop, size, initialCapital, rebalanceBand));
 }
 
 /**
@@ -326,23 +326,25 @@ export function BacktestOHLCVTarget(maxParticipation: number = 1.0, takerFee: nu
  */
 export function BacktestPortfolioOHLCTarget(fee: number | number[] = [0.0], slippage: number | number[] = [0.0], slippageUnit: string = "fraction", tickSize: number | number[] = [0.0], multiplier: number | number[] = [1.0], feePerContract: number | number[] = [0.0], size: string = "weight", initialCapital: number = 1.0, rebalanceBand: number = 0.0, rebalance: string = "drifted", maxGross: number = Infinity, maxNet: number = Infinity, fillAt: string = "open", delay: number = 1): ScreamerOp {
   const M = current();
-  const _v0 = new M.VectorDouble();
-  for (const _x of (typeof fee === "number" ? [fee] : fee)) _v0.push_back(_x);
-  const _v1 = new M.VectorDouble();
-  for (const _x of (typeof slippage === "number" ? [slippage] : slippage)) _v1.push_back(_x);
-  const _v3 = new M.VectorDouble();
-  for (const _x of (typeof tickSize === "number" ? [tickSize] : tickSize)) _v3.push_back(_x);
-  const _v4 = new M.VectorDouble();
-  for (const _x of (typeof multiplier === "number" ? [multiplier] : multiplier)) _v4.push_back(_x);
-  const _v5 = new M.VectorDouble();
-  for (const _x of (typeof feePerContract === "number" ? [feePerContract] : feePerContract)) _v5.push_back(_x);
-  const _op = new M.BacktestPortfolioOHLCTarget(_v0, _v1, slippageUnit, _v3, _v4, _v5, size, initialCapital, rebalanceBand, rebalance, maxGross, maxNet, fillAt, delay);
-  _v0.delete();
-  _v1.delete();
-  _v3.delete();
-  _v4.delete();
-  _v5.delete();
-  return wrapRowOp(M, _op);
+  return wrapRowOp(M, () => {
+    const _v0 = new M.VectorDouble();
+    for (const _x of (typeof fee === "number" ? [fee] : fee)) _v0.push_back(_x);
+    const _v1 = new M.VectorDouble();
+    for (const _x of (typeof slippage === "number" ? [slippage] : slippage)) _v1.push_back(_x);
+    const _v3 = new M.VectorDouble();
+    for (const _x of (typeof tickSize === "number" ? [tickSize] : tickSize)) _v3.push_back(_x);
+    const _v4 = new M.VectorDouble();
+    for (const _x of (typeof multiplier === "number" ? [multiplier] : multiplier)) _v4.push_back(_x);
+    const _v5 = new M.VectorDouble();
+    for (const _x of (typeof feePerContract === "number" ? [feePerContract] : feePerContract)) _v5.push_back(_x);
+    const _op = new M.BacktestPortfolioOHLCTarget(_v0, _v1, slippageUnit, _v3, _v4, _v5, size, initialCapital, rebalanceBand, rebalance, maxGross, maxNet, fillAt, delay);
+    _v0.delete();
+    _v1.delete();
+    _v3.delete();
+    _v4.delete();
+    _v5.delete();
+    return _op;
+  });
 }
 
 /**
@@ -364,23 +366,25 @@ export function BacktestPortfolioOHLCTarget(fee: number | number[] = [0.0], slip
  */
 export function BacktestPortfolioTarget(fee: number | number[] = [0.0], slippage: number | number[] = [0.0], slippageUnit: string = "fraction", tickSize: number | number[] = [0.0], multiplier: number | number[] = [1.0], feePerContract: number | number[] = [0.0], size: string = "weight", initialCapital: number = 1.0, rebalanceBand: number = 0.0, rebalance: string = "drifted", maxGross: number = Infinity, maxNet: number = Infinity): ScreamerOp {
   const M = current();
-  const _v0 = new M.VectorDouble();
-  for (const _x of (typeof fee === "number" ? [fee] : fee)) _v0.push_back(_x);
-  const _v1 = new M.VectorDouble();
-  for (const _x of (typeof slippage === "number" ? [slippage] : slippage)) _v1.push_back(_x);
-  const _v3 = new M.VectorDouble();
-  for (const _x of (typeof tickSize === "number" ? [tickSize] : tickSize)) _v3.push_back(_x);
-  const _v4 = new M.VectorDouble();
-  for (const _x of (typeof multiplier === "number" ? [multiplier] : multiplier)) _v4.push_back(_x);
-  const _v5 = new M.VectorDouble();
-  for (const _x of (typeof feePerContract === "number" ? [feePerContract] : feePerContract)) _v5.push_back(_x);
-  const _op = new M.BacktestPortfolioTarget(_v0, _v1, slippageUnit, _v3, _v4, _v5, size, initialCapital, rebalanceBand, rebalance, maxGross, maxNet);
-  _v0.delete();
-  _v1.delete();
-  _v3.delete();
-  _v4.delete();
-  _v5.delete();
-  return wrapRowOp(M, _op);
+  return wrapRowOp(M, () => {
+    const _v0 = new M.VectorDouble();
+    for (const _x of (typeof fee === "number" ? [fee] : fee)) _v0.push_back(_x);
+    const _v1 = new M.VectorDouble();
+    for (const _x of (typeof slippage === "number" ? [slippage] : slippage)) _v1.push_back(_x);
+    const _v3 = new M.VectorDouble();
+    for (const _x of (typeof tickSize === "number" ? [tickSize] : tickSize)) _v3.push_back(_x);
+    const _v4 = new M.VectorDouble();
+    for (const _x of (typeof multiplier === "number" ? [multiplier] : multiplier)) _v4.push_back(_x);
+    const _v5 = new M.VectorDouble();
+    for (const _x of (typeof feePerContract === "number" ? [feePerContract] : feePerContract)) _v5.push_back(_x);
+    const _op = new M.BacktestPortfolioTarget(_v0, _v1, slippageUnit, _v3, _v4, _v5, size, initialCapital, rebalanceBand, rebalance, maxGross, maxNet);
+    _v0.delete();
+    _v1.delete();
+    _v3.delete();
+    _v4.delete();
+    _v5.delete();
+    return _op;
+  });
 }
 
 /**
@@ -405,7 +409,7 @@ export function BacktestPortfolioTarget(fee: number | number[] = [0.0], slippage
  */
 export function BacktestPriceTarget(spread: number = 0.0, fee: number = 0.0, minPosition: number = -Infinity, maxPosition: number = Infinity, multiplier: number = 1.0, feePerContract: number = 0.0, slippage: number = 0.0, slippageUnit: string = "fraction", tickSize: number = 0.0, stopLoss: number = 0.0, takeProfit: number = 0.0, trailingStop: number = 0.0, size: string = "units", initialCapital: number = 0.0, rebalanceBand: number = 0.0): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.BacktestPriceTarget(spread, fee, minPosition, maxPosition, multiplier, feePerContract, slippage, slippageUnit, tickSize, stopLoss, takeProfit, trailingStop, size, initialCapital, rebalanceBand));
+  return wrapOp(M, () => new M.BacktestPriceTarget(spread, fee, minPosition, maxPosition, multiplier, feePerContract, slippage, slippageUnit, tickSize, stopLoss, takeProfit, trailingStop, size, initialCapital, rebalanceBand));
 }
 
 /**
@@ -416,7 +420,7 @@ export function BacktestPriceTarget(spread: number = 0.0, fee: number = 0.0, min
  */
 export function BacktestReport(periodsPerYear: number = 1.0): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.BacktestReport(periodsPerYear));
+  return wrapOp(M, () => new M.BacktestReport(periodsPerYear));
 }
 
 /**
@@ -427,7 +431,7 @@ export function BacktestReport(periodsPerYear: number = 1.0): ScreamerOp {
  */
 export function BacktestStats(periodsPerYear: number = 1.0): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.BacktestStats(periodsPerYear));
+  return wrapOp(M, () => new M.BacktestStats(periodsPerYear));
 }
 
 /**
@@ -449,7 +453,7 @@ export function BacktestStats(periodsPerYear: number = 1.0): ScreamerOp {
  */
 export function BacktestTradesOrders(makerFee: number = 0.0, takerFee: number = 0.0, fill: string = "touch", participationRatio: number = 1.0, tickSize: number = 0.0, minPosition: number = -Infinity, maxPosition: number = Infinity, multiplier: number = 1.0, makerFeePerContract: number = 0.0, takerFeePerContract: number = 0.0, slippage: number = 0.0, slippageUnit: string = "fraction"): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.BacktestTradesOrders(makerFee, takerFee, fill, participationRatio, tickSize, minPosition, maxPosition, multiplier, makerFeePerContract, takerFeePerContract, slippage, slippageUnit));
+  return wrapOp(M, () => new M.BacktestTradesOrders(makerFee, takerFee, fill, participationRatio, tickSize, minPosition, maxPosition, multiplier, makerFeePerContract, takerFeePerContract, slippage, slippageUnit));
 }
 
 /**
@@ -474,7 +478,7 @@ export function BacktestTradesOrders(makerFee: number = 0.0, takerFee: number = 
  */
 export function BacktestTradesTarget(takerFee: number = 0.0, tickSize: number = 0.0, minPosition: number = -Infinity, maxPosition: number = Infinity, multiplier: number = 1.0, feePerContract: number = 0.0, slippage: number = 0.0, slippageUnit: string = "fraction", stopLoss: number = 0.0, takeProfit: number = 0.0, trailingStop: number = 0.0, size: string = "units", initialCapital: number = 0.0, rebalanceBand: number = 0.0, maxParticipation: number = Infinity): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.BacktestTradesTarget(takerFee, tickSize, minPosition, maxPosition, multiplier, feePerContract, slippage, slippageUnit, stopLoss, takeProfit, trailingStop, size, initialCapital, rebalanceBand, maxParticipation));
+  return wrapOp(M, () => new M.BacktestTradesTarget(takerFee, tickSize, minPosition, maxPosition, multiplier, feePerContract, slippage, slippageUnit, stopLoss, takeProfit, trailingStop, size, initialCapital, rebalanceBand, maxParticipation));
 }
 
 /**
@@ -487,7 +491,7 @@ export function BacktestTradesTarget(takerFee: number = 0.0, tickSize: number = 
  */
 export function BandSignal(entry: number = 2.0, exit: number = 0.0, stop: number = Infinity): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.BandSignal(entry, exit, stop));
+  return wrapOp(M, () => new M.BandSignal(entry, exit, stop));
 }
 
 /**
@@ -503,7 +507,7 @@ export function BandSignal(entry: number = 2.0, exit: number = 0.0, stop: number
  */
 export function BayesianRegression(com: number = NaN, span: number = NaN, halflife: number = NaN, alpha: number = NaN, priorPrecision: number = 1.0, priorSigma: number = 1.0): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.BayesianRegression(com, span, halflife, alpha, priorPrecision, priorSigma));
+  return wrapOp(M, () => new M.BayesianRegression(com, span, halflife, alpha, priorPrecision, priorSigma));
 }
 
 /**
@@ -516,7 +520,7 @@ export function BayesianRegression(com: number = NaN, span: number = NaN, halfli
  */
 export function BollingerBands(windowSize: number = 20, numStd: number = 2.0, startPolicy: string = "strict"): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.BollingerBands(windowSize, numStd, startPolicy));
+  return wrapOp(M, () => new M.BollingerBands(windowSize, numStd, startPolicy));
 }
 
 /**
@@ -528,7 +532,7 @@ export function BollingerBands(windowSize: number = 20, numStd: number = 2.0, st
  */
 export function BulkVolumeClassifier(windowSize: number = 20, startPolicy: string = "strict"): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.BulkVolumeClassifier(windowSize, startPolicy));
+  return wrapOp(M, () => new M.BulkVolumeClassifier(windowSize, startPolicy));
 }
 
 /**
@@ -540,7 +544,7 @@ export function BulkVolumeClassifier(windowSize: number = 20, startPolicy: strin
  */
 export function Butter(order: number = 2, cutoffFreq: number = 0.1): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.Butter(order, cutoffFreq));
+  return wrapOp(M, () => new M.Butter(order, cutoffFreq));
 }
 
 /**
@@ -553,7 +557,7 @@ export function Butter(order: number = 2, cutoffFreq: number = 0.1): ScreamerOp 
  */
 export function ButterBandpass(order: number = 2, lowCutoff: number = 0.05, highCutoff: number = 0.2): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.ButterBandpass(order, lowCutoff, highCutoff));
+  return wrapOp(M, () => new M.ButterBandpass(order, lowCutoff, highCutoff));
 }
 
 /**
@@ -566,7 +570,7 @@ export function ButterBandpass(order: number = 2, lowCutoff: number = 0.05, high
  */
 export function ButterBandstop(order: number = 2, lowCutoff: number = 0.05, highCutoff: number = 0.2): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.ButterBandstop(order, lowCutoff, highCutoff));
+  return wrapOp(M, () => new M.ButterBandstop(order, lowCutoff, highCutoff));
 }
 
 /**
@@ -578,7 +582,7 @@ export function ButterBandstop(order: number = 2, lowCutoff: number = 0.05, high
  */
 export function ButterHighpass(order: number = 2, cutoffFreq: number = 0.1): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.ButterHighpass(order, cutoffFreq));
+  return wrapOp(M, () => new M.ButterHighpass(order, cutoffFreq));
 }
 
 /**
@@ -589,7 +593,7 @@ export function ButterHighpass(order: number = 2, cutoffFreq: number = 0.1): Scr
  */
 export function CCI(windowSize: number = 14): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.CCI(windowSize));
+  return wrapOp(M, () => new M.CCI(windowSize));
 }
 
 /**
@@ -599,7 +603,7 @@ export function CCI(windowSize: number = 14): ScreamerOp {
  */
 export function Cart2Polar(): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.Cart2Polar());
+  return wrapOp(M, () => new M.Cart2Polar());
 }
 
 /**
@@ -609,7 +613,7 @@ export function Cart2Polar(): ScreamerOp {
  */
 export function Ceil(): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.Ceil());
+  return wrapOp(M, () => new M.Ceil());
 }
 
 /**
@@ -621,7 +625,7 @@ export function Ceil(): ScreamerOp {
  */
 export function Clip(lower: number = NaN, upper: number = NaN): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.Clip(lower, upper));
+  return wrapOp(M, () => new M.Clip(lower, upper));
 }
 
 /**
@@ -631,7 +635,7 @@ export function Clip(lower: number = NaN, upper: number = NaN): ScreamerOp {
  */
 export function ContOFI(): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.ContOFI());
+  return wrapOp(M, () => new M.ContOFI());
 }
 
 /**
@@ -641,7 +645,7 @@ export function ContOFI(): ScreamerOp {
  */
 export function Cos(): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.Cos());
+  return wrapOp(M, () => new M.Cos());
 }
 
 /**
@@ -651,7 +655,7 @@ export function Cos(): ScreamerOp {
  */
 export function CrossDemean(): ScreamerOp {
   const M = current();
-  return wrapRowOp(M, new M.CrossDemean());
+  return wrapRowOp(M, () => new M.CrossDemean());
 }
 
 /**
@@ -663,7 +667,7 @@ export function CrossDemean(): ScreamerOp {
  */
 export function CrossNormalize(gross: number = 1.0, net: number = NaN): ScreamerOp {
   const M = current();
-  return wrapRowOp(M, new M.CrossNormalize(gross, net));
+  return wrapRowOp(M, () => new M.CrossNormalize(gross, net));
 }
 
 /**
@@ -674,7 +678,7 @@ export function CrossNormalize(gross: number = 1.0, net: number = NaN): Screamer
  */
 export function CrossRank(scale: string = "signed"): ScreamerOp {
   const M = current();
-  return wrapRowOp(M, new M.CrossRank(scale));
+  return wrapRowOp(M, () => new M.CrossRank(scale));
 }
 
 /**
@@ -685,7 +689,7 @@ export function CrossRank(scale: string = "signed"): ScreamerOp {
  */
 export function CrossTopBottom(count: number = 1): ScreamerOp {
   const M = current();
-  return wrapRowOp(M, new M.CrossTopBottom(count));
+  return wrapRowOp(M, () => new M.CrossTopBottom(count));
 }
 
 /**
@@ -697,7 +701,7 @@ export function CrossTopBottom(count: number = 1): ScreamerOp {
  */
 export function CrossWinsorize(lower: number = 0.05, upper: number = 0.95): ScreamerOp {
   const M = current();
-  return wrapRowOp(M, new M.CrossWinsorize(lower, upper));
+  return wrapRowOp(M, () => new M.CrossWinsorize(lower, upper));
 }
 
 /**
@@ -707,7 +711,7 @@ export function CrossWinsorize(lower: number = 0.05, upper: number = 0.95): Scre
  */
 export function CrossZscore(): ScreamerOp {
   const M = current();
-  return wrapRowOp(M, new M.CrossZscore());
+  return wrapRowOp(M, () => new M.CrossZscore());
 }
 
 /**
@@ -717,7 +721,7 @@ export function CrossZscore(): ScreamerOp {
  */
 export function Cube(): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.Cube());
+  return wrapOp(M, () => new M.Cube());
 }
 
 /**
@@ -727,7 +731,7 @@ export function Cube(): ScreamerOp {
  */
 export function CumMax(): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.CumMax());
+  return wrapOp(M, () => new M.CumMax());
 }
 
 /**
@@ -737,7 +741,7 @@ export function CumMax(): ScreamerOp {
  */
 export function CumMin(): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.CumMin());
+  return wrapOp(M, () => new M.CumMin());
 }
 
 /**
@@ -747,7 +751,7 @@ export function CumMin(): ScreamerOp {
  */
 export function CumProd(): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.CumProd());
+  return wrapOp(M, () => new M.CumProd());
 }
 
 /**
@@ -757,7 +761,7 @@ export function CumProd(): ScreamerOp {
  */
 export function CumSum(): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.CumSum());
+  return wrapOp(M, () => new M.CumSum());
 }
 
 /**
@@ -767,7 +771,7 @@ export function CumSum(): ScreamerOp {
  */
 export function CycleAmplitude(): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.CycleAmplitude());
+  return wrapOp(M, () => new M.CycleAmplitude());
 }
 
 /**
@@ -777,7 +781,7 @@ export function CycleAmplitude(): ScreamerOp {
  */
 export function CycleFrequency(): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.CycleFrequency());
+  return wrapOp(M, () => new M.CycleFrequency());
 }
 
 /**
@@ -787,7 +791,7 @@ export function CycleFrequency(): ScreamerOp {
  */
 export function CyclePhase(): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.CyclePhase());
+  return wrapOp(M, () => new M.CyclePhase());
 }
 
 /**
@@ -797,7 +801,7 @@ export function CyclePhase(): ScreamerOp {
  */
 export function CycleSine(): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.CycleSine());
+  return wrapOp(M, () => new M.CycleSine());
 }
 
 /**
@@ -811,7 +815,7 @@ export function CycleSine(): ScreamerOp {
  */
 export function DEMA(com: number = NaN, span: number = NaN, halflife: number = NaN, alpha: number = NaN): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.DEMA(com, span, halflife, alpha));
+  return wrapOp(M, () => new M.DEMA(com, span, halflife, alpha));
 }
 
 /**
@@ -822,7 +826,7 @@ export function DEMA(com: number = NaN, span: number = NaN, halflife: number = N
  */
 export function DX(windowSize: number = 14): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.DX(windowSize));
+  return wrapOp(M, () => new M.DX(windowSize));
 }
 
 /**
@@ -834,7 +838,7 @@ export function DX(windowSize: number = 14): ScreamerOp {
  */
 export function Decycler(period: number = NaN, cutoff: number = NaN): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.Decycler(period, cutoff));
+  return wrapOp(M, () => new M.Decycler(period, cutoff));
 }
 
 /**
@@ -846,7 +850,7 @@ export function Decycler(period: number = NaN, cutoff: number = NaN): ScreamerOp
  */
 export function Detrend(windowSize: number = 20, startPolicy: string = "strict"): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.Detrend(windowSize, startPolicy));
+  return wrapOp(M, () => new M.Detrend(windowSize, startPolicy));
 }
 
 /**
@@ -858,7 +862,7 @@ export function Detrend(windowSize: number = 20, startPolicy: string = "strict")
  */
 export function Diff(windowSize: number = 1, startPolicy: string = "strict"): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.Diff(windowSize, startPolicy));
+  return wrapOp(M, () => new M.Diff(windowSize, startPolicy));
 }
 
 /**
@@ -869,7 +873,7 @@ export function Diff(windowSize: number = 1, startPolicy: string = "strict"): Sc
  */
 export function Diff2(startPolicy: string = "strict"): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.Diff2(startPolicy));
+  return wrapOp(M, () => new M.Diff2(startPolicy));
 }
 
 /**
@@ -879,7 +883,7 @@ export function Diff2(startPolicy: string = "strict"): ScreamerOp {
  */
 export function Div(): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.Div());
+  return wrapOp(M, () => new M.Div());
 }
 
 /**
@@ -889,7 +893,7 @@ export function Div(): ScreamerOp {
  */
 export function DominantCycle(): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.DominantCycle());
+  return wrapOp(M, () => new M.DominantCycle());
 }
 
 /**
@@ -900,7 +904,7 @@ export function DominantCycle(): ScreamerOp {
  */
 export function DonchianChannels(windowSize: number = 20): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.DonchianChannels(windowSize));
+  return wrapOp(M, () => new M.DonchianChannels(windowSize));
 }
 
 /**
@@ -910,7 +914,7 @@ export function DonchianChannels(windowSize: number = 20): ScreamerOp {
  */
 export function Drawdown(): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.Drawdown());
+  return wrapOp(M, () => new M.Drawdown());
 }
 
 /**
@@ -920,7 +924,7 @@ export function Drawdown(): ScreamerOp {
  */
 export function EffectiveSpread(): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.EffectiveSpread());
+  return wrapOp(M, () => new M.EffectiveSpread());
 }
 
 /**
@@ -930,7 +934,7 @@ export function EffectiveSpread(): ScreamerOp {
  */
 export function Elu(): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.Elu());
+  return wrapOp(M, () => new M.Elu());
 }
 
 /**
@@ -940,7 +944,7 @@ export function Elu(): ScreamerOp {
  */
 export function Equal(): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.Equal());
+  return wrapOp(M, () => new M.Equal());
 }
 
 /**
@@ -950,7 +954,7 @@ export function Equal(): ScreamerOp {
  */
 export function Erf(): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.Erf());
+  return wrapOp(M, () => new M.Erf());
 }
 
 /**
@@ -960,7 +964,7 @@ export function Erf(): ScreamerOp {
  */
 export function Erfc(): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.Erfc());
+  return wrapOp(M, () => new M.Erfc());
 }
 
 /**
@@ -974,7 +978,7 @@ export function Erfc(): ScreamerOp {
  */
 export function EwAlpha(com: number = NaN, span: number = NaN, halflife: number = NaN, alpha: number = NaN): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.EwAlpha(com, span, halflife, alpha));
+  return wrapOp(M, () => new M.EwAlpha(com, span, halflife, alpha));
 }
 
 /**
@@ -988,7 +992,7 @@ export function EwAlpha(com: number = NaN, span: number = NaN, halflife: number 
  */
 export function EwBeta(com: number = NaN, span: number = NaN, halflife: number = NaN, alpha: number = NaN): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.EwBeta(com, span, halflife, alpha));
+  return wrapOp(M, () => new M.EwBeta(com, span, halflife, alpha));
 }
 
 /**
@@ -1002,7 +1006,7 @@ export function EwBeta(com: number = NaN, span: number = NaN, halflife: number =
  */
 export function EwCorr(com: number = NaN, span: number = NaN, halflife: number = NaN, alpha: number = NaN): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.EwCorr(com, span, halflife, alpha));
+  return wrapOp(M, () => new M.EwCorr(com, span, halflife, alpha));
 }
 
 /**
@@ -1016,7 +1020,7 @@ export function EwCorr(com: number = NaN, span: number = NaN, halflife: number =
  */
 export function EwCov(com: number = NaN, span: number = NaN, halflife: number = NaN, alpha: number = NaN): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.EwCov(com, span, halflife, alpha));
+  return wrapOp(M, () => new M.EwCov(com, span, halflife, alpha));
 }
 
 /**
@@ -1030,7 +1034,7 @@ export function EwCov(com: number = NaN, span: number = NaN, halflife: number = 
  */
 export function EwGarmanKlassVar(com: number = NaN, span: number = NaN, halflife: number = NaN, alpha: number = NaN): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.EwGarmanKlassVar(com, span, halflife, alpha));
+  return wrapOp(M, () => new M.EwGarmanKlassVar(com, span, halflife, alpha));
 }
 
 /**
@@ -1044,7 +1048,7 @@ export function EwGarmanKlassVar(com: number = NaN, span: number = NaN, halflife
  */
 export function EwGarmanKlassVol(com: number = NaN, span: number = NaN, halflife: number = NaN, alpha: number = NaN): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.EwGarmanKlassVol(com, span, halflife, alpha));
+  return wrapOp(M, () => new M.EwGarmanKlassVol(com, span, halflife, alpha));
 }
 
 /**
@@ -1058,7 +1062,7 @@ export function EwGarmanKlassVol(com: number = NaN, span: number = NaN, halflife
  */
 export function EwKurt(com: number = NaN, span: number = NaN, halflife: number = NaN, alpha: number = NaN): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.EwKurt(com, span, halflife, alpha));
+  return wrapOp(M, () => new M.EwKurt(com, span, halflife, alpha));
 }
 
 /**
@@ -1072,7 +1076,7 @@ export function EwKurt(com: number = NaN, span: number = NaN, halflife: number =
  */
 export function EwMean(com: number = NaN, span: number = NaN, halflife: number = NaN, alpha: number = NaN): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.EwMean(com, span, halflife, alpha));
+  return wrapOp(M, () => new M.EwMean(com, span, halflife, alpha));
 }
 
 /**
@@ -1086,7 +1090,7 @@ export function EwMean(com: number = NaN, span: number = NaN, halflife: number =
  */
 export function EwParkinsonVar(com: number = NaN, span: number = NaN, halflife: number = NaN, alpha: number = NaN): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.EwParkinsonVar(com, span, halflife, alpha));
+  return wrapOp(M, () => new M.EwParkinsonVar(com, span, halflife, alpha));
 }
 
 /**
@@ -1100,7 +1104,7 @@ export function EwParkinsonVar(com: number = NaN, span: number = NaN, halflife: 
  */
 export function EwParkinsonVol(com: number = NaN, span: number = NaN, halflife: number = NaN, alpha: number = NaN): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.EwParkinsonVol(com, span, halflife, alpha));
+  return wrapOp(M, () => new M.EwParkinsonVol(com, span, halflife, alpha));
 }
 
 /**
@@ -1114,7 +1118,7 @@ export function EwParkinsonVol(com: number = NaN, span: number = NaN, halflife: 
  */
 export function EwResidualStd(com: number = NaN, span: number = NaN, halflife: number = NaN, alpha: number = NaN): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.EwResidualStd(com, span, halflife, alpha));
+  return wrapOp(M, () => new M.EwResidualStd(com, span, halflife, alpha));
 }
 
 /**
@@ -1128,7 +1132,7 @@ export function EwResidualStd(com: number = NaN, span: number = NaN, halflife: n
  */
 export function EwRms(com: number = NaN, span: number = NaN, halflife: number = NaN, alpha: number = NaN): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.EwRms(com, span, halflife, alpha));
+  return wrapOp(M, () => new M.EwRms(com, span, halflife, alpha));
 }
 
 /**
@@ -1142,7 +1146,7 @@ export function EwRms(com: number = NaN, span: number = NaN, halflife: number = 
  */
 export function EwRogersSatchellVar(com: number = NaN, span: number = NaN, halflife: number = NaN, alpha: number = NaN): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.EwRogersSatchellVar(com, span, halflife, alpha));
+  return wrapOp(M, () => new M.EwRogersSatchellVar(com, span, halflife, alpha));
 }
 
 /**
@@ -1156,7 +1160,7 @@ export function EwRogersSatchellVar(com: number = NaN, span: number = NaN, halfl
  */
 export function EwRogersSatchellVol(com: number = NaN, span: number = NaN, halflife: number = NaN, alpha: number = NaN): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.EwRogersSatchellVol(com, span, halflife, alpha));
+  return wrapOp(M, () => new M.EwRogersSatchellVol(com, span, halflife, alpha));
 }
 
 /**
@@ -1170,7 +1174,7 @@ export function EwRogersSatchellVol(com: number = NaN, span: number = NaN, halfl
  */
 export function EwSkew(com: number = NaN, span: number = NaN, halflife: number = NaN, alpha: number = NaN): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.EwSkew(com, span, halflife, alpha));
+  return wrapOp(M, () => new M.EwSkew(com, span, halflife, alpha));
 }
 
 /**
@@ -1184,7 +1188,7 @@ export function EwSkew(com: number = NaN, span: number = NaN, halflife: number =
  */
 export function EwSpread(com: number = NaN, span: number = NaN, halflife: number = NaN, alpha: number = NaN): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.EwSpread(com, span, halflife, alpha));
+  return wrapOp(M, () => new M.EwSpread(com, span, halflife, alpha));
 }
 
 /**
@@ -1198,7 +1202,7 @@ export function EwSpread(com: number = NaN, span: number = NaN, halflife: number
  */
 export function EwStd(com: number = NaN, span: number = NaN, halflife: number = NaN, alpha: number = NaN): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.EwStd(com, span, halflife, alpha));
+  return wrapOp(M, () => new M.EwStd(com, span, halflife, alpha));
 }
 
 /**
@@ -1212,7 +1216,7 @@ export function EwStd(com: number = NaN, span: number = NaN, halflife: number = 
  */
 export function EwVar(com: number = NaN, span: number = NaN, halflife: number = NaN, alpha: number = NaN): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.EwVar(com, span, halflife, alpha));
+  return wrapOp(M, () => new M.EwVar(com, span, halflife, alpha));
 }
 
 /**
@@ -1226,7 +1230,7 @@ export function EwVar(com: number = NaN, span: number = NaN, halflife: number = 
  */
 export function EwYangZhangVar(com: number = NaN, span: number = NaN, halflife: number = NaN, alpha: number = NaN): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.EwYangZhangVar(com, span, halflife, alpha));
+  return wrapOp(M, () => new M.EwYangZhangVar(com, span, halflife, alpha));
 }
 
 /**
@@ -1240,7 +1244,7 @@ export function EwYangZhangVar(com: number = NaN, span: number = NaN, halflife: 
  */
 export function EwYangZhangVol(com: number = NaN, span: number = NaN, halflife: number = NaN, alpha: number = NaN): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.EwYangZhangVol(com, span, halflife, alpha));
+  return wrapOp(M, () => new M.EwYangZhangVol(com, span, halflife, alpha));
 }
 
 /**
@@ -1254,7 +1258,7 @@ export function EwYangZhangVol(com: number = NaN, span: number = NaN, halflife: 
  */
 export function EwZscore(com: number = NaN, span: number = NaN, halflife: number = NaN, alpha: number = NaN): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.EwZscore(com, span, halflife, alpha));
+  return wrapOp(M, () => new M.EwZscore(com, span, halflife, alpha));
 }
 
 /**
@@ -1264,7 +1268,7 @@ export function EwZscore(com: number = NaN, span: number = NaN, halflife: number
  */
 export function Exp(): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.Exp());
+  return wrapOp(M, () => new M.Exp());
 }
 
 /**
@@ -1274,7 +1278,7 @@ export function Exp(): ScreamerOp {
  */
 export function ExpandingKurt(): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.ExpandingKurt());
+  return wrapOp(M, () => new M.ExpandingKurt());
 }
 
 /**
@@ -1284,7 +1288,7 @@ export function ExpandingKurt(): ScreamerOp {
  */
 export function ExpandingMax(): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.ExpandingMax());
+  return wrapOp(M, () => new M.ExpandingMax());
 }
 
 /**
@@ -1294,7 +1298,7 @@ export function ExpandingMax(): ScreamerOp {
  */
 export function ExpandingMean(): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.ExpandingMean());
+  return wrapOp(M, () => new M.ExpandingMean());
 }
 
 /**
@@ -1304,7 +1308,7 @@ export function ExpandingMean(): ScreamerOp {
  */
 export function ExpandingMin(): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.ExpandingMin());
+  return wrapOp(M, () => new M.ExpandingMin());
 }
 
 /**
@@ -1314,7 +1318,7 @@ export function ExpandingMin(): ScreamerOp {
  */
 export function ExpandingProd(): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.ExpandingProd());
+  return wrapOp(M, () => new M.ExpandingProd());
 }
 
 /**
@@ -1324,7 +1328,7 @@ export function ExpandingProd(): ScreamerOp {
  */
 export function ExpandingSkew(): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.ExpandingSkew());
+  return wrapOp(M, () => new M.ExpandingSkew());
 }
 
 /**
@@ -1334,7 +1338,7 @@ export function ExpandingSkew(): ScreamerOp {
  */
 export function ExpandingSlope(): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.ExpandingSlope());
+  return wrapOp(M, () => new M.ExpandingSlope());
 }
 
 /**
@@ -1344,7 +1348,7 @@ export function ExpandingSlope(): ScreamerOp {
  */
 export function ExpandingStd(): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.ExpandingStd());
+  return wrapOp(M, () => new M.ExpandingStd());
 }
 
 /**
@@ -1354,7 +1358,7 @@ export function ExpandingStd(): ScreamerOp {
  */
 export function ExpandingSum(): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.ExpandingSum());
+  return wrapOp(M, () => new M.ExpandingSum());
 }
 
 /**
@@ -1364,7 +1368,7 @@ export function ExpandingSum(): ScreamerOp {
  */
 export function ExpandingVar(): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.ExpandingVar());
+  return wrapOp(M, () => new M.ExpandingVar());
 }
 
 /**
@@ -1374,7 +1378,7 @@ export function ExpandingVar(): ScreamerOp {
  */
 export function Ffill(): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.Ffill());
+  return wrapOp(M, () => new M.Ffill());
 }
 
 /**
@@ -1385,7 +1389,7 @@ export function Ffill(): ScreamerOp {
  */
 export function FillNa(fill: number = 0.0): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.FillNa(fill));
+  return wrapOp(M, () => new M.FillNa(fill));
 }
 
 /**
@@ -1395,7 +1399,7 @@ export function FillNa(fill: number = 0.0): ScreamerOp {
  */
 export function First(): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.First());
+  return wrapOp(M, () => new M.First());
 }
 
 /**
@@ -1405,7 +1409,7 @@ export function First(): ScreamerOp {
  */
 export function Floor(): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.Floor());
+  return wrapOp(M, () => new M.Floor());
 }
 
 /**
@@ -1419,7 +1423,7 @@ export function Floor(): ScreamerOp {
  */
 export function FracDiff(d: number = 0.4, windowSize: number = 100, threshold: number = 1e-05, startPolicy: string = "strict"): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.FracDiff(d, windowSize, threshold, startPolicy));
+  return wrapOp(M, () => new M.FracDiff(d, windowSize, threshold, startPolicy));
 }
 
 /**
@@ -1429,7 +1433,7 @@ export function FracDiff(d: number = 0.4, windowSize: number = 100, threshold: n
  */
 export function GreaterEqual(): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.GreaterEqual());
+  return wrapOp(M, () => new M.GreaterEqual());
 }
 
 /**
@@ -1439,7 +1443,7 @@ export function GreaterEqual(): ScreamerOp {
  */
 export function GreaterThan(): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.GreaterThan());
+  return wrapOp(M, () => new M.GreaterThan());
 }
 
 /**
@@ -1453,7 +1457,7 @@ export function GreaterThan(): ScreamerOp {
  */
 export function Hampel(windowSize: number = 20, nSigma: number = 3.0, output: string = "cleaned", startPolicy: string = "strict"): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.Hampel(windowSize, nSigma, output, startPolicy));
+  return wrapOp(M, () => new M.Hampel(windowSize, nSigma, output, startPolicy));
 }
 
 /**
@@ -1466,7 +1470,7 @@ export function Hampel(windowSize: number = 20, nSigma: number = 3.0, output: st
  */
 export function HawkesIntensity(decay: number = 0.9, alpha: number = 1.0, mu: number = 0.0): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.HawkesIntensity(decay, alpha, mu));
+  return wrapOp(M, () => new M.HawkesIntensity(decay, alpha, mu));
 }
 
 /**
@@ -1476,7 +1480,7 @@ export function HawkesIntensity(decay: number = 0.9, alpha: number = 1.0, mu: nu
  */
 export function HilbertPhasor(): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.HilbertPhasor());
+  return wrapOp(M, () => new M.HilbertPhasor());
 }
 
 /**
@@ -1488,7 +1492,7 @@ export function HilbertPhasor(): ScreamerOp {
  */
 export function Hold(n: number, release: number = 0.0): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.Hold(n, release));
+  return wrapOp(M, () => new M.Hold(n, release));
 }
 
 /**
@@ -1499,7 +1503,7 @@ export function Hold(n: number, release: number = 0.0): ScreamerOp {
  */
 export function HullMA(windowSize: number = 20): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.HullMA(windowSize));
+  return wrapOp(M, () => new M.HullMA(windowSize));
 }
 
 /**
@@ -1509,7 +1513,7 @@ export function HullMA(windowSize: number = 20): ScreamerOp {
  */
 export function Hypot(): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.Hypot());
+  return wrapOp(M, () => new M.Hypot());
 }
 
 /**
@@ -1519,7 +1523,7 @@ export function Hypot(): ScreamerOp {
  */
 export function Identity(): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.Identity());
+  return wrapOp(M, () => new M.Identity());
 }
 
 /**
@@ -1533,7 +1537,7 @@ export function Identity(): ScreamerOp {
  */
 export function ImpulseClip(windowSize: number = 20, nSigma: number = 4.0, output: string = "cleaned", startPolicy: string = "strict"): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.ImpulseClip(windowSize, nSigma, output, startPolicy));
+  return wrapOp(M, () => new M.ImpulseClip(windowSize, nSigma, output, startPolicy));
 }
 
 /**
@@ -1543,7 +1547,7 @@ export function ImpulseClip(windowSize: number = 20, nSigma: number = 4.0, outpu
  */
 export function InstantaneousTrendline(): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.InstantaneousTrendline());
+  return wrapOp(M, () => new M.InstantaneousTrendline());
 }
 
 /**
@@ -1553,7 +1557,7 @@ export function InstantaneousTrendline(): ScreamerOp {
  */
 export function IsFinite(): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.IsFinite());
+  return wrapOp(M, () => new M.IsFinite());
 }
 
 /**
@@ -1563,7 +1567,7 @@ export function IsFinite(): ScreamerOp {
  */
 export function IsNan(): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.IsNan());
+  return wrapOp(M, () => new M.IsNan());
 }
 
 /**
@@ -1576,7 +1580,7 @@ export function IsNan(): ScreamerOp {
  */
 export function KAMA(windowSize: number = 10, fast: number = 2, slow: number = 30): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.KAMA(windowSize, fast, slow));
+  return wrapOp(M, () => new M.KAMA(windowSize, fast, slow));
 }
 
 /**
@@ -1590,7 +1594,7 @@ export function KAMA(windowSize: number = 10, fast: number = 2, slow: number = 3
  */
 export function KalmanFilter(processVar: number = 0.01, observationVar: number = 1.0, initialState: number = 0.0, initialVariance: number = 1.0): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.KalmanFilter(processVar, observationVar, initialState, initialVariance));
+  return wrapOp(M, () => new M.KalmanFilter(processVar, observationVar, initialState, initialVariance));
 }
 
 /**
@@ -1603,7 +1607,7 @@ export function KalmanFilter(processVar: number = 0.01, observationVar: number =
  */
 export function KalmanRegression(delta: number = 1e-06, obsVar: number = 0.001, priorVar: number = 1.0): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.KalmanRegression(delta, obsVar, priorVar));
+  return wrapOp(M, () => new M.KalmanRegression(delta, obsVar, priorVar));
 }
 
 /**
@@ -1615,7 +1619,7 @@ export function KalmanRegression(delta: number = 1e-06, obsVar: number = 0.001, 
  */
 export function KeltnerChannels(windowSize: number = 20, numAtr: number = 2.0): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.KeltnerChannels(windowSize, numAtr));
+  return wrapOp(M, () => new M.KeltnerChannels(windowSize, numAtr));
 }
 
 /**
@@ -1627,7 +1631,7 @@ export function KeltnerChannels(windowSize: number = 20, numAtr: number = 2.0): 
  */
 export function Lag(windowSize: number = 1, startPolicy: string = "strict"): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.Lag(windowSize, startPolicy));
+  return wrapOp(M, () => new M.Lag(windowSize, startPolicy));
 }
 
 /**
@@ -1637,7 +1641,7 @@ export function Lag(windowSize: number = 1, startPolicy: string = "strict"): Scr
  */
 export function Last(): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.Last());
+  return wrapOp(M, () => new M.Last());
 }
 
 /**
@@ -1647,7 +1651,7 @@ export function Last(): ScreamerOp {
  */
 export function LeeReadySign(): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.LeeReadySign());
+  return wrapOp(M, () => new M.LeeReadySign());
 }
 
 /**
@@ -1657,7 +1661,7 @@ export function LeeReadySign(): ScreamerOp {
  */
 export function LessEqual(): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.LessEqual());
+  return wrapOp(M, () => new M.LessEqual());
 }
 
 /**
@@ -1667,7 +1671,7 @@ export function LessEqual(): ScreamerOp {
  */
 export function LessThan(): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.LessThan());
+  return wrapOp(M, () => new M.LessThan());
 }
 
 /**
@@ -1679,7 +1683,7 @@ export function LessThan(): ScreamerOp {
  */
 export function Linear(scale: number = 1.0, shift: number = 0.0): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.Linear(scale, shift));
+  return wrapOp(M, () => new M.Linear(scale, shift));
 }
 
 /**
@@ -1692,7 +1696,7 @@ export function Linear(scale: number = 1.0, shift: number = 0.0): ScreamerOp {
  */
 export function Linear2(a: number = 1.0, b: number = 1.0, c: number = 0.0): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.Linear2(a, b, c));
+  return wrapOp(M, () => new M.Linear2(a, b, c));
 }
 
 /**
@@ -1702,7 +1706,7 @@ export function Linear2(a: number = 1.0, b: number = 1.0, c: number = 0.0): Scre
  */
 export function Log(): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.Log());
+  return wrapOp(M, () => new M.Log());
 }
 
 /**
@@ -1713,7 +1717,7 @@ export function Log(): ScreamerOp {
  */
 export function LogReturn(windowSize: number = 1): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.LogReturn(windowSize));
+  return wrapOp(M, () => new M.LogReturn(windowSize));
 }
 
 /**
@@ -1726,7 +1730,7 @@ export function LogReturn(windowSize: number = 1): ScreamerOp {
  */
 export function MACD(fast: number = 12, slow: number = 26, signal: number = 9): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.MACD(fast, slow, signal));
+  return wrapOp(M, () => new M.MACD(fast, slow, signal));
 }
 
 /**
@@ -1738,7 +1742,7 @@ export function MACD(fast: number = 12, slow: number = 26, signal: number = 9): 
  */
 export function MAMA(fastLimit: number = 0.5, slowLimit: number = 0.05): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.MAMA(fastLimit, slowLimit));
+  return wrapOp(M, () => new M.MAMA(fastLimit, slowLimit));
 }
 
 /**
@@ -1749,7 +1753,7 @@ export function MAMA(fastLimit: number = 0.5, slowLimit: number = 0.05): Screame
  */
 export function MFI(windowSize: number = 14): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.MFI(windowSize));
+  return wrapOp(M, () => new M.MFI(windowSize));
 }
 
 /**
@@ -1759,7 +1763,7 @@ export function MFI(windowSize: number = 14): ScreamerOp {
  */
 export function MaxDrawdown(): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.MaxDrawdown());
+  return wrapOp(M, () => new M.MaxDrawdown());
 }
 
 /**
@@ -1769,7 +1773,7 @@ export function MaxDrawdown(): ScreamerOp {
  */
 export function MicroPrice(): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.MicroPrice());
+  return wrapOp(M, () => new M.MicroPrice());
 }
 
 /**
@@ -1780,7 +1784,7 @@ export function MicroPrice(): ScreamerOp {
  */
 export function MinusDI(windowSize: number = 14): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.MinusDI(windowSize));
+  return wrapOp(M, () => new M.MinusDI(windowSize));
 }
 
 /**
@@ -1791,7 +1795,7 @@ export function MinusDI(windowSize: number = 14): ScreamerOp {
  */
 export function MinusDM(windowSize: number = 14): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.MinusDM(windowSize));
+  return wrapOp(M, () => new M.MinusDM(windowSize));
 }
 
 /**
@@ -1803,7 +1807,7 @@ export function MinusDM(windowSize: number = 14): ScreamerOp {
  */
 export function Momentum(windowSize: number = 10, startPolicy: string = "strict"): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.Momentum(windowSize, startPolicy));
+  return wrapOp(M, () => new M.Momentum(windowSize, startPolicy));
 }
 
 /**
@@ -1814,11 +1818,13 @@ export function Momentum(windowSize: number = 10, startPolicy: string = "strict"
  */
 export function MovingAverage(taps: number | number[] = [0.25, 0.5, 0.25]): ScreamerOp {
   const M = current();
-  const _v0 = new M.VectorDouble();
-  for (const _x of (typeof taps === "number" ? [taps] : taps)) _v0.push_back(_x);
-  const _op = new M.MovingAverage(_v0);
-  _v0.delete();
-  return wrapOp(M, _op);
+  return wrapOp(M, () => {
+    const _v0 = new M.VectorDouble();
+    for (const _x of (typeof taps === "number" ? [taps] : taps)) _v0.push_back(_x);
+    const _op = new M.MovingAverage(_v0);
+    _v0.delete();
+    return _op;
+  });
 }
 
 /**
@@ -1828,7 +1834,7 @@ export function MovingAverage(taps: number | number[] = [0.25, 0.5, 0.25]): Scre
  */
 export function Mul(): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.Mul());
+  return wrapOp(M, () => new M.Mul());
 }
 
 /**
@@ -1839,7 +1845,7 @@ export function Mul(): ScreamerOp {
  */
 export function NATR(windowSize: number = 14): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.NATR(windowSize));
+  return wrapOp(M, () => new M.NATR(windowSize));
 }
 
 /**
@@ -1849,7 +1855,7 @@ export function NATR(windowSize: number = 14): ScreamerOp {
  */
 export function NegPart(): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.NegPart());
+  return wrapOp(M, () => new M.NegPart());
 }
 
 /**
@@ -1859,7 +1865,7 @@ export function NegPart(): ScreamerOp {
  */
 export function Not(): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.Not());
+  return wrapOp(M, () => new M.Not());
 }
 
 /**
@@ -1869,7 +1875,7 @@ export function Not(): ScreamerOp {
  */
 export function NotEqual(): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.NotEqual());
+  return wrapOp(M, () => new M.NotEqual());
 }
 
 /**
@@ -1879,7 +1885,7 @@ export function NotEqual(): ScreamerOp {
  */
 export function OBV(): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.OBV());
+  return wrapOp(M, () => new M.OBV());
 }
 
 /**
@@ -1889,7 +1895,7 @@ export function OBV(): ScreamerOp {
  */
 export function OFI(): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.OFI());
+  return wrapOp(M, () => new M.OFI());
 }
 
 /**
@@ -1899,7 +1905,7 @@ export function OFI(): ScreamerOp {
  */
 export function Or(): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.Or());
+  return wrapOp(M, () => new M.Or());
 }
 
 /**
@@ -1910,7 +1916,7 @@ export function Or(): ScreamerOp {
  */
 export function PlusDI(windowSize: number = 14): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.PlusDI(windowSize));
+  return wrapOp(M, () => new M.PlusDI(windowSize));
 }
 
 /**
@@ -1921,7 +1927,7 @@ export function PlusDI(windowSize: number = 14): ScreamerOp {
  */
 export function PlusDM(windowSize: number = 14): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.PlusDM(windowSize));
+  return wrapOp(M, () => new M.PlusDM(windowSize));
 }
 
 /**
@@ -1931,7 +1937,7 @@ export function PlusDM(windowSize: number = 14): ScreamerOp {
  */
 export function Polar2Cart(): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.Polar2Cart());
+  return wrapOp(M, () => new M.Polar2Cart());
 }
 
 /**
@@ -1941,7 +1947,7 @@ export function Polar2Cart(): ScreamerOp {
  */
 export function PortfolioReport(): ScreamerOp {
   const M = current();
-  return wrapReducerOp(M, new M.PortfolioReport());
+  return wrapReducerOp(M, () => new M.PortfolioReport());
 }
 
 /**
@@ -1951,7 +1957,7 @@ export function PortfolioReport(): ScreamerOp {
  */
 export function PosPart(): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.PosPart());
+  return wrapOp(M, () => new M.PosPart());
 }
 
 /**
@@ -1962,7 +1968,7 @@ export function PosPart(): ScreamerOp {
  */
 export function Power(p: number = 2.0): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.Power(p));
+  return wrapOp(M, () => new M.Power(p));
 }
 
 /**
@@ -1975,7 +1981,7 @@ export function Power(p: number = 2.0): ScreamerOp {
  */
 export function Propagator(windowSize: number = 20, g0: number = 1.0, gamma: number = 0.5): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.Propagator(windowSize, g0, gamma));
+  return wrapOp(M, () => new M.Propagator(windowSize, g0, gamma));
 }
 
 /**
@@ -1986,7 +1992,7 @@ export function Propagator(windowSize: number = 20, g0: number = 1.0, gamma: num
  */
 export function ROC(windowSize: number = 10): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.ROC(windowSize));
+  return wrapOp(M, () => new M.ROC(windowSize));
 }
 
 /**
@@ -1997,7 +2003,7 @@ export function ROC(windowSize: number = 10): ScreamerOp {
  */
 export function ROCP(windowSize: number = 10): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.ROCP(windowSize));
+  return wrapOp(M, () => new M.ROCP(windowSize));
 }
 
 /**
@@ -2008,7 +2014,7 @@ export function ROCP(windowSize: number = 10): ScreamerOp {
  */
 export function ROCR(windowSize: number = 10): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.ROCR(windowSize));
+  return wrapOp(M, () => new M.ROCR(windowSize));
 }
 
 /**
@@ -2019,7 +2025,7 @@ export function ROCR(windowSize: number = 10): ScreamerOp {
  */
 export function RealizedSpread(lag: number = 1): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.RealizedSpread(lag));
+  return wrapOp(M, () => new M.RealizedSpread(lag));
 }
 
 /**
@@ -2029,7 +2035,7 @@ export function RealizedSpread(lag: number = 1): ScreamerOp {
  */
 export function Relu(): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.Relu());
+  return wrapOp(M, () => new M.Relu());
 }
 
 /**
@@ -2040,7 +2046,7 @@ export function Relu(): ScreamerOp {
  */
 export function Return(windowSize: number = 1): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.Return(windowSize));
+  return wrapOp(M, () => new M.Return(windowSize));
 }
 
 /**
@@ -2052,7 +2058,7 @@ export function Return(windowSize: number = 1): ScreamerOp {
  */
 export function RollSpread(windowSize: number = 20, startPolicy: string = "strict"): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.RollSpread(windowSize, startPolicy));
+  return wrapOp(M, () => new M.RollSpread(windowSize, startPolicy));
 }
 
 /**
@@ -2064,7 +2070,7 @@ export function RollSpread(windowSize: number = 20, startPolicy: string = "stric
  */
 export function RollingADF(windowSize: number = 100, lags: number = 1): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.RollingADF(windowSize, lags));
+  return wrapOp(M, () => new M.RollingADF(windowSize, lags));
 }
 
 /**
@@ -2076,7 +2082,7 @@ export function RollingADF(windowSize: number = 100, lags: number = 1): Screamer
  */
 export function RollingAlpha(windowSize: number = 20, startPolicy: string = "strict"): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.RollingAlpha(windowSize, startPolicy));
+  return wrapOp(M, () => new M.RollingAlpha(windowSize, startPolicy));
 }
 
 /**
@@ -2087,7 +2093,7 @@ export function RollingAlpha(windowSize: number = 20, startPolicy: string = "str
  */
 export function RollingArgmax(windowSize: number = 20): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.RollingArgmax(windowSize));
+  return wrapOp(M, () => new M.RollingArgmax(windowSize));
 }
 
 /**
@@ -2098,7 +2104,7 @@ export function RollingArgmax(windowSize: number = 20): ScreamerOp {
  */
 export function RollingArgmin(windowSize: number = 20): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.RollingArgmin(windowSize));
+  return wrapOp(M, () => new M.RollingArgmin(windowSize));
 }
 
 /**
@@ -2110,7 +2116,7 @@ export function RollingArgmin(windowSize: number = 20): ScreamerOp {
  */
 export function RollingBeta(windowSize: number = 20, startPolicy: string = "strict"): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.RollingBeta(windowSize, startPolicy));
+  return wrapOp(M, () => new M.RollingBeta(windowSize, startPolicy));
 }
 
 /**
@@ -2122,7 +2128,7 @@ export function RollingBeta(windowSize: number = 20, startPolicy: string = "stri
  */
 export function RollingCVaR(windowSize: number = 20, alpha: number = 0.05): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.RollingCVaR(windowSize, alpha));
+  return wrapOp(M, () => new M.RollingCVaR(windowSize, alpha));
 }
 
 /**
@@ -2134,7 +2140,7 @@ export function RollingCVaR(windowSize: number = 20, alpha: number = 0.05): Scre
  */
 export function RollingCalmar(windowSize: number = 252, periodsPerYear: number = 1.0): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.RollingCalmar(windowSize, periodsPerYear));
+  return wrapOp(M, () => new M.RollingCalmar(windowSize, periodsPerYear));
 }
 
 /**
@@ -2146,7 +2152,7 @@ export function RollingCalmar(windowSize: number = 252, periodsPerYear: number =
  */
 export function RollingCorr(windowSize: number = 20, startPolicy: string = "strict"): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.RollingCorr(windowSize, startPolicy));
+  return wrapOp(M, () => new M.RollingCorr(windowSize, startPolicy));
 }
 
 /**
@@ -2158,7 +2164,7 @@ export function RollingCorr(windowSize: number = 20, startPolicy: string = "stri
  */
 export function RollingCov(windowSize: number = 20, startPolicy: string = "strict"): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.RollingCov(windowSize, startPolicy));
+  return wrapOp(M, () => new M.RollingCov(windowSize, startPolicy));
 }
 
 /**
@@ -2171,7 +2177,7 @@ export function RollingCov(windowSize: number = 20, startPolicy: string = "stric
  */
 export function RollingDownsideDeviation(windowSize: number = 20, mar: number = 0.0, startPolicy: string = "strict"): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.RollingDownsideDeviation(windowSize, mar, startPolicy));
+  return wrapOp(M, () => new M.RollingDownsideDeviation(windowSize, mar, startPolicy));
 }
 
 /**
@@ -2182,7 +2188,7 @@ export function RollingDownsideDeviation(windowSize: number = 20, mar: number = 
  */
 export function RollingGarmanKlassVar(windowSize: number = 20): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.RollingGarmanKlassVar(windowSize));
+  return wrapOp(M, () => new M.RollingGarmanKlassVar(windowSize));
 }
 
 /**
@@ -2193,7 +2199,7 @@ export function RollingGarmanKlassVar(windowSize: number = 20): ScreamerOp {
  */
 export function RollingGarmanKlassVol(windowSize: number = 20): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.RollingGarmanKlassVol(windowSize));
+  return wrapOp(M, () => new M.RollingGarmanKlassVol(windowSize));
 }
 
 /**
@@ -2204,7 +2210,7 @@ export function RollingGarmanKlassVol(windowSize: number = 20): ScreamerOp {
  */
 export function RollingHitRate(windowSize: number = 252): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.RollingHitRate(windowSize));
+  return wrapOp(M, () => new M.RollingHitRate(windowSize));
 }
 
 /**
@@ -2217,7 +2223,7 @@ export function RollingHitRate(windowSize: number = 252): ScreamerOp {
  */
 export function RollingHurst(windowSize: number = 256, minScale: number = 4, method: string = "rs"): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.RollingHurst(windowSize, minScale, method));
+  return wrapOp(M, () => new M.RollingHurst(windowSize, minScale, method));
 }
 
 /**
@@ -2229,7 +2235,7 @@ export function RollingHurst(windowSize: number = 256, minScale: number = 4, met
  */
 export function RollingInfoRatio(windowSize: number = 252, periodsPerYear: number = 1.0): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.RollingInfoRatio(windowSize, periodsPerYear));
+  return wrapOp(M, () => new M.RollingInfoRatio(windowSize, periodsPerYear));
 }
 
 /**
@@ -2240,7 +2246,7 @@ export function RollingInfoRatio(windowSize: number = 252, periodsPerYear: numbe
  */
 export function RollingIqr(windowSize: number = 20): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.RollingIqr(windowSize));
+  return wrapOp(M, () => new M.RollingIqr(windowSize));
 }
 
 /**
@@ -2252,7 +2258,7 @@ export function RollingIqr(windowSize: number = 20): ScreamerOp {
  */
 export function RollingKurt(windowSize: number = 20, startPolicy: string = "strict"): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.RollingKurt(windowSize, startPolicy));
+  return wrapOp(M, () => new M.RollingKurt(windowSize, startPolicy));
 }
 
 /**
@@ -2264,7 +2270,7 @@ export function RollingKurt(windowSize: number = 20, startPolicy: string = "stri
  */
 export function RollingLinearRegression(windowSize: number = 20, startPolicy: string = "strict"): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.RollingLinearRegression(windowSize, startPolicy));
+  return wrapOp(M, () => new M.RollingLinearRegression(windowSize, startPolicy));
 }
 
 /**
@@ -2276,7 +2282,7 @@ export function RollingLinearRegression(windowSize: number = 20, startPolicy: st
  */
 export function RollingMad(windowSize: number = 20, startPolicy: string = "strict"): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.RollingMad(windowSize, startPolicy));
+  return wrapOp(M, () => new M.RollingMad(windowSize, startPolicy));
 }
 
 /**
@@ -2287,7 +2293,7 @@ export function RollingMad(windowSize: number = 20, startPolicy: string = "stric
  */
 export function RollingMax(windowSize: number = 20): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.RollingMax(windowSize));
+  return wrapOp(M, () => new M.RollingMax(windowSize));
 }
 
 /**
@@ -2298,7 +2304,7 @@ export function RollingMax(windowSize: number = 20): ScreamerOp {
  */
 export function RollingMaxDrawdown(windowSize: number = 252): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.RollingMaxDrawdown(windowSize));
+  return wrapOp(M, () => new M.RollingMaxDrawdown(windowSize));
 }
 
 /**
@@ -2310,7 +2316,7 @@ export function RollingMaxDrawdown(windowSize: number = 252): ScreamerOp {
  */
 export function RollingMean(windowSize: number = 20, startPolicy: string = "strict"): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.RollingMean(windowSize, startPolicy));
+  return wrapOp(M, () => new M.RollingMean(windowSize, startPolicy));
 }
 
 /**
@@ -2321,7 +2327,7 @@ export function RollingMean(windowSize: number = 20, startPolicy: string = "stri
  */
 export function RollingMedian(windowSize: number = 20): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.RollingMedian(windowSize));
+  return wrapOp(M, () => new M.RollingMedian(windowSize));
 }
 
 /**
@@ -2333,7 +2339,7 @@ export function RollingMedian(windowSize: number = 20): ScreamerOp {
  */
 export function RollingMedianAD(windowSize: number = 20, startPolicy: string = "strict"): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.RollingMedianAD(windowSize, startPolicy));
+  return wrapOp(M, () => new M.RollingMedianAD(windowSize, startPolicy));
 }
 
 /**
@@ -2344,7 +2350,7 @@ export function RollingMedianAD(windowSize: number = 20, startPolicy: string = "
  */
 export function RollingMin(windowSize: number = 20): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.RollingMin(windowSize));
+  return wrapOp(M, () => new M.RollingMin(windowSize));
 }
 
 /**
@@ -2355,7 +2361,7 @@ export function RollingMin(windowSize: number = 20): ScreamerOp {
  */
 export function RollingMinMax(windowSize: number = 20): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.RollingMinMax(windowSize));
+  return wrapOp(M, () => new M.RollingMinMax(windowSize));
 }
 
 /**
@@ -2368,7 +2374,7 @@ export function RollingMinMax(windowSize: number = 20): ScreamerOp {
  */
 export function RollingOU(windowSize: number = 20, output: string = "mrr", startPolicy: string = "strict"): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.RollingOU(windowSize, output, startPolicy));
+  return wrapOp(M, () => new M.RollingOU(windowSize, output, startPolicy));
 }
 
 /**
@@ -2380,7 +2386,7 @@ export function RollingOU(windowSize: number = 20, output: string = "mrr", start
  */
 export function RollingOmega(windowSize: number = 20, threshold: number = 0.0): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.RollingOmega(windowSize, threshold));
+  return wrapOp(M, () => new M.RollingOmega(windowSize, threshold));
 }
 
 /**
@@ -2391,7 +2397,7 @@ export function RollingOmega(windowSize: number = 20, threshold: number = 0.0): 
  */
 export function RollingParkinsonVar(windowSize: number = 20): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.RollingParkinsonVar(windowSize));
+  return wrapOp(M, () => new M.RollingParkinsonVar(windowSize));
 }
 
 /**
@@ -2402,7 +2408,7 @@ export function RollingParkinsonVar(windowSize: number = 20): ScreamerOp {
  */
 export function RollingParkinsonVol(windowSize: number = 20): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.RollingParkinsonVol(windowSize));
+  return wrapOp(M, () => new M.RollingParkinsonVol(windowSize));
 }
 
 /**
@@ -2413,7 +2419,7 @@ export function RollingParkinsonVol(windowSize: number = 20): ScreamerOp {
  */
 export function RollingPercentile(windowSize: number = 20): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.RollingPercentile(windowSize));
+  return wrapOp(M, () => new M.RollingPercentile(windowSize));
 }
 
 /**
@@ -2426,7 +2432,7 @@ export function RollingPercentile(windowSize: number = 20): ScreamerOp {
  */
 export function RollingPoly1(windowSize: number = 20, derivativeOrder: number = 0, startPolicy: string = "strict"): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.RollingPoly1(windowSize, derivativeOrder, startPolicy));
+  return wrapOp(M, () => new M.RollingPoly1(windowSize, derivativeOrder, startPolicy));
 }
 
 /**
@@ -2439,7 +2445,7 @@ export function RollingPoly1(windowSize: number = 20, derivativeOrder: number = 
  */
 export function RollingPoly2(windowSize: number = 20, derivativeOrder: number = 0, startPolicy: string = "strict"): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.RollingPoly2(windowSize, derivativeOrder, startPolicy));
+  return wrapOp(M, () => new M.RollingPoly2(windowSize, derivativeOrder, startPolicy));
 }
 
 /**
@@ -2451,7 +2457,7 @@ export function RollingPoly2(windowSize: number = 20, derivativeOrder: number = 
  */
 export function RollingQuantile(windowSize: number = 20, quantile: number = 0.5): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.RollingQuantile(windowSize, quantile));
+  return wrapOp(M, () => new M.RollingQuantile(windowSize, quantile));
 }
 
 /**
@@ -2464,7 +2470,7 @@ export function RollingQuantile(windowSize: number = 20, quantile: number = 0.5)
  */
 export function RollingRSI(windowSize: number = 14, method: string = "wilder", startPolicy: string = "strict"): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.RollingRSI(windowSize, method, startPolicy));
+  return wrapOp(M, () => new M.RollingRSI(windowSize, method, startPolicy));
 }
 
 /**
@@ -2475,7 +2481,7 @@ export function RollingRSI(windowSize: number = 14, method: string = "wilder", s
  */
 export function RollingRange(windowSize: number = 20): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.RollingRange(windowSize));
+  return wrapOp(M, () => new M.RollingRange(windowSize));
 }
 
 /**
@@ -2486,7 +2492,7 @@ export function RollingRange(windowSize: number = 20): ScreamerOp {
  */
 export function RollingRank(windowSize: number = 20): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.RollingRank(windowSize));
+  return wrapOp(M, () => new M.RollingRank(windowSize));
 }
 
 /**
@@ -2498,7 +2504,7 @@ export function RollingRank(windowSize: number = 20): ScreamerOp {
  */
 export function RollingResidualStd(windowSize: number = 20, startPolicy: string = "strict"): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.RollingResidualStd(windowSize, startPolicy));
+  return wrapOp(M, () => new M.RollingResidualStd(windowSize, startPolicy));
 }
 
 /**
@@ -2510,7 +2516,7 @@ export function RollingResidualStd(windowSize: number = 20, startPolicy: string 
  */
 export function RollingRms(windowSize: number = 20, startPolicy: string = "strict"): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.RollingRms(windowSize, startPolicy));
+  return wrapOp(M, () => new M.RollingRms(windowSize, startPolicy));
 }
 
 /**
@@ -2521,7 +2527,7 @@ export function RollingRms(windowSize: number = 20, startPolicy: string = "stric
  */
 export function RollingRogersSatchellVar(windowSize: number = 20): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.RollingRogersSatchellVar(windowSize));
+  return wrapOp(M, () => new M.RollingRogersSatchellVar(windowSize));
 }
 
 /**
@@ -2532,7 +2538,7 @@ export function RollingRogersSatchellVar(windowSize: number = 20): ScreamerOp {
  */
 export function RollingRogersSatchellVol(windowSize: number = 20): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.RollingRogersSatchellVol(windowSize));
+  return wrapOp(M, () => new M.RollingRogersSatchellVol(windowSize));
 }
 
 /**
@@ -2544,7 +2550,7 @@ export function RollingRogersSatchellVol(windowSize: number = 20): ScreamerOp {
  */
 export function RollingSharpe(windowSize: number = 252, periodsPerYear: number = 1.0): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.RollingSharpe(windowSize, periodsPerYear));
+  return wrapOp(M, () => new M.RollingSharpe(windowSize, periodsPerYear));
 }
 
 /**
@@ -2559,7 +2565,7 @@ export function RollingSharpe(windowSize: number = 252, periodsPerYear: number =
  */
 export function RollingSigmaClip(windowSize: number = 20, lower: number = NaN, upper: number = NaN, output: string = "clipped", startPolicy: string = "strict"): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.RollingSigmaClip(windowSize, lower, upper, output, startPolicy));
+  return wrapOp(M, () => new M.RollingSigmaClip(windowSize, lower, upper, output, startPolicy));
 }
 
 /**
@@ -2571,7 +2577,7 @@ export function RollingSigmaClip(windowSize: number = 20, lower: number = NaN, u
  */
 export function RollingSkew(windowSize: number = 20, startPolicy: string = "strict"): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.RollingSkew(windowSize, startPolicy));
+  return wrapOp(M, () => new M.RollingSkew(windowSize, startPolicy));
 }
 
 /**
@@ -2584,7 +2590,7 @@ export function RollingSkew(windowSize: number = 20, startPolicy: string = "stri
  */
 export function RollingSortino(windowSize: number = 252, periodsPerYear: number = 1.0, target: number = 0.0): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.RollingSortino(windowSize, periodsPerYear, target));
+  return wrapOp(M, () => new M.RollingSortino(windowSize, periodsPerYear, target));
 }
 
 /**
@@ -2596,7 +2602,7 @@ export function RollingSortino(windowSize: number = 252, periodsPerYear: number 
  */
 export function RollingSpread(windowSize: number = 20, startPolicy: string = "strict"): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.RollingSpread(windowSize, startPolicy));
+  return wrapOp(M, () => new M.RollingSpread(windowSize, startPolicy));
 }
 
 /**
@@ -2608,7 +2614,7 @@ export function RollingSpread(windowSize: number = 20, startPolicy: string = "st
  */
 export function RollingStd(windowSize: number = 20, startPolicy: string = "strict"): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.RollingStd(windowSize, startPolicy));
+  return wrapOp(M, () => new M.RollingStd(windowSize, startPolicy));
 }
 
 /**
@@ -2620,7 +2626,7 @@ export function RollingStd(windowSize: number = 20, startPolicy: string = "stric
  */
 export function RollingSum(windowSize: number = 20, startPolicy: string = "strict"): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.RollingSum(windowSize, startPolicy));
+  return wrapOp(M, () => new M.RollingSum(windowSize, startPolicy));
 }
 
 /**
@@ -2632,7 +2638,7 @@ export function RollingSum(windowSize: number = 20, startPolicy: string = "stric
  */
 export function RollingTLSBeta(windowSize: number = 20, startPolicy: string = "strict"): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.RollingTLSBeta(windowSize, startPolicy));
+  return wrapOp(M, () => new M.RollingTLSBeta(windowSize, startPolicy));
 }
 
 /**
@@ -2643,7 +2649,7 @@ export function RollingTLSBeta(windowSize: number = 20, startPolicy: string = "s
  */
 export function RollingTSF(windowSize: number = 20): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.RollingTSF(windowSize));
+  return wrapOp(M, () => new M.RollingTSF(windowSize));
 }
 
 /**
@@ -2654,7 +2660,7 @@ export function RollingTSF(windowSize: number = 20): ScreamerOp {
  */
 export function RollingVWAP(windowSize: number = 20): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.RollingVWAP(windowSize));
+  return wrapOp(M, () => new M.RollingVWAP(windowSize));
 }
 
 /**
@@ -2666,7 +2672,7 @@ export function RollingVWAP(windowSize: number = 20): ScreamerOp {
  */
 export function RollingVar(windowSize: number = 20, startPolicy: string = "strict"): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.RollingVar(windowSize, startPolicy));
+  return wrapOp(M, () => new M.RollingVar(windowSize, startPolicy));
 }
 
 /**
@@ -2677,7 +2683,7 @@ export function RollingVar(windowSize: number = 20, startPolicy: string = "stric
  */
 export function RollingYangZhangVar(windowSize: number = 20): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.RollingYangZhangVar(windowSize));
+  return wrapOp(M, () => new M.RollingYangZhangVar(windowSize));
 }
 
 /**
@@ -2688,7 +2694,7 @@ export function RollingYangZhangVar(windowSize: number = 20): ScreamerOp {
  */
 export function RollingYangZhangVol(windowSize: number = 20): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.RollingYangZhangVol(windowSize));
+  return wrapOp(M, () => new M.RollingYangZhangVol(windowSize));
 }
 
 /**
@@ -2700,7 +2706,7 @@ export function RollingYangZhangVol(windowSize: number = 20): ScreamerOp {
  */
 export function RollingZscore(windowSize: number = 20, startPolicy: string = "strict"): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.RollingZscore(windowSize, startPolicy));
+  return wrapOp(M, () => new M.RollingZscore(windowSize, startPolicy));
 }
 
 /**
@@ -2714,7 +2720,7 @@ export function RollingZscore(windowSize: number = 20, startPolicy: string = "st
  */
 export function RoofingFilter(hpPeriod: number = NaN, lpPeriod: number = NaN, hpCutoff: number = NaN, lpCutoff: number = NaN): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.RoofingFilter(hpPeriod, lpPeriod, hpCutoff, lpCutoff));
+  return wrapOp(M, () => new M.RoofingFilter(hpPeriod, lpPeriod, hpCutoff, lpCutoff));
 }
 
 /**
@@ -2724,7 +2730,7 @@ export function RoofingFilter(hpPeriod: number = NaN, lpPeriod: number = NaN, hp
  */
 export function Round(): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.Round());
+  return wrapOp(M, () => new M.Round());
 }
 
 /**
@@ -2737,7 +2743,7 @@ export function Round(): ScreamerOp {
  */
 export function SchmittTrigger(lower: number, upper: number, initial: number = 0.0): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.SchmittTrigger(lower, upper, initial));
+  return wrapOp(M, () => new M.SchmittTrigger(lower, upper, initial));
 }
 
 /**
@@ -2747,7 +2753,7 @@ export function SchmittTrigger(lower: number, upper: number, initial: number = 0
  */
 export function Selu(): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.Selu());
+  return wrapOp(M, () => new M.Selu());
 }
 
 /**
@@ -2757,7 +2763,7 @@ export function Selu(): ScreamerOp {
  */
 export function Sigmoid(): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.Sigmoid());
+  return wrapOp(M, () => new M.Sigmoid());
 }
 
 /**
@@ -2767,7 +2773,7 @@ export function Sigmoid(): ScreamerOp {
  */
 export function Sign(): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.Sign());
+  return wrapOp(M, () => new M.Sign());
 }
 
 /**
@@ -2777,7 +2783,7 @@ export function Sign(): ScreamerOp {
  */
 export function Sin(): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.Sin());
+  return wrapOp(M, () => new M.Sin());
 }
 
 /**
@@ -2787,7 +2793,7 @@ export function Sin(): ScreamerOp {
  */
 export function Softsign(): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.Softsign());
+  return wrapOp(M, () => new M.Softsign());
 }
 
 /**
@@ -2797,7 +2803,7 @@ export function Softsign(): ScreamerOp {
  */
 export function Sqrt(): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.Sqrt());
+  return wrapOp(M, () => new M.Sqrt());
 }
 
 /**
@@ -2807,7 +2813,7 @@ export function Sqrt(): ScreamerOp {
  */
 export function Square(): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.Square());
+  return wrapOp(M, () => new M.Square());
 }
 
 /**
@@ -2820,7 +2826,7 @@ export function Square(): ScreamerOp {
  */
 export function Stoch(fastkPeriod: number = 14, smoothK: number = 3, d: number = 3): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.Stoch(fastkPeriod, smoothK, d));
+  return wrapOp(M, () => new M.Stoch(fastkPeriod, smoothK, d));
 }
 
 /**
@@ -2834,7 +2840,7 @@ export function Stoch(fastkPeriod: number = 14, smoothK: number = 3, d: number =
  */
 export function StochRSI(rsiPeriod: number = 14, stochPeriod: number = 14, smoothK: number = 1, d: number = 3): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.StochRSI(rsiPeriod, stochPeriod, smoothK, d));
+  return wrapOp(M, () => new M.StochRSI(rsiPeriod, stochPeriod, smoothK, d));
 }
 
 /**
@@ -2844,7 +2850,7 @@ export function StochRSI(rsiPeriod: number = 14, stochPeriod: number = 14, smoot
  */
 export function Sub(): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.Sub());
+  return wrapOp(M, () => new M.Sub());
 }
 
 /**
@@ -2856,7 +2862,7 @@ export function Sub(): ScreamerOp {
  */
 export function SuperSmoother(period: number = NaN, cutoff: number = NaN): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.SuperSmoother(period, cutoff));
+  return wrapOp(M, () => new M.SuperSmoother(period, cutoff));
 }
 
 /**
@@ -2870,7 +2876,7 @@ export function SuperSmoother(period: number = NaN, cutoff: number = NaN): Screa
  */
 export function TEMA(com: number = NaN, span: number = NaN, halflife: number = NaN, alpha: number = NaN): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.TEMA(com, span, halflife, alpha));
+  return wrapOp(M, () => new M.TEMA(com, span, halflife, alpha));
 }
 
 /**
@@ -2881,7 +2887,7 @@ export function TEMA(com: number = NaN, span: number = NaN, halflife: number = N
  */
 export function TRIMA(windowSize: number = 20): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.TRIMA(windowSize));
+  return wrapOp(M, () => new M.TRIMA(windowSize));
 }
 
 /**
@@ -2892,7 +2898,7 @@ export function TRIMA(windowSize: number = 20): ScreamerOp {
  */
 export function TRIX(span: number = 14): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.TRIX(span));
+  return wrapOp(M, () => new M.TRIX(span));
 }
 
 /**
@@ -2902,7 +2908,7 @@ export function TRIX(span: number = 14): ScreamerOp {
  */
 export function Tanh(): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.Tanh());
+  return wrapOp(M, () => new M.Tanh());
 }
 
 /**
@@ -2912,7 +2918,7 @@ export function Tanh(): ScreamerOp {
  */
 export function TickRuleSign(): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.TickRuleSign());
+  return wrapOp(M, () => new M.TickRuleSign());
 }
 
 /**
@@ -2923,7 +2929,7 @@ export function TickRuleSign(): ScreamerOp {
  */
 export function TrendMode(phaseRateFrac: number = 0.5): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.TrendMode(phaseRateFrac));
+  return wrapOp(M, () => new M.TrendMode(phaseRateFrac));
 }
 
 /**
@@ -2933,7 +2939,7 @@ export function TrendMode(phaseRateFrac: number = 0.5): ScreamerOp {
  */
 export function TrueRange(): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.TrueRange());
+  return wrapOp(M, () => new M.TrueRange());
 }
 
 /**
@@ -2946,7 +2952,7 @@ export function TrueRange(): ScreamerOp {
  */
 export function UltimateOscillator(period1: number = 7, period2: number = 14, period3: number = 28): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.UltimateOscillator(period1, period2, period3));
+  return wrapOp(M, () => new M.UltimateOscillator(period1, period2, period3));
 }
 
 /**
@@ -2958,7 +2964,7 @@ export function UltimateOscillator(period1: number = 7, period2: number = 14, pe
  */
 export function VPIN(bucketVolume: number = 1.0, nBuckets: number = 50): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.VPIN(bucketVolume, nBuckets));
+  return wrapOp(M, () => new M.VPIN(bucketVolume, nBuckets));
 }
 
 /**
@@ -2970,7 +2976,7 @@ export function VPIN(bucketVolume: number = 1.0, nBuckets: number = 50): Screame
  */
 export function WMA(windowSize: number = 20, startPolicy: string = "strict"): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.WMA(windowSize, startPolicy));
+  return wrapOp(M, () => new M.WMA(windowSize, startPolicy));
 }
 
 /**
@@ -2980,7 +2986,7 @@ export function WMA(windowSize: number = 20, startPolicy: string = "strict"): Sc
  */
 export function Where(): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.Where());
+  return wrapOp(M, () => new M.Where());
 }
 
 /**
@@ -2991,5 +2997,5 @@ export function Where(): ScreamerOp {
  */
 export function WilliamsR(windowSize: number = 14): ScreamerOp {
   const M = current();
-  return wrapOp(M, new M.WilliamsR(windowSize));
+  return wrapOp(M, () => new M.WilliamsR(windowSize));
 }

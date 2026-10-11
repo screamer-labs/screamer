@@ -162,25 +162,24 @@ def _sig_decl(params: list[dict]) -> str:
 
 def _factory_body(name: str, params: list[dict], wrapper: str = "wrapOp") -> str:
     vecs = [p for p in params if p["is_vec"]]
+    call_args = [f"_v{idx}" if p["is_vec"] else p["name"] for idx, p in enumerate(params)]
     lines = ["  const M = current();"]
-    call_args = []
+    if not vecs:
+        lines.append(f"  return {wrapper}(M, () => new M.{name}({', '.join(call_args)}));")
+        return "\n".join(lines)
+    lines.append(f"  return {wrapper}(M, () => {{")
     for idx, p in enumerate(params):
         if p["is_vec"]:
             v = f"_v{idx}"
-            lines.append(f"  const {v} = new M.VectorDouble();")
+            lines.append(f"    const {v} = new M.VectorDouble();")
             # A bare number is the one-entry vector (one value for all assets).
-            lines.append(f"  for (const _x of (typeof {p['name']} === \"number\" ? [{p['name']}] : {p['name']})) {v}.push_back(_x);")
-            call_args.append(v)
-        else:
-            call_args.append(p["name"])
-    if vecs:
-        lines.append(f"  const _op = new M.{name}({', '.join(call_args)});")
-        for idx, p in enumerate(params):
-            if p["is_vec"]:
-                lines.append(f"  _v{idx}.delete();")
-        lines.append(f"  return {wrapper}(M, _op);")
-    else:
-        lines.append(f"  return {wrapper}(M, new M.{name}({', '.join(call_args)}));")
+            lines.append(f"    for (const _x of (typeof {p['name']} === \"number\" ? [{p['name']}] : {p['name']})) {v}.push_back(_x);")
+    lines.append(f"    const _op = new M.{name}({', '.join(call_args)});")
+    for idx, p in enumerate(params):
+        if p["is_vec"]:
+            lines.append(f"    _v{idx}.delete();")
+    lines.append("    return _op;")
+    lines.append("  });")
     return "\n".join(lines)
 
 
