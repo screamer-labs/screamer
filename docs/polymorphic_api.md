@@ -82,7 +82,7 @@ Every 1‑in/1‑out class supports the following input/output shapes:
 | Python `list` of numbers | Python `list` of same length | container type preserved; processed eagerly in one pass |
 | Python `tuple` of numbers | Python `list` of same length | processed eagerly in one pass; the output is a `list` |
 | Python `list` of arrays | Python `list` of arrays | a sequence of asset events, one operator state per asset |
-| Python `tuple` of arrays | `TypeError` | a `(values, index)` stream goes to a stream operator or a `Pipeline`; a compute operator takes the values |
+| Python `tuple` of arrays | `TypeError` | a `(values, index)` stream goes to a stream operator or a `Pipeline`; a compute operator takes the values. A row operator instead reads it as rows over time |
 | Python iterator (`iter(...)`, generator, anything iterable that is not list/tuple/array) | a screamer `LazyEvalIterator` | results yielded **one at a time on demand** |
 | Async iterable (an `async def` generator with `yield`, or anything with `__aiter__`) | a screamer `LazyAsyncIterator` | results awaited one at a time; events are numbers or asset arrays, as for an iterator |
 | Anything else | `ValueError` | "Unsupported input type for call: ..." |
@@ -211,6 +211,9 @@ The exact decision tree implemented in `ScreamerBase::operator()`
    tuple is most likely a `(values, index)` stream: pass it to a stream
    operator (`Resample`, `CombineLatest`) or a `Pipeline`, or unpack it and
    pass the values, `op(values)`, keeping the index as it was.
+   Row operators (`CrossRank`, `PortfolioReport` and the like) are the
+   exception: they read a tuple or list of arrays as rows over time and never
+   need the index, so unpack a `(values, index)` pair before calling them.
 
 4. **Is it a list whose first item is an array?** It is a sequence of asset
    events. Each array is one event with one value per asset, and the result

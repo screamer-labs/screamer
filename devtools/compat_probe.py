@@ -82,11 +82,14 @@ def cases():
         "1-in M-out (T,K,1)": lambda: s.BollingerBands(3)(X[:, :, None]),
         "1-in M-out tuple of floats": lambda: s.BollingerBands(3)(tuple(v[:4])),
         "1-in M-out (values,index)": lambda: s.BollingerBands(3)((v, idx)),
-        # row operators: D1 on a one-field row operator and PortfolioReport
+        # row operators and PortfolioReport keep their 2.8.0 tuple behavior (D9)
         "row (values,index) tuple": lambda: s.CrossRank()((v, idx)),
         "row list of rows": lambda: s.CrossRank()([X[:, 0], X[:, 1]]),
         "row tuple of floats": lambda: s.CrossRank()(tuple(X[0])),
         "PortfolioReport tuple of arrays": lambda: s.PortfolioReport()((v, idx)),
+        "row tuple of rows": lambda: s.CrossRank()((X[0], X[1])),
+        "PortfolioReport tuple of (4,) rows": lambda: s.PortfolioReport()((X[0, :1].repeat(4), X[1, :1].repeat(4))),
+        "PortfolioReport tuple of events": lambda: s.PortfolioReport()((np.arange(8.0).reshape(2, 4), np.arange(8.0, 16.0).reshape(2, 4))),
         # multi-input operators
         "2in scalars": lambda: s.Add()(1.0, 2.0),
         "2in tuple of two scalars": lambda: s.Add()((1.0, 2.0)),

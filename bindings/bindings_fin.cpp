@@ -186,7 +186,6 @@ nb::object portfolio_report_call(screamer::PortfolioReport& self, nb::args args)
         return nb::cast(screamer::LazyEvalIterator(
             std::make_unique<PortfolioReportStepper>(nb::find(self)), {input}));
     }
-    screamer::reject_array_tuple(input);  // D1: a (values, index) tuple raises
     if (nb::isinstance<nb::list>(input) || nb::isinstance<nb::tuple>(input)) {
         // NumPy normalizes nested sequences, so a list can be either one row
         // (assets, 4) or a complete (time, assets, 4) batch.
@@ -332,9 +331,6 @@ nb::object row_op_call(screamer::RowOp& self, nb::args args) {
     if (n != fi)
         throw nb::type_error(("this operator takes " + std::to_string(fi) +
                               " inputs, got " + std::to_string(n) + ".").c_str());
-    // D1: a (values, index) tuple into a one-field operator raises. A list
-    // keeps its 2.8.0 meaning, a (T, K) block.
-    if (fi == 1) screamer::reject_array_tuple(args[0]);
     std::vector<screamer::detail::ContigDouble> fields;
     for (nb::handle a : args) {
         fields.push_back(row_op_input(nb::borrow<nb::object>(a)));

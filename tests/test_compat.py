@@ -39,10 +39,21 @@ def test_tuple_of_arrays_into_n_input_operator_stays_the_n_inputs():
     np.testing.assert_array_equal(s.Add()((v, w)), v + w)
 
 
-@pytest.mark.parametrize("op", [s.CrossRank(), s.CrossDemean(), s.PortfolioReport()])
-def test_values_index_tuple_into_row_operator_raises(op):
-    with pytest.raises(TypeError, match=r"\(values, index\)"):
-        op((v, idx))
+def test_row_operator_tuple_of_rows_is_rows_over_time():
+    t0, t1 = np.array([10.0, 30.0, 20.0]), np.array([5.0, 1.0, 9.0])
+    want = [[-1, 1, 0], [0, -1, 1]]
+    np.testing.assert_array_equal(s.CrossRank()((t0, t1)), want)
+    np.testing.assert_array_equal(s.CrossRank()([t0, t1]), want)
+    np.testing.assert_array_equal(s.CrossRank()(np.array([t0, t1])), want)
+
+
+def test_portfolio_report_tuple_keeps_its_2_8_0_result():
+    a, b = np.array([1.0, 2.0, 3.0, 4.0]), np.array([2.0, 3.0, 4.0, 6.0])
+    np.testing.assert_array_equal(s.PortfolioReport()((a, b)), s.PortfolioReport()([a, b]))
+    E1 = np.arange(8.0).reshape(2, 4)
+    E2 = np.arange(8.0, 16.0).reshape(2, 4)
+    np.testing.assert_array_equal(s.PortfolioReport()((E1, E2)),
+                                  s.PortfolioReport()(np.stack([E1, E2])))
 
 
 def test_row_operator_list_and_number_tuple_keep_their_2_8_0_result():

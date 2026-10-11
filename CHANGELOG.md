@@ -107,12 +107,6 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
   `Pipeline`, and a list of arrays is a sequence of asset events. In 2.8.0 a
   one-output operator raised `RuntimeError: std::bad_cast`, and a
   multi-output operator raised `TypeError: Iterable must contain numbers.`
-* A one-input row operator (`CrossRank`, `CrossDemean` and the other
-  cross-sectional operators) and `PortfolioReport` raise the same `TypeError`
-  for a tuple of arrays. In 2.8.0 `CrossRank()((values, index))` read the
-  tuple as two rows of assets and returned a `(2, T)` array, and
-  `PortfolioReport` raised `ValueError`. A list of rows keeps its 2.8.0
-  result.
 * Inputs whose shapes do not match raise `ValueError` that names the problem
   ("do not broadcast", "same length along time"); they raised `TypeError`.
 * JavaScript errors raised in C++ carry their message text, and reducer error

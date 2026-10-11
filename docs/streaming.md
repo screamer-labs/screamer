@@ -247,6 +247,8 @@ from node to node:
 A row operator reads all assets of a step together: the cross-sectional
 operators such as `CrossRank`, and the portfolio engines. It streams one `(K,)`
 row per input, from one source per input or from one source of tuples of rows.
+A row operator reads a tuple or list of arrays as rows over time, so unpack a
+`(values, index)` pair first; it never needs the index.
 A portfolio engine yields one `(K, 4)` row of `[equity, pnl, position, cost]`
 per step, and `PortfolioReport` streams those rows into the book's report:
 

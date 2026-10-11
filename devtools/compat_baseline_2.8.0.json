@@ -362,6 +362,56 @@
   "ValueError",
   "PortfolioReport rows must have shape (assets, 4)."
  ],
+ "row tuple of rows": [
+  "ndarray",
+  [
+   2,
+   3
+  ],
+  "f",
+  0.0,
+  "deab57f8250c09e5"
+ ],
+ "PortfolioReport tuple of (4,) rows": [
+  "tuple",
+  6,
+  [
+   [
+    "float",
+    0.0
+   ],
+   [
+    "float",
+    198.631218777
+   ],
+   [
+    "float",
+    198.631218777
+   ],
+   [
+    "float",
+    2.0
+   ],
+   [
+    "float",
+    0.0
+   ],
+   [
+    "float",
+    NaN
+   ]
+  ]
+ ],
+ "PortfolioReport tuple of events": [
+  "ndarray",
+  [
+   2,
+   6
+  ],
+  "f",
+  85.237437,
+  "7565b8753c16cffb"
+ ],
  "2in scalars": [
   "float",
   3.0
