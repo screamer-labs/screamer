@@ -70,7 +70,7 @@ Goal: zero open issues before `make major`. Each item is closed by a fix with a 
 | G4 | JS `zipSources` calls `return()` on a source whose own `next()` threw (a `for...of` loop does not). | decided: record which source threw and skip it in the cleanup, as for an ended source (JS iterator-close semantics), in zipSources and zipAsyncSources; test (sync and async): error reaches caller unchanged, thrower's return() never called, the other source's return() called once; done (2f716f2) |
 | G5 | Python segfaults (rc 139) when an operator gets an object whose class has a non-str `__module__` (`class M: __module__ = None; RollingMean(2)(M())`). Same in 2.8.0. Found while reviewing A6. | decided (crash fix, no behavior choice): an unsupported object raises TypeError naming its type; audit every place the dispatch formats a type or module name; test; done (3f6014d) |
 | G6 | Bump nanobind 2.9.2 to 2.13.0 (fixes the remaining non-str `__module__` crashes in constructors, wrong-arity calls, subclassing, typed ndarray bindings); remove the G5 xfails. Found in the G5 review. | open (needs user decision) |
-| G7 | A wrong-kind element raises `RuntimeError: std::bad_cast` instead of TypeError: list element (`RollingMean(2)([1.0, M()])`, `[object()]`), tuple stream `(M(), M())`, list of events, lazy Pipeline `p(iter([M()]))`. Found in the G5 review. | decided: TypeError naming the type (rule A4); to implement |
+| G7 | A wrong-kind element raises `RuntimeError: std::bad_cast` instead of TypeError: list element (`RollingMean(2)([1.0, M()])`, `[object()]`), tuple stream `(M(), M())`, list of events, lazy Pipeline `p(iter([M()]))`. Found in the G5 review. | decided: TypeError naming the type (rule A4); done (94f068e) |
 
 ## Future features (not in 3.0.0)
 
