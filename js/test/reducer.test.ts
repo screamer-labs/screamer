@@ -173,10 +173,10 @@ test("reducer: a group of the wrong width is rejected", async () => {
   await ready();
   const op = PortfolioReport();
   try {
-    assert.throws(() => op([[1, 2, 3]]), TypeError);
-    assert.throws(() => op({ data: new Float64Array(6), shape: [2, 3] } as NdArray), TypeError);
-    assert.throws(() => op(new Float64Array(6)), TypeError);
-    assert.throws(() => op({ data: new Float64Array(12), shape: [1, 3, 4, 1] } as NdArray), TypeError);
+    assert.throws(() => op([[1, 2, 3]]), RangeError);
+    assert.throws(() => op({ data: new Float64Array(6), shape: [2, 3] } as NdArray), RangeError);
+    assert.throws(() => op(new Float64Array(6)), RangeError);
+    assert.throws(() => op({ data: new Float64Array(12), shape: [1, 3, 4, 1] } as NdArray), RangeError);
   } finally {
     op.dispose();
   }
@@ -207,7 +207,7 @@ test("reducer: an empty event is rejected", async () => {
   await ready();
   const op = PortfolioReport();
   try {
-    assert.throws(() => op(new Float64Array(0)), TypeError);
+    assert.throws(() => op(new Float64Array(0)), RangeError);
   } finally {
     op.dispose();
   }

@@ -72,12 +72,12 @@ test("lifecycle: op.reset() after dispose() throws instead of touching a deleted
   assert.throws(() => op.reset(), /used after dispose/);
 });
 
-test("lifecycle: a mismatched-length multi-input batch throws a TypeError", async () => {
+test("lifecycle: a mismatched-length multi-input batch throws a RangeError", async () => {
   await ready();
   const op = Add();
   assert.throws(
     () => (op as any)(new Float64Array([1, 2, 3]), new Float64Array([1, 2])),
-    TypeError,
+    RangeError,
   );
   op.dispose();
 });

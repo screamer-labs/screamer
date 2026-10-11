@@ -209,7 +209,7 @@ test("a source that ends early ends the stream and closes the other sources", ()
 
 test("an iterator mixed with an array raises", () => {
   assert.throws(() => ops.Add()(iter([1, 2]), new Float64Array([1, 2])), /cannot be mixed/);
-  assert.throws(() => ops.Add()(iter([1]), iter([1]), iter([1])), TypeError);
+  assert.throws(() => ops.Add()(iter([1]), iter([1]), iter([1])), RangeError);
 });
 
 test("a one-input op takes (K, F) events like a (T, K, F) batch", async () => {

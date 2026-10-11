@@ -85,16 +85,16 @@ test("regimes: Add() 2-input columnar batch computes elementwise sums", async ()
   op.dispose();
 });
 
-test("regimes: Add() rejects a mismatched-length columnar batch with a TypeError instead of NaN-filling/truncating", async () => {
+test("regimes: Add() rejects a mismatched-length columnar batch with a RangeError instead of NaN-filling/truncating", async () => {
   await ready();
   const op = Add();
   assert.throws(
     () => op(new Float64Array([1, 2, 3]), new Float64Array([10, 20])),
-    TypeError,
+    RangeError,
   );
   assert.throws(
     () => op([1, 2], [1, 2, 3]),
-    TypeError,
+    RangeError,
   );
   op.dispose();
 });

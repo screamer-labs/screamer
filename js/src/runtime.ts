@@ -1,6 +1,6 @@
 import type { Screamer, RawOp } from "./loader.js";
 import { normalizeError } from "./errors.js";
-import { checkNd, type NdArray } from "./ndarray.js";
+import { asNd, type NdArray } from "./ndarray.js";
 import { Node, isNode } from "./node.js";
 
 // `Symbol.dispose` (explicit resource management) is provided by the
@@ -31,8 +31,8 @@ const isSyncIter = (x: any) =>
   x != null && typeof x !== "string" && typeof x[Symbol.iterator] === "function" && !isTyped(x) && !Array.isArray(x);
 const isAsyncIter = (x: any) => x != null && typeof x[Symbol.asyncIterator] === "function";
 
-const isNd = (x: any): x is NdArray =>
-  x != null && x.data instanceof Float64Array && Array.isArray(x.shape);
+// Every NdArray test goes through asNd, so a malformed array throws here.
+const isNd = (x: any): x is NdArray => asNd(x) !== null;
 
 type OpSource = RawOp | (() => RawOp);
 const resolve = (src: OpSource): RawOp => (typeof src === "function" ? (src as () => RawOp)() : src);
@@ -52,7 +52,7 @@ function streamKind(args: any[], n: number): "sync" | "async" | null {
   if (nAsync + nSync !== args.length)
     throw new TypeError("iterator and array inputs cannot be mixed: pass every input as an iterator of events, or none");
   if (args.length !== n && args.length !== 1)
-    throw new TypeError(`this op takes ${n} inputs, got ${args.length} ${nAsync ? "async iterables" : "iterators"}`);
+    throw new RangeError(`this op takes ${n} inputs, got ${args.length} ${nAsync ? "async iterables" : "iterators"}`);
   return nAsync ? "async" : "sync";
 }
 
@@ -254,7 +254,6 @@ export function wrapOp(M: Screamer, src: OpSource, copy?: () => RawOp): Screamer
   function shaped(args: any[]): NdArray {
     const parts: NdArray[] = args.map((a) =>
       isNd(a) ? a : { data: Float64Array.from(a as ArrayLike<number>), shape: [(a as ArrayLike<number>).length] });
-    parts.forEach(checkNd);
     const ptrs: number[] = [];
     try {
       const spec: number[] = [parts.length];
@@ -342,7 +341,6 @@ export function wrapOp(M: Screamer, src: OpSource, copy?: () => RawOp): Screamer
           b[0] = v;
           partData[k] = b; partShape[k] = EMPTY;
         } else if (isNd(v)) {
-          checkNd(v);
           partData[k] = v.data; partShape[k] = v.shape;
         } else if (isTyped(v) || isNumArr(v)) {
           const s = (lenShape[k] ??= [0]);
@@ -388,7 +386,7 @@ export function wrapOp(M: Screamer, src: OpSource, copy?: () => RawOp): Screamer
       const k = readParts(items);
       if (!plan) startAssets(k);
       else if (!sameShapes(k))
-        throw new TypeError(`every event must have the same shape: the first was ${fmtShapes(plan.shapes)}, this one is ${fmtShapes(partShape.slice(0, k))}`);
+        throw new RangeError(`every event must have the same shape: the first was ${fmtShapes(plan.shapes)}, this one is ${fmtShapes(partShape.slice(0, k))}`);
       const { cols, offset, out } = plan!;
       const packed = k === 1 && nIn > 1;
       const view = M.viewF64(colIn, cols * nIn);
@@ -411,7 +409,7 @@ export function wrapOp(M: Screamer, src: OpSource, copy?: () => RawOp): Screamer
             if (mode === UNKNOWN) { ops.push(pool.acquire()); mode = SCALAR; }
             return evalOn(ops[0], v);
           }
-          if (mode === SCALAR) throw new TypeError("every event must have the same shape: the first events were numbers, this one is not");
+          if (mode === SCALAR) throw new RangeError("every event must have the same shape: the first events were numbers, this one is not");
         }
         return assetEvent(items);
       } catch (e) { throw normalizeError(e); }
@@ -451,7 +449,7 @@ export function wrapOp(M: Screamer, src: OpSource, copy?: () => RawOp): Screamer
         const cols = args as ArrayLike<number>[];
         const rows = cols[0].length;
         if (cols.some((x) => x.length !== rows)) {
-          throw new TypeError(`all input arrays must have the same length (got ${cols.map((a) => a.length).join(", ")})`);
+          throw new RangeError(`all input arrays must have the same length (got ${cols.map((a) => a.length).join(", ")})`);
         }
         // Interleave the N input columns into row-major (rows x nIn) order, then
         // one C++ pass. The interleave is JS-side memory writes, no per-event
@@ -461,6 +459,7 @@ export function wrapOp(M: Screamer, src: OpSource, copy?: () => RawOp): Screamer
         });
         return nOut === 1 ? data : ({ data, shape: [rows, nOut] } as NdArray);
       }
+      if (args.length !== nIn) throw new RangeError(`expected ${nIn} inputs, got ${args.length}`);
       throw new TypeError(`expected ${nIn} numeric inputs`);
     } catch (e) { throw normalizeError(e); }
   };
@@ -518,17 +517,17 @@ export function wrapReducerOp(M: Screamer, src: OpSource): ScreamerOp {
       const s = x.shape;
       if (s.length === 2) {
         if (s[1] !== width) {
-          throw new TypeError(`expected an event of shape (assets, ${width}), got [${s}]`);
+          throw new RangeError(`expected an event of shape (assets, ${width}), got [${s}]`);
         }
         return { flat: x.data, assets: s[0] };
       }
       if (s.length === 1) return asRow(x.data);
-      throw new TypeError(`expected a rank-1 or rank-2 event, got shape [${s}]`);
+      throw new RangeError(`expected a rank-1 or rank-2 event, got shape [${s}]`);
     }
     if (isTyped(x) || isNumArr(x)) {
       const n = (x as ArrayLike<number>).length;
       if (n === 0 || n % width !== 0) {
-        throw new TypeError(`a flat event must hold a positive multiple of ${width} values, got ${n}`);
+        throw new RangeError(`a flat event must hold a positive multiple of ${width} values, got ${n}`);
       }
       return { flat: x, assets: n / width };
     }
@@ -541,7 +540,7 @@ export function wrapReducerOp(M: Screamer, src: OpSource): ScreamerOp {
           throw new TypeError(`asset ${g} is not a numeric array`);
         }
         if (row.length !== width) {
-          throw new TypeError(`each asset must hold ${width} values, got ${row.length} at asset ${g}`);
+          throw new RangeError(`each asset must hold ${width} values, got ${row.length} at asset ${g}`);
         }
         flat.set(row as ArrayLike<number>, g * width);
       }
@@ -592,7 +591,7 @@ export function wrapReducerOp(M: Screamer, src: OpSource): ScreamerOp {
     for (let r = 1; r < rows; r++) {
       const { flat: f, assets: g } = asRow(x[r]);
       if (g !== assets) {
-        throw new TypeError(`every event must hold ${assets} assets, got ${g} at event ${r}`);
+        throw new RangeError(`every event must hold ${assets} assets, got ${g} at event ${r}`);
       }
       flat.set(f as number[], r * assets * width);
     }
@@ -631,7 +630,7 @@ export function wrapReducerOp(M: Screamer, src: OpSource): ScreamerOp {
         const s = x.shape;
         if (s.length === 3) {
           if (s[2] !== width) {
-            throw new TypeError(`expected a batch of shape (events, assets, ${width}), got [${s}]`);
+            throw new RangeError(`expected a batch of shape (events, assets, ${width}), got [${s}]`);
           }
           return batch(x.data, s[0], s[1]);
         }
@@ -687,7 +686,7 @@ export function wrapRowOp(M: Screamer, src: OpSource): ScreamerOp {
   // stream's own copy.
   const event = (rows: ArrayLike<number>[], o: RawOp): Float64Array => {
     const k = rows[0].length;
-    if (rows.some((r) => r.length !== k)) throw new TypeError("all inputs must hold the same number of assets");
+    if (rows.some((r) => r.length !== k)) throw new RangeError("all inputs must hold the same number of assets");
     if (k > cap) {
       if (evIn) { M.freeBuf(evIn); M.freeBuf(evOut); }
       evIn = M.allocF64(fi * k); evOut = M.allocF64(fo * k); cap = k;
@@ -700,7 +699,7 @@ export function wrapRowOp(M: Screamer, src: OpSource): ScreamerOp {
 
   // T events from fi (T, K) blocks, each flat and row-major.
   const batch = (blocks: ArrayLike<number>[], T: number, k: number): NdArray => {
-    if (k === 0) throw new TypeError("a row op needs at least one asset");
+    if (k === 0) throw new RangeError("a row op needs at least one asset");
     const shape = fo === 1 ? [T, k] : [T, k, fo];
     if (T === 0) return { data: new Float64Array(0), shape };
     const nIn = T * fi * k, nOut = T * fo * k;
@@ -723,14 +722,14 @@ export function wrapRowOp(M: Screamer, src: OpSource): ScreamerOp {
     if (isNd(x)) {
       // Rule 1: a [T, K, 1] array reads as [T, K]; the data is already in that order.
       const unit = x.shape.length === 3 && x.shape[2] === 1;
-      if (x.shape.length !== 2 && !unit) throw new TypeError(`expected a (T, K) array, got shape [${x.shape}]`);
+      if (x.shape.length !== 2 && !unit) throw new RangeError(`expected a (T, K) array, got shape [${x.shape}]`);
       return { flat: x.data, T: x.shape[0], k: x.shape[1] };
     }
     if (Array.isArray(x) && x.length > 0 && x.every((r) => isTyped(r) || isNumArr(r))) {
       const T = x.length, k = x[0].length;
       const flat = new Float64Array(T * k);
       x.forEach((r: ArrayLike<number>, i: number) => {
-        if (r.length !== k) throw new TypeError(`every row must hold ${k} values, got ${r.length} at row ${i}`);
+        if (r.length !== k) throw new RangeError(`every row must hold ${k} values, got ${r.length} at row ${i}`);
         flat.set(r as number[], i * k);
       });
       return { flat, T, k };
@@ -750,6 +749,7 @@ export function wrapRowOp(M: Screamer, src: OpSource): ScreamerOp {
   const asRow = (row: any): ArrayLike<number> => {
     if (isTyped(row) || isNumArr(row)) return row;
     if (isNd(row) && (row.shape.length === 1 || (row.shape.length === 2 && row.shape[1] === 1))) return row.data;
+    if (isNd(row)) throw new RangeError(`each event of a row stream is one row of K values, got shape [${row.shape}]`);
     throw new TypeError(`each event of a row stream is one row of K values, got ${isNd(row) ? `shape [${row.shape}]` : typeof row}`);
   };
   // A stream runs on a copy of its own (decision D8); the call resets raw.
@@ -763,7 +763,7 @@ export function wrapRowOp(M: Screamer, src: OpSource): ScreamerOp {
         if (disposed) throw new Error("operation used after dispose()");
         const ev = unpack ? items[0] : items;
         if (unpack && (!Array.isArray(ev) || ev.length !== fi))
-          throw new TypeError(`each event of one row stream is an array of ${fi} rows of K values`);
+          throw new RangeError(`each event of one row stream is an array of ${fi} rows of K values`);
         for (let f = 0; f < fi; f++) rows[f] = asRow(ev[f]);
         return eventOut(rows, own);
       } catch (e) { throw normalizeError(e); }
@@ -781,7 +781,7 @@ export function wrapRowOp(M: Screamer, src: OpSource): ScreamerOp {
         raw.reset();
         return kind === "async" ? runAsyncStream(args, openStream, op) : runStream(args, openStream, op);
       }
-      if (args.length !== fi) throw new TypeError(`this op takes ${fi} inputs, got ${args.length}`);
+      if (args.length !== fi) throw new RangeError(`this op takes ${fi} inputs, got ${args.length}`);
       if (args.every((a) => isTyped(a) || isNumArr(a) || (isNd(a) && a.shape.length === 1)))
         return eventOut(args.map((a) => (isNd(a) ? a.data : a)));
       const blocks = args.map(asBlock);
@@ -789,7 +789,7 @@ export function wrapRowOp(M: Screamer, src: OpSource): ScreamerOp {
         throw new TypeError("expected (T, K) arrays, arrays of rows, or one row per input");
       const b0 = blocks[0]!;
       if (blocks.some((b) => b!.T !== b0.T || b!.k !== b0.k))
-        throw new TypeError("all inputs must have the same shape");
+        throw new RangeError("all inputs must have the same shape");
       return batch(blocks.map((b) => b!.flat), b0.T, b0.k);
     } catch (e) { throw normalizeError(e); }
   };

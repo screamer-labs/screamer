@@ -29,3 +29,35 @@ for (const c of cases) {
     }
   });
 }
+
+// ---- G2 / A4: one checked NdArray entry, RangeError for mismatches ----
+{
+  const bad = { data: new Float64Array(4), shape: [100, 50] };
+  const kinds: [string, () => unknown][] = [
+    ["elementwise", () => (api as any).RollingMean(3)(bad)],
+    ["multi-input", () => (api as any).RollingCorr(3)(bad, bad)],
+    ["row op", () => (api as any).CrossRank()(bad)],
+    ["reducer", () => (api as any).PortfolioReport()({ data: new Float64Array(8), shape: [10, 5, 4] })],
+    ["row stream", () => [...((api as any).CrossRank()([bad][Symbol.iterator]()) as Iterable<unknown>)]],
+  ];
+  for (const [name, call] of kinds)
+    test(`G2: malformed NdArray raises RangeError on the ${name} path`, async () => {
+      await ready();
+      assert.throws(call, RangeError);
+    });
+
+  test("G2: a non-integer shape is a TypeError", async () => {
+    await ready();
+    assert.throws(() => (api as any).RollingMean(3)({ data: new Float64Array(4), shape: [2.5] }), TypeError);
+  });
+
+  test("A4: inputs of different lengths raise RangeError", async () => {
+    await ready();
+    assert.throws(() => (api as any).Add()(new Float64Array(5), new Float64Array(4)), RangeError);
+  });
+
+  test("A4: a wrong kind is still a TypeError", async () => {
+    await ready();
+    assert.throws(() => (api as any).RollingMean(3)("abc" as any), TypeError);
+  });
+}

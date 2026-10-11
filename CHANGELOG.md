@@ -61,6 +61,7 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
 
 ### Changed
 
+* **JavaScript error classes:** every shape, length or input-count mismatch throws `RangeError` (the counterpart of Python's `ValueError`); wrong kinds still throw `TypeError`.
 * A trailing axis of size 1 on an array of rank 3 or more is the single input
   field: `(T, K, 1)` input gives `(T, K)` (was `(T, K, 1)`), and `(T, K, M)`
   for M-output operators (was `(T, K, 1, M)`). Old result: `out[..., None]`,
@@ -95,6 +96,7 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
 
 ### Fixed
 
+* **JavaScript:** row operators, reducers and row streams check an `NdArray`'s shape against its data before reading it.
 * JavaScript: when one of several stream sources throws, the stream no longer
   calls `return()` on that source; the other sources are still closed, as
   `for...of` does.

@@ -92,8 +92,9 @@ The [six rules](polymorphic_api.md#the-six-rules) hold in JavaScript, with an
 4. **Separate arguments, or one packed array, with assets broadcast.**
    `RollingCorr(20)(X, y)` with `X` of shape `[T, K]` and `y` a `Float64Array`
    of length `T` gives `[T, K]`, and so does one packed `[T, K, 2]` `NdArray`.
-5. **Ambiguity throws.** Inputs of different lengths throw `TypeError`, and
-   asset shapes that do not broadcast throw `RangeError`.
+5. **Ambiguity throws.** Inputs of different lengths and asset shapes that do
+   not broadcast throw `RangeError`, and a wrong kind of input throws
+   `TypeError`.
 6. **A change to the result of working code needs an explicit decision** and
    an entry under "Changed" in the release notes.
 
@@ -120,8 +121,9 @@ is tracked to be closed.
   sources only when the stream is garbage collected. JavaScript throws, closes
   every source, and ends the stream.
 * Error classes differ: Python raises `ValueError` for inputs or events whose
-  shapes do not match, where JavaScript throws `TypeError` (lengths, event
-  shapes) or `RangeError` (asset shapes that do not broadcast).
+  shapes do not match, where JavaScript throws `RangeError` (lengths, event
+  shapes, asset shapes that do not broadcast). A wrong kind of input throws
+  `TypeError` in both.
 * A Python list of asset events or of `N`-tuples is a sequence of events. A
   JavaScript array is a batch of numbers only; pass rows or tuples as an
   iterable, such as `rows.values()`. A nested-array event for an `N`-input op

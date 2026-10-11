@@ -100,10 +100,10 @@ test("a plain number thrown by user code is not read as a C++ exception", async 
 test("an NdArray whose shape does not match its data raises", async () => {
   await ready();
   const y4 = { data: new Float64Array(8), shape: [4, 2] };
-  assert.throws(() => Add()({ data: new Float64Array(2), shape: [4, 2] }, y4), TypeError);
+  assert.throws(() => Add()({ data: new Float64Array(2), shape: [4, 2] }, y4), RangeError);
   assert.throws(() => Add()({ data: new Float64Array(8), shape: [-4, -2] }, y4), TypeError);
   assert.throws(() => Add()({ data: new Float64Array(8), shape: [4, 2.5] }, y4), TypeError);
-  assert.throws(() => RollingMean(2)({ data: new Float64Array(3), shape: [4] }), TypeError);
-  assert.throws(() => reshape({ data: new Float64Array(2), shape: [4, 2] }, "TA"), TypeError);
+  assert.throws(() => RollingMean(2)({ data: new Float64Array(3), shape: [4] }), RangeError);
+  assert.throws(() => reshape({ data: new Float64Array(2), shape: [4, 2] }, "TA"), RangeError);
   assert.throws(() => reshape({ data: new Float64Array(4), shape: [2, 2.0001] }, "TA"), TypeError);
 });

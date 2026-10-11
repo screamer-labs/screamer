@@ -9,7 +9,15 @@ export function checkNd(a: NdArray): void {
     n *= d;
   }
   if (n !== a.data.length)
-    throw new TypeError(`shape [${a.shape}] holds ${n} values, but data holds ${a.data.length}`);
+    throw new RangeError(`shape [${a.shape}] holds ${n} values, but data holds ${a.data.length}`);
+}
+// The one entry for an NdArray-shaped value: null when `x` is not NdArray-shaped,
+// otherwise `x` after checkNd, so no path reads `.shape` of an unchecked array.
+export function asNd(x: unknown): NdArray | null {
+  const a = x as any;
+  if (a == null || !(a.data instanceof Float64Array) || !Array.isArray(a.shape)) return null;
+  checkNd(a);
+  return a;
 }
 export function toNested(a: NdArray): number[] | number[][] {
   if (a.shape.length <= 1) return Array.from(a.data);
