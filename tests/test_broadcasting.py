@@ -78,3 +78,10 @@ def test_empty_broadcast_shapes():
     assert s.Add()(np.zeros((0, 3)), np.zeros(0)).shape == (0, 3)
     assert s.Add()(np.zeros((T, 0)), np.zeros(T)).shape == (T, 0)
     assert s.BacktestPriceTarget()(np.zeros((0, 2)), np.zeros(0)).shape == (0, 2, 4)
+
+
+def test_generator_into_one_input_functor_is_lazy():
+    values = [1.0, np.nan, 3.0, np.inf]
+    out = s.IsNan()(v for v in values)
+    assert hasattr(out, "__next__") and not isinstance(out, list)
+    np.testing.assert_array_equal(list(out), s.IsNan()(np.array(values)))

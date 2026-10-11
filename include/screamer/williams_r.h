@@ -23,6 +23,7 @@
 // segment), the formula is mathematically undefined. TA-Lib returns 0
 // in that case; we follow.
 
+#include <array>
 #include <vector>
 #include <algorithm>
 #include <limits>
@@ -58,38 +59,57 @@ public:
     // which has no data-dependent branching, and the rest is elementwise. The
     // event path keeps the deques. See detail/block_extremum.h.
     //
-    // Declines unless the three inputs and the output are contiguous and the
-    // bars are free of NaN, since under `ignore` a missing field skips a bar
-    // and the block structure assumes every bar counts.
+    // Strided inputs (a packed (T, 3) array, or a column of (T, K)) are first
+    // gathered into contiguous scratch, and a strided output is written in
+    // place. Declines when a bar has a NaN, since under `ignore` a missing
+    // field skips a bar and the block structure assumes every bar counts.
     bool process_columns(double* out, std::ptrdiff_t out_stride,
                          const std::array<double*, 3>& in,
                          const std::array<int64_t, 3>& in_stride,
                          const std::array<size_t, 3>& in_offset,
                          size_t out_offset, size_t size) override {
-        if (out_stride != 1 || in_stride[0] != 1 || in_stride[1] != 1 || in_stride[2] != 1) {
-            return false;
+        // Contiguous view of input k: the input itself when its stride is 1,
+        // otherwise a gather into scratch_[k].
+        std::array<const double*, 3> x;
+        for (size_t k = 0; k < 3; ++k) {
+            const double* src = in[k] + in_offset[k];
+            if (in_stride[k] == 1) {
+                x[k] = src;
+                continue;
+            }
+            scratch_[k].resize(size);
+            for (size_t i = 0; i < size; ++i) scratch_[k][i] = src[(std::ptrdiff_t) i * in_stride[k]];
+            x[k] = scratch_[k].data();
         }
-        const double* high = in[0] + in_offset[0];
-        const double* low = in[1] + in_offset[1];
-        const double* close = in[2] + in_offset[2];
+        const double* high = x[0];
+        const double* low = x[1];
+        const double* close = x[2];
         if (detail::has_nan(high, size) || detail::has_nan(low, size) ||
             detail::has_nan(close, size)) {
             return false;
         }
 
+        // Rolling high goes straight into a unit-stride output, else into scratch.
         double* y = out + out_offset;
-        std::vector<double> lows(size);
-        detail::block_extremum<true>(y, high, size, window_size_);
-        detail::block_extremum<false>(lows.data(), low, size, window_size_);
+        double* highs = y;
+        if (out_stride != 1) {
+            highs_.resize(size);
+            highs = highs_.data();
+        }
+        lows_.resize(size);
+        detail::block_extremum<true>(highs, high, size, window_size_);
+        detail::block_extremum<false>(lows_.data(), low, size, window_size_);
 
         const size_t warmup = static_cast<size_t>(window_size_) - 1;
         for (size_t i = 0; i < size; ++i) {
+            double r;
             if (i < warmup) {
-                y[i] = std::numeric_limits<double>::quiet_NaN();
-                continue;
+                r = std::numeric_limits<double>::quiet_NaN();
+            } else {
+                const double range = highs[i] - lows_[i];
+                r = (range <= 0.0) ? 0.0 : -100.0 * (highs[i] - close[i]) / range;
             }
-            const double range = y[i] - lows[i];
-            y[i] = (range <= 0.0) ? 0.0 : -100.0 * (y[i] - close[i]) / range;
+            y[(std::ptrdiff_t) i * out_stride] = r;
         }
 
         // Leave state where the per-sample loop would have left it.
@@ -135,6 +155,10 @@ private:
     detail::MaxDeque max_deque_;
     detail::MinDeque min_deque_;
     int n_seen_ = 0;
+    // Batch scratch, reused across columns and calls: gathered strided inputs,
+    // rolling lows, and rolling highs when the output is strided.
+    std::array<std::vector<double>, 3> scratch_;
+    std::vector<double> lows_, highs_;
 };
 
 }  // namespace screamer

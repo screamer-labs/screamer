@@ -162,6 +162,32 @@ class TestParity:
         np.testing.assert_allclose(streamed, WilliamsR(n)(high, low, close),
                                    equal_nan=True, atol=1e-12)
 
+    @staticmethod
+    def _streamed(n, high, low, close):
+        obj = WilliamsR(n)
+        return np.array([obj(h, l, c) for h, l, c in zip(high, low, close)])
+
+    def test_packed_matches_event_loop_exactly(self):
+        high, low, close = _ohlc(300, seed=7)
+        packed = np.stack([high, low, close], axis=-1)            # (T, 3), time stride 3
+        np.testing.assert_array_equal(WilliamsR(14)(packed),
+                                      self._streamed(14, high, low, close))
+
+    def test_assets_match_event_loop_exactly(self):
+        cols = [_ohlc(300, seed=10 + k) for k in range(4)]
+        H, L, C = (np.stack([c[i] for c in cols], axis=1) for i in range(3))
+        want = np.stack([self._streamed(14, *c) for c in cols], axis=1)
+        np.testing.assert_array_equal(WilliamsR(14)(H, L, C), want)  # output stride 4
+        np.testing.assert_array_equal(WilliamsR(14)(np.stack([H, L, C], -1)), want)
+        np.testing.assert_array_equal(WilliamsR(14)(np.asfortranarray(H), L, C), want)
+
+    def test_strided_nan_matches_event_loop(self):
+        high, low, close = _ohlc(100, seed=8)
+        low[40] = np.nan
+        packed = np.stack([high, low, close], axis=-1)
+        np.testing.assert_array_equal(WilliamsR(10)(packed),
+                                      self._streamed(10, high, low, close))
+
     def test_reset_clears_history(self):
         high, low, close = _ohlc(40, seed=6)
         obj = WilliamsR(10)
