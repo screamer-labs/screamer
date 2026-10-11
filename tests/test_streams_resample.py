@@ -186,8 +186,8 @@ def test_resample_validation_errors():
         Resample(freq=10, agg="nope")(vals, keys)
     with pytest.raises(ValueError, match="label"):
         Resample(freq=10, label="middle")(vals, keys)
-    with pytest.raises(ValueError, match="1-D"):
-        Resample(freq=10)(np.zeros((2, 2)))          # wide input
+    v, _ = Resample(freq=10)(np.zeros((2, 2)))       # wide input: one column each
+    assert v.shape[1:] == (2,)
 
 
 def test_resample_nonpositive_every_count_rejected():

@@ -89,8 +89,9 @@ struct ResampleAccum {
 // count, reduces each bucket with a C++ reducer (plan or single builtin agg),
 // and emits the bucket on the causal boundary.
 //
-// Single-column mode (plan empty): input width must be 1. Behaves exactly as
-// before - one ResampleAccum for the single input.
+// Single-column mode (plan empty): a width-1 stream uses one accumulator. A wider
+// stream switches to a per-column plan on its first frame (make_per_column_plan)
+// until reset().
 //
 // Multi-column plan mode (plan non-empty): input width must equal the number
 // of distinct input columns in the plan. Each plan entry maps an output column
@@ -146,9 +147,23 @@ public:
         // push() is never called for ByClock mode in practice.
         if (p_.plan.empty()) {
             // Single-column path: width must be 1.
-            if (f.width != 1)
-                throw std::runtime_error(
-                    "dag::ResampleNode: expects a width-1 input stream");
+            if (f.width != 1) {
+                // A wide stream under a single-column agg: aggregate every column
+                // on its own. The plan lasts until reset(), so a reused Pipeline
+                // can take a different width next call.
+                p_.plan = make_per_column_plan(p_.agg, f.width);
+                per_column_ = true;
+                num_accums_ = f.width;
+                out_width_  = p_.plan.size();
+                out_.assign(out_width_, 0.0);
+                last_emitted_.assign(out_width_, std::numeric_limits<double>::quiet_NaN());
+                nan_row_.assign(out_width_, std::numeric_limits<double>::quiet_NaN());
+                accums_.resize(num_accums_);
+                reset_accums();
+                if (p_.mode == ResampleMode::ByIndex) push_by_index_multi(f.index, f.values);
+                else push_by_count_multi(f.index, f.values);
+                return;
+            }
             if (p_.mode == ResampleMode::ByIndex)
                 push_by_index(f.index, f.values[0]);
             else
@@ -197,6 +212,16 @@ public:
     }
 
     void reset() override {
+        if (per_column_) {             // forget the width learned from the last stream
+            p_.plan.clear();
+            per_column_ = false;
+            num_accums_ = 1;
+            out_width_  = resample_output_width(p_);
+            out_.assign(out_width_, 0.0);
+            last_emitted_.assign(out_width_, std::numeric_limits<double>::quiet_NaN());
+            nan_row_.assign(out_width_, std::numeric_limits<double>::quiet_NaN());
+            accums_.resize(1);
+        }
         reset_accums();
         started_ = false;
         bucket_ = 0;
@@ -591,6 +616,7 @@ private:
     ResampleParams p_;
     Sink<Index>& downstream_;
     std::size_t out_width_;
+    bool per_column_ = false;         // plan was built from a wide stream; reverted by reset()
     std::vector<double> out_;
     std::vector<double> last_emitted_;
     std::vector<double> nan_row_;

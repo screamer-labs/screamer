@@ -820,6 +820,13 @@ _RESAMPLE_FILLS = ("skip", "nan", "carry")
 _BAR_AGGS_2COL = frozenset(("ohlcv", "ohlcv2"))       # exactly 2 columns
 _BAR_AGGS_4COL = frozenset(("ohlc_bars",))             # exactly 4 columns
 _BAR_AGGS_NCOL = frozenset(("ohlcv_bars",))            # 5+ columns
+_COLUMN_AGGS = frozenset(("first", "last", "min", "max", "sum", "count", "mean", "ohlc"))
+
+
+def _column_shape(shape):
+    """The (*A) part of a (T, *A) or (T, *A, 1) value array (rule 3)."""
+    trailing = tuple(shape[1:])
+    return trailing[:-1] if len(trailing) >= 2 and trailing[-1] == 1 else trailing
 
 # Finance aliases: map short OHLC names to their canonical engine strings.
 _FINANCE_ALIASES = {
@@ -1140,6 +1147,27 @@ def _resample_validate(freq, every, count, threshold, agg, label, fill="skip",
 
 
 
+def _resample_lazy(values, *, every, count, agg, origin, label, fill):
+    """Lazy resample; events whose value is an array of assets are resampled per
+    column and come back in the same shape (rule 4)."""
+    import itertools
+    it = iter(values)
+    head = next(it, _EMPTY)
+    if head is _EMPTY:
+        return
+    events = itertools.chain([head], it)
+    v0 = np.asarray(head[0], dtype=np.float64)
+    if v0.ndim == 0 or not (isinstance(agg, str) and agg in _COLUMN_AGGS):
+        yield from _resample_via_cpp(events, every=every, count=count, threshold=None,
+                                     agg=agg, origin=origin, label=label, fill=fill)
+        return
+    shape = _column_shape((1,) + v0.shape) + ((4,) if agg == "ohlc" else ())
+    flat = ((np.ravel(np.asarray(v, dtype=np.float64)), i) for v, i in events)
+    for v, i in _resample_via_cpp(flat, every=every, count=count, threshold=None,
+                                  agg=agg, origin=origin, label=label, fill=fill):
+        yield np.asarray(v, dtype=np.float64).reshape(shape), i
+
+
 def resample(values, driver=None, index=None, *, freq=None, every=None, count=None,
              threshold=None, clock=False, agg="last", origin=0, label="left",
              fill="skip", max_age=None):
@@ -1341,8 +1369,8 @@ def resample(values, driver=None, index=None, *, freq=None, every=None, count=No
         # Rule A: a lazy iterator of (value, index) events -> a lazy iterator of
         # (bar_value, bar_label). Drive the same C++ resample node as batch through
         # the Stage-2 lazy Pipeline; no Python windowing accumulator runs here.
-        return _resample_via_cpp(values, every=every, count=count, threshold=None,
-                                 agg=agg, origin=origin, label=label, fill=fill)
+        return _resample_lazy(values, every=every, count=count, agg=agg,
+                              origin=origin, label=label, fill=fill)
     vals, idx_in = _as_vi(values, index)
     vals = np.asarray(vals, dtype=np.float64)
     # Multi-column bar aggs require specific input widths.
@@ -1364,8 +1392,14 @@ def resample(values, driver=None, index=None, *, freq=None, every=None, count=No
             raise ValueError(
                 f"resample: agg='{agg}' requires a 2-D input with at least 5 columns "
                 f"[open, high, low, close, vol1, ...]; got shape {vals.shape}.")
-    elif vals.ndim != 1:
-        raise ValueError("resample: expects a 1-D value stream")
+    elif vals.ndim != 1 and not (isinstance(agg, str) and agg in _COLUMN_AGGS):
+        raise ValueError(
+            f"resample: a functor agg aggregates one column; got shape {vals.shape}. "
+            "Resample each column with its own functor, or use a builtin agg.")
+    columns = None
+    if vals.ndim > 1 and isinstance(agg, str) and agg in _COLUMN_AGGS:
+        columns = _column_shape(vals.shape)
+        vals = vals.reshape(len(vals), -1)
 
     # Use explicit index or row positions when positional.
     if idx_in is None:
@@ -1380,6 +1414,9 @@ def resample(values, driver=None, index=None, *, freq=None, every=None, count=No
     out_v, out_idx = _resample_via_cpp(
         (vals, idx), every=every, count=count, threshold=None, agg=agg,
         origin=origin, label=label, fill=fill)
+    if columns is not None:
+        out_v = np.asarray(out_v).reshape(
+            (len(out_idx),) + columns + ((4,) if agg == "ohlc" else ()))
     # Always return a (values, index) tuple; bar labels are always real (never None).
     return out_v, out_idx
 

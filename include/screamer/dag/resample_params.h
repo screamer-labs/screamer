@@ -85,6 +85,25 @@ inline std::vector<ResamplePlanEntry> make_ohlcv_bars_plan(std::size_t W) {
     return plan;
 }
 
+// Per-column plan for a builtin single-column agg on a W-column stream: every
+// column is aggregated on its own (shape contract rule 4), and Ohlc gives four
+// outputs per column, (open, high, low, close).
+inline std::vector<ResamplePlanEntry> make_per_column_plan(ResampleAgg agg, std::size_t W) {
+    std::vector<ResamplePlanEntry> plan;
+    plan.reserve(agg == ResampleAgg::Ohlc ? 4 * W : W);
+    for (std::size_t c = 0; c < W; ++c) {
+        if (agg == ResampleAgg::Ohlc) {
+            plan.push_back({ResampleAgg::First, c});
+            plan.push_back({ResampleAgg::Max,   c});
+            plan.push_back({ResampleAgg::Min,   c});
+            plan.push_back({ResampleAgg::Last,  c});
+        } else {
+            plan.push_back({agg, c});
+        }
+    }
+    return plan;
+}
+
 // Emitted-frame width for a resample node: the plan width when a plan is given;
 // the reducer's arity when a functor reducer is present; otherwise the builtin
 // single-column agg width.
