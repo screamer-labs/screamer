@@ -9,21 +9,32 @@ Record this build's results::
 
     .venv/bin/python devtools/compat_probe.py --json new.json
 
+Print the rows whose result changed, tagged ``ERR->VALUE``, ``VALUE->ERR``,
+``VALUE CHANGED``, ``ERR CHANGED`` or ``LAZY`` (the same values, now from a
+lazy iterator); ``--all`` also prints ``same`` rows.
+The old side defaults to the committed 2.8.0 baseline
+``devtools/compat_baseline_2.8.0.json``, and the new side to a run of this
+build::
+
+    .venv/bin/python devtools/compat_probe.py --diff                  # baseline vs this build
+    .venv/bin/python devtools/compat_probe.py --diff new.json         # baseline vs new.json
+    .venv/bin/python devtools/compat_probe.py --diff old.json new.json
+
 Record a released wheel's results in a separate venv. Run the probe with
 ``-I`` from outside the repository so Python imports the installed wheel and
-not the source tree::
+not the source tree. Regenerate the baseline this way whenever the matrix
+changes::
 
     python -m venv /tmp/old && /tmp/old/bin/pip install screamer==2.8.0 pandas
-    cd /tmp && /tmp/old/bin/python -I /path/to/devtools/compat_probe.py --json old.json
-
-Print the rows whose result changed, tagged ``ERR->VALUE``, ``VALUE->ERR``,
-``VALUE CHANGED`` or ``ERR CHANGED`` (``--all`` also prints ``same`` rows)::
-
-    .venv/bin/python devtools/compat_probe.py --diff old.json new.json
+    cd /tmp && /tmp/old/bin/python -I /path/to/devtools/compat_probe.py \
+        --json /path/to/devtools/compat_baseline_2.8.0.json
 """
 import argparse
 import json
+import os
 import sys
+
+BASELINE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "compat_baseline_2.8.0.json")
 
 
 def cases():
@@ -37,6 +48,7 @@ def cases():
     w = rng.normal(size=T).cumsum() + 100
     X = rng.normal(size=(T, K)).cumsum(axis=0) + 100
     idx = np.arange(T) * 10
+    long = rng.normal(size=200).cumsum() + 100    # past the cycle operators' warm-up
     sign = np.sign(v - 100)
     ret = np.diff(v, prepend=v[0])
     gen = lambda a: (x for x in a)
@@ -44,7 +56,7 @@ def cases():
         np.arange(8.0).reshape(2, 4),
         columns=pd.MultiIndex.from_product([["a", "b"], ["o", "c"]]))
 
-    return {
+    table = {
         # one-input operators, every container
         "1in scalar": lambda: s.RollingMean(3)(1.5),
         "1in 1-D": lambda: s.RollingMean(3)(v),
@@ -58,6 +70,8 @@ def cases():
         "1in tuple of rows": lambda: s.RollingMean(3)((X[0], X[1])),
         "1in list of rows": lambda: s.RollingMean(3)([X[0], X[1]]),
         "1in generator of rows": lambda: list(s.RollingMean(3)(gen(X[:3]))),
+        "1in list of length-1 arrays": lambda: s.RollingMean(2)([v[i:i + 1] for i in range(4)]),
+        "1in list of Series": lambda: s.RollingMean(2)([pd.Series(X[i]) for i in range(4)]),
         "1in pandas Series": lambda: s.RollingMean(3)(pd.Series(v)),
         "1in pandas DataFrame": lambda: s.RollingMean(3)(pd.DataFrame(X)),
         "1in FunctorBase gen (IsNan)": lambda: s.IsNan()(gen(v[:3])),
@@ -109,25 +123,62 @@ def cases():
         "QueueImbalance positional": lambda: s.QueueImbalance()(v, w),
         "RollingOrderImbalance kw": lambda: s.RollingOrderImbalance(5)(signed_flow=sign * w),
         "RollingOrderImbalance positional": lambda: s.RollingOrderImbalance(5)(sign * w),
+        "SignedVolume missing input": lambda: s.SignedVolume()(sign),
+        "QueueImbalance missing input": lambda: s.QueueImbalance()(v),
+        "RollingKyleLambda missing input": lambda: s.RollingKyleLambda(5)(ret),
     }
+    # The nine one-input, one-output operators that return a lazy iterator for
+    # a generator (decision D4).
+    for name in ["IsNan", "Not", "IsFinite", "TrendMode", "CyclePhase", "CycleAmplitude",
+                 "CycleFrequency", "DominantCycle", "InstantaneousTrendline"]:
+        table[f"lazy {name} generator"] = (lambda n: lambda: getattr(s, n)()(gen(long)))(name)
+    # Microstructure keywords with scalars, lists and generators.
+    micro = {
+        "SignedVolume": (lambda: s.SignedVolume(), ("sign", "volume"), sign, w),
+        "RollingKyleLambda": (lambda: s.RollingKyleLambda(5), ("signed_flow", "return_"), sign * w, ret),
+        "EwKyleLambda": (lambda: s.EwKyleLambda(span=5.0), ("signed_flow", "return_"), sign * w, ret),
+        "QueueImbalance": (lambda: s.QueueImbalance(), ("bid_size", "ask_size"), v, w),
+    }
+    for name, (make, (ka, kb), a, b) in micro.items():
+        for form, conv in [("scalars", lambda x: float(x[3])), ("lists", list), ("generators", gen)]:
+            def call(make=make, ka=ka, kb=kb, a=a, b=b, conv=conv):
+                out = make()(**{ka: conv(a), kb: conv(b)})
+                return out if isinstance(out, (float, list)) else list(out)
+            table[f"{name} kw {form}"] = call
+    for form, conv in [("scalar", lambda x: float(x[3])), ("list", list), ("generator", gen)]:
+        table[f"RollingOrderImbalance kw {form}"] = (
+            lambda conv=conv: (lambda out: out if isinstance(out, (float, list)) else list(out))(
+                s.RollingOrderImbalance(5)(signed_flow=conv(sign * w))))
+    return table
 
 
 def describe(x):
+    """A comparable record of a result that covers every element.
+
+    Arrays record shape, dtype kind, the NaN-aware sum and a digest of all
+    values rounded to 9 decimals, so a change in any element shows. Lists,
+    tuples and lazy iterators record every element.
+    """
+    import hashlib
     import numpy as np
     if isinstance(x, tuple) and len(x) == 2 and isinstance(x[0], np.ndarray):
         return ["pair", describe(x[0]), describe(x[1])]
     if isinstance(x, np.ndarray):
         if x.dtype.kind in "biuf":
+            r = np.round(x.astype(np.float64), 9) + 0.0      # +0.0 folds -0.0 into 0.0
+            r[np.isnan(r)] = np.nan                             # one NaN bit pattern
             total = round(float(np.nansum(x)), 6)
-        else:
-            total = [str(e) for e in x.ravel()[:4]]
-        return ["ndarray", list(x.shape), x.dtype.kind, total]
+            digest = hashlib.sha1(np.ascontiguousarray(r).tobytes()).hexdigest()[:16]
+            return ["ndarray", list(x.shape), x.dtype.kind, total, digest]
+        return ["ndarray", list(x.shape), x.dtype.kind, [str(e) for e in x.ravel()]]
     if isinstance(x, list):
-        return ["list", len(x), describe(x[0]) if x else None]
+        return ["list", len(x), [describe(e) for e in x]]
     if isinstance(x, tuple):
-        return ["tuple", len(x)]
+        return ["tuple", len(x), [describe(e) for e in x]]
     if isinstance(x, float):
-        return ["float", round(x, 6)]
+        return ["float", round(x, 9)]
+    if hasattr(x, "__next__"):                                 # a lazy iterator
+        return [type(x).__name__, describe(list(x))]
     return [type(x).__name__]
 
 
@@ -152,16 +203,20 @@ def tag(old, new):
         return "ERR CHANGED"
     if old_err:
         return "ERR->VALUE"
+    if (len(new) == 2 and new[0].endswith("Iterator")
+            and json.dumps(new[1]) == json.dumps(old)):
+        return "LAZY"                                  # same values, now lazy
     if new_err:
         return "VALUE->ERR"
     return "VALUE CHANGED"
 
 
-def diff(old_path, new_path, show_all=False):
-    with open(old_path) as f:
-        old = json.load(f)
-    with open(new_path) as f:
-        new = json.load(f)
+def _load(path):
+    with open(path) as f:
+        return json.load(f)
+
+
+def diff(old, new, show_all=False):
     changed = 0
     for name in list(old) + [n for n in new if n not in old]:
         t = tag(old.get(name), new.get(name))
@@ -179,11 +234,18 @@ def main(argv=None):
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     g = p.add_mutually_exclusive_group(required=True)
     g.add_argument("--json", metavar="OUT", help="write this build's results to OUT ('-' for stdout)")
-    g.add_argument("--diff", nargs=2, metavar=("OLD", "NEW"), help="print rows that changed")
+    g.add_argument("--diff", nargs="*", metavar="FILE",
+                   help="[[OLD] NEW]: print rows that changed; OLD defaults to the 2.8.0 "
+                        "baseline and NEW to a run of this build")
     p.add_argument("--all", action="store_true", help="with --diff, also print unchanged rows")
     args = p.parse_args(argv)
-    if args.diff:
-        diff(*args.diff, show_all=args.all)
+    if args.diff is not None:
+        if len(args.diff) > 2:
+            p.error("--diff takes at most two files")
+        files = [BASELINE] * (2 - len(args.diff)) + list(args.diff)
+        old = _load(files[0])
+        new = _load(files[1]) if len(args.diff) else run()
+        diff(old, new, show_all=args.all)
         return
     out = run()
     if args.json == "-":

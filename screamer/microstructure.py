@@ -19,15 +19,26 @@ __all__ = ["SignedVolume", "RollingKyleLambda", "EwKyleLambda",
            "RollingOrderImbalance", "QueueImbalance"]
 
 
+def _packed(x):
+    """True if one input can hold every field: a packed array (last axis the
+    fields), one tuple event, a list of events, or an iterator of events."""
+    if hasattr(x, "ndim"):
+        return x.ndim >= 2
+    if isinstance(x, tuple):
+        return True
+    if isinstance(x, list):
+        return bool(x) and not isinstance(x[0], (int, float, np.number))
+    return hasattr(x, "__iter__")
+
+
 def _bind(who, names, inputs, kwargs):
     """Merge 2.8.0 keyword inputs into the positional inputs.
 
     Positional inputs fill ``names`` from the left and keywords fill the rest,
     as for a Python signature. Without keywords the inputs pass through, so
-    the packed and iterator forms are unchanged.
+    the packed and iterator forms are unchanged. One input that cannot hold
+    every field, such as a 1-D array or a scalar, is a missing input.
     """
-    if not kwargs:
-        return inputs
     for key in kwargs:
         if key not in names:
             raise TypeError(f"{who}() got an unexpected keyword argument {key!r}")
@@ -36,9 +47,13 @@ def _bind(who, names, inputs, kwargs):
     for name in names[:len(inputs)]:
         if name in kwargs:
             raise TypeError(f"{who}() got multiple values for argument {name!r}")
+    if not kwargs and len(inputs) == 1 and _packed(inputs[0]):
+        return inputs
     missing = [n for n in names[len(inputs):] if n not in kwargs]
     if missing:
-        raise TypeError(f"{who}() missing input {missing[0]!r}")
+        raise TypeError(f"{who}() missing {len(missing)} required input"
+                        f"{'s' if len(missing) > 1 else ''}: "
+                        + ", ".join(repr(n) for n in missing))
     return tuple(inputs) + tuple(kwargs[n] for n in names[len(inputs):])
 
 

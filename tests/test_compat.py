@@ -150,3 +150,20 @@ def test_rolling_order_imbalance_keyword():
     np.testing.assert_array_equal(np.array(list(s.RollingOrderImbalance(4)(iter(flow)))), pos)
     with pytest.raises(TypeError):
         s.RollingOrderImbalance(4)(flow, signed_flow=flow)
+
+
+@pytest.mark.parametrize("make, missing", [
+    (lambda: s.SignedVolume(), "volume"),
+    (lambda: s.RollingKyleLambda(5), "return_"),
+    (lambda: s.EwKyleLambda(span=5.0), "return_"),
+    (lambda: s.QueueImbalance(), "ask_size"),
+])
+@pytest.mark.parametrize("one", [v, 1.5, list(v), v[:2]])
+def test_two_input_microstructure_missing_input_names_it(make, missing, one):
+    with pytest.raises(TypeError, match=f"missing.*'{missing}'"):
+        make()(one)
+
+
+def test_two_input_microstructure_missing_input_with_keyword():
+    with pytest.raises(TypeError, match="missing.*'volume'"):
+        s.SignedVolume()(sign=v)
