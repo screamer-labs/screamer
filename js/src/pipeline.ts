@@ -2,7 +2,7 @@ import type { Screamer } from "./loader.js";
 import type { NdArray } from "./ndarray.js";
 import { Node, isNode } from "./node.js";
 import { current } from "./index.js";
-import { normalizeError } from "./errors.js";
+import { normalizeError, wasmCall } from "./errors.js";
 
 // One bound feed for an Input: a values stream and its integer index axis.
 type Feed = Float64Array | number[] | { values: Float64Array | number[]; index?: Float64Array | number[] };
@@ -137,13 +137,12 @@ class PipelineImpl {
       const op = node.op as any;
       let nid: number;
       if (op?.input !== undefined) {
-        nid = gb.addInput();
+        nid = wasmCall(() => gb.addInput());
       } else if (op?.functor !== undefined) {
         const inp = node.inputs.map(build);
         const vec = new M.VectorSizeT();
         for (const id of inp) vec.push_back(id);
-        nid = gb.addFunctor(M.opPtr(op.functor), vec);
-        vec.delete();
+        try { nid = gb.addFunctor(M.opPtr(op.functor), vec); } catch (e) { throw normalizeError(e); } finally { vec.delete(); }
         this.ops.push(op.wrapper); // retain for the graph's lifetime
       } else if (op?.combinator !== undefined) {
         nid = this.buildCombinator(gb, op, node.inputs.map(build));
@@ -160,11 +159,8 @@ class PipelineImpl {
       const outIds = this.outputs.map(build);
       const outVec = new M.VectorSizeT();
       for (const id of outIds) outVec.push_back(id);
-      gb.setOutputs(outVec);
-      outVec.delete();
-      this.cg = gb.compile();
-    } catch (e) {
-      throw normalizeError(e);
+      try { gb.setOutputs(outVec); } catch (e) { throw normalizeError(e); } finally { outVec.delete(); }
+      this.cg = wasmCall(() => gb.compile());
     } finally {
       gb.delete();
     }
@@ -182,18 +178,18 @@ class PipelineImpl {
       const p = op.params ?? {};
       switch (kind) {
         case "combineLatest":
-          return gb.addCombineLatest(vec, !!p.whenAll, p.maxPending);
+          return wasmCall(() => gb.addCombineLatest(vec, !!p.whenAll, p.maxPending));
         case "dropna":
-          return gb.addDropna(vec, !!p.howAll);
+          return wasmCall(() => gb.addDropna(vec, !!p.howAll));
         case "filter":
-          return gb.addFilter(vec);
+          return wasmCall(() => gb.addFilter(vec));
         case "delay":
-          return gb.addDelay(vec, p.duration);
+          return wasmCall(() => gb.addDelay(vec, p.duration));
         case "select": {
           const cols = new M.VectorSizeT();
           for (const c of p.columns) cols.push_back(c);
           try {
-            return gb.addSelect(vec, cols);
+            return wasmCall(() => gb.addSelect(vec, cols));
           } finally {
             cols.delete();
           }
@@ -224,15 +220,15 @@ class PipelineImpl {
     }
     if (p.reducer) {
       const rop = p.reducer.op;
-      reducerPtr = M.opPtr(rop.functor);
+      reducerPtr = wasmCall(() => M.opPtr(rop.functor));
       this.ops.push(rop.wrapper); // retain reducer op for the graph's lifetime
     }
     try {
-      return gb.addResample(
+      return wasmCall(() => gb.addResample(
         vec, p.modeCode, p.aggCode, p.labelCode, p.fillCode,
         p.width, p.origin, p.count, p.threshold, p.maxAge,
         planPtr, planLen, reducerPtr,
-      );
+      ));
     } finally {
       if (planPtr) M.freeBuf(planPtr);
     }
@@ -304,6 +300,7 @@ class PipelineImpl {
     try {
       // Run the whole graph ONCE, then read each cached output. Running per
       // output would recompute the graph M times (O(M x) redundant compute).
+      // Everything in this block is a call into WASM or a copy off its heap.
       this.cg.runBatchStore(idxPtrs, valPtrs, lensPtr, widthsPtr, nIn);
       for (let o = 0; o < this.outputs.length; o++) {
         results.push(this.marshalOut(this.cg.output(o)));
@@ -356,23 +353,25 @@ class PipelineImpl {
     this.cg.reset();
     return {
       push(name: string, index: number, value: number): void {
-        self.cg.pushEvent(self.inputIndex(name), index, value);
+        const i = self.inputIndex(name);
+        try { self.cg.pushEvent(i, index, value); } catch (e) { throw normalizeError(e); }
       },
       pushWide(name: string, index: number, values: ArrayLike<number>): void {
+        const i = self.inputIndex(name);
         const width = values.length;
         const buf = M.allocF64(width || 1);
-        M.viewF64(buf, width).set(values as ArrayLike<number> & number[]);
         try {
-          self.cg.pushEventWide(self.inputIndex(name), index, buf, width);
+          M.viewF64(buf, width).set(values as ArrayLike<number> & number[]);
+          try { self.cg.pushEventWide(i, index, buf, width); } catch (e) { throw normalizeError(e); }
         } finally {
           M.freeBuf(buf);
         }
       },
       advance(now: number): void {
-        self.cg.advance(now);
+        try { self.cg.advance(now); } catch (e) { throw normalizeError(e); }
       },
       flush(): void {
-        self.cg.flush();
+        try { self.cg.flush(); } catch (e) { throw normalizeError(e); }
       },
       result(): Output {
         // drainFlat(o) drains ALL outputs then returns output o, so a second

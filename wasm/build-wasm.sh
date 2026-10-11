@@ -63,7 +63,8 @@ fi
 #                                MINIMAL_RUNTIME often triggers. Dropped.
 #  -sSUPPORT_LONGJMP=0            NOT tried: the error path relies on real
 #                                C++ exceptions crossing the wasm boundary
-#                                (see js/src/loader.ts's wrapCtors / the
+#                                (native WebAssembly exceptions, set in
+#                                CMakeLists.txt; see js/src/errors.ts and the
 #                                "RollingMean(0) throws a RangeError (kernel
 #                                invalid_argument)" test); disabling longjmp
 #                                support risks that path, for a size lever

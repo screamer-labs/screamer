@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { init } from "../src/index.ts";
+import { init, ready } from "../src/index.ts";
+import * as ops from "../src/generated/ops.ts";
 import { wrapOp } from "../src/runtime.ts";
 import type { NdArray } from "../src/ndarray.ts";
 
@@ -120,4 +121,62 @@ test("copyPool: a new stream copy is not reset, a reused one is", async () => {
   eqSeq([...op([4, 5, 6][Symbol.iterator]())], [NaN, NaN, 5]);
   assert.equal(copyResets, 1, "a reused copy is reset once");
   op.dispose();
+});
+
+// G1: normalizeError wraps only calls into WASM. A value thrown by the caller's
+// own iterator reaches the caller unchanged, and a C++ validation error becomes
+// a RangeError carrying the C++ message.
+await ready();
+
+for (const thrown of [70000, "boom", new Error("user")])
+  test(`G1: a user iterator's throw of ${String(thrown)} reaches the caller unchanged`, () => {
+    const src = { [Symbol.iterator]() { return this; }, next() { throw thrown; } };
+    try { [...(ops.RollingMean(3)(src as any) as Iterable<number>)]; assert.fail("no throw"); }
+    catch (e) { assert.equal(e, thrown); }
+  });
+
+for (const thrown of [70000, "boom", new Error("user")])
+  test(`G1: a user async iterator's throw of ${String(thrown)} reaches the caller unchanged`, async () => {
+    const src = { [Symbol.asyncIterator]() { return this; }, async next(): Promise<IteratorResult<number>> { throw thrown; } };
+    try { for await (const _ of ops.RollingMean(3)(src as any) as AsyncIterable<number>) { /* drain */ } assert.fail("no throw"); }
+    catch (e) { assert.equal(e, thrown); }
+  });
+
+// A user value whose getter throws, read while the op reads its argument or an
+// event of a stream. A user Error whose text looks like a C++ validation
+// message must not be rewritten into a RangeError either.
+const userThrows = [70000, "boom", new Error("user"), new Error("value must be positive")];
+const throwingNd = (thrown: unknown) => ({ get data(): Float64Array { throw thrown; }, shape: [3] });
+
+for (const thrown of userThrows)
+  test(`G1: a getter's throw of ${String(thrown)} in a batch argument reaches the caller unchanged`, () => {
+    try { ops.RollingMean(3)(throwingNd(thrown) as any); assert.fail("no throw"); }
+    catch (e) { assert.equal(e, thrown); }
+  });
+
+for (const thrown of userThrows)
+  test(`G1: a getter's throw of ${String(thrown)} in a stream event reaches the caller unchanged`, () => {
+    try { [...(ops.RollingMean(3)([throwingNd(thrown)][Symbol.iterator]() as any) as Iterable<unknown>)]; assert.fail("no throw"); }
+    catch (e) { assert.equal(e, thrown); }
+  });
+
+for (const thrown of userThrows)
+  test(`G1: a getter's throw of ${String(thrown)} in a row-op or reducer argument reaches the caller unchanged`, () => {
+    for (const op of [ops.CrossDemean(), ops.PortfolioReport()]) {
+      try { op(throwingNd(thrown) as any); assert.fail("no throw"); }
+      catch (e) { assert.equal(e, thrown); }
+    }
+  });
+
+// The C++ message of RollingMean(0) is "Size must be at least 1." (it names
+// the window size, not the word "window").
+test("G1: a C++ validation error is a RangeError with its message", () => {
+  assert.throws(() => ops.RollingMean(0), (e: unknown) => e instanceof RangeError && /size must be at least 1/i.test((e as Error).message));
+});
+
+// A C++ exception that leaves WASM does not unwind the WASM stack; before G1
+// about 4,200 caught errors overran the stack into the heap.
+test("G1: many caught C++ errors leave the module usable", () => {
+  for (let i = 0; i < 20000; i++) assert.throws(() => ops.RollingMean(0), RangeError);
+  eqSeq(ops.RollingMean(2)([1, 2, 3]) as number[], [NaN, 1.5, 2.5]);
 });

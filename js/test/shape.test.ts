@@ -85,15 +85,14 @@ test("using an asset-event stream after dispose raises, and the heap stays intac
   assert.deepEqual(Array.from(RollingMean(2)(Float64Array.from([1, 3, 5]))).slice(1), [2, 4]);
 });
 
-test("a plain number thrown by user code is not read as a C++ exception", async () => {
+test("a plain number thrown by user code reaches the caller unchanged (G1)", async () => {
   await ready();
   const bad = new Proxy(new Float64Array(3), {
     get(t, p) { if (p === "length") throw 8; return Reflect.get(t, p); },
   });
   let caught: unknown;
   try { Add()(new Float64Array(3), bad as any); } catch (e) { caught = e; }
-  assert.ok(caught instanceof Error);
-  assert.ok(!(caught instanceof WebAssembly.RuntimeError), String(caught));
+  assert.equal(caught, 8);
   assert.throws(() => reshape({ data: new Float64Array(8), shape: [2, 4] }, "TF->T"), /only a size-1 axis/);
 });
 

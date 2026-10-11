@@ -5,7 +5,7 @@
 // `npm run build` copies whichever is currently there into dist/generated/
 // (and dist/cjs/generated/ for the CJS build) so the packaged tarball needs
 // no separate .wasm asset to resolve.
-import { normalizeError, setExceptionReader } from "./errors.js";
+import { normalizeError, setExceptionHelpers } from "./errors.js";
 
 // screamer.mjs is single-file ESM (`export default Module`), in both the
 // ESM and CJS build. A literal `import(...)` here would be fine for the ESM
@@ -46,14 +46,10 @@ export interface Screamer {
   [name: string]: any;
 }
 
-// The Embind module, when built without WASM exception-catching support for a
-// given throw site, surfaces a C++ exception as a raw numeric pointer instead
-// of a JS Error. `wrapOp`'s `call()` catches and normalizes that for *eval*
-// errors (invalid input during a push), but ctor-time validation errors (e.g.
-// `new M.RollingMean(0, ...)` rejecting an out-of-range window size) happen
-// before a ScreamerOp even exists, outside any try/catch the generated
-// factories provide. Wrap every Embind class constructor once, here, so a
-// raw pointer thrown mid-construction is normalized the same way.
+// A C++ constructor can reject its arguments (e.g. `new M.RollingMean(0, ...)`
+// rejects a window size of 0) before a ScreamerOp exists, outside the narrow
+// try blocks around the op's own calls into WASM. Wrap every Embind class
+// constructor once, here, so the construction alone is normalized.
 function wrapCtors(M: Screamer): Screamer {
   for (const key of Object.keys(M)) {
     if (!/^[A-Z]/.test(key)) continue; // skip plain helper functions (allocF64, ...)
@@ -78,7 +74,7 @@ export function init(): Promise<Screamer> {
     cached = dynamicImport("./generated/screamer.mjs")
       .then((m) => m.default())
       .then((M: Screamer) => {
-        setExceptionReader((thrown) => M.exceptionMessage(thrown));
+        setExceptionHelpers(M as any);
         return wrapCtors(M);
       });
   }

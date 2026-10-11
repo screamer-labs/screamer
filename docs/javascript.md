@@ -5,6 +5,10 @@ same C++ operators to WebAssembly and runs in Node.js (18 or newer), through any
 bundler, and directly in the browser. Use it to compute indicators next to a
 live chart, in a web dashboard, or in a Node service, without a Python process.
 
+The WebAssembly module uses native WebAssembly exceptions, so it needs Chrome 95,
+Firefox 100, Safari 15.2 or Node 17 or later. The package itself supports
+Node 18 or newer.
+
 ## Install and first call
 
 ```bash

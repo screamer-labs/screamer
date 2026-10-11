@@ -213,7 +213,7 @@ export function wrapOp(M: Screamer, src: OpSource, copy?: () => RawOp): Screamer
   // One event on `o`: raw for a live call, a stream's own copy for a stream.
   const evalOn = (o: RawOp, inputs: ArrayLike<number>): number | number[] => {
     M.viewF64(inBuf, nIn).set(inputs as number[]);
-    o.evalInto(inBuf, outBuf);
+    try { o.evalInto(inBuf, outBuf); } catch (e) { throw normalizeError(e); }
     const v = M.viewF64(outBuf, nOut);
     return nOut === 1 ? v[0] : Array.from(v);
   };
@@ -230,9 +230,11 @@ export function wrapOp(M: Screamer, src: OpSource, copy?: () => RawOp): Screamer
     const inPtr = M.allocF64(rows * nIn), outPtr = M.allocF64(rows * nOut);
     try {
       fill(M.viewF64(inPtr, rows * nIn));
-      raw.reset();
-      raw.evalBatchInto(inPtr, outPtr, rows);
-      raw.reset();
+      try {
+        raw.reset();
+        raw.evalBatchInto(inPtr, outPtr, rows);
+        raw.reset();
+      } catch (e) { throw normalizeError(e); }
       return new Float64Array(M.viewF64(outPtr, rows * nOut));
     } finally {
       M.freeBuf(inPtr); M.freeBuf(outPtr);
@@ -266,11 +268,12 @@ export function wrapOp(M: Screamer, src: OpSource, copy?: () => RawOp): Screamer
       const specPtr = M.allocF64(spec.length);
       ptrs.push(specPtr);
       M.viewF64(specPtr, spec.length).set(spec);
-      const shape: number[] = M.shapedResult(specPtr, nIn);
+      let shape: number[];
+      try { shape = M.shapedResult(specPtr, nIn); } catch (e) { throw normalizeError(e); }
       const n = shape.reduce((a, b) => a * b, 1) * nOut;
       const outPtr = M.allocF64(Math.max(1, n));
       ptrs.push(outPtr);
-      M.evalShaped(raw, specPtr, outPtr);
+      try { M.evalShaped(raw, specPtr, outPtr); } catch (e) { throw normalizeError(e); }
       return { data: new Float64Array(M.viewF64(outPtr, n)), shape: nOut === 1 ? shape : [...shape, nOut] };
     } finally {
       ptrs.forEach((p) => M.freeBuf(p));
@@ -360,7 +363,8 @@ export function wrapOp(M: Screamer, src: OpSource, copy?: () => RawOp): Screamer
     // exists; a failed factory call ends the stream like any other error.
     const startAssets = (k: number) => {
       const shapes = partShape.slice(0, k).map((s) => s.slice());
-      const p = M.eventPlan(shapes.map((s) => [1, ...s]), nIn) as { shape: number[]; columns: number; offset: number[] };
+      let p: { shape: number[]; columns: number; offset: number[] };
+      try { p = M.eventPlan(shapes.map((s) => [1, ...s]), nIn); } catch (e) { throw normalizeError(e); }
       const cols = p.columns;
       while (ops.length < cols) ops.push(pool.acquire());
       colIn = M.allocF64(Math.max(1, cols * nIn)); colOut = M.allocF64(Math.max(1, cols * nOut));
@@ -394,74 +398,72 @@ export function wrapOp(M: Screamer, src: OpSource, copy?: () => RawOp): Screamer
         const d = partData[packed ? 0 : i], o = i * cols;
         for (let c = 0; c < cols; c++) view[c * nIn + i] = d[offset[o + c]];
       }
-      for (let c = 0; c < cols; c++)
-        ops[c].evalInto(colIn + 8 * c * nIn, colOut + 8 * c * nOut);
+      try {
+        for (let c = 0; c < cols; c++)
+          ops[c].evalInto(colIn + 8 * c * nIn, colOut + 8 * c * nOut);
+      } catch (e) { throw normalizeError(e); }
       const data = new Float64Array(M.viewF64(colOut, cols * nOut));
       return out ? { data, shape: out.slice() } : data;
     };
 
     const step = (items: any[]) => {
-      try {
-        if (disposed) throw new Error("operation used after dispose()");
-        if (mode !== ASSETS) {
-          const v = scalarValues(items);
-          if (v) {
-            if (mode === UNKNOWN) { ops.push(pool.acquire()); mode = SCALAR; }
-            return evalOn(ops[0], v);
-          }
-          if (mode === SCALAR) throw new RangeError("every event must have the same shape: the first events were numbers, this one is not");
+      if (disposed) throw new Error("operation used after dispose()");
+      if (mode !== ASSETS) {
+        const v = scalarValues(items);
+        if (v) {
+          if (mode === UNKNOWN) { ops.push(pool.acquire()); mode = SCALAR; }
+          return evalOn(ops[0], v);
         }
-        return assetEvent(items);
-      } catch (e) { throw normalizeError(e); }
+        if (mode === SCALAR) throw new RangeError("every event must have the same shape: the first events were numbers, this one is not");
+      }
+      return assetEvent(items);
     };
     return { step, close: handle.release };
   };
 
   const call = (...args: any[]) => {
-    try {
-      if (disposed) throw new Error("operation used after dispose()");
-      // Define-then-bind: if any argument is a symbolic Node, defer the call and
-      // return a functor Node holding BOTH the raw C++ op (for `opPtr` at graph
-      // compile) and this wrapper (so the Pipeline can pin its lifetime; the
-      // Embind layer keeps only a non-owning EvalOp*).
-      if (args.some(isNode)) {
-        return new Node({ functor: raw, wrapper: op }, args.filter(isNode));
+    if (disposed) throw new Error("operation used after dispose()");
+    // Define-then-bind: if any argument is a symbolic Node, defer the call and
+    // return a functor Node holding BOTH the raw C++ op (for `opPtr` at graph
+    // compile) and this wrapper (so the Pipeline can pin its lifetime; the
+    // Embind layer keeps only a non-owning EvalOp*).
+    if (args.some(isNode)) {
+      return new Node({ functor: raw, wrapper: op }, args.filter(isNode));
+    }
+    const kind = streamKind(args, nIn);
+    if (kind) {
+      pool.check();
+      raw.reset();
+      return kind === "async" ? runAsyncStream(args, openStream, op) : runStream(args, openStream, op);
+    }
+    if (nIn === 1) {
+      const a = args[0];
+      if (typeof a === "number") return event([a]);
+      if (isNd(a)) return shaped([a]);
+      if (isTyped(a)) return batch1(a, true);
+      if (isNumArr(a)) return batch1(a, false);
+      throw new TypeError(`unsupported input for a 1-input op: ${typeof a}`);
+    }
+    // nIn > 1: N scalars -> one event; N arrays -> columnar batch.
+    if (args.length === nIn && args.every((x) => typeof x === "number")) return event(args);
+    if (args.length === 1 && isNd(args[0])) return shaped(args);      // one packed (T, ..., nIn) array
+    if (args.length === nIn && args.every((x) => isTyped(x) || isNumArr(x) || isNd(x))) {
+      if (args.some(isNd)) return shaped(args);
+      const cols = args as ArrayLike<number>[];
+      const rows = cols[0].length;
+      if (cols.some((x) => x.length !== rows)) {
+        throw new RangeError(`all input arrays must have the same length (got ${cols.map((a) => a.length).join(", ")})`);
       }
-      const kind = streamKind(args, nIn);
-      if (kind) {
-        pool.check();
-        raw.reset();
-        return kind === "async" ? runAsyncStream(args, openStream, op) : runStream(args, openStream, op);
-      }
-      if (nIn === 1) {
-        const a = args[0];
-        if (typeof a === "number") return event([a]);
-        if (isNd(a)) return shaped([a]);
-        if (isTyped(a)) return batch1(a, true);
-        if (isNumArr(a)) return batch1(a, false);
-        throw new TypeError(`unsupported input for a 1-input op: ${typeof a}`);
-      }
-      // nIn > 1: N scalars -> one event; N arrays -> columnar batch.
-      if (args.length === nIn && args.every((x) => typeof x === "number")) return event(args);
-      if (args.length === 1 && isNd(args[0])) return shaped(args);      // one packed (T, ..., nIn) array
-      if (args.length === nIn && args.every((x) => isTyped(x) || isNumArr(x) || isNd(x))) {
-        if (args.some(isNd)) return shaped(args);
-        const cols = args as ArrayLike<number>[];
-        const rows = cols[0].length;
-        if (cols.some((x) => x.length !== rows)) {
-          throw new RangeError(`all input arrays must have the same length (got ${cols.map((a) => a.length).join(", ")})`);
-        }
-        // Interleave the N input columns into row-major (rows x nIn) order, then
-        // one C++ pass. The interleave is JS-side memory writes, no per-event
-        // boundary crossing.
-        const data = batchInto(rows, (view) => {
-          for (let i = 0; i < rows; i++) for (let k = 0; k < nIn; k++) view[i * nIn + k] = cols[k][i];
-        });
-        return nOut === 1 ? data : ({ data, shape: [rows, nOut] } as NdArray);
-      }
-      if (args.length !== nIn) throw new RangeError(`expected ${nIn} inputs, got ${args.length}`);
-      throw new TypeError(`expected ${nIn} numeric inputs`);
-    } catch (e) { throw normalizeError(e); }
+      // Interleave the N input columns into row-major (rows x nIn) order, then
+      // one C++ pass. The interleave is JS-side memory writes, no per-event
+      // boundary crossing.
+      const data = batchInto(rows, (view) => {
+        for (let i = 0; i < rows; i++) for (let k = 0; k < nIn; k++) view[i * nIn + k] = cols[k][i];
+      });
+      return nOut === 1 ? data : ({ data, shape: [rows, nOut] } as NdArray);
+    }
+    if (args.length !== nIn) throw new RangeError(`expected ${nIn} inputs, got ${args.length}`);
+    throw new TypeError(`expected ${nIn} numeric inputs`);
   };
 
   const op = call as ScreamerOp;
@@ -560,7 +562,7 @@ export function wrapReducerOp(M: Screamer, src: OpSource): ScreamerOp {
       rowCap = need;
     }
     M.viewF64(rowBuf, need).set(flat as number[]);
-    o.reduceInto!(rowBuf, outBuf, assets);
+    try { o.reduceInto!(rowBuf, outBuf, assets); } catch (e) { throw normalizeError(e); }
     const v = M.viewF64(outBuf, nOut);
     return nOut === 1 ? v[0] : Array.from(v);
   };
@@ -573,7 +575,7 @@ export function wrapReducerOp(M: Screamer, src: OpSource): ScreamerOp {
     const inP = M.allocF64(inN), outP = M.allocF64(rows * nOut);
     try {
       M.viewF64(inP, inN).set(flat as number[]);
-      raw.reduceBatchInto!(inP, outP, rows, assets);
+      try { raw.reduceBatchInto!(inP, outP, rows, assets); } catch (e) { throw normalizeError(e); }
       const data = new Float64Array(M.viewF64(outP, rows * nOut));
       return nOut === 1 ? data : { data, shape: [rows, nOut] };
     } finally {
@@ -604,11 +606,9 @@ export function wrapReducerOp(M: Screamer, src: OpSource): ScreamerOp {
     if (disposed) throw new Error("operation used after dispose()");
     const own = pool.acquire();
     const step = (items: any[]) => {
-      try {
-        if (disposed) throw new Error("operation used after dispose()");
-        const { flat, assets } = asRow(items[0]);
-        return event(flat, assets, own);
-      } catch (e) { throw normalizeError(e); }
+      if (disposed) throw new Error("operation used after dispose()");
+      const { flat, assets } = asRow(items[0]);
+      return event(flat, assets, own);
     };
     return { step, close: () => pool.release(own) };
   };
@@ -619,30 +619,28 @@ export function wrapReducerOp(M: Screamer, src: OpSource): ScreamerOp {
   };
 
   const call = (...args: any[]) => {
-    try {
-      if (disposed) throw new Error("operation used after dispose()");
-      // Anything that isn't a single reducer-shaped input -- N scalars, Node
-      // composition, an arity error -- is the ordinary op contract.
-      if (args.length !== 1) return base(...args);
-      const x = args[0];
-      if (isNode(x) || typeof x === "number") return base(x);
-      if (isNd(x)) {
-        const s = x.shape;
-        if (s.length === 3) {
-          if (s[2] !== width) {
-            throw new RangeError(`expected a batch of shape (events, assets, ${width}), got [${s}]`);
-          }
-          return batch(x.data, s[0], s[1]);
+    if (disposed) throw new Error("operation used after dispose()");
+    // Anything that isn't a single reducer-shaped input -- N scalars, Node
+    // composition, an arity error -- is the ordinary op contract.
+    if (args.length !== 1) return base(...args);
+    const x = args[0];
+    if (isNode(x) || typeof x === "number") return base(x);
+    if (isNd(x)) {
+      const s = x.shape;
+      if (s.length === 3) {
+        if (s[2] !== width) {
+          throw new RangeError(`expected a batch of shape (events, assets, ${width}), got [${s}]`);
         }
-        const { flat, assets } = asRow(x);
-        return event(flat, assets);
+        return batch(x.data, s[0], s[1]);
       }
-      if (isNestedBatch(x)) return nestedBatch(x);
-      if (isAsyncIter(x)) return stream(x, true);
-      if (isSyncIter(x)) return stream(x, false);
       const { flat, assets } = asRow(x);
       return event(flat, assets);
-    } catch (e) { throw normalizeError(e); }
+    }
+    if (isNestedBatch(x)) return nestedBatch(x);
+    if (isAsyncIter(x)) return stream(x, true);
+    if (isSyncIter(x)) return stream(x, false);
+    const { flat, assets } = asRow(x);
+    return event(flat, assets);
   };
 
   const op = call as ScreamerOp;
@@ -693,7 +691,7 @@ export function wrapRowOp(M: Screamer, src: OpSource): ScreamerOp {
     }
     const view = M.viewF64(evIn, fi * k);
     rows.forEach((r, f) => view.set(r as number[], f * k));
-    o.mapRowInto!(evIn, evOut, k);
+    try { o.mapRowInto!(evIn, evOut, k); } catch (e) { throw normalizeError(e); }
     return new Float64Array(M.viewF64(evOut, fo * k));
   };
 
@@ -710,7 +708,7 @@ export function wrapRowOp(M: Screamer, src: OpSource): ScreamerOp {
       else for (let t = 0; t < T; t++)
         for (let f = 0; f < fi; f++)
           for (let j = 0; j < k; j++) view[(t * fi + f) * k + j] = blocks[f][t * k + j];
-      raw.mapRowsInto!(inP, outP, T, k);
+      try { raw.mapRowsInto!(inP, outP, T, k); } catch (e) { throw normalizeError(e); }
       return { data: new Float64Array(M.viewF64(outP, nOut)), shape };
     } finally {
       M.freeBuf(inP); M.freeBuf(outP);
@@ -759,39 +757,35 @@ export function wrapRowOp(M: Screamer, src: OpSource): ScreamerOp {
     const unpack = n === 1 && fi > 1;
     const rows: ArrayLike<number>[] = new Array(fi);
     const step = (items: any[]) => {
-      try {
-        if (disposed) throw new Error("operation used after dispose()");
-        const ev = unpack ? items[0] : items;
-        if (unpack && (!Array.isArray(ev) || ev.length !== fi))
-          throw new RangeError(`each event of one row stream is an array of ${fi} rows of K values`);
-        for (let f = 0; f < fi; f++) rows[f] = asRow(ev[f]);
-        return eventOut(rows, own);
-      } catch (e) { throw normalizeError(e); }
+      if (disposed) throw new Error("operation used after dispose()");
+      const ev = unpack ? items[0] : items;
+      if (unpack && (!Array.isArray(ev) || ev.length !== fi))
+        throw new RangeError(`each event of one row stream is an array of ${fi} rows of K values`);
+      for (let f = 0; f < fi; f++) rows[f] = asRow(ev[f]);
+      return eventOut(rows, own);
     };
     return { step, close: () => pool.release(own) };
   };
 
   const call = (...args: any[]) => {
-    try {
-      if (disposed) throw new Error("operation used after dispose()");
-      if (args.some(isNode)) throw new TypeError("row ops run on arrays and row streams, not inside a Pipeline");
-      const kind = streamKind(args, fi);
-      if (kind) {
-        pool.check();
-        raw.reset();
-        return kind === "async" ? runAsyncStream(args, openStream, op) : runStream(args, openStream, op);
-      }
-      if (args.length !== fi) throw new RangeError(`this op takes ${fi} inputs, got ${args.length}`);
-      if (args.every((a) => isTyped(a) || isNumArr(a) || (isNd(a) && a.shape.length === 1)))
-        return eventOut(args.map((a) => (isNd(a) ? a.data : a)));
-      const blocks = args.map(asBlock);
-      if (blocks.some((b) => b === null))
-        throw new TypeError("expected (T, K) arrays, arrays of rows, or one row per input");
-      const b0 = blocks[0]!;
-      if (blocks.some((b) => b!.T !== b0.T || b!.k !== b0.k))
-        throw new RangeError("all inputs must have the same shape");
-      return batch(blocks.map((b) => b!.flat), b0.T, b0.k);
-    } catch (e) { throw normalizeError(e); }
+    if (disposed) throw new Error("operation used after dispose()");
+    if (args.some(isNode)) throw new TypeError("row ops run on arrays and row streams, not inside a Pipeline");
+    const kind = streamKind(args, fi);
+    if (kind) {
+      pool.check();
+      raw.reset();
+      return kind === "async" ? runAsyncStream(args, openStream, op) : runStream(args, openStream, op);
+    }
+    if (args.length !== fi) throw new RangeError(`this op takes ${fi} inputs, got ${args.length}`);
+    if (args.every((a) => isTyped(a) || isNumArr(a) || (isNd(a) && a.shape.length === 1)))
+      return eventOut(args.map((a) => (isNd(a) ? a.data : a)));
+    const blocks = args.map(asBlock);
+    if (blocks.some((b) => b === null))
+      throw new TypeError("expected (T, K) arrays, arrays of rows, or one row per input");
+    const b0 = blocks[0]!;
+    if (blocks.some((b) => b!.T !== b0.T || b!.k !== b0.k))
+      throw new RangeError("all inputs must have the same shape");
+    return batch(blocks.map((b) => b!.flat), b0.T, b0.k);
   };
 
   const op = call as ScreamerOp;

@@ -66,7 +66,8 @@ trend = sign(slope(data))   # the same calls work on a live stream, one value at
 
 ## JavaScript
 
-Node 18 or newer, or any modern browser.
+Node 18 or newer, or Chrome 95, Firefox 100 or Safari 15.2 or newer. The
+WebAssembly module uses native WebAssembly exceptions, which older browsers lack.
 
 ```bash
 npm install @screamer-labs/screamer

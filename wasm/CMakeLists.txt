@@ -33,6 +33,7 @@ add_executable(screamer
     "${CMAKE_CURRENT_SOURCE_DIR}/dag_bindings.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/validation_bindings.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/shape_bindings.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/exception_message.cpp"
     ${PURE_SOURCES})
 
 target_compile_features(screamer PRIVATE cxx_std_17)
@@ -40,8 +41,14 @@ target_include_directories(screamer PRIVATE
     "${SCREAMER_ROOT}/include"
     "${CMAKE_CURRENT_SOURCE_DIR}")  # so #include "embind_runtime.h" resolves
 
-set(EMCC_LINK "-lembind -sMODULARIZE=1 -sEXPORT_ES6=1 -sENVIRONMENT=web,worker,node \
--sFILESYSTEM=0 -sALLOW_MEMORY_GROWTH=1 -sMALLOC=emmalloc -sEXPORTED_RUNTIME_METHODS=['HEAPF64']")
+# Native WebAssembly exceptions (-fwasm-exceptions, on compile and link): a C++
+# exception reaches JavaScript as a WebAssembly.Exception, and the exported
+# getExceptionMessage helper reads its type and what() text (js/src/errors.ts).
+# An exception that leaves WASM does not unwind the WASM stack pointer, so
+# errors.ts also needs stackSave and stackRestore. Needs Chrome 95, Firefox 100,
+# Safari 15.2 or Node 17.
+set(EMCC_LINK "-lembind -fwasm-exceptions -sEXPORT_EXCEPTION_HANDLING_HELPERS=1 -sMODULARIZE=1 -sEXPORT_ES6=1 -sENVIRONMENT=web,worker,node \
+-sFILESYSTEM=0 -sALLOW_MEMORY_GROWTH=1 -sMALLOC=emmalloc -sEXPORTED_RUNTIME_METHODS=['HEAPF64','stackSave','stackRestore']")
 
 # SCREAMER_WASM_SINGLE_FILE=ON (passed by build-wasm.sh --single-file) embeds
 # the .wasm as base64 inside the .mjs, so an npm consumer gets one
@@ -56,4 +63,4 @@ else()
 endif()
 
 set_target_properties(screamer PROPERTIES OUTPUT_NAME "${SCREAMER_OUTPUT_NAME}" SUFFIX ".mjs" LINK_FLAGS "${EMCC_LINK} -Oz")
-target_compile_options(screamer PRIVATE -Oz)
+target_compile_options(screamer PRIVATE -Oz -fwasm-exceptions)
