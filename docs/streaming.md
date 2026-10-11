@@ -26,10 +26,10 @@ calls continue it.
 
 Every other call is an **independent run**: an array, a list, an iterator, or
 an async iterator. An independent run starts from a clean state, gives every
-asset its own state, and never reads or advances the running series. A stream
-runs on copies of the operator made from its parameters, so two streams of one
-operator never share state. Run one after the other, or interleaved step by
-step, each stream gives the result of its own batch call:
+asset its own state, never reads or advances the running series, and gives the
+rows of the batch call on the same data. A stream runs on copies of the
+operator made from its parameters, so two streams of one operator never share
+state, whether they run one after the other or interleaved step by step:
 
 ```{eval-rst}
 .. exec_code::
@@ -113,8 +113,8 @@ form of a stream: `op([e1, e2, ...])` returns the list of results the iterator
 A multi-input operator takes one source per input, or one source whose events
 hold every input. Each step reads one event from every source, and the stream
 ends when the shortest source ends. An async iterable (an `async def`
-generator, or any object with `__aiter__`) gives an async iterator with the same
-results, awaiting one event from every source per step:
+generator, or any object with `__aiter__`) gives an async iterator that awaits
+one event from every source per step:
 
 ```{eval-rst}
 .. exec_code::
@@ -171,15 +171,16 @@ error: the sources are released when the stream is garbage collected.
 
 In JavaScript, an error in an event, in `throw()` or in `return()` closes every
 source and ends the stream, as a generator does; the next `next()` returns
-`{ done: true }`.
+`{ done: true }`. A JavaScript stream dropped before its end frees its operator copies
+when it is garbage collected; `return()` or the operator's `dispose()` frees
+them at once.
 
 ## Events: numbers, asset arrays, and packed fields
 
 An event is one time step of shape `(*A, F?)` (see
 [Time, assets and fields](polymorphic_api.md#time-assets-and-fields)). A
 number is one value. An array of shape `(K,)` holds one value for each of `K`
-assets, and each asset runs on its own copy of the operator, so the stream
-yields the rows of the batch result:
+assets, and each asset runs on its own copy of the operator:
 
 ```{eval-rst}
 .. exec_code::
@@ -264,7 +265,8 @@ per step, and `PortfolioReport` streams those rows into the book's report:
    engine_rows = list(BacktestPortfolioTarget()(iter(weights), iter(prices)))
    print(engine_rows[-1])
    report = list(PortfolioReport()(iter(engine_rows)))
-   print(report[-1])
+   names = ["drawdown", "cum_cost", "turnover", "trades", "max_drawdown", "sharpe"]
+   print({name: round(x, 4) for name, x in zip(names, report[-1])})
 ```
 
 ## One stream of rows, or one operator per asset
@@ -278,14 +280,11 @@ asset's operator like any other missing value (see
 different times, or align them first with `CombineLatest`.
 
 A `(K,)` array passed directly, `op(row)`, is a batch of `K` time steps of one
-series, not one event of `K` assets. Wrap the feed in a generator to get asset
-events:
+series, not one event of `K` assets. Pass the feed as an iterator of `(K,)`
+arrays instead: a generator that blocks on a socket or a queue, or
+`iter(feed)` for snapshots already in memory:
 
 ```python
-def rows(feed):
-    for snapshot in feed:          # snapshot: a (K,) array of the latest prices
-        yield snapshot
-
-for means in RollingMean(20)(rows(feed)):
+for means in RollingMean(20)(iter(feed)):   # feed: (K,) arrays of the latest prices
     publish(means)
 ```

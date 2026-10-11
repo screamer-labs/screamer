@@ -118,23 +118,48 @@ async function* zipAsyncSources(srcs: AsyncIterable<any>[]): AsyncGenerator<any[
 // closes the sources. `owner` is the op wrapper: the generator holds it, so the
 // finalizer cannot free a temporary op, such as `RollingMean(3)(src)`, while
 // its stream runs.
-function* runStream(srcs: Iterable<any>[], open: (n: number) => Stepper, owner: unknown) {
+//
+// A stream that is started and then dropped never reaches its finally block,
+// so STREAMS closes it when the generator is collected. The registry holds
+// `held`, which holds the stepper's close function and never the generator.
+type Held = { close?: () => void };
+const STREAMS = new FinalizationRegistry<Held>((h) => h.close?.());
+
+function* runSync(srcs: Iterable<any>[], open: (n: number) => Stepper, owner: unknown, held: Held) {
   void owner;
   const s = open(srcs.length);
+  held.close = s.close;
   try {
     for (const items of zipSources(srcs)) yield s.step(items);
   } finally {
+    held.close = undefined;
+    STREAMS.unregister(held);
     s.close?.();
   }
 }
-async function* runAsyncStream(srcs: AsyncIterable<any>[], open: (n: number) => Stepper, owner: unknown) {
+async function* runAsync(srcs: AsyncIterable<any>[], open: (n: number) => Stepper, owner: unknown, held: Held) {
   void owner;
   const s = open(srcs.length);
+  held.close = s.close;
   try {
     for await (const items of zipAsyncSources(srcs)) yield s.step(items);
   } finally {
+    held.close = undefined;
+    STREAMS.unregister(held);
     s.close?.();
   }
+}
+function runStream(srcs: Iterable<any>[], open: (n: number) => Stepper, owner: unknown) {
+  const held: Held = {};
+  const gen = runSync(srcs, open, owner, held);
+  STREAMS.register(gen, held, held);
+  return gen;
+}
+function runAsyncStream(srcs: AsyncIterable<any>[], open: (n: number) => Stepper, owner: unknown) {
+  const held: Held = {};
+  const gen = runAsync(srcs, open, owner, held);
+  STREAMS.register(gen, held, held);
+  return gen;
 }
 
 // The copies an op's streams run on (decision D8: every stream is an
@@ -149,8 +174,10 @@ function copyPool(make: (() => RawOp) | null) {
       if (!make) throw new TypeError("a stream needs an op built by its factory, which can copy it for every stream and asset");
     },
     acquire(): RawOp {
-      const c = idle.pop() ?? make!();
-      c.reset();
+      // A reused copy holds its last stream's state; a new one starts clean.
+      const reused = idle.pop();
+      const c = reused ?? make!();
+      if (reused) c.reset();
       used.add(c);
       return c;
     },
@@ -692,7 +719,7 @@ export function wrapRowOp(M: Screamer, src: OpSource): ScreamerOp {
   // A (T, K) input as a flat block: an NdArray or an array of rows.
   const asBlock = (x: any): { flat: ArrayLike<number>; T: number; k: number } | null => {
     if (isNd(x)) {
-      // Rule 3: a [T, K, 1] array reads as [T, K]; the data is already in that order.
+      // Rule 1: a [T, K, 1] array reads as [T, K]; the data is already in that order.
       const unit = x.shape.length === 3 && x.shape[2] === 1;
       if (x.shape.length !== 2 && !unit) throw new TypeError(`expected a (T, K) array, got shape [${x.shape}]`);
       return { flat: x.data, T: x.shape[0], k: x.shape[1] };
@@ -717,7 +744,7 @@ export function wrapRowOp(M: Screamer, src: OpSource): ScreamerOp {
 
   // A stream event is fi rows of K values, one per source, or with one source
   // and fi > 1 an array of fi rows. A row is a Float64Array, a number[], or an
-  // NdArray of shape [K] or [K, 1] (rule 3).
+  // NdArray of shape [K] or [K, 1] (rule 1).
   const asRow = (row: any): ArrayLike<number> => {
     if (isTyped(row) || isNumArr(row)) return row;
     if (isNd(row) && (row.shape.length === 1 || (row.shape.length === 2 && row.shape[1] === 1))) return row.data;

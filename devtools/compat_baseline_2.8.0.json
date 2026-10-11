@@ -328,6 +328,40 @@
   "TypeError",
   "Iterable must contain numbers."
  ],
+ "row (values,index) tuple": [
+  "ndarray",
+  [
+   2,
+   30
+  ],
+  "f",
+  0.0,
+  "f2cf6986d09a58ec"
+ ],
+ "row list of rows": [
+  "ndarray",
+  [
+   2,
+   30
+  ],
+  "f",
+  -0.0,
+  "9d4ca0a5f0c9c1e8"
+ ],
+ "row tuple of floats": [
+  "ndarray",
+  [
+   3
+  ],
+  "f",
+  0.0,
+  "a56db224616e055c"
+ ],
+ "PortfolioReport tuple of arrays": [
+  "ERROR",
+  "ValueError",
+  "PortfolioReport rows must have shape (assets, 4)."
+ ],
  "2in scalars": [
   "float",
   3.0

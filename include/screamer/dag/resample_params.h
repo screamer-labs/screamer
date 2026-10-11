@@ -86,7 +86,7 @@ inline std::vector<ResamplePlanEntry> make_ohlcv_bars_plan(std::size_t W) {
 }
 
 // Per-column plan for a builtin single-column agg on a W-column stream: every
-// column is aggregated on its own (shape contract rule 4), and Ohlc gives four
+// column is aggregated on its own, and Ohlc gives four
 // outputs per column, (open, high, low, close).
 inline std::vector<ResamplePlanEntry> make_per_column_plan(ResampleAgg agg, std::size_t W) {
     std::vector<ResamplePlanEntry> plan;

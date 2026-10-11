@@ -328,7 +328,7 @@ def _combine_latest_asof_lazy(sources, emit):
 
 
 def _as_fields(v, layout):
-    """Read one input as (T, *A, F): rule 5 reads a 1-D or 2-D array as fields,
+    """Read one input as (T, *A, F): a 1-D or 2-D array is read as fields,
     a 3-D or wider array as (T, *A, F); a layout states another reading."""
     v = np.asarray(v, dtype=np.float64)
     if layout is not None:
@@ -348,7 +348,7 @@ def _layouts(layout, n):
 
 def _assemble(rows, fields, assets):
     """Split joined rows into each input's (*A_i, F_i) block, broadcast the
-    assets and concatenate the fields (rule 5)."""
+    assets and concatenate the fields."""
     T = rows.shape[0]
     parts, start = [], 0
     for f in fields:
@@ -825,7 +825,7 @@ _COLUMN_AGGS = frozenset(("first", "last", "min", "max", "sum", "count", "mean",
 
 
 def _column_shape(shape):
-    """The (*A) part of a (T, *A) or (T, *A, 1) value array (rule 3)."""
+    """The (*A) part of a (T, *A) or (T, *A, 1) value array (rule 1)."""
     trailing = tuple(shape[1:])
     return trailing[:-1] if len(trailing) >= 2 and trailing[-1] == 1 else trailing
 
@@ -1150,7 +1150,7 @@ def _resample_validate(freq, every, count, threshold, agg, label, fill="skip",
 
 def _resample_lazy(values, *, every, count, agg, origin, label, fill):
     """Lazy resample; events whose value is an array of assets are resampled per
-    column and come back in the same shape (rule 4)."""
+    column and come back in the same shape."""
     import itertools
     it = iter(values)
     head = next(it, _EMPTY)

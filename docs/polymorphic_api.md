@@ -22,8 +22,9 @@ Every operator, in Python and JavaScript, follows six rules. The sections below
 give the details of each.
 
 1. **Shape `(T, *A, F?)`.** Time is axis 0, then zero or more asset axes, then
-   an optional field axis, and a trailing field axis of size 1 is the single
-   input field: `RollingMean(5)` on a `(T, K, 1)` array returns `(T, K)`.
+   an optional field axis. On an array of rank 3 or more, a trailing field
+   axis of size 1 is the single input field: `RollingMean(5)` on a
+   `(T, K, 1)` array returns `(T, K)`, and a `(T, 1)` array stays `(T, 1)`.
    Details: [Time, assets and fields](#time-assets-and-fields).
 2. **The container never changes the numbers.** An iterator, an async iterator
    or a list of events gives the rows of the batch result:
@@ -206,20 +207,29 @@ The exact decision tree implemented in `ScreamerBase::operator()`
    `LazyAsyncIterator`. Each `__anext__` awaits one event and produces one
    output.
 
-3. **Is it a list or tuple?** Process each element eagerly in one pass and
-   return a Python `list` of the same length. The container type is
+3. **Is it a tuple whose first item is an array?** Raise `TypeError`. Such a
+   tuple is most likely a `(values, index)` stream: pass it to a stream
+   operator (`Resample`, `CombineLatest`) or a `Pipeline`, or unpack it and
+   pass the values, `op(values)`, keeping the index as it was.
+
+4. **Is it a list whose first item is an array?** It is a sequence of asset
+   events. Each array is one event with one value per asset, and the result
+   is a `list` with one array per event.
+
+5. **Is it any other list or tuple?** Process each element eagerly in one
+   pass and return a Python `list` of the same length. The container type is
    preserved; a list or tuple is not converted to a NumPy array.
 
-4. **Is it a NumPy array?** A 0‑D array is treated as a scalar and returns a
+6. **Is it a NumPy array?** A 0‑D array is treated as a scalar and returns a
    `float`. Any array of rank ≥ 1 routes to `process_python_array`, the
    multi‑dimensional handler described in *Convention 1*, and the output
    shape equals the input shape. A length‑1 1‑D array returns a 1‑D array of
    shape `(1,)`, not a scalar.
 
-5. **Is it an iterable?** Wrap in `LazyEvalIterator`. Iteration is lazy; each
+7. **Is it an iterable?** Wrap in `LazyEvalIterator`. Iteration is lazy; each
    `next()` advances the source and produces one output.
 
-6. **Anything else** → `ValueError("Unsupported input type for call: ...")`.
+8. **Anything else** → `ValueError("Unsupported input type for call: ...")`.
    (Multi-input functors instead raise `TypeError` for a wrong argument
    count or mixed input kinds, and `ValueError` for shapes that do not
    broadcast; see the multi-input section.)
@@ -228,7 +238,7 @@ The exact decision tree implemented in `ScreamerBase::operator()`
 ### Some concrete consequences of this order
 
 - `obj([1, 2, 3])` returns a Python `list` of length 3, not a NumPy array and
-  not a lazy iterator, because lists are matched in step 3 before the generic
+  not a lazy iterator, because lists are matched in step 5 before the generic
   iterable branch.
 - `obj([1])` returns a `list` of length 1, not a `float`; a length‑1 list does
   not collapse to a scalar.

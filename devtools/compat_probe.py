@@ -11,7 +11,8 @@ Record this build's results::
 
 Print the rows whose result changed, tagged ``ERR->VALUE``, ``VALUE->ERR``,
 ``VALUE CHANGED``, ``ERR CHANGED`` or ``LAZY`` (the same values, now from a
-lazy iterator); ``--all`` also prints ``same`` rows.
+lazy iterator); ``--all`` also prints ``same`` rows. Array digests round to
+9 decimals, so differences below 1e-9 (last-bit changes) do not show.
 The old side defaults to the committed 2.8.0 baseline
 ``devtools/compat_baseline_2.8.0.json``, and the new side to a run of this
 build::
@@ -81,6 +82,11 @@ def cases():
         "1-in M-out (T,K,1)": lambda: s.BollingerBands(3)(X[:, :, None]),
         "1-in M-out tuple of floats": lambda: s.BollingerBands(3)(tuple(v[:4])),
         "1-in M-out (values,index)": lambda: s.BollingerBands(3)((v, idx)),
+        # row operators: D1 on a one-field row operator and PortfolioReport
+        "row (values,index) tuple": lambda: s.CrossRank()((v, idx)),
+        "row list of rows": lambda: s.CrossRank()([X[:, 0], X[:, 1]]),
+        "row tuple of floats": lambda: s.CrossRank()(tuple(X[0])),
+        "PortfolioReport tuple of arrays": lambda: s.PortfolioReport()((v, idx)),
         # multi-input operators
         "2in scalars": lambda: s.Add()(1.0, 2.0),
         "2in tuple of two scalars": lambda: s.Add()((1.0, 2.0)),

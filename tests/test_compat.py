@@ -39,6 +39,18 @@ def test_tuple_of_arrays_into_n_input_operator_stays_the_n_inputs():
     np.testing.assert_array_equal(s.Add()((v, w)), v + w)
 
 
+@pytest.mark.parametrize("op", [s.CrossRank(), s.CrossDemean(), s.PortfolioReport()])
+def test_values_index_tuple_into_row_operator_raises(op):
+    with pytest.raises(TypeError, match=r"\(values, index\)"):
+        op((v, idx))
+
+
+def test_row_operator_list_and_number_tuple_keep_their_2_8_0_result():
+    rows = np.vstack([v, w])
+    np.testing.assert_array_equal(s.CrossRank()([v, w]), s.CrossRank()(rows))
+    np.testing.assert_array_equal(s.CrossRank()((1.0, 3.0, 2.0)), s.CrossRank()(np.array([1.0, 3.0, 2.0])))
+
+
 def test_list_of_arrays_is_a_list_of_events():
     out = s.RollingMean(2)([np.ones(3), np.ones(3)])
     assert isinstance(out, list) and len(out) == 2

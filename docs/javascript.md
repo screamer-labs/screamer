@@ -80,8 +80,9 @@ guide.
 The [six rules](polymorphic_api.md#the-six-rules) hold in JavaScript, with an
 `NdArray` (`{ data, shape }`) in the place of a NumPy array:
 
-1. **Shape `[T, ...A, F?]`.** `RollingMean(3)` on an `NdArray` of shape
-   `[T, K, 1]` returns shape `[T, K]`.
+1. **Shape `[T, ...A, F?]`.** On an `NdArray` of rank 3 or more, a trailing
+   axis of size 1 is the single input field: `RollingMean(3)` on shape
+   `[T, K, 1]` returns shape `[T, K]`, and shape `[T, 1]` stays `[T, 1]`.
 2. **The container never changes the numbers.** `[...RollingMean(3)(rows.values())]`,
    with `rows` an array of `[K]` rows, gives the rows of the batch result.
 3. **One meaning per container.** A number is one step of the op's running

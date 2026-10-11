@@ -233,7 +233,7 @@ struct NInputs {
 };
 
 // Read the argument arrays (any dtype and strides) and plan their broadcast
-// (shape.h rules 2 and 3). Throws TypeError on a non-array argument and
+// (rules 1 and 4). Throws TypeError on a non-array argument and
 // ValueError on shapes that do not broadcast.
 template <size_t N>
 inline NInputs<N> read_inputs(const std::vector<nb::handle>& arrays) {
@@ -347,11 +347,15 @@ inline nb::object collect_events(nb::object owner, std::vector<nb::object> sourc
 
 // An eager list call is an independent run (decision D8): it starts from a
 // reset operator and leaves it reset, like a batch call, also when it fails.
+// reset() is not noexcept, and a destructor must not throw (it may run while
+// an exception unwinds), so the closing reset swallows its own error.
 template <class Op>
 struct EagerRun {
     Op& op;
     explicit EagerRun(Op& o) : op(o) { op.reset(); }
-    ~EagerRun() { op.reset(); }
+    ~EagerRun() {
+        try { op.reset(); } catch (...) {}
+    }
     EagerRun(const EagerRun&) = delete;
     EagerRun& operator=(const EagerRun&) = delete;
 };

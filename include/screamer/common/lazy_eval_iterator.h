@@ -36,7 +36,7 @@ public:
 //     fields.
 //
 // Events are scalars (one float out, or a tuple of n_out() floats), or arrays of
-// one fixed shape: each holds one value per asset (shape.h rules 2 and 3), the
+// one fixed shape: each holds one value per asset (rules 1 and 4), the
 // first event fixes the shape, and every asset runs its own copy of the op, as
 // the batch path gives every column its own state.
 //

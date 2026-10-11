@@ -135,7 +135,7 @@ inline View contiguous_view(const Shape& shape) {
     return v;
 }
 
-// Rule 3: a trailing size-1 field axis is consumed, so (T, K, 1) reads as
+// Rule 1: a trailing size-1 field axis is consumed, so (T, K, 1) reads as
 // (T, K). Only an array with an asset axis has a field axis to consume:
 // (T, 1) stays one asset.
 inline Shape consume_unit_field(Shape s) {
@@ -143,7 +143,7 @@ inline Shape consume_unit_field(Shape s) {
     return s;
 }
 
-// Rule 2: one packed (T, *A, n) array holds the n input fields along its last axis.
+// Rule 4: one packed (T, *A, n) array holds the n input fields along its last axis.
 inline std::vector<View> split_fields(const Shape& packed, std::size_t n) {
     const View whole = contiguous_view(packed);
     std::vector<View> out(n);
@@ -176,7 +176,7 @@ inline std::vector<View> input_views(const std::vector<Shape>& args, std::size_t
     return out;
 }
 
-// Rule 2: the inputs' asset shapes broadcast with NumPy rules (right-aligned,
+// Rule 4: the inputs' asset shapes broadcast with NumPy rules (right-aligned,
 // each axis equal or 1) and T must match. The plan lists, per input and per
 // result column, where that column starts, so a broadcast input is read in
 // place, never copied once per asset.
