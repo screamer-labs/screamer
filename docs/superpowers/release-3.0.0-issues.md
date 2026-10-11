@@ -46,10 +46,10 @@ Goal: zero open issues before `make major`. Each item is closed by a fix with a 
 
 | # | Issue | Status |
 |---|---|---|
-| E1 | Inside a `Pipeline`, frames carry no asset shape: `Input(layout=...)`, compute nodes on K-asset streams, row operators inside a `Pipeline`. | open |
-| E2 | `Resample(agg="ohlc")` on X columns inside a `Pipeline` gives a flat `(T', 4 * X)`, while the eager call gives `(T', X, 4)`. | open |
-| E3 | `Resample` with a functor `agg` takes one column. | open |
-| E4 | `CombineLatest(emit="on_any")` with a wide `Input` inside a `Pipeline` can raise when a row is due before the wide input arrives. | open |
+| E1 | Inside a `Pipeline`, frames carry no asset shape: `Input(layout=...)`, compute nodes on K-asset streams, row operators inside a `Pipeline`. | decided: additive (raises today); moved to Future features (phase 2) |
+| E2 | `Resample(agg="ohlc")` on X columns inside a `Pipeline` gives a flat `(T', 4 * X)`, while the eager call gives `(T', X, 4)`. | decided: for 3.0.0 a multi-column `Resample(agg="ohlc")` inside a Pipeline raises ValueError naming the alternatives (eager call, or one Resample per column); single-column unchanged; phase 2 returns (T', X, 4), an error-to-result change; to implement |
+| E3 | `Resample` with a functor `agg` takes one column. | decided: additive (raises today); moved to Future features (phase 2) |
+| E4 | `CombineLatest(emit="on_any")` with a wide `Input` inside a `Pipeline` can raise when a row is due before the wide input arrives. | decided: additive; keep the documented error with a test; full support moved to Future features (phase 2); to implement (test) |
 
 ## F. Verification and documentation
 
@@ -70,6 +70,8 @@ Goal: zero open issues before `make major`. Each item is closed by a fix with a 
 | G4 | JS `zipSources` calls `return()` on a source whose own `next()` threw (a `for...of` loop does not). | open |
 
 ## Future features (not in 3.0.0)
+
+- Phase 2 of the shape contract (E1, E3, E4, and E2's (T', X, 4) in a Pipeline): asset frames inside a `Pipeline`, `Input(layout=)`, functor `agg` over several columns, `on_any` with wide inputs. All raise today, so they can land in 3.x. Note (user, 2026-10-11): 3.0.0 may wait until phase 2 and phase 3 are done as well; if so these move back into scope.
 
 - Chunked batch processing that carries operator state from one batch call to the next (e.g. `op(chunk, continue_=True)`), for data larger than memory. Today: one stream, or `op(x)` per value. (From A5.)
 - pandas in, pandas out: operators return a Series or DataFrame with the input's index and column names. Today pandas reads as its values and the result is a NumPy array; use `to_pandas`. (From A6.)
