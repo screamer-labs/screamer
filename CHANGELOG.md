@@ -25,13 +25,15 @@ Unreleased
   `(T,)` price, in Python and JavaScript.
 * A packed `(T, K, N)` array feeds an N-input operator.
 * Iterators of asset events give the batch result, one operator state per
-  asset (Python and JavaScript).
+  asset (Python; in JavaScript for one-input operators). A Python list of
+  asset events gives a list of the same results.
 * `reshape(x, layout)` for arrays, `(values, index)` tuples, DataFrames, lists
   and iterators of events; `reshape` in JavaScript; `from_pandas(layout=)`.
 * `CombineLatest` concatenates multi-column streams and broadcasts assets with
   `layout=`; inside a `Pipeline` it joins an OHLC node and a signal directly.
 * `Resample` aggregates every column of `(T, X)` data; `agg="ohlc"` gives
-  `(T', X, 4)`.
+  `(T', X, 4)`. Inside a `Pipeline` a stream carries fields only, so
+  `Resample(agg="ohlc")` there gives a flat `(T', 4 * X)` frame.
 * JavaScript one-input operators accept `(T, K)` `NdArray` input.
 
 ### Changed
@@ -41,8 +43,14 @@ Unreleased
   (was `(T, K, 1, M)`).
 * A shape mismatch between inputs now raises `ValueError` ("do not broadcast",
   "same length along time") instead of `TypeError`.
-* `from_pandas` reads a DataFrame with two-level `(asset, field)` columns as
-  `(T, A, F)` values.
+* `from_pandas` reads a DataFrame whose two-level columns hold every
+  `(asset, field)` pair as `(T, A, F)` float64 values. Other frames read as
+  before; with `layout=` the values read as float64.
+* `SignedVolume`, `RollingKyleLambda`, `EwKyleLambda`, and `QueueImbalance`
+  take their inputs positionally; keyword inputs such as `signed_flow=` are
+  no longer accepted.
+* A generator passed to a one-input, one-output operator such as `IsNan`
+  returns a lazy iterator (was a list).
 * `position_test`, `strategy_test` and `walk_forward` no longer copy prices to
   K columns; JavaScript `positionTest` and `walkForward` run the engine once
   per chunk.
@@ -63,10 +71,8 @@ Unreleased
   `Return` and `ROCP` on a 1-D array use the same formula as their other paths,
   so a column of a 2-D array equals the same 1-D series exactly.
 * `SignedVolume`, `RollingKyleLambda`, `EwKyleLambda`, `QueueImbalance`, and
-  `RollingOrderImbalance` accept every input form (a packed array, iterators,
-  asset axes), and their calls take positional inputs.
-* A generator passed to a one-input, one-output operator such as `IsNan` now
-  returns a lazy iterator.
+  `RollingOrderImbalance` accept every input form: a packed array, iterators,
+  lists of events, and asset axes.
 * JavaScript errors raised in C++ carry their message text.
 
 ### Documentation

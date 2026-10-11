@@ -233,15 +233,14 @@ def test_regimes_agree(name: str, entry: dict):
     )
 
     graph_values, _ = pipeline(*[(a, index) for a in arrays])
-    np.testing.assert_allclose(
-        graph_values, eager, equal_nan=True, rtol=1e-12,
-        err_msg=f"{name}: graph regime disagrees with eager",
+    np.testing.assert_array_equal(
+        graph_values, eager, err_msg=f"{name}: graph regime disagrees with eager",
     )
 
     lazy_rows = list(pipeline(*[
         ((float(v), int(i)) for i, v in enumerate(a)) for a in arrays
     ]))
-    np.testing.assert_allclose(
-        np.array([r[0] for r in lazy_rows]), eager, equal_nan=True, rtol=1e-12,
+    np.testing.assert_array_equal(
+        np.array([r[0] for r in lazy_rows]), eager,
         err_msg=f"{name}: lazy regime disagrees with eager",
     )

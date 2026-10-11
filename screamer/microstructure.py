@@ -39,6 +39,8 @@ def _swap_fields(inputs):
     packed = inputs[0]
     if isinstance(packed, np.ndarray):
         return (packed[..., ::-1],)
+    if isinstance(packed, list):          # a list in gives a list out
+        return ([_swap_event(e) for e in packed],)
     return (map(_swap_event, packed),)
 
 

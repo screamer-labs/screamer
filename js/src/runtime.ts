@@ -442,7 +442,9 @@ export function wrapRowOp(M: Screamer, src: OpSource): ScreamerOp {
   // A (T, K) input as a flat block: an NdArray or an array of rows.
   const asBlock = (x: any): { flat: ArrayLike<number>; T: number; k: number } | null => {
     if (isNd(x)) {
-      if (x.shape.length !== 2) throw new TypeError(`expected a (T, K) array, got shape [${x.shape}]`);
+      // Rule 3: a [T, K, 1] array reads as [T, K]; the data is already in that order.
+      const unit = x.shape.length === 3 && x.shape[2] === 1;
+      if (x.shape.length !== 2 && !unit) throw new TypeError(`expected a (T, K) array, got shape [${x.shape}]`);
       return { flat: x.data, T: x.shape[0], k: x.shape[1] };
     }
     if (Array.isArray(x) && x.length > 0 && x.every((r) => isTyped(r) || isNumArr(r))) {
@@ -463,13 +465,19 @@ export function wrapRowOp(M: Screamer, src: OpSource): ScreamerOp {
     return isTyped(rows[0]) ? out : Array.from(out);
   };
 
-  function* gen(src: Iterable<ArrayLike<number>>) {
+  // An event is a row of K values, or an NdArray of shape [K] or [K, 1] (rule 3).
+  const asRow = (row: any): ArrayLike<number> => {
+    if (!isNd(row)) return row;
+    if (row.shape.length === 1 || (row.shape.length === 2 && row.shape[1] === 1)) return row.data;
+    throw new TypeError(`each event of a row stream is one row of K values, got shape [${row.shape}]`);
+  };
+  function* gen(src: Iterable<any>) {
     raw.reset();
-    for (const row of src) yield eventOut([row]);
+    for (const row of src) yield eventOut([asRow(row)]);
   }
-  async function* agen(src: AsyncIterable<ArrayLike<number>>) {
+  async function* agen(src: AsyncIterable<any>) {
     raw.reset();
-    for await (const row of src) yield eventOut([row]);
+    for await (const row of src) yield eventOut([asRow(row)]);
   }
 
   const call = (...args: any[]) => {

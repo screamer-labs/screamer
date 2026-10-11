@@ -48,18 +48,28 @@ def frame_axes(obj):
         return obj.to_numpy(dtype=np.float64), [obj.index]
     cols = obj.columns
     if isinstance(cols, pd.MultiIndex):
-        if cols.nlevels != 2:
-            raise ValueError("a DataFrame for screamer has flat or two-level columns")
-        levels = [cols.unique(level=0), cols.unique(level=1)]
-        full = pd.MultiIndex.from_product(levels)
-        if len(cols) != len(full) or set(cols) != set(full):
+        if not is_product_frame(obj):
+            if cols.nlevels != 2:
+                raise ValueError("a DataFrame for screamer has flat or two-level columns")
             raise ValueError(
                 "a DataFrame with two-level columns must hold every pair of the two "
                 "levels, e.g. every (asset, field)")
+        levels = [cols.unique(level=0), cols.unique(level=1)]
+        full = pd.MultiIndex.from_product(levels)
         values = obj[full].to_numpy(dtype=np.float64).reshape(
             len(obj), len(levels[0]), len(levels[1]))
         return values, [obj.index, levels[0], levels[1]]
     return obj.to_numpy(dtype=np.float64), [obj.index, cols]
+
+
+def is_product_frame(obj):
+    """True for a DataFrame whose two-level columns hold every pair of the levels."""
+    import pandas as pd
+    cols = getattr(obj, "columns", None)
+    if not isinstance(cols, pd.MultiIndex) or cols.nlevels != 2:
+        return False
+    full = pd.MultiIndex.from_product([cols.unique(level=0), cols.unique(level=1)])
+    return len(cols) == len(full) and set(cols) == set(full)
 
 
 def _frame(obj, layout):

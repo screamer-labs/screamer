@@ -75,6 +75,23 @@ conversions. The JavaScript-specific parts, such as module loading, async
 iterables, pipelines, and memory management, are covered in the JavaScript
 guide.
 
+### Parity gaps
+
+These parts of the shape contract work in one package but not yet the other.
+Each is tracked to be closed.
+
+* Multi-input operators in JavaScript do not take iterators of events; pass
+  arrays.
+* One-input operators in JavaScript take iterators of `(K,)` asset events but
+  reject `(K, F)` events.
+* `combineLatest` in JavaScript has no `layout` argument.
+* The microstructure synonyms `SignedVolume`, `RollingKyleLambda`,
+  `EwKyleLambda`, `RollingOrderImbalance`, and `QueueImbalance` are Python
+  only; in JavaScript use `Mul`, `RollingBeta` and `EwBeta` (with the inputs
+  as return, then signed flow), `RollingSum`, and `OFI` directly.
+* In Python, a live session's `push` and an async generator passed to an
+  operator take numbers only, not asset events.
+
 ## Backtesting and significance tests
 
 The backtest engines and the significance tests are in the JavaScript package

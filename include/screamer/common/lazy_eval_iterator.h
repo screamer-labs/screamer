@@ -149,22 +149,29 @@ private:
     // The first asset event fixes the shape; build one op per asset. Copies come
     // from the wrapper's _fresh(); the original op is reset so every asset
     // starts clean.
+    // Everything is built in locals and committed only when every copy exists,
+    // so a failed _fresh() leaves the iterator as it was.
     void start_assets() {
-        plan_ = shape::broadcast(shape::input_views(current_, n_in_));
-        if (plan_.columns > 1 && !nb::hasattr(op_owner_, "_fresh"))
+        shape::Plan plan = shape::broadcast(shape::input_views(current_, n_in_));
+        if (plan.columns > 1 && !nb::hasattr(op_owner_, "_fresh"))
             throw nb::type_error("events with several assets need an operator built from the "
                                  "screamer namespace, which can copy itself once per asset");
-        shapes_ = current_;
-        out_shape_.assign(plan_.shape.begin() + 1, plan_.shape.end());
-        if (n_out_ > 1) out_shape_.push_back(n_out_);
-        op_.reset();
-        copies_.reserve(plan_.columns);
-        owners_.reserve(plan_.columns ? plan_.columns - 1 : 0);
-        copies_.push_back(&op_);
-        for (std::size_t c = 1; c < plan_.columns; ++c) {
-            owners_.push_back(op_owner_.attr("_fresh")());
-            copies_.push_back(&nb::cast<EvalOp&>(owners_.back()));
+        std::vector<nb::object> owners;
+        std::vector<EvalOp*> copies;
+        owners.reserve(plan.columns ? plan.columns - 1 : 0);
+        copies.reserve(plan.columns);
+        copies.push_back(&op_);
+        for (std::size_t c = 1; c < plan.columns; ++c) {
+            owners.push_back(op_owner_.attr("_fresh")());
+            copies.push_back(&nb::cast<EvalOp&>(owners.back()));
         }
+        op_.reset();
+        out_shape_.assign(plan.shape.begin() + 1, plan.shape.end());
+        if (n_out_ > 1) out_shape_.push_back(n_out_);
+        plan_ = std::move(plan);
+        shapes_ = current_;
+        owners_ = std::move(owners);
+        copies_ = std::move(copies);
     }
 
     static std::string event_shapes(const std::vector<shape::Shape>& shapes) {

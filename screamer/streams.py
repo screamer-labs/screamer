@@ -115,17 +115,22 @@ def to_pandas(values, index=None, columns=None):
 def from_pandas(obj, layout=None):
     """Build a (values, index) tuple from a pandas Series or DataFrame.
 
-    data -> values (numpy array), pandas index -> index array. A DataFrame with
-    two-level ``(asset, field)`` columns gives ``(T, A, F)`` values. ``layout``
-    names the axes as read (``"TA"`` for one column per asset, for example) and
-    reshapes the values like :func:`reshape`. pandas always materializes an
-    index (a RangeIndex for a default one), so a positional stream does not
-    round-trip to index=None through to_pandas/from_pandas.
+    data -> values (numpy array), pandas index -> index array. A DataFrame
+    whose two-level columns hold every ``(asset, field)`` pair gives
+    ``(T, A, F)`` float64 values; any other frame gives ``obj.to_numpy()`` with
+    its own dtype. ``layout`` names the axes as read (``"TA"`` for one column
+    per asset, for example), reads the values as float64 and reshapes them like
+    :func:`reshape`. pandas always materializes an index (a RangeIndex for a
+    default one), so a positional stream does not round-trip to index=None
+    through to_pandas/from_pandas.
     """
-    from .shape import frame_axes, reshape_array
-    values, _ = frame_axes(obj)
+    from .shape import frame_axes, is_product_frame, reshape_array
     if layout is not None:
-        values = reshape_array(values, layout)
+        values = reshape_array(frame_axes(obj)[0], layout)
+    elif is_product_frame(obj):
+        values = frame_axes(obj)[0]
+    else:
+        values = np.asarray(obj.to_numpy())
     return values, np.asarray(obj.index)
 
 
@@ -439,9 +444,9 @@ def combine_latest(*values, index=None, emit="when_all", layout=None):
     if emit not in ("when_all", "on_any"):
         raise ValueError('combine_latest: emit must be "when_all" or "on_any"')
     if any(is_node(v) for v in values):
-        if any(lay and "A" in lay.split("->")[-1] for lay in _layouts(layout, len(values))):
+        if layout is not None:
             raise ValueError(
-                "CombineLatest(layout=...) with an asset axis runs on arrays and iterators; "
+                "CombineLatest(layout=...) applies to arrays and iterators; "
                 "streams inside a Pipeline carry fields only")
         return make_operator_node(CombineLatest, values, {"emit": emit})
     if values and all(_is_lazy_stream(v) for v in values):
@@ -1157,6 +1162,10 @@ def _resample_lazy(values, *, every, count, agg, origin, label, fill):
         return
     events = itertools.chain([head], it)
     v0 = np.asarray(head[0], dtype=np.float64)
+    if v0.ndim > 0 and not isinstance(agg, str):
+        raise ValueError(
+            f"resample: a functor agg aggregates one column; got events of shape {v0.shape}. "
+            "Resample each column with its own functor, or use a builtin agg.")
     if v0.ndim == 0 or not (isinstance(agg, str) and agg in _COLUMN_AGGS):
         yield from _resample_via_cpp(events, every=every, count=count, threshold=None,
                                      agg=agg, origin=origin, label=label, fill=fill)

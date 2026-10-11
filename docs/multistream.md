@@ -110,9 +110,9 @@ concatenate:
 rows, idx = CombineLatest(layout=("TA", "T"))(panel, market)   # (T, K, 2)
 ```
 
-An asset layout runs on arrays, `(values, index)` tuples, and iterators of
-events. Inside a `Pipeline`, streams carry fields only and an asset layout
-raises `ValueError`.
+A layout applies to arrays, `(values, index)` tuples, and iterators of
+events. Inside a `Pipeline`, streams carry fields only and any layout raises
+`ValueError`.
 
 Inside a `Pipeline`, `emit="on_any"` can emit a row before a multi-column input
 has delivered its first event, for example when a `Dropna` upstream drops that

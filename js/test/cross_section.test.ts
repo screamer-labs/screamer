@@ -59,3 +59,14 @@ test("cross: argument checks", () => {
   assert.throws(() => CrossNormalize(1.0, 2.0));
   assert.throws(() => CrossTopBottom(0));
 });
+
+test("cross: a size-1 field axis is consumed (rule 3)", () => {
+  for (const [name, make, want] of GOLDEN) {
+    const unit = make()({ data: nd.data, shape: [4, 5, 1] });
+    assert.deepEqual(unit.shape, [4, 5], name);
+    assert.ok(same(unit.data, want), `${name} [T, K, 1]`);
+    const events = X.map((r) => ({ data: Float64Array.from(r), shape: [5, 1] }));
+    const streamed = [...make()(events.values())].flatMap((r: Float64Array) => Array.from(r));
+    assert.ok(same(streamed, want), `${name} [K, 1] events`);
+  }
+});

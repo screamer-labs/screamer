@@ -84,3 +84,26 @@ def test_from_pandas_reads_two_level_columns_as_assets_and_fields():
 def test_unsupported_container():
     with pytest.raises(TypeError):
         s.reshape("abc", "T")
+
+
+def test_from_pandas_without_layout_keeps_other_frames_as_they_were():
+    ragged = pd.MultiIndex.from_tuples([("BTC", "open"), ("BTC", "close"), ("ETH", "open")])
+    values, _ = s.from_pandas(pd.DataFrame(np.arange(6.0).reshape(2, 3), columns=ragged))
+    assert values.shape == (2, 3)
+    three = pd.MultiIndex.from_product([["a"], ["b"], ["c", "d"]])
+    values, _ = s.from_pandas(pd.DataFrame(np.zeros((2, 2)), columns=three))
+    assert values.shape == (2, 2)
+    values, _ = s.from_pandas(pd.DataFrame({"name": ["x", "y"]}))
+    assert values.dtype == object
+    when = pd.to_datetime(["2024-01-01", "2024-01-02"])
+    values, _ = s.from_pandas(pd.DataFrame({"when": when}))
+    assert values.dtype.kind == "M"
+    values, _ = s.from_pandas(pd.DataFrame({"n": [1, 2]}))
+    assert values.dtype.kind == "i"
+    values, _ = s.from_pandas(pd.Series([1, 2]))
+    assert values.dtype.kind == "i"
+
+
+def test_from_pandas_with_layout_reads_float64():
+    values, _ = s.from_pandas(pd.DataFrame({"n": [1, 2]}), layout="TA")
+    assert values.dtype == np.float64 and values.shape == (2, 1, 1)

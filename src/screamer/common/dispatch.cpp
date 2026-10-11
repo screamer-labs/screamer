@@ -23,6 +23,9 @@ nb::object screamer_call(ScreamerBase& self, nb::object obj) {
         return nb::float_(self.process_scalar(value));
     }
 
+    if (is_event_list(obj, true, false))       // a list of asset events
+        return collect_events(nb::find(self), { obj });
+
     if (nb::isinstance<nb::list>(obj) || nb::isinstance<nb::tuple>(obj)) {
         self.reset();
         nb::list out;

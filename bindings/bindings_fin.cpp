@@ -271,6 +271,8 @@ public:
     nb::object next() {
         nb::object row = iterator_.attr("__next__")();
         std::vector<screamer::detail::ContigDouble> fields{row_op_input(row)};
+        // Rule 3 on an event: a (K, 1) row is (1, K, 1) in time, read as (K,).
+        if (fields[0].ndim() == 2 && fields[0].shape[1] == 1) fields[0].shape.pop_back();
         if (fields[0].ndim() != 1)
             throw nb::value_error("each event of a row stream is one row of K values.");
         return row_op_run(*op_, fields);
@@ -294,7 +296,11 @@ nb::object row_op_call(screamer::RowOp& self, nb::args args) {
     if (self.fields_in() == 1 && screamer::is_lazy_iterable(first))
         return nb::cast(RowOpLazyIterator(nb::find(self), self, first));
     std::vector<screamer::detail::ContigDouble> fields;
-    for (nb::handle a : args) fields.push_back(row_op_input(nb::borrow<nb::object>(a)));
+    for (nb::handle a : args) {
+        fields.push_back(row_op_input(nb::borrow<nb::object>(a)));
+        // Rule 3: (T, K, 1) reads as (T, K); the data is already in that order.
+        fields.back().shape = screamer::shape::consume_unit_field(fields.back().shape);
+    }
     return row_op_run(self, fields);
 }
 

@@ -300,6 +300,36 @@ inline bool is_lazy_iterable(nb::handle h) {
         && !detail::is_ndarray(h);
 }
 
+namespace detail {
+inline bool has_axis(nb::handle h) {
+    return nb::hasattr(h, "ndim") && nb::cast<int>(h.attr("ndim")) > 0;
+}
+}  // namespace detail
+
+// True for a list of asset events: its first item is an array with an axis.
+// `tuples` also accepts a tuple of events (a one-input operator, where a tuple
+// is not a container of inputs); `fields` also accepts a first item that is a
+// tuple or list of fields whose first field is such an array.
+inline bool is_event_list(nb::handle h, bool tuples, bool fields) {
+    if (!nb::isinstance<nb::list>(h) && !(tuples && nb::isinstance<nb::tuple>(h))) return false;
+    if (nb::len(h) == 0) return false;
+    nb::object first = nb::steal(PySequence_GetItem(h.ptr(), 0));
+    if (detail::has_axis(first)) return true;
+    return fields && (nb::isinstance<nb::tuple>(first) || nb::isinstance<nb::list>(first)) &&
+           nb::len(first) > 0 &&
+           detail::has_axis(nb::steal(PySequence_GetItem(first.ptr(), 0)));
+}
+
+// Runs a list of events through LazyEvalIterator and returns the results as a
+// list (an eager list in gives a list out), leaving the operator reset.
+inline nb::object collect_events(nb::object owner, std::vector<nb::object> sources) {
+    nb::object it = nb::cast(LazyEvalIterator(owner, std::move(sources)));
+    PyObject* out = PySequence_List(it.ptr());
+    if (!out) throw nb::python_error();
+    nb::cast<EvalOp&>(owner).reset();
+    return nb::steal(out);
+}
+
 template <class Op>
 typename Op::InputArray cast_to_array(const nb::tuple& tuple) {
     constexpr size_t N = Op::kN;
@@ -349,6 +379,12 @@ nb::tuple args_to_tuple_n(const nb::args& args) {
 template <class Op>
 nb::object eager_parallel(Op& self, const nb::tuple& inputs) {
     constexpr size_t N = Op::kN;
+    for (nb::handle h : inputs) {
+        if (!is_event_list(h, true, false)) continue;
+        std::vector<nb::object> sources;
+        for (nb::handle s : inputs) sources.push_back(nb::borrow<nb::object>(s));
+        return collect_events(nb::find(self), std::move(sources));
+    }
     std::array<nb::object, N> iters;
     for (size_t i = 0; i < N; ++i) iters[i] = nb::borrow<nb::object>(inputs[i]).attr("__iter__")();
     std::vector<typename Op::ResultTuple> results;
@@ -525,6 +561,8 @@ nb::object functor_1i_Mo(Op& self, nb::object input) {
             std::vector<nb::object> sources{ nb::borrow<nb::object>(input) };
             return nb::cast(LazyEvalIterator(nb::find(self), std::move(sources)));
         }
+        if (is_event_list(input, true, false))
+            return collect_events(nb::find(self), { nb::borrow<nb::object>(input) });
         // Eager path for list/tuple input.
         std::vector<typename Op::ResultTuple> results;
         for (nb::handle item : input) {
@@ -579,7 +617,9 @@ nb::object functor_1i_1o(Op& self, nb::object input) {
         return nb::cast(LazyEvalIterator(nb::find(self), std::move(sources)));
     }
 
-    // Case 3: Iterable
+    // Case 3: Iterable. A list of asset events runs like an iterator of them.
+    if (is_event_list(input, true, false))
+        return collect_events(nb::find(self), { input });
     if (nb::hasattr(input, "__iter__")) {
         std::vector<typename Op::ResultTuple> results;
 
@@ -628,6 +668,10 @@ nb::object functor_Ni_1o(Op& self, const nb::args& raw_args) {
     if (auto ins = detail::maybe_read_packed<N>(args)) {
         return handle_input_Ni_1o_numpy(self, *ins);
     }
+
+    // A list of packed asset events, or of tuples of per-field events.
+    if (args.size() == 1 && is_event_list(args[0], false, true))
+        return collect_events(nb::find(self), { nb::borrow<nb::object>(args[0]) });
 
    // Case 1: we need to get his out of the way first.
    // A single argument, list/tuple with N-tuples inside: [ (1,2,3), (4,5,6), ...]
@@ -725,6 +769,10 @@ nb::object functor_Ni_Mo(Op& self, const nb::args& raw_args) {
     if (auto ins = detail::maybe_read_packed<N>(args)) {
         return handle_input_Ni_Mo_numpy(self, *ins);
     }
+
+    // A list of packed asset events, or of tuples of per-field events.
+    if (args.size() == 1 && is_event_list(args[0], false, true))
+        return collect_events(nb::find(self), { nb::borrow<nb::object>(args[0]) });
 
     // Case 1: single argument, list/tuple of N-tuples
     // [(x0, y0), (x1, y1), ...] -> list of M-tuples

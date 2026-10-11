@@ -103,9 +103,9 @@ def test_pipeline_on_any_wide_input_raises_clearly():
         p((gappy, np.arange(T)), (sig, np.arange(T)))
 
 
-def test_pipeline_rejects_asset_layout():
+def test_pipeline_rejects_layout():
     x, y = s.Input("x"), s.Input("y")
-    with pytest.raises(ValueError, match="asset"):
+    with pytest.raises(ValueError, match="applies to arrays and iterators"):
         s.CombineLatest(layout=("TA", "T"))(x, y)
 
 

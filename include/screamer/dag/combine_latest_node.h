@@ -127,7 +127,9 @@ private:
     }
 
     // Copy a pending frame's values into a free slot of its port's pool.
+    // A zero-width port holds no values, so it needs no slot.
     std::size_t store(std::size_t port, const double* values, std::size_t w) {
+        if (w == 0) return 0;
         std::size_t slot;
         if (!free_slots_[port].empty()) { slot = free_slots_[port].back(); free_slots_[port].pop_back(); }
         else { slot = pool_[port].size() / w; pool_[port].resize(pool_[port].size() + w); }
@@ -150,8 +152,9 @@ private:
         for (std::size_t j = 1; j < n_; ++j) low = std::min(low, wm_[j]);
         while (!pending_.empty() && pending_.top().index <= low) {
             Pending p = pending_.top(); pending_.pop();
-            apply_ordered(p.port, p.index, &pool_[p.port][p.slot * cl_.width(p.port)]);
-            free_slots_[p.port].push_back(p.slot);
+            const std::size_t w = cl_.width(p.port);
+            apply_ordered(p.port, p.index, pool_[p.port].data() + p.slot * w);
+            if (w) free_slots_[p.port].push_back(p.slot);
         }
         // The coalescing buffer holds the settled row for the latest index that
         // has been applied. If the watermark is now strictly above that index,
