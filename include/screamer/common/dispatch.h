@@ -313,12 +313,13 @@ inline nb::object normalize_input(nb::handle x, const S& op) {
             " is not a valid input; pass numbers, arrays, lists or iterators").c_str());
     }
     if (detail::is_ndarray(x)) return nb::borrow(x);
-    if (nb::hasattr(x, "to_numpy")) {
+    {
         nb::object mod = x.type().attr("__module__");
         if (PyUnicode_Check(mod.ptr())) {
             nb::str ms(mod);
             const char* m = ms.c_str();
-            if (std::strcmp(m, "pandas") == 0 || std::strncmp(m, "pandas.", 7) == 0) {
+            if ((std::strcmp(m, "pandas") == 0 || std::strncmp(m, "pandas.", 7) == 0) &&
+                nb::hasattr(x, "to_numpy")) {
                 if (is_time_dtype(x))
                     throw nb::type_error((op_display_name(nb::find(op)) + ": a pandas object with a "
                         "datetime or timedelta dtype is not a valid input; pass numeric values "
@@ -335,19 +336,20 @@ inline nb::object normalize_input(nb::handle x, const S& op) {
 template <class S>
 inline nb::args normalize_args(const nb::args& args, const S& op) {
     const std::size_t n = args.size();
-    nb::list out;
+    nb::object out;  // created at the first changed argument
     bool changed = false;
     for (std::size_t i = 0; i < n; ++i) {
         nb::handle a = args[i];
         nb::object v = normalize_input(a, op);
         if (!changed && v.ptr() != a.ptr()) {
             changed = true;
-            for (std::size_t k = 0; k < i; ++k) out.append(args[k]);
+            out = nb::list();
+            for (std::size_t k = 0; k < i; ++k) nb::cast<nb::list>(out).append(args[k]);
         }
-        if (changed) out.append(v);
+        if (changed) nb::cast<nb::list>(out).append(v);
     }
     if (!changed) return args;
-    return nb::borrow<nb::args>(nb::tuple(out));
+    return nb::borrow<nb::args>(nb::tuple(nb::cast<nb::list>(out)));
 }
 
 // Relocated ScreamerBase dispatch (was ScreamerBase::operator() and
