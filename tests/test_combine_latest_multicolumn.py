@@ -107,3 +107,39 @@ def test_pipeline_rejects_asset_layout():
     x, y = s.Input("x"), s.Input("y")
     with pytest.raises(ValueError, match="asset"):
         s.CombineLatest(layout=("TA", "T"))(x, y)
+
+
+def _empty_indexed():
+    return np.array([]), np.array([], dtype=np.int64)
+
+
+def test_eager_on_any_one_empty_indexed_input_pads_nan():
+    v, i = s.CombineLatest(emit="on_any")((np.arange(5.0), np.arange(5)), _empty_indexed())
+    assert v.shape == (5, 2)
+    np.testing.assert_array_equal(v[:, 0], np.arange(5.0))
+    assert np.isnan(v[:, 1]).all()
+    np.testing.assert_array_equal(i, np.arange(5))
+
+
+def test_eager_on_any_empty_input_beside_a_wide_one():
+    v, _ = s.CombineLatest(emit="on_any")((bars, np.arange(T)), _empty_indexed())
+    assert v.shape == (T, 5)
+    np.testing.assert_array_equal(v[:, :4], bars)
+    assert np.isnan(v[:, 4]).all()
+
+
+def test_lazy_positional_one_empty_source_raises():
+    with pytest.raises(ValueError, match="stay in step"):
+        list(s.CombineLatest()(iter([1.0, 2.0]), iter([])))
+
+
+def test_lazy_indexed_on_any_one_empty_source_matches_eager():
+    eager, eager_index = s.CombineLatest(emit="on_any")((bars, np.arange(T)), _empty_indexed())
+    lazy = list(s.CombineLatest(emit="on_any")(iter(zip(bars, np.arange(T))), iter([])))
+    np.testing.assert_array_equal(np.array([r for r, _ in lazy]), eager)
+    assert [i for _, i in lazy] == list(eager_index)
+
+
+def test_lazy_all_empty_sources_give_nothing():
+    assert list(s.CombineLatest()(iter([]), iter([]))) == []
+    assert list(s.CombineLatest(emit="on_any")(iter([]), iter([]))) == []

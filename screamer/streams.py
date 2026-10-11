@@ -368,6 +368,15 @@ def _join_spec(heads, layouts):
     return fields, assets, wide
 
 
+def _empty_sample(layout):
+    """A one-row sample for a source with no events: size 1 on every axis its
+    layout names (one asset, one field), or a single field without a layout."""
+    if layout is None:
+        return np.full(1, np.nan)
+    axes = [c for c in layout.split("->")[0] if c.isalpha()]
+    return np.full((1,) * len(axes), np.nan)
+
+
 def _combine_latest_lazy(values, emit, layout=None):
     """Dispatch gate for lazy combine_latest: classify sources on first next().
 
@@ -385,10 +394,13 @@ def _combine_latest_lazy(values, emit, layout=None):
         heads.append(h)
         if h is not _EMPTY:
             sources[k] = itertools.chain([h], src)
-    if any(h is _EMPTY for h in heads):
+    if all(h is _EMPTY for h in heads):
         return
-    samples = [np.asarray(h if positional else h[0], dtype=np.float64)[None] for h in heads]
-    fields, assets, wide = _join_spec(samples, _layouts(layout, len(samples)))
+    layouts = _layouts(layout, len(heads))
+    samples = [_empty_sample(lay) if h is _EMPTY
+               else np.asarray(h if positional else h[0], dtype=np.float64)[None]
+               for h, lay in zip(heads, layouts)]
+    fields, assets, wide = _join_spec(samples, layouts)
     if positional:
         rows = _combine_latest_zip_lazy(sources, wide)
     else:
@@ -441,7 +453,7 @@ def combine_latest(*values, index=None, emit="when_all", layout=None):
     streams = _to_streams(values, index)
     kind, idx, vals, positional = _streams_to_indexed(streams, "combine_latest")
     fields, assets, wide = _join_spec(vals, _layouts(layout, len(vals)))
-    flat = [np.ascontiguousarray(f.reshape(f.shape[0], -1)) for f in fields]
+    flat = [np.ascontiguousarray(f.reshape(f.shape[0], int(np.prod(f.shape[1:])))) for f in fields]
     fn = _b._combine_latest_f64 if kind == "f64" else _b._combine_latest_i64
     out_index, rows = fn(idx, flat, emit == "when_all")   # coalesced in C++
     aligned = _assemble(rows, fields, assets) if assets else rows
