@@ -157,7 +157,7 @@ private:
 };
 
 nb::object portfolio_report_call(screamer::PortfolioReport& self, nb::args raw) {
-    nb::args args = screamer::normalize_args(raw, nb::find(self));
+    nb::args args = screamer::normalize_args(raw, self);
     bool has_node = false;
     for (nb::handle arg : args)
         has_node = has_node || screamer::is_dag_node(nb::borrow<nb::object>(arg));
@@ -309,7 +309,7 @@ private:
 };
 
 nb::object row_op_call(screamer::RowOp& self, nb::args raw) {
-    nb::args args = screamer::normalize_args(raw, nb::find(self));
+    nb::args args = screamer::normalize_args(raw, self);
     for (nb::handle a : args)
         if (screamer::is_dag_node(nb::borrow<nb::object>(a)))
             throw nb::type_error("row operators run on arrays and row streams, "

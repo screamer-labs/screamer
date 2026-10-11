@@ -299,7 +299,8 @@ inline bool is_time_dtype(nb::handle x) {
     return nb::hasattr(x, "dtype") && nb::hasattr(x.attr("dtype"), "kind") && kind_is_time(x.attr("dtype"));
 }
 
-inline nb::object normalize_input(nb::handle x, nb::handle self) {
+template <class S>
+inline nb::object normalize_input(nb::handle x, const S& op) {
     PyObject* o = x.ptr();
     if (PyFloat_CheckExact(o) || PyLong_CheckExact(o) || PyList_CheckExact(o) ||
         PyTuple_CheckExact(o))
@@ -308,7 +309,7 @@ inline nb::object normalize_input(nb::handle x, nb::handle self) {
                      PyMemoryView_Check(o) || PyDict_Check(o) || PyAnySet_Check(o);
     if (bad) {
         std::string tn = nb::type_name(x.type()).c_str();
-        throw nb::type_error((op_display_name(self) + ": a " + tn +
+        throw nb::type_error((op_display_name(nb::find(op)) + ": a " + tn +
             " is not a valid input; pass numbers, arrays, lists or iterators").c_str());
     }
     if (detail::is_ndarray(x)) return nb::borrow(x);
@@ -319,7 +320,7 @@ inline nb::object normalize_input(nb::handle x, nb::handle self) {
             const char* m = ms.c_str();
             if (std::strcmp(m, "pandas") == 0 || std::strncmp(m, "pandas.", 7) == 0) {
                 if (is_time_dtype(x))
-                    throw nb::type_error((op_display_name(self) + ": a pandas object with a "
+                    throw nb::type_error((op_display_name(nb::find(op)) + ": a pandas object with a "
                         "datetime or timedelta dtype is not a valid input; pass numeric values "
                         "(convert timestamps yourself)").c_str());
                 return x.attr("to_numpy")(nb::arg("dtype") = nb::borrow(reinterpret_cast<PyObject*>(&PyFloat_Type)));
@@ -329,14 +330,21 @@ inline nb::object normalize_input(nb::handle x, nb::handle self) {
     return nb::borrow(x);
 }
 
-// Normalizes every argument of a call; returns args itself when none changed.
-inline nb::args normalize_args(const nb::args& args, nb::handle self) {
+// Normalizes every argument of a call; returns args itself, without
+// allocating, when none needed conversion.
+template <class S>
+inline nb::args normalize_args(const nb::args& args, const S& op) {
+    const std::size_t n = args.size();
     nb::list out;
     bool changed = false;
-    for (nb::handle a : args) {
-        nb::object n = normalize_input(a, self);
-        changed = changed || n.ptr() != a.ptr();
-        out.append(n);
+    for (std::size_t i = 0; i < n; ++i) {
+        nb::handle a = args[i];
+        nb::object v = normalize_input(a, op);
+        if (!changed && v.ptr() != a.ptr()) {
+            changed = true;
+            for (std::size_t k = 0; k < i; ++k) out.append(args[k]);
+        }
+        if (changed) out.append(v);
     }
     if (!changed) return args;
     return nb::borrow<nb::args>(nb::tuple(out));
@@ -1014,7 +1022,7 @@ nb::object functor_Ni_Mo(Op& self, const nb::args& raw_args) {
 template <class Op>
 nb::object functor_call(Op& self, nb::args raw) {
     constexpr size_t N = Op::kN, M = Op::kM;
-    nb::args args = normalize_args(raw, nb::find(self));
+    nb::args args = normalize_args(raw, self);
     for (nb::handle a : args) {
         if (screamer::is_dag_node(nb::borrow<nb::object>(a)))
             return screamer::make_dag_functor_node(nb::find(self), nb::cast<nb::tuple>(args));
