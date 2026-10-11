@@ -142,6 +142,8 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
   ("do not broadcast", "same length along time"); they raised `TypeError`.
 * Passing an object whose class has a non-string `__module__` to an operator
   raised a segmentation fault; it now raises `TypeError`.
+* Operator constructors and other calls no longer crash on an object whose
+  class has a non-string `__module__` (nanobind upgraded to 2.13.0).
 * An input that an operator cannot read raises `TypeError` that names the
   operator and the input's type (`RollingMean: a M is not a valid input; ...`)
   on every dispatch path; most paths said only "Unsupported input type."
@@ -155,6 +157,9 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
   per chunk.
 * `WilliamsR` runs its batch fast path on packed `(T, 3)` and `(T, K)` input,
   about 3.5x faster on a packed call.
+* nanobind 2.13.0 lowers the cost of a single-event call: `RollingMean(20)(1.0)`
+  takes about 0.065 µs (was 0.077 µs) and `RollingCorr(20)(1.0, 2.0)` about
+  1.0 µs (was 1.6 µs).
 
 ### Documentation
 

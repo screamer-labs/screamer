@@ -47,9 +47,10 @@ set(LOCAL_CACHE_DIR ${CMAKE_SOURCE_DIR}/_local_deps)
 
 # nanobind replaces pybind11 (migration 2026-08). nanobind has STABLE_ABI from
 # Python 3.12+, which collapses the release wheel matrix to one abi3 wheel per
-# platform. v2.9.2 is the tag validated by the migration spike; bump to a newer
-# stable tag when re-validated. See docs/superpowers/plans/2026-08-01-nanobind-migration.md.
-set(SCREAMER_NANOBIND_TAG "v2.9.2")
+# platform. v2.13.0 (bumped from v2.9.2 for 3.0.0) fixes crashes on an object
+# whose class has a non-str __module__. See
+# docs/superpowers/plans/2026-08-01-nanobind-migration.md.
+set(SCREAMER_NANOBIND_TAG "v2.13.0")
 
 if(EXISTS "${LOCAL_CACHE_DIR}/nanobind")
     message(STATUS "Using locally cached nanobind at ${LOCAL_CACHE_DIR}/nanobind")

@@ -76,19 +76,44 @@ def test_mixed_inputs_name_their_types():
                    "pass all numbers, all arrays, or all sequences"]
 
 
-# nanobind v2.9.2 formats __module__ unchecked when it builds an
-# overload-resolution error (any such failure, including every operator
-# constructor) and when a Python class subclasses a bound type. Fixed upstream in v2.13.0
-# (commits 7f6ad04, 0a58515); these pass once the pinned tag is bumped.
-@pytest.mark.xfail(strict=True, reason="nanobind < 2.13 crashes on a non-str __module__")
-@pytest.mark.parametrize("call", [
+# Calls that fail inside nanobind itself: overload resolution (every operator
+# constructor, wrong arity, an unknown keyword, a typed ndarray binding) and
+# subclassing a bound type. nanobind before v2.13.0 read a non-str __module__
+# unchecked here and crashed.
+NANOBIND_CALLS = [
     "s.RollingMean(2)(M(), M())",                                   # overload error message
-    "type('X', (s.RollingMean,), {'__module__': None})(2)",          # subclass a bound type
+    "s.RollingMean(2)(1.0, x=M())",                                 # unknown keyword
     "s.RollingMean(M())",                                           # constructor overload error
     "s.RollingMean(window_size=M())",                               # constructor overload error
+    "s.RollingMean(M(), 1, 2, 3)",                                  # constructor wrong arity
+    "__import__('screamer.screamer_bindings', fromlist=['_'])"
+    "._circular_shift(M(), 1, 1, 0, 1)",                            # typed ndarray binding
+]
+
+
+@pytest.mark.parametrize("call", NANOBIND_CALLS)
+@pytest.mark.parametrize("case", sorted(set(HEADERS) - {"module_surrogate"}))
+def test_nanobind_internal_hostile_module(case, call):
+    out = _run(HEADERS[case], call)
+    assert out[0] == "TypeError" and "incompatible function arguments" in out[1], out
+
+
+@pytest.mark.parametrize("module", ["None", "5", "b'x'"])
+def test_subclass_bound_type_with_hostile_module(module):
+    out = _run("", f"type('X', (s.RollingMean,), {{'__module__': {module}}})(2)")
+    assert out == ["no error"], out
+
+
+# nanobind (v2.13.0 and its master branch as of 2026-10) still crashes on a
+# __module__ that is a str but cannot be encoded as UTF-8: an overload error
+# passes a null c_str() to put_dstr, and subclassing a bound type passes a null
+# name to strdup_check.
+@pytest.mark.xfail(strict=True, reason="nanobind crashes on an unencodable __module__")
+@pytest.mark.parametrize("call", NANOBIND_CALLS + [
+    "type('X', (s.RollingMean,), {'__module__': '\\udc80'})(2)",  # subclass a bound type
 ])
-def test_nanobind_internal_hostile_module(call):
-    out = _run(HEADERS["module_none"], call)
+def test_nanobind_surrogate_module(call):
+    out = _run(HEADERS["module_surrogate"], call)
     assert out[0] in ("TypeError", "no error"), out
 
 
