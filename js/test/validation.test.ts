@@ -50,8 +50,8 @@ test("validation: positionTest observed metric matches BacktestReport", () => {
   const tgt = Array.from({ length: 300 }, (_, t) => (Math.floor(t / 5) % 3) - 1);
   const eng = BacktestOHLCTarget(2e-4);
   const res = positionTest(eng, tgt, [o, h, l, c], { n: 50, seed: 3 });
-  const out = eng(tgt, o, h, l, c) as { data: Float64Array; shape: number[] };
-  const rep = BacktestReport()(col(out, 0), col(out, 1), col(out, 2), col(out, 3)) as
+  const out = eng(Float64Array.from(tgt), o, h, l, c) as { data: Float64Array; shape: number[] };
+  const rep = BacktestReport()(Float64Array.from(col(out, 0)), col(out, 1), col(out, 2), col(out, 3)) as
     { data: Float64Array; shape: number[] };
   const sharpe = col(rep, 5).filter(Number.isFinite).at(-1);
   assert.equal(res.observed, sharpe);

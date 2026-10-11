@@ -529,7 +529,10 @@ export function wrapOp(M: Screamer, src: OpSource, copy?: () => RawOp): Screamer
       const data = batchInto(rows, (view) => {
         for (let i = 0; i < rows; i++) for (let k = 0; k < nIn; k++) view[i * nIn + k] = cols[k][i];
       });
-      return nOut === 1 ? data : ({ data, shape: [rows, nOut] } as NdArray);
+      const out = nOut === 1 ? data : ({ data, shape: [rows, nOut] } as NdArray);
+      // Rule 3: all number[] inputs give an Array, one result per event, as
+      // Python lists give a list. A typed array among them gives an array (A8).
+      return args.every((x) => Array.isArray(x)) ? perEvent(out, rows) : out;
     }
     if (args.length === 1 && Array.isArray(args[0])) {
       // A list is a sequence of events, and each event must hold every input.

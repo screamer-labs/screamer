@@ -91,10 +91,15 @@ call it with N numbers for one streaming event, or N same-length arrays for a co
 ```js
 Add()(1, 2);                                              // 3
 Add()(new Float64Array([1, 2, 3]), new Float64Array([10, 20, 30])); // Float64Array [11, 22, 33]
+Add()([1, 2, 3], [10, 20, 30]);                           // [11, 22, 33]
+Add()([1, 2, 3], new Float64Array([10, 20, 30]));         // Float64Array [11, 22, 33]
+Add()([[1, 10], [2, 20]]);                                // [11, 22], one result per event
 ```
 
-Mismatched array lengths across inputs throw a `TypeError` rather than truncating or
-NaN-filling.
+The container follows the inputs: all `number[]` inputs give a `number[]`, and any
+`Float64Array` or `NdArray` input gives a `Float64Array` or `NdArray`. An array of events gives
+an array with one result per event. Mismatched array lengths across inputs throw a `RangeError`
+rather than truncating or NaN-filling.
 
 A stream takes one iterable per input, or one iterable whose events hold every input, such as
 `[high, low, close]` arrays. Each event reads one item from every source, and the stream ends
@@ -176,6 +181,9 @@ report([
 // A whole run at once, as an NdArray of shape [events, assets, 4].
 report({ data: engineOutput, shape: [events, assets, 4] }); // NdArray, shape [events, 6]
 ```
+
+An array of events (nested arrays, or `[assets, 4]` `NdArray` events) gives an array of
+`Float64Array` result rows, one per event.
 
 The nested form above and a flat `Float64Array` of `assets * 4` values are both accepted for a
 single event, as is an iterable of events for streaming. The asset count is fixed by the first

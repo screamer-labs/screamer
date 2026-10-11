@@ -14,6 +14,10 @@ import type { ScreamerOp } from "./runtime.js";
 import { BacktestReport, BacktestStats, PortfolioReport } from "./generated/ops.js";
 
 // Leading NaN warmup length and the length of the series after it.
+// A target as a Float64Array, so the engine returns an NdArray: all number[]
+// inputs would give an Array of per-event results (rule 3).
+const asTyped = (x: ArrayLike<number>): ArrayLike<number> => (Array.isArray(x) ? Float64Array.from(x) : x);
+
 function validLength(x: ArrayLike<number>): number {
   let p = 0;
   while (p < x.length && Number.isNaN(x[p])) p++;
@@ -354,7 +358,7 @@ function positionSingle(
   const scorer = makeScorer(metric, opts.periodsPerYear ?? 1);
   try {
     engine.reset();
-    const obs = scorer.score(engine(target, ...market) as NdArray);
+    const obs = scorer.score(engine(asTyped(target), ...market) as NdArray);
     const observed = obs.value;
     const nullStats = statsRecord(() => new Float64Array(n));
 
@@ -795,7 +799,7 @@ function positionFamily(
   const scorer = makeScorer(metric, opts.periodsPerYear ?? 1);
   const observe = (x: ArrayLike<number>) => {
     engine.reset();
-    return scorer.score(engine(x, ...market) as NdArray);
+    return scorer.score(engine(asTyped(x), ...market) as NdArray);
   };
   try {
     const obs = targets.map(observe);

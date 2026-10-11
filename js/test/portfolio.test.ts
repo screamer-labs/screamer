@@ -52,7 +52,7 @@ test("portfolio: one asset in units matches BacktestPriceTarget", () => {
   const px = close.map((r) => r[0]);
   const a = BacktestPortfolioTarget(1e-3, 5e-4, "fraction", 0, 1, 0, "units", 0)(
     mat(tgt.map((v) => [v])), mat(px.map((v) => [v])));
-  const b = BacktestPriceTarget(0, 1e-3, -Infinity, Infinity, 1, 0, 5e-4)(tgt, px) as { data: Float64Array };
+  const b = BacktestPriceTarget(0, 1e-3, -Infinity, Infinity, 1, 0, 5e-4)(Float64Array.from(tgt), px) as { data: Float64Array };
   assert.ok(near(a.data, Array.from(b.data)));
 });
 

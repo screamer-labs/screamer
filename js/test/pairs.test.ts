@@ -13,7 +13,7 @@ const near = (a: ArrayLike<number>, b: number[], tol = 1e-9) =>
 const pick = (a: ArrayLike<number>, idx: number[]) => idx.map((i) => a[i]);
 
 test("pairs: KalmanRegression matches Python", () => {
-  const out = KalmanRegression(1e-6, 1e-4)(y, x) as { data: Float64Array; shape: number[] };
+  const out = KalmanRegression(1e-6, 1e-4)(Float64Array.from(y), x) as { data: Float64Array; shape: number[] };
   assert.deepEqual(out.shape, [40, 4]);
   const rows = [1, 10, 39].flatMap((r) => Array.from(out.data.slice(r * 4, r * 4 + 4)));
   assert.ok(near(rows, [1.1989424874592927, 0.3129504542698542, -0.002333143763240564, 0.014789076087763668,

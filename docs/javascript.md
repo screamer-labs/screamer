@@ -95,8 +95,10 @@ The [six rules](polymorphic_api.md#the-six-rules) hold in JavaScript, with an
    independent run with its own state. An array of events, such as
    `[[x0, y0], [x1, y1]]` or `[Float64Array(K), Float64Array(K)]`, is a
    sequence of events and gives an array with one result per event, as a
-   Python list does. A call that mixes `number[]` with `Float64Array` or
-   `NdArray` inputs returns an array. In a `Pipeline` feed or a live push,
+   Python list does. All `number[]` inputs give a `number[]` (an array of
+   `number[]` for a multi-output op), as Python lists give a list, and a call
+   that mixes `number[]` with `Float64Array` or `NdArray` inputs returns an
+   array. In a `Pipeline` feed or a live push,
    `null` is a missing value and reads as `NaN`, as Python's `None` does.
 4. **Separate arguments, or one packed array, with assets broadcast.**
    `RollingCorr(20)(X, y)` with `X` of shape `[T, K]` and `y` a `Float64Array`

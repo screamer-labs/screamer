@@ -218,3 +218,26 @@ test("A10: a number[] into a 1-input op still gives an Array", async () => {
   assert.ok(Array.isArray(got));
   eq(got, [NaN, 1.5, 2.5]);
 });
+
+test("A10: all number[] inputs into a multi-input op give an Array, as Python lists give a list", async () => {
+  await api.ready();
+  assert.deepEqual(a.Add()([1, 2, 3], [10, 20, 30]), [11, 22, 33]);
+  for (const op of TWO()) {
+    const want = op(Float64Array.from(xs), Float64Array.from(ys));
+    const got = op(xs, ys);
+    assert.ok(Array.isArray(got) && got.length === T);
+    if (want instanceof Float64Array) eq(got, want);
+    else got.forEach((r: number[], t: number) => {      // nOut > 1: number[] per event, Python's tuple
+      assert.ok(Array.isArray(r) && r.length === want.shape[1]);
+      eq(r, want.data.slice(t * r.length, (t + 1) * r.length), `event ${t}`);
+    });
+    assert.ok(!Array.isArray(op(Float64Array.from(xs), Float64Array.from(ys))), "typed inputs keep an array");
+  }
+  const hi = xs.map((v) => Math.abs(v) + 2), lo = ys.map((v) => -Math.abs(v) - 2);
+  for (const op of THREE()) {
+    const got = op(hi, lo, zs);
+    assert.ok(Array.isArray(got) && got.length === T);
+    eq(got.flat(), flat(op(Float64Array.from(hi), Float64Array.from(lo), Float64Array.from(zs))));
+  }
+  assert.throws(() => a.Add()([1, 2, 3], [1, 2]), RangeError);
+});
