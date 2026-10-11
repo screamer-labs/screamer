@@ -2,6 +2,10 @@ import type { Screamer, RawOp } from "./loader.js";
 import { normalizeError } from "./errors.js";
 import { asNd, type NdArray } from "./ndarray.js";
 import { Node, isNode } from "./node.js";
+import { throwIfWrongKind, throwIfWrongKindEvent, whereText } from "./kinds.js";
+
+// The op's class name for error messages, e.g. "RollingMean".
+const opName = (raw: RawOp): string => (raw as any).constructor?.name ?? "this op";
 
 // `Symbol.dispose` (explicit resource management) is provided by the
 // "ESNext.Disposable" lib entry in tsconfig.json.
@@ -311,6 +315,7 @@ export function wrapOp(M: Screamer, src: OpSource, copy?: () => RawOp): Screamer
     // Per-event views of the current event's parts, reused across events.
     const partData: ArrayLike<number>[] = [], partShape: number[][] = [];
     const numBuf: Float64Array[] = [], lenShape: number[][] = [];
+    let nEv = 0;                                  // events seen, for error messages
 
     const handle = {
       release() {
@@ -350,6 +355,7 @@ export function wrapOp(M: Screamer, src: OpSource, copy?: () => RawOp): Screamer
           s[0] = v.length;
           partData[k] = v; partShape[k] = s;
         } else {
+          throwIfWrongKindEvent(opName(raw), items, nEv - 1);
           throw new TypeError(`unsupported event: ${Array.isArray(v) ? "an array of non-numbers" : typeof v}`);
         }
       }
@@ -408,13 +414,17 @@ export function wrapOp(M: Screamer, src: OpSource, copy?: () => RawOp): Screamer
 
     const step = (items: any[]) => {
       if (disposed) throw new Error("operation used after dispose()");
+      nEv++;
       if (mode !== ASSETS) {
         const v = scalarValues(items);
         if (v) {
           if (mode === UNKNOWN) { ops.push(pool.acquire()); mode = SCALAR; }
           return evalOn(ops[0], v);
         }
-        if (mode === SCALAR) throw new RangeError("every event must have the same shape: the first events were numbers, this one is not");
+        if (mode === SCALAR) {
+          throwIfWrongKindEvent(opName(raw), items, nEv - 1);
+          throw new RangeError("every event must have the same shape: the first events were numbers, this one is not");
+        }
       }
       return assetEvent(items);
     };
@@ -442,6 +452,7 @@ export function wrapOp(M: Screamer, src: OpSource, copy?: () => RawOp): Screamer
       if (isNd(a)) return shaped([a]);
       if (isTyped(a)) return batch1(a, true);
       if (isNumArr(a)) return batch1(a, false);
+      if (Array.isArray(a)) for (let i = 0; i < a.length; i++) throwIfWrongKind(opName(raw), a[i], whereText("event", i));
       throw new TypeError(`unsupported input for a 1-input op: ${typeof a}`);
     }
     // nIn > 1: N scalars -> one event; N arrays -> columnar batch.
@@ -471,7 +482,7 @@ export function wrapOp(M: Screamer, src: OpSource, copy?: () => RawOp): Screamer
         if (isNd(e) && last(e) === nIn) continue;
         const m = typeof e === "number" ? 1 : isNd(e) ? e.data.length : isTyped(e) || Array.isArray(e) ? e.length : -1;
         if (m < 0 || m === nIn) continue;
-        const name = (raw as any).constructor?.name ?? "this op";
+        const name = opName(raw);
         throw new RangeError(`${name} expects ${nIn} inputs; a list is read as a sequence of events, and event ${i} has ${m} value${m === 1 ? "" : "s"} (expected ${nIn}). To pass ${nIn} separate inputs, call ${name}()(${nIn > 2 ? "a, b, ..." : "a, b"}).`);
       }
       // Events of nIn values each read like the columns of a batch.
@@ -484,8 +495,14 @@ export function wrapOp(M: Screamer, src: OpSource, copy?: () => RawOp): Screamer
         evs.forEach((e, t) => data.set(e.data, t * per));
         return call({ shape: [evs.length, ...evs[0].shape], data } as NdArray);
       }
+      for (let i = 0; i < evs.length; i++) throwIfWrongKind(opName(raw), evs[i], whereText("event", i));
     }
     if (args.length !== nIn) throw new RangeError(`expected ${nIn} inputs, got ${args.length}`);
+    for (let k = 0; k < nIn; k++) {
+      const col = args[k];
+      if (Array.isArray(col))
+        for (let i = 0; i < col.length; i++) throwIfWrongKind(opName(raw), col[i], whereText("event", i, k));
+    }
     throw new TypeError(`expected ${nIn} numeric inputs`);
   };
 
@@ -628,10 +645,13 @@ export function wrapReducerOp(M: Screamer, src: OpSource): ScreamerOp {
   const openStream = (): Stepper => {
     if (disposed) throw new Error("operation used after dispose()");
     const own = pool.acquire();
+    let nEv = 0;                                  // events seen, for error messages
     const step = (items: any[]) => {
       if (disposed) throw new Error("operation used after dispose()");
-      const { flat, assets } = asRow(items[0]);
-      return event(flat, assets, own);
+      const ev = nEv++;
+      let row: { flat: ArrayLike<number>; assets: number };
+      try { row = asRow(items[0]); } catch (e) { throwIfWrongKindEvent(opName(raw), items, ev); throw e; }
+      return event(row.flat, row.assets, own);
     };
     return { step, close: () => pool.release(own) };
   };
@@ -659,11 +679,14 @@ export function wrapReducerOp(M: Screamer, src: OpSource): ScreamerOp {
       const { flat, assets } = asRow(x);
       return event(flat, assets);
     }
-    if (isNestedBatch(x)) return nestedBatch(x);
     if (isAsyncIter(x)) return stream(x, true);
     if (isSyncIter(x)) return stream(x, false);
-    const { flat, assets } = asRow(x);
-    return event(flat, assets);
+    let row: { flat: ArrayLike<number>; assets: number };
+    try {
+      if (isNestedBatch(x)) return nestedBatch(x);
+      row = asRow(x);
+    } catch (e) { throwIfWrongKind(opName(raw), x, ""); throw e; }
+    return event(row.flat, row.assets);
   };
 
   const op = call as ScreamerOp;
@@ -779,12 +802,16 @@ export function wrapRowOp(M: Screamer, src: OpSource): ScreamerOp {
     const own = pool.acquire();
     const unpack = n === 1 && fi > 1;
     const rows: ArrayLike<number>[] = new Array(fi);
+    let nEv = 0;                                  // events seen, for error messages
     const step = (items: any[]) => {
       if (disposed) throw new Error("operation used after dispose()");
-      const ev = unpack ? items[0] : items;
-      if (unpack && (!Array.isArray(ev) || ev.length !== fi))
-        throw new RangeError(`each event of one row stream is an array of ${fi} rows of K values`);
-      for (let f = 0; f < fi; f++) rows[f] = asRow(ev[f]);
+      const k = nEv++;
+      try {
+        const ev = unpack ? items[0] : items;
+        if (unpack && (!Array.isArray(ev) || ev.length !== fi))
+          throw new RangeError(`each event of one row stream is an array of ${fi} rows of K values`);
+        for (let f = 0; f < fi; f++) rows[f] = asRow(ev[f]);
+      } catch (e) { throwIfWrongKindEvent(opName(raw), items, k); throw e; }
       return eventOut(rows, own);
     };
     return { step, close: () => pool.release(own) };
@@ -803,8 +830,10 @@ export function wrapRowOp(M: Screamer, src: OpSource): ScreamerOp {
     if (args.every((a) => isTyped(a) || isNumArr(a) || (isNd(a) && a.shape.length === 1)))
       return eventOut(args.map((a) => (isNd(a) ? a.data : a)));
     const blocks = args.map(asBlock);
-    if (blocks.some((b) => b === null))
+    if (blocks.some((b) => b === null)) {
+      for (let i = 0; i < fi; i++) throwIfWrongKind(opName(raw), args[i], fi > 1 ? whereText("input", i) : "");
       throw new TypeError("expected (T, K) arrays, arrays of rows, or one row per input");
+    }
     const b0 = blocks[0]!;
     if (blocks.some((b) => b!.T !== b0.T || b!.k !== b0.k))
       throw new RangeError("all inputs must have the same shape");

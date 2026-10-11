@@ -100,6 +100,7 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
   `TypeError`. Old result: `(op(x) for x in source)` continues the running
   series as a 2.8.0 Python stream did, and `[op(x) for x in values]` (or
   `op(*event)` for events of several inputs) does the same for a list.
+* A value of the wrong kind inside a list, tuple stream or iterator raises `TypeError` that names its type and position; before, it raised `RuntimeError: std::bad_cast`. For example, `RollingMean(2)([1.0, None])` raises `TypeError: RollingMean: event 1 is a NoneType, expected a number`. JavaScript gives the same messages; there a list of events or an iterator item of the wrong kind threw `RangeError` before, and a non-number in a `Pipeline` feed or `live().push()` became `NaN` silently.
 
 ### Fixed
 

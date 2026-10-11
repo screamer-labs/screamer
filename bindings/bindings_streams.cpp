@@ -64,7 +64,8 @@ public:
         child_ptrs_.reserve(n);
         for (nb::handle h : iter_list) {
             sources_.push_back(
-                std::make_unique<PySource<Index>>(nb::borrow<nb::object>(h), positional));
+                std::make_unique<PySource<Index>>(nb::borrow<nb::object>(h), positional,
+                                                  sources_.size(), "merge"));
             child_ptrs_.push_back(sources_.back().get());
         }
         // Prime the heap with the first event from each child.

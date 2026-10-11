@@ -32,8 +32,13 @@ nb::object screamer_call(ScreamerBase& self, nb::object raw) {
     if (nb::isinstance<nb::list>(obj) || nb::isinstance<nb::tuple>(obj)) {
         EagerRun<ScreamerBase> run(self);
         nb::list out;
+        std::ptrdiff_t k = 0;
         for (nb::handle item : obj) {
-            out.append(nb::float_(self.process_scalar(nb::cast<double>(item))));
+            double d;
+            if (!nb::try_cast<double>(item, d))
+                throw_not_a_number(op_display_name(nb::find(self)), item, where_text("event", k));
+            out.append(nb::float_(self.process_scalar(d)));
+            ++k;
         }
         return out;
     }

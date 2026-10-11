@@ -90,3 +90,144 @@ def test_mixed_inputs_name_their_types():
 def test_nanobind_internal_hostile_module(call):
     out = _run(HEADERS["module_none"], call)
     assert out[0] in ("TypeError", "no error"), out
+
+
+# ---- G7: a wrong-kind element raises TypeError, never std::bad_cast --------
+
+import asyncio  # noqa: E402
+
+import screamer as s  # noqa: E402
+from screamer.streams import merge  # noqa: E402
+
+
+class M:
+    pass
+
+
+def _pipeline_iter():
+    a = s.Input("a")
+    p = s.Pipeline([a], [s.RollingMean(2)(a)])
+    return list(p(iter([M()])))
+
+
+def _pipeline_iter_value():
+    a = s.Input("a")
+    p = s.Pipeline([a], [s.RollingMean(2)(a)])
+    return list(p(iter([(1.0, 0), (M(), 1)])))
+
+
+def _pipeline_iter_index():
+    a = s.Input("a")
+    p = s.Pipeline([a], [s.RollingMean(2)(a)])
+    return list(p(iter([(1.0, M())])))
+
+
+def _pipeline_iter_wide():
+    a = s.Input("a")
+    p = s.Pipeline([a], [s.RollingMean(2)(a)])
+    return list(p(iter([((1.0, M()), 0)])))
+
+
+def _pipeline_live():
+    a = s.Input("a")
+    p = s.Pipeline([a], [s.RollingMean(2)(a)])
+    return p.live().push("a", 0, M())
+
+
+async def _agen(items):
+    for x in items:
+        yield x
+
+
+def _async(op, items):
+    async def run():
+        return [x async for x in op(_agen(items))]
+    return asyncio.run(run())
+
+
+# (call, text the message must contain); "M" is always required as well.
+WRONG_KIND = {
+    "list_element": (lambda: s.RollingMean(2)([1.0, M()]), "RollingMean: event 1 is a M"),
+    "list_object": (lambda: s.RollingMean(2)([object()]), "RollingMean: event 0 is a object"),
+    "tuple_element": (lambda: s.RollingMean(2)((1.0, M())), "RollingMean: event 1"),
+    "list_1i_Mo": (lambda: s.RollingMinMax(2)([1.0, M()]), "RollingMinMax: event 1"),
+    "list_two_inputs": (lambda: s.Add()([1.0, M()], [1.0, 2.0]), "Add: event 1 of input 0"),
+    "list_two_inputs_second": (lambda: s.Add()([1.0, 2.0], [1.0, M()]), "Add: event 1 of input 1"),
+    "list_2i_Mo": (lambda: s.RollingLinearRegression(3)([1.0, M()], [1.0, 2.0]),
+                   "RollingLinearRegression: event 1 of input 0"),
+    "events_2i_Mo": (lambda: s.RollingLinearRegression(3)([(1.0, M())]),
+                     "RollingLinearRegression: item [1] of event 0"),
+    "events_tuple": (lambda: s.Add()([(1.0, M())]), "Add: item [1] of event 0"),
+    "events_list": (lambda: s.Add()([[1.0, M()]]), "Add: item [1] of event 0"),
+    "events_tuple_later": (lambda: s.Add()([(1.0, 2.0), (M(), 1.0)]), "Add: item [0] of event 1"),
+    "tuple_stream": (lambda: s.Add()((M(), M())), "Add: a M"),
+    "list_of_n_objects": (lambda: s.Add()([M(), M()]), "Add: a M"),
+    "iter_second": (lambda: list(s.RollingMean(2)(iter([1.0, M()]))), "RollingMean: event 1"),
+    "iter_first": (lambda: list(s.RollingMean(2)(iter([M()]))), "RollingMean: event 0"),
+    "iter_1i_Mo": (lambda: list(s.RollingMinMax(2)(iter([1.0, M()]))), "RollingMinMax: event 1"),
+    "iter_two_inputs": (lambda: list(s.Add()(iter([1.0, M()]), iter([1.0, 2.0]))),
+                        "Add: event 1 of input 0"),
+    "iter_events": (lambda: list(s.Add()(iter([(1.0, 2.0), (1.0, M())]))),
+                    "Add: item [1] of event 1"),
+    "iter_after_arrays": (lambda: list(s.RollingMean(2)(iter([[1.0, 2.0], M()]))),
+                          "RollingMean: event 1"),
+    "async_item": (lambda: _async(s.RollingMean(2), [1.0, M()]), "RollingMean: event 1"),
+    "async_first": (lambda: _async(s.RollingMean(2), [M()]), "RollingMean: event 0"),
+    "row_list": (lambda: s.CrossRank()([[1.0, 2.0], [1.0, M()]]), "CrossRank: item [1][1]"),
+    "row_list_row": (lambda: s.CrossRank()([[1.0, 2.0], M()]), "CrossRank: item [1]"),
+    "row_iter": (lambda: list(s.CrossRank()(iter([[1.0, 2.0], [1.0, M()]]))),
+                 "CrossRank: item [1] of event 1"),
+    "row_iter_row": (lambda: list(s.CrossRank()(iter([[1.0, 2.0], M()]))), "CrossRank: event 1"),
+    "row_async": (lambda: _async(s.CrossRank(), [[1.0, 2.0], M()]), "CrossRank: event 1"),
+    "report_list": (lambda: s.PortfolioReport()([[1.0, 2.0, 3.0, 4.0], [1.0, 2.0, 3.0, M()]]),
+                    "PortfolioReport: item [1][3]"),
+    "report_list_row": (lambda: s.PortfolioReport()([[1.0, 2.0, 3.0, 4.0], M()]),
+                        "PortfolioReport: item [1]"),
+    "report_iter": (lambda: list(s.PortfolioReport()(iter([[1.0, 2.0, 3.0, 4.0],
+                                                           [1.0, 2.0, 3.0, M()]]))),
+                    "PortfolioReport: item [3] of event 1"),
+    "report_iter_row": (lambda: list(s.PortfolioReport()(iter([[1.0, 2.0, 3.0, 4.0], M()]))),
+                        "PortfolioReport: event 1"),
+    "pipeline_iter": (_pipeline_iter, "Pipeline: event 0 of input 0 is a M"),
+    "pipeline_iter_value": (_pipeline_iter_value, "Pipeline: the value of event 1 of input 0"),
+    "pipeline_iter_index": (_pipeline_iter_index, "Pipeline: the index of event 0 of input 0"),
+    "pipeline_iter_wide": (_pipeline_iter_wide, "Pipeline: item [1] of the value of event 0"),
+    "pipeline_live": (_pipeline_live, ""),
+    "merge_positional": (lambda: list(merge(iter([1.0, M()]), iter([2.0]))),
+                         "merge: event 1 of input 0 is a M"),
+    "merge_indexed": (lambda: list(merge(iter([(1.0, 0), (M(), 1)]), iter([(2.0, 0)]))),
+                      "merge: the value of event 1 of input 0 is a M"),
+}
+
+
+@pytest.mark.parametrize("case", sorted(WRONG_KIND))
+def test_wrong_kind_element_raises_type_error(case):
+    call, text = WRONG_KIND[case]
+    with pytest.raises(TypeError) as info:
+        call()
+    msg = str(info.value)
+    assert "M" in msg or "object" in msg, msg
+    assert text in msg, msg
+
+
+def test_wrong_kind_element_hostile_module():
+    # The element's type name is read safely, also for a hostile __module__.
+    header = HEADERS["module_none"]
+    for call in ["s.RollingMean(2)([1.0, M()])", "list(s.RollingMean(2)(iter([1.0, M()])))",
+                 "s.Add()([(1.0, M())])", "s.CrossRank()([[1.0, 2.0], M()])"]:
+        out = _run(header, call)
+        assert out[0] == "TypeError" and "M" in out[1], (call, out)
+
+
+def test_list_of_wrong_count_is_not_bad_cast():
+    # A one-item list for a two-input operator was a std::bad_cast.
+    with pytest.raises(TypeError):
+        s.Add()([M()])
+
+
+def test_wrong_kind_leaves_shape_errors_alone():
+    # An event of the wrong shape (not the wrong kind) is still a ValueError.
+    with pytest.raises(ValueError):
+        list(s.RollingMean(2)(iter([1.0, [1.0, 2.0]])))
+    with pytest.raises(ValueError):
+        s.CrossRank()([[1.0, 2.0], [1.0]])

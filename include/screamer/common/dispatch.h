@@ -134,11 +134,12 @@ inline bool is_ndarray(nb::handle h) {
 // coerces these to float64 upstream (coerce_to_f64) so the normal ndarray path
 // handles them. A 0-d array (ndim==0) is excluded: it behaves like a scalar.
 inline bool is_unsupported_dtype_array(nb::handle h) {
+    int nd = 0;
     return !is_ndarray(h)
         && nb::hasattr(h, "dtype")
         && nb::hasattr(h, "shape")
         && nb::hasattr(h, "ndim")
-        && nb::cast<int>(h.attr("ndim")) > 0;
+        && nb::try_cast<int>(h.attr("ndim"), nd) && nd > 0;
 }
 
 // Replica of pybind11's `py::array_t<double, py::array::forcecast>`: a
@@ -283,13 +284,6 @@ inline NInputs<N> read_tuple_inputs(const nb::tuple& inputs) {
 
 }  // namespace detail
 
-// The operator's class name for error messages, e.g. "RollingMean".
-inline std::string op_display_name(nb::handle self) {
-    std::string name = type_short_name(self.type());
-    if (auto dot = name.rfind('.'); dot != std::string::npos) name.erase(0, dot + 1);
-    return name;
-}
-
 // An argument that is not data: names the operator and the argument's type.
 [[noreturn]] inline void throw_unsupported_input(nb::handle self, nb::handle x) {
     throw nb::type_error((op_display_name(self) + ": a " + type_short_name(x.type()) +
@@ -412,7 +406,8 @@ inline bool is_lazy_iterable(nb::handle h) {
 
 namespace detail {
 inline bool has_axis(nb::handle h) {
-    return nb::hasattr(h, "ndim") && nb::cast<int>(h.attr("ndim")) > 0;
+    int nd = 0;
+    return nb::hasattr(h, "ndim") && nb::try_cast<int>(h.attr("ndim"), nd) && nd > 0;
 }
 }  // namespace detail
 
@@ -452,9 +447,15 @@ inline void check_event_arity(nb::handle self, nb::handle list, std::size_t n) {
     if (nb::isinstance<nb::tuple>(ev) || nb::isinstance<nb::list>(ev)) {
         m = nb::len(ev);
     } else if (detail::has_axis(ev)) {
-        nb::tuple shape = nb::cast<nb::tuple>(ev.attr("shape"));
-        if (nb::cast<std::size_t>(shape[shape.size() - 1]) == n) return;
-        m = nb::cast<std::size_t>(ev.attr("size"));
+        // An object with an axis but no integer shape or size is not an array;
+        // the conversion later names its kind.
+        nb::tuple shape;
+        std::size_t last = 0;
+        if (!nb::try_cast<nb::tuple>(ev.attr("shape"), shape) || shape.size() == 0 ||
+            !nb::try_cast<std::size_t>(shape[shape.size() - 1], last))
+            return;
+        if (last == n) return;
+        if (!nb::try_cast<std::size_t>(ev.attr("size"), m)) return;
     } else if (PyNumber_Check(ev.ptr())) {
         m = 1;
     } else {
@@ -503,15 +504,17 @@ struct EagerRun {
     EagerRun& operator=(const EagerRun&) = delete;
 };
 
+// The N values of one event; `event` is its position, for the error message.
 template <class Op>
-typename Op::InputArray cast_to_array(const nb::tuple& tuple) {
+typename Op::InputArray cast_to_array(Op& self, const nb::tuple& tuple, std::size_t event) {
     constexpr size_t N = Op::kN;
     if (tuple.size() != N) {
         throw nb::type_error("Tuple size does not match the number of expected inputs.");
     }
     typename Op::InputArray array;
     for (size_t i = 0; i < N; ++i) {
-        array[i] = nb::cast<double>(tuple[i]);
+        if (!nb::try_cast<double>(tuple[i], array[i]))
+            throw_not_a_number(op_display_name(nb::find(self)), tuple, where_text("event", event));
     }
     return array;
 }
@@ -529,8 +532,8 @@ nb::tuple args_to_tuple_n(const nb::args& args) {
             throw nb::type_error("Unsupported single argument input type. Supported types are lists or tuples.");
         }
 
-        // convert to tuple
-        nb::tuple inputs = nb::cast<nb::tuple>(arg);
+        // convert to tuple (a list is copied; nb::cast<nb::tuple> would reject it)
+        nb::tuple inputs = nb::tuple(arg);
 
         // validate size
         if (inputs.size() != N) {
@@ -562,7 +565,7 @@ nb::object eager_parallel(Op& self, const nb::tuple& inputs) {
     for (size_t i = 0; i < N; ++i) iters[i] = nb::borrow<nb::object>(inputs[i]).attr("__iter__")();
     EagerRun<Op> run(self);
     std::vector<typename Op::ResultTuple> results;
-    while (true) {
+    for (std::size_t event = 0;; ++event) {
         typename Op::InputArray array;
         bool stop = false;
         for (size_t i = 0; i < N; ++i) {
@@ -573,7 +576,9 @@ nb::object eager_parallel(Op& self, const nb::tuple& inputs) {
                 if (e.matches(PyExc_StopIteration)) { stop = true; break; }
                 throw;
             }
-            array[i] = nb::cast<double>(item);
+            if (!nb::try_cast<double>(item, array[i]))
+                throw_not_a_number(op_display_name(nb::find(self)), item,
+                                   where_text("event", event, i));
         }
         if (stop) break;
         results.push_back(self.call(array));
@@ -741,13 +746,14 @@ nb::object functor_1i_Mo(Op& self, nb::object input) {
         // Eager path for list/tuple input.
         EagerRun<Op> run(self);
         std::vector<typename Op::ResultTuple> results;
+        std::size_t event = 0;
         for (nb::handle item : input) {
             double d;
-            if (!nb::try_cast<double>(nb::borrow<nb::object>(item), d)) {
-                throw nb::type_error("Iterable must contain numbers.");
-            }
+            if (!nb::try_cast<double>(item, d))
+                throw_not_a_number(op_display_name(nb::find(self)), item, where_text("event", event));
             typename Op::InputArray input_array = { d };
             results.push_back(self.call(input_array));
+            ++event;
         }
         return nb::cast(results);
     }
@@ -801,28 +807,25 @@ nb::object functor_1i_1o(Op& self, nb::object input) {
         EagerRun<Op> run(self);
         std::vector<typename Op::ResultTuple> results;
 
-        for (nb::handle item_h : input) {
-            nb::object item = nb::borrow<nb::object>(item_h);
-
+        std::size_t event = 0;
+        for (nb::handle item : input) {
             double d;
             if (nb::try_cast<double>(item, d)) {
                 // Case 2.1: Scalar input item
                 typename Op::InputArray input_array = { d };
                 results.push_back(self.call(input_array));
-                continue;
-            }
-
-            if (nb::isinstance<nb::tuple>(item)) {
-                nb::tuple tuple = nb::cast<nb::tuple>(item);
+            } else if (nb::isinstance<nb::tuple>(item)) {
+                nb::tuple tuple = nb::borrow<nb::tuple>(item);
                 if (tuple.size() == N) {
-                    typename Op::InputArray input_array = cast_to_array<Op>(tuple);
+                    typename Op::InputArray input_array = cast_to_array<Op>(self, tuple, event);
                     results.push_back(self.call(input_array));
                 } else {
                     throw nb::type_error("Invalid tuple size in iterable.");
                 }
             } else {
-                throw nb::type_error("Iterable must contain doubles or tuples of correct size.");
+                throw_not_a_number(op_display_name(nb::find(self)), item, where_text("event", event));
             }
+            ++event;
         }
 
         return nb::cast(results);
@@ -876,8 +879,9 @@ nb::object functor_Ni_1o(Op& self, const nb::args& raw_args) {
                     valid = false;
                     break;
                 }
+                typename Op::InputArray input_array =
+                    cast_to_array<Op>(self, tuple, event_index);
                 ++event_index;
-                typename Op::InputArray input_array = cast_to_array<Op>(tuple);
                 results.push_back(self.call(input_array));
             }
             if (valid) {
@@ -986,8 +990,9 @@ nb::object functor_Ni_Mo(Op& self, const nb::args& raw_args) {
                     valid = false;
                     break;
                 }
+                typename Op::InputArray input_array =
+                    cast_to_array<Op>(self, tuple, event_index);
                 ++event_index;
-                typename Op::InputArray input_array = cast_to_array<Op>(tuple);
                 results.push_back(self.call(input_array));
             }
             if (valid) {

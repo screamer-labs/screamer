@@ -148,12 +148,19 @@ public:
     }
 
     nb::object step(const std::vector<nb::object>& items) override {
-        return portfolio_report_row(op_, items[0]);
+        const std::size_t event = event_++;
+        try {
+            return portfolio_report_row(op_, items[0]);
+        } catch (...) {
+            screamer::throw_if_wrong_kind_event(screamer::op_display_name(owner_), items, event);
+            throw;
+        }
     }
 
 private:
     nb::object owner_;                    // the stream's own copy
     screamer::PortfolioReport& op_;
+    std::size_t event_ = 0;               // events seen, for error messages
 };
 
 nb::object portfolio_report_call(screamer::PortfolioReport& self, nb::args raw) {
@@ -191,7 +198,13 @@ nb::object portfolio_report_call(screamer::PortfolioReport& self, nb::args raw) 
         // NumPy normalizes nested sequences, so a list can be either one row
         // (assets, 4) or a complete (time, assets, 4) batch.
         nb::module_ np = nb::module_::import_("numpy");
-        nb::object arr = np.attr("asarray")(input, nb::arg("dtype") = np.attr("float64"));
+        nb::object arr;
+        try {
+            arr = np.attr("asarray")(input, nb::arg("dtype") = np.attr("float64"));
+        } catch (nb::python_error&) {
+            screamer::throw_if_wrong_kind(screamer::op_display_name(nb::find(self)), input, "");
+            throw;
+        }
         auto values = screamer::detail::read_contig_double(nb::cast<nb::ndarray<nb::ro>>(arr));
         if (values.ndim() == 3) return portfolio_report_batch(self, values);
         return portfolio_report_row(self, arr);
@@ -280,6 +293,17 @@ public:
     }
 
     nb::object step(const std::vector<nb::object>& items) override {
+        const std::size_t event = event_++;
+        try {
+            return step_event(items);
+        } catch (...) {
+            screamer::throw_if_wrong_kind_event(screamer::op_display_name(owner_), items, event);
+            throw;
+        }
+    }
+
+private:
+    nb::object step_event(const std::vector<nb::object>& items) {
         fields_.clear();
         if (unpack_) {
             nb::handle event = items[0];
@@ -294,7 +318,6 @@ public:
         return row_op_run(op_, fields_);
     }
 
-private:
     void add(nb::object row) {
         fields_.push_back(row_op_input(std::move(row)));
         auto& f = fields_.back();
@@ -307,6 +330,7 @@ private:
     screamer::RowOp& op_;
     bool unpack_;
     std::vector<screamer::detail::ContigDouble> fields_;
+    std::size_t event_ = 0;               // events seen, for error messages
 };
 
 nb::object row_op_call(screamer::RowOp& self, nb::args raw) {
@@ -335,8 +359,15 @@ nb::object row_op_call(screamer::RowOp& self, nb::args raw) {
         throw nb::type_error(("this operator takes " + std::to_string(fi) +
                               " inputs, got " + std::to_string(n) + ".").c_str());
     std::vector<screamer::detail::ContigDouble> fields;
-    for (nb::handle a : args) {
-        fields.push_back(row_op_input(nb::borrow<nb::object>(a)));
+    for (std::size_t i = 0; i < n; ++i) {
+        nb::handle a = args[i];
+        try {
+            fields.push_back(row_op_input(nb::borrow<nb::object>(a)));
+        } catch (nb::python_error&) {
+            screamer::throw_if_wrong_kind(screamer::op_display_name(nb::find(self)), a,
+                                          n > 1 ? screamer::where_text("input", i) : "");
+            throw;
+        }
         // Rule 1: (T, K, 1) reads as (T, K); the data is already in that order.
         fields.back().shape = screamer::shape::consume_unit_field(fields.back().shape);
     }

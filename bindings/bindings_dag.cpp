@@ -81,7 +81,7 @@ public:
           latest_(n_out, nb::none()), wm_val_(n_out, 0), wm_set_(n_out, 0) {
         for (nb::handle h : iterators) {
             sources_.push_back(std::make_unique<streams::PySource<std::int64_t>>(
-                nb::borrow<nb::object>(h), /*positional=*/false));
+                nb::borrow<nb::object>(h), /*positional=*/false, sources_.size(), "Pipeline"));
             child_ptrs_.push_back(sources_.back().get());
         }
         merge_ = std::make_unique<streams::MergeSource<std::int64_t>>(child_ptrs_);

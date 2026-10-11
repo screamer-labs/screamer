@@ -93,3 +93,51 @@ test("C4: a list of N-element lists and of (K, N) NdArray events reads as events
   assert.deepEqual(Array.from(viaList.data), Array.from(viaBatch.data));
   assert.throws(() => add([[1, 2], [3, 4, 5]]), (e: unknown) => e instanceof RangeError && /event 1 has 3 values/.test((e as Error).message));
 });
+
+// ---- G7: a wrong-kind element raises TypeError naming its type and position ----
+{
+  class M {}
+  const a = api as any;
+  const it = (xs: unknown[]) => xs[Symbol.iterator]();
+  async function* agen(xs: unknown[]) { for (const x of xs) yield x; }
+  const drain = async (g: AsyncIterable<unknown>) => { for await (const _ of g) void _; };
+  const pipe = () => { const i = a.Input("a"); return a.Pipeline([i], [a.RollingMean(2)(i)]); };
+  const cases: [string, () => unknown, string][] = [
+    ["list element", () => a.RollingMean(2)([1, new M()]), "RollingMean: event 1 is a M, expected a number"],
+    ["list string", () => a.RollingMean(2)([1, "x"]), "RollingMean: event 1 is a string"],
+    ["1-in M-out list", () => a.RollingMinMax(2)([1, new M()]), "RollingMinMax: event 1 is a M"],
+    ["two lists", () => a.Add()([1, new M()], [1, 2]), "Add: event 1 of input 0 is a M"],
+    ["list of events", () => a.Add()([[1, new M()]]), "Add: item [1] of event 0 is a M"],
+    ["later event", () => a.Add()([[1, 2], [new M(), 1]]), "Add: item [0] of event 1 is a M"],
+    ["iterator item", () => [...a.RollingMean(2)(it([1, new M()]))], "RollingMean: event 1 is a M"],
+    ["iterator first item", () => [...a.RollingMean(2)(it([new M()]))], "RollingMean: event 0 is a M"],
+    ["two iterators", () => [...a.Add()(it([1, new M()]), it([1, 2]))], "Add: event 1 of input 0 is a M"],
+    ["iterator of events", () => [...a.Add()(it([[1, 2], [1, new M()]]))], "Add: item [1] of event 1 is a M"],
+    ["iterator after arrays", () => [...a.RollingMean(2)(it([[1, 2], new M()]))], "RollingMean: event 1 is a M"],
+    ["row list", () => a.CrossRank()([[1, 2], [1, new M()]]), "CrossRank: item [1][1] is a M"],
+    ["row iterator", () => [...a.CrossRank()(it([[1, 2], new M()]))], "CrossRank: event 1 is a M"],
+    ["report list", () => a.PortfolioReport()([[1, 2, 3, 4], [1, 2, 3, new M()]]), "PortfolioReport: item [1][3] is a M"],
+    ["report iterator", () => [...a.PortfolioReport()(it([[1, 2, 3, 4], [1, 2, 3, new M()]]))], "PortfolioReport: item [3] of event 1 is a M"],
+    ["pipeline feed", () => pipe()([1, new M()]), "Pipeline: event 1 of input 0 is a M"],
+    ["pipeline index", () => pipe()({ values: [1, 2], index: [0, new M()] }), "Pipeline: the index of event 1 of input 0 is a M"],
+    ["pipeline live push", () => pipe().live().push("a", 0, new M()), "Pipeline: the value pushed to input 0 is a M"],
+  ];
+  for (const [name, call, text] of cases)
+    test(`G7: a wrong-kind element is a TypeError (${name})`, async () => {
+      await ready();
+      assert.throws(call, (e: unknown) => e instanceof TypeError && (e as Error).message.includes(text));
+    });
+
+  test("G7: an async source yielding a wrong-kind item is a TypeError", async () => {
+    await ready();
+    await assert.rejects(drain(a.RollingMean(2)(agen([1, new M()]))),
+      (e: unknown) => e instanceof TypeError && (e as Error).message.includes("RollingMean: event 1 is a M"));
+    await assert.rejects(drain(a.CrossRank()(agen([[1, 2], new M()]))),
+      (e: unknown) => e instanceof TypeError && (e as Error).message.includes("CrossRank: event 1 is a M"));
+  });
+
+  test("G7: an event of the wrong shape is still a RangeError", async () => {
+    await ready();
+    assert.throws(() => [...a.RollingMean(2)(it([1, [1, 2]]))], RangeError);
+  });
+}

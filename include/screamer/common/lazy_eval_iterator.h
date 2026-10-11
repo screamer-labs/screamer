@@ -8,6 +8,7 @@
 #include <vector>
 #include <nanobind/nanobind.h>
 #include <nanobind/ndarray.h>
+#include "screamer/common/cast_double.h"
 #include "screamer/common/eval_op.h"
 #include "screamer/common/shape.h"
 
@@ -74,6 +75,7 @@ public:
     }
 
     nb::object step(const std::vector<nb::object>& items) override {
+        ++event_;
         if (mode_ == Mode::Unknown) {
             if (scalar_values(items)) {
                 mode_ = Mode::Scalar;
@@ -82,9 +84,11 @@ public:
             mode_ = Mode::Assets;
         }
         if (mode_ == Mode::Scalar) {
-            if (!scalar_values(items))
+            if (!scalar_values(items)) {
+                throw_if_wrong_kind_event(items);
                 throw nb::value_error("every event must have the same shape; the first events "
                                       "were numbers, this one is not");
+            }
             return eval_scalar();
         }
         return step_assets(items);
@@ -98,7 +102,9 @@ private:
     // an event of shape (1,) holds one asset.
     static bool as_number(nb::handle h, double& v) {
         if (PyFloat_Check(h.ptr())) { v = PyFloat_AsDouble(h.ptr()); return true; }
-        if (!PyLong_Check(h.ptr()) && nb::hasattr(h, "ndim") && nb::cast<int>(h.attr("ndim")) > 0)
+        int nd = 0;
+        if (!PyLong_Check(h.ptr()) && nb::hasattr(h, "ndim") &&
+            nb::try_cast<int>(h.attr("ndim"), nd) && nd > 0)
             return false;
         return nb::try_cast<double>(h, v);
     }
@@ -143,8 +149,20 @@ private:
         arrays_.clear();
         current_.resize(parts_.size());
         for (std::size_t k = 0; k < parts_.size(); ++k) {
-            parts_[k] = ascontiguous_(parts_[k], float64_);   // no copy if already contiguous float64
-            arrays_.push_back(nb::cast<Arr>(parts_[k]));
+            Arr arr;
+            try {
+                parts_[k] = ascontiguous_(parts_[k], float64_);   // no copy if already contiguous float64
+            } catch (nb::python_error&) {
+                throw_if_wrong_kind_event(items);
+                throw;
+            }
+            if (!nb::try_cast<Arr>(parts_[k], arr)) {
+                throw_if_wrong_kind_event(items);
+                throw nb::type_error((op_display_name(op_owner_) + ": " +
+                    where_text("event", static_cast<std::ptrdiff_t>(event_ - 1)) +
+                    " is not numeric").c_str());
+            }
+            arrays_.push_back(std::move(arr));
             const Arr& a = arrays_.back();
             shape::Shape& s = current_[k];
             s.resize(a.ndim() + 1);
@@ -193,6 +211,12 @@ private:
         copies_ = std::move(copies);
     }
 
+    // A failed event: names the first element that is not a number, list,
+    // tuple or array, if any (error path only).
+    void throw_if_wrong_kind_event(const std::vector<nb::object>& items) const {
+        screamer::throw_if_wrong_kind_event(op_display_name(op_owner_), items, event_ - 1);
+    }
+
     static std::string event_shapes(const std::vector<shape::Shape>& shapes) {
         std::string s;
         for (std::size_t i = 0; i < shapes.size(); ++i) {
@@ -210,6 +234,7 @@ private:
     std::vector<double> in_, out_;
     bool unpack_;
     Mode mode_ = Mode::Unknown;
+    std::size_t event_ = 0;               // events seen, for error messages
     // Per-event buffers, kept to reuse their storage.
     std::vector<nb::object> parts_;
     std::vector<Arr> arrays_;

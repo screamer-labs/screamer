@@ -3,6 +3,7 @@ import type { NdArray } from "./ndarray.js";
 import { Node, isNode } from "./node.js";
 import { current } from "./index.js";
 import { normalizeError, wasmCall } from "./errors.js";
+import { throwWrongKind, toF64Checked, whereText } from "./kinds.js";
 
 // One bound feed for an Input: a values stream and its integer index axis.
 type Feed = Float64Array | number[] | { values: Float64Array | number[]; index?: Float64Array | number[] };
@@ -21,10 +22,6 @@ export interface LiveDriver {
   advance(now: number): void;
   flush(): void;
   result(): Output;
-}
-
-function toF64(x: Float64Array | number[]): Float64Array {
-  return x instanceof Float64Array ? x : Float64Array.from(x);
 }
 
 // Collect the Input nodes reachable from `outputs` (ports _reachable_inputs).
@@ -235,14 +232,17 @@ class PipelineImpl {
   }
 
   private normalizeFeeds(feeds: Feeds): Array<{ values: Float64Array; index: Float64Array }> {
-    const one = (feed: Feed): { values: Float64Array; index: Float64Array } => {
+    // A non-number value or index raises TypeError naming its event and input.
+    const one = (feed: Feed, k: number): { values: Float64Array; index: Float64Array } => {
       let values: Float64Array;
       let index: Float64Array | undefined;
+      const at = (i: number) => whereText("event", i, k);
       if (feed instanceof Float64Array || Array.isArray(feed)) {
-        values = toF64(feed);
+        values = toF64Checked(feed, "Pipeline", at);
       } else {
-        values = toF64(feed.values);
-        if (feed.index !== undefined) index = toF64(feed.index);
+        values = toF64Checked(feed.values, "Pipeline", at);
+        if (feed.index !== undefined)
+          index = toF64Checked(feed.index, "Pipeline", (i) => `the index of ${at(i)}`);
       }
       if (!index) {
         index = new Float64Array(values.length);
@@ -257,12 +257,12 @@ class PipelineImpl {
       if (this.inputs.length !== 1) {
         throw new Error(`this pipeline has ${this.inputs.length} inputs; pass an object keyed by input name`);
       }
-      return [one(feeds as Feed)];
+      return [one(feeds as Feed, 0)];
     }
     const obj = feeds as Record<string, Feed>;
-    return this.names.map((name) => {
+    return this.names.map((name, k) => {
       if (!(name in obj)) throw new Error(`missing feed for input '${name}'`);
-      return one(obj[name]);
+      return one(obj[name], k);
     });
   }
 
@@ -354,10 +354,17 @@ class PipelineImpl {
     return {
       push(name: string, index: number, value: number): void {
         const i = self.inputIndex(name);
+        if (typeof value !== "number") throwWrongKind("Pipeline", `the value pushed to input ${i}`, value);
+        if (typeof index !== "number") throwWrongKind("Pipeline", `the index pushed to input ${i}`, index);
         try { self.cg.pushEvent(i, index, value); } catch (e) { throw normalizeError(e); }
       },
       pushWide(name: string, index: number, values: ArrayLike<number>): void {
         const i = self.inputIndex(name);
+        if (typeof index !== "number") throwWrongKind("Pipeline", `the index pushed to input ${i}`, index);
+        if (!(values instanceof Float64Array))
+          for (let j = 0; j < values.length; j++)
+            if (typeof values[j] !== "number")
+              throwWrongKind("Pipeline", `item [${j}] of the values pushed to input ${i}`, values[j]);
         const width = values.length;
         const buf = M.allocF64(width || 1);
         try {
