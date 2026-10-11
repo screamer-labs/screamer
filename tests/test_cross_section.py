@@ -162,3 +162,32 @@ def test_argument_checks():
         s.CrossZscore()(np.ones((2, 3, 4)))
     with pytest.raises(TypeError):
         s.CrossZscore()(s.Pipeline.Input("x") if hasattr(s.Pipeline, "Input") else object())
+
+
+def test_list_of_rows_returns_list_of_rows():
+    r1, r2 = np.array([1., 3., 2.]), np.array([3., 1., 2.])
+    out = s.CrossRank()([r1, r2])
+    assert isinstance(out, list) and len(out) == 2
+    assert all(isinstance(r, np.ndarray) and r.shape == (3,) for r in out)
+    np.testing.assert_array_equal(np.vstack(out), s.CrossRank()(np.vstack([r1, r2])))
+    out2 = s.CrossRank()([[1, 3, 2], [3, 1, 2]])
+    assert isinstance(out2, list)
+    np.testing.assert_array_equal(np.vstack(out2), np.vstack(out))
+
+
+def test_tuple_of_rows_keeps_2_8_0_ndarray():
+    r1, r2 = np.array([1., 3., 2.]), np.array([3., 1., 2.])
+    assert isinstance(s.CrossRank()((r1, r2)), np.ndarray)
+    assert isinstance(s.CrossRank()(np.vstack([r1, r2])), np.ndarray)
+    assert isinstance(s.CrossRank()(r1), np.ndarray)
+    assert isinstance(s.CrossRank()([1., 3., 2.]), np.ndarray)
+
+
+def test_list_of_rows_into_two_input_row_op():
+    t = [[.5, .5], [.2, .8], [.4, .6]]
+    p = [[1., 2.], [1.1, 2.1], [1.2, 2.0]]
+    ref = s.BacktestPortfolioTarget()(np.array(t), np.array(p))
+    out = s.BacktestPortfolioTarget()(t, p)
+    assert isinstance(out, list) and len(out) == 3
+    np.testing.assert_array_equal(np.array(out), ref)
+    assert isinstance(s.BacktestPortfolioTarget()(tuple(t), tuple(p)), np.ndarray)

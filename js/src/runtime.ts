@@ -736,7 +736,8 @@ export function wrapReducerOp(M: Screamer, src: OpSource): ScreamerOp {
 // dimension of the data, fixed by the first row after reset(), so it travels
 // with every call. With one input per field:
 //
-//   (T, K) NdArrays or arrays of rows  -> (T, K) or (T, K, fieldsOut) NdArray
+//   (T, K) NdArrays  -> (T, K) or (T, K, fieldsOut) NdArray
+//   arrays of rows   -> an array of result rows (Float64Array, or (K, fieldsOut) NdArray)
 //   one row each (Float64Array/number[]) -> one row, or a (K, fieldsOut) NdArray
 //   fi iterables of rows, or one iterable of fi-row arrays -> an iterator of rows
 //   (async iterables give an async iterator)
@@ -868,7 +869,15 @@ export function wrapRowOp(M: Screamer, src: OpSource): ScreamerOp {
     const b0 = blocks[0]!;
     if (blocks.some((b) => b!.T !== b0.T || b!.k !== b0.k))
       throw new RangeError("all inputs must have the same shape");
-    return batch(blocks.map((b) => b!.flat), b0.T, b0.k);
+    const out = batch(blocks.map((b) => b!.flat), b0.T, b0.k);
+    // Rule 3: an array of rows gives an array of result rows. An NdArray
+    // keeps returning an NdArray, and so does a mix of the two.
+    if (!args.every((a) => Array.isArray(a))) return out;
+    const w = b0.k * fo;
+    return Array.from({ length: b0.T }, (_, t) => {
+      const row = out.data.slice(t * w, (t + 1) * w);
+      return fo === 1 ? row : ({ data: row, shape: [b0.k, fo] } as NdArray);
+    });
   };
 
   const op = call as ScreamerOp;

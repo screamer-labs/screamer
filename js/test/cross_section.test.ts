@@ -37,7 +37,7 @@ for (const [name, make, want] of GOLDEN) {
     const batch = make()(nd);
     assert.deepEqual(batch.shape, [4, 5]);
     assert.ok(same(batch.data, want), `${name} batch: ${Array.from(batch.data)}`);
-    assert.ok(same(make()(X).data, want), `${name} array of rows`);
+    assert.ok(same(make()(X).flatMap((r: Float64Array) => Array.from(r)), want), `${name} array of rows`);
     const op = make();
     assert.ok(same(X.flatMap((r) => Array.from(op(r) as number[])), want), `${name} row by row`);
     const streamed = [...make()(X.values())].flatMap((r: number[]) => r);
@@ -69,4 +69,14 @@ test("cross: a size-1 field axis is consumed (rule 3)", () => {
     const streamed = [...make()(events.values())].flatMap((r: Float64Array) => Array.from(r));
     assert.ok(same(streamed, want), `${name} [K, 1] events`);
   }
+});
+
+test("A1: an array of rows returns an array of rows", () => {
+  const out = CrossRank()([[1, 3, 2], [3, 1, 2]]) as Float64Array[];
+  assert.ok(Array.isArray(out) && out.length === 2 && out[0] instanceof Float64Array);
+  const ref = CrossRank()({ data: Float64Array.from([1, 3, 2, 3, 1, 2]), shape: [2, 3] }) as any;
+  assert.deepEqual([...out[0], ...out[1]], [...ref.data]);
+  assert.deepEqual(ref.shape, [2, 3]);
+  const typed = CrossRank()([Float64Array.from([1, 3, 2]), Float64Array.from([3, 1, 2])]) as any;
+  assert.ok(Array.isArray(typed) && typed[1] instanceof Float64Array);
 });

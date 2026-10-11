@@ -387,7 +387,14 @@ nb::object row_op_call(screamer::RowOp& self, nb::args raw) {
         // Rule 1: (T, K, 1) reads as (T, K); the data is already in that order.
         fields.back().shape = screamer::shape::consume_unit_field(fields.back().shape);
     }
-    return row_op_run(self, fields);
+    nb::object result = row_op_run(self, fields);
+    // Rule 3: a list of rows gives a list of result rows. A tuple keeps the
+    // 2.8.0 meaning (rows over time, an ndarray, decision D9), and one row
+    // (a rank-1 input) stays one array.
+    bool listed = true;  // every input a list; a mix with arrays stays an array
+    for (nb::handle a : args) listed = listed && nb::isinstance<nb::list>(a);
+    if (listed && fields[0].ndim() == 2) return nb::list(result);
+    return result;
 }
 
 } // namespace
