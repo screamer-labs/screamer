@@ -67,11 +67,12 @@ type Stepper = { step(items: any[]): any; close?(): void };
 function* zipSources(srcs: Iterable<any>[]): Generator<any[], void, undefined> {
   const its = srcs.map((s) => s[Symbol.iterator]());
   const items = new Array(its.length);
-  let ended = -1, failed = false;
+  let ended = -1, threw = -1, failed = false;
   try {
     for (;;) {
       for (let i = 0; i < its.length; i++) {
-        const r = its[i].next();
+        let r;
+        try { r = its[i].next(); } catch (e) { threw = i; throw e; }
         if (r.done) { ended = i; return; }
         items[i] = r.value;
       }
@@ -83,7 +84,7 @@ function* zipSources(srcs: Iterable<any>[]): Generator<any[], void, undefined> {
   } finally {
     let err: unknown, bad = false;
     for (let i = 0; i < its.length; i++) {
-      if (i === ended) continue;
+      if (i === ended || i === threw) continue;
       try { its[i].return?.(); } catch (e) { if (!bad) { err = e; bad = true; } }
     }
     if (bad && !failed) throw err;
@@ -92,11 +93,12 @@ function* zipSources(srcs: Iterable<any>[]): Generator<any[], void, undefined> {
 async function* zipAsyncSources(srcs: AsyncIterable<any>[]): AsyncGenerator<any[], void, undefined> {
   const its = srcs.map((s) => s[Symbol.asyncIterator]());
   const items = new Array(its.length);
-  let ended = -1, failed = false;
+  let ended = -1, threw = -1, failed = false;
   try {
     for (;;) {
       for (let i = 0; i < its.length; i++) {
-        const r = await its[i].next();
+        let r;
+        try { r = await its[i].next(); } catch (e) { threw = i; throw e; }
         if (r.done) { ended = i; return; }
         items[i] = r.value;
       }
@@ -107,7 +109,7 @@ async function* zipAsyncSources(srcs: AsyncIterable<any>[]): AsyncGenerator<any[
     throw e;
   } finally {
     // Close every source even when one return() rejects.
-    const res = await Promise.allSettled(its.map((it, i) => (i === ended ? undefined : it.return?.())));
+    const res = await Promise.allSettled(its.map((it, i) => (i === ended || i === threw ? undefined : it.return?.())));
     const bad = res.find((r): r is PromiseRejectedResult => r.status === "rejected");
     if (bad && !failed) throw bad.reason;
   }

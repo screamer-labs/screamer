@@ -522,3 +522,44 @@ test("D8: streaming an op without a factory raises", () => {
   assert.throws(() => op(iter(A)), /factory/);
   op.dispose();
 });
+
+function probe(failAt: number | null) {
+  const log = { returns: 0 };
+  let i = 0;
+  const it: IterableIterator<number> = {
+    [Symbol.iterator]() { return this; },
+    next() {
+      if (failAt !== null && i === failAt) throw new Error("source broke");
+      return { done: false, value: i++ };
+    },
+    return() { log.returns++; return { done: true, value: undefined }; },
+  };
+  return { it, log };
+}
+
+test("G4: a source whose next() threw is not closed; the others are", () => {
+  const a = probe(null), b = probe(2);
+  assert.throws(() => [...(ops.Add()(a.it, b.it) as Iterable<number>)], /source broke/);
+  assert.equal(b.log.returns, 0);
+  assert.equal(a.log.returns, 1);
+});
+
+test("G4: same for async sources", async () => {
+  const mk = (failAt: number | null) => {
+    const log = { returns: 0 };
+    let i = 0;
+    const it = {
+      [Symbol.asyncIterator]() { return this; },
+      async next() {
+        if (failAt !== null && i === failAt) throw new Error("source broke");
+        return { done: false, value: i++ };
+      },
+      async return() { log.returns++; return { done: true, value: undefined }; },
+    };
+    return { it, log };
+  };
+  const a = mk(null), b = mk(2);
+  await assert.rejects(async () => { for await (const _ of ops.Add()(a.it, b.it) as AsyncIterable<number>) { void _; } }, /source broke/);
+  assert.equal(b.log.returns, 0);
+  assert.equal(a.log.returns, 1);
+});

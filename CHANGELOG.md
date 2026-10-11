@@ -95,6 +95,9 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
 
 ### Fixed
 
+* JavaScript: when one of several stream sources throws, the stream no longer
+  calls `return()` on that source; the other sources are still closed, as
+  `for...of` does.
 * `BacktestPortfolioTarget` and `BacktestPortfolioOHLCTarget` dropped an order
   that fell due on a step where its asset had no bar, so one leg of a pair
   could trade while the other never did. The order now waits for the asset's
