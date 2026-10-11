@@ -214,8 +214,12 @@ nb::object portfolio_report_call(screamer::PortfolioReport& self, nb::args raw) 
             throw;
         }
         auto values = screamer::detail::read_contig_double(nb::cast<nb::ndarray<nb::ro>>(arr));
-        if (values.ndim() == 3) return portfolio_report_batch(self, values);
-        return portfolio_report_row(self, arr);
+        if (values.ndim() != 3) return portfolio_report_row(self, arr);
+        // Rule 3: a list of rows gives a list of result rows. A tuple keeps
+        // the 2.8.0 array (decision D9).
+        nb::object out = portfolio_report_batch(self, values);
+        if (nb::isinstance<nb::list>(input)) return nb::list(out);
+        return out;
     }
     throw nb::type_error(("PortfolioReport input must be a numpy array or iterable of rows, not a " +
                           screamer::type_short_name(input.type())).c_str());

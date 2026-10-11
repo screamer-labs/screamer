@@ -85,12 +85,14 @@ test("C4: a list of arrays into Add names the event reading", async () => {
 test("C4: a list of N-element lists and of (K, N) NdArray events reads as events", async () => {
   await ready();
   const add = (api as any).Add();
-  assert.deepEqual(Array.from(add([[1, 2], [3, 4]]) as Float64Array), [3, 7]);
+  // A10: an Array of events gives an Array of per-event results.
+  assert.deepEqual(add([[1, 2], [3, 4]]), [3, 7]);
   const ev = () => ({ shape: [3, 2], data: Float64Array.from([1, 2, 3, 4, 5, 6]) });
-  const viaList = add([ev(), ev()]) as NdArray;
+  const viaList = add([ev(), ev()]) as Float64Array[];
   const viaBatch = add({ shape: [2, 3, 2], data: Float64Array.from([1, 2, 3, 4, 5, 6, 1, 2, 3, 4, 5, 6]) }) as NdArray;
-  assert.deepEqual(viaList.shape, viaBatch.shape);
-  assert.deepEqual(Array.from(viaList.data), Array.from(viaBatch.data));
+  assert.deepEqual(viaBatch.shape, [2, 3]);
+  assert.ok(Array.isArray(viaList) && viaList.length === 2);
+  assert.deepEqual(viaList.flatMap((r) => Array.from(r)), Array.from(viaBatch.data));
   assert.throws(() => add([[1, 2], [3, 4, 5]]), (e: unknown) => e instanceof RangeError && /event 1 has 3 values/.test((e as Error).message));
 });
 
@@ -194,11 +196,12 @@ test("C4: a list of N-element lists and of (K, N) NdArray events reads as events
   test("G7: Pipeline feeds and live pushes keep the primitive coercions", async () => {
     await ready();
     const pipe = () => { const i = a.Input("a"); return a.Pipeline([i], [a.RollingMean(1)(i)]); };
+    // A null value is a missing value, NaN (A9); the other primitives keep ToNumber.
     const out = pipe()([1, "3", true, undefined, null, new Date(5)] as any);
-    assert.deepEqual(Array.from(out.values as Float64Array), [1, 3, 1, NaN, 0, 5]);
+    assert.deepEqual(Array.from(out.values as Float64Array), [1, 3, 1, NaN, NaN, 5]);
     const idx = pipe()({ values: [1, 2, 3], index: [0, "1", true] } as any);
     assert.deepEqual(Array.from(idx.index), [0, 1, 1]);
-    for (const [v, want] of [["3", 3], [true, 1], [null, 0], [undefined, NaN], [new Date(5), 5]] as [unknown, number][]) {
+    for (const [v, want] of [["3", 3], [true, 1], [null, NaN], [undefined, NaN], [new Date(5), 5]] as [unknown, number][]) {
       const lv = pipe().live();
       lv.push("a", 0, v as any);
       lv.flush();

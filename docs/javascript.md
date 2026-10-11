@@ -92,7 +92,12 @@ The [six rules](polymorphic_api.md#the-six-rules) hold in JavaScript, with an
 3. **One meaning per container.** A number is one step of the op's running
    series, a `Float64Array`, a `number[]` or an `NdArray` is a batch, and an
    iterable or async iterable is a stream of events. Each stream is an
-   independent run with its own state.
+   independent run with its own state. An array of events, such as
+   `[[x0, y0], [x1, y1]]` or `[Float64Array(K), Float64Array(K)]`, is a
+   sequence of events and gives an array with one result per event, as a
+   Python list does. A call that mixes `number[]` with `Float64Array` or
+   `NdArray` inputs returns an array. In a `Pipeline` feed or a live push,
+   `null` is a missing value and reads as `NaN`, as Python's `None` does.
 4. **Separate arguments, or one packed array, with assets broadcast.**
    `RollingCorr(20)(X, y)` with `X` of shape `[T, K]` and `y` a `Float64Array`
    of length `T` gives `[T, K]`, and so does one packed `[T, K, 2]` `NdArray`.
@@ -121,11 +126,9 @@ is tracked to be closed.
   shapes do not match, where JavaScript throws `RangeError` (lengths, event
   shapes, asset shapes that do not broadcast). A wrong kind of input throws
   `TypeError` in both.
-* A Python list of asset events or of `N`-tuples is a sequence of events. A
-  JavaScript array is a batch of numbers only; pass rows or tuples as an
-  iterable, such as `rows.values()`. A nested-array event for an `N`-input op
-  lists the `N` fields first; use an `NdArray` of shape `[K, N]` to list the
-  assets first, as a `(K, N)` NumPy event does.
+* A nested-array event for an `N`-input op lists the `N` fields first; use an
+  `NdArray` of shape `[K, N]` to list the assets first, as a `(K, N)` NumPy
+  event does.
 
 ### Intentional differences
 

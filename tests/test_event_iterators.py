@@ -1,4 +1,6 @@
 """An iterator of events gives the same numbers as the batch it stacks into."""
+from contextlib import closing
+
 import numpy as np
 import pytest
 
@@ -87,9 +89,7 @@ def test_stream_error_propagates_and_stream_stays_open():
 
 
 def test_stream_error_does_not_close_sources():
-    closed = []
-
-    def src():
+    def src(closed):
         try:
             yield np.zeros(3)
             yield np.zeros(2)
@@ -97,16 +97,18 @@ def test_stream_error_does_not_close_sources():
         finally:
             closed.append(True)
 
-    gen = src()
+    closed = []
+    gen = src(closed)
     it = s.RollingMean(2)(gen)
     next(it)
     with pytest.raises(ValueError):
         next(it)
     assert not closed                      # still open after the error
     next(it)
-    from contextlib import closing
-    gen2 = src()
-    with closing(gen2) as g:               # deterministic cleanup
+    closed2 = []
+    with closing(src(closed2)) as g:       # deterministic cleanup
         it2 = s.RollingMean(2)(g)
         next(it2)
+    assert closed2 == [True]
+    gen.close()
     assert closed == [True]

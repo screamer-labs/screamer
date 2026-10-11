@@ -80,7 +80,11 @@ test("reducer: batch over nested arrays matches the Python oracle", async () => 
   await ready();
   const op = PortfolioReport();
   try {
-    assertMatrix(op(nested) as NdArray, expectRows, "nested batch");
+    // A7: an Array of rows gives an Array of result rows.
+    const rows = op(nested) as Float64Array[];
+    assert.ok(Array.isArray(rows) && rows.every((r) => r instanceof Float64Array));
+    assert.equal(rows.length, expectRows.length);
+    rows.forEach((r, t) => assertClose(r, expectRows[t], `nested batch row ${t}`));
   } finally {
     op.dispose();
   }

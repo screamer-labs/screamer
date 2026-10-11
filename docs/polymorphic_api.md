@@ -41,7 +41,10 @@ give the details of each.
 3. **One meaning per container.** A number is one step of the operator's
    running series, an array is a batch along time, and a list or an iterator is
    a sequence of events: `RollingMean(3)(2.0)` returns a `float`, and
-   `RollingMean(3)([1.0, 2.0])` returns a `list` of two results. Details:
+   `RollingMean(3)([1.0, 2.0])` returns a `list` of two results. In a call
+   that mixes lists with arrays, each list reads as an array and the result is
+   an array: `RollingCorr(5)(x_list, y_array)` returns a NumPy array, in
+   either argument order. Details:
    [the single-input contract](#the-single-input-contract-screamerbase) and
    [Streams in depth](streaming.md).
 4. **Inputs are separate arguments, or one packed array, with assets
@@ -221,7 +224,9 @@ The exact decision tree implemented in `ScreamerBase::operator()`
    pass the values, `op(values)`, keeping the index as it was.
    Row operators (`CrossRank`, `PortfolioReport` and the like) are the
    exception: they read a tuple or list of arrays as rows over time and never
-   need the index, so unpack a `(values, index)` pair before calling them.
+   need the index, so unpack a `(values, index)` pair before calling them. A
+   tuple gives a NumPy array of result rows, and a list gives a list of
+   result rows.
 
 4. **Is it a list whose first item is an array?** It is a sequence of asset
    events. Each array is one event with one value per asset, and the result
@@ -358,6 +363,7 @@ reference example with `N = 2`.
 | `obj(A)` - a single 2-D array of shape `(T, N)` | `numpy.ndarray` of shape `(T,)` - the `N` columns are the `N` inputs; column `j` → input `j`. Accepted iff `A.shape[1] == N`; any other single-array shape is a `ValueError`. |
 | `obj(A)` - a single packed array of shape `(T, K, N)` | `numpy.ndarray` of shape `(T, K)`: `K` assets, each with `N` input fields |
 | Asset shapes that do not broadcast, or a different length along time | `ValueError` ("do not broadcast", "same length along time") |
+| `obj(x_list, y_arr)` - lists or tuples of numbers mixed with arrays, in any order | `numpy.ndarray`, the same as when each list is passed as a 1-D array of its length |
 | Mixed kinds (one scalar + one array, etc.) or a wrong number of inputs | `TypeError` |
 
 This is the array form of `obj(A[:, 0], A[:, 1], ...)`, and is what makes
@@ -425,9 +431,10 @@ a single batch call, just like for the single-input array path.
   ```
 
 - All `N` inputs must be the same kind (all scalars, all numpy arrays,
-  all iterables). Mixing kinds raises `TypeError`. Their shapes may differ
-  where they broadcast: a `(T,)` market series pairs with every column of a
-  `(T, K)` panel.
+  all iterables). Mixing kinds raises `TypeError`, with one exception: a list
+  or tuple of numbers among arrays reads as a 1-D array, and the result is an
+  array. Their shapes may differ where they broadcast: a `(T,)` market series
+  pairs with every column of a `(T, K)` panel.
 
 
 ## The multi-output contract (`FunctorBase<_, 1, M>`)

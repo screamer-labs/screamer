@@ -284,6 +284,40 @@ export function wrapOp(M: Screamer, src: OpSource, copy?: () => RawOp): Screamer
     }
   }
 
+  // Rule 3: an Array of T events gives an Array of T results, each in the
+  // container a stream gives for that event: a number (or nOut numbers) for
+  // an event of numbers, a Float64Array for an event of assets, else an
+  // NdArray. `res` is the batch result over the stacked events.
+  function perEvent(res: Float64Array | NdArray, T: number): any[] {
+    if (res instanceof Float64Array) return Array.from(res);
+    const rest = res.shape.slice(1), w = rest.reduce((p, d) => p * d, 1);
+    const out = new Array(T);
+    for (let t = 0; t < T; t++) {
+      const d = res.data.slice(t * w, (t + 1) * w);
+      out[t] = rest.length === 0 ? d[0]
+        : rest.length === 1 ? (nOut === 1 ? d : Array.from(d))
+        : ({ data: d, shape: rest.slice() } as NdArray);
+    }
+    return out;
+  }
+
+  // Asset events (Float64Array or NdArray, all of one shape) stacked into one
+  // (T, ...event) NdArray; null when an event is neither.
+  function stackEvents(evs: any[]): NdArray | null {
+    const shapeOf = (e: any): number[] | null => (isNd(e) ? e.shape : isTyped(e) ? [e.length] : null);
+    const s0 = shapeOf(evs[0]);
+    if (!s0) return null;
+    const per = s0.reduce((p, d) => p * d, 1), data = new Float64Array(per * evs.length);
+    for (let t = 0; t < evs.length; t++) {
+      const e = evs[t], s = shapeOf(e);
+      if (!s) return null;
+      if (s.length !== s0.length || s.some((d, j) => d !== s0[j]))
+        throw new RangeError(`every event must have the same shape: the first was [${s0}], event ${t} is [${s}]`);
+      data.set(isNd(e) ? e.data : e, t * per);
+    }
+    return { data, shape: [evs.length, ...s0] };
+  }
+
   // ---- Streams -------------------------------------------------------------
   //
   // A stream reads one item per source per event: nIn sources of one field
@@ -446,7 +480,7 @@ export function wrapOp(M: Screamer, src: OpSource, copy?: () => RawOp): Screamer
     return { step, close: handle.release };
   };
 
-  const call = (...args: any[]) => {
+  const call = (...args: any[]): any => {
     if (disposed) throw new Error("operation used after dispose()");
     // Define-then-bind: if any argument is a symbolic Node, defer the call and
     // return a functor Node holding BOTH the raw C++ op (for `opPtr` at graph
@@ -467,6 +501,12 @@ export function wrapOp(M: Screamer, src: OpSource, copy?: () => RawOp): Screamer
       if (isNd(a)) return shaped([a]);
       if (isTyped(a)) return batch1(a, true);
       if (isNumArr(a)) return batch1(a, false);
+      // An Array of asset events (Float64Array or NdArray) runs like a stream
+      // of them and gives an Array of per-event results.
+      if (Array.isArray(a) && a.every((e) => isTyped(e) || isNd(e))) {
+        const st = stackEvents(a)!;
+        return perEvent(shaped([st]), a.length);
+      }
       if (Array.isArray(a)) {
         for (let i = 0; i < a.length; i++)
           if (typeof a[i] !== "number") throwNotANumber(opName(raw), a[i], whereText("event", i));
@@ -503,16 +543,13 @@ export function wrapOp(M: Screamer, src: OpSource, copy?: () => RawOp): Screamer
         const name = opName(raw);
         throw new RangeError(`${name} expects ${nIn} inputs; a list is read as a sequence of events, and event ${i} has ${m} value${m === 1 ? "" : "s"} (expected ${nIn}). To pass ${nIn} separate inputs, call ${name}()(${nIn > 2 ? "a, b, ..." : "a, b"}).`);
       }
-      // Events of nIn values each read like the columns of a batch.
+      // Events of nIn values each read like the columns of a batch, and the
+      // results come back one per event (rule 3).
       if (evs.length > 0 && evs.every((e) => (isTyped(e) || Array.isArray(e)) && e.length === nIn && Array.from(e as ArrayLike<any>).every((x) => typeof x === "number"))) {
-        return call(...Array.from({ length: nIn }, (_, k) => Float64Array.from(evs, (e) => e[k])));
+        return perEvent(call(...Array.from({ length: nIn }, (_, k) => Float64Array.from(evs, (e) => e[k]))), evs.length);
       }
       // Events of shape (..., nIn) stack into one packed (T, ..., nIn) array.
-      if (evs.length > 0 && evs.every((e) => isNd(e) && e.shape.join() === evs[0].shape.join())) {
-        const per = evs[0].data.length, data = new Float64Array(per * evs.length);
-        evs.forEach((e, t) => data.set(e.data, t * per));
-        return call({ shape: [evs.length, ...evs[0].shape], data } as NdArray);
-      }
+      if (evs.length > 0 && evs.every(isNd)) return perEvent(shaped([stackEvents(evs)!]), evs.length);
       // The first event that is not nIn numbers: a wrong kind is a TypeError,
       // a field of the wrong shape a RangeError.
       for (let i = 0; i < evs.length; i++) {
@@ -548,8 +585,10 @@ export function wrapOp(M: Screamer, src: OpSource, copy?: () => RawOp): Screamer
 }
 
 // A nested batch is an array of rows, each row itself an array of assets.
+// An array of (assets, width) NdArray events is one too.
 const isNestedBatch = (x: any) =>
-  Array.isArray(x) && x.length > 0 && Array.isArray(x[0]) && (Array.isArray(x[0][0]) || isTyped(x[0][0]));
+  Array.isArray(x) && x.length > 0 &&
+  ((Array.isArray(x[0]) && (Array.isArray(x[0][0]) || isTyped(x[0][0]))) || (isNd(x[0]) && x[0].shape.length === 2));
 
 // Wraps a dynamic-width reducer: an op that folds a variable number of assets
 // into one event, reading a `(assets, nIn)` block and writing nOut outputs.
@@ -714,7 +753,12 @@ export function wrapReducerOp(M: Screamer, src: OpSource): ScreamerOp {
     if (isSyncIter(x)) return stream(x, false);
     let row: { flat: ArrayLike<number>; assets: number };
     try {
-      if (isNestedBatch(x)) return nestedBatch(x);
+      if (isNestedBatch(x)) {
+        // Rule 3: an Array of rows gives an Array of result rows.
+        const b = nestedBatch(x);
+        if (b instanceof Float64Array) return Array.from(b);
+        return Array.from({ length: x.length }, (_, t) => b.data.slice(t * nOut, (t + 1) * nOut));
+      }
       row = asRow(x);
     } catch (e) { throwIfWrongKind(opName(raw), x, ""); throw e; }
     return event(row.flat, row.assets);

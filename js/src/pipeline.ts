@@ -3,7 +3,7 @@ import type { NdArray } from "./ndarray.js";
 import { Node, isNode } from "./node.js";
 import { current } from "./index.js";
 import { normalizeError, wasmCall } from "./errors.js";
-import { feedNumber, toF64Checked, whereText } from "./kinds.js";
+import { feedNumber, feedValue, toF64Checked, whereText } from "./kinds.js";
 
 // One bound feed for an Input: a values stream and its integer index axis.
 type Feed = Float64Array | number[] | { values: Float64Array | number[]; index?: Float64Array | number[] };
@@ -238,9 +238,9 @@ class PipelineImpl {
       let index: Float64Array | undefined;
       const at = (i: number) => whereText("event", i, k);
       if (feed instanceof Float64Array || Array.isArray(feed)) {
-        values = toF64Checked(feed, "Pipeline", at);
+        values = toF64Checked(feed, "Pipeline", at, true);
       } else {
-        values = toF64Checked(feed.values, "Pipeline", at);
+        values = toF64Checked(feed.values, "Pipeline", at, true);
         if (feed.index !== undefined)
           index = toF64Checked(feed.index, "Pipeline", (i) => `the index of ${at(i)}`);
       }
@@ -354,9 +354,10 @@ class PipelineImpl {
     return {
       push(name: string, index: number, value: number): void {
         const i = self.inputIndex(name);
-        // A primitive passes as before (ToNumber at the WASM call); an object
-        // that is not a number is a wrong kind.
-        const v = typeof value === "number" ? value : feedNumber(value, "Pipeline", () => `the value pushed to input ${i}`);
+        // null is a missing value (NaN); another primitive passes as before
+        // (ToNumber at the WASM call); an object that is not a number is a
+        // wrong kind.
+        const v = typeof value === "number" ? value : feedValue(value, "Pipeline", () => `the value pushed to input ${i}`);
         const t = typeof index === "number" ? index : feedNumber(index, "Pipeline", () => `the index pushed to input ${i}`);
         try { self.cg.pushEvent(i, t, v); } catch (e) { throw normalizeError(e); }
       },
@@ -371,7 +372,7 @@ class PipelineImpl {
           else for (let j = 0; j < width; j++) {
             const x: unknown = values[j];
             view[j] = typeof x === "number" ? x
-              : feedNumber(x, "Pipeline", () => `item [${j}] of the values pushed to input ${i}`);
+              : feedValue(x, "Pipeline", () => `item [${j}] of the values pushed to input ${i}`);
           }
           try { self.cg.pushEventWide(i, t, buf, width); } catch (e) { throw normalizeError(e); }
         } finally {

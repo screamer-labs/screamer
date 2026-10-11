@@ -188,6 +188,8 @@ with closing(source_generator()) as src:
         ...
 ```
 
+A stream of several sources needs one `closing` for each source.
+
 ## Events: numbers, asset arrays, and packed fields
 
 An event is one time step of shape `(*A, F?)` (see

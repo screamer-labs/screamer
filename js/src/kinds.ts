@@ -123,13 +123,23 @@ export function feedNumber(v: unknown, who: string, where: () => string): number
   return v as number;   // the Float64Array store applies ToNumber, as before
 }
 
-// A numeric feed as a Float64Array, coerced element by element as feedNumber.
-export function toF64Checked(x: Float64Array | ArrayLike<unknown>, who: string, where: (i: number) => string): Float64Array {
+// One value of a feed: null is a missing value, NaN, as Python's None is
+// (decision A9). Everything else is coerced as feedNumber. An index keeps
+// feedNumber's rule.
+export function feedValue(v: unknown, who: string, where: () => string): number {
+  return v === null ? NaN : feedNumber(v, who, where);
+}
+
+// A numeric feed as a Float64Array, coerced element by element as feedNumber,
+// or as feedValue when `values` is set.
+export function toF64Checked(x: Float64Array | ArrayLike<unknown>, who: string, where: (i: number) => string,
+                             values = false): Float64Array {
   if (x instanceof Float64Array) return x;
   const n = x.length, out = new Float64Array(n);
+  const one = values ? feedValue : feedNumber;
   for (let i = 0; i < n; i++) {
     const v = x[i];
-    out[i] = typeof v === "number" ? v : feedNumber(v, who, () => where(i));
+    out[i] = typeof v === "number" ? v : one(v, who, () => where(i));
   }
   return out;
 }

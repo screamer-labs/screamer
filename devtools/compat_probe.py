@@ -90,6 +90,7 @@ def cases():
         "row tuple of rows": lambda: s.CrossRank()((X[0], X[1])),
         "PortfolioReport tuple of (4,) rows": lambda: s.PortfolioReport()((X[0, :1].repeat(4), X[1, :1].repeat(4))),
         "PortfolioReport tuple of events": lambda: s.PortfolioReport()((np.arange(8.0).reshape(2, 4), np.arange(8.0, 16.0).reshape(2, 4))),
+        "PortfolioReport list of events": lambda: s.PortfolioReport()([np.arange(8.0).reshape(2, 4), np.arange(8.0, 16.0).reshape(2, 4)]),
         # multi-input operators
         "2in scalars": lambda: s.Add()(1.0, 2.0),
         "2in tuple of two scalars": lambda: s.Add()((1.0, 2.0)),
@@ -105,6 +106,12 @@ def cases():
         "2in (T,K)+(T,)": lambda: s.Add()(X, v),
         "2in (T,K)+(T,K)": lambda: s.Add()(X, X),
         "2in (T,K,1)+(T,K,1)": lambda: s.Add()(X[:, :, None], X[:, :, None]),
+        # a list mixed with arrays, in either order (A8)
+        "2in list+array": lambda: s.Add()(list(v), w),
+        "2in array+list": lambda: s.Add()(v, list(w)),
+        "2in (T,K)+list": lambda: s.Add()(X, list(v)),
+        "2in M-out list+array": lambda: s.RollingLinearRegression(3)(list(v[:6]), w[:6]),
+        "3in array+list+array": lambda: s.Where()(v, list(w), v),
         # streams and pandas
         "from_pandas flat": lambda: s.from_pandas(pd.DataFrame(X)),
         "from_pandas 2-level": lambda: s.from_pandas(two_level()),

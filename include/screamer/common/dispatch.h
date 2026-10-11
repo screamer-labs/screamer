@@ -249,21 +249,31 @@ struct NInputs {
 // (rules 1 and 4). Throws TypeError on a non-array argument and
 // ValueError on shapes that do not broadcast.
 template <size_t N>
+inline void add_array_input(NInputs<N>& r, nb::handle h) {
+    if (!is_ndarray(h))
+        throw nb::type_error("Incompatible input type, a mix of numpy arrays and other.");
+    r.buffers.push_back(read_contig_double(nb::cast<nb::ndarray<nb::ro>>(h)));
+    if (r.buffers.back().ndim() < 1)
+        throw std::runtime_error("Input array must have at least one dimension");
+}
+
+// Plans the broadcast of the buffers read so far and points data at them.
+template <size_t N>
+inline void plan_inputs(NInputs<N>& r) {
+    std::vector<shape::Shape> shapes;
+    shapes.reserve(r.buffers.size());
+    for (const auto& b : r.buffers) shapes.push_back(b.shape);
+    r.plan = shape::broadcast(shape::input_views(shapes, N));
+    for (size_t i = 0; i < N; ++i)
+        r.data[i] = r.buffers[r.buffers.size() == 1 ? 0 : i].data.data();
+}
+
+template <size_t N>
 inline NInputs<N> read_inputs(const std::vector<nb::handle>& arrays) {
     NInputs<N> r;
     r.buffers.reserve(arrays.size());
-    std::vector<shape::Shape> shapes;
-    for (nb::handle h : arrays) {
-        if (!is_ndarray(h))
-            throw nb::type_error("Incompatible input type, a mix of numpy arrays and other.");
-        r.buffers.push_back(read_contig_double(nb::cast<nb::ndarray<nb::ro>>(h)));
-        if (r.buffers.back().ndim() < 1)
-            throw std::runtime_error("Input array must have at least one dimension");
-        shapes.push_back(r.buffers.back().shape);
-    }
-    r.plan = shape::broadcast(shape::input_views(shapes, N));
-    for (size_t i = 0; i < N; ++i)
-        r.data[i] = r.buffers[arrays.size() == 1 ? 0 : i].data.data();
+    for (nb::handle h : arrays) add_array_input(r, h);
+    plan_inputs(r);
     return r;
 }
 
@@ -280,6 +290,51 @@ inline NInputs<N> read_tuple_inputs(const nb::tuple& inputs) {
     std::vector<nb::handle> arrays;
     for (nb::handle h : inputs) arrays.push_back(h);
     return read_inputs<N>(arrays);
+}
+
+// True when the N inputs mix arrays with lists or tuples (decision A8): at
+// least one array with a time axis and at least one list or tuple.
+inline bool mixes_sequences_and_arrays(const nb::tuple& inputs) {
+    bool array = false, seq = false;
+    for (nb::handle h : inputs) {
+        if (PyList_Check(h.ptr()) || PyTuple_Check(h.ptr())) seq = true;
+        else if (is_ndarray(h) && nb::cast<int>(h.attr("ndim")) > 0) array = true;
+    }
+    return array && seq;
+}
+
+// A list or tuple of numbers mixed with arrays reads as a 1-D array of its
+// length (decision A8). The items are read from a snapshot, so an item's
+// __float__ cannot change the sequence under the loop.
+inline ContigDouble read_number_sequence(nb::handle self, nb::handle seq, std::size_t input) {
+    nb::tuple items = PyTuple_CheckExact(seq.ptr()) ? nb::borrow<nb::tuple>(seq) : nb::tuple(seq);
+    ContigDouble r;
+    const std::size_t n = items.size();
+    r.shape = { n };
+    r.data.resize(n);
+    for (std::size_t t = 0; t < n; ++t)
+        if (!nb::try_cast<double>(items[t], r.data[t]))
+            throw_not_a_number(op_display_name(self), items[t],
+                               where_text("event", static_cast<std::ptrdiff_t>(t),
+                                          static_cast<std::ptrdiff_t>(input)));
+    return r;
+}
+
+// The N inputs of a call that mixes arrays with lists or tuples: each list
+// reads as an array of its length, and the arrays broadcast as usual.
+template <size_t N>
+inline NInputs<N> read_mixed_inputs(nb::handle self, const nb::tuple& inputs) {
+    NInputs<N> r;
+    r.buffers.reserve(inputs.size());
+    for (std::size_t i = 0; i < inputs.size(); ++i) {
+        nb::handle h = inputs[i];
+        if (PyList_Check(h.ptr()) || PyTuple_Check(h.ptr()))
+            r.buffers.push_back(read_number_sequence(self, h, i));
+        else
+            add_array_input(r, h);
+    }
+    plan_inputs(r);
+    return r;
 }
 
 }  // namespace detail
@@ -908,7 +963,9 @@ nb::object functor_Ni_1o(Op& self, const nb::args& raw_args) {
     // Checked before the scalar cast so N length-1 arrays are a series of one
     // (array in, array out - Rule A), not N scalars collapsing to one scalar.
     if (is_series_array(inputs[0])) {
-        auto ins = detail::read_tuple_inputs<N>(inputs);
+        auto ins = detail::mixes_sequences_and_arrays(inputs)
+            ? detail::read_mixed_inputs<N>(nb::find(self), inputs)
+            : detail::read_tuple_inputs<N>(inputs);
         return handle_input_Ni_1o_numpy(self, ins);
     }
 
@@ -920,6 +977,13 @@ nb::object functor_Ni_1o(Op& self, const nb::args& raw_args) {
             if (!nb::try_cast<double>(nb::borrow<nb::object>(inputs[i]), array[i])) { ok = false; break; }
         }
         if (ok) return nb::cast(self.call(array));
+    }
+
+    // A list or tuple mixed with arrays, in any position, reads as an array
+    // of its length, so the call returns an array (decision A8).
+    if (detail::mixes_sequences_and_arrays(inputs)) {
+        auto ins = detail::read_mixed_inputs<N>(nb::find(self), inputs);
+        return handle_input_Ni_1o_numpy(self, ins);
     }
 
     // Case 4: a tuple of N iterables: ( [...], [...], [...] )
@@ -1016,7 +1080,9 @@ nb::object functor_Ni_Mo(Op& self, const nb::args& raw_args) {
 
     // Case 2: tuple of N numpy arrays whose asset axes broadcast.
     if (is_series_array(inputs[0])) {
-        auto ins = detail::read_tuple_inputs<N>(inputs);
+        auto ins = detail::mixes_sequences_and_arrays(inputs)
+            ? detail::read_mixed_inputs<N>(nb::find(self), inputs)
+            : detail::read_tuple_inputs<N>(inputs);
         return handle_input_Ni_Mo_numpy(self, ins);
     }
 
@@ -1028,6 +1094,13 @@ nb::object functor_Ni_Mo(Op& self, const nb::args& raw_args) {
             if (!nb::try_cast<double>(nb::borrow<nb::object>(inputs[i]), array[i])) { ok = false; break; }
         }
         if (ok) return nb::cast(self.call(array));
+    }
+
+    // A list or tuple mixed with arrays, in any position, reads as an array
+    // of its length, so the call returns an array (decision A8).
+    if (detail::mixes_sequences_and_arrays(inputs)) {
+        auto ins = detail::read_mixed_inputs<N>(nb::find(self), inputs);
+        return handle_input_Ni_Mo_numpy(self, ins);
     }
 
     // Case 4: tuple of N iterables.
