@@ -462,6 +462,17 @@ export function wrapOp(M: Screamer, src: OpSource, copy?: () => RawOp): Screamer
       });
       return nOut === 1 ? data : ({ data, shape: [rows, nOut] } as NdArray);
     }
+    if (args.length === 1 && Array.isArray(args[0])) {
+      // A list is a sequence of events, and each event must hold every input.
+      const evs = args[0] as any[];
+      for (let i = 0; i < evs.length; i++) {
+        const e = evs[i];
+        const m = typeof e === "number" ? 1 : isNd(e) ? e.data.length : isTyped(e) || Array.isArray(e) ? e.length : -1;
+        if (m < 0 || m === nIn) continue;
+        const name = (raw as any).constructor?.name ?? "this op";
+        throw new RangeError(`${name} expects ${nIn} inputs; a list is read as a sequence of events, and event ${i} has ${m} value${m === 1 ? "" : "s"} (expected ${nIn}). To pass ${nIn} separate inputs, call ${name}()(${nIn > 2 ? "a, b, ..." : "a, b"}).`);
+      }
+    }
     if (args.length !== nIn) throw new RangeError(`expected ${nIn} inputs, got ${args.length}`);
     throw new TypeError(`expected ${nIn} numeric inputs`);
   };

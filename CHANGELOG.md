@@ -99,6 +99,11 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
 
 ### Fixed
 
+* A list passed to a multi-input operator whose events do not hold every input
+  (for example `Add()([v, w])` or `Add()([1.0, 2.0])`) raises a `ValueError`
+  (JavaScript: `RangeError`) that explains the list reading and the fix,
+  `Add()(v, w)`, in place of `std::bad_cast` or a misleading shape `(1, 30)`.
+
 * JavaScript: after a few thousand caught operator errors (for example
   `RollingMean(0)` in a loop) the WebAssembly stack overran the heap and later
   calls failed with "memory access out of bounds". Each caught error now

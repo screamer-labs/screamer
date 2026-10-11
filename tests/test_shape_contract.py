@@ -626,3 +626,19 @@ def test_stream_needs_an_operator_that_can_copy_itself():
         op(iter(A))
     with pytest.raises(TypeError, match="screamer namespace"):
         op(_agen(A))
+
+
+import re as _re4
+import screamer as s
+
+
+@pytest.mark.parametrize("arg, m", [([np.arange(30.), np.arange(30.)], 30), ([1.0, 2.0], 1)])
+def test_list_into_two_input_op_names_the_event_reading(arg, m):
+    with pytest.raises(ValueError, match="^" + _re4.escape(
+            f"Add expects 2 inputs; a list is read as a sequence of events, and event 0 has {m} value")):
+        s.Add()(arg)
+
+
+def test_list_of_pairs_still_works():
+    assert s.Add()([(1.0, 2.0), (3.0, 4.0)]) == [3.0, 7.0]
+    assert s.Add()((np.ones(3), np.ones(3))).tolist() == [2.0, 2.0, 2.0]

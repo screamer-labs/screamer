@@ -320,6 +320,37 @@ inline bool is_event_list(nb::handle h, bool fields) {
            detail::has_axis(nb::steal(PySequence_GetItem(first.ptr(), 0)));
 }
 
+// A list given to a multi-input operator is a sequence of events, so each event
+// must hold all n inputs. Names the reading and the fix when one does not.
+inline void check_event_arity(nb::handle self, nb::handle list, std::size_t n) {
+    if (!nb::isinstance<nb::list>(list)) return;
+    const Py_ssize_t count = PyList_Size(list.ptr());
+    for (Py_ssize_t i = 0; i < count; ++i) {
+        nb::handle ev = PyList_GetItem(list.ptr(), i);
+        std::size_t m;
+        if (nb::isinstance<nb::tuple>(ev) || nb::isinstance<nb::list>(ev)) {
+            m = nb::len(ev);
+        } else if (detail::has_axis(ev)) {
+            nb::tuple shape = nb::cast<nb::tuple>(ev.attr("shape"));
+            if (nb::cast<std::size_t>(shape[shape.size() - 1]) == n) continue;
+            m = nb::cast<std::size_t>(ev.attr("size"));
+        } else if (PyNumber_Check(ev.ptr())) {
+            m = 1;
+        } else {
+            return;
+        }
+        if (m == n) continue;
+        std::string name = nb::type_name(self.type()).c_str();
+        if (auto dot = name.rfind('.'); dot != std::string::npos) name.erase(0, dot + 1);
+        const std::string ns = std::to_string(n);
+        throw nb::value_error((name + " expects " + ns +
+            " inputs; a list is read as a sequence of events, and event " + std::to_string(i) +
+            " has " + std::to_string(m) + " value" + (m == 1 ? "" : "s") + " (expected " + ns +
+            "). To pass " + ns + " separate inputs, call " + name + "()" +
+            (n > 2 ? "(a, b, ...)" : "(a, b)") + ".").c_str());
+    }
+}
+
 // A one-input operator takes one array, and a list of arrays is a sequence of
 // events. A tuple whose first item is an array is most likely a
 // (values, index) stream, so it raises instead of guessing.
@@ -704,6 +735,8 @@ nb::object functor_Ni_1o(Op& self, const nb::args& raw_args) {
         return handle_input_Ni_1o_numpy(self, *ins);
     }
 
+    if (args.size() == 1) check_event_arity(nb::find(self), args[0], N);
+
     // A list of packed asset events, or of tuples of per-field events.
     if (args.size() == 1 && is_event_list(args[0], true))
         return collect_events(nb::find(self), { nb::borrow<nb::object>(args[0]) });
@@ -805,6 +838,8 @@ nb::object functor_Ni_Mo(Op& self, const nb::args& raw_args) {
     if (auto ins = detail::maybe_read_packed<N>(args)) {
         return handle_input_Ni_Mo_numpy(self, *ins);
     }
+
+    if (args.size() == 1) check_event_arity(nb::find(self), args[0], N);
 
     // A list of packed asset events, or of tuples of per-field events.
     if (args.size() == 1 && is_event_list(args[0], true))

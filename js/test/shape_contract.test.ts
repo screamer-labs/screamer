@@ -72,3 +72,12 @@ test("G2: a malformed NdArray raises RangeError in positionTest (portfolio targe
   assert.throws(() => (api as any).walkForward(single, bad, [px, px, px, px], { train: 10, test: 5 }), RangeError);
   assert.throws(() => (api as any).probabilisticSharpe({ data: new Float64Array(4), shape: [3, 4] }), RangeError);
 });
+
+test("C4: a list of arrays into Add names the event reading", async () => {
+  await ready();
+  const add = (api as any).Add();
+  assert.throws(() => add([new Float64Array(30), new Float64Array(30)]),
+    (e: unknown) => e instanceof RangeError && /^Add expects 2 inputs; a list is read as a sequence of events, and event 0 has 30 values \(expected 2\)\. To pass 2 separate inputs, call Add\(\)\(a, b\)\.$/.test((e as Error).message));
+  assert.throws(() => add([1, 2]),
+    (e: unknown) => e instanceof RangeError && /event 0 has 1 value \(expected 2\)/.test((e as Error).message));
+});
