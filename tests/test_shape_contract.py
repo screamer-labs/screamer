@@ -196,3 +196,127 @@ def test_failed_copy_leaves_the_iterator_retryable():
         next(it)
     want = s.RollingMean(2)(x[1:])                        # starts again from this event
     np.testing.assert_array_equal(np.array([next(it), next(it)]), want)
+
+
+# ---- Streaming contract: lazy iterators and async generators ---------------
+
+import asyncio  # noqa: E402
+
+MULTI = [n for n in NAMES if int(FUNCTORS[n].get("inputs", 1)) > 1]
+
+
+def _n_in(name):
+    return int(FUNCTORS[name].get("inputs", 1))
+
+
+async def _agen(items):
+    for x in items:
+        yield x
+
+
+def _collect(aiter):
+    """Drain an async iterator inside one event loop."""
+    async def run():
+        return [e async for e in aiter]
+    return asyncio.run(run())
+
+
+def _series(n_in):
+    return _inputs(n_in, n_samples=60)
+
+
+@pytest.mark.parametrize("name", NAMES)
+def test_iterator_is_lazy(name):
+    n_in = _n_in(name)
+    xs = _series(n_in)
+    pulls = [0] * n_in
+
+    def counted(i):
+        for v in xs[i]:
+            pulls[i] += 1
+            yield v
+
+    it = _instantiate(FUNCTORS[name])(*[counted(i) for i in range(n_in)])
+    assert pulls == [0] * n_in
+    for step in (1, 2, 3):
+        next(it)
+        assert pulls == [step] * n_in
+
+
+@pytest.mark.parametrize("name", NAMES)
+def test_async_equals_batch(name):
+    xs = _series(_n_in(name))
+    aiter = _instantiate(FUNCTORS[name])(*[_agen(x) for x in xs])
+    assert hasattr(aiter, "__anext__")
+    got = _collect(aiter)
+    np.testing.assert_array_equal(np.array(got, dtype=float), _out(name, xs))
+
+
+@pytest.mark.parametrize("name", NAMES)
+def test_async_asset_events_equal_batch(name):
+    panel = _panel(_n_in(name))
+    got = _collect(_instantiate(FUNCTORS[name])(*[_agen(p) for p in panel]))
+    np.testing.assert_array_equal(np.array(got, dtype=float), _out(name, panel))
+
+
+@pytest.mark.parametrize("name", MULTI)
+def test_async_packed_events_equal_batch(name):
+    n_in = _n_in(name)
+    panel = _panel(n_in)
+    packed = np.stack(panel, axis=-1)                       # (T, K, n_in)
+    got = _collect(_instantiate(FUNCTORS[name])(_agen(packed)))
+    np.testing.assert_array_equal(np.array(got, dtype=float), _out(name, panel))
+    xs = _series(n_in)
+    got = _collect(_instantiate(FUNCTORS[name])(_agen(list(zip(*xs)))))   # tuples of scalars
+    np.testing.assert_array_equal(np.array(got, dtype=float), _out(name, xs))
+
+
+@pytest.mark.parametrize("name", MULTI)
+def test_mixed_sync_and_async_sources_raise(name):
+    xs = _series(_n_in(name))
+    sources = [_agen(xs[0])] + [iter(x) for x in xs[1:]]
+    with pytest.raises(TypeError, match="async"):
+        _instantiate(FUNCTORS[name])(*sources)
+    for s in sources[:1]:
+        asyncio.run(s.aclose())
+
+
+def test_async_scalar_outputs_are_floats_and_tuples():
+    import screamer as s
+    got = _collect(s.RollingMean(2)(_agen([1.0, 2.0, 3.0])))
+    np.testing.assert_array_equal(got, [np.nan, 1.5, 2.5])
+    assert all(type(v) is float for v in got)
+    got = _collect(s.Add()(_agen([1.0, 2.0]), _agen([3.0, 4.0])))
+    assert got == [4.0, 6.0] and all(type(v) is float for v in got)
+    got = _collect(s.MACD()(_agen([1.0, 2.0])))
+    assert all(isinstance(v, tuple) and len(v) == 3 for v in got)
+
+
+def test_async_iterators_chain():
+    import screamer as s
+    x = np.random.default_rng(0).uniform(size=(20, K))
+    got = _collect(s.RollingMean(3)(s.Add()(_agen(x), _agen(x))))
+    np.testing.assert_array_equal(np.array(got), s.RollingMean(3)(2 * x))
+
+
+def test_failed_copy_leaves_the_async_iterator_retryable():
+    import screamer as s
+    x = np.arange(1.0, 13.0).reshape(3, 4)
+    op = s.RollingMean(2)
+    calls = []
+
+    def failing():
+        calls.append(1)
+        if len(calls) == 2:
+            raise RuntimeError("no copy")
+        return type(op)(2)
+
+    op._fresh = failing
+    it = op(_agen(x))
+
+    async def run():
+        with pytest.raises(RuntimeError, match="no copy"):
+            await it.__anext__()
+        return [await it.__anext__(), await it.__anext__()]
+
+    np.testing.assert_array_equal(np.array(asyncio.run(run())), s.RollingMean(2)(x[1:]))

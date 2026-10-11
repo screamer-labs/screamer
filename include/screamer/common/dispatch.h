@@ -876,6 +876,8 @@ nb::object functor_call(Op& self, nb::args args) {
             return screamer::make_dag_functor_node(nb::find(self), nb::cast<nb::tuple>(args));
     }
     if constexpr (N == 1) { if (args.size() != 1) throw nb::type_error("Wrong number of in puts"); }
+    // Async iterables, for every arity: N sources or one source of events.
+    if (nb::object it = route_async(nb::find(self), args, N); it.is_valid()) return it;
     if constexpr (N == 1 && M == 1) return functor_1i_1o<Op>(self, nb::borrow<nb::object>(args[0]));
     else if constexpr (N > 1 && M == 1) return functor_Ni_1o<Op>(self, args);
     else if constexpr (N == 1 && M > 1) return functor_1i_Mo<Op>(self, nb::borrow<nb::object>(args[0]));

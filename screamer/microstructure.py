@@ -28,7 +28,7 @@ def _packed(x):
         return True
     if isinstance(x, list):
         return bool(x) and not isinstance(x[0], (int, float, np.number))
-    return hasattr(x, "__iter__")
+    return hasattr(x, "__iter__") or hasattr(x, "__aiter__")
 
 
 def _bind(who, names, inputs, kwargs):
@@ -79,7 +79,15 @@ def _swap_fields(inputs):
         return (packed[..., ::-1],)
     if isinstance(packed, list):          # a list in gives a list out
         return ([_swap_event(e) for e in packed],)
+    if hasattr(packed, "__aiter__"):
+        return (_aswap(packed),)
     return (map(_swap_event, packed),)
+
+
+async def _aswap(events):
+    """The async form of map(_swap_event, events)."""
+    async for event in events:
+        yield _swap_event(event)
 
 
 class SignedVolume:

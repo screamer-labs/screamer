@@ -23,6 +23,9 @@ nb::object screamer_call(ScreamerBase& self, nb::object obj) {
         return nb::float_(self.process_scalar(value));
     }
 
+    if (is_async_iterable(obj))
+        return nb::cast(LazyAsyncIterator(nb::find(self), { obj }));
+
     reject_array_tuple(obj);
     if (is_event_list(obj, false))      // a list of asset events
         return collect_events(nb::find(self), { obj });
@@ -64,10 +67,6 @@ nb::object screamer_call(ScreamerBase& self, nb::object obj) {
     if (nb::hasattr(obj, "__iter__")) {
         std::vector<nb::object> sources{ obj };      // a single iterable of scalars (n_in==1)
         return nb::cast(LazyEvalIterator(nb::find(self), std::move(sources)));
-    }
-
-    if (is_async_generator(obj)) {
-        return nb::cast(LazyAsyncIterator(obj, nb::find(self)));
     }
 
     if (is_dag_node(obj)) {

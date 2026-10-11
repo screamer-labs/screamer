@@ -89,8 +89,7 @@ Each is tracked to be closed.
   `EwKyleLambda`, `RollingOrderImbalance`, and `QueueImbalance` are Python
   only; in JavaScript use `Mul`, `RollingBeta` and `EwBeta` (with the inputs
   as return, then signed flow), `RollingSum`, and `OFI` directly.
-* In Python, a live session's `push` and an async generator passed to an
-  operator take numbers only, not asset events.
+* In Python, a live session's `push` takes numbers only, not asset events.
 
 ## Backtesting and significance tests
 

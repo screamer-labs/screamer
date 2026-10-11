@@ -14,62 +14,52 @@ namespace nb = nanobind;
 
 namespace screamer {
 
-// One lazy iterator for any EvalOp. Holds the functor's Python wrapper (keep-alive)
-// and the input source(s). Per __next__ it reads one event from each source.
+// The per-event work shared by the synchronous and the async iterators. The
+// caller reads one event (one item per source) and passes the items to step(),
+// which runs the operator on them and returns the output. LazyEvalIterator pulls
+// the items from Python iterators; LazyAsyncIterator awaits them from async
+// iterators. Both call the same step(), so both give the batch result.
 //
 // Two input forms, matching the batch dispatch:
-//   - `sources` holds n_in() separate iterators;
-//   - `sources` holds one iterator whose items hold all n_in() fields: a tuple or
-//     list (one value per field) or an array whose last axis has n_in() fields.
+//   - n_sources == n_in(): one item per field;
+//   - n_sources == 1 and n_in() > 1: the one item holds all n_in() fields, as a
+//     tuple or list (one value per field) or an array whose last axis has n_in()
+//     fields.
 //
 // Events are scalars (one float out, or a tuple of n_out() floats), or arrays of
 // one fixed shape: each holds one value per asset (shape.h rules 2 and 3), the
 // first event fixes the shape, and every asset runs its own copy of the op, as
 // the batch path gives every column its own state.
-class LazyEvalIterator {
+class EventStepper {
 public:
-    LazyEvalIterator(nb::object op_owner, std::vector<nb::object> iterables)
+    EventStepper(nb::object op_owner, std::size_t n_sources)
         : op_owner_(std::move(op_owner)),
           op_(nb::cast<EvalOp&>(op_owner_)),
           n_in_(op_.n_in()), n_out_(op_.n_out()),
-          in_(op_.n_in()), out_(op_.n_out()) {
-        for (auto& it : iterables) iters_.push_back(it.attr("__iter__")());
-        unpack_ = (iters_.size() == 1 && n_in_ > 1);
-    }
+          in_(op_.n_in()), out_(op_.n_out()),
+          unpack_(n_sources == 1 && n_in_ > 1) {}
 
-    LazyEvalIterator& __iter__() { return *this; }
-
-    nb::object __next__() {
-        items_.clear();
-        for (auto& it : iters_) items_.push_back(next_or_stop(it));
+    // Runs one event. `items` holds one item per source.
+    nb::object step(const std::vector<nb::object>& items) {
         if (mode_ == Mode::Unknown) {
-            if (scalar_values()) {
+            if (scalar_values(items)) {
                 mode_ = Mode::Scalar;
                 return eval_scalar();
             }
             mode_ = Mode::Assets;
         }
         if (mode_ == Mode::Scalar) {
-            if (!scalar_values())
+            if (!scalar_values(items))
                 throw nb::value_error("every event must have the same shape; the first events "
                                       "were numbers, this one is not");
             return eval_scalar();
         }
-        return next_assets();
+        return step_assets(items);
     }
 
 private:
     enum class Mode { Unknown, Scalar, Assets };
     using Arr = nb::ndarray<const double, nb::c_contig, nb::device::cpu>;
-
-    static nb::object next_or_stop(nb::object& it) {
-        try {
-            return it.attr("__next__")();
-        } catch (nb::python_error& e) {
-            if (e.matches(PyExc_StopIteration)) throw nb::stop_iteration();
-            throw;
-        }
-    }
 
     // A plain number. An array with an axis is not one, even with one element:
     // an event of shape (1,) holds one asset.
@@ -80,19 +70,19 @@ private:
         return nb::try_cast<double>(h, v);
     }
 
-    // Reads the n_in field values of the current event into in_ if every one is
-    // a plain number.
-    bool scalar_values() {
+    // Reads the n_in field values of the event into in_ if every one is a
+    // plain number.
+    bool scalar_values(const std::vector<nb::object>& items) {
         if (unpack_) {
             nb::sequence seq;
-            if (!nb::try_cast<nb::sequence>(items_[0], seq)) return false;
+            if (!nb::try_cast<nb::sequence>(items[0], seq)) return false;
             if (nb::len(seq) != static_cast<Py_ssize_t>(n_in_)) return false;
             for (std::size_t i = 0; i < n_in_; ++i)
                 if (!as_number(seq[i], in_[i])) return false;
             return true;
         }
         for (std::size_t i = 0; i < n_in_; ++i)
-            if (!as_number(items_[i], in_[i])) return false;
+            if (!as_number(items[i], in_[i])) return false;
         return true;
     }
 
@@ -105,12 +95,12 @@ private:
         return t;
     }
 
-    nb::object next_assets() {
+    nb::object step_assets(const std::vector<nb::object>& items) {
         parts_.clear();
-        if (unpack_ && (nb::isinstance<nb::tuple>(items_[0]) || nb::isinstance<nb::list>(items_[0]))) {
-            for (nb::handle h : items_[0]) parts_.push_back(nb::borrow<nb::object>(h));   // one per field
+        if (unpack_ && (nb::isinstance<nb::tuple>(items[0]) || nb::isinstance<nb::list>(items[0]))) {
+            for (nb::handle h : items[0]) parts_.push_back(nb::borrow<nb::object>(h));   // one per field
         } else {
-            parts_ = items_;
+            parts_.assign(items.begin(), items.end());
         }
         if (!ascontiguous_.is_valid()) {
             nb::module_ np = nb::module_::import_("numpy");
@@ -150,7 +140,7 @@ private:
     // from the wrapper's _fresh(); the original op is reset so every asset
     // starts clean.
     // Everything is built in locals and committed only when every copy exists,
-    // so a failed _fresh() leaves the iterator as it was.
+    // so a failed _fresh() leaves the stepper as it was.
     void start_assets() {
         shape::Plan plan = shape::broadcast(shape::input_views(current_, n_in_));
         if (plan.columns > 1 && !nb::hasattr(op_owner_, "_fresh"))
@@ -186,12 +176,11 @@ private:
     nb::object op_owner_;                 // keeps the functor wrapper alive
     EvalOp& op_;
     std::size_t n_in_, n_out_;
-    std::vector<nb::object> iters_;
     std::vector<double> in_, out_;
-    bool unpack_ = false;
+    bool unpack_;
     Mode mode_ = Mode::Unknown;
     // Per-event buffers, kept to reuse their storage.
-    std::vector<nb::object> items_, parts_;
+    std::vector<nb::object> parts_;
     std::vector<Arr> arrays_;
     std::vector<shape::Shape> current_;
     nb::object ascontiguous_, float64_;   // numpy.ascontiguousarray, numpy.float64
@@ -201,6 +190,40 @@ private:
     std::vector<std::size_t> out_shape_;
     std::vector<nb::object> owners_;      // the _fresh() copies, kept alive
     std::vector<EvalOp*> copies_;         // one op per asset; copies_[0] is op_
+};
+
+// One lazy iterator for any EvalOp. `sources` holds n_in() separate iterators,
+// or one iterator whose events hold all n_in() fields (see EventStepper). Per
+// __next__ it reads one event from each source; nothing is read before the
+// first __next__.
+class LazyEvalIterator {
+public:
+    LazyEvalIterator(nb::object op_owner, std::vector<nb::object> iterables)
+        : stepper_(std::move(op_owner), iterables.size()) {
+        for (auto& it : iterables) iters_.push_back(it.attr("__iter__")());
+    }
+
+    LazyEvalIterator& __iter__() { return *this; }
+
+    nb::object __next__() {
+        items_.clear();
+        for (auto& it : iters_) items_.push_back(next_or_stop(it));
+        return stepper_.step(items_);
+    }
+
+private:
+    static nb::object next_or_stop(nb::object& it) {
+        try {
+            return it.attr("__next__")();
+        } catch (nb::python_error& e) {
+            if (e.matches(PyExc_StopIteration)) throw nb::stop_iteration();
+            throw;
+        }
+    }
+
+    EventStepper stepper_;
+    std::vector<nb::object> iters_;
+    std::vector<nb::object> items_;       // per-event buffer, kept to reuse its storage
 };
 
 }  // namespace screamer

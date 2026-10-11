@@ -50,7 +50,7 @@ Every 1‑in/1‑out class supports the following input/output shapes:
 | Python `list` of arrays | Python `list` of arrays | a sequence of asset events, one operator state per asset |
 | Python `tuple` of arrays | `TypeError` | a `(values, index)` stream goes to a stream operator or a `Pipeline`; a compute operator takes the values |
 | Python iterator (`iter(...)`, generator, anything iterable that is not list/tuple/array) | a screamer `LazyEvalIterator` | results yielded **one at a time on demand** |
-| Async generator (`async def` with `yield`) | a screamer `LazyAsyncIterator` | results awaited one at a time |
+| Async iterable (an `async def` generator with `yield`, or anything with `__aiter__`) | a screamer `LazyAsyncIterator` | results awaited one at a time; events are numbers or asset arrays, as for an iterator |
 | Anything else | `ValueError` | "Unsupported input type for call: ..." |
 
 There are two important conventions hidden in this table.
@@ -138,7 +138,15 @@ fact that lists are technically iterable does not matter, the
 list/tuple and array branches are checked before the iterable branch in
 the dispatcher.
 
-Async generators are handled symmetrically through `LazyAsyncIterator`.
+Async iterables are handled the same way through `LazyAsyncIterator`, for every
+operator: each `__anext__` awaits one event from every source and runs it
+through the same per-event code as `LazyEvalIterator`, so both give the batch
+result.
+
+```python
+async for y in mean(live_feed()):               # screamer.LazyAsyncIterator
+    publish(y)
+```
 
 > **Why no lazy NumPy?** A NumPy array is already in memory, so eager
 > processing is strictly faster; lazy iteration over an array would buy
@@ -171,8 +179,8 @@ The exact decision tree implemented in `ScreamerBase::operator()`
 4. **Is it an iterable?** Wrap in `LazyEvalIterator`. Iteration is lazy; each
    `next()` advances the source and produces one output.
 
-5. **Is it an async generator?** (`hasattr(obj, "__aiter__")` and
-   `hasattr(obj, "__anext__")`.) Wrap in `LazyAsyncIterator`.
+5. **Is it an async iterable?** (Its type defines `__aiter__`.) Wrap in
+   `LazyAsyncIterator`.
 
 6. **Anything else** → `ValueError("Unsupported input type for call: ...")`.
    (Multi-input functors instead raise `TypeError` for a wrong argument
@@ -217,7 +225,7 @@ stacked along `T`. Six rules follow from this contract:
 1. **The container does not change the result.** An iterator of `(K,)` events
    gives the same rows as the `(T, K)` array, with one operator state per
    asset: `RollingMean(5)(iter(X))` yields the rows of `RollingMean(5)(X)`.
-   An async generator still takes one number per event.
+   An async generator of the same events gives the same rows.
 2. **Multi-input operators broadcast over assets.** Each input is one field of
    shape `(T, *A_i)`. The asset shapes broadcast with NumPy rules, and `T` must
    match: `RollingCorr(20)(X, y)` with `X (T, K)` and `y (T,)` gives `(T, K)`,
@@ -285,6 +293,9 @@ reference example with `N = 2`.
 | `obj(X, Y)` - `N` parallel N-D arrays `(T, J, K, ...)` | same shape; `J*K*...` independent paired streams |
 | `obj(X_view, Y_view)` - strided views | works; result is contiguous |
 | `obj(x_iter, y_iter)` - `N` parallel iterables | a lazy iterator (`LazyEvalIterator`), advancing every input in lock-step and yielding one `float` per step until the first input stops |
+| `obj(it)` - one iterable whose events hold all `N` fields (tuples of `N` numbers, or `(K, N)` arrays) | a lazy iterator (`LazyEvalIterator`), as for `N` parallel iterables |
+| `obj(x_aiter, y_aiter)` - `N` parallel async iterables, or one async iterable of `N`-field events | an async iterator (`LazyAsyncIterator`) awaiting one event per step; the same results as the iterator forms |
+| A mix of async and synchronous inputs | `TypeError` |
 | `obj(X, y)` - arrays whose asset shapes broadcast, e.g. `(T, K)` and `(T,)` | `numpy.ndarray` of shape `(T, K)`, where column `k` is `obj(X[:, k], y)`; the `(T,)` input is read once per column, not copied |
 | `obj(A)` - a single 2-D array of shape `(T, N)` | `numpy.ndarray` of shape `(T,)` - the `N` columns are the `N` inputs; column `j` → input `j`. Accepted iff `A.shape[1] == N`; any other single-array shape is a `ValueError`. |
 | `obj(A)` - a single packed array of shape `(T, K, N)` | `numpy.ndarray` of shape `(T, K)`: `K` assets, each with `N` input fields |
@@ -375,6 +386,7 @@ one rule added: the output gets an extra trailing axis of size `M`.
 | 2-D array of shape `(T, K)` | NumPy array of shape `(T, K, M)` |
 | N-D array of shape `(T, ..., K)` | NumPy array of shape `(T, ..., K, M)` |
 | iterable | a lazy iterator (`LazyEvalIterator`) yielding one `tuple` of `M` floats per step |
+| async iterable | an async iterator (`LazyAsyncIterator`) awaiting one `tuple` of `M` floats per step |
 
 The shape rule is `output.shape == input.shape + (M,)`, after a trailing
 size-1 axis on an input of rank 3 or more has been consumed. `(T,)` and
@@ -410,7 +422,8 @@ Functions that map `N` parallel input streams to `M` parallel output streams com
 | `obj([(x1, y1), (x2, y2), ...])` (list of `N`-tuples) | `list[tuple[float, ...]]` of the same length |
 | `N` parallel 1D arrays of shape `(T,)` | NumPy array of shape `(T, M)` |
 | `N` parallel 2D arrays of shape `(T, K)` | NumPy array of shape `(T, K, M)`; column `k` is `obj(X[:, k], Y[:, k])` (bit-exact) |
-| `N` parallel iterables | a lazy iterator (`LazyEvalIterator`) yielding one `tuple` of `M` floats per step |
+| `N` parallel iterables, or one iterable of `N`-field events | a lazy iterator (`LazyEvalIterator`) yielding one `tuple` of `M` floats per step |
+| `N` parallel async iterables, or one async iterable of `N`-field events | an async iterator (`LazyAsyncIterator`) awaiting one `tuple` of `M` floats per step |
 | `obj(A)` - a single 2-D array of shape `(T, N)` | NumPy array of shape `(T, M)` - the `N` columns are the `N` inputs; column `j` → input `j`. Accepted iff `A.shape[1] == N`; any other single-array shape is a `ValueError`. |
 
 The shape rule is `output.shape == broadcast_input.shape + (M,)`, where the input asset shapes broadcast as in the `N → 1` case and shapes that do not broadcast raise `ValueError`. The dispatcher calls `reset()` between independent paired streams in a 2D/N-D batch, so stateful `N → M` functors don't leak state across columns.

@@ -1,17 +1,18 @@
-"""Async helper coroutines for screamer's streaming operators.
+"""The coroutine behind every operator's async iterator.
 
-nanobind removed pybind11's ``py::exec`` / ``py::eval``, so the coroutine that
-drives an async-generator source through a functor lives here as a real,
-importable Python function. The C++ ``AnextAwaitable::__await__`` imports this
-module and calls :func:`process_awaitable`.
+An operator called on async iterables returns a ``LazyAsyncIterator`` (C++).
+Its ``__anext__`` returns :func:`anext_event`, which awaits one item from each
+source and passes them to the iterator's ``_step``, the same per-event code the
+synchronous iterator runs. nanobind has no ``py::exec``, so the coroutine lives
+in this module.
 """
 
 
-async def process_awaitable(awaitable, processor):
-    """Await one upstream item and run it through ``processor.process_scalar``.
+async def anext_event(sources, iterator):
+    """Await one item from each async source, then run the event.
 
-    ``processor`` is the functor's own Python wrapper; ``awaitable`` yields the
-    next raw value from the async-generator source.
+    The first exhausted source raises ``StopAsyncIteration``, which ends the
+    iteration.
     """
-    result = await awaitable
-    return processor.process_scalar(result)
+    items = [await source.__anext__() for source in sources]
+    return iterator._step(items)
