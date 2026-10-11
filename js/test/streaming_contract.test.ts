@@ -40,9 +40,9 @@ const rowsOf = (x: NdArray): Float64Array[] => {
 };
 const packedRows = (p: NdArray[]): NdArray[] =>
   Array.from({ length: T }, (_, t) => {
-    const n = p.length, data = new Float64Array(K * n);
-    for (let k = 0; k < K; k++) for (let i = 0; i < n; i++) data[k * n + i] = p[i].data[t * K + k];
-    return { data, shape: [K, n] };
+    const n = p.length, k0 = p[0].shape[1], data = new Float64Array(k0 * n);
+    for (let k = 0; k < k0; k++) for (let i = 0; i < n; i++) data[k * n + i] = p[i].data[t * k0 + k];
+    return { data, shape: [k0, n] };
   });
 
 // Every result as one flat array: a number, an array of numbers, a typed array,
@@ -229,7 +229,7 @@ test("multi-output asset events are (K, nOut)", () => {
   same(got, ops.MACD()(p[0]), "MACD");
 });
 
-test("a failed copy leaves the stream retryable", () => {
+test("a failed copy ends the stream and closes its source; the next stream works", () => {
   const M = current();
   let calls = 0;
   const op = wrapOp(M, () => {
@@ -239,10 +239,14 @@ test("a failed copy leaves the stream retryable", () => {
   });
   const x = Float64Array.from({ length: 12 }, (_, i) => i + 1);
   const rows = [0, 1, 2].map((t) => x.slice(t * 4, t * 4 + 4));
-  const it = op(iter(rows)) as Iterator<Float64Array>;
+  let closed = false;
+  const src = (function* () { try { yield* rows; } finally { closed = true; } })();
+  const it = op(src) as Iterator<Float64Array>;
   assert.throws(() => it.next(), /no copy/);
-  const want = ops.RollingMean(2, "strict")({ data: x.slice(4), shape: [2, 4] });
-  same([it.next().value, it.next().value], want, "retry");
+  assert.ok(closed);
+  assert.equal(it.next().done, true);
+  const want = ops.RollingMean(2, "strict")({ data: x, shape: [3, 4] });
+  same([...(op(iter(rows)) as Iterable<Float64Array>)], want, "next stream");
 });
 
 test("an event shape change in a multi-input stream raises", () => {
@@ -267,18 +271,131 @@ test("using a multi-input stream after dispose raises", () => {
   assert.throws(() => it.next(), /used after dispose/);
 });
 
-test("a second next() of an async stream while one runs rejects", async () => {
+test("overlapping next() calls of an async stream run in order", async () => {
   const it = ops.Add()(aiter([1, 2]), aiter([3, 4])) as AsyncIterator<number>;
-  const first = it.next();
-  await assert.rejects(it.next() as Promise<any>, /still running/);
-  assert.deepEqual(await first, { done: false, value: 4 });
-  assert.deepEqual(await it.next(), { done: false, value: 6 });
-  assert.deepEqual((await it.next()).done, true);
+  const [a, b, c] = await Promise.all([it.next(), it.next(), it.next()]);
+  assert.deepEqual([a, b, c], [{ done: false, value: 4 }, { done: false, value: 6 }, { done: true, value: undefined }]);
 });
 
-test("a failed event leaves an async stream usable", async () => {
-  const it = ops.RollingMean(2)(aiter([new Float64Array(2), new Float64Array(3), new Float64Array([1, 2])])) as AsyncIterator<any>;
+// A source that records whether it was closed.
+function tracked<V>(xs: Iterable<V>, log: string[], name: string) {
+  return (function* () { try { yield* xs; } finally { log.push(name); } })();
+}
+function atracked<V>(xs: Iterable<V>, log: string[], name: string) {
+  return (async function* () { try { for (const x of xs) yield x; } finally { log.push(name); } })();
+}
+
+test("an error in an event closes every source and ends the stream", () => {
+  const log: string[] = [];
+  const it = ops.Add()(
+    tracked([new Float64Array(3), new Float64Array(3), new Float64Array(3)], log, "a"),
+    tracked([new Float64Array(3), new Float64Array(4), new Float64Array(3)], log, "b"),
+  ) as Iterator<any>;
+  it.next();
+  assert.throws(() => it.next(), /same shape/);
+  assert.deepEqual(log.sort(), ["a", "b"]);
+  assert.equal(it.next().done, true);
+  // A for...of loop sees the same: the error escapes and the sources are closed.
+  const log2: string[] = [];
+  assert.throws(() => { for (const _ of ops.RollingMean(2)(tracked([new Float64Array(2), new Float64Array(3)], log2, "x"))) { /* */ } }, /same shape/);
+  assert.deepEqual(log2, ["x"]);
+});
+
+test("an error in an async event closes every source and ends the stream", async () => {
+  const log: string[] = [];
+  const it = ops.Add()(
+    atracked([new Float64Array(3), new Float64Array(3)], log, "a"),
+    atracked([new Float64Array(3), new Float64Array(4)], log, "b"),
+  ) as AsyncIterator<any>;
   await it.next();
   await assert.rejects(it.next() as Promise<any>, /same shape/);
-  same((await it.next()).value, [0.5, 1], "after the error");
+  assert.deepEqual(log.sort(), ["a", "b"]);
+  assert.equal((await it.next()).done, true);
+});
+
+test("throw() on a stream closes the sources and rethrows", async () => {
+  const log: string[] = [];
+  const it = ops.Add()(tracked([1, 2, 3], log, "a"), tracked([1, 2, 3], log, "b")) as Generator<number>;
+  it.next();
+  assert.throws(() => it.throw(new Error("stop")), /stop/);
+  assert.deepEqual(log.sort(), ["a", "b"]);
+  assert.equal(it.next().done, true);
+  const alog: string[] = [];
+  const ait = ops.Add()(atracked([1, 2], alog, "a"), atracked([1, 2], alog, "b")) as AsyncGenerator<number>;
+  await ait.next();
+  await assert.rejects(ait.throw(new Error("stop")), /stop/);
+  assert.deepEqual(alog.sort(), ["a", "b"]);
+});
+
+test("closing an async stream closes every source even when one close rejects", async () => {
+  const log: string[] = [];
+  const bad: AsyncIterableIterator<number> = {
+    [Symbol.asyncIterator]() { return this; },
+    async next() { return { done: false, value: 1 }; },
+    async return() { log.push("bad"); throw new Error("close failed"); },
+  };
+  const it = ops.Add()(bad, atracked([1, 2, 3], log, "good")) as AsyncGenerator<number>;
+  await it.next();
+  await assert.rejects(it.return(undefined), /close failed/);
+  assert.deepEqual(log.sort(), ["bad", "good"]);
+});
+
+test("streams have the built-in iterator helpers", async () => {
+  const want = ops.RollingMean(3)(scalars(1)[0]) as Float64Array;
+  const s = ops.RollingMean(3)(iter(scalars(1)[0])) as any;
+  assert.equal(typeof s.throw, "function");
+  const G = (globalThis as any).Iterator;
+  if (typeof G === "function") {
+    assert.ok(s instanceof G);
+    same(s.take(5).toArray(), want.slice(0, 5), "take");
+    same((ops.RollingMean(3)(iter(scalars(1)[0])) as any).map((v: number) => v * 2).toArray(), Array.from(want, (v) => v * 2), "map");
+  }
+  const asyncProto = Object.getPrototypeOf(Object.getPrototypeOf((async function* () { /* */ })()));
+  const a = ops.RollingMean(3)(aiter(scalars(1)[0])) as any;
+  assert.ok(Object.getPrototypeOf(asyncProto) && Object.prototype.isPrototypeOf.call(Object.getPrototypeOf(asyncProto), a));
+  assert.equal(typeof a.throw, "function");
+  if (typeof a.take === "function") same(await a.take(5).toArray(), want.slice(0, 5), "async take");
+});
+
+test("an async stream reads nothing before the first next()", async () => {
+  const xs = scalars(2);
+  const pulls = [0, 0];
+  const counted = (i: number) => (async function* () { for (const v of xs[i]) { pulls[i]++; yield v; } })();
+  const it = ops.Add()(counted(0), counted(1)) as AsyncIterator<number>;
+  await Promise.resolve();
+  assert.deepEqual(pulls, [0, 0]);
+  for (const step of [1, 2, 3]) {
+    await it.next();
+    assert.deepEqual(pulls, [step, step]);
+  }
+  const rows = [new Float64Array([1, 2]), new Float64Array([3, 4])];
+  let rp = 0;
+  const rit = ops.CrossDemean()((async function* () { for (const r of rows) { rp++; yield r; } })()) as AsyncIterator<any>;
+  assert.equal(rp, 0);
+  await rit.next();
+  assert.equal(rp, 1);
+});
+
+test("interleaved streams of one op keep their own event shapes", () => {
+  const op = ops.Add();
+  const p3 = panel(2);
+  const p2: NdArray[] = [0, 1].map((i) => ({ data: series(T * 2, 501 + i), shape: [T, 2] }));
+  const s1 = op(...p3.map((x) => iter(rowsOf(x)))) as Iterator<any>;
+  const s2 = op(iter(zipRows(scalars(2)))) as Iterator<any>;
+  const s3 = op(iter(packedRows(p2))) as Iterator<any>;
+  const r1 = rowsOf(ops.Add()(...p3) as NdArray), r3 = rowsOf(ops.Add()(...p2) as NdArray);
+  const xs = scalars(2);
+  for (let t = 0; t < 5; t++) {
+    same(s1.next().value, r1[t], `assets ${t}`);
+    assert.equal(s2.next().value, xs[0][t] + xs[1][t]);
+    same(s3.next().value, r3[t], `packed ${t}`);
+  }
+});
+
+test("every result has its own shape array", () => {
+  const p = panel(1);
+  const got = [...(ops.MACD()(iter(rowsOf(p[0]))) as Iterable<NdArray>)];
+  assert.notEqual(got[0].shape, got[1].shape);
+  got[0].shape.push(99);
+  assert.deepEqual(got[1].shape, [K, 3]);
 });
