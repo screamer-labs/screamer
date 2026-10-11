@@ -143,7 +143,8 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
 * Passing an object whose class has a non-string `__module__` to an operator
   raised a segmentation fault; it now raises `TypeError`.
 * Operator constructors and other calls no longer crash on an object whose
-  class has a non-string `__module__` (nanobind upgraded to 2.13.0).
+  class has a non-string `__module__` or a module name that is not valid
+  UTF-8 (nanobind upgraded to 2.13.0, with a local patch for the UTF-8 case).
 * An input that an operator cannot read raises `TypeError` that names the
   operator and the input's type (`RollingMean: a M is not a valid input; ...`)
   on every dispatch path; most paths said only "Unsupported input type."

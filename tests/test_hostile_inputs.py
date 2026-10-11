@@ -79,7 +79,8 @@ def test_mixed_inputs_name_their_types():
 # Calls that fail inside nanobind itself: overload resolution (every operator
 # constructor, wrong arity, an unknown keyword, a typed ndarray binding) and
 # subclassing a bound type. nanobind before v2.13.0 read a non-str __module__
-# unchecked here and crashed.
+# unchecked here and crashed; v2.13.0 still crashed on a str __module__ that is
+# not valid UTF-8 until cmake/nanobind-surrogate-module.patch.
 NANOBIND_CALLS = [
     "s.RollingMean(2)(M(), M())",                                   # overload error message
     "s.RollingMean(2)(1.0, x=M())",                                 # unknown keyword
@@ -90,31 +91,42 @@ NANOBIND_CALLS = [
     "._circular_shift(M(), 1, 1, 0, 1)",                            # typed ndarray binding
 ]
 
+# Values for a __module__ assigned in a class body.
+MODULE_VALUES = ["None", "5", "b'x'", "'\\udc80'"]
+
 
 @pytest.mark.parametrize("call", NANOBIND_CALLS)
-@pytest.mark.parametrize("case", sorted(set(HEADERS) - {"module_surrogate"}))
+@pytest.mark.parametrize("case", sorted(HEADERS))
 def test_nanobind_internal_hostile_module(case, call):
     out = _run(HEADERS[case], call)
     assert out[0] == "TypeError" and "incompatible function arguments" in out[1], out
 
 
-@pytest.mark.parametrize("module", ["None", "5", "b'x'"])
+@pytest.mark.parametrize("module", MODULE_VALUES)
 def test_subclass_bound_type_with_hostile_module(module):
     out = _run("", f"type('X', (s.RollingMean,), {{'__module__': {module}}})(2)")
     assert out == ["no error"], out
 
 
-# nanobind (v2.13.0 and its master branch as of 2026-10) still crashes on a
-# __module__ that is a str but cannot be encoded as UTF-8: an overload error
-# passes a null c_str() to put_dstr, and subclassing a bound type passes a null
-# name to strdup_check.
-@pytest.mark.xfail(strict=True, reason="nanobind crashes on an unencodable __module__")
-@pytest.mark.parametrize("call", NANOBIND_CALLS + [
-    "type('X', (s.RollingMean,), {'__module__': '\\udc80'})(2)",  # subclass a bound type
-])
-def test_nanobind_surrogate_module(call):
-    out = _run(HEADERS["module_surrogate"], call)
-    assert out[0] in ("TypeError", "no error"), out
+def test_subclass_bound_type_with_raising_module():
+    # nanobind's metaclass cannot be subclassed, so a subclass of a bound type
+    # cannot get a raising __module__ property; the nearest case is a raising
+    # descriptor stored as __module__ in the class body.
+    header = (
+        "class X(s.RollingMean):\n"
+        "    __module__ = property(lambda c: 1 / 0)\n"
+    )
+    assert _run(header, "X(2)") == ["no error"]
+
+
+# An overload error names a bound type in its signature list from that type's
+# __module__, which a user can reassign.
+@pytest.mark.parametrize("module", MODULE_VALUES)
+def test_overload_error_with_reassigned_bound_module(module):
+    header = (f"b = __import__('screamer.screamer_bindings', fromlist=['_'])\n"
+              f"b.EvalOp.__module__ = {module}\n")
+    out = _run(header, "b._eval_op(1, 2)")
+    assert out[0] == "TypeError" and "incompatible function arguments" in out[1], out
 
 
 # ---- G7: a wrong-kind element raises TypeError, never std::bad_cast --------

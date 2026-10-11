@@ -1,0 +1,60 @@
+diff --git a/src/nb_func.cpp b/src/nb_func.cpp
+index 03b3e1c..84448b5 100644
+--- a/src/nb_func.cpp
++++ b/src/nb_func.cpp
+@@ -1540,13 +1540,28 @@ static uint32_t nb_func_render_signature(const func_data *f,
+                     auto it = internals_->type_c2p_slow.find(*descr_type);
+ 
+                     if (it != internals_->type_c2p_slow.end()) {
+-                        handle th((PyObject *) it->second->type_py);
+-                        buf.put_dstr((borrow<str>(
+-                            th.attr(NB_INTERNED(__module__)))).c_str());
+-                        buf.put('.');
+-                        buf.put_dstr((borrow<str>(
+-                            th.attr(NB_INTERNED(__qualname__)))).c_str());
+-                        found = true;
++                        // A bound type's '__module__' or '__qualname__' can be
++                        // reassigned to a missing, non-string, or
++                        // non-UTF-8-encodable value; fall back to the C++ type
++                        // name then (screamer patch,
++                        // cmake/nanobind-surrogate-module.patch)
++                        PyObject *th = (PyObject *) it->second->type_py;
++                        PyObject *mod = PyObject_GetAttr(th, NB_INTERNED(__module__)),
++                                 *qual = PyObject_GetAttr(th, NB_INTERNED(__qualname__));
++                        const char *mod_c = (mod && PyUnicode_Check(mod))
++                            ? PyUnicode_AsUTF8AndSize(mod, nullptr) : nullptr;
++                        const char *qual_c = (qual && PyUnicode_Check(qual))
++                            ? PyUnicode_AsUTF8AndSize(qual, nullptr) : nullptr;
++                        if (mod_c && qual_c) {
++                            buf.put_dstr(mod_c);
++                            buf.put('.');
++                            buf.put_dstr(qual_c);
++                            found = true;
++                        } else {
++                            PyErr_Clear();
++                        }
++                        Py_XDECREF(mod);
++                        Py_XDECREF(qual);
+                     }
+                     if (!found) {
+                         if (nb_signature_mode)
+diff --git a/src/nb_type.cpp b/src/nb_type.cpp
+index 12a7c0a..9f7b98d 100644
+--- a/src/nb_type.cpp
++++ b/src/nb_type.cpp
+@@ -2547,8 +2547,13 @@ PyObject *nb_type_name(PyObject *t) noexcept {
+ 
+     if (PyType_HasFeature((PyTypeObject *) t, Py_TPFLAGS_HEAPTYPE)) {
+         PyObject *mod = PyObject_GetAttr(t, NB_INTERNED(__module__));
+-        // Tolerate a missing or non-string '__module__' attribute
+-        if (NB_LIKELY(mod && PyUnicode_Check(mod))) {
++        // Tolerate a missing, non-string, or non-UTF-8-encodable '__module__'
++        // attribute (screamer patch, cmake/nanobind-surrogate-module.patch)
++        bool mod_ok = mod && PyUnicode_Check(mod) &&
++                      PyUnicode_AsUTF8AndSize(mod, nullptr);
++        if (!mod_ok)
++            PyErr_Clear();
++        if (NB_LIKELY(mod_ok)) {
+             PyObject *combined = PyUnicode_FromFormat("%U.%U", mod, result);
+             Py_DECREF(result);
+             result = combined;

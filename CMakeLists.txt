@@ -50,17 +50,46 @@ set(LOCAL_CACHE_DIR ${CMAKE_SOURCE_DIR}/_local_deps)
 # platform. v2.13.0 (bumped from v2.9.2 for 3.0.0) fixes crashes on an object
 # whose class has a non-str __module__. See
 # docs/superpowers/plans/2026-08-01-nanobind-migration.md.
-set(SCREAMER_NANOBIND_TAG "v2.13.0")
+#
+# Pinned by commit, with a local patch: cmake/nanobind-surrogate-module.patch
+# makes nb_type_name() and nb_func_render_signature() tolerate a __module__ that
+# is not valid UTF-8 (for example '\udc80'), which crashes v2.13.0 and nanobind
+# master. The patch exists until upstream fixes nb_type_name; remove it then.
+# A version bump must re-check that the patch still applies (configure fails
+# loudly when it does not).
+set(SCREAMER_NANOBIND_VERSION "2.13.0")
+set(SCREAMER_NANOBIND_PATCH "${CMAKE_SOURCE_DIR}/cmake/nanobind-surrogate-module.patch")
 
 if(EXISTS "${LOCAL_CACHE_DIR}/nanobind")
-    message(STATUS "Using locally cached nanobind at ${LOCAL_CACHE_DIR}/nanobind")
-    add_subdirectory("${LOCAL_CACHE_DIR}/nanobind" "${CMAKE_BINARY_DIR}/nanobind")
+    # A local copy must be the pinned version, and gets the same patch.
+    set(_nb_dir "${LOCAL_CACHE_DIR}/nanobind")
+    file(STRINGS "${_nb_dir}/include/nanobind/nanobind.h" _nb_ver
+         REGEX "#define NB_VERSION_(MAJOR|MINOR|PATCH) ")
+    string(REGEX REPLACE ".*MAJOR ([0-9]+).*MINOR ([0-9]+).*PATCH ([0-9]+).*"
+           "\\1.\\2.\\3" _nb_ver "${_nb_ver}")
+    if(NOT _nb_ver VERSION_EQUAL SCREAMER_NANOBIND_VERSION)
+        message(FATAL_ERROR "${_nb_dir} is nanobind ${_nb_ver}; screamer needs "
+                            "${SCREAMER_NANOBIND_VERSION}. Replace or delete it.")
+    endif()
+    execute_process(
+        COMMAND "${CMAKE_COMMAND}" -DSRC=${_nb_dir} -DPATCH=${SCREAMER_NANOBIND_PATCH}
+                -P "${CMAKE_SOURCE_DIR}/cmake/apply_nanobind_patch.cmake"
+        RESULT_VARIABLE _nb_patch)
+    if(NOT _nb_patch EQUAL 0)
+        message(FATAL_ERROR "Could not apply ${SCREAMER_NANOBIND_PATCH} to ${_nb_dir}")
+    endif()
+    message(STATUS "Using locally cached nanobind ${_nb_ver} at ${_nb_dir}")
+    add_subdirectory("${_nb_dir}" "${CMAKE_BINARY_DIR}/nanobind")
 else()
-    message(STATUS "Downloading nanobind ${SCREAMER_NANOBIND_TAG} from GitHub")
+    message(STATUS "Downloading nanobind ${SCREAMER_NANOBIND_VERSION} from GitHub")
     FetchContent_Declare(
         nanobind
-        GIT_REPOSITORY https://github.com/wjakob/nanobind.git
-        GIT_TAG        ${SCREAMER_NANOBIND_TAG}
+        GIT_REPOSITORY      https://github.com/wjakob/nanobind.git
+        GIT_TAG             e2dc00f7a34f935c6cf91948776d59c4709e9fe6  # v2.13.0
+        UPDATE_DISCONNECTED ON
+        PATCH_COMMAND       "${CMAKE_COMMAND}" -DSRC=<SOURCE_DIR>
+                            -DPATCH=${SCREAMER_NANOBIND_PATCH}
+                            -P "${CMAKE_SOURCE_DIR}/cmake/apply_nanobind_patch.cmake"
     )
     FetchContent_MakeAvailable(nanobind)
 endif()
