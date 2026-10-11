@@ -655,6 +655,13 @@ nb::object functor_Ni_1o(Op& self, const nb::args& raw_args) {
         }
     }
 
+    // Case 1b: one lazy iterator whose events hold all N fields streams through
+    // LazyEvalIterator.
+    if (args.size() == 1 && is_lazy_iterable(args[0])) {
+        std::vector<nb::object> sources{ nb::borrow<nb::object>(args[0]) };
+        return nb::cast(LazyEvalIterator(nb::find(self), std::move(sources)));
+    }
+
     // after this, now we handle cases where we have N arguments
     nb::tuple inputs = args_to_tuple_n<Op>(args);
 
@@ -743,6 +750,13 @@ nb::object functor_Ni_Mo(Op& self, const nb::args& raw_args) {
                 return nb::cast(results);
             }
         }
+    }
+
+    // Case 1b: one lazy iterator whose events hold all N fields streams through
+    // LazyEvalIterator.
+    if (args.size() == 1 && is_lazy_iterable(args[0])) {
+        std::vector<nb::object> sources{ nb::borrow<nb::object>(args[0]) };
+        return nb::cast(LazyEvalIterator(nb::find(self), std::move(sources)));
     }
 
     nb::tuple inputs = args_to_tuple_n<Op>(args);

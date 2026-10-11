@@ -151,11 +151,22 @@ def _make_wrapper(name, base):
     def __repr__(self):
         return format_call(name, getattr(self, "_screamer_params", {}))
 
+    def _fresh(self):
+        """A new instance with the same parameters, in its initial state.
+
+        Batch calls give each asset its own state by resetting one operator per
+        column; an iterator of asset events runs one copy per asset instead.
+        """
+        params = dict(getattr(self, "_screamer_params", {}))
+        args = params.pop("args", [])
+        return cls(*args, **params)
+
     # Keep the pybind constructor signature visible to introspection tools that
     # read __init__.__doc__ (e.g. devtools.get_constructor_arguments).
     __init__.__doc__ = getattr(base.__init__, "__doc__", None)
     cls.__init__ = __init__
     cls.__repr__ = __repr__
+    cls._fresh = _fresh
     cls._screamer_wrapped = True
     return cls
 
