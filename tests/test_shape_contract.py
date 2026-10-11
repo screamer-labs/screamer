@@ -450,3 +450,179 @@ def test_overlapping_anext_raises():
     rows = np.arange(6.0).reshape(2, 3)
     got = asyncio.run(run(s.CrossDemean()(slow(rows))))
     np.testing.assert_array_equal(np.array(got), s.CrossDemean()(rows))
+
+
+# ---- Independent streams (decision D8) -------------------------------------
+#
+# op(number) is one step of the operator's running series. Every other call
+# (array, list, iterator, async iterator) is an independent run: it starts
+# clean, runs on its own copies, and resets the running series when it opens.
+
+A = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0]
+B = [100.0, 200.0, 300.0, 400.0, 500.0, 600.0]
+
+
+def _batch(xs):
+    import screamer as s
+    return list(s.RollingMean(3, start_policy="expanding")(np.array(xs)))
+
+
+def _interleave(it1, it2):
+    got1, got2 = [], []
+    for _ in range(len(A)):
+        got1.append(next(it1))
+        got2.append(next(it2))
+    return got1, got2
+
+
+def test_interleaved_streams_are_independent():
+    import screamer as s
+    op = s.RollingMean(3, start_policy="expanding")
+    got1, got2 = _interleave(op(iter(A)), op(iter(B)))
+    assert got1 == _batch(A)
+    assert got2 == _batch(B)
+
+
+def test_streams_one_after_the_other_are_independent():
+    import screamer as s
+    op = s.RollingMean(3, start_policy="expanding")
+    assert list(op(iter(A))) == _batch(A)
+    assert list(op(iter(B))) == _batch(B)
+
+
+def test_stream_on_a_used_operator_starts_clean():
+    import screamer as s
+    op = s.RollingMean(3, start_policy="expanding")
+    op(1.0)
+    op(2.0)
+    assert list(op(iter(A))) == _batch(A)
+
+
+def test_opening_a_stream_resets_the_running_series():
+    import screamer as s
+    op = s.RollingMean(3, start_policy="expanding")
+    op(1.0)
+    op(2.0)
+    it = op(iter(B))
+    assert op(3.0) == s.RollingMean(3, start_policy="expanding")(3.0)        # a first event
+    assert list(it) == _batch(B)                    # the live calls did not touch it
+
+
+def test_live_calls_do_not_touch_a_running_stream():
+    import screamer as s
+    op = s.RollingMean(3, start_policy="expanding")
+    it = op(iter(A))
+    got = [next(it)]
+    op(50.0)
+    op.reset()
+    got += list(it)
+    assert got == _batch(A)
+
+
+def test_list_on_a_used_operator_starts_clean_and_resets():
+    import screamer as s
+    for make, args in [(lambda: s.RollingMean(3, start_policy="expanding"), (A,)),
+                       (lambda: s.BollingerBands(3, start_policy="expanding"), (A,)),
+                       (lambda: s.RollingKyleLambda(3), (A, B))]:
+        want = make()(*args)
+        op = make()
+        op(*[x[0] for x in args])
+        op(*[x[1] for x in args])
+        np.testing.assert_array_equal(op(*args), want)           # starts clean
+        first = [x[0] for x in args]
+        np.testing.assert_array_equal(op(*first), make()(*first))  # and leaves it reset
+
+
+def test_asset_streams_are_independent():
+    import screamer as s
+    x = np.arange(1.0, 25.0).reshape(6, 4)
+    y = x[::-1] * 10
+    op = s.RollingMean(3, start_policy="expanding")
+    op(1.0)
+    got1, got2 = _interleave(op(iter(x)), op(iter(y)))
+    np.testing.assert_array_equal(np.array(got1), s.RollingMean(3, start_policy="expanding")(x))
+    np.testing.assert_array_equal(np.array(got2), s.RollingMean(3, start_policy="expanding")(y))
+    assert op(3.0) == s.RollingMean(3, start_policy="expanding")(3.0)
+
+
+def test_multi_input_streams_are_independent():
+    import screamer as s
+    op = s.RollingKyleLambda(3)
+    op(1.0, 2.0)
+    op(3.0, 1.0)
+    it1 = op(iter(A), iter(B))
+    it2 = op(iter(zip(B, A)))
+    got1, got2 = _interleave(it1, it2)
+    want1 = s.RollingKyleLambda(3)(np.array(A), np.array(B))
+    want2 = s.RollingKyleLambda(3)(np.array(B), np.array(A))
+    np.testing.assert_array_equal(np.array(got1), want1)
+    np.testing.assert_array_equal(np.array(got2), want2)
+
+
+def test_row_op_streams_are_independent():
+    import screamer as s
+    w, p = _row_inputs(2)
+    w2, p2 = _row_inputs(2, seed=11)
+    op = s.BacktestPortfolioTarget()
+    op(w[0], p[0])
+    got1, got2 = [], []
+    it1, it2 = op(iter(w), iter(p)), op(iter(zip(w2, p2)))
+    for _ in range(len(w)):
+        got1.append(next(it1))
+        got2.append(next(it2))
+    np.testing.assert_array_equal(np.array(got1), s.BacktestPortfolioTarget()(w, p))
+    np.testing.assert_array_equal(np.array(got2), s.BacktestPortfolioTarget()(w2, p2))
+    # Opening a stream reset the running series: this row is a first event.
+    np.testing.assert_array_equal(op(w[0], p[0]), s.BacktestPortfolioTarget()(w[0], p[0]))
+
+
+def test_portfolio_report_streams_are_independent():
+    import screamer as s
+    e1 = _engine()
+    w, p = _row_inputs(2, seed=11)
+    e2 = s.BacktestPortfolioTarget()(w, p)
+    op = s.PortfolioReport()
+    op(e1[0])
+    it1, it2 = op(iter(e1)), op(iter(e2))
+    got1, got2 = [], []
+    for _ in range(len(e1)):
+        got1.append(next(it1))
+        got2.append(next(it2))
+    np.testing.assert_array_equal(np.array(got1), s.PortfolioReport()(e1))
+    np.testing.assert_array_equal(np.array(got2), s.PortfolioReport()(e2))
+    np.testing.assert_array_equal(op(e1[0]), s.PortfolioReport()(e1[0]))
+
+
+def test_async_streams_are_independent():
+    import screamer as s
+    op = s.RollingMean(3, start_policy="expanding")
+    op(1.0)
+    op(2.0)
+
+    async def run():
+        it1, it2 = op(_agen(A)), op(_agen(B))
+        got1, got2 = [], []
+        for _ in range(len(A)):
+            got1.append(await it1.__anext__())
+            got2.append(await it2.__anext__())
+        return got1, got2
+
+    got1, got2 = asyncio.run(run())
+    assert got1 == _batch(A)
+    assert got2 == _batch(B)
+    assert op(3.0) == s.RollingMean(3, start_policy="expanding")(3.0)
+
+    rop = s.CrossDemean()
+    rows = np.arange(12.0).reshape(3, 4)
+    rows2 = rows[::-1] ** 2
+    np.testing.assert_array_equal(np.array(_collect(rop(_agen(rows)))), s.CrossDemean()(rows))
+    np.testing.assert_array_equal(np.array(_collect(rop(_agen(rows2)))), s.CrossDemean()(rows2))
+
+
+def test_stream_needs_an_operator_that_can_copy_itself():
+    from screamer import screamer_bindings as b
+    op = b.RollingMean(3)
+    with pytest.raises(TypeError, match="screamer namespace"):
+        op(iter(A))
+    with pytest.raises(TypeError, match="screamer namespace"):
+        op(_agen(A))

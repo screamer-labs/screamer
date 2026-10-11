@@ -39,14 +39,39 @@ public:
 // one fixed shape: each holds one value per asset (shape.h rules 2 and 3), the
 // first event fixes the shape, and every asset runs its own copy of the op, as
 // the batch path gives every column its own state.
+//
+// A stream is an independent run (decision D8). Opening it resets the
+// operator's running series, like a batch call, and every event runs on copies
+// the stream owns, made with the wrapper's _fresh(), so two streams of one
+// operator never share state and live calls op(x) never touch a stream. An eager
+// call (a list of events, consumed before it returns) runs column 0 on the
+// operator itself, which the caller resets afterwards: nothing can interleave
+// with it, so it saves that copy.
 class EventStepper final : public EventStep {
 public:
-    EventStepper(nb::object op_owner, std::size_t n_sources)
+    EventStepper(nb::object op_owner, std::size_t n_sources, bool stream = true)
         : op_owner_(std::move(op_owner)),
           op_(nb::cast<EvalOp&>(op_owner_)),
           n_in_(op_.n_in()), n_out_(op_.n_out()),
           in_(op_.n_in()), out_(op_.n_out()),
-          unpack_(n_sources == 1 && n_in_ > 1) {}
+          unpack_(n_sources == 1 && n_in_ > 1) {
+        if (stream) {
+            first_owner_ = fresh_copy(op_owner_);
+            first_ = &nb::cast<EvalOp&>(first_owner_);
+        } else {
+            first_ = &op_;
+        }
+        op_.reset();
+    }
+
+    // A new copy of the operator in its initial state. A stream needs one, so an
+    // operator built outside the screamer namespace (no _fresh) cannot stream.
+    static nb::object fresh_copy(const nb::object& owner) {
+        if (!nb::hasattr(owner, "_fresh"))
+            throw nb::type_error("a stream needs an operator built from the screamer namespace, "
+                                 "which can copy itself for every stream and asset");
+        return owner.attr("_fresh")();
+    }
 
     nb::object step(const std::vector<nb::object>& items) override {
         if (mode_ == Mode::Unknown) {
@@ -95,7 +120,7 @@ private:
     }
 
     nb::object eval_scalar() {
-        op_.eval(in_.data(), out_.data());
+        first_->eval(in_.data(), out_.data());
         if (n_out_ == 1) return nb::float_(out_[0]);
         nb::tuple t = nb::steal<nb::tuple>(PyTuple_New(static_cast<Py_ssize_t>(n_out_)));
         for (std::size_t i = 0; i < n_out_; ++i)
@@ -144,26 +169,22 @@ private:
         return nb::cast(nb::ndarray<nb::numpy, double>(out, out_shape_.size(), out_shape_.data(), owner));
     }
 
-    // The first asset event fixes the shape; build one op per asset. Copies come
-    // from the wrapper's _fresh(); the original op is reset so every asset
-    // starts clean.
+    // The first asset event fixes the shape; build one op per asset. Column 0
+    // runs on first_, which no event has touched yet, and the others on new
+    // copies from the wrapper's _fresh().
     // Everything is built in locals and committed only when every copy exists,
     // so a failed _fresh() leaves the stepper as it was.
     void start_assets() {
         shape::Plan plan = shape::broadcast(shape::input_views(current_, n_in_));
-        if (plan.columns > 1 && !nb::hasattr(op_owner_, "_fresh"))
-            throw nb::type_error("events with several assets need an operator built from the "
-                                 "screamer namespace, which can copy itself once per asset");
         std::vector<nb::object> owners;
         std::vector<EvalOp*> copies;
         owners.reserve(plan.columns ? plan.columns - 1 : 0);
         copies.reserve(plan.columns);
-        copies.push_back(&op_);
+        copies.push_back(first_);
         for (std::size_t c = 1; c < plan.columns; ++c) {
-            owners.push_back(op_owner_.attr("_fresh")());
+            owners.push_back(fresh_copy(op_owner_));
             copies.push_back(&nb::cast<EvalOp&>(owners.back()));
         }
-        op_.reset();
         out_shape_.assign(plan.shape.begin() + 1, plan.shape.end());
         if (n_out_ > 1) out_shape_.push_back(n_out_);
         plan_ = std::move(plan);
@@ -183,6 +204,8 @@ private:
 
     nb::object op_owner_;                 // keeps the functor wrapper alive
     EvalOp& op_;
+    nb::object first_owner_;              // a stream's own copy for column 0
+    EvalOp* first_;                       // runs scalar events and column 0
     std::size_t n_in_, n_out_;
     std::vector<double> in_, out_;
     bool unpack_;
@@ -197,7 +220,7 @@ private:
     shape::Plan plan_;
     std::vector<std::size_t> out_shape_;
     std::vector<nb::object> owners_;      // the _fresh() copies, kept alive
-    std::vector<EvalOp*> copies_;         // one op per asset; copies_[0] is op_
+    std::vector<EvalOp*> copies_;         // one op per asset; copies_[0] is first_
 };
 
 // The lazy iterator of every operator. Per __next__ it reads one item from

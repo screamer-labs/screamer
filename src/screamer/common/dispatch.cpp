@@ -31,7 +31,7 @@ nb::object screamer_call(ScreamerBase& self, nb::object obj) {
         return collect_events(nb::find(self), { obj });
 
     if (nb::isinstance<nb::list>(obj) || nb::isinstance<nb::tuple>(obj)) {
-        self.reset();
+        EagerRun<ScreamerBase> run(self);
         nb::list out;
         for (nb::handle item : obj) {
             out.append(nb::float_(self.process_scalar(nb::cast<double>(item))));

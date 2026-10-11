@@ -137,18 +137,22 @@ nb::object portfolio_report_batch(screamer::PortfolioReport& self,
 }
 
 // One PortfolioReport event per step: an (assets, 4) row, for the sync and
-// async iterators alike. Steps share the C++ operator state of the Python object.
+// async iterators alike. A stream is an independent run (decision D8): it runs
+// on its own copy and resets the operator's running series when it opens.
 class PortfolioReportStepper final : public screamer::EventStep {
 public:
-    explicit PortfolioReportStepper(nb::object owner)
-        : owner_(std::move(owner)), op_(nb::cast<screamer::PortfolioReport&>(owner_)) {}
+    explicit PortfolioReportStepper(const nb::object& owner)
+        : owner_(screamer::EventStepper::fresh_copy(owner)),
+          op_(nb::cast<screamer::PortfolioReport&>(owner_)) {
+        nb::cast<screamer::PortfolioReport&>(owner).reset();
+    }
 
     nb::object step(const std::vector<nb::object>& items) override {
         return portfolio_report_row(op_, items[0]);
     }
 
 private:
-    nb::object owner_;                    // keeps the operator alive
+    nb::object owner_;                    // the stream's own copy
     screamer::PortfolioReport& op_;
 };
 
@@ -261,12 +265,17 @@ nb::object row_op_run(screamer::RowOp& self,
 // One RowOp event per step, for the sync and async iterators alike. The items
 // are fields_in rows of K values, one per source, or with one source and
 // fields_in > 1 a tuple or list of fields_in rows. A (K, 1) row reads as (K,)
-// (rule 3 on an event). Each step equals the same row of the batch call.
+// (rule 3 on an event). Each step equals the same row of the batch call. A
+// stream is an independent run (decision D8): it runs on its own copy and
+// resets the operator's running series when it opens.
 class RowStepper final : public screamer::EventStep {
 public:
-    RowStepper(nb::object owner, std::size_t n_sources)
-        : owner_(std::move(owner)), op_(nb::cast<screamer::RowOp&>(owner_)),
-          unpack_(n_sources == 1 && op_.fields_in() > 1) {}
+    RowStepper(const nb::object& owner, std::size_t n_sources)
+        : owner_(screamer::EventStepper::fresh_copy(owner)),
+          op_(nb::cast<screamer::RowOp&>(owner_)),
+          unpack_(n_sources == 1 && op_.fields_in() > 1) {
+        nb::cast<screamer::RowOp&>(owner).reset();
+    }
 
     nb::object step(const std::vector<nb::object>& items) override {
         fields_.clear();
@@ -292,7 +301,7 @@ private:
             throw nb::value_error("each event of a row stream is one row of K values.");
     }
 
-    nb::object owner_;                    // keeps the operator alive
+    nb::object owner_;                    // the stream's own copy
     screamer::RowOp& op_;
     bool unpack_;
     std::vector<screamer::detail::ContigDouble> fields_;

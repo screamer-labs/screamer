@@ -336,12 +336,25 @@ inline void reject_array_tuple(nb::handle h) {
 // Runs a list of events through LazyEvalIterator and returns the results as a
 // list (an eager list in gives a list out), leaving the operator reset.
 inline nb::object collect_events(nb::object owner, std::vector<nb::object> sources) {
-    nb::object it = nb::cast(LazyEvalIterator(owner, std::move(sources)));
+    const std::size_t n = sources.size();
+    nb::object it = nb::cast(LazyEvalIterator(
+        std::make_unique<EventStepper>(owner, n, /*stream=*/false), std::move(sources)));
     PyObject* out = PySequence_List(it.ptr());
-    if (!out) throw nb::python_error();
     nb::cast<EvalOp&>(owner).reset();
+    if (!out) throw nb::python_error();
     return nb::steal(out);
 }
+
+// An eager list call is an independent run (decision D8): it starts from a
+// reset operator and leaves it reset, like a batch call, also when it fails.
+template <class Op>
+struct EagerRun {
+    Op& op;
+    explicit EagerRun(Op& o) : op(o) { op.reset(); }
+    ~EagerRun() { op.reset(); }
+    EagerRun(const EagerRun&) = delete;
+    EagerRun& operator=(const EagerRun&) = delete;
+};
 
 template <class Op>
 typename Op::InputArray cast_to_array(const nb::tuple& tuple) {
@@ -400,6 +413,7 @@ nb::object eager_parallel(Op& self, const nb::tuple& inputs) {
     }
     std::array<nb::object, N> iters;
     for (size_t i = 0; i < N; ++i) iters[i] = nb::borrow<nb::object>(inputs[i]).attr("__iter__")();
+    EagerRun<Op> run(self);
     std::vector<typename Op::ResultTuple> results;
     while (true) {
         typename Op::InputArray array;
@@ -578,6 +592,7 @@ nb::object functor_1i_Mo(Op& self, nb::object input) {
         if (is_event_list(input, false))
             return collect_events(nb::find(self), { nb::borrow<nb::object>(input) });
         // Eager path for list/tuple input.
+        EagerRun<Op> run(self);
         std::vector<typename Op::ResultTuple> results;
         for (nb::handle item : input) {
             double d;
@@ -636,6 +651,7 @@ nb::object functor_1i_1o(Op& self, nb::object input) {
     if (is_event_list(input, false))
         return collect_events(nb::find(self), { input });
     if (nb::hasattr(input, "__iter__")) {
+        EagerRun<Op> run(self);
         std::vector<typename Op::ResultTuple> results;
 
         for (nb::handle item_h : input) {
@@ -693,6 +709,7 @@ nb::object functor_Ni_1o(Op& self, const nb::args& raw_args) {
     if (args.size() == 1) {
         nb::object input = nb::borrow<nb::object>(args[0]);
         if (nb::isinstance<nb::list>(input) || nb::isinstance<nb::tuple>(input)) {
+            EagerRun<Op> run(self);
             bool valid = true;
             std::vector<typename Op::ResultTuple> results;
             for (nb::handle item : input) {
@@ -794,6 +811,7 @@ nb::object functor_Ni_Mo(Op& self, const nb::args& raw_args) {
     if (args.size() == 1) {
         nb::object input = nb::borrow<nb::object>(args[0]);
         if (nb::isinstance<nb::list>(input) || nb::isinstance<nb::tuple>(input)) {
+            EagerRun<Op> run(self);
             bool valid = true;
             std::vector<typename Op::ResultTuple> results;
             for (nb::handle item : input) {

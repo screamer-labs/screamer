@@ -145,6 +145,55 @@ def cases():
                 out = make()(**{ka: conv(a), kb: conv(b)})
                 return out if isinstance(out, (float, list)) else list(out)
             table[f"{name} kw {form}"] = call
+    # Stream state (decision D8): every call but op(number) is an independent
+    # run that starts clean and resets the running series when it opens.
+    def used(make, *first):
+        op = make()
+        op(*first)
+        op(*first)
+        return op
+
+    def interleaved(make, a, b):
+        op = make()
+        i1, i2 = op(gen(a)), op(gen(b))
+        return [(next(i1), next(i2)) for _ in range(len(a))]
+
+    def live_after_open(make, x, src):
+        op = used(make, x)
+        it = op(src)
+        return [op(x), list(it) if hasattr(it, "__next__") else it]
+
+    async def adrain(it):
+        return [e async for e in it]
+
+    async def agen(a):
+        for e in a:
+            yield e
+
+    import asyncio
+    rm = lambda: s.RollingMean(3)                               # noqa: E731
+    wts = np.sign(X - 100) / K                                 # target weights
+    table.update({
+        "D8 stream on a used operator": lambda: list(used(rm, 1.0)(gen(v[:6]))),
+        "D8 asset stream on a used operator": lambda: list(used(rm, 1.0)(gen(X[:6]))),
+        "D8 multi-input stream on a used operator":
+            lambda: list(used(lambda: s.RollingCorr(3), 1.0, 2.0)(gen(v[:6]), gen(w[:6]))),
+        "D8 async stream on a used operator":
+            lambda: asyncio.run(adrain(used(rm, 1.0)(agen(v[:6])))),
+        "D8 row stream on a used operator":
+            lambda: list(used(lambda: s.BacktestPortfolioTarget(), wts[0], X[0])(
+                gen(wts[:4]), gen(X[:4]))),
+        "D8 interleaved streams": lambda: interleaved(rm, v[:6], w[:6]),
+        "D8 interleaved asset streams": lambda: interleaved(rm, X[:6], X[6:12]),
+        "D8 live call after opening a stream": lambda: live_after_open(rm, 5.0, gen(v[:6])),
+        "D8 live call after a list (1-in)": lambda: live_after_open(rm, 5.0, list(v[:6])),
+        "D8 list on a used operator (1-in M-out)":
+            lambda: used(lambda: s.BollingerBands(3), 1.0)(list(v[:6])),
+        "D8 list on a used operator (2-in)":
+            lambda: used(lambda: s.RollingCorr(3), 1.0, 2.0)(list(v[:6]), list(w[:6])),
+        "D8 list of pairs on a used operator (2-in)":
+            lambda: used(lambda: s.RollingCorr(3), 1.0, 2.0)(list(zip(v[:6], w[:6]))),
+    })
     for form, conv in [("scalar", lambda x: float(x[3])), ("list", list), ("generator", gen)]:
         table[f"RollingOrderImbalance kw {form}"] = (
             lambda conv=conv: (lambda out: out if isinstance(out, (float, list)) else list(out))(

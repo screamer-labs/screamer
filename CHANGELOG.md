@@ -61,6 +61,16 @@ Unreleased
   of arrays is a sequence of asset events.
 * A generator passed to a one-input, one-output operator such as `IsNan`
   returns a lazy iterator (was a list).
+* Every call other than `op(number)` is an independent run, in Python and
+  JavaScript. A stream (iterator or async iterator) starts clean even on an
+  operator that already holds state, runs on copies of its own, and resets the
+  operator's running series when it opens, like a batch call. Two streams of
+  one operator never share state, and live calls `op(x)` never touch a running
+  stream. A Python list starts clean and leaves the operator reset, like an
+  array; before, a list into a multi-input or multi-output operator continued
+  its state, and a list into a one-input operator left its state behind.
+  Streaming an operator built outside the `screamer` namespace (Python) or
+  without its factory (JavaScript) raises `TypeError`.
 * `position_test`, `strategy_test` and `walk_forward` no longer copy prices to
   K columns; JavaScript `positionTest` and `walkForward` run the engine once
   per chunk.

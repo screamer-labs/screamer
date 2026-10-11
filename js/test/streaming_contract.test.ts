@@ -399,3 +399,126 @@ test("every result has its own shape array", () => {
   got[0].shape.push(99);
   assert.deepEqual(got[1].shape, [K, 3]);
 });
+
+// ---- Independent streams (decision D8) -------------------------------------
+//
+// op(number) is one step of the op's running series. Every other call (array,
+// iterator, async iterator) is an independent run: it starts clean, runs on its
+// own copies, and resets the running series when it opens. Mirrors the D8
+// section of tests/test_shape_contract.py.
+
+const A = [1, 2, 3, 4, 5, 6], B = [100, 200, 300, 400, 500, 600];
+const mean = () => ops.RollingMean(3, "expanding");
+const interleave = (i1: Iterator<any>, i2: Iterator<any>, n: number) => {
+  const g1: any[] = [], g2: any[] = [];
+  for (let t = 0; t < n; t++) { g1.push(i1.next().value); g2.push(i2.next().value); }
+  return [g1, g2];
+};
+
+test("D8: interleaved streams of one op are independent", () => {
+  const op = mean();
+  const [g1, g2] = interleave(op(iter(A)), op(iter(B)), A.length);
+  same(g1, mean()(A), "first");
+  same(g2, mean()(B), "second");
+});
+
+test("D8: streams one after the other are independent", () => {
+  const op = mean();
+  same([...op(iter(A))], mean()(A), "first");
+  same([...op(iter(B))], mean()(B), "second");
+});
+
+test("D8: a stream on a used op starts clean", () => {
+  const op = mean();
+  op(1); op(2);
+  same([...op(iter(A))], mean()(A), "stream");
+});
+
+test("D8: opening a stream resets the running series", () => {
+  const op = mean();
+  op(1); op(2);
+  const it = op(iter(B)) as Iterator<number>;
+  assert.equal(op(3), 3);                               // a first event
+  same([...(it as any)], mean()(B), "stream");          // the live calls did not touch it
+});
+
+test("D8: live calls and reset() do not touch a running stream", () => {
+  const op = mean();
+  const it = op(iter(A)) as Iterator<number>;
+  const got = [it.next().value];
+  op(50); op.reset();
+  for (let r = it.next(); !r.done; r = it.next()) got.push(r.value);
+  same(got, mean()(A), "stream");
+});
+
+test("D8: asset streams are independent", () => {
+  const x: NdArray = { data: Float64Array.from({ length: 24 }, (_, i) => i + 1), shape: [6, 4] };
+  const y: NdArray = { data: x.data.map((v) => v * 10).reverse(), shape: [6, 4] };
+  const op = mean();
+  op(1);
+  const [g1, g2] = interleave(op(iter(rowsOf(x))), op(iter(rowsOf(y))), 6);
+  same(g1, mean()(x), "first");
+  same(g2, mean()(y), "second");
+  assert.equal(op(3), 3);
+});
+
+test("D8: multi-input streams are independent", () => {
+  const cov = () => ops.RollingCov(3, "expanding");
+  const op = cov();
+  op(1, 2); op(3, 1);
+  const it1 = op(iter(A), iter(B)), it2 = op(iter(zipRows([B, A])));
+  const [g1, g2] = interleave(it1, it2, A.length);
+  same(g1, cov()(A, B), "fields");
+  same(g2, cov()(B, A), "packed");
+});
+
+test("D8: row op streams are independent", () => {
+  const bt = () => BacktestPortfolioTarget();
+  const w: NdArray = { data: series(12 * 4, 7), shape: [12, 4] };
+  const px: NdArray = { data: series(12 * 4, 8).map((v) => v + 1), shape: [12, 4] };
+  const w2: NdArray = { data: series(12 * 4, 17), shape: [12, 4] };
+  const px2: NdArray = { data: series(12 * 4, 18).map((v) => v + 1), shape: [12, 4] };
+  const op = bt();
+  const [r0, p0] = [rowsOf(w)[0], rowsOf(px)[0]];
+  op(r0, p0);
+  const it1 = op(iter(rowsOf(w)), iter(rowsOf(px)));
+  const it2 = op(iter(zipRows([rowsOf(w2), rowsOf(px2)])));
+  const [g1, g2] = interleave(it1, it2, 12);
+  same(g1, bt()(w, px), "first book");
+  same(g2, bt()(w2, px2), "second book");
+  same(op(r0, p0), bt()(r0, p0), "first event after open");
+});
+
+test("D8: PortfolioReport streams are independent", () => {
+  const book = (s1: number, s2: number) => {
+    const w: NdArray = { data: series(12 * 4, s1), shape: [12, 4] };
+    const px: NdArray = { data: series(12 * 4, s2).map((v) => v + 1), shape: [12, 4] };
+    const e = BacktestPortfolioTarget()(w, px) as NdArray;
+    return { e, events: Array.from({ length: 12 }, (_, t): NdArray => ({ data: e.data.slice(t * 16, (t + 1) * 16), shape: [4, 4] })) };
+  };
+  const b1 = book(7, 8), b2 = book(17, 18);
+  const op = PortfolioReport();
+  op(b1.events[0]);
+  const [g1, g2] = interleave(op(iter(b1.events)), op(iter(b2.events)), 12);
+  same(g1, PortfolioReport()(b1.e), "first");
+  same(g2, PortfolioReport()(b2.e), "second");
+  same(op(b1.events[0]), PortfolioReport()(b1.events[0]), "first event after open");
+});
+
+test("D8: async streams are independent", async () => {
+  const op = mean();
+  op(1); op(2);
+  const it1 = op(aiter(A)) as AsyncIterator<number>, it2 = op(aiter(B)) as AsyncIterator<number>;
+  const g1: number[] = [], g2: number[] = [];
+  for (let t = 0; t < A.length; t++) { g1.push((await it1.next()).value); g2.push((await it2.next()).value); }
+  same(g1, mean()(A), "first");
+  same(g2, mean()(B), "second");
+  assert.equal(op(3), 3);
+});
+
+test("D8: streaming an op without a factory raises", () => {
+  const M = current();
+  const op = wrapOp(M, new M.RollingMean(3, "expanding"));
+  assert.throws(() => op(iter(A)), /factory/);
+  op.dispose();
+});

@@ -16,7 +16,8 @@ function eqSeq(actual: ArrayLike<number>, expected: ArrayLike<number>) {
 
 test("wrapOp: RollingMean(3, strict) across all regimes", async () => {
   const M = await init();
-  const op = wrapOp(M, new M.RollingMean(3, "strict"));
+  // A factory, not a raw op: every stream runs on copies of its own (D8).
+  const op = wrapOp(M, () => new M.RollingMean(3, "strict"));
 
   // N numbers -> one streaming event -> number
   const s = op(1);
