@@ -40,8 +40,8 @@ namespace screamer {
 
             // all other elements
             for (size_t i=split; i < size; i++) {
-                y[i]     = x[i]     / x[i     - window_size_] - 1.0;
-              
+                const double old_x = x[i - window_size_];
+                y[i] = (x[i] - old_x) / old_x;
             }
   
         }       

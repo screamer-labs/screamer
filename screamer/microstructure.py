@@ -7,11 +7,39 @@ pages). This module holds only the thin Python bindings the design allows: a
 documented synonym of a single operator, or a specialization that binds one
 operator's parameters. None of them add logic of their own.
 """
-from . import Mul, RollingSum
-from .screamer_bindings import RollingBeta, EwBeta, OFI
+import numpy as np
+
+# The inner operators come from the package namespace at construction time, not
+# at import time: install_param_capture wraps the namespace classes after this
+# module is imported, and only the wrapped classes can copy themselves once per
+# asset for an iterator of asset events.
+import screamer as _s
 
 __all__ = ["SignedVolume", "RollingKyleLambda", "EwKyleLambda",
            "RollingOrderImbalance", "QueueImbalance"]
+
+
+def _swap_event(event):
+    if isinstance(event, np.ndarray):
+        return event[..., ::-1]
+    return tuple(reversed(event))
+
+
+def _swap_fields(inputs):
+    """Reorder (signed_flow, return_) into the beta operator's (return_, flow).
+
+    Takes the same input forms as any two-input operator: two separate inputs,
+    one packed array whose last axis holds the two fields (reversed as a view,
+    no copy), or one iterator of two-field events.
+    """
+    if len(inputs) == 2:
+        return inputs[1], inputs[0]
+    if len(inputs) != 1:
+        raise TypeError(f"expected (signed_flow, return_) or one packed input, got {len(inputs)} inputs")
+    packed = inputs[0]
+    if isinstance(packed, np.ndarray):
+        return (packed[..., ::-1],)
+    return (map(_swap_event, packed),)
 
 
 class SignedVolume:
@@ -20,10 +48,11 @@ class SignedVolume:
 
     def __init__(self):
         """__init__(self: SignedVolume) -> None"""
-        self._mul = Mul()
+        self._mul = _s.Mul()
 
-    def __call__(self, sign, volume):
-        return self._mul(sign, volume)
+    def __call__(self, *inputs):
+        # (sign, volume), or one packed array or iterator holding both fields.
+        return self._mul(*inputs)
 
     def reset(self):
         self._mul.reset()
@@ -36,10 +65,10 @@ class RollingKyleLambda:
 
     def __init__(self, window_size=20, start_policy="strict"):
         """__init__(self: RollingKyleLambda, window_size: int = 20, start_policy: str = 'strict') -> None"""
-        self._beta = RollingBeta(window_size, start_policy)
+        self._beta = _s.RollingBeta(window_size, start_policy)
 
-    def __call__(self, signed_flow, return_):
-        return self._beta(return_, signed_flow)   # slope of return on flow
+    def __call__(self, *inputs):
+        return self._beta(*_swap_fields(inputs))   # slope of return on flow
 
     def reset(self):
         self._beta.reset()
@@ -50,10 +79,10 @@ class EwKyleLambda:
 
     def __init__(self, com=None, span=None, halflife=None, alpha=None):
         """__init__(self: EwKyleLambda, com: float = None, span: float = None, halflife: float = None, alpha: float = None) -> None"""
-        self._beta = EwBeta(com=com, span=span, halflife=halflife, alpha=alpha)
+        self._beta = _s.EwBeta(com=com, span=span, halflife=halflife, alpha=alpha)
 
-    def __call__(self, signed_flow, return_):
-        return self._beta(return_, signed_flow)
+    def __call__(self, *inputs):
+        return self._beta(*_swap_fields(inputs))
 
     def reset(self):
         self._beta.reset()
@@ -66,7 +95,7 @@ class RollingOrderImbalance:
 
     def __init__(self, window_size=20, start_policy="strict"):
         """__init__(self: RollingOrderImbalance, window_size: int = 20, start_policy: str = 'strict') -> None"""
-        self._sum = RollingSum(window_size, start_policy)
+        self._sum = _s.RollingSum(window_size, start_policy)
 
     def __call__(self, signed_flow):
         return self._sum(signed_flow)
@@ -83,10 +112,11 @@ class QueueImbalance:
 
     def __init__(self):
         """__init__(self: QueueImbalance) -> None"""
-        self._ofi = OFI()
+        self._ofi = _s.OFI()
 
-    def __call__(self, bid_size, ask_size):
-        return self._ofi(bid_size, ask_size)
+    def __call__(self, *inputs):
+        # (bid_size, ask_size), or one packed array or iterator holding both.
+        return self._ofi(*inputs)
 
     def reset(self):
         self._ofi.reset()

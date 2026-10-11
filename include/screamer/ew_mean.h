@@ -85,8 +85,13 @@ namespace screamer {
                     y[i] = std::numeric_limits<double>::quiet_NaN();
                     continue;
                 }
-                sum_x = sum_x * decay + v;
-                sum_w = sum_w * decay + 1.0;
+                // Separate statements, as in process_scalar: a single
+                // `sum_x * decay + v` lets the compiler fuse it into an FMA,
+                // which rounds differently and breaks batch == stream.
+                sum_x *= decay;
+                sum_x += v;
+                sum_w *= decay;
+                sum_w += 1.0;
                 y[i] = sum_x / sum_w;
             }
             sum_x_ = sum_x;
