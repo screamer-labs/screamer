@@ -17,7 +17,7 @@ Goal: zero open issues before `make major`. Each item is closed by a fix with a 
 
 | # | Issue | Status |
 |---|---|---|
-| B1 | Python `Pipeline.live().push` takes single values only; JS can push wide events (`pushWide`). | open |
+| B1 | Python `Pipeline.live().push` takes single values only; JS can push wide events (`pushWide`). | decided: one method in both languages; `push(input, index, value)` takes a number or a sequence of numbers (one wide event); JS `pushWide` stays as an alias; to implement |
 | B2 | The five microstructure classes (`SignedVolume`, `RollingKyleLambda`, `EwKyleLambda`, `RollingOrderImbalance`, `QueueImbalance`) are missing in JS. | open |
 | B3 | JS lacks `backtestReport`, `forecastPairs`, `split`, and options-object constructors. | open |
 | B4 | JS `combineLatest` has no `layout` option (it is graph-only; assets in a `Pipeline` are phase 2). | open |
