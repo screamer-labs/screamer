@@ -56,13 +56,13 @@ function findWrongKind(x: unknown, s: Search, depth = 0): { bad: unknown } | nul
 // Throws the wrong-kind TypeError for the first such element of x and returns
 // when there is none, so the caller throws its own error. `where` names x
 // itself; a nested element reads "item [1][0] of event 3". When the search
-// runs out of budget, x itself is named.
+// runs out of budget it returns too: nothing wrong was found, so the caller's
+// shape or conversion error stands.
 export function throwIfWrongKind(who: string, x: unknown, where: string): void {
   const s: Search = { path: [], entered: new Set(), budget: BUDGET, exhausted: false };
   const r = findWrongKind(x, s);
   const self = where || "the input";
-  if (s.exhausted) throwWrongKind(who, self, x);
-  if (!r) return;
+  if (s.exhausted || !r) return;
   if (s.path.length === 0) throwWrongKind(who, self, r.bad);
   const item = "item " + s.path.map((i) => `[${i}]`).join("");
   throwWrongKind(who, where ? `${item} of ${where}` : item, r.bad);

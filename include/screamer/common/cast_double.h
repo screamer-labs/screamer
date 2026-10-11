@@ -107,14 +107,14 @@ inline nb::object find_wrong_kind(nb::handle x, WrongKindSearch& s, int depth = 
 // Throws the wrong-kind TypeError for the first such element of `x` (see
 // find_wrong_kind) and returns when there is none, so the caller raises its
 // own error. `where` names x itself, e.g. "event 3"; a nested element reads
-// "item [1][0] of event 3". When the search runs out of budget, x itself is
-// named.
+// "item [1][0] of event 3". When the search runs out of budget it returns
+// too: nothing wrong was found, so the caller's shape or conversion error
+// stands.
 inline void throw_if_wrong_kind(const std::string& who, nb::handle x, const std::string& where) {
     WrongKindSearch s;
     nb::object bad = find_wrong_kind(x, s);
     const std::string self = where.empty() ? "the input" : where;
-    if (s.exhausted) throw_wrong_kind(who, self, x);
-    if (!bad.is_valid()) return;
+    if (s.exhausted || !bad.is_valid()) return;
     if (s.path.empty()) throw_wrong_kind(who, self, bad);
     std::string item = "item ";
     for (std::size_t i : s.path) item += "[" + std::to_string(i) + "]";

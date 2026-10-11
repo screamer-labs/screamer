@@ -211,3 +211,10 @@ test("C4: a list of N-element lists and of (K, N) NdArray events reads as events
     assert.throws(() => pipe()([1n] as any), TypeError);
   });
 }
+
+test("G7: above the search budget an all-number input keeps its shape error", async () => {
+  await ready();
+  const big = Array.from({ length: 400_000 }, () => [1, 2, 3]);
+  assert.throws(() => (api as any).RollingMean(2)([1, big]),
+    (e: unknown) => e instanceof RangeError && (e as Error).message.startsWith("RollingMean: event 1 has shape"));
+});

@@ -333,3 +333,13 @@ def test_lazy_pipeline_keeps_accepted_values():
     rows = list(p(iter([(1, 0), (True, 1), (np.float32(2.5), 2), (np.int64(4), np.int64(3))])))
     assert [r[0] for r in rows] == [1.0, 1.0, 2.5, 4.0]
     assert [r[1] for r in rows] == [0, 1, 2, 3]
+
+
+def test_search_budget_exhausted_keeps_the_shape_error():
+    # Above the search budget (1,000,000 elements) with no wrong kind inside,
+    # the shape error stands; it is never a false TypeError.
+    big = [[1.0] * 3 for _ in range(400_000)]
+    with pytest.raises(ValueError, match="RollingMean: event 1 has shape"):
+        s.RollingMean(2)([1.0, big])
+    with pytest.raises(ValueError):
+        s.CrossRank()([[1.0, 2.0] for _ in range(400_000)] + [[1.0]])
