@@ -750,7 +750,7 @@ export function wrapRowOp(M: Screamer, src: OpSource): ScreamerOp {
     if (isTyped(row) || isNumArr(row)) return row;
     if (isNd(row) && (row.shape.length === 1 || (row.shape.length === 2 && row.shape[1] === 1))) return row.data;
     if (isNd(row)) throw new RangeError(`each event of a row stream is one row of K values, got shape [${row.shape}]`);
-    throw new TypeError(`each event of a row stream is one row of K values, got ${isNd(row) ? `shape [${row.shape}]` : typeof row}`);
+    throw new TypeError(`each event of a row stream is one row of K values, got ${typeof row}`);
   };
   // A stream runs on a copy of its own (decision D8); the call resets raw.
   const openStream = (n: number): Stepper => {

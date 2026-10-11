@@ -61,3 +61,14 @@ for (const c of cases) {
     assert.throws(() => (api as any).RollingMean(3)("abc" as any), TypeError);
   });
 }
+
+test("G2: a malformed NdArray raises RangeError in positionTest (portfolio target) and walkForward targets", async () => {
+  await ready();
+  const bad = { data: new Float64Array(4), shape: [100, 50] };
+  const px = new Float64Array(100).fill(1);
+  const eng = (api as any).BacktestPortfolioTarget(0.001);
+  assert.throws(() => (api as any).positionTest(eng, bad, [bad], { n: 2 }), RangeError);
+  const single = (api as any).BacktestOHLCTarget(1e-4);
+  assert.throws(() => (api as any).walkForward(single, bad, [px, px, px, px], { train: 10, test: 5 }), RangeError);
+  assert.throws(() => (api as any).probabilisticSharpe({ data: new Float64Array(4), shape: [3, 4] }), RangeError);
+});

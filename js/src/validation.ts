@@ -9,7 +9,7 @@
 // backtests and the report are the ordinary C++ engines; this module only
 // chains them and counts. The same seed gives the same surrogates as Python.
 import { current } from "./index.js";
-import type { NdArray } from "./ndarray.js";
+import { asNd, type NdArray } from "./ndarray.js";
 import type { ScreamerOp } from "./runtime.js";
 import { BacktestReport, BacktestStats, PortfolioReport } from "./generated/ops.js";
 
@@ -248,8 +248,8 @@ function statsRecord<V>(make: (i: number) => V): Record<StatName, V> {
   return out;
 }
 
-const isNdArray = (x: any): x is NdArray =>
-  x != null && x.data instanceof Float64Array && Array.isArray(x.shape);
+// Every NdArray test goes through asNd, so a malformed array throws here.
+const isNdArray = (x: any): x is NdArray => asNd(x) !== null;
 
 function lastFinite(a: NdArray, col: number): number {
   const [rows, cols] = a.shape;
@@ -647,7 +647,7 @@ export interface StrategyTestResult {
 
 function engineOutput(out: any): NdArray {
   const v = out && out.values !== undefined ? out.values : out;   // Pipeline Output
-  const ok = v && v.shape && ((v.shape.length === 2 && v.shape[1] === 4) ||
+  const ok = asNd(v) && ((v.shape.length === 2 && v.shape[1] === 4) ||
                               (v.shape.length === 3 && v.shape[2] === 4));
   if (!ok)
     throw new RangeError(
@@ -850,8 +850,8 @@ function positionFamily(
 // deflated_sharpe) ---------------------------------------------------------
 
 function pnlOf(pnl: ArrayLike<number> | NdArray): Float64Array {
-  const nd = pnl as NdArray;
-  if (nd && nd.shape && nd.shape.length === 2 && nd.shape[1] === 4) return column(nd, 1);
+  const nd = asNd(pnl);
+  if (nd && nd.shape.length === 2 && nd.shape[1] === 4) return column(nd, 1);
   return Float64Array.from(pnl as ArrayLike<number>);
 }
 
