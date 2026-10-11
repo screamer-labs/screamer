@@ -64,7 +64,7 @@ Goal: zero open issues before `make major`. Each item is closed by a fix with a 
 
 | # | Issue | Status |
 |---|---|---|
-| G1 | JS `exceptionMessage` still dereferences a user-thrown number that happens to be an aligned in-heap address. | open |
+| G1 | JS `exceptionMessage` still dereferences a user-thrown number that happens to be an aligned in-heap address. | decided: native WebAssembly exceptions (-fwasm-exceptions) + Emscripten getExceptionMessage, delete the address heuristic; narrow the try blocks so normalizeError wraps only calls into WASM and user errors pass through unchanged; minimums Chrome 95, Firefox 100, Safari 15.2, Node 17 (document in README/javascript.md); confirm size/speed with the throughput bench; tests for user-thrown number/string/Error and C++ RangeError; to implement |
 | G2 | JS row-operator and reducer paths take an `NdArray`'s `shape` without checking it against `data.length`. | open |
 | G3 | JS factories capture vector arguments by reference, so mutating the array later changes copies made afterwards. | open |
 | G4 | JS `zipSources` calls `return()` on a source whose own `next()` threw (a `for...of` loop does not). | open |
