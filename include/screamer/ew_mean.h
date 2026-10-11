@@ -62,10 +62,8 @@ namespace screamer {
             if (isnan2(newValue)) {
                 return std::numeric_limits<double>::quiet_NaN();
             }
-            sum_x_ *= one_minus_alpha_;
-            sum_w_ *= one_minus_alpha_;
-            sum_x_ += newValue;
-            sum_w_ += 1.0;
+            sum_x_ = step(sum_x_, one_minus_alpha_, newValue);
+            sum_w_ = step(sum_w_, one_minus_alpha_, 1.0);
             return sum_x_ / sum_w_;
         }
 
@@ -85,13 +83,8 @@ namespace screamer {
                     y[i] = std::numeric_limits<double>::quiet_NaN();
                     continue;
                 }
-                // Separate statements, as in process_scalar: a single
-                // `sum_x * decay + v` lets the compiler fuse it into an FMA,
-                // which rounds differently and breaks batch == stream.
-                sum_x *= decay;
-                sum_x += v;
-                sum_w *= decay;
-                sum_w += 1.0;
+                sum_x = step(sum_x, decay, v);
+                sum_w = step(sum_w, decay, 1.0);
                 y[i] = sum_x / sum_w;
             }
             sum_x_ = sum_x;
@@ -105,6 +98,13 @@ namespace screamer {
         // path here if profiling shows it matters.
 
     private:
+        // The one decay step every path uses. The compiler may fuse s * d + v
+        // into an FMA, which is faster in this latency-bound recurrence but
+        // rounds differently from a separate multiply and add, so the scalar,
+        // contiguous and strided paths all share this expression and round
+        // the same way.
+        static inline double step(double s, double d, double v) { return s * d + v; }
+
         double alpha_;
         
         double one_minus_alpha_;

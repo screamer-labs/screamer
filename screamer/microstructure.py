@@ -51,7 +51,9 @@ class SignedVolume:
         self._mul = _s.Mul()
 
     def __call__(self, *inputs):
-        # (sign, volume), or one packed array or iterator holding both fields.
+        """Inputs: sign, then volume. Pass them as two separate arrays or
+        iterators, one packed (T, ..., 2) array, or one iterator of
+        (sign, volume) events."""
         return self._mul(*inputs)
 
     def reset(self):
@@ -68,6 +70,9 @@ class RollingKyleLambda:
         self._beta = _s.RollingBeta(window_size, start_policy)
 
     def __call__(self, *inputs):
+        """Inputs: signed flow, then return. Pass them as two separate arrays
+        or iterators, one packed (T, ..., 2) array, or one iterator of
+        (signed_flow, return_) events."""
         return self._beta(*_swap_fields(inputs))   # slope of return on flow
 
     def reset(self):
@@ -82,6 +87,9 @@ class EwKyleLambda:
         self._beta = _s.EwBeta(com=com, span=span, halflife=halflife, alpha=alpha)
 
     def __call__(self, *inputs):
+        """Inputs: signed flow, then return. Pass them as two separate arrays
+        or iterators, one packed (T, ..., 2) array, or one iterator of
+        (signed_flow, return_) events."""
         return self._beta(*_swap_fields(inputs))
 
     def reset(self):
@@ -115,7 +123,9 @@ class QueueImbalance:
         self._ofi = _s.OFI()
 
     def __call__(self, *inputs):
-        # (bid_size, ask_size), or one packed array or iterator holding both.
+        """Inputs: bid size, then ask size. Pass them as two separate arrays
+        or iterators, one packed (T, ..., 2) array, or one iterator of
+        (bid_size, ask_size) events."""
         return self._ofi(*inputs)
 
     def reset(self):
