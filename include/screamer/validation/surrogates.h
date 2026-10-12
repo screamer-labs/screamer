@@ -136,10 +136,15 @@ namespace screamer { namespace validation {
     // series' own NaN prefix). Several series shifted with the same seed, start,
     // and min_shift get the same offset in every column, which is what a joint
     // test across several strategies needs.
+    //
+    // `ld` is the row length of `out` (default: ncols), so the columns can be
+    // written into a wider block, such as the (T, ncols * K) block of K series
+    // shifted together.
     inline void circular_shift(const double* x, std::size_t T,
                                std::size_t min_shift, std::uint64_t seed,
                                std::size_t col0, std::size_t ncols, double* out,
-                               std::size_t start = static_cast<std::size_t>(-1)) {
+                               std::size_t start = static_cast<std::size_t>(-1),
+                               std::size_t ld = 0) {
         const std::size_t p = start == static_cast<std::size_t>(-1)
             ? detail::valid_start(x, T) : start;
         if (p > T) throw std::invalid_argument("start is past the end of the series.");
@@ -159,10 +164,11 @@ namespace screamer { namespace validation {
             const std::size_t k = min_shift + static_cast<std::size_t>(rng.below(span));
             src[j] = L - k;                       // out[p + i] = x[p + (i - k) mod L]
         }
+        if (ld == 0) ld = ncols;
         for (std::size_t t = 0; t < p; ++t)
-            for (std::size_t j = 0; j < ncols; ++j) out[t * ncols + j] = x[t];
+            for (std::size_t j = 0; j < ncols; ++j) out[t * ld + j] = x[t];
         for (std::size_t i = 0; i < L; ++i) {
-            double* row = out + (p + i) * ncols;
+            double* row = out + (p + i) * ld;
             for (std::size_t j = 0; j < ncols; ++j) {
                 row[j] = x[p + src[j]];
                 if (++src[j] == L) src[j] = 0;

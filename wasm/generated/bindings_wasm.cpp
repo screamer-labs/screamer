@@ -189,6 +189,7 @@
 #include "screamer/trix.h"
 #include "screamer/true_range.h"
 #include "screamer/ultimate_oscillator.h"
+#include "screamer/validation/position_test.h"
 #include "screamer/validation/sharpe.h"
 #include "screamer/validation/strategy_test.h"
 #include "screamer/validation/surrogates.h"

@@ -41,6 +41,7 @@
 #include "screamer/backtest_carry.h"
 #include "screamer/validation/surrogates.h"
 #include "screamer/validation/sharpe.h"
+#include "screamer/validation/position_test.h"
 #include "screamer/validation/strategy_test.h"
 #include "screamer/portfolio_report.h"
 #include "screamer/common/row_op.h"
@@ -579,8 +580,9 @@ namespace {
 using SurrogateIn = nb::ndarray<const double, nb::ndim<1>, nb::c_contig, nb::device::cpu>;
 
 nb::object circular_shift_batch(SurrogateIn x, long long min_shift,
-                                std::uint64_t seed, size_t col0, size_t ncols,
+                                std::int64_t seed_arg, size_t col0, size_t ncols,
                                 long long start) {
+    const std::uint64_t seed = screamer::validation::check_seed(seed_arg);
     const size_t T = x.shape(0);
     const size_t m = min_shift < 0
         ? screamer::validation::default_min_shift(x.data(), T)
@@ -594,8 +596,9 @@ nb::object circular_shift_batch(SurrogateIn x, long long min_shift,
     return screamer::detail::make_owned_array(out, {T, ncols});
 }
 
-nb::object segment_shuffle_batch(SurrogateIn x, std::uint64_t seed,
+nb::object segment_shuffle_batch(SurrogateIn x, std::int64_t seed_arg,
                                  size_t col0, size_t ncols) {
+    const std::uint64_t seed = screamer::validation::check_seed(seed_arg);
     const size_t T = x.shape(0);
     double* out = new double[T * ncols];
     screamer::validation::segment_shuffle(x.data(), T, seed, col0, ncols, out);
@@ -633,9 +636,10 @@ bool check_volume(const BlockIn& volume, const BlockShape& b) {
 }
 
 nb::object permute_bars_batch(BlockIn o, BlockIn h, BlockIn l, BlockIn c,
-                              const std::string& mode, std::uint64_t seed,
+                              const std::string& mode, std::int64_t seed_arg,
                               size_t col0, size_t ncols,
                               BlockIn volume, bool notional) {
+    const std::uint64_t seed = screamer::validation::check_seed(seed_arg);
     const BlockShape b = block_shape(o, "open");
     for (const BlockIn* a : {&h, &l, &c}) {
         const BlockShape q = block_shape(*a, "high, low, and close");
@@ -667,9 +671,10 @@ nb::object permute_bars_batch(BlockIn o, BlockIn h, BlockIn l, BlockIn c,
     return nb::tuple(out);
 }
 
-nb::object permute_returns_batch(BlockIn x, const std::string& mode, std::uint64_t seed,
+nb::object permute_returns_batch(BlockIn x, const std::string& mode, std::int64_t seed_arg,
                                  size_t col0, size_t ncols,
                                  BlockIn volume, bool notional) {
+    const std::uint64_t seed = screamer::validation::check_seed(seed_arg);
     const BlockShape b = block_shape(x, "x");
     const bool has_vol = check_volume(volume, b);
     const auto m = screamer::validation::parse_permute_mode(mode);
@@ -774,14 +779,106 @@ private:
     std::unique_ptr<double[]> null_;
 };
 
+// position_test and walk_forward (screamer/validation.py): the drivers are
+// screamer::validation::position_test and walk_forward; this host gives them
+// the Python engine. `run(target)` resets the engine, runs it on the target
+// and the market inputs, and returns a float64 C-contiguous output; `reset()`
+// resets it; `metric` (or None) maps an output of shape (T, k, 4) to a
+// float64 array of values. They are only used during the call, under the GIL;
+// a Python exception they raise propagates unchanged. Targets and windows the
+// driver fills become new arrays, so an engine or a metric may keep them.
+class PyEngineHost final : public sv::PositionHost {
+public:
+    PyEngineHost(nb::handle run, nb::handle reset, nb::handle metric, nb::handle original)
+        : run_(run), reset_(reset), metric_(metric), original_(original) {}
+
+    double* target_buffer(std::size_t size) override {
+        target_buf_.reset(new double[size ? size : 1]);
+        return target_buf_.get();
+    }
+
+    sv::EngineOutput run(bool original, std::size_t T, std::size_t cols) override {
+        nb::object arg = original ? nb::borrow<nb::object>(original_)
+            : screamer::detail::make_owned_array(
+                  std::move(target_buf_), cols ? std::vector<size_t>{T, cols} : std::vector<size_t>{T});
+        nb::object r = run_(arg);
+        last_ = nb::cast<OutArray>(r);
+        last_obj_ = std::move(r);
+        last_target_ = std::move(arg);
+        sv::EngineOutput out;
+        out.data = last_.data();
+        out.ndim = last_.ndim();
+        for (std::size_t d = 0; d < out.ndim && d < 3; ++d) out.shape[d] = last_.shape(d);
+        if (out.ndim > 3) out.ndim = 4;   // rejected by the driver
+        return out;
+    }
+
+    void reset() override { reset_(); }
+
+    double* window_buffer(std::size_t size) override {
+        window_buf_.reset(new double[size ? size : 1]);
+        return window_buf_.get();
+    }
+
+    std::size_t metric(sv::MetricOf what, double* values, std::size_t count,
+                       std::size_t rows) override {
+        nb::object arg = what == sv::MetricOf::Window
+            ? screamer::detail::make_owned_array(std::move(window_buf_), {rows, count, 4})
+            : last_obj_;
+        const auto v = nb::cast<Values>(metric_(arg));
+        const std::size_t got = v.shape(0);
+        std::copy(v.data(), v.data() + std::min(got, count), values);
+        return got;
+    }
+
+    void begin(std::size_t n, std::size_t K) override {
+        K_ = K;
+        size_ = n * K;
+        null_.reset(new double[size_ ? size_ : 1]);   // the result arrays, filled by emit
+        for (auto& q : stats_) q.reset(new double[size_ ? size_ : 1]);
+    }
+
+    void emit(std::size_t j0, std::size_t runs, const double* stats, std::size_t stride,
+              const double* metrics, std::size_t count) override {
+        for (std::size_t q = 0; q < sv::kNumStats; ++q)
+            std::copy(stats + q * stride, stats + q * stride + runs * K_, stats_[q].get() + j0 * K_);
+        std::copy(metrics, metrics + count, null_.get() + null_count_);
+        null_count_ += count;
+    }
+
+    // The null distribution: the first `count` values, or (n, K).
+    nb::object take_null(const std::vector<size_t>& shape) {
+        return screamer::detail::make_owned_array(std::move(null_), shape);
+    }
+
+    nb::object take_stats(std::size_t q, const std::vector<size_t>& shape) {
+        return screamer::detail::make_owned_array(std::move(stats_[q]), shape);
+    }
+
+    nb::object last_output() const { return last_obj_; }
+    nb::object last_target() const { return last_target_; }
+
+private:
+    using OutArray = nb::ndarray<const double, nb::c_contig, nb::device::cpu>;
+    using Values = nb::ndarray<const double, nb::ndim<1>, nb::c_contig, nb::device::cpu>;
+    nb::handle run_, reset_, metric_, original_;
+    std::unique_ptr<double[]> target_buf_, window_buf_;
+    nb::object last_obj_, last_target_;
+    OutArray last_;
+    std::size_t K_ = 1, size_ = 0, null_count_ = 0;
+    std::unique_ptr<double[]> null_;
+    std::array<std::unique_ptr<double[]>, sv::kNumStats> stats_;
+};
+
 nb::tuple strategy_test_py(nb::callable run, nb::object metric, nb::list inputs,
                            std::int64_t n, const std::string& method,
                            std::vector<std::int64_t> ohlc, std::int64_t price,
                            const std::string& mode, std::optional<std::int64_t> volume,
                            const std::string& volume_mode, std::vector<std::int64_t> columns,
                            std::vector<std::int64_t> fixed, const std::string& metric_name,
-                           bool larger_is_better, std::optional<std::int64_t> min_shift,
-                           std::uint64_t seed, double periods_per_year) {
+                           bool custom, std::optional<bool> larger_is_better,
+                           std::optional<std::int64_t> min_shift, std::int64_t seed,
+                           double periods_per_year) {
     std::vector<BlockIn> blocks;
     std::vector<sv::StrategyInput> data;
     blocks.reserve(inputs.size());
@@ -796,7 +893,7 @@ nb::tuple strategy_test_py(nb::callable run, nb::object metric, nb::list inputs,
     opt.n = n; opt.method = method; opt.ohlc = std::move(ohlc); opt.price = price;
     opt.mode = mode; opt.volume = volume; opt.volume_mode = volume_mode;
     opt.columns = std::move(columns); opt.fixed = std::move(fixed);
-    opt.metric = metric_name; opt.larger_is_better = larger_is_better;
+    opt.metric = metric_name; opt.custom = custom; opt.larger_is_better = larger_is_better;
     opt.min_shift = min_shift; opt.seed = seed; opt.periods_per_year = periods_per_year;
 
     PyStrategyHost host(run, metric, inputs, data);
@@ -810,6 +907,100 @@ nb::tuple strategy_test_py(nb::callable run, nb::object metric, nb::list inputs,
     }
     return nb::make_tuple(r.observed, host.take_null(r.null_count), r.p_value,
                           observed_stats, null_stats);
+}
+
+// The shape of an array for the drivers: (T,) or (T, K), or another ndim
+// that they reject.
+sv::ArrayShape array_shape(const BlockIn& x) {
+    sv::ArrayShape a;
+    a.data = x.data();
+    a.ndim = x.ndim();
+    a.T = x.ndim() >= 1 ? x.shape(0) : 1;
+    a.K = x.ndim() >= 2 ? x.shape(1) : 1;
+    return a;
+}
+
+std::vector<sv::ArrayShape> array_shapes(const nb::list& xs) {
+    std::vector<sv::ArrayShape> out;
+    out.reserve(xs.size());
+    for (nb::handle x : xs) out.push_back(array_shape(nb::cast<BlockIn>(x)));
+    return out;
+}
+
+nb::dict stats_dict(const std::vector<double>& stats, std::size_t K, bool family) {
+    nb::dict d;
+    for (std::size_t q = 0; q < sv::kNumStats; ++q) {
+        if (!family) {
+            d[sv::kStats[q].name] = stats[q];
+            continue;
+        }
+        double* v = new double[K ? K : 1];
+        std::copy(stats.begin() + q * K, stats.begin() + (q + 1) * K, v);
+        d[sv::kStats[q].name] = screamer::detail::make_owned_array(v, {K});
+    }
+    return d;
+}
+
+nb::object double_array(const std::vector<double>& x) {
+    double* v = new double[x.size() ? x.size() : 1];
+    std::copy(x.begin(), x.end(), v);
+    return screamer::detail::make_owned_array(v, {x.size()});
+}
+
+// (observed, null, p_value, family_p_value, observed_stats, null_stats,
+// min_shift): floats for one strategy or one book, arrays for K strategies.
+nb::tuple position_test_py(nb::callable run, nb::callable reset, nb::object metric,
+                           nb::object original, BlockIn target, nb::list market, std::int64_t n,
+                           const std::string& method, const std::string& metric_name, bool custom,
+                           std::optional<bool> larger_is_better,
+                           std::optional<std::int64_t> min_shift, std::int64_t seed,
+                           double periods_per_year, bool portfolio) {
+    sv::PositionTestOptions opt;
+    opt.n = n; opt.method = method; opt.metric = metric_name; opt.custom = custom;
+    opt.larger_is_better = larger_is_better; opt.min_shift = min_shift; opt.seed = seed;
+    opt.periods_per_year = periods_per_year; opt.portfolio = portfolio;
+    PyEngineHost host(run, reset, metric, original);
+    const sv::PositionTestResult r = sv::position_test(host, array_shape(target), array_shapes(market), opt);
+
+    const std::size_t nn = static_cast<std::size_t>(n), K = r.K;
+    nb::dict null_stats;
+    for (std::size_t q = 0; q < sv::kNumStats; ++q)
+        null_stats[sv::kStats[q].name] = host.take_stats(
+            q, r.family ? std::vector<size_t>{nn, K} : std::vector<size_t>{nn});
+    nb::object min = r.min_shift ? nb::cast(*r.min_shift) : nb::none();
+    if (!r.family)
+        return nb::make_tuple(r.observed[0], host.take_null({r.null_count}), r.p_value[0], nb::none(),
+                              stats_dict(r.observed_stats, 1, false), null_stats, min);
+    return nb::make_tuple(double_array(r.observed), host.take_null({nn, K}), double_array(r.p_value),
+                          double_array(r.family_p_value), stats_dict(r.observed_stats, K, true),
+                          null_stats, min);
+}
+
+nb::object int64_array(const std::vector<std::int64_t>& x) {
+    std::int64_t* v = new std::int64_t[x.size() ? x.size() : 1];
+    std::copy(x.begin(), x.end(), v);
+    nb::capsule owner(v, [](void* p) noexcept { delete[] static_cast<std::int64_t*>(p); });
+    const size_t shape[1] = {x.size()};
+    return nb::cast(nb::ndarray<nb::numpy, std::int64_t>(v, 1, shape, owner));
+}
+
+// (target, choice, fold_start, train_scores, output, stats).
+nb::tuple walk_forward_py(nb::callable run, nb::callable reset, nb::object metric,
+                          nb::object original, BlockIn targets, nb::list prices, double train, double test,
+                          const std::string& metric_name, bool custom,
+                          std::optional<bool> larger_is_better, bool anchored,
+                          double periods_per_year, bool portfolio) {
+    sv::WalkForwardOptions opt;
+    opt.train = train; opt.test = test; opt.metric = metric_name; opt.custom = custom;
+    opt.larger_is_better = larger_is_better; opt.anchored = anchored;
+    opt.periods_per_year = periods_per_year; opt.portfolio = portfolio;
+    PyEngineHost host(run, reset, metric, original);
+    sv::WalkForwardResult r = sv::walk_forward(host, array_shape(targets), array_shapes(prices), opt);
+    nb::dict stats;
+    for (std::size_t q = 0; q < sv::kNumStats; ++q) stats[sv::kStats[q].name] = r.stats[q];
+    return nb::make_tuple(host.last_target(), int64_array(r.choice), int64_array(r.fold_start),
+                          screamer::detail::make_owned_array(std::move(r.scores), {r.folds, r.K}),
+                          host.last_output(), stats);
 }
 
 }  // namespace
@@ -845,8 +1036,16 @@ void init_bindings_fin(nb::module_& m) {
     m.def("_strategy_test", &strategy_test_py,
           "run"_a, "metric"_a.none(), "inputs"_a, "n"_a, "method"_a, "ohlc"_a, "price"_a,
           "mode"_a, "volume"_a.none(), "volume_mode"_a, "columns"_a, "fixed"_a,
-          "metric_name"_a, "larger_is_better"_a, "min_shift"_a.none(), "seed"_a,
-          "periods_per_year"_a);
+          "metric_name"_a, "custom"_a, "larger_is_better"_a.none(), "min_shift"_a.none(),
+          "seed"_a, "periods_per_year"_a);
+    m.def("_position_test", &position_test_py,
+          "run"_a, "reset"_a, "metric"_a.none(), "original"_a, "target"_a, "market"_a, "n"_a,
+          "method"_a, "metric_name"_a, "custom"_a, "larger_is_better"_a.none(),
+          "min_shift"_a.none(), "seed"_a, "periods_per_year"_a, "portfolio"_a);
+    m.def("_walk_forward", &walk_forward_py,
+          "run"_a, "reset"_a, "metric"_a.none(), "original"_a, "targets"_a, "prices"_a, "train"_a,
+          "test"_a, "metric_name"_a, "custom"_a, "larger_is_better"_a.none(), "anchored"_a,
+          "periods_per_year"_a, "portfolio"_a);
     m.def("_default_min_shift", [](SurrogateIn x) {
         return screamer::validation::default_min_shift(x.data(), x.shape(0));
     }, "x"_a);

@@ -4,33 +4,25 @@
 // randomizes when the strategy holds its positions, and replays each copy
 // through the same backtest engine. `strategyTest` keeps the strategy and
 // randomizes its data (permuted bars or returns, or shifted features), re-running
-// the whole strategy on each copy. These are batch-only validation tools, not streaming
-// operators. The surrogates are built in C++ (validation_bindings.cpp), and the
-// backtests and the report are the ordinary C++ engines. `strategyTest` runs
-// in the C++ driver shared with Python (include/screamer/validation/
-// strategy_test.h), which calls the strategy back; this module converts its
-// arguments and results. The same seed gives the same surrogates as Python.
+// the whole strategy on each copy. `walkForward` picks the best of several
+// candidates on each training window. These are batch-only validation tools, not
+// streaming operators. Each runs in a C++ driver shared with Python
+// (include/screamer/validation/position_test.h and strategy_test.h, bound in
+// wasm/validation_bindings.cpp), which calls the engine, the strategy, and a
+// custom metric back through wasmCallbacks; this module converts the arguments
+// and the results. The same seed gives the same surrogates as Python.
 import { current } from "./index.js";
 import { asNd, type NdArray } from "./ndarray.js";
 import { wasmCall, wasmCallbacks } from "./errors.js";
 import type { ScreamerOp } from "./runtime.js";
-import { BacktestReport, BacktestStats, PortfolioReport } from "./generated/ops.js";
 
-// Leading NaN warmup length and the length of the series after it.
 // A target as a Float64Array, so the engine returns an NdArray: all number[]
 // inputs would give an Array of per-event results (rule 3).
 const asTyped = (x: ArrayLike<number>): ArrayLike<number> => (Array.isArray(x) ? Float64Array.from(x) : x);
 
-function validLength(x: ArrayLike<number>): number {
-  let p = 0;
-  while (p < x.length && Number.isNaN(x[p])) p++;
-  return x.length - p;
-}
-
-function checkSeed(seed: number): void {
-  if (!Number.isInteger(seed) || seed < 0 || seed > Number.MAX_SAFE_INTEGER)
-    throw new RangeError("seed must be an integer in [0, 2^53)");
-}
+// Numbers go to C++ as they are; anything else as NaN, which the C++ checks
+// reject (a seed must be an integer in [0, 2^53)).
+const num = (v: unknown): number => (typeof v === "number" ? v : NaN);
 
 // Run a C++ surrogate generator: copy `x` to the heap, write a (T x ncols)
 // row-major block, and copy it back out.
@@ -52,29 +44,18 @@ function surrogates(
   }
 }
 
-function defaultMinShift(x: ArrayLike<number>): number {
-  const M = current();
-  const ptr = M.allocF64(x.length);
-  try {
-    M.viewF64(ptr, x.length).set(x as number[]);
-    return wasmCall(() => M.defaultMinShift(ptr, x.length));
-  } finally {
-    M.freeBuf(ptr);
-  }
-}
-
-// The C++ kernel checks the length and min_shift; its errors arrive as
-// RangeError through wasmCall.
+// The C++ kernels check the length, min_shift, and the seed; their errors
+// arrive as RangeError through wasmCall. min_shift -1 is the default.
 function shiftBlock(x: ArrayLike<number>, minShift: number, seed: number,
-                    col0: number, ncols: number, start = -1): NdArray {
+                    col0: number, ncols: number): NdArray {
   return surrogates(x, ncols, (xp, op) => wasmCall(() =>
-    current().circularShiftInto(xp, x.length, minShift, seed, col0, ncols, op, start)));
+    current().circularShiftInto(xp, x.length, minShift, num(seed), col0, ncols, op, -1)));
 }
 
 function shuffleBlock(x: ArrayLike<number>, seed: number, col0: number,
                       ncols: number): NdArray {
   return surrogates(x, ncols, (xp, op) => wasmCall(() =>
-    current().segmentShuffleInto(xp, x.length, seed, col0, ncols, op)));
+    current().segmentShuffleInto(xp, x.length, num(seed), col0, ncols, op)));
 }
 
 /**
@@ -90,12 +71,9 @@ export function circularShift(
   x: ArrayLike<number>, n: number,
   opts: { minShift?: number; seed?: number } = {},
 ): NdArray {
-  const seed = opts.seed ?? 0;
-  checkSeed(seed);
-  let m = opts.minShift;
-  if (m === undefined) m = defaultMinShift(x);
-  else if (!Number.isInteger(m) || m < 1) throw new RangeError("min_shift must be at least 1");
-  return shiftBlock(x, m, seed, 0, n);
+  const m = opts.minShift;
+  if (m != null && (!Number.isInteger(m) || m < 1)) throw new RangeError("min_shift must be at least 1");
+  return shiftBlock(x, m ?? -1, opts.seed ?? 0, 0, n);
 }
 
 /**
@@ -107,9 +85,7 @@ export function circularShift(
 export function segmentShuffle(
   x: ArrayLike<number>, n: number, opts: { seed?: number } = {},
 ): NdArray {
-  const seed = opts.seed ?? 0;
-  checkSeed(seed);
-  return shuffleBlock(x, seed, 0, n);
+  return shuffleBlock(x, opts.seed ?? 0, 0, n);
 }
 
 /** The statistics computed for every run, named as in `backtestReport`'s summary. */
@@ -161,120 +137,48 @@ export interface PositionFamilyResult {
   nullStats: Record<StatName, NdArray>;
 }
 
-// The statistic table comes from C++ (include/screamer/validation/
-// strategy_test.h), the one source shared with Python: name, source, column,
-// and direction. Engine output columns: [equity, pnl, position, cost].
-// BacktestReport columns: [drawdown, cum_cost, turnover, trades, max_drawdown, sharpe].
-// BacktestStats columns: [exposure, round_trips, win_rate, profit_factor, avg_win,
-//                         avg_loss, avg_holding, sortino, calmar].
-// `larger` is the direction as a test metric; null: none, largerIsBetter is needed.
-type Source = "engine" | "report" | "stats";
-interface StatSpec { src: Source; col: number; larger: boolean | null }
-
-// Every StatName, so the type is checked against the C++ table when it is read.
+// The statistic names, in the order of the C++ table (include/screamer/
+// validation/scoring.h), the one source shared with Python; the drivers there
+// also resolve a metric's name and direction.
 const STAT_NAME_SET: Record<StatName, true> = {
   total_pnl: true, max_drawdown: true, total_cost: true, turnover: true, num_trades: true,
   sharpe: true, exposure: true, round_trips: true, win_rate: true, profit_factor: true,
   avg_win: true, avg_loss: true, avg_holding: true, sortino: true, calmar: true,
 };
 
-let statTable: { metrics: Record<StatName, StatSpec>; names: StatName[] } | null = null;
+let statNameList: StatName[] | null = null;
 
-/** @internal The driver's statistic table, read once from WASM. */
-export function statTableFromWasm(): { metrics: Record<StatName, StatSpec>; names: StatName[] } {
-  if (statTable) return statTable;
-  const rows = wasmCall(() => current().strategyStats()) as [StatName, Source, number, number][];
-  const metrics = {} as Record<StatName, StatSpec>;
-  for (const [name, src, col, larger] of rows)
-    metrics[name] = { src, col, larger: larger < 0 ? null : larger === 1 };
+// Read once from WASM, and checked against StatName.
+function statNames(): StatName[] {
+  if (statNameList) return statNameList;
+  const rows = wasmCall(() => current().strategyStats()) as [StatName, string, number, number][];
   const names = rows.map((r) => r[0]);
   if (names.length !== Object.keys(STAT_NAME_SET).length || names.some((q) => !(q in STAT_NAME_SET)))
     throw new Error(`StatName does not match the C++ statistic table: ${names.join(", ")}`);
-  statTable = { metrics, names };
-  return statTable;
-}
-
-function metricSpec(metric: PositionTestMetric, largerIsBetter?: boolean)
-  : { name: string; larger: boolean } {
-  if (typeof metric === "function")
-    return { name: metric.name || "custom", larger: largerIsBetter ?? true };
-  const { metrics, names } = statTableFromWasm();
-  if (!Object.hasOwn(metrics, metric))
-    throw new RangeError(`metric must be one of ${[...names].sort().join(", ")} or a function`);
-  const larger = largerIsBetter ?? metrics[metric].larger;
-  if (larger === null)
-    throw new RangeError(`metric "${metric}" has no natural direction; pass largerIsBetter`);
-  return { name: metric, larger };
-}
-
-// Scores runs: every statistic of one run's output, and the metric. A (T, 4)
-// output is one strategy; a (T, K, 4) output is a portfolio, scored as one
-// book: equity, pnl, and cost summed over assets, the gross position as its
-// position, and turnover and trades from PortfolioReport (per-asset changes).
-function makeScorer(metric: PositionTestMetric, periodsPerYear: number) {
-  const report = BacktestReport(periodsPerYear);
-  const stats = BacktestStats(periodsPerYear);
-  const portfolio = PortfolioReport();
-  const score = (out: NdArray): { value: number; stats: Float64Array } => {
-    let cols: Float64Array[], engine: NdArray, turnover: NdArray | null = null;
-    if (out.shape.length === 3) {
-      const [T, K] = out.shape;
-      cols = [0, 1, 2, 3].map(() => new Float64Array(T));
-      for (let t = 0; t < T; t++)
-        for (let k = 0; k < K; k++) {
-          const b = (t * K + k) * 4;
-          cols[0][t] += out.data[b]; cols[1][t] += out.data[b + 1];
-          cols[2][t] += Math.abs(out.data[b + 2]); cols[3][t] += out.data[b + 3];
-        }
-      const flat = new Float64Array(T * 4);
-      for (let t = 0; t < T; t++) for (let c = 0; c < 4; c++) flat[t * 4 + c] = cols[c][t];
-      engine = { data: flat, shape: [T, 4] };
-      turnover = portfolio(out) as NdArray;
-      portfolio.reset();
-    } else {
-      cols = [0, 1, 2, 3].map((i) => column(out, i));
-      engine = out;
-    }
-    const rep = report(...cols) as NdArray;
-    const st = stats(...cols) as NdArray;
-    report.reset();
-    stats.reset();
-    if (turnover) {                         // per-asset turnover and trade count
-      const [T] = rep.shape;
-      for (let t = 0; t < T; t++)
-        for (const c of [2, 3]) rep.data[t * 6 + c] = turnover.data[t * 6 + c];
-    }
-    const src = { engine, report: rep, stats: st };
-    const { metrics, names } = statTableFromWasm();
-    const all = Float64Array.from(names, (k) => lastFinite(src[metrics[k].src], metrics[k].col));
-    const value = typeof metric === "function"
-      ? metric(out) : all[names.indexOf(metric)];
-    return { value, stats: all };
-  };
-  const dispose = () => { report.dispose(); stats.dispose(); portfolio.dispose(); };
-  return { score, dispose };
+  statNameList = names;
+  return names;
 }
 
 function statsRecord<V>(make: (i: number) => V): Record<StatName, V> {
   const out = {} as Record<StatName, V>;
-  statTableFromWasm().names.forEach((k, i) => { out[k] = make(i); });
+  statNames().forEach((k, i) => { out[k] = make(i); });
   return out;
 }
 
-// Every NdArray test goes through asNd, so a malformed array throws here.
-const isNdArray = (x: any): x is NdArray => asNd(x) !== null;
-
-function lastFinite(a: NdArray, col: number): number {
-  const [rows, cols] = a.shape;
-  for (let r = rows - 1; r >= 0; r--) {
-    const v = a.data[r * cols + col];
-    if (Number.isFinite(v)) return v;
-  }
-  return NaN;
+// The metric for C++: a statistic name (checked there), or "" with `custom`
+// for a function. `name` is the result's metric name.
+function metricArgs(metric: unknown, largerIsBetter: unknown) {
+  const custom = typeof metric === "function";
+  return {
+    custom,
+    name: custom ? (metric as Function).name || "custom" : String(metric),
+    hasLarger: largerIsBetter != null,
+    larger: !!largerIsBetter,
+  };
 }
 
-// Column k of a (T, K, 4) engine output, as one run's (T, 4) output.
-function run(out: NdArray, k: number): NdArray {
+// Strategy k of a (T, K, 4) output, as one run's (T, 4) output.
+function strategyOf(out: NdArray, k: number): NdArray {
   const [T, K, F] = out.shape;
   const data = new Float64Array(T * F);
   for (let t = 0; t < T; t++) data.set(out.data.subarray((t * K + k) * F, (t * K + k + 1) * F), t * F);
@@ -286,6 +190,135 @@ function column(a: NdArray, col: number): Float64Array {
   const out = new Float64Array(rows);
   for (let r = 0; r < rows; r++) out[r] = a.data[r * cols + col];
   return out;
+}
+
+// [ndim, T, K] of an input as the drivers check it: (T,) for a series, the
+// shape of an NdArray, (T, K) for T rows of K values, and ndim 0 for anything
+// else, which they reject.
+function dims(x: any): [number, number, number] {
+  const nd = asNd(x);
+  if (nd !== null) return [nd.shape.length, nd.shape[0] ?? 0, nd.shape[1] ?? 1];
+  if (x == null || typeof x === "string" || typeof x.length !== "number") return [0, 0, 0];
+  const first = x.length > 0 ? x[0] : undefined;
+  if (first != null && typeof first === "object" && typeof first.length === "number")
+    return [2, x.length, first.length];
+  return [1, x.length, 1];
+}
+
+// T rows of K values (fromRows) or K columns of T values (fromColumns) as a
+// row-major (T, K) block.
+function fromRows(rows: ArrayLike<number>[], what: string): Float64Array {
+  const T = rows.length, K = T > 0 ? rows[0].length : 0;
+  const data = new Float64Array(T * K);
+  rows.forEach((r, t) => {
+    if (r == null || r.length !== K) throw new RangeError(`${what}: every row must hold ${K} values`);
+    data.set(r as ArrayLike<number>, t * K);
+  });
+  return data;
+}
+
+function fromColumns(cols: ArrayLike<number>[], what: string): Float64Array {
+  const K = cols.length, T = K > 0 ? cols[0].length : 0;
+  const data = new Float64Array(T * K);
+  cols.forEach((x, k) => {
+    if (x == null || x.length !== T) throw new RangeError(`${what} must have the same length`);
+    for (let t = 0; t < T; t++) data[t * K + k] = x[t];
+  });
+  return data;
+}
+
+// A target for the drivers: its row-major data, [ndim, T, K], and the object
+// the engine gets for the real run.
+interface Target { data: ArrayLike<number>; ndim: number; T: number; K: number; original: any }
+
+const isColumns = (x: any): x is ArrayLike<number>[] =>
+  Array.isArray(x) && x.length > 0 && typeof x[0] !== "number";
+
+// positionTest: one series, K strategy columns, or for a portfolio engine a
+// (T, K) NdArray or T rows of K values.
+function positionTarget(target: any, portfolio: boolean): Target {
+  const nd = asNd(target);
+  if (nd !== null) {
+    const [T, K] = [nd.shape[0] ?? 0, nd.shape[1] ?? 1];
+    return { data: nd.data, ndim: nd.shape.length, T, K, original: nd.shape.length === 1 ? nd.data : nd };
+  }
+  if (isColumns(target)) {
+    if (portfolio) {
+      const data = fromRows(target, "target");
+      const [, T, K] = dims(target);
+      return { data, ndim: 2, T, K, original: { data, shape: [T, K] } };
+    }
+    const data = fromColumns(target, "target and market inputs");
+    const K = target.length, T = target[0].length;
+    return { data, ndim: 2, T, K, original: { data, shape: [T, K] } };
+  }
+  const x = asTyped(target);
+  return { data: x, ndim: 1, T: x.length, K: 1, original: x };
+}
+
+// walkForward: K candidate columns, a (T,) or (T, K) NdArray, or one series;
+// always (T, K) for the driver.
+function candidates(targets: any): Target {
+  const nd = asNd(targets);
+  if (nd !== null) {
+    const T = nd.shape[0] ?? 0, K = nd.shape.length === 2 ? nd.shape[1] : 1;
+    return { data: nd.data, ndim: nd.shape.length === 1 ? 2 : nd.shape.length, T, K,
+             original: nd.shape.length === 2 ? nd : { data: nd.data, shape: [T, K] } };
+  }
+  const data = isColumns(targets) ? fromColumns(targets, "targets and price inputs")
+    : Float64Array.from(targets as ArrayLike<number>);
+  const K = isColumns(targets) ? targets.length : 1, T = data.length / Math.max(1, K);
+  return { data, ndim: 2, T, K, original: { data, shape: [T, K] } };
+}
+
+// The engine side of positionTest and walkForward for the C++ drivers
+// (JsEngineHost in wasm/validation_bindings.cpp). `state.out` is the engine's
+// last output and `state.target` the last target it got.
+function engineCallbacks(engine: ScreamerOp, original: any, market: any[], metric: unknown) {
+  const M = current();
+  const state = { out: null as any, last: null as NdArray | null, target: null as any };
+  const fns = {
+    run: (isOriginal: boolean, T: number, cols: number, ptr: number, hdr: number) => {
+      const target = isOriginal ? original : cols === 0 ? new Float64Array(M.viewF64(ptr, T))
+        : { data: new Float64Array(M.viewF64(ptr, T * cols)), shape: [T, cols] };
+      engine.reset();
+      state.out = engine(target, ...market);
+      state.last = asNd(state.out);
+      state.target = target;
+      const shape = state.last ? state.last.shape : [];
+      M.viewF64(hdr, 4).set([Math.min(shape.length, 4), shape[0] ?? 0, shape[1] ?? 0, shape[2] ?? 0]);
+    },
+    fetch: (outPtr: number, count: number) => {
+      M.viewF64(outPtr, count).set((state.last as NdArray).data.subarray(0, count));
+    },
+    reset: () => { engine.reset(); },
+    // what: 0 each strategy of the last output, 1 the output as one book,
+    // 2 each strategy of the (rows, count, 4) window at windowPtr.
+    metric: (what: number, valuesPtr: number, count: number, rows: number, windowPtr: number) => {
+      const f = metric as (out: NdArray) => number;
+      const last = state.last as NdArray;
+      for (let j = 0; j < count; j++) {
+        const arg = what === 2
+          ? strategyOf({ data: M.viewF64(windowPtr, rows * count * 4), shape: [rows, count, 4] }, j)
+          : what === 1 || last.shape.length === 2 ? last : strategyOf(last, j);
+        const v = f(arg);
+        M.viewF64(valuesPtr, count)[j] = v;      // a fresh view: the metric may grow the heap
+      }
+    },
+  };
+  return { fns, state };
+}
+
+// Heap copies of the target and of the [address, ndim, T, K] specs of the
+// target and the market inputs (the market's data stays in JS).
+function heapSpecs(target: Target, market: any[], bufs: number[]) {
+  const data = heapCopy(target.data);
+  bufs.push(data);
+  const t = heapCopy([data, target.ndim, target.T, target.K]);
+  bufs.push(t);
+  const m = heapCopy(market.flatMap((x) => [0, ...dims(x)]));
+  bufs.push(m);
+  return { target: t, market: m };
 }
 
 /**
@@ -306,7 +339,8 @@ function column(a: NdArray, col: number): Float64Array {
  * and the randomized runs, for plotting distributions and scatter plots. Mirrors Python's
  * `screamer.position_test`; the same seed gives the same null distribution.
  *
- * Pass an array of target columns to test several strategies jointly (method
+ * Pass an array of K target columns, or a (T, K) `NdArray` (the result is then
+ * a `PositionFamilyResult`), to test several strategies jointly (method
  * "shift"): every round shifts all of them by the same offset, and
  * `familyPValue` compares each strategy with the best of the K per round.
  *
@@ -339,137 +373,62 @@ export function positionTest(
   market: any[],
   opts: PositionTestOptions = {},
 ): PositionTestResult | PositionFamilyResult {
-  if ((engine as any).rowOp) return positionPortfolio(engine, target, market, opts);
-  if (Array.isArray(target) && target.length > 0 && typeof target[0] !== "number")
-    return positionFamily(engine, target as ArrayLike<number>[], market, opts);
-  return positionSingle(engine, target as ArrayLike<number>, market, opts);
-}
-
-function positionSingle(
-  engine: ScreamerOp,
-  target: ArrayLike<number>,
-  market: ArrayLike<number>[],
-  opts: PositionTestOptions,
-): PositionTestResult {
-  const n = opts.n ?? 1000;
+  const M = current();
+  const portfolio = !!(engine as any).rowOp;
+  const tgt = positionTarget(target, portfolio);
   const method = opts.method ?? "shift";
   const metric = opts.metric ?? "sharpe";
-  const seed = opts.seed ?? 0;
-  if (method !== "shift" && method !== "segments")
-    throw new RangeError('method must be "shift" or "segments"');
-  if (!Number.isInteger(n) || n < 1) throw new RangeError("n must be at least 1");
-  checkSeed(seed);
-  const { name, larger } = metricSpec(metric, opts.largerIsBetter);
-  const T = target.length;
-  if (market.some((m) => m.length !== T))
-    throw new RangeError("target and market inputs must have the same length");
-
-  const scorer = makeScorer(metric, opts.periodsPerYear ?? 1);
+  const { custom, name, hasLarger, larger } = metricArgs(metric, opts.largerIsBetter);
+  const names = statNames();
+  const { fns } = engineCallbacks(engine, tgt.original, market, metric);
+  // The results arrive in batches (begin, emit) and the rest in done.
+  let n = 0, K = 1, count = 0;
+  let nullStats: Float64Array[] = [], nul = new Float64Array(0);
+  let result: PositionTestResult | PositionFamilyResult | null = null;
+  const callbacks = wasmCallbacks({
+    ...fns,
+    begin: (runs: number, k: number) => {
+      n = runs; K = k;
+      nullStats = names.map(() => new Float64Array(n * K));
+      nul = new Float64Array(n * K);
+    },
+    emit: (j0: number, runs: number, statsPtr: number, stride: number, metricsPtr: number, c: number) => {
+      for (let q = 0; q < names.length; q++)
+        nullStats[q].set(M.viewF64(statsPtr + 8 * q * stride, runs * K), j0 * K);
+      nul.set(M.viewF64(metricsPtr, c), count);
+      count += c;
+    },
+    // head = [observed (k), p (k), family p (k), observed stats (15 x k)]
+    done: (headPtr: number, k: number, family: boolean, minShift: number, nullCount: number) => {
+      const head = M.viewF64(headPtr, k * (3 + names.length)).slice();
+      const part = (i: number) => head.slice(i * k, (i + 1) * k);
+      result = family
+        ? { observed: part(0), null: { data: nul, shape: [n, k] }, pValue: part(1), familyPValue: part(2),
+            metric: name, method: "shift", minShift, observedStats: statsRecord((i) => part(3 + i)),
+            nullStats: statsRecord((i): NdArray => ({ data: nullStats[i], shape: [n, k] })) }
+        : { observed: head[0], null: nullCount === nul.length ? nul : nul.slice(0, nullCount),
+            pValue: head[1], metric: name, method: method as "shift" | "segments",
+            minShift: minShift < 0 ? null : minShift, observedStats: statsRecord((i) => head[3 + i]),
+            nullStats: statsRecord((i) => nullStats[i]) };
+    },
+  });
+  const bufs: number[] = [];
   try {
-    engine.reset();
-    const obs = scorer.score(engine(asTyped(target), ...market) as NdArray);
-    const observed = obs.value;
-    const nullStats = statsRecord(() => new Float64Array(n));
-
-    let shift: number | null = null;
-    if (method === "shift") {
-      shift = opts.minShift ?? defaultMinShift(target);
-      if (!Number.isInteger(shift) || shift < 1) throw new RangeError("min_shift must be at least 1");
-    }
-
-    // Generate the surrogates in chunks of columns, as the Python driver does;
-    // each column has its own seeded generator, so the chunk size does not
-    // change the result.
-    const chunk = Math.max(1, Math.min(n, Math.floor(4_000_000 / Math.max(1, T))));
-    const nul: number[] = [];
-    for (let c0 = 0; c0 < n; c0 += chunk) {
-      const k = Math.min(chunk, n - c0);
-      const block = method === "shift"
-        ? shiftBlock(target, shift as number, seed, c0, k)
-        : shuffleBlock(target, seed, c0, k);
-      engine.reset();
-      const out = engine({ data: block.data, shape: [T, k] }, ...market) as NdArray;
-      for (let j = 0; j < k; j++) {
-        const r = scorer.score(run(out, j));
-        statTableFromWasm().names.forEach((name, i) => { nullStats[name][c0 + j] = r.stats[i]; });
-        if (Number.isFinite(r.value)) nul.push(r.value);
-      }
-    }
-    engine.reset();
-
-    let hits = 0;
-    for (const v of nul) if (larger ? v >= observed : v <= observed) hits++;
-    const pValue = Number.isFinite(observed) ? (1 + hits) / (1 + nul.length) : NaN;
-    return { observed, null: Float64Array.from(nul), pValue, metric: name, method, minShift: shift,
-             observedStats: statsRecord((i) => obs.stats[i]), nullStats };
+    const spec = heapSpecs(tgt, market, bufs);
+    // null and undefined both mean "not given", as None does in Python.
+    callbacks.call((cb) => M.positionTestRun(cb, spec.target, spec.market, market.length,
+      int(opts.n ?? 1000, 0), String(method), custom ? "" : name, custom, hasLarger, larger,
+      opts.minShift != null, int(opts.minShift ?? 0, 0), num(opts.seed ?? 0),
+      opts.periodsPerYear ?? 1, portfolio));
+    return result as unknown as PositionTestResult | PositionFamilyResult;
   } finally {
-    scorer.dispose();
+    bufs.forEach((p) => M.freeBuf(p));
   }
 }
 
-// One book of K assets traded by a portfolio engine: all columns shifted
-// together, scored on the summed book. Mirrors Python's position_test with a
-// portfolio engine.
-function positionPortfolio(
-  engine: ScreamerOp, target: any, market: any[], opts: PositionTestOptions,
-): PositionTestResult {
-  const n = opts.n ?? 1000;
-  const method = opts.method ?? "shift";
-  const metric = opts.metric ?? "sharpe";
-  const seed = opts.seed ?? 0;
-  if (method !== "shift")
-    throw new RangeError('a portfolio is tested with method "shift", which moves all assets together');
-  if (!Number.isInteger(n) || n < 1) throw new RangeError("n must be at least 1");
-  checkSeed(seed);
-  const { name, larger } = metricSpec(metric, opts.largerIsBetter);
-  let T: number, K: number, flat: ArrayLike<number>;
-  if (isNdArray(target) && target.shape.length === 2) {
-    [T, K] = target.shape; flat = target.data;
-  } else if (Array.isArray(target) && target.length > 0 && typeof target[0] !== "number") {
-    T = target.length; K = (target[0] as ArrayLike<number>).length;
-    const f = new Float64Array(T * K);
-    (target as ArrayLike<number>[]).forEach((r, t) => f.set(r as number[], t * K));
-    flat = f;
-  } else {
-    throw new RangeError("a portfolio engine needs a (T, K) target");
-  }
-  const cols = Array.from({ length: K }, (_, k) => Float64Array.from({ length: T }, (_, t) => flat[t * K + k]));
-  const start = Math.max(...cols.map((x) => x.length - validLength(x)));
-  const shift = opts.minShift ?? Math.max(1, Math.min(
-    Math.max(...cols.map(defaultMinShift)), Math.floor((T - start) / 4)));
-  if (!Number.isInteger(shift) || shift < 1) throw new RangeError("min_shift must be at least 1");
-
-  const scorer = makeScorer(metric, opts.periodsPerYear ?? 1);
-  const run = (tgt: NdArray) => {
-    engine.reset();
-    return scorer.score(engine(tgt, ...market) as NdArray);
-  };
-  try {
-    const obs = run({ data: Float64Array.from(flat), shape: [T, K] });
-    const nullStats = statsRecord(() => new Float64Array(n));
-    const nul: number[] = [];
-    const chunk = Math.max(1, Math.min(n, 256));
-    for (let c0 = 0; c0 < n; c0 += chunk) {
-      const m = Math.min(chunk, n - c0);
-      const blocks = cols.map((x) => shiftBlock(x, shift, seed, c0, m, start));
-      for (let j = 0; j < m; j++) {
-        const data = new Float64Array(T * K);
-        for (let t = 0; t < T; t++) for (let k = 0; k < K; k++) data[t * K + k] = blocks[k].data[t * m + j];
-        const r = run({ data, shape: [T, K] });
-        statTableFromWasm().names.forEach((q, i) => { nullStats[q][c0 + j] = r.stats[i]; });
-        if (Number.isFinite(r.value)) nul.push(r.value);
-      }
-    }
-    engine.reset();
-    let hits = 0;
-    for (const v of nul) if (larger ? v >= obs.value : v <= obs.value) hits++;
-    const pValue = Number.isFinite(obs.value) ? (1 + hits) / (1 + nul.length) : NaN;
-    return { observed: obs.value, null: Float64Array.from(nul), pValue, metric: name, method: "shift",
-             minShift: shift, observedStats: statsRecord((i) => obs.stats[i]), nullStats };
-  } finally {
-    scorer.dispose();
-  }
-}
+// Integers go to C++ as they are; a non-integer becomes `bad`, which the
+// driver rejects with its usual message.
+const int = (v: number, bad: number) => (Number.isInteger(v) ? v : bad);
 
 // ---- data permutations and strategyTest (Python: permute_bars,
 // permute_returns, strategy_test) ------------------------------------------
@@ -606,8 +565,7 @@ export function permuteBars(
   low: ArrayLike<number> | NdArray, close: ArrayLike<number> | NdArray, n: number,
   opts: PermuteOptions = {},
 ): NdArray[] {
-  const seed = opts.seed ?? 0, mode = opts.mode ?? "log", vm = opts.volumeMode ?? "keep";
-  checkSeed(seed);
+  const seed = num(opts.seed ?? 0), mode = opts.mode ?? "log", vm = opts.volumeMode ?? "keep";
   checkModes(mode, vm);
   const o = series(open, "open"), h = series(high, "high"), l = series(low, "low");
   const c = series(close, "close");
@@ -626,8 +584,7 @@ export function permuteBars(
 export function permuteReturns(
   x: ArrayLike<number> | NdArray, n: number, opts: PermuteOptions = {},
 ): NdArray | NdArray[] {
-  const seed = opts.seed ?? 0, mode = opts.mode ?? "log", vm = opts.volumeMode ?? "keep";
-  checkSeed(seed);
+  const seed = num(opts.seed ?? 0), mode = opts.mode ?? "log", vm = opts.volumeMode ?? "keep";
   checkModes(mode, vm);
   const xs = series(x, "x");
   const vol = opts.volume === undefined ? null : series(opts.volume, "volume");
@@ -730,15 +687,12 @@ export function strategyTest(
   const n = opts.n ?? 500;
   const method = opts.method ?? "bars";
   const metric = opts.metric ?? "sharpe";
-  const seed = opts.seed ?? 0;
-  checkSeed(seed);
-  const { name, larger } = metricSpec(metric, opts.largerIsBetter);
+  const { custom, name, hasLarger, larger } = metricArgs(metric, opts.largerIsBetter);
   const blocks = inputs.map((x, i) => toBlock(x, i));
   const M = current();
   const k = blocks.length;
-  // Positions and counts go to C++ as integers; a non-integer becomes one the
+  // Positions go to C++ as integers; a non-integer becomes -1, which the
   // driver rejects with its usual message.
-  const int = (v: number, bad: number) => (Number.isInteger(v) ? v : bad);
   const pos = (xs: readonly number[]) => xs.map((i) => int(i, -1));
 
   // The callbacks C++ makes (wasm/validation_bindings.cpp); wasmCallbacks
@@ -788,88 +742,11 @@ export function strategyTest(
       cb, specPtr, k, method, int(n, 0), pos(opts.ohlc ?? [0, 1, 2, 3]), int(opts.price ?? 0, -1),
       opts.mode ?? "log", opts.volume != null, int(opts.volume ?? 0, -1),
       opts.volumeMode ?? "keep", pos(opts.columns ?? []), pos(opts.fixed ?? []),
-      typeof metric === "function" ? "" : metric, larger, opts.minShift != null,
-      int(opts.minShift ?? 0, 0), seed, opts.periodsPerYear ?? 1));
+      custom ? "" : name, custom, hasLarger, larger, opts.minShift != null,
+      int(opts.minShift ?? 0, 0), num(opts.seed ?? 0), opts.periodsPerYear ?? 1));
     return result as unknown as StrategyTestResult;
   } finally {
     bufs.forEach((p) => M.freeBuf(p));
-  }
-}
-
-function positionFamily(
-  engine: ScreamerOp,
-  targets: ArrayLike<number>[],
-  market: ArrayLike<number>[],
-  opts: PositionTestOptions,
-): PositionFamilyResult {
-  const n = opts.n ?? 1000;
-  const method = opts.method ?? "shift";
-  const metric = opts.metric ?? "sharpe";
-  const seed = opts.seed ?? 0;
-  if (method !== "shift")
-    throw new RangeError('several strategies need method "shift", which shifts them jointly');
-  if (!Number.isInteger(n) || n < 1) throw new RangeError("n must be at least 1");
-  checkSeed(seed);
-  const { name, larger } = metricSpec(metric, opts.largerIsBetter);
-  const K = targets.length, T = targets[0].length;
-  if (targets.some((x) => x.length !== T) || market.some((m) => m.length !== T))
-    throw new RangeError("target and market inputs must have the same length");
-  const start = Math.max(...targets.map((x) => x.length - validLength(x)));
-  let shift = opts.minShift ?? Math.max(1, Math.min(
-    Math.max(...targets.map(defaultMinShift)), Math.floor((T - start) / 4)));
-  if (!Number.isInteger(shift) || shift < 1) throw new RangeError("min_shift must be at least 1");
-
-  const scorer = makeScorer(metric, opts.periodsPerYear ?? 1);
-  const observe = (x: ArrayLike<number>) => {
-    engine.reset();
-    return scorer.score(engine(asTyped(x), ...market) as NdArray);
-  };
-  try {
-    const obs = targets.map(observe);
-    const observed = Float64Array.from(obs, (r) => r.value);
-    const observedStats = statsRecord((i) => Float64Array.from(obs, (r) => r.stats[i]));
-    const nullStats = statsRecord((): NdArray => ({ data: new Float64Array(n * K), shape: [n, K] }));
-    const nul = new Float64Array(n * K);
-    const chunk = Math.max(1, Math.min(n, Math.floor(4_000_000 / Math.max(1, T))));
-    for (let c0 = 0; c0 < n; c0 += chunk) {
-      const m = Math.min(chunk, n - c0);
-      targets.forEach((x, k) => {
-        const block = shiftBlock(x, shift, seed, c0, m, start);
-        engine.reset();
-        const out = engine({ data: block.data, shape: [T, m] }, ...market) as NdArray;
-        for (let j = 0; j < m; j++) {
-          const r = scorer.score(run(out, j));
-          nul[(c0 + j) * K + k] = r.value;
-          statTableFromWasm().names.forEach((q, i) => { nullStats[q].data[(c0 + j) * K + k] = r.stats[i]; });
-        }
-      });
-    }
-    engine.reset();
-    const sign = larger ? 1 : -1;
-    const pValue = new Float64Array(K), familyPValue = new Float64Array(K);
-    const best: number[] = [];
-    for (let r = 0; r < n; r++) {
-      let b = -Infinity;
-      for (let k = 0; k < K; k++) { const v = sign * nul[r * K + k]; if (v > b) b = v; }
-      if (Number.isFinite(b)) best.push(b);
-    }
-    for (let k = 0; k < K; k++) {
-      let hits = 0, count = 0;
-      for (let r = 0; r < n; r++) {
-        const v = nul[r * K + k];
-        if (!Number.isFinite(v)) continue;
-        count++;
-        if (sign * v >= sign * observed[k]) hits++;
-      }
-      const o = observed[k];
-      pValue[k] = Number.isFinite(o) ? (1 + hits) / (1 + count) : NaN;
-      familyPValue[k] = Number.isFinite(o)
-        ? (1 + best.filter((b) => b >= sign * o).length) / (1 + best.length) : NaN;
-    }
-    return { observed, null: { data: nul, shape: [n, K] }, pValue, familyPValue,
-             metric: name, method: "shift", minShift: shift, observedStats, nullStats };
-  } finally {
-    scorer.dispose();
   }
 }
 
@@ -959,50 +836,6 @@ export interface WalkForwardResult {
   metric: string;
 }
 
-// Rows [a, b) of a (T, 4) engine output, scored as a backtest of its own: the
-// equity is shifted so the window starts from the equity the run started from.
-// Mirrors `_window` in validation.py.
-function engineWindow(out: NdArray, a: number, b: number): NdArray {
-  const data = out.data.slice(a * 4, b * 4);
-  if (a > 0) {
-    let prior = NaN;
-    for (let t = a - 1; t >= 0; t--)
-      if (Number.isFinite(out.data[t * 4])) { prior = out.data[t * 4]; break; }
-    if (!Number.isNaN(prior)) {
-      let first = 0;
-      while (first < out.shape[0] && Number.isNaN(out.data[first * 4])) first++;
-      const shift = prior - (out.data[first * 4] - out.data[first * 4 + 1]);
-      for (let r = 0; r < b - a; r++) data[r * 4] -= shift;
-    }
-  }
-  return { data, shape: [b - a, 4] };
-}
-
-// The best of one fold's scores: NaN loses, ties go to the lowest index, -1
-// when every score is NaN.
-function pickBest(scores: ArrayLike<number>, larger: boolean): number {
-  let best = -1, bestV = -Infinity;
-  for (let k = 0; k < scores.length; k++) {
-    if (Number.isNaN(scores[k])) continue;
-    const v = larger ? scores[k] : -scores[k];
-    if (best < 0 || v > bestV) { best = k; bestV = v; }
-  }
-  return best;
-}
-
-function targetColumns(targets: ArrayLike<number> | ArrayLike<number>[] | NdArray): Float64Array[] {
-  if (isNdArray(targets)) {
-    if (targets.shape.length === 1) return [Float64Array.from(targets.data)];
-    if (targets.shape.length !== 2) throw new RangeError("targets must be a (T,) or (T, K) array");
-    const [T, K] = targets.shape;
-    return Array.from({ length: K }, (_, k) =>
-      Float64Array.from({ length: T }, (_, t) => targets.data[t * K + k]));
-  }
-  if (Array.isArray(targets) && targets.length > 0 && typeof targets[0] !== "number")
-    return (targets as ArrayLike<number>[]).map((x) => Float64Array.from(x));
-  return [Float64Array.from(targets as ArrayLike<number>)];
-}
-
 /**
  * Walk-forward selection: pick the best candidate on each training window and
  * trade it on the next test window.
@@ -1024,47 +857,32 @@ export function walkForward(
   market: ArrayLike<number>[],
   opts: WalkForwardOptions,
 ): WalkForwardResult {
-  if ((engine as any).rowOp)
-    throw new RangeError("walkForward needs a single-asset engine; portfolio engines are not supported");
+  const M = current();
   const metric = opts.metric ?? "sharpe";
-  const { name, larger } = metricSpec(metric, opts.largerIsBetter);
-  const cols = targetColumns(targets);
-  const K = cols.length, T = cols[0].length;
-  if (cols.some((x) => x.length !== T) || market.some((m) => m.length !== T))
-    throw new RangeError("targets and price inputs must have the same length");
-  const { train, test } = opts;
-  if (!Number.isInteger(train) || train < 2) throw new RangeError("train must be an integer of at least 2");
-  if (!Number.isInteger(test) || test < 1) throw new RangeError("test must be an integer of at least 1");
-  if (train >= T) throw new RangeError("train must be shorter than the series");
-
-  const starts: number[] = [];
-  for (let t0 = train; t0 < T; t0 += test) starts.push(t0);
-  const F = starts.length;
-  const scorer = makeScorer(metric, opts.periodsPerYear ?? 1);
+  const { custom, name, hasLarger, larger } = metricArgs(metric, opts.largerIsBetter);
+  const tgt = candidates(targets);
+  const { fns, state } = engineCallbacks(engine, tgt.original, market, metric);
+  let result: WalkForwardResult | null = null;
+  const callbacks = wasmCallbacks({
+    ...fns,
+    done: (statsPtr: number, foldPtr: number, choicePtr: number, scoresPtr: number, F: number, K: number) => {
+      const stats = M.viewF64(statsPtr, statNames().length).slice();
+      result = {
+        target: state.target, choice: Int32Array.from(M.viewF64(choicePtr, F)),
+        foldStart: Int32Array.from(M.viewF64(foldPtr, F)),
+        trainScores: { data: M.viewF64(scoresPtr, F * K).slice(), shape: [F, K] },
+        output: state.out, stats: statsRecord((i) => stats[i]), metric: name,
+      };
+    },
+  });
+  const bufs: number[] = [];
   try {
-    const block = new Float64Array(T * K);
-    cols.forEach((x, k) => { for (let t = 0; t < T; t++) block[t * K + k] = x[t]; });
-    engine.reset();
-    const all = engine({ data: block, shape: [T, K] }, ...market) as NdArray;
-    const full = cols.map((_, k) => run(all, k));
-    const scores = new Float64Array(F * K);
-    const choice = new Int32Array(F);
-    const target = new Float64Array(T);
-    starts.forEach((t0, i) => {
-      const a = opts.anchored ? 0 : t0 - train;
-      for (let k = 0; k < K; k++) scores[i * K + k] = scorer.score(engineWindow(full[k], a, t0)).value;
-      const c = pickBest(scores.subarray(i * K, (i + 1) * K), larger);
-      choice[i] = c;
-      if (c >= 0) for (let t = t0; t < Math.min(t0 + test, T); t++) target[t] = cols[c][t];
-    });
-    engine.reset();
-    const output = engine(target, ...market) as NdArray;
-    engine.reset();
-    const oos = scorer.score(engineWindow(output, starts[0], T));
-    return { target, choice, foldStart: Int32Array.from(starts),
-             trainScores: { data: scores, shape: [F, K] }, output,
-             stats: statsRecord((i) => oos.stats[i]), metric: name };
+    const spec = heapSpecs(tgt, market, bufs);
+    callbacks.call((cb) => M.walkForwardRun(cb, spec.target, spec.market, market.length,
+      num(opts.train), num(opts.test), custom ? "" : name, custom, hasLarger, larger, !!opts.anchored,
+      opts.periodsPerYear ?? 1, !!(engine as any).rowOp));
+    return result as unknown as WalkForwardResult;
   } finally {
-    scorer.dispose();
+    bufs.forEach((p) => M.freeBuf(p));
   }
 }

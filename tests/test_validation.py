@@ -928,11 +928,33 @@ def test_strategy_test_moved_inputs_are_new_arrays():
         assert not np.shares_memory(p1, p2) and not np.shares_memory(f1, f2)
 
 
+def _book_stats(out, periods_per_year):
+    """Every statistic of one portfolio run, from NumPy: the book summed over
+    the assets, turnover and trades from PortfolioReport (the 2.8.0 Python
+    scorer, kept here as a reference)."""
+    from screamer.screamer_bindings import _strategy_stats
+
+    def last_finite(a):
+        finite = np.isfinite(a)
+        last = a.shape[0] - 1 - np.argmax(finite[::-1], axis=0)
+        v = a[last, np.arange(a.shape[1])]
+        v[~finite.any(axis=0)] = np.nan
+        return v
+
+    out = np.ascontiguousarray(out, dtype=float)
+    book = [out[:, :, 0].sum(axis=1), out[:, :, 1].sum(axis=1),
+            np.abs(out[:, :, 2]).sum(axis=1), out[:, :, 3].sum(axis=1)]
+    report = np.asarray(s.BacktestReport(periods_per_year)(*book), dtype=float)
+    report[:, 2:4] = np.asarray(s.PortfolioReport()(out), dtype=float)[:, 2:4]
+    src = {"engine": np.column_stack(book)[:, None, :], "report": report[:, None, :],
+           "stats": np.asarray(s.BacktestStats(periods_per_year)(*book), dtype=float)[:, None, :]}
+    return {name: last_finite(src[q][:, :, c]) for name, q, c, _ in _strategy_stats()}
+
+
 @pytest.mark.parametrize("K", [2, 9, 130])
 def test_strategy_test_book_sum_matches_numpy(K):
     # A portfolio is scored on the book summed over assets in NumPy's
     # pairwise order, so the statistics equal those of the NumPy book.
-    from screamer.validation import _book_stats
     c = _panel(T=80, K=K, seed=K)[3]
     outs = []
 
@@ -1000,13 +1022,132 @@ def test_strategy_test_range_of_n_and_integer_arguments():
 
 def test_statistic_table_comes_from_cpp():
     from screamer.screamer_bindings import _strategy_stats
-    from screamer.validation import _METRICS
-    rows = _strategy_stats()
-    assert list(_METRICS) == [r[0] for r in rows]
-    assert _METRICS["sharpe"] == ("report", 5, True)
-    assert _METRICS["turnover"] == ("report", 2, None)
-    assert _METRICS["total_cost"] == ("report", 1, False)
+    table = {name: (q, c, larger) for name, q, c, larger in _strategy_stats()}
+    assert table["sharpe"] == ("report", 5, True)
+    assert table["turnover"] == ("report", 2, None)
+    assert table["total_cost"] == ("report", 1, False)
     c = 100 + np.arange(40.0)
     res = s.strategy_test(lambda p: s.BacktestPriceTarget()(np.ones(40), p), c,
                           method="returns", n=3)
-    assert list(res.observed_stats) == list(res.null_stats) == list(_METRICS)
+    assert list(res.observed_stats) == list(res.null_stats) == list(table)
+    ret, o, h, l, c = _market(100, 1)
+    res = s.position_test(s.BacktestPriceTarget(), np.sign(ret), c, n=3)
+    assert list(res.observed_stats) == list(res.null_stats) == list(table)
+
+
+# --- B6: position_test and walk_forward in the shared C++ driver ---------------
+
+class _Engine:
+    """A target engine that records what it gets and can fail on a given call."""
+
+    def __init__(self, fail_on=None, error=None, out=None):
+        self.engine = s.BacktestPriceTarget(fee=1e-4)
+        self.calls, self.fail_on, self.error, self.out = [], fail_on, error, out
+
+    def reset(self):
+        self.engine.reset()
+
+    def __call__(self, target, *market):
+        self.calls.append(target)
+        if self.fail_on is not None and len(self.calls) == self.fail_on:
+            raise self.error
+        return self.engine(target, *market) if self.out is None else self.out
+
+
+def test_position_test_callback_errors_keep_their_identity():
+    ret, o, h, l, c = _market(200, 31)
+    tgt = _held(np.sign(ret), 4)
+    for fail_on in (1, 2):                        # the real run, then the null
+        err = KeyError("engine")
+        with pytest.raises(KeyError) as info:
+            s.position_test(_Engine(fail_on, err), tgt, c, n=5)
+        assert info.value is err
+        err = KeyError("engine")                  # the whole history, then the stitched run
+        with pytest.raises(KeyError) as info:
+            s.walk_forward(_Engine(fail_on, err), tgt, c, train=50, test=10)
+        assert info.value is err
+    seen = []
+    err = RuntimeError("metric")
+
+    def metric(out):
+        seen.append(out.shape)
+        if len(seen) == 2:                        # on the null, after the real run
+            raise err
+        return out[-1, :, 0]
+
+    for target in (np.sign(np.sin(np.arange(200) / 7)), np.column_stack([tgt, -tgt])):
+        seen.clear()
+        with pytest.raises(RuntimeError) as info:
+            s.position_test(s.BacktestPriceTarget(), target, c, n=3, metric=metric)
+        assert info.value is err
+    with pytest.raises(RuntimeError) as info:
+        s.walk_forward(s.BacktestPriceTarget(), np.column_stack([tgt, -tgt]), c, train=50, test=10,
+                       metric=lambda out: (_ for _ in ()).throw(err))
+    assert info.value is err
+
+
+def test_position_test_refcounts_are_stable_over_failures():
+    ret, o, h, l, c = _market(120, 32)
+    tgt = _held(np.sign(ret), 4)
+    eng = _Engine(2, ValueError("boom"))
+    before = (sys.getrefcount(tgt), sys.getrefcount(c), sys.getrefcount(eng))
+    for _ in range(50):
+        eng.calls.clear()
+        eng.error = ValueError("boom")            # a new error: a raised one keeps its frames
+        with pytest.raises(ValueError, match="boom"):
+            s.position_test(eng, tgt, c, n=4)
+        eng.calls.clear()
+        eng.error = ValueError("boom")
+        with pytest.raises(ValueError, match="boom"):
+            s.walk_forward(eng, tgt, c, train=50, test=10)
+    eng.calls.clear()
+    eng.error = None
+    assert (sys.getrefcount(tgt), sys.getrefcount(c), sys.getrefcount(eng)) == before
+
+
+def test_position_test_engine_gets_new_target_arrays():
+    ret, o, h, l, c = _market(120, 33)
+    tgt = _held(np.sign(ret), 4)
+    eng = _Engine()
+    s.position_test(eng, tgt, c, n=6)
+    assert eng.calls[0] is tgt and eng.calls[1].shape == (120, 6)
+    eng = _Engine()
+    W = np.column_stack([tgt, -tgt]) / 2
+    port = s.BacktestPortfolioTarget()
+    seen = []
+    s.position_test(port, W, np.column_stack([c, c]), n=3,
+                    metric=lambda out: (seen.append(out), np.nansum(out[:, :, 1]))[1])
+    assert len({id(x) for x in seen}) == 4
+    res = s.walk_forward(eng, np.column_stack([tgt, -tgt]), c, train=50, test=10)
+    assert res.target is eng.calls[-1] and not np.shares_memory(res.target, eng.calls[0])
+
+
+def test_position_test_range_of_n():
+    ret, o, h, l, c = _market(60, 34)
+    tgt = np.sign(ret)
+    for target in (tgt, np.column_stack([tgt, -tgt])):
+        with pytest.raises(ValueError, match="^n must be at least 1$"):
+            s.position_test(s.BacktestPriceTarget(), target, c, n=0)
+        for n in (2**32 + 3, 2**60, 2**63, 2**80):
+            with pytest.raises(ValueError, match=r"^n is too large: at most 2147483647 runs$"):
+                s.position_test(s.BacktestPriceTarget(), target, c, n=n)
+        with pytest.raises(TypeError, match="n must be an integer, not bool"):
+            s.position_test(s.BacktestPriceTarget(), target, c, n=True)
+    assert s.position_test(s.BacktestPriceTarget(), tgt, c, n=np.int64(3)).null_stats["sharpe"].size == 3
+
+
+def test_metric_and_engine_outputs_are_checked():
+    ret, o, h, l, c = _market(100, 35)
+    tgt = _held(np.sign(ret), 4)
+    with pytest.raises(ValueError, match="one value per strategy in its input: 7 expected, got 1"):
+        s.position_test(s.BacktestPriceTarget(), tgt, c, n=7, metric=lambda out: out[-1, 0, 0])
+    with pytest.raises(ValueError, match="1 expected, got 2"):
+        s.position_test(s.BacktestPortfolioTarget(), np.column_stack([tgt, -tgt]),
+                        np.column_stack([c, c]), n=2, metric=lambda out: out[-1, :, 0])
+    with pytest.raises(ValueError, match="2 expected, got 1"):
+        s.walk_forward(s.BacktestPriceTarget(), np.column_stack([tgt, -tgt]), c, train=50,
+                       test=10, metric=lambda out: 1.0)
+    with pytest.raises(ValueError, match="engine must return a backtest output"):
+        s.position_test(_Engine(out=np.zeros((100, 3))), tgt, c, n=2)
+    with pytest.raises(ValueError, match="engine must return a backtest output"):
+        s.walk_forward(_Engine(out=np.zeros((99, 4))), tgt, c, train=50, test=10)

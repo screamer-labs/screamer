@@ -11,12 +11,12 @@ often luck alone does as well:
   (``"shift"``), and re-runs the whole strategy, model included, on each copy.
 
 These functions are batch-only. They read whole series to build surrogates, so
-they are validation tools, not streaming operators. The surrogates are built
-in C++ (``circular_shift``, ``segment_shuffle``), and the backtests and the
-report are the ordinary C++ engines run on ``(T, n)`` columns.
-``strategy_test`` runs in the C++ driver it shares with JavaScript
-(``include/screamer/validation/strategy_test.h``), which calls the strategy
-back; here it only converts the arguments and the result.
+they are validation tools, not streaming operators. Each test runs in a C++
+driver it shares with JavaScript (``include/screamer/validation/``:
+``position_test.h`` for ``position_test`` and ``walk_forward``,
+``strategy_test.h`` for ``strategy_test``), which calls the engine, the
+strategy, and a custom metric back; here they only convert the arguments and
+the result.
 
 ``walk_forward`` is the out-of-sample counterpart: it picks the best of
 several strategy variants on each training window and trades the pick on the
@@ -28,49 +28,21 @@ from typing import Callable, NamedTuple, Optional, Union
 import numpy as np
 
 from .screamer_bindings import (
-    BacktestReport,
-    BacktestStats,
-    PortfolioReport,
     RowOp,
     _circular_shift,
-    _default_min_shift,
     _deflated_sharpe,
-    _probabilistic_sharpe,
     _permute_bars,
     _permute_returns,
+    _position_test,
+    _probabilistic_sharpe,
     _segment_shuffle,
-    _strategy_stats,
     _strategy_test,
+    _walk_forward,
 )
 
 __all__ = ["position_test", "strategy_test", "circular_shift", "segment_shuffle",
            "permute_bars", "permute_returns", "probabilistic_sharpe", "deflated_sharpe",
            "walk_forward"]
-
-# The statistics computed for every run, with the same names as the summary of
-# backtest_report, and their direction as a test metric (None: no natural
-# direction, so larger_is_better must be given). The table lives in C++
-# (include/screamer/validation/strategy_test.h), shared with JavaScript.
-# Engine output columns: [equity, pnl, position, cost].
-# BacktestReport columns: [drawdown, cum_cost, turnover, trades, max_drawdown, sharpe].
-# BacktestStats columns: [exposure, round_trips, win_rate, profit_factor, avg_win,
-#                         avg_loss, avg_holding, sortino, calmar].
-# name: (source, column, larger_is_better)
-_METRICS = {name: (source, column, larger)
-            for name, source, column, larger in _strategy_stats()}
-
-# Doubles per chunk, about 256 MB, for the (T, chunk) working arrays.
-_CHUNK_DOUBLES = 32_000_000
-
-
-def _seed(seed):
-    # Seeds are limited to [0, 2**53) so they are exact JavaScript numbers too:
-    # a seed gives the same surrogates in Python and in JS/WASM.
-    seed = int(seed)
-    if not 0 <= seed < 2**53:
-        raise ValueError("seed must be an integer in [0, 2**53)")
-    return seed
-
 
 _INT64 = (-2**63, 2**63 - 1)
 
@@ -86,6 +58,44 @@ def _count(x, name):
     if isinstance(x, (bool, np.bool_)):
         raise TypeError(f"{name} must be an integer, not bool")
     return _int64(operator.index(x))
+
+
+def _number(x):
+    """A size argument for C++ as a float, which checks it is an integer; a
+    string becomes NaN, which fails that check."""
+    return float("nan") if isinstance(x, (str, bytes)) else float(x)
+
+
+def _flag(x):
+    """An optional flag such as larger_is_better: None, or its truth value."""
+    return None if x is None else bool(x)
+
+
+def _metric_label(metric):
+    """The metric's name for the result, and whether it is a callable. C++
+    checks a statistic name and its direction."""
+    if isinstance(metric, str):
+        return metric, False
+    if callable(metric):
+        return getattr(metric, "__name__", "custom"), True
+    raise TypeError("metric must be a string or a callable")
+
+
+def _engine_calls(engine, market, metric):
+    """The engine and the metric as the C++ drivers call them: run(target)
+    runs a fresh engine and returns a float64 output, and score(out) gives
+    the metric of a (T, k, 4) output (a (T, 4) output is read as (T, 1, 4))
+    as a 1-D array."""
+    def run(target):
+        engine.reset()
+        return np.ascontiguousarray(engine(target, *market), dtype=float)
+
+    score = None
+    if callable(metric):
+        def score(out):
+            return np.asarray(metric(out if out.ndim == 3 else out[:, None, :]),
+                              dtype=float).reshape(-1)
+    return run, engine.reset, score
 
 
 def _as_series(x, name):
@@ -123,7 +133,7 @@ def circular_shift(x, n, min_shift=None, seed=0):
     m = -1 if min_shift is None else int(min_shift)
     if min_shift is not None and m < 1:
         raise ValueError("min_shift must be at least 1")
-    return _circular_shift(x, m, _seed(seed), 0, int(n))
+    return _circular_shift(x, m, _int64(seed), 0, int(n))
 
 
 def segment_shuffle(x, n, seed=0):
@@ -135,7 +145,7 @@ def segment_shuffle(x, n, seed=0):
     the same trades with the same sides, sizes, and holding periods, at random
     times. The same ``seed`` gives the same columns on every platform.
     """
-    return _segment_shuffle(_as_series(x, "x"), _seed(seed), 0, int(n))
+    return _segment_shuffle(_as_series(x, "x"), _int64(seed), 0, int(n))
 
 
 class PositionTestResult(NamedTuple):
@@ -170,69 +180,6 @@ class PositionTestResult(NamedTuple):
     family_p_value: Optional[np.ndarray] = None
     observed_stats: Optional[dict] = None
     null_stats: Optional[dict] = None
-
-
-def _last_finite(a):
-    """Last finite value along axis 0 for each column of a (T, k) array."""
-    finite = np.isfinite(a)
-    has = finite.any(axis=0)
-    last = a.shape[0] - 1 - np.argmax(finite[::-1], axis=0)
-    out = a[last, np.arange(a.shape[1])]
-    out[~has] = np.nan
-    return out
-
-
-def _run_stats(engine_out, periods_per_year):
-    """Every statistic per column of an engine's (T, k, 4) output."""
-    cols = [np.ascontiguousarray(engine_out[:, :, i]) for i in range(4)]
-    src = {"engine": engine_out,
-           "report": np.asarray(BacktestReport(periods_per_year)(*cols), dtype=float),
-           "stats": np.asarray(BacktestStats(periods_per_year)(*cols), dtype=float)}
-    return {name: _last_finite(src[s][:, :, c]) for name, (s, c, _) in _METRICS.items()}
-
-
-def _book_stats(out, periods_per_year):
-    """Every statistic of one portfolio run, from its (T, K, 4) output.
-
-    The book is the sum over assets: equity, pnl, and cost add up, and its
-    position is the gross position, so the trade statistics count a round trip
-    from a flat book to a flat book. Turnover and the trade count come from
-    PortfolioReport, which counts each asset's position changes.
-    """
-    out = np.ascontiguousarray(out, dtype=float)
-    book = [out[:, :, 0].sum(axis=1), out[:, :, 1].sum(axis=1),
-            np.abs(out[:, :, 2]).sum(axis=1), out[:, :, 3].sum(axis=1)]
-    report = np.asarray(BacktestReport(periods_per_year)(*book), dtype=float)
-    per_asset = np.asarray(PortfolioReport()(out), dtype=float)
-    report[:, 2:4] = per_asset[:, 2:4]                 # turnover, trades
-    src = {"engine": np.column_stack(book)[:, None, :],
-           "report": report[:, None, :],
-           "stats": np.asarray(BacktestStats(periods_per_year)(*book), dtype=float)[:, None, :]}
-    return {name: _last_finite(src[s][:, :, c]) for name, (s, c, _) in _METRICS.items()}
-
-
-def _score(engine_out, metric, stats):
-    """Metric per column of an engine's (T, k, 4) output."""
-    if callable(metric):
-        return np.asarray(metric(engine_out), dtype=float).reshape(-1)
-    return stats[metric]
-
-
-def _metric_name(metric, larger_is_better):
-    """The metric's name and its direction, checked."""
-    if isinstance(metric, str):
-        if metric not in _METRICS:
-            raise ValueError(f"metric must be one of {sorted(_METRICS)} or a callable")
-        if larger_is_better is None:
-            larger_is_better = _METRICS[metric][2]
-        if larger_is_better is None:
-            raise ValueError(f'metric "{metric}" has no natural direction; '
-                             "pass larger_is_better")
-        return metric, larger_is_better
-    if callable(metric):
-        name = getattr(metric, "__name__", "custom")
-        return name, True if larger_is_better is None else larger_is_better
-    raise TypeError("metric must be a string or a callable")
 
 
 def position_test(
@@ -292,167 +239,17 @@ def position_test(
     statistic of the real and the randomized runs in ``observed_stats`` and
     ``null_stats``.
     """
-    if method not in ("shift", "segments"):
-        raise ValueError('method must be "shift" or "segments"')
-    name, larger_is_better = _metric_name(metric, larger_is_better)
-    if n < 1:
-        raise ValueError("n must be at least 1")
-    seed = _seed(seed)
-
+    name, custom = _metric_label(metric)
     target = np.asarray(target, dtype=float)
-    if isinstance(engine, RowOp):
-        return _position_test_portfolio(engine, target, market, n, method, metric, name,
-                                        larger_is_better, min_shift, seed, periods_per_year)
-    if target.ndim == 2:
-        return _position_test_family(engine, target, market, n, method, metric, name,
-                                     larger_is_better, min_shift, seed, periods_per_year)
-    target = _as_series(target, "target")
-    market = [_as_series(m, "market input") for m in market]
-    T = target.shape[0]
-    if any(m.shape[0] != T for m in market):
-        raise ValueError("target and market inputs must have the same length")
-
-    engine.reset()
-    observed_out = np.asarray(engine(target, *market), dtype=float)[:, None, :]
-    stats = _run_stats(observed_out, periods_per_year)
-    observed = float(_score(observed_out, metric, stats)[0])
-    observed_stats = {k: float(v[0]) for k, v in stats.items()}
-
-    shift = None
-    if method == "shift":
-        shift = int(_default_min_shift(target)) if min_shift is None else int(min_shift)
-        if shift < 1:
-            raise ValueError("min_shift must be at least 1")
-
-    width = len(market) + 1 + 4 + 6 + 9      # inputs, engine output, report, stats
-    chunk = max(1, min(n, _CHUNK_DOUBLES // max(1, T * width)))
-    null = np.empty(n)
-    null_stats = {key: np.empty(n) for key in _METRICS}
-    for col0 in range(0, n, chunk):
-        k = min(chunk, n - col0)
-        if method == "shift":
-            surr = _circular_shift(target, shift, seed, col0, k)
-        else:
-            surr = _segment_shuffle(target, seed, col0, k)
-        engine.reset()
-        out = np.asarray(engine(surr, *market), dtype=float)
-        stats = _run_stats(out, periods_per_year)
-        for key, v in stats.items():
-            null_stats[key][col0:col0 + k] = v
-        null[col0:col0 + k] = _score(out, metric, stats)
-    engine.reset()
-
-    null = null[np.isfinite(null)]
-    if larger_is_better:
-        hits = np.count_nonzero(null >= observed)
-    else:
-        hits = np.count_nonzero(null <= observed)
-    p_value = (1.0 + hits) / (1.0 + null.size) if np.isfinite(observed) else float("nan")
-    return PositionTestResult(observed, null, float(p_value), name, method, shift, None,
-                              observed_stats, null_stats)
-
-
-def _position_test_family(engine, target, market, n, method, metric, name,
-                          larger_is_better, min_shift, seed, periods_per_year):
-    """position_test for a (T, K) target: a joint shift and a max statistic."""
-    if method != "shift":
-        raise ValueError('several strategies need method="shift", which shifts them jointly')
-    T, K = target.shape
-    market = [_as_series(m, "market input") for m in market]
-    if any(m.shape[0] != T for m in market):
-        raise ValueError("target and market inputs must have the same length")
-    cols = [np.ascontiguousarray(target[:, k]) for k in range(K)]
-    start, shift = _joint_shift_setup(cols, T, min_shift)    # one offset for all K
-
-    engine.reset()
-    observed_out = np.asarray(engine(target, *market), dtype=float)
-    observed_stats = _run_stats(observed_out, periods_per_year)
-    observed = _score(observed_out, metric, observed_stats)
-    width = (len(market) + 1 + 4 + 6 + 9) * K
-    chunk = max(1, min(n, _CHUNK_DOUBLES // max(1, T * width)))
-    null = np.empty((n, K))
-    null_stats = {key: np.empty((n, K)) for key in _METRICS}
-    for col0 in range(0, n, chunk):
-        m = min(chunk, n - col0)
-        # (T, m * K): replica-major blocks, all K strategies share each offset.
-        surr = np.hstack([_circular_shift(x, shift, seed, col0, m, start) for x in cols])
-        engine.reset()
-        out = np.asarray(engine(surr, *market), dtype=float)
-        stats = _run_stats(out, periods_per_year)
-        for key, v in stats.items():
-            null_stats[key][col0:col0 + m] = v.reshape(K, m).T
-        null[col0:col0 + m] = _score(out, metric, stats).reshape(K, m).T
-    engine.reset()
-
-    sign = 1.0 if larger_is_better else -1.0
-    p_value = np.empty(K)
-    for k in range(K):
-        col = null[:, k][np.isfinite(null[:, k])]
-        hits = np.count_nonzero(sign * col >= sign * observed[k])
-        p_value[k] = (1.0 + hits) / (1.0 + col.size) if np.isfinite(observed[k]) else np.nan
-    best = np.nanmax(sign * null, axis=1)          # the best strategy in each round
-    best = best[np.isfinite(best)]
-    family = np.array([(1.0 + np.count_nonzero(best >= sign * o)) / (1.0 + best.size)
-                       if np.isfinite(o) else np.nan for o in observed])
-    return PositionTestResult(observed, null, p_value, name, method, shift, family,
-                              observed_stats, null_stats)
-
-
-def _joint_shift_setup(cols, T, min_shift):
-    """Common warmup start and minimum shift for columns shifted together."""
-    def warmup(x):
-        finite = np.flatnonzero(~np.isnan(x))
-        return int(finite[0]) if finite.size else T
-    start = max(warmup(x) for x in cols)
-    if min_shift is None:
-        shift = max(int(_default_min_shift(x)) for x in cols)
-        shift = max(1, min(shift, (T - start) // 4))
-    else:
-        shift = int(min_shift)
-    if shift < 1:
-        raise ValueError("min_shift must be at least 1")
-    return start, shift
-
-
-def _position_test_portfolio(engine, target, market, n, method, metric, name,
-                             larger_is_better, min_shift, seed, periods_per_year):
-    """position_test for a portfolio engine: one book of K assets, shifted together."""
-    if method != "shift":
-        raise ValueError('a portfolio is tested with method="shift", which moves all assets together')
-    if target.ndim != 2:
-        raise ValueError("a portfolio engine needs a (T, K) target")
-    T, K = target.shape
+    data = np.ascontiguousarray(target)
     market = [np.ascontiguousarray(m, dtype=float) for m in market]
-    if any(m.shape != target.shape for m in market):
-        raise ValueError("target and market inputs must all have shape (T, K)")
-    cols = [np.ascontiguousarray(target[:, k]) for k in range(K)]
-    start, shift = _joint_shift_setup(cols, T, min_shift)
-
-    def run(tgt):
-        engine.reset()
-        out = np.asarray(engine(tgt, *market), dtype=float)
-        stats = _book_stats(out, periods_per_year)
-        value = (float(np.asarray(metric(out), dtype=float).reshape(-1)[0]) if callable(metric)
-                 else float(stats[metric][0]))
-        return value, {k: float(v[0]) for k, v in stats.items()}
-
-    observed, observed_stats = run(target)
-    null = np.empty(n)
-    null_stats = {key: np.empty(n) for key in _METRICS}
-    chunk = max(1, min(n, 256))
-    for col0 in range(0, n, chunk):
-        m = min(chunk, n - col0)
-        blocks = [_circular_shift(x, shift, seed, col0, m, start) for x in cols]   # K x (T, m)
-        for j in range(m):
-            tgt = np.column_stack([b[:, j] for b in blocks])
-            null[col0 + j], stats = run(tgt)
-            for key, v in stats.items():
-                null_stats[key][col0 + j] = v
-    engine.reset()
-    finite = null[np.isfinite(null)]
-    hits = np.count_nonzero(finite >= observed if larger_is_better else finite <= observed)
-    p_value = (1.0 + hits) / (1.0 + finite.size) if np.isfinite(observed) else float("nan")
-    return PositionTestResult(observed, finite, float(p_value), name, method, shift, None,
+    run, reset, score = _engine_calls(engine, market, metric)
+    observed, null, p_value, family, observed_stats, null_stats, shift = _position_test(
+        run, reset, score, target if target.ndim == 2 else data, data, market, _count(n, "n"),
+        method, name, custom, _flag(larger_is_better),
+        None if min_shift is None else _int64(min_shift), _int64(seed), float(periods_per_year),
+        isinstance(engine, RowOp))
+    return PositionTestResult(observed, null, p_value, name, method, shift, family,
                               observed_stats, null_stats)
 
 
@@ -497,7 +294,7 @@ def permute_bars(open, high, low, close, n, mode="log", seed=0, volume=None,
     o, h, l, c = (_as_series(a, name) for a, name in
                   ((open, "open"), (high, "high"), (low, "low"), (close, "close")))
     v = _EMPTY if volume is None else _as_series(volume, "volume")
-    out = _permute_bars(o, h, l, c, mode, _seed(seed), 0, int(n), v,
+    out = _permute_bars(o, h, l, c, mode, _int64(seed), 0, int(n), v,
                         volume_mode == "notional")
     return out[:4] if volume is None else (*out[:4], out[5])
 
@@ -519,7 +316,7 @@ def permute_returns(x, n, mode="log", seed=0, volume=None, volume_mode="keep"):
     """
     _check_modes(mode, volume_mode)
     v = _EMPTY if volume is None else _as_series(volume, "volume")
-    out = _permute_returns(_as_series(x, "x"), mode, _seed(seed), 0, int(n), v,
+    out = _permute_returns(_as_series(x, "x"), mode, _int64(seed), 0, int(n), v,
                            volume_mode == "notional")
     return out[0] if volume is None else (out[0], out[2])
 
@@ -604,7 +401,7 @@ def strategy_test(
     never zero. ``observed_stats`` and ``null_stats`` in the result hold every
     statistic of the real and the randomized runs.
     """
-    name, larger_is_better = _metric_name(metric, larger_is_better)
+    name, custom = _metric_label(metric)
     data = [_as_block(x, "input") for x in inputs]
 
     def run(*args):
@@ -614,7 +411,7 @@ def strategy_test(
         return np.ascontiguousarray(out, dtype=float)
 
     score = None
-    if callable(metric):
+    if custom:
         def score(out):                       # the metric sees (T, k, 4)
             value = metric(out if out.ndim == 3 else out[:, None, :])
             return float(np.asarray(value, dtype=float).reshape(-1)[0])
@@ -624,8 +421,8 @@ def strategy_test(
         run, score, data, _count(n, "n"), method, positions(ohlc), _int64(price), mode,
         None if volume is None else _int64(volume), volume_mode,
         [] if columns is None else positions(columns), positions(fixed),
-        name if isinstance(metric, str) else "", larger_is_better,
-        None if min_shift is None else _int64(min_shift), _seed(seed), float(periods_per_year))
+        name, custom, _flag(larger_is_better), None if min_shift is None else _int64(min_shift),
+        _int64(seed), float(periods_per_year))
     return StrategyTestResult(observed, null, p_value, name, method, observed_stats, null_stats)
 
 
@@ -684,37 +481,6 @@ class WalkForwardResult(NamedTuple):
     metric: str
 
 
-def _window(out, a, b):
-    """Rows [a, b) of a (T, k, 4) engine output, scored as a backtest of its own.
-
-    The equity column is shifted so the window starts from the equity the run
-    started from: its total_pnl, drawdowns, and calmar ratio then cover the
-    window only. A position held at the window start counts as entered there.
-    """
-    w = np.array(out[a:b], dtype=float)
-    if a > 0:
-        eq, pnl = out[:, :, 0], out[:, :, 1]
-        prior = _last_finite(eq[:a])                  # equity before the window
-        finite = ~np.isnan(eq)
-        first = np.argmax(finite, axis=0)
-        cols = np.arange(eq.shape[1])
-        start = eq[first, cols] - pnl[first, cols]    # equity the run started from
-        shift = np.where(np.isnan(prior), 0.0, prior - start)
-        w[:, :, 0] -= shift
-    return w
-
-
-def _pick(scores, larger_is_better):
-    """The best column of one fold's scores; NaN loses, ties go to the lowest
-    index, and -1 means every score is NaN."""
-    valid = ~np.isnan(scores)
-    if not valid.any():
-        return -1
-    signed = np.where(valid, scores if larger_is_better else -scores, -np.inf)
-    best = signed[valid].max()
-    return int(np.flatnonzero(valid & (signed == best))[0])
-
-
 def walk_forward(
     engine,
     targets,
@@ -753,46 +519,14 @@ def walk_forward(
     ``metric``, ``larger_is_better``, and ``periods_per_year`` mean the same as
     in ``position_test``. Portfolio engines are not supported.
     """
-    if isinstance(engine, RowOp):
-        raise ValueError("walk_forward needs a single-asset engine; portfolio engines "
-                         "are not supported")
-    name, larger_is_better = _metric_name(metric, larger_is_better)
+    name, custom = _metric_label(metric)
     targets = np.asarray(targets, dtype=float)
     if targets.ndim == 1:
         targets = targets[:, None]
-    if targets.ndim != 2:
-        raise ValueError("targets must be a (T,) or (T, K) array")
     targets = np.ascontiguousarray(targets)
-    T, K = targets.shape
-    prices = [_as_series(p, "price input") for p in prices]
-    if any(p.shape[0] != T for p in prices):
-        raise ValueError("targets and price inputs must have the same length")
-    if int(train) != train or train < 2:
-        raise ValueError("train must be an integer of at least 2")
-    if int(test) != test or test < 1:
-        raise ValueError("test must be an integer of at least 1")
-    train, test = int(train), int(test)
-    if train >= T:
-        raise ValueError("train must be shorter than the series")
-
-    fold_start = np.arange(train, T, test)
-    engine.reset()
-    full = np.asarray(engine(targets, *prices), dtype=float).reshape(T, K, 4)
-
-    scores = np.empty((fold_start.size, K))
-    choice = np.empty(fold_start.size, dtype=int)
-    target = np.zeros(T)
-    for i, t0 in enumerate(fold_start):
-        w = _window(full, 0 if anchored else t0 - train, t0)
-        stats = None if callable(metric) else _run_stats(w, periods_per_year)
-        scores[i] = _score(w, metric, stats)
-        choice[i] = _pick(scores[i], larger_is_better)
-        if choice[i] >= 0:
-            target[t0:t0 + test] = targets[t0:t0 + test, choice[i]]
-
-    engine.reset()
-    output = np.asarray(engine(target, *prices), dtype=float)
-    engine.reset()
-    oos = _run_stats(_window(output[:, None, :], int(fold_start[0]), T), periods_per_year)
-    return WalkForwardResult(target, choice, fold_start, scores, output,
-                             {k: float(v[0]) for k, v in oos.items()}, name)
+    prices = [np.ascontiguousarray(p, dtype=float) for p in prices]
+    run, reset, score = _engine_calls(engine, prices, metric)
+    target, choice, fold_start, scores, output, stats = _walk_forward(
+        run, reset, score, targets, targets, prices, _number(train), _number(test), name, custom,
+        _flag(larger_is_better), bool(anchored), float(periods_per_year), isinstance(engine, RowOp))
+    return WalkForwardResult(target, choice, fold_start, scores, output, stats, name)

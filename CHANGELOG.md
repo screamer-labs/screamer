@@ -96,6 +96,48 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
   `min_shift` raise the `ValueError` of that argument. In JavaScript,
   `volume: null` means no volume (as `None` in Python; 2.8.0 raised
   `RangeError`), and `minShift: null` the default.
+* `position_test` and `walk_forward` (Python) and `positionTest` and
+  `walkForward` (JavaScript) run in one C++ implementation that calls your
+  engine and a custom metric back. Results are unchanged, and the calls are
+  1.2 to 3 times faster in our measurements. Changes you can see:
+  * JavaScript errors now use the Python text, with the same classes:
+    `metric must be one of ['avg_holding', ...] or a callable`,
+    `metric "turnover" has no natural direction; pass larger_is_better`,
+    `several strategies need method="shift", which shifts them jointly`,
+    `a portfolio is tested with method="shift", which moves all assets together`,
+    and `walk_forward needs a single-asset engine; portfolio engines are not
+    supported`. The metric texts also apply to `strategyTest`.
+  * The seed is checked in C++ for every randomization function, so the
+    JavaScript text is `seed must be an integer in [0, 2**53)` (was `2^53`) in
+    `positionTest`, `strategyTest`, `circularShift`, `segmentShuffle`,
+    `permuteBars`, and `permuteReturns`.
+  * A custom metric must return one value per strategy in its input, or the
+    call raises `ValueError` / `RangeError` "metric must return one value per
+    strategy in its input". In 2.8.0 Python spread a single value over every
+    randomized run of a chunk, and with a portfolio engine took the first of
+    several values.
+  * An engine output of the wrong shape raises `ValueError` / `RangeError`
+    "engine must return a backtest output of shape (T, 4) ...", and a target
+    with no columns raises "target needs at least one column" (`walk_forward`:
+    "targets must hold at least one candidate").
+  * `n` above 2147483647 raises "n is too large" (`ValueError` /
+    `RangeError`); in JavaScript the limit is what fits in the WebAssembly
+    heap, 14680064 runs for one strategy and that divided by K for K
+    strategies. `n=True` raises `TypeError` "n must be an integer, not bool".
+  * JavaScript `positionTest` checks its market inputs as Python does: each
+    must be a series for one strategy or K strategies ("market input must be a
+    1-D series"), and must have the target's (T, K) shape for a portfolio
+    engine. It also accepts an `NdArray` target: (T,) for one strategy, and
+    (T, K) for K strategies, which gives a `PositionFamilyResult` (2.8.0
+    raised `RangeError` for both).
+  * JavaScript: a portfolio of 8 or more assets is summed into its book in
+    NumPy's pairwise order, as in Python, so its statistics can differ from
+    2.8.0 in the last bits; compare with a tolerance. With K strategies the
+    engine gets one (T, k * K) block per chunk instead of K blocks.
+  * JavaScript: `null` in the options of `positionTest` and `walkForward`, and
+    `minShift: null` in `circularShift` (was a `RangeError`), mean the default.
+  * Python: the family p-value no longer warns "All-NaN slice encountered" for
+    a round where every strategy's metric is NaN.
 * `permute_bars` and `permute_returns` on one series write 8 copies per pass
   and are 1.2 to 2 times faster; the copies are unchanged.
 * `strategy_test` input errors: a `str` or `None` input raises `TypeError`

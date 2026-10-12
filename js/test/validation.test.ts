@@ -407,19 +407,21 @@ test("validation: strategyTest checks the range of n before allocating", async (
 });
 
 test("validation: the statistic table comes from C++", async () => {
-  const { statTableFromWasm } = await import("../src/validation.ts");
-  const { names, metrics } = statTableFromWasm();
-  assert.deepEqual(names, ["total_pnl", "max_drawdown", "total_cost", "turnover", "num_trades",
-    "sharpe", "exposure", "round_trips", "win_rate", "profit_factor", "avg_win", "avg_loss",
-    "avg_holding", "sortino", "calmar"]);
-  assert.deepEqual(metrics.sharpe, { src: "report", col: 5, larger: true });
-  assert.deepEqual(metrics.turnover, { src: "report", col: 2, larger: null });
-  assert.deepEqual(metrics.total_cost, { src: "report", col: 1, larger: false });
-  // an inherited property name is not a statistic
-  const { strategyTest } = await import("../src/index.ts");
+  const { current, strategyTest } = await import("../src/index.ts");
+  const rows = (current() as any).strategyStats() as [string, string, number, number][];
+  assert.deepEqual(rows.map((r) => r[0]), ["total_pnl", "max_drawdown", "total_cost", "turnover",
+    "num_trades", "sharpe", "exposure", "round_trips", "win_rate", "profit_factor", "avg_win",
+    "avg_loss", "avg_holding", "sortino", "calmar"]);
+  assert.deepEqual(rows[5], ["sharpe", "report", 5, 1]);
+  assert.deepEqual(rows[3], ["turnover", "report", 2, -1]);
+  assert.deepEqual(rows[2], ["total_cost", "report", 1, 0]);
+  const res = strategyTest((p: Float64Array) => BacktestPriceTarget()(Array.from(p, () => 1), p),
+    [[1, 2, 3, 4, 5]], { method: "returns", n: 2 });
+  assert.deepEqual(Object.keys(res.nullStats), rows.map((r) => r[0]));
+  // an inherited property name is not a statistic; C++ checks the name
   for (const metric of ["toString", "constructor", "__proto__"])
     assert.throws(() => strategyTest(() => null, [[1, 2, 3]], { metric: metric as any }),
-      (e: any) => e instanceof RangeError && e.message.startsWith("metric must be one of avg_holding"));
+      (e: any) => e instanceof RangeError && e.message.startsWith("metric must be one of ['avg_holding'"));
 });
 
 test("validation: C++ calls JavaScript only through wasmCallbacks", async () => {
@@ -429,15 +431,15 @@ test("validation: C++ calls JavaScript only through wasmCallbacks", async () => 
   const cpp = fs.readdirSync(path.join(root, "wasm"))
     .filter((f) => /\.(cpp|h)$/.test(f))
     .map((f) => [f, fs.readFileSync(path.join(root, "wasm", f), "utf8")] as const);
-  // Calls of a JS method from C++: the one in JsStrategyHost::call_js, which
-  // only receives a wasmCallbacks object, and Array.push on a result array.
+  // Calls of a JS method from C++: the one in JsCallbacks::call, which only
+  // receives a wasmCallbacks object, and Array.push on a result array.
   const allowed = new Set(["validation_bindings.cpp: cb_.call<int>(name", 'shape_bindings.cpp: a.call<void>("push"']);
   for (const [f, src] of cpp)
     for (const m of src.matchAll(/(\w+)\.call<(\w+)>\(([^,)]*)/g))
       assert.ok(allowed.has(`${f}: ${m[1]}.call<${m[2]}>(${m[3]}`), `${f}: C++ calls JavaScript: ${m[0]}`);
   // Functions that take a callback object get it from wasmCallbacks(...).call.
   const takers = cpp.flatMap(([, src]) => [...src.matchAll(/void (\w+)\(emscripten::val cb\b/g)].map((m) => m[1]));
-  assert.deepEqual(takers, ["strategyTestRun"]);
+  assert.deepEqual(takers, ["strategyTestRun", "positionTestRun", "walkForwardRun"]);
   const js = fs.readdirSync(path.join(root, "js/src")).filter((f) => f.endsWith(".ts"))
     .map((f) => fs.readFileSync(path.join(root, "js/src", f), "utf8")).join("\n");
   for (const name of takers) {
@@ -446,4 +448,122 @@ test("validation: C++ calls JavaScript only through wasmCallbacks", async () => 
     for (const u of uses) assert.match(u[1], /\.call\(\(cb\) => $/, `M.${name} must be called inside wasmCallbacks(...).call`);
   }
   assert.ok(!/export function callbackScope/.test(js), "callbackScope must stay private to errors.ts");
+});
+
+// B6: positionTest and walkForward run in the shared C++ driver.
+test("validation: positionTest and walkForward return the user's errors unchanged", async () => {
+  const { walkForward, EwMean, current } = await import("../src/index.ts");
+  const T = 120;
+  const { c } = market(T);
+  const tgt = Float64Array.from({ length: T }, (_, t) => (Math.floor(t / 7) % 2 ? 1 : -1));
+  const neg = Array.from(tgt, (v) => -v);
+  const engineThatFails = (failOn: number, err: unknown) => {
+    const eng = BacktestPriceTarget(1e-4);
+    let k = 0;
+    const f: any = (...a: any[]) => { if (++k === failOn) throw err; return (eng as any)(...a); };
+    f.reset = () => eng.reset();
+    return f;
+  };
+  class EngineFailed extends Error {}
+  for (const failOn of [1, 2]) {
+    const err = new EngineFailed("engine");
+    assert.throws(() => positionTest(engineThatFails(failOn, err), tgt, [c], { n: 5 }), (e) => e === err);
+    assert.throws(() => walkForward(engineThatFails(failOn, err), [tgt, neg], [c], { train: 50, test: 10 }),
+      (e) => e === err);
+  }
+  const notAnError = { code: 7 };
+  assert.throws(() => positionTest(engineThatFails(2, notAnError), [tgt, neg], [c], { n: 3 }), (e) => e === notAnError);
+  let calls = 0;
+  const failing = (out: any) => { if (++calls === 2) throw new EvalError("from the metric"); return out.data[0]; };
+  assert.throws(() => positionTest(BacktestPriceTarget(), tgt, [c], { n: 3, metric: failing }),
+    { name: "EvalError", message: "from the metric" });
+  assert.throws(() => walkForward(BacktestPriceTarget(), [tgt, neg], [c], { train: 50, test: 10,
+    metric: () => { throw notAnError; } }), (e) => e === notAnError);
+  // an engine that catches an error from WASM on every run leaves the driver intact
+  const ref = positionTest(BacktestPriceTarget(), tgt, [c], { n: 20, seed: 4 });
+  const eng = BacktestPriceTarget();
+  const catching: any = (...a: any[]) => { assert.throws(() => EwMean(NaN, -1)(c), RangeError); return (eng as any)(...a); };
+  catching.reset = () => eng.reset();
+  const got = positionTest(catching, tgt, [c], { n: 20, seed: 4 });
+  assert.deepEqual(Array.from(got.null), Array.from(ref.null));
+  // many failed tests in a row leave the stack and the module as they were
+  const M = current() as any;
+  const sp = M.stackSave();
+  for (let i = 0; i < 2000; i++) {
+    const err = new EngineFailed("again");
+    assert.throws(() => positionTest(engineThatFails(2, err), tgt, [c], { n: 3 }), (e) => e === err);
+  }
+  assert.equal(M.stackSave(), sp);
+  assert.deepEqual(Array.from(positionTest(BacktestPriceTarget(), tgt, [c], { n: 20, seed: 4 }).null),
+    Array.from(ref.null));
+});
+
+test("validation: positionTest checks the range of n in C++ before allocating", async () => {
+  const { current } = await import("../src/index.ts");
+  const max = (current() as any).strategyTestMaxRuns() as number;
+  const T = 60;
+  const { c } = market(T);
+  const tgt = Array.from({ length: T }, (_, t) => (Math.floor(t / 5) % 2 ? 1 : -1));
+  for (const n of [0, -3, 2.5, NaN])
+    assert.throws(() => positionTest(BacktestPriceTarget(), tgt, [c], { n }),
+      { name: "RangeError", message: "n must be at least 1" });
+  for (const n of [max + 1, 2 ** 32 + 3, 2 ** 60, Number.MAX_VALUE])
+    assert.throws(() => positionTest(BacktestPriceTarget(), tgt, [c], { n }),
+      { name: "RangeError", message: `n is too large: at most ${max} runs` });
+  // K strategies keep K values per run
+  assert.throws(() => positionTest(BacktestPriceTarget(), [tgt, tgt], [c], { n: max }),
+    { name: "RangeError", message: `n is too large: at most ${Math.floor(max / 2)} runs` });
+  assert.equal(positionTest(BacktestPriceTarget(), tgt, [c], { n: 3 }).nullStats.sharpe.length, 3);
+});
+
+test("validation: positionTest and walkForward treat null options as not given", async () => {
+  const { walkForward } = await import("../src/index.ts");
+  const T = 80;
+  const { c } = market(T);
+  const tgt = Array.from({ length: T }, (_, t) => (Math.floor(t / 5) % 2 ? 1 : -1));
+  const nulls: any = { n: 30, method: null, metric: null, largerIsBetter: null, minShift: null, seed: null,
+    periodsPerYear: null };
+  const a = positionTest(BacktestPriceTarget(), tgt, [c], nulls);
+  const b = positionTest(BacktestPriceTarget(), tgt, [c], { n: 30 });
+  assert.deepEqual(a, b);
+  const X = [tgt, tgt.map((v) => -v)];
+  const w = walkForward(BacktestPriceTarget(), X, [c], { train: 30, test: 10, metric: null,
+    largerIsBetter: null, anchored: null, periodsPerYear: null } as any);
+  assert.deepEqual(w, walkForward(BacktestPriceTarget(), X, [c], { train: 30, test: 10 }));
+});
+
+test("validation: positionTest and walkForward errors use the Python text", async () => {
+  const { walkForward, BacktestPortfolioTarget } = await import("../src/index.ts");
+  const T = 60;
+  const { c } = market(T);
+  const tgt = Array.from({ length: T }, (_, t) => (Math.floor(t / 5) % 2 ? 1 : -1));
+  const pan = Array.from({ length: T }, () => [1, 1]);
+  const msg = (f: () => unknown, message: string) => assert.throws(f, { name: "RangeError", message });
+  msg(() => positionTest(BacktestPriceTarget(), tgt, [c], { seed: -1 }), "seed must be an integer in [0, 2**53)");
+  msg(() => positionTest(BacktestPriceTarget(), [tgt, tgt], [c], { method: "segments" }),
+    'several strategies need method="shift", which shifts them jointly');
+  msg(() => positionTest(BacktestPortfolioTarget(), pan, [pan], { method: "segments" }),
+    'a portfolio is tested with method="shift", which moves all assets together');
+  msg(() => positionTest(BacktestPortfolioTarget(), pan, [c]), "target and market inputs must all have shape (T, K)");
+  msg(() => positionTest(BacktestPriceTarget(), tgt, [pan]), "market input must be a 1-D series");
+  msg(() => positionTest(BacktestPriceTarget(), tgt, [c], { metric: "turnover" }),
+    'metric "turnover" has no natural direction; pass larger_is_better');
+  msg(() => walkForward(BacktestPortfolioTarget(), pan, [pan], { train: 10, test: 10 }),
+    "walk_forward needs a single-asset engine; portfolio engines are not supported");
+  const bad: any = () => ({ data: new Float64Array(3 * T), shape: [T, 3] });
+  bad.reset = () => {};
+  msg(() => positionTest(bad, tgt, [c], { n: 2 }),
+    "engine must return a backtest output of shape (T, 4) for a (T,) target, or (T, k, 4) for a (T, k) target");
+});
+
+test("validation: positionTest takes NdArray targets like arrays", () => {
+  const T = 90;
+  const { c } = market(T);
+  const a = Array.from({ length: T }, (_, t) => (Math.floor(t / 5) % 2 ? 1 : -1));
+  const b = a.map((v, t) => (t % 7 ? v : -v));
+  const one = positionTest(BacktestPriceTarget(), a, [c], { n: 12 });
+  assert.deepEqual(positionTest(BacktestPriceTarget(), { data: Float64Array.from(a), shape: [T] }, [c], { n: 12 }), one);
+  const fam = positionTest(BacktestPriceTarget(), [a, b], [c], { n: 12 });
+  const block = Float64Array.from({ length: 2 * T }, (_, i) => (i % 2 ? b : a)[i >> 1]);
+  assert.deepEqual(positionTest(BacktestPriceTarget(), { data: block, shape: [T, 2] } as any, [c], { n: 12 }), fam);
 });
