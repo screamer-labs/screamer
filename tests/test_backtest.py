@@ -281,6 +281,66 @@ def test_portfolio_report_prices_argument_errors():
         PortfolioReport()(iter(out), prices)
 
 
+def test_portfolio_report_prices_mode_is_locked_until_reset():
+    from screamer import PortfolioReport
+    out, prices = _priced_book()
+    op = PortfolioReport()
+    op(out[0], prices[0])
+    with pytest.raises(ValueError, match="without prices after rows with prices"):
+        op(out[1])
+    op.reset()
+    op(out[0])
+    with pytest.raises(ValueError, match="prices after rows without prices"):
+        op(out[1], prices[1])
+    op.reset()
+    np.testing.assert_array_equal(op(out[0], prices[0]), PortfolioReport()(out, prices)[0])
+    # a one-source stream that switches mode raises from the same C++ check
+    with pytest.raises(ValueError, match="without prices"):
+        list(PortfolioReport()(iter([(out[0], prices[0]), out[1]])))
+    with pytest.raises(ValueError, match="prices after rows without"):
+        list(PortfolioReport()(iter([out[0], (out[1], prices[1])])))
+
+
+def test_portfolio_report_async_pairs_equal_batch():
+    import asyncio
+    from screamer import PortfolioReport
+    out, prices = _priced_book()
+
+    async def pairs():
+        for row, p in zip(out, prices):
+            yield row, p
+
+    async def run():
+        return [r async for r in PortfolioReport()(pairs())]
+
+    np.testing.assert_array_equal(np.array(asyncio.run(run())), PortfolioReport()(out, prices))
+
+
+def test_portfolio_report_prices_tuple_and_unit_axis():
+    from screamer import PortfolioReport
+    out, prices = _priced_book()
+    batch = PortfolioReport()(out, prices)
+    got = PortfolioReport()(tuple(out.tolist()), tuple(prices.tolist()))
+    assert isinstance(got, np.ndarray)                               # D9
+    np.testing.assert_array_equal(got, batch)
+    np.testing.assert_array_equal(PortfolioReport()(out, prices[:, :, None]), batch)  # rule 1
+    np.testing.assert_array_equal(PortfolioReport()(out[1], prices[1][:, None]),
+                                  PortfolioReport()(out[1], prices[1]))
+
+
+def test_portfolio_report_malformed_pairs_raise():
+    from screamer import PortfolioReport
+    out, prices = _priced_book()
+    with pytest.raises(ValueError, match="4 \\* K and K values; got two parts of 8 and 3"):
+        list(PortfolioReport()(iter([(out[0].ravel(), np.ones(3))])))
+    # a K = 1 flat row with 4 prices after a valid pair: the asset count is locked
+    one = np.zeros((2, 1, 4))
+    with pytest.raises(ValueError):
+        list(PortfolioReport()(iter([(one[0].ravel(), np.ones(1)), (one[1].ravel(), np.ones(4))])))
+    with pytest.raises(TypeError, match="two arguments"):
+        PortfolioReport()(list(zip(out, prices)))
+
+
 # --- BacktestOHLCTarget (causal market-at-open) --------------------------------
 
 def test_ohlc_target_is_deferred_one_bar_causal():

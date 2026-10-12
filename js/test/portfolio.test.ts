@@ -157,3 +157,34 @@ test("C1: a NaN price is read only where the position changed", () => {
   assert.ok(Array.from(rep[1]).every((v) => Number.isNaN(v)));
   assert.equal(rep[2][2], 20);
 });
+
+test("C1: the prices mode is locked until reset, live and in a stream", () => {
+  const op = PortfolioReport();
+  op(pricedRows[0], priceRows[0]);
+  assert.throws(() => op(pricedRows[1]), { name: "RangeError", message: /without prices after rows with prices/ });
+  op.reset();
+  op(pricedRows[0]);
+  assert.throws(() => op(pricedRows[1], priceRows[1]), { name: "RangeError", message: /prices after rows without prices/ });
+  op.reset();
+  assert.deepEqual(op(pricedRows[0], priceRows[0]), [0, 0, 0, 0, 0, Number.NaN]);
+  assert.throws(() => [...PortfolioReport()([[pricedRows[0], priceRows[0]], pricedRows[1]].values()) as any],
+    { name: "RangeError", message: /without prices/ });
+  assert.throws(() => [...PortfolioReport()([pricedRows[0], [pricedRows[1], priceRows[1]]].values()) as any],
+    { name: "RangeError", message: /prices after rows without/ });
+});
+
+test("C1: async pairs, [T, K, 1] prices, malformed pairs", async () => {
+  const batch = PortfolioReport()(pricedRows, priceRows) as any;
+  async function* pairs() { for (let t = 0; t < 3; t++) yield [pricedRows[t], priceRows[t]]; }
+  const got: any[] = [];
+  for await (const r of PortfolioReport()(pairs()) as any) got.push(Array.from(r));
+  assert.deepEqual(got, batch.map((r: any) => Array.from(r)));
+  const unit = { data: pricedPrices.data, shape: [3, 2, 1] };
+  assert.deepEqual(PortfolioReport()(pricedOut, unit), PortfolioReport()(pricedOut, pricedPrices));
+  assert.throws(() => [...PortfolioReport()([[new Float64Array(8), [1, 1, 1]]].values()) as any],
+    { name: "RangeError", message: /got two parts of 8 and 3 values/ });
+  const one = [[[0, 0, 0, 0]], [[0, 0, 1, 0]]];
+  assert.throws(() => [...PortfolioReport()([[one[0][0], [1]], [one[1][0], [1, 1, 1, 1]]].values()) as any], RangeError);
+  assert.throws(() => PortfolioReport()(pricedRows.map((r, t) => [r, priceRows[t]])),
+    { name: "TypeError", message: /two arguments/ });
+});

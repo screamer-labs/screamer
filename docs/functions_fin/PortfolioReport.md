@@ -19,7 +19,7 @@ short: Reduce a multi-asset backtest engine output into causal portfolio-level r
 inputs: 1
 outputs: 6
 parameters: []
-nan_policy: ignore
+nan_policy: nan-aware
 see_also:
 - BacktestReport
 - BacktestPriceTarget
@@ -61,13 +61,14 @@ a `NaN` price for an asset that is not quoted and not traded is not used. A
 The same operator accepts a single `(assets, 4)` row, with `(assets,)` prices,
 or an iterable of rows for incremental use. With prices, a stream is two
 iterables, one of rows and one of price rows, or one iterable of `(row, prices)`
-pairs.
+pairs. The first row after `reset()` fixes the asset count and whether rows come
+with prices; a later row that differs raises an error.
 
 
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).
+**Policy: `nan-aware`.** This function is built to process `NaN` inputs, as the Description explains. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples

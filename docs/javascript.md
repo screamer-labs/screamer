@@ -203,8 +203,9 @@ of rows and it returns an array of result rows. A one-input operator such as `Lo
 a `(T, K)` `NdArray`. This example ranks five coins on 30-day momentum, turns
 the ranks into dollar-neutral weights with `CrossNormalize`, and rebalances weekly: a
 `NaN` weight keeps the asset's position. `PortfolioReport` reduces the
-`(T, K, 4)` output to the book's report, and `positionTest` on a portfolio
-engine tests the book as a whole.
+`(T, K, 4)` output to the book's report; with the fill prices as a second
+argument its turnover is the traded notional rather than units summed across
+coins. `positionTest` on a portfolio engine tests the book as a whole.
 
 ```js
 import { readFileSync } from "node:fs";
@@ -232,7 +233,7 @@ weights.data.forEach((_, i) => { if (Math.floor(i / K) % 7 !== 0) weights.data[i
 // BacktestPortfolioOHLCTarget(fee, slippage, ...): weights of equity, next-open fills
 const engine = BacktestPortfolioOHLCTarget(1e-3, 5e-4);
 const out = engine(weights, open, high, low, close);           // shape [T, K, 4]
-const report = PortfolioReport()(out);                          // shape [T, 6]
+const report = PortfolioReport()(out, open);                    // shape [T, 6]
 
 const T = out.shape[0];
 let equity = 1;                                                 // initialCapital

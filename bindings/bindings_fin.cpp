@@ -183,16 +183,38 @@ nb::object portfolio_report_batch(screamer::PortfolioReport& self,
     return screamer::detail::make_owned_array(out, {time, 6});
 }
 
-// True when a single-source event is a (row, prices) pair rather than a row
-// given as a sequence of asset records: a pair holds 4 * K values and K
-// prices, so its two parts never have the same size, while every record of
-// a row holds 4 values.
-bool is_priced_pair(nb::handle event) {
-    if (!(nb::isinstance<nb::tuple>(event) || nb::isinstance<nb::list>(event)) ||
-        nb::len(event) != 2)
-        return false;
-    nb::module_ np = nb::module_::import_("numpy");
-    return !np.attr("size")(event[0]).equal(np.attr("size")(event[1]));
+// The number of values in a list, tuple, or array, counted without NumPy;
+// -1 for anything else. A nested sequence counts its leaves.
+long long value_count(nb::handle h) {
+    PyObject* p = h.ptr();
+    if (PyFloat_Check(p) || PyLong_Check(p)) return -1;
+    const bool list = PyList_Check(p), tuple = PyTuple_Check(p);
+    if (!list && !tuple)
+        return screamer::detail::is_ndarray(h) ? nb::cast<long long>(h.attr("size")) : -1;
+    const Py_ssize_t n = list ? PyList_Size(h.ptr()) : PyTuple_Size(h.ptr());
+    long long total = 0;
+    for (Py_ssize_t i = 0; i < n; ++i) {
+        PyObject* x = list ? PyList_GetItem(h.ptr(), i) : PyTuple_GetItem(h.ptr(), i);
+        const long long c = value_count(x);
+        total += c < 0 ? 1 : c;
+    }
+    return total;
+}
+
+// What a 2-item event of a one-source stream (or the first item of a list)
+// holds. A (row, prices) pair has parts of 4 * K and K values; a row given as
+// two asset records has two parts of 4 values. Anything else is malformed.
+enum class PairKind { NotPair, Pair, Malformed };
+
+PairKind pair_kind(nb::handle event) {
+    if (!(PyList_Check(event.ptr()) || PyTuple_Check(event.ptr())) || nb::len(event) != 2)
+        return PairKind::NotPair;
+    nb::object e = nb::borrow<nb::object>(event);
+    const long long rows = value_count(e[0]), prices = value_count(e[1]);
+    if (rows < 0 || prices < 0) return PairKind::NotPair;   // a flat row; read as one
+    if (prices >= 1 && rows == 4 * prices) return PairKind::Pair;
+    if (rows == 4 && prices == 4) return PairKind::NotPair;  // two asset records
+    return PairKind::Malformed;
 }
 
 // One PortfolioReport event per step, for the sync and async iterators alike:
@@ -230,14 +252,14 @@ private:
     nb::object step_event(const screamer::EventItems& items) {
         if (n_sources_ == 2) return priced(items[0], items[1]);
         nb::handle item = items[0];
-        // The first event fixes whether the stream carries prices.
-        const bool pair = is_priced_pair(item);
-        if (event_ == 1) pairs_ = pair;
-        else if (pair != pairs_)
-            throw nb::value_error(pairs_
-                ? "every event of this stream must be a (row, prices) pair, like the first."
-                : "every event of this stream must be an engine row without prices, like the first.");
-        if (pair) {
+        // Whether the stream carries prices is fixed in C++ by its first row.
+        const PairKind kind = pair_kind(item);
+        if (kind == PairKind::Malformed)
+            throw nb::value_error(("PortfolioReport stream events are engine rows of shape (assets, 4) "
+                "or (row, prices) pairs with 4 * K and K values; got two parts of " +
+                std::to_string(value_count(nb::borrow<nb::object>(item)[0])) + " and " +
+                std::to_string(value_count(nb::borrow<nb::object>(item)[1])) + " values.").c_str());
+        if (kind == PairKind::Pair) {
             nb::object parts = nb::borrow<nb::object>(item);
             return priced(parts[0], parts[1]);
         }
@@ -257,7 +279,6 @@ private:
     nb::object owner_;                    // the stream's own copy
     screamer::PortfolioReport& op_;
     std::size_t n_sources_;
-    bool pairs_ = false;                  // a one-source stream of (row, prices)
     std::size_t event_ = 0;               // events seen, for error messages
 };
 
@@ -347,6 +368,11 @@ nb::object portfolio_report_call(screamer::PortfolioReport& self, nb::args raw) 
         } catch (nb::python_error& e) {
             if (screamer::is_conversion_error(e))
                 screamer::throw_if_wrong_kind(screamer::op_display_name(nb::find(self)), input, "");
+            if (nb::len(input) > 0 && pair_kind(nb::borrow<nb::object>(input)[0]) == PairKind::Pair)
+                throw nb::type_error(
+                    "PortfolioReport does not read a list of (row, prices) pairs; pass the rows "
+                    "and the prices as two arguments, PortfolioReport()(out, prices), or stream "
+                    "the pairs, PortfolioReport()(zip(out, prices)).");
             throw;
         }
         auto values = screamer::detail::read_contig_double(nb::cast<nb::ndarray<nb::ro>>(arr));

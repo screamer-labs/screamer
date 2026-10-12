@@ -765,16 +765,31 @@ export function wrapReducerOp(M: Screamer, src: OpSource): ScreamerOp {
     return flat;
   }
 
-  // The number of values in an event part, for telling a (row, prices) pair
-  // from a row given as asset records: a pair holds 4 * K and K values, every
-  // record of a row holds the same number.
-  const size = (x: any): number => {
-    if (isNd(x)) return x.data.length;
-    if (Array.isArray(x)) return x.reduce((n: number, v: any) => n + (typeof v === "number" ? 1 : size(v)), 0);
+  // The number of values in an array, -1 for anything else. A nested array
+  // counts its leaves.
+  const count = (x: any): number => {
+    if (typeof x === "number") return -1;
+    if (Array.isArray(x)) {
+      let n = 0;
+      for (const v of x) { const c = count(v); n += c < 0 ? 1 : c; }
+      return n;
+    }
     if (isTyped(x)) return x.length;
-    return 1;
+    if (isNd(x)) return x.data.length;
+    return -1;
   };
-  const isPricedPair = (x: any) => Array.isArray(x) && x.length === 2 && size(x[0]) !== size(x[1]);
+  // What a 2-item event of a one-source stream (or the first item of an
+  // Array) holds: a (row, prices) pair has parts of 4 * K and K values, a row
+  // given as two asset records has two parts of 4 values, anything else is
+  // malformed.
+  const pairKind = (x: any): "row" | "pair" | "bad" => {
+    if (!Array.isArray(x) || x.length !== 2) return "row";
+    const r = count(x[0]), p = count(x[1]);
+    if (r < 0 || p < 0) return "row";                 // a flat row; read as one
+    if (p >= 1 && r === width * p) return "pair";
+    if (r === width && p === width) return "row";     // two asset records
+    return "bad";
+  };
 
   // One priced event on `o`.
   const pricedEvent = (row: any, prices: any, o: RawOp = raw) => {
@@ -806,25 +821,22 @@ export function wrapReducerOp(M: Screamer, src: OpSource): ScreamerOp {
   // A stream of (assets, width) events, through the same iterators as wrapOp,
   // on a copy of its own (decision D8).
   // Two sources give rows and prices; one source gives rows, or (row, prices)
-  // pairs, fixed by its first event.
+  // pairs. Whether a stream carries prices is fixed in C++ by its first row.
   const openStream = (n: number): Stepper => {
     if (disposed) throw new Error("operation used after dispose()");
     const own = pool.acquire();
     let nEv = 0;                                  // events seen, for error messages
-    let pairs = false;
     const step = (items: any[]) => {
       if (disposed) throw new Error("operation used after dispose()");
       const ev = nEv++;
       try {
         if (n === 2) return pricedEvent(items[0], items[1], own);
-        const pair = isPricedPair(items[0]);
-        if (ev === 0) pairs = pair;
-        else if (pair !== pairs) {
-          throw new RangeError(pairs
-            ? "every event of this stream must be a (row, prices) pair, like the first"
-            : "every event of this stream must be an engine row without prices, like the first");
+        const kind = pairKind(items[0]);
+        if (kind === "bad") {
+          throw new RangeError(`stream events are engine rows of shape (assets, ${width}) or [row, prices] ` +
+            `pairs with ${width} * K and K values; got two parts of ${count(items[0][0])} and ${count(items[0][1])} values`);
         }
-        if (pair) return pricedEvent(items[0][0], items[0][1], own);
+        if (kind === "pair") return pricedEvent(items[0][0], items[0][1], own);
         const row = asRow(items[0]);
         return event(row.flat, row.assets, own);
       } catch (e) { throwIfWrongKindEvent(opName(raw), items, ev); throw e; }
@@ -865,6 +877,11 @@ export function wrapReducerOp(M: Screamer, src: OpSource): ScreamerOp {
     }
     if (isAsyncIter(x)) return stream([x], true);
     if (isSyncIter(x)) return stream([x], false);
+    if (Array.isArray(x) && x.length > 0 && pairKind(x[0]) === "pair") {
+      throw new TypeError("PortfolioReport does not read an Array of [row, prices] pairs; pass the rows " +
+        "and the prices as two arguments, PortfolioReport()(out, prices), or stream the pairs " +
+        "from an iterable, PortfolioReport()(pairs.values())");
+    }
     let row: { flat: ArrayLike<number>; assets: number };
     try {
       if (isNestedBatch(x)) {

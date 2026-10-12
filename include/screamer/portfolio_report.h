@@ -29,8 +29,9 @@ namespace screamer {
     // nan_policy: ignore. If any field of any asset is NaN, or the price of an
     // asset whose position changed, the row is skipped,
     // the per-asset position state is held, and the output row is all NaN.
-    // The asset count is fixed by the first row after reset; a later mismatch
-    // is an error rather than a silent change in portfolio definition.
+    // The asset count, and whether rows come with prices, are fixed by the
+    // first row after reset; a later mismatch is an error rather than a silent
+    // change in portfolio definition or in the units of turnover.
     class PortfolioReport : public FunctorBase<PortfolioReport, 4, 6> {
     public:
         PortfolioReport() { reset(); }
@@ -83,7 +84,16 @@ namespace screamer {
                 throw std::invalid_argument("PortfolioReport requires at least one asset.");
             if (!prev_positions_.empty() && prev_positions_.size() != assets)
                 throw std::invalid_argument("PortfolioReport asset count changed; call reset().");
-            if (prev_positions_.empty()) prev_positions_.assign(assets, 0.0);
+            if (!prev_positions_.empty() && priced_ != Priced)
+                throw std::invalid_argument(Priced
+                    ? "PortfolioReport received prices after rows without prices; "
+                      "pass prices with every row, or call reset()."
+                    : "PortfolioReport received a row without prices after rows with "
+                      "prices; pass prices with every row, or call reset().");
+            if (prev_positions_.empty()) {
+                prev_positions_.assign(assets, 0.0);
+                priced_ = Priced;
+            }
 
             double equity = 0.0, pnl = 0.0, position = 0.0, cost = 0.0;
             double turnover = 0.0, trades = 0.0;
@@ -152,6 +162,7 @@ namespace screamer {
         bool has_prev_pos_ = false;
         double prev_pos_ = 0.0;
         std::vector<double> prev_positions_;
+        bool priced_ = false;             // rows carry prices; fixed with the asset count
         long long pnl_n_ = 0;
         double pnl_mean_ = 0.0, pnl_m2_ = 0.0;
     };
