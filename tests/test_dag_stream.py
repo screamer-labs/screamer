@@ -46,3 +46,59 @@ def test_stream_equals_batch_combine():
     (sk, sv), = cg.drain()
     np.testing.assert_array_equal(sk, bk)
     np.testing.assert_array_equal(sv, bv)
+
+
+def _wide_live():
+    from screamer import Input, Pipeline, Select
+    a = Input("bars")
+    return Pipeline([a], [Select(columns=[3])(a)]).live()
+
+
+def test_live_push_accepts_a_wide_event():
+    live = _wide_live()
+    live.push("bars", 0, [100.0, 102.0, 99.5, 101.5])
+    live.push("bars", 1, np.array([101.5, 103.0, 101.0, 102.0]))
+    live.push("bars", 2, (1, 2, 3, 4))
+    live.push("bars", 3, np.array([True, False, True, True]))
+    vals, idx = live.result()
+    np.testing.assert_array_equal(np.ravel(vals), [101.5, 102.0, 4.0, 1.0])
+    np.testing.assert_array_equal(idx, [0, 1, 2, 3])
+
+
+def test_live_wide_push_equals_batch():
+    from screamer import Input, Pipeline, Select
+    a = Input("bars")
+    p = Pipeline([a], [Select(columns=[3])(a)])
+    rng = np.random.default_rng(1)
+    x = rng.standard_normal((20, 4))
+    bv, bi = p(x)
+    live = p.live()
+    for k, row in enumerate(x):
+        live.push("bars", k, row)
+    sv, si = live.result()
+    np.testing.assert_array_equal(sv, bv)
+    np.testing.assert_array_equal(si, bi)
+
+
+def test_live_push_scalar_still_works():
+    from screamer import Input, Pipeline, RollingMean
+    a = Input("x")
+    live = Pipeline([a], [RollingMean(2)(a)]).live()
+    for k, v in enumerate([1.0, 2, np.float64(3), True]):
+        live.push("x", k, v)
+    vals, _ = live.result()
+    np.testing.assert_array_equal(np.ravel(vals), [np.nan, 1.5, 2.5, 2.0])
+
+
+def test_live_push_wide_errors():
+    import pytest
+    live = _wide_live()
+    with pytest.raises(ValueError, match="at least one value"):
+        live.push("bars", 0, [])
+    with pytest.raises(ValueError, match="1-D"):
+        live.push("bars", 0, np.ones((2, 4)))
+    with pytest.raises(TypeError):
+        live.push("bars", 0, ["a", "b"])
+    live.push("bars", 0, [1.0, 2, 3, 4])
+    with pytest.raises(ValueError, match="before"):
+        live.push("bars", 1, [1.0, 2])

@@ -10,6 +10,12 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
 
 ### Added
 
+* `Pipeline.live().push(input, index, value)` takes a sequence of numbers as one
+  multi-column event, in Python and JavaScript; JavaScript's `pushWide` stays as
+  an alias. An empty sequence, a 2-D value, or a width that differs from the
+  input's earlier events raises `ValueError` (`RangeError` in JavaScript). In
+  JavaScript, `push` with an array used to throw `TypeError` and now pushes a
+  wide event.
 * **Walk-forward evaluation:** `walk_forward` (Python) and `walkForward`
   (JavaScript) take a `(T, K)` array of strategy variants, pick the best
   variant on each training window by any `backtest_report` statistic, trade it

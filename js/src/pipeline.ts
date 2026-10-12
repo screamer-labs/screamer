@@ -1,5 +1,5 @@
 import type { Screamer } from "./loader.js";
-import type { NdArray } from "./ndarray.js";
+import { asNd, type NdArray } from "./ndarray.js";
 import { Node, isNode } from "./node.js";
 import { current } from "./index.js";
 import { normalizeError, wasmCall } from "./errors.js";
@@ -18,11 +18,19 @@ export interface Output {
 // Event-by-event streaming driver returned by `pipeline.live()`. Push feeds one
 // event at a time, flush at end of input, then drain the result.
 export interface LiveDriver {
-  push(name: string, index: number, value: number): void;
-  pushWide(name: string, index: number, values: ArrayLike<number>): void;
+  push(name: string, index: number, value: number | ArrayLike<number> | NdArray): void;
+  pushWide(name: string, index: number, values: ArrayLike<number> | NdArray): void;
   advance(now: number): void;
   flush(): void;
   result(): Output;
+}
+
+// A push value that is one wide event: an Array, a typed array, or an NdArray.
+function isSequence(v: object): boolean {
+  if (Array.isArray(v)) return true;
+  if (ArrayBuffer.isView(v)) return !(v instanceof DataView);
+  const a = v as any;
+  return a.data instanceof Float64Array && Array.isArray(a.shape);
 }
 
 // Collect the Input nodes reachable from `outputs` (ports _reachable_inputs).
@@ -354,11 +362,45 @@ class PipelineImpl implements Owned {
     // leaves outputs_ populated on exit, and a prior live session leaves node
     // state, so reset here so the stream starts independent of any prior call.
     this.cg.reset();
+    const wideWidth: number[] = [];   // input -> width of its wide events
+    const pushWide = (i: number, index: number, values: ArrayLike<number> | NdArray): void => {
+      const nd = asNd(values);   // a malformed NdArray raises RangeError
+      let src: ArrayLike<number>;
+      if (nd) {
+        if (nd.shape.length > 1) throw new RangeError(`a wide event is a 1-D sequence of numbers, got shape [${nd.shape}]`);
+        src = nd.data;
+      } else src = values as ArrayLike<number>;
+      const t = typeof index === "number" ? index : feedNumber(index, "Pipeline", () => `the index pushed to input ${i}`);
+      const width = src.length;
+      if (!(width > 0)) throw new RangeError("a wide event needs at least one value, got an empty sequence");
+      const before = wideWidth[i];
+      if (before === undefined) wideWidth[i] = width;
+      else if (before !== width)
+        throw new RangeError(`input ${i} received a wide event of ${before} values before, got ${width}`);
+      const buf = M.allocF64(width);
+      try {
+        const view = M.viewF64(buf, width);
+        if (src instanceof Float64Array) view.set(src);
+        else for (let j = 0; j < width; j++) {
+          const x: unknown = src[j];
+          view[j] = typeof x === "number" ? x
+            : feedValue(x, "Pipeline", () => `item [${j}] of the values pushed to input ${i}`);
+        }
+        try { self.cg.pushEventWide(i, t, buf, width); } catch (e) { throw normalizeError(e); }
+      } finally {
+        M.freeBuf(buf);
+      }
+    };
     const driver: LiveDriver & { [OWNER]: Pipeline } = {
       [OWNER]: owner,
-      push(name: string, index: number, value: number): void {
+      push(name: string, index: number, value: number | ArrayLike<number> | NdArray): void {
         self.checkLive();
         const i = self.inputIndex(name);
+        // A number is the hot path. A sequence is one wide event.
+        if (typeof value !== "number" && value !== null && typeof value === "object" && isSequence(value)) {
+          pushWide(i, index, value);
+          return;
+        }
         // null is a missing value (NaN); another primitive passes as before
         // (ToNumber at the WASM call); an object that is not a number is a
         // wrong kind.
@@ -366,24 +408,9 @@ class PipelineImpl implements Owned {
         const t = typeof index === "number" ? index : feedNumber(index, "Pipeline", () => `the index pushed to input ${i}`);
         try { self.cg.pushEvent(i, t, v); } catch (e) { throw normalizeError(e); }
       },
-      pushWide(name: string, index: number, values: ArrayLike<number>): void {
+      pushWide(name: string, index: number, values: ArrayLike<number> | NdArray): void {
         self.checkLive();
-        const i = self.inputIndex(name);
-        const t = typeof index === "number" ? index : feedNumber(index, "Pipeline", () => `the index pushed to input ${i}`);
-        const width = values.length;
-        const buf = M.allocF64(width || 1);
-        try {
-          const view = M.viewF64(buf, width);
-          if (values instanceof Float64Array) view.set(values);
-          else for (let j = 0; j < width; j++) {
-            const x: unknown = values[j];
-            view[j] = typeof x === "number" ? x
-              : feedValue(x, "Pipeline", () => `item [${j}] of the values pushed to input ${i}`);
-          }
-          try { self.cg.pushEventWide(i, t, buf, width); } catch (e) { throw normalizeError(e); }
-        } finally {
-          M.freeBuf(buf);
-        }
+        pushWide(self.inputIndex(name), index, values);
       },
       advance(now: number): void {
         self.checkLive();

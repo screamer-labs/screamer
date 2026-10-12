@@ -77,7 +77,10 @@ When you drive the pipeline yourself,
 event by event, `pipe.live()` opens a session:
 
 - `.push(input, index, value)` feeds one event (`input` is an `Input` name or its
-  position);
+  position). `value` is a number, or a sequence of numbers for one multi-column
+  event such as an OHLC bar: `live.push("bars", 0, [100.0, 102.0, 99.5, 101.5])`.
+  An input keeps one width, so a later event of another width raises
+  `ValueError` (`RangeError` in JavaScript);
 - `.advance(now)` moves logical time to `now`, closing every window whose boundary
   has passed (this finalizes time-based bars even when no new data arrives, such as
   an empty minute bar closed by a clock tick);

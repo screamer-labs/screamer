@@ -49,3 +49,27 @@ test("live: functor chain streamed event-by-event equals batch", async () => {
     p.dispose();
   }
 });
+
+test("live: push takes a sequence as one wide event; pushWide is an alias", async () => {
+  await ready();
+  const a = Input("bars");
+  const p = new Pipeline([a], [a]);
+  try {
+    const d = p.live();
+    d.push("bars", 0, [100, 102, 99.5, 101.5]);
+    d.push("bars", 1, new Float64Array([1, 2, 3, 4]));
+    d.push("bars", 2, { data: new Float64Array([5, 6, 7, 8]), shape: [4] });
+    d.pushWide("bars", 3, [9, 10, 11, 12]);
+    d.push("bars", 4, [true, false, 1, null] as any);
+    assertNanEq(asFloat64(d.result()), [100, 102, 99.5, 101.5, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 1, 0, 1, NaN], "values");
+    const d2 = p.live();
+    assert.throws(() => d2.push("bars", 0, []), (e: unknown) => e instanceof RangeError);
+    assert.throws(() => d2.push("bars", 0, { data: new Float64Array(3), shape: [2, 2] }), (e: unknown) => e instanceof RangeError);
+    assert.throws(() => d2.push("bars", 0, { data: new Float64Array(4), shape: [2, 2] }), (e: unknown) => e instanceof RangeError);
+    assert.throws(() => d2.push("bars", 0, [1, {}, 3, 4] as any), (e: unknown) => e instanceof TypeError);
+    d2.push("bars", 0, [1, 2, 3, 4]);
+    assert.throws(() => d2.push("bars", 1, [1, 2]), (e: unknown) => e instanceof RangeError);
+  } finally {
+    p.dispose();
+  }
+});

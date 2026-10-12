@@ -193,12 +193,35 @@ class _LiveDag:
         self._cg = dag._cg
         # name -> signature index, built once so per-event push() stays O(1)
         self._src_of = {nm: i for i, nm in enumerate(dag._input_order)}
+        self._wide_width = {}      # input -> width of its wide events
         self._cg.reset()
 
     def push(self, input, index, value):
         src = input if isinstance(input, int) else self._src_of[input]
-        self._cg.push_event(int(src), int(index), float(value))
+        t = type(value)
+        if t is float or t is int:      # the scalar hot path (the binding takes an int as a double)
+            self._cg.push_event(int(src), int(index), value)
+        elif isinstance(value, (list, tuple, np.ndarray)) and np.ndim(value) > 0:
+            self._push_wide(int(src), int(index), value)
+        else:
+            self._cg.push_event(int(src), int(index), float(value))
         return self
+
+    def _push_wide(self, src, index, value):
+        arr = np.asarray(value)
+        if arr.dtype.kind not in "fiub":
+            raise TypeError(
+                f"a wide event must hold numbers, not {arr.dtype.kind!r} data")
+        if arr.ndim != 1:
+            raise ValueError(
+                f"a wide event is a 1-D sequence of numbers, got {arr.ndim} dimensions")
+        if arr.size == 0:
+            raise ValueError("a wide event needs at least one value, got an empty sequence")
+        width = self._wide_width.setdefault(src, arr.size)
+        if width != arr.size:
+            raise ValueError(
+                f"input {src} received a wide event of {width} values before, got {arr.size}")
+        self._cg.push_event_wide(src, index, np.ascontiguousarray(arr, dtype=float))
 
     def advance(self, now):
         """Close every window whose boundary has passed by logical time `now`."""

@@ -122,8 +122,6 @@ is tracked to be closed.
   `EwKyleLambda`, `RollingOrderImbalance`, and `QueueImbalance` are Python
   only; in JavaScript use `Mul`, `RollingBeta` and `EwBeta` (with the inputs
   as return, then signed flow), `RollingSum`, and `OFI` directly.
-* In Python, a live session's `push` takes numbers only; JavaScript also has
-  `pushWide` for events of several values.
 * Error classes differ: Python raises `ValueError` for inputs or events whose
   shapes do not match, where JavaScript throws `RangeError` (lengths, event
   shapes, asset shapes that do not broadcast). A wrong kind of input throws
