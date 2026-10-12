@@ -19,3 +19,12 @@ def assert_batch_equals_scalar(op_factory, *arrays):
     b = as_batch(op_factory, *arrays)
     s = as_scalar_loop(op_factory, *arrays)
     np.testing.assert_allclose(b, s, equal_nan=True)
+
+
+def assert_bitwise(a, b):
+    """Equal bit for bit, NaN positions equal (NaN payloads may differ)."""
+    a, b = np.asarray(a, dtype=np.float64), np.asarray(b, dtype=np.float64)
+    assert a.shape == b.shape
+    na, nb = np.isnan(a), np.isnan(b)
+    assert np.array_equal(na, nb)
+    assert np.array_equal(a[~na].view(np.uint64), b[~nb].view(np.uint64))

@@ -21,6 +21,7 @@ import numpy as np
 import pytest
 
 import screamer as s
+from tests.regime_helpers import assert_bitwise
 
 LEVELS = [0.0, 1e3, 1e6]
 POLICIES = ["strict", "expanding", "zero"]
@@ -394,15 +395,6 @@ def test_rolling_zscore_start_policy_warmup():
 
 
 # --- batch == per-event ------------------------------------------------------
-
-def assert_bitwise(a, b):
-    """Equal bit for bit, NaN positions equal (NaN payloads may differ)."""
-    a, b = np.asarray(a, dtype=np.float64), np.asarray(b, dtype=np.float64)
-    assert a.shape == b.shape
-    na, nb = np.isnan(a), np.isnan(b)
-    assert np.array_equal(na, nb)
-    assert np.array_equal(a[~na].view(np.uint64), b[~nb].view(np.uint64))
-
 
 def changed_ops():
     ops = {}
