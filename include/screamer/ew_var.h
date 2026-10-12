@@ -6,8 +6,8 @@
 #include <stdexcept>
 #include <cmath>
 #include <limits>
-#include "screamer/common/base.h"
 #include "screamer/common/float_info.h"
+#include "screamer/detail/running_moments_op.h"
 
 /*
 Info about the bias correction: https://osquant.com/papers/replicating-pandas-ewm-var/ 
@@ -41,7 +41,7 @@ S_2 <- (1 - alpha)^2 S_2 + 1
 
 namespace screamer {
 
-    class EwVar : public ScreamerBase {
+    class EwVar : public detail::RunningMomentsOp<EwVar, 2, true> {
     public:
         explicit EwVar(
             std::optional<double> com = std::nullopt,
@@ -80,37 +80,17 @@ namespace screamer {
             reset();
         }
 
-        void reset() override {
-            sum_x_ = 0.0;
-            sum_xx_ = 0.0;
-            sum_w_ = 0.0;
-            sum_w2_ = 0.0;
-        }
-
-        double process_scalar(double newValue) override {
-            // NaN policy "ignore". See docs/nan_policy.md.
-            if (isnan2(newValue)) {
-                return std::numeric_limits<double>::quiet_NaN();
-            }
-            sum_x_ *= one_minus_alpha_;
-            sum_xx_ *= one_minus_alpha_;
-
-            sum_w_ *= one_minus_alpha_;
-            sum_w2_ *= one_minus_alpha2_;
-
-            sum_x_ += newValue;
-            sum_xx_ += newValue * newValue;
-
-            sum_w_ += 1.0;
-            sum_w2_ += 1.0;
-
-            double n_eff = sum_w_* sum_w_ / sum_w2_;
-
-            // Compute the weighted mean
-            double mean = sum_x_ / sum_w_;
-
-            // Compute the weighted variance
-            double variance = (sum_xx_ / sum_w_) - (mean * mean);
+        inline double value(const State& st, double) const {
+            const double sum_w = st.sums.w;
+            const double inv_w = 1.0 / sum_w;
+            const double q2 = st.sums.s2 * inv_w;
+            const double n_eff = sum_w * sum_w / st.w2;
+            // Weighted mean of x - origin; the variance does not depend on the
+            // origin. Each product is its own statement (see
+            // detail/shifted_power_sums.h).
+            const double mean = st.sums.s1 * inv_w;
+            const double mean_sq = mean * mean;
+            double variance = q2 - mean_sq;
             variance *= n_eff / (n_eff - 1.0);
 
             if (n_eff <= 1.0) {
@@ -120,18 +100,9 @@ namespace screamer {
             }
         }
 
-        // Array fast-paths removed: they used local accumulators and
-        // ignored NaN, breaking the policy. Scalar fallback honors it.
-
     private:
         double alpha_;
         
-        double one_minus_alpha_;
-        double one_minus_alpha2_;
-        double sum_x_ = 0.0;
-        double sum_xx_ = 0.0;
-        double sum_w_ = 0.0;
-        double sum_w2_ = 0.0;
     };
 
 } // namespace screamer

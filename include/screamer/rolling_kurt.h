@@ -1,85 +1,49 @@
-
 #ifndef SCREAMER_ROLLING_KURT_H
 #define SCREAMER_ROLLING_KURT_H
 
 #include <limits>
-#include "screamer/common/base.h"
-#include "screamer/common/float_info.h"
 #include "screamer/common/math.h"
-#include "screamer/detail/rolling_sum.h"
+#include "screamer/detail/moment_formulas.h"
+#include "screamer/detail/window_moments_op.h"
 #include <stdexcept>
 #include <string>
 namespace screamer {
 
-    class RollingKurt : public ScreamerBase {
+    // Bias-corrected excess kurtosis of the window. The window sums are taken
+    // about an origin near the mean (detail::ShiftedWindowSums), so the result
+    // stays accurate when the mean is large next to the spread.
+    class RollingKurt : public detail::WindowMomentsOp<RollingKurt, 4> {
     public:
 
         RollingKurt(
             int window_size,
             const std::string& start_policy = "strict"
-        ) : 
-            window_size_(window_size), 
-            start_policy_(detail::parse_start_policy(start_policy)),
-            sum_x_buffer(window_size, start_policy),
-            sum_xx_buffer(window_size, start_policy),
-            sum_xxx_buffer(window_size, start_policy),
-            sum_xxxx_buffer(window_size, start_policy)
+        ) :
+            WindowMomentsOp(window_size, detail::parse_start_policy(start_policy),
+                            detail::parse_start_policy(start_policy))
         {
             if (window_size <= 0) {
                 throw std::invalid_argument("Window size must be positive.");
             }
-            
+            kurt_n_const(window_size_, c0_, c1_, c2_);
             reset();
         }
 
-        void reset() override {
-            sum_x_buffer.reset();
-            sum_xx_buffer.reset();
-            sum_xxx_buffer.reset();
-            sum_xxxx_buffer.reset();   
-
-            n_ = (start_policy_ != detail::StartPolicy::Zero) ? 0 : window_size_;
-
-            kurt_n_const(n_, c0, c1, c2);
-        }
-        
-    private:
-
-        double process_scalar(double newValue) override {
-
-            if (isnan2(newValue)) {
+        inline double value(const State& st, double) const {
+            if (start_policy_ == detail::StartPolicy::Strict &&
+                st.count != static_cast<std::size_t>(window_size_)) {
                 return std::numeric_limits<double>::quiet_NaN();
             }
-
-            if ((n_ < window_size_) && (start_policy_ != detail::StartPolicy::Zero) ) {
-                n_++;
-                kurt_n_const(n_, c0, c1, c2);
-            }
-
-            // Update the rolling sums
-            double newValue2 = newValue*newValue;
-            double sum_x = sum_x_buffer.append(newValue);
-            double sum_xx = sum_xx_buffer.append(newValue2);
-            double sum_xxx = sum_xxx_buffer.append(newValue2 * newValue);
-            double sum_xxxx = sum_xxxx_buffer.append(newValue2 * newValue2);
-
-            double kurt;
-            kurt_from_stats(sum_x, sum_xx, sum_xxx, sum_xxxx, c0, c1, c2, n_, kurt);
-            return kurt;
+            const int n_ = static_cast<int>(st.count);
+            double c0 = c0_, c1 = c1_, c2 = c2_;
+            if (n_ != window_size_) kurt_n_const(n_, c0, c1, c2);
+            return detail::kurt_from_sums(st.s[0], st.s[1], st.s[2], st.s[3], n_, c0, c1, c2);
         }
 
     private:
-        const int window_size_;
-        const detail::StartPolicy start_policy_;
-        detail::RollingSum sum_x_buffer;
-        detail::RollingSum sum_xx_buffer;
-        detail::RollingSum sum_xxx_buffer;
-        detail::RollingSum sum_xxxx_buffer;
-
-        double c0 = 0;
-        double c1 = 0;
-        double c2 = 0;
-        int n_ = 0;
+        double c0_ = 0.0;
+        double c1_ = 0.0;
+        double c2_ = 0.0;
     }; // end of class
 
 } // end of namespace

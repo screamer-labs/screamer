@@ -56,7 +56,7 @@ $$
 \qquad N_\text{eff} = \frac{S_w^2}{S_{ww}}
 $$
 
-The first output is `NaN`, because the bias correction needs $N_\text{eff} > 1$.
+The first output is `NaN`, because the bias correction needs $N_\text{eff} > 1$. The implementation takes the sums about origins close to the means, which gives the same result without losing precision when the levels are large next to the spread (see [Accuracy at large levels](../conventions.md#accuracy-at-large-levels)).
 
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling

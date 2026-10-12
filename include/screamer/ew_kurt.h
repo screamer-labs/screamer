@@ -5,12 +5,12 @@
 #include <stdexcept>
 #include <cmath>
 #include <limits>
-#include "screamer/common/base.h"
 #include "screamer/common/float_info.h"
+#include "screamer/detail/running_moments_op.h"
 
 namespace screamer {
 
-    class EwKurt : public ScreamerBase {
+    class EwKurt : public detail::RunningMomentsOp<EwKurt, 4, true> {
     public:
         explicit EwKurt(
             std::optional<double> com = std::nullopt,
@@ -46,47 +46,30 @@ namespace screamer {
             reset();
         }
 
-        void reset() override {
-            sum_x_ = 0.0;
-            sum_xx_ = 0.0;
-            sum_xxx_ = 0.0;
-            sum_xxxx_ = 0.0;
-            sum_w_ = 0.0;
-            sum_w2_ = 0.0;
-        }
+        inline double value(const State& st, double) const {
+            // The power sums are taken about an origin that follows the mean,
+            // so they do not cancel when the mean is large next to the spread;
+            // the formulas below do not depend on the origin. Each product is
+            // its own statement (see detail/shifted_power_sums.h).
+            const double sum_w = st.sums.w;
+            const double inv_w = 1.0 / sum_w;
+            const double q2 = st.sums.s2 * inv_w;
+            const double q3 = st.sums.s3 * inv_w;
+            const double q4 = st.sums.s4 * inv_w;
+            const double n_eff = sum_w * sum_w / st.w2;
 
-        double process_scalar(double newValue) override {
-            if (isnan2(newValue)) {
-                return std::numeric_limits<double>::quiet_NaN();
-            }
-            sum_x_ *= one_minus_alpha_;
-            sum_xx_ *= one_minus_alpha_;
-            sum_xxx_ *= one_minus_alpha_;
-            sum_xxxx_ *= one_minus_alpha_;
-
-            sum_w_ *= one_minus_alpha_;
-            sum_w2_ *= one_minus_alpha2_;
-
-            sum_x_ += newValue;
-            sum_xx_ += newValue * newValue;
-            sum_xxx_ += newValue * newValue * newValue;
-            sum_xxxx_ += newValue * newValue * newValue * newValue;
-
-            sum_w_ += 1.0;
-            sum_w2_ += 1.0;
-
-            double n_eff = sum_w_ * sum_w_ / sum_w2_;
-
-            // Compute the weighted mean
-            double mean = sum_x_ / sum_w_;
-            double mean2 = mean * mean;
+            // Weighted mean of x - origin.
+            const double mean = st.sums.s1 * inv_w;
+            const double mean2 = mean * mean;
 
             // Population (biased) second central moment, weighted.
-            double m2 = (sum_xx_ / sum_w_) - mean2;
+            const double m2 = q2 - mean2;
 
             // Compute the fourth central moment (m4)
-            double m4 = (sum_xxxx_ / sum_w_) - 4 * mean * (sum_xxx_ / sum_w_) +
-                        6 * mean2 * (sum_xx_ / sum_w_) - 3 * mean2 * mean2;
+            const double t1 = 4 * mean * q3;
+            const double t2 = 6 * mean2 * q2;
+            const double t3 = 3 * mean2 * mean2;
+            const double m4 = q4 - t1 + t2 - t3;
 
             // Adjusted excess kurtosis, the estimator scipy returns for
             // bias=False and pandas returns from rolling().kurt():
@@ -98,9 +81,10 @@ namespace screamer {
             // the result by roughly n: it returned ~0 for every distribution
             // tested (uniform -1.2, laplace 3, exponential 6), and looked
             // correct only on normal data, where the true answer is 0.
-            double g2 = m4 / (m2 * m2);
-            double excess_kurtosis = (n_eff - 1.0) / ((n_eff - 2.0) * (n_eff - 3.0)) *
-                                     ((n_eff + 1.0) * g2 - 3.0 * (n_eff - 1.0));
+            const double g2 = m4 / (m2 * m2);
+            const double u = (n_eff + 1.0) * g2;
+            const double v = 3.0 * (n_eff - 1.0);
+            const double excess_kurtosis = (n_eff - 1.0) / ((n_eff - 2.0) * (n_eff - 3.0)) * (u - v);
             if (n_eff <= 3.0) {
                 return std::numeric_limits<double>::quiet_NaN();
             } else {
@@ -111,14 +95,6 @@ namespace screamer {
     private:
         double alpha_;
         
-        double one_minus_alpha_;
-        double one_minus_alpha2_;
-        double sum_x_ = 0.0;
-        double sum_xx_ = 0.0;
-        double sum_xxx_ = 0.0;
-        double sum_xxxx_ = 0.0;  // For fourth central moment
-        double sum_w_ = 0.0;
-        double sum_w2_ = 0.0;
     };
 
 } // namespace screamer

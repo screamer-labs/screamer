@@ -42,7 +42,8 @@ public:
         if (isnan2(target) || isnan2(regressor)) {
             return std::numeric_limits<double>::quiet_NaN();
         }
-        const double beta = beta_.call(InputArray{target, regressor});
+        double beta;
+        SCREAMER_INLINE_CALL beta = beta_.call(InputArray{target, regressor});
         const double my   = mean_x_.process_scalar(target);
         const double mr   = mean_y_.process_scalar(regressor);
         if (isnan2(beta) || isnan2(my) || isnan2(mr)) {

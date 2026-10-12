@@ -77,6 +77,19 @@ $$
 
 The two methods disagree by up to ~10 RSI points during early periods and converge only slowly. In the wider literature both definitions are common; Wilder's is what almost every charting platform shows, Cutler's is what you get from a naive `pandas.Series.diff().rolling(w).mean()` decomposition and is used in some quantitative-research papers because it is a direct rolling-mean decomposition. There is also a one-sample offset: Wilder's first valid output is at sample index `n` (zero-indexed); Cutler's is at `n - 1`.
 
+## Accuracy at large levels
+
+The moment operators compute their statistics from sums of powers of the samples. Taken about zero, these sums cancel when the mean is large next to the spread: for a price near 1000 that moves by about 1 per step, the fourth central moment keeps about 4 of its 16 significant digits, and a kurtosis computed from such sums can be wrong in its second digit.
+
+screamer takes the sums about an origin close to the mean instead. The estimator is the same, but every term is of the size of the spread, so nothing cancels:
+
+- The rolling operators start the origin at the first sample. Each time the window has been completely replaced, the origin moves to the window mean and the sums are recomputed from the window.
+- The expanding and exponentially weighted operators also start the origin at the first sample. It moves to the current mean when the mean has drifted from it by more than one standard deviation (three for the two-input weighted operators, which use only second moments), checked every fourth sample.
+
+The results are then accurate to near machine precision relative to the spread, whatever the level. `tests/test_moment_stability.py` checks each operator against its estimator evaluated in exact rational arithmetic at levels 0, 1e3 and 1e6.
+
+The operators that work this way are `RollingVar`, `RollingStd`, `RollingSkew`, `RollingKurt`, `RollingZscore`, `RollingSharpe`, `BollingerBands`, `RollingSigmaClip`, `RollingCov`, `RollingCorr`, `RollingBeta`, `RollingSpread`, `RollingAlpha`, `RollingTLSBeta`, `RollingLinearRegression`, `RollingResidualStd`, `ExpandingVar`, `ExpandingStd`, `ExpandingSkew`, `ExpandingKurt`, `EwVar`, `EwStd`, `EwSkew`, `EwKurt`, `EwZscore`, `EwCov`, `EwCorr`, `EwBeta`, `EwSpread`, `EwAlpha`, `EwResidualStd` and `EwYangZhangVar`.
+
 ## How to verify these claims yourself
 
 ```bash

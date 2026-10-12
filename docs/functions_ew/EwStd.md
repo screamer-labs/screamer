@@ -53,7 +53,7 @@ nan_policy: ignore
 
 `EwStd` computes the exponentially weighted standard deviation of the input: the square root of [`EwVar`](EwVar.md), bias-corrected with the effective sample size of the weights. The smoothing factor `alpha` is set by exactly one of `com`, `span`, `halflife` or `alpha`. The result matches pandas `ewm(adjust=True).std()`. Applied to returns, it is an exponentially weighted estimate of realized volatility.
 
-Each step decays the running sums by $(1 - \alpha)$ and adds the new sample. $S_{x^k}$ stands for each power sum the statistic uses: $S_x$ for $k = 1$, $S_{xx}$ for $k = 2$, and so on.
+Each step decays the running sums by $(1 - \alpha)$ and adds the new sample. $S_{x^k}$ stands for each power sum the statistic uses: $S_x$ for $k = 1$, $S_{xx}$ for $k = 2$, and so on. The implementation takes the sums about an origin close to the mean, which gives the same result without losing precision when the mean is large next to the spread (see [Accuracy at large levels](../conventions.md#accuracy-at-large-levels)).
 
 $$
 S_w \leftarrow (1-\alpha) S_w + 1, \qquad

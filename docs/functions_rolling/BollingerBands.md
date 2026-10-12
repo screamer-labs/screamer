@@ -121,8 +121,9 @@ upper; a scalar call returns a tuple of three floats.
 
 ## Implementation Details
 
-Two rolling sums maintain `Σx` and `Σx²` over the window. Each step updates both sums
-in `O(1)`, then computes the mean and the unbiased sample variance in closed form. The
+Two rolling sums maintain `Σd` and `Σd²` over the window, for `d = x - c` with an origin
+`c` close to the window mean (see [Accuracy at large levels](../conventions.md#accuracy-at-large-levels)). Each step updates both sums in `O(1)`, then
+computes the mean and the unbiased sample variance in closed form. The
 standard deviation is `sqrt(max(var, 0))`, which guards against tiny negative values
 from floating-point cancellation.
 

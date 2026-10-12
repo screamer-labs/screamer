@@ -99,7 +99,7 @@ with the sums taken over the most recent `window_size` samples. The `n - 1` deno
 
 ## Implementation Details
 
-Three running window sums maintain `Σx`, `Σy`, `Σxy`. Each new sample updates all three sums in `O(1)`, then the covariance is computed from the closed-form expression above.
+Three running window sums maintain `Σx`, `Σy`, `Σxy`, with `x` and `y` measured from origins close to their window means (see [Accuracy at large levels](../conventions.md#accuracy-at-large-levels)). Each new sample updates all three sums in `O(1)`, then the covariance is computed from the closed-form expression above.
 
 * **Time**: `O(1)` per new element.
 * **Space**: `O(window_size)`.

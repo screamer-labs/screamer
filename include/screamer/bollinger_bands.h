@@ -11,7 +11,9 @@
 //
 // Returns the triple (lower, mid, upper) per step.
 //
-// Two detail::RollingSum buffers under the hood (Sx, Sxx), O(1) per step.
+// Window sums about an origin near the mean (detail::ShiftedWindowSums), so
+// the bands stay accurate when the price is large next to its spread. O(1)
+// per step.
 
 #include <algorithm>
 #include <cmath>
@@ -21,22 +23,22 @@
 #include <tuple>
 #include "screamer/common/functor_base.h"
 #include "screamer/common/float_info.h"
-#include "screamer/detail/rolling_sum.h"
+#include "screamer/detail/shifted_window_sums.h"
 #include "screamer/detail/start_policy.h"
 #include <cstddef>
 
 namespace screamer {
 
 class BollingerBands : public FunctorBase<BollingerBands, 1, 3> {
+    using Sums = detail::ShiftedWindowSums<2>;
+
 public:
     BollingerBands(int window_size,
                    double num_std = 2.0,
                    const std::string& start_policy = "strict")
-        : window_size_(window_size),
-          num_std_(num_std),
+        : num_std_(num_std),
           start_policy_(detail::parse_start_policy(start_policy)),
-          sum_x_buffer(window_size, "expanding"),
-          sum_xx_buffer(window_size, "expanding")
+          sums_(window_size >= 2 ? window_size : 2, start_policy_)
     {
         if (window_size < 2) {
             throw std::invalid_argument("Window size must be 2 or more.");
@@ -47,54 +49,58 @@ public:
         reset();
     }
 
-    void reset() override {
-        sum_x_buffer.reset();
-        sum_xx_buffer.reset();
-        n_ = (start_policy_ == detail::StartPolicy::Zero) ? window_size_ : 0;
+    void reset() override { sums_.reset(); }
+
+    // One event on the window's state; the batch column loop runs it on a
+    // local copy (FunctorBase, has_stepper). Each product is its own statement
+    // (see shifted_window_sums.h).
+    struct Stepper {
+        Sums::Cursor c;
+        bool strict;
+        double num_std;
+
+        inline ResultTuple call(const InputArray& inputs) {
+            const double nan = std::numeric_limits<double>::quiet_NaN();
+            const double x = inputs[0];
+            if (isnan2(x)) {
+                return std::make_tuple(nan, nan, nan);
+            }
+            c.push(x);
+            const std::size_t n_ = c.st.count;
+            if ((strict && n_ < c.cap) || n_ < 2) {
+                return std::make_tuple(nan, nan, nan);
+            }
+            const double nd = static_cast<double>(n_);
+            const double sum_d  = c.st.s[0];
+            const double mean = c.st.origin + sum_d / nd;
+            // Unbiased sample variance (n-1 denominator). Matches pandas
+            // Series.rolling(w).std() which defaults to ddof=1.
+            const double a = nd * c.st.s[1];
+            const double b = sum_d * sum_d;
+            const double var = (a - b) / (nd * (nd - 1.0));
+            const double std_val = std::sqrt(std::max(var, 0.0));
+            const double half_width = num_std * std_val;
+            const double lower = mean - half_width;
+            const double upper = mean + half_width;
+            return std::make_tuple(lower, mean, upper);
+        }
+    };
+    Stepper stepper() {
+        return Stepper{sums_.cursor(), start_policy_ == detail::StartPolicy::Strict, num_std_};
     }
+    void store(const Stepper& k) { sums_.set_state(k.c.st); }
 
     ResultTuple call(const InputArray& inputs) override {
-        const double x = inputs[0];
-
-        if (isnan2(x)) {
-            const double nan = std::numeric_limits<double>::quiet_NaN();
-            return std::make_tuple(nan, nan, nan);
-        }
-
-        const double sum_x  = sum_x_buffer .append(x);
-        const double sum_xx = sum_xx_buffer.append(x * x);
-
-        if ((n_ < window_size_) && (start_policy_ != detail::StartPolicy::Zero)) {
-            n_++;
-        }
-
-        const double nan = std::numeric_limits<double>::quiet_NaN();
-        if (start_policy_ == detail::StartPolicy::Strict && n_ < window_size_) {
-            return std::make_tuple(nan, nan, nan);
-        }
-        if (n_ < 2) {
-            return std::make_tuple(nan, nan, nan);
-        }
-
-        const double nd = static_cast<double>(n_);
-        const double mean = sum_x / nd;
-        // Unbiased sample variance (n-1 denominator). Matches pandas
-        // Series.rolling(w).std() which defaults to ddof=1.
-        const double var = (nd * sum_xx - sum_x * sum_x) / (nd * (nd - 1.0));
-        const double std_val = std::sqrt(std::max(var, 0.0));
-
-        const double lower = mean - num_std_ * std_val;
-        const double upper = mean + num_std_ * std_val;
-        return std::make_tuple(lower, mean, upper);
+        Stepper k = stepper();
+        const ResultTuple r = k.call(inputs);
+        store(k);
+        return r;
     }
 
 private:
-    const int window_size_;
     const double num_std_;
     const detail::StartPolicy start_policy_;
-    detail::RollingSum sum_x_buffer;
-    detail::RollingSum sum_xx_buffer;
-    size_t n_ = 0;
+    Sums sums_;
 };
 
 }  // namespace screamer

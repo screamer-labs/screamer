@@ -108,7 +108,7 @@ The output is a number in `[-1, 1]`. It is `NaN` during warmup and when either s
 
 ### Algorithm
 
-Five running window sums maintain `Σx`, `Σy`, `Σxx`, `Σyy` and `Σxy` over the window. Each new sample updates all five sums in `O(1)`, then the correlation is computed from the closed-form expression above.
+Five running window sums maintain `Σx`, `Σy`, `Σxx`, `Σyy` and `Σxy` over the window, with `x` and `y` measured from origins close to their window means (see [Accuracy at large levels](../conventions.md#accuracy-at-large-levels)). Each new sample updates all five sums in `O(1)`, then the correlation is computed from the closed-form expression above.
 
 ### Complexity
 

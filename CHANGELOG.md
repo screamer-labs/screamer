@@ -164,6 +164,24 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
 * A stream stored on the object that feeds it is now freed by the garbage
   collector; before, the cycle leaked for the life of the process. This covers
   the sync and async operator streams, lazy `Pipeline` calls and lazy `Merge`.
+* `RollingSkew` and `RollingKurt` (and `RollingVar`, `RollingStd`,
+  `RollingZscore`, `RollingSharpe`, `BollingerBands`, `RollingSigmaClip`,
+  `RollingCov`, `RollingCorr`, `RollingBeta`, `RollingSpread`, `RollingAlpha`,
+  `RollingTLSBeta`, `RollingLinearRegression`, `RollingResidualStd`,
+  `ExpandingVar`, `ExpandingStd`, `ExpandingSkew`, `ExpandingKurt`, `EwVar`,
+  `EwStd`, `EwSkew`, `EwKurt`, `EwZscore`, `EwCov`, `EwCorr`, `EwBeta`,
+  `EwSpread`, `EwAlpha`, `EwResidualStd`, `EwYangZhangVar` and
+  `EwYangZhangVol`) were inaccurate when the mean is large next to the spread,
+  for example on price levels; they now use a numerically stable update. On a
+  series near 1000 with unit moves, `RollingKurt` was off by up to 8e-2 and
+  `RollingVar` by 4e-9 of their values; at 1e6 the raw sums had no correct
+  digits for skewness and kurtosis. Every operator now matches its estimator,
+  evaluated in exact arithmetic, to about 1e-14 at any level. On data near
+  zero the results change only in the last bits (below 1e-13).
+* `EwZscore` returned 0 instead of `NaN` for its first sample on some
+  platforms, as rounding decided; it is `NaN`, as documented.
+* `RollingLinearRegression(start_policy="zero")` treated the window as empty
+  rather than zero-filled until its first `reset()`; it now starts zero-filled.
 
 ### Performance
 
@@ -213,15 +231,25 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
   * `CumSum` and `ExpandingSum` 0.66 (was 0.8 to 3.3), `ExpandingMean` 0.56
     (was 3.3), `CumProd` and `ExpandingProd` 1.1 (was 1.1 to 3.3), `Diff2`
     0.54 (was 1.4 to 2.6).
-  * The two-input EW operators: `EwCov` 3.0 (was 4.9), `EwBeta` 3.1 (was 4.7),
-    `EwCorr` 3.7 (was 4.8), `EwSpread` 2.7 (was 5.0), `EwAlpha` 3.6 (was 5.9),
-    `EwResidualStd` 4.7 (was 5.8); `ADOSC` 1.8 (was 5.1).
+  * The two-input EW operators: `EwCov` 3.3 (was 4.9), `EwBeta` 3.4 (was 4.7),
+    `EwCorr` 3.2 (was 4.8), `EwSpread` 3.5 (was 5.0), `EwAlpha` 4.4 (was 5.9);
+    `ADOSC` 1.8 (was 5.1).
   * The DMI and ATR family: `ADX` 5.8 (was 15), `ADXR` 5.9 (was 19), `PlusDI`
     and `MinusDI` 5.8 (was 7.7), `DX` 5.7 (was 7.8), `PlusDM` and `MinusDM`
     5.6 (was 11 to 13), `ATR` 4.2 (was 7.2 to 7.9), `NATR` 4.2 (was 5.7 to
     7.6).
 * `EwMean` on a `(T, K)` array runs each column in its batch loop, 1.5 ns per
   element on `(2000, 100)` (was 4.3).
+* The moment operators made stable (see Fixed) run their batch loop on a local
+  copy of the window state, which stays in registers. On 200,000 values (ns
+  per element, Apple M3): `RollingVar(20)` 2.0 (was 3.3), `RollingStd` 2.2
+  (was 3.3), `RollingZscore` 2.3 (was 3.4), `RollingKurt` 3.7 (was 4.6),
+  `RollingCov` 2.5 (was 3.6), `RollingBeta` 3.0 (was 3.2), `BollingerBands`
+  2.7 (was 3.5), `RollingSharpe` 2.6 (was 4.1), `RollingResidualStd` 5.6 (was
+  7.0), `ExpandingVar` 1.3 (was 4.5), `ExpandingKurt` 3.8 (was 4.7), `EwVar`
+  2.8 (was 4.9), `EwKurt` 4.5 (was 5.6). The stable update is slower in
+  three: `RollingSigmaClip` 5.7 (was 4.5), `RollingLinearRegression` 5.6 (was
+  4.8) and `EwResidualStd` 6.5 (was 5.8).
 * `RealizedSpread` takes 1.35 ns per element (was 2.5).
 
 ### Documentation

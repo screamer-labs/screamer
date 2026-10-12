@@ -49,7 +49,7 @@ nan_policy: ignore
 
 `EwSkew` computes the exponentially weighted skewness of the input. The smoothing factor `alpha` is set by exactly one of `com`, `span`, `halflife` or `alpha`. It applies the adjusted Fisher-Pearson estimator (the one scipy returns with `bias=False` and pandas returns from `rolling().skew()`) to exponentially weighted moments, with the effective sample size $N_\text{eff}$ in place of the sample count.
 
-Each step decays the running sums by $(1 - \alpha)$ and adds the new sample. $S_{x^k}$ stands for each power sum the statistic uses: $S_x$ for $k = 1$, $S_{xx}$ for $k = 2$, and so on.
+Each step decays the running sums by $(1 - \alpha)$ and adds the new sample. $S_{x^k}$ stands for each power sum the statistic uses: $S_x$ for $k = 1$, $S_{xx}$ for $k = 2$, and so on. The implementation takes the sums about an origin close to the mean, which gives the same result without losing precision when the mean is large next to the spread (see [Accuracy at large levels](../conventions.md#accuracy-at-large-levels)).
 
 $$
 S_w \leftarrow (1-\alpha) S_w + 1, \qquad

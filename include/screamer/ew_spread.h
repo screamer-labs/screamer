@@ -39,7 +39,8 @@ public:
         if (isnan2(x) || isnan2(y)) {
             return std::numeric_limits<double>::quiet_NaN();
         }
-        const double beta = beta_.call(InputArray{x, y});
+        double beta;
+        SCREAMER_INLINE_CALL beta = beta_.call(InputArray{x, y});
         if (isnan2(beta)) {
             return std::numeric_limits<double>::quiet_NaN();
         }

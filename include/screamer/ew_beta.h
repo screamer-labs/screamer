@@ -22,6 +22,7 @@
 #include <stdexcept>
 #include "screamer/common/functor_base.h"
 #include "screamer/common/float_info.h"
+#include "screamer/detail/shifted_power_sums.h"
 
 namespace screamer {
 
@@ -57,8 +58,8 @@ public:
     }
 
     void reset() override {
-        sum_x_ = sum_y_ = sum_yy_ = sum_xy_ = 0.0;
-        sum_w_ = sum_w2_ = 0.0;
+        sums_.reset();
+        sum_w2_ = 0.0;
     }
 
     ResultTuple call(const InputArray& inputs) override {
@@ -69,28 +70,30 @@ public:
             return std::numeric_limits<double>::quiet_NaN();
         }
 
-        sum_x_  *= one_minus_alpha_;
-        sum_y_  *= one_minus_alpha_;
-        sum_yy_ *= one_minus_alpha_;
-        sum_xy_ *= one_minus_alpha_;
-        sum_w_  *= one_minus_alpha_;
+        // Decay every weight by (1 - alpha), then add the pair with weight 1.
+        // The sums are taken about origins that follow the means, so they do
+        // not cancel when the levels are large next to the spread; the
+        // formulas below do not depend on the origins.
+        sums_.decay(one_minus_alpha_);
         sum_w2_ *= one_minus_alpha2_;
-
-        sum_x_  += x;
-        sum_y_  += y;
-        sum_yy_ += y * y;
-        sum_xy_ += x * y;
-        sum_w_  += 1.0;
+        sums_.add(x, y);
         sum_w2_ += 1.0;
 
-        const double n_eff = sum_w_ * sum_w_ / sum_w2_;
+        const double sum_w = sums_.w;
+        const double inv_w = 1.0 / sum_w;
+        const double q_xy = sums_.sxy * inv_w;
+        const double q_yy = sums_.syy * inv_w;
+        const double n_eff = sum_w * sum_w / sum_w2_;
         if (n_eff <= 1.0) {
             return std::numeric_limits<double>::quiet_NaN();
         }
-        const double mean_x = sum_x_ / sum_w_;
-        const double mean_y = sum_y_ / sum_w_;
-        const double var_y  = (sum_yy_ / sum_w_) - mean_y * mean_y;
-        const double cov_xy = (sum_xy_ / sum_w_) - mean_x * mean_y;
+        // Each product is its own statement (see detail/shifted_power_sums.h).
+        const double mean_x = sums_.sx * inv_w;
+        const double mean_y = sums_.sy * inv_w;
+        const double mean_yy = mean_y * mean_y;
+        const double mean_xy = mean_x * mean_y;
+        const double var_y  = q_yy - mean_yy;
+        const double cov_xy = q_xy - mean_xy;
 
         if (!(var_y > 0.0)) {
             return std::numeric_limits<double>::quiet_NaN();
@@ -102,11 +105,7 @@ private:
     double alpha_{};
     double one_minus_alpha_{};
     double one_minus_alpha2_{};
-    double sum_x_ = 0.0;
-    double sum_y_ = 0.0;
-    double sum_yy_ = 0.0;
-    double sum_xy_ = 0.0;
-    double sum_w_ = 0.0;
+    detail::ShiftedCoPowerSums sums_;
     double sum_w2_ = 0.0;
 };
 

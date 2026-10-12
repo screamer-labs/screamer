@@ -36,11 +36,14 @@ public:
     ResultTuple call(const InputArray& inputs) override {
         // EwSpread emits NaN during warm-up; feeding NaN into EwStd's running
         // sums would poison them, so skip the feed until the spread is valid.
-        const double spread_val = spread_.call(inputs);
+        double spread_val;
+        SCREAMER_INLINE_CALL spread_val = spread_.call(inputs);
         if (std::isnan(spread_val)) {
             return std::numeric_limits<double>::quiet_NaN();
         }
-        return std_.process_scalar(spread_val);
+        double out;
+        SCREAMER_INLINE_CALL out = std_.process_scalar(spread_val);
+        return out;
     }
 
 private:

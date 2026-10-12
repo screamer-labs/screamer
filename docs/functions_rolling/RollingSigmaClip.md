@@ -137,7 +137,7 @@ see_also:
 
 ### Algorithm
 
-`RollingSigmaClip` operates by maintaining rolling calculations of the mean and standard deviation within a moving window. For each new data point:
+`RollingSigmaClip` operates by maintaining rolling calculations of the mean and standard deviation within a moving window, from sums taken about an origin close to the window mean (see [Accuracy at large levels](../conventions.md#accuracy-at-large-levels)). For each new data point:
 
 1. **Compute Rolling Mean and Standard Deviation**:
 

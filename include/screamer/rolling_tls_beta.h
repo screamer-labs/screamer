@@ -17,7 +17,8 @@
 // scale, such as log prices. NaN when Sab = 0 (no linear relation). Same
 // argument order as RollingBeta: the first input is the dependent series.
 //
-// Five detail::RollingSum buffers, O(1) per step.
+// Window sums about an origin near the means (detail::ShiftedWindowCoSums),
+// so the slope stays accurate on price levels. O(1) per step.
 
 #include <cmath>
 #include <cstddef>
@@ -26,52 +27,73 @@
 #include <string>
 #include "screamer/common/functor_base.h"
 #include "screamer/common/float_info.h"
-#include "screamer/detail/rolling_sum.h"
+#include "screamer/detail/shifted_window_sums.h"
 #include "screamer/detail/start_policy.h"
 
 namespace screamer {
 
 class RollingTLSBeta : public FunctorBase<RollingTLSBeta, 2, 1> {
+    using Sums = detail::ShiftedWindowCoSums<true, true>;
+
 public:
     RollingTLSBeta(int window_size, const std::string& start_policy = "strict")
-        : window_size_(window_size),
-          start_policy_(detail::parse_start_policy(start_policy)),
-          sa_(window_size, "expanding"), sb_(window_size, "expanding"),
-          saa_(window_size, "expanding"), sbb_(window_size, "expanding"),
-          sab_(window_size, "expanding")
+        : start_policy_(detail::parse_start_policy(start_policy)),
+          sums_(window_size >= 2 ? window_size : 2, start_policy_)
     {
-        if (window_size < 2) throw std::invalid_argument("Window size must be 2 or more.");
+        if (window_size < 2) {
+            throw std::invalid_argument("Window size must be 2 or more.");
+        }
         reset();
     }
 
-    void reset() override {
-        sa_.reset(); sb_.reset(); saa_.reset(); sbb_.reset(); sab_.reset();
-        n_ = (start_policy_ == detail::StartPolicy::Zero) ? window_size_ : 0;
-    }
+    void reset() override { sums_.reset(); }
 
-    ResultTuple call(const InputArray& in) override {
-        const double a = in[0], b = in[1];
-        const double nan = std::numeric_limits<double>::quiet_NaN();
-        if (isnan2(a) || isnan2(b)) return nan;
-        const double sa = sa_.append(a), sb = sb_.append(b);
-        const double saa = saa_.append(a * a), sbb = sbb_.append(b * b), sab = sab_.append(a * b);
-        if (n_ < static_cast<std::size_t>(window_size_) &&
-            start_policy_ != detail::StartPolicy::Zero) ++n_;
-        if (start_policy_ == detail::StartPolicy::Strict &&
-            n_ < static_cast<std::size_t>(window_size_)) return nan;
-        if (n_ < 2) return nan;
-        const double n = static_cast<double>(n_);
-        const double caa = n * saa - sa * sa, cbb = n * sbb - sb * sb, cab = n * sab - sa * sb;
-        if (cab == 0.0) return nan;
-        const double d = caa - cbb;
-        return (d + std::sqrt(d * d + 4.0 * cab * cab)) / (2.0 * cab);
+    // One event on the window's state; the batch column loop runs it on a
+    // local copy (FunctorBase, has_stepper). Each product is its own statement
+    // (see shifted_window_sums.h).
+    struct Stepper {
+        Sums::Cursor c;
+        bool strict;
+
+        inline ResultTuple call(const InputArray& inputs) {
+            const double a = inputs[0];
+            const double b = inputs[1];
+            if (isnan2(a) || isnan2(b)) {
+                return std::numeric_limits<double>::quiet_NaN();
+            }
+            c.push(a, b);
+            const std::size_t n_ = c.st.count;
+            if ((strict && n_ < c.cap) || n_ < 2) {
+                return std::numeric_limits<double>::quiet_NaN();
+            }
+            const double nd = static_cast<double>(n_);
+            // With x = a and y = b.
+            const double naa = nd * c.st.sxx, sa2 = c.st.sx * c.st.sx;
+            const double nbb = nd * c.st.syy, sb2 = c.st.sy * c.st.sy;
+            const double nab = nd * c.st.sxy, sab = c.st.sx * c.st.sy;
+            const double caa = naa - sa2, cbb = nbb - sb2, cab = nab - sab;
+            if (cab == 0.0) return std::numeric_limits<double>::quiet_NaN();
+            const double d = caa - cbb;
+            const double dd = d * d;
+            const double cab2 = 4.0 * cab * cab;
+            return (d + std::sqrt(dd + cab2)) / (2.0 * cab);
+        }
+    };
+    Stepper stepper() {
+        return Stepper{sums_.cursor(), start_policy_ == detail::StartPolicy::Strict};
+    }
+    void store(const Stepper& k) { sums_.set_state(k.c.st); }
+
+    ResultTuple call(const InputArray& inputs) override {
+        Stepper k = stepper();
+        const ResultTuple r = k.call(inputs);
+        store(k);
+        return r;
     }
 
 private:
-    const int window_size_;
     const detail::StartPolicy start_policy_;
-    detail::RollingSum sa_, sb_, saa_, sbb_, sab_;
-    std::size_t n_ = 0;
+    Sums sums_;
 };
 
 }  // namespace screamer

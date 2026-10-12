@@ -12,40 +12,24 @@
 
 #include <cmath>
 #include <limits>
-#include "screamer/common/base.h"
 #include "screamer/common/math.h"
+#include "screamer/detail/running_moments_op.h"
 
 namespace screamer {
 
-class ExpandingStd : public ScreamerBase {
+class ExpandingStd : public detail::RunningMomentsOp<ExpandingStd, 2, false> {
 public:
     ExpandingStd() { reset(); }
 
-    void reset() override {
-        sum_x_ = 0.0;
-        sum_xx_ = 0.0;
-        n_ = 0;
-    }
-
-    double process_scalar(double x) override {
-        if (std::isnan(x)) {
+    inline double value(const State& st, double) const {
+        if (st.sums.w < 2.0) {
             return std::numeric_limits<double>::quiet_NaN();
         }
-        sum_x_ += x;
-        sum_xx_ += x * x;
-        ++n_;
-        if (n_ < 2) {
-            return std::numeric_limits<double>::quiet_NaN();
-        }
+        const int n = static_cast<int>(st.sums.w);
         double var;
-        var_from_stats(sum_x_, sum_xx_, static_cast<int>(n_), var);
+        var_from_stats(st.sums.s1, st.sums.s2, n, var);
         return std::sqrt(var);
     }
-
-private:
-    double sum_x_ = 0.0;
-    double sum_xx_ = 0.0;
-    long n_ = 0;
 };
 
 }  // namespace screamer

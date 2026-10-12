@@ -92,7 +92,7 @@ see_also:
 
 ### Algorithm
 
-`RollingSkew` keeps running sums of the window in circular buffers and updates them as each sample enters and the oldest one leaves.
+`RollingSkew` keeps the window in a circular buffer with running sums of powers of `x - c`, where the origin `c` is close to the window mean, and updates the sums as each sample enters and the oldest one leaves (see [Accuracy at large levels](../conventions.md#accuracy-at-large-levels)).
 
 ### Complexity
 

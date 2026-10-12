@@ -1,72 +1,42 @@
-
 #ifndef SCREAMER_ROLLING_STD_H
 #define SCREAMER_ROLLING_STD_H
 
 #include <limits>
-#include <screamer/detail/rolling_sum.h>
-#include "screamer/common/base.h"
-#include "screamer/common/float_info.h"
-#include "screamer/common/math.h"
+#include "screamer/detail/window_moments_op.h"
 #include <cmath>
 #include <cstddef>
 #include <stdexcept>
 #include <string>
-/*
-todo: this implementation might  suffer from numerical instability
-      https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Welford's_online_algorithm
-*/
+
 namespace screamer {
 
-    class RollingStd : public ScreamerBase {
+    // Sample standard deviation (ddof=1) of the window. The window sums are
+    // taken about an origin near the mean (detail::ShiftedWindowSums), so the
+    // result stays accurate when the mean is large next to the spread.
+    class RollingStd : public detail::WindowMomentsOp<RollingStd, 2> {
     public:
 
-        RollingStd(int window_size, const std::string& start_policy = "strict") : 
-            window_size_(window_size), 
-            start_policy_(detail::parse_start_policy(start_policy)),
-            sum_y_buffer(window_size, start_policy),
-            sum_y2_buffer(window_size, start_policy)
+        RollingStd(int window_size, const std::string& start_policy = "strict") :
+            WindowMomentsOp(window_size, detail::parse_start_policy(start_policy),
+                            detail::parse_start_policy(start_policy))
         {
             if (window_size_ < 2) {
                 throw std::invalid_argument("Window size must be 2 or more.");
             }
-
             reset();
         }
 
-        void reset() override {
-            sum_y_buffer.reset();
-            sum_y2_buffer.reset();   
-            n_ = (start_policy_ != detail::StartPolicy::Zero) ? 0 : window_size_;
-        }
-        
-        double process_scalar(double newValue) override {
-            // NaN policy "ignore": leave n_ and the running sums untouched.
-            if (isnan2(newValue)) {
+        inline double value(const State& st, double) const {
+            if (start_policy_ == detail::StartPolicy::Strict &&
+                st.count != static_cast<std::size_t>(window_size_)) {
                 return std::numeric_limits<double>::quiet_NaN();
             }
-            if ((n_ < window_size_) && (start_policy_ != detail::StartPolicy::Zero) ) {
-                n_++;
-            }
-            double sum_y = sum_y_buffer.append(newValue);
-            double sum_y2 = sum_y2_buffer.append(newValue * newValue);
-
-            double var;
-            var_from_stats(sum_y, sum_y2, n_, var);
+            const double n = static_cast<double>(st.count);
+            const double var = (st.s[1] - st.s[0] * st.s[0] / n) / (n - 1);
             return std::sqrt(var);
         }
-
-        // Fast-path override removed; scalar fallback honors the "ignore"
-        // NaN policy. See rolling_sum.h for rationale.
-    private:
-        const int window_size_;
-        const detail::StartPolicy start_policy_;
-        size_t n_ = 0;
-        screamer::detail::RollingSum sum_y_buffer;
-        screamer::detail::RollingSum sum_y2_buffer;
-
     }; // end of class
 
 } // end of namespace
 
 #endif // end of include guards
-

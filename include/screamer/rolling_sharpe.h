@@ -10,26 +10,23 @@
 // samples; `std` uses ddof=1 (sample std, pandas default). For
 // daily returns and a 252-trading-day year use periods_per_year=252.
 //
-// 1 -> 1 over the returns series. Composes RollingMean + RollingStd.
+// 1 -> 1 over the returns series. One window of sums gives both the mean
+// and the standard deviation.
 // First valid output at sample index window_size - 1. Returns NaN
 // when std is zero.
 
 #include <cmath>
 #include <limits>
 #include <stdexcept>
-#include "screamer/common/base.h"
-#include "screamer/rolling_mean.h"
-#include "screamer/rolling_std.h"
+#include "screamer/detail/window_moments_op.h"
 
 namespace screamer {
 
-class RollingSharpe : public ScreamerBase {
+class RollingSharpe : public detail::WindowMomentsOp<RollingSharpe, 2> {
 public:
     RollingSharpe(int window_size, double periods_per_year = 1.0)
-        : window_size_(window_size),
-          scale_(std::sqrt(periods_per_year)),
-          mean_(window_size),
-          std_(window_size)
+        : WindowMomentsOp(window_size, detail::StartPolicy::Strict, detail::StartPolicy::Strict),
+          scale_(std::sqrt(periods_per_year))
     {
         if (window_size < 2) {
             throw std::invalid_argument("Window size must be at least 2.");
@@ -37,16 +34,19 @@ public:
         if (!(periods_per_year > 0.0)) {
             throw std::invalid_argument("periods_per_year must be positive.");
         }
+        reset();
     }
 
-    void reset() override {
-        mean_.reset();
-        std_.reset();
-    }
-
-    double process_scalar(double r) override {
-        const double m = mean_.process_scalar(r);
-        const double s = std_.process_scalar(r);
+    // The window mean and standard deviation from one set of sums about an
+    // origin near the mean (detail::ShiftedWindowSums).
+    inline double value(const State& st, double) const {
+        if (st.count != static_cast<std::size_t>(window_size_)) {
+            return std::numeric_limits<double>::quiet_NaN();
+        }
+        const double n = static_cast<double>(window_size_);
+        const double m = st.origin + st.s[0] / n;
+        const double var = (st.s[1] - st.s[0] * st.s[0] / n) / (n - 1);
+        const double s = std::sqrt(var);
         if (std::isnan(m) || std::isnan(s) || s <= 0.0) {
             return std::numeric_limits<double>::quiet_NaN();
         }
@@ -54,10 +54,7 @@ public:
     }
 
 private:
-    const int window_size_;
     const double scale_;
-    RollingMean mean_;
-    RollingStd std_;
 };
 
 }  // namespace screamer

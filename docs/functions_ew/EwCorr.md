@@ -57,7 +57,7 @@ $$
      {\sqrt{\left(\dfrac{S_{xx}}{S_w} - \bar{x}^2\right)\left(\dfrac{S_{yy}}{S_w} - \bar{y}^2\right)}}
 $$
 
-This equals `EwCov(x, y) / sqrt(EwVar(x) * EwVar(y))`: the bias-correction factors of the covariance and the variances cancel, so they are left out. The output is `NaN` when either input is constant over the effective window, which includes the first sample.
+This equals `EwCov(x, y) / sqrt(EwVar(x) * EwVar(y))`: the bias-correction factors of the covariance and the variances cancel, so they are left out. The output is `NaN` when either input is constant over the effective window, which includes the first sample. The implementation takes the sums about origins close to the means, which gives the same result without losing precision when the levels are large next to the spread (see [Accuracy at large levels](../conventions.md#accuracy-at-large-levels)).
 
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling

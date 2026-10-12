@@ -60,6 +60,19 @@ namespace detail {
     struct column_copy<D, std::void_t<decltype(D::kColumnCopy)>>
         : std::bool_constant<D::kColumnCopy> {};
 
+    // Derived::Stepper, or none. The same idea as kColumnCopy for an operator
+    // whose state includes heap buffers (a window), where copying the whole
+    // operator would not keep the state in registers. A Stepper is a small
+    // value: the plain running state, raw pointers to the buffers, and the
+    // constants, with call(inputs) for one event. Derived::stepper() returns
+    // one for the current state and Derived::store(stepper) writes its state
+    // back. The column loop runs a local Stepper; Derived::call runs the same
+    // Stepper::call for one event, so both paths compute alike.
+    template <class D, class = void>
+    struct has_stepper : std::false_type {};
+    template <class D>
+    struct has_stepper<D, std::void_t<typename D::Stepper>> : std::true_type {};
+
 
     // Helper struct to create a tuple of M doubles
     template <size_t M, typename T = double, typename... Ts>
@@ -178,6 +191,20 @@ private:
         Derived& self = static_cast<Derived&>(*this);
         std::array<const double*, N> p{ in[I]... };
         const std::array<std::ptrdiff_t, N> s{ in_stride[I]... };
+        if constexpr (detail::has_stepper<Derived>::value) {
+            typename Derived::Stepper k = self.Derived::stepper();
+            for (std::size_t t = 0; t < T; ++t, out += out_stride) {
+                const InputArray inputs{ *p[I]... };
+                ((p[I] += s[I]), ...);
+                if constexpr (M == 1) {
+                    SCREAMER_INLINE_CALL *out = k.call(inputs);
+                } else {
+                    SCREAMER_INLINE_CALL detail::write_tuple_to_memory(out, k.call(inputs));
+                }
+            }
+            self.Derived::store(k);
+            return;
+        }
         if constexpr (detail::column_copy<Derived>::value) {
             Derived local(self);
             for (std::size_t t = 0; t < T; ++t, out += out_stride) {

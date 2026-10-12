@@ -2,8 +2,9 @@
 #define SCREAMER_EXPANDING_SKEW_H
 
 // ExpandingSkew: bias-corrected sample skewness (G1) over the whole history
-// since the last reset(). O(1) memory, no window. Mirrors RollingSkew (via
-// skew_from_stats / skew_n_const) but keeps unbounded running sums.
+// since the last reset(). O(1) memory, no window. Keeps power sums about an
+// origin that follows the mean (detail::RunningMomentsOp) and applies
+// RollingSkew's estimator.
 //
 // Convention: the adjusted Fisher-Pearson standardized moment G1, identical to
 // RollingSkew and pandas Series.expanding().skew(). Undefined (NaN) for n < 3.
@@ -13,46 +14,25 @@
 
 #include <cmath>
 #include <limits>
-#include "screamer/common/base.h"
 #include "screamer/common/math.h"
+#include "screamer/detail/running_moments_op.h"
+#include "screamer/detail/moment_formulas.h"
 
 namespace screamer {
 
-class ExpandingSkew : public ScreamerBase {
+class ExpandingSkew : public detail::RunningMomentsOp<ExpandingSkew, 3, false> {
 public:
     ExpandingSkew() { reset(); }
 
-    void reset() override {
-        sum_x_ = 0.0;
-        sum_xx_ = 0.0;
-        sum_xxx_ = 0.0;
-        n_ = 0;
-    }
-
-    double process_scalar(double x) override {
-        if (std::isnan(x)) {
+    inline double value(const State& st, double) const {
+        if (st.sums.w < 3.0) {
             return std::numeric_limits<double>::quiet_NaN();
         }
-        double x2 = x * x;
-        sum_x_ += x;
-        sum_xx_ += x2;
-        sum_xxx_ += x2 * x;
-        ++n_;
-        if (n_ < 3) {
-            return std::numeric_limits<double>::quiet_NaN();
-        }
+        const int n = static_cast<int>(st.sums.w);
         double c0;
-        skew_n_const(static_cast<int>(n_), c0);
-        double skew;
-        skew_from_stats(sum_x_, sum_xx_, sum_xxx_, c0, static_cast<int>(n_), skew);
-        return skew;
+        skew_n_const(n, c0);
+        return detail::skew_from_sums(st.sums.s1, st.sums.s2, st.sums.s3, n, c0);
     }
-
-private:
-    double sum_x_ = 0.0;
-    double sum_xx_ = 0.0;
-    double sum_xxx_ = 0.0;
-    long n_ = 0;
 };
 
 }  // namespace screamer

@@ -5,12 +5,12 @@
 #include <stdexcept>
 #include <cmath>
 #include <limits>
-#include "screamer/common/base.h"
 #include "screamer/common/float_info.h"
+#include "screamer/detail/running_moments_op.h"
 
 namespace screamer {
 
-    class EwSkew : public ScreamerBase {
+    class EwSkew : public detail::RunningMomentsOp<EwSkew, 3, true> {
     public:
         explicit EwSkew(
             std::optional<double> com = std::nullopt,
@@ -47,40 +47,26 @@ namespace screamer {
             reset();
         }
 
-        void reset() override {
-            sum_x_ = 0.0;
-            sum_xx_ = 0.0;
-            sum_xxx_ = 0.0;
-            sum_w_ = 0.0;
-            sum_w2_ = 0.0;
-        }
+        inline double value(const State& st, double) const {
+            // The power sums are taken about an origin that follows the mean,
+            // so they do not cancel when the mean is large next to the spread;
+            // the formulas below do not depend on the origin. Each product is
+            // its own statement (see detail/shifted_power_sums.h).
+            const double sum_w = st.sums.w;
+            const double inv_w = 1.0 / sum_w;
+            const double q2 = st.sums.s2 * inv_w;
+            const double q3 = st.sums.s3 * inv_w;
+            const double n_eff = sum_w * sum_w / st.w2;
 
-        double process_scalar(double newValue) override {
-            if (isnan2(newValue)) {
-                return std::numeric_limits<double>::quiet_NaN();
-            }
-            sum_x_ *= one_minus_alpha_;
-            sum_xx_ *= one_minus_alpha_;
-            sum_xxx_ *= one_minus_alpha_;
-
-            sum_w_ *= one_minus_alpha_;
-            sum_w2_ *= one_minus_alpha2_;
-
-            sum_x_ += newValue;
-            sum_xx_ += newValue * newValue;
-            sum_xxx_ += newValue * newValue * newValue;
-
-            sum_w_ += 1.0;
-            sum_w2_ += 1.0;
-
-            double n_eff = sum_w_ * sum_w_ / sum_w2_;
-
-            // Compute the weighted mean
-            double mean = sum_x_ / sum_w_;
+            // Weighted mean of x - origin.
+            const double mean = st.sums.s1 * inv_w;
 
             // Population (biased) central moments, weighted.
-            double m2 = (sum_xx_ / sum_w_) - (mean * mean);
-            double m3 = (sum_xxx_ / sum_w_) - 3 * mean * (sum_xx_ / sum_w_) + 2 * mean * mean * mean;
+            const double mean_sq = mean * mean;
+            const double t1 = 3 * mean * q2;
+            const double t2 = 2 * mean * mean * mean;
+            const double m2 = q2 - mean_sq;
+            const double m3 = q3 - t1 + t2;
 
             // Adjusted Fisher-Pearson skewness, the estimator scipy returns
             // for bias=False and pandas returns from rolling().skew():
@@ -105,13 +91,6 @@ namespace screamer {
     private:
         double alpha_;
         
-        double one_minus_alpha_;
-        double one_minus_alpha2_;
-        double sum_x_ = 0.0;
-        double sum_xx_ = 0.0;
-        double sum_xxx_ = 0.0;
-        double sum_w_ = 0.0;
-        double sum_w2_ = 0.0;
     };
 
 } // namespace screamer

@@ -2,8 +2,9 @@
 #define SCREAMER_EXPANDING_KURT_H
 
 // ExpandingKurt: bias-corrected sample excess kurtosis (Fisher) over the whole
-// history since the last reset(). O(1) memory, no window. Mirrors RollingKurt
-// (via kurt_from_stats / kurt_n_const) but keeps unbounded running sums.
+// history since the last reset(). O(1) memory, no window. Keeps power sums about
+// an origin that follows the mean (detail::RunningMomentsOp) and applies
+// RollingKurt's estimator.
 //
 // Convention: the bias-corrected Fisher excess kurtosis, identical to
 // RollingKurt and pandas Series.expanding().kurt(). Undefined (NaN) for n < 4.
@@ -13,50 +14,26 @@
 
 #include <cmath>
 #include <limits>
-#include "screamer/common/base.h"
 #include "screamer/common/math.h"
+#include "screamer/detail/running_moments_op.h"
+#include "screamer/detail/moment_formulas.h"
 
 namespace screamer {
 
-class ExpandingKurt : public ScreamerBase {
+class ExpandingKurt : public detail::RunningMomentsOp<ExpandingKurt, 4, false> {
 public:
     ExpandingKurt() { reset(); }
 
-    void reset() override {
-        sum_x_ = 0.0;
-        sum_xx_ = 0.0;
-        sum_xxx_ = 0.0;
-        sum_xxxx_ = 0.0;
-        n_ = 0;
-    }
-
-    double process_scalar(double x) override {
-        if (std::isnan(x)) {
+    inline double value(const State& st, double) const {
+        if (st.sums.w < 4.0) {
             return std::numeric_limits<double>::quiet_NaN();
         }
-        double x2 = x * x;
-        sum_x_ += x;
-        sum_xx_ += x2;
-        sum_xxx_ += x2 * x;
-        sum_xxxx_ += x2 * x2;
-        ++n_;
-        if (n_ < 4) {
-            return std::numeric_limits<double>::quiet_NaN();
-        }
+        const int n = static_cast<int>(st.sums.w);
         double c0, c1, c2;
-        kurt_n_const(static_cast<int>(n_), c0, c1, c2);
-        double kurt;
-        kurt_from_stats(sum_x_, sum_xx_, sum_xxx_, sum_xxxx_, c0, c1, c2,
-                        static_cast<int>(n_), kurt);
-        return kurt;
+        kurt_n_const(n, c0, c1, c2);
+        return detail::kurt_from_sums(st.sums.s1, st.sums.s2, st.sums.s3, st.sums.s4, n,
+                                      c0, c1, c2);
     }
-
-private:
-    double sum_x_ = 0.0;
-    double sum_xx_ = 0.0;
-    double sum_xxx_ = 0.0;
-    double sum_xxxx_ = 0.0;
-    long n_ = 0;
 };
 
 }  // namespace screamer

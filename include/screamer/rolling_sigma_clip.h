@@ -2,7 +2,7 @@
 #define SCREAMER_ROLLING_SIGMA_CLIP_H
 
 #include "screamer/common/base.h"
-#include "screamer/detail/rolling_sum.h"
+#include "screamer/detail/shifted_window_sums.h"
 #include "screamer/common/float_info.h"
 #include "screamer/common/math.h"
 #include <cmath>
@@ -36,8 +36,7 @@ namespace screamer {
             upper_bound_(upper.value_or(std::numeric_limits<double>::max())),
             output_(parse_output(output)),
             start_policy_(detail::parse_start_policy(start_policy)),
-            sum_x_buffer(window_size, start_policy),
-            sum_xx_buffer(window_size, start_policy)
+            sums_(window_size > 0 ? window_size : 1, detail::parse_start_policy(start_policy))
         {
             if (window_size_ <= 0) {
                 throw std::invalid_argument("Window size must be positive.");
@@ -57,20 +56,30 @@ namespace screamer {
         }
 
         void reset() override {
-            sum_x_buffer.reset();
-            sum_xx_buffer.reset();       
+            sums_.reset();
             mean_ = std::numeric_limits<double>::quiet_NaN();
             std_ = std::numeric_limits<double>::quiet_NaN(); 
             n_ = (start_policy_ != detail::StartPolicy::Zero) ? 0 : window_size_;         
         }
         
         void _update_mean_std(double newValue,size_t n_) {
-            double sum_x = sum_x_buffer.append(newValue);
-            double sum_xx = sum_xx_buffer.append(newValue * newValue);
+            // Sums about an origin near the window mean, stable when the mean
+            // is large next to the spread. The step runs on a copy of the
+            // state, which is then stored back whole.
+            auto c = sums_.cursor();
+            c.push(newValue);
+            sums_.set_state(c.st);
 
-            // Compute the raw mean and std
-            double observed_mean = sum_x / n_;
-            double observed_std = std::sqrt((sum_xx - sum_x * sum_x / n_) / (n_ - 1));
+            // Compute the raw mean and std (NaN until the window is full
+            // under the strict policy, so nothing is clipped before then)
+            double observed_mean = std::numeric_limits<double>::quiet_NaN();
+            double observed_std = std::numeric_limits<double>::quiet_NaN();
+            if (start_policy_ != detail::StartPolicy::Strict || c.st.count == c.cap) {
+                const double sum_d = c.st.s[0];
+                const double sum_dd = c.st.s[1];
+                observed_mean = c.st.origin + sum_d / n_;
+                observed_std = std::sqrt((sum_dd - sum_d * sum_d / n_) / (n_ - 1));
+            }
 
             // Correct to the mean_ and std_ for truncation bias
             estimate_true_mean_std(
@@ -132,8 +141,7 @@ namespace screamer {
         }
 
     private:
-        detail::RollingSum sum_x_buffer;
-        detail::RollingSum sum_xx_buffer;
+        detail::ShiftedWindowSums<2> sums_;
         const detail::StartPolicy start_policy_;
 
         const double lower_bound_;

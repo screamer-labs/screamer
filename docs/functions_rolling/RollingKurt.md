@@ -103,8 +103,10 @@ output is NaN until 4 samples are in the window.
 
 ### Algorithm
 
-`RollingKurt` keeps four rolling sums, of `x`, `x²`, `x³` and `x⁴`, each in a circular
-buffer, and computes the kurtosis from them in closed form.
+`RollingKurt` keeps the window in a circular buffer with four running sums, of `d`,
+`d²`, `d³` and `d⁴` for `d = x - c`, where the origin `c` is close to the window mean,
+and computes the kurtosis from them in closed form (see
+[Accuracy at large levels](../conventions.md#accuracy-at-large-levels)).
 
 ### Complexity
 

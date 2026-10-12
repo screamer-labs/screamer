@@ -13,7 +13,9 @@
 // Convention: first argument is the target, second is the hedge. Matches
 // RollingBeta's argument order so the same beta applies.
 //
-// Four detail::RollingSum buffers under the hood, O(1) per step.
+// Window sums about an origin near the means (detail::ShiftedWindowCoSums),
+// so the result stays accurate when the levels are large next to the spread.
+// O(1) per step.
 
 #include <cmath>
 #include <limits>
@@ -21,21 +23,20 @@
 #include <string>
 #include "screamer/common/functor_base.h"
 #include "screamer/common/float_info.h"
-#include "screamer/detail/rolling_sum.h"
+#include "screamer/detail/shifted_window_sums.h"
 #include "screamer/detail/start_policy.h"
 #include <cstddef>
 
 namespace screamer {
 
 class RollingSpread : public FunctorBase<RollingSpread, 2, 1> {
+    using Sums = detail::ShiftedWindowCoSums<false, true>;
+
 public:
-    RollingSpread(int window_size, const std::string& start_policy = "strict")
-        : window_size_(window_size),
-          start_policy_(detail::parse_start_policy(start_policy)),
-          sum_x_buffer(window_size, "expanding"),
-          sum_y_buffer(window_size, "expanding"),
-          sum_yy_buffer(window_size, "expanding"),
-          sum_xy_buffer(window_size, "expanding")
+    RollingSpread(int window_size,
+          const std::string& start_policy = "strict")
+        : start_policy_(detail::parse_start_policy(start_policy)),
+          sums_(window_size >= 2 ? window_size : 2, start_policy_)
     {
         if (window_size < 2) {
             throw std::invalid_argument("Window size must be 2 or more.");
@@ -43,57 +44,56 @@ public:
         reset();
     }
 
-    void reset() override {
-        sum_x_buffer.reset();
-        sum_y_buffer.reset();
-        sum_yy_buffer.reset();
-        sum_xy_buffer.reset();
-        n_ = (start_policy_ == detail::StartPolicy::Zero) ? window_size_ : 0;
+    void reset() override { sums_.reset(); }
+
+    // One event on the window's state; the batch column loop runs it on a
+    // local copy (FunctorBase, has_stepper). Each product is its own statement
+    // (see shifted_window_sums.h).
+    struct Stepper {
+        Sums::Cursor c;
+        bool strict;
+
+        inline ResultTuple call(const InputArray& inputs) {
+            const double x = inputs[0];
+            const double y = inputs[1];
+            if (isnan2(x) || isnan2(y)) {
+                return std::numeric_limits<double>::quiet_NaN();
+            }
+            c.push(x, y);
+            const std::size_t n_ = c.st.count;
+            if ((strict && n_ < c.cap) || n_ < 2) {
+                return std::numeric_limits<double>::quiet_NaN();
+            }
+            const double nd = static_cast<double>(n_);
+            const double a = nd * c.st.sxy;
+            const double b = c.st.sx * c.st.sy;
+            const double num = a - b;
+            const double ayy = nd * c.st.syy;
+            const double byy = c.st.sy * c.st.sy;
+            const double denom = ayy - byy;
+            if (denom <= 0.0) {
+                return std::numeric_limits<double>::quiet_NaN();
+            }
+            const double beta = num / denom;
+            const double beta_y = beta * y;
+            return x - beta_y;
+        }
+    };
+    Stepper stepper() {
+        return Stepper{sums_.cursor(), start_policy_ == detail::StartPolicy::Strict};
     }
+    void store(const Stepper& k) { sums_.set_state(k.c.st); }
 
     ResultTuple call(const InputArray& inputs) override {
-        const double x = inputs[0];
-        const double y = inputs[1];
-
-        if (isnan2(x) || isnan2(y)) {
-            return std::numeric_limits<double>::quiet_NaN();
-        }
-
-        const double sum_x  = sum_x_buffer .append(x);
-        const double sum_y  = sum_y_buffer .append(y);
-        const double sum_yy = sum_yy_buffer.append(y * y);
-        const double sum_xy = sum_xy_buffer.append(x * y);
-
-        if ((n_ < window_size_) && (start_policy_ != detail::StartPolicy::Zero)) {
-            n_++;
-        }
-
-        if (start_policy_ == detail::StartPolicy::Strict && n_ < window_size_) {
-            return std::numeric_limits<double>::quiet_NaN();
-        }
-        if (n_ < 2) {
-            return std::numeric_limits<double>::quiet_NaN();
-        }
-
-        const double nd = static_cast<double>(n_);
-        const double num   = nd * sum_xy - sum_x * sum_y;
-        const double denom = nd * sum_yy - sum_y * sum_y;
-
-        if (denom <= 0.0) {
-            return std::numeric_limits<double>::quiet_NaN();
-        }
-        const double beta = num / denom;
-        return x - beta * y;
+        Stepper k = stepper();
+        const ResultTuple r = k.call(inputs);
+        store(k);
+        return r;
     }
 
 private:
-    const int window_size_;
     const detail::StartPolicy start_policy_;
-    detail::RollingSum sum_x_buffer;
-    detail::RollingSum sum_y_buffer;
-    detail::RollingSum sum_yy_buffer;
-    detail::RollingSum sum_xy_buffer;
-    size_t n_ = 0;
+    Sums sums_;
 };
 
 }  // namespace screamer
