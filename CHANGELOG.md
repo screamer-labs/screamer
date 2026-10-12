@@ -158,6 +158,9 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
 
 ### Performance
 
+* The Python async iterators no longer copy each event's items into a buffer;
+  the operator reads the awaited items in place, about 0.04 to 0.06 us less
+  per event.
 * `position_test`, `strategy_test` and `walk_forward` no longer copy prices to
   K columns; JavaScript `positionTest` and `walkForward` run the engine once
   per chunk.

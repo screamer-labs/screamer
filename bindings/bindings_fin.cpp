@@ -147,10 +147,10 @@ public:
         nb::cast<screamer::PortfolioReport&>(owner).reset();
     }
 
-    nb::object step(const std::vector<nb::object>& items) override {
+    nb::object step(const screamer::EventItems& items) override {
         const std::size_t event = event_++;
         try {
-            return portfolio_report_row(op_, items[0]);
+            return portfolio_report_row(op_, nb::borrow<nb::object>(items[0]));
         } catch (nb::python_error& e) {
             if (screamer::is_conversion_error(e)) wrong_kind(items, event);
             throw;
@@ -161,7 +161,7 @@ public:
     }
 
 private:
-    void wrong_kind(const std::vector<nb::object>& items, std::size_t event) const {
+    void wrong_kind(const screamer::EventItems& items, std::size_t event) const {
         screamer::throw_if_wrong_kind_event(screamer::op_display_name(owner_), items, event);
     }
 
@@ -304,7 +304,7 @@ public:
         nb::cast<screamer::RowOp&>(owner).reset();
     }
 
-    nb::object step(const std::vector<nb::object>& items) override {
+    nb::object step(const screamer::EventItems& items) override {
         const std::size_t event = event_++;
         try {
             return step_event(items);
@@ -318,11 +318,11 @@ public:
     }
 
 private:
-    void wrong_kind(const std::vector<nb::object>& items, std::size_t event) const {
+    void wrong_kind(const screamer::EventItems& items, std::size_t event) const {
         screamer::throw_if_wrong_kind_event(screamer::op_display_name(owner_), items, event);
     }
 
-    nb::object step_event(const std::vector<nb::object>& items) {
+    nb::object step_event(const screamer::EventItems& items) {
         fields_.clear();
         if (unpack_) {
             nb::handle event = items[0];
@@ -332,7 +332,7 @@ private:
                     std::to_string(op_.fields_in()) + " rows of K values.").c_str());
             for (nb::handle row : event) add(nb::borrow<nb::object>(row));
         } else {
-            for (const auto& row : items) add(row);
+            for (std::size_t i = 0; i < items.size(); ++i) add(nb::borrow<nb::object>(items[i]));
         }
         return row_op_run(op_, fields_);
     }

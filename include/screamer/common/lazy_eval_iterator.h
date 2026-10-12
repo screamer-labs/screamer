@@ -25,7 +25,7 @@ class EventStep {
 public:
     virtual ~EventStep() = default;
     // Runs one event. `items` holds one item per source.
-    virtual nb::object step(const std::vector<nb::object>& items) = 0;
+    virtual nb::object step(const EventItems& items) = 0;
 };
 
 // The EventStep of every EvalOp with a fixed number of fields.
@@ -74,7 +74,7 @@ public:
         return owner.attr("_fresh")();
     }
 
-    nb::object step(const std::vector<nb::object>& items) override {
+    nb::object step(const EventItems& items) override {
         ++event_;
         if (mode_ == Mode::Unknown) {
             if (scalar_values(items)) {
@@ -107,7 +107,7 @@ private:
 
     // Reads the n_in field values of the event into in_ if every one is a
     // plain number.
-    bool scalar_values(const std::vector<nb::object>& items) {
+    bool scalar_values(const EventItems& items) {
         if (unpack_) {
             nb::sequence seq;
             if (!nb::try_cast<nb::sequence>(items[0], seq)) return false;
@@ -130,12 +130,12 @@ private:
         return t;
     }
 
-    nb::object step_assets(const std::vector<nb::object>& items) {
+    nb::object step_assets(const EventItems& items) {
         parts_.clear();
         if (unpack_ && (nb::isinstance<nb::tuple>(items[0]) || nb::isinstance<nb::list>(items[0]))) {
             for (nb::handle h : items[0]) parts_.push_back(nb::borrow<nb::object>(h));   // one per field
         } else {
-            parts_.assign(items.begin(), items.end());
+            for (std::size_t i = 0; i < items.size(); ++i) parts_.push_back(nb::borrow<nb::object>(items[i]));
         }
         if (!ascontiguous_.is_valid()) {
             nb::module_ np = nb::module_::import_("numpy");
@@ -209,14 +209,14 @@ private:
 
     // A failed event: names the first element that is not a number, list,
     // tuple or array, if any (error path only).
-    void throw_if_wrong_kind_event(const std::vector<nb::object>& items) const {
+    void throw_if_wrong_kind_event(const EventItems& items) const {
         screamer::throw_if_wrong_kind_event(op_display_name(op_owner_), items, event_ - 1);
     }
 
     // A later event of a number stream is not numbers: TypeError for a wrong
     // kind, else ValueError giving the shape of the first field that is not a
     // number.
-    [[noreturn]] void throw_scalar_mismatch(const std::vector<nb::object>& items) const {
+    [[noreturn]] void throw_scalar_mismatch(const EventItems& items) const {
         throw_if_wrong_kind_event(items);
         const std::string who = op_display_name(op_owner_);
         const auto event = static_cast<std::ptrdiff_t>(event_ - 1);
@@ -291,7 +291,7 @@ public:
     nb::object __next__() {
         items_.clear();
         for (auto& it : iters_) items_.push_back(next_or_stop(it));
-        return stepper_->step(items_);
+        return stepper_->step(EventItems(items_));
     }
 
 private:

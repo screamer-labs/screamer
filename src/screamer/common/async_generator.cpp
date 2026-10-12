@@ -59,10 +59,8 @@ void LazyAsyncIterator::begin() {
     running_ = true;
 }
 
-nb::object LazyAsyncIterator::step(nb::handle items) {
-    items_.clear();
-    for (nb::handle h : items) items_.push_back(nb::borrow<nb::object>(h));
-    return stepper_->step(items_);
+nb::object LazyAsyncIterator::step(nb::list items) {
+    return stepper_->step(EventItems(items));
 }
 
 } // namespace screamer

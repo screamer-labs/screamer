@@ -131,10 +131,28 @@ inline void throw_if_wrong_kind(const std::string& who, nb::handle x, const std:
     throw_wrong_kind(who, where.empty() ? item : item + " of " + where, bad);
 }
 
+// The items of one event, one per source, read in place: either a Python list
+// (the async path, which reads the awaited items without copying them) or a
+// vector of objects (the sync iterator's buffer). It holds no references, so it
+// must not outlive the container it views.
+class EventItems {
+public:
+    EventItems(const std::vector<nb::object>& v) : vec_(&v), size_(v.size()) {}
+    explicit EventItems(nb::list l) : list_(l.ptr()), size_(static_cast<std::size_t>(PyList_Size(l.ptr()))) {}
+    std::size_t size() const { return size_; }
+    nb::handle operator[](std::size_t i) const {
+        return vec_ ? nb::handle(vec_->operator[](i).ptr()) : nb::handle(PyList_GetItem(list_, static_cast<Py_ssize_t>(i)));
+    }
+private:
+    const std::vector<nb::object>* vec_ = nullptr;
+    PyObject* list_ = nullptr;
+    std::size_t size_;
+};
+
 // One failed event of a stream, `items` holding one item per source: names
 // the first wrong-kind element, as "event 3" (one source) or "event 3 of
 // input 1", and returns when there is none.
-inline void throw_if_wrong_kind_event(const std::string& who, const std::vector<nb::object>& items,
+inline void throw_if_wrong_kind_event(const std::string& who, const EventItems& items,
                                       std::size_t event) {
     for (std::size_t i = 0; i < items.size(); ++i)
         throw_if_wrong_kind(who, items[i], where_text("event", static_cast<std::ptrdiff_t>(event),

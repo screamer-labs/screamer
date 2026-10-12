@@ -44,13 +44,12 @@ public:
     void end() { running_ = false; }
 
     // Runs one event, given one awaited item per source.
-    nb::object step(nb::handle items);
+    nb::object step(nb::list items);
 
 private:
     std::unique_ptr<EventStep> stepper_;
     nb::list sources_;                    // the sources' async iterators
     nb::object anext_event_;              // screamer._async.anext_event
-    std::vector<nb::object> items_;       // per-event buffer, kept to reuse its storage
     bool running_ = false;
 };
 
