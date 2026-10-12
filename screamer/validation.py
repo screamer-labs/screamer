@@ -13,13 +13,16 @@ often luck alone does as well:
 These functions are batch-only. They read whole series to build surrogates, so
 they are validation tools, not streaming operators. The surrogates are built
 in C++ (``circular_shift``, ``segment_shuffle``), and the backtests and the
-report are the ordinary C++ engines run on ``(T, n)`` columns. This module
-only chains them and counts.
+report are the ordinary C++ engines run on ``(T, n)`` columns.
+``strategy_test`` runs in the C++ driver it shares with JavaScript
+(``include/screamer/validation/strategy_test.h``), which calls the strategy
+back; here it only converts the arguments and the result.
 
 ``walk_forward`` is the out-of-sample counterpart: it picks the best of
 several strategy variants on each training window and trades the pick on the
 window that follows.
 """
+import operator
 from typing import Callable, NamedTuple, Optional, Union
 
 import numpy as np
@@ -36,6 +39,7 @@ from .screamer_bindings import (
     _permute_bars,
     _permute_returns,
     _segment_shuffle,
+    _strategy_test,
 )
 
 __all__ = ["position_test", "strategy_test", "circular_shift", "segment_shuffle",
@@ -529,20 +533,6 @@ class StrategyTestResult(NamedTuple):
     null_stats: Optional[dict] = None
 
 
-def _engine_output(out):
-    """The engine output from a strategy's return value: (T, 4), or (T, K, 4)
-    for a portfolio."""
-    if isinstance(out, tuple):            # a Pipeline returns (values, index)
-        out = out[0]
-    out = np.asarray(out, dtype=float)
-    if not ((out.ndim == 2 and out.shape[1] == 4) or (out.ndim == 3 and out.shape[2] == 4)):
-        raise ValueError(
-            "strategy must return a backtest engine output of shape (T, 4) "
-            "[equity, pnl, position, cost], a portfolio output of shape (T, K, 4), "
-            "or a (values, index) pair holding one")
-    return out
-
-
 def strategy_test(
     strategy: Callable,
     *inputs,
@@ -611,118 +601,29 @@ def strategy_test(
     never zero. ``observed_stats`` and ``null_stats`` in the result hold every
     statistic of the real and the randomized runs.
     """
-    if method not in ("bars", "returns", "shift"):
-        raise ValueError('method must be "bars", "returns", or "shift"')
     name, larger_is_better = _metric_name(metric, larger_is_better)
-    if n < 1:
-        raise ValueError("n must be at least 1")
-    seed = _seed(seed)
     data = [_as_block(x, "input") for x in inputs]
-    if not data:
-        raise ValueError("strategy_test needs at least one input")
-    T = data[0].shape[0]
-    if any(x.shape[0] != T for x in data):
-        raise ValueError("all inputs must have the same length")
-    k = len(data)
 
-    def check_positions(pos, what):
-        pos = [int(i) for i in pos]
-        if any(i < 0 or i >= k for i in pos):
-            raise ValueError(f"{what} refers to an input that does not exist")
-        return pos
+    def run(*args):
+        out = strategy(*args)
+        if isinstance(out, tuple):            # a Pipeline returns (values, index)
+            out = out[0]
+        return np.ascontiguousarray(out, dtype=float)
 
-    fixed = set(check_positions(fixed, "fixed"))
-    _check_modes(mode, volume_mode)
-    vol_col = None if volume is None else check_positions([volume], "volume")[0]
-    if vol_col is not None and method == "shift":
-        raise ValueError('volume applies to method="bars" or "returns"')
-    if method == "bars":
-        price_cols = check_positions(ohlc, "ohlc")
-        if len(price_cols) != 4:
-            raise ValueError("ohlc must list the positions of open, high, low, close")
-        if any(data[i].shape != data[price_cols[0]].shape for i in price_cols):
-            raise ValueError("open, high, low, and close must have the same shape")
-    elif method == "returns":
-        price_cols = check_positions([price], "price")
-    else:
-        if not columns:
-            raise ValueError('method="shift" needs the feature positions in columns')
-        price_cols = []
-        shifted = check_positions(columns, "columns")
-        shift = max(1, T // 10) if min_shift is None else int(min_shift)
-        if shift < 1 or 2 * shift > T:
-            raise ValueError("min_shift must be in [1, T / 2]")
-        positions = np.arange(T, dtype=float)
+    score = None
+    if callable(metric):
+        def score(out):                       # the metric sees (T, k, 4)
+            value = metric(out if out.ndim == 3 else out[:, None, :])
+            return float(np.asarray(value, dtype=float).reshape(-1)[0])
 
-    def run_stats(out):
-        out = _engine_output(out)
-        if out.ndim == 3:                  # a portfolio: score the whole book
-            stats = _book_stats(out, periods_per_year)
-        else:
-            out = out[:, None, :]
-            stats = _run_stats(out, periods_per_year)
-        return (float(_score(out, metric, stats)[0]),
-                {k: float(v[0]) for k, v in stats.items()})
-
-    # A volume with the shape of the prices goes to the permutation kernel.
-    # Otherwise, such as one (T,) volume next to (T, K) prices, "keep" moves it
-    # with its bar like any other input, and "notional" cannot rescale it.
-    notional = volume_mode == "notional"
-    if vol_col is not None and data[vol_col].shape != data[price_cols[0]].shape:
-        if notional:
-            raise ValueError('volume_mode="notional" needs a volume input with the '
-                             "shape of the prices")
-        vol_col = None
-    vol_block = _EMPTY if vol_col is None else data[vol_col]
-
-    observed, observed_stats = run_stats(strategy(*data))
-
-    null = np.empty(n)
-    null_stats = {key: np.empty(n) for key in _METRICS}
-    # Copies per chunk: up to 64, fewer for a large panel (six (T, m, K) blocks).
-    width = max(x.size for x in data)
-    chunk = max(1, min(n, 64, _CHUNK_DOUBLES // (6 * max(1, width))))
-    for col0 in range(0, n, chunk):
-        m = min(chunk, n - col0)
-        if method == "bars":
-            out = _permute_bars(*(data[i] for i in price_cols), mode, seed, col0, m,
-                                vol_block, notional)
-            src = out[4]
-            replaced = dict(zip(price_cols, out[:4]))
-            if vol_col is not None:
-                replaced[vol_col] = out[5]
-        elif method == "returns":
-            out = _permute_returns(data[price_cols[0]], mode, seed, col0, m, vol_block,
-                                   notional)
-            src = out[1]
-            replaced = {price_cols[0]: out[0]}
-            if vol_col is not None:
-                replaced[vol_col] = out[2]
-        else:
-            src = _circular_shift(positions, shift, seed, col0, m)
-            replaced = {}
-        src = src.astype(np.intp)
-        for j in range(m):
-            run = []
-            for i, x in enumerate(data):
-                if i in replaced:
-                    run.append(np.ascontiguousarray(replaced[i][:, j]))
-                elif i in fixed or (method == "shift" and i not in shifted):
-                    run.append(x)
-                else:
-                    run.append(x[src[:, j]])
-            null[col0 + j], stats = run_stats(strategy(*run))
-            for key, v in stats.items():
-                null_stats[key][col0 + j] = v
-
-    null = null[np.isfinite(null)]
-    if larger_is_better:
-        hits = np.count_nonzero(null >= observed)
-    else:
-        hits = np.count_nonzero(null <= observed)
-    p_value = (1.0 + hits) / (1.0 + null.size) if np.isfinite(observed) else float("nan")
-    return StrategyTestResult(observed, null, float(p_value), name, method,
-                              observed_stats, null_stats)
+    positions = lambda pos: [int(i) for i in pos]  # noqa: E731
+    observed, null, p_value, observed_stats, null_stats = _strategy_test(
+        run, score, data, operator.index(n), method, positions(ohlc), int(price), mode,
+        None if volume is None else int(volume), volume_mode,
+        [] if columns is None else positions(columns), positions(fixed),
+        name if isinstance(metric, str) else "", larger_is_better,
+        None if min_shift is None else int(min_shift), _seed(seed), float(periods_per_year))
+    return StrategyTestResult(observed, null, p_value, name, method, observed_stats, null_stats)
 
 
 def _pnl_of(values):

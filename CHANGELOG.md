@@ -77,6 +77,19 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
 * One-input operators such as `RollingMean` raise `TypeError` for an input
   they cannot read (was `ValueError` with "Unsupported input type for call").
   Code that caught `ValueError` for this case should catch `TypeError`.
+* `strategy_test` (Python) and `strategyTest` (JavaScript) run in one C++
+  implementation that calls your strategy back. They are faster, 1.1 to 5
+  times in our measurements, most when the strategy itself is quick.
+  The error for a strategy that returns no engine output now ends "or a
+  pipeline output holding one" in both languages (was "or a (values, index)
+  pair holding one" in Python). JavaScript errors now use the Python text, for
+  example `method="shift" needs the feature positions in columns` and
+  `strategy_test needs at least one input`; the classes are unchanged. In
+  JavaScript, a portfolio of 8 or more assets is summed into its book in
+  NumPy's pairwise order, as in Python, so its statistics can differ from
+  2.8.0 in the last bits; compare with a tolerance.
+* `permute_bars` and `permute_returns` on one series write 8 copies per pass
+  and are 1.2 to 2 times faster; the copies are unchanged.
 * `strategy_test` input errors: a `str` or `None` input raises `TypeError`
   (2.8.0 raised `ValueError`), so catch `TypeError` for these. A 0-d scalar
   input still raises `ValueError`, now with the message "input must be 1-D

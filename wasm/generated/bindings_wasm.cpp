@@ -190,6 +190,7 @@
 #include "screamer/true_range.h"
 #include "screamer/ultimate_oscillator.h"
 #include "screamer/validation/sharpe.h"
+#include "screamer/validation/strategy_test.h"
 #include "screamer/validation/surrogates.h"
 #include "screamer/vpin.h"
 #include "screamer/vwap.h"

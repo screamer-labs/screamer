@@ -308,3 +308,63 @@ test("validation: permute errors come from C++ as RangeError; panels are rejecte
   assert.deepEqual(Array.from((permuteReturns(one, 2, { seed: 1 }) as any).data),
                    Array.from((permuteReturns(x, 2, { seed: 1 }) as any).data));
 });
+
+// B5: strategyTest runs in the shared C++ driver; the strategy is a callback.
+test("validation: strategyTest callback errors reach the caller unchanged", async () => {
+  const { strategyTest, BacktestPriceTarget, EwMean } = await import("../src/index.ts");
+  const T = 60;
+  const price = Float64Array.from({ length: T }, (_, t) => 100 + Math.sin(t / 5) + t / 10);
+  const hold = (p: Float64Array) => BacktestPriceTarget()(new Float64Array(T).fill(1), p);
+  class StrategyFailed extends Error {}
+  const thrown = new StrategyFailed("from the strategy");
+  let calls = 0;
+  const failsLate = (p: Float64Array) => { if (++calls === 3) throw thrown; return hold(p); };
+  assert.throws(() => strategyTest(failsLate, [price], { method: "returns", n: 5 }), (e) => e === thrown);
+  assert.equal(calls, 3);
+  const notAnError = { code: 7 };
+  assert.throws(() => strategyTest(() => { throw notAnError; }, [price], { method: "returns", n: 2 }),
+    (e) => e === notAnError);
+  assert.throws(() => strategyTest(hold, [price], { method: "returns", n: 2,
+    metric: () => { throw new EvalError("from the metric"); } }), { name: "EvalError", message: "from the metric" });
+  // a C++ error inside the strategy (an invalid operator) is a RangeError as usual
+  assert.throws(() => strategyTest((p: Float64Array) => EwMean(NaN, -1)(p), [price], { method: "returns", n: 2 }),
+    RangeError);
+
+  // A strategy that catches an error from WASM on every run: the driver's own
+  // frames survive, so the result equals the run without the caught errors.
+  const ref = strategyTest(hold, [price], { method: "returns", n: 20, seed: 4 });
+  const catching = (p: Float64Array) => {
+    assert.throws(() => EwMean(NaN, -1)(p), RangeError);
+    return hold(p);
+  };
+  for (let i = 0; i < 3; i++) {
+    const got = strategyTest(catching, [price], { method: "returns", n: 20, seed: 4 });
+    assert.deepEqual(Array.from(got.null), Array.from(ref.null));
+    assert.deepEqual(Array.from(got.nullStats.sharpe), Array.from(ref.nullStats.sharpe));
+  }
+  // many failed tests in a row leave the module usable
+  for (let i = 0; i < 2000; i++) {
+    let k = 0;
+    assert.throws(() => strategyTest((p: Float64Array) => { if (++k === 2) throw thrown; return hold(p); },
+      [price], { method: "returns", n: 3 }), (e) => e === thrown);
+  }
+  const again = strategyTest(hold, [price], { method: "returns", n: 20, seed: 4 });
+  assert.deepEqual(Array.from(again.null), Array.from(ref.null));
+});
+
+test("validation: strategyTest gives each run new input arrays", async () => {
+  const { strategyTest, BacktestPriceTarget } = await import("../src/index.ts");
+  const T = 40;
+  const price = Float64Array.from({ length: T }, (_, t) => 100 + t + Math.sin(t));
+  const feature = Float64Array.from({ length: T }, (_, t) => t);
+  const seen: Float64Array[][] = [];
+  strategyTest((p: Float64Array, f: Float64Array) => {
+    seen.push([p, f]);
+    return BacktestPriceTarget()(new Float64Array(T).fill(1), p);
+  }, [price, feature], { method: "returns", n: 3, seed: 1 });
+  assert.deepEqual(Array.from(seen[0][1]), Array.from(feature));   // the real run
+  for (const i of [0, 1]) {
+    assert.notEqual(seen[1][i].buffer, seen[2][i].buffer);
+    assert.notDeepEqual(Array.from(seen[1][i]), Array.from(seen[2][i]));
+  }
+});

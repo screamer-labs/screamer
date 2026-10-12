@@ -1,3 +1,5 @@
+import sys
+
 import numpy as np
 import pytest
 
@@ -877,3 +879,95 @@ def test_strategy_test_zero_assets():
     empty = np.empty((30, 0))
     with pytest.raises(ValueError, match="at least one asset"):
         s.strategy_test(lambda c: np.zeros((30, 4)), empty, method="returns", n=2)
+
+
+# --- strategy_test driver in shared C++ (tracker B5) -------------------------
+
+class _StrategyFailed(Exception):
+    pass
+
+
+def test_strategy_test_callback_errors_propagate_unchanged():
+    c = _panel(T=60, K=1, seed=12)[3][:, 0]
+    raised = _StrategyFailed("from the strategy")
+    calls = []
+
+    def fails_late(price):
+        calls.append(price)
+        if len(calls) == 3:
+            raise raised
+        return s.BacktestPriceTarget()(np.ones(len(price)), price)
+
+    with pytest.raises(_StrategyFailed) as info:
+        s.strategy_test(fails_late, c, method="returns", n=5)
+    assert info.value is raised and len(calls) == 3
+    with pytest.raises(ZeroDivisionError):
+        s.strategy_test(lambda p: s.BacktestPriceTarget()(np.ones(60), p), c,
+                        method="returns", n=2, metric=lambda out: 1 / 0)
+    # the inputs are not held on to after a failed run
+    before = sys.getrefcount(c)
+    for _ in range(50):
+        with pytest.raises(_StrategyFailed):
+            s.strategy_test(lambda p: (_ for _ in ()).throw(_StrategyFailed()), c,
+                            method="returns", n=2)
+    assert sys.getrefcount(c) == before
+
+
+def test_strategy_test_moved_inputs_are_new_arrays():
+    o, h, l, c = _panel(T=50, K=2, seed=13)
+    f = np.arange(50.0)
+    seen = []
+
+    def book(price, feature):
+        seen.append((price, feature))
+        return s.BacktestPortfolioTarget()(np.full(price.shape, 0.5), price)
+
+    s.strategy_test(book, c, f, method="returns", n=3, seed=1)
+    assert seen[0][0] is c and seen[0][1] is f          # the real run gets the inputs
+    for (p1, f1), (p2, f2) in zip(seen[1:], seen[2:]):
+        assert not np.shares_memory(p1, p2) and not np.shares_memory(f1, f2)
+
+
+@pytest.mark.parametrize("K", [2, 9, 130])
+def test_strategy_test_book_sum_matches_numpy(K):
+    # A portfolio is scored on the book summed over assets in NumPy's
+    # pairwise order, so the statistics equal those of the NumPy book.
+    from screamer.validation import _book_stats
+    c = _panel(T=80, K=K, seed=K)[3]
+    outs = []
+
+    def book(price):
+        w = np.sign(np.sin(np.arange(80.0)))[:, None] * np.full(price.shape, 1.0 / K)
+        out = s.BacktestPortfolioTarget(fee=1e-4)(w, price)
+        outs.append(out)
+        return out
+
+    res = s.strategy_test(book, c, method="returns", n=4, seed=2)
+    for j, out in enumerate(outs):
+        ref = {k: float(v[0]) for k, v in _book_stats(out, 1.0).items()}
+        got = res.observed_stats if j == 0 else {k: v[j - 1] for k, v in res.null_stats.items()}
+        for k in ref:
+            assert np.array_equal(got[k], ref[k], equal_nan=True), (K, j, k)
+
+
+@pytest.mark.parametrize("mode", ["log", "diff", "level"])
+@pytest.mark.parametrize("K", [1, 3])
+def test_kernel_copies_do_not_depend_on_the_tile(mode, K):
+    # The kernels write tiles of 8 copies per pass; each copy must equal the
+    # same copy generated alone (13 copies from column 5: one full tile and a
+    # partial one).
+    o, h, l, c = _panel(T=90, K=K, seed=14)
+    v = np.ascontiguousarray(1000 + np.arange(90.0 * K).reshape(90, K))
+    x = c.copy()
+    x[:4, 0] = np.nan
+    if K == 1:
+        o, h, l, c, v, x = (np.ascontiguousarray(a[:, 0]) for a in (o, h, l, c, v, x))
+    bars = _permute_bars(o, h, l, c, mode, 9, 5, 13, v, True)
+    rets = _permute_returns(x, mode, 9, 5, 13, v, True)
+    for j in range(13):
+        one = _permute_bars(o, h, l, c, mode, 9, 5 + j, 1, v, True)
+        for got, ref in zip(bars, one):
+            np.testing.assert_array_equal(got[:, j], ref[:, 0])
+        one = _permute_returns(x, mode, 9, 5 + j, 1, v, True)
+        for got, ref in zip(rets, one):
+            np.testing.assert_array_equal(got[:, j], ref[:, 0])

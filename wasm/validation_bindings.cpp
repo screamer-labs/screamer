@@ -3,13 +3,18 @@
 // the generated point-op bindings. Buffers are WASM heap addresses from
 // allocF64; the output is a row-major (T x ncols) block. Seeds travel as
 // doubles (integers below 2^53) so no BigInt support is needed.
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
+#include <exception>
 #include <string>
+#include <utility>
+#include <vector>
 #include <emscripten/bind.h>
 #include <emscripten/val.h>
 #include "screamer/validation/surrogates.h"
 #include "screamer/validation/sharpe.h"
+#include "screamer/validation/strategy_test.h"
 
 namespace {
 
@@ -85,6 +90,118 @@ void deflatedSharpeInto(std::uintptr_t pnl, std::size_t n, std::uintptr_t trials
     out_ptr(out)[1] = benchmark;
 }
 
+// strategy_test (js/src/validation.ts strategyTest): the driver is
+// screamer::validation::strategy_test; this host reaches the JavaScript
+// strategy through `cb`, an object of three functions that never throw:
+//   run(argsPtr, hdrPtr): calls the strategy. argsPtr holds k heap addresses,
+//     0 for an original input, else the moved copy (T * K doubles). Writes the
+//     output's [ndim, d0, d1, d2] to hdrPtr.
+//   fetch(outPtr, count): copies the last output's count values to outPtr.
+//   metric(hdrPtr): writes the custom metric of the last output to hdrPtr[0].
+// Each returns 0, or 1 when the user's code threw; the JS side keeps that
+// error, this host throws CallbackFailed to unwind the driver, and the JS
+// wrapper rethrows the user's error unchanged.
+namespace sv = screamer::validation;
+
+struct CallbackFailed : std::exception {
+    const char* what() const noexcept override { return "strategyTest callback failed"; }
+};
+
+class JsStrategyHost final : public sv::StrategyHost {
+public:
+    JsStrategyHost(emscripten::val cb, std::size_t k)
+        : cb_(std::move(cb)), moved_(k), args_(k, 0.0) {}
+
+    double* moved_input(std::size_t i, std::size_t size) override {
+        moved_[i].resize(size ? size : 1);   // reused: JS copies it into a new array
+        return moved_[i].data();
+    }
+
+    sv::EngineOutput run(const std::vector<unsigned char>& moved) override {
+        for (std::size_t i = 0; i < args_.size(); ++i)
+            args_[i] = moved[i] ? static_cast<double>(reinterpret_cast<std::uintptr_t>(moved_[i].data()))
+                                : 0.0;
+        check(cb_.call<int>("run", reinterpret_cast<std::uintptr_t>(args_.data()),
+                            reinterpret_cast<std::uintptr_t>(hdr_)));
+        sv::EngineOutput out;
+        out.ndim = static_cast<std::size_t>(hdr_[0]);
+        std::size_t count = out.ndim == 2 || out.ndim == 3 ? 1 : 0;
+        for (std::size_t d = 0; d < 3; ++d) {
+            out.shape[d] = static_cast<std::size_t>(hdr_[1 + d]);
+            if (d < out.ndim) count *= out.shape[d];
+        }
+        out_.resize(count ? count : 1);
+        if (count) check(cb_.call<int>("fetch", reinterpret_cast<std::uintptr_t>(out_.data()), count));
+        out.data = out_.data();
+        return out;
+    }
+
+    double metric() override {
+        check(cb_.call<int>("metric", reinterpret_cast<std::uintptr_t>(hdr_)));
+        return hdr_[0];
+    }
+
+private:
+    static void check(int status) { if (status != 0) throw CallbackFailed(); }
+
+    emscripten::val cb_;
+    std::vector<std::vector<double>> moved_;
+    std::vector<double> args_, out_;
+    double hdr_[4] = {0, 0, 0, 0};
+};
+
+std::vector<std::int64_t> positions(const emscripten::val& v) {
+    std::vector<std::int64_t> out;
+    for (double x : emscripten::vecFromJSArray<double>(v)) out.push_back(static_cast<std::int64_t>(x));
+    return out;
+}
+
+// `spec` holds [data address, T, K, panel] per input. `out` receives
+// [observed, p_value, null count, null (n), observed stats (15), null stats
+// (15 x n)]. Positions and counts arrive as integers (the JS side maps a
+// non-integer to -1 or 0, which the driver rejects); strings as vals, as in
+// permuteBarsInto.
+void strategyTestInto(emscripten::val cb, std::uintptr_t spec, std::size_t k,
+                      emscripten::val method, double n, emscripten::val ohlc, double price,
+                      emscripten::val mode, bool has_volume, double volume,
+                      emscripten::val volume_mode, emscripten::val columns,
+                      emscripten::val fixed, emscripten::val metric, bool larger_is_better,
+                      bool has_min_shift, double min_shift, double seed,
+                      double periods_per_year, std::uintptr_t out) {
+    const double* sp = in_ptr(spec);
+    std::vector<sv::StrategyInput> data(k);
+    for (std::size_t i = 0; i < k; ++i)
+        data[i] = {in_ptr(static_cast<std::uintptr_t>(sp[4 * i])),
+                   static_cast<std::size_t>(sp[4 * i + 1]), static_cast<std::size_t>(sp[4 * i + 2]),
+                   sp[4 * i + 3] != 0.0};
+    sv::StrategyTestOptions opt;
+    opt.n = static_cast<std::int64_t>(n);
+    opt.method = method.as<std::string>();
+    opt.ohlc = positions(ohlc);
+    opt.price = static_cast<std::int64_t>(price);
+    opt.mode = mode.as<std::string>();
+    if (has_volume) opt.volume = static_cast<std::int64_t>(volume);
+    opt.volume_mode = volume_mode.as<std::string>();
+    opt.columns = positions(columns);
+    opt.fixed = positions(fixed);
+    opt.metric = metric.as<std::string>();
+    opt.larger_is_better = larger_is_better;
+    if (has_min_shift) opt.min_shift = static_cast<std::int64_t>(min_shift);
+    opt.seed = static_cast<std::uint64_t>(seed);
+    opt.periods_per_year = periods_per_year;
+
+    JsStrategyHost host(std::move(cb), k);
+    const sv::StrategyTestResult r = sv::strategy_test(host, data, opt);
+    const std::size_t nn = static_cast<std::size_t>(opt.n);
+    double* o = out_ptr(out);
+    o[0] = r.observed;
+    o[1] = r.p_value;
+    o[2] = static_cast<double>(r.null.size());
+    std::copy(r.null.begin(), r.null.end(), o + 3);
+    std::copy(r.observed_stats.begin(), r.observed_stats.end(), o + 3 + nn);
+    std::copy(r.null_stats.begin(), r.null_stats.end(), o + 3 + nn + sv::kNumStats);
+}
+
 }  // namespace
 
 EMSCRIPTEN_BINDINGS(screamer_validation) {
@@ -95,4 +212,5 @@ EMSCRIPTEN_BINDINGS(screamer_validation) {
     emscripten::function("permuteReturnsInto", &permuteReturnsInto);
     emscripten::function("probabilisticSharpe", &probabilisticSharpe);
     emscripten::function("deflatedSharpeInto", &deflatedSharpeInto);
+    emscripten::function("strategyTestInto", &strategyTestInto);
 }

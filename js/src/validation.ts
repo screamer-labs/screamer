@@ -6,11 +6,13 @@
 // randomizes its data (permuted bars or returns, or shifted features), re-running
 // the whole strategy on each copy. These are batch-only validation tools, not streaming
 // operators. The surrogates are built in C++ (validation_bindings.cpp), and the
-// backtests and the report are the ordinary C++ engines; this module only
-// chains them and counts. The same seed gives the same surrogates as Python.
+// backtests and the report are the ordinary C++ engines. `strategyTest` runs
+// in the C++ driver shared with Python (include/screamer/validation/
+// strategy_test.h), which calls the strategy back; this module converts its
+// arguments and results. The same seed gives the same surrogates as Python.
 import { current } from "./index.js";
 import { asNd, type NdArray } from "./ndarray.js";
-import { wasmCall } from "./errors.js";
+import { callbackScope, wasmCall } from "./errors.js";
 import type { ScreamerOp } from "./runtime.js";
 import { BacktestReport, BacktestStats, PortfolioReport } from "./generated/ops.js";
 
@@ -61,14 +63,10 @@ function defaultMinShift(x: ArrayLike<number>): number {
   }
 }
 
+// The C++ kernel checks the length and min_shift; its errors arrive as
+// RangeError through wasmCall.
 function shiftBlock(x: ArrayLike<number>, minShift: number, seed: number,
                     col0: number, ncols: number, start = -1): NdArray {
-  const L = start < 0 ? validLength(x) : x.length - start;
-  if (L < 2)
-    throw new RangeError("circular_shift needs at least two values after the NaN warmup.");
-  if (2 * minShift > L)
-    throw new RangeError("min_shift is too large: it must be at most half the series " +
-                         "length after the NaN warmup.");
   return surrogates(x, ncols, (xp, op) => wasmCall(() =>
     current().circularShiftInto(xp, x.length, minShift, seed, col0, ncols, op, start)));
 }
@@ -658,18 +656,6 @@ export interface StrategyTestResult {
   nullStats: Record<StatName, Float64Array>;
 }
 
-function engineOutput(out: any): NdArray {
-  const v = out && out.values !== undefined ? out.values : out;   // Pipeline Output
-  const ok = asNd(v) && ((v.shape.length === 2 && v.shape[1] === 4) ||
-                              (v.shape.length === 3 && v.shape[2] === 4));
-  if (!ok)
-    throw new RangeError(
-      "strategy must return a backtest engine output of shape (T, 4) " +
-      "[equity, pnl, position, cost], a portfolio output of shape (T, K, 4), " +
-      "or a pipeline output holding one");
-  return v as NdArray;
-}
-
 /** One strategyTest input: a series of T values, or a (T, K) panel as an
  * NdArray or as T rows of K values. */
 export type StrategyInput = ArrayLike<number> | ArrayLike<number>[] | NdArray;
@@ -735,109 +721,72 @@ export function strategyTest(
   const method = opts.method ?? "bars";
   const metric = opts.metric ?? "sharpe";
   const seed = opts.seed ?? 0;
-  if (method !== "bars" && method !== "returns" && method !== "shift")
-    throw new RangeError('method must be "bars", "returns", or "shift"');
-  if (!Number.isInteger(n) || n < 1) throw new RangeError("n must be at least 1");
   checkSeed(seed);
   const { name, larger } = metricSpec(metric, opts.largerIsBetter);
   const blocks = inputs.map((x, i) => toBlock(x, i));
-  if (blocks.length === 0) throw new RangeError("strategyTest needs at least one input");
-  const T = blocks[0].T, k = blocks.length;
-  if (blocks.some((b) => b.T !== T)) throw new RangeError("all inputs must have the same length");
-  const sameShape = (a: Block, b: Block) => a.panel === b.panel && a.K === b.K;
-  const check = (pos: number[], what: string) => {
-    if (pos.some((i) => !Number.isInteger(i) || i < 0 || i >= k))
-      throw new RangeError(`${what} refers to an input that does not exist`);
-    return pos;
-  };
-  const fixed = new Set(check(opts.fixed ?? [], "fixed"));
-  const mode = opts.mode ?? "log", volumeMode = opts.volumeMode ?? "keep";
-  checkModes(mode, volumeMode);
-  let volCol = opts.volume === undefined ? null : check([opts.volume], "volume")[0];
-  if (volCol !== null && method === "shift")
-    throw new RangeError('volume applies to method "bars" or "returns"');
-  const notional = volumeMode === "notional";
-  let priceCols: number[] = [], shifted = new Set<number>(), shift = 0;
-  if (method === "bars") {
-    priceCols = check([...(opts.ohlc ?? [0, 1, 2, 3])], "ohlc");
-    if (priceCols.length !== 4) throw new RangeError("ohlc must list the positions of open, high, low, close");
-    if (priceCols.some((i) => !sameShape(blocks[i], blocks[priceCols[0]])))
-      throw new RangeError("open, high, low, and close must have the same shape");
-  } else if (method === "returns") {
-    priceCols = check([opts.price ?? 0], "price");
-  } else {
-    if (!opts.columns || opts.columns.length === 0)
-      throw new RangeError('method "shift" needs the feature positions in columns');
-    shifted = new Set(check(opts.columns, "columns"));
-    shift = opts.minShift ?? Math.max(1, Math.floor(T / 10));
-    if (!Number.isInteger(shift) || shift < 1 || 2 * shift > T)
-      throw new RangeError("min_shift must be in [1, T / 2]");
-  }
-  // A volume with the shape of the prices goes to the permutation kernel.
-  // Otherwise "keep" moves it with its bar like any other input, and
-  // "notional" cannot rescale it.
-  if (volCol !== null && !sameShape(blocks[volCol], blocks[priceCols[0]])) {
-    if (notional)
-      throw new RangeError('volume_mode="notional" needs a volume input with the shape of the prices');
-    volCol = null;
-  }
-  const P = priceCols.length ? blocks[priceCols[0]] : blocks[0];
-  const vol = volCol === null ? null : blocks[volCol].data;
+  const M = current();
+  const k = blocks.length;
+  // Positions and counts go to C++ as integers; a non-integer becomes one the
+  // driver rejects with its usual message.
+  const int = (v: number, bad: number) => (Number.isInteger(v) ? v : bad);
+  const pos = (xs: readonly number[]) => xs.map((i) => int(i, -1));
 
-  const scorer = makeScorer(metric, opts.periodsPerYear ?? 1);
+  // The callbacks C++ makes (wasm/validation_bindings.cpp). They never throw:
+  // the user's error is kept here and rethrown once the driver has unwound.
+  let failed = false, error: unknown;
+  let last: NdArray | null = null;
+  const guard = (f: () => void): number => {
+    try { callbackScope(f); return 0; } catch (e) { failed = true; error = e; return 1; }
+  };
+  const callbacks = {
+    run: (argsPtr: number, hdrPtr: number) => guard(() => {
+      const ptrs = M.viewF64(argsPtr, k);
+      const args = blocks.map((b, i) => asArg(b, ptrs[i] === 0 ? b.data
+        : new Float64Array(M.viewF64(ptrs[i], b.T * b.K))));
+      const out = strategy(...args);
+      last = asNd(out && out.values !== undefined ? out.values : out);   // Pipeline Output
+      const shape = last ? last.shape : [];
+      M.viewF64(hdrPtr, 4).set([shape.length, shape[0] ?? 0, shape[1] ?? 0, shape[2] ?? 0]);
+    }),
+    fetch: (outPtr: number, count: number) => guard(() => {
+      M.viewF64(outPtr, count).set((last as NdArray).data.subarray(0, count));
+    }),
+    metric: (hdrPtr: number) => guard(() => {
+      M.viewF64(hdrPtr, 1)[0] = (metric as (out: NdArray) => number)(last as NdArray);
+    }),
+  };
+
+  const bufs: number[] = [];
   try {
-    const obs = scorer.score(engineOutput(strategy(...blocks.map((b) => asArg(b, b.data)))));
-    const observed = obs.value;
-    const nullStats = statsRecord(() => new Float64Array(n));
-    const positions = Float64Array.from({ length: T }, (_, i) => i);
-    const nul: number[] = [];
-    const chunk = Math.max(1, Math.min(n, 64));
-    for (let c0 = 0; c0 < n; c0 += chunk) {
-      const m = Math.min(chunk, n - c0);
-      let replaced = new Map<number, Float64Array>(), src: Float64Array;
-      if (method === "bars") {
-        const [o, h, l, c] = priceCols.map((i) => blocks[i].data);
-        const b = barsBlock(o, h, l, c, T, P.K, mode, seed, c0, m, vol, notional);
-        priceCols.forEach((i, q) => replaced.set(i, b[q]));
-        if (volCol !== null) replaced.set(volCol, b[5]);
-        src = b[4];
-      } else if (method === "returns") {
-        const r = returnsBlock(P.data, T, P.K, mode, seed, c0, m, vol, notional);
-        replaced.set(priceCols[0], r[0]);
-        if (volCol !== null) replaced.set(volCol, r[2]);
-        src = r[1];
-      } else {
-        src = shiftBlock(positions, shift, seed, c0, m).data;
-      }
-      for (let j = 0; j < m; j++) {
-        const run = blocks.map((b, i) => {
-          if (fixed.has(i) || (method === "shift" && !shifted.has(i))) return asArg(b, b.data);
-          const K = b.K, col = new Float64Array(T * K);
-          const blk = replaced.get(i);
-          if (blk !== undefined) {
-            // copy j of a (T x m x K) block
-            for (let t = 0; t < T; t++)
-              col.set(blk.subarray((t * m + j) * K, (t * m + j + 1) * K), t * K);
-          } else {
-            for (let t = 0; t < T; t++) {
-              const s = src[t * m + j] * K;
-              col.set(b.data.subarray(s, s + K), t * K);
-            }
-          }
-          return asArg(b, col);
-        });
-        const r = scorer.score(engineOutput(strategy(...run)));
-        STAT_NAMES.forEach((q, i) => { nullStats[q][c0 + j] = r.stats[i]; });
-        if (Number.isFinite(r.value)) nul.push(r.value);
-      }
+    const spec = new Float64Array(4 * k);
+    blocks.forEach((b, i) => {
+      bufs.push(heapCopy(b.data));
+      spec.set([bufs[i], b.T, b.K, b.panel ? 1 : 0], 4 * i);
+    });
+    const specPtr = heapCopy(spec);
+    bufs.push(specPtr);
+    const nn = int(n, 0);
+    const outPtr = M.allocF64(Math.max(1, 3 + 16 * Math.max(nn, 0) + 15));
+    bufs.push(outPtr);
+    try {
+      wasmCall(() => M.strategyTestInto(
+        callbacks, specPtr, k, method, nn, pos(opts.ohlc ?? [0, 1, 2, 3]), int(opts.price ?? 0, -1),
+        opts.mode ?? "log", opts.volume !== undefined, int(opts.volume ?? 0, -1),
+        opts.volumeMode ?? "keep", pos(opts.columns ?? []), pos(opts.fixed ?? []),
+        typeof metric === "function" ? "" : metric, larger, opts.minShift !== undefined,
+        int(opts.minShift ?? 0, 0), seed, opts.periodsPerYear ?? 1, outPtr));
+    } catch (e) {
+      throw failed ? error : e;
     }
-    let hits = 0;
-    for (const v of nul) if (larger ? v >= observed : v <= observed) hits++;
-    const pValue = Number.isFinite(observed) ? (1 + hits) / (1 + nul.length) : NaN;
-    return { observed, null: Float64Array.from(nul), pValue, metric: name, method,
-             observedStats: statsRecord((i) => obs.stats[i]), nullStats };
+    const o = M.viewF64(outPtr, 3 + 16 * nn + 15);
+    const count = o[2], s0 = 3 + nn, n0 = s0 + 15;
+    return {
+      observed: o[0], null: o.slice(3, 3 + count), pValue: o[1], metric: name, method,
+      observedStats: statsRecord((i) => o[s0 + i]),
+      nullStats: statsRecord((i) => o.slice(n0 + i * nn, n0 + (i + 1) * nn)),
+    };
   } finally {
-    scorer.dispose();
+    bufs.forEach((p) => M.freeBuf(p));
   }
 }
 

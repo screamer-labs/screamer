@@ -17,12 +17,14 @@
 // stack would overrun the heap. On a caught error the stack pointer goes back
 // to the value it had when the module loaded.
 //
-// INVARIANT: no C++ code may call back into user JavaScript. Then every call
-// into WASM is made from JavaScript with no WASM frame below it, and the reset
-// is exact. Arguments read in C++ through a val (layout plans, string
-// parameters) are plain copies or primitive strings, checked before the call.
-// A future binding that calls a user function from C++ needs a per-call
-// stackSave instead of this one base.
+// The reset goes to `stackBase`: the stack pointer when the module loaded, so
+// with no WASM frame live. C++ calls back into user JavaScript in one place,
+// strategyTest (validation.ts), and every such callback runs inside
+// callbackScope, which moves the base to the stack pointer at the callback's
+// entry for its duration. An error caught inside the callback then frees only
+// the frames above that entry and keeps the C++ frames below it. Arguments
+// read in C++ through a val (layout plans, string parameters) are plain
+// copies or primitive strings, checked before the call.
 interface ExceptionHelpers {
   getExceptionMessage(e: unknown): [string, string | undefined];
   decrementExceptionRefcount(e: unknown): void;
@@ -60,4 +62,22 @@ export function normalizeError(e: unknown): unknown {
 // hot; a per-event path inlines the same try block instead of a closure.
 export function wasmCall<T>(f: () => T): T {
   try { return f(); } catch (e) { throw normalizeError(e); }
+}
+
+// Runs a JavaScript callback that C++ calls while WASM frames are live below
+// it. For its duration the stack base is the stack pointer at entry, so an
+// error caught inside (by wasmCall or here) restores the stack to that point
+// and not below the live frames. The error is rethrown.
+export function callbackScope<T>(f: () => T): T {
+  const saved = stackBase;
+  const base = helpers ? helpers.stackSave() : 0;
+  stackBase = base;
+  try {
+    return f();
+  } catch (e) {
+    helpers?.stackRestore(base);
+    throw e;
+  } finally {
+    stackBase = saved;
+  }
 }
