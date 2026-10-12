@@ -6,6 +6,9 @@
 namespace screamer {
 
 bool is_dag_node(const nb::object& obj) {
+    // A graph node is a Python class, so a built-in type (float, list,
+    // ndarray, a NumPy scalar) is never one and skips the attribute lookup.
+    if (!(PyType_GetFlags(Py_TYPE(obj.ptr())) & Py_TPFLAGS_HEAPTYPE)) return false;
     return nb::hasattr(obj, "is_node") &&
            nb::cast<bool>(obj.attr("is_node")) == true;
 }

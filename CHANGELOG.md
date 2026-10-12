@@ -166,6 +166,15 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
 * nanobind 2.13.0 lowers the cost of a single-event call: `RollingMean(20)(1.0)`
   takes about 0.065 µs (was 0.077 µs) and `RollingCorr(20)(1.0, 2.0)` about
   1.0 µs (was 1.6 µs).
+* A scalar call to a multi-input operator is about 11x faster:
+  `RollingCorr(20)(1.0, 2.0)` takes about 0.09 µs (was 1.0 µs), close to the
+  0.06 µs of `RollingMean(20)(1.0)`. Exact Python floats and ints and NumPy
+  number scalars (`np.float64`, `np.float32`, `np.int64` and the other float
+  and integer types) call the kernel directly; any other argument takes the
+  full dispatch as before. A scalar call to a one-input, multi-output
+  operator such as `BollingerBands(20)(1.0)` drops from 0.65 µs to 0.10 µs.
+* A batch call with N arrays (`RollingCorr(20)(x, y)`) no longer reads each
+  array's `ndim` to look for a mixed list, about 0.5 µs less per call.
 
 ### Documentation
 

@@ -6,6 +6,7 @@
 #include <nanobind/stl/optional.h>
 #include <nanobind/stl/vector.h>
 #include <nanobind/stl/tuple.h>
+#include <algorithm>
 #include <array>
 #include <cstddef>
 #include <cstdint>
@@ -293,14 +294,61 @@ inline NInputs<N> read_tuple_inputs(const nb::tuple& inputs) {
 }
 
 // True when the N inputs mix arrays with lists or tuples (decision A8): at
-// least one array with a time axis and at least one list or tuple.
+// least one array with a time axis and at least one list or tuple. The cheap
+// list/tuple scan runs first, so an all-array call reads no attribute.
 inline bool mixes_sequences_and_arrays(const nb::tuple& inputs) {
-    bool array = false, seq = false;
-    for (nb::handle h : inputs) {
-        if (PyList_Check(h.ptr()) || PyTuple_Check(h.ptr())) seq = true;
-        else if (is_ndarray(h) && nb::cast<int>(h.attr("ndim")) > 0) array = true;
+    bool seq = false;
+    for (nb::handle h : inputs)
+        if (PyList_Check(h.ptr()) || PyTuple_Check(h.ptr())) { seq = true; break; }
+    if (!seq) return false;
+    for (nb::handle h : inputs)
+        if (is_ndarray(h) && nb::cast<int>(h.attr("ndim")) > 0) return true;
+    return false;
+}
+
+// True for a NumPy number scalar type (float16 to float64, signed and
+// unsigned integers). A subclass (a heap type) never matches, and the table
+// is a short pointer scan, so the check stays cheap for every other input.
+inline bool is_numpy_number_scalar_type(PyTypeObject* t) {
+    if (PyType_GetFlags(t) & Py_TPFLAGS_HEAPTYPE) return false;
+    // Built once from numpy (a dependency of screamer, so already loaded).
+    // The types live as long as the numpy module, which is never unloaded.
+    static const std::vector<PyTypeObject*> types = [] {
+        std::vector<PyTypeObject*> r;
+        nb::module_ np = nb::module_::import_("numpy");
+        for (const char* name : { "float16", "float32", "float64", "int8", "int16", "int32",
+                                  "int64", "uint8", "uint16", "uint32", "uint64", "intc",
+                                  "uintc", "longlong", "ulonglong" }) {
+            if (!nb::hasattr(np, name)) continue;
+            nb::object ty = np.attr(name);
+            if (PyType_Check(ty.ptr())) r.push_back(reinterpret_cast<PyTypeObject*>(ty.ptr()));
+        }
+        return r;
+    }();
+    return std::find(types.begin(), types.end(), t) != types.end();
+}
+
+// The scalar fast path (decision D1): exactly N arguments, each an exact
+// Python float or int or a NumPy number scalar, read into `v`. Any other
+// argument returns false and the call takes the full dispatch, which gives
+// the same value for these inputs (Case 3 of the N-input routes).
+template <size_t N>
+inline bool read_scalar_args(const nb::args& args, std::array<double, N>& v) {
+    if (args.size() != N) return false;
+    for (std::size_t i = 0; i < N; ++i) {
+        PyObject* o = args[i].ptr();
+        if (PyFloat_CheckExact(o)) {
+            v[i] = PyFloat_AsDouble(o);  // cannot fail on an exact float
+        } else if (PyLong_CheckExact(o)) {
+            v[i] = PyLong_AsDouble(o);
+            if (v[i] == -1.0 && PyErr_Occurred()) { PyErr_Clear(); return false; }
+        } else if (is_numpy_number_scalar_type(Py_TYPE(o))) {
+            if (!nb::try_cast<double>(args[i], v[i])) return false;
+        } else {
+            return false;
+        }
     }
-    return array && seq;
+    return true;
 }
 
 // A list or tuple of numbers mixed with arrays reads as a 1-D array of its
@@ -1134,6 +1182,9 @@ nb::object functor_Ni_Mo(Op& self, const nb::args& raw_args) {
 template <class Op>
 nb::object functor_call(Op& self, nb::args raw) {
     constexpr size_t N = Op::kN, M = Op::kM;
+    // One scalar event: exact numbers skip normalization and routing (D1).
+    if (typename Op::InputArray v; detail::read_scalar_args<N>(raw, v))
+        return nb::cast(self.call(v));
     nb::args args = normalize_args(raw, self);
     for (nb::handle a : args) {
         if (screamer::is_dag_node(nb::borrow<nb::object>(a)))
