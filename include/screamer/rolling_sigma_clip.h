@@ -2,6 +2,7 @@
 #define SCREAMER_ROLLING_SIGMA_CLIP_H
 
 #include "screamer/common/base.h"
+#include "screamer/detail/moment_formulas.h"
 #include "screamer/detail/shifted_window_sums.h"
 #include "screamer/common/float_info.h"
 #include "screamer/common/math.h"
@@ -58,89 +59,108 @@ namespace screamer {
         void reset() override {
             sums_.reset();
             mean_ = std::numeric_limits<double>::quiet_NaN();
-            std_ = std::numeric_limits<double>::quiet_NaN(); 
-            n_ = (start_policy_ != detail::StartPolicy::Zero) ? 0 : window_size_;         
+            std_ = std::numeric_limits<double>::quiet_NaN();
         }
         
-        void _update_mean_std(double newValue,size_t n_) {
-            // Sums about an origin near the window mean, stable when the mean
-            // is large next to the spread. The step runs on a copy of the
-            // state, which is then stored back whole.
-            auto c = sums_.cursor();
-            c.push(newValue);
-            sums_.set_state(c.st);
-
-            // Compute the raw mean and std (NaN until the window is full
-            // under the strict policy, so nothing is clipped before then)
-            double observed_mean = std::numeric_limits<double>::quiet_NaN();
-            double observed_std = std::numeric_limits<double>::quiet_NaN();
-            if (start_policy_ != detail::StartPolicy::Strict || c.st.count == c.cap) {
-                const double sum_d = c.st.s[0];
-                const double sum_dd = c.st.s[1];
-                observed_mean = c.st.origin + sum_d / n_;
-                observed_std = std::sqrt((sum_dd - sum_d * sum_d / n_) / (n_ - 1));
-            }
-
-            // Correct to the mean_ and std_ for truncation bias
-            estimate_true_mean_std(
-                observed_mean, 
-                observed_std, 
-                mu_trunc, 
-                sigma_trunc, 
-                mean_, 
-                std_
-            );
+        double process_scalar(double newValue) override {
+            Clip k{sums_.cursor(), mean_, std_};
+            const double r = step(k, newValue);
+            store(k);
+            return r;
         }
 
-        double process_scalar(double newValue) override {
+        // Batch paths: the same step on a local copy of the state.
+        void process_array_no_stride(double* y, const double* x, size_t size) override {
+            run(y, 1, x, 1, size);
+        }
+        void process_array_stride(double* y, size_t dy, const double* x, size_t dx,
+                                  size_t size) override {
+            run(y, dy, x, dx, size);
+        }
 
-            double zscore, clippedValue;
+    private:
+        // The running state: the window (sums about an origin near its mean,
+        // stable when the mean is large next to the spread) and the corrected
+        // mean and standard deviation.
+        struct Clip {
+            detail::ShiftedWindowSums<2>::Cursor c;
+            double mean;
+            double sd;
+        };
+
+        void store(const Clip& k) {
+            sums_.set_state(k.c.st);
+            mean_ = k.mean;
+            std_ = k.sd;
+        }
+
+        void run(double* y, size_t dy, const double* x, size_t dx, size_t size) {
+            Clip k{sums_.cursor(), mean_, std_};
+            for (size_t i = 0; i < size; ++i, y += dy, x += dx) *y = step(k, *x);
+            store(k);
+        }
+
+        // One event. Each product is its own statement (see
+        // detail/shifted_window_sums.h).
+        SCREAMER_WINDOW_INLINE double step(Clip& k, double newValue) const {
+            const double nan = std::numeric_limits<double>::quiet_NaN();
 
             // if we have a mean and std then we can do clipping
-            clippedValue = newValue;
-            if ( (!isnan2(mean_)) && (!isnan2(std_))) {
-                zscore = (newValue - mean_) / std_;
+            double clippedValue = newValue;
+            if ((!isnan2(k.mean)) && (!isnan2(k.sd))) {
+                const double zscore = (newValue - k.mean) / k.sd;
                 if (zscore < lower_bound_) {
-                    clippedValue =  mean_ + lower_bound_ * std_;
+                    const double offset = lower_bound_ * k.sd;
+                    clippedValue = k.mean + offset;
                 }
                 if (zscore > upper_bound_) {
-                    clippedValue = mean_ + upper_bound_ * std_;
+                    const double offset = upper_bound_ * k.sd;
+                    clippedValue = k.mean + offset;
                 }
             }
 
             // did we clip? If so we don't update stats, we return
             if (clippedValue != newValue) {
+                const int n_ = static_cast<int>(k.c.st.count);
                 if (n_ < window_size_) {
-                    if (start_policy_ == detail::StartPolicy::Strict) {
-                        return std::numeric_limits<double>::quiet_NaN();
-                    }
-                    if (n_ < 2) return std::numeric_limits<double>::quiet_NaN();
+                    if (start_policy_ == detail::StartPolicy::Strict) return nan;
+                    if (n_ < 2) return nan;
                 }
                 if (output_ == 0) return clippedValue;
-                if (output_ == 1) return mean_;
-                if (output_ == 2) return std_;
-                return std::numeric_limits<double>::quiet_NaN();
+                if (output_ == 1) return k.mean;
+                if (output_ == 2) return k.sd;
+                return nan;
             }
 
-            // we didn't clip: update 
-            if (n_ < window_size_) {
-                n_++;
-            } 
-            _update_mean_std(newValue, n_);
+            // we didn't clip: update
+            k.c.push(newValue);
+            const int n_ = static_cast<int>(k.c.st.count);
+
+            // The raw mean and std (NaN until the window is full under the
+            // strict policy, so nothing is clipped before then), corrected
+            // for the truncation.
+            double observed_mean = nan;
+            double observed_std = nan;
+            if (start_policy_ != detail::StartPolicy::Strict || k.c.st.count == k.c.cap) {
+                const double n = static_cast<double>(n_);
+                observed_mean = k.c.st.origin + k.c.st.s[0] / n;
+                observed_std = std::sqrt(detail::var_from_sums(k.c.st.s[0], k.c.st.s[1], n));
+            }
+            double mean = nan, sd = nan;
+            estimate_true_mean_std(observed_mean, observed_std, mu_trunc, sigma_trunc, mean, sd);
+            k.mean = mean;
+            k.sd = sd;
 
             // return the final result
             if (n_ < window_size_) {
-                if (start_policy_ == detail::StartPolicy::Strict) {
-                    return std::numeric_limits<double>::quiet_NaN();
-                }
-                if (n_ < 2) return std::numeric_limits<double>::quiet_NaN();
-            }        
-            if (output_ == 1) return mean_;
-            if (output_ == 2) return std_;
+                if (start_policy_ == detail::StartPolicy::Strict) return nan;
+                if (n_ < 2) return nan;
+            }
+            if (output_ == 1) return k.mean;
+            if (output_ == 2) return k.sd;
             return newValue;
         }
 
-    private:
         detail::ShiftedWindowSums<2> sums_;
         const detail::StartPolicy start_policy_;
 
@@ -148,7 +168,6 @@ namespace screamer {
         const double upper_bound_;
         const int window_size_;
         const int output_;
-        int n_ = 0;
         double mu_trunc = 0;
         double sigma_trunc = 0;
         double mean_ = 0;

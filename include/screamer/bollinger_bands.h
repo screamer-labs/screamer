@@ -23,13 +23,14 @@
 #include <tuple>
 #include "screamer/common/functor_base.h"
 #include "screamer/common/float_info.h"
+#include "screamer/detail/moment_formulas.h"
 #include "screamer/detail/shifted_window_sums.h"
 #include "screamer/detail/start_policy.h"
 #include <cstddef>
 
 namespace screamer {
 
-class BollingerBands : public FunctorBase<BollingerBands, 1, 3> {
+class BollingerBands : public StepperFunctorBase<BollingerBands, 1, 3> {
     using Sums = detail::ShiftedWindowSums<2>;
 
 public:
@@ -51,9 +52,9 @@ public:
 
     void reset() override { sums_.reset(); }
 
-    // One event on the window's state; the batch column loop runs it on a
-    // local copy (FunctorBase, has_stepper). Each product is its own statement
-    // (see shifted_window_sums.h).
+    // One event on the window's state, for both the batch column loop and
+    // call() (StepperFunctorBase). Each product is its own statement (see
+    // shifted_window_sums.h).
     struct Stepper {
         Sums::Cursor c;
         bool strict;
@@ -75,9 +76,7 @@ public:
             const double mean = c.st.origin + sum_d / nd;
             // Unbiased sample variance (n-1 denominator). Matches pandas
             // Series.rolling(w).std() which defaults to ddof=1.
-            const double a = nd * c.st.s[1];
-            const double b = sum_d * sum_d;
-            const double var = (a - b) / (nd * (nd - 1.0));
+            const double var = detail::var_from_sums(sum_d, c.st.s[1], nd);
             const double std_val = std::sqrt(std::max(var, 0.0));
             const double half_width = num_std * std_val;
             const double lower = mean - half_width;
@@ -89,13 +88,6 @@ public:
         return Stepper{sums_.cursor(), start_policy_ == detail::StartPolicy::Strict, num_std_};
     }
     void store(const Stepper& k) { sums_.set_state(k.c.st); }
-
-    ResultTuple call(const InputArray& inputs) override {
-        Stepper k = stepper();
-        const ResultTuple r = k.call(inputs);
-        store(k);
-        return r;
-    }
 
 private:
     const double num_std_;

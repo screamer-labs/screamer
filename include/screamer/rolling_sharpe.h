@@ -18,6 +18,7 @@
 #include <cmath>
 #include <limits>
 #include <stdexcept>
+#include "screamer/detail/moment_formulas.h"
 #include "screamer/detail/window_moments_op.h"
 
 namespace screamer {
@@ -45,7 +46,7 @@ public:
         }
         const double n = static_cast<double>(window_size_);
         const double m = st.origin + st.s[0] / n;
-        const double var = (st.s[1] - st.s[0] * st.s[0] / n) / (n - 1);
+        const double var = detail::var_from_sums(st.s[0], st.s[1], n);
         const double s = std::sqrt(var);
         if (std::isnan(m) || std::isnan(s) || s <= 0.0) {
             return std::numeric_limits<double>::quiet_NaN();

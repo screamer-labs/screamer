@@ -20,18 +20,18 @@
 #include <string>
 #include "screamer/common/functor_base.h"
 #include "screamer/common/float_info.h"
+#include "screamer/detail/moment_formulas.h"
 #include "screamer/detail/shifted_window_sums.h"
 #include "screamer/detail/start_policy.h"
 #include <cstddef>
 
 namespace screamer {
 
-class RollingCorr : public FunctorBase<RollingCorr, 2, 1> {
-    using Sums = detail::ShiftedWindowCoSums<true, true>;
+class RollingCorr : public StepperFunctorBase<RollingCorr, 2, 1> {
+    using Sums = detail::ShiftedWindowCoSums;
 
 public:
-    RollingCorr(int window_size,
-          const std::string& start_policy = "strict")
+    RollingCorr(int window_size, const std::string& start_policy = "strict")
         : start_policy_(detail::parse_start_policy(start_policy)),
           sums_(window_size >= 2 ? window_size : 2, start_policy_)
     {
@@ -43,9 +43,9 @@ public:
 
     void reset() override { sums_.reset(); }
 
-    // One event on the window's state; the batch column loop runs it on a
-    // local copy (FunctorBase, has_stepper). Each product is its own statement
-    // (see shifted_window_sums.h).
+    // One event on the window's state, for both the batch column loop and
+    // call() (StepperFunctorBase). Each product is its own statement (see
+    // shifted_window_sums.h).
     struct Stepper {
         Sums::Cursor c;
         bool strict;
@@ -62,15 +62,9 @@ public:
                 return std::numeric_limits<double>::quiet_NaN();
             }
             const double nd = static_cast<double>(n_);
-            const double a = nd * c.st.sxy;
-            const double b = c.st.sx * c.st.sy;
-            const double cov = a - b;
-            const double axx = nd * c.st.sxx;
-            const double bxx = c.st.sx * c.st.sx;
-            const double var_x = axx - bxx;
-            const double ayy = nd * c.st.syy;
-            const double byy = c.st.sy * c.st.sy;
-            const double var_y = ayy - byy;
+            const double cov = detail::n2_comoment(c.st.sx, c.st.sy, c.st.sxy, nd);
+            const double var_x = detail::n2_comoment(c.st.sx, c.st.sx, c.st.sxx, nd);
+            const double var_y = detail::n2_comoment(c.st.sy, c.st.sy, c.st.syy, nd);
             const double denom2 = var_x * var_y;
             if (denom2 <= 0.0) {
                 return std::numeric_limits<double>::quiet_NaN();
@@ -82,13 +76,6 @@ public:
         return Stepper{sums_.cursor(), start_policy_ == detail::StartPolicy::Strict};
     }
     void store(const Stepper& k) { sums_.set_state(k.c.st); }
-
-    ResultTuple call(const InputArray& inputs) override {
-        Stepper k = stepper();
-        const ResultTuple r = k.call(inputs);
-        store(k);
-        return r;
-    }
 
 private:
     const detail::StartPolicy start_policy_;

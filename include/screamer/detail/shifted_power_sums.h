@@ -27,6 +27,8 @@
 // the code is inlined; with no product inside a sum, an update inlined into a
 // batch loop rounds exactly like the same update called once per event.
 
+#include <algorithm>
+
 namespace screamer {
 namespace detail {
 
@@ -93,7 +95,12 @@ private:
         double& s2 = p.s2;
         [[maybe_unused]] double& s3 = p.s3;
         [[maybe_unused]] double& s4 = p.s4;
-        const double c = s1 / w;
+        // The shift is the exact step of the stored origin, which differs from
+        // the mean s1 / w by the rounding of origin + mean; shifting the sums
+        // by the mean instead would leave them about a point a rounding of
+        // the level away from the origin.
+        const double new_origin = p.origin + s1 / w;
+        const double c = new_origin - p.origin;
         const double c2 = c * c;
         const double cs1 = c * s1;
         const double wc2 = w * c2;
@@ -116,20 +123,25 @@ private:
         s2 = s2 - t + wc2;
         const double wc = w * c;
         s1 = s1 - wc;
-        p.origin += c;
+        p.origin = new_origin;
         return p;
     }
 };
 
-// Two series: the weights, origins and sums sx, sy, sxx, syy, sxy.
+// Two series: the weights, origins and sums sx, sy, sxy, and sxx and syy when
+// enabled (kXX, kYY), which is what the operator's output needs. The drift
+// test needs a spread for both inputs; for an input whose sum of squares is
+// not kept, a coarse one does: vxx (vyy) decays every sample like the sums but
+// adds 4 dx^2 only on the samples that run the test, every fourth.
+template <bool kXX, bool kYY>
 struct ShiftedCoPowerSums {
     double w = 0.0;
     double origin_x = 0.0;
     double origin_y = 0.0;
     double sx = 0.0;
     double sy = 0.0;
-    double sxx = 0.0;
-    double syy = 0.0;
+    double sxx = 0.0;  // the sum, or the coarse spread vxx when !kXX
+    double syy = 0.0;  // likewise
     double sxy = 0.0;
     unsigned tick = 0;
 
@@ -156,28 +168,43 @@ struct ShiftedCoPowerSums {
         }
         const double dx = x - origin_x;
         const double dy = y - origin_y;
-        const double dxx = dx * dx;
-        const double dyy = dy * dy;
         const double dxy = dx * dy;
         sx += dx;
         sy += dy;
-        sxx += dxx;
-        syy += dyy;
         sxy += dxy;
+        if constexpr (kXX) {
+            const double dxx = dx * dx;
+            sxx += dxx;
+        }
+        if constexpr (kYY) {
+            const double dyy = dy * dy;
+            syy += dyy;
+        }
         w += 1.0;
         // The test runs every fourth sample and allows the means three
         // standard deviations from the origins: second moments lose at most a
         // factor 1 + 3^2 = 10 to cancellation, and the test and the shift
         // cost little.
         if ((++tick & 3u) != 0) return;
+        if constexpr (!kXX) {
+            const double dxx4 = 4.0 * dx * dx;
+            sxx += dxx4;
+        }
+        if constexpr (!kYY) {
+            const double dyy4 = 4.0 * dy * dy;
+            syy += dyy4;
+        }
         const double sxsx = sx * sx;
         const double sysy = sy * sy;
         const double sxxw = 0.9 * sxx * w;
         const double syyw = 0.9 * syy * w;
         if (sxsx > sxxw || sysy > syyw) {
-            // Move the origins to the means and shift the sums with them.
-            const double cx = sx / w;
-            const double cy = sy / w;
+            // Move the origins to the means and shift the sums by the exact
+            // step of each origin (see ShiftedPowerSums::recentered).
+            const double new_ox = origin_x + sx / w;
+            const double new_oy = origin_y + sy / w;
+            const double cx = new_ox - origin_x;
+            const double cy = new_oy - origin_y;
             const double cxsx = cx * sx;
             const double cysy = cy * sy;
             const double cxsy = cx * sy;
@@ -191,16 +218,19 @@ struct ShiftedCoPowerSums {
             const double txx = 2.0 * cxsx;
             const double tyy = 2.0 * cysy;
             const double txy = cxsy + cysx;  // symmetric in x and y
+            // The same shift for a coarse spread; it is only a test input, so
+            // it is kept non-negative.
             sxx = sxx - txx + wcxcx;
+            if constexpr (!kXX) sxx = std::max(sxx, 0.0);
             syy = syy - tyy + wcycy;
+            if constexpr (!kYY) syy = std::max(syy, 0.0);
             sxy = sxy - txy + wcxcy;
             sx = sx - wcx;
             sy = sy - wcy;
-            origin_x += cx;
-            origin_y += cy;
+            origin_x = new_ox;
+            origin_y = new_oy;
         }
     }
-
 };
 
 }  // namespace detail

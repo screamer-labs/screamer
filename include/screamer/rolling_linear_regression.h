@@ -27,13 +27,14 @@
 #include <tuple>
 #include "screamer/common/functor_base.h"
 #include "screamer/common/float_info.h"
+#include "screamer/detail/moment_formulas.h"
 #include "screamer/detail/shifted_window_sums.h"
 #include "screamer/detail/start_policy.h"
 
 namespace screamer {
 
-class RollingLinearRegression : public FunctorBase<RollingLinearRegression, 2, 4> {
-    using Sums = detail::ShiftedWindowCoSums<true, true>;
+class RollingLinearRegression : public StepperFunctorBase<RollingLinearRegression, 2, 4> {
+    using Sums = detail::ShiftedWindowCoSums;
 
 public:
     RollingLinearRegression(int window_size, const std::string& start_policy = "strict")
@@ -48,9 +49,9 @@ public:
 
     void reset() override { sums_.reset(); }
 
-    // One event on the window's state; the batch column loop runs it on a
-    // local copy (FunctorBase, has_stepper). Each product is its own statement
-    // (see shifted_window_sums.h).
+    // One event on the window's state, for both the batch column loop and
+    // call() (StepperFunctorBase). Each product is its own statement (see
+    // shifted_window_sums.h).
     struct Stepper {
         Sums::Cursor c;
         bool strict;
@@ -69,15 +70,12 @@ public:
             }
             const double nd = static_cast<double>(n_);
             const double Sx = c.st.sx, Sy = c.st.sy;
-            const double Sxx = c.st.sxx, Syy = c.st.syy, Sxy = c.st.sxy;
 
-            const double nxx = nd * Sxx, sx2 = Sx * Sx;
-            const double denom_x = nxx - sx2;
+            const double denom_x = detail::n2_comoment(Sx, Sx, c.st.sxx, nd);
             if (denom_x <= 0.0) {
                 return std::make_tuple(nan, nan, nan, nan);
             }
-            const double nxy = nd * Sxy, sxsy = Sx * Sy;
-            const double num = nxy - sxsy;
+            const double num = detail::n2_comoment(Sx, Sy, c.st.sxy, nd);
             const double slope = num / denom_x;
             // mean_y - slope * mean_x, with the means restored from the origins.
             const double mean_x = c.st.ox + Sx / nd;
@@ -85,18 +83,17 @@ public:
             const double slope_mean_x = slope * mean_x;
             const double intercept = mean_y - slope_mean_x;
 
-            const double nyy = nd * Syy, sy2 = Sy * Sy;
-            const double denom_y = nyy - sy2;
+            const double denom_y = detail::n2_comoment(Sy, Sy, c.st.syy, nd);
             const double num2 = num * num;
             const double dxy = denom_x * denom_y;
             const double r_sq = (denom_y > 0.0) ? num2 / dxy : nan;
 
-            // SST = Syy - Sy^2/n; SSR = slope * (Sxy - Sx*Sy/n); SSE = SST - SSR.
-            const double SST = Syy - Sy * Sy / nd;
-            const double SSR = slope * (Sxy - Sx * Sy / nd);
-            const double SSE = SST - SSR;
-            const double stderr_val = (SSE > 0.0)
-                                    ? std::sqrt(SSE / (nd - 2.0))
+            // n SSE = n SST - n SSR = denom_y - slope * num.
+            const double fit = slope * num;
+            const double nSSE = denom_y - fit;
+            const double nn2 = nd * (nd - 2.0);
+            const double stderr_val = (nSSE > 0.0)
+                                    ? std::sqrt(nSSE / nn2)
                                     : 0.0;
             return std::make_tuple(slope, intercept, r_sq, stderr_val);
         }
@@ -105,13 +102,6 @@ public:
         return Stepper{sums_.cursor(), start_policy_ == detail::StartPolicy::Strict};
     }
     void store(const Stepper& k) { sums_.set_state(k.c.st); }
-
-    ResultTuple call(const InputArray& inputs) override {
-        Stepper k = stepper();
-        const ResultTuple r = k.call(inputs);
-        store(k);
-        return r;
-    }
 
 private:
     const detail::StartPolicy start_policy_;

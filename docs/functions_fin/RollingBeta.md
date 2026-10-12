@@ -104,7 +104,7 @@ pandas has no rolling beta method. The equivalent pandas expression is `pd.Serie
 
 ## Implementation Details
 
-Four running window sums maintain `Σx`, `Σy`, `Σyy`, `Σxy` over the window, with `x` and `y` measured from origins close to their window means (see [Accuracy at large levels](../conventions.md#accuracy-at-large-levels)). Each new sample updates all four sums in `O(1)`, then β is computed in closed form.
+Running window sums maintain `Σx`, `Σy`, `Σyy`, `Σxy` over the window, with `x` and `y` measured from origins close to their window means, and `Σxx`, which decides when the origin of `x` moves (see [Accuracy at large levels](../conventions.md#accuracy-at-large-levels)). Each new sample updates the sums in `O(1)`, then β is computed in closed form.
 
 * **Time**: `O(1)` per new element.
 * **Space**: `O(window_size)`.

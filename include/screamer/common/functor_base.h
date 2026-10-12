@@ -238,5 +238,24 @@ private:
     }
 };
 
+// The base of an operator with a Stepper (detail::has_stepper): call() runs
+// Stepper::call for one event on a Stepper of the stored state and stores the
+// state back, the same step the batch column loop runs.
+template <class Derived, size_t N, size_t M>
+class StepperFunctorBase : public FunctorBase<Derived, N, M> {
+public:
+    using typename FunctorBase<Derived, N, M>::InputArray;
+    using typename FunctorBase<Derived, N, M>::ResultTuple;
+
+    ResultTuple call(const InputArray& inputs) override {
+        Derived& self = static_cast<Derived&>(*this);
+        typename Derived::Stepper k = self.Derived::stepper();
+        ResultTuple r;
+        SCREAMER_INLINE_CALL r = k.call(inputs);
+        self.Derived::store(k);
+        return r;
+    }
+};
+
 }
 #endif

@@ -105,7 +105,7 @@ It takes two parallel streams, like [`RollingCorr`](RollingCorr.md). The output 
 
 ## Implementation Details
 
-It keeps the same four running window sums as [`RollingBeta`](RollingBeta.md). The spread at each step combines the rolling β with the current `(x, y)` pair.
+It keeps the same running window sums as [`RollingBeta`](RollingBeta.md). The spread at each step combines the rolling β with the current `(x, y)` pair.
 
 * **Time**: `O(1)` per new element.
 * **Space**: `O(window_size)`.

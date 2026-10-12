@@ -27,13 +27,14 @@
 #include <string>
 #include "screamer/common/functor_base.h"
 #include "screamer/common/float_info.h"
+#include "screamer/detail/moment_formulas.h"
 #include "screamer/detail/shifted_window_sums.h"
 #include "screamer/detail/start_policy.h"
 
 namespace screamer {
 
-class RollingTLSBeta : public FunctorBase<RollingTLSBeta, 2, 1> {
-    using Sums = detail::ShiftedWindowCoSums<true, true>;
+class RollingTLSBeta : public StepperFunctorBase<RollingTLSBeta, 2, 1> {
+    using Sums = detail::ShiftedWindowCoSums;
 
 public:
     RollingTLSBeta(int window_size, const std::string& start_policy = "strict")
@@ -48,9 +49,9 @@ public:
 
     void reset() override { sums_.reset(); }
 
-    // One event on the window's state; the batch column loop runs it on a
-    // local copy (FunctorBase, has_stepper). Each product is its own statement
-    // (see shifted_window_sums.h).
+    // One event on the window's state, for both the batch column loop and
+    // call() (StepperFunctorBase). Each product is its own statement (see
+    // shifted_window_sums.h).
     struct Stepper {
         Sums::Cursor c;
         bool strict;
@@ -68,10 +69,9 @@ public:
             }
             const double nd = static_cast<double>(n_);
             // With x = a and y = b.
-            const double naa = nd * c.st.sxx, sa2 = c.st.sx * c.st.sx;
-            const double nbb = nd * c.st.syy, sb2 = c.st.sy * c.st.sy;
-            const double nab = nd * c.st.sxy, sab = c.st.sx * c.st.sy;
-            const double caa = naa - sa2, cbb = nbb - sb2, cab = nab - sab;
+            const double caa = detail::n2_comoment(c.st.sx, c.st.sx, c.st.sxx, nd);
+            const double cbb = detail::n2_comoment(c.st.sy, c.st.sy, c.st.syy, nd);
+            const double cab = detail::n2_comoment(c.st.sx, c.st.sy, c.st.sxy, nd);
             if (cab == 0.0) return std::numeric_limits<double>::quiet_NaN();
             const double d = caa - cbb;
             const double dd = d * d;
@@ -83,13 +83,6 @@ public:
         return Stepper{sums_.cursor(), start_policy_ == detail::StartPolicy::Strict};
     }
     void store(const Stepper& k) { sums_.set_state(k.c.st); }
-
-    ResultTuple call(const InputArray& inputs) override {
-        Stepper k = stepper();
-        const ResultTuple r = k.call(inputs);
-        store(k);
-        return r;
-    }
 
 private:
     const detail::StartPolicy start_policy_;

@@ -81,14 +81,16 @@ The two methods disagree by up to ~10 RSI points during early periods and conver
 
 The moment operators compute their statistics from sums of powers of the samples. Taken about zero, these sums cancel when the mean is large next to the spread: for a price near 1000 that moves by about 1 per step, the fourth central moment keeps about 4 of its 16 significant digits, and a kurtosis computed from such sums can be wrong in its second digit.
 
-screamer takes the sums about an origin close to the mean instead. The estimator is the same, but every term is of the size of the spread, so nothing cancels:
+screamer takes the sums about an origin close to the data instead. The estimator is the same, but every term is of the size of the spread, so nothing cancels:
 
-- The rolling operators start the origin at the first sample. Each time the window has been completely replaced, the origin moves to the window mean and the sums are recomputed from the window.
+- The rolling operators start the origin at the first sample. They move it to the window mean, recomputing the sums from the window, when the mean has drifted from the origin by more than four standard deviations (after a level change), when the sample that leaves the window was far out next to the samples that remain (a spike, or the last sample of an old level), when an infinity leaves, and in any case once every `window_size` steps.
 - The expanding and exponentially weighted operators also start the origin at the first sample. It moves to the current mean when the mean has drifted from it by more than one standard deviation (three for the two-input weighted operators, which use only second moments), checked every fourth sample.
 
-The results are then accurate to near machine precision relative to the spread, whatever the level. `tests/test_moment_stability.py` checks each operator against its estimator evaluated in exact rational arithmetic at levels 0, 1e3 and 1e6.
+`tests/test_moment_stability.py` checks each operator against its estimator evaluated in exact rational arithmetic, at levels 0, 1e3 and 1e6, on noise, on a drifting walk, and for the rolling operators with a spike of 1e4 standard deviations and a level jump of 1e5 standard deviations (both directions, windows 50 and 1000). The largest error measured is 3e-13 relative to the statistic's scale (a kurtosis right after a level jump, window 1000); most errors are below 1e-14. On noise the result is the same at every level. An output that is itself of the size of the level, such as a mean, a band or a spread `x - beta * y`, keeps the rounding of that level.
 
-The operators that work this way are `RollingVar`, `RollingStd`, `RollingSkew`, `RollingKurt`, `RollingZscore`, `RollingSharpe`, `BollingerBands`, `RollingSigmaClip`, `RollingCov`, `RollingCorr`, `RollingBeta`, `RollingSpread`, `RollingAlpha`, `RollingTLSBeta`, `RollingLinearRegression`, `RollingResidualStd`, `ExpandingVar`, `ExpandingStd`, `ExpandingSkew`, `ExpandingKurt`, `EwVar`, `EwStd`, `EwSkew`, `EwKurt`, `EwZscore`, `EwCov`, `EwCorr`, `EwBeta`, `EwSpread`, `EwAlpha`, `EwResidualStd` and `EwYangZhangVar`.
+On stationary data a rolling operator recomputes its sums about once per window, so its cost per step is constant on average, but the step that recomputes takes one pass over the window (two after a far sample left). With `window_size=10000` a streaming step usually takes a few nanoseconds; the step that recomputes takes about 8 microseconds, and up to about 23 microseconds after a spike or a level jump (Apple M3).
+
+The operators that work this way are `RollingVar`, `RollingStd`, `RollingSkew`, `RollingKurt`, `RollingZscore`, `RollingSharpe`, `BollingerBands`, `RollingSigmaClip`, `RollingCov`, `RollingCorr`, `RollingBeta`, `RollingSpread`, `RollingAlpha`, `RollingTLSBeta`, `RollingLinearRegression`, `RollingResidualStd`, `ExpandingVar`, `ExpandingStd`, `ExpandingSkew`, `ExpandingKurt`, `EwVar`, `EwStd`, `EwSkew`, `EwKurt`, `EwZscore`, `EwCov`, `EwCorr`, `EwBeta`, `EwSpread`, `EwAlpha`, `EwResidualStd`, `EwYangZhangVar` and `EwYangZhangVol`.
 
 ## How to verify these claims yourself
 

@@ -14,6 +14,7 @@
 #include <cmath>
 #include <limits>
 #include "screamer/common/math.h"
+#include "screamer/detail/moment_formulas.h"
 #include "screamer/detail/running_moments_op.h"
 
 namespace screamer {
@@ -26,9 +27,7 @@ public:
         if (st.sums.w < 2.0) {
             return std::numeric_limits<double>::quiet_NaN();
         }
-        const int n = static_cast<int>(st.sums.w);
-        double var;
-        var_from_stats(st.sums.s1, st.sums.s2, n, var);
+        const double var = detail::var_from_sums(st.sums.s1, st.sums.s2, st.sums.w);
         return var;
     }
 };

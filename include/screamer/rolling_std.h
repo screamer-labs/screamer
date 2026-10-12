@@ -2,6 +2,7 @@
 #define SCREAMER_ROLLING_STD_H
 
 #include <limits>
+#include "screamer/detail/moment_formulas.h"
 #include "screamer/detail/window_moments_op.h"
 #include <cmath>
 #include <cstddef>
@@ -32,8 +33,7 @@ namespace screamer {
                 return std::numeric_limits<double>::quiet_NaN();
             }
             const double n = static_cast<double>(st.count);
-            const double var = (st.s[1] - st.s[0] * st.s[0] / n) / (n - 1);
-            return std::sqrt(var);
+            return std::sqrt(detail::var_from_sums(st.s[0], st.s[1], n));
         }
     }; // end of class
 

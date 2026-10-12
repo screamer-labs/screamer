@@ -333,6 +333,19 @@ def test_ew_zscore_first_output_is_nan():
         assert np.isnan(s.EwZscore(span=SPAN)(level + series(0.0))[0])
 
 
+def test_rolling_linear_regression_zero_policy_streams_zero_filled():
+    # A fresh operator fed one event at a time: before the fix it did not
+    # reset in its constructor, so it treated the window as empty (NaN for the
+    # first events) until its first reset(); batch calls reset first and were
+    # right.
+    x, y = pair(0.0)
+    op = s.RollingLinearRegression(10, start_policy="zero")
+    streamed = np.array([op(float(a), float(b)) for a, b in zip(x[:30], y[:30])])
+    batch = s.RollingLinearRegression(10, start_policy="zero")(x[:30], y[:30])
+    np.testing.assert_array_equal(streamed, batch)
+    assert np.all(np.isfinite(streamed[2:]))
+
+
 def test_rolling_linear_regression_zero_policy_starts_zero_filled():
     x, y = pair(0.0)
     op = s.RollingLinearRegression(10, start_policy="zero")
@@ -354,3 +367,132 @@ def test_rolling_kurt_unmoved_by_last_bit_input_changes():
     a, b = s.RollingKurt(50)(x), s.RollingKurt(50)(y)
     ok = np.isfinite(a)
     assert np.max(np.abs(a[ok] - b[ok])) < 1e-6
+
+
+# --- spikes and level jumps in the rolling window ----------------------------
+#
+# The rolling sums move their origin when a far sample leaves or the mean
+# drifts, not only when the window wraps, so the outputs stay at the stationary
+# accuracy right after a spike leaves or a level changes.
+
+EVENT_TOL = 1e-11
+EVENT_WINDOWS = [50, 1000]
+
+
+def event_series(kind, n, seed=4):
+    rng = np.random.default_rng(seed)
+    x = rng.standard_normal(n)
+    k = n // 3
+    if kind == "spike":
+        x[k] += 1e4
+    elif kind == "spike_down":
+        x[k] -= 1e4
+    elif kind == "jump":
+        x[k:] += 1e5
+    elif kind == "jump_down":
+        x[k:] -= 1e5
+    return x
+
+
+class ExactWindows:
+    """Exact sums of x^p (and x*y) over any window, from exact prefix sums."""
+
+    def __init__(self, x, y=None):
+        self.X = [Fr(float(v)) for v in x]
+        self.P = {p: self._prefix([v ** p for v in self.X]) for p in (1, 2, 3, 4)}
+        if y is not None:
+            self.Y = [Fr(float(v)) for v in y]
+            self.Q = {p: self._prefix([v ** p for v in self.Y]) for p in (1, 2)}
+            self.XY = self._prefix([a * b for a, b in zip(self.X, self.Y)])
+
+    @staticmethod
+    def _prefix(vals):
+        out = [Fr(0)]
+        for v in vals:
+            out.append(out[-1] + v)
+        return out
+
+    def central(self, a, b):
+        n = b - a
+        S = [n] + [self.P[p][b] - self.P[p][a] for p in (1, 2, 3, 4)]
+        m = S[1] / n
+        M2 = S[2] - S[1] * m
+        M3 = S[3] - 3 * m * S[2] + 2 * n * m ** 3
+        M4 = S[4] - 4 * m * S[3] + 6 * m * m * S[2] - 3 * n * m ** 4
+        return n, m, [None, None, M2, M3, M4]
+
+    def co_central(self, a, b):
+        n = b - a
+        sx, sy = self.P[1][b] - self.P[1][a], self.Q[1][b] - self.Q[1][a]
+        cxx = self.P[2][b] - self.P[2][a] - sx * sx / n
+        cyy = self.Q[2][b] - self.Q[2][a] - sy * sy / n
+        cxy = self.XY[b] - self.XY[a] - sx * sy / n
+        return n, sx / n, sy / n, cxx, cyy, cxy
+
+
+@pytest.mark.parametrize("w", EVENT_WINDOWS)
+@pytest.mark.parametrize("kind", ["spike", "spike_down", "jump", "jump_down"])
+def test_rolling_uni_after_spike_or_jump(kind, w):
+    n_total = 3 * w + 200
+    x = event_series(kind, n_total)
+    E = ExactWindows(x)
+    outs = {name: getattr(s, name)(w)(x) for name in UNI}
+    bb = s.BollingerBands(w, 2.0)(x)
+    worst = 0.0
+    for t in range(w - 1, n_total):
+        n, m, M = E.central(t - w + 1, t + 1)
+        for name, fn in UNI.items():
+            ref, scale = fn(n, M, E.X[t], m)
+            # Kurtosis reaches about n with a spike in the window: relative.
+            worst = max(worst, abs(outs[name][t] - ref) / max(scale, abs(ref)))
+        sd = fsqrt(ref_var(n, M))
+        worst = max(worst, abs(bb[t, 1] - float(m)) / max(sd, abs(float(m)) * 1e-16 / EVENT_TOL))
+        worst = max(worst, abs((bb[t, 2] - bb[t, 1]) - 2 * sd) / max(sd, abs(float(m)) * 1e-16 / EVENT_TOL))
+    assert worst < EVENT_TOL, worst
+
+
+@pytest.mark.parametrize("w", EVENT_WINDOWS)
+@pytest.mark.parametrize("kind", ["spike", "jump"])
+def test_rolling_pair_after_spike_or_jump_in_both_inputs(kind, w):
+    n_total = 3 * w + 200
+    rng = np.random.default_rng(7)
+    e = rng.standard_normal(n_total)
+    y = event_series(kind, n_total)
+    x = 0.8 * y + 0.6 * e
+    E = ExactWindows(x, y)
+    cov = s.RollingCov(w)(x, y)
+    corr = s.RollingCorr(w)(x, y)
+    beta = s.RollingBeta(w)(x, y)
+    tls = s.RollingTLSBeta(w)(x, y)
+    lr = s.RollingLinearRegression(w)(x, y)
+    worst = 0.0
+    for t in range(w - 1, n_total):
+        n, mx, my, cxx, cyy, cxy = E.co_central(t - w + 1, t + 1)
+        sdx, sdy = fsqrt(cxx / (n - 1)), fsqrt(cyy / (n - 1))
+        b = cxy / cyy
+        d = cxx - cyy
+        ref_tls = (float(d) + fsqrt(d * d + 4 * cxy * cxy)) / (2 * float(cxy))
+        errs = [
+            abs(cov[t] - float(cxy / (n - 1))) / (sdx * sdy),
+            abs(corr[t] - signed_sqrt(cxy ** 2 / (cxx * cyy), cxy)),
+            abs(beta[t] - float(b)) / (sdx / sdy),
+            abs(lr[t, 0] - float(b)) / (sdx / sdy),
+            abs(lr[t, 2] - float(cxy ** 2 / (cxx * cyy))),
+            # stderr = sqrt(SST - SSR) cancels when r^2 is near 1, whatever
+            # the origin; its error is relative to sd_x^2 / stderr.
+            abs(lr[t, 3] - fsqrt(se := (cxx - b * cxy) / (n - 2))) / (sdx * sdx / fsqrt(se)),
+            abs(tls[t] - ref_tls) / max(1.0, abs(ref_tls)),
+        ]
+        worst = max(worst, max(errs))
+    assert worst < EVENT_TOL, worst
+
+
+def test_rolling_window_recovers_after_an_infinity_leaves():
+    x = series(1e3)[:200]
+    x[60] = np.inf
+    out = s.RollingVar(20)(x)
+    ref = s.RollingVar(20)(x[81:])
+    # Once the infinity has left (step 80 is its last), the output is finite
+    # and equals a fresh operator's on the same window.
+    np.testing.assert_allclose(out[100:], ref[100 - 81:], rtol=1e-12)
+    assert np.all(np.isfinite(out[80:]))

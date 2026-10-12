@@ -17,11 +17,12 @@
 #include <string>
 #include "screamer/common/functor_base.h"
 #include "screamer/rolling_spread.h"
+#include "screamer/detail/moment_formulas.h"
 #include "screamer/detail/shifted_window_sums.h"
 
 namespace screamer {
 
-class RollingResidualStd : public FunctorBase<RollingResidualStd, 2, 1> {
+class RollingResidualStd : public StepperFunctorBase<RollingResidualStd, 2, 1> {
     using StdSums = detail::ShiftedWindowSums<2>;
 
 public:
@@ -42,15 +43,16 @@ public:
     }
 
     // The spread's step, then the RollingStd of the spreads on their own
-    // window of sums; the batch column loop runs it on a local copy
-    // (FunctorBase, has_stepper).
+    // window of sums, for both the batch column loop and call()
+    // (StepperFunctorBase).
     struct Stepper {
         RollingSpread::Stepper spread;
         StdSums::Cursor c;
         bool strict;
 
         inline ResultTuple call(const InputArray& inputs) {
-            const double spread_val = spread.call(inputs);
+            double spread_val;
+            SCREAMER_INLINE_CALL spread_val = spread.call(inputs);
             if (std::isnan(spread_val)) {
                 return std::numeric_limits<double>::quiet_NaN();
             }
@@ -60,7 +62,7 @@ public:
                 return std::numeric_limits<double>::quiet_NaN();
             }
             const double n = static_cast<double>(n_);
-            const double var = (c.st.s[1] - c.st.s[0] * c.st.s[0] / n) / (n - 1);
+            const double var = detail::var_from_sums(c.st.s[0], c.st.s[1], n);
             return std::sqrt(var);
         }
     };
@@ -71,13 +73,6 @@ public:
     void store(const Stepper& k) {
         spread_.store(k.spread);
         sums_.set_state(k.c.st);
-    }
-
-    ResultTuple call(const InputArray& inputs) override {
-        Stepper k = stepper();
-        const ResultTuple r = k.call(inputs);
-        store(k);
-        return r;
     }
 
 private:
