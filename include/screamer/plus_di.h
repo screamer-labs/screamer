@@ -12,6 +12,9 @@ namespace screamer {
 
 class PlusDI : public FunctorBase<PlusDI, 3, 1> {
 public:
+    // The column loop runs on a local copy, its state in registers.
+    static constexpr bool kColumnCopy = true;
+
     explicit PlusDI(int window_size = 14) : core_(window_size) {}
     void reset() override { core_.reset(); }
     ResultTuple call(const InputArray& inputs) override {

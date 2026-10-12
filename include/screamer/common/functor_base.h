@@ -36,15 +36,29 @@ namespace screamer {
 
 namespace detail {
     // Derived::kInlineColumnCall, or true when the operator does not set it.
-    // An operator sets it to false when its step measured faster as a separate
-    // call than inlined into the column loop (the two-input EW operators and
-    // ADOSC). Its long strided columns then run in place, not tiled
-    // (tight_column, column_driver.h).
+    // An operator sets it to false when its step measures faster as a separate
+    // call than inlined into the column loop; none does at present (the
+    // two-input EW operators and ADOSC did, and now use kColumnCopy). Its long
+    // strided columns then run in place, not tiled (tight_column,
+    // column_driver.h).
     template <class D, class = void>
     struct inline_column_call : std::true_type {};
     template <class D>
     struct inline_column_call<D, std::void_t<decltype(D::kInlineColumnCall)>>
         : std::bool_constant<D::kInlineColumnCall> {};
+
+    // Derived::kColumnCopy, or false. An operator whose state is a few plain
+    // values (no heap buffers) sets it to true: the column loop then runs on
+    // a local copy of the operator and copies it back once, so the compiler
+    // keeps the state in registers instead of storing and reloading it every
+    // event (the output pointer could alias the operator's members). The
+    // speed of that per-event store and reload depends on the process, so
+    // the copy also makes the loop's speed predictable.
+    template <class D, class = void>
+    struct column_copy : std::false_type {};
+    template <class D>
+    struct column_copy<D, std::void_t<decltype(D::kColumnCopy)>>
+        : std::bool_constant<D::kColumnCopy> {};
 
 
     // Helper struct to create a tuple of M doubles
@@ -164,6 +178,21 @@ private:
         Derived& self = static_cast<Derived&>(*this);
         std::array<const double*, N> p{ in[I]... };
         const std::array<std::ptrdiff_t, N> s{ in_stride[I]... };
+        if constexpr (detail::column_copy<Derived>::value) {
+            Derived local(self);
+            for (std::size_t t = 0; t < T; ++t, out += out_stride) {
+                const InputArray inputs{ *p[I]... };
+                ((p[I] += s[I]), ...);
+                if constexpr (M == 1) {
+                    SCREAMER_INLINE_CALL *out = local.Derived::call(inputs);
+                } else {
+                    SCREAMER_INLINE_CALL detail::write_tuple_to_memory(
+                        out, local.Derived::call(inputs));
+                }
+            }
+            self = local;
+            return;
+        }
         for (std::size_t t = 0; t < T; ++t, out += out_stride) {
             const InputArray inputs{ *p[I]... };
             ((p[I] += s[I]), ...);

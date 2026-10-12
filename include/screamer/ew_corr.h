@@ -22,8 +22,8 @@ namespace screamer {
 
 class EwCorr : public FunctorBase<EwCorr, 2, 1> {
 public:
-    // Measured faster with its step kept out of the batch column loop.
-    static constexpr bool kInlineColumnCall = false;
+    // The column loop runs on a local copy, its state in registers.
+    static constexpr bool kColumnCopy = true;
 
     explicit EwCorr(
         std::optional<double> com = std::nullopt,

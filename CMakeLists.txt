@@ -127,6 +127,17 @@ else()
     # Tests fail silently because NaN gets folded to 0 or to leaked values.
     target_compile_options(screamer_bindings PRIVATE -O3 -flto)
     target_link_options(screamer_bindings PRIVATE -flto)
+    # GCC fuses multiply-adds across statements by default (-ffp-contract=fast),
+    # so the batch loop and the per-event step of one operator could round
+    # differently after inlining. Pin it off for GCC (the Linux wheels). Clang
+    # keeps its default (on): it fuses only within one expression, and the
+    # batch and streaming paths of an operator share those expressions. Off
+    # for clang too would cost up to 1.76x on recurrences such as EwMean (an
+    # FMA has a shorter latency than a multiply and an add). Results can
+    # therefore differ in the last bits between platforms.
+    if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+        target_compile_options(screamer_bindings PRIVATE -ffp-contract=off)
+    endif()
     if(SCREAMER_NATIVE_ARCH)
         target_compile_options(screamer_bindings PRIVATE -march=native)
     endif()

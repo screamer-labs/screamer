@@ -21,6 +21,9 @@ namespace screamer {
 
 class ATR : public FunctorBase<ATR, 3, 1> {
 public:
+    // The column loop runs on a local copy, its state in registers.
+    static constexpr bool kColumnCopy = true;
+
     explicit ATR(int window_size = 14) : window_size_(window_size) {
         if (window_size < 2) {
             throw std::invalid_argument("Window size must be at least 2.");
@@ -64,7 +67,7 @@ public:
     }
 
 private:
-    const int window_size_;
+    int window_size_;
     TrueRange true_range_;
     double seed_sum_ = 0.0;
     double atr_ = 0.0;

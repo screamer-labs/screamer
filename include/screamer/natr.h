@@ -18,6 +18,9 @@ namespace screamer {
 
 class NATR : public FunctorBase<NATR, 3, 1> {
 public:
+    // The column loop runs on a local copy, its state in registers.
+    static constexpr bool kColumnCopy = true;
+
     explicit NATR(int window_size = 14) : atr_(window_size) {}
 
     void reset() override { atr_.reset(); }

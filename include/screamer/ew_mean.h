@@ -74,30 +74,31 @@ namespace screamer {
         // several times the cost here. See rolling_mean.h for the measurement
         // that established this.
         void process_array_no_stride(double* y, const double* x, size_t size) override {
+            run_column(y, 1, x, 1, size);
+        }
+
+        void process_array_stride(double* y, size_t dyi, const double* x, size_t dxi,
+                                  size_t size) override {
+            run_column(y, static_cast<std::ptrdiff_t>(dyi), x,
+                       static_cast<std::ptrdiff_t>(dxi), size);
+        }
+
+    private:
+        // The batch loop, with the sums in locals (skip_nan_column).
+        void run_column(double* y, std::ptrdiff_t dy, const double* x, std::ptrdiff_t dx,
+                        size_t size) {
             const double decay = one_minus_alpha_;
             double sum_x = sum_x_;
             double sum_w = sum_w_;
-            for (size_t i = 0; i < size; ++i) {
-                const double v = x[i];
-                if (isnan2(v)) {
-                    y[i] = std::numeric_limits<double>::quiet_NaN();
-                    continue;
-                }
+            skip_nan_column(y, dy, x, dx, size, [&](double v) {
                 sum_x = step(sum_x, decay, v);
                 sum_w = step(sum_w, decay, 1.0);
-                y[i] = sum_x / sum_w;
-            }
+                return sum_x / sum_w;
+            });
             sum_x_ = sum_x;
             sum_w_ = sum_w;
         }
 
-        // Previous array overrides duplicated process_scalar's body with
-        // their own local accumulators (which made them implicitly
-        // NaN-unsafe). The scalar fallback in ScreamerBase honors the
-        // "ignore" policy correctly. Re-add an inline NaN-aware fast
-        // path here if profiling shows it matters.
-
-    private:
         // The one decay step every path uses. The compiler may fuse s * d + v
         // into an FMA, which is faster in this latency-bound recurrence but
         // rounds differently from a separate multiply and add, so the scalar,

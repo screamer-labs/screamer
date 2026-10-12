@@ -21,8 +21,8 @@ namespace screamer {
 
 class ADOSC : public FunctorBase<ADOSC, 4, 1> {
 public:
-    // Measured faster with its step kept out of the batch column loop.
-    static constexpr bool kInlineColumnCall = false;
+    // The column loop runs on a local copy, its state in registers.
+    static constexpr bool kColumnCopy = true;
 
     explicit ADOSC(int fast = 3, int slow = 10)
         : ema_fast_(std::nullopt, static_cast<double>(fast),

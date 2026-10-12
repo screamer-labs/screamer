@@ -30,7 +30,9 @@ public:
     bool on_event(std::uint32_t source, const double* values) {
         assert(source < widths_.size());
         if (!seen_[source]) { seen_[source] = 1; ++seen_count_; }
-        std::copy(values, values + widths_[source], latest_.begin() + offset_[source]);
+        const std::size_t w = widths_[source];
+        if (w == 1) latest_[offset_[source]] = values[0];
+        else std::copy(values, values + w, latest_.begin() + offset_[source]);
         return !(when_all_ && seen_count_ < widths_.size());
     }
 

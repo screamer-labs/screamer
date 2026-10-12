@@ -9,6 +9,7 @@
 // exactly one of lp_period / lp_cutoff.
 
 #include <optional>
+#include <cstddef>
 #include <vector>
 #include "screamer/common/base.h"
 #include "screamer/signal/ehlers.h"
@@ -40,7 +41,35 @@ public:
         return lp_.process_scalar(hp_.process_scalar(x));
     }
 
+    void process_array_no_stride(double* y, const double* x, size_t size) override {
+        run_column(y, 1, x, 1, size);
+    }
+
+    void process_array_stride(double* y, size_t dyi, const double* x, size_t dxi,
+                              size_t size) override {
+        run_column(y, static_cast<std::ptrdiff_t>(dyi), x, static_cast<std::ptrdiff_t>(dxi), size);
+    }
+
 private:
+    // The batch loop: both second-order filters as IIRStates (state in
+    // locals), one step of each per value. A NaN from the high-pass (an
+    // infinite input) skips the smoother, as process_scalar does. Other
+    // orders cannot occur today; they would take the per-value path.
+    void run_column(double* y, std::ptrdiff_t dy, const double* x, std::ptrdiff_t dx,
+                    size_t size) {
+        if (hp_.n != 3 || lp_.n != 3) {
+            for (size_t m = 0; m < size; ++m, x += dx, y += dy) *y = process_scalar(*x);
+            return;
+        }
+        IIRState<2> hp(hp_), lp(lp_);
+        skip_nan_column(y, dy, x, dx, size, [&hp, &lp](double v) {
+            const double h = hp.step(v);
+            return h != h ? h : lp.step(h);
+        });
+        hp.store(hp_);
+        lp.store(lp_);
+    }
+
     IIRFilter hp_;
     IIRFilter lp_;
 };

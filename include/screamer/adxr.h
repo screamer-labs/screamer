@@ -18,6 +18,9 @@ namespace screamer {
 
 class ADXR : public FunctorBase<ADXR, 3, 1> {
 public:
+    // The column loop runs on a local copy, its state in registers.
+    static constexpr bool kColumnCopy = true;
+
     explicit ADXR(int window_size = 14)
         : core_(window_size),
           lag_(window_size - 1),

@@ -35,6 +35,7 @@ import argparse
 import inspect
 import json
 import math
+import os
 import statistics
 import sys
 import time
@@ -46,8 +47,8 @@ REPEATS = 7
 MIN_SAMPLE_S = 0.002
 N_VALUES = 2000
 # Tried in order. Most operators have defaults; the exponentially weighted
-# family needs a span and the Ehlers filters a period.
-CONSTRUCT_KWARGS = ({}, {"span": 20}, {"period": 20})
+# family needs a span, the Ehlers filters a period and RoofingFilter two.
+CONSTRUCT_KWARGS = ({}, {"span": 20}, {"period": 20}, {"hp_period": 48, "lp_period": 10})
 
 
 def import_screamer(src):
@@ -62,6 +63,40 @@ def import_screamer(src):
         sys.path.insert(0, src)
     import screamer
     return screamer
+
+
+def build_info(s):
+    """Where the timed build came from: git sha, machine, compiler and flags."""
+    import platform
+    import subprocess
+
+    def run(*cmd):
+        try:
+            return subprocess.run(cmd, capture_output=True, text=True, timeout=10,
+                                  cwd=os.path.dirname(s.__file__)).stdout.strip()
+        except Exception:
+            return ""
+
+    info = {"git_sha": run("git", "rev-parse", "HEAD"),
+            "git_dirty": bool(run("git", "status", "--porcelain", "--untracked-files=no")),
+            "machine": platform.machine(), "processor": platform.processor(),
+            "cpu": run("sysctl", "-n", "machdep.cpu.brand_string") or platform.processor(),
+            "python": platform.python_version()}
+    # The compiler and flags of the cmake build next to the package (``make
+    # build`` writes compile_commands.json), if any: the command line of one
+    # translation unit, without its file arguments.
+    db = os.path.join(os.path.dirname(os.path.dirname(s.__file__)), "build",
+                      "compile_commands.json")
+    try:
+        entry = next(e for e in json.load(open(db))
+                     if "/bindings/" in e["file"] or "/src/screamer/" in e["file"])
+        args = entry.get("command", "").split()
+        info["compiler"] = run(args[0], "--version").splitlines()[0]
+        info["compile_command"] = " ".join(
+            a for a in args if not a.endswith((".cpp", ".o")) and a not in ("-o", "-c"))
+    except Exception:
+        info["compile_command"] = ""
+    return info
 
 
 def construct(cls):
@@ -117,7 +152,7 @@ def run(path, src, only, n_values):
 
     xs = make_series(np)
     shapes = {"1d": xs, "2d": [x.reshape(SHAPE_2D) for x in xs]}
-    result = {"meta": {"screamer": s.__file__, "T": T, "shape_2d": SHAPE_2D},
+    result = {"meta": {"screamer": s.__file__, "T": T, "shape_2d": SHAPE_2D, **build_info(s)},
               "shapes": {k: {"ns": {}, "vals": {}} for k in shapes}}
     names = sorted(n for n in dir(s) if not n.startswith("_"))
     if only:
@@ -150,6 +185,8 @@ def run(path, src, only, n_values):
                 continue
             ns = time_call(op, args) / data[0].size * 1e9
             result["shapes"][shape]["ns"][name] = ns
+            # A multi-output operator's values are its outputs one after the
+            # other, so the tail covers the last output only.
             tail = out.ravel()[max(out.size - n_values, 0):] if n_values else out[:0]
             result["shapes"][shape]["vals"][name] = tail.tolist()
         print(f"{name:32s} " + "  ".join(

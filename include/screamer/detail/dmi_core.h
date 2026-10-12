@@ -112,7 +112,7 @@ public:
     int window() const { return w_; }
 
 private:
-    const int w_;
+    int w_;
     double sum_tr_ = 0.0;
     double sum_pdm_ = 0.0;
     double sum_mdm_ = 0.0;

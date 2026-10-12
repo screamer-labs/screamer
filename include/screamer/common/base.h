@@ -3,6 +3,7 @@
 
 #include <cstddef>
 #include "screamer/common/eval_op.h"
+#include "screamer/common/skip_nan_column.h"
 
 namespace screamer {
 

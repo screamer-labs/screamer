@@ -117,8 +117,12 @@ private:
                 std::to_string(cl_.width(i)) + " to " + std::to_string(f.width) + " columns");
         }
         if (wm_[i] < f.index) wm_[i] = f.index;   // a data frame advances the port watermark
-        pending_.push(Pending{f.index, static_cast<std::uint32_t>(i), next_seq_++,
-                              store(i, f.values, f.width)});
+        Pending p{f.index, static_cast<std::uint32_t>(i), next_seq_++, {}};
+        // A one-column frame keeps its value in the entry; a wider one in its
+        // port's pool.
+        if (f.width == 1) p.value = f.values[0];
+        else p.slot = store(i, f.values, f.width);
+        pending_.push(p);
         if (pending_.size() > max_pending_)
             throw std::runtime_error(
                 "CombineLatest reorder buffer overflow: an input has not advanced; "
@@ -153,6 +157,10 @@ private:
         while (!pending_.empty() && pending_.top().index <= low) {
             Pending p = pending_.top(); pending_.pop();
             const std::size_t w = cl_.width(p.port);
+            if (w == 1) {
+                apply_ordered(p.port, p.index, &p.value);
+                continue;
+            }
             apply_ordered(p.port, p.index, pool_[p.port].data() + p.slot * w);
             if (w) free_slots_[p.port].push_back(p.slot);
         }
@@ -230,9 +238,10 @@ private:
     std::vector<bool> learned_;
     bool emitted_any_ = false;
 
-    // Per-port value pool for pending frames: a frame's values live in slot
-    // `slot` of its port's pool (width cl_.width(port)); applied slots are
-    // recycled through free_slots_, so steady state allocates nothing.
+    // Per-port value pool for pending frames wider than one column: a frame's
+    // values live in slot `slot` of its port's pool (width cl_.width(port));
+    // applied slots are recycled through free_slots_, so steady state
+    // allocates nothing. A one-column frame holds its value in its Pending.
     std::vector<std::vector<double>> pool_;
     std::vector<std::vector<std::size_t>> free_slots_;
 
@@ -242,7 +251,15 @@ private:
     // that share the same (index, port) - a single port can carry two events at the
     // same index (duplicate indices), and last-write-wins requires arrival order.
     std::vector<Index> wm_;
-    struct Pending { Index index; std::uint32_t port; std::uint64_t seq; std::size_t slot; };
+    struct Pending {
+        Index index;
+        std::uint32_t port;
+        std::uint64_t seq;
+        union {
+            double value;       // a one-column frame's value
+            std::size_t slot;   // a wider frame's slot in pool_[port]
+        };
+    };
     struct PendGreater {
         bool operator()(const Pending& a, const Pending& b) const {
             if (a.index != b.index) return a.index > b.index;  // min-heap on index

@@ -83,6 +83,12 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
   from 2.8.0 in the last bits (at most 5.7e-14 on a random walk near 100);
   there is no switch back, so compare with stored 2.8.0 output using a tolerance such
   as `np.allclose`.
+* GCC builds (the Linux wheels) no longer fuse a multiply and an add across
+  statements into one instruction (`-ffp-contract=off`), so batch and
+  streaming results stay identical there. Clang builds (macOS wheels and
+  WebAssembly) keep fusing within one expression, which both paths share.
+  Results can therefore differ in the last bits between platforms; compare
+  across platforms with a tolerance such as `np.allclose`.
 * `Return` and `ROCP` on a 1-D array compute `(x[t] - x[t-k]) / x[t-k]`, as
   their other paths do (was `x[t] / x[t-k] - 1`), so a 1-D result equals the
   same column of a 2-D one. The values differ by at most one unit in the last
@@ -196,13 +202,26 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
   contiguous memory, so the column loop no longer stalls on strided reads. The
   gain is largest at power-of-two K: `Add()` on `(2000, 256)` takes 1.4 ns per
   element (was 5.0), `RollingCorr(20)` on `(20000, 128)` 6.8 (was 15.9).
-* The IIR filters (`Butter`, `ButterHighpass`, `ButterBandpass`,
-  `ButterBandstop`, `SuperSmoother`, `Decycler`, `RoofingFilter`) keep their
-  state in registers in a batch call. Before, the state went through memory
-  every step, and the speed depended on the memory layout of the process. On
-  200,000 values (ns per element, Apple M3): `Butter()` 2.7 (was 4.9 to 6.5),
-  `ButterBandpass()` 2.4 (was 5.3 to 6.6), `SuperSmoother(20)` 2.7 (was 3.9 to
-  6.5). The results are unchanged.
+* More operators keep their running state in registers in a batch call.
+  Before, the state was stored and reloaded every step, and the speed of that
+  depended on the process (some runs were 2 to 4 times slower than others).
+  The results are unchanged. On 200,000 values (ns per element, Apple M3):
+  * IIR filters: `Butter()` 2.7 (was 4.9 to 6.5), `ButterBandpass()` 2.4 (was
+    5.3 to 6.6), `SuperSmoother(20)` 2.7 (was 3.9 to 6.5), `RoofingFilter(48,
+    10)` 2.7 (was 2.8 to 5.0); also `ButterHighpass`, `ButterBandstop` and
+    `Decycler`.
+  * `CumSum` and `ExpandingSum` 0.66 (was 0.8 to 3.3), `ExpandingMean` 0.56
+    (was 3.3), `CumProd` and `ExpandingProd` 1.1 (was 1.1 to 3.3), `Diff2`
+    0.54 (was 1.4 to 2.6).
+  * The two-input EW operators: `EwCov` 3.0 (was 4.9), `EwBeta` 3.1 (was 4.7),
+    `EwCorr` 3.7 (was 4.8), `EwSpread` 2.7 (was 5.0), `EwAlpha` 3.6 (was 5.9),
+    `EwResidualStd` 4.7 (was 5.8); `ADOSC` 1.8 (was 5.1).
+  * The DMI and ATR family: `ADX` 5.8 (was 15), `ADXR` 5.9 (was 19), `PlusDI`
+    and `MinusDI` 5.8 (was 7.7), `DX` 5.7 (was 7.8), `PlusDM` and `MinusDM`
+    5.6 (was 11 to 13), `ATR` 4.2 (was 7.2 to 7.9), `NATR` 4.2 (was 5.7 to
+    7.6).
+* `EwMean` on a `(T, K)` array runs each column in its batch loop, 1.5 ns per
+  element on `(2000, 100)` (was 4.3).
 * `RealizedSpread` takes 1.35 ns per element (was 2.5).
 
 ### Documentation

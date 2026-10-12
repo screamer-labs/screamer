@@ -27,6 +27,7 @@ classes:
 #include <cstddef>
 #include <stdexcept>
 #include <utility>
+#include "screamer/common/skip_nan_column.h"
 
 
 namespace screamer {
@@ -316,6 +317,40 @@ void zpk2tf(const std::vector<std::complex<double>>& zeros,
 
 
 
+// A copy of an IIRFilter of order K (n = K + 1 coefficients) whose
+// coefficients and state are local values, for a batch loop: kept in
+// registers, the recurrence does not go through memory every step (the stored
+// state is reloaded next step, and how fast that is depends on the memory
+// layout of the process). step() evaluates the same expressions as
+// IIRFilter::process_scalar for a non-NaN x, so the results are the same.
+template <size_t K>
+struct IIRState {
+    double b[K + 1], a[K + 1], z[K];
+
+    template <class Filter>
+    explicit IIRState(const Filter& f) {
+        for (size_t i = 0; i <= K; ++i) {
+            b[i] = f.b[i];
+            a[i] = f.a[i];
+        }
+        for (size_t i = 0; i < K; ++i) z[i] = f.z[i];
+    }
+
+    double step(double x) {
+        const double y = b[0] * x + z[0];
+        for (size_t i = 0; i + 1 < K; ++i) {
+            z[i] = b[i + 1] * x + z[i + 1] - a[i + 1] * y;
+        }
+        z[K - 1] = b[K] * x - a[K] * y;
+        return y;
+    }
+
+    template <class Filter>
+    void store(Filter& f) const {
+        for (size_t i = 0; i < K; ++i) f.z[i] = z[i];
+    }
+};
+
 class IIRFilter {
     public:
         // Default constructor
@@ -384,12 +419,7 @@ class IIRFilter {
         }
 
     private:
-        // The batch loop. The common orders run a copy of the filter with its
-        // state in local variables, so the recurrence stays in registers
-        // instead of going through memory every step (the stored state is
-        // reloaded next step, and how fast that is depends on the memory
-        // layout of the process). Each step evaluates the same expressions
-        // as process_scalar, so the results are the same.
+        // The batch loop. Orders 1 to 8 run an IIRState, the state in locals.
         void process_array(double* y, std::ptrdiff_t dy, const double* x,
                            std::ptrdiff_t dx, size_t size)
         {
@@ -412,34 +442,9 @@ class IIRFilter {
         void run_fixed(double* y, std::ptrdiff_t dy, const double* x, std::ptrdiff_t dx,
                        size_t size)
         {
-            double bb[K + 1], aa[K + 1], zz[K];
-            for (size_t i = 0; i <= K; ++i) {
-                bb[i] = b[i];
-                aa[i] = a[i];
-            }
-            for (size_t i = 0; i < K; ++i) zz[i] = z[i];
-            size_t m = 0;
-            while (true) {
-                // A run of non-NaN steps. NaN leaves the loop instead of
-                // selecting between old and new state, which would add a
-                // select to the recurrence's latency.
-                for (; m < size; ++m, x += dx, y += dy) {
-                    const double xv = *x;
-                    if (std::isnan(xv)) break;
-                    const double yv = bb[0] * xv + zz[0];
-                    for (size_t i = 0; i + 1 < K; ++i) {
-                        zz[i] = bb[i + 1] * xv + zz[i + 1] - aa[i + 1] * yv;
-                    }
-                    zz[K - 1] = bb[K] * xv - aa[K] * yv;
-                    *y = yv;
-                }
-                if (m == size) break;
-                *y = std::numeric_limits<double>::quiet_NaN();   // state unchanged
-                ++m;
-                x += dx;
-                y += dy;
-            }
-            for (size_t i = 0; i < K; ++i) z[i] = zz[i];
+            IIRState<K> s(*this);
+            skip_nan_column(y, dy, x, dx, size, [&s](double v) { return s.step(v); });
+            s.store(*this);
         }
 
     public:

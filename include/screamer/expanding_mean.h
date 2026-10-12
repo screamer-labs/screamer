@@ -33,7 +33,30 @@ public:
         return sum_x_ / n_;
     }
 
+    void process_array_no_stride(double* y, const double* x, size_t size) override {
+        run_column(y, 1, x, 1, size);
+    }
+
+    void process_array_stride(double* y, size_t dyi, const double* x, size_t dxi,
+                              size_t size) override {
+        run_column(y, static_cast<std::ptrdiff_t>(dyi), x, static_cast<std::ptrdiff_t>(dxi), size);
+    }
+
 private:
+    // The batch loop, with the running state in a local (skip_nan_column).
+    void run_column(double* y, std::ptrdiff_t dy, const double* x, std::ptrdiff_t dx,
+                    size_t size) {
+        double sum_x = sum_x_;
+        long n = n_;
+        skip_nan_column(y, dy, x, dx, size, [&sum_x, &n](double v) {
+            sum_x += v;
+            ++n;
+            return sum_x / n;
+        });
+        sum_x_ = sum_x;
+        n_ = n;
+    }
+
     double sum_x_ = 0.0;
     long n_ = 0;
 };
