@@ -9,7 +9,6 @@ import asyncio
 import ctypes
 import gc
 import os
-import resource
 import subprocess
 import sys
 import textwrap
@@ -164,7 +163,7 @@ def _rss_bytes():
     """The current resident set size (not the peak, which hides a slow leak)."""
     if sys.platform.startswith("linux"):
         with open("/proc/self/statm") as f:
-            return int(f.read().split()[1]) * resource.getpagesize()
+            return int(f.read().split()[1]) * os.sysconf("SC_PAGE_SIZE")
     out = subprocess.run(["ps", "-o", "rss=", "-p", str(os.getpid())],
                          capture_output=True, text=True, check=True).stdout
     return int(out) * 1024                                   # ps reports KB
@@ -182,9 +181,10 @@ async def _async_streams(n):
         await _drain(s.RollingMean(5)(agen()))
 
 
-def test_soak_memory_is_flat():
-    import tracemalloc
-    a = s.Input("a"); lazy_pipe = s.Pipeline([a], [s.RollingMean(3)(a)])
+def _soak_cycle():
+    """One soak cycle: 200 iterations that create, drain and drop streams,
+    pipelines and live sessions, then 50 async streams."""
+    lazy_in = s.Input("a"); lazy_pipe = s.Pipeline([lazy_in], [s.RollingMean(3)(lazy_in)])
     def cycle():
         for _ in range(200):
             list(s.RollingMean(5)(iter(np.arange(50.))))
@@ -201,16 +201,26 @@ def test_soak_memory_is_flat():
             list(s.Merge()(iter(np.arange(20.)), iter(np.arange(20.))))
         asyncio.run(_async_streams(50))
         gc.collect()
+    return cycle
+
+
+def test_soak_python_memory_is_flat():
+    import tracemalloc
+    cycle = _soak_cycle()
     cycle(); tracemalloc.start(); base = tracemalloc.get_traced_memory()[0]
     for _ in range(5): cycle()
     grown = tracemalloc.get_traced_memory()[0] - base
     tracemalloc.stop()
     assert grown < 256 * 1024, grown
 
+
+@pytest.mark.skipif(sys.platform == "win32", reason="reads the resident set via /proc or ps")
+def test_soak_resident_memory_is_flat():
     # tracemalloc sees only Python allocations; the resident set also shows
     # memory the C++ side never frees. 20 cycles of 200 iterations: a leak of
     # 800 bytes per iteration grows it by about 3 MB.
-    for _ in range(3): cycle()                               # settle the allocator
+    cycle = _soak_cycle()
+    for _ in range(4): cycle()                               # settle the allocator
     rss0 = _rss_bytes()
     for _ in range(20): cycle()
     rss_grown = _rss_bytes() - rss0
