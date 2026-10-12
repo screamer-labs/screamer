@@ -32,12 +32,12 @@ namespace screamer {
             const std::string& output = "clipped",
             const std::string& start_policy = "strict"
         ) :
-            window_size_(window_size),
+            sums_(window_size > 0 ? window_size : 1, detail::parse_start_policy(start_policy)),
+            start_policy_(detail::parse_start_policy(start_policy)),
             lower_bound_(lower.value_or(std::numeric_limits<double>::lowest())),
             upper_bound_(upper.value_or(std::numeric_limits<double>::max())),
-            output_(parse_output(output)),
-            start_policy_(detail::parse_start_policy(start_policy)),
-            sums_(window_size > 0 ? window_size : 1, detail::parse_start_policy(start_policy))
+            window_size_(window_size),
+            output_(parse_output(output))
         {
             if (window_size_ <= 0) {
                 throw std::invalid_argument("Window size must be positive.");

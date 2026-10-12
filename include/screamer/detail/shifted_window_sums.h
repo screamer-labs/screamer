@@ -17,9 +17,8 @@
 //
 //   - the mean has drifted from the origin by more than four standard
 //     deviations (s1^2 > (16/17) n s2), as after a level jump;
-//   - the sample that left was far out next to what remains: o^2 > K s2 for
-//     the variance, o^4 n > K^2 s2^2 with the third moment, o^4 > K s4 with
-//     the fourth, K = 16. Its rounding was of the size of its own power and
+//   - the sample that left dominates what remains: o^2 > K s2 for the second
+//     and third moments, o^4 > K s4 with the fourth, K = 16. Its rounding was of the size of its own power and
 //     would dominate the smaller sums that remain, as after a spike or after
 //     the last sample of an old level leaves;
 //   - the sample that left was not finite (an infinity has left the window);
@@ -126,11 +125,14 @@ public:
                 const double ks2 = K * st.s[1];
                 far = oo > ks2;
             } else if constexpr (P == 3) {
-                // o^4 n > K^2 s2^2: the skewness and the variance.
-                const double o4n = oo * oo * static_cast<double>(cap);
+                // The variance's dominance test. A removed term that does not
+                // dominate the remaining spread leaves rounding of about
+                // eps |o|^3 in s3, which the once-per-window recompute clears;
+                // testing |o|^3 against the third-moment scale instead fired
+                // on every outlier that left, even with others still in the
+                // window.
                 const double ks2 = K * st.s[1];
-                const double ks2ks2 = ks2 * ks2;
-                far = o4n > ks2ks2;
+                far = oo > ks2;
             } else {
                 const double dddd = dd * dd;
                 const double oooo = oo * oo;

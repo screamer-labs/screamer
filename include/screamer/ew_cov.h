@@ -92,7 +92,7 @@ private:
     double alpha_{};
     double one_minus_alpha_{};
     double one_minus_alpha2_{};
-    detail::ShiftedCoPowerSums<false, false> sums_;
+    detail::ShiftedCoPowerSums sums_;
     double sum_w2_ = 0.0;
 };
 

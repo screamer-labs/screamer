@@ -496,3 +496,66 @@ def test_rolling_window_recovers_after_an_infinity_leaves():
     # and equals a fresh operator's on the same window.
     np.testing.assert_allclose(out[100:], ref[100 - 81:], rtol=1e-12)
     assert np.all(np.isfinite(out[80:]))
+
+
+# --- EW pairs at short spans after a level jump ------------------------------
+#
+# The drift test of an input whose sum of squares an operator does not keep
+# (EwCov, EwBeta) uses a sampled spread; it must still move the origin after a
+# level jump, at any span.
+
+@pytest.mark.parametrize("which", ["both", "x", "y"])
+@pytest.mark.parametrize("span", [3, 10])
+def test_ew_pair_ops_after_level_jump_at_short_spans(span, which):
+    n_total, k, jump = 500, 150, 1e6
+    rng = np.random.default_rng(11)
+    e1, e2 = rng.standard_normal(n_total), rng.standard_normal(n_total)
+    y = e1.copy()
+    x = 0.8 * e1 + 0.6 * e2
+    if which in ("both", "x"):
+        x[k:] += jump
+    if which in ("both", "y"):
+        y[k:] += jump
+    outs = {name: getattr(s, name)(span=span)(x, y)
+            for name in ("EwCov", "EwCorr", "EwBeta")}
+    alpha = 2.0 / (span + 1.0)
+    a, a2 = Dy.of(1.0 - alpha), Dy.of((1.0 - alpha) * (1.0 - alpha))
+    one = Dy(1, 0)
+    D = [Dy()] * 7
+    worst = 0.0
+    for t in range(n_total):
+        X, Y = Dy.of(x[t]), Dy.of(y[t])
+        D = [a * D[0] + one, a2 * D[1] + one, a * D[2] + X, a * D[3] + Y,
+             a * D[4] + X * X, a * D[5] + Y * Y, a * D[6] + X * Y]
+        if t < 5 or (t % 7 and t < n_total - 50):
+            continue
+        w, ww, sx, sy, sxx, syy, sxy = [q.fr() for q in D]
+        ne = w * w / ww
+        mx, my = sx / w, sy / w
+        cxx, cyy, cxy = sxx / w - mx * mx, syy / w - my * my, sxy / w - mx * my
+        kk = ne / (ne - 1)
+        sdx, sdy = fsqrt(cxx * kk), fsqrt(cyy * kk)
+        worst = max(worst,
+                    abs(outs["EwCov"][t] - float(cxy * kk)) / (sdx * sdy),
+                    abs(outs["EwCorr"][t] - signed_sqrt(cxy ** 2 / (cxx * cyy), cxy)),
+                    abs(outs["EwBeta"][t] - float(cxy / cyy)) / (sdx / sdy))
+    assert worst < EVENT_TOL, worst
+
+
+@pytest.mark.parametrize("w, every", [(50, 13), (1000, 120), (1000, 600)])
+def test_rolling_uni_with_periodic_outliers(w, every):
+    # Outliers that leave while others remain do not dominate the window and
+    # do not force a recompute; the result stays exact.
+    n_total = 4 * w + 200
+    rng = np.random.default_rng(5)
+    x = rng.standard_normal(n_total)
+    x[::every] += 1e4
+    E = ExactWindows(x)
+    outs = {name: getattr(s, name)(w)(x) for name in UNI}
+    worst = 0.0
+    for t in range(w - 1, n_total):
+        n, m, M = E.central(t - w + 1, t + 1)
+        for name, fn in UNI.items():
+            ref, scale = fn(n, M, E.X[t], m)
+            worst = max(worst, abs(outs[name][t] - ref) / max(scale, abs(ref)))
+    assert worst < EVENT_TOL, worst

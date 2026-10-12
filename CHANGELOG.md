@@ -256,22 +256,22 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
   re-centering tests cost time in the rolling and two-input operators. On
   200,000 values (ns per element on a 1-D series, Apple M3, `window_size=20`
   or `span=20`, against the build before this change; for the slower ones
-  the ratio is the larger of the 1-D and `(2000, 100)` shapes): faster are `ExpandingVar` 1.2 (was 4.4), `ExpandingStd` 1.4
-  (was 4.3), `EwVar` 2.8 (was 4.9), `EwStd` 2.8 (was 5.1), `EwZscore` 2.9
-  (was 5.5), `EwSkew` 3.9 (was 5.5), `EwKurt` 4.5 (was 5.6), `ExpandingSkew`
-  3.1 (was 4.3), `ExpandingKurt` 3.9 (was 4.6), `RollingSharpe` 3.2 (was
-  4.1), `EwCorr` 3.2 (was 3.7), `EwCov` 2.8 (was 3.0) and `RollingVar` 3.2
-  (was 3.3). Slower by more than 1.05x in either shape are `RollingCorr` 5.5
-  (was 3.8, 1.43x), `RollingLinearRegression` 6.8 (was 4.8, 1.41x),
-  `RollingSpread` 5.0 (was 3.6, 1.40x), `RollingTLSBeta` 5.8 (was 4.2,
-  1.40x), `EwResidualStd` 6.5 (was 4.7, 1.39x), `RollingSkew` 4.8 (was 3.5,
-  1.39x), `RollingBeta` 5.0 (was 3.7, 1.36x), `RollingCov` 4.8 (was 3.6,
-  1.32x), `RollingResidualStd` 9.1 (was 7.0, 1.30x), `EwSpread` 3.5 (was 2.7,
-  1.28x), `RollingSigmaClip` 5.7 (was 4.5, 1.25x), `RollingKurt` 5.0 (was
-  4.1, 1.22x), `BollingerBands` 4.2 (was 3.5, 1.23x), `EwAlpha` 4.3 (was 3.6,
-  1.19x), `EwYangZhangVar` 23.3 (was 20.5, 1.14x), `EwBeta` 3.4 (was 3.0,
-  1.12x), `RollingZscore` 3.8 (was 3.4, 1.16x), `RollingAlpha` 6.5 (was 6.0,
-  1.08x) and `RollingStd` 3.4 (was 3.3, 1.06x). The rolling operators
+  the ratio is the larger of the 1-D and `(2000, 100)` shapes): faster are
+  `ExpandingVar` 1.2 (was 4.4), `ExpandingStd` 1.4 (was 4.3), `EwVar` 2.8
+  (was 4.9), `EwStd` 2.8 (was 5.1), `EwZscore` 2.9 (was 5.5), `EwSkew` 3.9 (was 5.5), `EwKurt` 4.5 (was 5.6), `ExpandingSkew`
+  3.1 (was 4.3), `ExpandingKurt` 3.8 (was 4.6), `RollingSharpe` 3.2 (was
+  4.1), `EwCorr` 3.2 (was 3.7) and `RollingVar` 3.2 (was 3.3). Slower by more
+  than 1.05x in either shape are `RollingCorr` 5.5 (was 3.8, 1.43x),
+  `RollingLinearRegression` 6.8 (was 4.8, 1.40x), `RollingSpread` 5.0 (was
+  3.6, 1.40x), `RollingTLSBeta` 5.8 (was 4.2, 1.40x), `EwResidualStd` 6.6
+  (was 4.7, 1.40x), `RollingBeta` 5.0 (was 3.7, 1.36x), `RollingSkew` 4.6
+  (was 3.5, 1.33x), `RollingCov` 4.8 (was 3.6, 1.32x), `EwSpread` 3.5 (was
+  2.7, 1.30x), `RollingResidualStd` 9.0 (was 7.0, 1.29x), `RollingSigmaClip`
+  5.7 (was 4.5, 1.26x), `BollingerBands` 4.2 (was 3.5, 1.24x), `RollingKurt`
+  5.0 (was 4.1, 1.22x), `EwAlpha` 4.4 (was 3.6, 1.22x), `RollingZscore` 3.7
+  (was 3.4, 1.16x), `EwYangZhangVar` 23.4 (was 20.5, 1.14x), `EwBeta` 3.4
+  (was 3.0, 1.13x), `EwCov` 3.3 (was 3.0, 1.10x), `RollingAlpha` 6.5 (was
+  6.0, 1.09x) and `RollingStd` 3.4 (was 3.3, 1.06x). The rolling operators
   recompute their sums about once per window; in streaming, that step takes
   about 8 microseconds with `window_size=10000` (23 after a spike).
 * `RealizedSpread` takes 1.35 ns per element (was 2.5).

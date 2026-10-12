@@ -27,7 +27,6 @@
 // the code is inlined; with no product inside a sum, an update inlined into a
 // batch loop rounds exactly like the same update called once per event.
 
-#include <algorithm>
 
 namespace screamer {
 namespace detail {
@@ -128,20 +127,19 @@ private:
     }
 };
 
-// Two series: the weights, origins and sums sx, sy, sxy, and sxx and syy when
-// enabled (kXX, kYY), which is what the operator's output needs. The drift
-// test needs a spread for both inputs; for an input whose sum of squares is
-// not kept, a coarse one does: vxx (vyy) decays every sample like the sums but
-// adds 4 dx^2 only on the samples that run the test, every fourth.
-template <bool kXX, bool kYY>
+// Two series: the weights, origins and sums sx, sy, sxx, syy and sxy. Every
+// operator keeps all five, also EwCov and EwBeta, whose output needs fewer:
+// the drift test needs the spread of each input. (A spread sampled every
+// fourth step was tried; it saved under 0.1 ns on EwCov and cost 0.2 ns on
+// EwBeta and EwSpread.)
 struct ShiftedCoPowerSums {
     double w = 0.0;
     double origin_x = 0.0;
     double origin_y = 0.0;
     double sx = 0.0;
     double sy = 0.0;
-    double sxx = 0.0;  // the sum, or the coarse spread vxx when !kXX
-    double syy = 0.0;  // likewise
+    double sxx = 0.0;
+    double syy = 0.0;
     double sxy = 0.0;
     unsigned tick = 0;
 
@@ -172,28 +170,16 @@ struct ShiftedCoPowerSums {
         sx += dx;
         sy += dy;
         sxy += dxy;
-        if constexpr (kXX) {
-            const double dxx = dx * dx;
-            sxx += dxx;
-        }
-        if constexpr (kYY) {
-            const double dyy = dy * dy;
-            syy += dyy;
-        }
+        const double dxx = dx * dx;
+        sxx += dxx;
+        const double dyy = dy * dy;
+        syy += dyy;
         w += 1.0;
         // The test runs every fourth sample and allows the means three
         // standard deviations from the origins: second moments lose at most a
         // factor 1 + 3^2 = 10 to cancellation, and the test and the shift
         // cost little.
         if ((++tick & 3u) != 0) return;
-        if constexpr (!kXX) {
-            const double dxx4 = 4.0 * dx * dx;
-            sxx += dxx4;
-        }
-        if constexpr (!kYY) {
-            const double dyy4 = 4.0 * dy * dy;
-            syy += dyy4;
-        }
         const double sxsx = sx * sx;
         const double sysy = sy * sy;
         const double sxxw = 0.9 * sxx * w;
@@ -218,12 +204,8 @@ struct ShiftedCoPowerSums {
             const double txx = 2.0 * cxsx;
             const double tyy = 2.0 * cysy;
             const double txy = cxsy + cysx;  // symmetric in x and y
-            // The same shift for a coarse spread; it is only a test input, so
-            // it is kept non-negative.
             sxx = sxx - txx + wcxcx;
-            if constexpr (!kXX) sxx = std::max(sxx, 0.0);
             syy = syy - tyy + wcycy;
-            if constexpr (!kYY) syy = std::max(syy, 0.0);
             sxy = sxy - txy + wcxcy;
             sx = sx - wcx;
             sy = sy - wcy;
