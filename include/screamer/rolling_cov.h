@@ -27,7 +27,7 @@
 namespace screamer {
 
 class RollingCov : public StepperFunctorBase<RollingCov, 2, 1> {
-    using Sums = detail::ShiftedWindowCoSums;
+    using Sums = detail::ShiftedWindowCoSums<>;
 
 public:
     RollingCov(int window_size, const std::string& start_policy = "strict")

@@ -292,10 +292,38 @@ def test_rolling_ou_warmup():
 
 
 def test_rolling_ou_validation():
-    with pytest.raises(ValueError):
-        s.RollingOU(1)
+    # One pair has no slope: window_size must be 3 or more.
+    for w in (0, 1, 2):
+        with pytest.raises(ValueError, match="3 or more"):
+            s.RollingOU(w)
     with pytest.raises(ValueError):
         s.RollingOU(10, output="bogus")
+
+
+def test_rolling_ou_std_needs_three_pairs():
+    """window_size 3 gives 2 pairs: the residual has no degrees of freedom."""
+    x = ar1(0.0, n=40)
+    for p in POLICIES:
+        assert np.all(np.isnan(s.RollingOU(3, "std", p)(x)))
+        assert np.any(np.isfinite(s.RollingOU(3, "mrr", p)(x)))
+    assert np.all(np.isfinite(s.RollingOU(4, "std")(x)[3:]))
+
+
+def test_nan_residual_gives_nan_std():
+    """An infinity in the window makes the residual NaN: the noise estimate is
+    NaN with the other outputs, not 0."""
+    x = ar1(0.0, n=60)
+    x[30] = np.inf
+    std = s.RollingOU(10, "std")(x)
+    mrr = s.RollingOU(10, "mrr")(x)
+    both_nan = np.isnan(mrr) & ~np.isnan(std)
+    assert not both_nan.any(), np.flatnonzero(both_nan)
+    assert np.isnan(std[30])
+    y = noise(0.0, n=60, seed=2)
+    out = np.asarray(s.RollingLinearRegression(10)(y, x))
+    slope, stderr = out[:, 0], out[:, 3]
+    assert np.isnan(stderr[30])
+    assert not (np.isnan(slope) & ~np.isnan(stderr)).any()
 
 
 # --- RollingADF --------------------------------------------------------------
@@ -367,6 +395,15 @@ def test_rolling_zscore_start_policy_warmup():
 
 # --- batch == per-event ------------------------------------------------------
 
+def assert_bitwise(a, b):
+    """Equal bit for bit, NaN positions equal (NaN payloads may differ)."""
+    a, b = np.asarray(a, dtype=np.float64), np.asarray(b, dtype=np.float64)
+    assert a.shape == b.shape
+    na, nb = np.isnan(a), np.isnan(b)
+    assert np.array_equal(na, nb)
+    assert np.array_equal(a[~na].view(np.uint64), b[~nb].view(np.uint64))
+
+
 def changed_ops():
     ops = {}
     for p in POLICIES:
@@ -400,9 +437,8 @@ def test_batch_equals_per_event(name):
     batch = np.asarray(make()(x))
     op = make()
     stream = np.array([op(float(v)) for v in x])
-    assert np.array_equal(batch.view(np.uint64), stream.view(np.uint64)) or \
-        np.array_equal(batch, stream, equal_nan=True)
+    assert_bitwise(batch, stream)
     # Columns of a 2-D input match the 1-D run.
     two = np.asarray(make()(np.stack([x, x[::-1]], axis=1)))
-    np.testing.assert_array_equal(two[:, 0], batch)
-    np.testing.assert_array_equal(two[:, 1], np.asarray(make()(x[::-1].copy())))
+    assert_bitwise(two[:, 0], batch)
+    assert_bitwise(two[:, 1], np.asarray(make()(x[::-1].copy())))

@@ -34,7 +34,7 @@
 namespace screamer {
 
 class RollingLinearRegression : public StepperFunctorBase<RollingLinearRegression, 2, 4> {
-    using Sums = detail::ShiftedWindowCoSums;
+    using Sums = detail::ShiftedWindowCoSums<>;
 
 public:
     RollingLinearRegression(int window_size, const std::string& start_policy = "strict")
@@ -92,9 +92,10 @@ public:
             const double fit = slope * num;
             const double nSSE = denom_y - fit;
             const double nn2 = nd * (nd - 2.0);
-            const double stderr_val = (nSSE > 0.0)
-                                    ? std::sqrt(nSSE / nn2)
-                                    : 0.0;
+            // NaN stays NaN (an infinity in the window); a residual rounded
+            // to zero or below is 0.
+            const double stderr_val = (nSSE > 0.0) ? std::sqrt(nSSE / nn2)
+                                    : (nSSE == nSSE) ? 0.0 : nan;
             return std::make_tuple(slope, intercept, r_sq, stderr_val);
         }
     };

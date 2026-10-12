@@ -120,6 +120,10 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
   2.8.0 every policy gave `NaN` until the window was full. The default,
   `"strict"`, gives the same results as before, bit for bit. Old result:
   `RollingZscore(window_size)` (the default policy) for any policy.
+* `RollingOU` raises `ValueError` (JavaScript: `RangeError`) for
+  `window_size` below 3. A window of 2 values holds one pair, which has no
+  slope, so 2.8.0 returned `NaN` at every step for every output. Use
+  `window_size >= 3`, or `>= 4` for `output="std"`.
 
 ### Fixed
 
@@ -207,16 +211,22 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
   moved it by L - L / window_size), `"relmean"` with it, and `"std"` grew with
   the level (142 instead of about 1 at a level of 1000). With
   `start_policy="expanding"`, until the window was full, the first value was
-  also counted as a target of the fit, which moved every output. The fit is now the documented least-squares fit over the pairs:
-  `"mean"` moves by exactly the level, `"mrr"`, `"relmean"` and `"std"` do not
-  move, and `"std"` is the residual standard deviation with `window_size - 3`
-  degrees of freedom. Its sums are taken about an origin near the data, so it
-  matches the fit evaluated in exact arithmetic to within 5e-13 at levels up
-  to 1e6. With `start_policy="expanding"`, `"std"` now starts at the fourth
-  value (three pairs), where it started at the third, or later where the old
-  formula took the square root of a negative number. On data near zero,
-  `"mrr"` changes only in the last bits for the strict and zero policies.
-  There is no switch back: the old values were wrong.
+  also counted as a target of the fit, which moved every output. The fit is
+  now the documented least-squares fit over the pairs: `"mean"` moves by
+  exactly the level, `"mrr"`, `"relmean"` and `"std"` do not move, and
+  `"std"` is the residual standard deviation with `window_size - 3` degrees
+  of freedom. `"std"` therefore needs `window_size >= 4`: with
+  `window_size=3` it is now `NaN` at every step (2.8.0 gave finite values).
+  With `start_policy="expanding"`, `"std"` now starts at the fourth value
+  (three pairs), where it started at the third, or later where the old
+  formula took the square root of a negative number. Its sums are taken about
+  an origin near the data. Against the fit evaluated in exact arithmetic,
+  `"mrr"`, `"relmean"` and `"std"` are within 5e-13 of their scale at levels
+  up to 1e6; `"mean"`, a value of the size of the level, is within 5e-13 plus
+  the rounding of the result itself (half a unit in the last place of the
+  level, 6e-11 at 1e6). On data near zero, `"mrr"` changes only in the last
+  bits for the strict and zero policies. There is no switch back: the old
+  values were wrong.
 * `RollingPoly1`, `RollingPoly2`, `RollingTSF`, `ExpandingSlope` and
   `RollingADF` were inaccurate when the level is large next to the spread,
   the same raw-sum problem as the moment operators above, and the rolling fits
@@ -226,12 +236,25 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
   1e-7 for `RollingTSF`, 1e-8 for `RollingPoly1` and 3e-9 for
   `ExpandingSlope`, and `RollingADF` returned `NaN` (its regression looked
   singular). They now keep their sums about an origin near the data and fit
-  about the mean time, and match the exact fit to within 2e-13 of the
-  output's scale at levels up to 1e6, also after a spike or a level jump
-  (`RollingADF` once the jump has left its window). On
-  data near zero the results change in the last bits: at most 2e-11 relative
-  for `RollingPoly2` on 5000 values (its old sums had drifted), 4e-13 or less
-  for the others. `RollingTSF` still matches `talib.TSF` to rounding.
+  about the mean time. Slopes, curvatures and the ADF statistic match the
+  exact fit to within 2e-13 of their scale at levels up to 1e6, also after a
+  spike or a level jump (`RollingADF` once the jump has left its window). A
+  fitted value (the `RollingPoly1` and `RollingPoly2` endpoint, the
+  `RollingTSF` forecast) is within the same 2e-13 of the window's standard
+  deviation plus the rounding of the result itself, half a unit in the last
+  place of the level (6e-11 at 1e6, which is 2e-10 of the standard deviation
+  of a window of 4 unit-noise values). On data near zero the results change
+  in the last bits: at most 2e-11 relative for `RollingPoly2` on 5000 values
+  (its old sums had drifted), 4e-13 or less for the others. `RollingTSF`
+  still matches `talib.TSF` to rounding.
+* `RollingPoly1`, `RollingPoly2`, `RollingTSF` and `RollingOU` returned `NaN`
+  forever after an infinity entered the window (their running sums became
+  inf - inf). They now return finite values again once the infinity has left
+  the window, as the moment operators do.
+* The standard error of `RollingLinearRegression` was 0 at the steps where
+  an infinity in the window made the residual `NaN`, while the slope and the
+  other outputs were `NaN`. It is now `NaN` there too. A residual that rounds
+  to zero or below still gives 0.
 
 ### Performance
 

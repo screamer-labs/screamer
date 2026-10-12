@@ -32,7 +32,7 @@
 namespace screamer {
 
 class RollingBeta : public StepperFunctorBase<RollingBeta, 2, 1> {
-    using Sums = detail::ShiftedWindowCoSums;
+    using Sums = detail::ShiftedWindowCoSums<>;
 
 public:
     RollingBeta(int window_size, const std::string& start_policy = "strict")

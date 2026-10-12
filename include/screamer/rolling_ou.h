@@ -23,10 +23,13 @@
 // A level L added to the input adds L to mean and leaves mrr, relmean and std
 // unchanged: value() writes mean as an origin near the data plus a term of
 // the size of the spread. The pair sums are kept about
-// origins near the means (detail::ShiftedWindowCoSums over the m pairs), so
+// origins near the means (detail::ShiftedWindowCoSums<true> over the m pairs,
+// one buffer of values: the pairs share their samples), so
 // the fit stays accurate when the level is large next to the spread. O(1) per
 // step.
 //
+// window_size must be 3 or more (one pair has no slope); std needs 3 pairs,
+// so it is NaN for window_size 3 (its residual has no degrees of freedom).
 // start_policy: "strict" gives NaN until the window holds window_size values;
 // "expanding" fits the pairs seen so far (mrr and mean from 2 pairs, std from
 // 3); "zero" fits a window pre-filled with zeros. A NaN input gives NaN and
@@ -46,7 +49,7 @@
 namespace screamer {
 
 class RollingOU : public ScreamerBase {
-    using Sums = detail::ShiftedWindowCoSums;
+    using Sums = detail::ShiftedWindowCoSums<true>;
 
 public:
     static int parse_output(const std::string& s) {
@@ -65,10 +68,10 @@ public:
     ) :
         output_(parse_output(output)),
         start_policy_(detail::parse_start_policy(start_policy)),
-        sums_(window_size >= 2 ? static_cast<std::size_t>(window_size - 1) : 1, start_policy_)
+        sums_(window_size >= 3 ? static_cast<std::size_t>(window_size - 1) : 2, start_policy_)
     {
-        if (window_size < 2) {
-            throw std::invalid_argument("Window size must be 2 or more.");
+        if (window_size < 3) {
+            throw std::invalid_argument("Window size must be 3 or more.");
         }
         reset();
     }
@@ -76,8 +79,8 @@ public:
     void reset() override {
         sums_.reset();
         // The zero policy's window is all zeros, so the value before the first
-        // input is 0.
-        st_ = Step{0.0, start_policy_ == detail::StartPolicy::Zero};
+        // input is 0 (the sums' lag.last after reset).
+        has_prev_ = start_policy_ == detail::StartPolicy::Zero;
     }
 
     double process_scalar(double x) override {
@@ -85,10 +88,10 @@ public:
             return std::numeric_limits<double>::quiet_NaN();
         }
         Sums::Cursor c = sums_.cursor();
-        Step k = st_;
-        const double out = step(c, k, x);
+        bool has_prev = has_prev_;
+        const double out = step(c, has_prev, x);
         sums_.set_state(c.st);
-        st_ = k;
+        has_prev_ = has_prev;
         return out;
     }
 
@@ -102,21 +105,15 @@ public:
     }
 
 private:
-    // The previous input, and whether there is one.
-    struct Step {
-        double prev;
-        bool has_prev;
-    };
-
-    SCREAMER_WINDOW_INLINE double step(Sums::Cursor& c, Step& k, double x) const {
+    // has_prev: there is a previous input, held in the sums' lag.last.
+    SCREAMER_WINDOW_INLINE double step(Sums::Cursor& c, bool& has_prev, double x) const {
         const double nan = std::numeric_limits<double>::quiet_NaN();
-        if (!k.has_prev) {
-            k.prev = x;
-            k.has_prev = true;
+        if (!has_prev) {
+            c.st.lag.last = x;
+            has_prev = true;
             return nan;
         }
-        c.push(k.prev, x);  // (u, v) = (x_{i-1}, x_i)
-        k.prev = x;
+        c.push_lagged(x);  // (u, v) = (x_{i-1}, x_i)
         const std::size_t m = c.st.count;
         if (start_policy_ == detail::StartPolicy::Strict && m != c.cap) return nan;
         return value(c.st, x);
@@ -139,7 +136,9 @@ private:
             const double fit = b * num;
             const double m_sse = den_y - fit;
             const double mm2 = m * (m - 2.0);
-            return m_sse > 0.0 ? std::sqrt(m_sse / mm2) : 0.0;
+            // NaN stays NaN (an infinity in the window); a residual rounded
+            // to zero or below is 0.
+            return m_sse > 0.0 ? std::sqrt(m_sse / mm2) : (m_sse == m_sse ? 0.0 : nan);
         }
         // a = mean v - b mean u. Relative to the origin ou of u, with
         // mean u = ou + su / m and mean v = ov + sv / m:
@@ -154,23 +153,23 @@ private:
 
     void run(double* y, size_t dy, const double* x, size_t dx, size_t size) {
         Sums::Cursor c = sums_.cursor();
-        Step k = st_;
+        bool has_prev = has_prev_;
         for (size_t i = 0; i < size; ++i, y += dy, x += dx) {
             const double v = *x;
             if (isnan2(v)) {
                 *y = std::numeric_limits<double>::quiet_NaN();
                 continue;
             }
-            *y = step(c, k, v);
+            *y = step(c, has_prev, v);
         }
         sums_.set_state(c.st);
-        st_ = k;
+        has_prev_ = has_prev;
     }
 
     const int output_;
     const detail::StartPolicy start_policy_;
     Sums sums_;
-    Step st_{0.0, false};
+    bool has_prev_ = false;
 };
 
 }  // namespace screamer

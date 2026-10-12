@@ -55,8 +55,6 @@ public:
         xty_.assign(d_, 0.0);
         a_.assign(d_ * 2 * d_, 0.0);
         hist_.assign(static_cast<std::size_t>(p_) + 1, 0.0);
-        r_.assign(d_ + 1, 0.0);
-        old_.assign(d_ + 1, 0.0);
         reset();
     }
 
@@ -85,10 +83,10 @@ private:
             double* row = rows_.data() + head_ * (d_ + 1);
             if (count_ == 0) origin_ = prev_;
             const bool full = count_ == static_cast<std::size_t>(w_);
+            bool far = false;
             if (full) {
-                for (std::size_t i = 0; i <= d_; ++i) old_[i] = row[i];
-                old_[1] -= origin_;
                 accumulate(row, -1.0);
+                far = left_far(row);  // against the rows that remain
             }
             row[0] = 1.0;
             row[1] = prev_;
@@ -100,7 +98,7 @@ private:
             // xtx_[1] = sum (y_{t-1} - origin), xtx_[d + 1] = its sum of squares.
             const double s1 = xtx_[1], s2 = xtx_[d_ + 1];
             const bool drift = s1 * s1 > detail::kWindowRecenterDrift * static_cast<double>(count_) * s2;
-            if (drift || (full && left_far()) || ++since_refresh_ >= static_cast<std::size_t>(w_)) {
+            if (drift || far || ++since_refresh_ >= static_cast<std::size_t>(w_)) {
                 refresh();
             }
         }
@@ -116,26 +114,28 @@ private:
     // Adds (sign 1) or removes (sign -1) a stored row, with its regressor
     // y_{t-1} taken about the origin.
     void accumulate(const double* row, double sign) {
-        double* r = r_.data();
-        for (std::size_t i = 0; i <= d_; ++i) r[i] = row[i];
-        r[1] -= origin_;
+        const double c1 = row[1] - origin_;
+        auto r = [&](std::size_t i) { return i == 1 ? c1 : row[i]; };
+        const double t = row[d_];
         for (std::size_t i = 0; i < d_; ++i) {
-            for (std::size_t j = 0; j < d_; ++j) xtx_[i * d_ + j] += sign * r[i] * r[j];
-            xty_[i] += sign * r[i] * r[d_];
+            const double ri = r(i);
+            for (std::size_t j = 0; j < d_; ++j) xtx_[i * d_ + j] += sign * ri * r(j);
+            xty_[i] += sign * ri * t;
         }
-        yty_ += sign * r[d_] * r[d_];
+        yty_ += sign * t * t;
     }
 
-    // The row that left (old_, centered) dominates what remains in some
-    // column, or was not finite: its rounding in the sums would be larger
-    // than the sums themselves. A spike in y enters every column in turn.
-    bool left_far() const {
+    // The row that left (still stored in `row`) dominates what remains in
+    // some column, or was not finite: its rounding in the sums would be
+    // larger than the sums themselves. A spike in y enters every column in
+    // turn.
+    bool left_far(const double* row) const {
         constexpr double K = detail::kWindowRecenterTerm;
         for (std::size_t i = 1; i < d_; ++i) {
-            const double o = old_[i];
+            const double o = (i == 1) ? row[1] - origin_ : row[i];
             if (o * o > K * xtx_[i * d_ + i] || !std::isfinite(o)) return true;
         }
-        const double o = old_[d_];
+        const double o = row[d_];
         return o * o > K * yty_ || !std::isfinite(o);
     }
 
@@ -204,7 +204,7 @@ private:
 
     const int w_, p_;
     const std::size_t d_;
-    std::vector<double> rows_, xtx_, xty_, a_, hist_, r_, old_;
+    std::vector<double> rows_, xtx_, xty_, a_, hist_;
     double yty_ = 0.0, prev_ = 0.0;
     double origin_ = 0.0;  // origin of the y_{t-1} regressor
     std::size_t count_ = 0, head_ = 0, since_refresh_ = 0, seen_ = 0;

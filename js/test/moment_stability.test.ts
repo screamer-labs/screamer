@@ -106,3 +106,10 @@ test("RollingZscore: start_policy as RollingMean and RollingStd", async () => {
   assert.ok(zero.every(Number.isFinite));
   assert.ok(maxDiff(strict.slice(9), expanding.slice(9)) === 0);
 });
+
+test("RollingOU: window_size below 3 throws RangeError", async () => {
+  await ready();
+  for (const w of [1, 2]) assert.throws(() => RollingOU(w), RangeError);
+  const std3 = RollingOU(3, "std")(ar) as Float64Array;
+  assert.ok(std3.every(Number.isNaN));
+});

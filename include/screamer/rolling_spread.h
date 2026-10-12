@@ -31,7 +31,7 @@
 namespace screamer {
 
 class RollingSpread : public StepperFunctorBase<RollingSpread, 2, 1> {
-    using Sums = detail::ShiftedWindowCoSums;
+    using Sums = detail::ShiftedWindowCoSums<>;
 
 public:
     RollingSpread(int window_size, const std::string& start_policy = "strict")

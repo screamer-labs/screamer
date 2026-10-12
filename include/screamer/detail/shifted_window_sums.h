@@ -317,6 +317,21 @@ private:
 // The two-series version: with dx = x - origin_x and dy = y - origin_y, the
 // sums sx, sy, sxx, syy and sxy. Every operator keeps all five: the tests that
 // trigger a re-centering need the spread of each input.
+//
+// kLagged: the pairs are (x, y) = (y_prev, y) of one series, the AR(1)
+// regression of RollingOU. The x of every pair but the oldest is the y of the
+// pair before it, so one buffer of y holds both sides: the State carries the
+// x of the oldest pair (`lag.first`, the y that left last, or the seed) and
+// the y of the newest (`lag.last`, the x of the next pair). push_lagged(y)
+// adds the pair (lag.last, y). Before the first pair the caller sets
+// lag.last (seed); the zero policy starts with a window of zero pairs and
+// lag.last = 0.
+struct LagEnds {
+    double first = 0.0;  // x of the oldest pair in the window
+    double last = 0.0;   // y of the newest pair: the x of the next one
+};
+
+template <bool kLagged = false>
 class ShiftedWindowCoSums {
 public:
     struct State {
@@ -325,10 +340,12 @@ public:
         std::size_t count = 0;
         std::size_t age = 0;
         double ox = 0.0, oy = 0.0;
+        [[no_unique_address]] std::conditional_t<kLagged, LagEnds, NoTimeSums> lag{};
     };
 
     ShiftedWindowCoSums(std::size_t capacity, StartPolicy policy)
-        : capacity_(capacity), policy_(policy), bx_(capacity, 0.0), by_(capacity, 0.0) {
+        : capacity_(capacity), policy_(policy), bx_(kLagged ? 0 : capacity, 0.0),
+          by_(capacity, 0.0) {
         reset();
     }
 
@@ -339,13 +356,24 @@ public:
         st_.count = (policy_ == StartPolicy::Zero) ? capacity_ : 0;
     }
 
+    // Adds the pair (x, y); with kLagged, x is ignored and lag.last is used.
     static SCREAMER_WINDOW_INLINE void step(State& st, double* bx, double* by, std::size_t cap,
                                             double x, double y) {
         constexpr double K = kWindowRecenterTerm;
+        if constexpr (kLagged) x = st.lag.last;
         bool far = false;
         if (st.count == cap) {
             const double dx = x - st.ox, dy = y - st.oy;
-            const double qx = bx[st.index] - st.ox, qy = by[st.index] - st.oy;
+            double qx;
+            if constexpr (kLagged) {
+                // The oldest pair leaves; the next oldest has the y that
+                // leaves as its x.
+                qx = st.lag.first - st.ox;
+                st.lag.first = by[st.index];
+            } else {
+                qx = bx[st.index] - st.ox;
+            }
+            const double qy = by[st.index] - st.oy;
             st.sx += dx - qx;
             st.sy += dy - qy;
             const double dxy = dx * dy, qxy = qx * qy;
@@ -360,6 +388,7 @@ public:
             if (st.count == 0) {
                 st.ox = x;
                 st.oy = y;
+                if constexpr (kLagged) st.lag.first = x;
             }
             const double dx = x - st.ox, dy = y - st.oy;
             st.sx += dx;
@@ -372,7 +401,11 @@ public:
             st.syy += dyy;
             ++st.count;
         }
-        bx[st.index] = x;
+        if constexpr (kLagged) {
+            st.lag.last = y;
+        } else {
+            bx[st.index] = x;
+        }
         by[st.index] = y;
         if (++st.index == cap) st.index = 0;
         const double n = kWindowRecenterDrift * static_cast<double>(st.count);
@@ -390,27 +423,31 @@ public:
         double* by;
         std::size_t cap;
         SCREAMER_WINDOW_INLINE void push(double x, double y) { step(st, bx, by, cap, x, y); }
+        // kLagged: adds the pair (lag.last, y).
+        SCREAMER_WINDOW_INLINE void push_lagged(double y) { step(st, bx, by, cap, 0.0, y); }
     };
     Cursor cursor() { return Cursor{st_, bx_.data(), by_.data(), capacity_}; }
     void set_state(const State& st) { st_ = st; }
 
 private:
-    // One input's new origin (see ShiftedWindowSums::recentered).
-    static double new_origin(double origin, double s1, const double* b, std::size_t m,
+    // One input's new origin (see ShiftedWindowSums::recentered), from its m
+    // samples get(0) .. get(m - 1).
+    template <class Get>
+    static double new_origin(double origin, double s1, Get get, std::size_t m,
                              double n, bool refresh) {
         double base = origin;
         if (refresh || !std::isfinite(base)) {
             if (!std::isfinite(base)) {
                 base = 0.0;
                 for (std::size_t i = 0; i < m; ++i) {
-                    if (std::isfinite(b[i])) {
-                        base = b[i];
+                    if (std::isfinite(get(i))) {
+                        base = get(i);
                         break;
                     }
                 }
             }
             s1 = 0.0;
-            for (std::size_t i = 0; i < m; ++i) s1 += b[i] - base;
+            for (std::size_t i = 0; i < m; ++i) s1 += get(i) - base;
         }
         const double shift = s1 / n;
         return std::isfinite(shift) ? base + shift : base;
@@ -421,11 +458,9 @@ private:
                             bool refresh) {
         const std::size_t m = (st.count == cap) ? cap : st.count;
         const double n = static_cast<double>(st.count);
-        st.ox = new_origin(st.ox, st.sx, bx, m, n, refresh);
-        st.oy = new_origin(st.oy, st.sy, by, m, n, refresh);
         double ax = 0.0, ay = 0.0, axx = 0.0, ayy = 0.0, axy = 0.0;
-        for (std::size_t i = 0; i < m; ++i) {
-            const double dx = bx[i] - st.ox, dy = by[i] - st.oy;
+        auto add = [&](double x, double y) {
+            const double dx = x - st.ox, dy = y - st.oy;
             ax += dx;
             ay += dy;
             const double dxy = dx * dy;
@@ -434,6 +469,32 @@ private:
             axx += dxx;
             const double dyy = dy * dy;
             ayy += dyy;
+        };
+        if constexpr (kLagged) {
+            // Pair j, oldest first: y in ring order from the oldest slot, x
+            // the y of pair j - 1 (lag.first for j = 0).
+            const std::size_t start = (st.count == cap) ? st.index : 0;
+            auto slot = [&](std::size_t j) {
+                const std::size_t i = start + j;
+                return i < cap ? i : i - cap;
+            };
+            const double first = st.lag.first;
+            auto gx = [&](std::size_t j) { return j == 0 ? first : by[slot(j - 1)]; };
+            auto gy = [&](std::size_t j) { return by[slot(j)]; };
+            st.ox = new_origin(st.ox, st.sx, gx, m, n, refresh);
+            st.oy = new_origin(st.oy, st.sy, gy, m, n, refresh);
+            double x = first;
+            std::size_t i = start;
+            for (std::size_t j = 0; j < m; ++j) {
+                const double y = by[i];
+                if (++i == cap) i = 0;
+                add(x, y);
+                x = y;
+            }
+        } else {
+            st.ox = new_origin(st.ox, st.sx, [&](std::size_t i) { return bx[i]; }, m, n, refresh);
+            st.oy = new_origin(st.oy, st.sy, [&](std::size_t i) { return by[i]; }, m, n, refresh);
+            for (std::size_t i = 0; i < m; ++i) add(bx[i], by[i]);
         }
         st.age = 0;
         st.sx = ax;

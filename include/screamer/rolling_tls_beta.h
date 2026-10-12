@@ -34,7 +34,7 @@
 namespace screamer {
 
 class RollingTLSBeta : public StepperFunctorBase<RollingTLSBeta, 2, 1> {
-    using Sums = detail::ShiftedWindowCoSums;
+    using Sums = detail::ShiftedWindowCoSums<>;
 
 public:
     RollingTLSBeta(int window_size, const std::string& start_policy = "strict")
