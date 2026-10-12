@@ -8,6 +8,7 @@ many times and checks that memory stays flat.
 import asyncio
 import ctypes
 import gc
+import os
 import resource
 import subprocess
 import sys
@@ -53,6 +54,7 @@ def test_no_nanobind_leak_report_at_exit():
         src = Src(); src.it = s.RollingMean(2)(src); next(src.it)
     """)
     p = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True)
+    assert p.returncode == 0, p.stderr
     assert "leaked" not in p.stderr, p.stderr
 
 
@@ -158,13 +160,31 @@ def test_merge_puller_after_clear_ends():
 
 # ---- soak --------------------------------------------------------------------
 
-def _max_rss_bytes():
-    rss = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
-    return rss if sys.platform == "darwin" else rss * 1024    # Linux reports KB
+def _rss_bytes():
+    """The current resident set size (not the peak, which hides a slow leak)."""
+    if sys.platform.startswith("linux"):
+        with open("/proc/self/statm") as f:
+            return int(f.read().split()[1]) * resource.getpagesize()
+    out = subprocess.run(["ps", "-o", "rss=", "-p", str(os.getpid())],
+                         capture_output=True, text=True, check=True).stdout
+    return int(out) * 1024                                   # ps reports KB
+
+
+async def _drain(it):
+    return [x async for x in it]
+
+
+async def _async_streams(n):
+    async def agen():
+        for x in range(50):
+            yield float(x)
+    for _ in range(n):
+        await _drain(s.RollingMean(5)(agen()))
 
 
 def test_soak_memory_is_flat():
     import tracemalloc
+    a = s.Input("a"); lazy_pipe = s.Pipeline([a], [s.RollingMean(3)(a)])
     def cycle():
         for _ in range(200):
             list(s.RollingMean(5)(iter(np.arange(50.))))
@@ -174,6 +194,12 @@ def test_soak_memory_is_flat():
             live = p.live()
             for t in range(20): live.push("a", t, float(t))
             live.result()
+            # The paths that take part in reference cycles: a stream stored on
+            # its own source, a lazy Pipeline call and a lazy Merge.
+            src = Src(np.arange(20.)); src.it = s.RollingMean(2)(src); list(src.it)
+            list(lazy_pipe(iter([(float(t), t) for t in range(20)])))
+            list(s.Merge()(iter(np.arange(20.)), iter(np.arange(20.))))
+        asyncio.run(_async_streams(50))
         gc.collect()
     cycle(); tracemalloc.start(); base = tracemalloc.get_traced_memory()[0]
     for _ in range(5): cycle()
@@ -181,9 +207,11 @@ def test_soak_memory_is_flat():
     tracemalloc.stop()
     assert grown < 256 * 1024, grown
 
-    # tracemalloc sees only Python allocations; the peak RSS also catches
-    # memory the C++ side never frees.
-    rss0 = _max_rss_bytes()
+    # tracemalloc sees only Python allocations; the resident set also shows
+    # memory the C++ side never frees. 20 cycles of 200 iterations: a leak of
+    # 800 bytes per iteration grows it by about 3 MB.
+    for _ in range(3): cycle()                               # settle the allocator
+    rss0 = _rss_bytes()
     for _ in range(20): cycle()
-    rss_grown = _max_rss_bytes() - rss0
-    assert rss_grown < 5 * 1024 * 1024, rss_grown
+    rss_grown = _rss_bytes() - rss0
+    assert rss_grown < 1024 * 1024, rss_grown
