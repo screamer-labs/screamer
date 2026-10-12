@@ -22,6 +22,7 @@ factories = {
     'rolling_poly2': screamer_module.RollingPoly2,
     'rolling_var': screamer_module.RollingVar,
     'rolling_std': screamer_module.RollingStd,
+    'rolling_zscore': screamer_module.RollingZscore,
     'rolling_skew': screamer_module.RollingSkew,
     'rolling_kurt': screamer_module.RollingKurt,
     'rolling_rms': screamer_module.RollingRms,

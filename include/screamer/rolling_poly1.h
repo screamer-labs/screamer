@@ -1,141 +1,62 @@
 #ifndef SCREAMER_ROLLING_POLY1_H
 #define SCREAMER_ROLLING_POLY1_H
 
-#include "screamer/common/base.h"
-#include "screamer/common/float_info.h"
-#include <stdexcept>
-#include "screamer/detail/delay_buffer.h"
+// RollingPoly1: least-squares line through the window against the time index
+// t = 0 (oldest) .. n - 1 (newest); returns the line at the newest sample
+// (derivative_order 0) or its slope (derivative_order 1).
+//
+// The window keeps the sums of d = x - origin and t d about an origin near the
+// window mean (detail::ShiftedWindowSums<2, 1>), and the fit is taken about the
+// mean time (detail::time_regression.h), so the result stays accurate when the
+// level is large next to the spread. O(1) per step.
+
 #include <cstddef>
 #include <limits>
+#include <stdexcept>
 #include <string>
+#include "screamer/detail/start_policy.h"
+#include "screamer/detail/time_regression.h"
+#include "screamer/detail/window_moments_op.h"
 
-/*
-## OLS Fit
-
-Define the following summations:
-Sx = x0 + x1 + ... + x(n-1)
-Sy = y0 + y1 + ... + y(n-1)
-Sxy = x0*y0 + x1*y1 + ... + x(n-1)*y(n-1)
-Sxx = x0*x0 + x1*x1 + ... + x(n-1)*x(n-1)
-
-The slope and intercept of OLS fit of y = a * x + b are then:
-
-a = [n * Sxy - Sx * Sy] / [n * Sxx - Sx * Sx]
-b = [Sy - a * Sx] / n
-
-## Sliding the window forward one step
-We one slide y forward, we keep x = [0, 1, ..., n-1]
-then 
-Sx = n (n - 1) / 2
-Sxx = (n - 1) n (2*n - 1) / 6
-
-### Sliding Sy
-The new value we recieve is yn
-
-Sy` <- Sy + yn - y0
-    = y1 + y2 + ... + y(n-1) + yn
-
-### Sliding Sxy
-before sliding we have: 
-Sxy  = 0*y0 + 1*y1 + 2*y2 + ... + (n-1)*y(n-1)
-after slidng we need
-Sxy` =        0*y1 + 1*y2 + ... + (n-2)*y(n-1) + (n-1)*yn
-thus
-Sxy` = Sxy - [y1 + y2 + ... + y(n-1)     ] + (n-1)*yn
-     = Sxy - [y1 + y2 + ... + y(n-1) + yn] + n*yn
-     = Sxy - Sy` + n*yn
-
-*/
 namespace screamer {
 
-    class RollingPoly1 : public ScreamerBase {
-    public:
-        RollingPoly1(int window_size, int derivative_order = 0, const std::string& start_policy = "strict") : 
-            window_size_(window_size),
-            derivative_order_(derivative_order),
-            start_policy_(detail::parse_start_policy(start_policy)),
-            n_(0),
-            delay_buffer_(window_size, "zero")
-        {
-            if (window_size < 2) {
-                throw std::invalid_argument("Window size must be 2 or more.");
-            }
-            if (derivative_order != 0 && derivative_order != 1) {
-                throw std::invalid_argument("Derivative order must be 0 (endpoint) or 1 (slope).");
-            }
-
-            reset();
+class RollingPoly1 : public detail::WindowMomentsOp<RollingPoly1, 2, 1> {
+public:
+    RollingPoly1(int window_size, int derivative_order = 0, const std::string& start_policy = "strict")
+        : WindowMomentsOp(window_size, detail::parse_start_policy(start_policy),
+                          detail::parse_start_policy(start_policy)),
+          derivative_order_(derivative_order),
+          full_(detail::TimeLine::of(static_cast<double>(window_size)))
+    {
+        if (window_size < 2) {
+            throw std::invalid_argument("Window size must be 2 or more.");
         }
-
-        void reset() override {
-            delay_buffer_.reset();
-            sum_y = 0.0;
-            sum_xy = 0.0;    
-
-            if (start_policy_ != detail::StartPolicy::Zero)  {
-                n_ = 0;
-                sum_x = 0.0;
-                sum_xx = 0.0;
-            } else {
-                n_ = window_size_;
-                sum_x = (n_ - 1.0) * n_ / 2.0;
-                sum_xx = (n_ - 1.0) * n_ * (2*n_ - 1.0) / 6.0;            
-            }
+        if (derivative_order != 0 && derivative_order != 1) {
+            throw std::invalid_argument("Derivative order must be 0 (endpoint) or 1 (slope).");
         }
+        reset();
+    }
 
-        double process_scalar(double yn) override {
-
-            // NaN policy "ignore": skip this step entirely, leave delay
-            // buffer and running sums untouched. See docs/nan_policy.md.
-            if (isnan2(yn)) {
+    inline double value(const State& st, double) const {
+        const std::size_t w = static_cast<std::size_t>(window_size_);
+        if (st.count != w) {
+            if (start_policy_ == detail::StartPolicy::Strict || st.count < 2) {
                 return std::numeric_limits<double>::quiet_NaN();
             }
-
-            double y0 = delay_buffer_.append(yn);
-            sum_y += yn - y0;
-
-            if ((n_ < window_size_) && (start_policy_ != detail::StartPolicy::Zero) ) {
-                sum_x += n_;
-                sum_xx += n_ * n_;
-
-                sum_xy += n_ * yn;
-
-                n_++;
-            } else {
-                sum_xy += window_size_ * yn - sum_y;
-            }
-
-            if (1==2) { // debug
-                std::cout << " n=" << n_; 
-                std::cout << " yn=" << yn << " y0=" << y0; 
-                std::cout << " Sx=" << sum_x << " Sx2=" << sum_xx;
-                std::cout << " Sxy=" << sum_xy << std::endl; 
-            }
-
-            if (n_ < window_size_) {
-                if (start_policy_ == detail::StartPolicy::Strict) return std::numeric_limits<double>::quiet_NaN();
-                if (n_ < 2)  return std::numeric_limits<double>::quiet_NaN();
-            }
-            
-            double slope = (n_ * sum_xy - sum_x * sum_y) / (n_ * sum_xx - sum_x * sum_x);
-            double intercept = (sum_y - slope * sum_x) / n_;
-            double endpoint = intercept + (n_ - 1) * slope;
-
-            return derivative_order_ == 0 ? endpoint : slope;
         }
+        const detail::TimeLine c = (st.count == w)
+            ? full_ : detail::TimeLine::of(static_cast<double>(st.count));
+        const double slope = detail::line_slope(st.s[0], st.ts[0], c);
+        if (derivative_order_ == 1) return slope;
+        // The line at t = n - 1, that is tbar after the mean time.
+        return st.origin + detail::line_value_d(st.s[0], slope, c.tbar, c);
+    }
 
-    private:
-        const size_t window_size_;
-        const int derivative_order_;
-        const detail::StartPolicy start_policy_;
-        size_t n_ = 0;
-        detail::DelayBuffer delay_buffer_;
-        double sum_x = 0.0;
-        double sum_xx = 0.0;
-        double sum_y = 0.0;
-        double sum_xy = 0.0;
-    };
+private:
+    const int derivative_order_;
+    const detail::TimeLine full_;
+};
 
-} // end namespace screamer
+}  // namespace screamer
 
-#endif // SCREAMER_ROLLING_POLY1_H
+#endif  // SCREAMER_ROLLING_POLY1_H

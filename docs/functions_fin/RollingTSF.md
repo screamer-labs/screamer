@@ -41,7 +41,7 @@ $$
 \text{TSF}[t] = \text{intercept} + \text{slope} \cdot w
 $$
 
-The result matches `talib.TSF(real, timeperiod)`, and each step costs O(1).
+The result matches `talib.TSF(real, timeperiod)` to rounding, and each step costs O(1). The window sums are taken about an origin near the window mean, so the forecast stays accurate when prices are large next to their moves (see [Accuracy at large levels](../conventions.md#accuracy-at-large-levels)).
 
 
 <!-- NAN_FOOTNOTE_START -->

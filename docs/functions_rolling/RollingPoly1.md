@@ -120,7 +120,7 @@ references:
 
 ### Algorithm
 
-`RollingPoly1` keeps running sums over the window, with a circular buffer holding the values that will leave it, and solves the least-squares line from them at each step, so the cost does not depend on `window_size`.
+`RollingPoly1` keeps running sums over the window, with a circular buffer holding the values that will leave it, and solves the least-squares line from them at each step, so the cost does not depend on `window_size`. The sums are taken about an origin near the window mean, so the fit stays accurate when the values are large next to their spread, as prices are (see [Accuracy at large levels](../conventions.md#accuracy-at-large-levels)).
 
 ### Complexity
 

@@ -2,8 +2,9 @@
 #define SCREAMER_DETAIL_RUNNING_MOMENTS_OP_H
 
 // The shared base of the one-input expanding (kDecay = false) and
-// exponentially weighted (kDecay = true) moment operators. It owns the power
-// sums (detail::ShiftedPowerSums<P>) and, for the weighted ones, the sum of
+// exponentially weighted (kDecay = true) moment operators, and of
+// ExpandingSlope (kTime = true). It owns the power
+// sums (detail::ShiftedPowerSums<P, kTime>) and, for the weighted ones, the sum of
 // squared weights, and runs the per-event and batch loops; Derived supplies
 //
 //     double value(const State& st, double x) const
@@ -22,11 +23,13 @@
 namespace screamer {
 namespace detail {
 
-template <class Derived, int P, bool kDecay>
+template <class Derived, int P, bool kDecay, bool kTime = false>
 class RunningMomentsOp : public ScreamerBase {
+    static_assert(!(kDecay && kTime), "time sums are for the expanding operators");
+
 protected:
     struct State {
-        ShiftedPowerSums<P> sums;  // w = sum of the weights
+        ShiftedPowerSums<P, kTime> sums;  // w = sum of the weights
         double w2 = 0.0;           // sum of the squared weights (kDecay only)
     };
 

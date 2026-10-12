@@ -33,6 +33,8 @@ $$
 y[t] = \frac{n\sum i\,x[i] - (\sum i)(\sum x[i])}{n\sum i^2 - (\sum i)^2}, \quad i=0..t,\; n=t+1
 $$
 
+The sums are taken about an origin that follows the mean, so the slope stays accurate when the values are large next to their spread (see [Accuracy at large levels](../conventions.md#accuracy-at-large-levels)).
+
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 

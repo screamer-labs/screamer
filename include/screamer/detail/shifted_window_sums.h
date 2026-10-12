@@ -37,6 +37,14 @@
 // "zero" start policy: the window starts full of zeros (count == capacity) and
 // the origin starts at 0.
 //
+// Time sums (T = 1 or 2): with t = 0 for the oldest sample in the window and
+// count - 1 for the newest, ts[q - 1] = sum t^q (x_i - origin) for q = 1..T.
+// The time-index regressions (RollingPoly1, RollingPoly2, RollingTSF) take
+// their fit from these and s[0]; the sums of t^q alone have closed forms. When
+// the window slides, every t drops by one, so ts follows from the old ts, the
+// new s[0] and the new sample; a re-centering recomputes them from the buffer
+// with the rest.
+//
 // The running values are a small State, and the step is a static function of
 // it. Both the batch loop and the per-event call run the step on a Cursor, a
 // local copy of the State with the buffer pointer, and store the State back.
@@ -48,8 +56,10 @@
 // batch loop rounds exactly like the same step called once per event.
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstddef>
+#include <type_traits>
 #include <vector>
 #include "screamer/detail/start_policy.h"
 
@@ -79,14 +89,20 @@ constexpr double kWindowRecenterDrift = 16.0 / 17.0;
 #define SCREAMER_WINDOW_INLINE inline
 #endif
 
-// Sums s[p - 1] = sum (x_i - origin)^p for p = 1..P, with P in 2..4.
-template <int P>
+// The State member of an operator without time sums.
+struct NoTimeSums {};
+
+// Sums s[p - 1] = sum (x_i - origin)^p for p = 1..P, with P in 2..4, and the
+// time sums ts[q - 1] = sum t^q (x_i - origin) for q = 1..T, with T in 0..2.
+template <int P, int T = 0>
 class ShiftedWindowSums {
     static_assert(P >= 2 && P <= 4, "ShiftedWindowSums supports powers 2 to 4");
+    static_assert(T >= 0 && T <= 2, "ShiftedWindowSums supports time powers 0 to 2");
 
 public:
     struct State {
         double s[P] = {};
+        [[no_unique_address]] std::conditional_t<(T > 0), std::array<double, T>, NoTimeSums> ts{};
         std::size_t index = 0;   // next slot of the ring buffer
         std::size_t count = 0;   // samples in the window, zero padding included
         std::size_t age = 0;     // steps since the last re-centering
@@ -140,10 +156,34 @@ public:
                 const double ks4 = K * st.s[3];
                 far = oooo > ks4;
             }
+            if constexpr (T >= 1) {
+                // Every t drops by one and x enters at t = cap - 1:
+                //   ts1' = ts1 + cap d - s0'
+                //   ts2' = ts2 + (cap^2 - 2 cap) d - 2 ts1 + s0'
+                // with s0' the new sum of d.
+                const double nd = static_cast<double>(cap) * d;
+                if constexpr (T >= 2) {
+                    const double c2 = static_cast<double>(cap) * static_cast<double>(cap - 2);
+                    const double c2d = c2 * d;
+                    const double two_ts1 = 2.0 * st.ts[0];
+                    st.ts[1] = st.ts[1] + c2d - two_ts1 + st.s[0];
+                }
+                st.ts[0] = st.ts[0] + nd - st.s[0];
+            }
             far = far || !std::isfinite(o);
         } else {
             if (st.count == 0) st.origin = x;
             const double d = x - st.origin;
+            if constexpr (T >= 1) {
+                // x enters at t = count.
+                const double t = static_cast<double>(st.count);
+                const double td = t * d;
+                st.ts[0] += td;
+                if constexpr (T >= 2) {
+                    const double ttd = t * td;
+                    st.ts[1] += ttd;
+                }
+            }
             st.s[0] += d;
             const double dd = d * d;
             st.s[1] += dd;
@@ -213,19 +253,50 @@ private:
         const double shift = s1 / n;
         st.origin = std::isfinite(shift) ? base + shift : base;
         double a1 = 0.0, a2 = 0.0, a3 = 0.0, a4 = 0.0;
-        for (std::size_t i = 0; i < m; ++i) {
-            const double d = buf[i] - st.origin;
-            a1 += d;
-            const double dd = d * d;
-            a2 += dd;
-            if constexpr (P >= 3) {
-                const double ddd = dd * d;
-                a3 += ddd;
+        if constexpr (T == 0) {
+            for (std::size_t i = 0; i < m; ++i) {
+                const double d = buf[i] - st.origin;
+                a1 += d;
+                const double dd = d * d;
+                a2 += dd;
+                if constexpr (P >= 3) {
+                    const double ddd = dd * d;
+                    a3 += ddd;
+                }
+                if constexpr (P >= 4) {
+                    const double dddd = dd * dd;
+                    a4 += dddd;
+                }
             }
-            if constexpr (P >= 4) {
-                const double dddd = dd * dd;
-                a4 += dddd;
+        } else {
+            // Oldest first: a full window starts at the next slot, a filling
+            // one at slot 0.
+            double b1 = 0.0, b2 = 0.0;
+            std::size_t i = (st.count == cap) ? st.index : 0;
+            for (std::size_t j = 0; j < m; ++j) {
+                const double d = buf[i] - st.origin;
+                if (++i == cap) i = 0;
+                a1 += d;
+                const double dd = d * d;
+                a2 += dd;
+                if constexpr (P >= 3) {
+                    const double ddd = dd * d;
+                    a3 += ddd;
+                }
+                if constexpr (P >= 4) {
+                    const double dddd = dd * dd;
+                    a4 += dddd;
+                }
+                const double t = static_cast<double>(j);
+                const double td = t * d;
+                b1 += td;
+                if constexpr (T >= 2) {
+                    const double ttd = t * td;
+                    b2 += ttd;
+                }
             }
+            st.ts[0] = b1;
+            if constexpr (T >= 2) st.ts[1] = b2;
         }
         // Zero padding (count == cap before cap samples arrived) is part of
         // the buffer, so the loop above already covers it.

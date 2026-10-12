@@ -28,11 +28,20 @@
 // batch loop rounds exactly like the same update called once per event.
 
 
+#include <type_traits>
+
 namespace screamer {
 namespace detail {
 
-// One series, powers 1..P with P in 2..4.
-template <int P>
+// The ts member of ShiftedPowerSums without time sums.
+struct NoTimeSum {};
+
+// One series, powers 1..P with P in 2..4. With kTime (no decay only), also
+// ts = sum t_i (x_i - origin), with t_i = 0, 1, 2, ... the index of sample i
+// since reset; ExpandingSlope fits its line from s1 and ts
+// (detail::time_regression.h). Shifting the origin by c lowers ts by
+// c sum t_i = c w (w - 1) / 2.
+template <int P, bool kTime = false>
 struct ShiftedPowerSums {
     static_assert(P >= 2 && P <= 4, "ShiftedPowerSums supports powers 2 to 4");
 
@@ -42,10 +51,12 @@ struct ShiftedPowerSums {
     double s2 = 0.0;
     double s3 = 0.0;
     double s4 = 0.0;
+    [[no_unique_address]] std::conditional_t<kTime, double, NoTimeSum> ts{};
     unsigned tick = 0;
 
     void reset() {
         w = origin = s1 = s2 = s3 = s4 = 0.0;
+        ts = {};
         tick = 0;
     }
 
@@ -75,6 +86,11 @@ struct ShiftedPowerSums {
         if constexpr (P >= 4) {
             const double dddd = dd * dd;
             s4 += dddd;
+        }
+        if constexpr (kTime) {
+            // x is sample number w (from 0); expanding sums only.
+            const double td = w * d;
+            ts += td;
         }
         w += 1.0;
         // The test runs every fourth sample, which keeps its cost low; the
@@ -117,6 +133,11 @@ private:
             const double t2 = 3.0 * c2 * s1;
             const double t3 = w * c3;
             s3 = s3 - t1 + t2 - t3;
+        }
+        if constexpr (kTime) {
+            const double sum_t = 0.5 * (w * (w - 1.0));
+            const double c_sum_t = c * sum_t;
+            p.ts = p.ts - c_sum_t;
         }
         const double t = 2.0 * cs1;
         s2 = s2 - t + wc2;

@@ -2,8 +2,10 @@
 #define SCREAMER_DETAIL_WINDOW_MOMENTS_OP_H
 
 // The shared base of the one-input rolling moment operators (RollingVar,
-// RollingStd, RollingSkew, RollingKurt, RollingZscore). It owns the window
-// (detail::ShiftedWindowSums<P>) and the per-event and batch loops; Derived
+// RollingStd, RollingSkew, RollingKurt, RollingZscore, RollingSharpe) and the
+// time-index regressions (RollingPoly1, RollingPoly2, RollingTSF, with T time
+// sums). It owns the window (detail::ShiftedWindowSums<P, T>) and the
+// per-event and batch loops; Derived
 // supplies
 //
 //     double value(const State& st, double x) const
@@ -24,10 +26,10 @@
 namespace screamer {
 namespace detail {
 
-template <class Derived, int P>
+template <class Derived, int P, int T = 0>
 class WindowMomentsOp : public ScreamerBase {
 protected:
-    using Sums = ShiftedWindowSums<P>;
+    using Sums = ShiftedWindowSums<P, T>;
     using State = typename Sums::State;
 
     // window_size is validated by Derived, which throws for a size it does not

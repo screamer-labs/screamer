@@ -73,6 +73,8 @@ where $ x[i] $ is the current value, $ x[i-1] $ is the previous value, $ \mu $ i
 
 The `output` parameter selects $\text{mrr}$, $\mu$ (`"mean"`), $\mu - x[i]$ (`"relmean"`, the distance from the current value to the mean) or $\sigma$ (`"std"`). A larger `window_size` gives smoother estimates that respond more slowly to changes. The half-life of a deviation from the mean, in steps, is $\ln 2 / -\ln(1 - \text{mrr})$ for $0 < \text{mrr} < 1$.
 
+The fit is ordinary least squares of $x[i] = a + b \, x[i-1] + e[i]$ over the $m = $ `window_size` $- 1$ consecutive pairs in the window, with $\text{mrr} = 1 - b$, $\mu = a / (1 - b)$ and $\sigma$ the residual standard deviation with $m - 2$ degrees of freedom. Adding a constant to the input adds it to `"mean"` and leaves the other outputs unchanged, and the pair sums are taken about an origin near the data, so the fit stays accurate on price levels (see [Accuracy at large levels](../conventions.md#accuracy-at-large-levels)). With `start_policy="expanding"`, `"mrr"`, `"mean"` and `"relmean"` start at the third value (two pairs) and `"std"` at the fourth.
+
 
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling

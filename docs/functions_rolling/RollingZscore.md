@@ -50,6 +50,8 @@ $$
 
 where `std` is the sample standard deviation (ddof=1) over the `window_size` most recent values.
 
+Before the window is full, `start_policy` works as for `RollingMean` and `RollingStd`: `"strict"` gives `NaN`, `"expanding"` uses the values seen so far (the first output is `NaN`, since one value has no standard deviation), and `"zero"` counts the missing values as zeros.
+
 
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling

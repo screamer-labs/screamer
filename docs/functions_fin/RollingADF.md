@@ -63,7 +63,10 @@ with `p = lags`, and returns the t-statistic of `gamma`. A random walk has
 `gamma = 0`; a series that reverts to a mean has `gamma < 0`, and the more
 negative the statistic, the stronger the evidence against a unit root. The
 lagged differences absorb short-term autocorrelation so it does not distort
-the test.
+the test. The regressor `y_{t-1}` enters the fit about an origin near its
+window mean, which leaves the statistic unchanged and keeps it accurate when
+the series is far from zero (see [Accuracy at large
+levels](../conventions.md#accuracy-at-large-levels)).
 
 Applied to the spread of a pair, it is the second step of the Engle-Granger
 cointegration test: a pair is worth trading while the statistic stays below a

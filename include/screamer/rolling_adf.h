@@ -14,9 +14,17 @@
 // (MacKinnon 2010), not with the normal distribution.
 //
 // Each step adds one regression row and drops the oldest; the cross-product
-// sums are updated in O(d^2) with d = lags + 2 and recomputed from the stored
-// rows once per window to stop rounding drift, and the d x d normal equations
-// are solved by Gauss-Jordan elimination with partial pivoting. The first row
+// sums are updated in O(d^2) with d = lags + 2, and the d x d normal equations
+// are solved by Gauss-Jordan elimination with partial pivoting. The regressor
+// y_{t-1} enters the sums as y_{t-1} - origin, with the origin near its window
+// mean: with an intercept in the fit, shifting a regressor changes neither
+// gamma nor its standard error, and raw levels would make X'X ill conditioned
+// (at a level of 1e6 with unit moves the statistic lost every digit). The
+// sums are recomputed from the stored rows, with the origin moved to the
+// mean, under the re-centering rules of detail::ShiftedWindowSums: the mean
+// drifted more than four standard deviations from the origin, the row that
+// left dominated what remains in some column (a spike or a jump in y passes
+// through every column), or window_size steps passed. The first row
 // needs lags + 1 earlier values, so the first output is at step
 // window_size + lags; before that the output is NaN. NaN when the regression
 // is singular. A NaN input skips the step.
@@ -30,6 +38,7 @@
 #include <vector>
 #include "screamer/common/base.h"
 #include "screamer/common/float_info.h"
+#include "screamer/detail/shifted_window_sums.h"
 
 namespace screamer {
 
@@ -46,6 +55,8 @@ public:
         xty_.assign(d_, 0.0);
         a_.assign(d_ * 2 * d_, 0.0);
         hist_.assign(static_cast<std::size_t>(p_) + 1, 0.0);
+        r_.assign(d_ + 1, 0.0);
+        old_.assign(d_ + 1, 0.0);
         reset();
     }
 
@@ -56,6 +67,7 @@ public:
         count_ = head_ = since_refresh_ = 0;
         seen_ = 0;
         prev_ = 0.0;
+        origin_ = 0.0;
     }
 
 private:
@@ -71,15 +83,26 @@ private:
         // hist_ holds the last p + 1 differences, newest first, after prev_.
         if (seen_ >= static_cast<std::size_t>(p_) + 1) {
             double* row = rows_.data() + head_ * (d_ + 1);
-            if (count_ == static_cast<std::size_t>(w_)) accumulate(row, -1.0);
+            if (count_ == 0) origin_ = prev_;
+            const bool full = count_ == static_cast<std::size_t>(w_);
+            if (full) {
+                for (std::size_t i = 0; i <= d_; ++i) old_[i] = row[i];
+                old_[1] -= origin_;
+                accumulate(row, -1.0);
+            }
             row[0] = 1.0;
             row[1] = prev_;
             for (int i = 0; i < p_; ++i) row[2 + i] = hist_[i];
             row[d_] = dy;
             accumulate(row, 1.0);
             head_ = (head_ + 1) % static_cast<std::size_t>(w_);
-            if (count_ < static_cast<std::size_t>(w_)) ++count_;
-            if (++since_refresh_ >= static_cast<std::size_t>(w_)) refresh();
+            if (!full) ++count_;
+            // xtx_[1] = sum (y_{t-1} - origin), xtx_[d + 1] = its sum of squares.
+            const double s1 = xtx_[1], s2 = xtx_[d_ + 1];
+            const bool drift = s1 * s1 > detail::kWindowRecenterDrift * static_cast<double>(count_) * s2;
+            if (drift || (full && left_far()) || ++since_refresh_ >= static_cast<std::size_t>(w_)) {
+                refresh();
+            }
         }
         for (int i = p_; i > 0; --i) hist_[i] = hist_[i - 1];
         hist_[0] = dy;
@@ -90,19 +113,52 @@ private:
         return t_stat();
     }
 
+    // Adds (sign 1) or removes (sign -1) a stored row, with its regressor
+    // y_{t-1} taken about the origin.
     void accumulate(const double* row, double sign) {
+        double* r = r_.data();
+        for (std::size_t i = 0; i <= d_; ++i) r[i] = row[i];
+        r[1] -= origin_;
         for (std::size_t i = 0; i < d_; ++i) {
-            for (std::size_t j = 0; j < d_; ++j) xtx_[i * d_ + j] += sign * row[i] * row[j];
-            xty_[i] += sign * row[i] * row[d_];
+            for (std::size_t j = 0; j < d_; ++j) xtx_[i * d_ + j] += sign * r[i] * r[j];
+            xty_[i] += sign * r[i] * r[d_];
         }
-        yty_ += sign * row[d_] * row[d_];
+        yty_ += sign * r[d_] * r[d_];
     }
 
+    // The row that left (old_, centered) dominates what remains in some
+    // column, or was not finite: its rounding in the sums would be larger
+    // than the sums themselves. A spike in y enters every column in turn.
+    bool left_far() const {
+        constexpr double K = detail::kWindowRecenterTerm;
+        for (std::size_t i = 1; i < d_; ++i) {
+            const double o = old_[i];
+            if (o * o > K * xtx_[i * d_ + i] || !std::isfinite(o)) return true;
+        }
+        const double o = old_[d_];
+        return o * o > K * yty_ || !std::isfinite(o);
+    }
+
+    // Moves the origin to the mean of the stored y_{t-1} and recomputes the
+    // sums from the rows. A non-finite mean (an infinity in the window) keeps
+    // a finite stored value as the origin.
     void refresh() {
+        const std::size_t stride = d_ + 1;
+        double base = std::isfinite(origin_) ? origin_ : 0.0;
+        if (!std::isfinite(origin_)) {
+            for (std::size_t r = 0; r < count_; ++r) {
+                const double v = rows_[r * stride + 1];
+                if (std::isfinite(v)) { base = v; break; }
+            }
+        }
+        double s1 = 0.0;
+        for (std::size_t r = 0; r < count_; ++r) s1 += rows_[r * stride + 1] - base;
+        const double shift = s1 / static_cast<double>(count_);
+        origin_ = std::isfinite(shift) ? base + shift : base;
         std::fill(xtx_.begin(), xtx_.end(), 0.0);
         std::fill(xty_.begin(), xty_.end(), 0.0);
         yty_ = 0.0;
-        for (std::size_t r = 0; r < count_; ++r) accumulate(rows_.data() + r * (d_ + 1), 1.0);
+        for (std::size_t r = 0; r < count_; ++r) accumulate(rows_.data() + r * stride, 1.0);
         since_refresh_ = 0;
     }
 
@@ -148,8 +204,9 @@ private:
 
     const int w_, p_;
     const std::size_t d_;
-    std::vector<double> rows_, xtx_, xty_, a_, hist_;
+    std::vector<double> rows_, xtx_, xty_, a_, hist_, r_, old_;
     double yty_ = 0.0, prev_ = 0.0;
+    double origin_ = 0.0;  // origin of the y_{t-1} regressor
     std::size_t count_ = 0, head_ = 0, since_refresh_ = 0, seen_ = 0;
 };
 

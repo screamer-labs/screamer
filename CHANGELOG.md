@@ -114,6 +114,13 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
 * JavaScript: a `null` value in a `Pipeline` feed, `live().push()` or `pushWide()` is a missing value, `NaN`, as Python's `None` is; before, it was 0. To get the old value, replace `null` with 0 before the call. An index keeps its conversion (`null` is 0). A `null` inside an operator's `number[]` input still throws `TypeError`, as `None` does in Python.
 * JavaScript: an `Array` of events into an operator returns an `Array` with one result per event, as a Python list does. `Add()([[1, 2], [3, 4]])` returns `[3, 7]` (was a `Float64Array`), and an `Array` of `[K, N]` `NdArray` events returns an `Array` of per-event results (was one `NdArray`). An `Array` of `Float64Array` or `NdArray` asset events into a one-input operator, `RollingMean(2)([a, b])`, is a sequence of events and returns an `Array` of per-event arrays; before, it threw `RangeError`. To get the old container, pass the columns or one packed `NdArray`: `Add()(Float64Array.from(evs, (e) => e[0]), Float64Array.from(evs, (e) => e[1]))`. Likewise, a multi-input operator given only `number[]` inputs returns an `Array` (an `Array` of `number[]` for a multi-output operator), as Python lists give a list: `Add()([1, 2], [3, 4])` returns `[4, 6]` (was a `Float64Array`). To get the old result, pass `Float64Array` inputs (`Float64Array.from(x)`); one `Float64Array` or `NdArray` among the inputs is enough.
 
+* `RollingZscore` follows `start_policy` as `RollingMean` and `RollingStd`
+  do: `"expanding"` gives the z-score over the values seen so far (`NaN` for
+  the first value only) and `"zero"` counts the missing values as zeros. In
+  2.8.0 every policy gave `NaN` until the window was full. The default,
+  `"strict"`, gives the same results as before, bit for bit. Old result:
+  `RollingZscore(window_size)` (the default policy) for any policy.
+
 ### Fixed
 
 * A list passed to a multi-input operator whose events do not hold every input
@@ -193,6 +200,38 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
   platforms, as rounding decided; it is `NaN`, as documented.
 * `RollingLinearRegression(start_policy="zero")` treated the window as empty
   rather than zero-filled until its first `reset()`; it now starts zero-filled.
+* `RollingOU` fitted its AR(1) regression with mismatched counts: it divided
+  the intercept by `window_size` instead of the `window_size - 1` pairs in the
+  window, and mixed both counts in the noise variance. Its `"mean"` was
+  pulled toward zero by `mean / window_size` (adding a level L to the input
+  moved it by L - L / window_size), `"relmean"` with it, and `"std"` grew with
+  the level (142 instead of about 1 at a level of 1000). With
+  `start_policy="expanding"`, until the window was full, the first value was
+  also counted as a target of the fit, which moved every output. The fit is now the documented least-squares fit over the pairs:
+  `"mean"` moves by exactly the level, `"mrr"`, `"relmean"` and `"std"` do not
+  move, and `"std"` is the residual standard deviation with `window_size - 3`
+  degrees of freedom. Its sums are taken about an origin near the data, so it
+  matches the fit evaluated in exact arithmetic to within 5e-13 at levels up
+  to 1e6. With `start_policy="expanding"`, `"std"` now starts at the fourth
+  value (three pairs), where it started at the third, or later where the old
+  formula took the square root of a negative number. On data near zero,
+  `"mrr"` changes only in the last bits for the strict and zero policies.
+  There is no switch back: the old values were wrong.
+* `RollingPoly1`, `RollingPoly2`, `RollingTSF`, `ExpandingSlope` and
+  `RollingADF` were inaccurate when the level is large next to the spread,
+  the same raw-sum problem as the moment operators above, and the rolling fits
+  also drifted with the length of the series, since their sums were never
+  recomputed. Against the fit in exact arithmetic, window 50, unit noise at a
+  level of 1e6, the error was up to 5e-7 of the spread for `RollingPoly2`,
+  1e-7 for `RollingTSF`, 1e-8 for `RollingPoly1` and 3e-9 for
+  `ExpandingSlope`, and `RollingADF` returned `NaN` (its regression looked
+  singular). They now keep their sums about an origin near the data and fit
+  about the mean time, and match the exact fit to within 2e-13 of the
+  output's scale at levels up to 1e6, also after a spike or a level jump
+  (`RollingADF` once the jump has left its window). On
+  data near zero the results change in the last bits: at most 2e-11 relative
+  for `RollingPoly2` on 5000 values (its old sums had drifted), 4e-13 or less
+  for the others. `RollingTSF` still matches `talib.TSF` to rounding.
 
 ### Performance
 
@@ -275,6 +314,13 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
   recompute their sums about once per window; in streaming, that step takes
   about 8 microseconds with `window_size=10000` (23 after a spike).
 * `RealizedSpread` takes 1.35 ns per element (was 2.5).
+* The regressions made stable (see Fixed) run a batch loop on a local copy of
+  their state. On 200,000 values (ns per element, Apple M3, default
+  parameters, against the build before this change; the ratio is the larger
+  of the 1-D and `(2000, 100)` shapes): `ExpandingSlope` 1.7 (was 4.4) and
+  `RollingPoly2` 4.3 (was 5.4) are faster; `RollingOU` 4.7 (was 4.2, 1.14x),
+  `RollingADF` 90 (was 87, 1.11x), `RollingPoly1` 3.5 (was 3.3, 1.10x) and
+  `RollingTSF` 3.6 (was 3.3, 1.07x) are slower.
 
 ### Documentation
 
