@@ -34,10 +34,10 @@ namespace screamer { namespace validation {
     };
 
     // The binding's side of the driver: it owns the strategy, the custom
-    // metric, and the inputs in its own types.
-    class StrategyHost {
+    // metric, the inputs, and the result arrays (ResultSink, K = 1) in its own
+    // types.
+    class StrategyHost : public ResultSink {
     public:
-        virtual ~StrategyHost() = default;
         // A buffer of `size` doubles for the moved copy of input i in the next
         // run; the driver fills it before run(). A host that hands the buffer
         // to the strategy as it is must return a new one on every call.
@@ -47,17 +47,9 @@ namespace screamer { namespace validation {
         // output stays valid until the next run.
         virtual EngineOutput run(const std::vector<unsigned char>& moved) = 0;
         // The custom metric of the last run's output (only called when the
-        // options name no statistic).
-        virtual double metric() = 0;
-        // Room for statistic q of all n runs (run j at index j), in the
-        // binding's own result array, so the result is held once. Called for
-        // q = 0 .. kNumStats - 1 after n has been checked and before the first
-        // run; the buffers need not be initialized.
-        virtual double* null_stats(std::size_t q, std::size_t n) = 0;
-        // Room for the finite metrics of the runs, at most n, in run order, in
-        // the binding's own result array; StrategyTestResult::null_count of
-        // them are written. Called once, like null_stats.
-        virtual double* null_metrics(std::size_t n) = 0;
+        // options name no statistic): writes at most `count` values and
+        // returns how many the metric gave, which the driver checks.
+        virtual std::size_t metric(double* values, std::size_t count) = 0;
     };
 
     struct StrategyTestOptions {
@@ -80,10 +72,9 @@ namespace screamer { namespace validation {
 
     struct StrategyTestResult {
         double observed = 0.0;
-        std::size_t null_count = 0;              // finite metrics in the host's null_metrics
+        std::size_t null_count = 0;              // finite metrics emitted to the host
         double p_value = 0.0;
         std::array<double, kNumStats> observed_stats{};
-        // The statistics of the runs are in the host's null_stats buffers.
     };
 
     namespace detail {
@@ -150,7 +141,7 @@ namespace screamer { namespace validation {
         using detail::StrategyMethod;
         const Metric metric = resolve_metric(opt.metric, opt.custom, opt.larger_is_better);
         const StrategyMethod method = detail::parse_strategy_method(opt.method);
-        const std::size_t n = check_runs(opt.n, kNumStats + 1);
+        const std::size_t n = check_runs(opt.n, 1);
         const std::uint64_t seed = check_seed(opt.seed);
         const std::size_t k = data.size();
         if (k == 0) throw std::invalid_argument("strategy_test needs at least one input");
@@ -205,12 +196,10 @@ namespace screamer { namespace validation {
             vol_col.reset();
         }
 
-        // Everything sized by n, allocated once before any run and without
-        // touching its pages: a request that cannot fit fails here.
+        // The host's result arrays, allocated once before any run: a request
+        // that cannot fit fails here.
         StrategyTestResult res;
-        double* null = host.null_metrics(n);
-        std::array<double*, kNumStats> rows;
-        for (std::size_t q = 0; q < kNumStats; ++q) rows[q] = host.null_stats(q, n);
+        host.begin(n, 1);
 
         RunScorer scorer(opt.periods_per_year);
         std::vector<unsigned char> moved(k, 0);
@@ -218,7 +207,10 @@ namespace screamer { namespace validation {
             const EngineOutput out = host.run(moved);
             detail::check_output(out);
             stats = scorer.score(out);
-            return metric.custom() ? host.metric() : stats[metric.stat];
+            if (!metric.custom()) return stats[metric.stat];
+            double v = std::numeric_limits<double>::quiet_NaN();
+            check_metric_values(1, host.metric(&v, 1));
+            return v;
         };
         res.observed = score(res.observed_stats);
 
@@ -255,6 +247,8 @@ namespace screamer { namespace validation {
             size * static_cast<std::size_t>(std::count(overwritten.begin(), overwritten.end(), 1)));
         std::vector<double> source(T);
         std::array<double, kNumStats> stats;
+        detail::RunBatch batch(host, 1, true);
+        std::size_t hits = 0;
         for (std::size_t j = 0; j < n; ++j) {
             std::fill(moved.begin(), moved.end(), 0);
             if (method != StrategyMethod::Shift) {
@@ -289,13 +283,12 @@ namespace screamer { namespace validation {
                 moved[i] = 1;
             }
             const double v = score(stats);
-            for (std::size_t q = 0; q < kNumStats; ++q) rows[q][j] = stats[q];
-            if (std::isfinite(v)) null[res.null_count++] = v;
+            batch.put(0, stats, v);
+            batch.end_run();
+            if (std::isfinite(v)) hits += metric.larger ? v >= res.observed : v <= res.observed;
         }
-
-        std::size_t hits = 0;
-        for (std::size_t i = 0; i < res.null_count; ++i)
-            hits += metric.larger ? null[i] >= res.observed : null[i] <= res.observed;
+        batch.flush();
+        res.null_count = batch.total();
         res.p_value = p_value(hits, res.null_count, res.observed);
         return res;
     }

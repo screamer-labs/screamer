@@ -151,6 +151,22 @@ public:
         return o;
     }
 
+    // One value of a custom metric: the JS side writes [value, how many values
+    // the metric gave] to hdr; the driver's rule is one per strategy.
+    double metric_value(double* hdr) {
+        sv::check_metric_values(1, static_cast<std::size_t>(hdr[1]));
+        return hdr[0];
+    }
+
+    // sv::ResultSink: the batches are copied into JS arrays as they come, so
+    // the WASM heap holds nothing sized by n.
+    void begin(std::size_t n, std::size_t K) { call("begin", n, K); }
+
+    void emit(std::size_t j0, std::size_t runs, const double* stats, std::size_t stride,
+              const double* metrics, std::size_t count) {
+        call("emit", j0, runs, addr(stats), stride, addr(metrics), count);
+    }
+
     static std::uintptr_t addr(const void* p) { return reinterpret_cast<std::uintptr_t>(p); }
 
 private:
@@ -162,8 +178,11 @@ private:
 //     0 for an original input, else the moved copy (T * K doubles). Writes the
 //     output's [ndim, d0, d1, d2] to hdrPtr.
 //   fetch(outPtr, count): copies the last output's count values to outPtr.
-//   metric(hdrPtr): writes the custom metric of the last output to hdrPtr[0].
-//   done(headPtr, nullPtr, nullCount, statsPtr, n): copies the result out.
+//   metric(hdrPtr): writes [value, values given] of the custom metric of the
+//     last output to hdrPtr.
+//   begin(n, K) and emit(j0, runs, statsPtr, stride, metricsPtr, count): the
+//     results (sv::ResultSink), copied into JS arrays as they come.
+//   done(headPtr, nullCount): head = [observed, p_value, observed stats].
 class JsStrategyHost final : public sv::StrategyHost {
 public:
     JsStrategyHost(emscripten::val cb, std::size_t k)
@@ -181,29 +200,23 @@ public:
         return js_.fetch(hdr_, out_);
     }
 
-    double metric() override {
+    std::size_t metric(double* values, std::size_t count) override {
         js_.call("metric", JsCallbacks::addr(hdr_));
-        return hdr_[0];
+        if (count) values[0] = js_.metric_value(hdr_);
+        return count;
     }
 
-    double* null_stats(std::size_t q, std::size_t n) override {
-        if (!stats_) stats_.reset(new double[sv::kNumStats * n]);
-        return stats_.get() + q * n;
+    void begin(std::size_t n, std::size_t K) override { js_.begin(n, K); }
+
+    void emit(std::size_t j0, std::size_t runs, const double* stats, std::size_t stride,
+              const double* metrics, std::size_t count) override {
+        js_.emit(j0, runs, stats, stride, metrics, count);
     }
 
-    double* null_metrics(std::size_t n) override {
-        null_.reset(new double[n]);
-        return null_.get();
-    }
-
-    // Hands the result to JS: head = [observed, p_value, observed stats
-    // (kNumStats)], the finite null metrics, and the (kNumStats x n)
-    // statistics the driver wrote.
-    void done(const sv::StrategyTestResult& r, std::size_t n) {
+    void done(const sv::StrategyTestResult& r) {
         double head[2 + sv::kNumStats] = {r.observed, r.p_value};
         std::copy(r.observed_stats.begin(), r.observed_stats.end(), head + 2);
-        js_.call("done", JsCallbacks::addr(head), JsCallbacks::addr(null_.get()), r.null_count,
-                 JsCallbacks::addr(stats_.get()), n);
+        js_.call("done", JsCallbacks::addr(head), r.null_count);
     }
 
 private:
@@ -211,8 +224,6 @@ private:
     std::vector<std::vector<double>> moved_;
     std::vector<double> args_, out_;
     double hdr_[4] = {0, 0, 0, 0};
-    std::unique_ptr<double[]> stats_;   // one block, row q at q * n
-    std::unique_ptr<double[]> null_;
 };
 
 // position_test and walk_forward: the drivers are
@@ -222,13 +233,11 @@ private:
 //     targetPtr, with the market inputs. Writes [ndim, d0, d1, d2] to hdrPtr.
 //   fetch(outPtr, count), as for strategy_test.
 //   reset(): resets the engine.
-//   metric(what, valuesPtr, count, rows, windowPtr): the custom metric of
-//     `what` (0: each strategy of the last output, 1: the last output as one
-//     book, 2: each strategy of the (rows, count, 4) window at windowPtr),
-//     count values to valuesPtr.
-//   begin(n, K) and emit(j0, runs, statsPtr, stride, metricsPtr, count): the
-//     results of position_test (sv::PositionHost), copied into JS arrays as
-//     they come, so the WASM heap holds nothing sized by n.
+//   metric(what, j, count, rows, windowPtr, hdrPtr): the custom metric of
+//     strategy j of `count` in `what` (0: the last output, 1: the last output
+//     as one book, 2: the (rows, count, 4) window at windowPtr), as [value,
+//     values given] to hdrPtr.
+//   begin and emit, as for strategy_test (position_test only).
 //   done(...): the rest of the result (positionTestRun, walkForwardRun).
 class JsEngineHost final : public sv::PositionHost {
 public:
@@ -255,17 +264,20 @@ public:
 
     std::size_t metric(sv::MetricOf what, double* values, std::size_t count,
                        std::size_t rows) override {
-        js_.call("metric", static_cast<int>(what), JsCallbacks::addr(values), count, rows,
-                 JsCallbacks::addr(window_.data()));
+        // One call per strategy: the JS metric takes one strategy's output.
+        for (std::size_t j = 0; j < count; ++j) {
+            js_.call("metric", static_cast<int>(what), j, count, rows,
+                     JsCallbacks::addr(window_.data()), JsCallbacks::addr(hdr_));
+            values[j] = js_.metric_value(hdr_);
+        }
         return count;
     }
 
-    void begin(std::size_t n, std::size_t K) override { js_.call("begin", n, K); }
+    void begin(std::size_t n, std::size_t K) override { js_.begin(n, K); }
 
     void emit(std::size_t j0, std::size_t runs, const double* stats, std::size_t stride,
               const double* metrics, std::size_t count) override {
-        js_.call("emit", j0, runs, JsCallbacks::addr(stats), stride, JsCallbacks::addr(metrics),
-                 count);
+        js_.emit(j0, runs, stats, stride, metrics, count);
     }
 
     JsCallbacks& js() { return js_; }
@@ -283,8 +295,7 @@ std::vector<std::int64_t> positions(const emscripten::val& v) {
 }
 
 // `spec` holds [data address, T, K, panel] per input. The result goes to
-// cb.done (see JsStrategyHost::done); the statistics are written straight
-// into the host's block, so the WASM heap holds the result once and JS
+// cb.begin and cb.emit as it is computed, and the rest to cb.done; JS
 // allocates nothing sized by n before the driver has checked it. Positions
 // and counts arrive as integers (the JS side maps a non-integer to -1 or 0,
 // which the driver rejects); strings as vals, as in permuteBarsInto.
@@ -321,7 +332,7 @@ void strategyTestRun(emscripten::val cb, std::uintptr_t spec, std::size_t k,
 
     JsStrategyHost host(std::move(cb), k);
     const sv::StrategyTestResult r = sv::strategy_test(host, data, opt);
-    host.done(r, static_cast<std::size_t>(opt.n));
+    host.done(r);
 }
 
 // An array spec at `spec`: [data address, ndim, T, K] per array.
@@ -393,7 +404,7 @@ void walkForwardRun(emscripten::val cb, std::uintptr_t targets, std::uintptr_t p
                    JsCallbacks::addr(choice.data()), JsCallbacks::addr(r.scores.get()), r.folds, r.K);
 }
 
-// The largest n strategyTestRun accepts in this build (from the heap maximum).
+// The largest n strategyTestRun accepts (sv::max_runs).
 double strategyTestMaxRuns() { return static_cast<double>(sv::max_strategy_runs()); }
 
 // The driver's statistic table, as [name, source, column, larger] rows

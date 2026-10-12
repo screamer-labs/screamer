@@ -90,12 +90,28 @@ def _engine_calls(engine, market, metric):
         engine.reset()
         return np.ascontiguousarray(engine(target, *market), dtype=float)
 
-    score = None
-    if callable(metric):
-        def score(out):
-            return np.asarray(metric(out if out.ndim == 3 else out[:, None, :]),
-                              dtype=float).reshape(-1)
-    return run, engine.reset, score
+    return run, engine.reset, _metric_call(metric)
+
+
+_METRIC_TYPE = "metric must return a number or an array of numbers"
+
+
+def _metric_call(metric):
+    """score(out): a callable metric of a (T, k, 4) output (a (T, 4) output
+    is read as (T, 1, 4)), as a 1-D float64 array whose length C++ checks;
+    None for a statistic name."""
+    if not callable(metric):
+        return None
+
+    def score(out):
+        value = metric(out if out.ndim == 3 else out[:, None, :])
+        if value is None or isinstance(value, (str, bytes, bool, np.bool_)):
+            raise TypeError(_METRIC_TYPE)
+        try:
+            return np.asarray(value, dtype=float).reshape(-1)
+        except (TypeError, ValueError):
+            raise TypeError(_METRIC_TYPE) from None
+    return score
 
 
 def _as_series(x, name):
@@ -410,11 +426,7 @@ def strategy_test(
             out = out[0]
         return np.ascontiguousarray(out, dtype=float)
 
-    score = None
-    if custom:
-        def score(out):                       # the metric sees (T, k, 4)
-            value = metric(out if out.ndim == 3 else out[:, None, :])
-            return float(np.asarray(value, dtype=float).reshape(-1)[0])
+    score = _metric_call(metric)
 
     positions = lambda pos: [_int64(i) for i in pos]  # noqa: E731
     observed, null, p_value, observed_stats, null_stats = _strategy_test(

@@ -68,21 +68,9 @@ namespace screamer { namespace validation {
                                    std::size_t rows) = 0;
     };
 
-    // position_test's results go to the host in batches, so the binding holds
-    // them once in its own arrays and nothing sized by n stays in the driver.
-    class PositionHost : public EngineHost {
-    public:
-        // Called once n is checked, before the first run: n runs of K values
-        // each (K strategies; 1 for one strategy or one book).
-        virtual void begin(std::size_t n, std::size_t K) = 0;
-        // Runs j0 .. j0 + runs - 1. Statistic q of run j, strategy k is
-        // stats[q * stride + (j - j0) * K + k]. `metrics` holds `count`
-        // values of the null distribution, appended in order: the finite
-        // metrics for one strategy, and every metric (NaN kept, round-major)
-        // for K strategies.
-        virtual void emit(std::size_t j0, std::size_t runs, const double* stats,
-                          std::size_t stride, const double* metrics, std::size_t count) = 0;
-    };
+    // position_test's results go to the host in batches (ResultSink), so the
+    // binding holds them once in its own arrays.
+    class PositionHost : public EngineHost, public ResultSink {};
 
     struct PositionTestOptions {
         std::int64_t n = 1000;
@@ -150,11 +138,7 @@ namespace screamer { namespace validation {
         inline const double* custom_metric(EngineHost& host, MetricOf what, std::vector<double>& buf,
                                            std::size_t count, std::size_t rows = 0) {
             buf.assign(count, std::numeric_limits<double>::quiet_NaN());
-            const std::size_t got = host.metric(what, buf.data(), count, rows);
-            if (got != count)
-                throw std::invalid_argument(
-                    "metric must return one value per strategy in its input: " +
-                    std::to_string(count) + " expected, got " + std::to_string(got));
+            check_metric_values(count, host.metric(what, buf.data(), count, rows));
             return buf.data();
         }
 
@@ -190,44 +174,6 @@ namespace screamer { namespace validation {
             const std::size_t per_run = kChunkDoubles / width / std::max<std::size_t>(1, K);
             return std::max<std::size_t>(1, std::min(n, per_run / std::max<std::size_t>(1, T)));
         }
-
-        // Collects run results and hands them to the host in batches of at
-        // most kBatchValues values per statistic.
-        class RunBatch {
-        public:
-            static constexpr std::size_t kBatchValues = 4096;
-
-            RunBatch(PositionHost& host, std::size_t K, bool finite_only)
-                : host_(host), K_(K), cap_(std::max<std::size_t>(1, kBatchValues / std::max<std::size_t>(1, K))),
-                  finite_only_(finite_only), stats_(kNumStats * cap_ * K), metrics_(cap_ * K) {}
-
-            void put(std::size_t k, const std::array<double, kNumStats>& s, double v) {
-                const std::size_t at = runs_ * K_ + k, stride = cap_ * K_;
-                for (std::size_t q = 0; q < kNumStats; ++q) stats_[q * stride + at] = s[q];
-                if (!finite_only_ || std::isfinite(v)) metrics_[count_++] = v;
-            }
-
-            void end_run() {
-                if (++runs_ == cap_) flush();
-            }
-
-            void flush() {
-                if (runs_ == 0) return;
-                host_.emit(j0_, runs_, stats_.data(), cap_ * K_, metrics_.data(), count_);
-                total_ += count_;
-                j0_ += runs_;
-                runs_ = count_ = 0;
-            }
-
-            std::size_t total() const { return total_; }
-
-        private:
-            PositionHost& host_;
-            std::size_t K_, cap_;
-            bool finite_only_;
-            std::vector<double> stats_, metrics_;
-            std::size_t j0_ = 0, runs_ = 0, count_ = 0, total_ = 0;
-        };
 
         // Rows [a, b) of strategy k of a (T, K, 4) output, written as (b - a)
         // rows of 4 at `dst`, `dst_stride` doubles apart, and scored as a
@@ -278,7 +224,8 @@ namespace screamer { namespace validation {
     // K strategies, a (T, K) target ("shift" only): every copy shifts the K
     // columns by one offset, after their common warmup. Each strategy gets its
     // own p-value, and the family p-value compares it with the best of the K
-    // in every copy (the max statistic of White's Reality Check).
+    // in every copy (the max statistic of White's Reality Check). Rounds
+    // where every strategy's metric is NaN are left out.
     //
     // A portfolio engine, a (T, K) target and (T, K) market inputs ("shift"
     // only): every copy shifts the K assets together and the run is scored as
@@ -297,7 +244,7 @@ namespace screamer { namespace validation {
         const Metric metric = resolve_metric(opt.metric, opt.custom, opt.larger_is_better);
         const bool family = !opt.portfolio && target.ndim == 2;
         const std::size_t K = family ? target.K : 1;
-        const std::size_t n = check_runs(opt.n, (kNumStats + 1) * std::max<std::size_t>(1, K));
+        const std::size_t n = check_runs(opt.n, K);
         const std::uint64_t seed = check_seed(opt.seed);
         const std::size_t T = target.T;
         if (opt.portfolio) {
@@ -388,7 +335,9 @@ namespace screamer { namespace validation {
             }
             detail::RunBatch batch(host, K, false);
             std::vector<std::size_t> hits(K, 0), count(K, 0), family_hits(K, 0);
-            std::size_t rounds = 0;   // rounds with a finite best metric
+            // A round counts when any strategy has a metric: its best, an
+            // infinite one included, is compared with each observed metric.
+            std::size_t rounds = 0;
             const std::size_t chunk = detail::chunk_runs(n, T, width, K);
             for (std::size_t col0 = 0; col0 < n; col0 += chunk) {
                 const std::size_t m = std::min(chunk, n - col0), w = m * K;
@@ -417,7 +366,7 @@ namespace screamer { namespace validation {
                         if (!std::isnan(sv) && (!any || sv > best)) { best = sv; any = true; }
                     }
                     batch.end_run();
-                    if (any && std::isfinite(best)) {
+                    if (any) {
                         ++rounds;
                         for (std::size_t k = 0; k < K; ++k)
                             family_hits[k] += best >= sign * res.observed[k];
@@ -507,9 +456,10 @@ namespace screamer { namespace validation {
         for (const ArrayShape& p : prices)
             if (p.T != T)
                 throw std::invalid_argument("targets and price inputs must have the same length");
-        if (!(opt.train == std::floor(opt.train)) || opt.train < 2)
+        const auto integer = [](double x) { return std::isfinite(x) && x == std::floor(x); };
+        if (!integer(opt.train) || opt.train < 2)
             throw std::invalid_argument("train must be an integer of at least 2");
-        if (!(opt.test == std::floor(opt.test)) || opt.test < 1)
+        if (!integer(opt.test) || opt.test < 1)
             throw std::invalid_argument("test must be an integer of at least 1");
         if (opt.train >= static_cast<double>(T))
             throw std::invalid_argument("train must be shorter than the series");

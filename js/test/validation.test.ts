@@ -395,15 +395,29 @@ test("validation: strategyTest checks the range of n before allocating", async (
   const hold = (p: Float64Array) => BacktestPriceTarget()(new Float64Array(T).fill(1), p);
   assert.throws(() => strategyTest(hold, [c], { method: "returns", n: 0 }),
     { name: "RangeError", message: "n must be at least 1" });
-  // The limit comes from the module's maximum heap: (heap max - 256 MB) / 128
-  // bytes per run, 14680064 with the 2 GB of wasm/CMakeLists.txt.
+  // The results stream into JS arrays, so the heap does not bound n: each
+  // result array holds n values, at most 2^31 - 1.
   const { current } = await import("../src/index.ts");
   const max = (current() as any).strategyTestMaxRuns() as number;
-  assert.equal(max, (2 ** 31 - 2 ** 28) / 128);
-  for (const n of [max + 1, 2 ** 32 + 3, 2 ** 60, Number.MAX_VALUE])
+  assert.equal(max, 2 ** 31 - 1);
+  for (const n of [max + 1, 2 ** 32 + 3, 2 ** 60, Number.MAX_VALUE, Infinity])
     assert.throws(() => strategyTest(hold, [c], { method: "returns", n }),
       { name: "RangeError", message: `n is too large: at most ${max} runs` });
   assert.equal(strategyTest(hold, [c], { method: "returns", n: 3 }).null.length, 3);
+});
+
+test("validation: positionTest overloads type each result (tsc)", async () => {
+  const ts = (await import("typescript")).default;
+  const path = await import("node:path");
+  const file = path.resolve(import.meta.dirname, "types/position_test.types.ts");
+  const program = ts.createProgram([file], {
+    strict: true, noEmit: true, target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext,
+    moduleResolution: ts.ModuleResolutionKind.Bundler, allowImportingTsExtensions: true,
+    types: ["node"], lib: ["lib.es2022.d.ts", "lib.esnext.disposable.d.ts"],
+  });
+  const errors = ts.getPreEmitDiagnostics(program)
+    .map((d) => ts.flattenDiagnosticMessageText(d.messageText, "\n"));
+  assert.deepEqual(errors, []);
 });
 
 test("validation: the statistic table comes from C++", async () => {
@@ -437,9 +451,18 @@ test("validation: C++ calls JavaScript only through wasmCallbacks", async () => 
   for (const [f, src] of cpp)
     for (const m of src.matchAll(/(\w+)\.call<(\w+)>\(([^,)]*)/g))
       assert.ok(allowed.has(`${f}: ${m[1]}.call<${m[2]}>(${m[3]}`), `${f}: C++ calls JavaScript: ${m[0]}`);
-  // Functions that take a callback object get it from wasmCallbacks(...).call.
-  const takers = cpp.flatMap(([, src]) => [...src.matchAll(/void (\w+)\(emscripten::val cb\b/g)].map((m) => m[1]));
-  assert.deepEqual(takers, ["strategyTestRun", "positionTestRun", "walkForwardRun"]);
+  // Every function (or constructor) that takes an emscripten::val, whatever
+  // its return type or parameter name, is classified here, so a new one fails
+  // this test until it is listed. Callback takers are exported and must get
+  // their object from wasmCallbacks(...).call; holders keep it inside C++.
+  const takers = ["strategyTestRun", "positionTestRun", "walkForwardRun"];
+  const holders = ["JsCallbacks", "JsStrategyHost", "JsEngineHost"];
+  const values = ["eventPlan", "layoutPlan", "permuteBarsInto", "permuteReturnsInto", "positions"];
+  for (const [f, src] of cpp)
+    assert.ok(!/using\s+(namespace\s+emscripten|emscripten::val)\b/.test(src), `${f}: val must be spelled emscripten::val`);
+  const found = cpp.flatMap(([, src]) => [...src.matchAll(
+    /(\w+)\s*\(([^()]*\bemscripten::val\b[^()]*)\)\s*(?:const\s*)?(?::[^{;]*)?\{/g)].map((m) => m[1]));
+  assert.deepEqual([...found].sort(), [...takers, ...holders, ...values].sort());
   const js = fs.readdirSync(path.join(root, "js/src")).filter((f) => f.endsWith(".ts"))
     .map((f) => fs.readFileSync(path.join(root, "js/src", f), "utf8")).join("\n");
   for (const name of takers) {
@@ -504,10 +527,10 @@ test("validation: positionTest checks the range of n in C++ before allocating", 
   const T = 60;
   const { c } = market(T);
   const tgt = Array.from({ length: T }, (_, t) => (Math.floor(t / 5) % 2 ? 1 : -1));
-  for (const n of [0, -3, 2.5, NaN])
+  for (const n of [0, -3, 2.5, NaN, -Infinity])
     assert.throws(() => positionTest(BacktestPriceTarget(), tgt, [c], { n }),
       { name: "RangeError", message: "n must be at least 1" });
-  for (const n of [max + 1, 2 ** 32 + 3, 2 ** 60, Number.MAX_VALUE])
+  for (const n of [max + 1, 2 ** 32 + 3, 2 ** 60, Number.MAX_VALUE, Infinity])
     assert.throws(() => positionTest(BacktestPriceTarget(), tgt, [c], { n }),
       { name: "RangeError", message: `n is too large: at most ${max} runs` });
   // K strategies keep K values per run
@@ -566,4 +589,61 @@ test("validation: positionTest takes NdArray targets like arrays", () => {
   const fam = positionTest(BacktestPriceTarget(), [a, b], [c], { n: 12 });
   const block = Float64Array.from({ length: 2 * T }, (_, i) => (i % 2 ? b : a)[i >> 1]);
   assert.deepEqual(positionTest(BacktestPriceTarget(), { data: block, shape: [T, 2] } as any, [c], { n: 12 }), fam);
+});
+
+test("validation: a custom metric must give one number per strategy", async () => {
+  const { walkForward, strategyTest, BacktestPortfolioTarget } = await import("../src/index.ts");
+  const T = 80;
+  const { c } = market(T);
+  const tgt = Array.from({ length: T }, (_, t) => (Math.floor(t / 5) % 2 ? 1 : -1));
+  const hold = (p: Float64Array) => BacktestPriceTarget()(new Float64Array(T).fill(1), p);
+  const pan = c.map((v) => [v, v]), w = tgt.map((v) => [v / 2, -v / 2]);
+  const wrong = /^metric must return one value per strategy in its input: 1 expected, got (2|0)$/;
+  const calls: ((m: any) => unknown)[] = [
+    (m) => positionTest(BacktestPriceTarget(), tgt, [c], { n: 3, metric: m }),
+    (m) => positionTest(BacktestPriceTarget(), [tgt, tgt], [c], { n: 3, metric: m }),
+    (m) => positionTest(BacktestPortfolioTarget(), w, [pan], { n: 3, metric: m }),
+    (m) => walkForward(BacktestPriceTarget(), [tgt, tgt], [c], { train: 30, test: 10, metric: m }),
+    (m) => strategyTest(hold, [c], { method: "returns", n: 3, metric: m }),
+  ];
+  for (const run of calls) {
+    for (const bad of [[1, 2], [], new Float64Array(2)])
+      assert.throws(() => run(() => bad), (e: any) => e instanceof RangeError && wrong.test(e.message));
+    for (const bad of [undefined, null, "1", { x: 1 }, [1, "2"], true])
+      assert.throws(() => run(() => bad),
+        { name: "TypeError", message: "metric must return a number or an array of numbers" });
+    const one = run(() => [0.5]) as any, num = run(() => 0.5) as any;
+    assert.deepEqual(one, num);
+  }
+});
+
+test("validation: the family p-value is the max statistic over the null", () => {
+  const T = 200;
+  const { c } = market(T);
+  const a = Array.from({ length: T }, (_, t) => (Math.floor(t / 6) % 2 ? 1 : -1));
+  const b = a.map((v, t) => (t % 5 ? v : -v));
+  const flat = new Array(T).fill(0), none = new Array(T).fill(NaN);
+  none[0] = 1;   // a column whose metric is NaN in every round
+  const cases: [number[][], any][] = [
+    [[a, b, flat], { metric: "total_pnl" }],
+    [[a, b, flat, none], { metric: "sharpe", largerIsBetter: false }],
+    // profit_factor is +inf for a run without a losing trade: such rounds count
+    [[a, b, flat], { metric: "profit_factor" }],
+    [[a, b], { metric: (out: any) => (out.data[(out.shape[0] - 1) * 4] > 0 ? Infinity : -Infinity) }],
+  ];
+  for (const [targets, opts] of cases) {
+    const res = positionTest(BacktestPriceTarget(1e-4), targets, [c], { n: 120, seed: 3, ...opts });
+    const K = targets.length, n = res.null.shape[0];
+    const sign = (opts.largerIsBetter ?? true) ? 1 : -1;
+    const best: number[] = [];
+    for (let r = 0; r < n; r++) {
+      const row = Array.from(res.null.data.subarray(r * K, (r + 1) * K), (v) => sign * v).filter((v) => !Number.isNaN(v));
+      if (row.length) best.push(Math.max(...row));
+    }
+    for (let k = 0; k < K; k++) {
+      const o = res.observed[k];
+      const want = Number.isFinite(o) ? (1 + best.filter((v) => v >= sign * o).length) / (1 + best.length) : NaN;
+      assert.ok(Object.is(res.familyPValue[k], want), `${k}: ${res.familyPValue[k]} vs ${want}`);
+    }
+  }
 });

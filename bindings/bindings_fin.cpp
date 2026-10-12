@@ -698,13 +698,60 @@ nb::object permute_returns_batch(BlockIn x, const std::string& mode, std::int64_
     return nb::tuple(out);
 }
 
+namespace sv = screamer::validation;
+
+// The result arrays of the randomization tests (sv::ResultSink): n * K values
+// per statistic and for the null, filled by the driver's batches and handed
+// to Python as they are, so the result is held once.
+class PyResults {
+public:
+    void begin(std::size_t n, std::size_t K) {
+        K_ = K;
+        const std::size_t size = n * K;
+        null_.reset(new double[size ? size : 1]);
+        for (auto& q : stats_) q.reset(new double[size ? size : 1]);
+    }
+
+    void emit(std::size_t j0, std::size_t runs, const double* stats, std::size_t stride,
+              const double* metrics, std::size_t count) {
+        for (std::size_t q = 0; q < sv::kNumStats; ++q)
+            std::copy(stats + q * stride, stats + q * stride + runs * K_, stats_[q].get() + j0 * K_);
+        std::copy(metrics, metrics + count, null_.get() + null_count_);
+        null_count_ += count;
+    }
+
+    // The null distribution: its first values, or (n, K).
+    nb::object take_null(const std::vector<size_t>& shape) {
+        return screamer::detail::make_owned_array(std::move(null_), shape);
+    }
+
+    nb::object take_stats(std::size_t q, const std::vector<size_t>& shape) {
+        return screamer::detail::make_owned_array(std::move(stats_[q]), shape);
+    }
+
+private:
+    std::size_t K_ = 1, null_count_ = 0;
+    std::unique_ptr<double[]> null_;
+    std::array<std::unique_ptr<double[]>, sv::kNumStats> stats_;
+};
+
+// A custom metric's values (the 1-D float64 array the Python thunk returns):
+// at most `count` are copied, and the number given is returned for the
+// driver's check.
+std::size_t metric_values(const nb::object& r, double* values, std::size_t count) {
+    using Values = nb::ndarray<const double, nb::ndim<1>, nb::c_contig, nb::device::cpu>;
+    const auto v = nb::cast<Values>(r);
+    const std::size_t got = v.shape(0);
+    std::copy(v.data(), v.data() + std::min(got, count), values);
+    return got;
+}
+
 // strategy_test (screamer/validation.py): the driver is
 // screamer::validation::strategy_test; this host gives it the Python strategy.
 // `run` is called with the inputs as positional arguments and returns a
 // float64 C-contiguous engine output; `metric` (or None) maps that output to
-// a float. Both are only used during the call, under the GIL; a Python
-// exception they raise propagates unchanged.
-namespace sv = screamer::validation;
+// a 1-D float64 array. Both are only used during the call, under the GIL; a
+// Python exception they raise propagates unchanged.
 
 class PyStrategyHost final : public sv::StrategyHost {
 public:
@@ -746,26 +793,18 @@ public:
         return out;
     }
 
-    double metric() override { return nb::cast<double>(metric_(last_obj_)); }
-
-    double* null_stats(std::size_t q, std::size_t n) override {
-        stats_[q].reset(new double[n]);   // becomes the result array as it is
-        return stats_[q].get();
+    std::size_t metric(double* values, std::size_t count) override {
+        return metric_values(metric_(last_obj_), values, count);
     }
 
-    double* null_metrics(std::size_t n) override {
-        null_.reset(new double[n]);       // the result array; its first count values are used
-        return null_.get();
+    void begin(std::size_t n, std::size_t K) override { results.begin(n, K); }
+
+    void emit(std::size_t j0, std::size_t runs, const double* stats, std::size_t stride,
+              const double* metrics, std::size_t count) override {
+        results.emit(j0, runs, stats, stride, metrics, count);
     }
 
-    nb::object take_null(std::size_t count) {
-        return screamer::detail::make_owned_array(std::move(null_), {count});
-    }
-
-    // The array of statistic q, owning the buffer the driver filled.
-    nb::object take_stats(std::size_t q, std::size_t n) {
-        return screamer::detail::make_owned_array(std::move(stats_[q]), {n});
-    }
+    PyResults results;
 
 private:
     using OutArray = nb::ndarray<const double, nb::c_contig, nb::device::cpu>;
@@ -775,8 +814,6 @@ private:
     std::vector<std::unique_ptr<double[]>> pending_;
     nb::object last_obj_;
     OutArray last_;
-    std::array<std::unique_ptr<double[]>, sv::kNumStats> stats_;
-    std::unique_ptr<double[]> null_;
 };
 
 // position_test and walk_forward (screamer/validation.py): the drivers are
@@ -825,49 +862,27 @@ public:
         nb::object arg = what == sv::MetricOf::Window
             ? screamer::detail::make_owned_array(std::move(window_buf_), {rows, count, 4})
             : last_obj_;
-        const auto v = nb::cast<Values>(metric_(arg));
-        const std::size_t got = v.shape(0);
-        std::copy(v.data(), v.data() + std::min(got, count), values);
-        return got;
+        return metric_values(metric_(arg), values, count);
     }
 
-    void begin(std::size_t n, std::size_t K) override {
-        K_ = K;
-        size_ = n * K;
-        null_.reset(new double[size_ ? size_ : 1]);   // the result arrays, filled by emit
-        for (auto& q : stats_) q.reset(new double[size_ ? size_ : 1]);
-    }
+    void begin(std::size_t n, std::size_t K) override { results.begin(n, K); }
 
     void emit(std::size_t j0, std::size_t runs, const double* stats, std::size_t stride,
               const double* metrics, std::size_t count) override {
-        for (std::size_t q = 0; q < sv::kNumStats; ++q)
-            std::copy(stats + q * stride, stats + q * stride + runs * K_, stats_[q].get() + j0 * K_);
-        std::copy(metrics, metrics + count, null_.get() + null_count_);
-        null_count_ += count;
+        results.emit(j0, runs, stats, stride, metrics, count);
     }
 
-    // The null distribution: the first `count` values, or (n, K).
-    nb::object take_null(const std::vector<size_t>& shape) {
-        return screamer::detail::make_owned_array(std::move(null_), shape);
-    }
-
-    nb::object take_stats(std::size_t q, const std::vector<size_t>& shape) {
-        return screamer::detail::make_owned_array(std::move(stats_[q]), shape);
-    }
+    PyResults results;
 
     nb::object last_output() const { return last_obj_; }
     nb::object last_target() const { return last_target_; }
 
 private:
     using OutArray = nb::ndarray<const double, nb::c_contig, nb::device::cpu>;
-    using Values = nb::ndarray<const double, nb::ndim<1>, nb::c_contig, nb::device::cpu>;
     nb::handle run_, reset_, metric_, original_;
     std::unique_ptr<double[]> target_buf_, window_buf_;
     nb::object last_obj_, last_target_;
     OutArray last_;
-    std::size_t K_ = 1, size_ = 0, null_count_ = 0;
-    std::unique_ptr<double[]> null_;
-    std::array<std::unique_ptr<double[]>, sv::kNumStats> stats_;
 };
 
 nb::tuple strategy_test_py(nb::callable run, nb::object metric, nb::list inputs,
@@ -903,9 +918,9 @@ nb::tuple strategy_test_py(nb::callable run, nb::object metric, nb::list inputs,
     nb::dict observed_stats, null_stats;
     for (std::size_t q = 0; q < sv::kNumStats; ++q) {
         observed_stats[sv::kStats[q].name] = r.observed_stats[q];
-        null_stats[sv::kStats[q].name] = host.take_stats(q, nn);
+        null_stats[sv::kStats[q].name] = host.results.take_stats(q, {nn});
     }
-    return nb::make_tuple(r.observed, host.take_null(r.null_count), r.p_value,
+    return nb::make_tuple(r.observed, host.results.take_null({r.null_count}), r.p_value,
                           observed_stats, null_stats);
 }
 
@@ -965,15 +980,15 @@ nb::tuple position_test_py(nb::callable run, nb::callable reset, nb::object metr
     const std::size_t nn = static_cast<std::size_t>(n), K = r.K;
     nb::dict null_stats;
     for (std::size_t q = 0; q < sv::kNumStats; ++q)
-        null_stats[sv::kStats[q].name] = host.take_stats(
+        null_stats[sv::kStats[q].name] = host.results.take_stats(
             q, r.family ? std::vector<size_t>{nn, K} : std::vector<size_t>{nn});
     nb::object min = r.min_shift ? nb::cast(*r.min_shift) : nb::none();
     if (!r.family)
-        return nb::make_tuple(r.observed[0], host.take_null({r.null_count}), r.p_value[0], nb::none(),
-                              stats_dict(r.observed_stats, 1, false), null_stats, min);
-    return nb::make_tuple(double_array(r.observed), host.take_null({nn, K}), double_array(r.p_value),
-                          double_array(r.family_p_value), stats_dict(r.observed_stats, K, true),
-                          null_stats, min);
+        return nb::make_tuple(r.observed[0], host.results.take_null({r.null_count}), r.p_value[0],
+                              nb::none(), stats_dict(r.observed_stats, 1, false), null_stats, min);
+    return nb::make_tuple(double_array(r.observed), host.results.take_null({nn, K}),
+                          double_array(r.p_value), double_array(r.family_p_value),
+                          stats_dict(r.observed_stats, K, true), null_stats, min);
 }
 
 nb::object int64_array(const std::vector<std::int64_t>& x) {

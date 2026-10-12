@@ -16,9 +16,6 @@
 #include "screamer/backtest_stats.h"
 #include "screamer/portfolio_report.h"
 
-#if defined(__EMSCRIPTEN__)
-#include <emscripten/heap.h>
-#endif
 
 namespace screamer { namespace validation {
 
@@ -108,38 +105,61 @@ namespace screamer { namespace validation {
         return static_cast<std::uint64_t>(seed);
     }
 
-    // The largest number of randomized runs when each run keeps
-    // `doubles_per_run` result values (its statistics and its metric, per
-    // strategy). 2^31 - 1 where memory is not the bound; in WebAssembly what
-    // fits in the module's maximum heap (emscripten_get_heap_max();
-    // MAXIMUM_MEMORY in wasm/CMakeLists.txt) after 256 MB for the inputs, the
-    // engine outputs, and the runtime.
-    inline std::size_t max_runs(std::size_t doubles_per_run) {
-        if (doubles_per_run == 0) doubles_per_run = 1;
+    // The largest number of randomized runs when each run keeps K strategies'
+    // results: kNumStats + 1 doubles per strategy (its statistics and its
+    // metric), which the binding holds in its own result arrays (ResultSink),
+    // so nothing sized by n is held in the driver or the WebAssembly heap.
+    // Natively, 2^31 - 1 runs, or fewer where the arrays could not be
+    // addressed. In WebAssembly the arrays are JavaScript typed arrays of
+    // n * K values each, kept within 2^31 - 1 elements.
+    inline std::size_t max_runs(std::size_t K) {
+        if (K == 0) K = 1;
+        constexpr std::size_t kMaxRuns = 2147483647;
 #if defined(__EMSCRIPTEN__)
-        const std::size_t heap = emscripten_get_heap_max(), reserve = std::size_t(1) << 28;
-        const std::size_t per_run = doubles_per_run > heap / sizeof(double)
-            ? heap : doubles_per_run * sizeof(double);
-        return heap > reserve ? std::max<std::size_t>(1, (heap - reserve) / per_run) : 1;
+        return std::max<std::size_t>(1, kMaxRuns / K);
 #else
         const std::size_t cap = std::vector<double>().max_size();
-        return std::max<std::size_t>(1, std::min<std::size_t>(2147483647, (cap - 64) / doubles_per_run));
+        return std::max<std::size_t>(1, std::min(kMaxRuns, (cap - 64) / (kNumStats + 1) / K));
 #endif
     }
 
-    // A run of strategy_test keeps kNumStats + 1 doubles.
-    inline constexpr std::size_t kRunBytes = (kNumStats + 1) * sizeof(double);
-    inline std::size_t max_strategy_runs() { return max_runs(kNumStats + 1); }
+    inline std::size_t max_strategy_runs() { return max_runs(1); }
 
-    // n checked against [1, max_runs(doubles_per_run)], before anything sized
-    // by n is allocated.
-    inline std::size_t check_runs(std::int64_t n, std::size_t doubles_per_run) {
+    // n checked against [1, max_runs(K)], before anything sized by n is
+    // allocated.
+    inline std::size_t check_runs(std::int64_t n, std::size_t K) {
         if (n < 1) throw std::invalid_argument("n must be at least 1");
-        const std::size_t limit = max_runs(doubles_per_run);
+        const std::size_t limit = max_runs(K);
         if (static_cast<std::uint64_t>(n) > limit)
             throw std::invalid_argument("n is too large: at most " + std::to_string(limit) + " runs");
         return static_cast<std::size_t>(n);
     }
+
+    // A custom metric gives one value per strategy in its input.
+    inline void check_metric_values(std::size_t expected, std::size_t got) {
+        if (got != expected)
+            throw std::invalid_argument(
+                "metric must return one value per strategy in its input: " +
+                std::to_string(expected) + " expected, got " + std::to_string(got));
+    }
+
+    // Where a test's per-run results go: the binding's own arrays, filled in
+    // batches, so the result is held once and the driver keeps nothing sized
+    // by n.
+    class ResultSink {
+    public:
+        virtual ~ResultSink() = default;
+        // Called once n is checked, before the first run: n runs of K values
+        // each (K strategies; 1 for one strategy or one book).
+        virtual void begin(std::size_t n, std::size_t K) = 0;
+        // Runs j0 .. j0 + runs - 1. Statistic q of run j, strategy k is
+        // stats[q * stride + (j - j0) * K + k]. `metrics` holds `count`
+        // values of the null distribution, appended in order: the finite
+        // metrics for one strategy, and every metric (NaN kept, round-major)
+        // for K strategies.
+        virtual void emit(std::size_t j0, std::size_t runs, const double* stats,
+                          std::size_t stride, const double* metrics, std::size_t count) = 0;
+    };
 
     // (1 + hits) / (1 + count): the share of the null at least as good as the
     // observed value, counting the observed result itself; NaN when the
@@ -151,6 +171,44 @@ namespace screamer { namespace validation {
     }
 
     namespace detail {
+
+        // Collects run results and hands them to a ResultSink in batches of at
+        // most kBatchValues values per statistic.
+        class RunBatch {
+        public:
+            static constexpr std::size_t kBatchValues = 4096;
+
+            RunBatch(ResultSink& sink, std::size_t K, bool finite_only)
+                : sink_(sink), K_(K), cap_(std::max<std::size_t>(1, kBatchValues / std::max<std::size_t>(1, K))),
+                  finite_only_(finite_only), stats_(kNumStats * cap_ * K), metrics_(cap_ * K) {}
+
+            void put(std::size_t k, const std::array<double, kNumStats>& s, double v) {
+                const std::size_t at = runs_ * K_ + k, stride = cap_ * K_;
+                for (std::size_t q = 0; q < kNumStats; ++q) stats_[q * stride + at] = s[q];
+                if (!finite_only_ || std::isfinite(v)) metrics_[count_++] = v;
+            }
+
+            void end_run() {
+                if (++runs_ == cap_) flush();
+            }
+
+            void flush() {
+                if (runs_ == 0) return;
+                sink_.emit(j0_, runs_, stats_.data(), cap_ * K_, metrics_.data(), count_);
+                total_ += count_;
+                j0_ += runs_;
+                runs_ = count_ = 0;
+            }
+
+            std::size_t total() const { return total_; }
+
+        private:
+            ResultSink& sink_;
+            std::size_t K_, cap_;
+            bool finite_only_;
+            std::vector<double> stats_, metrics_;
+            std::size_t j0_ = 0, runs_ = 0, count_ = 0, total_ = 0;
+        };
 
         // Sum of n values a[0], a[stride], ... in NumPy's pairwise order
         // (blocks of 8 partial sums, halves above 128 values), so a summed

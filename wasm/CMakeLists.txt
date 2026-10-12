@@ -54,8 +54,8 @@ target_include_directories(screamer PRIVATE
 # must not raise that floor silently. Re-verify on emsdk bump (CI pins 4.0.21).
 #
 # -sMAXIMUM_MEMORY=2GB states the heap maximum instead of relying on the
-# emsdk default. strategyTest's largest n is derived from it at runtime
-# (emscripten_get_heap_max() in include/screamer/validation/strategy_test.h).
+# emsdk default. The randomization tests keep no result sized by n in the heap
+# (they stream it to JS arrays), so their largest n does not depend on it.
 set(EMCC_LINK "-lembind -fwasm-exceptions -sWASM_LEGACY_EXCEPTIONS=1 -sEXPORT_EXCEPTION_HANDLING_HELPERS=1 -sMODULARIZE=1 -sEXPORT_ES6=1 -sENVIRONMENT=web,worker,node \
 -sFILESYSTEM=0 -sALLOW_MEMORY_GROWTH=1 -sMAXIMUM_MEMORY=2GB -sMALLOC=emmalloc -sEXPORTED_RUNTIME_METHODS=['HEAPF64','stackSave','stackRestore']")
 

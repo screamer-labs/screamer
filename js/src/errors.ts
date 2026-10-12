@@ -18,8 +18,10 @@
 // to the value it had when the module loaded.
 //
 // The reset goes to `stackBase`: the stack pointer when the module loaded, so
-// with no WASM frame live. C++ calls back into user JavaScript in one place,
-// strategyTest (validation.ts), and every such callback runs inside
+// with no WASM frame live. C++ calls back into user JavaScript from the
+// randomization tests (validation.ts: strategyTest, positionTest, and
+// walkForward, through strategyTestRun, positionTestRun, and walkForwardRun),
+// and every such callback runs inside
 // callbackScope, which moves the base to the stack pointer at the callback's
 // entry for its duration. An error caught inside the callback then frees only
 // the frames above that entry and keeps the C++ frames below it. Arguments

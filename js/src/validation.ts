@@ -271,6 +271,47 @@ function candidates(targets: any): Target {
   return { data, ndim: 2, T, K, original: { data, shape: [T, K] } };
 }
 
+const METRIC_TYPE = "metric must return a number or an array of numbers";
+
+// Writes a custom metric's result to hdr as [first value, values given]; C++
+// checks the count. A non-number throws TypeError, as in Python.
+function writeMetric(M: any, hdrPtr: number, v: unknown): void {
+  let first = NaN, given = 1;
+  if (typeof v === "number") first = v;
+  else if (v != null && typeof v === "object" && typeof (v as any).length === "number") {
+    const a = v as ArrayLike<unknown>;
+    for (let i = 0; i < a.length; i++) if (typeof a[i] !== "number") throw new TypeError(METRIC_TYPE);
+    given = a.length;
+    if (given > 0) first = a[0] as number;
+  } else {
+    throw new TypeError(METRIC_TYPE);
+  }
+  M.viewF64(hdrPtr, 2).set([first, given]);
+}
+
+// The result arrays of a randomization test (the C++ ResultSink): begin
+// allocates n * K values per statistic and for the null, once C++ has checked
+// n, and emit copies each batch in, so the WASM heap holds nothing sized by n.
+function resultSink(M: any, names: StatName[]) {
+  const sink = { n: 0, K: 1, count: 0, stats: [] as Float64Array[], null: new Float64Array(0) };
+  const fns = {
+    begin: (runs: number, k: number) => {
+      sink.n = runs; sink.K = k;
+      sink.stats = names.map(() => new Float64Array(runs * k));
+      sink.null = new Float64Array(runs * k);
+    },
+    emit: (j0: number, runs: number, statsPtr: number, stride: number, metricsPtr: number, c: number) => {
+      for (let q = 0; q < names.length; q++)
+        sink.stats[q].set(M.viewF64(statsPtr + 8 * q * stride, runs * sink.K), j0 * sink.K);
+      sink.null.set(M.viewF64(metricsPtr, c), sink.count);
+      sink.count += c;
+    },
+  };
+  // The finite null of one strategy: the first `count` values.
+  const finiteNull = (count: number) => (count === sink.null.length ? sink.null : sink.null.slice(0, count));
+  return { sink, fns, finiteNull };
+}
+
 // The engine side of positionTest and walkForward for the C++ drivers
 // (JsEngineHost in wasm/validation_bindings.cpp). `state.out` is the engine's
 // last output and `state.target` the last target it got.
@@ -292,18 +333,15 @@ function engineCallbacks(engine: ScreamerOp, original: any, market: any[], metri
       M.viewF64(outPtr, count).set((state.last as NdArray).data.subarray(0, count));
     },
     reset: () => { engine.reset(); },
-    // what: 0 each strategy of the last output, 1 the output as one book,
-    // 2 each strategy of the (rows, count, 4) window at windowPtr.
-    metric: (what: number, valuesPtr: number, count: number, rows: number, windowPtr: number) => {
-      const f = metric as (out: NdArray) => number;
+    // Strategy j of `count` in `what`: 0 the last output, 1 the output as one
+    // book, 2 the (rows, count, 4) window at windowPtr. Writes [value, values
+    // given] to hdrPtr.
+    metric: (what: number, j: number, count: number, rows: number, windowPtr: number, hdrPtr: number) => {
       const last = state.last as NdArray;
-      for (let j = 0; j < count; j++) {
-        const arg = what === 2
-          ? strategyOf({ data: M.viewF64(windowPtr, rows * count * 4), shape: [rows, count, 4] }, j)
-          : what === 1 || last.shape.length === 2 ? last : strategyOf(last, j);
-        const v = f(arg);
-        M.viewF64(valuesPtr, count)[j] = v;      // a fresh view: the metric may grow the heap
-      }
+      const arg = what === 2
+        ? strategyOf({ data: M.viewF64(windowPtr, rows * count * 4), shape: [rows, count, 4] }, j)
+        : what === 1 || last.shape.length === 2 ? last : strategyOf(last, j);
+      writeMetric(M, hdrPtr, (metric as (out: NdArray) => unknown)(arg));
     },
   };
   return { fns, state };
@@ -349,12 +387,28 @@ function heapSpecs(target: Target, market: any[], bufs: number[]) {
  * `market` its (T, K) inputs. Every round shifts all K assets by one offset and
  * scores the whole book, so the result is a single test.
  */
+// Overloads: with series markets, a (T,) target is one strategy and a (T, K)
+// target (K columns, or an NdArray of shape [T, K]) K strategies; an NdArray
+// of unknown rank gives the union. With (T, K) market panels the engine is a
+// portfolio engine and the result is one test.
+export function positionTest(
+  engine: ScreamerOp,
+  target: NdArray & { shape: [number] },
+  market: ArrayLike<number>[],
+  opts?: PositionTestOptions,
+): PositionTestResult;
+export function positionTest(
+  engine: ScreamerOp,
+  target: NdArray & { shape: [number, number] },
+  market: ArrayLike<number>[],
+  opts?: PositionTestOptions,
+): PositionFamilyResult;
 export function positionTest(
   engine: ScreamerOp,
   target: NdArray,
-  market: (NdArray | ArrayLike<number>[])[],
+  market: ArrayLike<number>[],
   opts?: PositionTestOptions,
-): PositionTestResult;
+): PositionTestResult | PositionFamilyResult;
 export function positionTest(
   engine: ScreamerOp,
   target: ArrayLike<number>[],
@@ -365,6 +419,12 @@ export function positionTest(
   engine: ScreamerOp,
   target: ArrayLike<number>,
   market: ArrayLike<number>[],
+  opts?: PositionTestOptions,
+): PositionTestResult;
+export function positionTest(
+  engine: ScreamerOp,
+  target: NdArray | ArrayLike<number>[],
+  market: (NdArray | ArrayLike<number>[])[],
   opts?: PositionTestOptions,
 ): PositionTestResult;
 export function positionTest(
@@ -382,34 +442,24 @@ export function positionTest(
   const names = statNames();
   const { fns } = engineCallbacks(engine, tgt.original, market, metric);
   // The results arrive in batches (begin, emit) and the rest in done.
-  let n = 0, K = 1, count = 0;
-  let nullStats: Float64Array[] = [], nul = new Float64Array(0);
+  const results = resultSink(M, names);
   let result: PositionTestResult | PositionFamilyResult | null = null;
   const callbacks = wasmCallbacks({
     ...fns,
-    begin: (runs: number, k: number) => {
-      n = runs; K = k;
-      nullStats = names.map(() => new Float64Array(n * K));
-      nul = new Float64Array(n * K);
-    },
-    emit: (j0: number, runs: number, statsPtr: number, stride: number, metricsPtr: number, c: number) => {
-      for (let q = 0; q < names.length; q++)
-        nullStats[q].set(M.viewF64(statsPtr + 8 * q * stride, runs * K), j0 * K);
-      nul.set(M.viewF64(metricsPtr, c), count);
-      count += c;
-    },
+    ...results.fns,
     // head = [observed (k), p (k), family p (k), observed stats (15 x k)]
     done: (headPtr: number, k: number, family: boolean, minShift: number, nullCount: number) => {
       const head = M.viewF64(headPtr, k * (3 + names.length)).slice();
       const part = (i: number) => head.slice(i * k, (i + 1) * k);
+      const { n, stats } = results.sink;
       result = family
-        ? { observed: part(0), null: { data: nul, shape: [n, k] }, pValue: part(1), familyPValue: part(2),
-            metric: name, method: "shift", minShift, observedStats: statsRecord((i) => part(3 + i)),
-            nullStats: statsRecord((i): NdArray => ({ data: nullStats[i], shape: [n, k] })) }
-        : { observed: head[0], null: nullCount === nul.length ? nul : nul.slice(0, nullCount),
-            pValue: head[1], metric: name, method: method as "shift" | "segments",
-            minShift: minShift < 0 ? null : minShift, observedStats: statsRecord((i) => head[3 + i]),
-            nullStats: statsRecord((i) => nullStats[i]) };
+        ? { observed: part(0), null: { data: results.sink.null, shape: [n, k] }, pValue: part(1),
+            familyPValue: part(2), metric: name, method: "shift", minShift,
+            observedStats: statsRecord((i) => part(3 + i)),
+            nullStats: statsRecord((i): NdArray => ({ data: stats[i], shape: [n, k] })) }
+        : { observed: head[0], null: results.finiteNull(nullCount), pValue: head[1], metric: name,
+            method: method as "shift" | "segments", minShift: minShift < 0 ? null : minShift,
+            observedStats: statsRecord((i) => head[3 + i]), nullStats: statsRecord((i) => stats[i]) };
     },
   });
   const bufs: number[] = [];
@@ -417,7 +467,7 @@ export function positionTest(
     const spec = heapSpecs(tgt, market, bufs);
     // null and undefined both mean "not given", as None does in Python.
     callbacks.call((cb) => M.positionTestRun(cb, spec.target, spec.market, market.length,
-      int(opts.n ?? 1000, 0), String(method), custom ? "" : name, custom, hasLarger, larger,
+      count(opts.n ?? 1000), String(method), custom ? "" : name, custom, hasLarger, larger,
       opts.minShift != null, int(opts.minShift ?? 0, 0), num(opts.seed ?? 0),
       opts.periodsPerYear ?? 1, portfolio));
     return result as unknown as PositionTestResult | PositionFamilyResult;
@@ -429,6 +479,10 @@ export function positionTest(
 // Integers go to C++ as they are; a non-integer becomes `bad`, which the
 // driver rejects with its usual message.
 const int = (v: number, bad: number) => (Number.isInteger(v) ? v : bad);
+
+// A run count: also +-Infinity as it is, which C++ clamps and rejects as too
+// large (or too small).
+const count = (v: number) => (v === Infinity || v === -Infinity ? v : int(v, 0));
 
 // ---- data permutations and strategyTest (Python: permute_bars,
 // permute_returns, strategy_test) ------------------------------------------
@@ -699,6 +753,8 @@ export function strategyTest(
   // keeps the user's error and rethrows it once the driver has unwound.
   let last: NdArray | null = null;
   let result: StrategyTestResult | null = null;
+  const names = statNames();
+  const results = resultSink(M, names);
   const callbacks = wasmCallbacks({
     run: (argsPtr: number, hdrPtr: number) => {
       const ptrs = M.viewF64(argsPtr, k);
@@ -713,17 +769,16 @@ export function strategyTest(
       M.viewF64(outPtr, count).set((last as NdArray).data.subarray(0, count));
     },
     metric: (hdrPtr: number) => {
-      M.viewF64(hdrPtr, 1)[0] = (metric as (out: NdArray) => number)(last as NdArray);
+      writeMetric(M, hdrPtr, (metric as (out: NdArray) => unknown)(last as NdArray));
     },
-    // [observed, p_value, observed stats (15)]; the finite null metrics; the
-    // (15 x n) statistics
-    done: (headPtr: number, nullPtr: number, count: number, statsPtr: number, nn: number) => {
-      const head = M.viewF64(headPtr, 17);
-      const stats = M.viewF64(statsPtr, 15 * nn);
+    ...results.fns,
+    // [observed, p_value, observed stats (15)]
+    done: (headPtr: number, nullCount: number) => {
+      const head = M.viewF64(headPtr, 2 + names.length).slice();
       result = {
-        observed: head[0], null: M.viewF64(nullPtr, count).slice(), pValue: head[1],
+        observed: head[0], null: results.finiteNull(nullCount), pValue: head[1],
         metric: name, method, observedStats: statsRecord((i) => head[2 + i]),
-        nullStats: statsRecord((i) => stats.slice(i * nn, (i + 1) * nn)),
+        nullStats: statsRecord((i) => results.sink.stats[i]),
       };
     },
   });
@@ -739,7 +794,7 @@ export function strategyTest(
     bufs.push(specPtr);
     // null and undefined both mean "not given", as None does in Python.
     callbacks.call((cb) => M.strategyTestRun(
-      cb, specPtr, k, method, int(n, 0), pos(opts.ohlc ?? [0, 1, 2, 3]), int(opts.price ?? 0, -1),
+      cb, specPtr, k, method, count(n), pos(opts.ohlc ?? [0, 1, 2, 3]), int(opts.price ?? 0, -1),
       opts.mode ?? "log", opts.volume != null, int(opts.volume ?? 0, -1),
       opts.volumeMode ?? "keep", pos(opts.columns ?? []), pos(opts.fixed ?? []),
       custom ? "" : name, custom, hasLarger, larger, opts.minShift != null,

@@ -88,9 +88,8 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
   JavaScript, a portfolio of 8 or more assets is summed into its book in
   NumPy's pairwise order, as in Python, so its statistics can differ from
   2.8.0 in the last bits; compare with a tolerance.
-  `n` above 2147483647 (in JavaScript, above what fits in the WebAssembly
-  heap: 14680064 with its 2 GB maximum) raises "n is too large" (`ValueError` /
-  `RangeError`), and
+  `n` above 2147483647 raises "n is too large" (`ValueError` / `RangeError`),
+  in both languages, and
   `n=True` raises `TypeError` "n must be an integer, not bool". Integers
   outside int64 in `price`, `volume`, `fixed`, `ohlc`, `columns`, or
   `min_shift` raise the `ValueError` of that argument. In JavaScript,
@@ -111,19 +110,35 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
     JavaScript text is `seed must be an integer in [0, 2**53)` (was `2^53`) in
     `positionTest`, `strategyTest`, `circularShift`, `segmentShuffle`,
     `permuteBars`, and `permuteReturns`.
-  * A custom metric must return one value per strategy in its input, or the
-    call raises `ValueError` / `RangeError` "metric must return one value per
-    strategy in its input". In 2.8.0 Python spread a single value over every
-    randomized run of a chunk, and with a portfolio engine took the first of
-    several values.
+  * A custom metric (here and in `strategy_test` / `strategyTest`) must
+    return one number per strategy in its input. The wrong count raises
+    `ValueError` / `RangeError` "metric must return one value per strategy in
+    its input"; in Python the metric sees k strategies at once, in JavaScript
+    one, so a JavaScript metric returns a number or a one-element array. In
+    2.8.0 Python spread a single value over every randomized run of a chunk,
+    and took the first of several values with a portfolio engine and in
+    `strategy_test`; JavaScript stored whatever the metric returned, so an
+    array or `undefined` became NaN. A result that is not a number or an array
+    of numbers (`None`/`undefined`, a string, a bool, an object) raises
+    `TypeError` "metric must return a number or an array of numbers".
   * An engine output of the wrong shape raises `ValueError` / `RangeError`
-    "engine must return a backtest output of shape (T, 4) ...", and a target
-    with no columns raises "target needs at least one column" (`walk_forward`:
-    "targets must hold at least one candidate").
+    "engine must return a backtest output of shape (T, 4) ..." (2.8.0 scored
+    what it could read, for example a JavaScript output with fewer values
+    than its shape). A target with no columns raises "target needs at least
+    one column" (2.8.0: a NumPy error). `walk_forward` with no candidate
+    columns now raises "targets must hold at least one candidate" (2.8.0
+    returned a result with every choice -1 in Python and raised `TypeError`
+    in JavaScript).
+  * `walk_forward`: a non-finite `train` or `test` raises `ValueError` "train
+    (test) must be an integer of at least 2 (1)"; 2.8.0 Python raised
+    `OverflowError`, and JavaScript keeps its 2.8.0 text.
   * `n` above 2147483647 raises "n is too large" (`ValueError` /
-    `RangeError`); in JavaScript the limit is what fits in the WebAssembly
-    heap, 14680064 runs for one strategy and that divided by K for K
-    strategies. `n=True` raises `TypeError` "n must be an integer, not bool".
+    `RangeError`), in JavaScript too: the results stream into JavaScript
+    arrays, so the WebAssembly heap no longer bounds n. With K strategies the
+    JavaScript limit is 2147483647 divided by K, since each result array holds
+    n * K values. `n=True` raises `TypeError` "n must be an integer, not
+    bool", and in JavaScript `n: Infinity` raises "n is too large" (was "n
+    must be at least 1").
   * JavaScript `positionTest` checks its market inputs as Python does: each
     must be a series for one strategy or K strategies ("market input must be a
     1-D series"), and must have the target's (T, K) shape for a portfolio
@@ -132,8 +147,14 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
     raised `RangeError` for both).
   * JavaScript: a portfolio of 8 or more assets is summed into its book in
     NumPy's pairwise order, as in Python, so its statistics can differ from
-    2.8.0 in the last bits; compare with a tolerance. With K strategies the
-    engine gets one (T, k * K) block per chunk instead of K blocks.
+    2.8.0 in the last bits; compare with a tolerance.
+  * JavaScript call patterns, with the same results: with K strategies the
+    engine gets one (T, k * K) block per chunk instead of K blocks; one
+    strategy now uses Python's chunks (at most about 32 million values of
+    working arrays), so a long series gets several (T, k) blocks where 2.8.0
+    passed one (T, n) block (for example (T, 7), (T, 7), and (T, 3) at
+    T = 200000 and n = 17); and `walkForward` no longer calls a custom metric
+    on the out-of-sample window, whose value it never used.
   * JavaScript: `null` in the options of `positionTest` and `walkForward`, and
     `minShift: null` in `circularShift` (was a `RangeError`), mean the default.
   * Python: the family p-value no longer warns "All-NaN slice encountered" for
@@ -201,6 +222,18 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
 
 ### Fixed
 
+* The family p-value of `position_test` / `positionTest` with K strategies
+  now counts every randomized round in which some strategy has a metric. 2.8.0
+  left out rounds whose best metric was infinite: a `+inf` best (for example a
+  `profit_factor`, `calmar`, or `sortino` of `inf`, or a custom metric) beats
+  every observed value, so leaving it out made the family p-value too small;
+  a `-inf` best (with `larger_is_better=False`, `+inf` metrics) loses to every
+  observed value, so leaving it out made the p-value slightly too large.
+  Results change only for tests where some round's best metric is infinite;
+  in one example with a custom metric that is `inf` in 41 of 120 rounds the
+  family p-values go from (0.15, 0.0125) to (0.44, 0.35). Rounds where every
+  strategy's metric is NaN are still left out, and the per-strategy p-values
+  are unchanged.
 * The `nan_policy` of the backtest engines that give a `NaN` target or order a defined meaning is now listed as `nan-aware`, not `ignore`: `BacktestOHLCTarget`, `BacktestOHLCVTarget`, `BacktestTradesTarget`, `BacktestL1Target` (a `NaN` target keeps the last target), and `BacktestOHLCOrders`, `BacktestTradesOrders`, `BacktestL1Orders`, `BacktestL1TradesOrders` (a `NaN` own quote is a market order or an unquoted side). Documentation only; no result changes.
 * A list passed to a multi-input operator whose events do not hold every input
   (for example `Add()([v, w])` or `Add()([1.0, 2.0])`) raises a `ValueError`

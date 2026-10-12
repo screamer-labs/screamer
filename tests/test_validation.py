@@ -1151,3 +1151,51 @@ def test_metric_and_engine_outputs_are_checked():
         s.position_test(_Engine(out=np.zeros((100, 3))), tgt, c, n=2)
     with pytest.raises(ValueError, match="engine must return a backtest output"):
         s.walk_forward(_Engine(out=np.zeros((99, 4))), tgt, c, train=50, test=10)
+
+
+def test_custom_metric_gives_one_number_per_strategy():
+    ret, o, h, l, c = _market(120, 36)
+    tgt = _held(np.sign(ret), 4)
+    hold = lambda p: s.BacktestPriceTarget()(np.ones(120), p)  # noqa: E731
+    calls = [
+        lambda m: s.position_test(s.BacktestPriceTarget(), tgt, c, n=3, metric=m),
+        lambda m: s.position_test(s.BacktestPortfolioTarget(), np.column_stack([tgt, -tgt]) / 2,
+                                  np.column_stack([c, c]), n=3, metric=m),
+        lambda m: s.strategy_test(hold, c, method="returns", n=3, metric=m),
+    ]
+    for run in calls:
+        with pytest.raises(ValueError, match="one value per strategy in its input: 1 expected, got 2"):
+            run(lambda out: np.array([1.0, 2.0]))
+        with pytest.raises(ValueError, match="1 expected, got 0"):
+            run(lambda out: [])
+        for bad in (None, "1", {"x": 1}, [1, "a"], True):
+            with pytest.raises(TypeError, match="metric must return a number or an array of numbers"):
+                run(lambda out, bad=bad: bad)
+        per_run = run is calls[1]                 # a portfolio's book is one value
+        a = run(lambda out: [0.5] * (1 if per_run else out.shape[1]))
+        b = run(lambda out: 0.5 if per_run else np.full(out.shape[1], 0.5))
+        assert a.p_value == b.p_value and np.array_equal(a.null, b.null)
+
+
+@pytest.mark.parametrize("metric,larger", [("total_pnl", None), ("sharpe", False),
+                                           ("profit_factor", None), ("inf", None)])
+def test_family_p_value_is_the_max_statistic_over_the_null(metric, larger):
+    # Recomputed from the returned null: the best of the K strategies in each
+    # round (NaN left out, an infinite best kept), against each observed value.
+    ret, o, h, l, c = _market(200, 37)
+    a = _held(np.sign(ret), 6)
+    b = np.where(np.arange(200) % 5 == 0, -a, a)
+    none = np.full(200, np.nan)
+    none[0] = 1.0                       # its metric is NaN in every round
+    targets = np.column_stack([a, b, np.zeros(200), none])
+    if metric == "inf":
+        metric = lambda out: np.where(out[-1, :, 0] > 0, np.inf, -np.inf)  # noqa: E731
+    res = s.position_test(s.BacktestPriceTarget(fee=1e-4), targets, c, n=120, seed=3,
+                          metric=metric, larger_is_better=larger)
+    sign = -1.0 if larger is False else 1.0
+    signed = sign * res.null
+    keep = ~np.isnan(signed).all(axis=1)
+    best = np.max(np.where(np.isnan(signed), -np.inf, signed), axis=1)[keep]
+    for k, obs in enumerate(res.observed):
+        want = (1 + np.count_nonzero(best >= sign * obs)) / (1 + best.size) if np.isfinite(obs) else np.nan
+        assert np.array_equal(res.family_p_value[k], want, equal_nan=True), (k, res.family_p_value[k], want)
