@@ -12,10 +12,12 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
 
 * `Pipeline.live().push(input, index, value)` takes a sequence of numbers as one
   multi-column event, in Python and JavaScript; JavaScript's `pushWide` stays as
-  an alias. An empty sequence, a 2-D value, or a width that differs from the
-  input's earlier events raises `ValueError` (`RangeError` in JavaScript). In
-  JavaScript, `push` with an array used to throw `TypeError` and now pushes a
-  wide event.
+  an alias. The first event of an input after a reset fixes its width (a number
+  is width 1), and an event of another width raises `ValueError` (`RangeError`
+  in JavaScript). An empty or 2-D value also raises. Inside a sequence, `None`
+  (`null`) is `NaN`. A bare `None` is now `NaN` in Python, as it already was
+  in JavaScript. A fractional index raises `TypeError`, as in a batch feed; it
+  was truncated before. Python's `push` is now a C++ method and about 3x faster.
 * **Walk-forward evaluation:** `walk_forward` (Python) and `walkForward`
   (JavaScript) take a `(T, K)` array of strategy variants, pick the best
   variant on each training window by any `backtest_report` statistic, trade it
@@ -223,7 +225,7 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
   series as a 2.8.0 Python stream did, and `[op(x) for x in values]` (or
   `op(*event)` for events of several inputs) does the same for a list.
 * A value of the wrong kind inside a list, tuple stream or iterator raises `TypeError` that names its type and position; before, it raised `RuntimeError: std::bad_cast`. For example, `RollingMean(2)([1.0, None])` raises `TypeError: RollingMean: event 1 is a NoneType, expected a number`. An element that holds only numbers but is not one number, such as `[1.0, 2.0]` in `RollingMean(2)([1.0, [1.0, 2.0]])`, raises `ValueError: RollingMean: event 1 has shape (2,), expected a number` on the list, iterator and async paths alike (a list raised `RuntimeError: std::bad_cast`; an iterator raised `ValueError` with "every event must have the same shape").
-* JavaScript: the same cases throw `TypeError` (wrong kind) or `RangeError` (wrong shape) with the same messages. Before, a list of events or an iterator item of the wrong kind threw `RangeError`, and other wrong-kind list elements threw `TypeError` without the position. A `Pipeline` feed, index or `live().push()` / `pushWide()` value that is an array, a function, or an object that does not convert to a number (for example `{}`), throws `TypeError`; before, it was converted with `Number()` (`{}` and functions gave `NaN`, `[7]` gave 7). Numbers, numeric strings, booleans, `undefined` and `Date` values convert as before, and so does a `null` index; a `null` value is now `NaN` (see below).
+* JavaScript: the same cases throw `TypeError` (wrong kind) or `RangeError` (wrong shape) with the same messages. Before, a list of events or an iterator item of the wrong kind threw `RangeError`, and other wrong-kind list elements threw `TypeError` without the position. A `Pipeline` feed, index or `live().push()` / `pushWide()` value that is a function, or an object that does not convert to a number (for example `{}`), throws `TypeError`; before, it was converted with `Number()` (`{}` and functions gave `NaN`). Numbers, numeric strings, booleans, `undefined` and `Date` values convert as before, and so does a `null` index; a `null` value is now `NaN` (see below).
 * `PortfolioReport` given a list of `(K, 4)` engine rows returns a list of `(6,)` result rows, following rule 3; 2.8.0 returned a `(T, 6)` array. To get the array, pass `np.stack(rows)` or a tuple of rows. A tuple of rows and an array still return an array. In JavaScript an `Array` of rows (nested arrays or `[K, 4]` `NdArray` events) gives an `Array` of `Float64Array` rows; to get the old `NdArray`, pass `{ data, shape: [T, K, 4] }`.
 * A multi-input operator given a mix of lists and arrays returns an array, in either argument order: `RollingCorr(5)(x_list, y_array)` returned a list and `RollingCorr(5)(y_array, x_list)` raised `TypeError`; both now return the array that two arrays give. To get the old list, pass lists for every input (`list(y_array)`), or call `.tolist()` on the result. A list among arrays reads as a 1-D array of its length and broadcasts over the asset axes of the other inputs; lengths that differ still raise `ValueError`. All lists still return a list. JavaScript already returned an array for these mixes.
 * JavaScript: a `null` value in a `Pipeline` feed, `live().push()` or `pushWide()` is a missing value, `NaN`, as Python's `None` is; before, it was 0. To get the old value, replace `null` with 0 before the call. An index keeps its conversion (`null` is 0). A `null` inside an operator's `number[]` input still throws `TypeError`, as `None` does in Python.
@@ -242,6 +244,9 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
 
 ### Fixed
 
+* JavaScript: a live session that pushed a number and then a multi-value
+  event to the same input (`push` then `pushWide`) read past the end of the
+  output buffer and returned garbage. It now raises `RangeError`.
 * JavaScript operators and pipelines that are dropped without `dispose()` are
   now freed when they are garbage-collected. Before, every operator kept about
   4 to 10 KB on the JS heap and its C++ state on the WASM heap for the life of

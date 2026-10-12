@@ -69,6 +69,50 @@ test("live: push takes a sequence as one wide event; pushWide is an alias", asyn
     assert.throws(() => d2.push("bars", 0, [1, {}, 3, 4] as any), (e: unknown) => e instanceof TypeError);
     d2.push("bars", 0, [1, 2, 3, 4]);
     assert.throws(() => d2.push("bars", 1, [1, 2]), (e: unknown) => e instanceof RangeError);
+    assert.throws(() => d2.push("bars", 1, 5), (e: unknown) => e instanceof RangeError && /after events of 4/.test(e.message));
+  } finally {
+    p.dispose();
+  }
+});
+
+test("live: the width of an input is locked until a new session", async () => {
+  await ready();
+  const a = Input("x");
+  const p = new Pipeline([a], [a]);
+  const range = (re: RegExp) => (e: unknown) => e instanceof RangeError && re.test((e as Error).message);
+  try {
+    let d = p.live();
+    d.push("x", 0, 5);
+    assert.throws(() => d.push("x", 1, [1, 2, 3, 4]), range(/after events of 1/));
+    assert.throws(() => d.pushWide("x", 1, [1, 2]), range(/after events of 1/));
+    d.push("x", 1, 6);
+    assertNanEq(asFloat64(d.result()), [5, 6], "scalar");
+    d = p.live();
+    d.push("x", 0, [1, 2, 3, 4]);
+    assert.throws(() => d.push("x", 1, 5), range(/after events of 4/));
+    assert.throws(() => d.push("x", 1, [1, 2]), range(/after events of 4/));
+    d.push("x", 1, [5, 6, 7, 8]);
+    assertNanEq(asFloat64(d.result()), [1, 2, 3, 4, 5, 6, 7, 8], "wide");
+    d = p.live();   // a new session starts with a fresh width
+    d.push("x", 0, [1, 2]);
+    assertNanEq(asFloat64(d.result()), [1, 2], "fresh");
+    d = p.live();
+    d.push("x", 0, 9);
+    assertNanEq(asFloat64(d.result()), [9], "fresh scalar");
+  } finally {
+    p.dispose();
+  }
+});
+
+test("live: null and numeric strings inside a wide event follow the batch feed", async () => {
+  await ready();
+  const a = Input("x");
+  const p = new Pipeline([a], [a]);
+  try {
+    const d = p.live();
+    d.push("x", 0, [null, 1] as any);
+    d.push("x", 1, ["2", "3"] as any);
+    assertNanEq(asFloat64(d.result()), [NaN, 1, 2, 3], "values");
   } finally {
     p.dispose();
   }

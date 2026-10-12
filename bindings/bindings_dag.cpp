@@ -1,4 +1,9 @@
+#include <cmath>
 #include <cstdint>
+#include <limits>
+#include <map>
+#include <string>
+#include <string_view>
 #include <cstring>
 #include <memory>
 #include <stdexcept>
@@ -6,6 +11,7 @@
 #include <nanobind/nanobind.h>
 #include <nanobind/ndarray.h>
 #include <nanobind/stl/vector.h>
+#include <nanobind/stl/string.h>
 #include "screamer/common/eval_op.h"
 #include "screamer/dag/functor_node.h"
 #include "screamer/dag/collector.h"
@@ -363,6 +369,119 @@ void init_bindings_dag(nb::module_& m) {
         .def("advance",          &PyCompiledGraph::advance, "now"_a)
         .def("drain",            &PyCompiledGraph::drain)
         .def("run_batch",        &PyCompiledGraph::run_batch, "feeds"_a);
+
+    // Live session: the per-event push, in C++ (name lookup, one conversion).
+    // The Python _LiveDag subclasses this and adds result().
+    struct PyLiveSession {
+        nb::object cg_obj;               // the _CompiledGraph (keeps its ops alive)
+        PyCompiledGraph* pcg;
+        nb::object asarray, float64;     // numpy, for the sequence path
+        std::map<std::string, std::size_t, std::less<>> names;
+
+        PyLiveSession(nb::object cg, nb::list input_names)
+            : cg_obj(std::move(cg)), pcg(&nb::cast<PyCompiledGraph&>(cg_obj)) {
+            nb::module_ np = nb::module_::import_("numpy");
+            asarray = np.attr("asarray");
+            float64 = np.attr("float64");
+            std::size_t i = 0;
+            for (nb::handle h : input_names) names[nb::cast<std::string>(h)] = i++;
+        }
+
+        int traverse(visitproc visit, void* arg) const {
+            if (int r = gc_visit(cg_obj, visit, arg)) return r;
+            if (int r = gc_visit(asarray, visit, arg)) return r;
+            return gc_visit(float64, visit, arg);
+        }
+
+        std::size_t source(nb::handle input) const {
+            PyObject* p = input.ptr();
+            if (PyUnicode_Check(p)) {
+                Py_ssize_t n = 0;
+                const char* c = PyUnicode_AsUTF8AndSize(p, &n);
+                if (!c) throw nb::python_error();
+                auto it = names.find(std::string_view(c, static_cast<std::size_t>(n)));
+                if (it == names.end()) throw nb::key_error(c);
+                return it->second;
+            }
+            Py_ssize_t k = PyNumber_AsSsize_t(PyNumber_Index(p), PyExc_OverflowError);
+            if (k == -1 && PyErr_Occurred()) throw nb::python_error();
+            return static_cast<std::size_t>(k);   // negative wraps, the engine range-checks
+        }
+
+        static std::int64_t index_of(nb::handle index) {
+            PyObject* p = index.ptr();
+            if (PyLong_Check(p)) {
+                long long v = PyLong_AsLongLong(p);
+                if (v == -1 && PyErr_Occurred()) throw nb::python_error();
+                return v;
+            }
+            if (PyFloat_Check(p)) {
+                double d = PyFloat_AsDouble(p);
+                if (!(d == std::floor(d)) || std::fabs(d) >= 9.2e18)
+                    throw nb::type_error(
+                        "index must be integer-valued; a fractional index was seen. The "
+                        "streaming engine is int64-indexed (float indices are not yet "
+                        "supported). Pass integer indices.");
+                return static_cast<std::int64_t>(d);
+            }
+            PyObject* ix = PyNumber_Index(p);   // NumPy integers
+            if (!ix) throw nb::python_error();
+            long long v = PyLong_AsLongLong(ix);
+            Py_DECREF(ix);
+            if (v == -1 && PyErr_Occurred()) throw nb::python_error();
+            return v;
+        }
+
+        void push_sequence(std::size_t src, std::int64_t t, nb::handle value) {
+            nb::object arr = asarray(value, nb::arg("dtype") = float64);
+            InValues v = nb::cast<InValues>(arr);
+            if (v.ndim() == 0) {                   // a 0-d array is a scalar
+                pcg->cg->push_event(src, t, v.data()[0]);
+                return;
+            }
+            if (v.ndim() != 1)
+                throw nb::value_error(
+                    ("a wide event is a 1-D sequence of numbers, got " +
+                     std::to_string(v.ndim()) + " dimensions").c_str());
+            pcg->cg->push_event_wide(src, t, v.data(), static_cast<std::size_t>(v.size()));
+        }
+
+        void push(nb::handle input, nb::handle index, nb::handle value) {
+            const std::size_t src = source(input);
+            const std::int64_t t = index_of(index);
+            PyObject* p = value.ptr();
+            if (PyFloat_Check(p)) {                // float, np.float64
+                pcg->cg->push_event(src, t, PyFloat_AsDouble(p));
+            } else if (PyLong_Check(p)) {          // int, bool
+                double d = PyLong_AsDouble(p);
+                if (d == -1.0 && PyErr_Occurred()) throw nb::python_error();
+                pcg->cg->push_event(src, t, d);
+            } else if (p == Py_None) {             // a missing value, NaN (A9)
+                pcg->cg->push_event(src, t, std::numeric_limits<double>::quiet_NaN());
+            } else if (!PyUnicode_Check(p) && !PyBytes_Check(p) && PySequence_Check(p)) {
+                push_sequence(src, t, value);      // list, tuple, ndarray, Series ...
+            } else {                               // NumPy scalars, numeric strings
+                double d = PyFloat_AsDouble(p);    // via __float__
+                if (d == -1.0 && PyErr_Occurred()) {
+                    PyErr_Clear();
+                    PyObject* f = PyNumber_Float(p);   // strings, with the usual message
+                    if (!f) throw nb::python_error();
+                    d = PyFloat_AsDouble(f);
+                    Py_DECREF(f);
+                }
+                pcg->cg->push_event(src, t, d);
+            }
+        }
+    };
+
+    nb::class_<PyLiveSession>(m, "_LiveSession", nb::dynamic_attr(),
+                              nb::type_slots(gc_traverse_slots<PyLiveSession>))
+        .def(nb::init<nb::object, nb::list>(), "cg"_a, "input_names"_a)
+        .def("push", [](nb::handle self, nb::handle input, nb::handle index,
+                        nb::handle value) {
+                 nb::inst_ptr<PyLiveSession>(self)->push(input, index, value);
+                 return nb::borrow(self);
+             }, "input"_a, "index"_a, "value"_a.none());
 
     // Lazy driver over a single-output compiled graph and Python-iterator feeds.
     nb::class_<LazyDriver>(m, "_LazyDriver", nb::type_slots(gc_slots<LazyDriver>))

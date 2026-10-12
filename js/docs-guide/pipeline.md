@@ -79,9 +79,14 @@ const driver = pipeline.live();
 driver.push("x", /* index */ 0, /* value */ 1);
 driver.push("x", 1, 2);
 driver.push("x", 2, 3);
+// An array (or typed array) is one multi-column event, such as an OHLC bar:
+//   bars.push("bars", 0, [100, 102, 99.5, 101.5]);
 driver.flush();
 const { values, index } = driver.result();
 ```
+
+An input keeps the width of its first event (a number is width 1); an event of another width
+throws `RangeError`. `pushWide` is an alias of `push` for arrays.
 
 Streaming a pipeline this way reproduces its batch output exactly on the same data: `pipeline(data)`
 and `pipeline.live()` fed the same events one by one always agree. `driver.result()` supports

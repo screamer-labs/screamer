@@ -185,59 +185,44 @@ def _check_stateful_safety(outputs):
         stack.extend(node.inputs)
 
 
-class _LiveDag:
-    """A live streaming session over a compiled Pipeline. `input` in push() is an Input
-    name (str) or its positional index (int)."""
-    def __init__(self, dag):
-        self._dag = dag
-        self._cg = dag._cg
-        # name -> signature index, built once so per-event push() stays O(1)
-        self._src_of = {nm: i for i, nm in enumerate(dag._input_order)}
-        self._wide_width = {}      # input -> width of its wide events
-        self._cg.reset()
+_LIVE_CLASS = None
 
-    def push(self, input, index, value):
-        src = input if isinstance(input, int) else self._src_of[input]
-        t = type(value)
-        if t is float or t is int:      # the scalar hot path (the binding takes an int as a double)
-            self._cg.push_event(int(src), int(index), value)
-        elif isinstance(value, (list, tuple, np.ndarray)) and np.ndim(value) > 0:
-            self._push_wide(int(src), int(index), value)
-        else:
-            self._cg.push_event(int(src), int(index), float(value))
-        return self
 
-    def _push_wide(self, src, index, value):
-        arr = np.asarray(value)
-        if arr.dtype.kind not in "fiub":
-            raise TypeError(
-                f"a wide event must hold numbers, not {arr.dtype.kind!r} data")
-        if arr.ndim != 1:
-            raise ValueError(
-                f"a wide event is a 1-D sequence of numbers, got {arr.ndim} dimensions")
-        if arr.size == 0:
-            raise ValueError("a wide event needs at least one value, got an empty sequence")
-        width = self._wide_width.setdefault(src, arr.size)
-        if width != arr.size:
-            raise ValueError(
-                f"input {src} received a wide event of {width} values before, got {arr.size}")
-        self._cg.push_event_wide(src, index, np.ascontiguousarray(arr, dtype=float))
+def _live_dag_class():
+    """The live-session class, built on first use (the bindings load lazily)."""
+    global _LIVE_CLASS
+    if _LIVE_CLASS is not None:
+        return _LIVE_CLASS
+    from . import screamer_bindings as _b
 
-    def advance(self, now):
-        """Close every window whose boundary has passed by logical time `now`."""
-        self._cg.advance(int(now))
-        return self
+    class _LiveDag(_b._LiveSession):
+        """A live streaming session over a compiled Pipeline. `input` in push() is an Input
+        name (str) or its positional index (int). push() is a C++ method: `value` is a
+        number, or a sequence of numbers for one multi-column event."""
+        def __init__(self, dag):
+            super().__init__(dag._cg, list(dag._input_order))
+            self._dag = dag
+            self._cg = dag._cg
+            self._cg.reset()
 
-    def flush(self):
-        """Finalize the current partial window(s) now (end-of-loop / on demand)."""
-        self._cg.flush()
-        return self
+        def advance(self, now):
+            """Close every window whose boundary has passed by logical time `now`."""
+            self._cg.advance(int(now))
+            return self
 
-    def result(self):
-        """Aligned outputs accumulated so far (drains the buffers)."""
-        results = self._cg.drain()
-        results = [(k, v.reshape(-1) if v.shape[1] == 1 else v) for (k, v) in results]
-        return _align_results(results, self._dag.align_outputs)
+        def flush(self):
+            """Finalize the current partial window(s) now (end-of-loop / on demand)."""
+            self._cg.flush()
+            return self
+
+        def result(self):
+            """Aligned outputs accumulated so far (drains the buffers)."""
+            results = self._cg.drain()
+            results = [(k, v.reshape(-1) if v.shape[1] == 1 else v) for (k, v) in results]
+            return _align_results(results, self._dag.align_outputs)
+
+    _LIVE_CLASS = _LiveDag
+    return _LIVE_CLASS
 
 
 class Pipeline:
@@ -427,7 +412,7 @@ class Pipeline:
         resetting it on open, so use one session at a time: do not interleave a live
         session with a batch call or run two live sessions concurrently.
         """
-        return _LiveDag(self)
+        return _live_dag_class()(self)
 
     # -- inspection / visualization ------------------------------------------
     def __repr__(self):

@@ -46,6 +46,13 @@ class GatherSink : public Sink<std::int64_t> {
 public:
     explicit GatherSink(OutputBuffer& buf) : buf_(buf) {}
     void push(const Frame<std::int64_t>& f) override {
+        // One width per stream: a frame of another width after rows are
+        // stored would leave the rows and the width disagreeing (a later
+        // read of rows * width values would run past the buffer).
+        if (!buf_.indices.empty() && buf_.width != f.width)
+            throw std::invalid_argument(
+                "an output received a frame of " + std::to_string(f.width) +
+                " values after frames of " + std::to_string(buf_.width));
         buf_.width = f.width;
         buf_.indices.push_back(f.index);
         buf_.values.insert(buf_.values.end(), f.values, f.values + f.width);
@@ -183,6 +190,7 @@ public:
 
         // input_sinks_[sig_idx] = downstream Sink for that input.
         input_sinks_.assign(num_in_, nullptr);
+        in_width_.assign(num_in_, 0);
 
         // Wire in reverse-topological order (consumers first).
         for (auto id : topo) {
@@ -325,6 +333,7 @@ public:
     // Resets all stateful nodes and output buffers via a single polymorphic pass.
     // Called at the start of every run_batch so each batch sees a clean initial state.
     void reset() {
+        std::fill(in_width_.begin(), in_width_.end(), std::size_t(0));
         for (auto* n : reset_nodes_) n->reset();
         for (std::size_t o = 0; o < outputs_.size(); ++o) {
             outputs_[o].indices.clear();
@@ -353,17 +362,21 @@ public:
     void push_event(std::size_t input_idx, std::int64_t index, double value) {
         if (input_idx >= num_in_)
             throw std::runtime_error("push_event: input index out of range");
+        lock_width(input_idx, 1);
         double v = value;
         Frame<std::int64_t> f{index, &v, 1};
         input_sinks_[input_idx]->push(f);
     }
 
-    // Routes a single wide (width > 1) event into the graph without resetting state.
+    // Routes a single wide event into the graph without resetting state.
     // The values span [values, values + width) must be contiguous and outlive the call.
     void push_event_wide(std::size_t input_idx, std::int64_t index,
                          const double* values, std::size_t width) {
         if (input_idx >= num_in_)
             throw std::runtime_error("push_event_wide: input index out of range");
+        if (width == 0)
+            throw std::invalid_argument("a wide event needs at least one value, got none");
+        lock_width(input_idx, width);
         Frame<std::int64_t> f{index, values, width};
         input_sinks_[input_idx]->push(f);
     }
@@ -461,6 +474,18 @@ private:
     GraphSpec spec_;
 
     // Wiring (built once in constructor, persistent across all run_batch calls).
+    // The first event after reset() sets an input's width (a scalar is width 1);
+    // an event of another width then throws std::invalid_argument.
+    void lock_width(std::size_t input_idx, std::size_t width) {
+        std::size_t& w = in_width_[input_idx];
+        if (w == width) return;
+        if (w != 0)
+            throw std::invalid_argument(
+                "input " + std::to_string(input_idx) + " received an event of " +
+                std::to_string(width) + " values after events of " + std::to_string(w));
+        w = width;
+    }
+    std::vector<std::size_t> in_width_;   // per input, 0 = not set yet
     std::size_t num_in_ = 0;
     std::vector<std::shared_ptr<void>>            owned_;           // all heap nodes/broadcasts
     std::vector<Sink<std::int64_t>*>              input_sinks_;     // per input signature index

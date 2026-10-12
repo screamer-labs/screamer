@@ -362,7 +362,6 @@ class PipelineImpl implements Owned {
     // leaves outputs_ populated on exit, and a prior live session leaves node
     // state, so reset here so the stream starts independent of any prior call.
     this.cg.reset();
-    const wideWidth: number[] = [];   // input -> width of its wide events
     const pushWide = (i: number, index: number, values: ArrayLike<number> | NdArray): void => {
       const nd = asNd(values);   // a malformed NdArray raises RangeError
       let src: ArrayLike<number>;
@@ -371,13 +370,10 @@ class PipelineImpl implements Owned {
         src = nd.data;
       } else src = values as ArrayLike<number>;
       const t = typeof index === "number" ? index : feedNumber(index, "Pipeline", () => `the index pushed to input ${i}`);
+      if (src == null || typeof src.length !== "number")
+        throw new TypeError(`a wide event is a sequence of numbers, got ${typeof values}`);
       const width = src.length;
-      if (!(width > 0)) throw new RangeError("a wide event needs at least one value, got an empty sequence");
-      const before = wideWidth[i];
-      if (before === undefined) wideWidth[i] = width;
-      else if (before !== width)
-        throw new RangeError(`input ${i} received a wide event of ${before} values before, got ${width}`);
-      const buf = M.allocF64(width);
+      const buf = M.allocF64(width || 1);   // the engine rejects an empty event
       try {
         const view = M.viewF64(buf, width);
         if (src instanceof Float64Array) view.set(src);
@@ -397,7 +393,7 @@ class PipelineImpl implements Owned {
         self.checkLive();
         const i = self.inputIndex(name);
         // A number is the hot path. A sequence is one wide event.
-        if (typeof value !== "number" && value !== null && typeof value === "object" && isSequence(value)) {
+        if (value !== null && typeof value === "object" && isSequence(value)) {
           pushWide(i, index, value);
           return;
         }
