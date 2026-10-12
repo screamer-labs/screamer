@@ -10,6 +10,7 @@
 #include <string>
 #include <nanobind/nanobind.h>
 #include "screamer/common/cast_double.h"
+#include "screamer/common/gc.h"
 #include "screamer/streams/event.h"
 #include <cstddef>
 
@@ -41,6 +42,7 @@ public:
           input_(input), owner_(owner) {}
 
     std::optional<Event<Index>> next() override {
+        if (!it_.is_valid()) return std::nullopt;   // cleared by the garbage collector
         nb::object item;
         try {
             item = it_.attr("__next__")();
@@ -116,6 +118,11 @@ public:
         }
         return ev;
     }
+
+    // Garbage-collector support for the class that owns the source (gc.h).
+    int traverse(visitproc visit, void* arg) const { return gc_visit(it_, visit, arg); }
+    // Drops the iterator; the source then ends.
+    void clear() { nb::object it = std::move(it_); }
 
     // Returns true when the last event was wide (a sequence of floats).
     bool is_wide() const { return !wide_values_.empty(); }

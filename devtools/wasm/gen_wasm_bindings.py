@@ -61,6 +61,7 @@ EXCLUDED_HEADERS = {
     "screamer/common/functor_base.h",
     "screamer/common/async_generator.h",
     "screamer/common/lazy_eval_iterator.h",
+    "screamer/common/gc.h",
     "screamer/common/eval_op.h",  # already included by embind_runtime.h
 }
 

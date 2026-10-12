@@ -15,6 +15,7 @@
 #include "screamer/streams/event.h"
 #include "screamer/streams/merge_source.h"
 #include "screamer/streams/py_source.h"
+#include "screamer/common/gc.h"
 #include <algorithm>
 #include <cassert>
 #include <deque>
@@ -111,6 +112,33 @@ public:
         nb::object row = std::move(pending_.front());
         pending_.pop_front();
         return row;
+    }
+
+    // Garbage-collector support (gc.h): the graph, the source iterators and the
+    // buffered rows and values.
+    int traverse(visitproc visit, void* arg) const {
+        if (int r = gc_visit(cg_keepalive_, visit, arg)) return r;
+        for (const auto& s : sources_)
+            if (int r = s->traverse(visit, arg)) return r;
+        if (int r = gc_visit_all(pending_, visit, arg)) return r;
+        if (int r = gc_visit_all(latest_, visit, arg)) return r;
+        for (const Buffered& e : buf_)
+            if (int r = gc_visit(std::get<2>(e), visit, arg)) return r;
+        return 0;
+    }
+
+    // Drops the sources and the buffered values; the iterator then ends. The
+    // graph stays: cg_ points into it. The members are emptied before the
+    // objects are released, so code a release runs sees an ended iterator.
+    void clear() {
+        done_ = true;
+        auto pending = std::move(pending_);
+        auto latest = std::move(latest_);
+        auto buf = std::move(buf_);
+        pending_.clear();
+        latest_.clear();
+        buf_.clear();
+        for (auto& s : sources_) s->clear();
     }
 
 private:
@@ -285,6 +313,11 @@ void init_bindings_dag(nb::module_& m) {
         std::vector<nb::object> op_refs;  // destroyed AFTER cg (declared first)
         std::unique_ptr<dag::CompiledGraph> cg;  // destroyed FIRST (declared last)
 
+        // The graph points into op_refs, so the collector only reads them (gc.h).
+        int traverse(visitproc visit, void* arg) const {
+            return gc_visit_all(op_refs, visit, arg);
+        }
+
         void reset() { cg->reset(); }
 
         void push_event(std::size_t input_idx, std::int64_t index, double value) {
@@ -319,7 +352,8 @@ void init_bindings_dag(nb::module_& m) {
     };
 
     // Register _CompiledGraph before _GraphBuilder so compile() return type is known.
-    nb::class_<PyCompiledGraph>(m, "_CompiledGraph")
+    nb::class_<PyCompiledGraph>(m, "_CompiledGraph",
+                                nb::type_slots(gc_traverse_slots<PyCompiledGraph>))
         .def("reset",            &PyCompiledGraph::reset)
         .def("push_event",       &PyCompiledGraph::push_event,
              "input_idx"_a, "index"_a, "value"_a)
@@ -331,7 +365,7 @@ void init_bindings_dag(nb::module_& m) {
         .def("run_batch",        &PyCompiledGraph::run_batch, "feeds"_a);
 
     // Lazy driver over a single-output compiled graph and Python-iterator feeds.
-    nb::class_<LazyDriver>(m, "_LazyDriver")
+    nb::class_<LazyDriver>(m, "_LazyDriver", nb::type_slots(gc_slots<LazyDriver>))
         .def("__init__", [](LazyDriver* self, nb::object cg_obj, nb::list iterators,
                             std::size_t n_out) {
                  PyCompiledGraph& pcg = nb::cast<PyCompiledGraph&>(cg_obj);
@@ -347,6 +381,11 @@ void init_bindings_dag(nb::module_& m) {
     struct PyGraphBuilder {
         dag::GraphBuilder builder;
         std::vector<nb::object> op_refs;  // keeps Python functor objects alive
+
+        // The builder points into op_refs, so the collector only reads them (gc.h).
+        int traverse(visitproc visit, void* arg) const {
+            return gc_visit_all(op_refs, visit, arg);
+        }
 
         std::size_t add_input() { return builder.add_input(); }
 
@@ -431,7 +470,8 @@ void init_bindings_dag(nb::module_& m) {
     // DAG compiler: _GraphBuilder accumulates a GraphSpec.
     // run_batch compiles and drives it fresh each call (rebuild-per-run).
     // compile() returns a persistent _CompiledGraph for streaming use.
-    nb::class_<PyGraphBuilder>(m, "_GraphBuilder")
+    nb::class_<PyGraphBuilder>(m, "_GraphBuilder",
+                               nb::type_slots(gc_traverse_slots<PyGraphBuilder>))
         .def(nb::init<>())
         .def("add_input", &PyGraphBuilder::add_input)
         .def("add_functor", [](PyGraphBuilder& b, nb::object op,

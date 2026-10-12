@@ -46,6 +46,12 @@ public:
     // Runs one event, given one awaited item per source.
     nb::object step(nb::list items);
 
+    // Garbage-collector support (gc.h): the sources, the coroutine function and
+    // the stepper's operators. After clear(), __anext__ and step() raise
+    // StopAsyncIteration.
+    int traverse(visitproc visit, void* arg) const;
+    void clear();
+
 private:
     std::unique_ptr<EventStep> stepper_;
     nb::list sources_;                    // the sources' async iterators

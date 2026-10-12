@@ -8,6 +8,7 @@
 #include "screamer/common/base.h"
 #include "screamer/common/async_generator.h"
 #include "screamer/common/lazy_eval_iterator.h"
+#include "screamer/common/gc.h"
 #include "screamer/common/shape.h"
 
 namespace nb = nanobind;
@@ -32,12 +33,16 @@ void init_bindings_core(nb::module_& m) {
     nb::class_<screamer::ScreamerBase, screamer::EvalOp>(m, "ScreamerBase")
         .def("process_scalar", &screamer::ScreamerBase::process_scalar);
 
-    nb::class_<screamer::LazyEvalIterator>(m, "LazyEvalIterator")
+    // Both iterators take part in reference cycles (a source that stores its
+    // stream), so they support the garbage collector (gc.h).
+    nb::class_<screamer::LazyEvalIterator>(m, "LazyEvalIterator",
+                                           nb::type_slots(screamer::gc_slots<screamer::LazyEvalIterator>))
         .def("__iter__", &screamer::LazyEvalIterator::__iter__,
              nb::rv_policy::reference_internal)
         .def("__next__", &screamer::LazyEvalIterator::__next__);
 
-    nb::class_<screamer::LazyAsyncIterator>(m, "LazyAsyncIterator")
+    nb::class_<screamer::LazyAsyncIterator>(m, "LazyAsyncIterator",
+                                            nb::type_slots(screamer::gc_slots<screamer::LazyAsyncIterator>))
         .def("__aiter__", &screamer::LazyAsyncIterator::__aiter__,
              nb::rv_policy::reference_internal)
         .def("__anext__", &screamer::LazyAsyncIterator::__anext__)

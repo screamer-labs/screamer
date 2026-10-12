@@ -48,7 +48,14 @@ LazyAsyncIterator::LazyAsyncIterator(nb::object op_owner, const std::vector<nb::
     : LazyAsyncIterator(std::make_unique<EventStepper>(std::move(op_owner), sources.size()),
                         sources) {}
 
+// Raises StopAsyncIteration: the iterator was cleared by the garbage collector.
+[[noreturn]] static void stop_async() {
+    PyErr_SetNone(PyExc_StopAsyncIteration);
+    throw nb::python_error();
+}
+
 nb::object LazyAsyncIterator::__anext__() {
+    if (!stepper_) stop_async();
     // The coroutine holds this iterator, which holds the operator, so a
     // transient operator (RollingMean(5)(agen())) stays alive while awaited.
     return anext_event_(sources_, nb::find(this));
@@ -60,7 +67,23 @@ void LazyAsyncIterator::begin() {
 }
 
 nb::object LazyAsyncIterator::step(nb::list items) {
+    if (!stepper_) stop_async();
     return stepper_->step(EventItems(items));
+}
+
+int LazyAsyncIterator::traverse(visitproc visit, void* arg) const {
+    if (int r = gc_visit(sources_, visit, arg)) return r;
+    if (int r = gc_visit(anext_event_, visit, arg)) return r;
+    return stepper_ ? stepper_->traverse(visit, arg) : 0;
+}
+
+void LazyAsyncIterator::clear() {
+    // Empty the members first, so code a release runs sees a cleared iterator.
+    auto stepper = std::move(stepper_);
+    nb::object sources = std::move(sources_);
+    nb::object anext_event = std::move(anext_event_);
+    stepper_.reset();
+    running_ = false;
 }
 
 } // namespace screamer

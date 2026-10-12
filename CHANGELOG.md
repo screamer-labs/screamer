@@ -155,6 +155,9 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
   on every dispatch path; most paths said only "Unsupported input type."
 * JavaScript errors raised in C++ carry their message text, and reducer error
   messages say "assets" instead of "groups".
+* A stream stored on the object that feeds it is now freed by the garbage
+  collector; before, the cycle leaked for the life of the process. This covers
+  the sync and async operator streams, lazy `Pipeline` calls and lazy `Merge`.
 
 ### Performance
 

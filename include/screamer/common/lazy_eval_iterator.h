@@ -10,6 +10,7 @@
 #include <nanobind/ndarray.h>
 #include "screamer/common/cast_double.h"
 #include "screamer/common/eval_op.h"
+#include "screamer/common/gc.h"
 #include "screamer/common/shape.h"
 
 namespace nb = nanobind;
@@ -26,6 +27,9 @@ public:
     virtual ~EventStep() = default;
     // Runs one event. `items` holds one item per source.
     virtual nb::object step(const EventItems& items) = 0;
+    // Reports every Python object the stepper holds to the garbage collector
+    // (see gc.h). The iterator that owns the stepper calls it.
+    virtual int traverse(visitproc visit, void* arg) const = 0;
 };
 
 // The EventStep of every EvalOp with a fixed number of fields.
@@ -88,6 +92,15 @@ public:
             return eval_scalar();
         }
         return step_assets(items);
+    }
+
+    int traverse(visitproc visit, void* arg) const override {
+        if (int r = gc_visit(op_owner_, visit, arg)) return r;
+        if (int r = gc_visit(first_owner_, visit, arg)) return r;
+        if (int r = gc_visit(ascontiguous_, visit, arg)) return r;
+        if (int r = gc_visit(float64_, visit, arg)) return r;
+        if (int r = gc_visit_all(owners_, visit, arg)) return r;
+        return gc_visit_all(parts_, visit, arg);
     }
 
 private:
@@ -289,9 +302,30 @@ public:
     LazyEvalIterator& __iter__() { return *this; }
 
     nb::object __next__() {
+        if (!stepper_) throw nb::stop_iteration();   // cleared by the garbage collector
         items_.clear();
         for (auto& it : iters_) items_.push_back(next_or_stop(it));
         return stepper_->step(EventItems(items_));
+    }
+
+    // Garbage-collector support (gc.h): the sources, the last event and the
+    // stepper's operators.
+    int traverse(visitproc visit, void* arg) const {
+        if (int r = gc_visit_all(iters_, visit, arg)) return r;
+        if (int r = gc_visit_all(items_, visit, arg)) return r;
+        return stepper_ ? stepper_->traverse(visit, arg) : 0;
+    }
+
+    // Drops every held object; the iterator then ends. The members are emptied
+    // before the objects are released, so code a release runs sees an ended
+    // iterator.
+    void clear() {
+        auto stepper = std::move(stepper_);
+        auto iters = std::move(iters_);
+        auto items = std::move(items_);
+        stepper_.reset();
+        iters_.clear();
+        items_.clear();
     }
 
 private:

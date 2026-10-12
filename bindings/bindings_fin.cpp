@@ -11,6 +11,7 @@
 #include "screamer/common/base.h"
 #include "screamer/common/dispatch.h"
 #include "screamer/common/eval_op.h"
+#include "screamer/common/gc.h"
 #include "screamer/return.h"
 #include "screamer/log_return.h"
 #include "screamer/roc.h"
@@ -158,6 +159,10 @@ public:
             if (screamer::is_conversion_error(e)) wrong_kind(items, event);
             throw;
         }
+    }
+
+    int traverse(visitproc visit, void* arg) const override {
+        return screamer::gc_visit(owner_, visit, arg);
     }
 
 private:
@@ -315,6 +320,10 @@ public:
             if (screamer::is_conversion_error(e)) wrong_kind(items, event);
             throw;
         }
+    }
+
+    int traverse(visitproc visit, void* arg) const override {
+        return screamer::gc_visit(owner_, visit, arg);
     }
 
 private:

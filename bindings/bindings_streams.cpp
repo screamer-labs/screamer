@@ -15,6 +15,7 @@
 #include "screamer/streams/merge_source.h"
 #include "screamer/streams/combine_latest.h"
 #include "screamer/streams/py_source.h"
+#include "screamer/common/gc.h"
 #include <algorithm>
 #include <cstddef>
 #include <stdexcept>
@@ -80,6 +81,19 @@ public:
     // but uncompilable, which the builtin trait would otherwise treat as copyable).
     MergeLazyPuller(const MergeLazyPuller&) = delete;
     MergeLazyPuller& operator=(const MergeLazyPuller&) = delete;
+
+    // Garbage-collector support (gc.h): the source iterators. After clear(),
+    // next() returns None.
+    int traverse(visitproc visit, void* arg) const {
+        for (const auto& s : sources_)
+            if (int r = s->traverse(visit, arg)) return r;
+        return 0;
+    }
+    void clear() {
+        heap_ = {};
+        pending_source_ = -1;
+        for (auto& s : sources_) s->clear();
+    }
 
     nb::object next() {
         // Deferred refill: advance the winning source from the previous call.
@@ -401,10 +415,12 @@ void init_bindings_streams(nb::module_& m) {
     nb::class_<CombineLatestPuller<double>>(m, "_CombineLatestPuller_f64")
         .def(nb::init<nb::list, nb::list, bool>())
         .def("next", &CombineLatestPuller<double>::next);
-    nb::class_<MergeLazyPuller<std::int64_t>>(m, "_MergeLazyPuller_i64")
+    nb::class_<MergeLazyPuller<std::int64_t>>(m, "_MergeLazyPuller_i64",
+                                         nb::type_slots(gc_slots<MergeLazyPuller<std::int64_t>>))
         .def(nb::init<nb::list, bool>())
         .def("next", &MergeLazyPuller<std::int64_t>::next);
-    nb::class_<MergeLazyPuller<double>>(m, "_MergeLazyPuller_f64")
+    nb::class_<MergeLazyPuller<double>>(m, "_MergeLazyPuller_f64",
+                                         nb::type_slots(gc_slots<MergeLazyPuller<double>>))
         .def(nb::init<nb::list, bool>())
         .def("next", &MergeLazyPuller<double>::next);
 }
