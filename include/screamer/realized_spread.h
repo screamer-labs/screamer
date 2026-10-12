@@ -57,7 +57,7 @@ namespace screamer {
             }
             dir_[idx_] = d;
             price_[idx_] = price;
-            idx_ = (idx_ + 1) % lag_;
+            if (++idx_ == lag_) idx_ = 0;
             if (count_ < lag_) count_++;
             return rs;
         }

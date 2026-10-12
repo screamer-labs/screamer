@@ -38,7 +38,8 @@ namespace detail {
     // Derived::kInlineColumnCall, or true when the operator does not set it.
     // An operator sets it to false when its step measured faster as a separate
     // call than inlined into the column loop (the two-input EW operators and
-    // ADOSC).
+    // ADOSC). Its long strided columns then run in place, not tiled
+    // (tight_column, column_driver.h).
     template <class D, class = void>
     struct inline_column_call : std::true_type {};
     template <class D>
@@ -125,6 +126,8 @@ public:
             detail::write_tuple_to_memory(out, call(inputs));
         }
     }
+
+    bool tight_column() const override { return detail::inline_column_call<Derived>::value; }
 
     // The per-sample loop over call(), once for every operator. The calls are
     // qualified with Derived, so they bind statically and can be inlined: the

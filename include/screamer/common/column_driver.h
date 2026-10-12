@@ -76,11 +76,12 @@ inline void scatter_tile(double* out, std::size_t cols, std::size_t c0, std::siz
 // same either way: every column is still one eval_column.
 //
 // Tiling costs a gather and a scatter pass, which only pays when the in-place
-// walk stalls: at conflict strides, and for `tight` operators (FunctorBase,
-// whose per-step call is inlined into the column loop) on long columns. A
-// ScreamerBase operator calls process_scalar per step, which hides the strided
-// reads, so it is tiled at conflict strides only. A multi-output operator pays
-// a scatter of n_out values per step and is never tiled.
+// walk stalls: at conflict strides, and for `tight` operators (a FunctorBase
+// whose per-step call is inlined into the column loop, EvalOp::tight_column)
+// on long columns. A per-step call kept out of line (a ScreamerBase's
+// process_scalar, a FunctorBase that opts out of inlining) hides the strided
+// reads, so such an operator is tiled at conflict strides only. A multi-output
+// operator pays a scatter of n_out values per step and is never tiled.
 template <class Run, class Offset>
 void run_columns(Run&& run, std::size_t n_in, std::size_t n_out, std::size_t T,
                  std::size_t cols, const double* const* base,

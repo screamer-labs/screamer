@@ -25,6 +25,11 @@ struct EvalOp {
     // per step and holds n_out values per step. Resets the op first.
     virtual void eval_column(const double* const* in, const std::ptrdiff_t* in_stride,
                              std::size_t T, double* out, std::ptrdiff_t out_stride) = 0;
+
+    // True when eval_column inlines the per-step call into its loop, so the
+    // loop is tight enough that the column driver tiles long strided columns
+    // (run_columns' `tight`). False for a per-step call kept out of line.
+    virtual bool tight_column() const { return false; }
 };
 
 } // namespace screamer

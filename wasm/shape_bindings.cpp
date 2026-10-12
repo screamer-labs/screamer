@@ -48,7 +48,7 @@ emscripten::val to_js(const std::vector<V>& v) {
 
 // A batch call: plan the broadcast of the arguments once, then run op over
 // every asset column with one eval_column each, through run_columns (the
-// column loop shared with Python; a ScreamerBase op is not `tight`). Returns a
+// column loop shared with Python, tiled as op.tight_column() says). Returns a
 // malloc'd block of (T, *A, n_out) doubles in row-major order (the caller
 // frees it), and writes the (T, *A) result shape to shapeOut as
 // [ndim, dims...]; shapeOut holds room for 1 + the largest argument rank.
@@ -69,7 +69,7 @@ std::uintptr_t evalShaped(screamer::EvalOp& op, std::uintptr_t spec, std::uintpt
               double* y, std::ptrdiff_t y_stride) { op.eval_column(in, in_stride, T, y, y_stride); },
         ni, no, plan.T, cols, base.data(), plan.time_stride.data(),
         [&plan, cols](std::size_t i, std::size_t c) { return plan.offset[i * cols + c]; }, out.get(),
-        dynamic_cast<screamer::ScreamerBase*>(&op) == nullptr);
+        op.tight_column());
     op.reset();
     double* sh = reinterpret_cast<double*>(shapeOut);
     sh[0] = static_cast<double>(plan.shape.size());

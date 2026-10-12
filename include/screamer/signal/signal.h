@@ -369,17 +369,7 @@ class IIRFilter {
             const double* x,
             size_t size)
         {
-            for (size_t m = 0; m < size; ++m) {
-                if (std::isnan(x[m])) {
-                    y[m] = std::numeric_limits<double>::quiet_NaN();
-                    continue;
-                }
-                y[m] = b[0] * x[m] + z[0];
-                for (size_t i = 0; i < n - 2; ++i) {
-                    z[i] = b[i + 1] * x[m] + z[i + 1] - a[i + 1] * y[m];
-                }
-                z[n - 2] = b[n - 1] * x[m] - a[n - 1] * y[m];
-            }
+            process_array(y, 1, x, 1, size);
         }
 
         void process_array_stride(
@@ -389,21 +379,67 @@ class IIRFilter {
             size_t dxi,
             size_t size)
         {
-            int yi = 0;
-            int xi = 0;
-            for (size_t m = 0; m < size; ++m) {
-                if (std::isnan(x[xi])) {
-                    y[yi] = std::numeric_limits<double>::quiet_NaN();
-                } else {
-                    y[yi] = b[0] * x[xi] + z[0];
-                    for (size_t i = 0; i < n - 2; ++i) {
-                        z[i] = b[i + 1] * x[xi] + z[i + 1] - a[i + 1] * y[yi];
-                    }
-                    z[n - 2] = b[n - 1] * x[xi] - a[n - 1] * y[yi];
-                }
-                xi += dxi;
-                yi += dyi;
+            process_array(y, static_cast<std::ptrdiff_t>(dyi), x,
+                          static_cast<std::ptrdiff_t>(dxi), size);
+        }
+
+    private:
+        // The batch loop. The common orders run a copy of the filter with its
+        // state in local variables, so the recurrence stays in registers
+        // instead of going through memory every step (the stored state is
+        // reloaded next step, and how fast that is depends on the memory
+        // layout of the process). Each step evaluates the same expressions
+        // as process_scalar, so the results are the same.
+        void process_array(double* y, std::ptrdiff_t dy, const double* x,
+                           std::ptrdiff_t dx, size_t size)
+        {
+            switch (n) {
+                case 2: return run_fixed<1>(y, dy, x, dx, size);
+                case 3: return run_fixed<2>(y, dy, x, dx, size);
+                case 4: return run_fixed<3>(y, dy, x, dx, size);
+                case 5: return run_fixed<4>(y, dy, x, dx, size);
+                case 6: return run_fixed<5>(y, dy, x, dx, size);
+                case 7: return run_fixed<6>(y, dy, x, dx, size);
+                case 8: return run_fixed<7>(y, dy, x, dx, size);
+                case 9: return run_fixed<8>(y, dy, x, dx, size);
+                default: break;
             }
+            for (size_t m = 0; m < size; ++m, x += dx, y += dy) *y = process_scalar(*x);
+        }
+
+        // K = n - 1 state values.
+        template <size_t K>
+        void run_fixed(double* y, std::ptrdiff_t dy, const double* x, std::ptrdiff_t dx,
+                       size_t size)
+        {
+            double bb[K + 1], aa[K + 1], zz[K];
+            for (size_t i = 0; i <= K; ++i) {
+                bb[i] = b[i];
+                aa[i] = a[i];
+            }
+            for (size_t i = 0; i < K; ++i) zz[i] = z[i];
+            size_t m = 0;
+            while (true) {
+                // A run of non-NaN steps. NaN leaves the loop instead of
+                // selecting between old and new state, which would add a
+                // select to the recurrence's latency.
+                for (; m < size; ++m, x += dx, y += dy) {
+                    const double xv = *x;
+                    if (std::isnan(xv)) break;
+                    const double yv = bb[0] * xv + zz[0];
+                    for (size_t i = 0; i + 1 < K; ++i) {
+                        zz[i] = bb[i + 1] * xv + zz[i + 1] - aa[i + 1] * yv;
+                    }
+                    zz[K - 1] = bb[K] * xv - aa[K] * yv;
+                    *y = yv;
+                }
+                if (m == size) break;
+                *y = std::numeric_limits<double>::quiet_NaN();   // state unchanged
+                ++m;
+                x += dx;
+                y += dy;
+            }
+            for (size_t i = 0; i < K; ++i) z[i] = zz[i];
         }
 
     public:

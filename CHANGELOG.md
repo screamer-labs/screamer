@@ -196,6 +196,14 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
   contiguous memory, so the column loop no longer stalls on strided reads. The
   gain is largest at power-of-two K: `Add()` on `(2000, 256)` takes 1.4 ns per
   element (was 5.0), `RollingCorr(20)` on `(20000, 128)` 6.8 (was 15.9).
+* The IIR filters (`Butter`, `ButterHighpass`, `ButterBandpass`,
+  `ButterBandstop`, `SuperSmoother`, `Decycler`, `RoofingFilter`) keep their
+  state in registers in a batch call. Before, the state went through memory
+  every step, and the speed depended on the memory layout of the process. On
+  200,000 values (ns per element, Apple M3): `Butter()` 2.7 (was 4.9 to 6.5),
+  `ButterBandpass()` 2.4 (was 5.3 to 6.6), `SuperSmoother(20)` 2.7 (was 3.9 to
+  6.5). The results are unchanged.
+* `RealizedSpread` takes 1.35 ns per element (was 2.5).
 
 ### Documentation
 

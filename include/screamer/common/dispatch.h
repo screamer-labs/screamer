@@ -727,7 +727,8 @@ inline void run_op_columns(Op& self, size_t T, size_t cols, const double* data, 
     static_assert(Op::kN <= kMaxColumnInputs, "too many inputs for the column driver");
     const std::size_t stride = cols;
     run_columns(column_runner(self), 1, Op::kM, T, cols, &data, &stride,
-                [](std::size_t, std::size_t c) { return c; }, out, true);
+                [](std::size_t, std::size_t c) { return c; }, out,
+                self.tight_column());
 }
 
 // An N-input call by its broadcast plan.
@@ -738,7 +739,8 @@ inline void run_op_columns(Op& self, const detail::NInputs<Op::kN>& in, double* 
     const double* base[Op::kN];
     for (size_t i = 0; i < Op::kN; ++i) base[i] = in.data[i];
     run_columns(column_runner(self), Op::kN, Op::kM, p.T, p.columns, base, p.time_stride.data(),
-                [&p](std::size_t i, std::size_t c) { return p.offset[i * p.columns + c]; }, out, true);
+                [&p](std::size_t i, std::size_t c) { return p.offset[i * p.columns + c]; }, out,
+                self.tight_column());
 }
 
 // ---------------------------------------------------------
