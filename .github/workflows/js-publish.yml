@@ -79,8 +79,9 @@ jobs:
       - name: Run the JS test suite
         # Parity/oracle tests read committed oracle JSON (wasm/smoke/*oracle.json)
         # rather than regenerating them from the Python package, so this job
-        # doesn't need a Python/screamer build -- keeps CI lean.
-        run: node --import tsx --test test/*.test.ts
+        # doesn't need a Python/screamer build -- keeps CI lean. `npm test`
+        # runs node with --expose-gc, which the soak tests need.
+        run: npm test
         working-directory: js
 
       - name: Pack-and-install smoke test

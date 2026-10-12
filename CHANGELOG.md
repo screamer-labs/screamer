@@ -236,6 +236,15 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
 
 ### Fixed
 
+* JavaScript operators and pipelines that are dropped without `dispose()` are
+  now freed when they are garbage-collected. Before, every operator kept about
+  4 to 10 KB on the JS heap and its C++ state on the WASM heap for the life of
+  the program, and every `Pipeline` its compiled graph, so a program that
+  builds a new operator per call ran out of memory over a long run. The
+  finalizer's held value reached the operator it was meant to free, so the
+  operator was never collected. Building and dropping 100,000 operators now
+  leaves the JS and WASM heaps where they were, and construction takes 8 to
+  38% less time.
 * Infinite metrics now count in the null distribution of `position_test` /
   `positionTest` and `strategy_test` / `strategyTest`. A randomized run is
   left out only when its metric is NaN, as documented; 2.8.0 also left out

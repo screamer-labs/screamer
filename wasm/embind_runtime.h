@@ -1,6 +1,7 @@
 #pragma once
 #include <emscripten/bind.h>
 #include <emscripten/val.h>
+#include <emscripten/emmalloc.h>
 #include <cstddef>
 #include <cstdint>
 #include <cmath>
@@ -138,6 +139,12 @@ inline std::uintptr_t allocF64(std::size_t n) {
     return reinterpret_cast<std::uintptr_t>(std::malloc(n * sizeof(double)));
 }
 inline void freeBuf(std::uintptr_t p) { std::free(reinterpret_cast<void*>(p)); }
+
+// Bytes the allocator has handed out and not taken back, for leak tests: the
+// heap it manages less the part of it that is free.
+inline double heapInUse() {
+    return static_cast<double>(emmalloc_dynamic_heap_size() - emmalloc_free_dynamic_memory());
+}
 inline emscripten::val viewF64(std::uintptr_t p, std::size_t n) {
     return emscripten::val(emscripten::typed_memory_view(n, reinterpret_cast<double*>(p)));
 }
@@ -168,6 +175,7 @@ inline std::uintptr_t opPtr(screamer::EvalOp& op) {
         .function("nOut", &screamer::EvalOp::n_out);                           \
     emscripten::function("allocF64", &screamer_wasm::allocF64);               \
     emscripten::function("freeBuf", &screamer_wasm::freeBuf);                 \
+    emscripten::function("heapInUse", &screamer_wasm::heapInUse);             \
     emscripten::function("viewF64", &screamer_wasm::viewF64);                 \
     emscripten::function("opPtr", &screamer_wasm::opPtr,                       \
                          emscripten::allow_raw_pointers())

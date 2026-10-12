@@ -9,7 +9,26 @@ const opName = (raw: RawOp): string => (raw as any).constructor?.name ?? "this o
 
 // `Symbol.dispose` (explicit resource management) is provided by the
 // "ESNext.Disposable" lib entry in tsconfig.json.
-const REG = new FinalizationRegistry<() => void>((free) => free());
+//
+// What a wrapper owns in WASM, freed by `release()` when the wrapper is
+// disposed or collected. REG holds it strongly until then, so it must never
+// reach its wrapper: a held value that does keeps the wrapper alive for good,
+// and every op ever built stays on both heaps. A closure made inside a wrapper
+// factory shares the factory's scope, which holds the wrapper, so the release
+// code lives in the classes below and not in such a closure.
+export interface Owned { release(): void }
+const REG = new FinalizationRegistry<Owned>((r) => r.release());
+
+// Frees `res` when `owner` is collected, and returns the function that frees
+// it now. `release()` must run once, so a finalizer after dispose() does
+// nothing.
+// There is no unregister token: V8 keeps the token table at its peak size, and
+// a release that already ran costs nothing more than the small `res` kept
+// until the owner is collected.
+export function releaseWith(owner: object, res: Owned): () => void {
+  REG.register(owner, res);
+  return () => res.release();
+}
 
 export type ScreamerOp = {
   (...args: any[]): any;
@@ -128,6 +147,8 @@ async function* zipAsyncSources(srcs: AsyncIterable<any>[]): AsyncGenerator<any[
 // A stream that is started and then dropped never reaches its finally block,
 // so STREAMS closes it when the generator is collected. The registry holds
 // `held`, which holds the stepper's close function and never the generator.
+// A finished stream clears `held.close`, so its finalizer does nothing (no
+// unregister token, for the reason given at `releaseWith`).
 type Held = { close?: () => void };
 const STREAMS = new FinalizationRegistry<Held>((h) => h.close?.());
 
@@ -139,7 +160,6 @@ function* runSync(srcs: Iterable<any>[], open: (n: number) => Stepper, owner: un
     for (const items of zipSources(srcs)) yield s.step(items);
   } finally {
     held.close = undefined;
-    STREAMS.unregister(held);
     s.close?.();
   }
 }
@@ -151,20 +171,19 @@ async function* runAsync(srcs: AsyncIterable<any>[], open: (n: number) => Steppe
     for await (const items of zipAsyncSources(srcs)) yield s.step(items);
   } finally {
     held.close = undefined;
-    STREAMS.unregister(held);
     s.close?.();
   }
 }
 function runStream(srcs: Iterable<any>[], open: (n: number) => Stepper, owner: unknown) {
   const held: Held = {};
   const gen = runSync(srcs, open, owner, held);
-  STREAMS.register(gen, held, held);
+  STREAMS.register(gen, held);
   return gen;
 }
 function runAsyncStream(srcs: AsyncIterable<any>[], open: (n: number) => Stepper, owner: unknown) {
   const held: Held = {};
   const gen = runAsync(srcs, open, owner, held);
-  STREAMS.register(gen, held, held);
+  STREAMS.register(gen, held);
   return gen;
 }
 
@@ -172,29 +191,50 @@ function runAsyncStream(srcs: AsyncIterable<any>[], open: (n: number) => Stepper
 // independent run with its own state). A stream takes a reset copy with
 // acquire() and gives it back with release(), so the next stream reuses it
 // instead of building a new op; dispose() deletes every copy, in use or not.
-// A raw op with no factory cannot be copied, so it cannot stream.
-function copyPool(make: (() => RawOp) | null) {
-  const idle: RawOp[] = [], used = new Set<RawOp>();
-  return {
-    check() {
-      if (!make) throw new TypeError("a stream needs an op built by its factory, which can copy it for every stream and asset");
-    },
-    acquire(): RawOp {
-      // A reused copy holds its last stream's state; a new one starts clean.
-      const reused = idle.pop();
-      const c = reused ?? make!();
-      if (reused) c.reset();
-      used.add(c);
-      return c;
-    },
-    release(c: RawOp) { if (used.delete(c)) idle.push(c); },
-    dispose() {
-      idle.forEach((c) => c.delete());
-      used.forEach((c) => c.delete());
-      idle.length = 0;
-      used.clear();
-    },
-  };
+// A raw op with no factory cannot be copied, so it cannot stream. The pool is
+// part of what a finalizer frees, and a loop that never yields keeps every
+// dropped op's share until it does, so the lists are made on first use.
+class CopyPool {
+  private idle: RawOp[] | null = null;
+  private used: Set<RawOp> | null = null;
+  constructor(private make: (() => RawOp) | null) {}
+  check() {
+    if (!this.make) throw new TypeError("a stream needs an op built by its factory, which can copy it for every stream and asset");
+  }
+  acquire(): RawOp {
+    // A reused copy holds its last stream's state; a new one starts clean.
+    const reused = this.idle?.pop();
+    const c = reused ?? this.make!();
+    if (reused) c.reset();
+    (this.used ??= new Set()).add(c);
+    return c;
+  }
+  release(c: RawOp) { if (this.used?.delete(c)) (this.idle ??= []).push(c); }
+  dispose() {
+    this.idle?.forEach((c) => c.delete());
+    this.used?.forEach((c) => c.delete());
+    this.idle = this.used = null;
+  }
+}
+
+// One open stream of a wrapOp op: release() gives back what it holds.
+type OpenStream = { release(): void };
+
+// What wrapOp owns: the op, its event buffers, the stream copies, and the
+// open streams (`live`, made by the first stream).
+class OpRes implements Owned {
+  private done = false;
+  live: Set<OpenStream> | null = null;
+  constructor(private M: Screamer, private raw: RawOp, private inBuf: number, private outBuf: number,
+              private pool: CopyPool) {}
+  release() {
+    if (this.done) return;
+    this.done = true;
+    this.M.freeBuf(this.inBuf); this.M.freeBuf(this.outBuf);
+    if (this.live) [...this.live].forEach((h) => h.release());
+    this.pool.dispose();
+    this.raw.delete();
+  }
 }
 
 // `copy` builds the stream copies when `src` is a raw op whose factory lives
@@ -204,14 +244,14 @@ export function wrapOp(M: Screamer, src: OpSource, copy?: () => RawOp): Screamer
   const raw = resolve(src);
   const nIn = raw.nIn(), nOut = raw.nOut();
   const inBuf = M.allocF64(nIn), outBuf = M.allocF64(nOut);
+  // The stream copies, described under Streams below.
+  const pool = new CopyPool(make);
+  const res = new OpRes(M, raw, inBuf, outBuf, pool);
   let disposed = false;
   const free = () => {
     if (disposed) return;
     disposed = true;
-    M.freeBuf(inBuf); M.freeBuf(outBuf);
-    [...live].forEach((h) => h.release());
-    pool.dispose();
-    raw.delete();
+    res.release();
   };
 
   // One event on `o`: raw for a live call, a stream's own copy for a stream.
@@ -329,8 +369,6 @@ export function wrapOp(M: Screamer, src: OpSource, copy?: () => RawOp): Screamer
   // raw, like a batch call; the stream never uses raw afterwards. A finished
   // stream returns its copies to `pool` for the next stream; `live` holds the
   // release of every open stream, so dispose() frees what they hold.
-  const pool = copyPool(make);
-  const live = new Set<{ release(): void }>();
   const EMPTY: number[] = [];
 
   const openStream = (n: number): Stepper => {
@@ -348,13 +386,13 @@ export function wrapOp(M: Screamer, src: OpSource, copy?: () => RawOp): Screamer
 
     const handle = {
       release() {
-        if (!live.delete(handle)) return;
+        if (!res.live?.delete(handle)) return;
         if (colIn) { M.freeBuf(colIn); M.freeBuf(colOut); colIn = colOut = 0; }
-        ops.forEach(pool.release);
+        ops.forEach((c) => pool.release(c));
         ops = [];
       },
     };
-    live.add(handle);
+    (res.live ??= new Set()).add(handle);
 
     const scalarValues = (items: any[]): ArrayLike<number> | null => {
       if (unpack) {
@@ -574,7 +612,7 @@ export function wrapOp(M: Screamer, src: OpSource, copy?: () => RawOp): Screamer
   (op as any)[Symbol.dispose] = free;
   (op as any).numInputs = nIn;
   (op as any).numOutputs = nOut;
-  REG.register(op, free);
+  releaseWith(op, res);
   return op;
 }
 
@@ -583,6 +621,23 @@ export function wrapOp(M: Screamer, src: OpSource, copy?: () => RawOp): Screamer
 const isNestedBatch = (x: any) =>
   Array.isArray(x) && x.length > 0 &&
   ((Array.isArray(x[0]) && (Array.isArray(x[0][0]) || isTyped(x[0][0]))) || (isNd(x[0]) && x[0].shape.length === 2));
+
+// What wrapReducerOp owns: its event scratch, the stream copies, and the base
+// wrapper, which owns the op.
+class ReducerRes implements Owned {
+  private done = false;
+  rowBuf = 0; rowCap = 0; priceBuf = 0; priceCap = 0;
+  constructor(private M: Screamer, private outBuf: number, private pool: CopyPool, private base: ScreamerOp) {}
+  release() {
+    if (this.done) return;
+    this.done = true;
+    if (this.rowBuf) this.M.freeBuf(this.rowBuf);
+    if (this.priceBuf) this.M.freeBuf(this.priceBuf);
+    this.M.freeBuf(this.outBuf);
+    this.pool.dispose();
+    this.base.dispose();
+  }
+}
 
 // Wraps a dynamic-width reducer: an op that folds a variable number of assets
 // into one event, reading a `(assets, nIn)` block and writing nOut outputs.
@@ -599,22 +654,18 @@ export function wrapReducerOp(M: Screamer, src: OpSource): ScreamerOp {
   const raw = resolve(src);
   const width = raw.nIn(), nOut = raw.nOut();
   const base = wrapOp(M, raw, make ?? undefined);
-  const pool = copyPool(make);                 // the streams' own copies (D8)
+  const pool = new CopyPool(make);             // the streams' own copies (D8)
 
-  // Scratch for the per-event path, grown on demand and reused across events.
-  // Batch calls size their buffers exactly and release them, so a single large
-  // batch does not pin memory for the lifetime of the op.
-  let rowBuf = 0, rowCap = 0, priceBuf = 0, priceCap = 0;
+  // Scratch for the per-event path (in `res`), grown on demand and reused
+  // across events. Batch calls size their buffers exactly and release them, so
+  // a single large batch does not pin memory for the lifetime of the op.
   const outBuf = M.allocF64(nOut);
+  const res = new ReducerRes(M, outBuf, pool, base);
   let disposed = false;
   const free = () => {
     if (disposed) return;
     disposed = true;
-    if (rowBuf) M.freeBuf(rowBuf);
-    if (priceBuf) M.freeBuf(priceBuf);
-    M.freeBuf(outBuf);
-    pool.dispose();
-    base.dispose();
+    res.release();
   };
 
   // Normalize one event into a flat (assets, width) block: an NdArray, a flat
@@ -663,23 +714,23 @@ export function wrapReducerOp(M: Screamer, src: OpSource): ScreamerOp {
   const event = (flat: ArrayLike<number>, assets: number, o: RawOp = raw,
                  prices?: ArrayLike<number>): number | number[] => {
     const need = assets * width;
-    if (need > rowCap) {
-      if (rowBuf) M.freeBuf(rowBuf);
-      rowBuf = M.allocF64(need);
-      rowCap = need;
+    if (need > res.rowCap) {
+      if (res.rowBuf) M.freeBuf(res.rowBuf);
+      res.rowBuf = M.allocF64(need);
+      res.rowCap = need;
     }
-    M.viewF64(rowBuf, need).set(flat as number[]);
+    M.viewF64(res.rowBuf, need).set(flat as number[]);
     try {
       if (prices) {
-        if (assets > priceCap) {
-          if (priceBuf) M.freeBuf(priceBuf);
-          priceBuf = M.allocF64(assets);
-          priceCap = assets;
+        if (assets > res.priceCap) {
+          if (res.priceBuf) M.freeBuf(res.priceBuf);
+          res.priceBuf = M.allocF64(assets);
+          res.priceCap = assets;
         }
-        M.viewF64(priceBuf, assets).set(prices as number[]);
-        o.reducePricedInto!(rowBuf, priceBuf, outBuf, assets);
+        M.viewF64(res.priceBuf, assets).set(prices as number[]);
+        o.reducePricedInto!(res.rowBuf, res.priceBuf, outBuf, assets);
       } else {
-        o.reduceInto!(rowBuf, outBuf, assets);
+        o.reduceInto!(res.rowBuf, outBuf, assets);
       }
     } catch (e) { throw normalizeError(e); }
     const v = M.viewF64(outBuf, nOut);
@@ -901,8 +952,22 @@ export function wrapReducerOp(M: Screamer, src: OpSource): ScreamerOp {
   (op as any)[Symbol.dispose] = free;
   (op as any).numInputs = width;
   (op as any).numOutputs = nOut;
-  REG.register(op, free);
+  releaseWith(op, res);
   return op;
+}
+
+// What wrapRowOp owns: the op, its event buffers, and the stream copies.
+class RowRes implements Owned {
+  private done = false;
+  evIn = 0; evOut = 0; cap = 0;
+  constructor(private M: Screamer, private raw: RawOp, private pool: CopyPool) {}
+  release() {
+    if (this.done) return;
+    this.done = true;
+    if (this.evIn) { this.M.freeBuf(this.evIn); this.M.freeBuf(this.evOut); }
+    this.pool.dispose();
+    this.raw.delete();
+  }
 }
 
 // Wraps a row op: each event is one row of K assets with fieldsIn() values
@@ -922,15 +987,13 @@ export function wrapRowOp(M: Screamer, src: OpSource): ScreamerOp {
   const make = typeof src === "function" ? (src as () => RawOp) : null;
   const raw = resolve(src);
   const fi = raw.fieldsIn!(), fo = raw.fieldsOut!();
-  const pool = copyPool(make);                 // the streams' own copies (D8)
-  let evIn = 0, evOut = 0, cap = 0;
+  const pool = new CopyPool(make);             // the streams' own copies (D8)
+  const res = new RowRes(M, raw, pool);        // with the event buffers
   let disposed = false;
   const free = () => {
     if (disposed) return;
     disposed = true;
-    if (evIn) { M.freeBuf(evIn); M.freeBuf(evOut); }
-    pool.dispose();
-    raw.delete();
+    res.release();
   };
 
   // One event from fi rows of k values each, on raw (a live call) or on a
@@ -938,14 +1001,14 @@ export function wrapRowOp(M: Screamer, src: OpSource): ScreamerOp {
   const event = (rows: ArrayLike<number>[], o: RawOp): Float64Array => {
     const k = rows[0].length;
     if (rows.some((r) => r.length !== k)) throw new RangeError("all inputs must hold the same number of assets");
-    if (k > cap) {
-      if (evIn) { M.freeBuf(evIn); M.freeBuf(evOut); }
-      evIn = M.allocF64(fi * k); evOut = M.allocF64(fo * k); cap = k;
+    if (k > res.cap) {
+      if (res.evIn) { M.freeBuf(res.evIn); M.freeBuf(res.evOut); }
+      res.evIn = M.allocF64(fi * k); res.evOut = M.allocF64(fo * k); res.cap = k;
     }
-    const view = M.viewF64(evIn, fi * k);
+    const view = M.viewF64(res.evIn, fi * k);
     rows.forEach((r, f) => view.set(r as number[], f * k));
-    try { o.mapRowInto!(evIn, evOut, k); } catch (e) { throw normalizeError(e); }
-    return new Float64Array(M.viewF64(evOut, fo * k));
+    try { o.mapRowInto!(res.evIn, res.evOut, k); } catch (e) { throw normalizeError(e); }
+    return new Float64Array(M.viewF64(res.evOut, fo * k));
   };
 
   // T events from fi (T, K) blocks, each flat and row-major.
@@ -1066,6 +1129,6 @@ export function wrapRowOp(M: Screamer, src: OpSource): ScreamerOp {
   (op as any).rowOp = { fieldsIn: fi, fieldsOut: fo };
   (op as any).numInputs = raw.nIn();
   (op as any).numOutputs = raw.nOut();
-  REG.register(op, free);
+  releaseWith(op, res);
   return op;
 }

@@ -41,12 +41,16 @@ sma(4); // throws: "operation used after dispose()"
 
 ## The FinalizationRegistry net
 
-Every op also registers with a `FinalizationRegistry`, so if you drop every reference to an op
-without disposing it, its WASM memory is eventually freed when the JS engine garbage-collects
-the wrapper. This is a safety net for the case where you genuinely forgot, not a replacement
-for disposing explicitly: GC timing is not predictable, so an undisposed op can hold WASM
-memory for an arbitrary amount of time before it is reclaimed. Prefer `using` or an explicit
-`.dispose()` in code you control.
+Every op and every `Pipeline` also registers with a `FinalizationRegistry`, so if you drop every
+reference to one without disposing it, its WASM memory is freed after the JS engine
+garbage-collects the wrapper. A program that builds a new op on every call and drops it keeps a
+flat memory footprint on both heaps. A stream keeps its op alive until the stream is finished or
+dropped, and a `pipeline.live()` driver keeps its `Pipeline` alive.
+
+The engine runs finalizers between tasks, so a loop that never yields to the event loop holds
+the memory of every op it dropped (a few hundred bytes each) until it does. GC timing is not
+predictable either. Prefer `using` or an explicit `.dispose()` in code you control: both free
+the memory at once.
 
 ## Ops inside a Pipeline are pinned
 

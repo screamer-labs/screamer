@@ -4,6 +4,7 @@ import { Node, isNode } from "./node.js";
 import { current } from "./index.js";
 import { normalizeError, wasmCall } from "./errors.js";
 import { feedNumber, feedValue, toF64Checked, whereText } from "./kinds.js";
+import { releaseWith, type Owned } from "./runtime.js";
 
 // One bound feed for an Input: a values stream and its integer index axis.
 type Feed = Float64Array | number[] | { values: Float64Array | number[]; index?: Float64Array | number[] };
@@ -79,7 +80,7 @@ function heapU32(M: Screamer, arr: number[]): number {
  * Build a symbolic graph from `Input(...)` nodes and op factories, then pass the
  * outputs here. Calling the pipeline binds feeds and runs the compiled graph.
  */
-class PipelineImpl {
+class PipelineImpl implements Owned {
   readonly inputs: Node[];
   readonly outputs: Node[];
   private M: Screamer;
@@ -343,7 +344,9 @@ class PipelineImpl {
   // per input, optionally advance the watermark, flush at end of input, then
   // result() drains the accumulated output. Streaming this way is bit-identical
   // to the batch call() on the same data (the batch==stream invariant).
-  live(): LiveDriver {
+  // `owner` is the callable Pipeline: the driver holds it, so the finalizer
+  // cannot free the graph while the driver is in use.
+  live(owner: Pipeline): LiveDriver {
     if (this._disposed) throw new Error("pipeline used after dispose()");
     const M: any = this.M;
     const self = this;
@@ -351,7 +354,8 @@ class PipelineImpl {
     // leaves outputs_ populated on exit, and a prior live session leaves node
     // state, so reset here so the stream starts independent of any prior call.
     this.cg.reset();
-    return {
+    const driver: LiveDriver & { [OWNER]: Pipeline } = {
+      [OWNER]: owner,
       push(name: string, index: number, value: number): void {
         const i = self.inputIndex(name);
         // null is a missing value (NaN); another primitive passes as before
@@ -402,9 +406,12 @@ class PipelineImpl {
         }
       },
     };
+    return driver;
   }
 
-  dispose(): void {
+  // Called once, by dispose() on the Pipeline or when it is collected. It
+  // never reaches the callable Pipeline, so it can be the registry's held value.
+  release(): void {
     if (this._disposed) return;
     this._disposed = true;
     if (this.cg) {
@@ -416,6 +423,9 @@ class PipelineImpl {
     this.ops = [];
   }
 }
+
+// The key under which a live driver holds its Pipeline.
+const OWNER = Symbol("pipeline");
 
 // A Pipeline is invoked like a function: `p(feeds)`. It also carries `.dispose()`
 // and its node metadata. `new Pipeline(inputs, outputs)` returns this callable.
@@ -432,8 +442,9 @@ export interface Pipeline {
 export const Pipeline = function (inputs: Node[], outputs: Node[], opts?: unknown): Pipeline {
   const impl = new PipelineImpl(inputs, outputs, opts);
   const fn = ((feeds: Feeds) => impl.call(feeds)) as Pipeline;
-  (fn as any).dispose = () => impl.dispose();
-  (fn as any).live = () => impl.live();
+  // The compiled graph is freed by dispose() or when `fn` is collected.
+  (fn as any).dispose = releaseWith(fn, impl);
+  (fn as any).live = () => impl.live(fn);
   Object.defineProperty(fn, "inputs", { value: impl.inputs, enumerable: true });
   Object.defineProperty(fn, "outputs", { value: impl.outputs, enumerable: true });
   return fn;
