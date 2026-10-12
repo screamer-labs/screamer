@@ -107,6 +107,19 @@ inline int time_unit_base(const std::string& name) {
     return -1;
 }
 
+// True for a time index: a np.datetime64 / np.timedelta64 scalar, or a pandas
+// Timestamp / Timedelta / NaT (they carry asm8). Off the number paths only.
+inline bool is_time_index(nb::handle index) {
+    PyObject* p = index.ptr();
+    const NumpyTypes& np = numpy_types();
+    PyTypeObject* type = Py_TYPE(p);
+    if (PyType_IsSubtype(type, reinterpret_cast<PyTypeObject*>(np.datetime64)) ||
+        PyType_IsSubtype(type, reinterpret_cast<PyTypeObject*>(np.timedelta64)))
+        return true;
+    const int has = PyObject_HasAttrString(p, "asm8");
+    return has == 1;
+}
+
 // A Python int as an index; one past int64 is out of range, not an OverflowError.
 inline std::int64_t long_index(PyObject* p) {
     int overflow = 0;

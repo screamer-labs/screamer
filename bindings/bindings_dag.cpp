@@ -454,7 +454,8 @@ void init_bindings_dag(nb::module_& m) {
         TimeUnit unit;
         nb::module_ np = nb::module_::import_("numpy");
         for (nb::handle h : indexes) {
-            nb::object arr = np.attr("asarray")(h);
+            // ravel: a 0-d index (one event, as 2.8.0 read it) counts as one entry.
+            nb::object arr = np.attr("asarray")(h).attr("ravel")();
             if (nb::len(arr) == 0) continue;
             const std::string kind = nb::cast<std::string>(arr.attr("dtype").attr("kind"));
             if (kind == "M" || kind == "m") {

@@ -144,21 +144,26 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
   (`merge`, `combine_latest` batch and iterator, `dropna`, `select`, `split`,
   `resample`, `delay`, `Filter`), `reshape` and `from_pandas`, and the
   validation and backtest helpers. An operator setting given as a string
-  raises `TypeError` too: an operator's integer settings (`RollingMean("3")`,
-  `Lag(b"2")`), and `threshold`, `every`, `count`, `origin`, `max_age`, a
-  `delay` duration, `select` columns, `max_pending` and JavaScript's
-  `maxPending`. A bool setting converts as before. What 2.8.0 did:
+  raises `TypeError` too: an operator's number settings (`RollingMean("3")`
+  raises "an integer setting must be a number, got str", and `Lag(b"2")`),
+  its per-asset and list settings, alone or as an element
+  (`MovingAverage(["0.5", "0.5"])`, `BacktestPortfolioTarget(fee="0.01")`),
+  and `threshold`, `every`, `count`, `origin`, `max_age`, a `delay`
+  duration, `select` columns, `max_pending` and JavaScript's `maxPending`. A
+  bool setting converts as before. What 2.8.0 did:
   * Python parsed numeric strings in string and object arrays, pandas
     `Series`, `Pipeline` batch feeds and live pushes, row operators,
-    `PortfolioReport`, the stream functions, `reshape`, `from_pandas` and
-    the lazy positional `combine_latest`, in integer operator settings
+    `PortfolioReport`, the stream functions and the lazy positional
+    `combine_latest`, in integer operator settings
     (`RollingMean("3")` had a window of 3) and in settings read with `int()`
     or `float()` (`every="2"`), and raised NumPy's `ValueError` for other
     strings. An operator iterator read a string event as a one-asset array.
   * JavaScript converted a string or `String` object in a `Pipeline` feed,
     `live().push()` or `pushWide()` with `Number()` (`"abc"` gave NaN, `""`
     gave 0). It read a string operator setting through embind
-    (`RollingMean("3")` had a window of 3), a resample setting with
+    (`RollingMean("3")` had a window of 3; `MovingAverage(["0.5", "0.5"])`
+    built a two-tap filter, and `MovingAverage("0.5")` read the characters
+    as taps), a resample setting with
     `Number()` or `Math.trunc()`, `delay(node, "1")` and `select(node, "0")`
     with `Math.trunc()`, and did not check `maxPending`.
   * For the old result, parse the text first: `pd.to_numeric(column)` or
@@ -171,7 +176,8 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
   as its batch form already did. 2.8.0 raised `TypeError` for a Python `None`
   given to an operator directly, in a list or in an iterator (an object array
   already read it as NaN) or to the lazy positional `combine_latest`, and
-  JavaScript operators threw `TypeError` for `null`. For the old error, check for missing values before the call.
+  JavaScript operators threw `TypeError` for `null`. For the old error,
+  check for missing values before the call.
 * The standalone `resample(values, clock, clock=True)` applies the index rule
   to both indexes, so a fractional index raises `TypeError`; 2.8.0 cast it to
   int64, which truncated 1.5 to 1. Pass `np.trunc(index)` for the old result.

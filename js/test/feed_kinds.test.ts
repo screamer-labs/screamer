@@ -105,3 +105,29 @@ test("round 2: String objects, operator number settings and maxPending refuse st
   assert.throws(() => combineLatest([x, y], { maxPending: "3" as any }), TypeError);
   assert.equal(typeof RollingMean(3), "function");
 });
+
+test("round 3: every number[] operator setting refuses strings, found from the manifest", async () => {
+  await ready();
+  const { readFileSync } = await import("node:fs");
+  const api: any = await import("../src/index.ts");
+  const manifest = JSON.parse(readFileSync(new URL("../../devtools/wasm/wasm_manifest.json", import.meta.url), "utf8"));
+  const camel = (s: string) => s.replace(/_([a-z])/g, (_m, c) => c.toUpperCase());
+  let checked = 0;
+  for (const op of manifest) {
+    op.ctor.forEach((type: string, i: number) => {
+      if (!type.includes("vector")) return;
+      const name = camel(op.ctor_args[i].name);
+      for (const bad of ["3", new String("3"), ["3"], [1, new String("3")]]) {
+        const args: unknown[] = new Array(i + 1).fill(undefined);
+        args[i] = bad;
+        assert.throws(() => api[op.name](...args), (e: unknown) => e instanceof TypeError &&
+          (e as Error).message === `${name} must be a number or an array of numbers, got a string`, `${op.name}(${name})`);
+      }
+      const ok: unknown[] = new Array(i + 1).fill(undefined);
+      ok[i] = [1, 2];
+      assert.equal(typeof api[op.name](...ok), "function");
+      checked++;
+    });
+  }
+  assert.equal(checked, 11);
+});

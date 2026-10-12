@@ -311,7 +311,9 @@ def _combine_latest_zip_lazy(sources, wide=False):
         if wide:
             yield np.concatenate([np.ravel(_as_float64(x)) for x in tup]), None
         else:
-            yield tuple(_value(x) for x in tup), None   # None is NaN, a string raises
+            # Each value follows the C++ value rule (None is NaN, a string
+            # raises); map over the C++ call is faster than float() in a generator.
+            yield tuple(map(_value, tup)), None
 
 
 def _combine_latest_asof_lazy(sources, emit):

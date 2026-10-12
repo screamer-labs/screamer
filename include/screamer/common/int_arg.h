@@ -10,13 +10,22 @@
 
 #include <Python.h>
 #include <nanobind/nanobind.h>
+#include <string>
 
 namespace screamer {
 
 template <class T>
 struct IntArg {
-    T value;
-    operator T() const { return value; }
+    T value{};
+    const char* text = nullptr;     // the type name of a refused string, or null
+    // The conversion runs inside nb::init's call, so this TypeError reaches
+    // Python with its own message (a caster cannot raise: it is noexcept).
+    operator T() const {
+        if (text)
+            throw nanobind::type_error(
+                (std::string("an integer setting must be a number, got ") + text).c_str());
+        return value;
+    }
 };
 
 }  // namespace screamer
@@ -29,7 +38,12 @@ struct type_caster<screamer::IntArg<T>> {
 
     bool from_python(handle src, uint8_t flags, cleanup_list* cleanup) noexcept {
         PyObject* o = src.ptr();
-        if (PyUnicode_Check(o) || PyBytes_Check(o) || PyByteArray_Check(o)) return false;
+        if (PyUnicode_Check(o) || PyBytes_Check(o) || PyByteArray_Check(o)) {
+            // Accepted here and refused by the conversion, with a clear message.
+            value.text = PyUnicode_Check(o) ? (PyUnicode_CheckExact(o) ? "str" : "a str subclass")
+                       : PyBytes_Check(o) ? "bytes" : "bytearray";
+            return true;
+        }
         make_caster<T> inner;
         if (!inner.from_python(src, flags, cleanup)) return false;
         value.value = inner.value;

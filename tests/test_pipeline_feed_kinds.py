@@ -332,3 +332,44 @@ def test_reshape_and_from_pandas_refuse_strings():
     with pytest.raises(TypeError, match="str"):
         from_pandas(pd.DataFrame({"a": ["1", "2"]}), layout="TA")
     np.testing.assert_array_equal(s.reshape([[1.0, None]], "TA")[0].ravel(), [1.0, np.nan])
+
+
+# ---- fix round 3 (P2, P5) ---------------------------------------------------
+
+_KINDS = {
+    "int": np.array([0, 1]),
+    "float": np.array([0.5, 1.5]),
+    "M8[s]": np.arange(2).astype("M8[s]"),
+    "M8[ns]": np.arange(2).astype("M8[ns]"),
+    "m8[ns]": np.arange(2).astype("m8[ns]"),
+}
+_NUMBER = {"int", "float"}
+
+
+@pytest.mark.parametrize("a", list(_KINDS))
+@pytest.mark.parametrize("b", list(_KINDS))
+def test_merge_index_kind_pairs_agree_between_batch_and_iterator(a, b):
+    if a in _NUMBER and b in _NUMBER and a != b:
+        pytest.skip("int against float: batch raises 'share one index type' (as in 2.8.0)")
+    v = np.array([1.0, 2.0])
+    same = a == b or (a in _NUMBER and b in _NUMBER)
+    calls = {
+        "batch merge": lambda: merge((v, _KINDS[a]), (v, _KINDS[b])),
+        "batch Merge": lambda: Merge()((v, _KINDS[a]), (v, _KINDS[b])),
+        "iter merge": lambda: list(merge(zip(v, _KINDS[a]), zip(v, _KINDS[b]))),
+        "iter Merge": lambda: list(Merge()(zip(v, _KINDS[a]), zip(v, _KINDS[b]))),
+    }
+    for name, call in calls.items():
+        if same:
+            call()
+        else:
+            with pytest.raises(TypeError, match="one kind and unit"):
+                call()
+
+
+def test_zero_d_index_reads_as_one_event_as_in_2_8_0():
+    vals, src, idx = merge((np.array([1.0]), np.int64(0)), (np.array([2.0]), np.int64(1)))
+    np.testing.assert_array_equal(vals, [1.0, 2.0])
+    np.testing.assert_array_equal(idx, [0, 1])
+    out, idx = combine_latest((np.array([1.0]), np.int64(0)), (np.array([2.0]), np.int64(1)))
+    np.testing.assert_array_equal(idx, [1])

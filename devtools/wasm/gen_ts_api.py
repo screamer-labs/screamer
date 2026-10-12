@@ -175,12 +175,16 @@ def _factory_body(name: str, params: list[dict], wrapper: str = "wrapOp") -> str
             # A number setting is a number: a string ("3") is a wrong kind, never
             # parsed (R-a), as in Python.
             n = p["name"]
-            lines.append(f'  if (typeof {n} === "string" || ({n} as unknown) instanceof String) throw new TypeError(`{n} must be a number, got a string`);')
+            lines.append(f'  if (_isText({n})) throw new TypeError(`{n} must be a number, got a string`);')
     # Copy array parameters once, now: the closure below runs again for every
     # copy of the op, and must not see later edits to the caller's array.
     for p in vecs:
         n = p["name"]
         lines.append(f"  const {n}_ = Array.isArray({n}) ? Array.from({n}) : {n};")
+        # A string, a String object, or an array holding one is a wrong kind
+        # (R-a), checked once on the copy, as in Python.
+        lines.append(f"  if (_isText({n}_) || (Array.isArray({n}_) && {n}_.some(_isText))) "
+                     f"throw new TypeError(`{n} must be a number or an array of numbers, got a string`);")
     if not vecs:
         lines.append(f"  return {wrapper}(M, () => new M.{name}({', '.join(call_args)}));")
         return "\n".join(lines)
@@ -284,6 +288,9 @@ def render_ops_ts(ops: list[dict], help_map: dict) -> str:
         f'import {{ {", ".join(wrappers)}, type ScreamerOp }} from "../runtime.js";'
     )
     out.append('import { current } from "../index.js";')
+    out.append("")
+    out.append("// A string or String object: never a number setting (R-a).")
+    out.append('const _isText = (x: unknown): boolean => typeof x === "string" || x instanceof String;')
     out.append("")
     for op in ops:
         name = op["name"]

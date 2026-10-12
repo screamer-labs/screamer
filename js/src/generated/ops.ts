@@ -4,6 +4,9 @@
 import { wrapOp, wrapReducerOp, wrapRowOp, type ScreamerOp } from "../runtime.js";
 import { current } from "../index.js";
 
+// A string or String object: never a number setting (R-a).
+const _isText = (x: unknown): boolean => typeof x === "string" || x instanceof String;
+
 /**
  * Chaikin Accumulation/Distribution Line.
  *
@@ -23,8 +26,8 @@ export function AD(): ScreamerOp {
  */
 export function ADOSC(fast: number = 3, slow: number = 10): ScreamerOp {
   const M = current();
-  if (typeof fast === "string" || (fast as unknown) instanceof String) throw new TypeError(`fast must be a number, got a string`);
-  if (typeof slow === "string" || (slow as unknown) instanceof String) throw new TypeError(`slow must be a number, got a string`);
+  if (_isText(fast)) throw new TypeError(`fast must be a number, got a string`);
+  if (_isText(slow)) throw new TypeError(`slow must be a number, got a string`);
   return wrapOp(M, () => new M.ADOSC(fast, slow));
 }
 
@@ -36,7 +39,7 @@ export function ADOSC(fast: number = 3, slow: number = 10): ScreamerOp {
  */
 export function ADX(windowSize: number = 14): ScreamerOp {
   const M = current();
-  if (typeof windowSize === "string" || (windowSize as unknown) instanceof String) throw new TypeError(`windowSize must be a number, got a string`);
+  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   return wrapOp(M, () => new M.ADX(windowSize));
 }
 
@@ -48,7 +51,7 @@ export function ADX(windowSize: number = 14): ScreamerOp {
  */
 export function ADXR(windowSize: number = 14): ScreamerOp {
   const M = current();
-  if (typeof windowSize === "string" || (windowSize as unknown) instanceof String) throw new TypeError(`windowSize must be a number, got a string`);
+  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   return wrapOp(M, () => new M.ADXR(windowSize));
 }
 
@@ -60,7 +63,7 @@ export function ADXR(windowSize: number = 14): ScreamerOp {
  */
 export function ATR(windowSize: number = 14): ScreamerOp {
   const M = current();
-  if (typeof windowSize === "string" || (windowSize as unknown) instanceof String) throw new TypeError(`windowSize must be a number, got a string`);
+  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   return wrapOp(M, () => new M.ATR(windowSize));
 }
 
@@ -103,7 +106,7 @@ export function Add(): ScreamerOp {
  */
 export function AmihudIlliquidity(windowSize: number = 20, startPolicy: string = "strict"): ScreamerOp {
   const M = current();
-  if (typeof windowSize === "string" || (windowSize as unknown) instanceof String) throw new TypeError(`windowSize must be a number, got a string`);
+  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
   return wrapOp(M, () => new M.AmihudIlliquidity(windowSize, startPolicy));
 }
@@ -166,7 +169,7 @@ export function BOP(): ScreamerOp {
  */
 export function BacktestCarry(multiplier: number = 1.0): ScreamerOp {
   const M = current();
-  if (typeof multiplier === "string" || (multiplier as unknown) instanceof String) throw new TypeError(`multiplier must be a number, got a string`);
+  if (_isText(multiplier)) throw new TypeError(`multiplier must be a number, got a string`);
   return wrapOp(M, () => new M.BacktestCarry(multiplier));
 }
 
@@ -189,17 +192,17 @@ export function BacktestCarry(multiplier: number = 1.0): ScreamerOp {
  */
 export function BacktestL1Orders(makerFee: number = 0.0, takerFee: number = 0.0, fill: string = "breach", participationRatio: number = 1.0, tickSize: number = 0.0, minPosition: number = -Infinity, maxPosition: number = Infinity, multiplier: number = 1.0, makerFeePerContract: number = 0.0, takerFeePerContract: number = 0.0, slippage: number = 0.0, slippageUnit: string = "fraction"): ScreamerOp {
   const M = current();
-  if (typeof makerFee === "string" || (makerFee as unknown) instanceof String) throw new TypeError(`makerFee must be a number, got a string`);
-  if (typeof takerFee === "string" || (takerFee as unknown) instanceof String) throw new TypeError(`takerFee must be a number, got a string`);
+  if (_isText(makerFee)) throw new TypeError(`makerFee must be a number, got a string`);
+  if (_isText(takerFee)) throw new TypeError(`takerFee must be a number, got a string`);
   if (typeof fill !== "string") throw new TypeError(`fill must be a string, got ${typeof fill}`);
-  if (typeof participationRatio === "string" || (participationRatio as unknown) instanceof String) throw new TypeError(`participationRatio must be a number, got a string`);
-  if (typeof tickSize === "string" || (tickSize as unknown) instanceof String) throw new TypeError(`tickSize must be a number, got a string`);
-  if (typeof minPosition === "string" || (minPosition as unknown) instanceof String) throw new TypeError(`minPosition must be a number, got a string`);
-  if (typeof maxPosition === "string" || (maxPosition as unknown) instanceof String) throw new TypeError(`maxPosition must be a number, got a string`);
-  if (typeof multiplier === "string" || (multiplier as unknown) instanceof String) throw new TypeError(`multiplier must be a number, got a string`);
-  if (typeof makerFeePerContract === "string" || (makerFeePerContract as unknown) instanceof String) throw new TypeError(`makerFeePerContract must be a number, got a string`);
-  if (typeof takerFeePerContract === "string" || (takerFeePerContract as unknown) instanceof String) throw new TypeError(`takerFeePerContract must be a number, got a string`);
-  if (typeof slippage === "string" || (slippage as unknown) instanceof String) throw new TypeError(`slippage must be a number, got a string`);
+  if (_isText(participationRatio)) throw new TypeError(`participationRatio must be a number, got a string`);
+  if (_isText(tickSize)) throw new TypeError(`tickSize must be a number, got a string`);
+  if (_isText(minPosition)) throw new TypeError(`minPosition must be a number, got a string`);
+  if (_isText(maxPosition)) throw new TypeError(`maxPosition must be a number, got a string`);
+  if (_isText(multiplier)) throw new TypeError(`multiplier must be a number, got a string`);
+  if (_isText(makerFeePerContract)) throw new TypeError(`makerFeePerContract must be a number, got a string`);
+  if (_isText(takerFeePerContract)) throw new TypeError(`takerFeePerContract must be a number, got a string`);
+  if (_isText(slippage)) throw new TypeError(`slippage must be a number, got a string`);
   if (typeof slippageUnit !== "string") throw new TypeError(`slippageUnit must be a string, got ${typeof slippageUnit}`);
   return wrapOp(M, () => new M.BacktestL1Orders(makerFee, takerFee, fill, participationRatio, tickSize, minPosition, maxPosition, multiplier, makerFeePerContract, takerFeePerContract, slippage, slippageUnit));
 }
@@ -225,20 +228,20 @@ export function BacktestL1Orders(makerFee: number = 0.0, takerFee: number = 0.0,
  */
 export function BacktestL1Target(takerFee: number = 0.0, tickSize: number = 0.0, minPosition: number = -Infinity, maxPosition: number = Infinity, multiplier: number = 1.0, feePerContract: number = 0.0, slippage: number = 0.0, slippageUnit: string = "fraction", stopLoss: number = 0.0, takeProfit: number = 0.0, trailingStop: number = 0.0, size: string = "units", initialCapital: number = 0.0, rebalanceBand: number = 0.0): ScreamerOp {
   const M = current();
-  if (typeof takerFee === "string" || (takerFee as unknown) instanceof String) throw new TypeError(`takerFee must be a number, got a string`);
-  if (typeof tickSize === "string" || (tickSize as unknown) instanceof String) throw new TypeError(`tickSize must be a number, got a string`);
-  if (typeof minPosition === "string" || (minPosition as unknown) instanceof String) throw new TypeError(`minPosition must be a number, got a string`);
-  if (typeof maxPosition === "string" || (maxPosition as unknown) instanceof String) throw new TypeError(`maxPosition must be a number, got a string`);
-  if (typeof multiplier === "string" || (multiplier as unknown) instanceof String) throw new TypeError(`multiplier must be a number, got a string`);
-  if (typeof feePerContract === "string" || (feePerContract as unknown) instanceof String) throw new TypeError(`feePerContract must be a number, got a string`);
-  if (typeof slippage === "string" || (slippage as unknown) instanceof String) throw new TypeError(`slippage must be a number, got a string`);
+  if (_isText(takerFee)) throw new TypeError(`takerFee must be a number, got a string`);
+  if (_isText(tickSize)) throw new TypeError(`tickSize must be a number, got a string`);
+  if (_isText(minPosition)) throw new TypeError(`minPosition must be a number, got a string`);
+  if (_isText(maxPosition)) throw new TypeError(`maxPosition must be a number, got a string`);
+  if (_isText(multiplier)) throw new TypeError(`multiplier must be a number, got a string`);
+  if (_isText(feePerContract)) throw new TypeError(`feePerContract must be a number, got a string`);
+  if (_isText(slippage)) throw new TypeError(`slippage must be a number, got a string`);
   if (typeof slippageUnit !== "string") throw new TypeError(`slippageUnit must be a string, got ${typeof slippageUnit}`);
-  if (typeof stopLoss === "string" || (stopLoss as unknown) instanceof String) throw new TypeError(`stopLoss must be a number, got a string`);
-  if (typeof takeProfit === "string" || (takeProfit as unknown) instanceof String) throw new TypeError(`takeProfit must be a number, got a string`);
-  if (typeof trailingStop === "string" || (trailingStop as unknown) instanceof String) throw new TypeError(`trailingStop must be a number, got a string`);
+  if (_isText(stopLoss)) throw new TypeError(`stopLoss must be a number, got a string`);
+  if (_isText(takeProfit)) throw new TypeError(`takeProfit must be a number, got a string`);
+  if (_isText(trailingStop)) throw new TypeError(`trailingStop must be a number, got a string`);
   if (typeof size !== "string") throw new TypeError(`size must be a string, got ${typeof size}`);
-  if (typeof initialCapital === "string" || (initialCapital as unknown) instanceof String) throw new TypeError(`initialCapital must be a number, got a string`);
-  if (typeof rebalanceBand === "string" || (rebalanceBand as unknown) instanceof String) throw new TypeError(`rebalanceBand must be a number, got a string`);
+  if (_isText(initialCapital)) throw new TypeError(`initialCapital must be a number, got a string`);
+  if (_isText(rebalanceBand)) throw new TypeError(`rebalanceBand must be a number, got a string`);
   return wrapOp(M, () => new M.BacktestL1Target(takerFee, tickSize, minPosition, maxPosition, multiplier, feePerContract, slippage, slippageUnit, stopLoss, takeProfit, trailingStop, size, initialCapital, rebalanceBand));
 }
 
@@ -261,17 +264,17 @@ export function BacktestL1Target(takerFee: number = 0.0, tickSize: number = 0.0,
  */
 export function BacktestL1TradesOrders(makerFee: number = 0.0, takerFee: number = 0.0, fill: string = "touch", participationRatio: number = 1.0, tickSize: number = 0.0, minPosition: number = -Infinity, maxPosition: number = Infinity, multiplier: number = 1.0, makerFeePerContract: number = 0.0, takerFeePerContract: number = 0.0, slippage: number = 0.0, slippageUnit: string = "fraction"): ScreamerOp {
   const M = current();
-  if (typeof makerFee === "string" || (makerFee as unknown) instanceof String) throw new TypeError(`makerFee must be a number, got a string`);
-  if (typeof takerFee === "string" || (takerFee as unknown) instanceof String) throw new TypeError(`takerFee must be a number, got a string`);
+  if (_isText(makerFee)) throw new TypeError(`makerFee must be a number, got a string`);
+  if (_isText(takerFee)) throw new TypeError(`takerFee must be a number, got a string`);
   if (typeof fill !== "string") throw new TypeError(`fill must be a string, got ${typeof fill}`);
-  if (typeof participationRatio === "string" || (participationRatio as unknown) instanceof String) throw new TypeError(`participationRatio must be a number, got a string`);
-  if (typeof tickSize === "string" || (tickSize as unknown) instanceof String) throw new TypeError(`tickSize must be a number, got a string`);
-  if (typeof minPosition === "string" || (minPosition as unknown) instanceof String) throw new TypeError(`minPosition must be a number, got a string`);
-  if (typeof maxPosition === "string" || (maxPosition as unknown) instanceof String) throw new TypeError(`maxPosition must be a number, got a string`);
-  if (typeof multiplier === "string" || (multiplier as unknown) instanceof String) throw new TypeError(`multiplier must be a number, got a string`);
-  if (typeof makerFeePerContract === "string" || (makerFeePerContract as unknown) instanceof String) throw new TypeError(`makerFeePerContract must be a number, got a string`);
-  if (typeof takerFeePerContract === "string" || (takerFeePerContract as unknown) instanceof String) throw new TypeError(`takerFeePerContract must be a number, got a string`);
-  if (typeof slippage === "string" || (slippage as unknown) instanceof String) throw new TypeError(`slippage must be a number, got a string`);
+  if (_isText(participationRatio)) throw new TypeError(`participationRatio must be a number, got a string`);
+  if (_isText(tickSize)) throw new TypeError(`tickSize must be a number, got a string`);
+  if (_isText(minPosition)) throw new TypeError(`minPosition must be a number, got a string`);
+  if (_isText(maxPosition)) throw new TypeError(`maxPosition must be a number, got a string`);
+  if (_isText(multiplier)) throw new TypeError(`multiplier must be a number, got a string`);
+  if (_isText(makerFeePerContract)) throw new TypeError(`makerFeePerContract must be a number, got a string`);
+  if (_isText(takerFeePerContract)) throw new TypeError(`takerFeePerContract must be a number, got a string`);
+  if (_isText(slippage)) throw new TypeError(`slippage must be a number, got a string`);
   if (typeof slippageUnit !== "string") throw new TypeError(`slippageUnit must be a string, got ${typeof slippageUnit}`);
   return wrapOp(M, () => new M.BacktestL1TradesOrders(makerFee, takerFee, fill, participationRatio, tickSize, minPosition, maxPosition, multiplier, makerFeePerContract, takerFeePerContract, slippage, slippageUnit));
 }
@@ -295,17 +298,17 @@ export function BacktestL1TradesOrders(makerFee: number = 0.0, takerFee: number 
  */
 export function BacktestOHLCOrders(makerFee: number = 0.0, takerFee: number = 0.0, fill: string = "touch", participationRatio: number = 1.0, tickSize: number = 0.0, minPosition: number = -Infinity, maxPosition: number = Infinity, multiplier: number = 1.0, makerFeePerContract: number = 0.0, takerFeePerContract: number = 0.0, slippage: number = 0.0, slippageUnit: string = "fraction"): ScreamerOp {
   const M = current();
-  if (typeof makerFee === "string" || (makerFee as unknown) instanceof String) throw new TypeError(`makerFee must be a number, got a string`);
-  if (typeof takerFee === "string" || (takerFee as unknown) instanceof String) throw new TypeError(`takerFee must be a number, got a string`);
+  if (_isText(makerFee)) throw new TypeError(`makerFee must be a number, got a string`);
+  if (_isText(takerFee)) throw new TypeError(`takerFee must be a number, got a string`);
   if (typeof fill !== "string") throw new TypeError(`fill must be a string, got ${typeof fill}`);
-  if (typeof participationRatio === "string" || (participationRatio as unknown) instanceof String) throw new TypeError(`participationRatio must be a number, got a string`);
-  if (typeof tickSize === "string" || (tickSize as unknown) instanceof String) throw new TypeError(`tickSize must be a number, got a string`);
-  if (typeof minPosition === "string" || (minPosition as unknown) instanceof String) throw new TypeError(`minPosition must be a number, got a string`);
-  if (typeof maxPosition === "string" || (maxPosition as unknown) instanceof String) throw new TypeError(`maxPosition must be a number, got a string`);
-  if (typeof multiplier === "string" || (multiplier as unknown) instanceof String) throw new TypeError(`multiplier must be a number, got a string`);
-  if (typeof makerFeePerContract === "string" || (makerFeePerContract as unknown) instanceof String) throw new TypeError(`makerFeePerContract must be a number, got a string`);
-  if (typeof takerFeePerContract === "string" || (takerFeePerContract as unknown) instanceof String) throw new TypeError(`takerFeePerContract must be a number, got a string`);
-  if (typeof slippage === "string" || (slippage as unknown) instanceof String) throw new TypeError(`slippage must be a number, got a string`);
+  if (_isText(participationRatio)) throw new TypeError(`participationRatio must be a number, got a string`);
+  if (_isText(tickSize)) throw new TypeError(`tickSize must be a number, got a string`);
+  if (_isText(minPosition)) throw new TypeError(`minPosition must be a number, got a string`);
+  if (_isText(maxPosition)) throw new TypeError(`maxPosition must be a number, got a string`);
+  if (_isText(multiplier)) throw new TypeError(`multiplier must be a number, got a string`);
+  if (_isText(makerFeePerContract)) throw new TypeError(`makerFeePerContract must be a number, got a string`);
+  if (_isText(takerFeePerContract)) throw new TypeError(`takerFeePerContract must be a number, got a string`);
+  if (_isText(slippage)) throw new TypeError(`slippage must be a number, got a string`);
   if (typeof slippageUnit !== "string") throw new TypeError(`slippageUnit must be a string, got ${typeof slippageUnit}`);
   return wrapOp(M, () => new M.BacktestOHLCOrders(makerFee, takerFee, fill, participationRatio, tickSize, minPosition, maxPosition, multiplier, makerFeePerContract, takerFeePerContract, slippage, slippageUnit));
 }
@@ -333,22 +336,22 @@ export function BacktestOHLCOrders(makerFee: number = 0.0, takerFee: number = 0.
  */
 export function BacktestOHLCTarget(takerFee: number = 0.0, tickSize: number = 0.0, minPosition: number = -Infinity, maxPosition: number = Infinity, multiplier: number = 1.0, feePerContract: number = 0.0, slippage: number = 0.0, slippageUnit: string = "fraction", fillAt: string = "open", delay: number = 1, stopLoss: number = 0.0, takeProfit: number = 0.0, trailingStop: number = 0.0, size: string = "units", initialCapital: number = 0.0, rebalanceBand: number = 0.0): ScreamerOp {
   const M = current();
-  if (typeof takerFee === "string" || (takerFee as unknown) instanceof String) throw new TypeError(`takerFee must be a number, got a string`);
-  if (typeof tickSize === "string" || (tickSize as unknown) instanceof String) throw new TypeError(`tickSize must be a number, got a string`);
-  if (typeof minPosition === "string" || (minPosition as unknown) instanceof String) throw new TypeError(`minPosition must be a number, got a string`);
-  if (typeof maxPosition === "string" || (maxPosition as unknown) instanceof String) throw new TypeError(`maxPosition must be a number, got a string`);
-  if (typeof multiplier === "string" || (multiplier as unknown) instanceof String) throw new TypeError(`multiplier must be a number, got a string`);
-  if (typeof feePerContract === "string" || (feePerContract as unknown) instanceof String) throw new TypeError(`feePerContract must be a number, got a string`);
-  if (typeof slippage === "string" || (slippage as unknown) instanceof String) throw new TypeError(`slippage must be a number, got a string`);
+  if (_isText(takerFee)) throw new TypeError(`takerFee must be a number, got a string`);
+  if (_isText(tickSize)) throw new TypeError(`tickSize must be a number, got a string`);
+  if (_isText(minPosition)) throw new TypeError(`minPosition must be a number, got a string`);
+  if (_isText(maxPosition)) throw new TypeError(`maxPosition must be a number, got a string`);
+  if (_isText(multiplier)) throw new TypeError(`multiplier must be a number, got a string`);
+  if (_isText(feePerContract)) throw new TypeError(`feePerContract must be a number, got a string`);
+  if (_isText(slippage)) throw new TypeError(`slippage must be a number, got a string`);
   if (typeof slippageUnit !== "string") throw new TypeError(`slippageUnit must be a string, got ${typeof slippageUnit}`);
   if (typeof fillAt !== "string") throw new TypeError(`fillAt must be a string, got ${typeof fillAt}`);
-  if (typeof delay === "string" || (delay as unknown) instanceof String) throw new TypeError(`delay must be a number, got a string`);
-  if (typeof stopLoss === "string" || (stopLoss as unknown) instanceof String) throw new TypeError(`stopLoss must be a number, got a string`);
-  if (typeof takeProfit === "string" || (takeProfit as unknown) instanceof String) throw new TypeError(`takeProfit must be a number, got a string`);
-  if (typeof trailingStop === "string" || (trailingStop as unknown) instanceof String) throw new TypeError(`trailingStop must be a number, got a string`);
+  if (_isText(delay)) throw new TypeError(`delay must be a number, got a string`);
+  if (_isText(stopLoss)) throw new TypeError(`stopLoss must be a number, got a string`);
+  if (_isText(takeProfit)) throw new TypeError(`takeProfit must be a number, got a string`);
+  if (_isText(trailingStop)) throw new TypeError(`trailingStop must be a number, got a string`);
   if (typeof size !== "string") throw new TypeError(`size must be a string, got ${typeof size}`);
-  if (typeof initialCapital === "string" || (initialCapital as unknown) instanceof String) throw new TypeError(`initialCapital must be a number, got a string`);
-  if (typeof rebalanceBand === "string" || (rebalanceBand as unknown) instanceof String) throw new TypeError(`rebalanceBand must be a number, got a string`);
+  if (_isText(initialCapital)) throw new TypeError(`initialCapital must be a number, got a string`);
+  if (_isText(rebalanceBand)) throw new TypeError(`rebalanceBand must be a number, got a string`);
   return wrapOp(M, () => new M.BacktestOHLCTarget(takerFee, tickSize, minPosition, maxPosition, multiplier, feePerContract, slippage, slippageUnit, fillAt, delay, stopLoss, takeProfit, trailingStop, size, initialCapital, rebalanceBand));
 }
 
@@ -376,23 +379,23 @@ export function BacktestOHLCTarget(takerFee: number = 0.0, tickSize: number = 0.
  */
 export function BacktestOHLCVTarget(maxParticipation: number = 1.0, takerFee: number = 0.0, tickSize: number = 0.0, minPosition: number = -Infinity, maxPosition: number = Infinity, multiplier: number = 1.0, feePerContract: number = 0.0, slippage: number = 0.0, slippageUnit: string = "fraction", fillAt: string = "open", delay: number = 1, stopLoss: number = 0.0, takeProfit: number = 0.0, trailingStop: number = 0.0, size: string = "units", initialCapital: number = 0.0, rebalanceBand: number = 0.0): ScreamerOp {
   const M = current();
-  if (typeof maxParticipation === "string" || (maxParticipation as unknown) instanceof String) throw new TypeError(`maxParticipation must be a number, got a string`);
-  if (typeof takerFee === "string" || (takerFee as unknown) instanceof String) throw new TypeError(`takerFee must be a number, got a string`);
-  if (typeof tickSize === "string" || (tickSize as unknown) instanceof String) throw new TypeError(`tickSize must be a number, got a string`);
-  if (typeof minPosition === "string" || (minPosition as unknown) instanceof String) throw new TypeError(`minPosition must be a number, got a string`);
-  if (typeof maxPosition === "string" || (maxPosition as unknown) instanceof String) throw new TypeError(`maxPosition must be a number, got a string`);
-  if (typeof multiplier === "string" || (multiplier as unknown) instanceof String) throw new TypeError(`multiplier must be a number, got a string`);
-  if (typeof feePerContract === "string" || (feePerContract as unknown) instanceof String) throw new TypeError(`feePerContract must be a number, got a string`);
-  if (typeof slippage === "string" || (slippage as unknown) instanceof String) throw new TypeError(`slippage must be a number, got a string`);
+  if (_isText(maxParticipation)) throw new TypeError(`maxParticipation must be a number, got a string`);
+  if (_isText(takerFee)) throw new TypeError(`takerFee must be a number, got a string`);
+  if (_isText(tickSize)) throw new TypeError(`tickSize must be a number, got a string`);
+  if (_isText(minPosition)) throw new TypeError(`minPosition must be a number, got a string`);
+  if (_isText(maxPosition)) throw new TypeError(`maxPosition must be a number, got a string`);
+  if (_isText(multiplier)) throw new TypeError(`multiplier must be a number, got a string`);
+  if (_isText(feePerContract)) throw new TypeError(`feePerContract must be a number, got a string`);
+  if (_isText(slippage)) throw new TypeError(`slippage must be a number, got a string`);
   if (typeof slippageUnit !== "string") throw new TypeError(`slippageUnit must be a string, got ${typeof slippageUnit}`);
   if (typeof fillAt !== "string") throw new TypeError(`fillAt must be a string, got ${typeof fillAt}`);
-  if (typeof delay === "string" || (delay as unknown) instanceof String) throw new TypeError(`delay must be a number, got a string`);
-  if (typeof stopLoss === "string" || (stopLoss as unknown) instanceof String) throw new TypeError(`stopLoss must be a number, got a string`);
-  if (typeof takeProfit === "string" || (takeProfit as unknown) instanceof String) throw new TypeError(`takeProfit must be a number, got a string`);
-  if (typeof trailingStop === "string" || (trailingStop as unknown) instanceof String) throw new TypeError(`trailingStop must be a number, got a string`);
+  if (_isText(delay)) throw new TypeError(`delay must be a number, got a string`);
+  if (_isText(stopLoss)) throw new TypeError(`stopLoss must be a number, got a string`);
+  if (_isText(takeProfit)) throw new TypeError(`takeProfit must be a number, got a string`);
+  if (_isText(trailingStop)) throw new TypeError(`trailingStop must be a number, got a string`);
   if (typeof size !== "string") throw new TypeError(`size must be a string, got ${typeof size}`);
-  if (typeof initialCapital === "string" || (initialCapital as unknown) instanceof String) throw new TypeError(`initialCapital must be a number, got a string`);
-  if (typeof rebalanceBand === "string" || (rebalanceBand as unknown) instanceof String) throw new TypeError(`rebalanceBand must be a number, got a string`);
+  if (_isText(initialCapital)) throw new TypeError(`initialCapital must be a number, got a string`);
+  if (_isText(rebalanceBand)) throw new TypeError(`rebalanceBand must be a number, got a string`);
   return wrapOp(M, () => new M.BacktestOHLCVTarget(maxParticipation, takerFee, tickSize, minPosition, maxPosition, multiplier, feePerContract, slippage, slippageUnit, fillAt, delay, stopLoss, takeProfit, trailingStop, size, initialCapital, rebalanceBand));
 }
 
@@ -419,18 +422,23 @@ export function BacktestPortfolioOHLCTarget(fee: number | number[] = [0.0], slip
   const M = current();
   if (typeof slippageUnit !== "string") throw new TypeError(`slippageUnit must be a string, got ${typeof slippageUnit}`);
   if (typeof size !== "string") throw new TypeError(`size must be a string, got ${typeof size}`);
-  if (typeof initialCapital === "string" || (initialCapital as unknown) instanceof String) throw new TypeError(`initialCapital must be a number, got a string`);
-  if (typeof rebalanceBand === "string" || (rebalanceBand as unknown) instanceof String) throw new TypeError(`rebalanceBand must be a number, got a string`);
+  if (_isText(initialCapital)) throw new TypeError(`initialCapital must be a number, got a string`);
+  if (_isText(rebalanceBand)) throw new TypeError(`rebalanceBand must be a number, got a string`);
   if (typeof rebalance !== "string") throw new TypeError(`rebalance must be a string, got ${typeof rebalance}`);
-  if (typeof maxGross === "string" || (maxGross as unknown) instanceof String) throw new TypeError(`maxGross must be a number, got a string`);
-  if (typeof maxNet === "string" || (maxNet as unknown) instanceof String) throw new TypeError(`maxNet must be a number, got a string`);
+  if (_isText(maxGross)) throw new TypeError(`maxGross must be a number, got a string`);
+  if (_isText(maxNet)) throw new TypeError(`maxNet must be a number, got a string`);
   if (typeof fillAt !== "string") throw new TypeError(`fillAt must be a string, got ${typeof fillAt}`);
-  if (typeof delay === "string" || (delay as unknown) instanceof String) throw new TypeError(`delay must be a number, got a string`);
+  if (_isText(delay)) throw new TypeError(`delay must be a number, got a string`);
   const fee_ = Array.isArray(fee) ? Array.from(fee) : fee;
+  if (_isText(fee_) || (Array.isArray(fee_) && fee_.some(_isText))) throw new TypeError(`fee must be a number or an array of numbers, got a string`);
   const slippage_ = Array.isArray(slippage) ? Array.from(slippage) : slippage;
+  if (_isText(slippage_) || (Array.isArray(slippage_) && slippage_.some(_isText))) throw new TypeError(`slippage must be a number or an array of numbers, got a string`);
   const tickSize_ = Array.isArray(tickSize) ? Array.from(tickSize) : tickSize;
+  if (_isText(tickSize_) || (Array.isArray(tickSize_) && tickSize_.some(_isText))) throw new TypeError(`tickSize must be a number or an array of numbers, got a string`);
   const multiplier_ = Array.isArray(multiplier) ? Array.from(multiplier) : multiplier;
+  if (_isText(multiplier_) || (Array.isArray(multiplier_) && multiplier_.some(_isText))) throw new TypeError(`multiplier must be a number or an array of numbers, got a string`);
   const feePerContract_ = Array.isArray(feePerContract) ? Array.from(feePerContract) : feePerContract;
+  if (_isText(feePerContract_) || (Array.isArray(feePerContract_) && feePerContract_.some(_isText))) throw new TypeError(`feePerContract must be a number or an array of numbers, got a string`);
   return wrapRowOp(M, () => {
     const _v0 = new M.VectorDouble(), _v1 = new M.VectorDouble(), _v3 = new M.VectorDouble(), _v4 = new M.VectorDouble(), _v5 = new M.VectorDouble();
     try {
@@ -471,16 +479,21 @@ export function BacktestPortfolioTarget(fee: number | number[] = [0.0], slippage
   const M = current();
   if (typeof slippageUnit !== "string") throw new TypeError(`slippageUnit must be a string, got ${typeof slippageUnit}`);
   if (typeof size !== "string") throw new TypeError(`size must be a string, got ${typeof size}`);
-  if (typeof initialCapital === "string" || (initialCapital as unknown) instanceof String) throw new TypeError(`initialCapital must be a number, got a string`);
-  if (typeof rebalanceBand === "string" || (rebalanceBand as unknown) instanceof String) throw new TypeError(`rebalanceBand must be a number, got a string`);
+  if (_isText(initialCapital)) throw new TypeError(`initialCapital must be a number, got a string`);
+  if (_isText(rebalanceBand)) throw new TypeError(`rebalanceBand must be a number, got a string`);
   if (typeof rebalance !== "string") throw new TypeError(`rebalance must be a string, got ${typeof rebalance}`);
-  if (typeof maxGross === "string" || (maxGross as unknown) instanceof String) throw new TypeError(`maxGross must be a number, got a string`);
-  if (typeof maxNet === "string" || (maxNet as unknown) instanceof String) throw new TypeError(`maxNet must be a number, got a string`);
+  if (_isText(maxGross)) throw new TypeError(`maxGross must be a number, got a string`);
+  if (_isText(maxNet)) throw new TypeError(`maxNet must be a number, got a string`);
   const fee_ = Array.isArray(fee) ? Array.from(fee) : fee;
+  if (_isText(fee_) || (Array.isArray(fee_) && fee_.some(_isText))) throw new TypeError(`fee must be a number or an array of numbers, got a string`);
   const slippage_ = Array.isArray(slippage) ? Array.from(slippage) : slippage;
+  if (_isText(slippage_) || (Array.isArray(slippage_) && slippage_.some(_isText))) throw new TypeError(`slippage must be a number or an array of numbers, got a string`);
   const tickSize_ = Array.isArray(tickSize) ? Array.from(tickSize) : tickSize;
+  if (_isText(tickSize_) || (Array.isArray(tickSize_) && tickSize_.some(_isText))) throw new TypeError(`tickSize must be a number or an array of numbers, got a string`);
   const multiplier_ = Array.isArray(multiplier) ? Array.from(multiplier) : multiplier;
+  if (_isText(multiplier_) || (Array.isArray(multiplier_) && multiplier_.some(_isText))) throw new TypeError(`multiplier must be a number or an array of numbers, got a string`);
   const feePerContract_ = Array.isArray(feePerContract) ? Array.from(feePerContract) : feePerContract;
+  if (_isText(feePerContract_) || (Array.isArray(feePerContract_) && feePerContract_.some(_isText))) throw new TypeError(`feePerContract must be a number or an array of numbers, got a string`);
   return wrapRowOp(M, () => {
     const _v0 = new M.VectorDouble(), _v1 = new M.VectorDouble(), _v3 = new M.VectorDouble(), _v4 = new M.VectorDouble(), _v5 = new M.VectorDouble();
     try {
@@ -522,21 +535,21 @@ export function BacktestPortfolioTarget(fee: number | number[] = [0.0], slippage
  */
 export function BacktestPriceTarget(spread: number = 0.0, fee: number = 0.0, minPosition: number = -Infinity, maxPosition: number = Infinity, multiplier: number = 1.0, feePerContract: number = 0.0, slippage: number = 0.0, slippageUnit: string = "fraction", tickSize: number = 0.0, stopLoss: number = 0.0, takeProfit: number = 0.0, trailingStop: number = 0.0, size: string = "units", initialCapital: number = 0.0, rebalanceBand: number = 0.0): ScreamerOp {
   const M = current();
-  if (typeof spread === "string" || (spread as unknown) instanceof String) throw new TypeError(`spread must be a number, got a string`);
-  if (typeof fee === "string" || (fee as unknown) instanceof String) throw new TypeError(`fee must be a number, got a string`);
-  if (typeof minPosition === "string" || (minPosition as unknown) instanceof String) throw new TypeError(`minPosition must be a number, got a string`);
-  if (typeof maxPosition === "string" || (maxPosition as unknown) instanceof String) throw new TypeError(`maxPosition must be a number, got a string`);
-  if (typeof multiplier === "string" || (multiplier as unknown) instanceof String) throw new TypeError(`multiplier must be a number, got a string`);
-  if (typeof feePerContract === "string" || (feePerContract as unknown) instanceof String) throw new TypeError(`feePerContract must be a number, got a string`);
-  if (typeof slippage === "string" || (slippage as unknown) instanceof String) throw new TypeError(`slippage must be a number, got a string`);
+  if (_isText(spread)) throw new TypeError(`spread must be a number, got a string`);
+  if (_isText(fee)) throw new TypeError(`fee must be a number, got a string`);
+  if (_isText(minPosition)) throw new TypeError(`minPosition must be a number, got a string`);
+  if (_isText(maxPosition)) throw new TypeError(`maxPosition must be a number, got a string`);
+  if (_isText(multiplier)) throw new TypeError(`multiplier must be a number, got a string`);
+  if (_isText(feePerContract)) throw new TypeError(`feePerContract must be a number, got a string`);
+  if (_isText(slippage)) throw new TypeError(`slippage must be a number, got a string`);
   if (typeof slippageUnit !== "string") throw new TypeError(`slippageUnit must be a string, got ${typeof slippageUnit}`);
-  if (typeof tickSize === "string" || (tickSize as unknown) instanceof String) throw new TypeError(`tickSize must be a number, got a string`);
-  if (typeof stopLoss === "string" || (stopLoss as unknown) instanceof String) throw new TypeError(`stopLoss must be a number, got a string`);
-  if (typeof takeProfit === "string" || (takeProfit as unknown) instanceof String) throw new TypeError(`takeProfit must be a number, got a string`);
-  if (typeof trailingStop === "string" || (trailingStop as unknown) instanceof String) throw new TypeError(`trailingStop must be a number, got a string`);
+  if (_isText(tickSize)) throw new TypeError(`tickSize must be a number, got a string`);
+  if (_isText(stopLoss)) throw new TypeError(`stopLoss must be a number, got a string`);
+  if (_isText(takeProfit)) throw new TypeError(`takeProfit must be a number, got a string`);
+  if (_isText(trailingStop)) throw new TypeError(`trailingStop must be a number, got a string`);
   if (typeof size !== "string") throw new TypeError(`size must be a string, got ${typeof size}`);
-  if (typeof initialCapital === "string" || (initialCapital as unknown) instanceof String) throw new TypeError(`initialCapital must be a number, got a string`);
-  if (typeof rebalanceBand === "string" || (rebalanceBand as unknown) instanceof String) throw new TypeError(`rebalanceBand must be a number, got a string`);
+  if (_isText(initialCapital)) throw new TypeError(`initialCapital must be a number, got a string`);
+  if (_isText(rebalanceBand)) throw new TypeError(`rebalanceBand must be a number, got a string`);
   return wrapOp(M, () => new M.BacktestPriceTarget(spread, fee, minPosition, maxPosition, multiplier, feePerContract, slippage, slippageUnit, tickSize, stopLoss, takeProfit, trailingStop, size, initialCapital, rebalanceBand));
 }
 
@@ -548,7 +561,7 @@ export function BacktestPriceTarget(spread: number = 0.0, fee: number = 0.0, min
  */
 export function BacktestReport(periodsPerYear: number = 1.0): ScreamerOp {
   const M = current();
-  if (typeof periodsPerYear === "string" || (periodsPerYear as unknown) instanceof String) throw new TypeError(`periodsPerYear must be a number, got a string`);
+  if (_isText(periodsPerYear)) throw new TypeError(`periodsPerYear must be a number, got a string`);
   return wrapOp(M, () => new M.BacktestReport(periodsPerYear));
 }
 
@@ -560,7 +573,7 @@ export function BacktestReport(periodsPerYear: number = 1.0): ScreamerOp {
  */
 export function BacktestStats(periodsPerYear: number = 1.0): ScreamerOp {
   const M = current();
-  if (typeof periodsPerYear === "string" || (periodsPerYear as unknown) instanceof String) throw new TypeError(`periodsPerYear must be a number, got a string`);
+  if (_isText(periodsPerYear)) throw new TypeError(`periodsPerYear must be a number, got a string`);
   return wrapOp(M, () => new M.BacktestStats(periodsPerYear));
 }
 
@@ -583,17 +596,17 @@ export function BacktestStats(periodsPerYear: number = 1.0): ScreamerOp {
  */
 export function BacktestTradesOrders(makerFee: number = 0.0, takerFee: number = 0.0, fill: string = "touch", participationRatio: number = 1.0, tickSize: number = 0.0, minPosition: number = -Infinity, maxPosition: number = Infinity, multiplier: number = 1.0, makerFeePerContract: number = 0.0, takerFeePerContract: number = 0.0, slippage: number = 0.0, slippageUnit: string = "fraction"): ScreamerOp {
   const M = current();
-  if (typeof makerFee === "string" || (makerFee as unknown) instanceof String) throw new TypeError(`makerFee must be a number, got a string`);
-  if (typeof takerFee === "string" || (takerFee as unknown) instanceof String) throw new TypeError(`takerFee must be a number, got a string`);
+  if (_isText(makerFee)) throw new TypeError(`makerFee must be a number, got a string`);
+  if (_isText(takerFee)) throw new TypeError(`takerFee must be a number, got a string`);
   if (typeof fill !== "string") throw new TypeError(`fill must be a string, got ${typeof fill}`);
-  if (typeof participationRatio === "string" || (participationRatio as unknown) instanceof String) throw new TypeError(`participationRatio must be a number, got a string`);
-  if (typeof tickSize === "string" || (tickSize as unknown) instanceof String) throw new TypeError(`tickSize must be a number, got a string`);
-  if (typeof minPosition === "string" || (minPosition as unknown) instanceof String) throw new TypeError(`minPosition must be a number, got a string`);
-  if (typeof maxPosition === "string" || (maxPosition as unknown) instanceof String) throw new TypeError(`maxPosition must be a number, got a string`);
-  if (typeof multiplier === "string" || (multiplier as unknown) instanceof String) throw new TypeError(`multiplier must be a number, got a string`);
-  if (typeof makerFeePerContract === "string" || (makerFeePerContract as unknown) instanceof String) throw new TypeError(`makerFeePerContract must be a number, got a string`);
-  if (typeof takerFeePerContract === "string" || (takerFeePerContract as unknown) instanceof String) throw new TypeError(`takerFeePerContract must be a number, got a string`);
-  if (typeof slippage === "string" || (slippage as unknown) instanceof String) throw new TypeError(`slippage must be a number, got a string`);
+  if (_isText(participationRatio)) throw new TypeError(`participationRatio must be a number, got a string`);
+  if (_isText(tickSize)) throw new TypeError(`tickSize must be a number, got a string`);
+  if (_isText(minPosition)) throw new TypeError(`minPosition must be a number, got a string`);
+  if (_isText(maxPosition)) throw new TypeError(`maxPosition must be a number, got a string`);
+  if (_isText(multiplier)) throw new TypeError(`multiplier must be a number, got a string`);
+  if (_isText(makerFeePerContract)) throw new TypeError(`makerFeePerContract must be a number, got a string`);
+  if (_isText(takerFeePerContract)) throw new TypeError(`takerFeePerContract must be a number, got a string`);
+  if (_isText(slippage)) throw new TypeError(`slippage must be a number, got a string`);
   if (typeof slippageUnit !== "string") throw new TypeError(`slippageUnit must be a string, got ${typeof slippageUnit}`);
   return wrapOp(M, () => new M.BacktestTradesOrders(makerFee, takerFee, fill, participationRatio, tickSize, minPosition, maxPosition, multiplier, makerFeePerContract, takerFeePerContract, slippage, slippageUnit));
 }
@@ -620,21 +633,21 @@ export function BacktestTradesOrders(makerFee: number = 0.0, takerFee: number = 
  */
 export function BacktestTradesTarget(takerFee: number = 0.0, tickSize: number = 0.0, minPosition: number = -Infinity, maxPosition: number = Infinity, multiplier: number = 1.0, feePerContract: number = 0.0, slippage: number = 0.0, slippageUnit: string = "fraction", stopLoss: number = 0.0, takeProfit: number = 0.0, trailingStop: number = 0.0, size: string = "units", initialCapital: number = 0.0, rebalanceBand: number = 0.0, maxParticipation: number = Infinity): ScreamerOp {
   const M = current();
-  if (typeof takerFee === "string" || (takerFee as unknown) instanceof String) throw new TypeError(`takerFee must be a number, got a string`);
-  if (typeof tickSize === "string" || (tickSize as unknown) instanceof String) throw new TypeError(`tickSize must be a number, got a string`);
-  if (typeof minPosition === "string" || (minPosition as unknown) instanceof String) throw new TypeError(`minPosition must be a number, got a string`);
-  if (typeof maxPosition === "string" || (maxPosition as unknown) instanceof String) throw new TypeError(`maxPosition must be a number, got a string`);
-  if (typeof multiplier === "string" || (multiplier as unknown) instanceof String) throw new TypeError(`multiplier must be a number, got a string`);
-  if (typeof feePerContract === "string" || (feePerContract as unknown) instanceof String) throw new TypeError(`feePerContract must be a number, got a string`);
-  if (typeof slippage === "string" || (slippage as unknown) instanceof String) throw new TypeError(`slippage must be a number, got a string`);
+  if (_isText(takerFee)) throw new TypeError(`takerFee must be a number, got a string`);
+  if (_isText(tickSize)) throw new TypeError(`tickSize must be a number, got a string`);
+  if (_isText(minPosition)) throw new TypeError(`minPosition must be a number, got a string`);
+  if (_isText(maxPosition)) throw new TypeError(`maxPosition must be a number, got a string`);
+  if (_isText(multiplier)) throw new TypeError(`multiplier must be a number, got a string`);
+  if (_isText(feePerContract)) throw new TypeError(`feePerContract must be a number, got a string`);
+  if (_isText(slippage)) throw new TypeError(`slippage must be a number, got a string`);
   if (typeof slippageUnit !== "string") throw new TypeError(`slippageUnit must be a string, got ${typeof slippageUnit}`);
-  if (typeof stopLoss === "string" || (stopLoss as unknown) instanceof String) throw new TypeError(`stopLoss must be a number, got a string`);
-  if (typeof takeProfit === "string" || (takeProfit as unknown) instanceof String) throw new TypeError(`takeProfit must be a number, got a string`);
-  if (typeof trailingStop === "string" || (trailingStop as unknown) instanceof String) throw new TypeError(`trailingStop must be a number, got a string`);
+  if (_isText(stopLoss)) throw new TypeError(`stopLoss must be a number, got a string`);
+  if (_isText(takeProfit)) throw new TypeError(`takeProfit must be a number, got a string`);
+  if (_isText(trailingStop)) throw new TypeError(`trailingStop must be a number, got a string`);
   if (typeof size !== "string") throw new TypeError(`size must be a string, got ${typeof size}`);
-  if (typeof initialCapital === "string" || (initialCapital as unknown) instanceof String) throw new TypeError(`initialCapital must be a number, got a string`);
-  if (typeof rebalanceBand === "string" || (rebalanceBand as unknown) instanceof String) throw new TypeError(`rebalanceBand must be a number, got a string`);
-  if (typeof maxParticipation === "string" || (maxParticipation as unknown) instanceof String) throw new TypeError(`maxParticipation must be a number, got a string`);
+  if (_isText(initialCapital)) throw new TypeError(`initialCapital must be a number, got a string`);
+  if (_isText(rebalanceBand)) throw new TypeError(`rebalanceBand must be a number, got a string`);
+  if (_isText(maxParticipation)) throw new TypeError(`maxParticipation must be a number, got a string`);
   return wrapOp(M, () => new M.BacktestTradesTarget(takerFee, tickSize, minPosition, maxPosition, multiplier, feePerContract, slippage, slippageUnit, stopLoss, takeProfit, trailingStop, size, initialCapital, rebalanceBand, maxParticipation));
 }
 
@@ -648,9 +661,9 @@ export function BacktestTradesTarget(takerFee: number = 0.0, tickSize: number = 
  */
 export function BandSignal(entry: number = 2.0, exit: number = 0.0, stop: number = Infinity): ScreamerOp {
   const M = current();
-  if (typeof entry === "string" || (entry as unknown) instanceof String) throw new TypeError(`entry must be a number, got a string`);
-  if (typeof exit === "string" || (exit as unknown) instanceof String) throw new TypeError(`exit must be a number, got a string`);
-  if (typeof stop === "string" || (stop as unknown) instanceof String) throw new TypeError(`stop must be a number, got a string`);
+  if (_isText(entry)) throw new TypeError(`entry must be a number, got a string`);
+  if (_isText(exit)) throw new TypeError(`exit must be a number, got a string`);
+  if (_isText(stop)) throw new TypeError(`stop must be a number, got a string`);
   return wrapOp(M, () => new M.BandSignal(entry, exit, stop));
 }
 
@@ -667,12 +680,12 @@ export function BandSignal(entry: number = 2.0, exit: number = 0.0, stop: number
  */
 export function BayesianRegression(com: number = NaN, span: number = NaN, halflife: number = NaN, alpha: number = NaN, priorPrecision: number = 1.0, priorSigma: number = 1.0): ScreamerOp {
   const M = current();
-  if (typeof com === "string" || (com as unknown) instanceof String) throw new TypeError(`com must be a number, got a string`);
-  if (typeof span === "string" || (span as unknown) instanceof String) throw new TypeError(`span must be a number, got a string`);
-  if (typeof halflife === "string" || (halflife as unknown) instanceof String) throw new TypeError(`halflife must be a number, got a string`);
-  if (typeof alpha === "string" || (alpha as unknown) instanceof String) throw new TypeError(`alpha must be a number, got a string`);
-  if (typeof priorPrecision === "string" || (priorPrecision as unknown) instanceof String) throw new TypeError(`priorPrecision must be a number, got a string`);
-  if (typeof priorSigma === "string" || (priorSigma as unknown) instanceof String) throw new TypeError(`priorSigma must be a number, got a string`);
+  if (_isText(com)) throw new TypeError(`com must be a number, got a string`);
+  if (_isText(span)) throw new TypeError(`span must be a number, got a string`);
+  if (_isText(halflife)) throw new TypeError(`halflife must be a number, got a string`);
+  if (_isText(alpha)) throw new TypeError(`alpha must be a number, got a string`);
+  if (_isText(priorPrecision)) throw new TypeError(`priorPrecision must be a number, got a string`);
+  if (_isText(priorSigma)) throw new TypeError(`priorSigma must be a number, got a string`);
   return wrapOp(M, () => new M.BayesianRegression(com, span, halflife, alpha, priorPrecision, priorSigma));
 }
 
@@ -686,8 +699,8 @@ export function BayesianRegression(com: number = NaN, span: number = NaN, halfli
  */
 export function BollingerBands(windowSize: number = 20, numStd: number = 2.0, startPolicy: string = "strict"): ScreamerOp {
   const M = current();
-  if (typeof windowSize === "string" || (windowSize as unknown) instanceof String) throw new TypeError(`windowSize must be a number, got a string`);
-  if (typeof numStd === "string" || (numStd as unknown) instanceof String) throw new TypeError(`numStd must be a number, got a string`);
+  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
+  if (_isText(numStd)) throw new TypeError(`numStd must be a number, got a string`);
   if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
   return wrapOp(M, () => new M.BollingerBands(windowSize, numStd, startPolicy));
 }
@@ -701,7 +714,7 @@ export function BollingerBands(windowSize: number = 20, numStd: number = 2.0, st
  */
 export function BulkVolumeClassifier(windowSize: number = 20, startPolicy: string = "strict"): ScreamerOp {
   const M = current();
-  if (typeof windowSize === "string" || (windowSize as unknown) instanceof String) throw new TypeError(`windowSize must be a number, got a string`);
+  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
   return wrapOp(M, () => new M.BulkVolumeClassifier(windowSize, startPolicy));
 }
@@ -715,8 +728,8 @@ export function BulkVolumeClassifier(windowSize: number = 20, startPolicy: strin
  */
 export function Butter(order: number = 2, cutoffFreq: number = 0.1): ScreamerOp {
   const M = current();
-  if (typeof order === "string" || (order as unknown) instanceof String) throw new TypeError(`order must be a number, got a string`);
-  if (typeof cutoffFreq === "string" || (cutoffFreq as unknown) instanceof String) throw new TypeError(`cutoffFreq must be a number, got a string`);
+  if (_isText(order)) throw new TypeError(`order must be a number, got a string`);
+  if (_isText(cutoffFreq)) throw new TypeError(`cutoffFreq must be a number, got a string`);
   return wrapOp(M, () => new M.Butter(order, cutoffFreq));
 }
 
@@ -730,9 +743,9 @@ export function Butter(order: number = 2, cutoffFreq: number = 0.1): ScreamerOp 
  */
 export function ButterBandpass(order: number = 2, lowCutoff: number = 0.05, highCutoff: number = 0.2): ScreamerOp {
   const M = current();
-  if (typeof order === "string" || (order as unknown) instanceof String) throw new TypeError(`order must be a number, got a string`);
-  if (typeof lowCutoff === "string" || (lowCutoff as unknown) instanceof String) throw new TypeError(`lowCutoff must be a number, got a string`);
-  if (typeof highCutoff === "string" || (highCutoff as unknown) instanceof String) throw new TypeError(`highCutoff must be a number, got a string`);
+  if (_isText(order)) throw new TypeError(`order must be a number, got a string`);
+  if (_isText(lowCutoff)) throw new TypeError(`lowCutoff must be a number, got a string`);
+  if (_isText(highCutoff)) throw new TypeError(`highCutoff must be a number, got a string`);
   return wrapOp(M, () => new M.ButterBandpass(order, lowCutoff, highCutoff));
 }
 
@@ -746,9 +759,9 @@ export function ButterBandpass(order: number = 2, lowCutoff: number = 0.05, high
  */
 export function ButterBandstop(order: number = 2, lowCutoff: number = 0.05, highCutoff: number = 0.2): ScreamerOp {
   const M = current();
-  if (typeof order === "string" || (order as unknown) instanceof String) throw new TypeError(`order must be a number, got a string`);
-  if (typeof lowCutoff === "string" || (lowCutoff as unknown) instanceof String) throw new TypeError(`lowCutoff must be a number, got a string`);
-  if (typeof highCutoff === "string" || (highCutoff as unknown) instanceof String) throw new TypeError(`highCutoff must be a number, got a string`);
+  if (_isText(order)) throw new TypeError(`order must be a number, got a string`);
+  if (_isText(lowCutoff)) throw new TypeError(`lowCutoff must be a number, got a string`);
+  if (_isText(highCutoff)) throw new TypeError(`highCutoff must be a number, got a string`);
   return wrapOp(M, () => new M.ButterBandstop(order, lowCutoff, highCutoff));
 }
 
@@ -761,8 +774,8 @@ export function ButterBandstop(order: number = 2, lowCutoff: number = 0.05, high
  */
 export function ButterHighpass(order: number = 2, cutoffFreq: number = 0.1): ScreamerOp {
   const M = current();
-  if (typeof order === "string" || (order as unknown) instanceof String) throw new TypeError(`order must be a number, got a string`);
-  if (typeof cutoffFreq === "string" || (cutoffFreq as unknown) instanceof String) throw new TypeError(`cutoffFreq must be a number, got a string`);
+  if (_isText(order)) throw new TypeError(`order must be a number, got a string`);
+  if (_isText(cutoffFreq)) throw new TypeError(`cutoffFreq must be a number, got a string`);
   return wrapOp(M, () => new M.ButterHighpass(order, cutoffFreq));
 }
 
@@ -774,7 +787,7 @@ export function ButterHighpass(order: number = 2, cutoffFreq: number = 0.1): Scr
  */
 export function CCI(windowSize: number = 14): ScreamerOp {
   const M = current();
-  if (typeof windowSize === "string" || (windowSize as unknown) instanceof String) throw new TypeError(`windowSize must be a number, got a string`);
+  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   return wrapOp(M, () => new M.CCI(windowSize));
 }
 
@@ -807,8 +820,8 @@ export function Ceil(): ScreamerOp {
  */
 export function Clip(lower: number = NaN, upper: number = NaN): ScreamerOp {
   const M = current();
-  if (typeof lower === "string" || (lower as unknown) instanceof String) throw new TypeError(`lower must be a number, got a string`);
-  if (typeof upper === "string" || (upper as unknown) instanceof String) throw new TypeError(`upper must be a number, got a string`);
+  if (_isText(lower)) throw new TypeError(`lower must be a number, got a string`);
+  if (_isText(upper)) throw new TypeError(`upper must be a number, got a string`);
   return wrapOp(M, () => new M.Clip(lower, upper));
 }
 
@@ -851,8 +864,8 @@ export function CrossDemean(): ScreamerOp {
  */
 export function CrossNormalize(gross: number = 1.0, net: number = NaN): ScreamerOp {
   const M = current();
-  if (typeof gross === "string" || (gross as unknown) instanceof String) throw new TypeError(`gross must be a number, got a string`);
-  if (typeof net === "string" || (net as unknown) instanceof String) throw new TypeError(`net must be a number, got a string`);
+  if (_isText(gross)) throw new TypeError(`gross must be a number, got a string`);
+  if (_isText(net)) throw new TypeError(`net must be a number, got a string`);
   return wrapRowOp(M, () => new M.CrossNormalize(gross, net));
 }
 
@@ -876,7 +889,7 @@ export function CrossRank(scale: string = "signed"): ScreamerOp {
  */
 export function CrossTopBottom(count: number = 1): ScreamerOp {
   const M = current();
-  if (typeof count === "string" || (count as unknown) instanceof String) throw new TypeError(`count must be a number, got a string`);
+  if (_isText(count)) throw new TypeError(`count must be a number, got a string`);
   return wrapRowOp(M, () => new M.CrossTopBottom(count));
 }
 
@@ -889,8 +902,8 @@ export function CrossTopBottom(count: number = 1): ScreamerOp {
  */
 export function CrossWinsorize(lower: number = 0.05, upper: number = 0.95): ScreamerOp {
   const M = current();
-  if (typeof lower === "string" || (lower as unknown) instanceof String) throw new TypeError(`lower must be a number, got a string`);
-  if (typeof upper === "string" || (upper as unknown) instanceof String) throw new TypeError(`upper must be a number, got a string`);
+  if (_isText(lower)) throw new TypeError(`lower must be a number, got a string`);
+  if (_isText(upper)) throw new TypeError(`upper must be a number, got a string`);
   return wrapRowOp(M, () => new M.CrossWinsorize(lower, upper));
 }
 
@@ -1005,10 +1018,10 @@ export function CycleSine(): ScreamerOp {
  */
 export function DEMA(com: number = NaN, span: number = NaN, halflife: number = NaN, alpha: number = NaN): ScreamerOp {
   const M = current();
-  if (typeof com === "string" || (com as unknown) instanceof String) throw new TypeError(`com must be a number, got a string`);
-  if (typeof span === "string" || (span as unknown) instanceof String) throw new TypeError(`span must be a number, got a string`);
-  if (typeof halflife === "string" || (halflife as unknown) instanceof String) throw new TypeError(`halflife must be a number, got a string`);
-  if (typeof alpha === "string" || (alpha as unknown) instanceof String) throw new TypeError(`alpha must be a number, got a string`);
+  if (_isText(com)) throw new TypeError(`com must be a number, got a string`);
+  if (_isText(span)) throw new TypeError(`span must be a number, got a string`);
+  if (_isText(halflife)) throw new TypeError(`halflife must be a number, got a string`);
+  if (_isText(alpha)) throw new TypeError(`alpha must be a number, got a string`);
   return wrapOp(M, () => new M.DEMA(com, span, halflife, alpha));
 }
 
@@ -1020,7 +1033,7 @@ export function DEMA(com: number = NaN, span: number = NaN, halflife: number = N
  */
 export function DX(windowSize: number = 14): ScreamerOp {
   const M = current();
-  if (typeof windowSize === "string" || (windowSize as unknown) instanceof String) throw new TypeError(`windowSize must be a number, got a string`);
+  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   return wrapOp(M, () => new M.DX(windowSize));
 }
 
@@ -1033,8 +1046,8 @@ export function DX(windowSize: number = 14): ScreamerOp {
  */
 export function Decycler(period: number = NaN, cutoff: number = NaN): ScreamerOp {
   const M = current();
-  if (typeof period === "string" || (period as unknown) instanceof String) throw new TypeError(`period must be a number, got a string`);
-  if (typeof cutoff === "string" || (cutoff as unknown) instanceof String) throw new TypeError(`cutoff must be a number, got a string`);
+  if (_isText(period)) throw new TypeError(`period must be a number, got a string`);
+  if (_isText(cutoff)) throw new TypeError(`cutoff must be a number, got a string`);
   return wrapOp(M, () => new M.Decycler(period, cutoff));
 }
 
@@ -1047,7 +1060,7 @@ export function Decycler(period: number = NaN, cutoff: number = NaN): ScreamerOp
  */
 export function Detrend(windowSize: number = 20, startPolicy: string = "strict"): ScreamerOp {
   const M = current();
-  if (typeof windowSize === "string" || (windowSize as unknown) instanceof String) throw new TypeError(`windowSize must be a number, got a string`);
+  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
   return wrapOp(M, () => new M.Detrend(windowSize, startPolicy));
 }
@@ -1061,7 +1074,7 @@ export function Detrend(windowSize: number = 20, startPolicy: string = "strict")
  */
 export function Diff(windowSize: number = 1, startPolicy: string = "strict"): ScreamerOp {
   const M = current();
-  if (typeof windowSize === "string" || (windowSize as unknown) instanceof String) throw new TypeError(`windowSize must be a number, got a string`);
+  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
   return wrapOp(M, () => new M.Diff(windowSize, startPolicy));
 }
@@ -1106,7 +1119,7 @@ export function DominantCycle(): ScreamerOp {
  */
 export function DonchianChannels(windowSize: number = 20): ScreamerOp {
   const M = current();
-  if (typeof windowSize === "string" || (windowSize as unknown) instanceof String) throw new TypeError(`windowSize must be a number, got a string`);
+  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   return wrapOp(M, () => new M.DonchianChannels(windowSize));
 }
 
@@ -1181,10 +1194,10 @@ export function Erfc(): ScreamerOp {
  */
 export function EwAlpha(com: number = NaN, span: number = NaN, halflife: number = NaN, alpha: number = NaN): ScreamerOp {
   const M = current();
-  if (typeof com === "string" || (com as unknown) instanceof String) throw new TypeError(`com must be a number, got a string`);
-  if (typeof span === "string" || (span as unknown) instanceof String) throw new TypeError(`span must be a number, got a string`);
-  if (typeof halflife === "string" || (halflife as unknown) instanceof String) throw new TypeError(`halflife must be a number, got a string`);
-  if (typeof alpha === "string" || (alpha as unknown) instanceof String) throw new TypeError(`alpha must be a number, got a string`);
+  if (_isText(com)) throw new TypeError(`com must be a number, got a string`);
+  if (_isText(span)) throw new TypeError(`span must be a number, got a string`);
+  if (_isText(halflife)) throw new TypeError(`halflife must be a number, got a string`);
+  if (_isText(alpha)) throw new TypeError(`alpha must be a number, got a string`);
   return wrapOp(M, () => new M.EwAlpha(com, span, halflife, alpha));
 }
 
@@ -1199,10 +1212,10 @@ export function EwAlpha(com: number = NaN, span: number = NaN, halflife: number 
  */
 export function EwBeta(com: number = NaN, span: number = NaN, halflife: number = NaN, alpha: number = NaN): ScreamerOp {
   const M = current();
-  if (typeof com === "string" || (com as unknown) instanceof String) throw new TypeError(`com must be a number, got a string`);
-  if (typeof span === "string" || (span as unknown) instanceof String) throw new TypeError(`span must be a number, got a string`);
-  if (typeof halflife === "string" || (halflife as unknown) instanceof String) throw new TypeError(`halflife must be a number, got a string`);
-  if (typeof alpha === "string" || (alpha as unknown) instanceof String) throw new TypeError(`alpha must be a number, got a string`);
+  if (_isText(com)) throw new TypeError(`com must be a number, got a string`);
+  if (_isText(span)) throw new TypeError(`span must be a number, got a string`);
+  if (_isText(halflife)) throw new TypeError(`halflife must be a number, got a string`);
+  if (_isText(alpha)) throw new TypeError(`alpha must be a number, got a string`);
   return wrapOp(M, () => new M.EwBeta(com, span, halflife, alpha));
 }
 
@@ -1217,10 +1230,10 @@ export function EwBeta(com: number = NaN, span: number = NaN, halflife: number =
  */
 export function EwCorr(com: number = NaN, span: number = NaN, halflife: number = NaN, alpha: number = NaN): ScreamerOp {
   const M = current();
-  if (typeof com === "string" || (com as unknown) instanceof String) throw new TypeError(`com must be a number, got a string`);
-  if (typeof span === "string" || (span as unknown) instanceof String) throw new TypeError(`span must be a number, got a string`);
-  if (typeof halflife === "string" || (halflife as unknown) instanceof String) throw new TypeError(`halflife must be a number, got a string`);
-  if (typeof alpha === "string" || (alpha as unknown) instanceof String) throw new TypeError(`alpha must be a number, got a string`);
+  if (_isText(com)) throw new TypeError(`com must be a number, got a string`);
+  if (_isText(span)) throw new TypeError(`span must be a number, got a string`);
+  if (_isText(halflife)) throw new TypeError(`halflife must be a number, got a string`);
+  if (_isText(alpha)) throw new TypeError(`alpha must be a number, got a string`);
   return wrapOp(M, () => new M.EwCorr(com, span, halflife, alpha));
 }
 
@@ -1235,10 +1248,10 @@ export function EwCorr(com: number = NaN, span: number = NaN, halflife: number =
  */
 export function EwCov(com: number = NaN, span: number = NaN, halflife: number = NaN, alpha: number = NaN): ScreamerOp {
   const M = current();
-  if (typeof com === "string" || (com as unknown) instanceof String) throw new TypeError(`com must be a number, got a string`);
-  if (typeof span === "string" || (span as unknown) instanceof String) throw new TypeError(`span must be a number, got a string`);
-  if (typeof halflife === "string" || (halflife as unknown) instanceof String) throw new TypeError(`halflife must be a number, got a string`);
-  if (typeof alpha === "string" || (alpha as unknown) instanceof String) throw new TypeError(`alpha must be a number, got a string`);
+  if (_isText(com)) throw new TypeError(`com must be a number, got a string`);
+  if (_isText(span)) throw new TypeError(`span must be a number, got a string`);
+  if (_isText(halflife)) throw new TypeError(`halflife must be a number, got a string`);
+  if (_isText(alpha)) throw new TypeError(`alpha must be a number, got a string`);
   return wrapOp(M, () => new M.EwCov(com, span, halflife, alpha));
 }
 
@@ -1253,10 +1266,10 @@ export function EwCov(com: number = NaN, span: number = NaN, halflife: number = 
  */
 export function EwGarmanKlassVar(com: number = NaN, span: number = NaN, halflife: number = NaN, alpha: number = NaN): ScreamerOp {
   const M = current();
-  if (typeof com === "string" || (com as unknown) instanceof String) throw new TypeError(`com must be a number, got a string`);
-  if (typeof span === "string" || (span as unknown) instanceof String) throw new TypeError(`span must be a number, got a string`);
-  if (typeof halflife === "string" || (halflife as unknown) instanceof String) throw new TypeError(`halflife must be a number, got a string`);
-  if (typeof alpha === "string" || (alpha as unknown) instanceof String) throw new TypeError(`alpha must be a number, got a string`);
+  if (_isText(com)) throw new TypeError(`com must be a number, got a string`);
+  if (_isText(span)) throw new TypeError(`span must be a number, got a string`);
+  if (_isText(halflife)) throw new TypeError(`halflife must be a number, got a string`);
+  if (_isText(alpha)) throw new TypeError(`alpha must be a number, got a string`);
   return wrapOp(M, () => new M.EwGarmanKlassVar(com, span, halflife, alpha));
 }
 
@@ -1271,10 +1284,10 @@ export function EwGarmanKlassVar(com: number = NaN, span: number = NaN, halflife
  */
 export function EwGarmanKlassVol(com: number = NaN, span: number = NaN, halflife: number = NaN, alpha: number = NaN): ScreamerOp {
   const M = current();
-  if (typeof com === "string" || (com as unknown) instanceof String) throw new TypeError(`com must be a number, got a string`);
-  if (typeof span === "string" || (span as unknown) instanceof String) throw new TypeError(`span must be a number, got a string`);
-  if (typeof halflife === "string" || (halflife as unknown) instanceof String) throw new TypeError(`halflife must be a number, got a string`);
-  if (typeof alpha === "string" || (alpha as unknown) instanceof String) throw new TypeError(`alpha must be a number, got a string`);
+  if (_isText(com)) throw new TypeError(`com must be a number, got a string`);
+  if (_isText(span)) throw new TypeError(`span must be a number, got a string`);
+  if (_isText(halflife)) throw new TypeError(`halflife must be a number, got a string`);
+  if (_isText(alpha)) throw new TypeError(`alpha must be a number, got a string`);
   return wrapOp(M, () => new M.EwGarmanKlassVol(com, span, halflife, alpha));
 }
 
@@ -1289,10 +1302,10 @@ export function EwGarmanKlassVol(com: number = NaN, span: number = NaN, halflife
  */
 export function EwKurt(com: number = NaN, span: number = NaN, halflife: number = NaN, alpha: number = NaN): ScreamerOp {
   const M = current();
-  if (typeof com === "string" || (com as unknown) instanceof String) throw new TypeError(`com must be a number, got a string`);
-  if (typeof span === "string" || (span as unknown) instanceof String) throw new TypeError(`span must be a number, got a string`);
-  if (typeof halflife === "string" || (halflife as unknown) instanceof String) throw new TypeError(`halflife must be a number, got a string`);
-  if (typeof alpha === "string" || (alpha as unknown) instanceof String) throw new TypeError(`alpha must be a number, got a string`);
+  if (_isText(com)) throw new TypeError(`com must be a number, got a string`);
+  if (_isText(span)) throw new TypeError(`span must be a number, got a string`);
+  if (_isText(halflife)) throw new TypeError(`halflife must be a number, got a string`);
+  if (_isText(alpha)) throw new TypeError(`alpha must be a number, got a string`);
   return wrapOp(M, () => new M.EwKurt(com, span, halflife, alpha));
 }
 
@@ -1307,10 +1320,10 @@ export function EwKurt(com: number = NaN, span: number = NaN, halflife: number =
  */
 export function EwMean(com: number = NaN, span: number = NaN, halflife: number = NaN, alpha: number = NaN): ScreamerOp {
   const M = current();
-  if (typeof com === "string" || (com as unknown) instanceof String) throw new TypeError(`com must be a number, got a string`);
-  if (typeof span === "string" || (span as unknown) instanceof String) throw new TypeError(`span must be a number, got a string`);
-  if (typeof halflife === "string" || (halflife as unknown) instanceof String) throw new TypeError(`halflife must be a number, got a string`);
-  if (typeof alpha === "string" || (alpha as unknown) instanceof String) throw new TypeError(`alpha must be a number, got a string`);
+  if (_isText(com)) throw new TypeError(`com must be a number, got a string`);
+  if (_isText(span)) throw new TypeError(`span must be a number, got a string`);
+  if (_isText(halflife)) throw new TypeError(`halflife must be a number, got a string`);
+  if (_isText(alpha)) throw new TypeError(`alpha must be a number, got a string`);
   return wrapOp(M, () => new M.EwMean(com, span, halflife, alpha));
 }
 
@@ -1325,10 +1338,10 @@ export function EwMean(com: number = NaN, span: number = NaN, halflife: number =
  */
 export function EwParkinsonVar(com: number = NaN, span: number = NaN, halflife: number = NaN, alpha: number = NaN): ScreamerOp {
   const M = current();
-  if (typeof com === "string" || (com as unknown) instanceof String) throw new TypeError(`com must be a number, got a string`);
-  if (typeof span === "string" || (span as unknown) instanceof String) throw new TypeError(`span must be a number, got a string`);
-  if (typeof halflife === "string" || (halflife as unknown) instanceof String) throw new TypeError(`halflife must be a number, got a string`);
-  if (typeof alpha === "string" || (alpha as unknown) instanceof String) throw new TypeError(`alpha must be a number, got a string`);
+  if (_isText(com)) throw new TypeError(`com must be a number, got a string`);
+  if (_isText(span)) throw new TypeError(`span must be a number, got a string`);
+  if (_isText(halflife)) throw new TypeError(`halflife must be a number, got a string`);
+  if (_isText(alpha)) throw new TypeError(`alpha must be a number, got a string`);
   return wrapOp(M, () => new M.EwParkinsonVar(com, span, halflife, alpha));
 }
 
@@ -1343,10 +1356,10 @@ export function EwParkinsonVar(com: number = NaN, span: number = NaN, halflife: 
  */
 export function EwParkinsonVol(com: number = NaN, span: number = NaN, halflife: number = NaN, alpha: number = NaN): ScreamerOp {
   const M = current();
-  if (typeof com === "string" || (com as unknown) instanceof String) throw new TypeError(`com must be a number, got a string`);
-  if (typeof span === "string" || (span as unknown) instanceof String) throw new TypeError(`span must be a number, got a string`);
-  if (typeof halflife === "string" || (halflife as unknown) instanceof String) throw new TypeError(`halflife must be a number, got a string`);
-  if (typeof alpha === "string" || (alpha as unknown) instanceof String) throw new TypeError(`alpha must be a number, got a string`);
+  if (_isText(com)) throw new TypeError(`com must be a number, got a string`);
+  if (_isText(span)) throw new TypeError(`span must be a number, got a string`);
+  if (_isText(halflife)) throw new TypeError(`halflife must be a number, got a string`);
+  if (_isText(alpha)) throw new TypeError(`alpha must be a number, got a string`);
   return wrapOp(M, () => new M.EwParkinsonVol(com, span, halflife, alpha));
 }
 
@@ -1361,10 +1374,10 @@ export function EwParkinsonVol(com: number = NaN, span: number = NaN, halflife: 
  */
 export function EwResidualStd(com: number = NaN, span: number = NaN, halflife: number = NaN, alpha: number = NaN): ScreamerOp {
   const M = current();
-  if (typeof com === "string" || (com as unknown) instanceof String) throw new TypeError(`com must be a number, got a string`);
-  if (typeof span === "string" || (span as unknown) instanceof String) throw new TypeError(`span must be a number, got a string`);
-  if (typeof halflife === "string" || (halflife as unknown) instanceof String) throw new TypeError(`halflife must be a number, got a string`);
-  if (typeof alpha === "string" || (alpha as unknown) instanceof String) throw new TypeError(`alpha must be a number, got a string`);
+  if (_isText(com)) throw new TypeError(`com must be a number, got a string`);
+  if (_isText(span)) throw new TypeError(`span must be a number, got a string`);
+  if (_isText(halflife)) throw new TypeError(`halflife must be a number, got a string`);
+  if (_isText(alpha)) throw new TypeError(`alpha must be a number, got a string`);
   return wrapOp(M, () => new M.EwResidualStd(com, span, halflife, alpha));
 }
 
@@ -1379,10 +1392,10 @@ export function EwResidualStd(com: number = NaN, span: number = NaN, halflife: n
  */
 export function EwRms(com: number = NaN, span: number = NaN, halflife: number = NaN, alpha: number = NaN): ScreamerOp {
   const M = current();
-  if (typeof com === "string" || (com as unknown) instanceof String) throw new TypeError(`com must be a number, got a string`);
-  if (typeof span === "string" || (span as unknown) instanceof String) throw new TypeError(`span must be a number, got a string`);
-  if (typeof halflife === "string" || (halflife as unknown) instanceof String) throw new TypeError(`halflife must be a number, got a string`);
-  if (typeof alpha === "string" || (alpha as unknown) instanceof String) throw new TypeError(`alpha must be a number, got a string`);
+  if (_isText(com)) throw new TypeError(`com must be a number, got a string`);
+  if (_isText(span)) throw new TypeError(`span must be a number, got a string`);
+  if (_isText(halflife)) throw new TypeError(`halflife must be a number, got a string`);
+  if (_isText(alpha)) throw new TypeError(`alpha must be a number, got a string`);
   return wrapOp(M, () => new M.EwRms(com, span, halflife, alpha));
 }
 
@@ -1397,10 +1410,10 @@ export function EwRms(com: number = NaN, span: number = NaN, halflife: number = 
  */
 export function EwRogersSatchellVar(com: number = NaN, span: number = NaN, halflife: number = NaN, alpha: number = NaN): ScreamerOp {
   const M = current();
-  if (typeof com === "string" || (com as unknown) instanceof String) throw new TypeError(`com must be a number, got a string`);
-  if (typeof span === "string" || (span as unknown) instanceof String) throw new TypeError(`span must be a number, got a string`);
-  if (typeof halflife === "string" || (halflife as unknown) instanceof String) throw new TypeError(`halflife must be a number, got a string`);
-  if (typeof alpha === "string" || (alpha as unknown) instanceof String) throw new TypeError(`alpha must be a number, got a string`);
+  if (_isText(com)) throw new TypeError(`com must be a number, got a string`);
+  if (_isText(span)) throw new TypeError(`span must be a number, got a string`);
+  if (_isText(halflife)) throw new TypeError(`halflife must be a number, got a string`);
+  if (_isText(alpha)) throw new TypeError(`alpha must be a number, got a string`);
   return wrapOp(M, () => new M.EwRogersSatchellVar(com, span, halflife, alpha));
 }
 
@@ -1415,10 +1428,10 @@ export function EwRogersSatchellVar(com: number = NaN, span: number = NaN, halfl
  */
 export function EwRogersSatchellVol(com: number = NaN, span: number = NaN, halflife: number = NaN, alpha: number = NaN): ScreamerOp {
   const M = current();
-  if (typeof com === "string" || (com as unknown) instanceof String) throw new TypeError(`com must be a number, got a string`);
-  if (typeof span === "string" || (span as unknown) instanceof String) throw new TypeError(`span must be a number, got a string`);
-  if (typeof halflife === "string" || (halflife as unknown) instanceof String) throw new TypeError(`halflife must be a number, got a string`);
-  if (typeof alpha === "string" || (alpha as unknown) instanceof String) throw new TypeError(`alpha must be a number, got a string`);
+  if (_isText(com)) throw new TypeError(`com must be a number, got a string`);
+  if (_isText(span)) throw new TypeError(`span must be a number, got a string`);
+  if (_isText(halflife)) throw new TypeError(`halflife must be a number, got a string`);
+  if (_isText(alpha)) throw new TypeError(`alpha must be a number, got a string`);
   return wrapOp(M, () => new M.EwRogersSatchellVol(com, span, halflife, alpha));
 }
 
@@ -1433,10 +1446,10 @@ export function EwRogersSatchellVol(com: number = NaN, span: number = NaN, halfl
  */
 export function EwSkew(com: number = NaN, span: number = NaN, halflife: number = NaN, alpha: number = NaN): ScreamerOp {
   const M = current();
-  if (typeof com === "string" || (com as unknown) instanceof String) throw new TypeError(`com must be a number, got a string`);
-  if (typeof span === "string" || (span as unknown) instanceof String) throw new TypeError(`span must be a number, got a string`);
-  if (typeof halflife === "string" || (halflife as unknown) instanceof String) throw new TypeError(`halflife must be a number, got a string`);
-  if (typeof alpha === "string" || (alpha as unknown) instanceof String) throw new TypeError(`alpha must be a number, got a string`);
+  if (_isText(com)) throw new TypeError(`com must be a number, got a string`);
+  if (_isText(span)) throw new TypeError(`span must be a number, got a string`);
+  if (_isText(halflife)) throw new TypeError(`halflife must be a number, got a string`);
+  if (_isText(alpha)) throw new TypeError(`alpha must be a number, got a string`);
   return wrapOp(M, () => new M.EwSkew(com, span, halflife, alpha));
 }
 
@@ -1451,10 +1464,10 @@ export function EwSkew(com: number = NaN, span: number = NaN, halflife: number =
  */
 export function EwSpread(com: number = NaN, span: number = NaN, halflife: number = NaN, alpha: number = NaN): ScreamerOp {
   const M = current();
-  if (typeof com === "string" || (com as unknown) instanceof String) throw new TypeError(`com must be a number, got a string`);
-  if (typeof span === "string" || (span as unknown) instanceof String) throw new TypeError(`span must be a number, got a string`);
-  if (typeof halflife === "string" || (halflife as unknown) instanceof String) throw new TypeError(`halflife must be a number, got a string`);
-  if (typeof alpha === "string" || (alpha as unknown) instanceof String) throw new TypeError(`alpha must be a number, got a string`);
+  if (_isText(com)) throw new TypeError(`com must be a number, got a string`);
+  if (_isText(span)) throw new TypeError(`span must be a number, got a string`);
+  if (_isText(halflife)) throw new TypeError(`halflife must be a number, got a string`);
+  if (_isText(alpha)) throw new TypeError(`alpha must be a number, got a string`);
   return wrapOp(M, () => new M.EwSpread(com, span, halflife, alpha));
 }
 
@@ -1469,10 +1482,10 @@ export function EwSpread(com: number = NaN, span: number = NaN, halflife: number
  */
 export function EwStd(com: number = NaN, span: number = NaN, halflife: number = NaN, alpha: number = NaN): ScreamerOp {
   const M = current();
-  if (typeof com === "string" || (com as unknown) instanceof String) throw new TypeError(`com must be a number, got a string`);
-  if (typeof span === "string" || (span as unknown) instanceof String) throw new TypeError(`span must be a number, got a string`);
-  if (typeof halflife === "string" || (halflife as unknown) instanceof String) throw new TypeError(`halflife must be a number, got a string`);
-  if (typeof alpha === "string" || (alpha as unknown) instanceof String) throw new TypeError(`alpha must be a number, got a string`);
+  if (_isText(com)) throw new TypeError(`com must be a number, got a string`);
+  if (_isText(span)) throw new TypeError(`span must be a number, got a string`);
+  if (_isText(halflife)) throw new TypeError(`halflife must be a number, got a string`);
+  if (_isText(alpha)) throw new TypeError(`alpha must be a number, got a string`);
   return wrapOp(M, () => new M.EwStd(com, span, halflife, alpha));
 }
 
@@ -1487,10 +1500,10 @@ export function EwStd(com: number = NaN, span: number = NaN, halflife: number = 
  */
 export function EwVar(com: number = NaN, span: number = NaN, halflife: number = NaN, alpha: number = NaN): ScreamerOp {
   const M = current();
-  if (typeof com === "string" || (com as unknown) instanceof String) throw new TypeError(`com must be a number, got a string`);
-  if (typeof span === "string" || (span as unknown) instanceof String) throw new TypeError(`span must be a number, got a string`);
-  if (typeof halflife === "string" || (halflife as unknown) instanceof String) throw new TypeError(`halflife must be a number, got a string`);
-  if (typeof alpha === "string" || (alpha as unknown) instanceof String) throw new TypeError(`alpha must be a number, got a string`);
+  if (_isText(com)) throw new TypeError(`com must be a number, got a string`);
+  if (_isText(span)) throw new TypeError(`span must be a number, got a string`);
+  if (_isText(halflife)) throw new TypeError(`halflife must be a number, got a string`);
+  if (_isText(alpha)) throw new TypeError(`alpha must be a number, got a string`);
   return wrapOp(M, () => new M.EwVar(com, span, halflife, alpha));
 }
 
@@ -1505,10 +1518,10 @@ export function EwVar(com: number = NaN, span: number = NaN, halflife: number = 
  */
 export function EwYangZhangVar(com: number = NaN, span: number = NaN, halflife: number = NaN, alpha: number = NaN): ScreamerOp {
   const M = current();
-  if (typeof com === "string" || (com as unknown) instanceof String) throw new TypeError(`com must be a number, got a string`);
-  if (typeof span === "string" || (span as unknown) instanceof String) throw new TypeError(`span must be a number, got a string`);
-  if (typeof halflife === "string" || (halflife as unknown) instanceof String) throw new TypeError(`halflife must be a number, got a string`);
-  if (typeof alpha === "string" || (alpha as unknown) instanceof String) throw new TypeError(`alpha must be a number, got a string`);
+  if (_isText(com)) throw new TypeError(`com must be a number, got a string`);
+  if (_isText(span)) throw new TypeError(`span must be a number, got a string`);
+  if (_isText(halflife)) throw new TypeError(`halflife must be a number, got a string`);
+  if (_isText(alpha)) throw new TypeError(`alpha must be a number, got a string`);
   return wrapOp(M, () => new M.EwYangZhangVar(com, span, halflife, alpha));
 }
 
@@ -1523,10 +1536,10 @@ export function EwYangZhangVar(com: number = NaN, span: number = NaN, halflife: 
  */
 export function EwYangZhangVol(com: number = NaN, span: number = NaN, halflife: number = NaN, alpha: number = NaN): ScreamerOp {
   const M = current();
-  if (typeof com === "string" || (com as unknown) instanceof String) throw new TypeError(`com must be a number, got a string`);
-  if (typeof span === "string" || (span as unknown) instanceof String) throw new TypeError(`span must be a number, got a string`);
-  if (typeof halflife === "string" || (halflife as unknown) instanceof String) throw new TypeError(`halflife must be a number, got a string`);
-  if (typeof alpha === "string" || (alpha as unknown) instanceof String) throw new TypeError(`alpha must be a number, got a string`);
+  if (_isText(com)) throw new TypeError(`com must be a number, got a string`);
+  if (_isText(span)) throw new TypeError(`span must be a number, got a string`);
+  if (_isText(halflife)) throw new TypeError(`halflife must be a number, got a string`);
+  if (_isText(alpha)) throw new TypeError(`alpha must be a number, got a string`);
   return wrapOp(M, () => new M.EwYangZhangVol(com, span, halflife, alpha));
 }
 
@@ -1541,10 +1554,10 @@ export function EwYangZhangVol(com: number = NaN, span: number = NaN, halflife: 
  */
 export function EwZscore(com: number = NaN, span: number = NaN, halflife: number = NaN, alpha: number = NaN): ScreamerOp {
   const M = current();
-  if (typeof com === "string" || (com as unknown) instanceof String) throw new TypeError(`com must be a number, got a string`);
-  if (typeof span === "string" || (span as unknown) instanceof String) throw new TypeError(`span must be a number, got a string`);
-  if (typeof halflife === "string" || (halflife as unknown) instanceof String) throw new TypeError(`halflife must be a number, got a string`);
-  if (typeof alpha === "string" || (alpha as unknown) instanceof String) throw new TypeError(`alpha must be a number, got a string`);
+  if (_isText(com)) throw new TypeError(`com must be a number, got a string`);
+  if (_isText(span)) throw new TypeError(`span must be a number, got a string`);
+  if (_isText(halflife)) throw new TypeError(`halflife must be a number, got a string`);
+  if (_isText(alpha)) throw new TypeError(`alpha must be a number, got a string`);
   return wrapOp(M, () => new M.EwZscore(com, span, halflife, alpha));
 }
 
@@ -1676,7 +1689,7 @@ export function Ffill(): ScreamerOp {
  */
 export function FillNa(fill: number = 0.0): ScreamerOp {
   const M = current();
-  if (typeof fill === "string" || (fill as unknown) instanceof String) throw new TypeError(`fill must be a number, got a string`);
+  if (_isText(fill)) throw new TypeError(`fill must be a number, got a string`);
   return wrapOp(M, () => new M.FillNa(fill));
 }
 
@@ -1711,9 +1724,9 @@ export function Floor(): ScreamerOp {
  */
 export function FracDiff(d: number = 0.4, windowSize: number = 100, threshold: number = 1e-05, startPolicy: string = "strict"): ScreamerOp {
   const M = current();
-  if (typeof d === "string" || (d as unknown) instanceof String) throw new TypeError(`d must be a number, got a string`);
-  if (typeof windowSize === "string" || (windowSize as unknown) instanceof String) throw new TypeError(`windowSize must be a number, got a string`);
-  if (typeof threshold === "string" || (threshold as unknown) instanceof String) throw new TypeError(`threshold must be a number, got a string`);
+  if (_isText(d)) throw new TypeError(`d must be a number, got a string`);
+  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
+  if (_isText(threshold)) throw new TypeError(`threshold must be a number, got a string`);
   if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
   return wrapOp(M, () => new M.FracDiff(d, windowSize, threshold, startPolicy));
 }
@@ -1749,8 +1762,8 @@ export function GreaterThan(): ScreamerOp {
  */
 export function Hampel(windowSize: number = 20, nSigma: number = 3.0, output: string = "cleaned", startPolicy: string = "strict"): ScreamerOp {
   const M = current();
-  if (typeof windowSize === "string" || (windowSize as unknown) instanceof String) throw new TypeError(`windowSize must be a number, got a string`);
-  if (typeof nSigma === "string" || (nSigma as unknown) instanceof String) throw new TypeError(`nSigma must be a number, got a string`);
+  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
+  if (_isText(nSigma)) throw new TypeError(`nSigma must be a number, got a string`);
   if (typeof output !== "string") throw new TypeError(`output must be a string, got ${typeof output}`);
   if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
   return wrapOp(M, () => new M.Hampel(windowSize, nSigma, output, startPolicy));
@@ -1766,9 +1779,9 @@ export function Hampel(windowSize: number = 20, nSigma: number = 3.0, output: st
  */
 export function HawkesIntensity(decay: number = 0.9, alpha: number = 1.0, mu: number = 0.0): ScreamerOp {
   const M = current();
-  if (typeof decay === "string" || (decay as unknown) instanceof String) throw new TypeError(`decay must be a number, got a string`);
-  if (typeof alpha === "string" || (alpha as unknown) instanceof String) throw new TypeError(`alpha must be a number, got a string`);
-  if (typeof mu === "string" || (mu as unknown) instanceof String) throw new TypeError(`mu must be a number, got a string`);
+  if (_isText(decay)) throw new TypeError(`decay must be a number, got a string`);
+  if (_isText(alpha)) throw new TypeError(`alpha must be a number, got a string`);
+  if (_isText(mu)) throw new TypeError(`mu must be a number, got a string`);
   return wrapOp(M, () => new M.HawkesIntensity(decay, alpha, mu));
 }
 
@@ -1791,8 +1804,8 @@ export function HilbertPhasor(): ScreamerOp {
  */
 export function Hold(n: number, release: number = 0.0): ScreamerOp {
   const M = current();
-  if (typeof n === "string" || (n as unknown) instanceof String) throw new TypeError(`n must be a number, got a string`);
-  if (typeof release === "string" || (release as unknown) instanceof String) throw new TypeError(`release must be a number, got a string`);
+  if (_isText(n)) throw new TypeError(`n must be a number, got a string`);
+  if (_isText(release)) throw new TypeError(`release must be a number, got a string`);
   return wrapOp(M, () => new M.Hold(n, release));
 }
 
@@ -1804,7 +1817,7 @@ export function Hold(n: number, release: number = 0.0): ScreamerOp {
  */
 export function HullMA(windowSize: number = 20): ScreamerOp {
   const M = current();
-  if (typeof windowSize === "string" || (windowSize as unknown) instanceof String) throw new TypeError(`windowSize must be a number, got a string`);
+  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   return wrapOp(M, () => new M.HullMA(windowSize));
 }
 
@@ -1839,8 +1852,8 @@ export function Identity(): ScreamerOp {
  */
 export function ImpulseClip(windowSize: number = 20, nSigma: number = 4.0, output: string = "cleaned", startPolicy: string = "strict"): ScreamerOp {
   const M = current();
-  if (typeof windowSize === "string" || (windowSize as unknown) instanceof String) throw new TypeError(`windowSize must be a number, got a string`);
-  if (typeof nSigma === "string" || (nSigma as unknown) instanceof String) throw new TypeError(`nSigma must be a number, got a string`);
+  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
+  if (_isText(nSigma)) throw new TypeError(`nSigma must be a number, got a string`);
   if (typeof output !== "string") throw new TypeError(`output must be a string, got ${typeof output}`);
   if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
   return wrapOp(M, () => new M.ImpulseClip(windowSize, nSigma, output, startPolicy));
@@ -1886,9 +1899,9 @@ export function IsNan(): ScreamerOp {
  */
 export function KAMA(windowSize: number = 10, fast: number = 2, slow: number = 30): ScreamerOp {
   const M = current();
-  if (typeof windowSize === "string" || (windowSize as unknown) instanceof String) throw new TypeError(`windowSize must be a number, got a string`);
-  if (typeof fast === "string" || (fast as unknown) instanceof String) throw new TypeError(`fast must be a number, got a string`);
-  if (typeof slow === "string" || (slow as unknown) instanceof String) throw new TypeError(`slow must be a number, got a string`);
+  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
+  if (_isText(fast)) throw new TypeError(`fast must be a number, got a string`);
+  if (_isText(slow)) throw new TypeError(`slow must be a number, got a string`);
   return wrapOp(M, () => new M.KAMA(windowSize, fast, slow));
 }
 
@@ -1903,10 +1916,10 @@ export function KAMA(windowSize: number = 10, fast: number = 2, slow: number = 3
  */
 export function KalmanFilter(processVar: number = 0.01, observationVar: number = 1.0, initialState: number = 0.0, initialVariance: number = 1.0): ScreamerOp {
   const M = current();
-  if (typeof processVar === "string" || (processVar as unknown) instanceof String) throw new TypeError(`processVar must be a number, got a string`);
-  if (typeof observationVar === "string" || (observationVar as unknown) instanceof String) throw new TypeError(`observationVar must be a number, got a string`);
-  if (typeof initialState === "string" || (initialState as unknown) instanceof String) throw new TypeError(`initialState must be a number, got a string`);
-  if (typeof initialVariance === "string" || (initialVariance as unknown) instanceof String) throw new TypeError(`initialVariance must be a number, got a string`);
+  if (_isText(processVar)) throw new TypeError(`processVar must be a number, got a string`);
+  if (_isText(observationVar)) throw new TypeError(`observationVar must be a number, got a string`);
+  if (_isText(initialState)) throw new TypeError(`initialState must be a number, got a string`);
+  if (_isText(initialVariance)) throw new TypeError(`initialVariance must be a number, got a string`);
   return wrapOp(M, () => new M.KalmanFilter(processVar, observationVar, initialState, initialVariance));
 }
 
@@ -1920,9 +1933,9 @@ export function KalmanFilter(processVar: number = 0.01, observationVar: number =
  */
 export function KalmanRegression(delta: number = 1e-06, obsVar: number = 0.001, priorVar: number = 1.0): ScreamerOp {
   const M = current();
-  if (typeof delta === "string" || (delta as unknown) instanceof String) throw new TypeError(`delta must be a number, got a string`);
-  if (typeof obsVar === "string" || (obsVar as unknown) instanceof String) throw new TypeError(`obsVar must be a number, got a string`);
-  if (typeof priorVar === "string" || (priorVar as unknown) instanceof String) throw new TypeError(`priorVar must be a number, got a string`);
+  if (_isText(delta)) throw new TypeError(`delta must be a number, got a string`);
+  if (_isText(obsVar)) throw new TypeError(`obsVar must be a number, got a string`);
+  if (_isText(priorVar)) throw new TypeError(`priorVar must be a number, got a string`);
   return wrapOp(M, () => new M.KalmanRegression(delta, obsVar, priorVar));
 }
 
@@ -1935,8 +1948,8 @@ export function KalmanRegression(delta: number = 1e-06, obsVar: number = 0.001, 
  */
 export function KeltnerChannels(windowSize: number = 20, numAtr: number = 2.0): ScreamerOp {
   const M = current();
-  if (typeof windowSize === "string" || (windowSize as unknown) instanceof String) throw new TypeError(`windowSize must be a number, got a string`);
-  if (typeof numAtr === "string" || (numAtr as unknown) instanceof String) throw new TypeError(`numAtr must be a number, got a string`);
+  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
+  if (_isText(numAtr)) throw new TypeError(`numAtr must be a number, got a string`);
   return wrapOp(M, () => new M.KeltnerChannels(windowSize, numAtr));
 }
 
@@ -1949,7 +1962,7 @@ export function KeltnerChannels(windowSize: number = 20, numAtr: number = 2.0): 
  */
 export function Lag(windowSize: number = 1, startPolicy: string = "strict"): ScreamerOp {
   const M = current();
-  if (typeof windowSize === "string" || (windowSize as unknown) instanceof String) throw new TypeError(`windowSize must be a number, got a string`);
+  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
   return wrapOp(M, () => new M.Lag(windowSize, startPolicy));
 }
@@ -2003,8 +2016,8 @@ export function LessThan(): ScreamerOp {
  */
 export function Linear(scale: number = 1.0, shift: number = 0.0): ScreamerOp {
   const M = current();
-  if (typeof scale === "string" || (scale as unknown) instanceof String) throw new TypeError(`scale must be a number, got a string`);
-  if (typeof shift === "string" || (shift as unknown) instanceof String) throw new TypeError(`shift must be a number, got a string`);
+  if (_isText(scale)) throw new TypeError(`scale must be a number, got a string`);
+  if (_isText(shift)) throw new TypeError(`shift must be a number, got a string`);
   return wrapOp(M, () => new M.Linear(scale, shift));
 }
 
@@ -2018,9 +2031,9 @@ export function Linear(scale: number = 1.0, shift: number = 0.0): ScreamerOp {
  */
 export function Linear2(a: number = 1.0, b: number = 1.0, c: number = 0.0): ScreamerOp {
   const M = current();
-  if (typeof a === "string" || (a as unknown) instanceof String) throw new TypeError(`a must be a number, got a string`);
-  if (typeof b === "string" || (b as unknown) instanceof String) throw new TypeError(`b must be a number, got a string`);
-  if (typeof c === "string" || (c as unknown) instanceof String) throw new TypeError(`c must be a number, got a string`);
+  if (_isText(a)) throw new TypeError(`a must be a number, got a string`);
+  if (_isText(b)) throw new TypeError(`b must be a number, got a string`);
+  if (_isText(c)) throw new TypeError(`c must be a number, got a string`);
   return wrapOp(M, () => new M.Linear2(a, b, c));
 }
 
@@ -2042,7 +2055,7 @@ export function Log(): ScreamerOp {
  */
 export function LogReturn(windowSize: number = 1): ScreamerOp {
   const M = current();
-  if (typeof windowSize === "string" || (windowSize as unknown) instanceof String) throw new TypeError(`windowSize must be a number, got a string`);
+  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   return wrapOp(M, () => new M.LogReturn(windowSize));
 }
 
@@ -2056,9 +2069,9 @@ export function LogReturn(windowSize: number = 1): ScreamerOp {
  */
 export function MACD(fast: number = 12, slow: number = 26, signal: number = 9): ScreamerOp {
   const M = current();
-  if (typeof fast === "string" || (fast as unknown) instanceof String) throw new TypeError(`fast must be a number, got a string`);
-  if (typeof slow === "string" || (slow as unknown) instanceof String) throw new TypeError(`slow must be a number, got a string`);
-  if (typeof signal === "string" || (signal as unknown) instanceof String) throw new TypeError(`signal must be a number, got a string`);
+  if (_isText(fast)) throw new TypeError(`fast must be a number, got a string`);
+  if (_isText(slow)) throw new TypeError(`slow must be a number, got a string`);
+  if (_isText(signal)) throw new TypeError(`signal must be a number, got a string`);
   return wrapOp(M, () => new M.MACD(fast, slow, signal));
 }
 
@@ -2071,8 +2084,8 @@ export function MACD(fast: number = 12, slow: number = 26, signal: number = 9): 
  */
 export function MAMA(fastLimit: number = 0.5, slowLimit: number = 0.05): ScreamerOp {
   const M = current();
-  if (typeof fastLimit === "string" || (fastLimit as unknown) instanceof String) throw new TypeError(`fastLimit must be a number, got a string`);
-  if (typeof slowLimit === "string" || (slowLimit as unknown) instanceof String) throw new TypeError(`slowLimit must be a number, got a string`);
+  if (_isText(fastLimit)) throw new TypeError(`fastLimit must be a number, got a string`);
+  if (_isText(slowLimit)) throw new TypeError(`slowLimit must be a number, got a string`);
   return wrapOp(M, () => new M.MAMA(fastLimit, slowLimit));
 }
 
@@ -2084,7 +2097,7 @@ export function MAMA(fastLimit: number = 0.5, slowLimit: number = 0.05): Screame
  */
 export function MFI(windowSize: number = 14): ScreamerOp {
   const M = current();
-  if (typeof windowSize === "string" || (windowSize as unknown) instanceof String) throw new TypeError(`windowSize must be a number, got a string`);
+  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   return wrapOp(M, () => new M.MFI(windowSize));
 }
 
@@ -2116,7 +2129,7 @@ export function MicroPrice(): ScreamerOp {
  */
 export function MinusDI(windowSize: number = 14): ScreamerOp {
   const M = current();
-  if (typeof windowSize === "string" || (windowSize as unknown) instanceof String) throw new TypeError(`windowSize must be a number, got a string`);
+  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   return wrapOp(M, () => new M.MinusDI(windowSize));
 }
 
@@ -2128,7 +2141,7 @@ export function MinusDI(windowSize: number = 14): ScreamerOp {
  */
 export function MinusDM(windowSize: number = 14): ScreamerOp {
   const M = current();
-  if (typeof windowSize === "string" || (windowSize as unknown) instanceof String) throw new TypeError(`windowSize must be a number, got a string`);
+  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   return wrapOp(M, () => new M.MinusDM(windowSize));
 }
 
@@ -2141,7 +2154,7 @@ export function MinusDM(windowSize: number = 14): ScreamerOp {
  */
 export function Momentum(windowSize: number = 10, startPolicy: string = "strict"): ScreamerOp {
   const M = current();
-  if (typeof windowSize === "string" || (windowSize as unknown) instanceof String) throw new TypeError(`windowSize must be a number, got a string`);
+  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
   return wrapOp(M, () => new M.Momentum(windowSize, startPolicy));
 }
@@ -2155,6 +2168,7 @@ export function Momentum(windowSize: number = 10, startPolicy: string = "strict"
 export function MovingAverage(taps: number | number[] = [0.25, 0.5, 0.25]): ScreamerOp {
   const M = current();
   const taps_ = Array.isArray(taps) ? Array.from(taps) : taps;
+  if (_isText(taps_) || (Array.isArray(taps_) && taps_.some(_isText))) throw new TypeError(`taps must be a number or an array of numbers, got a string`);
   return wrapOp(M, () => {
     const _v0 = new M.VectorDouble();
     try {
@@ -2184,7 +2198,7 @@ export function Mul(): ScreamerOp {
  */
 export function NATR(windowSize: number = 14): ScreamerOp {
   const M = current();
-  if (typeof windowSize === "string" || (windowSize as unknown) instanceof String) throw new TypeError(`windowSize must be a number, got a string`);
+  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   return wrapOp(M, () => new M.NATR(windowSize));
 }
 
@@ -2256,7 +2270,7 @@ export function Or(): ScreamerOp {
  */
 export function PlusDI(windowSize: number = 14): ScreamerOp {
   const M = current();
-  if (typeof windowSize === "string" || (windowSize as unknown) instanceof String) throw new TypeError(`windowSize must be a number, got a string`);
+  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   return wrapOp(M, () => new M.PlusDI(windowSize));
 }
 
@@ -2268,7 +2282,7 @@ export function PlusDI(windowSize: number = 14): ScreamerOp {
  */
 export function PlusDM(windowSize: number = 14): ScreamerOp {
   const M = current();
-  if (typeof windowSize === "string" || (windowSize as unknown) instanceof String) throw new TypeError(`windowSize must be a number, got a string`);
+  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   return wrapOp(M, () => new M.PlusDM(windowSize));
 }
 
@@ -2310,7 +2324,7 @@ export function PosPart(): ScreamerOp {
  */
 export function Power(p: number = 2.0): ScreamerOp {
   const M = current();
-  if (typeof p === "string" || (p as unknown) instanceof String) throw new TypeError(`p must be a number, got a string`);
+  if (_isText(p)) throw new TypeError(`p must be a number, got a string`);
   return wrapOp(M, () => new M.Power(p));
 }
 
@@ -2324,9 +2338,9 @@ export function Power(p: number = 2.0): ScreamerOp {
  */
 export function Propagator(windowSize: number = 20, g0: number = 1.0, gamma: number = 0.5): ScreamerOp {
   const M = current();
-  if (typeof windowSize === "string" || (windowSize as unknown) instanceof String) throw new TypeError(`windowSize must be a number, got a string`);
-  if (typeof g0 === "string" || (g0 as unknown) instanceof String) throw new TypeError(`g0 must be a number, got a string`);
-  if (typeof gamma === "string" || (gamma as unknown) instanceof String) throw new TypeError(`gamma must be a number, got a string`);
+  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
+  if (_isText(g0)) throw new TypeError(`g0 must be a number, got a string`);
+  if (_isText(gamma)) throw new TypeError(`gamma must be a number, got a string`);
   return wrapOp(M, () => new M.Propagator(windowSize, g0, gamma));
 }
 
@@ -2338,7 +2352,7 @@ export function Propagator(windowSize: number = 20, g0: number = 1.0, gamma: num
  */
 export function ROC(windowSize: number = 10): ScreamerOp {
   const M = current();
-  if (typeof windowSize === "string" || (windowSize as unknown) instanceof String) throw new TypeError(`windowSize must be a number, got a string`);
+  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   return wrapOp(M, () => new M.ROC(windowSize));
 }
 
@@ -2350,7 +2364,7 @@ export function ROC(windowSize: number = 10): ScreamerOp {
  */
 export function ROCP(windowSize: number = 10): ScreamerOp {
   const M = current();
-  if (typeof windowSize === "string" || (windowSize as unknown) instanceof String) throw new TypeError(`windowSize must be a number, got a string`);
+  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   return wrapOp(M, () => new M.ROCP(windowSize));
 }
 
@@ -2362,7 +2376,7 @@ export function ROCP(windowSize: number = 10): ScreamerOp {
  */
 export function ROCR(windowSize: number = 10): ScreamerOp {
   const M = current();
-  if (typeof windowSize === "string" || (windowSize as unknown) instanceof String) throw new TypeError(`windowSize must be a number, got a string`);
+  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   return wrapOp(M, () => new M.ROCR(windowSize));
 }
 
@@ -2374,7 +2388,7 @@ export function ROCR(windowSize: number = 10): ScreamerOp {
  */
 export function RealizedSpread(lag: number = 1): ScreamerOp {
   const M = current();
-  if (typeof lag === "string" || (lag as unknown) instanceof String) throw new TypeError(`lag must be a number, got a string`);
+  if (_isText(lag)) throw new TypeError(`lag must be a number, got a string`);
   return wrapOp(M, () => new M.RealizedSpread(lag));
 }
 
@@ -2396,7 +2410,7 @@ export function Relu(): ScreamerOp {
  */
 export function Return(windowSize: number = 1): ScreamerOp {
   const M = current();
-  if (typeof windowSize === "string" || (windowSize as unknown) instanceof String) throw new TypeError(`windowSize must be a number, got a string`);
+  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   return wrapOp(M, () => new M.Return(windowSize));
 }
 
@@ -2409,7 +2423,7 @@ export function Return(windowSize: number = 1): ScreamerOp {
  */
 export function RollSpread(windowSize: number = 20, startPolicy: string = "strict"): ScreamerOp {
   const M = current();
-  if (typeof windowSize === "string" || (windowSize as unknown) instanceof String) throw new TypeError(`windowSize must be a number, got a string`);
+  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
   return wrapOp(M, () => new M.RollSpread(windowSize, startPolicy));
 }
@@ -2423,8 +2437,8 @@ export function RollSpread(windowSize: number = 20, startPolicy: string = "stric
  */
 export function RollingADF(windowSize: number = 100, lags: number = 1): ScreamerOp {
   const M = current();
-  if (typeof windowSize === "string" || (windowSize as unknown) instanceof String) throw new TypeError(`windowSize must be a number, got a string`);
-  if (typeof lags === "string" || (lags as unknown) instanceof String) throw new TypeError(`lags must be a number, got a string`);
+  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
+  if (_isText(lags)) throw new TypeError(`lags must be a number, got a string`);
   return wrapOp(M, () => new M.RollingADF(windowSize, lags));
 }
 
@@ -2437,7 +2451,7 @@ export function RollingADF(windowSize: number = 100, lags: number = 1): Screamer
  */
 export function RollingAlpha(windowSize: number = 20, startPolicy: string = "strict"): ScreamerOp {
   const M = current();
-  if (typeof windowSize === "string" || (windowSize as unknown) instanceof String) throw new TypeError(`windowSize must be a number, got a string`);
+  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
   return wrapOp(M, () => new M.RollingAlpha(windowSize, startPolicy));
 }
@@ -2450,7 +2464,7 @@ export function RollingAlpha(windowSize: number = 20, startPolicy: string = "str
  */
 export function RollingArgmax(windowSize: number = 20): ScreamerOp {
   const M = current();
-  if (typeof windowSize === "string" || (windowSize as unknown) instanceof String) throw new TypeError(`windowSize must be a number, got a string`);
+  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   return wrapOp(M, () => new M.RollingArgmax(windowSize));
 }
 
@@ -2462,7 +2476,7 @@ export function RollingArgmax(windowSize: number = 20): ScreamerOp {
  */
 export function RollingArgmin(windowSize: number = 20): ScreamerOp {
   const M = current();
-  if (typeof windowSize === "string" || (windowSize as unknown) instanceof String) throw new TypeError(`windowSize must be a number, got a string`);
+  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   return wrapOp(M, () => new M.RollingArgmin(windowSize));
 }
 
@@ -2475,7 +2489,7 @@ export function RollingArgmin(windowSize: number = 20): ScreamerOp {
  */
 export function RollingBeta(windowSize: number = 20, startPolicy: string = "strict"): ScreamerOp {
   const M = current();
-  if (typeof windowSize === "string" || (windowSize as unknown) instanceof String) throw new TypeError(`windowSize must be a number, got a string`);
+  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
   return wrapOp(M, () => new M.RollingBeta(windowSize, startPolicy));
 }
@@ -2489,8 +2503,8 @@ export function RollingBeta(windowSize: number = 20, startPolicy: string = "stri
  */
 export function RollingCVaR(windowSize: number = 20, alpha: number = 0.05): ScreamerOp {
   const M = current();
-  if (typeof windowSize === "string" || (windowSize as unknown) instanceof String) throw new TypeError(`windowSize must be a number, got a string`);
-  if (typeof alpha === "string" || (alpha as unknown) instanceof String) throw new TypeError(`alpha must be a number, got a string`);
+  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
+  if (_isText(alpha)) throw new TypeError(`alpha must be a number, got a string`);
   return wrapOp(M, () => new M.RollingCVaR(windowSize, alpha));
 }
 
@@ -2503,8 +2517,8 @@ export function RollingCVaR(windowSize: number = 20, alpha: number = 0.05): Scre
  */
 export function RollingCalmar(windowSize: number = 252, periodsPerYear: number = 1.0): ScreamerOp {
   const M = current();
-  if (typeof windowSize === "string" || (windowSize as unknown) instanceof String) throw new TypeError(`windowSize must be a number, got a string`);
-  if (typeof periodsPerYear === "string" || (periodsPerYear as unknown) instanceof String) throw new TypeError(`periodsPerYear must be a number, got a string`);
+  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
+  if (_isText(periodsPerYear)) throw new TypeError(`periodsPerYear must be a number, got a string`);
   return wrapOp(M, () => new M.RollingCalmar(windowSize, periodsPerYear));
 }
 
@@ -2517,7 +2531,7 @@ export function RollingCalmar(windowSize: number = 252, periodsPerYear: number =
  */
 export function RollingCorr(windowSize: number = 20, startPolicy: string = "strict"): ScreamerOp {
   const M = current();
-  if (typeof windowSize === "string" || (windowSize as unknown) instanceof String) throw new TypeError(`windowSize must be a number, got a string`);
+  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
   return wrapOp(M, () => new M.RollingCorr(windowSize, startPolicy));
 }
@@ -2531,7 +2545,7 @@ export function RollingCorr(windowSize: number = 20, startPolicy: string = "stri
  */
 export function RollingCov(windowSize: number = 20, startPolicy: string = "strict"): ScreamerOp {
   const M = current();
-  if (typeof windowSize === "string" || (windowSize as unknown) instanceof String) throw new TypeError(`windowSize must be a number, got a string`);
+  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
   return wrapOp(M, () => new M.RollingCov(windowSize, startPolicy));
 }
@@ -2546,8 +2560,8 @@ export function RollingCov(windowSize: number = 20, startPolicy: string = "stric
  */
 export function RollingDownsideDeviation(windowSize: number = 20, mar: number = 0.0, startPolicy: string = "strict"): ScreamerOp {
   const M = current();
-  if (typeof windowSize === "string" || (windowSize as unknown) instanceof String) throw new TypeError(`windowSize must be a number, got a string`);
-  if (typeof mar === "string" || (mar as unknown) instanceof String) throw new TypeError(`mar must be a number, got a string`);
+  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
+  if (_isText(mar)) throw new TypeError(`mar must be a number, got a string`);
   if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
   return wrapOp(M, () => new M.RollingDownsideDeviation(windowSize, mar, startPolicy));
 }
@@ -2560,7 +2574,7 @@ export function RollingDownsideDeviation(windowSize: number = 20, mar: number = 
  */
 export function RollingGarmanKlassVar(windowSize: number = 20): ScreamerOp {
   const M = current();
-  if (typeof windowSize === "string" || (windowSize as unknown) instanceof String) throw new TypeError(`windowSize must be a number, got a string`);
+  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   return wrapOp(M, () => new M.RollingGarmanKlassVar(windowSize));
 }
 
@@ -2572,7 +2586,7 @@ export function RollingGarmanKlassVar(windowSize: number = 20): ScreamerOp {
  */
 export function RollingGarmanKlassVol(windowSize: number = 20): ScreamerOp {
   const M = current();
-  if (typeof windowSize === "string" || (windowSize as unknown) instanceof String) throw new TypeError(`windowSize must be a number, got a string`);
+  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   return wrapOp(M, () => new M.RollingGarmanKlassVol(windowSize));
 }
 
@@ -2584,7 +2598,7 @@ export function RollingGarmanKlassVol(windowSize: number = 20): ScreamerOp {
  */
 export function RollingHitRate(windowSize: number = 252): ScreamerOp {
   const M = current();
-  if (typeof windowSize === "string" || (windowSize as unknown) instanceof String) throw new TypeError(`windowSize must be a number, got a string`);
+  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   return wrapOp(M, () => new M.RollingHitRate(windowSize));
 }
 
@@ -2598,8 +2612,8 @@ export function RollingHitRate(windowSize: number = 252): ScreamerOp {
  */
 export function RollingHurst(windowSize: number = 256, minScale: number = 4, method: string = "rs"): ScreamerOp {
   const M = current();
-  if (typeof windowSize === "string" || (windowSize as unknown) instanceof String) throw new TypeError(`windowSize must be a number, got a string`);
-  if (typeof minScale === "string" || (minScale as unknown) instanceof String) throw new TypeError(`minScale must be a number, got a string`);
+  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
+  if (_isText(minScale)) throw new TypeError(`minScale must be a number, got a string`);
   if (typeof method !== "string") throw new TypeError(`method must be a string, got ${typeof method}`);
   return wrapOp(M, () => new M.RollingHurst(windowSize, minScale, method));
 }
@@ -2613,8 +2627,8 @@ export function RollingHurst(windowSize: number = 256, minScale: number = 4, met
  */
 export function RollingInfoRatio(windowSize: number = 252, periodsPerYear: number = 1.0): ScreamerOp {
   const M = current();
-  if (typeof windowSize === "string" || (windowSize as unknown) instanceof String) throw new TypeError(`windowSize must be a number, got a string`);
-  if (typeof periodsPerYear === "string" || (periodsPerYear as unknown) instanceof String) throw new TypeError(`periodsPerYear must be a number, got a string`);
+  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
+  if (_isText(periodsPerYear)) throw new TypeError(`periodsPerYear must be a number, got a string`);
   return wrapOp(M, () => new M.RollingInfoRatio(windowSize, periodsPerYear));
 }
 
@@ -2626,7 +2640,7 @@ export function RollingInfoRatio(windowSize: number = 252, periodsPerYear: numbe
  */
 export function RollingIqr(windowSize: number = 20): ScreamerOp {
   const M = current();
-  if (typeof windowSize === "string" || (windowSize as unknown) instanceof String) throw new TypeError(`windowSize must be a number, got a string`);
+  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   return wrapOp(M, () => new M.RollingIqr(windowSize));
 }
 
@@ -2639,7 +2653,7 @@ export function RollingIqr(windowSize: number = 20): ScreamerOp {
  */
 export function RollingKurt(windowSize: number = 20, startPolicy: string = "strict"): ScreamerOp {
   const M = current();
-  if (typeof windowSize === "string" || (windowSize as unknown) instanceof String) throw new TypeError(`windowSize must be a number, got a string`);
+  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
   return wrapOp(M, () => new M.RollingKurt(windowSize, startPolicy));
 }
@@ -2653,7 +2667,7 @@ export function RollingKurt(windowSize: number = 20, startPolicy: string = "stri
  */
 export function RollingLinearRegression(windowSize: number = 20, startPolicy: string = "strict"): ScreamerOp {
   const M = current();
-  if (typeof windowSize === "string" || (windowSize as unknown) instanceof String) throw new TypeError(`windowSize must be a number, got a string`);
+  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
   return wrapOp(M, () => new M.RollingLinearRegression(windowSize, startPolicy));
 }
@@ -2667,7 +2681,7 @@ export function RollingLinearRegression(windowSize: number = 20, startPolicy: st
  */
 export function RollingMad(windowSize: number = 20, startPolicy: string = "strict"): ScreamerOp {
   const M = current();
-  if (typeof windowSize === "string" || (windowSize as unknown) instanceof String) throw new TypeError(`windowSize must be a number, got a string`);
+  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
   return wrapOp(M, () => new M.RollingMad(windowSize, startPolicy));
 }
@@ -2680,7 +2694,7 @@ export function RollingMad(windowSize: number = 20, startPolicy: string = "stric
  */
 export function RollingMax(windowSize: number = 20): ScreamerOp {
   const M = current();
-  if (typeof windowSize === "string" || (windowSize as unknown) instanceof String) throw new TypeError(`windowSize must be a number, got a string`);
+  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   return wrapOp(M, () => new M.RollingMax(windowSize));
 }
 
@@ -2692,7 +2706,7 @@ export function RollingMax(windowSize: number = 20): ScreamerOp {
  */
 export function RollingMaxDrawdown(windowSize: number = 252): ScreamerOp {
   const M = current();
-  if (typeof windowSize === "string" || (windowSize as unknown) instanceof String) throw new TypeError(`windowSize must be a number, got a string`);
+  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   return wrapOp(M, () => new M.RollingMaxDrawdown(windowSize));
 }
 
@@ -2705,7 +2719,7 @@ export function RollingMaxDrawdown(windowSize: number = 252): ScreamerOp {
  */
 export function RollingMean(windowSize: number = 20, startPolicy: string = "strict"): ScreamerOp {
   const M = current();
-  if (typeof windowSize === "string" || (windowSize as unknown) instanceof String) throw new TypeError(`windowSize must be a number, got a string`);
+  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
   return wrapOp(M, () => new M.RollingMean(windowSize, startPolicy));
 }
@@ -2718,7 +2732,7 @@ export function RollingMean(windowSize: number = 20, startPolicy: string = "stri
  */
 export function RollingMedian(windowSize: number = 20): ScreamerOp {
   const M = current();
-  if (typeof windowSize === "string" || (windowSize as unknown) instanceof String) throw new TypeError(`windowSize must be a number, got a string`);
+  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   return wrapOp(M, () => new M.RollingMedian(windowSize));
 }
 
@@ -2731,7 +2745,7 @@ export function RollingMedian(windowSize: number = 20): ScreamerOp {
  */
 export function RollingMedianAD(windowSize: number = 20, startPolicy: string = "strict"): ScreamerOp {
   const M = current();
-  if (typeof windowSize === "string" || (windowSize as unknown) instanceof String) throw new TypeError(`windowSize must be a number, got a string`);
+  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
   return wrapOp(M, () => new M.RollingMedianAD(windowSize, startPolicy));
 }
@@ -2744,7 +2758,7 @@ export function RollingMedianAD(windowSize: number = 20, startPolicy: string = "
  */
 export function RollingMin(windowSize: number = 20): ScreamerOp {
   const M = current();
-  if (typeof windowSize === "string" || (windowSize as unknown) instanceof String) throw new TypeError(`windowSize must be a number, got a string`);
+  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   return wrapOp(M, () => new M.RollingMin(windowSize));
 }
 
@@ -2756,7 +2770,7 @@ export function RollingMin(windowSize: number = 20): ScreamerOp {
  */
 export function RollingMinMax(windowSize: number = 20): ScreamerOp {
   const M = current();
-  if (typeof windowSize === "string" || (windowSize as unknown) instanceof String) throw new TypeError(`windowSize must be a number, got a string`);
+  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   return wrapOp(M, () => new M.RollingMinMax(windowSize));
 }
 
@@ -2770,7 +2784,7 @@ export function RollingMinMax(windowSize: number = 20): ScreamerOp {
  */
 export function RollingOU(windowSize: number = 20, output: string = "mrr", startPolicy: string = "strict"): ScreamerOp {
   const M = current();
-  if (typeof windowSize === "string" || (windowSize as unknown) instanceof String) throw new TypeError(`windowSize must be a number, got a string`);
+  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   if (typeof output !== "string") throw new TypeError(`output must be a string, got ${typeof output}`);
   if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
   return wrapOp(M, () => new M.RollingOU(windowSize, output, startPolicy));
@@ -2785,8 +2799,8 @@ export function RollingOU(windowSize: number = 20, output: string = "mrr", start
  */
 export function RollingOmega(windowSize: number = 20, threshold: number = 0.0): ScreamerOp {
   const M = current();
-  if (typeof windowSize === "string" || (windowSize as unknown) instanceof String) throw new TypeError(`windowSize must be a number, got a string`);
-  if (typeof threshold === "string" || (threshold as unknown) instanceof String) throw new TypeError(`threshold must be a number, got a string`);
+  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
+  if (_isText(threshold)) throw new TypeError(`threshold must be a number, got a string`);
   return wrapOp(M, () => new M.RollingOmega(windowSize, threshold));
 }
 
@@ -2798,7 +2812,7 @@ export function RollingOmega(windowSize: number = 20, threshold: number = 0.0): 
  */
 export function RollingParkinsonVar(windowSize: number = 20): ScreamerOp {
   const M = current();
-  if (typeof windowSize === "string" || (windowSize as unknown) instanceof String) throw new TypeError(`windowSize must be a number, got a string`);
+  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   return wrapOp(M, () => new M.RollingParkinsonVar(windowSize));
 }
 
@@ -2810,7 +2824,7 @@ export function RollingParkinsonVar(windowSize: number = 20): ScreamerOp {
  */
 export function RollingParkinsonVol(windowSize: number = 20): ScreamerOp {
   const M = current();
-  if (typeof windowSize === "string" || (windowSize as unknown) instanceof String) throw new TypeError(`windowSize must be a number, got a string`);
+  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   return wrapOp(M, () => new M.RollingParkinsonVol(windowSize));
 }
 
@@ -2822,7 +2836,7 @@ export function RollingParkinsonVol(windowSize: number = 20): ScreamerOp {
  */
 export function RollingPercentile(windowSize: number = 20): ScreamerOp {
   const M = current();
-  if (typeof windowSize === "string" || (windowSize as unknown) instanceof String) throw new TypeError(`windowSize must be a number, got a string`);
+  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   return wrapOp(M, () => new M.RollingPercentile(windowSize));
 }
 
@@ -2836,8 +2850,8 @@ export function RollingPercentile(windowSize: number = 20): ScreamerOp {
  */
 export function RollingPoly1(windowSize: number = 20, derivativeOrder: number = 0, startPolicy: string = "strict"): ScreamerOp {
   const M = current();
-  if (typeof windowSize === "string" || (windowSize as unknown) instanceof String) throw new TypeError(`windowSize must be a number, got a string`);
-  if (typeof derivativeOrder === "string" || (derivativeOrder as unknown) instanceof String) throw new TypeError(`derivativeOrder must be a number, got a string`);
+  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
+  if (_isText(derivativeOrder)) throw new TypeError(`derivativeOrder must be a number, got a string`);
   if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
   return wrapOp(M, () => new M.RollingPoly1(windowSize, derivativeOrder, startPolicy));
 }
@@ -2852,8 +2866,8 @@ export function RollingPoly1(windowSize: number = 20, derivativeOrder: number = 
  */
 export function RollingPoly2(windowSize: number = 20, derivativeOrder: number = 0, startPolicy: string = "strict"): ScreamerOp {
   const M = current();
-  if (typeof windowSize === "string" || (windowSize as unknown) instanceof String) throw new TypeError(`windowSize must be a number, got a string`);
-  if (typeof derivativeOrder === "string" || (derivativeOrder as unknown) instanceof String) throw new TypeError(`derivativeOrder must be a number, got a string`);
+  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
+  if (_isText(derivativeOrder)) throw new TypeError(`derivativeOrder must be a number, got a string`);
   if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
   return wrapOp(M, () => new M.RollingPoly2(windowSize, derivativeOrder, startPolicy));
 }
@@ -2867,8 +2881,8 @@ export function RollingPoly2(windowSize: number = 20, derivativeOrder: number = 
  */
 export function RollingQuantile(windowSize: number = 20, quantile: number = 0.5): ScreamerOp {
   const M = current();
-  if (typeof windowSize === "string" || (windowSize as unknown) instanceof String) throw new TypeError(`windowSize must be a number, got a string`);
-  if (typeof quantile === "string" || (quantile as unknown) instanceof String) throw new TypeError(`quantile must be a number, got a string`);
+  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
+  if (_isText(quantile)) throw new TypeError(`quantile must be a number, got a string`);
   return wrapOp(M, () => new M.RollingQuantile(windowSize, quantile));
 }
 
@@ -2882,7 +2896,7 @@ export function RollingQuantile(windowSize: number = 20, quantile: number = 0.5)
  */
 export function RollingRSI(windowSize: number = 14, method: string = "wilder", startPolicy: string = "strict"): ScreamerOp {
   const M = current();
-  if (typeof windowSize === "string" || (windowSize as unknown) instanceof String) throw new TypeError(`windowSize must be a number, got a string`);
+  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   if (typeof method !== "string") throw new TypeError(`method must be a string, got ${typeof method}`);
   if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
   return wrapOp(M, () => new M.RollingRSI(windowSize, method, startPolicy));
@@ -2896,7 +2910,7 @@ export function RollingRSI(windowSize: number = 14, method: string = "wilder", s
  */
 export function RollingRange(windowSize: number = 20): ScreamerOp {
   const M = current();
-  if (typeof windowSize === "string" || (windowSize as unknown) instanceof String) throw new TypeError(`windowSize must be a number, got a string`);
+  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   return wrapOp(M, () => new M.RollingRange(windowSize));
 }
 
@@ -2908,7 +2922,7 @@ export function RollingRange(windowSize: number = 20): ScreamerOp {
  */
 export function RollingRank(windowSize: number = 20): ScreamerOp {
   const M = current();
-  if (typeof windowSize === "string" || (windowSize as unknown) instanceof String) throw new TypeError(`windowSize must be a number, got a string`);
+  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   return wrapOp(M, () => new M.RollingRank(windowSize));
 }
 
@@ -2921,7 +2935,7 @@ export function RollingRank(windowSize: number = 20): ScreamerOp {
  */
 export function RollingResidualStd(windowSize: number = 20, startPolicy: string = "strict"): ScreamerOp {
   const M = current();
-  if (typeof windowSize === "string" || (windowSize as unknown) instanceof String) throw new TypeError(`windowSize must be a number, got a string`);
+  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
   return wrapOp(M, () => new M.RollingResidualStd(windowSize, startPolicy));
 }
@@ -2935,7 +2949,7 @@ export function RollingResidualStd(windowSize: number = 20, startPolicy: string 
  */
 export function RollingRms(windowSize: number = 20, startPolicy: string = "strict"): ScreamerOp {
   const M = current();
-  if (typeof windowSize === "string" || (windowSize as unknown) instanceof String) throw new TypeError(`windowSize must be a number, got a string`);
+  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
   return wrapOp(M, () => new M.RollingRms(windowSize, startPolicy));
 }
@@ -2948,7 +2962,7 @@ export function RollingRms(windowSize: number = 20, startPolicy: string = "stric
  */
 export function RollingRogersSatchellVar(windowSize: number = 20): ScreamerOp {
   const M = current();
-  if (typeof windowSize === "string" || (windowSize as unknown) instanceof String) throw new TypeError(`windowSize must be a number, got a string`);
+  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   return wrapOp(M, () => new M.RollingRogersSatchellVar(windowSize));
 }
 
@@ -2960,7 +2974,7 @@ export function RollingRogersSatchellVar(windowSize: number = 20): ScreamerOp {
  */
 export function RollingRogersSatchellVol(windowSize: number = 20): ScreamerOp {
   const M = current();
-  if (typeof windowSize === "string" || (windowSize as unknown) instanceof String) throw new TypeError(`windowSize must be a number, got a string`);
+  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   return wrapOp(M, () => new M.RollingRogersSatchellVol(windowSize));
 }
 
@@ -2973,8 +2987,8 @@ export function RollingRogersSatchellVol(windowSize: number = 20): ScreamerOp {
  */
 export function RollingSharpe(windowSize: number = 252, periodsPerYear: number = 1.0): ScreamerOp {
   const M = current();
-  if (typeof windowSize === "string" || (windowSize as unknown) instanceof String) throw new TypeError(`windowSize must be a number, got a string`);
-  if (typeof periodsPerYear === "string" || (periodsPerYear as unknown) instanceof String) throw new TypeError(`periodsPerYear must be a number, got a string`);
+  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
+  if (_isText(periodsPerYear)) throw new TypeError(`periodsPerYear must be a number, got a string`);
   return wrapOp(M, () => new M.RollingSharpe(windowSize, periodsPerYear));
 }
 
@@ -2990,9 +3004,9 @@ export function RollingSharpe(windowSize: number = 252, periodsPerYear: number =
  */
 export function RollingSigmaClip(windowSize: number = 20, lower: number = NaN, upper: number = NaN, output: string = "clipped", startPolicy: string = "strict"): ScreamerOp {
   const M = current();
-  if (typeof windowSize === "string" || (windowSize as unknown) instanceof String) throw new TypeError(`windowSize must be a number, got a string`);
-  if (typeof lower === "string" || (lower as unknown) instanceof String) throw new TypeError(`lower must be a number, got a string`);
-  if (typeof upper === "string" || (upper as unknown) instanceof String) throw new TypeError(`upper must be a number, got a string`);
+  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
+  if (_isText(lower)) throw new TypeError(`lower must be a number, got a string`);
+  if (_isText(upper)) throw new TypeError(`upper must be a number, got a string`);
   if (typeof output !== "string") throw new TypeError(`output must be a string, got ${typeof output}`);
   if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
   return wrapOp(M, () => new M.RollingSigmaClip(windowSize, lower, upper, output, startPolicy));
@@ -3007,7 +3021,7 @@ export function RollingSigmaClip(windowSize: number = 20, lower: number = NaN, u
  */
 export function RollingSkew(windowSize: number = 20, startPolicy: string = "strict"): ScreamerOp {
   const M = current();
-  if (typeof windowSize === "string" || (windowSize as unknown) instanceof String) throw new TypeError(`windowSize must be a number, got a string`);
+  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
   return wrapOp(M, () => new M.RollingSkew(windowSize, startPolicy));
 }
@@ -3022,9 +3036,9 @@ export function RollingSkew(windowSize: number = 20, startPolicy: string = "stri
  */
 export function RollingSortino(windowSize: number = 252, periodsPerYear: number = 1.0, target: number = 0.0): ScreamerOp {
   const M = current();
-  if (typeof windowSize === "string" || (windowSize as unknown) instanceof String) throw new TypeError(`windowSize must be a number, got a string`);
-  if (typeof periodsPerYear === "string" || (periodsPerYear as unknown) instanceof String) throw new TypeError(`periodsPerYear must be a number, got a string`);
-  if (typeof target === "string" || (target as unknown) instanceof String) throw new TypeError(`target must be a number, got a string`);
+  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
+  if (_isText(periodsPerYear)) throw new TypeError(`periodsPerYear must be a number, got a string`);
+  if (_isText(target)) throw new TypeError(`target must be a number, got a string`);
   return wrapOp(M, () => new M.RollingSortino(windowSize, periodsPerYear, target));
 }
 
@@ -3037,7 +3051,7 @@ export function RollingSortino(windowSize: number = 252, periodsPerYear: number 
  */
 export function RollingSpread(windowSize: number = 20, startPolicy: string = "strict"): ScreamerOp {
   const M = current();
-  if (typeof windowSize === "string" || (windowSize as unknown) instanceof String) throw new TypeError(`windowSize must be a number, got a string`);
+  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
   return wrapOp(M, () => new M.RollingSpread(windowSize, startPolicy));
 }
@@ -3051,7 +3065,7 @@ export function RollingSpread(windowSize: number = 20, startPolicy: string = "st
  */
 export function RollingStd(windowSize: number = 20, startPolicy: string = "strict"): ScreamerOp {
   const M = current();
-  if (typeof windowSize === "string" || (windowSize as unknown) instanceof String) throw new TypeError(`windowSize must be a number, got a string`);
+  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
   return wrapOp(M, () => new M.RollingStd(windowSize, startPolicy));
 }
@@ -3065,7 +3079,7 @@ export function RollingStd(windowSize: number = 20, startPolicy: string = "stric
  */
 export function RollingSum(windowSize: number = 20, startPolicy: string = "strict"): ScreamerOp {
   const M = current();
-  if (typeof windowSize === "string" || (windowSize as unknown) instanceof String) throw new TypeError(`windowSize must be a number, got a string`);
+  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
   return wrapOp(M, () => new M.RollingSum(windowSize, startPolicy));
 }
@@ -3079,7 +3093,7 @@ export function RollingSum(windowSize: number = 20, startPolicy: string = "stric
  */
 export function RollingTLSBeta(windowSize: number = 20, startPolicy: string = "strict"): ScreamerOp {
   const M = current();
-  if (typeof windowSize === "string" || (windowSize as unknown) instanceof String) throw new TypeError(`windowSize must be a number, got a string`);
+  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
   return wrapOp(M, () => new M.RollingTLSBeta(windowSize, startPolicy));
 }
@@ -3092,7 +3106,7 @@ export function RollingTLSBeta(windowSize: number = 20, startPolicy: string = "s
  */
 export function RollingTSF(windowSize: number = 20): ScreamerOp {
   const M = current();
-  if (typeof windowSize === "string" || (windowSize as unknown) instanceof String) throw new TypeError(`windowSize must be a number, got a string`);
+  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   return wrapOp(M, () => new M.RollingTSF(windowSize));
 }
 
@@ -3104,7 +3118,7 @@ export function RollingTSF(windowSize: number = 20): ScreamerOp {
  */
 export function RollingVWAP(windowSize: number = 20): ScreamerOp {
   const M = current();
-  if (typeof windowSize === "string" || (windowSize as unknown) instanceof String) throw new TypeError(`windowSize must be a number, got a string`);
+  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   return wrapOp(M, () => new M.RollingVWAP(windowSize));
 }
 
@@ -3117,7 +3131,7 @@ export function RollingVWAP(windowSize: number = 20): ScreamerOp {
  */
 export function RollingVar(windowSize: number = 20, startPolicy: string = "strict"): ScreamerOp {
   const M = current();
-  if (typeof windowSize === "string" || (windowSize as unknown) instanceof String) throw new TypeError(`windowSize must be a number, got a string`);
+  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
   return wrapOp(M, () => new M.RollingVar(windowSize, startPolicy));
 }
@@ -3130,7 +3144,7 @@ export function RollingVar(windowSize: number = 20, startPolicy: string = "stric
  */
 export function RollingYangZhangVar(windowSize: number = 20): ScreamerOp {
   const M = current();
-  if (typeof windowSize === "string" || (windowSize as unknown) instanceof String) throw new TypeError(`windowSize must be a number, got a string`);
+  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   return wrapOp(M, () => new M.RollingYangZhangVar(windowSize));
 }
 
@@ -3142,7 +3156,7 @@ export function RollingYangZhangVar(windowSize: number = 20): ScreamerOp {
  */
 export function RollingYangZhangVol(windowSize: number = 20): ScreamerOp {
   const M = current();
-  if (typeof windowSize === "string" || (windowSize as unknown) instanceof String) throw new TypeError(`windowSize must be a number, got a string`);
+  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   return wrapOp(M, () => new M.RollingYangZhangVol(windowSize));
 }
 
@@ -3155,7 +3169,7 @@ export function RollingYangZhangVol(windowSize: number = 20): ScreamerOp {
  */
 export function RollingZscore(windowSize: number = 20, startPolicy: string = "strict"): ScreamerOp {
   const M = current();
-  if (typeof windowSize === "string" || (windowSize as unknown) instanceof String) throw new TypeError(`windowSize must be a number, got a string`);
+  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
   return wrapOp(M, () => new M.RollingZscore(windowSize, startPolicy));
 }
@@ -3171,10 +3185,10 @@ export function RollingZscore(windowSize: number = 20, startPolicy: string = "st
  */
 export function RoofingFilter(hpPeriod: number = NaN, lpPeriod: number = NaN, hpCutoff: number = NaN, lpCutoff: number = NaN): ScreamerOp {
   const M = current();
-  if (typeof hpPeriod === "string" || (hpPeriod as unknown) instanceof String) throw new TypeError(`hpPeriod must be a number, got a string`);
-  if (typeof lpPeriod === "string" || (lpPeriod as unknown) instanceof String) throw new TypeError(`lpPeriod must be a number, got a string`);
-  if (typeof hpCutoff === "string" || (hpCutoff as unknown) instanceof String) throw new TypeError(`hpCutoff must be a number, got a string`);
-  if (typeof lpCutoff === "string" || (lpCutoff as unknown) instanceof String) throw new TypeError(`lpCutoff must be a number, got a string`);
+  if (_isText(hpPeriod)) throw new TypeError(`hpPeriod must be a number, got a string`);
+  if (_isText(lpPeriod)) throw new TypeError(`lpPeriod must be a number, got a string`);
+  if (_isText(hpCutoff)) throw new TypeError(`hpCutoff must be a number, got a string`);
+  if (_isText(lpCutoff)) throw new TypeError(`lpCutoff must be a number, got a string`);
   return wrapOp(M, () => new M.RoofingFilter(hpPeriod, lpPeriod, hpCutoff, lpCutoff));
 }
 
@@ -3198,9 +3212,9 @@ export function Round(): ScreamerOp {
  */
 export function SchmittTrigger(lower: number, upper: number, initial: number = 0.0): ScreamerOp {
   const M = current();
-  if (typeof lower === "string" || (lower as unknown) instanceof String) throw new TypeError(`lower must be a number, got a string`);
-  if (typeof upper === "string" || (upper as unknown) instanceof String) throw new TypeError(`upper must be a number, got a string`);
-  if (typeof initial === "string" || (initial as unknown) instanceof String) throw new TypeError(`initial must be a number, got a string`);
+  if (_isText(lower)) throw new TypeError(`lower must be a number, got a string`);
+  if (_isText(upper)) throw new TypeError(`upper must be a number, got a string`);
+  if (_isText(initial)) throw new TypeError(`initial must be a number, got a string`);
   return wrapOp(M, () => new M.SchmittTrigger(lower, upper, initial));
 }
 
@@ -3284,9 +3298,9 @@ export function Square(): ScreamerOp {
  */
 export function Stoch(fastkPeriod: number = 14, smoothK: number = 3, d: number = 3): ScreamerOp {
   const M = current();
-  if (typeof fastkPeriod === "string" || (fastkPeriod as unknown) instanceof String) throw new TypeError(`fastkPeriod must be a number, got a string`);
-  if (typeof smoothK === "string" || (smoothK as unknown) instanceof String) throw new TypeError(`smoothK must be a number, got a string`);
-  if (typeof d === "string" || (d as unknown) instanceof String) throw new TypeError(`d must be a number, got a string`);
+  if (_isText(fastkPeriod)) throw new TypeError(`fastkPeriod must be a number, got a string`);
+  if (_isText(smoothK)) throw new TypeError(`smoothK must be a number, got a string`);
+  if (_isText(d)) throw new TypeError(`d must be a number, got a string`);
   return wrapOp(M, () => new M.Stoch(fastkPeriod, smoothK, d));
 }
 
@@ -3301,10 +3315,10 @@ export function Stoch(fastkPeriod: number = 14, smoothK: number = 3, d: number =
  */
 export function StochRSI(rsiPeriod: number = 14, stochPeriod: number = 14, smoothK: number = 1, d: number = 3): ScreamerOp {
   const M = current();
-  if (typeof rsiPeriod === "string" || (rsiPeriod as unknown) instanceof String) throw new TypeError(`rsiPeriod must be a number, got a string`);
-  if (typeof stochPeriod === "string" || (stochPeriod as unknown) instanceof String) throw new TypeError(`stochPeriod must be a number, got a string`);
-  if (typeof smoothK === "string" || (smoothK as unknown) instanceof String) throw new TypeError(`smoothK must be a number, got a string`);
-  if (typeof d === "string" || (d as unknown) instanceof String) throw new TypeError(`d must be a number, got a string`);
+  if (_isText(rsiPeriod)) throw new TypeError(`rsiPeriod must be a number, got a string`);
+  if (_isText(stochPeriod)) throw new TypeError(`stochPeriod must be a number, got a string`);
+  if (_isText(smoothK)) throw new TypeError(`smoothK must be a number, got a string`);
+  if (_isText(d)) throw new TypeError(`d must be a number, got a string`);
   return wrapOp(M, () => new M.StochRSI(rsiPeriod, stochPeriod, smoothK, d));
 }
 
@@ -3327,8 +3341,8 @@ export function Sub(): ScreamerOp {
  */
 export function SuperSmoother(period: number = NaN, cutoff: number = NaN): ScreamerOp {
   const M = current();
-  if (typeof period === "string" || (period as unknown) instanceof String) throw new TypeError(`period must be a number, got a string`);
-  if (typeof cutoff === "string" || (cutoff as unknown) instanceof String) throw new TypeError(`cutoff must be a number, got a string`);
+  if (_isText(period)) throw new TypeError(`period must be a number, got a string`);
+  if (_isText(cutoff)) throw new TypeError(`cutoff must be a number, got a string`);
   return wrapOp(M, () => new M.SuperSmoother(period, cutoff));
 }
 
@@ -3343,10 +3357,10 @@ export function SuperSmoother(period: number = NaN, cutoff: number = NaN): Screa
  */
 export function TEMA(com: number = NaN, span: number = NaN, halflife: number = NaN, alpha: number = NaN): ScreamerOp {
   const M = current();
-  if (typeof com === "string" || (com as unknown) instanceof String) throw new TypeError(`com must be a number, got a string`);
-  if (typeof span === "string" || (span as unknown) instanceof String) throw new TypeError(`span must be a number, got a string`);
-  if (typeof halflife === "string" || (halflife as unknown) instanceof String) throw new TypeError(`halflife must be a number, got a string`);
-  if (typeof alpha === "string" || (alpha as unknown) instanceof String) throw new TypeError(`alpha must be a number, got a string`);
+  if (_isText(com)) throw new TypeError(`com must be a number, got a string`);
+  if (_isText(span)) throw new TypeError(`span must be a number, got a string`);
+  if (_isText(halflife)) throw new TypeError(`halflife must be a number, got a string`);
+  if (_isText(alpha)) throw new TypeError(`alpha must be a number, got a string`);
   return wrapOp(M, () => new M.TEMA(com, span, halflife, alpha));
 }
 
@@ -3358,7 +3372,7 @@ export function TEMA(com: number = NaN, span: number = NaN, halflife: number = N
  */
 export function TRIMA(windowSize: number = 20): ScreamerOp {
   const M = current();
-  if (typeof windowSize === "string" || (windowSize as unknown) instanceof String) throw new TypeError(`windowSize must be a number, got a string`);
+  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   return wrapOp(M, () => new M.TRIMA(windowSize));
 }
 
@@ -3370,7 +3384,7 @@ export function TRIMA(windowSize: number = 20): ScreamerOp {
  */
 export function TRIX(span: number = 14): ScreamerOp {
   const M = current();
-  if (typeof span === "string" || (span as unknown) instanceof String) throw new TypeError(`span must be a number, got a string`);
+  if (_isText(span)) throw new TypeError(`span must be a number, got a string`);
   return wrapOp(M, () => new M.TRIX(span));
 }
 
@@ -3402,7 +3416,7 @@ export function TickRuleSign(): ScreamerOp {
  */
 export function TrendMode(phaseRateFrac: number = 0.5): ScreamerOp {
   const M = current();
-  if (typeof phaseRateFrac === "string" || (phaseRateFrac as unknown) instanceof String) throw new TypeError(`phaseRateFrac must be a number, got a string`);
+  if (_isText(phaseRateFrac)) throw new TypeError(`phaseRateFrac must be a number, got a string`);
   return wrapOp(M, () => new M.TrendMode(phaseRateFrac));
 }
 
@@ -3426,9 +3440,9 @@ export function TrueRange(): ScreamerOp {
  */
 export function UltimateOscillator(period1: number = 7, period2: number = 14, period3: number = 28): ScreamerOp {
   const M = current();
-  if (typeof period1 === "string" || (period1 as unknown) instanceof String) throw new TypeError(`period1 must be a number, got a string`);
-  if (typeof period2 === "string" || (period2 as unknown) instanceof String) throw new TypeError(`period2 must be a number, got a string`);
-  if (typeof period3 === "string" || (period3 as unknown) instanceof String) throw new TypeError(`period3 must be a number, got a string`);
+  if (_isText(period1)) throw new TypeError(`period1 must be a number, got a string`);
+  if (_isText(period2)) throw new TypeError(`period2 must be a number, got a string`);
+  if (_isText(period3)) throw new TypeError(`period3 must be a number, got a string`);
   return wrapOp(M, () => new M.UltimateOscillator(period1, period2, period3));
 }
 
@@ -3441,8 +3455,8 @@ export function UltimateOscillator(period1: number = 7, period2: number = 14, pe
  */
 export function VPIN(bucketVolume: number = 1.0, nBuckets: number = 50): ScreamerOp {
   const M = current();
-  if (typeof bucketVolume === "string" || (bucketVolume as unknown) instanceof String) throw new TypeError(`bucketVolume must be a number, got a string`);
-  if (typeof nBuckets === "string" || (nBuckets as unknown) instanceof String) throw new TypeError(`nBuckets must be a number, got a string`);
+  if (_isText(bucketVolume)) throw new TypeError(`bucketVolume must be a number, got a string`);
+  if (_isText(nBuckets)) throw new TypeError(`nBuckets must be a number, got a string`);
   return wrapOp(M, () => new M.VPIN(bucketVolume, nBuckets));
 }
 
@@ -3455,7 +3469,7 @@ export function VPIN(bucketVolume: number = 1.0, nBuckets: number = 50): Screame
  */
 export function WMA(windowSize: number = 20, startPolicy: string = "strict"): ScreamerOp {
   const M = current();
-  if (typeof windowSize === "string" || (windowSize as unknown) instanceof String) throw new TypeError(`windowSize must be a number, got a string`);
+  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
   return wrapOp(M, () => new M.WMA(windowSize, startPolicy));
 }
@@ -3478,6 +3492,6 @@ export function Where(): ScreamerOp {
  */
 export function WilliamsR(windowSize: number = 14): ScreamerOp {
   const M = current();
-  if (typeof windowSize === "string" || (windowSize as unknown) instanceof String) throw new TypeError(`windowSize must be a number, got a string`);
+  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   return wrapOp(M, () => new M.WilliamsR(windowSize));
 }
