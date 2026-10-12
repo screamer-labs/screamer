@@ -102,8 +102,10 @@ def _index_array(idx):
 def _float_values(values):
     """A feed's values as contiguous float64; complex values raise TypeError, as
     operators do (the float64 cast would drop the imaginary part)."""
-    arr = np.asarray(values)
-    if arr.dtype.kind == "c":
+    # A value with a dtype (an array, a pandas Series) is cast as it is, so pandas
+    # maps NA to NaN; one without (a list) is read by NumPy first to find its kind.
+    arr = values if hasattr(values, "dtype") else np.asarray(values)
+    if getattr(arr.dtype, "kind", None) == "c":
         raise TypeError("a value must be a real number or a sequence of real "
                         "numbers, got complex values")
     return np.ascontiguousarray(arr, dtype=np.float64)

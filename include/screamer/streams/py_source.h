@@ -11,7 +11,7 @@
 #include <nanobind/nanobind.h>
 #include "screamer/common/cast_double.h"
 #include "screamer/common/gc.h"
-#include "screamer/dag/checked_index.h"
+#include "screamer/streams/py_index.h"
 #include "screamer/streams/event.h"
 #include <cstddef>
 
@@ -99,13 +99,14 @@ public:
             }
 
             if constexpr (std::is_integral_v<Index>) {
-                nb::handle idx = tup[1];
-                if (nb::isinstance<nb::float_>(idx)) {
-                    // The engine's index rule (finite, whole, inside int64).
-                    ev.index = static_cast<Index>(
-                        screamer::dag::checked_index(PyFloat_AsDouble(idx.ptr())));
-                } else if (!nb::try_cast<Index>(idx, ev.index)) {
-                    bad(event, "the index of event", idx, "an integer");
+                // The engine's index rule, as in a live push (py_index.h), with
+                // the event's position in the message.
+                try {
+                    ev.index = static_cast<Index>(screamer::py_index(tup[1]));
+                } catch (const screamer::dag::IndexTypeError& e) {
+                    throw screamer::dag::IndexTypeError(
+                        std::string(owner_) + ": " + where(event, "the index of event") +
+                        ": " + e.what());
                 }
             } else {
                 nb::handle idx = tup[1];

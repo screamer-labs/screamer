@@ -313,3 +313,25 @@ test("pipeline: a functor fed by two nodes needs each to carry its columns", asy
     p.dispose();
   }
 });
+
+test("pipeline: a batch feed of NdArray values is read, a bad shape is a RangeError", async () => {
+  await ready();
+  const a = Input("a");
+  const p = new Pipeline([a], [a]);
+  const data = new Float64Array([1, 2, 3, 4, 5, 6, 7, 8]);
+  try {
+    const flat = p({ values: data, index: [0, 1] }) as Output;
+    const nd = p({ values: { data, shape: [2, 4] } as any, index: [0, 1] }) as Output;
+    assertNanEq(asFloat64(nd), asFloat64(flat), "keyed NdArray");
+    assert.deepEqual((nd.values as any).shape, [2, 4]);
+    assertNanEq(asFloat64(p({ values: { data, shape: [2, 4] } as any }) as Output), data, "no index");
+    assertNanEq(asFloat64(p({ data, shape: [2, 4] } as any) as Output), data, "bare NdArray");
+    assertNanEq(asFloat64(p({ a: { data, shape: [8] } } as any) as Output), data, "1-D in a record");
+    for (const bad of [{ data, shape: [2, 2, 2] }, { data, shape: [3, 4] }, { data, shape: [] }])
+      assert.throws(() => p({ values: bad as any, index: [0, 1] }), RangeError);
+    assert.throws(() => p({ values: { data, shape: [2, 4] } as any, index: [0, 1, 2] }), RangeError);
+    assert.throws(() => p({ values: { foo: 1 } as any, index: [0] }), TypeError);
+  } finally {
+    p.dispose();
+  }
+});

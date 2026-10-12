@@ -19,6 +19,7 @@
 #include "screamer/dag/graph.h"
 #include "screamer/dag/compiled_graph.h"
 #include "screamer/dag/checked_index.h"
+#include "screamer/streams/py_index.h"
 #include "screamer/streams/event.h"
 #include "screamer/streams/merge_source.h"
 #include "screamer/streams/py_source.h"
@@ -52,9 +53,6 @@ using In1D = nb::ndarray<const T, nb::ndim<1>, nb::c_contig, nb::device::cpu>;
 
 // Typed, C-contiguous input array of any rank (values may be 1-D or 2-D).
 using InValues = nb::ndarray<const double, nb::c_contig, nb::device::cpu>;
-
-// An array of any dtype and rank, to read its dtype.
-using AnyArray = nb::ndarray<nb::ro, nb::device::cpu>;
 
 }  // namespace
 
@@ -305,61 +303,6 @@ static bool load_items(const void* b, std::size_t n, Py_ssize_t itemsize,
     return true;
 }
 
-// NumPy scalar types the index and value rules need, looked up once.
-struct NumpyTypes {
-    PyObject* integer;
-    PyObject* floating;
-    PyObject* complex64;
-    PyObject* clongdouble;
-};
-static const NumpyTypes& numpy_types() {
-    static const NumpyTypes* t = [] {
-        nb::module_ np = nb::module_::import_("numpy");
-        auto get = [&](const char* name) { return nb::object(np.attr(name)).release().ptr(); };
-        return new NumpyTypes{get("integer"), get("floating"), get("complex64"),
-                              get("clongdouble")};
-    }();
-    return *t;
-}
-
-// A Python int as an index; one past int64 is out of range, not an OverflowError.
-static std::int64_t long_index(PyObject* p) {
-    int overflow = 0;
-    long long v = PyLong_AsLongLongAndOverflow(p, &overflow);
-    if (overflow) dag::throw_index_out_of_range();
-    if (v == -1 && PyErr_Occurred()) throw nb::python_error();
-    return v;
-}
-
-// One index given in Python: an int, a float (np.float64), a NumPy integer or
-// floating scalar. A bool, str, bytes, None, Decimal, Fraction or any other
-// object is a TypeError. The rule and the messages are the engine's
-// (checked_index.h).
-static std::int64_t py_index(nb::handle index) {
-    PyObject* p = index.ptr();
-    if (PyLong_CheckExact(p)) return long_index(p);
-    if (PyFloat_Check(p)) return dag::checked_index(PyFloat_AsDouble(p));
-    if (PyBool_Check(p)) dag::throw_index_kind("bool");
-    if (PyLong_Check(p)) return long_index(p);
-    const NumpyTypes& np = numpy_types();
-    const int integer = PyObject_IsInstance(p, np.integer);
-    if (integer < 0) throw nb::python_error();
-    if (integer) {
-        PyObject* ix = PyNumber_Index(p);
-        if (!ix) throw nb::python_error();
-        nb::object hold = nb::steal(ix);
-        return long_index(ix);
-    }
-    const int floating = PyObject_IsInstance(p, np.floating);
-    if (floating < 0) throw nb::python_error();
-    if (floating) {                                  // np.float32, np.float16
-        double d = PyFloat_AsDouble(p);
-        if (d == -1.0 && PyErr_Occurred()) throw nb::python_error();
-        return dag::checked_index(d);
-    }
-    dag::throw_index_kind(nb::cast<std::string>(nb::type_name(index.type())));
-}
-
 // A batch index array as int64, checked element by element in the cast loop
 // (checked_index.h). An int64 array is used in place. `owned` holds a
 // converted copy; `keep` holds the array the pointer reads.
@@ -384,6 +327,16 @@ static const std::int64_t* index_array(nb::handle obj, nb::object& keep,
     if (!nb::try_cast(obj, a, /*convert=*/false)) {
         if (nb::hasattr(obj, "ndim") && nb::cast<int>(obj.attr("ndim")) != 1)
             throw nb::value_error("an index is a 1-D array of integers");
+        // An object array (Python ints, a pandas object Index): each element
+        // follows the rule of a live push.
+        if (nb::hasattr(obj, "dtype") &&
+                nb::cast<std::string>(obj.attr("dtype").attr("kind")) == "O") {
+            owned.clear();
+            owned.reserve(nb::len(obj));
+            for (nb::handle e : obj) owned.push_back(py_index(e));
+            keep = nb::borrow(obj);
+            return owned.data();
+        }
         dag::throw_index_kind(nb::hasattr(obj, "dtype")
             ? "an array of " + nb::cast<std::string>(obj.attr("dtype").attr("name"))
             : nb::cast<std::string>(nb::type_name(obj.type())));
@@ -636,10 +589,15 @@ void init_bindings_dag(nb::module_& m) {
             if (push_buffer(src, t, p)) return;
             // The general path: NumPy reads the value, then a complex one is
             // refused before the float64 conversion would drop its imaginary part.
-            nb::object arr = asarray(value);
-            AnyArray any;
-            if (nb::try_cast(arr, any, /*convert=*/false) &&
-                any.dtype().code == static_cast<std::uint8_t>(nb::dlpack::dtype_code::Complex))
+            // A value with a dtype (an array, a pandas Series) is cast as it is,
+            // so pandas maps NA to NaN; one without (a list, a range) is read by
+            // NumPy first. Either way a complex dtype is refused before the
+            // float64 cast would drop the imaginary part.
+            nb::object arr = nb::getattr(value, "dtype", nb::none()).is_none()
+                ? asarray(value) : nb::borrow<nb::object>(value);
+            nb::object dt = nb::getattr(arr, "dtype", nb::none());
+            nb::object kind = dt.is_none() ? nb::none() : nb::getattr(dt, "kind", nb::none());
+            if (nb::isinstance<nb::str>(kind) && nb::cast<std::string>(kind) == "c")
                 throw nb::type_error("a value must be a real number or a sequence of "
                                      "real numbers, got complex values");
             InValues v = nb::cast<InValues>(asarray(arr, nb::arg("dtype") = float64));

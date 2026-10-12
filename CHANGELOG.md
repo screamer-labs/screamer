@@ -78,14 +78,16 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
 ### Changed
 
 * One index rule, owned by the C++ engine, at every `Pipeline` entry point:
-  Python `live().push()`, `advance()`, batch calls and iterator feeds, and
-  JavaScript `live().push()`, `pushWide()`, `advance()` and batch calls. An
+  Python `live().push()`, `advance()`, batch calls and iterator feeds of
+  `(value, index)` pairs (also those of the stream operators, such as `Merge`),
+  and JavaScript `live().push()`, `pushWide()`, `advance()` and batch calls. An
   index is a number that is finite, whole and inside the int64 range; anything
   else raises `TypeError`, whose message names the problem ("index must be a
   number", "index must be finite", "index must be integer-valued", "index is
   outside the int64 range"). Python takes `int`, `float` and NumPy integer and
   floating scalars and arrays (a datetime64 or timedelta64 array is read as its
-  int64 ticks, as before); JavaScript takes `number` and `Float64Array`. What
+  int64 ticks, as before, and each element of an object array follows the
+  scalar rule); JavaScript takes `number` and `Float64Array`. What
   2.8.0 did, and how to get it:
   * JavaScript truncated a number (`1.5` gave 1, `NaN` gave 0, `2**63`
     saturated) and converted any other value with `Number()` (`"5"` gave 5,
@@ -95,8 +97,11 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
     accepted. Pass `int(index)`.
   * Python batch calls saturated a float index of `2**63` or more to
     `2**63 - 1`, wrapped a `uint64` index of `2**63` or more to a negative one,
-    and read `str`, `bool`, `Decimal` and other object index arrays through
-    `int()`. Pass `np.asarray(index).astype(np.int64)`.
+    and read `str`, `bool` and `Decimal` index arrays through `int()`. Pass
+    `np.asarray(index).astype(np.int64)`.
+  * Python iterator feeds truncated a NumPy float, `Decimal` or `Fraction`
+    index (`np.float32(1.5)` gave 1) and accepted `"5"`, `b"6"`, `True` and
+    `np.bool_`. Pass `int(index)`.
 * Python `live().push()` raises `TypeError` for a `memoryview` over `bytes` or
   `bytearray` (or of format `"c"`); 2.8.0 read `memoryview(b"12")` as 12.0.
   Pass `float(value)` for the old result. A numeric `memoryview` is one
@@ -292,6 +297,11 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
 
 ### Fixed
 
+* JavaScript: a `Pipeline` batch feed whose values are an `NdArray`
+  (`{ values: { data, shape: [T, w] }, index }`) was read as empty, and a bare
+  `NdArray` feed raised "missing feed". Both are now read as `T` rows of `w` columns; a shape that is not
+  1-D or 2-D, or an index whose length is not `T`, throws `RangeError`, and
+  values that are not an array, typed array or `NdArray` throw `TypeError`.
 * A reused `Pipeline` or a new `live()` session forgets the plan a `resample`
   node learned from the previous stream's width. Before, a clock resample fed
   2 columns and then 3 dropped a column (3 then 2 padded with `NaN`), and an

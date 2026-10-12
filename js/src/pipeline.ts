@@ -7,7 +7,7 @@ import { feedValue, kindName, toF64Checked, whereText } from "./kinds.js";
 import { releaseWith, type Owned } from "./runtime.js";
 
 // One bound feed for an Input: a values stream and its integer index axis.
-type Feed = Float64Array | number[] | { values: Float64Array | number[]; index?: Float64Array | number[] };
+type Feed = Float64Array | number[] | NdArray | { values: Float64Array | number[] | NdArray; index?: Float64Array | number[] };
 type Feeds = Feed | Record<string, Feed>;
 
 export interface Output {
@@ -265,20 +265,40 @@ class PipelineImpl implements Owned {
       let values: Float64Array;
       let index: Float64Array | undefined;
       const at = (i: number) => whereText("event", i, k);
-      if (feed instanceof Float64Array || Array.isArray(feed)) {
-        values = toF64Checked(feed, "Pipeline", at, true);
+      // Rows of the feed: the values' length, or an NdArray's first dimension.
+      let rows: number;
+      const read = (v: unknown): Float64Array => {
+        const nd = asNd(v);   // a malformed NdArray raises RangeError
+        if (nd) {
+          if (nd.shape.length < 1 || nd.shape.length > 2)
+            throw new RangeError(`Pipeline: the values of input ${k} have shape [${nd.shape}], expected (T,) or (T, w)`);
+          rows = nd.shape[0];
+          return nd.data;
+        }
+        if (v instanceof Float64Array || Array.isArray(v) || (ArrayBuffer.isView(v) && !(v instanceof DataView))) {
+          const out = toF64Checked(v as ArrayLike<unknown>, "Pipeline", at, true);
+          rows = out.length;
+          return out;
+        }
+        throw new TypeError(`Pipeline: the values of input ${k} are a ${kindName(v)}, expected an array, a typed array or an NdArray`);
+      };
+      if (feed instanceof Float64Array || Array.isArray(feed) || asNd(feed)) {
+        values = read(feed);
       } else {
-        values = toF64Checked(feed.values, "Pipeline", at, true);
-        if (feed.index !== undefined) index = indexArray(this.M, feed.index);
+        values = read((feed as any).values);
+        if ((feed as any).index !== undefined) index = indexArray(this.M, (feed as any).index);
       }
-      if (!index) {
-        index = new Float64Array(values.length);
-        for (let i = 0; i < values.length; i++) index[i] = i;
+      if (index) {
+        if (asNd((feed as any).values ?? feed) && index.length !== rows!)
+          throw new RangeError(`Pipeline: input ${k} has ${rows!} rows of values but ${index.length} index values`);
+      } else {
+        index = new Float64Array(rows!);
+        for (let i = 0; i < rows!; i++) index[i] = i;
       }
       return { values, index };
     };
 
-    const bare = feeds instanceof Float64Array || Array.isArray(feeds) ||
+    const bare = feeds instanceof Float64Array || Array.isArray(feeds) || asNd(feeds) !== null ||
       (feeds != null && typeof feeds === "object" && "values" in (feeds as any));
     if (bare) {
       if (this.inputs.length !== 1) {

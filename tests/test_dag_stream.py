@@ -595,3 +595,48 @@ def test_live_wide_arrays_of_other_dtypes():
     live.push("x", 2, np.array([True, False, True, True]))
     v = live.result()[0]
     np.testing.assert_array_equal(v, [[1, 2, 3, 4], [1, 2, 3, 4], [1, 0, 1, 1]])
+
+
+def test_pandas_nullable_values_read_na_as_nan():
+    import pandas as pd
+    p, _ = _identity_live()
+    for v, want in ((pd.Series([True, None], dtype="boolean"), [1.0, np.nan]),
+                    (pd.array([True, None], dtype="boolean"), [1.0, np.nan]),
+                    (pd.array([1, None], dtype="Int64"), [1.0, np.nan]),
+                    (pd.array([1.5, None], dtype="Float64"), [1.5, np.nan]),
+                    ([True, None], [1.0, np.nan])):
+        np.testing.assert_array_equal(p(v)[0], want)
+        live = p.live()
+        live.push("x", 0, v)
+        np.testing.assert_array_equal(live.result()[0], [want])
+
+
+def test_index_rule_iterator_feeds():
+    import pytest
+    from decimal import Decimal
+    from fractions import Fraction
+    from screamer import Merge
+    p, _ = _identity_live()
+    for bad, msg in ((np.float32(1.5), "integer-valued"), (Decimal("1.5"), "must be a number"),
+                     (Fraction(3, 2), "must be a number"), ("5", "must be a number"),
+                     (b"6", "must be a number"), (True, "must be a number"),
+                     (np.bool_(True), "must be a number"), (2**63, "int64 range"),
+                     (np.uint64(2**63), "int64 range"), (float("nan"), "finite")):
+        with pytest.raises(TypeError, match=msg):
+            list(p(iter([(1.0, 0), (2.0, bad)])))
+        with pytest.raises(TypeError, match=msg):
+            list(Merge()(iter([(1.0, 0), (2.0, bad)]), iter([(3.0, 1)])))
+    out = list(p(iter([(1.0, np.int64(0)), (2.0, np.float32(1.0)), (3.0, 2.0)])))
+    assert [k for _, k in out] == [0, 1, 2]
+
+
+def test_object_index_array_follows_the_live_rule():
+    import pytest
+    p, _ = _identity_live()
+    v = np.array([1.0, 2.0])
+    np.testing.assert_array_equal(p((v, np.array([0, 1], dtype=object)))[1], [0, 1])
+    np.testing.assert_array_equal(p((v, [0, np.int64(1)]))[1], [0, 1])
+    with pytest.raises(TypeError, match="int64 range"):
+        p((v, [0, 2**64]))
+    with pytest.raises(TypeError, match="must be a number"):
+        p((v, np.array([0, True], dtype=object)))
