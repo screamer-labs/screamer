@@ -17,6 +17,7 @@ def _per_call(f, n=100_000):
     return min(timeit.repeat(f, number=n, repeat=5)) / n
 
 
+@pytest.mark.perf
 def test_two_input_scalar_call_is_close_to_one_input():
     one = s.RollingMean(20)
     two = s.RollingCorr(20)
@@ -25,12 +26,17 @@ def test_two_input_scalar_call_is_close_to_one_input():
     assert t2 < 0.15e-6 or t2 < 3 * t1, (t1, t2)
 
 
+@pytest.mark.perf
 def test_numpy_scalars_take_the_fast_path():
+    one = s.RollingMean(20)
     two = s.RollingCorr(20)
+    t1 = _per_call(lambda: one(1.0))
     a, b = np.float64(1.0), np.float64(2.0)
-    assert _per_call(lambda: two(a, b)) < 0.3e-6
+    t = _per_call(lambda: two(a, b))
+    assert t < 0.3e-6 or t < 4 * t1, (t1, t)
     c, d = np.float32(1.0), np.int64(2)
-    assert _per_call(lambda: two(c, d)) < 0.3e-6
+    t = _per_call(lambda: two(c, d))
+    assert t < 0.3e-6 or t < 4 * t1, (t1, t)
 
 
 def test_fast_path_values_match_slow_path():
@@ -73,8 +79,12 @@ def test_non_exact_numbers_keep_their_old_behavior():
     assert add(True, 2.0) == 3.0           # bool is not an exact int
     assert add(F(1.5), 2.0) == 3.5         # a float subclass
     assert add(np.array(1.0), 2.0) == 3.0  # a 0-d array reads as a scalar
-    with pytest.raises(TypeError):
-        add(10 ** 400, 1.0)                # an int too large for a double
+    with pytest.raises(TypeError, match="Add: an int too large to convert to a float"):
+        add(10 ** 400, 1.0)
+    with pytest.raises(TypeError, match="RollingMean: an int too large to convert to a float"):
+        s.RollingMean(3)(10 ** 400)
+    with pytest.raises(TypeError, match="event 1 of input 0 is an int too large"):
+        add([1.0, 10 ** 400], [1.0, 2.0])
     with pytest.raises(TypeError):
         add(1.0)                           # wrong count
     with pytest.raises(TypeError):

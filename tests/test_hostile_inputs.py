@@ -185,7 +185,7 @@ def _async(op, items):
 # (call, text the message must contain); "M" is always required as well.
 WRONG_KIND = {
     "list_element": (lambda: s.RollingMean(2)([1.0, M()]), "RollingMean: event 1 is a M"),
-    "list_object": (lambda: s.RollingMean(2)([object()]), "RollingMean: event 0 is a object"),
+    "list_object": (lambda: s.RollingMean(2)([object()]), "RollingMean: event 0 is an object"),
     "tuple_element": (lambda: s.RollingMean(2)((1.0, M())), "RollingMean: event 1"),
     "list_1i_Mo": (lambda: s.RollingMinMax(2)([1.0, M()]), "RollingMinMax: event 1"),
     "list_two_inputs": (lambda: s.Add()([1.0, M()], [1.0, 2.0]), "Add: event 1 of input 0"),

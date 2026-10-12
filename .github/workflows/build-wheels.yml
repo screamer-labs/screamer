@@ -58,7 +58,9 @@ jobs:
         run: make build
 
       - name: Run pytest
-        run: pytest -q
+        # Timing tests (perf marker) run in tests.yml only; shared runners
+        # under load make them flaky here.
+        run: pytest -q -m "not perf"
 
   build_wheels:
     name: Wheels (${{ matrix.os }})
@@ -146,7 +148,8 @@ jobs:
           # source): they need a C++ compiler, node/tsx, or files that
           # `rm -rf screamer` above deletes, none of which the wheel-test env
           # has, and they already run in the source dev-CI (tests.yml).
-          pytest -q \
+          # Timing tests (perf marker) run in tests.yml only.
+          pytest -q -m "not perf" \
             --ignore=tests/test_pure_headers.py \
             --ignore=tests/test_wasm_codegen_fresh.py \
             --ignore=tests/test_ts_api_fresh.py \

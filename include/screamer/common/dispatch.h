@@ -313,6 +313,7 @@ inline bool is_numpy_number_scalar_type(PyTypeObject* t) {
     if (PyType_GetFlags(t) & Py_TPFLAGS_HEAPTYPE) return false;
     // Built once from numpy (a dependency of screamer, so already loaded).
     // The types live as long as the numpy module, which is never unloaded.
+    // Built on the first call, under the GIL (abi3 cp312); revisit for free-threading.
     static const std::vector<PyTypeObject*> types = [] {
         std::vector<PyTypeObject*> r;
         nb::module_ np = nb::module_::import_("numpy");
@@ -389,7 +390,7 @@ inline NInputs<N> read_mixed_inputs(nb::handle self, const nb::tuple& inputs) {
 
 // An argument that is not data: names the operator and the argument's type.
 [[noreturn]] inline void throw_unsupported_input(nb::handle self, nb::handle x) {
-    throw nb::type_error((op_display_name(self) + ": a " + type_short_name(x.type()) +
+    throw nb::type_error((op_display_name(self) + ": " + kind_text(x) +
         " is not a valid input; pass numbers, arrays, lists or iterators").c_str());
 }
 

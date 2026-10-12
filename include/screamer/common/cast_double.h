@@ -4,6 +4,7 @@
 #include <nanobind/nanobind.h>
 #include <string>
 #include <cstddef>
+#include <cstring>
 #include <unordered_set>
 #include <vector>
 
@@ -58,10 +59,19 @@ inline std::string where_text(const char* prefix, std::ptrdiff_t index = -1,
     return s;
 }
 
+// The kind of a value that is not a number, with its article: "an object",
+// "a str". An exact int here failed only because it does not fit a double.
+inline std::string kind_text(nb::handle x) {
+    if (PyLong_CheckExact(x.ptr())) return "an int too large to convert to a float";
+    std::string name = type_short_name(x.type());
+    const bool vowel = !name.empty() && std::strchr("aeiouAEIOU", name[0]) != nullptr;
+    return (vowel ? "an " : "a ") + name;
+}
+
 // "who: where is a T, expected <expected>".
 [[noreturn]] inline void throw_wrong_kind(const std::string& who, const std::string& where,
                                           nb::handle item, const char* expected = "a number") {
-    throw nb::type_error((who + ": " + where + " is a " + type_short_name(item.type()) +
+    throw nb::type_error((who + ": " + where + " is " + kind_text(item) +
                           ", expected " + expected).c_str());
 }
 
