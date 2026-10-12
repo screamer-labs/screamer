@@ -28,32 +28,49 @@ namespace screamer { namespace validation {
     // statistics, the metric, and the p-value) happens here.
 
     // The statistics computed for every run, named as in the summary of
-    // backtest_report, in the order the bindings list them.
+    // backtest_report, in the order the bindings list them. This table is the
+    // one source: the Python and JavaScript bindings read it (names, source,
+    // column, and direction) instead of keeping their own copies.
     //   Engine output columns: [equity, pnl, position, cost].
     //   BacktestReport columns: [drawdown, cum_cost, turnover, trades,
     //                            max_drawdown, sharpe].
     //   BacktestStats columns: [exposure, round_trips, win_rate, profit_factor,
     //                           avg_win, avg_loss, avg_holding, sortino, calmar].
+    // `larger` is the direction as a test metric: 1 larger is better, 0
+    // smaller is better, -1 no natural direction (the caller must give one).
     enum class StatSource { Engine, Report, Stats };
-    struct StatSpec { const char* name; StatSource source; int column; };
+    struct StatSpec { const char* name; StatSource source; int column; int larger; };
     inline constexpr std::size_t kNumStats = 15;
     inline constexpr std::array<StatSpec, kNumStats> kStats{{
-        {"total_pnl", StatSource::Engine, 0},
-        {"max_drawdown", StatSource::Report, 4},
-        {"total_cost", StatSource::Report, 1},
-        {"turnover", StatSource::Report, 2},
-        {"num_trades", StatSource::Report, 3},
-        {"sharpe", StatSource::Report, 5},
-        {"exposure", StatSource::Stats, 0},
-        {"round_trips", StatSource::Stats, 1},
-        {"win_rate", StatSource::Stats, 2},
-        {"profit_factor", StatSource::Stats, 3},
-        {"avg_win", StatSource::Stats, 4},
-        {"avg_loss", StatSource::Stats, 5},
-        {"avg_holding", StatSource::Stats, 6},
-        {"sortino", StatSource::Stats, 7},
-        {"calmar", StatSource::Stats, 8},
+        {"total_pnl", StatSource::Engine, 0, 1},
+        {"max_drawdown", StatSource::Report, 4, 1},     // <= 0, so closer to 0 is better
+        {"total_cost", StatSource::Report, 1, 0},
+        {"turnover", StatSource::Report, 2, -1},
+        {"num_trades", StatSource::Report, 3, -1},
+        {"sharpe", StatSource::Report, 5, 1},
+        {"exposure", StatSource::Stats, 0, -1},
+        {"round_trips", StatSource::Stats, 1, -1},
+        {"win_rate", StatSource::Stats, 2, 1},
+        {"profit_factor", StatSource::Stats, 3, 1},
+        {"avg_win", StatSource::Stats, 4, 1},
+        {"avg_loss", StatSource::Stats, 5, 1},          // <= 0, so closer to 0 is better
+        {"avg_holding", StatSource::Stats, 6, -1},
+        {"sortino", StatSource::Stats, 7, 1},
+        {"calmar", StatSource::Stats, 8, 1},
     }};
+
+    inline const char* stat_source_name(StatSource s) {
+        return s == StatSource::Engine ? "engine" : s == StatSource::Report ? "report" : "stats";
+    }
+
+    // The largest number of randomized runs: 2^31 - 1, and fewer where the
+    // result, (kNumStats + 1) values per run plus a few more that a binding
+    // may copy into one buffer, would not fit in a size_t or a vector (32-bit
+    // WebAssembly).
+    inline std::size_t max_strategy_runs() {
+        const std::size_t cap = std::vector<double>().max_size();
+        return std::min<std::size_t>(2147483647, (cap - 64) / (kNumStats + 1));
+    }
 
     inline std::size_t stat_index(const std::string& name) {
         for (std::size_t s = 0; s < kNumStats; ++s)
@@ -295,6 +312,9 @@ namespace screamer { namespace validation {
         using detail::StrategyMethod;
         const StrategyMethod method = detail::parse_strategy_method(opt.method);
         if (opt.n < 1) throw std::invalid_argument("n must be at least 1");
+        if (static_cast<std::uint64_t>(opt.n) > max_strategy_runs())
+            throw std::invalid_argument("n is too large: at most " +
+                                        std::to_string(max_strategy_runs()) + " runs");
         if (opt.seed >= (std::uint64_t(1) << 53))
             throw std::invalid_argument("seed must be an integer in [0, 2**53)");
         const std::size_t n = static_cast<std::size_t>(opt.n);
@@ -395,8 +415,9 @@ namespace screamer { namespace validation {
         std::vector<double> scratch(
             size * static_cast<std::size_t>(std::count(overwritten.begin(), overwritten.end(), 1)));
         std::vector<double> source(T);
-        res.null_stats.assign(kNumStats * n, 0.0);
-        res.null.reserve(n);
+        // The statistics grow with the runs that are done (nothing sized by n
+        // is allocated up front) and are transposed to (kNumStats x n) at the end.
+        std::vector<std::array<double, kNumStats>> runs;
         std::array<double, kNumStats> stats;
         for (std::size_t j = 0; j < n; ++j) {
             std::fill(moved.begin(), moved.end(), 0);
@@ -432,10 +453,13 @@ namespace screamer { namespace validation {
                 moved[i] = 1;
             }
             const double v = score(stats);
-            for (std::size_t q = 0; q < kNumStats; ++q) res.null_stats[q * n + j] = stats[q];
+            runs.push_back(stats);
             if (std::isfinite(v)) res.null.push_back(v);
         }
 
+        res.null_stats.resize(kNumStats * n);
+        for (std::size_t j = 0; j < n; ++j)
+            for (std::size_t q = 0; q < kNumStats; ++q) res.null_stats[q * n + j] = runs[j][q];
         std::size_t hits = 0;
         for (double v : res.null)
             hits += opt.larger_is_better ? v >= res.observed : v <= res.observed;

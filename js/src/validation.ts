@@ -12,7 +12,7 @@
 // arguments and results. The same seed gives the same surrogates as Python.
 import { current } from "./index.js";
 import { asNd, type NdArray } from "./ndarray.js";
-import { callbackScope, wasmCall } from "./errors.js";
+import { wasmCall, wasmCallbacks } from "./errors.js";
 import type { ScreamerOp } from "./runtime.js";
 import { BacktestReport, BacktestStats, PortfolioReport } from "./generated/ops.js";
 
@@ -161,38 +161,47 @@ export interface PositionFamilyResult {
   nullStats: Record<StatName, NdArray>;
 }
 
-// Engine output columns: [equity, pnl, position, cost].
+// The statistic table comes from C++ (include/screamer/validation/
+// strategy_test.h), the one source shared with Python: name, source, column,
+// and direction. Engine output columns: [equity, pnl, position, cost].
 // BacktestReport columns: [drawdown, cum_cost, turnover, trades, max_drawdown, sharpe].
 // BacktestStats columns: [exposure, round_trips, win_rate, profit_factor, avg_win,
 //                         avg_loss, avg_holding, sortino, calmar].
 // `larger` is the direction as a test metric; null: none, largerIsBetter is needed.
 type Source = "engine" | "report" | "stats";
-const METRICS: Record<StatName, { src: Source; col: number; larger: boolean | null }> = {
-  total_pnl: { src: "engine", col: 0, larger: true },
-  max_drawdown: { src: "report", col: 4, larger: true },
-  total_cost: { src: "report", col: 1, larger: false },
-  turnover: { src: "report", col: 2, larger: null },
-  num_trades: { src: "report", col: 3, larger: null },
-  sharpe: { src: "report", col: 5, larger: true },
-  exposure: { src: "stats", col: 0, larger: null },
-  round_trips: { src: "stats", col: 1, larger: null },
-  win_rate: { src: "stats", col: 2, larger: true },
-  profit_factor: { src: "stats", col: 3, larger: true },
-  avg_win: { src: "stats", col: 4, larger: true },
-  avg_loss: { src: "stats", col: 5, larger: true },
-  avg_holding: { src: "stats", col: 6, larger: null },
-  sortino: { src: "stats", col: 7, larger: true },
-  calmar: { src: "stats", col: 8, larger: true },
+interface StatSpec { src: Source; col: number; larger: boolean | null }
+
+// Every StatName, so the type is checked against the C++ table when it is read.
+const STAT_NAME_SET: Record<StatName, true> = {
+  total_pnl: true, max_drawdown: true, total_cost: true, turnover: true, num_trades: true,
+  sharpe: true, exposure: true, round_trips: true, win_rate: true, profit_factor: true,
+  avg_win: true, avg_loss: true, avg_holding: true, sortino: true, calmar: true,
 };
-const STAT_NAMES = Object.keys(METRICS) as StatName[];
+
+let statTable: { metrics: Record<StatName, StatSpec>; names: StatName[] } | null = null;
+
+/** @internal The driver's statistic table, read once from WASM. */
+export function statTableFromWasm(): { metrics: Record<StatName, StatSpec>; names: StatName[] } {
+  if (statTable) return statTable;
+  const rows = wasmCall(() => current().strategyStats()) as [StatName, Source, number, number][];
+  const metrics = {} as Record<StatName, StatSpec>;
+  for (const [name, src, col, larger] of rows)
+    metrics[name] = { src, col, larger: larger < 0 ? null : larger === 1 };
+  const names = rows.map((r) => r[0]);
+  if (names.length !== Object.keys(STAT_NAME_SET).length || names.some((q) => !(q in STAT_NAME_SET)))
+    throw new Error(`StatName does not match the C++ statistic table: ${names.join(", ")}`);
+  statTable = { metrics, names };
+  return statTable;
+}
 
 function metricSpec(metric: PositionTestMetric, largerIsBetter?: boolean)
   : { name: string; larger: boolean } {
   if (typeof metric === "function")
     return { name: metric.name || "custom", larger: largerIsBetter ?? true };
-  if (!(metric in METRICS))
-    throw new RangeError(`metric must be one of ${[...STAT_NAMES].sort().join(", ")} or a function`);
-  const larger = largerIsBetter ?? METRICS[metric].larger;
+  const { metrics, names } = statTableFromWasm();
+  if (!(metric in metrics))
+    throw new RangeError(`metric must be one of ${[...names].sort().join(", ")} or a function`);
+  const larger = largerIsBetter ?? metrics[metric].larger;
   if (larger === null)
     throw new RangeError(`metric "${metric}" has no natural direction; pass largerIsBetter`);
   return { name: metric, larger };
@@ -236,9 +245,10 @@ function makeScorer(metric: PositionTestMetric, periodsPerYear: number) {
         for (const c of [2, 3]) rep.data[t * 6 + c] = turnover.data[t * 6 + c];
     }
     const src = { engine, report: rep, stats: st };
-    const all = Float64Array.from(STAT_NAMES, (k) => lastFinite(src[METRICS[k].src], METRICS[k].col));
+    const { metrics, names } = statTableFromWasm();
+    const all = Float64Array.from(names, (k) => lastFinite(src[metrics[k].src], metrics[k].col));
     const value = typeof metric === "function"
-      ? metric(out) : all[STAT_NAMES.indexOf(metric)];
+      ? metric(out) : all[names.indexOf(metric)];
     return { value, stats: all };
   };
   const dispose = () => { report.dispose(); stats.dispose(); portfolio.dispose(); };
@@ -247,7 +257,7 @@ function makeScorer(metric: PositionTestMetric, periodsPerYear: number) {
 
 function statsRecord<V>(make: (i: number) => V): Record<StatName, V> {
   const out = {} as Record<StatName, V>;
-  STAT_NAMES.forEach((k, i) => { out[k] = make(i); });
+  statTableFromWasm().names.forEach((k, i) => { out[k] = make(i); });
   return out;
 }
 
@@ -381,7 +391,7 @@ function positionSingle(
       const out = engine({ data: block.data, shape: [T, k] }, ...market) as NdArray;
       for (let j = 0; j < k; j++) {
         const r = scorer.score(run(out, j));
-        STAT_NAMES.forEach((name, i) => { nullStats[name][c0 + j] = r.stats[i]; });
+        statTableFromWasm().names.forEach((name, i) => { nullStats[name][c0 + j] = r.stats[i]; });
         if (Number.isFinite(r.value)) nul.push(r.value);
       }
     }
@@ -446,7 +456,7 @@ function positionPortfolio(
         const data = new Float64Array(T * K);
         for (let t = 0; t < T; t++) for (let k = 0; k < K; k++) data[t * K + k] = blocks[k].data[t * m + j];
         const r = run({ data, shape: [T, K] });
-        STAT_NAMES.forEach((q, i) => { nullStats[q][c0 + j] = r.stats[i]; });
+        statTableFromWasm().names.forEach((q, i) => { nullStats[q][c0 + j] = r.stats[i]; });
         if (Number.isFinite(r.value)) nul.push(r.value);
       }
     }
@@ -731,15 +741,12 @@ export function strategyTest(
   const int = (v: number, bad: number) => (Number.isInteger(v) ? v : bad);
   const pos = (xs: readonly number[]) => xs.map((i) => int(i, -1));
 
-  // The callbacks C++ makes (wasm/validation_bindings.cpp). They never throw:
-  // the user's error is kept here and rethrown once the driver has unwound.
-  let failed = false, error: unknown;
+  // The callbacks C++ makes (wasm/validation_bindings.cpp); wasmCallbacks
+  // keeps the user's error and rethrows it once the driver has unwound.
   let last: NdArray | null = null;
-  const guard = (f: () => void): number => {
-    try { callbackScope(f); return 0; } catch (e) { failed = true; error = e; return 1; }
-  };
-  const callbacks = {
-    run: (argsPtr: number, hdrPtr: number) => guard(() => {
+  let result: StrategyTestResult | null = null;
+  const callbacks = wasmCallbacks({
+    run: (argsPtr: number, hdrPtr: number) => {
       const ptrs = M.viewF64(argsPtr, k);
       const args = blocks.map((b, i) => asArg(b, ptrs[i] === 0 ? b.data
         : new Float64Array(M.viewF64(ptrs[i], b.T * b.K))));
@@ -747,14 +754,24 @@ export function strategyTest(
       last = asNd(out && out.values !== undefined ? out.values : out);   // Pipeline Output
       const shape = last ? last.shape : [];
       M.viewF64(hdrPtr, 4).set([shape.length, shape[0] ?? 0, shape[1] ?? 0, shape[2] ?? 0]);
-    }),
-    fetch: (outPtr: number, count: number) => guard(() => {
+    },
+    fetch: (outPtr: number, count: number) => {
       M.viewF64(outPtr, count).set((last as NdArray).data.subarray(0, count));
-    }),
-    metric: (hdrPtr: number) => guard(() => {
+    },
+    metric: (hdrPtr: number) => {
       M.viewF64(hdrPtr, 1)[0] = (metric as (out: NdArray) => number)(last as NdArray);
-    }),
-  };
+    },
+    // [observed, p_value, null count, null (n), observed stats (15), null stats (15 x n)]
+    done: (ptr: number, size: number) => {
+      const o = M.viewF64(ptr, size);
+      const nn = (size - 18) / 16, count = o[2], s0 = 3 + nn, n0 = s0 + 15;
+      result = {
+        observed: o[0], null: o.slice(3, 3 + count), pValue: o[1], metric: name, method,
+        observedStats: statsRecord((i) => o[s0 + i]),
+        nullStats: statsRecord((i) => o.slice(n0 + i * nn, n0 + (i + 1) * nn)),
+      };
+    },
+  });
 
   const bufs: number[] = [];
   try {
@@ -765,26 +782,14 @@ export function strategyTest(
     });
     const specPtr = heapCopy(spec);
     bufs.push(specPtr);
-    const nn = int(n, 0);
-    const outPtr = M.allocF64(Math.max(1, 3 + 16 * Math.max(nn, 0) + 15));
-    bufs.push(outPtr);
-    try {
-      wasmCall(() => M.strategyTestInto(
-        callbacks, specPtr, k, method, nn, pos(opts.ohlc ?? [0, 1, 2, 3]), int(opts.price ?? 0, -1),
-        opts.mode ?? "log", opts.volume !== undefined, int(opts.volume ?? 0, -1),
-        opts.volumeMode ?? "keep", pos(opts.columns ?? []), pos(opts.fixed ?? []),
-        typeof metric === "function" ? "" : metric, larger, opts.minShift !== undefined,
-        int(opts.minShift ?? 0, 0), seed, opts.periodsPerYear ?? 1, outPtr));
-    } catch (e) {
-      throw failed ? error : e;
-    }
-    const o = M.viewF64(outPtr, 3 + 16 * nn + 15);
-    const count = o[2], s0 = 3 + nn, n0 = s0 + 15;
-    return {
-      observed: o[0], null: o.slice(3, 3 + count), pValue: o[1], metric: name, method,
-      observedStats: statsRecord((i) => o[s0 + i]),
-      nullStats: statsRecord((i) => o.slice(n0 + i * nn, n0 + (i + 1) * nn)),
-    };
+    // null and undefined both mean "not given", as None does in Python.
+    callbacks.call((cb) => M.strategyTestRun(
+      cb, specPtr, k, method, int(n, 0), pos(opts.ohlc ?? [0, 1, 2, 3]), int(opts.price ?? 0, -1),
+      opts.mode ?? "log", opts.volume != null, int(opts.volume ?? 0, -1),
+      opts.volumeMode ?? "keep", pos(opts.columns ?? []), pos(opts.fixed ?? []),
+      typeof metric === "function" ? "" : metric, larger, opts.minShift != null,
+      int(opts.minShift ?? 0, 0), seed, opts.periodsPerYear ?? 1));
+    return result as unknown as StrategyTestResult;
   } finally {
     bufs.forEach((p) => M.freeBuf(p));
   }
@@ -834,7 +839,7 @@ function positionFamily(
         for (let j = 0; j < m; j++) {
           const r = scorer.score(run(out, j));
           nul[(c0 + j) * K + k] = r.value;
-          STAT_NAMES.forEach((q, i) => { nullStats[q].data[(c0 + j) * K + k] = r.stats[i]; });
+          statTableFromWasm().names.forEach((q, i) => { nullStats[q].data[(c0 + j) * K + k] = r.stats[i]; });
         }
       });
     }

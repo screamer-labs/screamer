@@ -67,8 +67,9 @@ export function wasmCall<T>(f: () => T): T {
 // Runs a JavaScript callback that C++ calls while WASM frames are live below
 // it. For its duration the stack base is the stack pointer at entry, so an
 // error caught inside (by wasmCall or here) restores the stack to that point
-// and not below the live frames. The error is rethrown.
-export function callbackScope<T>(f: () => T): T {
+// and not below the live frames. The error is rethrown. Not exported:
+// wasmCallbacks is the only way to hand functions to C++.
+function callbackScope<T>(f: () => T): T {
   const saved = stackBase;
   const base = helpers ? helpers.stackSave() : 0;
   stackBase = base;
@@ -80,4 +81,41 @@ export function callbackScope<T>(f: () => T): T {
   } finally {
     stackBase = saved;
   }
+}
+
+// Functions that C++ may call back, and the call into WASM that receives them.
+// This is the only path for a JavaScript callback into C++: each function runs
+// in callbackScope and never throws into WASM. It returns 0, or 1 when it
+// threw; the first error is kept, C++ unwinds on the 1, and `call` rethrows
+// that error unchanged (any other error is normalized as by wasmCall).
+// js/test/validation.test.ts checks that C++ calls JavaScript only through
+// such an object.
+export function wasmCallbacks<F extends Record<string, (...args: any[]) => void>>(fns: F): {
+  call<T>(f: (callbacks: Record<keyof F, (...args: any[]) => number>) => T): T;
+} {
+  let failed = false;
+  let error: unknown;
+  const callbacks = {} as Record<keyof F, (...args: any[]) => number>;
+  for (const name of Object.keys(fns) as (keyof F)[]) {
+    const f = fns[name];
+    callbacks[name] = (...args: any[]) => {
+      try {
+        callbackScope(() => f(...args));
+        return 0;
+      } catch (e) {
+        if (!failed) { failed = true; error = e; }
+        return 1;
+      }
+    };
+  }
+  return {
+    call<T>(f: (callbacks: Record<keyof F, (...args: any[]) => number>) => T): T {
+      try {
+        return f(callbacks);
+      } catch (e) {
+        const normalized = normalizeError(e);
+        throw failed ? error : normalized;
+      }
+    },
+  };
 }

@@ -368,3 +368,72 @@ test("validation: strategyTest gives each run new input arrays", async () => {
     assert.notDeepEqual(Array.from(seen[1][i]), Array.from(seen[2][i]));
   }
 });
+
+// B5 fix round 1: optional options given as null, the range of n, the
+// statistic table from C++, and the only path for C++ to call JavaScript.
+test("validation: strategyTest treats null options as not given", async () => {
+  const { strategyTest, BacktestPriceTarget } = await import("../src/index.ts");
+  const T = 50;
+  const c = Float64Array.from({ length: T }, (_, t) => 100 + t + Math.sin(t));
+  const o = c.map((x) => x * 0.999), h = c.map((x) => x * 1.01), l = c.map((x) => x * 0.98);
+  const hold = (p: Float64Array) => BacktestPriceTarget()(new Float64Array(T).fill(1), p);
+  const bars = (_o: any, _h: any, _l: any, p: Float64Array) => hold(p);
+  const same = (a: any, b: any) => assert.deepEqual(Array.from(a.null), Array.from(b.null));
+  same(strategyTest(bars, [o, h, l, c], { n: 6, volume: null as any }), strategyTest(bars, [o, h, l, c], { n: 6 }));
+  const shift = (_f: any, p: Float64Array) => hold(p);
+  same(strategyTest(shift, [c, c], { method: "shift", columns: [0], n: 6, minShift: null as any }),
+       strategyTest(shift, [c, c], { method: "shift", columns: [0], n: 6 }));
+  same(strategyTest(hold, [c], { method: "returns", n: null as any, seed: null as any, mode: null as any,
+                                 price: null as any, fixed: null as any, periodsPerYear: null as any }),
+       strategyTest(hold, [c], { method: "returns", n: 500 }));
+});
+
+test("validation: strategyTest checks the range of n before allocating", async () => {
+  const { strategyTest, BacktestPriceTarget } = await import("../src/index.ts");
+  const T = 30;
+  const c = Float64Array.from({ length: T }, (_, t) => 100 + t);
+  const hold = (p: Float64Array) => BacktestPriceTarget()(new Float64Array(T).fill(1), p);
+  assert.throws(() => strategyTest(hold, [c], { method: "returns", n: 0 }),
+    { name: "RangeError", message: "n must be at least 1" });
+  for (const n of [2 ** 32 + 3, 2 ** 60, Number.MAX_VALUE])
+    assert.throws(() => strategyTest(hold, [c], { method: "returns", n }),
+      (e: any) => e instanceof RangeError && /^n is too large: at most \d+ runs$/.test(e.message));
+  assert.equal(strategyTest(hold, [c], { method: "returns", n: 3 }).null.length, 3);
+});
+
+test("validation: the statistic table comes from C++", async () => {
+  const { statTableFromWasm } = await import("../src/validation.ts");
+  const { names, metrics } = statTableFromWasm();
+  assert.deepEqual(names, ["total_pnl", "max_drawdown", "total_cost", "turnover", "num_trades",
+    "sharpe", "exposure", "round_trips", "win_rate", "profit_factor", "avg_win", "avg_loss",
+    "avg_holding", "sortino", "calmar"]);
+  assert.deepEqual(metrics.sharpe, { src: "report", col: 5, larger: true });
+  assert.deepEqual(metrics.turnover, { src: "report", col: 2, larger: null });
+  assert.deepEqual(metrics.total_cost, { src: "report", col: 1, larger: false });
+});
+
+test("validation: C++ calls JavaScript only through wasmCallbacks", async () => {
+  const fs = await import("node:fs");
+  const path = await import("node:path");
+  const root = path.resolve(import.meta.dirname, "../..");
+  const cpp = fs.readdirSync(path.join(root, "wasm"))
+    .filter((f) => /\.(cpp|h)$/.test(f))
+    .map((f) => [f, fs.readFileSync(path.join(root, "wasm", f), "utf8")] as const);
+  // Calls of a JS method from C++: the one in JsStrategyHost::call_js, which
+  // only receives a wasmCallbacks object, and Array.push on a result array.
+  const allowed = new Set(["validation_bindings.cpp: cb_.call<int>(name", 'shape_bindings.cpp: a.call<void>("push"']);
+  for (const [f, src] of cpp)
+    for (const m of src.matchAll(/(\w+)\.call<(\w+)>\(([^,)]*)/g))
+      assert.ok(allowed.has(`${f}: ${m[1]}.call<${m[2]}>(${m[3]}`), `${f}: C++ calls JavaScript: ${m[0]}`);
+  // Functions that take a callback object get it from wasmCallbacks(...).call.
+  const takers = cpp.flatMap(([, src]) => [...src.matchAll(/void (\w+)\(emscripten::val cb\b/g)].map((m) => m[1]));
+  assert.deepEqual(takers, ["strategyTestRun"]);
+  const js = fs.readdirSync(path.join(root, "js/src")).filter((f) => f.endsWith(".ts"))
+    .map((f) => fs.readFileSync(path.join(root, "js/src", f), "utf8")).join("\n");
+  for (const name of takers) {
+    const uses = [...js.matchAll(new RegExp(`(.{0,30})M\\.${name}\\(`, "g"))];
+    assert.ok(uses.length > 0);
+    for (const u of uses) assert.match(u[1], /\.call\(\(cb\) => $/, `M.${name} must be called inside wasmCallbacks(...).call`);
+  }
+  assert.ok(!/export function callbackScope/.test(js), "callbackScope must stay private to errors.ts");
+});

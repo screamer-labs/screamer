@@ -39,6 +39,7 @@ from .screamer_bindings import (
     _permute_bars,
     _permute_returns,
     _segment_shuffle,
+    _strategy_stats,
     _strategy_test,
 )
 
@@ -48,29 +49,15 @@ __all__ = ["position_test", "strategy_test", "circular_shift", "segment_shuffle"
 
 # The statistics computed for every run, with the same names as the summary of
 # backtest_report, and their direction as a test metric (None: no natural
-# direction, so larger_is_better must be given).
+# direction, so larger_is_better must be given). The table lives in C++
+# (include/screamer/validation/strategy_test.h), shared with JavaScript.
 # Engine output columns: [equity, pnl, position, cost].
 # BacktestReport columns: [drawdown, cum_cost, turnover, trades, max_drawdown, sharpe].
 # BacktestStats columns: [exposure, round_trips, win_rate, profit_factor, avg_win,
 #                         avg_loss, avg_holding, sortino, calmar].
-_METRICS = {
-    # name: (source, column, larger_is_better)
-    "total_pnl": ("engine", 0, True),
-    "max_drawdown": ("report", 4, True),   # <= 0, so closer to 0 is better
-    "total_cost": ("report", 1, False),
-    "turnover": ("report", 2, None),
-    "num_trades": ("report", 3, None),
-    "sharpe": ("report", 5, True),
-    "exposure": ("stats", 0, None),
-    "round_trips": ("stats", 1, None),
-    "win_rate": ("stats", 2, True),
-    "profit_factor": ("stats", 3, True),
-    "avg_win": ("stats", 4, True),
-    "avg_loss": ("stats", 5, True),        # <= 0, so closer to 0 is better
-    "avg_holding": ("stats", 6, None),
-    "sortino": ("stats", 7, True),
-    "calmar": ("stats", 8, True),
-}
+# name: (source, column, larger_is_better)
+_METRICS = {name: (source, column, larger)
+            for name, source, column, larger in _strategy_stats()}
 
 # Doubles per chunk, about 256 MB, for the (T, chunk) working arrays.
 _CHUNK_DOUBLES = 32_000_000
@@ -83,6 +70,22 @@ def _seed(seed):
     if not 0 <= seed < 2**53:
         raise ValueError("seed must be an integer in [0, 2**53)")
     return seed
+
+
+_INT64 = (-2**63, 2**63 - 1)
+
+
+def _int64(x):
+    """An integer argument for C++: values outside int64 are clamped, so they
+    fail the range check of their argument with its own message."""
+    return min(max(int(x), _INT64[0]), _INT64[1])
+
+
+def _count(x, name):
+    """A count such as n: an integer, not a bool (TypeError otherwise)."""
+    if isinstance(x, (bool, np.bool_)):
+        raise TypeError(f"{name} must be an integer, not bool")
+    return _int64(operator.index(x))
 
 
 def _as_series(x, name):
@@ -616,13 +619,13 @@ def strategy_test(
             value = metric(out if out.ndim == 3 else out[:, None, :])
             return float(np.asarray(value, dtype=float).reshape(-1)[0])
 
-    positions = lambda pos: [int(i) for i in pos]  # noqa: E731
+    positions = lambda pos: [_int64(i) for i in pos]  # noqa: E731
     observed, null, p_value, observed_stats, null_stats = _strategy_test(
-        run, score, data, operator.index(n), method, positions(ohlc), int(price), mode,
-        None if volume is None else int(volume), volume_mode,
+        run, score, data, _count(n, "n"), method, positions(ohlc), _int64(price), mode,
+        None if volume is None else _int64(volume), volume_mode,
         [] if columns is None else positions(columns), positions(fixed),
         name if isinstance(metric, str) else "", larger_is_better,
-        None if min_shift is None else int(min_shift), _seed(seed), float(periods_per_year))
+        None if min_shift is None else _int64(min_shift), _seed(seed), float(periods_per_year))
     return StrategyTestResult(observed, null, p_value, name, method, observed_stats, null_stats)
 
 

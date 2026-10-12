@@ -817,6 +817,15 @@ void init_bindings_fin(nb::module_& m) {
           "x"_a, "min_shift"_a, "seed"_a, "col0"_a, "ncols"_a, "start"_a = -1);
     m.def("_segment_shuffle", &segment_shuffle_batch,
           "x"_a, "seed"_a, "col0"_a, "ncols"_a);
+    // The statistic table of the driver: (name, source, column, larger),
+    // larger None for a statistic with no natural direction.
+    m.def("_strategy_stats", []() {
+        nb::list out;
+        for (const auto& st : sv::kStats)
+            out.append(nb::make_tuple(st.name, sv::stat_source_name(st.source), st.column,
+                                      st.larger < 0 ? nb::none() : nb::bool_(st.larger == 1)));
+        return out;
+    });
     m.def("_strategy_test", &strategy_test_py,
           "run"_a, "metric"_a.none(), "inputs"_a, "n"_a, "method"_a, "ohlc"_a, "price"_a,
           "mode"_a, "volume"_a.none(), "volume_mode"_a, "columns"_a, "fixed"_a,

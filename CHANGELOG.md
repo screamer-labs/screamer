@@ -88,6 +88,13 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
   JavaScript, a portfolio of 8 or more assets is summed into its book in
   NumPy's pairwise order, as in Python, so its statistics can differ from
   2.8.0 in the last bits; compare with a tolerance.
+  `n` above 2147483647 (fewer in JavaScript, where the result must fit in
+  32-bit memory) raises "n is too large" (`ValueError` / `RangeError`), and
+  `n=True` raises `TypeError` "n must be an integer, not bool". Integers
+  outside int64 in `price`, `volume`, `fixed`, `ohlc`, `columns`, or
+  `min_shift` raise the `ValueError` of that argument. In JavaScript,
+  `volume: null` means no volume (as `None` in Python; 2.8.0 raised
+  `RangeError`), and `minShift: null` the default.
 * `permute_bars` and `permute_returns` on one series write 8 copies per pass
   and are 1.2 to 2 times faster; the copies are unchanged.
 * `strategy_test` input errors: a `str` or `None` input raises `TypeError`

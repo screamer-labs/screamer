@@ -7,6 +7,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <exception>
+#include <limits>
 #include <string>
 #include <utility>
 #include <vector>
@@ -92,15 +93,18 @@ void deflatedSharpeInto(std::uintptr_t pnl, std::size_t n, std::uintptr_t trials
 
 // strategy_test (js/src/validation.ts strategyTest): the driver is
 // screamer::validation::strategy_test; this host reaches the JavaScript
-// strategy through `cb`, an object of three functions that never throw:
+// strategy through `cb`, an object of four functions built by wasmCallbacks
+// (js/src/errors.ts), which runs each one in callbackScope and never throws:
 //   run(argsPtr, hdrPtr): calls the strategy. argsPtr holds k heap addresses,
 //     0 for an original input, else the moved copy (T * K doubles). Writes the
 //     output's [ndim, d0, d1, d2] to hdrPtr.
 //   fetch(outPtr, count): copies the last output's count values to outPtr.
 //   metric(hdrPtr): writes the custom metric of the last output to hdrPtr[0].
+//   done(resultPtr, count): copies the result out (see strategyTestRun).
 // Each returns 0, or 1 when the user's code threw; the JS side keeps that
 // error, this host throws CallbackFailed to unwind the driver, and the JS
-// wrapper rethrows the user's error unchanged.
+// wrapper rethrows the user's error unchanged. call_js is the only place C++
+// calls into JavaScript (js/test/validation.test.ts checks this).
 namespace sv = screamer::validation;
 
 struct CallbackFailed : std::exception {
@@ -121,8 +125,8 @@ public:
         for (std::size_t i = 0; i < args_.size(); ++i)
             args_[i] = moved[i] ? static_cast<double>(reinterpret_cast<std::uintptr_t>(moved_[i].data()))
                                 : 0.0;
-        check(cb_.call<int>("run", reinterpret_cast<std::uintptr_t>(args_.data()),
-                            reinterpret_cast<std::uintptr_t>(hdr_)));
+        call_js("run", reinterpret_cast<std::uintptr_t>(args_.data()),
+                reinterpret_cast<std::uintptr_t>(hdr_));
         sv::EngineOutput out;
         out.ndim = static_cast<std::size_t>(hdr_[0]);
         std::size_t count = out.ndim == 2 || out.ndim == 3 ? 1 : 0;
@@ -131,18 +135,25 @@ public:
             if (d < out.ndim) count *= out.shape[d];
         }
         out_.resize(count ? count : 1);
-        if (count) check(cb_.call<int>("fetch", reinterpret_cast<std::uintptr_t>(out_.data()), count));
+        if (count) call_js("fetch", reinterpret_cast<std::uintptr_t>(out_.data()), count);
         out.data = out_.data();
         return out;
     }
 
     double metric() override {
-        check(cb_.call<int>("metric", reinterpret_cast<std::uintptr_t>(hdr_)));
+        call_js("metric", reinterpret_cast<std::uintptr_t>(hdr_));
         return hdr_[0];
     }
 
+    void done(const std::vector<double>& result) {
+        call_js("done", reinterpret_cast<std::uintptr_t>(result.data()), result.size());
+    }
+
 private:
-    static void check(int status) { if (status != 0) throw CallbackFailed(); }
+    template <class... Args>
+    void call_js(const char* name, Args... args) {
+        if (cb_.call<int>(name, args...) != 0) throw CallbackFailed();
+    }
 
     emscripten::val cb_;
     std::vector<std::vector<double>> moved_;
@@ -150,24 +161,34 @@ private:
     double hdr_[4] = {0, 0, 0, 0};
 };
 
+// A JS number as an int64: integers outside the range are clamped, so they
+// fail the driver's range check with its message (a cast would be undefined).
+std::int64_t to_int64(double x) {
+    if (!(x == x)) return 0;
+    if (x >= 9223372036854775808.0) return std::numeric_limits<std::int64_t>::max();
+    if (x < -9223372036854775808.0) return std::numeric_limits<std::int64_t>::min();
+    return static_cast<std::int64_t>(x);
+}
+
 std::vector<std::int64_t> positions(const emscripten::val& v) {
     std::vector<std::int64_t> out;
-    for (double x : emscripten::vecFromJSArray<double>(v)) out.push_back(static_cast<std::int64_t>(x));
+    for (double x : emscripten::vecFromJSArray<double>(v)) out.push_back(to_int64(x));
     return out;
 }
 
-// `spec` holds [data address, T, K, panel] per input. `out` receives
-// [observed, p_value, null count, null (n), observed stats (15), null stats
-// (15 x n)]. Positions and counts arrive as integers (the JS side maps a
-// non-integer to -1 or 0, which the driver rejects); strings as vals, as in
-// permuteBarsInto.
-void strategyTestInto(emscripten::val cb, std::uintptr_t spec, std::size_t k,
-                      emscripten::val method, double n, emscripten::val ohlc, double price,
-                      emscripten::val mode, bool has_volume, double volume,
-                      emscripten::val volume_mode, emscripten::val columns,
-                      emscripten::val fixed, emscripten::val metric, bool larger_is_better,
-                      bool has_min_shift, double min_shift, double seed,
-                      double periods_per_year, std::uintptr_t out) {
+// `spec` holds [data address, T, K, panel] per input. The result goes to
+// cb.done as [observed, p_value, null count, null (n), observed stats (15),
+// null stats (15 x n)]; it is built here, after the driver has checked n, so
+// JS allocates nothing sized by n. Positions and counts arrive as integers
+// (the JS side maps a non-integer to -1 or 0, which the driver rejects);
+// strings as vals, as in permuteBarsInto.
+void strategyTestRun(emscripten::val cb, std::uintptr_t spec, std::size_t k,
+                     emscripten::val method, double n, emscripten::val ohlc, double price,
+                     emscripten::val mode, bool has_volume, double volume,
+                     emscripten::val volume_mode, emscripten::val columns,
+                     emscripten::val fixed, emscripten::val metric, bool larger_is_better,
+                     bool has_min_shift, double min_shift, double seed,
+                     double periods_per_year) {
     const double* sp = in_ptr(spec);
     std::vector<sv::StrategyInput> data(k);
     for (std::size_t i = 0; i < k; ++i)
@@ -175,31 +196,49 @@ void strategyTestInto(emscripten::val cb, std::uintptr_t spec, std::size_t k,
                    static_cast<std::size_t>(sp[4 * i + 1]), static_cast<std::size_t>(sp[4 * i + 2]),
                    sp[4 * i + 3] != 0.0};
     sv::StrategyTestOptions opt;
-    opt.n = static_cast<std::int64_t>(n);
+    opt.n = to_int64(n);
     opt.method = method.as<std::string>();
     opt.ohlc = positions(ohlc);
-    opt.price = static_cast<std::int64_t>(price);
+    opt.price = to_int64(price);
     opt.mode = mode.as<std::string>();
-    if (has_volume) opt.volume = static_cast<std::int64_t>(volume);
+    if (has_volume) opt.volume = to_int64(volume);
     opt.volume_mode = volume_mode.as<std::string>();
     opt.columns = positions(columns);
     opt.fixed = positions(fixed);
     opt.metric = metric.as<std::string>();
     opt.larger_is_better = larger_is_better;
-    if (has_min_shift) opt.min_shift = static_cast<std::int64_t>(min_shift);
+    if (has_min_shift) opt.min_shift = to_int64(min_shift);
     opt.seed = static_cast<std::uint64_t>(seed);
     opt.periods_per_year = periods_per_year;
 
     JsStrategyHost host(std::move(cb), k);
     const sv::StrategyTestResult r = sv::strategy_test(host, data, opt);
+    // n passed the driver's check, so this size cannot overflow.
     const std::size_t nn = static_cast<std::size_t>(opt.n);
-    double* o = out_ptr(out);
+    std::vector<double> o(3 + nn + sv::kNumStats + sv::kNumStats * nn);
     o[0] = r.observed;
     o[1] = r.p_value;
     o[2] = static_cast<double>(r.null.size());
-    std::copy(r.null.begin(), r.null.end(), o + 3);
-    std::copy(r.observed_stats.begin(), r.observed_stats.end(), o + 3 + nn);
-    std::copy(r.null_stats.begin(), r.null_stats.end(), o + 3 + nn + sv::kNumStats);
+    std::copy(r.null.begin(), r.null.end(), o.begin() + 3);
+    std::copy(r.observed_stats.begin(), r.observed_stats.end(), o.begin() + 3 + nn);
+    std::copy(r.null_stats.begin(), r.null_stats.end(), o.begin() + 3 + nn + sv::kNumStats);
+    host.done(o);
+}
+
+// The driver's statistic table, as [name, source, column, larger] rows
+// (larger: 1, 0, or -1 for no natural direction), for js/src/validation.ts.
+emscripten::val strategyStats() {
+    emscripten::val rows = emscripten::val::array();
+    for (std::size_t q = 0; q < sv::kNumStats; ++q) {
+        const auto& st = sv::kStats[q];
+        emscripten::val row = emscripten::val::array();
+        row.set(0, std::string(st.name));
+        row.set(1, std::string(sv::stat_source_name(st.source)));
+        row.set(2, st.column);
+        row.set(3, st.larger);
+        rows.set(q, row);
+    }
+    return rows;
 }
 
 }  // namespace
@@ -212,5 +251,6 @@ EMSCRIPTEN_BINDINGS(screamer_validation) {
     emscripten::function("permuteReturnsInto", &permuteReturnsInto);
     emscripten::function("probabilisticSharpe", &probabilisticSharpe);
     emscripten::function("deflatedSharpeInto", &deflatedSharpeInto);
-    emscripten::function("strategyTestInto", &strategyTestInto);
+    emscripten::function("strategyTestRun", &strategyTestRun);
+    emscripten::function("strategyStats", &strategyStats);
 }

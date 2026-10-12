@@ -971,3 +971,42 @@ def test_kernel_copies_do_not_depend_on_the_tile(mode, K):
         one = _permute_returns(x, mode, 9, 5 + j, 1, v, True)
         for got, ref in zip(rets, one):
             np.testing.assert_array_equal(got[:, j], ref[:, 0])
+
+
+# --- B5 fix round 1: argument ranges and the statistic table ------------------
+
+def test_strategy_test_range_of_n_and_integer_arguments():
+    c = 100 + np.arange(40.0)
+    hold = lambda p: s.BacktestPriceTarget()(np.ones(40), p)  # noqa: E731
+    with pytest.raises(ValueError, match="^n must be at least 1$"):
+        s.strategy_test(hold, c, method="returns", n=0)
+    for n in (2**32 + 3, 2**60, 2**63, 2**80):
+        with pytest.raises(ValueError, match=r"^n is too large: at most 2147483647 runs$"):
+            s.strategy_test(hold, c, method="returns", n=n)
+    with pytest.raises(TypeError, match="n must be an integer, not bool"):
+        s.strategy_test(hold, c, method="returns", n=True)
+    assert s.strategy_test(hold, c, method="returns", n=np.int64(3)).null.size == 3
+    # integers outside int64 fail their own range check, not the signature
+    with pytest.raises(ValueError, match="price refers to an input"):
+        s.strategy_test(hold, c, method="returns", price=2**70)
+    with pytest.raises(ValueError, match="fixed refers to an input"):
+        s.strategy_test(hold, c, method="returns", fixed=[2**70])
+    with pytest.raises(ValueError, match="volume refers to an input"):
+        s.strategy_test(hold, c, method="returns", volume=-2**70)
+    with pytest.raises(ValueError, match="min_shift must be in"):
+        s.strategy_test(lambda f, p: hold(p), c, c, method="shift", columns=[0],
+                        min_shift=-2**70)
+
+
+def test_statistic_table_comes_from_cpp():
+    from screamer.screamer_bindings import _strategy_stats
+    from screamer.validation import _METRICS
+    rows = _strategy_stats()
+    assert list(_METRICS) == [r[0] for r in rows]
+    assert _METRICS["sharpe"] == ("report", 5, True)
+    assert _METRICS["turnover"] == ("report", 2, None)
+    assert _METRICS["total_cost"] == ("report", 1, False)
+    c = 100 + np.arange(40.0)
+    res = s.strategy_test(lambda p: s.BacktestPriceTarget()(np.ones(40), p), c,
+                          method="returns", n=3)
+    assert list(res.observed_stats) == list(res.null_stats) == list(_METRICS)
