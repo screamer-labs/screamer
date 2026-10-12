@@ -154,7 +154,9 @@ public:
     // Custom-metric results, one per strategy: the JS side writes [first
     // value, how many values, kind (sv::MetricKind)] for each of `count`
     // calls of the user's metric (each sees one strategy) to `res`; the
-    // drivers' shared rule checks each, and the first values go to `values`.
+    // drivers' shared rule checks each in order, and the first values go to
+    // `values`. The JS side stops at the first result the rule rejects, so
+    // that one raises.
     static void metric_values(const double* res, double* values, std::size_t count) {
         for (std::size_t j = 0; j < count; ++j) {
             const double kind = res[3 * j + 2];

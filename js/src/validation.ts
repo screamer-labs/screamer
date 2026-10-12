@@ -336,7 +336,8 @@ function engineCallbacks(engine: ScreamerOp, original: any, market: any[], metri
     reset: () => { engine.reset(); },
     // Each of `count` strategies of `what`: 0 the last output, 1 the output
     // as one book, 2 the (rows, count, 4) window at windowPtr. Writes
-    // metricEntry's triple per strategy to resPtr, once at the end.
+    // metricEntry's triple per strategy to resPtr, once at the end, up to the
+    // first result of the wrong kind or count.
     metric: (what: number, count: number, rows: number, windowPtr: number, resPtr: number) => {
       const f = metric as (out: NdArray) => unknown;
       const last = state.last as NdArray;
@@ -346,6 +347,9 @@ function engineCallbacks(engine: ScreamerOp, original: any, market: any[], metri
           ? strategyOf({ data: M.viewF64(windowPtr, rows * count * 4), shape: [rows, count, 4] }, j)
           : what === 1 || last.shape.length === 2 ? last : strategyOf(last, j);
         metricEntry(f(arg), res, 3 * j);
+        // The first result C++ will reject ends the batch, so its error is
+        // raised before the metric runs again (later entries are not read).
+        if (res[3 * j + 2] === 2 || res[3 * j + 1] !== 1) break;
       }
       M.viewF64(resPtr, 3 * count).set(res);
     },

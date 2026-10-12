@@ -706,3 +706,26 @@ test("validation: positionTest takes NdArray series markets", () => {
   assert.deepEqual(positionTest(BacktestPriceTarget(), [a, b], [nc], { n: 9 }), fam);
   assert.deepEqual(positionTest(BacktestPriceTarget(), { data: block, shape: [T, 2] }, [nc], { n: 9 }), fam);
 });
+
+test("validation: the first bad metric result raises before the metric runs again", async () => {
+  const { walkForward } = await import("../src/index.ts");
+  const T = 80;
+  const { c } = market(T);
+  const tgt = Array.from({ length: T }, (_, t) => (Math.floor(t / 5) % 2 ? 1 : -1));
+  const X = [tgt, tgt, tgt, tgt, tgt];
+  class Late extends Error {}
+  for (const [bad, kind] of [[true, TypeError], [[1, 2], RangeError]] as const) {
+    // the real run's call sees strategy 1 to 5; call 2 is bad, call 4 throws
+    const make = () => {
+      let k = 0;
+      return (out: any) => { k++; if (k === 2) return bad; if (k === 4) throw new Late(); return out.data[0]; };
+    };
+    assert.throws(() => positionTest(BacktestPriceTarget(), X, [c], { n: 3, metric: make() }), kind);
+    assert.throws(() => walkForward(BacktestPriceTarget(), X, [c], { train: 30, test: 10, metric: make() }), kind);
+    let calls = 0;
+    const counting = make();
+    assert.throws(() => positionTest(BacktestPriceTarget(), X, [c], { n: 3,
+      metric: (out: any) => { calls++; return counting(out); } }), kind);
+    assert.equal(calls, 2);      // the batch stopped at the bad result
+  }
+});

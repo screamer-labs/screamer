@@ -1163,7 +1163,6 @@ def test_custom_metric_gives_one_number_per_strategy():
                                   np.column_stack([c, c]), n=3, metric=m),
         lambda m: s.strategy_test(hold, c, method="returns", n=3, metric=m),
     ]
-    one_value = lambda run: run is not calls[0]  # noqa: E731  (one strategy per metric call)
     for run in calls:
         with pytest.raises(ValueError, match="one value per strategy in its input: 1 expected, got 2"):
             run(lambda out: np.array([1.0, 2.0]))
@@ -1174,10 +1173,12 @@ def test_custom_metric_gives_one_number_per_strategy():
                     ["1"], [[0.5]], np.ones((1, 1)), np.array(["1"]), np.array([0.5], dtype=object)):
             with pytest.raises(TypeError, match="^metric must return a number or a 1-D array of numbers$"):
                 run(lambda out, bad=bad: bad)
+        # n=1 for position_test, so each metric call sees one strategy
+        one = (lambda m: s.position_test(s.BacktestPriceTarget(), tgt, c, n=1, metric=m)) \
+            if run is calls[0] else run
         for good in (0.5, [0.5], (0.5,), np.float32(0.5), np.int64(1), np.array([0.5]), np.array(0.5)):
-            if not one_value(run):
-                continue
-            run(lambda out, good=good: good)
+            assert one(lambda out, good=good: good).observed == float(good if np.ndim(good) == 0
+                                                                       else np.ravel(good)[0])
         per_run = run is calls[1]                 # a portfolio's book is one value
         a = run(lambda out: [0.5] * (1 if per_run else out.shape[1]))
         b = run(lambda out: 0.5 if per_run else np.full(out.shape[1], 0.5))
