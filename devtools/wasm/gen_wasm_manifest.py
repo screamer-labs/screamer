@@ -203,6 +203,10 @@ def _normalize_ctor_arg(arg: str) -> str:
     # wrapper only lets Python pass a single number. JS gets number | number[].
     if a == "screamer::PerAsset":
         a = "std::vector<double>"
+    # An integer setting is IntArg<T> in the Python binding (it refuses a
+    # string); the WASM binding takes T, and the JS factory refuses strings.
+    if a.startswith("screamer::IntArg<") and a.endswith(">"):
+        a = a[len("screamer::IntArg<"):-1].strip()
     return a
 
 

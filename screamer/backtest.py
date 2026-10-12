@@ -10,6 +10,8 @@ Wrap ``running`` in ``pandas.DataFrame`` yourself if you want a frame.
 import math
 import numpy as np
 
+from .dag import _as_float64
+
 from .screamer_bindings import BacktestReport, BacktestStats
 
 #: Market-order price sentinel for the backtest engines. A quote or limit price of
@@ -50,7 +52,7 @@ def backtest_report(values, index=None, periods_per_year=1.0):
     nodes; this wrapper only labels their columns and reads the last finite row.
     No pandas dependency.
     """
-    values = np.asarray(values, dtype=float)
+    values = _as_float64(values)
     if values.ndim != 2 or values.shape[1] != 4:
         raise ValueError(
             "values must be a (T, 4) array of [equity, pnl, position, cost]")

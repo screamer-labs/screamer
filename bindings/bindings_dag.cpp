@@ -447,6 +447,34 @@ void init_bindings_dag(nb::module_& m) {
     // The string rule for values (cast_double.h refuse_text), for the Python
     // float64 conversions in screamer/dag.py and screamer/streams.py.
     m.def("_refuse_text", [](nb::handle x) { refuse_text(x); }, "values"_a.none());
+    // The one-kind rule of a call (py_index.h TimeUnit) over the index arrays of
+    // the batch stream functions (merge, combine_latest), which build their own
+    // int64 arrays: every non-empty array must be numbers, or times of one unit.
+    m.def("_check_index_kinds", [](nb::list indexes) {
+        TimeUnit unit;
+        nb::module_ np = nb::module_::import_("numpy");
+        for (nb::handle h : indexes) {
+            nb::object arr = np.attr("asarray")(h);
+            if (nb::len(arr) == 0) continue;
+            const std::string kind = nb::cast<std::string>(arr.attr("dtype").attr("kind"));
+            if (kind == "M" || kind == "m") {
+                nb::tuple du = nb::cast<nb::tuple>(np.attr("datetime_data")(arr.attr("dtype")));
+                note_time(&unit, kind == "M" ? TimeUnit::kDatetime : TimeUnit::kTimedelta,
+                          time_unit_base(nb::cast<std::string>(du[0])), nb::cast<int>(du[1]));
+            } else if (kind == "O") {
+                for (nb::handle e : arr) py_index(e, &unit);
+            } else {
+                note_number(&unit);
+            }
+        }
+    }, "indexes"_a);
+    // One value under the same rules: a number, None as NaN; a string or any
+    // other kind is a TypeError.
+    m.def("_value", [](nb::handle x) {
+        double d;
+        if (!is_text(x) && read_double(x, d)) return d;
+        throw_text_value("", x);
+    }, "value"_a.none());
 
     m.def("_run_functor_batch", &run_functor_batch,
           "op"_a, "index"_a, "values"_a);
@@ -632,6 +660,8 @@ void init_bindings_dag(nb::module_& m) {
             // float64 cast would drop the imaginary part.
             // A string inside is a wrong kind (refuse_text), before the cast
             // would read "3" as 3.
+            if (PyList_Check(p) || PyTuple_Check(p))
+                refuse_text(value);                // a bytearray item reads as numbers below
             nb::object arr = nb::getattr(value, "dtype", nb::none()).is_none()
                 ? asarray(value) : nb::borrow<nb::object>(value);
             nb::object dt = nb::getattr(arr, "dtype", nb::none());

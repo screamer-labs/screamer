@@ -123,7 +123,7 @@ export function feedNumber(v: unknown, who: string, where: () => string): number
   if (typeof v === "string" || typeof v === "function" || typeof v === "bigint" || typeof v === "symbol")
     throwWrongKind(who, where(), v);
   if (typeof v === "object" && v !== null) {
-    if (Array.isArray(v)) throwWrongKind(who, where(), v);
+    if (Array.isArray(v) || v instanceof String) throwWrongKind(who, where(), v);
     const n = Number(v);
     if (Number.isNaN(n)) throwWrongKind(who, where(), v);
     return n;

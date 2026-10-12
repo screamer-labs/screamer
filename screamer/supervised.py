@@ -14,6 +14,8 @@ from __future__ import annotations
 
 import numpy as np
 
+from .dag import _as_float64
+
 from . import Lag, Delay, CombineLatest, Dropna, Select
 from .dag import Input, Pipeline, is_node
 from .streams import _is_lazy_stream
@@ -62,8 +64,8 @@ def _forecast_pairs_count(X, y, count, dropna_flag):
         return dag(X, y)
 
     # Eager regime: run the Pipeline in batch mode.
-    X = np.asarray(X, dtype=float)
-    y = np.asarray(y, dtype=float)
+    X = _as_float64(X)
+    y = _as_float64(y)
     if len(X) != len(y):
         raise ValueError("X and y must share the same length (time axis)")
 

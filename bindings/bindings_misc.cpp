@@ -1,4 +1,5 @@
 #include <nanobind/nanobind.h>
+#include "screamer/common/int_arg.h"
 #include <nanobind/stl/string.h>
 #include "screamer/common/base.h"
 #include "screamer/common/dispatch.h"
@@ -21,14 +22,14 @@ using namespace nb::literals;
 void init_bindings_misc(nb::module_& m) {
 
     nb::class_<screamer::Diff, screamer::ScreamerBase>(m, "Diff")
-        .def(nb::init<int, const std::string&>(), "window_size"_a = 1, "start_policy"_a = "strict")
+        .def(nb::init<screamer::IntArg<int>, const std::string&>(), "window_size"_a = 1, "start_policy"_a = "strict")
         .def("__call__", &screamer::screamer_call, "value"_a.none())
         .def("reset", &screamer::Diff::reset, "Reset to the initial state.");
 
     // Momentum(k): mathematically identical to Diff(k). Exposed under
     // its TA-Lib name (MOM) for portability and discoverability.
     nb::class_<screamer::Momentum, screamer::ScreamerBase>(m, "Momentum")
-        .def(nb::init<int, const std::string&>(), "window_size"_a = 10, "start_policy"_a = "strict")
+        .def(nb::init<screamer::IntArg<int>, const std::string&>(), "window_size"_a = 10, "start_policy"_a = "strict")
         .def("__call__", &screamer::screamer_call, "value"_a.none())
         .def("reset", &screamer::Momentum::reset, "Reset to the initial state.");
 
@@ -41,7 +42,7 @@ void init_bindings_misc(nb::module_& m) {
         .def("reset", &screamer::Diff2::reset, "Reset to the initial state.");
 
     nb::class_<screamer::Lag, screamer::ScreamerBase>(m, "Lag")
-        .def(nb::init<int, const std::string&>(), "window_size"_a = 1, "start_policy"_a = "strict")
+        .def(nb::init<screamer::IntArg<int>, const std::string&>(), "window_size"_a = 1, "start_policy"_a = "strict")
         .def("__call__", &screamer::screamer_call, "value"_a.none())
         .def("reset", &screamer::Lag::reset, "Reset to the initial state.");
 
@@ -79,7 +80,7 @@ void init_bindings_misc(nb::module_& m) {
 
     // Detrend: y[t] = x[t] - RollingMean(window)(x)[t].
     nb::class_<screamer::Detrend, screamer::ScreamerBase>(m, "Detrend")
-        .def(nb::init<int, const std::string&>(),
+        .def(nb::init<screamer::IntArg<int>, const std::string&>(),
              "window_size"_a = 20,
              "start_policy"_a = "strict")
         .def("__call__", &screamer::screamer_call, "value"_a.none())

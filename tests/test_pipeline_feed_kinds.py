@@ -266,3 +266,69 @@ def test_resample_clock_fractional_index_raises():
     vals, idx = resample((np.arange(3.0), np.array([0.0, 1.0, 2.0])), c, clock=True)
     np.testing.assert_array_equal(idx, [1, 3])
     np.testing.assert_array_equal(vals, [1.0, 2.0])
+
+
+# ---- fix round 2 (N1-N7) ----------------------------------------------------
+
+@pytest.mark.parametrize("text", ["1", b"1", bytearray(b"1"), np.str_("1")])
+def test_row_ops_and_portfolio_refuse_strings(text):
+    for call in (lambda: s.CrossRank()([text, 2.0, 3.0]),
+                 lambda: s.CrossRank()([[1.0, text, 3.0]]),
+                 lambda: list(s.CrossRank()(iter([[text, 2.0, 3.0]]))),
+                 lambda: s.PortfolioReport()([1.0, 2.0, text, 4.0]),
+                 lambda: s.BacktestPortfolioTarget()([text, 0.0], [100.0, 50.0])):
+        with pytest.raises(TypeError, match="expected a number"):
+            call()
+
+
+def test_lazy_positional_combine_latest_values():
+    with pytest.raises(TypeError, match="str"):
+        list(combine_latest(iter([1.0, "3"]), iter([1.0, 2.0])))
+    lazy = [row for row, _ in combine_latest(iter([None, 1.0]), iter([1.0, 2.0]))]
+    batch, _ = combine_latest([None, 1.0], [1.0, 2.0])
+    np.testing.assert_array_equal(np.array(lazy), batch)
+
+
+def test_batch_stream_functions_keep_one_index_kind():
+    v = np.arange(3.0)
+    t_s, t_ns = np.arange(3).astype("M8[s]"), np.arange(3).astype("M8[ns]")
+    for call in (lambda: merge((v, t_s), (v, t_ns)),
+                 lambda: Merge()((v, t_s), (v, t_ns)),
+                 lambda: combine_latest((v, t_s), (v, t_ns)),
+                 lambda: merge((v, np.arange(3)), (v, t_s)),
+                 lambda: list(Merge()(zip(v, t_s), zip(v, t_ns)))):
+        with pytest.raises(TypeError, match="one kind and unit"):
+            call()
+    merge((v, t_s), (v, t_s))
+    # One unit first (pandas 2+): as_unit / astype, not asi8 (ticks of its own unit).
+    idx_s = pd.DatetimeIndex(t_s)
+    merge((v, idx_s.as_unit("ns").to_numpy()), (v, t_ns))
+    merge((v, t_s.astype("datetime64[ns]")), (v, t_ns))
+
+
+@pytest.mark.parametrize("bad", ["3", b"3", bytearray(b"3")])
+def test_integer_settings_refuse_strings(bad):
+    for make in (s.RollingMean, s.RollingSum, s.Lag, s.CrossRank if False else s.RollingMax):
+        with pytest.raises(TypeError):
+            make(bad)
+    s.RollingMean(np.int64(3))
+    s.RollingMean(True)                    # a bool converts as before
+
+
+def test_bytearray_in_a_list_is_a_type_error():
+    p = _pipe()
+    for call in (lambda: p([1.0, bytearray(b"1")]),
+                 lambda: p(([bytearray(b"12")], np.array([0]))),
+                 lambda: p.live().push("a", 0, [bytearray(b"1")]),
+                 lambda: p.live().push("a", 0, (1.0, bytearray(b"1")))):
+        with pytest.raises(TypeError, match="bytearray"):
+            call()
+
+
+def test_reshape_and_from_pandas_refuse_strings():
+    from screamer.streams import from_pandas
+    with pytest.raises(TypeError, match="str"):
+        s.reshape([["1", "2"]], "TA")
+    with pytest.raises(TypeError, match="str"):
+        from_pandas(pd.DataFrame({"a": ["1", "2"]}), layout="TA")
+    np.testing.assert_array_equal(s.reshape([[1.0, None]], "TA")[0].ravel(), [1.0, np.nan])

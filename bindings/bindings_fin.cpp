@@ -4,6 +4,7 @@
 #include <utility>
 #include <vector>
 #include <nanobind/nanobind.h>
+#include "screamer/common/int_arg.h"
 #include <nanobind/stl/optional.h>
 #include <nanobind/stl/string.h>
 #include <nanobind/stl/vector.h>
@@ -108,6 +109,7 @@ screamer::detail::ContigDouble portfolio_values(nb::object x, const char* what) 
         if (!(nb::isinstance<nb::list>(x) || nb::isinstance<nb::tuple>(x)))
             throw nb::type_error((std::string("PortfolioReport ") + what +
                                   " must be arrays or sequences.").c_str());
+        screamer::refuse_text(x, "PortfolioReport");   // a string is never a number
         nb::module_ np = nb::module_::import_("numpy");
         x = np.attr("asarray")(x, nb::arg("dtype") = np.attr("float64"));
     }
@@ -363,6 +365,7 @@ nb::object portfolio_report_call(screamer::PortfolioReport& self, nb::args raw) 
     if (nb::isinstance<nb::list>(input) || nb::isinstance<nb::tuple>(input)) {
         // NumPy normalizes nested sequences, so a list can be either one row
         // (assets, 4) or a complete (time, assets, 4) batch.
+        screamer::refuse_text(input, screamer::op_display_name(nb::find(self)));
         nb::module_ np = nb::module_::import_("numpy");
         nb::object arr;
         try {
@@ -401,6 +404,7 @@ screamer::detail::ContigDouble row_op_input(nb::object x) {
     if (screamer::detail::is_unsupported_dtype_array(x))
         x = screamer::detail::coerce_to_f64(x);
     if (!screamer::detail::is_ndarray(x)) {
+        screamer::refuse_text(x);                      // a string is never a number
         nb::module_ np = nb::module_::import_("numpy");
         x = np.attr("asarray")(x, nb::arg("dtype") = np.attr("float64"));
     }
@@ -1079,12 +1083,12 @@ void init_bindings_fin(nb::module_& m) {
 
 
     nb::class_<screamer::Return, screamer::ScreamerBase>(m, "Return")
-        .def(nb::init<int>(), "window_size"_a = 1)
+        .def(nb::init<screamer::IntArg<int>>(), "window_size"_a = 1)
         .def("__call__", &screamer::screamer_call, "value"_a.none())
         .def("reset", &screamer::Return::reset, "Reset to the initial state.");
 
     nb::class_<screamer::LogReturn, screamer::ScreamerBase>(m, "LogReturn")
-        .def(nb::init<int>(), "window_size"_a = 1)
+        .def(nb::init<screamer::IntArg<int>>(), "window_size"_a = 1)
         .def("__call__", &screamer::screamer_call, "value"_a.none())
         .def("reset", &screamer::LogReturn::reset, "Reset to the initial state.");
 
@@ -1095,21 +1099,21 @@ void init_bindings_fin(nb::module_& m) {
     nb::class_<screamer::ROC, screamer::ScreamerBase>(m, "ROC")
         // TA-Lib's timeperiod default is 10, which is what the docs page and
         // the sibling Momentum both declare. This was 1.
-        .def(nb::init<int>(), "window_size"_a = 10)
+        .def(nb::init<screamer::IntArg<int>>(), "window_size"_a = 10)
         .def("__call__", &screamer::screamer_call, "value"_a.none())
         .def("reset", &screamer::ROC::reset, "Reset to the initial state.");
 
     nb::class_<screamer::ROCP, screamer::ScreamerBase>(m, "ROCP")
         // TA-Lib's timeperiod default is 10, which is what the docs page and
         // the sibling Momentum both declare. This was 1.
-        .def(nb::init<int>(), "window_size"_a = 10)
+        .def(nb::init<screamer::IntArg<int>>(), "window_size"_a = 10)
         .def("__call__", &screamer::screamer_call, "value"_a.none())
         .def("reset", &screamer::ROCP::reset, "Reset to the initial state.");
 
     nb::class_<screamer::ROCR, screamer::ScreamerBase>(m, "ROCR")
         // TA-Lib's timeperiod default is 10, which is what the docs page and
         // the sibling Momentum both declare. This was 1.
-        .def(nb::init<int>(), "window_size"_a = 10)
+        .def(nb::init<screamer::IntArg<int>>(), "window_size"_a = 10)
         .def("__call__", &screamer::screamer_call, "value"_a.none())
         .def("reset", &screamer::ROCR::reset, "Reset to the initial state.");
 
@@ -1119,7 +1123,7 @@ void init_bindings_fin(nb::module_& m) {
     // on the variadic args (scalars / N parallel arrays / list of N-tuples
     // / N parallel iterables).
     nb::class_<screamer::RollingCorr, screamer::EvalOp>(m, "RollingCorr")
-        .def(nb::init<int, const std::string&>(),
+        .def(nb::init<screamer::IntArg<int>, const std::string&>(),
              "window_size"_a = 20,
              "start_policy"_a = "strict")
         .def("__call__", &screamer::functor_call<screamer::RollingCorr>)
@@ -1127,7 +1131,7 @@ void init_bindings_fin(nb::module_& m) {
 
     // Rolling sample covariance of two streams.
     nb::class_<screamer::RollingCov, screamer::EvalOp>(m, "RollingCov")
-        .def(nb::init<int, const std::string&>(),
+        .def(nb::init<screamer::IntArg<int>, const std::string&>(),
              "window_size"_a = 20,
              "start_policy"_a = "strict")
         .def("__call__", &screamer::functor_call<screamer::RollingCov>)
@@ -1135,7 +1139,7 @@ void init_bindings_fin(nb::module_& m) {
 
     // Rolling regression slope of x on y: beta = cov(x, y) / var(y).
     nb::class_<screamer::RollingTLSBeta, screamer::EvalOp>(m, "RollingTLSBeta")
-        .def(nb::init<int, const std::string&>(),
+        .def(nb::init<screamer::IntArg<int>, const std::string&>(),
              "window_size"_a = 20,
              "start_policy"_a = "strict")
         .def("__call__", &screamer::functor_call<screamer::RollingTLSBeta>)
@@ -1148,7 +1152,7 @@ void init_bindings_fin(nb::module_& m) {
         .def("reset", &screamer::KalmanRegression::reset, "Reset to the diffuse prior.");
 
     nb::class_<screamer::RollingADF, screamer::ScreamerBase>(m, "RollingADF")
-        .def(nb::init<int, int>(), "window_size"_a = 100, "lags"_a = 1)
+        .def(nb::init<screamer::IntArg<int>, screamer::IntArg<int>>(), "window_size"_a = 100, "lags"_a = 1)
         .def("__call__", &screamer::screamer_call, "value"_a.none())
         .def("reset", &screamer::RollingADF::reset, "Reset to the initial state.");
 
@@ -1160,7 +1164,7 @@ void init_bindings_fin(nb::module_& m) {
         .def("reset", &screamer::BandSignal::reset, "Reset to flat.");
 
     nb::class_<screamer::RollingBeta, screamer::EvalOp>(m, "RollingBeta")
-        .def(nb::init<int, const std::string&>(),
+        .def(nb::init<screamer::IntArg<int>, const std::string&>(),
              "window_size"_a = 20,
              "start_policy"_a = "strict")
         .def("__call__", &screamer::functor_call<screamer::RollingBeta>)
@@ -1169,7 +1173,7 @@ void init_bindings_fin(nb::module_& m) {
     // Hedge-adjusted residual of x against y: spread = x - beta * y, with
     // beta computed exactly as in RollingBeta.
     nb::class_<screamer::RollingSpread, screamer::EvalOp>(m, "RollingSpread")
-        .def(nb::init<int, const std::string&>(),
+        .def(nb::init<screamer::IntArg<int>, const std::string&>(),
              "window_size"_a = 20,
              "start_policy"_a = "strict")
         .def("__call__", &screamer::functor_call<screamer::RollingSpread>)
@@ -1187,19 +1191,19 @@ void init_bindings_fin(nb::module_& m) {
         .def("reset", &screamer::MaxDrawdown::reset, "Reset.");
 
     nb::class_<screamer::RollingMaxDrawdown, screamer::ScreamerBase>(m, "RollingMaxDrawdown")
-        .def(nb::init<int>(), "window_size"_a = 252)
+        .def(nb::init<screamer::IntArg<int>>(), "window_size"_a = 252)
         .def("__call__", &screamer::screamer_call, "value"_a.none())
         .def("reset", &screamer::RollingMaxDrawdown::reset, "Reset.");
 
     nb::class_<screamer::RollingSharpe, screamer::ScreamerBase>(m, "RollingSharpe")
-        .def(nb::init<int, double>(),
+        .def(nb::init<screamer::IntArg<int>, double>(),
              "window_size"_a = 252,
              "periods_per_year"_a = 1.0)
         .def("__call__", &screamer::screamer_call, "value"_a.none())
         .def("reset", &screamer::RollingSharpe::reset, "Reset.");
 
     nb::class_<screamer::RollingSortino, screamer::ScreamerBase>(m, "RollingSortino")
-        .def(nb::init<int, double, double>(),
+        .def(nb::init<screamer::IntArg<int>, double, double>(),
              "window_size"_a = 252,
              "periods_per_year"_a = 1.0,
              "target"_a = 0.0)
@@ -1207,34 +1211,34 @@ void init_bindings_fin(nb::module_& m) {
         .def("reset", &screamer::RollingSortino::reset, "Reset.");
 
     nb::class_<screamer::RollingInfoRatio, screamer::EvalOp>(m, "RollingInfoRatio")
-        .def(nb::init<int, double>(),
+        .def(nb::init<screamer::IntArg<int>, double>(),
              "window_size"_a = 252,
              "periods_per_year"_a = 1.0)
         .def("__call__", &screamer::functor_call<screamer::RollingInfoRatio>)
         .def("reset", &screamer::RollingInfoRatio::reset, "Reset.");
 
     nb::class_<screamer::RollingCalmar, screamer::ScreamerBase>(m, "RollingCalmar")
-        .def(nb::init<int, double>(),
+        .def(nb::init<screamer::IntArg<int>, double>(),
              "window_size"_a = 252,
              "periods_per_year"_a = 1.0)
         .def("__call__", &screamer::screamer_call, "value"_a.none())
         .def("reset", &screamer::RollingCalmar::reset, "Reset.");
 
     nb::class_<screamer::RollingHitRate, screamer::ScreamerBase>(m, "RollingHitRate")
-        .def(nb::init<int>(), "window_size"_a = 252)
+        .def(nb::init<screamer::IntArg<int>>(), "window_size"_a = 252)
         .def("__call__", &screamer::screamer_call, "value"_a.none())
         .def("reset", &screamer::RollingHitRate::reset, "Reset.");
 
     // ----- Regression-family additions -----
     nb::class_<screamer::RollingAlpha, screamer::EvalOp>(m, "RollingAlpha")
-        .def(nb::init<int, const std::string&>(),
+        .def(nb::init<screamer::IntArg<int>, const std::string&>(),
              "window_size"_a = 20,
              "start_policy"_a = "strict")
         .def("__call__", &screamer::functor_call<screamer::RollingAlpha>)
         .def("reset", &screamer::RollingAlpha::reset, "Reset.");
 
     nb::class_<screamer::RollingResidualStd, screamer::EvalOp>(m, "RollingResidualStd")
-        .def(nb::init<int, const std::string&>(),
+        .def(nb::init<screamer::IntArg<int>, const std::string&>(),
              "window_size"_a = 20,
              "start_policy"_a = "strict")
         .def("__call__", &screamer::functor_call<screamer::RollingResidualStd>)
@@ -1243,7 +1247,7 @@ void init_bindings_fin(nb::module_& m) {
     // 2 -> 4 OLS fit returning (slope, intercept, r_squared, stderr).
     // First 2->4 consumer of the N->M dispatcher.
     nb::class_<screamer::RollingLinearRegression, screamer::EvalOp>(m, "RollingLinearRegression")
-        .def(nb::init<int, const std::string&>(),
+        .def(nb::init<screamer::IntArg<int>, const std::string&>(),
              "window_size"_a = 20,
              "start_policy"_a = "strict")
         .def("__call__", &screamer::functor_call<screamer::RollingLinearRegression>)
@@ -1287,7 +1291,7 @@ void init_bindings_fin(nb::module_& m) {
         .def("reset", &screamer::BacktestOHLCOrders::reset, "Reset.");
 
     nb::class_<screamer::BacktestOHLCTarget, screamer::EvalOp>(m, "BacktestOHLCTarget")
-        .def(nb::init<double, double, double, double, double, double, double, const std::string&, const std::string&, int, double, double, double, const std::string&, double, double>(),
+        .def(nb::init<double, double, double, double, double, double, double, const std::string&, const std::string&, screamer::IntArg<int>, double, double, double, const std::string&, double, double>(),
              "taker_fee"_a = 0.0, "tick_size"_a = 0.0,
              "min_position"_a = -std::numeric_limits<double>::infinity(),
              "max_position"_a = std::numeric_limits<double>::infinity(),
@@ -1300,7 +1304,7 @@ void init_bindings_fin(nb::module_& m) {
         .def("reset", &screamer::BacktestOHLCTarget::reset, "Reset.");
 
     nb::class_<screamer::BacktestOHLCVTarget, screamer::EvalOp>(m, "BacktestOHLCVTarget")
-        .def(nb::init<double, double, double, double, double, double, double, double, const std::string&, const std::string&, int, double, double, double, const std::string&, double, double>(),
+        .def(nb::init<double, double, double, double, double, double, double, double, const std::string&, const std::string&, screamer::IntArg<int>, double, double, double, const std::string&, double, double>(),
              "max_participation"_a = 1.0, "taker_fee"_a = 0.0, "tick_size"_a = 0.0,
              "min_position"_a = -std::numeric_limits<double>::infinity(),
              "max_position"_a = std::numeric_limits<double>::infinity(),
@@ -1422,7 +1426,7 @@ void init_bindings_fin(nb::module_& m) {
              "net"_a = nb::none());
 
     nb::class_<screamer::CrossTopBottom, screamer::RowOp>(m, "CrossTopBottom")
-        .def(nb::init<int>(), "count"_a = 1);
+        .def(nb::init<screamer::IntArg<int>>(), "count"_a = 1);
 
     nb::class_<screamer::BacktestPortfolioTarget, screamer::RowOp>(m, "BacktestPortfolioTarget")
         .def(nb::init<screamer::PerAsset, screamer::PerAsset, const std::string&,
@@ -1442,7 +1446,7 @@ void init_bindings_fin(nb::module_& m) {
         .def(nb::init<screamer::PerAsset, screamer::PerAsset, const std::string&,
                       screamer::PerAsset, screamer::PerAsset, screamer::PerAsset,
                       const std::string&, double, double, const std::string&,
-                      double, double, const std::string&, int>(),
+                      double, double, const std::string&, screamer::IntArg<int>>(),
              "fee"_a = screamer::PerAsset{0.0}, "slippage"_a = screamer::PerAsset{0.0},
              "slippage_unit"_a = "fraction", "tick_size"_a = screamer::PerAsset{0.0},
              "multiplier"_a = screamer::PerAsset{1.0},
@@ -1454,20 +1458,20 @@ void init_bindings_fin(nb::module_& m) {
              "fill_at"_a = "open", "delay"_a = 1);
 
     nb::class_<screamer::RollingDownsideDeviation, screamer::ScreamerBase>(m, "RollingDownsideDeviation")
-        .def(nb::init<int, double, const std::string&>(),
+        .def(nb::init<screamer::IntArg<int>, double, const std::string&>(),
              "window_size"_a = 20, "mar"_a = 0.0,
              "start_policy"_a = "strict")
         .def("__call__", &screamer::screamer_call, "value"_a.none())
         .def("reset", &screamer::RollingDownsideDeviation::reset, "Reset.");
 
     nb::class_<screamer::RollingOmega, screamer::ScreamerBase>(m, "RollingOmega")
-        .def(nb::init<int, double>(),
+        .def(nb::init<screamer::IntArg<int>, double>(),
              "window_size"_a = 20, "threshold"_a = 0.0)
         .def("__call__", &screamer::screamer_call, "value"_a.none())
         .def("reset", &screamer::RollingOmega::reset, "Reset.");
 
     nb::class_<screamer::RollingCVaR, screamer::ScreamerBase>(m, "RollingCVaR")
-        .def(nb::init<int, double>(),
+        .def(nb::init<screamer::IntArg<int>, double>(),
              "window_size"_a = 20, "alpha"_a = 0.05)
         .def("__call__", &screamer::screamer_call, "value"_a.none())
         .def("reset", &screamer::RollingCVaR::reset, "Reset.");

@@ -106,7 +106,7 @@ def test_live_push_wide_errors():
         live.push("bars", 0, np.ones((2, 4)))
     with pytest.raises(ValueError, match="1-D"):
         live.push("bars", 0, [[1.0, 2.0]])
-    with pytest.raises(TypeError, match="must be a number"):   # G13
+    with pytest.raises(TypeError, match="is a str, expected a number"):   # R-a
         live.push("bars", 0, ["a", "b"])
     with pytest.raises(KeyError):
         live.push("nope", 0, 1.0)

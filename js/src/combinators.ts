@@ -29,6 +29,7 @@ export function combineLatest(nodes: Node[], opts: CombineLatestOpts = {}): Node
     throw new Error("combineLatest: pass a non-empty array of Node inputs");
   }
   const emit = opts.emit ?? "when_all";
+  setting("combineLatest: maxPending", opts.maxPending);
   const maxPending = opts.maxPending ?? 1_000_000;
   return new Node(
     { combinator: "combineLatest", params: { whenAll: emit === "when_all", maxPending } },
@@ -54,7 +55,7 @@ export function merge(..._nodes: Node[]): Node {
 // screamer/streams.py `_normalize_columns`.
 // An operator setting is a number; a string is a wrong kind, never parsed (R-a).
 function setting(name: string, v: unknown): void {
-  if (typeof v === "string") throw new TypeError(`${name} must be a number, got a string`);
+  if (typeof v === "string" || v instanceof String) throw new TypeError(`${name} must be a number, got a string`);
 }
 
 function normalizeColumns(columns: number | number[]): number[] {

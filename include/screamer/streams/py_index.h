@@ -71,8 +71,9 @@ inline std::string index_kind_text(int kind, int base, int num) {
 [[noreturn]] inline void throw_index_kind_change(const TimeUnit& had, int kind, int base, int num) {
     throw screamer::dag::IndexTypeError(
         "index is " + index_kind_text(kind, base, num) + ", but earlier indexes were " +
-        index_kind_text(had.kind, had.base, had.num) + "; every index of a Pipeline "
-        "call or live session must have one kind and unit (convert them first)");
+        index_kind_text(had.kind, had.base, had.num) + "; every index of one "
+        "Pipeline call, live session or stream merge must have one kind and unit "
+        "(convert them to one unit first)");
 }
 
 // Records a plain-number index in `unit`; one compare once the kind is set.

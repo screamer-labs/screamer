@@ -9,7 +9,7 @@ this module applies them to each container.
 import numpy as np
 
 from . import screamer_bindings as _b
-from .dag import _is_vi_pair
+from .dag import _is_vi_pair, _as_float64, _refuse_text
 
 __all__ = ["reshape"]
 
@@ -34,7 +34,7 @@ def _event(e, layout):
         raise ValueError(
             f"layout {layout!r}: for a sequence of events the layout must start with T, "
             "the axis of the sequence")
-    return reshape_array(np.asarray(e, dtype=np.float64)[None], layout)[0]
+    return reshape_array(_as_float64(e)[None], layout)[0]
 
 
 def frame_axes(obj):
@@ -44,6 +44,10 @@ def frame_axes(obj):
     level 1), and must hold every pair of the two levels.
     """
     import pandas as pd
+    # A string is never a number: refused before to_numpy would parse "3".
+    dtypes = [obj.dtype] if isinstance(obj, pd.Series) else list(obj.dtypes)
+    if any(getattr(d, "kind", "O") in ("O", "U", "S") for d in dtypes):
+        _refuse_text(obj.to_numpy(dtype=object))
     if isinstance(obj, pd.Series):
         return obj.to_numpy(dtype=np.float64), [obj.index]
     cols = obj.columns

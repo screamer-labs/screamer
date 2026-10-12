@@ -65,6 +65,7 @@ EXCLUDED_HEADERS = {
     "screamer/common/async_generator.h",
     "screamer/common/lazy_eval_iterator.h",
     "screamer/common/gc.h",
+    "screamer/common/int_arg.h",  # the Python int-setting caster (nanobind)
     "screamer/common/eval_op.h",  # already included by embind_runtime.h
 }
 

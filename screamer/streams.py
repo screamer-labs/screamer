@@ -13,6 +13,7 @@ import numpy as np
 
 from . import screamer_bindings as _b
 from .dag import is_node, make_operator_node, _is_vi_pair, _as_float64, _setting
+from .screamer_bindings import _value
 
 __all__ = [
     "to_pandas",
@@ -171,6 +172,9 @@ def _normalize_streams(streams, who):
     """
     if not streams:
         raise ValueError(f"{who}: needs at least one stream")
+    # One index kind and unit across the streams, as the iterator forms (and a
+    # Pipeline call) require: plain numbers, or times of one unit.
+    _b._check_index_kinds([idx for idx, _ in streams])
     kinds = set()
     norm_index, norm_vals = [], []
     for idx, values in streams:
@@ -307,7 +311,7 @@ def _combine_latest_zip_lazy(sources, wide=False):
         if wide:
             yield np.concatenate([np.ravel(_as_float64(x)) for x in tup]), None
         else:
-            yield tuple(float(x) for x in tup), None
+            yield tuple(_value(x) for x in tup), None   # None is NaN, a string raises
 
 
 def _combine_latest_asof_lazy(sources, emit):

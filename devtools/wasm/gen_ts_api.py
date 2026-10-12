@@ -171,6 +171,11 @@ def _factory_body(name: str, params: list[dict], wrapper: str = "wrapOp") -> str
         if p.get("is_str"):
             n = p["name"]
             lines.append(f'  if (typeof {n} !== "string") throw new TypeError(`{n} must be a string, got ${{typeof {n}}}`);')
+        elif not p["is_vec"]:
+            # A number setting is a number: a string ("3") is a wrong kind, never
+            # parsed (R-a), as in Python.
+            n = p["name"]
+            lines.append(f'  if (typeof {n} === "string" || ({n} as unknown) instanceof String) throw new TypeError(`{n} must be a number, got a string`);')
     # Copy array parameters once, now: the closure below runs again for every
     # copy of the op, and must not see later edits to the caller's array.
     for p in vecs:

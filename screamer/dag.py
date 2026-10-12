@@ -102,11 +102,20 @@ def _float_values(values):
     operators do (the float64 cast would drop the imaginary part)."""
     # A value with a dtype (an array, a pandas Series) is cast as it is, so pandas
     # maps NA to NaN; one without (a list) is read by NumPy first to find its kind.
+    if isinstance(values, (list, tuple)):
+        _refuse_text(values)       # before NumPy reads a bytearray item as numbers
     arr = values if hasattr(values, "dtype") else np.asarray(values)
     if getattr(arr.dtype, "kind", None) == "c":
         raise TypeError("a value must be a real number or a sequence of real "
                         "numbers, got complex values")
     return _as_float64(arr, contiguous=True)
+
+
+def _refuse_text(x):
+    """The C++ string rule (cast_double.h refuse_text): a string, or a list or
+    array holding one, raises TypeError."""
+    from . import screamer_bindings as _b
+    _b._refuse_text(x)
 
 
 def _as_float64(x, contiguous=False):
@@ -116,11 +125,12 @@ def _as_float64(x, contiguous=False):
     only for a string, object or unknown kind, so a numeric array pays nothing."""
     kind = getattr(getattr(x, "dtype", None), "kind", None)
     if kind is None and not isinstance(x, (float, int)):
+        if isinstance(x, (list, tuple)):
+            _refuse_text(x)        # before NumPy reads a bytearray item as numbers
         x = np.asarray(x)
         kind = x.dtype.kind
     if kind in ("U", "S", "O"):
-        from . import screamer_bindings as _b
-        _b._refuse_text(x)
+        _refuse_text(x)
     return (np.ascontiguousarray if contiguous else np.asarray)(x, dtype=np.float64)
 
 

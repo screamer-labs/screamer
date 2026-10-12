@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { ready, Input, Pipeline, RollingMean, resample, delay, select } from "../src/index.ts";
+import { ready, Input, Pipeline, RollingMean, resample, delay, select, combineLatest } from "../src/index.ts";
 
 // Pipeline feed kinds (Task 18b: F3, G13). A typed array is a values feed in
 // every position; a feed of the wrong kind names the input; a string that does
@@ -90,4 +90,18 @@ test("R-b: null is NaN in operator iterators, async iterators and row ops", asyn
   assert.deepEqual([...(RollingMean(2)([1, null, 3][Symbol.iterator]() as any) as Iterable<number>)].map(String), ref);
   const cr = (await import("../src/index.ts") as any).CrossRank();
   assert.deepEqual(Array.from(cr([1, null, 3]) as number[], String), ["-1", "NaN", "1"]);
+});
+
+test("round 2: String objects, operator number settings and maxPending refuse strings", async () => {
+  await ready();
+  const p = pipe();
+  assert.throws(() => p({ values: [1, new String("3")] } as any), TypeError);
+  assert.throws(() => p.live().push("a", 0, new String("3") as any), TypeError);
+  assert.throws(() => p.live().push("a", 0, [new String("3")] as any), TypeError);
+  for (const bad of ["3", new String("3")]) {
+    assert.throws(() => RollingMean(bad as any), (e: unknown) => e instanceof TypeError && (e as Error).message === "windowSize must be a number, got a string");
+  }
+  const x = Input("x"), y = Input("y");
+  assert.throws(() => combineLatest([x, y], { maxPending: "3" as any }), TypeError);
+  assert.equal(typeof RollingMean(3), "function");
 });

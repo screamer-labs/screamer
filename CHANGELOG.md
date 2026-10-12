@@ -111,15 +111,18 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
   * NaT (and `pd.NaT`) raises `TypeError` ("index must be finite, got NaT"),
     in batch arrays too.
   * A `Pipeline` call, a live session (with its `advance()`) and a stream
-    merge keep one index kind across every input: plain numbers, or times of
+    merge (`merge`, `Merge`, `combine_latest`, batch and iterator forms
+    alike) keep one index kind across every input: plain numbers, or times of
     one kind and unit. An index of another kind or unit raises `TypeError`
     ("index is a datetime64[ns], but earlier indexes were a datetime64[s]"),
     because ticks of two units, or ticks and plain numbers, cannot be
     compared. This includes a bare feed (whose index is its row number) next
     to a time-indexed feed. A rejected push or `advance()` does not set the
-    kind. For the old result, convert every index to one unit first, for
-    example `index.astype("datetime64[ns]")`, or pass `.asi8` ticks
-    everywhere.
+    kind. 2.8.0 merged and joined the raw ticks of two units, or ticks and
+    plain numbers, silently. For one unit, convert every index first, for
+    example `index.as_unit("ns")` for a pandas index or
+    `index.astype("datetime64[ns]")` for a NumPy array (in pandas 2 and later,
+    `.asi8` gives ticks of the index's own unit, so it does not unify them).
   * 2.8.0 took only a `datetime64[ns]` or `timedelta64[ns]` scalar (through
     `int()`) and raised `TypeError` for other units, `Timestamp` and
     `Timedelta`. It read NaT in a batch array as -2**63. For the old result
@@ -132,32 +135,43 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
   (its byte code). These rules hold for the iterator feeds of the stream
   operators (`Merge` and the others) too.
 * A string is never a number. Any string value (`"abc"`, `""` or `"3"`,
-  also NumPy's `str_` and `bytes_`) raises `TypeError` on every value path in
-  both languages: operator scalars, lists, arrays (a string array, or an
-  object array or pandas object holding a string), iterator and async feeds,
-  `Pipeline` batch, iterator and live feeds, and the Python stream functions
-  (`merge`, `combine_latest`, `dropna`, `select`, `split`, `resample`,
-  `delay`, `Filter`). An operator setting given as a string (`threshold`,
-  `every`, `count`, `origin`, `max_age`, a `delay` duration, `select`
-  columns, `max_pending`) raises `TypeError` too. What 2.8.0 did:
+  also NumPy's `str_` and `bytes_`, a `bytearray`, and a JavaScript `String`
+  object) raises `TypeError` on every value path in both languages:
+  operator scalars, lists, arrays (a string array, or an object array or
+  pandas object holding a string), iterator and async feeds, row operators
+  (`CrossRank` and the others), `PortfolioReport` and the portfolio engines,
+  `Pipeline` batch, iterator and live feeds, the Python stream functions
+  (`merge`, `combine_latest` batch and iterator, `dropna`, `select`, `split`,
+  `resample`, `delay`, `Filter`), `reshape` and `from_pandas`, and the
+  validation and backtest helpers. An operator setting given as a string
+  raises `TypeError` too: an operator's integer settings (`RollingMean("3")`,
+  `Lag(b"2")`), and `threshold`, `every`, `count`, `origin`, `max_age`, a
+  `delay` duration, `select` columns, `max_pending` and JavaScript's
+  `maxPending`. A bool setting converts as before. What 2.8.0 did:
   * Python parsed numeric strings in string and object arrays, pandas
-    `Series`, `Pipeline` batch feeds and live pushes, the stream functions
-    and settings read with `int()` or `float()` (`every="2"`), and raised
-    NumPy's `ValueError` for other strings. An operator iterator read a string
-    event as a one-asset array.
-  * JavaScript converted a string in a `Pipeline` feed, `live().push()` or
-    `pushWide()` with `Number()` (`"abc"` gave NaN, `""` gave 0), and a
-    resample setting with `Number()` or `Math.trunc()`.
+    `Series`, `Pipeline` batch feeds and live pushes, row operators,
+    `PortfolioReport`, the stream functions, `reshape`, `from_pandas` and
+    the lazy positional `combine_latest`, in integer operator settings
+    (`RollingMean("3")` had a window of 3) and in settings read with `int()`
+    or `float()` (`every="2"`), and raised NumPy's `ValueError` for other
+    strings. An operator iterator read a string event as a one-asset array.
+  * JavaScript converted a string or `String` object in a `Pipeline` feed,
+    `live().push()` or `pushWide()` with `Number()` (`"abc"` gave NaN, `""`
+    gave 0). It read a string operator setting through embind
+    (`RollingMean("3")` had a window of 3), a resample setting with
+    `Number()` or `Math.trunc()`, `delay(node, "1")` and `select(node, "0")`
+    with `Math.trunc()`, and did not check `maxPending`.
   * For the old result, parse the text first: `pd.to_numeric(column)` or
-    `values.astype(float)` in Python, `Number(value)` or
+    `values.astype(float)` (and `int(setting)`) in Python, `Number(value)` or
     `Float64Array.from(values, Number)` in JavaScript.
 * `None` (Python) and `null` (JavaScript) are a missing value, NaN, on every
   value path in both languages: an operator scalar (`RollingMean(2)(None)`),
   a list or array element, an iterator or async event, a row of a row
-  operator, and every `Pipeline` feed. 2.8.0 raised `TypeError` for a Python
-  `None` given to an operator directly, in a list or in an iterator (an object
-  array already read it as NaN), and JavaScript operators threw `TypeError`
-  for `null`. For the old error, check for missing values before the call.
+  operator, every `Pipeline` feed, and the lazy positional `combine_latest`,
+  as its batch form already did. 2.8.0 raised `TypeError` for a Python `None`
+  given to an operator directly, in a list or in an iterator (an object array
+  already read it as NaN) or to the lazy positional `combine_latest`, and
+  JavaScript operators threw `TypeError` for `null`. For the old error, check for missing values before the call.
 * The standalone `resample(values, clock, clock=True)` applies the index rule
   to both indexes, so a fractional index raises `TypeError`; 2.8.0 cast it to
   int64, which truncated 1.5 to 1. Pass `np.trunc(index)` for the old result.

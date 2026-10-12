@@ -27,6 +27,8 @@ from typing import Callable, NamedTuple, Optional, Union
 
 import numpy as np
 
+from .dag import _as_float64
+
 from .screamer_bindings import (
     RowOp,
     _circular_shift,
@@ -131,7 +133,7 @@ def _metric_call(metric):
 
 
 def _as_series(x, name):
-    x = np.ascontiguousarray(x, dtype=float)
+    x = _as_float64(x, contiguous=True)
     if x.ndim != 1:
         raise ValueError(f"{name} must be a 1-D series")
     return x
@@ -142,7 +144,7 @@ def _as_block(x, name):
     if x is None or isinstance(x, (str, bytes, dict)):
         raise TypeError(f"{name} must be a numeric array, not {type(x).__name__}")
     try:
-        x = np.asarray(x, dtype=float)
+        x = _as_float64(x)
     except (TypeError, ValueError) as exc:
         raise TypeError(f"{name} must be a numeric array: {exc}") from None
     if x.ndim not in (1, 2):
@@ -272,9 +274,9 @@ def position_test(
     ``null_stats``.
     """
     name, custom = _metric_label(metric)
-    target = np.asarray(target, dtype=float)
+    target = _as_float64(target)
     data = np.ascontiguousarray(target)
-    market = [np.ascontiguousarray(m, dtype=float) for m in market]
+    market = [_as_float64(m, contiguous=True) for m in market]
     run, reset, score = _engine_calls(engine, market, metric)
     observed, null, p_value, family, observed_stats, null_stats, shift = _position_test(
         run, reset, score, target if target.ndim == 2 else data, data, market, _count(n, "n"),
@@ -456,7 +458,7 @@ def strategy_test(
 
 def _pnl_of(values):
     """Per-step pnl from a pnl series or a backtest engine's (T, 4) output."""
-    values = np.asarray(values, dtype=float)
+    values = _as_float64(values)
     if values.ndim == 2 and values.shape[1] == 4:
         values = values[:, 1]
     return _as_series(values, "pnl")
@@ -484,7 +486,7 @@ def deflated_sharpe(pnl, trial_sharpes):
     ``(probability, benchmark)``: the probability that this strategy's true
     Sharpe ratio is above that benchmark, and the benchmark itself.
     """
-    trials = np.ascontiguousarray(trial_sharpes, dtype=float).reshape(-1)
+    trials = _as_float64(trial_sharpes, contiguous=True).reshape(-1)
     p, bench = _deflated_sharpe(_pnl_of(pnl), trials)
     return float(p), float(bench)
 
@@ -548,11 +550,11 @@ def walk_forward(
     in ``position_test``. Portfolio engines are not supported.
     """
     name, custom = _metric_label(metric)
-    targets = np.asarray(targets, dtype=float)
+    targets = _as_float64(targets)
     if targets.ndim == 1:
         targets = targets[:, None]
     targets = np.ascontiguousarray(targets)
-    prices = [np.ascontiguousarray(p, dtype=float) for p in prices]
+    prices = [_as_float64(p, contiguous=True) for p in prices]
     run, reset, score = _engine_calls(engine, prices, metric)
     target, choice, fold_start, scores, output, stats = _walk_forward(
         run, reset, score, targets, targets, prices, _number(train), _number(test), name, custom,

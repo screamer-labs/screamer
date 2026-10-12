@@ -1,4 +1,5 @@
 #include <nanobind/nanobind.h>
+#include "screamer/common/int_arg.h"
 #include <nanobind/stl/string.h>
 #include "screamer/common/dispatch.h"
 #include "screamer/hawkes_intensity.h"
@@ -44,31 +45,31 @@ void init_bindings_micro(nb::module_& m) {
         .def("reset", &screamer::LeeReadySign::reset, "Reset to the initial state.");
 
     nb::class_<screamer::AmihudIlliquidity, screamer::EvalOp>(m, "AmihudIlliquidity")
-        .def(nb::init<int, const std::string&>(),
+        .def(nb::init<screamer::IntArg<int>, const std::string&>(),
              "window_size"_a = 20, "start_policy"_a = "strict")
         .def("__call__", &screamer::functor_call<screamer::AmihudIlliquidity>)
         .def("reset", &screamer::AmihudIlliquidity::reset, "Reset to the initial state.");
 
     nb::class_<screamer::BulkVolumeClassifier, screamer::ScreamerBase>(m, "BulkVolumeClassifier")
-        .def(nb::init<int, const std::string&>(),
+        .def(nb::init<screamer::IntArg<int>, const std::string&>(),
              "window_size"_a = 20, "start_policy"_a = "strict")
         .def("__call__", &screamer::screamer_call, "value"_a.none())
         .def("reset", &screamer::BulkVolumeClassifier::reset, "Reset to the initial state.");
 
     nb::class_<screamer::RollSpread, screamer::ScreamerBase>(m, "RollSpread")
-        .def(nb::init<int, const std::string&>(),
+        .def(nb::init<screamer::IntArg<int>, const std::string&>(),
              "window_size"_a = 20, "start_policy"_a = "strict")
         .def("__call__", &screamer::screamer_call, "value"_a.none())
         .def("reset", &screamer::RollSpread::reset, "Reset to the initial state.");
 
     nb::class_<screamer::Propagator, screamer::ScreamerBase>(m, "Propagator")
-        .def(nb::init<int, double, double>(),
+        .def(nb::init<screamer::IntArg<int>, double, double>(),
              "window_size"_a = 20, "g0"_a = 1.0, "gamma"_a = 0.5)
         .def("__call__", &screamer::screamer_call, "value"_a.none())
         .def("reset", &screamer::Propagator::reset, "Reset to the initial state.");
 
     nb::class_<screamer::VPIN, screamer::EvalOp>(m, "VPIN")
-        .def(nb::init<double, int>(),
+        .def(nb::init<double, screamer::IntArg<int>>(),
              "bucket_volume"_a = 1.0, "n_buckets"_a = 50)
         .def("__call__", &screamer::functor_call<screamer::VPIN>)
         .def("reset", &screamer::VPIN::reset, "Reset to the initial state.");
@@ -89,7 +90,7 @@ void init_bindings_micro(nb::module_& m) {
         .def("reset", &screamer::EffectiveSpread::reset, "Reset to the initial state.");
 
     nb::class_<screamer::RealizedSpread, screamer::EvalOp>(m, "RealizedSpread")
-        .def(nb::init<int>(), "lag"_a = 1)
+        .def(nb::init<screamer::IntArg<int>>(), "lag"_a = 1)
         .def("__call__", &screamer::functor_call<screamer::RealizedSpread>)
         .def("reset", &screamer::RealizedSpread::reset, "Reset to the initial state.");
 
