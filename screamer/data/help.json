@@ -13671,7 +13671,7 @@
     "topics": [
       "streams"
     ],
-    "details": "A 2-input mask gate: keep each data value whose aligned mask value is nonzero\n(zero or NaN drops, any other value keeps). The mask is an ordinary stream\nbuilt from upstream comparison or logic ops. No Python predicate or callback -\nthe gate logic runs entirely in C++ for batch, lazy, and graph regimes.\n\nGate rule: `mask == 0` or `isnan(mask)` drops the aligned data value; any\nother mask value (positive, negative, non-NaN) keeps it. A NaN data value\npasses through unmodified when its aligned mask is nonzero.",
+    "details": "A 2-input mask gate: keep each data value whose aligned mask value is nonzero\n(zero or NaN drops, any other value keeps). The mask is an ordinary stream\nbuilt from upstream comparison or logic ops. No Python predicate or callback -\nthe gate logic runs entirely in C++ for batch, lazy, and graph regimes.\n\nGate rule: `mask == 0` or `isnan(mask)` drops the aligned data value; any\nother mask value (positive, negative, non-NaN) keeps it. A NaN data value\npasses through unmodified when its aligned mask is nonzero.\n\nThe data and the mask are one column each. A wider data or mask stream raises\n`ValueError` before any event is fed; select the column to gate first, for\nexample `Filter()(Select(columns=[0])(data), mask)`.",
     "examples": [],
     "doc_path": "functions_streams/Filter"
   },

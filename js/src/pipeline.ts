@@ -15,6 +15,19 @@ export interface Output {
   index: Float64Array;
 }
 
+/**
+ * Options of a Pipeline.
+ *
+ * `alignOutputs` (default `true`): with more than one output, put every output
+ * on one index, the sorted union of the output indexes with one row per
+ * distinct index. Each output holds its latest value at every row, and rows
+ * start once every output has a value. The outputs then share one `index`.
+ * With `false`, each output keeps its own index and length.
+ */
+export interface PipelineOptions {
+  alignOutputs?: boolean;
+}
+
 // Event-by-event streaming driver returned by `pipeline.live()`. Push feeds one
 // event at a time, flush at end of input, then drain the result.
 export interface LiveDriver {
@@ -22,7 +35,21 @@ export interface LiveDriver {
   pushWide(name: string, index: number, values: ArrayLike<number> | NdArray): void;
   advance(now: number): void;
   flush(): void;
-  result(): Output;
+  result(): Output | Output[];
+}
+
+// The options of a Pipeline, checked: a plain object of known keys.
+function pipelineOptions(opts: unknown): { alignOutputs: boolean } {
+  if (opts === undefined || opts === null) return { alignOutputs: true };
+  const proto = typeof opts === "object" ? Object.getPrototypeOf(opts) : undefined;
+  if (proto !== Object.prototype && proto !== null)
+    throw new TypeError(`Pipeline: the options are ${aKind(opts)}, expected an object such as { alignOutputs: false }`);
+  for (const key of Object.keys(opts as object))
+    if (key !== "alignOutputs") throw new TypeError(`Pipeline: unknown option '${key}'`);
+  const a = (opts as PipelineOptions).alignOutputs;
+  if (a !== undefined && typeof a !== "boolean")
+    throw new TypeError(`Pipeline: alignOutputs must be a boolean, got ${aKind(a)}`);
+  return { alignOutputs: a ?? true };
 }
 
 // A push value that is one wide event: an Array, a typed array, or an NdArray.
@@ -117,10 +144,12 @@ class PipelineImpl implements Owned {
   // the wrappers (which own the C++ ops) must stay alive for the graph lifetime.
   private ops: any[] = [];
   private _disposed = false;
+  readonly alignOutputs: boolean;
 
-  constructor(inputs: Node[], outputs: Node[], _opts?: unknown) {
+  constructor(inputs: Node[], outputs: Node[], opts?: unknown) {
     this.inputs = [...inputs];
     this.outputs = [...outputs];
+    this.alignOutputs = pipelineOptions(opts).alignOutputs;
     this.M = current();
 
     for (const n of this.inputs) {
@@ -252,7 +281,7 @@ class PipelineImpl implements Owned {
       return wasmCall(() => gb.addResample(
         vec, p.modeCode, p.aggCode, p.labelCode, p.fillCode,
         p.width, p.origin, p.count, p.threshold, p.maxAge,
-        planPtr, planLen, reducerPtr,
+        planPtr, planLen, reducerPtr, 1_000_000,
       ));
     } finally {
       if (planPtr) M.freeBuf(planPtr);
@@ -364,22 +393,39 @@ class PipelineImpl implements Owned {
     const widthsPtr = heapU32(M, widths);
     buffers.push(idxPtrs, valPtrs, lensPtr, widthsPtr);
 
-    const results: Output[] = [];
     try {
       // Run the whole graph ONCE, then read each cached output. Running per
       // output would recompute the graph M times (O(M x) redundant compute).
       // Everything in this block is a call into WASM or a copy off its heap.
-      this.cg.runBatchStore(idxPtrs, valPtrs, lensPtr, widthsPtr, nIn);
-      for (let o = 0; o < this.outputs.length; o++) {
-        results.push(this.marshalOut(this.cg.output(o)));
-      }
+      this.cg.runBatchStore(idxPtrs, valPtrs, lensPtr, widthsPtr, nIn, this.alignOutputs);
+      return this.readStored();
     } catch (e) {
       throw normalizeError(e);
     } finally {
       for (const b of buffers) M.freeBuf(b);
     }
+  }
 
-    return this.outputs.length === 1 ? results[0] : results;
+  // Read the outputs the graph stored (runBatchStore or drainStore), then free
+  // them. One output is one Output; aligned outputs share one index array.
+  private readStored(): Output | Output[] {
+    const M: any = this.M;
+    try {
+      const n = this.outputs.length;
+      if (n === 1) return this.marshalOut(this.cg.output(0));
+      const results: Output[] = [];
+      if (this.cg.storedAligned()) {
+        // The aligned rows stay in the graph until clearStored(): copy, no free.
+        const ix = this.cg.alignedIndex();
+        const index = new Float64Array(M.viewF64(ix.indexPtr, ix.rows));
+        for (let o = 0; o < n; o++) results.push({ values: this.copyValues(this.cg.alignedOutput(o)), index });
+      } else {
+        for (let o = 0; o < n; o++) results.push(this.marshalOut(this.cg.output(o)));
+      }
+      return results;
+    } finally {
+      this.cg.clearStored();
+    }
   }
 
   // ---- live streaming --------------------------------------------------
@@ -391,20 +437,24 @@ class PipelineImpl implements Owned {
     return i;
   }
 
-  // Marshal one drained output (drainFlat picks it, then clears every output).
+  // Marshal one stored output: copy its heap buffers, then free them.
   private marshalOut(out: any): Output {
+    const M: any = this.M;
+    const idxCopy = new Float64Array(M.viewF64(out.indexPtr, out.rows));
+    M.freeBuf(out.indexPtr);
+    const values = this.copyValues(out);
+    M.freeBuf(out.valuePtr);
+    return { values, index: idxCopy };
+  }
+
+  // A copy of the values of one output: a Float64Array for one column, else an
+  // NdArray of shape [rows, width].
+  private copyValues(out: any): Float64Array | NdArray {
     const M: any = this.M;
     const rows = out.rows as number;
     const width = out.width as number;
-    const valView = M.viewF64(out.valuePtr, rows * width);
-    const idxView = M.viewF64(out.indexPtr, rows);
-    const valCopy = new Float64Array(valView);
-    const idxCopy = new Float64Array(idxView);
-    M.freeBuf(out.indexPtr);
-    M.freeBuf(out.valuePtr);
-    const values: Float64Array | NdArray =
-      width === 1 ? valCopy : ({ data: valCopy, shape: [rows, width] } as NdArray);
-    return { values, index: idxCopy };
+    const valCopy = new Float64Array(M.viewF64(out.valuePtr, rows * width));
+    return width === 1 ? valCopy : ({ data: valCopy, shape: [rows, width] } as NdArray);
   }
 
   // Event-by-event driver over the compiled graph. Push events (scalar or wide)
@@ -478,19 +528,12 @@ class PipelineImpl implements Owned {
         self.checkLive();
         try { self.cg.flush(); } catch (e) { throw normalizeError(e); }
       },
-      result(): Output {
+      result(): Output | Output[] {
         self.checkLive();
-        // drainFlat(o) drains ALL outputs then returns output o, so a second
-        // drain sees nothing. That serves a single-output pipeline exactly;
-        // multi-output live drain is not expressible on the current surface.
-        if (self.outputs.length !== 1) {
-          throw new Error(
-            "live().result() supports single-output pipelines only " +
-              "(drain clears every output at once)",
-          );
-        }
+        // Drains every output at once, aligned as the batch call aligns them.
         try {
-          return self.marshalOut(self.cg.drainFlat(0));
+          self.cg.drainStore(self.alignOutputs);
+          return self.readStored();
         } catch (e) {
           throw normalizeError(e);
         }
@@ -530,11 +573,12 @@ export interface Pipeline {
   dispose(): void;
   readonly inputs: Node[];
   readonly outputs: Node[];
+  readonly alignOutputs: boolean;
 }
 
 // Construct a callable Pipeline. Works with or without `new` (the constructor
 // returns the callable wrapper, so `new Pipeline(...)` yields the same thing).
-export const Pipeline = function (inputs: Node[], outputs: Node[], opts?: unknown): Pipeline {
+export const Pipeline = function (inputs: Node[], outputs: Node[], opts?: PipelineOptions): Pipeline {
   const impl = new PipelineImpl(inputs, outputs, opts);
   const fn = ((feeds: Feeds) => impl.call(feeds)) as Pipeline;
   // The compiled graph is freed by dispose() or when `fn` is collected.
@@ -542,5 +586,6 @@ export const Pipeline = function (inputs: Node[], outputs: Node[], opts?: unknow
   (fn as any).live = () => impl.live(fn);
   Object.defineProperty(fn, "inputs", { value: impl.inputs, enumerable: true });
   Object.defineProperty(fn, "outputs", { value: impl.outputs, enumerable: true });
+  Object.defineProperty(fn, "alignOutputs", { value: impl.alignOutputs, enumerable: true });
   return fn;
-} as unknown as { new (inputs: Node[], outputs: Node[], opts?: unknown): Pipeline };
+} as unknown as { new (inputs: Node[], outputs: Node[], opts?: PipelineOptions): Pipeline };

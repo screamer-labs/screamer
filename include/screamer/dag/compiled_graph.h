@@ -55,7 +55,8 @@ public:
                 " values after frames of " + std::to_string(buf_.width));
         buf_.width = f.width;
         buf_.indices.push_back(f.index);
-        buf_.values.insert(buf_.values.end(), f.values, f.values + f.width);
+        if (f.width == 1) buf_.values.push_back(f.values[0]);   // no memmove call
+        else buf_.values.insert(buf_.values.end(), f.values, f.values + f.width);
     }
 private:
     OutputBuffer& buf_;
@@ -396,14 +397,27 @@ public:
     // cleared). A poisoned session throws, as push, advance and flush do: its
     // buffers may hold rows the rejected event produced.
     std::vector<OutputBuffer> drain() {
+        std::vector<OutputBuffer> out;
+        drain_into(out);
+        return out;
+    }
+
+    // drain() into `dst` without a copy: each output's rows are swapped into
+    // dst (one buffer per output), and the output keeps dst's old storage,
+    // emptied, so a caller that drains into the same vector allocates nothing
+    // in steady state.
+    void drain_into(std::vector<OutputBuffer>& dst) {
         check_live();
-        std::vector<OutputBuffer> out = outputs_;   // deep copy
+        dst.resize(outputs_.size());
         for (std::size_t o = 0; o < outputs_.size(); ++o) {
-            outputs_[o].indices.clear();
-            outputs_[o].values.clear();
+            OutputBuffer& d = dst[o];
+            d.indices.clear();
+            d.values.clear();
+            std::swap(d.indices, outputs_[o].indices);
+            std::swap(d.values, outputs_[o].values);
+            d.width = outputs_[o].width;
             outputs_[o].width = output_widths_[o];
         }
-        return out;
     }
 
     // in_* are per-input arrays (one entry per input, in signature order).
@@ -413,6 +427,16 @@ public:
     //   is strided so event j from source i points to in_vals[i] + j*W.
     // Returns one OutputBuffer per output, in output_ids order.
     std::vector<OutputBuffer> run_batch(
+            const std::vector<const std::int64_t*>& in_indices,
+            const std::vector<const double*>& in_vals,
+            const std::vector<std::size_t>& in_lens,
+            const std::vector<std::size_t>& in_widths = {}) {
+        return run_batch_ref(in_indices, in_vals, in_lens, in_widths);
+    }
+
+    // run_batch() without the copy: the outputs stay in the graph and the
+    // reference is valid until the next run, push, drain or reset.
+    const std::vector<OutputBuffer>& run_batch_ref(
             const std::vector<const std::int64_t*>& in_indices,
             const std::vector<const double*>& in_vals,
             const std::vector<std::size_t>& in_lens,

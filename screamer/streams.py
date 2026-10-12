@@ -1344,10 +1344,9 @@ def resample(values, driver=None, index=None, *, freq=None, every=None, count=No
         if is_node(values):
             if driver is not None and is_node(driver):
                 # Graph regime: Resample(value_node, driver_node, threshold=T, agg=...)
-                # We build: combine_latest(values, driver) -> Resample(ByCumulative).
-                combined = make_operator_node(CombineLatest, (values, driver),
-                                             {"emit": "when_all"})
-                return make_operator_node(Resample, (combined,), {
+                # The C++ graph builder joins value and driver into one
+                # [value, driver] row (CombineLatest, when_all) and resamples it.
+                return make_operator_node(Resample, (values, driver), {
                     "threshold": threshold, "agg": agg,
                     "every": None, "count": None,
                     "origin": origin, "label": label, "fill": fill})

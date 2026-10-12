@@ -18,6 +18,7 @@
 #include "screamer/dag/driver.h"
 #include "screamer/dag/graph.h"
 #include "screamer/dag/compiled_graph.h"
+#include "screamer/dag/output_join.h"
 #include "screamer/dag/checked_index.h"
 #include "screamer/streams/py_index.h"
 #include "screamer/streams/event.h"
@@ -46,6 +47,16 @@ nb::object owned_array(T* data, const std::vector<size_t>& shape) {
         data, shape.size(), shape.data(), owner));
 }
 
+// A NEW numpy array over the storage of `v`, which it takes without a copy:
+// the vector moves into the array's owner capsule.
+template <class T>
+nb::object vector_array(std::vector<T>&& v, const std::vector<size_t>& shape) {
+    auto* owned = new std::vector<T>(std::move(v));
+    if (owned->empty()) owned->resize(1);   // a non-null data pointer for an empty array
+    nb::capsule owner(owned, [](void* p) noexcept { delete static_cast<std::vector<T>*>(p); });
+    return nb::cast(nb::ndarray<nb::numpy, T>(owned->data(), shape.size(), shape.data(), owner));
+}
+
 // Typed, C-contiguous 1-D input array (nanobind converts dtype/order if needed,
 // mirroring pybind's `py::array_t<T, forcecast|c_style>` behavior).
 template <class T>
@@ -56,14 +67,24 @@ using InValues = nb::ndarray<const double, nb::c_contig, nb::device::cpu>;
 
 }  // namespace
 
-// Build the Python value for row r of an output buffer: a scalar for a width-1
-// output, a tuple for a wider one.
-static nb::object make_output_value(const dag::OutputBuffer& b, std::size_t r,
-                                    std::size_t w) {
-    if (w == 1) return nb::float_(b.values[r]);
-    nb::list lst;
-    for (std::size_t j = 0; j < w; ++j) lst.append(b.values[r * w + j]);
-    return nb::steal(PySequence_Tuple(lst.ptr()));
+// Puts `x` at position i of the new tuple `t` (which takes the reference).
+static void set_item(nb::handle t, std::size_t i, nb::object x) {
+    if (PyTuple_SetItem(t.ptr(), static_cast<Py_ssize_t>(i), x.release().ptr()) != 0)
+        throw nb::python_error();
+}
+
+// The Python value of one output row of `w` values at `v`: a float for a
+// width-1 output, a tuple of floats for a wider one.
+static nb::object make_output_value(const double* v, std::size_t w) {
+    if (w == 1) return nb::float_(v[0]);
+    nb::object t = nb::steal(PyTuple_New(static_cast<Py_ssize_t>(w)));
+    if (!t.is_valid()) throw nb::python_error();
+    for (std::size_t j = 0; j < w; ++j) {
+        PyObject* x = PyFloat_FromDouble(v[j]);
+        if (!x) throw nb::python_error();
+        set_item(t, j, nb::steal(x));
+    }
+    return t;
 }
 
 // ---------------------------------------------------------------------------
@@ -71,23 +92,18 @@ static nb::object make_output_value(const dag::OutputBuffer& b, std::size_t r,
 // in C++. It merges the per-input (value, index) iterators by index
 // (streams::MergeSource, ascending, same-index ties by input order), pushes each
 // merged event into the CompiledGraph, drains the frames the graph emitted, and
-// yields output rows - the same rows the Python _LazyDag produced. Holds a
-// keepalive to the owning _CompiledGraph object.
+// yields output rows. Holds a keepalive to the owning _CompiledGraph object.
 //
 // One output (n_out == 1): yield (value, index) rows, value scalar or tuple.
-// M>1 co-indexed outputs: run the same watermark as-of join _LazyDag used. The M
-// outputs drain at independent rates, so their merged index stream is NOT
-// globally sorted; forward-filling naively would misalign. Instead buffer drained
-// events and finalize an index only once every output has drained strictly past
-// it (its as-of value is then settled), emitting one row per index with every
-// output's latest value. Rows are (col0, ..., col_{M-1}, index).
+// M>1 outputs: the rows of dag::OutputJoin, the engine's output alignment, as
+// (col0, ..., col_{M-1}, index); the same rows as a batch call.
 // ---------------------------------------------------------------------------
 class LazyDriver {
 public:
     LazyDriver(nb::object cg_keepalive, dag::CompiledGraph& cg, nb::list iterators,
-               std::size_t n_out)
+               std::size_t n_out, std::size_t max_pending)
         : cg_keepalive_(std::move(cg_keepalive)), cg_(cg), n_out_(n_out),
-          latest_(n_out, nb::none()), wm_val_(n_out, 0), wm_set_(n_out, 0) {
+          join_(n_out, max_pending) {
         unit_ = std::make_unique<TimeUnit>();
         for (nb::handle h : iterators) {
             sources_.push_back(std::make_unique<streams::PySource<std::int64_t>>(
@@ -114,7 +130,10 @@ public:
             } else {
                 cg_.flush();
                 collect();
-                if (n_out_ > 1) settle(0, /*has_bound=*/false);  // emit the tail
+                if (n_out_ > 1) {                       // emit the tail
+                    join_.finish();
+                    take_joined();
+                }
                 done_ = true;
             }
         }
@@ -125,110 +144,57 @@ public:
     }
 
     // Garbage-collector support (gc.h): the graph, the source iterators and the
-    // buffered rows and values.
+    // buffered rows.
     int traverse(visitproc visit, void* arg) const {
         if (int r = gc_visit(cg_keepalive_, visit, arg)) return r;
         for (const auto& s : sources_)
             if (int r = s->traverse(visit, arg)) return r;
-        if (int r = gc_visit_all(pending_, visit, arg)) return r;
-        if (int r = gc_visit_all(latest_, visit, arg)) return r;
-        for (const Buffered& e : buf_)
-            if (int r = gc_visit(std::get<2>(e), visit, arg)) return r;
-        return 0;
+        return gc_visit_all(pending_, visit, arg);
     }
 
-    // Drops the sources and the buffered values; the iterator then ends. The
+    // Drops the sources and the buffered rows; the iterator then ends. The
     // graph stays: cg_ points into it. The members are emptied before the
     // objects are released, so code a release runs sees an ended iterator.
     void clear() {
         done_ = true;
         auto pending = std::move(pending_);
-        auto latest = std::move(latest_);
-        auto buf = std::move(buf_);
         pending_.clear();
-        latest_.clear();
-        buf_.clear();
         for (auto& s : sources_) s->clear();
     }
 
 private:
-    void collect() { (n_out_ == 1) ? collect_single() : collect_multi(); }
+    void collect() {
+        cg_.drain_into(drained_);
+        if (n_out_ == 1) collect_single();
+        else { join_.push(drained_); take_joined(); }
+    }
 
     // One output: buffer each drained frame directly as a (value, index) row.
     void collect_single() {
-        std::vector<dag::OutputBuffer> bufs = cg_.drain();
-        assert(bufs.size() == 1 && "collect_single: graph must have one output");
-        const dag::OutputBuffer& b = bufs[0];
+        const dag::OutputBuffer& b = drained_[0];
         const std::size_t w = b.width;
         const std::size_t rows = b.indices.size();
-        for (std::size_t r = 0; r < rows; ++r) {
-            pending_.push_back(nb::make_tuple(make_output_value(b, r, w),
+        for (std::size_t r = 0; r < rows; ++r)
+            pending_.push_back(nb::make_tuple(make_output_value(b.values.data() + r * w, w),
                                               nb::int_(b.indices[r])));
-        }
     }
 
-    // M>1 outputs: buffer this drain's events, advance each output's watermark,
-    // then settle every index the join can now finalize (strictly below the
-    // lowest watermark - no output can still emit below it).
-    void collect_multi() {
-        std::vector<dag::OutputBuffer> bufs = cg_.drain();
-        assert(bufs.size() == n_out_ && "collect_multi: drain count must equal n_out");
-        for (std::size_t out_pos = 0; out_pos < bufs.size(); ++out_pos) {
-            const dag::OutputBuffer& b = bufs[out_pos];
-            const std::size_t w = b.width;
-            const std::size_t rows = b.indices.size();
-            for (std::size_t r = 0; r < rows; ++r) {
-                const std::int64_t k = b.indices[r];
-                buf_.emplace_back(k, out_pos, make_output_value(b, r, w));
-                if (!wm_set_[out_pos] || k > wm_val_[out_pos]) {
-                    wm_val_[out_pos] = k;
-                    wm_set_[out_pos] = 1;
-                }
+    // M>1 outputs: the rows the join settled, as (col0, ..., col_{M-1}, index).
+    void take_joined() {
+        dag::AlignedOutputs& a = join_.out();
+        const std::size_t rows = a.rows();
+        for (std::size_t r = 0; r < rows; ++r) {
+            nb::object row = nb::steal(PyTuple_New(static_cast<Py_ssize_t>(n_out_ + 1)));
+            if (!row.is_valid()) throw nb::python_error();
+            for (std::size_t j = 0; j < n_out_; ++j) {
+                const std::size_t w = a.widths[j];
+                set_item(row, j, make_output_value(a.values[j].data() + r * w, w));
             }
+            set_item(row, n_out_, nb::int_(a.index[r]));
+            pending_.push_back(std::move(row));
         }
-        for (unsigned char s : wm_set_) if (!s) return;   // an output has not fired
-        std::int64_t bound = wm_val_[0];
-        for (std::size_t j = 1; j < n_out_; ++j) bound = std::min(bound, wm_val_[j]);
-        settle(bound, /*has_bound=*/true);
+        a.clear_rows();
     }
-
-    // Emit one row per distinct buffered index < bound (all buffered when
-    // !has_bound), forward-filling each output's as-of value. Suppress until every
-    // output has a value (when_all). Stable order: the last drained value wins per
-    // (index, output).
-    void settle(std::int64_t bound, bool has_bound) {
-        if (buf_.empty()) return;
-        std::vector<Buffered> keep, ready;
-        for (const Buffered& e : buf_) {
-            if (!has_bound || std::get<0>(e) < bound) ready.push_back(e);
-            else keep.push_back(e);
-        }
-        if (ready.empty()) return;                        // buf_ left intact
-        buf_ = std::move(keep);
-        std::stable_sort(ready.begin(), ready.end(),
-            [](const Buffered& a, const Buffered& b) {
-                return std::get<0>(a) < std::get<0>(b);
-            });
-        std::size_t i = 0;
-        const std::size_t n = ready.size();
-        while (i < n) {
-            const std::int64_t k = std::get<0>(ready[i]);
-            while (i < n && std::get<0>(ready[i]) == k) {
-                latest_[std::get<1>(ready[i])] = std::get<2>(ready[i]);
-                ++i;
-            }
-            bool all_set = true;
-            for (const nb::object& o : latest_) if (o.is_none()) { all_set = false; break; }
-            if (all_set) {
-                nb::list row;
-                for (std::size_t j = 0; j < n_out_; ++j) row.append(latest_[j]);
-                row.append(nb::int_(k));
-                pending_.push_back(nb::steal(PySequence_Tuple(row.ptr())));
-            }
-        }
-    }
-
-    using Buffered = std::tuple<std::int64_t, std::size_t, nb::object>;  // (index, out, value)
 
     nb::object cg_keepalive_;                 // keep the _CompiledGraph alive
     dag::CompiledGraph& cg_;
@@ -238,11 +204,8 @@ private:
     std::vector<streams::Source<std::int64_t>*> child_ptrs_;
     std::unique_ptr<streams::MergeSource<std::int64_t>> merge_;
     std::deque<nb::object> pending_;
-    // Watermark as-of join state (M>1 outputs only).
-    std::vector<nb::object> latest_;          // each output's as-of value (None = unset)
-    std::vector<std::int64_t> wm_val_;        // highest index drained per output
-    std::vector<unsigned char> wm_set_;       // whether each output has drained yet
-    std::vector<Buffered> buf_;               // drained-but-unsettled events
+    std::vector<dag::OutputBuffer> drained_;  // reused drain storage
+    dag::OutputJoin join_;                    // M>1 outputs: the output alignment
     bool done_ = false;
 };
 
@@ -290,6 +253,17 @@ static nb::list marshal_output_buffers(const std::vector<dag::OutputBuffer>& out
     for (const auto& o : outs)
         result.append(marshal_gather(o.indices, o.values, o.width));
     return result;
+}
+
+// Marshal aligned outputs into (index_1d, [values_2d, ...]): one index array,
+// and each output's (rows, width) block. The arrays take the storage, no copy.
+static nb::object marshal_aligned(dag::AlignedOutputs&& a) {
+    const std::size_t rows = a.rows();
+    nb::object index = vector_array(std::move(a.index), {rows});
+    nb::list values;
+    for (std::size_t j = 0; j < a.values.size(); ++j)
+        values.append(vector_array(std::move(a.values[j]), {rows, a.widths[j]}));
+    return nb::make_tuple(index, values);
 }
 
 // Converts n items of type T at `b` (any alignment) into `out`. Returns false
@@ -525,11 +499,19 @@ void init_bindings_dag(nb::module_& m) {
 
         void advance(nb::handle now) { cg->advance(py_index(now)); }
 
-        nb::list drain() {
-            return marshal_output_buffers(cg->drain());
+        // Drains the outputs: a list of (index, values2d), or with `align`
+        // aligned on one index (dag::align_outputs) as (index, [values2d, ...]).
+        nb::object drain(bool align) {
+            if (!align) return marshal_output_buffers(cg->drain());
+            std::vector<dag::OutputBuffer> bufs;
+            cg->drain_into(bufs);
+            return marshal_aligned(dag::align_outputs(std::move(bufs)));
         }
 
-        nb::list run_batch(nb::list feeds) {
+        // Runs the graph over the feeds. Returns the outputs as a list of
+        // (index, values2d), or with `align` aligned on one index
+        // (dag::align_outputs) as (index, [values2d, ...]).
+        nb::object run_batch(nb::list feeds, bool align) {
             std::vector<nb::object> ks;
             std::vector<std::vector<std::int64_t>> owned;
             std::vector<InValues> vs;
@@ -538,7 +520,11 @@ void init_bindings_dag(nb::module_& m) {
             std::vector<std::size_t> lens;
             std::vector<std::size_t> widths;
             marshal_feeds(feeds, ks, owned, vs, kp, vp, lens, widths);
-            return marshal_output_buffers(cg->run_batch(kp, vp, lens, widths));
+            const std::vector<dag::OutputBuffer>& outs = cg->run_batch_ref(kp, vp, lens, widths);
+            if (!align) return marshal_output_buffers(outs);
+            std::vector<dag::OutputBuffer> bufs;
+            cg->drain_into(bufs);              // the rows move out of the graph
+            return marshal_aligned(dag::align_outputs(std::move(bufs)));
         }
     };
 
@@ -552,8 +538,8 @@ void init_bindings_dag(nb::module_& m) {
              "input_idx"_a, "index"_a, "values"_a)
         .def("flush",            &PyCompiledGraph::flush)
         .def("advance",          &PyCompiledGraph::advance, "now"_a.none())
-        .def("drain",            &PyCompiledGraph::drain)
-        .def("run_batch",        &PyCompiledGraph::run_batch, "feeds"_a);
+        .def("drain",            &PyCompiledGraph::drain, "align"_a = false)
+        .def("run_batch",        &PyCompiledGraph::run_batch, "feeds"_a, "align"_a = false);
 
     // Live session: the per-event push, in C++ (name lookup, one conversion).
     // The Python _LiveDag subclasses this and adds result().
@@ -768,14 +754,15 @@ void init_bindings_dag(nb::module_& m) {
                  nb::inst_ptr<PyLiveSession>(self)->advance(now);
              }, "now"_a.none());
 
-    // Lazy driver over a single-output compiled graph and Python-iterator feeds.
+    // Lazy driver over a compiled graph and Python-iterator feeds.
     nb::class_<LazyDriver>(m, "_LazyDriver", nb::type_slots(gc_slots<LazyDriver>))
         .def("__init__", [](LazyDriver* self, nb::object cg_obj, nb::list iterators,
-                            std::size_t n_out) {
+                            std::size_t n_out, std::size_t max_pending) {
                  PyCompiledGraph& pcg = nb::cast<PyCompiledGraph&>(cg_obj);
-                 new (self) LazyDriver(cg_obj, *pcg.cg, iterators, n_out);
+                 new (self) LazyDriver(cg_obj, *pcg.cg, iterators, n_out, max_pending);
              },
-             "cg"_a, "iterators"_a, "n_out"_a)
+             "cg"_a, "iterators"_a, "n_out"_a,
+             "max_pending"_a = dag::OutputJoin::DEFAULT_MAX_PENDING)
         .def("__iter__", [](nb::object self) { return self; })
         .def("__next__", &LazyDriver::next);
 
@@ -824,7 +811,8 @@ void init_bindings_dag(nb::module_& m) {
         std::size_t add_resample(std::vector<std::size_t> inputs, int mode, int agg,
                                  int label, std::int64_t width, std::int64_t origin,
                                  std::int64_t count, nb::object reducer, int fill,
-                                 nb::list plan, double threshold, std::int64_t max_age) {
+                                 nb::list plan, double threshold, std::int64_t max_age,
+                                 std::size_t max_pending) {
             dag::ResampleParams rp;
             rp.mode      = static_cast<dag::ResampleMode>(mode);    // 0=ByIndex, 1=ByCount, 2=ByCumulative
             rp.agg       = static_cast<dag::ResampleAgg>(agg);      // 0..9 First..SumNeg
@@ -852,7 +840,7 @@ void init_bindings_dag(nb::module_& m) {
                 rp.reducer = op;
                 op_refs.push_back(reducer);
             }
-            return builder.add_resample(std::move(inputs), rp);
+            return builder.add_resample(std::move(inputs), rp, max_pending);
         }
 
         void set_outputs(std::vector<std::size_t> outs) {
@@ -908,14 +896,16 @@ void init_bindings_dag(nb::module_& m) {
                                 int mode, int agg, int label,
                                 std::int64_t width, std::int64_t origin, std::int64_t count,
                                 nb::object reducer, int fill, nb::list plan, double threshold,
-                                std::int64_t max_age) {
+                                std::int64_t max_age, std::size_t max_pending) {
             return b.add_resample(std::move(inputs), mode, agg, label, width, origin,
-                                  count, reducer, fill, plan, threshold, max_age);
+                                  count, reducer, fill, plan, threshold, max_age,
+                                  max_pending);
         }, "inputs"_a, "mode"_a, "agg"_a, "label"_a,
            "width"_a, "origin"_a, "count"_a,
            "reducer"_a = nb::none(), "fill"_a = 0,
            "plan"_a = nb::list(), "threshold"_a = 0.0,
-           "max_age"_a = -1)
+           "max_age"_a = -1,
+           "max_pending"_a = static_cast<std::size_t>(1'000'000))
         .def("set_outputs", &PyGraphBuilder::set_outputs, "output_ids"_a)
         .def("compile", [](PyGraphBuilder& b) { return b.compile(); })
         .def("run_batch", [](PyGraphBuilder& b, nb::list feeds) {

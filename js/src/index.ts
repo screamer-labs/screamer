@@ -18,7 +18,7 @@ export { reshape } from "./shape.js";
 export type { NdArray } from "./ndarray.js";
 export { Node, Input, isNode } from "./node.js";
 export { Pipeline } from "./pipeline.js";
-export type { Output } from "./pipeline.js";
+export type { Output, PipelineOptions, LiveDriver } from "./pipeline.js";
 export {
   combineLatest,
   resample,

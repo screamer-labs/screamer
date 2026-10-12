@@ -211,11 +211,9 @@ export function resample(node: Node, opts: ResampleOpts = {}): Node {
     plan, reducer,
   };
 
-  // A cumulative driver reaches the node as one [value, driver] row, as in
-  // Python (streams.py resample): the two streams join in a combineLatest
-  // first. A clock driver goes to the node's own clock port.
-  if (opts.driver && isNode(opts.driver) && modeCode === RESAMPLE_MODE_CODE.by_cumulative)
-    return new Node({ combinator: "resample", params }, [combineLatest([node, opts.driver])]);
+  // A driver is the node's second input. For a cumulative resample the graph
+  // builder (C++) joins value and driver into one [value, driver] row first; a
+  // clock driver goes to the node's own clock port.
   const inputs = opts.driver && isNode(opts.driver) ? [node, opts.driver] : [node];
   return new Node({ combinator: "resample", params }, inputs);
 }

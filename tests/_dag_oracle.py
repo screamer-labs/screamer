@@ -1,8 +1,30 @@
 """DAG-1 reference oracle - the original pure-Python executor, kept for tests."""
 import numpy as np
-from screamer.dag import is_node, _align_results
+from screamer.dag import is_node
 from screamer.dag import _as_stream  # module-level in dag.py
 from screamer.streams import Resample
+
+
+def _align_results(results, align_outputs):
+    """The reference output alignment: (values, index) for one output; a tuple
+    of pairs otherwise, co-indexed by the batch combine_latest when aligned (the
+    engine's dag::align_outputs must give the same rows).
+
+    ``results`` is a list of (index_array, values_array) pairs.
+    """
+    from screamer.streams import combine_latest
+    if len(results) == 1:
+        k, v = results[0]
+        return (v, k)
+    if not align_outputs:
+        return tuple((v, k) for k, v in results)
+    aligned, aligned_index = combine_latest(*[(v, k) for k, v in results], emit="when_all")
+    out, j = [], 0
+    for _, v in results:
+        w = 1 if v.ndim == 1 else v.shape[1]
+        out.append((aligned[:, j] if v.ndim == 1 else aligned[:, j:j + w], aligned_index))
+        j += w
+    return tuple(out)
 
 
 def run_oracle(dag, feeds):

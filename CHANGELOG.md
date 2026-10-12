@@ -74,9 +74,32 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
   sum of `abs(position change * price)`, in the money units of equity and
   cost; without prices it is unchanged (units summed across assets). Python
   and JavaScript, for arrays, lists, and streams.
+* JavaScript `Pipeline` takes an options object, `{ alignOutputs }`, Python's
+  `align_outputs`: with several outputs and `alignOutputs: true` (the
+  default), every output is put on one index, as in Python, and the outputs
+  share one `index` array. `live().result()` returns every output of a
+  multi-output pipeline, in the shape of the batch call; it threw before.
 
 ### Changed
 
+* JavaScript: a `Pipeline` with several outputs aligns them on one index by
+  default (`alignOutputs`, above). 2.8.0 ignored the options argument and
+  returned each output on its own index; pass `{ alignOutputs: false }` for
+  that. An option other than `alignOutputs`, or an `alignOutputs` that is not a
+  boolean, throws `TypeError`. `live().result()` is typed `Output | Output[]`,
+  as the batch call is.
+* A lazy `Pipeline` call (generator feeds) with several aligned outputs holds
+  at most `max_pending` output rows that wait for another output to emit;
+  more raises `RuntimeError` "Pipeline output alignment overflow", as a
+  `CombineLatest` node does. 2.8.0 held every waiting row. Pass a larger
+  `max_pending` to `Pipeline(...)` for an output that emits rarely, such as a
+  long resample window.
+* `Resample(value, driver, threshold=...)` inside a `Pipeline` is one graph
+  node with two inputs; the engine joins value and driver itself. Results are
+  unchanged, but `to_dict()`, `to_json()`, `to_text()` and `to_dot()` show one
+  `Resample` node fed by the value and the driver, where 2.8.0 showed a
+  `CombineLatest` node feeding the `Resample`. Graphs serialized by 2.8.0 still
+  load and give the same results.
 * One index rule, owned by the C++ engine, at every `Pipeline` entry point:
   Python `live().push()`, `advance()`, batch calls and iterator feeds of
   `(value, index)` pairs (also those of the stream operators, such as `Merge`),
@@ -625,6 +648,10 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
 
 ### Performance
 
+* A `Pipeline` with several aligned outputs aligns them in C++, for a batch
+  call, a lazy call and `live().result()`. Python, two outputs of 10^6 rows:
+  a batch call takes 26-28 ms (was 50 ms), a lazy call of 10^5 events 20-21 ms
+  (was 41 ms), and `live().result()` of 10^5 rows 0.05 ms (was 2.3 ms).
 * The Python async iterators no longer copy each event's items into a buffer;
   the operator reads the awaited items in place, about 0.04 to 0.06 us less
   per event.

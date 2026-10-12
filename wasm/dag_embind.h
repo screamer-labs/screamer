@@ -27,6 +27,7 @@
 #include "screamer/common/eval_op.h"
 #include "screamer/dag/graph.h"
 #include "screamer/dag/compiled_graph.h"
+#include "screamer/dag/output_join.h"
 #include "screamer/dag/checked_index.h"
 #include "screamer/dag/resample_params.h"
 
@@ -141,9 +142,13 @@ public:
     // reads each output without recomputing the graph. JS calls this once, then
     // outputCount()/output(i) per output. Same pointer conventions as
     // runBatchFlat above. Overwrites any previously stored buffers.
+    //
+    // With `align` and more than one output, the outputs are stored aligned on
+    // one index (dag::align_outputs, the rule Python uses): alignedIndex()
+    // gives the index and output(i) the values of output i on it.
     void runBatchStore(std::uintptr_t idxPtrsPtr, std::uintptr_t valPtrsPtr,
                        std::uintptr_t lensPtr, std::uintptr_t widthsPtr,
-                       std::size_t numInputs) {
+                       std::size_t numInputs, bool align) {
         const auto* idxPtrs = reinterpret_cast<const std::uint32_t*>(idxPtrsPtr);
         const auto* valPtrs = reinterpret_cast<const std::uint32_t*>(valPtrsPtr);
         const auto* lens    = reinterpret_cast<const std::uint32_t*>(lensPtr);
@@ -165,11 +170,19 @@ public:
             in_lens[i]    = len;
             in_widths[i]  = widths[i];
         }
-        stored_ = cg_->run_batch(in_indices, in_vals, in_lens, in_widths);
+        cg_->run_batch_ref(in_indices, in_vals, in_lens, in_widths);
+        store(align);
     }
+
+    // Drain every frame emitted since the last drain/reset (a live session's
+    // result) and store it as runBatchStore does.
+    void drainStore(bool align) { store(align); }
 
     // Number of cached outputs from the last runBatchStore call.
     std::size_t outputCount() const { return stored_.size(); }
+
+    // Whether the stored outputs are aligned on one index.
+    bool storedAligned() const { return aligned_mode_; }
 
     // Marshal the i-th cached output into fresh heap buffers (JS frees via
     // freeBuf, exactly like runBatchFlat's result). Out-of-range -> empty buffer.
@@ -177,9 +190,63 @@ public:
         return marshal_flat_at(stored_, outIdx);
     }
 
+    // The values of aligned stored output i, in place: valuePtr points into
+    // the stored rows, which stay until clearStored() (JS copies them and does
+    // not free the pointer). indexPtr is 0: the index is alignedIndex().
+    OutBufFlat alignedOutput(std::size_t outIdx) const {
+        OutBufFlat out;
+        if (outIdx >= aligned_.values.size()) return out;
+        out.rows     = aligned_.rows();
+        out.width    = aligned_.widths[outIdx];
+        out.valuePtr = reinterpret_cast<std::uintptr_t>(aligned_.values[outIdx].data());
+        return out;
+    }
+
+    // The index of the aligned stored outputs as doubles, in place (valuePtr 0,
+    // width 0), valid until clearStored(); JS copies it once for every output.
+    OutBufFlat alignedIndex() {
+        aligned_index_.resize(aligned_.rows());
+        for (std::size_t r = 0; r < aligned_index_.size(); ++r)
+            aligned_index_[r] = static_cast<double>(aligned_.index[r]);
+        OutBufFlat out;
+        out.rows     = aligned_.rows();
+        out.width    = 0;
+        out.indexPtr = reinterpret_cast<std::uintptr_t>(aligned_index_.data());
+        return out;
+    }
+
+    // Empties the stored outputs once JS has read them. Their storage stays
+    // (cleared) for the graph's next run, which takes it back through
+    // drain_into, so a repeated call does not grow its buffers again. Rows
+    // that align_outputs moved out are given back first.
+    void clearStored() {
+        if (aligned_mode_) {
+            for (std::size_t j = 0; j < stored_.size() && j < aligned_.values.size(); ++j)
+                if (stored_[j].values.capacity() == 0) stored_[j].values.swap(aligned_.values[j]);
+            if (!stored_.empty() && stored_[0].indices.capacity() == 0)
+                stored_[0].indices.swap(aligned_.index);
+        }
+        for (auto& b : stored_) { b.indices.clear(); b.values.clear(); }
+        aligned_ = screamer::dag::AlignedOutputs{};
+        std::vector<double>().swap(aligned_index_);
+        aligned_mode_ = false;
+    }
+
 private:
+    // Moves the graph's output rows into stored_ (no copy), and aligns them
+    // when asked and there is more than one output.
+    void store(bool align) {
+        cg_->drain_into(stored_);
+        aligned_mode_ = align && stored_.size() > 1;
+        aligned_ = aligned_mode_ ? screamer::dag::align_outputs(std::move(stored_))
+                                 : screamer::dag::AlignedOutputs{};
+    }
+
     std::unique_ptr<screamer::dag::CompiledGraph> cg_;
-    std::vector<screamer::dag::OutputBuffer>      stored_;  // last runBatchStore
+    std::vector<screamer::dag::OutputBuffer>      stored_;  // last runBatchStore / drainStore
+    screamer::dag::AlignedOutputs                 aligned_; // stored_, aligned (align mode)
+    std::vector<double>                           aligned_index_; // aligned_.index as doubles
+    bool                                          aligned_mode_ = false;
 };
 
 // Wraps dag::GraphBuilder. Node ids are size_t; edge lists are VectorSizeT.
@@ -225,7 +292,7 @@ public:
                             int label, int fill, double width, double origin,
                             double count, double threshold, double max_age,
                             std::uintptr_t planPtr, std::size_t planLen,
-                            std::uintptr_t reducerPtr) {
+                            std::uintptr_t reducerPtr, double max_pending) {
         screamer::dag::ResampleParams rp;
         rp.mode      = static_cast<screamer::dag::ResampleMode>(mode);
         rp.agg       = static_cast<screamer::dag::ResampleAgg>(agg);
@@ -248,7 +315,10 @@ public:
         }
         if (reducerPtr)
             rp.reducer = reinterpret_cast<screamer::EvalOp*>(reducerPtr);
-        return b_.add_resample(std::move(inputs), rp);
+        // A cumulative resample with [value, driver] as two inputs: the builder
+        // joins them first (GraphBuilder::add_resample).
+        return b_.add_resample(std::move(inputs), rp,
+                               static_cast<std::size_t>(max_pending));
     }
 
     void setOutputs(std::vector<std::size_t> outs) {
@@ -287,8 +357,13 @@ private:
         .function("drainFlat",    &screamer_wasm::CompiledGraphWrap::drainFlat) \
         .function("runBatchFlat", &screamer_wasm::CompiledGraphWrap::runBatchFlat) \
         .function("runBatchStore",&screamer_wasm::CompiledGraphWrap::runBatchStore) \
+        .function("drainStore",   &screamer_wasm::CompiledGraphWrap::drainStore) \
         .function("outputCount",  &screamer_wasm::CompiledGraphWrap::outputCount) \
-        .function("output",       &screamer_wasm::CompiledGraphWrap::output); \
+        .function("storedAligned",&screamer_wasm::CompiledGraphWrap::storedAligned) \
+        .function("output",       &screamer_wasm::CompiledGraphWrap::output)    \
+        .function("alignedOutput",&screamer_wasm::CompiledGraphWrap::alignedOutput) \
+        .function("alignedIndex", &screamer_wasm::CompiledGraphWrap::alignedIndex) \
+        .function("clearStored",  &screamer_wasm::CompiledGraphWrap::clearStored); \
     emscripten::class_<screamer_wasm::GraphBuilderWrap>("GraphBuilder")         \
         .constructor<>()                                                       \
         .function("addInput",         &screamer_wasm::GraphBuilderWrap::addInput) \

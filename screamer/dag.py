@@ -167,37 +167,18 @@ def _as_stream(feed):
     return (np.arange(values.shape[0], dtype=np.int64), values)
 
 
-def _align_results(results, align_outputs):
-    """Return (values, index) for M==1; tuple of (values, index) pairs otherwise.
+def _values_first(results):
+    """The engine's (index, values2d) pairs as (values, index) pairs; a
+    one-column output is 1-D. One pair for one output, else a tuple of pairs."""
+    out = tuple((v.reshape(-1) if v.shape[1] == 1 else v, k) for k, v in results)
+    return out[0] if len(out) == 1 else out
 
-    align_outputs=False: independent per-output (values, index) pairs.
-    align_outputs=True:  co-indexed via combine_latest (coalesces - one row per
-    distinct index), all pairs share the same index array.
 
-    Input ``results`` is a list of (index_array, values_array) pairs as returned
-    by the compiled engine.
-    """
-    if len(results) == 1:
-        k, v = results[0]
-        return (v, k)   # values-first
-    if not align_outputs:
-        return tuple((v, k) for k, v in results)   # values-first
-    from .streams import combine_latest
-    # combine_latest accepts (values, index) tuples; coalesces to one row per
-    # index. Its row holds every output's columns side by side: an output of
-    # width w owns the next w columns (a 1-D output owns one).
-    vi_list = [(v, k) for k, v in results]
-    aligned, aligned_index = combine_latest(*vi_list, emit="when_all")
-    out, j = [], 0
-    for _, v in results:
-        if v.ndim == 1:
-            out.append((aligned[:, j], aligned_index))
-            j += 1
-        else:
-            w = v.shape[1]
-            out.append((aligned[:, j:j + w], aligned_index))
-            j += w
-    return tuple(out)  # values-first
+def _aligned(result):
+    """The engine's aligned outputs (index, [values2d, ...]) as (values, index)
+    pairs that share the one index; a one-column output is 1-D."""
+    index, values = result
+    return tuple((v.reshape(-1) if v.shape[1] == 1 else v, index) for v in values)
 
 
 def _reachable_inputs(outputs):
@@ -267,9 +248,10 @@ def _live_dag_class():
         def result(self):
             """Aligned outputs accumulated so far (drains the buffers). Raises after a
             rejected event poisoned the session, until a new live() session."""
-            results = self._cg.drain()
-            results = [(k, v.reshape(-1) if v.shape[1] == 1 else v) for (k, v) in results]
-            return _align_results(results, self._dag.align_outputs)
+            dag = self._dag
+            if len(dag.outputs) > 1 and dag.align_outputs:
+                return _aligned(self._cg.drain(True))
+            return _values_first(self._cg.drain())
 
     _LIVE_CLASS = _LiveDag
     return _LIVE_CLASS
@@ -378,7 +360,8 @@ class Pipeline:
                         nid = gb.add_resample(inp, mode, 0, label, width, origin,
                                               count, fill=fill, plan=plan,
                                               threshold=threshold_val,
-                                              max_age=max_age_val)
+                                              max_age=max_age_val,
+                                              max_pending=self.max_pending)
                     elif isinstance(agg_val, str) and agg_val == "ohlcv_bars":
                         # ohlcv_bars: plan depends on input width (unknown at graph-build
                         # time). Pass agg=10 (OhlcvBars enum value) with an empty plan;
@@ -386,20 +369,23 @@ class Pipeline:
                         # at ResampleNode instantiation from the resolved input width.
                         nid = gb.add_resample(inp, mode, 10, label, width, origin,
                                               count, fill=fill, threshold=threshold_val,
-                                              max_age=max_age_val)
+                                              max_age=max_age_val,
+                                              max_pending=self.max_pending)
                     elif isinstance(agg_val, str):
                         # Builtin string agg: enum code, no functor reducer.
                         nid = gb.add_resample(inp, mode, _RESAMPLE_AGG_CODE[agg_val],
                                               label, width, origin, count, fill=fill,
                                               threshold=threshold_val,
-                                              max_age=max_age_val)
+                                              max_age=max_age_val,
+                                              max_pending=self.max_pending)
                     else:
                         # Arbitrary functor reducer (an EvalOp): agg code is ignored
                         # (pass 0); the reducer op drives GenericResampleNode.
                         nid = gb.add_resample(inp, mode, 0, label, width, origin,
                                               count, agg_val, fill=fill,
                                               threshold=threshold_val,
-                                              max_age=max_age_val)
+                                              max_age=max_age_val,
+                                              max_pending=self.max_pending)
                 elif name == "Delay":
                     nid = gb.add_delay(inp, int(_setting("duration", kwargs["duration"])))
                 else:
@@ -425,16 +411,16 @@ class Pipeline:
         if feeds and all(lazy):
             # The C++ driver merges the feeds, drives the graph, and yields rows:
             # (value, index) for one output, or (col0, ..., col_{M-1}, index) for
-            # M>1 co-indexed outputs (its watermark join matches batch
-            # combine_latest). Independent (align_outputs=False) multi-output has
-            # no single lazy row shape.
+            # M>1 aligned outputs (the engine's output alignment, as in batch).
+            # Independent (align_outputs=False) multi-output has no single lazy
+            # row shape.
             if len(self.outputs) > 1 and not self.align_outputs:
                 raise NotImplementedError(
                     "lazy dag(iterables) with align_outputs=False and multiple "
                     "outputs is not yet supported; use the batch call dag(arrays)")
             from . import screamer_bindings as _b
             iters = [iter(feeds[nm]) for nm in self._input_order]
-            return _b._LazyDriver(self._cg, iters, len(self.outputs))
+            return _b._LazyDriver(self._cg, iters, len(self.outputs), self.max_pending)
         if any(lazy):
             raise TypeError(
                 "dag(...) feeds must be either all lazy iterators or all concrete "
@@ -442,9 +428,9 @@ class Pipeline:
                 "Wrap the concrete feed in a generator, or materialize the "
                 "iterator into an array.")
         streams = [_as_stream(feeds[nm]) for nm in self._input_order]
-        results = self._cg.run_batch(streams)      # M independent (index, values2d)
-        results = [(k, v.reshape(-1) if v.shape[1] == 1 else v) for (k, v) in results]
-        return _align_results(results, self.align_outputs)
+        if len(self.outputs) > 1 and self.align_outputs:
+            return _aligned(self._cg.run_batch(streams, True))
+        return _values_first(self._cg.run_batch(streams))
 
     @staticmethod
     def _is_lazy(x):

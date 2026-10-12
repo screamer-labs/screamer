@@ -274,8 +274,10 @@ test("live: a rejected ohlcv_bars width, then a new session, equals a fresh pipe
       const s = p.live();
       rows.forEach((r, k) => s.push("x", k, r));
       s.flush();
+      const live = s.result() as Output;   // before the batch call, which resets the engine
       const batch = p({ values: Float64Array.from(rows.flat()), index: rows.map((_, k) => k) }) as Output;
-      assertNanEq(asFloat64(s.result()), asFloat64(batch), `width ${w}`);
+      assert.equal(live.index.length, 3, `width ${w}`);
+      assertNanEq(asFloat64(live), asFloat64(batch), `width ${w}`);
     }
   } finally {
     p.dispose();

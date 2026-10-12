@@ -52,16 +52,23 @@ define-once-run-anywhere guarantee), see
 
 ## Constructor
 
-`Pipeline(inputs, outputs, align_outputs=True)`
+`Pipeline(inputs, outputs, align_outputs=True, max_pending=1_000_000)`
 
 - **`inputs`**: a list of `Input(...)` nodes. Defines the call signature; feeds
   are bound positionally in this order, or by the input names.
 - **`outputs`**: a list of nodes to evaluate.
-- **`align_outputs`**: when `True` (default), all outputs are co-indexed onto a
-  single shared index, so every output is an equal-length `(values, index)`
-  pair. Each output keeps its own columns: a 2-column output stays `(T, 2)`.
-  When `False`, each output is returned as an independent stream whose
-  length may differ from the others.
+- **`align_outputs`**: with more than one output and `True` (default), every
+  output is put on one index: the sorted union of the output indexes, with one
+  row per distinct index. Each output holds its latest value at every row, and
+  the rows start once every output has a value (an as-of join, as
+  `CombineLatest(emit="when_all")`). The outputs then share one index array and
+  have equal length; each keeps its own columns, so a 2-column output stays
+  `(T, 2)`. When `False`, each output is an independent stream whose length may
+  differ from the others.
+- **`max_pending`**: the most events a join may hold while it waits for another
+  stream: the reorder buffer of each `CombineLatest` node, and, in a lazy call
+  with aligned outputs, the output rows that wait for another output. More
+  raises `RuntimeError`, so a stalled stream cannot grow memory without bound.
 
 The constructor validates the pipeline and raises a clear `ValueError` if: an
 `inputs` entry is not an `Input(...)` node; an `outputs` entry is not a `Node`;

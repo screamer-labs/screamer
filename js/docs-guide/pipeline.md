@@ -65,6 +65,30 @@ p({
 A pipeline with one output returns a single `{ values, index }` object; a pipeline with several
 outputs returns an array of them, one per declared output.
 
+### Several outputs: `alignOutputs`
+
+`new Pipeline(inputs, outputs, { alignOutputs })` sets how several outputs come back.
+With `alignOutputs: true` (the default), every output is put on one index: the sorted union of
+the output indexes, with one row per distinct index. Each output holds its latest value at
+every row, and the rows start once every output has a value. All outputs then share one `index`
+array and have the same number of rows; each output keeps its own columns. With
+`alignOutputs: false`, each output keeps its own index and length.
+
+```js
+const a = Input("a");
+const b = Input("b");
+const p = new Pipeline([a, b], [a, b]);   // alignOutputs: true
+
+const [outA, outB] = p({
+  a: { values: [1, 2, 3], index: [0, 2, 4] },
+  b: { values: [10, 20], index: [1, 3] },
+});
+// outA.index and outB.index are both [1, 2, 3, 4]
+// outA.values is [1, 2, 2, 3]; outB.values is [10, 10, 20, 20]
+```
+
+`live().result()` returns the same shape as the batch call.
+
 Dispose the pipeline with `pipeline.dispose()` when you are done with it. See
 [Lifecycle](./lifecycle.md) for why you should not separately dispose the ops that went into
 building the graph.
@@ -93,8 +117,9 @@ after part of the graph took the event (a `combineLatest` buffer that overflows,
 makes every later call, `result()` included, throw until a new `live()` session starts.
 
 Streaming a pipeline this way reproduces its batch output exactly on the same data: `pipeline(data)`
-and `pipeline.live()` fed the same events one by one always agree. `driver.result()` supports
-single-output pipelines only, since draining reads every output's buffer at once.
+and `pipeline.live()` fed the same events one by one always agree. For a pipeline with several
+outputs, `driver.result()` returns one `{ values, index }` per output, aligned when the
+pipeline aligns its outputs.
 
 ## Combinators
 

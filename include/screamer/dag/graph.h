@@ -79,7 +79,14 @@ public:
         spec_.nodes.push_back(std::move(ns));
         return spec_.nodes.size() - 1;
     }
-    std::size_t add_resample(std::vector<std::size_t> inputs, ResampleParams rp) {
+    // A cumulative resample given [value, driver] as two inputs reads them as
+    // one [value, driver] row: the builder joins them first with a
+    // CombineLatest (emit="when_all", reorder cap `max_pending`) and resamples
+    // the joined stream. One input is that joined stream already.
+    std::size_t add_resample(std::vector<std::size_t> inputs, ResampleParams rp,
+                             std::size_t max_pending = 1'000'000) {
+        if (rp.mode == ResampleMode::ByCumulative && inputs.size() == 2)
+            inputs = {add_combine_latest(std::move(inputs), true, max_pending)};
         NodeSpec ns;
         ns.kind     = NodeKind::Resample;
         ns.resample = rp;
