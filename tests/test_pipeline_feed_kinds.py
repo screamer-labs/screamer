@@ -342,6 +342,7 @@ _KINDS = {
     "M8[s]": np.arange(2).astype("M8[s]"),
     "M8[ns]": np.arange(2).astype("M8[ns]"),
     "m8[ns]": np.arange(2).astype("m8[ns]"),
+    "bool": np.array([False, True]),
 }
 _NUMBER = {"int", "float"}
 
@@ -361,7 +362,11 @@ def test_merge_index_kind_pairs_agree_between_batch_and_iterator(a, b):
     # float index must be whole, in batch and iterator forms alike (G17).
     frac = a == "int" and b == "float"
     for name, call in calls.items():
-        if frac:
+        if "bool" in (a, b):
+            # A bool is not an index, in batch and iterator forms alike.
+            with pytest.raises(TypeError, match="index must be a number"):
+                call()
+        elif frac:
             with pytest.raises(TypeError, match="integer-valued"):
                 call()
         elif same:

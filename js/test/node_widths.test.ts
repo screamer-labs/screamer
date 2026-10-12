@@ -81,6 +81,33 @@ test("G11: every node raises RangeError for a width it cannot take, batch and li
   }
 });
 
+test("G11: past the pre-check, each node refuses a width it cannot take", async () => {
+  await ready();
+  // An empty feed leaves b's width unknown to the pre-check; an on_any join
+  // over it emits rows of its compile-time width, which the node refuses.
+  const cases: [string, (j: any, m: any) => any, RegExp][] = [
+    ["operator", (j) => RollingMean(2)(j), /an operator takes 1 column\(s\), but its input has 2/],
+    ["select", (j) => select(j, [5]), /select needs column 5, but its input has 2/],
+    ["filter", (j, m) => filter(j, m), /Filter takes a 1-column data stream, but its data has 2/],
+    ["reducer resample", (j) => resample(j, { every: 2, reducer: ExpandingMax()(Input("r")) as any }), /reducer resample takes 1 column, but its input has 2/],
+    ["clock max_age", (j, m) => resample(j, { clock: true, driver: m, agg: "last", fill: "carry", maxAge: 3 }), /max_age takes 1 value column, but its input has 2/],
+  ];
+  for (const [name, build, re] of cases) {
+    const a = Input("a"), b = Input("b"), m = Input("m");
+    const uses = name === "filter" || name === "clock max_age";
+    const ins = uses ? [a, b, m] : [a, b];
+    const p = new Pipeline(ins, [build(combineLatest([a, b], { emit: "on_any" }), m)]);
+    try {
+      const x = { values: [1, 2, 3, 4], index: [0, 1, 2, 3] };
+      const feeds: any = { a: x, b: { values: [], index: [] } };
+      if (uses) feeds.m = x;
+      assert.throws(() => p(feeds), isRange(re), name);
+    } finally {
+      p.dispose();
+    }
+  }
+});
+
 test("cumulative resample with a driver joins value and driver first, as in Python", async () => {
   await ready();
   const a = Input("a"), b = Input("b");
@@ -137,21 +164,20 @@ test("G16: an Array of events may mix a Float64Array and a number[] after a type
   assert.throws(() => RollingMean(2)([[1, 2], Float64Array.from([3, 4])] as any), isRange(/expected a number/));
 });
 
-test("Q1: every element of a vector setting is a number, whatever iterable holds it", async () => {
+test("Q1: a vector setting is a number, an Array or a typed array, and every element a number", async () => {
   await ready();
-  const bad: [string, () => unknown][] = [
-    ["Set of strings", () => MovingAverage(new Set(["0.5", "0.5"]) as any)],
-    ["generator of strings", () => MovingAverage((function* () { yield "0.5"; yield "0.5"; })() as any)],
-    ["nested array of a string", () => MovingAverage([["3"]] as any)],
-    ["nested array of a number", () => MovingAverage([[3]] as any)],
-    ["array with an object", () => MovingAverage([0.5, {} as any])],
+  const bad: [string, () => unknown, RegExp][] = [
+    ["Set of strings", () => MovingAverage(new Set(["0.5", "0.5"]) as any), /got a Set/],
+    ["Set of numbers", () => MovingAverage(new Set([0.5, 0.25]) as any), /got a Set/],
+    ["generator of numbers", () => MovingAverage((function* () { yield 0.5; yield 0.5; })() as any), /got a /],
+    ["nested array of a string", () => MovingAverage([["3"]] as any), /got an array/],
+    ["nested array of a number", () => MovingAverage([[3]] as any), /got an array/],
+    ["array with an object", () => MovingAverage([0.5, {} as any]), /got an Object/],
   ];
-  for (const [name, f] of bad) assert.throws(f, TypeError, name);
-  // A Set or a generator of numbers builds, and every copy of the op reads the
-  // same values (the iterable is read once).
-  const viaSet = MovingAverage(new Set([0.5, 0.25]) as any);
-  assert.deepEqual(viaSet([2, 4, 6]), [NaN, 2.5, 4]);
-  const viaGen = MovingAverage((function* () { yield 0.5; yield 0.5; })() as any);
-  assert.deepEqual(viaGen([2, 4, 6]), [NaN, 3, 5]);
-  assert.deepEqual(Array.from(viaGen((function* () { yield* [2, 4, 6]; })()) as any), [NaN, 3, 5]);
+  for (const [name, f, re] of bad)
+    assert.throws(f, (e: unknown) => e instanceof TypeError && /^taps must be a number or an array of numbers, got /.test((e as Error).message) && re.test((e as Error).message), name);
+  // An Array, a typed array or a number builds.
+  assert.deepEqual(MovingAverage([0.5, 0.25])([2, 4, 6]), [NaN, 2.5, 4]);
+  assert.deepEqual(MovingAverage(Float64Array.from([0.5, 0.25]) as any)([2, 4, 6]), [NaN, 2.5, 4]);
+  assert.deepEqual(MovingAverage(2)([2, 4, 6]), [4, 8, 12]);
 });

@@ -185,20 +185,25 @@ inline std::int64_t py_index(nb::handle index, TimeUnit* unit = nullptr) {
 }
 
 // One index of a float merge (a stream merge whose first index is a float):
-// numbers of any value, read as double, under the same kinds as py_index. A
+// numbers of any value, read as double (an int rounds to the nearest double,
+// as a batch float index does; one beyond a double raises), under the same
+// kinds as py_index. A
 // time scalar is its int64 ticks (after a number it raises the kind error); a
 // bool, str, bytes, None, Decimal, Fraction or any other object raises the
 // index kind TypeError.
 inline double py_float_index(nb::handle index, TimeUnit* unit = nullptr) {
     PyObject* p = index.ptr();
     if (PyFloat_Check(p)) { note_number(unit); return PyFloat_AsDouble(p); }
-    if (PyBool_Check(p)) screamer::dag::throw_index_kind("bool");
+    if (PyBool_Check(p)) screamer::dag::throw_float_index_kind("bool");
     if (PyLong_Check(p)) {
         note_number(unit);
         const double d = PyLong_AsDouble(p);
-        if (d == -1.0 && PyErr_Occurred()) {
+        if (d == -1.0 && PyErr_Occurred()) {          // OverflowError: beyond a double
             PyErr_Clear();
-            screamer::dag::throw_index_out_of_range();
+            nb::str text = nb::str(index);
+            std::size_t digits = static_cast<std::size_t>(nb::len(text));
+            if (digits && nb::cast<std::string>(text)[0] == '-') --digits;
+            screamer::dag::throw_float_index_overflow(digits);
         }
         return d;
     }
@@ -219,7 +224,7 @@ inline double py_float_index(nb::handle index, TimeUnit* unit = nullptr) {
     }
     // A np.datetime64, or a pandas Timestamp or Timedelta: ticks, as py_index.
     if (is_time_index(index)) return static_cast<double>(py_index(index, unit));
-    screamer::dag::throw_index_kind(nb::cast<std::string>(nb::type_name(index.type())));
+    screamer::dag::throw_float_index_kind(nb::cast<std::string>(nb::type_name(index.type())));
 }
 
 }  // namespace screamer

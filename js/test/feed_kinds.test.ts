@@ -123,9 +123,21 @@ test("round 3: every number[] operator setting refuses strings, found from the m
         assert.throws(() => api[op.name](...args), (e: unknown) => e instanceof TypeError &&
           (e as Error).message === `${name} must be a number or an array of numbers, got a string`, `${op.name}(${name})`);
       }
-      const ok: unknown[] = new Array(i + 1).fill(undefined);
-      ok[i] = [1, 2];
-      assert.equal(typeof api[op.name](...ok), "function");
+      // Q1 (Task 18c): only a number, an Array or a typed array is a vector
+      // setting, and every element is a number, as in Python.
+      const otherKinds: unknown[] = [new Set([1, 2]), (function* () { yield 1; yield 2; })(),
+                                     [[1], [2]], [1, {}], [1, true], new Map(), {}];
+      for (const bad of otherKinds) {
+        const args: unknown[] = new Array(i + 1).fill(undefined);
+        args[i] = bad;
+        assert.throws(() => api[op.name](...args), (e: unknown) => e instanceof TypeError &&
+          (e as Error).message.startsWith(`${name} must be a number or an array of numbers, got `), `${op.name}(${name}) ${String(bad)}`);
+      }
+      for (const good of [[1, 2], Float64Array.from([1, 2]), 1]) {
+        const ok: unknown[] = new Array(i + 1).fill(undefined);
+        ok[i] = good;
+        assert.equal(typeof api[op.name](...ok), "function", `${op.name}(${name}) ${String(good)}`);
+      }
       checked++;
     });
   }

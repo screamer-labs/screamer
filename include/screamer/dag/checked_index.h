@@ -2,6 +2,7 @@
 #define SCREAMER_DAG_CHECKED_INDEX_H
 
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
 #include <stdexcept>
 #include <string>
@@ -19,6 +20,20 @@ struct IndexTypeError : std::invalid_argument {
 [[noreturn]] inline void throw_index_kind(const std::string& kind) {
     throw IndexTypeError("index must be a number (an integer, or a float with a "
                          "whole value), got " + kind);
+}
+
+// The same for a stream merge whose index is a float: any int or float is
+// taken there, fractional too.
+[[noreturn]] inline void throw_float_index_kind(const std::string& kind) {
+    throw IndexTypeError("index must be a number (an int or a float), got " + kind);
+}
+
+// A float-merge index given as an int too large for a double (beyond about
+// 1.8e308; a smaller int rounds to the nearest double, as a batch float index
+// array does).
+[[noreturn]] inline void throw_float_index_overflow(std::size_t digits) {
+    throw IndexTypeError("index does not fit a float64, got an int of " +
+                         std::to_string(digits) + " digits");
 }
 
 [[noreturn]] inline void throw_index_out_of_range() {

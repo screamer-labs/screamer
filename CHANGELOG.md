@@ -103,7 +103,10 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
     `np.bool_`. Pass `int(index)`. A stream merge whose first index is a float
     read `True` and `np.bool_` as 1.0 and `Decimal("2.5")` and
     `Fraction(5, 2)` as 2.5, and raised `ValueError` for `None`; these now
-    raise `TypeError`. Pass `float(index)`.
+    raise `TypeError` ("index must be a number (an int or a float)"). Pass
+    `float(index)`. An int index there rounds to the nearest float64, as a
+    batch float index does; one too large for a float64 raises `TypeError`
+    ("index does not fit a float64").
 * Python reads a time index as int64 ticks of its own unit at every `Pipeline`
   entry point, the same way a batch call reads a datetime64 or timedelta64
   array. This covers `live().push()`, `advance()`, iterator feeds (also those
@@ -150,9 +153,7 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
   raises `TypeError` too: an operator's number settings (`RollingMean("3")`
   raises "an integer setting must be a number, got str", and `Lag(b"2")`),
   its per-asset and list settings, alone or as an element
-  (`MovingAverage(["0.5", "0.5"])`, `BacktestPortfolioTarget(fee="0.01")`;
-  in JavaScript an element that is not a number raises in an `Array`, a
-  `Set` or a generator alike, and so does a nested array),
+  (`MovingAverage(["0.5", "0.5"])`, `BacktestPortfolioTarget(fee="0.01")`),
   and `threshold`, `every`, `count`, `origin`, `max_age`, a `delay`
   duration, `select` columns, `max_pending` and JavaScript's `maxPending`. A
   bool setting converts as before. What 2.8.0 did:
@@ -167,14 +168,22 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
     `live().push()` or `pushWide()` with `Number()` (`"abc"` gave NaN, `""`
     gave 0). It read a string operator setting through embind
     (`RollingMean("3")` had a window of 3; `MovingAverage(["0.5", "0.5"])`
-    built a two-tap filter, `MovingAverage("0.5")` read the characters
-    as taps, the elements of a `Set` or generator setting went through
-    `Number()`, and a nested `[[3]]` read as 3), a resample setting with
+    built a two-tap filter, and `MovingAverage("0.5")` read the characters
+    as taps), a resample setting with
     `Number()` or `Math.trunc()`, `delay(node, "1")` and `select(node, "0")`
     with `Math.trunc()`, and did not check `maxPending`.
   * For the old result, parse the text first: `pd.to_numeric(column)` or
     `values.astype(float)` (and `int(setting)`) in Python, `Number(value)` or
     `Float64Array.from(values, Number)` in JavaScript.
+* JavaScript: a list operator setting (a `number | number[]` parameter such
+  as `MovingAverage` taps or a portfolio engine's `fee`) is a number, an
+  `Array` or a typed array, and every element is a number, as in Python. A
+  `Set`, a generator, a `Map` or another object throws `TypeError` ("taps must
+  be a number or an array of numbers, got a Set"), and so does an element that
+  is not a number (a nested array, an object, a boolean). 2.8.0 read any
+  iterable and passed each element to embind, which converted it with
+  `Number()` (a nested `[[3]]` gave 3). For the old result, pass
+  `Array.from(x, Number)`.
 * `None` (Python) and `null` (JavaScript) are a missing value, NaN, on every
   value path in both languages: an operator scalar (`RollingMean(2)(None)`),
   a list or array element, an iterator or async event, a row of a row
@@ -233,7 +242,10 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
   index must be whole (else `TypeError` "integer-valued"), and the merged
   index is int64. 2.8.0 raised `TypeError` ("all streams must share one index
   type") for the batch forms. For the old error, check the index dtypes
-  before the call.
+  before the call. A bool index array is not an index in these batch forms,
+  as in a `Pipeline` batch call and the iterator forms: it raises `TypeError`
+  ("index must be a number ..., got an array of bool"). 2.8.0 read it as 0
+  and 1; pass `index.astype(np.int64)` for the old result.
 * Python `live().push()` raises `TypeError` for a `bytes` or `bytearray` value;
   2.8.0 read `b"12"` as 12.0. Pass `float(value)` for the old result.
 * A list of rows passed to a row operator (`CrossRank()([r1, r2])`) returns a list of result rows, following rule 3; 2.8.0 returned an array. To get the array, pass `np.vstack(rows)`. A tuple of rows and a matrix still return an array. A mix of lists and arrays (for example a list target with an ndarray of prices) returns an array. The JavaScript row operators follow the same rule: an `Array` of rows gives an `Array` of `Float64Array` rows, and an `NdArray` gives an `NdArray`. To get the old `NdArray` from an array of rows in JavaScript, pass `{ data, shape: [T, K] }`.

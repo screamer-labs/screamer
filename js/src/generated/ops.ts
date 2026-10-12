@@ -6,11 +6,17 @@ import { current } from "../index.js";
 
 // A string or String object: never a number setting (R-a).
 const _isText = (x: unknown): boolean => typeof x === "string" || x instanceof String;
-// A copy of an iterable setting (an Array, a typed array, a Set, a generator),
-// taken once, so every copy of the op reads the same values.
-const _copy = (x: any): any => x !== null && typeof x === "object" && !(x instanceof String) && typeof x[Symbol.iterator] === "function" ? Array.from(x) : x;
-// The kind of a setting element that is not a number, for the message.
-const _what = (x: unknown): string => _isText(x) ? "a string" : Array.isArray(x) ? "an array" : x === null ? "null" : typeof x;
+const _article = (k: string): string => (/^[aeiou]/i.test(k) ? "an " : "a ") + k;
+// The kind of a setting value that is not a number, for the message.
+const _what = (x: any): string => _isText(x) ? "a string" : Array.isArray(x) ? "an array" : x === null ? "null" : typeof x === "object" ? _article(x.constructor?.name ?? "Object") : typeof x;
+// A vector setting is a number, an Array or a typed array, as in Python; any
+// other container (a Set, a generator) is a wrong kind. An array is copied
+// once, so every copy of the op reads the same values.
+const _vec = (name: string, x: any): any => {
+  if (typeof x === "number") return x;
+  if (Array.isArray(x) || (ArrayBuffer.isView(x) && !(x instanceof DataView))) return Array.from(x as ArrayLike<unknown>);
+  throw new TypeError(`${name} must be a number or an array of numbers, got ${_what(x)}`);
+};
 
 /**
  * Chaikin Accumulation/Distribution Line.
@@ -434,15 +440,15 @@ export function BacktestPortfolioOHLCTarget(fee: number | number[] = [0.0], slip
   if (_isText(maxNet)) throw new TypeError(`maxNet must be a number, got a string`);
   if (typeof fillAt !== "string") throw new TypeError(`fillAt must be a string, got ${typeof fillAt}`);
   if (_isText(delay)) throw new TypeError(`delay must be a number, got a string`);
-  const fee_ = _copy(fee);
+  const fee_ = _vec("fee", fee);
   if (_isText(fee_) || (Array.isArray(fee_) && fee_.some(_isText))) throw new TypeError(`fee must be a number or an array of numbers, got a string`);
-  const slippage_ = _copy(slippage);
+  const slippage_ = _vec("slippage", slippage);
   if (_isText(slippage_) || (Array.isArray(slippage_) && slippage_.some(_isText))) throw new TypeError(`slippage must be a number or an array of numbers, got a string`);
-  const tickSize_ = _copy(tickSize);
+  const tickSize_ = _vec("tickSize", tickSize);
   if (_isText(tickSize_) || (Array.isArray(tickSize_) && tickSize_.some(_isText))) throw new TypeError(`tickSize must be a number or an array of numbers, got a string`);
-  const multiplier_ = _copy(multiplier);
+  const multiplier_ = _vec("multiplier", multiplier);
   if (_isText(multiplier_) || (Array.isArray(multiplier_) && multiplier_.some(_isText))) throw new TypeError(`multiplier must be a number or an array of numbers, got a string`);
-  const feePerContract_ = _copy(feePerContract);
+  const feePerContract_ = _vec("feePerContract", feePerContract);
   if (_isText(feePerContract_) || (Array.isArray(feePerContract_) && feePerContract_.some(_isText))) throw new TypeError(`feePerContract must be a number or an array of numbers, got a string`);
   return wrapRowOp(M, () => {
     const _v0 = new M.VectorDouble(), _v1 = new M.VectorDouble(), _v3 = new M.VectorDouble(), _v4 = new M.VectorDouble(), _v5 = new M.VectorDouble();
@@ -504,15 +510,15 @@ export function BacktestPortfolioTarget(fee: number | number[] = [0.0], slippage
   if (typeof rebalance !== "string") throw new TypeError(`rebalance must be a string, got ${typeof rebalance}`);
   if (_isText(maxGross)) throw new TypeError(`maxGross must be a number, got a string`);
   if (_isText(maxNet)) throw new TypeError(`maxNet must be a number, got a string`);
-  const fee_ = _copy(fee);
+  const fee_ = _vec("fee", fee);
   if (_isText(fee_) || (Array.isArray(fee_) && fee_.some(_isText))) throw new TypeError(`fee must be a number or an array of numbers, got a string`);
-  const slippage_ = _copy(slippage);
+  const slippage_ = _vec("slippage", slippage);
   if (_isText(slippage_) || (Array.isArray(slippage_) && slippage_.some(_isText))) throw new TypeError(`slippage must be a number or an array of numbers, got a string`);
-  const tickSize_ = _copy(tickSize);
+  const tickSize_ = _vec("tickSize", tickSize);
   if (_isText(tickSize_) || (Array.isArray(tickSize_) && tickSize_.some(_isText))) throw new TypeError(`tickSize must be a number or an array of numbers, got a string`);
-  const multiplier_ = _copy(multiplier);
+  const multiplier_ = _vec("multiplier", multiplier);
   if (_isText(multiplier_) || (Array.isArray(multiplier_) && multiplier_.some(_isText))) throw new TypeError(`multiplier must be a number or an array of numbers, got a string`);
-  const feePerContract_ = _copy(feePerContract);
+  const feePerContract_ = _vec("feePerContract", feePerContract);
   if (_isText(feePerContract_) || (Array.isArray(feePerContract_) && feePerContract_.some(_isText))) throw new TypeError(`feePerContract must be a number or an array of numbers, got a string`);
   return wrapRowOp(M, () => {
     const _v0 = new M.VectorDouble(), _v1 = new M.VectorDouble(), _v3 = new M.VectorDouble(), _v4 = new M.VectorDouble(), _v5 = new M.VectorDouble();
@@ -2202,7 +2208,7 @@ export function Momentum(windowSize: number = 10, startPolicy: string = "strict"
  */
 export function MovingAverage(taps: number | number[] = [0.25, 0.5, 0.25]): ScreamerOp {
   const M = current();
-  const taps_ = _copy(taps);
+  const taps_ = _vec("taps", taps);
   if (_isText(taps_) || (Array.isArray(taps_) && taps_.some(_isText))) throw new TypeError(`taps must be a number or an array of numbers, got a string`);
   return wrapOp(M, () => {
     const _v0 = new M.VectorDouble();

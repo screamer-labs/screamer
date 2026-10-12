@@ -460,6 +460,8 @@ void init_bindings_dag(nb::module_& m) {
             nb::object arr = np.attr("asarray")(h).attr("ravel")();
             if (nb::len(arr) == 0) continue;
             const std::string kind = nb::cast<std::string>(arr.attr("dtype").attr("kind"));
+            // A bool array is not an index, as in a Pipeline batch call.
+            if (kind == "b") dag::throw_index_kind("an array of bool");
             if (kind == "M" || kind == "m") {
                 nb::tuple du = nb::cast<nb::tuple>(np.attr("datetime_data")(arr.attr("dtype")));
                 note_time(&unit, kind == "M" ? TimeUnit::kDatetime : TimeUnit::kTimedelta,

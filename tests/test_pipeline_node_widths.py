@@ -189,6 +189,76 @@ def test_width_mismatch_is_a_value_error_in_batch_and_live(node):
         s.push("a", 0, wide[0])
 
 
+# Past the pre-check. An empty feed leaves its input's width unknown, so the
+# pre-check cannot see the width of a CombineLatest(emit="on_any") over it; that
+# node emits rows of its compile-time width (one column per input) at run time,
+# and the node downstream refuses them itself. These reach the node-level
+# std::invalid_argument checks (2.8.0 raised RuntimeError there, or gave a wrong
+# result for Filter and ohlcv_bars).
+
+_X = np.array([1.0, 2.0, 3.0, 4.0])
+_K = np.arange(4)
+_E = (np.array([]), np.array([], dtype=np.int64))
+
+
+def _node_cases():
+    from screamer import CombineLatest
+    from screamer.dag import make_operator_node
+    from screamer.streams import Resample as _R
+    a, b, c, d, m = (Input(n) for n in "abcdm")
+    on_any = lambda *xs: CombineLatest(emit="on_any")(*xs)   # noqa: E731
+    cumulative = make_operator_node(_R, (on_any(a, b, c),), {
+        "threshold": 5, "agg": "last", "every": None, "count": None,
+        "origin": 0, "label": "left", "fill": "skip"})
+    return {
+        "operator": ([a, b], [RollingMean(2)(on_any(a, b))], 0,
+                     "an operator takes 1 column"),
+        "select": ([a, b], [Select(columns=[5])(on_any(a, b))], 0,
+                   "select needs column 5, but its input has 2"),
+        "filter": ([a, b, m], [Filter()(on_any(a, b), m)], 1,
+                   "Filter takes a 1-column data stream, but its data has 2"),
+        "reducer resample": ([a, b], [Resample(every=2, agg=ExpandingMax())(on_any(a, b))], 0,
+                             "a reducer resample takes 1 column, but its input has 2"),
+        "plan resample": ([a, b, c], [Resample(every=2, agg="ohlcv")(on_any(a, b, c))], 0,
+                          "a resample plan takes 2 column"),
+        "ohlcv_bars": ([a, b, c, d], [Resample(every=2, agg="ohlcv_bars")(on_any(a, b, c, d))], 0,
+                       "at least 5 columns., but its input has 4"),
+        "clock max_age": ([a, b, m], [Resample(on_any(a, b), m, clock=True, agg="last",
+                                               fill="carry", max_age=3)], 1,
+                          "max_age takes 1 value column, but its input has 2"),
+        "clock ohlcv_bars": ([a, b, c, d, m], [Resample(on_any(a, b, c, d), m, clock=True,
+                                                        agg="ohlcv_bars")], 1,
+                             "at least 5 columns., but its input has 4"),
+        "cumulative resample": ([a, b, c], [cumulative], 0,
+                                "cumulative resample takes \\[value, driver\\] \\(2 columns\\), "
+                                "but its input has 3"),
+    }
+
+
+@pytest.mark.parametrize("node", list(_node_cases()))
+def test_node_level_width_check_is_a_value_error(node):
+    inputs, outputs, n_full, msg = _node_cases()[node]
+    p = Pipeline(inputs, outputs)
+    # Input a and the last n_full inputs carry data; the others are empty.
+    feeds = [(_X, _K)] + [_E] * (len(inputs) - 1 - n_full) + [(_X, _K)] * n_full
+    with pytest.raises(ValueError, match=msg):
+        p(*feeds)
+
+
+def test_graph_builder_and_engine_counts_are_value_errors():
+    from screamer import Sub
+    gb = _b._GraphBuilder()
+    i = gb.add_input()
+    with pytest.raises(ValueError, match="Filter takes 2 inputs"):
+        gb.add_filter([i])
+    a = Input("a")
+    with pytest.raises(ValueError, match="reducer of 1 input, got one of 2"):
+        Pipeline([a], [Resample(every=2, agg=Sub())(a)])
+    p = Pipeline([a], [RollingMean(2)(a)])
+    with pytest.raises(ValueError, match="expected 1 input arrays, got 0"):
+        p._cg.run_batch([])
+
+
 def test_functor_batch_width_is_a_value_error():
     from screamer import Sub
     with pytest.raises(ValueError, match="takes 2 column"):
@@ -281,7 +351,7 @@ def test_batch_combine_latest_of_int_and_float_index_matches_the_iterator(pair):
 
 
 def test_fractional_float_after_int_raises_in_batch_and_iterator():
-    with pytest.raises(TypeError, match="integer-valued"):
+    with pytest.raises(TypeError, match="merge: the index of input 1: index must be integer-valued"):
         merge(AI, BFR)
     with pytest.raises(TypeError, match="integer-valued"):
         list(merge(_it(AI), _it(BFR)))
@@ -301,7 +371,7 @@ def test_empty_first_stream_does_not_set_the_kind():
                                  fractions.Fraction(5, 2), None, "3", b"3"],
                          ids=["bool", "np.bool_", "Decimal", "Fraction", "None", "str", "bytes"])
 def test_float_index_iterator_merge_refuses_a_wrong_kind(bad):
-    with pytest.raises(TypeError, match="index must be a number"):
+    with pytest.raises(TypeError, match=r"index must be a number \(an int or a float\), got "):
         list(merge(zip([1.0, 2.0], [0.5, bad]), zip([3.0], [1.5])))
 
 
@@ -311,3 +381,22 @@ def test_float_index_iterator_merge_takes_numbers():
     assert [e[1] for e in out] == [0.5, 1.0, 2.0, 2.5]
     with pytest.raises(TypeError, match="one kind and unit"):
         list(merge(zip([1.0, 2.0], [0.5, np.datetime64(2, "s")]), zip([3.0], [1.5])))
+
+
+def test_float_index_iterator_merge_rounds_a_big_int_as_batch_does():
+    big = 2**53 + 1
+    it = list(merge(zip([1.0, 2.0], [0.5, big]), zip([3.0], [1.5])))
+    _, _, idx = merge((np.array([1.0, 2.0]), [0.5, big]), (np.array([3.0]), np.array([1.5])))
+    assert [e[1] for e in it] == list(idx)
+    assert it[-1][1] == float(big)
+    with pytest.raises(TypeError, match="index does not fit a float64, got an int of 401 digits"):
+        list(merge(zip([1.0, 2.0], [0.5, -10**400]), zip([3.0], [1.5])))
+
+
+@pytest.mark.parametrize("first", [AI, BFR], ids=["int first", "float first"])
+def test_batch_merge_refuses_a_bool_index_like_the_iterator(first):
+    bools = (np.array([1.0, 2.0]), np.array([False, True]))
+    with pytest.raises(TypeError, match="index must be a number"):
+        merge(first, bools)
+    with pytest.raises(TypeError, match="index must be a number"):
+        list(merge(_it(first), _it(bools)))

@@ -192,8 +192,13 @@ def _normalize_streams(streams, who):
     if kind == "f64":
         norm_index = [np.ascontiguousarray(k, dtype=np.float64) for k in norm_index]
     else:
-        norm_index = [k if kd == "i64" else _b._index_i64(k)
-                      for kd, k in zip(kinds, norm_index)]
+        for i, (kd, k) in enumerate(zip(kinds, norm_index)):
+            if kd == "i64":
+                continue
+            try:
+                norm_index[i] = _b._index_i64(k)
+            except TypeError as e:
+                raise TypeError(f"{who}: the index of input {i}: {e}") from None
     return kind, norm_index, norm_vals
 
 
