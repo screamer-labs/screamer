@@ -9,12 +9,22 @@ namespace screamer {
 // arity. ScreamerBase (1->1) and FunctorBase<_,N,M> (N->M) both implement it in
 // terms of their existing process_scalar/call. eval() processes exactly one
 // event: it reads n_in() inputs from `in` and writes n_out() outputs to `out`.
+//
+// eval_column() is the batch entry point of both bindings: one call runs a
+// whole column of a broadcast batch, so the per-event loop runs inside the
+// operator, where the compiler sees the concrete type.
 struct EvalOp {
     virtual ~EvalOp() = default;
     virtual std::size_t n_in() const = 0;
     virtual std::size_t n_out() const = 0;
     virtual void eval(const double* in, double* out) = 0;
     virtual void reset() = 0;
+
+    // Run one column of T steps. in[i] points at input i's first element of this
+    // column and advances by in_stride[i] per step; out advances by out_stride
+    // per step and holds n_out values per step. Resets the op first.
+    virtual void eval_column(const double* const* in, const std::ptrdiff_t* in_stride,
+                             std::size_t T, double* out, std::ptrdiff_t out_stride) = 0;
 };
 
 } // namespace screamer

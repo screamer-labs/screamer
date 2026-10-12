@@ -4,7 +4,7 @@
 //   npm run bench        # or: node benchmarks/throughput.mjs
 //
 // Reports two regimes over the same operators:
-//   - BATCH: op(array) runs the whole array in one C++ pass (evalBatchInto),
+//   - BATCH: op(array) runs the whole array in one C++ pass (evalShaped),
 //     the "C++ speed" number.
 //   - STREAMING: op(x) one value at a time, which crosses the JS/WASM boundary
 //     per event (what a live, event-driven feed does).

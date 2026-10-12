@@ -35,6 +35,13 @@ public:
 
     void eval(const double* in, double* out) override { call_row(in, out, width_); }
 
+    // A row op's event width is fixed by its first row, so it has no column
+    // form; its batch entry is call_row over rows.
+    void eval_column(const double* const*, const std::ptrdiff_t*,
+                     std::size_t, double*, std::ptrdiff_t) override {
+        throw std::logic_error("a row operator runs by rows, not by columns.");
+    }
+
     void reset() override {
         width_ = 0;
         reset_state();

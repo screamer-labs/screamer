@@ -7,13 +7,14 @@ cd js
 npm ci
 npm run build      # build the WASM module + dist (once)
 npm run bench      # node benchmarks/throughput.mjs
+npm run bench:gate # batch ns per element of RollingMean, RollingCorr and Add, as JSON
 ```
 
 `throughput.mjs` measures the same operators in two regimes:
 
 - **Batch** (`op(array)`): the whole array runs in one C++ pass over WebAssembly
-  (`evalBatchInto`), without recrossing the JS/WASM boundary per element. This is
-  the "C++ speed" number.
+  (`evalShaped`, one loop per asset column), without recrossing the JS/WASM
+  boundary per element. This is the "C++ speed" number.
 - **Streaming** (`op(x)`): one value at a time, which crosses the JS/WASM boundary
   once per event, as a live event-driven feed does.
 

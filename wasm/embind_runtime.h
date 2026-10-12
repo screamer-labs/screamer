@@ -6,6 +6,7 @@
 #include <cmath>
 #include <optional>
 #include <tuple>
+#include <vector>
 #include "screamer/common/eval_op.h"
 #include "screamer/common/functor_base.h"
 #include "screamer/common/row_op.h"
@@ -17,15 +18,18 @@ inline void evalInto(screamer::EvalOp& op, std::uintptr_t inPtr, std::uintptr_t 
     op.eval(reinterpret_cast<const double*>(inPtr), reinterpret_cast<double*>(outPtr));
 }
 
-// Batch by the batch==stream invariant: replay eval() over `rows` events.
-// Layout: inPtr = rows * n_in() doubles (row-major), outPtr = rows * n_out().
+// A batch of `rows` row-major events as one column: inPtr = rows * n_in()
+// doubles, outPtr = rows * n_out(). Input i starts at inPtr + i and advances by
+// n_in() per event.
 inline void evalBatchInto(screamer::EvalOp& op, std::uintptr_t inPtr,
                           std::uintptr_t outPtr, std::size_t rows) {
     const double* in = reinterpret_cast<const double*>(inPtr);
-    double* out = reinterpret_cast<double*>(outPtr);
     const std::size_t ni = op.n_in(), no = op.n_out();
-    op.reset();
-    for (std::size_t r = 0; r < rows; ++r) op.eval(in + r * ni, out + r * no);
+    std::vector<const double*> ptr(ni);
+    for (std::size_t i = 0; i < ni; ++i) ptr[i] = in + i;
+    const std::vector<std::ptrdiff_t> stride(ni, static_cast<std::ptrdiff_t>(ni));
+    op.eval_column(ptr.data(), stride.data(), rows, reinterpret_cast<double*>(outPtr),
+                   static_cast<std::ptrdiff_t>(no));
 }
 
 // ---- Dynamic-width reducers ------------------------------------------------

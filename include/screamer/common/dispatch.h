@@ -697,6 +697,8 @@ nb::object eager_parallel(Op& self, const nb::tuple& inputs) {
 // ---------------------------------------------------------
 // ONE INPUT, ONE OUTPUT (numpy)
 // ---------------------------------------------------------
+// Every handler below runs one eval_column per asset column. The call is
+// qualified with Op, so it binds statically to FunctorBase<Op, N, M>.
 template <class Op>
 nb::object handle_input_1i_1o_numpy(Op& self, const nb::ndarray<nb::ro>& input) {
     detail::ContigDouble in = detail::read_contig_double(input);
@@ -708,14 +710,11 @@ nb::object handle_input_1i_1o_numpy(Op& self, const nb::ndarray<nb::ro>& input) 
     double* out = new double[total ? total : 1];
     size_t size = in.time();
     size_t cols = in.cols();   // product of trailing dims = C-contiguous axis0 stride
+    const std::ptrdiff_t stride = (std::ptrdiff_t) cols;
 
     for (size_t col = 0; col < cols; ++col) {
-        self.reset();
-        size_t idx = col;
-        for (size_t i = 0; i < size; ++i) {
-            out[idx] = self.call({ in.data[idx] });
-            idx += cols;
-        }
+        const double* x = in.data.data() + col;
+        self.Op::eval_column(&x, &stride, size, out + col, stride);
     }
     self.reset();
     return detail::make_owned_array(out, shape);
@@ -724,28 +723,32 @@ nb::object handle_input_1i_1o_numpy(Op& self, const nb::ndarray<nb::ro>& input) 
 // ---------------------------------------------------------
 // MULTIPLE INPUTS, ONE OUTPUT (numpy)
 // ---------------------------------------------------------
+// The input pointers of column `col`: input i starts at its planned offset.
+template <size_t N>
+inline void column_inputs(const detail::NInputs<N>& in, size_t col,
+                          std::array<const double*, N>& ptr) {
+    const shape::Plan& p = in.plan;
+    for (size_t i = 0; i < N; ++i) ptr[i] = in.data[i] + p.offset[i * p.columns + col];
+}
+
+template <size_t N>
+inline std::array<std::ptrdiff_t, N> time_strides(const shape::Plan& p) {
+    std::array<std::ptrdiff_t, N> s;
+    for (size_t i = 0; i < N; ++i) s[i] = (std::ptrdiff_t) p.time_stride[i];
+    return s;
+}
+
 template <class Op>
 nb::object handle_input_Ni_1o_numpy(Op& self, detail::NInputs<Op::kN>& in) {
     constexpr size_t N = Op::kN;
     const shape::Plan& p = in.plan;
     const size_t T = p.T, cols = p.columns;
     double* out = new double[T * cols ? T * cols : 1];
-    std::array<int64_t, N> instride{};
-    for (size_t i = 0; i < N; ++i) instride[i] = (int64_t) p.time_stride[i];
+    const std::array<std::ptrdiff_t, N> stride = time_strides<N>(p);
+    std::array<const double*, N> ptr;
     for (size_t col = 0; col < cols; ++col) {
-        std::array<size_t, N> inoff{};
-        for (size_t i = 0; i < N; ++i) inoff[i] = p.offset[i * cols + col];
-        self.reset();
-        if (!self.process_columns(out, (std::ptrdiff_t) cols, in.data, instride, inoff, col, T)) {
-            std::array<size_t, N> idx = inoff;
-            size_t idx_out = col;
-            typename Op::InputArray call_array;
-            for (size_t t = 0; t < T; ++t) {
-                for (size_t i = 0; i < N; ++i) { call_array[i] = in.data[i][idx[i]]; idx[i] += p.time_stride[i]; }
-                out[idx_out] = self.call(call_array);
-                idx_out += cols;
-            }
-        }
+        column_inputs(in, col, ptr);
+        self.Op::eval_column(ptr.data(), stride.data(), T, out + col, (std::ptrdiff_t) cols);
     }
     self.reset();
     return detail::make_owned_array(out, p.shape);
@@ -770,14 +773,11 @@ nb::object handle_input_1i_Mo_numpy(Op& self, const nb::ndarray<nb::ro>& input) 
     double* out = new double[total * M ? total * M : 1];
     size_t size = in.time();
     size_t cols = in.cols();
+    const std::ptrdiff_t stride = (std::ptrdiff_t) cols;
 
     for (size_t col = 0; col < cols; ++col) {
-        self.reset();
-        for (size_t i = 0; i < size; ++i) {
-            size_t in_idx = i * cols + col;
-            typename Op::ResultTuple results = self.call({ in.data[in_idx] });
-            detail::write_tuple_to_memory(&out[in_idx * M], results);
-        }
+        const double* x = in.data.data() + col;
+        self.Op::eval_column(&x, &stride, size, out + col * M, stride * (std::ptrdiff_t) M);
     }
     self.reset();
     return detail::make_owned_array(out, shape);
@@ -798,15 +798,11 @@ nb::object handle_input_Ni_Mo_numpy(Op& self, detail::NInputs<Op::kN>& in) {
     std::vector<size_t> shape = p.shape;
     shape.push_back(M);
     double* out = new double[T * cols * M ? T * cols * M : 1];
+    const std::array<std::ptrdiff_t, N> stride = time_strides<N>(p);
+    std::array<const double*, N> ptr;
     for (size_t col = 0; col < cols; ++col) {
-        self.reset();
-        std::array<size_t, N> idx{};
-        for (size_t i = 0; i < N; ++i) idx[i] = p.offset[i * cols + col];
-        typename Op::InputArray call_array;
-        for (size_t t = 0; t < T; ++t) {
-            for (size_t j = 0; j < N; ++j) { call_array[j] = in.data[j][idx[j]]; idx[j] += p.time_stride[j]; }
-            detail::write_tuple_to_memory(&out[(t * cols + col) * M], self.call(call_array));
-        }
+        column_inputs(in, col, ptr);
+        self.Op::eval_column(ptr.data(), stride.data(), T, out + col * M, (std::ptrdiff_t) (cols * M));
     }
     self.reset();
     return detail::make_owned_array(out, shape);

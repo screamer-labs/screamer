@@ -10,6 +10,16 @@
 #include <cstdint>
 #include "screamer/common/eval_op.h"
 
+// Inline the operator's call() into the batch column loop in the WASM build,
+// which optimizes for size (-Oz) and would otherwise keep the call: RollingCorr
+// runs 1.7x faster with it. Native -O3 builds inline by their own heuristics,
+// which measured faster there (forcing it slows EwAlpha by 20%).
+#if defined(__EMSCRIPTEN__)
+#define SCREAMER_INLINE_CALL [[clang::always_inline]]
+#else
+#define SCREAMER_INLINE_CALL
+#endif
+
 namespace screamer {
 
 namespace detail {
@@ -90,6 +100,52 @@ public:
             out[0] = call(inputs);
         } else {
             detail::write_tuple_to_memory(out, call(inputs));
+        }
+    }
+
+    // The per-sample loop over call(), once for every operator. The calls are
+    // qualified with Derived, so they bind statically and can be inlined: the
+    // CRTP contract is that Derived is the most-derived class, which holds for
+    // every operator (none is subclassed). An operator that overrides
+    // process_columns gets it first, as a whole-column batch path.
+    void eval_column(const double* const* in, const std::ptrdiff_t* in_stride,
+                     std::size_t T, double* out, std::ptrdiff_t out_stride) override {
+        Derived& self = static_cast<Derived&>(*this);
+        self.Derived::reset();
+        if constexpr (M == 1 && !std::is_same_v<decltype(&Derived::process_columns),
+                                                 decltype(&FunctorBase::process_columns)>) {
+            std::array<double*, N> cols;
+            std::array<int64_t, N> strides;
+            for (std::size_t i = 0; i < N; ++i) {
+                cols[i] = const_cast<double*>(in[i]);
+                strides[i] = static_cast<int64_t>(in_stride[i]);
+            }
+            if (self.Derived::process_columns(out, out_stride, cols, strides,
+                                              std::array<size_t, N>{}, 0, T))
+                return;
+        }
+        run_column(in, in_stride, T, out, out_stride, std::make_index_sequence<N>{});
+    }
+
+private:
+    // The loop of eval_column. The input reads are a fold over the N inputs,
+    // unrolled at compile time, so the pointers and strides stay in registers
+    // at every optimization level.
+    template <std::size_t... I>
+    void run_column(const double* const* in, const std::ptrdiff_t* in_stride, std::size_t T,
+                    double* out, std::ptrdiff_t out_stride, std::index_sequence<I...>) {
+        Derived& self = static_cast<Derived&>(*this);
+        std::array<const double*, N> p{ in[I]... };
+        const std::array<std::ptrdiff_t, N> s{ in_stride[I]... };
+        for (std::size_t t = 0; t < T; ++t) {
+            const InputArray inputs{ *p[I]... };
+            ((p[I] += s[I]), ...);
+            if constexpr (M == 1) {
+                SCREAMER_INLINE_CALL *out = self.Derived::call(inputs);
+            } else {
+                SCREAMER_INLINE_CALL detail::write_tuple_to_memory(out, self.Derived::call(inputs));
+            }
+            out += out_stride;
         }
     }
 };

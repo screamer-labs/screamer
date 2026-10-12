@@ -118,17 +118,13 @@ nb::object process_python_array(ScreamerBase& self, nb::ndarray<nb::ro> input) {
     size_t size = shape[0];
     size_t rest = total / size;
 
-    if (nd == 1) {
-        self.reset();
-        self.process_array_no_stride(out, in, size);
-        self.reset();
-    } else {
-        for (size_t col = 0; col < rest; ++col) {
-            self.reset();
-            self.process_array_stride(out + col, rest, in + col, rest, size);
-        }
-        self.reset();
+    // One column per asset; for a 1-D input the single column has stride 1.
+    const std::ptrdiff_t stride = (std::ptrdiff_t) rest;
+    for (size_t col = 0; col < rest; ++col) {
+        const double* x = in + col;
+        self.eval_column(&x, &stride, size, out + col, stride);
     }
+    self.reset();
 
     return detail::make_owned_array(out, shape::consume_unit_field(shape));
 }

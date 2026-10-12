@@ -226,28 +226,44 @@ export function wrapOp(M: Screamer, src: OpSource, copy?: () => RawOp): Screamer
     return evalOn(raw, inputs);
   };
 
-  // Run a whole (rows x nIn) row-major block through evalBatchInto in one C++
-  // pass and return the (rows x nOut) output as a fresh Float64Array copied off
-  // the WASM heap. `fill` writes the interleaved input into the heap view.
-  function batchInto(rows: number, fill: (view: Float64Array) => void): Float64Array {
-    if (rows === 0) return new Float64Array(0);
-    const inPtr = M.allocF64(rows * nIn), outPtr = M.allocF64(rows * nOut);
+  // A batch call: the C++ shape module plans the broadcast once (it splits a
+  // packed argument, consumes a size-1 field axis, broadcasts the assets) and
+  // runs one eval_column per asset column. Each part is one argument, a
+  // C-contiguous block of numbers with its shape. Returns the flat
+  // (T, *A, nOut) result and the (T, *A) shape.
+  type Part = { data: ArrayLike<number>; shape: number[] };
+  function runShaped(parts: Part[]): { data: Float64Array; shape: number[] } {
+    const ptrs: number[] = [];
+    let outPtr = 0;
     try {
-      fill(M.viewF64(inPtr, rows * nIn));
-      try {
-        raw.reset();
-        raw.evalBatchInto(inPtr, outPtr, rows);
-        raw.reset();
-      } catch (e) { throw normalizeError(e); }
-      return new Float64Array(M.viewF64(outPtr, rows * nOut));
+      const spec: number[] = [parts.length];
+      let maxNd = 0;
+      for (const p of parts) {
+        const ptr = M.allocF64(Math.max(1, p.data.length));
+        ptrs.push(ptr);
+        M.viewF64(ptr, p.data.length).set(p.data as number[]);
+        spec.push(ptr, p.shape.length, ...p.shape);
+        maxNd = Math.max(maxNd, p.shape.length);
+      }
+      // The spec, then room for the result shape that C++ writes back.
+      const specPtr = M.allocF64(spec.length + 1 + maxNd);
+      ptrs.push(specPtr);
+      M.viewF64(specPtr, spec.length).set(spec);
+      const shapePtr = specPtr + 8 * spec.length;
+      try { outPtr = M.evalShaped(raw, specPtr, shapePtr); } catch (e) { throw normalizeError(e); }
+      const sv = M.viewF64(shapePtr, 1 + maxNd);
+      const shape = Array.from(sv.subarray(1, 1 + sv[0]));
+      const n = shape.reduce((p, d) => p * d, 1) * nOut;
+      return { data: new Float64Array(M.viewF64(outPtr, n)), shape };
     } finally {
-      M.freeBuf(inPtr); M.freeBuf(outPtr);
+      ptrs.forEach((p) => M.freeBuf(p));
+      if (outPtr) M.freeBuf(outPtr);
     }
   }
 
   function batch1(arr: ArrayLike<number>, typed: boolean): any {
     const rows = arr.length;
-    const data = batchInto(rows, (view) => view.set(arr as unknown as ArrayLike<number> as number[]));
+    const { data } = runShaped([{ data: arr, shape: [rows] }]);
     if (nOut !== 1) return { data, shape: [rows, nOut] } as NdArray;
     if (typed) return data;
     const out = new Array(rows);
@@ -255,33 +271,12 @@ export function wrapOp(M: Screamer, src: OpSource, copy?: () => RawOp): Screamer
     return out;
   }
 
-  // An N-D or broadcast call: the C++ shape module splits a packed argument,
-  // consumes a size-1 field axis, broadcasts the assets, and runs each column.
+  // An N-D or broadcast call.
   function shaped(args: any[]): NdArray {
-    const parts: NdArray[] = args.map((a) =>
-      isNd(a) ? a : { data: Float64Array.from(a as ArrayLike<number>), shape: [(a as ArrayLike<number>).length] });
-    const ptrs: number[] = [];
-    try {
-      const spec: number[] = [parts.length];
-      for (const p of parts) {
-        const ptr = M.allocF64(Math.max(1, p.data.length));
-        ptrs.push(ptr);
-        M.viewF64(ptr, p.data.length).set(p.data);
-        spec.push(ptr, p.shape.length, ...p.shape);
-      }
-      const specPtr = M.allocF64(spec.length);
-      ptrs.push(specPtr);
-      M.viewF64(specPtr, spec.length).set(spec);
-      let shape: number[];
-      try { shape = M.shapedResult(specPtr, nIn); } catch (e) { throw normalizeError(e); }
-      const n = shape.reduce((a, b) => a * b, 1) * nOut;
-      const outPtr = M.allocF64(Math.max(1, n));
-      ptrs.push(outPtr);
-      try { M.evalShaped(raw, specPtr, outPtr); } catch (e) { throw normalizeError(e); }
-      return { data: new Float64Array(M.viewF64(outPtr, n)), shape: nOut === 1 ? shape : [...shape, nOut] };
-    } finally {
-      ptrs.forEach((p) => M.freeBuf(p));
-    }
+    const parts: Part[] = args.map((a) =>
+      isNd(a) ? a : { data: a as ArrayLike<number>, shape: [(a as ArrayLike<number>).length] });
+    const { data, shape } = runShaped(parts);
+    return { data, shape: nOut === 1 ? shape : [...shape, nOut] };
   }
 
   // Rule 3: an Array of T events gives an Array of T results, each in the
@@ -523,12 +518,8 @@ export function wrapOp(M: Screamer, src: OpSource, copy?: () => RawOp): Screamer
       if (cols.some((x) => x.length !== rows)) {
         throw new RangeError(`all input arrays must have the same length (got ${cols.map((a) => a.length).join(", ")})`);
       }
-      // Interleave the N input columns into row-major (rows x nIn) order, then
-      // one C++ pass. The interleave is JS-side memory writes, no per-event
-      // boundary crossing.
-      const data = batchInto(rows, (view) => {
-        for (let i = 0; i < rows; i++) for (let k = 0; k < nIn; k++) view[i * nIn + k] = cols[k][i];
-      });
+      // Each column goes to the heap as its own argument, one C++ pass.
+      const { data } = runShaped(cols.map((c) => ({ data: c, shape: [rows] })));
       const out = nOut === 1 ? data : ({ data, shape: [rows, nOut] } as NdArray);
       // Rule 3: all number[] inputs give an Array, one result per event, as
       // Python lists give a list. A typed array among them gives an array (A8).

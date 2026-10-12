@@ -2,7 +2,11 @@
 // and layout plans, all decided by include/screamer/common/shape.h.
 #include <emscripten/bind.h>
 #include <emscripten/val.h>
+#include <algorithm>
 #include <cstdint>
+#include <cstdlib>
+#include <memory>
+#include <new>
 #include <string>
 #include <vector>
 #include "screamer/common/eval_op.h"
@@ -40,33 +44,35 @@ emscripten::val to_js(const std::vector<V>& v) {
     return a;
 }
 
-// The (T, *A) result shape of an nIn-input call on these arguments.
-emscripten::val shapedResult(std::uintptr_t spec, std::size_t n_in) {
-    Spec s = read_spec(spec);
-    return to_js(screamer::shape::broadcast(screamer::shape::input_views(s.shapes, n_in)).shape);
-}
-
-// Run op over every broadcast column, resetting it per column like a batch call;
-// out receives (T, *A, n_out) doubles in row-major order.
-void evalShaped(screamer::EvalOp& op, std::uintptr_t spec, std::uintptr_t outPtr) {
+// A batch call: plan the broadcast of the arguments once, then run op over
+// every asset column with one eval_column each. Returns a malloc'd block of
+// (T, *A, n_out) doubles in row-major order (the caller frees it), and writes
+// the (T, *A) result shape to shapeOut as [ndim, dims...]; shapeOut holds room
+// for 1 + the largest argument rank.
+std::uintptr_t evalShaped(screamer::EvalOp& op, std::uintptr_t spec, std::uintptr_t shapeOut) {
     Spec s = read_spec(spec);
     const std::size_t ni = op.n_in(), no = op.n_out();
     const screamer::shape::Plan plan =
         screamer::shape::broadcast(screamer::shape::input_views(s.shapes, ni));
-    std::vector<const double*> data(ni);
-    for (std::size_t i = 0; i < ni; ++i) data[i] = s.data[s.data.size() == 1 ? 0 : i];
-    double* out = reinterpret_cast<double*>(outPtr);
-    std::vector<double> in(ni);
     const std::size_t cols = plan.columns;
+    std::unique_ptr<double, decltype(&std::free)> out(
+        static_cast<double*>(std::malloc(std::max<std::size_t>(1, plan.T * cols * no) * sizeof(double))),
+        &std::free);
+    if (!out) throw std::bad_alloc();
+    std::vector<const double*> ptr(ni);
+    std::vector<std::ptrdiff_t> stride(ni);
+    for (std::size_t i = 0; i < ni; ++i) stride[i] = static_cast<std::ptrdiff_t>(plan.time_stride[i]);
+    const std::ptrdiff_t out_stride = static_cast<std::ptrdiff_t>(cols * no);
     for (std::size_t c = 0; c < cols; ++c) {
-        op.reset();
-        for (std::size_t t = 0; t < plan.T; ++t) {
-            for (std::size_t i = 0; i < ni; ++i)
-                in[i] = data[i][plan.offset[i * cols + c] + t * plan.time_stride[i]];
-            op.eval(in.data(), out + (t * cols + c) * no);
-        }
+        for (std::size_t i = 0; i < ni; ++i)
+            ptr[i] = s.data[s.data.size() == 1 ? 0 : i] + plan.offset[i * cols + c];
+        op.eval_column(ptr.data(), stride.data(), plan.T, out.get() + c * no, out_stride);
     }
     op.reset();
+    double* sh = reinterpret_cast<double*>(shapeOut);
+    sh[0] = static_cast<double>(plan.shape.size());
+    for (std::size_t d = 0; d < plan.shape.size(); ++d) sh[1 + d] = static_cast<double>(plan.shape[d]);
+    return reinterpret_cast<std::uintptr_t>(out.release());
 }
 
 // The broadcast plan of one event of an nIn-input stream. `shapes` holds one
@@ -111,7 +117,6 @@ emscripten::val layoutPlan(emscripten::val layout_js, emscripten::val shape) {
 }  // namespace
 
 EMSCRIPTEN_BINDINGS(screamer_shape) {
-    emscripten::function("shapedResult", &shapedResult);
     emscripten::function("evalShaped", &evalShaped, emscripten::allow_raw_pointers());
     emscripten::function("layoutPlan", &layoutPlan);
     emscripten::function("eventPlan", &eventPlan);

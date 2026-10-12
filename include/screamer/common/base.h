@@ -14,6 +14,10 @@ public:
     std::size_t n_in() const override { return 1; }
     std::size_t n_out() const override { return 1; }
     void eval(const double* in, double* out) override { out[0] = process_scalar(in[0]); }
+    // Runs the column through process_array_no_stride when both strides are 1,
+    // else through process_array_stride.
+    void eval_column(const double* const* in, const std::ptrdiff_t* in_stride,
+                     std::size_t T, double* out, std::ptrdiff_t out_stride) override;
 
     virtual double process_scalar(double value) = 0;
 

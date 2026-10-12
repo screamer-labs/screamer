@@ -181,6 +181,15 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
   operator such as `BollingerBands(20)(1.0)` drops from 0.65 µs to 0.10 µs.
 * A batch call with N arrays (`RollingCorr(20)(x, y)`) no longer reads each
   array's `ndim` to look for a mixed list, about 0.5 µs less per call.
+* JavaScript batch calls run each asset column in one C++ loop, as Python
+  does, instead of one virtual call per element. On 1M elements (ns per
+  element, Apple M-series): `RollingMean(20)` 6.6 to 2.3, `RollingCorr(20)`
+  14.7 to 5.9, `Add()` 10.1 to 0.8. Multi-input arrays are no longer
+  interleaved in JavaScript, and the broadcast is planned once per call.
+* Python batch calls to multi-input and multi-output operators use the same
+  column loop, which calls the operator's per-event step directly: on 1M
+  elements `Add()` 1.3 to 0.6 ns per element, `MACD()` 4.8 to 1.6, `ADOSC()`
+  5.0 to 1.9, `EwAlpha(20)` 4.9 to 3.8.
 
 ### Documentation
 
