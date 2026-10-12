@@ -89,6 +89,12 @@ const [outA, outB] = p({
 
 `live().result()` returns the same shape as the batch call.
 
+`maxPending` (default 1,000,000) is the most events a join may hold while it waits for another
+stream: each `combineLatest` node without its own `maxPending`, each `filter` node, the join of a
+cumulative `resample` with its driver, and the aligned rows of `live().result()`. More throws
+`RangeError` and ends a live session. It is an integer from 1 to 2\*\*53; another number throws
+`RangeError`, and a value that is not an integer `TypeError`.
+
 Dispose the pipeline with `pipeline.dispose()` when you are done with it. See
 [Lifecycle](./lifecycle.md) for why you should not separately dispose the ops that went into
 building the graph.
@@ -119,7 +125,10 @@ makes every later call, `result()` included, throw until a new `live()` session 
 Streaming a pipeline this way reproduces its batch output exactly on the same data: `pipeline(data)`
 and `pipeline.live()` fed the same events one by one always agree. For a pipeline with several
 outputs, `driver.result()` returns one `{ values, index }` per output, aligned when the
-pipeline aligns its outputs.
+pipeline aligns its outputs. Aligned outputs keep each output's latest value from one
+`result()` to the next, so the rows of repeated calls, put end to end, are the batch rows. A
+call returns a row only once every output has moved past its index; after `flush()` it returns
+every row.
 
 ## Combinators
 

@@ -271,6 +271,10 @@ class Pipeline:
       collapsed to one row per index) and the returned (values, index) pairs have
       equal length. When ``False``, return independent per-output streams whose
       lengths may differ.
+    - ``max_pending`` (default ``1_000_000``): the most events a join may hold
+      while it waits for another stream (each ``CombineLatest`` and ``Filter``
+      node, and the aligned outputs of a lazy call or of ``live().result()``).
+      More raises ``RuntimeError``. An integer from 1 to ``2**53``.
 
     Call ``pipe(*feeds)`` (positional) or ``pipe(**named_feeds)`` (by Input name)
     to run the pipeline. Each feed may be a bare value array (positional, index
@@ -285,7 +289,8 @@ class Pipeline:
         self.inputs = list(inputs)
         self.outputs = list(outputs)
         self.align_outputs = align_outputs
-        self.max_pending = int(_setting("max_pending", max_pending))
+        from . import screamer_bindings as _b
+        self.max_pending = _b._max_pending(max_pending)
         for n in self.inputs:
             if not is_node(n) or not (isinstance(n.op, tuple) and n.op[0] == "input"):
                 raise ValueError("every entry in inputs must be an Input(...) node")
@@ -308,6 +313,7 @@ class Pipeline:
     def _compile_cpp(self):
         from . import screamer_bindings as _b
         gb = _b._GraphBuilder()
+        gb.set_max_pending(self.max_pending)
         ids = {}   # id(node) -> C++ node id
 
         def build(node):
@@ -420,7 +426,7 @@ class Pipeline:
                     "outputs is not yet supported; use the batch call dag(arrays)")
             from . import screamer_bindings as _b
             iters = [iter(feeds[nm]) for nm in self._input_order]
-            return _b._LazyDriver(self._cg, iters, len(self.outputs), self.max_pending)
+            return _b._LazyDriver(self._cg, iters, len(self.outputs))
         if any(lazy):
             raise TypeError(
                 "dag(...) feeds must be either all lazy iterators or all concrete "

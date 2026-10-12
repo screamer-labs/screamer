@@ -28,6 +28,7 @@
 #include "screamer/dag/graph.h"
 #include "screamer/dag/compiled_graph.h"
 #include "screamer/dag/output_join.h"
+#include "screamer/dag/max_pending.h"
 #include "screamer/dag/checked_index.h"
 #include "screamer/dag/resample_params.h"
 
@@ -75,6 +76,18 @@ inline OutBufFlat marshal_flat_at(const std::vector<screamer::dag::OutputBuffer>
 // source (checked_index.h).
 inline void throwIndexKind(std::string kind) { screamer::dag::throw_index_kind(kind); }
 
+// maxPending under the engine's rule (max_pending.h): checkedMaxPending gives
+// the count of a number or throws; throwMaxPendingKind is the error for a
+// value that is not a number. defaultMaxPending is the engine's default.
+inline double checkedMaxPending(double v) {
+    screamer::dag::checked_max_pending(v, "maxPending");
+    return v;
+}
+inline void throwMaxPendingKind(std::string kind) {
+    screamer::dag::throw_max_pending_kind(kind, "maxPending");
+}
+inline double defaultMaxPending() { return static_cast<double>(screamer::dag::kDefaultMaxPending); }
+
 // Wraps a compiled graph (non-copyable engine type held by unique_ptr).
 class CompiledGraphWrap {
 public:
@@ -95,12 +108,6 @@ public:
                        std::uintptr_t valuesPtr, std::size_t width) {
         cg_->push_event_wide(inputIdx, screamer::dag::checked_index(index),
                              reinterpret_cast<const double*>(valuesPtr), width);
-    }
-
-    // Drain every frame emitted since the last drain/reset and marshal output
-    // `outIdx` into flat heap buffers.
-    OutBufFlat drainFlat(std::size_t outIdx) {
-        return marshal_flat_at(cg_->drain(), outIdx);
     }
 
     // Batch drive: feed `numInputs` input streams then marshal output `outIdx`.
@@ -154,7 +161,9 @@ public:
         const auto* lens    = reinterpret_cast<const std::uint32_t*>(lensPtr);
         const auto* widths  = reinterpret_cast<const std::uint32_t*>(widthsPtr);
 
-        std::vector<std::vector<std::int64_t>> idx_i64(numInputs);
+        // The int64 indexes go into a member buffer that later calls reuse.
+        std::vector<std::vector<std::int64_t>>& idx_i64 = idx_scratch_;
+        idx_i64.resize(numInputs);
         std::vector<const std::int64_t*> in_indices(numInputs);
         std::vector<const double*>       in_vals(numInputs);
         std::vector<std::size_t>         in_lens(numInputs);
@@ -171,11 +180,12 @@ public:
             in_widths[i]  = widths[i];
         }
         cg_->run_batch_ref(in_indices, in_vals, in_lens, in_widths);
-        store(align);
+        store(align);   // a run ends with a flush: the join settles every row
     }
 
     // Drain every frame emitted since the last drain/reset (a live session's
-    // result) and store it as runBatchStore does.
+    // result) and store it as runBatchStore does. Aligned rows carry the
+    // output join across drains (CompiledGraph::drain_aligned).
     void drainStore(bool align) { store(align); }
 
     // Number of cached outputs from the last runBatchStore call.
@@ -184,10 +194,20 @@ public:
     // Whether the stored outputs are aligned on one index.
     bool storedAligned() const { return aligned_mode_; }
 
-    // Marshal the i-th cached output into fresh heap buffers (JS frees via
-    // freeBuf, exactly like runBatchFlat's result). Out-of-range -> empty buffer.
-    OutBufFlat output(std::size_t outIdx) const {
-        return marshal_flat_at(stored_, outIdx);
+    // The i-th stored output, in place: valuePtr points into the stored rows
+    // and indexPtr at its index as doubles, both valid until the next output()
+    // or clearStored() (JS copies them and frees neither). Out of range: empty.
+    OutBufFlat output(std::size_t outIdx) {
+        OutBufFlat out;
+        if (outIdx >= stored_.size()) return out;
+        const screamer::dag::OutputBuffer& b = stored_[outIdx];
+        out.rows  = b.indices.size();
+        out.width = b.width;
+        index_d_.resize(out.rows);
+        for (std::size_t r = 0; r < out.rows; ++r) index_d_[r] = static_cast<double>(b.indices[r]);
+        out.indexPtr = reinterpret_cast<std::uintptr_t>(index_d_.data());
+        out.valuePtr = reinterpret_cast<std::uintptr_t>(b.values.data());
+        return out;
     }
 
     // The values of aligned stored output i, in place: valuePtr points into
@@ -205,13 +225,13 @@ public:
     // The index of the aligned stored outputs as doubles, in place (valuePtr 0,
     // width 0), valid until clearStored(); JS copies it once for every output.
     OutBufFlat alignedIndex() {
-        aligned_index_.resize(aligned_.rows());
-        for (std::size_t r = 0; r < aligned_index_.size(); ++r)
-            aligned_index_[r] = static_cast<double>(aligned_.index[r]);
+        index_d_.resize(aligned_.rows());
+        for (std::size_t r = 0; r < index_d_.size(); ++r)
+            index_d_[r] = static_cast<double>(aligned_.index[r]);
         OutBufFlat out;
         out.rows     = aligned_.rows();
         out.width    = 0;
-        out.indexPtr = reinterpret_cast<std::uintptr_t>(aligned_index_.data());
+        out.indexPtr = reinterpret_cast<std::uintptr_t>(index_d_.data());
         return out;
     }
 
@@ -228,24 +248,24 @@ public:
         }
         for (auto& b : stored_) { b.indices.clear(); b.values.clear(); }
         aligned_ = screamer::dag::AlignedOutputs{};
-        std::vector<double>().swap(aligned_index_);
+        index_d_.clear();
         aligned_mode_ = false;
     }
 
 private:
-    // Moves the graph's output rows into stored_ (no copy), and aligns them
-    // when asked and there is more than one output.
+    // Moves the graph's output rows into stored_ (no copy), or, aligned when
+    // asked and there is more than one output, into aligned_.
     void store(bool align) {
-        cg_->drain_into(stored_);
-        aligned_mode_ = align && stored_.size() > 1;
-        aligned_ = aligned_mode_ ? screamer::dag::align_outputs(std::move(stored_))
-                                 : screamer::dag::AlignedOutputs{};
+        aligned_mode_ = align && cg_->output_count() > 1;
+        if (aligned_mode_) aligned_ = cg_->drain_aligned(stored_);
+        else cg_->drain_into(stored_);
     }
 
     std::unique_ptr<screamer::dag::CompiledGraph> cg_;
     std::vector<screamer::dag::OutputBuffer>      stored_;  // last runBatchStore / drainStore
     screamer::dag::AlignedOutputs                 aligned_; // stored_, aligned (align mode)
-    std::vector<double>                           aligned_index_; // aligned_.index as doubles
+    std::vector<double>                           index_d_;  // an output's index as doubles
+    std::vector<std::vector<std::int64_t>>        idx_scratch_; // the int64 input indexes
     bool                                          aligned_mode_ = false;
 };
 
@@ -262,10 +282,15 @@ public:
         return b_.add_functor(op, std::move(inputs));
     }
 
+    // The graph's join cap (GraphSpec::max_pending), checked; call it first.
+    void setMaxPending(double max_pending) {
+        b_.set_max_pending(screamer::dag::checked_max_pending(max_pending, "maxPending"));
+    }
+
     std::size_t addCombineLatest(std::vector<std::size_t> inputs, bool when_all,
                                  double max_pending) {
         return b_.add_combine_latest(std::move(inputs), when_all,
-                                     static_cast<std::size_t>(max_pending));
+                                     screamer::dag::checked_max_pending(max_pending, "maxPending"));
     }
 
     std::size_t addDropna(std::vector<std::size_t> inputs, bool how_all) {
@@ -318,7 +343,7 @@ public:
         // A cumulative resample with [value, driver] as two inputs: the builder
         // joins them first (GraphBuilder::add_resample).
         return b_.add_resample(std::move(inputs), rp,
-                               static_cast<std::size_t>(max_pending));
+                               screamer::dag::checked_max_pending(max_pending, "maxPending"));
     }
 
     void setOutputs(std::vector<std::size_t> outs) {
@@ -341,6 +366,9 @@ private:
 // object. Call inside EMSCRIPTEN_BINDINGS(screamer_dag).
 #define SCREAMER_REGISTER_DAG()                                                 \
     emscripten::function("throwIndexKind", &screamer_wasm::throwIndexKind);     \
+    emscripten::function("checkedMaxPending", &screamer_wasm::checkedMaxPending); \
+    emscripten::function("throwMaxPendingKind", &screamer_wasm::throwMaxPendingKind); \
+    emscripten::function("defaultMaxPending", &screamer_wasm::defaultMaxPending); \
     emscripten::register_vector<std::size_t>("VectorSizeT");                    \
     emscripten::value_object<screamer_wasm::OutBufFlat>("OutBufFlat")           \
         .field("indexPtr", &screamer_wasm::OutBufFlat::indexPtr)               \
@@ -354,7 +382,6 @@ private:
         .function("pushEvent",    &screamer_wasm::CompiledGraphWrap::pushEvent) \
         .function("pushEventWide",                                             \
                   &screamer_wasm::CompiledGraphWrap::pushEventWide)            \
-        .function("drainFlat",    &screamer_wasm::CompiledGraphWrap::drainFlat) \
         .function("runBatchFlat", &screamer_wasm::CompiledGraphWrap::runBatchFlat) \
         .function("runBatchStore",&screamer_wasm::CompiledGraphWrap::runBatchStore) \
         .function("drainStore",   &screamer_wasm::CompiledGraphWrap::drainStore) \
@@ -368,6 +395,7 @@ private:
         .constructor<>()                                                       \
         .function("addInput",         &screamer_wasm::GraphBuilderWrap::addInput) \
         .function("addFunctor",       &screamer_wasm::GraphBuilderWrap::addFunctor) \
+        .function("setMaxPending",    &screamer_wasm::GraphBuilderWrap::setMaxPending) \
         .function("addCombineLatest", &screamer_wasm::GraphBuilderWrap::addCombineLatest) \
         .function("addDropna",        &screamer_wasm::GraphBuilderWrap::addDropna) \
         .function("addSelect",        &screamer_wasm::GraphBuilderWrap::addSelect) \

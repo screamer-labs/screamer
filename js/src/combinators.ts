@@ -19,6 +19,7 @@ import {
 
 export interface CombineLatestOpts {
   emit?: "when_all" | "on_any";
+  // The node's join cap; unset, the Pipeline's maxPending (default 1,000,000).
   maxPending?: number;
 }
 
@@ -30,7 +31,8 @@ export function combineLatest(nodes: Node[], opts: CombineLatestOpts = {}): Node
   }
   const emit = opts.emit ?? "when_all";
   setting("combineLatest: maxPending", opts.maxPending);
-  const maxPending = opts.maxPending ?? 1_000_000;
+  // Unset: the Pipeline's maxPending. The engine checks the value at compile.
+  const maxPending = opts.maxPending;
   return new Node(
     { combinator: "combineLatest", params: { whenAll: emit === "when_all", maxPending } },
     nodes,

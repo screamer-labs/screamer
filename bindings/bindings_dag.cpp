@@ -95,15 +95,15 @@ static nb::object make_output_value(const double* v, std::size_t w) {
 // yields output rows. Holds a keepalive to the owning _CompiledGraph object.
 //
 // One output (n_out == 1): yield (value, index) rows, value scalar or tuple.
-// M>1 outputs: the rows of dag::OutputJoin, the engine's output alignment, as
-// (col0, ..., col_{M-1}, index); the same rows as a batch call.
+// M>1 outputs: the rows the graph's output join settles at each drain
+// (CompiledGraph::drain_aligned), as (col0, ..., col_{M-1}, index); the same
+// rows as a batch call.
 // ---------------------------------------------------------------------------
 class LazyDriver {
 public:
     LazyDriver(nb::object cg_keepalive, dag::CompiledGraph& cg, nb::list iterators,
-               std::size_t n_out, std::size_t max_pending)
-        : cg_keepalive_(std::move(cg_keepalive)), cg_(cg), n_out_(n_out),
-          join_(n_out, max_pending) {
+               std::size_t n_out)
+        : cg_keepalive_(std::move(cg_keepalive)), cg_(cg), n_out_(n_out) {
         unit_ = std::make_unique<TimeUnit>();
         for (nb::handle h : iterators) {
             sources_.push_back(std::make_unique<streams::PySource<std::int64_t>>(
@@ -116,6 +116,8 @@ public:
     }
 
     nb::object next() {
+        // A rejected event (an overflow) ends the session: raise, pull nothing.
+        if (pending_.empty() && !done_) cg_.check_live();
         while (pending_.empty() && !done_) {
             if (auto e = merge_->next()) {
                 const std::size_t src = static_cast<std::size_t>(e->source);
@@ -129,11 +131,7 @@ public:
                 collect();
             } else {
                 cg_.flush();
-                collect();
-                if (n_out_ > 1) {                       // emit the tail
-                    join_.finish();
-                    take_joined();
-                }
+                collect();                              // after the flush: the tail
                 done_ = true;
             }
         }
@@ -164,9 +162,12 @@ public:
 
 private:
     void collect() {
-        cg_.drain_into(drained_);
-        if (n_out_ == 1) collect_single();
-        else { join_.push(drained_); take_joined(); }
+        if (n_out_ == 1) {
+            cg_.drain_into(drained_);
+            collect_single();
+        } else {
+            take_joined(cg_.drain_aligned(drained_));
+        }
     }
 
     // One output: buffer each drained frame directly as a (value, index) row.
@@ -180,8 +181,7 @@ private:
     }
 
     // M>1 outputs: the rows the join settled, as (col0, ..., col_{M-1}, index).
-    void take_joined() {
-        dag::AlignedOutputs& a = join_.out();
+    void take_joined(const dag::AlignedOutputs& a) {
         const std::size_t rows = a.rows();
         for (std::size_t r = 0; r < rows; ++r) {
             nb::object row = nb::steal(PyTuple_New(static_cast<Py_ssize_t>(n_out_ + 1)));
@@ -193,7 +193,6 @@ private:
             set_item(row, n_out_, nb::int_(a.index[r]));
             pending_.push_back(std::move(row));
         }
-        a.clear_rows();
     }
 
     nb::object cg_keepalive_;                 // keep the _CompiledGraph alive
@@ -205,7 +204,6 @@ private:
     std::unique_ptr<streams::MergeSource<std::int64_t>> merge_;
     std::deque<nb::object> pending_;
     std::vector<dag::OutputBuffer> drained_;  // reused drain storage
-    dag::OutputJoin join_;                    // M>1 outputs: the output alignment
     bool done_ = false;
 };
 
@@ -418,8 +416,37 @@ void init_bindings_dag(nb::module_& m) {
         [](const std::exception_ptr& p, void*) {
             try { std::rethrow_exception(p); }
             catch (const dag::IndexTypeError& e) { PyErr_SetString(PyExc_TypeError, e.what()); }
+            catch (const dag::SettingTypeError& e) { PyErr_SetString(PyExc_TypeError, e.what()); }
         }, nullptr);
     m.def("_checked_index", [](double d) { return dag::checked_index(d); }, "index"_a);
+    m.attr("_DEFAULT_MAX_PENDING") = dag::kDefaultMaxPending;
+    // A Pipeline's max_pending under the engine's rule (max_pending.h): an
+    // integer from 1 to 2**53. A bool or another kind is a TypeError.
+    m.def("_max_pending", [](nb::handle x) -> std::size_t {
+        PyObject* p = x.ptr();
+        const std::string type = nb::cast<std::string>(nb::type_name(x.type()));
+        if (PyBool_Check(p) || x.is_none() || PyUnicode_Check(p) || PyBytes_Check(p) ||
+            type.find("complex") != std::string::npos)
+            dag::throw_max_pending_kind(type);
+        if (PyFloat_Check(p)) return dag::checked_max_pending(PyFloat_AsDouble(p));
+        if (PyObject* ix = PyNumber_Index(p)) {         // int, NumPy integer
+            int overflow = 0;
+            const long long v = PyLong_AsLongLongAndOverflow(ix, &overflow);
+            Py_DECREF(ix);
+            if (overflow || v > 9007199254740992LL)
+                throw nb::value_error(("max_pending must be at least 1 and at most 2**53, got " +
+                                       nb::cast<std::string>(nb::str(x))).c_str());
+            if (v == -1 && PyErr_Occurred()) throw nb::python_error();
+            return dag::checked_max_pending(static_cast<double>(v));
+        }
+        PyErr_Clear();
+        const double d = PyFloat_AsDouble(p);            // NumPy floating
+        if (d == -1.0 && PyErr_Occurred()) {
+            PyErr_Clear();
+            dag::throw_max_pending_kind(type);
+        }
+        return dag::checked_max_pending(d);
+    }, "max_pending"_a.none());
     // The string rule for values (cast_double.h refuse_text), for the Python
     // float64 conversions in screamer/dag.py and screamer/streams.py.
     m.def("_refuse_text", [](nb::handle x) { refuse_text(x); }, "values"_a.none());
@@ -501,11 +528,11 @@ void init_bindings_dag(nb::module_& m) {
 
         // Drains the outputs: a list of (index, values2d), or with `align`
         // aligned on one index (dag::align_outputs) as (index, [values2d, ...]).
+        // The aligned rows carry the join across drains (drain_aligned).
         nb::object drain(bool align) {
             if (!align) return marshal_output_buffers(cg->drain());
             std::vector<dag::OutputBuffer> bufs;
-            cg->drain_into(bufs);
-            return marshal_aligned(dag::align_outputs(std::move(bufs)));
+            return marshal_aligned(cg->drain_aligned(bufs));
         }
 
         // Runs the graph over the feeds. Returns the outputs as a list of
@@ -522,9 +549,8 @@ void init_bindings_dag(nb::module_& m) {
             marshal_feeds(feeds, ks, owned, vs, kp, vp, lens, widths);
             const std::vector<dag::OutputBuffer>& outs = cg->run_batch_ref(kp, vp, lens, widths);
             if (!align) return marshal_output_buffers(outs);
-            std::vector<dag::OutputBuffer> bufs;
-            cg->drain_into(bufs);              // the rows move out of the graph
-            return marshal_aligned(dag::align_outputs(std::move(bufs)));
+            std::vector<dag::OutputBuffer> bufs;   // the rows move out of the graph
+            return marshal_aligned(cg->drain_aligned(bufs));
         }
     };
 
@@ -757,12 +783,11 @@ void init_bindings_dag(nb::module_& m) {
     // Lazy driver over a compiled graph and Python-iterator feeds.
     nb::class_<LazyDriver>(m, "_LazyDriver", nb::type_slots(gc_slots<LazyDriver>))
         .def("__init__", [](LazyDriver* self, nb::object cg_obj, nb::list iterators,
-                            std::size_t n_out, std::size_t max_pending) {
+                            std::size_t n_out) {
                  PyCompiledGraph& pcg = nb::cast<PyCompiledGraph&>(cg_obj);
-                 new (self) LazyDriver(cg_obj, *pcg.cg, iterators, n_out, max_pending);
+                 new (self) LazyDriver(cg_obj, *pcg.cg, iterators, n_out);
              },
-             "cg"_a, "iterators"_a, "n_out"_a,
-             "max_pending"_a = dag::OutputJoin::DEFAULT_MAX_PENDING)
+             "cg"_a, "iterators"_a, "n_out"_a)
         .def("__iter__", [](nb::object self) { return self; })
         .def("__next__", &LazyDriver::next);
 
@@ -787,7 +812,7 @@ void init_bindings_dag(nb::module_& m) {
         }
 
         std::size_t add_combine_latest(std::vector<std::size_t> inputs, bool when_all,
-                                       std::size_t max_pending = 1'000'000) {
+                                       std::size_t max_pending) {
             return builder.add_combine_latest(std::move(inputs), when_all, max_pending);
         }
 
@@ -843,6 +868,8 @@ void init_bindings_dag(nb::module_& m) {
             return builder.add_resample(std::move(inputs), rp, max_pending);
         }
 
+        void set_max_pending(std::size_t n) { builder.set_max_pending(n); }
+
         void set_outputs(std::vector<std::size_t> outs) {
             builder.set_outputs(std::move(outs));
         }
@@ -875,7 +902,7 @@ void init_bindings_dag(nb::module_& m) {
                                       std::size_t max_pending) {
             return b.add_combine_latest(std::move(inputs), when_all, max_pending);
         }, "inputs"_a, "when_all"_a = true,
-           "max_pending"_a = static_cast<std::size_t>(1'000'000))
+           "max_pending"_a = dag::kDefaultMaxPending)
         .def("add_filter", [](PyGraphBuilder& b, std::vector<std::size_t> inputs) {
             return b.add_filter(std::move(inputs));
         }, "inputs"_a)
@@ -905,8 +932,9 @@ void init_bindings_dag(nb::module_& m) {
            "reducer"_a = nb::none(), "fill"_a = 0,
            "plan"_a = nb::list(), "threshold"_a = 0.0,
            "max_age"_a = -1,
-           "max_pending"_a = static_cast<std::size_t>(1'000'000))
+           "max_pending"_a = dag::kDefaultMaxPending)
         .def("set_outputs", &PyGraphBuilder::set_outputs, "output_ids"_a)
+        .def("set_max_pending", &PyGraphBuilder::set_max_pending, "max_pending"_a)
         .def("compile", [](PyGraphBuilder& b) { return b.compile(); })
         .def("run_batch", [](PyGraphBuilder& b, nb::list feeds) {
             // Marshal feeds (list of (index, values) tuples) -> raw spans.

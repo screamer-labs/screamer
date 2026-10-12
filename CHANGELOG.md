@@ -79,6 +79,10 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
   default), every output is put on one index, as in Python, and the outputs
   share one `index` array. `live().result()` returns every output of a
   multi-output pipeline, in the shape of the batch call; it threw before.
+* JavaScript `Pipeline` takes `{ maxPending }`, Python's `max_pending`, with
+  the same default (1,000,000) and rule. It caps every `combineLatest` node
+  without its own `maxPending`, every `filter` node, the join of a cumulative
+  `resample` with its driver, and the aligned rows of `live().result()`.
 
 ### Changed
 
@@ -88,12 +92,25 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
   that. An option other than `alignOutputs`, or an `alignOutputs` that is not a
   boolean, throws `TypeError`. `live().result()` is typed `Output | Output[]`,
   as the batch call is.
-* A lazy `Pipeline` call (generator feeds) with several aligned outputs holds
-  at most `max_pending` output rows that wait for another output to emit;
-  more raises `RuntimeError` "Pipeline output alignment overflow", as a
-  `CombineLatest` node does. 2.8.0 held every waiting row. Pass a larger
+* A lazy `Pipeline` call (generator feeds) and a live session with several
+  aligned outputs hold at most `max_pending` output rows that wait for another
+  output to emit; more raises `RuntimeError` "Pipeline output alignment
+  overflow" (`RangeError` in JavaScript) and ends the call or session, as a
+  `CombineLatest` overflow does. 2.8.0 held every waiting row. Pass a larger
   `max_pending` to `Pipeline(...)` for an output that emits rarely, such as a
   long resample window.
+* `Pipeline(max_pending=...)` takes an integer from 1 to `2**53`: 0, a
+  negative number or one above `2**53` raises `ValueError`, and a value that is
+  not an integer (`1.5`, `True`, `None`) raises `TypeError`. 2.8.0 read it with
+  `int()`, so `1.5` became 1 and `True` 1; it took 0 (every `CombineLatest`
+  node then overflowed at its first event), and a negative number when the
+  pipeline had no `CombineLatest` node. Pass `int(max_pending)`. JavaScript
+  `combineLatest(..., { maxPending })` follows the same rule (`RangeError` /
+  `TypeError`); 2.8.0 did not check it, so 1.5 became 1.
+* `Pipeline(max_pending=...)` also caps the `Filter` nodes of the pipeline,
+  which used 1,000,000 whatever the setting. `to_dict()` and `to_json()` save
+  `max_pending`, and `from_dict()` restores it; a graph saved by 2.8.0 has none
+  and loads with the default, as before.
 * `Resample(value, driver, threshold=...)` inside a `Pipeline` is one graph
   node with two inputs; the engine joins value and driver itself. Results are
   unchanged, but `to_dict()`, `to_json()`, `to_text()` and `to_dot()` show one
@@ -446,6 +463,14 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
 
 ### Fixed
 
+* `live().result()` of a `Pipeline` with several aligned outputs aligned each
+  call's rows on their own, so calling it more than once dropped rows: with
+  events a0 b1 a2 b3 a4 a5 b6 and `result()` after b3, after a5 and at the end,
+  2.8.0 gave the indexes [1, 2], [4], [6] where a batch call gives 1 to 6. The
+  alignment now carries each output's latest value from one call to the next,
+  and a call holds back a row until every output has moved past its index, so
+  the calls, put end to end, give the batch rows ([1], [2], [3, 4, 5, 6] here).
+  After `flush()` a call returns every row.
 * A `Pipeline` with several outputs and `align_outputs=True` (the default)
   returned the wrong columns when an output had more than one column, in a
   batch call and in `live().result()`: `Pipeline([a], [a, Select(columns=[0])(a)])`
@@ -650,8 +675,11 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
 
 * A `Pipeline` with several aligned outputs aligns them in C++, for a batch
   call, a lazy call and `live().result()`. Python, two outputs of 10^6 rows:
-  a batch call takes 26-28 ms (was 50 ms), a lazy call of 10^5 events 20-21 ms
-  (was 41 ms), and `live().result()` of 10^5 rows 0.05 ms (was 2.3 ms).
+  a batch call takes 15 ms (was 39 ms), a lazy call of 10^5 generator events
+  38 ms (was 49 ms), and `live().result()` of 10^5 rows 0.05 ms (was 2.4 ms).
+* A batch call of a one-input `Pipeline` feeds its events in order without the
+  merge step: `RollingMean(5)` over 10^6 rows takes 7.9 ms in Python (was
+  10.2 ms) and 22 ms in JavaScript (was 35-36 ms).
 * The Python async iterators no longer copy each event's items into a buffer;
   the operator reads the awaited items in place, about 0.04 to 0.06 us less
   per event.

@@ -9,6 +9,7 @@
 #include <queue>
 #include <vector>
 #include "screamer/dag/frame.h"
+#include "screamer/dag/max_pending.h"
 #include "screamer/dag/resettable.h"
 #include "screamer/streams/combine_latest.h"
 #include <stdexcept>
@@ -31,7 +32,7 @@ namespace screamer { namespace dag {
 template <class Index>
 class CombineLatestNode : public Resettable {
 public:
-    static constexpr std::size_t DEFAULT_MAX_PENDING = 1'000'000;
+    static constexpr std::size_t DEFAULT_MAX_PENDING = kDefaultMaxPending;
 
     // widths[i] is the compile-time estimate of port i's columns. A port's real
     // width is fixed by its first frame (see on_port).

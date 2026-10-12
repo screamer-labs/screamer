@@ -2,7 +2,7 @@
 
 A Pipeline is captured as its ordered input names, its nodes (each input / operator /
 functor with params and the ids of the nodes feeding it), its outputs, and
-``align_outputs``. ``from_dict`` rebuilds a runnable Pipeline, so a graph round-trips
+``align_outputs`` and ``max_pending``. ``from_dict`` rebuilds a runnable Pipeline, so a graph round-trips
 as a config file. Reuses the same graph walk as the visualizer so structure and
 labels stay consistent.
 """
@@ -75,6 +75,7 @@ def to_dict(dag):
         "screamer_dag": SCHEMA_VERSION,
         "inputs": [id_to_name[i] for i in input_ids],  # declared call signature order
         "align_outputs": dag.align_outputs,
+        "max_pending": dag.max_pending,
         "nodes": serialized,
         "outputs": list(output_ids),
     }
@@ -118,7 +119,10 @@ def from_dict(data):
                     for spec in data["nodes"] if spec["kind"] == "input"}
     inputs = [name_to_node[name] for name in data["inputs"]]
     outputs = [built[i] for i in data["outputs"]]
-    return Pipeline(inputs, outputs, align_outputs=data.get("align_outputs", True))
+    kwargs = {"align_outputs": data.get("align_outputs", True)}
+    if "max_pending" in data:              # absent in graphs saved before 3.0.0
+        kwargs["max_pending"] = data["max_pending"]
+    return Pipeline(inputs, outputs, **kwargs)
 
 
 def from_json(text):

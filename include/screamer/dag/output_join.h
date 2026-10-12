@@ -10,9 +10,11 @@
 // One rule serves every regime and both bindings:
 //   * align_outputs(buffers): batch, and a live session's result(), over the
 //     buffers that a run or a drain returned.
-//   * OutputJoin: the lazy driver, fed one drain at a time. It settles an index
-//     once every output has emitted past it, so it gives the same rows as
-//     align_outputs over the whole run.
+//   * OutputJoin: the join across drains, for a lazy call and for a live
+//     session's result() (CompiledGraph::drain_aligned). It carries each
+//     output's latest value from one drain to the next and settles an index
+//     once every output has emitted past it, so the rows of all drains,
+//     concatenated, are the rows of align_outputs over the whole run.
 //
 // The outputs are merged by index; at one index, the last row of each output
 // wins. Each output of a graph is sorted by index.
@@ -24,7 +26,8 @@
 #include <string>
 #include <utility>
 #include <vector>
-#include "screamer/dag/compiled_graph.h"
+#include "screamer/dag/max_pending.h"
+#include "screamer/dag/output_buffer.h"
 
 namespace screamer { namespace dag {
 
@@ -64,7 +67,29 @@ public:
         ptr_[j] = v;
     }
     // Counting only: output j has a value.
-    void mark(std::size_t j) { point(j, own_.data()); }
+    void mark(std::size_t j) {
+        static const double none = 0.0;
+        point(j, &none);
+    }
+    // Changes the width of output j, which has no value yet; the others keep
+    // theirs.
+    void set_width(std::size_t j, std::size_t w) {
+        if (widths_[j] == w) return;
+        persist();
+        const std::vector<double> old = own_;
+        const std::vector<std::size_t> old_offset = offset_, old_width = widths_;
+        widths_[j] = w;
+        std::size_t total = 0;
+        for (std::size_t k = 0; k < widths_.size(); ++k) { offset_[k] = total; total += widths_[k]; }
+        own_.assign(total, 0.0);
+        for (std::size_t k = 0; k < widths_.size(); ++k) {
+            if (!ptr_[k]) continue;
+            std::copy(old.begin() + static_cast<std::ptrdiff_t>(old_offset[k]),
+                      old.begin() + static_cast<std::ptrdiff_t>(old_offset[k] + old_width[k]),
+                      own_.begin() + static_cast<std::ptrdiff_t>(offset_[k]));
+            ptr_[k] = own_.data() + offset_[k];
+        }
+    }
     bool complete() const { return seen_count_ == widths_.size(); }
     void persist() {
         for (std::size_t j = 0; j < widths_.size(); ++j) {
@@ -196,17 +221,16 @@ inline AlignedOutputs align_outputs(std::vector<OutputBuffer>&& bufs) {
     return out;
 }
 
-// The incremental form, for the lazy driver: push each drain, read the settled
-// rows from out() and clear them, and call finish() at the end of input. An
-// index is settled once every output has emitted a row at or past a higher
-// index. The rows that wait are held as doubles; more than `max_pending` of
+// The join across drains, for a lazy call and a live session's result():
+// take() each drain, with `end` once the input has ended (a flush). An index is
+// settled once every output has emitted a row at a higher index; at the end
+// every row is settled. Each output's latest value carries over to the next
+// drain. The rows that wait are held as doubles; more than `max_pending` of
 // them raises std::runtime_error (the rule of CombineLatest's reorder buffer),
 // so the state stays bounded.
 class OutputJoin {
 public:
-    static constexpr std::size_t DEFAULT_MAX_PENDING = 1'000'000;
-
-    explicit OutputJoin(std::size_t n_out, std::size_t max_pending = DEFAULT_MAX_PENDING)
+    explicit OutputJoin(std::size_t n_out = 0, std::size_t max_pending = kDefaultMaxPending)
         : max_pending_(max_pending), q_(n_out) {
         out_.values.resize(n_out);
         out_.widths.assign(n_out, 1);
@@ -220,57 +244,25 @@ public:
         pending_ = 0;
     }
 
-    // Takes one drain: one buffer per output, each sorted by index.
-    void push(const std::vector<OutputBuffer>& bufs) {
-        if (bufs.size() != q_.size())
-            throw std::invalid_argument(
-                "output alignment: expected " + std::to_string(q_.size()) +
-                " outputs, got " + std::to_string(bufs.size()));
-        bool all_emitted = true;
-        for (std::size_t j = 0; j < bufs.size(); ++j) {
-            const OutputBuffer& b = bufs[j];
-            Queue& q = q_[j];
-            if (!b.indices.empty()) {
-                if (!q.emitted) {                 // the first row fixes the width
-                    q.width = b.width;
-                    out_.widths[j] = b.width;
-                } else if (b.width != q.width) {
-                    throw std::invalid_argument(
-                        "output " + std::to_string(j) + " changed from " +
-                        std::to_string(q.width) + " to " + std::to_string(b.width) +
-                        " columns");
-                }
-                q.idx.insert(q.idx.end(), b.indices.begin(), b.indices.end());
-                q.vals.insert(q.vals.end(), b.values.begin(), b.values.end());
-                pending_ += b.indices.size();
-                const std::int64_t last = b.indices.back();
-                if (!q.emitted || last > q.wm) q.wm = last;
-                q.emitted = true;
-            } else if (!q.emitted) {
-                out_.widths[j] = b.width;          // the graph's estimate until a row
-            }
-            all_emitted &= q.emitted;
+    // The rows one drain settles: one buffer per output, each sorted by index.
+    // With `end`, every row that waits is settled too. The first drain of a
+    // run that ends with it (a batch run, or one live result() after a flush)
+    // is align_outputs of the buffers, which take their storage.
+    AlignedOutputs take(std::vector<OutputBuffer>& bufs, bool end) {
+        check_count(bufs);
+        if (end && fresh()) {
+            seed(bufs);
+            return align_outputs(std::move(bufs));
         }
-        if (all_emitted) {
-            std::int64_t bound = q_[0].wm;
-            for (const Queue& q : q_) bound = std::min(bound, q.wm);
-            settle(true, bound);
-        }
-        if (pending_ > max_pending_)
-            throw std::runtime_error(
-                "Pipeline output alignment overflow: more than " +
-                std::to_string(max_pending_) + " output rows wait for another "
-                "output to emit; an output is stalled. Raise max_pending, or "
-                "check the graph.");
+        push(bufs);
+        if (end && pending_) settle(false, 0);
+        AlignedOutputs rows = std::move(out_);
+        out_ = AlignedOutputs{};
+        out_.values.resize(q_.size());
+        out_.widths = rows.widths;
+        return rows;
     }
 
-    // End of input: settles every row that waits.
-    void finish() {
-        if (pending_) settle(false, 0);
-    }
-
-    // The rows settled so far. The caller reads them and calls clear_rows().
-    AlignedOutputs& out() { return out_; }
     std::size_t pending() const { return pending_; }
 
 private:
@@ -305,8 +297,89 @@ private:
         void pop(std::size_t j) { ++q[j].head; ++popped; }
     };
 
+    void check_count(const std::vector<OutputBuffer>& bufs) const {
+        if (bufs.size() != q_.size())
+            throw std::invalid_argument(
+                "output alignment: expected " + std::to_string(q_.size()) +
+                " outputs, got " + std::to_string(bufs.size()));
+    }
+
+    // Nothing taken since the reset: no row waits and no output has a value.
+    bool fresh() const {
+        if (laid_out_ || pending_) return false;
+        for (const Queue& q : q_) if (q.emitted) return false;
+        return true;
+    }
+
+    // Output j's first row fixes its width.
+    void learn_width(std::size_t j, std::size_t w) {
+        Queue& q = q_[j];
+        if (q.emitted) {
+            if (w != q.width)
+                throw std::invalid_argument(
+                    "output " + std::to_string(j) + " changed from " +
+                    std::to_string(q.width) + " to " + std::to_string(w) + " columns");
+            return;
+        }
+        q.width = w;
+        out_.widths[j] = w;
+        if (laid_out_) row_.set_width(j, w);
+    }
+
+    // The state after align_outputs(bufs) as one drain that ends: each
+    // output's last row is its latest value, and nothing waits.
+    void seed(const std::vector<OutputBuffer>& bufs) {
+        for (std::size_t j = 0; j < bufs.size(); ++j) {
+            const OutputBuffer& b = bufs[j];
+            out_.widths[j] = b.width;
+            if (b.indices.empty()) continue;
+            learn_width(j, b.width);
+            q_[j].wm = b.indices.back();
+            q_[j].emitted = true;
+        }
+        row_.layout(out_.widths);
+        laid_out_ = true;
+        for (std::size_t j = 0; j < bufs.size(); ++j) {
+            const OutputBuffer& b = bufs[j];
+            if (!b.indices.empty())
+                row_.point(j, b.values.data() + (b.indices.size() - 1) * b.width);
+        }
+        row_.persist();                   // before the buffers move out
+    }
+
+    void push(const std::vector<OutputBuffer>& bufs) {
+        bool all_emitted = true;
+        for (std::size_t j = 0; j < bufs.size(); ++j) {
+            const OutputBuffer& b = bufs[j];
+            Queue& q = q_[j];
+            if (!b.indices.empty()) {
+                learn_width(j, b.width);
+                q.idx.insert(q.idx.end(), b.indices.begin(), b.indices.end());
+                q.vals.insert(q.vals.end(), b.values.begin(), b.values.end());
+                pending_ += b.indices.size();
+                const std::int64_t last = b.indices.back();
+                if (!q.emitted || last > q.wm) q.wm = last;
+                q.emitted = true;
+            } else if (!q.emitted && !laid_out_) {
+                out_.widths[j] = b.width;          // the graph's estimate until a row
+            }
+            all_emitted &= q.emitted;
+        }
+        if (all_emitted) {
+            std::int64_t bound = q_[0].wm;
+            for (const Queue& q : q_) bound = std::min(bound, q.wm);
+            settle(true, bound);
+        }
+        if (pending_ > max_pending_)
+            throw std::runtime_error(
+                "Pipeline output alignment overflow: more than " +
+                std::to_string(max_pending_) + " output rows wait for another "
+                "output to emit; an output is stalled. Raise max_pending, or "
+                "check the graph.");
+    }
+
     void settle(bool has_bound, std::int64_t bound) {
-        if (!laid_out_) {                 // every width is known by the first settle
+        if (!laid_out_) {
             row_.layout(out_.widths);
             laid_out_ = true;
         }
@@ -322,7 +395,7 @@ private:
     detail::AsOfRow row_;
     bool laid_out_ = false;
     std::size_t pending_ = 0;        // rows held in the queues
-    AlignedOutputs out_;
+    AlignedOutputs out_;             // settled rows of the current take()
 };
 
 }}  // namespace screamer::dag

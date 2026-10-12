@@ -27,6 +27,8 @@
 #include "screamer/dag/frame.h"
 #include "screamer/dag/functor_node.h"
 #include "screamer/dag/graph.h"
+#include "screamer/dag/output_buffer.h"
+#include "screamer/dag/output_join.h"
 #include "screamer/dag/resettable.h"
 #include "screamer/streams/merge_source.h"
 #include "screamer/streams/vector_source.h"
@@ -34,12 +36,6 @@
 
 namespace screamer { namespace dag {
 
-// One output stream gathered during a batch run.
-struct OutputBuffer {
-    std::vector<std::int64_t> indices;
-    std::vector<double> values;   // row-major, width columns per row
-    std::size_t width = 1;
-};
 
 // Terminal sink: appends every received frame into an OutputBuffer.
 class GatherSink : public Sink<std::int64_t> {
@@ -55,8 +51,7 @@ public:
                 " values after frames of " + std::to_string(buf_.width));
         buf_.width = f.width;
         buf_.indices.push_back(f.index);
-        if (f.width == 1) buf_.values.push_back(f.values[0]);   // no memmove call
-        else buf_.values.insert(buf_.values.end(), f.values, f.values + f.width);
+        buf_.values.insert(buf_.values.end(), f.values, f.values + f.width);
     }
 private:
     OutputBuffer& buf_;
@@ -170,6 +165,7 @@ public:
             case NodeKind::Delay:         node_width[id] = node_width[nd.inputs[0]]; break;
             }
         }
+        join_ = OutputJoin(num_out, s.max_pending);
         output_widths_.resize(num_out);
         for (std::size_t o = 0; o < num_out; ++o)
             output_widths_[o] = node_width[s.output_ids[o]];
@@ -337,6 +333,8 @@ public:
     // Called at the start of every run_batch so each batch sees a clean initial state.
     void reset() {
         poisoned_ = false;
+        flushed_ = false;
+        join_.reset();
         std::fill(in_width_.begin(), in_width_.end(), std::size_t(0));
         for (auto* n : reset_nodes_) n->reset();
         for (std::size_t o = 0; o < outputs_.size(); ++o) {
@@ -351,6 +349,7 @@ public:
     void flush() {
         check_live();
         for (auto* s : input_sinks_) if (s) s->flush();
+        flushed_ = true;
     }
 
     // Time-driven finalization: inject a watermark at every input sink so the
@@ -360,6 +359,7 @@ public:
     // now safe to release. Safe to call repeatedly with non-decreasing `now`.
     void advance(std::int64_t now) {
         check_live();
+        flushed_ = false;
         for (auto* s : input_sinks_) if (s) s->on_watermark(now);
     }
 
@@ -369,6 +369,7 @@ public:
         if (input_idx >= num_in_)
             throw std::runtime_error("push_event: input index out of range");
         check_live();
+        flushed_ = false;
         if (in_width_[input_idx] != 1) set_width(input_idx, 1);
         double v = value;
         Frame<std::int64_t> f{index, &v, 1};
@@ -385,6 +386,7 @@ public:
         if (width == 0)
             throw std::invalid_argument("a wide event needs at least one value, got none");
         check_live();
+        flushed_ = false;
         if (in_width_[input_idx] != width) set_width(input_idx, width);
         Frame<std::int64_t> f{index, values, width};
         try { input_sinks_[input_idx]->push(f); }
@@ -418,6 +420,28 @@ public:
             d.width = outputs_[o].width;
             outputs_[o].width = output_widths_[o];
         }
+    }
+
+    // drain(), with the outputs aligned on one index (output_join.h): the rows
+    // the output join settles with this drain. The join carries each output's
+    // latest value across drains, so the rows of repeated drains, concatenated,
+    // are the rows of one drain at the end; after a flush (the end of input)
+    // every row is settled. `scratch` holds the drained buffers (reuse it).
+    // A join overflow (max_pending) poisons the session.
+    AlignedOutputs drain_aligned(std::vector<OutputBuffer>& scratch) {
+        drain_into(scratch);
+        try { return join_.take(scratch, flushed_); }
+        catch (...) { poisoned_ = true; throw; }
+    }
+
+    std::size_t output_count() const { return outputs_.size(); }
+
+    // Throws when a rejected event poisoned the session (until reset()).
+    void check_live() const {
+        if (poisoned_)
+            throw std::runtime_error(
+                "this session rejected an event after part of the graph took it; "
+                "call reset() or start a new live() session");
     }
 
     // in_* are per-input arrays (one entry per input, in signature order).
@@ -474,6 +498,22 @@ public:
             validate_widths(known);
         }
 
+        // One input needs no merge: its events go in array order, as the
+        // merge of one source gives them, without a heap step per event.
+        if (num_in_ == 1) {
+            Sink<std::int64_t>* sink = input_sinks_[0];
+            const std::size_t w = widths[0];
+            const std::int64_t* k = in_indices[0];
+            const double* v = in_vals[0];
+            for (std::size_t r = 0, n = in_lens[0]; r < n; ++r) {
+                Frame<std::int64_t> f{k[r], v + r * w, w};
+                sink->push(f);
+            }
+            if (sink) sink->flush();
+            flushed_ = true;
+            return outputs_;
+        }
+
         // Build VectorSources for index-merge ordering (always width-1 view;
         // the actual values for wide inputs are fetched below via row counters).
         std::vector<std::unique_ptr<streams::VectorSource<std::int64_t>>> srcs;
@@ -509,6 +549,7 @@ public:
             ++row_idx[src];
         }
         for (auto* s : input_sinks_) if (s) s->flush();
+        flushed_ = true;
 
         return outputs_;
     }
@@ -539,13 +580,6 @@ private:
         candidate[input_idx] = width;
         validate_widths(candidate);
         in_width_[input_idx] = width;
-    }
-
-    void check_live() const {
-        if (poisoned_)
-            throw std::runtime_error(
-                "this session rejected an event after part of the graph took it; "
-                "call reset() or start a new live() session");
     }
 
     // Propagates the known input widths (0 = not known yet) through the graph
@@ -677,6 +711,8 @@ private:
     std::vector<std::size_t> topo_producers_first_;
     std::vector<std::size_t> input_sig_;   // node id -> input signature index
     bool poisoned_ = false;
+    bool flushed_ = false;                 // the input ended (flush) since the last event
+    OutputJoin join_;                      // the output alignment across drains
     std::vector<std::size_t> in_width_;   // per input, 0 = not set yet
     std::size_t num_in_ = 0;
     std::vector<std::shared_ptr<void>>            owned_;           // all heap nodes/broadcasts

@@ -66,9 +66,12 @@ define-once-run-anywhere guarantee), see
   `(T, 2)`. When `False`, each output is an independent stream whose length may
   differ from the others.
 - **`max_pending`**: the most events a join may hold while it waits for another
-  stream: the reorder buffer of each `CombineLatest` node, and, in a lazy call
-  with aligned outputs, the output rows that wait for another output. More
-  raises `RuntimeError`, so a stalled stream cannot grow memory without bound.
+  stream: the reorder buffer of each `CombineLatest` and `Filter` node (also the
+  join of a threshold `Resample` with its driver), and the aligned output rows
+  that wait for another output in a lazy call or a live session. More raises
+  `RuntimeError` and ends the call or session, so a stalled stream cannot grow
+  memory without bound. An integer from 1 to `2**53`; another number raises
+  `ValueError`, and a value that is not an integer `TypeError`.
 
 The constructor validates the pipeline and raises a clear `ValueError` if: an
 `inputs` entry is not an `Input(...)` node; an `outputs` entry is not a `Node`;
@@ -112,7 +115,11 @@ returns the session, so calls chain.
   the end of a processing loop. The end-of-input flush that `pipe(...)` performs
   implicitly is the special case.
 - **`.result()`** returns the output accumulated so far, in the same shape
-  `pipe(...)` returns, and drains the internal buffers.
+  `pipe(...)` returns, and drains the internal buffers. Aligned outputs keep
+  each output's latest value from one call to the next, so the rows of repeated
+  calls, put end to end, are the rows of one call at the end. A call returns a
+  row only once every output has moved past its index (another output could
+  still change it); after `.flush()` it returns every row.
 
 Feeding the same events in index order and then calling `.flush()` reproduces the
 batch result exactly. `.advance()` (and a clock input wired into the pipeline)

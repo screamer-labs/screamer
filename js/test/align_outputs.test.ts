@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  ready, Input, Pipeline, select, resample, combineLatest, filter,
+  ready, Input, Pipeline, select, resample, combineLatest, filter, delay,
   RollingMean, type Output,
 } from "../src/index.ts";
 
@@ -202,13 +202,19 @@ test("alignOutputs: aligned rows equal a combineLatest of the outputs", async ()
 
 test("alignOutputs: an empty output gives no rows, with each output's width", async () => {
   await ready();
+  // As in Python: a is empty, so no row is complete; select(b, [0, 2]) keeps
+  // its 2 columns, a one-column output is a Float64Array.
   const a = Input("a"), b = Input("b");
-  const p = new Pipeline([a, b], [a, b]);
+  const p = new Pipeline([a, b], [a, select(b, [0, 2])]);
   try {
-    const out = p({ a: [1, 2], b: { values: { data: new Float64Array(0), shape: [0, 3] }, index: [] } } as any) as Output[];
+    const out = p({ a: { values: [], index: [] }, b: nd([[1, 2, 3], [4, 5, 6]]) } as any) as Output[];
     assert.equal(out[0].index.length, 0);
-    assert.equal(arr(out[0].values).length, 0);
+    assert.ok(out[0].values instanceof Float64Array);
+    assert.equal((out[0].values as Float64Array).length, 0);
+    assert.deepEqual(shape(out[1].values), [0, 2]);
     assert.equal(arr(out[1].values).length, 0);
+    assert.equal(out[1].index, out[0].index);
+    assertSame(live(p, [["b", 0, [1, 2, 3]], ["b", 1, [4, 5, 6]]]), out, "live");
   } finally {
     p.dispose();
   }
@@ -222,4 +228,128 @@ test("Pipeline options: a wrong kind or an unknown key is a TypeError", async ()
   assert.throws(() => new Pipeline([a], [a], { align_outputs: false } as any), isType(/unknown option 'align_outputs'/));
   assert.throws(() => new Pipeline([a], [a], true as any), isType(/the options are/));
   assert.throws(() => new Pipeline([a], [a], new Map() as any), isType(/the options are/));
+});
+
+// Concatenate the results of repeated live drains into one result per output.
+function concat(parts: Output[][]): Output[] {
+  const n = parts[0].length;
+  return Array.from({ length: n }, (_, j) => {
+    const vals: number[] = [], idx: number[] = [];
+    let width = 1;
+    for (const p of parts) {
+      const v = p[j].values as any;
+      if (v.shape) width = v.shape[1];
+      vals.push(...arr(v));
+      idx.push(...Array.from(p[j].index));
+    }
+    const rows = idx.length;
+    const values = width === 1 && !(parts[0][j].values as any).shape
+      ? Float64Array.from(vals) : ({ data: Float64Array.from(vals), shape: [rows, width] } as any);
+    return { values, index: Float64Array.from(idx) };
+  });
+}
+
+test("alignOutputs: repeated live drains, concatenated, equal batch", async () => {
+  await ready();
+  const x = Input("x"), y = Input("y"), m = Input("m");
+  const n = 90;
+  const xs = Array.from({ length: n }, (_, i) => Math.sin(i * 0.7) * 3 + (i % 11 === 0 ? NaN : 0));
+  const xi = Array.from({ length: n }, (_, i) => Math.floor(i / 2));
+  const ys = Array.from({ length: n / 3 }, (_, i) => [i, i * 0.5]);
+  const yi = Array.from({ length: n / 3 }, (_, i) => 1 + i * 2);
+  const ms = Array.from({ length: n }, (_, i) => (i % 3 === 0 ? 1 : 0));
+  const graphs = [
+    () => [RollingMean(3)(x) as any, y, select(y, [1]), filter(x, m), resample(x, { every: 7, agg: "ohlc" })],
+    () => [delay(x, 3), resample(select(y, [0]), { count: 4, agg: "mean" }), filter(x, m)],
+  ];
+  for (const outs of graphs) {
+    const p = new Pipeline([x, y, m], outs());
+    try {
+      const batch = p({ x: { values: xs, index: xi }, y: { values: nd(ys), index: yi }, m: { values: ms, index: xi } } as any) as Output[];
+      const events: Ev[] = [];
+      for (let i = 0; i < n; i++) { events.push(["x", xi[i], xs[i]]); events.push(["m", xi[i], ms[i]]); }
+      ys.forEach((r, i) => events.push(["y", yi[i], r]));
+      events.sort((a, b) => a[1] - b[1]);
+      for (const period of [1, 2, 3, 7, 1000]) {
+        const s = p.live();
+        const parts: Output[][] = [];
+        events.forEach(([name, i, v], k) => {
+          s.push(name, i, v);
+          if ((k + 1) % period === 0) parts.push(s.result() as Output[]);
+        });
+        s.flush();
+        parts.push(s.result() as Output[]);
+        assertSame(concat(parts), batch, `drain every ${period} events`);
+      }
+    } finally {
+      p.dispose();
+    }
+  }
+});
+
+test("maxPending: an integer from 1 to 2**53, checked like Python", async () => {
+  await ready();
+  const a = Input("a");
+  const isType = (re: RegExp) => (e: unknown) => e instanceof TypeError && re.test((e as Error).message);
+  const isRange = (re: RegExp) => (e: unknown) => e instanceof RangeError && re.test((e as Error).message);
+  for (const ok of [1, 5, 2 ** 53]) {
+    const p = new Pipeline([a], [a], { maxPending: ok });
+    assert.equal(p.maxPending, ok);
+    p.dispose();
+  }
+  assert.equal(new Pipeline([a], [a]).maxPending, 1_000_000);
+  for (const bad of [1.5, NaN, Infinity])
+    assert.throws(() => new Pipeline([a], [a], { maxPending: bad }), isType(/maxPending must be an integer, got/));
+  for (const bad of ["5", true, null, {}])
+    assert.throws(() => new Pipeline([a], [a], { maxPending: bad } as any), isType(/maxPending must be an integer, got/));
+  for (const bad of [0, -1, 2 ** 53 + 2])
+    assert.throws(() => new Pipeline([a], [a], { maxPending: bad }), isRange(/maxPending must be at least 1 and at most 2\*\*53/));
+  assert.throws(() => new Pipeline([a], [combineLatest([a, a], { maxPending: 0 })]), isRange(/maxPending must be at least 1/));
+});
+
+test("maxPending: the Pipeline's cap applies to combineLatest, filter and a cumulative driver", async () => {
+  await ready();
+  // b arrives only after 10 events of a, so 10 events wait in each join.
+  const a = Input("a"), b = Input("b");
+  const feeds = {
+    a: { values: Array.from({ length: 10 }, (_, i) => i + 1), index: Array.from({ length: 10 }, (_, i) => i) },
+    b: { values: [1], index: [20] },
+  };
+  const graphs = [
+    () => combineLatest([a, b]),
+    () => filter(a, b),
+    () => resample(a, { threshold: 3, driver: b, agg: "sum" }),
+  ];
+  for (const g of graphs) {
+    const small = new Pipeline([a, b], [g()], { maxPending: 5 });
+    const big = new Pipeline([a, b], [g()], { maxPending: 20 });
+    try {
+      assert.throws(() => small(feeds as any), (e: unknown) => e instanceof RangeError && /overflow/.test((e as Error).message));
+      big(feeds as any);
+    } finally {
+      small.dispose();
+      big.dispose();
+    }
+  }
+  // A node's own maxPending wins over the Pipeline's.
+  const own = new Pipeline([a, b], [combineLatest([a, b], { maxPending: 20 })], { maxPending: 5 });
+  try { own(feeds as any); } finally { own.dispose(); }
+});
+
+test("alignOutputs: an output join overflow in live result() ends the session", async () => {
+  await ready();
+  const a = Input("a"), b = Input("b");
+  const p = new Pipeline([a, b], [a, b], { maxPending: 3 });
+  try {
+    const s = p.live();
+    for (let i = 0; i < 5; i++) s.push("a", i, i);
+    assert.throws(() => s.result(), (e: unknown) => e instanceof RangeError && /output alignment overflow: more than 3/.test((e as Error).message));
+    assert.throws(() => s.push("b", 6, 1), /rejected an event/);
+    const t = p.live();            // a new session starts clean
+    t.push("a", 0, 1); t.push("b", 0, 2); t.flush();
+    const r = t.result() as Output[];
+    assert.deepEqual(arr(r[0].values), [1]);
+  } finally {
+    p.dispose();
+  }
 });

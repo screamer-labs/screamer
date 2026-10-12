@@ -11,6 +11,7 @@
 #include <vector>
 #include "screamer/common/float_info.h"
 #include "screamer/dag/frame.h"
+#include "screamer/dag/max_pending.h"
 #include "screamer/dag/resettable.h"
 #include "screamer/streams/combine_latest.h"
 
@@ -42,7 +43,7 @@ namespace screamer { namespace dag {
 template <class Index>
 class FilterNode : public Resettable {
 public:
-    static constexpr std::size_t DEFAULT_MAX_PENDING = 1'000'000;
+    static constexpr std::size_t DEFAULT_MAX_PENDING = kDefaultMaxPending;
 
     explicit FilterNode(Sink<Index>& downstream,
                         std::size_t max_pending = DEFAULT_MAX_PENDING)

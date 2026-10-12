@@ -227,7 +227,7 @@ def test_string_settings_raise_typeerror():
                  lambda: s.Delay("1"),
                  lambda: s.Select("0"),
                  lambda: Pipeline([Input("a")], [Input("a")], max_pending="5")):
-        with pytest.raises(TypeError, match="must be a number"):
+        with pytest.raises(TypeError, match="must be a number|must be an integer"):
             call()
 
 

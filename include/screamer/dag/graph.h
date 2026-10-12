@@ -7,6 +7,7 @@
 #include <vector>
 #include "screamer/common/eval_op.h"
 #include "screamer/dag/resample_params.h"
+#include "screamer/dag/max_pending.h"
 #include <cstdint>
 #include <utility>
 
@@ -23,7 +24,7 @@ struct NodeSpec {
     std::vector<std::size_t> columns;     // Select only
     ResampleParams resample;              // Resample only
     std::int64_t delay_duration = 0;     // Delay only
-    std::size_t max_pending = 1'000'000;  // CombineLatest only: reorder buffer cap
+    std::size_t max_pending = kDefaultMaxPending;  // CombineLatest, Filter: reorder buffer cap
     std::vector<std::size_t> inputs;      // producer node ids (edges into this node)
 };
 
@@ -31,6 +32,9 @@ struct GraphSpec {
     std::vector<NodeSpec> nodes;
     std::vector<std::size_t> input_ids;   // Input nodes, in signature order
     std::vector<std::size_t> output_ids;  // output nodes, in order
+    // The join cap of the graph: the default of its CombineLatest and Filter
+    // nodes, and the cap of its output alignment (OutputJoin).
+    std::size_t max_pending = kDefaultMaxPending;
 };
 
 // Accumulates a GraphSpec; returns node ids.
@@ -52,8 +56,15 @@ public:
         spec_.nodes.push_back(std::move(ns));
         return spec_.nodes.size() - 1;
     }
+    // The graph's join cap (GraphSpec::max_pending); set it before the nodes
+    // that take it as their default.
+    void set_max_pending(std::size_t n) { spec_.max_pending = n; }
+
+    std::size_t add_combine_latest(std::vector<std::size_t> inputs, bool when_all) {
+        return add_combine_latest(std::move(inputs), when_all, spec_.max_pending);
+    }
     std::size_t add_combine_latest(std::vector<std::size_t> inputs, bool when_all,
-                                   std::size_t max_pending = 1'000'000) {
+                                   std::size_t max_pending) {
         NodeSpec ns;
         ns.kind        = NodeKind::CombineLatest;
         ns.when_all    = when_all;
@@ -83,8 +94,11 @@ public:
     // one [value, driver] row: the builder joins them first with a
     // CombineLatest (emit="when_all", reorder cap `max_pending`) and resamples
     // the joined stream. One input is that joined stream already.
+    std::size_t add_resample(std::vector<std::size_t> inputs, ResampleParams rp) {
+        return add_resample(std::move(inputs), std::move(rp), spec_.max_pending);
+    }
     std::size_t add_resample(std::vector<std::size_t> inputs, ResampleParams rp,
-                             std::size_t max_pending = 1'000'000) {
+                             std::size_t max_pending) {
         if (rp.mode == ResampleMode::ByCumulative && inputs.size() == 2)
             inputs = {add_combine_latest(std::move(inputs), true, max_pending)};
         NodeSpec ns;
@@ -109,8 +123,9 @@ public:
             throw std::invalid_argument("Filter takes 2 inputs (data, mask), got " +
                                         std::to_string(inputs.size()));
         NodeSpec ns;
-        ns.kind   = NodeKind::Filter;
-        ns.inputs = std::move(inputs);
+        ns.kind        = NodeKind::Filter;
+        ns.max_pending = spec_.max_pending;
+        ns.inputs      = std::move(inputs);
         spec_.nodes.push_back(std::move(ns));
         return spec_.nodes.size() - 1;
     }

@@ -23,9 +23,23 @@ export interface Output {
  * distinct index. Each output holds its latest value at every row, and rows
  * start once every output has a value. The outputs then share one `index`.
  * With `false`, each output keeps its own index and length.
+ *
+ * `maxPending` (default 1,000,000): the most events a join may hold while it
+ * waits for another stream: each `combineLatest` node without its own
+ * `maxPending`, each `filter` node, the join of a cumulative `resample` with
+ * its driver, and the aligned outputs of `live().result()`. More throws
+ * `RangeError`. An integer from 1 to 2**53.
  */
 export interface PipelineOptions {
   alignOutputs?: boolean;
+  maxPending?: number;
+}
+
+// maxPending as the engine's count (an integer from 1 to 2**53); the engine
+// owns the rule and its messages (max_pending.h).
+export function maxPendingCount(M: Screamer, v: unknown): number {
+  if (typeof v !== "number") wasmCall(() => (M as any).throwMaxPendingKind(kindName(v)));
+  return wasmCall(() => (M as any).checkedMaxPending(v));
 }
 
 // Event-by-event streaming driver returned by `pipeline.live()`. Push feeds one
@@ -39,17 +53,19 @@ export interface LiveDriver {
 }
 
 // The options of a Pipeline, checked: a plain object of known keys.
-function pipelineOptions(opts: unknown): { alignOutputs: boolean } {
-  if (opts === undefined || opts === null) return { alignOutputs: true };
+function pipelineOptions(M: Screamer, opts: unknown): { alignOutputs: boolean; maxPending: number } {
+  const maxPendingDefault = (M as any).defaultMaxPending() as number;
+  if (opts === undefined || opts === null) return { alignOutputs: true, maxPending: maxPendingDefault };
   const proto = typeof opts === "object" ? Object.getPrototypeOf(opts) : undefined;
   if (proto !== Object.prototype && proto !== null)
     throw new TypeError(`Pipeline: the options are ${aKind(opts)}, expected an object such as { alignOutputs: false }`);
   for (const key of Object.keys(opts as object))
-    if (key !== "alignOutputs") throw new TypeError(`Pipeline: unknown option '${key}'`);
+    if (key !== "alignOutputs" && key !== "maxPending") throw new TypeError(`Pipeline: unknown option '${key}'`);
   const a = (opts as PipelineOptions).alignOutputs;
   if (a !== undefined && typeof a !== "boolean")
     throw new TypeError(`Pipeline: alignOutputs must be a boolean, got ${aKind(a)}`);
-  return { alignOutputs: a ?? true };
+  const m = (opts as PipelineOptions).maxPending;
+  return { alignOutputs: a ?? true, maxPending: m === undefined ? maxPendingDefault : maxPendingCount(M, m) };
 }
 
 // A push value that is one wide event: an Array, a typed array, or an NdArray.
@@ -145,12 +161,15 @@ class PipelineImpl implements Owned {
   private ops: any[] = [];
   private _disposed = false;
   readonly alignOutputs: boolean;
+  readonly maxPending: number;
 
   constructor(inputs: Node[], outputs: Node[], opts?: unknown) {
     this.inputs = [...inputs];
     this.outputs = [...outputs];
-    this.alignOutputs = pipelineOptions(opts).alignOutputs;
     this.M = current();
+    const o = pipelineOptions(this.M, opts);
+    this.alignOutputs = o.alignOutputs;
+    this.maxPending = o.maxPending;
 
     for (const n of this.inputs) {
       if (!isNode(n) || (n.op as any)?.input === undefined) {
@@ -184,6 +203,7 @@ class PipelineImpl implements Owned {
     const M: any = this.M;
     const gb = new M.GraphBuilder();
     const ids = new Map<Node, number>();
+    wasmCall(() => gb.setMaxPending(this.maxPending));
 
     const build = (node: Node): number => {
       const cached = ids.get(node);
@@ -231,8 +251,11 @@ class PipelineImpl implements Owned {
       const kind = op.combinator as string;
       const p = op.params ?? {};
       switch (kind) {
-        case "combineLatest":
-          return wasmCall(() => gb.addCombineLatest(vec, !!p.whenAll, p.maxPending));
+        case "combineLatest": {
+          // A node's own maxPending, else the Pipeline's.
+          const cap = p.maxPending === undefined ? this.maxPending : maxPendingCount(M, p.maxPending);
+          return wasmCall(() => gb.addCombineLatest(vec, !!p.whenAll, cap));
+        }
         case "dropna":
           return wasmCall(() => gb.addDropna(vec, !!p.howAll));
         case "filter":
@@ -281,7 +304,7 @@ class PipelineImpl implements Owned {
       return wasmCall(() => gb.addResample(
         vec, p.modeCode, p.aggCode, p.labelCode, p.fillCode,
         p.width, p.origin, p.count, p.threshold, p.maxAge,
-        planPtr, planLen, reducerPtr, 1_000_000,
+        planPtr, planLen, reducerPtr, this.maxPending,
       ));
     } finally {
       if (planPtr) M.freeBuf(planPtr);
@@ -415,7 +438,7 @@ class PipelineImpl implements Owned {
       if (n === 1) return this.marshalOut(this.cg.output(0));
       const results: Output[] = [];
       if (this.cg.storedAligned()) {
-        // The aligned rows stay in the graph until clearStored(): copy, no free.
+        // The rows stay in the graph until clearStored(): copy them.
         const ix = this.cg.alignedIndex();
         const index = new Float64Array(M.viewF64(ix.indexPtr, ix.rows));
         for (let o = 0; o < n; o++) results.push({ values: this.copyValues(this.cg.alignedOutput(o)), index });
@@ -437,14 +460,11 @@ class PipelineImpl implements Owned {
     return i;
   }
 
-  // Marshal one stored output: copy its heap buffers, then free them.
+  // A copy of one stored output (its rows stay in the graph until clearStored()).
   private marshalOut(out: any): Output {
     const M: any = this.M;
     const idxCopy = new Float64Array(M.viewF64(out.indexPtr, out.rows));
-    M.freeBuf(out.indexPtr);
-    const values = this.copyValues(out);
-    M.freeBuf(out.valuePtr);
-    return { values, index: idxCopy };
+    return { values: this.copyValues(out), index: idxCopy };
   }
 
   // A copy of the values of one output: a Float64Array for one column, else an
@@ -574,6 +594,7 @@ export interface Pipeline {
   readonly inputs: Node[];
   readonly outputs: Node[];
   readonly alignOutputs: boolean;
+  readonly maxPending: number;
 }
 
 // Construct a callable Pipeline. Works with or without `new` (the constructor
@@ -587,5 +608,6 @@ export const Pipeline = function (inputs: Node[], outputs: Node[], opts?: Pipeli
   Object.defineProperty(fn, "inputs", { value: impl.inputs, enumerable: true });
   Object.defineProperty(fn, "outputs", { value: impl.outputs, enumerable: true });
   Object.defineProperty(fn, "alignOutputs", { value: impl.alignOutputs, enumerable: true });
+  Object.defineProperty(fn, "maxPending", { value: impl.maxPending, enumerable: true });
   return fn;
 } as unknown as { new (inputs: Node[], outputs: Node[], opts?: PipelineOptions): Pipeline };

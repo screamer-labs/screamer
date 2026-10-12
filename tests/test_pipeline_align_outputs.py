@@ -176,3 +176,142 @@ def test_graph_builder_joins_a_cumulative_driver():
     (k1, v1), = run(False)
     np.testing.assert_array_equal(k2, k1)
     np.testing.assert_array_equal(v2, v1)
+
+
+# ---------------------------------------------------------------------------
+# Fix round 1: repeated live drains, the overflow, max_pending
+# ---------------------------------------------------------------------------
+
+def _concat(parts):
+    # A drain with no rows gives an output of unknown width as (0,), as a batch
+    # call with no rows does; it adds nothing.
+    full = [p for p in parts if len(p[0][1])] or parts[-1:]
+    out = []
+    for j in range(len(parts[0])):
+        vs = [p[j][0] for p in full]
+        ks = [p[j][1] for p in full]
+        out.append((np.concatenate(vs), np.concatenate(ks)))
+    return tuple(out)
+
+
+@pytest.mark.parametrize("period", [1, 2, 3, 7, 10_000])
+def test_repeated_live_drains_concatenated_equal_batch(period):
+    for inputs, outputs, feeds in _graphs(np.random.default_rng(11)):
+        p = Pipeline(inputs, outputs)
+        want = p(*feeds)
+        names = [i.op[1] for i in inputs]
+        s = p.live()
+        parts = []
+        for n, (t, _, _, name, v) in enumerate(_events(feeds, names), 1):
+            s.push(name, t, v.tolist() if np.ndim(v) else float(v))
+            if n % period == 0:
+                parts.append(s.result())
+        s.flush()
+        parts.append(s.result())
+        _same(_concat(parts), want)
+
+
+def test_a_drain_holds_back_rows_another_output_may_still_change():
+    # The reported case: a0 b1 a2 b3 a4 a5 b6, result() after events 4 and 6.
+    a, b = Input("a"), Input("b")
+    p = Pipeline([a, b], [a, b])
+    s = p.live()
+    ev = [("a", 0, 1.0), ("b", 1, 10.0), ("a", 2, 2.0), ("b", 3, 20.0),
+          ("a", 4, 3.0), ("a", 5, 4.0), ("b", 6, 30.0)]
+    parts = []
+    for n, (name, k, v) in enumerate(ev, 1):
+        s.push(name, k, v)
+        if n in (4, 6):
+            parts.append(s.result())
+    s.flush()
+    parts.append(s.result())
+    assert [list(part[0][1]) for part in parts] == [[1], [2], [3, 4, 5, 6]]
+    _same(_concat(parts), p((np.array([1.0, 2, 3, 4]), np.array([0, 2, 4, 5])),
+                            (np.array([10.0, 20, 30]), np.array([1, 3, 6]))))
+
+
+def test_lazy_overflow_ends_the_session():
+    a, b = Input("a"), Input("b")
+    pulled = []
+
+    def gen():
+        for i in range(100):
+            pulled.append(i)
+            yield float(i), i
+
+    p = Pipeline([a, b], [a, b], max_pending=10)
+    it = p(gen(), iter([(1.0, 1000)]))
+    with pytest.raises(RuntimeError, match="output alignment overflow"):
+        next(it)
+    n = len(pulled)
+    for _ in range(3):
+        with pytest.raises(RuntimeError, match="rejected an event"):
+            next(it)
+    assert len(pulled) == n          # nothing more is pulled from the feeds
+
+
+def test_live_overflow_ends_the_session():
+    a, b = Input("a"), Input("b")
+    p = Pipeline([a, b], [a, b], max_pending=3)
+    s = p.live()
+    for i in range(5):
+        s.push("a", i, float(i))
+    with pytest.raises(RuntimeError, match="output alignment overflow: more than 3"):
+        s.result()
+    with pytest.raises(RuntimeError, match="rejected an event"):
+        s.push("b", 6, 1.0)
+    t = p.live()                     # a new session starts clean
+    t.push("a", 0, 1.0).push("b", 0, 2.0).flush()
+    (v0, k0), (v1, _) = t.result()
+    assert list(v0) == [1.0] and list(v1) == [2.0] and list(k0) == [0]
+
+
+@pytest.mark.parametrize("ok", [1, 5, 2**53, np.int64(7), 5.0, np.float64(9.0)])
+def test_max_pending_accepts_an_integer_from_1(ok):
+    a = Input("a")
+    assert Pipeline([a], [a], max_pending=ok).max_pending == int(ok)
+
+
+@pytest.mark.parametrize("bad", [0, -1, 2**53 + 1, 10**30, np.int64(0)])
+def test_max_pending_out_of_range_is_a_value_error(bad):
+    a = Input("a")
+    with pytest.raises(ValueError, match="max_pending must be at least 1 and at most 2\\*\\*53"):
+        Pipeline([a], [a], max_pending=bad)
+
+
+@pytest.mark.parametrize("bad", [1.5, float("nan"), float("inf"), True, None, "5",
+                                 1 + 0j, np.float64(2.5), [5]])
+def test_max_pending_non_integer_is_a_type_error(bad):
+    a = Input("a")
+    with pytest.raises(TypeError, match="max_pending must be an integer, got"):
+        Pipeline([a], [a], max_pending=bad)
+
+
+def test_max_pending_default_is_the_engine_default():
+    a = Input("a")
+    assert Pipeline([a], [a]).max_pending == _b._DEFAULT_MAX_PENDING == 1_000_000
+
+
+@pytest.mark.parametrize("make", [
+    lambda a, b: sc.CombineLatest()(a, b),
+    lambda a, b: sc.Filter()(a, b),
+    lambda a, b: sc.Resample(a, b, threshold=3.0, agg="sum"),
+])
+def test_max_pending_caps_every_join(make):
+    # b arrives only after 10 events of a, so 10 events wait in the join.
+    a, b = Input("a"), Input("b")
+    feeds = ((np.arange(1.0, 11.0), np.arange(10)), (np.array([1.0]), np.array([20])))
+    with pytest.raises(RuntimeError, match="overflow"):
+        Pipeline([a, b], [make(a, b)], max_pending=5)(*feeds)
+    Pipeline([a, b], [make(a, b)], max_pending=20)(*feeds)
+
+
+def test_max_pending_round_trips_through_to_dict():
+    a = Input("a")
+    p = Pipeline([a], [sc.RollingMean(2)(a)], max_pending=12345)
+    d = p.to_dict()
+    assert d["max_pending"] == 12345
+    assert Pipeline.from_dict(d).max_pending == 12345
+    assert Pipeline.from_json(p.to_json()).max_pending == 12345
+    del d["max_pending"]               # a graph saved before 3.0.0
+    assert Pipeline.from_dict(d).max_pending == 1_000_000

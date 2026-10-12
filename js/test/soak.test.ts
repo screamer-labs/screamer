@@ -80,6 +80,16 @@ const kinds: Record<string, [() => void, () => void]> = {
     () => { const x = Input("x"); new Pipeline([x], [RollingMean(3)(x)]); },
     () => { const x = Input("x"); new Pipeline([x], [RollingMean(3)(x)])(prices); },
   ],
+  "Pipeline (aligned outputs)": [
+    () => { const x = Input("x"), y = Input("y"); new Pipeline([x, y], [RollingMean(3)(x), y]); },
+    () => {
+      const x = Input("x"), y = Input("y");
+      const p = new Pipeline([x, y], [RollingMean(3)(x), y]);
+      p({ x: { values: prices, index: [0, 2, 4] }, y: { values: prices, index: [1, 2, 3] } });
+      const d = p.live();
+      d.push("x", 0, 1); d.push("y", 1, 2); d.result(); d.push("x", 2, 3); d.flush(); d.result();
+    },
+  ],
 };
 
 for (const [name, [build, buildAndCall]] of Object.entries(kinds)) {
