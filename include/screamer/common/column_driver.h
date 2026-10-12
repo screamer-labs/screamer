@@ -20,9 +20,12 @@ constexpr std::size_t kTileColumns = 8;
 constexpr std::size_t kTileBytes = std::size_t(4) << 20;
 // Tiling policy, measured on (T, K) arrays (see run_columns). A strided column
 // is tiled when its byte stride is a multiple of kConflictStrideBytes (its
-// lines share a few cache sets), or, for an operator with a tight inlined loop,
-// when it is longer than kDirectColumnSteps and its tile fits kCheapTileBytes.
+// lines share a few cache sets) and it spans more than kConflictSpanBytes
+// (T times the stride; a shorter column stays in L1 and tiling is pure
+// overhead), or, for an operator with a tight inlined loop, when it is longer
+// than kDirectColumnSteps and its tile fits kCheapTileBytes.
 constexpr std::size_t kConflictStrideBytes = 512;
+constexpr std::size_t kConflictSpanBytes = std::size_t(32) << 10;
 constexpr std::size_t kDirectColumnSteps = 256;
 constexpr std::size_t kCheapTileBytes = std::size_t(512) << 10;
 
@@ -98,9 +101,14 @@ void run_columns(Run&& run, std::size_t n_in, std::size_t n_out, std::size_t T,
     const std::ptrdiff_t out_stride = static_cast<std::ptrdiff_t>(cols * n_out);
     const std::size_t tile_doubles = B * T * (n_gather + n_out);
     const std::size_t tile_bytes = tile_doubles * sizeof(double);
-    bool conflict = detail::conflict_stride(out_stride);
+    // A conflict stride counts only once the column spans more than L1 holds.
+    const auto conflicts = [T](std::ptrdiff_t st) {
+        return detail::conflict_stride(st) &&
+               T * static_cast<std::size_t>(st) * sizeof(double) > detail::kConflictSpanBytes;
+    };
+    bool conflict = conflicts(out_stride);
     for (std::size_t i = 0; i < n_in; ++i)
-        if (stride[i] != 1 && detail::conflict_stride(stride[i])) conflict = true;
+        if (stride[i] != 1 && conflicts(stride[i])) conflict = true;
     const bool tile = cols >= 2 && n_out == 1 && tile_bytes <= detail::kTileBytes &&
                       (conflict || (tight && T > detail::kDirectColumnSteps &&
                                     tile_bytes <= detail::kCheapTileBytes));

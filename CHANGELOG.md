@@ -188,8 +188,10 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
   interleaved in JavaScript, and the broadcast is planned once per call.
 * Python and JavaScript share one batch column loop, which calls the
   operator's per-event step directly. On 1M elements `Add()` takes 0.6 ns per
-  element (was 1.4), `RollingCorr(20)` 3.9 (was 5.3), `RollingBeta(20)` 3.7
-  (was 4.3).
+  element (was 1.4). With clang (the macOS wheels, measured on Apple M) the
+  step is also inlined into the loop: `RollingCorr(20)` 3.9 (was 5.3),
+  `RollingBeta(20)` 3.7 (was 4.3). GCC and MSVC builds keep their compilers'
+  own inlining.
 * Long columns of a `(T, K)` array run in tiles of 8 adjacent assets copied to
   contiguous memory, so the column loop no longer stalls on strided reads. The
   gain is largest at power-of-two K: `Add()` on `(2000, 256)` takes 1.4 ns per

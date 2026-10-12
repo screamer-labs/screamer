@@ -13,7 +13,8 @@
 
 // Inline the operator's call() into the batch column loop. Clang's inliner
 // otherwise keeps larger calls out of line (always under the WASM build's -Oz):
-// RollingCorr runs 1.7x faster in WASM and 1.35x faster natively with it.
+// RollingCorr runs 1.7x faster in WASM and 1.35x faster natively (Apple M,
+// clang) with it. GCC and MSVC builds keep their compilers' own inlining.
 // eval_column itself stays out of line, so each operator's column loop is
 // compiled once, the same for every caller.
 #if defined(__clang__)
@@ -36,7 +37,8 @@ namespace screamer {
 namespace detail {
     // Derived::kInlineColumnCall, or true when the operator does not set it.
     // An operator sets it to false when its step measured faster as a separate
-    // call than inlined into the column loop (the two-input EW operators).
+    // call than inlined into the column loop (the two-input EW operators and
+    // ADOSC).
     template <class D, class = void>
     struct inline_column_call : std::true_type {};
     template <class D>

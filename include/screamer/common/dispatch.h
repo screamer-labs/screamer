@@ -11,6 +11,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <memory>
 #include <optional>
 #include <stdexcept>
 #include <string>
@@ -106,6 +107,19 @@ inline nb::object make_owned_array(double* data, const std::vector<size_t>& shap
     nb::capsule owner(data, [](void* p) noexcept { delete[] (double*) p; });
     return nb::cast(nb::ndarray<nb::numpy, double>(
         data, shape.size(), shape.data(), owner));
+}
+
+// The same for a buffer held by a unique_ptr: it owns the buffer until the
+// capsule does, so a throw on the way never leaks it.
+inline nb::object make_owned_array(std::unique_ptr<double[]> data, const std::vector<size_t>& shape) {
+    nb::capsule owner(data.get(), [](void* p) noexcept { delete[] (double*) p; });
+    double* raw = data.release();
+    return nb::cast(nb::ndarray<nb::numpy, double>(raw, shape.size(), shape.data(), owner));
+}
+
+// An uninitialized output buffer of n doubles (at least one).
+inline std::unique_ptr<double[]> new_output(size_t n) {
+    return std::unique_ptr<double[]>(new double[n ? n : 1]);
 }
 
 // True iff `h` is an ndarray-like object (numpy array), regardless of dtype /
@@ -710,6 +724,7 @@ inline auto column_runner(Op& self) {
 // A one-input call on a C-contiguous (T, cols) block: column c starts at c.
 template <class Op>
 inline void run_op_columns(Op& self, size_t T, size_t cols, const double* data, double* out) {
+    static_assert(Op::kN <= kMaxColumnInputs, "too many inputs for the column driver");
     const std::size_t stride = cols;
     run_columns(column_runner(self), 1, Op::kM, T, cols, &data, &stride,
                 [](std::size_t, std::size_t c) { return c; }, out, true);
@@ -718,6 +733,7 @@ inline void run_op_columns(Op& self, size_t T, size_t cols, const double* data, 
 // An N-input call by its broadcast plan.
 template <class Op>
 inline void run_op_columns(Op& self, const detail::NInputs<Op::kN>& in, double* out) {
+    static_assert(Op::kN <= kMaxColumnInputs, "too many inputs for the column driver");
     const shape::Plan& p = in.plan;
     const double* base[Op::kN];
     for (size_t i = 0; i < Op::kN; ++i) base[i] = in.data[i];
@@ -736,12 +752,14 @@ nb::object handle_input_1i_1o_numpy(Op& self, const nb::ndarray<nb::ro>& input) 
     }
     std::vector<size_t> shape = shape::consume_unit_field(in.shape);
     size_t total = in.total();
-    double* out = new double[total ? total : 1];
+    auto out = detail::new_output(total);
     size_t size = in.time();
     size_t cols = in.cols();   // product of trailing dims = C-contiguous axis0 stride
-    run_op_columns(self, size, cols, in.data.data(), out);
-    self.reset();
-    return detail::make_owned_array(out, shape);
+    {
+        EagerRun<Op> run(self);   // resets the op afterwards, on a throw too
+        run_op_columns(self, size, cols, in.data.data(), out.get());
+    }
+    return detail::make_owned_array(std::move(out), shape);
 }
 
 // ---------------------------------------------------------
@@ -751,10 +769,12 @@ template <class Op>
 nb::object handle_input_Ni_1o_numpy(Op& self, detail::NInputs<Op::kN>& in) {
     const shape::Plan& p = in.plan;
     const size_t T = p.T, cols = p.columns;
-    double* out = new double[T * cols ? T * cols : 1];
-    run_op_columns(self, in, out);
-    self.reset();
-    return detail::make_owned_array(out, p.shape);
+    auto out = detail::new_output(T * cols);
+    {
+        EagerRun<Op> run(self);
+        run_op_columns(self, in, out.get());
+    }
+    return detail::make_owned_array(std::move(out), p.shape);
 }
 
 // ---------------------------------------------------------
@@ -773,12 +793,14 @@ nb::object handle_input_1i_Mo_numpy(Op& self, const nb::ndarray<nb::ro>& input) 
     std::vector<size_t> shape = shape::consume_unit_field(in.shape);
     shape.push_back(M);
     size_t total = in.total();
-    double* out = new double[total * M ? total * M : 1];
+    auto out = detail::new_output(total * M);
     size_t size = in.time();
     size_t cols = in.cols();
-    run_op_columns(self, size, cols, in.data.data(), out);
-    self.reset();
-    return detail::make_owned_array(out, shape);
+    {
+        EagerRun<Op> run(self);
+        run_op_columns(self, size, cols, in.data.data(), out.get());
+    }
+    return detail::make_owned_array(std::move(out), shape);
 }
 
 // ---------------------------------------------------------
@@ -794,10 +816,12 @@ nb::object handle_input_Ni_Mo_numpy(Op& self, detail::NInputs<Op::kN>& in) {
     const size_t T = p.T, cols = p.columns;
     std::vector<size_t> shape = p.shape;
     shape.push_back(M);
-    double* out = new double[T * cols * M ? T * cols * M : 1];
-    run_op_columns(self, in, out);
-    self.reset();
-    return detail::make_owned_array(out, shape);
+    auto out = detail::new_output(T * cols * M);
+    {
+        EagerRun<Op> run(self);
+        run_op_columns(self, in, out.get());
+    }
+    return detail::make_owned_array(std::move(out), shape);
 }
 
 // ---------------------------------------------------------
