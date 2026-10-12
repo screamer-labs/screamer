@@ -134,14 +134,19 @@ inline void throw_if_wrong_kind(const std::string& who, nb::handle x, const std:
 // The items of one event, one per source, read in place: either a Python list
 // (the async path, which reads the awaited items without copying them) or a
 // vector of objects (the sync iterator's buffer). It holds no references, so it
-// must not outlive the container it views.
+// must not outlive the container it views, and a list must not be mutated
+// during the step (the async coroutine's local list stays untouched in normal
+// use; a list that shrank anyway raises IndexError).
 class EventItems {
 public:
     EventItems(const std::vector<nb::object>& v) : vec_(&v), size_(v.size()) {}
-    explicit EventItems(nb::list l) : list_(l.ptr()), size_(static_cast<std::size_t>(PyList_Size(l.ptr()))) {}
+    explicit EventItems(nb::list l) : list_(l.ptr()), size_(l.size()) {}
     std::size_t size() const { return size_; }
     nb::handle operator[](std::size_t i) const {
-        return vec_ ? nb::handle(vec_->operator[](i).ptr()) : nb::handle(PyList_GetItem(list_, static_cast<Py_ssize_t>(i)));
+        if (vec_) return nb::handle((*vec_)[i].ptr());
+        PyObject* item = PyList_GetItem(list_, static_cast<Py_ssize_t>(i));   // borrowed
+        if (!item) nb::raise_python_error();
+        return nb::handle(item);
     }
 private:
     const std::vector<nb::object>* vec_ = nullptr;

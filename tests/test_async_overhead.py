@@ -3,7 +3,7 @@
 The cost is the per-event coroutine plus one operator step. The bound is
 relative to the raw generator rate (measured in the same run) and generous, so
 a loaded machine does not fail it; it catches an order-of-magnitude regression
-such as a per-event copy of the items or a rebuilt coroutine module.
+such as a rebuilt coroutine module or a per-event import.
 """
 import asyncio
 import time
@@ -33,12 +33,23 @@ def _best(make, reps=5):
     return asyncio.run(run())
 
 
+async def _gen2(n):
+    # The raw cost of awaiting two sources per event, as Add() does.
+    a, b = _gen(n), _gen(n)
+    while True:
+        try:
+            x, y = await a.__anext__(), await b.__anext__()
+        except StopAsyncIteration:
+            return
+        yield x + y
+
+
 @pytest.mark.perf
-@pytest.mark.parametrize("make", [
-    lambda: sm.RollingMean(5)(_gen(N)),
-    lambda: sm.Add()(_gen(N), _gen(N)),
+@pytest.mark.parametrize("make, baseline", [
+    (lambda: sm.RollingMean(5)(_gen(N)), lambda: _gen(N)),
+    (lambda: sm.Add()(_gen(N), _gen(N)), lambda: _gen2(N)),
 ], ids=["RollingMean", "Add"])
-def test_async_overhead_per_event(make):
-    raw = _best(lambda: _gen(N))
+def test_async_overhead_per_event(make, baseline):
+    raw = _best(baseline)
     cost = _best(make)
-    assert cost < 20 * raw + 5e-6
+    assert cost - raw < 2e-6
