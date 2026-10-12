@@ -36,7 +36,9 @@ public:
     void eval(const double* in, double* out) override { call_row(in, out, width_); }
 
     // A row op's event width is fixed by its first row, so it has no column
-    // form; its batch entry is call_row over rows.
+    // form: its batch entries are call_row over rows (mapRowsInto in WASM).
+    // eval_column, and so evalBatchInto, throw for a row op; they threw before
+    // too, since a reset row op has no width and eval() rejects a 0-asset row.
     void eval_column(const double* const*, const std::ptrdiff_t*,
                      std::size_t, double*, std::ptrdiff_t) override {
         throw std::logic_error("a row operator runs by rows, not by columns.");

@@ -106,3 +106,17 @@ test("an NdArray whose shape does not match its data raises", async () => {
   assert.throws(() => reshape({ data: new Float64Array(2), shape: [4, 2] }, "TA"), RangeError);
   assert.throws(() => reshape({ data: new Float64Array(4), shape: [2, 2.0001] }, "TA"), TypeError);
 });
+
+test("long strided columns (run in tiles) equal each column's own result", async () => {
+  await ready();
+  for (const [TT, KK] of [[300, 13], [300, 64], [2000, 100]]) {
+    const A: NdArray = { data: Float64Array.from({ length: TT * KK }, (_, i) => Math.sin(i * 0.37) * 10 + i / 97), shape: [TT, KK] };
+    const B: NdArray = { data: Float64Array.from({ length: TT * KK }, (_, i) => Math.cos(i * 0.21) * 5 + i / 53), shape: [TT, KK] };
+    const sum = Add()(A, B) as NdArray, corr = RollingCorr(20)(A, B) as NdArray, mean = RollingMean(20)(A) as NdArray;
+    for (let k = 0; k < KK; k++) {
+      assert.deepEqual(col(sum, k), Add()(col(A, k), col(B, k)));
+      assert.deepEqual(col(corr, k), RollingCorr(20)(col(A, k), col(B, k)));
+      assert.deepEqual(col(mean, k), RollingMean(20)(col(A, k)));
+    }
+  }
+});

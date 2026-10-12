@@ -85,3 +85,39 @@ def test_generator_into_one_input_functor_is_lazy():
     out = s.IsNan()(v for v in values)
     assert hasattr(out, "__next__") and not isinstance(out, list)
     np.testing.assert_array_equal(list(out), s.IsNan()(np.array(values)))
+
+
+# Long strided columns run in tiles of 8 gathered columns (column_driver.h).
+# Every tiling case must give each column's 1-D result bit for bit: a partial
+# last tile, a conflict stride (K = 64), a broadcast (T,) input next to (T, K),
+# a packed (T, K, 2) input, a ScreamerBase operator, and a multi-output one.
+@pytest.mark.parametrize("shape", [(300, 13), (300, 64), (2000, 100), (600, 3, 5)])
+@pytest.mark.parametrize("make", [s.IsFinite, s.Add, lambda: s.RollingCorr(20),
+                                  lambda: s.RollingMean(20), lambda: s.BollingerBands(20)])
+def test_tiled_columns_equal_each_column(shape, make):
+    rng = np.random.default_rng(1)
+    A = rng.normal(size=shape).cumsum(axis=0) + 100
+    B = rng.normal(size=shape).cumsum(axis=0) + 50
+    op = make()
+    two = op.num_inputs == 2
+    got = op(A, B) if two else op(A)
+    flat_a = A.reshape(shape[0], -1)
+    flat_b = B.reshape(shape[0], -1)
+    flat_got = got.reshape(shape[0], flat_a.shape[1], -1)
+    for k in range(flat_a.shape[1]):
+        want = make()(flat_a[:, k], flat_b[:, k]) if two else make()(flat_a[:, k])
+        np.testing.assert_array_equal(flat_got[:, k].reshape(want.shape), want)
+
+
+@pytest.mark.parametrize("K", [13, 64, 100])
+def test_tiled_broadcast_and_packed_inputs(K):
+    rng = np.random.default_rng(2)
+    A = rng.normal(size=(1000, K)).cumsum(axis=0) + 100
+    y = rng.normal(size=1000).cumsum() + 50
+    got = s.RollingCorr(20)(A, y)
+    for k in range(K):
+        np.testing.assert_array_equal(got[:, k], s.RollingCorr(20)(A[:, k], y))
+    packed = np.stack([A, A[::-1] * 0.5], axis=-1)       # (T, K, 2)
+    got = s.RollingCorr(20)(packed)
+    for k in range(K):
+        np.testing.assert_array_equal(got[:, k], s.RollingCorr(20)(packed[:, k, 0], packed[:, k, 1]))

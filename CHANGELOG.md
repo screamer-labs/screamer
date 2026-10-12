@@ -183,13 +183,17 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
   array's `ndim` to look for a mixed list, about 0.5 µs less per call.
 * JavaScript batch calls run each asset column in one C++ loop, as Python
   does, instead of one virtual call per element. On 1M elements (ns per
-  element, Apple M-series): `RollingMean(20)` 6.6 to 2.3, `RollingCorr(20)`
+  element, Apple M-series): `RollingMean(20)` 6.6 to 1.6-2.3, `RollingCorr(20)`
   14.7 to 5.9, `Add()` 10.1 to 0.8. Multi-input arrays are no longer
   interleaved in JavaScript, and the broadcast is planned once per call.
-* Python batch calls to multi-input and multi-output operators use the same
-  column loop, which calls the operator's per-event step directly: on 1M
-  elements `Add()` 1.3 to 0.6 ns per element, `MACD()` 4.8 to 1.6, `ADOSC()`
-  5.0 to 1.9, `EwAlpha(20)` 4.9 to 3.8.
+* Python and JavaScript share one batch column loop, which calls the
+  operator's per-event step directly. On 1M elements `Add()` takes 0.6 ns per
+  element (was 1.4), `RollingCorr(20)` 3.9 (was 5.3), `RollingBeta(20)` 3.7
+  (was 4.3).
+* Long columns of a `(T, K)` array run in tiles of 8 adjacent assets copied to
+  contiguous memory, so the column loop no longer stalls on strided reads. The
+  gain is largest at power-of-two K: `Add()` on `(2000, 256)` takes 1.4 ns per
+  element (was 5.0), `RollingCorr(20)` on `(20000, 128)` 6.8 (was 15.9).
 
 ### Documentation
 

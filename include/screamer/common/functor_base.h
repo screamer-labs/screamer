@@ -1,6 +1,7 @@
 #ifndef FUNCTOR_BASE_H
 #define FUNCTOR_BASE_H
 
+#include <algorithm>
 #include <array>
 #include <cstddef>
 #include <tuple>
@@ -10,19 +11,39 @@
 #include <cstdint>
 #include "screamer/common/eval_op.h"
 
-// Inline the operator's call() into the batch column loop in the WASM build,
-// which optimizes for size (-Oz) and would otherwise keep the call: RollingCorr
-// runs 1.7x faster with it. Native -O3 builds inline by their own heuristics,
-// which measured faster there (forcing it slows EwAlpha by 20%).
-#if defined(__EMSCRIPTEN__)
+// Inline the operator's call() into the batch column loop. Clang's inliner
+// otherwise keeps larger calls out of line (always under the WASM build's -Oz):
+// RollingCorr runs 1.7x faster in WASM and 1.35x faster natively with it.
+// eval_column itself stays out of line, so each operator's column loop is
+// compiled once, the same for every caller.
+#if defined(__clang__)
 #define SCREAMER_INLINE_CALL [[clang::always_inline]]
+#define SCREAMER_NOINLINE_CALL [[clang::noinline]]
 #else
 #define SCREAMER_INLINE_CALL
+#define SCREAMER_NOINLINE_CALL
+#endif
+#if defined(__GNUC__) || defined(__clang__)
+#define SCREAMER_NOINLINE __attribute__((noinline))
+#elif defined(_MSC_VER)
+#define SCREAMER_NOINLINE __declspec(noinline)
+#else
+#define SCREAMER_NOINLINE
 #endif
 
 namespace screamer {
 
 namespace detail {
+    // Derived::kInlineColumnCall, or true when the operator does not set it.
+    // An operator sets it to false when its step measured faster as a separate
+    // call than inlined into the column loop (the two-input EW operators).
+    template <class D, class = void>
+    struct inline_column_call : std::true_type {};
+    template <class D>
+    struct inline_column_call<D, std::void_t<decltype(D::kInlineColumnCall)>>
+        : std::bool_constant<D::kInlineColumnCall> {};
+
+
     // Helper struct to create a tuple of M doubles
     template <size_t M, typename T = double, typename... Ts>
     struct TupleOfDoublesHelper {
@@ -108,6 +129,7 @@ public:
     // CRTP contract is that Derived is the most-derived class, which holds for
     // every operator (none is subclassed). An operator that overrides
     // process_columns gets it first, as a whole-column batch path.
+    SCREAMER_NOINLINE
     void eval_column(const double* const* in, const std::ptrdiff_t* in_stride,
                      std::size_t T, double* out, std::ptrdiff_t out_stride) override {
         Derived& self = static_cast<Derived&>(*this);
@@ -137,15 +159,20 @@ private:
         Derived& self = static_cast<Derived&>(*this);
         std::array<const double*, N> p{ in[I]... };
         const std::array<std::ptrdiff_t, N> s{ in_stride[I]... };
-        for (std::size_t t = 0; t < T; ++t) {
+        for (std::size_t t = 0; t < T; ++t, out += out_stride) {
             const InputArray inputs{ *p[I]... };
             ((p[I] += s[I]), ...);
-            if constexpr (M == 1) {
+            if constexpr (!detail::inline_column_call<Derived>::value) {
+                if constexpr (M == 1) {
+                    SCREAMER_NOINLINE_CALL *out = self.Derived::call(inputs);
+                } else {
+                    SCREAMER_NOINLINE_CALL detail::write_tuple_to_memory(out, self.Derived::call(inputs));
+                }
+            } else if constexpr (M == 1) {
                 SCREAMER_INLINE_CALL *out = self.Derived::call(inputs);
             } else {
                 SCREAMER_INLINE_CALL detail::write_tuple_to_memory(out, self.Derived::call(inputs));
             }
-            out += out_stride;
         }
     }
 };

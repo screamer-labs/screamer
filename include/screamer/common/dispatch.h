@@ -20,6 +20,7 @@
 #include "screamer/common/functor_base.h"  // pure FunctorBase
 #include "screamer/common/cast_double.h"
 #include "screamer/common/shape.h"
+#include "screamer/common/column_driver.h"
 #include "screamer/common/async_generator.h"
 #include "screamer/common/lazy_eval_iterator.h"
 
@@ -694,11 +695,39 @@ nb::object eager_parallel(Op& self, const nb::tuple& inputs) {
     return nb::cast(results);
 }
 
+// Every numpy handler below runs its asset columns through run_columns
+// (column_driver.h), the column loop shared with the WASM binding.
+
+// The op's eval_column, bound statically to FunctorBase<Op, N, M>.
+template <class Op>
+inline auto column_runner(Op& self) {
+    return [&self](const double* const* in, const std::ptrdiff_t* in_stride, std::size_t T,
+                   double* out, std::ptrdiff_t out_stride) {
+        self.Op::eval_column(in, in_stride, T, out, out_stride);
+    };
+}
+
+// A one-input call on a C-contiguous (T, cols) block: column c starts at c.
+template <class Op>
+inline void run_op_columns(Op& self, size_t T, size_t cols, const double* data, double* out) {
+    const std::size_t stride = cols;
+    run_columns(column_runner(self), 1, Op::kM, T, cols, &data, &stride,
+                [](std::size_t, std::size_t c) { return c; }, out, true);
+}
+
+// An N-input call by its broadcast plan.
+template <class Op>
+inline void run_op_columns(Op& self, const detail::NInputs<Op::kN>& in, double* out) {
+    const shape::Plan& p = in.plan;
+    const double* base[Op::kN];
+    for (size_t i = 0; i < Op::kN; ++i) base[i] = in.data[i];
+    run_columns(column_runner(self), Op::kN, Op::kM, p.T, p.columns, base, p.time_stride.data(),
+                [&p](std::size_t i, std::size_t c) { return p.offset[i * p.columns + c]; }, out, true);
+}
+
 // ---------------------------------------------------------
 // ONE INPUT, ONE OUTPUT (numpy)
 // ---------------------------------------------------------
-// Every handler below runs one eval_column per asset column. The call is
-// qualified with Op, so it binds statically to FunctorBase<Op, N, M>.
 template <class Op>
 nb::object handle_input_1i_1o_numpy(Op& self, const nb::ndarray<nb::ro>& input) {
     detail::ContigDouble in = detail::read_contig_double(input);
@@ -710,12 +739,7 @@ nb::object handle_input_1i_1o_numpy(Op& self, const nb::ndarray<nb::ro>& input) 
     double* out = new double[total ? total : 1];
     size_t size = in.time();
     size_t cols = in.cols();   // product of trailing dims = C-contiguous axis0 stride
-    const std::ptrdiff_t stride = (std::ptrdiff_t) cols;
-
-    for (size_t col = 0; col < cols; ++col) {
-        const double* x = in.data.data() + col;
-        self.Op::eval_column(&x, &stride, size, out + col, stride);
-    }
+    run_op_columns(self, size, cols, in.data.data(), out);
     self.reset();
     return detail::make_owned_array(out, shape);
 }
@@ -723,33 +747,12 @@ nb::object handle_input_1i_1o_numpy(Op& self, const nb::ndarray<nb::ro>& input) 
 // ---------------------------------------------------------
 // MULTIPLE INPUTS, ONE OUTPUT (numpy)
 // ---------------------------------------------------------
-// The input pointers of column `col`: input i starts at its planned offset.
-template <size_t N>
-inline void column_inputs(const detail::NInputs<N>& in, size_t col,
-                          std::array<const double*, N>& ptr) {
-    const shape::Plan& p = in.plan;
-    for (size_t i = 0; i < N; ++i) ptr[i] = in.data[i] + p.offset[i * p.columns + col];
-}
-
-template <size_t N>
-inline std::array<std::ptrdiff_t, N> time_strides(const shape::Plan& p) {
-    std::array<std::ptrdiff_t, N> s;
-    for (size_t i = 0; i < N; ++i) s[i] = (std::ptrdiff_t) p.time_stride[i];
-    return s;
-}
-
 template <class Op>
 nb::object handle_input_Ni_1o_numpy(Op& self, detail::NInputs<Op::kN>& in) {
-    constexpr size_t N = Op::kN;
     const shape::Plan& p = in.plan;
     const size_t T = p.T, cols = p.columns;
     double* out = new double[T * cols ? T * cols : 1];
-    const std::array<std::ptrdiff_t, N> stride = time_strides<N>(p);
-    std::array<const double*, N> ptr;
-    for (size_t col = 0; col < cols; ++col) {
-        column_inputs(in, col, ptr);
-        self.Op::eval_column(ptr.data(), stride.data(), T, out + col, (std::ptrdiff_t) cols);
-    }
+    run_op_columns(self, in, out);
     self.reset();
     return detail::make_owned_array(out, p.shape);
 }
@@ -773,12 +776,7 @@ nb::object handle_input_1i_Mo_numpy(Op& self, const nb::ndarray<nb::ro>& input) 
     double* out = new double[total * M ? total * M : 1];
     size_t size = in.time();
     size_t cols = in.cols();
-    const std::ptrdiff_t stride = (std::ptrdiff_t) cols;
-
-    for (size_t col = 0; col < cols; ++col) {
-        const double* x = in.data.data() + col;
-        self.Op::eval_column(&x, &stride, size, out + col * M, stride * (std::ptrdiff_t) M);
-    }
+    run_op_columns(self, size, cols, in.data.data(), out);
     self.reset();
     return detail::make_owned_array(out, shape);
 }
@@ -791,19 +789,13 @@ nb::object handle_input_1i_Mo_numpy(Op& self, const nb::ndarray<nb::ro>& input) 
 //   - output shape = broadcast (T, *A) + (M,) (from 1->M)
 template <class Op>
 nb::object handle_input_Ni_Mo_numpy(Op& self, detail::NInputs<Op::kN>& in) {
-    constexpr size_t N = Op::kN;
     constexpr size_t M = Op::kM;
     const shape::Plan& p = in.plan;
     const size_t T = p.T, cols = p.columns;
     std::vector<size_t> shape = p.shape;
     shape.push_back(M);
     double* out = new double[T * cols * M ? T * cols * M : 1];
-    const std::array<std::ptrdiff_t, N> stride = time_strides<N>(p);
-    std::array<const double*, N> ptr;
-    for (size_t col = 0; col < cols; ++col) {
-        column_inputs(in, col, ptr);
-        self.Op::eval_column(ptr.data(), stride.data(), T, out + col * M, (std::ptrdiff_t) (cols * M));
-    }
+    run_op_columns(self, in, out);
     self.reset();
     return detail::make_owned_array(out, shape);
 }

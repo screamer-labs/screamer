@@ -20,6 +20,9 @@ namespace screamer {
 
 class EwCov : public FunctorBase<EwCov, 2, 1> {
 public:
+    // Measured faster with its step kept out of the batch column loop.
+    static constexpr bool kInlineColumnCall = false;
+
     explicit EwCov(
         std::optional<double> com = std::nullopt,
         std::optional<double> span = std::nullopt,

@@ -22,6 +22,9 @@ namespace screamer {
 
 class EwCorr : public FunctorBase<EwCorr, 2, 1> {
 public:
+    // Measured faster with its step kept out of the batch column loop.
+    static constexpr bool kInlineColumnCall = false;
+
     explicit EwCorr(
         std::optional<double> com = std::nullopt,
         std::optional<double> span = std::nullopt,

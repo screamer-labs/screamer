@@ -5,8 +5,10 @@
 #include <cstdint>
 #include <cmath>
 #include <optional>
+#include <array>
+#include <stdexcept>
 #include <tuple>
-#include <vector>
+#include "screamer/common/column_driver.h"
 #include "screamer/common/eval_op.h"
 #include "screamer/common/functor_base.h"
 #include "screamer/common/row_op.h"
@@ -25,9 +27,14 @@ inline void evalBatchInto(screamer::EvalOp& op, std::uintptr_t inPtr,
                           std::uintptr_t outPtr, std::size_t rows) {
     const double* in = reinterpret_cast<const double*>(inPtr);
     const std::size_t ni = op.n_in(), no = op.n_out();
-    std::vector<const double*> ptr(ni);
-    for (std::size_t i = 0; i < ni; ++i) ptr[i] = in + i;
-    const std::vector<std::ptrdiff_t> stride(ni, static_cast<std::ptrdiff_t>(ni));
+    if (ni > screamer::kMaxColumnInputs)
+        throw std::invalid_argument("evalBatchInto: too many inputs");
+    std::array<const double*, screamer::kMaxColumnInputs> ptr{};
+    std::array<std::ptrdiff_t, screamer::kMaxColumnInputs> stride{};
+    for (std::size_t i = 0; i < ni; ++i) {
+        ptr[i] = in + i;
+        stride[i] = static_cast<std::ptrdiff_t>(ni);
+    }
     op.eval_column(ptr.data(), stride.data(), rows, reinterpret_cast<double*>(outPtr),
                    static_cast<std::ptrdiff_t>(no));
 }

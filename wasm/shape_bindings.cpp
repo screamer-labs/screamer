@@ -9,6 +9,8 @@
 #include <new>
 #include <string>
 #include <vector>
+#include "screamer/common/base.h"
+#include "screamer/common/column_driver.h"
 #include "screamer/common/eval_op.h"
 #include "screamer/common/shape.h"
 
@@ -45,10 +47,11 @@ emscripten::val to_js(const std::vector<V>& v) {
 }
 
 // A batch call: plan the broadcast of the arguments once, then run op over
-// every asset column with one eval_column each. Returns a malloc'd block of
-// (T, *A, n_out) doubles in row-major order (the caller frees it), and writes
-// the (T, *A) result shape to shapeOut as [ndim, dims...]; shapeOut holds room
-// for 1 + the largest argument rank.
+// every asset column with one eval_column each, through run_columns (the
+// column loop shared with Python; a ScreamerBase op is not `tight`). Returns a
+// malloc'd block of (T, *A, n_out) doubles in row-major order (the caller
+// frees it), and writes the (T, *A) result shape to shapeOut as
+// [ndim, dims...]; shapeOut holds room for 1 + the largest argument rank.
 std::uintptr_t evalShaped(screamer::EvalOp& op, std::uintptr_t spec, std::uintptr_t shapeOut) {
     Spec s = read_spec(spec);
     const std::size_t ni = op.n_in(), no = op.n_out();
@@ -59,15 +62,14 @@ std::uintptr_t evalShaped(screamer::EvalOp& op, std::uintptr_t spec, std::uintpt
         static_cast<double*>(std::malloc(std::max<std::size_t>(1, plan.T * cols * no) * sizeof(double))),
         &std::free);
     if (!out) throw std::bad_alloc();
-    std::vector<const double*> ptr(ni);
-    std::vector<std::ptrdiff_t> stride(ni);
-    for (std::size_t i = 0; i < ni; ++i) stride[i] = static_cast<std::ptrdiff_t>(plan.time_stride[i]);
-    const std::ptrdiff_t out_stride = static_cast<std::ptrdiff_t>(cols * no);
-    for (std::size_t c = 0; c < cols; ++c) {
-        for (std::size_t i = 0; i < ni; ++i)
-            ptr[i] = s.data[s.data.size() == 1 ? 0 : i] + plan.offset[i * cols + c];
-        op.eval_column(ptr.data(), stride.data(), plan.T, out.get() + c * no, out_stride);
-    }
+    std::vector<const double*> base(ni);
+    for (std::size_t i = 0; i < ni; ++i) base[i] = s.data[s.data.size() == 1 ? 0 : i];
+    screamer::run_columns(
+        [&op](const double* const* in, const std::ptrdiff_t* in_stride, std::size_t T,
+              double* y, std::ptrdiff_t y_stride) { op.eval_column(in, in_stride, T, y, y_stride); },
+        ni, no, plan.T, cols, base.data(), plan.time_stride.data(),
+        [&plan, cols](std::size_t i, std::size_t c) { return plan.offset[i * cols + c]; }, out.get(),
+        dynamic_cast<screamer::ScreamerBase*>(&op) == nullptr);
     op.reset();
     double* sh = reinterpret_cast<double*>(shapeOut);
     sh[0] = static_cast<double>(plan.shape.size());

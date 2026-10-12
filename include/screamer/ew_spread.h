@@ -21,6 +21,9 @@ namespace screamer {
 
 class EwSpread : public FunctorBase<EwSpread, 2, 1> {
 public:
+    // Measured faster with its step kept out of the batch column loop.
+    static constexpr bool kInlineColumnCall = false;
+
     explicit EwSpread(
         std::optional<double> com = std::nullopt,
         std::optional<double> span = std::nullopt,
