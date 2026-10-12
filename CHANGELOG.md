@@ -340,9 +340,9 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
 * The regressions made stable (see Fixed) run a batch loop on a local copy of
   their state. On 200,000 values (ns per element, Apple M3, default
   parameters, against the build before this change; the ratio is the larger
-  of the 1-D and `(2000, 100)` shapes): `ExpandingSlope` 1.7 (was 4.4) and
-  `RollingPoly2` 4.3 (was 5.4) are faster; `RollingOU` 4.7 (was 4.2, 1.14x),
-  `RollingADF` 90 (was 87, 1.11x), `RollingPoly1` 3.5 (was 3.3, 1.10x) and
+  of the 1-D and `(2000, 100)` shapes): `ExpandingSlope` 1.7 (was 4.4),
+  `RollingPoly2` 4.3 (was 5.4) and `RollingADF` 81 (was 87) are faster;
+  `RollingOU` 4.7 (was 4.2, 1.13x), `RollingPoly1` 3.5 (was 3.3, 1.10x) and
   `RollingTSF` 3.6 (was 3.3, 1.07x) are slower.
 
 ### Documentation
