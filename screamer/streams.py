@@ -12,7 +12,7 @@ import re
 import numpy as np
 
 from . import screamer_bindings as _b
-from .dag import is_node, make_operator_node, _is_vi_pair
+from .dag import is_node, make_operator_node, _is_vi_pair, _numeric_values
 
 __all__ = [
     "to_pandas",
@@ -252,6 +252,7 @@ def _merge_lazy_dispatch(values):
         yield ev
 
 
+@_numeric_values
 def merge(*values, index=None):
     """Merge N value streams into one index-sorted (values, sources, index).
 
@@ -416,6 +417,7 @@ def _combine_latest_lazy(values, emit, layout=None):
         yield row, i
 
 
+@_numeric_values
 def combine_latest(*values, index=None, emit="when_all", layout=None):
     """As-of latest-value join of N streams: one row per distinct index (same-index
     events coalesce). Values-first + polymorphic: raw arrays, (values, index)
@@ -560,6 +562,7 @@ def _dropna_lazy_cpp(events, how):
         yield from inner
 
 
+@_numeric_values
 def dropna(values, index=None, how="any"):
     """Drop events whose value is NaN. `values` may be 1-D (M,) or 2-D (M, N).
 
@@ -616,6 +619,7 @@ class Filter:
 
     __name__ = "Filter"
 
+    @_numeric_values
     def __call__(self, data, mask):
         if is_node(data) or is_node(mask):
             return make_operator_node(Filter, (data, mask), {})
@@ -625,6 +629,7 @@ class Filter:
         return dag(data, mask)
 
 
+@_numeric_values
 def split(values, sources, index=None, n=None):
     """Partition a merged tagged stream back into per-source streams.
 
@@ -783,6 +788,7 @@ def _select_lazy_cpp(events, columns):
         yield from inner
 
 
+@_numeric_values
 def select(values, columns, index=None):
     """Pick column(s) from a wide (M, N) value stream.
 
@@ -1038,8 +1044,7 @@ def _resample_clock_batch(vals, val_idx, clk_vals, clk_idx, *, agg, fill,
     node = resample(val_in, clk_in, clock=True, agg=agg, fill=fill,
                     origin=origin, label=label, max_age=max_age)
     dag = Pipeline([val_in, clk_in], [node])
-    val_idx = np.ascontiguousarray(val_idx, dtype=np.int64)
-    clk_idx = np.ascontiguousarray(clk_idx, dtype=np.int64)
+    # The indexes go to the Pipeline as given; the engine applies the index rule.
     vals_f = np.ascontiguousarray(vals, dtype=np.float64)
     clk_f = np.ascontiguousarray(clk_vals if clk_vals.ndim == 1 else clk_vals[:, 0],
                                   dtype=np.float64)
@@ -1173,6 +1178,7 @@ def _resample_lazy(values, *, every, count, agg, origin, label, fill):
         yield np.asarray(v, dtype=np.float64).reshape(shape), i
 
 
+@_numeric_values
 def resample(values, driver=None, index=None, *, freq=None, every=None, count=None,
              threshold=None, clock=False, agg="last", origin=0, label="left",
              fill="skip", max_age=None):
@@ -1567,6 +1573,7 @@ class Resample:
         return resample(values, None, index, **self._cfg)
 
 
+@_numeric_values
 def delay(values, index=None, *, duration):
     """Re-stamp each event's index by `duration` (index units); values unchanged.
 

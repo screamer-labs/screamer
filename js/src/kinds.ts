@@ -13,6 +13,12 @@ export function kindName(x: unknown): string {
   return typeof x;
 }
 
+// x's type name with its article: "a string", "an Object", "an undefined".
+export function aKind(x: unknown): string {
+  const k = kindName(x);
+  return (/^[aeiou]/i.test(k) ? "an " : "a ") + k;
+}
+
 // "event 3", "event 3 of input 1", or `prefix` alone.
 export function whereText(prefix: string, index = -1, input = -1): string {
   let s = prefix;
@@ -22,7 +28,7 @@ export function whereText(prefix: string, index = -1, input = -1): string {
 }
 
 export function throwWrongKind(who: string, where: string, x: unknown, expected = "a number"): never {
-  throw new TypeError(`${who}: ${where} is a ${kindName(x)}, expected ${expected}`);
+  throw new TypeError(`${who}: ${where} is ${aKind(x)}, expected ${expected}`);
 }
 
 const isArrayLike = (x: any) =>
@@ -108,18 +114,27 @@ export function throwNotANumber(who: string, x: unknown, where: string): never {
   throwBadShape(who, where, x);
 }
 
-// One element of a numeric feed, coerced as Float64Array.from did (a string,
-// boolean, null or undefined goes through ToNumber; a symbol or bigint throws
-// TypeError there). An object is a wrong kind, except one that converts to a
-// number (a Date, an object with valueOf); an array is always a wrong kind.
+// One element of a numeric feed. A boolean or undefined goes through ToNumber,
+// as Float64Array.from did; so does a numeric string ("3"). A string that does
+// not read as a number ("abc", "") is a wrong kind, as in Python (G13). An
+// object is a wrong kind, except one that converts to a number (a Date, an
+// object with valueOf); an array, a function, a bigint or a symbol is always a
+// wrong kind.
 export function feedNumber(v: unknown, who: string, where: () => string): number {
+  if (typeof v === "string") {
+    const n = Number(v);
+    if (Number.isNaN(n) || v.trim() === "")
+      throw new TypeError(`${who}: ${where()} is the string ${JSON.stringify(v)}, which is not a number`);
+    return n;
+  }
   if (typeof v === "object" && v !== null) {
     if (Array.isArray(v)) throwWrongKind(who, where(), v);
     const n = Number(v);
     if (Number.isNaN(n)) throwWrongKind(who, where(), v);
     return n;
   }
-  if (typeof v === "function") throwWrongKind(who, where(), v);
+  if (typeof v === "function" || typeof v === "bigint" || typeof v === "symbol")
+    throwWrongKind(who, where(), v);
   return v as number;   // the Float64Array store applies ToNumber, as before
 }
 

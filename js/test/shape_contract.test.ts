@@ -190,7 +190,7 @@ test("C4: a list of N-element lists and of (K, N) NdArray events reads as events
   test("G7: a non-data input names the op and its type", async () => {
     await ready();
     assert.throws(() => a.RollingMean(2)({}), (e: unknown) => e instanceof TypeError &&
-      (e as Error).message === "RollingMean: a Object is not a valid input; pass numbers, arrays, lists or iterators");
+      (e as Error).message === "RollingMean: an Object is not a valid input; pass numbers, arrays, lists or iterators");
   });
 
   test("G7: Pipeline feeds and live pushes keep the primitive coercions", async () => {
@@ -210,7 +210,7 @@ test("C4: a list of N-element lists and of (K, N) NdArray events reads as events
     }
     const w = (() => { const i = a.Input("a"); return a.Pipeline([i], [i]); })().live();
     assert.throws(() => w.pushWide("a", 0, [1, {}] as any), (e: unknown) => e instanceof TypeError &&
-      (e as Error).message.includes("Pipeline: item [1] of the values pushed to input 0 is a Object"));
+      (e as Error).message.includes("Pipeline: item [1] of the values pushed to input 0 is an Object"));
     assert.throws(() => pipe()([1, [2]] as any), TypeError);
     assert.throws(() => pipe()([1n] as any), TypeError);
   });

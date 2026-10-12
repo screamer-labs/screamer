@@ -2,7 +2,7 @@ import type { Screamer, RawOp } from "./loader.js";
 import { normalizeError } from "./errors.js";
 import { asNd, type NdArray } from "./ndarray.js";
 import { Node, isNode } from "./node.js";
-import { kindName, throwBadShape, throwIfWrongKind, throwIfWrongKindEvent, throwNotANumber, whereText } from "./kinds.js";
+import { aKind, throwBadShape, throwIfWrongKind, throwIfWrongKindEvent, throwNotANumber, whereText } from "./kinds.js";
 
 // The op's class name for error messages, e.g. "RollingMean".
 const opName = (raw: RawOp): string => (raw as any).constructor?.name ?? "this op";
@@ -545,7 +545,7 @@ export function wrapOp(M: Screamer, src: OpSource, copy?: () => RawOp, finalize 
         for (let i = 0; i < a.length; i++)
           if (typeof a[i] !== "number") throwNotANumber(opName(raw), a[i], whereText("event", i));
       }
-      throw new TypeError(`${opName(raw)}: a ${kindName(a)} is not a valid input; pass numbers, arrays, lists or iterators`);
+      throw new TypeError(`${opName(raw)}: ${aKind(a)} is not a valid input; pass numbers, arrays, lists or iterators`);
     }
     // nIn > 1: N scalars -> one event; N arrays -> columnar batch.
     if (args.length === nIn && args.every((x) => typeof x === "number")) return event(args);

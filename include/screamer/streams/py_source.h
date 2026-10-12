@@ -2,6 +2,7 @@
 #define SCREAMER_STREAMS_PY_SOURCE_H
 
 #include <cmath>
+#include <limits>
 #include <cstdint>
 #include <optional>
 #include <type_traits>
@@ -58,7 +59,10 @@ public:
         const std::size_t event = event_++;
         if (positional_) {
             ev.index = static_cast<Index>(counter_++);
-            if (!nb::try_cast<double>(item, ev.value)) bad(event, "event", item);
+            if (!nb::try_cast<double>(item, ev.value)) {
+                if (!item.is_none()) bad(event, "event", item);
+                ev.value = kNaN;                    // a missing value (A9)
+            }
         } else {
             nb::tuple tup;
             if (!nb::try_cast<nb::tuple>(item, tup) || tup.size() < 2)
@@ -68,29 +72,39 @@ public:
             // Try scalar extraction first (common fast path).
             // For wide events (tuple, list, or numpy array of floats), fall
             // through to the sequence path.
+            PyObject* vp = val_obj.ptr();
             bool is_scalar = false;
-            if (nb::isinstance<nb::float_>(val_obj) ||
-                nb::isinstance<nb::int_>(val_obj)) {
+            if (PyFloat_Check(vp) || PyLong_Check(vp)) {
                 if (!nb::try_cast<double>(val_obj, ev.value))
                     bad(event, "the value of event", val_obj);
                 is_scalar = true;
+            } else if (vp == Py_None) {
+                ev.value = kNaN;                    // a missing value (A9)
+                is_scalar = true;
+            } else if (PyUnicode_Check(vp) || PyBytes_Check(vp) || PyByteArray_Check(vp)) {
+                bad(event, "the value of event", val_obj);   // text, not a sequence
             }
             if (!is_scalar) {
                 // Wide event: extract all values from the sequence.
                 nb::sequence seq;
                 if (nb::try_cast<nb::sequence>(val_obj, seq)) {
                     const std::size_t n = static_cast<std::size_t>(nb::len(seq));
+                    if (n == 0)   // as a live push: an event has at least one value
+                        throw nb::value_error((std::string(owner_) + ": " +
+                            where(event, "the value of event") + " is empty").c_str());
                     wide_values_.reserve(n);
                     for (std::size_t j = 0; j < n; ++j) {
+                        nb::object x = seq[j];
                         double d;
-                        if (!nb::try_cast<double>(seq[j], d)) {
+                        if (!nb::try_cast<double>(x, d)) {
+                            if (x.is_none()) { wide_values_.push_back(kNaN); continue; }
                             const std::string w = where(event, "the value of event");
                             throw_if_wrong_kind(owner_, val_obj, w);
-                            throw_bad_shape(owner_, "item [" + std::to_string(j) + "] of " + w, seq[j]);
+                            throw_bad_shape(owner_, "item [" + std::to_string(j) + "] of " + w, x);
                         }
                         wide_values_.push_back(d);
                     }
-                    ev.value = wide_values_.empty() ? 0.0 : wide_values_[0];
+                    ev.value = wide_values_[0];
                 } else {
                     // Last resort: try direct cast (handles numpy scalars, etc.)
                     if (!nb::try_cast<double>(val_obj, ev.value))
@@ -102,7 +116,7 @@ public:
                 // The engine's index rule, as in a live push (py_index.h), with
                 // the event's position in the message.
                 try {
-                    ev.index = static_cast<Index>(screamer::py_index(tup[1]));
+                    ev.index = static_cast<Index>(screamer::py_index(tup[1], &unit_));
                 } catch (const screamer::dag::IndexTypeError& e) {
                     throw screamer::dag::IndexTypeError(
                         std::string(owner_) + ": " + where(event, "the index of event") +
@@ -148,6 +162,8 @@ private:
     std::size_t input_;                 // this source's input position
     const char* owner_;                 // "Pipeline", "stream"
     std::vector<double> wide_values_;   // populated when last event was wide
+    screamer::TimeUnit unit_;           // the unit of a datetime64 / timedelta64 index
+    static constexpr double kNaN = std::numeric_limits<double>::quiet_NaN();
 };
 
 }} // namespace screamer::streams

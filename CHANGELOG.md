@@ -85,8 +85,7 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
   else raises `TypeError`, whose message names the problem ("index must be a
   number", "index must be finite", "index must be integer-valued", "index is
   outside the int64 range"). Python takes `int`, `float` and NumPy integer and
-  floating scalars and arrays (a datetime64 or timedelta64 array is read as its
-  int64 ticks, as before, and each element of an object array follows the
+  floating scalars and arrays (each element of an object array follows the
   scalar rule); JavaScript takes `number` and `Float64Array`. What
   2.8.0 did, and how to get it:
   * JavaScript truncated a number (`1.5` gave 1, `NaN` gave 0, `2**63`
@@ -102,6 +101,42 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
   * Python iterator feeds truncated a NumPy float, `Decimal` or `Fraction`
     index (`np.float32(1.5)` gave 1) and accepted `"5"`, `b"6"`, `True` and
     `np.bool_`. Pass `int(index)`.
+* Python reads a time index as int64 ticks of its own unit at every `Pipeline`
+  entry point, the same way a batch call reads a datetime64 or timedelta64
+  array. This covers `live().push()`, `advance()`, iterator feeds (also those
+  of `Merge` and the other stream operators) and object index arrays. A time
+  index is a `np.datetime64`, `np.timedelta64`, pandas `Timestamp` or pandas
+  `Timedelta`. So `Pipeline(...)(zip(values, index))` over a pandas
+  `DatetimeIndex` equals the batch call `Pipeline(...)((values, index))`.
+  * NaT (and `pd.NaT`) raises `TypeError` ("index must be finite, got NaT"),
+    in batch arrays too.
+  * The index of one feed keeps one unit: a feed that changes from
+    `datetime64[s]` to `datetime64[ns]` raises `TypeError`, because ticks of
+    two units cannot be compared.
+  * 2.8.0 took only a `datetime64[ns]` or `timedelta64[ns]` scalar (through
+    `int()`) and raised `TypeError` for other units, `Timestamp` and
+    `Timedelta`. It read NaT in a batch array as -2**63. For the old result
+    with NaT, drop those rows or replace them first.
+* A `Pipeline` iterator feed reads a `None` value as NaN, as a live push and
+  a batch call do (A9); 2.8.0 raised `TypeError`. An event with no values
+  (`([], index)`) raises `ValueError` ("the value of event 1 of input 0 is
+  empty"), as a live push does; 2.8.0 pushed 0.0. A `bytes` or `bytearray`
+  value raises `TypeError`; 2.8.0 read `b"3"` as the one-column event 51.0
+  (its byte code). These rules hold for the iterator feeds of the stream
+  operators (`Merge` and the others) too.
+* A string that does not read as a number (`"abc"`, `""`) raises `TypeError`
+  in both languages. In Python this covers operators given an object or
+  string array, `Pipeline` batch feeds, `live().push()` and the stream
+  functions (`merge`, `combine_latest`, `dropna`, `select`, `split`,
+  `resample`, `delay`, `Filter`); 2.8.0 raised NumPy's `ValueError`. In
+  JavaScript it covers `Pipeline` feeds, `live().push()` and `pushWide()`;
+  2.8.0 converted the string with `Number()`, so `"abc"` gave NaN and `""`
+  gave 0. For the old JavaScript result, pass `Number(value)`. A numeric string
+  reads as before in each language: `"3"` is 3, and Python also reads `"nan"`
+  and `"inf"`, which JavaScript's `Number()` does not (`"Infinity"` works there).
+* The standalone `resample(values, clock, clock=True)` applies the index rule
+  to both indexes, so a fractional index raises `TypeError`; 2.8.0 cast it to
+  int64, which truncated 1.5 to 1. Pass `np.trunc(index)` for the old result.
 * Python `live().push()` raises `TypeError` for a `memoryview` over `bytes` or
   `bytearray` (or of format `"c"`); 2.8.0 read `memoryview(b"12")` as 12.0.
   Pass `float(value)` for the old result. A numeric `memoryview` is one
@@ -302,6 +337,14 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
   `NdArray` feed raised "missing feed". Both are now read as `T` rows of `w` columns; a shape that is not
   1-D or 2-D, or an index whose length is not `T`, throws `RangeError`, and
   values that are not an array, typed array or `NdArray` throw `TypeError`.
+* JavaScript: a `Pipeline` feed that is a bare typed array other than
+  `Float64Array` (`p(new Int32Array(...))`, or `{ a: new Int32Array(...) }`)
+  is read as values, as `{ values: Int32Array }` is; it threw a `TypeError`
+  saying the values were a `Function`. A feed of the wrong kind (`{ a: 5 }`,
+  a `Map`) throws a `TypeError` that names the input and the kind ("the feed
+  for input 'a' is a number"), and `BigInt64Array` / `BigUint64Array` values
+  throw a `TypeError` that says to convert them, instead of the engine's raw
+  BigInt message. Error messages use "an" before a vowel ("an Object").
 * A reused `Pipeline` or a new `live()` session forgets the plan a `resample`
   node learned from the previous stream's width. Before, a clock resample fed
   2 columns and then 3 dropped a column (3 then 2 padded with `NaN`), and an

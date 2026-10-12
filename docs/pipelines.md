@@ -66,7 +66,8 @@ The pipeline runs in two modes:
 - **Lazy (event-by-event)**: pass generators of `(value, index)` pairs instead
   of arrays, `pipe(gen_a, gen_b)`, and the pipeline runs event by event, pulling one
   event at a time. The result is an iterator that yields output events; values are
-  byte-identical to the batch result.
+  byte-identical to the batch result. Each event follows the rules of a live push
+  (below): a `None` value is `NaN`, and an event with no values raises `ValueError`.
 
 Both forms use the same C++ engine. Feeds can be bare arrays, `(values, index)` pairs, or generators of `(value, index)` pairs.
 
@@ -81,9 +82,12 @@ event by event, `pipe.live()` opens a session:
   event such as an OHLC bar: `live.push("bars", 0, [100.0, 102.0, 99.5, 101.5])`.
   The first event of an input fixes its width (a number is width 1), and a later
   event of another width raises `ValueError` (`RangeError` in JavaScript) until
-  a new `live()` session starts. Inside a sequence, `None` is `NaN`. The index
-  is an integer, or a float with a whole value, inside the int64 range; any
-  other index raises `TypeError`;
+  a new `live()` session starts. `None` is `NaN`, and a string that does not
+  read as a number raises `TypeError`. The index is an integer, or a float with
+  a whole value, inside the int64 range. A time index (`np.datetime64`,
+  `np.timedelta64`, a pandas `Timestamp` or `Timedelta`) is read as int64 ticks
+  of its own unit, as a batch call reads a datetime64 array, so the events of
+  one input keep one unit. Any other index, and NaT, raises `TypeError`;
 - `.advance(now)` moves logical time to `now`, closing every window whose boundary
   has passed (this finalizes time-based bars even when no new data arrives, such as
   an empty minute bar closed by a clock tick);

@@ -327,13 +327,29 @@ static const std::int64_t* index_array(nb::handle obj, nb::object& keep,
     if (!nb::try_cast(obj, a, /*convert=*/false)) {
         if (nb::hasattr(obj, "ndim") && nb::cast<int>(obj.attr("ndim")) != 1)
             throw nb::value_error("an index is a 1-D array of integers");
+        const std::string kind = nb::hasattr(obj, "dtype")
+            ? nb::cast<std::string>(obj.attr("dtype").attr("kind")) : std::string();
+        // A datetime64 or timedelta64 array: its int64 ticks, in place. NaT
+        // raises, as it does for one index (py_index).
+        if (kind == "M" || kind == "m") {
+            nb::object ticks = obj.attr("view")("int64");
+            if (!nb::try_cast(ticks, i64, /*convert=*/false))
+                throw nb::value_error("an index is a 1-D array of integers");
+            const std::int64_t* d = i64.data();
+            const std::size_t n = i64.shape(0);
+            bool nat = false;
+            for (std::size_t i = 0; i < n; ++i) nat |= d[i] == INT64_MIN;
+            if (nat) dag::throw_index_nat();
+            keep = std::move(ticks);
+            return d;
+        }
         // An object array (Python ints, a pandas object Index): each element
-        // follows the rule of a live push.
-        if (nb::hasattr(obj, "dtype") &&
-                nb::cast<std::string>(obj.attr("dtype").attr("kind")) == "O") {
+        // follows the rule of a live push, one time unit per feed.
+        if (kind == "O") {
             owned.clear();
             owned.reserve(nb::len(obj));
-            for (nb::handle e : obj) owned.push_back(py_index(e));
+            TimeUnit unit;
+            for (nb::handle e : obj) owned.push_back(py_index(e, &unit));
             keep = nb::borrow(obj);
             return owned.data();
         }
@@ -481,6 +497,7 @@ void init_bindings_dag(nb::module_& m) {
         nb::object asarray, float64;     // numpy, for the sequence path
         std::map<std::string, std::size_t, std::less<>> names;
         std::vector<double> scratch;     // the plain-sequence conversion buffer
+        std::vector<TimeUnit> units;     // per input, the unit of a time index
 
         PyLiveSession(nb::object cg, nb::list input_names)
             : cg_obj(std::move(cg)), pcg(&nb::cast<PyCompiledGraph&>(cg_obj)) {
@@ -489,6 +506,7 @@ void init_bindings_dag(nb::module_& m) {
             float64 = np.attr("float64");
             std::size_t i = 0;
             for (nb::handle h : input_names) names[nb::cast<std::string>(h)] = i++;
+            units.resize(i);
         }
 
         int traverse(visitproc visit, void* arg) const {
@@ -600,7 +618,13 @@ void init_bindings_dag(nb::module_& m) {
             if (nb::isinstance<nb::str>(kind) && nb::cast<std::string>(kind) == "c")
                 throw nb::type_error("a value must be a real number or a sequence of "
                                      "real numbers, got complex values");
-            InValues v = nb::cast<InValues>(asarray(arr, nb::arg("dtype") = float64));
+            nb::object f64;
+            try {
+                f64 = asarray(arr, nb::arg("dtype") = float64);
+            } catch (nb::python_error& e) {
+                rethrow_float_error(e);            // a non-numeric string is a TypeError
+            }
+            InValues v = nb::cast<InValues>(f64);
             if (v.ndim() == 0) {                   // a 0-d array is a scalar
                 pcg->cg->push_event(src, t, v.data()[0]);
                 return;
@@ -614,7 +638,8 @@ void init_bindings_dag(nb::module_& m) {
 
         void push(nb::handle input, nb::handle index, nb::handle value) {
             const std::size_t src = source(input);
-            const std::int64_t t = py_index(index);
+            // Each input keeps one time unit (py_index.h); the engine range-checks src.
+            const std::int64_t t = py_index(index, src < units.size() ? &units[src] : nullptr);
             PyObject* p = value.ptr();
             if (PyFloat_Check(p)) {                // float, np.float64
                 pcg->cg->push_event(src, t, PyFloat_AsDouble(p));
@@ -644,8 +669,11 @@ void init_bindings_dag(nb::module_& m) {
                 double d = PyFloat_AsDouble(p);    // via __float__
                 if (d == -1.0 && PyErr_Occurred()) {
                     PyErr_Clear();
-                    PyObject* f = PyNumber_Float(p);   // strings, with the usual message
-                    if (!f) throw nb::python_error();
+                    PyObject* f = PyNumber_Float(p);   // numeric strings
+                    if (!f) {
+                        nb::python_error e;
+                        rethrow_float_error(e);        // a non-numeric string is a TypeError
+                    }
                     d = PyFloat_AsDouble(f);
                     Py_DECREF(f);
                 }

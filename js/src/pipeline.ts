@@ -3,7 +3,7 @@ import { asNd, type NdArray } from "./ndarray.js";
 import { Node, isNode } from "./node.js";
 import { current } from "./index.js";
 import { normalizeError, wasmCall } from "./errors.js";
-import { feedValue, kindName, toF64Checked, whereText } from "./kinds.js";
+import { aKind, feedValue, kindName, toF64Checked, whereText } from "./kinds.js";
 import { releaseWith, type Owned } from "./runtime.js";
 
 // One bound feed for an Input: a values stream and its integer index axis.
@@ -260,6 +260,15 @@ class PipelineImpl implements Owned {
   }
 
   private normalizeFeeds(feeds: Feeds): Array<{ values: Float64Array; index: Float64Array }> {
+    // An array, a typed array (not a DataView) or an NdArray is a bare values feed.
+    const isValues = (v: unknown): boolean =>
+      v instanceof Float64Array || Array.isArray(v) ||
+      (ArrayBuffer.isView(v) && !(v instanceof DataView)) || asNd(v) !== null;
+    // A {values, index} object. A typed array's or Map's values() method is not one.
+    const isPair = (v: unknown): boolean =>
+      v !== null && typeof v === "object" && !(v instanceof Map) && "values" in (v as any) &&
+      typeof (v as any).values !== "function";
+    const expected = "expected an array of numbers, a typed array, an NdArray or {values, index}";
     // A non-number value or index raises TypeError naming its event and input.
     const one = (feed: Feed, k: number): { values: Float64Array; index: Float64Array } => {
       let values: Float64Array;
@@ -275,18 +284,22 @@ class PipelineImpl implements Owned {
           rows = nd.shape[0];
           return nd.data;
         }
+        if (v instanceof BigInt64Array || v instanceof BigUint64Array)
+          throw new TypeError(`Pipeline: the values of input ${k} are ${aKind(v)}; values must be numbers (Float64Array.from(x, Number) converts them)`);
         if (v instanceof Float64Array || Array.isArray(v) || (ArrayBuffer.isView(v) && !(v instanceof DataView))) {
           const out = toF64Checked(v as ArrayLike<unknown>, "Pipeline", at, true);
           rows = out.length;
           return out;
         }
-        throw new TypeError(`Pipeline: the values of input ${k} are a ${kindName(v)}, expected an array, a typed array or an NdArray`);
+        throw new TypeError(`Pipeline: the values of input ${k} are ${aKind(v)}, expected an array, a typed array or an NdArray`);
       };
-      if (feed instanceof Float64Array || Array.isArray(feed) || asNd(feed)) {
+      if (isValues(feed)) {
         values = read(feed);
-      } else {
+      } else if (isPair(feed)) {
         values = read((feed as any).values);
         if ((feed as any).index !== undefined) index = indexArray(this.M, (feed as any).index);
+      } else {
+        throw new TypeError(`Pipeline: the feed for input '${this.names[k]}' is ${aKind(feed)}, ${expected}`);
       }
       if (index) {
         if (asNd((feed as any).values ?? feed) && index.length !== rows!)
@@ -298,14 +311,14 @@ class PipelineImpl implements Owned {
       return { values, index };
     };
 
-    const bare = feeds instanceof Float64Array || Array.isArray(feeds) || asNd(feeds) !== null ||
-      (feeds != null && typeof feeds === "object" && "values" in (feeds as any));
-    if (bare) {
+    if (isValues(feeds) || isPair(feeds)) {
       if (this.inputs.length !== 1) {
         throw new Error(`this pipeline has ${this.inputs.length} inputs; pass an object keyed by input name`);
       }
       return [one(feeds as Feed, 0)];
     }
+    if (feeds === null || typeof feeds !== "object" || feeds instanceof Map)
+      throw new TypeError(`Pipeline: the feeds are ${aKind(feeds)}, ${expected}, or an object keyed by input name`);
     const obj = feeds as Record<string, Feed>;
     return this.names.map((name, k) => {
       if (!(name in obj)) throw new Error(`missing feed for input '${name}'`);

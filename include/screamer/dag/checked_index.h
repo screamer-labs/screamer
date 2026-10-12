@@ -26,6 +26,12 @@ struct IndexTypeError : std::invalid_argument {
                          "streaming engine is int64-indexed");
 }
 
+// A missing time (NumPy's NaT), which is NaN-like.
+[[noreturn]] inline void throw_index_nat() {
+    throw IndexTypeError("index must be finite, got NaT; the streaming engine "
+                         "is int64-indexed");
+}
+
 // The error for a double that checked_index() refused.
 [[noreturn]] inline void throw_bad_index(double d) {
     if (std::isnan(d))

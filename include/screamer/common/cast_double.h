@@ -207,6 +207,22 @@ inline std::string shape_text(nb::handle x) {
         ", expected " + expected).c_str());
 }
 
+// A float64 conversion (float(), NumPy's astype) failed with `e`. When it is a
+// string that does not read as a number, that is a wrong kind: TypeError, with
+// the conversion's own text (G13). Any other error is raised as it is. Error
+// path only.
+[[noreturn]] inline void rethrow_float_error(nb::python_error& e) {
+    if (e.matches(PyExc_ValueError)) {
+        nb::str text = nb::str(e.value());
+        const char* c = text.c_str();
+        static constexpr char kStr[] = "could not convert string to float";
+        if (c && std::strncmp(c, kStr, sizeof(kStr) - 1) == 0)
+            throw nb::type_error((std::string("a value must be a number; ") + c).c_str());
+        if (!c) PyErr_Clear();
+    }
+    throw e;
+}
+
 // An element that should be a number is not one: a TypeError naming the first
 // wrong-kind element inside it, or, when it holds only numbers, a ValueError
 // giving its shape.

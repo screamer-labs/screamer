@@ -165,7 +165,11 @@ inline bool is_unsupported_dtype_array(nb::handle h) {
 // them, so they stay on the normal path where load_elem raises.)
 inline nb::object coerce_to_f64(nb::handle h) {
     nb::module_ np = nb::module_::import_("numpy");
-    return np.attr("ascontiguousarray")(h, nb::arg("dtype") = np.attr("float64"));
+    try {
+        return np.attr("ascontiguousarray")(h, nb::arg("dtype") = np.attr("float64"));
+    } catch (nb::python_error& e) {
+        rethrow_float_error(e);   // a non-numeric string is a TypeError
+    }
 }
 
 // Coerce a single dispatch input: if it is an unsupported-dtype array, return

@@ -89,12 +89,10 @@ def _index_array(idx):
     The C++ engine checks every element in its int64 cast loop: an index must be
     finite, whole and inside the int64 range, and an array of bool, str, object or
     complex values is a TypeError. A datetime64 or timedelta64 index is read as
-    its int64 ticks.
+    its int64 ticks, and NaT raises TypeError.
     """
     arr = np.ascontiguousarray(idx)
-    if arr.dtype.kind in "Mm":
-        arr = arr.view(np.int64)
-    elif not arr.dtype.isnative:
+    if not arr.dtype.isnative:
         arr = arr.astype(arr.dtype.newbyteorder("="))
     return arr
 
@@ -108,7 +106,34 @@ def _float_values(values):
     if getattr(arr.dtype, "kind", None) == "c":
         raise TypeError("a value must be a real number or a sequence of real "
                         "numbers, got complex values")
-    return np.ascontiguousarray(arr, dtype=np.float64)
+    try:
+        return np.ascontiguousarray(arr, dtype=np.float64)
+    except ValueError as e:
+        _raise_if_string(e)
+        raise
+
+
+def _raise_if_string(e):
+    """A float64 conversion failed with ValueError `e`. When a string did not read
+    as a number, raise TypeError (a wrong kind) with the conversion's own text, as
+    the C++ binding does (rethrow_float_error). Otherwise return."""
+    if str(e).startswith("could not convert string to float"):
+        raise TypeError(f"a value must be a number; {e}") from None
+
+
+def _numeric_values(fn):
+    """Decorate an eager stream function: a value given as a string that does not
+    read as a number raises TypeError, not NumPy's ValueError."""
+    import functools
+
+    @functools.wraps(fn)
+    def wrapper(*args, **kwargs):
+        try:
+            return fn(*args, **kwargs)
+        except ValueError as e:
+            _raise_if_string(e)
+            raise
+    return wrapper
 
 
 def _is_vi_pair(x):
