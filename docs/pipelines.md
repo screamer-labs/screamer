@@ -81,13 +81,21 @@ event by event, `pipe.live()` opens a session:
   event such as an OHLC bar: `live.push("bars", 0, [100.0, 102.0, 99.5, 101.5])`.
   The first event of an input fixes its width (a number is width 1), and a later
   event of another width raises `ValueError` (`RangeError` in JavaScript) until
-  a new `live()` session starts. Inside a sequence, `None` is `NaN`;
+  a new `live()` session starts. Inside a sequence, `None` is `NaN`. The index
+  is an integer, or a float with a whole value, inside the int64 range; any
+  other index raises `TypeError`;
 - `.advance(now)` moves logical time to `now`, closing every window whose boundary
   has passed (this finalizes time-based bars even when no new data arrives, such as
   an empty minute bar closed by a clock tick);
 - `.flush()` finalizes the current partial window on demand, for example at the end
   of a loop;
 - `.result()` collects the aligned output so far.
+
+An event that a node cannot take raises before any node sees it, and the session
+continues as if it had not been sent. A few rejections can only happen after part
+of the graph took the event, such as a `CombineLatest` buffer that overflows
+because one input stalled. Then every later call, `.result()` included, raises
+until a new `live()` session starts.
 
 Feeding the same events and calling `.flush()` reproduces the batch result.
 `.advance()` (and a clock input wired into the pipeline) additionally let a windowing

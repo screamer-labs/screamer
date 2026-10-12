@@ -17,6 +17,7 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
   in JavaScript). An empty or 2-D value, or a nested sequence, also raises
   (`ValueError` / `RangeError`). Inside a sequence, `None` (`null`) is `NaN`.
   A bare `None` is now `NaN` in Python, as it already was in JavaScript.
+  A numeric Python `memoryview` is one multi-column event, as an array is.
   Python's `push` is now a C++ method and about 3x faster.
 * **Walk-forward evaluation:** `walk_forward` (Python) and `walkForward`
   (JavaScript) take a `(T, K)` array of strategy variants, pick the best
@@ -76,26 +77,51 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
 
 ### Changed
 
-* One index rule, owned by the C++ engine: an index must be finite, whole and
-  inside the int64 range, or `TypeError` ("index must be integer-valued ...")
-  is raised, in Python's `live().push()` and batch calls and in JavaScript's
-  `live().push()`, `pushWide()`, `advance()` and batch calls. 2.8.0 truncated
-  it in JavaScript (`1.5` gave 1, `NaN` gave 0, `2**63` saturated) and in
-  Python's `push` (`int(index)`). A Python index must be a real number: a
-  `str`, `bytes`, `Decimal` or `Fraction` index, which `int()` accepted in
-  2.8.0, now raises `TypeError`. To get the old result, pass `int(index)`
-  (Python) or `Math.trunc(index)` (JavaScript).
-* Python `live().push()` raises `TypeError` for a `memoryview` value, as for
-  `bytes` and `bytearray`.
-* A live session checks the whole graph against an input's width when its
-  first event arrives, before any operator sees it. A width that an operator or
-  `select` cannot take raises with nothing pushed, and the session behaves as
-  if the event had not been sent. A rejection that only an operator can decide
-  later (for example a stalled `combine_latest` buffer) makes the session
-  refuse further events until `reset()` or a new `live()`. `Pipeline` batch
-  calls run the same check before feeding. The error is `ValueError` (JavaScript
-  `RangeError`) with a message such as "select needs column 5, but its input has
-  2 column(s)"; 2.8.0 raised `RuntimeError` from inside the graph.
+* One index rule, owned by the C++ engine, at every `Pipeline` entry point:
+  Python `live().push()`, `advance()`, batch calls and iterator feeds, and
+  JavaScript `live().push()`, `pushWide()`, `advance()` and batch calls. An
+  index is a number that is finite, whole and inside the int64 range; anything
+  else raises `TypeError`, whose message names the problem ("index must be a
+  number", "index must be finite", "index must be integer-valued", "index is
+  outside the int64 range"). Python takes `int`, `float` and NumPy integer and
+  floating scalars and arrays (a datetime64 or timedelta64 array is read as its
+  int64 ticks, as before); JavaScript takes `number` and `Float64Array`. What
+  2.8.0 did, and how to get it:
+  * JavaScript truncated a number (`1.5` gave 1, `NaN` gave 0, `2**63`
+    saturated) and converted any other value with `Number()` (`"5"` gave 5,
+    `null` 0, `true` 1, an object its `valueOf()`). Pass `Math.trunc(Number(index))`.
+  * Python `live().push()` and `advance()` truncated with `int(index)`, so
+    `1.5`, `"5"`, `b"6"`, `True`, `Decimal` and `Fraction` indices were
+    accepted. Pass `int(index)`.
+  * Python batch calls saturated a float index of `2**63` or more to
+    `2**63 - 1`, wrapped a `uint64` index of `2**63` or more to a negative one,
+    and read `str`, `bool`, `Decimal` and other object index arrays through
+    `int()`. Pass `np.asarray(index).astype(np.int64)`.
+* Python `live().push()` raises `TypeError` for a `memoryview` over `bytes` or
+  `bytearray` (or of format `"c"`); 2.8.0 read `memoryview(b"12")` as 12.0.
+  Pass `float(value)` for the old result. A numeric `memoryview` is one
+  multi-column event (2.8.0 raised `ValueError`).
+* A complex value raises `TypeError` in `live().push()` (a number, a NumPy
+  complex scalar, or a sequence or array holding one) and in a `Pipeline`
+  batch feed, as operators do; 2.8.0 dropped the imaginary part of a NumPy
+  complex value with a `ComplexWarning`. Pass `np.real(value)` for the old
+  result. An object array
+  is read as before.
+* A `Pipeline` checks the whole graph against an input's width, before any
+  operator sees an event: a live session when the input's first event
+  arrives, a batch call before feeding. A width that a node cannot take raises
+  with nothing pushed, and a live session behaves as if the event had not been
+  sent. The check covers operators (each input of an operator must carry the
+  operator's columns; to join streams into one row, use `CombineLatest`),
+  `select` columns, and `resample` widths (a cumulative resample, a reducer,
+  the fixed plans of `ohlc_bars`, `ohlcv` and `ohlcv2`, `ohlcv_bars` and
+  `max_age`). The error is `ValueError` (JavaScript `RangeError`) with a
+  message such as "select needs column 5, but its input has 2 column(s)";
+  2.8.0 raised `RuntimeError` from inside the graph, after earlier nodes had
+  taken the event. A rejection that only a node can decide later (for example
+  a stalled `combine_latest` buffer) poisons the session: `push`, `advance`,
+  `flush` and `result()` raise until `reset()` or a new `live()`, so no row
+  that the rejected event produced is returned.
 * Python `live().push()` raises `TypeError` for a `bytes` or `bytearray` value;
   2.8.0 read `b"12"` as 12.0. Pass `float(value)` for the old result.
 * A list of rows passed to a row operator (`CrossRank()([r1, r2])`) returns a list of result rows, following rule 3; 2.8.0 returned an array. To get the array, pass `np.vstack(rows)`. A tuple of rows and a matrix still return an array. A mix of lists and arrays (for example a list target with an ndarray of prices) returns an array. The JavaScript row operators follow the same rule: an `Array` of rows gives an `Array` of `Float64Array` rows, and an `NdArray` gives an `NdArray`. To get the old `NdArray` from an array of rows in JavaScript, pass `{ data, shape: [T, K] }`.
@@ -247,10 +273,10 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
   series as a 2.8.0 Python stream did, and `[op(x) for x in values]` (or
   `op(*event)` for events of several inputs) does the same for a list.
 * A value of the wrong kind inside a list, tuple stream or iterator raises `TypeError` that names its type and position; before, it raised `RuntimeError: std::bad_cast`. For example, `RollingMean(2)([1.0, None])` raises `TypeError: RollingMean: event 1 is a NoneType, expected a number`. An element that holds only numbers but is not one number, such as `[1.0, 2.0]` in `RollingMean(2)([1.0, [1.0, 2.0]])`, raises `ValueError: RollingMean: event 1 has shape (2,), expected a number` on the list, iterator and async paths alike (a list raised `RuntimeError: std::bad_cast`; an iterator raised `ValueError` with "every event must have the same shape").
-* JavaScript: the same cases throw `TypeError` (wrong kind) or `RangeError` (wrong shape) with the same messages. Before, a list of events or an iterator item of the wrong kind threw `RangeError`, and other wrong-kind list elements threw `TypeError` without the position. A `Pipeline` feed, index or `live().push()` / `pushWide()` value that is a function, or an object that does not convert to a number (for example `{}`), throws `TypeError`; before, it was converted with `Number()` (`{}` and functions gave `NaN`). Numbers, numeric strings, booleans, `undefined` and `Date` values convert as before, and so does a `null` index; a `null` value is now `NaN` (see below).
+* JavaScript: the same cases throw `TypeError` (wrong kind) or `RangeError` (wrong shape) with the same messages. Before, a list of events or an iterator item of the wrong kind threw `RangeError`, and other wrong-kind list elements threw `TypeError` without the position. A `Pipeline` feed, index or `live().push()` / `pushWide()` value that is a function, or an object that does not convert to a number (for example `{}`), throws `TypeError`; before, it was converted with `Number()` (`{}` and functions gave `NaN`). Numbers, numeric strings, booleans, `undefined` and `Date` values convert as before; a `null` value is now `NaN` (see below). An index follows the index rule above: it must be a number.
 * `PortfolioReport` given a list of `(K, 4)` engine rows returns a list of `(6,)` result rows, following rule 3; 2.8.0 returned a `(T, 6)` array. To get the array, pass `np.stack(rows)` or a tuple of rows. A tuple of rows and an array still return an array. In JavaScript an `Array` of rows (nested arrays or `[K, 4]` `NdArray` events) gives an `Array` of `Float64Array` rows; to get the old `NdArray`, pass `{ data, shape: [T, K, 4] }`.
 * A multi-input operator given a mix of lists and arrays returns an array, in either argument order: `RollingCorr(5)(x_list, y_array)` returned a list and `RollingCorr(5)(y_array, x_list)` raised `TypeError`; both now return the array that two arrays give. To get the old list, pass lists for every input (`list(y_array)`), or call `.tolist()` on the result. A list among arrays reads as a 1-D array of its length and broadcasts over the asset axes of the other inputs; lengths that differ still raise `ValueError`. All lists still return a list. JavaScript already returned an array for these mixes.
-* JavaScript: a `null` value in a `Pipeline` feed, `live().push()` or `pushWide()` is a missing value, `NaN`, as Python's `None` is; before, it was 0. To get the old value, replace `null` with 0 before the call. An index keeps its conversion (`null` is 0). A `null` inside an operator's `number[]` input still throws `TypeError`, as `None` does in Python.
+* JavaScript: a `null` value in a `Pipeline` feed, `live().push()` or `pushWide()` is a missing value, `NaN`, as Python's `None` is; before, it was 0. To get the old value, replace `null` with 0 before the call. A `null` index raises `TypeError` (the index rule above). A `null` inside an operator's `number[]` input still throws `TypeError`, as `None` does in Python.
 * JavaScript: an `Array` of events into an operator returns an `Array` with one result per event, as a Python list does. `Add()([[1, 2], [3, 4]])` returns `[3, 7]` (was a `Float64Array`), and an `Array` of `[K, N]` `NdArray` events returns an `Array` of per-event results (was one `NdArray`). An `Array` of `Float64Array` or `NdArray` asset events into a one-input operator, `RollingMean(2)([a, b])`, is a sequence of events and returns an `Array` of per-event arrays; before, it threw `RangeError`. To get the old container, pass the columns or one packed `NdArray`: `Add()(Float64Array.from(evs, (e) => e[0]), Float64Array.from(evs, (e) => e[1]))`. Likewise, a multi-input operator given only `number[]` inputs returns an `Array` (an `Array` of `number[]` for a multi-output operator), as Python lists give a list: `Add()([1, 2], [3, 4])` returns `[4, 6]` (was a `Float64Array`). To get the old result, pass `Float64Array` inputs (`Float64Array.from(x)`); one `Float64Array` or `NdArray` among the inputs is enough.
 
 * `RollingZscore` follows `start_policy` as `RollingMean` and `RollingStd`
@@ -266,6 +292,17 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
 
 ### Fixed
 
+* A reused `Pipeline` or a new `live()` session forgets the plan a `resample`
+  node learned from the previous stream's width. Before, a clock resample fed
+  2 columns and then 3 dropped a column (3 then 2 padded with `NaN`), and an
+  `ohlcv_bars` resample fed 5 columns and then 6 raised for the life of the
+  `Pipeline`, in Python and JavaScript.
+* A clock resample (`clock=True`) of a multi-column value stream with
+  `agg="ohlc"` wrote past its output row; it now gives (open, high, low, close)
+  per column. With `agg="ohlcv_bars"` it crashed; it now builds the bars. A
+  fixed-plan agg (`ohlc_bars`, `ohlcv`, `ohlcv2`) given the wrong number of
+  columns silently dropped or padded columns; it now raises `ValueError`
+  (`RangeError` in JavaScript).
 * JavaScript: events of different widths on one input of a live session (a
   number then a sequence, or sequences of different lengths, in either order,
   through `push` and `pushWide`) read past the end of the output buffer or

@@ -232,8 +232,9 @@ def test_live_index_kinds_and_bytes():
     live.push("x", np.float32(1.0), 1.0)
     live.push("x", np.float64(2.0), 2.0)
     live.push("x", np.int16(3), 3.0)
-    for bad in (float("nan"), np.float32(1.5), float("inf")):
-        with pytest.raises(TypeError, match="integer-valued"):
+    for bad, msg in ((float("nan"), "finite"), (np.float32(1.5), "integer-valued"),
+                     (float("inf"), "finite")):
+        with pytest.raises(TypeError, match=msg):
             live.push("x", bad, 1.0)
     for bad in (b"12", bytearray(b"12")):
         with pytest.raises(TypeError, match="bytes"):
@@ -344,29 +345,247 @@ def test_live_a_rejection_after_part_of_the_graph_took_the_event_needs_reset():
     cg.push_event(1, 0, 1.0)
 
 
-def test_live_index_must_be_a_real_number():
-    import pytest
-    from decimal import Decimal
-    from fractions import Fraction
-    import screamer.screamer_bindings as _b
-    p, live = _identity_live()
-    for bad in ("5", b"6", Decimal(7), Fraction(8), float("inf"), 2.0**63, 1e300, float("nan")):
-        with pytest.raises(TypeError):
-            live.push("x", bad, 1.0)
-    with pytest.raises(TypeError, match="integer-valued"):
-        _b._checked_index(1.5)
-    with pytest.raises(TypeError, match="integer-valued"):
-        p((np.array([1.0, 2.0]), np.array([0.0, np.nan])))
-    live.push("x", 0, 1.0)
-    assert len(live.result()[1]) == 1
-
-
-def test_live_memoryview_and_bytes_like_values_raise():
+def test_live_bytes_like_values_raise():
     import pytest
     p, live = _identity_live()
-    for bad in (b"12", bytearray(b"12"), memoryview(b"12")):
+    for bad in (b"12", bytearray(b"12"), memoryview(b"12"), memoryview(bytearray(b"12")),
+                memoryview(b"12").cast("c")):
         with pytest.raises(TypeError):
             live.push("x", 0, bad)
+
+
+def test_live_numeric_memoryview_is_a_wide_event():
+    import array
+    p, live = _identity_live()
+    live.push("x", 0, memoryview(np.array([1.0, 2.0])))
+    live.push("x", 1, memoryview(array.array("i", [3, 4])))
+    live.push("x", 2, memoryview(np.array([5, 6], dtype=np.uint8)))
+    np.testing.assert_array_equal(live.result()[0], [[1, 2], [3, 4], [5, 6]])
+
+
+def test_live_misaligned_buffers_read_correctly():
+    p, live = _identity_live()
+    raw = bytearray(8 * 3 + 1)
+    d = np.frombuffer(raw, dtype=np.float64, count=3, offset=1)
+    d[:] = [1.5, 2.5, 3.5]
+    i = np.frombuffer(bytearray(4 * 3 + 1), dtype=np.int32, count=3, offset=1)
+    i[:] = [7, 8, 9]
+    assert not d.flags.aligned and not i.flags.aligned
+    live.push("x", 0, d)
+    live.push("x", 1, i)
+    np.testing.assert_array_equal(live.result()[0], [[1.5, 2.5, 3.5], [7, 8, 9]])
+
+
+# --- the index rule (checked_index.h): every Python entry point -------------
+
+_BAD_INDEX = [
+    ("5", "must be a number"), (None, "must be a number"), (True, "must be a number"),
+    (np.bool_(True), "must be a number"), (b"6", "must be a number"),
+    ("decimal", "must be a number"), ("fraction", "must be a number"),
+    (1.5, "integer-valued"), (np.float32(2.5), "integer-valued"),
+    (float("nan"), "finite"), (float("inf"), "finite"), (-float("inf"), "finite"),
+    (2**63, "int64 range"), (2.0**63, "int64 range"), (1e300, "int64 range"),
+    (np.uint64(2**63), "int64 range"), (-2**63 - 1, "int64 range"),
+]
+
+
+def _bad_index(v):
+    from decimal import Decimal
+    from fractions import Fraction
+    return {"decimal": Decimal(5), "fraction": Fraction(5)}.get(v, v) if isinstance(v, str) else v
+
+
+def test_index_rule_live_push_and_advance():
+    import pytest
+    from screamer import Input, Pipeline, Resample
+    a = Input("x")
+    p = Pipeline([a], [Resample(every=2, agg="last")(a)])
+    for bad, msg in _BAD_INDEX:
+        live = p.live()
+        with pytest.raises(TypeError, match=msg):
+            live.push("x", _bad_index(bad), 1.0)
+        with pytest.raises(TypeError, match=msg):
+            live.advance(_bad_index(bad))
+    live = p.live()
+    for k in (0, 1.0, np.int64(2), np.uint64(3), np.float32(4.0), 2**63 - 1):
+        live.push("x", k, 1.0)
+    live.advance(np.int32(5))
+    live.advance(2.0**62)
+
+
+def test_index_rule_batch():
+    import pytest
+    from decimal import Decimal
+    from screamer import Input, Pipeline
+    a = Input("x")
+    p = Pipeline([a], [a])
+    v = np.array([1.0, 2.0])
+    for idx, msg in [
+        (np.array([0.0, 1.5]), "integer-valued"),
+        (np.array([0.0, np.nan]), "finite"),
+        (np.array([0.0, np.inf]), "finite"),
+        (np.array([0.0, 2.0**63]), "int64 range"),
+        (np.array([0, 2**63], dtype=np.uint64), "int64 range"),
+        ([0, 2**63], "int64 range"),
+        (np.array([True, False]), "must be a number"),
+        (["0", "1"], "must be a number"),
+        ([Decimal(0), Decimal(1)], "must be a number"),
+        ([0, None], "must be a number"),
+        (np.array([0, 1j]), "must be a number"),
+    ]:
+        with pytest.raises(TypeError, match=msg):
+            p((v, idx))
+    for idx in (np.array([0, 1]), np.array([0.0, 1.0]), np.array([0, 1], dtype=np.uint64),
+                np.array([0, 1], dtype=np.int8), np.array([0.0, 1.0], dtype=np.float32),
+                np.array([0.0, 1.0], dtype=np.float16), [0, 1], np.array([0, 9, 1])[::2]):
+        np.testing.assert_array_equal(p((v, idx))[1], [0, 1])
+    t = np.array(["2020-01-01", "2020-01-02"], dtype="datetime64[ns]")
+    np.testing.assert_array_equal(p((v, t))[1], t.view(np.int64))
+
+
+def test_index_rule_lazy_feed():
+    import pytest
+    from screamer import Input, Pipeline
+    a = Input("x")
+    p = Pipeline([a], [a])
+    for bad, msg in [(1.5, "integer-valued"), (float("nan"), "finite"), (2.0**63, "int64 range")]:
+        with pytest.raises(TypeError, match=msg):
+            list(p(iter([(1.0, 0), (2.0, bad)])))
+
+
+# --- complex values ----------------------------------------------------------
+
+def test_complex_values_raise_in_live_push_and_batch():
+    import pytest
+    p, live = _identity_live()
+    for bad in (1j, np.complex128(1), np.complex64(1), np.clongdouble(1), [1j, 2.0],
+                [np.complex128(1), 2.0], np.array([1 + 0j, 2]), np.array(1 + 0j)):
+        with pytest.raises(TypeError, match="complex"):
+            live.push("x", 0, bad)
+    with pytest.raises(TypeError, match="complex"):
+        p(np.array([1 + 0j, 2]))
+    with pytest.raises(TypeError, match="complex"):
+        p((np.array([[1 + 0j, 2]]), np.array([0])))
+    # object arrays keep the operators' behavior
+    np.testing.assert_array_equal(p(np.array([1, 2], dtype=object))[0], [1.0, 2.0])
+
+
+# --- a functor fed by several nodes --------------------------------------------
+
+def test_functor_inputs_must_each_carry_its_columns():
+    import pytest
+    from screamer import Input, Pipeline, Select, Sub, RollingCorr
+    a, b = Input("a"), Input("b")
+    p = Pipeline([a], [Sub()(Select(columns=[0])(a), Select(columns=[1])(a))])
+    with pytest.raises(ValueError, match="CombineLatest"):
+        p(np.ones((4, 2)))
+    with pytest.raises(ValueError, match="CombineLatest"):
+        p.live().push("a", 0, [1.0, 2.0])
+    # Two producers that each carry the operator's columns run (interleaved).
+    q = Pipeline([a, b], [RollingCorr(3)(a, b)])
+    x = np.arange(12.0).reshape(6, 2)
+    assert len(q(x, x + 100)[0]) == 12
+
+
+# --- learned resample plans are forgotten on reset ---------------------------
+
+def _clock_and_bars():
+    from screamer import Input, Pipeline, Resample
+    x, c = Input("x"), Input("c")
+    return Pipeline([x, c], [Resample(x, c, clock=True, agg="last"),
+                             Resample(every=100, agg="ohlcv_bars")(x)],
+                    align_outputs=False)
+
+
+def _bars(width, n=12):
+    v = np.arange(float(n * width)).reshape(n, width)
+    return (v, np.arange(n)), (np.ones(4), np.array([2, 5, 8, 11]))
+
+
+def _same(a, b):
+    for (av, ak), (bv, bk) in zip(a, b):
+        np.testing.assert_array_equal(av, bv)
+        np.testing.assert_array_equal(ak, bk)
+
+
+def test_reused_pipeline_forgets_learned_resample_plans():
+    p = _clock_and_bars()
+    for widths in ((5, 6), (6, 5), (5, 4)):
+        for w in widths:
+            _same(p(*_bars(w)), _clock_and_bars()(*_bars(w)))
+
+
+def test_live_after_a_rejected_event_equals_a_fresh_session():
+    import pytest
+    p = _clock_and_bars()
+    live = p.live()
+    with pytest.raises(ValueError, match="ohlcv_bars"):
+        live.push("x", 0, [1.0, 2.0])          # rejected before any node sees it
+    for width in (4, 6, 5):
+        (v, k), (cv, ck) = _bars(width)
+        live = p.live()
+        for row, i in zip(v, k):
+            live.push("x", int(i), row)
+            if i in ck:
+                live.push("c", int(i), 1.0)
+        live.flush()
+        _same(live.result(), _clock_and_bars()(*_bars(width)))
+
+
+def test_live_rejected_fixed_plan_width_does_not_poison():
+    import pytest
+    from screamer import Input, Pipeline, Resample
+    a = Input("a")
+    p = Pipeline([a], [Resample(every=2, agg="ohlcv")(a)])
+    live = p.live()
+    for bad in ([1.0, 2.0, 3.0], 1.0):
+        with pytest.raises(ValueError, match="plan takes 2"):
+            live.push("a", 0, bad)
+    x = np.arange(12.0).reshape(6, 2)
+    for k, row in enumerate(x):
+        live.push("a", k, row)
+    live.flush()
+    _same([live.result()], [p(x)])
+
+
+def test_clock_resample_of_wide_values():
+    import pytest
+    from screamer import Input, Pipeline, Resample
+    x, c = Input("x"), Input("c")
+    (v, k), clk = _bars(3)
+    ohlc = Pipeline([x, c], [Resample(x, c, clock=True, agg="ohlc")])(( v, k), clk)[0]
+    first = Pipeline([x, c], [Resample(x, c, clock=True, agg="first")])((v, k), clk)[0]
+    last = Pipeline([x, c], [Resample(x, c, clock=True, agg="last")])((v, k), clk)[0]
+    assert ohlc.shape == (4, 12)
+    np.testing.assert_array_equal(ohlc[:, 0::4], first)
+    np.testing.assert_array_equal(ohlc[:, 3::4], last)
+    (v5, k5), clk5 = _bars(5)
+    bars = Pipeline([x, c], [Resample(x, c, clock=True, agg="ohlcv_bars")])((v5, k5), clk5)[0]
+    assert bars.shape == (4, 5)
+    with pytest.raises(ValueError, match="plan takes 2"):
+        Pipeline([x, c], [Resample(x, c, clock=True, agg="ohlcv")])((v, k), clk)
+
+
+# --- a poisoned session -------------------------------------------------------
+
+def test_poisoned_session_result_raises_until_reset():
+    import pytest
+    from screamer import Input, Pipeline, CombineLatest
+    a, b = Input("a"), Input("b")
+    p = Pipeline([a, b], [CombineLatest()(a, b)], max_pending=2)
+    live = p.live()
+    with pytest.raises(RuntimeError, match="buffer overflow"):
+        for k in range(5):
+            live.push("a", k, 1.0)
+    for call in (live.result, live.flush, lambda: live.advance(9),
+                 lambda: live.push("b", 0, 1.0)):
+        with pytest.raises(RuntimeError, match="reset"):
+            call()
+    live = p.live()
+    live.push("a", 0, 1.0)
+    live.push("b", 0, 2.0)
+    live.flush()
+    np.testing.assert_array_equal(live.result()[0], [[1.0, 2.0]])
 
 
 def test_live_wide_arrays_of_other_dtypes():

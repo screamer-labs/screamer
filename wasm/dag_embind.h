@@ -20,6 +20,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <memory>
+#include <string>
 #include <vector>
 
 #include "embind_runtime.h"
@@ -67,6 +68,11 @@ inline OutBufFlat marshal_flat_at(const std::vector<screamer::dag::OutputBuffer>
     if (outIdx >= outs.size()) return OutBufFlat{};
     return marshal_flat(outs[outIdx]);
 }
+
+// The engine's kind error for an index that is not a number; `kind` names its
+// type. JavaScript calls it only on that error path, so the message has one
+// source (checked_index.h).
+inline void throwIndexKind(std::string kind) { screamer::dag::throw_index_kind(kind); }
 
 // Wraps a compiled graph (non-copyable engine type held by unique_ptr).
 class CompiledGraphWrap {
@@ -264,6 +270,7 @@ private:
 // Register the DAG classes, the VectorSizeT vector, and the flat output value
 // object. Call inside EMSCRIPTEN_BINDINGS(screamer_dag).
 #define SCREAMER_REGISTER_DAG()                                                 \
+    emscripten::function("throwIndexKind", &screamer_wasm::throwIndexKind);     \
     emscripten::register_vector<std::size_t>("VectorSizeT");                    \
     emscripten::value_object<screamer_wasm::OutBufFlat>("OutBufFlat")           \
         .field("indexPtr", &screamer_wasm::OutBufFlat::indexPtr)               \

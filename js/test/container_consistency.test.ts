@@ -126,9 +126,11 @@ test("A9: a null value in a Pipeline feed is NaN", async () => {
   eq(oy.values, [NaN, 2], "keyed values feed");
 });
 
-test("A9: a null index keeps its coercion", async () => {
+test("A9: a null index is a TypeError, as None is in Python", async () => {
   await api.ready();
-  assert.deepEqual(Array.from(pipe()({ values: [1, 2], index: [null, 1] }).index), [0, 1]);
+  assert.throws(() => pipe()({ values: [1, 2], index: [null, 1] }),
+    (e: unknown) => e instanceof TypeError && /must be a number.*null/.test((e as Error).message));
+  assert.throws(() => pipe().live().push("a", null as any, 1), TypeError);
 });
 
 test("A9: live push and pushWide read a null value as NaN", async () => {

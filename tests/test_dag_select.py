@@ -66,7 +66,7 @@ def test_select_out_of_range_errors_batch_and_stream():
     # The graph is checked against the input widths before any event is fed.
     with pytest.raises(ValueError, match="select needs column 5"):
         dag((av, ak), (bv, bk))
-    with pytest.raises((ValueError, RuntimeError), match="column 5|out of range"):
+    with pytest.raises(ValueError, match="select needs column 5"):
         _lazy_batch(dag, (av, ak), (bv, bk))
 
 

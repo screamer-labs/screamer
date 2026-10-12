@@ -121,7 +121,7 @@ test("C4: a list of N-element lists and of (K, N) NdArray events reads as events
     ["report list", () => a.PortfolioReport()([[1, 2, 3, 4], [1, 2, 3, new M()]]), "PortfolioReport: item [1][3] is a M"],
     ["report iterator", () => [...a.PortfolioReport()(it([[1, 2, 3, 4], [1, 2, 3, new M()]]))], "PortfolioReport: item [3] of event 1 is a M"],
     ["pipeline feed", () => pipe()([1, new M()]), "Pipeline: event 1 of input 0 is a M"],
-    ["pipeline index", () => pipe()({ values: [1, 2], index: [0, new M()] }), "Pipeline: the index of event 1 of input 0 is a M"],
+    ["pipeline index", () => pipe()({ values: [1, 2], index: [0, new M()] }), "index must be a number (an integer, or a float with a whole value), got M"],
     ["pipeline live push", () => pipe().live().push("a", 0, new M()), "Pipeline: the value pushed to input 0 is a M"],
   ];
   for (const [name, call, text] of cases)
@@ -199,8 +199,9 @@ test("C4: a list of N-element lists and of (K, N) NdArray events reads as events
     // A null value is a missing value, NaN (A9); the other primitives keep ToNumber.
     const out = pipe()([1, "3", true, undefined, null, new Date(5)] as any);
     assert.deepEqual(Array.from(out.values as Float64Array), [1, 3, 1, NaN, NaN, 5]);
-    const idx = pipe()({ values: [1, 2, 3], index: [0, "1", true] } as any);
-    assert.deepEqual(Array.from(idx.index), [0, 1, 1]);
+    // An index must be a number: a string or boolean is a TypeError.
+    for (const bad of ["1", true])
+      assert.throws(() => pipe()({ values: [1, 2], index: [0, bad] } as any), TypeError);
     for (const [v, want] of [["3", 3], [true, 1], [null, NaN], [undefined, NaN], [new Date(5), 5]] as [unknown, number][]) {
       const lv = pipe().live();
       lv.push("a", 0, v as any);

@@ -3,7 +3,7 @@ import { asNd, type NdArray } from "./ndarray.js";
 import { Node, isNode } from "./node.js";
 import { current } from "./index.js";
 import { normalizeError, wasmCall } from "./errors.js";
-import { feedNumber, feedValue, toF64Checked, whereText } from "./kinds.js";
+import { feedValue, kindName, toF64Checked, whereText } from "./kinds.js";
 import { releaseWith, type Owned } from "./runtime.js";
 
 // One bound feed for an Input: a values stream and its integer index axis.
@@ -31,6 +31,25 @@ function isSequence(v: object): boolean {
   if (ArrayBuffer.isView(v)) return !(v instanceof DataView);
   const a = v as any;
   return a.data instanceof Float64Array && Array.isArray(a.shape);
+}
+
+// An index that is not a number is a TypeError; the engine owns the message
+// (checked_index.h). A number goes to the engine's finite/whole/int64 rule.
+function badIndex(M: Screamer, index: unknown): never {
+  wasmCall(() => (M as any).throwIndexKind(kindName(index)));
+  throw new TypeError("index must be a number");   // not reached
+}
+
+// A batch index as a Float64Array of numbers; the engine checks each value in
+// its int64 cast loop.
+function indexArray(M: Screamer, x: Float64Array | ArrayLike<unknown>): Float64Array {
+  if (x instanceof Float64Array) return x;
+  const n = x.length, out = new Float64Array(n);
+  for (let i = 0; i < n; i++) {
+    const v = x[i];
+    out[i] = typeof v === "number" ? v : badIndex(M, v);
+  }
+  return out;
 }
 
 // Collect the Input nodes reachable from `outputs` (ports _reachable_inputs).
@@ -250,8 +269,7 @@ class PipelineImpl implements Owned {
         values = toF64Checked(feed, "Pipeline", at, true);
       } else {
         values = toF64Checked(feed.values, "Pipeline", at, true);
-        if (feed.index !== undefined)
-          index = toF64Checked(feed.index, "Pipeline", (i) => `the index of ${at(i)}`);
+        if (feed.index !== undefined) index = indexArray(this.M, feed.index);
       }
       if (!index) {
         index = new Float64Array(values.length);
@@ -369,7 +387,7 @@ class PipelineImpl implements Owned {
         if (nd.shape.length > 1) throw new RangeError(`a wide event is a 1-D sequence of numbers, got shape [${nd.shape}]`);
         src = nd.data;
       } else src = values as ArrayLike<number>;
-      const t = typeof index === "number" ? index : feedNumber(index, "Pipeline", () => `the index pushed to input ${i}`);
+      const t = typeof index === "number" ? index : badIndex(M, index);
       if (src == null || typeof src.length !== "number")
         throw new TypeError(`a wide event is a sequence of numbers, got ${typeof values}`);
       const width = src.length;
@@ -403,7 +421,7 @@ class PipelineImpl implements Owned {
         // (ToNumber at the WASM call); an object that is not a number is a
         // wrong kind.
         const v = typeof value === "number" ? value : feedValue(value, "Pipeline", () => `the value pushed to input ${i}`);
-        const t = typeof index === "number" ? index : feedNumber(index, "Pipeline", () => `the index pushed to input ${i}`);
+        const t = typeof index === "number" ? index : badIndex(M, index);
         try { self.cg.pushEvent(i, t, v); } catch (e) { throw normalizeError(e); }
       },
       pushWide(name: string, index: number, values: ArrayLike<number> | NdArray): void {
@@ -412,7 +430,8 @@ class PipelineImpl implements Owned {
       },
       advance(now: number): void {
         self.checkLive();
-        try { self.cg.advance(now); } catch (e) { throw normalizeError(e); }
+        const t = typeof now === "number" ? now : badIndex(M, now);
+        try { self.cg.advance(t); } catch (e) { throw normalizeError(e); }
       },
       flush(): void {
         self.checkLive();

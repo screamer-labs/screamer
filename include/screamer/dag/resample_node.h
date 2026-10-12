@@ -102,7 +102,7 @@ template <class Index>
 class ResampleNode : public Sink<Index> {
 public:
     ResampleNode(ResampleParams p, Sink<Index>& downstream)
-        : p_(p), downstream_(downstream),
+        : p_(p), plan0_(p.plan), downstream_(downstream),
           out_width_(resample_output_width(p)),
           out_(out_width_),
           last_emitted_(out_width_),
@@ -123,13 +123,7 @@ public:
             std::size_t val_width = f.width;
             if (p_.mode == ResampleMode::ByCumulative)
                 val_width = (f.width > 0) ? f.width - 1 : 0;
-            p_.plan = make_ohlcv_bars_plan(val_width);
-            num_accums_ = resample_plan_input_cols(p_.plan);
-            out_width_  = p_.plan.size();
-            out_.assign(out_width_, 0.0);
-            last_emitted_.assign(out_width_, std::numeric_limits<double>::quiet_NaN());
-            nan_row_.assign(out_width_, std::numeric_limits<double>::quiet_NaN());
-            accums_.resize(num_accums_);
+            learn_plan(make_ohlcv_bars_plan(val_width));
         }
         if (p_.mode == ResampleMode::ByCumulative) {
             // ByCumulative: input frame must be width 2 (value col + driver col).
@@ -151,14 +145,7 @@ public:
                 // A wide stream under a single-column agg: aggregate every column
                 // on its own. The plan lasts until reset(), so a reused Pipeline
                 // can take a different width next call.
-                p_.plan = make_per_column_plan(p_.agg, f.width);
-                per_column_ = true;
-                num_accums_ = f.width;
-                out_width_  = p_.plan.size();
-                out_.assign(out_width_, 0.0);
-                last_emitted_.assign(out_width_, std::numeric_limits<double>::quiet_NaN());
-                nan_row_.assign(out_width_, std::numeric_limits<double>::quiet_NaN());
-                accums_.resize(num_accums_);
+                learn_plan(make_per_column_plan(p_.agg, f.width));
                 reset_accums();
                 if (p_.mode == ResampleMode::ByIndex) push_by_index_multi(f.index, f.values);
                 else push_by_count_multi(f.index, f.values);
@@ -212,15 +199,12 @@ public:
     }
 
     void reset() override {
-        if (per_column_) {             // forget the width learned from the last stream
-            p_.plan.clear();
-            per_column_ = false;
-            num_accums_ = 1;
-            out_width_  = resample_output_width(p_);
-            out_.assign(out_width_, 0.0);
-            last_emitted_.assign(out_width_, std::numeric_limits<double>::quiet_NaN());
-            nan_row_.assign(out_width_, std::numeric_limits<double>::quiet_NaN());
-            accums_.resize(1);
+        if (learned_) {                // forget the plan learned from the last stream
+            p_.plan = plan0_;
+            learned_ = false;
+            num_accums_ = p_.plan.empty() ? 1u : resample_plan_input_cols(p_.plan);
+            set_out_width(resample_output_width(p_));
+            accums_.resize(deferred_plan() ? 0u : num_accums_);
         }
         reset_accums();
         started_ = false;
@@ -341,6 +325,29 @@ public:
     friend class CompiledGraph;
 
 private:
+    // ohlcv_bars without a plan: the plan comes from the first frame's width.
+    bool deferred_plan() const {
+        return p_.agg == ResampleAgg::OhlcvBars && p_.plan.empty();
+    }
+
+    void set_out_width(std::size_t w) {
+        out_width_ = w;
+        out_.assign(w, 0.0);
+        last_emitted_.assign(w, std::numeric_limits<double>::quiet_NaN());
+        nan_row_.assign(w, std::numeric_limits<double>::quiet_NaN());
+    }
+
+    // Installs a plan built from the stream's width. It lasts until reset(),
+    // which restores the constructed plan, so a reused graph can take another
+    // width.
+    void learn_plan(std::vector<ResamplePlanEntry> plan) {
+        p_.plan = std::move(plan);
+        learned_ = true;
+        num_accums_ = resample_plan_input_cols(p_.plan);
+        set_out_width(p_.plan.size());
+        accums_.resize(num_accums_);
+    }
+
     bool has_any() const {
         for (const auto& a : accums_) if (a.has) return true;
         return false;
@@ -456,19 +463,22 @@ private:
             throw std::runtime_error(
                 "dag::ResampleNode(ByClock): max_age requires a width-1 value stream");
         }
-        if (p_.plan.empty() && num_val_cols > 1) {
-            // Multi-column single-agg ByClock: build a trivial plan on first push
-            // (one entry per input column, all using the same agg kind).
-            // This matches resample(multi_col, clock=..., agg='last') semantics:
-            // each column is reduced independently with the same reducer.
-            for (std::size_t c = 0; c < num_val_cols; ++c)
-                p_.plan.push_back({p_.agg, c});
-            num_accums_ = num_val_cols;
-            out_width_  = num_val_cols;
-            out_.assign(out_width_, 0.0);
-            last_emitted_.assign(out_width_, std::numeric_limits<double>::quiet_NaN());
-            nan_row_.assign(out_width_, std::numeric_limits<double>::quiet_NaN());
-            accums_.resize(num_accums_);
+        if (deferred_plan()) {
+            // ohlcv_bars: [open, high, low, close, volumes...] from the value width.
+            if (num_val_cols < 4)
+                throw std::invalid_argument(
+                    "ohlcv_bars takes [open, high, low, close, volume, ...] (at least 4 "
+                    "columns), but its input has " + std::to_string(num_val_cols));
+            learn_plan(make_ohlcv_bars_plan(num_val_cols));
+        } else if (p_.plan.empty() && num_val_cols > 1) {
+            // Multi-column single-agg ByClock: every column is reduced on its own,
+            // as in resample(multi_col, clock=..., agg='last'); 'ohlc' gives
+            // (open, high, low, close) per column.
+            learn_plan(make_per_column_plan(p_.agg, num_val_cols));
+        } else if (!p_.plan.empty() && num_val_cols != num_accums_) {
+            throw std::invalid_argument(
+                "a resample plan takes " + std::to_string(num_accums_) +
+                " column(s), but its input has " + std::to_string(num_val_cols));
         }
         // Deferred-tick: if there is a pending clock tick at a strictly smaller
         // index than the incoming value, emit it now before buffering the value.
@@ -614,9 +624,10 @@ private:
     }
 
     ResampleParams p_;
+    std::vector<ResamplePlanEntry> plan0_;   // the constructed plan, restored by reset()
     Sink<Index>& downstream_;
     std::size_t out_width_;
-    bool per_column_ = false;         // plan was built from a wide stream; reverted by reset()
+    bool learned_ = false;            // plan was built from the stream's width; reverted by reset()
     std::vector<double> out_;
     std::vector<double> last_emitted_;
     std::vector<double> nan_row_;

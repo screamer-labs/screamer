@@ -86,7 +86,10 @@ const { values, index } = driver.result();
 ```
 
 An input keeps the width of its first event (a number is width 1); an event of another width
-throws `RangeError`. `pushWide` is an alias of `push` for arrays.
+throws `RangeError`. `pushWide` is an alias of `push` for arrays. An index is a `number` with a
+whole value inside the int64 range; any other index throws `TypeError`. A rejection that happens
+after part of the graph took the event (a `combineLatest` buffer that overflows, for example)
+makes every later call, `result()` included, throw until a new `live()` session starts.
 
 Streaming a pipeline this way reproduces its batch output exactly on the same data: `pipeline(data)`
 and `pipeline.live()` fed the same events one by one always agree. `driver.result()` supports

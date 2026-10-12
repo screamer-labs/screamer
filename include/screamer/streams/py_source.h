@@ -11,6 +11,7 @@
 #include <nanobind/nanobind.h>
 #include "screamer/common/cast_double.h"
 #include "screamer/common/gc.h"
+#include "screamer/dag/checked_index.h"
 #include "screamer/streams/event.h"
 #include <cstddef>
 
@@ -100,14 +101,9 @@ public:
             if constexpr (std::is_integral_v<Index>) {
                 nb::handle idx = tup[1];
                 if (nb::isinstance<nb::float_>(idx)) {
-                    double d = PyFloat_AsDouble(idx.ptr());
-                    if (!std::isfinite(d) || std::floor(d) != d) {
-                        throw nb::type_error(
-                            "stream index must be a finite integer-valued number; "
-                            "got a fractional or non-finite float. The engine is "
-                            "int64-indexed.");
-                    }
-                    ev.index = static_cast<Index>(d);
+                    // The engine's index rule (finite, whole, inside int64).
+                    ev.index = static_cast<Index>(
+                        screamer::dag::checked_index(PyFloat_AsDouble(idx.ptr())));
                 } else if (!nb::try_cast<Index>(idx, ev.index)) {
                     bad(event, "the index of event", idx, "an integer");
                 }

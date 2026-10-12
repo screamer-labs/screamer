@@ -83,24 +83,30 @@ def make_operator_node(fn, node_args, kwargs):
     return Node(("operator", fn, kwargs), tuple(node_args))
 
 
-def _int64_index(idx):
-    """Coerce an index array to contiguous int64, raising on a fractional value.
+def _index_array(idx):
+    """An index as a contiguous array for the engine, which applies the index rule.
 
-    The engine is int64-indexed and float indices are not yet supported, so a
-    non-integer index is rejected loudly rather than silently truncated (a floored
-    index would change bucketing and alignment versus the caller's intent).
-    Integer-valued floats (2.0) are lossless and accepted. Integer dtypes skip the
-    check entirely, so the common path adds no scan.
+    The C++ engine checks every element in its int64 cast loop: an index must be
+    finite, whole and inside the int64 range, and an array of bool, str, object or
+    complex values is a TypeError. A datetime64 or timedelta64 index is read as
+    its int64 ticks.
     """
-    arr = np.asarray(idx)
-    if arr.dtype.kind == "f":
-        out = arr.astype(np.int64)
-        if not np.array_equal(out, arr):
-            from . import screamer_bindings as _b
-            bad = arr[(out != arr) | ~np.isfinite(arr)]
-            _b._checked_index(float(bad[0]) if bad.size else float("nan"))   # raises TypeError
-        return np.ascontiguousarray(out)
-    return np.ascontiguousarray(arr, dtype=np.int64)
+    arr = np.ascontiguousarray(idx)
+    if arr.dtype.kind in "Mm":
+        arr = arr.view(np.int64)
+    elif not arr.dtype.isnative:
+        arr = arr.astype(arr.dtype.newbyteorder("="))
+    return arr
+
+
+def _float_values(values):
+    """A feed's values as contiguous float64; complex values raise TypeError, as
+    operators do (the float64 cast would drop the imaginary part)."""
+    arr = np.asarray(values)
+    if arr.dtype.kind == "c":
+        raise TypeError("a value must be a real number or a sequence of real "
+                        "numbers, got complex values")
+    return np.ascontiguousarray(arr, dtype=np.float64)
 
 
 def _is_vi_pair(x):
@@ -120,11 +126,11 @@ def _as_stream(feed):
     """
     if _is_vi_pair(feed):
         values, index = feed   # user provides (values, index) - values-first
-        values_arr = np.ascontiguousarray(values, dtype=np.float64)
+        values_arr = _float_values(values)
         if index is None:
             return (np.arange(values_arr.shape[0], dtype=np.int64), values_arr)
-        return (_int64_index(index), values_arr)
-    values = np.asarray(feed, dtype=np.float64)
+        return (_index_array(index), values_arr)
+    values = _float_values(feed)
     return (np.arange(values.shape[0], dtype=np.int64), values)
 
 
@@ -206,7 +212,7 @@ def _live_dag_class():
 
         def advance(self, now):
             """Close every window whose boundary has passed by logical time `now`."""
-            self._cg.advance(int(now))
+            self._cg.advance(now)
             return self
 
         def flush(self):
@@ -215,7 +221,8 @@ def _live_dag_class():
             return self
 
         def result(self):
-            """Aligned outputs accumulated so far (drains the buffers)."""
+            """Aligned outputs accumulated so far (drains the buffers). Raises after a
+            rejected event poisoned the session, until a new live() session."""
             results = self._cg.drain()
             results = [(k, v.reshape(-1) if v.shape[1] == 1 else v) for (k, v) in results]
             return _align_results(results, self._dag.align_outputs)

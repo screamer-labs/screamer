@@ -53,6 +53,9 @@ using In1D = nb::ndarray<const T, nb::ndim<1>, nb::c_contig, nb::device::cpu>;
 // Typed, C-contiguous input array of any rank (values may be 1-D or 2-D).
 using InValues = nb::ndarray<const double, nb::c_contig, nb::device::cpu>;
 
+// An array of any dtype and rank, to read its dtype.
+using AnyArray = nb::ndarray<nb::ro, nb::device::cpu>;
+
 }  // namespace
 
 // Build the Python value for row r of an output buffer: a scalar for a width-1
@@ -286,22 +289,159 @@ static nb::list marshal_output_buffers(const std::vector<dag::OutputBuffer>& out
     return result;
 }
 
+// Converts n items of type T at `b` (any alignment) into `out`. Returns false
+// when the item size is not T's.
+template <class T>
+static bool load_items(const void* b, std::size_t n, Py_ssize_t itemsize,
+                       std::vector<double>& out) {
+    if (itemsize != static_cast<Py_ssize_t>(sizeof(T))) return false;
+    const char* c = static_cast<const char*>(b);
+    out.resize(n);
+    for (std::size_t i = 0; i < n; ++i) {
+        T v;
+        std::memcpy(&v, c + i * sizeof(T), sizeof(T));
+        out[i] = static_cast<double>(v);
+    }
+    return true;
+}
+
+// NumPy scalar types the index and value rules need, looked up once.
+struct NumpyTypes {
+    PyObject* integer;
+    PyObject* floating;
+    PyObject* complex64;
+    PyObject* clongdouble;
+};
+static const NumpyTypes& numpy_types() {
+    static const NumpyTypes* t = [] {
+        nb::module_ np = nb::module_::import_("numpy");
+        auto get = [&](const char* name) { return nb::object(np.attr(name)).release().ptr(); };
+        return new NumpyTypes{get("integer"), get("floating"), get("complex64"),
+                              get("clongdouble")};
+    }();
+    return *t;
+}
+
+// A Python int as an index; one past int64 is out of range, not an OverflowError.
+static std::int64_t long_index(PyObject* p) {
+    int overflow = 0;
+    long long v = PyLong_AsLongLongAndOverflow(p, &overflow);
+    if (overflow) dag::throw_index_out_of_range();
+    if (v == -1 && PyErr_Occurred()) throw nb::python_error();
+    return v;
+}
+
+// One index given in Python: an int, a float (np.float64), a NumPy integer or
+// floating scalar. A bool, str, bytes, None, Decimal, Fraction or any other
+// object is a TypeError. The rule and the messages are the engine's
+// (checked_index.h).
+static std::int64_t py_index(nb::handle index) {
+    PyObject* p = index.ptr();
+    if (PyLong_CheckExact(p)) return long_index(p);
+    if (PyFloat_Check(p)) return dag::checked_index(PyFloat_AsDouble(p));
+    if (PyBool_Check(p)) dag::throw_index_kind("bool");
+    if (PyLong_Check(p)) return long_index(p);
+    const NumpyTypes& np = numpy_types();
+    const int integer = PyObject_IsInstance(p, np.integer);
+    if (integer < 0) throw nb::python_error();
+    if (integer) {
+        PyObject* ix = PyNumber_Index(p);
+        if (!ix) throw nb::python_error();
+        nb::object hold = nb::steal(ix);
+        return long_index(ix);
+    }
+    const int floating = PyObject_IsInstance(p, np.floating);
+    if (floating < 0) throw nb::python_error();
+    if (floating) {                                  // np.float32, np.float16
+        double d = PyFloat_AsDouble(p);
+        if (d == -1.0 && PyErr_Occurred()) throw nb::python_error();
+        return dag::checked_index(d);
+    }
+    dag::throw_index_kind(nb::cast<std::string>(nb::type_name(index.type())));
+}
+
+// A batch index array as int64, checked element by element in the cast loop
+// (checked_index.h). An int64 array is used in place. `owned` holds a
+// converted copy; `keep` holds the array the pointer reads.
+using AnyIndex = nb::ndarray<nb::ro, nb::ndim<1>, nb::c_contig, nb::device::cpu>;
+
+template <class T, class F>
+static void cast_index(const AnyIndex& a, std::vector<std::int64_t>& out, F check) {
+    const T* src = static_cast<const T*>(a.data());
+    const std::size_t n = a.shape(0);
+    out.resize(n);
+    for (std::size_t i = 0; i < n; ++i) out[i] = check(src[i]);
+}
+
+static const std::int64_t* index_array(nb::handle obj, nb::object& keep,
+                                       std::vector<std::int64_t>& owned) {
+    In1D<std::int64_t> i64;
+    if (nb::try_cast(obj, i64, /*convert=*/false)) {
+        keep = nb::borrow(obj);
+        return i64.data();
+    }
+    AnyIndex a;
+    if (!nb::try_cast(obj, a, /*convert=*/false)) {
+        if (nb::hasattr(obj, "ndim") && nb::cast<int>(obj.attr("ndim")) != 1)
+            throw nb::value_error("an index is a 1-D array of integers");
+        dag::throw_index_kind(nb::hasattr(obj, "dtype")
+            ? "an array of " + nb::cast<std::string>(obj.attr("dtype").attr("name"))
+            : nb::cast<std::string>(nb::type_name(obj.type())));
+    }
+    using C = nb::dlpack::dtype_code;
+    const nb::dlpack::dtype dt = a.dtype();
+    auto widen = [](auto v) { return static_cast<std::int64_t>(v); };
+    auto as_double = [](auto v) { return dag::checked_index(static_cast<double>(v)); };
+    if (dt.code == static_cast<std::uint8_t>(C::Int)) {
+        if (dt.bits == 8)  { cast_index<std::int8_t>(a, owned, widen); return owned.data(); }
+        if (dt.bits == 16) { cast_index<std::int16_t>(a, owned, widen); return owned.data(); }
+        if (dt.bits == 32) { cast_index<std::int32_t>(a, owned, widen); return owned.data(); }
+    } else if (dt.code == static_cast<std::uint8_t>(C::UInt)) {
+        if (dt.bits == 8)  { cast_index<std::uint8_t>(a, owned, widen); return owned.data(); }
+        if (dt.bits == 16) { cast_index<std::uint16_t>(a, owned, widen); return owned.data(); }
+        if (dt.bits == 32) { cast_index<std::uint32_t>(a, owned, widen); return owned.data(); }
+        if (dt.bits == 64) {
+            cast_index<std::uint64_t>(a, owned, [](std::uint64_t v) { return dag::checked_index_u64(v); });
+            return owned.data();
+        }
+    } else if (dt.code == static_cast<std::uint8_t>(C::Float)) {
+        if (dt.bits == 64) { cast_index<double>(a, owned, as_double); return owned.data(); }
+        if (dt.bits == 32) { cast_index<float>(a, owned, as_double); return owned.data(); }
+        // float16 or a long double: read through float64.
+        nb::object f64 = obj.attr("astype")("float64");
+        AnyIndex b = nb::cast<AnyIndex>(f64, false);
+        cast_index<double>(b, owned, as_double);
+        return owned.data();
+    } else if (dt.code == static_cast<std::uint8_t>(C::Bool)) {
+        dag::throw_index_kind("an array of bool");
+    } else if (dt.code == static_cast<std::uint8_t>(C::Complex)) {
+        dag::throw_index_kind("an array of complex");
+    }
+    dag::throw_index_kind("an array of " + nb::cast<std::string>(obj.attr("dtype").attr("name")));
+}
+
 // Helper: marshal a list of (index, values) feed tuples into raw C++ spans.
-// Fills ks/vs (keep-alive ndarrays), kp/vp (raw pointers), lens (lengths).
+// Fills ks/vs (keep-alive arrays), kp/vp (raw pointers), lens (lengths).
 // Also fills widths: 1 for a 1-D values array, W for a 2-D (N, W) values array.
+// An index array goes through the engine's index rule (index_array).
 static void marshal_feeds(
         nb::list feeds,
-        std::vector<In1D<std::int64_t>>& ks,
+        std::vector<nb::object>& ks,
+        std::vector<std::vector<std::int64_t>>& owned,
         std::vector<InValues>& vs,
         std::vector<const std::int64_t*>& kp,
         std::vector<const double*>& vp,
         std::vector<std::size_t>& lens,
         std::vector<std::size_t>& widths) {
+    const std::size_t n = nb::len(feeds);
+    ks.resize(n);
+    owned.resize(n);
+    std::size_t f = 0;
     for (auto item : feeds) {
         nb::tuple t = nb::cast<nb::tuple>(item);
-        ks.push_back(nb::cast<In1D<std::int64_t>>(t[0]));
+        kp.push_back(index_array(t[0], ks[f], owned[f]));
+        ++f;
         vs.push_back(nb::cast<InValues>(t[1]));
-        kp.push_back(ks.back().data());
         vp.push_back(vs.back().data());
         lens.push_back(static_cast<std::size_t>(vs.back().shape(0)));
         // Detect column width: 1 for 1-D arrays, shape[1] for 2-D arrays.
@@ -348,20 +488,21 @@ void init_bindings_dag(nb::module_& m) {
 
         void flush() { cg->flush(); }
 
-        void advance(std::int64_t now) { cg->advance(now); }
+        void advance(nb::handle now) { cg->advance(py_index(now)); }
 
         nb::list drain() {
             return marshal_output_buffers(cg->drain());
         }
 
         nb::list run_batch(nb::list feeds) {
-            std::vector<In1D<std::int64_t>> ks;
+            std::vector<nb::object> ks;
+            std::vector<std::vector<std::int64_t>> owned;
             std::vector<InValues> vs;
             std::vector<const std::int64_t*> kp;
             std::vector<const double*> vp;
             std::vector<std::size_t> lens;
             std::vector<std::size_t> widths;
-            marshal_feeds(feeds, ks, vs, kp, vp, lens, widths);
+            marshal_feeds(feeds, ks, owned, vs, kp, vp, lens, widths);
             return marshal_output_buffers(cg->run_batch(kp, vp, lens, widths));
         }
     };
@@ -375,7 +516,7 @@ void init_bindings_dag(nb::module_& m) {
         .def("push_event_wide",  &PyCompiledGraph::push_event_wide,
              "input_idx"_a, "index"_a, "values"_a)
         .def("flush",            &PyCompiledGraph::flush)
-        .def("advance",          &PyCompiledGraph::advance, "now"_a)
+        .def("advance",          &PyCompiledGraph::advance, "now"_a.none())
         .def("drain",            &PyCompiledGraph::drain)
         .def("run_batch",        &PyCompiledGraph::run_batch, "feeds"_a);
 
@@ -384,7 +525,7 @@ void init_bindings_dag(nb::module_& m) {
     struct PyLiveSession {
         nb::object cg_obj;               // the _CompiledGraph (keeps its ops alive)
         PyCompiledGraph* pcg;
-        nb::object asarray, float64, np_floating;     // numpy, for the sequence path
+        nb::object asarray, float64;     // numpy, for the sequence path
         std::map<std::string, std::size_t, std::less<>> names;
         std::vector<double> scratch;     // the plain-sequence conversion buffer
 
@@ -392,7 +533,6 @@ void init_bindings_dag(nb::module_& m) {
             : cg_obj(std::move(cg)), pcg(&nb::cast<PyCompiledGraph&>(cg_obj)) {
             nb::module_ np = nb::module_::import_("numpy");
             asarray = np.attr("asarray");
-            np_floating = np.attr("floating");
             float64 = np.attr("float64");
             std::size_t i = 0;
             for (nb::handle h : input_names) names[nb::cast<std::string>(h)] = i++;
@@ -401,7 +541,6 @@ void init_bindings_dag(nb::module_& m) {
         int traverse(visitproc visit, void* arg) const {
             if (int r = gc_visit(cg_obj, visit, arg)) return r;
             if (int r = gc_visit(asarray, visit, arg)) return r;
-            if (int r = gc_visit(np_floating, visit, arg)) return r;
             return gc_visit(float64, visit, arg);
         }
 
@@ -421,34 +560,6 @@ void init_bindings_dag(nb::module_& m) {
             Py_DECREF(ix);
             if (k == -1 && PyErr_Occurred()) throw nb::python_error();
             return static_cast<std::size_t>(k);   // negative wraps, the engine range-checks
-        }
-
-        // An index is a real number: int, float (np.float64), a NumPy integer
-        // (__index__) or a NumPy floating scalar. A string, bytes, Decimal or
-        // Fraction is a TypeError. The rule and its message are the engine's.
-        std::int64_t index_of(nb::handle index) const {
-            PyObject* p = index.ptr();
-            if (PyLong_Check(p)) {
-                long long v = PyLong_AsLongLong(p);
-                if (v == -1 && PyErr_Occurred()) throw nb::python_error();
-                return v;
-            }
-            if (PyFloat_Check(p)) return dag::checked_index(PyFloat_AsDouble(p));
-            const int floating = PyObject_IsInstance(p, np_floating.ptr());
-            if (floating < 0) throw nb::python_error();
-            if (floating) {                             // np.float32, np.float16
-                double d = PyFloat_AsDouble(p);
-                if (d == -1.0 && PyErr_Occurred()) throw nb::python_error();
-                return dag::checked_index(d);
-            }
-            if (PyUnicode_Check(p) || PyBytes_Check(p) || PyByteArray_Check(p))
-                throw nb::type_error("an index must be an integer, not a string or bytes");
-            PyObject* ix = PyNumber_Index(p);           // NumPy integers
-            if (!ix) throw nb::python_error();
-            long long v = PyLong_AsLongLong(ix);
-            Py_DECREF(ix);
-            if (v == -1 && PyErr_Occurred()) throw nb::python_error();
-            return v;
         }
 
         // list / tuple of plain numbers, converted in one pass into a reused buffer.
@@ -472,9 +583,9 @@ void init_bindings_dag(nb::module_& m) {
         }
 
         // A C-contiguous 1-D numeric buffer (ndarray of float64, float32 or an
-        // integer type, bool, array.array ...), read through the buffer protocol
-        // with one pass of conversion. Returns false (nothing pushed) for any
-        // other buffer, which takes the general path.
+        // integer type, bool, array.array, a numeric memoryview ...), read
+        // through the buffer protocol with one pass of conversion. Returns false
+        // (nothing pushed) for any other buffer, which takes the general path.
         bool push_buffer(std::size_t src, std::int64_t t, PyObject* p) {
             if (!PyObject_CheckBuffer(p)) return false;
             Py_buffer view;
@@ -489,42 +600,49 @@ void init_bindings_dag(nb::module_& m) {
             if (f[0] == '\0' || f[1] != '\0') return false;
             const std::size_t n = static_cast<std::size_t>(view.shape[0]);
             const void* b = view.buf;
-            auto load = [&](auto* typed) {
-                scratch.resize(n);
-                for (std::size_t i = 0; i < n; ++i) scratch[i] = static_cast<double>(typed[i]);
-                pcg->cg->push_event_wide(src, t, scratch.data(), n);
-            };
+            const Py_ssize_t sz = view.itemsize;
+            bool ok = false;
             switch (*f) {
-            case 'd': if (view.itemsize != 8) return false;
-                      pcg->cg->push_event_wide(src, t, static_cast<const double*>(b), n); return true;
-            case 'f': if (view.itemsize != 4) return false; load(static_cast<const float*>(b)); return true;
-            case '?': load(static_cast<const unsigned char*>(b)); return true;
-            case 'b': load(static_cast<const signed char*>(b)); return true;
-            case 'B': load(static_cast<const unsigned char*>(b)); return true;
-            case 'h': load(static_cast<const short*>(b)); return true;
-            case 'H': load(static_cast<const unsigned short*>(b)); return true;
-            case 'i': load(static_cast<const int*>(b)); return true;
-            case 'I': load(static_cast<const unsigned int*>(b)); return true;
-            case 'l': case 'q':
-                if (view.itemsize == 8) load(static_cast<const long long*>(b));
-                else if (view.itemsize == 4) load(static_cast<const int*>(b));
-                else return false;
-                return true;
-            case 'L': case 'Q':
-                if (view.itemsize == 8) load(static_cast<const unsigned long long*>(b));
-                else if (view.itemsize == 4) load(static_cast<const unsigned int*>(b));
-                else return false;
-                return true;
+            case 'd':
+                if (sz != 8) return false;
+                if (reinterpret_cast<std::uintptr_t>(b) % alignof(double) == 0) {
+                    pcg->cg->push_event_wide(src, t, static_cast<const double*>(b), n);
+                    return true;
+                }
+                ok = load_items<double>(b, n, sz, scratch); break;
+            case 'f': ok = load_items<float>(b, n, sz, scratch); break;
+            case '?': case 'B': ok = load_items<unsigned char>(b, n, sz, scratch); break;
+            case 'b': ok = load_items<signed char>(b, n, sz, scratch); break;
+            case 'h': ok = load_items<std::int16_t>(b, n, sz, scratch); break;
+            case 'H': ok = load_items<std::uint16_t>(b, n, sz, scratch); break;
+            case 'i': case 'l': case 'q':
+                ok = sz == 8 ? load_items<std::int64_t>(b, n, sz, scratch)
+                             : load_items<std::int32_t>(b, n, sz, scratch);
+                break;
+            case 'I': case 'L': case 'Q':
+                ok = sz == 8 ? load_items<std::uint64_t>(b, n, sz, scratch)
+                             : load_items<std::uint32_t>(b, n, sz, scratch);
+                break;
             default: return false;
             }
+            if (!ok) return false;
+            pcg->cg->push_event_wide(src, t, scratch.data(), n);
+            return true;
         }
 
         void push_sequence(std::size_t src, std::int64_t t, nb::handle value) {
             PyObject* p = value.ptr();
             if ((PyList_Check(p) || PyTuple_Check(p)) && push_plain_sequence(src, t, p)) return;
             if (push_buffer(src, t, p)) return;
-            nb::object arr = asarray(value, nb::arg("dtype") = float64);
-            InValues v = nb::cast<InValues>(arr);
+            // The general path: NumPy reads the value, then a complex one is
+            // refused before the float64 conversion would drop its imaginary part.
+            nb::object arr = asarray(value);
+            AnyArray any;
+            if (nb::try_cast(arr, any, /*convert=*/false) &&
+                any.dtype().code == static_cast<std::uint8_t>(nb::dlpack::dtype_code::Complex))
+                throw nb::type_error("a value must be a real number or a sequence of "
+                                     "real numbers, got complex values");
+            InValues v = nb::cast<InValues>(asarray(arr, nb::arg("dtype") = float64));
             if (v.ndim() == 0) {                   // a 0-d array is a scalar
                 pcg->cg->push_event(src, t, v.data()[0]);
                 return;
@@ -538,7 +656,7 @@ void init_bindings_dag(nb::module_& m) {
 
         void push(nb::handle input, nb::handle index, nb::handle value) {
             const std::size_t src = source(input);
-            const std::int64_t t = index_of(index);
+            const std::int64_t t = py_index(index);
             PyObject* p = value.ptr();
             if (PyFloat_Check(p)) {                // float, np.float64
                 pcg->cg->push_event(src, t, PyFloat_AsDouble(p));
@@ -548,11 +666,23 @@ void init_bindings_dag(nb::module_& m) {
                 pcg->cg->push_event(src, t, d);
             } else if (p == Py_None) {             // a missing value, NaN (A9)
                 pcg->cg->push_event(src, t, std::numeric_limits<double>::quiet_NaN());
-            } else if (PyBytes_Check(p) || PyByteArray_Check(p) || PyMemoryView_Check(p)) {
-                throw nb::type_error("a value must be a number or a sequence of numbers, not bytes or a memoryview");
+            } else if (PyBytes_Check(p) || PyByteArray_Check(p)) {
+                throw nb::type_error("a value must be a number or a sequence of numbers, not bytes");
+            } else if (PyMemoryView_Check(p)) {
+                // A numeric memoryview is a wide event; one over bytes is text.
+                nb::object base = value.attr("obj");
+                if (PyBytes_Check(base.ptr()) || PyByteArray_Check(base.ptr()) ||
+                    nb::cast<std::string>(value.attr("format")) == "c")
+                    throw nb::type_error("a value must be a number or a sequence of "
+                                         "numbers, not a memoryview of bytes");
+                push_sequence(src, t, value);
             } else if (!PyUnicode_Check(p) && PySequence_Check(p)) {
                 push_sequence(src, t, value);      // list, tuple, ndarray, Series ...
             } else {                               // NumPy scalars, numeric strings
+                const NumpyTypes& np = numpy_types();
+                PyObject* type = reinterpret_cast<PyObject*>(Py_TYPE(p));
+                if (PyComplex_Check(p) || type == np.complex64 || type == np.clongdouble)
+                    throw nb::type_error("a value must be a real number, got complex");
                 double d = PyFloat_AsDouble(p);    // via __float__
                 if (d == -1.0 && PyErr_Occurred()) {
                     PyErr_Clear();
@@ -573,7 +703,7 @@ void init_bindings_dag(nb::module_& m) {
                         nb::handle value) {
                  nb::inst_ptr<PyLiveSession>(self)->push(input, index, value);
                  return nb::borrow(self);
-             }, "input"_a, "index"_a, "value"_a.none());
+             }, "input"_a, "index"_a.none(), "value"_a.none());
 
     // Lazy driver over a single-output compiled graph and Python-iterator feeds.
     nb::class_<LazyDriver>(m, "_LazyDriver", nb::type_slots(gc_slots<LazyDriver>))
@@ -727,13 +857,14 @@ void init_bindings_dag(nb::module_& m) {
         .def("compile", [](PyGraphBuilder& b) { return b.compile(); })
         .def("run_batch", [](PyGraphBuilder& b, nb::list feeds) {
             // Marshal feeds (list of (index, values) tuples) -> raw spans.
-            std::vector<In1D<std::int64_t>> ks;
+            std::vector<nb::object> ks;
+            std::vector<std::vector<std::int64_t>> owned;
             std::vector<InValues> vs;
             std::vector<const std::int64_t*> kp;
             std::vector<const double*> vp;
             std::vector<std::size_t> lens;
             std::vector<std::size_t> widths;
-            marshal_feeds(feeds, ks, vs, kp, vp, lens, widths);
+            marshal_feeds(feeds, ks, owned, vs, kp, vp, lens, widths);
             // Compile (stores spec) then run (builds + drives push-graph).
             dag::CompiledGraph g(b.spec());
             return marshal_output_buffers(g.run_batch(kp, vp, lens, widths));

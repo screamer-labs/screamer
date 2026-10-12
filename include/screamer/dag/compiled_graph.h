@@ -393,8 +393,10 @@ public:
     // Returns all OutputBuffers accumulated since the last drain()/reset(), then
     // clears the buffers in-place so GatherSink references remain valid (the
     // outputs_ vector is never reallocated; only the per-element indices/values are
-    // cleared).
+    // cleared). A poisoned session throws, as push, advance and flush do: its
+    // buffers may hold rows the rejected event produced.
     std::vector<OutputBuffer> drain() {
+        check_live();
         std::vector<OutputBuffer> out = outputs_;   // deep copy
         for (std::size_t o = 0; o < outputs_.size(); ++o) {
             outputs_[o].indices.clear();
@@ -501,7 +503,8 @@ private:
     // mask, a Resample reducer, a CombineLatest port that changes width after
     // rows were emitted) happens after upstream nodes took the event, so it
     // poisons the session: every later push, advance and flush throws until
-    // reset().
+    // reset(), and so does drain(), since the buffers may hold rows that the
+    // rejected event produced.
     void set_width(std::size_t input_idx, std::size_t width) {
         const std::size_t w = in_width_[input_idx];
         if (w != 0)
@@ -523,6 +526,9 @@ private:
 
     // Propagates the known input widths (0 = not known yet) through the graph
     // and throws std::invalid_argument for a node that cannot take its width.
+    // Each rule is the one the node itself applies, so a graph passes here
+    // exactly when its nodes accept the widths; the node checks stay as a
+    // backstop for widths that are not known here.
     void validate_widths(const std::vector<std::size_t>& in_w) const {
         const std::size_t n = spec_.nodes.size();
         std::vector<std::size_t> w(n, 0);   // 0 = unknown
@@ -536,11 +542,25 @@ private:
                 w[id] = in_w[input_sig_[id]];
                 break;
             case NodeKind::Functor: {
-                const std::size_t iw = in_of(nd);
-                if (iw != 0 && iw != nd.op->n_in())
+                // Every producer pushes its own frames into the operator, so each
+                // one must carry the operator's columns. Two producers do not
+                // form one row; CombineLatest does.
+                const std::size_t need = nd.op->n_in();
+                for (std::size_t k = 0; k < nd.inputs.size(); ++k) {
+                    const std::size_t iw = w[nd.inputs[k]];
+                    if (iw == 0 || iw == need) continue;
+                    if (nd.inputs.size() == 1)
+                        throw std::invalid_argument(
+                            "an operator takes " + std::to_string(need) +
+                            " column(s), but its input has " + std::to_string(iw));
                     throw std::invalid_argument(
-                        "an operator takes " + std::to_string(nd.op->n_in()) +
-                        " column(s), but its input has " + std::to_string(iw));
+                        "an operator takes " + std::to_string(need) +
+                        " column(s), but its input " + std::to_string(k) + " has " +
+                        std::to_string(iw) + "; each input of an operator is a "
+                        "separate stream of " + std::to_string(need) +
+                        "-column events. To join streams into one row, use "
+                        "CombineLatest");
+                }
                 w[id] = nd.op->n_out();
                 break;
             }
@@ -565,26 +585,65 @@ private:
                 w[id] = nd.columns.size();
                 break;
             }
-            case NodeKind::Resample: {
-                const std::size_t iw = in_of(nd);
-                if (iw != 0) {
-                    if (nd.resample.mode == ResampleMode::ByCumulative && iw != 2)
-                        throw std::invalid_argument(
-                            "a cumulative resample takes [value, driver] (2 columns), "
-                            "but its input has " + std::to_string(iw));
-                    if (nd.resample.reducer && iw != 1)
-                        throw std::invalid_argument(
-                            "a reducer resample takes 1 column, but its input has " +
-                            std::to_string(iw));
-                }
-                w[id] = 0;   // output width is left to the node
+            case NodeKind::Resample:
+                w[id] = resample_width_check(nd, w);
                 break;
-            }
             case NodeKind::Filter:
                 w[id] = 1;
                 break;
             }
         }
+    }
+
+    // The Resample rules of validate_widths: throws for a value width the node
+    // cannot take and returns the node's output width (0 = unknown).
+    static std::size_t resample_width_check(const NodeSpec& nd,
+                                            const std::vector<std::size_t>& w) {
+        const ResampleParams& p = nd.resample;
+        const bool clock = p.mode == ResampleMode::ByClock;
+        // The value stream: port 0 of a clock resample, else the one input.
+        std::size_t iw = 0;
+        if (clock) { if (!nd.inputs.empty()) iw = w[nd.inputs[0]]; }
+        else if (nd.inputs.size() == 1) iw = w[nd.inputs[0]];
+        if (iw == 0) return 0;
+        if (p.reducer) {
+            if (iw != 1)
+                throw std::invalid_argument(
+                    "a reducer resample takes 1 column, but its input has " +
+                    std::to_string(iw));
+            return p.reducer->n_out();
+        }
+        if (p.mode == ResampleMode::ByCumulative) {
+            if (iw != 2)
+                throw std::invalid_argument(
+                    "a cumulative resample takes [value, driver] (2 columns), "
+                    "but its input has " + std::to_string(iw));
+            return p.agg == ResampleAgg::OhlcvBars && p.plan.empty()
+                ? 0 : resample_output_width(p);
+        }
+        if (clock && p.max_age >= 0 && iw != 1)
+            throw std::invalid_argument(
+                "a clock resample with max_age takes 1 value column, but its "
+                "input has " + std::to_string(iw));
+        if (!p.plan.empty()) {               // ohlc_bars, ohlcv, ohlcv2
+            const std::size_t need = resample_plan_input_cols(p.plan);
+            if (iw != need)
+                throw std::invalid_argument(
+                    "a resample plan takes " + std::to_string(need) +
+                    " column(s), but its input has " + std::to_string(iw));
+            return p.plan.size();
+        }
+        if (p.agg == ResampleAgg::OhlcvBars) {
+            if (iw < 4)
+                throw std::invalid_argument(
+                    "ohlcv_bars takes [open, high, low, close, volume, ...] (at "
+                    "least 4 columns), but its input has " + std::to_string(iw));
+            return iw;
+        }
+        // A builtin agg aggregates every column on its own; ohlc gives four
+        // outputs per column.
+        return iw == 1 ? resample_width(p.agg)
+                       : (p.agg == ResampleAgg::Ohlc ? 4 * iw : iw);
     }
 
     std::vector<std::size_t> topo_producers_first_;
