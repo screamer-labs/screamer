@@ -18,6 +18,7 @@
 #include "screamer/dag/driver.h"
 #include "screamer/dag/graph.h"
 #include "screamer/dag/compiled_graph.h"
+#include "screamer/dag/checked_index.h"
 #include "screamer/streams/event.h"
 #include "screamer/streams/merge_source.h"
 #include "screamer/streams/py_source.h"
@@ -310,6 +311,14 @@ static void marshal_feeds(
 }
 
 void init_bindings_dag(nb::module_& m) {
+    // The engine's index rule raises TypeError in Python.
+    nb::register_exception_translator(
+        [](const std::exception_ptr& p, void*) {
+            try { std::rethrow_exception(p); }
+            catch (const dag::IndexTypeError& e) { PyErr_SetString(PyExc_TypeError, e.what()); }
+        }, nullptr);
+    m.def("_checked_index", [](double d) { return dag::checked_index(d); }, "index"_a);
+
     m.def("_run_functor_batch", &run_functor_batch,
           "op"_a, "index"_a, "values"_a);
 
@@ -375,7 +384,7 @@ void init_bindings_dag(nb::module_& m) {
     struct PyLiveSession {
         nb::object cg_obj;               // the _CompiledGraph (keeps its ops alive)
         PyCompiledGraph* pcg;
-        nb::object asarray, float64;     // numpy, for the sequence path
+        nb::object asarray, float64, np_floating;     // numpy, for the sequence path
         std::map<std::string, std::size_t, std::less<>> names;
         std::vector<double> scratch;     // the plain-sequence conversion buffer
 
@@ -383,6 +392,7 @@ void init_bindings_dag(nb::module_& m) {
             : cg_obj(std::move(cg)), pcg(&nb::cast<PyCompiledGraph&>(cg_obj)) {
             nb::module_ np = nb::module_::import_("numpy");
             asarray = np.attr("asarray");
+            np_floating = np.attr("floating");
             float64 = np.attr("float64");
             std::size_t i = 0;
             for (nb::handle h : input_names) names[nb::cast<std::string>(h)] = i++;
@@ -391,6 +401,7 @@ void init_bindings_dag(nb::module_& m) {
         int traverse(visitproc visit, void* arg) const {
             if (int r = gc_visit(cg_obj, visit, arg)) return r;
             if (int r = gc_visit(asarray, visit, arg)) return r;
+            if (int r = gc_visit(np_floating, visit, arg)) return r;
             return gc_visit(float64, visit, arg);
         }
 
@@ -412,35 +423,32 @@ void init_bindings_dag(nb::module_& m) {
             return static_cast<std::size_t>(k);   // negative wraps, the engine range-checks
         }
 
-        static std::int64_t whole_index(double d) {
-            if (!(d == std::floor(d)) || std::fabs(d) >= 9.2e18)
-                throw nb::type_error(
-                    "index must be integer-valued; a fractional index was seen. The "
-                    "streaming engine is int64-indexed (float indices are not yet "
-                    "supported). Pass integer indices.");
-            return static_cast<std::int64_t>(d);
-        }
-
-        static std::int64_t index_of(nb::handle index) {
+        // An index is a real number: int, float (np.float64), a NumPy integer
+        // (__index__) or a NumPy floating scalar. A string, bytes, Decimal or
+        // Fraction is a TypeError. The rule and its message are the engine's.
+        std::int64_t index_of(nb::handle index) const {
             PyObject* p = index.ptr();
             if (PyLong_Check(p)) {
                 long long v = PyLong_AsLongLong(p);
                 if (v == -1 && PyErr_Occurred()) throw nb::python_error();
                 return v;
             }
-            if (PyFloat_Check(p)) return whole_index(PyFloat_AsDouble(p));
-            if (PyObject* ix = PyNumber_Index(p)) {   // NumPy integers
-                long long v = PyLong_AsLongLong(ix);
-                Py_DECREF(ix);
-                if (v == -1 && PyErr_Occurred()) throw nb::python_error();
-                return v;
+            if (PyFloat_Check(p)) return dag::checked_index(PyFloat_AsDouble(p));
+            const int floating = PyObject_IsInstance(p, np_floating.ptr());
+            if (floating < 0) throw nb::python_error();
+            if (floating) {                             // np.float32, np.float16
+                double d = PyFloat_AsDouble(p);
+                if (d == -1.0 && PyErr_Occurred()) throw nb::python_error();
+                return dag::checked_index(d);
             }
-            PyErr_Clear();
-            PyObject* f = PyNumber_Float(p);          // np.float32, Fraction ...
-            if (!f) throw nb::python_error();
-            double d = PyFloat_AsDouble(f);
-            Py_DECREF(f);
-            return whole_index(d);
+            if (PyUnicode_Check(p) || PyBytes_Check(p) || PyByteArray_Check(p))
+                throw nb::type_error("an index must be an integer, not a string or bytes");
+            PyObject* ix = PyNumber_Index(p);           // NumPy integers
+            if (!ix) throw nb::python_error();
+            long long v = PyLong_AsLongLong(ix);
+            Py_DECREF(ix);
+            if (v == -1 && PyErr_Occurred()) throw nb::python_error();
+            return v;
         }
 
         // list / tuple of plain numbers, converted in one pass into a reused buffer.
@@ -463,14 +471,58 @@ void init_bindings_dag(nb::module_& m) {
             return true;
         }
 
+        // A C-contiguous 1-D numeric buffer (ndarray of float64, float32 or an
+        // integer type, bool, array.array ...), read through the buffer protocol
+        // with one pass of conversion. Returns false (nothing pushed) for any
+        // other buffer, which takes the general path.
+        bool push_buffer(std::size_t src, std::int64_t t, PyObject* p) {
+            if (!PyObject_CheckBuffer(p)) return false;
+            Py_buffer view;
+            if (PyObject_GetBuffer(p, &view, PyBUF_FORMAT | PyBUF_C_CONTIGUOUS) != 0) {
+                PyErr_Clear();
+                return false;
+            }
+            struct Release { Py_buffer* v; ~Release() { PyBuffer_Release(v); } } release{&view};
+            if (view.ndim != 1 || view.len == 0 || !view.format) return false;
+            const char* f = view.format;
+            if (*f == '@' || *f == '=' || *f == '<') ++f;
+            if (f[0] == '\0' || f[1] != '\0') return false;
+            const std::size_t n = static_cast<std::size_t>(view.shape[0]);
+            const void* b = view.buf;
+            auto load = [&](auto* typed) {
+                scratch.resize(n);
+                for (std::size_t i = 0; i < n; ++i) scratch[i] = static_cast<double>(typed[i]);
+                pcg->cg->push_event_wide(src, t, scratch.data(), n);
+            };
+            switch (*f) {
+            case 'd': if (view.itemsize != 8) return false;
+                      pcg->cg->push_event_wide(src, t, static_cast<const double*>(b), n); return true;
+            case 'f': if (view.itemsize != 4) return false; load(static_cast<const float*>(b)); return true;
+            case '?': load(static_cast<const unsigned char*>(b)); return true;
+            case 'b': load(static_cast<const signed char*>(b)); return true;
+            case 'B': load(static_cast<const unsigned char*>(b)); return true;
+            case 'h': load(static_cast<const short*>(b)); return true;
+            case 'H': load(static_cast<const unsigned short*>(b)); return true;
+            case 'i': load(static_cast<const int*>(b)); return true;
+            case 'I': load(static_cast<const unsigned int*>(b)); return true;
+            case 'l': case 'q':
+                if (view.itemsize == 8) load(static_cast<const long long*>(b));
+                else if (view.itemsize == 4) load(static_cast<const int*>(b));
+                else return false;
+                return true;
+            case 'L': case 'Q':
+                if (view.itemsize == 8) load(static_cast<const unsigned long long*>(b));
+                else if (view.itemsize == 4) load(static_cast<const unsigned int*>(b));
+                else return false;
+                return true;
+            default: return false;
+            }
+        }
+
         void push_sequence(std::size_t src, std::int64_t t, nb::handle value) {
             PyObject* p = value.ptr();
             if ((PyList_Check(p) || PyTuple_Check(p)) && push_plain_sequence(src, t, p)) return;
-            InValues fast;   // a C-contiguous float64 array is used as it is, no conversion
-            if (nb::try_cast<InValues>(value, fast, false) && fast.ndim() == 1 && fast.size() > 0) {
-                pcg->cg->push_event_wide(src, t, fast.data(), static_cast<std::size_t>(fast.size()));
-                return;
-            }
+            if (push_buffer(src, t, p)) return;
             nb::object arr = asarray(value, nb::arg("dtype") = float64);
             InValues v = nb::cast<InValues>(arr);
             if (v.ndim() == 0) {                   // a 0-d array is a scalar
@@ -496,8 +548,8 @@ void init_bindings_dag(nb::module_& m) {
                 pcg->cg->push_event(src, t, d);
             } else if (p == Py_None) {             // a missing value, NaN (A9)
                 pcg->cg->push_event(src, t, std::numeric_limits<double>::quiet_NaN());
-            } else if (PyBytes_Check(p) || PyByteArray_Check(p)) {
-                throw nb::type_error("a value must be a number or a sequence of numbers, not bytes");
+            } else if (PyBytes_Check(p) || PyByteArray_Check(p) || PyMemoryView_Check(p)) {
+                throw nb::type_error("a value must be a number or a sequence of numbers, not bytes or a memoryview");
             } else if (!PyUnicode_Check(p) && PySequence_Check(p)) {
                 push_sequence(src, t, value);      // list, tuple, ndarray, Series ...
             } else {                               // NumPy scalars, numeric strings

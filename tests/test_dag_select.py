@@ -63,9 +63,10 @@ def test_select_out_of_range_errors_batch_and_stream():
     a, b = Input("a"), Input("b")
     # CombineLatest()(a, b) is width-2; column 5 is out of range.
     dag = Pipeline(inputs=[a, b], outputs=[Select(5)(CombineLatest()(a, b))])
-    with pytest.raises(RuntimeError, match="out of range"):
+    # The graph is checked against the input widths before any event is fed.
+    with pytest.raises(ValueError, match="select needs column 5"):
         dag((av, ak), (bv, bk))
-    with pytest.raises(RuntimeError, match="out of range"):
+    with pytest.raises((ValueError, RuntimeError), match="column 5|out of range"):
         _lazy_batch(dag, (av, ak), (bv, bk))
 
 

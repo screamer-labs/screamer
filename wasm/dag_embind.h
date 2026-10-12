@@ -26,6 +26,7 @@
 #include "screamer/common/eval_op.h"
 #include "screamer/dag/graph.h"
 #include "screamer/dag/compiled_graph.h"
+#include "screamer/dag/checked_index.h"
 #include "screamer/dag/resample_params.h"
 
 namespace screamer_wasm {
@@ -75,17 +76,17 @@ public:
 
     void reset() { cg_->reset(); }
     void flush() { cg_->flush(); }
-    void advance(double now) { cg_->advance(static_cast<std::int64_t>(now)); }
+    void advance(double now) { cg_->advance(screamer::dag::checked_index(now)); }
 
     void pushEvent(std::size_t inputIdx, double index, double value) {
-        cg_->push_event(inputIdx, static_cast<std::int64_t>(index), value);
+        cg_->push_event(inputIdx, screamer::dag::checked_index(index), value);
     }
 
     // valuesPtr points at `width` contiguous doubles (heap or wasm memory) that
     // outlive the call. index-as-double, cast to int64.
     void pushEventWide(std::size_t inputIdx, double index,
                        std::uintptr_t valuesPtr, std::size_t width) {
-        cg_->push_event_wide(inputIdx, static_cast<std::int64_t>(index),
+        cg_->push_event_wide(inputIdx, screamer::dag::checked_index(index),
                              reinterpret_cast<const double*>(valuesPtr), width);
     }
 
@@ -120,7 +121,7 @@ public:
             const auto* idx_d = reinterpret_cast<const double*>(idxPtrs[i]);
             idx_i64[i].resize(len);
             for (std::size_t j = 0; j < len; ++j)
-                idx_i64[i][j] = static_cast<std::int64_t>(idx_d[j]);
+                idx_i64[i][j] = screamer::dag::checked_index(idx_d[j]);
             in_indices[i] = idx_i64[i].data();
             in_vals[i]    = reinterpret_cast<const double*>(valPtrs[i]);
             in_lens[i]    = len;
@@ -152,7 +153,7 @@ public:
             const auto* idx_d = reinterpret_cast<const double*>(idxPtrs[i]);
             idx_i64[i].resize(len);
             for (std::size_t j = 0; j < len; ++j)
-                idx_i64[i][j] = static_cast<std::int64_t>(idx_d[j]);
+                idx_i64[i][j] = screamer::dag::checked_index(idx_d[j]);
             in_indices[i] = idx_i64[i].data();
             in_vals[i]    = reinterpret_cast<const double*>(valPtrs[i]);
             in_lens[i]    = len;

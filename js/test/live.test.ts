@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { ready, Input, Pipeline, RollingMean, RollingCorr, Diff } from "../src/index.ts";
+import { ready, Input, Pipeline, RollingMean, RollingCorr, Diff, Sub, select, combineLatest } from "../src/index.ts";
 import type { Output } from "../src/index.ts";
 
 // NaN-aware element equality.
@@ -159,6 +159,50 @@ test("live and batch: a fractional or NaN index is a TypeError", async () => {
     }
     d.push("x", 2, 1);
     assertNanEq(asFloat64(d.result()), [1], "ok");
+  } finally {
+    p.dispose();
+  }
+});
+
+test("live: a rejected first event with a stateful sibling leaves no trace", async () => {
+  await ready();
+  const rows: number[][] = [];
+  for (let k = 0; k < 6; k++) rows.push([100 + k, 101 + 2 * k, 99 - k, 102 + k * k]);
+  const builds: Array<() => Pipeline> = [
+    () => { const a = Input("a"); return new Pipeline([a], [Sub()(combineLatest([RollingMean(2)(select(a, [0])), select(a, [3])]))]); },
+    () => { const a = Input("a"); return new Pipeline([a], [combineLatest([RollingMean(2)(select(a, [0])), select(a, [3])])]); },
+  ];
+  for (const build of builds) {
+    const p = build();
+    try {
+      const run = (bad: boolean): Float64Array => {
+        const d = p.live();
+        if (bad) assert.throws(() => d.push("a", 0, [100, 200]), (e: unknown) => e instanceof RangeError);
+        rows.forEach((r, k) => d.push("a", k, r));
+        d.flush();
+        return asFloat64(d.result());
+      };
+      const fresh = run(false);
+      assertNanEq(run(true), fresh, "after a rejected event");
+    } finally {
+      p.dispose();
+    }
+  }
+});
+
+test("live and batch: one index rule, with advance", async () => {
+  await ready();
+  const a = Input("x");
+  const p = new Pipeline([a], [a]);
+  const kind = (e: unknown) => e instanceof TypeError && /integer-valued/.test((e as Error).message);
+  try {
+    const d = p.live();
+    for (const bad of [2 ** 63, 1e300, -Infinity, NaN, 0.5]) {
+      assert.throws(() => d.push("x", bad, 1), kind);
+      assert.throws(() => d.advance(bad), kind);
+      assert.throws(() => p({ values: [1], index: [bad] }), kind);
+    }
+    d.advance(5);
   } finally {
     p.dispose();
   }

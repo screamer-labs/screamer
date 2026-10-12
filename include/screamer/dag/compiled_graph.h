@@ -115,6 +115,7 @@ public:
             topo.push_back(id);
             for (auto [c, slot] : consumers[id]) if (--in_deg[c] == 0) q.push(c);
         }
+        topo_producers_first_ = topo;           // producers first, kept for width checks
         std::reverse(topo.begin(), topo.end()); // consumers first
 
         // Cycle detection - Kahn's sort omits nodes involved in cycles.
@@ -181,6 +182,7 @@ public:
         std::vector<std::size_t> input_sig(n, static_cast<std::size_t>(-1));
         for (std::size_t idx = 0; idx < s.input_ids.size(); ++idx)
             input_sig[s.input_ids[idx]] = idx;
+        input_sig_ = input_sig;
 
         // node_input_sink[i](slot) = Sink entry-point for slot `slot` of node i.
         // Functor: returns the same FunctorNode for any slot (wide edge).
@@ -333,6 +335,7 @@ public:
     // Resets all stateful nodes and output buffers via a single polymorphic pass.
     // Called at the start of every run_batch so each batch sees a clean initial state.
     void reset() {
+        poisoned_ = false;
         std::fill(in_width_.begin(), in_width_.end(), std::size_t(0));
         for (auto* n : reset_nodes_) n->reset();
         for (std::size_t o = 0; o < outputs_.size(); ++o) {
@@ -345,6 +348,7 @@ public:
     // Emits every open trailing bucket (end-of-input signal). Existing nodes emit
     // nothing on flush; resample nodes emit their partial bucket. Idempotent.
     void flush() {
+        check_live();
         for (auto* s : input_sinks_) if (s) s->flush();
     }
 
@@ -354,6 +358,7 @@ public:
     // combinators (CombineLatest, Filter) unblock buffered rows whose index is
     // now safe to release. Safe to call repeatedly with non-decreasing `now`.
     void advance(std::int64_t now) {
+        check_live();
         for (auto* s : input_sinks_) if (s) s->on_watermark(now);
     }
 
@@ -362,11 +367,12 @@ public:
     void push_event(std::size_t input_idx, std::int64_t index, double value) {
         if (input_idx >= num_in_)
             throw std::runtime_error("push_event: input index out of range");
-        const bool fresh = lock_width(input_idx, 1);
+        check_live();
+        if (in_width_[input_idx] != 1) set_width(input_idx, 1);
         double v = value;
         Frame<std::int64_t> f{index, &v, 1};
         try { input_sinks_[input_idx]->push(f); }
-        catch (...) { if (fresh) in_width_[input_idx] = 0; throw; }   // a rejected first event sets no width
+        catch (...) { poisoned_ = true; throw; }
     }
 
     // Routes a single wide event into the graph without resetting state.
@@ -377,10 +383,11 @@ public:
             throw std::runtime_error("push_event_wide: input index out of range");
         if (width == 0)
             throw std::invalid_argument("a wide event needs at least one value, got none");
-        const bool fresh = lock_width(input_idx, width);
+        check_live();
+        if (in_width_[input_idx] != width) set_width(input_idx, width);
         Frame<std::int64_t> f{index, values, width};
         try { input_sinks_[input_idx]->push(f); }
-        catch (...) { if (fresh) in_width_[input_idx] = 0; throw; }   // a rejected first event sets no width
+        catch (...) { poisoned_ = true; throw; }
     }
 
     // Returns all OutputBuffers accumulated since the last drain()/reset(), then
@@ -433,6 +440,14 @@ public:
         // Reset all stateful state and clear output buffers.
         reset();
 
+        // Check every node against the input widths before any event is fed.
+        {
+            std::vector<std::size_t> known(num_in_, 0);
+            for (std::size_t i = 0; i < num_in_; ++i)
+                if (in_lens[i] > 0) known[i] = widths[i];
+            validate_widths(known);
+        }
+
         // Build VectorSources for index-merge ordering (always width-1 view;
         // the actual values for wide inputs are fetched below via row counters).
         std::vector<std::unique_ptr<streams::VectorSource<std::int64_t>>> srcs;
@@ -476,19 +491,105 @@ private:
     GraphSpec spec_;
 
     // Wiring (built once in constructor, persistent across all run_batch calls).
-    // The first event after reset() sets an input's width (a scalar is width 1);
-    // an event of another width then throws std::invalid_argument.
-    // Returns true when this call set the width.
-    bool lock_width(std::size_t input_idx, std::size_t width) {
-        std::size_t& w = in_width_[input_idx];
-        if (w == width) return false;
+    //
+    // Input widths. The first event after reset() sets an input's width (a
+    // scalar is width 1); an event of another width then throws
+    // std::invalid_argument. Before the width is stored, the whole graph is
+    // checked against it (validate_widths), so a node that cannot take the
+    // width rejects the event while no node has seen it: nothing is pushed and
+    // no width is locked. A rejection that only a node can decide (a Filter
+    // mask, a Resample reducer, a CombineLatest port that changes width after
+    // rows were emitted) happens after upstream nodes took the event, so it
+    // poisons the session: every later push, advance and flush throws until
+    // reset().
+    void set_width(std::size_t input_idx, std::size_t width) {
+        const std::size_t w = in_width_[input_idx];
         if (w != 0)
             throw std::invalid_argument(
                 "input " + std::to_string(input_idx) + " received an event of " +
                 std::to_string(width) + " values after events of " + std::to_string(w));
-        w = width;
-        return true;
+        std::vector<std::size_t> candidate = in_width_;
+        candidate[input_idx] = width;
+        validate_widths(candidate);
+        in_width_[input_idx] = width;
     }
+
+    void check_live() const {
+        if (poisoned_)
+            throw std::runtime_error(
+                "this session rejected an event after part of the graph took it; "
+                "call reset() or start a new live() session");
+    }
+
+    // Propagates the known input widths (0 = not known yet) through the graph
+    // and throws std::invalid_argument for a node that cannot take its width.
+    void validate_widths(const std::vector<std::size_t>& in_w) const {
+        const std::size_t n = spec_.nodes.size();
+        std::vector<std::size_t> w(n, 0);   // 0 = unknown
+        auto in_of = [&](const NodeSpec& nd) -> std::size_t {
+            return nd.inputs.size() == 1 ? w[nd.inputs[0]] : 0;
+        };
+        for (std::size_t id : topo_producers_first_) {
+            const NodeSpec& nd = spec_.nodes[id];
+            switch (nd.kind) {
+            case NodeKind::Input:
+                w[id] = in_w[input_sig_[id]];
+                break;
+            case NodeKind::Functor: {
+                const std::size_t iw = in_of(nd);
+                if (iw != 0 && iw != nd.op->n_in())
+                    throw std::invalid_argument(
+                        "an operator takes " + std::to_string(nd.op->n_in()) +
+                        " column(s), but its input has " + std::to_string(iw));
+                w[id] = nd.op->n_out();
+                break;
+            }
+            case NodeKind::CombineLatest: {
+                std::size_t sum = 0;
+                for (auto in : nd.inputs) { if (w[in] == 0) { sum = 0; break; } sum += w[in]; }
+                w[id] = sum;
+                break;
+            }
+            case NodeKind::DropNa:
+            case NodeKind::Delay:
+                w[id] = in_of(nd);
+                break;
+            case NodeKind::Select: {
+                const std::size_t iw = in_of(nd);
+                if (iw != 0)
+                    for (std::size_t c : nd.columns)
+                        if (c >= iw)
+                            throw std::invalid_argument(
+                                "select needs column " + std::to_string(c) +
+                                ", but its input has " + std::to_string(iw) + " column(s)");
+                w[id] = nd.columns.size();
+                break;
+            }
+            case NodeKind::Resample: {
+                const std::size_t iw = in_of(nd);
+                if (iw != 0) {
+                    if (nd.resample.mode == ResampleMode::ByCumulative && iw != 2)
+                        throw std::invalid_argument(
+                            "a cumulative resample takes [value, driver] (2 columns), "
+                            "but its input has " + std::to_string(iw));
+                    if (nd.resample.reducer && iw != 1)
+                        throw std::invalid_argument(
+                            "a reducer resample takes 1 column, but its input has " +
+                            std::to_string(iw));
+                }
+                w[id] = 0;   // output width is left to the node
+                break;
+            }
+            case NodeKind::Filter:
+                w[id] = 1;
+                break;
+            }
+        }
+    }
+
+    std::vector<std::size_t> topo_producers_first_;
+    std::vector<std::size_t> input_sig_;   // node id -> input signature index
+    bool poisoned_ = false;
     std::vector<std::size_t> in_width_;   // per input, 0 = not set yet
     std::size_t num_in_ = 0;
     std::vector<std::shared_ptr<void>>            owned_;           // all heap nodes/broadcasts

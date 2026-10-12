@@ -96,10 +96,9 @@ def _int64_index(idx):
     if arr.dtype.kind == "f":
         out = arr.astype(np.int64)
         if not np.array_equal(out, arr):
-            raise TypeError(
-                "index must be integer-valued; a fractional index was seen. The "
-                "streaming engine is int64-indexed (float indices are not yet "
-                "supported). Pass integer indices.")
+            from . import screamer_bindings as _b
+            bad = arr[(out != arr) | ~np.isfinite(arr)]
+            _b._checked_index(float(bad[0]) if bad.size else float("nan"))   # raises TypeError
         return np.ascontiguousarray(out)
     return np.ascontiguousarray(arr, dtype=np.int64)
 

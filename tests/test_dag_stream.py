@@ -264,3 +264,115 @@ def test_live_wide_list_tuple_and_array_agree():
     v = live.result()[0]
     np.testing.assert_array_equal(v[:4], np.tile([1, 2.5, 1.0], (4, 1)))
     np.testing.assert_array_equal(v[4], [0, 2, 4])
+
+
+def _reject_then_valid_equals_fresh(build, bad_first, n_cols=4):
+    """A rejected first event leaves no trace: the session then equals a fresh one.
+    (Sessions of one Pipeline share its graph, so they run one after the other.)"""
+    import pytest
+    rows = np.random.default_rng(11).standard_normal((6, n_cols)) + 100
+    p = build()
+    fresh = p.live()
+    for k, r in enumerate(rows):
+        fresh.push("a", k, r)
+    want = fresh.result()
+    s1 = p.live()
+    with pytest.raises(Exception):
+        s1.push("a", 0, bad_first)
+    for k, r in enumerate(rows):
+        s1.push("a", k, r)
+    return s1.result(), want
+
+
+def test_live_rejected_first_event_with_a_stateful_sibling_equals_fresh():
+    from screamer import Input, Pipeline, Select, RollingMean, RollingSum, Diff, RollingCorr
+    from screamer.streams import CombineLatest
+
+    def g1():
+        a = Input("a")
+        return Pipeline([a], [RollingMean(2)(Select(columns=[0])(a)), Select(columns=[3])(a)])
+
+    def g2():
+        a = Input("a")
+        return Pipeline([a], [RollingSum(3)(Select(columns=[1])(a)),
+                              Diff()(Select(columns=[0])(a)), Select(columns=[3])(a)])
+
+    def g3():
+        a = Input("a")
+        return Pipeline([a], [CombineLatest()(RollingMean(2)(Select(columns=[0])(a)),
+                                              Select(columns=[3])(a))])
+
+    def g4():
+        a = Input("a")
+        return Pipeline([a], [RollingMean(3)(Select(columns=[0])(a)), RollingCorr(3)(a)])
+
+    for build, bad, cols in ((g1, [100.0, 200.0], 4), (g2, [100.0, 200.0], 4),
+                             (g3, [100.0, 200.0], 4), (g4, 100.0, 2)):
+        v1, v2 = _reject_then_valid_equals_fresh(build, bad, cols)
+        out1 = v1 if isinstance(v1[0], tuple) else (v1,)
+        out2 = v2 if isinstance(v2[0], tuple) else (v2,)
+        assert len(out1) == len(out2)
+        for (x1, i1), (x2, i2) in zip(out1, out2):
+            np.testing.assert_array_equal(x1, x2)
+            np.testing.assert_array_equal(i1, i2)
+
+
+def test_live_batch_checks_widths_before_feeding():
+    import pytest
+    from screamer import Input, Pipeline, Select, RollingMean
+    a = Input("a")
+    p = Pipeline([a], [RollingMean(2)(Select(columns=[0])(a)), Select(columns=[3])(a)])
+    with pytest.raises(Exception):
+        p(np.ones((5, 2)))
+    out = p(np.ones((5, 4)))
+    assert len(out) == 2
+
+
+def test_live_a_rejection_after_part_of_the_graph_took_the_event_needs_reset():
+    import pytest
+    import screamer.screamer_bindings as _b
+    gb = _b._GraphBuilder()
+    a, b = gb.add_input(), gb.add_input()
+    gb.set_outputs([gb.add_combine_latest([a, b], True, 2)])
+    cg = gb.compile()
+    with pytest.raises(RuntimeError, match="buffer overflow"):
+        for k in range(5):
+            cg.push_event(0, k, 1.0)
+    with pytest.raises(RuntimeError, match="reset"):
+        cg.push_event(1, 0, 1.0)
+    cg.reset()
+    cg.push_event(1, 0, 1.0)
+
+
+def test_live_index_must_be_a_real_number():
+    import pytest
+    from decimal import Decimal
+    from fractions import Fraction
+    import screamer.screamer_bindings as _b
+    p, live = _identity_live()
+    for bad in ("5", b"6", Decimal(7), Fraction(8), float("inf"), 2.0**63, 1e300, float("nan")):
+        with pytest.raises(TypeError):
+            live.push("x", bad, 1.0)
+    with pytest.raises(TypeError, match="integer-valued"):
+        _b._checked_index(1.5)
+    with pytest.raises(TypeError, match="integer-valued"):
+        p((np.array([1.0, 2.0]), np.array([0.0, np.nan])))
+    live.push("x", 0, 1.0)
+    assert len(live.result()[1]) == 1
+
+
+def test_live_memoryview_and_bytes_like_values_raise():
+    import pytest
+    p, live = _identity_live()
+    for bad in (b"12", bytearray(b"12"), memoryview(b"12")):
+        with pytest.raises(TypeError):
+            live.push("x", 0, bad)
+
+
+def test_live_wide_arrays_of_other_dtypes():
+    p, live = _identity_live()
+    live.push("x", 0, np.array([1, 2, 3, 4], dtype=np.float32))
+    live.push("x", 1, np.array([1, 2, 3, 4], dtype=np.int64))
+    live.push("x", 2, np.array([True, False, True, True]))
+    v = live.result()[0]
+    np.testing.assert_array_equal(v, [[1, 2, 3, 4], [1, 2, 3, 4], [1, 0, 1, 1]])

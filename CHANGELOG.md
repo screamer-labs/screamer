@@ -76,12 +76,26 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
 
 ### Changed
 
-* A fractional, `NaN` or infinite index raises `TypeError` ("index must be
-  integer-valued ...") in `live().push()` in Python, and in `live().push()`,
-  `pushWide()` and batch calls in JavaScript, as a Python batch feed already
-  did. 2.8.0 truncated it in JavaScript and in Python's `push` (`1.5` gave 1,
-  `NaN` gave 0). To get the old result, pass `int(index)` (Python) or
-  `Math.trunc(index)` (JavaScript).
+* One index rule, owned by the C++ engine: an index must be finite, whole and
+  inside the int64 range, or `TypeError` ("index must be integer-valued ...")
+  is raised, in Python's `live().push()` and batch calls and in JavaScript's
+  `live().push()`, `pushWide()`, `advance()` and batch calls. 2.8.0 truncated
+  it in JavaScript (`1.5` gave 1, `NaN` gave 0, `2**63` saturated) and in
+  Python's `push` (`int(index)`). A Python index must be a real number: a
+  `str`, `bytes`, `Decimal` or `Fraction` index, which `int()` accepted in
+  2.8.0, now raises `TypeError`. To get the old result, pass `int(index)`
+  (Python) or `Math.trunc(index)` (JavaScript).
+* Python `live().push()` raises `TypeError` for a `memoryview` value, as for
+  `bytes` and `bytearray`.
+* A live session checks the whole graph against an input's width when its
+  first event arrives, before any operator sees it. A width that an operator or
+  `select` cannot take raises with nothing pushed, and the session behaves as
+  if the event had not been sent. A rejection that only an operator can decide
+  later (for example a stalled `combine_latest` buffer) makes the session
+  refuse further events until `reset()` or a new `live()`. `Pipeline` batch
+  calls run the same check before feeding. The error is `ValueError` (JavaScript
+  `RangeError`) with a message such as "select needs column 5, but its input has
+  2 column(s)"; 2.8.0 raised `RuntimeError` from inside the graph.
 * Python `live().push()` raises `TypeError` for a `bytes` or `bytearray` value;
   2.8.0 read `b"12"` as 12.0. Pass `float(value)` for the old result.
 * A list of rows passed to a row operator (`CrossRank()([r1, r2])`) returns a list of result rows, following rule 3; 2.8.0 returned an array. To get the array, pass `np.vstack(rows)`. A tuple of rows and a matrix still return an array. A mix of lists and arrays (for example a list target with an ndarray of prices) returns an array. The JavaScript row operators follow the same rule: an `Array` of rows gives an `Array` of `Float64Array` rows, and an `NdArray` gives an `NdArray`. To get the old `NdArray` from an array of rows in JavaScript, pass `{ data, shape: [T, K] }`.
