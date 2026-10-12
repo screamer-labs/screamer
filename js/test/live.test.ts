@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { ready, Input, Pipeline, RollingMean, Diff } from "../src/index.ts";
+import { ready, Input, Pipeline, RollingMean, RollingCorr, Diff } from "../src/index.ts";
 import type { Output } from "../src/index.ts";
 
 // NaN-aware element equality.
@@ -113,6 +113,52 @@ test("live: null and numeric strings inside a wide event follow the batch feed",
     d.push("x", 0, [null, 1] as any);
     d.push("x", 1, ["2", "3"] as any);
     assertNanEq(asFloat64(d.result()), [NaN, 1, 2, 3], "values");
+  } finally {
+    p.dispose();
+  }
+});
+
+test("live: a nested sequence is a RangeError, like Python's ValueError", async () => {
+  await ready();
+  const a = Input("x");
+  const p = new Pipeline([a], [a]);
+  try {
+    const d = p.live();
+    assert.throws(() => d.push("x", 0, [[1, 2]] as any), (e: unknown) => e instanceof RangeError);
+    assert.throws(() => d.push("x", 0, [new Float64Array(2)] as any), (e: unknown) => e instanceof RangeError);
+    assert.throws(() => d.pushWide("x", 0, [[1], [2]] as any), (e: unknown) => e instanceof RangeError);
+  } finally {
+    p.dispose();
+  }
+});
+
+test("live: a rejected first event sets no width", async () => {
+  await ready();
+  const a = Input("a");
+  const p = new Pipeline([a], [RollingCorr(3)(a)]);
+  try {
+    const d = p.live();
+    assert.throws(() => d.push("a", 0, 1));           // a number into a two-column edge
+    for (let k = 0; k < 4; k++) d.push("a", k, [k, k * k]);
+    assert.equal(asFloat64(d.result()).length, 4);
+  } finally {
+    p.dispose();
+  }
+});
+
+test("live and batch: a fractional or NaN index is a TypeError", async () => {
+  await ready();
+  const a = Input("x");
+  const p = new Pipeline([a], [a]);
+  try {
+    const d = p.live();
+    for (const bad of [1.5, NaN, Infinity]) {
+      assert.throws(() => d.push("x", bad, 1), (e: unknown) => e instanceof TypeError && /integer-valued/.test((e as Error).message));
+      assert.throws(() => d.push("x", bad, [1, 2]), (e: unknown) => e instanceof TypeError);
+      assert.throws(() => p({ values: [1, 2], index: [0, bad] }), (e: unknown) => e instanceof TypeError && /integer-valued/.test((e as Error).message));
+    }
+    d.push("x", 2, 1);
+    assertNanEq(asFloat64(d.result()), [1], "ok");
   } finally {
     p.dispose();
   }

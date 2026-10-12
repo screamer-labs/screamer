@@ -14,10 +14,10 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
   multi-column event, in Python and JavaScript; JavaScript's `pushWide` stays as
   an alias. The first event of an input after a reset fixes its width (a number
   is width 1), and an event of another width raises `ValueError` (`RangeError`
-  in JavaScript). An empty or 2-D value also raises. Inside a sequence, `None`
-  (`null`) is `NaN`. A bare `None` is now `NaN` in Python, as it already was
-  in JavaScript. A fractional index raises `TypeError`, as in a batch feed; it
-  was truncated before. Python's `push` is now a C++ method and about 3x faster.
+  in JavaScript). An empty or 2-D value, or a nested sequence, also raises
+  (`ValueError` / `RangeError`). Inside a sequence, `None` (`null`) is `NaN`.
+  A bare `None` is now `NaN` in Python, as it already was in JavaScript.
+  Python's `push` is now a C++ method and about 3x faster.
 * **Walk-forward evaluation:** `walk_forward` (Python) and `walkForward`
   (JavaScript) take a `(T, K)` array of strategy variants, pick the best
   variant on each training window by any `backtest_report` statistic, trade it
@@ -76,6 +76,14 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
 
 ### Changed
 
+* A fractional, `NaN` or infinite index raises `TypeError` ("index must be
+  integer-valued ...") in `live().push()` in Python, and in `live().push()`,
+  `pushWide()` and batch calls in JavaScript, as a Python batch feed already
+  did. 2.8.0 truncated it in JavaScript and in Python's `push` (`1.5` gave 1,
+  `NaN` gave 0). To get the old result, pass `int(index)` (Python) or
+  `Math.trunc(index)` (JavaScript).
+* Python `live().push()` raises `TypeError` for a `bytes` or `bytearray` value;
+  2.8.0 read `b"12"` as 12.0. Pass `float(value)` for the old result.
 * A list of rows passed to a row operator (`CrossRank()([r1, r2])`) returns a list of result rows, following rule 3; 2.8.0 returned an array. To get the array, pass `np.vstack(rows)`. A tuple of rows and a matrix still return an array. A mix of lists and arrays (for example a list target with an ndarray of prices) returns an array. The JavaScript row operators follow the same rule: an `Array` of rows gives an `Array` of `Float64Array` rows, and an `NdArray` gives an `NdArray`. To get the old `NdArray` from an array of rows in JavaScript, pass `{ data, shape: [T, K] }`.
 * pandas `Series` and `DataFrame` inputs are read as their values and give a NumPy array (2.8.0 treated them as iterators). `str`, `bytes`, `dict` and `set` inputs raise `TypeError` at the call.
 * **JavaScript error classes:** every shape, length or input-count mismatch throws `RangeError` (the counterpart of Python's `ValueError`); wrong kinds still throw `TypeError`.
@@ -244,9 +252,10 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
 
 ### Fixed
 
-* JavaScript: a live session that pushed a number and then a multi-value
-  event to the same input (`push` then `pushWide`) read past the end of the
-  output buffer and returned garbage. It now raises `RangeError`.
+* JavaScript: events of different widths on one input of a live session (a
+  number then a sequence, or sequences of different lengths, in either order,
+  through `push` and `pushWide`) read past the end of the output buffer or
+  returned wrong values. They now raise `RangeError`.
 * JavaScript operators and pipelines that are dropped without `dispose()` are
   now freed when they are garbage-collected. Before, every operator kept about
   4 to 10 KB on the JS heap and its C++ state on the WASM heap for the life of

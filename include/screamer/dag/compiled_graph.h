@@ -362,10 +362,11 @@ public:
     void push_event(std::size_t input_idx, std::int64_t index, double value) {
         if (input_idx >= num_in_)
             throw std::runtime_error("push_event: input index out of range");
-        lock_width(input_idx, 1);
+        const bool fresh = lock_width(input_idx, 1);
         double v = value;
         Frame<std::int64_t> f{index, &v, 1};
-        input_sinks_[input_idx]->push(f);
+        try { input_sinks_[input_idx]->push(f); }
+        catch (...) { if (fresh) in_width_[input_idx] = 0; throw; }   // a rejected first event sets no width
     }
 
     // Routes a single wide event into the graph without resetting state.
@@ -376,9 +377,10 @@ public:
             throw std::runtime_error("push_event_wide: input index out of range");
         if (width == 0)
             throw std::invalid_argument("a wide event needs at least one value, got none");
-        lock_width(input_idx, width);
+        const bool fresh = lock_width(input_idx, width);
         Frame<std::int64_t> f{index, values, width};
-        input_sinks_[input_idx]->push(f);
+        try { input_sinks_[input_idx]->push(f); }
+        catch (...) { if (fresh) in_width_[input_idx] = 0; throw; }   // a rejected first event sets no width
     }
 
     // Returns all OutputBuffers accumulated since the last drain()/reset(), then
@@ -476,14 +478,16 @@ private:
     // Wiring (built once in constructor, persistent across all run_batch calls).
     // The first event after reset() sets an input's width (a scalar is width 1);
     // an event of another width then throws std::invalid_argument.
-    void lock_width(std::size_t input_idx, std::size_t width) {
+    // Returns true when this call set the width.
+    bool lock_width(std::size_t input_idx, std::size_t width) {
         std::size_t& w = in_width_[input_idx];
-        if (w == width) return;
+        if (w == width) return false;
         if (w != 0)
             throw std::invalid_argument(
                 "input " + std::to_string(input_idx) + " received an event of " +
                 std::to_string(width) + " values after events of " + std::to_string(w));
         w = width;
+        return true;
     }
     std::vector<std::size_t> in_width_;   // per input, 0 = not set yet
     std::size_t num_in_ = 0;

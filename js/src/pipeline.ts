@@ -25,6 +25,14 @@ export interface LiveDriver {
   result(): Output;
 }
 
+// The engine is int64-indexed: a fractional, NaN or infinite index raises
+// TypeError with the same text as Python's batch feed.
+const BAD_INDEX = "index must be integer-valued; a fractional index was seen. The streaming engine is int64-indexed (float indices are not yet supported). Pass integer indices.";
+function checkIndex(t: number): number {
+  if (!Number.isInteger(t)) throw new TypeError(BAD_INDEX);
+  return t;
+}
+
 // A push value that is one wide event: an Array, a typed array, or an NdArray.
 function isSequence(v: object): boolean {
   if (Array.isArray(v)) return true;
@@ -256,6 +264,8 @@ class PipelineImpl implements Owned {
       if (!index) {
         index = new Float64Array(values.length);
         for (let i = 0; i < values.length; i++) index[i] = i;
+      } else {
+        for (let i = 0; i < index.length; i++) checkIndex(index[i]);
       }
       return { values, index };
     };
@@ -369,7 +379,7 @@ class PipelineImpl implements Owned {
         if (nd.shape.length > 1) throw new RangeError(`a wide event is a 1-D sequence of numbers, got shape [${nd.shape}]`);
         src = nd.data;
       } else src = values as ArrayLike<number>;
-      const t = typeof index === "number" ? index : feedNumber(index, "Pipeline", () => `the index pushed to input ${i}`);
+      const t = checkIndex(typeof index === "number" ? index : feedNumber(index, "Pipeline", () => `the index pushed to input ${i}`));
       if (src == null || typeof src.length !== "number")
         throw new TypeError(`a wide event is a sequence of numbers, got ${typeof values}`);
       const width = src.length;
@@ -379,6 +389,8 @@ class PipelineImpl implements Owned {
         if (src instanceof Float64Array) view.set(src);
         else for (let j = 0; j < width; j++) {
           const x: unknown = src[j];
+          if (x !== null && typeof x === "object" && (Array.isArray(x) || ArrayBuffer.isView(x) || asNd(x)))
+            throw new RangeError("a wide event is a 1-D sequence of numbers, item [" + j + "] is a sequence");
           view[j] = typeof x === "number" ? x
             : feedValue(x, "Pipeline", () => `item [${j}] of the values pushed to input ${i}`);
         }
@@ -401,7 +413,7 @@ class PipelineImpl implements Owned {
         // (ToNumber at the WASM call); an object that is not a number is a
         // wrong kind.
         const v = typeof value === "number" ? value : feedValue(value, "Pipeline", () => `the value pushed to input ${i}`);
-        const t = typeof index === "number" ? index : feedNumber(index, "Pipeline", () => `the index pushed to input ${i}`);
+        const t = checkIndex(typeof index === "number" ? index : feedNumber(index, "Pipeline", () => `the index pushed to input ${i}`));
         try { self.cg.pushEvent(i, t, v); } catch (e) { throw normalizeError(e); }
       },
       pushWide(name: string, index: number, values: ArrayLike<number> | NdArray): void {

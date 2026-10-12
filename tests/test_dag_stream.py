@@ -188,3 +188,79 @@ def test_live_width_change_after_a_drain_still_raises():
     live.result()
     with pytest.raises(ValueError):
         live.push("x", 1, 3.0)
+
+
+def test_live_rejected_first_event_sets_no_width():
+    import pytest
+    from screamer import Input, Pipeline, Select, RollingCorr
+    a = Input("a")
+    live = Pipeline([a], [Select(columns=[3])(a)]).live()
+    with pytest.raises(Exception):
+        live.push("a", 0, [1.0, 2.0])          # too narrow for Select(3)
+    live.push("a", 0, [1.0, 2.0, 3.0, 4.0])    # a correct event still works
+    np.testing.assert_array_equal(np.ravel(live.result()[0]), [4.0])
+    b = Input("b")
+    live = Pipeline([b], [RollingCorr(3)(b)]).live()
+    with pytest.raises(Exception):
+        live.push("b", 0, 1.0)                 # a scalar into a two-column edge
+    for k in range(4):
+        live.push("b", k, [float(k), float(k * k)])
+    assert len(live.result()[0]) == 4
+
+
+def test_live_wide_edge_into_a_multi_input_functor_equals_batch():
+    from screamer import Input, Pipeline, RollingCorr
+    a = Input("a")
+    p = Pipeline([a], [RollingCorr(5)(a)])
+    x = np.random.default_rng(5).standard_normal((30, 2))
+    live = p.live()
+    for k, row in enumerate(x):
+        live.push("a", k, row)
+    np.testing.assert_array_equal(live.result()[0], p(x)[0])
+
+
+def test_live_nested_sequence_is_a_value_error():
+    import pytest
+    p, live = _identity_live()
+    with pytest.raises(ValueError):
+        live.push("x", 0, [[1.0, 2.0]])
+
+
+def test_live_index_kinds_and_bytes():
+    import pytest
+    p, live = _identity_live()
+    live.push("x", np.float32(1.0), 1.0)
+    live.push("x", np.float64(2.0), 2.0)
+    live.push("x", np.int16(3), 3.0)
+    for bad in (float("nan"), np.float32(1.5), float("inf")):
+        with pytest.raises(TypeError, match="integer-valued"):
+            live.push("x", bad, 1.0)
+    for bad in (b"12", bytearray(b"12")):
+        with pytest.raises(TypeError, match="bytes"):
+            live.push("x", 4, bad)
+    np.testing.assert_array_equal(live.result()[1], [1, 2, 3])
+
+
+def test_live_push_by_position_does_not_leak_references():
+    import sys
+    p, live = _identity_live()
+    big = int("1000007")        # a position that is not a cached small int
+    before = sys.getrefcount(big)
+    for i in range(1000):
+        try:
+            live.push(big, i, 1.0)   # out of range: the engine rejects it
+        except Exception:
+            pass
+    assert sys.getrefcount(big) - before < 5
+
+
+def test_live_wide_list_tuple_and_array_agree():
+    p, live = _identity_live()
+    live.push("x", 0, [1, 2.5, True])
+    live.push("x", 1, (1, 2.5, 1))
+    live.push("x", 2, np.array([1, 2.5, 1.0]))
+    live.push("x", 3, np.array([1, 2.5, 1], dtype=np.float32))
+    live.push("x", 4, np.arange(6.0)[::2])
+    v = live.result()[0]
+    np.testing.assert_array_equal(v[:4], np.tile([1, 2.5, 1.0], (4, 1)))
+    np.testing.assert_array_equal(v[4], [0, 2, 4])
