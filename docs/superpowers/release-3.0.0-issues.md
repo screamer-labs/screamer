@@ -25,6 +25,7 @@ Goal: zero open issues before `make major`. Each item is closed by a fix with a 
 | B2 | The five microstructure classes (`SignedVolume`, `RollingKyleLambda`, `EwKyleLambda`, `RollingOrderImbalance`, `QueueImbalance`) are missing in JS. | decided: move them into C++ as named operators reusing the existing kernels (input swap in C++); both bindings generated; Python names and 2.8.0 keyword inputs kept; compat gate checks results; to implement |
 | B3 | JS lacks `backtestReport`, `forecastPairs`, `split`, and options-object constructors. | decided: (1) BacktestReport summary + column names move into C++, Python/JS label wrappers over it; (2) forecast_pairs graph built once in C++, both bindings call it; (3) expose the C++ split partition to JS; (4) generated JS constructors also accept one options object (`EwMean({span: 20})`), positional unchanged, unknown keys raise TypeError; to implement |
 | B4 | JS `combineLatest` has no `layout` option (it is graph-only; assets in a `Pipeline` are phase 2). JS `combineLatest` takes Pipeline nodes only; Python's layout join (`_join_spec`, `_assemble`, `_combine_latest_zip_lazy`) is Python logic. | decided: move the layout join (asset broadcast, field concat, assembly, positional zip) into C++; Python `combine_latest` calls it with unchanged results (compat gate); JS `combineLatest` gains the direct forms (arrays/NdArray, (values, index), iterators, async) with `layout`, graph form kept; layout inside a Pipeline stays E1; to implement |
+| B5 | `strategy_test` keeps its orchestration (input checks, the loop over randomized copies, gathering the moved inputs, the p-value count) in Python and again in JS; only the randomization is C++. Found in C2. | decided (controller ruling, 2026-10-12, per the B2 principle): move the copy loop and the p-value into shared C++ with the strategy as a callback, so Python and JS are thin wrappers; results unchanged (bit-identical, Python and JS); to implement |
 
 ## C. Correctness bugs that predate this branch
 
@@ -83,6 +84,7 @@ Goal: zero open issues before `make major`. Each item is closed by a fix with a 
 
 ## Future features (not in 3.0.0)
 
+- `permute_bars` / `permute_returns` on `(T, K)` input as public functions (the kernels already handle it inside `strategy_test`); needs a decision on where the copy axis goes. In 3.0.0 they take a series and raise ValueError on 2-D input. (From C2.)
 - Phase 2 of the shape contract (E1, E3, E4, and E2's (T', X, 4) in a Pipeline): asset frames inside a `Pipeline`, `Input(layout=)`, functor `agg` over several columns, `on_any` with wide inputs. All raise today, so they can land in 3.x. Note (user, 2026-10-11): 3.0.0 may wait until phase 2 and phase 3 are done as well; if so these move back into scope.
 
 - Chunked batch processing that carries operator state from one batch call to the next (e.g. `op(chunk, continue_=True)`), for data larger than memory. Today: one stream, or `op(x)` per value. (From A5.)
