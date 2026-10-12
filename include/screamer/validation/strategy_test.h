@@ -72,7 +72,7 @@ namespace screamer { namespace validation {
 
     struct StrategyTestResult {
         double observed = 0.0;
-        std::size_t null_count = 0;              // finite metrics emitted to the host
+        std::size_t null_count = 0;              // metrics in the null (in_null) emitted to the host
         double p_value = 0.0;
         std::array<double, kNumStats> observed_stats{};
     };
@@ -132,9 +132,10 @@ namespace screamer { namespace validation {
     // defaulting to a tenth of T); the rest stay as they are.
     //
     // Copy j uses the generator seeded with (seed, j), so the copies are those
-    // of the batch kernels. The p-value is (1 + hits) / (1 + finite runs),
-    // where a hit is a finite run whose metric is at least as good as the
-    // observed one; NaN when the observed metric is not finite.
+    // of the batch kernels. The p-value is (1 + hits) / (1 + runs in the
+    // null), where the null holds every run whose metric is not NaN (in_null)
+    // and a hit is a run at least as good as the observed one; NaN when the
+    // observed metric is not finite.
     inline StrategyTestResult strategy_test(StrategyHost& host,
                                             const std::vector<StrategyInput>& data,
                                             const StrategyTestOptions& opt) {
@@ -248,7 +249,7 @@ namespace screamer { namespace validation {
         std::vector<double> source(T);
         std::array<double, kNumStats> stats;
         detail::RunBatch batch(host, 1, true);
-        std::size_t hits = 0;
+        NullTally tally;
         for (std::size_t j = 0; j < n; ++j) {
             std::fill(moved.begin(), moved.end(), 0);
             if (method != StrategyMethod::Shift) {
@@ -285,11 +286,11 @@ namespace screamer { namespace validation {
             const double v = score(stats);
             batch.put(0, stats, v);
             batch.end_run();
-            if (std::isfinite(v)) hits += metric.larger ? v >= res.observed : v <= res.observed;
+            tally.add(v, res.observed, metric.larger);
         }
         batch.flush();
         res.null_count = batch.total();
-        res.p_value = p_value(hits, res.null_count, res.observed);
+        res.p_value = tally.p(res.observed);
         return res;
     }
 

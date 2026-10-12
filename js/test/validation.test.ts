@@ -647,3 +647,45 @@ test("validation: the family p-value is the max statistic over the null", () => 
     }
   }
 });
+
+test("validation: per-strategy p-values keep infinite metrics", async () => {
+  const { strategyTest, BacktestPortfolioTarget } = await import("../src/index.ts");
+  const T = 200;
+  const { c } = market(T);
+  const a = Array.from({ length: T }, (_, t) => (Math.floor(t / 6) % 2 ? 1 : -1));
+  const b = a.map((v, t) => (t % 5 ? v : -v));
+  const eng = () => BacktestPriceTarget(1e-4);
+  const real = eng()(Float64Array.from(b), c) as any;
+  const thr = real.data[(T - 1) * 4] + 0.1;      // +inf above the real run, so it stays finite
+  const pnl = (out: any) => out.data[(out.shape[0] - 1) * 4];
+  const inf = (out: any) => { const v = pnl(out); return v > thr ? Infinity : v === 0 ? NaN : v; };
+  // recomputed from the null: NaN left out, infinite metrics kept
+  const nullP = (nul: ArrayLike<number>, o: number, larger: boolean) => {
+    if (!Number.isFinite(o)) return NaN;
+    const kept = Array.from(nul).filter((v) => !Number.isNaN(v));
+    return (1 + kept.filter((v) => (larger ? v >= o : v <= o)).length) / (1 + kept.length);
+  };
+  let seen = 0;
+  for (const [metric, larger] of [["profit_factor", undefined], ["total_pnl", false], [inf, undefined], [inf, false]] as const) {
+    const L = larger ?? true;
+    const one = positionTest(eng(), b, [c], { n: 150, seed: 4, metric: metric as any, largerIsBetter: larger });
+    if (typeof metric === "string") {
+      const full = one.nullStats[metric as "profit_factor"];
+      assert.deepEqual(Array.from(one.null), Array.from(full).filter((v) => !Number.isNaN(v)));
+    }
+    seen += Array.from(one.null).filter((v) => !Number.isFinite(v)).length * (Number.isFinite(one.observed) ? 1 : 0);
+    assert.ok(Object.is(one.pValue, nullP(one.null, one.observed, L)));
+    const fam = positionTest(eng(), [a, b, new Array(T).fill(0)], [c], { n: 150, seed: 4, metric: metric as any, largerIsBetter: larger });
+    for (let k = 0; k < 3; k++) {
+      const col = Array.from({ length: 150 }, (_, r) => fam.null.data[r * 3 + k]);
+      assert.ok(Object.is(fam.pValue[k], nullP(col, fam.observed[k], L)), `${k}`);
+    }
+    const pan = c.map((v) => [v, v]), w = a.map((v, t) => [v / 2, b[t] / 2]);
+    const book = positionTest(BacktestPortfolioTarget(1e-4, 0, "fraction", 0, 1, 0, "units", 0), w, [pan], { n: 60, seed: 4, metric: metric as any, largerIsBetter: larger });
+    assert.ok(Object.is(book.pValue, nullP(book.null, book.observed, L)));
+    const st = strategyTest((p: Float64Array) => eng()(Float64Array.from(b), p), [c],
+      { method: "returns", n: 60, seed: 4, metric: metric as any, largerIsBetter: larger });
+    assert.ok(Object.is(st.pValue, nullP(st.null, st.observed, L)));
+  }
+  assert.ok(seen > 0);
+});

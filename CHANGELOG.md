@@ -97,7 +97,8 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
   `RangeError`), and `minShift: null` the default.
 * `position_test` and `walk_forward` (Python) and `positionTest` and
   `walkForward` (JavaScript) run in one C++ implementation that calls your
-  engine and a custom metric back. Results are unchanged, and the calls are
+  engine and a custom metric back. Results are unchanged (except for infinite
+  metrics, see "Fixed"), and the calls are
   1.2 to 3 times faster in our measurements. Changes you can see:
   * JavaScript errors now use the Python text, with the same classes:
     `metric must be one of ['avg_holding', ...] or a callable`,
@@ -222,18 +223,29 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
 
 ### Fixed
 
-* The family p-value of `position_test` / `positionTest` with K strategies
-  now counts every randomized round in which some strategy has a metric. 2.8.0
-  left out rounds whose best metric was infinite: a `+inf` best (for example a
-  `profit_factor`, `calmar`, or `sortino` of `inf`, or a custom metric) beats
-  every observed value, so leaving it out made the family p-value too small;
-  a `-inf` best (with `larger_is_better=False`, `+inf` metrics) loses to every
-  observed value, so leaving it out made the p-value slightly too large.
-  Results change only for tests where some round's best metric is infinite;
-  in one example with a custom metric that is `inf` in 41 of 120 rounds the
-  family p-values go from (0.15, 0.0125) to (0.44, 0.35). Rounds where every
-  strategy's metric is NaN are still left out, and the per-strategy p-values
-  are unchanged.
+* Infinite metrics now count in the null distribution of `position_test` /
+  `positionTest` and `strategy_test` / `strategyTest`. A randomized run is
+  left out only when its metric is NaN, as documented; 2.8.0 also left out
+  runs whose metric was `+inf` or `-inf`. This applies to every p-value: the
+  per-strategy p-value (one strategy, each of K strategies, and a portfolio),
+  the `strategy_test` p-value, and the family p-value with K strategies, where
+  a round counts when any strategy has a metric and its best, infinite or
+  not, is compared with each observed value. Infinite runs also appear in the
+  returned `null` (one strategy, portfolio, `strategy_test`).
+  * Which results change: only tests where some randomized run has an
+    infinite metric. That is a statistic that can be infinite, such as
+    `profit_factor` (no losing trade), `calmar` (no drawdown), or `sortino`
+    (no downside), or a custom metric that returns `inf`. Tests whose null
+    has no infinite value give the same results as 2.8.0.
+  * Direction: a run better than every finite value (`+inf` with larger is
+    better, `-inf` with smaller is better) is a hit, so 2.8.0's p-values were
+    too small there; a run worse than every value adds a non-hit, so 2.8.0's
+    were slightly too large there. When the observed metric itself is not
+    finite the p-value stays NaN.
+  * Examples, with a custom metric that is `inf` above a threshold: two
+    strategies, n = 120, `inf` in 41 rounds: p-values (0.106, 0.030) become
+    (0.372, 0.207), and the family p-values (0.15, 0.0125) become (0.438,
+    0.347); `strategy_test`, n = 200, 32 infinite runs: 0.0059 becomes 0.164.
 * The `nan_policy` of the backtest engines that give a `NaN` target or order a defined meaning is now listed as `nan-aware`, not `ignore`: `BacktestOHLCTarget`, `BacktestOHLCVTarget`, `BacktestTradesTarget`, `BacktestL1Target` (a `NaN` target keeps the last target), and `BacktestOHLCOrders`, `BacktestTradesOrders`, `BacktestL1Orders`, `BacktestL1TradesOrders` (a `NaN` own quote is a market order or an unquoted side). Documentation only; no result changes.
 * A list passed to a multi-input operator whose events do not hold every input
   (for example `Add()([v, w])` or `Add()([1.0, 2.0])`) raises a `ValueError`

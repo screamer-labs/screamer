@@ -154,9 +154,9 @@ namespace screamer { namespace validation {
         virtual void begin(std::size_t n, std::size_t K) = 0;
         // Runs j0 .. j0 + runs - 1. Statistic q of run j, strategy k is
         // stats[q * stride + (j - j0) * K + k]. `metrics` holds `count`
-        // values of the null distribution, appended in order: the finite
-        // metrics for one strategy, and every metric (NaN kept, round-major)
-        // for K strategies.
+        // values of the null distribution, appended in order: the metrics
+        // in_null keeps for one strategy, and every metric (NaN kept,
+        // round-major) for K strategies.
         virtual void emit(std::size_t j0, std::size_t runs, const double* stats,
                           std::size_t stride, const double* metrics, std::size_t count) = 0;
     };
@@ -170,6 +170,26 @@ namespace screamer { namespace validation {
             : std::numeric_limits<double>::quiet_NaN();
     }
 
+    // The rule of every null distribution (each strategy's, the family's max
+    // statistic, and strategy_test's): a randomized run's metric belongs to
+    // it unless it is NaN. An infinite metric is a real outcome (+inf beats
+    // every finite observed value), so it stays.
+    inline bool in_null(double v) { return !std::isnan(v); }
+
+    // The hits and the size of a null distribution against one observed
+    // value, with in_null's rule; a hit is at least as good as the observed.
+    struct NullTally {
+        std::size_t hits = 0, count = 0;
+
+        void add(double v, double observed, bool larger) {
+            if (!in_null(v)) return;
+            ++count;
+            hits += larger ? v >= observed : v <= observed;
+        }
+
+        double p(double observed) const { return p_value(hits, count, observed); }
+    };
+
     namespace detail {
 
         // Collects run results and hands them to a ResultSink in batches of at
@@ -178,14 +198,16 @@ namespace screamer { namespace validation {
         public:
             static constexpr std::size_t kBatchValues = 4096;
 
-            RunBatch(ResultSink& sink, std::size_t K, bool finite_only)
+            // null_only: append only the metrics in_null keeps (one strategy);
+            // otherwise every metric, NaN kept (K strategies).
+            RunBatch(ResultSink& sink, std::size_t K, bool null_only)
                 : sink_(sink), K_(K), cap_(std::max<std::size_t>(1, kBatchValues / std::max<std::size_t>(1, K))),
-                  finite_only_(finite_only), stats_(kNumStats * cap_ * K), metrics_(cap_ * K) {}
+                  null_only_(null_only), stats_(kNumStats * cap_ * K), metrics_(cap_ * K) {}
 
             void put(std::size_t k, const std::array<double, kNumStats>& s, double v) {
                 const std::size_t at = runs_ * K_ + k, stride = cap_ * K_;
                 for (std::size_t q = 0; q < kNumStats; ++q) stats_[q * stride + at] = s[q];
-                if (!finite_only_ || std::isfinite(v)) metrics_[count_++] = v;
+                if (!null_only_ || in_null(v)) metrics_[count_++] = v;
             }
 
             void end_run() {
@@ -205,7 +227,7 @@ namespace screamer { namespace validation {
         private:
             ResultSink& sink_;
             std::size_t K_, cap_;
-            bool finite_only_;
+            bool null_only_;
             std::vector<double> stats_, metrics_;
             std::size_t j0_ = 0, runs_ = 0, count_ = 0, total_ = 0;
         };

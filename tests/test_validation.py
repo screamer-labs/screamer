@@ -1199,3 +1199,58 @@ def test_family_p_value_is_the_max_statistic_over_the_null(metric, larger):
     for k, obs in enumerate(res.observed):
         want = (1 + np.count_nonzero(best >= sign * obs)) / (1 + best.size) if np.isfinite(obs) else np.nan
         assert np.array_equal(res.family_p_value[k], want, equal_nan=True), (k, res.family_p_value[k], want)
+
+
+def _null_p(null, observed, larger):
+    """The p-value recomputed from a null: NaN runs left out, infinite kept."""
+    null = np.asarray(null, dtype=float)
+    null = null[~np.isnan(null)]
+    if not np.isfinite(observed):
+        return np.nan
+    hits = np.count_nonzero(null >= observed if larger else null <= observed)
+    return (1 + hits) / (1 + null.size)
+
+
+def test_per_strategy_p_values_keep_infinite_metrics():
+    # Every per-strategy p-value, recomputed from the run statistics: the null
+    # holds each run whose metric is not NaN, an infinite one included.
+    ret, o, h, l, c = _market(200, 38)
+    a = _held(np.sign(ret), 6)
+    b = np.where(np.arange(200) % 5 == 0, -a, a)
+    # +inf above the real run's pnl, so the observed values stay finite
+    thr = float(s.BacktestPriceTarget(fee=1e-4)(b, c)[-1, 0]) + 0.1
+
+    def inf_metric(out):                         # +inf for a good run, NaN for a flat one
+        pnl = out[-1, :, 0]
+        return np.where(pnl > thr, np.inf, np.where(pnl == 0, np.nan, pnl))
+
+    seen_inf = 0
+    for metric, larger in (("profit_factor", None), ("total_pnl", False), (inf_metric, None),
+                           (inf_metric, False)):
+        name = metric if isinstance(metric, str) else None
+        want_larger = larger if larger is not None else True
+        res = s.position_test(s.BacktestPriceTarget(fee=1e-4), b, c, n=150, seed=4, metric=metric,
+                              larger_is_better=larger)
+        if name:
+            full = res.null_stats[name]
+            assert np.array_equal(res.null, full[~np.isnan(full)])
+        seen_inf += np.isinf(res.null).sum() * np.isfinite(res.observed)
+        assert np.array_equal(res.p_value, _null_p(res.null, res.observed, want_larger), equal_nan=True)
+        fam = s.position_test(s.BacktestPriceTarget(fee=1e-4), np.column_stack([a, b, np.zeros(200)]),
+                              c, n=150, seed=4, metric=metric, larger_is_better=larger)
+        for k in range(3):
+            assert np.array_equal(fam.p_value[k], _null_p(fam.null[:, k], fam.observed[k], want_larger),
+                                  equal_nan=True), k
+        port = s.position_test(s.BacktestPortfolioTarget(fee=1e-4, size="units", initial_capital=0.0),
+                               np.column_stack([a, b]) / 2, np.column_stack([c, c]), n=60, seed=4,
+                               metric=(lambda out: inf_metric(out.sum(axis=1, keepdims=True))[:1])
+                               if callable(metric) else metric, larger_is_better=larger)
+        assert np.array_equal(port.p_value, _null_p(port.null, port.observed, want_larger), equal_nan=True)
+
+        def strat(p):
+            return s.BacktestPriceTarget(fee=1e-4)(b, p)
+        st = s.strategy_test(strat, c, method="returns", n=60, seed=4,
+                             metric=(lambda out: inf_metric(out)[:1]) if callable(metric) else metric,
+                             larger_is_better=larger)
+        assert np.array_equal(st.p_value, _null_p(st.null, st.observed, want_larger), equal_nan=True)
+    assert seen_inf > 0                          # the test has infinite metrics to keep

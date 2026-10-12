@@ -232,9 +232,10 @@ namespace screamer { namespace validation {
     // one book.
     //
     // Copy j uses the generator seeded with (seed, j). The p-value is
-    // (1 + hits) / (1 + finite runs), where a hit is a finite run whose metric
-    // is at least as good as the observed one; NaN when the observed metric
-    // is not finite.
+    // (1 + hits) / (1 + runs in the null), where the null holds every run
+    // whose metric is not NaN (in_null; an infinite metric stays) and a hit
+    // is a run at least as good as the observed one; NaN when the observed
+    // metric is not finite.
     inline PositionTestResult position_test(PositionHost& host, const ArrayShape& target,
                                             const std::vector<ArrayShape>& market,
                                             const PositionTestOptions& opt) {
@@ -302,7 +303,7 @@ namespace screamer { namespace validation {
             const double obs = run(true, s);
             observe(0, s, obs);
             detail::RunBatch batch(host, 1, true);
-            std::size_t hits = 0;
+            NullTally tally;
             for (std::size_t j = 0; j < n; ++j) {
                 double* buf = host.target_buffer(T * A);
                 for (std::size_t a = 0; a < A; ++a)
@@ -310,12 +311,12 @@ namespace screamer { namespace validation {
                 const double v = run(false, s);
                 batch.put(0, s, v);
                 batch.end_run();
-                hits += std::isfinite(v) && sign * v >= sign * obs;
+                tally.add(v, obs, metric.larger);
             }
             batch.flush();
             host.reset();
             res.null_count = batch.total();
-            res.p_value.assign(1, p_value(hits, res.null_count, obs));
+            res.p_value.assign(1, tally.p(obs));
             return res;
         }
 
@@ -334,10 +335,10 @@ namespace screamer { namespace validation {
                 observe(k, s, value(s, c, k));
             }
             detail::RunBatch batch(host, K, false);
-            std::vector<std::size_t> hits(K, 0), count(K, 0), family_hits(K, 0);
-            // A round counts when any strategy has a metric: its best, an
-            // infinite one included, is compared with each observed metric.
-            std::size_t rounds = 0;
+            // Each strategy's null, and the family's: per round, the best
+            // signed metric of the K (NaN when every one is NaN, which
+            // in_null leaves out), against each signed observed metric.
+            std::vector<NullTally> tally(K), family(K);
             const std::size_t chunk = detail::chunk_runs(n, T, width, K);
             for (std::size_t col0 = 0; col0 < n; col0 += chunk) {
                 const std::size_t m = std::min(chunk, n - col0), w = m * K;
@@ -352,25 +353,18 @@ namespace screamer { namespace validation {
                 const double* cv = metric.custom()
                     ? detail::custom_metric(host, MetricOf::Columns, custom, w) : nullptr;
                 for (std::size_t j = 0; j < m; ++j) {
-                    double best = -std::numeric_limits<double>::infinity();
-                    bool any = false;
+                    double best = std::numeric_limits<double>::quiet_NaN();
                     for (std::size_t k = 0; k < K; ++k) {
                         const auto s = scorer.score_column(o.data, T, w, k * m + j);
                         const double v = value(s, cv, k * m + j);
                         batch.put(k, s, v);
-                        if (std::isfinite(v)) {
-                            ++count[k];
-                            hits[k] += sign * v >= sign * res.observed[k];
-                        }
+                        tally[k].add(v, res.observed[k], metric.larger);
                         const double sv = sign * v;
-                        if (!std::isnan(sv) && (!any || sv > best)) { best = sv; any = true; }
+                        if (in_null(sv) && !(sv <= best)) best = sv;
                     }
                     batch.end_run();
-                    if (any) {
-                        ++rounds;
-                        for (std::size_t k = 0; k < K; ++k)
-                            family_hits[k] += best >= sign * res.observed[k];
-                    }
+                    for (std::size_t k = 0; k < K; ++k)
+                        family[k].add(best, sign * res.observed[k], true);
                 }
             }
             batch.flush();
@@ -379,8 +373,8 @@ namespace screamer { namespace validation {
             res.p_value.resize(K);
             res.family_p_value.resize(K);
             for (std::size_t k = 0; k < K; ++k) {
-                res.p_value[k] = p_value(hits[k], count[k], res.observed[k]);
-                res.family_p_value[k] = p_value(family_hits[k], rounds, res.observed[k]);
+                res.p_value[k] = tally[k].p(res.observed[k]);
+                res.family_p_value[k] = family[k].p(res.observed[k]);
             }
             return res;
         }
@@ -401,7 +395,7 @@ namespace screamer { namespace validation {
             min_shift = static_cast<std::size_t>(m);
         }
         detail::RunBatch batch(host, 1, true);
-        std::size_t hits = 0;
+        NullTally tally;
         const std::size_t chunk = detail::chunk_runs(n, T, width, 1);
         for (std::size_t col0 = 0; col0 < n; col0 += chunk) {
             const std::size_t k = std::min(chunk, n - col0);
@@ -417,13 +411,13 @@ namespace screamer { namespace validation {
                 const double v = value(s, cv, j);
                 batch.put(0, s, v);
                 batch.end_run();
-                hits += std::isfinite(v) && sign * v >= sign * obs;
+                tally.add(v, obs, metric.larger);
             }
         }
         batch.flush();
         host.reset();
         res.null_count = batch.total();
-        res.p_value.assign(1, p_value(hits, res.null_count, obs));
+        res.p_value.assign(1, tally.p(obs));
         return res;
     }
 
