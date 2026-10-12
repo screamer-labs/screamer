@@ -184,5 +184,43 @@ inline std::int64_t py_index(nb::handle index, TimeUnit* unit = nullptr) {
     screamer::dag::throw_index_kind(nb::cast<std::string>(nb::type_name(index.type())));
 }
 
+// One index of a float merge (a stream merge whose first index is a float):
+// numbers of any value, read as double, under the same kinds as py_index. A
+// time scalar is its int64 ticks (after a number it raises the kind error); a
+// bool, str, bytes, None, Decimal, Fraction or any other object raises the
+// index kind TypeError.
+inline double py_float_index(nb::handle index, TimeUnit* unit = nullptr) {
+    PyObject* p = index.ptr();
+    if (PyFloat_Check(p)) { note_number(unit); return PyFloat_AsDouble(p); }
+    if (PyBool_Check(p)) screamer::dag::throw_index_kind("bool");
+    if (PyLong_Check(p)) {
+        note_number(unit);
+        const double d = PyLong_AsDouble(p);
+        if (d == -1.0 && PyErr_Occurred()) {
+            PyErr_Clear();
+            screamer::dag::throw_index_out_of_range();
+        }
+        return d;
+    }
+    const NumpyTypes& np = numpy_types();
+    PyTypeObject* type = Py_TYPE(p);
+    // np.timedelta64 is a np.integer; py_index reads it as ticks.
+    if (PyType_IsSubtype(type, reinterpret_cast<PyTypeObject*>(np.timedelta64)))
+        return static_cast<double>(py_index(index, unit));
+    const int integer = PyObject_IsInstance(p, np.integer);
+    if (integer < 0) throw nb::python_error();
+    const int floating = integer ? 0 : PyObject_IsInstance(p, np.floating);
+    if (floating < 0) throw nb::python_error();
+    if (integer || floating) {
+        nb::object f = nb::steal(PyNumber_Float(p));
+        if (!f.is_valid()) throw nb::python_error();
+        note_number(unit);
+        return PyFloat_AsDouble(f.ptr());
+    }
+    // A np.datetime64, or a pandas Timestamp or Timedelta: ticks, as py_index.
+    if (is_time_index(index)) return static_cast<double>(py_index(index, unit));
+    screamer::dag::throw_index_kind(nb::cast<std::string>(nb::type_name(index.type())));
+}
+
 }  // namespace screamer
 #endif

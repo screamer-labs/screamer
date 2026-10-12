@@ -100,7 +100,10 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
     `np.asarray(index).astype(np.int64)`.
   * Python iterator feeds truncated a NumPy float, `Decimal` or `Fraction`
     index (`np.float32(1.5)` gave 1) and accepted `"5"`, `b"6"`, `True` and
-    `np.bool_`. Pass `int(index)`.
+    `np.bool_`. Pass `int(index)`. A stream merge whose first index is a float
+    read `True` and `np.bool_` as 1.0 and `Decimal("2.5")` and
+    `Fraction(5, 2)` as 2.5, and raised `ValueError` for `None`; these now
+    raise `TypeError`. Pass `float(index)`.
 * Python reads a time index as int64 ticks of its own unit at every `Pipeline`
   entry point, the same way a batch call reads a datetime64 or timedelta64
   array. This covers `live().push()`, `advance()`, iterator feeds (also those
@@ -147,7 +150,9 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
   raises `TypeError` too: an operator's number settings (`RollingMean("3")`
   raises "an integer setting must be a number, got str", and `Lag(b"2")`),
   its per-asset and list settings, alone or as an element
-  (`MovingAverage(["0.5", "0.5"])`, `BacktestPortfolioTarget(fee="0.01")`),
+  (`MovingAverage(["0.5", "0.5"])`, `BacktestPortfolioTarget(fee="0.01")`;
+  in JavaScript an element that is not a number raises in an `Array`, a
+  `Set` or a generator alike, and so does a nested array),
   and `threshold`, `every`, `count`, `origin`, `max_age`, a `delay`
   duration, `select` columns, `max_pending` and JavaScript's `maxPending`. A
   bool setting converts as before. What 2.8.0 did:
@@ -162,8 +167,9 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
     `live().push()` or `pushWide()` with `Number()` (`"abc"` gave NaN, `""`
     gave 0). It read a string operator setting through embind
     (`RollingMean("3")` had a window of 3; `MovingAverage(["0.5", "0.5"])`
-    built a two-tap filter, and `MovingAverage("0.5")` read the characters
-    as taps), a resample setting with
+    built a two-tap filter, `MovingAverage("0.5")` read the characters
+    as taps, the elements of a `Set` or generator setting went through
+    `Number()`, and a nested `[[3]]` read as 3), a resample setting with
     `Number()` or `Math.trunc()`, `delay(node, "1")` and `select(node, "0")`
     with `Math.trunc()`, and did not check `maxPending`.
   * For the old result, parse the text first: `pd.to_numeric(column)` or
@@ -197,15 +203,37 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
   with nothing pushed, and a live session behaves as if the event had not been
   sent. The check covers operators (each input of an operator must carry the
   operator's columns; to join streams into one row, use `CombineLatest`),
-  `select` columns, and `resample` widths (a cumulative resample, a reducer,
+  `select` columns, `resample` widths (a cumulative resample, a reducer,
   the fixed plans of `ohlc_bars`, `ohlcv` and `ohlcv2`, `ohlcv_bars` and
-  `max_age`). The error is `ValueError` (JavaScript `RangeError`) with a
-  message such as "select needs column 5, but its input has 2 column(s)";
-  2.8.0 raised `RuntimeError` from inside the graph, after earlier nodes had
-  taken the event. A rejection that only a node can decide later (for example
+  `max_age`) and `Filter` (see below). The error is `ValueError` (JavaScript
+  `RangeError`) with a message such as "select needs column 5, but its input
+  has 2 column(s)"; 2.8.0 raised `RuntimeError` from inside the graph, after
+  earlier nodes had taken the event. A width that a node sees only at run
+  time raises the same `ValueError` from the node itself. A rejection that only a node can decide later (for example
   a stalled `combine_latest` buffer) poisons the session: `push`, `advance`,
   `flush` and `result()` raise until `reset()` or a new `live()`, so no row
   that the rejected event produced is returned.
+* `Filter` gates one data value by one mask value, so its data and its mask
+  must each be one column. A wider data or mask stream raises `ValueError`
+  (JavaScript `RangeError`) before any event is fed, in a `Pipeline`, a live
+  session and the eager `Filter()(data, mask)`. 2.8.0 used column 0 of a wide
+  data or mask stream and dropped the other columns silently. For the old
+  result, select column 0 first: `Filter()(Select(columns=[0])(data), mask)`.
+* `agg="ohlcv_bars"` takes at least 5 columns (`[open, high, low, close,
+  volume, ...]`) on every path, as its reference page says: a `Pipeline`
+  resample node, a clock resample and JavaScript `resample`, as the eager
+  `resample()` already did. 2.8.0 accepted 4 columns inside a `Pipeline`
+  (and in JavaScript) and returned `[open, high, low, close]` bars. Fewer
+  than 5 columns now raise `ValueError` (JavaScript `RangeError`); for the old
+  result on 4 columns, use `agg="ohlc_bars"`.
+* The batch forms of `merge`, `Merge` and `combine_latest` accept a stream
+  with an int index next to one with a float index, as the iterator forms
+  do. The first non-empty index sets the kind, as in the iterator: after a
+  float index every index is read as float64; after an int index a float
+  index must be whole (else `TypeError` "integer-valued"), and the merged
+  index is int64. 2.8.0 raised `TypeError` ("all streams must share one index
+  type") for the batch forms. For the old error, check the index dtypes
+  before the call.
 * Python `live().push()` raises `TypeError` for a `bytes` or `bytearray` value;
   2.8.0 read `b"12"` as 12.0. Pass `float(value)` for the old result.
 * A list of rows passed to a row operator (`CrossRank()([r1, r2])`) returns a list of result rows, following rule 3; 2.8.0 returned an array. To get the array, pass `np.vstack(rows)`. A tuple of rows and a matrix still return an array. A mix of lists and arrays (for example a list target with an ndarray of prices) returns an array. The JavaScript row operators follow the same rule: an `Array` of rows gives an `Array` of `Float64Array` rows, and an `NdArray` gives an `NdArray`. To get the old `NdArray` from an array of rows in JavaScript, pass `{ data, shape: [T, K] }`.
@@ -362,6 +390,13 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
 * A multi-input operator given a mix of lists and arrays returns an array, in either argument order: `RollingCorr(5)(x_list, y_array)` returned a list and `RollingCorr(5)(y_array, x_list)` raised `TypeError`; both now return the array that two arrays give. To get the old list, pass lists for every input (`list(y_array)`), or call `.tolist()` on the result. A list among arrays reads as a 1-D array of its length and broadcasts over the asset axes of the other inputs; lengths that differ still raise `ValueError`. All lists still return a list. JavaScript already returned an array for these mixes.
 * JavaScript: a `null` value in a `Pipeline` feed, `live().push()` or `pushWide()` is a missing value, `NaN`, as Python's `None` is; before, it was 0. To get the old value, replace `null` with 0 before the call. A `null` index raises `TypeError` (the index rule above). A `null` given to an operator is NaN too (see above).
 * JavaScript: an `Array` of events into an operator returns an `Array` with one result per event, as a Python list does. `Add()([[1, 2], [3, 4]])` returns `[3, 7]` (was a `Float64Array`), and an `Array` of `[K, N]` `NdArray` events returns an `Array` of per-event results (was one `NdArray`). An `Array` of `Float64Array` or `NdArray` asset events into a one-input operator, `RollingMean(2)([a, b])`, is a sequence of events and returns an `Array` of per-event arrays; before, it threw `RangeError`. To get the old container, pass the columns or one packed `NdArray`: `Add()(Float64Array.from(evs, (e) => e[0]), Float64Array.from(evs, (e) => e[1]))`. Likewise, a multi-input operator given only `number[]` inputs returns an `Array` (an `Array` of `number[]` for a multi-output operator), as Python lists give a list: `Add()([1, 2], [3, 4])` returns `[4, 6]` (was a `Float64Array`). To get the old result, pass `Float64Array` inputs (`Float64Array.from(x)`); one `Float64Array` or `NdArray` among the inputs is enough.
+* JavaScript: in an `Array` of asset events into a one-input operator, the
+  first event (a `Float64Array` or an `NdArray`) fixes the event shape, and a
+  later event may be a plain `Array` of that shape (nested for an `NdArray`),
+  as in Python: `RollingMean(2)([Float64Array.from([1, 2]), [3, 4]])` returns
+  `[[NaN, NaN], [2, 3]]`. Before, a mix of a `Float64Array` and a `number[]`
+  threw `RangeError`. A first event that is a `number[]` keeps its meaning
+  (an event of numbers), as in Python.
 
 * `RollingZscore` follows `start_policy` as `RollingMean` and `RollingStd`
   do: `"expanding"` gives the z-score over the values seen so far (`NaN` for
@@ -376,6 +411,15 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
 
 ### Fixed
 
+* A `Pipeline` with several outputs and `align_outputs=True` (the default)
+  returned the wrong columns when an output had more than one column, in a
+  batch call and in `live().result()`: `Pipeline([a], [a, Select(columns=[0])(a)])`
+  on `[[1, 2], [3, 4]]` gave `([1, 3], [2, 4])`. Each output now keeps its own
+  columns (`([[1, 2], [3, 4]], [1, 3])`), as the lazy call already did.
+* JavaScript: `resample(x, { threshold, driver })` threw `RangeError` at the
+  first event, because the value and the driver reached the resample node as
+  two separate streams. They are now joined into one `[value, driver]` row
+  first, as in Python.
 * JavaScript: a `Pipeline` batch feed whose values are an `NdArray`
   (`{ values: { data, shape: [T, w] }, index }`) was read as empty, and a bare
   `NdArray` feed raised "missing feed". Both are now read as `T` rows of `w` columns; a shape that is not

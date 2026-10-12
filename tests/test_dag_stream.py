@@ -515,7 +515,7 @@ def _same(a, b):
 
 def test_reused_pipeline_forgets_learned_resample_plans():
     p = _clock_and_bars()
-    for widths in ((5, 6), (6, 5), (5, 4)):
+    for widths in ((5, 6), (6, 5), (5, 7)):
         for w in widths:
             _same(p(*_bars(w)), _clock_and_bars()(*_bars(w)))
 
@@ -526,7 +526,7 @@ def test_live_after_a_rejected_event_equals_a_fresh_session():
     live = p.live()
     with pytest.raises(ValueError, match="ohlcv_bars"):
         live.push("x", 0, [1.0, 2.0])          # rejected before any node sees it
-    for width in (4, 6, 5):
+    for width in (7, 6, 5):
         (v, k), (cv, ck) = _bars(width)
         live = p.live()
         for row, i in zip(v, k):

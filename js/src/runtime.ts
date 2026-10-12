@@ -2,7 +2,7 @@ import type { Screamer, RawOp } from "./loader.js";
 import { normalizeError } from "./errors.js";
 import { asNd, type NdArray } from "./ndarray.js";
 import { Node, isNode } from "./node.js";
-import { aKind, throwBadShape, throwIfWrongKind, throwIfWrongKindEvent, throwNotANumber, whereText } from "./kinds.js";
+import { aKind, shapeText, throwBadShape, throwIfWrongKind, throwIfWrongKindEvent, throwNotANumber, whereText } from "./kinds.js";
 
 // The op's class name for error messages, e.g. "RollingMean".
 const opName = (raw: RawOp): string => (raw as any).constructor?.name ?? "this op";
@@ -360,19 +360,45 @@ export function wrapOp(M: Screamer, src: OpSource, copy?: () => RawOp, finalize 
     return out;
   }
 
-  // Asset events (Float64Array or NdArray, all of one shape) stacked into one
-  // (T, ...event) NdArray; null when an event is neither.
-  function stackEvents(evs: any[]): NdArray | null {
+  // Asset events stacked into one (T, ...event) NdArray. The first event is a
+  // Float64Array or an NdArray and fixes the event shape; a later one may also
+  // be a plain Array (nested for an N-D shape) of that shape, as in Python.
+  // null in an Array is NaN. A wrong kind is a TypeError, another shape a
+  // RangeError.
+  function stackEvents(evs: any[]): NdArray {
     const shapeOf = (e: any): number[] | null => (isNd(e) ? e.shape : isTyped(e) ? [e.length] : null);
-    const s0 = shapeOf(evs[0]);
-    if (!s0) return null;
+    const s0 = shapeOf(evs[0])!;
+    const last = s0.length - 1;
     const per = s0.reduce((p, d) => p * d, 1), data = new Float64Array(per * evs.length);
+    // Writes the nested Array x (dimension d of s0) at data[off...]; returns
+    // the next offset, or -1 when x is not of the shape or holds a non-number.
+    const fill = (x: any, d: number, off: number): number => {
+      if (!(Array.isArray(x) || (d === last && isTyped(x))) || x.length !== s0[d]) return -1;
+      if (d === last) {
+        for (let i = 0; i < x.length; i++) {
+          const v = x[i];
+          if (typeof v === "number") data[off + i] = v;
+          else if (v === null) data[off + i] = NaN;
+          else return -1;
+        }
+        return off + x.length;
+      }
+      for (let i = 0; i < x.length && off >= 0; i++) off = fill(x[i], d + 1, off);
+      return off;
+    };
     for (let t = 0; t < evs.length; t++) {
       const e = evs[t], s = shapeOf(e);
-      if (!s) return null;
-      if (s.length !== s0.length || s.some((d, j) => d !== s0[j]))
-        throw new RangeError(`every event must have the same shape: the first was [${s0}], event ${t} is [${s}]`);
-      data.set(isNd(e) ? e.data : e, t * per);
+      if (s) {
+        if (s.length !== s0.length || s.some((d, j) => d !== s0[j]))
+          throw new RangeError(`every event must have the same shape: the first was [${s0}], event ${t} is [${s}]`);
+        data.set(isNd(e) ? e.data : e, t * per);
+        continue;
+      }
+      if (fill(e, 0, t * per) >= 0) continue;
+      const where = whereText("event", t);
+      throwIfWrongKind(opName(raw), e, where);
+      const st = typeof e === "number" || e === null ? "is a number" : shapeText(e) ? `has shape ${shapeText(e)}` : "has an irregular shape";
+      throw new RangeError(`every event must have the same shape: the first was [${s0}], event ${t} ${st}`);
     }
     return { data, shape: [evs.length, ...s0] };
   }
@@ -575,12 +601,11 @@ export function wrapOp(M: Screamer, src: OpSource, copy?: () => RawOp, finalize 
       if (isNd(a)) return shaped([a]);
       if (isTyped(a)) return batch1(a, true);
       if (isNumArr(a)) return batch1(a, false);
-      // An Array of asset events (Float64Array or NdArray) runs like a stream
-      // of them and gives an Array of per-event results.
-      if (Array.isArray(a) && a.every((e) => isTyped(e) || isNd(e))) {
-        const st = stackEvents(a)!;
-        return perEvent(shaped([st]), a.length);
-      }
+      // An Array of asset events runs like a stream of them and gives an Array
+      // of per-event results. The first event (a Float64Array or an NdArray)
+      // makes it one; later events may be plain Arrays of its shape (A8).
+      if (Array.isArray(a) && a.length > 0 && (isTyped(a[0]) || isNd(a[0])))
+        return perEvent(shaped([stackEvents(a)]), a.length);
       if (Array.isArray(a)) {
         for (let i = 0; i < a.length; i++)
           if (typeof a[i] !== "number") throwNotANumber(opName(raw), a[i], whereText("event", i));
@@ -622,7 +647,7 @@ export function wrapOp(M: Screamer, src: OpSource, copy?: () => RawOp, finalize 
         return perEvent(call(...Array.from({ length: nIn }, (_, k) => Float64Array.from(evs, (e) => e[k]))), evs.length);
       }
       // Events of shape (..., nIn) stack into one packed (T, ..., nIn) array.
-      if (evs.length > 0 && evs.every(isNd)) return perEvent(shaped([stackEvents(evs)!]), evs.length);
+      if (evs.length > 0 && evs.every(isNd)) return perEvent(shaped([stackEvents(evs)]), evs.length);
       // The first event that is not nIn numbers: a wrong kind is a TypeError,
       // a field of the wrong shape a RangeError.
       for (let i = 0; i < evs.length; i++) {

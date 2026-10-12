@@ -27,6 +27,10 @@ Gate rule: `mask == 0` or `isnan(mask)` drops the aligned data value; any
 other mask value (positive, negative, non-NaN) keeps it. A NaN data value
 passes through unmodified when its aligned mask is nonzero.
 
+The data and the mask are one column each. A wider data or mask stream raises
+`ValueError` before any event is fed; select the column to gate first, for
+example `Filter()(Select(columns=[0])(data), mask)`.
+
 <!-- HELP_END -->
 
 ## Examples

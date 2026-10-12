@@ -256,17 +256,19 @@ static nb::object run_functor_batch(
     std::size_t width = (values.ndim() == 1)
         ? 1u : static_cast<std::size_t>(values.shape(1));
     if (width != op.n_in()) {
-        throw std::runtime_error(
-            "run_functor_batch: input width does not match op num_inputs");
+        throw std::invalid_argument(
+            "an operator takes " + std::to_string(op.n_in()) +
+            " column(s), but its input has " + std::to_string(width));
     }
     std::size_t out_w = op.n_out();
 
-    double* obuf = new double[(T * out_w) ? (T * out_w) : 1];
+    // Owned here until the array takes it, so a throwing op does not leak it.
+    std::unique_ptr<double[]> obuf(new double[(T * out_w) ? (T * out_w) : 1]);
 
-    dag::Collector<std::int64_t> collector(obuf, out_w);
+    dag::Collector<std::int64_t> collector(obuf.get(), out_w);
     dag::FunctorNode<std::int64_t> node(op, collector);
     dag::replay_batch<std::int64_t>(index.data(), values.data(), T, width, node);
-    return owned_array(obuf, {T, out_w});
+    return owned_array(obuf.release(), {T, out_w});
 }
 
 // Marshal a gathered index/value buffer into a Python tuple (index_1d, values_2d).
@@ -469,6 +471,19 @@ void init_bindings_dag(nb::module_& m) {
             }
         }
     }, "indexes"_a);
+    // An index array as int64 under the engine's index rule (index_array): for
+    // a batch stream merge that takes a float index after an int one, as the
+    // iterator form does. A fractional, NaN or out-of-range value raises.
+    m.def("_index_i64", [](nb::handle index) {
+        TimeUnit unit;
+        nb::object keep;
+        std::vector<std::int64_t> owned;
+        const std::int64_t* p = index_array(index, keep, owned, unit);
+        const std::size_t n = nb::len(index);
+        std::unique_ptr<std::int64_t[]> out(new std::int64_t[n ? n : 1]);
+        if (n) std::memcpy(out.get(), p, n * sizeof(std::int64_t));
+        return owned_array(out.release(), {n});
+    }, "index"_a);
     // One value under the same rules: a number, None as NaN; a string or any
     // other kind is a TypeError.
     m.def("_value", [](nb::handle x) {

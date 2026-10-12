@@ -420,19 +420,19 @@ public:
 
         // Validate caller-supplied input-array counts.
         if (in_indices.size() != num_in_)
-            throw std::runtime_error(
+            throw std::invalid_argument(
                 "run_batch: expected " + std::to_string(num_in_) +
                 " input arrays, got " + std::to_string(in_indices.size()));
         if (in_vals.size() != num_in_)
-            throw std::runtime_error(
+            throw std::invalid_argument(
                 "run_batch: expected " + std::to_string(num_in_) +
                 " value arrays, got " + std::to_string(in_vals.size()));
         if (in_lens.size() != num_in_)
-            throw std::runtime_error(
+            throw std::invalid_argument(
                 "run_batch: expected " + std::to_string(num_in_) +
                 " length arrays, got " + std::to_string(in_lens.size()));
         if (!in_widths.empty() && in_widths.size() != num_in_)
-            throw std::runtime_error(
+            throw std::invalid_argument(
                 "run_batch: in_widths size must be 0 (use defaults) or equal to num inputs");
 
         // Resolve widths: default to 1 per input when not specified.
@@ -589,6 +589,12 @@ private:
                 w[id] = resample_width_check(nd, w);
                 break;
             case NodeKind::Filter:
+                for (std::size_t k = 0; k < nd.inputs.size(); ++k) {
+                    const std::size_t iw = w[nd.inputs[k]];
+                    if (iw > 1)
+                        throw std::invalid_argument(
+                            FilterNode<std::int64_t>::width_message(k, iw));
+                }
                 w[id] = 1;
                 break;
             }
@@ -618,8 +624,9 @@ private:
                 throw std::invalid_argument(
                     "a cumulative resample takes [value, driver] (2 columns), "
                     "but its input has " + std::to_string(iw));
-            return p.agg == ResampleAgg::OhlcvBars && p.plan.empty()
-                ? 0 : resample_output_width(p);
+            if (p.agg == ResampleAgg::OhlcvBars && p.plan.empty())
+                check_ohlcv_bars_width(iw - 1);   // one value column: always too few
+            return resample_output_width(p);
         }
         if (clock && p.max_age >= 0 && iw != 1)
             throw std::invalid_argument(
@@ -634,10 +641,7 @@ private:
             return p.plan.size();
         }
         if (p.agg == ResampleAgg::OhlcvBars) {
-            if (iw < 4)
-                throw std::invalid_argument(
-                    "ohlcv_bars takes [open, high, low, close, volume, ...] (at "
-                    "least 4 columns), but its input has " + std::to_string(iw));
+            check_ohlcv_bars_width(iw);
             return iw;
         }
         // A builtin agg aggregates every column on its own; ohlc gives four

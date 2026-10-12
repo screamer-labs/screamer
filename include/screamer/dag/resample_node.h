@@ -131,9 +131,9 @@ public:
             // In the current implementation value is width 1 (single value column)
             // so the frame is always [value, driver] (width 2).
             if (f.width != 2)
-                throw std::runtime_error(
-                    "dag::ResampleNode(ByCumulative): expects width-2 input "
-                    "[value, driver]; got width " + std::to_string(f.width));
+                throw std::invalid_argument(
+                    "a cumulative resample takes [value, driver] (2 columns), "
+                    "but its input has " + std::to_string(f.width));
             push_by_cumulative(f.index, f.values[0], f.values[1]);
             return;
         }
@@ -158,10 +158,9 @@ public:
         } else {
             // Multi-column plan path: input width must match num_accums_.
             if (f.width != num_accums_)
-                throw std::runtime_error(
-                    "dag::ResampleNode: input frame width (" +
-                    std::to_string(f.width) + ") does not match number of "
-                    "plan input columns (" + std::to_string(num_accums_) + ")");
+                throw std::invalid_argument(
+                    "a resample plan takes " + std::to_string(num_accums_) +
+                    " column(s), but its input has " + std::to_string(f.width));
             if (p_.mode == ResampleMode::ByIndex)
                 push_by_index_multi(f.index, f.values);
             else
@@ -460,15 +459,13 @@ private:
     // or clock input is listed first in Pipeline([...]).
     void push_by_clock_value(Index k, const double* vals, std::size_t num_val_cols) {
         if (p_.max_age >= 0 && num_val_cols != 1) {
-            throw std::runtime_error(
-                "dag::ResampleNode(ByClock): max_age requires a width-1 value stream");
+            throw std::invalid_argument(
+                "a clock resample with max_age takes 1 value column, but its "
+                "input has " + std::to_string(num_val_cols));
         }
         if (deferred_plan()) {
-            // ohlcv_bars: [open, high, low, close, volumes...] from the value width.
-            if (num_val_cols < 4)
-                throw std::invalid_argument(
-                    "ohlcv_bars takes [open, high, low, close, volume, ...] (at least 4 "
-                    "columns), but its input has " + std::to_string(num_val_cols));
+            // ohlcv_bars: [open, high, low, close, volumes...] from the value
+            // width; make_ohlcv_bars_plan checks it.
             learn_plan(make_ohlcv_bars_plan(num_val_cols));
         } else if (p_.plan.empty() && num_val_cols > 1) {
             // Multi-column single-agg ByClock: every column is reduced on its own,

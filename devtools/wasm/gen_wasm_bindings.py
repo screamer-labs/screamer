@@ -263,4 +263,10 @@ def main(argv: list[str]) -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main(sys.argv[1:]))
+    import argparse
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    mode = ap.add_mutually_exclusive_group()
+    mode.add_argument("--check", action="store_true", help="verify the committed output covers the manifest")
+    mode.add_argument("--stdout", action="store_true", help="print the output instead of writing it")
+    args = ap.parse_args()
+    raise SystemExit(main(["--check"] if args.check else ["--stdout"] if args.stdout else []))

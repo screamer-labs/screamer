@@ -349,8 +349,6 @@ _NUMBER = {"int", "float"}
 @pytest.mark.parametrize("a", list(_KINDS))
 @pytest.mark.parametrize("b", list(_KINDS))
 def test_merge_index_kind_pairs_agree_between_batch_and_iterator(a, b):
-    if a in _NUMBER and b in _NUMBER and a != b:
-        pytest.skip("int against float: batch raises 'share one index type' (as in 2.8.0)")
     v = np.array([1.0, 2.0])
     same = a == b or (a in _NUMBER and b in _NUMBER)
     calls = {
@@ -359,8 +357,14 @@ def test_merge_index_kind_pairs_agree_between_batch_and_iterator(a, b):
         "iter merge": lambda: list(merge(zip(v, _KINDS[a]), zip(v, _KINDS[b]))),
         "iter Merge": lambda: list(Merge()(zip(v, _KINDS[a]), zip(v, _KINDS[b]))),
     }
+    # Int then a fractional float: the first index sets the int kind, so the
+    # float index must be whole, in batch and iterator forms alike (G17).
+    frac = a == "int" and b == "float"
     for name, call in calls.items():
-        if same:
+        if frac:
+            with pytest.raises(TypeError, match="integer-valued"):
+                call()
+        elif same:
             call()
         else:
             with pytest.raises(TypeError, match="one kind and unit"):

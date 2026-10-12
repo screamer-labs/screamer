@@ -138,16 +138,7 @@ public:
                 // after a number it raises the kind error.
                 nb::handle idx = tup[1];
                 try {
-                    PyObject* ip = idx.ptr();
-                    if (PyFloat_Check(ip)) {
-                        screamer::note_number(unit_);
-                        ev.index = static_cast<Index>(PyFloat_AsDouble(ip));
-                    } else if (!PyLong_Check(ip) && screamer::is_time_index(idx)) {
-                        ev.index = static_cast<Index>(screamer::py_index(idx, unit_));
-                    } else {
-                        if (!nb::try_cast<Index>(idx, ev.index)) bad(event, "the index of event", idx);
-                        screamer::note_number(unit_);
-                    }
+                    ev.index = static_cast<Index>(screamer::py_float_index(idx, unit_));
                 } catch (const screamer::dag::IndexTypeError& e) {
                     throw screamer::dag::IndexTypeError(
                         std::string(owner_) + ": " + where(event, "the index of event") +

@@ -249,7 +249,7 @@ test("pipeline: a reused pipeline forgets learned resample plans", async () => {
   await ready();
   const p = clockAndBars();
   try {
-    for (const w of [5, 6, 5, 4]) {
+    for (const w of [5, 6, 5, 7]) {
       const fresh = clockAndBars();
       try {
         sameOutputs(p(barFeeds(w) as any) as Output[], fresh(barFeeds(w) as any) as Output[], `width ${w}`);

@@ -168,23 +168,33 @@ def _normalize_streams(streams, who):
     """Normalize and validate a sequence of (index, values) streams.
 
     Returns (kind, norm_index, norm_vals) where kind is 'i64' or 'f64'.
-    Raises ValueError if streams is empty, TypeError if index types differ.
+    Raises ValueError if streams is empty, TypeError for numbers against times
+    or two time units. Int and float indexes mix as in the iterator form.
     """
     if not streams:
         raise ValueError(f"{who}: needs at least one stream")
     # One index kind and unit across the streams, as the iterator forms (and a
     # Pipeline call) require: plain numbers, or times of one unit.
     _b._check_index_kinds([idx for idx, _ in streams])
-    kinds = set()
-    norm_index, norm_vals = [], []
+    kinds, norm_index, norm_vals = [], [], []
     for idx, values in streams:
         kind, k = _index_dtype_kind(idx)
-        kinds.add(kind)
+        kinds.append(kind)
         norm_index.append(k)
         norm_vals.append(_as_float64(values, contiguous=True))
-    if len(kinds) != 1:
-        raise TypeError(f"{who}: all streams must share one index type (all int/datetime or all float)")
-    return kinds.pop(), norm_index, norm_vals
+    if len(set(kinds)) == 1:
+        return kinds[0], norm_index, norm_vals
+    # Int and float indexes are both plain numbers (the one-kind check above
+    # refused times). As in the iterator form, the first non-empty index sets
+    # the kind: float reads every index as float64; int needs every float
+    # index to be whole (the engine's index rule raises TypeError otherwise).
+    kind = next((kd for kd, k in zip(kinds, norm_index) if k.size), kinds[0])
+    if kind == "f64":
+        norm_index = [np.ascontiguousarray(k, dtype=np.float64) for k in norm_index]
+    else:
+        norm_index = [k if kd == "i64" else _b._index_i64(k)
+                      for kd, k in zip(kinds, norm_index)]
+    return kind, norm_index, norm_vals
 
 
 def _streams_to_indexed(streams, who):
@@ -831,7 +841,7 @@ _RESAMPLE_FILLS = ("skip", "nan", "carry")
 # Bar aggs that require multi-column (2-D) input.
 _BAR_AGGS_2COL = frozenset(("ohlcv", "ohlcv2"))       # exactly 2 columns
 _BAR_AGGS_4COL = frozenset(("ohlc_bars",))             # exactly 4 columns
-_BAR_AGGS_NCOL = frozenset(("ohlcv_bars",))            # 5+ columns
+_BAR_AGGS_NCOL = frozenset(("ohlcv_bars",))            # 5+ columns (checked in C++)
 _COLUMN_AGGS = frozenset(("first", "last", "min", "max", "sum", "count", "mean", "ohlc"))
 
 
@@ -1405,9 +1415,11 @@ def resample(values, driver=None, index=None, *, freq=None, every=None, count=No
                 f"[open, high, low, close]; got shape {vals.shape}. "
                 "Pass np.column_stack([open_arr, high_arr, low_arr, close_arr]).")
     elif agg in _BAR_AGGS_NCOL:
-        if vals.ndim != 2 or vals.shape[1] < 5:
+        # The column count (at least 5) is the engine's rule, shared with the
+        # Pipeline node (resample_params.h check_ohlcv_bars_width).
+        if vals.ndim != 2:
             raise ValueError(
-                f"resample: agg='{agg}' requires a 2-D input with at least 5 columns "
+                f"resample: agg='{agg}' requires a 2-D input "
                 f"[open, high, low, close, vol1, ...]; got shape {vals.shape}.")
     elif vals.ndim != 1 and not (isinstance(agg, str) and agg in _COLUMN_AGGS):
         raise ValueError(

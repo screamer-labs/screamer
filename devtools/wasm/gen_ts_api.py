@@ -180,7 +180,7 @@ def _factory_body(name: str, params: list[dict], wrapper: str = "wrapOp") -> str
     # copy of the op, and must not see later edits to the caller's array.
     for p in vecs:
         n = p["name"]
-        lines.append(f"  const {n}_ = Array.isArray({n}) ? Array.from({n}) : {n};")
+        lines.append(f"  const {n}_ = _copy({n});")
         # A string, a String object, or an array holding one is a wrong kind
         # (R-a), checked once on the copy, as in Python.
         lines.append(f"  if (_isText({n}_) || (Array.isArray({n}_) && {n}_.some(_isText))) "
@@ -197,7 +197,14 @@ def _factory_body(name: str, params: list[dict], wrapper: str = "wrapOp") -> str
     for idx, p in enumerate(params):
         if p["is_vec"]:
             # A bare number is the one-entry vector (one value for all assets).
-            lines.append(f"      for (const _x of (typeof {p['name']}_ === \"number\" ? [{p['name']}_] : {p['name']}_)) _v{idx}.push_back(_x);")
+            # Every element is a number, whatever iterable holds it (an Array,
+            # a Set, a generator): a string or a nested array is a wrong kind,
+            # never read by embind's ToNumber (R-a).
+            n = p["name"]
+            lines.append(f"      for (const _x of (typeof {n}_ === \"number\" ? [{n}_] : {n}_)) {{")
+            lines.append(f"        if (typeof _x !== \"number\") throw new TypeError(`{n} must be a number or an array of numbers, got ${{_what(_x)}}`);")
+            lines.append(f"        _v{idx}.push_back(_x);")
+            lines.append("      }")
     lines.append(f"      return new M.{name}({', '.join(call_args)});")
     lines.append("    } finally {")
     for v in vs:
@@ -291,6 +298,11 @@ def render_ops_ts(ops: list[dict], help_map: dict) -> str:
     out.append("")
     out.append("// A string or String object: never a number setting (R-a).")
     out.append('const _isText = (x: unknown): boolean => typeof x === "string" || x instanceof String;')
+    out.append("// A copy of an iterable setting (an Array, a typed array, a Set, a generator),")
+    out.append("// taken once, so every copy of the op reads the same values.")
+    out.append('const _copy = (x: any): any => x !== null && typeof x === "object" && !(x instanceof String) && typeof x[Symbol.iterator] === "function" ? Array.from(x) : x;')
+    out.append("// The kind of a setting element that is not a number, for the message.")
+    out.append('const _what = (x: unknown): string => _isText(x) ? "a string" : Array.isArray(x) ? "an array" : x === null ? "null" : typeof x;')
     out.append("")
     for op in ops:
         name = op["name"]

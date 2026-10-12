@@ -37,7 +37,7 @@ public:
             throw std::runtime_error(
                 "dag::GenericResampleNode: null reducer");
         if (reducer_->n_in() != 1)
-            throw std::runtime_error(
+            throw std::invalid_argument(
                 "dag::GenericResampleNode: reducer must have exactly 1 input "
                 "(this is a single-value stream reducer); got n_in=" +
                 std::to_string(reducer_->n_in()));
@@ -46,8 +46,9 @@ public:
 
     void push(const Frame<Index>& f) override {
         if (f.width != 1)
-            throw std::runtime_error(
-                "dag::GenericResampleNode: expects a width-1 input stream");
+            throw std::invalid_argument(
+                "a reducer resample takes 1 column, but its input has " +
+                std::to_string(f.width));
         if (p_.mode == ResampleMode::ByIndex) push_by_index(f.index, f.values[0]);
         else                                  push_by_count(f.index, f.values[0]);
     }

@@ -3,6 +3,7 @@
 
 #include <cstddef>
 #include <stdexcept>
+#include <string>
 #include <vector>
 #include "screamer/dag/frame.h"
 #include <utility>
@@ -22,8 +23,9 @@ public:
     void push(const Frame<Index>& f) override {
         for (std::size_t j = 0; j < columns_.size(); ++j) {
             if (columns_[j] >= f.width)
-                throw std::runtime_error(
-                    "dag::SelectNode: column index out of range for frame width");
+                throw std::invalid_argument(
+                    "select needs column " + std::to_string(columns_[j]) +
+                    ", but its input has " + std::to_string(f.width) + " column(s)");
             out_[j] = f.values[columns_[j]];
         }
         downstream_.push(Frame<Index>{f.index, out_.data(), out_.size()});

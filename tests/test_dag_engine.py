@@ -33,5 +33,5 @@ def test_engine_2in_2out_matches_eager():
 def test_engine_width_mismatch_raises():
     x = np.random.default_rng(4).standard_normal(10)          # width 1
     keys = np.arange(10, dtype=np.int64)
-    with pytest.raises((RuntimeError, ValueError), match="width|num_inputs"):
+    with pytest.raises(ValueError, match="takes 2 column"):
         _b._run_functor_batch(Sub(), keys, x)                 # Sub needs width 2

@@ -3,6 +3,8 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <stdexcept>
+#include <string>
 #include <vector>
 #include "screamer/common/eval_op.h"
 
@@ -71,9 +73,23 @@ inline std::size_t resample_plan_input_cols(const std::vector<ResamplePlanEntry>
     return plan.empty() ? 0u : max_col + 1u;
 }
 
-// Build the ohlcv_bars plan for a given input width W (must be >= 5).
+// ohlcv_bars reads [open, high, low, close, volume, ...]: at least one volume
+// column (docs/functions_streams/Resample.md). One rule for every path: the
+// Pipeline node, the eager resample() and the lazy one.
+constexpr std::size_t kOhlcvBarsMinColumns = 5;
+
+inline void check_ohlcv_bars_width(std::size_t W) {
+    if (W < kOhlcvBarsMinColumns)
+        throw std::invalid_argument(
+            "ohlcv_bars takes [open, high, low, close, volume, ...] (at least 5 "
+            "columns), but its input has " + std::to_string(W));
+}
+
+// Build the ohlcv_bars plan for a given input width W (at least 5; throws
+// std::invalid_argument otherwise).
 // Plan: first(col0), max(col1), min(col2), last(col3), sum(col4), sum(col5), ...
 inline std::vector<ResamplePlanEntry> make_ohlcv_bars_plan(std::size_t W) {
+    check_ohlcv_bars_width(W);
     std::vector<ResamplePlanEntry> plan;
     plan.reserve(W);
     plan.push_back({ResampleAgg::First, 0});

@@ -2,6 +2,7 @@
 #define SCREAMER_DAG_FUNCTOR_NODE_H
 
 #include <stdexcept>
+#include <string>
 #include <vector>
 #include "screamer/common/eval_op.h"
 #include "screamer/dag/frame.h"
@@ -20,8 +21,9 @@ public:
 
     void push(const Frame<Index>& f) override {
         if (f.width != op_.n_in()) {
-            throw std::runtime_error(
-                "dag::FunctorNode: frame width does not match op n_in");
+            throw std::invalid_argument(
+                "an operator takes " + std::to_string(op_.n_in()) +
+                " column(s), but its input has " + std::to_string(f.width));
         }
         op_.eval(f.values, out_.data());
         downstream_.push(Frame<Index>{f.index, out_.data(), out_.size()});

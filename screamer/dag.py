@@ -183,10 +183,21 @@ def _align_results(results, align_outputs):
     if not align_outputs:
         return tuple((v, k) for k, v in results)   # values-first
     from .streams import combine_latest
-    # combine_latest accepts (values, index) tuples; coalesces to one row per index
+    # combine_latest accepts (values, index) tuples; coalesces to one row per
+    # index. Its row holds every output's columns side by side: an output of
+    # width w owns the next w columns (a 1-D output owns one).
     vi_list = [(v, k) for k, v in results]
     aligned, aligned_index = combine_latest(*vi_list, emit="when_all")
-    return tuple((aligned[:, j], aligned_index) for j in range(len(results)))  # values-first
+    out, j = [], 0
+    for _, v in results:
+        if v.ndim == 1:
+            out.append((aligned[:, j], aligned_index))
+            j += 1
+        else:
+            w = v.shape[1]
+            out.append((aligned[:, j:j + w], aligned_index))
+            j += w
+    return tuple(out)  # values-first
 
 
 def _reachable_inputs(outputs):

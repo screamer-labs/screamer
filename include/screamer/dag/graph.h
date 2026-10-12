@@ -3,6 +3,7 @@
 
 #include <cstddef>
 #include <stdexcept>
+#include <string>
 #include <vector>
 #include "screamer/common/eval_op.h"
 #include "screamer/dag/resample_params.h"
@@ -98,7 +99,8 @@ public:
         // Filter is a fixed 2-input gate (data, mask); fail early on wrong arity
         // rather than half-wire the node and misbehave at run time.
         if (inputs.size() != 2)
-            throw std::runtime_error("add_filter: Filter needs exactly 2 inputs (data, mask)");
+            throw std::invalid_argument("Filter takes 2 inputs (data, mask), got " +
+                                        std::to_string(inputs.size()));
         NodeSpec ns;
         ns.kind   = NodeKind::Filter;
         ns.inputs = std::move(inputs);

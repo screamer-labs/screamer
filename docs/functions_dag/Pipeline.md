@@ -59,7 +59,8 @@ define-once-run-anywhere guarantee), see
 - **`outputs`**: a list of nodes to evaluate.
 - **`align_outputs`**: when `True` (default), all outputs are co-indexed onto a
   single shared index, so every output is an equal-length `(values, index)`
-  pair. When `False`, each output is returned as an independent stream whose
+  pair. Each output keeps its own columns: a 2-column output stays `(T, 2)`.
+  When `False`, each output is returned as an independent stream whose
   length may differ from the others.
 
 The constructor validates the pipeline and raises a clear `ValueError` if: an

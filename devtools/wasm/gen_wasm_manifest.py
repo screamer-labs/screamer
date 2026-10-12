@@ -382,4 +382,10 @@ def main() -> None:
 
 
 if __name__ == "__main__":
+    import argparse
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    mode = ap.add_mutually_exclusive_group()
+    mode.add_argument("--check", action="store_true", help="validate the manifest, write nothing")
+    mode.add_argument("--stdout", action="store_true", help="print the manifest instead of writing it")
+    ap.parse_args()
     main()

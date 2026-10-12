@@ -143,7 +143,8 @@ const warm = dropna(RollingMean(3)(x)); // skips the two NaN warmup events
 ```
 
 **`filter(data, mask)`**: keep each `data` value whose aligned `mask` event is nonzero; zero or
-NaN drops it.
+NaN drops it. The data and the mask are one column each; a wider stream throws `RangeError`, so
+`select` the column to gate first.
 
 ```js
 import { filter } from "@screamer-labs/screamer";

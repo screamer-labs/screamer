@@ -2,12 +2,12 @@
 #define SCREAMER_DAG_FILTER_NODE_H
 
 #include <algorithm>
-#include <cassert>
 #include <cstddef>
 #include <cstdint>
 #include <limits>
 #include <queue>
 #include <stdexcept>
+#include <string>
 #include <vector>
 #include "screamer/common/float_info.h"
 #include "screamer/dag/frame.h"
@@ -90,7 +90,7 @@ private:
     }
 
     void on_port(std::size_t i, const Frame<Index>& f) {
-        assert(f.width == 1);
+        if (f.width != 1) throw_width(i, f.width);
         if (wm_[i] < f.index) wm_[i] = f.index;   // a data frame advances the port watermark
         pending_.push(Pending{f.index, static_cast<std::uint32_t>(i), next_seq_++, f.values[0]});
         if (pending_.size() > max_pending_)
@@ -100,6 +100,21 @@ private:
         release();
     }
 
+    // A Filter gates one value by one mask value (Filter.md). The graph checks
+    // known widths before any push (CompiledGraph::validate_widths, same text);
+    // this covers a width the graph learns only at run time.
+    [[noreturn]] static void throw_width(std::size_t port, std::size_t width) {
+        throw std::invalid_argument(width_message(port, width));
+    }
+
+public:
+    static std::string width_message(std::size_t port, std::size_t width) {
+        return std::string("Filter takes a 1-column ") + (port == 0 ? "data" : "mask") +
+               " stream, but its " + (port == 0 ? "data" : "mask") + " has " +
+               std::to_string(width) + " columns; Select one column first";
+    }
+
+private:
     void on_port_watermark(std::size_t i, Index w) {
         if (wm_[i] < w) wm_[i] = w;
         release();

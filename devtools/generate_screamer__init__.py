@@ -148,4 +148,6 @@ except NameError:
 
 # Load the module and generate __init__.py
 if __name__ == "__main__":
+    import argparse
+    argparse.ArgumentParser(description="Generate screamer/__init__.py from the compiled bindings.").parse_args()
     generate_init_py(screamer_bindings_module)

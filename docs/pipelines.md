@@ -113,8 +113,8 @@ and trailing bars in [`Resample`](functions_streams/Resample.md).
 A pipeline can expose more than one output, for example the raw spread and its
 smoothed signal together. By default (`align_outputs=True`) all outputs are
 co-indexed onto one shared timeline, so every output is an equal-length
-`(values, index)` pair and column `k` of one lines up with column `k` of
-another. Set `align_outputs=False` when you want each output as an independent
+`(values, index)` pair and row `k` of one lines up with row `k` of
+another. Each output keeps its own columns. Set `align_outputs=False` when you want each output as an independent
 stream whose length may differ. The precise semantics are in the
 [reference](functions_dag/Pipeline.md).
 
