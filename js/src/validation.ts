@@ -10,6 +10,7 @@
 // chains them and counts. The same seed gives the same surrogates as Python.
 import { current } from "./index.js";
 import { asNd, type NdArray } from "./ndarray.js";
+import { wasmCall } from "./errors.js";
 import type { ScreamerOp } from "./runtime.js";
 import { BacktestReport, BacktestStats, PortfolioReport } from "./generated/ops.js";
 
@@ -54,7 +55,7 @@ function defaultMinShift(x: ArrayLike<number>): number {
   const ptr = M.allocF64(x.length);
   try {
     M.viewF64(ptr, x.length).set(x as number[]);
-    return M.defaultMinShift(ptr, x.length);
+    return wasmCall(() => M.defaultMinShift(ptr, x.length));
   } finally {
     M.freeBuf(ptr);
   }
@@ -68,14 +69,14 @@ function shiftBlock(x: ArrayLike<number>, minShift: number, seed: number,
   if (2 * minShift > L)
     throw new RangeError("min_shift is too large: it must be at most half the series " +
                          "length after the NaN warmup.");
-  return surrogates(x, ncols, (xp, op) =>
-    current().circularShiftInto(xp, x.length, minShift, seed, col0, ncols, op, start));
+  return surrogates(x, ncols, (xp, op) => wasmCall(() =>
+    current().circularShiftInto(xp, x.length, minShift, seed, col0, ncols, op, start)));
 }
 
 function shuffleBlock(x: ArrayLike<number>, seed: number, col0: number,
                       ncols: number): NdArray {
-  return surrogates(x, ncols, (xp, op) =>
-    current().segmentShuffleInto(xp, x.length, seed, col0, ncols, op));
+  return surrogates(x, ncols, (xp, op) => wasmCall(() =>
+    current().segmentShuffleInto(xp, x.length, seed, col0, ncols, op)));
 }
 
 /**
@@ -498,23 +499,14 @@ function checkModes(mode: string, volumeMode: string): void {
 }
 
 // Inputs to the permutation kernels are row-major (T x K) blocks of K assets;
-// K = 1 is one series. The checks repeat the C++ ones so that a bad input
-// throws a RangeError here instead of aborting inside WASM.
-function checkBars(o: ArrayLike<number>, h: ArrayLike<number>, l: ArrayLike<number>,
-                   c: ArrayLike<number>, T: number, mode: PermuteMode,
-                   notionalVolume: boolean): void {
-  const N = o.length;
-  if (h.length !== N || l.length !== N || c.length !== N)
-    throw new RangeError("open, high, low, and close must have the same length.");
-  if (T < 2) throw new RangeError("permute_bars needs at least two bars.");
-  for (let i = 0; i < N; i++) {
-    if (!Number.isFinite(o[i] + h[i] + l[i] + c[i]))
-      throw new RangeError("permute_bars needs finite open, high, low, and close prices.");
-    if ((mode === "log" || notionalVolume) && !(o[i] > 0 && h[i] > 0 && l[i] > 0 && c[i] > 0))
-      throw new RangeError(mode === "log"
-        ? 'permute_bars with mode="log" needs positive prices; use mode="diff".'
-        : 'volume_mode="notional" needs positive prices.');
-  }
+// K = 1 is one series. The C++ kernels check the values (finite, positive,
+// warmup, K >= 1) and their errors arrive as RangeError through wasmCall. The
+// kernels get raw pointers, so the buffer lengths are checked here.
+function checkLengths(xs: ArrayLike<number>[], T: number, K: number, what: string): void {
+  if (xs.some((x) => x.length !== xs[0].length))
+    throw new RangeError(`${what} must have the same length.`);
+  if (xs[0].length !== T * K)
+    throw new RangeError(`${what} must hold T * K = ${T * K} values, got ${xs[0].length}.`);
 }
 
 // Outputs: open, high, low, close (T x ncols x K), source (T x ncols), and the
@@ -523,7 +515,7 @@ function barsBlock(o: ArrayLike<number>, h: ArrayLike<number>, l: ArrayLike<numb
                    c: ArrayLike<number>, T: number, K: number, mode: PermuteMode, seed: number,
                    col0: number, ncols: number, vol: ArrayLike<number> | null, notional: boolean) {
   const M = current();
-  checkBars(o, h, l, c, T, mode, notional && vol !== null);
+  checkLengths([o, h, l, c], T, K, "open, high, low, and close");
   if (vol !== null && vol.length !== o.length)
     throw new RangeError("volume must have the same length as the prices.");
   const ins: number[] = [];
@@ -535,31 +527,12 @@ function barsBlock(o: ArrayLike<number>, h: ArrayLike<number>, l: ArrayLike<numb
     const N = T * ncols * K;
     outs = heapBlocks(vol === null ? [N, N, N, N, T * ncols] : [N, N, N, N, T * ncols, N]);
     const p = outs.ptrs;
-    M.permuteBarsInto(ins[0], ins[1], ins[2], ins[3], T, K, mode, seed, col0, ncols,
-                      p[0], p[1], p[2], p[3], p[4], vp, notional, vol === null ? 0 : p[5]);
+    wasmCall(() => M.permuteBarsInto(ins[0], ins[1], ins[2], ins[3], T, K, mode, seed, col0,
+                                     ncols, p[0], p[1], p[2], p[3], p[4], vp, notional,
+                                     vol === null ? 0 : p[5]));
     return p.map((_, k) => (outs as ReturnType<typeof heapBlocks>).read(k));
   } finally {
     ins.forEach((p) => M.freeBuf(p)); outs?.free();
-  }
-}
-
-function checkReturns(x: ArrayLike<number>, T: number, K: number, mode: PermuteMode,
-                      notionalVolume: boolean): void {
-  let p = 0;
-  for (let a = 0; a < K; a++) {
-    let q = 0;
-    while (q < T && Number.isNaN(x[q * K + a])) q++;
-    p = Math.max(p, q);
-  }
-  if (T - p < 2)
-    throw new RangeError("permute_returns needs at least two values after the NaN warmup.");
-  for (let i = p * K; i < T * K; i++) {
-    if (!Number.isFinite(x[i]))
-      throw new RangeError("permute_returns needs finite values after the NaN warmup.");
-    if ((mode === "log" || notionalVolume) && !(x[i] > 0))
-      throw new RangeError(mode === "log"
-        ? 'permute_returns with mode="log" needs positive values; use mode="diff".'
-        : 'volume_mode="notional" needs positive prices.');
   }
 }
 
@@ -569,7 +542,7 @@ function returnsBlock(x: ArrayLike<number>, T: number, K: number, mode: PermuteM
                       seed: number, col0: number, ncols: number,
                       vol: ArrayLike<number> | null, notional: boolean) {
   const M = current();
-  checkReturns(x, T, K, mode, notional && vol !== null);
+  checkLengths([x], T, K, "x");
   if (vol !== null && vol.length !== x.length)
     throw new RangeError("volume must have the same length as the prices.");
   let xp = 0, vp = 0;
@@ -580,12 +553,28 @@ function returnsBlock(x: ArrayLike<number>, T: number, K: number, mode: PermuteM
     const N = T * ncols * K;
     outs = heapBlocks(vol === null ? [N, T * ncols] : [N, T * ncols, N]);
     const p = outs.ptrs;
-    M.permuteReturnsInto(xp, T, K, mode, seed, col0, ncols, p[0], p[1],
-                         vp, notional, vol === null ? 0 : p[2]);
+    wasmCall(() => M.permuteReturnsInto(xp, T, K, mode, seed, col0, ncols, p[0], p[1],
+                                        vp, notional, vol === null ? 0 : p[2]));
     return p.map((_, k) => (outs as ReturnType<typeof heapBlocks>).read(k));
   } finally {
     M.freeBuf(xp); M.freeBuf(vp); outs?.free();
   }
+}
+
+// The public permute functions take one series, as in Python: an NdArray of
+// rank 1 is read as its data, and a panel (an NdArray of rank 2 or more, or an
+// array of rows) throws the RangeError Python raises as ValueError.
+function series(x: any, name: string): ArrayLike<number> {
+  const nd = asNd(x);
+  if (nd !== null) {
+    if (nd.shape.length !== 1) throw new RangeError(`${name} must be a 1-D series`);
+    return nd.data;
+  }
+  if (x == null || typeof x === "string" || typeof x.length !== "number")
+    throw new TypeError(`${name} must be an array of numbers or an NdArray`);
+  const first = x.length > 0 ? x[0] : undefined;
+  if (first != null && typeof first === "object") throw new RangeError(`${name} must be a 1-D series`);
+  return x;
 }
 
 export interface PermuteOptions {
@@ -605,17 +594,19 @@ export interface PermuteOptions {
  * its source bar. Mirrors Python's `permute_bars`.
  */
 export function permuteBars(
-  open: ArrayLike<number>, high: ArrayLike<number>, low: ArrayLike<number>,
-  close: ArrayLike<number>, n: number, opts: PermuteOptions = {},
+  open: ArrayLike<number> | NdArray, high: ArrayLike<number> | NdArray,
+  low: ArrayLike<number> | NdArray, close: ArrayLike<number> | NdArray, n: number,
+  opts: PermuteOptions = {},
 ): NdArray[] {
   const seed = opts.seed ?? 0, mode = opts.mode ?? "log", vm = opts.volumeMode ?? "keep";
   checkSeed(seed);
   checkModes(mode, vm);
-  const vol = opts.volume ?? null;
-  const out = barsBlock(open, high, low, close, open.length, 1, mode, seed, 0, n, vol,
-                        vm === "notional");
+  const o = series(open, "open"), h = series(high, "high"), l = series(low, "low");
+  const c = series(close, "close");
+  const vol = opts.volume === undefined ? null : series(opts.volume, "volume");
+  const out = barsBlock(o, h, l, c, o.length, 1, mode, seed, 0, n, vol, vm === "notional");
   const keep = vol === null ? [0, 1, 2, 3] : [0, 1, 2, 3, 5];
-  return keep.map((k) => ({ data: out[k], shape: [open.length, n] }));
+  return keep.map((k) => ({ data: out[k], shape: [o.length, n] }));
 }
 
 /**
@@ -625,14 +616,15 @@ export function permuteBars(
  * Python's `permute_returns`.
  */
 export function permuteReturns(
-  x: ArrayLike<number>, n: number, opts: PermuteOptions = {},
+  x: ArrayLike<number> | NdArray, n: number, opts: PermuteOptions = {},
 ): NdArray | NdArray[] {
   const seed = opts.seed ?? 0, mode = opts.mode ?? "log", vm = opts.volumeMode ?? "keep";
   checkSeed(seed);
   checkModes(mode, vm);
-  const vol = opts.volume ?? null;
-  const out = returnsBlock(x, x.length, 1, mode, seed, 0, n, vol, vm === "notional");
-  const nd = (d: Float64Array): NdArray => ({ data: d, shape: [x.length, n] });
+  const xs = series(x, "x");
+  const vol = opts.volume === undefined ? null : series(opts.volume, "volume");
+  const out = returnsBlock(xs, xs.length, 1, mode, seed, 0, n, vol, vm === "notional");
+  const nd = (d: Float64Array): NdArray => ({ data: d, shape: [xs.length, n] });
   return vol === null ? nd(out[0]) : [nd(out[0]), nd(out[2])];
 }
 
@@ -953,7 +945,7 @@ export function probabilisticSharpe(pnl: ArrayLike<number> | NdArray, benchmark 
   const x = pnlOf(pnl);
   checkPnl(x);
   const p = heapCopy(x);
-  try { return M.probabilisticSharpe(p, x.length, benchmark); } finally { M.freeBuf(p); }
+  try { return wasmCall(() => M.probabilisticSharpe(p, x.length, benchmark)); } finally { M.freeBuf(p); }
 }
 
 /**
@@ -973,7 +965,7 @@ export function deflatedSharpe(
   let p = 0, t = 0, out = 0;
   try {
     p = heapCopy(x); t = heapCopy(trialSharpes); out = M.allocF64(2);
-    M.deflatedSharpeInto(p, x.length, t, trialSharpes.length, out);
+    wasmCall(() => M.deflatedSharpeInto(p, x.length, t, trialSharpes.length, out));
     const v = M.viewF64(out, 2);
     return { probability: v[0], benchmark: v[1] };
   } finally {

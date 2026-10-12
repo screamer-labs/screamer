@@ -67,7 +67,11 @@ Each input is a series of shape `(T,)` or a panel of shape `(T, K)` with one
 column per asset, and series and panels can be mixed. For a panel, each
 randomized copy applies one time permutation (or one shift) to every asset, so
 the correlation between the assets is kept and only the structure over time is
-destroyed. A `"notional"` volume must have the shape of the prices.
+destroyed. With `"returns"`, the rows before every asset has its first value
+(the longest leading NaN stretch of any asset) stay in place in every copy, so
+an asset listed late freezes the rows before its listing. `"bars"` needs
+finite prices everywhere. A `"notional"` volume must have the shape of the
+prices.
 
 The strategy may also return a portfolio engine's `(T, K, 4)` output. The test
 then scores the whole book, as

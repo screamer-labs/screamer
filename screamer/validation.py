@@ -599,8 +599,11 @@ def strategy_test(
     with one column per asset, and series and panels can be mixed. For a
     panel, each randomized copy applies one time permutation (or one shift) to
     every asset, so the correlation between assets is kept and only the
-    structure over time is destroyed. A ``"notional"`` volume must have the
-    shape of the prices.
+    structure over time is destroyed. With ``"returns"``, the rows before
+    every asset has its first value stay in place in every copy, so an asset
+    listed late freezes the rows before its listing; ``"bars"`` needs finite
+    prices everywhere. A ``"notional"`` volume must have the shape of the
+    prices.
 
     ``metric`` is the name of a ``backtest_report`` summary statistic or a
     callable that maps an output of shape ``(T, k, 4)`` to ``k`` values, as in
@@ -678,7 +681,7 @@ def strategy_test(
     null_stats = {key: np.empty(n) for key in _METRICS}
     # Copies per chunk: up to 64, fewer for a large panel (six (T, m, K) blocks).
     width = max(x.size for x in data)
-    chunk = max(1, min(n, 64, _CHUNK_DOUBLES // (6 * width)))
+    chunk = max(1, min(n, 64, _CHUNK_DOUBLES // (6 * max(1, width))))
     for col0 in range(0, n, chunk):
         m = min(chunk, n - col0)
         if method == "bars":

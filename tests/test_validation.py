@@ -783,12 +783,18 @@ def test_strategy_test_portfolio_argument_checks():
         s.strategy_test(book, o, h, l[:, 0], c, n=2)
 
 
-# strategy_test with 1-D inputs, n=12, seed=3, computed with screamer 2.8.0.
+# strategy_test with 1-D inputs, n=70 (past the 64-copy chunk), seed=3,
+# computed with screamer 2.8.0: (observed, p_value, null size, null sum,
+# null at positions 0, 1, 63, 64, 65, -1).
 _V280 = {
-    "returns_log": (0.062141750284824174, 0.3076923076923077, [-0.12758338148160225, 0.03140848583704488, -0.02934058275693658, -0.0031623592646301065, 0.14199204851897237, 0.0998224040613391, 0.008351622133784459, -0.010561573756419354, 0.0038247806684275037, 0.051073279236998996, 0.08073964313078213, 0.05310622280199597]),
-    "returns_level": (0.062141750284824174, 0.07692307692307693, [-0.5581525153014752, -0.6119503188604324, -0.5533244188269972, -0.5574352417797767, -0.5703319605989196, -0.6210801253253302, -0.5806345597943305, -0.5555626146687358, -0.5393336960524884, -0.5955455413125887, -0.4971983547985808, -0.6836565795474919]),
-    "bars_diff_notional": (0.07551555188387185, 0.23076923076923078, [-0.04832591955453531, 0.03559172027890768, 0.05922298117016738, -0.054016600810798475, 0.16023895834232968, -0.028559450882573164, -0.05152771233291089, 0.12439144394525997, 0.05661589032097703, 0.011048406286528369, 0.0588667553136946, -0.0449365173709478]),
-    "shift": (0.07551555188387185, 0.3076923076923077, [0.12292252240556496, 0.08372682387027214, 0.13432021373801226, 0.05841980382586971, 0.004629522394702571, 0.06489277621933034, 0.05774699572781005, 0.009082614167505141, -0.021017890916663954, 0.009082614167505141, -0.035744020368375956, 0.06590961650681096]),
+    "returns_log": (0.062141750284824174, 0.2535211267605634, 70, 1.3263899545305522,
+        [-0.12758338148160225, 0.03140848583704488, -0.05009701958086175, -0.015659826465689305, -0.010975036415169072, -0.07237309884376006]),
+    "returns_level": (0.062141750284824174, 0.014084507042253521, 70, -41.96035123118885,
+        [-0.5581525153014752, -0.6119503188604324, -0.5199677261769974, -0.6935172724528123, -0.6122945156166879, -0.592000830427454]),
+    "bars_diff_notional": (0.07551555188387185, 0.2112676056338028, 70, 1.0176196426613808,
+        [-0.04832591955453531, 0.03559172027890768, -0.12526888355379764, -0.10223626983630979, 0.021836781851415715, -0.039161682929031986]),
+    "shift": (0.07551555188387185, 0.29577464788732394, 70, 3.220558304861609,
+        [0.12292252240556496, 0.08372682387027214, 0.11017250678640951, 0.05841980382586971, 0.08376068436457057, 0.00432638354768181]),
 }
 
 
@@ -815,7 +821,59 @@ def test_1d_results_unchanged():
         "shift": (strat_b, (o, h, l, c, v), dict(method="shift", columns=[4])),
     }
     for name, (f, x, kw) in cases.items():
-        r = s.strategy_test(f, *x, n=12, seed=3, **kw)
-        observed, p_value, null = _V280[name]
-        assert r.observed == observed and r.p_value == p_value, name
-        np.testing.assert_array_equal(r.null, null, err_msg=name)
+        r = s.strategy_test(f, *x, n=70, seed=3, **kw)
+        observed, p_value, size, total, picks = _V280[name]
+        # rtol, not equality: log mode goes through the platform's exp and log
+        np.testing.assert_allclose(r.observed, observed, rtol=1e-12, err_msg=name)
+        assert r.p_value == p_value and r.null.size == size, name
+        np.testing.assert_allclose(r.null.sum(), total, rtol=1e-11, err_msg=name)
+        np.testing.assert_allclose(r.null[[0, 1, 63, 64, 65, -1]], picks, rtol=1e-12,
+                                   err_msg=name)
+
+
+def test_panel_kernels_read_non_contiguous_input():
+    o, h, l, c = _panel(T=80, K=6, seed=11)
+    views = {
+        "fortran": np.asfortranarray(c),
+        "strided": c[:, ::2],
+        "reversed": c[::-1, ::-1][::-1, ::-1],
+    }
+    for name, v in views.items():
+        got = _permute_returns(v, "log", 4, 0, 5, _NO_VOL, False)
+        ref = _permute_returns(np.ascontiguousarray(v), "log", 4, 0, 5, _NO_VOL, False)
+        for g, r in zip(got, ref):
+            np.testing.assert_array_equal(g, r, err_msg=name)
+    f = [np.asfortranarray(a) for a in (o, h, l, c)]
+    got = _permute_bars(*f, "diff", 4, 0, 5, _NO_VOL, False)
+    ref = _permute_bars(o, h, l, c, "diff", 4, 0, 5, _NO_VOL, False)
+    for g, r in zip(got, ref):
+        np.testing.assert_array_equal(g, r)
+    # and through strategy_test
+    seen = []
+
+    def book(c):
+        seen.append(c)
+        return s.BacktestPortfolioTarget()(np.full(c.shape, 0.5), c)
+
+    s.strategy_test(book, views["strided"], method="returns", n=3, seed=1)
+    a = seen[1:]
+    seen.clear()
+    s.strategy_test(book, np.ascontiguousarray(views["strided"]), method="returns", n=3, seed=1)
+    for x, y in zip(a, seen[1:]):
+        np.testing.assert_array_equal(x, y)
+
+
+def test_public_permute_functions_reject_panels():
+    o, h, l, c = _panel(T=40, K=2)
+    with pytest.raises(ValueError, match="x must be a 1-D series"):
+        s.permute_returns(c, 3)
+    with pytest.raises(ValueError, match="open must be a 1-D series"):
+        s.permute_bars(o, h, l, c, 3)
+    with pytest.raises(ValueError, match="volume must be a 1-D series"):
+        s.permute_returns(c[:, 0], 3, volume=c)
+
+
+def test_strategy_test_zero_assets():
+    empty = np.empty((30, 0))
+    with pytest.raises(ValueError, match="at least one asset"):
+        s.strategy_test(lambda c: np.zeros((30, 4)), empty, method="returns", n=2)

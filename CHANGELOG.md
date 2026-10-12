@@ -77,6 +77,10 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
 * One-input operators such as `RollingMean` raise `TypeError` for an input
   they cannot read (was `ValueError` with "Unsupported input type for call").
   Code that caught `ValueError` for this case should catch `TypeError`.
+* `strategy_test` input errors: a `str` or `None` input raises `TypeError`
+  (2.8.0 raised `ValueError`), so catch `TypeError` for these. A 0-d scalar
+  input still raises `ValueError`, now with the message "input must be 1-D
+  (T,) or 2-D (T, K)".
 * A trailing axis of size 1 on an array of rank 3 or more is the single input
   field: `(T, K, 1)` input gives `(T, K)` (was `(T, K, 1)`), and `(T, K, M)`
   for M-output operators (was `(T, K, 1, M)`). Old result: `out[..., None]`,

@@ -236,6 +236,107 @@ namespace screamer { namespace validation {
         throw std::invalid_argument("mode must be \"log\", \"diff\", or \"level\".");
     }
 
+    namespace detail {
+
+        // The per-copy loops of permute_bars and permute_returns, templated on
+        // the mode (Log: log space, else differences) and on the asset count
+        // (KS = 1 for one series, KS = 0 for a runtime count k). One loop body
+        // serves both; with KS = 1 the asset loop disappears.
+
+        template <bool Log>
+        inline double from_space(double x) { if constexpr (Log) return std::exp(x); else return x; }
+
+        // The running level per asset. With a compile-time count it is a local
+        // copy, which the compiler keeps in registers (a pointer to it would
+        // be reloaded around every std::exp call); with a runtime count it
+        // works in place on the caller's buffer.
+        template <std::size_t KS>
+        struct RunState {
+            double v[KS];
+            explicit RunState(const double* p) { for (std::size_t a = 0; a < KS; ++a) v[a] = p[a]; }
+            double& operator[](std::size_t a) { return v[a]; }
+        };
+        template <>
+        struct RunState<0> {
+            double* v;
+            explicit RunState(double* p) : v(p) {}
+            double& operator[](std::size_t a) { return v[a]; }
+        };
+
+        // Bars t = 1 .. T-1 of copy j. `prev0` holds the first close per asset
+        // (in log or difference space).
+        template <bool Log, std::size_t KS>
+        inline void bars_path(const double* h, const double* l,
+                              const double* c,
+                              const double* gap, const double* dh,
+                              const double* dl, const double* dc,
+                              const std::size_t* shape,
+                              const std::size_t* gaps,
+                              std::size_t T, std::size_t k, std::size_t ncols, std::size_t j,
+                              double* prev0,
+                              double* oo, double* oh,
+                              double* ol, double* oc,
+                              double* source,
+                              const double* vol, bool notional,
+                              double* ov) {
+            const std::size_t K = KS ? KS : k;
+            const std::size_t rowlen = ncols * K;
+            auto typical = [](double hh, double ll, double cc) { return (hh + ll + cc) / 3.0; };
+            RunState<KS> prev(prev0);
+            for (std::size_t t = 1; t < T; ++t) {
+                const std::size_t s0 = shape[t] * K, g0 = gaps[t] * K;
+                const std::size_t r0 = t * rowlen + j * K;
+                source[t * ncols + j] = static_cast<double>(shape[t]);
+                for (std::size_t a = 0; a < K; ++a) {
+                    const std::size_t s = s0 + a, r = r0 + a;
+                    const double lo = prev[a] + gap[g0 + a];
+                    oo[r] = from_space<Log>(lo);
+                    oh[r] = from_space<Log>(lo + dh[s]);
+                    ol[r] = from_space<Log>(lo + dl[s]);
+                    prev[a] = lo + dc[s];
+                    oc[r] = from_space<Log>(prev[a]);
+                    if (vol) {
+                        ov[r] = notional
+                            ? vol[s] * typical(h[s], l[s], c[s]) / typical(oh[r], ol[r], oc[r])
+                            : vol[s];
+                    }
+                }
+            }
+        }
+
+        // Rows p+1 .. p+L-1 of copy j. `level0` holds the first valid value
+        // per asset (in log or difference space).
+        template <bool Log, std::size_t KS>
+        inline void returns_path(const double* x, const double* step,
+                                 const std::size_t* perm,
+                                 std::size_t p, std::size_t L, std::size_t k,
+                                 std::size_t ncols, std::size_t j,
+                                 double* level0,
+                                 double* out, double* source,
+                                 const double* vol, bool notional,
+                                 double* ov) {
+            const std::size_t K = KS ? KS : k;
+            const std::size_t rowlen = ncols * K;
+            // Diff mode keeps the level in the caller's buffer: on arm64 that
+            // loop is bound by the strided stores, and the register version
+            // measured 13% slower (T = 1e5, 64 copies).
+            RunState<Log ? KS : 0> level(level0);
+            for (std::size_t i = 1; i < L; ++i) {
+                const std::size_t s = p + perm[i], r0 = (p + i) * rowlen + j * K;
+                const double* st = step + perm[i] * K;
+                for (std::size_t a = 0; a < K; ++a) {
+                    level[a] += st[a];
+                    const double v = from_space<Log>(level[a]);
+                    out[r0 + a] = v;
+                    if (vol) ov[r0 + a] = notional ? vol[s * K + a] * x[s * K + a] / v
+                                                   : vol[s * K + a];
+                }
+                source[(p + i) * ncols + j] = static_cast<double>(s);
+            }
+        }
+
+    } // namespace detail
+
     // Bar permutation for OHLC data (Masters 2020), with an optional volume
     // column. In Log and Diff mode each bar t >= 1 splits into a gap (open[t]
     // against close[t-1]) and an intrabar shape (high, low, and close against
@@ -280,7 +381,6 @@ namespace screamer { namespace validation {
                     ? "permute_bars with mode=\"log\" needs positive prices; use mode=\"diff\"."
                     : "volume_mode=\"notional\" needs positive prices.");
         }
-        auto typical = [](double hh, double ll, double cc) { return (hh + ll + cc) / 3.0; };
         const std::size_t rowlen = ncols * K;     // output values per time step
 
         if (mode == PermuteMode::Level) {
@@ -303,7 +403,6 @@ namespace screamer { namespace validation {
         }
 
         auto fwd = [log](double x) { return log ? std::log(x) : x; };
-        auto inv = [log](double x) { return log ? std::exp(x) : x; };
         std::vector<double> gap(TK), dh(TK), dl(TK), dc(TK);
         for (std::size_t i = K; i < TK; ++i) {
             gap[i] = fwd(o[i]) - fwd(c[i - K]);
@@ -312,6 +411,8 @@ namespace screamer { namespace validation {
             dl[i] = fwd(l[i]) - lo;
             dc[i] = fwd(c[i]) - lo;
         }
+        auto path = log ? (K == 1 ? detail::bars_path<true, 1> : detail::bars_path<true, 0>)
+                        : (K == 1 ? detail::bars_path<false, 1> : detail::bars_path<false, 0>);
         std::vector<std::size_t> shape(T), gaps(T);
         std::vector<double> prev_close(K);
         for (std::size_t j = 0; j < ncols; ++j) {
@@ -325,44 +426,9 @@ namespace screamer { namespace validation {
                 if (vol) ov[r] = vol[a];
                 prev_close[a] = fwd(c[a]);
             }
-            if (K == 1) {                         // one series: the close stays in a register
-                double pc = prev_close[0];
-                for (std::size_t t = 1; t < T; ++t) {
-                    const std::size_t s = shape[t], r = t * ncols + j;
-                    const double lo = pc + gap[gaps[t]];
-                    oo[r] = inv(lo);
-                    oh[r] = inv(lo + dh[s]);
-                    ol[r] = inv(lo + dl[s]);
-                    pc = lo + dc[s];
-                    oc[r] = inv(pc);
-                    source[r] = static_cast<double>(s);
-                    if (vol) {
-                        ov[r] = notional
-                            ? vol[s] * typical(h[s], l[s], c[s]) / typical(oh[r], ol[r], oc[r])
-                            : vol[s];
-                    }
-                }
-                continue;
-            }
-            for (std::size_t t = 1; t < T; ++t) {
-                const std::size_t s0 = shape[t] * K, g0 = gaps[t] * K;
-                const std::size_t r0 = t * rowlen + j * K;
-                source[t * ncols + j] = static_cast<double>(shape[t]);
-                for (std::size_t a = 0; a < K; ++a) {
-                    const std::size_t s = s0 + a, r = r0 + a;
-                    const double lo = prev_close[a] + gap[g0 + a];
-                    oo[r] = inv(lo);
-                    oh[r] = inv(lo + dh[s]);
-                    ol[r] = inv(lo + dl[s]);
-                    prev_close[a] = lo + dc[s];
-                    oc[r] = inv(prev_close[a]);
-                    if (vol) {
-                        ov[r] = notional
-                            ? vol[s] * typical(h[s], l[s], c[s]) / typical(oh[r], ol[r], oc[r])
-                            : vol[s];
-                    }
-                }
-            }
+            path(h, l, c, gap.data(), dh.data(), dl.data(), dc.data(), shape.data(),
+                 gaps.data(), T, K, ncols, j, prev_close.data(), oo, oh, ol, oc, source,
+                 vol, notional, ov);
         }
     }
 
@@ -411,6 +477,8 @@ namespace screamer { namespace validation {
         if (mode != PermuteMode::Level)
             for (std::size_t i = K; i < L * K; ++i)
                 step[i] = log ? std::log(xv[i]) - std::log(xv[i - K]) : xv[i] - xv[i - K];
+        auto path = log ? (K == 1 ? detail::returns_path<true, 1> : detail::returns_path<true, 0>)
+                        : (K == 1 ? detail::returns_path<false, 1> : detail::returns_path<false, 0>);
         std::vector<std::size_t> perm(L);
         std::vector<double> level(K);
         for (std::size_t j = 0; j < ncols; ++j) {
@@ -441,30 +509,8 @@ namespace screamer { namespace validation {
                 out[p * rowlen + j * K + a] = xv[a];
                 if (vol) ov[p * rowlen + j * K + a] = vol[p * K + a];
             }
-            if (K == 1) {                         // one series: the level stays in a register
-                double lv = level[0];
-                for (std::size_t i = 1; i < L; ++i) {
-                    const std::size_t s = p + perm[i], r = (p + i) * ncols + j;
-                    lv += step[perm[i]];
-                    const double v = log ? std::exp(lv) : lv;
-                    out[r] = v;
-                    source[r] = static_cast<double>(s);
-                    if (vol) ov[r] = notional ? vol[s] * x[s] / v : vol[s];
-                }
-                continue;
-            }
-            for (std::size_t i = 1; i < L; ++i) {
-                const std::size_t s = p + perm[i], r0 = (p + i) * rowlen + j * K;
-                const double* st = step.data() + perm[i] * K;
-                source[(p + i) * ncols + j] = static_cast<double>(s);
-                for (std::size_t a = 0; a < K; ++a) {
-                    level[a] += st[a];
-                    const double v = log ? std::exp(level[a]) : level[a];
-                    out[r0 + a] = v;
-                    if (vol) ov[r0 + a] = notional ? vol[s * K + a] * x[s * K + a] / v
-                                                   : vol[s * K + a];
-                }
-            }
+            path(x, step.data(), perm.data(), p, L, K, ncols, j, level.data(), out, source,
+                 vol, notional, ov);
         }
     }
 

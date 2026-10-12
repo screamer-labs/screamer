@@ -266,3 +266,45 @@ test("validation: strategyTest applies one permutation to every asset", async ()
   assert.throws(() => strategyTest(book, ["abc" as any], { method: "returns", n: 2 }), TypeError);
   assert.throws(() => strategyTest(book, [panel, panel, x, panel], { n: 2 }), RangeError);
 });
+
+test("validation: permute errors come from C++ as RangeError; panels are rejected", async () => {
+  const { strategyTest, permuteReturns, permuteBars } = await import("../src/index.ts");
+  const T = 30;
+  const x = Array.from({ length: T }, (_, t) => 100 + t);
+  // errors raised by the C++ kernels, with their text
+  assert.throws(() => permuteReturns([1, 2, NaN_, 4], 2),
+    { name: "RangeError", message: "permute_returns needs finite values after the NaN warmup." });
+  assert.throws(() => permuteReturns([1, -2, 3], 2),
+    { name: "RangeError", message: 'permute_returns with mode="log" needs positive values; use mode="diff".' });
+  assert.throws(() => permuteReturns([NaN_, 1], 2),
+    { name: "RangeError", message: "permute_returns needs at least two values after the NaN warmup." });
+  assert.throws(() => permuteBars([1], [1], [1], [1], 2),
+    { name: "RangeError", message: "permute_bars needs at least two bars." });
+  assert.throws(() => permuteBars([1, NaN_], [1, 1], [1, 1], [1, 1], 2),
+    { name: "RangeError", message: "permute_bars needs finite open, high, low, and close prices." });
+  // K = 0 panels
+  const book = () => ({ data: new Float64Array(T * 4), shape: [T, 4] });
+  const empty = { data: new Float64Array(0), shape: [T, 0] };
+  assert.throws(() => strategyTest(book, [empty], { method: "returns", n: 2 }),
+    { name: "RangeError", message: "permute_returns needs at least one asset." });
+  assert.throws(() => strategyTest(book, [empty, empty, empty, empty], { n: 2 }),
+    { name: "RangeError", message: "permute_bars needs at least one asset." });
+  // many caught errors in a row leave the module usable
+  for (let i = 0; i < 2000; i++) assert.throws(() => permuteReturns([1, 2, NaN_, 4], 1), RangeError);
+  assert.equal(permuteReturns(x, 2).shape[1], 2);
+  // the public permute functions take one series, as in Python
+  const panel = { data: Float64Array.from(x.flatMap((v) => [v, v])), shape: [T, 2] };
+  const rows = x.map((v) => [v, v]);
+  assert.throws(() => permuteReturns(panel, 2), { name: "RangeError", message: "x must be a 1-D series" });
+  assert.throws(() => permuteReturns(rows as any, 2), { name: "RangeError", message: "x must be a 1-D series" });
+  assert.throws(() => permuteBars(panel, panel, panel, panel, 2),
+    { name: "RangeError", message: "open must be a 1-D series" });
+  assert.throws(() => permuteBars(rows as any, x, x, x, 2),
+    { name: "RangeError", message: "open must be a 1-D series" });
+  assert.throws(() => permuteReturns(x, 2, { volume: rows as any }),
+    { name: "RangeError", message: "volume must be a 1-D series" });
+  // a rank-1 NdArray is a series
+  const one = { data: Float64Array.from(x), shape: [T] };
+  assert.deepEqual(Array.from((permuteReturns(one, 2, { seed: 1 }) as any).data),
+                   Array.from((permuteReturns(x, 2, { seed: 1 }) as any).data));
+});
