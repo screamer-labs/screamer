@@ -91,9 +91,9 @@ One input `NaN` → two output `NaN`s (the input's own index, and one more while
 
 ### `nan-aware`
 
-Used by functions whose **purpose** is to handle `NaN`: [`FillNa`](functions_preprocessing/FillNa.md), [`Ffill`](functions_preprocessing/Ffill.md), and any future `Bfill`-style additions.
+Used by functions whose **purpose** is to handle `NaN`: [`FillNa`](functions_preprocessing/FillNa.md), [`Ffill`](functions_preprocessing/Ffill.md), and any future `Bfill`-style additions. The backtest engines whose order or target input gives `NaN` a defined meaning use it too (see the list below).
 
-**Rule.** The function's own documentation defines what happens - `NaN` input is the input it was designed to process, and the output is by design *not* `NaN`. These functions are the only place in the library where input `NaN` can become a finite output.
+**Rule.** The function's own documentation defines what happens - `NaN` input is the input it was designed to process, and the output is by design *not* `NaN`. These functions, and the backtest engines listed below, are the only place in the library where input `NaN` can become a finite output.
 
 ## Which functions use which policy
 
@@ -101,7 +101,7 @@ The full enumeration. This list is regenerated from frontmatter; if it drifts fr
 
 ### `ignore`
 
-All `Rolling*` functions, all `Ew*` functions, all `Cum*` functions, all moving-average / smoothing functions (`WMA`, `TRIMA`, `HullMA`, `DEMA`, `TEMA`, `KAMA`, `MovingAverage`, `MACD`, `Trix`), all bands (`BollingerBands`, `KeltnerChannels`, `DonchianChannels`), all volatility estimators (`TrueRange`, `ATR`, `NATR`, `Parkinson`, `GarmanKlass`, `RogersSatchell`, `YangZhang`, and their `Rolling*` / `Ew*` variants), all oscillators (`Stoch`, `StochRSI`, `UltimateOscillator`, `WilliamsR`, `CCI`, `BOP`, `MFI`), all volume indicators (`AD`, `ADOSC`, `ADX`, `OBV`, `VWAP`), `Drawdown`, `MaxDrawdown`, and all IIR/FIR filters (`Butter*`, `KalmanFilter`, `WilderSmoother`). Also `ignore`: the backtest engines that have no `NaN` input with a defined meaning ([`BacktestPriceTarget`](functions_fin/BacktestPriceTarget.md), `BacktestReport`, `BacktestStats`, `BacktestCarry`). A `NaN` in any of their inputs gives an all-`NaN` row and leaves the state untouched.
+All `Rolling*` functions, all `Ew*` functions, all `Cum*` functions, all moving-average / smoothing functions (`WMA`, `TRIMA`, `HullMA`, `DEMA`, `TEMA`, `KAMA`, `MovingAverage`, `MACD`, `Trix`), all bands (`BollingerBands`, `KeltnerChannels`, `DonchianChannels`), all volatility estimators (`TrueRange`, `ATR`, `NATR`, `Parkinson`, `GarmanKlass`, `RogersSatchell`, `YangZhang`, and their `Rolling*` / `Ew*` variants), all oscillators (`Stoch`, `StochRSI`, `UltimateOscillator`, `WilliamsR`, `CCI`, `BOP`, `MFI`), all volume indicators (`AD`, `ADOSC`, `ADX`, `OBV`, `VWAP`), `Drawdown`, `MaxDrawdown`, and all IIR/FIR filters (`Butter*`, `KalmanFilter`, `WilderSmoother`). Also `ignore`: the backtest engines that have no `NaN` input with a defined meaning ([`BacktestPriceTarget`](functions_fin/BacktestPriceTarget.md), [`BacktestReport`](functions_fin/BacktestReport.md), [`BacktestStats`](functions_fin/BacktestStats.md), [`BacktestCarry`](functions_fin/BacktestCarry.md)). A `NaN` in any of their inputs gives an all-`NaN` row and leaves the state untouched.
 
 ### `propagate`
 
@@ -109,7 +109,7 @@ All `Rolling*` functions, all `Ew*` functions, all `Cum*` functions, all moving-
 
 ### `nan-aware`
 
-`FillNa`, `Ffill`, and the backtest engines whose order or target input gives `NaN` a defined meaning: `BacktestOHLCTarget`, `BacktestOHLCVTarget`, `BacktestTradesTarget`, `BacktestL1Target` (a `NaN` target keeps the last target), `BacktestOHLCOrders`, `BacktestTradesOrders`, `BacktestL1Orders`, `BacktestL1TradesOrders` (a `NaN` own quote is a market order or an unquoted side), and `BacktestPortfolioTarget`, `BacktestPortfolioOHLCTarget` (a `NaN` target keeps the position). On every one of these engines a `NaN` in a market field (price, bar, quote, trade) is still skipped: the row is all-`NaN` and the state is untouched. The portfolio engines instead repeat the asset's equity on that step.
+[`FillNa`](functions_preprocessing/FillNa.md), [`Ffill`](functions_preprocessing/Ffill.md), and the backtest engines whose order or target input gives `NaN` a defined meaning: [`BacktestOHLCTarget`](functions_fin/BacktestOHLCTarget.md), [`BacktestOHLCVTarget`](functions_fin/BacktestOHLCVTarget.md), [`BacktestTradesTarget`](functions_fin/BacktestTradesTarget.md), [`BacktestL1Target`](functions_fin/BacktestL1Target.md) (a `NaN` target keeps the last target), [`BacktestOHLCOrders`](functions_fin/BacktestOHLCOrders.md), [`BacktestTradesOrders`](functions_fin/BacktestTradesOrders.md), [`BacktestL1Orders`](functions_fin/BacktestL1Orders.md), [`BacktestL1TradesOrders`](functions_fin/BacktestL1TradesOrders.md) (a `NaN` own quote is a market order or an unquoted side), and [`BacktestPortfolioTarget`](functions_fin/BacktestPortfolioTarget.md), [`BacktestPortfolioOHLCTarget`](functions_fin/BacktestPortfolioOHLCTarget.md) (a `NaN` target keeps the position). On these engines a `NaN` in a market field (price, bar, quote, or the trade of the tape engines) is still skipped: the row is all-`NaN` and the state is untouched. Two exceptions: the portfolio engines repeat the asset's equity on that step, and `BacktestL1TradesOrders` treats a `NaN` trade as a quote-only update (a finite row, no fill).
 
 ## Edge cases
 

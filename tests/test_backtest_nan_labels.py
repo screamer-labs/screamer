@@ -58,25 +58,27 @@ def _arrays(name):
     }[name]
 
 
-# name -> (target input, price inputs, observed NaN-price behaviour)
+# name -> (target input, price inputs, observed NaN-price behaviour, inputs that
+# give a NaN a defined meaning and so behave as nan-aware: own ask price and
+# sizes, and the trade of BacktestL1TradesOrders, a quote-only update)
 # The behaviour is what the engine does on a NaN price: "ignore" is an all-NaN
 # row with the state untouched, "nan-aware" is a finite row (the asset is
 # skipped and its equity repeated).
 CASES = {
-    "BacktestPriceTarget": (0, [1], "ignore"),
-    "BacktestOHLCTarget": (0, [1, 2, 3, 4], "ignore"),
-    "BacktestOHLCVTarget": (0, [1, 2, 3, 4], "ignore"),
-    "BacktestTradesTarget": (0, [1], "ignore"),
-    "BacktestL1Target": (0, [1, 2], "ignore"),
-    "BacktestOHLCOrders": (0, [4, 5, 6, 7], "ignore"),
-    "BacktestTradesOrders": (0, [4], "ignore"),
-    "BacktestL1Orders": (0, [4, 5], "ignore"),
-    "BacktestL1TradesOrders": (0, [4, 5], "ignore"),
-    "BacktestPortfolioTarget": (0, [1], "nan-aware"),
-    "BacktestPortfolioOHLCTarget": (0, [1, 2, 3, 4], "nan-aware"),
-    "BacktestReport": (0, [1, 2, 3], "ignore"),
-    "BacktestStats": (0, [1, 2, 3], "ignore"),
-    "BacktestCarry": (0, [1, 2, 3, 4, 5], "ignore"),
+    "BacktestPriceTarget": (0, [1], "ignore", []),
+    "BacktestOHLCTarget": (0, [1, 2, 3, 4], "ignore", []),
+    "BacktestOHLCVTarget": (0, [1, 2, 3, 4], "ignore", []),
+    "BacktestTradesTarget": (0, [1, 2], "ignore", []),
+    "BacktestL1Target": (0, [1, 2], "ignore", []),
+    "BacktestOHLCOrders": (0, [4, 5, 6, 7], "ignore", [1, 2, 3]),
+    "BacktestTradesOrders": (0, [4, 5], "ignore", [1, 2, 3]),
+    "BacktestL1Orders": (0, [4, 5, 6, 7], "ignore", [1, 2, 3]),
+    "BacktestL1TradesOrders": (0, [4, 5, 6, 7], "ignore", [1, 2, 3, 8, 9]),
+    "BacktestPortfolioTarget": (0, [1], "nan-aware", []),
+    "BacktestPortfolioOHLCTarget": (0, [1, 2, 3, 4], "nan-aware", []),
+    "BacktestReport": (0, [1, 2, 3], "ignore", []),
+    "BacktestStats": (0, [1, 2, 3], "ignore", []),
+    "BacktestCarry": (0, [1, 2, 3, 4, 5], "ignore", []),
 }
 
 
@@ -115,7 +117,7 @@ def test_every_backtest_page_is_covered():
     "name", [pytest.param(n, id=f"{n}-nan_price_{CASES[n][2]}") for n in sorted(CASES)]
 )
 def test_label_matches_nan_target_and_price_behavior(name):
-    target, prices, price_behavior = CASES[name]
+    target, prices, price_behavior, own = CASES[name]
     label = _label(name)
     assert label in ("ignore", "nan-aware")
     assert _observe(name, target) == label, (
@@ -123,3 +125,6 @@ def test_label_matches_nan_target_and_price_behavior(name):
     for idx in prices:
         assert _observe(name, idx) == price_behavior, (
             f"{name}: NaN in input {idx} no longer behaves as '{price_behavior}'")
+    for idx in own:
+        assert _observe(name, idx) == "nan-aware", (
+            f"{name}: NaN in input {idx} is expected to give a finite row")

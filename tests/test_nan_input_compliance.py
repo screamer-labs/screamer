@@ -332,10 +332,6 @@ def test_nan_at_nan_index(name: str, entry: dict):
 # name listed here that starts passing fails the suite until it is removed.
 KNOWN_NOT_TRANSPARENT: set[str] = set()
 
-# The backtest engines that give a NaN order or target a defined meaning
-# declare `nan-aware`, so these `ignore` properties skip them. Their label is
-# checked against their behavior in tests/test_backtest_nan_labels.py.
-
 _xfail_transparent = _xfail_if_in(
     KNOWN_NOT_TRANSPARENT, "ignore-policy NaN is not state-transparent"
 )
