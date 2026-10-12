@@ -88,9 +88,11 @@ public:
                std::size_t n_out)
         : cg_keepalive_(std::move(cg_keepalive)), cg_(cg), n_out_(n_out),
           latest_(n_out, nb::none()), wm_val_(n_out, 0), wm_set_(n_out, 0) {
+        unit_ = std::make_unique<TimeUnit>();
         for (nb::handle h : iterators) {
             sources_.push_back(std::make_unique<streams::PySource<std::int64_t>>(
-                nb::borrow<nb::object>(h), /*positional=*/false, sources_.size(), "Pipeline"));
+                nb::borrow<nb::object>(h), /*positional=*/false, sources_.size(), "Pipeline",
+                unit_.get()));
             child_ptrs_.push_back(sources_.back().get());
         }
         merge_ = std::make_unique<streams::MergeSource<std::int64_t>>(child_ptrs_);
@@ -231,6 +233,7 @@ private:
     nb::object cg_keepalive_;                 // keep the _CompiledGraph alive
     dag::CompiledGraph& cg_;
     std::size_t n_out_;
+    std::unique_ptr<TimeUnit> unit_;          // the index kind of every feed
     std::vector<std::unique_ptr<streams::PySource<std::int64_t>>> sources_;
     std::vector<streams::Source<std::int64_t>*> child_ptrs_;
     std::unique_ptr<streams::MergeSource<std::int64_t>> merge_;
@@ -316,10 +319,13 @@ static void cast_index(const AnyIndex& a, std::vector<std::int64_t>& out, F chec
     for (std::size_t i = 0; i < n; ++i) out[i] = check(src[i]);
 }
 
+// `unit` holds the index kind of the whole call (py_index.h TimeUnit): every
+// non-empty index array of the call must be numbers, or times of one unit.
 static const std::int64_t* index_array(nb::handle obj, nb::object& keep,
-                                       std::vector<std::int64_t>& owned) {
+                                       std::vector<std::int64_t>& owned, TimeUnit& unit) {
     In1D<std::int64_t> i64;
     if (nb::try_cast(obj, i64, /*convert=*/false)) {
+        if (i64.shape(0)) note_number(&unit);
         keep = nb::borrow(obj);
         return i64.data();
     }
@@ -332,7 +338,17 @@ static const std::int64_t* index_array(nb::handle obj, nb::object& keep,
         // A datetime64 or timedelta64 array: its int64 ticks, in place. NaT
         // raises, as it does for one index (py_index).
         if (kind == "M" || kind == "m") {
-            nb::object ticks = obj.attr("view")("int64");
+            nb::object dtype = obj.attr("dtype");
+            nb::object arr = nb::borrow(obj);
+            if (!nb::cast<bool>(dtype.attr("isnative")))   // ticks in native byte order
+                arr = arr.attr("astype")(dtype.attr("newbyteorder")("="));
+            if (nb::len(arr)) {
+                nb::tuple du = nb::cast<nb::tuple>(
+                    nb::module_::import_("numpy").attr("datetime_data")(dtype));
+                note_time(&unit, kind == "M" ? TimeUnit::kDatetime : TimeUnit::kTimedelta,
+                          time_unit_base(nb::cast<std::string>(du[0])), nb::cast<int>(du[1]));
+            }
+            nb::object ticks = arr.attr("view")("int64");
             if (!nb::try_cast(ticks, i64, /*convert=*/false))
                 throw nb::value_error("an index is a 1-D array of integers");
             const std::int64_t* d = i64.data();
@@ -344,11 +360,10 @@ static const std::int64_t* index_array(nb::handle obj, nb::object& keep,
             return d;
         }
         // An object array (Python ints, a pandas object Index): each element
-        // follows the rule of a live push, one time unit per feed.
+        // follows the rule of a live push.
         if (kind == "O") {
             owned.clear();
             owned.reserve(nb::len(obj));
-            TimeUnit unit;
             for (nb::handle e : obj) owned.push_back(py_index(e, &unit));
             keep = nb::borrow(obj);
             return owned.data();
@@ -357,6 +372,7 @@ static const std::int64_t* index_array(nb::handle obj, nb::object& keep,
             ? "an array of " + nb::cast<std::string>(obj.attr("dtype").attr("name"))
             : nb::cast<std::string>(nb::type_name(obj.type())));
     }
+    if (a.shape(0)) note_number(&unit);
     using C = nb::dlpack::dtype_code;
     const nb::dlpack::dtype dt = a.dtype();
     auto widen = [](auto v) { return static_cast<std::int64_t>(v); };
@@ -403,12 +419,13 @@ static void marshal_feeds(
         std::vector<std::size_t>& lens,
         std::vector<std::size_t>& widths) {
     const std::size_t n = nb::len(feeds);
+    TimeUnit unit;                      // one index kind across every input
     ks.resize(n);
     owned.resize(n);
     std::size_t f = 0;
     for (auto item : feeds) {
         nb::tuple t = nb::cast<nb::tuple>(item);
-        kp.push_back(index_array(t[0], ks[f], owned[f]));
+        kp.push_back(index_array(t[0], ks[f], owned[f], unit));
         ++f;
         vs.push_back(nb::cast<InValues>(t[1]));
         vp.push_back(vs.back().data());
@@ -427,6 +444,9 @@ void init_bindings_dag(nb::module_& m) {
             catch (const dag::IndexTypeError& e) { PyErr_SetString(PyExc_TypeError, e.what()); }
         }, nullptr);
     m.def("_checked_index", [](double d) { return dag::checked_index(d); }, "index"_a);
+    // The string rule for values (cast_double.h refuse_text), for the Python
+    // float64 conversions in screamer/dag.py and screamer/streams.py.
+    m.def("_refuse_text", [](nb::handle x) { refuse_text(x); }, "values"_a.none());
 
     m.def("_run_functor_batch", &run_functor_batch,
           "op"_a, "index"_a, "values"_a);
@@ -497,7 +517,7 @@ void init_bindings_dag(nb::module_& m) {
         nb::object asarray, float64;     // numpy, for the sequence path
         std::map<std::string, std::size_t, std::less<>> names;
         std::vector<double> scratch;     // the plain-sequence conversion buffer
-        std::vector<TimeUnit> units;     // per input, the unit of a time index
+        TimeUnit unit;                   // the session's index kind (py_index.h)
 
         PyLiveSession(nb::object cg, nb::list input_names)
             : cg_obj(std::move(cg)), pcg(&nb::cast<PyCompiledGraph&>(cg_obj)) {
@@ -506,7 +526,6 @@ void init_bindings_dag(nb::module_& m) {
             float64 = np.attr("float64");
             std::size_t i = 0;
             for (nb::handle h : input_names) names[nb::cast<std::string>(h)] = i++;
-            units.resize(i);
         }
 
         int traverse(visitproc visit, void* arg) const {
@@ -611,20 +630,20 @@ void init_bindings_dag(nb::module_& m) {
             // so pandas maps NA to NaN; one without (a list, a range) is read by
             // NumPy first. Either way a complex dtype is refused before the
             // float64 cast would drop the imaginary part.
+            // A string inside is a wrong kind (refuse_text), before the cast
+            // would read "3" as 3.
             nb::object arr = nb::getattr(value, "dtype", nb::none()).is_none()
                 ? asarray(value) : nb::borrow<nb::object>(value);
             nb::object dt = nb::getattr(arr, "dtype", nb::none());
             nb::object kind = dt.is_none() ? nb::none() : nb::getattr(dt, "kind", nb::none());
-            if (nb::isinstance<nb::str>(kind) && nb::cast<std::string>(kind) == "c")
-                throw nb::type_error("a value must be a real number or a sequence of "
-                                     "real numbers, got complex values");
-            nb::object f64;
-            try {
-                f64 = asarray(arr, nb::arg("dtype") = float64);
-            } catch (nb::python_error& e) {
-                rethrow_float_error(e);            // a non-numeric string is a TypeError
+            if (nb::isinstance<nb::str>(kind)) {
+                const std::string k = nb::cast<std::string>(kind);
+                if (k == "c")
+                    throw nb::type_error("a value must be a real number or a sequence of "
+                                         "real numbers, got complex values");
+                if (k == "U" || k == "S" || k == "O") refuse_text(arr);
             }
-            InValues v = nb::cast<InValues>(f64);
+            InValues v = nb::cast<InValues>(asarray(arr, nb::arg("dtype") = float64));
             if (v.ndim() == 0) {                   // a 0-d array is a scalar
                 pcg->cg->push_event(src, t, v.data()[0]);
                 return;
@@ -638,8 +657,24 @@ void init_bindings_dag(nb::module_& m) {
 
         void push(nb::handle input, nb::handle index, nb::handle value) {
             const std::size_t src = source(input);
-            // Each input keeps one time unit (py_index.h); the engine range-checks src.
-            const std::int64_t t = py_index(index, src < units.size() ? &units[src] : nullptr);
+            // The session keeps one index kind (py_index.h). The index is read
+            // into a copy, committed only when the event is taken, so a rejected
+            // push leaves the session as it was.
+            TimeUnit u = unit;
+            const std::int64_t t = py_index(index, &u);
+            push_value(src, t, value);
+            unit = u;
+        }
+
+        // advance(now) under the session's index kind, committed when it succeeds.
+        void advance(nb::handle now) {
+            TimeUnit u = unit;
+            const std::int64_t t = py_index(now, &u);
+            pcg->cg->advance(t);
+            unit = u;
+        }
+
+        void push_value(std::size_t src, std::int64_t t, nb::handle value) {
             PyObject* p = value.ptr();
             if (PyFloat_Check(p)) {                // float, np.float64
                 pcg->cg->push_event(src, t, PyFloat_AsDouble(p));
@@ -649,8 +684,8 @@ void init_bindings_dag(nb::module_& m) {
                 pcg->cg->push_event(src, t, d);
             } else if (p == Py_None) {             // a missing value, NaN (A9)
                 pcg->cg->push_event(src, t, std::numeric_limits<double>::quiet_NaN());
-            } else if (PyBytes_Check(p) || PyByteArray_Check(p)) {
-                throw nb::type_error("a value must be a number or a sequence of numbers, not bytes");
+            } else if (PyUnicode_Check(p) || PyBytes_Check(p) || PyByteArray_Check(p)) {
+                throw_text_value("", value);       // a string is never a number (R-a)
             } else if (PyMemoryView_Check(p)) {
                 // A numeric memoryview is a wide event; one over bytes is text.
                 nb::object base = value.attr("obj");
@@ -659,24 +694,15 @@ void init_bindings_dag(nb::module_& m) {
                     throw nb::type_error("a value must be a number or a sequence of "
                                          "numbers, not a memoryview of bytes");
                 push_sequence(src, t, value);
-            } else if (!PyUnicode_Check(p) && PySequence_Check(p)) {
+            } else if (PySequence_Check(p)) {
                 push_sequence(src, t, value);      // list, tuple, ndarray, Series ...
-            } else {                               // NumPy scalars, numeric strings
+            } else {                               // NumPy scalars
                 const NumpyTypes& np = numpy_types();
                 PyObject* type = reinterpret_cast<PyObject*>(Py_TYPE(p));
                 if (PyComplex_Check(p) || type == np.complex64 || type == np.clongdouble)
                     throw nb::type_error("a value must be a real number, got complex");
                 double d = PyFloat_AsDouble(p);    // via __float__
-                if (d == -1.0 && PyErr_Occurred()) {
-                    PyErr_Clear();
-                    PyObject* f = PyNumber_Float(p);   // numeric strings
-                    if (!f) {
-                        nb::python_error e;
-                        rethrow_float_error(e);        // a non-numeric string is a TypeError
-                    }
-                    d = PyFloat_AsDouble(f);
-                    Py_DECREF(f);
-                }
+                if (d == -1.0 && PyErr_Occurred()) throw nb::python_error();
                 pcg->cg->push_event(src, t, d);
             }
         }
@@ -689,7 +715,10 @@ void init_bindings_dag(nb::module_& m) {
                         nb::handle value) {
                  nb::inst_ptr<PyLiveSession>(self)->push(input, index, value);
                  return nb::borrow(self);
-             }, "input"_a, "index"_a.none(), "value"_a.none());
+             }, "input"_a, "index"_a.none(), "value"_a.none())
+        .def("_advance", [](nb::handle self, nb::handle now) {
+                 nb::inst_ptr<PyLiveSession>(self)->advance(now);
+             }, "now"_a.none());
 
     // Lazy driver over a single-output compiled graph and Python-iterator feeds.
     nb::class_<LazyDriver>(m, "_LazyDriver", nb::type_slots(gc_slots<LazyDriver>))

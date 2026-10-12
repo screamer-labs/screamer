@@ -260,10 +260,11 @@ class PipelineImpl implements Owned {
   }
 
   private normalizeFeeds(feeds: Feeds): Array<{ values: Float64Array; index: Float64Array }> {
-    // An array, a typed array (not a DataView) or an NdArray is a bare values feed.
-    const isValues = (v: unknown): boolean =>
-      v instanceof Float64Array || Array.isArray(v) ||
-      (ArrayBuffer.isView(v) && !(v instanceof DataView)) || asNd(v) !== null;
+    // An array or a typed array (not a DataView) holds values element by element.
+    const isFlat = (v: unknown): boolean =>
+      Array.isArray(v) || (ArrayBuffer.isView(v) && !(v instanceof DataView));
+    // A flat array or an NdArray is a bare values feed.
+    const isValues = (v: unknown): boolean => isFlat(v) || asNd(v) !== null;
     // A {values, index} object. A typed array's or Map's values() method is not one.
     const isPair = (v: unknown): boolean =>
       v !== null && typeof v === "object" && !(v instanceof Map) && "values" in (v as any) &&
@@ -286,7 +287,7 @@ class PipelineImpl implements Owned {
         }
         if (v instanceof BigInt64Array || v instanceof BigUint64Array)
           throw new TypeError(`Pipeline: the values of input ${k} are ${aKind(v)}; values must be numbers (Float64Array.from(x, Number) converts them)`);
-        if (v instanceof Float64Array || Array.isArray(v) || (ArrayBuffer.isView(v) && !(v instanceof DataView))) {
+        if (isFlat(v)) {
           const out = toF64Checked(v as ArrayLike<unknown>, "Pipeline", at, true);
           rows = out.length;
           return out;
@@ -317,11 +318,18 @@ class PipelineImpl implements Owned {
       }
       return [one(feeds as Feed, 0)];
     }
-    if (feeds === null || typeof feeds !== "object" || feeds instanceof Map)
+    // Feeds by name are a plain object; anything else (a Map, a Set, a DataView,
+    // a generator, a class instance) is a feed of the wrong kind.
+    const proto = feeds !== null && typeof feeds === "object" ? Object.getPrototypeOf(feeds) : undefined;
+    if (proto !== Object.prototype && proto !== null)
       throw new TypeError(`Pipeline: the feeds are ${aKind(feeds)}, ${expected}, or an object keyed by input name`);
     const obj = feeds as Record<string, Feed>;
     return this.names.map((name, k) => {
-      if (!(name in obj)) throw new Error(`missing feed for input '${name}'`);
+      if (!(name in obj)) {
+        if ("values" in obj)   // {values() {...}}: not values, not feeds by name
+          throw new TypeError(`Pipeline: the feeds have a values ${typeof (obj as any).values}, expected an array of numbers, a typed array or an NdArray`);
+        throw new Error(`missing feed for input '${name}'`);
+      }
       return one(obj[name], k);
     });
   }

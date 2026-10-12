@@ -55,7 +55,7 @@ function findWrongKind(x: unknown, s: Search, depth = 0): { bad: unknown } | nul
     }
     return null;
   }
-  if (typeof x === "number" || isArrayLike(x)) return null;
+  if (typeof x === "number" || x === null || isArrayLike(x)) return null;   // null is NaN
   return { bad: x };
 }
 
@@ -115,26 +115,19 @@ export function throwNotANumber(who: string, x: unknown, where: string): never {
 }
 
 // One element of a numeric feed. A boolean or undefined goes through ToNumber,
-// as Float64Array.from did; so does a numeric string ("3"). A string that does
-// not read as a number ("abc", "") is a wrong kind, as in Python (G13). An
-// object is a wrong kind, except one that converts to a number (a Date, an
-// object with valueOf); an array, a function, a bigint or a symbol is always a
-// wrong kind.
+// as Float64Array.from did. A string is never a number: any string ("abc" or
+// "3") is a wrong kind, as in Python (R-a). An object is a wrong kind, except
+// one that converts to a number (a Date, an object with valueOf); an array, a
+// function, a bigint or a symbol is always a wrong kind.
 export function feedNumber(v: unknown, who: string, where: () => string): number {
-  if (typeof v === "string") {
-    const n = Number(v);
-    if (Number.isNaN(n) || v.trim() === "")
-      throw new TypeError(`${who}: ${where()} is the string ${JSON.stringify(v)}, which is not a number`);
-    return n;
-  }
+  if (typeof v === "string" || typeof v === "function" || typeof v === "bigint" || typeof v === "symbol")
+    throwWrongKind(who, where(), v);
   if (typeof v === "object" && v !== null) {
     if (Array.isArray(v)) throwWrongKind(who, where(), v);
     const n = Number(v);
     if (Number.isNaN(n)) throwWrongKind(who, where(), v);
     return n;
   }
-  if (typeof v === "function" || typeof v === "bigint" || typeof v === "symbol")
-    throwWrongKind(who, where(), v);
   return v as number;   // the Float64Array store applies ToNumber, as before
 }
 

@@ -35,7 +35,7 @@ void init_bindings_ew(nb::module_& m) {
           "halflife"_a = nb::none(),
           "alpha"_a = nb::none()
         )
-        .def("__call__", &screamer::screamer_call, "value"_a)
+        .def("__call__", &screamer::screamer_call, "value"_a.none())
         .def("reset", &screamer::EwMean::reset, "Reset to the initial state.");
 
      nb::class_<screamer::EwVar, screamer::ScreamerBase>(m, "EwVar")
@@ -51,7 +51,7 @@ void init_bindings_ew(nb::module_& m) {
           "halflife"_a = nb::none(),
           "alpha"_a = nb::none()
         )
-        .def("__call__", &screamer::screamer_call, "value"_a)
+        .def("__call__", &screamer::screamer_call, "value"_a.none())
         .def("reset", &screamer::EwVar::reset, "Reset to the initial state.");
 
      
@@ -68,7 +68,7 @@ void init_bindings_ew(nb::module_& m) {
           "halflife"_a = nb::none(),
           "alpha"_a = nb::none()
         )
-        .def("__call__", &screamer::screamer_call, "value"_a)
+        .def("__call__", &screamer::screamer_call, "value"_a.none())
         .def("reset", &screamer::EwStd::reset, "Reset to the initial state.");
 
      
@@ -85,7 +85,7 @@ void init_bindings_ew(nb::module_& m) {
           "halflife"_a = nb::none(),
           "alpha"_a = nb::none()
         )
-        .def("__call__", &screamer::screamer_call, "value"_a)
+        .def("__call__", &screamer::screamer_call, "value"_a.none())
         .def("reset", &screamer::EwZscore::reset, "Reset to the initial state.");
 
 
@@ -102,7 +102,7 @@ void init_bindings_ew(nb::module_& m) {
           "halflife"_a = nb::none(),
           "alpha"_a = nb::none()
         )
-        .def("__call__", &screamer::screamer_call, "value"_a)
+        .def("__call__", &screamer::screamer_call, "value"_a.none())
         .def("reset", &screamer::EwSkew::reset, "Reset to the initial state.");
 
 
@@ -119,7 +119,7 @@ void init_bindings_ew(nb::module_& m) {
           "halflife"_a = nb::none(),
           "alpha"_a = nb::none()
         )
-        .def("__call__", &screamer::screamer_call, "value"_a)
+        .def("__call__", &screamer::screamer_call, "value"_a.none())
         .def("reset", &screamer::EwKurt::reset, "Reset to the initial state.");
 
 
@@ -136,7 +136,7 @@ void init_bindings_ew(nb::module_& m) {
           "halflife"_a = nb::none(),
           "alpha"_a = nb::none()
         )
-        .def("__call__", &screamer::screamer_call, "value"_a)
+        .def("__call__", &screamer::screamer_call, "value"_a.none())
         .def("reset", &screamer::EwRms::reset, "Reset to the initial state.");
 
      // 2-input EW pair statistics. Same com/span/halflife/alpha mutex as

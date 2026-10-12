@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { ready, Input, Pipeline, RollingMean } from "../src/index.ts";
+import { ready, Input, Pipeline, RollingMean, resample, delay, select } from "../src/index.ts";
 
 // Pipeline feed kinds (Task 18b: F3, G13). A typed array is a values feed in
 // every position; a feed of the wrong kind names the input; a string that does
@@ -46,22 +46,48 @@ test("feeds: a wrong-kind feed raises TypeError naming the input", async () => {
     e instanceof TypeError && (e as Error).message.includes("is a bigint"));
 });
 
-test("feeds: a non-numeric string is a TypeError; a numeric string reads as before", async () => {
+test("feeds: any string is a TypeError; null is NaN", async () => {
   await ready();
   const p = pipe();
-  for (const bad of ["abc", "", " ", "NaN"]) {
-    const isBad = (e: unknown) => e instanceof TypeError && (e as Error).message.includes("which is not a number");
+  for (const bad of ["abc", "", " ", "NaN", "3", "Infinity"]) {
+    const isBad = (e: unknown) => e instanceof TypeError && (e as Error).message.includes("is a string, expected a number");
     assert.throws(() => p({ values: [1, bad] } as any), isBad);
     assert.throws(() => p.live().push("a", 0, bad as any), isBad);
     assert.throws(() => p.live().push("a", 0, [bad] as any), isBad);
     assert.throws(() => p.live().pushWide("a", 0, [1, bad] as any), isBad);
+    assert.throws(() => RollingMean(2)(bad as any), TypeError);
+    assert.throws(() => RollingMean(2)([1, bad] as any), TypeError);
   }
-  assert.deepEqual(vals(p({ values: [1, "3"] } as any)).slice(1), [2]);
-  const live = p.live();
-  live.push("a", 0, 1);
-  live.push("a", 1, "3" as any);
-  assert.deepEqual(vals(live.result()).slice(1), [2]);
   // null is NaN (A9), a boolean reads as before.
   assert.ok(Number.isNaN(vals(p({ values: [1, null] } as any))[1]));
   assert.deepEqual(vals(p({ values: [1, true] } as any)).slice(1), [1]);
+});
+
+test("feeds: a wrong-kind bare feed throws TypeError naming its kind", async () => {
+  await ready();
+  const p = pipe();
+  for (const f of [new DataView(new ArrayBuffer(8)), new Set([1]), (function* () { yield 1; })()])
+    assert.throws(() => p(f as any), (e: unknown) => e instanceof TypeError && (e as Error).message.startsWith("Pipeline: the feeds are"));
+  assert.throws(() => p({ values() { return 1; } } as any), (e: unknown) => e instanceof TypeError && (e as Error).message.includes("values function"));
+});
+
+test("settings: a string setting is a TypeError", async () => {
+  await ready();
+  const x = Input("x");
+  assert.throws(() => resample(x, { threshold: "3" as any }), TypeError);
+  assert.throws(() => resample(x, { every: "2" as any }), TypeError);
+  assert.throws(() => delay(x, "1" as any), TypeError);
+  assert.throws(() => select(x, "0" as any), TypeError);
+});
+
+test("R-b: null is NaN in operator iterators, async iterators and row ops", async () => {
+  await ready();
+  const ref = Array.from(RollingMean(2)(Float64Array.from([1, NaN, 3])) as Float64Array, String);
+  async function* g() { yield 1; yield null; yield 3; }
+  const got: number[] = [];
+  for await (const x of RollingMean(2)(g() as any) as AsyncIterable<number>) got.push(x);
+  assert.deepEqual(got.map(String), ref);
+  assert.deepEqual([...(RollingMean(2)([1, null, 3][Symbol.iterator]() as any) as Iterable<number>)].map(String), ref);
+  const cr = (await import("../src/index.ts") as any).CrossRank();
+  assert.deepEqual(Array.from(cr([1, null, 3]) as number[], String), ["-1", "NaN", "1"]);
 });

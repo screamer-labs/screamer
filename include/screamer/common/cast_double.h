@@ -2,6 +2,7 @@
 #define SCREAMER_PYTHON_TOOLS_H
 
 #include <nanobind/nanobind.h>
+#include <limits>
 #include <string>
 #include <cstddef>
 #include <cstring>
@@ -110,7 +111,9 @@ inline nb::object find_wrong_kind(nb::handle x, WrongKindSearch& s, int depth = 
         return {};
     }
     double d;
-    if (nb::try_cast<double>(x, d) || nb::hasattr(x, "ndim")) return {};
+    if (x.is_none()) return {};                       // a missing value, NaN
+    const bool text = PyUnicode_Check(o) || PyBytes_Check(o) || PyByteArray_Check(o);
+    if (!text && (nb::try_cast<double>(x, d) || nb::hasattr(x, "ndim"))) return {};
     return nb::borrow(x);
 }
 
@@ -181,7 +184,7 @@ inline std::string shape_text(nb::handle x) {
             continue;
         }
         double d;
-        if (nb::try_cast<double>(cur, d)) break;
+        if (nb::try_cast<double>(cur, d) || cur.is_none()) break;
         nb::tuple shp;
         if (!nb::hasattr(cur, "shape") || !nb::try_cast<nb::tuple>(cur.attr("shape"), shp)) return "";
         for (nb::handle h : shp) {
@@ -207,20 +210,73 @@ inline std::string shape_text(nb::handle x) {
         ", expected " + expected).c_str());
 }
 
-// A float64 conversion (float(), NumPy's astype) failed with `e`. When it is a
-// string that does not read as a number, that is a wrong kind: TypeError, with
-// the conversion's own text (G13). Any other error is raised as it is. Error
-// path only.
-[[noreturn]] inline void rethrow_float_error(nb::python_error& e) {
-    if (e.matches(PyExc_ValueError)) {
-        nb::str text = nb::str(e.value());
-        const char* c = text.c_str();
-        static constexpr char kStr[] = "could not convert string to float";
-        if (c && std::strncmp(c, kStr, sizeof(kStr) - 1) == 0)
-            throw nb::type_error((std::string("a value must be a number; ") + c).c_str());
-        if (!c) PyErr_Clear();
+// ---- Strings and missing values (R-a, R-b) ---------------------------------
+//
+// A string is never a number: str, bytes and bytearray (and NumPy's str_ and
+// bytes_, their subclasses) are a wrong kind wherever a value is read, so a
+// float64 conversion must never see one. None is a missing value, NaN. Both
+// are decided by kind, never by an error message, and only off the number
+// fast paths.
+
+inline bool is_text(nb::handle x) {
+    PyObject* o = x.ptr();
+    return PyUnicode_Check(o) || PyBytes_Check(o) || PyByteArray_Check(o);
+}
+
+// A number, or None as NaN. The number cast comes first, so a number pays
+// nothing extra; a string never converts (it has no __float__).
+inline bool read_double(nb::handle h, double& d) {
+    if (nb::try_cast<double>(h, d)) return true;
+    if (h.is_none()) { d = std::numeric_limits<double>::quiet_NaN(); return true; }
+    return false;
+}
+
+// The wrong-kind TypeError for a string value, "<who>: <where> is a str,
+// expected a number"; `who` may be empty.
+[[noreturn]] inline void throw_text_value(const std::string& who, nb::handle x,
+                                          const std::string& where = "a value") {
+    const std::string w = where + " is " + kind_text(x) + ", expected a number";
+    throw nb::type_error((who.empty() ? w : who + ": " + w).c_str());
+}
+
+// Refuses a value that holds a string, before a float64 conversion: a string
+// itself, an array (or pandas object) whose dtype kind is U or S, or an
+// object array holding one (scanned element by element; this runs only for
+// object dtypes, a slow path already). Any other value returns untouched.
+inline void refuse_text(nb::handle x, const std::string& who = "", int depth = 0) {
+    if (is_text(x)) throw_text_value(who, x, depth ? "an element" : "a value");
+    PyObject* o = x.ptr();
+    if (PyList_Check(o) || PyTuple_Check(o)) {          // nested lists, read in C
+        if (depth >= 32) return;
+        const bool list = PyList_Check(o);
+        const Py_ssize_t n = list ? PyList_Size(o) : PyTuple_Size(o);
+        for (Py_ssize_t i = 0; i < n; ++i) {
+            PyObject* e = list ? PyList_GetItem(o, i) : PyTuple_GetItem(o, i);   // borrowed
+            if (!e) throw nb::python_error();
+            if (PyFloat_Check(e) || PyLong_Check(e) || e == Py_None) continue;
+            refuse_text(nb::handle(e), who, depth + 1);
+        }
+        return;
     }
-    throw e;
+    if (PyFloat_Check(o) || PyLong_Check(o) || o == Py_None) return;
+    PyObject* dt = PyObject_GetAttrString(x.ptr(), "dtype");
+    if (!dt) { PyErr_Clear(); return; }
+    nb::object dtype = nb::steal(dt);
+    PyObject* k = PyObject_GetAttrString(dt, "kind");
+    if (!k) { PyErr_Clear(); return; }
+    nb::object kind = nb::steal(k);
+    const char* c = PyUnicode_Check(k) ? PyUnicode_AsUTF8AndSize(k, nullptr) : nullptr;
+    if (!c) { PyErr_Clear(); return; }
+    if (c[0] == 'U' || c[0] == 'S')
+        throw nb::type_error(((who.empty() ? std::string() : who + ": ") +
+            "a value must be a number, got an array of strings (dtype " +
+            nb::cast<std::string>(nb::str(dtype)) + ")").c_str());
+    if (c[0] != 'O') return;
+    nb::module_ np = nb::module_::import_("numpy");
+    nb::object flat = np.attr("asarray")(x, nb::arg("dtype") = nb::borrow(
+        reinterpret_cast<PyObject*>(&PyBaseObject_Type))).attr("ravel")();
+    for (nb::handle e : flat)
+        if (is_text(e)) throw_text_value(who, e, "an element");
 }
 
 // An element that should be a number is not one: a TypeError naming the first

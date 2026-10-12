@@ -111,11 +111,18 @@ private:
     // an event of shape (1,) holds one asset.
     static bool as_number(nb::handle h, double& v) {
         if (PyFloat_Check(h.ptr())) { v = PyFloat_AsDouble(h.ptr()); return true; }
+        return as_number_slow(h, v);
+    }
+    // Everything but a float, kept out of line so the float path stays small.
+#if defined(__GNUC__) || defined(__clang__)
+    __attribute__((noinline))
+#endif
+    static bool as_number_slow(nb::handle h, double& v) {
         int nd = 0;
         if (!PyLong_Check(h.ptr()) && nb::hasattr(h, "ndim") &&
             nb::try_cast<int>(h.attr("ndim"), nd) && nd > 0)
             return false;
-        return nb::try_cast<double>(h, v);
+        return read_double(h, v);                     // None is NaN
     }
 
     // Reads the n_in field values of the event into in_ if every one is a
@@ -159,6 +166,10 @@ private:
         current_.resize(parts_.size());
         for (std::size_t k = 0; k < parts_.size(); ++k) {
             Arr arr;
+            // A string, or a list or array of them, is a wrong kind; the
+            // float64 cast below would read "3" as 3.
+            if (!nb::try_cast<Arr>(parts_[k], arr, /*convert=*/false))
+                refuse_text(parts_[k], op_display_name(op_owner_));
             try {
                 parts_[k] = ascontiguous_(parts_[k], float64_);   // no copy if already contiguous float64
             } catch (nb::python_error& e) {

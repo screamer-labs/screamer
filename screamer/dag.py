@@ -106,34 +106,30 @@ def _float_values(values):
     if getattr(arr.dtype, "kind", None) == "c":
         raise TypeError("a value must be a real number or a sequence of real "
                         "numbers, got complex values")
-    try:
-        return np.ascontiguousarray(arr, dtype=np.float64)
-    except ValueError as e:
-        _raise_if_string(e)
-        raise
+    return _as_float64(arr, contiguous=True)
 
 
-def _raise_if_string(e):
-    """A float64 conversion failed with ValueError `e`. When a string did not read
-    as a number, raise TypeError (a wrong kind) with the conversion's own text, as
-    the C++ binding does (rethrow_float_error). Otherwise return."""
-    if str(e).startswith("could not convert string to float"):
-        raise TypeError(f"a value must be a number; {e}") from None
+def _as_float64(x, contiguous=False):
+    """`x` as a float64 array (np.asarray, or np.ascontiguousarray when
+    `contiguous`). A string, or an array or list holding one, raises TypeError
+    (a string is never a number); None is NaN. The string check runs in C++ and
+    only for a string, object or unknown kind, so a numeric array pays nothing."""
+    kind = getattr(getattr(x, "dtype", None), "kind", None)
+    if kind is None and not isinstance(x, (float, int)):
+        x = np.asarray(x)
+        kind = x.dtype.kind
+    if kind in ("U", "S", "O"):
+        from . import screamer_bindings as _b
+        _b._refuse_text(x)
+    return (np.ascontiguousarray if contiguous else np.asarray)(x, dtype=np.float64)
 
 
-def _numeric_values(fn):
-    """Decorate an eager stream function: a value given as a string that does not
-    read as a number raises TypeError, not NumPy's ValueError."""
-    import functools
-
-    @functools.wraps(fn)
-    def wrapper(*args, **kwargs):
-        try:
-            return fn(*args, **kwargs)
-        except ValueError as e:
-            _raise_if_string(e)
-            raise
-    return wrapper
+def _setting(name, x):
+    """An operator setting that must be a number: a string is a wrong kind
+    (TypeError), never parsed. Returns `x`."""
+    if isinstance(x, (str, bytes, bytearray)):
+        raise TypeError(f"{name} must be a number, got {type(x).__name__}")
+    return x
 
 
 def _is_vi_pair(x):
@@ -239,7 +235,7 @@ def _live_dag_class():
 
         def advance(self, now):
             """Close every window whose boundary has passed by logical time `now`."""
-            self._cg.advance(now)
+            self._advance(now)
             return self
 
         def flush(self):
@@ -286,7 +282,7 @@ class Pipeline:
         self.inputs = list(inputs)
         self.outputs = list(outputs)
         self.align_outputs = align_outputs
-        self.max_pending = int(max_pending)
+        self.max_pending = int(_setting("max_pending", max_pending))
         for n in self.inputs:
             if not is_node(n) or not (isinstance(n.op, tuple) and n.op[0] == "input"):
                 raise ValueError("every entry in inputs must be an Input(...) node")
@@ -334,6 +330,8 @@ class Pipeline:
                     cols, _ = _normalize_columns(kwargs["columns"])
                     nid = gb.add_select(inp, cols)
                 elif name == "Resample":
+                    for key in ("threshold", "every", "count", "origin", "max_age"):
+                        _setting(key, kwargs.get(key))
                     threshold = kwargs.get("threshold")
                     max_age = kwargs.get("max_age")
                     clock = kwargs.get("clock", False)
@@ -382,7 +380,7 @@ class Pipeline:
                                               threshold=threshold_val,
                                               max_age=max_age_val)
                 elif name == "Delay":
-                    nid = gb.add_delay(inp, int(kwargs["duration"]))
+                    nid = gb.add_delay(inp, int(_setting("duration", kwargs["duration"])))
                 else:
                     raise ValueError(
                         f"{name} is not supported as a DAG graph node")

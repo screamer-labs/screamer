@@ -148,16 +148,21 @@ def test_live_cg_reset_clears_the_width():
 
 
 def test_live_wide_missing_values_and_strings_follow_the_batch_feed():
+    import pytest
     p, live = _identity_live()
     live.push("x", 0, [None, 1.0])
-    live.push("x", 1, ["2", "3"])
-    live.push("x", 2, np.array([np.nan, 4.0]))
-    batch = np.asarray([[None, 1.0], ["2", "3"], [np.nan, 4.0]], dtype=np.float64)
+    live.push("x", 1, np.array([np.nan, 4.0]))
+    batch = np.asarray([[None, 1.0], [np.nan, 4.0]], dtype=np.float64)
     np.testing.assert_array_equal(live.result()[0], p(batch)[0])
     _, s = _identity_live()
     s.push("x", 0, None)
-    s.push("x", 1, "3")
-    np.testing.assert_array_equal(np.ravel(s.result()[0]), [np.nan, 3.0])
+    np.testing.assert_array_equal(np.ravel(s.result()[0]), [np.nan])
+    # A string is never a number (R-a), in a push or a batch feed.
+    for bad in ("3", ["2", "3"], [None, "3"], np.array(["2", "3"])):
+        with pytest.raises(TypeError, match="str|string"):
+            _identity_live()[1].push("x", 0, bad)
+    with pytest.raises(TypeError, match="str|string"):
+        p(np.array([[None, "3"]], dtype=object))
 
 
 def test_live_push_index_must_be_integer_valued():
@@ -237,7 +242,7 @@ def test_live_index_kinds_and_bytes():
         with pytest.raises(TypeError, match=msg):
             live.push("x", bad, 1.0)
     for bad in (b"12", bytearray(b"12")):
-        with pytest.raises(TypeError, match="bytes"):
+        with pytest.raises(TypeError, match="is a (bytes|bytearray), expected a number"):
             live.push("x", 4, bad)
     np.testing.assert_array_equal(live.result()[1], [1, 2, 3])
 

@@ -146,12 +146,19 @@ test("A9: live push and pushWide read a null value as NaN", async () => {
   eq(flat(w.result().values), [1, NaN, 3], "pushWide");
 });
 
-test("A9: null in an operator's number[] batch is a TypeError, as None is in Python", async () => {
+test("R-b: null in an operator's input is a missing value, NaN, as None is in Python", async () => {
   await api.ready();
-  assert.throws(() => a.RollingMean(2)([1, null, 3]), (e: unknown) => e instanceof TypeError &&
-    (e as Error).message === "RollingMean: event 1 is a null, expected a number");
-  assert.throws(() => a.RollingCorr(2)([1, null], [1, 2]), TypeError);
-  assert.throws(() => a.RollingCorr(2)([1, null], Float64Array.from([1, 2])), TypeError);
+  const ref = Array.from(a.RollingMean(2)(Float64Array.from([1, NaN, 3])) as Float64Array);
+  const eq = (got: ArrayLike<number>, want: number[]) =>
+    assert.deepEqual(Array.from(got, (x) => (Number.isNaN(x) ? "NaN" : x)), want.map((x) => (Number.isNaN(x) ? "NaN" : x)));
+  eq(a.RollingMean(2)([1, null, 3]) as number[], ref);
+  const op = a.RollingMean(2);
+  eq([op(1), op(null), op(3)] as number[], ref);
+  eq([...(a.RollingMean(2)([1, null, 3][Symbol.iterator]()) as Iterable<number>)], ref);
+  eq(a.RollingCorr(2)([1, null], [1, 2]) as number[], [NaN, NaN]);
+  eq(a.RollingCorr(2)([1, null], Float64Array.from([1, 2])) as Float64Array, [NaN, NaN]);
+  eq(a.Add()([[1, null], [3, 4]]) as number[], [NaN, 7]);
+  assert.ok(Number.isNaN(a.Add()(null, 1) as number));
 });
 
 // ------------------------------------------------------------------ A10

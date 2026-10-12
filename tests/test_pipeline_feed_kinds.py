@@ -56,7 +56,8 @@ def test_time_index_in_merge_and_advance():
                        iter([(2.0, np.datetime64(2, "ns"))])))
     assert [e[1] for e in out] == [1, 2]
     p = _pipe()
-    p.live().advance(np.datetime64(5, "ns")).advance(np.timedelta64(7, "ms"))
+    p.live().advance(np.datetime64(5, "ns")).advance(np.datetime64(7, "ns"))
+    p.live().advance(np.timedelta64(7, "ms"))
 
 
 def test_timedelta64_is_ticks_not_integer_branch():
@@ -87,18 +88,74 @@ def test_nat_in_batch_index_raises():
 
 def test_mixed_time_units_in_one_feed_raise():
     p = _pipe()
-    with pytest.raises(TypeError, match=r"unit changed from datetime64\[s\] to datetime64\[ns\]"):
+    with pytest.raises(TypeError, match=r"index is a datetime64\[ns\], but earlier indexes were a datetime64\[s\]"):
         list(p(iter([(1.0, np.datetime64(1, "s")), (2.0, np.datetime64(5, "ns"))])))
-    with pytest.raises(TypeError, match="unit changed"):
+    with pytest.raises(TypeError, match="one kind and unit"):
         p.live().push("a", np.datetime64(1, "s"), 1.0).push("a", np.datetime64(5, "ns"), 1.0)
-    with pytest.raises(TypeError, match="unit changed"):
+    with pytest.raises(TypeError, match="one kind and unit"):
         list(p(iter([(1.0, np.datetime64(1, "s")), (2.0, np.timedelta64(5, "s"))])))
-    with pytest.raises(TypeError, match="unit changed"):
+    with pytest.raises(TypeError, match="one kind and unit"):
         p((np.array([1.0, 2.0]),
            np.array([np.datetime64(1, "s"), np.datetime64(5, "ns")], dtype=object)))
     # A NumPy array has one unit: NumPy converts a list of mixed units.
     _, idx = p((np.array([1.0, 2.0]), [np.datetime64(1, "s"), np.datetime64(5, "ns")]))
     np.testing.assert_array_equal(idx, [10**9, 5])
+
+
+def _pipe2():
+    a, b = Input("a"), Input("b")
+    return Pipeline([a, b], [s.Add()(s.CombineLatest()(a, b))])
+
+
+def test_index_kind_is_one_per_call_or_session():
+    p = _pipe2()
+    t_s = np.arange(3).astype("datetime64[s]")
+    t_ns = np.arange(3).astype("datetime64[ns]")
+    v = np.arange(3.0)
+    # Batch: across inputs.
+    with pytest.raises(TypeError, match="one kind and unit"):
+        p((v, t_s), (v, t_ns))
+    with pytest.raises(TypeError, match="index is a number, but earlier indexes were a datetime64"):
+        p((v, t_s), (v, np.arange(3)))
+    with pytest.raises(TypeError, match="one kind and unit"):
+        p((v, t_s), v)                       # a bare feed has a positional index
+    p((v, t_s), (v, t_s))                    # one unit: fine
+    # Iterator feeds: across inputs.
+    with pytest.raises(TypeError, match="one kind and unit"):
+        list(p(zip(v, t_s), zip(v, t_ns)))
+    with pytest.raises(TypeError, match="one kind and unit"):
+        list(p(zip(v, t_s), zip(v, range(3))))
+    # Live: across inputs and in advance().
+    live = p.live().push("a", np.datetime64(1, "s"), 1.0)
+    with pytest.raises(TypeError, match="one kind and unit"):
+        live.push("b", np.datetime64(1, "ns"), 1.0)
+    with pytest.raises(TypeError, match="one kind and unit"):
+        live.push("b", 1, 1.0)
+    with pytest.raises(TypeError, match="one kind and unit"):
+        live.advance(np.datetime64(2, "ns"))
+    with pytest.raises(TypeError, match="one kind and unit"):
+        live.advance(2)
+    live.push("b", np.datetime64(2, "s"), 1.0).advance(np.datetime64(3, "s"))
+    # Plain numbers lock too: a time after an int raises.
+    with pytest.raises(TypeError, match="index is a datetime64"):
+        p.live().push("a", 0, 1.0).push("a", np.datetime64(1, "s"), 1.0)
+    # Merge iterator feeds share one kind.
+    with pytest.raises(TypeError, match="one kind and unit"):
+        list(Merge()(zip(v, t_s), zip(v, t_ns)))
+
+
+def test_rejected_push_does_not_lock_the_index_kind():
+    p = _pipe()
+    live = p.live()
+    for bad in ("abc", 1 + 2j, [[1.0, 2.0]]):
+        with pytest.raises((TypeError, ValueError)):
+            live.push("a", np.datetime64(1, "s"), bad)
+    with pytest.raises(TypeError, match="finite"):
+        live.advance(np.datetime64("NaT", "ms"))
+    live.push("a", np.datetime64(5, "ns"), 1.0)      # the first taken event sets ns
+    with pytest.raises(TypeError, match="one kind and unit"):
+        live.push("a", np.datetime64(6, "s"), 1.0)
+    np.testing.assert_array_equal(live.result()[1], [5])
 
 
 def test_time_index_non_native_byte_order():
@@ -133,39 +190,69 @@ def test_iterator_text_value_raises(text):
         list(p(iter([(text, 0)])))
 
 
-def test_non_numeric_string_raises_typeerror():
+@pytest.mark.parametrize("text", ["abc", "3", "", "nan"])
+def test_any_string_value_raises_typeerror(text):
     p = _pipe()
-    with pytest.raises(TypeError, match="must be a number"):
-        p([1.0, "abc"])
-    with pytest.raises(TypeError, match="must be a number"):
-        p.live().push("a", 0, "abc")
-    with pytest.raises(TypeError, match="must be a number"):
-        p.live().push("a", 0, ["abc"])
-    with pytest.raises(TypeError, match="must be a number"):
-        p.live().push("a", 0, "")
-    with pytest.raises(TypeError, match="must be a number"):
-        s.RollingMean(2)(np.array([1.0, "abc"], dtype=object))
-    with pytest.raises(TypeError, match="must be a number"):
-        s.RollingMean(2)(np.array(["1", "abc"]))
-    for fn in (lambda: merge((np.array(["1", "abc"]), np.array([0, 1]))),
-               lambda: combine_latest((np.array(["1", "abc"]), np.array([0, 1])),
-                                      (np.array([1.0, 2.0]), np.array([0, 1]))),
-               lambda: dropna(["1", "abc"]),
-               lambda: resample(["1", "abc"], every=2)):
-        with pytest.raises(TypeError, match="must be a number"):
-            fn()
+    err = r"str|string"
+    for call in (lambda: p([1.0, text]),
+                 lambda: p((np.array([1.0, text], dtype=object), np.arange(2))),
+                 lambda: p(pd.Series([1.0, text], dtype=object)),
+                 lambda: p.live().push("a", 0, text),
+                 lambda: p.live().push("a", 0, [1.0, text]),
+                 lambda: p.live().push("a", 0, np.str_(text)),
+                 lambda: list(p(iter([(text, 0)]))),
+                 lambda: s.RollingMean(2)(text),
+                 lambda: s.RollingMean(2)([1.0, text]),
+                 lambda: s.RollingMean(2)(np.array([1.0, text], dtype=object)),
+                 lambda: s.RollingMean(2)(np.array(["1", text])),
+                 lambda: list(s.RollingMean(2)(iter([1.0, text]))),
+                 lambda: list(s.RollingMean(2)(iter([np.array([1.0]), [text]]))),
+                 lambda: s.RollingCorr(3)([1.0, text], [1.0, 2.0]),
+                 lambda: merge((np.array(["1", text]), np.array([0, 1]))),
+                 lambda: combine_latest((np.array(["1", text]), np.array([0, 1])),
+                                        (np.array([1.0, 2.0]), np.array([0, 1]))),
+                 lambda: dropna(["1", text]),
+                 lambda: resample(["1", text], every=2)):
+        with pytest.raises(TypeError, match=err):
+            call()
     # A ragged sequence keeps its shape error.
     with pytest.raises(ValueError):
         p.live().push("a", 0, [[1.0], [1.0, 2.0]])
 
 
-def test_numeric_string_keeps_its_behavior():
-    p = _pipe()
-    bv, _ = p([1.0, "3"])
-    np.testing.assert_array_equal(bv, [np.nan, 2.0])
-    lv, _ = p.live().push("a", 0, 1.0).push("a", 1, "3").result()
-    np.testing.assert_array_equal(lv, [np.nan, 2.0])
-    np.testing.assert_array_equal(s.RollingMean(2)(np.array([1.0, "3"], dtype=object)), [np.nan, 2.0])
+def test_string_settings_raise_typeerror():
+    for call in (lambda: resample([1.0, 2.0], threshold="3"),
+                 lambda: resample([1.0, 2.0], every="2"),
+                 lambda: resample([1.0, 2.0], count="2"),
+                 lambda: s.Delay("1"),
+                 lambda: s.Select("0"),
+                 lambda: Pipeline([Input("a")], [Input("a")], max_pending="5")):
+        with pytest.raises(TypeError, match="must be a number"):
+            call()
+
+
+def test_none_is_nan_on_every_operator_path():
+    import asyncio
+    rm = lambda: s.RollingMean(2)
+    nan = np.nan
+    assert np.isnan(rm()(None))
+    xs = [1.0, 2.0, None, 4.0, 6.0]
+    ref = rm()(np.array([1.0, 2.0, nan, 4.0, 6.0]))
+    op = rm()
+    np.testing.assert_array_equal([op(x) for x in xs], ref)
+    np.testing.assert_array_equal(rm()(xs), ref)
+    np.testing.assert_array_equal(list(rm()(iter(xs))), ref)
+
+    async def agen():
+        for x in xs:
+            yield x
+
+    async def collect():
+        return [x async for x in rm()(agen())]
+    np.testing.assert_array_equal(asyncio.run(collect()), ref)
+    np.testing.assert_array_equal(s.Add()(None, 1.0), nan)
+    np.testing.assert_array_equal(s.Add()([1.0, None], [1.0, 1.0]), [2.0, nan])
+    np.testing.assert_array_equal(s.Add()([(1.0, None), (2.0, 3.0)]), [nan, 5.0])
 
 
 def test_resample_clock_fractional_index_raises():

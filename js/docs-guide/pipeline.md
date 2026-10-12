@@ -88,7 +88,7 @@ const { values, index } = driver.result();
 An input keeps the width of its first event (a number is width 1); an event of another width
 throws `RangeError`. `pushWide` is an alias of `push` for arrays. An index is a `number` with a
 whole value inside the int64 range; any other index throws `TypeError`. A `null` value is `NaN`,
-and a string that does not read as a number (`"abc"`, `""`) throws `TypeError`. A rejection that happens
+and a string (even `"3"`) throws `TypeError`; parse text first with `Number()`. A rejection that happens
 after part of the graph took the event (a `combineLatest` buffer that overflows, for example)
 makes every later call, `result()` included, throw until a new `live()` session starts.
 

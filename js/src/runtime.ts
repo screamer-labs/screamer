@@ -42,6 +42,29 @@ export type ScreamerOp = {
 };
 
 const isTyped = (x: any) => x instanceof Float64Array;
+
+// `args` with every null, at the top or inside plain Arrays (events, fields),
+// read as NaN; null when there is none. Error paths only.
+function nullsToNaN(args: any[]): any[] | null {
+  const fix = (x: any, depth: number): any => {
+    if (x === null) return NaN;
+    if (depth > 0 && Array.isArray(x)) {
+      let out: any[] | null = null;
+      for (let i = 0; i < x.length; i++) {
+        const v = x[i];
+        if (v !== null && !Array.isArray(v)) continue;
+        const y = fix(v, depth - 1);
+        if (y !== v) (out ??= x.slice())[i] = y;
+      }
+      return out ?? x;
+    }
+    return x;
+  };
+  const out = fix(args, 4);
+  return out === args ? null : out;
+}
+// A number, or null as NaN.
+const numOrNull = (v: any) => typeof v === "number" || v === null;
 const isNumArr = (x: any) => Array.isArray(x) && x.every((v) => typeof v === "number");
 // Strings are technically Symbol.iterator-bearing (of chars, not numbers) and
 // must NOT be accepted as a streaming source; without this guard `op("x")`
@@ -400,9 +423,12 @@ export function wrapOp(M: Screamer, src: OpSource, copy?: () => RawOp, finalize 
         const v = items[0];
         if ((isTyped(v) || isNumArr(v)) && v.length === nIn) return v;
         if (isNd(v) && v.shape.length === 1 && v.shape[0] === nIn && v.data.length === nIn) return v.data;
+        if (Array.isArray(v) && v.length === nIn && v.every(numOrNull)) return v.map((x) => x ?? NaN);
         return null;
       }
-      for (let i = 0; i < items.length; i++) if (typeof items[i] !== "number") return null;
+      for (let i = 0; i < items.length; i++)
+        if (typeof items[i] !== "number")   // null is NaN (R-b), off the number path
+          return items.every(numOrNull) ? items.map((x) => x ?? NaN) : null;
       return items;
     };
 
@@ -412,16 +438,17 @@ export function wrapOp(M: Screamer, src: OpSource, copy?: () => RawOp, finalize 
       const src = unpack && Array.isArray(items[0]) ? items[0] : items;
       for (let k = 0; k < src.length; k++) {
         const v = src[k];
-        if (typeof v === "number") {
+        if (typeof v === "number" || v === null) {
           const b = (numBuf[k] ??= new Float64Array(1));
-          b[0] = v;
+          b[0] = v ?? NaN;                    // null is NaN (R-b)
           partData[k] = b; partShape[k] = EMPTY;
         } else if (isNd(v)) {
           partData[k] = v.data; partShape[k] = v.shape;
-        } else if (isTyped(v) || isNumArr(v)) {
+        } else if (isTyped(v) || isNumArr(v) || (Array.isArray(v) && v.every(numOrNull))) {
           const s = (lenShape[k] ??= [0]);
           s[0] = v.length;
-          partData[k] = v; partShape[k] = s;
+          partData[k] = isTyped(v) || isNumArr(v) ? v : v.map((x: any) => x ?? NaN);
+          partShape[k] = s;
         } else {
           throwIfWrongKindEvent(opName(raw), items, nEv - 1);
           throw new TypeError(`unsupported event: ${Array.isArray(v) ? "an array of non-numbers" : typeof v}`);
@@ -514,7 +541,20 @@ export function wrapOp(M: Screamer, src: OpSource, copy?: () => RawOp, finalize 
     return { step, close: handle.release };
   };
 
+  // A null value is a missing value, NaN (R-b). The number paths below never
+  // see one; a call holding null fails its checks, and only then is it read
+  // again with null as NaN, so numbers pay nothing.
   const call = (...args: any[]): any => {
+    try {
+      return dispatch(...args);
+    } catch (e) {
+      const fixed = nullsToNaN(args);
+      if (fixed) return dispatch(...fixed);
+      throw e;
+    }
+  };
+
+  const dispatch = (...args: any[]): any => {
     if (disposed) throw new Error("operation used after dispose()");
     // Define-then-bind: if any argument is a symbolic Node, defer the call and
     // return a functor Node holding BOTH the raw C++ op (for `opPtr` at graph
@@ -902,7 +942,18 @@ export function wrapReducerOp(M: Screamer, src: OpSource): ScreamerOp {
     return async ? runAsyncStream(srcs, openStream, op) : runStream(srcs, openStream, op);
   };
 
-  const call = (...args: any[]) => {
+  // null is NaN (R-b): read again only after the call failed (see wrapOp).
+  const call = (...args: any[]): any => {
+    try {
+      return dispatch(...args);
+    } catch (e) {
+      const fixed = nullsToNaN(args);
+      if (fixed) return dispatch(...fixed);
+      throw e;
+    }
+  };
+
+  const dispatch = (...args: any[]): any => {
     if (disposed) throw new Error("operation used after dispose()");
     // Anything that isn't a single reducer-shaped input -- N scalars, Node
     // composition, an arity error -- is the ordinary op contract.
@@ -1066,6 +1117,7 @@ export function wrapRowOp(M: Screamer, src: OpSource): ScreamerOp {
     if (isTyped(row) || isNumArr(row)) return row;
     if (isNd(row) && (row.shape.length === 1 || (row.shape.length === 2 && row.shape[1] === 1))) return row.data;
     if (isNd(row)) throw new RangeError(`each event of a row stream is one row of K values, got shape [${row.shape}]`);
+    if (Array.isArray(row) && row.every(numOrNull)) return row.map((x) => x ?? NaN);   // null is NaN
     throw new TypeError(`each event of a row stream is one row of K values, got ${typeof row}`);
   };
   // A stream runs on a copy of its own (decision D8); the call resets raw.
@@ -1089,7 +1141,18 @@ export function wrapRowOp(M: Screamer, src: OpSource): ScreamerOp {
     return { step, close: () => pool.release(own) };
   };
 
-  const call = (...args: any[]) => {
+  // null is NaN (R-b): read again only after the call failed (see wrapOp).
+  const call = (...args: any[]): any => {
+    try {
+      return dispatch(...args);
+    } catch (e) {
+      const fixed = nullsToNaN(args);
+      if (fixed) return dispatch(...fixed);
+      throw e;
+    }
+  };
+
+  const dispatch = (...args: any[]): any => {
     if (disposed) throw new Error("operation used after dispose()");
     if (args.some(isNode)) throw new TypeError("row ops run on arrays and row streams, not inside a Pipeline");
     const kind = streamKind(args, fi);

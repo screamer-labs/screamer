@@ -82,59 +82,59 @@ void init_bindings_rolling(nb::module_& m) {
         .def(nb::init<int, const std::string&>(), 
             "window_size"_a = 20, 
             "start_policy"_a = "strict")
-        .def("__call__", &screamer::screamer_call, "value"_a)
+        .def("__call__", &screamer::screamer_call, "value"_a.none())
         .def("reset", &screamer::RollingMean::reset, "Reset to the initial state.");
 
     nb::class_<screamer::RollingRms, screamer::ScreamerBase>(m, "RollingRms")
         .def(nb::init<int, const std::string&>(),
             "window_size"_a = 20,
             "start_policy"_a = "strict")
-        .def("__call__", &screamer::screamer_call, "value"_a)
+        .def("__call__", &screamer::screamer_call, "value"_a.none())
         .def("reset", &screamer::RollingRms::reset, "Reset to the initial state.");
 
     nb::class_<screamer::RollingSum, screamer::ScreamerBase>(m, "RollingSum")
         .def(nb::init<int, const std::string&>(), 
             "window_size"_a = 20, 
             "start_policy"_a = "strict")
-        .def("__call__", &screamer::screamer_call, "value"_a)
+        .def("__call__", &screamer::screamer_call, "value"_a.none())
         .def("reset", &screamer::RollingSum::reset, "Reset to the initial state.");
 
     nb::class_<screamer::RollingStd, screamer::ScreamerBase>(m, "RollingStd")
         .def(nb::init<int, const std::string&>(),
             "window_size"_a = 20,
             "start_policy"_a = "strict")
-        .def("__call__", &screamer::screamer_call, "value"_a)
+        .def("__call__", &screamer::screamer_call, "value"_a.none())
         .def("reset", &screamer::RollingStd::reset, "Reset to the initial state.");
 
     nb::class_<screamer::RollingVar, screamer::ScreamerBase>(m, "RollingVar")
         .def(nb::init<int, const std::string&>(),
             "window_size"_a = 20,
             "start_policy"_a = "strict")
-        .def("__call__", &screamer::screamer_call, "value"_a)
+        .def("__call__", &screamer::screamer_call, "value"_a.none())
         .def("reset", &screamer::RollingVar::reset, "Reset to the initial state.");
 
     nb::class_<screamer::RollingSkew, screamer::ScreamerBase>(m, "RollingSkew")
         .def(nb::init<int, const std::string&>(),
             "window_size"_a = 20,
             "start_policy"_a = "strict")
-        .def("__call__", &screamer::screamer_call, "value"_a)
+        .def("__call__", &screamer::screamer_call, "value"_a.none())
         .def("reset", &screamer::RollingSkew::reset, "Reset to the initial state.");
 
     nb::class_<screamer::RollingKurt, screamer::ScreamerBase>(m, "RollingKurt")
         .def(nb::init<int, const std::string&>(),
             "window_size"_a = 20,
             "start_policy"_a = "strict")
-        .def("__call__", &screamer::screamer_call, "value"_a)
+        .def("__call__", &screamer::screamer_call, "value"_a.none())
         .def("reset", &screamer::RollingKurt::reset, "Reset to the initial state.");
 
     nb::class_<screamer::RollingMin, screamer::ScreamerBase>(m, "RollingMin")
         .def(nb::init<int>(), "window_size"_a = 20)
-        .def("__call__", &screamer::screamer_call, "value"_a)
+        .def("__call__", &screamer::screamer_call, "value"_a.none())
         .def("reset", &screamer::RollingMin::reset, "Reset to the initial state.");
 
     nb::class_<screamer::RollingMax, screamer::ScreamerBase>(m, "RollingMax")
         .def(nb::init<int>(), "window_size"_a = 20)
-        .def("__call__", &screamer::screamer_call, "value"_a)
+        .def("__call__", &screamer::screamer_call, "value"_a.none())
         .def("reset", &screamer::RollingMax::reset, "Reset to the initial state.");
 
     // Position of the rolling minimum / maximum within the window.
@@ -143,12 +143,12 @@ void init_bindings_rolling(nb::module_& m) {
     // element's window offset.
     nb::class_<screamer::RollingArgmin, screamer::ScreamerBase>(m, "RollingArgmin")
         .def(nb::init<int>(), "window_size"_a = 20)
-        .def("__call__", &screamer::screamer_call, "value"_a)
+        .def("__call__", &screamer::screamer_call, "value"_a.none())
         .def("reset", &screamer::RollingArgmin::reset, "Reset to the initial state.");
 
     nb::class_<screamer::RollingArgmax, screamer::ScreamerBase>(m, "RollingArgmax")
         .def(nb::init<int>(), "window_size"_a = 20)
-        .def("__call__", &screamer::screamer_call, "value"_a)
+        .def("__call__", &screamer::screamer_call, "value"_a.none())
         .def("reset", &screamer::RollingArgmax::reset, "Reset to the initial state.");
 
     // RollingRange: max - min. Two monotonic deques internally,
@@ -156,7 +156,7 @@ void init_bindings_rolling(nb::module_& m) {
     // runs, returned as a single scalar instead of a tuple).
     nb::class_<screamer::RollingRange, screamer::ScreamerBase>(m, "RollingRange")
         .def(nb::init<int>(), "window_size"_a = 20)
-        .def("__call__", &screamer::screamer_call, "value"_a)
+        .def("__call__", &screamer::screamer_call, "value"_a.none())
         .def("reset", &screamer::RollingRange::reset, "Reset to the initial state.");
 
     // Mean absolute deviation, mean(|x - rolling_mean|). O(W) per step
@@ -166,7 +166,7 @@ void init_bindings_rolling(nb::module_& m) {
         .def(nb::init<int, const std::string&>(),
             "window_size"_a = 20,
             "start_policy"_a = "strict")
-        .def("__call__", &screamer::screamer_call, "value"_a)
+        .def("__call__", &screamer::screamer_call, "value"_a.none())
         .def("reset", &screamer::RollingMad::reset, "Reset to the initial state.");
 
     // Robust scale: the median absolute deviation, median(|x - median|), over the
@@ -176,7 +176,7 @@ void init_bindings_rolling(nb::module_& m) {
         .def(nb::init<int, const std::string&>(),
             "window_size"_a = 20,
             "start_policy"_a = "strict")
-        .def("__call__", &screamer::screamer_call, "value"_a)
+        .def("__call__", &screamer::screamer_call, "value"_a.none())
         .def("reset", &screamer::RollingMedianAD::reset, "Reset to the initial state.");
 
     // Inter-quartile range = q75 - q25. Single shared OST queried
@@ -185,7 +185,7 @@ void init_bindings_rolling(nb::module_& m) {
     // and inserts.
     nb::class_<screamer::RollingIqr, screamer::ScreamerBase>(m, "RollingIqr")
         .def(nb::init<int>(), "window_size"_a = 20)
-        .def("__call__", &screamer::screamer_call, "value"_a)
+        .def("__call__", &screamer::screamer_call, "value"_a.none())
         .def("reset", &screamer::RollingIqr::reset, "Reset to the initial state.");
 
     // WMA: linearly-weighted moving average. O(1) per step via the
@@ -195,7 +195,7 @@ void init_bindings_rolling(nb::module_& m) {
         .def(nb::init<int, const std::string&>(),
             "window_size"_a = 20,
             "start_policy"_a = "strict")
-        .def("__call__", &screamer::screamer_call, "value"_a)
+        .def("__call__", &screamer::screamer_call, "value"_a.none())
         .def("reset", &screamer::WMA::reset, "Reset to the initial state.");
 
     // DEMA / TEMA: double / triple exponential MA (Mulloy 1994). Pure
@@ -213,7 +213,7 @@ void init_bindings_rolling(nb::module_& m) {
           "halflife"_a = nb::none(),
           "alpha"_a = nb::none()
         )
-        .def("__call__", &screamer::screamer_call, "value"_a)
+        .def("__call__", &screamer::screamer_call, "value"_a.none())
         .def("reset", &screamer::DEMA::reset, "Reset to the initial state.");
 
     nb::class_<screamer::TEMA, screamer::ScreamerBase>(m, "TEMA")
@@ -229,14 +229,14 @@ void init_bindings_rolling(nb::module_& m) {
           "halflife"_a = nb::none(),
           "alpha"_a = nb::none()
         )
-        .def("__call__", &screamer::screamer_call, "value"_a)
+        .def("__call__", &screamer::screamer_call, "value"_a.none())
         .def("reset", &screamer::TEMA::reset, "Reset to the initial state.");
 
     // TRIMA: triangular MA, SMA(SMA(x)). Pure composition of two
     // detail::RollingMean instances. Strict warmup enforced by counter.
     nb::class_<screamer::TRIMA, screamer::ScreamerBase>(m, "TRIMA")
         .def(nb::init<int>(), "window_size"_a = 20)
-        .def("__call__", &screamer::screamer_call, "value"_a)
+        .def("__call__", &screamer::screamer_call, "value"_a.none())
         .def("reset", &screamer::TRIMA::reset, "Reset to the initial state.");
 
     // HullMA: WMA(2*WMA(x, n/2) - WMA(x, n), sqrt(n)). Pure composition
@@ -244,7 +244,7 @@ void init_bindings_rolling(nb::module_& m) {
     // emit NaN; HullMA enforces strict warmup itself.
     nb::class_<screamer::HullMA, screamer::ScreamerBase>(m, "HullMA")
         .def(nb::init<int>(), "window_size"_a = 20)
-        .def("__call__", &screamer::screamer_call, "value"_a)
+        .def("__call__", &screamer::screamer_call, "value"_a.none())
         .def("reset", &screamer::HullMA::reset, "Reset to the initial state.");
 
     // KAMA: Kaufman's Adaptive MA. Smoothing constant adapts to the
@@ -254,7 +254,7 @@ void init_bindings_rolling(nb::module_& m) {
             "window_size"_a = 10,
             "fast"_a = 2,
             "slow"_a = 30)
-        .def("__call__", &screamer::screamer_call, "value"_a)
+        .def("__call__", &screamer::screamer_call, "value"_a.none())
         .def("reset", &screamer::KAMA::reset, "Reset to the initial state.");
 
     // MACD: (macd, signal, histogram). 1->3 functor composing three
@@ -289,7 +289,7 @@ void init_bindings_rolling(nb::module_& m) {
     // final ratio.
     nb::class_<screamer::TRIX, screamer::ScreamerBase>(m, "TRIX")
         .def(nb::init<int>(), "span"_a = 14)
-        .def("__call__", &screamer::screamer_call, "value"_a)
+        .def("__call__", &screamer::screamer_call, "value"_a.none())
         .def("reset", &screamer::TRIX::reset, "Reset to the initial state.");
 
     // BOP: Balance of Power. 4 -> 1 on (open, high, low, close).
@@ -541,19 +541,19 @@ void init_bindings_rolling(nb::module_& m) {
     // time projected one step ahead. Composes detail::RollingSum.
     nb::class_<screamer::RollingTSF, screamer::ScreamerBase>(m, "RollingTSF")
         .def(nb::init<int>(), "window_size"_a = 20)
-        .def("__call__", &screamer::screamer_call, "value"_a)
+        .def("__call__", &screamer::screamer_call, "value"_a.none())
         .def("reset", &screamer::RollingTSF::reset, "Reset.");
 
     // RollingRank / RollingPercentile: position of latest value in
     // the trailing window. pandas-style "average" tie rule.
     nb::class_<screamer::RollingRank, screamer::ScreamerBase>(m, "RollingRank")
         .def(nb::init<int>(), "window_size"_a = 20)
-        .def("__call__", &screamer::screamer_call, "value"_a)
+        .def("__call__", &screamer::screamer_call, "value"_a.none())
         .def("reset", &screamer::RollingRank::reset, "Reset.");
 
     nb::class_<screamer::RollingPercentile, screamer::ScreamerBase>(m, "RollingPercentile")
         .def(nb::init<int>(), "window_size"_a = 20)
-        .def("__call__", &screamer::screamer_call, "value"_a)
+        .def("__call__", &screamer::screamer_call, "value"_a.none())
         .def("reset", &screamer::RollingPercentile::reset, "Reset.");
 
     // RollingHurst: rolling-window Hurst exponent via Anis-Lloyd
@@ -563,24 +563,24 @@ void init_bindings_rolling(nb::module_& m) {
              "window_size"_a = 256,
              "min_scale"_a = 4,
              "method"_a = "rs")
-        .def("__call__", &screamer::screamer_call, "value"_a)
+        .def("__call__", &screamer::screamer_call, "value"_a.none())
         .def("reset", &screamer::RollingHurst::reset, "Reset.");
 
     nb::class_<screamer::RollingMedian, screamer::ScreamerBase>(m, "RollingMedian")
         .def(nb::init<int>(), "window_size"_a = 20)
-        .def("__call__", &screamer::screamer_call, "value"_a)
+        .def("__call__", &screamer::screamer_call, "value"_a.none())
         .def("reset", &screamer::RollingMedian::reset, "Reset to the initial state.");
 
     nb::class_<screamer::RollingQuantile, screamer::ScreamerBase>(m, "RollingQuantile")
         .def(nb::init<int, double>(), "window_size"_a = 20, "quantile"_a = 0.5)
-        .def("__call__", &screamer::screamer_call, "value"_a)
+        .def("__call__", &screamer::screamer_call, "value"_a.none())
         .def("reset", &screamer::RollingQuantile::reset, "Reset to the initial state.");
 
     nb::class_<screamer::RollingZscore, screamer::ScreamerBase>(m, "RollingZscore")
         .def(nb::init<int, const std::string&>(),
             "window_size"_a = 20,
             "start_policy"_a = "strict")
-        .def("__call__", &screamer::screamer_call, "value"_a)
+        .def("__call__", &screamer::screamer_call, "value"_a.none())
         .def("reset", &screamer::RollingZscore::reset, "Reset to the initial state.");
 
     nb::class_<screamer::RollingPoly1, screamer::ScreamerBase>(m, "RollingPoly1")
@@ -588,7 +588,7 @@ void init_bindings_rolling(nb::module_& m) {
             "window_size"_a = 20,
             "derivative_order"_a = 0,
             "start_policy"_a = "strict")
-        .def("__call__", &screamer::screamer_call, "value"_a)
+        .def("__call__", &screamer::screamer_call, "value"_a.none())
         .def("reset", &screamer::RollingPoly1::reset, "Reset to the initial state.");
 
 
@@ -597,7 +597,7 @@ void init_bindings_rolling(nb::module_& m) {
             "window_size"_a = 20,
             "derivative_order"_a = 0,
             "start_policy"_a = "strict")
-        .def("__call__", &screamer::screamer_call, "value"_a)
+        .def("__call__", &screamer::screamer_call, "value"_a.none())
         .def("reset", &screamer::RollingPoly2::reset, "Reset to the initial state.");
 
 
@@ -609,7 +609,7 @@ void init_bindings_rolling(nb::module_& m) {
             "output"_a = "clipped",
             "start_policy"_a = "strict"
         )
-        .def("__call__", &screamer::screamer_call, "value"_a)
+        .def("__call__", &screamer::screamer_call, "value"_a.none())
         .def("reset", &screamer::RollingSigmaClip::reset, "Reset to the initial state.");
 
     // Canonical Hampel filter (causal trailing-window): flag samples that are
@@ -621,7 +621,7 @@ void init_bindings_rolling(nb::module_& m) {
             "n_sigma"_a = 3.0,
             "output"_a = "cleaned",
             "start_policy"_a = "strict")
-        .def("__call__", &screamer::screamer_call, "value"_a)
+        .def("__call__", &screamer::screamer_call, "value"_a.none())
         .def("reset", &screamer::Hampel::reset, "Reset to the initial state.");
 
     // Causal impulse/glitch remover for non-stationary signals: detects spikes on
@@ -633,7 +633,7 @@ void init_bindings_rolling(nb::module_& m) {
             "n_sigma"_a = 4.0,
             "output"_a = "cleaned",
             "start_policy"_a = "strict")
-        .def("__call__", &screamer::screamer_call, "value"_a)
+        .def("__call__", &screamer::screamer_call, "value"_a.none())
         .def("reset", &screamer::ImpulseClip::reset, "Reset to the initial state.");
 
 
@@ -642,7 +642,7 @@ void init_bindings_rolling(nb::module_& m) {
             "window_size"_a = 20,
             "output"_a = "mrr",
             "start_policy"_a = "strict")
-        .def("__call__", &screamer::screamer_call, "value"_a)
+        .def("__call__", &screamer::screamer_call, "value"_a.none())
         .def("reset", &screamer::RollingOU::reset, "Reset to the initial state.");
 
     nb::class_<screamer::RollingRSI, screamer::ScreamerBase>(m, "RollingRSI")
@@ -650,7 +650,7 @@ void init_bindings_rolling(nb::module_& m) {
             "window_size"_a = 14,
             "method"_a = "wilder",
             "start_policy"_a = "strict")
-        .def("__call__", &screamer::screamer_call, "value"_a)
+        .def("__call__", &screamer::screamer_call, "value"_a.none())
         .def("reset", &screamer::RollingRSI::reset, "Reset to the initial state.");
 
     // RollingMinMax: 1 input, 2 outputs (min, max). Inherits from

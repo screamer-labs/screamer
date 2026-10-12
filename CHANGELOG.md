@@ -110,9 +110,16 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
   `DatetimeIndex` equals the batch call `Pipeline(...)((values, index))`.
   * NaT (and `pd.NaT`) raises `TypeError` ("index must be finite, got NaT"),
     in batch arrays too.
-  * The index of one feed keeps one unit: a feed that changes from
-    `datetime64[s]` to `datetime64[ns]` raises `TypeError`, because ticks of
-    two units cannot be compared.
+  * A `Pipeline` call, a live session (with its `advance()`) and a stream
+    merge keep one index kind across every input: plain numbers, or times of
+    one kind and unit. An index of another kind or unit raises `TypeError`
+    ("index is a datetime64[ns], but earlier indexes were a datetime64[s]"),
+    because ticks of two units, or ticks and plain numbers, cannot be
+    compared. This includes a bare feed (whose index is its row number) next
+    to a time-indexed feed. A rejected push or `advance()` does not set the
+    kind. For the old result, convert every index to one unit first, for
+    example `index.astype("datetime64[ns]")`, or pass `.asi8` ticks
+    everywhere.
   * 2.8.0 took only a `datetime64[ns]` or `timedelta64[ns]` scalar (through
     `int()`) and raised `TypeError` for other units, `Timestamp` and
     `Timedelta`. It read NaT in a batch array as -2**63. For the old result
@@ -124,16 +131,33 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
   value raises `TypeError`; 2.8.0 read `b"3"` as the one-column event 51.0
   (its byte code). These rules hold for the iterator feeds of the stream
   operators (`Merge` and the others) too.
-* A string that does not read as a number (`"abc"`, `""`) raises `TypeError`
-  in both languages. In Python this covers operators given an object or
-  string array, `Pipeline` batch feeds, `live().push()` and the stream
-  functions (`merge`, `combine_latest`, `dropna`, `select`, `split`,
-  `resample`, `delay`, `Filter`); 2.8.0 raised NumPy's `ValueError`. In
-  JavaScript it covers `Pipeline` feeds, `live().push()` and `pushWide()`;
-  2.8.0 converted the string with `Number()`, so `"abc"` gave NaN and `""`
-  gave 0. For the old JavaScript result, pass `Number(value)`. A numeric string
-  reads as before in each language: `"3"` is 3, and Python also reads `"nan"`
-  and `"inf"`, which JavaScript's `Number()` does not (`"Infinity"` works there).
+* A string is never a number. Any string value (`"abc"`, `""` or `"3"`,
+  also NumPy's `str_` and `bytes_`) raises `TypeError` on every value path in
+  both languages: operator scalars, lists, arrays (a string array, or an
+  object array or pandas object holding a string), iterator and async feeds,
+  `Pipeline` batch, iterator and live feeds, and the Python stream functions
+  (`merge`, `combine_latest`, `dropna`, `select`, `split`, `resample`,
+  `delay`, `Filter`). An operator setting given as a string (`threshold`,
+  `every`, `count`, `origin`, `max_age`, a `delay` duration, `select`
+  columns, `max_pending`) raises `TypeError` too. What 2.8.0 did:
+  * Python parsed numeric strings in string and object arrays, pandas
+    `Series`, `Pipeline` batch feeds and live pushes, the stream functions
+    and settings read with `int()` or `float()` (`every="2"`), and raised
+    NumPy's `ValueError` for other strings. An operator iterator read a string
+    event as a one-asset array.
+  * JavaScript converted a string in a `Pipeline` feed, `live().push()` or
+    `pushWide()` with `Number()` (`"abc"` gave NaN, `""` gave 0), and a
+    resample setting with `Number()` or `Math.trunc()`.
+  * For the old result, parse the text first: `pd.to_numeric(column)` or
+    `values.astype(float)` in Python, `Number(value)` or
+    `Float64Array.from(values, Number)` in JavaScript.
+* `None` (Python) and `null` (JavaScript) are a missing value, NaN, on every
+  value path in both languages: an operator scalar (`RollingMean(2)(None)`),
+  a list or array element, an iterator or async event, a row of a row
+  operator, and every `Pipeline` feed. 2.8.0 raised `TypeError` for a Python
+  `None` given to an operator directly, in a list or in an iterator (an object
+  array already read it as NaN), and JavaScript operators threw `TypeError`
+  for `null`. For the old error, check for missing values before the call.
 * The standalone `resample(values, clock, clock=True)` applies the index rule
   to both indexes, so a fractional index raises `TypeError`; 2.8.0 cast it to
   int64, which truncated 1.5 to 1. Pass `np.trunc(index)` for the old result.
@@ -312,11 +336,11 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
   `TypeError`. Old result: `(op(x) for x in source)` continues the running
   series as a 2.8.0 Python stream did, and `[op(x) for x in values]` (or
   `op(*event)` for events of several inputs) does the same for a list.
-* A value of the wrong kind inside a list, tuple stream or iterator raises `TypeError` that names its type and position; before, it raised `RuntimeError: std::bad_cast`. For example, `RollingMean(2)([1.0, None])` raises `TypeError: RollingMean: event 1 is a NoneType, expected a number`. An element that holds only numbers but is not one number, such as `[1.0, 2.0]` in `RollingMean(2)([1.0, [1.0, 2.0]])`, raises `ValueError: RollingMean: event 1 has shape (2,), expected a number` on the list, iterator and async paths alike (a list raised `RuntimeError: std::bad_cast`; an iterator raised `ValueError` with "every event must have the same shape").
-* JavaScript: the same cases throw `TypeError` (wrong kind) or `RangeError` (wrong shape) with the same messages. Before, a list of events or an iterator item of the wrong kind threw `RangeError`, and other wrong-kind list elements threw `TypeError` without the position. A `Pipeline` feed, index or `live().push()` / `pushWide()` value that is a function, or an object that does not convert to a number (for example `{}`), throws `TypeError`; before, it was converted with `Number()` (`{}` and functions gave `NaN`). Numbers, numeric strings, booleans, `undefined` and `Date` values convert as before; a `null` value is now `NaN` (see below). An index follows the index rule above: it must be a number.
+* A value of the wrong kind inside a list, tuple stream or iterator raises `TypeError` that names its type and position; before, it raised `RuntimeError: std::bad_cast`. For example, `RollingMean(2)([1.0, {}])` raises `TypeError: RollingMean: event 1 is a dict, expected a number`. An element that holds only numbers but is not one number, such as `[1.0, 2.0]` in `RollingMean(2)([1.0, [1.0, 2.0]])`, raises `ValueError: RollingMean: event 1 has shape (2,), expected a number` on the list, iterator and async paths alike (a list raised `RuntimeError: std::bad_cast`; an iterator raised `ValueError` with "every event must have the same shape").
+* JavaScript: the same cases throw `TypeError` (wrong kind) or `RangeError` (wrong shape) with the same messages. Before, a list of events or an iterator item of the wrong kind threw `RangeError`, and other wrong-kind list elements threw `TypeError` without the position. A `Pipeline` feed, index or `live().push()` / `pushWide()` value that is a function, or an object that does not convert to a number (for example `{}`), throws `TypeError`; before, it was converted with `Number()` (`{}` and functions gave `NaN`). Numbers, booleans, `undefined` and `Date` values convert as before; a string raises `TypeError` and a `null` value is `NaN` (see above and below). An index follows the index rule above: it must be a number.
 * `PortfolioReport` given a list of `(K, 4)` engine rows returns a list of `(6,)` result rows, following rule 3; 2.8.0 returned a `(T, 6)` array. To get the array, pass `np.stack(rows)` or a tuple of rows. A tuple of rows and an array still return an array. In JavaScript an `Array` of rows (nested arrays or `[K, 4]` `NdArray` events) gives an `Array` of `Float64Array` rows; to get the old `NdArray`, pass `{ data, shape: [T, K, 4] }`.
 * A multi-input operator given a mix of lists and arrays returns an array, in either argument order: `RollingCorr(5)(x_list, y_array)` returned a list and `RollingCorr(5)(y_array, x_list)` raised `TypeError`; both now return the array that two arrays give. To get the old list, pass lists for every input (`list(y_array)`), or call `.tolist()` on the result. A list among arrays reads as a 1-D array of its length and broadcasts over the asset axes of the other inputs; lengths that differ still raise `ValueError`. All lists still return a list. JavaScript already returned an array for these mixes.
-* JavaScript: a `null` value in a `Pipeline` feed, `live().push()` or `pushWide()` is a missing value, `NaN`, as Python's `None` is; before, it was 0. To get the old value, replace `null` with 0 before the call. A `null` index raises `TypeError` (the index rule above). A `null` inside an operator's `number[]` input still throws `TypeError`, as `None` does in Python.
+* JavaScript: a `null` value in a `Pipeline` feed, `live().push()` or `pushWide()` is a missing value, `NaN`, as Python's `None` is; before, it was 0. To get the old value, replace `null` with 0 before the call. A `null` index raises `TypeError` (the index rule above). A `null` given to an operator is NaN too (see above).
 * JavaScript: an `Array` of events into an operator returns an `Array` with one result per event, as a Python list does. `Add()([[1, 2], [3, 4]])` returns `[3, 7]` (was a `Float64Array`), and an `Array` of `[K, N]` `NdArray` events returns an `Array` of per-event results (was one `NdArray`). An `Array` of `Float64Array` or `NdArray` asset events into a one-input operator, `RollingMean(2)([a, b])`, is a sequence of events and returns an `Array` of per-event arrays; before, it threw `RangeError`. To get the old container, pass the columns or one packed `NdArray`: `Add()(Float64Array.from(evs, (e) => e[0]), Float64Array.from(evs, (e) => e[1]))`. Likewise, a multi-input operator given only `number[]` inputs returns an `Array` (an `Array` of `number[]` for a multi-output operator), as Python lists give a list: `Add()([1, 2], [3, 4])` returns `[4, 6]` (was a `Float64Array`). To get the old result, pass `Float64Array` inputs (`Float64Array.from(x)`); one `Float64Array` or `NdArray` among the inputs is enough.
 
 * `RollingZscore` follows `start_policy` as `RollingMean` and `RollingStd`
@@ -344,7 +368,9 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
   a `Map`) throws a `TypeError` that names the input and the kind ("the feed
   for input 'a' is a number"), and `BigInt64Array` / `BigUint64Array` values
   throw a `TypeError` that says to convert them, instead of the engine's raw
-  BigInt message. Error messages use "an" before a vowel ("an Object").
+  BigInt message. A bare feed of another kind (a `DataView`, a `Set`, a
+  generator, `{values() {...}}`) throws a `TypeError` naming it instead of
+  "missing feed". Error messages use "an" before a vowel ("an Object").
 * A reused `Pipeline` or a new `live()` session forgets the plan a `resample`
   node learned from the previous stream's width. Before, a clock resample fed
   2 columns and then 3 dropped a column (3 then 2 padded with `NaN`), and an

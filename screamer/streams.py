@@ -12,7 +12,7 @@ import re
 import numpy as np
 
 from . import screamer_bindings as _b
-from .dag import is_node, make_operator_node, _is_vi_pair, _numeric_values
+from .dag import is_node, make_operator_node, _is_vi_pair, _as_float64, _setting
 
 __all__ = [
     "to_pandas",
@@ -138,7 +138,7 @@ def _run_chain(functors, values, index=None, return_index=False):
 
     index=None uses the row number (int64) as the ordering index.
     """
-    values = np.ascontiguousarray(values, dtype=np.float64)
+    values = _as_float64(values, contiguous=True)
     n = values.shape[0]
     functors = list(functors)
 
@@ -177,7 +177,7 @@ def _normalize_streams(streams, who):
         kind, k = _index_dtype_kind(idx)
         kinds.add(kind)
         norm_index.append(k)
-        norm_vals.append(np.ascontiguousarray(values, dtype=np.float64))
+        norm_vals.append(_as_float64(values, contiguous=True))
     if len(kinds) != 1:
         raise TypeError(f"{who}: all streams must share one index type (all int/datetime or all float)")
     return kinds.pop(), norm_index, norm_vals
@@ -191,7 +191,7 @@ def _streams_to_indexed(streams, who):
         raise ValueError(
             f"{who}: cannot align positional and indexed streams; give every "
             "stream an index, or none")
-    vals = [np.ascontiguousarray(s[0], dtype=np.float64) for s in streams]
+    vals = [_as_float64(s[0], contiguous=True) for s in streams]
     if not any(indexed):
         lens = {len(s[0]) for s in streams}
         if len(lens) != 1:
@@ -224,7 +224,7 @@ def _merge_to_indexed(values, index, who):
         raise ValueError(
             f"{who}: cannot mix positional and indexed streams; give every "
             "stream an index, or none")
-    vals = [np.ascontiguousarray(s[0], dtype=np.float64) for s in streams]
+    vals = [_as_float64(s[0], contiguous=True) for s in streams]
     if not any(has_idx):
         # Positional: use row-number per stream (no equal-length check for merge)
         idx_list = [np.arange(len(v), dtype=np.int64) for v in vals]
@@ -252,7 +252,6 @@ def _merge_lazy_dispatch(values):
         yield ev
 
 
-@_numeric_values
 def merge(*values, index=None):
     """Merge N value streams into one index-sorted (values, sources, index).
 
@@ -306,7 +305,7 @@ def _combine_latest_zip_lazy(sources, wide=False):
                 "combine_latest: positional (no-index) sources must stay in step "
                 "and end together; one source ran out before the others")
         if wide:
-            yield np.concatenate([np.ravel(np.asarray(x, dtype=np.float64)) for x in tup]), None
+            yield np.concatenate([np.ravel(_as_float64(x)) for x in tup]), None
         else:
             yield tuple(float(x) for x in tup), None
 
@@ -331,7 +330,7 @@ def _combine_latest_asof_lazy(sources, emit):
 def _as_fields(v, layout):
     """Read one input as (T, *A, F): a 1-D or 2-D array is read as fields,
     a 3-D or wider array as (T, *A, F); a layout states another reading."""
-    v = np.asarray(v, dtype=np.float64)
+    v = _as_float64(v)
     if layout is not None:
         from .shape import reshape_array
         return reshape_array(v, layout)
@@ -400,7 +399,7 @@ def _combine_latest_lazy(values, emit, layout=None):
         return
     layouts = _layouts(layout, len(heads))
     samples = [_empty_sample(lay) if h is _EMPTY
-               else np.asarray(h if positional else h[0], dtype=np.float64)[None]
+               else _as_float64(h if positional else h[0])[None]
                for h, lay in zip(heads, layouts)]
     fields, assets, wide = _join_spec(samples, layouts)
     if positional:
@@ -408,16 +407,15 @@ def _combine_latest_lazy(values, emit, layout=None):
     else:
         # Wide events enter the Pipeline as flat rows; the node concatenates them.
         rows = _combine_latest_asof_lazy(
-            [(((np.ravel(np.asarray(v, dtype=np.float64)) if wide else v), i) for v, i in src)
+            [(((np.ravel(_as_float64(v)) if wide else v), i) for v, i in src)
              for src in sources], emit)
     for row, i in rows:
         if wide:
-            row = np.asarray(row, dtype=np.float64)
+            row = _as_float64(row)
             row = _assemble(row[None], fields, assets)[0] if assets else row
         yield row, i
 
 
-@_numeric_values
 def combine_latest(*values, index=None, emit="when_all", layout=None):
     """As-of latest-value join of N streams: one row per distinct index (same-index
     events coalesce). Values-first + polymorphic: raw arrays, (values, index)
@@ -522,7 +520,7 @@ def _dropna_lazy_cpp(events, how):
 
     head_val, head_idx = head
     all_events = itertools.chain([head], events)
-    N = np.atleast_1d(np.asarray(head_val, dtype=np.float64)).size
+    N = np.atleast_1d(_as_float64(head_val)).size
     positional = head_idx is None
 
     if positional:
@@ -537,7 +535,7 @@ def _dropna_lazy_cpp(events, how):
         # 1-D: ensure the value passed to the C++ lazy driver is a Python float
         def _as_scalar(evs):
             for v, k in evs:
-                yield float(np.atleast_1d(np.asarray(v, dtype=np.float64))[0]), k
+                yield float(np.atleast_1d(_as_float64(v))[0]), k
         src = Input("x")
         dag = Pipeline([src], [dropna(src, how=how)])
         inner = dag(_as_scalar(working_events))
@@ -547,7 +545,7 @@ def _dropna_lazy_cpp(events, how):
 
         def _col(teed, col):
             for row_val, k in teed:
-                r = np.atleast_1d(np.asarray(row_val, dtype=np.float64))
+                r = np.atleast_1d(_as_float64(row_val))
                 yield float(r[col]), k
 
         col_iters = [_col(tees[i], i) for i in range(N)]
@@ -562,7 +560,6 @@ def _dropna_lazy_cpp(events, how):
         yield from inner
 
 
-@_numeric_values
 def dropna(values, index=None, how="any"):
     """Drop events whose value is NaN. `values` may be 1-D (M,) or 2-D (M, N).
 
@@ -583,7 +580,7 @@ def dropna(values, index=None, how="any"):
     if _is_lazy_stream(values):
         return _dropna_lazy_cpp(values, how)
     vals, idx = _as_vi(values, index)
-    vals = np.asarray(vals, dtype=np.float64)
+    vals = _as_float64(vals)
     out_vals, out_idx = _dropna_via_cpp(vals, idx, how)
     return out_vals, out_idx
 
@@ -619,7 +616,6 @@ class Filter:
 
     __name__ = "Filter"
 
-    @_numeric_values
     def __call__(self, data, mask):
         if is_node(data) or is_node(mask):
             return make_operator_node(Filter, (data, mask), {})
@@ -629,7 +625,6 @@ class Filter:
         return dag(data, mask)
 
 
-@_numeric_values
 def split(values, sources, index=None, n=None):
     """Partition a merged tagged stream back into per-source streams.
 
@@ -644,8 +639,12 @@ def split(values, sources, index=None, n=None):
     if _is_vi_pair(values):
         index = values[1]          # the tuple carries its own index
         values = values[0]
-    values = np.ascontiguousarray(values, dtype=np.float64)
+    values = _as_float64(values, contiguous=True)
+    if getattr(getattr(sources, "dtype", None), "kind", "O") in ("U", "S", "O"):
+        _b._refuse_text(sources if hasattr(sources, "dtype") else np.asarray(sources))
     sources = np.ascontiguousarray(sources, dtype=np.uint32)
+    if n is not None:
+        _setting("split: n", n)
     if n is None:
         n = int(sources.max()) + 1 if sources.size else 0
     elif sources.size and n <= int(sources.max()):
@@ -670,7 +669,8 @@ def _normalize_columns(columns):
     eager result is then 1-D). Negative indices are rejected explicitly.
     """
     scalar = np.ndim(columns) == 0
-    cols = [int(columns)] if scalar else [int(c) for c in columns]
+    cols = ([int(_setting("select: columns", columns))] if scalar
+            else [int(_setting("select: columns", c)) for c in columns])
     for c in cols:
         if c < 0:
             raise ValueError(f"select: column index must be non-negative, got {c}")
@@ -739,7 +739,7 @@ def _select_lazy_cpp(events, columns):
 
     head_val, head_idx = head
     all_events = itertools.chain([head], events)
-    N = np.atleast_1d(np.asarray(head_val, dtype=np.float64)).size
+    N = np.atleast_1d(_as_float64(head_val)).size
     positional = head_idx is None
 
     # Validate column range against the first event's width.
@@ -751,7 +751,7 @@ def _select_lazy_cpp(events, columns):
     if N == 1:
         # 1-D: width-1 passthrough; SelectNode adds no value here.
         for v, k in all_events:
-            val = float(np.atleast_1d(np.asarray(v, dtype=np.float64))[0])
+            val = float(np.atleast_1d(_as_float64(v))[0])
             if scalar:
                 yield val, k
             else:
@@ -772,7 +772,7 @@ def _select_lazy_cpp(events, columns):
 
     def _col(teed, col):
         for row_val, k in teed:
-            r = np.atleast_1d(np.asarray(row_val, dtype=np.float64))
+            r = np.atleast_1d(_as_float64(row_val))
             yield float(r[col]), k
 
     col_iters = [_col(tees[i], i) for i in range(N)]
@@ -788,7 +788,6 @@ def _select_lazy_cpp(events, columns):
         yield from inner
 
 
-@_numeric_values
 def select(values, columns, index=None):
     """Pick column(s) from a wide (M, N) value stream.
 
@@ -806,7 +805,7 @@ def select(values, columns, index=None):
     if _is_lazy_stream(values):
         return _select_lazy_cpp(values, columns)
     vals, idx = _as_vi(values, index)
-    vals = np.asarray(vals, dtype=np.float64)
+    vals = _as_float64(vals)
     cols, scalar = _normalize_columns(columns)
     # Validate columns in Python before building the Pipeline (preserves exact
     # ValueError message regardless of which regime is active).
@@ -1045,7 +1044,7 @@ def _resample_clock_batch(vals, val_idx, clk_vals, clk_idx, *, agg, fill,
                     origin=origin, label=label, max_age=max_age)
     dag = Pipeline([val_in, clk_in], [node])
     # The indexes go to the Pipeline as given; the engine applies the index rule.
-    vals_f = np.ascontiguousarray(vals, dtype=np.float64)
+    vals_f = _as_float64(vals, contiguous=True)
     clk_f = np.ascontiguousarray(clk_vals if clk_vals.ndim == 1 else clk_vals[:, 0],
                                   dtype=np.float64)
     return dag((vals_f, val_idx), (clk_f, clk_idx))
@@ -1084,6 +1083,8 @@ def _resample_validate(freq, every, count, threshold, agg, label, fill="skip",
                 "resample: max_age must be a non-negative integer in index units")
         if max_age < 0:
             raise ValueError("resample: max_age must be a non-negative integer")
+    for name, x in (("threshold", threshold), ("every", every), ("count", count)):
+        _setting(f"resample: {name}", x)
     # Exactly one of freq, every, count, threshold, clock must be provided.
     given = sum(x is not None for x in [freq, every, count, threshold])
     if clock:
@@ -1162,7 +1163,7 @@ def _resample_lazy(values, *, every, count, agg, origin, label, fill):
     if head is _EMPTY:
         return
     events = itertools.chain([head], it)
-    v0 = np.asarray(head[0], dtype=np.float64)
+    v0 = _as_float64(head[0])
     if v0.ndim > 0 and not isinstance(agg, str):
         raise ValueError(
             f"resample: a functor agg aggregates one column; got events of shape {v0.shape}. "
@@ -1172,13 +1173,12 @@ def _resample_lazy(values, *, every, count, agg, origin, label, fill):
                                      agg=agg, origin=origin, label=label, fill=fill)
         return
     shape = _column_shape((1,) + v0.shape) + ((4,) if agg == "ohlc" else ())
-    flat = ((np.ravel(np.asarray(v, dtype=np.float64)), i) for v, i in events)
+    flat = ((np.ravel(_as_float64(v)), i) for v, i in events)
     for v, i in _resample_via_cpp(flat, every=every, count=count, threshold=None,
                                   agg=agg, origin=origin, label=label, fill=fill):
-        yield np.asarray(v, dtype=np.float64).reshape(shape), i
+        yield _as_float64(v).reshape(shape), i
 
 
-@_numeric_values
 def resample(values, driver=None, index=None, *, freq=None, every=None, count=None,
              threshold=None, clock=False, agg="last", origin=0, label="left",
              fill="skip", max_age=None):
@@ -1294,11 +1294,11 @@ def resample(values, driver=None, index=None, *, freq=None, every=None, count=No
                                         origin=origin, label=label,
                                         max_age=max_age)
         vals, val_idx = _as_vi(values, index)
-        vals = np.asarray(vals, dtype=np.float64)
+        vals = _as_float64(vals)
         if max_age is not None and vals.ndim != 1:
             raise ValueError("resample: max_age requires a 1-D value stream")
         clk_vals, clk_idx = _as_vi(driver, None)
-        clk_vals = np.asarray(clk_vals, dtype=np.float64)
+        clk_vals = _as_float64(clk_vals)
         if val_idx is None:
             val_idx = np.arange(len(vals), dtype=np.int64)
         if clk_idx is None:
@@ -1346,12 +1346,12 @@ def resample(values, driver=None, index=None, *, freq=None, every=None, count=No
             raise ValueError(
                 "resample: threshold= requires a driver stream as the second argument")
         vals, idx_in = _as_vi(values, index)
-        vals = np.asarray(vals, dtype=np.float64)
+        vals = _as_float64(vals)
         if vals.ndim != 1:
             raise ValueError(
                 "resample: threshold= requires a 1-D value stream; "
                 f"got shape {vals.shape}")
-        drv = np.asarray(driver, dtype=np.float64)
+        drv = _as_float64(driver)
         if drv.ndim != 1:
             raise ValueError(
                 "resample: threshold= requires a 1-D driver stream; "
@@ -1383,7 +1383,7 @@ def resample(values, driver=None, index=None, *, freq=None, every=None, count=No
         return _resample_lazy(values, every=every, count=count, agg=agg,
                               origin=origin, label=label, fill=fill)
     vals, idx_in = _as_vi(values, index)
-    vals = np.asarray(vals, dtype=np.float64)
+    vals = _as_float64(vals)
     # Multi-column bar aggs require specific input widths.
     if agg in _BAR_AGGS_2COL:
         if vals.ndim != 2 or vals.shape[1] != 2:
@@ -1492,6 +1492,7 @@ class Select:
     """
 
     def __init__(self, columns):
+        _normalize_columns(columns)          # a string or negative column raises here
         self._columns = columns
 
     def __call__(self, values, index=None):
@@ -1573,13 +1574,12 @@ class Resample:
         return resample(values, None, index, **self._cfg)
 
 
-@_numeric_values
 def delay(values, index=None, *, duration):
     """Re-stamp each event's index by `duration` (index units); values unchanged.
 
     Requires an explicit index (duration is time-based). Returns (values, index +
     duration) as a concrete stream, or a graph Node when `values` is a Node."""
-    duration = int(duration)
+    duration = int(_setting("delay: duration", duration))
     if is_node(values):
         return make_operator_node(Delay, (values,), {"duration": duration})
     values, index = _as_vi(values, index)
@@ -1608,7 +1608,7 @@ class Delay:
     __name__ = "Delay"
 
     def __init__(self, duration):
-        self._duration = int(duration)
+        self._duration = int(_setting("Delay: duration", duration))
 
     def __call__(self, values, index=None):
         return delay(values, index, duration=self._duration)

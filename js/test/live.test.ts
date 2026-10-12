@@ -104,14 +104,15 @@ test("live: the width of an input is locked until a new session", async () => {
   }
 });
 
-test("live: null and numeric strings inside a wide event follow the batch feed", async () => {
+test("live: null inside a wide event is NaN and a string is a TypeError, as in the batch feed", async () => {
   await ready();
   const a = Input("x");
   const p = new Pipeline([a], [a]);
   try {
     const d = p.live();
     d.push("x", 0, [null, 1] as any);
-    d.push("x", 1, ["2", "3"] as any);
+    assert.throws(() => d.push("x", 1, ["2", "3"] as any), TypeError);
+    d.push("x", 1, [2, 3]);
     assertNanEq(asFloat64(d.result()), [NaN, 1, 2, 3], "values");
   } finally {
     p.dispose();

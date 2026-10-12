@@ -1,6 +1,7 @@
 #include "screamer/common/dispatch.h"
 #include "screamer/common/lazy_eval_iterator.h"
 #include <nanobind/stl/vector.h>
+#include <limits>
 #include <vector>
 
 namespace screamer {
@@ -26,6 +27,8 @@ nb::object screamer_call(ScreamerBase& self, nb::object raw) {
         if (!nb::try_cast<double>(obj, value)) throw_unsupported_input(nb::find(self), obj);
         return nb::float_(self.process_scalar(value));
     }
+    if (obj.is_none())                    // a missing value, NaN (R-b)
+        return nb::float_(self.process_scalar(std::numeric_limits<double>::quiet_NaN()));
 
     if (is_async_iterable(obj))
         return nb::cast(LazyAsyncIterator(nb::find(self), { obj }));
@@ -40,7 +43,7 @@ nb::object screamer_call(ScreamerBase& self, nb::object raw) {
         std::ptrdiff_t k = 0;
         for (nb::handle item : obj) {
             double d;
-            if (!nb::try_cast<double>(item, d))
+            if (!read_double(item, d))
                 throw_not_a_number(op_display_name(nb::find(self)), item, where_text("event", k));
             out.append(nb::float_(self.process_scalar(d)));
             ++k;

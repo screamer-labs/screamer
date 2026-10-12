@@ -164,12 +164,9 @@ inline bool is_unsupported_dtype_array(nb::handle h) {
 // surface. (Complex arrays never reach here: nanobind's nb::ndarray<nb::ro> accepts
 // them, so they stay on the normal path where load_elem raises.)
 inline nb::object coerce_to_f64(nb::handle h) {
+    refuse_text(h);   // a string array, or an object array holding a string
     nb::module_ np = nb::module_::import_("numpy");
-    try {
-        return np.attr("ascontiguousarray")(h, nb::arg("dtype") = np.attr("float64"));
-    } catch (nb::python_error& e) {
-        rethrow_float_error(e);   // a non-numeric string is a TypeError
-    }
+    return np.attr("ascontiguousarray")(h, nb::arg("dtype") = np.attr("float64"));
 }
 
 // Coerce a single dispatch input: if it is an unsupported-dtype array, return
@@ -381,7 +378,7 @@ inline ContigDouble read_number_sequence(nb::handle self, nb::handle seq, std::s
     r.shape = { n };
     r.data.resize(n);
     for (std::size_t t = 0; t < n; ++t)
-        if (!nb::try_cast<double>(items[t], r.data[t]))
+        if (!read_double(items[t], r.data[t]))
             throw_not_a_number(op_display_name(self), items[t],
                                where_text("event", static_cast<std::ptrdiff_t>(t),
                                           static_cast<std::ptrdiff_t>(input)));
@@ -420,7 +417,7 @@ inline NInputs<N> read_mixed_inputs(nb::handle self, const nb::tuple& inputs) {
     std::string kinds;
     for (nb::handle x : inputs) {
         double d;
-        if (!nb::try_cast<double>(x, d) && !nb::hasattr(x, "__iter__"))
+        if (!read_double(x, d) && !nb::hasattr(x, "__iter__"))
             throw_unsupported_input(self, x);
         kinds += (kinds.empty() ? "" : ", ") + type_short_name(x.type());
     }
@@ -472,6 +469,20 @@ inline nb::object normalize_input(nb::handle x, const S& op) {
             throw nb::type_error((op_display_name(nb::find(op)) + ": a pandas object with a "
                 "datetime or timedelta dtype is not a valid input; pass numeric values "
                 "(convert timestamps yourself)").c_str());
+        // A string is never a number: refused before to_numpy would parse "3".
+        const std::string who = op_display_name(nb::find(op));
+        if (nb::hasattr(x, "dtype")) {
+            refuse_text(x, who);                                  // a Series
+        } else {
+            bool text = false;                                    // a DataFrame
+            for (nb::handle dt : x.attr("dtypes")) {
+                nb::str k(dt.attr("kind"));
+                const char* c = k.c_str();
+                if (c && (c[0] == 'O' || c[0] == 'U' || c[0] == 'S')) text = true;
+            }
+            if (text) refuse_text(x.attr("to_numpy")(nb::arg("dtype") = nb::borrow(
+                reinterpret_cast<PyObject*>(&PyBaseObject_Type))), who);
+        }
         return x.attr("to_numpy")(nb::arg("dtype") = nb::borrow(reinterpret_cast<PyObject*>(&PyFloat_Type)));
     }
     return nb::borrow(x);
@@ -636,7 +647,7 @@ typename Op::InputArray cast_to_array(Op& self, const nb::tuple& tuple, std::siz
     }
     typename Op::InputArray array;
     for (size_t i = 0; i < N; ++i) {
-        if (!nb::try_cast<double>(tuple[i], array[i])) {
+        if (!read_double(tuple[i], array[i])) {
             const std::string who = op_display_name(nb::find(self));
             const std::string where = where_text("event", static_cast<std::ptrdiff_t>(event));
             throw_if_wrong_kind(who, tuple, where);
@@ -703,7 +714,7 @@ nb::object eager_parallel(Op& self, const nb::tuple& inputs) {
                 if (e.matches(PyExc_StopIteration)) { stop = true; break; }
                 throw;
             }
-            if (!nb::try_cast<double>(item, array[i]))
+            if (!read_double(item, array[i]))
                 throw_not_a_number(op_display_name(nb::find(self)), item,
                                    where_text("event", event, i));
         }
@@ -852,7 +863,7 @@ nb::object functor_1i_Mo(Op& self, nb::object input) {
     // Case 2: Scalar input -> tuple of M floats (one streaming event)
     {
         double d;
-        if (nb::try_cast<double>(input, d)) {
+        if (read_double(input, d)) {
             typename Op::InputArray input_array = { d };
             return nb::cast(self.call(input_array));
         }
@@ -875,7 +886,7 @@ nb::object functor_1i_Mo(Op& self, nb::object input) {
         std::size_t event = 0;
         for (nb::handle item : input) {
             double d;
-            if (!nb::try_cast<double>(item, d))
+            if (!read_double(item, d))
                 throw_not_a_number(op_display_name(nb::find(self)), item, where_text("event", event));
             typename Op::InputArray input_array = { d };
             results.push_back(self.call(input_array));
@@ -912,7 +923,7 @@ nb::object functor_1i_1o(Op& self, nb::object input) {
     // Case 2: Scalar input (one streaming event)
     {
         double d;
-        if (nb::try_cast<double>(input, d)) {
+        if (read_double(input, d)) {
             typename Op::InputArray input_array = { d };
             return nb::cast(self.call(input_array));
         }
@@ -936,7 +947,7 @@ nb::object functor_1i_1o(Op& self, nb::object input) {
         std::size_t event = 0;
         for (nb::handle item : input) {
             double d;
-            if (nb::try_cast<double>(item, d)) {
+            if (read_double(item, d)) {
                 // Case 2.1: Scalar input item
                 typename Op::InputArray input_array = { d };
                 results.push_back(self.call(input_array));
@@ -1041,7 +1052,7 @@ nb::object functor_Ni_1o(Op& self, const nb::args& raw_args) {
         typename Op::InputArray array;
         bool ok = true;
         for (size_t i = 0; i < N; ++i) {
-            if (!nb::try_cast<double>(nb::borrow<nb::object>(inputs[i]), array[i])) { ok = false; break; }
+            if (!read_double(nb::borrow<nb::object>(inputs[i]), array[i])) { ok = false; break; }
         }
         if (ok) return nb::cast(self.call(array));
     }
@@ -1158,7 +1169,7 @@ nb::object functor_Ni_Mo(Op& self, const nb::args& raw_args) {
         typename Op::InputArray array;
         bool ok = true;
         for (size_t i = 0; i < N; ++i) {
-            if (!nb::try_cast<double>(nb::borrow<nb::object>(inputs[i]), array[i])) { ok = false; break; }
+            if (!read_double(nb::borrow<nb::object>(inputs[i]), array[i])) { ok = false; break; }
         }
         if (ok) return nb::cast(self.call(array));
     }

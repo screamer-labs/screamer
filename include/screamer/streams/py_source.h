@@ -38,10 +38,12 @@ namespace screamer { namespace streams {
 template <class Index>
 class PySource : public Source<Index> {
 public:
+    // `unit`, when given, is the index kind shared by every source of the call
+    // (py_index.h TimeUnit); it must outlive the source.
     PySource(nb::object it, bool positional, std::size_t input = 0,
-             const char* owner = "stream")
+             const char* owner = "stream", screamer::TimeUnit* unit = nullptr)
         : it_(std::move(it)), positional_(positional), counter_(0), event_(0),
-          input_(input), owner_(owner) {}
+          input_(input), owner_(owner), unit_(unit) {}
 
     std::optional<Event<Index>> next() override {
         if (!it_.is_valid()) return std::nullopt;   // cleared by the garbage collector
@@ -59,6 +61,14 @@ public:
         const std::size_t event = event_++;
         if (positional_) {
             ev.index = static_cast<Index>(counter_++);
+            if constexpr (std::is_integral_v<Index>) {
+                try {
+                    screamer::note_number(unit_);         // an arrival count
+                } catch (const screamer::dag::IndexTypeError& e) {
+                    throw screamer::dag::IndexTypeError(std::string(owner_) + ": " +
+                        where(event, "the index of event") + ": " + e.what());
+                }
+            }
             if (!nb::try_cast<double>(item, ev.value)) {
                 if (!item.is_none()) bad(event, "event", item);
                 ev.value = kNaN;                    // a missing value (A9)
@@ -116,7 +126,7 @@ public:
                 // The engine's index rule, as in a live push (py_index.h), with
                 // the event's position in the message.
                 try {
-                    ev.index = static_cast<Index>(screamer::py_index(tup[1], &unit_));
+                    ev.index = static_cast<Index>(screamer::py_index(tup[1], unit_));
                 } catch (const screamer::dag::IndexTypeError& e) {
                     throw screamer::dag::IndexTypeError(
                         std::string(owner_) + ": " + where(event, "the index of event") +
@@ -162,7 +172,7 @@ private:
     std::size_t input_;                 // this source's input position
     const char* owner_;                 // "Pipeline", "stream"
     std::vector<double> wide_values_;   // populated when last event was wide
-    screamer::TimeUnit unit_;           // the unit of a datetime64 / timedelta64 index
+    screamer::TimeUnit* unit_;          // the call's index kind, shared; may be null
     static constexpr double kNaN = std::numeric_limits<double>::quiet_NaN();
 };
 

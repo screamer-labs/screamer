@@ -52,7 +52,13 @@ export function merge(..._nodes: Node[]): Node {
 
 // Validate columns (a non-negative int or a sequence of them). Mirrors
 // screamer/streams.py `_normalize_columns`.
+// An operator setting is a number; a string is a wrong kind, never parsed (R-a).
+function setting(name: string, v: unknown): void {
+  if (typeof v === "string") throw new TypeError(`${name} must be a number, got a string`);
+}
+
 function normalizeColumns(columns: number | number[]): number[] {
+  (Array.isArray(columns) ? columns : [columns]).forEach((c) => setting("select: columns", c));
   const cols = Array.isArray(columns) ? columns.map((c) => Math.trunc(c)) : [Math.trunc(columns)];
   for (const c of cols) {
     if (c < 0) throw new Error(`select: column index must be non-negative, got ${c}`);
@@ -99,6 +105,7 @@ export function filter(data: Node, mask: Node): Node {
 // Re-stamp each event's index by `k` index units; values unchanged.
 export function delay(node: Node, k: number): Node {
   if (!isNode(node)) throw new Error("delay: first argument must be a Node");
+  setting("delay: duration", k);
   return new Node({ combinator: "delay", params: { duration: Math.trunc(k) } }, [node]);
 }
 
@@ -162,6 +169,8 @@ export function resample(node: Node, opts: ResampleOpts = {}): Node {
     modeCode = RESAMPLE_MODE_CODE.by_index; // 0
   }
 
+  for (const k of ["threshold", "every", "count", "origin", "maxAge"] as const)
+    setting(`resample: ${k}`, (opts as any)[k]);
   const labelCode = RESAMPLE_LABEL_CODE[opts.label ?? "left"]; // right -> 1 else 0
   const width = opts.every !== undefined && opts.every !== null ? Math.trunc(opts.every) : 1;
   const origin = Math.trunc(opts.origin ?? 0);

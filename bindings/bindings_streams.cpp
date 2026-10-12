@@ -59,14 +59,15 @@ template <class Index>
 class MergeLazyPuller {
 public:
     MergeLazyPuller(nb::list iter_list, bool positional)
-        : positional_(positional), pending_source_(-1) {
+        : positional_(positional), pending_source_(-1),
+          unit_(std::make_unique<screamer::TimeUnit>()) {
         std::size_t n = iter_list.size();
         sources_.reserve(n);
         child_ptrs_.reserve(n);
         for (nb::handle h : iter_list) {
             sources_.push_back(
                 std::make_unique<PySource<Index>>(nb::borrow<nb::object>(h), positional,
-                                                  sources_.size(), "merge"));
+                                                  sources_.size(), "merge", unit_.get()));
             child_ptrs_.push_back(sources_.back().get());
         }
         // Prime the heap with the first event from each child.
@@ -131,6 +132,7 @@ private:
 
     bool positional_;
     int pending_source_;
+    std::unique_ptr<screamer::TimeUnit> unit_;   // the index kind of every source
     std::vector<std::unique_ptr<PySource<Index>>> sources_;
     std::vector<Source<Index>*> child_ptrs_;
     std::priority_queue<Node, std::vector<Node>, Greater> heap_;

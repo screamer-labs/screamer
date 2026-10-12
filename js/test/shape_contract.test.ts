@@ -196,13 +196,15 @@ test("C4: a list of N-element lists and of (K, N) NdArray events reads as events
   test("G7: Pipeline feeds and live pushes keep the primitive coercions", async () => {
     await ready();
     const pipe = () => { const i = a.Input("a"); return a.Pipeline([i], [a.RollingMean(1)(i)]); };
-    // A null value is a missing value, NaN (A9); the other primitives keep ToNumber.
-    const out = pipe()([1, "3", true, undefined, null, new Date(5)] as any);
-    assert.deepEqual(Array.from(out.values as Float64Array), [1, 3, 1, NaN, NaN, 5]);
+    // A null value is a missing value, NaN (A9); a string is a TypeError (R-a); the
+    // other primitives keep ToNumber.
+    const out = pipe()([1, true, undefined, null, new Date(5)] as any);
+    assert.deepEqual(Array.from(out.values as Float64Array), [1, 1, NaN, NaN, 5]);
+    assert.throws(() => pipe()([1, "3"] as any), TypeError);
     // An index must be a number: a string or boolean is a TypeError.
     for (const bad of ["1", true])
       assert.throws(() => pipe()({ values: [1, 2], index: [0, bad] } as any), TypeError);
-    for (const [v, want] of [["3", 3], [true, 1], [null, NaN], [undefined, NaN], [new Date(5), 5]] as [unknown, number][]) {
+    for (const [v, want] of [[true, 1], [null, NaN], [undefined, NaN], [new Date(5), 5]] as [unknown, number][]) {
       const lv = pipe().live();
       lv.push("a", 0, v as any);
       lv.flush();

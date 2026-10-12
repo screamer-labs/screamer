@@ -45,39 +45,65 @@ struct NpyTimeScalar {
     int num;
 };
 
-// The unit of the datetime64 / timedelta64 index a feed has used so far. A
-// feed reads its times as int64 ticks of their own unit, as a batch array
-// does; a second unit within one feed would mix scales, so it raises.
+// The kind of index a Pipeline call, a live session or a stream merge has
+// taken so far: plain numbers, or times of one kind and unit. A time index is
+// read as int64 ticks of its own unit, as a batch array is, so numbers and
+// times, or times of two units, would mix scales; the first index fixes the
+// kind and a different one raises TypeError (rule 5). Shared by every input
+// of the call, and by advance().
 struct TimeUnit {
-    int kind = -1;          // -1 none yet, 0 datetime64, 1 timedelta64
-    int base = 0;
+    static constexpr int kNone = -1, kDatetime = 0, kTimedelta = 1, kNumber = 2;
+    int kind = kNone;
+    int base = 0;           // NPY_DATETIMEUNIT, for a time kind
     int num = 0;
 };
 
-inline std::string time_unit_text(int kind, int base, int num) {
+inline std::string index_kind_text(int kind, int base, int num) {
+    if (kind == TimeUnit::kNumber) return "a number";
     static const char* const names[] = {"Y", "M", "W", "B", "D", "h", "m", "s", "ms",
                                         "us", "ns", "ps", "fs", "as", "generic"};
-    std::string s = kind == 0 ? "datetime64[" : "timedelta64[";
+    std::string s = kind == TimeUnit::kDatetime ? "a datetime64[" : "a timedelta64[";
     if (num != 1) s += std::to_string(num);
     s += (base >= 0 && base < 15) ? names[base] : "?";
     return s + "]";
+}
+
+[[noreturn]] inline void throw_index_kind_change(const TimeUnit& had, int kind, int base, int num) {
+    throw screamer::dag::IndexTypeError(
+        "index is " + index_kind_text(kind, base, num) + ", but earlier indexes were " +
+        index_kind_text(had.kind, had.base, had.num) + "; every index of a Pipeline "
+        "call or live session must have one kind and unit (convert them first)");
+}
+
+// Records a plain-number index in `unit`; one compare once the kind is set.
+inline void note_number(TimeUnit* unit) {
+    if (!unit || unit->kind == TimeUnit::kNumber) return;
+    if (unit->kind != TimeUnit::kNone) throw_index_kind_change(*unit, TimeUnit::kNumber, 0, 0);
+    unit->kind = TimeUnit::kNumber;
+}
+
+// Records a time index of `kind`, `base`, `num` in `unit`.
+inline void note_time(TimeUnit* unit, int kind, int base, int num) {
+    if (!unit) return;
+    if (unit->kind == TimeUnit::kNone) { *unit = TimeUnit{kind, base, num}; return; }
+    if (unit->kind != kind || unit->base != base || unit->num != num)
+        throw_index_kind_change(*unit, kind, base, num);
 }
 
 // A np.datetime64 / np.timedelta64 index as its int64 ticks. NaT raises.
 inline std::int64_t time_index(PyObject* p, int kind, TimeUnit* unit) {
     const NpyTimeScalar* s = reinterpret_cast<const NpyTimeScalar*>(p);
     if (s->ticks == INT64_MIN) screamer::dag::throw_index_nat();
-    if (unit) {
-        if (unit->kind < 0) {
-            *unit = TimeUnit{kind, s->base, s->num};
-        } else if (unit->kind != kind || unit->base != s->base || unit->num != s->num) {
-            throw screamer::dag::IndexTypeError(
-                "index unit changed from " + time_unit_text(unit->kind, unit->base, unit->num) +
-                " to " + time_unit_text(kind, s->base, s->num) +
-                " within one feed; give every index of a feed the same unit");
-        }
-    }
+    note_time(unit, kind, s->base, s->num);
     return s->ticks;
+}
+
+// The NPY_DATETIMEUNIT of a unit name ("ns", "s", ...), -1 if unknown.
+inline int time_unit_base(const std::string& name) {
+    static const char* const names[] = {"Y", "M", "W", "B", "D", "h", "m", "s", "ms",
+                                        "us", "ns", "ps", "fs", "as", "generic"};
+    for (int i = 0; i < 15; ++i) if (name == names[i]) return i;
+    return -1;
 }
 
 // A Python int as an index; one past int64 is out of range, not an OverflowError.
@@ -95,13 +121,15 @@ inline std::int64_t long_index(PyObject* p) {
 // their own unit, as a batch array of them is. A bool, str, bytes, None,
 // Decimal, Fraction or any other object is a TypeError, and so is NaT. The
 // rule and the messages are the engine's (checked_index.h). `unit`, when
-// given, holds the feed's time unit (TimeUnit).
+// given, holds the index kind of the call or session (TimeUnit); it is updated
+// before the index is returned, so a caller that may still reject the event
+// passes a copy and commits it afterwards.
 inline std::int64_t py_index(nb::handle index, TimeUnit* unit = nullptr) {
     PyObject* p = index.ptr();
-    if (PyLong_CheckExact(p)) return long_index(p);
-    if (PyFloat_Check(p)) return screamer::dag::checked_index(PyFloat_AsDouble(p));
+    if (PyLong_CheckExact(p)) { note_number(unit); return long_index(p); }
+    if (PyFloat_Check(p)) { note_number(unit); return screamer::dag::checked_index(PyFloat_AsDouble(p)); }
     if (PyBool_Check(p)) screamer::dag::throw_index_kind("bool");
-    if (PyLong_Check(p)) return long_index(p);
+    if (PyLong_Check(p)) { note_number(unit); return long_index(p); }
     const NumpyTypes& np = numpy_types();
     PyTypeObject* type = Py_TYPE(p);
     const bool int64 = reinterpret_cast<PyObject*>(type) == np.int64;
@@ -114,6 +142,7 @@ inline std::int64_t py_index(nb::handle index, TimeUnit* unit = nullptr) {
         PyObject* ix = PyNumber_Index(p);
         if (!ix) throw nb::python_error();
         nb::object hold = nb::steal(ix);
+        note_number(unit);
         return long_index(ix);
     }
     const int floating = PyObject_IsInstance(p, np.floating);
@@ -121,6 +150,7 @@ inline std::int64_t py_index(nb::handle index, TimeUnit* unit = nullptr) {
     if (floating) {                                  // np.float32, np.float16
         double d = PyFloat_AsDouble(p);
         if (d == -1.0 && PyErr_Occurred()) throw nb::python_error();
+        note_number(unit);
         return screamer::dag::checked_index(d);
     }
     if (PyType_IsSubtype(type, reinterpret_cast<PyTypeObject*>(np.datetime64)))
