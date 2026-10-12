@@ -7,7 +7,9 @@
 #include <cstddef>
 #include <cstdint>
 #include <exception>
+#include <cmath>
 #include <limits>
+#include <memory>
 #include <string>
 #include <utility>
 #include <vector>
@@ -100,7 +102,7 @@ void deflatedSharpeInto(std::uintptr_t pnl, std::size_t n, std::uintptr_t trials
 //     output's [ndim, d0, d1, d2] to hdrPtr.
 //   fetch(outPtr, count): copies the last output's count values to outPtr.
 //   metric(hdrPtr): writes the custom metric of the last output to hdrPtr[0].
-//   done(resultPtr, count): copies the result out (see strategyTestRun).
+//   done(headPtr, nullPtr, nullCount, statsPtr, n): copies the result out.
 // Each returns 0, or 1 when the user's code threw; the JS side keeps that
 // error, this host throws CallbackFailed to unwind the driver, and the JS
 // wrapper rethrows the user's error unchanged. call_js is the only place C++
@@ -145,8 +147,20 @@ public:
         return hdr_[0];
     }
 
-    void done(const std::vector<double>& result) {
-        call_js("done", reinterpret_cast<std::uintptr_t>(result.data()), result.size());
+    double* null_stats(std::size_t q, std::size_t n) override {
+        if (!stats_) stats_.reset(new double[sv::kNumStats * n ? sv::kNumStats * n : 1]);
+        return stats_.get() + q * n;
+    }
+
+    // Hands the result to JS: head = [observed, p_value, observed stats
+    // (kNumStats)], the finite null metrics, and the (kNumStats x n)
+    // statistics the driver wrote.
+    void done(const sv::StrategyTestResult& r, std::size_t n) {
+        double head[2 + sv::kNumStats] = {r.observed, r.p_value};
+        std::copy(r.observed_stats.begin(), r.observed_stats.end(), head + 2);
+        call_js("done", reinterpret_cast<std::uintptr_t>(head),
+                reinterpret_cast<std::uintptr_t>(r.null.data()), r.null.size(),
+                reinterpret_cast<std::uintptr_t>(stats_.get()), n);
     }
 
 private:
@@ -159,6 +173,7 @@ private:
     std::vector<std::vector<double>> moved_;
     std::vector<double> args_, out_;
     double hdr_[4] = {0, 0, 0, 0};
+    std::unique_ptr<double[]> stats_;   // one block, row q at q * n
 };
 
 // A JS number as an int64: integers outside the range are clamped, so they
@@ -170,6 +185,14 @@ std::int64_t to_int64(double x) {
     return static_cast<std::int64_t>(x);
 }
 
+// A seed: an integer in [0, 2^53) (validation.ts checkSeed). Anything else
+// maps to 2^53, which the driver rejects with its message.
+std::uint64_t to_seed(double x) {
+    constexpr double limit = 9007199254740992.0;   // 2^53
+    if (!(x >= 0.0 && x < limit) || x != std::floor(x)) return std::uint64_t(1) << 53;
+    return static_cast<std::uint64_t>(x);
+}
+
 std::vector<std::int64_t> positions(const emscripten::val& v) {
     std::vector<std::int64_t> out;
     for (double x : emscripten::vecFromJSArray<double>(v)) out.push_back(to_int64(x));
@@ -177,11 +200,11 @@ std::vector<std::int64_t> positions(const emscripten::val& v) {
 }
 
 // `spec` holds [data address, T, K, panel] per input. The result goes to
-// cb.done as [observed, p_value, null count, null (n), observed stats (15),
-// null stats (15 x n)]; it is built here, after the driver has checked n, so
-// JS allocates nothing sized by n. Positions and counts arrive as integers
-// (the JS side maps a non-integer to -1 or 0, which the driver rejects);
-// strings as vals, as in permuteBarsInto.
+// cb.done (see JsStrategyHost::done); the statistics are written straight
+// into the host's block, so the WASM heap holds the result once and JS
+// allocates nothing sized by n before the driver has checked it. Positions
+// and counts arrive as integers (the JS side maps a non-integer to -1 or 0,
+// which the driver rejects); strings as vals, as in permuteBarsInto.
 void strategyTestRun(emscripten::val cb, std::uintptr_t spec, std::size_t k,
                      emscripten::val method, double n, emscripten::val ohlc, double price,
                      emscripten::val mode, bool has_volume, double volume,
@@ -208,21 +231,12 @@ void strategyTestRun(emscripten::val cb, std::uintptr_t spec, std::size_t k,
     opt.metric = metric.as<std::string>();
     opt.larger_is_better = larger_is_better;
     if (has_min_shift) opt.min_shift = to_int64(min_shift);
-    opt.seed = static_cast<std::uint64_t>(seed);
+    opt.seed = to_seed(seed);
     opt.periods_per_year = periods_per_year;
 
     JsStrategyHost host(std::move(cb), k);
     const sv::StrategyTestResult r = sv::strategy_test(host, data, opt);
-    // n passed the driver's check, so this size cannot overflow.
-    const std::size_t nn = static_cast<std::size_t>(opt.n);
-    std::vector<double> o(3 + nn + sv::kNumStats + sv::kNumStats * nn);
-    o[0] = r.observed;
-    o[1] = r.p_value;
-    o[2] = static_cast<double>(r.null.size());
-    std::copy(r.null.begin(), r.null.end(), o.begin() + 3);
-    std::copy(r.observed_stats.begin(), r.observed_stats.end(), o.begin() + 3 + nn);
-    std::copy(r.null_stats.begin(), r.null_stats.end(), o.begin() + 3 + nn + sv::kNumStats);
-    host.done(o);
+    host.done(r, static_cast<std::size_t>(opt.n));
 }
 
 // The driver's statistic table, as [name, source, column, larger] rows

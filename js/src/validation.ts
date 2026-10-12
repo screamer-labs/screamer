@@ -199,7 +199,7 @@ function metricSpec(metric: PositionTestMetric, largerIsBetter?: boolean)
   if (typeof metric === "function")
     return { name: metric.name || "custom", larger: largerIsBetter ?? true };
   const { metrics, names } = statTableFromWasm();
-  if (!(metric in metrics))
+  if (!Object.hasOwn(metrics, metric))
     throw new RangeError(`metric must be one of ${[...names].sort().join(", ")} or a function`);
   const larger = largerIsBetter ?? metrics[metric].larger;
   if (larger === null)
@@ -761,14 +761,15 @@ export function strategyTest(
     metric: (hdrPtr: number) => {
       M.viewF64(hdrPtr, 1)[0] = (metric as (out: NdArray) => number)(last as NdArray);
     },
-    // [observed, p_value, null count, null (n), observed stats (15), null stats (15 x n)]
-    done: (ptr: number, size: number) => {
-      const o = M.viewF64(ptr, size);
-      const nn = (size - 18) / 16, count = o[2], s0 = 3 + nn, n0 = s0 + 15;
+    // [observed, p_value, observed stats (15)]; the finite null metrics; the
+    // (15 x n) statistics
+    done: (headPtr: number, nullPtr: number, count: number, statsPtr: number, nn: number) => {
+      const head = M.viewF64(headPtr, 17);
+      const stats = M.viewF64(statsPtr, 15 * nn);
       result = {
-        observed: o[0], null: o.slice(3, 3 + count), pValue: o[1], metric: name, method,
-        observedStats: statsRecord((i) => o[s0 + i]),
-        nullStats: statsRecord((i) => o.slice(n0 + i * nn, n0 + (i + 1) * nn)),
+        observed: head[0], null: M.viewF64(nullPtr, count).slice(), pValue: head[1],
+        metric: name, method, observedStats: statsRecord((i) => head[2 + i]),
+        nullStats: statsRecord((i) => stats.slice(i * nn, (i + 1) * nn)),
       };
     },
   });

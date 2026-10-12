@@ -397,7 +397,7 @@ test("validation: strategyTest checks the range of n before allocating", async (
     { name: "RangeError", message: "n must be at least 1" });
   for (const n of [2 ** 32 + 3, 2 ** 60, Number.MAX_VALUE])
     assert.throws(() => strategyTest(hold, [c], { method: "returns", n }),
-      (e: any) => e instanceof RangeError && /^n is too large: at most \d+ runs$/.test(e.message));
+      { name: "RangeError", message: "n is too large: at most 14680064 runs" });
   assert.equal(strategyTest(hold, [c], { method: "returns", n: 3 }).null.length, 3);
 });
 
@@ -410,6 +410,11 @@ test("validation: the statistic table comes from C++", async () => {
   assert.deepEqual(metrics.sharpe, { src: "report", col: 5, larger: true });
   assert.deepEqual(metrics.turnover, { src: "report", col: 2, larger: null });
   assert.deepEqual(metrics.total_cost, { src: "report", col: 1, larger: false });
+  // an inherited property name is not a statistic
+  const { strategyTest } = await import("../src/index.ts");
+  for (const metric of ["toString", "constructor", "__proto__"])
+    assert.throws(() => strategyTest(() => null, [[1, 2, 3]], { metric: metric as any }),
+      (e: any) => e instanceof RangeError && e.message.startsWith("metric must be one of avg_holding"));
 });
 
 test("validation: C++ calls JavaScript only through wasmCallbacks", async () => {

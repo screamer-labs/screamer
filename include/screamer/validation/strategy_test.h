@@ -63,13 +63,21 @@ namespace screamer { namespace validation {
         return s == StatSource::Engine ? "engine" : s == StatSource::Report ? "report" : "stats";
     }
 
-    // The largest number of randomized runs: 2^31 - 1, and fewer where the
-    // result, (kNumStats + 1) values per run plus a few more that a binding
-    // may copy into one buffer, would not fit in a size_t or a vector (32-bit
-    // WebAssembly).
+    // The largest number of randomized runs. A run keeps kNumStats + 1
+    // doubles: its statistics, which the driver writes into the binding's own
+    // result arrays, and its metric in the null list (reserved up front). So
+    // the limit is 2^31 - 1 where memory is not the bound, and in 32-bit
+    // WebAssembly what fits in the module's 2 GB heap after 256 MB for the
+    // inputs, the engine outputs, and the runtime: 14680064 runs.
+    inline constexpr std::size_t kRunBytes = (kNumStats + 1) * sizeof(double);
     inline std::size_t max_strategy_runs() {
+#if defined(__EMSCRIPTEN__)
+        constexpr std::size_t heap = std::size_t(1) << 31, reserve = std::size_t(1) << 28;
+        return (heap - reserve) / kRunBytes;
+#else
         const std::size_t cap = std::vector<double>().max_size();
         return std::min<std::size_t>(2147483647, (cap - 64) / (kNumStats + 1));
+#endif
     }
 
     inline std::size_t stat_index(const std::string& name) {
@@ -221,6 +229,11 @@ namespace screamer { namespace validation {
         // The custom metric of the last run's output (only called when the
         // options name no statistic).
         virtual double metric() = 0;
+        // Room for statistic q of all n runs (run j at index j), in the
+        // binding's own result array, so the result is held once. Called for
+        // q = 0 .. kNumStats - 1 after n has been checked and before the first
+        // run; the buffers need not be initialized.
+        virtual double* null_stats(std::size_t q, std::size_t n) = 0;
     };
 
     struct StrategyTestOptions {
@@ -245,7 +258,7 @@ namespace screamer { namespace validation {
         std::vector<double> null;                // the finite metrics, in run order
         double p_value = 0.0;
         std::array<double, kNumStats> observed_stats{};
-        std::vector<double> null_stats;          // (kNumStats x n): row q is statistic q
+        // The statistics of the runs are in the host's null_stats buffers.
     };
 
     namespace detail {
@@ -372,8 +385,14 @@ namespace screamer { namespace validation {
             vol_col.reset();
         }
 
-        RunScorer scorer(opt.periods_per_year);
+        // Everything sized by n, allocated once before any run and without
+        // touching its pages: a request that cannot fit fails here.
         StrategyTestResult res;
+        res.null.reserve(n);
+        std::array<double*, kNumStats> rows;
+        for (std::size_t q = 0; q < kNumStats; ++q) rows[q] = host.null_stats(q, n);
+
+        RunScorer scorer(opt.periods_per_year);
         std::vector<unsigned char> moved(k, 0);
         auto score = [&](std::array<double, kNumStats>& stats) {
             const EngineOutput out = host.run(moved);
@@ -415,9 +434,6 @@ namespace screamer { namespace validation {
         std::vector<double> scratch(
             size * static_cast<std::size_t>(std::count(overwritten.begin(), overwritten.end(), 1)));
         std::vector<double> source(T);
-        // The statistics grow with the runs that are done (nothing sized by n
-        // is allocated up front) and are transposed to (kNumStats x n) at the end.
-        std::vector<std::array<double, kNumStats>> runs;
         std::array<double, kNumStats> stats;
         for (std::size_t j = 0; j < n; ++j) {
             std::fill(moved.begin(), moved.end(), 0);
@@ -453,13 +469,10 @@ namespace screamer { namespace validation {
                 moved[i] = 1;
             }
             const double v = score(stats);
-            runs.push_back(stats);
+            for (std::size_t q = 0; q < kNumStats; ++q) rows[q][j] = stats[q];
             if (std::isfinite(v)) res.null.push_back(v);
         }
 
-        res.null_stats.resize(kNumStats * n);
-        for (std::size_t j = 0; j < n; ++j)
-            for (std::size_t q = 0; q < kNumStats; ++q) res.null_stats[q * n + j] = runs[j][q];
         std::size_t hits = 0;
         for (double v : res.null)
             hits += opt.larger_is_better ? v >= res.observed : v <= res.observed;
