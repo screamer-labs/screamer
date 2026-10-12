@@ -49,8 +49,19 @@ keeps offsetting commodity legs visible instead of hiding them in net position.
 The asset count is fixed after `reset()`. A row containing any `NaN` is skipped: the report row is all-`NaN` and the state
 holds.
 
-The same operator accepts a single `(assets, 4)` row or an iterable of such rows
-for incremental use.
+Positions are in units of each asset, so summing their changes only makes sense
+when the units are comparable. For a book of assets with different prices, pass
+a `(time, assets)` price array as a second argument: `PortfolioReport()(out,
+prices)`. Turnover is then the traded notional, the running sum of
+`abs(position change * price)` over the assets, in the money units of equity and
+cost. A price is read only for an asset whose position changed on that row, so
+a `NaN` price for an asset that is not quoted and not traded is not used. A
+`NaN` price for an asset that traded skips the row.
+
+The same operator accepts a single `(assets, 4)` row, with `(assets,)` prices,
+or an iterable of rows for incremental use. With prices, a stream is two
+iterables, one of rows and one of price rows, or one iterable of `(row, prices)`
+pairs.
 
 
 <!-- NAN_FOOTNOTE_START -->
@@ -72,4 +83,17 @@ signal = np.array([1.0, 1.0, 0.0])
 engine = BacktestPriceTarget()(signal, price)
 engine_output = np.stack([engine, engine], axis=1)  # (time, assets, 4)
 report = PortfolioReport()(engine_output)             # (time, 6)
+```
+
+### Turnover as traded notional
+
+```python
+import numpy as np
+from screamer import PortfolioReport
+
+out = np.zeros((3, 2, 4))                       # (time, assets, 4)
+out[:, :, 2] = [[0, 0], [1, 2], [1, 0]]         # positions in units
+prices = np.array([[10.0, 1.0], [10.0, 1.0], [20.0, 1.0]])
+PortfolioReport()(out)[:, 2]                    # [0, 3, 5]: units
+PortfolioReport()(out, prices)[:, 2]            # [0, 12, 14]: notional
 ```

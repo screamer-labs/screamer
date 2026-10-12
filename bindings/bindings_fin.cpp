@@ -97,61 +97,122 @@ template <> struct type_caster<screamer::PerAsset> {
 
 namespace {
 
-// Parse one PortfolioReport event. The event is a contiguous (assets, 4)
-// array/list with columns [equity, pnl, position, cost].
-nb::object portfolio_report_row(screamer::PortfolioReport& self, nb::object row) {
-    if (screamer::detail::is_unsupported_dtype_array(row))
-        row = screamer::detail::coerce_to_f64(row);
-    if (!screamer::detail::is_ndarray(row)) {
-        if (!(nb::isinstance<nb::list>(row) || nb::isinstance<nb::tuple>(row)))
-            throw nb::type_error("PortfolioReport rows must be arrays or sequences.");
+// Reads a PortfolioReport argument (array, list, or tuple) as contiguous
+// float64 values. A value that is not numeric raises the wrong-kind TypeError.
+screamer::detail::ContigDouble portfolio_values(nb::object x, const char* what) {
+    if (screamer::detail::is_unsupported_dtype_array(x))
+        x = screamer::detail::coerce_to_f64(x);
+    if (!screamer::detail::is_ndarray(x)) {
+        if (!(nb::isinstance<nb::list>(x) || nb::isinstance<nb::tuple>(x)))
+            throw nb::type_error((std::string("PortfolioReport ") + what +
+                                  " must be arrays or sequences.").c_str());
         nb::module_ np = nb::module_::import_("numpy");
-        row = np.attr("asarray")(row, nb::arg("dtype") = np.attr("float64"));
+        x = np.attr("asarray")(x, nb::arg("dtype") = np.attr("float64"));
     }
-    auto values = screamer::detail::read_contig_double(nb::cast<nb::ndarray<nb::ro>>(row));
+    return screamer::detail::read_contig_double(nb::cast<nb::ndarray<nb::ro>>(x));
+}
+
+std::string shape_text(const std::vector<std::size_t>& shape) {
+    std::string s = "(";
+    for (std::size_t i = 0; i < shape.size(); ++i)
+        s += (i ? ", " : "") + std::to_string(shape[i]);
+    return s + (shape.size() == 1 ? ",)" : ")");
+}
+
+// Checks that a price argument holds `rows` rows of `assets` prices: shape
+// (assets,) for one event, (rows, assets) for a batch. A trailing size-1
+// field axis is read away (rule 1).
+void check_prices(screamer::detail::ContigDouble& prices, bool batch, std::size_t rows,
+                  std::size_t assets) {
+    const std::size_t nd = batch ? 2 : 1;
+    if (prices.ndim() == nd + 1 && prices.shape.back() == 1) prices.shape.pop_back();
+    std::vector<std::size_t> want;
+    if (batch) want.push_back(rows);
+    want.push_back(assets);
+    if (prices.shape != want)
+        throw nb::value_error(("PortfolioReport prices must have shape " + shape_text(want) +
+                               ", one price per asset" + (batch ? " and time step" : "") +
+                               ", got " + shape_text(prices.shape) + ".").c_str());
+}
+
+// One PortfolioReport event: a contiguous (assets, 4) row with columns
+// [equity, pnl, position, cost], or a flat row of 4 * assets values, and
+// optionally (assets,) prices.
+nb::object portfolio_report_event(screamer::PortfolioReport& self,
+                                  const screamer::detail::ContigDouble& values,
+                                  screamer::detail::ContigDouble* prices) {
+    std::size_t assets = 0;
     if (values.ndim() == 1) {
         if (values.shape[0] == 0 || values.shape[0] % 4 != 0)
             throw nb::value_error("PortfolioReport rows must have a multiple of 4 values.");
-        return nb::cast(self.call_assets(values.data.data(), values.shape[0] / 4));
-    }
-    if (values.ndim() != 2 || values.shape[1] != 4)
+        assets = values.shape[0] / 4;
+    } else if (values.ndim() == 2 && values.shape[1] == 4) {
+        assets = values.shape[0];
+    } else {
         throw nb::value_error("PortfolioReport rows must have shape (assets, 4).");
-    return nb::cast(self.call_assets(values.data.data(), values.shape[0]));
+    }
+    if (!prices) return nb::cast(self.call_assets(values.data.data(), assets));
+    check_prices(*prices, false, 1, assets);
+    return nb::cast(self.call_assets(values.data.data(), prices->data.data(), assets));
+}
+
+nb::object portfolio_report_row(screamer::PortfolioReport& self, nb::object row) {
+    return portfolio_report_event(self, portfolio_values(std::move(row), "rows"), nullptr);
 }
 
 nb::object portfolio_report_batch(screamer::PortfolioReport& self,
-                                  const screamer::detail::ContigDouble& values) {
+                                  const screamer::detail::ContigDouble& values,
+                                  screamer::detail::ContigDouble* prices = nullptr) {
     if (values.ndim() != 3 || values.shape[2] != 4)
         throw nb::value_error("PortfolioReport batch input must have shape (time, assets, 4).");
     const std::size_t time = values.shape[0];
     const std::size_t assets = values.shape[1];
     if (assets == 0)
         throw nb::value_error("PortfolioReport requires at least one asset.");
+    if (prices) check_prices(*prices, true, time, assets);
     double* out = new double[time * 6 ? time * 6 : 1];
     self.reset();
     for (std::size_t t = 0; t < time; ++t) {
-        auto result = self.call_assets(values.data.data() + t * assets * 4, assets);
+        const double* row = values.data.data() + t * assets * 4;
+        auto result = prices
+            ? self.call_assets(row, prices->data.data() + t * assets, assets)
+            : self.call_assets(row, assets);
         screamer::detail::write_tuple_to_memory(out + t * 6, result);
     }
     self.reset();
     return screamer::detail::make_owned_array(out, {time, 6});
 }
 
-// One PortfolioReport event per step: an (assets, 4) row, for the sync and
-// async iterators alike. A stream is an independent run (decision D8): it runs
-// on its own copy and resets the operator's running series when it opens.
+// True when a single-source event is a (row, prices) pair rather than a row
+// given as a sequence of asset records: a pair holds 4 * K values and K
+// prices, so its two parts never have the same size, while every record of
+// a row holds 4 values.
+bool is_priced_pair(nb::handle event) {
+    if (!(nb::isinstance<nb::tuple>(event) || nb::isinstance<nb::list>(event)) ||
+        nb::len(event) != 2)
+        return false;
+    nb::module_ np = nb::module_::import_("numpy");
+    return !np.attr("size")(event[0]).equal(np.attr("size")(event[1]));
+}
+
+// One PortfolioReport event per step, for the sync and async iterators alike:
+// an (assets, 4) row from one source, a row and (assets,) prices from two
+// sources, or (row, prices) pairs from one source. A stream is an independent
+// run (decision D8): it runs on its own copy and resets the operator's running
+// series when it opens.
 class PortfolioReportStepper final : public screamer::EventStep {
 public:
-    explicit PortfolioReportStepper(const nb::object& owner)
+    PortfolioReportStepper(const nb::object& owner, std::size_t n_sources)
         : owner_(screamer::EventStepper::fresh_copy(owner)),
-          op_(nb::cast<screamer::PortfolioReport&>(owner_)) {
+          op_(nb::cast<screamer::PortfolioReport&>(owner_)),
+          n_sources_(n_sources) {
         nb::cast<screamer::PortfolioReport&>(owner).reset();
     }
 
     nb::object step(const screamer::EventItems& items) override {
         const std::size_t event = event_++;
         try {
-            return portfolio_report_row(op_, nb::borrow<nb::object>(items[0]));
+            return step_event(items);
         } catch (nb::python_error& e) {
             if (screamer::is_conversion_error(e)) wrong_kind(items, event);
             throw;
@@ -166,14 +227,82 @@ public:
     }
 
 private:
+    nb::object step_event(const screamer::EventItems& items) {
+        if (n_sources_ == 2) return priced(items[0], items[1]);
+        nb::handle item = items[0];
+        // The first event fixes whether the stream carries prices.
+        const bool pair = is_priced_pair(item);
+        if (event_ == 1) pairs_ = pair;
+        else if (pair != pairs_)
+            throw nb::value_error(pairs_
+                ? "every event of this stream must be a (row, prices) pair, like the first."
+                : "every event of this stream must be an engine row without prices, like the first.");
+        if (pair) {
+            nb::object parts = nb::borrow<nb::object>(item);
+            return priced(parts[0], parts[1]);
+        }
+        return portfolio_report_row(op_, nb::borrow<nb::object>(item));
+    }
+
+    nb::object priced(nb::handle row, nb::handle prices) {
+        auto v = portfolio_values(nb::borrow<nb::object>(row), "rows");
+        auto p = portfolio_values(nb::borrow<nb::object>(prices), "prices");
+        return portfolio_report_event(op_, v, &p);
+    }
+
     void wrong_kind(const screamer::EventItems& items, std::size_t event) const {
         screamer::throw_if_wrong_kind_event(screamer::op_display_name(owner_), items, event);
     }
 
     nb::object owner_;                    // the stream's own copy
     screamer::PortfolioReport& op_;
+    std::size_t n_sources_;
+    bool pairs_ = false;                  // a one-source stream of (row, prices)
     std::size_t event_ = 0;               // events seen, for error messages
 };
+
+// PortfolioReport()(out, prices): turnover is traded notional. Both inputs
+// are arrays or lists, or both are iterators (sync or async) of rows.
+nb::object portfolio_report_priced(screamer::PortfolioReport& self, nb::args args) {
+    if (screamer::all_async(args))
+        return nb::cast(screamer::LazyAsyncIterator(
+            std::make_unique<PortfolioReportStepper>(nb::find(self), 2),
+            {nb::borrow<nb::object>(args[0]), nb::borrow<nb::object>(args[1])}));
+    const bool lazy0 = screamer::is_lazy_iterable(args[0]);
+    const bool lazy1 = screamer::is_lazy_iterable(args[1]);
+    if (lazy0 != lazy1)
+        throw nb::type_error("PortfolioReport: iterator and array inputs cannot be mixed: pass "
+                             "the engine rows and the prices both as iterators, or neither");
+    if (lazy0)
+        return nb::cast(screamer::LazyEvalIterator(
+            std::make_unique<PortfolioReportStepper>(nb::find(self), 2),
+            {nb::borrow<nb::object>(args[0]), nb::borrow<nb::object>(args[1])}));
+    std::vector<screamer::detail::ContigDouble> in;
+    const char* what[2] = {"rows", "prices"};
+    for (std::size_t i = 0; i < 2; ++i) {
+        nb::object a = nb::borrow<nb::object>(args[i]);
+        try {
+            in.push_back(portfolio_values(a, what[i]));
+        } catch (nb::python_error& e) {
+            if (screamer::is_conversion_error(e))
+                screamer::throw_if_wrong_kind(screamer::op_display_name(nb::find(self)), a,
+                                              screamer::where_text("input", i));
+            throw;
+        } catch (nb::builtin_exception& e) {
+            if (screamer::is_conversion_error(e))
+                screamer::throw_if_wrong_kind(screamer::op_display_name(nb::find(self)), a,
+                                              screamer::where_text("input", i));
+            throw;
+        }
+    }
+    if (in[0].ndim() != 3) return portfolio_report_event(self, in[0], &in[1]);
+    nb::object out = portfolio_report_batch(self, in[0], &in[1]);
+    // Rule 3: lists of rows give a list of result rows; any array among the
+    // inputs gives an array (decision A8).
+    if (nb::isinstance<nb::list>(args[0]) && nb::isinstance<nb::list>(args[1]))
+        return nb::list(out);
+    return out;
+}
 
 nb::object portfolio_report_call(screamer::PortfolioReport& self, nb::args raw) {
     nb::args args = screamer::normalize_args(raw, self);
@@ -187,12 +316,14 @@ nb::object portfolio_report_call(screamer::PortfolioReport& self, nb::args raw) 
             throw nb::type_error("PortfolioReport DAG composition expects four portfolio columns.");
         return screamer::make_dag_functor_node(nb::find(self), nb::cast<nb::tuple>(args));
     }
+    if (args.size() == 2) return portfolio_report_priced(self, args);
     if (args.size() != 1)
-        throw nb::type_error("PortfolioReport expects one engine-output array or row stream.");
+        throw nb::type_error("PortfolioReport expects one engine-output array or row stream, "
+                             "optionally followed by prices.");
     nb::object input = nb::borrow<nb::object>(args[0]);
     if (screamer::is_async_iterable(input))
         return nb::cast(screamer::LazyAsyncIterator(
-            std::make_unique<PortfolioReportStepper>(nb::find(self)), {input}));
+            std::make_unique<PortfolioReportStepper>(nb::find(self), 1), {input}));
     if (screamer::detail::is_unsupported_dtype_array(input))
         input = screamer::detail::coerce_to_f64(input);
     if (screamer::detail::is_ndarray(input)) {
@@ -204,7 +335,7 @@ nb::object portfolio_report_call(screamer::PortfolioReport& self, nb::args raw) 
     }
     if (screamer::is_lazy_iterable(input)) {
         return nb::cast(screamer::LazyEvalIterator(
-            std::make_unique<PortfolioReportStepper>(nb::find(self)), {input}));
+            std::make_unique<PortfolioReportStepper>(nb::find(self), 1), {input}));
     }
     if (nb::isinstance<nb::list>(input) || nb::isinstance<nb::tuple>(input)) {
         // NumPy normalizes nested sequences, so a list can be either one row

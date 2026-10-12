@@ -937,7 +937,9 @@ EMSCRIPTEN_BINDINGS(screamer) {
     emscripten::class_<screamer::PortfolioReport, emscripten::base<screamer::EvalOp>>("PortfolioReport")
         .constructor<>()
         .function("reduceInto", &screamer_wasm::reduceInto<screamer::PortfolioReport>)
-        .function("reduceBatchInto", &screamer_wasm::reduceBatchInto<screamer::PortfolioReport>);
+        .function("reduceBatchInto", &screamer_wasm::reduceBatchInto<screamer::PortfolioReport>)
+        .function("reducePricedInto", &screamer_wasm::reducePricedInto<screamer::PortfolioReport>)
+        .function("reducePricedBatchInto", &screamer_wasm::reducePricedBatchInto<screamer::PortfolioReport>);
     emscripten::class_<screamer::Transform<(double (*)(double)) screamer::pos_part>, emscripten::base<screamer::EvalOp>>("PosPart")
         .constructor<>();
     emscripten::class_<screamer::Power, emscripten::base<screamer::EvalOp>>("Power")

@@ -81,6 +81,31 @@ inline void reduceBatchInto(Op& op, std::uintptr_t inPtr, std::uintptr_t outPtr,
     op.reset();
 }
 
+// The same two entry points with one price per group: pricePtr holds `groups`
+// doubles for one event, `rows * groups` (row-major) for a batch. The op
+// supplies call_assets(row, prices, groups).
+template <class Op>
+inline void reducePricedInto(Op& op, std::uintptr_t inPtr, std::uintptr_t pricePtr,
+                             std::uintptr_t outPtr, std::size_t groups) {
+    writeResult(reinterpret_cast<double*>(outPtr),
+                op.call_assets(reinterpret_cast<const double*>(inPtr),
+                               reinterpret_cast<const double*>(pricePtr), groups));
+}
+
+template <class Op>
+inline void reducePricedBatchInto(Op& op, std::uintptr_t inPtr, std::uintptr_t pricePtr,
+                                  std::uintptr_t outPtr, std::size_t rows, std::size_t groups) {
+    const double* in = reinterpret_cast<const double*>(inPtr);
+    const double* prices = reinterpret_cast<const double*>(pricePtr);
+    double* out = reinterpret_cast<double*>(outPtr);
+    const std::size_t ni = op.n_in(), no = op.n_out();
+    op.reset();
+    for (std::size_t r = 0; r < rows; ++r)
+        writeResult(out + r * no,
+                    op.call_assets(in + r * groups * ni, prices + r * groups, groups));
+    op.reset();
+}
+
 // ---- Row ops (cross-sectional operators, portfolio engines) ---------------
 //
 // A RowOp event is one row of k assets: fieldsIn() * k values in (field-major),

@@ -604,13 +604,14 @@ export function wrapReducerOp(M: Screamer, src: OpSource): ScreamerOp {
   // Scratch for the per-event path, grown on demand and reused across events.
   // Batch calls size their buffers exactly and release them, so a single large
   // batch does not pin memory for the lifetime of the op.
-  let rowBuf = 0, rowCap = 0;
+  let rowBuf = 0, rowCap = 0, priceBuf = 0, priceCap = 0;
   const outBuf = M.allocF64(nOut);
   let disposed = false;
   const free = () => {
     if (disposed) return;
     disposed = true;
     if (rowBuf) M.freeBuf(rowBuf);
+    if (priceBuf) M.freeBuf(priceBuf);
     M.freeBuf(outBuf);
     pool.dispose();
     base.dispose();
@@ -658,7 +659,9 @@ export function wrapReducerOp(M: Screamer, src: OpSource): ScreamerOp {
   // Single-output ops yield a bare number per event and a flat array per batch,
   // the same convention wrapOp follows, so a future 1-output reducer does not
   // silently return a width-1 container where every other op returns a scalar.
-  const event = (flat: ArrayLike<number>, assets: number, o: RawOp = raw): number | number[] => {
+  // With `prices` (one per asset), turnover is traded notional.
+  const event = (flat: ArrayLike<number>, assets: number, o: RawOp = raw,
+                 prices?: ArrayLike<number>): number | number[] => {
     const need = assets * width;
     if (need > rowCap) {
       if (rowBuf) M.freeBuf(rowBuf);
@@ -666,29 +669,52 @@ export function wrapReducerOp(M: Screamer, src: OpSource): ScreamerOp {
       rowCap = need;
     }
     M.viewF64(rowBuf, need).set(flat as number[]);
-    try { o.reduceInto!(rowBuf, outBuf, assets); } catch (e) { throw normalizeError(e); }
+    try {
+      if (prices) {
+        if (assets > priceCap) {
+          if (priceBuf) M.freeBuf(priceBuf);
+          priceBuf = M.allocF64(assets);
+          priceCap = assets;
+        }
+        M.viewF64(priceBuf, assets).set(prices as number[]);
+        o.reducePricedInto!(rowBuf, priceBuf, outBuf, assets);
+      } else {
+        o.reduceInto!(rowBuf, outBuf, assets);
+      }
+    } catch (e) { throw normalizeError(e); }
     const v = M.viewF64(outBuf, nOut);
     return nOut === 1 ? v[0] : Array.from(v);
   };
 
-  const batch = (flat: ArrayLike<number>, rows: number, assets: number): NdArray | Float64Array => {
+  const batch = (flat: ArrayLike<number>, rows: number, assets: number,
+                 prices?: ArrayLike<number>): NdArray | Float64Array => {
     if (rows === 0) {
       return nOut === 1 ? new Float64Array(0) : { data: new Float64Array(0), shape: [0, nOut] };
     }
     const inN = rows * assets * width;
     const inP = M.allocF64(inN), outP = M.allocF64(rows * nOut);
+    const priceP = prices ? M.allocF64(rows * assets) : 0;
     try {
       M.viewF64(inP, inN).set(flat as number[]);
-      try { raw.reduceBatchInto!(inP, outP, rows, assets); } catch (e) { throw normalizeError(e); }
+      try {
+        if (prices) {
+          M.viewF64(priceP, rows * assets).set(prices as number[]);
+          raw.reducePricedBatchInto!(inP, priceP, outP, rows, assets);
+        } else {
+          raw.reduceBatchInto!(inP, outP, rows, assets);
+        }
+      } catch (e) { throw normalizeError(e); }
       const data = new Float64Array(M.viewF64(outP, rows * nOut));
       return nOut === 1 ? data : { data, shape: [rows, nOut] };
     } finally {
       M.freeBuf(inP);
       M.freeBuf(outP);
+      if (priceP) M.freeBuf(priceP);
     }
   };
 
-  const nestedBatch = (x: any[]): NdArray | Float64Array => {
+  // A nested batch as one flat (rows, assets, width) block.
+  const nestedFlat = (x: any[]): { flat: Float64Array; rows: number; assets: number } => {
     const rows = x.length;
     const first = asRow(x[0]);
     const assets = first.assets;
@@ -701,34 +727,128 @@ export function wrapReducerOp(M: Screamer, src: OpSource): ScreamerOp {
       }
       flat.set(f as number[], r * assets * width);
     }
+    return { flat, rows, assets };
+  };
+  const nestedBatch = (x: any[]): NdArray | Float64Array => {
+    const { flat, rows, assets } = nestedFlat(x);
     return batch(flat, rows, assets);
+  };
+
+  // Prices for one event, (assets,) values, or a batch of `rows` events,
+  // (rows, assets): a Float64Array, a number[], an NdArray (a trailing
+  // size-1 axis reads away, rule 1), or for a batch an array of such rows.
+  function asPrices(x: any, rows: number | null, assets: number): ArrayLike<number> {
+    const want = rows === null ? `[${assets}]` : `[${rows},${assets}]`;
+    const bad = (got: string) =>
+      new RangeError(`prices must have shape ${want}, one price per asset${rows === null ? "" : " and event"}, got ${got}`);
+    if (isNd(x)) {
+      let s = x.shape;
+      if (s.length === (rows === null ? 2 : 3) && s[s.length - 1] === 1) s = s.slice(0, -1);
+      const ok = rows === null ? s.length === 1 && s[0] === assets
+        : s.length === 2 && s[0] === rows && s[1] === assets;
+      if (!ok) throw bad(`[${x.shape}]`);
+      return x.data;
+    }
+    if (rows === null) {
+      if (!(isTyped(x) || isNumArr(x))) throw new TypeError("prices must be a numeric array of one price per asset");
+      if (x.length !== assets) throw bad(`[${x.length}]`);
+      return x;
+    }
+    if (!Array.isArray(x) || !x.every((r) => isTyped(r) || isNumArr(r)))
+      throw new TypeError("batch prices must be a [T, K] NdArray or an array of numeric rows");
+    if (x.length !== rows) throw bad(`${x.length} rows`);
+    const flat = new Float64Array(rows * assets);
+    x.forEach((r: ArrayLike<number>, i: number) => {
+      if (r.length !== assets) throw bad(`${r.length} prices at row ${i}`);
+      flat.set(r as number[], i * assets);
+    });
+    return flat;
+  }
+
+  // The number of values in an event part, for telling a (row, prices) pair
+  // from a row given as asset records: a pair holds 4 * K and K values, every
+  // record of a row holds the same number.
+  const size = (x: any): number => {
+    if (isNd(x)) return x.data.length;
+    if (Array.isArray(x)) return x.reduce((n: number, v: any) => n + (typeof v === "number" ? 1 : size(v)), 0);
+    if (isTyped(x)) return x.length;
+    return 1;
+  };
+  const isPricedPair = (x: any) => Array.isArray(x) && x.length === 2 && size(x[0]) !== size(x[1]);
+
+  // One priced event on `o`.
+  const pricedEvent = (row: any, prices: any, o: RawOp = raw) => {
+    const r = asRow(row);
+    return event(r.flat, r.assets, o, asPrices(prices, null, r.assets));
+  };
+
+  // PortfolioReport()(out, prices) on arrays: a batch or one event. An Array
+  // of rows with an Array of price rows gives an Array of result rows; any
+  // NdArray among them gives an NdArray (A8).
+  const pricedCall = (x: any, p: any) => {
+    if (isNd(x) && x.shape.length === 3) {
+      const s = x.shape;
+      if (s[2] !== width) {
+        throw new RangeError(`expected a batch of shape (events, assets, ${width}), got [${s}]`);
+      }
+      return batch(x.data, s[0], s[1], asPrices(p, s[0], s[1]));
+    }
+    if (isNestedBatch(x)) {
+      const { flat, rows, assets } = nestedFlat(x);
+      const b = batch(flat, rows, assets, asPrices(p, rows, assets));
+      if (isNd(p)) return b;
+      if (b instanceof Float64Array) return Array.from(b);
+      return Array.from({ length: rows }, (_, t) => b.data.slice(t * nOut, (t + 1) * nOut));
+    }
+    return pricedEvent(x, p);
   };
 
   // A stream of (assets, width) events, through the same iterators as wrapOp,
   // on a copy of its own (decision D8).
-  const openStream = (): Stepper => {
+  // Two sources give rows and prices; one source gives rows, or (row, prices)
+  // pairs, fixed by its first event.
+  const openStream = (n: number): Stepper => {
     if (disposed) throw new Error("operation used after dispose()");
     const own = pool.acquire();
     let nEv = 0;                                  // events seen, for error messages
+    let pairs = false;
     const step = (items: any[]) => {
       if (disposed) throw new Error("operation used after dispose()");
       const ev = nEv++;
-      let row: { flat: ArrayLike<number>; assets: number };
-      try { row = asRow(items[0]); } catch (e) { throwIfWrongKindEvent(opName(raw), items, ev); throw e; }
-      return event(row.flat, row.assets, own);
+      try {
+        if (n === 2) return pricedEvent(items[0], items[1], own);
+        const pair = isPricedPair(items[0]);
+        if (ev === 0) pairs = pair;
+        else if (pair !== pairs) {
+          throw new RangeError(pairs
+            ? "every event of this stream must be a (row, prices) pair, like the first"
+            : "every event of this stream must be an engine row without prices, like the first");
+        }
+        if (pair) return pricedEvent(items[0][0], items[0][1], own);
+        const row = asRow(items[0]);
+        return event(row.flat, row.assets, own);
+      } catch (e) { throwIfWrongKindEvent(opName(raw), items, ev); throw e; }
     };
     return { step, close: () => pool.release(own) };
   };
-  const stream = (x: any, async: boolean) => {
+  const stream = (srcs: any[], async: boolean) => {
     pool.check();
     raw.reset();
-    return async ? runAsyncStream([x], openStream, op) : runStream([x], openStream, op);
+    return async ? runAsyncStream(srcs, openStream, op) : runStream(srcs, openStream, op);
   };
 
   const call = (...args: any[]) => {
     if (disposed) throw new Error("operation used after dispose()");
     // Anything that isn't a single reducer-shaped input -- N scalars, Node
     // composition, an arity error -- is the ordinary op contract.
+    if (args.length === 2 && !args.some(isNode)) {
+      const kind = streamKind(args, 2);
+      if (kind) return stream(args, kind === "async");
+      try { return pricedCall(args[0], args[1]); } catch (e) {
+        args.forEach((a, i) => throwIfWrongKind(opName(raw), a, whereText("input", i)));
+        throw e;
+      }
+    }
     if (args.length !== 1) return base(...args);
     const x = args[0];
     if (isNode(x) || typeof x === "number") return base(x);
@@ -743,8 +863,8 @@ export function wrapReducerOp(M: Screamer, src: OpSource): ScreamerOp {
       const { flat, assets } = asRow(x);
       return event(flat, assets);
     }
-    if (isAsyncIter(x)) return stream(x, true);
-    if (isSyncIter(x)) return stream(x, false);
+    if (isAsyncIter(x)) return stream([x], true);
+    if (isSyncIter(x)) return stream([x], false);
     let row: { flat: ArrayLike<number>; assets: number };
     try {
       if (isNestedBatch(x)) {

@@ -188,6 +188,99 @@ def test_portfolio_report_rejects_asset_count_change():
         op(np.zeros((3, 4)))
 
 
+def _priced_book():
+    T, K = 3, 2
+    out = np.zeros((T, K, 4))
+    out[:, :, 2] = [[0, 0], [1, 2], [1, 0]]          # positions in units
+    prices = np.array([[10., 1.], [10., 1.], [20., 1.]])
+    return out, prices
+
+
+def test_portfolio_report_turnover_with_prices_is_traded_notional():
+    from screamer import PortfolioReport
+    out, prices = _priced_book()
+    rep = PortfolioReport()(out, prices)
+    # step 1: |1|*10 + |2|*1 = 12 ; step 2: 0*20 + |-2|*1 = 2 ; cumulative
+    np.testing.assert_array_equal(rep[:, 2], [0., 12., 14.])
+    np.testing.assert_array_equal(rep[:, 3], [0., 2., 3.])          # trades unchanged
+    np.testing.assert_array_equal(PortfolioReport()(out)[:, 2], [0., 3., 5.])
+
+
+def test_portfolio_report_prices_stream_equals_batch():
+    import asyncio
+    from screamer import PortfolioReport
+    out, prices = _priced_book()
+    batch = PortfolioReport()(out, prices)
+    two = np.array(list(PortfolioReport()(iter(out), iter(prices))))
+    pairs = np.array(list(PortfolioReport()(zip(out, prices))))
+    op = PortfolioReport()
+    live = np.array([op(row, p) for row, p in zip(out, prices)])
+
+    async def agen(x):
+        for v in x:
+            yield v
+
+    async def run():
+        return [r async for r in PortfolioReport()(agen(out), agen(prices))]
+
+    aio = np.array(asyncio.run(run()))
+    for got in (two, pairs, live, aio):
+        np.testing.assert_array_equal(got, batch)
+
+
+def test_portfolio_report_prices_containers():
+    from screamer import PortfolioReport
+    out, prices = _priced_book()
+    batch = PortfolioReport()(out, prices)
+    as_list = PortfolioReport()(out.tolist(), prices.tolist())
+    assert isinstance(as_list, list)
+    np.testing.assert_array_equal(np.array(as_list), batch)
+    for mixed in ((out.tolist(), prices), (out, prices.tolist())):
+        got = PortfolioReport()(*mixed)
+        assert isinstance(got, np.ndarray)                          # A8
+        np.testing.assert_array_equal(got, batch)
+
+
+def test_portfolio_report_prices_of_one_match_no_prices():
+    from screamer import PortfolioReport
+    out = np.random.default_rng(0).random((20, 3, 4))
+    np.testing.assert_array_equal(PortfolioReport()(out, np.ones((20, 3))),
+                                  PortfolioReport()(out))
+
+
+def test_portfolio_report_nan_price_skips_row():
+    from screamer import PortfolioReport
+    out, prices = _priced_book()
+    prices[1, 0] = np.nan
+    rep = PortfolioReport()(out, prices)
+    assert np.all(np.isnan(rep[1]))
+    # the row is skipped, so step 2 trades the full change from step 0
+    np.testing.assert_array_equal(rep[2, 2], 20.0)
+
+
+def test_portfolio_report_nan_price_of_an_untraded_asset_is_not_read():
+    from screamer import PortfolioReport
+    out, prices = _priced_book()
+    prices[2, 0] = np.nan                     # asset 0 holds 1 unit at step 2
+    prices[0, :] = np.nan                     # nothing trades at step 0
+    np.testing.assert_array_equal(PortfolioReport()(out, prices)[:, 2], [0., 12., 14.])
+
+
+def test_portfolio_report_prices_argument_errors():
+    from screamer import PortfolioReport
+    out, prices = _priced_book()
+    with pytest.raises(ValueError):
+        PortfolioReport()(out, prices[:2])                           # T mismatch
+    with pytest.raises(ValueError):
+        PortfolioReport()(out, prices[:, :1])                        # K mismatch
+    with pytest.raises(ValueError):
+        PortfolioReport()(out[1], prices[1, :1])
+    with pytest.raises(TypeError):
+        PortfolioReport()(out, "prices")
+    with pytest.raises(TypeError):
+        PortfolioReport()(iter(out), prices)
+
+
 # --- BacktestOHLCTarget (causal market-at-open) --------------------------------
 
 def test_ohlc_target_is_deferred_one_bar_causal():

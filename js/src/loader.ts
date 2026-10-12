@@ -32,6 +32,9 @@ export interface RawOp {
   // reduces an (assets, nIn) block, so the asset count travels per call.
   reduceInto?(inPtr: number, outPtr: number, groups: number): void;
   reduceBatchInto?(inPtr: number, outPtr: number, rows: number, groups: number): void;
+  // The same with one price per group (groups doubles per event at pricePtr).
+  reducePricedInto?(inPtr: number, pricePtr: number, outPtr: number, groups: number): void;
+  reducePricedBatchInto?(inPtr: number, pricePtr: number, outPtr: number, rows: number, groups: number): void;
   // Present only on row ops (see wrapRowOp): one event is a row of k assets
   // with fieldsIn() values each, so k travels per call.
   mapRowInto?(inPtr: number, outPtr: number, k: number): void;

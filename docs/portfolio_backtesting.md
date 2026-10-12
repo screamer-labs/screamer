@@ -196,16 +196,21 @@ out_equal = engine(equal, o, h, l, c)                    # each call starts from
 [`PortfolioReport`](functions_fin/PortfolioReport.md) reduces the output to
 running columns `[drawdown, cum_cost, turnover, trades, max_drawdown, sharpe]`
 for the whole book, with drawdown and cost in units of the initial capital.
-Its turnover adds up position changes in units of each asset, which is only
-meaningful when the units are comparable.
+The engine output holds positions in units of each asset, and one unit of BTC
+is worth far more than one unit of DOGE. Passing a `(T, K)` price array as a
+second argument makes turnover the traded notional, the sum of
+`abs(position change) * price` over the assets, in the same units as cost.
+The example passes the fill price.
 
 ```{code-cell} ipython3
+fill = (o + h + l + c) / 4
 summary = {}
 for name, run in [("inverse volatility", out), ("equal weight", out_equal)]:
-    report = PortfolioReport()(run)
+    report = PortfolioReport()(run, fill)
     summary[name] = {"final equity": 1.0 + run[-1, :, 0].sum(),
                      "max drawdown": report[-1, 4],
-                     "total cost": report[-1, 1]}
+                     "total cost": report[-1, 1],
+                     "turnover": report[-1, 2]}
 pd.DataFrame(summary).T.round(3)
 ```
 

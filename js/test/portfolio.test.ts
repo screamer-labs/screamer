@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  ready, BacktestPortfolioTarget, BacktestPortfolioOHLCTarget, BacktestPriceTarget,
+  ready, BacktestPortfolioTarget, BacktestPortfolioOHLCTarget, BacktestPriceTarget, PortfolioReport,
 } from "../src/index.ts";
 
 await ready();
@@ -93,4 +93,67 @@ test("A1: an NdArray target with an array-of-rows market returns an NdArray", ()
   assert.ok(!Array.isArray(mixed));
   assert.deepEqual(mixed.shape, all.shape);
   assert.deepEqual(Array.from(mixed.data), Array.from(all.data));
+});
+
+// C1: PortfolioReport()(out, prices) reports turnover as traded notional.
+// Positions [[0, 0], [1, 2], [1, 0]] at prices [[10, 1], [10, 1], [20, 1]]:
+// step 1 trades |1|*10 + |2|*1 = 12, step 2 trades 0*20 + |-2|*1 = 2.
+const pricedRows = [[0, 0], [1, 2], [1, 0]].map((pos) => pos.map((p) => [0, 0, p, 0]));
+const pricedOut = { data: Float64Array.from(pricedRows.flat(2)), shape: [3, 2, 4] };
+const priceRows = [[10, 1], [10, 1], [20, 1]];
+const pricedPrices = { data: Float64Array.from(priceRows.flat()), shape: [3, 2] };
+const col = (rows: ArrayLike<number>[], j: number) => rows.map((r) => r[j]);
+const asRows = (x: any): ArrayLike<number>[] =>
+  Array.from({ length: x.shape[0] }, (_, t) => x.data.slice(t * 6, (t + 1) * 6));
+
+test("C1: turnover with prices is traded notional", () => {
+  const rep = PortfolioReport()(pricedOut, pricedPrices) as any;
+  assert.deepEqual(col(asRows(rep), 2), [0, 12, 14]);
+  assert.deepEqual(col(asRows(rep), 3), [0, 2, 3]);
+  assert.deepEqual(col(asRows(PortfolioReport()(pricedOut) as any), 2), [0, 3, 5]);
+});
+
+test("C1: priced streams, live events, and containers equal the batch", async () => {
+  const batch = asRows(PortfolioReport()(pricedOut, pricedPrices) as any).map((r) => Array.from(r));
+  const same = (got: ArrayLike<number>[]) =>
+    assert.deepEqual(got.map((r) => Array.from(r).map((v) => (Number.isNaN(v) ? "nan" : v))),
+      batch.map((r) => r.map((v) => (Number.isNaN(v) ? "nan" : v))));
+  same([...PortfolioReport()(pricedRows.values(), priceRows.values()) as any]);
+  same([...PortfolioReport()(pricedRows.map((r, t) => [r, priceRows[t]]).values()) as any]);
+  async function* agen(x: any[]) { for (const v of x) yield v; }
+  const aio: any[] = [];
+  for await (const r of PortfolioReport()(agen(pricedRows), agen(priceRows)) as any) aio.push(r);
+  same(aio);
+  const op = PortfolioReport();
+  same(pricedRows.map((r, t) => op(r, priceRows[t]) as any));
+  const list = PortfolioReport()(pricedRows, priceRows) as any;
+  assert.ok(Array.isArray(list));
+  same(list);
+  for (const [o, p] of [[pricedRows, pricedPrices], [pricedOut, priceRows]] as const) {
+    const got = PortfolioReport()(o, p) as any;
+    assert.ok(!Array.isArray(got) && got.shape, "A8: any NdArray gives an NdArray");
+    same(asRows(got));
+  }
+});
+
+test("C1: prices of one match no prices; mismatched shapes and kinds raise", () => {
+  const ones = { data: new Float64Array(6).fill(1), shape: [3, 2] };
+  assert.deepEqual(PortfolioReport()(pricedOut, ones), PortfolioReport()(pricedOut));
+  assert.throws(() => PortfolioReport()(pricedOut, { data: new Float64Array(4), shape: [2, 2] }), RangeError);
+  assert.throws(() => PortfolioReport()(pricedOut, { data: new Float64Array(3), shape: [3, 1] }), RangeError);
+  assert.throws(() => PortfolioReport()(pricedRows[1], [10]), RangeError);
+  assert.throws(() => PortfolioReport()(pricedOut, "prices"), TypeError);
+  assert.throws(() => PortfolioReport()(pricedRows.values(), pricedPrices), TypeError);
+});
+
+test("C1: a NaN price is read only where the position changed", () => {
+  const p = priceRows.map((r) => r.slice());
+  p[2][0] = Number.NaN;                       // asset 0 holds 1 unit at step 2
+  p[0] = [Number.NaN, Number.NaN];            // nothing trades at step 0
+  assert.deepEqual(col(PortfolioReport()(pricedRows, p) as any, 2), [0, 12, 14]);
+  p[2][0] = 20;
+  p[1][0] = Number.NaN;                       // asset 0 trades at step 1: the row is skipped
+  const rep = PortfolioReport()(pricedRows, p) as any;
+  assert.ok(Array.from(rep[1]).every((v) => Number.isNaN(v)));
+  assert.equal(rep[2][2], 20);
 });

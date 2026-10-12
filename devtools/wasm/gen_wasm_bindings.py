@@ -26,8 +26,11 @@ EMSCRIPTEN_BINDINGS(screamer) block that opens with SCREAMER_REGISTER_EVAL_OP_RU
   * ops flagged "dynamic_reducer" in the manifest additionally get
       .function("reduceInto", &screamer_wasm::reduceInto<CppType>)
       .function("reduceBatchInto", &screamer_wasm::reduceBatchInto<CppType>)
-    which expose the op's variable-group call_assets() reduction alongside the
-    fixed-width event path every op inherits from the EvalOp runtime.
+      .function("reducePricedInto", &screamer_wasm::reducePricedInto<CppType>)
+      .function("reducePricedBatchInto", &screamer_wasm::reducePricedBatchInto<CppType>)
+    which expose the op's variable-group call_assets() reduction, without and
+    with one price per group, alongside the fixed-width event path every op
+    inherits from the EvalOp runtime.
 
 The operator-header include set is copied verbatim from the nanobind bindings/*.cpp
 files (the `#include "screamer/..."` lines), minus streams/dag headers and minus the
@@ -139,6 +142,8 @@ def render_class(op: dict) -> str:
     if op.get("dynamic_reducer"):
         lines.append(f'        .function("reduceInto", &screamer_wasm::reduceInto<{cpp}>)')
         lines.append(f'        .function("reduceBatchInto", &screamer_wasm::reduceBatchInto<{cpp}>)')
+        lines.append(f'        .function("reducePricedInto", &screamer_wasm::reducePricedInto<{cpp}>)')
+        lines.append(f'        .function("reducePricedBatchInto", &screamer_wasm::reducePricedBatchInto<{cpp}>)')
     # A cross-sectional op maps one row of K values to K values; K travels per
     # call because it is a property of the data.
     if op.get("row_op"):
@@ -218,7 +223,7 @@ def check(ops: list[dict]) -> int:
 
     reducers = [op for op in ops if op.get("dynamic_reducer")]
     for op in reducers:
-        for fn in ("reduceInto", "reduceBatchInto"):
+        for fn in ("reduceInto", "reduceBatchInto", "reducePricedInto", "reducePricedBatchInto"):
             if f"&screamer_wasm::{fn}<{op['cpp_type']}>" not in text:
                 errors.append(f"reducer op {op['name']!r} has no {fn} registration")
 

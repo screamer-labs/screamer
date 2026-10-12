@@ -20,12 +20,14 @@ namespace screamer {
     //
     // Reduction happens before the running statistics are updated:
     //   equity, pnl, and cost are summed across assets;
-    //   turnover is the sum of absolute per-asset position changes; and
+    //   turnover is the sum of absolute per-asset position changes, or with a
+    //   price row the traded notional sum(abs(dpos_i * price_i)); and
     //   trades is the number of assets whose position changed on this row.
     // This avoids the common error of calculating turnover from net portfolio
     // position, which would hide offsetting commodity legs.
     //
-    // nan_policy: ignore. If any field of any asset is NaN, the row is skipped,
+    // nan_policy: ignore. If any field of any asset is NaN, or the price of an
+    // asset whose position changed, the row is skipped,
     // the per-asset position state is held, and the output row is all NaN.
     // The asset count is fixed by the first row after reset; a later mismatch
     // is an error rather than a silent change in portfolio definition.
@@ -63,6 +65,20 @@ namespace screamer {
 
         // Reduce one contiguous (assets, 4) row from a backtest engine.
         ResultTuple call_assets(const double* row, std::size_t assets) {
+            return reduce<false>(row, nullptr, assets);
+        }
+
+        // Same, with one price per asset: turnover is the traded notional
+        // sum(abs(dpos_i * price_i)), in the money units of equity and cost.
+        ResultTuple call_assets(const double* row, const double* prices,
+                                std::size_t assets) {
+            return reduce<true>(row, prices, assets);
+        }
+
+    private:
+        template <bool Priced>
+        ResultTuple reduce(const double* row, const double* prices,
+                           std::size_t assets) {
             if (assets == 0)
                 throw std::invalid_argument("PortfolioReport requires at least one asset.");
             if (!prev_positions_.empty() && prev_positions_.size() != assets)
@@ -76,7 +92,11 @@ namespace screamer {
                 const double p = row[4 * a + 1];
                 const double pos = row[4 * a + 2];
                 const double c = row[4 * a + 3];
-                if (isnan2(e) || isnan2(p) || isnan2(pos) || isnan2(c)) {
+                const double dpos = pos - prev_positions_[a];
+                // A price is read only where the position changed, so an asset
+                // that is not quoted (NaN price) and not traded adds nothing.
+                if (isnan2(e) || isnan2(p) || isnan2(pos) || isnan2(c) ||
+                    (Priced && dpos != 0.0 && isnan2(prices[a]))) {
                     const double nan = std::numeric_limits<double>::quiet_NaN();
                     return std::make_tuple(nan, nan, nan, nan, nan, nan);
                 }
@@ -84,8 +104,11 @@ namespace screamer {
                 pnl += p;
                 cost += c;
                 position += pos;
-                const double dpos = pos - prev_positions_[a];
-                turnover += std::abs(dpos);
+                if constexpr (Priced) {
+                    if (dpos != 0.0) turnover += std::abs(dpos * prices[a]);
+                } else {
+                    turnover += std::abs(dpos);
+                }
                 if (dpos != 0.0) trades += 1.0;
             }
             for (std::size_t a = 0; a < assets; ++a)
@@ -93,7 +116,6 @@ namespace screamer {
             return update(equity, pnl, position, cost, turnover, trades);
         }
 
-    private:
         ResultTuple update(double equity, double pnl, double position,
                            double cost, double turnover, double trades) {
             if (isnan2(equity) || isnan2(pnl) || isnan2(position) || isnan2(cost)) {

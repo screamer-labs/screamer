@@ -58,6 +58,10 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
   `(T', X, 4)`. Inside a `Pipeline` a stream carries fields only, so
   `Resample(agg="ohlc")` there gives a flat `(T', 4 * X)` frame.
 * JavaScript one-input operators accept `(T, K)` `NdArray` input.
+* `PortfolioReport()(out, prices)` reports turnover as traded notional, the
+  sum of `abs(position change * price)`, in the money units of equity and
+  cost; without prices it is unchanged (units summed across assets). Python
+  and JavaScript, for arrays, lists, and streams.
 
 ### Changed
 
