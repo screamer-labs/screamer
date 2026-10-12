@@ -27,6 +27,9 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
 * Multi-input operators broadcast over assets: `RollingCorr()(X, y)` with
   `X (T, K)` and `y (T,)`, and backtest engines with `(T, K)` targets and one
   `(T,)` price, in Python and JavaScript.
+* `strategy_test` accepts `(T, K)` inputs: each randomized copy applies one time
+  permutation to every asset, so the correlation between assets is kept.
+  JavaScript `strategyTest` accepts the same panels.
 * A packed `(T, K, N)` array feeds an N-input operator.
 * Iterators of asset events give the batch result, one operator state per
   asset, in Python and JavaScript. A Python list of asset events gives a list

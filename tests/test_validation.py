@@ -618,3 +618,204 @@ def test_family_and_strategy_stats_shapes():
     assert st.null_stats["calmar"].shape == (15,)
     cm = st.null_stats["calmar"]
     np.testing.assert_array_equal(st.null, cm[np.isfinite(cm)])
+
+
+# --- strategy_test on (T, K) portfolio inputs (tracker C2) ------------------
+
+from screamer.screamer_bindings import _permute_bars, _permute_returns  # noqa: E402
+
+_NO_VOL = np.empty(0)
+
+
+def _panel(T=300, K=4, seed=0):
+    rng = np.random.default_rng(seed)
+    c = 100 * np.exp(np.cumsum(0.01 * rng.standard_normal((T, K)), axis=0))
+    o = np.vstack([c[:1], c[:-1]]) * np.exp(0.001 * rng.standard_normal((T, K)))
+    h = np.maximum(o, c) * 1.002
+    l = np.minimum(o, c) * 0.998
+    return o, h, l, c
+
+
+def test_strategy_test_accepts_portfolio_inputs():
+    rng = np.random.default_rng(0); T, K = 300, 4
+    c = 100 * np.exp(np.cumsum(0.01 * rng.standard_normal((T, K)), axis=0))
+    def book(c):
+        w = np.full((T, K), 1.0 / K)
+        return s.BacktestPortfolioTarget()(w, c)
+    res = s.strategy_test(book, c, method="returns", n=20)
+    assert np.isfinite(res.p_value)
+
+
+@pytest.mark.parametrize("mode", ["log", "diff", "level"])
+def test_strategy_test_portfolio_bars_and_returns_every_mode(mode):
+    o, h, l, c = _panel()
+    T, K = c.shape
+    seen = []
+
+    def book_bars(o, h, l, c):
+        assert o.shape == (T, K)
+        seen.append(c)
+        w = np.sign(np.nan_to_num(s.EwMean(span=5)(s.LogReturn()(c)))) / K
+        return s.BacktestPortfolioTarget()(w, c)
+
+    res = s.strategy_test(book_bars, o, h, l, c, n=8, mode=mode, seed=1)
+    assert res.null.size == 8 and np.isfinite(res.p_value)
+    # every copy is a (T, K) panel that differs from the real one
+    assert all(x.shape == (T, K) for x in seen)
+    assert not np.array_equal(seen[1], c)
+
+    res = s.strategy_test(lambda c: book_bars(c, c, c, c), c, method="returns",
+                          n=8, mode=mode, seed=1)
+    assert res.null.size == 8 and np.isfinite(res.p_value)
+
+
+@pytest.mark.parametrize("mode", ["log", "diff", "level"])
+def test_shared_permutation_preserves_cross_correlation(mode):
+    # A (T, 2) block with identical columns: every permuted copy keeps the two
+    # columns identical, so one permutation is applied to all assets.
+    _, _, _, c = _panel(T=120, K=1, seed=3)
+    x = np.ascontiguousarray(np.hstack([c, c]))
+    out, src = _permute_returns(x, mode, 5, 0, 6, _NO_VOL, False)
+    assert out.shape == (120, 6, 2) and src.shape == (120, 6)
+    np.testing.assert_array_equal(out[:, :, 0], out[:, :, 1])
+
+    o, h, l, c = (np.ascontiguousarray(np.hstack([a, a])) for a in _panel(T=120, K=1))
+    res = _permute_bars(o, h, l, c, mode, 5, 0, 6, _NO_VOL, False)
+    for a in res[:4]:
+        assert a.shape == (120, 6, 2)
+        np.testing.assert_array_equal(a[:, :, 0], a[:, :, 1])
+    assert res[4].shape == (120, 6)
+
+
+@pytest.mark.parametrize("mode", ["log", "diff", "level"])
+def test_panel_kernel_column_equals_series_kernel(mode):
+    # Without a NaN warmup, asset k of a (T, K) block gets exactly the copies
+    # that the 1-D kernel gives for that asset alone: the same permutation.
+    o, h, l, c = _panel(T=90, K=3, seed=4)
+    v = np.ascontiguousarray(1000 + np.arange(90 * 3, dtype=float).reshape(90, 3))
+    out = _permute_returns(c, mode, 9, 2, 5, v, True)
+    bars = _permute_bars(o, h, l, c, mode, 9, 2, 5, v, True)
+    for k in range(3):
+        one = _permute_returns(np.ascontiguousarray(c[:, k]), mode, 9, 2, 5,
+                               np.ascontiguousarray(v[:, k]), True)
+        np.testing.assert_array_equal(out[0][:, :, k], one[0])
+        np.testing.assert_array_equal(out[1], one[1])
+        np.testing.assert_array_equal(out[2][:, :, k], one[2])
+        col = [np.ascontiguousarray(a[:, k]) for a in (o, h, l, c, v)]
+        one = _permute_bars(*col[:4], mode, 9, 2, 5, col[4], True)
+        for q in (0, 1, 2, 3, 5):
+            np.testing.assert_array_equal(bars[q][:, :, k], one[q])
+        np.testing.assert_array_equal(bars[4], one[4])
+
+
+def test_panel_returns_warmup_is_the_longest_prefix():
+    _, _, _, c = _panel(T=60, K=2, seed=6)
+    c = c.copy()
+    c[:3, 0] = np.nan
+    c[:7, 1] = np.nan
+    out, src = _permute_returns(c, "log", 1, 0, 4, _NO_VOL, False)
+    # rows before every asset has a value stay in place
+    np.testing.assert_array_equal(out[:7], np.repeat(c[:7, None, :], 4, axis=1))
+    np.testing.assert_array_equal(src[:7], np.repeat(np.arange(7.0)[:, None], 4, axis=1))
+    # each asset keeps its first valid value and last value
+    np.testing.assert_allclose(out[-1], np.repeat(c[-1:], 4, axis=0), rtol=1e-12)
+    assert np.all(np.isfinite(out[7:]))
+
+
+def test_strategy_test_mixed_inputs_move_with_the_bar():
+    o, h, l, c = _panel(T=150, K=3, seed=8)
+    feature = np.arange(150, dtype=float)         # (T,) per-bar data
+    got = []
+
+    def book(c, f):
+        got.append((c, f))
+        return s.BacktestPortfolioTarget()(np.full(c.shape, 1 / 3), c)
+
+    s.strategy_test(book, c, feature, method="returns", n=3, mode="level", seed=2)
+    out, src = _permute_returns(c, "level", 2, 0, 3, _NO_VOL, False)
+    for j, (cj, fj) in enumerate(got[1:]):
+        np.testing.assert_array_equal(cj, out[:, j])
+        np.testing.assert_array_equal(fj, feature[src[:, j].astype(int)])
+
+    # "shift" rotates a (T, K) feature with one offset for all columns
+    feats = np.column_stack([np.arange(150.0), 1000 + np.arange(150.0)])
+    got.clear()
+    s.strategy_test(lambda c, f: book(c, f), c, feats, method="shift", columns=[1],
+                    n=3, seed=2)
+    for cj, fj in got[1:]:
+        np.testing.assert_array_equal(cj, c)
+        np.testing.assert_array_equal(fj[:, 1] - fj[:, 0], 1000.0)
+
+
+def test_strategy_test_portfolio_volume():
+    o, h, l, c = _panel(T=100, K=2, seed=9)
+    vol = np.full((100, 2), 50.0)
+    seen = []
+
+    def book(o, h, l, c, v):
+        seen.append(v)
+        return s.BacktestPortfolioTarget()(np.full(c.shape, 0.5), c)
+
+    s.strategy_test(book, o, h, l, c, vol, n=3, volume=4, volume_mode="notional")
+    assert seen[1].shape == (100, 2) and not np.array_equal(seen[1], vol)
+    # a (T,) volume with (T, K) prices moves with its bar in "keep" mode
+    seen.clear()
+    s.strategy_test(book, o, h, l, c, vol[:, 0], n=3, volume=4)
+    np.testing.assert_array_equal(seen[1], vol[:, 0])
+    with pytest.raises(ValueError, match="notional"):
+        s.strategy_test(book, o, h, l, c, vol[:, 0], n=3, volume=4, volume_mode="notional")
+
+
+def test_strategy_test_portfolio_argument_checks():
+    o, h, l, c = _panel(T=50, K=2)
+    book = lambda *x: s.BacktestPortfolioTarget()(np.full((50, 2), 0.5), x[-1])  # noqa: E731
+    with pytest.raises(ValueError, match="same length"):
+        s.strategy_test(book, c, c[:40], method="returns", n=2)
+    with pytest.raises(ValueError, match="1-D \\(T,\\) or 2-D"):
+        s.strategy_test(book, c[:, :, None], method="returns", n=2)
+    with pytest.raises(ValueError, match="1-D \\(T,\\) or 2-D"):
+        s.strategy_test(book, np.float64(1.0), method="returns", n=2)
+    with pytest.raises(TypeError):
+        s.strategy_test(book, "abc", method="returns", n=2)
+    with pytest.raises(TypeError):
+        s.strategy_test(book, None, method="returns", n=2)
+    with pytest.raises(ValueError, match="same shape"):
+        s.strategy_test(book, o, h, l[:, 0], c, n=2)
+
+
+# strategy_test with 1-D inputs, n=12, seed=3, computed with screamer 2.8.0.
+_V280 = {
+    "returns_log": (0.062141750284824174, 0.3076923076923077, [-0.12758338148160225, 0.03140848583704488, -0.02934058275693658, -0.0031623592646301065, 0.14199204851897237, 0.0998224040613391, 0.008351622133784459, -0.010561573756419354, 0.0038247806684275037, 0.051073279236998996, 0.08073964313078213, 0.05310622280199597]),
+    "returns_level": (0.062141750284824174, 0.07692307692307693, [-0.5581525153014752, -0.6119503188604324, -0.5533244188269972, -0.5574352417797767, -0.5703319605989196, -0.6210801253253302, -0.5806345597943305, -0.5555626146687358, -0.5393336960524884, -0.5955455413125887, -0.4971983547985808, -0.6836565795474919]),
+    "bars_diff_notional": (0.07551555188387185, 0.23076923076923078, [-0.04832591955453531, 0.03559172027890768, 0.05922298117016738, -0.054016600810798475, 0.16023895834232968, -0.028559450882573164, -0.05152771233291089, 0.12439144394525997, 0.05661589032097703, 0.011048406286528369, 0.0588667553136946, -0.0449365173709478]),
+    "shift": (0.07551555188387185, 0.3076923076923077, [0.12292252240556496, 0.08372682387027214, 0.13432021373801226, 0.05841980382586971, 0.004629522394702571, 0.06489277621933034, 0.05774699572781005, 0.009082614167505141, -0.021017890916663954, 0.009082614167505141, -0.035744020368375956, 0.06590961650681096]),
+}
+
+
+def test_1d_results_unchanged():
+    rng = np.random.default_rng(7); T = 200
+    c = 100 * np.exp(np.cumsum(0.01 * rng.standard_normal(T)))
+    o = np.r_[c[0], c[:-1]] * np.exp(0.001 * rng.standard_normal(T))
+    h = np.maximum(o, c) * 1.002; l = np.minimum(o, c) * 0.998
+    v = 1000 + 100 * rng.random(T)
+
+    def strat_r(c):
+        sig = np.sign(np.nan_to_num(s.EwMean(span=5)(s.LogReturn()(c))))
+        return s.BacktestPriceTarget()(sig, c)
+
+    def strat_b(o, h, l, c, v):
+        sig = np.sign(np.nan_to_num(s.EwMean(span=5)(s.LogReturn()(c)))) * (v > 1050)
+        return s.BacktestOHLCTarget()(sig, o, h, l, c)
+
+    cases = {
+        "returns_log": (strat_r, (c,), dict(method="returns")),
+        "returns_level": (strat_r, (c,), dict(method="returns", mode="level")),
+        "bars_diff_notional": (strat_b, (o, h, l, c, v),
+                               dict(mode="diff", volume=4, volume_mode="notional")),
+        "shift": (strat_b, (o, h, l, c, v), dict(method="shift", columns=[4])),
+    }
+    for name, (f, x, kw) in cases.items():
+        r = s.strategy_test(f, *x, n=12, seed=3, **kw)
+        observed, p_value, null = _V280[name]
+        assert r.observed == observed and r.p_value == p_value, name
+        np.testing.assert_array_equal(r.null, null, err_msg=name)

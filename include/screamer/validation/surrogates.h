@@ -246,33 +246,42 @@ namespace screamer { namespace validation {
     // (low <= open, close <= high); it has no serial structure left. In Level
     // mode whole bars are shuffled, the first one included.
     //
-    // Outputs are row-major (T x ncols): the four price arrays and `source`,
-    // the bar whose shape row t received (the bar itself in Level mode), so
-    // that other per-bar columns can move with their bar. With a volume column
-    // (`vol` not null) `ov` receives the moved volume: with `notional` false it
-    // is the source bar's volume; with `notional` true it is rescaled so the
+    // The inputs hold K assets, row-major (T x K); K = 1 is a single series.
+    // Each surrogate draws one pair of permutations and applies it to every
+    // asset, so the assets of one bar move together and the correlation
+    // between assets is kept. The price outputs are row-major
+    // (T x ncols x K), which for K = 1 is (T x ncols). `source` is
+    // (T x ncols): the bar whose shape row t received (the bar itself in
+    // Level mode), the same for every asset, so that other per-bar columns can
+    // move with their bar. With a volume block (`vol` not null, T x K) `ov`
+    // (T x ncols x K) receives the moved volume: with `notional` false it is
+    // the source bar's volume; with `notional` true it is rescaled so the
     // traded amount, volume times the typical price (high + low + close) / 3,
     // stays that of the source bar: if the price doubles, the volume halves.
     inline void permute_bars(const double* o, const double* h, const double* l,
-                             const double* c, std::size_t T, PermuteMode mode,
+                             const double* c, std::size_t T, std::size_t K,
+                             PermuteMode mode,
                              std::uint64_t seed, std::size_t col0, std::size_t ncols,
                              double* oo, double* oh, double* ol, double* oc,
                              double* source,
                              const double* vol = nullptr, bool notional = false,
                              double* ov = nullptr) {
         if (T < 2) throw std::invalid_argument("permute_bars needs at least two bars.");
+        if (K < 1) throw std::invalid_argument("permute_bars needs at least one asset.");
         const bool log = mode == PermuteMode::Log;
-        for (std::size_t t = 0; t < T; ++t) {
-            if (!std::isfinite(o[t] + h[t] + l[t] + c[t]))
+        const std::size_t TK = T * K;
+        for (std::size_t i = 0; i < TK; ++i) {
+            if (!std::isfinite(o[i] + h[i] + l[i] + c[i]))
                 throw std::invalid_argument(
                     "permute_bars needs finite open, high, low, and close prices.");
             if ((log || (notional && vol)) &&
-                !(o[t] > 0.0 && h[t] > 0.0 && l[t] > 0.0 && c[t] > 0.0))
+                !(o[i] > 0.0 && h[i] > 0.0 && l[i] > 0.0 && c[i] > 0.0))
                 throw std::invalid_argument(log
                     ? "permute_bars with mode=\"log\" needs positive prices; use mode=\"diff\"."
                     : "volume_mode=\"notional\" needs positive prices.");
         }
         auto typical = [](double hh, double ll, double cc) { return (hh + ll + cc) / 3.0; };
+        const std::size_t rowlen = ncols * K;     // output values per time step
 
         if (mode == PermuteMode::Level) {
             std::vector<std::size_t> rows(T);
@@ -280,10 +289,14 @@ namespace screamer { namespace validation {
                 Rng rng(seed, col0 + j);
                 detail::shuffle_all(rows, rng);
                 for (std::size_t t = 0; t < T; ++t) {
-                    const std::size_t s = rows[t], r = t * ncols + j;
-                    oo[r] = o[s]; oh[r] = h[s]; ol[r] = l[s]; oc[r] = c[s];
-                    source[r] = static_cast<double>(s);
-                    if (vol) ov[r] = vol[s];          // the bar moves whole: same amount
+                    const std::size_t s = rows[t];
+                    source[t * ncols + j] = static_cast<double>(s);
+                    const std::size_t r0 = t * rowlen + j * K, s0 = s * K;
+                    for (std::size_t a = 0; a < K; ++a) {
+                        const std::size_t r = r0 + a, si = s0 + a;
+                        oo[r] = o[si]; oh[r] = h[si]; ol[r] = l[si]; oc[r] = c[si];
+                        if (vol) ov[r] = vol[si];     // the bar moves whole: same amount
+                    }
                 }
             }
             return;
@@ -291,101 +304,166 @@ namespace screamer { namespace validation {
 
         auto fwd = [log](double x) { return log ? std::log(x) : x; };
         auto inv = [log](double x) { return log ? std::exp(x) : x; };
-        std::vector<double> gap(T), dh(T), dl(T), dc(T);
-        for (std::size_t t = 1; t < T; ++t) {
-            gap[t] = fwd(o[t]) - fwd(c[t - 1]);
-            const double lo = fwd(o[t]);
-            dh[t] = fwd(h[t]) - lo;
-            dl[t] = fwd(l[t]) - lo;
-            dc[t] = fwd(c[t]) - lo;
+        std::vector<double> gap(TK), dh(TK), dl(TK), dc(TK);
+        for (std::size_t i = K; i < TK; ++i) {
+            gap[i] = fwd(o[i]) - fwd(c[i - K]);
+            const double lo = fwd(o[i]);
+            dh[i] = fwd(h[i]) - lo;
+            dl[i] = fwd(l[i]) - lo;
+            dc[i] = fwd(c[i]) - lo;
         }
         std::vector<std::size_t> shape(T), gaps(T);
+        std::vector<double> prev_close(K);
         for (std::size_t j = 0; j < ncols; ++j) {
             Rng rng(seed, col0 + j);
             detail::shuffle_tail(shape, rng);
             detail::shuffle_tail(gaps, rng);
-            oo[j] = o[0]; oh[j] = h[0]; ol[j] = l[0]; oc[j] = c[0]; source[j] = 0.0;
-            if (vol) ov[j] = vol[0];
-            double prev_close = fwd(c[0]);
+            source[j] = 0.0;
+            for (std::size_t a = 0; a < K; ++a) {
+                const std::size_t r = j * K + a;
+                oo[r] = o[a]; oh[r] = h[a]; ol[r] = l[a]; oc[r] = c[a];
+                if (vol) ov[r] = vol[a];
+                prev_close[a] = fwd(c[a]);
+            }
+            if (K == 1) {                         // one series: the close stays in a register
+                double pc = prev_close[0];
+                for (std::size_t t = 1; t < T; ++t) {
+                    const std::size_t s = shape[t], r = t * ncols + j;
+                    const double lo = pc + gap[gaps[t]];
+                    oo[r] = inv(lo);
+                    oh[r] = inv(lo + dh[s]);
+                    ol[r] = inv(lo + dl[s]);
+                    pc = lo + dc[s];
+                    oc[r] = inv(pc);
+                    source[r] = static_cast<double>(s);
+                    if (vol) {
+                        ov[r] = notional
+                            ? vol[s] * typical(h[s], l[s], c[s]) / typical(oh[r], ol[r], oc[r])
+                            : vol[s];
+                    }
+                }
+                continue;
+            }
             for (std::size_t t = 1; t < T; ++t) {
-                const std::size_t s = shape[t], g = gaps[t];
-                const double lo = prev_close + gap[g];
-                const std::size_t r = t * ncols + j;
-                oo[r] = inv(lo);
-                oh[r] = inv(lo + dh[s]);
-                ol[r] = inv(lo + dl[s]);
-                prev_close = lo + dc[s];
-                oc[r] = inv(prev_close);
-                source[r] = static_cast<double>(s);
-                if (vol) {
-                    ov[r] = notional
-                        ? vol[s] * typical(h[s], l[s], c[s]) / typical(oh[r], ol[r], oc[r])
-                        : vol[s];
+                const std::size_t s0 = shape[t] * K, g0 = gaps[t] * K;
+                const std::size_t r0 = t * rowlen + j * K;
+                source[t * ncols + j] = static_cast<double>(shape[t]);
+                for (std::size_t a = 0; a < K; ++a) {
+                    const std::size_t s = s0 + a, r = r0 + a;
+                    const double lo = prev_close[a] + gap[g0 + a];
+                    oo[r] = inv(lo);
+                    oh[r] = inv(lo + dh[s]);
+                    ol[r] = inv(lo + dl[s]);
+                    prev_close[a] = lo + dc[s];
+                    oc[r] = inv(prev_close[a]);
+                    if (vol) {
+                        ov[r] = notional
+                            ? vol[s] * typical(h[s], l[s], c[s]) / typical(oh[r], ol[r], oc[r])
+                            : vol[s];
+                    }
                 }
             }
         }
     }
 
-    // Permutation of a single price series, with an optional volume column.
+    // Permutation of a price series, with an optional volume column.
     // In Log and Diff mode the steps after the NaN warmup prefix (log returns
     // or differences) are shuffled and the path is rebuilt from the first
     // valid value, so the first and last values are kept. In Level mode the
     // valid values themselves are shuffled. The warmup prefix stays in place.
-    // `source` (as in permute_bars) is the index whose step or value row t
-    // received. With a volume column, `ov` receives the moved volume, rescaled
-    // with `notional` so that volume times price stays that of the source row.
-    inline void permute_returns(const double* x, std::size_t T, PermuteMode mode,
+    //
+    // The input holds K assets, row-major (T x K); K = 1 is a single series.
+    // Each surrogate draws one permutation and applies it to every asset, so
+    // the correlation between assets is kept. The warmup prefix is the rows
+    // before every asset has a value (the longest NaN prefix of any asset).
+    // `out` is row-major (T x ncols x K), which for K = 1 is (T x ncols).
+    // `source` (T x ncols, as in permute_bars) is the row whose step or value
+    // row t received, the same for every asset. With a volume block (T x K),
+    // `ov` (T x ncols x K) receives the moved volume, rescaled with `notional`
+    // so that volume times price stays that of the source row.
+    inline void permute_returns(const double* x, std::size_t T, std::size_t K,
+                                PermuteMode mode,
                                 std::uint64_t seed, std::size_t col0, std::size_t ncols,
                                 double* out, double* source,
                                 const double* vol = nullptr, bool notional = false,
                                 double* ov = nullptr) {
-        const std::size_t p = detail::valid_start(x, T);
+        if (K < 1) throw std::invalid_argument("permute_returns needs at least one asset.");
+        std::size_t p = 0;
+        for (std::size_t a = 0; a < K; ++a) {
+            std::size_t q = 0;
+            while (q < T && std::isnan(x[q * K + a])) ++q;
+            if (q > p) p = q;
+        }
         if (T - p < 2) throw std::invalid_argument(
             "permute_returns needs at least two values after the NaN warmup.");
         const bool log = mode == PermuteMode::Log;
-        for (std::size_t t = p; t < T; ++t) {
-            if (!std::isfinite(x[t]))
+        for (std::size_t i = p * K; i < T * K; ++i) {
+            if (!std::isfinite(x[i]))
                 throw std::invalid_argument("permute_returns needs finite values after the NaN warmup.");
-            if ((log || (notional && vol)) && !(x[t] > 0.0))
+            if ((log || (notional && vol)) && !(x[i] > 0.0))
                 throw std::invalid_argument(log
                     ? "permute_returns with mode=\"log\" needs positive values; use mode=\"diff\"."
                     : "volume_mode=\"notional\" needs positive prices.");
         }
-        const std::size_t L = T - p;
-        std::vector<double> step(L);
+        const std::size_t L = T - p, rowlen = ncols * K;
+        const double* xv = x + p * K;             // the valid rows
+        std::vector<double> step(mode == PermuteMode::Level ? 0 : L * K);
         if (mode != PermuteMode::Level)
-            for (std::size_t i = 1; i < L; ++i)
-                step[i] = log ? std::log(x[p + i]) - std::log(x[p + i - 1])
-                              : x[p + i] - x[p + i - 1];
+            for (std::size_t i = K; i < L * K; ++i)
+                step[i] = log ? std::log(xv[i]) - std::log(xv[i - K]) : xv[i] - xv[i - K];
         std::vector<std::size_t> perm(L);
+        std::vector<double> level(K);
         for (std::size_t j = 0; j < ncols; ++j) {
             Rng rng(seed, col0 + j);
             for (std::size_t t = 0; t < p; ++t) {
-                out[t * ncols + j] = x[t];
                 source[t * ncols + j] = static_cast<double>(t);
-                if (vol) ov[t * ncols + j] = vol[t];
+                for (std::size_t a = 0; a < K; ++a) {
+                    out[t * rowlen + j * K + a] = x[t * K + a];
+                    if (vol) ov[t * rowlen + j * K + a] = vol[t * K + a];
+                }
             }
             if (mode == PermuteMode::Level) {
                 detail::shuffle_all(perm, rng);
                 for (std::size_t i = 0; i < L; ++i) {
-                    const std::size_t r = (p + i) * ncols + j, s = p + perm[i];
-                    out[r] = x[s];
-                    source[r] = static_cast<double>(s);
-                    if (vol) ov[r] = vol[s];          // the row moves whole
+                    const std::size_t s = p + perm[i], r0 = (p + i) * rowlen + j * K;
+                    source[(p + i) * ncols + j] = static_cast<double>(s);
+                    for (std::size_t a = 0; a < K; ++a) {
+                        out[r0 + a] = x[s * K + a];
+                        if (vol) ov[r0 + a] = vol[s * K + a];   // the row moves whole
+                    }
                 }
                 continue;
             }
             detail::shuffle_tail(perm, rng);
-            double level = log ? std::log(x[p]) : x[p];
-            out[p * ncols + j] = x[p];
             source[p * ncols + j] = static_cast<double>(p);
-            if (vol) ov[p * ncols + j] = vol[p];
+            for (std::size_t a = 0; a < K; ++a) {
+                level[a] = log ? std::log(xv[a]) : xv[a];
+                out[p * rowlen + j * K + a] = xv[a];
+                if (vol) ov[p * rowlen + j * K + a] = vol[p * K + a];
+            }
+            if (K == 1) {                         // one series: the level stays in a register
+                double lv = level[0];
+                for (std::size_t i = 1; i < L; ++i) {
+                    const std::size_t s = p + perm[i], r = (p + i) * ncols + j;
+                    lv += step[perm[i]];
+                    const double v = log ? std::exp(lv) : lv;
+                    out[r] = v;
+                    source[r] = static_cast<double>(s);
+                    if (vol) ov[r] = notional ? vol[s] * x[s] / v : vol[s];
+                }
+                continue;
+            }
             for (std::size_t i = 1; i < L; ++i) {
-                level += step[perm[i]];
-                const std::size_t r = (p + i) * ncols + j, s = p + perm[i];
-                out[r] = log ? std::exp(level) : level;
-                source[r] = static_cast<double>(s);
-                if (vol) ov[r] = notional ? vol[s] * x[s] / out[r] : vol[s];
+                const std::size_t s = p + perm[i], r0 = (p + i) * rowlen + j * K;
+                const double* st = step.data() + perm[i] * K;
+                source[(p + i) * ncols + j] = static_cast<double>(s);
+                for (std::size_t a = 0; a < K; ++a) {
+                    level[a] += st[a];
+                    const double v = log ? std::exp(level[a]) : level[a];
+                    out[r0 + a] = v;
+                    if (vol) ov[r0 + a] = notional ? vol[s * K + a] * x[s * K + a] / v
+                                                   : vol[s * K + a];
+                }
             }
         }
     }

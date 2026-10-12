@@ -234,9 +234,9 @@ The p-value of 0.55 says the timing of the weights adds nothing here.
 the null distribution next to the real result.
 
 [`strategy_test`](functions_fin/strategy_test.md) re-runs a whole strategy on
-randomized data and accepts a strategy that returns a `(T, K, 4)` book. Its
-inputs must be 1-D series, so it applies to books built from a few series,
-such as a pair, and not to a `(T, K)` panel. See
+randomized data and accepts a strategy that returns a `(T, K, 4)` book. It
+takes `(T, K)` price panels: each randomized copy permutes the time order of
+all assets together, so the correlation between them is kept. See
 [Backtesting best practices](backtesting_best_practices.md) for the other
 checks a result needs before it is trusted.
 

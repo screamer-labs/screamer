@@ -465,17 +465,18 @@ function positionPortfolio(
 // ---- data permutations and strategyTest (Python: permute_bars,
 // permute_returns, strategy_test) ------------------------------------------
 
-function heapBlocks(T: number, ncols: number, count: number) {
+// Heap blocks of the given sizes (in doubles), read back as copies.
+function heapBlocks(sizes: number[]) {
   const M = current();
   const ptrs: number[] = [];
   const free = () => ptrs.forEach((p) => M.freeBuf(p));
   try {
-    for (let i = 0; i < count; i++) ptrs.push(M.allocF64(T * ncols));
+    for (const n of sizes) ptrs.push(M.allocF64(n));
   } catch (e) {
     free();
     throw e;
   }
-  const read = (i: number) => new Float64Array(M.viewF64(ptrs[i], T * ncols));
+  const read = (i: number) => new Float64Array(M.viewF64(ptrs[i], sizes[i]));
   return { ptrs, read, free };
 }
 
@@ -496,29 +497,34 @@ function checkModes(mode: string, volumeMode: string): void {
     throw new RangeError('volume_mode must be "keep" or "notional"');
 }
 
+// Inputs to the permutation kernels are row-major (T x K) blocks of K assets;
+// K = 1 is one series. The checks repeat the C++ ones so that a bad input
+// throws a RangeError here instead of aborting inside WASM.
 function checkBars(o: ArrayLike<number>, h: ArrayLike<number>, l: ArrayLike<number>,
-                   c: ArrayLike<number>, mode: PermuteMode, notionalVolume: boolean): void {
-  const T = o.length;
-  if (h.length !== T || l.length !== T || c.length !== T)
+                   c: ArrayLike<number>, T: number, mode: PermuteMode,
+                   notionalVolume: boolean): void {
+  const N = o.length;
+  if (h.length !== N || l.length !== N || c.length !== N)
     throw new RangeError("open, high, low, and close must have the same length.");
   if (T < 2) throw new RangeError("permute_bars needs at least two bars.");
-  for (let t = 0; t < T; t++) {
-    if (!Number.isFinite(o[t] + h[t] + l[t] + c[t]))
+  for (let i = 0; i < N; i++) {
+    if (!Number.isFinite(o[i] + h[i] + l[i] + c[i]))
       throw new RangeError("permute_bars needs finite open, high, low, and close prices.");
-    if ((mode === "log" || notionalVolume) && !(o[t] > 0 && h[t] > 0 && l[t] > 0 && c[t] > 0))
+    if ((mode === "log" || notionalVolume) && !(o[i] > 0 && h[i] > 0 && l[i] > 0 && c[i] > 0))
       throw new RangeError(mode === "log"
         ? 'permute_bars with mode="log" needs positive prices; use mode="diff".'
         : 'volume_mode="notional" needs positive prices.');
   }
 }
 
+// Outputs: open, high, low, close (T x ncols x K), source (T x ncols), and the
+// moved volume (T x ncols x K) when `vol` is given.
 function barsBlock(o: ArrayLike<number>, h: ArrayLike<number>, l: ArrayLike<number>,
-                   c: ArrayLike<number>, mode: PermuteMode, seed: number, col0: number,
-                   ncols: number, vol: ArrayLike<number> | null, notional: boolean) {
+                   c: ArrayLike<number>, T: number, K: number, mode: PermuteMode, seed: number,
+                   col0: number, ncols: number, vol: ArrayLike<number> | null, notional: boolean) {
   const M = current();
-  const T = o.length;
-  checkBars(o, h, l, c, mode, notional && vol !== null);
-  if (vol !== null && vol.length !== T)
+  checkBars(o, h, l, c, T, mode, notional && vol !== null);
+  if (vol !== null && vol.length !== o.length)
     throw new RangeError("volume must have the same length as the prices.");
   const ins: number[] = [];
   let outs: ReturnType<typeof heapBlocks> | null = null;
@@ -526,9 +532,10 @@ function barsBlock(o: ArrayLike<number>, h: ArrayLike<number>, l: ArrayLike<numb
     for (const a of [o, h, l, c]) ins.push(heapCopy(a));
     const vp = vol === null ? 0 : heapCopy(vol);
     ins.push(vp);
-    outs = heapBlocks(T, ncols, vol === null ? 5 : 6);
+    const N = T * ncols * K;
+    outs = heapBlocks(vol === null ? [N, N, N, N, T * ncols] : [N, N, N, N, T * ncols, N]);
     const p = outs.ptrs;
-    M.permuteBarsInto(ins[0], ins[1], ins[2], ins[3], T, mode, seed, col0, ncols,
+    M.permuteBarsInto(ins[0], ins[1], ins[2], ins[3], T, K, mode, seed, col0, ncols,
                       p[0], p[1], p[2], p[3], p[4], vp, notional, vol === null ? 0 : p[5]);
     return p.map((_, k) => (outs as ReturnType<typeof heapBlocks>).read(k));
   } finally {
@@ -536,25 +543,33 @@ function barsBlock(o: ArrayLike<number>, h: ArrayLike<number>, l: ArrayLike<numb
   }
 }
 
-function checkReturns(x: ArrayLike<number>, mode: PermuteMode, notionalVolume: boolean): void {
+function checkReturns(x: ArrayLike<number>, T: number, K: number, mode: PermuteMode,
+                      notionalVolume: boolean): void {
   let p = 0;
-  while (p < x.length && Number.isNaN(x[p])) p++;
-  if (x.length - p < 2)
+  for (let a = 0; a < K; a++) {
+    let q = 0;
+    while (q < T && Number.isNaN(x[q * K + a])) q++;
+    p = Math.max(p, q);
+  }
+  if (T - p < 2)
     throw new RangeError("permute_returns needs at least two values after the NaN warmup.");
-  for (let t = p; t < x.length; t++) {
-    if (!Number.isFinite(x[t]))
+  for (let i = p * K; i < T * K; i++) {
+    if (!Number.isFinite(x[i]))
       throw new RangeError("permute_returns needs finite values after the NaN warmup.");
-    if ((mode === "log" || notionalVolume) && !(x[t] > 0))
+    if ((mode === "log" || notionalVolume) && !(x[i] > 0))
       throw new RangeError(mode === "log"
         ? 'permute_returns with mode="log" needs positive values; use mode="diff".'
         : 'volume_mode="notional" needs positive prices.');
   }
 }
 
-function returnsBlock(x: ArrayLike<number>, mode: PermuteMode, seed: number, col0: number,
-                      ncols: number, vol: ArrayLike<number> | null, notional: boolean) {
+// Outputs: prices (T x ncols x K), source (T x ncols), and the moved volume
+// (T x ncols x K) when `vol` is given.
+function returnsBlock(x: ArrayLike<number>, T: number, K: number, mode: PermuteMode,
+                      seed: number, col0: number, ncols: number,
+                      vol: ArrayLike<number> | null, notional: boolean) {
   const M = current();
-  checkReturns(x, mode, notional && vol !== null);
+  checkReturns(x, T, K, mode, notional && vol !== null);
   if (vol !== null && vol.length !== x.length)
     throw new RangeError("volume must have the same length as the prices.");
   let xp = 0, vp = 0;
@@ -562,9 +577,10 @@ function returnsBlock(x: ArrayLike<number>, mode: PermuteMode, seed: number, col
   try {
     xp = heapCopy(x);
     if (vol !== null) vp = heapCopy(vol);
-    outs = heapBlocks(x.length, ncols, vol === null ? 2 : 3);
+    const N = T * ncols * K;
+    outs = heapBlocks(vol === null ? [N, T * ncols] : [N, T * ncols, N]);
     const p = outs.ptrs;
-    M.permuteReturnsInto(xp, x.length, mode, seed, col0, ncols, p[0], p[1],
+    M.permuteReturnsInto(xp, T, K, mode, seed, col0, ncols, p[0], p[1],
                          vp, notional, vol === null ? 0 : p[2]);
     return p.map((_, k) => (outs as ReturnType<typeof heapBlocks>).read(k));
   } finally {
@@ -596,7 +612,8 @@ export function permuteBars(
   checkSeed(seed);
   checkModes(mode, vm);
   const vol = opts.volume ?? null;
-  const out = barsBlock(open, high, low, close, mode, seed, 0, n, vol, vm === "notional");
+  const out = barsBlock(open, high, low, close, open.length, 1, mode, seed, 0, n, vol,
+                        vm === "notional");
   const keep = vol === null ? [0, 1, 2, 3] : [0, 1, 2, 3, 5];
   return keep.map((k) => ({ data: out[k], shape: [open.length, n] }));
 }
@@ -614,7 +631,7 @@ export function permuteReturns(
   checkSeed(seed);
   checkModes(mode, vm);
   const vol = opts.volume ?? null;
-  const out = returnsBlock(x, mode, seed, 0, n, vol, vm === "notional");
+  const out = returnsBlock(x, x.length, 1, mode, seed, 0, n, vol, vm === "notional");
   const nd = (d: Float64Array): NdArray => ({ data: d, shape: [x.length, n] });
   return vol === null ? nd(out[0]) : [nd(out[0]), nd(out[2])];
 }
@@ -661,21 +678,65 @@ function engineOutput(out: any): NdArray {
   return v as NdArray;
 }
 
+/** One strategyTest input: a series of T values, or a (T, K) panel as an
+ * NdArray or as T rows of K values. */
+export type StrategyInput = ArrayLike<number> | ArrayLike<number>[] | NdArray;
+
+// A strategyTest input as row-major data with its time length T and asset
+// count K; `panel` is false for a 1-D series.
+interface Block { data: Float64Array; T: number; K: number; panel: boolean }
+
+function toBlock(x: any, i: number): Block {
+  const where = `input ${i}`;
+  const nd = asNd(x);
+  if (nd !== null) {
+    if (nd.shape.length === 1) return { data: nd.data, T: nd.shape[0], K: 1, panel: false };
+    if (nd.shape.length === 2)
+      return { data: nd.data, T: nd.shape[0], K: nd.shape[1], panel: true };
+    throw new RangeError(`${where} must be 1-D (T,) or 2-D (T, K), got ${nd.shape.length}-D`);
+  }
+  if (x == null || typeof x === "string" || typeof x.length !== "number")
+    throw new TypeError(`${where} must be an array of numbers, an array of rows, or an NdArray`);
+  const T = x.length;
+  const first = T > 0 ? x[0] : undefined;
+  if (first != null && typeof first === "object" && typeof first.length === "number") {
+    const K = first.length;
+    const data = new Float64Array(T * K);
+    for (let t = 0; t < T; t++) {
+      const row = x[t];
+      if (row == null || row.length !== K)
+        throw new RangeError(`${where}: every row must hold ${K} values`);
+      for (let a = 0; a < K; a++) data[t * K + a] = row[a];
+    }
+    return { data, T, K, panel: true };
+  }
+  return { data: Float64Array.from(x as ArrayLike<number>), T, K: 1, panel: false };
+}
+
+// What the strategy receives: a Float64Array for a series, an NdArray for a panel.
+const asArg = (b: Block, data: Float64Array): Float64Array | NdArray =>
+  b.panel ? { data, shape: [b.T, b.K] } : data;
+
 /**
  * Test a whole strategy against the same strategy run on randomized data.
  * `strategy(...inputs)` must return a backtest engine output of shape (T, 4)
- * (or a pipeline `{values, index}` holding one). `method` is `"bars"` (permute
- * the OHLC inputs at `ohlc`), `"returns"` (permute the price input at
- * `price`), or `"shift"` (rotate the feature inputs at `columns` by one random
- * offset). With bars and returns, `mode` is "log", "diff", or "level", and
- * other inputs move with their bar unless listed in `fixed`; the input at
- * `volume` is moved and, with `volumeMode: "notional"`, rescaled to keep the
- * traded amount. Mirrors Python's `strategy_test`; the same seed gives the same
- * randomized inputs.
+ * or a portfolio output of shape (T, K, 4) (or a pipeline `{values, index}`
+ * holding one). `method` is `"bars"` (permute the OHLC inputs at `ohlc`),
+ * `"returns"` (permute the price input at `price`), or `"shift"` (rotate the
+ * feature inputs at `columns` by one random offset). With bars and returns,
+ * `mode` is "log", "diff", or "level", and other inputs move with their bar
+ * unless listed in `fixed`; the input at `volume` is moved and, with
+ * `volumeMode: "notional"`, rescaled to keep the traded amount.
+ *
+ * Each input is a series of T values or a (T, K) panel of K assets (an
+ * NdArray or T rows of K values); a panel reaches the strategy as an NdArray.
+ * Each randomized copy applies one time permutation to every asset, so the
+ * correlation between assets is kept. Mirrors Python's `strategy_test`; the
+ * same seed gives the same randomized inputs.
  */
 export function strategyTest(
-  strategy: (...inputs: Float64Array[]) => any,
-  inputs: ArrayLike<number>[],
+  strategy: (...inputs: any[]) => any,
+  inputs: StrategyInput[],
   opts: StrategyTestOptions = {},
 ): StrategyTestResult {
   const n = opts.n ?? 500;
@@ -687,10 +748,11 @@ export function strategyTest(
   if (!Number.isInteger(n) || n < 1) throw new RangeError("n must be at least 1");
   checkSeed(seed);
   const { name, larger } = metricSpec(metric, opts.largerIsBetter);
-  const data = inputs.map((x) => Float64Array.from(x as ArrayLike<number>));
-  if (data.length === 0) throw new RangeError("strategyTest needs at least one input");
-  const T = data[0].length, k = data.length;
-  if (data.some((x) => x.length !== T)) throw new RangeError("all inputs must have the same length");
+  const blocks = inputs.map((x, i) => toBlock(x, i));
+  if (blocks.length === 0) throw new RangeError("strategyTest needs at least one input");
+  const T = blocks[0].T, k = blocks.length;
+  if (blocks.some((b) => b.T !== T)) throw new RangeError("all inputs must have the same length");
+  const sameShape = (a: Block, b: Block) => a.panel === b.panel && a.K === b.K;
   const check = (pos: number[], what: string) => {
     if (pos.some((i) => !Number.isInteger(i) || i < 0 || i >= k))
       throw new RangeError(`${what} refers to an input that does not exist`);
@@ -699,7 +761,7 @@ export function strategyTest(
   const fixed = new Set(check(opts.fixed ?? [], "fixed"));
   const mode = opts.mode ?? "log", volumeMode = opts.volumeMode ?? "keep";
   checkModes(mode, volumeMode);
-  const volCol = opts.volume === undefined ? null : check([opts.volume], "volume")[0];
+  let volCol = opts.volume === undefined ? null : check([opts.volume], "volume")[0];
   if (volCol !== null && method === "shift")
     throw new RangeError('volume applies to method "bars" or "returns"');
   const notional = volumeMode === "notional";
@@ -707,6 +769,8 @@ export function strategyTest(
   if (method === "bars") {
     priceCols = check([...(opts.ohlc ?? [0, 1, 2, 3])], "ohlc");
     if (priceCols.length !== 4) throw new RangeError("ohlc must list the positions of open, high, low, close");
+    if (priceCols.some((i) => !sameShape(blocks[i], blocks[priceCols[0]])))
+      throw new RangeError("open, high, low, and close must have the same shape");
   } else if (method === "returns") {
     priceCols = check([opts.price ?? 0], "price");
   } else {
@@ -717,10 +781,20 @@ export function strategyTest(
     if (!Number.isInteger(shift) || shift < 1 || 2 * shift > T)
       throw new RangeError("min_shift must be in [1, T / 2]");
   }
+  // A volume with the shape of the prices goes to the permutation kernel.
+  // Otherwise "keep" moves it with its bar like any other input, and
+  // "notional" cannot rescale it.
+  if (volCol !== null && !sameShape(blocks[volCol], blocks[priceCols[0]])) {
+    if (notional)
+      throw new RangeError('volume_mode="notional" needs a volume input with the shape of the prices');
+    volCol = null;
+  }
+  const P = priceCols.length ? blocks[priceCols[0]] : blocks[0];
+  const vol = volCol === null ? null : blocks[volCol].data;
 
   const scorer = makeScorer(metric, opts.periodsPerYear ?? 1);
   try {
-    const obs = scorer.score(engineOutput(strategy(...data)));
+    const obs = scorer.score(engineOutput(strategy(...blocks.map((b) => asArg(b, b.data)))));
     const observed = obs.value;
     const nullStats = statsRecord(() => new Float64Array(n));
     const positions = Float64Array.from({ length: T }, (_, i) => i);
@@ -730,15 +804,13 @@ export function strategyTest(
       const m = Math.min(chunk, n - c0);
       let replaced = new Map<number, Float64Array>(), src: Float64Array;
       if (method === "bars") {
-        const vol = volCol === null ? null : data[volCol];
-        const b = barsBlock(data[priceCols[0]], data[priceCols[1]], data[priceCols[2]],
-                            data[priceCols[3]], mode, seed, c0, m, vol, notional);
+        const [o, h, l, c] = priceCols.map((i) => blocks[i].data);
+        const b = barsBlock(o, h, l, c, T, P.K, mode, seed, c0, m, vol, notional);
         priceCols.forEach((i, q) => replaced.set(i, b[q]));
         if (volCol !== null) replaced.set(volCol, b[5]);
         src = b[4];
       } else if (method === "returns") {
-        const vol = volCol === null ? null : data[volCol];
-        const r = returnsBlock(data[priceCols[0]], mode, seed, c0, m, vol, notional);
+        const r = returnsBlock(P.data, T, P.K, mode, seed, c0, m, vol, notional);
         replaced.set(priceCols[0], r[0]);
         if (volCol !== null) replaced.set(volCol, r[2]);
         src = r[1];
@@ -746,17 +818,21 @@ export function strategyTest(
         src = shiftBlock(positions, shift, seed, c0, m).data;
       }
       for (let j = 0; j < m; j++) {
-        const run = data.map((x, i) => {
-          const col = new Float64Array(T);
-          if (replaced.has(i)) {
-            const blk = replaced.get(i) as Float64Array;
-            for (let t = 0; t < T; t++) col[t] = blk[t * m + j];
-          } else if (fixed.has(i) || (method === "shift" && !shifted.has(i))) {
-            return x;
+        const run = blocks.map((b, i) => {
+          if (fixed.has(i) || (method === "shift" && !shifted.has(i))) return asArg(b, b.data);
+          const K = b.K, col = new Float64Array(T * K);
+          const blk = replaced.get(i);
+          if (blk !== undefined) {
+            // copy j of a (T x m x K) block
+            for (let t = 0; t < T; t++)
+              col.set(blk.subarray((t * m + j) * K, (t * m + j + 1) * K), t * K);
           } else {
-            for (let t = 0; t < T; t++) col[t] = x[src[t * m + j]];
+            for (let t = 0; t < T; t++) {
+              const s = src[t * m + j] * K;
+              col.set(b.data.subarray(s, s + K), t * K);
+            }
           }
-          return col;
+          return asArg(b, col);
         });
         const r = scorer.score(engineOutput(strategy(...run)));
         STAT_NAMES.forEach((q, i) => { nullStats[q][c0 + j] = r.stats[i]; });

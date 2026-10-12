@@ -207,3 +207,62 @@ test("validation: positionTest calls the engine once per chunk with a (T, k) blo
   assert.equal(r.null.length > 0, true);
   assert.equal(calls, 2);        // the observed run and one chunk of 50
 });
+
+// C2: strategyTest on (T, K) panels. Same values as Python:
+// strategy_test(book, c, method="returns", n=5, seed=1) and the "bars" run with
+// mode="diff", where book is an EwMean(span=4) sign book on BacktestPortfolioTarget.
+test("validation: strategyTest on (T, K) panels matches Python", async () => {
+  const { strategyTest, EwMean, LogReturn, BacktestPortfolioTarget } = await import("../src/index.ts");
+  const T = 120, K = 3;
+  const rows = (f: (t: number, k: number) => number) =>
+    Array.from({ length: T }, (_, t) => Array.from({ length: K }, (_, k) => f(t, k)));
+  const c = rows((t, k) => 100 * Math.exp(0.02 * Math.sin(0.21 * t * (k + 1)) + 0.001 * t * (k - 1)));
+  const o = rows((t, k) => c[Math.max(0, t - 1)][k]);
+  const h = rows((t, k) => Math.max(o[t][k], c[t][k]) * 1.001);
+  const l = rows((t, k) => Math.min(o[t][k], c[t][k]) * 0.999);
+  const shapes: number[][] = [];
+  const book = (px: any) => {
+    shapes.push(px.shape);
+    const sig = EwMean(Number.NaN, 4)(LogReturn()(px)) as any;
+    const w = Float64Array.from(sig.data as Float64Array, (v) => (Number.isNaN(v) ? 0 : Math.sign(v)) / K);
+    return BacktestPortfolioTarget()({ data: w, shape: [T, K] }, px);
+  };
+  const near = (a: ArrayLike<number>, b: number[]) =>
+    a.length === b.length && b.every((v, i) => Math.abs(a[i] - v) <= 1e-12 * Math.max(1, Math.abs(v)));
+  const r = strategyTest(book, [c], { method: "returns", n: 5, seed: 1 });
+  assert.ok(near([r.observed], [0.9256864022681778]), `${r.observed}`);
+  assert.equal(r.pValue, 0.16666666666666666);
+  assert.ok(near(r.null, [0.09176636863855668, 0.05996838391218732, 0.08515585398159334,
+    0.12065525318962493, -0.05150083773850076]), `${Array.from(r.null)}`);
+  assert.ok(shapes.every((s) => s[0] === T && s[1] === K));
+  const b = strategyTest((_o: any, _h: any, _l: any, px: any) => book(px), [o, h, l, c],
+    { n: 5, seed: 1, mode: "diff" });
+  assert.ok(near(b.null, [0.08795893015155552, 0.045383667637995555, 0.09102912413542846,
+    0.11555392420276887, -0.05560480824609657]), `${Array.from(b.null)}`);
+});
+
+test("validation: strategyTest applies one permutation to every asset", async () => {
+  const { strategyTest, BacktestPortfolioTarget } = await import("../src/index.ts");
+  const T = 80;
+  const x = Array.from({ length: T }, (_, t) => 100 * Math.exp(0.01 * Math.sin(0.3 * t) + 0.002 * t));
+  const panel = { data: Float64Array.from(x.flatMap((v) => [v, v])), shape: [T, 2] };
+  const feature = Float64Array.from({ length: T }, (_, t) => t);
+  for (const mode of ["log", "diff", "level"] as const) {
+    const seen: any[] = [];
+    strategyTest((px: any, f: Float64Array) => {
+      seen.push([px, f]);
+      return BacktestPortfolioTarget()({ data: new Float64Array(2 * T).fill(0.5), shape: [T, 2] }, px);
+    }, [panel, feature], { method: "returns", mode, n: 4, seed: 2 });
+    for (const [px, f] of seen.slice(1)) {
+      for (let t = 0; t < T; t++) assert.equal(px.data[2 * t], px.data[2 * t + 1]);
+      assert.ok(f instanceof Float64Array && f.length === T);
+    }
+    assert.notDeepEqual(Array.from(seen[1][0].data), Array.from(panel.data));
+  }
+  const book = (...xs: any[]) =>
+    BacktestPortfolioTarget()({ data: new Float64Array(2 * T).fill(0.5), shape: [T, 2] }, xs[0]);
+  assert.throws(() => strategyTest(book, [panel, x.slice(1)], { method: "returns", n: 2 }), RangeError);
+  assert.throws(() => strategyTest(book, [{ data: panel.data, shape: [T, 2, 1] }], { method: "returns", n: 2 }), RangeError);
+  assert.throws(() => strategyTest(book, ["abc" as any], { method: "returns", n: 2 }), TypeError);
+  assert.throws(() => strategyTest(book, [panel, panel, x, panel], { n: 2 }), RangeError);
+});

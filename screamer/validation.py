@@ -88,6 +88,19 @@ def _as_series(x, name):
     return x
 
 
+def _as_block(x, name):
+    """A float64 input of shape (T,) or (T, K), for strategy_test."""
+    if x is None or isinstance(x, (str, bytes, dict)):
+        raise TypeError(f"{name} must be a numeric array, not {type(x).__name__}")
+    try:
+        x = np.asarray(x, dtype=float)
+    except (TypeError, ValueError) as exc:
+        raise TypeError(f"{name} must be a numeric array: {exc}") from None
+    if x.ndim not in (1, 2):
+        raise ValueError(f"{name} must be 1-D (T,) or 2-D (T, K), got {x.ndim}-D")
+    return np.ascontiguousarray(x)
+
+
 def circular_shift(x, n, min_shift=None, seed=0):
     """``n`` circularly shifted copies of a series, as a ``(T, n)`` array.
 
@@ -582,6 +595,13 @@ def strategy_test(
     so per-bar data such as volume keeps its relation to the bar it belongs
     to. List inputs that must not move, such as timestamps, in ``fixed``.
 
+    Each input is a series of shape ``(T,)`` or a panel of shape ``(T, K)``
+    with one column per asset, and series and panels can be mixed. For a
+    panel, each randomized copy applies one time permutation (or one shift) to
+    every asset, so the correlation between assets is kept and only the
+    structure over time is destroyed. A ``"notional"`` volume must have the
+    shape of the prices.
+
     ``metric`` is the name of a ``backtest_report`` summary statistic or a
     callable that maps an output of shape ``(T, k, 4)`` to ``k`` values, as in
     ``position_test``. The p-value counts the observed result itself, so it is
@@ -594,7 +614,7 @@ def strategy_test(
     if n < 1:
         raise ValueError("n must be at least 1")
     seed = _seed(seed)
-    data = [_as_series(x, "input") for x in inputs]
+    data = [_as_block(x, "input") for x in inputs]
     if not data:
         raise ValueError("strategy_test needs at least one input")
     T = data[0].shape[0]
@@ -617,6 +637,8 @@ def strategy_test(
         price_cols = check_positions(ohlc, "ohlc")
         if len(price_cols) != 4:
             raise ValueError("ohlc must list the positions of open, high, low, close")
+        if any(data[i].shape != data[price_cols[0]].shape for i in price_cols):
+            raise ValueError("open, high, low, and close must have the same shape")
     elif method == "returns":
         price_cols = check_positions([price], "price")
     else:
@@ -639,24 +661,36 @@ def strategy_test(
         return (float(_score(out, metric, stats)[0]),
                 {k: float(v[0]) for k, v in stats.items()})
 
+    # A volume with the shape of the prices goes to the permutation kernel.
+    # Otherwise, such as one (T,) volume next to (T, K) prices, "keep" moves it
+    # with its bar like any other input, and "notional" cannot rescale it.
+    notional = volume_mode == "notional"
+    if vol_col is not None and data[vol_col].shape != data[price_cols[0]].shape:
+        if notional:
+            raise ValueError('volume_mode="notional" needs a volume input with the '
+                             "shape of the prices")
+        vol_col = None
+    vol_block = _EMPTY if vol_col is None else data[vol_col]
+
     observed, observed_stats = run_stats(strategy(*data))
 
     null = np.empty(n)
     null_stats = {key: np.empty(n) for key in _METRICS}
-    chunk = max(1, min(n, 64))
+    # Copies per chunk: up to 64, fewer for a large panel (six (T, m, K) blocks).
+    width = max(x.size for x in data)
+    chunk = max(1, min(n, 64, _CHUNK_DOUBLES // (6 * width)))
     for col0 in range(0, n, chunk):
         m = min(chunk, n - col0)
-        v = _EMPTY if vol_col is None else data[vol_col]
-        notional = volume_mode == "notional"
         if method == "bars":
             out = _permute_bars(*(data[i] for i in price_cols), mode, seed, col0, m,
-                                v, notional)
+                                vol_block, notional)
             src = out[4]
             replaced = dict(zip(price_cols, out[:4]))
             if vol_col is not None:
                 replaced[vol_col] = out[5]
         elif method == "returns":
-            out = _permute_returns(data[price_cols[0]], mode, seed, col0, m, v, notional)
+            out = _permute_returns(data[price_cols[0]], mode, seed, col0, m, vol_block,
+                                   notional)
             src = out[1]
             replaced = {price_cols[0]: out[0]}
             if vol_col is not None:

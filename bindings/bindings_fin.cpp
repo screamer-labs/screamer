@@ -601,56 +601,94 @@ nb::object segment_shuffle_batch(SurrogateIn x, std::uint64_t seed,
     return screamer::detail::make_owned_array(out, {T, ncols});
 }
 
-nb::object permute_bars_batch(SurrogateIn o, SurrogateIn h, SurrogateIn l, SurrogateIn c,
+// The permutation kernels also take (T, K) blocks of K assets: each copy
+// applies one time permutation to every asset. A 1-D input gives (T, ncols)
+// outputs as before; a (T, K) input gives (T, ncols, K) outputs. The source
+// rows are (T, ncols) either way.
+using BlockIn = nb::ndarray<const double, nb::c_contig, nb::device::cpu>;
+
+struct BlockShape { size_t T, K; bool panel; };
+
+BlockShape block_shape(const BlockIn& x, const char* what) {
+    if (x.ndim() == 1) return {x.shape(0), 1, false};
+    if (x.ndim() == 2) return {x.shape(0), x.shape(1), true};
+    throw std::invalid_argument(std::string(what) + " must be 1-D (T,) or 2-D (T, K).");
+}
+
+std::vector<size_t> block_out_shape(const BlockShape& b, size_t ncols) {
+    if (b.panel) return {b.T, ncols, b.K};
+    return {b.T, ncols};
+}
+
+// The volume block must match the prices: the same T, and the same K.
+bool check_volume(const BlockIn& volume, const BlockShape& b) {
+    if (volume.ndim() == 1 && volume.shape(0) == 0) return false;
+    const BlockShape v = block_shape(volume, "volume");
+    if (v.T != b.T)
+        throw std::invalid_argument("volume must have the same length as the prices.");
+    if (v.panel != b.panel || v.K != b.K)
+        throw std::invalid_argument("volume must have the same shape as the prices.");
+    return true;
+}
+
+nb::object permute_bars_batch(BlockIn o, BlockIn h, BlockIn l, BlockIn c,
                               const std::string& mode, std::uint64_t seed,
                               size_t col0, size_t ncols,
-                              SurrogateIn volume, bool notional) {
-    const size_t T = o.shape(0);
-    if (h.shape(0) != T || l.shape(0) != T || c.shape(0) != T)
-        throw std::invalid_argument("open, high, low, and close must have the same length.");
-    const bool has_vol = volume.shape(0) > 0;
-    if (has_vol && volume.shape(0) != T)
-        throw std::invalid_argument("volume must have the same length as the prices.");
+                              BlockIn volume, bool notional) {
+    const BlockShape b = block_shape(o, "open");
+    for (const BlockIn* a : {&h, &l, &c}) {
+        const BlockShape q = block_shape(*a, "high, low, and close");
+        if (q.T != b.T)
+            throw std::invalid_argument("open, high, low, and close must have the same length.");
+        if (q.panel != b.panel || q.K != b.K)
+            throw std::invalid_argument("open, high, low, and close must have the same shape.");
+    }
+    const bool has_vol = check_volume(volume, b);
     const auto m = screamer::validation::parse_permute_mode(mode);
-    const size_t N = T * ncols;
+    const size_t N = b.T * ncols * b.K;
     std::vector<double*> bufs;
-    for (int k = 0; k < (has_vol ? 6 : 5); ++k) bufs.push_back(new double[N]);
+    for (int k = 0; k < (has_vol ? 6 : 5); ++k)
+        bufs.push_back(new double[k == 4 ? b.T * ncols : N]);
     try {
         screamer::validation::permute_bars(
-            o.data(), h.data(), l.data(), c.data(), T, m, seed, col0, ncols,
+            o.data(), h.data(), l.data(), c.data(), b.T, b.K, m, seed, col0, ncols,
             bufs[0], bufs[1], bufs[2], bufs[3], bufs[4],
             has_vol ? volume.data() : nullptr, notional, has_vol ? bufs[5] : nullptr);
     } catch (...) {
-        for (double* b : bufs) delete[] b;
+        for (double* p : bufs) delete[] p;
         throw;
     }
     using screamer::detail::make_owned_array;
+    const auto shape = block_out_shape(b, ncols);
     nb::list out;
-    for (double* b : bufs) out.append(make_owned_array(b, {T, ncols}));
+    for (size_t k = 0; k < bufs.size(); ++k)
+        out.append(make_owned_array(bufs[k], k == 4 ? std::vector<size_t>{b.T, ncols} : shape));
     return nb::tuple(out);
 }
 
-nb::object permute_returns_batch(SurrogateIn x, const std::string& mode, std::uint64_t seed,
+nb::object permute_returns_batch(BlockIn x, const std::string& mode, std::uint64_t seed,
                                  size_t col0, size_t ncols,
-                                 SurrogateIn volume, bool notional) {
-    const size_t T = x.shape(0);
-    const bool has_vol = volume.shape(0) > 0;
-    if (has_vol && volume.shape(0) != T)
-        throw std::invalid_argument("volume must have the same length as the prices.");
+                                 BlockIn volume, bool notional) {
+    const BlockShape b = block_shape(x, "x");
+    const bool has_vol = check_volume(volume, b);
     const auto m = screamer::validation::parse_permute_mode(mode);
+    const size_t N = b.T * ncols * b.K;
     std::vector<double*> bufs;
-    for (int k = 0; k < (has_vol ? 3 : 2); ++k) bufs.push_back(new double[T * ncols]);
+    for (int k = 0; k < (has_vol ? 3 : 2); ++k)
+        bufs.push_back(new double[k == 1 ? b.T * ncols : N]);
     try {
         screamer::validation::permute_returns(
-            x.data(), T, m, seed, col0, ncols, bufs[0], bufs[1],
+            x.data(), b.T, b.K, m, seed, col0, ncols, bufs[0], bufs[1],
             has_vol ? volume.data() : nullptr, notional, has_vol ? bufs[2] : nullptr);
     } catch (...) {
-        for (double* b : bufs) delete[] b;
+        for (double* p : bufs) delete[] p;
         throw;
     }
     using screamer::detail::make_owned_array;
+    const auto shape = block_out_shape(b, ncols);
     nb::list out;
-    for (double* b : bufs) out.append(make_owned_array(b, {T, ncols}));
+    for (size_t k = 0; k < bufs.size(); ++k)
+        out.append(make_owned_array(bufs[k], k == 1 ? std::vector<size_t>{b.T, ncols} : shape));
     return nb::tuple(out);
 }
 

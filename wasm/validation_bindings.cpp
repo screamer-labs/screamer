@@ -46,25 +46,27 @@ double defaultMinShift(std::uintptr_t x, std::size_t T) {
 // `mode` arrives as a val, not a std::string: Embind frees a std::string
 // argument only on a normal return, so a rejected mode would leak its buffer.
 //
-// Outputs: open, high, low, close, and source, each a (T x ncols) block, and
-// with a volume column (vol != 0) the moved volume in ov.
+// Inputs are (T x K) blocks of K assets (K = 1: one series). Outputs: open,
+// high, low, close, each a (T x ncols x K) block, source (T x ncols), and with
+// a volume block (vol != 0) the moved volume in ov (T x ncols x K). Each copy
+// applies one permutation to every asset.
 void permuteBarsInto(std::uintptr_t o, std::uintptr_t h, std::uintptr_t l, std::uintptr_t c,
-                     std::size_t T, emscripten::val mode, double seed, std::size_t col0,
+                     std::size_t T, std::size_t K, emscripten::val mode, double seed, std::size_t col0,
                      std::size_t ncols, std::uintptr_t oo, std::uintptr_t oh, std::uintptr_t ol,
                      std::uintptr_t oc, std::uintptr_t src,
                      std::uintptr_t vol, bool notional, std::uintptr_t ov) {
-    permute_bars(in_ptr(o), in_ptr(h), in_ptr(l), in_ptr(c), T,
+    permute_bars(in_ptr(o), in_ptr(h), in_ptr(l), in_ptr(c), T, K,
                  screamer::validation::parse_permute_mode(mode.as<std::string>()),
                  static_cast<std::uint64_t>(seed), col0, ncols,
                  out_ptr(oo), out_ptr(oh), out_ptr(ol), out_ptr(oc), out_ptr(src),
                  vol ? in_ptr(vol) : nullptr, notional, vol ? out_ptr(ov) : nullptr);
 }
 
-void permuteReturnsInto(std::uintptr_t x, std::size_t T, emscripten::val mode, double seed,
+void permuteReturnsInto(std::uintptr_t x, std::size_t T, std::size_t K, emscripten::val mode, double seed,
                         std::size_t col0, std::size_t ncols,
                         std::uintptr_t out, std::uintptr_t src,
                         std::uintptr_t vol, bool notional, std::uintptr_t ov) {
-    permute_returns(in_ptr(x), T, screamer::validation::parse_permute_mode(mode.as<std::string>()),
+    permute_returns(in_ptr(x), T, K, screamer::validation::parse_permute_mode(mode.as<std::string>()),
                     static_cast<std::uint64_t>(seed), col0, ncols, out_ptr(out), out_ptr(src),
                     vol ? in_ptr(vol) : nullptr, notional, vol ? out_ptr(ov) : nullptr);
 }

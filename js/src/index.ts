@@ -58,6 +58,7 @@ export type {
   PermuteMode,
   PermuteOptions,
   VolumeMode,
+  StrategyInput,
   StrategyTestOptions,
   StrategyTestResult,
   WalkForwardOptions,
