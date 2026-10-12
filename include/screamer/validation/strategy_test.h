@@ -47,8 +47,8 @@ namespace screamer { namespace validation {
         // output stays valid until the next run.
         virtual EngineOutput run(const std::vector<unsigned char>& moved) = 0;
         // The custom metric of the last run's output (only called when the
-        // options name no statistic): writes at most `count` values and
-        // returns how many the metric gave, which the driver checks.
+        // options name no statistic): checks the result with
+        // check_metric_result, writes `count` values, and returns `count`.
         virtual std::size_t metric(double* values, std::size_t count) = 0;
     };
 

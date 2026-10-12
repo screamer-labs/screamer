@@ -735,15 +735,18 @@ private:
     std::array<std::unique_ptr<double[]>, sv::kNumStats> stats_;
 };
 
-// A custom metric's values (the 1-D float64 array the Python thunk returns):
-// at most `count` are copied, and the number given is returned for the
-// driver's check.
+// A custom metric's result, as the Python thunk classifies it: (kind,
+// float64 values); see _metric_result in screamer/validation.py. The kind
+// and the count are checked by the drivers' shared rule, then `count`
+// values are copied.
 std::size_t metric_values(const nb::object& r, double* values, std::size_t count) {
     using Values = nb::ndarray<const double, nb::ndim<1>, nb::c_contig, nb::device::cpu>;
-    const auto v = nb::cast<Values>(r);
-    const std::size_t got = v.shape(0);
-    std::copy(v.data(), v.data() + std::min(got, count), values);
-    return got;
+    const nb::tuple t = nb::cast<nb::tuple>(r);
+    const auto kind = static_cast<sv::MetricKind>(nb::cast<int>(t[0]));
+    const auto v = nb::cast<Values>(t[1]);
+    sv::check_metric_result(kind, count, v.shape(0));
+    std::copy(v.data(), v.data() + count, values);
+    return count;
 }
 
 // strategy_test (screamer/validation.py): the driver is
@@ -1021,6 +1024,15 @@ nb::tuple walk_forward_py(nb::callable run, nb::callable reset, nb::object metri
 }  // namespace
 
 void init_bindings_fin(nb::module_& m) {
+    // A custom metric's result of the wrong kind is a TypeError, as in
+    // JavaScript.
+    nb::register_exception_translator([](const std::exception_ptr& p, void*) {
+        try {
+            std::rethrow_exception(p);
+        } catch (const screamer::validation::MetricTypeError& e) {
+            PyErr_SetString(PyExc_TypeError, e.what());
+        }
+    });
     m.def("_probabilistic_sharpe", [](SurrogateIn pnl, double benchmark) {
         return screamer::validation::probabilistic_sharpe(pnl.data(), pnl.shape(0), benchmark);
     }, "pnl"_a, "benchmark"_a);

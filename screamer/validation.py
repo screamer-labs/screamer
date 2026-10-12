@@ -93,24 +93,40 @@ def _engine_calls(engine, market, metric):
     return run, engine.reset, _metric_call(metric)
 
 
-_METRIC_TYPE = "metric must return a number or an array of numbers"
+# The kinds C++ checks (MetricKind in include/screamer/validation/scoring.h).
+_NUMBER, _NUMBERS, _OTHER = 0, 1, 2
+_NO_VALUES = np.empty(0)
+
+
+def _is_number(v):
+    return isinstance(v, (int, float, np.integer, np.floating)) and not isinstance(v, (bool, np.bool_))
+
+
+def _metric_result(value):
+    """(kind, values) of a custom metric's result, as JavaScript classifies
+    its own: a number; a 1-D array of numbers (a numeric 1-D ndarray, or a
+    flat list or tuple of numbers); anything else, such as a bool, a string,
+    a nested list, or a 2-D array. C++ checks the kind and the count."""
+    if _is_number(value):
+        return _NUMBER, np.array([value], dtype=float)
+    if isinstance(value, np.ndarray):
+        if value.ndim <= 1 and value.dtype.kind in "iuf":
+            return _NUMBERS, np.ascontiguousarray(value, dtype=float).reshape(-1)
+        return _OTHER, _NO_VALUES
+    if isinstance(value, (list, tuple)) and all(_is_number(v) for v in value):
+        return _NUMBERS, np.array(value, dtype=float).reshape(-1)
+    return _OTHER, _NO_VALUES
 
 
 def _metric_call(metric):
     """score(out): a callable metric of a (T, k, 4) output (a (T, 4) output
-    is read as (T, 1, 4)), as a 1-D float64 array whose length C++ checks;
-    None for a statistic name."""
+    is read as (T, 1, 4)), as (kind, values) for C++ to check; None for a
+    statistic name."""
     if not callable(metric):
         return None
 
     def score(out):
-        value = metric(out if out.ndim == 3 else out[:, None, :])
-        if value is None or isinstance(value, (str, bytes, bool, np.bool_)):
-            raise TypeError(_METRIC_TYPE)
-        try:
-            return np.asarray(value, dtype=float).reshape(-1)
-        except (TypeError, ValueError):
-            raise TypeError(_METRIC_TYPE) from None
+        return _metric_result(metric(out if out.ndim == 3 else out[:, None, :]))
     return score
 
 

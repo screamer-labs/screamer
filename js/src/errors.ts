@@ -53,6 +53,9 @@ export function normalizeError(e: unknown): unknown {
     // The caught exception holds the last reference to the C++ object; drop
     // it once the message is read, or the object leaks.
     try { [type, msg] = helpers.getExceptionMessage(e); } finally { helpers.decrementExceptionRefcount(e); }
+    // A custom metric's result of the wrong kind is a TypeError, as in Python
+    // (screamer::validation::MetricTypeError; the type name may be mangled).
+    if (/MetricTypeError/.test(type)) return new TypeError(msg);
     return new RangeError(msg ?? `C++ exception of type ${type}`);
   }
   if (e instanceof Error && /must be|at least|invalid_argument|out of range|>=|<=/.test(e.message))

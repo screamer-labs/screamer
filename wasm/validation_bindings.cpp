@@ -151,11 +151,18 @@ public:
         return o;
     }
 
-    // One value of a custom metric: the JS side writes [value, how many values
-    // the metric gave] to hdr; the driver's rule is one per strategy.
-    double metric_value(double* hdr) {
-        sv::check_metric_values(1, static_cast<std::size_t>(hdr[1]));
-        return hdr[0];
+    // Custom-metric results, one per strategy: the JS side writes [first
+    // value, how many values, kind (sv::MetricKind)] for each of `count`
+    // calls of the user's metric (each sees one strategy) to `res`; the
+    // drivers' shared rule checks each, and the first values go to `values`.
+    static void metric_values(const double* res, double* values, std::size_t count) {
+        for (std::size_t j = 0; j < count; ++j) {
+            const double kind = res[3 * j + 2];
+            sv::check_metric_result(kind == 0.0 ? sv::MetricKind::Number
+                                    : kind == 1.0 ? sv::MetricKind::Numbers : sv::MetricKind::Other,
+                                    1, static_cast<std::size_t>(res[3 * j + 1]));
+            values[j] = res[3 * j];
+        }
     }
 
     // sv::ResultSink: the batches are copied into JS arrays as they come, so
@@ -178,8 +185,8 @@ private:
 //     0 for an original input, else the moved copy (T * K doubles). Writes the
 //     output's [ndim, d0, d1, d2] to hdrPtr.
 //   fetch(outPtr, count): copies the last output's count values to outPtr.
-//   metric(hdrPtr): writes [value, values given] of the custom metric of the
-//     last output to hdrPtr.
+//   metric(hdrPtr): writes [first value, values given, kind] of the custom
+//     metric of the last output to hdrPtr.
 //   begin(n, K) and emit(j0, runs, statsPtr, stride, metricsPtr, count): the
 //     results (sv::ResultSink), copied into JS arrays as they come.
 //   done(headPtr, nullCount): head = [observed, p_value, observed stats].
@@ -202,7 +209,7 @@ public:
 
     std::size_t metric(double* values, std::size_t count) override {
         js_.call("metric", JsCallbacks::addr(hdr_));
-        if (count) values[0] = js_.metric_value(hdr_);
+        JsCallbacks::metric_values(hdr_, values, count);
         return count;
     }
 
@@ -233,10 +240,10 @@ private:
 //     targetPtr, with the market inputs. Writes [ndim, d0, d1, d2] to hdrPtr.
 //   fetch(outPtr, count), as for strategy_test.
 //   reset(): resets the engine.
-//   metric(what, j, count, rows, windowPtr, hdrPtr): the custom metric of
-//     strategy j of `count` in `what` (0: the last output, 1: the last output
-//     as one book, 2: the (rows, count, 4) window at windowPtr), as [value,
-//     values given] to hdrPtr.
+//   metric(what, count, rows, windowPtr, resPtr): the custom metric of each
+//     of `count` strategies of `what` (0: the last output, 1: the last output
+//     as one book, 2: the (rows, count, 4) window at windowPtr), as [first
+//     value, values given, kind] per strategy to resPtr.
 //   begin and emit, as for strategy_test (position_test only).
 //   done(...): the rest of the result (positionTestRun, walkForwardRun).
 class JsEngineHost final : public sv::PositionHost {
@@ -264,12 +271,11 @@ public:
 
     std::size_t metric(sv::MetricOf what, double* values, std::size_t count,
                        std::size_t rows) override {
-        // One call per strategy: the JS metric takes one strategy's output.
-        for (std::size_t j = 0; j < count; ++j) {
-            js_.call("metric", static_cast<int>(what), j, count, rows,
-                     JsCallbacks::addr(window_.data()), JsCallbacks::addr(hdr_));
-            values[j] = js_.metric_value(hdr_);
-        }
+        // One call into JS; it calls the user's metric once per strategy.
+        res_.resize(3 * count);
+        js_.call("metric", static_cast<int>(what), count, rows, JsCallbacks::addr(window_.data()),
+                 JsCallbacks::addr(res_.data()));
+        JsCallbacks::metric_values(res_.data(), values, count);
         return count;
     }
 
@@ -284,7 +290,7 @@ public:
 
 private:
     JsCallbacks js_;
-    std::vector<double> target_, window_, out_;
+    std::vector<double> target_, window_, out_, res_;
     double hdr_[4] = {0, 0, 0, 0};
 };
 

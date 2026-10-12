@@ -609,9 +609,12 @@ test("validation: a custom metric must give one number per strategy", async () =
   for (const run of calls) {
     for (const bad of [[1, 2], [], new Float64Array(2)])
       assert.throws(() => run(() => bad), (e: any) => e instanceof RangeError && wrong.test(e.message));
-    for (const bad of [undefined, null, "1", { x: 1 }, [1, "2"], true])
+    // Python accepts and rejects the same kinds (test_validation.py)
+    for (const bad of [undefined, null, "1", { x: 1 }, [1, "2"], true, [true], ["1"], [[0.5]],
+                       { data: Float64Array.of(1), shape: [1] }, new BigInt64Array(1)])
       assert.throws(() => run(() => bad),
-        { name: "TypeError", message: "metric must return a number or an array of numbers" });
+        { name: "TypeError", message: "metric must return a number or a 1-D array of numbers" });
+    for (const good of [0.5, [0.5], Float64Array.of(0.5), Int32Array.of(1)]) run(() => good);
     const one = run(() => [0.5]) as any, num = run(() => 0.5) as any;
     assert.deepEqual(one, num);
   }
@@ -688,4 +691,18 @@ test("validation: per-strategy p-values keep infinite metrics", async () => {
     assert.ok(Object.is(st.pValue, nullP(st.null, st.observed, L)));
   }
   assert.ok(seen > 0);
+});
+
+test("validation: positionTest takes NdArray series markets", () => {
+  const T = 90;
+  const { c } = market(T);
+  const cs = Float64Array.from(c), nc = { data: cs, shape: [T] };
+  const a = Array.from({ length: T }, (_, t) => (Math.floor(t / 5) % 2 ? 1 : -1));
+  const b = a.map((v, t) => (t % 7 ? v : -v));
+  const block = Float64Array.from({ length: 2 * T }, (_, i) => (i % 2 ? b : a)[i >> 1]);
+  assert.deepEqual(positionTest(BacktestPriceTarget(), Float64Array.from(a), [nc], { n: 9 }),
+    positionTest(BacktestPriceTarget(), a, [c], { n: 9 }));
+  const fam = positionTest(BacktestPriceTarget(), [a, b], [c], { n: 9 });
+  assert.deepEqual(positionTest(BacktestPriceTarget(), [a, b], [nc], { n: 9 }), fam);
+  assert.deepEqual(positionTest(BacktestPriceTarget(), { data: block, shape: [T, 2] }, [nc], { n: 9 }), fam);
 });

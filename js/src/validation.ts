@@ -271,22 +271,23 @@ function candidates(targets: any): Target {
   return { data, ndim: 2, T, K, original: { data, shape: [T, K] } };
 }
 
-const METRIC_TYPE = "metric must return a number or an array of numbers";
-
-// Writes a custom metric's result to hdr as [first value, values given]; C++
-// checks the count. A non-number throws TypeError, as in Python.
-function writeMetric(M: any, hdrPtr: number, v: unknown): void {
-  let first = NaN, given = 1;
-  if (typeof v === "number") first = v;
-  else if (v != null && typeof v === "object" && typeof (v as any).length === "number") {
-    const a = v as ArrayLike<unknown>;
-    for (let i = 0; i < a.length; i++) if (typeof a[i] !== "number") throw new TypeError(METRIC_TYPE);
-    given = a.length;
-    if (given > 0) first = a[0] as number;
-  } else {
-    throw new TypeError(METRIC_TYPE);
+// A custom metric's result as [first value, values given, kind] at out[at],
+// for the C++ check (check_metric_result in include/screamer/validation/
+// scoring.h; kinds as its MetricKind): 0 a number, 1 a 1-D array of numbers
+// (a typed array of numbers or a flat Array of numbers), 2 anything else, such
+// as a bool, a string, or a nested array, which C++ rejects as TypeError.
+function metricEntry(v: unknown, out: Float64Array, at: number): void {
+  let first = NaN, given = 0, kind = 2;
+  if (typeof v === "number") {
+    first = v; given = 1; kind = 0;
+  } else if ((ArrayBuffer.isView(v) && !(v instanceof DataView) && !(v instanceof BigInt64Array) &&
+              !(v instanceof BigUint64Array)) ||
+             (Array.isArray(v) && v.every((x) => typeof x === "number"))) {
+    const a = v as ArrayLike<number>;
+    given = a.length; kind = 1;
+    if (given > 0) first = a[0];
   }
-  M.viewF64(hdrPtr, 2).set([first, given]);
+  out[at] = first; out[at + 1] = given; out[at + 2] = kind;
 }
 
 // The result arrays of a randomization test (the C++ ResultSink): begin
@@ -333,15 +334,20 @@ function engineCallbacks(engine: ScreamerOp, original: any, market: any[], metri
       M.viewF64(outPtr, count).set((state.last as NdArray).data.subarray(0, count));
     },
     reset: () => { engine.reset(); },
-    // Strategy j of `count` in `what`: 0 the last output, 1 the output as one
-    // book, 2 the (rows, count, 4) window at windowPtr. Writes [value, values
-    // given] to hdrPtr.
-    metric: (what: number, j: number, count: number, rows: number, windowPtr: number, hdrPtr: number) => {
+    // Each of `count` strategies of `what`: 0 the last output, 1 the output
+    // as one book, 2 the (rows, count, 4) window at windowPtr. Writes
+    // metricEntry's triple per strategy to resPtr, once at the end.
+    metric: (what: number, count: number, rows: number, windowPtr: number, resPtr: number) => {
+      const f = metric as (out: NdArray) => unknown;
       const last = state.last as NdArray;
-      const arg = what === 2
-        ? strategyOf({ data: M.viewF64(windowPtr, rows * count * 4), shape: [rows, count, 4] }, j)
-        : what === 1 || last.shape.length === 2 ? last : strategyOf(last, j);
-      writeMetric(M, hdrPtr, (metric as (out: NdArray) => unknown)(arg));
+      const res = new Float64Array(3 * count);
+      for (let j = 0; j < count; j++) {
+        const arg = what === 2     // a fresh view each time: the metric may grow the heap
+          ? strategyOf({ data: M.viewF64(windowPtr, rows * count * 4), shape: [rows, count, 4] }, j)
+          : what === 1 || last.shape.length === 2 ? last : strategyOf(last, j);
+        metricEntry(f(arg), res, 3 * j);
+      }
+      M.viewF64(resPtr, 3 * count).set(res);
     },
   };
   return { fns, state };
@@ -387,46 +393,39 @@ function heapSpecs(target: Target, market: any[], bufs: number[]) {
  * `market` its (T, K) inputs. Every round shifts all K assets by one offset and
  * scores the whole book, so the result is a single test.
  */
-// Overloads: with series markets, a (T,) target is one strategy and a (T, K)
-// target (K columns, or an NdArray of shape [T, K]) K strategies; an NdArray
-// of unknown rank gives the union. With (T, K) market panels the engine is a
-// portfolio engine and the result is one test.
+/** An `NdArray` of rank 1, (T,): a series. */
+export type NdSeries = NdArray & { shape: [number] };
+/** An `NdArray` of rank 2, (T, K): K columns or a panel of K assets. */
+export type NdPanel = NdArray & { shape: [number, number] };
+/** A market input of one strategy's engine: a series. */
+export type SeriesInput = ArrayLike<number> | NdSeries;
+/** A market input of a portfolio engine: a (T, K) panel, as T rows or an `NdArray`. */
+export type PanelInput = ArrayLike<number>[] | NdPanel;
+
+// Overloads. With series markets, a (T,) target is one strategy and a (T, K)
+// target (K columns, or an NdArray of shape [T, K]) is K strategies. With
+// panel markets the engine is a portfolio engine and the result is one test.
+// A (T,) target is always one strategy. Where the rank is not in the types
+// (an NdArray whose shape is number[]), the result is the union.
 export function positionTest(
-  engine: ScreamerOp,
-  target: NdArray & { shape: [number] },
-  market: ArrayLike<number>[],
-  opts?: PositionTestOptions,
+  engine: ScreamerOp, target: NdSeries, market: (SeriesInput | NdArray)[], opts?: PositionTestOptions,
 ): PositionTestResult;
 export function positionTest(
-  engine: ScreamerOp,
-  target: NdArray & { shape: [number, number] },
-  market: ArrayLike<number>[],
-  opts?: PositionTestOptions,
+  engine: ScreamerOp, target: NdPanel, market: SeriesInput[], opts?: PositionTestOptions,
 ): PositionFamilyResult;
 export function positionTest(
-  engine: ScreamerOp,
-  target: NdArray,
-  market: ArrayLike<number>[],
-  opts?: PositionTestOptions,
+  engine: ScreamerOp, target: ArrayLike<number>[], market: SeriesInput[], opts?: PositionTestOptions,
+): PositionFamilyResult;
+export function positionTest(
+  engine: ScreamerOp, target: ArrayLike<number>, market: (SeriesInput | NdArray)[], opts?: PositionTestOptions,
+): PositionTestResult;
+export function positionTest(
+  engine: ScreamerOp, target: NdPanel | ArrayLike<number>[], market: PanelInput[], opts?: PositionTestOptions,
+): PositionTestResult;
+export function positionTest(
+  engine: ScreamerOp, target: NdArray | ArrayLike<number>[],
+  market: (SeriesInput | PanelInput | NdArray)[], opts?: PositionTestOptions,
 ): PositionTestResult | PositionFamilyResult;
-export function positionTest(
-  engine: ScreamerOp,
-  target: ArrayLike<number>[],
-  market: ArrayLike<number>[],
-  opts?: PositionTestOptions,
-): PositionFamilyResult;
-export function positionTest(
-  engine: ScreamerOp,
-  target: ArrayLike<number>,
-  market: ArrayLike<number>[],
-  opts?: PositionTestOptions,
-): PositionTestResult;
-export function positionTest(
-  engine: ScreamerOp,
-  target: NdArray | ArrayLike<number>[],
-  market: (NdArray | ArrayLike<number>[])[],
-  opts?: PositionTestOptions,
-): PositionTestResult;
 export function positionTest(
   engine: ScreamerOp,
   target: ArrayLike<number> | ArrayLike<number>[] | NdArray,
@@ -755,6 +754,7 @@ export function strategyTest(
   let result: StrategyTestResult | null = null;
   const names = statNames();
   const results = resultSink(M, names);
+  const entry = new Float64Array(3);
   const callbacks = wasmCallbacks({
     run: (argsPtr: number, hdrPtr: number) => {
       const ptrs = M.viewF64(argsPtr, k);
@@ -769,7 +769,8 @@ export function strategyTest(
       M.viewF64(outPtr, count).set((last as NdArray).data.subarray(0, count));
     },
     metric: (hdrPtr: number) => {
-      writeMetric(M, hdrPtr, (metric as (out: NdArray) => unknown)(last as NdArray));
+      metricEntry((metric as (out: NdArray) => unknown)(last as NdArray), entry, 0);
+      M.viewF64(hdrPtr, 3).set(entry);
     },
     ...results.fns,
     // [observed, p_value, observed stats (15)]

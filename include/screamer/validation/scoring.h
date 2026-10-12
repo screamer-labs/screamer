@@ -143,6 +143,25 @@ namespace screamer { namespace validation {
                 std::to_string(expected) + " expected, got " + std::to_string(got));
     }
 
+    // What a custom metric returned, as each binding classifies it from its
+    // own types: a number (not a bool), a flat array of numbers (no bools,
+    // strings, or nested arrays), or anything else.
+    enum class MetricKind { Number = 0, Numbers = 1, Other = 2 };
+
+    // The error for a result of the wrong kind; the bindings raise it as
+    // TypeError.
+    struct MetricTypeError : std::invalid_argument {
+        MetricTypeError()
+            : std::invalid_argument("metric must return a number or a 1-D array of numbers") {}
+    };
+
+    // The rule for a custom metric's result, the same in every binding: the
+    // right kind, then one value per strategy.
+    inline void check_metric_result(MetricKind kind, std::size_t expected, std::size_t got) {
+        if (kind != MetricKind::Number && kind != MetricKind::Numbers) throw MetricTypeError();
+        check_metric_values(expected, got);
+    }
+
     // Where a test's per-run results go: the binding's own arrays, filled in
     // batches, so the result is held once and the driver keeps nothing sized
     // by n.

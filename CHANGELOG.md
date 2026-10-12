@@ -119,9 +119,15 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
     2.8.0 Python spread a single value over every randomized run of a chunk,
     and took the first of several values with a portfolio engine and in
     `strategy_test`; JavaScript stored whatever the metric returned, so an
-    array or `undefined` became NaN. A result that is not a number or an array
-    of numbers (`None`/`undefined`, a string, a bool, an object) raises
-    `TypeError` "metric must return a number or an array of numbers".
+    array or `undefined` became NaN. Both languages accept the same kinds of
+    result: a number, or a 1-D array of numbers (Python: an `int` or `float`
+    or NumPy number, a 1-D numeric `ndarray`, or a flat `list` or `tuple` of
+    numbers; JavaScript: a `number`, a typed array of numbers, or a flat
+    `Array` of numbers). Anything else raises `TypeError` "metric must return
+    a number or a 1-D array of numbers": `None`/`undefined`, a string or a
+    numeric string, a bool or an array of bools, a nested list or array, a 2-D
+    `ndarray` (also of shape (1, k): flatten it), and an object. 2.8.0 Python
+    converted bools, numeric strings, nested lists, and 2-D arrays to numbers.
   * An engine output of the wrong shape raises `ValueError` / `RangeError`
     "engine must return a backtest output of shape (T, 4) ..." (2.8.0 scored
     what it could read, for example a JavaScript output with fewer values
@@ -146,6 +152,13 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
     engine. It also accepts an `NdArray` target: (T,) for one strategy, and
     (T, K) for K strategies, which gives a `PositionFamilyResult` (2.8.0
     raised `RangeError` for both).
+    The TypeScript overloads type the result from the shapes: a (T,) target
+    gives a `PositionTestResult`; a (T, K) target (K columns, or an `NdArray`
+    whose shape type is `[number, number]`) with series markets (arrays or
+    `NdArray`s of shape `[number]`) gives a `PositionFamilyResult`; panel
+    markets give the portfolio `PositionTestResult`; where the rank is not in
+    the types, the result is the union. The new types `NdSeries`, `NdPanel`,
+    `SeriesInput`, and `PanelInput` are exported.
   * JavaScript: a portfolio of 8 or more assets is summed into its book in
     NumPy's pairwise order, as in Python, so its statistics can differ from
     2.8.0 in the last bits; compare with a tolerance.

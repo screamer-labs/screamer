@@ -62,8 +62,10 @@ namespace screamer { namespace validation {
         // metric(MetricOf::Window, ...). The same rule as target_buffer.
         virtual double* window_buffer(std::size_t size) = 0;
         // The custom metric of `what`: `count` values, one per strategy (one
-        // for a book). Writes at most `count` values and returns how many the
-        // metric gave, which the driver checks. `rows` is the window length.
+        // for a book). Checks the result with check_metric_result (the
+        // binding knows how many strategies each call of the user's metric
+        // sees), writes `count` values, and returns `count`. `rows` is the
+        // window length.
         virtual std::size_t metric(MetricOf what, double* values, std::size_t count,
                                    std::size_t rows) = 0;
     };
