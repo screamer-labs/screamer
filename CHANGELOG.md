@@ -127,6 +127,7 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
 
 ### Fixed
 
+* The `nan_policy` of the backtest engines that give a `NaN` target or order a defined meaning is now listed as `nan-aware`, not `ignore`: `BacktestOHLCTarget`, `BacktestOHLCVTarget`, `BacktestTradesTarget`, `BacktestL1Target` (a `NaN` target keeps the last target), and `BacktestOHLCOrders`, `BacktestTradesOrders`, `BacktestL1Orders`, `BacktestL1TradesOrders` (a `NaN` own quote is a market order or an unquoted side). Documentation only; no result changes.
 * A list passed to a multi-input operator whose events do not hold every input
   (for example `Add()([v, w])` or `Add()([1.0, 2.0])`) raises a `ValueError`
   (JavaScript: `RangeError`) that explains the list reading and the fix,

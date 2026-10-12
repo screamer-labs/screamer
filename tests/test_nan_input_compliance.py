@@ -332,30 +332,9 @@ def test_nan_at_nan_index(name: str, entry: dict):
 # name listed here that starts passing fails the suite until it is removed.
 KNOWN_NOT_TRANSPARENT: set[str] = set()
 
-# Not bugs: the backtest family declares `ignore` for its market-data inputs
-# but gives its order and target inputs a documented meaning for NaN, so a NaN
-# there legitimately changes state. Each page states its own contract: a NaN
-# target keeps working toward the last target (BacktestOHLCTarget,
-# BacktestOHLCVTarget, BacktestL1Target, BacktestTradesTarget); a NaN bid or ask price is a market
-# order (BacktestOHLCOrders, BacktestTradesOrders, BacktestL1TradesOrders); a
-# NaN trade price or size is a no-trade event.
-#
-# The transparency properties below set NaN in every input, or in one input at
-# a time, and cannot tell those two kinds of input apart. Encoding which index
-# means what for operators taking 3 to 10 inputs would duplicate the contract
-# these pages already carry, so the family is excluded here and its NaN
-# behaviour is covered by tests/test_backtest.py instead. What is therefore NOT
-# covered here: that a NaN in a *market* field of a backtest operator leaves
-# state untouched.
-MIXED_NAN_SEMANTICS: set[str] = {
-    "BacktestL1Target",
-    "BacktestL1TradesOrders",
-    "BacktestOHLCOrders",
-    "BacktestOHLCTarget",
-    "BacktestOHLCVTarget",
-    "BacktestTradesOrders",
-    "BacktestTradesTarget",
-}
+# The backtest engines that give a NaN order or target a defined meaning
+# declare `nan-aware`, so these `ignore` properties skip them. Their label is
+# checked against their behavior in tests/test_backtest_nan_labels.py.
 
 _xfail_transparent = _xfail_if_in(
     KNOWN_NOT_TRANSPARENT, "ignore-policy NaN is not state-transparent"
@@ -366,7 +345,6 @@ PARAMS_TRANSPARENCY = [
     for name, entry in sorted(_FUNCTORS.items())
     if entry["nan_policy"] == "ignore"
     and name not in KNOWN_STICKY_NAN
-    and name not in MIXED_NAN_SEMANTICS
 ]
 
 # Per-input variant: only multi-input functions, since for a single input it is
@@ -376,7 +354,6 @@ PARAMS_TRANSPARENCY_PER_INPUT = [
     for name, entry in sorted(_FUNCTORS.items())
     if entry["nan_policy"] == "ignore"
     and name not in KNOWN_STICKY_NAN
-    and name not in MIXED_NAN_SEMANTICS
     and int(entry.get("inputs", 1)) > 1
 ]
 

@@ -101,7 +101,7 @@ parameters:
   description: With size="notional" or "weight", recompute the units when the holding drifts
     from the target by more than this fraction of equity (0.05 = 5 points of weight). 0 keeps
     the units until the target value changes.
-nan_policy: ignore
+nan_policy: nan-aware
 see_also:
 - BacktestL1Orders
 - BacktestL1TradesOrders
@@ -136,7 +136,8 @@ Inputs are `(target_position, market_bid, market_ask, market_bid_size,
 market_ask_size)`. Outputs are the four standard backtest columns: `0 = equity`
 (cumulative dollar PnL), `1 = pnl` (per event), `2 = position`, and `3 = cost`
 (per event). A `NaN` in any market field skips the event and returns an all-NaN
-row. [`backtest_report`](backtest_report.md) summarizes the resulting equity
+row. A `NaN` target keeps the last target: the position holds once it has
+reached it. [`backtest_report`](backtest_report.md) summarizes the resulting equity
 curve.
 
 `min_position` and `max_position` bound the position in units. They apply after
@@ -172,7 +173,7 @@ Orders are counterfactual, so the book is unaffected by the strategy's activity.
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `ignore`.** A `NaN` input never corrupts the engine's state. What a `NaN` target, price or quote does on this engine is stated in the Description. See [NaN and warmup](../nan_and_warmup.md).
+**Policy: `nan-aware`.** This function is built to process `NaN` inputs, as the Description explains. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples

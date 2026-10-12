@@ -120,7 +120,7 @@ parameters:
   description: With size="notional" or "weight", recompute the units when the holding drifts
     from the target by more than this fraction of equity (0.05 = 5 points of weight). 0 keeps
     the units until the target value changes.
-nan_policy: ignore
+nan_policy: nan-aware
 see_also:
 - BacktestOHLCTarget
 - BacktestOHLCOrders
@@ -163,7 +163,7 @@ volume skips the bar.
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `ignore`.** A `NaN` input never corrupts the engine's state. What a `NaN` target, price or quote does on this engine is stated in the Description. See [NaN and warmup](../nan_and_warmup.md).
+**Policy: `nan-aware`.** This function is built to process `NaN` inputs, as the Description explains. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples

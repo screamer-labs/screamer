@@ -81,7 +81,7 @@ parameters:
   default: fraction
   description: 'Unit of `slippage`: "fraction" of the reference price (5 bps = 5e-4), "ticks"
     of `tick_size`, or "price" (an absolute amount).'
-nan_policy: ignore
+nan_policy: nan-aware
 see_also:
 - BacktestTradesTarget
 - BacktestL1TradesOrders
@@ -141,7 +141,7 @@ to.
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `ignore`.** A `NaN` input never corrupts the engine's state. What a `NaN` target, price or quote does on this engine is stated in the Description. See [NaN and warmup](../nan_and_warmup.md).
+**Policy: `nan-aware`.** This function is built to process `NaN` inputs, as the Description explains. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples

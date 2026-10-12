@@ -101,7 +101,7 @@ The full enumeration. This list is regenerated from frontmatter; if it drifts fr
 
 ### `ignore`
 
-All `Rolling*` functions, all `Ew*` functions, all `Cum*` functions, all moving-average / smoothing functions (`WMA`, `TRIMA`, `HullMA`, `DEMA`, `TEMA`, `KAMA`, `MovingAverage`, `MACD`, `Trix`), all bands (`BollingerBands`, `KeltnerChannels`, `DonchianChannels`), all volatility estimators (`TrueRange`, `ATR`, `NATR`, `Parkinson`, `GarmanKlass`, `RogersSatchell`, `YangZhang`, and their `Rolling*` / `Ew*` variants), all oscillators (`Stoch`, `StochRSI`, `UltimateOscillator`, `WilliamsR`, `CCI`, `BOP`, `MFI`), all volume indicators (`AD`, `ADOSC`, `ADX`, `OBV`, `VWAP`), `Drawdown`, `MaxDrawdown`, and all IIR/FIR filters (`Butter*`, `KalmanFilter`, `WilderSmoother`).
+All `Rolling*` functions, all `Ew*` functions, all `Cum*` functions, all moving-average / smoothing functions (`WMA`, `TRIMA`, `HullMA`, `DEMA`, `TEMA`, `KAMA`, `MovingAverage`, `MACD`, `Trix`), all bands (`BollingerBands`, `KeltnerChannels`, `DonchianChannels`), all volatility estimators (`TrueRange`, `ATR`, `NATR`, `Parkinson`, `GarmanKlass`, `RogersSatchell`, `YangZhang`, and their `Rolling*` / `Ew*` variants), all oscillators (`Stoch`, `StochRSI`, `UltimateOscillator`, `WilliamsR`, `CCI`, `BOP`, `MFI`), all volume indicators (`AD`, `ADOSC`, `ADX`, `OBV`, `VWAP`), `Drawdown`, `MaxDrawdown`, and all IIR/FIR filters (`Butter*`, `KalmanFilter`, `WilderSmoother`). Also `ignore`: the backtest engines that have no `NaN` input with a defined meaning ([`BacktestPriceTarget`](functions_fin/BacktestPriceTarget.md), `BacktestReport`, `BacktestStats`, `BacktestCarry`). A `NaN` in any of their inputs gives an all-`NaN` row and leaves the state untouched.
 
 ### `propagate`
 
@@ -109,7 +109,7 @@ All `Rolling*` functions, all `Ew*` functions, all `Cum*` functions, all moving-
 
 ### `nan-aware`
 
-`FillNa`, `Ffill`.
+`FillNa`, `Ffill`, and the backtest engines whose order or target input gives `NaN` a defined meaning: `BacktestOHLCTarget`, `BacktestOHLCVTarget`, `BacktestTradesTarget`, `BacktestL1Target` (a `NaN` target keeps the last target), `BacktestOHLCOrders`, `BacktestTradesOrders`, `BacktestL1Orders`, `BacktestL1TradesOrders` (a `NaN` own quote is a market order or an unquoted side), and `BacktestPortfolioTarget`, `BacktestPortfolioOHLCTarget` (a `NaN` target keeps the position). On every one of these engines a `NaN` in a market field (price, bar, quote, trade) is still skipped: the row is all-`NaN` and the state is untouched. The portfolio engines instead repeat the asset's equity on that step.
 
 ## Edge cases
 

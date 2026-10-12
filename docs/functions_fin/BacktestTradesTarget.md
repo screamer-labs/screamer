@@ -107,7 +107,7 @@ parameters:
   min: 0.0
   description: Cap each print's fill at this share of the print's size; the rest fills on
     later prints. The default fills the whole order on any print.
-nan_policy: ignore
+nan_policy: nan-aware
 see_also:
 - BacktestTradesOrders
 - BacktestOHLCTarget
@@ -171,7 +171,7 @@ moved only by the `slippage` you set, with no market impact. Orders are counterf
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 
-**Policy: `ignore`.** A `NaN` input never corrupts the engine's state. What a `NaN` target, price or quote does on this engine is stated in the Description. See [NaN and warmup](../nan_and_warmup.md).
+**Policy: `nan-aware`.** This function is built to process `NaN` inputs, as the Description explains. See [NaN and warmup](../nan_and_warmup.md).
 <!-- NAN_FOOTNOTE_END -->
 
 ## Examples
