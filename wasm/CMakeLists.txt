@@ -52,8 +52,12 @@ target_include_directories(screamer PRIVATE
 # Node 17 support, the minimums in README.md and docs/javascript.md. The newer
 # exnref proposal needs much newer engines, and a change of the emsdk default
 # must not raise that floor silently. Re-verify on emsdk bump (CI pins 4.0.21).
+#
+# -sMAXIMUM_MEMORY=2GB states the heap maximum instead of relying on the
+# emsdk default. strategyTest's largest n is derived from it at runtime
+# (emscripten_get_heap_max() in include/screamer/validation/strategy_test.h).
 set(EMCC_LINK "-lembind -fwasm-exceptions -sWASM_LEGACY_EXCEPTIONS=1 -sEXPORT_EXCEPTION_HANDLING_HELPERS=1 -sMODULARIZE=1 -sEXPORT_ES6=1 -sENVIRONMENT=web,worker,node \
--sFILESYSTEM=0 -sALLOW_MEMORY_GROWTH=1 -sMALLOC=emmalloc -sEXPORTED_RUNTIME_METHODS=['HEAPF64','stackSave','stackRestore']")
+-sFILESYSTEM=0 -sALLOW_MEMORY_GROWTH=1 -sMAXIMUM_MEMORY=2GB -sMALLOC=emmalloc -sEXPORTED_RUNTIME_METHODS=['HEAPF64','stackSave','stackRestore']")
 
 # SCREAMER_WASM_SINGLE_FILE=ON (passed by build-wasm.sh --single-file) embeds
 # the .wasm as base64 inside the .mjs, so an npm consumer gets one

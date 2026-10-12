@@ -88,8 +88,8 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
   JavaScript, a portfolio of 8 or more assets is summed into its book in
   NumPy's pairwise order, as in Python, so its statistics can differ from
   2.8.0 in the last bits; compare with a tolerance.
-  `n` above 2147483647 (14680064 in JavaScript, where the result must fit in
-  the 2 GB WebAssembly heap) raises "n is too large" (`ValueError` /
+  `n` above 2147483647 (in JavaScript, above what fits in the WebAssembly
+  heap: 14680064 with its 2 GB maximum) raises "n is too large" (`ValueError` /
   `RangeError`), and
   `n=True` raises `TypeError` "n must be an integer, not bool". Integers
   outside int64 in `price`, `volume`, `fixed`, `ohlc`, `columns`, or

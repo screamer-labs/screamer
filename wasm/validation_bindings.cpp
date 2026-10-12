@@ -148,8 +148,13 @@ public:
     }
 
     double* null_stats(std::size_t q, std::size_t n) override {
-        if (!stats_) stats_.reset(new double[sv::kNumStats * n ? sv::kNumStats * n : 1]);
+        if (!stats_) stats_.reset(new double[sv::kNumStats * n]);
         return stats_.get() + q * n;
+    }
+
+    double* null_metrics(std::size_t n) override {
+        null_.reset(new double[n]);
+        return null_.get();
     }
 
     // Hands the result to JS: head = [observed, p_value, observed stats
@@ -159,7 +164,7 @@ public:
         double head[2 + sv::kNumStats] = {r.observed, r.p_value};
         std::copy(r.observed_stats.begin(), r.observed_stats.end(), head + 2);
         call_js("done", reinterpret_cast<std::uintptr_t>(head),
-                reinterpret_cast<std::uintptr_t>(r.null.data()), r.null.size(),
+                reinterpret_cast<std::uintptr_t>(null_.get()), r.null_count,
                 reinterpret_cast<std::uintptr_t>(stats_.get()), n);
     }
 
@@ -174,6 +179,7 @@ private:
     std::vector<double> args_, out_;
     double hdr_[4] = {0, 0, 0, 0};
     std::unique_ptr<double[]> stats_;   // one block, row q at q * n
+    std::unique_ptr<double[]> null_;
 };
 
 // A JS number as an int64: integers outside the range are clamped, so they
@@ -239,6 +245,9 @@ void strategyTestRun(emscripten::val cb, std::uintptr_t spec, std::size_t k,
     host.done(r, static_cast<std::size_t>(opt.n));
 }
 
+// The largest n strategyTestRun accepts in this build (from the heap maximum).
+double strategyTestMaxRuns() { return static_cast<double>(sv::max_strategy_runs()); }
+
 // The driver's statistic table, as [name, source, column, larger] rows
 // (larger: 1, 0, or -1 for no natural direction), for js/src/validation.ts.
 emscripten::val strategyStats() {
@@ -267,4 +276,5 @@ EMSCRIPTEN_BINDINGS(screamer_validation) {
     emscripten::function("deflatedSharpeInto", &deflatedSharpeInto);
     emscripten::function("strategyTestRun", &strategyTestRun);
     emscripten::function("strategyStats", &strategyStats);
+    emscripten::function("strategyTestMaxRuns", &strategyTestMaxRuns);
 }

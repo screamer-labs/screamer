@@ -17,6 +17,10 @@
 #include "screamer/portfolio_report.h"
 #include "screamer/validation/surrogates.h"
 
+#if defined(__EMSCRIPTEN__)
+#include <emscripten/heap.h>
+#endif
+
 namespace screamer { namespace validation {
 
     // strategy_test: a whole strategy against the same strategy run on
@@ -64,16 +68,16 @@ namespace screamer { namespace validation {
     }
 
     // The largest number of randomized runs. A run keeps kNumStats + 1
-    // doubles: its statistics, which the driver writes into the binding's own
-    // result arrays, and its metric in the null list (reserved up front). So
-    // the limit is 2^31 - 1 where memory is not the bound, and in 32-bit
-    // WebAssembly what fits in the module's 2 GB heap after 256 MB for the
-    // inputs, the engine outputs, and the runtime: 14680064 runs.
+    // doubles: its statistics and its metric, which the driver writes into
+    // the binding's own result arrays. So the limit is 2^31 - 1 where memory
+    // is not the bound, and in WebAssembly what fits in the module's maximum
+    // heap (emscripten_get_heap_max(); MAXIMUM_MEMORY in wasm/CMakeLists.txt)
+    // after 256 MB for the inputs, the engine outputs, and the runtime.
     inline constexpr std::size_t kRunBytes = (kNumStats + 1) * sizeof(double);
     inline std::size_t max_strategy_runs() {
 #if defined(__EMSCRIPTEN__)
-        constexpr std::size_t heap = std::size_t(1) << 31, reserve = std::size_t(1) << 28;
-        return (heap - reserve) / kRunBytes;
+        const std::size_t heap = emscripten_get_heap_max(), reserve = std::size_t(1) << 28;
+        return heap > reserve ? (heap - reserve) / kRunBytes : 1;
 #else
         const std::size_t cap = std::vector<double>().max_size();
         return std::min<std::size_t>(2147483647, (cap - 64) / (kNumStats + 1));
@@ -234,6 +238,10 @@ namespace screamer { namespace validation {
         // q = 0 .. kNumStats - 1 after n has been checked and before the first
         // run; the buffers need not be initialized.
         virtual double* null_stats(std::size_t q, std::size_t n) = 0;
+        // Room for the finite metrics of the runs, at most n, in run order, in
+        // the binding's own result array; StrategyTestResult::null_count of
+        // them are written. Called once, like null_stats.
+        virtual double* null_metrics(std::size_t n) = 0;
     };
 
     struct StrategyTestOptions {
@@ -255,7 +263,7 @@ namespace screamer { namespace validation {
 
     struct StrategyTestResult {
         double observed = 0.0;
-        std::vector<double> null;                // the finite metrics, in run order
+        std::size_t null_count = 0;              // finite metrics in the host's null_metrics
         double p_value = 0.0;
         std::array<double, kNumStats> observed_stats{};
         // The statistics of the runs are in the host's null_stats buffers.
@@ -388,7 +396,7 @@ namespace screamer { namespace validation {
         // Everything sized by n, allocated once before any run and without
         // touching its pages: a request that cannot fit fails here.
         StrategyTestResult res;
-        res.null.reserve(n);
+        double* null = host.null_metrics(n);
         std::array<double*, kNumStats> rows;
         for (std::size_t q = 0; q < kNumStats; ++q) rows[q] = host.null_stats(q, n);
 
@@ -470,14 +478,14 @@ namespace screamer { namespace validation {
             }
             const double v = score(stats);
             for (std::size_t q = 0; q < kNumStats; ++q) rows[q][j] = stats[q];
-            if (std::isfinite(v)) res.null.push_back(v);
+            if (std::isfinite(v)) null[res.null_count++] = v;
         }
 
         std::size_t hits = 0;
-        for (double v : res.null)
-            hits += opt.larger_is_better ? v >= res.observed : v <= res.observed;
+        for (std::size_t i = 0; i < res.null_count; ++i)
+            hits += opt.larger_is_better ? null[i] >= res.observed : null[i] <= res.observed;
         res.p_value = std::isfinite(res.observed)
-            ? (1.0 + static_cast<double>(hits)) / (1.0 + static_cast<double>(res.null.size()))
+            ? (1.0 + static_cast<double>(hits)) / (1.0 + static_cast<double>(res.null_count))
             : std::numeric_limits<double>::quiet_NaN();
         return res;
     }

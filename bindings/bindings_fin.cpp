@@ -744,8 +744,17 @@ public:
     double metric() override { return nb::cast<double>(metric_(last_obj_)); }
 
     double* null_stats(std::size_t q, std::size_t n) override {
-        stats_[q].reset(new double[n ? n : 1]);   // becomes the result array as it is
+        stats_[q].reset(new double[n]);   // becomes the result array as it is
         return stats_[q].get();
+    }
+
+    double* null_metrics(std::size_t n) override {
+        null_.reset(new double[n]);       // the result array; its first count values are used
+        return null_.get();
+    }
+
+    nb::object take_null(std::size_t count) {
+        return screamer::detail::make_owned_array(std::move(null_), {count});
     }
 
     // The array of statistic q, owning the buffer the driver filled.
@@ -762,6 +771,7 @@ private:
     nb::object last_obj_;
     OutArray last_;
     std::array<std::unique_ptr<double[]>, sv::kNumStats> stats_;
+    std::unique_ptr<double[]> null_;
 };
 
 nb::tuple strategy_test_py(nb::callable run, nb::object metric, nb::list inputs,
@@ -793,17 +803,12 @@ nb::tuple strategy_test_py(nb::callable run, nb::object metric, nb::list inputs,
     sv::StrategyTestResult r = sv::strategy_test(host, data, opt);
 
     const std::size_t nn = static_cast<std::size_t>(n);
-    auto copy = [](const double* p, std::size_t len) {
-        std::unique_ptr<double[]> buf(new double[len ? len : 1]);
-        std::copy(p, p + len, buf.get());
-        return screamer::detail::make_owned_array(std::move(buf), {len});
-    };
     nb::dict observed_stats, null_stats;
     for (std::size_t q = 0; q < sv::kNumStats; ++q) {
         observed_stats[sv::kStats[q].name] = r.observed_stats[q];
         null_stats[sv::kStats[q].name] = host.take_stats(q, nn);
     }
-    return nb::make_tuple(r.observed, copy(r.null.data(), r.null.size()), r.p_value,
+    return nb::make_tuple(r.observed, host.take_null(r.null_count), r.p_value,
                           observed_stats, null_stats);
 }
 

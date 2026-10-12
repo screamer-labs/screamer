@@ -395,9 +395,14 @@ test("validation: strategyTest checks the range of n before allocating", async (
   const hold = (p: Float64Array) => BacktestPriceTarget()(new Float64Array(T).fill(1), p);
   assert.throws(() => strategyTest(hold, [c], { method: "returns", n: 0 }),
     { name: "RangeError", message: "n must be at least 1" });
-  for (const n of [2 ** 32 + 3, 2 ** 60, Number.MAX_VALUE])
+  // The limit comes from the module's maximum heap: (heap max - 256 MB) / 128
+  // bytes per run, 14680064 with the 2 GB of wasm/CMakeLists.txt.
+  const { current } = await import("../src/index.ts");
+  const max = (current() as any).strategyTestMaxRuns() as number;
+  assert.equal(max, (2 ** 31 - 2 ** 28) / 128);
+  for (const n of [max + 1, 2 ** 32 + 3, 2 ** 60, Number.MAX_VALUE])
     assert.throws(() => strategyTest(hold, [c], { method: "returns", n }),
-      { name: "RangeError", message: "n is too large: at most 14680064 runs" });
+      { name: "RangeError", message: `n is too large: at most ${max} runs` });
   assert.equal(strategyTest(hold, [c], { method: "returns", n: 3 }).null.length, 3);
 });
 
