@@ -44,7 +44,12 @@ export interface RawOp {
 }
 export interface Screamer {
   allocF64(n: number): number; freeBuf(p: number): void;
-  // Bytes the WASM allocator has handed out and not taken back (leak tests).
+  /**
+   * Bytes the WASM allocator has handed out and not taken back, for leak
+   * tests. It walks the allocator's free lists, so its cost grows with the
+   * number of free blocks: keep it off hot paths.
+   * @internal
+   */
   heapInUse(): number;
   viewF64(p: number, n: number): Float64Array;
   VectorDouble: new () => { push_back(x: number): void; delete(): void };

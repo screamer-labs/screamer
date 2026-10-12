@@ -347,7 +347,7 @@ class PipelineImpl implements Owned {
   // `owner` is the callable Pipeline: the driver holds it, so the finalizer
   // cannot free the graph while the driver is in use.
   live(owner: Pipeline): LiveDriver {
-    if (this._disposed) throw new Error("pipeline used after dispose()");
+    this.checkLive();
     const M: any = this.M;
     const self = this;
     // Start each live session from a clean slate: run_batch resets on entry but
@@ -357,6 +357,7 @@ class PipelineImpl implements Owned {
     const driver: LiveDriver & { [OWNER]: Pipeline } = {
       [OWNER]: owner,
       push(name: string, index: number, value: number): void {
+        self.checkLive();
         const i = self.inputIndex(name);
         // null is a missing value (NaN); another primitive passes as before
         // (ToNumber at the WASM call); an object that is not a number is a
@@ -366,6 +367,7 @@ class PipelineImpl implements Owned {
         try { self.cg.pushEvent(i, t, v); } catch (e) { throw normalizeError(e); }
       },
       pushWide(name: string, index: number, values: ArrayLike<number>): void {
+        self.checkLive();
         const i = self.inputIndex(name);
         const t = typeof index === "number" ? index : feedNumber(index, "Pipeline", () => `the index pushed to input ${i}`);
         const width = values.length;
@@ -384,12 +386,15 @@ class PipelineImpl implements Owned {
         }
       },
       advance(now: number): void {
+        self.checkLive();
         try { self.cg.advance(now); } catch (e) { throw normalizeError(e); }
       },
       flush(): void {
+        self.checkLive();
         try { self.cg.flush(); } catch (e) { throw normalizeError(e); }
       },
       result(): Output {
+        self.checkLive();
         // drainFlat(o) drains ALL outputs then returns output o, so a second
         // drain sees nothing. That serves a single-output pipeline exactly;
         // multi-output live drain is not expressible on the current surface.
@@ -407,6 +412,11 @@ class PipelineImpl implements Owned {
       },
     };
     return driver;
+  }
+
+  // Raises once the Pipeline is disposed; every live driver call checks it.
+  private checkLive(): void {
+    if (this._disposed) throw new Error("pipeline used after dispose()");
   }
 
   // Called once, by dispose() on the Pipeline or when it is collected. It

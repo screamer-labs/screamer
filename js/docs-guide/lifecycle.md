@@ -48,9 +48,21 @@ flat memory footprint on both heaps. A stream keeps its op alive until the strea
 dropped, and a `pipeline.live()` driver keeps its `Pipeline` alive.
 
 The engine runs finalizers between tasks, so a loop that never yields to the event loop holds
-the memory of every op it dropped (a few hundred bytes each) until it does. GC timing is not
-predictable either. Prefer `using` or an explicit `.dispose()` in code you control: both free
-the memory at once.
+every op it dropped until it does: the JS wrapper (about 500 bytes) and the op's C++ state on the
+WASM heap. The C++ state grows with the op's parameters; `RollingMean(1000)` keeps a window of
+1000 values, about 8 KB. A synchronous parameter sweep that builds hundreds of thousands of such
+ops in one loop can fill the WASM heap before any of them is freed. Use `using` there, or call
+`.dispose()` on each op:
+
+```js
+for (const w of windows) {
+  using sma = RollingMean(w);
+  results.push(sma(prices));
+} // each op is freed at the end of its iteration
+```
+
+GC timing is not predictable either. Prefer `using` or an explicit `.dispose()` in code you
+control: both free the memory at once.
 
 ## Ops inside a Pipeline are pinned
 

@@ -243,8 +243,7 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
   builds a new operator per call ran out of memory over a long run. The
   finalizer's held value reached the operator it was meant to free, so the
   operator was never collected. Building and dropping 100,000 operators now
-  leaves the JS and WASM heaps where they were, and construction takes 8 to
-  38% less time.
+  leaves the JS and WASM heaps where they were.
 * Infinite metrics now count in the null distribution of `position_test` /
   `positionTest` and `strategy_test` / `strategyTest`. A randomized run is
   left out only when its metric is NaN, as documented; 2.8.0 also left out

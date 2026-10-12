@@ -141,7 +141,8 @@ inline std::uintptr_t allocF64(std::size_t n) {
 inline void freeBuf(std::uintptr_t p) { std::free(reinterpret_cast<void*>(p)); }
 
 // Bytes the allocator has handed out and not taken back, for leak tests: the
-// heap it manages less the part of it that is free.
+// heap it manages less the part of it that is free. Finding the free part
+// walks emmalloc's free lists, O(free blocks), so keep it off hot paths.
 inline double heapInUse() {
     return static_cast<double>(emmalloc_dynamic_heap_size() - emmalloc_free_dynamic_memory());
 }

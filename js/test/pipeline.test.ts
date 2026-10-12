@@ -59,3 +59,19 @@ test("pipeline: dispose() twice does not throw", async () => {
   p.dispose();
   assert.doesNotThrow(() => p.dispose());
 });
+
+test("pipeline: a live driver used after dispose() raises", async () => {
+  await ready();
+  const x = Input("x");
+  const p = new Pipeline([x], [RollingMean(2)(x)]);
+  const d = p.live();
+  d.push("x", 0, 1);
+  p.dispose();
+  const msg = { message: "pipeline used after dispose()" };
+  assert.throws(() => d.push("x", 1, 2), msg);
+  assert.throws(() => d.pushWide("x", 1, [2]), msg);
+  assert.throws(() => d.advance(1), msg);
+  assert.throws(() => d.flush(), msg);
+  assert.throws(() => d.result(), msg);
+  assert.throws(() => p.live(), msg);
+});

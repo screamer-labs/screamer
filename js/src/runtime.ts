@@ -238,8 +238,9 @@ class OpRes implements Owned {
 }
 
 // `copy` builds the stream copies when `src` is a raw op whose factory lives
-// elsewhere (wrapReducerOp passes its own).
-export function wrapOp(M: Screamer, src: OpSource, copy?: () => RawOp): ScreamerOp {
+// elsewhere (wrapReducerOp passes its own). `finalize` false leaves freeing
+// to a wrapper that owns this one and always disposes it (wrapReducerOp).
+export function wrapOp(M: Screamer, src: OpSource, copy?: () => RawOp, finalize = true): ScreamerOp {
   const make = copy ?? (typeof src === "function" ? (src as () => RawOp) : null);
   const raw = resolve(src);
   const nIn = raw.nIn(), nOut = raw.nOut();
@@ -612,7 +613,7 @@ export function wrapOp(M: Screamer, src: OpSource, copy?: () => RawOp): Screamer
   (op as any)[Symbol.dispose] = free;
   (op as any).numInputs = nIn;
   (op as any).numOutputs = nOut;
-  releaseWith(op, res);
+  if (finalize) releaseWith(op, res);
   return op;
 }
 
@@ -653,7 +654,8 @@ export function wrapReducerOp(M: Screamer, src: OpSource): ScreamerOp {
   const make = typeof src === "function" ? (src as () => RawOp) : null;
   const raw = resolve(src);
   const width = raw.nIn(), nOut = raw.nOut();
-  const base = wrapOp(M, raw, make ?? undefined);
+  // The base has no finalizer of its own: ReducerRes disposes it.
+  const base = wrapOp(M, raw, make ?? undefined, false);
   const pool = new CopyPool(make);             // the streams' own copies (D8)
 
   // Scratch for the per-event path (in `res`), grown on demand and reused
