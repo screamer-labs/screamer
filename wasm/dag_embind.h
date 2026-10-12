@@ -161,9 +161,7 @@ public:
         const auto* lens    = reinterpret_cast<const std::uint32_t*>(lensPtr);
         const auto* widths  = reinterpret_cast<const std::uint32_t*>(widthsPtr);
 
-        // The int64 indexes go into a member buffer that later calls reuse.
-        std::vector<std::vector<std::int64_t>>& idx_i64 = idx_scratch_;
-        idx_i64.resize(numInputs);
+        std::vector<std::vector<std::int64_t>> idx_i64(numInputs);   // freed on return
         std::vector<const std::int64_t*> in_indices(numInputs);
         std::vector<const double*>       in_vals(numInputs);
         std::vector<std::size_t>         in_lens(numInputs);
@@ -265,7 +263,6 @@ private:
     std::vector<screamer::dag::OutputBuffer>      stored_;  // last runBatchStore / drainStore
     screamer::dag::AlignedOutputs                 aligned_; // stored_, aligned (align mode)
     std::vector<double>                           index_d_;  // an output's index as doubles
-    std::vector<std::vector<std::int64_t>>        idx_scratch_; // the int64 input indexes
     bool                                          aligned_mode_ = false;
 };
 

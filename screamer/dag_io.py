@@ -24,6 +24,8 @@ _OPERATORS = {
     "Dropna": streams.dropna,
     "Select": streams.select,
     "Resample": streams.resample,
+    "Filter": lambda data, mask: streams.Filter()(data, mask),
+    "Delay": lambda values, duration: streams.delay(values, duration=duration),
     "combine_latest": streams.combine_latest,
     "dropna": streams.dropna,
     "select": streams.select,

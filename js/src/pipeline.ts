@@ -26,9 +26,8 @@ export interface Output {
  *
  * `maxPending` (default 1,000,000): the most events a join may hold while it
  * waits for another stream: each `combineLatest` node without its own
- * `maxPending`, each `filter` node, the join of a cumulative `resample` with
- * its driver, and the aligned outputs of `live().result()`. More throws
- * `RangeError`. An integer from 1 to 2**53.
+ * `maxPending`, each `filter` node, and the join of a cumulative `resample`
+ * with its driver. More throws `RangeError`. An integer from 1 to 2**53.
  */
 export interface PipelineOptions {
   alignOutputs?: boolean;

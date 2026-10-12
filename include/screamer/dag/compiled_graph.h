@@ -53,6 +53,13 @@ public:
         buf_.indices.push_back(f.index);
         buf_.values.insert(buf_.values.end(), f.values, f.values + f.width);
     }
+    // The output's watermark: the output join settles on it (output_join.h).
+    void on_watermark(std::int64_t w) override {
+        if (!buf_.has_watermark || w > buf_.watermark) {
+            buf_.watermark = w;
+            buf_.has_watermark = true;
+        }
+    }
 private:
     OutputBuffer& buf_;
 };
@@ -165,7 +172,7 @@ public:
             case NodeKind::Delay:         node_width[id] = node_width[nd.inputs[0]]; break;
             }
         }
-        join_ = OutputJoin(num_out, s.max_pending);
+        join_ = OutputJoin(num_out);
         output_widths_.resize(num_out);
         for (std::size_t o = 0; o < num_out; ++o)
             output_widths_[o] = node_width[s.output_ids[o]];
@@ -341,6 +348,7 @@ public:
             outputs_[o].indices.clear();
             outputs_[o].values.clear();
             outputs_[o].width = output_widths_[o];
+            outputs_[o].has_watermark = false;
         }
     }
 
@@ -418,6 +426,8 @@ public:
             std::swap(d.indices, outputs_[o].indices);
             std::swap(d.values, outputs_[o].values);
             d.width = outputs_[o].width;
+            d.watermark = outputs_[o].watermark;          // monotone: the output keeps it
+            d.has_watermark = outputs_[o].has_watermark;
             outputs_[o].width = output_widths_[o];
         }
     }
@@ -427,11 +437,10 @@ public:
     // latest value across drains, so the rows of repeated drains, concatenated,
     // are the rows of one drain at the end; after a flush (the end of input)
     // every row is settled. `scratch` holds the drained buffers (reuse it).
-    // A join overflow (max_pending) poisons the session.
     AlignedOutputs drain_aligned(std::vector<OutputBuffer>& scratch) {
         drain_into(scratch);
         try { return join_.take(scratch, flushed_); }
-        catch (...) { poisoned_ = true; throw; }
+        catch (...) { poisoned_ = true; throw; }   // an output changed width
     }
 
     std::size_t output_count() const { return outputs_.size(); }
@@ -509,7 +518,7 @@ public:
                 Frame<std::int64_t> f{k[r], v + r * w, w};
                 sink->push(f);
             }
-            if (sink) sink->flush();
+            sink->flush();
             flushed_ = true;
             return outputs_;
         }

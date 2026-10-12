@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   ready, Input, Pipeline, select, resample, combineLatest, filter, delay,
-  RollingMean, type Output,
+  RollingMean, IsNan, type Output,
 } from "../src/index.ts";
 
 // Pipeline alignOutputs (B7): the outputs of a multi-output Pipeline on one
@@ -336,20 +336,52 @@ test("maxPending: the Pipeline's cap applies to combineLatest, filter and a cumu
   try { own(feeds as any); } finally { own.dispose(); }
 });
 
-test("alignOutputs: an output join overflow in live result() ends the session", async () => {
+// Live drains at any timing, concatenated, equal batch: an output a filter
+// empties, a rarely emitting resample, and a filter of an input that is all 0.
+test("alignOutputs: live drains at any timing equal batch, with a late or empty output", async () => {
   await ready();
-  const a = Input("a"), b = Input("b");
-  const p = new Pipeline([a, b], [a, b], { maxPending: 3 });
-  try {
-    const s = p.live();
-    for (let i = 0; i < 5; i++) s.push("a", i, i);
-    assert.throws(() => s.result(), (e: unknown) => e instanceof RangeError && /output alignment overflow: more than 3/.test((e as Error).message));
-    assert.throws(() => s.push("b", 6, 1), /rejected an event/);
-    const t = p.live();            // a new session starts clean
-    t.push("a", 0, 1); t.push("b", 0, 2); t.flush();
-    const r = t.result() as Output[];
-    assert.deepEqual(arr(r[0].values), [1]);
-  } finally {
-    p.dispose();
+  const n = 1000;
+  const xs = Array.from({ length: n }, (_, i) => Math.sin(i * 0.37) * 2);
+  const ix = Array.from({ length: n }, (_, i) => i);
+  const cases: [string, () => { p: Pipeline; feeds: any; events: Ev[] }][] = [
+    ["filter drops all", () => {
+      const a = Input("a");
+      return { p: new Pipeline([a], [a, filter(a, IsNan()(a) as any)], { maxPending: 100 }),
+               feeds: { values: xs, index: ix }, events: xs.map((v, i) => ["a", i, v] as Ev) };
+    }],
+    ["rare resample", () => {
+      const a = Input("a");
+      return { p: new Pipeline([a], [RollingMean(5)(a) as any, resample(a, { every: 500, agg: "mean" })], { maxPending: 100 }),
+               feeds: { values: xs, index: ix }, events: xs.map((v, i) => ["a", i, v] as Ev) };
+    }],
+    ["filter of an input", () => {
+      const a = Input("a"), m = Input("m");
+      const events: Ev[] = [];
+      xs.forEach((v, i) => { events.push(["a", i, v]); events.push(["m", i, 0]); });
+      return { p: new Pipeline([a, m], [a, filter(a, m)], { maxPending: 100 }),
+               feeds: { a: { values: xs, index: ix }, m: { values: xs.map(() => 0), index: ix } }, events };
+    }],
+  ];
+  const timings: [string, (k: number) => boolean][] = [
+    ["every 1", () => true], ["every 7", (k) => k % 7 === 0], ["every 50", (k) => k % 50 === 0],
+    ["odd", (k) => [5, 6, 333, 999].includes(k)], ["end", () => false],
+  ];
+  for (const [name, make] of cases) {
+    const { p, feeds, events } = make();
+    try {
+      const batch = p(feeds) as Output[];
+      for (const [when, at] of timings) {
+        const s = p.live();
+        const parts: Output[][] = [];
+        events.forEach(([nm, i, v], k) => { s.push(nm, i, v); if (at(k + 1)) parts.push(s.result() as Output[]); });
+        s.flush();
+        parts.push(s.result() as Output[]);
+        // A drain with no rows shows an output of unknown width as 1-D; skip it.
+        const full = parts.filter((q) => q[0].index.length);
+        assertSame(concat(full.length ? full : parts.slice(-1)), batch, `${name}, drain ${when}`);
+      }
+    } finally {
+      p.dispose();
+    }
   }
 });

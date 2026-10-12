@@ -13,8 +13,9 @@
 //   * OutputJoin: the join across drains, for a lazy call and for a live
 //     session's result() (CompiledGraph::drain_aligned). It carries each
 //     output's latest value from one drain to the next and settles an index
-//     once every output has emitted past it, so the rows of all drains,
-//     concatenated, are the rows of align_outputs over the whole run.
+//     once every output is past it (it emitted a row, or a watermark, at a
+//     higher index), so the rows of all drains, concatenated, are the rows of
+//     align_outputs over the whole run, whatever the drain timing.
 //
 // The outputs are merged by index; at one index, the last row of each output
 // wins. Each output of a graph is sorted by index.
@@ -26,7 +27,6 @@
 #include <string>
 #include <utility>
 #include <vector>
-#include "screamer/dag/max_pending.h"
 #include "screamer/dag/output_buffer.h"
 
 namespace screamer { namespace dag {
@@ -222,16 +222,18 @@ inline AlignedOutputs align_outputs(std::vector<OutputBuffer>&& bufs) {
 }
 
 // The join across drains, for a lazy call and a live session's result():
-// take() each drain, with `end` once the input has ended (a flush). An index is
-// settled once every output has emitted a row at a higher index; at the end
-// every row is settled. Each output's latest value carries over to the next
-// drain. The rows that wait are held as doubles; more than `max_pending` of
-// them raises std::runtime_error (the rule of CombineLatest's reorder buffer),
-// so the state stays bounded.
+// take() each drain, with `end` once the input has ended (a flush). Each output
+// is bounded by the higher of its last emitted index and its watermark (no row
+// will come below either); an index is settled once it is below every output's
+// bound, and at the end every row is settled. Each output's latest value
+// carries over to the next drain. The rows that wait, held as doubles, are the
+// lag between the outputs: an output that emits rarely (a long resample
+// window) holds the others' rows of its open window, as a batch run does. An
+// output whose rows are all dropped (a Filter, Dropna) still advances by its
+// watermarks, so it holds nothing.
 class OutputJoin {
 public:
-    explicit OutputJoin(std::size_t n_out = 0, std::size_t max_pending = kDefaultMaxPending)
-        : max_pending_(max_pending), q_(n_out) {
+    explicit OutputJoin(std::size_t n_out = 0) : q_(n_out) {
         out_.values.resize(n_out);
         out_.widths.assign(n_out, 1);
     }
@@ -273,6 +275,8 @@ private:
         std::size_t width = 1;
         std::int64_t wm = 0;       // highest index emitted
         bool emitted = false;      // whether the output has emitted a row
+        std::int64_t bound = 0;    // max(highest index emitted, watermark)
+        bool bounded = false;      // whether `bound` is set
         // Drops the consumed rows once they are at least half the queue, so
         // the storage is reused and bounded by the rows that wait.
         void compact() {
@@ -336,6 +340,10 @@ private:
             learn_width(j, b.width);
             q_[j].wm = b.indices.back();
             q_[j].emitted = true;
+            raise_bound(q_[j], b.indices.back());
+        }
+        for (std::size_t j = 0; j < bufs.size(); ++j) {
+            if (bufs[j].has_watermark) raise_bound(q_[j], bufs[j].watermark);
         }
         row_.layout(out_.widths);
         laid_out_ = true;
@@ -348,7 +356,7 @@ private:
     }
 
     void push(const std::vector<OutputBuffer>& bufs) {
-        bool all_emitted = true;
+        bool all_bounded = true;
         for (std::size_t j = 0; j < bufs.size(); ++j) {
             const OutputBuffer& b = bufs[j];
             Queue& q = q_[j];
@@ -360,22 +368,22 @@ private:
                 const std::int64_t last = b.indices.back();
                 if (!q.emitted || last > q.wm) q.wm = last;
                 q.emitted = true;
+                raise_bound(q, last);
             } else if (!q.emitted && !laid_out_) {
                 out_.widths[j] = b.width;          // the graph's estimate until a row
             }
-            all_emitted &= q.emitted;
+            if (b.has_watermark) raise_bound(q, b.watermark);
+            all_bounded &= q.bounded;
         }
-        if (all_emitted) {
-            std::int64_t bound = q_[0].wm;
-            for (const Queue& q : q_) bound = std::min(bound, q.wm);
+        if (all_bounded) {
+            std::int64_t bound = q_[0].bound;
+            for (const Queue& q : q_) bound = std::min(bound, q.bound);
             settle(true, bound);
         }
-        if (pending_ > max_pending_)
-            throw std::runtime_error(
-                "Pipeline output alignment overflow: more than " +
-                std::to_string(max_pending_) + " output rows wait for another "
-                "output to emit; an output is stalled. Raise max_pending, or "
-                "check the graph.");
+    }
+
+    static void raise_bound(Queue& q, std::int64_t b) {
+        if (!q.bounded || b > q.bound) { q.bound = b; q.bounded = true; }
     }
 
     void settle(bool has_bound, std::int64_t bound) {
@@ -390,7 +398,6 @@ private:
         for (Queue& q : q_) q.compact();
     }
 
-    std::size_t max_pending_;
     std::vector<Queue> q_;
     detail::AsOfRow row_;
     bool laid_out_ = false;

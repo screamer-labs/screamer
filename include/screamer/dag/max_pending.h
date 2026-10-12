@@ -35,8 +35,9 @@ struct SettingTypeError : std::invalid_argument {
     throw SettingTypeError(name + " must be an integer, got " + kind);
 }
 
-// The shortest text that reads back as `v` ("1.5", "1e+300", "nan").
+// The shortest text that reads back as `v` ("1.5", "1e+300", "NaN").
 inline std::string number_text(double v) {
+    if (std::isnan(v)) return "NaN";
     char buf[32];
     for (int prec = 1; prec <= 17; ++prec) {
         std::snprintf(buf, sizeof buf, "%.*g", prec, v);

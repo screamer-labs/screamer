@@ -90,28 +90,21 @@ def test_aligned_outputs_share_one_index():
     assert k0.dtype == np.int64
 
 
-def test_lazy_alignment_is_bounded_by_max_pending():
-    # Output a emits 50 rows before output b emits any, so 50 rows wait.
+def test_lazy_alignment_waits_for_a_late_output_without_a_cap():
+    # Output a emits 50 rows before output b emits any; the rows wait, as
+    # they do in batch, whatever max_pending is (it caps the join nodes only).
     a, b = Input("a"), Input("b")
     feeds = [(np.arange(50.0), np.arange(50)), (np.array([7.0]), np.array([100]))]
-
-    def gens():
-        return [iter([(float(v), int(k)) for v, k in zip(*f)]) for f in feeds]
-
     p = Pipeline([a, b], [a, b], max_pending=10)
-    with pytest.raises(RuntimeError, match="output alignment overflow: more than 10 output rows"):
-        list(p(*gens()))
-    q = Pipeline([a, b], [a, b], max_pending=50)
-    rows = list(q(*gens()))
+    rows = list(p(*[iter([(float(v), int(k)) for v, k in zip(*f)]) for f in feeds]))
     assert rows == [(49.0, 7.0, 100)]
-    _same(_lazy(q, feeds), q(*feeds))
+    _same(_lazy(p, feeds), p(*feeds))
 
 
 def test_lazy_alignment_frees_settled_rows():
-    # Two outputs on one input settle every row once both emitted it, so a long
-    # run never holds more than a few rows, far below max_pending.
+    # Two outputs on one input settle every row once both emitted it.
     a = Input("a")
-    p = Pipeline([a], [a, sc.RollingMean(3)(a)], max_pending=4)
+    p = Pipeline([a], [a, sc.RollingMean(3)(a)], max_pending=1)
     n = 10_000
     rows = list(p(iter((float(i), i) for i in range(n))))
     assert len(rows) == n
@@ -230,7 +223,8 @@ def test_a_drain_holds_back_rows_another_output_may_still_change():
                             (np.array([10.0, 20, 30]), np.array([1, 3, 6]))))
 
 
-def test_lazy_overflow_ends_the_session():
+def test_lazy_combine_latest_overflow_ends_the_session():
+    # A rejected event ends a lazy call: later next() raises and pulls nothing.
     a, b = Input("a"), Input("b")
     pulled = []
 
@@ -239,31 +233,78 @@ def test_lazy_overflow_ends_the_session():
             pulled.append(i)
             yield float(i), i
 
-    p = Pipeline([a, b], [a, b], max_pending=10)
+    p = Pipeline([a, b], [sc.CombineLatest()(a, b), a], max_pending=10)
     it = p(gen(), iter([(1.0, 1000)]))
-    with pytest.raises(RuntimeError, match="output alignment overflow"):
+    with pytest.raises(RuntimeError, match="reorder buffer overflow"):
         next(it)
     n = len(pulled)
     for _ in range(3):
         with pytest.raises(RuntimeError, match="rejected an event"):
             next(it)
-    assert len(pulled) == n          # nothing more is pulled from the feeds
+    assert len(pulled) == n
 
 
-def test_live_overflow_ends_the_session():
-    a, b = Input("a"), Input("b")
-    p = Pipeline([a, b], [a, b], max_pending=3)
+def _drain_cases():
+    rng = np.random.default_rng(5)
+    n = 1000
+    x = rng.normal(size=n)
+    k = np.arange(n)
+
+    def filter_drops_all(a):         # x has no NaN: the mask is always 0
+        return [a, sc.Filter()(a, sc.IsNan()(a))]
+
+    def rare_resample(a):
+        return [sc.RollingMean(5)(a), sc.Resample(every=500, agg="mean")(a)]
+
+    def filter_of_an_input(a, m):
+        return [a, sc.Filter()(a, m)]
+
+    yield filter_drops_all, [(x, k)]
+    yield rare_resample, [(x, k)]
+    yield filter_of_an_input, [(x, k), (np.zeros(n), k)]
+
+
+@pytest.mark.parametrize("case", list(range(3)))
+@pytest.mark.parametrize("drains", ["every 1", "every 7", "every 50", "odd", "end"])
+def test_live_drains_and_lazy_equal_batch_whatever_the_timing(case, drains):
+    make, feeds = list(_drain_cases())[case]
+    inputs = [Input(nm) for nm in ("a", "m")[:len(feeds)]]
+    p = Pipeline(inputs, make(*inputs), max_pending=100)
+    want = p(*feeds)
+    names = [i.op[1] for i in inputs]
+    evs = _events(feeds, names)
+    at = {"every 1": lambda n: True, "every 7": lambda n: n % 7 == 0,
+          "every 50": lambda n: n % 50 == 0, "odd": lambda n: n in (5, 6, 333, 999),
+          "end": lambda n: False}[drains]
     s = p.live()
-    for i in range(5):
-        s.push("a", i, float(i))
-    with pytest.raises(RuntimeError, match="output alignment overflow: more than 3"):
-        s.result()
-    with pytest.raises(RuntimeError, match="rejected an event"):
-        s.push("b", 6, 1.0)
-    t = p.live()                     # a new session starts clean
-    t.push("a", 0, 1.0).push("b", 0, 2.0).flush()
-    (v0, k0), (v1, _) = t.result()
-    assert list(v0) == [1.0] and list(v1) == [2.0] and list(k0) == [0]
+    parts = []
+    for n, (t, _, _, nm, v) in enumerate(evs, 1):
+        s.push(nm, t, float(v))
+        if at(n):
+            parts.append(s.result())
+    s.flush()
+    parts.append(s.result())
+    _same(_concat(parts), want)
+    for (lv, lk), (wv, wk) in zip(_lazy(p, feeds), want):
+        np.testing.assert_array_equal(lk, wk)
+        np.testing.assert_array_equal(lv, wv)
+
+
+def test_every_node_kind_round_trips_through_to_dict():
+    a, b, c, m = Input("a"), Input("b"), Input("c"), Input("m")
+    outs = [sc.RollingMean(3)(a), sc.CombineLatest()(a, b), sc.Dropna()(a),
+            sc.Select([1, 0])(sc.CombineLatest()(a, b)),
+            sc.Resample(every=5, agg="ohlc")(a), sc.Resample(count=3, agg="mean")(b),
+            sc.Resample(a, b, threshold=2.0, agg="sum"),
+            sc.Resample(a, c, clock=True, agg="last"), sc.Filter()(a, m), sc.Delay(2)(a)]
+    for align in (True, False):
+        p = Pipeline([a, b, c, m], outs, align_outputs=align, max_pending=777)
+        q = Pipeline.from_json(p.to_json())
+        assert q.to_dict() == p.to_dict() and q.max_pending == 777
+        rng = np.random.default_rng(1)
+        feeds = [(rng.normal(size=50), np.arange(50)), (rng.random(50), np.arange(50)),
+                 (np.ones(10), np.arange(0, 50, 5)), ((rng.random(50) > 0.5) * 1.0, np.arange(50))]
+        _same(q(*feeds), p(*feeds))
 
 
 @pytest.mark.parametrize("ok", [1, 5, 2**53, np.int64(7), 5.0, np.float64(9.0)])

@@ -65,10 +65,9 @@ define-once-run-anywhere guarantee), see
   have equal length; each keeps its own columns, so a 2-column output stays
   `(T, 2)`. When `False`, each output is an independent stream whose length may
   differ from the others.
-- **`max_pending`**: the most events a join may hold while it waits for another
-  stream: the reorder buffer of each `CombineLatest` and `Filter` node (also the
-  join of a threshold `Resample` with its driver), and the aligned output rows
-  that wait for another output in a lazy call or a live session. More raises
+- **`max_pending`**: the most events a join node may hold while it waits for
+  another stream: the reorder buffer of each `CombineLatest` and `Filter` node
+  (also the join of a threshold `Resample` with its driver). More raises
   `RuntimeError` and ends the call or session, so a stalled stream cannot grow
   memory without bound. An integer from 1 to `2**53`; another number raises
   `ValueError`, and a value that is not an integer `TypeError`.

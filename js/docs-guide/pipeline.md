@@ -90,10 +90,10 @@ const [outA, outB] = p({
 `live().result()` returns the same shape as the batch call.
 
 `maxPending` (default 1,000,000) is the most events a join may hold while it waits for another
-stream: each `combineLatest` node without its own `maxPending`, each `filter` node, the join of a
-cumulative `resample` with its driver, and the aligned rows of `live().result()`. More throws
-`RangeError` and ends a live session. It is an integer from 1 to 2\*\*53; another number throws
-`RangeError`, and a value that is not an integer `TypeError`.
+stream: each `combineLatest` node without its own `maxPending`, each `filter` node, and the join
+of a cumulative `resample` with its driver. More throws `RangeError` and ends a live session. It
+is an integer from 1 to 2\*\*53; another number throws `RangeError`, and a value that is not an
+integer `TypeError`.
 
 Dispose the pipeline with `pipeline.dispose()` when you are done with it. See
 [Lifecycle](./lifecycle.md) for why you should not separately dispose the ops that went into
