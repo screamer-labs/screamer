@@ -93,7 +93,9 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
   2.8.0 raised `TypeError` for it.
 * `Resample` aggregates every column of `(T, X)` data; `agg="ohlc"` gives
   `(T', X, 4)`. Inside a `Pipeline` a stream carries fields only, so
-  `Resample(agg="ohlc")` there gives a flat `(T', 4 * X)` frame.
+  `Resample(agg="ohlc")` there gives a flat `(T', 4 * X)` frame in
+  column-major field order, `[open_0, high_0, low_0, close_0, open_1, ...]`;
+  `values.reshape(len(values), X, 4)` gives the eager result.
 * JavaScript one-input operators accept `(T, K)` `NdArray` input.
 * `PortfolioReport()(out, prices)` reports turnover as traded notional, the
   sum of `abs(position change * price)`, in the money units of equity and
@@ -111,6 +113,14 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
 
 ### Changed
 
+* The eager clock resample, `Resample(values, clock, clock=True, agg="ohlc")`
+  on `(T, X)` values, returns `(T', X, 4)`, as `freq=` and `count=` do, in
+  batch and lazy calls (each lazy event is `(X, 4)`). A `(T, *A)` input keeps
+  its asset axes with every builtin agg. 2.8.0 returned `(T', X)` holding
+  each column's open only. For a flat `(T', 4 * X)` row per bar, the
+  `Pipeline` layout, use `out.reshape(len(out), -1)`; `out[..., 0]` is the
+  2.8.0 result. The lazy form now returns a Python generator, as the `freq=`
+  lazy form does.
 * A tuple given as a stream source always marks `(values, index)`, as an
   object `{values, index}` does in JavaScript. This holds for every stream
   source: `combine_latest` (`CombineLatest`), `merge` (`Merge`), `split`,
@@ -694,7 +704,8 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
   `Pipeline`, in Python and JavaScript.
 * A clock resample (`clock=True`) of a multi-column value stream with
   `agg="ohlc"` wrote past its output row; it now gives (open, high, low, close)
-  per column. With `agg="ohlcv_bars"` it crashed; it now builds the bars. A
+  per column (`(T', X, 4)` from the eager call, a flat `(T', 4 * X)` inside a
+  `Pipeline`). With `agg="ohlcv_bars"` it crashed; it now builds the bars. A
   fixed-plan agg (`ohlc_bars`, `ohlcv`, `ohlcv2`) given the wrong number of
   columns silently dropped or padded columns; it now raises `ValueError`
   (`RangeError` in JavaScript).

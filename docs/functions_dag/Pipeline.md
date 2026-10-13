@@ -94,6 +94,22 @@ Pass generators of `(value, index)` pairs instead of arrays to run the pipeline
 lazily, event by event: `pipe(gen_a, gen_b)` returns an iterator that yields
 output events byte-identical to the batch result.
 
+A pipeline stream holds flat rows of numbers. An operator that gives several
+values per column flattens them: `Resample(agg="ohlc")` on an `X`-column
+stream gives `(T', 4 * X)` in column-major field order,
+`[open_0, high_0, low_0, close_0, open_1, ...]`, where the eager call gives
+`(T', X, 4)`. Reshape to recover the eager result:
+
+```python
+x = Input("x")
+pipe = Pipeline([x], [Resample(freq=60, agg="ohlc")(x)])
+values, index = pipe((panel, t))               # (T', 4 * X)
+bars = values.reshape(len(values), -1, 4)      # (T', X, 4), as the eager call
+```
+
+Phase 2 of the shape contract (asset axes inside a `Pipeline`) will return
+`(T', X, 4)` directly.
+
 ## Live, incremental sessions: `pipe.live()`
 
 `pipe(arrays)` and `pipe(generators)` both consume complete feeds. When you drive

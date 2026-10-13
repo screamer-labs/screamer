@@ -181,3 +181,48 @@ test("Q1: a vector setting is a number, an Array or a typed array, and every ele
   assert.deepEqual(MovingAverage(Float64Array.from([0.5, 0.25]) as any)([2, 4, 6]), [NaN, 2.5, 4]);
   assert.deepEqual(MovingAverage(2)([2, 4, 6]), [4, 8, 12]);
 });
+
+test("E2: a wide ohlc Resample is flat, column-major [o0, h0, l0, c0, o1, ...]", async () => {
+  await ready();
+  // Each row of the K-column output is the K one-column results laid end to
+  // end, so values.reshape(T', K, 4) is the per-column (eager Python) result.
+  const T = 30, K = 3;
+  const rows = Array.from({ length: T }, (_, t) => Array.from({ length: K }, (_, k) => Math.sin(1.7 * t + k) * (k + 1) + 0.1 * t));
+  const index = rows.map((_, t) => 10 * t);
+  const clkIndex = [25, 95, 165, 235];
+  const make = (mode: string) => {
+    const a = Input("a"), c = Input("c");
+    if (mode === "clock") return new Pipeline([a, c], [resample(a, { clock: true, driver: c, agg: "ohlc" })]);
+    return new Pipeline([a], [resample(a, mode === "every" ? { every: 50, agg: "ohlc" } : { count: 7, agg: "ohlc" })]);
+  };
+  const feeds = (mode: string, cols: number[][]): any => {
+    const values = nd(cols);
+    return mode === "clock" ? { a: { values, index }, c: { values: clkIndex.map(() => 0), index: clkIndex } } : { values, index };
+  };
+  for (const mode of ["every", "count", "clock"]) {
+    const p = make(mode);
+    const singles = Array.from({ length: K }, () => make(mode));
+    try {
+      const per = singles.map((q, k) => arr((q(feeds(mode, rows.map((r) => [r[k]]))) as Output).values));
+      const nOut = per[0].length / 4;
+      const expected: number[] = [];
+      for (let t = 0; t < nOut; t++) for (let k = 0; k < K; k++) expected.push(...per[k].slice(4 * t, 4 * t + 4));
+      const out = p(feeds(mode, rows)) as Output;
+      assert.deepEqual((out.values as any).shape, [nOut, 4 * K], `${mode} batch shape`);
+      assert.deepEqual(arr(out.values), expected, `${mode} batch`);
+      const s = p.live();
+      const events: [number, number, number][] = [
+        ...index.map((ix, t): [number, number, number] => [ix, 0, t]),
+        ...(mode === "clock" ? clkIndex.map((ix): [number, number, number] => [ix, 1, 0]) : []),
+      ].sort((x, y) => x[0] - y[0] || x[1] - y[1]);
+      for (const [ix, port, t] of events) port === 0 ? s.push("a", ix, rows[t]) : s.push("c", ix, 0);
+      s.flush();
+      const live = s.result() as Output;
+      assert.deepEqual(arr(live.values), expected, `${mode} live`);
+      assert.deepEqual(Array.from(live.index), Array.from(out.index), `${mode} live index`);
+    } finally {
+      p.dispose();
+      for (const q of singles) q.dispose();
+    }
+  }
+});

@@ -163,6 +163,15 @@ const bars = resample(x, { every: 5, agg: "mean" });
 // index 0..9 -> two bars labelled at 0 and 5, each the mean of its 5 points
 ```
 
+A built-in `agg` reduces every column of a wide stream on its own. `"ohlc"` on
+an `X`-column stream gives `4 * X` columns in column-major field order,
+`[open0, high0, low0, close0, open1, ...]`, in every mode (`every`, `count`,
+`clock`), batch and live. The result's `values` has shape `[T', 4 * X]`; read
+the data as `[T', X, 4]` (row `t`, column `k`, field `f` is at
+`data[(t * X + k) * 4 + f]`), which is the Python eager result. Phase 2 of the
+shape contract (asset axes inside a `Pipeline`) will return `[T', X, 4]`
+directly.
+
 **`select(node, columns)`**: pick one or more columns from a wide (multi-output) stream.
 
 ```js

@@ -139,9 +139,10 @@ input's first rows. The row's width for that input is then unknown, and the
 `count`, `mean`, `ohlc`) aggregates every column of a multi-column stream
 separately. An aggregation with several outputs appends them as a last axis:
 `agg="ohlc"` turns `(T, X)` values into `(T', X, 4)` bars, one set of bars per
-column. Inside a `Pipeline` the result is flattened to `(T', 4 * X)`. A
-functor `agg` aggregates one column, and multi-column input raises
-`ValueError`.
+column. Inside a `Pipeline` the result is flat, `(T', 4 * X)`, with the four
+bar fields of each column side by side (`[o0, h0, l0, c0, o1, ...]`), so
+`values.reshape(len(values), X, 4)` gives the eager result. A functor `agg`
+aggregates one column, and multi-column input raises `ValueError`.
 
 ```python
 bars, idx = Resample(freq=60_000, agg="ohlc")(panel, t)   # (T', K, 4)

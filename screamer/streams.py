@@ -1010,13 +1010,30 @@ def _resample_clock_lazy(values, clock_stream, *, agg, fill, origin, label,
     The input iterators must yield (value, index) pairs where index is comparable.
     Both must be consistently indexed (both positional or both (value, index) pairs).
     """
+    import itertools
     from .dag import Input, Pipeline
     val_in = Input("v")
     clk_in = Input("c")
     node = resample(val_in, clk_in, clock=True, agg=agg, fill=fill,
                     origin=origin, label=label, max_age=max_age)
     dag = Pipeline([val_in, clk_in], [node])
-    return dag(iter(values), iter(clock_stream))
+    it = iter(values)
+    head = next(it, _EMPTY)
+    if head is _EMPTY:
+        yield from dag(iter(()), iter(clock_stream))
+        return
+    events = itertools.chain([head], it)
+    v0 = (_as_float64(head[0]) if isinstance(head, tuple) and len(head) == 2
+          else None)
+    if v0 is None or v0.ndim == 0 or agg not in _COLUMN_AGGS:
+        yield from dag(events, iter(clock_stream))
+        return
+    # Events of assets: each column is reduced on its own and the bars come
+    # back in the event's shape, with a last axis of 4 for ohlc (as freq=).
+    shape = _column_shape((1,) + v0.shape) + ((4,) if agg == "ohlc" else ())
+    flat = ((np.ravel(_as_float64(v)), i) for v, i in events)
+    for v, i in dag(flat, iter(clock_stream)):
+        yield _as_float64(v).reshape(shape), i
 
 
 def _resample_validate(freq, every, count, threshold, agg, label, fill="skip",
@@ -1251,9 +1268,19 @@ def resample(values, driver=None, index=None, *, freq=None, every=None, count=No
             val_idx = np.arange(len(vals), dtype=np.int64)
         if clk_idx is None:
             clk_idx = np.arange(len(clk_vals), dtype=np.int64)
-        return _resample_clock_batch(vals, np.asarray(val_idx), clk_vals, np.asarray(clk_idx),
-                                     agg=agg, fill=fill, origin=origin, label=label,
-                                     max_age=max_age)
+        # A builtin agg on (T, *A) reduces each column, as with freq= and
+        # count=: the result is (T', *A), with a last axis of 4 for ohlc.
+        columns = None
+        if vals.ndim > 1 and agg in _COLUMN_AGGS:
+            columns = _column_shape(vals.shape)
+            vals = vals.reshape(len(vals), -1)
+        out_v, out_idx = _resample_clock_batch(
+            vals, np.asarray(val_idx), clk_vals, np.asarray(clk_idx),
+            agg=agg, fill=fill, origin=origin, label=label, max_age=max_age)
+        if columns is not None:
+            out_v = np.asarray(out_v).reshape(
+                (len(out_idx),) + columns + ((4,) if agg == "ohlc" else ()))
+        return out_v, out_idx
 
     # Guard: a second positional argument (driver) without a mode selector is ambiguous
     # when driver is a stream, Node, or (values, index) pair. Plain numpy arrays are

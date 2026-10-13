@@ -234,7 +234,10 @@ export interface ResampleParams {
 }
 
 // Causal windowed downsample. Translates opts -> codes, mirroring dag.py's
-// Resample compile branch.
+// Resample compile branch. A builtin agg reduces every column of a wide stream
+// on its own; "ohlc" on X columns gives 4 * X columns in column-major field
+// order [o0, h0, l0, c0, o1, ...]. A future eager (non-Node) form must return
+// [T', X, 4], as Python's eager call does.
 export function resample(node: Node, opts: ResampleOpts = {}): Node {
   if (!isNode(node)) throw new Error("resample: first argument must be a Node");
 

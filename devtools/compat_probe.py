@@ -126,6 +126,11 @@ def cases():
         "from_pandas Series": lambda: s.from_pandas(pd.Series(v, index=idx)),
         "Resample 1-D ohlc": lambda: s.Resample(count=5, agg="ohlc")(v),
         "Resample (values,index)": lambda: s.Resample(freq=50, agg="last")((v, idx)),
+        "Resample clock 1-D ohlc": lambda: s.Resample((v, idx), (np.zeros(5), np.arange(5) * 60 + 5), clock=True, agg="ohlc"),
+        "Resample clock (T,K) ohlc": lambda: s.Resample((X, idx), (np.zeros(5), np.arange(5) * 60 + 5), clock=True, agg="ohlc"),
+        "Resample clock (T,K) ohlc lazy": lambda: s.Resample(gen(zip(X, idx)), gen(zip(np.zeros(5), np.arange(5) * 60 + 5)), clock=True, agg="ohlc"),
+        "Resample clock (T,K) last": lambda: s.Resample((X, idx), (np.zeros(5), np.arange(5) * 60 + 5), clock=True, agg="last"),
+        "Resample clock (T,4) ohlc_bars": lambda: s.Resample((X[:, [0, 0, 0, 0]], idx), (np.zeros(5), np.arange(5) * 60 + 5), clock=True, agg="ohlc_bars"),
         "CombineLatest 1-D": lambda: s.CombineLatest()(v, w),
         # microstructure keywords (2.8.0 names) and positional forms
         "SignedVolume kw": lambda: s.SignedVolume()(sign=sign, volume=w),

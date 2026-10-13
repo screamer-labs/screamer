@@ -39,15 +39,22 @@ The `agg` parameter accepts two forms:
 
 **String shorthand**: one of `first`, `last`, `min`, `max`, `sum`, `count`,
 `mean`, `ohlc`, `ohlcv`, `ohlcv2`, `ohlc_bars`, `ohlcv_bars`. `ohlc` returns
-four columns (`open`, `high`, `low`, `close`). With `freq=` or `count=`, the
-aggs `first` to `ohlc` aggregate every column of a multi-column input
-separately: `mean` turns `(T, X)` into `(T', X)`, and `ohlc` appends the four
-bar columns as a last axis, `(T', X, 4)`. The bar aggs `ohlcv`, `ohlcv2`,
-`ohlc_bars`, and `ohlcv_bars` read the columns of a 2-D input as the fields of
-one bar; see below. All multi-column aggs give the same numbers in eager,
-`Pipeline` graph, and lazy iterator regimes. A `Pipeline` stream holds flat
-rows, so there `ohlc` on `X` columns gives `(T', 4 * X)`: the `(T', X, 4)`
-result with its last two axes flattened.
+four columns (`open`, `high`, `low`, `close`). With `freq=`, `count=` or
+`clock=True`, the aggs `first` to `ohlc` aggregate every column of a
+multi-column input separately: `mean` turns `(T, X)` into `(T', X)`, and `ohlc`
+appends the four bar columns as a last axis, `(T', X, 4)`. The bar aggs
+`ohlcv`, `ohlcv2`, `ohlc_bars`, and `ohlcv_bars` read the columns of a 2-D
+input as the fields of one bar; see below. All multi-column aggs give the same
+numbers in eager, `Pipeline` graph, and lazy iterator regimes. A
+`threshold=` resample takes one value column.
+
+Inside a `Pipeline`, a stream holds flat rows, so `ohlc` on `X` columns gives
+`(T', 4 * X)`. The columns are in column-major field order, the four bar
+fields of column 0 first: `[open_0, high_0, low_0, close_0, open_1, ...]`.
+`values.reshape(len(values), X, 4)` gives the eager `(T', X, 4)` result. This
+holds in every mode (`freq=`, `count=`, `clock=True`), in batch, lazy and
+live runs, and in JavaScript. Phase 2 of the shape contract (asset axes
+inside a `Pipeline`) will return `(T', X, 4)` directly.
 
 **Any `EvalOp` functor**, e.g. `ExpandingSkew()`. The functor is `reset()` at
 each bar boundary and fed every in-bar sample; its last output before the close
