@@ -90,34 +90,31 @@ public:
                 bad(event, "event", item, "a (value, index) pair");
             read_value(nb::borrow<nb::object>(tup[0]), event, ev);
             // A NaN index is a value problem, with the text of every stream
-            // merge (checked_index.h index_nan_text), whatever the index kind.
-            if (is_nan_index(tup[1]))
-                throw std::invalid_argument(std::string(owner_) + ": " +
-                                            dag::index_nan_text(input_, event));
-
-            if constexpr (std::is_integral_v<Index>) {
-                // The engine's index rule, as in a live push (py_index.h), with
-                // the event's position in the message. The index must not
-                // decrease (checked_index.h), checked after the kind rules.
-                try {
-                    ev.index = static_cast<Index>(screamer::py_index(tup[1], unit_));
-                } catch (const screamer::dag::IndexTypeError& e) {
-                    throw screamer::dag::IndexTypeError(
-                        std::string(owner_) + ": " + where(event, "the index of event") +
-                        ": " + e.what());
-                }
-            } else {
-                // A float index (a float merge): numbers of any value, under the
-                // call's one-kind rule (py_index.h); a time index is ticks, and
-                // after a number it raises the kind error.
-                nb::handle idx = tup[1];
-                try {
+            // merge (checked_index.h index_nan_text), whatever the index kind
+            // and before any kind rule. It is looked for only where the index
+            // rule fails (an int64 index refuses NaN) or reads a NaN (a float
+            // merge), so a valid index costs no extra test.
+            nb::handle idx = tup[1];
+            try {
+                if constexpr (std::is_integral_v<Index>) {
+                    // The engine's index rule, as in a live push (py_index.h),
+                    // with the event's position in the message. The index must
+                    // not decrease (checked_index.h), checked after the kind
+                    // rules.
+                    ev.index = static_cast<Index>(screamer::py_index(idx, unit_));
+                } else {
+                    // A float index (a float merge): numbers of any value, under
+                    // the call's one-kind rule (py_index.h); a time index is
+                    // ticks, and after a number it raises the kind error.
                     ev.index = static_cast<Index>(screamer::py_float_index(idx, unit_));
-                } catch (const screamer::dag::IndexTypeError& e) {
-                    throw screamer::dag::IndexTypeError(
-                        std::string(owner_) + ": " + where(event, "the index of event") +
-                        ": " + e.what());
+                    if (ev.index != ev.index) throw_nan_index(event);
                 }
+            } catch (const std::invalid_argument& e) {
+                if (is_nan_index(idx)) throw_nan_index(event);
+                if (!dynamic_cast<const screamer::dag::IndexTypeError*>(&e)) throw;
+                throw screamer::dag::IndexTypeError(
+                    std::string(owner_) + ": " + where(event, "the index of event") +
+                    ": " + e.what());
             }
             if (event != 0 && ev.index < last_index_)
                 dag::throw_index_decreases(input_, event, last_index_, ev.index);
@@ -477,6 +474,11 @@ private:
     [[noreturn]] void bad(std::size_t event, const char* what, nb::handle x,
                           const char* expected) const {
         throw_wrong_kind(owner_, where(event, what), x, expected);
+    }
+    // A NaN index: ValueError / RangeError, the text of every stream merge.
+    [[noreturn]] SCREAMER_NOINLINE void throw_nan_index(std::size_t event) const {
+        throw std::invalid_argument(std::string(owner_) + ": " +
+                                    dag::index_nan_text(input_, event));
     }
 
     nb::object it_;
