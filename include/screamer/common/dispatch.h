@@ -257,13 +257,19 @@ inline ContigDouble read_contig_double(const nb::ndarray<nb::ro>& a) {
     return r;
 }
 
+// True when `p` may be read as a double: an array built over a byte buffer
+// at an odd offset (np.frombuffer(buf, offset=1)) is float64 but not aligned.
+inline bool double_aligned(const void* p) {
+    return reinterpret_cast<std::uintptr_t>(p) % alignof(double) == 0;
+}
+
 // The values of an array as C-contiguous doubles: the array itself when it is
-// float64 and C-contiguous (no copy; the operator only reads its inputs), else
-// a copy (read_contig_double).
+// float64, C-contiguous and aligned (no copy; the operator only reads its
+// inputs), else a copy (read_contig_double).
 inline ContigDouble read_double_view(const nb::ndarray<nb::ro>& a) {
     const nb::dlpack::dtype dt = a.dtype();
     if (a.size() == 0 || dt.code != (uint8_t) nb::dlpack::dtype_code::Float || dt.bits != 64 ||
-        !is_c_contiguous(a))
+        !is_c_contiguous(a) || !double_aligned(a.data()))
         return read_contig_double(a);
     ContigDouble r;
     r.shape.resize(a.ndim());

@@ -105,7 +105,7 @@ nb::object process_python_array(ScreamerBase& self, nb::ndarray<nb::ro> input) {
     detail::ContigDouble tmp;
     const double* in = nullptr;
     if (total > 0) {
-        if (f64 && detail::is_c_contiguous(input)) {
+        if (f64 && detail::is_c_contiguous(input) && detail::double_aligned(input.data())) {
             in = (const double*) input.data();
         } else {
             tmp = detail::read_contig_double(input);
