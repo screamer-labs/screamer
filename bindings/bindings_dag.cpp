@@ -209,12 +209,25 @@ private:
     bool done_ = false;
 };
 
+// A feed's values are (T,) or (T, w): a higher rank would be read as (T,
+// shape[1]) over the wrong stride. The rule and the wording of JavaScript's
+// Pipeline.
+static void check_feed_rank(const InValues& v, std::size_t input) {
+    if (v.ndim() <= 2) return;
+    std::string shape;
+    for (std::size_t d = 0; d < v.ndim(); ++d)
+        shape += (d ? "," : "") + std::to_string(v.shape(d));
+    throw std::invalid_argument("Pipeline: the values of input " + std::to_string(input) +
+                                " have shape [" + shape + "], expected (T,) or (T, w)");
+}
+
 // Hand-wire source -> FunctorNode(op) -> collector and run it in batch.
 // `values` is (T,) [width 1] or (T, W) [width W]; returns (T, op.n_out()).
 static nb::object run_functor_batch(
         EvalOp& op,
         In1D<std::int64_t> index,
         InValues values) {
+    check_feed_rank(values, 0);
     std::size_t T = static_cast<std::size_t>(values.shape(0));
     std::size_t width = (values.ndim() == 1)
         ? 1u : static_cast<std::size_t>(values.shape(1));
@@ -404,6 +417,7 @@ static void marshal_feeds(
         kp.push_back(index_array(t[0], ks[f], owned[f], unit));
         ++f;
         vs.push_back(nb::cast<InValues>(t[1]));
+        check_feed_rank(vs.back(), f - 1);
         vp.push_back(vs.back().data());
         lens.push_back(static_cast<std::size_t>(vs.back().shape(0)));
         // Detect column width: 1 for 1-D arrays, shape[1] for 2-D arrays.
@@ -921,10 +935,10 @@ void init_bindings_dag(nb::module_& m) {
             if (compiled)
                 throw std::runtime_error("this graph builder was compiled already; "
                                          "build a new one");
+            compiled = true;          // the spec leaves the builder even if the build throws
             PyCompiledGraph pcg;
             pcg.cg = std::make_unique<dag::CompiledGraph>(builder.take());
             pcg.op_refs = op_refs;
-            compiled = true;
             return pcg;
         }
         bool compiled = false;

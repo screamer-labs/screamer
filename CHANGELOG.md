@@ -105,7 +105,9 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
     `ValueError` ("forecast_pairs: X has 3 dimensions, expected (T,) or
     (T, K)"); 2.8.0 raised `RuntimeError` in count mode and returned the first
     feature only in duration mode. A `(T, 0)` `X` raises `ValueError` ("X has
-    no feature columns"), where 2.8.0 raised `IndexError`. Reshape `X` to
+    no feature columns"), where 2.8.0 raised `IndexError`; given to a count-mode
+    graph node, it raises `ValueError` ("a lag takes rows of at least one
+    value"), where 2.8.0 raised `RuntimeError`. Reshape `X` to
     `(T, K)`.
   * In count mode, `(values, index)` pairs raise `TypeError` ("count= mode
     takes X and y as values"); 2.8.0 read each pair as a 2-row array and
@@ -528,6 +530,12 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
 
 ### Fixed
 
+* A Python `Pipeline` batch feed of rank 3 or more raises `ValueError`
+  ("Pipeline: the values of input 0 have shape [30,1,3], expected (T,) or
+  (T, w)"), as JavaScript's `Pipeline` does. 2.8.0 read such a feed as
+  `(T, shape[1])` over the wrong stride, so every graph got misaligned values
+  without an error (a `(T, 3, 2)` feed gave the rows `[0, 1, 2]`,
+  `[3, 4, 5]`, ...). Reshape the feed to `(T, w)`.
 * `forecast_pairs` in duration mode with a 2-D `X` of `K` columns returns all
   `K` shifted feature columns, as a `(rows, K)` array, as count mode does.
   2.8.0 returned only the first column, as a 1-D array. For the 2.8.0 result,

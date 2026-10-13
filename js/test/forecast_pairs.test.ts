@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
-import { ready, forecastPairs, Input, Pipeline, isNode } from "../src/index.ts";
+import { ready, forecastPairs, Input, Pipeline, isNode, RollingMean, dropna } from "../src/index.ts";
 import type { NdArray, Output } from "../src/index.ts";
 
 // forecastPairs against Python's forecast_pairs (devtools/wasm/gen_oracle.py
@@ -204,4 +204,45 @@ test("GraphBuilder: a builder compiles once", async () => {
   } finally {
     gb.delete();
   }
+});
+
+test("Pipeline: a rank-3 feed raises in every graph; a lag refuses rows of no values", async () => {
+  await ready();
+  const v = Float64Array.from({ length: 8 }, (_, i) => i);
+  const rank3 = { data: new Float64Array(16), shape: [8, 2, 1] };
+  const empty = { data: new Float64Array(0), shape: [8, 0] };
+  const graphs: Array<[string, () => any, string[]]> = [
+    ["functor", () => { const x = Input("x"); return new Pipeline([x], [RollingMean(2)(x)]); }, ["x"]],
+    ["dropna", () => { const x = Input("x"); return new Pipeline([x], [dropna(x)]); }, ["x"]],
+    ["forecast count", () => {
+      const X = Input("X"), y = Input("y");
+      return new Pipeline([X, y], [forecastPairs(X, y, { count: 1 })]);
+    }, ["X", "y"]],
+    ["forecast duration", () => {
+      const X = Input("X"), y = Input("y");
+      return new Pipeline([X, y], [forecastPairs(X, y, { duration: 1 })]);
+    }, ["X", "y"]],
+  ];
+  for (const [name, make, inputs] of graphs) {
+    const p = make();
+    const feeds = (first: unknown) =>
+      Object.fromEntries(inputs.map((n, i) => [n, i === 0 ? first : v]));
+    assert.throws(() => p(feeds(rank3)), (e: any) => e instanceof RangeError &&
+      e.message === "Pipeline: the values of input 0 have shape [8,2,1], expected (T,) or (T, w)", name);
+    if (name === "forecast count")       // the lag refuses rows of no values
+      assert.throws(() => p(feeds(empty)), (e: any) => e instanceof RangeError &&
+        /a lag takes rows of at least one value/.test(e.message), name);
+    p.dispose();
+  }
+});
+
+test("forecastPairs: a large count costs memory only as events arrive", async () => {
+  await ready();
+  const v = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+  const [xs, ys] = forecastPairs(v, v, { count: 2 ** 31 - 1 });
+  assert.ok(Array.from(xs as Float64Array).every(Number.isNaN));
+  assertSame(ys, Float64Array.from(v), "y");
+  const wide = { data: new Float64Array(30).fill(1), shape: [10, 3] };
+  const [xw] = forecastPairs(wide, v, { count: 2 ** 31 - 1 });
+  assert.deepEqual((xw as NdArray).shape, [10, 3]);
 });

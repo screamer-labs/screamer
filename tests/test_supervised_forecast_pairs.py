@@ -479,7 +479,8 @@ def test_forecast_pairs_settings_and_errors():
 def _reference_count(X2, y, count):
     """Row t: X[t - count] (a NaN row before), and y[t]."""
     lagged = np.full_like(X2, np.nan)
-    lagged[count:] = X2[:len(X2) - count]
+    if count < len(X2):
+        lagged[count:] = X2[:len(X2) - count]
     return np.column_stack([lagged, y])
 
 
@@ -673,3 +674,73 @@ def test_graph_builder_compiles_once():
     gb.compile()
     with pytest.raises(RuntimeError, match="compiled already"):
         gb.compile()
+
+
+# ---------------------------------------------------------------------------
+# Pipeline feeds: a rank-3 feed raises in every graph
+# ---------------------------------------------------------------------------
+
+def _graphs():
+    from screamer import Input, Pipeline, RollingMean
+    from screamer.streams import Dropna
+    x = Input("x")
+    yield "functor", Pipeline([x], [RollingMean(2)(x)]), 1
+    x = Input("x")
+    yield "dropna", Pipeline([x], [Dropna()(x)]), 1
+    X_in, y_in = Input("X"), Input("y")
+    yield "forecast count", Pipeline([X_in, y_in], [forecast_pairs(X_in, y_in, count=1)]), 2
+    X_in, y_in = Input("X"), Input("y")
+    yield "forecast duration", Pipeline([X_in, y_in], [forecast_pairs(X_in, y_in, duration=1)]), 2
+
+
+@pytest.mark.parametrize("which", range(4))
+def test_pipeline_refuses_rank3_feeds(which):
+    name, pipe, n_in = list(_graphs())[which]
+    v = np.arange(8.0)
+    rank3 = np.arange(16.0).reshape(8, 2, 1)
+    rest = (v,) * (n_in - 1)
+    with pytest.raises(ValueError, match=r"Pipeline: the values of input 0 have shape "
+                                         r"\[8,2,1\], expected \(T,\) or \(T, w\)"):
+        pipe(rank3, *rest)
+    with pytest.raises(ValueError, match=r"Pipeline: the values of input 0 have shape"):
+        pipe((rank3, np.arange(8)), *[(r, np.arange(8)) for r in rest])
+    if name == "forecast count":         # the lag refuses rows of no values
+        with pytest.raises(ValueError, match="a lag takes rows of at least one value"):
+            pipe(np.empty((8, 0)), *rest)
+    # a lazy feed and a live push refuse a 2-D event already
+    with pytest.raises(ValueError):
+        list(pipe(iter([(np.ones((2, 2)), 0)]), *[iter([(1.0, 0)])] * (n_in - 1)))
+    with pytest.raises(ValueError, match="1-D sequence"):
+        pipe.live().push(0, 0, np.ones((2, 2)))
+
+
+def test_forecast_pairs_large_count_costs_memory_only_as_events_arrive():
+    import resource
+    from screamer import Input, Pipeline
+    v = np.arange(10.0)
+    before = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+    xs, ys = forecast_pairs(v, v, count=2**31 - 1)
+    assert np.isnan(xs).all() and _same(ys, v)
+    X_in, y_in = Input("X"), Input("y")
+    pipe = Pipeline([X_in, y_in], [forecast_pairs(X_in, y_in, count=2**31 - 1)])
+    vals, _ = pipe(np.ones((10, 3)), v)
+    assert vals.shape == (10, 4) and np.isnan(vals[:, :3]).all()
+    grown = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss - before
+    assert grown < 64 * 2**20          # bytes on macOS, KB on Linux: far below 16 GB
+
+
+@pytest.mark.parametrize("count", [1, 63, 64, 65, 200, 500])
+def test_forecast_pairs_lag_across_ring_growth(count):
+    rng = np.random.default_rng(count)
+    for k in (1, 3):
+        X = rng.standard_normal((450, k))
+        X[rng.random(X.shape) < 0.1] = np.nan
+        y = rng.standard_normal(450)
+        Xk = X if k > 1 else X[:, 0]
+        xs, ys = forecast_pairs(Xk, y, count=count)
+        assert _same(_rows(xs, ys, k), _reference_count(X, y, count))
+        # the lazy path drives the same node event by event
+        lazy = list(forecast_pairs(((r.tolist() if k > 1 else float(r[0]), t)
+                                    for t, r in enumerate(X)),
+                                   ((float(v), t) for t, v in enumerate(y)), count=count))
+        assert _same(np.array([r[0] for r in lazy]).reshape(450, k + 1), _rows(xs, ys, k))
