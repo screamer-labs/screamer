@@ -12,6 +12,7 @@
 #include <nanobind/nanobind.h>
 #include "screamer/common/cast_double.h"
 #include "screamer/common/gc.h"
+#include "screamer/common/py_iter.h"
 #include "screamer/streams/py_index.h"
 #include "screamer/streams/event.h"
 #include <cstddef>
@@ -49,14 +50,8 @@ public:
 
     std::optional<Event<Index>> next() override {
         if (!it_.is_valid()) return std::nullopt;   // cleared by the garbage collector
-        nb::object item;
-        try {
-            item = it_.attr("__next__")();
-        } catch (nb::python_error& e) {
-            // Normal end-of-iterator: swallow StopIteration as flow control.
-            if (e.matches(PyExc_StopIteration)) return std::nullopt;
-            throw;
-        }
+        nb::object item = next_item(it_);
+        if (!item.is_valid()) return std::nullopt;   // the end of the iterator
         // source is assigned by the consumer from the child slot, not here.
         Event<Index> ev;
         wide_values_.clear();
@@ -246,6 +241,7 @@ private:
             wide_values_.clear();
             event_shape_.clear();
             shape_fixed_ = false;
+            path_.clear();
             if (!read_strided(p, event, v, 0)) return false;
         } else {
             if (!(PyList_Check(p) || PyTuple_Check(p)) || PySequence_Size(p) <= 0) return false;
@@ -258,7 +254,8 @@ private:
             wide_values_.clear();
             event_shape_.clear();
             shape_fixed_ = false;
-            read_nested(v, 0, event, "");
+            path_.clear();
+            read_nested(v, 0, event);
         }
         if (wide_values_.empty())
             throw nb::value_error((std::string(owner_) + ": " +
@@ -286,7 +283,7 @@ private:
         if (code == 'O' && f[1] == '\0' && nb::hasattr(whole, "tolist")) {
             // An array of Python objects: read its items as nested lists.
             nb::object items = whole.attr("tolist")();
-            read_nested(items, depth, event, "");
+            read_nested(items, depth, event);
             return true;
         }
         if (code == '\0' || f[1] != '\0' || !known_code(code, view.itemsize)) {
@@ -330,19 +327,31 @@ private:
         return true;
     }
 
+    // The deepest nesting of an event (NumPy's most dimensions): a deeper
+    // list raises ValueError before the recursion can exhaust the C stack.
+    static constexpr std::size_t kMaxEventDepth = 64;
+
     // Nested lists and tuples (items may be arrays): rectangular, read in C
-    // order. `path` names the item ("[0][2]") in an error.
-    void read_nested(nb::handle v, std::size_t depth, std::size_t event, const std::string& path) {
+    // order. path_ holds the item's position ("[0][2]" in an error), built
+    // as text only for an error.
+    void read_nested(nb::handle v, std::size_t depth, std::size_t event) {
         PyObject* p = v.ptr();
         const bool text = PyUnicode_Check(p) || PyBytes_Check(p) || PyByteArray_Check(p);
         if (!text && (PyList_Check(p) || PyTuple_Check(p))) {
+            if (depth >= kMaxEventDepth)
+                throw nb::value_error((std::string(owner_) + ": " +
+                    where(event, "the value of event") + " is nested more than " +
+                    std::to_string(kMaxEventDepth) + " levels deep").c_str());
             const std::size_t n = static_cast<std::size_t>(PySequence_Size(p));
             fix_dim(depth, n, event);
+            path_.push_back(0);
             for (std::size_t j = 0; j < n; ++j) {
                 nb::object item = nb::steal(PySequence_GetItem(p, static_cast<Py_ssize_t>(j)));
                 if (!item.is_valid()) throw nb::python_error();
-                read_nested(item, depth + 1, event, path + "[" + std::to_string(j) + "]");
+                path_.back() = j;
+                read_nested(item, depth + 1, event);
             }
+            path_.pop_back();
             return;
         }
         if (!text && PyObject_CheckBuffer(p) && read_strided(p, event, v, depth)) return;
@@ -353,7 +362,9 @@ private:
         double d;
         if (nb::try_cast<double>(v, d)) { wide_values_.push_back(d); return; }
         if (v.is_none()) { wide_values_.push_back(kNaN); return; }
-        const std::string w = "item " + path + " of " + where(event, "the value of event");
+        std::string at;
+        for (std::size_t j : path_) at += "[" + std::to_string(j) + "]";
+        const std::string w = "item " + at + " of " + where(event, "the value of event");
         throw_not_a_number(owner_, v, w);
     }
 
@@ -459,6 +470,7 @@ private:
     bool flatten_ = false;              // read a rank-2+ float64 array event
     bool rows_ = false;                 // a positional event may be a row
     bool shape_fixed_ = false;          // read_any_rank: the event shape is complete
+    std::vector<std::size_t> path_;     // read_nested: the position of the item read
     screamer::TimeUnit* unit_;          // the call's index kind, shared; may be null
     static constexpr double kNaN = std::numeric_limits<double>::quiet_NaN();
 };

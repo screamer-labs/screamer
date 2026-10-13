@@ -263,3 +263,22 @@ def test_lazy_event_shape_is_fixed_by_the_first_event():
         list(s.Resample(count=1, agg="last")(iter([(np.zeros((2, 3), complex), 0)])))
     (v, _), = s.Resample(count=1, agg="last")(iter([([[None, 1.0], [2.0, 3.0]], 0)]))
     np.testing.assert_array_equal(v, [[np.nan, 1.0], [2.0, 3.0]])
+
+
+def test_a_lazy_event_nested_too_deep_raises():
+    # A list nested deeper than NumPy's 64 dimensions raises ValueError before
+    # the reader's recursion can exhaust the C stack (final review 10).
+    deep = 1.0
+    for _ in range(100_000):
+        deep = [deep]
+    with pytest.raises(ValueError, match="nested more than 64 levels deep"):
+        list(s.Resample(count=1, agg="last")(iter([(deep, 0)])))
+    ok = 1.0
+    for _ in range(3):
+        ok = [ok]
+    assert len(list(s.Resample(count=1, agg="last")(iter([(ok, 0)])))) == 1
+
+
+def test_a_bad_item_of_a_nested_lazy_event_is_named_by_its_position():
+    with pytest.raises(TypeError, match=r"item \[1\]\[0\] of"):
+        list(s.Resample(count=1, agg="last")(iter([([[1.0, 2.0], ["a", 1.0]], 0)])))

@@ -292,6 +292,11 @@ inline ContigDouble read_double_view(const nb::ndarray<nb::ro>& a) {
     return r;
 }
 
+}  // namespace detail
+// Defined below: the mixed-kinds TypeError of an N-input call.
+[[noreturn]] inline void throw_unsupported_inputs(nb::handle self, nb::handle inputs);
+namespace detail {
+
 // The N input fields of a call: one contiguous double buffer per argument (one
 // buffer when a packed (T, *A, N) array holds all fields), each field's base
 // pointer, and the broadcast plan that says where every column starts.
@@ -344,11 +349,23 @@ inline std::optional<NInputs<N>> maybe_read_packed(const nb::args& args) {
     return read_inputs<N>({ args[0] });
 }
 
+// One argument of an N-input array call: an array with a time axis. Any
+// other kind beside the arrays (a number, a 0-d array) raises the
+// mixed-kinds TypeError of the call, whatever its position.
 template <size_t N>
-inline NInputs<N> read_tuple_inputs(const nb::tuple& inputs) {
-    std::vector<nb::handle> arrays;
-    for (nb::handle h : inputs) arrays.push_back(h);
-    return read_inputs<N>(arrays);
+inline void add_call_array(NInputs<N>& r, nb::handle self, const nb::tuple& inputs, nb::handle h) {
+    if (!is_ndarray(h)) throw_unsupported_inputs(self, inputs);
+    r.buffers.push_back(read_double_view(nb::cast<nb::ndarray<nb::ro>>(h)));
+    if (r.buffers.back().ndim() < 1) throw_unsupported_inputs(self, inputs);
+}
+
+template <size_t N>
+inline NInputs<N> read_tuple_inputs(nb::handle self, const nb::tuple& inputs) {
+    NInputs<N> r;
+    r.buffers.reserve(inputs.size());
+    for (nb::handle h : inputs) add_call_array(r, self, inputs, h);
+    plan_inputs(r);
+    return r;
 }
 
 // True when the N inputs mix arrays with lists or tuples (decision A8): at
@@ -438,7 +455,7 @@ inline NInputs<N> read_mixed_inputs(nb::handle self, const nb::tuple& inputs) {
         if (PyList_Check(h.ptr()) || PyTuple_Check(h.ptr()))
             r.buffers.push_back(read_number_sequence(self, h, i));
         else
-            add_array_input(r, h);
+            add_call_array(r, self, inputs, h);
     }
     plan_inputs(r);
     return r;
@@ -461,7 +478,10 @@ inline NInputs<N> read_mixed_inputs(nb::handle self, const nb::tuple& inputs) {
         double d;
         if (!read_double(x, d) && !nb::hasattr(x, "__iter__"))
             throw_unsupported_input(self, x);
-        kinds += (kinds.empty() ? "" : ", ") + type_short_name(x.type());
+        // A 0-d array reads as "0-d ndarray" (a NumPy scalar keeps its name).
+        const std::string name = type_short_name(x.type());
+        const bool zero_d = name == "ndarray" && nb::cast<int>(x.attr("ndim")) == 0;
+        kinds += (kinds.empty() ? "" : ", ") + std::string(zero_d ? "0-d " : "") + name;
     }
     throw nb::type_error((op_display_name(self) + ": cannot combine inputs of types (" + kinds +
         "); pass all numbers, all arrays, or all sequences").c_str());
@@ -749,13 +769,8 @@ nb::object eager_parallel(Op& self, const nb::tuple& inputs) {
         typename Op::InputArray array;
         bool stop = false;
         for (size_t i = 0; i < N; ++i) {
-            nb::object item;
-            try {
-                item = iters[i].attr("__next__")();
-            } catch (nb::python_error& e) {
-                if (e.matches(PyExc_StopIteration)) { stop = true; break; }
-                throw;
-            }
+            nb::object item = next_item(iters[i]);
+            if (!item.is_valid()) { stop = true; break; }
             if (!read_double(item, array[i]))
                 throw_not_a_number(op_display_name(nb::find(self)), item,
                                    where_text("event", event, i));
@@ -1085,7 +1100,7 @@ nb::object functor_Ni_1o(Op& self, const nb::args& raw_args) {
     if (is_series_array(inputs[0])) {
         auto ins = detail::mixes_sequences_and_arrays(inputs)
             ? detail::read_mixed_inputs<N>(nb::find(self), inputs)
-            : detail::read_tuple_inputs<N>(inputs);
+            : detail::read_tuple_inputs<N>(nb::find(self), inputs);
         return handle_input_Ni_1o_numpy(self, ins);
     }
 
@@ -1109,7 +1124,8 @@ nb::object functor_Ni_1o(Op& self, const nb::args& raw_args) {
     // Case 4: a tuple of N iterables: ( [...], [...], [...] )
     bool all_iterable = true;
     for (nb::handle input : inputs) {
-        all_iterable = all_iterable && nb::hasattr(input, "__iter__");
+        all_iterable = all_iterable && nb::hasattr(input, "__iter__") &&
+                       !(detail::is_ndarray(input) && !is_series_array(input));   // 0-d
         if (!all_iterable) break;
     }
 
@@ -1202,7 +1218,7 @@ nb::object functor_Ni_Mo(Op& self, const nb::args& raw_args) {
     if (is_series_array(inputs[0])) {
         auto ins = detail::mixes_sequences_and_arrays(inputs)
             ? detail::read_mixed_inputs<N>(nb::find(self), inputs)
-            : detail::read_tuple_inputs<N>(inputs);
+            : detail::read_tuple_inputs<N>(nb::find(self), inputs);
         return handle_input_Ni_Mo_numpy(self, ins);
     }
 
@@ -1226,7 +1242,8 @@ nb::object functor_Ni_Mo(Op& self, const nb::args& raw_args) {
     // Case 4: tuple of N iterables.
     bool all_iterable = true;
     for (nb::handle input : inputs) {
-        all_iterable = all_iterable && nb::hasattr(input, "__iter__");
+        all_iterable = all_iterable && nb::hasattr(input, "__iter__") &&
+                       !(detail::is_ndarray(input) && !is_series_array(input));   // 0-d
         if (!all_iterable) break;
     }
 

@@ -11,6 +11,7 @@
 #include "screamer/common/cast_double.h"
 #include "screamer/common/eval_op.h"
 #include "screamer/common/gc.h"
+#include "screamer/common/py_iter.h"
 #include "screamer/common/shape.h"
 
 namespace nb = nanobind;
@@ -341,12 +342,9 @@ public:
 
 private:
     static nb::object next_or_stop(nb::object& it) {
-        try {
-            return it.attr("__next__")();
-        } catch (nb::python_error& e) {
-            if (e.matches(PyExc_StopIteration)) throw nb::stop_iteration();
-            throw;
-        }
+        nb::object item = next_item(it);
+        if (!item.is_valid()) throw nb::stop_iteration();
+        return item;
     }
 
     std::unique_ptr<EventStep> stepper_;
