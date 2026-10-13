@@ -489,6 +489,14 @@ def cases():
         "CombineLatest Series index": lambda: CL()((v, pd.Series(idx)), (w, pd.Index(idx + 5))),
         "CombineLatest tuple of 3 floats": lambda: CL()((1.0, 2.0, 3.0), [1.0, 2.0, 3.0]),
         "CombineLatest tuple of 2 floats": lambda: CL()((1.0, 2.0), [1.0, 2.0]),
+        "CombineLatest range index": lambda: CL()((v[:3], range(3)), (w[:3], idx[:3])),
+        "CombineLatest tuple index": lambda: CL()((v[:3], (0, 1, 2)), (w[:3], idx[:3])),
+        "CombineLatest tuple of tuples": lambda: CL()(((1.0, 2.0, 3.0), (0, 1, 2)), (w[:3], idx[:3])),
+        "merge range index": lambda: merge((v[:3], range(3)), (w[:3], idx[:3] + 10)),
+        "split range index": lambda: s.split((v[:3], range(3)), [0, 1, 0]),
+        "Pipeline range index": lambda: (lambda x: s.Pipeline([x], [s.RollingMean(1)(x)]))(
+            s.Input("x"))((v[:3], range(3))),
+        "Dropna tuple of lists": lambda: s.Dropna()(([1.0, np.nan], [0, 1])),
         "merge tuple of lists": lambda: merge(([1.0, 2.0], [0, 2]), ([3.0], [1])),
         "split tuple of lists": lambda: s.split(([1.0, 2.0], [5, 6]), [0, 1]),
         "Pipeline tuple of lists": lambda: (lambda x: s.Pipeline([x], [s.RollingMean(1)(x)]))(
