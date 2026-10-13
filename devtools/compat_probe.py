@@ -350,6 +350,52 @@ def cases():
         "forecast_pairs duration lazy": lambda: fp(vgen(v, idx), vgen(w[:len(yidx)], yidx), duration=10),
         "forecast_pairs duration graph": lambda: fp_graph(((v, idx), (yn, idx)), duration=20, dropna=True),
     })
+
+    # split: the inverse of merge, every input form, setting and error
+    tags = (np.arange(T) * 7 % 3)                           # sources 0, 1, 2
+    from screamer.streams import merge
+    mv, msrc, midx = merge((v, idx), (w, idx + 5))
+    table.update({
+        "split 1-D": lambda: s.split(v, tags),
+        "split n larger": lambda: s.split(v, tags, n=5),
+        "split n too small": lambda: s.split(v, tags, n=2),
+        "split n 0 empty": lambda: s.split(v[:0], tags[:0], n=0),
+        "split empty": lambda: s.split(v[:0], tags[:0]),
+        "split int index": lambda: s.split(v, tags, index=idx),
+        "split float index": lambda: s.split(v, tags, index=idx * 0.5),
+        "split float index NaN": lambda: s.split(v[:3], [0, 1, 0], index=[np.nan, 1.0, 2.5]),
+        "split list index": lambda: s.split(v[:4], [0, 1, 0, 1], index=[1, 2, 3, 4]),
+        "split datetime64 index": lambda: s.split(v, tags, index=idx.astype("datetime64[s]")),
+        "split str index": lambda: s.split(v[:2], [0, 1], index=["a", "b"]),
+        "split (values,index) tuple": lambda: s.split((v, idx), tags),
+        "split (values,None) tuple": lambda: s.split((v, None), tags),
+        "split merge round trip": lambda: s.split((mv, midx), msrc),
+        "split merge round trip n=3": lambda: s.split((mv, midx), msrc, n=3),
+        "split (T,K) values": lambda: s.split(X, tags),
+        "split scalar value": lambda: s.split(1.5, [0]),
+        "split list with None": lambda: s.split([1.0, None, 3.0], [0, 1, 0]),
+        "split str value": lambda: s.split(["a", 1.0], [0, 1]),
+        "split list sources": lambda: s.split(v[:4], [0, 2, 0, 1]),
+        "split uint8 sources": lambda: s.split(v, tags.astype(np.uint8)),
+        "split float whole sources": lambda: s.split(v[:3], [0.0, 1.0, 0.0]),
+        "split fractional sources": lambda: s.split(v[:3], [0.5, 1.7, 0.0]),
+        "split NaN sources": lambda: s.split(v[:3], np.array([np.nan, 0.0, 1.0])),
+        "split None source": lambda: s.split(v[:3], [None, 0, 1]),
+        "split negative sources list": lambda: s.split(v[:3], [-1, 0, 1]),
+        "split negative sources array": lambda: s.split(v[:3], np.array([-1, 0, 1])),
+        "split sources 2**32": lambda: s.split(v[:2], [2**32, 0]),
+        "split str sources": lambda: s.split(v[:2], ["0", "1"]),
+        "split bool sources": lambda: s.split(v[:4], np.array([True, False, True, False])),
+        "split (T,1) sources": lambda: s.split(v, tags[:, None]),
+        "split sources length mismatch": lambda: s.split(v, tags[:5]),
+        "split index length mismatch": lambda: s.split(v, tags, index=idx[:5]),
+        "split n 3.0": lambda: s.split(v, tags, n=3.0),
+        "split n str": lambda: s.split(v, tags, n="3"),
+        "split n True": lambda: s.split(v[:2], [0, 0], n=True),
+        "split n negative empty": lambda: s.split(v[:0], tags[:0], n=-1),
+        "split n negative": lambda: s.split(v, tags, n=-1),
+        "split n 2**40": lambda: s.split(v[:0], tags[:0], n=2**40),
+    })
     return table
 
 
