@@ -31,6 +31,13 @@ const y = Diff(1)(RollingMean(3)(x));
 `y` now describes a two-stage chain: a 3-period rolling mean, followed by a first difference.
 Nothing has been computed yet.
 
+An op or `dropna` given several nodes, such as `Add()(a, b)` over two 2-column inputs, takes
+them as separate streams of events, merged into one stream as `merge` merges: by index, and at
+equal indexes in the order of the node's inputs (its first input first, which need not be the
+Pipeline's first input). Batch and live calls give the same order. An event waits until the
+other streams have passed its index, at most `maxPending` events. To join streams into one row
+instead, use `combineLatest`.
+
 ## `Pipeline`: compile once, call many times
 
 ```js

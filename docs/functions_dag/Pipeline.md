@@ -117,6 +117,15 @@ one-column output, or one whose width depends on a live input that has had no
 event yet, is `(0,)`. The same holds for each `live().result()`, so empty
 results concatenate with the others.
 
+An operator or `Dropna` given several nodes, such as `Add()(a, b)` over two
+2-column inputs, takes them as separate streams of events, merged into one
+stream as [`Merge`](../functions_streams/Merge.md) merges: by index, and at
+equal indexes in the order of the node's inputs (its first input first, which
+need not be the Pipeline's first input). Batch, lazy and live calls give the
+same order. An event waits until the other streams have passed its index, at
+most `max_pending` events. To join streams into one row instead, use
+`CombineLatest`.
+
 ## Live, incremental sessions: `pipe.live()`
 
 `pipe(arrays)` and `pipe(generators)` both consume complete feeds. When you drive
